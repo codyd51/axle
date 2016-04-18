@@ -1,4 +1,5 @@
 build-grub/ 
 grub/ 
 objconv/
-
+*.o
+*.bin
