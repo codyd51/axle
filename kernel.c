@@ -34,6 +34,8 @@ enum vga_color {
 	COLOR_WHITE = 15,
 };
 
+#include "shell.h"
+
 uint8_t make_color(enum vga_color fg, enum vga_color bg) {
 	return fg | bg << 4;
 }
@@ -83,20 +85,32 @@ void terminal_putentryat(char c, uint8_t color, size_t x, size_t y) {
 }
 
 void terminal_putchar(char c) {
+	if (++terminal_column == VGA_WIDTH) {
+		terminal_column = 0;
+
+		if (++terminal_row == VGA_HEIGHT) {	
+			//move every character up by one row
+			for (size_t row = 1; row < VGA_HEIGHT; row++) {
+				for (size_t col = 0; col < VGA_WIDTH; col++) {
+					size_t index = row * VGA_HEIGHT + col;
+					terminal_putentryat(terminal_buffer[index], terminal_color, col, row-1);
+				}
+			}
+			terminal_row= 0;
+		}
+	}
+
 	//check for newline character
 	if (c == '\n') {
 	    terminal_row++;
 	    terminal_column = 0;
 	}
+	//tab character
+	else if (c == '\t') {
+		terminal_column += 4;
+	}
 	else {
 		terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
-	}
-
-	if (++terminal_column == VGA_WIDTH) {
-		terminal_column = 0;
-		if (++terminal_row == VGA_HEIGHT) {	
-			terminal_row = 0;
-		}
 	}
 }
 
@@ -140,15 +154,31 @@ void kernel_main() {
 	terminal_initialize();
 	
 	//terminal_writestring("Hello world! This is a test.\nTest 2.\nOne more line\nAnd another\n");
-	int upper_bound = 300;
+	/*
+	int upper_bound = 300000;
 	for (int i = 0; i <= upper_bound; i++) {
+		/*
 		char str[4];
 		terminal_writestring("iteration ");
 		terminal_writestring(itoa(i, str));
-		terminal_writestring(".\n");
+		terminal_writestring(". Doing next iteration\n");
 		terminal_writestring(itoa((upper_bound - i), str));
 		terminal_writestring(" iterations to go.\n");
+		**
+		terminal_writestring("Hello, world!        ");
 	}
+	*/
+	init_shell();
+	int exit_status = 1;
+	int counter = 0;
+	//while (1) {
+		shell();
+		//terminal_writestring("test");
+		//counter++;
+		// (counter == 5) {
+		//	exit_status = 0;
+		//}
+	//}
 }
 
 
