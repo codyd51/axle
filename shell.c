@@ -1,6 +1,7 @@
-#import "shell.h"
+#include "shell.h"
 #include <stddef.h>
 #include <stdint.h>
+#include "kb.h"
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
@@ -28,27 +29,26 @@ int findCommand(char* command) {
 		ret = strcmp(command, CommandTable[i].name);
 
 		if (ret == 0) return i;
-		return -1;
 	}
+	terminal_writestring("\nCouldn't find command");
 	return -1;
 }
 
-void shell() {
-	//puts("\nprompt> ");
-	terminal_writestring("\nprompt> ");
-	//gets(input_string);
-	input_string = "help";
-	terminal_writestring(input_string);
-
-	int i = findCommand(input_string);
-
+void process_command(char* string) {
+	int i = findCommand(string);
 	if (i >= 0) {
 		void(*command_function)(void) = CommandTable[i].function;
 		command_function();
 	}
-	else return;
+}
 
-	void (*command_run)(void);
+void shell() {
+	terminal_writestring("\nprompt> ");
+
+	char* input = get_input();
+	terminal_writestring("\ngot input: ");
+	terminal_writestring(input);
+	process_command(input);
 }
 
 void add_new_command(char* name, char* description, void* function) {
