@@ -1,7 +1,13 @@
 #include "kb.h"
-#include "shell.h"
-#include <stddef.h>
-#include <stdint.h>
+#include "kernel.h"
+
+#define INT_DISABLE 0
+#define INT_ENABLE  0x200
+#define PIC1 0x20
+#define PIC2 0xA0
+
+#define ICW1 0x11
+#define ICW4 0x01
 
 /* KBDUS means US Keyboard Layout. This is a scancode table
 *  used to layout a standard US keyboard. I have left some
@@ -60,63 +66,24 @@ static __inline unsigned char inb (unsigned short int port) {
 }
 
 void init_pics(int pic1, int pic2) {
-	 /* send ICW1 */
+	 //send ICW1
 	 outb(PIC1, ICW1);
 	 outb(PIC2, ICW1);
 
-	 /* send ICW2 */
+	 //send ICW2
 	 outb(PIC1 + 1, pic1);   
 	 outb(PIC2 + 1, pic2);   
 
-	 /* send ICW3 */
+	 //send ICW3
 	 outb(PIC1 + 1, 4);   
 	 outb(PIC2 + 1, 2);
 
-	 /* send ICW4 */
+	 //send ICW4
 	 outb(PIC1 + 1, ICW4);
 	 outb(PIC2 + 1, ICW4);
 
-	 /* disable all IRQs */
+	 //disable all IRQs
 	 outb(PIC1 + 1, 0xFF);
-}
-
-char* strcat(char *dest, const char *src) {
-	size_t i,j;
-	for (i = 0; dest[i] != '\0'; i++)
-			;
-	for (j = 0; src[j] != '\0'; j++)
-			dest[i+j] = src[j];
-	dest[i+j] = '\0';
-	return dest;
-}
-
-extern char* itoa(int i, char b[]);
-
-char* strccat(char* dest, char src) {
-	size_t i;
-	for (i = 0; dest[i] != '\0'; i++)
-		;
-	dest[i] = src;
-	dest[i+1] = '\0';
-	return dest;
-}
-
-static char memory_data[32768];
-static char *mem_end;
-
-void initmem(void) {
-  mem_end = memory_data;
-}
-
-void *malloc(int size) {
-  char *temp = mem_end;
-  mem_end += size;
-  return (void*) temp;
-}
-
-void free(void *ptr) {
-  /* Don't bother to free anything--if programs need to start over, they
-     can re-invoke initmem */
 }
 
 //handles keyboard interrupt
@@ -142,31 +109,40 @@ void keyboard_handler(struct regs* r) {
 */
 
 char* get_input() {
-	char c = 0;
-	initmem();
 	char* ret = malloc(sizeof(char) * 256);
-	//ret = strccat(ret, 'c');
 
+	char c = 0;
 	init_pics(0x20, 0x28);
 	do {
-		//PORT FROM WHICH WE READ
+		//read from keyboard's data buffer
 		if (inb(0x60) != c) {
+			//0x60 is port from which we read
 				c = inb(0x60);
+
+				//if the top bit of the byte we read from the KB is set, then a key's just been released
+				//if (c & 0x80) {
+					//TODO scan to see if user released shift/alt/control keys
+				//}
+				//else if (c > 0) {
 				if (c > 0) {
-					terminal_putchar(kbdus[c]); //print on screen
+					//we got a keypress
+
+					//add this character to the input string
 					strccat(ret, kbdus[c]);
-					terminal_writestring("\nret is now: ");
+					//print this mapped character to the screen
+					terminal_putchar(kbdus[c]);
+					
+					//if we don't print out ret everything breaks
+					//TODO figure out why
+					//terminal_writestring("\n");
 					terminal_writestring(ret);
+					//terminal_writestring("\n");
 				}
 			}
-
 	}
-	while(c!=28); // 1= ESCAPE
+	while (c != 28); // 28 = enter
 
-	char* asPointer = &ret[0];
-	terminal_writestring("\nasPointer: ");
-	terminal_writestring(asPointer);
-	return asPointer;
+	return ret;
 }
 
 

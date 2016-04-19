@@ -1,18 +1,5 @@
-#if !defined(__cplusplus)
-#include <stdbool.h> //C doesn't have boolean type by default
-#endif
-#include <stddef.h>
-#include <stdint.h>
-
-//check if the compiler thinks we're targeting the wrong OS
-#if defined(__linux__)
-#error "You are not using a cross compiler! You will certainly run into trouble."
-#endif
-
-//OS only works for the 32-bit ix86 target
-#if !defined(__i386__)
-#error "OS must be compiled with a ix86-elf compiler."
-#endif
+#include "kernel.h"
+#include "shell.h"
 
 //hardware text mode color constants
 enum vga_color {
@@ -34,8 +21,6 @@ enum vga_color {
 	COLOR_WHITE = 15,
 };
 
-#include "shell.h"
-
 uint8_t make_color(enum vga_color fg, enum vga_color bg) {
 	return fg | bg << 4;
 }
@@ -45,17 +30,6 @@ uint16_t make_vgaentry(char c, uint8_t color) {
 	uint16_t color16 = color;
 	return c16 | color16 << 8;
 }
-
-size_t strlen(const char* str) {
-	size_t ret = 0;
-	while (str[ret] != 0) {
-		ret++;
-	}
-	return ret;
-}
-
-static const size_t VGA_WIDTH = 80;
-static const size_t VGA_HEIGHT = 25;
 
 size_t terminal_row;
 size_t terminal_column;
@@ -121,39 +95,19 @@ void terminal_writestring(const char* data) {
 	}
 }
 
-char* itoa(int i, char b[]) {
-	char const digit[] = "0123456789";
-	char* p = b;
-	if (i < 0) {
-		*p++ = '-';
-		i *= -1;
-	}
-	int shifter = i;
-	do {
-		//move to where representation ends
-		++p;
-		shifter = shifter/10;
-	} while(shifter);
-	
-	*p = '\0';
-	
-	do {
-		//move back, inserting digits as we go
-		*--p = digit[i%10];
-		i = i/10;
-	} while (i);
-	return b;
-}
+//declared within std.c
+extern void initmem();
 
 #if defined(__cplusplus)
 extern "C" //use C linkage for kernel_main
 #endif
-
 void kernel_main() {
 	//initialize terminal interface
 	terminal_initialize();
-	
-	//terminal_writestring("Hello world! This is a test.\nTest 2.\nOne more line\nAnd another\n");
+
+	//set up memory for malloc to use
+	initmem();
+
 	/*
 	int upper_bound = 300000;
 	for (int i = 0; i <= upper_bound; i++) {
@@ -171,14 +125,9 @@ void kernel_main() {
 	init_shell();
 	int exit_status = 1;
 	int counter = 0;
-	//while (1) {
+	while (1) {
 		shell();
-		//terminal_writestring("test");
-		//counter++;
-		// (counter == 5) {
-		//	exit_status = 0;
-		//}
-	//}
+	}
 }
 
 

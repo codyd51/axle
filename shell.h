@@ -1,3 +1,5 @@
+#include "std.h"
+
 #define MAX_COMMANDS 100
 
 typedef struct {
@@ -6,8 +8,6 @@ typedef struct {
 	void* function;
 } command_table_t;
 
-extern void add_new_command();
-extern void help_command();
-extern void empty_command();
-extern void terminal_putchar(char c);
-extern void terminal_writestring(const char* data);
+void add_new_command(char* name, char* description, void* function);
+void init_shell();
+void shell();

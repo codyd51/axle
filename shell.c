@@ -1,25 +1,10 @@
 #include "shell.h"
-#include <stddef.h>
-#include <stdint.h>
+#include "kernel.h"
 #include "kb.h"
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
 char* input_string;
-
-int strcmp( const char *lhs, const char *rhs ) {
-	size_t ch = 0;
-	size_t ch2 = 0;
-
-	while (lhs[ch] != 0 && rhs[ch2] != 0) {
-		if (lhs[ch] != rhs[ch2]) {
-			return -1;
-		}
-		ch++;
-		ch2++;
-	}
-	return 0;
-}
 
 int findCommand(char* command) {
 	int i;
@@ -30,7 +15,9 @@ int findCommand(char* command) {
 
 		if (ret == 0) return i;
 	}
-	terminal_writestring("\nCouldn't find command");
+	terminal_writestring("\nCommand: ");
+	terminal_writestring(command);
+	terminal_writestring(" not found.");
 	return -1;
 }
 
@@ -46,8 +33,6 @@ void shell() {
 	terminal_writestring("\nprompt> ");
 
 	char* input = get_input();
-	terminal_writestring("\ngot input: ");
-	terminal_writestring(input);
 	process_command(input);
 }
 
@@ -60,11 +45,6 @@ void add_new_command(char* name, char* description, void* function) {
 		CommandNum++;
 	}
 	return;
-}
-
-void init_shell() {
-	add_new_command("help", "Display help information", help_command);
-	add_new_command("", "", empty_command);
 }
 
 void help_command() {
@@ -81,4 +61,9 @@ void help_command() {
 
 void empty_command() {
 	//do nothing if nothing was entered
+}
+
+void init_shell() {
+	add_new_command("help", "Display help information", help_command);
+	add_new_command("", "", empty_command);
 }
