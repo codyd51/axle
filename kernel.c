@@ -76,18 +76,17 @@ void terminal_putchar(char c) {
 
 	//check for newline character
 	if (c == '\n') {
-	    terminal_row++;
 	    terminal_column = 0;
 
-	    if (++terminal_row == VGA_HEIGHT) {
+	    if (++terminal_row >= VGA_HEIGHT) {
 	    	//move every character up by one row
-	    	for (size_t row = 1; row < VGA_HEIGHT; row++) {
+	    	for (size_t row = 0; row < VGA_HEIGHT; row++) {
 	    		for (size_t col = 0; col < VGA_WIDTH; col++) {
-	    			size_t index = row * VGA_WIDTH + col;
-	    			terminal_putentryat(terminal_buffer[index], terminal_color, col, row-1);
+	    			size_t index = (row+1) * VGA_WIDTH + col;
+	    			terminal_putentryat(terminal_buffer[index], terminal_color, col, row);
 	    		}
 	    	}
-	    	terminal_row = 0;
+	    	terminal_row = VGA_HEIGHT;
 	    }
 	}
 	//tab character
@@ -118,21 +117,19 @@ void kernel_main() {
 
 	//set up memory for malloc to use
 	initmem();
-
+	
 	/*
-	int upper_bound = 300000;
+	int upper_bound = 78;
 	for (int i = 0; i <= upper_bound; i++) {
-		/*
 		char str[4];
 		terminal_writestring("iteration ");
 		terminal_writestring(itoa(i, str));
 		terminal_writestring(". Doing next iteration\n");
 		terminal_writestring(itoa((upper_bound - i), str));
 		terminal_writestring(" iterations to go.\n");
-		**
-		terminal_writestring("Hello, world!        ");
 	}
 	*/
+	
 	init_shell();
 	int exit_status = 1;
 	while (1) {

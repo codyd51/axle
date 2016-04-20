@@ -33,8 +33,6 @@ void shell() {
 	terminal_writestring("\nprompt> ");
 
 	char* input = get_input();
-	terminal_writestring("\ngot input: ");
-	terminal_writestring(input);
 	process_command(input);
 }
 
