@@ -78,6 +78,17 @@ void terminal_putchar(char c) {
 	if (c == '\n') {
 	    terminal_row++;
 	    terminal_column = 0;
+
+	    if (++terminal_row == VGA_HEIGHT) {
+	    	//move every character up by one row
+	    	for (size_t row = 1; row < VGA_HEIGHT; row++) {
+	    		for (size_t col = 0; col < VGA_WIDTH; col++) {
+	    			size_t index = row * VGA_WIDTH + col;
+	    			terminal_putentryat(terminal_buffer[index], terminal_color, col, row-1);
+	    		}
+	    	}
+	    	terminal_row = 0;
+	    }
 	}
 	//tab character
 	else if (c == '\t') {
@@ -124,7 +135,6 @@ void kernel_main() {
 	*/
 	init_shell();
 	int exit_status = 1;
-	int counter = 0;
 	while (1) {
 		shell();
 	}

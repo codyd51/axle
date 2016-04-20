@@ -86,32 +86,11 @@ void init_pics(int pic1, int pic2) {
 	 outb(PIC1 + 1, 0xFF);
 }
 
-//handles keyboard interrupt
-/*
-void keyboard_handler(struct regs* r) {
-	unsigned char scancode;
-
-	//read from keyboard's data buffer
-	scancode = inportb(0x60);
-
-	//if the top bit of the byte we read from the KB is set, then a key has just been released
-	if (scancode & 0x80) {
-		//scan to see if user released shift/alt/control keys TODO
-	}
-	else {
-		//a key was just pressed!
-		//repeated keypress will generate multiple interrupts
-
-		//just translate KB scancode into an ASCII value, then display to the screen.
-		terminal_putchar(kbdus[scancode]);
-	}
-}
-*/
-
+//handles keyboard interrupts
 char* get_input() {
 	char* ret = malloc(sizeof(char) * 256);
 
-	char c = 0;
+	unsigned char c = 0;
 	init_pics(0x20, 0x28);
 	do {
 		//read from keyboard's data buffer
@@ -126,6 +105,7 @@ char* get_input() {
 				//else if (c > 0) {
 				if (c > 0) {
 					//we got a keypress
+					//repeated keypresses will generate multiple interrupts
 
 					//add this character to the input string
 					strccat(ret, kbdus[c]);

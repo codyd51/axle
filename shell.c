@@ -7,7 +7,7 @@ command_table_t CommandTable[MAX_COMMANDS];
 char* input_string;
 
 int findCommand(char* command) {
-	int i;
+	size_t i;
 	int ret;
 
 	for (i = 0; i < CommandNum + 1; i++) {
@@ -33,6 +33,8 @@ void shell() {
 	terminal_writestring("\nprompt> ");
 
 	char* input = get_input();
+	terminal_writestring("\ngot input: ");
+	terminal_writestring(input);
 	process_command(input);
 }
 
@@ -51,7 +53,7 @@ void help_command() {
 	terminal_writestring("\nAXLE Shell v0.0.1");
 	terminal_writestring("\nAll commands listed here are internally defined.");
 	terminal_writestring("\nType 'help' to see this list");
-	for (int i = 0; i < CommandNum; i++) {
+	for (size_t i = 0; i < CommandNum; i++) {
 		terminal_writestring("\n\n\t");
 		terminal_writestring(CommandTable[i].name);
 		terminal_writestring("\t");
