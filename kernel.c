@@ -58,35 +58,24 @@ void terminal_putentryat(char c, uint8_t color, size_t x, size_t y) {
 	terminal_buffer[index] = make_vgaentry(c, color);
 }
 
-void terminal_putchar(char c) {
-	if (++terminal_column == VGA_WIDTH) {
-		terminal_column = 0;
+void terminal_push_back_line() {
+	terminal_column = 0;
 
-		if (++terminal_row == VGA_HEIGHT) {	
-			//move every character up by one row
-			for (size_t row = 1; row < VGA_HEIGHT; row++) {
-				for (size_t col = 0; col < VGA_WIDTH; col++) {
-					size_t index = row * VGA_HEIGHT + col;
-					terminal_putentryat(terminal_buffer[index], terminal_color, col, row-1);
-				}
-			}
-			terminal_row= 0;
+    //move every character up by one row
+	for (size_t row = 0; row < VGA_HEIGHT; row++) {
+		for (size_t col = 0; col < VGA_WIDTH; col++) {
+			size_t index = (row+1) * VGA_WIDTH + col;
+			terminal_putentryat(terminal_buffer[index], terminal_color, col, row);
 		}
 	}
+	terminal_row = VGA_HEIGHT;
+}
 
+void terminal_putchar(char c) {
 	//check for newline character
 	if (c == '\n') {
-	    terminal_column = 0;
-
 	    if (++terminal_row >= VGA_HEIGHT) {
-	    	//move every character up by one row
-	    	for (size_t row = 0; row < VGA_HEIGHT; row++) {
-	    		for (size_t col = 0; col < VGA_WIDTH; col++) {
-	    			size_t index = (row+1) * VGA_WIDTH + col;
-	    			terminal_putentryat(terminal_buffer[index], terminal_color, col, row);
-	    		}
-	    	}
-	    	terminal_row = VGA_HEIGHT;
+	    	terminal_push_back_line();
 	    }
 	}
 	//tab character
@@ -95,6 +84,14 @@ void terminal_putchar(char c) {
 	}
 	else {
 		terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
+	}
+	
+	if (++terminal_column == VGA_WIDTH) {
+		terminal_column = 0;
+
+		if (++terminal_row == VGA_HEIGHT) {	
+			terminal_push_back_line();
+		}
 	}
 }
 
