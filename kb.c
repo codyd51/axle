@@ -86,47 +86,85 @@ void init_pics(int pic1, int pic2) {
 	 outb(PIC1 + 1, 0xFF);
 }
 
-//handles keyboard interrupts
-char* get_input() {
-	char* ret = malloc(sizeof(char) * 256);
+bool hasKeypressFinished = false;
 
+//handles keyboard interrupts
+char getchar() {
 	unsigned char c = 0;
+	hasKeypressFinished = false;
+	while (1) {
+		//read from keyboard's data buffer
+		if (inb(0x60) != c) {
+			//0x60 is port from which we read
+			c = inb(0x60);
+
+			char b[5];
+			//terminal_putchar(c);
+
+			//if the top bit of the byte we read from the KB is set, then a key's just been released
+			if (c & 0x80) {
+				//TODO scan to see if user released shift/alt/control keys
+				hasKeypressFinished = true;
+			}
+			else if (c > 0 && hasKeypressFinished) {
+				//we got a keypress
+				//repeated keypresses will generate multiple interrupts
+
+				char mappedchar = kbdus[c];
+
+				//reset for next use
+				hasKeypressFinished = false;
+
+				return mappedchar;
+			}
+		}
+	}
+	return NULL;
+	/*
 	do {
 		//read from keyboard's data buffer
 		if (inb(0x60) != c) {
 			//0x60 is port from which we read
-				c = inb(0x60);
+			c = inb(0x60);
 
-				//if the top bit of the byte we read from the KB is set, then a key's just been released
-				if (c & 0x80) {
-					//TODO scan to see if user released shift/alt/control keys
-				}
-				//else if (c > 0) {
-				else if (c > 0) {
-					//we got a keypress
-					//repeated keypresses will generate multiple interrupts
-
-					char mappedchar = kbdus[c];
-
-					//handle backspace
-					if (mappedchar == '\b') {
-						//remove last character from input string
-						ret = strdelchar(ret);
-						terminal_removechar();
-						//terminal_putchar('B');
-					}
-					else {
-						//add this character to the input string
-						strccat(ret, mappedchar);
-						//print this mapped character to the screen
-						terminal_putchar(mappedchar);
-					}
-				}
+			//if the top bit of the byte we read from the KB is set, then a key's just been released
+			if (c & 0x80) {
+				//TODO scan to see if user released shift/alt/control keys
 			}
-	}
-	while (c != 28); // 28 = enter
+			//else if (c > 0) {
+			else if (c > 0) {
+				//we got a keypress
+				//repeated keypresses will generate multiple interrupts
 
-	return ret;
+				char mappedchar = kbdus[c];
+				if (isal) {
+					terminal_putchar(mappedchar);
+				}
+
+				//handle backspace
+				/*
+				if (mappedchar == '\b') {
+					//remove last character from input string
+					ret = strdelchar(ret);
+					terminal_removechar();
+					//terminal_putchar('B');
+				}
+
+				else {
+					//add this character to the input string
+					strccat(ret, mappedchar);
+					//print this mapped character to the screen
+					terminal_putchar(mappedchar);
+				}
+				
+
+				return mappedchar;
+			}
+		}
+	} while (c == 0); //wait until we get a character
+
+	return 0;
+	*/
 }
 
 

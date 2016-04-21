@@ -68,12 +68,13 @@ void terminal_push_back_line() {
 			terminal_putentryat(terminal_buffer[index], terminal_color, col, row);
 		}
 	}
-	terminal_row = VGA_HEIGHT;
+	terminal_row = VGA_HEIGHT-1;
 }
 
 void terminal_putchar(char c) {
 	//check for newline character
 	if (c == '\n') {
+		terminal_column = 0;
 		if (++terminal_row >= VGA_HEIGHT) {
 			terminal_push_back_line();
 		}

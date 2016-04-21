@@ -45,7 +45,7 @@ char* strccat(char* dest, char src) {
 	return dest;
 }
 
-char* strdelchar(char* str) {
+char* delchar(char* str) {
 	size_t i;
 	for (i = 0; str[i] != '\0'; i++)
 		;
@@ -68,6 +68,14 @@ int strcmp(const char *lhs, const char *rhs) {
 		ch2++;
 	}
 	return 0;
+}
+
+bool isalnum(char ch) {
+	char* az = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+	for (int i = 0; i < strlen(az); i++) {
+		if (ch == az[i]) return true;
+	}
+	return false;
 }
 
 size_t strlen(const char* str) {

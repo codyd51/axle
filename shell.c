@@ -4,7 +4,6 @@
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
-char* input_string;
 
 int findCommand(char* command) {
 	size_t i;
@@ -29,10 +28,35 @@ void process_command(char* string) {
 	}
 }
 
+void process_character(char* inputstr, char ch) {
+	//handle backspace
+	if (ch == '\b') {
+		//remove last character from input string
+		if (strlen(inputstr) > 0) {
+			inputstr = delchar(inputstr);
+			terminal_removechar();
+		}
+	}
+	else {
+		strccat(inputstr, ch);
+		terminal_putchar(ch);
+	}
+}
+
+char* get_inputstring() {
+	char* input = malloc(sizeof(char) * 256);
+	unsigned char c = 0;
+	do {
+		c = getchar();
+		process_character(input, c);
+	} while (c != '\n');
+	return input;
+}
+
 void shell() {
 	terminal_writestring("\nprompt> ");
 
-	char* input = get_input();
+	char* input = get_inputstring();
 	process_command(input);
 }
 
