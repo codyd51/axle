@@ -120,51 +120,6 @@ char getchar() {
 		}
 	}
 	return NULL;
-	/*
-	do {
-		//read from keyboard's data buffer
-		if (inb(0x60) != c) {
-			//0x60 is port from which we read
-			c = inb(0x60);
-
-			//if the top bit of the byte we read from the KB is set, then a key's just been released
-			if (c & 0x80) {
-				//TODO scan to see if user released shift/alt/control keys
-			}
-			//else if (c > 0) {
-			else if (c > 0) {
-				//we got a keypress
-				//repeated keypresses will generate multiple interrupts
-
-				char mappedchar = kbdus[c];
-				if (isal) {
-					terminal_putchar(mappedchar);
-				}
-
-				//handle backspace
-				/*
-				if (mappedchar == '\b') {
-					//remove last character from input string
-					ret = strdelchar(ret);
-					terminal_removechar();
-					//terminal_putchar('B');
-				}
-
-				else {
-					//add this character to the input string
-					strccat(ret, mappedchar);
-					//print this mapped character to the screen
-					terminal_putchar(mappedchar);
-				}
-				
-
-				return mappedchar;
-			}
-		}
-	} while (c == 0); //wait until we get a character
-
-	return 0;
-	*/
 }
 
 

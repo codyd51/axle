@@ -124,18 +124,6 @@ void kernel_main() {
 	//set up keyboard handshake
 	init_pics(0x20, 0x28);
 	
-	/*
-	int upper_bound = 78;
-	for (int i = 0; i <= upper_bound; i++) {
-		char str[4];
-		terminal_writestring("iteration ");
-		terminal_writestring(itoa(i, str));
-		terminal_writestring(". Doing next iteration\n");
-		terminal_writestring(itoa((upper_bound - i), str));
-		terminal_writestring(" iterations to go.\n");
-	}
-	*/
-	
 	init_shell();
 	int exit_status = 1;
 	while (1) {
