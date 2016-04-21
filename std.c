@@ -45,6 +45,17 @@ char* strccat(char* dest, char src) {
 	return dest;
 }
 
+char* strdelchar(char* str) {
+	size_t i;
+	for (i = 0; str[i] != '\0'; i++)
+		;
+	if (i >= 1) {
+		str[i-1] = '\0';
+		return str;
+	}
+	return "";
+}
+
 int strcmp(const char *lhs, const char *rhs) {
 	size_t ch = 0;
 	size_t ch2 = 0;

@@ -1,0 +1,8 @@
+AS=i686-elf-as
+CC=i686-elf-gcc
+
+
+
+axle: boot.s link.ld
+	$(AS) boot.s -o boot.o
+	$(CC) -T link.ld -o axle.bin -ffreestanding -O2 -nostdlib boot.o

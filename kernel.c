@@ -39,7 +39,7 @@ uint16_t* terminal_buffer;
 void terminal_initialize() {
 	terminal_row = 0;
 	terminal_column = 0;
-	terminal_color = make_color(COLOR_RED, COLOR_BLACK);
+	terminal_color = make_color(COLOR_MAGENTA, COLOR_BLACK);
 	terminal_buffer = (uint16_t*) 0xB8000;
 	for (size_t y = 0; y < VGA_HEIGHT; y++) {
 		for (size_t x = 0; x < VGA_WIDTH; x++) {
@@ -74,9 +74,9 @@ void terminal_push_back_line() {
 void terminal_putchar(char c) {
 	//check for newline character
 	if (c == '\n') {
-	    if (++terminal_row >= VGA_HEIGHT) {
-	    	terminal_push_back_line();
-	    }
+		if (++terminal_row >= VGA_HEIGHT) {
+			terminal_push_back_line();
+		}
 	}
 	//tab character
 	else if (c == '\t') {
@@ -93,6 +93,11 @@ void terminal_putchar(char c) {
 			terminal_push_back_line();
 		}
 	}
+}
+
+void terminal_removechar() {
+	terminal_putentryat(' ', terminal_color, terminal_column-1, terminal_row);
+	--terminal_column;
 }
 
 void terminal_writestring(const char* data) {
@@ -114,6 +119,9 @@ void kernel_main() {
 
 	//set up memory for malloc to use
 	initmem();
+
+	//set up keyboard handshake
+	init_pics(0x20, 0x28);
 	
 	/*
 	int upper_bound = 78;

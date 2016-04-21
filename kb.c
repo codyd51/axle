@@ -91,7 +91,6 @@ char* get_input() {
 	char* ret = malloc(sizeof(char) * 256);
 
 	unsigned char c = 0;
-	init_pics(0x20, 0x28);
 	do {
 		//read from keyboard's data buffer
 		if (inb(0x60) != c) {
@@ -99,24 +98,29 @@ char* get_input() {
 				c = inb(0x60);
 
 				//if the top bit of the byte we read from the KB is set, then a key's just been released
-				//if (c & 0x80) {
+				if (c & 0x80) {
 					//TODO scan to see if user released shift/alt/control keys
-				//}
+				}
 				//else if (c > 0) {
-				if (c > 0) {
+				else if (c > 0) {
 					//we got a keypress
 					//repeated keypresses will generate multiple interrupts
 
-					//add this character to the input string
-					strccat(ret, kbdus[c]);
-					//print this mapped character to the screen
-					terminal_putchar(kbdus[c]);
-					
-					//if we don't print out ret everything breaks
-					//TODO figure out why
-					//terminal_writestring("\n");
-					terminal_writestring(ret);
-					//terminal_writestring("\n");
+					char mappedchar = kbdus[c];
+
+					//handle backspace
+					if (mappedchar == '\b') {
+						//remove last character from input string
+						ret = strdelchar(ret);
+						terminal_removechar();
+						//terminal_putchar('B');
+					}
+					else {
+						//add this character to the input string
+						strccat(ret, mappedchar);
+						//print this mapped character to the screen
+						terminal_putchar(mappedchar);
+					}
 				}
 			}
 	}

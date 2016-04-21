@@ -26,6 +26,8 @@ char* strcat(char *dest, const char *src);
 char* strccat(char* dest, char src);
 //compares input strings
 int strcmp(const char *lhs, const char *rhs);
+//removes last character from string
+char* strdelchar(char* str);
 //get length of string
 size_t strlen(const char* str);
 
