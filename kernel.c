@@ -123,7 +123,31 @@ void kernel_main() {
 
 	//set up keyboard handshake
 	init_pics(0x20, 0x28);
-	
+
+	/*
+	char* split[10];
+	//
+	for (int i = 0; split[i+1] == 0; i++) {
+		split[i] = teststr;
+	}
+	char* c = split[0];
+	int counter = 1;
+	while (*c) {
+		if (*c == ' ') {
+			*c = '\0';
+			char* str = split[counter];
+			str++;
+			//counter++;
+		}
+		else {
+			c++;
+		}
+	}
+	for (int i = 0; split[i+1] == 0; i++) {
+		//terminal_writestring('\n');
+		terminal_writestring(split[i]);
+	}*/
+
 	init_shell();
 	int exit_status = 1;
 	while (1) {

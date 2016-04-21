@@ -30,6 +30,8 @@ int strcmp(const char *lhs, const char *rhs);
 char* delchar(char* str);
 //returns whether input character is alphanumeric
 bool isalnum(char ch);
+//returns array of strings by delimiting str with delimiter
+char* string_split(char* str, char delimiter);
 //get length of string
 size_t strlen(const char* str);
 

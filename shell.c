@@ -21,10 +21,29 @@ int findCommand(char* command) {
 }
 
 void process_command(char* string) {
-	int i = findCommand(string);
+	//TODO split this up into its own stdlib function
+	char* command = string, *arg = "", *c = string;
+	while (*c) {
+		if (*c == ' ') {
+			*c = '\0'; arg = ++c;
+		}
+		else {
+			c++;
+		}
+	}
+
+	int i = findCommand(command);
 	if (i >= 0) {
-		void(*command_function)(void) = CommandTable[i].function;
-		command_function();
+		//TODO better way to check if we have args
+		//if they pass an argument, we assume the function they're calling accepts arguments
+		if (strlen(arg) > 0) {
+			void(*command_function)(void* arg) = CommandTable[i].function;
+			command_function(arg);
+		}
+		else {
+			void(*command_function)(void) = CommandTable[i].function;
+			command_function();
+		}
 	}
 }
 
@@ -80,7 +99,7 @@ char* get_inputstring() {
 }
 
 void shell() {
-	terminal_writestring("\nprompt> ");
+	terminal_writestring("\naxle> ");
 
 	char* input = get_inputstring();
 	process_command(input);
@@ -100,13 +119,18 @@ void add_new_command(char* name, char* description, void* function) {
 void help_command() {
 	terminal_writestring("\nAXLE Shell v0.0.1");
 	terminal_writestring("\nAll commands listed here are internally defined.");
-	terminal_writestring("\nType 'help' to see this list");
+	terminal_writestring("\nType 'help' to see this list\n");
 	for (size_t i = 0; i < CommandNum; i++) {
-		terminal_writestring("\n\n\t");
+		terminal_writestring("\n\t");
 		terminal_writestring(CommandTable[i].name);
 		terminal_writestring("\t");
 		terminal_writestring(CommandTable[i].description);
 	}
+}
+
+void echo_command(char* arg) {
+	terminal_writestring("\n");
+	terminal_writestring(arg);
 }
 
 void empty_command() {
@@ -115,5 +139,6 @@ void empty_command() {
 
 void init_shell() {
 	add_new_command("help", "Display help information", help_command);
+	add_new_command("echo", "Outputs args to stdout", echo_command);
 	add_new_command("", "", empty_command);
 }

@@ -77,6 +77,25 @@ bool isalnum(char ch) {
 	}
 	return false;
 }
+/*
+char* string_split(char* str, char delimiter) {
+	char* result;
+	char* currSubStr = "";
+	int i = 0;
+	int splitCount = 0;
+	while (str[i] != 0) {
+		if (str[i] == delimiter) {
+			result[splitCount] = currSubStr;
+			splitCount++;
+			currSubStr = "";
+		}
+		else {
+			currSubStr = strccat(currSubStr, str[i]);
+		}
+	}
+	return result;
+}
+*/
 
 size_t strlen(const char* str) {
 	size_t ret = 0;
