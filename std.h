@@ -35,6 +35,15 @@ char* string_split(char* str, char delimiter);
 //get length of string
 size_t strlen(const char* str);
 
+//Character functions
+
+//returns whether an alphabetical character is uppercase
+bool isupper(char ch);
+//converts alphabetical character to uppercase equivelent
+char toupper(char ch);
+//converts alphabetical character to lowercase equivelent
+char tolower(char ch);
+
 //Memory functions
 
 //return block of memory of given size

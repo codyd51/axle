@@ -127,6 +127,16 @@ void kernel_main() {
 		//terminal_writestring('\n');
 		terminal_writestring(split[i]);
 	}*/
+	terminal_putchar(toupper('t'));
+	terminal_putchar(toupper('e'));
+	terminal_putchar(toupper('s'));
+	terminal_putchar(toupper('t'));
+	terminal_writestring("\n");
+	terminal_putchar(tolower('B'));
+	terminal_putchar(tolower('L'));
+	terminal_putchar(tolower('A'));
+	terminal_putchar(tolower('H'));
+
 
 	init_shell();
 	int exit_status = 1;

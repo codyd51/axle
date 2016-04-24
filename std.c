@@ -109,6 +109,29 @@ size_t strlen(const char* str) {
 	return ret;
 }
 
+//Character functions
+
+bool isupper(char ch) {
+	char* up = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	for (int i = 0; i < strlen(up); i++) {
+		if (ch == up[i]) return true;
+	}
+	return false;
+}
+char toupper(char ch) {
+	//if already uppercase, just return the character
+	if (isupper(ch)) return ch;
+
+	return ch - 32;
+}
+
+char tolower(char ch) {
+	//if already lowercase, just return the character
+	if (!isupper(ch)) return ch;
+
+	return ch + 32;
+}
+
 //Memory functions
 static char memory_data[32768];
 static char *mem_end;
