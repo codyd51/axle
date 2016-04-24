@@ -28,15 +28,19 @@ char* strccat(char* dest, char src);
 int strcmp(const char *lhs, const char *rhs);
 //removes last character from string
 char* delchar(char* str);
-//returns whether input character is alphanumeric
-bool isalnum(char ch);
 //returns array of strings by delimiting str with delimiter
 char* string_split(char* str, char delimiter);
 //get length of string
 size_t strlen(const char* str);
+//copies src into dest
+char *strcpy(char *dest, const char *src);
 
 //Character functions
 
+//returns whether input character is alphabetic
+bool isalpha(char ch);
+//returns whether input character is alphanumeric
+bool isalnum(char ch);
 //returns whether an alphabetical character is uppercase
 bool isupper(char ch);
 //converts alphabetical character to uppercase equivelent

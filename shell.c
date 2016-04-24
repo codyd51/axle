@@ -46,69 +46,67 @@ int findCommand(char* command, int numArgs) {
 
 void process_command(char* string) {
 	//TODO split this up into its own stdlib function
-	char* command = string, *arg1 = "", *arg2 = "", arg3 = "", arg4 = "", arg5 = "", *c = string;
+	char* command = string;
+	char* c = string;
+
+	//maximum 10 arguments of 30 characters each
+	char args[10][30];
+	char* argbuffer = "";
+	int currArg = 0;
 	while (*c) {
 		if (*c == ' ') {
 			*c = '\0'; 
 
-			//fill this token into the next free arg
-			if (strlen(arg1) == 0) {
-				arg1 = ++c;
-			}
-			else if (strlen(arg2) == 0) {
-				arg2 = ++c;
-			}
-			else if (strlen(arg3) == 0) {
-				arg3 = ++c;
-			}
-			else if (strlen(arg4) == 0) {
-				arg4 = ++c;
-			}
-			else {
-				arg5 = ++c;
-			}
+			strcpy(args[currArg], ++c);
+			currArg++;
 		}
 		else {
 			c++;
 		}
 	}
 
-	//without proper array support in C, I don't have a good way to find how many of the above are filled without, checking if they contain data
-	int numArgs = 0;
-	//there will always be at least 1 character for the newline character, so we ignore this
-	if (strlen(arg1) > 1) numArgs = 1;
-	if (strlen(arg2) > 1) numArgs = 2;
-	if (strlen(arg3) > 1) numArgs = 3;
-	if (strlen(arg4) > 1) numArgs = 4;
-	if (strlen(arg5) > 1) numArgs = 5;
-
-	int i = findCommand(command, numArgs);
+	int i = findCommand(command, currArg);
 	if (i >= 0) {
-		//I would use a switch here, but switch cases do not scope as you'd expect them to,
-		//so the compiler complains that I'm redefining the function. This is slightly more maintainable, IMHO
-		if (numArgs == 0) {
+		if (currArg == 0) {
 			void(*command_function)() = CommandTable[i].function;
 			command_function();
 		}
-		else if (numArgs == 1) {
-			void(*command_function)(void* arg1) = CommandTable[i].function;
-			command_function(arg1);
-		}
-		else if (numArgs == 2) {
-			void(*command_function)(void* arg1, void* arg2) = CommandTable[i].function;
-			command_function(arg1, arg2);
-		}
-		else if (numArgs == 3) {
-			void(*command_function)(void* arg1, void* arg2, void* arg3) = CommandTable[i].function;
-			command_function(arg1, arg2, arg3);
-		}
-		else if (numArgs == 4) {
-			void(*command_function)(void* arg1, void* arg2, void* arg3, void* arg4) = CommandTable[i].function;
-			command_function(arg1, arg2, arg3, arg4);
-		}
 		else {
-			void(*command_function)(void* arg1, void* arg2, void* arg3, void* arg4, void* arg5) = CommandTable[i].function;
-			command_function(arg1, arg2, arg3, arg4, arg5);
+			void(*command_function)(void* arg1, ...) = CommandTable[i].function;
+			//there's no real elegant way to pass a variadic number of args to a function in c
+			//we really just have to manually call the function with every possible number of args
+			switch (currArg) {
+			case 1:
+				command_function(args[0]);
+				break;
+			case 2:
+				command_function(args[0], args[1]);
+				break;
+			case 3:
+				command_function(args[0], args[1], args[2]);
+				break;
+			case 4:
+				command_function(args[0], args[1], args[2], args[3]);
+				break;
+			case 5:
+				command_function(args[0], args[1], args[2], args[3], args[4]);
+				break;
+			case 6:
+				command_function(args[0], args[1], args[2], args[3], args[4], args[5]);
+				break;
+			case 7:
+				command_function(args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
+				break;
+			case 8:
+				command_function(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]);
+				break;
+			case 9:
+				command_function(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]);
+				break;
+			case 10:
+			default:
+				command_function(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]);
+			}
 		}
 	}
 }
@@ -200,6 +198,12 @@ void echo_command(char* arg) {
 	terminal_writestring(arg);
 }
 
+void echo2_command(char* arg1, char* arg2) {
+	terminal_writestring("\n");
+	terminal_writestring(arg1);
+	terminal_writestring(arg2);
+}
+
 void empty_command() {
 	//do nothing if nothing was entered
 }
@@ -207,6 +211,7 @@ void empty_command() {
 void init_shell() {
 	add_new_command("help", "Display help information", help_command, 0);
 	add_new_command("echo", "Outputs args to stdout", echo_command, 1);
+	add_new_command("echo2", "Outputs 2 args to stdout", echo2_command, 2);
 	add_new_command("", "", empty_command, 0);
 }
 

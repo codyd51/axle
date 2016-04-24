@@ -74,13 +74,6 @@ int strcmp(const char *lhs, const char *rhs) {
 	return 0;
 }
 
-bool isalnum(char ch) {
-	char* az = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-	for (int i = 0; i < strlen(az); i++) {
-		if (ch == az[i]) return true;
-	}
-	return false;
-}
 /*
 char* string_split(char* str, char delimiter) {
 	char* result;
@@ -108,8 +101,38 @@ size_t strlen(const char* str) {
 	}
 	return ret;
 }
+#import "kernel.h"
+char *strcpy(char *dest, const char *src) {
+	terminal_writestring("\ncopying ");
+	terminal_writestring(src);
+	terminal_writestring(" into ");
+	terminal_writestring(dest);
+	terminal_writestring("\n");
+	int i = 0;
+	while (1) {
+		dest[i] = src[i];
+		if (dest[i] == '\0') break;
+		i++;
+	}
+}
 
 //Character functions
+
+bool isalpha(char ch) {
+	char* az = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+	for (int i = 0; i < strlen(az); i++) {
+		if (ch == az[i]) return true;
+	}
+	return false;
+}
+
+bool isalnum(char ch) {
+	char* nums = "0123456789";
+	for (int i = 0; i < strlen(nums); i++) {
+		if (ch == nums[i]) return true;
+	}
+	return isalpha(ch);
+}
 
 bool isupper(char ch) {
 	char* up = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -119,15 +142,15 @@ bool isupper(char ch) {
 	return false;
 }
 char toupper(char ch) {
-	//if already uppercase, just return the character
-	if (isupper(ch)) return ch;
+	//if already uppercase or not an alphabetic, just return the character
+	if (isupper(ch) || !isalpha(ch)) return ch;
 
 	return ch - 32;
 }
 
 char tolower(char ch) {
-	//if already lowercase, just return the character
-	if (!isupper(ch)) return ch;
+	//if already lowercase or not an alphabetic, just return the character
+	if (!isupper(ch) || !isalpha(ch)) return ch;
 
 	return ch + 32;
 }
