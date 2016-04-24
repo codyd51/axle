@@ -57,6 +57,10 @@ char* delchar(char* str) {
 }
 
 int strcmp(const char *lhs, const char *rhs) {
+	if (strlen(lhs) != strlen(rhs)) {
+		return -1;
+	}
+
 	size_t ch = 0;
 	size_t ch2 = 0;
 

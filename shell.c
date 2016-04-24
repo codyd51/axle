@@ -142,3 +142,6 @@ void init_shell() {
 	add_new_command("echo", "Outputs args to stdout", echo_command);
 	add_new_command("", "", empty_command);
 }
+
+
+
