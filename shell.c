@@ -201,6 +201,15 @@ void echo2_command(char* arg1, char* arg2) {
 	terminal_writestring(arg2);
 }
 
+void time_command() {
+	//terminal_writestring("\ntime: ");
+	time();
+	terminal_writestring("\nstart");
+	sleep(5);
+	terminal_writestring("\nend");
+	time();
+}
+
 void empty_command() {
 	//do nothing if nothing was entered
 }
@@ -209,6 +218,7 @@ void init_shell() {
 	add_new_command("help", "Display help information", help_command, 0);
 	add_new_command("echo", "Outputs args to stdout", echo_command, 1);
 	add_new_command("echo2", "Outputs 2 args to stdout", echo2_command, 2);
+	add_new_command("time", "Outputs system time", time_command, 0);
 	add_new_command("", "", empty_command, 0);
 }
 

@@ -1,5 +1,6 @@
 #include "kernel.h"
 #include "shell.h"
+#include "clock.h"
 
 uint8_t make_color(enum vga_color fg, enum vga_color bg) {
 	return fg | bg << 4;
@@ -101,10 +102,10 @@ void kernel_main() {
 	//set up memory for malloc to use
 	initmem();
 
-	//set up keyboard handshake
-	init_pics(0x20, 0x28);
+	//set up keyboard driver
+	init_kb();
 
-	//terminal_writestring(string_split("this is test\0", ' ', 3));
+	//terminal_writestring(string_split("this is test\0", ' ', 3))
 
 	init_shell();
 	int exit_status = 1;

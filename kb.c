@@ -1,5 +1,6 @@
 #include "kb.h"
 #include "kernel.h"
+#include "interrupt.h"
 
 #define INT_DISABLE 0
 #define INT_ENABLE  0x200
@@ -56,17 +57,6 @@ unsigned char kbdus[128] =
 		0,	/* All other keys are undefined */
 };
 
-void outb(unsigned short port, unsigned char val) {
-	 asm volatile("outb %0, %1" : : "a"(val), "Nd"(port) );
-}
-
-static __inline unsigned char inb (unsigned short int port) {
-	unsigned char _v;
-
-	__asm__ __volatile__ ("inb %w1,%0":"=a" (_v):"Nd" (port));
-	return _v;
-}
-
 void init_pics(int pic1, int pic2) {
 	 //send ICW1
 	 outb(PIC1, ICW1);
@@ -86,6 +76,11 @@ void init_pics(int pic1, int pic2) {
 
 	 //disable all IRQs
 	 outb(PIC1 + 1, 0xFF);
+}
+
+void init_kb() {
+	//set up keyboard handshake
+	init_pics(0x20, 0x28);
 }
 
 bool hasKeypressFinished = false;
