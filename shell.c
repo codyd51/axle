@@ -21,7 +21,7 @@ int findCommand(char* command, int numArgs) {
 				//buffer for converting integers to strings
 				char b[6];
 
-				terminal_writestring("\nExpected ");
+				terminal_writestring("Expected ");
 
 				itoa(CommandTable[i].numArgs, b);
 				terminal_writestring(b);
@@ -38,13 +38,19 @@ int findCommand(char* command, int numArgs) {
 			}
 		}
 	}
-	terminal_writestring("\nCommand: ");
+	terminal_writestring("Command: ");
 	terminal_writestring(command);
 	terminal_writestring(" not found.");
 	return -1;
 }
 
+void prepare_shell() {
+	terminal_writestring("\n");
+}
+
 void process_command(char* string) {
+	prepare_shell();
+
 	//the command name will be the first string-seperated token in the string
 	char* command = string_split(string, ' ', 0);
 
@@ -179,7 +185,7 @@ void add_new_command(char* name, char* description, void* function, int numArgs)
 }
 
 void help_command() {
-	terminal_writestring("\nAXLE Shell v0.0.1");
+	terminal_writestring("AXLE Shell v0.0.1");
 	terminal_writestring("\nAll commands listed here are internally defined.");
 	terminal_writestring("\nType 'help' to see this list\n");
 	for (size_t i = 0; i < CommandNum; i++) {
@@ -191,12 +197,10 @@ void help_command() {
 }
 
 void echo_command(char* arg) {
-	terminal_writestring("\n");
 	terminal_writestring(arg);
 }
 
 void echo2_command(char* arg1, char* arg2) {
-	terminal_writestring("\n");
 	terminal_writestring(arg1);
 	terminal_writestring(arg2);
 }
@@ -204,12 +208,10 @@ void echo2_command(char* arg1, char* arg2) {
 void time_command() {
 	char b[100];
 	itoa(time(), b);
-	terminal_writestring("\n");
 	terminal_writestring(b);
 }
 
 void date_command() {
-	terminal_writestring("\n");
 	terminal_writestring(date());
 }
 
