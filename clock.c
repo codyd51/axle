@@ -1,10 +1,6 @@
 #include "clock.h"
 #include "interrupt.h"
 
-#define CURRENT_YEAR 2016
-
-int century_register = 0x00;
-
 unsigned char second, minute, hour, day, month, year;
 
 enum {
@@ -23,7 +19,7 @@ unsigned char get_RTC_register(int reg) {
 }
 
 void read_rtc() {
-	unsigned char century, last_second, last_minute, last_hour, last_day, last_month, last_year, last_century, registerB;
+	unsigned char last_second, last_minute, last_hour, last_day, last_month, last_year, last_century, registerB;
 
 	//note: we use the 'read registers until we get the same value twice' method to
 	//avoid getting inconsistent values due to RTC updates
@@ -36,9 +32,6 @@ void read_rtc() {
 	day = get_RTC_register(0x07);
 	month = get_RTC_register(0x08);
 	year = get_RTC_register(0x09);
-	if (century_register != 0) {
-		century = get_RTC_register(century_register);
-	}
 
 	do {
 		last_second = second;
@@ -47,7 +40,6 @@ void read_rtc() {
 		last_day = day;
 		last_month = month;
 		last_year = year;
-		last_century = century;
 
 		//make sure update isnt in progress
 		while (get_update_in_progress_flag());
@@ -57,10 +49,7 @@ void read_rtc() {
 		day = get_RTC_register(0x07);
 		month = get_RTC_register(0x08);
 		year = get_RTC_register(0x09);
-		if (century_register != 0) {
-			century = get_RTC_register(century_register);
-		}
-	} while ((last_second != second) || (last_minute != minute) || (last_hour != hour) || (last_day != day) || (last_month != month) || (last_year != year) || (last_century != century));
+	} while ((last_second != second) || (last_minute != minute) || (last_hour != hour) || (last_day != day) || (last_month != month) || (last_year != year));
 
 	registerB = get_RTC_register(0x0B);
 
@@ -72,17 +61,15 @@ void read_rtc() {
 		day = (day & 0x0F) + ((day / 16) * 10);
 		month = (month & 0x0F) + ((month / 16) * 10);
 		year = (year & 0x0F) + ((year / 16) * 10);
-		if (century_register != 0) {
-		    century = (century & 0x0F) + ((century / 16) * 10);
-		}
 	}
 
 	//convert 12 hour clock to 24 hour clock if necessary
 	if (!(registerB & 0x02) && (hour & 0x80)) {
-		hour = ((hour & 0x7F) + 12) % 24;
+		//hour = ((hour & 0x7F) + 12) % 24;
 	}
 
 	//calculate full 24-digit year
+	/*
 	if (century_register != 0) {
 		year += century * 100;
 	}
@@ -92,6 +79,7 @@ void read_rtc() {
 			year += 100;
 		}
 	}
+	*/
 }
 
 void register_cmos(int reg) {
@@ -105,6 +93,7 @@ void register_cmos(int reg) {
 	__asm__ volatile("sti");
 }
 
+unsigned char epoch_time();
 unsigned char time() {
 	read_rtc();
 
@@ -135,17 +124,91 @@ unsigned char time() {
 	itoa(year, b);
 	terminal_writestring(b);
 
-	return second;
+	return epoch_time();
+}
+
+int days_in_month(int month) {
+	switch (month) {
+		case 0:
+			return 31;
+			break;
+		case 1:
+			return 28;
+			break;
+		case 2:
+			return 31;
+			break;
+		case 3:
+			return 30;
+			break;
+		case 4:
+			return 31;
+			break;
+		case 5:
+			return 30;
+			break;
+		case 6:
+			return 31;
+			break;
+		case 7:
+			return 31;
+			break;
+		case 8:
+			return 30;
+			break;
+		case 9:
+			return 31;
+			break;
+		case 10:
+			return 30;
+			break;
+		case 11:
+		default:
+			return 31;
+			break;
+	}
+	return -1;
+}
+
+unsigned char epoch_time() {
+	//get current time
+	read_rtc();
+
+	size_t secs_since_1970 = 0;
+
+	//compute years since 1970
+	int passed_years = 30 + year;
+	//year = 60s * 60m * 24h * 365d
+	secs_since_1970 += (passed_years * 365 * 24 * 60 * 60);
+
+	//compute months in year
+	//month = 60s * 60m * 24h
+	for (int i = 0; i < month; i++) {
+		secs_since_1970 += (days_in_month(i) * 24 * 60 * 60);
+	}
+
+	//compute days in month
+	//day = 60s * 60m * 24h
+	secs_since_1970 += day * 24 * 60 * 60;
+
+	//compute hours in day
+	//hour = 60s * 60m
+	secs_since_1970 += hour * 60 * 60;
+
+	//compute minutes in hour
+	//minutes = 60s
+	secs_since_1970 += minute * 60;
+
+	//compute seconds in minute
+	//seconds = seconds
+	secs_since_1970 += second;
+
+	return secs_since_1970;
 }
 
 void sleep(int secs) {
-	int end = (int)second + secs;
-	char b[10];
-	itoa(end, b);
-	terminal_writestring(b);
-	while ((int)second < end) {
-		read_rtc();
-	}
+	int end = epoch_time() + secs;
+	while (epoch_time() < end) {}
 }
 
 

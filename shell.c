@@ -203,11 +203,18 @@ void echo2_command(char* arg1, char* arg2) {
 
 void time_command() {
 	//terminal_writestring("\ntime: ");
+	/*
 	time();
 	terminal_writestring("\nstart");
 	sleep(5);
 	terminal_writestring("\nend");
 	time();
+	*/
+	char b[100];
+	itoa(time(), b);
+	terminal_writestring("\nepoch time: ");
+	terminal_writestring(b);
+	sleep(3);
 }
 
 void empty_command() {
