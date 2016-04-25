@@ -28,8 +28,8 @@ char* strccat(char* dest, char src);
 int strcmp(const char *lhs, const char *rhs);
 //removes last character from string
 char* delchar(char* str);
-//returns array of strings by delimiting str with delimiter
-char* string_split(char* str, char delimiter);
+//returns token at index after delimiting str with delimiter
+char* string_split(char* str, char delimiter, int index);
 //get length of string
 size_t strlen(const char* str);
 //copies src into dest

@@ -45,29 +45,26 @@ int findCommand(char* command, int numArgs) {
 }
 
 void process_command(char* string) {
-	//TODO split this up into its own stdlib function
-	char* command = string;
-	char* c = string;
+	//the command name will be the first string-seperated token in the string
+	char* command = string_split(string, ' ', 0);
 
 	//maximum 10 arguments of 30 characters each
-	char args[10][30];
-	char* argbuffer = "";
-	int currArg = 0;
-	while (*c) {
-		if (*c == ' ') {
-			*c = '\0'; 
+	static char args[10][30];
+	//we start looking for arguments at the second token
+	//since the first token contains the command name
+	int tokindex = 1;
+	while (string_split(string, ' ', tokindex) != "") {
+		strcpy(args[tokindex-1], string_split(string, ' ', tokindex));
 
-			strcpy(args[currArg], ++c);
-			currArg++;
-		}
-		else {
-			c++;
-		}
+		tokindex++;
 	}
 
-	int i = findCommand(command, currArg);
+	//tokindex was increased by 1 to offset the actual command name
+	int argcount = tokindex - 1;
+
+	int i = findCommand(command, argcount);
 	if (i >= 0) {
-		if (currArg == 0) {
+		if (argcount == 0) {
 			void(*command_function)() = CommandTable[i].function;
 			command_function();
 		}
@@ -75,7 +72,7 @@ void process_command(char* string) {
 			void(*command_function)(void* arg1, ...) = CommandTable[i].function;
 			//there's no real elegant way to pass a variadic number of args to a function in c
 			//we really just have to manually call the function with every possible number of args
-			switch (currArg) {
+			switch (argcount) {
 			case 1:
 				command_function(args[0]);
 				break;

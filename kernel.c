@@ -104,39 +104,7 @@ void kernel_main() {
 	//set up keyboard handshake
 	init_pics(0x20, 0x28);
 
-	/*
-	char* split[10];
-	//
-	for (int i = 0; split[i+1] == 0; i++) {
-		split[i] = teststr;
-	}
-	char* c = split[0];
-	int counter = 1;
-	while (*c) {
-		if (*c == ' ') {
-			*c = '\0';
-			char* str = split[counter];
-			str++;
-			//counter++;
-		}
-		else {
-			c++;
-		}
-	}
-	for (int i = 0; split[i+1] == 0; i++) {
-		//terminal_writestring('\n');
-		terminal_writestring(split[i]);
-	}*/
-	terminal_putchar(toupper('t'));
-	terminal_putchar(toupper('e'));
-	terminal_putchar(toupper('s'));
-	terminal_putchar(toupper('t'));
-	terminal_writestring("\n");
-	terminal_putchar(tolower('B'));
-	terminal_putchar(tolower('L'));
-	terminal_putchar(tolower('A'));
-	terminal_putchar(tolower('H'));
-
+	//terminal_writestring(string_split("this is test\0", ' ', 3));
 
 	init_shell();
 	int exit_status = 1;

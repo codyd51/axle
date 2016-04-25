@@ -74,25 +74,47 @@ int strcmp(const char *lhs, const char *rhs) {
 	return 0;
 }
 
-/*
-char* string_split(char* str, char delimiter) {
-	char* result;
-	char* currSubStr = "";
+char* string_split(char* str, char delimiter, int index) {
 	int i = 0;
-	int splitCount = 0;
-	while (str[i] != 0) {
+	int tokCount = 0;
+	while (str[i] != '\0') {
 		if (str[i] == delimiter) {
-			result[splitCount] = currSubStr;
-			splitCount++;
-			currSubStr = "";
+			tokCount++;
+		}
+		i++;
+	}
+	if (index > tokCount) return "";
+
+	int iterTokCount = 0;
+	i = 0;
+	char curTok[50] = "";
+	while (str[i] != '\0') {
+		if (str[i] == delimiter) {
+			curTok[i] = '\0';
+			if (iterTokCount == index) {
+				char* cpy = malloc(sizeof(char) * 64);
+				strcpy(cpy, curTok);
+
+				return cpy;
+			}
+			else {
+				iterTokCount++;
+				for (int i = 0; i < 50; i++) {
+					curTok[i] = '\0';
+				}
+			}
 		}
 		else {
-			currSubStr = strccat(currSubStr, str[i]);
+			strccat(curTok, str[i]);
 		}
+		i++;
 	}
-	return result;
+
+	char* cpy = malloc(sizeof(char) * 64);
+	strcpy(cpy, curTok);
+
+	return cpy;
 }
-*/
 
 size_t strlen(const char* str) {
 	size_t ret = 0;
@@ -103,17 +125,15 @@ size_t strlen(const char* str) {
 }
 #import "kernel.h"
 char *strcpy(char *dest, const char *src) {
-	terminal_writestring("\ncopying ");
-	terminal_writestring(src);
-	terminal_writestring(" into ");
-	terminal_writestring(dest);
-	terminal_writestring("\n");
 	int i = 0;
 	while (1) {
 		dest[i] = src[i];
-		if (dest[i] == '\0') break;
+		if (dest[i] == '\0') {
+			break;
+		}
 		i++;
 	}
+	return dest;
 }
 
 //Character functions
