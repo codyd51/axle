@@ -54,3 +54,6 @@ char tolower(char ch);
 void *malloc(int size);
 //free up block of memory
 void free(void *ptr);
+
+//Printing functions
+void printf(char* format, ...);

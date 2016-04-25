@@ -1,4 +1,5 @@
 #include "std.h"
+#include <stdarg.h>
 
 //String functions
 
@@ -192,6 +193,91 @@ void *malloc(int size) {
 void free(void *ptr) {
   /* Don't bother to free anything--if programs need to start over, they
      can re-invoke initmem */
+}
+
+//Printing functions
+
+char* convert(unsigned int num, int base) {
+	static char representation[] = "0123456789ABCDEF";
+	static char buffer[50];
+	char* ptr;
+
+	ptr = &buffer[49];
+	*ptr = '\0';
+
+	do {
+		*--ptr = representation[num%base];
+		num /= base;
+	} while (num != 0);
+
+	return (ptr);
+}
+void printf(char* format, ...) {
+	char* traverse;
+	unsigned int i;
+	char* s;
+
+	//initializing printf's arguments
+	va_list arg;
+	va_start(arg, format);
+
+	int counter = 0;
+	for (traverse = format; counter < strlen(format); traverse++) {
+		counter++;
+
+		while (*traverse != '%' && counter < strlen(format)) {
+			terminal_putchar(*traverse);
+			traverse++;
+			counter++;
+		}
+
+		traverse++;
+
+		//fetching & ececuting arguments
+		switch (*traverse) {
+			case 'c':
+				//fetch char argument
+				i = va_arg(arg, int);
+				terminal_putchar(i);
+				break;
+			case 'd':
+			case 'i':
+				//fetch decimal/int argument
+				i = va_arg(arg, int);
+				if (i < 0) {
+					i = -i;
+					terminal_putchar('-');
+				}
+				terminal_writestring(convert(i, 10));
+				break;
+			case 'o':
+				//octal argument
+				i = va_arg(arg, unsigned int);
+				terminal_writestring(convert(i, 8));
+				break;
+			case 's':
+				//fetch string
+				s = va_arg(arg, char*);
+				terminal_writestring(s);
+				break;
+			case 'x':
+				//fetch hex
+				i = va_arg(arg, unsigned int);
+				terminal_writestring(convert(i, 16));
+				break;
+			/*
+			default:
+				//unknown arg type
+				//interpret as int
+				i = va_arg(arg, unsigned int);
+				terminal_writestring(convert(i, 10));
+				break;
+			*/
+		}
+	}
+
+	//cleanup
+	va_end(arg);
 }
 
 
