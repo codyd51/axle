@@ -1,5 +1,6 @@
 #include "clock.h"
 #include "interrupt.h"
+#include "std.h"
 
 unsigned char second, minute, hour, day, month, year;
 
@@ -95,36 +96,39 @@ void register_cmos(int reg) {
 
 unsigned char epoch_time();
 unsigned char time() {
+	return epoch_time();
+}
+
+char* date() {
 	read_rtc();
 
-	terminal_writestring("\n");
-	
-	char b[100];
+	char* res = malloc(sizeof(char) * 64);
+
+	char b[8];
 	itoa(hour, b);
-	terminal_writestring(b);
-	terminal_writestring(":");
+	strcat(res, b);
+	strcat(res, ":");
 
 	itoa(minute, b);
-	terminal_writestring(b);
-	terminal_writestring(":");
+	strcat(res, b);
+	strcat(res, ":");
 
 	itoa(second, b);
-	terminal_writestring(b);
-
-	terminal_writestring(", ");
+	strcat(res, b);
+	strcat(res, ", ");
 
 	itoa(month, b);
-	terminal_writestring(b);
-	terminal_writestring("/");
+	strcat(res, b);
+	strcat(res, "/");
 
 	itoa(day, b);
-	terminal_writestring(b);
-	terminal_writestring("/");
+	strcat(res, b);
+	strcat(res, "/");
 
 	itoa(year, b);
-	terminal_writestring(b);
+	strcat(res, b);
 
-	return epoch_time();
+	return res;
 }
 
 bool is_leap_year(int year) {
@@ -172,9 +176,9 @@ int days_in_month(int month, int year) {
 		case 10:
 			return 30;
 			break;
-		case 11:
 		default:
-			return 31;
+			case 11:
+		return 31;
 			break;
 	}
 	return -1;
