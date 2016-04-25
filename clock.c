@@ -127,12 +127,22 @@ unsigned char time() {
 	return epoch_time();
 }
 
-int days_in_month(int month) {
+bool is_leap_year(int year) {
+	return (year % 4 == 0);
+}
+
+int days_in_year(int year) {
+	if (is_leap_year(year)) return 366;
+	return 365;
+}
+
+int days_in_month(int month, int year) {
 	switch (month) {
 		case 0:
 			return 31;
 			break;
 		case 1:
+			if (is_leap_year(year)) return 29;
 			return 28;
 			break;
 		case 2:
@@ -179,12 +189,15 @@ unsigned char epoch_time() {
 	//compute years since 1970
 	int passed_years = 30 + year;
 	//year = 60s * 60m * 24h * 365d
-	secs_since_1970 += (passed_years * 365 * 24 * 60 * 60);
+	for (int i = 1; i <= passed_years; i++) {
+		int currYear = year - i;
+		secs_since_1970 += (days_in_year(currYear) * 24 * 60 * 60);
+	}
 
 	//compute months in year
 	//month = 60s * 60m * 24h
 	for (int i = 0; i < month; i++) {
-		secs_since_1970 += (days_in_month(i) * 24 * 60 * 60);
+		secs_since_1970 += (days_in_month(i, year) * 24 * 60 * 60);
 	}
 
 	//compute days in month
