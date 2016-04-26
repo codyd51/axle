@@ -86,12 +86,9 @@ void init_kb() {
 	init_pics(0x20, 0x28);
 }
 
-bool hasKeypressFinished = false;
-
 //handles keyboard interrupts
 char getchar() {
-	unsigned char c = 0;
-	hasKeypressFinished = false;
+	static unsigned char c = 0;
 	while (1) {
 		//read from keyboard's data buffer
 		if (inb(0x60) != c) {
@@ -112,7 +109,7 @@ char getchar() {
 					continue;
 				}
 			}
-			else if (c > 0 && (flags & keypressFinishedMask)) {
+			else if (c > 0 /*&& (flags & keypressFinishedMask)*/) {
 				//we got a keypress
 				//repeated keypresses will generate multiple interrupts
 
