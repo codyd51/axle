@@ -84,6 +84,7 @@ void init_kb() {
 }
 
 bool hasKeypressFinished = false;
+bool hasShift = false;
 
 //handles keyboard interrupts
 char getchar() {
@@ -103,32 +104,26 @@ char getchar() {
 				hasKeypressFinished = true;
 
 				//if shift was just released, reset hasShift
-				/*
 				c = c ^ 0x80;
 				if (c == 42 || c == 54) {
 					hasShift = false;
-					//hasKeypressFinished = false;
-					return 'a';
+					continue;
 				}
-				*/
 			}
 			else if (c > 0 && hasKeypressFinished) {
 				//we got a keypress
 				//repeated keypresses will generate multiple interrupts
 
 				//detect shift
-				/*
 				if (c == 42 || c == 54) {
 					hasShift = true;
-					return mappedchar;
+					continue;
 				}
-				*/
-				
 
 				//reset for next use
 				hasKeypressFinished = false;
 
-				//if (hasShift) return toupper(mappedchar);
+				if (hasShift) return toupper(mappedchar);
 				return mappedchar;
 			}
 		}
