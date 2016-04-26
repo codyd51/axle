@@ -149,7 +149,7 @@ char* get_inputstring() {
 }
 
 void shell() {
-	terminal_writestring("\naxle> ");
+	printf("\naxle> ");
 
 	char* input = get_inputstring();
 	process_command(input);
@@ -168,34 +168,28 @@ void add_new_command(char* name, char* description, void* function, int numArgs)
 }
 
 void help_command() {
-	terminal_writestring("AXLE Shell v0.0.1");
-	terminal_writestring("\nAll commands listed here are internally defined.");
-	terminal_writestring("\nType 'help' to see this list\n");
+	printf("AXLE Shell v0.0.1");
+	printf("\nAll commands listed here are internally defined.");
+	printf("\nType 'help' to see this list\n");
 	for (size_t i = 0; i < CommandNum; i++) {
-		terminal_writestring("\n\t");
-		terminal_writestring(CommandTable[i].name);
-		terminal_writestring("\t");
-		terminal_writestring(CommandTable[i].description);
+		printf("\n\t%s\t%s", CommandTable[i].name, CommandTable[i].description);
 	}
 }
 
 void echo_command(char* arg) {
-	terminal_writestring(arg);
+	printf("%s", arg);
 }
 
 void echo2_command(char* arg1, char* arg2) {
-	terminal_writestring(arg1);
-	terminal_writestring(arg2);
+	printf("%s %s", arg1, arg2);
 }
 
 void time_command() {
-	char b[100];
-	itoa(time(), b);
-	terminal_writestring(b);
+	printf("%d", time());
 }
 
 void date_command() {
-	terminal_writestring(date());
+	printf(date());
 }
 
 void empty_command() {

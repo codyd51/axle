@@ -105,8 +105,6 @@ void kernel_main() {
 	//set up keyboard driver
 	init_kb();
 
-	//terminal_writestring(string_split("this is test\0", ' ', 3))
-
 	init_shell();
 	int exit_status = 1;
 	while (1) {

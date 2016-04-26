@@ -193,7 +193,7 @@ unsigned char epoch_time() {
 	//compute years since 1970
 	int passed_years = 30 + year;
 	//year = 60s * 60m * 24h * 365d
-	for (int i = 1; i <= passed_years; i++) {
+	for (int i = 1; i < passed_years; i++) {
 		int currYear = year - i;
 		secs_since_1970 += (days_in_year(currYear) * 24 * 60 * 60);
 	}
