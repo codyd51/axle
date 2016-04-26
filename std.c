@@ -212,71 +212,67 @@ char* convert(unsigned int num, int base) {
 
 	return (ptr);
 }
-void printf(char* format, ...) {
-	char* traverse;
-	unsigned int i;
-	char* s;
+void vprintf(char* format, va_list va) {
+	char bf[24];
+	char ch;
 
-	//initializing printf's arguments
-	va_list arg;
-	va_start(arg, format);
-
-	int counter = 0;
-	for (traverse = format; counter < strlen(format); traverse++) {
-		counter++;
-
-		while (*traverse != '%' && counter < strlen(format)) {
-			terminal_putchar(*traverse);
-			traverse++;
-			counter++;
+	while ((ch = *(format++))) {
+		if (ch != '%') {
+			terminal_putchar(ch);
 		}
+		else {
+			char zero_pad = 0;
+			char* ptr;
+			unsigned int len;
 
-		traverse++;
+			ch = *(format++);
 
-		//fetching & ececuting arguments
-		switch (*traverse) {
-			case 'c':
-				//fetch char argument
-				i = va_arg(arg, int);
-				terminal_putchar(i);
-				break;
-			case 'd':
-			case 'i':
-				//fetch decimal/int argument
-				i = va_arg(arg, int);
-				if (i < 0) {
-					i = -i;
-					terminal_putchar('-');
+			//zero padding requested
+			if (ch == '0') {
+				ch = *(format++);
+				if (ch == '\0') return;
+				if (ch >= '0' && ch <= '9') {
+					zero_pad = ch - '0';
 				}
-				terminal_writestring(convert(i, 10));
-				break;
-			case 'o':
-				//octal argument
-				i = va_arg(arg, unsigned int);
-				terminal_writestring(convert(i, 8));
-				break;
-			case 's':
-				//fetch string
-				s = va_arg(arg, char*);
-				terminal_writestring(s);
-				break;
-			case 'x':
-				//fetch hex
-				i = va_arg(arg, unsigned int);
-				terminal_writestring(convert(i, 16));
-				break;
-			/*
-			default:
-				//unknown arg type
-				//interpret as int
-				i = va_arg(arg, unsigned int);
-				terminal_writestring(convert(i, 10));
-				break;
-			*/
+				ch = *(format++);
+			}
+
+			switch (ch) {
+				case 0:
+					return;
+
+				case 'u':
+				case 'd':
+					itoa(va_arg(va, unsigned int), bf);
+					terminal_writestring(bf);
+					break;
+
+				case 'x':
+				case 'X':
+					itoa(convert(va_arg(va, unsigned int), 16), bf);
+					terminal_writestring(bf);
+					break;
+
+				case 'c':
+					terminal_writestring((char)(va_arg(va, int)));
+					break;
+
+				case 's':
+					ptr = va_arg(va, char*);
+					terminal_writestring(ptr);
+					break;
+
+				default:
+					terminal_putchar(ch);
+					break;
+			}
 		}
 	}
-
-	//cleanup
+}
+void printf(char* format, ...) {
+	va_list arg;
+	va_start(arg, format);
+	vprintf(format, arg);
 	va_end(arg);
 }
 

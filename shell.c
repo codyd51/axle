@@ -18,34 +18,17 @@ int findCommand(char* command, int numArgs) {
 				return i;
 			}
 			else {
-				//buffer for converting integers to strings
-				char b[6];
-
-				terminal_writestring("Expected ");
-
-				itoa(CommandTable[i].numArgs, b);
-				terminal_writestring(b);
-
-				terminal_writestring(" arguments to command ");
-				terminal_writestring(CommandTable[i].name);
-				terminal_writestring(", received ");
-
-				itoa(numArgs, b);
-				terminal_writestring(b);
-
-				terminal_writestring(".");
+				printf("Expected %i arguments to command %s, received %i.", CommandTable[i].numArgs, CommandTable[i].name, numArgs);
 				return -1;
 			}
 		}
 	}
-	terminal_writestring("Command: ");
-	terminal_writestring(command);
-	terminal_writestring(" not found.");
+	printf("Command %s not found.", command);
 	return -1;
 }
 
 void prepare_shell() {
-	terminal_writestring("\n");
+	printf("\n");
 }
 
 void process_command(char* string) {
