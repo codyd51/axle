@@ -196,12 +196,17 @@ void empty_command() {
 	//do nothing if nothing was entered
 }
 
+void clear_command() {
+	terminal_clear();
+}
+
 void init_shell() {
 	add_new_command("help", "Display help information", help_command, 0);
 	add_new_command("echo", "Outputs args to stdout", echo_command, 1);
 	add_new_command("echo2", "Outputs 2 args to stdout", echo2_command, 2);
 	add_new_command("time", "Outputs system time", time_command, 0);
 	add_new_command("date", "Outputs system time as date format", date_command, 0);
+	add_new_command("clear", "Clear terminal", clear_command, 0);
 	add_new_command("", "", empty_command, 0);
 }
 
