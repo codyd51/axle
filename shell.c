@@ -18,7 +18,7 @@ int findCommand(char* command, int numArgs) {
 				return i;
 			}
 			else {
-				printf("Expected %i arguments to command %s, received %i.", CommandTable[i].numArgs, CommandTable[i].name, numArgs);
+				printf("Expected %d arguments to command %s, received %d.", CommandTable[i].numArgs, CommandTable[i].name, numArgs);
 				return -1;
 			}
 		}
