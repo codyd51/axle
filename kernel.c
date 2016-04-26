@@ -23,12 +23,7 @@ void terminal_initialize() {
 	terminal_color = make_color(COLOR_LIGHT_BLUE, COLOR_BLACK);
 	terminal_buffer = (uint16_t*) 0xB8000;
 
-	for (size_t y = 0; y < VGA_HEIGHT; y++) {
-		for (size_t x = 0; x < VGA_WIDTH; x++) {
-			const size_t index = y * VGA_WIDTH + x;
-			terminal_buffer[index] = make_vgaentry(' ', terminal_color);
-		}
-	}
+	terminal_clear();
 }
 
 void terminal_setcolor(uint8_t color) {

@@ -11,6 +11,9 @@
 #define ICW4 0x01
 
 //TODO implement bitmask for special keys (shift/ctrl/fn/etc)
+const unsigned short shiftMask = 4;
+const unsigned short keypressFinishedMask = 2;
+unsigned int flags = 0;
 
 /* KBDUS means US Keyboard Layout. This is a scancode table
 *  used to layout a standard US keyboard. I have left some
@@ -84,7 +87,6 @@ void init_kb() {
 }
 
 bool hasKeypressFinished = false;
-bool hasShift = false;
 
 //handles keyboard interrupts
 char getchar() {
@@ -101,29 +103,29 @@ char getchar() {
 			//if the top bit of the byte we read from the KB is set, then a key's just been released
 			if (c & 0x80) {
 				//TODO scan to see if user released shift/alt/control keys
-				hasKeypressFinished = true;
+				flags = flags | keypressFinishedMask;
 
 				//if shift was just released, reset hasShift
 				c = c ^ 0x80;
 				if (c == 42 || c == 54) {
-					hasShift = false;
+					flags = flags ^ shiftMask;
 					continue;
 				}
 			}
-			else if (c > 0 && hasKeypressFinished) {
+			else if (c > 0 && (flags & keypressFinishedMask)) {
 				//we got a keypress
 				//repeated keypresses will generate multiple interrupts
 
 				//detect shift
 				if (c == 42 || c == 54) {
-					hasShift = true;
+					flags = flags | shiftMask;
 					continue;
 				}
 
 				//reset for next use
-				hasKeypressFinished = false;
+				flags = flags ^ keypressFinishedMask;
 
-				if (hasShift) return toupper(mappedchar);
+				if (flags & shiftMask) return toupper(mappedchar);
 				return mappedchar;
 			}
 		}
