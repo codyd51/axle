@@ -96,6 +96,23 @@ void terminal_clear() {
 	}
 }
 
+//defined in assembly
+extern void enable_A20();
+
+void enter_protected() {
+	//disable interrupts
+	//asm("cli");
+
+	//wait for keyboard controller to clear
+	//if bottom bit is set, kb is busy
+	while (inb(0x64) & 1 != 0)
+		printf("kb status: %d", inb(0x64));
+
+	enable_A20();
+
+	printf("enabled a20");
+}
+
 //declared within std.c
 extern void initmem();
 
@@ -108,6 +125,9 @@ void kernel_main() {
 
 	//set up memory for malloc to use
 	initmem();
+
+	//enable protected mode
+	enter_protected();
 
 	//set up keyboard driver
 	init_kb();

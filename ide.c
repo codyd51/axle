@@ -623,7 +623,7 @@ unsigned char ide_atapi_read(unsigned char drive, unsigned int lba, unsigned cha
 
 	return 0;
 }
-
+/*
 void ide_read_sectors(unsigned char drive, unsigned char numsects, unsigned int lba, unsigned short es, unsigned int edi) {
 	//check if drive present
 	if (drive > 3 || ide_devices[drive].Reserved == 0) {
@@ -742,7 +742,7 @@ void ide_atapi_eject(unsigned char drive) {
 		package[0] = ide_print_error(drive, err);
 	}
 }
-
+*/
 
 
 
