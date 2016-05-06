@@ -1,5 +1,5 @@
 #include "clock.h"
-#include "interrupt.h"
+#include "common.h"
 #include "std.h"
 
 unsigned char second, minute, hour, day, month, year;

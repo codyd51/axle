@@ -1,6 +1,6 @@
 #include "kb.h"
 #include "kernel.h"
-#include "interrupt.h"
+#include "common.h"
 
 #define INT_DISABLE 0
 #define INT_ENABLE  0x200
