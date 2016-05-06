@@ -15,5 +15,5 @@ u8int inb(u16int port) {
 u16int inw(u16int port) {
 	u16int _v;
 
-	__asm__ __volatile__ ("inw %1, %0" : "=a" (ret) : "dN" (port));
+	__asm__ __volatile__ ("inw %1, %0" : "=a" (_v) : "dN" (port));
 }

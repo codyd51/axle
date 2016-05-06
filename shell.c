@@ -98,28 +98,13 @@ void process_command(char* string) {
 	}
 }
 
-void add_cursor() {
-	terminal_putchar('_');
-}
-
-void remove_cursor() {
-	terminal_removechar();
-}
-
 void process_character(char* inputstr, char ch) {
 	//handle backspace
 	if (ch == '\b') {
 		//remove last character from input string
 		if (strlen(inputstr) > 0) {
 			inputstr = delchar(inputstr);
-
-			//remove cursor
-			remove_cursor();
-			//remove character
 			terminal_removechar();
-
-			//add in cursor again
-			add_cursor();
 		}
 	}
 	//handle newline
@@ -129,11 +114,7 @@ void process_character(char* inputstr, char ch) {
 	else  {
 		//add this character to the input string and output it
 		strccat(inputstr, ch);
-
-		//remove cursor character
-		remove_cursor();
 		terminal_putchar(ch);
-		add_cursor();
 	}
 }
 
@@ -144,8 +125,6 @@ char* get_inputstring() {
 		c = getchar();
 		process_character(input, c);
 	} while (c != '\n');
-	//remove cursor character
-	remove_cursor();
 	return input;
 }
 

@@ -1,6 +1,7 @@
 #include "kernel.h"
 #include "shell.h"
 #include "clock.h"
+#include "common.h"
 
 uint8_t make_color(enum vga_color fg, enum vga_color bg) {
 	return fg | bg << 4;
@@ -53,6 +54,16 @@ void terminal_push_back_line() {
 	terminal_row = VGA_HEIGHT-1;
 }
 
+//updates hardware cursor
+void move_cursor() {
+	//screen is 80 characters wide
+	u16int cursorLocation = terminal_row * 80 + terminal_column;
+	outb(0x3D4, 14); //tell VGA board we're setting high cursor byte
+	outb(0x3D5, cursorLocation >> 8); //send high cursor byte
+	outb(0x3D4, 15); //tell VGA board we're setting the low cursor byte
+	outb(0x3D5, cursorLocation); //send low cursor byte
+}
+
 void terminal_putchar(char c) {
 	//check for newline character
 	if (c == '\n') {
@@ -76,11 +87,14 @@ void terminal_putchar(char c) {
 			terminal_push_back_line();
 		}
 	}
+
+	move_cursor();
 }
 
 void terminal_removechar() {
 	terminal_putentryat(' ', terminal_color, terminal_column-1, terminal_row);
 	--terminal_column;
+	move_cursor();
 }
 
 void terminal_writestring(const char* data) {
