@@ -22,7 +22,6 @@ void terminal_initialize() {
 	terminal_column = 0;
 	terminal_color = make_color(COLOR_LIGHT_BLUE, COLOR_BLACK);
 	terminal_buffer = (uint16_t*) 0xB8000;
-	term_color_buffer = malloc(2048);
 
 	terminal_clear();
 }
@@ -121,10 +120,11 @@ void enter_protected() {
 void test_colors() {
 	terminal_settextcolor(COLOR_WHITE);
 	printf("Testing colors...");
-	for (int i = 0; i < 15; i++) {
+	for (int i = 0; i < 16; i++) {
 		terminal_settextcolor(i);
-		printf("*");
+		printf("@");
 	}
+	printf("\n");
 	terminal_settextcolor(COLOR_WHITE);
 }
 
@@ -153,7 +153,12 @@ void kernel_main() {
 
 	//set up keyboard driver
 	init_kb();
-	
+
+	//wait for user to start shell
+	terminal_settextcolor(COLOR_LIGHT_GREY);
+	printf("Kernel has finished booting. Press any key to enter shell.\n");
+	printf("%c\n", getchar());
+
 	init_shell();
 	int exit_status = 1;
 	while (1) {
