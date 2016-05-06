@@ -141,7 +141,11 @@ void kernel_main() {
 
 	//enable protected mode
 	//enter_protected();
-	
+
+	//introductory message
+	terminal_settextcolor(COLOR_LIGHT_GREY);
+	printf("[AXLE OS v0.0.1]\n");
+
 	//run color test
 	test_colors();
 

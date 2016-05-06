@@ -150,8 +150,13 @@ char* get_inputstring() {
 }
 
 void shell() {
-	printf("\naxle> ");
+	//reset terminal color in case it was changed
+	terminal_settextcolor(COLOR_GREEN);
+	printf("\naxle>  ");
 
+	//set terminal color to input color
+	terminal_settextcolor(COLOR_WHITE);
+	
 	char* input = get_inputstring();
 	process_command(input);
 }
@@ -206,6 +211,10 @@ void asmjit_command() {
 }
 
 void init_shell() {
+	//set shell color
+	terminal_settextcolor(COLOR_GREEN);
+	
+	//set up command table
 	add_new_command("help", "Display help information", help_command, 0);
 	add_new_command("echo", "Outputs args to stdout", echo_command, 1);
 	add_new_command("echo2", "Outputs 2 args to stdout", echo2_command, 2);
