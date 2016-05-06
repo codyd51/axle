@@ -108,9 +108,8 @@ void enter_protected() {
 	while (inb(0x64) & 1 != 0)
 		printf("kb status: %d", inb(0x64));
 
-	enable_A20();
-
-	printf("enabled a20");
+	int i = enableA20();
+	printf("return status: %d\n", i);
 }
 
 //declared within std.c
@@ -127,7 +126,7 @@ void kernel_main() {
 	initmem();
 
 	//enable protected mode
-	enter_protected();
+	//enter_protected();
 
 	//set up keyboard driver
 	init_kb();
