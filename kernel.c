@@ -116,6 +116,16 @@ void enter_protected() {
 	printf("return status: %d\n", i);
 }
 
+void test_colors() {
+	terminal_settextcolor(COLOR_WHITE);
+	printf("Testing colors...");
+	for (int i = 0; i < 15; i++) {
+		terminal_settextcolor(i);
+		printf("*");
+	}
+	terminal_settextcolor(COLOR_WHITE);
+}
+
 //declared within std.c
 extern void initmem();
 
@@ -131,6 +141,9 @@ void kernel_main() {
 
 	//enable protected mode
 	//enter_protected();
+	
+	//run color test
+	test_colors();
 
 	//set up keyboard driver
 	init_kb();
