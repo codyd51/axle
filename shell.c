@@ -155,9 +155,12 @@ void shell() {
 	printf("\naxle>  ");
 
 	//set terminal color to input color
-	terminal_settextcolor(COLOR_WHITE);
+	terminal_settextcolor(COLOR_LIGHT_BLUE);
 	
 	char* input = get_inputstring();
+
+	//set terminal color to stdout color
+	terminal_settextcolor(COLOR_WHITE);
 	process_command(input);
 }
 

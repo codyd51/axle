@@ -22,6 +22,7 @@ void terminal_initialize() {
 	terminal_column = 0;
 	terminal_color = make_color(COLOR_LIGHT_BLUE, COLOR_BLACK);
 	terminal_buffer = (uint16_t*) 0xB8000;
+	term_color_buffer = malloc(2048);
 
 	terminal_clear();
 }
@@ -46,7 +47,8 @@ void terminal_push_back_line() {
 	for (size_t row = 0; row < VGA_HEIGHT; row++) {
 		for (size_t col = 0; col < VGA_WIDTH; col++) {
 			size_t index = (row+1) * VGA_WIDTH + col;
-			terminal_putentryat(terminal_buffer[index], terminal_color, col, row);
+			uint8_t color = terminal_buffer[index] >> 8;
+			terminal_putentryat(terminal_buffer[index], color, col, row);
 		}
 	}
 	terminal_row = VGA_HEIGHT-1;
