@@ -254,7 +254,7 @@ void vprintf(char* format, va_list va) {
 					break;
 
 				case 'c':
-					terminal_writestring((char)(va_arg(va, int)));
+					terminal_putchar((char)(va_arg(va, int)));
 					break;
 
 				case 's':

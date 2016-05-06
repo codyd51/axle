@@ -200,6 +200,16 @@ void clear_command() {
 	terminal_clear();
 }
 
+void asmjit_command() {
+
+	char ch = 0;
+	//EOF = -1
+	while ((ch = getchar()) != 'q') {
+		printf("%c\n", ch);
+	}
+	printf("got eof\n");
+}
+
 void init_shell() {
 	add_new_command("help", "Display help information", help_command, 0);
 	add_new_command("echo", "Outputs args to stdout", echo_command, 1);
@@ -208,6 +218,7 @@ void init_shell() {
 	add_new_command("date", "Outputs system time as date format", date_command, 0);
 	add_new_command("clear", "Clear terminal", clear_command, 0);
 	add_new_command("", "", empty_command, 0);
+	add_new_command("asmjit", "Starts JIT prompt", asmjit_command, 0);
 }
 
 
