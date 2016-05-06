@@ -1,6 +1,7 @@
 #include "shell.h"
 #include "kernel.h"
 #include "kb.h"
+#include "asmjit.h"
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
@@ -201,13 +202,7 @@ void clear_command() {
 }
 
 void asmjit_command() {
-
-	char ch = 0;
-	//EOF = -1
-	while ((ch = getchar()) != 'q') {
-		printf("%c\n", ch);
-	}
-	printf("got eof\n");
+	asmjit();
 }
 
 void init_shell() {
