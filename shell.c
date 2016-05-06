@@ -202,7 +202,7 @@ void clear_command() {
 }
 
 void asmjit_command() {
-	asmjit();
+//	asmjit();
 }
 
 void init_shell() {
