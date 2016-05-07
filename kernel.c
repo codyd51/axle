@@ -166,6 +166,12 @@ void kernel_main() {
 	//run color test
 	test_colors();
 
+	//set up software interrupts
+	init_descriptor_tables();
+	//asm volatile("int $0x8");
+	asm volatile("int $0x3");
+	asm volatile("int $0x4");
+	
 	//set up keyboard driver
 	init_kb();
 
@@ -173,11 +179,6 @@ void kernel_main() {
 	terminal_settextcolor(COLOR_LIGHT_GREY);
 	printf("Kernel has finished booting. Press any key to enter shell.\n");
 	printf("%c\n", getchar());
-
-	//set up software interrupts
-	init_descriptor_tables();
-	asm volatile("int $0x8");
-	//asm volatile("int $0x4");
 
 	init_shell();
 	int exit_status = 1;

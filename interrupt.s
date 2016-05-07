@@ -3,7 +3,7 @@
 	isr%1:
 		cli 			; disable interrupts
 		push byte 0		; push dummy error code (if ISR0 doesn't push its own error code)
-		push byte %1 		; push interrupt number (0)
+		push byte %1 		; push interrupt number 
 		jmp isr_common_stub 	; go to common handler
 %endmacro
 
@@ -54,26 +54,16 @@ ISR_NOERRCODE 31
 ; up kernel mode segments, calls C-level fault handler,
 ; and finally restores stack frame
 isr_common_stub:
-	pusha		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
-	
-	mov ax, ds	; lower 16 bits of eax = ds
+	pushad		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
 	push eax 	; save data segment descriptor
-
 	mov ax, 0x10	; loads kernel data segment argument
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
-
+	
+	cld
 	call isr_handler
 
 	pop eax		; reload original data segment descriptor
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
-
-	popa 		; pop edi, esi, ebp, etc
+	popad 		; pop edi, esi, ebp, etc
 	add esp, 8 	; cleans up pushed error code and pushed ISR number
 	sti
 	iret		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
+
