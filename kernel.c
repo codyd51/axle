@@ -173,6 +173,9 @@ void kernel_main() {
 	printf("Kernel has finished booting. Press any key to enter shell.\n");
 	printf("%c\n", getchar());
 
+	asm volatile("int $0x3");
+	asm volatile("int $0x4");
+
 	init_shell();
 	int exit_status = 1;
 	while (1) {
