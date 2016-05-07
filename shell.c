@@ -2,6 +2,7 @@
 #include "kernel.h"
 #include "kb.h"
 #include "asmjit.h"
+#include "timer.h"
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
@@ -131,7 +132,7 @@ char* get_inputstring() {
 void shell() {
 	//reset terminal color in case it was changed
 	terminal_settextcolor(COLOR_GREEN);
-	printf("\naxle>  ");
+	printf("\naxle> ");
 
 	//set terminal color to input color
 	terminal_settextcolor(COLOR_LIGHT_BLUE);
@@ -192,6 +193,10 @@ void asmjit_command() {
 //	asmjit();
 }
 
+void tick_command() {
+	printf("%d", tickCount());
+}
+
 void init_shell() {
 	//set shell color
 	terminal_settextcolor(COLOR_GREEN);
@@ -203,8 +208,9 @@ void init_shell() {
 	add_new_command("time", "Outputs system time", time_command, 0);
 	add_new_command("date", "Outputs system time as date format", date_command, 0);
 	add_new_command("clear", "Clear terminal", clear_command, 0);
-	add_new_command("", "", empty_command, 0);
 	add_new_command("asmjit", "Starts JIT prompt", asmjit_command, 0);
+	add_new_command("tick", "Prints current tick count from PIC", tick_command, 0);
+	add_new_command("", "", empty_command, 0);
 }
 
 
