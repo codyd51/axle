@@ -1,7 +1,6 @@
 %macro ISR_NOERRCODE 1 		; define a macro, taking one parameter
 	[GLOBAL isr%1] 			; %1 accesses the first parameteer
 	isr%1:
-		cli 			; disable interrupts
 		push byte 0		; push dummy error code (if ISR0 doesn't push its own error code)
 		push byte %1 		; push interrupt number 
 		jmp isr_common_stub 	; go to common handler
@@ -10,7 +9,6 @@
 %macro ISR_ERRCODE 1
 	[GLOBAL isr%1]
 	isr%1:
-		cli
 		push byte %1
 		jmp isr_common_stub
 %endmacro
@@ -53,7 +51,6 @@ ISR_NOERRCODE 31
 %macro IRQ 2
 	[GLOBAL irq%1]
 	irq%1:
-		cli
 		push byte 0
 		push byte %2
 		jmp irq_common_stub
@@ -92,7 +89,6 @@ isr_common_stub:
 	pop eax		; reload original data segment descriptor
 	popad 		; pop edi, esi, ebp, etc
 	add esp, 8 	; cleans up pushed error code and pushed ISR number
-	sti
 	iret		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
 
 [EXTERN irq_handler]
@@ -122,6 +118,5 @@ irq_common_stub:
 
 	popa		; pops edi, esi, ebp, etc
 	add esp, 8	; cleans up pushed error code and pushed ISR number
-	sti
 	iret		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
 
