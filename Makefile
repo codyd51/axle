@@ -3,7 +3,7 @@ CC=i686-elf-gcc
 
 
 
-axle: boot.s linker.ld std.c kb.c kernel.c shell.c clock.c common.c ide.c enableA20.s descriptor_tables.h descriptor_tables.c gdt.s interrupt.s isr.c isr.h
+axle: boot.s linker.ld std.c kb.c kernel.c shell.c clock.c common.c ide.c enableA20.s descriptor_tables.h descriptor_tables.c gdt.s interrupt.s isr.c isr.h timer.h timer.c
 	$(AS) boot.s -o boot.o
 	nasm -f elf -o checkA20.o checkA20.s
 	nasm -f elf -o enableA20.o enableA20.s
@@ -18,4 +18,5 @@ axle: boot.s linker.ld std.c kb.c kernel.c shell.c clock.c common.c ide.c enable
 	$(CC) -c ide.c -o ide.o -std=gnu99 -ffreestanding -Wall -Wextra
 	$(CC) -c descriptor_tables.c -o descriptor_tables.o -std=gnu99 -ffreestanding -Wall -Wextra
 	$(CC) -c isr.c -o isr.o -std=gnu99 -ffreestanding -Wall -Wextra
-	$(CC) -T linker.ld -o axle.bin -ffreestanding -O2 -nostdlib boot.o checkA20.o enableA20.o kernel.o shell.o kb.o std.o clock.o common.o gdt.o interrupt.o descriptor_tables.o isr.o -lgcc
+	$(CC) -c timer.c -o timer.o -std=gnu99 -ffreestanding -Wall -Wextra
+	$(CC) -T linker.ld -o axle.bin -ffreestanding -O2 -nostdlib boot.o checkA20.o enableA20.o kernel.o shell.o kb.o std.o clock.o common.o gdt.o interrupt.o descriptor_tables.o isr.o timer.o -lgcc

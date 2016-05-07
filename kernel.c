@@ -3,6 +3,7 @@
 #include "clock.h"
 #include "common.h"
 #include "descriptor_tables.h"
+#include "timer.h"
 
 uint8_t make_color(enum vga_color fg, enum vga_color bg) {
 	return fg | bg << 4;
@@ -171,9 +172,11 @@ void kernel_main() {
 	//asm volatile("int $0x8");
 	asm volatile("int $0x3");
 	asm volatile("int $0x4");
-	
-	//set up keyboard driver
-	init_kb();
+
+	init_timer(50);	
+	outb(0x21, 0xfc);
+	outb(0xA1, 0xfc);
+	asm("sti");
 
 	//wait for user to start shell
 	terminal_settextcolor(COLOR_LIGHT_GREY);
