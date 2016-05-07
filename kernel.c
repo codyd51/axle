@@ -2,6 +2,7 @@
 #include "shell.h"
 #include "clock.h"
 #include "common.h"
+#include "descriptor_tables.h"
 
 uint8_t make_color(enum vga_color fg, enum vga_color bg) {
 	return fg | bg << 4;
@@ -173,8 +174,10 @@ void kernel_main() {
 	printf("Kernel has finished booting. Press any key to enter shell.\n");
 	printf("%c\n", getchar());
 
-	asm volatile("int $0x3");
-	asm volatile("int $0x4");
+	//set up software interrupts
+	init_descriptor_tables();
+	asm volatile("int $0x8");
+	//asm volatile("int $0x4");
 
 	init_shell();
 	int exit_status = 1;

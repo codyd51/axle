@@ -39,7 +39,7 @@ static void init_idt() {
 	idt_ptr.limit = sizeof(idt_entry_t) * 256 -1;
 	idt_ptr.base = (u32int)&idt_entries;
 
-//	memset(&idt_entries, 0, sizeof(idt_entry_t)*256);
+	memset(&idt_entries, 0, sizeof(idt_entry_t)*256);
 
 	idt_set_gate( 0, (u32int)isr0 , 0x08, 0x08E);   
 	idt_set_gate( 1, (u32int)isr1 , 0x08, 0x08E);
