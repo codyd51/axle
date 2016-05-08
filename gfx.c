@@ -62,9 +62,23 @@ void fill_screen(int color) {
 	memset((char*)VRAM_START, color, (screen->width * screen->height));
 }
 
+//calling putpixel directly will always be slow
+//since we have to calculate where the pixel goes for every single pixel we place
+//suffix _slow, replace this with faster function in future
+void fillrect_slow(int x, int y, int w, int h) {
+	for (int i = y; i < h; i++) {
+		for (int j = x; j < w; j++) {
+			putpixel(j, i, 6);
+		}
+	}
+}
+
 void gfx_test() {
 	switch_to_gfx();
 	fill_screen(1);
+
+	fillrect_slow(50, 5, 100, 10);
+
 	getchar();
 	switch_to_text();
 }
