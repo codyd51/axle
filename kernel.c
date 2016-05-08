@@ -6,6 +6,7 @@
 #include "timer.h"
 #include "paging.h"
 #include <stdarg.h>
+#include "gfx.h"
 
 uint8_t make_color(enum vga_color fg, enum vga_color bg) {
 	return fg | bg << 4;
@@ -195,6 +196,8 @@ void kernel_main() {
 
 	//set up memory for malloc to use
 	initmem();
+
+	int32_test();
 
 	//enable protected mode
 	//enter_protected();
