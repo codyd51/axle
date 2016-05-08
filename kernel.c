@@ -5,6 +5,7 @@
 #include "descriptor_tables.h"
 #include "timer.h"
 #include "paging.h"
+#include <stdarg.h>
 
 uint8_t make_color(enum vga_color fg, enum vga_color bg) {
 	return fg | bg << 4;
@@ -118,6 +119,24 @@ void terminal_clear() {
 	}
 }
 
+//defined in std.c
+extern void vprintf(char* format, va_list va); 
+void kprintf(char* format, ...) {
+	terminal_settextcolor(COLOR_LIGHT_GREEN);
+	printf("[");
+	terminal_settextcolor(COLOR_LIGHT_RED);
+	printf("DEBUG ");
+	terminal_settextcolor(COLOR_LIGHT_BLUE);
+
+	va_list arg;
+	va_start(arg, format);
+	vprintf(format, arg);
+	va_end(arg);
+
+	terminal_settextcolor(COLOR_LIGHT_GREEN);
+	printf("]\n");	
+}
+
 //defined in assembly
 extern void enable_A20();
 
@@ -203,7 +222,7 @@ void kernel_main() {
 	//wait for user to start shell
 	terminal_settextcolor(COLOR_LIGHT_GREY);
 	printf("Kernel has finished booting. Press any key to enter shell.\n");
-	printf("%c\n", getchar());
+	printf("%c", getchar());
 
 	init_shell();
 	int exit_status = 1;

@@ -3,11 +3,12 @@
 #include "std.h"
 #include "kernel.h"
 
-/*
+
 //bitset of frames - used or free
 u32int* frames;
 u32int nframes;
 
+page_directory_t* kernel_directory;
 page_directory_t* current_directory;
 
 //defined in kheap
@@ -98,20 +99,20 @@ void initialize_paging() {
 	//assume 16MB
 	u32int mem_end_page = 0x10000000;
 		
-	printf("mem_end_page\n");
+	kprintf("mem_end_page");
 
 	nframes = mem_end_page / 0x1000;
 	frames = (u32int*)kmalloc(INDEX_FROM_BIT(nframes));
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
 
-	printf("memset\n");
+	kprintf("memset");
 
 	//make page directory
-	page_directory_t* kernel_directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
+	kernel_directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
 	memset(kernel_directory, 0, sizeof(page_directory_t));
 	current_directory = kernel_directory;
 
-	printf("current_directory\n");
+	kprintf("current_directory");
 
 	//we need to identity map (phys addr = virtual addr) from
 	//0x0 to end of used memory, so we can access this
@@ -125,26 +126,26 @@ void initialize_paging() {
 		alloc_frame(get_page(idx, 1, kernel_directory), 0, 0);
 		idx += 0x1000;
 	}
-	printf("identity map\n");
+	kprintf("identity map");
 
 	//before we enable paging, register page fault handler
 	register_interrupt_handler(14, page_fault);
 
-	printf("register handler\n");
+	kprintf("register handler");
 
 	//enable paging
 	switch_page_directory(kernel_directory);
 
-	printf("switch_page_directory\n");
+	kprintf("switch_page_directory");
 
 	//turn on paging
 	asm volatile("cli");
 	u32int cr0;
 	asm volatile("mov %%cr0, %0" : "=r"(cr0));
-	cr0 |= 0x80000000;
+	//cr0 |= 0x80000000;
 	asm volatile("mov %0, %%cr0" : : "r"(cr0));
 	
-	printf("paging enabled");
+	kprintf("paging enabled");
 
 }
 
@@ -197,7 +198,7 @@ void page_fault(registers_t regs) {
 	PANIC("Page fault");
 }
 
-*/
+/*
 
 #define PANIC(x) panic(x, __LINE__, __FILE__);
 
@@ -282,8 +283,9 @@ void initialize_paging() {
 	asm volatile("mov %%cr0, %0" : "=r"(cr0));
 	cr0 |= 0x80000000;
 	asm volatile("mov %0, %%cr0" : : "r"(cr0));
-*/
+*
 	terminal_settextcolor(COLOR_MAGENTA);
 	printf("Paging enabled.\n");
 }
 
+*/
