@@ -205,7 +205,7 @@ void kernel_main() {
 	terminal_settextcolor(COLOR_LIGHT_CYAN);
 	printf("AXLE OS v");
 	terminal_settextcolor(COLOR_LIGHT_BROWN);
-	printf("0.0.1");
+	printf("0.3.0");
 	terminal_settextcolor(COLOR_GREEN);
 	printf("]\n");
 
