@@ -65,11 +65,23 @@ void fill_screen(int color) {
 //calling putpixel directly will always be slow
 //since we have to calculate where the pixel goes for every single pixel we place
 //suffix _slow, replace this with faster function in future
-void fillrect_slow(int x, int y, int w, int h) {
+void fillrect_slow(int x, int y, int w, int h, int color) {
 	for (int i = y; i < h; i++) {
 		for (int j = x; j < w; j++) {
-			putpixel(j, i, 6);
+			putpixel(j, i, color);
 		}
+	}
+}
+
+void hline_slow(int x, int y, int w, int color) {
+	for (; x < w; x++) {
+	       putpixel(x, y, color);
+	}
+}	
+
+void vline_slow(int x, int y, int h, int color) {
+	for (; y < h; y++) {
+		putpixel(x, y, color);
 	}
 }
 
@@ -77,7 +89,9 @@ void gfx_test() {
 	switch_to_gfx();
 	fill_screen(1);
 
-	fillrect_slow(50, 5, 100, 10);
+	fillrect_slow(50, 5, 100, 10, 6);
+	hline_slow(80, 30, 200, 7);
+	vline_slow(25, 5, 150, 9);
 
 	getchar();
 	switch_to_text();
