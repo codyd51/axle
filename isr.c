@@ -4,7 +4,8 @@
 
 //gets called from ASM interrupt handler stub
 void isr_handler(registers_t regs) {
-	printf("recieved interrupt: %d\n", regs.int_no);
+	terminal_settextcolor(COLOR_MAGENTA);
+	printf("recieved interrupt: %d err code: %d\n", regs.int_no, regs.err_code);
 }
 
 isr_t interrupt_handlers[256];

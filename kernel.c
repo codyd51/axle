@@ -4,6 +4,7 @@
 #include "common.h"
 #include "descriptor_tables.h"
 #include "timer.h"
+#include "paging.h"
 
 uint8_t make_color(enum vga_color fg, enum vga_color bg) {
 	return fg | bg << 4;
@@ -135,13 +136,32 @@ void enter_protected() {
 
 void test_colors() {
 	terminal_settextcolor(COLOR_WHITE);
-	printf("Testing colors...");
+	printf("Testing colors...\n");
 	for (int i = 0; i < 16; i++) {
 		terminal_settextcolor(i);
 		printf("@");
 	}
 	printf("\n");
 	terminal_settextcolor(COLOR_WHITE);
+}
+
+void force_hardware_irq() {
+	printf("Forcing hardware IRQ...\n");
+	int i;
+	i = 500/0;
+	printf("%d\n", i);
+}	
+
+void force_page_fault() {
+	printf("Forcing page fault...\n");
+	u32int* ptr = (u32int*)0xA0000000;
+	u32int do_fault = *ptr;
+}
+
+void test_interrupts() {
+	printf("Testing interrupts...\n");
+	asm volatile("int $0x3");
+	asm volatile("int $0x4");
 }
 
 //declared within std.c
@@ -169,14 +189,16 @@ void kernel_main() {
 
 	//set up software interrupts
 	init_descriptor_tables();
-	//asm volatile("int $0x8");
-	asm volatile("int $0x3");
-	asm volatile("int $0x4");
+	test_interrupts();
+
+	terminal_settextcolor(COLOR_LIGHT_GREY);
 
 	init_timer(50);	
 	outb(0x21, 0xfc);
 	outb(0xA1, 0xfc);
 	asm("sti");
+
+	initialize_paging();
 
 	//wait for user to start shell
 	terminal_settextcolor(COLOR_LIGHT_GREY);
