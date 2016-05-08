@@ -200,31 +200,35 @@ void kernel_main() {
 	//enter_protected();
 
 	//introductory message
-	terminal_settextcolor(COLOR_LIGHT_BLUE);
+	terminal_settextcolor(COLOR_GREEN);
 	printf("[");
-	terminal_settextcolor(COLOR_LIGHT_MAGENTA);
+	terminal_settextcolor(COLOR_LIGHT_CYAN);
 	printf("AXLE OS v");
-	terminal_settextcolor(COLOR_WHITE);
+	terminal_settextcolor(COLOR_LIGHT_BROWN);
 	printf("0.0.1");
-	terminal_settextcolor(COLOR_LIGHT_BLUE);
+	terminal_settextcolor(COLOR_GREEN);
 	printf("]\n");
 
 	//run color test
 	test_colors();
 
 	//set up software interrupts
+	terminal_settextcolor(COLOR_LIGHT_GREY);
+	printf("Initializing descriptor tables...\n");
 	init_descriptor_tables();
 	test_interrupts();
 
-	init_timer(50);	
+	terminal_settextcolor(COLOR_LIGHT_GREY);
+	printf("Initializing PIC timer...\n");
+	init_timer(50);
 //	outb(0x21, 0xfc);
 //	outb(0xA1, 0xfc);
 //	asm("sti");
 
+	terminal_settextcolor(COLOR_LIGHT_GREY);
+	printf("Initializing paging...\n");
 	initialize_paging();
 	force_page_fault();
-	u32int *ptr = (u32int*)0xA0000000;
-	u32int do_fault = *ptr;
 
 	//wait for user to start shell
 	terminal_settextcolor(COLOR_LIGHT_GREY);
