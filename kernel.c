@@ -197,8 +197,6 @@ void kernel_main() {
 	//set up memory for malloc to use
 	initmem();
 
-	int32_test();
-
 	//enable protected mode
 	//enter_protected();
 
@@ -232,6 +230,10 @@ void kernel_main() {
 	printf("Initializing paging...\n");
 	initialize_paging();
 	force_page_fault();
+
+	printf("Press any key to test graphics mode. Press any key to exit.\n");
+	getchar();
+	gfx_test();
 
 	//wait for user to start shell
 	terminal_settextcolor(COLOR_LIGHT_GREY);
