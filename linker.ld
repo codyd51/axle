@@ -41,6 +41,8 @@ SECTIONS {
         *(.bootstrap_stack)
     }
 
+    end = .; _end = .; __end = .;
+
     /*  the compiler may produce other sections, but by default it will put them
         in a segment with the same name.
         let's just add stuff here as needed

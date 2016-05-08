@@ -1,7 +1,9 @@
 #include "common.h"
 #include "kheap.h"
 
-u32int placement_address;
+//end is defined in linker script
+extern u32int end;
+u32int placement_address = (u32int)&end;
 
 u32int kmalloc_int(u32int sz, int align, u32int* phys) {
 	//if addr is not already page aligned

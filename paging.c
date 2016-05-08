@@ -3,7 +3,6 @@
 #include "std.h"
 #include "kernel.h"
 
-
 //bitset of frames - used or free
 u32int* frames;
 u32int nframes;
@@ -97,6 +96,7 @@ void free_frame(page_t* page) {
 void initialize_paging() {
 	//size of physical memory
 	//assume 16MB
+	
 	u32int mem_end_page = 0x10000000;
 		
 	kprintf("mem_end_page");
@@ -142,7 +142,7 @@ void initialize_paging() {
 	asm volatile("cli");
 	u32int cr0;
 	asm volatile("mov %%cr0, %0" : "=r"(cr0));
-	//cr0 |= 0x80000000;
+	cr0 |= 0x80000000;
 	asm volatile("mov %0, %%cr0" : : "r"(cr0));
 	
 	kprintf("paging enabled");

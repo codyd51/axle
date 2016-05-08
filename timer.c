@@ -15,6 +15,7 @@ u32int tickCount() {
 }
 
 void init_timer(u32int frequency) {
+	terminal_settextcolor(COLOR_LIGHT_GREY);
 	printf("init timer called\n");
 	
 	//firstly, register our timer callback
