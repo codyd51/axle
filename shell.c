@@ -104,6 +104,13 @@ void process_character(char* inputstr, char ch) {
 	if (ch == '\b') {
 		//remove last character from input string
 		if (strlen(inputstr) > 0) {
+			char lastChar = inputstr[strlen(inputstr)-1];
+			//if we're removing a space, check if we should reset the color to indicate a command
+			if (lastChar == ' ') {
+				//TODO make sure there's only one word left before resetting color
+				terminal_settextcolor(COLOR_LIGHT_BLUE);
+			}
+
 			inputstr = delchar(inputstr);
 			terminal_removechar();
 		}
@@ -116,6 +123,11 @@ void process_character(char* inputstr, char ch) {
 		//add this character to the input string and output it
 		strccat(inputstr, ch);
 		terminal_putchar(ch);
+	}
+
+	//if this character was a space, change text color to indicate an argument
+	if (ch == ' ') {
+		terminal_settextcolor(COLOR_LIGHT_MAGENTA);
 	}
 }
 
