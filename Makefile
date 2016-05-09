@@ -3,7 +3,7 @@ CC=i686-elf-gcc
 
 
 
-axle: boot.s linker.ld std.c kb.c kernel.c shell.c clock.c common.c ide.c enableA20.s descriptor_tables.h descriptor_tables.c gdt.s interrupt.s isr.c isr.h timer.h timer.c kheap.h kheap.c paging.h paging.c paging_util.s int32.s gfx.h gfx.c
+axle: boot.s linker.ld std.c kb.c kernel.c shell.c clock.c common.c ide.c enableA20.s descriptor_tables.h descriptor_tables.c gdt.s interrupt.s isr.c isr.h timer.h timer.c kheap.h kheap.c paging.h paging.c paging_util.s int32.s gfx.h gfx.c font.h font.c
 	$(AS) boot.s -o boot.o
 	nasm -f elf -o checkA20.o checkA20.s
 	nasm -f elf -o enableA20.o enableA20.s
@@ -24,4 +24,5 @@ axle: boot.s linker.ld std.c kb.c kernel.c shell.c clock.c common.c ide.c enable
 	$(CC) -c kheap.c -o kheap.o -std=gnu99 -ffreestanding -Wall -Wextra
 	$(CC) -c paging.c -o paging.o -std=gnu99 -ffreestanding -Wall -Wextra
 	$(CC) -c gfx.c -o gfx.o -std=gnu99 -ffreestanding -Wall -Wextra
-	$(CC) -T linker.ld -o axle.bin -ffreestanding -O2 -nostdlib boot.o checkA20.o enableA20.o kernel.o shell.o kb.o std.o clock.o common.o gdt.o interrupt.o descriptor_tables.o isr.o timer.o kheap.o paging.o paging_util.o int32.o gfx.o -lgcc
+	$(CC) -c font.c -o font.o -std=gnu99 -ffreestanding -Wall -Wextra
+	$(CC) -T linker.ld -o axle.bin -ffreestanding -O2 -nostdlib boot.o checkA20.o enableA20.o kernel.o shell.o kb.o std.o clock.o common.o gdt.o interrupt.o descriptor_tables.o isr.o timer.o kheap.o paging.o paging_util.o int32.o gfx.o font.o -lgcc

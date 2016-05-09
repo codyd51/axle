@@ -2,6 +2,7 @@
 #include "std.h"
 #include "kernel.h"
 #include "timer.h"
+#include "font.h"
 
 #define VRAM_START 0xA0000
 
@@ -65,12 +66,20 @@ void gfx_test() {
 	screen_t* screen = get_vga_screen();
 	fill_screen(screen, 1);
 
-	fillrect_slow(screen, 50, 5, 100, 10, 6);
-	hline_slow(screen, 80, 30, 200, 7);
-	vline_slow(screen, 25, 5, 150, 9);
+	//fillrect(screen, 50, 5, 100, 10, 6);
+	//hline_slow(screen, 80, 30, 200, 7);
+	//vline_slow(screen, 25, 5, 150, 9);
+	
+	font_t* font_map = setup_font();
+//	draw_char(screen, font_map, 'a');
+	//draw_char(screen, font_map, 'b');
+	draw_char(screen, font_map, 'z');
+//	draw_char(screen, font_map, 'd');
+//	draw_char(screen, font_map, 'e');
+	//draw_char(screen, font_map, 'f');
 
-	sleep(3000);
-	//getchar();
+	//sleep(5000);
+	getchar();
 	switch_to_text();
 }
 

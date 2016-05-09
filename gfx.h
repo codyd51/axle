@@ -1,3 +1,6 @@
+#ifndef GFX_H
+#define GFX_H
+
 #include "common.h"
 
 typedef struct __attribute__((packed)) {
@@ -18,3 +21,5 @@ extern void int32(unsigned char intnum, regs16_t* regs);
 screen_t* get_gfx_screen();
 void switch_to_text();
 void gfx_test();
+
+#endif
