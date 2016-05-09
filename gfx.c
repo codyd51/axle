@@ -1,6 +1,7 @@
 #include "gfx.h"
 #include "std.h"
 #include "kernel.h"
+#include "timer.h"
 
 #define VRAM_START 0xA0000
 
@@ -93,7 +94,8 @@ void gfx_test() {
 	hline_slow(80, 30, 200, 7);
 	vline_slow(25, 5, 150, 9);
 
-	getchar();
+	sleep(3000);
+	//getchar();
 	switch_to_text();
 }
 
