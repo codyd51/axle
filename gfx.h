@@ -22,4 +22,6 @@ screen_t* get_gfx_screen();
 void switch_to_text();
 void gfx_test();
 
+void putpixel(screen_t* screen, int x, int y, int color);
+
 #endif

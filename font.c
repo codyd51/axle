@@ -226,19 +226,17 @@ int is_bit_set(int c, int n) {
 	static int mask[] = {128, 64, 32, 16, 8, 4, 2, 1};
 	return ((c & mask[n]) != 0);
 }
-void draw_char(screen_t* screen, font_t* font_map, char ch) {
+
+void draw_char(screen_t* screen, font_t* font_map, char ch, int x, int y) {
 	int index = char_index(ch);
 	char_t* c = font_map->characters[index];
-	//int yend = y + 8;
-	for (int y = 0; y < 8; y++) {
-		int row = c->rows[y];
-		//int xend = x + 8;
-		for (int x = 0; x < 8; x++) {
-			if (is_bit_set(row, x) != 0) {
-				putpixel(screen, x, y, 2);
+	for (int i = 0; i < 8; i++) {
+		int row = c->rows[i];
+		for (int j = 0; j < 8; j++) {
+			if (is_bit_set(row, j) != 0) {
+				putpixel(screen, x + j, y + i, 2);
 			}
 		}
 	}
-	//x += 8;
 }
 

@@ -71,10 +71,29 @@ void gfx_test() {
 	//vline_slow(screen, 25, 5, 150, 9);
 	
 	font_t* font_map = setup_font();
-//	draw_char(screen, font_map, 'a');
-	//draw_char(screen, font_map, 'b');
-	draw_char(screen, font_map, 'z');
-//	draw_char(screen, font_map, 'd');
+	//draw_char(screen, font_map, 'a', 0, 0);
+	//draw_char(screen, font_map, 'b', 10, 0);
+	//draw_char(screen, font_map, 'z', 20, 0);
+	draw_char(screen, font_map, 'p', 0, 10);
+	draw_char(screen, font_map, 'h', 10, 10);
+	draw_char(screen, font_map, 'i', 20, 10);
+	draw_char(screen, font_map, 'l', 30, 10);
+	draw_char(screen, font_map, 'l', 40, 10);
+	draw_char(screen, font_map, 'i', 50, 10);
+	draw_char(screen, font_map, 'p', 60, 10);
+
+	draw_char(screen, font_map, 't', 80, 10);
+	draw_char(screen, font_map, 'e', 90, 10);
+	draw_char(screen, font_map, 'n', 100, 10);
+	draw_char(screen, font_map, 'n', 110, 10);
+	draw_char(screen, font_map, 'e', 120, 10);
+	draw_char(screen, font_map, 'n', 130, 10);
+
+	draw_char(screen, font_map, 'm', 0, 20);
+	draw_char(screen, font_map, 'e', 10, 20);
+	draw_char(screen, font_map, 'm', 20, 20);
+	draw_char(screen, font_map, 'e', 30, 20);
+	//	draw_char(screen, font_map, 'd');
 //	draw_char(screen, font_map, 'e');
 	//draw_char(screen, font_map, 'f');
 
