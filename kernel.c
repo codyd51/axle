@@ -221,7 +221,7 @@ void kernel_main() {
 
 	terminal_settextcolor(COLOR_LIGHT_GREY);
 	printf("Initializing PIC timer...\n");
-	init_timer(50);
+	init_timer(1000);
 //	outb(0x21, 0xfc);
 //	outb(0xA1, 0xfc);
 //	asm("sti");

@@ -223,10 +223,3 @@ unsigned char epoch_time() {
 	return secs_since_1970;
 }
 
-void sleep(int secs) {
-	int end = epoch_time() + secs;
-	while (epoch_time() < end) {}
-}
-
-
-

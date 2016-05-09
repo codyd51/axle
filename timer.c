@@ -38,3 +38,7 @@ void init_timer(u32int frequency) {
 	outb(0x40, h);
 }
 
+void sleep(u32int ms) {
+	u32int end = tick + ms;
+	while (tick < end) {}
+}
