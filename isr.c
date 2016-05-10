@@ -2,10 +2,32 @@
 #include "isr.h"
 #include "kernel.h"
 
+void handle_page_fault(registers_t regs) {
+	//TODO cr2 holds address that caused the fault
+	printf_err("Encountered page fault. Info follows");
+
+	if (regs.err_code & 0x000F) printf_err("Page was present");
+	else printf_err("Page was not present");
+	
+	if (regs.err_code & 0x00F0) printf_err("Operation was a write");
+	else printf_err("Operation was a read");
+
+	if (regs.err_code & 0x0F00) printf_err("User mode");
+	else printf_err("Supervisor mode");
+
+	if (regs.err_code & 0xF000) printf_err("Faulted during instruction fetch");
+
+	printf_info("Halting execution");
+	do {} while (1);
+}
+
 //gets called from ASM interrupt handler stub
 void isr_handler(registers_t regs) {
-	terminal_settextcolor(COLOR_MAGENTA);
 	printf_info("recieved interrupt: %d err code: %d", regs.int_no, regs.err_code);
+
+	if (regs.int_no == 14) {
+		handle_page_fault(regs);
+	}
 }
 
 isr_t interrupt_handlers[256];

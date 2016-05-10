@@ -159,6 +159,7 @@ void force_page_fault() {
 	printf_info("Forcing page fault...");
 	u32int* ptr = (u32int*)0xA0000000;
 	u32int do_fault = *ptr;
+	printf_err("This should never be reached: %d", do_fault);
 }
 
 void test_interrupts() {
