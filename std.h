@@ -60,5 +60,12 @@ void* memmove(void*, const void*, size_t);
 void* memset(void*, int, size_t);
 
 //Printing functions
-void printf(char* format, ...);
 
+//standard printf
+void printf(char* format, ...);
+//debug-priority printf
+void printf_dbg(char* format, ...);
+//info-priority printf
+void printf_info(char* format, ...);
+//error-priority printf
+void printf_err(char* format, ...);

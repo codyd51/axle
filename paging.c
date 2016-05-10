@@ -99,20 +99,20 @@ void initialize_paging() {
 	
 	u32int mem_end_page = 0x10000000;
 		
-	kprintf("mem_end_page");
+	printf_dbg("mem_end_page");
 
 	nframes = mem_end_page / 0x1000;
 	frames = (u32int*)kmalloc(INDEX_FROM_BIT(nframes));
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
 
-	kprintf("memset");
+	printf_dbg("memset");
 
 	//make page directory
 	kernel_directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
 	memset(kernel_directory, 0, sizeof(page_directory_t));
 	current_directory = kernel_directory;
 
-	kprintf("current_directory");
+	printf_dbg("current_directory");
 
 	//we need to identity map (phys addr = virtual addr) from
 	//0x0 to end of used memory, so we can access this
@@ -126,17 +126,17 @@ void initialize_paging() {
 		alloc_frame(get_page(idx, 1, kernel_directory), 0, 0);
 		idx += 0x1000;
 	}
-	kprintf("identity map");
+	printf_dbg("identity map");
 
 	//before we enable paging, register page fault handler
 	register_interrupt_handler(14, page_fault);
 
-	kprintf("register handler");
+	printf_dbg("register handler");
 
 	//enable paging
 	switch_page_directory(kernel_directory);
 
-	kprintf("switch_page_directory");
+	printf_dbg("switch_page_directory");
 
 	//turn on paging
 	asm volatile("cli");
@@ -146,7 +146,7 @@ void initialize_paging() {
 	asm volatile("mov %0, %%cr0" : : "r"(cr0));
 	asm volatile("sti");
 
-	kprintf("paging enabled");
+	printf_dbg("paging enabled");
 
 }
 

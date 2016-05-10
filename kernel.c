@@ -121,24 +121,6 @@ void terminal_clear() {
 	}
 }
 
-//defined in std.c
-extern void vprintf(char* format, va_list va); 
-void kprintf(char* format, ...) {
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("[");
-	terminal_settextcolor(COLOR_LIGHT_RED);
-	printf("DEBUG ");
-	terminal_settextcolor(COLOR_LIGHT_BLUE);
-
-	va_list arg;
-	va_start(arg, format);
-	vprintf(format, arg);
-	va_end(arg);
-
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("]\n");	
-}
-
 //defined in assembly
 extern void enable_A20();
 
@@ -149,15 +131,15 @@ void enter_protected() {
 	//wait for keyboard controller to clear
 	//if bottom bit is set, kb is busy
 	while (inb(0x64) & 1 != 0)
-		printf("kb status: %d", inb(0x64));
+		printf_dbg("kb status: %d", inb(0x64));
 
 	int i = enableA20();
-	printf("return status: %d\n", i);
+	printf_dbg("return status: %d", i);
 }
 
 void test_colors() {
 	terminal_settextcolor(COLOR_WHITE);
-	printf("Testing colors...\n");
+	printf_info("Testing colors...");
 	for (int i = 0; i < 16; i++) {
 		terminal_settextcolor(i);
 		printf("@");
@@ -167,26 +149,26 @@ void test_colors() {
 }
 
 void force_hardware_irq() {
-	printf("Forcing hardware IRQ...\n");
+	printf_info("Forcing hardware IRQ...");
 	int i;
 	i = 500/0;
-	printf("%d\n", i);
-}	
+	printf_dbg("%d", i);
+}
 
 void force_page_fault() {
-	printf("Forcing page fault...\n");
+	printf_info("Forcing page fault...");
 	u32int* ptr = (u32int*)0xA0000000;
 	u32int do_fault = *ptr;
 }
 
 void test_interrupts() {
-	printf("Testing interrupts...\n");
+	printf_info("Testing interrupts...");
 	asm volatile("int $0x3");
 	asm volatile("int $0x4");
 }
 
 void test_vesa() {
-	printf("Testing VESA detection...\n");
+	printf_info("Testing VESA detection...");
 	
 	printf("Press any key to test graphics mode. Press any key to exit.\n");
 	getchar();
@@ -195,15 +177,15 @@ void test_vesa() {
 	
 	getchar();
 	switch_to_text();
-	printf("Back in text mode\n");
+	printf_info("Back in text mode");
 
-	kprintf("attributes: %d", mode_info->attributes);
-	kprintf("granularity: %d", mode_info->granularity);
-	kprintf("winsize: %d", mode_info->win_size);
-	kprintf("pitch: %d", mode_info->pitch);
-	kprintf("x_res: %d, y_res: %d", mode_info->x_res, mode_info->y_res);
-	kprintf("red_base: %d, red_position: %d", mode_info->red_mask, mode_info->red_position);
-	kprintf("physbase: %x", mode_info->physbase);
+	printf_dbg("attributes: %d", mode_info->attributes);
+	printf_dbg("granularity: %d", mode_info->granularity);
+	printf_dbg("winsize: %d", mode_info->win_size);
+	printf_dbg("pitch: %d", mode_info->pitch);
+	printf_dbg("x_res: %d, y_res: %d", mode_info->x_res, mode_info->y_res);
+	printf_dbg("red_base: %d, red_position: %d", mode_info->red_mask, mode_info->red_position);
+	printf_dbg("physbase: %x", mode_info->physbase);
 }
 
 //declared within std.c
@@ -237,18 +219,18 @@ void kernel_main() {
 
 	//set up software interrupts
 	terminal_settextcolor(COLOR_LIGHT_GREY);
-	printf("Initializing descriptor tables...\n");
+	printf_info("Initializing descriptor tables...");
 	init_descriptor_tables();
 	test_interrupts();
 
 	terminal_settextcolor(COLOR_LIGHT_GREY);
-	printf("Initializing PIC timer...\n");
+	printf_info("Initializing PIC timer...");
 	init_timer(1000);
 	//outb(0x21, 0xfc);
 	//outb(0xA1, 0xfc);
 
 	terminal_settextcolor(COLOR_LIGHT_GREY);
-	printf("Initializing paging...\n");
+	printf_info("Initializing paging...");
 	initialize_paging();
 	force_page_fault();
 
