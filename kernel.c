@@ -7,6 +7,7 @@
 #include "paging.h"
 #include <stdarg.h>
 #include "gfx.h"
+#include "vesa.h"
 
 uint8_t make_color(enum vga_color fg, enum vga_color bg) {
 	return fg | bg << 4;
@@ -184,6 +185,27 @@ void test_interrupts() {
 	asm volatile("int $0x4");
 }
 
+void test_vesa() {
+	printf("Testing VESA detection...\n");
+	
+	printf("Press any key to test graphics mode. Press any key to exit.\n");
+	getchar();
+	
+	vesa_mode_info* mode_info = get_vesa_info();
+	
+	getchar();
+	switch_to_text();
+	printf("Back in text mode\n");
+
+	kprintf("attributes: %d", mode_info->attributes);
+	kprintf("granularity: %d", mode_info->granularity);
+	kprintf("winsize: %d", mode_info->win_size);
+	kprintf("pitch: %d", mode_info->pitch);
+	kprintf("x_res: %d, y_res: %d", mode_info->x_res, mode_info->y_res);
+	kprintf("red_base: %d, red_position: %d", mode_info->red_mask, mode_info->red_position);
+	kprintf("physbase: %x", mode_info->physbase);
+}
+
 //declared within std.c
 extern void initmem();
 
@@ -222,24 +244,21 @@ void kernel_main() {
 	terminal_settextcolor(COLOR_LIGHT_GREY);
 	printf("Initializing PIC timer...\n");
 	init_timer(1000);
-//	outb(0x21, 0xfc);
-//	outb(0xA1, 0xfc);
-//	asm("sti");
+	//outb(0x21, 0xfc);
+	//outb(0xA1, 0xfc);
 
 	terminal_settextcolor(COLOR_LIGHT_GREY);
 	printf("Initializing paging...\n");
 	initialize_paging();
 	force_page_fault();
 
-	printf("Press any key to test graphics mode. Press any key to exit.\n");
-	getchar();
-	gfx_test();
+	//test_vesa();
 
 	//wait for user to start shell
 	terminal_settextcolor(COLOR_LIGHT_GREY);
 	printf("Kernel has finished booting. Press any key to enter shell.\n");
-	printf("%c", getchar());
-
+	getchar();
+		
 	init_shell();
 	int exit_status = 1;
 	while (1) {

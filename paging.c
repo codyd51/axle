@@ -144,7 +144,8 @@ void initialize_paging() {
 	asm volatile("mov %%cr0, %0" : "=r"(cr0));
 	cr0 |= 0x80000000;
 	asm volatile("mov %0, %%cr0" : : "r"(cr0));
-	
+	asm volatile("sti");
+
 	kprintf("paging enabled");
 
 }
