@@ -21,7 +21,7 @@ void init_timer(u32int frequency) {
 	//firstly, register our timer callback
 	register_interrupt_handler(IRQ0, &timer_callback);
 
-	//value we need to send to PIT is value to divide it's input clock
+	//value we need to send to PIC is value to divide it's input clock
 	//(1193180 Hz) by, to get desired frequency
 	//divisor *must* be small enough to fit into 16 bytes
 	u32int divisor = 1193180 / frequency;

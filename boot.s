@@ -30,6 +30,7 @@ stack_top:
 .section .text
 .global _start
 .type _start, @function
+
 _start:
     #welcome to kernel mode! We now have sufficient code for the bootloader to
     #load and run our operating system. It doesn't do much yet, though.
@@ -37,6 +38,9 @@ _start:
     #to set up a stack so that we can at least use C, let's set the esp register to
     #point to the top of our stack (grows downwards)
     movl $stack_top, %esp
+
+    #push multiboot header location
+    push %ebx
 
     #we can now actually execute C code! A function kernel_main will be used as the entry
     #point to the OS
