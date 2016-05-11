@@ -1,6 +1,20 @@
 #include "std.h"
 #include <stdarg.h>
 
+#define ASSERT(x) if (!x) panic(__LINE__, __FILE__);
+#define PANIC(msg) panic_msg(msg, __LINE__, __FILE__);
+
+void panic(u16int line, const char* file) {
+	printf_err("PANIC %s : %d", line, file);
+	//enter infinite loop
+	do {} while (1);
+}
+
+void panic_msg(const char* msg, u16int line, const char* file) {
+	printf_err("Throwing panic: %s", msg);
+	panic(line, file);
+}
+
 //String functions
 
 char* itoa(int i, char b[]) {
