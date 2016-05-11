@@ -254,6 +254,36 @@ char* convert(unsigned int num, int base) {
 
 	return (ptr);
 }
+void printf_hex(u32int n) {
+
+					unsigned short tmp;
+					terminal_writestring("0x");
+
+					char noZeroes = 1;
+					int i;
+					for (i = 28; i > 0; i -= 4) {
+						tmp = (n >> i) & 0xF;
+						if (tmp == 0 && noZeroes != 0) {
+							continue;
+						}
+
+						if (tmp >= 0xA) {
+							noZeroes = 0;
+							terminal_putchar(tmp-0xA + 'a');
+						} else {
+							noZeroes = 0;
+							terminal_putchar(tmp + '0');
+						}
+					}
+
+					tmp = n & 0xF;
+					if (tmp >= 0xA) {
+						terminal_putchar(tmp-0xA + 'a');
+					} else {
+						terminal_putchar(tmp + '0');
+					}
+}
+
 void vprintf(char* format, va_list va) {
 	char bf[24];
 	char ch;
@@ -291,8 +321,9 @@ void vprintf(char* format, va_list va) {
 
 				case 'x':
 				case 'X':
-					itoa(convert(va_arg(va, unsigned int), 16), bf);
-					terminal_writestring(bf);
+					printf_hex(va_arg(va, u32int));
+					//itoa(convert(va_arg(va, unsigned int), 16), bf);
+					//terminal_writestring(bf);
 					break;
 
 				case 'c':
