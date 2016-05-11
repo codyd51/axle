@@ -12,6 +12,7 @@ page_directory_t* current_directory;
 
 //defined in kheap
 extern u32int placement_address;
+extern heap_t* kheap;
 
 //macros used in bitset algorithms
 #define INDEX_FROM_BIT(a) (a/(8*4))
@@ -55,14 +56,6 @@ static u32int first_frame() {
 			}
 		}
 	}
-}
-
-#define PANIC(x) panic(x, __LINE__, __FILE__);
-
-void panic(const char* err, u32int line, const char* file) {
-	printf("[%s - line %d]: %s", file, line, err);
-	//enter infinite loop
-	do {} while (1);
 }
 
 //function to allocate a frame
@@ -114,6 +107,17 @@ void initialize_paging() {
 
 	printf_dbg("current_directory");
 
+	//map pages in kernel heap area
+	//we call get_page but not alloc_frame
+	//this causes page_table_t's to be created where necessary
+	//don't alloc the frames yet, they need to be identity 
+	//mapped below first.
+	int i = 0;
+	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
+		get_page(i, 1, kernel_directory);
+	}
+	printf_dbg("map kernel pages");
+
 	//we need to identity map (phys addr = virtual addr) from
 	//0x0 to end of used memory, so we can access this
 	//transparently, as if paging wasn't enabled
@@ -127,6 +131,11 @@ void initialize_paging() {
 		idx += 0x1000;
 	}
 	printf_dbg("identity map");
+
+	//allocate pages we mapped earlier
+	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
+		alloc_frame(get_page(i, 1, kernel_directory), 0, 0);
+	}
 
 	//before we enable paging, register page fault handler
 	register_interrupt_handler(14, page_fault);
@@ -148,6 +157,8 @@ void initialize_paging() {
 
 	printf_dbg("paging enabled");
 
+	//initialize kernel heap
+	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, 0xCFFFF000, 0, 0);
 }
 
 void switch_page_directory(page_directory_t* dir) {

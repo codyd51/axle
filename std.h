@@ -14,7 +14,8 @@
 #error "OS must be compiled with a ix86-elf compiler."
 #endif
 
-
+#define ASSERT(x) if (!(x)) panic(__LINE__, __FILE__);
+#define PANIC(msg) panic_msg(msg, __LINE__, __FILE__);
 
 //String functions
 
@@ -53,7 +54,7 @@ char tolower(char ch);
 //return block of memory of given size
 void *malloc(int size);
 //free up block of memory
-void free(void *ptr);
+//void free(void *ptr);
 int memcp(const void*, const void*, size_t);
 void* memcpy(void* __restrict, const void* __restrict, size_t);
 void* memmove(void*, const void*, size_t);

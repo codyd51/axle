@@ -1,8 +1,6 @@
 #include "std.h"
 #include <stdarg.h>
-
-#define ASSERT(x) if (!x) panic(__LINE__, __FILE__);
-#define PANIC(msg) panic_msg(msg, __LINE__, __FILE__);
+#include "common.h"
 
 void panic(u16int line, const char* file) {
 	printf_err("PANIC %s : %d", line, file);
@@ -203,12 +201,12 @@ void *malloc(int size) {
   mem_end += size;
   return (void*) temp;
 }
-
+/*
 void free(void *ptr) {
   /* Don't bother to free anything--if programs need to start over, they
-     can re-invoke initmem */
+     can re-invoke initmem *
 }
-
+*/
 int memcmp(const void* aptr, const void* bptr, size_t size) {
 	const unsigned char* a = (const unsigned char*) aptr;
 	const unsigned char* b = (const unsigned char*) bptr;

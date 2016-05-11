@@ -233,7 +233,7 @@ void kernel_main() {
 	terminal_settextcolor(COLOR_LIGHT_GREY);
 	printf_info("Initializing paging...");
 	initialize_paging();
-	force_page_fault();
+	//force_page_fault();
 
 	//test_vesa();
 
