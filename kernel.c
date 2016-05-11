@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include "gfx.h"
 #include "vesa.h"
+#include "kheap.h"
 
 uint8_t make_color(enum vga_color fg, enum vga_color bg) {
 	return fg | bg << 4;
@@ -138,14 +139,12 @@ void enter_protected() {
 }
 
 void test_colors() {
-	terminal_settextcolor(COLOR_WHITE);
 	printf_info("Testing colors...");
 	for (int i = 0; i < 16; i++) {
 		terminal_settextcolor(i);
 		printf("@");
 	}
 	printf("\n");
-	terminal_settextcolor(COLOR_WHITE);
 }
 
 void force_hardware_irq() {
@@ -189,6 +188,22 @@ void test_vesa() {
 	printf_dbg("physbase: %x", mode_info->physbase);
 }
 
+void test_heap() {
+	printf_info("Testing heap's reallocation ability...");
+	
+	u32int a = kmalloc(8);
+	u32int b = kmalloc(8);
+	printf_dbg("a: %x, b: %x", a, b);
+	
+	printf_info("Freeing test values");
+	kfree(a);
+	kfree(b);
+
+	u32int c = kmalloc(12);
+	printf_dbg("c: %x", c);
+	kfree(c);
+}
+
 //declared within std.c
 extern void initmem();
 
@@ -219,26 +234,26 @@ void kernel_main() {
 	test_colors();
 
 	//set up software interrupts
-	terminal_settextcolor(COLOR_LIGHT_GREY);
 	printf_info("Initializing descriptor tables...");
 	init_descriptor_tables();
 	test_interrupts();
 
-	terminal_settextcolor(COLOR_LIGHT_GREY);
 	printf_info("Initializing PIC timer...");
 	init_timer(1000);
 	//outb(0x21, 0xfc);
 	//outb(0xA1, 0xfc);
 
-	terminal_settextcolor(COLOR_LIGHT_GREY);
+	u32int a = kmalloc(8);	
+
 	printf_info("Initializing paging...");
 	initialize_paging();
 	//force_page_fault();
 
+	test_heap();
+
 	//test_vesa();
 
 	//wait for user to start shell
-	terminal_settextcolor(COLOR_LIGHT_GREY);
 	printf("Kernel has finished booting. Press any key to enter shell.\n");
 	getchar();
 		
