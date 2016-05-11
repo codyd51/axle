@@ -11,6 +11,16 @@ extern page_directory_t* kernel_directory;
 heap_t* kheap = 0;
 
 u32int kmalloc_int(u32int sz, int align, u32int* phys) {
+	//if the heap already exists, pass through
+	if (kheap != 0) {
+		void* addr = alloc(sz, (u8int)align, kheap);
+		if (phys != 0) {
+			page_t* page = get_page((u32int)addr, 0, kernel_directory);
+			*phys = page->frame * 0x1000 + (u32int)addr & 0xFFF;
+		}
+		return (u32int)addr;
+	}
+
 	//if addr is not already page aligned
 	if (align == 1 && (placement_address & 0xFFFFF000)) {
 		//align it
@@ -40,6 +50,10 @@ u32int kmalloc_ap(u32int sz, u32int* phys) {
 
 u32int kmalloc(u32int sz) {
 	return kmalloc_int(sz, 0, 0);
+}
+
+void kfree(void* p) {
+	free(p, kheap);
 }
 
 static s32int find_smallest_hole(u32int size, u8int align, heap_t* heap) {
