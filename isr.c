@@ -21,12 +21,23 @@ void handle_page_fault(registers_t regs) {
 	do {} while (1);
 }
 
+void handle_divide_by_zero(registers_t regs) {
+	printf_err("Attempted division by zero");
+	printf_info("Halting execution");
+	do {} while (1);
+}
+
 //gets called from ASM interrupt handler stub
 void isr_handler(registers_t regs) {
 	printf_info("recieved interrupt: %d err code: %d", regs.int_no, regs.err_code);
 
-	if (regs.int_no == 14) {
-		handle_page_fault(regs);
+	switch (regs.int_no) {
+		case 0:
+			handle_divide_by_zero(regs);
+			break;
+		case 14:
+			handle_page_fault(regs);
+			break;
 	}
 }
 
