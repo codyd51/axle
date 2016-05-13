@@ -1,5 +1,5 @@
 #include "std.h"
 
-//handles keyboard interrupts and keeps grabbing characters until enter key is matched
 char getchar();
+int haskey();
 void init_kb();

@@ -1,19 +1,19 @@
 #include "kb.h"
 #include "kernel.h"
 #include "common.h"
+#include "isr.h"
+#include "kheap.h"
 
-#define INT_DISABLE 0
-#define INT_ENABLE  0x200
-#define PIC1 0x20
-#define PIC2 0xA0
-
-#define ICW1 0x11
-#define ICW4 0x01
+#define KBD_DATA_PORT 0x60
 
 //TODO implement bitmask for special keys (shift/ctrl/fn/etc)
 const unsigned short shiftMask = 4;
 const unsigned short keypressFinishedMask = 2;
 unsigned int flags = 0;
+
+#define KBUF_SIZE 256
+//char* kb_buffer;
+char kb_buffer[KBUF_SIZE] = "";
 
 /* KBDUS means US Keyboard Layout. This is a scancode table
 *  used to layout a standard US keyboard. I have left some
@@ -60,74 +60,67 @@ unsigned char kbdus[128] =
 		0,	/* All other keys are undefined */
 };
 
-void init_pics(int pic1, int pic2) {
-	 //send ICW1
-	 outb(PIC1, ICW1);
-	 outb(PIC2, ICW1);
+void add_character_to_buffer(char ch) {
+	kb_buffer[strlen(kb_buffer)] = ch;
+}
 
-	 //send ICW2
-	 outb(PIC1 + 1, pic1);   
-	 outb(PIC2 + 1, pic2);   
+void kb_interrupt_recieved(registers_t regs) {
+	static unsigned char c = 0;
+	
+	//read from keyboard's data buffer
+	if (inb(KBD_DATA_PORT) != c) {
+		c = inb(KBD_DATA_PORT);
 
-	 //send ICW3
-	 outb(PIC1 + 1, 4);   
-	 outb(PIC2 + 1, 2);
+		//if top byte we read from KB is set, 
+		//then a key was just released
+		if (c & 0x80) return;
 
-	 //send ICW4
-	 outb(PIC1 + 1, ICW4);
-	 outb(PIC2 + 1, ICW4);
+		char mappedchar = kbdus[c];
 
-	 //disable all IRQs
-	 outb(PIC1 + 1, 0xFF);
+		//TODO scan to see if suer released shift/alt/control keys
+		flags = flags | keypressFinishedMask;
+
+		//if shift was just released, reset hasShift
+		c = c ^ 80;
+		if (c == 42 || c == 54) {
+			flags = flags ^ shiftMask;
+			return;
+		}
+
+		//rest for next use
+		flags = flags ^ keypressFinishedMask;
+
+		if (flags & shiftMask) {
+			mappedchar = toupper(mappedchar);
+		}
+		add_character_to_buffer(mappedchar);
+	}
 }
 
 void init_kb() {
-	//set up keyboard handshake
-	init_pics(0x20, 0x28);
+	register_interrupt_handler(IRQ1, &kb_interrupt_recieved);
+
+	//kb_buffer = kmalloc(sizeof(char) * KBUF_SIZE); 
+	//kb_buffer = "";
 }
 
-//handles keyboard interrupts
+int haskey() {
+	return (strlen(kb_buffer) == 0) ? 0 : 1;
+}
+
+//does not block!
+char kgetch() {
+	//return last character from KB buffer, and remove that character
+	
+	char ret = kb_buffer[strlen(kb_buffer) - 1];
+	kb_buffer[strlen(kb_buffer) - 1] = 0;
+	return ret;
+}
+
+//blocks until character is received
 char getchar() {
-	static unsigned char c = 0;
-	while (1) {
-		//read from keyboard's data buffer
-		if (inb(0x60) != c) {
-			//0x60 is port from which we read
-			c = inb(0x60);
-
-			char mappedchar = kbdus[c];
-
-			//if the top bit of the byte we read from the KB is set, then a key's just been released
-			if (c & 0x80) {
-				//TODO scan to see if user released shift/alt/control keys
-				flags = flags | keypressFinishedMask;
-
-				//if shift was just released, reset hasShift
-				c = c ^ 0x80;
-				if (c == 42 || c == 54) {
-					flags = flags ^ shiftMask;
-					continue;
-				}
-			}
-			else if (c > 0 /*&& (flags & keypressFinishedMask)*/) {
-				//we got a keypress
-				//repeated keypresses will generate multiple interrupts
-
-				//detect shift
-				if (c == 42 || c == 54) {
-					flags = flags | shiftMask;
-					continue;
-				}
-
-				//reset for next use
-				flags = flags ^ keypressFinishedMask;
-
-				if (flags & shiftMask) return toupper(mappedchar);
-				return mappedchar;
-			}
-		}
-	}
-	return NULL;
+	if (!haskey()) return getchar();
+	return kgetch();
 }
 
 

@@ -3,6 +3,7 @@
 #include "kb.h"
 #include "asmjit.h"
 #include "timer.h"
+#include "snake.h"
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
@@ -209,6 +210,10 @@ void tick_command() {
 	printf("%d", tickCount());
 }
 
+void snake_command() {
+	play_snake();
+}
+
 void init_shell() {
 	//set shell color
 	terminal_settextcolor(COLOR_GREEN);
@@ -222,6 +227,7 @@ void init_shell() {
 	add_new_command("clear", "Clear terminal", clear_command, 0);
 	add_new_command("asmjit", "Starts JIT prompt", asmjit_command, 0);
 	add_new_command("tick", "Prints current tick count from PIC", tick_command, 0);
+	add_new_command("snake", "Have some fun!", snake_command, 0);
 	add_new_command("", "", empty_command, 0);
 }
 

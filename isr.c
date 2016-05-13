@@ -175,19 +175,31 @@ void register_interrupt_handler(u8int n, isr_t handler) {
 	interrupt_handlers[n] = handler;
 }
 
+#define PIC1_PORT_A 0x20
+#define PIC2_PORT_A 0xA0
+
+#define PIC1_START_INTERRUPT 0x20
+#define PIC2_START_INTERRUPT 0x28
+#define PIC2_END_INTERRUPT PIC2_START_INTERRUPT + 7
+
+#define PIC_ACK 0x20
+
+void pic_acknowledge(unsigned int interrupt) {
+	if (interrupt < PIC1_START_INTERRUPT || interrupt > PIC2_END_INTERRUPT) {
+		return;
+	}
+
+	if (interrupt < PIC2_START_INTERRUPT) {
+		outb(PIC1_PORT_A, PIC_ACK);
+	}
+	else outb(PIC2_PORT_A, PIC_ACK);
+}
+
 //gets called from ASM interrupt handler stub
 void irq_handler(registers_t regs) {
-	//sends an EOI (end of interrupt) signal to PICs
-	//if this interrupt involved the slave
-	if (regs.int_no >= 40) {
-		//send reset signal to slave
-		outb(0xA0, 0x20);
-	}
-	//send reset signal to master
-	outb(0x20, 0x20);
-
 	if (interrupt_handlers[regs.int_no] != 0) {
 		isr_t handler = interrupt_handlers[regs.int_no];
 		handler(regs);
 	}
+	pic_acknowledge(regs.int_no);
 }
