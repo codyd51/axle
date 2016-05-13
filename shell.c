@@ -169,8 +169,12 @@ void add_new_command(char* name, char* description, void* function, int numArgs)
 	return;
 }
 
+//defined in kernel.c
+extern void print_os_name();
 void help_command() {
-	printf("AXLE Shell v0.0.1");
+	print_os_name();
+	terminal_settextcolor(COLOR_WHITE);
+	
 	printf("\nAll commands listed here are internally defined.");
 	printf("\nType 'help' to see this list\n");
 	for (size_t i = 0; i < CommandNum; i++) {

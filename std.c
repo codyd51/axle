@@ -354,7 +354,7 @@ void printf_dbg(char* format, ...) {
 	printf("[");
 	terminal_settextcolor(COLOR_LIGHT_MAGENTA);
 	printf("DEBUG ");
-	terminal_settextcolor(COLOR_LIGHT_BLUE);
+	terminal_settextcolor(COLOR_WHITE);
 
 	va_list arg;
 	va_start(arg, format);
@@ -370,7 +370,7 @@ void printf_info(char* format, ...) {
 	printf("[");
 	terminal_settextcolor(COLOR_LIGHT_GREEN);
 	printf("INFO ");
-	terminal_settextcolor(COLOR_LIGHT_BLUE);
+	terminal_settextcolor(COLOR_WHITE);
 
 	va_list arg;
 	va_start(arg, format);
@@ -386,7 +386,7 @@ void printf_err(char* format, ...) {
 	printf("[");
 	terminal_settextcolor(COLOR_LIGHT_RED);
 	printf("ERROR ");
-	terminal_settextcolor(COLOR_LIGHT_BLUE);
+	terminal_settextcolor(COLOR_WHITE);
 
 	va_list arg;
 	va_start(arg, format);

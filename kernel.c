@@ -204,6 +204,17 @@ void test_heap() {
 	kfree(c);
 }
 
+void print_os_name() {
+	terminal_settextcolor(COLOR_GREEN);
+	printf("[");
+	terminal_settextcolor(COLOR_LIGHT_CYAN);
+	printf("AXLE OS v");
+	terminal_settextcolor(COLOR_LIGHT_RED);
+	printf("0.3.0");
+	terminal_settextcolor(COLOR_GREEN);
+	printf("]\n");
+}
+
 //declared within std.c
 extern void initmem();
 
@@ -217,19 +228,9 @@ void kernel_main() {
 	//set up memory for malloc to use
 	initmem();
 
-	//enable protected mode
-	//enter_protected();
-
 	//introductory message
-	terminal_settextcolor(COLOR_GREEN);
-	printf("[");
-	terminal_settextcolor(COLOR_LIGHT_CYAN);
-	printf("AXLE OS v");
-	terminal_settextcolor(COLOR_LIGHT_BROWN);
-	printf("0.3.0");
-	terminal_settextcolor(COLOR_GREEN);
-	printf("]\n");
-
+	print_os_name();
+	
 	//run color test
 	test_colors();
 
@@ -240,28 +241,25 @@ void kernel_main() {
 
 	printf_info("Initializing PIC timer...");
 	init_timer(1000);
-	//outb(0x21, 0xfc);
-	//outb(0xA1, 0xfc);
 
-	u32int a = kmalloc(8);	
+	printf_info("Initializing keyboard driver...");
+	init_kb();
 
 	printf_info("Initializing paging...");
 	initialize_paging();
-	//force_page_fault();
 
 	test_heap();
-
-	//test_vesa();
 
 	//wait for user to start shell
 	printf("Kernel has finished booting. Press any key to enter shell.\n");
 	getchar();
-		
+	
 	init_shell();
 	int exit_status = 1;
 	while (1) {
 		shell();
 	}
+
 }
 
 
