@@ -96,11 +96,14 @@ char* string_split(char* str, char delimiter, int index) {
 		}
 		i++;
 	}
-	if (index > tokCount) return "";
+	if (index > tokCount) {
+		return NULL;
+	}
 
 	int iterTokCount = 0;
 	i = 0;
-	char curTok[50] = "";
+	char curTok[50];
+	memset(curTok, 0, 50);
 	while (str[i] != '\0') {
 		if (str[i] == delimiter) {
 			curTok[i] = '\0';

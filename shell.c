@@ -45,7 +45,7 @@ void process_command(char* string) {
 	//we start looking for arguments at the second token
 	//since the first token contains the command name
 	int tokindex = 1;
-	while (string_split(string, ' ', tokindex) != "") {
+	while (string_split(string, ' ', tokindex)) {
 		strcpy(args[tokindex-1], string_split(string, ' ', tokindex));
 
 		tokindex++;
@@ -118,7 +118,7 @@ void process_character(char* inputstr, char ch) {
 	}
 	//handle newline
 	else if (ch == '\n') {
-
+		
 	}
 	else  {
 		//add this character to the input string and output it
@@ -139,6 +139,7 @@ char* get_inputstring() {
 		c = getchar();
 		process_character(input, c);
 	} while (c != '\n');
+
 	return input;
 }
 

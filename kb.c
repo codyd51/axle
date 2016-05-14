@@ -98,13 +98,10 @@ void kb_interrupt_recieved(registers_t regs) {
 
 void init_kb() {
 	register_interrupt_handler(IRQ1, &kb_interrupt_recieved);
-
-	//kb_buffer = kmalloc(sizeof(char) * KBUF_SIZE); 
-	//kb_buffer = "";
 }
 
 int haskey() {
-	return (strlen(kb_buffer) == 0);
+	return (strlen(kb_buffer) != 0);
 }
 
 //does not block!
@@ -112,7 +109,7 @@ char kgetch() {
 	//return last character from KB buffer, and remove that character
 	
 	char ret = kb_buffer[strlen(kb_buffer) - 1];
-	kb_buffer[strlen(kb_buffer) - 1] = '\0';
+	kb_buffer[strlen(kb_buffer) - 1] = 0;
 	return ret;
 }
 
