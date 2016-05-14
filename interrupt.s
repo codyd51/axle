@@ -2,7 +2,7 @@
 	[GLOBAL isr%1] 			; %1 accesses the first parameteer
 	isr%1:
 		push byte 0		; push dummy error code (if ISR0 doesn't push its own error code)
-		push byte %1 		; push interrupt number 
+		push %1 		; push interrupt number 
 		jmp isr_common_stub 	; go to common handler
 %endmacro
 
