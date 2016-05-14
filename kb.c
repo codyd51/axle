@@ -2,7 +2,6 @@
 #include "kernel.h"
 #include "common.h"
 #include "isr.h"
-#include "kheap.h"
 
 #define KBD_DATA_PORT 0x60
 
@@ -105,7 +104,7 @@ void init_kb() {
 }
 
 int haskey() {
-	return (strlen(kb_buffer) == 0) ? 0 : 1;
+	return (strlen(kb_buffer) == 0);
 }
 
 //does not block!
@@ -113,13 +112,13 @@ char kgetch() {
 	//return last character from KB buffer, and remove that character
 	
 	char ret = kb_buffer[strlen(kb_buffer) - 1];
-	kb_buffer[strlen(kb_buffer) - 1] = 0;
+	kb_buffer[strlen(kb_buffer) - 1] = '\0';
 	return ret;
 }
 
 //blocks until character is received
 char getchar() {
-	if (!haskey()) return getchar();
+	while (!haskey()) {}
 	return kgetch();
 }
 
