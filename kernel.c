@@ -29,7 +29,7 @@ void terminal_initialize() {
 	terminal_row = 0;
 	terminal_column = 0;
 	terminal_color = make_color(COLOR_LIGHT_BLUE, COLOR_BLACK);
-	terminal_buffer = (uint16_t*) 0xB8000;
+	terminal_buffer = VGA_MEM;
 
 	terminal_clear();
 }
@@ -249,6 +249,9 @@ void kernel_main() {
 	initialize_paging();
 
 	test_heap();
+
+	//force_page_fault();
+	force_hardware_irq();
 
 	//wait for user to start shell
 	printf("Kernel has finished booting. Press any key to enter shell.\n");
