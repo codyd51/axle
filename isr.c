@@ -5,9 +5,28 @@
 void halt_execution() {
 	//disable interrupts so this never ends
 	asm volatile("cli");
+
 	//enter infinite loop
 	printf_err("Halting execution");
 	do {} while (1);
+}
+
+void print_regs(registers_t regs) {
+	printf_err("Register dump");
+	printf("eax: %x		ecx: %x\n", regs.eax, regs.ecx);
+	printf("edx: %x		ebx: %x\n", regs.edx, regs.ebx);
+	printf("esp: %x		ebp: %x\n", regs.esp, regs.ebp);
+	printf("esi: %x		edi: %x\n", regs.esi, regs.edi);
+	printf("eip: %x		cs: %x\n", regs.eip, regs.cs);
+	printf("ds: %x		eflags: %x\n", regs.ds, regs.eflags);
+}
+
+void common_halt(registers_t regs) {
+	//print out register info for debugging
+	print_regs(regs);
+
+	//stop everything so we don't triple fault
+	halt_execution();
 }
 
 void print_selector_error_code(u32int err_code) {
@@ -28,53 +47,53 @@ void print_selector_error_code(u32int err_code) {
 
 void handle_divide_by_zero(registers_t regs) {
 	printf_err("Attempted division by zero");
-	halt_execution();
+	common_halt(regs);
 }
 
 void handle_bound_range_exceeded(registers_t regs) {
 	printf_err("Bound range exception");
-	halt_execution();
+	common_halt(regs);
 }
 
 void handle_invalid_opcode(registers_t regs) {
 	printf_err("Invalid opcode encountered");
-	halt_execution();
+	common_halt(regs);
 }
 
 void handle_device_not_available(registers_t regs) {
 	printf_err("Device not available");
-	halt_execution();
+	common_halt(regs);
 }
 
 void handle_double_fault(registers_t regs) {
 	printf_err("=======================");
 	printf_err("Caught double fault!");
 	printf_err("=======================");
-	halt_execution();
+	common_halt(regs);
 }
 
 void handle_invalid_tss(registers_t regs) {
 	printf_err("Invalid TSS section!");
 	print_selector_error_code(regs.err_code);
-	halt_execution();
+	common_halt(regs);
 }
 
 void handle_segment_not_present(registers_t regs) {
 	printf_err("Segment not present");
 	print_selector_error_code(regs.err_code);
-	halt_execution();
+	common_halt(regs);
 }
 
 void handle_stack_segment_fault(registers_t regs) {
 	printf_err("Stack segment fault");
 	print_selector_error_code(regs.err_code);
-	halt_execution();
+	common_halt(regs);
 }
 
 void handle_general_protection_fault(registers_t regs) {
 	printf_err("General protection fault");
 	print_selector_error_code(regs.err_code);
-	halt_execution();
+	common_halt(regs);
 }
 
 void handle_page_fault(registers_t regs) {
@@ -92,27 +111,27 @@ void handle_page_fault(registers_t regs) {
 
 	if (regs.err_code & 0xF000) printf_err("Faulted during instruction fetch");
 
-	halt_execution();
+	common_halt(regs);
 }
 
 void handle_floating_point_exception(registers_t regs) {
 	printf_err("Floating point exception");
-	halt_execution();
+	common_halt(regs);
 }
 
 void handle_alignment_check(registers_t regs) {
 	printf_err("Alignment check");
-	halt_execution();
+	common_halt(regs);
 }
 
 void handle_machine_check(registers_t regs) {
 	printf_err("Machine check");
-	halt_execution();
+	common_halt(regs);
 }
 
 void handle_virtualization_exception(registers_t regs) {
 	printf_err("Virtualization exception");
-	halt_execution();
+	common_halt(regs);
 }
 
 //gets called from ASM interrupt handler stub
