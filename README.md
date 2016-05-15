@@ -35,3 +35,8 @@ Roadmap
 - [ ] VESA, automatic resolution detection
 - [ ] GFX library
 - [ ] Window manager
+
+Error Handling
+-------------------
+
+Interrupt service routines are dispatched based on the interrupt number. If an exception is caught, we do not attempt to recover from it. If the exception also sets an error code, we read it and print out the corresponding info it entails. We then hang until the machine is rebooted to prevent a triple fault.
