@@ -12,13 +12,13 @@ void halt_execution() {
 }
 
 void print_regs(registers_t regs) {
-	printf_err("Register dump");
+	printf_info("Register dump");
 	printf("eax: %x		ecx: %x\n", regs.eax, regs.ecx);
 	printf("edx: %x		ebx: %x\n", regs.edx, regs.ebx);
 	printf("esp: %x		ebp: %x\n", regs.esp, regs.ebp);
 	printf("esi: %x		edi: %x\n", regs.esi, regs.edi);
-	printf("eip: %x		cs: %x\n", regs.eip, regs.cs);
-	printf("ds: %x		eflags: %x\n", regs.ds, regs.eflags);
+	printf("eip: %x		cs:  %x\n", regs.eip, regs.cs);
+	printf("ds:  %x		eflags: %x\n", regs.ds, regs.eflags);
 }
 
 void common_halt(registers_t regs) {
