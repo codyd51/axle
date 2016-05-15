@@ -5,7 +5,7 @@ axle is a small UNIX-like hobby operating system. It uses GRUB as its bootloader
 
 axle is interfaced through a shell. Experimental graphics support is implemented and used in VGA mode. 
 
-The initial entry point must be done in ASM, as we have to do some special tasks such as setting up the GRUB header, pushing our stack, and calling our C entry point. This means that the first code run is in boot.s, but the 'real' entry point is in kernel.c.
+The initial entry point must be done in ASM, as we have to do some special tasks such as setting up the GRUB header, pushing our stack, and calling our C entry point. This means that the first code run is in `boot.s`, but the 'real' entry point is in `kernel.c`.
 
 Features
 ----------------------
