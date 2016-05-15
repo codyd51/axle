@@ -81,23 +81,14 @@ IRQ 	15, 	47
 isr_common_stub:
 	pushad		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
 
-	mov ax, ds
 	push eax 	; save data segment descriptor
 	mov ax, 0x10	; loads kernel data segment argument
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax	
 
 	cld
 	call isr_handler
 
 	pop eax		; reload original data segment descriptor
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
-
+	
 	popad 		; pop edi, esi, ebp, etc
 	add esp, 8 	; cleans up pushed error code and pushed ISR number
 	iret		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
