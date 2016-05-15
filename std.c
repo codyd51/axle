@@ -258,33 +258,36 @@ char* convert(unsigned int num, int base) {
 	return (ptr);
 }
 void printf_hex(u32int n) {
+	unsigned short tmp;
+	terminal_writestring("0x");
 
-					unsigned short tmp;
-					terminal_writestring("0x");
+	char noZeroes = 1;
+	int i;
+	for (i = 28; i > 0; i -= 4) {
+		tmp = (n >> i) & 0xF;
+		if (tmp == 0 && noZeroes != 0) {
+			printf("0");
+			continue;
+		}
 
-					char noZeroes = 1;
-					int i;
-					for (i = 28; i > 0; i -= 4) {
-						tmp = (n >> i) & 0xF;
-						if (tmp == 0 && noZeroes != 0) {
-							continue;
-						}
+		if (tmp >= 0xA) {
+			noZeroes = 0;
+			terminal_putchar(tmp-0xA + 'a');
+		} 
+		else {
+			noZeroes = 0;
+			terminal_putchar(tmp + '0');
+		}
+	}
 
-						if (tmp >= 0xA) {
-							noZeroes = 0;
-							terminal_putchar(tmp-0xA + 'a');
-						} else {
-							noZeroes = 0;
-							terminal_putchar(tmp + '0');
-						}
-					}
 
-					tmp = n & 0xF;
-					if (tmp >= 0xA) {
-						terminal_putchar(tmp-0xA + 'a');
-					} else {
-						terminal_putchar(tmp + '0');
-					}
+	tmp = n & 0xF;
+	if (tmp >= 0xA) {
+		terminal_putchar(tmp-0xA + 'a');
+	} 
+	else {
+		terminal_putchar(tmp + '0');
+	}
 }
 
 void vprintf(char* format, va_list va) {
@@ -337,6 +340,7 @@ void vprintf(char* format, va_list va) {
 					ptr = va_arg(va, char*);
 					terminal_writestring(ptr);
 					break;
+				case '*':
 
 				default:
 					terminal_putchar(ch);
