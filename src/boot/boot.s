@@ -1,59 +1,42 @@
-#Declare constants used for creating multiboot header
-.set ALIGN,     1<<0                #align loaded modules on page boundaries
-.set MEMINFO,   1<<1                #provide memory map
-.set FLAGS,     ALIGN | MEMINFO     #multiboot 'flag' field
-.set MAGIC,     0x1BADB002          #lets bootloader find header
-.set CHECKSUM,  -(MAGIC+FLAGS)      # prove we're multiboot
+MBOOT_PAGE_ALIGN	equ 1<<0	; load kernel and modules on page boundary
+MBOOT_MEM_INFO		equ 1<<1	; provide kernel. with memory info
+MBOOT_HEADER_MAGIC	equ 0x1BADB002	; multiboot magic value
+MBOOT_HEADER_FLAGS	equ MBOOT_PAGE_ALIGN | MBOOT_MEM_INFO
+MBOOT_CHECKSUM		equ -(MBOOT_HEADER_MAGIC + MBOOT_HEADER_FLAGS)
 
-#declare header as in multiboot standard
-#bootloader will search for this magic sequence and recognize a multiboot kernel
-.section .multiboot
-.align 4
-.long MAGIC
-.long FLAGS
-.long CHECKSUM
+[BITS 32]
 
-#currently the stack pointer reg (esp) points to anything and shoudl not be used
-#so, let's provide our own stack
-#allocate room for a small temporary stack by creating a symbol at the bottom of it,
-#allocating 16384 bytes for it, and creating a symbol at the top
-.section .bootstrap_stack, "aw", @nobits
-stack_bottom:
-.skip 16384 #16kb
-stack_top:
+[GLOBAL mboot]
+[EXTERN code]			; start of .text section
+[EXTERN bss]			; start of .bss
+[EXTERN end]			; end of last loadable section
 
-#linker script specifies _start as the entry point 
-#the bootloader will jump to this position once the kernel has been loaded.
-#it doesn't make sense to return from this function as the bootloader is gone
-.section .text
-.global _start
-.type _start, @function
+[SECTION .mboot]
+mboot:
+	dd MBOOT_HEADER_MAGIC	; header value for GRUB
+	dd MBOOT_HEADER_FLAGS	; grub settings
+	dd MBOOT_CHECKSUM	; ensure above values are correct
 
-_start:
+	dd mboot		; location of this descriptor
+	dd code			; start of .text (code) section
+	dd bss			; start of .data section
+	dd end			; end of kernel
+	dd start		; kernel entry point (initial EIP)
 
-    #let's set the esp register to
-    #point to the top of our stack (grows downwards)
-    movl $stack_top, %esp
+[SECTION .text]
+[GLOBAL start]			; entry point
+[EXTERN kernel_main]		; C entry point
+start:
+	; load multiboot information
+	push esp
+	push ebx
 
-    #push multiboot header location
-    push %ebx
+	; execute kernel
+	call kernel_main
+	cli
+	hlt
+	jmp $			; enter infinite loop so processor doesn't
+				; try executing junk values in memory
 
-    #we can now actually execute C code!
-    call kernel_main
-
-    #in case that function returns, we want an infinite loop
-    #the halt instruction to stop the CPU until the next interrupt arrives,
-    #jumping to the halt instruction if it ever continues execution
-    cli
-    hlt
-.Lhang:
-    jmp .Lhang
-
-#set size of the _start symbol to the current location '.' minus its start
-.size _start, . -_start
-
-
-
-
-
-
+; set size of the _start symbol to the current location '.' minus its start
+; .size _start, . -_start
