@@ -143,7 +143,7 @@ char* get_inputstring() {
 	return input;
 }
 
-void shell() {
+int shell() {
 	//reset terminal color in case it was changed
 	terminal_settextcolor(COLOR_GREEN);
 	printf("\naxle> ");
@@ -156,6 +156,11 @@ void shell() {
 	//set terminal color to stdout color
 	terminal_settextcolor(COLOR_WHITE);
 	process_command(input);
+
+	if (strcmp(input, "shutdown") == 0) {
+		return 1;
+	}
+	return 0;
 }
 
 void add_new_command(char* name, char* description, void* function, int numArgs) {

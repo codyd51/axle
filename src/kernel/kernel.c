@@ -59,9 +59,9 @@ void kernel_main() {
 	getchar();
 	
 	init_shell();
-	int exit_status = 1;
-	while (1) {
-		shell();
+	int exit_status = 0;
+	while (!exit_status) {
+		exit_status = shell();
 	}
 
 }

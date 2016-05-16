@@ -35,6 +35,7 @@ Roadmap
 - [ ] VESA, automatic resolution detection
 - [ ] GFX library
 - [ ] Window manager
+- [ ] Shutdown/reboot commands
 
 Error Handling
 -------------------

@@ -11,4 +11,4 @@ typedef struct {
 
 void add_new_command(char* name, char* description, void* function, int numArgs);
 void init_shell();
-void shell();
+int shell();
