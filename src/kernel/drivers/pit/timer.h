@@ -3,8 +3,8 @@
 
 #include <std/common.h>
 
-void init_timer(u32int frequency);
-u32int tickCount();
-void sleep(u32int ms);
+void init_timer(uint32_t frequency);
+uint32_t tickCount();
+void sleep(uint32_t ms);
 
 #endif

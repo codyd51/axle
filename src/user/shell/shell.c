@@ -245,7 +245,7 @@ void init_shell() {
 	add_new_command("date", "Outputs system time as date format", date_command, 0);
 	add_new_command("clear", "Clear terminal", clear_command, 0);
 	add_new_command("asmjit", "Starts JIT prompt", asmjit_command, 0);
-	add_new_command("tick", "Prints current tick count from PIC", tick_command, 0);
+	add_new_command("tick", "Prints current tick count from PIT", tick_command, 0);
 	add_new_command("snake", "Have some fun!", snake_command, 0);
 	add_new_command("shutdown", "Shutdown PC", shutdown_command, 0);
 	add_new_command("", "", empty_command, 0);

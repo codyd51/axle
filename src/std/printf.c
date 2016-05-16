@@ -16,7 +16,7 @@ char* convert(unsigned int num, int base) {
 
 	return (ptr);
 }
-void printf_hex(u32int n) {
+void printf_hex(uint32_t n) {
 	unsigned short tmp;
 	terminal_writestring("0x");
 
@@ -86,7 +86,7 @@ void vprintf(char* format, va_list va) {
 
 				case 'x':
 				case 'X':
-					printf_hex(va_arg(va, u32int));
+					printf_hex(va_arg(va, uint32_t));
 					//itoa(convert(va_arg(va, unsigned int), 16), bf);
 					//terminal_writestring(bf);
 					break;

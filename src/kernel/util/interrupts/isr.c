@@ -29,7 +29,7 @@ void common_halt(registers_t regs) {
 	halt_execution();
 }
 
-void print_selector_error_code(u32int err_code) {
+void print_selector_error_code(uint32_t err_code) {
 	printf_err("Selector error code %x interpreted below", err_code);
 
 	if (err_code & 0xF) printf_err("Exception originated outside processor");
@@ -190,7 +190,7 @@ void isr_handler(registers_t regs) {
 
 isr_t interrupt_handlers[256];
 
-void register_interrupt_handler(u8int n, isr_t handler) {
+void register_interrupt_handler(uint8_t n, isr_t handler) {
 	interrupt_handlers[n] = handler;
 }
 

@@ -21,8 +21,8 @@ void force_hardware_irq() {
 
 void force_page_fault() {
 	printf_info("Forcing page fault...");
-	u32int* ptr = (u32int*)0xA0000000;
-	u32int do_fault = *ptr;
+	uint32_t* ptr = (uint32_t*)0xA0000000;
+	uint32_t do_fault = *ptr;
 	printf_err("This should never be reached: %d", do_fault);
 }
 
@@ -56,15 +56,15 @@ void test_vesa() {
 void test_heap() {
 	printf_info("Testing heap's reallocation ability...");
 
-	u32int a = kmalloc(8);
-	u32int b = kmalloc(8);
+	uint32_t a = kmalloc(8);
+	uint32_t b = kmalloc(8);
 	printf_dbg("a: %x, b: %x", a, b);
 
 	printf_info("Freeing test values");
 	kfree(a);
 	kfree(b);
 
-	u32int c = kmalloc(12);
+	uint32_t c = kmalloc(12);
 	printf_dbg("c: %x", c);
 	kfree(c);
 }

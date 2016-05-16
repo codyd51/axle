@@ -1,10 +1,10 @@
 #include <std/common.h>
 
 typedef struct registers {
-	u32int ds; 					//data segment selector
-	u32int edi, esi, ebp, esp, ebx, edx, ecx, eax;  //pushed by pusha
-	u32int int_no, err_code; 			//interrupt number and error code
-	u32int eip, cs, eflags, useresp, ss; 		//pushed by the processor automatically
+	uint32_t ds; 					//data segment selector
+	uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;  //pushed by pusha
+	uint32_t int_no, err_code; 			//interrupt number and error code
+	uint32_t eip, cs, eflags, useresp, ss; 		//pushed by the processor automatically
 } registers_t;
 
 #define IRQ0  32
@@ -28,5 +28,5 @@ typedef struct registers {
 //for IRQs, to ease confusion, use #defines above
 //as first parameter
 typedef void (*isr_t)(registers_t);
-void register_interrupt_handler(u8int n, isr_t handler);
+void register_interrupt_handler(uint8_t n, isr_t handler);
 

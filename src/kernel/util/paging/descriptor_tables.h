@@ -4,18 +4,18 @@
 //use attribute 'packed' to tell GCC not to change
 //any of the alignment in the structure
 struct gdt_entry_struct {
-	u16int limit_low;	//lower 16 bits of limit
-	u16int base_low;	//lower 16 bits of base
-	u8int base_middle;	//next 8 bits of the base
-	u8int access;		//access flags, determining ring for this segment to be used in
-	u8int granularity;
-	u8int base_high;	//last 8 bits of base
+	uint16_t limit_low;	//lower 16 bits of limit
+	uint16_t base_low;	//lower 16 bits of base
+	uint8_t base_middle;	//next 8 bits of the base
+	uint8_t access;		//access flags, determining ring for this segment to be used in
+	uint8_t granularity;
+	uint8_t base_high;	//last 8 bits of base
 } __attribute__((packed));
 typedef struct gdt_entry_struct gdt_entry_t;
 
 struct gdt_ptr_struct {
-	u16int limit;		//upper 16 bits of all selector limits
-	u32int base;		//address of the first gdt_entry_t struct
+	uint16_t limit;		//upper 16 bits of all selector limits
+	uint32_t base;		//address of the first gdt_entry_t struct
 } __attribute__((packed));
 typedef struct gdt_ptr_struct gdt_ptr_t;
 
@@ -24,19 +24,19 @@ void init_descriptor_tables();
 
 //struct describing interrupt gate
 struct idt_entry_struct {
-	u16int base_lo;		//lower 16 bits of the address to jump to when this interrupt fires
-	u16int sel;		//kernel segment selector
-	u8int always0;		//must always be zero
-	u8int flags;		//more flags
-	u16int base_hi;		//upper 16 bits of address to jump to
+	uint16_t base_lo;		//lower 16 bits of the address to jump to when this interrupt fires
+	uint16_t sel;		//kernel segment selector
+	uint8_t always0;		//must always be zero
+	uint8_t flags;		//more flags
+	uint16_t base_hi;		//upper 16 bits of address to jump to
 } __attribute__((packed));
 typedef struct idt_entry_struct idt_entry_t;
 
 //struct describing pointer to an array of interrupt handlers
 //in a format suitable to be passed to 'lidt'
 struct idt_ptr_struct {
-	u16int limit;
-	u32int base;		//address of the first element in our idt_entry_t array
+	uint16_t limit;
+	uint32_t base;		//address of the first element in our idt_entry_t array
 } __attribute__((packed));
 typedef struct idt_ptr_struct idt_ptr_t;
 

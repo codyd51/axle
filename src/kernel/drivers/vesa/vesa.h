@@ -3,11 +3,11 @@
 /*
 struct vbe_info_block {
 	char vbe_signature[4]; //"VESA"
-	u16int vbe_version; //0x300 for VBE 3.0
-	u16int oem_str_ptr[2]; //isa vbe_far_ptr
-	u8int capabilities[4];
-	u16int video_mode_ptr[2]; //isa vbe_far_ptr
-	u16int total_memory; //as # of 64kb blocks
+	uint16_t vbe_version; //0x300 for VBE 3.0
+	uint16_t oem_str_ptr[2]; //isa vbe_far_ptr
+	uint8_t capabilities[4];
+	uint16_t video_mode_ptr[2]; //isa vbe_far_ptr
+	uint16_t total_memory; //as # of 64kb blocks
 } __attribute__((packed));
 
 
@@ -65,39 +65,39 @@ typedef struct mode_info {
 
 struct vbe_info_block {
 	char vbe_signature[4]; //"VESA"
-	u16int vbe_version; //0x300 for VBE 3.0
-	u16int oem_string_ptr[2]; 
-	u8int capabilities[4];
-	u16int video_mode_ptr[2];
-	u16int total_memory; //as # of 64kb blocks
+	uint16_t vbe_version; //0x300 for VBE 3.0
+	uint16_t oem_string_ptr[2]; 
+	uint8_t capabilities[4];
+	uint16_t video_mode_ptr[2];
+	uint16_t total_memory; //as # of 64kb blocks
 } __attribute__((packed));
 
 typedef struct vesa_mode_info {
-	u16int attributes;
-	u8int win_a;
-	u8int win_b;
-	u16int granularity;
-	u16int win_size;
-	u16int segment_a;
-	u16int segment_b;
+	uint16_t attributes;
+	uint8_t win_a;
+	uint8_t win_b;
+	uint16_t granularity;
+	uint16_t win_size;
+	uint16_t segment_a;
+	uint16_t segment_b;
 	unsigned long win_func_ptr;
-	u16int pitch; //bytes per scanline
+	uint16_t pitch; //bytes per scanline
 
-	u16int x_res;
-	u16int y_res;
-	u8int w_char, y_char, planes, bpp, banks;
-	u8int memory_model, bank_size, image_pages;
-	u8int reserved;
+	uint16_t x_res;
+	uint16_t y_res;
+	uint8_t w_char, y_char, planes, bpp, banks;
+	uint8_t memory_model, bank_size, image_pages;
+	uint8_t reserved;
 
-	u8int red_mask, red_position;
-	u8int green_mask, green_position;
-	u8int blue_mask, blue_position;
-	u8int rsv_mask, rsv_position;
-	u8int directcolor_attributes;
+	uint8_t red_mask, red_position;
+	uint8_t green_mask, green_position;
+	uint8_t blue_mask, blue_position;
+	uint8_t rsv_mask, rsv_position;
+	uint8_t directcolor_attributes;
 
-	u32int physbase; //linear framebuffer address of screen
-	u32int reserved1;
-	u16int reserved2;
+	uint32_t physbase; //linear framebuffer address of screen
+	uint32_t reserved1;
+	uint16_t reserved2;
 } vesa_mode_info __attribute__((packed));
 
 vesa_mode_info* get_vesa_info();

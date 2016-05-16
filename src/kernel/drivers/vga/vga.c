@@ -54,7 +54,7 @@ void terminal_push_back_line() {
 //updates hardware cursor
 void move_cursor() {
 	//screen is 80 characters wide
-	u16int cursorLocation = terminal_row * 80 + terminal_column;
+	uint16_t cursorLocation = terminal_row * 80 + terminal_column;
 	outb(0x3D4, 14); //tell VGA board we're setting high cursor byte
 	outb(0x3D5, cursorLocation >> 8); //send high cursor byte
 	outb(0x3D4, 15); //tell VGA board we're setting the low cursor byte

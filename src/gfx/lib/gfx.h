@@ -9,11 +9,11 @@ typedef struct __attribute__((packed)) {
 } regs16_t;
 
 typedef struct {
-	u16int width;
-	u16int height;
-	u16int pitch;
-	u16int depth;
-	u16int pixelwidth;
+	uint16_t width;
+	uint16_t height;
+	uint16_t pitch;
+	uint16_t depth;
+	uint16_t pixelwidth;
 } screen_t;
 
 extern void int32(unsigned char intnum, regs16_t* regs);

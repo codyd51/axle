@@ -6,7 +6,7 @@
 static const size_t VGA_WIDTH = 80;
 static const size_t VGA_HEIGHT = 25;
 
-static u16int* const VGA_MEM = (u16int*)0xB8000;
+static uint16_t * const VGA_MEM = (uint16_t*)0xB8000;
 
 //hardware text mode color constants
 enum vga_color {
