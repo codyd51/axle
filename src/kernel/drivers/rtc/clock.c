@@ -102,7 +102,7 @@ unsigned char time() {
 char* date() {
 	read_rtc();
 
-	char* res = malloc(sizeof(char) * 64);
+	char* res = kmalloc(sizeof(char) * 64);
 
 	char b[8];
 	itoa(hour, b);

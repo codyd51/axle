@@ -133,7 +133,7 @@ void process_character(char* inputstr, char ch) {
 }
 
 char* get_inputstring() {
-	char* input = malloc(sizeof(char) * 256);
+	char* input = kmalloc(sizeof(char) * 256);
 	unsigned char c = 0;
 	do {
 		c = getchar();

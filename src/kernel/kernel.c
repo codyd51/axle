@@ -215,18 +215,12 @@ void print_os_name() {
 	printf("]\n");
 }
 
-//declared within std.c
-extern void initmem();
-
 #if defined(__cplusplus)
 extern "C" //use C linkage for kernel_main
 #endif
 void kernel_main() {
 	//initialize terminal interface
 	terminal_initialize();
-
-	//set up memory for malloc to use
-	initmem();
 
 	//introductory message
 	print_os_name();

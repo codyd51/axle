@@ -87,135 +87,135 @@ int char_index(char ch) {
 }
 
 font_t* setup_font() {
-	font_t* font_map = malloc(sizeof(font_t));
+	font_t* font_map = kmalloc(sizeof(font_t));
 
 	int a_vals[] = {0x18, 0x3C, 0x66, 0x7E, 0x66, 0x66, 0x00, 0x00};
-	char_t* a = malloc(sizeof(char_t));
+	char_t* a = kmalloc(sizeof(char_t));
 	memcpy(a->rows, a_vals, sizeof(a_vals));
 	font_map->characters[0] = a;
 
 	int b_vals[] = {0xFC, 0xC6, 0xCC, 0xFE, 0xC6, 0xC3, 0xC6, 0xFC};
-	char_t* b = malloc(sizeof(char_t));
+	char_t* b = kmalloc(sizeof(char_t));
 	memcpy(b->rows, b_vals, sizeof(b_vals));
 	font_map->characters[1] = b;
 
 	int c_vals[] = {0x3C, 0x66, 0xC3, 0xC0, 0xC0, 0xC3, 0x66, 0x3C};
-	char_t* c = malloc(sizeof(char_t));
+	char_t* c = kmalloc(sizeof(char_t));
 	memcpy(c->rows, c_vals, sizeof(c_vals));
 	font_map->characters[2] = c;
 
 	int d_vals[] = {0xFC, 0xC6, 0xC3, 0xC3, 0xC3, 0xC3, 0xC6, 0xFC};
-	char_t* d = malloc(sizeof(char_t));
+	char_t* d = kmalloc(sizeof(char_t));
 	memcpy(d->rows, d_vals, sizeof(d_vals));
 	font_map->characters[3] = d;
 
 	int e_vals[] = {0xFF, 0xFF, 0xC0, 0xFF, 0xFF, 0xC0, 0xFF, 0xFF};
-	char_t* e = malloc(sizeof(char_t));
+	char_t* e = kmalloc(sizeof(char_t));
 	memcpy(e->rows, e_vals, sizeof(e_vals));
 	font_map->characters[4] = e;
 
 	int f_vals[] = {0xFF, 0xFF, 0xC0, 0xFF, 0xFF, 0xC0, 0xC0, 0xC0};
-	char_t* f = malloc(sizeof(char_t));
+	char_t* f = kmalloc(sizeof(char_t));
 	memcpy(f->rows, f_vals, sizeof(f_vals));
 	font_map->characters[5] = f;
 
 	int g_vals[] = {0x3C, 0x66, 0xC3, 0xC0, 0xCF, 0x63, 0x7E, 0x3C};
-	char_t* g = malloc(sizeof(char_t));
+	char_t* g = kmalloc(sizeof(char_t));
 	memcpy(g->rows, g_vals, sizeof(g_vals));
 	font_map->characters[6] = g;
 	
 	int h_vals[] = {0xC3, 0xC3, 0xC3, 0xFF, 0xFF, 0xC3, 0xC3, 0xC3};
-	char_t* h = malloc(sizeof(char_t));
+	char_t* h = kmalloc(sizeof(char_t));
 	memcpy(h->rows, h_vals, sizeof(h_vals));
 	font_map->characters[7] = h;
 	
 	int i_vals[] = {0xFF, 0xFF, 0x18, 0x18, 0x18, 0x18, 0xFF, 0xFF};
-	char_t* i = malloc(sizeof(char_t));
+	char_t* i = kmalloc(sizeof(char_t));
 	memcpy(i->rows, i_vals, sizeof(i_vals));
 	font_map->characters[8] = i;
 	
 	int j_vals[] = {0xFF, 0xFF, 0x0C, 0x0C, 0x0C, 0xCC, 0x7C, 0x38};
-	char_t* j = malloc(sizeof(char_t));
+	char_t* j = kmalloc(sizeof(char_t));
 	memcpy(j->rows, j_vals, sizeof(j_vals));
 	font_map->characters[9] = j;
 	
 	int k_vals[] = {0xC6, 0xCC, 0xD8, 0xF0, 0xD8, 0xCC, 0xC6, 0xC3};
-	char_t* k = malloc(sizeof(char_t));
+	char_t* k = kmalloc(sizeof(char_t));
 	memcpy(k->rows, k_vals, sizeof(k_vals));
 	font_map->characters[10] = k;
 	
 	int l_vals[] = {0xC0, 0xC0, 0xC0, 0xC0, 0xC0, 0xC0, 0xFF, 0xFF};
-	char_t* l = malloc(sizeof(char_t));
+	char_t* l = kmalloc(sizeof(char_t));
 	memcpy(l->rows, l_vals, sizeof(l_vals));
 	font_map->characters[11] = l;
 	
 	int m_vals[] = {0xC3, 0xE7, 0xDB, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3};
-	char_t* m = malloc(sizeof(char_t));
+	char_t* m = kmalloc(sizeof(char_t));
 	memcpy(m->rows, m_vals, sizeof(m_vals));
 	font_map->characters[12] = m;
 	
 	int n_vals[] = {0xC3, 0xE3, 0xD3, 0xD3, 0xCB, 0xCB, 0xC7, 0xC3};
-	char_t* n = malloc(sizeof(char_t));
+	char_t* n = kmalloc(sizeof(char_t));
 	memcpy(n->rows, n_vals, sizeof(n_vals));
 	font_map->characters[13] = n;
 	
 	int o_vals[] = {0x18, 0x3C, 0x66, 0xC3, 0xC3, 0x66, 0x3C, 0x18};
-	char_t* o = malloc(sizeof(char_t));
+	char_t* o = kmalloc(sizeof(char_t));
 	memcpy(o->rows, o_vals, sizeof(o_vals));
 	font_map->characters[14] = o;
 	
 	int p_vals[] = {0xFC, 0xC6, 0xC3, 0xC6, 0xFC, 0xC0, 0xC0, 0xC0};
-	char_t* p = malloc(sizeof(char_t));
+	char_t* p = kmalloc(sizeof(char_t));
 	memcpy(p->rows, p_vals, sizeof(p_vals));
 	font_map->characters[15] = p;
 	
 	int q_vals[] = {0x18, 0x3C, 0x66, 0xC3, 0xDB, 0x6D, 0x3D, 0x1B};
-	char_t* q = malloc(sizeof(char_t));
+	char_t* q = kmalloc(sizeof(char_t));
 	memcpy(q->rows, q_vals, sizeof(q_vals));
 	font_map->characters[16] = q;
 	
 	int r_vals[] = {0xFC, 0xC6, 0xC6, 0xFC, 0xD8, 0xCC, 0xC6, 0xC3};
-	char_t* r = malloc(sizeof(char_t));
+	char_t* r = kmalloc(sizeof(char_t));
 	memcpy(r->rows, r_vals, sizeof(r_vals));
 	font_map->characters[17] = r;
 		
 	int s_vals[] = {0x3C, 0x66, 0xC3, 0x60, 0x3F, 0x06, 0x66, 0x3C};
-	char_t* s = malloc(sizeof(char_t));
+	char_t* s = kmalloc(sizeof(char_t));
 	memcpy(s->rows, s_vals, sizeof(s_vals));
 	font_map->characters[18] = s;
 	
 	int t_vals[] = {0xFF, 0xFF, 0x18, 0x18, 0x18, 0x18, 0x18, 0x18};
-	char_t* t = malloc(sizeof(char_t));
+	char_t* t = kmalloc(sizeof(char_t));
 	memcpy(t->rows, t_vals, sizeof(t_vals));
 	font_map->characters[19] = t;
 	
 	int u_vals[] = {0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0x66, 0x7E, 0x18};
-	char_t* u = malloc(sizeof(char_t));
+	char_t* u = kmalloc(sizeof(char_t));
 	memcpy(u->rows, u_vals, sizeof(u_vals));
 	font_map->characters[20] = u;
 	
 	int v_vals[] = {0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0x66, 0x3C, 0x18};
-	char_t* v = malloc(sizeof(char_t));
+	char_t* v = kmalloc(sizeof(char_t));
 	memcpy(v->rows, v_vals, sizeof(v_vals));
 	font_map->characters[21] = v;
 	
 	int w_vals[] = {0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xDB, 0xE7, 0xC3};
-	char_t* w = malloc(sizeof(char_t));
+	char_t* w = kmalloc(sizeof(char_t));
 	memcpy(w->rows, w_vals, sizeof(w_vals));
 	font_map->characters[22] = w;
 
 	int x_vals[] = {0xC3, 0x66, 0x3C, 0x18, 0x18, 0x3C, 0x66, 0xC3};
-	char_t* x = malloc(sizeof(char_t));
+	char_t* x = kmalloc(sizeof(char_t));
 	memcpy(x->rows, x_vals, sizeof(x_vals));
 	font_map->characters[23] = x;
 
 	int y_vals[] = {0xC3, 0x66, 0x3C, 0x18, 0x18, 0x18, 0x18, 0x18};
-	char_t* y = malloc(sizeof(char_t));
+	char_t* y = kmalloc(sizeof(char_t));
 	memcpy(y->rows, y_vals, sizeof(y_vals));
 	font_map->characters[24] = y;
 
 	int z_vals[] = {0xFF, 0x06, 0x0C, 0x18, 0x30, 0x60, 0xC0, 0xFF};
-	char_t* z = malloc(sizeof(char_t));
+	char_t* z = kmalloc(sizeof(char_t));
 	memcpy(z->rows, z_vals, sizeof(z_vals));
 	font_map->characters[25] = z;
 

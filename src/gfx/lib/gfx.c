@@ -11,7 +11,7 @@ screen_t* get_vga_screen() {
 	regs.ax = 0x0013;
 	int32(0x10, &regs);
 
-	screen_t* screen = (screen_t*)malloc(sizeof(screen_t));
+	screen_t* screen = (screen_t*)kmalloc(sizeof(screen_t));
 	screen->width = 320;
 	screen->height = 200;
 	screen->depth = 256;

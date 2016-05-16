@@ -93,7 +93,7 @@ char* string_split(char* str, char delimiter, int index) {
 		if (str[i] == delimiter) {
 			curTok[i] = '\0';
 			if (iterTokCount == index) {
-				char* cpy = malloc(sizeof(char) * 64);
+				char* cpy = kmalloc(sizeof(char) * 64);
 				strcpy(cpy, curTok);
 
 				return cpy;
@@ -111,7 +111,7 @@ char* string_split(char* str, char delimiter, int index) {
 		i++;
 	}
 
-	char* cpy = malloc(sizeof(char) * 64);
+	char* cpy = kmalloc(sizeof(char) * 64);
 	strcpy(cpy, curTok);
 
 	return cpy;
