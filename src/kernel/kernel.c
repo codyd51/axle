@@ -22,6 +22,32 @@ void print_os_name() {
 	printf("]\n");
 }
 
+void shell_loop() {
+	int exit_status = 0;
+	while (!exit_status) {
+		exit_status = shell();
+	}
+
+	//give them a chance to recover
+	for (int i = 5; i > 0; i--) {
+		terminal_clear();
+		printf_info("Shutting down in %d. Press any key to cancel", i);
+		sleep(1000);
+		if (haskey()) {
+			//clear buffer
+			while (haskey()) {
+				getchar();
+			}
+			//restart shell loop
+			shell_loop();
+			break;
+		}
+	}
+	
+	//we're dead
+	terminal_clear();
+}
+
 #if defined(__cplusplus)
 extern "C" //use C linkage for kernel_main
 #endif
@@ -59,11 +85,7 @@ void kernel_main() {
 	getchar();
 	
 	init_shell();
-	int exit_status = 0;
-	while (!exit_status) {
-		exit_status = shell();
-	}
-
+	shell_loop(); 
 }
 
 

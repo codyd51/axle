@@ -157,7 +157,7 @@ int shell() {
 	terminal_settextcolor(COLOR_WHITE);
 	process_command(input);
 
-	if (strcmp(input, "shutdown") == 0) {
+	if (strcmp(input, "shutdown")) {
 		return 1;
 	}
 	return 0;
