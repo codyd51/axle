@@ -11,20 +11,23 @@ getobjs = $(foreach ext, c s, $(filter %.o,$(patsubst %.$(ext),%.o,$(1))))
 PATHS = $(shell find ./src -type d -print)
 AXLE_FILES = $(foreach path, $(PATHS), $(call findfiles, $(path)))
 OBJ_DIR = .objs
-OBJECTS = $(filter-out boot.s ide.c, $(patsubst src, $(OBJ_DIR), $(call getobjs, $(AXLE_FILES))))
+SRC_DIR = src
+OBJECTS = $(filter-out boot.s, $(patsubst ./src/%, $(OBJ_DIR)/%, $(call getobjs, $(AXLE_FILES))))
 
-all: axle
+all: axle 
 
-%/boot.o: %/boot.s
+$(OBJ_DIR)/boot/boot.o: $(SRC_DIR)/boot/boot.s
 	$(AS) -o $@ $<
 
-%.o: %.s
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.s
+	@mkdir -p `dirname $@`
 	$(AS2) $(AFLAGS) -o $@ $<
 
-%.o: %.c %.h
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c $(SRC_DIR)/%.h
+	@mkdir -p `dirname $@`
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-axle: $(OBJECTS) src/boot/boot.o
+axle: $(OBJECTS)
 	$(CC) -T src/boot/linker.ld -o axle.bin -ffreestanding -nostdlib -lgcc $^
 
 clean:
