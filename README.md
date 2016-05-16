@@ -28,7 +28,7 @@ Roadmap
 - [ ] Snake!
 - [ ] Software interrupts
 - [x] Paging
-- [ ] Organize files
+- [x] Organize files
 - [ ] Syscalls
 - [ ] Multitasking
 - [ ] User mode
