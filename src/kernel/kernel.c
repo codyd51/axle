@@ -39,6 +39,7 @@ void shell_loop() {
 				getchar();
 			}
 			//restart shell loop
+			terminal_clear();
 			shell_loop();
 			break;
 		}

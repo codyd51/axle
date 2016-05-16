@@ -157,7 +157,7 @@ int shell() {
 	terminal_settextcolor(COLOR_WHITE);
 	process_command(input);
 
-	if (strcmp(input, "shutdown")) {
+	if (strcmp(input, "shutdown") == 0) {
 		return 1;
 	}
 	return 0;
@@ -184,7 +184,12 @@ void help_command() {
 	printf("\nAll commands listed here are internally defined.");
 	printf("\nType 'help' to see this list\n");
 	for (size_t i = 0; i < CommandNum; i++) {
-		printf("\n\t%s\t%s", CommandTable[i].name, CommandTable[i].description);
+		int spaces_needed = 10 - strlen(CommandTable[i].name);
+		printf("\n\t%s", CommandTable[i].name);
+		for (int i = 0; i < spaces_needed; i++) {
+			printf(" ");
+		}
+		printf("%s", CommandTable[i].description);
 	}
 }
 
@@ -224,6 +229,10 @@ void snake_command() {
 	play_snake();
 }
 
+void shutdown_command() {
+
+}
+
 void init_shell() {
 	//set shell color
 	terminal_settextcolor(COLOR_GREEN);
@@ -238,6 +247,7 @@ void init_shell() {
 	add_new_command("asmjit", "Starts JIT prompt", asmjit_command, 0);
 	add_new_command("tick", "Prints current tick count from PIC", tick_command, 0);
 	add_new_command("snake", "Have some fun!", snake_command, 0);
+	add_new_command("shutdown", "Shutdown PC", shutdown_command, 0);
 	add_new_command("", "", empty_command, 0);
 }
 
