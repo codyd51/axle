@@ -1,5 +1,5 @@
 #include "ide.h"
-
+/*
 unsigned char ide_read(unsigned char channel, unsigned char reg) {
 	unsigned char result;
 	if (reg > 0x07 && reg < 0x0C) {
@@ -286,7 +286,7 @@ void ide_initialize(unsigned int BAR0, unsigned int BAR1, unsigned int BAR2, uns
 }
 
 unsigned char ide_ata_access(unsigned char direction, unsigned char drive, unsigned int lba, unsigned char numsects, unsigned short selector, unsigned int edi) {
-	unsigned char lba_mode /*0: CHS, 1: LBA28, 2: LBA48 */, dma /* 0: No DMA, 1: DMA */, cmd;
+	unsigned char lba_mode /*0: CHS, 1: LBA28, 2: LBA48 **, dma /* 0: No DMA, 1: DMA **, cmd;
 	unsigned char lba_io[6];
 	//read the channel
 	unsigned int channel 		= ide_devices[drive].Channel;

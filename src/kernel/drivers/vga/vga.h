@@ -1,7 +1,7 @@
 #ifndef VGA_H
 #define VGA_H
 
-#include <std/common.h>
+#include <std/std.h>
 
 static const size_t VGA_WIDTH = 80;
 static const size_t VGA_HEIGHT = 25;
