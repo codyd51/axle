@@ -85,13 +85,13 @@ void read_rtc() {
 
 void register_cmos(int reg) {
 	//disable all IRQs
-	__asm__ volatile("cli");
+	kernel_begin_critical();
 
 	int val = 0x70;
 	outb(val, reg);
 
 	//reenable IRQs
-	__asm__ volatile("sti");
+	kernel_end_critical();	
 }
 
 unsigned char epoch_time();

@@ -47,12 +47,27 @@ void shell_loop() {
 	
 	//we're dead
 	terminal_clear();
+} 
+
+void kernel_begin_critical() {
+	//disable interrupts while critical code executes
+	asm ("cli");
 }
+
+void kernel_end_critical() {
+	//reenable interrupts now that a critical section is complete
+	asm ("sti");
+}
+
+extern uint32_t placement_address;
+uint32_t initial_esp;
 
 #if defined(__cplusplus)
 extern "C" //use C linkage for kernel_main
 #endif
-void kernel_main() {
+void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
+	initial_esp = initial_stack;
+
 	//initialize terminal interface
 	terminal_initialize();
 

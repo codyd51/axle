@@ -148,12 +148,12 @@ void initialize_paging() {
 	printf_dbg("switch_page_directory");
 
 	//turn on paging
-	asm volatile("cli");
+	kernel_begin_critical();
 	uint32_t cr0;
 	asm volatile("mov %%cr0, %0" : "=r"(cr0));
 	cr0 |= 0x80000000;
 	asm volatile("mov %0, %%cr0" : : "r"(cr0));
-	asm volatile("sti");
+	kernel_end_critical();
 
 	printf_dbg("paging enabled");
 

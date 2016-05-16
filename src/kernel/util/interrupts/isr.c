@@ -4,7 +4,7 @@
 
 void halt_execution() {
 	//disable interrupts so this never ends
-	asm volatile("cli");
+	kernel_begin_critical();
 
 	//enter infinite loop
 	printf_err("Halting execution");
