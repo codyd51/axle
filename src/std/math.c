@@ -24,7 +24,7 @@ double sin(double x) {
 
 double cos(double x) {
 	//approximate taylor series for cos
-	double ret = x;
+	double ret = 1;
 	ret -= (pow(x, 2)/factorial(2));
 	ret += (pow(x, 4)/factorial(4));
 	ret -= (pow(x, 6)/factorial(6));
