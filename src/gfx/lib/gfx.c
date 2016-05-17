@@ -24,6 +24,14 @@ void switch_to_text() {
 	int32(0x10, &regs);
 }
 
+void vsync() {
+	//wait until previous retrace has ended
+	do {} while (inb(0x3DA) & 8);
+
+	//wait until new trace has just begun
+	do {} while (!(inb(0x3DA) & 8));
+}
+
 void wait_keypress() {
 	regs16_t regs;
 	regs.ax = 0x0000;
@@ -64,12 +72,17 @@ void vline_slow(screen_t* screen, int x, int y, int h, int color) {
 
 void gfx_test() {
 	screen_t* screen = get_vga_screen();
-	fill_screen(screen, 1);
+	fill_screen(screen, 6);
+
+	coordinate* origin = create_coordinate(50, 50);
+	size* size = create_size(50, 50);
+	rect* rect = create_rect(origin, size);
+	draw_rect(screen, rect, 7);
 
 	//fillrect(screen, 50, 5, 100, 10, 6);
 	//hline_slow(screen, 80, 30, 200, 7);
 	//vline_slow(screen, 25, 5, 150, 9);
-	
+/*	
 	font_t* font_map = setup_font();
 	//draw_char(screen, font_map, 'a', 0, 0);
 	//draw_char(screen, font_map, 'b', 10, 0);
@@ -96,9 +109,13 @@ void gfx_test() {
 	//	draw_char(screen, font_map, 'd');
 //	draw_char(screen, font_map, 'e');
 	//draw_char(screen, font_map, 'f');
-
+*/
 	//sleep(5000);
 	getchar();
 	switch_to_text();
+
+	printf_info("coordinate: %x x: %d y: %d", origin, origin->x, origin->y);
+	printf_info("size: %x w: %d h %d", size, size->w, size->h);
+	printf_info("rect %x", rect);
 }
 
