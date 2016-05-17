@@ -3,6 +3,7 @@
 #include <kernel/kernel.h>
 #include <kernel/drivers/pit/timer.h>
 #include <gfx/font/font.h>
+#include "shapes.h"
 
 #define VRAM_START 0xA0000
 
@@ -70,95 +71,69 @@ void vline_slow(screen_t* screen, int x, int y, int h, int color) {
 	}
 }
 
-coordinate create_coordinate(int x, int y) {
-	coordinate coord;
-	coord.x = x;
-	coord.y = y;
-	return coord;
-}
-
-size create_size(int w, int h) {
-	size size;
-	size.w = w;
-	size.h = h;
-	return size;
-}
-
-rect create_rect(coordinate origin, size size) {
-	rect rect;
-	rect.origin = origin;
-	rect.size = size;
-	return rect;
-}
-
-line create_line(coordinate p1, coordinate p2) {
-	line line;
-	line.p1 = p1;
-	line.p2 = p2;
-	return line;
-}
-
-circle create_circle(coordinate center, int radius) {
-	circle circle;
-	circle.center = center;
-	circle.radius = radius;
-	return triangle;
-}
-
-triangle create_triangle(coordinate p1, coordinate p2, coordinate p3) {
-	triangle triangle;
-	triangle.p1 = p1;
-	triangle.p2 = p2;
-	triangle.p3 = p3;
-	return triangle;
-}
-
 void gfx_test() {
 	screen_t* screen = get_vga_screen();
-	fill_screen(screen, 6);
+	fill_screen(screen, 0);
 
-	coordinate origin = create_coordinate(50, 50);
-	size size = create_size(50, 50);
-	rect rect = create_rect(origin, size);
+	//coordinate origin = create_coordinate(50, 50);
+	//size size = create_size(50, 50);
+	//rect rect = create_rect(origin, size);
 	//draw_rect(screen, rect, 7);
+	
+	//coordinate p1 = create_coordinate(0, 0);
+	//coordinate p2 = create_coordinate(50, 50);
+	//line line = create_line(p1, p2);
+	//draw_line(screen, line, 7);
+
+	coordinate p1 = create_coordinate(screen->width / 2, screen->height * 0.25);
+	coordinate p2 = create_coordinate(screen->width / 2 - 25, screen->height * 0.25 + 50);
+	coordinate p3 = create_coordinate(screen->width / 2 + 25, screen->height * 0.25 + 50);
+	triangle triangle = create_triangle(p1, p2, p3);
+	draw_triangle(screen, triangle, 10);
 
 	//fillrect(screen, 50, 5, 100, 10, 6);
 	//hline_slow(screen, 80, 30, 200, 7);
 	//vline_slow(screen, 25, 5, 150, 9);
-/*	
+	
 	font_t* font_map = setup_font();
-	//draw_char(screen, font_map, 'a', 0, 0);
-	//draw_char(screen, font_map, 'b', 10, 0);
-	//draw_char(screen, font_map, 'z', 20, 0);
-	draw_char(screen, font_map, 'p', 0, 10);
-	draw_char(screen, font_map, 'h', 10, 10);
-	draw_char(screen, font_map, 'i', 20, 10);
-	draw_char(screen, font_map, 'l', 30, 10);
-	draw_char(screen, font_map, 'l', 40, 10);
-	draw_char(screen, font_map, 'i', 50, 10);
-	draw_char(screen, font_map, 'p', 60, 10);
+	int y = screen->height * 0.6;
+	draw_char(screen, font_map, 'a', screen->width / 2 - 35, y);
+	draw_char(screen, font_map, 'x', screen->width / 2 - 25, y);
+	draw_char(screen, font_map, 'l', screen->width / 2 - 15, y);
+	draw_char(screen, font_map, 'e', screen->width / 2 - 5, y);
+	draw_char(screen, font_map, 'o', screen->width / 2 + 15, y);
+	draw_char(screen, font_map, 's', screen->width / 2 + 25, y);
 
-	draw_char(screen, font_map, 't', 80, 10);
-	draw_char(screen, font_map, 'e', 90, 10);
-	draw_char(screen, font_map, 'n', 100, 10);
-	draw_char(screen, font_map, 'n', 110, 10);
-	draw_char(screen, font_map, 'e', 120, 10);
-	draw_char(screen, font_map, 'n', 130, 10);
-
-	draw_char(screen, font_map, 'm', 0, 20);
-	draw_char(screen, font_map, 'e', 10, 20);
-	draw_char(screen, font_map, 'm', 20, 20);
-	draw_char(screen, font_map, 'e', 30, 20);
-	//	draw_char(screen, font_map, 'd');
-//	draw_char(screen, font_map, 'e');
-	//draw_char(screen, font_map, 'f');
-*/
-	//sleep(5000);
+	//draw_string(screen, font_map, "AXLE OS", 0, 0);
+	sleep(5000);
 	getchar();
 	switch_to_text();
-
+/*
 	printf_info("coordinate: %x x: %d y: %d", origin, origin->x, origin->y);
 	printf_info("size: %x w: %d h %d", size, size->w, size->h);
 	printf_info("rect %x", rect);
+*/
 }
 
+void boot_screen() {
+	screen_t* screen = get_vga_screen();
+	fill_screen(screen, 0);
+
+	coordinate p1 = create_coordinate(screen->width / 2, screen->height * 0.25);
+	coordinate p2 = create_coordinate(screen->width / 2 - 25, screen->height * 0.25 + 50);
+	coordinate p3 = create_coordinate(screen->width / 2 + 25, screen->height * 0.25 + 50);
+	triangle triangle = create_triangle(p1, p2, p3);
+	draw_triangle(screen, triangle, 10);
+
+	font_t* font_map = setup_font();
+	int y = screen->height * 0.6;
+	draw_char(screen, font_map, 'a', screen->width / 2 - 35, y);
+	draw_char(screen, font_map, 'x', screen->width / 2 - 25, y);
+	draw_char(screen, font_map, 'l', screen->width / 2 - 15, y);
+	draw_char(screen, font_map, 'e', screen->width / 2 - 5, y);
+	draw_char(screen, font_map, 'o', screen->width / 2 + 15, y);
+	draw_char(screen, font_map, 's', screen->width / 2 + 25, y);
+	
+	sleep(2000);
+	switch_to_text();
+}

@@ -89,7 +89,7 @@ int char_index(char ch) {
 font_t* setup_font() {
 	font_t* font_map = kmalloc(sizeof(font_t));
 
-	int a_vals[] = {0x18, 0x3C, 0x66, 0x7E, 0x66, 0x66, 0x00, 0x00};
+	int a_vals[] = {0x18, 0x3C, 0x66, 0xC3, 0xFF, 0xFF, 0xC3, 0xC3};
 	char_t* a = kmalloc(sizeof(char_t));
 	memcpy(a->rows, a_vals, sizeof(a_vals));
 	font_map->characters[0] = a;
@@ -179,7 +179,7 @@ font_t* setup_font() {
 	memcpy(r->rows, r_vals, sizeof(r_vals));
 	font_map->characters[17] = r;
 		
-	int s_vals[] = {0x3C, 0x66, 0xC3, 0x60, 0x3F, 0x06, 0x66, 0x3C};
+	int s_vals[] = {0x3C, 0x66, 0xC3, 0x60, 0x3F, 0x03, 0x66, 0x3C};
 	char_t* s = kmalloc(sizeof(char_t));
 	memcpy(s->rows, s_vals, sizeof(s_vals));
 	font_map->characters[18] = s;
