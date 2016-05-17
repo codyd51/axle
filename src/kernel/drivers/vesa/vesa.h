@@ -63,14 +63,14 @@ typedef struct mode_info {
 } mode_info;
 */
 
-struct vbe_info_block {
+typedef struct vbe_info_block {
 	char vbe_signature[4]; //"VESA"
 	uint16_t vbe_version; //0x300 for VBE 3.0
 	uint16_t oem_string_ptr[2]; 
 	uint8_t capabilities[4];
 	uint16_t video_mode_ptr[2];
 	uint16_t total_memory; //as # of 64kb blocks
-} __attribute__((packed));
+} vbe_info_block;
 
 typedef struct vesa_mode_info {
 	uint16_t attributes;
@@ -80,7 +80,7 @@ typedef struct vesa_mode_info {
 	uint16_t win_size;
 	uint16_t segment_a;
 	uint16_t segment_b;
-	unsigned long win_func_ptr;
+	uint32_t win_func_ptr;
 	uint16_t pitch; //bytes per scanline
 
 	uint16_t x_res;
@@ -98,7 +98,7 @@ typedef struct vesa_mode_info {
 	uint32_t physbase; //linear framebuffer address of screen
 	uint32_t reserved1;
 	uint16_t reserved2;
-} vesa_mode_info __attribute__((packed));
+} vesa_mode_info;
 
 vesa_mode_info* get_vesa_info();
 void vesa_test();
