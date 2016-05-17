@@ -111,3 +111,27 @@ void draw_triangle(screen_t* screen, triangle triangle, int color) {
 	draw_line(screen, l2, color);
 	draw_line(screen, l3, color);
 }
+
+void draw_circle(screen_t* screen, circle circle, int color) {
+	int x = 0;
+	int y = circle.radius;
+	int dp = 1 - circle.radius;
+	do {
+		if (dp < 0) {
+			dp = dp + 2 * (++x) + 3;
+		}
+		else {
+			dp = dp + 2 * (++x) - 2 * (--y) + 5;
+		}
+
+		putpixel(screen, circle.center.x + x, circle.center.y + y, color);
+		putpixel(screen, circle.center.x - x, circle.center.y + y, color);
+		putpixel(screen, circle.center.x + x, circle.center.y - y, color);
+		putpixel(screen, circle.center.x - x, circle.center.y - y, color);
+		putpixel(screen, circle.center.x + y, circle.center.y + x, color);
+		putpixel(screen, circle.center.x - y, circle.center.y + x, color);
+		putpixel(screen, circle.center.x + y, circle.center.y - x, color);
+		putpixel(screen, circle.center.x - y, circle.center.y - x, color);
+	} while (x < y);
+}
+
