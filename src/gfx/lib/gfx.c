@@ -54,7 +54,7 @@ void boot_screen() {
 
 	font_t* font_map = setup_font();
 	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6);
-	
+
 	sleep(2000);
 	switch_to_text();
 }
