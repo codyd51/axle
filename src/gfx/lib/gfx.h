@@ -20,7 +20,6 @@ extern void int32(unsigned char intnum, regs16_t* regs);
 
 screen_t* get_gfx_screen();
 void switch_to_text();
-void gfx_test();
 void boot_screen();
 
 void putpixel(screen_t* screen, int x, int y, int color);
