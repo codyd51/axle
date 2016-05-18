@@ -1,4 +1,4 @@
-#include "timer.h"
+#include "pit.h"
 #include <kernel/util/interrupts/isr.h>
 #include <kernel/kernel.h>
 
