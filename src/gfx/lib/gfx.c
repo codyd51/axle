@@ -4,6 +4,7 @@
 #include <kernel/drivers/pit/timer.h>
 #include <gfx/font/font.h>
 #include "shapes.h"
+#include <std/std.h>
 
 #define VRAM_START 0xA0000
 
@@ -12,10 +13,14 @@ screen_t* switch_to_vga() {
 	regs.ax = 0x0013;
 	int32(0x10, &regs);
 
+	int width = 320;
+	int height = 200;
+
 	screen_t* screen = (screen_t*)kmalloc(sizeof(screen_t));
-	screen->width = 320;
-	screen->height = 200;
+	screen->width = width;
+	screen->height = height;
 	screen->depth = 256;
+	screen->vmem = kmalloc(width * height * sizeof(char));
 	return screen;
 }
 
@@ -34,17 +39,21 @@ void vsync() {
 }
 
 void putpixel(screen_t* screen, int x, int y, int color) {
-	unsigned loc = VRAM_START + (y * screen->width) + x;
-	memset(loc, color, 1);
+	uint16_t loc = ((y * screen->width) + x);
+	screen->vmem[loc] = color;
 }
 
 void fill_screen(screen_t* screen, int color) {
 	memset((char*)VRAM_START, color, (screen->width * screen->height));
 }
 
+void write_screen(screen_t* screen) {
+	memcpy((char*)VRAM_START, screen->vmem, (screen->width * screen->height));
+}
+
 void boot_screen() {
 	screen_t* screen = switch_to_vga();
-	fill_screen(screen, 0);
+	fill_screen(screen, 5);
 
 	coordinate p1 = create_coordinate(screen->width / 2, screen->height * 0.25);
 	coordinate p2 = create_coordinate(screen->width / 2 - 25, screen->height * 0.25 + 50);
@@ -55,6 +64,8 @@ void boot_screen() {
 	font_t* font_map = setup_font();
 	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6);
 
-	sleep(2000);
+	write_screen(screen);
+
+	sleep(5000);
 	switch_to_text();
 }
