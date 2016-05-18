@@ -79,6 +79,9 @@ void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
 	printf_info("Initializing PIC timer...");
 	init_timer(1000);
 
+	printf_info("Initializing paging...");
+	initialize_paging();
+	
 	//display booting screen
 	boot_screen();
 
@@ -90,9 +93,6 @@ void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	printf_info("Initializing keyboard driver...");
 	init_kb();
-
-	printf_info("Initializing paging...");
-	initialize_paging();
 
 	test_heap();	
 

@@ -82,6 +82,8 @@ int char_index(char ch) {
 		case 'z':
 		case 'Z':
 			return 25;
+		case ' ':
+			return 26;
 	}
 	return -1;
 }
@@ -159,7 +161,7 @@ font_t* setup_font() {
 	memcpy(n->rows, n_vals, sizeof(n_vals));
 	font_map->characters[13] = n;
 	
-	int o_vals[] = {0x18, 0x3C, 0x66, 0xC3, 0xC3, 0x66, 0x3C, 0x18};
+	int o_vals[] = {0x3C, 0x7E, 0xE7, 0xC3, 0xC3, 0xE7, 0x7E, 0x3C};
 	char_t* o = kmalloc(sizeof(char_t));
 	memcpy(o->rows, o_vals, sizeof(o_vals));
 	font_map->characters[14] = o;
@@ -219,6 +221,11 @@ font_t* setup_font() {
 	memcpy(z->rows, z_vals, sizeof(z_vals));
 	font_map->characters[25] = z;
 
+	int space_vals[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+	char_t* space = kmalloc(sizeof(char_t));
+	memcpy(space->rows, space_vals, sizeof(space_vals));
+	font_map->characters[26] = space;
+
 	return font_map;
 }
 
@@ -238,5 +245,9 @@ void draw_char(screen_t* screen, font_t* font_map, char ch, int x, int y) {
 			}
 		}
 	}
+}
+
+void draw_string(screen_t* screen, font_t* font_map, char* str, int x, int y) {
+
 }
 
