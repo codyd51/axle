@@ -181,7 +181,7 @@ font_t* setup_font() {
 	memcpy(r->rows, r_vals, sizeof(r_vals));
 	font_map->characters[17] = r;
 		
-	int s_vals[] = {0x3C, 0x66, 0xC3, 0x60, 0x3F, 0x03, 0x66, 0x3C};
+	int s_vals[] = {0x3C, 0x62, 0x40, 0x78, 0x1E, 0x02, 0x46, 0x3C};
 	char_t* s = kmalloc(sizeof(char_t));
 	memcpy(s->rows, s_vals, sizeof(s_vals));
 	font_map->characters[18] = s;
