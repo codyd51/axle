@@ -246,8 +246,16 @@ void draw_char(screen_t* screen, font_t* font_map, char ch, int x, int y) {
 		}
 	}
 }
-
+#define CHAR_WIDTH 8
+#define CHAR_PADDING 2
 void draw_string(screen_t* screen, font_t* font_map, char* str, int x, int y) {
+	int idx = 0;
+	while (str[idx] != NULL) {
+		draw_char(screen, font_map, str[idx], x, y);
+		
+		x += CHAR_WIDTH + CHAR_PADDING;
 
+		idx++;
+	}
 }
 
