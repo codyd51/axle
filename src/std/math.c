@@ -47,3 +47,23 @@ double arccos(double x) {
 	//arccos is arcsin phase shifted pi/2
 	return (pi/2) - arcsin(x);
 }
+
+int abs(int val) {
+	if (val < 0) return -val;
+	return val;
+}
+
+double sqrt(double val) {
+	//TODO handle this case
+	if (val < 0) return -1;
+
+	double a = 1;
+	double b = val;
+	double epsilon = 0.001;
+
+	while (abs(a - b) > epsilon) {
+		a = (a+b) / 2;
+		b = val/a;
+	}
+	return a;
+}

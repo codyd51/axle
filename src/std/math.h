@@ -12,4 +12,8 @@ double arcsin(double val);
 double cos(double val);
 double arccos(double val);
 
+int abs(int val);
+
+double sqrt(double x);
+
 #endif
