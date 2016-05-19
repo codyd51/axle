@@ -68,7 +68,11 @@ static void draw_rect_int(screen_t* screen, rect rect, int color) {
 }
 
 void draw_rect(screen_t* screen, rect r, int color, int thickness) {
+<<<<<<< HEAD
 	int max_thickness = (MIN(r.size.w, r.size.h)) / 2;
+=======
+	int max_thickness = r.size.w / 2;
+>>>>>>> 19cd12487a4a58742e62558d5acf7572ded0a5da
 
 	//if thickness is negative, fill the shape
 	if (thickness < 0) thickness = max_thickness;
@@ -224,6 +228,11 @@ void draw_triangle(screen_t* screen, triangle tri, int color, int thickness) {
 }
 
 void draw_circle_int(screen_t* screen, circle circle, int color) {
+=======
+}
+
+void draw_circle(screen_t* screen, circle circle, int color, int thickness) {
+>>>>>>> 19cd12487a4a58742e62558d5acf7572ded0a5da
 	int x = 0;
 	int y = circle.radius;
 	int dp = 1 - circle.radius;
@@ -250,6 +259,7 @@ void draw_circle_int(screen_t* screen, circle circle, int color) {
 	putpixel(screen, circle.center.x + circle.radius, circle.center.y, color);
 	putpixel(screen, circle.center.x, circle.center.y + circle.radius, color);
 	putpixel(screen, circle.center.x - circle.radius, circle.center.y, color);
+<<<<<<< HEAD
 }
 
 void draw_circle(screen_t* screen, circle circ, int color, int thickness) {
@@ -269,5 +279,7 @@ void draw_circle(screen_t* screen, circle circ, int color, int thickness) {
 		//decrease radius for next shell
 		c.radius -= 1;
 	}
+=======
+>>>>>>> 19cd12487a4a58742e62558d5acf7572ded0a5da
 }
 
