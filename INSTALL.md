@@ -47,6 +47,8 @@ brew install xorriso
 ```
 
 Third: gcc (takes a while)
+
+```bash
 curl -O ftp://ftp.gnu.org/gnu/gcc/gcc-6.1.0/gcc-6.1.0.tar.bz2
 tar -xvjf gcc-6.1.0.tar.bz2
 rm gcc-6.1.0.tar.bz2
@@ -58,8 +60,6 @@ make all-target-libgcc
 make install-gcc
 make install-target-libgcc
 cd ../
-```bash
-
 ```
 
 Finally, let's build grub:
