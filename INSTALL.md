@@ -9,15 +9,32 @@ brew install qemu
 
 Since we are building for i686-elf, we need to cross compile grub for creating the axle iso. In order to cross compile grub, we need cross compiled versions of binutils, gcc and xorriso. Currently, binutils is version 2.26, gcc is version 6.1.0 and xorriso is 1.4.2.
 
-
-(write about how you need apple-gcc42 from homebrew/dupes)
-
+First we need to install some tools before we can start compiling:
 ```bash
-brew install homebrew/dupes/apple-gcc42
+brew install gmp mpfr libmpc
+```
+
+And set some environment variables to make everything easier (add to your config):
+```bash
+export PREFIX="/path/to/tools/build"
+export TARGET=i686-elf
+export PATH="$PREFIX/bin:$PATH"
 ```
 
 Now we can start compiling the tools:
 
-```bash
+First: binutils
 
+```bash
+mkdir tools
+cd tools
+mkdir build
+curl -O http://ftp.gnu.org/gnu/binutils/binutils-2.26.tar.gz
+tar -xvzf binutils-2.26.tar.gz
+rm binutils-2.26.tar.gz
+mkdir binutilsbuild
+cd binutilsbuild
+../binutils-2.26/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot --disable-nls --disable-werror
+make
+make install
 ```
