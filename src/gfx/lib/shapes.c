@@ -151,7 +151,7 @@ void draw_line(screen_t* screen, line line, int color, int thickness) {
 
 double line_length(line line) {
 	//distance formula
-	return sqrt(pow(line.p2.x - line.p1.x, 2) + (line.p2.y - line.p1.y, 2));
+	return sqrt(pow(line.p2.x - line.p1.x, 2) + pow(line.p2.y - line.p1.y, 2));
 }
 
 coordinate line_center(line line) {
