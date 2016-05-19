@@ -63,7 +63,7 @@ void boot_screen() {
 	draw_triangle(screen, triangle, 10, -1);
 
 	font_t* font_map = setup_font();
-	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6);
+	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 2);
 
 	write_screen(screen);
 
