@@ -4,7 +4,7 @@
 int callback_num;
 static timer_callback callback_table[MAX_CALLBACKS];
 
-int add_callback(void* callback, uint32_t interval, bool repeats, void* context) {
+int add_callback(void* callback, double interval, bool repeats, void* context) {
 	//only add callback if we have room
 	if (callback_num + 1 < MAX_CALLBACKS) {
 		callback_table[callback_num].callback = callback;
@@ -31,11 +31,12 @@ void remove_callback_at_index(int index) {
 
 void handle_tick(uint32_t tick) {
 	//look through every callback and see if we should fire
-	for (int i = 0; i < callback_num; i++) {
-		timer_callback callback = callback_table[i];
+	for (int i = 0; i <= callback_num; i++) {
+		//timer_callback callback = callback_table[i];
 		
 		//interval is 1 / frequency (interval)
-		if (tick % (1 / callback.interval) == 0) {
+		if (tick % callback.interval == 0) {
+			printf_dbg("dispatching callback");
 			void(*callback_func)(void*) = callback.callback;
 			callback_func(callback.context);
 

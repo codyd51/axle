@@ -7,5 +7,6 @@
 #include "string.h"
 #include "memory.h"
 #include "panic.h"
+#include "timer.h"
 
 #endif

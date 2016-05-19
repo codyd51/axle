@@ -7,12 +7,12 @@
 
 typedef struct {
 	void* callback;
-	uint32_t interval;
+	double interval;
 	bool repeats;
 	void* context;
 } timer_callback;
 
-int add_callback(void* callback, uint32_t interval, bool repeats, void* context);
+int add_callback(void* callback, double interval, bool repeats, void* context);
 void remove_callback_at_index(int index);
 
 #endif
