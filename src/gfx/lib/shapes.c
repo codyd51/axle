@@ -1,5 +1,6 @@
 #include "shapes.h"
 #include "gfx.h"
+#include <std/math.h>
 
 coordinate create_coordinate(int x, int y) {
 	coordinate coord;
@@ -44,7 +45,7 @@ triangle create_triangle(coordinate p1, coordinate p2, coordinate p3) {
 	return triangle;
 }
 
-void draw_rect(screen_t* screen, rect rect, int color) {
+static void draw_rect_int_fast(screen_t* screen, rect rect, int color) {
 	int y = rect.origin.y;
 	for (; y < rect.size.h; y++) {
 		int x = rect.origin.x;
@@ -54,7 +55,53 @@ void draw_rect(screen_t* screen, rect rect, int color) {
 	}
 }
 
-void draw_line(screen_t* screen, line line, int color) {
+static void draw_rect_int(screen_t* screen, rect rect, int color) {
+	line h1 = create_line(rect.origin, create_coordinate(rect.origin.x + rect.size.w, rect.origin.y));
+	line h2 = create_line(create_coordinate(rect.origin.x, rect.origin.y + rect.size.h), create_coordinate(rect.origin.x + rect.size.w, rect.origin.y + rect.size.h));
+	line v1 = create_line(rect.origin, create_coordinate(rect.origin.x, rect.origin.y + rect.size.h));
+	line v2 = create_line(create_coordinate(rect.origin.x + rect.size.w, rect.origin.y), create_coordinate(rect.origin.x + rect.size.w, rect.origin.y + rect.size.h + 1));
+
+	draw_line(screen, h1, color, 1);
+	draw_line(screen, h2, color, 1);
+	draw_line(screen, v1, color, 1);
+	draw_line(screen, v2, color, 1);
+}
+
+void draw_rect(screen_t* screen, rect r, int color, int thickness) {
+	int max_thickness = (MIN(r.size.w, r.size.h)) / 2;
+
+	//if thickness is negative, fill the shape
+	if (thickness < 0) thickness = max_thickness;
+	
+	//make sure they don't request a thickness too big
+	thickness = MIN(thickness, max_thickness);
+
+	//a filled shape is a special case that can be drawn faster
+	if (thickness == max_thickness) {
+		draw_rect_int_fast(screen, r, color);
+		return;
+	}
+
+	int x = r.origin.x;
+	int y = r.origin.y;
+	int w = r.size.w;
+	int h = r.size.h;
+	for (int i = 0; i <= thickness; i++) {
+		coordinate origin = create_coordinate(x, y);
+		size size = create_size(w, h);
+		rect rt = create_rect(origin, size);
+
+		draw_rect_int(screen, rt, color);
+
+		//decrement values for next shell
+		x++;
+		y++;
+		w -= 2;
+		h -= 2;
+	}
+}
+
+void draw_line(screen_t* screen, line line, int color, int thickness) {
 	int t;
 	int distance;
 	int xerr = 0, yerr = 0, delta_x, delta_y;
@@ -102,17 +149,81 @@ void draw_line(screen_t* screen, line line, int color) {
 	}
 }
 
-void draw_triangle(screen_t* screen, triangle triangle, int color) {
+double line_length(line line) {
+	//distance formula
+	return sqrt(pow(line.p2.x - line.p1.x, 2) + (line.p2.y - line.p1.y, 2));
+}
+
+coordinate line_center(line line) {
+	//average coordinates together
+	double x = (line.p1.x + line.p2.x) / 2;
+	double y = (line.p1.y + line.p2.y) / 2;
+	return create_coordinate(x, y);
+}
+
+coordinate triangle_center(triangle t) {
+	//average coordinates together
+	double x = (t.p1.x + t.p2.x + t.p3.x) / 3;
+	double y = (t.p1.y + t.p2.y + t.p3.y) / 3;
+	return create_coordinate(x, y);
+}
+
+void draw_triangle_int(screen_t* screen, triangle triangle, int color) {
 	line l1 = create_line(triangle.p1, triangle.p2);
 	line l2 = create_line(triangle.p2, triangle.p3);
 	line l3 = create_line(triangle.p3, triangle.p1);
 
-	draw_line(screen, l1, color);
-	draw_line(screen, l2, color);
-	draw_line(screen, l3, color);
+	draw_line(screen, l1, color, 1);
+	draw_line(screen, l2, color, 1);
+	draw_line(screen, l3, color, 1);
 }
 
-void draw_circle(screen_t* screen, circle circle, int color) {
+void draw_triangle(screen_t* screen, triangle tri, int color, int thickness) {
+	draw_triangle_int(screen, tri, color);
+	return;
+
+	//TODO fix implementation below
+	
+	//the max thickness of a triangle is the shortest distance
+	//between the center and a vertice
+	coordinate center = triangle_center(tri);
+	double l1 = line_length(create_line(center, line_center(create_line(tri.p1, tri.p2))));
+	double l2 = line_length(create_line(center, line_center(create_line(tri.p2, tri.p3))));
+	double l3 = line_length(create_line(center, line_center(create_line(tri.p3, tri.p1))));
+
+	double shortest_line = MIN(l1, l2);
+	shortest_line = MIN(shortest_line, l3);
+
+	int max_thickness = shortest_line;
+
+	//if thickness indicates shape should be filled, set to max_thickness
+	if (thickness < 0) thickness = max_thickness;
+
+	//make sure thickness isn't too big
+	thickness = MIN(thickness, max_thickness);
+
+	printf_info("max_thickness: %d", max_thickness);
+	printf_info("thickness: %d", thickness);
+	printf_info("center.x: %d", center.x);
+	printf_info("center.y: %d", center.y);
+
+	coordinate p1 = tri.p1;
+	coordinate p2 = tri.p2;
+	coordinate p3 = tri.p3;	
+
+	for (int i = 0; i < thickness; i++) {
+		draw_triangle_int(screen, create_triangle(p1, p2, p3), color);
+
+		//shrink for next shell
+		p1.y += 1;
+		p2.x += 1;
+		p2.y -= 1;
+		p3.x -= 1;
+		p3.y -= 1;
+	}
+}
+
+void draw_circle_int(screen_t* screen, circle circle, int color) {
 	int x = 0;
 	int y = circle.radius;
 	int dp = 1 - circle.radius;
@@ -133,5 +244,30 @@ void draw_circle(screen_t* screen, circle circle, int color) {
 		putpixel(screen, circle.center.x + y, circle.center.y - x, color);
 		putpixel(screen, circle.center.x - y, circle.center.y - x, color);
 	} while (x < y);
+
+	//put pixels at intersections of quadrants
+	putpixel(screen, circle.center.x, circle.center.y - circle.radius, color);
+	putpixel(screen, circle.center.x + circle.radius, circle.center.y, color);
+	putpixel(screen, circle.center.x, circle.center.y + circle.radius, color);
+	putpixel(screen, circle.center.x - circle.radius, circle.center.y, color);
+}
+
+void draw_circle(screen_t* screen, circle circ, int color, int thickness) {
+	int max_thickness = circ.radius;
+	
+	//if the thickness indicates the shape should be filled, set it as such
+	if (thickness < 0) thickness = max_thickness;
+
+	//make sure they don't set one too big
+	thickness = MAX(thickness, max_thickness);
+
+	circle c = create_circle(circ.center, circ.radius);
+
+	for (int i = 0; i <= thickness; i++) {
+		draw_circle_int(screen, c, color);
+
+		//decrease radius for next shell
+		c.radius -= 1;
+	}
 }
 
