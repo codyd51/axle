@@ -2,7 +2,7 @@
 #include <kernel/kernel.h>
 #include <kernel/drivers/kb/kb.h>
 #include <user/shell/programs/asmjit/asmjit.h>
-#include <kernel/drivers/pit/timer.h>
+#include <kernel/drivers/pit/pit.h>
 #include <user/shell/programs/snake/snake.h>
 
 size_t CommandNum;
