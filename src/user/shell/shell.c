@@ -2,8 +2,9 @@
 #include <kernel/kernel.h>
 #include <kernel/drivers/kb/kb.h>
 #include <user/shell/programs/asmjit/asmjit.h>
-#include <kernel/drivers/pit/timer.h>
+#include <kernel/drivers/pit/pit.h>
 #include <user/shell/programs/snake/snake.h>
+#include <tests/gfx_test.h>
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
@@ -248,6 +249,7 @@ void init_shell() {
 	add_new_command("tick", "Prints current tick count from PIT", tick_command, 0);
 	add_new_command("snake", "Have some fun!", snake_command, 0);
 	add_new_command("shutdown", "Shutdown PC", shutdown_command, 0);
+	add_new_command("gfxtest", "Run graphics tests", test_gfx, 0);
 	add_new_command("", "", empty_command, 0);
 }
 

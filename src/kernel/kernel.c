@@ -3,7 +3,7 @@
 #include <kernel/drivers/rtc/clock.h>
 #include <std/common.h>
 #include <kernel/util/paging/descriptor_tables.h>
-#include <kernel/drivers/pit/timer.h>
+#include <kernel/drivers/pit/pit.h>
 #include <kernel/util/paging/paging.h>
 #include <stdarg.h>
 #include <gfx/lib/gfx.h>

@@ -1,5 +1,5 @@
-#ifndef TIMER_H
-#define TIMER_H
+#ifndef PIT_H 
+#define PIT_H
 
 #include <std/common.h>
 

@@ -1,4 +1,4 @@
-#include "timer.h"
+#include "pit.h"
 #include <kernel/util/interrupts/isr.h>
 #include <kernel/kernel.h>
 
@@ -6,8 +6,14 @@
 
 uint32_t tick = 0;
 
+//defined in timer.c
+//inform that a tick has occured
+extern handle_tick(uint32_t tick);
+
 static void timer_callback(registers_t regs) {
 	tick++;
+
+	handle_tick(tick);
 }
 
 uint32_t tickCount() {

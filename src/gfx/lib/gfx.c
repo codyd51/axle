@@ -1,10 +1,11 @@
 #include "gfx.h"
 #include <std/std.h>
 #include <kernel/kernel.h>
-#include <kernel/drivers/pit/timer.h>
+#include <kernel/drivers/pit/pit.h>
 #include <gfx/font/font.h>
 #include "shapes.h"
 #include <std/std.h>
+#include <tests/gfx_test.h>
 
 #define VRAM_START 0xA0000
 
@@ -44,7 +45,7 @@ void putpixel(screen_t* screen, int x, int y, int color) {
 }
 
 void fill_screen(screen_t* screen, int color) {
-	memset((char*)VRAM_START, color, (screen->width * screen->height));
+	memset(screen->vmem, color, (screen->width * screen->height));
 }
 
 void write_screen(screen_t* screen) {
@@ -53,19 +54,19 @@ void write_screen(screen_t* screen) {
 
 void boot_screen() {
 	screen_t* screen = switch_to_vga();
-	fill_screen(screen, 5);
+	fill_screen(screen, 0);
 
 	coordinate p1 = create_coordinate(screen->width / 2, screen->height * 0.25);
 	coordinate p2 = create_coordinate(screen->width / 2 - 25, screen->height * 0.25 + 50);
 	coordinate p3 = create_coordinate(screen->width / 2 + 25, screen->height * 0.25 + 50);
 	triangle triangle = create_triangle(p1, p2, p3);
-	draw_triangle(screen, triangle, 10);
+	draw_triangle(screen, triangle, 10, -1);
 
 	font_t* font_map = setup_font();
-	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6);
+	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 2);
 
 	write_screen(screen);
 
-	sleep(5000);
+	sleep(2000);
 	switch_to_text();
 }
