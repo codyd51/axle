@@ -11,10 +11,13 @@ double sin(double val);
 double arcsin(double val);
 double cos(double val);
 double arccos(double val);
+double arctan(double val);
+double atan2(double y, double x);
 
 int abs(int val);
 
 double sqrt(double x);
+int round(double x);
 
 #define RAND_MAX 32767
 int rand();

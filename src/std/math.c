@@ -48,6 +48,35 @@ double arccos(double x) {
 	return (pi/2) - arcsin(x);
 }
 
+double arctan(double x) {
+	double ret = x;
+	ret -= (pow(x, 3)/3);
+	ret += (pow(x, 5)/5);
+	ret -= (pow(x, 7)/7);
+	return ret;
+}
+
+double atan2(double y, double x) {
+	if (x > 0) {
+		return arctan(y/x);
+	}
+	else if (x < 0 && y >= 0) {
+		return arctan(y/x) + pi;
+	}
+	else if (x < 0 && y < 0) {
+		return arctan(y/x) - pi;
+	}
+	else if (x == 0 && y > 0) {
+		return (pi/2);
+	}
+	else if (x == 0 && y < 0) {
+		return -(pi/2);
+	}
+	
+	//if x and y == 0, undefined
+	return -1;
+}
+
 int abs(int val) {
 	if (val < 0) return -val;
 	return val;
@@ -66,6 +95,11 @@ double sqrt(double val) {
 		b = val/a;
 	}
 	return a;
+}
+
+int round(double x) {
+	if (x < 0.0) return (int)(x - 0.5);
+	return (int)(x + 0.5);
 }
 
 static unsigned long int next = 1;
