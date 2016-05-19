@@ -188,36 +188,30 @@ void draw_button(screen_t* screen) {
 void test_gfx() {
 	screen_t* screen = switch_to_vga();
 
+	fill_screen(screen, 0);
+
 	draw_button(screen);
-	write_screen(screen);
 	sleep(2000);
 
 	test_lines(screen);
-	write_screen(screen);
 	sleep(2000);
 
 	test_circles(screen);
-	write_screen(screen);
 	sleep(2000);
 
 	test_rects(screen);
-	write_screen(screen);
 	sleep(2000);
 
 	test_triangles(screen);
-	write_screen(screen);
 	sleep(2000);
 
 	test_text(screen);
-	write_screen(screen);
 	sleep(2000);
 
 	draw_julia(screen);
-	write_screen(screen);
 	sleep(2000);
 
 	draw_mandelbrot(screen);
-	write_screen(screen);
 	sleep(2000);
 
 	switch_to_text();
