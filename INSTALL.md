@@ -37,4 +37,25 @@ cd binutilsbuild
 ../binutils-2.26/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot --disable-nls --disable-werror
 make
 make install
+cd ../
 ```
+
+Second: xorriso (Phil to confirm)
+
+```bash
+
+```
+
+Third: gcc (takes a while)
+
+```bash
+
+```
+
+Finally, let's build grub:
+
+```bash
+
+```
+
+Now you can run `run.sh`!
