@@ -1,4 +1,5 @@
 #!/bin/bash
+mkdir -p isodir/boot/grub/
 make
 cp axle.bin isodir/boot/axle.bin
 cp src/boot/grub.cfg isodir/boot/grub/grub.cfg
