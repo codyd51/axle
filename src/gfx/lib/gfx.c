@@ -9,6 +9,14 @@
 
 #define VRAM_START 0xA0000
 
+void screen_refresh(screen_t* screen) {
+	write_screen(screen);
+}
+
+void setup_screen_refresh(screen_t* screen, double hz) {
+	add_callback(screen_refresh, (1/hz), 1, screen);
+}
+
 screen_t* switch_to_vga() {
 	regs16_t regs;
 	regs.ax = 0x0013;
@@ -22,6 +30,10 @@ screen_t* switch_to_vga() {
 	screen->height = height;
 	screen->depth = 256;
 	screen->vmem = kmalloc(width * height * sizeof(char));
+
+	//start refresh loop
+	setup_screen_refresh(screen, 30);
+
 	return screen;
 }
 
@@ -64,8 +76,6 @@ void boot_screen() {
 
 	font_t* font_map = setup_font();
 	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 2);
-
-	write_screen(screen);
 
 	sleep(2000);
 	switch_to_text();
