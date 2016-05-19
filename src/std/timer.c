@@ -1,7 +1,7 @@
 #include "timer.h"
 #include <limits.h>
 
-int callback_num;
+int callback_num = 1;
 static timer_callback callback_table[MAX_CALLBACKS];
 
 int add_callback(void* callback, double interval, bool repeats, void* context) {
@@ -9,6 +9,7 @@ int add_callback(void* callback, double interval, bool repeats, void* context) {
 	if (callback_num + 1 < MAX_CALLBACKS) {
 		callback_table[callback_num].callback = callback;
 		callback_table[callback_num].interval = interval;
+		callback_table[callback_num].time_left = interval;
 		callback_table[callback_num].repeats = repeats;
 		callback_table[callback_num].context = context;	
 
@@ -31,18 +32,21 @@ void remove_callback_at_index(int index) {
 
 void handle_tick(uint32_t tick) {
 	//look through every callback and see if we should fire
-	for (int i = 0; i <= callback_num; i++) {
-		//timer_callback callback = callback_table[i];
-		
-		//interval is 1 / frequency (interval)
-		if (tick % callback.interval == 0) {
-			printf_dbg("dispatching callback");
+	for (int i = 0; i < callback_num; i++) {
+		timer_callback callback = callback_table[i];
+
+		//decrement time left
+		callback.time_left -= 1;
+
+		//if it's time to fire, do so
+		if (callback.time_left == 0) {
+			//reset for next firing
+			callback.time_left = callback.interval;
+
 			void(*callback_func)(void*) = callback.callback;
 			callback_func(callback.context);
 
-			//if this timer is only supposed to be fired once, set the function pointer to null
-			//so it can't fire again
-			//also remove the interval so this never gets hit regardless
+			//if we only fire once, trash this callback
 			if (!callback.repeats) {
 				remove_callback_at_index(i);
 			}

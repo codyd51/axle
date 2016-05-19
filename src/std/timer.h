@@ -8,6 +8,7 @@
 typedef struct {
 	void* callback;
 	double interval;
+	double time_left;
 	bool repeats;
 	void* context;
 } timer_callback;
