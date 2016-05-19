@@ -13,8 +13,8 @@ void screen_refresh(screen_t* screen) {
 	write_screen(screen);
 }
 
-void setup_screen_refresh(screen_t* screen, double hz) {
-	add_callback(screen_refresh, (1/hz), 1, screen);
+void setup_screen_refresh(screen_t* screen, double interval) {
+	screen->callback_index = add_callback(screen_refresh, interval, true, screen);
 }
 
 screen_t* switch_to_vga() {
@@ -32,12 +32,15 @@ screen_t* switch_to_vga() {
 	screen->vmem = kmalloc(width * height * sizeof(char));
 
 	//start refresh loop
-	setup_screen_refresh(screen, 30);
+	setup_screen_refresh(screen, 16);
 
 	return screen;
 }
 
-void switch_to_text() {
+void switch_to_text(screen_t* screen) {
+	//stop refresh loop for this screen
+	remove_callback_at_index(screen->callback_index);
+
 	regs16_t regs;
 	regs.ax = 0x0003;
 	int32(0x10, &regs);
@@ -78,5 +81,5 @@ void boot_screen() {
 	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 2);
 
 	sleep(2000);
-	switch_to_text();
+	switch_to_text(screen);
 }
