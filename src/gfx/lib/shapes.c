@@ -259,7 +259,7 @@ void draw_circle(screen_t* screen, circle circ, int color, int thickness) {
 	if (thickness < 0) thickness = max_thickness;
 
 	//make sure they don't set one too big
-	thickness = MAX(thickness, max_thickness);
+	thickness = MIN(thickness, max_thickness);
 
 	circle c = create_circle(circ.center, circ.radius);
 
