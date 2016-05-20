@@ -33,5 +33,8 @@ void terminal_writestring(const char* data);
 void terminal_removechar();
 void terminal_clear();
 void terminal_settextcolor(enum vga_color col); 
+void set_cursor(size_t col, size_t row);
+size_t term_col();
+size_t term_row();
 
 #endif

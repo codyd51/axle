@@ -223,7 +223,7 @@ void asmjit_command() {
 }
 
 void tick_command() {
-	printf("%d", tickCount());
+	printf("%d", tick_count());
 }
 
 void snake_command() {

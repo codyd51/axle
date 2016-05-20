@@ -16,7 +16,7 @@ static void tick_callback(registers_t regs) {
 	handle_tick(tick);
 }
 
-uint32_t tickCount() {
+uint32_t tick_count() {
 	return tick;
 }
 

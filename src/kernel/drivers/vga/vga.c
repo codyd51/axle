@@ -111,3 +111,16 @@ void terminal_clear() {
 		}
 	}
 }
+
+void set_cursor(size_t col, size_t row) {
+	terminal_column = col;
+	terminal_row = row;
+}
+
+size_t term_col() {
+	return terminal_column;
+}
+size_t term_row() {
+	return terminal_row;
+}
+
