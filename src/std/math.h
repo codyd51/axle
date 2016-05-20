@@ -17,6 +17,7 @@ double tan(double val);
 double cot(double val);
 double sec(double val);
 double csc(double val);
+double exp(double x);
 
 //hyperbolic functions
 double sinh(double val);

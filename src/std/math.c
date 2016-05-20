@@ -47,6 +47,10 @@ double csc(double x) {
 		return 1/sin(x);
 }
 
+double exp(double x) {
+	return pow(M_E, x);
+}
+
 double sinh(double val) {
 		return (pow(M_E, val) - pow(M_E, -val)) / 2;
 }
