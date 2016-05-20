@@ -1,8 +1,5 @@
 #include "math.h"
 
-//todo replace this with proper define
-double pi = 3.1415926536;
-
 double pow(double x, double pow) {
 	double ret = x;
 	for (int i = 0; i < pow; i++) {
@@ -25,15 +22,6 @@ double sin(double x) {
 	return ret;
 }
 
-double arcsin(double x) {
-	//taylor series for arcsin
-	double ret = x;
-	ret += (pow(x, 3))/6;
-	ret += (3*pow(x, 5))/40;
-	ret += (5*pow(x, 7))/112;
-	return ret;
-}
-
 double cos(double x) {
 	//approximate taylor series for cos
 	double ret = 1;
@@ -43,9 +31,34 @@ double cos(double x) {
 	return ret;
 }
 
-double arccos(double x) {
+double tan(double x) {
+		return sin(x)/cos(x);
+}
+
+double cot(double x) {
+		return cos(x)/sin(x);
+}
+
+double sec(double x) {
+		return 1/cos(x);
+}
+
+double csc(double x) {
+		return 1/sin(x);
+}
+
+double arcsin(double x) {
+	//taylor series for arcsin
+	double ret = x;
+	ret += (pow(x, 3))/6;
+	ret += (3*pow(x, 5))/40;
+	ret += (5*pow(x, 7))/112;
+	return ret;
+}
+
+double arccos(double val) {
 	//arccos is arcsin phase shifted pi/2
-	return (pi/2) - arcsin(x);
+	return (M_PI/2) - arcsin(val);
 }
 
 double arctan(double x) {
@@ -56,21 +69,34 @@ double arctan(double x) {
 	return ret;
 }
 
+double arccot(double val) {
+		//arctan phase shifted pi/2
+		return (M_PI/2) - arctan(val);
+}
+
+double arcsec(double val) {
+		return arccos(1/val);
+}
+
+double arccsc(double val) {
+		return arcsin(1/val);
+}
+
 double atan2(double y, double x) {
 	if (x > 0) {
 		return arctan(y/x);
 	}
 	else if (x < 0 && y >= 0) {
-		return arctan(y/x) + pi;
+		return arctan(y/x) + M_PI;
 	}
 	else if (x < 0 && y < 0) {
-		return arctan(y/x) - pi;
+		return arctan(y/x) - M_PI;
 	}
 	else if (x == 0 && y > 0) {
-		return (pi/2);
+		return (M_PI/2);
 	}
 	else if (x == 0 && y < 0) {
-		return -(pi/2);
+		return -(M_PI/2);
 	}
 	
 	//if x and y == 0, undefined
