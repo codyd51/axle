@@ -94,8 +94,8 @@ void boot_screen() {
 	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 2);
 
 	float rect_length = screen->width / 4;
-	coordinate origin = create_coordinate((screen->width/2) - (rect_length / 2) - 1, screen->height / 4 * 3 - 1);
-	size sz = create_size(rect_length + 2, screen->height / 8 + 2);
+	coordinate origin = create_coordinate((screen->width/2) - (rect_length / 2), screen->height / 4 * 3 - 1);
+	size sz = create_size(rect_length, screen->height / 8 + 2);
 	rect border_rect = create_rect(origin, sz);
 
 	//fill the rectangle with white initially
@@ -103,8 +103,8 @@ void boot_screen() {
 
 	sleep(1000);
 
-	coordinate rainbow_origin = create_coordinate(origin.x + 1, origin.y + 1);
-	size rainbow_size = create_size(sz.w - 2, sz.h - 2);
+	coordinate rainbow_origin = create_coordinate(origin.x + 2, origin.y + 2);
+	size rainbow_size = create_size(sz.w - 3, sz.h - 3);
 	rect rainbow_rect = create_rect(rainbow_origin, rainbow_size);
 	rainbow_animation(screen, rainbow_rect);    
 
