@@ -15,6 +15,7 @@ typedef struct {
 	uint16_t depth;
 	uint16_t pixelwidth;
 	uint8_t* vmem;
+	uint8_t* physbase;
 } screen_t;
 
 extern void int32(unsigned char intnum, regs16_t* regs);

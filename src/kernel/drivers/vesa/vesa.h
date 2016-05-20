@@ -1,8 +1,10 @@
 #ifndef VESA_H
 #define VESA_H
 
+#include "gfx/lib/gfx.h"
+
 //typedef for VESA mode information
-typedef struct vesa_mode_info {
+typedef struct vbe_mode_info {
 		unsigned short mode_attributes		__attribute__((packed));
 		unsigned char win_a_attributes;
 		unsigned char win_b_attributes;
@@ -36,7 +38,7 @@ typedef struct vesa_mode_info {
 		unsigned long offscreen_mem_offset	__attribute__((packed));
 		unsigned short offscreen_mem_size	__attribute__((packed));
 		unsigned char reserved[256];
-} vesa_mode_info;
+} vbe_mode_info;
 
 typedef struct vesa_info {
 		unsigned char vesa_signature[4];
@@ -51,6 +53,8 @@ typedef struct vesa_info {
 		unsigned long oem_product_rev_ptr	__attribute__((packed));
 		unsigned char reserved[222];
 		unsigned char oem_data[256];
-}
+} vesa_info;
+
+screen_t* get_vesa_screen();
 
 #endif
