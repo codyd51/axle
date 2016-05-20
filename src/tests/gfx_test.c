@@ -214,5 +214,5 @@ void test_gfx() {
 	draw_mandelbrot(screen);
 	sleep(2000);
 
-	switch_to_text();
+	switch_to_text(screen);
 }

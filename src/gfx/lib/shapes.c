@@ -2,6 +2,27 @@
 #include "gfx.h"
 #include <std/math.h>
 
+//convenience functions to make life easier
+double line_length(line line) {
+	//distance formula
+	return sqrt(pow(line.p2.x - line.p1.x, 2) + pow(line.p2.y - line.p1.y, 2));
+}
+
+coordinate line_center(line line) {
+	//average coordinates together
+	double x = (line.p1.x + line.p2.x) / 2;
+	double y = (line.p1.y + line.p2.y) / 2;
+	return create_coordinate(x, y);
+}
+
+coordinate triangle_center(triangle t) {
+	//average coordinates together
+	double x = (t.p1.x + t.p2.x + t.p3.x) / 3;
+	double y = (t.p1.y + t.p2.y + t.p3.y) / 3;
+	return create_coordinate(x, y);
+}
+
+//functions to create shape structures
 coordinate create_coordinate(int x, int y) {
 	coordinate coord;
 	coord.x = x;
@@ -45,6 +66,7 @@ triangle create_triangle(coordinate p1, coordinate p2, coordinate p3) {
 	return triangle;
 }
 
+//functions to draw shape structures
 static void draw_rect_int_fast(screen_t* screen, rect rect, int color) {
 	int y = rect.origin.y;
 	for (; y < rect.size.h; y++) {
@@ -101,7 +123,40 @@ void draw_rect(screen_t* screen, rect r, int color, int thickness) {
 	}
 }
 
+void draw_hline_fast(screen_t* screen, line line, int color, int thickness) {
+	for (int i = 0; i < thickness; i++) {
+		//calculate starting point
+		//increment y for next thickness since this line is horizontal
+		uint16_t loc = ((line.p1.y + i) * screen->width) + line.p1.x;
+		for (int j = 0; j < (line.p2.x - line.p1.x); j++) {
+			screen->vmem[loc + j] = color;
+		}
+	}
+}
+
+void draw_vline_fast(screen_t* screen, line line, int color, int thickness) {
+	for (int i = 0; i < thickness; i++) {
+		//calculate starting point
+		//increment x for next thickness since line is vertical
+		uint16_t loc = (line.p1.y * screen->width) + (line.p1.x + i);
+		for (int j = 0; j < (line.p2.y - line.p1.y); j++) {
+			screen->vmem[loc + (j * screen->width)] = color;	
+		}
+	}
+}
+
 void draw_line(screen_t* screen, line line, int color, int thickness) {
+	//if the line is perfectly vertical or horizontal, this is a special case
+	//that can be drawn much faster
+	if (line.p1.x == line.p2.x) {
+		draw_vline_fast(screen, line, color, thickness);
+		return;
+	}
+	else if (line.p1.y == line.p2.y) {
+		draw_hline_fast(screen, line, color, thickness);
+		return;
+	}
+	
 	int t;
 	int distance;
 	int xerr = 0, yerr = 0, delta_x, delta_y;
@@ -147,25 +202,6 @@ void draw_line(screen_t* screen, line line, int color, int thickness) {
 			curr_y += incy;
 		}
 	}
-}
-
-double line_length(line line) {
-	//distance formula
-	return sqrt(pow(line.p2.x - line.p1.x, 2) + pow(line.p2.y - line.p1.y, 2));
-}
-
-coordinate line_center(line line) {
-	//average coordinates together
-	double x = (line.p1.x + line.p2.x) / 2;
-	double y = (line.p1.y + line.p2.y) / 2;
-	return create_coordinate(x, y);
-}
-
-coordinate triangle_center(triangle t) {
-	//average coordinates together
-	double x = (t.p1.x + t.p2.x + t.p3.x) / 3;
-	double y = (t.p1.y + t.p2.y + t.p3.y) / 3;
-	return create_coordinate(x, y);
 }
 
 void draw_triangle_int(screen_t* screen, triangle triangle, int color) {

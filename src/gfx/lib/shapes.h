@@ -47,5 +47,4 @@ void draw_rect(screen_t* screen, rect rect, int color, int thickness);
 void draw_line(screen_t* screen, line line, int color, int thickness);
 void draw_triangle(screen_t* screen, triangle triangle, int color, int thickness);
 void draw_circle(screen_t* screen, circle circle, int color, int thickness);
-
 #endif
