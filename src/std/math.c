@@ -48,11 +48,11 @@ double csc(double x) {
 }
 
 double sinh(double val) {
-		return (pow(M_E, x) - pow(M_E, -val)) / 2;
+		return (pow(M_E, val) - pow(M_E, -val)) / 2;
 }
 
 double cosh(double val) {
-		return (pow(M_E, x) + pow(M_E, -val)) / 2;
+		return (pow(M_E, val) + pow(M_E, -val)) / 2;
 }
 
 double tanh(double val) {
