@@ -5,17 +5,28 @@
 #define MAX(x, y) ({typeof(x) x_ = (x); typeof(y) y_ = (y); (x_ > y_) ? x_ : y_;})
 
 #define M_PI 3.1415926536
+#define M_E 2.7182818285
 
 double pow(double x, double pow);
 unsigned long factorial(unsigned long x);
 
+//trigonometric functions
 double sin(double val);
 double cos(double val);
-double tan(double x);
-double cot(double x);
-double sec(double x);
-double csc(double x);
+double tan(double val);
+double cot(double val);
+double sec(double val);
+double csc(double val);
 
+//hyperbolic functions
+double sinh(double val);
+double cosh(double val);
+double tanh(double val);
+double coth(double val);
+double sech(double val);
+double csch(double val);
+
+//inverse trigonometric functions
 double arcsin(double val);
 double arccos(double val);
 double arctan(double val);

@@ -47,6 +47,30 @@ double csc(double x) {
 		return 1/sin(x);
 }
 
+double sinh(double val) {
+		return (pow(M_E, x) - pow(M_E, -val)) / 2;
+}
+
+double cosh(double val) {
+		return (pow(M_E, x) + pow(M_E, -val)) / 2;
+}
+
+double tanh(double val) {
+		return sinh(val)/cosh(val);
+}
+
+double coth(double val) {
+		return cosh(val)/sinh(val);
+}
+
+double sech(double val) {
+		return 1/cosh(val);
+}
+
+double csch(double val) {
+		return 1/sinh(val);
+}
+
 double arcsin(double x) {
 	//taylor series for arcsin
 	double ret = x;
