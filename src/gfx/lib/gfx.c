@@ -67,6 +67,19 @@ void write_screen(screen_t* screen) {
 	memcpy((char*)VRAM_START, screen->vmem, (screen->width * screen->height));
 }
 
+void rainbow_animation(screen_t* screen) {
+	//ROY G BIV
+	int colors[] = {4, 42, 44, 46, 1, 13, 34};
+	for (int i = 0; i < 7; i++) {
+		coordinate origin = create_coordinate((screen->width / 7) * i, 0);
+		size size = create_size((screen->width / 7), screen->height);
+		rect r = create_rect(origin, size);
+
+		draw_rect(screen, r, colors[i], THICKNESS_FILLED);
+		sleep(1000 / 7);
+	}
+}
+
 void boot_screen() {
 	screen_t* screen = switch_to_vga();
 	fill_screen(screen, 0);
@@ -80,6 +93,9 @@ void boot_screen() {
 	font_t* font_map = setup_font();
 	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 2);
 
-	sleep(2000);
-	switch_to_text(screen);
+	sleep(1000);
+
+	rainbow_animation(screen);    
+
+	//switch_to_text(screen);
 }
