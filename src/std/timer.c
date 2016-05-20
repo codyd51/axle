@@ -4,9 +4,19 @@
 int callback_num;
 static timer_callback callback_table[MAX_CALLBACKS];
 
-int add_callback(void* callback, int interval, bool repeats, void* context) {
+static void clear_table() {
+	memset(&callback_table, 0, sizeof(timer_callback) * callback_num);
+	callback_num = 0;
+}
+
+static int next_open_callback_index() {
+	return callback_num;
+}
+
+timer_callback add_callback(void* callback, int interval, bool repeats, void* context) {
+	int next_open_index = next_open_callback_index();
 	//only add callback if we have room
-	if (callback_num + 1 < MAX_CALLBACKS) {
+	if (callback_num + 1 < MAX_CALLBACKS || next_open_index < callback_num) {
 		callback_table[callback_num].callback = callback;
 		callback_table[callback_num].interval = interval;
 		callback_table[callback_num].time_left = interval;
@@ -15,18 +25,22 @@ int add_callback(void* callback, int interval, bool repeats, void* context) {
 
 		callback_num++;
 
-		//we iterated callback_num, so subtract 1 before returning index
-		return callback_num - 1;
+		return callback_table[callback_num];
 	}
 	
-	return -1;
+	//TODO expand table instead of clearing it
+	clear_table();
+	//try adding the callback again now that we know the table has room
+	return add_callback(callback, interval, repeats, context);	
 }
 
-void remove_callback_at_index(int index) {
-	//set function pointer to null so it can't fire again
-	//also set desired interval to int_max so it never attempts to fire anyways
-	//callback_table[index].callback = NULL;
-	callback_table[index].interval = INT_MAX;
+void remove_callback(timer_callback callback) {
+	//find this callback in callback table
+	for (int i = 0; i < callback_num; i++) {
+		if (callback_table[callback_num].callback == callback.callback) {
+			memset(&callback_table[i], 0, sizeof(timer_callback));
+		}
+	}
 }
 
 void handle_tick(uint32_t tick) {
@@ -45,7 +59,7 @@ void handle_tick(uint32_t tick) {
 
 			//if we only fire once, trash this callback
 			if (!callback_table[i].repeats) {
-				remove_callback_at_index(i);
+				remove_callback(callback_table[i]);
 			}
 		}
 	}

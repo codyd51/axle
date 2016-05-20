@@ -2,6 +2,7 @@
 #define GFX_H
 
 #include <std/common.h>
+#include "std/timer.h"
 
 typedef struct __attribute__((packed)) {
 	unsigned short di, si, bp, sp, bx, dx, cx, ax;
@@ -15,7 +16,7 @@ typedef struct {
 	uint16_t depth;
 	uint16_t pixelwidth;
 	uint8_t* vmem;
-	uint8_t callback_index;
+	timer_callback callback;
 } screen_t;
 
 extern void int32(unsigned char intnum, regs16_t* regs);

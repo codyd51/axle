@@ -14,7 +14,7 @@ void screen_refresh(screen_t* screen) {
 }
 
 void setup_screen_refresh(screen_t* screen, double interval) {
-	screen->callback_index = add_callback(screen_refresh, interval, true, screen);
+	screen->callback = add_callback(screen_refresh, interval, true, screen);
 }
 
 screen_t* switch_to_vga() {
@@ -39,7 +39,7 @@ screen_t* switch_to_vga() {
 
 void switch_to_text(screen_t* screen) {
 	//stop refresh loop for this screen
-	remove_callback_at_index(screen->callback_index);
+	remove_callback(screen->callback);
 
 	regs16_t regs;
 	regs.ax = 0x0003;
