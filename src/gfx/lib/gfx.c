@@ -67,15 +67,15 @@ void write_screen(screen_t* screen) {
 	memcpy((char*)VRAM_START, screen->vmem, (screen->width * screen->height));
 }
 
-void rainbow_animation(screen_t* screen) {
+void rainbow_animation(screen_t* screen, rect r) {
 	//ROY G BIV
 	int colors[] = {4, 42, 44, 46, 1, 13, 34};
 	for (int i = 0; i < 7; i++) {
-		coordinate origin = create_coordinate((screen->width / 7) * i, 0);
-		size size = create_size((screen->width / 7), screen->height);
-		rect r = create_rect(origin, size);
+		coordinate origin = create_coordinate(r.origin.x + (r.size.w / 7) * i, r.origin.y);
+		size size = create_size((r.size.w / 7), r.size.h);
+		rect seg = create_rect(origin, size);
 
-		draw_rect(screen, r, colors[i], THICKNESS_FILLED);
+		draw_rect(screen, seg, colors[i], THICKNESS_FILLED);
 		sleep(500 / 7);
 	}
 }
@@ -93,9 +93,20 @@ void boot_screen() {
 	font_t* font_map = setup_font();
 	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 2);
 
+	float rect_length = screen->width / 4;
+	coordinate origin = create_coordinate((screen->width/2) - (rect_length / 2) - 1, screen->height / 4 * 3 - 1);
+	size sz = create_size(rect_length + 2, screen->height / 8 + 2);
+	rect border_rect = create_rect(origin, sz);
+
+	//fill the rectangle with white initially
+	draw_rect(screen, border_rect, 15, 1);
+
 	sleep(1000);
 
-	rainbow_animation(screen);    
+	coordinate rainbow_origin = create_coordinate(origin.x + 1, origin.y + 1);
+	size rainbow_size = create_size(sz.w - 2, sz.h - 2);
+	rect rainbow_rect = create_rect(rainbow_origin, rainbow_size);
+	rainbow_animation(screen, rainbow_rect);    
 
 	sleep(250);
 	switch_to_text(screen);
