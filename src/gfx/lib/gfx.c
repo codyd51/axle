@@ -76,7 +76,7 @@ void rainbow_animation(screen_t* screen) {
 		rect r = create_rect(origin, size);
 
 		draw_rect(screen, r, colors[i], THICKNESS_FILLED);
-		sleep(1000 / 7);
+		sleep(500 / 7);
 	}
 }
 
@@ -97,5 +97,6 @@ void boot_screen() {
 
 	rainbow_animation(screen);    
 
-	//switch_to_text(screen);
+	sleep(250);
+	switch_to_text(screen);
 }
