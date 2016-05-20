@@ -10,6 +10,13 @@ static void clear_table() {
 }
 
 static int next_open_callback_index() {
+	for (int i = 0; i < callback_num; i++) {
+		if (!callback_table[i].callback) {
+			//this index doesn't have valid data, fit for reuse
+			return i;
+		}
+	}
+	//all indexes up to callback_num are in use, so return callback_num
 	return callback_num;
 }
 
