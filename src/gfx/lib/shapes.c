@@ -68,10 +68,8 @@ triangle create_triangle(coordinate p1, coordinate p2, coordinate p3) {
 
 //functions to draw shape structures
 static void draw_rect_int_fast(screen_t* screen, rect rect, int color) {
-	int y = rect.origin.y;
-	for (; y < rect.size.h; y++) {
-		int x = rect.origin.x;
-		for (; x < rect.size.w; x++) {
+	for (int y = rect.origin.y; y < rect.origin.y + rect.size.h; y++) {
+		for (int x = rect.origin.x; x < rect.origin.x + rect.size.w; x++) {
 			putpixel(screen, x, y, color);
 		}
 	}
