@@ -44,6 +44,14 @@ void putpixel(screen_t* screen, int x, int y, int color) {
 	screen->vmem[loc] = color;
 }
 
+void putpixel_vesa(screen_t* screen, int x, int y, int RGB) {
+		int offset = x * /*(screen->depth / 8)*/3 + y * (screen->width * /*(screen->depth / 8)*/3);
+
+		screen->vmem[offset + 0] = RGB & 0xFF; //blue
+		screen->vmem[offset + 1] = (RGB >> 8) & 0xFF; //green
+		screen->vmem[offset + 2] = (RGB >> 16) & 0xFF; //red
+}
+
 void fill_screen(screen_t* screen, int color) {
 	memset((char*)screen->physbase, color, (screen->width * screen->height));
 }
