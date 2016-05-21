@@ -1,11 +1,12 @@
 #include "vesa.h"
-
-#define VESA_WIDTH 1024
-#define VESA_HEIGHT 768
-#define VESA_DEPTH 32
+#include <kernel/util/paging/paging.h>
 
 //sets bank if LFB isn't supported/enabled
 void set_bank(int bank) {
+		static int previous_bank = -1;
+		//if we're already on the requested bank, quit early
+		if (bank == previous_bank) return;
+
 		regs16_t regs;
 
 		regs.ax = 0x4F05;
@@ -13,6 +14,8 @@ void set_bank(int bank) {
 		regs.dx = bank;
 
 		int32(0x10, &regs);
+
+		previous_bank = bank;
 }
 
 //sets up VESA for mode
