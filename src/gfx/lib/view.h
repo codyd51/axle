@@ -7,8 +7,8 @@ typedef struct coordinate {
 } coordinate;
 
 typedef struct size {
-	int w;
-	int h;
+	int width;
+	int height;
 } size;
 
 typedef struct rect {
