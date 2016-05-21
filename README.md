@@ -7,6 +7,10 @@ axle is interfaced through a shell. Experimental graphics support is implemented
 
 The initial entry point must be done in ASM, as we have to do some special tasks such as setting up the GRUB header, pushing our stack, and calling our C entry point. This means that the first code run is in `boot.s`, but the 'real' entry point is in `kernel.c`.
 
+Running
+----------------------
+To run and test axle on OS X, run `./install.sh` to install the necessary requirements, then `./run.sh` to start the emulator.
+
 Features
 ----------------------
 
@@ -33,7 +37,7 @@ Roadmap
 - [ ] Multitasking
 - [ ] User mode
 - [ ] VESA, automatic resolution detection
-- [ ] GFX library
+- [x] GFX library
 - [ ] Window manager
 - [ ] Shutdown/reboot commands
 

@@ -1,4 +1,4 @@
-#include "timer.h"
+#include "pit.h"
 #include <kernel/util/interrupts/isr.h>
 #include <kernel/kernel.h>
 
@@ -6,11 +6,17 @@
 
 uint32_t tick = 0;
 
-static void timer_callback(registers_t regs) {
+//defined in timer.c
+//inform that a tick has occured
+extern handle_tick(uint32_t tick);
+
+static void tick_callback(registers_t regs) {
 	tick++;
+
+	handle_tick(tick);
 }
 
-uint32_t tickCount() {
+uint32_t tick_count() {
 	return tick;
 }
 
@@ -19,7 +25,7 @@ void init_timer(uint32_t frequency) {
 	printf("init timer called\n");
 	
 	//firstly, register our timer callback
-	register_interrupt_handler(IRQ0, &timer_callback);
+	register_interrupt_handler(IRQ0, &tick_callback);
 
 	//value we need to send to PIC is value to divide it's input clock
 	//(1193180 Hz) by, to get desired frequency

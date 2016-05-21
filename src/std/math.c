@@ -1,8 +1,5 @@
 #include "math.h"
 
-//todo replace this with proper define
-double pi = 3.1415926536;
-
 double pow(double x, double pow) {
 	double ret = x;
 	for (int i = 0; i < pow; i++) {
@@ -25,15 +22,6 @@ double sin(double x) {
 	return ret;
 }
 
-double arcsin(double x) {
-	//taylor series for arcsin
-	double ret = x;
-	ret += (pow(x, 3))/6;
-	ret += (3*pow(x, 5))/40;
-	ret += (5*pow(x, 7))/112;
-	return ret;
-}
-
 double cos(double x) {
 	//approximate taylor series for cos
 	double ret = 1;
@@ -43,7 +31,137 @@ double cos(double x) {
 	return ret;
 }
 
-double arccos(double x) {
+double tan(double x) {
+		return sin(x)/cos(x);
+}
+
+double cot(double x) {
+		return cos(x)/sin(x);
+}
+
+double sec(double x) {
+		return 1/cos(x);
+}
+
+double csc(double x) {
+		return 1/sin(x);
+}
+
+double exp(double x) {
+	return pow(M_E, x);
+}
+
+double sinh(double val) {
+		return (pow(M_E, val) - pow(M_E, -val)) / 2;
+}
+
+double cosh(double val) {
+		return (pow(M_E, val) + pow(M_E, -val)) / 2;
+}
+
+double tanh(double val) {
+		return sinh(val)/cosh(val);
+}
+
+double coth(double val) {
+		return cosh(val)/sinh(val);
+}
+
+double sech(double val) {
+		return 1/cosh(val);
+}
+
+double csch(double val) {
+		return 1/sinh(val);
+}
+
+double arcsin(double x) {
+	//taylor series for arcsin
+	double ret = x;
+	ret += (pow(x, 3))/6;
+	ret += (3*pow(x, 5))/40;
+	ret += (5*pow(x, 7))/112;
+	return ret;
+}
+
+double arccos(double val) {
 	//arccos is arcsin phase shifted pi/2
-	return (pi/2) - arcsin(x);
+	return (M_PI/2) - arcsin(val);
+}
+
+double arctan(double x) {
+	double ret = x;
+	ret -= (pow(x, 3)/3);
+	ret += (pow(x, 5)/5);
+	ret -= (pow(x, 7)/7);
+	return ret;
+}
+
+double arccot(double val) {
+		//arctan phase shifted pi/2
+		return (M_PI/2) - arctan(val);
+}
+
+double arcsec(double val) {
+		return arccos(1/val);
+}
+
+double arccsc(double val) {
+		return arcsin(1/val);
+}
+
+double atan2(double y, double x) {
+	if (x > 0) {
+		return arctan(y/x);
+	}
+	else if (x < 0 && y >= 0) {
+		return arctan(y/x) + M_PI;
+	}
+	else if (x < 0 && y < 0) {
+		return arctan(y/x) - M_PI;
+	}
+	else if (x == 0 && y > 0) {
+		return (M_PI/2);
+	}
+	else if (x == 0 && y < 0) {
+		return -(M_PI/2);
+	}
+	
+	//if x and y == 0, undefined
+	return -1;
+}
+
+int abs(int val) {
+	if (val < 0) return -val;
+	return val;
+}
+
+double sqrt(double val) {
+	//TODO handle this case
+	if (val < 0) return -1;
+
+	double a = 1;
+	double b = val;
+	double epsilon = 0.001;
+
+	while (abs(a - b) > epsilon) {
+		a = (a+b) / 2;
+		b = val/a;
+	}
+	return a;
+}
+
+int round(double x) {
+	if (x < 0.0) return (int)(x - 0.5);
+	return (int)(x + 0.5);
+}
+
+static unsigned long int next = 1;
+int rand() {
+	next = next * 1103515245 + 12345;
+	return (unsigned int)(next / 65536) % RAND_MAX;
+}
+
+void srand(unsigned int seed) {
+	next = seed;
 }

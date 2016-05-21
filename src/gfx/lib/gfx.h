@@ -2,6 +2,7 @@
 #define GFX_H
 
 #include <std/common.h>
+#include "std/timer.h"
 
 typedef struct __attribute__((packed)) {
 	unsigned short di, si, bp, sp, bx, dx, cx, ax;
@@ -16,12 +17,14 @@ typedef struct {
 	uint16_t pixelwidth;
 	uint8_t* vmem;
 	uint8_t* physbase;
+	timer_callback callback;
 } screen_t;
 
 extern void int32(unsigned char intnum, regs16_t* regs);
 
 screen_t* switch_to_vga();
 void switch_to_text();
+
 void boot_screen();
 
 void putpixel(screen_t* screen, int x, int y, int color);

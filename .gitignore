@@ -5,3 +5,4 @@ objconv/
 *.o
 *.bin
 *.iso
+.DS_Store

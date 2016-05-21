@@ -3,7 +3,7 @@
 #include <kernel/drivers/rtc/clock.h>
 #include <std/common.h>
 #include <kernel/util/paging/descriptor_tables.h>
-#include <kernel/drivers/pit/timer.h>
+#include <kernel/drivers/pit/pit.h>
 #include <kernel/util/paging/paging.h>
 #include <stdarg.h>
 #include <gfx/lib/gfx.h>
@@ -59,6 +59,30 @@ void kernel_end_critical() {
 	asm ("sti");
 }
 
+void info_panel_refresh() {
+	cursor pos = get_cursor();
+
+	//set cursor near top left, leaving space to write
+	cursor curs;
+	curs.x = 65;
+	curs.y = 0;
+	set_cursor(curs);
+
+	printf("PIT: %d", tick_count());
+	//using \n would move cursor x = 0
+	//instead, manually set to next row
+	curs.y += 1;
+	set_cursor(curs);
+	printf("RTC: %d", time());
+
+	//now that we're done, put the cursor back
+	set_cursor(pos);
+}
+
+void initialize_info_panel() {
+	timer_callback info_callback = add_callback(info_panel_refresh, 1, 1, NULL);
+}
+
 extern uint32_t placement_address;
 uint32_t initial_esp;
 
@@ -95,6 +119,9 @@ void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
 	init_kb();
 
 	test_heap();	
+
+	//set up info panel
+	initialize_info_panel();
 
 	//force_page_fault();
 	//force_hardware_irq();

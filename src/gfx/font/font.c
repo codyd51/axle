@@ -90,7 +90,7 @@ int char_index(char ch) {
 
 font_t* setup_font() {
 	font_t* font_map = kmalloc(sizeof(font_t));
-
+	
 	int a_vals[] = {0x18, 0x3C, 0x66, 0xC3, 0xFF, 0xFF, 0xC3, 0xC3};
 	char_t* a = kmalloc(sizeof(char_t));
 	memcpy(a->rows, a_vals, sizeof(a_vals));
@@ -234,14 +234,14 @@ int is_bit_set(int c, int n) {
 	return ((c & mask[n]) != 0);
 }
 
-void draw_char(screen_t* screen, font_t* font_map, char ch, int x, int y) {
+void draw_char(screen_t* screen, font_t* font_map, char ch, int x, int y, int color) {
 	int index = char_index(ch);
 	char_t* c = font_map->characters[index];
 	for (int i = 0; i < 8; i++) {
 		int row = c->rows[i];
 		for (int j = 0; j < 8; j++) {
 			if (is_bit_set(row, j) != 0) {
-				putpixel(screen, x + j, y + i, 2);
+				putpixel(screen, x + j, y + i, color);
 			}
 		}
 	}
@@ -249,7 +249,7 @@ void draw_char(screen_t* screen, font_t* font_map, char ch, int x, int y) {
 #define CHAR_WIDTH 8
 #define CHAR_HEIGHT 8
 #define CHAR_PADDING 2
-void draw_string(screen_t* screen, font_t* font_map, char* str, int x, int y) {
+void draw_string(screen_t* screen, font_t* font_map, char* str, int x, int y, int color) {
 	int idx = 0;
 	while (str[idx] != NULL) {
 		//go to next line if necessary
@@ -258,7 +258,7 @@ void draw_string(screen_t* screen, font_t* font_map, char* str, int x, int y) {
 			y += CHAR_HEIGHT + CHAR_PADDING;
 		}
 
-		draw_char(screen, font_map, str[idx], x, y);
+		draw_char(screen, font_map, str[idx], x, y, color);
 		
 		x += CHAR_WIDTH + CHAR_PADDING;
 
