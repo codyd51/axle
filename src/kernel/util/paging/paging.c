@@ -109,12 +109,14 @@ void free_frame(page_t* page) {
 	page->frame = 0x0; //page now doesn't have a frame
 }
 
-void page_mem(uint32_t location) {
+#define VESA_WIDTH 1024
+#define VESA_HEIGHT 768
+void identity_map_lfb(uint32_t location) {
 	uint32_t j = location;
 	//TODO use screen object instead of these vals
-	while (j < location + (1024 * 768 * 4)) {
+	while (j < location + (VESA_WIDTH * VESA_HEIGHT * 4)) {
 		//if frame is valid
-		if (j + location + (1024 * 768 * 4) < memsize) {
+		if (j + location + (VESA_WIDTH * VESA_HEIGHT * 4) < memsize) {
 			set_frame(j); //tell frame bitset this frame is in use
 		}
 		//get page
@@ -150,9 +152,9 @@ void initialize_paging() {
 	//current_directory = kernel_directory;
 	kernel_directory->physicalAddr = (uint32_t)kernel_directory->tablesPhysical;
 
-	//for VESA LFB
+	//identity map VESA LFB
 	uint32_t vesa_mem_addr = 0xFD000000; //TODO replace with function
-	page_mem(vesa_mem_addr);
+	identity_map_lfb(vesa_mem_addr);
 
 	printf_dbg("current_directory");
 
