@@ -1,6 +1,9 @@
 #include "vesa.h"
 #include <kernel/util/paging/paging.h>
 
+extern flush_cache();
+extern page_directory_t* kernel_directory;
+
 //sets bank if LFB isn't supported/enabled
 void set_bank(int bank) {
 		static int previous_bank = -1;
@@ -19,7 +22,7 @@ void set_bank(int bank) {
 }
 
 //sets up VESA for mode
-screen_t* get_vesa_screen() {
+screen_t* switch_to_vesa() {
 		kernel_begin_critical();
 		
 		vesa_info info;

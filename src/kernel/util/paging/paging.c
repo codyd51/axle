@@ -7,8 +7,10 @@
 uint32_t* frames;
 uint32_t nframes;
 
-page_directory_t* kernel_directory;
-page_directory_t* current_directory;
+page_directory_t* kernel_directory = 0;
+page_directory_t* current_directory = 0;
+
+volatile uint32_t memsize = 0; //size of paging memory
 
 //defined in kheap
 extern uint32_t placement_address;
@@ -58,6 +60,27 @@ static uint32_t first_frame() {
 	}
 }
 
+void virtual_map_pages(long addr, long size, uint32_t rw, uint32_t user) {
+	long i = addr;
+	while (i < (addr + size + 0x1000)) {
+		if (i + size < memsize) {
+			//find first free frame
+			set_frame(first_frame());
+
+			//set space to taken anyway
+			kmalloc(0x1000);
+		}
+
+		page_t* page = get_page(i, 1, current_directory);
+		page->present = 1;
+		page->rw = rw;
+		page->user = user;
+		page->frame = i / 0x1000;
+		i += 0x1000;
+	}
+	return;
+}
+
 //function to allocate a frame
 void alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 	if (page->frame != 0) {
@@ -86,11 +109,32 @@ void free_frame(page_t* page) {
 	page->frame = 0x0; //page now doesn't have a frame
 }
 
+void page_mem(uint32_t location) {
+	uint32_t j = location;
+	//TODO use screen object instead of these vals
+	while (j < location + (1024 * 768 * 4)) {
+		//if frame is valid
+		if (j + location + (1024 * 768 * 4) < memsize) {
+			set_frame(j); //tell frame bitset this frame is in use
+		}
+		//get page
+		page_t* page = get_page(j, 1, kernel_directory);
+		//fill it
+		page->present = 1;
+		page->rw = 1;
+		page->user = 1;
+		page->frame = j / 0x1000;
+		j += 0x1000;
+	}
+}
+
 void initialize_paging() {
 	//size of physical memory
 	//assume 16MB
 	
 	uint32_t mem_end_page = 0x10000000;
+	//uint32_t mem_end_page = memory_size;
+	memsize = mem_end_page;
 		
 	printf_dbg("mem_end_page");
 
@@ -103,7 +147,12 @@ void initialize_paging() {
 	//make page directory
 	kernel_directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
 	memset(kernel_directory, 0, sizeof(page_directory_t));
-	current_directory = kernel_directory;
+	//current_directory = kernel_directory;
+	kernel_directory->physicalAddr = (uint32_t)kernel_directory->tablesPhysical;
+
+	//for VESA LFB
+	uint32_t vesa_mem_addr = 0xFD000000; //TODO replace with function
+	page_mem(vesa_mem_addr);
 
 	printf_dbg("current_directory");
 
