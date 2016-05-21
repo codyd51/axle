@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+
 mkdir -p isodir/boot/grub/
 make
 cp axle.bin isodir/boot/axle.bin
