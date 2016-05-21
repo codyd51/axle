@@ -18,10 +18,10 @@ typedef struct rect {
 
 
 typedef struct window {
-	size size;
+	struct size size;
 	uint32_t subviewsCount;
 	struct view *subviews;
-}
+} window;
 
 typedef struct view {
 	rect frame;
