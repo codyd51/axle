@@ -9,7 +9,7 @@
 
 #define VRAM_START 0xA0000
 
-#define VGA_DEPTH 8 
+#define VGA_DEPTH 256 
 #define VESA_DEPTH 24
 
 void screen_refresh(screen_t* screen) {
@@ -31,7 +31,7 @@ screen_t* switch_to_vga() {
 	screen_t* screen = (screen_t*)kmalloc(sizeof(screen_t));
 	screen->width = width;
 	screen->height = height;
-	screen->depth = 256;
+	screen->depth = 8;
 	screen->vmem = kmalloc(width * height * sizeof(char));
 	screen->physbase = VRAM_START;
 
@@ -93,7 +93,7 @@ void write_screen(screen_t* screen) {
 
 void rainbow_animation(screen_t* screen, rect r) {
 	//ROY G BIV
-	int colors[] = {4, 42, 44, 46, 1, 13, 34};
+	int colors[] = {0xFF0000, 0xFF7000, 0xFFFF00, 0x00FF00, 0x0000FF, 0x4B0082, 0x9400D3};
 	for (int i = 0; i < 7; i++) {
 		coordinate origin = create_coordinate(r.origin.x + (r.size.w / 7) * i, r.origin.y);
 		size size = create_size((r.size.w / 7), r.size.h);
@@ -107,15 +107,16 @@ void rainbow_animation(screen_t* screen, rect r) {
 void boot_screen() {
 	screen_t* screen = switch_to_vesa();
 	fill_screen(screen, 0);
-/*
+
 	coordinate p1 = create_coordinate(screen->width / 2, screen->height * 0.25);
 	coordinate p2 = create_coordinate(screen->width / 2 - 25, screen->height * 0.25 + 50);
 	coordinate p3 = create_coordinate(screen->width / 2 + 25, screen->height * 0.25 + 50);
 	triangle triangle = create_triangle(p1, p2, p3);
-	draw_triangle(screen, triangle, 10, -1);
+	draw_triangle(screen, triangle, 0xFF7700, -1);
+	
 
 	font_t* font_map = setup_font();
-	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 2);
+	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 255);
 
 	float rect_length = screen->width / 4;
 	coordinate origin = create_coordinate((screen->width/2) - (rect_length / 2), screen->height / 4 * 3 - 1);
@@ -123,7 +124,7 @@ void boot_screen() {
 	rect border_rect = create_rect(origin, sz);
 
 	//fill the rectangle with white initially
-	draw_rect(screen, border_rect, 15, 1);
+	draw_rect(screen, border_rect, 0xDDDDDD, 1);
 
 	sleep(1000);
 
@@ -133,7 +134,7 @@ void boot_screen() {
 	rainbow_animation(screen, rainbow_rect);    
 
 	sleep(250);
-*/
+
 	switch_to_text(screen);
 	
 	//dealloc screen
