@@ -30,5 +30,4 @@ write_cr3:
 flush_cache:
 	mov eax, cr3
 	mov cr3, eax
-	;invlpg
 	retn
