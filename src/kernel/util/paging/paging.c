@@ -112,7 +112,7 @@ void initialize_paging() {
 	//this causes page_table_t's to be created where necessary
 	//don't alloc the frames yet, they need to be identity 
 	//mapped below first.
-	int i = 0;
+    unsigned int i = 0;
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
 		get_page(i, 1, kernel_directory);
 	}

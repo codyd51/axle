@@ -45,6 +45,8 @@ void switch_page_directory(page_directory_t* new);
 //reside isn't created, create it
 page_t* get_page(uint32_t address, int make, page_directory_t* dir);
 
+void alloc_frame(page_t* page, int is_kernel, int is_writeable);
+
 //handler for page faults
 void page_fault(registers_t regs);
 
