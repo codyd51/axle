@@ -29,3 +29,30 @@ void* memcpy(void* restrict dstptr, const void* restrict srcptr, size_t size) {
 	}
 	return dstptr;
 }
+
+void* calloc(size_t num, size_t size) {
+	void* mem = kmalloc(num * size);
+	memset(mem, 0, num * size);
+	return mem;
+}
+
+static size_t getsize(void* p) {
+	size_t* in = p;
+	if (in) { 
+		--in;
+		return *in;
+	}
+	return -1;
+}
+
+void* realloc(void* ptr, size_t size) {
+	void* newptr;
+	int msize = getsize(ptr);
+	if (size <= msize) return ptr;
+
+	newptr = kmalloc(size);
+	memcpy(newptr, ptr, msize);
+
+	kfree(ptr);
+	return newptr;
+}
