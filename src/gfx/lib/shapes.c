@@ -179,8 +179,7 @@ void draw_line(screen_t* screen, line line, int color, int thickness) {
 	delta_x = abs(delta_x);
 	delta_y = abs(delta_y);
 
-	if (delta_x > delta_y) distance = delta_x;
-	else distance = delta_y;
+	distance = MAX(delta_x, delta_y);
 
 	//draw line
 	int curr_x = line.p1.x;
