@@ -8,6 +8,17 @@
 
 #define VRAM_START 0xA0000
 
+#define VGA_DEPTH 1 //TODO fix this value
+#define VESA_DEPTH 24
+
+void screen_refresh(screen_t* screen) {
+	write_screen(screen);
+}
+
+void setup_screen_refresh(screen_t* screen, double interval) {
+	screen->callback = add_callback(screen_refresh, interval, true, screen);
+}
+
 screen_t* switch_to_vga() {
 	regs16_t regs;
 	regs.ax = 0x0013;
@@ -22,6 +33,10 @@ screen_t* switch_to_vga() {
 	screen->depth = 256;
 	screen->vmem = kmalloc(width * height * sizeof(char));
 	screen->physbase = VRAM_START;
+
+	//start refresh loop
+	setup_screen_refresh(screen, 16);
+
 	return screen;
 }
 
@@ -39,42 +54,87 @@ void vsync() {
 	do {} while (!(inb(0x3DA) & 8));
 }
 
-void putpixel(screen_t* screen, int x, int y, int color) {
+
+void putpixel_vesa(screen_t* screen, int x, int y, int RGB) {
+		int offset = x * (screen->depth / 8) + y * (screen->width * (screen->depth / 8));
+
+		screen->physbase[offset + 0] = RGB & 0xFF; //blue
+		screen->physbase[offset + 1] = (RGB >> 8) & 0xFF; //green
+		screen->physbase[offset + 2] = (RGB >> 16) & 0xFF; //red
+}
+
+void putpixel_vga(screen_t* screen, int x, int y, int color) {
 	uint16_t loc = ((y * screen->width) + x);
 	screen->vmem[loc] = color;
 }
 
-void putpixel_vesa(screen_t* screen, int x, int y, int RGB) {
-		int offset = x * /*(screen->depth / 8)*/3 + y * (screen->width * /*(screen->depth / 8)*/3);
-
-		screen->vmem[offset + 0] = RGB & 0xFF; //blue
-		screen->vmem[offset + 1] = (RGB >> 8) & 0xFF; //green
-		screen->vmem[offset + 2] = (RGB >> 16) & 0xFF; //red
+void putpixel(screen_t* screen, int x, int y, int color) {
+	if (screen->depth == VGA_DEPTH) {
+		//VGA mode
+		putpixel_vga(screen, x, y, color);
+	}
+	else if (screen->depth == VESA_DEPTH) {
+		//VESA mode
+		putpixel_vesa(screen, x, y, color);
+	}
 }
 
 void fill_screen(screen_t* screen, int color) {
-	memset((char*)screen->physbase, color, (screen->width * screen->height));
+	memset((char*)screen->vmem, color, (screen->width * screen->height * (screen->depth / 8)));
 }
 
 void write_screen(screen_t* screen) {
-	memcpy(screen->physbase, screen->vmem, (screen->width * screen->height * /*(screen->depth / 8)*/28));
+	memcpy((char*)screen->physbase, screen->vmem, (screen->width * screen->height/* * (screen->depth / 8)*/));
+}
+
+void rainbow_animation(screen_t* screen, rect r) {
+	//ROY G BIV
+	int colors[] = {4, 42, 44, 46, 1, 13, 34};
+	for (int i = 0; i < 7; i++) {
+		coordinate origin = create_coordinate(r.origin.x + (r.size.w / 7) * i, r.origin.y);
+		size size = create_size((r.size.w / 7), r.size.h);
+		rect seg = create_rect(origin, size);
+
+		draw_rect(screen, seg, colors[i], THICKNESS_FILLED);
+		sleep(500 / 7);
+	}
 }
 
 void boot_screen() {
-	screen_t* screen = switch_to_vga();
-	fill_screen(screen, 5);
+	screen_t* screen = switch_to_vesa();
 
 	coordinate p1 = create_coordinate(screen->width / 2, screen->height * 0.25);
 	coordinate p2 = create_coordinate(screen->width / 2 - 25, screen->height * 0.25 + 50);
 	coordinate p3 = create_coordinate(screen->width / 2 + 25, screen->height * 0.25 + 50);
 	triangle triangle = create_triangle(p1, p2, p3);
-	draw_triangle(screen, triangle, 10);
+	draw_triangle(screen, triangle, 0xFF);
 
 	font_t* font_map = setup_font();
 	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6);
 
+	memset((char*)screen->vmem, 0xFFFF, (screen->width * screen->height));
 	write_screen(screen);
 
-	sleep(5000);
+	float rect_length = screen->width / 4;
+	coordinate origin = create_coordinate((screen->width/2) - (rect_length / 2), screen->height / 4 * 3 - 1);
+	size sz = create_size(rect_length, screen->height / 16 + 2);
+	rect border_rect = create_rect(origin, sz);
+
+	//fill the rectangle with white initially
+	draw_rect(screen, border_rect, 15, 1);
+
+	sleep(1000);
+
+	coordinate rainbow_origin = create_coordinate(origin.x + 2, origin.y + 2);
+	size rainbow_size = create_size(sz.w - 3, sz.h - 3);
+	rect rainbow_rect = create_rect(rainbow_origin, rainbow_size);
+	rainbow_animation(screen, rainbow_rect);    
+
+	sleep(250);
+
 	switch_to_text();
+	
+	//dealloc screen
+	kfree(screen->vmem);
+	kfree(screen);
 }
