@@ -125,9 +125,13 @@ void draw_hline_fast(screen_t* screen, line line, int color, int thickness) {
 	for (int i = 0; i < thickness; i++) {
 		//calculate starting point
 		//increment y for next thickness since this line is horizontal
-		uint16_t loc = ((line.p1.y + i) * screen->width) + line.p1.x;
+		int loc = (line.p1.x * screen->depth / 8) + ((line.p1.y + i) * (screen->depth / 8));
 		for (int j = 0; j < (line.p2.x - line.p1.x); j++) {
-			screen->vmem[loc + j] = color;
+			/*
+			screen->physbase[loc + 0] = color & 0xFF; //blue
+			screen->physbase[loc + 1] = (color >> 8) & 0xFF; //green
+			screen->physbase[loc + 2] = (color >> 16) & 0xFF; //red
+			*/
 		}
 	}
 }
@@ -136,16 +140,22 @@ void draw_vline_fast(screen_t* screen, line line, int color, int thickness) {
 	for (int i = 0; i < thickness; i++) {
 		//calculate starting point
 		//increment x for next thickness since line is vertical
-		uint16_t loc = (line.p1.y * screen->width) + (line.p1.x + i);
+		int loc = (line.p1.y * screen->width) + (line.p1.x + i);
 		for (int j = 0; j < (line.p2.y - line.p1.y); j++) {
-			screen->vmem[loc + (j * screen->width)] = color;	
+			/*
+			screen->physbase[loc + 0] = color & 0xFF; //blue
+			screen->physbase[loc + 1] = (color >> 8) & 0xFF; //green
+			screen->physbase[loc + 2] = (color >> 16) & 0xFF; //red
+			*/
 		}
+		
 	}
 }
 
 void draw_line(screen_t* screen, line line, int color, int thickness) {
 	//if the line is perfectly vertical or horizontal, this is a special case
 	//that can be drawn much faster
+	/*
 	if (line.p1.x == line.p2.x) {
 		draw_vline_fast(screen, line, color, thickness);
 		return;
@@ -154,6 +164,7 @@ void draw_line(screen_t* screen, line line, int color, int thickness) {
 		draw_hline_fast(screen, line, color, thickness);
 		return;
 	}
+	*/
 	
 	int t;
 	int distance;
