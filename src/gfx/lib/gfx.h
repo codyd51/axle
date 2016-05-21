@@ -4,14 +4,15 @@
 #include <std/common.h>
 #include "std/timer.h"
 
+#include "view.h"
+
 typedef struct __attribute__((packed)) {
 	unsigned short di, si, bp, sp, bx, dx, cx, ax;
 	unsigned short gs, fs, es, ds, eflags;
 } regs16_t;
 
 typedef struct {
-	uint16_t width;
-	uint16_t height;
+	window window;
 	uint16_t pitch;
 	uint16_t depth;
 	uint16_t pixelwidth;
