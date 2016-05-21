@@ -21,6 +21,7 @@ screen_t* switch_to_vga() {
 	screen->height = height;
 	screen->depth = 256;
 	screen->vmem = kmalloc(width * height * sizeof(char));
+	screen->physbase = VRAM_START;
 	return screen;
 }
 
@@ -44,11 +45,11 @@ void putpixel(screen_t* screen, int x, int y, int color) {
 }
 
 void fill_screen(screen_t* screen, int color) {
-	memset((char*)VRAM_START, color, (screen->width * screen->height));
+	memset((char*)screen->physbase, color, (screen->width * screen->height));
 }
 
 void write_screen(screen_t* screen) {
-	memcpy((char*)VRAM_START, screen->vmem, (screen->width * screen->height));
+	memcpy(screen->physbase, screen->vmem, (screen->width * screen->height * /*(screen->depth / 8)*/28));
 }
 
 void boot_screen() {
