@@ -32,8 +32,8 @@ coordinate create_coordinate(int x, int y) {
 
 size create_size(int w, int h) {
 	size size;
-	size.w = w;
-	size.h = h;
+	size.width = w;
+	size.height = h;
 	return size;
 }
 
@@ -68,18 +68,18 @@ triangle create_triangle(coordinate p1, coordinate p2, coordinate p3) {
 
 //functions to draw shape structures
 static void draw_rect_int_fast(screen_t* screen, rect rect, int color) {
-	for (int y = rect.origin.y; y < rect.origin.y + rect.size.h; y++) {
-		for (int x = rect.origin.x; x < rect.origin.x + rect.size.w; x++) {
+	for (int y = rect.origin.y; y < rect.origin.y + rect.size.height; y++) {
+		for (int x = rect.origin.x; x < rect.origin.x + rect.size.width; x++) {
 			putpixel(screen, x, y, color);
 		}
 	}
 }
 
 static void draw_rect_int(screen_t* screen, rect rect, int color) {
-	line h1 = create_line(rect.origin, create_coordinate(rect.origin.x + rect.size.w, rect.origin.y));
-	line h2 = create_line(create_coordinate(rect.origin.x, rect.origin.y + rect.size.h), create_coordinate(rect.origin.x + rect.size.w, rect.origin.y + rect.size.h));
-	line v1 = create_line(rect.origin, create_coordinate(rect.origin.x, rect.origin.y + rect.size.h));
-	line v2 = create_line(create_coordinate(rect.origin.x + rect.size.w, rect.origin.y), create_coordinate(rect.origin.x + rect.size.w, rect.origin.y + rect.size.h + 1));
+	line h1 = create_line(rect.origin, create_coordinate(rect.origin.x + rect.size.width, rect.origin.y));
+	line h2 = create_line(create_coordinate(rect.origin.x, rect.origin.y + rect.size.height), create_coordinate(rect.origin.x + rect.size.width, rect.origin.y + rect.size.height));
+	line v1 = create_line(rect.origin, create_coordinate(rect.origin.x, rect.origin.y + rect.size.height));
+	line v2 = create_line(create_coordinate(rect.origin.x + rect.size.width, rect.origin.y), create_coordinate(rect.origin.x + rect.size.width, rect.origin.y + rect.size.height + 1));
 
 	draw_line(screen, h1, color, 1);
 	draw_line(screen, h2, color, 1);
@@ -88,7 +88,7 @@ static void draw_rect_int(screen_t* screen, rect rect, int color) {
 }
 
 void draw_rect(screen_t* screen, rect r, int color, int thickness) {
-	int max_thickness = (MIN(r.size.w, r.size.h)) / 2;
+	int max_thickness = (MIN(r.size.width, r.size.height)) / 2;
 
 	//if thickness is negative, fill the shape
 	if (thickness < 0) thickness = max_thickness;
@@ -104,8 +104,8 @@ void draw_rect(screen_t* screen, rect r, int color, int thickness) {
 
 	int x = r.origin.x;
 	int y = r.origin.y;
-	int w = r.size.w;
-	int h = r.size.h;
+	int w = r.size.width;
+	int h = r.size.height;
 	for (int i = 0; i <= thickness; i++) {
 		coordinate origin = create_coordinate(x, y);
 		size size = create_size(w, h);
@@ -125,7 +125,7 @@ void draw_hline_fast(screen_t* screen, line line, int color, int thickness) {
 	for (int i = 0; i < thickness; i++) {
 		//calculate starting point
 		//increment y for next thickness since this line is horizontal
-		uint16_t loc = ((line.p1.y + i) * screen->width) + line.p1.x;
+		uint16_t loc = ((line.p1.y + i) * screen->window.size.width) + line.p1.x;
 		for (int j = 0; j < (line.p2.x - line.p1.x); j++) {
 			screen->vmem[loc + j] = color;
 		}
@@ -136,9 +136,9 @@ void draw_vline_fast(screen_t* screen, line line, int color, int thickness) {
 	for (int i = 0; i < thickness; i++) {
 		//calculate starting point
 		//increment x for next thickness since line is vertical
-		uint16_t loc = (line.p1.y * screen->width) + (line.p1.x + i);
+		uint16_t loc = (line.p1.y * screen->window.size.width) + (line.p1.x + i);
 		for (int j = 0; j < (line.p2.y - line.p1.y); j++) {
-			screen->vmem[loc + (j * screen->width)] = color;	
+			screen->vmem[loc + (j * screen->window.size.width)] = color;	
 		}
 	}
 }
