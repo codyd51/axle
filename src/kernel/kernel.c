@@ -60,20 +60,23 @@ void kernel_end_critical() {
 }
 
 void info_panel_refresh() {
-	size_t previous_x = term_col();
-	size_t previous_y = term_row();
+	cursor pos = get_cursor();
 
 	//set cursor near top left, leaving space to write
-	set_cursor(60, 0);
+	cursor curs;
+	curs.x = 65;
+	curs.y = 0;
+	set_cursor(curs);
 
 	printf("PIT: %d", tick_count());
 	//using \n would move cursor x = 0
 	//instead, manually set to next row
-	set_cursor(60, 1);
+	curs.y += 1;
+	set_cursor(curs);
 	printf("RTC: %d", time());
 
 	//now that we're done, put the cursor back
-	set_cursor(previous_x, previous_y);
+	set_cursor(pos);
 }
 
 void initialize_info_panel() {

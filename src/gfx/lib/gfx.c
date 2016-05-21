@@ -95,7 +95,7 @@ void boot_screen() {
 
 	float rect_length = screen->width / 4;
 	coordinate origin = create_coordinate((screen->width/2) - (rect_length / 2), screen->height / 4 * 3 - 1);
-	size sz = create_size(rect_length, screen->height / 8 + 2);
+	size sz = create_size(rect_length, screen->height / 16 + 2);
 	rect border_rect = create_rect(origin, sz);
 
 	//fill the rectangle with white initially
