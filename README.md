@@ -37,7 +37,7 @@ Roadmap
 - [ ] Multitasking
 - [ ] User mode
 - [ ] VESA, automatic resolution detection
-- [ ] GFX library
+- [x] GFX library
 - [ ] Window manager
 - [ ] Shutdown/reboot commands
 
