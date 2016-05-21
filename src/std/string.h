@@ -18,5 +18,11 @@ char* string_split(char* str, char delimiter, int index);
 size_t strlen(const char* str);
 //copies src into dest
 char *strcpy(char *dest, const char *src);
+//check if char is blank
+int isblank(char c);
+//check if char is space
+int isspace(char c);
+//duplicate string and strcpy it
+char *strdup (const char *s);
 
 #endif
