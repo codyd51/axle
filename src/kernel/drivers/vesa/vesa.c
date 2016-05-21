@@ -67,7 +67,7 @@ screen_t* switch_to_vesa() {
 		screen->width = mode_info.x_res;
 		screen->height = mode_info.y_res;
 		screen->depth = mode_info.bpp;
-		screen->vmem = kmalloc(screen->width * screen->height * sizeof(char));
+		screen->vmem = kmalloc(screen->width * screen->height * (screen->depth / 8));
 		//linear frame buffer (LFB) address
 		screen->physbase = (uint8_t*)mode_info.physbase;
 
