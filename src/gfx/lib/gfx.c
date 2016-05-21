@@ -109,22 +109,21 @@ void boot_screen() {
 	fill_screen(screen, 0);
 
 	coordinate p1 = create_coordinate(screen->width / 2, screen->height * 0.25);
-	coordinate p2 = create_coordinate(screen->width / 2 - 25, screen->height * 0.25 + 50);
-	coordinate p3 = create_coordinate(screen->width / 2 + 25, screen->height * 0.25 + 50);
+	coordinate p2 = create_coordinate(screen->width / 2 - 100, screen->height * 0.25 + 200);
+	coordinate p3 = create_coordinate(screen->width / 2 + 100, screen->height * 0.25 + 200);
 	triangle triangle = create_triangle(p1, p2, p3);
-	draw_triangle(screen, triangle, 0xFF7700, -1);
-	
+	draw_triangle(screen, triangle, 0x00FF00, 5);
 
 	font_t* font_map = setup_font();
 	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 255);
 
-	float rect_length = screen->width / 4;
+	float rect_length = screen->width / 3;
 	coordinate origin = create_coordinate((screen->width/2) - (rect_length / 2), screen->height / 4 * 3 - 1);
 	size sz = create_size(rect_length, screen->height / 16 + 2);
 	rect border_rect = create_rect(origin, sz);
 
 	//fill the rectangle with white initially
-	draw_rect(screen, border_rect, 0xDDDDDD, 1);
+	draw_rect(screen, border_rect, 0xFFFFFF, 1);
 
 	sleep(1000);
 
