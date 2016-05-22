@@ -3,21 +3,6 @@
 
 #include "gfx.h"
 
-typedef struct coordinate {
-	int x;
-	int y;
-} coordinate;
-
-typedef struct size {
-	int w;
-	int h;
-} size;
-
-typedef struct rect {
-	coordinate origin;
-	size size;
-} rect;
-
 typedef struct line {
 	coordinate p1;
 	coordinate p2;

@@ -158,7 +158,7 @@ void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	//switch to VESA for x serv
 	screen_t* vesa_screen = switch_to_vesa();
-	fill_screen(vesa_screen, 0x000000);
+	fill_screen(vesa_screen, 0xFFFF00);
 	draw_julia(vesa_screen);
 
 	while (1) {}
