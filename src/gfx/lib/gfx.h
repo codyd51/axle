@@ -19,15 +19,15 @@ typedef struct {
 	uint8_t* vmem;
 	uint8_t* physbase;
 	timer_callback callback;
-} screen_t;
+} Screen;
 
 extern void int32(unsigned char intnum, regs16_t* regs);
 
-screen_t* switch_to_vga();
+Screen* switch_to_vga();
 void switch_to_text();
 
 void boot_screen();
 
-void putpixel(screen_t* screen, int x, int y, int color);
+void putpixel(Screen* screen, int x, int y, int color);
 
 #endif

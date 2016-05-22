@@ -12,15 +12,15 @@
 #define VGA_DEPTH 8 
 #define VESA_DEPTH 24
 
-void vga_screen_refresh(screen_t* screen) {
+void vga_screen_refresh(Screen* screen) {
 	write_screen(screen);
 }
 
-void setup_vga_screen_refresh(screen_t* screen, double interval) {
+void setup_vga_screen_refresh(Screen* screen, double interval) {
 	screen->callback = add_callback(vga_screen_refresh, interval, true, screen);
 }
 
-screen_t* switch_to_vga() {
+Screen* switch_to_vga() {
 	regs16_t regs;
 	regs.ax = 0x0013;
 	int32(0x10, &regs);
@@ -28,7 +28,7 @@ screen_t* switch_to_vga() {
 	int width = 320;
 	int height = 200;
 
-	screen_t* screen = (screen_t*)kmalloc(sizeof(screen_t));
+	Screen* screen = (Screen*)kmalloc(sizeof(Screen));
 	screen->window.size.width = width;
 	screen->window.size.height = height;
 	screen->window.subviewsCount = 0;
@@ -42,7 +42,7 @@ screen_t* switch_to_vga() {
 	return screen;
 }
 
-void switch_to_text(screen_t* screen) {
+void switch_to_text(Screen* screen) {
 	//stop refresh loop for this screen
 	remove_callback(screen->callback);
 
@@ -59,7 +59,7 @@ void vsync() {
 	do {} while (!(inb(0x3DA) & 8));
 }
 
-void putpixel_vesa(screen_t* screen, int x, int y, int RGB) {
+void putpixel_vesa(Screen* screen, int x, int y, int RGB) {
 		int offset = x * (screen->depth / 8) + y * (screen->window.size.width * (screen->depth / 8));
 
 		screen->vmem[offset + 0] = RGB & 0xFF; //blue
@@ -67,12 +67,12 @@ void putpixel_vesa(screen_t* screen, int x, int y, int RGB) {
 		screen->vmem[offset + 2] = (RGB >> 16) & 0xFF; //red
 }
 
-void putpixel_vga(screen_t* screen, int x, int y, int color) {
+void putpixel_vga(Screen* screen, int x, int y, int color) {
 	uint16_t loc = ((y * screen->window.size.width) + x);
 	screen->vmem[loc] = color;
 }
 
-void putpixel(screen_t* screen, int x, int y, int color) {
+void putpixel(Screen* screen, int x, int y, int color) {
 	if (screen->depth == VGA_DEPTH) {
 		//VGA mode
 		putpixel_vga(screen, x, y, color);
@@ -84,18 +84,18 @@ void putpixel(screen_t* screen, int x, int y, int color) {
 }
 
 typedef struct Color { char val[3]; } Color;
-void fill_screen(screen_t* screen, Color color) {
+void fill_screen(Screen* screen, Color color) {
 	for (int loc = 0; loc < (screen->window.size.width * screen->window.size.height * (screen->depth / 8)); loc += (screen->depth / 8)) {
 		memcpy(&screen->vmem[loc], color.val, (screen->depth / 8) * sizeof(uint8_t));
 	}
 }
 
-void write_screen(screen_t* screen) {
+void write_screen(Screen* screen) {
 	vsync();
 	memcpy((char*)screen->physbase, screen->vmem, (screen->window.size.width * screen->window.size.height * (screen->depth / 8)));
 }
 
-void rainbow_animation(screen_t* screen, rect r) {
+void rainbow_animation(Screen* screen, rect r) {
 	//ROY G BIV
 	//int colors[] = {0xFF0000, 0xFF7000, 0xFFFF00, 0x00FF00, 0x0000FF, 0x4B0082, 0x9400D3};
 	int colors[] = {4, 42, 44, 46, 1, 13, 34};
@@ -109,7 +109,7 @@ void rainbow_animation(screen_t* screen, rect r) {
 	}
 }
 
-void vga_boot_screen(screen_t* screen) {
+void vga_boot_screen(Screen* screen) {
 	Color color;
 	color.val[0] = 0;
 	fill_screen(screen, color);

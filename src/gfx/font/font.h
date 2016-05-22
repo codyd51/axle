@@ -15,7 +15,7 @@ int char_index(char ch);
 
 font_t* setup_font();
 int is_bit_set(int c, int n);
-void draw_char(screen_t* screen, font_t* font_map, char ch, int x, int y, int color);
-void draw_string(screen_t* screen, font_t* font_map, char* str, int x, int y, int color);
+void draw_char(Screen* screen, font_t* font_map, char ch, int x, int y, int color);
+void draw_string(Screen* screen, font_t* font_map, char* str, int x, int y, int color);
 
 #endif

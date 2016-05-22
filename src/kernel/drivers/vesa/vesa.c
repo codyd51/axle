@@ -2,11 +2,11 @@
 #include <kernel/util/paging/paging.h>
 #include <gfx/lib/shapes.h>
 
-void vesa_screen_refresh(screen_t* screen) {
+void vesa_screen_refresh(Screen* screen) {
 	write_screen(screen);
 }
 
-void setup_vesa_screen_refresh(screen_t* screen, double interval) {
+void setup_vesa_screen_refresh(Screen* screen, double interval) {
 	screen->callback = add_callback(vesa_screen_refresh, interval, true, screen);
 }
 
@@ -31,7 +31,7 @@ void set_bank(int bank) {
 }
 
 //sets up VESA for mode
-screen_t* switch_to_vesa() {
+Screen* switch_to_vesa() {
 		kernel_begin_critical();
 		
 		vesa_info info;
@@ -72,7 +72,7 @@ screen_t* switch_to_vesa() {
 		//copy mode info from buffer into struct
 		memcpy(&mode_info, mode_buffer, sizeof(vbe_mode_info));
 
-		screen_t* screen = (screen_t*)kmalloc(sizeof(screen_t));
+		Screen* screen = (Screen*)kmalloc(sizeof(Screen));
 		screen->window.size.width = mode_info.x_res;
 		screen->window.size.height = mode_info.y_res;
 		screen->depth = mode_info.bpp;

@@ -4,7 +4,7 @@
 #include <user/shell/shell.h>
 
 //draw Mandelbrot set
-void draw_mandelbrot(screen_t* screen) {
+void draw_mandelbrot(Screen* screen) {
 	//each iteration, we calculate: new = old * old + p, where p is current pixel,
 	//old starts at the origin
 	double pr, pi; //real and imaginary parts of pixel p
@@ -41,7 +41,7 @@ void draw_mandelbrot(screen_t* screen) {
 }
 
 //draw julia set
-void draw_julia(screen_t* screen) {
+void draw_julia(Screen* screen) {
 	//each iteration, we calculate: new = old * old + c
 	//c is constant
 	//old starts at current pixel
@@ -88,7 +88,7 @@ void draw_julia(screen_t* screen) {
 	}
 }
 
-void test_triangles(screen_t* screen) {
+void test_triangles(Screen* screen) {
 	fill_screen(screen, 0);
 
 	coordinate p1 = create_coordinate(screen->window.size.width / 2, 0);
@@ -107,7 +107,7 @@ void test_triangles(screen_t* screen) {
 	}
 }
 
-void test_rects(screen_t* screen) {
+void test_rects(Screen* screen) {
 	fill_screen(screen, 0);
 
 	coordinate origin = create_coordinate(0, 0);
@@ -124,7 +124,7 @@ void test_rects(screen_t* screen) {
 	}
 }
 
-void test_circles(screen_t* screen) {
+void test_circles(Screen* screen) {
 	fill_screen(screen, 0);
 
 	coordinate center = create_coordinate(screen->window.size.width/2, screen->window.size.height/2);
@@ -138,7 +138,7 @@ void test_circles(screen_t* screen) {
 	}
 }
 
-void test_lines(screen_t* screen) {
+void test_lines(Screen* screen) {
 	fill_screen(screen, 0);
 
 	for (int i = 0; i < 128; i++) {
@@ -154,7 +154,7 @@ void test_lines(screen_t* screen) {
 	}
 }
 
-void test_text(screen_t* screen) {
+void test_text(Screen* screen) {
 	fill_screen(screen, 0);
 	font_t* font = setup_font();
 
@@ -163,7 +163,7 @@ void test_text(screen_t* screen) {
 	draw_string(screen, font, str, 0, 0, 12);
 }
 
-void draw_button(screen_t* screen) {
+void draw_button(Screen* screen) {
 	fill_screen(screen, 0);
 
 	coordinate origin = create_coordinate(screen->window.size.width * 0.25, screen->window.size.height * 0.25);
@@ -187,7 +187,7 @@ void draw_button(screen_t* screen) {
 }
 
 void test_gfx(int argc, char **argv) {
-	screen_t* screen = switch_to_vga();
+	Screen* screen = switch_to_vga();
 
 	fill_screen(screen, 0);
 

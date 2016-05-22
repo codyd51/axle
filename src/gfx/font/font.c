@@ -234,7 +234,7 @@ int is_bit_set(int c, int n) {
 	return ((c & mask[n]) != 0);
 }
 
-void draw_char(screen_t* screen, font_t* font_map, char ch, int x, int y, int color) {
+void draw_char(Screen* screen, font_t* font_map, char ch, int x, int y, int color) {
 	int index = char_index(ch);
 	char_t* c = font_map->characters[index];
 	for (int i = 0; i < 8; i++) {
@@ -249,7 +249,7 @@ void draw_char(screen_t* screen, font_t* font_map, char ch, int x, int y, int co
 #define CHAR_WIDTH 8
 #define CHAR_HEIGHT 8
 #define CHAR_PADDING 2
-void draw_string(screen_t* screen, font_t* font_map, char* str, int x, int y, int color) {
+void draw_string(Screen* screen, font_t* font_map, char* str, int x, int y, int color) {
 	int idx = 0;
 	while (str[idx] != NULL) {
 		//go to next line if necessary

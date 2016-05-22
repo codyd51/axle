@@ -67,7 +67,7 @@ triangle create_triangle(coordinate p1, coordinate p2, coordinate p3) {
 }
 
 //functions to draw shape structures
-static void draw_rect_int_fast(screen_t* screen, rect rect, int color) {
+static void draw_rect_int_fast(Screen* screen, rect rect, int color) {
 	for (int y = rect.origin.y; y < rect.origin.y + rect.size.height; y++) {
 		for (int x = rect.origin.x; x < rect.origin.x + rect.size.width; x++) {
 			putpixel(screen, x, y, color);
@@ -75,7 +75,7 @@ static void draw_rect_int_fast(screen_t* screen, rect rect, int color) {
 	}
 }
 
-static void draw_rect_int(screen_t* screen, rect rect, int color) {
+static void draw_rect_int(Screen* screen, rect rect, int color) {
 	line h1 = create_line(rect.origin, create_coordinate(rect.origin.x + rect.size.width, rect.origin.y));
 	line h2 = create_line(create_coordinate(rect.origin.x, rect.origin.y + rect.size.height), create_coordinate(rect.origin.x + rect.size.width, rect.origin.y + rect.size.height));
 	line v1 = create_line(rect.origin, create_coordinate(rect.origin.x, rect.origin.y + rect.size.height));
@@ -87,7 +87,7 @@ static void draw_rect_int(screen_t* screen, rect rect, int color) {
 	draw_line(screen, v2, color, 1);
 }
 
-void draw_rect(screen_t* screen, rect r, int color, int thickness) {
+void draw_rect(Screen* screen, rect r, int color, int thickness) {
 	int max_thickness = (MIN(r.size.width, r.size.height)) / 2;
 
 	//if thickness is negative, fill the shape
@@ -121,7 +121,7 @@ void draw_rect(screen_t* screen, rect r, int color, int thickness) {
 	}
 }
 
-void draw_hline_fast(screen_t* screen, line line, int color, int thickness) {
+void draw_hline_fast(Screen* screen, line line, int color, int thickness) {
 	for (int i = 0; i < thickness; i++) {
 		//calculate starting point
 		//increment y for next thickness since this line is horizontal
@@ -136,7 +136,7 @@ void draw_hline_fast(screen_t* screen, line line, int color, int thickness) {
 	}
 }
 
-void draw_vline_fast(screen_t* screen, line line, int color, int thickness) {
+void draw_vline_fast(Screen* screen, line line, int color, int thickness) {
 	for (int i = 0; i < thickness; i++) {
 		//calculate starting point
 		//increment x for next thickness since line is vertical
@@ -148,7 +148,7 @@ void draw_vline_fast(screen_t* screen, line line, int color, int thickness) {
 	}
 }
 
-void draw_line(screen_t* screen, line line, int color, int thickness) {
+void draw_line(Screen* screen, line line, int color, int thickness) {
 	//if the line is perfectly vertical or horizontal, this is a special case
 	//that can be drawn much faster
 	/*
@@ -207,7 +207,7 @@ void draw_line(screen_t* screen, line line, int color, int thickness) {
 	}
 }
 
-void draw_triangle_int(screen_t* screen, triangle triangle, int color) {
+void draw_triangle_int(Screen* screen, triangle triangle, int color) {
 	line l1 = create_line(triangle.p1, triangle.p2);
 	line l2 = create_line(triangle.p2, triangle.p3);
 	line l3 = create_line(triangle.p3, triangle.p1);
@@ -217,7 +217,7 @@ void draw_triangle_int(screen_t* screen, triangle triangle, int color) {
 	draw_line(screen, l3, color, 1);
 }
 
-void draw_triangle(screen_t* screen, triangle tri, int color, int thickness) {
+void draw_triangle(Screen* screen, triangle tri, int color, int thickness) {
 	draw_triangle_int(screen, tri, color);
 	return;
 
@@ -262,7 +262,7 @@ void draw_triangle(screen_t* screen, triangle tri, int color, int thickness) {
 	}
 }
 
-void draw_circle_int(screen_t* screen, circle circle, int color) {
+void draw_circle_int(Screen* screen, circle circle, int color) {
 	int x = 0;
 	int y = circle.radius;
 	int dp = 1 - circle.radius;
@@ -291,7 +291,7 @@ void draw_circle_int(screen_t* screen, circle circle, int color) {
 	putpixel(screen, circle.center.x - circle.radius, circle.center.y, color);
 }
 
-void draw_circle(screen_t* screen, circle circ, int color, int thickness) {
+void draw_circle(Screen* screen, circle circ, int color, int thickness) {
 	int max_thickness = circ.radius;
 	
 	//if the thickness indicates the shape should be filled, set it as such

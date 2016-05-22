@@ -28,8 +28,8 @@ triangle create_triangle(coordinate p1, coordinate p2, coordinate p3);
 
 #define THICKNESS_FILLED -1
 
-void draw_rect(screen_t* screen, rect rect, int color, int thickness);
-void draw_line(screen_t* screen, line line, int color, int thickness);
-void draw_triangle(screen_t* screen, triangle triangle, int color, int thickness);
-void draw_circle(screen_t* screen, circle circle, int color, int thickness);
+void draw_rect(Screen* screen, rect rect, int color, int thickness);
+void draw_line(Screen* screen, line line, int color, int thickness);
+void draw_triangle(Screen* screen, triangle triangle, int color, int thickness);
+void draw_circle(Screen* screen, circle circle, int color, int thickness);
 #endif

@@ -55,6 +55,6 @@ typedef struct vesa_info {
 		unsigned char oem_data[256];
 } vesa_info;
 
-screen_t* switch_to_vesa();
+Screen* switch_to_vesa();
 
 #endif
