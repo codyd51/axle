@@ -37,17 +37,19 @@ void process_command(char* string) {
 	if ((string != NULL) && (string[0] == '\0'))
 		return;
 
+	int argc;
+	char *sdup = strdup(string);
+	char **argv = buildargv(sdup, &argc);
+
 	//split the string to get the command, the rest is taken care of by libiberty
 	size_t out;
-	char** tokens = strsplit(string, " ", &out);
+	char** tokens = strsplit(sdup, " ", &out);
+	kfree(sdup);
 
 	if (out == 0)
 		return;
 
 	char* command = tokens[0];
-
-	int argc;
-	char **argv = buildargv(string, &argc);
 
 	int i = findCommand(command);
 	if (i >= 0) {

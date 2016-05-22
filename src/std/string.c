@@ -304,7 +304,7 @@ char *__strchrnul (const char *s, int c_in) {
 			/* Look at only the hole bits.  If any of the hole bits
 			are unchanged, most likely one of the bytes was a
 			zero.  */
-			& ~magic_bits) != 0 ||
+				& ~magic_bits) != 0 ||
 
 			/* That caught zeroes.  Now test for C.  */
 				((((longword ^ charmask) + magic_bits) ^ ~(longword ^ charmask))
@@ -420,7 +420,7 @@ char *strchr(const char *s, int c_in) {
 		longword = *longword_ptr++;
 
 		if ((((longword + magic_bits) ^ ~longword) & ~magic_bits) != 0 ||
-			((((longword ^ charmask) + magic_bits) ^ ~(longword ^ charmask))
+				((((longword ^ charmask) + magic_bits) ^ ~(longword ^ charmask))
 				& ~magic_bits) != 0) {
 
 			const unsigned char *cp = (const unsigned char *) (longword_ptr - 1);
@@ -445,11 +445,11 @@ char *strchr(const char *s, int c_in) {
 					if (*++cp == c) {
 						return (char *) cp;
 					} else if (*cp == '\0')
-					return NULL;
+						return NULL;
 					if (*++cp == c) {
 						return (char *) cp;
 					} else if (*cp == '\0') 
-					return NULL;
+						return NULL;
 					if (*++cp == c) {
 						return (char *) cp;
 					} else if (*cp == '\0') {
