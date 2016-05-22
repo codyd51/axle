@@ -62,9 +62,9 @@ void vsync() {
 void putpixel_vesa(screen_t* screen, int x, int y, int RGB) {
 		int offset = x * (screen->depth / 8) + y * (screen->width * (screen->depth / 8));
 
-		screen->physbase[offset + 0] = RGB & 0xFF; //blue
-		screen->physbase[offset + 1] = (RGB >> 8) & 0xFF; //green
-		screen->physbase[offset + 2] = (RGB >> 16) & 0xFF; //red
+		screen->vmem[offset + 0] = RGB & 0xFF; //blue
+		screen->vmem[offset + 1] = (RGB >> 8) & 0xFF; //green
+		screen->vmem[offset + 2] = (RGB >> 16) & 0xFF; //red
 }
 
 void putpixel_vga(screen_t* screen, int x, int y, int color) {
@@ -83,8 +83,11 @@ void putpixel(screen_t* screen, int x, int y, int color) {
 	}
 }
 
-void fill_screen(screen_t* screen, int color) {
-	memset((char*)screen->vmem, color, (screen->width * screen->height * (screen->depth / 8)));
+typedef struct Color { char val[3]; } Color;
+void fill_screen(screen_t* screen, Color color) {
+	for (int loc = 0; loc < (screen->width * screen->height * (screen->depth / 8)); loc += (screen->depth / 8)) {
+		memcpy(&screen->vmem[loc], color.val, (screen->depth / 8) * sizeof(uint8_t));
+	}
 }
 
 void write_screen(screen_t* screen) {
