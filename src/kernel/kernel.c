@@ -142,7 +142,7 @@ void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
 	}
 
 	//switch into VGA for boot screen
-	screen_t* vga_screen = switch_to_vga();
+	Screen* vga_screen = switch_to_vga();
 	//display boot screen
 	vga_boot_screen(vga_screen);
 	
@@ -157,7 +157,7 @@ void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
 	kfree(vga_screen);
 
 	//switch to VESA for x serv
-	screen_t* vesa_screen = switch_to_vesa();
+	Screen* vesa_screen = switch_to_vesa();
 	fill_screen(vesa_screen, 0xFFFF00);
 	draw_julia(vesa_screen);
 

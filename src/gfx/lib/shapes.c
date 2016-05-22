@@ -3,19 +3,19 @@
 #include <std/math.h>
 
 //convenience functions to make life easier
-double line_length(line line) {
+double line_length(Line line) {
 	//distance formula
 	return sqrt(pow(line.p2.x - line.p1.x, 2) + pow(line.p2.y - line.p1.y, 2));
 }
 
-coordinate line_center(line line) {
+Coordinate line_center(Line line) {
 	//average coordinates together
 	double x = (line.p1.x + line.p2.x) / 2;
 	double y = (line.p1.y + line.p2.y) / 2;
 	return create_coordinate(x, y);
 }
 
-coordinate triangle_center(triangle t) {
+Coordinate triangle_center(Triangle t) {
 	//average coordinates together
 	double x = (t.p1.x + t.p2.x + t.p3.x) / 3;
 	double y = (t.p1.y + t.p2.y + t.p3.y) / 3;
@@ -23,43 +23,43 @@ coordinate triangle_center(triangle t) {
 }
 
 //functions to create shape structures
-coordinate create_coordinate(int x, int y) {
-	coordinate coord;
+Coordinate create_coordinate(int x, int y) {
+	Coordinate coord;
 	coord.x = x;
 	coord.y = y;
 	return coord;
 }
 
-size create_size(int w, int h) {
-	size size;
+Size create_size(int w, int h) {
+	Size size;
 	size.width = w;
 	size.height = h;
 	return size;
 }
 
-rect create_rect(coordinate origin, size size) {
-	rect rect;
+Rect create_rect(Coordinate origin, Size size) {
+	Rect rect;
 	rect.origin = origin;
 	rect.size = size;
 	return rect;
 }
 
-line create_line(coordinate p1, coordinate p2) {
-	line line;
+Line create_line(Coordinate p1, Coordinate p2) {
+	Line line;
 	line.p1 = p1;
 	line.p2 = p2;
 	return line;
 }
 
-circle create_circle(coordinate center, int radius) {
-	circle circle;
+Circle create_circle(Coordinate center, int radius) {
+	Circle circle;
 	circle.center = center;
 	circle.radius = radius;
 	return circle;
 }
 
-triangle create_triangle(coordinate p1, coordinate p2, coordinate p3) {
-	triangle triangle;
+Triangle create_triangle(Coordinate p1, Coordinate p2, Coordinate p3) {
+	Triangle triangle;
 	triangle.p1 = p1;
 	triangle.p2 = p2;
 	triangle.p3 = p3;
@@ -67,7 +67,7 @@ triangle create_triangle(coordinate p1, coordinate p2, coordinate p3) {
 }
 
 //functions to draw shape structures
-static void draw_rect_int_fast(Screen* screen, rect rect, int color) {
+static void draw_rect_int_fast(Screen* screen, Rect rect, int color) {
 	for (int y = rect.origin.y; y < rect.origin.y + rect.size.height; y++) {
 		for (int x = rect.origin.x; x < rect.origin.x + rect.size.width; x++) {
 			putpixel(screen, x, y, color);
@@ -75,11 +75,11 @@ static void draw_rect_int_fast(Screen* screen, rect rect, int color) {
 	}
 }
 
-static void draw_rect_int(Screen* screen, rect rect, int color) {
-	line h1 = create_line(rect.origin, create_coordinate(rect.origin.x + rect.size.width, rect.origin.y));
-	line h2 = create_line(create_coordinate(rect.origin.x, rect.origin.y + rect.size.height), create_coordinate(rect.origin.x + rect.size.width, rect.origin.y + rect.size.height));
-	line v1 = create_line(rect.origin, create_coordinate(rect.origin.x, rect.origin.y + rect.size.height));
-	line v2 = create_line(create_coordinate(rect.origin.x + rect.size.width, rect.origin.y), create_coordinate(rect.origin.x + rect.size.width, rect.origin.y + rect.size.height + 1));
+static void draw_rect_int(Screen* screen, Rect rect, int color) {
+	Line h1 = create_line(rect.origin, create_coordinate(rect.origin.x + rect.size.width, rect.origin.y));
+	Line h2 = create_line(create_coordinate(rect.origin.x, rect.origin.y + rect.size.height), create_coordinate(rect.origin.x + rect.size.width, rect.origin.y + rect.size.height));
+	Line v1 = create_line(rect.origin, create_coordinate(rect.origin.x, rect.origin.y + rect.size.height));
+	Line v2 = create_line(create_coordinate(rect.origin.x + rect.size.width, rect.origin.y), create_coordinate(rect.origin.x + rect.size.width, rect.origin.y + rect.size.height + 1));
 
 	draw_line(screen, h1, color, 1);
 	draw_line(screen, h2, color, 1);
@@ -87,7 +87,7 @@ static void draw_rect_int(Screen* screen, rect rect, int color) {
 	draw_line(screen, v2, color, 1);
 }
 
-void draw_rect(Screen* screen, rect r, int color, int thickness) {
+void draw_rect(Screen* screen, Rect r, int color, int thickness) {
 	int max_thickness = (MIN(r.size.width, r.size.height)) / 2;
 
 	//if thickness is negative, fill the shape
@@ -107,9 +107,9 @@ void draw_rect(Screen* screen, rect r, int color, int thickness) {
 	int w = r.size.width;
 	int h = r.size.height;
 	for (int i = 0; i <= thickness; i++) {
-		coordinate origin = create_coordinate(x, y);
-		size size = create_size(w, h);
-		rect rt = create_rect(origin, size);
+		Coordinate origin = create_coordinate(x, y);
+		Size size = create_size(w, h);
+		Rect rt = create_rect(origin, size);
 
 		draw_rect_int(screen, rt, color);
 
@@ -121,7 +121,7 @@ void draw_rect(Screen* screen, rect r, int color, int thickness) {
 	}
 }
 
-void draw_hline_fast(Screen* screen, line line, int color, int thickness) {
+void draw_hline_fast(Screen* screen, Line line, int color, int thickness) {
 	for (int i = 0; i < thickness; i++) {
 		//calculate starting point
 		//increment y for next thickness since this line is horizontal
@@ -136,7 +136,7 @@ void draw_hline_fast(Screen* screen, line line, int color, int thickness) {
 	}
 }
 
-void draw_vline_fast(Screen* screen, line line, int color, int thickness) {
+void draw_vline_fast(Screen* screen, Line line, int color, int thickness) {
 	for (int i = 0; i < thickness; i++) {
 		//calculate starting point
 		//increment x for next thickness since line is vertical
@@ -148,7 +148,7 @@ void draw_vline_fast(Screen* screen, line line, int color, int thickness) {
 	}
 }
 
-void draw_line(Screen* screen, line line, int color, int thickness) {
+void draw_line(Screen* screen, Line line, int color, int thickness) {
 	//if the line is perfectly vertical or horizontal, this is a special case
 	//that can be drawn much faster
 	/*
@@ -207,17 +207,17 @@ void draw_line(Screen* screen, line line, int color, int thickness) {
 	}
 }
 
-void draw_triangle_int(Screen* screen, triangle triangle, int color) {
-	line l1 = create_line(triangle.p1, triangle.p2);
-	line l2 = create_line(triangle.p2, triangle.p3);
-	line l3 = create_line(triangle.p3, triangle.p1);
+void draw_triangle_int(Screen* screen, Triangle triangle, int color) {
+	Line l1 = create_line(triangle.p1, triangle.p2);
+	Line l2 = create_line(triangle.p2, triangle.p3);
+	Line l3 = create_line(triangle.p3, triangle.p1);
 
 	draw_line(screen, l1, color, 1);
 	draw_line(screen, l2, color, 1);
 	draw_line(screen, l3, color, 1);
 }
 
-void draw_triangle(Screen* screen, triangle tri, int color, int thickness) {
+void draw_triangle(Screen* screen, Triangle tri, int color, int thickness) {
 	draw_triangle_int(screen, tri, color);
 	return;
 
@@ -225,7 +225,7 @@ void draw_triangle(Screen* screen, triangle tri, int color, int thickness) {
 	
 	//the max thickness of a triangle is the shortest distance
 	//between the center and a vertice
-	coordinate center = triangle_center(tri);
+	Coordinate center = triangle_center(tri);
 	double l1 = line_length(create_line(center, line_center(create_line(tri.p1, tri.p2))));
 	double l2 = line_length(create_line(center, line_center(create_line(tri.p2, tri.p3))));
 	double l3 = line_length(create_line(center, line_center(create_line(tri.p3, tri.p1))));
@@ -246,9 +246,9 @@ void draw_triangle(Screen* screen, triangle tri, int color, int thickness) {
 	printf_info("center.x: %d", center.x);
 	printf_info("center.y: %d", center.y);
 
-	coordinate p1 = tri.p1;
-	coordinate p2 = tri.p2;
-	coordinate p3 = tri.p3;	
+	Coordinate p1 = tri.p1;
+	Coordinate p2 = tri.p2;
+	Coordinate p3 = tri.p3;	
 
 	for (int i = 0; i < thickness; i++) {
 		draw_triangle_int(screen, create_triangle(p1, p2, p3), color);
@@ -262,7 +262,7 @@ void draw_triangle(Screen* screen, triangle tri, int color, int thickness) {
 	}
 }
 
-void draw_circle_int(Screen* screen, circle circle, int color) {
+void draw_circle_int(Screen* screen, Circle circle, int color) {
 	int x = 0;
 	int y = circle.radius;
 	int dp = 1 - circle.radius;
@@ -291,7 +291,7 @@ void draw_circle_int(Screen* screen, circle circle, int color) {
 	putpixel(screen, circle.center.x - circle.radius, circle.center.y, color);
 }
 
-void draw_circle(Screen* screen, circle circ, int color, int thickness) {
+void draw_circle(Screen* screen, Circle circ, int color, int thickness) {
 	int max_thickness = circ.radius;
 	
 	//if the thickness indicates the shape should be filled, set it as such
@@ -300,7 +300,7 @@ void draw_circle(Screen* screen, circle circ, int color, int thickness) {
 	//make sure they don't set one too big
 	thickness = MIN(thickness, max_thickness);
 
-	circle c = create_circle(circ.center, circ.radius);
+	Circle c = create_circle(circ.center, circ.radius);
 
 	for (int i = 0; i <= thickness; i++) {
 		draw_circle_int(screen, c, color);

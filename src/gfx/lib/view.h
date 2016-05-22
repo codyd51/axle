@@ -4,31 +4,31 @@
 typedef struct coordinate {
 	int x;
 	int y;
-} coordinate;
+} Coordinate;
 
 typedef struct size {
 	int width;
 	int height;
-} size;
+} Size;
 
 typedef struct rect {
-	coordinate origin;
-	size size;
-} rect;
+	Coordinate origin;
+	Size size;
+} Rect;
 
 
 typedef struct window {
-	struct size size;
+	Size size;
 	uint32_t subviewsCount;
 	struct view *subviews;
-} window;
+} Window;
 
 typedef struct view {
-	rect frame;
+	Rect frame;
 	uint32_t zIndex;
 	struct view *superview;
 	uint32_t subviewsCount;
 	struct view *subviews;
-} view;
+} View;
 
 #endif

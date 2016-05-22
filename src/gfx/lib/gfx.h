@@ -12,7 +12,7 @@ typedef struct __attribute__((packed)) {
 } regs16_t;
 
 typedef struct {
-	window window;
+	Window window;
 	uint16_t pitch;
 	uint16_t depth;
 	uint16_t pixelwidth;
