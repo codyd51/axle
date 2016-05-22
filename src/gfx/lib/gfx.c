@@ -9,15 +9,15 @@
 
 #define VRAM_START 0xA0000
 
-#define VGA_DEPTH 256 
+#define VGA_DEPTH 8 
 #define VESA_DEPTH 24
 
-void screen_refresh(screen_t* screen) {
+void vga_screen_refresh(screen_t* screen) {
 	write_screen(screen);
 }
 
-void setup_screen_refresh(screen_t* screen, double interval) {
-	screen->callback = add_callback(screen_refresh, interval, true, screen);
+void setup_vga_screen_refresh(screen_t* screen, double interval) {
+	screen->callback = add_callback(vga_screen_refresh, interval, true, screen);
 }
 
 screen_t* switch_to_vga() {
@@ -31,12 +31,12 @@ screen_t* switch_to_vga() {
 	screen_t* screen = (screen_t*)kmalloc(sizeof(screen_t));
 	screen->width = width;
 	screen->height = height;
-	screen->depth = 8;
+	screen->depth = VGA_DEPTH;
 	screen->vmem = kmalloc(width * height * sizeof(char));
 	screen->physbase = VRAM_START;
 
 	//start refresh loop
-	setup_screen_refresh(screen, 16);
+	setup_vga_screen_refresh(screen, 16);
 
 	return screen;
 }
@@ -88,7 +88,8 @@ void fill_screen(screen_t* screen, int color) {
 }
 
 void write_screen(screen_t* screen) {
-	memcpy((char*)screen->physbase, screen->vmem, (screen->width * screen->height/* * (screen->depth / 8)*/));
+	vsync();
+	memcpy((char*)screen->physbase, screen->vmem, (screen->width * screen->height * (screen->depth / 8)));
 }
 
 void rainbow_animation(screen_t* screen, rect r) {
@@ -104,16 +105,17 @@ void rainbow_animation(screen_t* screen, rect r) {
 	}
 }
 
-void boot_screen() {
-	screen_t* screen = switch_to_vesa();
-	fill_screen(screen, 0);
+void vga_boot_screen(screen_t* screen) {
+	Color color;
+	color.val[0] = 0;
+	fill_screen(screen, color);
 
 	coordinate p1 = create_coordinate(screen->width / 2, screen->height * 0.25);
-	coordinate p2 = create_coordinate(screen->width / 2 - 100, screen->height * 0.25 + 200);
-	coordinate p3 = create_coordinate(screen->width / 2 + 100, screen->height * 0.25 + 200);
+	coordinate p2 = create_coordinate(screen->width / 2 - 25, screen->height * 0.25 + 50);
+	coordinate p3 = create_coordinate(screen->width / 2 + 25, screen->height * 0.25 + 50);
 	triangle triangle = create_triangle(p1, p2, p3);
-	draw_triangle(screen, triangle, 0x00FF00, 5);
-
+	draw_triangle(screen, triangle, 2, 5);
+/*
 	font_t* font_map = setup_font();
 	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 255);
 
@@ -131,12 +133,6 @@ void boot_screen() {
 	size rainbow_size = create_size(sz.w - 3, sz.h - 3);
 	rect rainbow_rect = create_rect(rainbow_origin, rainbow_size);
 	rainbow_animation(screen, rainbow_rect);    
-
-	sleep(250);
-
-	switch_to_text(screen);
-	
-	//dealloc screen
-	kfree(screen->vmem);
-	kfree(screen);
+*/
+	sleep(25000);
 }
