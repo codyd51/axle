@@ -73,6 +73,9 @@ void putpixel_vga(Screen* screen, int x, int y, int color) {
 }
 
 void putpixel(Screen* screen, int x, int y, int color) {
+	//don't attempt writing a pixel outside of screen bounds
+	if (x >= screen->window.size.width || y >= screen->window.size.height) return;
+
 	if (screen->depth == VGA_DEPTH) {
 		//VGA mode
 		putpixel_vga(screen, x, y, color);
