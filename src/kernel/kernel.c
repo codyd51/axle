@@ -90,11 +90,17 @@ uint32_t initial_esp;
 extern "C" //use C linkage for kernel_main
 #endif
 void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
-	initial_esp = initial_stack;	
+	initial_esp = initial_stack;
 
 	//initialize terminal interface
 	terminal_initialize();	
 
+	//introductory message
+	print_os_name();
+	
+	//run color test
+	test_colors();
+	
 	//set up software interrupts
 	printf_info("Initializing descriptor tables...");
 	init_descriptor_tables();
@@ -106,15 +112,6 @@ void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
 	printf_info("Initializing paging...");
 	initialize_paging();
 	
-	//display booting screen
-	boot_screen();
-
-	//introductory message
-	print_os_name();
-	
-	//run color test
-	test_colors();
-
 	printf_info("Initializing keyboard driver...");
 	init_kb();
 
@@ -126,12 +123,40 @@ void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
 	//force_page_fault();
 	//force_hardware_irq();
 	
-	//wait for user to start shell
-	printf("Kernel has finished booting. Press any key to enter shell.\n");
-	getchar();
+	//give user a chance to stay in verbose boot
+	printf("Press any key to stay in verbose mode. Continuing in ");
+	for (int i = 3; i > 0; i--) {
+		printf("%d... ", i);
+		sleep(1000);
+		if (haskey()) {
+			//clear buffer
+			while (haskey()) {
+				getchar();
+			}
+			printf("\n");
+			printf_info("Press any key to continue boot.");
+			getchar();
+			break;
+		}
+	}
+
+	//switch into VGA for boot screen
+	screen_t* vga_screen = switch_to_vga();
+	//display boot screen
+	vga_boot_screen(vga_screen);
 	
+	//wait for user to start shell
+	//printf("Kernel has finished booting. Press any key to enter axle.\n");
+	//getchar();
+
+	//dealloc screen
+	kfree(vga_screen->vmem);
+	kfree(vga_screen);
+
+/*
 	init_shell();
 	shell_loop(); 
+*/
 }
 
 
