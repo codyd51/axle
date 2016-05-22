@@ -28,13 +28,18 @@ enum vga_color {
 	COLOR_WHITE = 15,
 };
 
+typedef struct cursor {
+	size_t x;
+	size_t y;
+} cursor;
+
 void terminal_putchar(char c);
 void terminal_writestring(const char* data);
 void terminal_removechar();
 void terminal_clear();
 void terminal_settextcolor(enum vga_color col); 
-void set_cursor(size_t col, size_t row);
-size_t term_col();
-size_t term_row();
+void set_cursor(cursor loc);
+void set_cursor_indicator(cursor loc);
+cursor get_cursor();
 
 #endif

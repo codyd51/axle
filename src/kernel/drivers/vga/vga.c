@@ -10,14 +10,14 @@ uint16_t make_vgaentry(char c, uint8_t color) {
 	return c16 | color16 << 8;
 }
 
-size_t terminal_row;
-size_t terminal_column;
+cursor cursor_pos;
 uint8_t terminal_color;
 uint16_t* terminal_buffer;
 
 void terminal_initialize() {
-	terminal_row = 0;
-	terminal_column = 0;
+	cursor_pos.x = 0;
+	cursor_pos.y = 0;
+	
 	terminal_color = make_color(COLOR_LIGHT_BLUE, COLOR_BLACK);
 	terminal_buffer = VGA_MEM;
 
@@ -38,7 +38,7 @@ void terminal_putentryat(char c, uint8_t color, size_t x, size_t y) {
 }
 
 void terminal_push_back_line() {
-	terminal_column = 0;
+	cursor_pos.x = 0;
 
     //move every character up by one row
 	for (size_t row = 0; row < VGA_HEIGHT; row++) {
@@ -48,39 +48,29 @@ void terminal_push_back_line() {
 			terminal_putentryat(terminal_buffer[index], color, col, row);
 		}
 	}
-	terminal_row = VGA_HEIGHT-1;
-}
-
-//updates hardware cursor
-void move_cursor() {
-	//screen is 80 characters wide
-	uint16_t cursorLocation = terminal_row * 80 + terminal_column;
-	outb(0x3D4, 14); //tell VGA board we're setting high cursor byte
-	outb(0x3D5, cursorLocation >> 8); //send high cursor byte
-	outb(0x3D4, 15); //tell VGA board we're setting the low cursor byte
-	outb(0x3D5, cursorLocation); //send low cursor byte
+	cursor_pos.y = VGA_HEIGHT-1;
 }
 
 void terminal_putchar(char c) {
 	//check for newline character
 	if (c == '\n') {
-		terminal_column = 0;
-		if (++terminal_row >= VGA_HEIGHT) {
+		cursor_pos.x = 0;
+		if (++cursor_pos.y >= VGA_HEIGHT) {
 			terminal_push_back_line();
 		}
 	}
 	//tab character
 	else if (c == '\t') {
-		terminal_column += 4;
+		cursor_pos.x += 4;
 	}
 	else {
-		terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
+		terminal_putentryat(c, terminal_color, cursor_pos.x, cursor_pos.y);
 	}
 	
-	if (++terminal_column == VGA_WIDTH) {
-		terminal_column = 0;
+	if (++cursor_pos.x == VGA_WIDTH) {
+		cursor_pos.x = 0;
 
-		if (++terminal_row == VGA_HEIGHT) {	
+		if (++cursor_pos.y == VGA_HEIGHT) {	
 			terminal_push_back_line();
 		}
 	}
@@ -89,8 +79,8 @@ void terminal_putchar(char c) {
 }
 
 void terminal_removechar() {
-	terminal_putentryat(' ', terminal_color, terminal_column-1, terminal_row);
-	--terminal_column;
+	terminal_putentryat(' ', terminal_color, cursor_pos.x-1, cursor_pos.y);
+	--cursor_pos.x;
 	move_cursor();
 }
 
@@ -102,8 +92,9 @@ void terminal_writestring(const char* data) {
 }
 
 void terminal_clear() {
-	terminal_row = 0;
-	terminal_column = 0;
+	cursor_pos.x = 0;
+	cursor_pos.y = 0;
+
 	for (size_t y = 0; y < VGA_HEIGHT; y++) {
 		for (size_t x = 0; x < VGA_WIDTH; x++) {
 			const size_t index = y * VGA_WIDTH + x;
@@ -112,15 +103,26 @@ void terminal_clear() {
 	}
 }
 
-void set_cursor(size_t col, size_t row) {
-	terminal_column = col;
-	terminal_row = row;
+void set_cursor(cursor curs) {
+	cursor_pos = curs;
+	set_cursor_indicator(cursor_pos);
 }
 
-size_t term_col() {
-	return terminal_column;
-}
-size_t term_row() {
-	return terminal_row;
+cursor get_cursor() {
+	return cursor_pos;
 }
 
+//update hardware cursor
+void set_cursor_indicator(cursor curs) {
+	//screen is 80 characters wide
+	uint16_t loc = curs.y * 80 + curs.x;
+	outb(0x3D4, 14); //tell VGA board we're setting high cursor byte
+	outb(0x3D5, loc >> 8); //send high cursor byte
+	outb(0x3D4, 15); //tell VGA board we're setting the low cursor byte
+	outb(0x3D5, loc); //send low cursor byte
+	
+}
+
+void move_cursor() {
+	set_cursor_indicator(cursor_pos);
+}
