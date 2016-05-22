@@ -5,11 +5,14 @@
 #include <kernel/drivers/pit/pit.h>
 #include <user/shell/programs/snake/snake.h>
 #include <tests/gfx_test.h>
+#include <std/kheap.h>
+#include <std/memory.h>
+#include <lib/iberty/iberty.h>
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
 
-int findCommand(char* command, int numArgs) {
+int findCommand(char* command) {
 	size_t i;
 	int ret;
 
@@ -17,14 +20,7 @@ int findCommand(char* command, int numArgs) {
 		ret = strcmp(command, CommandTable[i].name);
 
 		if (ret == 0) {
-			//ensure the method they're calling has the same number of args as what they passed
-			if (CommandTable[i].numArgs == numArgs) {
-				return i;
-			}
-			else {
-				printf("Expected %d arguments to command %s, received %d.", CommandTable[i].numArgs, CommandTable[i].name, numArgs);
-				return -1;
-			}
+			return i;
 		}
 	}
 	printf("Command %s not found.", command);
@@ -41,63 +37,13 @@ void process_command(char* string) {
 	//the command name will be the first string-seperated token in the string
 	char* command = string_split(string, ' ', 0);
 
-	//maximum 10 arguments of 30 characters each
-	static char args[10][30];
-	//we start looking for arguments at the second token
-	//since the first token contains the command name
-	int tokindex = 1;
-	while (string_split(string, ' ', tokindex)) {
-		strcpy(args[tokindex-1], string_split(string, ' ', tokindex));
+	int argc;
+	char **argv = buildargv(string, &argc);
 
-		tokindex++;
-	}
-
-	//tokindex was increased by 1 to offset the actual command name
-	int argcount = tokindex - 1;
-
-	int i = findCommand(command, argcount);
+	int i = findCommand(command);
 	if (i >= 0) {
-		if (argcount == 0) {
-			void(*command_function)() = CommandTable[i].function;
-			command_function();
-		}
-		else {
-			void(*command_function)(void* arg1, ...) = CommandTable[i].function;
-			//there's no real elegant way to pass a variadic number of args to a function in c
-			//we really just have to manually call the function with every possible number of args
-			switch (argcount) {
-			case 1:
-				command_function(args[0]);
-				break;
-			case 2:
-				command_function(args[0], args[1]);
-				break;
-			case 3:
-				command_function(args[0], args[1], args[2]);
-				break;
-			case 4:
-				command_function(args[0], args[1], args[2], args[3]);
-				break;
-			case 5:
-				command_function(args[0], args[1], args[2], args[3], args[4]);
-				break;
-			case 6:
-				command_function(args[0], args[1], args[2], args[3], args[4], args[5]);
-				break;
-			case 7:
-				command_function(args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
-				break;
-			case 8:
-				command_function(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]);
-				break;
-			case 9:
-				command_function(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]);
-				break;
-			case 10:
-			default:
-				command_function(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]);
-			}
-		}
+		void (*command_function)(int, char **) = CommandTable[i].function;
+		command_function(argc, argv);
 	}
 }
 
@@ -164,12 +110,11 @@ int shell() {
 	return 0;
 }
 
-void add_new_command(char* name, char* description, void* function, int numArgs) {
+void add_new_command(char* name, char* description, void* function) {
 	if (CommandNum + 1 < MAX_COMMANDS) {
 		CommandTable[CommandNum].name = name;
 		CommandTable[CommandNum].description = description;
 		CommandTable[CommandNum].function = function;
-		CommandTable[CommandNum].numArgs = numArgs;
 
 		CommandNum++;
 	}
@@ -194,43 +139,41 @@ void help_command() {
 	}
 }
 
-void echo_command(char* arg) {
-	printf("%s", arg);
+void echo_command(int argc, char **argv) {
+	for (int i = 1; i < argc; i++) {
+		printf("%s%s", argv[i], i == argc ? "" : " ");
+	}
 }
 
-void echo2_command(char* arg1, char* arg2) {
-	printf("%s %s", arg1, arg2);
-}
-
-void time_command() {
+void time_command(int argc, char **argv) {
 	printf("%d", time());
 }
 
-void date_command() {
+void date_command(int argc, char **argv) {
 	printf(date());
 }
 
-void empty_command() {
+void empty_command(int argc, char **argv) {
 	//do nothing if nothing was entered
 }
 
-void clear_command() {
+void clear_command(int argc, char **argv) {
 	terminal_clear();
 }
 
-void asmjit_command() {
+void asmjit_command(int argc, char **argv) {
 //	asmjit();
 }
 
-void tick_command() {
+void tick_command(int argc, char **argv) {
 	printf("%d", tick_count());
 }
 
-void snake_command() {
+void snake_command(int argc, char **argv) {
 	play_snake();
 }
 
-void shutdown_command() {
+void shutdown_command(int argc, char **argv) {
 
 }
 
@@ -239,18 +182,17 @@ void init_shell() {
 	terminal_settextcolor(COLOR_GREEN);
 	
 	//set up command table
-	add_new_command("help", "Display help information", help_command, 0);
-	add_new_command("echo", "Outputs args to stdout", echo_command, 1);
-	add_new_command("echo2", "Outputs 2 args to stdout", echo2_command, 2);
-	add_new_command("time", "Outputs system time", time_command, 0);
-	add_new_command("date", "Outputs system time as date format", date_command, 0);
-	add_new_command("clear", "Clear terminal", clear_command, 0);
-	add_new_command("asmjit", "Starts JIT prompt", asmjit_command, 0);
-	add_new_command("tick", "Prints current tick count from PIT", tick_command, 0);
-	add_new_command("snake", "Have some fun!", snake_command, 0);
-	add_new_command("shutdown", "Shutdown PC", shutdown_command, 0);
-	add_new_command("gfxtest", "Run graphics tests", test_gfx, 0);
-	add_new_command("", "", empty_command, 0);
+	add_new_command("help", "Display help information", help_command);
+	add_new_command("echo", "Outputs args to stdout", echo_command);
+	add_new_command("time", "Outputs system time", time_command);
+	add_new_command("date", "Outputs system time as date format", date_command);
+	add_new_command("clear", "Clear terminal", clear_command);
+	add_new_command("asmjit", "Starts JIT prompt", asmjit_command);
+	add_new_command("tick", "Prints current tick count from PIT", tick_command);
+	add_new_command("snake", "Have some fun!", snake_command);
+	add_new_command("shutdown", "Shutdown PC", shutdown_command);
+	add_new_command("gfxtest", "Run graphics tests", test_gfx);
+	add_new_command("", "", empty_command);
 }
 
 

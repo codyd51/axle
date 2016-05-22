@@ -1,4 +1,5 @@
 #include "string.h"
+#include <std/kheap.h>
 
 char* itoa(int i, char b[]) {
 	char const digit[] = "0123456789";
@@ -124,6 +125,7 @@ size_t strlen(const char* str) {
 	}
 	return ret;
 }
+
 char *strcpy(char *dest, const char *src) {
 	int i = 0;
 	while (1) {
@@ -134,4 +136,19 @@ char *strcpy(char *dest, const char *src) {
 		i++;
 	}
 	return dest;
+}
+
+int isblank(char c) {
+	return(c == ' ' || c == '\t');
+}
+
+int isspace(char c) {
+    return (c == ' ' || c == '\t' || c == '\n' || c == '\12');
+}
+
+char *strdup (const char *s) {
+	char *d = kmalloc (strlen (s) + 1);
+	if (d == NULL) return NULL;
+	strcpy (d,s);
+	return d;
 }
