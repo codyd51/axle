@@ -1,6 +1,7 @@
 #include "gfx_test.h"
 #include <gfx/lib/shapes.h>
 #include <gfx/font/font.h>
+#include <user/shell/shell.h>
 
 //draw Mandelbrot set
 void draw_mandelbrot(screen_t* screen) {
@@ -185,7 +186,7 @@ void draw_button(screen_t* screen) {
 	draw_string(screen, font, "Play", p3.x + 5, p3.y - 4, 3);
 }
 
-void test_gfx() {
+void test_gfx(int argc, char **argv) {
 	screen_t* screen = switch_to_vga();
 
 	fill_screen(screen, 0);

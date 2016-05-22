@@ -9,7 +9,7 @@ The initial entry point must be done in ASM, as we have to do some special tasks
 
 Running
 ----------------------
-To run and test axle on OS X, run `./install.sh` to install the necessary requirements, then `./run.sh` to start the emulator.
+To run and test axle on OS X, run `./install.sh` to install the necessary requirements, then `make run` to start the emulator.
 
 Features
 ----------------------
