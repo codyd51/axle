@@ -1,5 +1,20 @@
 #include "vesa.h"
 #include <kernel/util/paging/paging.h>
+#include <gfx/lib/shapes.h>
+
+void vesa_screen_refresh(screen_t* screen) {
+	static int x = 0;
+	coordinate c = create_coordinate(x, 0);
+	coordinate t = create_coordinate(x, 300);
+	line l = create_line(c, t);
+	draw_line(screen, l, 0xFF0000, 1);
+	x += 2;
+	write_screen(screen);
+}
+
+void setup_vesa_screen_refresh(screen_t* screen, double interval) {
+	screen->callback = add_callback(vesa_screen_refresh, interval, true, screen);
+}
 
 extern flush_cache();
 extern page_directory_t* kernel_directory;
@@ -79,6 +94,9 @@ screen_t* switch_to_vesa() {
 		//or 0x4000 turns on linear frame buffer
 		regs.bx = (vesa_mode | 0x4000);
 		int32(0x10, &regs);
+
+		//start refresh loop
+		setup_vesa_screen_refresh(screen, 33);
 
 		kernel_end_critical();
 
