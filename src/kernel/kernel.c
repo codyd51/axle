@@ -10,6 +10,7 @@
 #include <kernel/drivers/vesa/vesa.h>
 #include <std/kheap.h>
 #include <tests/test.h>
+#include <kernel/drivers/mouse/mouse.h>
 
 void print_os_name() {
 	terminal_settextcolor(COLOR_GREEN);
@@ -148,11 +149,19 @@ void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
 	//wait for user to start shell
 	//printf("Kernel has finished booting. Press any key to enter axle.\n");
 	//getchar();
+	
+	switch_to_text(vga_screen);
 
 	//dealloc screen
 	kfree(vga_screen->vmem);
 	kfree(vga_screen);
 
+	//switch to VESA for x serv
+	screen_t* vesa_screen = switch_to_vesa();
+	fill_screen(vesa_screen, 0x000000);
+	draw_julia(vesa_screen);
+
+	while (1) {}
 /*
 	init_shell();
 	shell_loop(); 

@@ -97,7 +97,8 @@ void write_screen(screen_t* screen) {
 
 void rainbow_animation(screen_t* screen, rect r) {
 	//ROY G BIV
-	int colors[] = {0xFF0000, 0xFF7000, 0xFFFF00, 0x00FF00, 0x0000FF, 0x4B0082, 0x9400D3};
+	//int colors[] = {0xFF0000, 0xFF7000, 0xFFFF00, 0x00FF00, 0x0000FF, 0x4B0082, 0x9400D3};
+	int colors[] = {4, 42, 44, 46, 1, 13, 34};
 	for (int i = 0; i < 7; i++) {
 		coordinate origin = create_coordinate(r.origin.x + (r.size.w / 7) * i, r.origin.y);
 		size size = create_size((r.size.w / 7), r.size.h);
@@ -118,24 +119,24 @@ void vga_boot_screen(screen_t* screen) {
 	coordinate p3 = create_coordinate(screen->width / 2 + 25, screen->height * 0.25 + 50);
 	triangle triangle = create_triangle(p1, p2, p3);
 	draw_triangle(screen, triangle, 2, 5);
-/*
-	font_t* font_map = setup_font();
-	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 255);
+
+	//font_t* font_map = setup_font();
+	//draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 2);
 
 	float rect_length = screen->width / 3;
-	coordinate origin = create_coordinate((screen->width/2) - (rect_length / 2), screen->height / 4 * 3 - 1);
-	size sz = create_size(rect_length, screen->height / 16 + 2);
+	coordinate origin = create_coordinate((screen->width/2) - (rect_length / 2), screen->height / 4 * 3);
+	size sz = create_size(rect_length - 5, screen->height / 16);
 	rect border_rect = create_rect(origin, sz);
 
 	//fill the rectangle with white initially
-	draw_rect(screen, border_rect, 0xFFFFFF, 1);
+	draw_rect(screen, border_rect, 15, 1);
 
 	sleep(1000);
 
 	coordinate rainbow_origin = create_coordinate(origin.x + 2, origin.y + 2);
-	size rainbow_size = create_size(sz.w - 3, sz.h - 3);
+	size rainbow_size = create_size(rect_length - 4, sz.h - 3);
 	rect rainbow_rect = create_rect(rainbow_origin, rainbow_size);
 	rainbow_animation(screen, rainbow_rect);    
-*/
-	sleep(25000);
+
+	sleep(250);
 }

@@ -53,12 +53,12 @@ void draw_julia(screen_t* screen) {
 	//pick some values for constant c
 	//determines shape
 	//cRe = -0.7;
-	cRe = 0.335;
+	cRe = -0.7;
 	//cIm = 0.27015;
-	cIm = -0.56841;
+	cIm = -0.61841;
 
-	int w = 320;
-	int h = 200;
+	int w = screen->width;
+	int h = screen->height;
 
 	//for every pixel
 	for (int y = 0; y < h; y++) {
@@ -83,7 +83,7 @@ void draw_julia(screen_t* screen) {
 			}
 
 			int color = (i % max_iterations);
-			putpixel(screen, x, y, color);
+			putpixel(screen, x, y, 0x0000 + (color * 0xFF0099));
 		}
 	}
 }

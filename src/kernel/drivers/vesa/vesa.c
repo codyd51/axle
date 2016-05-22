@@ -3,12 +3,6 @@
 #include <gfx/lib/shapes.h>
 
 void vesa_screen_refresh(screen_t* screen) {
-	static int x = 0;
-	coordinate c = create_coordinate(x, 0);
-	coordinate t = create_coordinate(x, 300);
-	line l = create_line(c, t);
-	draw_line(screen, l, 0xFF0000, 1);
-	x += 2;
 	write_screen(screen);
 }
 
