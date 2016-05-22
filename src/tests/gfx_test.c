@@ -156,7 +156,7 @@ void test_lines(Screen* screen) {
 
 void test_text(Screen* screen) {
 	fill_screen(screen, 0);
-	font_t* font = setup_font();
+	Font* font = setup_font();
 
 	char* str = "Lorem ipsum dolor sit amet consectetur apipiscing elit Donex purus arcu suscipit ed felis eu blandit blandit quam Donec finibus euismod lobortis Sed massa nunc malesuada ac ante eleifend dictum laoreet massa Aliquam nec dictum turpis pellentesque lacinia ligula Donec et tellus maximum dapibus justo auctor egestas sapien Integer venantis egesta malesdada Maecenas venenatis urna id posuere bibendum eros torto gravida ipsum sed tempor arcy andte ac odio Morbi elementum libero id velit bibendum auctor It sit amet ex eget urna venenatis laoreet Proin posuere urna nec ante tutum lobortis Cras nec elit tristique dolor congue eleifend";
 
@@ -182,7 +182,7 @@ void draw_button(Screen* screen) {
 	triangle tri = create_triangle(p1, p2, p3);
 	draw_triangle(screen, tri, 15, 1);
 
-	font_t* font = setup_font();
+	Font* font = setup_font();
 	draw_string(screen, font, "Play", p3.x + 5, p3.y - 4, 3);
 }
 

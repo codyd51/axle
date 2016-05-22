@@ -120,7 +120,7 @@ void vga_boot_screen(Screen* screen) {
 	triangle triangle = create_triangle(p1, p2, p3);
 	draw_triangle(screen, triangle, 2, 5);
 
-	//font_t* font_map = setup_font();
+	//Font* font_map = setup_font();
 	//draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 2);
 
 	float rect_length = screen->window.size.width / 3;

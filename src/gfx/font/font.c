@@ -88,8 +88,8 @@ int char_index(char ch) {
 	return -1;
 }
 
-font_t* setup_font() {
-	font_t* font_map = kmalloc(sizeof(font_t));
+Font* setup_font() {
+	Font* font_map = kmalloc(sizeof(Font));
 	
 	int a_vals[] = {0x18, 0x3C, 0x66, 0xC3, 0xFF, 0xFF, 0xC3, 0xC3};
 	char_t* a = kmalloc(sizeof(char_t));
@@ -234,7 +234,7 @@ int is_bit_set(int c, int n) {
 	return ((c & mask[n]) != 0);
 }
 
-void draw_char(Screen* screen, font_t* font_map, char ch, int x, int y, int color) {
+void draw_char(Screen* screen, Font* font_map, char ch, int x, int y, int color) {
 	int index = char_index(ch);
 	char_t* c = font_map->characters[index];
 	for (int i = 0; i < 8; i++) {
@@ -249,7 +249,7 @@ void draw_char(Screen* screen, font_t* font_map, char ch, int x, int y, int colo
 #define CHAR_WIDTH 8
 #define CHAR_HEIGHT 8
 #define CHAR_PADDING 2
-void draw_string(Screen* screen, font_t* font_map, char* str, int x, int y, int color) {
+void draw_string(Screen* screen, Font* font_map, char* str, int x, int y, int color) {
 	int idx = 0;
 	while (str[idx] != NULL) {
 		//go to next line if necessary
