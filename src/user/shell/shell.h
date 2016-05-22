@@ -6,9 +6,8 @@ typedef struct {
 	char* name;
 	char* description;
 	void* function;
-	int numArgs;
 } command_table_t;
 
-void add_new_command(char* name, char* description, void* function, int numArgs);
+void add_new_command(char* name, char* description, void* function);
 void init_shell();
 int shell();
