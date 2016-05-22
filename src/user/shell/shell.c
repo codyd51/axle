@@ -38,7 +38,7 @@ void process_command(char* string) {
 	char* command = string_split(string, ' ', 0);
 
 	int argc;
-  char **argv = buildargv(string, &argc);
+	char **argv = buildargv(string, &argc);
 
 	int i = findCommand(command);
 	if (i >= 0) {
