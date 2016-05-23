@@ -16,7 +16,7 @@ typedef struct rect {
 	Size size;
 } rect;
 
-
+// dynamic_array
 typedef void* type_t;
 
 typedef struct dynamic_array {
@@ -24,6 +24,13 @@ typedef struct dynamic_array {
 	uint32_t used;
 	uint32_t size;
 } dynamic_array;
+
+dynamic_array dynamic_array_create(uint32_t initialSize)
+void dynamic_array_insert(dynamic_array *array, type_t element)
+void dynamic_array_free(dynamic_array *array)
+
+// view and window
+
 
 typedef struct view {
 	rect frame;
