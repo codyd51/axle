@@ -125,7 +125,7 @@ void draw_hline_fast(screen_t* screen, line line, int color, int thickness) {
 	for (int i = 0; i < thickness; i++) {
 		//calculate starting point
 		//increment y for next thickness since this line is horizontal
-		uint16_t loc = ((line.p1.y + i) * screen->window.size.width) + line.p1.x;
+		uint16_t loc = ((line.p1.y + i) * screen->width) + line.p1.x;
 		for (int j = 0; j < (line.p2.x - line.p1.x); j++) {
 			screen->vmem[loc + j] = color;
 		}
@@ -136,9 +136,9 @@ void draw_vline_fast(screen_t* screen, line line, int color, int thickness) {
 	for (int i = 0; i < thickness; i++) {
 		//calculate starting point
 		//increment x for next thickness since line is vertical
-		uint16_t loc = (line.p1.y * screen->window.size.width) + (line.p1.x + i);
+		uint16_t loc = (line.p1.y * screen->width) + (line.p1.x + i);
 		for (int j = 0; j < (line.p2.y - line.p1.y); j++) {
-			screen->vmem[loc + (j * screen->window.size.width)] = color;	
+			screen->vmem[loc + (j * screen->width)] = color;	
 		}
 	}
 }

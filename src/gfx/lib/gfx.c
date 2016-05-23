@@ -28,6 +28,8 @@ screen_t* switch_to_vga() {
 	screen_t* screen = (screen_t*)kmalloc(sizeof(screen_t));
 	screen->window.size.width = width;
 	screen->window.size.height = height;
+	screen->width = width;
+	screen->height = height;
 	//screen->window.subviewsCount = 0;
 	screen->depth = 256;
 	screen->vmem = kmalloc(width * height * sizeof(char));
@@ -56,16 +58,16 @@ void vsync() {
 }
 
 void putpixel(screen_t* screen, int x, int y, int color) {
-	uint16_t loc = ((y * screen->window.size.width) + x);
+	uint16_t loc = ((y * screen->width) + x);
 	screen->vmem[loc] = color;
 }
 
 void fill_screen(screen_t* screen, int color) {
-	memset(screen->vmem, color, (screen->window.size.width * screen->window.size.height));
+	memset(screen->vmem, color, (screen->width * screen->height));
 }
 
 void write_screen(screen_t* screen) {
-	memcpy((char*)VRAM_START, screen->vmem, (screen->window.size.width * screen->window.size.height));
+	memcpy((char*)VRAM_START, screen->vmem, (screen->width * screen->height));
 }
 
 void rainbow_animation(screen_t* screen, rect r) {
@@ -85,18 +87,18 @@ void boot_screen() {
 	screen_t* screen = switch_to_vga();
 	fill_screen(screen, 0);
 
-	coordinate p1 = create_coordinate(screen->window.size.width / 2, screen->window.size.height * 0.25);
-	coordinate p2 = create_coordinate(screen->window.size.width / 2 - 25, screen->window.size.height * 0.25 + 50);
-	coordinate p3 = create_coordinate(screen->window.size.width / 2 + 25, screen->window.size.height * 0.25 + 50);
+	coordinate p1 = create_coordinate(screen->width / 2, screen->height * 0.25);
+	coordinate p2 = create_coordinate(screen->width / 2 - 25, screen->height * 0.25 + 50);
+	coordinate p3 = create_coordinate(screen->width / 2 + 25, screen->height * 0.25 + 50);
 	triangle triangle = create_triangle(p1, p2, p3);
 	draw_triangle(screen, triangle, 10, -1);
 
 	font_t* font_map = setup_font();
-	draw_string(screen, font_map, "axle os", screen->window.size.width / 2 - 35, screen->window.size.height * 0.6, 2);
+	draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 2);
 
-	float rect_length = screen->window.size.width / 4;
-	coordinate origin = create_coordinate((screen->window.size.width/2) - (rect_length / 2), screen->window.size.height / 4 * 3 - 1);
-	Size sz = create_size(rect_length, screen->window.size.height / 16 + 2);
+	float rect_length = screen->width / 4;
+	coordinate origin = create_coordinate((screen->width/2) - (rect_length / 2), screen->height / 4 * 3 - 1);
+	Size sz = create_size(rect_length, screen->height / 16 + 2);
 
 	rect border_rect = create_rect(origin, sz);
 
