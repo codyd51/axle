@@ -17,6 +17,8 @@ typedef struct rect {
 } rect;
 
 
+typedef void* type_t;
+
 typedef struct dynamic_array {
 	type_t* array;
 	uint32_t used;
@@ -26,7 +28,7 @@ typedef struct dynamic_array {
 typedef struct view {
 	rect frame;
 	uint32_t zIndex;
-	struct view superview;
+	struct view *superview;
 	dynamic_array *subviews;
 } view;
 
