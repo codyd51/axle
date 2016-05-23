@@ -11,6 +11,8 @@
 #include <std/kheap.h>
 #include <tests/test.h>
 #include <kernel/drivers/mouse/mouse.h>
+#include <user/xserv/xserv.h>
+#include "multiboot.h"
 
 void print_os_name() {
 	terminal_settextcolor(COLOR_GREEN);
@@ -90,7 +92,7 @@ uint32_t initial_esp;
 #if defined(__cplusplus)
 extern "C" //use C linkage for kernel_main
 #endif
-void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
+void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	initial_esp = initial_stack;
 
 	//initialize terminal interface
@@ -101,6 +103,9 @@ void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
 	
 	//run color test
 	test_colors();
+
+	printf_info("Available memory:");
+	printf("%d -> %dMB\n", mboot_ptr->mem_upper, (mboot_ptr->mem_upper/1024));
 	
 	//set up software interrupts
 	printf_info("Initializing descriptor tables...");
