@@ -17,13 +17,6 @@ typedef struct rect {
 } rect;
 
 
-typedef struct window {
-	Size size;
-	uint32_t subwindow_count;
-	struct window *subwindows;
-
-} window;
-
 typedef struct view {
 	rect frame;
 	uint32_t zIndex;
@@ -31,5 +24,12 @@ typedef struct view {
 	uint32_t subviewsCount;
 	struct view *subviews;
 } view;
+
+typedef struct window {
+	Size size;
+	uint32_t subwindow_count;
+	struct window *subwindows;
+	struct view view;
+} window;
 
 #endif
