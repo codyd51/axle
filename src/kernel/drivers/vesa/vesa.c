@@ -1,8 +1,13 @@
 #include "vesa.h"
 #include <kernel/util/paging/paging.h>
 #include <gfx/lib/shapes.h>
+#include <gfx/lib/view.h>
+#include <user/xserv/xserv.h>
 
 void vesa_screen_refresh(Screen* screen) {
+	if (!screen->finished_drawing) return;
+
+	xserv_draw(screen);
 	write_screen(screen);
 }
 
@@ -73,10 +78,9 @@ Screen* switch_to_vesa() {
 		memcpy(&mode_info, mode_buffer, sizeof(vbe_mode_info));
 
 		Screen* screen = (Screen*)kmalloc(sizeof(Screen));
-		screen->window.size.width = mode_info.x_res;
-		screen->window.size.height = mode_info.y_res;
+		screen->window = create_window(create_rect(create_coordinate(0, 0), create_size(mode_info.x_res, mode_info.y_res)));
 		screen->depth = mode_info.bpp;
-		screen->vmem = kmalloc(screen->window.size.width * screen->window.size.height * (screen->depth / 8));
+		screen->vmem = kmalloc(screen->window->size.width * screen->window->size.height * (screen->depth / 8));
 		//linear frame buffer (LFB) address
 		screen->physbase = (uint8_t*)mode_info.physbase;
 
@@ -90,7 +94,8 @@ Screen* switch_to_vesa() {
 		int32(0x10, &regs);
 
 		//start refresh loop
-		setup_vesa_screen_refresh(screen, 33);
+		screen->finished_drawing = 1;
+		setup_vesa_screen_refresh(screen, 66);
 
 		kernel_end_critical();
 
