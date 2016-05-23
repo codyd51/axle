@@ -29,9 +29,8 @@ Screen* switch_to_vga() {
 	int height = 200;
 
 	Screen* screen = (Screen*)kmalloc(sizeof(Screen));
-	screen->window.size.width = width;
-	screen->window.size.height = height;
-	screen->window.subviewsCount = 0;
+	screen->window->size.width = width;
+	screen->window->size.height = height;
 	screen->depth = VGA_DEPTH;
 	screen->vmem = kmalloc(width * height * sizeof(char));
 	screen->physbase = VRAM_START;
@@ -60,7 +59,7 @@ void vsync() {
 }
 
 void putpixel_vesa(Screen* screen, int x, int y, int RGB) {
-		int offset = x * (screen->depth / 8) + y * (screen->window.size.width * (screen->depth / 8));
+		int offset = x * (screen->depth / 8) + y * (screen->window->size.width * (screen->depth / 8));
 
 		screen->vmem[offset + 0] = RGB & 0xFF; //blue
 		screen->vmem[offset + 1] = (RGB >> 8) & 0xFF; //green
@@ -68,13 +67,13 @@ void putpixel_vesa(Screen* screen, int x, int y, int RGB) {
 }
 
 void putpixel_vga(Screen* screen, int x, int y, int color) {
-	uint16_t loc = ((y * screen->window.size.width) + x);
+	uint16_t loc = ((y * screen->window->size.width) + x);
 	screen->vmem[loc] = color;
 }
 
 void putpixel(Screen* screen, int x, int y, int color) {
 	//don't attempt writing a pixel outside of screen bounds
-	if (x >= screen->window.size.width || y >= screen->window.size.height) return;
+	if (x >= screen->window->size.width || y >= screen->window->size.height) return;
 
 	if (screen->depth == VGA_DEPTH) {
 		//VGA mode
@@ -88,14 +87,14 @@ void putpixel(Screen* screen, int x, int y, int color) {
 
 typedef struct Color { char val[3]; } Color;
 void fill_screen(Screen* screen, Color color) {
-	for (int loc = 0; loc < (screen->window.size.width * screen->window.size.height * (screen->depth / 8)); loc += (screen->depth / 8)) {
+	for (int loc = 0; loc < (screen->window->size.width * screen->window->size.height * (screen->depth / 8)); loc += (screen->depth / 8)) {
 		memcpy(&screen->vmem[loc], color.val, (screen->depth / 8) * sizeof(uint8_t));
 	}
 }
 
 void write_screen(Screen* screen) {
 	vsync();
-	memcpy((char*)screen->physbase, screen->vmem, (screen->window.size.width * screen->window.size.height * (screen->depth / 8)));
+	memcpy((char*)screen->physbase, screen->vmem, (screen->window->size.width * screen->window->size.height * (screen->depth / 8)));
 }
 
 void rainbow_animation(Screen* screen, Rect r) {
@@ -117,18 +116,18 @@ void vga_boot_screen(Screen* screen) {
 	color.val[0] = 0;
 	fill_screen(screen, color);
 
-	Coordinate p1 = create_coordinate(screen->window.size.width / 2, screen->window.size.height * 0.25);
-	Coordinate p2 = create_coordinate(screen->window.size.width / 2 - 25, screen->window.size.height * 0.25 + 50);
-	Coordinate p3 = create_coordinate(screen->window.size.width / 2 + 25, screen->window.size.height * 0.25 + 50);
+	Coordinate p1 = create_coordinate(screen->window->size.width / 2, screen->window->size.height * 0.25);
+	Coordinate p2 = create_coordinate(screen->window->size.width / 2 - 25, screen->window->size.height * 0.25 + 50);
+	Coordinate p3 = create_coordinate(screen->window->size.width / 2 + 25, screen->window->size.height * 0.25 + 50);
 	Triangle triangle = create_triangle(p1, p2, p3);
 	draw_triangle(screen, triangle, 2, 5);
 
 	//Font* font_map = setup_font();
 	//draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 2);
 
-	float rect_length = screen->window.size.width / 3;
-	Coordinate origin = create_coordinate((screen->window.size.width/2) - (rect_length / 2), screen->window.size.height / 4 * 3);
-	Size sz = create_size(rect_length - 5, screen->window.size.height / 16);
+	float rect_length = screen->window->size.width / 3;
+	Coordinate origin = create_coordinate((screen->window->size.width/2) - (rect_length / 2), screen->window->size.height / 4 * 3);
+	Size sz = create_size(rect_length - 5, screen->window->size.height / 16);
 	Rect border_rect = create_rect(origin, sz);
 
 	//fill the rectangle with white initially
