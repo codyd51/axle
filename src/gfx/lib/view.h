@@ -25,9 +25,9 @@ typedef struct dynamic_array {
 	uint32_t size;
 } dynamic_array;
 
-dynamic_array dynamic_array_create(uint32_t initialSize)
-void dynamic_array_insert(dynamic_array *array, type_t element)
-void dynamic_array_free(dynamic_array *array)
+dynamic_array* dynamic_array_create(uint32_t initialSize);
+void dynamic_array_insert(dynamic_array *array, type_t element);
+void dynamic_array_free(dynamic_array *array);
 
 // view and window
 

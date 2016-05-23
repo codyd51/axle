@@ -4,11 +4,11 @@
 // dynamic_array
 // Thanks to http://stackoverflow.com/questions/3536153/c-dynamically-growing-array
 
-dynamic_array dynamic_array_create(uint32_t initialSize) {
-	dynamic_array ret;
-	ret.array = (void*)kmalloc(initialSize * sizeof(type_t));
-	ret.used = 0;
-	ret.size = initialSize;
+dynamic_array* dynamic_array_create(uint32_t initialSize) {
+	dynamic_array *ret;
+	ret->array = (void*)kmalloc(initialSize * sizeof(type_t));
+	ret->used = 0;
+	ret->size = initialSize;
 	return ret;
 }
 
