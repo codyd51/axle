@@ -17,18 +17,22 @@ typedef struct rect {
 } rect;
 
 
+typedef struct dynamic_array {
+	type_t* array;
+	uint32_t used;
+	uint32_t size;
+} dynamic_array;
+
 typedef struct view {
 	rect frame;
 	uint32_t zIndex;
-	struct view *superview;
-	uint32_t subviewsCount;
-	struct view *subviews;
+	struct view superview;
+	dynamic_array *subviews;
 } view;
 
 typedef struct window {
 	Size size;
-	uint32_t subwindow_count;
-	struct window *subwindows;
+	dynamic_array *subwindows;
 	struct view view;
 } window;
 
