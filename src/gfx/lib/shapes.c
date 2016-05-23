@@ -30,14 +30,14 @@ coordinate create_coordinate(int x, int y) {
 	return coord;
 }
 
-size create_size(int w, int h) {
-	size size;
+Size create_size(int w, int h) {
+	Size size;
 	size.width = w;
 	size.height = h;
 	return size;
 }
 
-rect create_rect(coordinate origin, size size) {
+rect create_rect(coordinate origin, Size size) {
 	rect rect;
 	rect.origin = origin;
 	rect.size = size;
@@ -108,7 +108,7 @@ void draw_rect(screen_t* screen, rect r, int color, int thickness) {
 	int h = r.size.height;
 	for (int i = 0; i <= thickness; i++) {
 		coordinate origin = create_coordinate(x, y);
-		size size = create_size(w, h);
+		Size size = create_size(w, h);
 		rect rt = create_rect(origin, size);
 
 		draw_rect_int(screen, rt, color);

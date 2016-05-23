@@ -13,6 +13,9 @@ typedef struct __attribute__((packed)) {
 
 typedef struct {
 	window window;
+	uint16_t width;
+	uint16_t height;
+
 	uint16_t pitch;
 	uint16_t depth;
 	uint16_t pixelwidth;

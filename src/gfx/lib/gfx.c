@@ -28,7 +28,7 @@ screen_t* switch_to_vga() {
 	screen_t* screen = (screen_t*)kmalloc(sizeof(screen_t));
 	screen->window.size.width = width;
 	screen->window.size.height = height;
-	screen->window.subviewsCount = 0;
+	//screen->window.subviewsCount = 0;
 	screen->depth = 256;
 	screen->vmem = kmalloc(width * height * sizeof(char));
 
@@ -73,7 +73,7 @@ void rainbow_animation(screen_t* screen, rect r) {
 	int colors[] = {4, 42, 44, 46, 1, 13, 34};
 	for (int i = 0; i < 7; i++) {
 		coordinate origin = create_coordinate(r.origin.x + (r.size.width / 7) * i, r.origin.y);
-		size size = create_size((r.size.width / 7), r.size.height);
+		Size size = create_size((r.size.width / 7), r.size.height);
 		rect seg = create_rect(origin, size);
 
 		draw_rect(screen, seg, colors[i], THICKNESS_FILLED);
@@ -96,7 +96,7 @@ void boot_screen() {
 
 	float rect_length = screen->window.size.width / 4;
 	coordinate origin = create_coordinate((screen->window.size.width/2) - (rect_length / 2), screen->window.size.height / 4 * 3 - 1);
-	size sz = create_size(rect_length, screen->window.size.height / 16 + 2);
+	Size sz = create_size(rect_length, screen->window.size.height / 16 + 2);
 
 	rect border_rect = create_rect(origin, sz);
 
@@ -106,7 +106,7 @@ void boot_screen() {
 	sleep(1000);
 
 	coordinate rainbow_origin = create_coordinate(origin.x + 2, origin.y + 2);
-	size rainbow_size = create_size(sz.width - 3, sz.height - 3);
+	Size rainbow_size = create_size(sz.width - 3, sz.height - 3);
 	rect rainbow_rect = create_rect(rainbow_origin, rainbow_size);
 	rainbow_animation(screen, rainbow_rect);    
 

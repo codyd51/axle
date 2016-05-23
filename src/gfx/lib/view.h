@@ -6,21 +6,22 @@ typedef struct coordinate {
 	int y;
 } coordinate;
 
-typedef struct size {
+typedef struct Size {
 	int width;
 	int height;
-} size;
+} Size;
 
 typedef struct rect {
 	coordinate origin;
-	size size;
+	Size size;
 } rect;
 
 
 typedef struct window {
-	struct size size;
-	uint32_t subviewsCount;
-	struct view *subviews;
+	Size size;
+	uint32_t subwindow_count;
+	struct window *subwindows;
+
 } window;
 
 typedef struct view {

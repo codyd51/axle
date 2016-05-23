@@ -20,8 +20,8 @@ typedef struct triangle {
 } triangle;
 
 coordinate create_coordinate(int x, int y);
-size create_size(int w, int h);
-rect create_rect(coordinate origin, size size);
+Size create_size(int w, int h);
+rect create_rect(coordinate origin, Size size);
 line create_line(coordinate p1, coordinate p2);
 circle create_circle(coordinate center, int radius);
 triangle create_triangle(coordinate p1, coordinate p2, coordinate p3);
