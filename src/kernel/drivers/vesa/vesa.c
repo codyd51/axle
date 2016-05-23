@@ -5,7 +5,7 @@
 #include <user/xserv/xserv.h>
 
 void vesa_screen_refresh(Screen* screen) {
-	if (!screen->finished_drawing) return;
+//	if (!screen->finished_drawing) return;
 
 	xserv_draw(screen);
 	write_screen(screen);

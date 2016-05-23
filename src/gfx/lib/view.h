@@ -23,6 +23,7 @@ typedef struct window {
 	Size size;
 	Rect frame;
 	struct view* view;
+	uint32_t border_color;
 	mutable_array_t subwindows;
 } Window;
 
@@ -30,6 +31,7 @@ typedef struct view {
 	Rect frame;
 	uint32_t zIndex;
 	struct view *superview;
+	uint32_t background_color;
 	mutable_array_t subviews;
 } View;
 

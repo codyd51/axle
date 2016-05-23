@@ -123,7 +123,7 @@ void vga_boot_screen(Screen* screen) {
 	draw_triangle(screen, triangle, 2, 5);
 
 	//Font* font_map = setup_font();
-	//draw_string(screen, font_map, "axle os", screen->width / 2 - 35, screen->height * 0.6, 2);
+	//draw_string(screen, font_map, "axle os", screen->window->size.width / 2 - 35, screen->window->size.height * 0.6, 2);
 
 	float rect_length = screen->window->size.width / 3;
 	Coordinate origin = create_coordinate((screen->window->size.width/2) - (rect_length / 2), screen->window->size.height / 4 * 3);

@@ -140,9 +140,9 @@ void draw_vline_fast(Screen* screen, Line line, int color, int thickness) {
 	for (int i = 0; i < thickness; i++) {
 		//calculate starting point
 		//increment x for next thickness since line is vertical
-		uint16_t loc = (line.p1.y * screen->window.size.width) + (line.p1.x + i);
+		uint16_t loc = (line.p1.y * screen->window->size.width) + (line.p1.x + i);
 		for (int j = 0; j < (line.p2.y - line.p1.y); j++) {
-			screen->vmem[loc + (j * screen->window.size.width)] = color;	
+			screen->vmem[loc + (j * screen->window->size.width)] = color;	
 		}
 		
 	}
