@@ -2,20 +2,17 @@
 #define ORDERED_ARRAY_H
 
 #include "common.h"
+#include "mutable_array.h"
 
 //this array is insertion sorted
 //it always remains in a sorted state between calls
-//it can store anything that can be cast to void*
-typedef void* type_t;
 
 //predicate should return non-zero if first argument is less than the second
 //else return zero
 typedef int8_t (*lessthan_predicate_t)(type_t, type_t);
 typedef struct {
-	type_t* array;
-	uint32_t size;
-	uint32_t max_size;
 	lessthan_predicate_t less_than;
+	mutable_array_t array;
 } ordered_array_t;
 
 //standard less than predicate
