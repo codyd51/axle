@@ -13,12 +13,12 @@ void draw_mandelbrot(Screen* screen) {
 	int max_iterations = 300;
 
 	//for every pixel
-	for (int y = 0; y < screen->window.size.height; y++) {
-		for (int x = 0; x < screen->window.size.width; x++) {
+	for (int y = 0; y < screen->window->size.height; y++) {
+		for (int x = 0; x < screen->window->size.width; x++) {
 			//calculate real and imaginary part of z
 			//based on pixel location and zoom and position vals
-			pr = 1.5 * (x - screen->window.size.width / 2) / (0.5 * zoom * screen->window.size.width) + move_x;
-			pi = (y - screen->window.size.height / 2) / (0.5 * zoom * screen->window.size.height) + move_y;
+			pr = 1.5 * (x - screen->window->size.width / 2) / (0.5 * zoom * screen->window->size.width) + move_x;
+			pi = (y - screen->window->size.height / 2) / (0.5 * zoom * screen->window->size.height) + move_y;
 			new_re = new_im = old_re = old_im = 0; //start at 0.0
 
 			int i;
@@ -57,8 +57,8 @@ void draw_julia(Screen* screen) {
 	//cIm = 0.27015;
 	cIm = -0.61841;
 
-	int w = screen->window.size.width;
-	int h = screen->window.size.height;
+	int w = screen->window->size.width;
+	int h = screen->window->size.height;
 
 	//for every pixel
 	for (int y = 0; y < h; y++) {
@@ -91,9 +91,9 @@ void draw_julia(Screen* screen) {
 void test_triangles(Screen* screen) {
 	fill_screen(screen, 0);
 
-	Coordinate p1 = create_coordinate(screen->window.size.width / 2, 0);
-	Coordinate p2 = create_coordinate(0, screen->window.size.height - 10);
-	Coordinate p3 = create_coordinate(screen->window.size.width, screen->window.size.height - 10);
+	Coordinate p1 = create_coordinate(screen->window->size.width / 2, 0);
+	Coordinate p2 = create_coordinate(0, screen->window->size.height - 10);
+	Coordinate p3 = create_coordinate(screen->window->size.width, screen->window->size.height - 10);
 
 	for (int i = 1; i <= 12; i++) {
 		Triangle t = create_triangle(p1, p2, p3);
@@ -111,7 +111,7 @@ void test_rects(Screen* screen) {
 	fill_screen(screen, 0);
 
 	Coordinate origin = create_coordinate(0, 0);
-	Size sz = screen->window.size;
+	Size sz = screen->window->size;
 	
 	for (int i = 0; i < 20; i++) {
 		Rect rt = create_rect(origin, sz);
@@ -127,8 +127,8 @@ void test_rects(Screen* screen) {
 void test_circles(Screen* screen) {
 	fill_screen(screen, 0);
 
-	Coordinate center = create_coordinate(screen->window.size.width/2, screen->window.size.height/2);
-	int radius = screen->window.size.height/2;
+	Coordinate center = create_coordinate(screen->window->size.width/2, screen->window->size.height/2);
+	int radius = screen->window->size.height/2;
 
 	for (int i = 0; i < 26; i++) {
 		Circle c = create_circle(center, radius);
@@ -142,10 +142,10 @@ void test_lines(Screen* screen) {
 	fill_screen(screen, 0);
 
 	for (int i = 0; i < 128; i++) {
-		int p1x = rand() % (screen->window.size.width + 1);
-		int p1y = rand() % (screen->window.size.height + 1);
-		int p2x = rand() % (screen->window.size.width + 1);
-		int p2y = rand() % (screen->window.size.height + 1);
+		int p1x = rand() % (screen->window->size.width + 1);
+		int p1y = rand() % (screen->window->size.height + 1);
+		int p2x = rand() % (screen->window->size.width + 1);
+		int p2y = rand() % (screen->window->size.height + 1);
 
 		Coordinate p1 = create_coordinate(p1x, p1y);
 		Coordinate p2 = create_coordinate(p2x, p2y);
@@ -166,8 +166,8 @@ void test_text(Screen* screen) {
 void draw_button(Screen* screen) {
 	fill_screen(screen, 0);
 
-	Coordinate origin = create_coordinate(screen->window.size.width * 0.25, screen->window.size.height * 0.25);
-	Size sz = create_size(screen->window.size.width * 0.25, screen->window.size.height * 0.25);
+	Coordinate origin = create_coordinate(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
+	Size sz = create_size(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
 	Rect r = create_rect(origin, sz);
 	draw_rect(screen, r, 2, 1);
 

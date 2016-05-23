@@ -12,13 +12,14 @@ typedef struct __attribute__((packed)) {
 } regs16_t;
 
 typedef struct {
-	Window window;
+	Window* window;
 	uint16_t pitch;
 	uint16_t depth;
 	uint16_t pixelwidth;
 	uint8_t* vmem;
 	uint8_t* physbase;
 	timer_callback callback;
+	int finished_drawing;
 } Screen;
 
 extern void int32(unsigned char intnum, regs16_t* regs);

@@ -253,7 +253,7 @@ void draw_string(Screen* screen, Font* font_map, char* str, int x, int y, int co
 	int idx = 0;
 	while (str[idx] != NULL) {
 		//go to next line if necessary
-		if ((x + CHAR_WIDTH + CHAR_PADDING) >  screen->window.size.width || str[idx] == '\n') {
+		if ((x + CHAR_WIDTH + CHAR_PADDING) >  screen->window->size.width || str[idx] == '\n') {
 			x = 0;
 			y += CHAR_HEIGHT + CHAR_PADDING;
 		}
