@@ -13,12 +13,12 @@ void draw_mandelbrot(screen_t* screen) {
 	int max_iterations = 300;
 
 	//for every pixel
-	for (int y = 0; y < screen->height; y++) {
-		for (int x = 0; x < screen->width; x++) {
+	for (int y = 0; y < screen->window.size.height; y++) {
+		for (int x = 0; x < screen->window.size.width; x++) {
 			//calculate real and imaginary part of z
 			//based on pixel location and zoom and position vals
-			pr = 1.5 * (x - screen->width / 2) / (0.5 * zoom * screen->width) + move_x;
-			pi = (y - screen->height / 2) / (0.5 * zoom * screen->height) + move_y;
+			pr = 1.5 * (x - screen->window.size.width / 2) / (0.5 * zoom * screen->window.size.width) + move_x;
+			pi = (y - screen->window.size.height / 2) / (0.5 * zoom * screen->window.size.height) + move_y;
 			new_re = new_im = old_re = old_im = 0; //start at 0.0
 
 			int i;
@@ -91,9 +91,9 @@ void draw_julia(screen_t* screen) {
 void test_triangles(screen_t* screen) {
 	fill_screen(screen, 0);
 
-	coordinate p1 = create_coordinate(screen->width / 2, 0);
-	coordinate p2 = create_coordinate(0, screen->height - 10);
-	coordinate p3 = create_coordinate(screen->width, screen->height - 10);
+	coordinate p1 = create_coordinate(screen->window.size.width / 2, 0);
+	coordinate p2 = create_coordinate(0, screen->window.size.height - 10);
+	coordinate p3 = create_coordinate(screen->window.size.width, screen->window.size.height - 10);
 
 	for (int i = 1; i <= 12; i++) {
 		triangle t = create_triangle(p1, p2, p3);
@@ -111,7 +111,7 @@ void test_rects(screen_t* screen) {
 	fill_screen(screen, 0);
 
 	coordinate origin = create_coordinate(0, 0);
-	size sz = create_size(screen->width, screen->height);
+	size sz = screen->window.size;
 	
 	for (int i = 0; i < 20; i++) {
 		rect rt = create_rect(origin, sz);
@@ -119,16 +119,16 @@ void test_rects(screen_t* screen) {
 
 		origin.x += 4;
 		origin.y += 4;
-		sz.w -= 8;
-		sz.h -= 8;
+		sz.width -= 8;
+		sz.height -= 8;
 	}
 }
 
 void test_circles(screen_t* screen) {
 	fill_screen(screen, 0);
 
-	coordinate center = create_coordinate(screen->width/2, screen->height/2);
-	int radius = screen->height/2;
+	coordinate center = create_coordinate(screen->window.size.width/2, screen->window.size.height/2);
+	int radius = screen->window.size.height/2;
 
 	for (int i = 0; i < 26; i++) {
 		circle c = create_circle(center, radius);
@@ -142,10 +142,10 @@ void test_lines(screen_t* screen) {
 	fill_screen(screen, 0);
 
 	for (int i = 0; i < 128; i++) {
-		int p1x = rand() % (screen->width + 1);
-		int p1y = rand() % (screen->height + 1);
-		int p2x = rand() % (screen->width + 1);
-		int p2y = rand() % (screen->height + 1);
+		int p1x = rand() % (screen->window.size.width + 1);
+		int p1y = rand() % (screen->window.size.height + 1);
+		int p2x = rand() % (screen->window.size.width + 1);
+		int p2y = rand() % (screen->window.size.height + 1);
 
 		coordinate p1 = create_coordinate(p1x, p1y);
 		coordinate p2 = create_coordinate(p2x, p2y);
@@ -166,19 +166,19 @@ void test_text(screen_t* screen) {
 void draw_button(screen_t* screen) {
 	fill_screen(screen, 0);
 
-	coordinate origin = create_coordinate(screen->width * 0.25, screen->height * 0.25);
-	size sz = create_size(screen->width * 0.25, screen->height * 0.25);
+	coordinate origin = create_coordinate(screen->window.size.width * 0.25, screen->window.size.height * 0.25);
+	size sz = create_size(screen->window.size.width * 0.25, screen->window.size.height * 0.25);
 	rect r = create_rect(origin, sz);
 	draw_rect(screen, r, 2, 1);
 
 	coordinate in_origin = create_coordinate(origin.x + 1, origin.y + 1);
-	size in_size = create_size(sz.w - 2, sz.h - 2);
+	size in_size = create_size(sz.width - 2, sz.height - 2);
 	rect in_rect = create_rect(in_origin, in_size);
 	draw_rect(screen, in_rect, 12, 30);
 
-	coordinate p1 = create_coordinate(origin.x + sz.w * 0.1, origin.y + sz.h * 0.1);
-	coordinate p2 = create_coordinate(origin.x + sz.w * 0.1, origin.y + sz.h * 0.9);
-	coordinate p3 = create_coordinate(origin.x + sz.w * 0.4, origin.y + sz.h * 0.5);
+	coordinate p1 = create_coordinate(origin.x + sz.width * 0.1, origin.y + sz.height * 0.1);
+	coordinate p2 = create_coordinate(origin.x + sz.width * 0.1, origin.y + sz.height * 0.9);
+	coordinate p3 = create_coordinate(origin.x + sz.width * 0.4, origin.y + sz.height * 0.5);
 	triangle tri = create_triangle(p1, p2, p3);
 	draw_triangle(screen, tri, 15, 1);
 
