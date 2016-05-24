@@ -3,6 +3,7 @@
 #include <gfx/lib/shapes.h>
 #include <gfx/lib/view.h>
 #include <user/xserv/xserv.h>
+#include <gfx/font/font.h>
 
 void vesa_screen_refresh(Screen* screen) {
 //	if (!screen->finished_drawing) return;
@@ -83,6 +84,7 @@ Screen* switch_to_vesa() {
 		screen->vmem = kmalloc(screen->window->size.width * screen->window->size.height * (screen->depth / 8));
 		//linear frame buffer (LFB) address
 		screen->physbase = (uint8_t*)mode_info.physbase;
+		screen->font = setup_font();
 
 		//sets up VESA mode
 		

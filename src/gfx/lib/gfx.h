@@ -2,7 +2,8 @@
 #define GFX_H
 
 #include <std/common.h>
-#include "std/timer.h"
+#include <std/timer.h>
+#include <gfx/font/font.h>
 
 #include "view.h"
 
@@ -11,7 +12,7 @@ typedef struct __attribute__((packed)) {
 	unsigned short gs, fs, es, ds, eflags;
 } regs16_t;
 
-typedef struct {
+typedef struct screen_t {
 	Window* window;
 	uint16_t pitch;
 	uint16_t depth;
@@ -20,6 +21,7 @@ typedef struct {
 	uint8_t* physbase;
 	timer_callback callback;
 	int finished_drawing;
+	Font* font;
 } Screen;
 
 extern void int32(unsigned char intnum, regs16_t* regs);

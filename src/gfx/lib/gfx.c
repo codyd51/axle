@@ -122,8 +122,8 @@ void vga_boot_screen(Screen* screen) {
 	Triangle triangle = create_triangle(p1, p2, p3);
 	draw_triangle(screen, triangle, 2, 5);
 
-	//Font* font_map = setup_font();
-	//draw_string(screen, font_map, "axle os", screen->window->size.width / 2 - 35, screen->window->size.height * 0.6, 2);
+	Font* font_map = setup_font();
+	draw_string(screen, font_map, "axle os", screen->window->size.width / 2 - 35, screen->window->size.height * 0.6, 2);
 
 	float rect_length = screen->window->size.width / 3;
 	Coordinate origin = create_coordinate((screen->window->size.width/2) - (rect_length / 2), screen->window->size.height / 4 * 3);
@@ -133,7 +133,7 @@ void vga_boot_screen(Screen* screen) {
 	//fill the rectangle with white initially
 	draw_rect(screen, border_rect, 15, 1);
 
-	sleep(1000);
+	sleep(500);
 
 	Coordinate rainbow_origin = create_coordinate(origin.x + 2, origin.y + 2);
 	Size rainbow_size = create_size(rect_length - 4, sz.height - 3);
