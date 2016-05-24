@@ -258,5 +258,69 @@ void page_fault(registers_t regs) {
 	if (us) printf("user-mode ");
 	if (reserved) printf("reserved ");
 	printf(") at 0x%x\n", faulting_address);
+
+	if (regs.eip != faulting_address) {
+		printf_info("Page fault caused by executing unpaged memory");
+	} 
+	else {
+		printf_info("Page fault caused by reading unpaged memory");
+	}
+
 	PANIC("Page fault");
+}
+
+static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
+	//make new page aligned table
+	page_table_t* table = (page_table_t*)kmalloc_ap(sizeof(page_table_t), physAddr);
+	//ensure new table is blank
+	memset((uint8_t*)table, 0, sizeof(page_table_t));
+
+	//for each entry in table
+	for (int i = 0; i < 1024; i++) {
+		//if source entry has a frame associated with it
+		if (!src->pages[i],frame) continue;
+
+		//get new frame
+		alloc_frame(&table->pages[i], 0, 0);
+		//clone flags from source to destination
+		if (src->pages[i].present) table->pages[i].present = 1;
+		if (src->pages[i].rw) table->pages[i].rw = 1;
+		if (src->pages[i].user) table->pages[i].user = 1;
+		if (src->pages[i].accessed) table->pages[i].accessed = 1;
+		if (src->pages[i].dirty) table->pages[i].dirty = 1;
+		//physically copy data across
+		copy_page_physical(src->pages[i].frame * 0x1000, table->pages[i].frame * 0x1000);
+	}
+	return table;
+}
+
+page_directory_t* clone_directory(page_directory_t* src) {
+	uint32_t phys;
+
+	//make new page directory and get physaddr
+	page_directory_t* dir = (page_directory_t*)kmalloc_ap(sizeof(page_directory_t), &phys);
+	//blank it
+	memset((uint8_t*)dir, 0, sizeof(page_directory_t));
+
+	//get offset of tablesPhysical from start of page_directory_t
+	dir->physicalAddr = phys + offset;
+
+	//for each page table
+	//if in kernel directory, don't make copy
+	for (int i = 0; i < 1024; i++) {
+		if (!src->tables[i]) continue;
+
+		if (kernel_directory->tables[i] == src->tables[i]) {
+			//in kernel, so just reuse same pointer
+			dir->tables[i] = src->tables[i];
+			dir->tablesPhysical[i] = src->tablesPhysical[i];
+		}
+		else {
+			//copy table
+			uint32_t phys;
+			dir->tables[i] = clone_table(src->tables[i], &phys);
+			dir->tablesPhysical[i] = phys | 0x07;
+		}
+	}
+	return dir;
 }
