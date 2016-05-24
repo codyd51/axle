@@ -133,7 +133,6 @@ void identity_map_lfb(uint32_t location) {
 void initialize_paging() {
 	//size of physical memory
 	//assume 16MB
-	
 	uint32_t mem_end_page = 0x10000000;
 	//uint32_t mem_end_page = memory_size;
 	memsize = mem_end_page;
@@ -163,7 +162,7 @@ void initialize_paging() {
 	//this causes page_table_t's to be created where necessary
 	//don't alloc the frames yet, they need to be identity 
 	//mapped below first.
-    unsigned int i = 0;
+    	unsigned int i = 0;
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
 		get_page(i, 1, kernel_directory);
 	}
@@ -210,11 +209,14 @@ void initialize_paging() {
 
 	//initialize kernel heap
 	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, 0xCFFFF000, 0, 0);
+
+	current_directory = clone_directory(kernel_directory);
+	switch_page_directory(current_directory);
 }
 
 void switch_page_directory(page_directory_t* dir) {
 	current_directory = dir;
-	asm volatile("mov %0, %%cr3" : : "r"(dir->tablesPhysical));
+	asm volatile("mov %0, %%cr3" : : "r"(dir->physicalAddr));
 }
 
 page_t* get_page(uint32_t address, int make, page_directory_t* dir) {

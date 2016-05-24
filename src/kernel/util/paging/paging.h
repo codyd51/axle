@@ -50,4 +50,6 @@ void alloc_frame(page_t* page, int is_kernel, int is_writeable);
 //handler for page faults
 void page_fault(registers_t regs);
 
+page_directory_t* clone_directory(page_directory_t* src);
+
 #endif
