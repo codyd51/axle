@@ -7,7 +7,7 @@ void draw_label(Screen* screen, Label* label) {
 void draw_image(Screen* screen, Image* image) {
 	//iterate through every pixel in the bitmap and draw it
 	int num_pixels = image->frame.size.width * image->frame.size.height;
-	for (uint32_t i = 0; i < num_pixels; i++) {
+	for (int i = 0; i < num_pixels; i++) {
 		int x = image->frame.origin.x + (i % image->frame.size.width);
 		int y = image->frame.origin.y + (i / image->frame.size.height);
 		putpixel(screen, x, y, image->bitmap[i]); 

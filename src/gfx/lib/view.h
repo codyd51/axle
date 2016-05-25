@@ -22,6 +22,7 @@ typedef struct rect {
 typedef struct window {
 	Size size;
 	Rect frame;
+	char* title;
 	struct view* title_view;
 	struct view* content_view;
 	uint32_t border_color;

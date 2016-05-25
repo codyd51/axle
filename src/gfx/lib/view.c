@@ -18,8 +18,8 @@ static View* create_title_view(Window* window) {
 	title_view->background_color = window->border_color;
 
 	//add title label to title view
-	Rect label_frame = create_rect(create_coordinate(title_view_frame.origin.x + 10, title_view->frame.origin.y + 5), title_view_frame.size);
-	Label* title_label = create_label(label_frame, "Test Window");
+	Rect label_frame = create_rect(create_coordinate(title_view_frame.origin.x + 15, title_view->frame.origin.y + 5), title_view_frame.size);
+	Label* title_label = create_label(label_frame, window->title);
 	title_label->text_color = 0xFFFFFF;
 	add_sublabel(title_view, title_label);
 
@@ -40,6 +40,7 @@ Window* create_window(Rect frame) {
 	window->frame = frame;
 	window->border_color = 0x0000FF;
 	window->subwindows = create_mutable_array(16);
+	window->title = "Window";
 
 	window->title_view = create_title_view(window);
 	window->content_view = create_content_view(window);
