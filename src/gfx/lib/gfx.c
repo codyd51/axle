@@ -6,40 +6,9 @@
 #include "shapes.h"
 #include <std/std.h>
 #include <tests/gfx_test.h>
+#include <kernel/drivers/vga/vga.h>
 
-#define VRAM_START 0xA0000
-
-#define VGA_DEPTH 8 
 #define VESA_DEPTH 24
-
-void vga_screen_refresh(Screen* screen) {
-	write_screen(screen);
-}
-
-void setup_vga_screen_refresh(Screen* screen, double interval) {
-	screen->callback = add_callback(vga_screen_refresh, interval, true, screen);
-}
-
-Screen* switch_to_vga() {
-	regs16_t regs;
-	regs.ax = 0x0013;
-	int32(0x10, &regs);
-
-	int width = 320;
-	int height = 200;
-
-	Screen* screen = (Screen*)kmalloc(sizeof(Screen));
-	screen->window->size.width = width;
-	screen->window->size.height = height;
-	screen->depth = VGA_DEPTH;
-	screen->vmem = kmalloc(width * height * sizeof(char));
-	screen->physbase = VRAM_START;
-
-	//start refresh loop
-	setup_vga_screen_refresh(screen, 16);
-
-	return screen;
-}
 
 void gfx_teardown(Screen* screen) {
 	//stop refresh loop for this screen
