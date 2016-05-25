@@ -40,6 +40,9 @@ Window* create_window(Rect frame) {
 	window->frame = frame;
 	window->border_color = 0x0000FF;
 	window->subwindows = create_mutable_array(16);
+
+	window->title_view = create_title_view(window);
+	window->content_view = create_content_view(window);
 		
 	return window;
 }

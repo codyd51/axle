@@ -1,8 +1,24 @@
 #include "xserv.h"
 
+void draw_label(Screen* screen, Label* label) {
+	draw_string(screen, screen->font, label->text, label->frame.origin.x, label->frame.origin.y, label->text_color);
+}
+
 void draw_view(Screen* screen, View* view) {
 	//fill view with its background color
 	draw_rect(screen, view->frame, view->background_color, THICKNESS_FILLED);
+
+	//draw any labels this view has
+	for (int i = 0; i < view->labels.size; i++) {
+		Label* label = (Label*)lookup_mutable_array(i, &(view->labels));
+		draw_label(screen, label);
+	}
+
+	//draw each subview of this view
+	for (int i = 0; i < view->subviews.size; i++) {
+		View* subview = (View*)lookup_mutable_array(i, &(view->subviews));
+		draw_view(screen, subview);
+	}
 }
 
 void draw_window(Screen* screen, Window* window) {
