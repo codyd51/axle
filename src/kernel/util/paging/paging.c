@@ -209,11 +209,15 @@ void initialize_paging() {
 
 	//initialize kernel heap
 	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, 0xCFFFF000, 0, 0);
+	//expand(0x1000000, kheap);
 
 	current_directory = clone_directory(kernel_directory);
 	printf_dbg("kernel_directory: %x", kernel_directory);
 	printf_dbg("current_directory: %x", current_directory);
-	//switch_page_directory(current_directory);
+
+	printf_dbg("sizeof page_table_t: %d", sizeof(page_table_t));
+	printf_dbg("sizeof page_directory_t: %d", sizeof(page_directory_t));
+	switch_page_directory(current_directory);
 }
 
 void switch_page_directory(page_directory_t* dir) {
@@ -308,9 +312,14 @@ page_directory_t* clone_directory(page_directory_t* src) {
 	//blank it
 	memset((uint8_t*)dir, 0, sizeof(page_directory_t));
 
+	printf_dbg("dir: %x", dir);
+	printf_dbg("dir->tablesPhysical %x", dir->tablesPhysical);
+	printf_dbg("phys: %x", phys);
+
 	//get offset of tablesPhysical from start of page_directory_t
 	uint32_t offset = (uint32_t)dir->tablesPhysical - (uint32_t)dir;
-	dir->physicalAddr = phys + offset;
+	//dir->physicalAddr = phys + offset;
+	dir->physicalAddr = kernel_directory->physicalAddr;
 
 	printf_dbg("dir->physicalAddr: %x", dir->physicalAddr);
 
@@ -333,3 +342,4 @@ page_directory_t* clone_directory(page_directory_t* src) {
 	}
 	return dir;
 }
+

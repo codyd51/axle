@@ -10,7 +10,6 @@
 #include <kernel/drivers/vesa/vesa.h>
 #include <std/kheap.h>
 #include <tests/test.h>
-#include <kernel/drivers/mouse/mouse.h>
 #include <user/xserv/xserv.h>
 #include "multiboot.h"
 #include <gfx/font/font.h>
@@ -187,6 +186,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	add_subimage(window->content_view, image);
 
 	while (1) {}
+
 /*
 	init_shell();
 	shell_loop(); 

@@ -26,7 +26,6 @@ typedef struct screen_t {
 
 extern void int32(unsigned char intnum, regs16_t* regs);
 
-Screen* switch_to_vga();
 void switch_to_text();
 
 void gfx_teardown(Screen* screen);

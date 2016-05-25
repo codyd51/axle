@@ -1,7 +1,7 @@
 #ifndef PRINTF_H
 #define PRINTF_H
 
-#include <kernel/drivers/vga/vga.h>
+#include <kernel/drivers/terminal/terminal.h>
 
 //standard printf
 void printf(char* format, ...);

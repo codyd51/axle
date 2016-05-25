@@ -6,40 +6,8 @@
 #include "shapes.h"
 #include <std/std.h>
 #include <tests/gfx_test.h>
-
-#define VRAM_START 0xA0000
-
-#define VGA_DEPTH 8 
-#define VESA_DEPTH 24
-
-void vga_screen_refresh(Screen* screen) {
-	write_screen(screen);
-}
-
-void setup_vga_screen_refresh(Screen* screen, double interval) {
-	screen->callback = add_callback(vga_screen_refresh, interval, true, screen);
-}
-
-Screen* switch_to_vga() {
-	regs16_t regs;
-	regs.ax = 0x0013;
-	int32(0x10, &regs);
-
-	int width = 320;
-	int height = 200;
-
-	Screen* screen = (Screen*)kmalloc(sizeof(Screen));
-	screen->window->size.width = width;
-	screen->window->size.height = height;
-	screen->depth = VGA_DEPTH;
-	screen->vmem = kmalloc(width * height * sizeof(char));
-	screen->physbase = VRAM_START;
-
-	//start refresh loop
-	setup_vga_screen_refresh(screen, 16);
-
-	return screen;
-}
+#include <kernel/drivers/vga/vga.h>
+#include <kernel/drivers/vesa/vesa.h>
 
 void gfx_teardown(Screen* screen) {
 	//stop refresh loop for this screen
@@ -62,19 +30,6 @@ void vsync() {
 
 	//wait until new trace has just begun
 	do {} while (!(inb(0x3DA) & 8));
-}
-
-void putpixel_vesa(Screen* screen, int x, int y, int RGB) {
-		int offset = x * (screen->depth / 8) + y * (screen->window->size.width * (screen->depth / 8));
-
-		screen->vmem[offset + 0] = RGB & 0xFF; //blue
-		screen->vmem[offset + 1] = (RGB >> 8) & 0xFF; //green
-		screen->vmem[offset + 2] = (RGB >> 16) & 0xFF; //red
-}
-
-void putpixel_vga(Screen* screen, int x, int y, int color) {
-	uint16_t loc = ((y * screen->window->size.width) + x);
-	screen->vmem[loc] = color;
 }
 
 void putpixel(Screen* screen, int x, int y, int color) {
