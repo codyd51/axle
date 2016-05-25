@@ -22,7 +22,8 @@ Screen* switch_to_vga() {
 	screen->depth = VGA_DEPTH;
 	screen->vmem = kmalloc(width * height * sizeof(char));
 	screen->physbase = VRAM_START;
-
+	screen->font = setup_font();
+	
 	//start refresh loop
 	setup_vga_screen_refresh(screen, 16);
 
