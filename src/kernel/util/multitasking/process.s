@@ -28,3 +28,21 @@ copy_page_physical:
 	popf			; pop EFLAGS back
 	pop ebx			; restore ebx
 	ret
+
+[GLOBAL read_eip]
+read_eip:
+	pop eax
+	jmp eax
+
+[GLOBAL perform_task_switch]
+perform_task_switch:
+	cli;
+	mov ecx, [esp+4]
+	mov eax, [esp+8]
+	mov ebp, [esp+12]
+	mov esp, [esp+16]
+	mov cr3, eax
+	mov eax, 0x12345
+	sti
+	jmp ecx
+

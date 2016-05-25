@@ -211,7 +211,9 @@ void initialize_paging() {
 	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, 0xCFFFF000, 0, 0);
 
 	current_directory = clone_directory(kernel_directory);
-	switch_page_directory(current_directory);
+	printf_dbg("kernel_directory: %x", kernel_directory);
+	printf_dbg("current_directory: %x", current_directory);
+	//switch_page_directory(current_directory);
 }
 
 void switch_page_directory(page_directory_t* dir) {
@@ -241,6 +243,8 @@ page_t* get_page(uint32_t address, int make, page_directory_t* dir) {
 }
 
 void page_fault(registers_t regs) {
+	switch_to_text();
+
 	//page fault has occured
 	//faulting address is stored in CR2 register
 	uint32_t faulting_address;
@@ -280,7 +284,7 @@ static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
 	//for each entry in table
 	for (int i = 0; i < 1024; i++) {
 		//if source entry has a frame associated with it
-		if (!src->pages[i],frame) continue;
+		if (!src->pages[i].frame) continue;
 
 		//get new frame
 		alloc_frame(&table->pages[i], 0, 0);
@@ -305,7 +309,10 @@ page_directory_t* clone_directory(page_directory_t* src) {
 	memset((uint8_t*)dir, 0, sizeof(page_directory_t));
 
 	//get offset of tablesPhysical from start of page_directory_t
+	uint32_t offset = (uint32_t)dir->tablesPhysical - (uint32_t)dir;
 	dir->physicalAddr = phys + offset;
+
+	printf_dbg("dir->physicalAddr: %x", dir->physicalAddr);
 
 	//for each page table
 	//if in kernel directory, don't make copy

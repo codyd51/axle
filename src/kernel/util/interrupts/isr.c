@@ -97,6 +97,8 @@ void handle_general_protection_fault(registers_t regs) {
 }
 
 void handle_page_fault(registers_t regs) {
+	switch_to_text();
+
 	//TODO cr2 holds address that caused the fault
 	printf_err("Encountered page fault. Info follows");
 

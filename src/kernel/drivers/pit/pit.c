@@ -10,10 +10,13 @@ uint32_t tick = 0;
 //inform that a tick has occured
 extern handle_tick(uint32_t tick);
 
+extern void switch_task();
+
 static void tick_callback(registers_t regs) {
 	tick++;
 
 	handle_tick(tick);
+	switch_task();
 }
 
 uint32_t tick_count() {
