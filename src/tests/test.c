@@ -1,6 +1,6 @@
 #include "test.h"
 #include <std/std.h>
-#include <kernel/drivers/vga/vga.h>
+#include <kernel/drivers/terminal/terminal.h>
 #include <kernel/drivers/vesa/vesa.h>
 
 void test_colors() {

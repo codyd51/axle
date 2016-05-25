@@ -1,15 +1,15 @@
-#ifndef VGA_H
-#define VGA_H
+#ifndef TERMINAL_H
+#define TERMINAL_H
 
 #include <std/std.h>
 
-static const size_t VGA_WIDTH = 80;
-static const size_t VGA_HEIGHT = 25;
+static const size_t TERMINAL_WIDTH = 80;
+static const size_t TERMINAL_HEIGHT = 25;
 
-static uint16_t * const VGA_MEM = (uint16_t*)0xB8000;
+static uint16_t * const TERMINAL_MEM = (uint16_t*)0xB8000;
 
 //hardware text mode color constants
-enum vga_color {
+enum terminal_color {
 	COLOR_BLACK = 0,
 	COLOR_BLUE = 1,
 	COLOR_GREEN = 2,
@@ -37,7 +37,7 @@ void terminal_putchar(char c);
 void terminal_writestring(const char* data);
 void terminal_removechar();
 void terminal_clear();
-void terminal_settextcolor(enum vga_color col); 
+void terminal_settextcolor(enum terminal_color col); 
 void set_cursor(cursor loc);
 void set_cursor_indicator(cursor loc);
 cursor get_cursor();
