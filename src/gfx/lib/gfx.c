@@ -7,8 +7,7 @@
 #include <std/std.h>
 #include <tests/gfx_test.h>
 #include <kernel/drivers/vga/vga.h>
-
-#define VESA_DEPTH 24
+#include <kernel/drivers/vesa/vesa.h>
 
 void gfx_teardown(Screen* screen) {
 	//stop refresh loop for this screen
@@ -31,19 +30,6 @@ void vsync() {
 
 	//wait until new trace has just begun
 	do {} while (!(inb(0x3DA) & 8));
-}
-
-void putpixel_vesa(Screen* screen, int x, int y, int RGB) {
-		int offset = x * (screen->depth / 8) + y * (screen->window->size.width * (screen->depth / 8));
-
-		screen->vmem[offset + 0] = RGB & 0xFF; //blue
-		screen->vmem[offset + 1] = (RGB >> 8) & 0xFF; //green
-		screen->vmem[offset + 2] = (RGB >> 16) & 0xFF; //red
-}
-
-void putpixel_vga(Screen* screen, int x, int y, int color) {
-	uint16_t loc = ((y * screen->window->size.width) + x);
-	screen->vmem[loc] = color;
 }
 
 void putpixel(Screen* screen, int x, int y, int color) {

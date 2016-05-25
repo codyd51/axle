@@ -3,6 +3,8 @@
 
 #include "gfx/lib/gfx.h"
 
+#define VESA_DEPTH 24
+
 //typedef for VESA mode information
 typedef struct vbe_mode_info {
 		unsigned short mode_attributes		__attribute__((packed));
@@ -56,5 +58,6 @@ typedef struct vesa_info {
 } vesa_info;
 
 Screen* switch_to_vesa();
+void putpixel_vesa(Screen* screen, int x, int y, int RGB);
 
 #endif

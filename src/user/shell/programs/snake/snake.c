@@ -1,14 +1,15 @@
 #include "snake.h"
 #include <kernel/kernel.h>
 #include <std/kheap.h>
+#include <kernel/drivers/terminal/terminal.h>
 
-#define BOARD_SIZE VGA_WIDTH * VGA_HEIGHT
+#define BOARD_SIZE TERMINAL_WIDTH * TERMINAL_HEIGHT
 
 //u16int* screen_buffer[VGA_WIDTH][VGA_HEIGHT] = (u16int*)0x8B000;
 
 void board_clear() {
-	for (int y = 0; y < VGA_HEIGHT; y++) {
-		for (int x = 0; x < VGA_WIDTH; x++) {
+	for (int y = 0; y < TERMINAL_HEIGHT; y++) {
+		for (int x = 0; x < TERMINAL_WIDTH; x++) {
 			terminal_putentryat(" ", 68, x, y);
 		}
 	}
@@ -79,8 +80,8 @@ void game_tick(game_state_t* game_state) {
 
 		board_clear();
 	
-		int y = bufPos / VGA_WIDTH;
-		int x = bufPos - (y * VGA_WIDTH);
+		int y = bufPos / TERMINAL_WIDTH;
+		int x = bufPos - (y * TERMINAL_WIDTH);
 
 		move_dispatch(game_state);
 
