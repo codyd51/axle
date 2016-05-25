@@ -215,5 +215,6 @@ void test_gfx(int argc, char **argv) {
 	draw_mandelbrot(screen);
 	sleep(2000);
 
-	switch_to_text(screen);
+	gfx_teardown(screen);
+	switch_to_text();
 }
