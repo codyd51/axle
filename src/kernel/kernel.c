@@ -10,7 +10,6 @@
 #include <kernel/drivers/vesa/vesa.h>
 #include <std/kheap.h>
 #include <tests/test.h>
-#include <kernel/drivers/mouse/mouse.h>
 #include <user/xserv/xserv.h>
 #include "multiboot.h"
 

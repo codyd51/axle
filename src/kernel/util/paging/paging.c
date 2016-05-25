@@ -280,7 +280,7 @@ static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
 	//for each entry in table
 	for (int i = 0; i < 1024; i++) {
 		//if source entry has a frame associated with it
-		if (!src->pages[i],frame) continue;
+		if (!src->pages[i].frame) continue;
 
 		//get new frame
 		alloc_frame(&table->pages[i], 0, 0);
