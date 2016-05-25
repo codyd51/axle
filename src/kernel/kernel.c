@@ -147,25 +147,34 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	//switch into VGA for boot screen
 	Screen* vga_screen = switch_to_vga();
+	
 	//display boot screen
 	vga_boot_screen(vga_screen);
-	
-	//wait for user to start shell
-	//printf("Kernel has finished booting. Press any key to enter axle.\n");
-	//getchar();
-	
-	switch_to_text(vga_screen);
 
-	//dealloc screen
-	kfree(vga_screen->vmem);
-	kfree(vga_screen);
+	gfx_teardown(vga_screen);
+	switch_to_text();
 
 	//switch to VESA for x serv
 	Screen* vesa_screen = switch_to_vesa();
-	fill_screen(vesa_screen, 0xFFFF00);
-	draw_julia(vesa_screen);
+	
+	Rect r = create_rect(create_coordinate(50, 50), create_size(400, 500));
+	Window* window = create_window(r);
+	add_subwindow(vesa_screen->window, window);
+
+	Rect image_frame = window->content_view->frame;
+	uint32_t* bitmap = kmalloc(image_frame.size.width * image_frame.size.height * sizeof(uint32_t));
+	
+	for (int i = 0; i < (image_frame.size.width * image_frame.size.height); i++) {
+		static uint32_t col = 0x0;
+		bitmap[i] = col;
+		col += 0x1;
+	}
+	
+	Image* image = create_image(image_frame, bitmap);
+	add_subimage(window->content_view, image);
 
 	while (1) {}
+
 /*
 	init_shell();
 	shell_loop(); 

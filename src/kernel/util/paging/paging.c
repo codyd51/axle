@@ -210,8 +210,8 @@ void initialize_paging() {
 	//initialize kernel heap
 	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, 0xCFFFF000, 0, 0);
 
-	current_directory = clone_directory(kernel_directory);
-	switch_page_directory(current_directory);
+	//current_directory = clone_directory(kernel_directory);
+	//switch_page_directory(current_directory);
 }
 
 void switch_page_directory(page_directory_t* dir) {
@@ -270,7 +270,7 @@ void page_fault(registers_t regs) {
 
 	PANIC("Page fault");
 }
-
+/*
 static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
 	//make new page aligned table
 	page_table_t* table = (page_table_t*)kmalloc_ap(sizeof(page_table_t), physAddr);
@@ -305,6 +305,7 @@ page_directory_t* clone_directory(page_directory_t* src) {
 	memset((uint8_t*)dir, 0, sizeof(page_directory_t));
 
 	//get offset of tablesPhysical from start of page_directory_t
+	uint32_t offset = (uint32_t)dir->tablesPhysical - (uint32_t)dir;
 	dir->physicalAddr = phys + offset;
 
 	//for each page table
@@ -326,3 +327,4 @@ page_directory_t* clone_directory(page_directory_t* src) {
 	}
 	return dir;
 }
+*/
