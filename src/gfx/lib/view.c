@@ -8,10 +8,10 @@ View* create_view(Rect frame) {
 	view->background_color = 0x00FF00;
 	view->subviews = create_mutable_array(16);
 	view->labels = create_mutable_array(16);
+	view->images = create_mutable_array(16);
 	return view;
 }
 
-Label* create_label(Rect frame, char* text);
 static View* create_title_view(Window* window) {
 	Rect title_view_frame = create_rect(window->frame.origin, create_size(window->frame.size.width, 20));
 	View* title_view = create_view(title_view_frame);
@@ -55,8 +55,19 @@ Label* create_label(Rect frame, char* text) {
 	return label;
 }
 
+Image* create_image(Rect frame, uint32_t* bitmap) {
+	Image* image = kmalloc(sizeof(Image));
+	image->frame = frame;
+	image->bitmap = bitmap;
+	return image;
+}
+
 void add_sublabel(View* view, Label* label) {
 	insert_mutable_array(label, &(view->labels));
+}
+
+void add_subimage(View* view, Image* image) {
+	insert_mutable_array(image, &(view->images));
 }
 
 void add_subview(View* view, View* subview) {

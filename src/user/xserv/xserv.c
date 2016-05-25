@@ -4,6 +4,16 @@ void draw_label(Screen* screen, Label* label) {
 	draw_string(screen, screen->font, label->text, label->frame.origin.x, label->frame.origin.y, label->text_color);
 }
 
+void draw_image(Screen* screen, Image* image) {
+	//iterate through every pixel in the bitmap and draw it
+	int num_pixels = image->frame.size.width * image->frame.size.height;
+	for (uint32_t i = 0; i < num_pixels; i++) {
+		int x = image->frame.origin.x + (i % image->frame.size.width);
+		int y = image->frame.origin.y + (i / image->frame.size.height);
+		putpixel(screen, x, y, image->bitmap[i]); 
+	}
+}
+
 void draw_view(Screen* screen, View* view) {
 	//fill view with its background color
 	draw_rect(screen, view->frame, view->background_color, THICKNESS_FILLED);
@@ -12,6 +22,12 @@ void draw_view(Screen* screen, View* view) {
 	for (int i = 0; i < view->labels.size; i++) {
 		Label* label = (Label*)lookup_mutable_array(i, &(view->labels));
 		draw_label(screen, label);
+	}
+
+	//draw any images this view has
+	for (int i = 0; i < view->images.size; i++) {
+		Image* image = (Image*)lookup_mutable_array(i, &(view->images));
+		draw_image(screen, image);
 	}
 
 	//draw each subview of this view

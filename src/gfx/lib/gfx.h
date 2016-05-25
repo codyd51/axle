@@ -29,6 +29,8 @@ extern void int32(unsigned char intnum, regs16_t* regs);
 Screen* switch_to_vga();
 void switch_to_text();
 
+void gfx_teardown(Screen* screen);
+
 void boot_screen();
 
 void putpixel(Screen* screen, int x, int y, int color);

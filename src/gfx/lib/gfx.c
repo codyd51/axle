@@ -41,10 +41,16 @@ Screen* switch_to_vga() {
 	return screen;
 }
 
-void switch_to_text(Screen* screen) {
+void gfx_teardown(Screen* screen) {
 	//stop refresh loop for this screen
 	remove_callback(screen->callback);
 
+	//free screen
+	kfree(screen->vmem);
+	kfree(screen);
+}
+
+void switch_to_text() {
 	regs16_t regs;
 	regs.ax = 0x0003;
 	int32(0x10, &regs);
