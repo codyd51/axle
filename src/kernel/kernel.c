@@ -129,7 +129,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//force_hardware_irq();
 	
 	//give user a chance to stay in verbose boot
-	printf("Press any key to stay in verbose mode. Continuing in     ");
+	printf("Press any key to stay in shell mode. Continuing in     ");
 	for (int i = 3; i > 0; i--) {
 		printf("\b\b\b\b%d...", i);
 		sleep(1000);
@@ -138,9 +138,10 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 			while (haskey()) {
 				getchar();
 			}
-			printf("\n");
-			printf_info("Press any key to continue boot.");
-			getchar();
+			
+			init_shell();
+			shell_loop();
+
 			break;
 		}
 	}
@@ -177,11 +178,6 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	add_sublabel(window->content_view, label);
 
 	while (1) {}
-
-/*
-	init_shell();
-	shell_loop(); 
-*/
 }
 
 
