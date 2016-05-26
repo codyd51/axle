@@ -63,9 +63,9 @@ void rainbow_animation(Screen* screen, Rect r) {
 	//int colors[] = {0xFF0000, 0xFF7000, 0xFFFF00, 0x00FF00, 0x0000FF, 0x4B0082, 0x9400D3};
 	int colors[] = {4, 42, 44, 46, 1, 13, 34};
 	for (int i = 0; i < 7; i++) {
-		Coordinate origin = create_coordinate(r.origin.x + (r.size.width / 7) * i, r.origin.y);
-		Size size = create_size((r.size.width / 7), r.size.height);
-		Rect seg = create_rect(origin, size);
+		Coordinate origin = point_make(r.origin.x + (r.size.width / 7) * i, r.origin.y);
+		Size size = size_make((r.size.width / 7), r.size.height);
+		Rect seg = rect_make(origin, size);
 
 		draw_rect(screen, seg, colors[i], THICKNESS_FILLED);
 		sleep(500 / 7);
@@ -77,31 +77,31 @@ void vga_boot_screen(Screen* screen) {
 	color.val[0] = 0;
 	fill_screen(screen, color);
 
-	Coordinate p1 = create_coordinate(screen->window->size.width / 2, screen->window->size.height * 0.25);
-	Coordinate p2 = create_coordinate(screen->window->size.width / 2 - 25, screen->window->size.height * 0.25 + 50);
-	Coordinate p3 = create_coordinate(screen->window->size.width / 2 + 25, screen->window->size.height * 0.25 + 50);
-	Triangle triangle = create_triangle(p1, p2, p3);
+	Coordinate p1 = point_make(screen->window->size.width / 2, screen->window->size.height * 0.25);
+	Coordinate p2 = point_make(screen->window->size.width / 2 - 25, screen->window->size.height * 0.25 + 50);
+	Coordinate p3 = point_make(screen->window->size.width / 2 + 25, screen->window->size.height * 0.25 + 50);
+	Triangle triangle = triangle_make(p1, p2, p3);
 	draw_triangle(screen, triangle, 2, 5);
 
-	Coordinate lab_origin = create_coordinate(screen->window->size.width / 2 - 35, screen->window->size.height * 0.6);
-	Size lab_size = create_size((10 * strlen("axle os")), 12);
-	//Label* label = create_label(create_rect(lab_origin, lab_size), "axle os");
+	Coordinate lab_origin = point_make(screen->window->size.width / 2 - 35, screen->window->size.height * 0.6);
+	Size lab_size = size_make((10 * strlen("axle os")), 12);
+	//Label* label = create_label(rect_make(lab_origin, lab_size), "axle os");
 	//label->text_color = 2;
 	//draw_label(screen, label);
 
 	float rect_length = screen->window->size.width / 3;
-	Coordinate origin = create_coordinate((screen->window->size.width/2) - (rect_length / 2), screen->window->size.height / 4 * 3);
-	Size sz = create_size(rect_length - 5, screen->window->size.height / 16);
-	Rect border_rect = create_rect(origin, sz);
+	Coordinate origin = point_make((screen->window->size.width/2) - (rect_length / 2), screen->window->size.height / 4 * 3);
+	Size sz = size_make(rect_length - 5, screen->window->size.height / 16);
+	Rect border_rect = rect_make(origin, sz);
 
 	//fill the rectangle with white initially
 	draw_rect(screen, border_rect, 15, 1);
 
 	sleep(500);
 
-	Coordinate rainbow_origin = create_coordinate(origin.x + 2, origin.y + 2);
-	Size rainbow_size = create_size(rect_length - 4, sz.height - 3);
-	Rect rainbow_rect = create_rect(rainbow_origin, rainbow_size);
+	Coordinate rainbow_origin = point_make(origin.x + 2, origin.y + 2);
+	Size rainbow_size = size_make(rect_length - 4, sz.height - 3);
+	Rect rainbow_rect = rect_make(rainbow_origin, rainbow_size);
 	rainbow_animation(screen, rainbow_rect);    
 
 	sleep(250);

@@ -91,12 +91,12 @@ void draw_julia(Screen* screen) {
 void test_triangles(Screen* screen) {
 	fill_screen(screen, 0);
 
-	Coordinate p1 = create_coordinate(screen->window->size.width / 2, 0);
-	Coordinate p2 = create_coordinate(0, screen->window->size.height - 10);
-	Coordinate p3 = create_coordinate(screen->window->size.width, screen->window->size.height - 10);
+	Coordinate p1 = point_make(screen->window->size.width / 2, 0);
+	Coordinate p2 = point_make(0, screen->window->size.height - 10);
+	Coordinate p3 = point_make(screen->window->size.width, screen->window->size.height - 10);
 
 	for (int i = 1; i <= 12; i++) {
-		Triangle t = create_triangle(p1, p2, p3);
+		Triangle t = triangle_make(p1, p2, p3);
 		draw_triangle(screen, t, i, 1);
 
 		p1.y += i * 2;
@@ -110,11 +110,11 @@ void test_triangles(Screen* screen) {
 void test_rects(Screen* screen) {
 	fill_screen(screen, 0);
 
-	Coordinate origin = create_coordinate(0, 0);
+	Coordinate origin = point_make(0, 0);
 	Size sz = screen->window->size;
 	
 	for (int i = 0; i < 20; i++) {
-		Rect rt = create_rect(origin, sz);
+		Rect rt = rect_make(origin, sz);
 		draw_rect(screen, rt, i, 1);
 
 		origin.x += 4;
@@ -127,11 +127,11 @@ void test_rects(Screen* screen) {
 void test_circles(Screen* screen) {
 	fill_screen(screen, 0);
 
-	Coordinate center = create_coordinate(screen->window->size.width/2, screen->window->size.height/2);
+	Coordinate center = point_make(screen->window->size.width/2, screen->window->size.height/2);
 	int radius = screen->window->size.height/2;
 
 	for (int i = 0; i < 26; i++) {
-		Circle c = create_circle(center, radius);
+		Circle c = circle_make(center, radius);
 		draw_circle(screen, c, i, 1);
 
 		radius -= 4;
@@ -147,9 +147,9 @@ void test_lines(Screen* screen) {
 		int p2x = rand() % (screen->window->size.width + 1);
 		int p2y = rand() % (screen->window->size.height + 1);
 
-		Coordinate p1 = create_coordinate(p1x, p1y);
-		Coordinate p2 = create_coordinate(p2x, p2y);
-		Line line = create_line(p1, p2);
+		Coordinate p1 = point_make(p1x, p1y);
+		Coordinate p2 = point_make(p2x, p2y);
+		Line line = line_make(p1, p2);
 		draw_line(screen, line, i, 1);
 	}
 }
@@ -166,20 +166,20 @@ void test_text(Screen* screen) {
 void draw_button(Screen* screen) {
 	fill_screen(screen, 0);
 
-	Coordinate origin = create_coordinate(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
-	Size sz = create_size(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
-	Rect r = create_rect(origin, sz);
+	Coordinate origin = point_make(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
+	Size sz = size_make(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
+	Rect r = rect_make(origin, sz);
 	draw_rect(screen, r, 2, 1);
 
-	Coordinate in_origin = create_coordinate(origin.x + 1, origin.y + 1);
-	Size in_size = create_size(sz.width - 2, sz.height - 2);
-	Rect in_rect = create_rect(in_origin, in_size);
+	Coordinate in_origin = point_make(origin.x + 1, origin.y + 1);
+	Size in_size = size_make(sz.width - 2, sz.height - 2);
+	Rect in_rect = rect_make(in_origin, in_size);
 	draw_rect(screen, in_rect, 12, 30);
 
-	Coordinate p1 = create_coordinate(origin.x + sz.width * 0.1, origin.y + sz.height * 0.1);
-	Coordinate p2 = create_coordinate(origin.x + sz.width * 0.1, origin.y + sz.height * 0.9);
-	Coordinate p3 = create_coordinate(origin.x + sz.width * 0.4, origin.y + sz.height * 0.5);
-	Triangle tri = create_triangle(p1, p2, p3);
+	Coordinate p1 = point_make(origin.x + sz.width * 0.1, origin.y + sz.height * 0.1);
+	Coordinate p2 = point_make(origin.x + sz.width * 0.1, origin.y + sz.height * 0.9);
+	Coordinate p3 = point_make(origin.x + sz.width * 0.4, origin.y + sz.height * 0.5);
+	Triangle tri = triangle_make(p1, p2, p3);
 	draw_triangle(screen, tri, 15, 1);
 
 	//draw_string(screen, font, "Play", p3.x + 5, p3.y - 4, 3);

@@ -13,12 +13,12 @@ View* create_view(Rect frame) {
 }
 
 static View* create_title_view(Window* window) {
-	Rect title_view_frame = create_rect(window->frame.origin, create_size(window->frame.size.width, 20));
+	Rect title_view_frame = rect_make(window->frame.origin, size_make(window->frame.size.width, 20));
 	View* title_view = create_view(title_view_frame);
 	title_view->background_color = window->border_color;
 
 	//add title label to title view
-	Rect label_frame = create_rect(create_coordinate(title_view_frame.origin.x + 15, title_view->frame.origin.y + 5), title_view_frame.size);
+	Rect label_frame = rect_make(point_make(title_view_frame.origin.x + 15, title_view->frame.origin.y + 5), title_view_frame.size);
 	Label* title_label = create_label(label_frame, window->title);
 	title_label->text_color = 0xFFFFFF;
 	add_sublabel(title_view, title_label);
@@ -27,7 +27,7 @@ static View* create_title_view(Window* window) {
 }
 
 static View* create_content_view(Window* window) {
-	Rect inner_frame = create_rect(create_coordinate(window->frame.origin.x + 2, window->frame.origin.y + window->title_view->frame.size.height), create_size(window->frame.size.width - 4, window->frame.size.height - window->title_view->frame.size.height - 2));
+	Rect inner_frame = rect_make(point_make(window->frame.origin.x + 2, window->frame.origin.y + window->title_view->frame.size.height), size_make(window->frame.size.width - 4, window->frame.size.height - window->title_view->frame.size.height - 2));
 	View* content_view = create_view(inner_frame);
 	content_view->background_color = 0xFFFFFF;
 	
@@ -73,7 +73,7 @@ void add_subimage(View* view, Image* image) {
 
 void add_subview(View* view, View* subview) {
 	insert_mutable_array(subview, &(view->subviews));
-	//subview->superview = view;
+	subview->superview = view;
 }
 
 void add_subwindow(Window* window, Window* subwindow) {

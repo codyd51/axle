@@ -19,12 +19,12 @@ typedef struct triangle {
 	Coordinate p3;
 } Triangle;
 
-Coordinate create_coordinate(int x, int y);
-Size create_size(int w, int h);
-Rect create_rect(Coordinate origin, Size size);
-Line create_line(Coordinate p1, Coordinate p2);
-Circle create_circle(Coordinate center, int radius);
-Triangle create_triangle(Coordinate p1, Coordinate p2, Coordinate p3);
+Coordinate point_make(int x, int y);
+Size size_make(int w, int h);
+Rect rect_make(Coordinate origin, Size size);
+Line line_make(Coordinate p1, Coordinate p2);
+Circle circle_make(Coordinate center, int radius);
+Triangle triangle_make(Coordinate p1, Coordinate p2, Coordinate p3);
 
 #define THICKNESS_FILLED -1
 

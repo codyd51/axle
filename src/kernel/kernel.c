@@ -120,6 +120,9 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	printf_info("Initializing keyboard driver...");
 	init_kb();
 
+	printf_info("Initializing mouse...");
+	initialize_mouse();
+
 	test_heap();	
 
 	//set up info panel
@@ -158,7 +161,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//switch to VESA for x serv
 	Screen* vesa_screen = switch_to_vesa();
 	
-	Rect r = create_rect(create_coordinate(50, 50), create_size(400, 500));
+	Rect r = rect_make(point_make(50, 50), size_make(400, 500));
 	Window* window = create_window(r);
 	add_subwindow(vesa_screen->window, window);
 

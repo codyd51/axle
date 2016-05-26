@@ -79,7 +79,7 @@ Screen* switch_to_vesa() {
 		memcpy(&mode_info, mode_buffer, sizeof(vbe_mode_info));
 
 		Screen* screen = (Screen*)kmalloc(sizeof(Screen));
-		screen->window = create_window(create_rect(create_coordinate(0, 0), create_size(mode_info.x_res, mode_info.y_res)));
+		screen->window = create_window(rect_make(point_make(0, 0), size_make(mode_info.x_res, mode_info.y_res)));
 		screen->depth = mode_info.bpp;
 		screen->vmem = kmalloc(screen->window->size.width * screen->window->size.height * (screen->depth / 8));
 		//linear frame buffer (LFB) address

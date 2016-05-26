@@ -1,4 +1,5 @@
 #include "vga.h"
+#include <gfx/lib/shapes.h>
 
 void vga_screen_refresh(Screen* screen) {
 	write_screen(screen);
@@ -17,6 +18,7 @@ Screen* switch_to_vga() {
 	int height = 200;
 
 	Screen* screen = (Screen*)kmalloc(sizeof(Screen));
+	//screen->window = create_window(rect_make(point_make(0, 0), size_make(width, height)));
 	screen->window->size.width = width;
 	screen->window->size.height = height;
 	screen->depth = VGA_DEPTH;
@@ -25,7 +27,7 @@ Screen* switch_to_vga() {
 	screen->font = setup_font();
 	
 	//start refresh loop
-	setup_vga_screen_refresh(screen, 16);
+	setup_vga_screen_refresh(screen, 100);
 
 	return screen;
 }
