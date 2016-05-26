@@ -66,6 +66,14 @@ Triangle create_triangle(Coordinate p1, Coordinate p2, Coordinate p3) {
 	return triangle;
 }
 
+void normalize_coordinate(Screen* screen, Coordinate p) {
+	//don't try to write anywhere outside screen bounds
+	p.x = MAX(p.x, 0);
+	p.y = MAX(p.y, 0);
+	p.x = MIN(p.x, screen->window->size.width);
+	p.y = MIN(p.y, screen->window->size.height);
+}
+
 //functions to draw shape structures
 static void draw_rect_int_fast(Screen* screen, Rect rect, int color) {
 	for (int y = rect.origin.y; y < rect.origin.y + rect.size.height; y++) {
@@ -88,6 +96,15 @@ static void draw_rect_int(Screen* screen, Rect rect, int color) {
 }
 
 void draw_rect(Screen* screen, Rect r, int color, int thickness) {
+	//make sure we don't try to write to an invalid location
+	normalize_coordinate(screen, r.origin);	
+	if (r.origin.x + r.size.width > screen->window->size.width) {
+		r.size.width = screen->window->size.width - r.origin.x;
+	}
+	if (r.origin.y + r.size.height > screen->window->size.height) {
+		r.size.height = screen->window->size.height - r.origin.y;
+	}
+
 	int max_thickness = (MIN(r.size.width, r.size.height)) / 2;
 
 	//if thickness is negative, fill the shape
@@ -149,6 +166,10 @@ void draw_vline_fast(Screen* screen, Line line, int color, int thickness) {
 }
 
 void draw_line(Screen* screen, Line line, int color, int thickness) {
+	//don't try to write anywhere outside screen bounds
+	normalize_coordinate(screen, line.p1);
+	normalize_coordinate(screen, line.p2);
+
 	//if the line is perfectly vertical or horizontal, this is a special case
 	//that can be drawn much faster
 	/*
@@ -218,6 +239,10 @@ void draw_triangle_int(Screen* screen, Triangle triangle, int color) {
 }
 
 void draw_triangle(Screen* screen, Triangle tri, int color, int thickness) {
+	normalize_coordinate(screen, tri.p1);
+	normalize_coordinate(screen, tri.p2);
+	normalize_coordinate(screen, tri.p3);
+
 	draw_triangle_int(screen, tri, color);
 	return;
 
@@ -262,7 +287,7 @@ void draw_triangle(Screen* screen, Triangle tri, int color, int thickness) {
 	}
 }
 
-void draw_circle_int(Screen* screen, Circle circle, int color) {
+void draw_circle_int(Screen* screen, Circle circle, int color) {	
 	int x = 0;
 	int y = circle.radius;
 	int dp = 1 - circle.radius;
@@ -292,8 +317,15 @@ void draw_circle_int(Screen* screen, Circle circle, int color) {
 }
 
 void draw_circle(Screen* screen, Circle circ, int color, int thickness) {
+	normalize_coordinate(screen, circ.center);
+	if (circ.center.x + circ.radius > screen->window->size.width) {
+		circ.radius = screen->window->size.width - circ.center.x;
+	}
+	if (circ.center.y + circ.radius > screen->window->size.height) {
+		circ.radius = screen->window->size.height - circ.center.y;
+	}
+
 	int max_thickness = circ.radius;
-	
 	//if the thickness indicates the shape should be filled, set it as such
 	if (thickness < 0) thickness = max_thickness;
 
