@@ -12,6 +12,10 @@ void draw_label(Screen* screen, Label* label) {
 		//go to next line if necessary
 		if ((x + CHAR_WIDTH + CHAR_PADDING) > (label->frame.origin.x + label->frame.size.width) || str[idx] == '\n') {
 			x = label->frame.origin.x;
+
+			//quit if going to next line would exceed view bounds
+			if ((y + CHAR_WIDTH + CHAR_PADDING) > (label->frame.origin.y + label->frame.size.height)) break;
+
 			y += CHAR_HEIGHT + CHAR_PADDING;
 		}
 
