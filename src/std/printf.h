@@ -12,4 +12,6 @@ void printf_info(char* format, ...);
 //error-priority printf
 void printf_err(char* format, ...);
 
+void sprintf(char* str, char* format, ...);
+
 #endif
