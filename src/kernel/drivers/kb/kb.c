@@ -71,20 +71,22 @@ void kb_interrupt_recieved(registers_t regs) {
 	if (inb(KBD_DATA_PORT) != c) {
 		c = inb(KBD_DATA_PORT);
 
-		printf("%d ", c);
-
 		//if top byte we read from KB is set, 
 		//then a key was just released
-		if (c & 0x80) return;
-
+		if (c & 0x80) {
+			// If the key released was shift, then remove the mask
+			if ((c == 170 || c == 182) && (flags & shiftMask)) {
+				flags = flags ^ shiftMask;
+			}
+			return;
+		}
 		char mappedchar = kbdus[c];
 
 		//TODO scan to see if suer released shift/alt/control keys
 		flags = flags | keypressFinishedMask;
 
-		//if shift was just released, reset hasShift
-		c = c ^ 0x80;
-		if (c == 42 || c == 54) {
+		// If shift is detected and the mask hasn't been added, add it
+		if ((c == 42 || c == 54) && !(flags & shiftMask)) {
 			flags = flags ^ shiftMask;
 			return;
 		}
@@ -93,7 +95,6 @@ void kb_interrupt_recieved(registers_t regs) {
 		flags = flags ^ keypressFinishedMask;
 
 		if (flags & shiftMask) {
-			printf("SHIFT");
 			if (toupper(mappedchar) == mappedchar) {
 				mappedchar = toupper_special(mappedchar);
 			} else {
@@ -106,8 +107,48 @@ void kb_interrupt_recieved(registers_t regs) {
 
 char toupper_special(char character) {
 	switch(character) {
+		case '`':
+			return '~';
+		case '1':
+			return '!';
+		case '2':
+			return '@';
+		case '3':
+			return '#';
+		case '4':
+			return '$';
+		case '5':
+			return '%';
+		case '6':
+			return '^';
+		case '7':
+			return '&';
+		case '8':
+			return '*';
+		case '9':
+			return '(';
+		case '0':
+			return ')';
 		case '-':
 			return '_';
+		case '=':
+			return '+';
+		case '[':
+			return '{';
+		case ']':
+			return '}';
+		case '\\':
+			return '|';
+		case ';':
+			return ':';
+		case '\'':
+			return '"';
+		case ',':
+			return '<';
+		case '.':
+			return '>';
+		case '/':
+			return '?';
 		default:
 			return character;
 	}
