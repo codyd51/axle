@@ -24,26 +24,11 @@ void destroy_mutable_array(mutable_array_t* array) {
 }
 
 void insert_mutable_array(type_t item, mutable_array_t* array) {
-	uint32_t iterator = 0;
-	while (iterator < array->size) {
-		iterator++;
-	}
-	if (iterator == array->size) {
-		//just add item to end of array
-		array->array[array->size++] = item;
-	}
-	else {
-		//shift all other items in array
-		type_t tmp = array->array[iterator];
-		array->array[iterator] = item;
-		while (iterator < array->size) {
-			iterator++;
-			type_t tmp2 = array->array[iterator];
-			array->array[iterator] = tmp;
-			tmp = tmp2;
-		}
-		array->size++;
-	}
+	// Make sure we can't go over the allocated size
+	ASSERT(array->size < array->max_size);
+
+	// Add item to array
+	array->array[array->size++] = item;
 }
 
 type_t lookup_mutable_array(uint32_t i, mutable_array_t* array) {
