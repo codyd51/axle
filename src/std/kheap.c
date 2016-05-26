@@ -12,9 +12,9 @@ heap_t* kheap = 0;
 
 uint32_t kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
 	//if the heap already exists, pass through
-	if (kheap != 0) {
+	if (kheap) {
 		void* addr = alloc(sz, (uint8_t)align, kheap);
-		if (phys != 0) {
+		if (phys) {
 			page_t* page = get_page((uint32_t)addr, 0, kernel_directory);
 			*phys = page->frame * 0x1000 + (uint32_t)addr & 0xFFF;
 		}
@@ -61,12 +61,16 @@ static int32_t find_smallest_hole(uint32_t size, uint8_t align, heap_t* heap) {
 	uint32_t iterator = 0;
 	while (iterator < heap->index.size) {
 		header_t* header = (header_t*)lookup_ordered_array(iterator, &heap->index);
+
+		//check if magic is valid
+		ASSERT(header->magic == HEAP_MAGIC);
+
 		//if user has requested memory be page aligned
 		if (align > 0) {
 			//page align starting point of header
 			uint32_t location = (uint32_t)header;
 			int32_t offset = 0;
-			if ((location + sizeof(header_t) & 0xFFFFF00) != 0) {
+			if ((location + sizeof(header_t) & 0xFFFFF000) != 0) {
 				offset = 0x1000 - (location + sizeof(header_t)) % 0x1000;
 			}
 			

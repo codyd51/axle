@@ -1,7 +1,26 @@
 #include "xserv.h"
 
+#define CHAR_WIDTH 8
+#define CHAR_HEIGHT 8
+#define CHAR_PADDING 2
 void draw_label(Screen* screen, Label* label) {
-	draw_string(screen, screen->font, label->text, label->frame.origin.x, label->frame.origin.y, label->text_color);
+	int idx = 0;
+	char* str = label->text;
+	int x = label->frame.origin.x;
+	int y = label->frame.origin.y;
+	while (str[idx] != NULL) {
+		//go to next line if necessary
+		if ((x + CHAR_WIDTH + CHAR_PADDING) > (label->frame.origin.x + label->frame.size.width) || str[idx] == '\n') {
+			x = label->frame.origin.x;
+			y += CHAR_HEIGHT + CHAR_PADDING;
+		}
+
+		draw_char(screen, screen->font, str[idx], x, y, label->text_color);
+		
+		x += CHAR_WIDTH + CHAR_PADDING;
+
+		idx++;
+	}
 }
 
 void draw_image(Screen* screen, Image* image) {
@@ -69,7 +88,7 @@ void add_taskbar(Screen* screen) {
 	taskbar_view->background_color = 0x0B889B;
 
 	Coordinate name_label_origin = create_coordinate(taskbar_view->frame.size.width * 0.925, taskbar_view->frame.origin.y + taskbar_view->frame.size.height / 4);
-	Rect label_rect = create_rect(name_label_origin, create_size(0, 0));
+	Rect label_rect = create_rect(name_label_origin, create_size(taskbar_size.width - name_label_origin.x, taskbar_size.height));
 	Label* name_label = create_label(label_rect, "axle os");
 	add_sublabel(taskbar_view, name_label);
 }

@@ -171,7 +171,10 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	}
 	
 	Image* image = create_image(image_frame, bitmap);
-	add_subimage(window->content_view, image);
+	//add_subimage(window->content_view, image);
+	
+	Label* label = create_label(image_frame, "Lorem ipsum dolor sit amet consectetur apipiscing elit Donex purus arcu suscipit ed felis eu blandit blandit quam Donec finibus euismod lobortis Sed massa nunc malesuada ac ante eleifend dictum laoreet massa Aliquam nec dictum turpis pellentesque lacinia ligula Donec et tellus maximum dapibus justo auctor egestas sapien Integer venantis egesta malesdada Maecenas venenatis urna id posuere bibendum eros torto gravida ipsum sed tempor arcy andte ac odio Morbi elementum libero id velit bibendum auctor It sit amet ex eget urna venenatis laoreet Proin posuere urna nec ante tutum lobortis Cras nec elit tristique dolor congue eleifend");
+	add_sublabel(window->content_view, label);
 
 	while (1) {}
 
