@@ -129,9 +129,9 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//force_hardware_irq();
 	
 	//give user a chance to stay in verbose boot
-	printf("Press any key to stay in verbose mode. Continuing in ");
+	printf("Press any key to stay in verbose mode. Continuing in     ");
 	for (int i = 3; i > 0; i--) {
-		printf("%d... ", i);
+		printf("\b\b\b\b%d...", i);
 		sleep(1000);
 		if (haskey()) {
 			//clear buffer

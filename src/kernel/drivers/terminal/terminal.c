@@ -63,6 +63,10 @@ void terminal_putchar(char c) {
 	else if (c == '\t') {
 		cursor_pos.x += 4;
 	}
+	//backspace character
+	else if (c == '\b') {
+		terminal_removechar();
+	}
 	else {
 		terminal_putentryat(c, terminal_color, cursor_pos.x, cursor_pos.y);
 	}
@@ -79,8 +83,8 @@ void terminal_putchar(char c) {
 }
 
 void terminal_removechar() {
-	terminal_putentryat(' ', terminal_color, cursor_pos.x-1, cursor_pos.y);
-	--cursor_pos.x;
+	terminal_putentryat(' ', terminal_color, cursor_pos.x - 1, cursor_pos.y);
+	cursor_pos.x -= 2;
 	move_cursor();
 }
 

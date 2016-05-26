@@ -71,7 +71,7 @@ void process_character(char* inputstr, char ch) {
 			}
 
 			inputstr = delchar(inputstr);
-			terminal_removechar();
+			//terminal_removechar();
 		}
 	}
 	//handle newline
