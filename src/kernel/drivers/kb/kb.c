@@ -1,6 +1,7 @@
 #include "kb.h"
 #include <kernel/kernel.h>
 #include <std/common.h>
+#include <std/std.h>
 #include <kernel/util/interrupts/isr.h>
 
 #define KBD_DATA_PORT 0x60
@@ -21,7 +22,7 @@ char kb_buffer[KBUF_SIZE] = "";
 *  whatever you want using a macro, if you wish! */
 unsigned char kbdus[128] =
 {
-		0,  27, '1', '2', '3', '4', '5', '6', '7', '8',	/* 9 */
+	0,  27, '1', '2', '3', '4', '5', '6', '7', '8',	/* 9 */
 	'9', '0', '-', '=', '\b',	/* Backspace */
 	'\t',			/* Tab */
 	'q', 'w', 'e', 'r',	/* 19 */
@@ -70,6 +71,8 @@ void kb_interrupt_recieved(registers_t regs) {
 	if (inb(KBD_DATA_PORT) != c) {
 		c = inb(KBD_DATA_PORT);
 
+		printf("%d ", c);
+
 		//if top byte we read from KB is set, 
 		//then a key was just released
 		if (c & 0x80) return;
@@ -80,7 +83,7 @@ void kb_interrupt_recieved(registers_t regs) {
 		flags = flags | keypressFinishedMask;
 
 		//if shift was just released, reset hasShift
-		c = c ^ 80;
+		c = c ^ 0x80;
 		if (c == 42 || c == 54) {
 			flags = flags ^ shiftMask;
 			return;
@@ -90,9 +93,23 @@ void kb_interrupt_recieved(registers_t regs) {
 		flags = flags ^ keypressFinishedMask;
 
 		if (flags & shiftMask) {
-			mappedchar = toupper(mappedchar);
+			printf("SHIFT");
+			if (toupper(mappedchar) == mappedchar) {
+				mappedchar = toupper_special(mappedchar);
+			} else {
+				mappedchar = toupper(mappedchar);
+			}
 		}
 		add_character_to_buffer(mappedchar);
+	}
+}
+
+char toupper_special(char character) {
+	switch(character) {
+		case '-':
+			return '_';
+		default:
+			return character;
 	}
 }
 
