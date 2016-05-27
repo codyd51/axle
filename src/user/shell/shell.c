@@ -59,7 +59,7 @@ void process_command(char* string) {
 }
 
 void process_character(char* inputstr, char ch) {
-	//handle backspace
+	//handle backspace	
 	if (ch == '\b') {
 		//remove last character from input string
 		if (strlen(inputstr) > 0) {
@@ -71,7 +71,8 @@ void process_character(char* inputstr, char ch) {
 			}
 
 			inputstr = delchar(inputstr);
-			//terminal_removechar();
+			//terminal driver will remove last char
+			terminal_putchar(ch);
 		}
 	}
 	//handle newline

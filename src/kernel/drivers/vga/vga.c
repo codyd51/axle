@@ -10,24 +10,28 @@ void setup_vga_screen_refresh(Screen* screen, double interval) {
 }
 
 Screen* switch_to_vga() {
-	regs16_t regs;
-	regs.ax = 0x0013;
-	int32(0x10, &regs);
+	kernel_begin_critical();
 
 	int width = 320;
 	int height = 200;
 
 	Screen* screen = (Screen*)kmalloc(sizeof(Screen));
-	//screen->window = create_window(rect_make(point_make(0, 0), size_make(width, height)));
+//	screen->window = create_window(rect_make(point_make(0, 0), size_make(width, height)));
 	screen->window->size.width = width;
 	screen->window->size.height = height;
 	screen->depth = VGA_DEPTH;
-	screen->vmem = kmalloc(width * height * sizeof(char));
+	screen->vmem = kmalloc(width * height * sizeof(uint8_t));
 	screen->physbase = VRAM_START;
 	screen->font = setup_font();
+
+	regs16_t regs;
+	regs.ax = 0x0013;
+	int32(0x10, &regs);
 	
 	//start refresh loop
-	setup_vga_screen_refresh(screen, 100);
+	setup_vga_screen_refresh(screen, 33);
+
+	kernel_end_critical();
 
 	return screen;
 }

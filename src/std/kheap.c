@@ -133,7 +133,7 @@ heap_t* create_heap(uint32_t start, uint32_t end_addr, uint32_t max, uint8_t sup
 	return heap;
 }
 
-static void expand(uint32_t new_size, heap_t* heap) {
+void expand(uint32_t new_size, heap_t* heap) {
 	//sanity check
 	ASSERT(new_size > heap->end_address - heap->start_address);
 	//get nearest page boundary
