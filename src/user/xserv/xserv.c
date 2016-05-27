@@ -73,7 +73,7 @@ void draw_window(Screen* screen, Window* window) {
 	//put a small red square in top left corner of the window
 	Size close_button_size = size_make(5, 5);
 	Rect close_button = rect_make(window->frame.origin, close_button_size);
-	draw_rect(screen, close_button, 0xFF0000, THICKNESS_FILLED);
+	draw_rect(screen, close_button, color_make(255, 0, 0), THICKNESS_FILLED);
 
 	//only draw the content view if content_view exists
 	if (window->content_view) {
@@ -89,9 +89,9 @@ void add_taskbar(Screen* screen) {
 
 	View* taskbar_view = create_view(rect_make(taskbar_origin, taskbar_size));
 	taskbar_window->content_view = taskbar_view;
-	taskbar_view->background_color = 0x0B889B;
+	taskbar_view->background_color = color_make(11, 136, 155);
 
-	Coordinate name_label_origin = point_make(taskbar_view->frame.size.width * 0.925, taskbar_view->frame.origin.y + taskbar_view->frame.size.height / 4);
+	Coordinate name_label_origin = point_make(taskbar_view->frame.size.width * 0.925, taskbar_view->frame.origin.y + taskbar_view->frame.size.height / 2 - (CHAR_HEIGHT / 2));
 	Rect label_rect = rect_make(name_label_origin, size_make(taskbar_size.width - name_label_origin.x, taskbar_size.height));
 	Label* name_label = create_label(label_rect, "axle os");
 	add_sublabel(taskbar_view, name_label);
@@ -101,7 +101,7 @@ void draw_desktop(Screen* screen) {
 	Coordinate origin = point_make(0, 0);
 	Size sz = size_make(screen->window->size.width, screen->window->size.height);
 	Rect r = rect_make(origin, sz);
-	draw_rect(screen, r, 0xC0C0C0, THICKNESS_FILLED);
+	draw_rect(screen, r, color_make(192, 192, 192), THICKNESS_FILLED);
 
 	add_taskbar(screen);
 

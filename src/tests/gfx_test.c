@@ -83,7 +83,7 @@ void draw_julia(Screen* screen) {
 			}
 
 			int color = (i % max_iterations);
-			putpixel(screen, x, y, 0x0000 + (color * 0xFF0099));
+			putpixel(screen, x, y, 0x0000 + (color * color_hex(color_make(255, 0, 180))));
 		}
 	}
 }

@@ -8,6 +8,7 @@
 #include <tests/gfx_test.h>
 #include <kernel/drivers/vga/vga.h>
 #include <kernel/drivers/vesa/vesa.h>
+#include "color.h"
 
 void gfx_teardown(Screen* screen) {
 	//stop refresh loop for this screen
@@ -32,7 +33,7 @@ void vsync() {
 	do {} while (!(inb(0x3DA) & 8));
 }
 
-void putpixel(Screen* screen, int x, int y, int color) {
+void putpixel(Screen* screen, int x, int y, Color* color) {
 	//don't attempt writing a pixel outside of screen bounds
 	if (x >= screen->window->size.width || y >= screen->window->size.height) return;
 
@@ -46,10 +47,9 @@ void putpixel(Screen* screen, int x, int y, int color) {
 	}
 }
 
-typedef struct Color { char val[3]; } Color;
-void fill_screen(Screen* screen, Color color) {
+void fill_screen(Screen* screen, Color* color) {
 	for (int loc = 0; loc < (screen->window->size.width * screen->window->size.height * (screen->depth / 8)); loc += (screen->depth / 8)) {
-		memcpy(&screen->vmem[loc], color.val, (screen->depth / 8) * sizeof(uint8_t));
+		memcpy(&screen->vmem[loc], color->val[0], (screen->depth / 8) * sizeof(uint8_t));
 	}
 }
 
@@ -73,8 +73,7 @@ void rainbow_animation(Screen* screen, Rect r) {
 }
 
 void vga_boot_screen(Screen* screen) {
-	Color color;
-	color.val[0] = 0;
+	Color* color = color_make(0, 0, 0);
 	fill_screen(screen, color);
 
 	Coordinate p1 = point_make(screen->window->size.width / 2, screen->window->size.height * 0.25);
@@ -103,6 +102,6 @@ void vga_boot_screen(Screen* screen) {
 	Size rainbow_size = size_make(rect_length - 4, sz.height - 3);
 	Rect rainbow_rect = rect_make(rainbow_origin, rainbow_size);
 	rainbow_animation(screen, rainbow_rect);    
-
+	
 	sleep(250);
 }

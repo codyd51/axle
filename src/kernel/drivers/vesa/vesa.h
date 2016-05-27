@@ -2,6 +2,7 @@
 #define VESA_H
 
 #include "gfx/lib/gfx.h"
+#include <gfx/lib/color.h>
 
 #define VESA_DEPTH 24
 
@@ -58,6 +59,6 @@ typedef struct vesa_info {
 } vesa_info;
 
 Screen* switch_to_vesa();
-void putpixel_vesa(Screen* screen, int x, int y, int RGB);
+void putpixel_vesa(Screen* screen, int x, int y, Color* color);
 
 #endif

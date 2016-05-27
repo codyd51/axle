@@ -3,6 +3,7 @@
 
 #include <std/common.h>
 #include <std/mutable_array.h>
+#include "color.h"
 
 typedef struct coordinate {
 	int x;
@@ -25,7 +26,7 @@ typedef struct window {
 	char* title;
 	struct view* title_view;
 	struct view* content_view;
-	uint32_t border_color;
+	Color* border_color;
 	mutable_array_t subwindows;
 } Window;
 
@@ -34,7 +35,7 @@ typedef struct window {
 typedef struct label {
 	Rect frame;
 	char* text;
-	uint32_t text_color;
+	Color* text_color;
 } Label;
 
 typedef struct image {
@@ -44,9 +45,8 @@ typedef struct image {
 
 typedef struct view {
 	Rect frame;
-	uint32_t zIndex;
 	struct view *superview;
-	uint32_t background_color;
+	Color* background_color;
 	mutable_array_t subviews;
 	mutable_array_t labels;
 	mutable_array_t images;

@@ -1,6 +1,7 @@
 #include "shapes.h"
 #include "gfx.h"
 #include <std/math.h>
+#include "color.h"
 
 //convenience functions to make life easier
 double line_length(Line line) {
@@ -75,7 +76,7 @@ void normalize_coordinate(Screen* screen, Coordinate p) {
 }
 
 //functions to draw shape structures
-static void draw_rect_int_fast(Screen* screen, Rect rect, int color) {
+static void draw_rect_int_fast(Screen* screen, Rect rect, Color* color) {
 	for (int y = rect.origin.y; y < rect.origin.y + rect.size.height; y++) {
 		for (int x = rect.origin.x; x < rect.origin.x + rect.size.width; x++) {
 			putpixel(screen, x, y, color);
@@ -83,7 +84,7 @@ static void draw_rect_int_fast(Screen* screen, Rect rect, int color) {
 	}
 }
 
-static void draw_rect_int(Screen* screen, Rect rect, int color) {
+static void draw_rect_int(Screen* screen, Rect rect, Color* color) {
 	Line h1 = line_make(rect.origin, point_make(rect.origin.x + rect.size.width, rect.origin.y));
 	Line h2 = line_make(point_make(rect.origin.x, rect.origin.y + rect.size.height), point_make(rect.origin.x + rect.size.width, rect.origin.y + rect.size.height));
 	Line v1 = line_make(rect.origin, point_make(rect.origin.x, rect.origin.y + rect.size.height));
@@ -95,7 +96,7 @@ static void draw_rect_int(Screen* screen, Rect rect, int color) {
 	draw_line(screen, v2, color, 1);
 }
 
-void draw_rect(Screen* screen, Rect r, int color, int thickness) {
+void draw_rect(Screen* screen, Rect r, Color* color, int thickness) {
 	//make sure we don't try to write to an invalid location
 	normalize_coordinate(screen, r.origin);	
 	if (r.origin.x + r.size.width > screen->window->size.width) {
@@ -138,7 +139,7 @@ void draw_rect(Screen* screen, Rect r, int color, int thickness) {
 	}
 }
 
-void draw_hline_fast(Screen* screen, Line line, int color, int thickness) {
+void draw_hline_fast(Screen* screen, Line line, Color* color, int thickness) {
 	for (int i = 0; i < thickness; i++) {
 		//calculate starting point
 		//increment y for next thickness since this line is horizontal
@@ -153,7 +154,7 @@ void draw_hline_fast(Screen* screen, Line line, int color, int thickness) {
 	}
 }
 
-void draw_vline_fast(Screen* screen, Line line, int color, int thickness) {
+void draw_vline_fast(Screen* screen, Line line, Color* color, int thickness) {
 	for (int i = 0; i < thickness; i++) {
 		//calculate starting point
 		//increment x for next thickness since line is vertical
@@ -165,7 +166,7 @@ void draw_vline_fast(Screen* screen, Line line, int color, int thickness) {
 	}
 }
 
-void draw_line(Screen* screen, Line line, int color, int thickness) {
+void draw_line(Screen* screen, Line line, Color* color, int thickness) {
 	//don't try to write anywhere outside screen bounds
 	normalize_coordinate(screen, line.p1);
 	normalize_coordinate(screen, line.p2);
@@ -228,7 +229,7 @@ void draw_line(Screen* screen, Line line, int color, int thickness) {
 	}
 }
 
-void draw_triangle_int(Screen* screen, Triangle triangle, int color) {
+void draw_triangle_int(Screen* screen, Triangle triangle, Color* color) {
 	Line l1 = line_make(triangle.p1, triangle.p2);
 	Line l2 = line_make(triangle.p2, triangle.p3);
 	Line l3 = line_make(triangle.p3, triangle.p1);
@@ -238,7 +239,7 @@ void draw_triangle_int(Screen* screen, Triangle triangle, int color) {
 	draw_line(screen, l3, color, 1);
 }
 
-void draw_triangle(Screen* screen, Triangle tri, int color, int thickness) {
+void draw_triangle(Screen* screen, Triangle tri, Color* color, int thickness) {
 	normalize_coordinate(screen, tri.p1);
 	normalize_coordinate(screen, tri.p2);
 	normalize_coordinate(screen, tri.p3);
@@ -287,7 +288,7 @@ void draw_triangle(Screen* screen, Triangle tri, int color, int thickness) {
 	}
 }
 
-void draw_circle_int(Screen* screen, Circle circle, int color) {	
+void draw_circle_int(Screen* screen, Circle circle, Color* color) {	
 	int x = 0;
 	int y = circle.radius;
 	int dp = 1 - circle.radius;
@@ -316,7 +317,7 @@ void draw_circle_int(Screen* screen, Circle circle, int color) {
 	putpixel(screen, circle.center.x - circle.radius, circle.center.y, color);
 }
 
-void draw_circle(Screen* screen, Circle circ, int color, int thickness) {
+void draw_circle(Screen* screen, Circle circ, Color* color, int thickness) {
 	normalize_coordinate(screen, circ.center);
 	if (circ.center.x + circ.radius > screen->window->size.width) {
 		circ.radius = screen->window->size.width - circ.center.x;
