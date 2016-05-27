@@ -34,6 +34,5 @@ Screen* switch_to_vga() {
 
 void putpixel_vga(Screen* screen, int x, int y, Color color) {
 	uint16_t loc = ((y * screen->window->size.width) + x);
-	//screen->vmem[loc] = color->val[0];
-	screen->vmem[loc] = color.val;
+	screen->vmem[loc] = color.val[0];
 }

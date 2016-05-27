@@ -33,7 +33,7 @@ void draw_image(Screen* screen, Image* image) {
 	for (int i = 0; i < num_pixels; i++) {
 		int x = image->frame.origin.x + (i % image->frame.size.width);
 		int y = image->frame.origin.y + (i / image->frame.size.height);
-		putpixel(screen, x, y, image->bitmap[i]); 
+		//putpixel(screen, x, y, image->bitmap[i]); 
 	}
 }
 
