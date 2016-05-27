@@ -43,7 +43,7 @@ static void init_idt() {
 	memset(&idt_entries, 0, sizeof(idt_entry_t)*256);
 
 	//remap IRQ table
-	
+
 	//begin initialization
 	outb(0x20, 0x11);
 	outb(0xA0, 0x11);
@@ -60,8 +60,8 @@ static void init_idt() {
 	outb(0xA1, 0x01);
 
 	//mask interrupts
-	outb(0x21, 0xFC);
-	outb(0xA1, 0xFC);
+	outb(0x21, 0x0);
+	outb(0xA1, 0x0);
 
 	idt_set_gate( 0, (uint32_t)isr0 , 0x08, 0x08E);   
 	idt_set_gate( 1, (uint32_t)isr1 , 0x08, 0x08E);
