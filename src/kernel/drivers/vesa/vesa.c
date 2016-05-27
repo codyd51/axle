@@ -104,7 +104,7 @@ Screen* switch_to_vesa() {
 		return screen;
 }
 
-void putpixel_vesa(Screen* screen, int x, int y, Color* color) {
+void putpixel_vesa(Screen* screen, int x, int y, Color color) {
 		int offset = x * (screen->depth / 8) + y * (screen->window->size.width * (screen->depth / 8));
 /*
 		screen->vmem[offset + 0] = RGB & 0xFF; //blue

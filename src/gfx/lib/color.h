@@ -8,14 +8,14 @@ typedef struct color {
 } Color;
 
 typedef struct gradient {
-	Color* from;
-	Color* to;
+	Color from;
+	Color to;
 } Gradient;
 
-Color* color_make(uint8_t red, uint8_t green, uint8_t blue);
-uint32_t color_hex(Color* color);
+Color color_make(uint8_t red, uint8_t green, uint8_t blue);
+uint32_t color_hex(Color color);
 
-Gradient* gradient_make(Color* from, Color* to);
-Color* color_at_ratio(Gradient* gradient, double percent);
+Gradient gradient_make(Color from, Color to);
+Color color_at_ratio(Gradient gradient, double percent);
 
 #endif

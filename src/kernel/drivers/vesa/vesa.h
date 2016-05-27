@@ -59,6 +59,6 @@ typedef struct vesa_info {
 } vesa_info;
 
 Screen* switch_to_vesa();
-void putpixel_vesa(Screen* screen, int x, int y, Color* color);
+void putpixel_vesa(Screen* screen, int x, int y, Color color);
 
 #endif

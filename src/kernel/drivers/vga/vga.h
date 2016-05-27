@@ -9,6 +9,6 @@
 
 Screen* switch_to_vga();
 
-void putpixel_vga(Screen* screen, int x, int y, Color* color);
+void putpixel_vga(Screen* screen, int x, int y, Color color);
 
 #endif

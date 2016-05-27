@@ -26,7 +26,7 @@ typedef struct window {
 	char* title;
 	struct view* title_view;
 	struct view* content_view;
-	Color* border_color;
+	Color border_color;
 	mutable_array_t subwindows;
 } Window;
 
@@ -35,7 +35,7 @@ typedef struct window {
 typedef struct label {
 	Rect frame;
 	char* text;
-	Color* text_color;
+	Color text_color;
 } Label;
 
 typedef struct image {
@@ -46,7 +46,7 @@ typedef struct image {
 typedef struct view {
 	Rect frame;
 	struct view *superview;
-	Color* background_color;
+	Color background_color;
 	mutable_array_t subviews;
 	mutable_array_t labels;
 	mutable_array_t images;

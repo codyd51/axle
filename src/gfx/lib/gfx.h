@@ -32,6 +32,6 @@ void gfx_teardown(Screen* screen);
 
 void boot_screen();
 
-void putpixel(Screen* screen, int x, int y, Color* color);
+void putpixel(Screen* screen, int x, int y, Color color);
 
 #endif

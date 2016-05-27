@@ -33,7 +33,7 @@ void vsync() {
 	do {} while (!(inb(0x3DA) & 8));
 }
 
-void putpixel(Screen* screen, int x, int y, Color* color) {
+void putpixel(Screen* screen, int x, int y, Color color) {
 	//don't attempt writing a pixel outside of screen bounds
 	if (x >= screen->window->size.width || y >= screen->window->size.height) return;
 
@@ -47,9 +47,9 @@ void putpixel(Screen* screen, int x, int y, Color* color) {
 	}
 }
 
-void fill_screen(Screen* screen, Color* color) {
+void fill_screen(Screen* screen, Color color) {
 	for (int loc = 0; loc < (screen->window->size.width * screen->window->size.height * (screen->depth / 8)); loc += (screen->depth / 8)) {
-		memcpy(&screen->vmem[loc], color->val[0], (screen->depth / 8) * sizeof(uint8_t));
+		memcpy(&screen->vmem[loc], color.val[0], (screen->depth / 8) * sizeof(uint8_t));
 	}
 }
 
@@ -67,20 +67,24 @@ void rainbow_animation(Screen* screen, Rect r) {
 		Size size = size_make((r.size.width / 7), r.size.height);
 		Rect seg = rect_make(origin, size);
 
-		draw_rect(screen, seg, colors[i], THICKNESS_FILLED);
+		Color col;
+		col.val[0] = colors[i];
+		draw_rect(screen, seg, col, THICKNESS_FILLED);
 		sleep(500 / 7);
 	}
 }
 
 void vga_boot_screen(Screen* screen) {
-	Color* color = color_make(0, 0, 0);
+	Color color = color_make(0, 0, 0);
 	fill_screen(screen, color);
 
 	Coordinate p1 = point_make(screen->window->size.width / 2, screen->window->size.height * 0.25);
 	Coordinate p2 = point_make(screen->window->size.width / 2 - 25, screen->window->size.height * 0.25 + 50);
 	Coordinate p3 = point_make(screen->window->size.width / 2 + 25, screen->window->size.height * 0.25 + 50);
 	Triangle triangle = triangle_make(p1, p2, p3);
-	draw_triangle(screen, triangle, 2, 5);
+	Color tri_col;
+	tri_col.val[0] = 2;
+	draw_triangle(screen, triangle, tri_col, 5);
 
 	Coordinate lab_origin = point_make(screen->window->size.width / 2 - 35, screen->window->size.height * 0.6);
 	Size lab_size = size_make((10 * strlen("axle os")), 12);
@@ -94,7 +98,9 @@ void vga_boot_screen(Screen* screen) {
 	Rect border_rect = rect_make(origin, sz);
 
 	//fill the rectangle with white initially
-	draw_rect(screen, border_rect, 15, 1);
+	Color white;
+	white.val[0] = 15;
+	draw_rect(screen, border_rect, white, 1);
 
 	sleep(500);
 
