@@ -20,11 +20,15 @@ extern void perform_task_switch(uint32_t, uint32_t, uint32_t, uint32_t);
 //next available pid
 uint32_t next_pid = 1;
 
+static void switch_callback() {
+	switch_task();
+}
+
 void initialize_tasking() {
 	asm volatile("cli");
 	
 	//relocate stack so we know where it is
-	move_stack((void*)0x10000000, 0x2000);
+	move_stack((void*)0xE0000000, 0x2000);
 
 	//init first task (kernel task)
 	current_task = ready_queue = (task_t*)kmalloc(sizeof(task_t));
@@ -34,8 +38,17 @@ void initialize_tasking() {
 	current_task->page_directory = current_directory;
 	current_task->next = 0;
 
+	printf_dbg("current_task: %x", current_task);
+
+	//create callback to switch tasks
+	add_callback(switch_callback, 1, 1, 0);
+
 	//reenable interrupts
 	asm volatile("sti");
+
+	//I'm not 100% sure why we need this, but if we don't have it then we don't switch to the next task
+	//TODO investigate
+	sleep(1);
 }
 
 int fork() {
@@ -46,6 +59,7 @@ int fork() {
 
 	//clone address space
 	page_directory_t* directory = clone_directory(current_directory);
+	//printf_dbg("fork(): directory: %x", directory);
 
 	//create new process
 	task_t* task = (task_t*)kmalloc(sizeof(task_t));
@@ -59,6 +73,7 @@ int fork() {
 	//find end of ready queue
 	task_t* tmp = (task_t*)ready_queue;
 	while (tmp->next) {
+		//printf_dbg("fork(): had another task in list");
 		tmp = tmp->next;
 	}
 	//extend it
@@ -66,9 +81,12 @@ int fork() {
 
 	//entry point for new process
 	uint32_t eip = read_eip();
+	//printf_dbg("fork(): eip: %x", eip);
 
 	//we could be parent or child here! check
 	if (current_task == parent_task) {
+		//printf_dbg("fork(): we are parent, set up fields for child");
+
 		//we are parent, so set up esp/ebp/eip for child
 		uint32_t esp;
 		asm volatile("mov %%esp, %0" : "=r" (esp));
@@ -79,9 +97,20 @@ int fork() {
 		task->eip = eip;
 		//all finished! reenable interrupts
 		asm volatile("sti");
+
+		int count = 1;
+		task_t* tmp = ready_queue;
+		while (tmp->next) {
+			tmp = tmp->next;
+			count++;
+		}
+		//printf_dbg("fork(): num tasks %d", count);
+		//printf_dbg("fork(): current task: %x", current_task);
+
 		return task->id;
 	}
 	else {
+		//printf_dbg("fork(): we are child");
 		//we're the child
 		//return 0 by convention
 		return 0;
@@ -90,7 +119,9 @@ int fork() {
 
 void switch_task() {
 	//if we haven't initialized tasking yet, just return
-	if (!current_task) return;
+	if (!current_task) {
+		return;
+	}
 
 	//read esp, ebp for saving later on
 	uint32_t esp, ebp, eip;
@@ -107,7 +138,7 @@ void switch_task() {
 	eip = read_eip();
 
 	//did we just switch tasks?
-	if (eip = 0x12345) return;
+	if (eip == 0x12345) return;
 
 	//did not switch tasks
 	//save register values and switch
@@ -120,8 +151,11 @@ void switch_task() {
 	//if we're at the end of the linked list start again at the start
 	if (!current_task) current_task = ready_queue;
 
+	eip = current_task->eip;
 	esp = current_task->esp;
 	ebp = current_task->ebp;
+
+	current_directory = current_task->page_directory;
 
 	//stop interrupts
 	//temporarily put new eip in ecx

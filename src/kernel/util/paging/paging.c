@@ -142,6 +142,7 @@ void initialize_paging() {
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
 
 	//make page directory
+	uint32_t phys;
 	kernel_directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
 	memset(kernel_directory, 0, sizeof(page_directory_t));
 	//current_directory = kernel_directory;
@@ -206,7 +207,6 @@ void initialize_paging() {
 	//expand(0x1000000, kheap);
 
 	current_directory = clone_directory(kernel_directory);
-
 	switch_page_directory(current_directory);
 }
 

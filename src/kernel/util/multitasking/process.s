@@ -4,7 +4,6 @@ copy_page_physical:
 	pushf			; push EFLAGS so we can pop and reenable interrupts
 				; if they were enabled
 	cli
-
 				; load these before enabling paging
 	mov ebx, [esp + 12]	; source address
 	mov ecx, [esp + 16]	; destination address
@@ -12,6 +11,8 @@ copy_page_physical:
 	mov edx, cr0		; control register
 	and edx, 0x7fffffff
 	mov cr0, edx		; disable paging
+
+	mov edx, 1024		; 1024 * 4 bytes = 4096 (1 page)
 
 .loop:
 	mov eax, [ebx]		; get word at source addr
