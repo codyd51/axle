@@ -128,3 +128,4 @@ extern void irq15();
 extern void irq16();
 extern void irq17();
 
+extern void isr128();
