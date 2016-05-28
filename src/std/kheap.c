@@ -16,11 +16,10 @@ uint32_t kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
 		void* addr = alloc(sz, (uint8_t)align, kheap);
 		if (phys != 0) {
 			page_t* page = get_page((uint32_t)addr, 0, kernel_directory);
-			*phys = page->frame * 0x1000 + (uint32_t)addr & 0xFFF;
+			*phys = page->frame * 0x1000 + ((uint32_t)addr & 0xFFF);
 		}
 		return (uint32_t)addr;
 	}
-
 	//if addr is not already page aligned
 	if (align == 1 && (placement_address & 0xFFFFF000)) {
 		//align it
