@@ -137,13 +137,9 @@ void initialize_paging() {
 	//uint32_t mem_end_page = memory_size;
 	memsize = mem_end_page;
 		
-	printf_dbg("mem_end_page");
-
 	nframes = mem_end_page / 0x1000;
 	frames = (uint32_t*)kmalloc(INDEX_FROM_BIT(nframes));
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
-
-	printf_dbg("memset");
 
 	//make page directory
 	kernel_directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
@@ -155,7 +151,7 @@ void initialize_paging() {
 	uint32_t vesa_mem_addr = 0xFD000000; //TODO replace with function
 	identity_map_lfb(vesa_mem_addr);
 
-	printf_dbg("current_directory");
+	printf_dbg("Identity mapped VESA LFB");
 
 	//map pages in kernel heap area
 	//we call get_page but not alloc_frame
@@ -180,7 +176,7 @@ void initialize_paging() {
 		alloc_frame(get_page(idx, 1, kernel_directory), 0, 0);
 		idx += 0x1000;
 	}
-	printf_dbg("identity map");
+	printf_dbg("identity map kernel pages");
 
 	//allocate pages we mapped earlier
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
@@ -189,8 +185,6 @@ void initialize_paging() {
 
 	//before we enable paging, register page fault handler
 	register_interrupt_handler(14, page_fault);
-
-	printf_dbg("register handler");
 
 	//enable paging
 	switch_page_directory(kernel_directory);
@@ -212,11 +206,7 @@ void initialize_paging() {
 	//expand(0x1000000, kheap);
 
 	current_directory = clone_directory(kernel_directory);
-	printf_dbg("kernel_directory: %x", kernel_directory);
-	printf_dbg("current_directory: %x", current_directory);
 
-	printf_dbg("sizeof page_table_t: %d", sizeof(page_table_t));
-	printf_dbg("sizeof page_directory_t: %d", sizeof(page_directory_t));
 	switch_page_directory(current_directory);
 }
 
@@ -312,16 +302,9 @@ page_directory_t* clone_directory(page_directory_t* src) {
 	//blank it
 	memset((uint8_t*)dir, 0, sizeof(page_directory_t));
 
-	printf_dbg("dir: %x", dir);
-	printf_dbg("dir->tablesPhysical %x", dir->tablesPhysical);
-	printf_dbg("phys: %x", phys);
-
 	//get offset of tablesPhysical from start of page_directory_t
 	uint32_t offset = (uint32_t)dir->tablesPhysical - (uint32_t)dir;
-	//dir->physicalAddr = phys + offset;
-	dir->physicalAddr = kernel_directory->physicalAddr;
-
-	printf_dbg("dir->physicalAddr: %x", dir->physicalAddr);
+	dir->physicalAddr = phys + offset;
 
 	//for each page table
 	//if in kernel directory, don't make copy
