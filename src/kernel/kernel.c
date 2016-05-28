@@ -120,9 +120,6 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	printf_info("Initializing keyboard driver...");
 	init_kb();
 
-	printf_info("Initializing mouse...");
-	initialize_mouse();
-
 	test_heap();	
 
 	//set up info panel
