@@ -75,8 +75,5 @@ void initialize_mouse() {
 	mouse_read(); //acknowledge
 
 	//setup mouse handler
-	//for (int i = 40; i < 45; i++) {
-		register_interrupt_handler(IRQ12, &mouse_callback);
-		register_interrupt_handler(12, &mouse_callback);
-	//}
+	register_interrupt_handler(IRQ12, &mouse_callback);
 }
