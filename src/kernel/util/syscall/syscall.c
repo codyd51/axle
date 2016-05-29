@@ -1,6 +1,7 @@
 #include "syscall.h"
 #include <kernel/util/interrupts/isr.h>
 #include <kernel/drivers/terminal/terminal.h>
+#include <kernel/drivers/pit/pit.h>
 
 static void syscall_handler(registers_t* regs);
 
@@ -11,7 +12,7 @@ static void* syscalls[2] = {
 	&terminal_writestring,
 	&terminal_putchar,
 };
-uint32_t num_syscalls = 3;
+uint32_t num_syscalls = 2;
 
 void initialize_syscalls() {
 	register_interrupt_handler(0x80, &syscall_handler);

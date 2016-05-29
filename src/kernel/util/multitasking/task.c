@@ -39,16 +39,12 @@ void initialize_tasking() {
 	current_task->next = 0;
 	current_task->kernel_stack = kmalloc_a(KERNEL_STACK_SIZE);
 
-	printf_dbg("current_task: %x", current_task);
-
 	//create callback to switch tasks
 	add_callback(switch_callback, 1, 1, 0);
 
 	//reenable interrupts
 	asm volatile("sti");
 
-	//I'm not 100% sure why we need this, but if we don't have it then we don't switch to the next task
-	//TODO investigate
 	sleep(1);
 }
 
@@ -60,7 +56,6 @@ int fork() {
 
 	//clone address space
 	page_directory_t* directory = clone_directory(current_directory);
-	//printf_dbg("fork(): directory: %x", directory);
 
 	//create new process
 	task_t* task = (task_t*)kmalloc(sizeof(task_t));
@@ -75,7 +70,6 @@ int fork() {
 	//find end of ready queue
 	task_t* tmp = (task_t*)ready_queue;
 	while (tmp->next) {
-		//printf_dbg("fork(): had another task in list");
 		tmp = tmp->next;
 	}
 	//extend it
@@ -83,12 +77,9 @@ int fork() {
 
 	//entry point for new process
 	uint32_t eip = read_eip();
-	//printf_dbg("fork(): eip: %x", eip);
 
 	//we could be parent or child here! check
 	if (current_task == parent_task) {
-		//printf_dbg("fork(): we are parent, set up fields for child");
-
 		//we are parent, so set up esp/ebp/eip for child
 		uint32_t esp;
 		asm volatile("mov %%esp, %0" : "=r" (esp));
@@ -106,13 +97,10 @@ int fork() {
 			tmp = tmp->next;
 			count++;
 		}
-		//printf_dbg("fork(): num tasks %d", count);
-		//printf_dbg("fork(): current task: %x", current_task);
 
 		return task->id;
 	}
 	else {
-		//printf_dbg("fork(): we are child");
 		//we're the child
 		//return 0 by convention
 		return 0;

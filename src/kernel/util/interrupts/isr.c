@@ -140,7 +140,7 @@ isr_t interrupt_handlers[256];
 
 //gets called from ASM interrupt handler stub
 void isr_handler(registers_t regs) {
-	printf_info("recieved interrupt: %x err code: %x", regs.int_no, regs.err_code);
+	//printf_info("recieved interrupt: %x err code: %x", regs.int_no, regs.err_code);
 /*
 	switch (regs.int_no) {
 		case 0:
