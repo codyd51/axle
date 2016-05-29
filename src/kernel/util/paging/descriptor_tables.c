@@ -18,16 +18,18 @@ gdt_ptr_t   gdt_ptr;
 idt_entry_t idt_entries[256];
 idt_ptr_t   idt_ptr;
 tss_entry_t tss_entry;
+extern isr_t interrupt_handlers[];
 
 //zeroes all the interrupt service routines
 //initializes GDT and IDT
 void init_descriptor_tables() {
 	init_gdt();
 	init_idt();
+	memset(&interrupt_handlers, 0, sizeof(isr_t)*256);
 }
 
 static void init_gdt() {
-	gdt_ptr.limit = (sizeof(gdt_entry_t) * 5) - 1;
+	gdt_ptr.limit = (sizeof(gdt_entry_t) * 6) - 1;
 	gdt_ptr.base = (uint32_t)&gdt_entries;
 
 	gdt_set_gate(0, 0, 0, 0, 0); 			//null segment
@@ -35,6 +37,7 @@ static void init_gdt() {
 	gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF); 	//data segment
 	gdt_set_gate(3, 0, 0xFFFFFFFF, 0xFA, 0xCF); 	//user mode code segment
 	gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF);	//user mode data segment
+	write_tss(5, 0x10, 0x0);
 
 	gdt_flush((uint32_t)&gdt_ptr);
 	tss_flush();
@@ -130,7 +133,7 @@ static void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags
 
 	//we must uncomment the OR below when we get to user mode
 	//it sets the interrupt gate's privilege level to 3
-	idt_entries[num].flags		= flags; /* | 0x60 */
+	idt_entries[num].flags		= flags | 0x60;
 }
 
 //sets value of one GDT entry

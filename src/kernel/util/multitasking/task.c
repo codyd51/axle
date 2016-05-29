@@ -37,6 +37,7 @@ void initialize_tasking() {
 	current_task->eip = 0;
 	current_task->page_directory = current_directory;
 	current_task->next = 0;
+	current_task->kernel_stack = kmalloc_a(KERNEL_STACK_SIZE);
 
 	printf_dbg("current_task: %x", current_task);
 
@@ -67,6 +68,7 @@ int fork() {
 	task->esp = task->ebp = 0;
 	task->eip = 0;
 	task->page_directory = directory;
+	current_task->kernel_stack = kmalloc_a(KERNEL_STACK_SIZE);
 	task->next = 0;
 
 	//add to end of ready queue
@@ -157,6 +159,9 @@ void switch_task() {
 
 	current_directory = current_task->page_directory;
 
+	//switch over kernel stack
+	set_kernel_stack(current_task->kernel_stack + KERNEL_STACK_SIZE);
+
 	//stop interrupts
 	//temporarily put new eip in ecx
 	//load stack and base ptrs from new task
@@ -220,9 +225,9 @@ int getpid() {
 
 void switch_to_user_mode() {
 	//set up kernel stack
-	set_kernel_stack(current_task->kernel_stack + KERNEL_STACK+SIZE);
+	set_kernel_stack(current_task->kernel_stack + KERNEL_STACK_SIZE);
 
-	//set up stack to switch to user mode
+	//set up stack to switch to user mode	
 	asm volatile("		\
 		cli;		\
 		mov $0x23, %ax;	\
@@ -240,4 +245,5 @@ void switch_to_user_mode() {
 		push $1f;	\
 		iret;		\
 	    1: 	\
-	    	");
+	    	");	
+}

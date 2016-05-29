@@ -30,7 +30,7 @@ typedef struct registers {
 //enables registration of callbacks for interrupts or IRQs
 //for IRQs, to ease confusion, use #defines above
 //as first parameter
-typedef void (*isr_t)(registers_t);
+typedef void (*isr_t)(registers_t*);
 void register_interrupt_handler(uint8_t n, isr_t handler);
 
 #endif

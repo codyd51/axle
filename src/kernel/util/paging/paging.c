@@ -236,7 +236,7 @@ page_t* get_page(uint32_t address, int make, page_directory_t* dir) {
 	return 0;
 }
 
-void page_fault(registers_t regs) {
+void page_fault(registers_t* regs) {
 	switch_to_text();
 
 	//page fault has occured
@@ -245,11 +245,11 @@ void page_fault(registers_t regs) {
 	asm volatile("mov %%cr2, %0" : "=r" (faulting_address));
 
 	//error code tells us what happened
-	int present = !(regs.err_code & 0x1); //page not present
-	int rw = regs.err_code & 0x2; //write operation?
-	int us = regs.err_code & 0x4; //were we in user mode?
-	int reserved = regs.err_code & 0x8; //overwritten CPU-reserved bits of page entry?
-	int id = regs.err_code & 0x10; //caused by instruction fetch?
+	int present = !(regs->err_code & 0x1); //page not present
+	int rw = regs->err_code & 0x2; //write operation?
+	int us = regs->err_code & 0x4; //were we in user mode?
+	int reserved = regs->err_code & 0x8; //overwritten CPU-reserved bits of page entry?
+	int id = regs->err_code & 0x10; //caused by instruction fetch?
 
 	//output error message
 	printf("Page fault! ( ");
@@ -259,7 +259,7 @@ void page_fault(registers_t regs) {
 	if (reserved) printf("reserved ");
 	printf(") at 0x%x\n", faulting_address);
 
-	if (regs.eip != faulting_address) {
+	if (regs->eip != faulting_address) {
 		printf_info("Page fault caused by executing unpaged memory");
 	} 
 	else {
