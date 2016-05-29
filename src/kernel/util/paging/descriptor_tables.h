@@ -73,7 +73,7 @@ struct tss_entry_struct {
 	uint16_t trap;
 	uint16_t iomap_base;
 } __attribute__((packed));
-typdef struct tss_entry_struct tss_entry_t;
+typedef struct tss_entry_struct tss_entry_t;
 
 //extern directives allow us to access the addresses of our ASM ISR handlers
 extern void isr0();
