@@ -103,6 +103,7 @@ int fork() {
 	else {
 		//we're the child
 		//return 0 by convention
+		asm volatile("sti");
 		return 0;
 	}
 }

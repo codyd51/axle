@@ -121,24 +121,11 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	printf_info("Initializing paging...");
 	initialize_paging();
 
-	printf_info("Initializing tasking...");
-	initialize_tasking();
-/*
-	//create new process in new address space which is a clone of this
-	int ret = fork();
-	printf_info("--- forked ---");
-	printf_info("fork(): %x", ret);
-	printf_info("getpid(): %x", getpid());
-*/	
-	//sleep(500);
-
 	printf_info("Initializing syscalls...");
 	initialize_syscalls();
 
-	printf_info("Switching to user mode...");
-	switch_to_user_mode();
-
-	syscall_terminal_writestring("Hello world from userland!\n");
+	printf_info("Initializing tasking...");
+	initialize_tasking();
 
 	while (1) {}
 /*
