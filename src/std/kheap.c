@@ -61,11 +61,17 @@ static int32_t find_smallest_hole(uint32_t size, uint8_t align, heap_t* heap) {
 	while (iterator < heap->index.size) {
 		header_t* header = (header_t*)lookup_ordered_array(iterator, &heap->index);
 		//if user has requested memory be page aligned
+		//
 		if (align > 0) {
 			//page align starting point of header
 			uint32_t location = (uint32_t)header;
 			int32_t offset = 0;
-			if ((location + sizeof(header_t) & 0xFFFFF00) != 0) {
+			//if ((location + sizeof(header_t) & 0xFFFFF000) != 0) {
+			if (location & 0x00000FFF) {
+#define PAGE_SIZE 4096
+				location &= 0xFFFFF000;
+				location += PAGE_SIZE;
+
 				offset = 0x1000 - (location + sizeof(header_t)) % 0x1000;
 			}
 			
