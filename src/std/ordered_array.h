@@ -14,7 +14,6 @@ typedef struct {
 	lessthan_predicate_t less_than;
 	uint16_t size;
 	mutable_array_t array;
-	uint32_t size;
 } ordered_array_t;
 
 //standard less than predicate

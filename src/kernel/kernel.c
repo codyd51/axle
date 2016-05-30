@@ -126,9 +126,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	printf_info("Initializing tasking...");
 	initialize_tasking();
-
-	while (1) {}
-/*
+	
 	printf_info("Initializing keyboard driver...");
 	init_kb();
 
@@ -186,7 +184,6 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	add_subimage(window->content_view, image);
 
 	while (1) {}
-*/
 	asm volatile("sti");
 	return 0;
 /*
