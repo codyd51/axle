@@ -96,26 +96,6 @@ void handle_general_protection_fault(registers_t regs) {
 	common_halt(regs);
 }
 
-void handle_page_fault(registers_t regs) {
-	switch_to_text();
-
-	//TODO cr2 holds address that caused the fault
-	printf_err("Encountered page fault. Info follows");
-
-	if (regs.err_code & 0x000F) printf_err("Page was present");
-	else printf_err("Page was not present");
-	
-	if (regs.err_code & 0x00F0) printf_err("Operation was a write");
-	else printf_err("Operation was a read");
-
-	if (regs.err_code & 0x0F00) printf_err("User mode");
-	else printf_err("Supervisor mode");
-
-	if (regs.err_code & 0xF000) printf_err("Faulted during instruction fetch");
-
-	common_halt(regs);
-}
-
 void handle_floating_point_exception(registers_t regs) {
 	printf_err("Floating point exception");
 	common_halt(regs);
