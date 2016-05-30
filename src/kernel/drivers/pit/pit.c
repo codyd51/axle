@@ -1,14 +1,16 @@
 #include "pit.h"
 #include <kernel/util/interrupts/isr.h>
 #include <kernel/kernel.h>
-
+#include <std/math.h>
 #include <std/common.h>
 
-uint32_t tick = 0;
+static volatile uint32_t tick = 0;
 
 //defined in timer.c
 //inform that a tick has occured
 extern handle_tick(uint32_t tick);
+
+extern void switch_task();
 
 static void tick_callback(registers_t regs) {
 	tick++;
@@ -44,7 +46,3 @@ void init_timer(uint32_t frequency) {
 	outb(0x40, h);
 }
 
-void sleep(uint32_t ms) {
-	uint32_t end = tick + ms;
-	while (tick < end) {}
-}

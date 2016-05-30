@@ -137,15 +137,12 @@ void initialize_paging() {
 	//uint32_t mem_end_page = memory_size;
 	memsize = mem_end_page;
 		
-	printf_dbg("mem_end_page");
-
 	nframes = mem_end_page / 0x1000;
 	frames = (uint32_t*)kmalloc(INDEX_FROM_BIT(nframes));
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
 
-	printf_dbg("memset");
-
 	//make page directory
+	uint32_t phys;
 	kernel_directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
 	memset(kernel_directory, 0, sizeof(page_directory_t));
 	//current_directory = kernel_directory;
@@ -155,7 +152,7 @@ void initialize_paging() {
 	uint32_t vesa_mem_addr = 0xFD000000; //TODO replace with function
 	identity_map_lfb(vesa_mem_addr);
 
-	printf_dbg("current_directory");
+	printf_dbg("Identity mapped VESA LFB");
 
 	//map pages in kernel heap area
 	//we call get_page but not alloc_frame
@@ -180,7 +177,7 @@ void initialize_paging() {
 		alloc_frame(get_page(idx, 1, kernel_directory), 0, 0);
 		idx += 0x1000;
 	}
-	printf_dbg("identity map");
+	printf_dbg("identity map kernel pages");
 
 	//allocate pages we mapped earlier
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
@@ -189,8 +186,6 @@ void initialize_paging() {
 
 	//before we enable paging, register page fault handler
 	register_interrupt_handler(14, page_fault);
-
-	printf_dbg("register handler");
 
 	//enable paging
 	switch_page_directory(kernel_directory);
@@ -209,9 +204,10 @@ void initialize_paging() {
 
 	//initialize kernel heap
 	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, 0xCFFFF000, 0, 0);
+	//expand(0x1000000, kheap);
 
-	//current_directory = clone_directory(kernel_directory);
-	//switch_page_directory(current_directory);
+	current_directory = clone_directory(kernel_directory);
+	switch_page_directory(current_directory);
 }
 
 void switch_page_directory(page_directory_t* dir) {
@@ -240,18 +236,20 @@ page_t* get_page(uint32_t address, int make, page_directory_t* dir) {
 	return 0;
 }
 
-void page_fault(registers_t regs) {
+void page_fault(registers_t* regs) {
+	switch_to_text();
+
 	//page fault has occured
 	//faulting address is stored in CR2 register
 	uint32_t faulting_address;
 	asm volatile("mov %%cr2, %0" : "=r" (faulting_address));
 
 	//error code tells us what happened
-	int present = !(regs.err_code & 0x1); //page not present
-	int rw = regs.err_code & 0x2; //write operation?
-	int us = regs.err_code & 0x4; //were we in user mode?
-	int reserved = regs.err_code & 0x8; //overwritten CPU-reserved bits of page entry?
-	int id = regs.err_code & 0x10; //caused by instruction fetch?
+	int present = !(regs->err_code & 0x1); //page not present
+	int rw = regs->err_code & 0x2; //write operation?
+	int us = regs->err_code & 0x4; //were we in user mode?
+	int reserved = regs->err_code & 0x8; //overwritten CPU-reserved bits of page entry?
+	int id = regs->err_code & 0x10; //caused by instruction fetch?
 
 	//output error message
 	printf("Page fault! ( ");
@@ -261,7 +259,7 @@ void page_fault(registers_t regs) {
 	if (reserved) printf("reserved ");
 	printf(") at 0x%x\n", faulting_address);
 
-	if (regs.eip != faulting_address) {
+	if (regs->eip != faulting_address) {
 		printf_info("Page fault caused by executing unpaged memory");
 	} 
 	else {
@@ -270,7 +268,7 @@ void page_fault(registers_t regs) {
 
 	PANIC("Page fault");
 }
-/*
+
 static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
 	//make new page aligned table
 	page_table_t* table = (page_table_t*)kmalloc_ap(sizeof(page_table_t), physAddr);
@@ -327,4 +325,4 @@ page_directory_t* clone_directory(page_directory_t* src) {
 	}
 	return dir;
 }
-*/
+

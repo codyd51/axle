@@ -52,21 +52,14 @@ char* strccat(char* dest, char src) {
 }
 
 int strcmp(const char *lhs, const char *rhs) {
-	if (strlen(lhs) != strlen(rhs)) {
-		return -1;
-	}
-
-	size_t ch = 0;
-	size_t ch2 = 0;
-
-	while (lhs[ch] != 0 && rhs[ch2] != 0) {
-		if (lhs[ch] != rhs[ch2]) {
-			return -1;
-		}
-		ch++;
-		ch2++;
-	}
-	return 0;
+	while (*lhs == *rhs) {
+        	if (*lhs == '\0' || *rhs == '\0') break;
+        
+		lhs++;
+        	rhs++;
+    	}
+    
+    	return *lhs - *rhs;
 }
 
 char* delchar(char* str) {

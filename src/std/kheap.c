@@ -16,11 +16,10 @@ uint32_t kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
 		void* addr = alloc(sz, (uint8_t)align, kheap);
 		if (phys) {
 			page_t* page = get_page((uint32_t)addr, 0, kernel_directory);
-			*phys = page->frame * 0x1000 + (uint32_t)addr & 0xFFF;
+			*phys = page->frame * 0x1000 + ((uint32_t)addr & 0xFFF);
 		}
 		return (uint32_t)addr;
 	}
-
 	//if addr is not already page aligned
 	if (align == 1 && (placement_address & 0xFFFFF000)) {
 		//align it
@@ -66,11 +65,17 @@ static int32_t find_smallest_hole(uint32_t size, uint8_t align, heap_t* heap) {
 		ASSERT(header->magic == HEAP_MAGIC);
 
 		//if user has requested memory be page aligned
+		//
 		if (align > 0) {
 			//page align starting point of header
 			uint32_t location = (uint32_t)header;
 			int32_t offset = 0;
-			if ((location + sizeof(header_t) & 0xFFFFF000) != 0) {
+			//if ((location + sizeof(header_t) & 0xFFFFF000) != 0) {
+			if (location & 0x00000FFF) {
+#define PAGE_SIZE 4096
+				location &= 0xFFFFF000;
+				location += PAGE_SIZE;
+
 				offset = 0x1000 - (location + sizeof(header_t)) % 0x1000;
 			}
 			

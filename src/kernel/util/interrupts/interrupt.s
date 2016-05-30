@@ -45,6 +45,7 @@ ISR_NOERRCODE 28
 ISR_NOERRCODE 29
 ISR_NOERRCODE 30
 ISR_NOERRCODE 31
+ISR_NOERRCODE 128
 
 ; this macro creates a stub for an IRQ - the first parameter is 
 ; the IRQ number, the second is the ISR number it's remapped to
