@@ -21,7 +21,7 @@ uint32_t kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
 		return (uint32_t)addr;
 	}
 	//if addr is not already page aligned
-	if (align == 1 && (placement_address & 0xFFFFF000)) {
+	if (align == 1 && (placement_address & 0x00000FFF)) {
 		//align it
 		placement_address &= 0xFFFFF000;
        		placement_address += 0x1000;
@@ -62,7 +62,7 @@ static int32_t find_smallest_hole(uint32_t size, uint8_t align, heap_t* heap) {
 		header_t* header = (header_t*)lookup_ordered_array(iterator, &heap->index);
 
 		//check if magic is valid
-		ASSERT(header->magic == HEAP_MAGIC);
+		ASSERT(header->magic == HEAP_MAGIC, "invalid header magic");
 
 		//if user has requested memory be page aligned
 		//
@@ -70,13 +70,8 @@ static int32_t find_smallest_hole(uint32_t size, uint8_t align, heap_t* heap) {
 			//page align starting point of header
 			uint32_t location = (uint32_t)header;
 			int32_t offset = 0;
-			//if ((location + sizeof(header_t) & 0xFFFFF000) != 0) {
-			if (location & 0x00000FFF) {
-#define PAGE_SIZE 4096
-				location &= 0xFFFFF000;
-				location += PAGE_SIZE;
-
-				offset = 0x1000 - (location + sizeof(header_t)) % 0x1000;
+			if (((location + sizeof(header_t) & 0xFFFFF000)) != 0) {
+				offset = 0x1000 - ((location + sizeof(header_t)) % 0x1000);
 			}
 			
 			int32_t hole_size = (int32_t)header->size - offset;
@@ -105,8 +100,8 @@ heap_t* create_heap(uint32_t start, uint32_t end_addr, uint32_t max, uint8_t sup
 	heap_t* heap = (heap_t*)kmalloc(sizeof(heap_t));
 
 	//start and end MUST be page aligned
-	ASSERT(start % 0x1000 == 0);
-	ASSERT(end_addr % 0x1000 == 0);
+	ASSERT(start % 0x1000 == 0, "start wasn't page aligned");
+	ASSERT(end_addr % 0x1000 == 0, "end_addr wasn't page aligned");
 
 	//initialize index
 	heap->index = place_ordered_array((void*)start, HEAP_INDEX_SIZE, &header_t_less_than);
@@ -140,7 +135,7 @@ heap_t* create_heap(uint32_t start, uint32_t end_addr, uint32_t max, uint8_t sup
 
 void expand(uint32_t new_size, heap_t* heap) {
 	//sanity check
-	ASSERT(new_size > heap->end_address - heap->start_address);
+	ASSERT(new_size > heap->end_address - heap->start_address, "new_size was larger than heap");
 	//get nearest page boundary
 	if (new_size & 0xFFFFF000 != 0) {
 		new_size &= 0xFFFFF000;
@@ -148,7 +143,7 @@ void expand(uint32_t new_size, heap_t* heap) {
 	}
 
 	//make sure we're not overreaching ourselves!
-	ASSERT(heap->start_address + new_size <= heap->max_address);
+	ASSERT(heap->start_address + new_size <= heap->max_address, "heap would exceed max capacity");
 
 	//this *should* always be on a page boundary
 	uint32_t old_size = heap->end_address - heap->start_address;
@@ -162,7 +157,7 @@ void expand(uint32_t new_size, heap_t* heap) {
 
 static uint32_t contract(uint32_t new_size, heap_t* heap) {
 	//sanity check
-	ASSERT(new_size < heap->end_address - heap->start_address);
+	ASSERT(new_size < heap->end_address - heap->start_address, "new_size was larger than heap");
 
 	//get nearest page boundary
 	if (new_size & 0x1000) {
@@ -313,8 +308,8 @@ void free(void* p, heap_t* heap) {
 	footer_t* footer = (footer_t*)((uint32_t)header + header->size - sizeof(footer_t));
 
 	//ensure these are valid
-	ASSERT(header->magic == HEAP_MAGIC);
-	ASSERT(footer->magic == HEAP_MAGIC);
+	ASSERT(header->magic == HEAP_MAGIC, "invalid header magic");
+	ASSERT(footer->magic == HEAP_MAGIC, "invalid footer magic");
 
 	//turn this into a hole
 	header->hole = 1;
@@ -348,7 +343,7 @@ void free(void* p, heap_t* heap) {
 		}
 
 		//ensure we actually found the item
-		ASSERT(iterator < heap->index.size);
+		ASSERT(iterator < heap->index.size, "couldn't find item!");
 		//remove it
 		remove_ordered_array(iterator, &heap->index);
 	}
