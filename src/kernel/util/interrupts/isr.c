@@ -229,9 +229,9 @@ void pic_acknowledge(unsigned int interrupt) {
 
 //gets called from ASM interrupt handler stub
 void irq_handler(registers_t regs) {
+	pic_acknowledge(regs.int_no);
 	if (interrupt_handlers[regs.int_no] != 0) {
 		isr_t handler = interrupt_handlers[regs.int_no];
 		handler(&regs);
 	}
-	pic_acknowledge(regs.int_no);
 }
