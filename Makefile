@@ -7,18 +7,18 @@ ISO_NAME = axle.iso
 OBJ_DIR = .objs
 SRC_DIR = src
 
-TOOLCHAIN = ./i686-toolchain
+TOOLCHAIN ?= ./i686-toolchain
 
 # Compilers and flags
 AS = nasm
 AFLAGS = -f elf
 
-CC = $(TOOLCHAIN)/usr/bin/i686-elf-gcc
+CC = $(TOOLCHAIN)/bin/i686-elf-gcc
 CFLAGS =  -ffreestanding -std=gnu99 -Wall -Wextra -I ./src
 LDFLAGS = -ffreestanding -nostdlib -lgcc -T $(RESOURCES)/linker.ld
 
 # Tools
-ISO_MAKER = $(TOOLCHAIN)/usr/bin/grub-mkrescue --directory=$(TOOLCHAIN)/usr/lib/grub/i386-pc
+ISO_MAKER = $(TOOLCHAIN)/bin/grub-mkrescue --directory=$(TOOLCHAIN)/lib/grub/i386-pc
 EMULATOR = qemu-system-i386
 
 # Functions
