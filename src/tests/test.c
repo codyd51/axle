@@ -1,6 +1,6 @@
 #include "test.h"
 #include <std/std.h>
-#include <kernel/drivers/vga/vga.h>
+#include <kernel/drivers/terminal/terminal.h>
 #include <kernel/drivers/vesa/vesa.h>
 
 void test_colors() {
@@ -31,14 +31,14 @@ void test_interrupts() {
 	asm volatile("int $0x3");
 	asm volatile("int $0x4");
 }
-
+/*
 void test_vesa() {
 	printf_info("Testing VESA detection...");
 	
 	printf("Press any key to test graphics mode. Press any key to exit.\n");
 	getchar();
 	
-	vesa_mode_info* mode_info = get_vesa_info();
+	vesa_mode_info* mode_info = get_vesa_screen();
 	
 	getchar();
 	switch_to_text();
@@ -52,7 +52,7 @@ void test_vesa() {
 	printf_dbg("red_base: %d, red_position: %d", mode_info->red_mask, mode_info->red_position);
 	printf_dbg("physbase: %x", mode_info->physbase);
 }
-
+*/
 void test_heap() {
 	printf_info("Testing heap's reallocation ability...");
 

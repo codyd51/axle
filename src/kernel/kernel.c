@@ -10,6 +10,12 @@
 #include <kernel/drivers/vesa/vesa.h>
 #include <std/kheap.h>
 #include <tests/test.h>
+#include <user/xserv/xserv.h>
+#include "multiboot.h"
+#include <gfx/font/font.h>
+#include <kernel/util/multitasking/task.h>
+#include <gfx/lib/view.h>
+#include <kernel/util/syscall/syscall.h>
 
 void print_os_name() {
 	terminal_settextcolor(COLOR_GREEN);
@@ -89,25 +95,11 @@ uint32_t initial_esp;
 #if defined(__cplusplus)
 extern "C" //use C linkage for kernel_main
 #endif
-void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
-	initial_esp = initial_stack;	
+void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
+	initial_esp = initial_stack;
 
 	//initialize terminal interface
 	terminal_initialize();	
-
-	//set up software interrupts
-	printf_info("Initializing descriptor tables...");
-	init_descriptor_tables();
-	test_interrupts();
-
-	printf_info("Initializing PIC timer...");
-	init_timer(1000);
-
-	printf_info("Initializing paging...");
-	initialize_paging();
-	
-	//display booting screen
-	boot_screen();
 
 	//introductory message
 	print_os_name();
@@ -115,6 +107,28 @@ void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
 	//run color test
 	test_colors();
 
+	printf_info("Available memory:");
+	printf("%d -> %dMB\n", mboot_ptr->mem_upper, (mboot_ptr->mem_upper/1024));
+	
+	//set up software interrupts
+	printf_info("Initializing descriptor tables...");
+	init_descriptor_tables();
+	//test_interrupts();
+
+	printf_info("Initializing PIC timer...");
+	init_timer(1000);
+
+	printf_info("Initializing paging...");
+	initialize_paging();
+
+	printf_info("Initializing syscalls...");
+	initialize_syscalls();
+
+	printf_info("Initializing tasking...");
+	initialize_tasking();
+
+	while (1) {}
+/*
 	printf_info("Initializing keyboard driver...");
 	init_kb();
 
@@ -124,14 +138,61 @@ void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
 	initialize_info_panel();
 
 	//force_page_fault();
-	//force_hardware_irq();
+	//force_hardware_irq();	
 	
-	//wait for user to start shell
-	printf("Kernel has finished booting. Press any key to enter shell.\n");
-	getchar();
+	//give user a chance to stay in verbose boot
+	printf("Press any key to stay in verbose mode. Continuing in ");
+	for (int i = 3; i > 0; i--) {
+		printf("%d... ", i);
+		sleep(1000);
+		if (haskey()) {
+			//clear buffer
+			while (haskey()) {
+				getchar();
+			}
+			printf("\n");
+			printf_info("Press any key to continue boot.");
+			getchar();
+			break;
+		}
+	}
+
+	//switch into VGA for boot screen
+	Screen* vga_screen = switch_to_vga();
 	
+	//display boot screen
+	vga_boot_screen(vga_screen);
+
+	gfx_teardown(vga_screen);
+	switch_to_text();
+
+	//switch to VESA for x serv
+	Screen* vesa_screen = switch_to_vesa();
+	
+	Rect r = create_rect(create_coordinate(50, 50), create_size(400, 500));
+	Window* window = create_window(r);
+	add_subwindow(vesa_screen->window, window);
+
+	Rect image_frame = window->content_view->frame;
+	uint32_t* bitmap = kmalloc(image_frame.size.width * image_frame.size.height * sizeof(uint32_t));
+	
+	for (int i = 0; i < (image_frame.size.width * image_frame.size.height); i++) {
+		static uint32_t col = 0x0;
+		bitmap[i] = col;
+		col += 0x1;
+	}
+	
+	Image* image = create_image(image_frame, bitmap);
+	add_subimage(window->content_view, image);
+
+	while (1) {}
+*/
+	asm volatile("sti");
+	return 0;
+/*
 	init_shell();
 	shell_loop(); 
+*/
 }
 
 

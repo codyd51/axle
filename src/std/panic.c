@@ -2,7 +2,8 @@
 #include "common.h"
 
 void panic(uint16_t line, const char* file) {
-	printf_err("PANIC %s : %d", line, file);
+	printf("\n");
+	printf_err("PANIC %s: line %d", file, line);
 	//enter infinite loop
 	do {} while (1);
 }

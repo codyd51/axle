@@ -3,8 +3,8 @@
 
 #include <gfx/lib/shapes.h>
 
-void draw_mandelbrot(screen_t* screen);
-void draw_julia(screen_t* screen);
+void draw_mandelbrot(Screen* screen);
+void draw_julia(Screen* screen);
 void test_gfx();
 
 #endif

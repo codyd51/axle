@@ -25,3 +25,9 @@ write_cr3:
 	mov cr3, eax
 	pop ebp
 	retn
+
+[GLOBAL flush_cache]
+flush_cache:
+	mov eax, cr3
+	mov cr3, eax
+	retn

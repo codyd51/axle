@@ -1,142 +1,113 @@
 #include "vesa.h"
-#include <std/std.h>
-#include <gfx/lib/gfx.h>
-/*gfx
-void init_vesa() {
-	vbe_info_block* vib = malloc(512);
+#include <kernel/util/paging/paging.h>
+#include <gfx/lib/shapes.h>
+#include <gfx/lib/view.h>
+#include <user/xserv/xserv.h>
+#include <gfx/font/font.h>
 
-	regs16_t regs;
-	regs.ax = 0x4f00;
-	regs.es = SEG(vib);
-	regs.di = OFF(vib);
-	
-	int32(0x10, &regs);
+void vesa_screen_refresh(Screen* screen) {
+//	if (!screen->finished_drawing) return;
 
-	if (regs.ax != 0x004f) printf("VBE get info failed.\n");
+	xserv_draw(screen);
+	write_screen(screen);
 }
 
-typedef struct vesa_screen_t {
-	u16int granularity;
-	u16int winsize;
-	u16int pitch;
-
-	u16int x_res, y_res;
-
-	u8int red_mask, red_position;
-	u8int green_mask, green_position;
-	u8int blue_mask, blue_position;
-}*/
-
-vesa_mode_info* get_vesa_info() {
-	regs16_t regs;
-	regs.ax = 0x4F02;
-	regs.cx = 0x18113; //mode 112h => 640x480 24-bit
-	int32(0x10, &regs);
-	vesa_mode_info* info = regs.es | (regs.di << 16);
-	return info;
+void setup_vesa_screen_refresh(Screen* screen, double interval) {
+	screen->callback = add_callback(vesa_screen_refresh, interval, true, screen);
 }
 
-vesa_mode_info* init_vesa() {
-	vesa_mode_info* info = get_vesa_info();
-	//vesa_screen_t* screen = malloc(sizeof(vesa_screen_t));
-	//screen->info = info;
-	return info;
+extern flush_cache();
+extern page_directory_t* kernel_directory;
+
+//sets bank if LFB isn't supported/enabled
+void set_bank(int bank) {
+		static int previous_bank = -1;
+		//if we're already on the requested bank, quit early
+		if (bank == previous_bank) return;
+
+		regs16_t regs;
+
+		regs.ax = 0x4F05;
+		regs.bx = 0x0;
+		regs.dx = bank;
+
+		int32(0x10, &regs);
+
+		previous_bank = bank;
 }
 
-void putpixel_v(vesa_mode_info* mode_info, int x, int y, int color) {
-	unsigned loc = mode_info->physbase + (y * mode_info->x_res) + x;
-	memset(loc, color, 1);
+//sets up VESA for mode
+Screen* switch_to_vesa() {
+		kernel_begin_critical();
+		
+		vesa_info info;
+		vbe_mode_info mode_info;
+		regs16_t regs;
+
+		//get VESA information
+		
+		//buffer stores info before being copied into structure	
+		uint32_t buffer = (uint32_t)kmalloc(sizeof(vesa_info)) & 0xFFFFF;
+
+		memcpy(buffer, "VBE2", 4);
+		memset(&regs, 0, sizeof(regs));
+
+		regs.ax = 0x4F00; //00 gets VESA information
+		regs.di = buffer & 0xF;
+		regs.es = (buffer >> 4) & 0xFFFF;
+		int32(0x10, &regs);
+
+		//copy info from buffer into struct
+		memcpy(&info, buffer, sizeof(vesa_info));
+
+		//get VESA mode information
+
+		//buffer to store mode info before copying into structure
+		uint32_t mode_buffer = (uint32_t)kmalloc(sizeof(vbe_mode_info)) & 0xFFFFF;
+
+		memset(&regs, 0, sizeof(regs));
+
+		uint32_t vesa_mode = 0x118; //1024x768x24
+
+		regs.ax = 0x4F01; //01 gets VBE mode information
+		regs.di = mode_buffer & 0xF;
+		regs.es = (mode_buffer >> 4) & 0xFFFF;
+		regs.cx = vesa_mode; //mode to get info for
+		int32(0x10, &regs);
+		
+		//copy mode info from buffer into struct
+		memcpy(&mode_info, mode_buffer, sizeof(vbe_mode_info));
+
+		Screen* screen = (Screen*)kmalloc(sizeof(Screen));
+		screen->window = create_window(create_rect(create_coordinate(0, 0), create_size(mode_info.x_res, mode_info.y_res)));
+		screen->depth = mode_info.bpp;
+		screen->vmem = kmalloc(screen->window->size.width * screen->window->size.height * (screen->depth / 8));
+		//linear frame buffer (LFB) address
+		screen->physbase = (uint8_t*)mode_info.physbase;
+		screen->font = setup_font();
+
+		//sets up VESA mode
+		
+		regs.ax = 0x4F02; //02 sets graphics mode
+
+		//sets up mode with linear frame buffer instead of bank switching
+		//or 0x4000 turns on linear frame buffer
+		regs.bx = (vesa_mode | 0x4000);
+		int32(0x10, &regs);
+
+		//start refresh loop
+		screen->finished_drawing = 1;
+		setup_vesa_screen_refresh(screen, 66);
+
+		kernel_end_critical();
+
+		return screen;
 }
 
-void fill_screen_v(vesa_mode_info* mode_info, unsigned char r, unsigned char g, unsigned char b) {
-	//memset((char*)mode_info->physbase, color, (mode_info->x_res * mode_info->y_res));
-	unsigned char* where = mode_info->physbase;
-	int i, j;
+void putpixel_vesa(Screen* screen, int x, int y, int RGB) {
+		int offset = x * (screen->depth / 8) + y * (screen->window->size.width * (screen->depth / 8));
 
-	for (int i = 0; i < mode_info->x_res; i++) {
-		for (j = 0; j < mode_info->y_res; j++) {
-			where[j * 4] = r;
-			where[j * 4 + 1] = g;
-			where[j * 4 + 2] = b;
-		}
-		where += 3200;
-	}
+		screen->vmem[offset + 0] = RGB & 0xFF; //blue
+		screen->vmem[offset + 1] = (RGB >> 8) & 0xFF; //green
+		screen->vmem[offset + 2] = (RGB >> 16) & 0xFF; //red
 }
-
-void putpixel_16rgb(unsigned char color, unsigned short x, unsigned short y, uint16_t pitch) {
-	unsigned char* fb = (unsigned char*)0xa0000;
-	unsigned int offset = x + (long)y * pitch;
-	fb[offset] = color;
-}
-
-#define SEG(x) 
-
-vesa_mode_info* switch_to_vesa() {
-	vesa_mode_info* info = kmalloc(512);
-
-	regs16_t regs;
-	regs.ax = 0x4F02;
-	regs.cx = 0x18112;
-
-	printf_info("regs.es %x", regs.es);
-	printf_info("regs.di %x", regs.di);
-
-	sleep(3000);
-
-//	int y = bufPos / VGA_WIDTH;
-//	int x = bufPos - (y * VGA_WIDTH);
-//	y * width + x
-	//unsigned int addr = &info;
-	//regs.es = addr / 16;
-	//regs.di = addr - (regs.es);
-
-	//regs.es = SEG(info);
-	//regs.di = OFF(vib);
-	
-	unsigned int addr = &info;
-	regs.di = addr & 0xF;
-	regs.es = (addr >> 4) & 0xFFFF;
-
-	int32(0x10, &regs);
-	//vesa_mode_info* info = regs.es | (regs.di << 16);
-
-	switch_to_text();
-
-	printf_info("regs.es AF %x", regs.es);
-	printf_info("regs.di AF %x", regs.di);
-
-	printf_info("addr: %x", addr);
-
-	return info;
-}
-
-void vesa_test() {
-	/*
-	vesa_mode_info* mode_info = get_vesa_info();
-	//fill_screen_v(mode_info, 100, 100, 100);
-	for (int x = 0; x < 640; x++) {
-		for (int y = 0; y < 480; y++) {
-			putpixel_16rgb(234, x, y, mode_info->pitch);
-		}
-	}
-
-	//switch_to_text();
-	printf_info("mode_info: %x", mode_info);
-	printf_info("physbase: %x", mode_info->physbase);
-	printf_info("x_res: %d", mode_info->x_res);
-       	printf_info("y_res: %d", mode_info->y_res);
-	*/
-
-	vesa_mode_info* mode_info = switch_to_vesa();
-	//switch_to_text();
-	//printf_info("mode_info: %x", mode_info);
-	//printf_info("x_res: %d", mode_info->x_res);
-	//printf_info("y_res: %d", mode_info->y_res);
-	//printf_info("physbase: %x", mode_info->physbase);
-
-	//printf_info("out.ax: %x", regs.ax);
-	//if (regs.ax != 0x004f) printf_info("something went wrong with vbe get info");
-	//else printf_info("vbe get info successful");
-	//printf_info("AFTER vib: %x", vib);
-}
-

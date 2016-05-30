@@ -3,7 +3,7 @@
 
 #include <std/std.h>
 #include <kernel/drivers/kb/kb.h>
-#include <kernel/drivers/vga/vga.h>
+#include <kernel/drivers/terminal/terminal.h>
 
 void kernel_begin_critical();
 void kernel_end_critical();
