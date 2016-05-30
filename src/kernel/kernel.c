@@ -12,6 +12,10 @@
 #include <tests/test.h>
 #include <user/xserv/xserv.h>
 #include "multiboot.h"
+#include <gfx/font/font.h>
+#include <kernel/util/multitasking/task.h>
+#include <gfx/lib/view.h>
+#include <kernel/util/syscall/syscall.h>
 
 void print_os_name() {
 	terminal_settextcolor(COLOR_GREEN);
@@ -109,14 +113,30 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//set up software interrupts
 	printf_info("Initializing descriptor tables...");
 	init_descriptor_tables();
-	test_interrupts();
+	//test_interrupts();
 
 	printf_info("Initializing PIC timer...");
 	init_timer(1000);
 
 	printf_info("Initializing paging...");
 	initialize_paging();
+
+	initialize_syscalls();
+	initialize_tasking();
+
+	//create new process in new address space which is a clone of this
+	/*int ret = fork();
+	printf_info("--- forked ---");
+	printf_info("fork(): %x", ret);
+	printf_info("getpid(): %x", getpid());*/	
+	//sleep(500);
 	
+	init_kb();
+	initialize_mouse();
+
+	while (1) { printf("%c", getchar()); }
+
+/*
 	printf_info("Initializing keyboard driver...");
 	init_kb();
 
@@ -129,7 +149,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	initialize_info_panel();
 
 	//force_page_fault();
-	//force_hardware_irq();
+	//force_hardware_irq();	
 	
 	//give user a chance to stay in verbose boot
 	printf("Press any key to stay in shell mode. Continuing in     ");
@@ -181,6 +201,14 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	add_sublabel(window->content_view, label);
 
 	while (1) {}
+=======
+*/
+	asm volatile("sti");
+	return 0;
+/*
+	init_shell();
+	shell_loop(); 
+*/
 }
 
 
