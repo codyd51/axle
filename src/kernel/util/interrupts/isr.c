@@ -202,9 +202,9 @@ void pic_acknowledge(unsigned int interrupt) {
 	}
 
 	if (interrupt < PIC2_START_INTERRUPT) {
-		outb(PIC1_PORT_A, PIC_ACK);
+		outb(PIC2_PORT_A, PIC_ACK);
 	}
-	else outb(PIC2_PORT_A, PIC_ACK);
+	outb(PIC1_PORT_A, PIC_ACK);
 }
 
 //gets called from ASM interrupt handler stub
