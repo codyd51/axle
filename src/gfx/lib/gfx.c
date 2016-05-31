@@ -10,13 +10,68 @@
 #include <kernel/drivers/vesa/vesa.h>
 #include "color.h"
 
+void image_teardown(Image* image) {
+	kfree(image->bitmap);
+	kfree(image);
+}
+
+void label_teardown(Label* label) {
+	kfree(label->text);
+	kfree(label);
+}
+
+void view_teardown(View* view) {
+	for (int i = 0; i < view->subviews.size; i++) {
+		View* view = (View*)array_m_lookup(i, &(view->subviews));
+		view_teardown(view);
+	}
+	//free subviews array
+	array_m_destroy(&(view->subviews));
+
+	for (int i = 0; i < view->labels.size; i++) {
+		Label* label = (Label*)array_m_lookup(i, &(view->labels));
+		label_teardown(label);
+	}
+	//free sublabels
+	array_m_destroy(&(view->labels));
+
+	for (int i = 0; i < view->images.size; i++) {
+		Image* image = (Image*)array_m_lookup(i, &(view->images));
+		image_teardown(image);
+	}
+	//free subimages
+	array_m_destroy(&(view->images));
+	
+	//finally, free view itself
+	kfree(view);
+}
+
+void window_teardown(Window* window) {
+	for (int i = 0; i < window->subwindows.size; i++) {
+		Window* window = (Window*)array_m_lookup(i, &(window->subwindows));
+		window_teardown(window);
+	}
+	//free subwindows array
+	array_m_destroy(&(window->subwindows));
+
+	//free the views associated with this window
+	view_teardown(window->title_view);
+	view_teardown(window->content_view);
+
+	//free title field
+	kfree(window->title);
+
+	//finally, free window itself
+	kfree(window);
+}
+
 void gfx_teardown(Screen* screen) {
 	//stop refresh loop for this screen
 	remove_callback(screen->callback);
 
 	//free screen
 	kfree(screen->vmem);
-	kfree(screen->window);
+	window_teardown(screen->window);
 	kfree(screen);
 }
 
