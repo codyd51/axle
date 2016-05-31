@@ -8,6 +8,7 @@
 #include <std/kheap.h>
 #include <std/memory.h>
 #include <lib/iberty/iberty.h>
+#include <tests/test.h>
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
@@ -207,7 +208,7 @@ void startx_command(int argc, char **argv) {
 	test_xserv(vesa_screen);
 }
 
-void init_shell() {
+void shell_init() {
 	//set shell color
 	terminal_settextcolor(COLOR_GREEN);
 	
@@ -223,6 +224,7 @@ void init_shell() {
 	add_new_command("shutdown", "Shutdown PC", shutdown_command);
 	add_new_command("gfxtest", "Run graphics tests", test_gfx);
 	add_new_command("startx", "Start window manager", startx_command);
+	add_new_command("heap", "Run heap test", test_heap);
 	add_new_command("", "", empty_command);
 }
 

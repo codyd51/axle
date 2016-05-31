@@ -14,7 +14,8 @@ static void* syscalls[2] = {
 };
 uint32_t num_syscalls = 2;
 
-void initialize_syscalls() {
+void syscall_install() {
+	printf_info("Initializing syscalls...");
 	register_interrupt_handler(0x80, &syscall_handler);
 }
 

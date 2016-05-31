@@ -18,7 +18,7 @@ typedef struct task {
 } task_t;
 
 //initializes tasking system
-void initialize_tasking();
+void tasking_install();
 
 //called by timer
 //changes running process

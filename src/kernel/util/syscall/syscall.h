@@ -3,7 +3,7 @@
 
 #include <std/std.h>
 
-void initialize_syscalls();
+void syscall_install();
 
 #define DECL_SYSCALL0(fn) int syscall_##fn();
 #define DECL_SYSCALL1(fn, p1) int syscall_##fn(p1);

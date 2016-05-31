@@ -2,5 +2,5 @@
 
 char getchar();
 int haskey();
-void init_kb();
+void kb_install();
 char toupper_special(char character);

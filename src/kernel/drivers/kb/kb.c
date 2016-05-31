@@ -64,7 +64,7 @@ void add_character_to_buffer(char ch) {
 	kb_buffer[strlen(kb_buffer)] = ch;
 }
 
-void kb_interrupt_recieved(registers_t regs) {
+void kb_callback(registers_t regs) {
 	static unsigned char c = 0;
 	
 	//read from keyboard's data buffer
@@ -154,8 +154,9 @@ char toupper_special(char character) {
 	}
 }
 
-void init_kb() {
-	register_interrupt_handler(IRQ1, &kb_interrupt_recieved);
+void kb_install() {
+	printf_info("Initializing keyboard driver...");
+	register_interrupt_handler(IRQ1, &kb_callback);
 }
 
 int haskey() {

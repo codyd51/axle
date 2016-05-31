@@ -34,7 +34,7 @@ typedef struct page_directory {
 
 //sets up environment, page directories, etc
 //and, enables paging
-void initialize_paging();
+void paging_install();
 
 //causes passed page directory to be loaded into 
 //CR3 register

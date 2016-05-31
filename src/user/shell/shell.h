@@ -9,5 +9,5 @@ typedef struct {
 } command_table_t;
 
 void add_new_command(char* name, char* description, void* function);
-void init_shell();
+void shell_init();
 int shell();

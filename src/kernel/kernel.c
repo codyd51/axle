@@ -86,7 +86,8 @@ void info_panel_refresh() {
 	set_cursor(pos);
 }
 
-void initialize_info_panel() {
+void info_panel_install() {
+	printf_info("Installing text-mode info panel...");
 	timer_callback info_callback = add_callback(info_panel_refresh, 1, 1, NULL);
 }
 
@@ -111,35 +112,29 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	printf_info("Available memory:");
 	printf("%d -> %dMB\n", mboot_ptr->mem_upper, (mboot_ptr->mem_upper/1024));
 	
-	//set up software interrupts
-	printf_info("Initializing descriptor tables...");
-	init_descriptor_tables();
+	gdt_install();
+	idt_install();
 	//test_interrupts();
 
-	printf_info("Initializing PIC timer...");
-	init_timer(1000);
+	pit_install(1000);
 
-	printf_info("Initializing paging...");
-	initialize_paging();
+	paging_install();
 
-	printf_info("Initializing syscalls...");
-	initialize_syscalls();
+	syscall_install();
 
-	printf_info("Initializing tasking...");
-	initialize_tasking();
+	tasking_install();
 	
-	printf_info("Initializing keyboard driver...");
-	init_kb();
+	kb_install();
 
 	test_heap();	
 
 	//set up info panel
-	initialize_info_panel();
+	info_panel_install();
 
 	//force_page_fault();
 	//force_hardware_irq();	
 
-	init_shell();
+	shell_init();
 	shell_loop();
 
 	while (1) {}

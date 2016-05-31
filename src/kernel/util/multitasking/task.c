@@ -24,7 +24,9 @@ static void switch_callback() {
 	switch_task();
 }
 
-void initialize_tasking() {
+void tasking_install() {
+	printf_info("Initializing tasking...");
+	
 	asm volatile("cli");
 	
 	//relocate stack so we know where it is
