@@ -26,6 +26,7 @@ void init_descriptor_tables() {
 	init_gdt();
 	init_idt();
 	memset(&interrupt_handlers, 0, sizeof(isr_t)*256);
+	isr_install_default();
 }
 
 static void init_gdt() {

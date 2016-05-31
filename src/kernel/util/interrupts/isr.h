@@ -32,5 +32,6 @@ typedef struct registers {
 //as first parameter
 typedef void (*isr_t)(registers_t*);
 void register_interrupt_handler(uint8_t n, isr_t handler);
+void isr_install_default();
 
 #endif
