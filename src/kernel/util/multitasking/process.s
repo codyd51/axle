@@ -43,7 +43,7 @@ perform_task_switch:
 	mov ebp, [esp+12]
 	mov esp, [esp+16]
 	mov cr3, eax
-	mov eax, 0x12345
+	mov eax, 0xDEADBEEF
 	sti
 	jmp ecx
 
