@@ -32,6 +32,9 @@ void array_o_insert(type_t item, ordered_array_t* array);
 //lookup item at index i
 type_t array_o_lookup(uint32_t i, ordered_array_t* array);
 
+//return index of item
+uint16_t array_o_index(type_t item, ordered_array_t* array);
+
 //deletes item at location i from the array
 void array_o_remove(uint32_t i, ordered_array_t* array);
 

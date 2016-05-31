@@ -34,6 +34,10 @@ type_t array_o_lookup(uint32_t i, ordered_array_t* array) {
 	return array_m_lookup(i, &(array->array));
 }
 
+uint16_t array_o_index(type_t item, ordered_array_t* array) {
+	return array_m_index(item, &(array->array));
+}
+
 void array_o_remove(uint32_t i, ordered_array_t* array) {
 	array_m_remove(i, &(array->array));
 	array->size = array->array.size;

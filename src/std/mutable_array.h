@@ -24,6 +24,9 @@ void array_m_insert(type_t item, mutable_array_t* array);
 //lookup item at index i
 type_t array_m_lookup(uint32_t i, mutable_array_t* array);
 
+//find index of item
+uint32_t array_m_index(type_t item, mutable_array_t* array);
+
 //deletes item at location i from the array
 void array_m_remove(uint32_t i, mutable_array_t* array);
 
