@@ -53,10 +53,14 @@ typedef struct view {
 } View;
 
 void add_subview(View* view, View* subview);
+void remove_subview(View* view, View* subview);
 void add_sublabel(View* view, Label* label);
+void remove_sublabel(View* view, Label* sublabel);
 void add_subimage(View* view, Image* image);
+void remove_subimage(View* view, Image* image);
 
 void add_subwindow(Window* window, Window* subwindow);
+void remove_subwindow(Window* window, Window* subwindow);
 
 Label* create_label(Rect frame, char* text);
 Image* create_image(Rect frame, uint32_t* bitmap);

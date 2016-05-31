@@ -67,8 +67,16 @@ void add_sublabel(View* view, Label* label) {
 	array_m_insert(label, &(view->labels));
 }
 
+void remove_sublabel(View* view, Label* label) {
+	array_m_remove(array_m_index(label, &(view->labels)), &(view->labels));
+}
+
 void add_subimage(View* view, Image* image) {
 	array_m_insert(image, &(view->images));
+}
+
+void remove_subimage(View* view, Image* image) {
+	array_m_remove(array_m_index(image, &(view->images)), &(view->images));
 }
 
 void add_subview(View* view, View* subview) {
@@ -76,7 +84,14 @@ void add_subview(View* view, View* subview) {
 	subview->superview = view;
 }
 
+void remove_subview(View* view, View* subview) {
+	array_m_remove(array_m_index(subview, &(view->subviews)), &(view->subviews));
+}
+
 void add_subwindow(Window* window, Window* subwindow) {
 	array_m_insert(subwindow, &(window->subwindows));
 }
 
+void remove_subwindow(Window* window, Window* subwindow) {
+	array_m_remove(array_m_index(subwindow, &(window->subwindows)), &(window->subwindows));
+}
