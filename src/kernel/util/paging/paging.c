@@ -145,7 +145,6 @@ void initialize_paging() {
 	uint32_t phys;
 	kernel_directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
 	memset(kernel_directory, 0, sizeof(page_directory_t));
-	//current_directory = kernel_directory;
 	kernel_directory->physicalAddr = (uint32_t)kernel_directory->tablesPhysical;
 
 	//identity map VESA LFB
@@ -203,8 +202,8 @@ void initialize_paging() {
 	printf_dbg("paging enabled");
 
 	//initialize kernel heap
-	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, 0xCFFFF000, 0, 0);
-	//expand(0x1000000, kheap);
+	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, KHEAP_START + KHEAP_MAX_ADDRESS, 0, 0);
+	expand(0x1000000, kheap);
 
 	current_directory = clone_directory(kernel_directory);
 	switch_page_directory(current_directory);
@@ -251,22 +250,29 @@ void page_fault(registers_t* regs) {
 	int reserved = regs->err_code & 0x8; //overwritten CPU-reserved bits of page entry?
 	int id = regs->err_code & 0x10; //caused by instruction fetch?
 
-	//output error message
-	printf("Page fault! ( ");
-	if (present) printf("present ");
-	if (rw) printf("read-only ");
-	if (us) printf("user-mode ");
-	if (reserved) printf("reserved ");
-	printf(") at 0x%x\n", faulting_address);
+	printf_err("Encountered page fault at %x. Info follows", faulting_address);
+
+	if (present) printf_err("Page was present");
+	else printf_err("Page was not present");
+	
+	if (rw) printf_err("Operation was a write");
+	else printf_err("Operation was a read");
+
+	if (us) printf_err("User mode");
+	else printf_err("Supervisor mode");
+
+	if (reserved) printf_err("Overwrote CPU-resereved bits of page entry");
+
+	if (id) printf_err("Faulted during instruction fetch");
 
 	if (regs->eip != faulting_address) {
-		printf_info("Page fault caused by executing unpaged memory");
+		printf_err("Page fault caused by executing unpaged memory");
 	} 
 	else {
-		printf_info("Page fault caused by reading unpaged memory");
+		printf_err("Page fault caused by reading unpaged memory");
 	}
 
-	PANIC("Page fault");
+	common_halt(&regs);
 }
 
 static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {

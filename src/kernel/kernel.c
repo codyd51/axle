@@ -16,6 +16,7 @@
 #include <kernel/util/multitasking/task.h>
 #include <gfx/lib/view.h>
 #include <kernel/util/syscall/syscall.h>
+#include <kernel/util/mutex/mutex.h>
 
 void print_os_name() {
 	terminal_settextcolor(COLOR_GREEN);
@@ -121,28 +122,17 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	printf_info("Initializing paging...");
 	initialize_paging();
 
-	initialize_syscalls();
-	initialize_tasking();
-
-	//create new process in new address space which is a clone of this
-	/*int ret = fork();
-	printf_info("--- forked ---");
-	printf_info("fork(): %x", ret);
-	printf_info("getpid(): %x", getpid());*/	
-	//sleep(500);
-	
-	init_kb();
+//	init_kb();
 	initialize_mouse();
 
 	while (1) { printf("%c", getchar()); }
 
-/*
-	printf_info("Initializing keyboard driver...");
-	init_kb();
+	printf_info("Initializing syscalls...");
+	initialize_syscalls();
 
-	printf_info("Initializing mouse...");
-	initialize_mouse();
-
+	printf_info("Initializing tasking...");
+	initialize_tasking();
+	
 	test_heap();	
 
 	//set up info panel
@@ -150,65 +140,14 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	//force_page_fault();
 	//force_hardware_irq();	
-	
-	//give user a chance to stay in verbose boot
-	printf("Press any key to stay in shell mode. Continuing in     ");
-	for (int i = 3; i > 0; i--) {
-		printf("\b\b\b\b%d...", i);
-		sleep(1000);
-		if (haskey()) {
-			//clear buffer
-			while (haskey()) {
-				getchar();
-			}
-			
-			init_shell();
-			shell_loop();
 
-			break;
-		}
-	}
-
-	//switch into VGA for boot screen
-	Screen* vga_screen = switch_to_vga();
-	
-	//display boot screen
-	vga_boot_screen(vga_screen);
-
-	gfx_teardown(vga_screen);
-	switch_to_text();
-
-	//switch to VESA for x serv
-	Screen* vesa_screen = switch_to_vesa();
-	
-	Rect r = rect_make(point_make(50, 50), size_make(400, 500));
-	Window* window = create_window(r);
-	add_subwindow(vesa_screen->window, window);
-
-	Rect image_frame = window->content_view->frame;
-	uint32_t* bitmap = kmalloc(image_frame.size.width * image_frame.size.height * sizeof(uint32_t));
-	
-	for (int i = 0; i < (image_frame.size.width * image_frame.size.height); i++) {
-		static uint32_t col = 0x0;
-		bitmap[i] = col;
-		col += 0x1;
-	}
-	
-	Image* image = create_image(image_frame, bitmap);
-	//add_subimage(window->content_view, image);
-	
-	Label* label = create_label(image_frame, "Lorem ipsum dolor sit amet consectetur apipiscing elit Donex purus arcu suscipit ed felis eu blandit blandit quam Donec finibus euismod lobortis Sed massa nunc malesuada ac ante eleifend dictum laoreet massa Aliquam nec dictum turpis pellentesque lacinia ligula Donec et tellus maximum dapibus justo auctor egestas sapien Integer venantis egesta malesdada Maecenas venenatis urna id posuere bibendum eros torto gravida ipsum sed tempor arcy andte ac odio Morbi elementum libero id velit bibendum auctor It sit amet ex eget urna venenatis laoreet Proin posuere urna nec ante tutum lobortis Cras nec elit tristique dolor congue eleifend");
-	add_sublabel(window->content_view, label);
+	init_shell();
+	shell_loop();
 
 	while (1) {}
-=======
-*/
+	
 	asm volatile("sti");
 	return 0;
-/*
-	init_shell();
-	shell_loop(); 
-*/
 }
 
 

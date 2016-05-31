@@ -10,13 +10,65 @@
 #include <kernel/drivers/vesa/vesa.h>
 #include "color.h"
 
+void image_teardown(Image* image) {
+	kfree(image->bitmap);
+	kfree(image);
+}
+
+void label_teardown(Label* label) {
+	kfree(label);
+}
+
+void view_teardown(View* view) {
+	for (int i = 0; i < view->subviews.size; i++) {
+		View* view = (View*)array_m_lookup(i, &(view->subviews));
+		view_teardown(view);
+	}
+	//free subviews array
+	array_m_destroy(&(view->subviews));
+
+	for (int i = 0; i < view->labels.size; i++) {
+		Label* label = (Label*)array_m_lookup(i, &(view->labels));
+		label_teardown(label);
+	}
+	//free sublabels
+	array_m_destroy(&(view->labels));
+
+	for (int i = 0; i < view->images.size; i++) {
+		Image* image = (Image*)array_m_lookup(i, &(view->images));
+		image_teardown(image);
+	}
+	//free subimages
+	array_m_destroy(&(view->images));
+	
+	//finally, free view itself
+	kfree(view);
+}
+
+void window_teardown(Window* window) {
+	for (int i = 0; i < window->subwindows.size; i++) {
+		Window* window = (Window*)array_m_lookup(i, &(window->subwindows));
+		window_teardown(window);
+	}
+	//free subwindows array
+	array_m_destroy(&(window->subwindows));
+
+	//free the views associated with this window
+	view_teardown(window->title_view);
+	view_teardown(window->content_view);
+
+	//finally, free window itself
+	kfree(window);
+}
+
 void gfx_teardown(Screen* screen) {
 	//stop refresh loop for this screen
 	remove_callback(screen->callback);
 
 	//free screen
 	kfree(screen->vmem);
-	kfree(screen->window);
+	kfree(screen->font);
+	window_teardown(screen->window);
 	kfree(screen);
 }
 
@@ -61,7 +113,6 @@ void write_screen(Screen* screen) {
 
 void rainbow_animation(Screen* screen, Rect r) {
 	//ROY G BIV
-	//int colors[] = {0xFF0000, 0xFF7000, 0xFFFF00, 0x00FF00, 0x0000FF, 0x4B0082, 0x9400D3};
 	int colors[] = {4, 42, 44, 46, 1, 13, 34};
 	for (int i = 0; i < 7; i++) {
 		Coordinate origin = point_make(r.origin.x + (r.size.width / 7) * i, r.origin.y);
@@ -91,9 +142,9 @@ void vga_boot_screen(Screen* screen) {
 
 	Coordinate lab_origin = point_make(screen->window->size.width / 2 - 35, screen->window->size.height * 0.6);
 	Size lab_size = size_make((10 * strlen("axle os")), 12);
-	//Label* label = create_label(rect_make(lab_origin, lab_size), "axle os");
-	//label->text_color = 2;
-	//draw_label(screen, label);
+	Label* label = create_label(rect_make(lab_origin, lab_size), "axle os");
+	label->text_color = color_make(2, 0, 0);
+	draw_label(screen, label);
 
 	float rect_length = screen->window->size.width / 3;
 	Coordinate origin = point_make((screen->window->size.width/2) - (rect_length / 2), screen->window->size.height / 4 * 3);

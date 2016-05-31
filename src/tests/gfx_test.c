@@ -161,8 +161,9 @@ void test_text(Screen* screen) {
 	Font* font = setup_font();
 
 	char* str = "Lorem ipsum dolor sit amet consectetur apipiscing elit Donex purus arcu suscipit ed felis eu blandit blandit quam Donec finibus euismod lobortis Sed massa nunc malesuada ac ante eleifend dictum laoreet massa Aliquam nec dictum turpis pellentesque lacinia ligula Donec et tellus maximum dapibus justo auctor egestas sapien Integer venantis egesta malesdada Maecenas venenatis urna id posuere bibendum eros torto gravida ipsum sed tempor arcy andte ac odio Morbi elementum libero id velit bibendum auctor It sit amet ex eget urna venenatis laoreet Proin posuere urna nec ante tutum lobortis Cras nec elit tristique dolor congue eleifend";
-
-	//draw_string(screen, font, str, 0, 0, 12);
+	Label* label = create_label(rect_make(point_make(0, 0), size_make(screen->window->size.width, screen->window->size.height)), str);
+	label->text_color = color_make(12, 0, 0);
+	draw_label(screen, label);
 }
 
 void draw_button(Screen* screen) {
@@ -183,37 +184,65 @@ void draw_button(Screen* screen) {
 	Coordinate p3 = point_make(origin.x + sz.width * 0.4, origin.y + sz.height * 0.5);
 	Triangle tri = triangle_make(p1, p2, p3);
 	draw_triangle(screen, tri, color_make(15, 0, 0), 1);
-
-	//draw_string(screen, font, "Play", p3.x + 5, p3.y - 4, 3);
+	
+	Rect label_rect = rect_make(point_make(p3.x + 5, p3.y - (8 / 2)), size_make(in_rect.size.width, in_rect.size.height));
+	Label* play_label = create_label(label_rect, "Play");
+	play_label->text_color = color_make(1, 0, 0);
+	draw_label(screen, play_label);
 }
 
 void test_gfx(int argc, char **argv) {
+	int delay = 500;
+	
 	Screen* screen = switch_to_vga();
 
 	fill_screen(screen, color_make(2, 0, 0));
 
 	draw_button(screen);
-	sleep(2000);
+	sleep(delay);
 
 	test_lines(screen);
-	sleep(2000);
+	sleep(delay);
 
 	test_circles(screen);
-	sleep(2000);
+	sleep(delay);
 
 	test_rects(screen);
-	sleep(2000);
+	sleep(delay);
 
 	test_triangles(screen);
-	sleep(2000);
+	sleep(delay);
 
 	test_text(screen);
-	sleep(2000);
+	sleep(delay);
 
 	draw_julia(screen);
-	sleep(2000);
-draw_mandelbrot(screen); sleep(2000);
+	sleep(delay);
+	
+	draw_mandelbrot(screen);
+	sleep(delay);
 
 	gfx_teardown(screen);
 	switch_to_text();
 }
+
+void test_xserv(Screen* vesa_screen) {
+	Rect r = rect_make(point_make(50, 50), size_make(400, 500));
+	Window* window = create_window(r);
+	add_subwindow(vesa_screen->window, window);
+
+	Rect image_frame = window->content_view->frame;
+	uint32_t* bitmap = kmalloc(image_frame.size.width * image_frame.size.height * sizeof(uint32_t));
+	
+	for (int i = 0; i < (image_frame.size.width * image_frame.size.height); i++) {
+		static uint32_t col = 0x0;
+		bitmap[i] = col;
+		col += 0x1;
+	}
+	
+	Image* image = create_image(image_frame, bitmap);
+	//add_subimage(window->content_view, image);
+	
+	Label* label = create_label(image_frame, "Lorem ipsum dolor sit amet consectetur apipiscing elit Donex purus arcu suscipit ed felis eu blandit blandit quam Donec finibus euismod lobortis Sed massa nunc malesuada ac ante eleifend dictum laoreet massa Aliquam nec dictum turpis pellentesque lacinia ligula Donec et tellus maximum dapibus justo auctor egestas sapien Integer venantis egesta malesdada Maecenas venenatis urna id posuere bibendum eros torto gravida ipsum sed tempor arcy andte ac odio Morbi elementum libero id velit bibendum auctor It sit amet ex eget urna venenatis laoreet Proin posuere urna nec ante tutum lobortis Cras nec elit tristique dolor congue eleifend");
+	add_sublabel(window->content_view, label);
+}	

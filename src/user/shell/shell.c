@@ -189,6 +189,24 @@ void shutdown_command(int argc, char **argv) {
 
 }
 
+void startx_command(int argc, char **argv) {
+	printf_info("Press 'q' to exit");
+	sleep(500);
+
+	//switch into VGA for boot screen
+	Screen* vga_screen = switch_to_vga();
+	
+	//display boot screen
+	vga_boot_screen(vga_screen);
+
+	gfx_teardown(vga_screen);
+	switch_to_text();
+
+	//switch to VESA for x serv
+	Screen* vesa_screen = switch_to_vesa();
+	test_xserv(vesa_screen);
+}
+
 void init_shell() {
 	//set shell color
 	terminal_settextcolor(COLOR_GREEN);
@@ -204,6 +222,7 @@ void init_shell() {
 	add_new_command("snake", "Have some fun!", snake_command);
 	add_new_command("shutdown", "Shutdown PC", shutdown_command);
 	add_new_command("gfxtest", "Run graphics tests", test_gfx);
+	add_new_command("startx", "Start window manager", startx_command);
 	add_new_command("", "", empty_command);
 }
 
