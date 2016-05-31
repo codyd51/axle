@@ -142,7 +142,6 @@ task_t* scheduler_lottery() {
 	i++;
 	if (i == 1000) {
 		i = 0;
-	//	printf("num_tickets: %d\n", num_tickets);
 	}
 
 	//generate winning ticket of this lottery
@@ -198,19 +197,6 @@ void switch_task() {
 
 	//switch over kernel stack
 	set_kernel_stack(current_task->kernel_stack + KERNEL_STACK_SIZE);
-
-	static int count = 0;
-	static int count2 = 0;
-	if (current_task->id == 1) count++;
-	else count2++;
-
-	if (count > 1000 || count2 > 1000) {
-		printf("count: %d\n", count);
-		printf("count2: %d\n", count2);
-
-		count = 0;
-		count2 = 0;
-	}
 
 	//stop interrupts
 	//temporarily put new eip in ecx
