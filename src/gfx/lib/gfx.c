@@ -16,7 +16,6 @@ void image_teardown(Image* image) {
 }
 
 void label_teardown(Label* label) {
-	kfree(label->text);
 	kfree(label);
 }
 
@@ -58,9 +57,6 @@ void window_teardown(Window* window) {
 	view_teardown(window->title_view);
 	view_teardown(window->content_view);
 
-	//free title field
-	kfree(window->title);
-
 	//finally, free window itself
 	kfree(window);
 }
@@ -71,6 +67,7 @@ void gfx_teardown(Screen* screen) {
 
 	//free screen
 	kfree(screen->vmem);
+	kfree(screen->font);
 	window_teardown(screen->window);
 	kfree(screen);
 }
@@ -116,7 +113,6 @@ void write_screen(Screen* screen) {
 
 void rainbow_animation(Screen* screen, Rect r) {
 	//ROY G BIV
-	//int colors[] = {0xFF0000, 0xFF7000, 0xFFFF00, 0x00FF00, 0x0000FF, 0x4B0082, 0x9400D3};
 	int colors[] = {4, 42, 44, 46, 1, 13, 34};
 	for (int i = 0; i < 7; i++) {
 		Coordinate origin = point_make(r.origin.x + (r.size.width / 7) * i, r.origin.y);

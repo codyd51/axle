@@ -16,9 +16,7 @@ Screen* switch_to_vga() {
 	int height = 200;
 
 	Screen* screen = (Screen*)kmalloc(sizeof(Screen));
-//	screen->window = create_window(rect_make(point_make(0, 0), size_make(width, height)));
-	screen->window->size.width = width;
-	screen->window->size.height = height;
+	screen->window = create_window(rect_make(point_make(0, 0), size_make(width, height)));
 	screen->depth = VGA_DEPTH;
 	screen->vmem = kmalloc(width * height * sizeof(uint8_t));
 	screen->physbase = VRAM_START;
