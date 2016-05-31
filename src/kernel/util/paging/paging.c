@@ -145,7 +145,6 @@ void initialize_paging() {
 	uint32_t phys;
 	kernel_directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
 	memset(kernel_directory, 0, sizeof(page_directory_t));
-	//current_directory = kernel_directory;
 	kernel_directory->physicalAddr = (uint32_t)kernel_directory->tablesPhysical;
 
 	//identity map VESA LFB
@@ -203,8 +202,8 @@ void initialize_paging() {
 	printf_dbg("paging enabled");
 
 	//initialize kernel heap
-	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, 0xDFFFF000, 0, 0);
-	expand(0x3000000, kheap);
+	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, KHEAP_START + KHEAP_MAX_ADDRESS, 0, 0);
+	expand(0x1000000, kheap);
 
 	current_directory = clone_directory(kernel_directory);
 	switch_page_directory(current_directory);

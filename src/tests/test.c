@@ -31,41 +31,22 @@ void test_interrupts() {
 	asm volatile("int $0x3");
 	asm volatile("int $0x4");
 }
-/*
-void test_vesa() {
-	printf_info("Testing VESA detection...");
-	
-	printf("Press any key to test graphics mode. Press any key to exit.\n");
-	getchar();
-	
-	vesa_mode_info* mode_info = get_vesa_screen();
-	
-	getchar();
-	switch_to_text();
-	printf_info("Back in text mode");
 
-	printf_dbg("attributes: %d", mode_info->attributes);
-	printf_dbg("granularity: %d", mode_info->granularity);
-	printf_dbg("winsize: %d", mode_info->win_size);
-	printf_dbg("pitch: %d", mode_info->pitch);
-	printf_dbg("x_res: %d, y_res: %d", mode_info->x_res, mode_info->y_res);
-	printf_dbg("red_base: %d, red_position: %d", mode_info->red_mask, mode_info->red_position);
-	printf_dbg("physbase: %x", mode_info->physbase);
-}
-*/
 void test_heap() {
-	printf_info("Testing heap's reallocation ability...");
+	printf_info("Testing heap...");
 
 	uint32_t a = kmalloc(8);
 	uint32_t b = kmalloc(8);
 	printf_dbg("a: %x, b: %x", a, b);
-
-	printf_info("Freeing test values");
 	kfree(a);
 	kfree(b);
 
 	uint32_t c = kmalloc(12);
 	printf_dbg("c: %x", c);
 	kfree(c);
-}
 
+	if (a == c) {
+		printf_info("Heap test passed");
+	}
+	else printf_err("Heap test failed, expected %x to be marked free", a);
+}
