@@ -43,19 +43,19 @@ void draw_view(Screen* screen, View* view) {
 
 	//draw any labels this view has
 	for (int i = 0; i < view->labels.size; i++) {
-		Label* label = (Label*)lookup_mutable_array(i, &(view->labels));
+		Label* label = (Label*)array_m_lookup(i, &(view->labels));
 		draw_label(screen, label);
 	}
 
 	//draw any images this view has
 	for (int i = 0; i < view->images.size; i++) {
-		Image* image = (Image*)lookup_mutable_array(i, &(view->images));
+		Image* image = (Image*)array_m_lookup(i, &(view->images));
 		draw_image(screen, image);
 	}
 
 	//draw each subview of this view
 	for (int i = 0; i < view->subviews.size; i++) {
-		View* subview = (View*)lookup_mutable_array(i, &(view->subviews));
+		View* subview = (View*)array_m_lookup(i, &(view->subviews));
 		draw_view(screen, subview);
 	}
 }
@@ -107,7 +107,7 @@ void draw_desktop(Screen* screen) {
 
 	//paint every child window
 	for (int i = 0; i < screen->window->subwindows.size; i++) {
-		Window* win = (Window*)(lookup_mutable_array(i, &(screen->window->subwindows)));
+		Window* win = (Window*)(array_m_lookup(i, &(screen->window->subwindows)));
 		draw_window(screen, win);
 	}
 }

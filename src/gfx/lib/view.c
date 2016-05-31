@@ -6,9 +6,9 @@ View* create_view(Rect frame) {
 	View* view = kmalloc(sizeof(View));
 	view->frame = frame;
 	view->background_color = color_make(0, 255, 0);
-	view->subviews = create_mutable_array(16);
-	view->labels = create_mutable_array(16);
-	view->images = create_mutable_array(16);
+	view->subviews = array_m_create(16);
+	view->labels = array_m_create(16);
+	view->images = array_m_create(16);
 	return view;
 }
 
@@ -39,7 +39,7 @@ Window* create_window(Rect frame) {
 	window->size = frame.size;
 	window->frame = frame;
 	window->border_color = color_make(0, 0, 255);
-	window->subwindows = create_mutable_array(16);
+	window->subwindows = array_m_create(16);
 	window->title = "Window";
 
 	window->title_view = create_title_view(window);
@@ -64,19 +64,19 @@ Image* create_image(Rect frame, uint32_t* bitmap) {
 }
 
 void add_sublabel(View* view, Label* label) {
-	insert_mutable_array(label, &(view->labels));
+	array_m_insert(label, &(view->labels));
 }
 
 void add_subimage(View* view, Image* image) {
-	insert_mutable_array(image, &(view->images));
+	array_m_insert(image, &(view->images));
 }
 
 void add_subview(View* view, View* subview) {
-	insert_mutable_array(subview, &(view->subviews));
+	array_m_insert(subview, &(view->subviews));
 	subview->superview = view;
 }
 
 void add_subwindow(Window* window, Window* subwindow) {
-	insert_mutable_array(subwindow, &(window->subwindows));
+	array_m_insert(subwindow, &(window->subwindows));
 }
 
