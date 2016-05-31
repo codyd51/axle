@@ -203,8 +203,8 @@ void initialize_paging() {
 	printf_dbg("paging enabled");
 
 	//initialize kernel heap
-	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, 0xCFFFF000, 0, 0);
-	expand(0x1000000, kheap);
+	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, 0xDFFFF000, 0, 0);
+	expand(0x3000000, kheap);
 
 	current_directory = clone_directory(kernel_directory);
 	switch_page_directory(current_directory);
