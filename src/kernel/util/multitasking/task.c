@@ -23,7 +23,7 @@ extern void perform_task_switch(uint32_t, uint32_t, uint32_t, uint32_t);
 uint32_t next_pid = 1;
 
 static void switch_callback() {
-	switch_task();
+	task_switch(0);
 }
 
 task_t* create_process(int priority) {
@@ -33,6 +33,7 @@ task_t* create_process(int priority) {
 	task->esp = task->ebp = 0;
 	task->eip = 0;
 	task->next = 0;
+	task->yielded = 0;
 	//assign tickets based on priority
 	switch (priority) {
 		case PRIO_HIGH:
@@ -157,11 +158,14 @@ task_t* scheduler_lottery() {
 	return tmp;
 }
 
-void switch_task() {
+void task_switch(char yielded) {
 	//if we haven't initialized tasking yet, just return
 	if (!current_task) {
 		return;
 	}
+
+	//set yielded flag on the active task for later reference
+	current_task->yielded = yielded;
 
 	//read esp, ebp for saving later on
 	uint32_t esp, ebp, eip;
@@ -174,7 +178,7 @@ void switch_task() {
 	//or, we just switched tasks, and because saved eip is essentially
 	//the instruction after read_eip(), it'll seem as if read_eip just returned
 	//in the second case we need to return immediately
-	//to detect it, put dummy value in eax
+	//to detect it, put dummy value (STACK_MAGIC) in eax
 	eip = read_eip();
 
 	//did we just switch tasks?

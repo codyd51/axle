@@ -2,17 +2,26 @@
 #include <kernel/util/interrupts/isr.h>
 #include <kernel/drivers/terminal/terminal.h>
 #include <kernel/drivers/pit/pit.h>
+#include <kernel/util/multitasking/task.h>
 
 static void syscall_handler(registers_t* regs);
 
+void yield() {
+	//TODO ensure PIT doesn't fire while we're here
+	//go to next task
+	task_switch(1);
+}
+
 DEFN_SYSCALL1(terminal_writestring, 0, const char*);
 DEFN_SYSCALL1(terminal_putchar, 1, char);
+DEFN_SYSCALL0(yield, 2);
 
-static void* syscalls[2] = {
+static void* syscalls[3] = {
 	&terminal_writestring,
 	&terminal_putchar,
+	&yield,
 };
-uint32_t num_syscalls = 2;
+uint32_t num_syscalls = 3;
 
 void syscall_install() {
 	printf_info("Initializing syscalls...");

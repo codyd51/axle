@@ -19,6 +19,7 @@ typedef struct task {
 	struct task* next; //next task in linked list
 	int tickets; //tickets this task holds for lottery
 	int priority; //priority associated with this task
+	char yielded; //did this task yield the last time it was ran?
 } task_t;
 
 //initializes tasking system
@@ -26,7 +27,7 @@ void tasking_install();
 
 //called by timer
 //changes running process
-void task_switch();
+void task_switch(char yielded);
 
 //forks current process
 //spawns new process with different memory space
