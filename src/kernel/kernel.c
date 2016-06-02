@@ -120,15 +120,15 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	paging_install();
 
-	while (1) { printf("%c", getchar()); }
-
 	syscall_install();
 	tasking_install();
 	
 	kb_install();
-	initialize_mouse();
+	mouse_install();
 
 	test_heap();	
+
+	while (1) {}
 
 	//set up info panel
 	info_panel_install();

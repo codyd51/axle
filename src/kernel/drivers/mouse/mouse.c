@@ -1,7 +1,6 @@
 #include "mouse.h"
 #include <kernel/util/interrupts/isr.h>
 #include <std/math.h>
-#include <gfx/lib/shapes.h>
 
 typedef unsigned char byte;
 typedef signed char sbyte;
@@ -82,7 +81,7 @@ byte mouse_read() {
 	return inb(0x60);
 }
 
-void initialize_mouse() {
+void mouse_install() {
 	byte status;
 
 	//enable mouse device
