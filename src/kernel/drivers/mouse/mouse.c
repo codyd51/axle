@@ -1,45 +1,47 @@
 #include "mouse.h"
 #include <kernel/util/interrupts/isr.h>
 #include <std/math.h>
+#include <gfx/lib/shapes.h>
 
 typedef unsigned char byte;
-typedef signed char sbyts;
+typedef signed char sbyte;
 typedef unsigned int dword;
 
-int running_x;
-int running_y;
+volatile int running_x = 0;
+volatile int running_y = 0;
 
-int mouse_x() {
-	return running_x;
-}
-int mouse_y() {
-	return running_y;
+Coordinate mouse_point() {
+	return point_make(running_x, running_y);
 }
 
 void update_mouse_position(int x, int y) {
 	running_x += x;
-	running_x = MIN(running_x, 500);
+	running_x = MAX(running_x, 0);
+	running_x = MIN(running_x, 319);
 	running_y += y;
-	running_y = MIN(running_y, 500);
+	running_y = MAX(running_y, 0);
+	running_y = MIN(running_y, 199);
 	printf_info("{%d,%d}", running_x, running_y);
 }
 
 void mouse_callback(registers_t* regs) {
-	static unsigned char cycle = 0;
-	static char mouse_bytes[3];
-	mouse_bytes[cycle++] = inb(0x60);
-	if (cycle == 3) {
-		//we have all 3 bytes
-		//reset counter
-		cycle = 0;
+	static sbyte mouse_byte[3];
+	static byte mouse_cycle = 0;
 
-		if ((mouse_bytes[0] & 0x80) || (mouse_bytes[0] & 0x40)) {
-			//mouse only sends overflow info
-			//we don't care about this
-			return;
-		}
-
-		update_mouse_position(mouse_bytes[1], mouse_bytes[2]);
+	switch (mouse_cycle) {
+		case 0:
+			mouse_byte[0] = inb(0x60);
+			mouse_cycle++;
+			break;
+		case 1:
+			mouse_byte[1] = inb(0x60);
+			mouse_cycle++;
+			break;
+		case 2:
+			mouse_byte[2] = inb(0x60);
+			update_mouse_position(mouse_byte[1], mouse_byte[2]);
+			mouse_cycle = 0;
+			break;
 	}
 }
 
