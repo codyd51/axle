@@ -1,6 +1,7 @@
 #include "kb.h"
 #include <kernel/kernel.h>
 #include <std/common.h>
+#include <std/std.h>
 #include <kernel/util/interrupts/isr.h>
 
 #define KBD_DATA_PORT 0x60
@@ -21,7 +22,7 @@ char kb_buffer[KBUF_SIZE] = "";
 *  whatever you want using a macro, if you wish! */
 unsigned char kbdus[128] =
 {
-		0,  27, '1', '2', '3', '4', '5', '6', '7', '8',	/* 9 */
+	0,  27, '1', '2', '3', '4', '5', '6', '7', '8',	/* 9 */
 	'9', '0', '-', '=', '\b',	/* Backspace */
 	'\t',			/* Tab */
 	'q', 'w', 'e', 'r',	/* 19 */
@@ -63,7 +64,7 @@ void add_character_to_buffer(char ch) {
 	kb_buffer[strlen(kb_buffer)] = ch;
 }
 
-void kb_interrupt_recieved(registers_t regs) {
+void kb_callback(registers_t regs) {
 	static unsigned char c = 0;
 	
 	//read from keyboard's data buffer
@@ -72,16 +73,20 @@ void kb_interrupt_recieved(registers_t regs) {
 
 		//if top byte we read from KB is set, 
 		//then a key was just released
-		if (c & 0x80) return;
-
+		if (c & 0x80) {
+			// If the key released was shift, then remove the mask
+			if ((c == 170 || c == 182) && (flags & shiftMask)) {
+				flags = flags ^ shiftMask;
+			}
+			return;
+		}
 		char mappedchar = kbdus[c];
 
 		//TODO scan to see if suer released shift/alt/control keys
 		flags = flags | keypressFinishedMask;
 
-		//if shift was just released, reset hasShift
-		c = c ^ 80;
-		if (c == 42 || c == 54) {
+		// If shift is detected and the mask hasn't been added, add it
+		if ((c == 42 || c == 54) && !(flags & shiftMask)) {
 			flags = flags ^ shiftMask;
 			return;
 		}
@@ -90,14 +95,68 @@ void kb_interrupt_recieved(registers_t regs) {
 		flags = flags ^ keypressFinishedMask;
 
 		if (flags & shiftMask) {
-			mappedchar = toupper(mappedchar);
+			if (toupper(mappedchar) == mappedchar) {
+				mappedchar = toupper_special(mappedchar);
+			} else {
+				mappedchar = toupper(mappedchar);
+			}
 		}
 		add_character_to_buffer(mappedchar);
 	}
 }
 
-void init_kb() {
-	register_interrupt_handler(IRQ1, &kb_interrupt_recieved);
+char toupper_special(char character) {
+	switch(character) {
+		case '`':
+			return '~';
+		case '1':
+			return '!';
+		case '2':
+			return '@';
+		case '3':
+			return '#';
+		case '4':
+			return '$';
+		case '5':
+			return '%';
+		case '6':
+			return '^';
+		case '7':
+			return '&';
+		case '8':
+			return '*';
+		case '9':
+			return '(';
+		case '0':
+			return ')';
+		case '-':
+			return '_';
+		case '=':
+			return '+';
+		case '[':
+			return '{';
+		case ']':
+			return '}';
+		case '\\':
+			return '|';
+		case ';':
+			return ':';
+		case '\'':
+			return '"';
+		case ',':
+			return '<';
+		case '.':
+			return '>';
+		case '/':
+			return '?';
+		default:
+			return character;
+	}
+}
+
+void kb_install() {
+	printf_info("Initializing keyboard driver...");
+	register_interrupt_handler(IRQ1, &kb_callback);
 }
 
 int haskey() {

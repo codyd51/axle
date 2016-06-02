@@ -2,30 +2,34 @@
 #include "kheap.h"
 #include <kernel/util/paging/paging.h>
 #include "std.h"
+#include <std/math.h>
+
+#define PAGE_SIZE 0x1000 /* 4kb page */
 
 //end is defined in linker script
 extern uint32_t end;
 uint32_t placement_address = (uint32_t)&end;
 
 extern page_directory_t* kernel_directory;
+extern page_directory_t* current_directory;
+
 heap_t* kheap = 0;
 
 uint32_t kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
 	//if the heap already exists, pass through
-	if (kheap != 0) {
+	if (kheap) {
 		void* addr = alloc(sz, (uint8_t)align, kheap);
-		if (phys != 0) {
+		if (phys) {
 			page_t* page = get_page((uint32_t)addr, 0, kernel_directory);
-			*phys = page->frame * 0x1000 + (uint32_t)addr & 0xFFF;
+			*phys = page->frame * PAGE_SIZE + ((uint32_t)addr & 0xFFF);
 		}
 		return (uint32_t)addr;
 	}
-
 	//if addr is not already page aligned
 	if (align == 1 && (placement_address & 0xFFFFF000)) {
 		//align it
 		placement_address &= 0xFFFFF000;
-       		placement_address += 0x1000;
+       		placement_address += PAGE_SIZE;
 	}
 	if (phys) {
 		*phys = placement_address;
@@ -60,14 +64,19 @@ static int32_t find_smallest_hole(uint32_t size, uint8_t align, heap_t* heap) {
 	//find smallest hole that will fit
 	uint32_t iterator = 0;
 	while (iterator < heap->index.size) {
-		header_t* header = (header_t*)lookup_ordered_array(iterator, &heap->index);
+		header_t* header = (header_t*)array_o_lookup(iterator, &heap->index);
+
+		//check if magic is valid
+		ASSERT(header->magic == HEAP_MAGIC, "invalid header magic");
+
 		//if user has requested memory be page aligned
+		//
 		if (align > 0) {
 			//page align starting point of header
 			uint32_t location = (uint32_t)header;
 			int32_t offset = 0;
-			if ((location + sizeof(header_t) & 0xFFFFF00) != 0) {
-				offset = 0x1000 - (location + sizeof(header_t)) % 0x1000;
+			if ((location + sizeof(header_t) & 0xFFFFF000) != 0) {
+				offset = PAGE_SIZE - ((location + sizeof(header_t)) % PAGE_SIZE);
 			}
 			
 			int32_t hole_size = (int32_t)header->size - offset;
@@ -96,19 +105,19 @@ heap_t* create_heap(uint32_t start, uint32_t end_addr, uint32_t max, uint8_t sup
 	heap_t* heap = (heap_t*)kmalloc(sizeof(heap_t));
 
 	//start and end MUST be page aligned
-	ASSERT(start % 0x1000 == 0);
-	ASSERT(end_addr % 0x1000 == 0);
+	ASSERT(start % PAGE_SIZE == 0, "start wasn't page aligned");
+	ASSERT(end_addr % PAGE_SIZE == 0, "end_addr wasn't page aligned");
 
 	//initialize index
-	heap->index = place_ordered_array((void*)start, HEAP_INDEX_SIZE, &header_t_less_than);
+	heap->index = array_o_place((void*)start, HEAP_INDEX_SIZE, &header_t_less_than);
 
 	//shift start address forward to resemble where we can start putting data
 	start += sizeof(type_t) * HEAP_INDEX_SIZE;
 
 	//make sure start is still page aligned)
-	if (start & 0xFFFFF000 != 0) {
+	if ((start & 0xFFFFF000) != 0) {
 		start &= 0xFFFFF000;
-		start += 0x1000;
+		start += PAGE_SIZE;
 	}
 
 	//write start, end, and max addresses into heap structure
@@ -124,50 +133,51 @@ heap_t* create_heap(uint32_t start, uint32_t end_addr, uint32_t max, uint8_t sup
 	hole->size = end_addr - start;
 	hole->magic = HEAP_MAGIC;
 	hole->hole = 1;
-	insert_ordered_array((void*)hole, &heap->index);
+	array_o_insert((void*)hole, &heap->index);
 
 	return heap;
 }
 
-static void expand(uint32_t new_size, heap_t* heap) {
+void expand(uint32_t new_size, heap_t* heap) {
 	//sanity check
-	ASSERT(new_size > heap->end_address - heap->start_address);
+	ASSERT(new_size > heap->end_address - heap->start_address, "new_size was larger than heap");
 	//get nearest page boundary
-	if (new_size & 0xFFFFF000 != 0) {
+	if ((new_size & 0xFFFFF000) != 0) {
 		new_size &= 0xFFFFF000;
-		new_size += 0x1000;
+		new_size += PAGE_SIZE;
 	}
 
 	//make sure we're not overreaching ourselves!
-	ASSERT(heap->start_address + new_size <= heap->max_address);
+	ASSERT(heap->start_address + new_size <= heap->max_address, "heap would exceed max capacity");
 
 	//this *should* always be on a page boundary
 	uint32_t old_size = heap->end_address - heap->start_address;
 	uint32_t i = old_size;
 	while (i < new_size) {
-		alloc_frame(get_page(heap->start_address + i, 1, kernel_directory), (heap->supervisor) ? 1 : 0, (heap->readonly) ? 0 : 1);
-		i += 0x1000;
+		alloc_frame(get_page(heap->start_address + i, 1, current_directory == 0 ? kernel_directory : current_directory), (heap->supervisor) ? 1 : 0, (heap->readonly) ? 0 : 1);
+		i += PAGE_SIZE;
 	}
 	heap->end_address = heap->start_address + new_size;
 }
 
 static uint32_t contract(uint32_t new_size, heap_t* heap) {
 	//sanity check
-	ASSERT(new_size < heap->end_address - heap->start_address);
+	ASSERT(new_size < heap->end_address - heap->start_address, "new_size was larger than heap");
 
 	//get nearest page boundary
-	if (new_size & 0x1000) {
-		new_size &= 0x1000;
-		new_size += 0x1000;
+	if (new_size & PAGE_SIZE) {
+		new_size &= PAGE_SIZE;
+		new_size += PAGE_SIZE;
 	}
 
 	//don't contract too far
-	if (new_size < HEAP_MIN_SIZE) new_size = HEAP_MIN_SIZE;
+	new_size = MAX(new_size, HEAP_MIN_SIZE);
+	
 	uint32_t old_size = heap->end_address - heap->start_address;
-	uint32_t i = old_size - 0x1000;
+	uint32_t i = old_size - PAGE_SIZE;
 	while (new_size < i) {
-		free_frame(get_page(heap->start_address + i, 0, kernel_directory));
-		i -= 0x1000;
+		free_frame(get_page(heap->start_address + i, 0, current_directory == 0 ? kernel_directory : current_directory));
+		i -= PAGE_SIZE;
 	}
 	heap->end_address = heap->start_address + new_size;
 	return new_size;
@@ -196,7 +206,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		uint32_t idx = -1;
 		uint32_t val = 0x0;
 		while (iterator < heap->index.size) {
-			uint32_t tmp = (uint32_t)lookup_ordered_array(iterator, &heap->index);
+			uint32_t tmp = (uint32_t)array_o_lookup(iterator, &heap->index);
 			if (tmp > val) {
 				val = tmp;
 				idx = iterator;
@@ -214,11 +224,11 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 			footer_t* footer = (footer_t*)(old_end_address + header->size - sizeof(footer_t));
 			footer->magic = HEAP_MAGIC;
 			footer->header = header;
-			insert_ordered_array((void*)header, &heap->index);
+			array_o_insert((void*)header, &heap->index);
 		}
 		else {
 			//last header needs adjusting
-			header_t* header = lookup_ordered_array(idx, &heap->index);
+			header_t* header = array_o_lookup(idx, &heap->index);
 			header->size += new_length - old_length;
 
 			//rewrite footer
@@ -232,7 +242,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		return alloc(size, align, heap);
 	}
 
-	header_t* orig_hole_header = (header_t*)lookup_ordered_array(iterator, &heap->index);
+	header_t* orig_hole_header = (header_t*)array_o_lookup(iterator, &heap->index);
 	uint32_t orig_hole_pos = (uint32_t)orig_hole_header;
 	uint32_t orig_hole_size = orig_hole_header->size;
 
@@ -248,9 +258,9 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 	//if it needs to be page aligned, do it now and
 	//make a new hole in front of our block
 	if (align && orig_hole_pos & 0xFFFFF000) {
-		uint32_t new_location = orig_hole_pos + 0x1000 - (orig_hole_pos & 0xFFF) - sizeof(header_t);
+		uint32_t new_location = orig_hole_pos + PAGE_SIZE - (orig_hole_pos & 0xFFF) - sizeof(header_t);
 		header_t* hole_header = (header_t*)orig_hole_pos;
-		hole_header->size = 0x1000 - (orig_hole_pos & 0xFFF) - sizeof(header_t);
+		hole_header->size = PAGE_SIZE - (orig_hole_pos & 0xFFF) - sizeof(header_t);
 		hole_header->magic = HEAP_MAGIC;
 		hole_header->hole = 1;
 		footer_t* hole_footer = (footer_t*)((uint32_t)new_location - sizeof(footer_t));
@@ -261,7 +271,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 	}
 	else {
 		//we don't need this hole any more, delete it from index
-		remove_ordered_array(iterator, &heap->index);
+		array_o_remove(iterator, &heap->index);
 	}
 
 	//overwrite original header
@@ -290,7 +300,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		}
 
 		//put new hole in index
-		insert_ordered_array((void*)hole_header, &heap->index);
+		array_o_insert((void*)hole_header, &heap->index);
 	}
 
 	return (void*)((uint32_t)block_header + sizeof(header_t));
@@ -304,8 +314,8 @@ void free(void* p, heap_t* heap) {
 	footer_t* footer = (footer_t*)((uint32_t)header + header->size - sizeof(footer_t));
 
 	//ensure these are valid
-	ASSERT(header->magic == HEAP_MAGIC);
-	ASSERT(footer->magic == HEAP_MAGIC);
+	ASSERT(header->magic == HEAP_MAGIC, "invalid header magic");
+	ASSERT(footer->magic == HEAP_MAGIC, "invalid footer magic");
 
 	//turn this into a hole
 	header->hole = 1;
@@ -334,14 +344,28 @@ void free(void* p, heap_t* heap) {
 
 		//find and remove this header from index
 		uint32_t iterator = 0;
-		while ((iterator < heap->index.size) && (lookup_ordered_array(iterator, &heap->index) != (void*)test_header)) {
+		while ((iterator < heap->index.size) && (array_o_lookup(iterator, &heap->index) != (void*)test_header)) {
 			iterator++;
 		}
 
 		//ensure we actually found the item
-		ASSERT(iterator < heap->index.size);
-		//remove it
-		remove_ordered_array(iterator, &heap->index);
+		ASSERT(iterator < heap->index.size, "couldn't find item!");
+
+		//header is fake, delete it and process as if there was nothing
+		if (iterator > heap->index.size) {
+			//delete fake header
+			test_header->magic = 0;
+			test_header->hole = 1;
+		}
+		else {
+			//everything was normal
+			//increase size
+			header->size += test_header->size;
+			test_footer = (footer_t*)((uint32_t)test_header + test_header->size - sizeof(footer_t));
+			footer = test_footer;
+			//remove it
+			array_o_remove(iterator, &heap->index);
+		}
 	}
 
 	//if footer location is the end address, we can contract
@@ -360,19 +384,19 @@ void free(void* p, heap_t* heap) {
 			//we no longer exist
 			//remove us from index
 			uint32_t iterator = 0;
-			while ((iterator < heap->index.size) && (lookup_ordered_array(iterator, &heap->index) != (void*)test_header)) {
+			while ((iterator < heap->index.size) && (array_o_lookup(iterator, &heap->index) != (void*)test_header)) {
 				iterator++;
 			}
 
 			//if we didn't find ourselves, we have nothing to remove
 			if (iterator < heap->index.size) {
-				remove_ordered_array(iterator, &heap->index);
+				array_o_remove(iterator, &heap->index);
 			}
 		}
 	}
 
 	if (add = 1) {
-		insert_ordered_array((void*)header, &heap->index);
+		array_o_insert((void*)header, &heap->index);
 	}
 }
 

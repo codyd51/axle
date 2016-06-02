@@ -96,24 +96,6 @@ void handle_general_protection_fault(registers_t regs) {
 	common_halt(regs);
 }
 
-void handle_page_fault(registers_t regs) {
-	//TODO cr2 holds address that caused the fault
-	printf_err("Encountered page fault. Info follows");
-
-	if (regs.err_code & 0x000F) printf_err("Page was present");
-	else printf_err("Page was not present");
-	
-	if (regs.err_code & 0x00F0) printf_err("Operation was a write");
-	else printf_err("Operation was a read");
-
-	if (regs.err_code & 0x0F00) printf_err("User mode");
-	else printf_err("Supervisor mode");
-
-	if (regs.err_code & 0xF000) printf_err("Faulted during instruction fetch");
-
-	common_halt(regs);
-}
-
 void handle_floating_point_exception(registers_t regs) {
 	printf_err("Floating point exception");
 	common_halt(regs);
@@ -134,61 +116,38 @@ void handle_virtualization_exception(registers_t regs) {
 	common_halt(regs);
 }
 
-//gets called from ASM interrupt handler stub
-void isr_handler(registers_t regs) {
-	printf_info("recieved interrupt: %d err code: %d", regs.int_no, regs.err_code);
+isr_t interrupt_handlers[256];
 
-	switch (regs.int_no) {
-		case 0:
-			handle_divide_by_zero(regs);
-			break;
-		case 5:
-			handle_bound_range_exceeded(regs);
-			break;
-		case 6:
-			handle_invalid_opcode(regs);
-			break;
-		case 7:
-			handle_device_not_available(regs);
-			break;
-		case 8:
-			handle_double_fault(regs);
-			break;
-		case 10:
-			handle_invalid_tss(regs);
-			break;
-		case 11:
-			handle_segment_not_present(regs);
-			break;
-		case 12:
-			handle_stack_segment_fault(regs);
-			break;
-		case 13:
-			handle_general_protection_fault(regs);
-			break;
-		case 14:
-			handle_page_fault(regs);
-			break;
-		case 16:
-		case 19:
-			handle_floating_point_exception(regs);
-			break;
-		case 17:
-			handle_alignment_check(regs);
-			break;
-		case 18:
-			handle_machine_check(regs);
-			break;
-		case 20:
-			handle_virtualization_exception(regs);
-			break;
-		case 128:
-			printf_info("Got syscall");
-			break;
-	}
+void isr_install_default() {
+	register_interrupt_handler(0, &handle_divide_by_zero);
+	register_interrupt_handler(5, &handle_bound_range_exceeded);
+	register_interrupt_handler(6, &handle_invalid_opcode);
+	register_interrupt_handler(7, &handle_device_not_available);
+	register_interrupt_handler(8, &handle_double_fault);
+	register_interrupt_handler(10, &handle_invalid_tss);
+	register_interrupt_handler(11, &handle_segment_not_present);
+	register_interrupt_handler(12, &handle_stack_segment_fault);
+	register_interrupt_handler(13, &handle_general_protection_fault);
+	register_interrupt_handler(16, &handle_floating_point_exception);
+	register_interrupt_handler(19, &handle_floating_point_exception);
+	register_interrupt_handler(17, &handle_alignment_check);
+	register_interrupt_handler(18, &handle_machine_check);
+	register_interrupt_handler(20, &handle_virtualization_exception);
 }
 
-isr_t interrupt_handlers[256];
+//gets called from ASM interrupt handler stub
+void isr_handler(registers_t regs) {
+	interrupt_handlers[13] = handle_general_protection_fault;
+	uint8_t int_no = regs.int_no & 0xFF;
+	if (interrupt_handlers[int_no] != 0) {
+		isr_t handler = interrupt_handlers[int_no];
+		handler(&regs);
+	}
+	else {
+		printf_err("Unhandled interrupt: %x", int_no);
+		common_halt(regs);
+	}
+}
 
 void register_interrupt_handler(uint8_t n, isr_t handler) {
 	interrupt_handlers[n] = handler;
@@ -216,9 +175,9 @@ void pic_acknowledge(unsigned int interrupt) {
 
 //gets called from ASM interrupt handler stub
 void irq_handler(registers_t regs) {
+	pic_acknowledge(regs.int_no);
 	if (interrupt_handlers[regs.int_no] != 0) {
 		isr_t handler = interrupt_handlers[regs.int_no];
-		handler(regs);
+		handler(&regs);
 	}
-	pic_acknowledge(regs.int_no);
 }

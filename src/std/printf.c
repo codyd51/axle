@@ -108,10 +108,83 @@ void vprintf(char* format, va_list va) {
 		}
 	}
 }
+
+char* vsprintf(char* format, va_list va) {
+	char bf[24];
+	char ch;
+
+	char* ret = "";
+
+	while ((ch = *(format++)) != 0) {
+		if (ch != '%') {
+			strccat(ret, ch);	
+		}
+		else {
+			char zero_pad = 0;
+			char* ptr;
+			unsigned int len;
+
+			ch = *(format++);
+
+			//zero padding requested
+			if (ch == '0') {
+				ch = *(format++);
+				if (ch == '\0') return;
+				if (ch >= '0' && ch <= '9') {
+					zero_pad = ch - '0';
+				}
+				ch = *(format++);
+			}
+
+			switch (ch) {
+				case 0:
+					return;
+
+				case 'u':
+				case 'd':
+					itoa(va_arg(va, unsigned int), bf);
+					strcat(format, bf);
+					break;
+
+				case 'x':
+				case 'X':
+					//printf_hex(va_arg(va, uint32_t));
+					//itoa(convert(va_arg(va, unsigned int), 16), bf);
+					//terminal_writestring(bf);
+					break;
+
+				case 'c':
+					strccat(ret, (char)(va_arg(va, int)));
+					break;
+
+				case 's':
+					ptr = va_arg(va, char*);
+					strcat(ret, ptr);
+					break;
+				case '*':
+
+				default:
+					strccat(ret, ch);
+					break;
+			}
+		}
+	}
+	return ret;
+}
+
+
 void printf(char* format, ...) {
 	va_list arg;
 	va_start(arg, format);
 	vprintf(format, arg);
+	va_end(arg);
+}
+
+void sprintf(char* str, char* format, ...) {
+	printf_dbg("format: %s", format);
+	va_list arg;
+	va_start(arg, format);
+	strcat(str, vsprintf(format, arg));
 	va_end(arg);
 }
 

@@ -3,13 +3,13 @@ axle
 
 axle is a small UNIX-like hobby operating system. It uses GRUB as its bootloader, but everything else is built up from scratch. We run C on 'bare metal', meaning we do not even have a standard library. Everything used is implemented within axle.
 
-axle is interfaced through a shell. Experimental graphics support is implemented and used in VGA mode. 
+axle is interfaced through a shell. VGA and higher-resolution VESA drivers are available, along with a small graphics library supporting both modes. A small window manager is also provided.
 
 The initial entry point must be done in ASM, as we have to do some special tasks such as setting up the GRUB header, pushing our stack, and calling our C entry point. This means that the first code run is in `boot.s`, but the 'real' entry point is in `kernel.c`.
 
 Running
 ----------------------
-To run and test axle on OS X, run `./install.sh` to install the necessary requirements, then `./run.sh` to start the emulator.
+To run and test axle on OS X, run `./install.sh` to install the necessary requirements, then `make run` to start the emulator.
 
 Features
 ----------------------
@@ -23,6 +23,9 @@ Features
 * Multicolored, scrolling shell
 * Modified first-fit heap implementation
 * Small standard library
+* Multitasking
+* User mode
+* Syscalls
 
 Roadmap
 ---------------------
@@ -30,16 +33,17 @@ Roadmap
 - [x] Keyboard driver
 - [x] Hardware interrupts
 - [ ] Snake!
-- [ ] Software interrupts
+- [x] Software interrupts
 - [x] Paging
 - [x] Organize files
-- [ ] Syscalls
-- [ ] Multitasking
-- [ ] User mode
-- [ ] VESA, automatic resolution detection
+- [x] Syscalls
+- [x] Multitasking
+- [x] User mode
+- [x] VESA
+- [ ] Automatic resolution detection
 - [x] GFX library
 - [ ] Window manager
-- [ ] Shutdown/reboot commands
+- [x] Shutdown/reboot commands
 
 Error Handling
 -------------------

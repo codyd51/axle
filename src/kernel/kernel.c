@@ -10,6 +10,13 @@
 #include <kernel/drivers/vesa/vesa.h>
 #include <std/kheap.h>
 #include <tests/test.h>
+#include <user/xserv/xserv.h>
+#include "multiboot.h"
+#include <gfx/font/font.h>
+#include <kernel/util/multitasking/task.h>
+#include <gfx/lib/view.h>
+#include <kernel/util/syscall/syscall.h>
+#include <kernel/util/mutex/mutex.h>
 
 void print_os_name() {
 	terminal_settextcolor(COLOR_GREEN);
@@ -79,7 +86,8 @@ void info_panel_refresh() {
 	set_cursor(pos);
 }
 
-void initialize_info_panel() {
+void info_panel_install() {
+	printf_info("Installing text-mode info panel...");
 	timer_callback info_callback = add_callback(info_panel_refresh, 1, 1, NULL);
 }
 
@@ -89,25 +97,11 @@ uint32_t initial_esp;
 #if defined(__cplusplus)
 extern "C" //use C linkage for kernel_main
 #endif
-void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
-	initial_esp = initial_stack;	
+void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
+	initial_esp = initial_stack;
 
 	//initialize terminal interface
 	terminal_initialize();	
-
-	//set up software interrupts
-	printf_info("Initializing descriptor tables...");
-	init_descriptor_tables();
-	test_interrupts();
-
-	printf_info("Initializing PIC timer...");
-	init_timer(1000);
-
-	printf_info("Initializing paging...");
-	initialize_paging();
-	
-	//display booting screen
-	boot_screen();
 
 	//introductory message
 	print_os_name();
@@ -115,23 +109,35 @@ void kernel_main(struct multiboot* mboot_ptr, uint32_t initial_stack) {
 	//run color test
 	test_colors();
 
-	printf_info("Initializing keyboard driver...");
-	init_kb();
+	printf_info("Available memory:");
+	printf("%d -> %dMB\n", mboot_ptr->mem_upper, (mboot_ptr->mem_upper/1024));
+	
+	gdt_install();
+	idt_install();
+	//test_interrupts();
+
+	pit_install(1000);
+
+	paging_install();
+
+	syscall_install();
+
+	tasking_install();
+	
+	kb_install();
 
 	test_heap();	
 
 	//set up info panel
-	initialize_info_panel();
+	info_panel_install();
 
 	//force_page_fault();
-	//force_hardware_irq();
-	
-	//wait for user to start shell
-	printf("Kernel has finished booting. Press any key to enter shell.\n");
-	getchar();
-	
-	init_shell();
-	shell_loop(); 
+	//force_hardware_irq();	
+
+	shell_init();
+	shell_loop();
+
+	while (1) {}
 }
 
 

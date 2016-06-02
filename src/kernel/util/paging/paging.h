@@ -34,7 +34,7 @@ typedef struct page_directory {
 
 //sets up environment, page directories, etc
 //and, enables paging
-void initialize_paging();
+void paging_install();
 
 //causes passed page directory to be loaded into 
 //CR3 register
@@ -45,7 +45,11 @@ void switch_page_directory(page_directory_t* new);
 //reside isn't created, create it
 page_t* get_page(uint32_t address, int make, page_directory_t* dir);
 
+void alloc_frame(page_t* page, int is_kernel, int is_writeable);
+
 //handler for page faults
-void page_fault(registers_t regs);
+void page_fault(registers_t* regs);
+
+page_directory_t* clone_directory(page_directory_t* src);
 
 #endif
