@@ -7,13 +7,19 @@ ISO_NAME = axle.iso
 OBJ_DIR = .objs
 SRC_DIR = src
 
+TOOLCHAIN ?= ./i686-toolchain
+
 # Compilers and flags
 AS = nasm
 AFLAGS = -f elf
 
-CC = i686-elf-gcc
-CFLAGS = -std=gnu99 -ffreestanding -Wall -Wextra -I ./src
+CC = $(TOOLCHAIN)/bin/i686-elf-gcc
+CFLAGS =  -ffreestanding -std=gnu99 -Wall -Wextra -I ./src
 LDFLAGS = -ffreestanding -nostdlib -lgcc -T $(RESOURCES)/linker.ld
+
+# Tools
+ISO_MAKER = $(TOOLCHAIN)/bin/grub-mkrescue --directory=$(TOOLCHAIN)/lib/grub/i386-pc
+EMULATOR = qemu-system-i386
 
 # Functions
 findfiles = $(foreach ext, c s, $(wildcard $(1)/*.$(ext)))
@@ -44,10 +50,10 @@ $(ISO_DIR)/boot/grub/grub.cfg: $(RESOURCES)/grub.cfg
 	cp $^ $@
 
 $(ISO_NAME): $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg
-	grub-mkrescue -o $@ $(ISO_DIR)
+	$(ISO_MAKER) -o $@ $(ISO_DIR)
 
 run: $(ISO_NAME)
-	qemu-system-i386 -vga std -cdrom $^
+	$(EMULATOR) -vga std -cdrom $^
 
 clean:
-	rm $(OBJECTS) $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg $(ISO_NAME)
+	@rm -rf $(OBJECTS) $(ISO_DIR) $(ISO_NAME)
