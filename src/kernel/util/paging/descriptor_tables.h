@@ -23,7 +23,8 @@ struct gdt_ptr_struct {
 typedef struct gdt_ptr_struct gdt_ptr_t;
 
 //publicly accessible initialization function
-void init_descriptor_tables();
+void gdt_install();
+void idt_install();
 
 //struct describing interrupt gate
 struct idt_entry_struct {

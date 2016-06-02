@@ -26,8 +26,30 @@ void array_o_destroy(ordered_array_t* array) {
 }
 
 void array_o_insert(type_t item, ordered_array_t* array) {
-	array_m_insert(item, &(array->array));
-	array->size = array->array.size;
+	ASSERT(array->less_than, "ordered array didn't have a less-than predicate!");
+	uint32_t iterator = 0;
+	while (iterator < array->size && array->less_than(array_m_lookup(iterator, &(array->array)), item)) {
+		iterator++;
+	}
+	//just add item ot end of array
+	if (iterator == array->size) {
+		array_m_insert(item, &(array->array));
+		array->size = array->array.size;
+	}
+	else {
+		//TODO implement mutable_array function to add item at index
+		//shifting all larger indexed elements by one, as below
+		type_t tmp = array->array.array[iterator];
+		array->array.array[iterator] = item;
+		while (iterator < array->size) {
+			iterator++;
+			type_t tmp2 = array->array.array[iterator];
+			array->array.array[iterator] = tmp;
+			tmp = tmp2;
+		}
+		array->array.size++;
+		array->size++;
+	}
 }
 
 type_t array_o_lookup(uint32_t i, ordered_array_t* array) {

@@ -130,7 +130,9 @@ void identity_map_lfb(uint32_t location) {
 	}
 }
 
-void initialize_paging() {
+void paging_install() {
+	printf_info("Initializing paging...");
+	
 	//size of physical memory
 	//assume 16MB
 	uint32_t mem_end_page = 0x10000000;

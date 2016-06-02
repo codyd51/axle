@@ -20,15 +20,9 @@ idt_ptr_t   idt_ptr;
 tss_entry_t tss_entry;
 extern isr_t interrupt_handlers[];
 
-//zeroes all the interrupt service routines
-//initializes GDT and IDT
-void init_descriptor_tables() {
-	init_gdt();
-	init_idt();
-	memset(&interrupt_handlers, 0, sizeof(isr_t)*256);
-}
+void gdt_install() {
+	printf_info("Installing GDT...");
 
-static void init_gdt() {
 	gdt_ptr.limit = (sizeof(gdt_entry_t) * 6) - 1;
 	gdt_ptr.base = (uint32_t)&gdt_entries;
 
@@ -43,7 +37,9 @@ static void init_gdt() {
 	tss_flush();
 }
 
-static void init_idt() {
+void idt_install() {
+	printf_info("Installing IDT...");
+
 	idt_ptr.limit = sizeof(idt_entry_t) * 256 -1;
 	idt_ptr.base = (uint32_t)&idt_entries;
 
@@ -122,6 +118,9 @@ static void init_idt() {
 	idt_set_gate(128, (uint32_t)isr128, 0x08, 0x8E);
 
 	idt_flush((uint32_t)&idt_ptr);
+
+	memset(&interrupt_handlers, 0, sizeof(isr_t)*256);
+	isr_install_default();
 }
 
 static void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {

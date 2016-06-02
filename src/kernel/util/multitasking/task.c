@@ -2,6 +2,8 @@
 #include <std/std.h>
 #include <std/memory.h>
 
+#define STACK_MAGIC 0xDEADBEEF
+
 //currently running task
 volatile task_t* current_task;
 
@@ -21,22 +23,56 @@ extern void perform_task_switch(uint32_t, uint32_t, uint32_t, uint32_t);
 uint32_t next_pid = 1;
 
 static void switch_callback() {
-	switch_task();
+	task_switch(0);
 }
 
-void initialize_tasking() {
+task_t* create_process(int priority) {
+	task_t* task = (task_t*)kmalloc(sizeof(task_t));
+	task->priority = priority;
+	task->id = next_pid++;
+	task->esp = task->ebp = 0;
+	task->eip = 0;
+	task->next = 0;
+	task->yielded = 0;
+	//assign tickets based on priority
+	switch (priority) {
+		case PRIO_HIGH:
+			task->tickets = 100;
+			break;
+		case PRIO_MED:
+			task->tickets = 50;
+			break;
+		case PRIO_LOW:
+		default:
+			task->tickets = 25;
+			break;
+	}
+
+	//add task to end of ready queue
+	//find end of ready queue
+	if (ready_queue) {
+		task_t* tmp = (task_t*)ready_queue;
+		while (tmp->next) {
+			tmp = tmp->next;
+		}
+		//extend it
+		tmp->next = task;
+	}
+
+	return task;
+}
+
+void tasking_install() {
+	printf_info("Initializing tasking...");
+	
 	asm volatile("cli");
 	
 	//relocate stack so we know where it is
 	move_stack((void*)0xE0000000, 0x2000);
 
 	//init first task (kernel task)
-	current_task = ready_queue = (task_t*)kmalloc(sizeof(task_t));
-	current_task->id = next_pid++;
-	current_task->esp = current_task->ebp = 0;
-	current_task->eip = 0;
+	current_task = ready_queue = create_process(PRIO_HIGH);
 	current_task->page_directory = current_directory;
-	current_task->next = 0;
 	current_task->kernel_stack = kmalloc_a(KERNEL_STACK_SIZE);
 
 	//create callback to switch tasks
@@ -48,7 +84,7 @@ void initialize_tasking() {
 	sleep(1);
 }
 
-int fork() {
+int fork(int priority) {
 	asm volatile("cli");
 
 	//take pointer to this process' task for later reference
@@ -58,22 +94,9 @@ int fork() {
 	page_directory_t* directory = clone_directory(current_directory);
 
 	//create new process
-	task_t* task = (task_t*)kmalloc(sizeof(task_t));
-	task->id = next_pid++;
-	task->esp = task->ebp = 0;
-	task->eip = 0;
+	task_t* task = create_process(parent_task->priority);
 	task->page_directory = directory;
 	current_task->kernel_stack = kmalloc_a(KERNEL_STACK_SIZE);
-	task->next = 0;
-
-	//add to end of ready queue
-	//find end of ready queue
-	task_t* tmp = (task_t*)ready_queue;
-	while (tmp->next) {
-		tmp = tmp->next;
-	}
-	//extend it
-	tmp->next = task;
 
 	//entry point for new process
 	uint32_t eip = read_eip();
@@ -108,11 +131,41 @@ int fork() {
 	}
 }
 
-void switch_task() {
+task_t* scheduler_lottery() {
+	//find total number of tickets in existence
+	int num_tickets = 0;
+	task_t* tmp = ready_queue;
+	do {
+		num_tickets += tmp->tickets;
+	} while((tmp = tmp->next));
+
+	static int i = 0;
+	i++;
+	if (i == 1000) {
+		i = 0;
+	}
+
+	//generate winning ticket of this lottery
+	int winning_ticket = rand() % (num_tickets + 1);
+	//find task owning winning ticket
+	int ticket_counter = 0;
+	tmp = ready_queue;
+	do {
+		ticket_counter += tmp->tickets;
+		if (ticket_counter >= winning_ticket) break;
+	} while ((tmp = tmp->next));
+
+	return tmp;
+}
+
+void task_switch(char yielded) {
 	//if we haven't initialized tasking yet, just return
 	if (!current_task) {
 		return;
 	}
+
+	//set yielded flag on the active task for later reference
+	current_task->yielded = yielded;
 
 	//read esp, ebp for saving later on
 	uint32_t esp, ebp, eip;
@@ -125,11 +178,11 @@ void switch_task() {
 	//or, we just switched tasks, and because saved eip is essentially
 	//the instruction after read_eip(), it'll seem as if read_eip just returned
 	//in the second case we need to return immediately
-	//to detect it, put dummy value in eax
+	//to detect it, put dummy value (STACK_MAGIC) in eax
 	eip = read_eip();
 
 	//did we just switch tasks?
-	if (eip == 0x12345) return;
+	if (eip == STACK_MAGIC) return;
 
 	//did not switch tasks
 	//save register values and switch
@@ -137,10 +190,8 @@ void switch_task() {
 	current_task->esp = esp;
 	current_task->ebp = ebp;
 
-	//get next task to run
-	current_task = current_task->next;
-	//if we're at the end of the linked list start again at the start
-	if (!current_task) current_task = ready_queue;
+	//set current_task to lottery winner
+	current_task = scheduler_lottery();
 
 	eip = current_task->eip;
 	esp = current_task->esp;
