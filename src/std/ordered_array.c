@@ -61,9 +61,7 @@ uint16_t array_o_index(type_t item, ordered_array_t* array) {
 }
 
 void array_o_remove(uint32_t i, ordered_array_t* array) {
-	printf_info("Array size was %d", array->size);
 	array_m_remove(i, &(array->array));
 	array->size = array->array.size;
-	printf_info("Array size is now %d", array->size);
 }
 
