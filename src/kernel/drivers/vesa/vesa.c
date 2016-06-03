@@ -8,8 +8,10 @@
 void vesa_screen_refresh(Screen* screen) {
 //	if (!screen->finished_drawing) return;
 
-	xserv_draw(screen);
-	write_screen(screen);
+	//if no changes occured this refresh, don't bother writing the screen
+	if (xserv_draw(screen)) {
+		write_screen(screen);
+	}
 }
 
 void setup_vesa_screen_refresh(Screen* screen, double interval) {

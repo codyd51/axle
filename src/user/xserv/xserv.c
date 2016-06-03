@@ -1,9 +1,16 @@
 #include "xserv.h"
 
+//has the screen been modified this refresh?
+static char dirtied = 0;
+
 #define CHAR_WIDTH 8
 #define CHAR_HEIGHT 8
 #define CHAR_PADDING 2
 void draw_label(Screen* screen, Label* label) {
+	if (!label->needs_redraw) return;
+
+	dirtied = 1;
+
 	int idx = 0;
 	char* str = label->text;
 	int x = label->frame.origin.x;
@@ -25,9 +32,15 @@ void draw_label(Screen* screen, Label* label) {
 
 		idx++;
 	}
+
+	label->needs_redraw = 0;
 }
 
 void draw_image(Screen* screen, Image* image) {
+	if (!image->needs_redraw) return;
+
+	dirtied = 1;
+
 	//iterate through every pixel in the bitmap and draw it
 	int num_pixels = image->frame.size.width * image->frame.size.height;
 	for (int i = 0; i < num_pixels; i++) {
@@ -35,9 +48,15 @@ void draw_image(Screen* screen, Image* image) {
 		int y = image->frame.origin.y + (i / image->frame.size.height);
 		//putpixel(screen, x, y, image->bitmap[i]); 
 	}
+
+	image->needs_redraw = 0;
 }
 
 void draw_view(Screen* screen, View* view) {
+	if (!view->needs_redraw) return;
+
+	dirtied = 1;
+
 	//fill view with its background color
 	draw_rect(screen, view->frame, view->background_color, THICKNESS_FILLED);
 
@@ -58,9 +77,14 @@ void draw_view(Screen* screen, View* view) {
 		View* subview = (View*)array_m_lookup(i, &(view->subviews));
 		draw_view(screen, subview);
 	}
+
+	view->needs_redraw = 0;
 }
 
 void draw_window(Screen* screen, Window* window) {
+	if (!window->needs_redraw && !window->content_view->needs_redraw && !window->title_view->needs_redraw			) return;
+
+	dirtied = 1;
 
 	//paint navy blue window
 	draw_rect(screen, window->frame, window->border_color, 1);
@@ -79,6 +103,8 @@ void draw_window(Screen* screen, Window* window) {
 	if (window->content_view) {
 		draw_view(screen, window->content_view);
 	}
+
+	window->needs_redraw = 0;
 }
 
 void add_taskbar(Screen* screen) {
@@ -98,13 +124,14 @@ void add_taskbar(Screen* screen) {
 }
 
 void draw_desktop(Screen* screen) {
+	/*
 	Coordinate origin = point_make(0, 0);
 	Size sz = size_make(screen->window->size.width, screen->window->size.height);
 	Rect r = rect_make(origin, sz);
 	draw_rect(screen, r, color_make(192, 192, 192), THICKNESS_FILLED);
 
 	add_taskbar(screen);
-
+	*/
 	//paint every child window
 	for (int i = 0; i < screen->window->subwindows.size; i++) {
 		Window* win = (Window*)(array_m_lookup(i, &(screen->window->subwindows)));
@@ -112,6 +139,8 @@ void draw_desktop(Screen* screen) {
 	}
 }
 
-void xserv_draw(Screen* screen) {
+char xserv_draw(Screen* screen) {
+	dirtied = 0;
 	draw_desktop(screen);
+	return dirtied;
 }
