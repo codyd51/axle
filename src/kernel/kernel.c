@@ -128,19 +128,17 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	test_heap();	
 
-	while (1) {}
-
 	//set up info panel
 	info_panel_install();
 
 	//force_page_fault();
 	//force_hardware_irq();	
 
-	shell_init();
-	shell_loop();
+	while (1) {
+		shell_init();
+		shell_loop();
+	}
 
-	while (1) {}
-	
 	asm volatile("sti");
 	return 0;
 }

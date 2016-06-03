@@ -13,14 +13,16 @@ Coordinate mouse_point() {
 	return point_make(running_x, running_y);
 }
 
+#define VESA_WIDTH 1024
+#define VESA_HEIGHT 768
+
 void update_mouse_position(int x, int y) {
 	running_x += x;
 	running_x = MAX(running_x, 0);
-	running_x = MIN(running_x, 319);
+	running_x = MIN(running_x, VESA_WIDTH);
 	running_y += y;
 	running_y = MAX(running_y, 0);
-	running_y = MIN(running_y, 199);
-	printf_info("{%d,%d}", running_x, running_y);
+	running_y = MIN(running_y, VESA_HEIGHT);
 }
 
 void mouse_callback(registers_t* regs) {
@@ -38,7 +40,10 @@ void mouse_callback(registers_t* regs) {
 			break;
 		case 2:
 			mouse_byte[2] = inb(0x60);
-			update_mouse_position(mouse_byte[1], mouse_byte[2]);
+			//Bochs
+			//update_mouse_position(mouse_byte[1], mouse_byte[2]);
+			//QEMU
+			update_mouse_position(mouse_byte[2], mouse_byte[0]);
 			mouse_cycle = 0;
 			break;
 	}

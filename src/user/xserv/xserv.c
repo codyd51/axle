@@ -1,4 +1,5 @@
 #include "xserv.h"
+#include <kernel/drivers/mouse/mouse.h>
 
 #define CHAR_WIDTH 8
 #define CHAR_HEIGHT 8
@@ -103,6 +104,7 @@ void draw_desktop(Screen* screen) {
 	Rect r = rect_make(origin, sz);
 	draw_rect(screen, r, color_make(192, 192, 192), THICKNESS_FILLED);
 
+	/*
 	add_taskbar(screen);
 
 	//paint every child window
@@ -110,6 +112,12 @@ void draw_desktop(Screen* screen) {
 		Window* win = (Window*)(array_m_lookup(i, &(screen->window->subwindows)));
 		draw_window(screen, win);
 	}
+*/
+	//draw mouse last!
+	Coordinate mouse = mouse_point();
+	//draw a box
+	Rect mouse_r = rect_make(point_make(mouse.x, screen->window->size.height - mouse.y), size_make(10, 20));
+	draw_rect(screen, mouse_r, color_make(255, 0, 0), THICKNESS_FILLED);
 }
 
 void xserv_draw(Screen* screen) {
