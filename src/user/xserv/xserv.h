@@ -4,6 +4,6 @@
 #include <gfx/lib/gfx.h>
 #include <gfx/lib/shapes.h>
 
-void xserv_draw(Screen* screen);
+char xserv_draw(Screen* screen);
 
 #endif
