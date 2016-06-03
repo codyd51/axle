@@ -9,6 +9,7 @@ View* create_view(Rect frame) {
 	view->subviews = array_m_create(16);
 	view->labels = array_m_create(16);
 	view->images = array_m_create(16);
+	view->needs_redraw = 1;
 	return view;
 }
 
@@ -44,6 +45,8 @@ Window* create_window(Rect frame) {
 
 	window->title_view = create_title_view(window);
 	window->content_view = create_content_view(window);
+
+	window->needs_redraw = 1;
 		
 	return window;
 }
@@ -53,6 +56,7 @@ Label* create_label(Rect frame, char* text) {
 	label->frame = frame;
 	label->text = text;
 	label->text_color = color_make(0, 0, 0);
+	label->needs_redraw = 1;
 	return label;
 }
 
@@ -60,38 +64,63 @@ Image* create_image(Rect frame, uint32_t* bitmap) {
 	Image* image = kmalloc(sizeof(Image));
 	image->frame = frame;
 	image->bitmap = bitmap;
+	image->needs_redraw = 1;
 	return image;
+}
+
+void mark_needs_redraw(View* view) {
+	//if this view has already been marked, quit
+	if (view->needs_redraw) return;
+	view->needs_redraw = 1;
+	if (view->superview) {
+		mark_needs_redraw(view->superview);
+	}
 }
 
 void add_sublabel(View* view, Label* label) {
 	array_m_insert(label, &(view->labels));
+	label->needs_redraw = 1;
+	mark_needs_redraw(view);
 }
 
 void remove_sublabel(View* view, Label* label) {
 	array_m_remove(array_m_index(label, &(view->labels)), &(view->labels));
+	label->needs_redraw = 1;
+	mark_needs_redraw(view);
 }
 
 void add_subimage(View* view, Image* image) {
 	array_m_insert(image, &(view->images));
+	image->needs_redraw = 1;
+	mark_needs_redraw(view);
 }
 
 void remove_subimage(View* view, Image* image) {
 	array_m_remove(array_m_index(image, &(view->images)), &(view->images));
+	image->needs_redraw = 1;
+	mark_needs_redraw(view);
 }
 
 void add_subview(View* view, View* subview) {
 	array_m_insert(subview, &(view->subviews));
 	subview->superview = view;
+	mark_needs_redraw(view);
 }
 
 void remove_subview(View* view, View* subview) {
 	array_m_remove(array_m_index(subview, &(view->subviews)), &(view->subviews));
+	subview->needs_redraw = 1;
+	mark_needs_redraw(view);
 }
 
 void add_subwindow(Window* window, Window* subwindow) {
 	array_m_insert(subwindow, &(window->subwindows));
+	subwindow->needs_redraw = 1;
+	window->needs_redraw = 1;
 }
 
 void remove_subwindow(Window* window, Window* subwindow) {
 	array_m_remove(array_m_index(subwindow, &(window->subwindows)), &(window->subwindows));
+	subwindow->needs_redraw = 1;
+	window->needs_redraw = 1;
 }

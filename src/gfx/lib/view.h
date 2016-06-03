@@ -28,6 +28,7 @@ typedef struct window {
 	struct view* content_view;
 	Color border_color;
 	mutable_array_t subwindows;
+	char needs_redraw;
 } Window;
 
 //TODO make proper subclass (c++?)
@@ -36,11 +37,13 @@ typedef struct label {
 	Rect frame;
 	char* text;
 	Color text_color;
+	char needs_redraw;
 } Label;
 
 typedef struct image {
 	Rect frame;
 	uint32_t* bitmap;
+	char needs_redraw;
 } Image;
 
 typedef struct view {
@@ -50,6 +53,7 @@ typedef struct view {
 	mutable_array_t subviews;
 	mutable_array_t labels;
 	mutable_array_t images;
+	char needs_redraw;
 } View;
 
 void add_subview(View* view, View* subview);
