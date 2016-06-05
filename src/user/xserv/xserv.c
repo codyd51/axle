@@ -3,11 +3,39 @@
 //has the screen been modified this refresh?
 static char dirtied = 0;
 
+View* label_superview_int(Screen* screen, Label* label) {
+	//traverse view heirarchy, finding the view that contains the label
+	for (int i = 0; i < screen->window->subwindows.size; i++) {
+		Window* window = array_m_lookup(i, &(screen->window->subwindows));
+		View* view = window->content_view;
+		if (array_m_index(label, &(view->labels)) != -1) return view;
+		for (int j = 0; j < view->subviews.size; j++) {
+			View* subview = array_m_lookup(j, &(view->subviews));
+			if (array_m_index(label, &(subview->labels)) != -1) return subview;
+		}
+	}
+	return NULL;
+}
+
+View* image_superview_int(Screen* screen, Image* image) {
+	//traverse view hierarchy, finding view which contains image
+	for (int i = 0; i < screen->window->subwindows.size; i++) {
+		Window* window = array_m_lookup(i, &(screen->window->subwindows));
+		View* view = window->content_view;
+		if (array_m_index(image, &(view->images)) != -1) return view;
+		for (int j = 0; j < view->subviews.size; i++) {
+			View* subview = array_m_lookup(j, &(view->subviews));
+			if (array_m_index(image, &(subview->images)) != -1) return subview;
+		}
+	}
+	return NULL;
+}
+
 #define CHAR_WIDTH 8
 #define CHAR_HEIGHT 8
 #define CHAR_PADDING 2
 void draw_label(Screen* screen, Label* label) {
-	if (!label->needs_redraw) return;
+	if (!label->needs_redraw && !label_superview_int(screen, label)->needs_redraw) return;
 
 	dirtied = 1;
 
@@ -37,7 +65,7 @@ void draw_label(Screen* screen, Label* label) {
 }
 
 void draw_image(Screen* screen, Image* image) {
-	if (!image->needs_redraw) return;
+	if (!image->needs_redraw && !image_superview_int(screen, image)->needs_redraw) return;
 
 	dirtied = 1;
 
@@ -53,7 +81,7 @@ void draw_image(Screen* screen, Image* image) {
 }
 
 void draw_view(Screen* screen, View* view) {
-	if (!view->needs_redraw) return;
+	if (!view->needs_redraw && !view->superview->needs_redraw) return;
 
 	dirtied = 1;
 

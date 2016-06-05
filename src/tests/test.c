@@ -28,6 +28,8 @@ void force_page_fault() {
 
 void test_interrupts() {
 	printf_info("Testing interrupts...");
+	asm volatile("mov $0xdeadbeef, %eax");
+	asm volatile("mov $0xcafebabe, %edx");
 	asm volatile("int $0x3");
 	asm volatile("int $0x4");
 }
