@@ -80,17 +80,16 @@ IRQ 	15, 	47
 ; up kernel mode segments, calls C-level fault handler,
 ; and finally restores stack frame
 isr_common_stub:
-	pushad		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
+	pusha		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
 
 	push eax 	; save data segment descriptor
 	mov ax, 0x10	; loads kernel data segment argument
 
-	cld
 	call isr_handler
 
 	pop eax		; reload original data segment descriptor
 	
-	popad 		; pop edi, esi, ebp, etc
+	popa 		; pop edi, esi, ebp, etc
 	add esp, 8 	; cleans up pushed error code and pushed ISR number
 	iret		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
 
