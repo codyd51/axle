@@ -16,7 +16,7 @@ View* create_view(Rect frame) {
 }
 
 static View* create_title_view(Window* window) {
-	Rect title_view_frame = rect_make(window->frame.origin, size_make(window->frame.size.width, 20));
+	Rect title_view_frame = rect_make(point_make(0, 0), size_make(window->frame.size.width, 20));
 	View* title_view = create_view(title_view_frame);
 	title_view->background_color = window->border_color;
 
@@ -111,6 +111,7 @@ void add_subview(View* view, View* subview) {
 
 void remove_subview(View* view, View* subview) {
 	array_m_remove(array_m_index(subview, &(view->subviews)), &(view->subviews));
+	subview->superview = NULL;
 	subview->needs_redraw = 1;
 	mark_needs_redraw(view);
 }
