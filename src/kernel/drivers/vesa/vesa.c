@@ -79,17 +79,7 @@ Screen* switch_to_vesa() {
 		
 		//copy mode info from buffer into struct
 		memcpy(&mode_info, mode_buffer, sizeof(vbe_mode_info));
-
-		Screen* screen = (Screen*)kmalloc(sizeof(Screen));
-		screen->window = create_window(rect_make(point_make(0, 0), size_make(mode_info.x_res, mode_info.y_res)));
-		screen->depth = mode_info.bpp;
-		screen->vmem = kmalloc(screen->window->size.width * screen->window->size.height * (screen->depth / 8));
-		//linear frame buffer (LFB) address
-		screen->physbase = (uint8_t*)mode_info.physbase;
-		screen->font = setup_font();
-
-		//sets up VESA mode
-		
+	
 		regs.ax = 0x4F02; //02 sets graphics mode
 
 		//sets up mode with linear frame buffer instead of bank switching
@@ -97,9 +87,20 @@ Screen* switch_to_vesa() {
 		regs.bx = (vesa_mode | 0x4000);
 		int32(0x10, &regs);
 
+		Screen* screen = (Screen*)kmalloc(sizeof(Screen));
+		screen->vmem = kmalloc(mode_info.x_res * mode_info.y_res * (mode_info.bpp / 8));
+		screen->depth = mode_info.bpp;
+		//linear frame buffer (LFB) address
+		screen->physbase = (uint8_t*)mode_info.physbase;
+		
+		screen->font = setup_font();
+		screen->window = create_window(rect_make(point_make(0, 0), size_make(mode_info.x_res, mode_info.y_res)));
+
 		//start refresh loop
-		screen->finished_drawing = 1;
-		setup_vesa_screen_refresh(screen, 66);
+		//screen->finished_drawing = 0;
+		setup_vesa_screen_refresh(screen, 83);
+		//refresh once now so we don't wait for the first tick
+		vesa_screen_refresh(screen);
 
 		kernel_end_critical();
 
