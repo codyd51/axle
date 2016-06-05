@@ -2,13 +2,15 @@
 #include <std/kheap.h>
 #include <gfx/lib/shapes.h>
 
+#define MAX_ELEMENTS 64
+
 View* create_view(Rect frame) {
 	View* view = kmalloc(sizeof(View));
 	view->frame = frame;
 	view->background_color = color_make(0, 255, 0);
-	view->subviews = array_m_create(16);
-	view->labels = array_m_create(16);
-	view->images = array_m_create(16);
+	view->subviews = array_m_create(MAX_ELEMENTS);
+	view->labels = array_m_create(MAX_ELEMENTS);
+	view->images = array_m_create(MAX_ELEMENTS);
 	view->needs_redraw = 1;
 	return view;
 }
@@ -40,7 +42,7 @@ Window* create_window(Rect frame) {
 	window->size = frame.size;
 	window->frame = frame;
 	window->border_color = color_make(0, 0, 255);
-	window->subwindows = array_m_create(16);
+	window->subwindows = array_m_create(MAX_ELEMENTS);
 	window->title = "Window";
 
 	window->title_view = create_title_view(window);
