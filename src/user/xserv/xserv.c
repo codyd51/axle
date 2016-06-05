@@ -1,4 +1,5 @@
 #include "xserv.h"
+#include <std/math.h>
 
 //has the screen been modified this refresh?
 static char dirtied = 0;
@@ -34,22 +35,37 @@ View* image_superview_int(Screen* screen, Image* image) {
 #define CHAR_WIDTH 8
 #define CHAR_HEIGHT 8
 #define CHAR_PADDING 2
+
+Rect convert_frame(View* view, Rect frame) {
+	if (!view) return frame;
+
+	Rect ret;
+	ret.origin.x = frame.origin.x + view->frame.origin.x;
+	ret.origin.y = frame.origin.y + view->frame.origin.y;
+	ret.size.width = MIN(frame.size.width, view->frame.size.width);
+	ret.size.height = MIN(frame.size.height, view->frame.size.height);
+	return ret;
+}
+
 void draw_label(Screen* screen, Label* label) {
-	if (!label->needs_redraw && !label_superview_int(screen, label)->needs_redraw) return;
+	View* superview = label_superview_int(screen, label);
+	if (!label->needs_redraw && !superview->needs_redraw) return;
 
 	dirtied = 1;
 
+	Rect frame = convert_frame(superview, label->frame);
+
 	int idx = 0;
 	char* str = label->text;
-	int x = label->frame.origin.x;
-	int y = label->frame.origin.y;
+	int x = frame.origin.x;
+	int y = frame.origin.y;
 	while (str[idx] != NULL) {
 		//go to next line if necessary
-		if ((x + CHAR_WIDTH + CHAR_PADDING) > (label->frame.origin.x + label->frame.size.width) || str[idx] == '\n') {
-			x = label->frame.origin.x;
+		if ((x + CHAR_WIDTH + CHAR_PADDING) > (frame.origin.x + frame.size.width) || str[idx] == '\n') {
+			x = frame.origin.x;
 
 			//quit if going to next line would exceed view bounds
-			if ((y + CHAR_WIDTH + CHAR_PADDING) > (label->frame.origin.y + label->frame.size.height)) break;
+			if ((y + CHAR_WIDTH + CHAR_PADDING) > (frame.origin.y + frame.size.height)) break;
 
 			y += CHAR_HEIGHT + CHAR_PADDING;
 		}
@@ -65,15 +81,18 @@ void draw_label(Screen* screen, Label* label) {
 }
 
 void draw_image(Screen* screen, Image* image) {
-	if (!image->needs_redraw && !image_superview_int(screen, image)->needs_redraw) return;
+	View* superview = image_superview_int(screen, image);
+	if (!image->needs_redraw && !superview->needs_redraw) return;
 
 	dirtied = 1;
 
+	Rect frame = convert_frame(superview, image->frame);
+
 	//iterate through every pixel in the bitmap and draw it
-	int num_pixels = image->frame.size.width * image->frame.size.height;
+	int num_pixels = frame.size.width * frame.size.height;
 	for (int i = 0; i < num_pixels; i++) {
-		int x = image->frame.origin.x + (i % image->frame.size.width);
-		int y = image->frame.origin.y + (i / image->frame.size.height);
+		int x = frame.origin.x + (i % frame.size.width);
+		int y = frame.origin.y + (i / frame.size.height);
 		//putpixel(screen, x, y, image->bitmap[i]); 
 	}
 
@@ -85,8 +104,11 @@ void draw_view(Screen* screen, View* view) {
 
 	dirtied = 1;
 
+	Rect frame = convert_frame(view->superview, view->frame);
+	//Rect frame = view->frame;
+
 	//fill view with its background color
-	draw_rect(screen, view->frame, view->background_color, THICKNESS_FILLED);
+	draw_rect(screen, frame, view->background_color, THICKNESS_FILLED);
 
 	//draw any labels this view has
 	for (int i = 0; i < view->labels.size; i++) {

@@ -247,9 +247,10 @@ void test_xserv(Screen* vesa_screen) {
 	add_sublabel(window->content_view, label);
 
 	sleep(1000);
-	View* subview = create_view(window->content_view->frame);
+	View* subview = create_view(rect_make(point_make(0, 200), size_make(500, 250)));
 	subview->background_color = color_make(200, 0, 255);
 	add_subview(window->content_view, subview);
+
 	sleep(1000);
 	remove_subview(window->content_view, subview);
 }	
