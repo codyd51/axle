@@ -97,6 +97,8 @@ static void draw_rect_int(Screen* screen, Rect rect, Color color) {
 }
 
 void draw_rect(Screen* screen, Rect r, Color color, int thickness) {
+	if (thickness == 0) return;
+
 	//make sure we don't try to write to an invalid location
 	normalize_coordinate(screen, r.origin);	
 	if (r.origin.x + r.size.width > screen->window->size.width) {
