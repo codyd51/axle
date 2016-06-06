@@ -25,7 +25,7 @@ typedef struct window {
 	Rect frame;
 	char needs_redraw;
 	struct window* superview;
-	mutable_array_t subwindows;
+	mutable_array_t subviews;
 
 	Size size;
 	char* title;

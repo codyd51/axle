@@ -6,8 +6,8 @@ static char dirtied = 0;
 
 View* label_superview_int(Screen* screen, Label* label) {
 	//traverse view heirarchy, finding the view that contains the label
-	for (int i = 0; i < screen->window->subwindows.size; i++) {
-		Window* window = array_m_lookup(i, &(screen->window->subwindows));
+	for (int i = 0; i < screen->window->subviews.size; i++) {
+		Window* window = array_m_lookup(i, &(screen->window->subviews));
 
 		for (int k = 0; k < 2; k++) {
 			View* view;
@@ -34,8 +34,8 @@ View* label_superview_int(Screen* screen, Label* label) {
 
 View* image_superview_int(Screen* screen, Image* image) {
 	//traverse view hierarchy, finding view which contains image
-	for (int i = 0; i < screen->window->subwindows.size; i++) {
-		Window* window = array_m_lookup(i, &(screen->window->subwindows));
+	for (int i = 0; i < screen->window->subviews.size; i++) {
+		Window* window = array_m_lookup(i, &(screen->window->subviews));
 		View* view = window->content_view;
 		if (array_m_index(image, &(view->images)) != -1) return view;
 		for (int j = 0; j < view->subviews.size; i++) {
@@ -56,11 +56,11 @@ Window* containing_window_int(Screen* screen, View* v) {
 
 	//traverse view hierarchy, find window which has view as its title or content view
 	if (screen->window->title_view == view || screen->window->content_view == view) return screen->window;
-	for (int i = 0; i < screen->window->subwindows.size; i++) {
-		Window* window = array_m_lookup(i, &(screen->window->subwindows));
+	for (int i = 0; i < screen->window->subviews.size; i++) {
+		Window* window = array_m_lookup(i, &(screen->window->subviews));
 		if (window->title_view == view || window->content_view == view) return window;
-		for (int j = 0; j < window->subwindows.size; j++) {
-			Window* subwindow = array_m_lookup(j, &(window->subwindows));
+		for (int j = 0; j < window->subviews.size; j++) {
+			Window* subwindow = array_m_lookup(j, &(window->subviews));
 			if (subwindow->title_view == view || subwindow->content_view == view) return subwindow;
 		}
 	}
@@ -163,7 +163,7 @@ void draw_view(Screen* screen, View* view) {
 	//draw any labels this view has
 	for (int i = 0; i < view->labels.size; i++) {
 		Label* label = (Label*)array_m_lookup(i, &(view->labels));
-		draw_label(screen, label);
+		//draw_label(screen, label);
 	}
 
 	//draw any images this view has
@@ -233,8 +233,8 @@ void draw_desktop(Screen* screen) {
 	add_taskbar(screen);
 	*/
 	//paint every child window
-	for (int i = 0; i < screen->window->subwindows.size; i++) {
-		Window* win = (Window*)(array_m_lookup(i, &(screen->window->subwindows)));
+	for (int i = 0; i < screen->window->subviews.size; i++) {
+		Window* win = (Window*)(array_m_lookup(i, &(screen->window->subviews)));
 		draw_window(screen, win);
 	}
 }

@@ -43,7 +43,7 @@ Window* create_window(Rect frame) {
 	window->size = frame.size;
 	window->frame = frame;
 	window->border_color = color_make(0, 0, 255);
-	window->subwindows = array_m_create(MAX_ELEMENTS);
+	window->subviews = array_m_create(MAX_ELEMENTS);
 	window->title = "Window";
 
 	window->title_view = create_title_view(window);
@@ -121,13 +121,13 @@ void remove_subview(View* view, View* subview) {
 }
 
 void add_subwindow(Window* window, Window* subwindow) {
-	array_m_insert(subwindow, &(window->subwindows));
+	array_m_insert(subwindow, &(window->subviews));
 	subwindow->needs_redraw = 1;
 	window->needs_redraw = 1;
 }
 
 void remove_subwindow(Window* window, Window* subwindow) {
-	array_m_remove(array_m_index(subwindow, &(window->subwindows)), &(window->subwindows));
+	array_m_remove(array_m_index(subwindow, &(window->subviews)), &(window->subviews));
 	subwindow->needs_redraw = 1;
 	window->needs_redraw = 1;
 }
