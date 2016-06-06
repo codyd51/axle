@@ -7,6 +7,7 @@
 View* create_view(Rect frame) {
 	View* view = kmalloc(sizeof(View));
 	view->frame = frame;
+	view->superview = NULL;
 	view->background_color = color_make(0, 255, 0);
 	view->subviews = array_m_create(MAX_ELEMENTS);
 	view->labels = array_m_create(MAX_ELEMENTS);
@@ -57,6 +58,7 @@ Label* create_label(Rect frame, char* text) {
 	Label* label = kmalloc(sizeof(Label));
 	label->frame = frame;
 	label->text = text;
+	label->superview = NULL;
 	label->text_color = color_make(0, 0, 0);
 	label->needs_redraw = 1;
 	return label;
@@ -81,12 +83,14 @@ void mark_needs_redraw(View* view) {
 
 void add_sublabel(View* view, Label* label) {
 	array_m_insert(label, &(view->labels));
+	label->superview = view;
 	label->needs_redraw = 1;
 	mark_needs_redraw(view);
 }
 
 void remove_sublabel(View* view, Label* label) {
 	array_m_remove(array_m_index(label, &(view->labels)), &(view->labels));
+	label->superview = NULL;
 	label->needs_redraw = 1;
 	mark_needs_redraw(view);
 }

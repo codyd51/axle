@@ -36,6 +36,7 @@ typedef struct window {
 typedef struct label {
 	Rect frame;
 	char* text;
+	struct view* superview;
 	Color text_color;
 	char needs_redraw;
 } Label;
