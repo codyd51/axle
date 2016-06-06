@@ -140,12 +140,12 @@ void vga_boot_screen(Screen* screen) {
 	tri_col.val[0] = 2;
 	draw_triangle(screen, triangle, tri_col, 5);
 
-	Coordinate lab_origin = point_make(screen->window->size.width / 2 - 35, screen->window->size.height * 0.6);
+	Coordinate lab_origin = point_make(screen->window->size.width / 2 - 35, screen->window->size.height * 0.5);
 	Size lab_size = size_make((10 * strlen("axle os")), 12);
 	Label* label = create_label(rect_make(lab_origin, lab_size), "axle os");
 	label->text_color = color_make(2, 0, 0);
 	add_sublabel(screen->window->content_view, label);
-	//draw_label(screen, label);
+	draw_label(screen, label);
 
 	float rect_length = screen->window->size.width / 3;
 	Coordinate origin = point_make((screen->window->size.width/2) - (rect_length / 2), screen->window->size.height / 4 * 3);
