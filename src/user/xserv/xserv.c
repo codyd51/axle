@@ -4,49 +4,6 @@
 //has the screen been modified this refresh?
 static char dirtied = 0;
 
-View* label_superview_int(Screen* screen, Label* label) {
-	//traverse view heirarchy, finding the view that contains the label
-	for (int i = 0; i < screen->window->subviews.size; i++) {
-		Window* window = array_m_lookup(i, &(screen->window->subviews));
-
-		for (int k = 0; k < 2; k++) {
-			View* view;
-			switch (k) {
-				case 0:
-					view = window->title_view;
-					break;
-				case 1:
-				default:
-					view = window->content_view;
-					break;
-			}
-
-			if (array_m_index(label, &(view->labels)) != -1) return view;
-			for (int j = 0; j < view->subviews.size; j++) {
-				View* subview = array_m_lookup(j, &(view->subviews));
-				if (array_m_index(label, &(subview->labels)) != -1) return subview;
-			}
-		}
-	}
-	ASSERT(0, "Couldn't find label's superview!");
-	return NULL;
-}
-
-View* image_superview_int(Screen* screen, Image* image) {
-	//traverse view hierarchy, finding view which contains image
-	for (int i = 0; i < screen->window->subviews.size; i++) {
-		Window* window = array_m_lookup(i, &(screen->window->subviews));
-		View* view = window->content_view;
-		if (array_m_index(image, &(view->images)) != -1) return view;
-		for (int j = 0; j < view->subviews.size; i++) {
-			View* subview = array_m_lookup(j, &(view->subviews));
-			if (array_m_index(image, &(subview->images)) != -1) return subview;
-		}
-	}
-	ASSERT(0, "Couldn't find image's superview!");
-	return NULL;
-}
-
 Window* containing_window_int(Screen* screen, View* v) {
 	//find root window
 	View* view = v;
@@ -64,7 +21,6 @@ Window* containing_window_int(Screen* screen, View* v) {
 			if (subwindow->title_view == view || subwindow->content_view == view) return subwindow;
 		}
 	}
-	ASSERT(0, "Couldn't find view's window!");
 	return NULL;
 }
 
@@ -88,6 +44,19 @@ Rect convert_frame(View* view, Rect frame) {
 	return ret;
 }
 
+Rect absolute_frame(Screen* screen, View* view) {
+	Rect ret = view->frame;
+	//find root view
+	View* v = view;
+	while (v->superview) {
+		v = v->superview;
+		ret = convert_frame(v, ret);
+	}
+	//find containing window
+	Window* win = containing_window_int(screen, v);
+	return convert_rect(win->frame, ret);
+}
+
 void draw_label(Screen* screen, Label* label) {
 	View* superview = label->superview;
 	ASSERT(superview, "label had no superview!");
@@ -96,7 +65,8 @@ void draw_label(Screen* screen, Label* label) {
 	label->needs_redraw = 1;
 	dirtied = 1;
 
-	Rect frame = convert_frame(superview, label->frame);
+	//Rect frame = convert_frame(superview, label->frame);
+	Rect frame = absolute_frame(screen, label);
 
 	int idx = 0;
 	char* str = label->text;
@@ -124,7 +94,7 @@ void draw_label(Screen* screen, Label* label) {
 }
 
 void draw_image(Screen* screen, Image* image) {
-	View* superview = image_superview_int(screen, image);
+	View* superview = image->superview;
 	if (!image->needs_redraw && !superview->needs_redraw) return;
 
 	image->needs_redraw = 1;
@@ -163,7 +133,7 @@ void draw_view(Screen* screen, View* view) {
 	//draw any labels this view has
 	for (int i = 0; i < view->labels.size; i++) {
 		Label* label = (Label*)array_m_lookup(i, &(view->labels));
-		//draw_label(screen, label);
+		draw_label(screen, label);
 	}
 
 	//draw any images this view has
