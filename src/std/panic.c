@@ -1,5 +1,6 @@
 #include "panic.h"
 #include "common.h"
+#include <kernel/drivers/terminal/terminal.h>
 
 void panic(uint16_t line, const char* file) {
 	printf("\n");
@@ -9,6 +10,8 @@ void panic(uint16_t line, const char* file) {
 }
 
 void panic_msg(const char* msg, uint16_t line, const char* file) {
+	switch_to_text();
+
 	printf_err("Throwing panic: %s", msg);
 	panic(line, file);
 }
