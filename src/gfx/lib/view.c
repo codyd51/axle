@@ -147,3 +147,8 @@ void set_border_width(Window* window, int width) {
 	window->border_width = width;
 	mark_needs_redraw(window);
 }
+
+void set_frame(View* view, Rect frame) {
+	view->frame = frame;
+	mark_needs_redraw(view);
+}
