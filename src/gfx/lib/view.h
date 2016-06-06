@@ -21,40 +21,50 @@ typedef struct rect {
 } Rect;
 
 typedef struct window {
-	Size size;
+	//common
 	Rect frame;
+	char needs_redraw;
+	struct window* superview;
+	mutable_array_t subwindows;
+
+	Size size;
 	char* title;
 	struct view* title_view;
 	struct view* content_view;
 	Color border_color;
-	mutable_array_t subwindows;
-	char needs_redraw;
 } Window;
 
 //TODO make proper subclass (c++?)
 //Label is a type of View
 typedef struct label {
+	//common
 	Rect frame;
-	char* text;
-	struct view* superview;
-	Color text_color;
 	char needs_redraw;
+	struct view* superview;
+
+	char* text;
+	Color text_color;
 } Label;
 
 typedef struct image {
+	//common
 	Rect frame;
-	uint32_t* bitmap;
 	char needs_redraw;
+	struct view* superview;
+
+	uint32_t* bitmap;
 } Image;
 
 typedef struct view {
+	//common
 	Rect frame;
+	char needs_redraw;
 	struct view *superview;
-	Color background_color;
 	mutable_array_t subviews;
+	
+	Color background_color;
 	mutable_array_t labels;
 	mutable_array_t images;
-	char needs_redraw;
 } View;
 
 void add_subview(View* view, View* subview);
