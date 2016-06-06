@@ -34,7 +34,7 @@ static View* create_content_view(Window* window) {
 	int title_height = 20;
 	if (window->title_view) title_height = window->title_view->frame.size.height;
 
-	Rect inner_frame = rect_make(point_make(2, title_height), size_make(window->frame.size.width - 4, window->frame.size.height - title_height - 2));
+	Rect inner_frame = rect_make(point_make((window->border_width * 2), title_height), size_make(window->frame.size.width - (window->border_width * 4), window->frame.size.height - title_height - (window->border_width * 2)));
 	View* content_view = create_view(inner_frame);
 	content_view->background_color = color_make(255, 255, 255);
 	
@@ -46,6 +46,7 @@ Window* create_window(Rect frame) {
 	window->size = frame.size;
 	window->frame = frame;
 	window->border_color = color_make(0, 0, 255);
+	window->border_width = 1;
 	window->subviews = array_m_create(MAX_ELEMENTS);
 	window->title = "Window";
 
@@ -133,13 +134,16 @@ void set_background_color(View* view, Color color) {
 void add_subwindow(Window* window, Window* subwindow) {
 	array_m_insert(subwindow, &(window->subviews));
 	subwindow->superview = window;
-	subwindow->needs_redraw = 1;
-	window->needs_redraw = 1;
+	mark_needs_redraw(window);
 }
 
 void remove_subwindow(Window* window, Window* subwindow) {
 	array_m_remove(array_m_index(subwindow, &(window->subviews)), &(window->subviews));
 	subwindow->superview = NULL;
-	subwindow->needs_redraw = 1;
-	window->needs_redraw = 1;
+	mark_needs_redraw(window);
+}
+
+void set_border_width(Window* window, int width) {
+	window->border_width = width;
+	mark_needs_redraw(window);
 }

@@ -161,7 +161,7 @@ void draw_window(Screen* screen, Window* window) {
 	dirtied = 1;
 
 	//paint navy blue window
-	draw_rect(screen, window->frame, window->border_color, 1);
+	draw_rect(screen, window->frame, window->border_color, window->border_width);
 	
 	//only draw a title bar if title_view exists
 	if (window->title_view) {
