@@ -274,6 +274,13 @@ void page_fault(registers_t* regs) {
 		printf_err("Page fault caused by reading unpaged memory");
 	}
 
+	//if this page was present, attempt to recover by allocating the page
+	if (present) {
+		alloc_frame(get_page(faulting_address, !present, current_directory), !us, rw);
+		asm volatile("iret");
+		return;
+	}
+
 	common_halt(&regs);
 }
 

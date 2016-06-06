@@ -40,7 +40,7 @@ type_t array_m_lookup(uint32_t i, mutable_array_t* array) {
 uint32_t array_m_index(type_t item, mutable_array_t* array) {
 	//TODO optimize this
 	for (int i = 0; i < array->size; i++) {
-		if (array_m_lookup(i, &array) == item) return i;
+		if (array_m_lookup(i, array) == item) return i;
 	}
 	return -1;
 }

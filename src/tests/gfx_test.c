@@ -230,7 +230,7 @@ void test_xserv(Screen* vesa_screen) {
 	Rect r = rect_make(point_make(50, 50), size_make(400, 500));
 	Window* window = create_window(r);
 	add_subwindow(vesa_screen->window, window);
-
+/*
 	Rect image_frame = window->content_view->frame;
 	uint32_t* bitmap = kmalloc(image_frame.size.width * image_frame.size.height * sizeof(uint32_t));
 	
@@ -245,4 +245,22 @@ void test_xserv(Screen* vesa_screen) {
 	
 	Label* label = create_label(image_frame, "Lorem ipsum dolor sit amet consectetur apipiscing elit Donex purus arcu suscipit ed felis eu blandit blandit quam Donec finibus euismod lobortis Sed massa nunc malesuada ac ante eleifend dictum laoreet massa Aliquam nec dictum turpis pellentesque lacinia ligula Donec et tellus maximum dapibus justo auctor egestas sapien Integer venantis egesta malesdada Maecenas venenatis urna id posuere bibendum eros torto gravida ipsum sed tempor arcy andte ac odio Morbi elementum libero id velit bibendum auctor It sit amet ex eget urna venenatis laoreet Proin posuere urna nec ante tutum lobortis Cras nec elit tristique dolor congue eleifend");
 	add_sublabel(window->content_view, label);
+
+	sleep(1000);
+	View* subview = create_view(rect_make(point_make(0, 200), size_make(500, 250)));
+	subview->background_color = color_make(200, 0, 255);
+	add_subview(window->content_view, subview);
+
+	sleep(1000);
+	remove_subview(window->content_view, subview);
+	*/
+	int origin_y = 0;
+	for (int i = 0; i < 10; i++) {
+		Rect label_rect = rect_make(point_make(0, origin_y), window->content_view->frame.size);
+		Label* label = create_label(label_rect, "The brown fox jumped over the lazy dog");
+		add_sublabel(window->content_view, label);
+
+		origin_y += 10;
+		sleep(100);
+	}
 }	

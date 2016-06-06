@@ -46,12 +46,12 @@ void view_teardown(View* view) {
 }
 
 void window_teardown(Window* window) {
-	for (int i = 0; i < window->subwindows.size; i++) {
-		Window* window = (Window*)array_m_lookup(i, &(window->subwindows));
+	for (int i = 0; i < window->subviews.size; i++) {
+		Window* window = (Window*)array_m_lookup(i, &(window->subviews));
 		window_teardown(window);
 	}
-	//free subwindows array
-	array_m_destroy(&(window->subwindows));
+	//free subviews array
+	array_m_destroy(&(window->subviews));
 
 	//free the views associated with this window
 	view_teardown(window->title_view);
@@ -144,7 +144,8 @@ void vga_boot_screen(Screen* screen) {
 	Size lab_size = size_make((10 * strlen("axle os")), 12);
 	Label* label = create_label(rect_make(lab_origin, lab_size), "axle os");
 	label->text_color = color_make(2, 0, 0);
-	draw_label(screen, label);
+	add_sublabel(screen->window->content_view, label);
+	//draw_label(screen, label);
 
 	float rect_length = screen->window->size.width / 3;
 	Coordinate origin = point_make((screen->window->size.width/2) - (rect_length / 2), screen->window->size.height / 4 * 3);
