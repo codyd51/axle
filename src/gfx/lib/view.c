@@ -97,12 +97,14 @@ void remove_sublabel(View* view, Label* label) {
 
 void add_subimage(View* view, Image* image) {
 	array_m_insert(image, &(view->images));
+	image->superview = view;
 	image->needs_redraw = 1;
 	mark_needs_redraw(view);
 }
 
 void remove_subimage(View* view, Image* image) {
 	array_m_remove(array_m_index(image, &(view->images)), &(view->images));
+	image->superview = NULL;
 	image->needs_redraw = 1;
 	mark_needs_redraw(view);
 }
@@ -122,12 +124,14 @@ void remove_subview(View* view, View* subview) {
 
 void add_subwindow(Window* window, Window* subwindow) {
 	array_m_insert(subwindow, &(window->subviews));
+	subwindow->superview = window;
 	subwindow->needs_redraw = 1;
 	window->needs_redraw = 1;
 }
 
 void remove_subwindow(Window* window, Window* subwindow) {
 	array_m_remove(array_m_index(subwindow, &(window->subviews)), &(window->subviews));
+	subwindow->superview = NULL;
 	subwindow->needs_redraw = 1;
 	window->needs_redraw = 1;
 }
