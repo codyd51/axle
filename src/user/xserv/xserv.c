@@ -65,7 +65,6 @@ void draw_label(Screen* screen, Label* label) {
 	label->needs_redraw = 1;
 	dirtied = 1;
 
-	//Rect frame = convert_frame(superview, label->frame);
 	Rect frame = absolute_frame(screen, label);
 
 	int idx = 0;
@@ -100,7 +99,7 @@ void draw_image(Screen* screen, Image* image) {
 	image->needs_redraw = 1;
 	dirtied = 1;
 
-	Rect frame = convert_frame(superview, image->frame);
+	Rect frame = absolute_frame(screen, image);
 
 	//iterate through every pixel in the bitmap and draw it
 	int num_pixels = frame.size.width * frame.size.height;
@@ -122,10 +121,8 @@ void draw_view(Screen* screen, View* view) {
 	//inform subviews that we're being redrawn
 	view->needs_redraw = 1;
 	dirtied = 1;
-
-	Rect frame;
-	if (superview) frame = convert_frame(superview, view->frame);
-	else frame = convert_rect(superwindow->frame, view->frame);
+	
+	Rect frame = absolute_frame(screen, view);
 
 	//fill view with its background color
 	draw_rect(screen, frame, view->background_color, THICKNESS_FILLED);
