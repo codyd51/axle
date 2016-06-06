@@ -31,7 +31,10 @@ static View* create_title_view(Window* window) {
 }
 
 static View* create_content_view(Window* window) {
-	Rect inner_frame = rect_make(point_make(2, 20), size_make(window->frame.size.width - 4, window->frame.size.height - 20 - 2));
+	int title_height = 20;
+	if (window->title_view) title_height = window->title_view->frame.size.height;
+
+	Rect inner_frame = rect_make(point_make(2, title_height), size_make(window->frame.size.width - 4, window->frame.size.height - title_height - 2));
 	View* content_view = create_view(inner_frame);
 	content_view->background_color = color_make(255, 255, 255);
 	
