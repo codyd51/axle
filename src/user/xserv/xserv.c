@@ -64,6 +64,8 @@ Window* containing_window_int(Screen* screen, View* v) {
 			if (subwindow->title_view == view || subwindow->content_view == view) return subwindow;
 		}
 	}
+	ASSERT(0, "Couldn't find view's window!");
+	return NULL;
 }
 
 #define CHAR_WIDTH 8
@@ -87,9 +89,11 @@ Rect convert_frame(View* view, Rect frame) {
 }
 
 void draw_label(Screen* screen, Label* label) {
-	View* superview = label_superview_int(screen, label);
+	View* superview = label->superview;
+	ASSERT(superview, "label had no superview!");
 	if (!label->needs_redraw && !superview->needs_redraw) return;
 
+	label->needs_redraw = 1;
 	dirtied = 1;
 
 	Rect frame = convert_frame(superview, label->frame);
@@ -123,6 +127,7 @@ void draw_image(Screen* screen, Image* image) {
 	View* superview = image_superview_int(screen, image);
 	if (!image->needs_redraw && !superview->needs_redraw) return;
 
+	image->needs_redraw = 1;
 	dirtied = 1;
 
 	Rect frame = convert_frame(superview, image->frame);
@@ -144,6 +149,8 @@ void draw_view(Screen* screen, View* view) {
 	
 	if (!view->needs_redraw && !superview->needs_redraw && !superwindow->needs_redraw) return;
 
+	//inform subviews that we're being redrawn
+	view->needs_redraw = 1;
 	dirtied = 1;
 
 	Rect frame;
@@ -177,26 +184,26 @@ void draw_view(Screen* screen, View* view) {
 void draw_window(Screen* screen, Window* window) {
 	if (!window->needs_redraw && !window->content_view->needs_redraw && !window->title_view->needs_redraw			) return;
 
+	window->needs_redraw = 1;
 	dirtied = 1;
 
 	//paint navy blue window
 	draw_rect(screen, window->frame, window->border_color, 1);
-
+	
 	//only draw a title bar if title_view exists
 	if (window->title_view) {
 		draw_view(screen, window->title_view);
 	}
 
 	//put a small red square in top left corner of the window
-	Size close_button_size = size_make(5, 5);
-	Rect close_button = rect_make(window->frame.origin, close_button_size);
+	Rect close_button = rect_make(window->frame.origin, size_make(5, 5));
 	draw_rect(screen, close_button, color_make(255, 0, 0), THICKNESS_FILLED);
 
 	//only draw the content view if content_view exists
 	if (window->content_view) {
 		draw_view(screen, window->content_view);
 	}
-
+	
 	window->needs_redraw = 0;
 }
 
@@ -233,7 +240,12 @@ void draw_desktop(Screen* screen) {
 }
 
 char xserv_draw(Screen* screen) {
+	screen->finished_drawing = 0;
+
 	dirtied = 0;
 	draw_desktop(screen);
+
+	screen->finished_drawing = 1;
+
 	return dirtied;
 }
