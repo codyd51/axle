@@ -254,6 +254,7 @@ void test_xserv(Screen* vesa_screen) {
 	sleep(1000);
 	remove_subview(window->content_view, subview);
 	*/
+	/*
 	int origin_y = 0;
 	for (int i = 0; i < 10; i++) {
 		Rect label_rect = rect_make(point_make(0, origin_y), window->content_view->frame.size);
@@ -263,4 +264,18 @@ void test_xserv(Screen* vesa_screen) {
 		origin_y += 10;
 		sleep(100);
 	}
+	*/
+
+	View* view = create_view(rect_make(point_make(50, 50), size_make(150, 150)));
+	add_subview(window->content_view, view);
+	set_background_color(view, color_make(255, 0, 0));
+	sleep(1000);
+	set_background_color(view, color_make(0, 255, 0));
+	sleep(1000);
+	set_background_color(view, color_make(0, 0, 255));
+	sleep(1000);
+	set_background_color(view, color_make(100, 200, 0));
+	sleep(1000);
+	remove_subview(window->content_view, view);
+
 }	

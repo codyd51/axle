@@ -32,6 +32,7 @@ typedef struct window {
 	struct view* title_view;
 	struct view* content_view;
 	Color border_color;
+	int border_width;
 } Window;
 
 //TODO make proper subclass (c++?)
