@@ -8,13 +8,27 @@ View* label_superview_int(Screen* screen, Label* label) {
 	//traverse view heirarchy, finding the view that contains the label
 	for (int i = 0; i < screen->window->subwindows.size; i++) {
 		Window* window = array_m_lookup(i, &(screen->window->subwindows));
-		View* view = window->content_view;
-		if (array_m_index(label, &(view->labels)) != -1) return view;
-		for (int j = 0; j < view->subviews.size; j++) {
-			View* subview = array_m_lookup(j, &(view->subviews));
-			if (array_m_index(label, &(subview->labels)) != -1) return subview;
+
+		for (int k = 0; k < 2; k++) {
+			View* view;
+			switch (k) {
+				case 0:
+					view = window->title_view;
+					break;
+				case 1:
+				default:
+					view = window->content_view;
+					break;
+			}
+
+			if (array_m_index(label, &(view->labels)) != -1) return view;
+			for (int j = 0; j < view->subviews.size; j++) {
+				View* subview = array_m_lookup(j, &(view->subviews));
+				if (array_m_index(label, &(subview->labels)) != -1) return subview;
+			}
 		}
 	}
+	ASSERT(0, "Couldn't find label's superview!");
 	return NULL;
 }
 
@@ -29,21 +43,46 @@ View* image_superview_int(Screen* screen, Image* image) {
 			if (array_m_index(image, &(subview->images)) != -1) return subview;
 		}
 	}
+	ASSERT(0, "Couldn't find image's superview!");
 	return NULL;
+}
+
+Window* containing_window_int(Screen* screen, View* v) {
+	//find root window
+	View* view = v;
+	while (view->superview) {
+		view = view->superview;
+	}
+
+	//traverse view hierarchy, find window which has view as its title or content view
+	if (screen->window->title_view == view || screen->window->content_view == view) return screen->window;
+	for (int i = 0; i < screen->window->subwindows.size; i++) {
+		Window* window = array_m_lookup(i, &(screen->window->subwindows));
+		if (window->title_view == view || window->content_view == view) return window;
+		for (int j = 0; j < window->subwindows.size; j++) {
+			Window* subwindow = array_m_lookup(j, &(window->subwindows));
+			if (subwindow->title_view == view || subwindow->content_view == view) return subwindow;
+		}
+	}
 }
 
 #define CHAR_WIDTH 8
 #define CHAR_HEIGHT 8
 #define CHAR_PADDING 2
 
+Rect convert_rect(Rect outer, Rect inner) {
+	Rect ret;
+	ret.origin.x = inner.origin.x + outer.origin.x;
+	ret.origin.y = inner.origin.y + outer.origin.y;
+	ret.size.width = MIN(inner.size.width, outer.size.width);
+	ret.size.height = MIN(inner.size.height, outer.size.height);
+	return ret;
+}
+
 Rect convert_frame(View* view, Rect frame) {
 	if (!view) return frame;
 
-	Rect ret;
-	ret.origin.x = frame.origin.x + view->frame.origin.x;
-	ret.origin.y = frame.origin.y + view->frame.origin.y;
-	ret.size.width = MIN(frame.size.width, view->frame.size.width);
-	ret.size.height = MIN(frame.size.height, view->frame.size.height);
+	Rect ret = convert_rect(view->frame, frame);
 	return ret;
 }
 
@@ -100,12 +139,16 @@ void draw_image(Screen* screen, Image* image) {
 }
 
 void draw_view(Screen* screen, View* view) {
-	if (!view->needs_redraw && !view->superview->needs_redraw) return;
+	View* superview = view->superview;
+	Window* superwindow = containing_window_int(screen, view);
+	
+	if (!view->needs_redraw && !superview->needs_redraw && !superwindow->needs_redraw) return;
 
 	dirtied = 1;
 
-	Rect frame = convert_frame(view->superview, view->frame);
-	//Rect frame = view->frame;
+	Rect frame;
+	if (superview) frame = convert_frame(superview, view->frame);
+	else frame = convert_rect(superwindow->frame, view->frame);
 
 	//fill view with its background color
 	draw_rect(screen, frame, view->background_color, THICKNESS_FILLED);
