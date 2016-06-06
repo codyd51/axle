@@ -95,6 +95,7 @@ Screen* switch_to_vesa() {
 		
 		screen->font = setup_font();
 		screen->window = create_window(rect_make(point_make(0, 0), size_make(mode_info.x_res, mode_info.y_res)));
+		desktop_setup(screen);
 
 		//start refresh loop
 		//screen->finished_drawing = 0;

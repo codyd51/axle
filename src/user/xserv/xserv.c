@@ -178,35 +178,34 @@ void draw_window(Screen* screen, Window* window) {
 }
 
 void add_taskbar(Screen* screen) {
-	Size taskbar_size = size_make(screen->window->size.width, screen->window->size.height * 0.05);
-	Coordinate taskbar_origin = point_make(0, screen->window->size.height - taskbar_size.height);
-	Window* taskbar_window = create_window(rect_make(taskbar_origin, taskbar_size));
-	add_subwindow(screen->window, taskbar_window);
-
+	Size taskbar_size = size_make(screen->window->frame.size.width, screen->window->frame.size.height * 0.075);
+	Coordinate taskbar_origin = point_make(0, screen->window->frame.size.height - taskbar_size.height);
 	View* taskbar_view = create_view(rect_make(taskbar_origin, taskbar_size));
-	taskbar_window->content_view = taskbar_view;
 	taskbar_view->background_color = color_make(11, 136, 155);
+	add_subview(screen->window->content_view, taskbar_view);
 
-	Coordinate name_label_origin = point_make(taskbar_view->frame.size.width * 0.925, taskbar_view->frame.origin.y + taskbar_view->frame.size.height / 2 - (CHAR_HEIGHT / 2));
+	/*
+	Coordinate name_label_origin = point_make(taskbar_view->frame.size.width * 0.925, taskbar_view->frame.size.height / 2 - (CHAR_HEIGHT / 2));
 	Rect label_rect = rect_make(name_label_origin, size_make(taskbar_size.width - name_label_origin.x, taskbar_size.height));
 	Label* name_label = create_label(label_rect, "axle os");
 	add_sublabel(taskbar_view, name_label);
+	*/
 }
 
 void draw_desktop(Screen* screen) {
-	/*
-	Coordinate origin = point_make(0, 0);
-	Size sz = size_make(screen->window->size.width, screen->window->size.height);
-	Rect r = rect_make(origin, sz);
-	draw_rect(screen, r, color_make(192, 192, 192), THICKNESS_FILLED);
+	//paint root desktop
+	draw_window(screen, screen->window);
 
-	add_taskbar(screen);
-	*/
 	//paint every child window
 	for (int i = 0; i < screen->window->subviews.size; i++) {
 		Window* win = (Window*)(array_m_lookup(i, &(screen->window->subviews)));
 		draw_window(screen, win);
 	}
+}
+
+void desktop_setup(Screen* screen) {
+	screen->window->content_view->background_color = color_make(192, 192, 192);
+	add_taskbar(screen);
 }
 
 char xserv_draw(Screen* screen) {
