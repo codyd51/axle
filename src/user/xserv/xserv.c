@@ -60,7 +60,9 @@ Rect absolute_frame(Screen* screen, View* view) {
 void draw_label(Screen* screen, Label* label) {
 	View* superview = label->superview;
 	ASSERT(superview, "label had no superview!");
-	if (!label->needs_redraw && !superview->needs_redraw) return;
+	
+	if (!label || !label->needs_redraw) return;
+	if (superview && !superview->needs_redraw) return;
 
 	label->needs_redraw = 1;
 	dirtied = 1;
@@ -94,7 +96,9 @@ void draw_label(Screen* screen, Label* label) {
 
 void draw_image(Screen* screen, Image* image) {
 	View* superview = image->superview;
-	if (!image->needs_redraw && !superview->needs_redraw) return;
+	
+	if (!image || !image->needs_redraw) return;
+	if (superview && !superview->needs_redraw) return;
 
 	image->needs_redraw = 1;
 	dirtied = 1;
@@ -116,7 +120,9 @@ void draw_view(Screen* screen, View* view) {
 	View* superview = view->superview;
 	Window* superwindow = containing_window_int(screen, view);
 	
-	if (!view->needs_redraw && !superview->needs_redraw && !superwindow->needs_redraw) return;
+	if (!view || !view->needs_redraw) return;
+	if (superview && !superview->needs_redraw) return;
+	if (superwindow && !superwindow->needs_redraw) return;
 
 	//inform subviews that we're being redrawn
 	view->needs_redraw = 1;
@@ -175,7 +181,7 @@ void draw_window(Screen* screen, Window* window) {
 }
 
 void add_taskbar(Screen* screen) {
-	Size taskbar_size = size_make(screen->window->frame.size.width, screen->window->frame.size.height * 0.075);
+	Size taskbar_size = size_make(screen->window->frame.size.width, screen->window->frame.size.height * 0.05);
 	Coordinate taskbar_origin = point_make(0, screen->window->frame.size.height - taskbar_size.height);
 	View* taskbar_view = create_view(rect_make(taskbar_origin, taskbar_size));
 	taskbar_view->background_color = color_make(11, 136, 155);
