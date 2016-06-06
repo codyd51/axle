@@ -67,6 +67,12 @@ typedef struct view {
 	mutable_array_t images;
 } View;
 
+
+Label* create_label(Rect frame, char* text);
+Image* create_image(Rect frame, uint32_t* bitmap);
+View* create_view(Rect frame);
+Window* create_window(Rect frame);
+
 void add_subview(View* view, View* subview);
 void remove_subview(View* view, View* subview);
 void add_sublabel(View* view, Label* label);
@@ -77,9 +83,6 @@ void remove_subimage(View* view, Image* image);
 void add_subwindow(Window* window, Window* subwindow);
 void remove_subwindow(Window* window, Window* subwindow);
 
-Label* create_label(Rect frame, char* text);
-Image* create_image(Rect frame, uint32_t* bitmap);
-View* create_view(Rect frame);
-Window* create_window(Rect frame);
+void set_background_color(View* view, Color color);
 
 #endif

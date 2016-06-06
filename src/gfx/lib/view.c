@@ -122,6 +122,11 @@ void remove_subview(View* view, View* subview) {
 	mark_needs_redraw(view);
 }
 
+void set_background_color(View* view, Color color) {
+	view->background_color = color;
+	mark_needs_redraw(view);
+}
+
 void add_subwindow(Window* window, Window* subwindow) {
 	array_m_insert(subwindow, &(window->subviews));
 	subwindow->superview = window;
