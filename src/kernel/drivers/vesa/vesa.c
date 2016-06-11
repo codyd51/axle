@@ -6,6 +6,17 @@
 #include <gfx/font/font.h>
 
 void vesa_screen_refresh(Screen* screen) {
+	//check if there are any keys pending
+	while (haskey()) {
+		char ch = getchar();
+		if (ch == 'q') {
+			//quit xserv
+			gfx_teardown(screen);
+			switch_to_text();
+			return;
+		}
+	}
+
 	if (!screen->finished_drawing) return;
 
 	//if no changes occured this refresh, don't bother writing the screen
