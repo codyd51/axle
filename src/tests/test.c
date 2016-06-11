@@ -52,3 +52,8 @@ void test_heap() {
 	}
 	else printf_err("Heap test failed, expected %x to be marked free", a);
 }
+
+void test_printf() {
+	printf_info("Testing printf...");
+	printf_info("int: %d | hex: %x | char: %c | str: %s | float: %f | %%", 126, 0x14B7, 'q', "test", 3.1415926);
+}

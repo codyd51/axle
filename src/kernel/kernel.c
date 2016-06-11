@@ -131,6 +131,8 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//set up info panel
 	info_panel_install();
 
+	test_printf();
+
 	//force_page_fault();
 	//force_hardware_irq();	
 
