@@ -87,8 +87,6 @@ void vprintf(char* format, va_list va) {
 				case 'x':
 				case 'X':
 					printf_hex(va_arg(va, uint32_t));
-					//itoa(convert(va_arg(va, unsigned int), 16), bf);
-					//terminal_writestring(bf);
 					break;
 
 				case 'c':
@@ -99,8 +97,23 @@ void vprintf(char* format, va_list va) {
 					ptr = va_arg(va, char*);
 					terminal_writestring(ptr);
 					break;
-				case '*':
 
+				case 'f':
+				case 'F':
+					//labels must be followed by statements, and the declaration below
+					//is not a statement, which causes a compiler error
+					//to get around this, we have an empty statement
+					;
+
+					double fnum = va_arg(va, double);
+					//print integer part, truncate fraction
+					printf("%d.", (int)fnum);
+					//get numbers after decimal
+					fnum = (fnum - (int)fnum) * 1000000;
+					printf("%d", (int)fnum);
+					break;
+
+				case '%':
 				default:
 					terminal_putchar(ch);
 					break;
