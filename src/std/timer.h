@@ -17,6 +17,7 @@ typedef struct {
 	void* context;
 } timer_callback;
 
+STDAPI void sleep(uint32_t ms);
 STDAPI timer_callback add_callback(void* callback, int interval, bool repeats, void* context);
 STDAPI void remove_callback_at_index(int index);
 

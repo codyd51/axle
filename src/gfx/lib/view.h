@@ -1,9 +1,12 @@
 #ifndef VIEW_H
 #define VIEW_H
 
-#include <std/common.h>
+#include <std/std_base.h>
+#include <stdint.h>
 #include <std/mutable_array.h>
 #include "color.h"
+
+__BEGIN_DECLS
 
 typedef struct coordinate {
 	int x;
@@ -85,5 +88,7 @@ void add_subwindow(Window* window, Window* subwindow);
 void remove_subwindow(Window* window, Window* subwindow);
 
 void set_background_color(View* view, Color color);
+
+__END_DECLS
 
 #endif

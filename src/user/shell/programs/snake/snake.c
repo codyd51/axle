@@ -1,58 +1,39 @@
 #include "snake.h"
 #include <kernel/kernel.h>
 #include <std/kheap.h>
+#include <std/printf.h>
 #include <kernel/drivers/terminal/terminal.h>
 
-#define BOARD_SIZE TERMINAL_WIDTH * TERMINAL_HEIGHT
+#define BOARD_SIZE TERM_AREA
 
 //u16int* screen_buffer[VGA_WIDTH][VGA_HEIGHT] = (u16int*)0x8B000;
 
-void board_clear() {
-	for (int y = 0; y < TERMINAL_HEIGHT; y++) {
-		for (int x = 0; x < TERMINAL_WIDTH; x++) {
-			terminal_putentryat(" ", 68, x, y);
-		}
-	}
+static void draw_head(game_state_t* game_state) {
+	terminal_movecursor((term_cursor){
+		game_state->last_head_x,
+		game_state->last_head_y
+	});
+	terminal_putchar('@');
 }
 
 void move_up(game_state_t* game_state) {
-	int new_head_x = game_state->last_head_x;
-	int new_head_y = game_state->last_head_y - 1;
-
-	game_state->last_head_x = new_head_x;
-	game_state->last_head_y = new_head_y;
-
-	terminal_putentryat("@", 66, new_head_x, new_head_y);
+	--game_state->last_head_y;
+	draw_head(game_state);
 }
 
 void move_down(game_state_t* game_state) {
-	int new_head_x = game_state->last_head_x;
-	int new_head_y = game_state->last_head_y + 1;
-
-	game_state->last_head_x = new_head_x;
-	game_state->last_head_y = new_head_y;
-
-	terminal_putentryat("@", 66, new_head_x, new_head_y);
+	++game_state->last_head_y;
+	draw_head(game_state);
 }
 
 void move_left(game_state_t* game_state) {
-	int new_head_x = game_state->last_head_x - 1;
-	int new_head_y = game_state->last_head_y;
-
-	game_state->last_head_x = new_head_x;
-	game_state->last_head_y = new_head_y;
-
-	terminal_putentryat("@", 66, new_head_x, new_head_y);
+	--game_state->last_head_x;
+	draw_head(game_state);
 }
 
 void move_right(game_state_t* game_state) {
-	int new_head_x = game_state->last_head_x + 1;
-	int new_head_y = game_state->last_head_y;
-
-	game_state->last_head_x = new_head_x;
-	game_state->last_head_y = new_head_y;
-
-	terminal_putentryat("@", 66, new_head_x, new_head_y);
+	++game_state->last_head_x;
+	draw_head(game_state);
 }
 
 void move_dispatch(game_state_t* game_state) {
@@ -73,15 +54,10 @@ void move_dispatch(game_state_t* game_state) {
 }
 
 void game_tick(game_state_t* game_state) {
-	static int bufPos;
-
 	if (game_state->player->is_alive != 0) {
 		game_state->is_running = 1;
 
-		board_clear();
-	
-		int y = bufPos / TERMINAL_WIDTH;
-		int x = bufPos - (y * TERMINAL_WIDTH);
+		terminal_clear();
 
 		move_dispatch(game_state);
 
@@ -93,8 +69,6 @@ void game_tick(game_state_t* game_state) {
 				game_state->last_move = ch;
 			}
 		}
-
-		bufPos++;
 	}
 	else {
 		//end game
@@ -102,19 +76,14 @@ void game_tick(game_state_t* game_state) {
 	}
 }
 
-void play_snake() {
-	terminal_clear();
-
-	//while quit game character is not matched
-	char ch;
-
+void play_snake(void) {
 	game_state_t* game_state = kmalloc(sizeof(game_state_t));
 	snake_player_t* player = kmalloc(sizeof(snake_player_t));
 	game_state->player->is_alive = 1;
 	game_state->last_move = 'd';
 	player->length = 10;
 	
-	board_clear();
+	terminal_clear();
 
 	//ensure game_tick runs at least once
 	do {

@@ -233,18 +233,22 @@ void printf_info(char* format, ...) {
 	printf("]\n");	
 }
 
-void printf_err(char* format, ...) {
+void printf_err(const char* format, ...) {
+	va_list ap;
+	va_start(ap, format);
+	vprintf_err(format, ap);
+	va_end(ap);
+}
+
+void vprintf_err(const char* format, va_list ap) {
 	terminal_settextcolor(COLOR_LIGHT_GREEN);
 	printf("[");
 	terminal_settextcolor(COLOR_LIGHT_RED);
 	printf("ERROR ");
 	terminal_settextcolor(COLOR_WHITE);
 
-	va_list arg;
-	va_start(arg, format);
-	vprintf(format, arg);
-	va_end(arg);
+	vprintf(format, ap);
 
 	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("]\n");	
+	printf("]\n");
 }
