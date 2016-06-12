@@ -1,6 +1,7 @@
 build-grub/ 
 grub/ 
 objconv/
+isodir/
 .objs/
 *.o
 *.bin

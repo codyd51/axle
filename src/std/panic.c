@@ -1,17 +1,65 @@
 #include "panic.h"
 #include "common.h"
 #include <kernel/drivers/terminal/terminal.h>
+#include <stdarg.h>
 
-void panic(uint16_t line, const char* file) {
+// Until we have a better way to print stack traces...
+#define TRY_PRINT_FRAME(num) do { \
+	if(__builtin_frame_address(num) == 0) { \
+		return; \
+	} \
+	printf("[%d] 0x%x\n", num, __builtin_return_address(num)); \
+} while(0)
+
+static inline __attribute__((__always_inline__)) void print_stack(void) {
+	printf("Stack trace:\n");
+	
+	// First stack frame is a panic() function, so ignore it
+	TRY_PRINT_FRAME(1);
+	TRY_PRINT_FRAME(2);
+	TRY_PRINT_FRAME(3);
+	TRY_PRINT_FRAME(4);
+	TRY_PRINT_FRAME(5);
+	TRY_PRINT_FRAME(6);
+	TRY_PRINT_FRAME(7);
+	TRY_PRINT_FRAME(8);
+	TRY_PRINT_FRAME(9);
+	TRY_PRINT_FRAME(10);
+	TRY_PRINT_FRAME(11);
+	TRY_PRINT_FRAME(12);
+	TRY_PRINT_FRAME(13);
+	TRY_PRINT_FRAME(14);
+	TRY_PRINT_FRAME(15);
+	TRY_PRINT_FRAME(16);
+}
+
+__attribute__((__noreturn__)) void panic(uint16_t line, const char* file) {
 	printf("\n");
 	printf_err("PANIC %s: line %d", file, line);
+	
+	print_stack();
+	
 	//enter infinite loop
 	do {} while (1);
 }
 
-void panic_msg(const char* msg, uint16_t line, const char* file) {
+__attribute__((__noreturn__)) void panic_msg(uint16_t line, const char* file, const char* msg, ...) {
 	switch_to_text();
+	terminal_clear();
 
-	printf_err("Throwing panic: %s", msg);
-	panic(line, file);
+	printf_err("Kernel panic!");
+
+	va_list ap;
+	va_start(ap, msg);
+	vprintf_err(msg, ap);
+	va_end(ap);
+	
+	// Inline the panic() code for stack frame count
+	printf("\n");
+	printf_err("PANIC %s: line %d", file, line);
+	
+	print_stack();
+	
+	//enter infinite loop
+	do {} while (1);
 }

@@ -3,10 +3,10 @@
 
 #include "std_base.h"
 #include "common.h"
-#include "character.h"
+#include "ctype.h"
 #include "string.h"
 #include "memory.h"
 #include "panic.h"
 #include "timer.h"
 
-#endif
+#endif // STD_H

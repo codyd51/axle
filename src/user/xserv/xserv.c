@@ -1,5 +1,7 @@
 #include "xserv.h"
+#include <stddef.h>
 #include <std/math.h>
+#include <std/panic.h>
 
 //has the screen been modified this refresh?
 static char dirtied = 0;

@@ -5,7 +5,7 @@
 #include <kernel/drivers/kb/kb.h>
 #include <kernel/drivers/terminal/terminal.h>
 
-void kernel_begin_critical();
-void kernel_end_critical();
+void kernel_begin_critical(void);
+void kernel_end_critical(void);
 
 #endif

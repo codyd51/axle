@@ -1,132 +1,226 @@
 #include "terminal.h"
+#include <std/panic.h>
 
-uint8_t make_color(enum terminal_color fg, enum terminal_color bg) {
-	return fg | bg << 4;
-}
+/// Combines a foreground and background color
+typedef union rawcolor {
+	struct {
+		uint8_t fg : 4;
+		uint8_t bg : 4;
+	};
+	uint8_t raw;
+} rawcolor;
 
-uint16_t make_terminal_entry(char c, uint8_t color) {
-	uint16_t c16 = c;
-	uint16_t color16 = color;
-	return c16 | color16 << 8;
-}
+/// Internal structure of the terminal buffer
+typedef union term_display {
+	uint16_t grid[TERM_HEIGHT][TERM_WIDTH];
+	uint16_t mem[TERM_AREA];
+} term_display;
 
-cursor cursor_pos;
-uint8_t terminal_color;
-uint16_t* terminal_buffer;
+/// Current position of the terminal cursor
+static struct term_cursor g_cursor_pos;
 
-void terminal_initialize() {
-	cursor_pos.x = 0;
-	cursor_pos.y = 0;
-	
-	terminal_color = make_color(COLOR_LIGHT_BLUE, COLOR_BLACK);
-	terminal_buffer = TERMINAL_MEM;
+/// Current foreground and background color for newly written text
+static rawcolor g_terminal_color;
 
+/// Screen buffer for the terminal
+static term_display* const g_terminal_buffer = (term_display*)0xB8000;
+
+
+static void push_back_line(void);
+static void newline(void);
+static void putraw(char ch);
+static void backspace(void);
+static rawcolor make_color(term_color fg, term_color bg);
+static uint16_t make_terminal_entry(char ch, rawcolor color);
+static void update_cursor(term_cursor loc);
+
+
+void terminal_initialize(void) {
+	terminal_setcolor(TERM_DEFAULT_FG, TERM_DEFAULT_BG);
 	terminal_clear();
 }
 
-void terminal_setcolor(uint8_t color) {
-	terminal_color = color;
+void terminal_clear(void) {
+	for(int i = 0; i < TERM_AREA; i++) {
+		uint16_t blank = make_terminal_entry(' ', g_terminal_color);
+		g_terminal_buffer->mem[i] = blank;
+	}
+	
+	terminal_setcursor((term_cursor){0, 0});
 }
 
-void terminal_settextcolor(enum terminal_color col) {
-	terminal_color = make_color(col, (terminal_color >> 4));
+static void push_back_line(void) {
+	// Move all lines up one. This won't clear the last line
+	
+	/*
+	memmove(&g_terminal_buffer->mem[0],
+	        &g_terminal_buffer->mem[TERM_WIDTH],
+	        TERM_COUNT - TERM_WIDTH);
+	*/
+	
+	// memmove is not currently implemented, so do this for now
+	for(uint16_t y = 1; y < TERM_HEIGHT; y++) {
+		memcpy(&g_terminal_buffer->grid[y-1][0],
+		       &g_terminal_buffer->grid[y][0],
+		       TERM_WIDTH * sizeof(g_terminal_buffer->grid[0][0]));
+	}
+	
+	// Clear the last line
+	uint16_t blank = make_terminal_entry(' ', g_terminal_color);
+	for(uint16_t x = 0; x < TERM_WIDTH; x++) {
+		g_terminal_buffer->grid[TERM_HEIGHT - 1][x] = blank;
+	}
 }
 
-void terminal_putentryat(char c, uint8_t color, size_t x, size_t y) {
-	const size_t index = y * TERMINAL_WIDTH + x;
-	terminal_buffer[index] = make_terminal_entry(c, color);
+static void newline(void) {
+	g_cursor_pos.x = 0;
+	if(++g_cursor_pos.y >= TERM_HEIGHT) {
+		push_back_line();
+		g_cursor_pos.y = TERM_HEIGHT - 1;
+	}
 }
 
-void terminal_push_back_line() {
-	cursor_pos.x = 0;
+static void putraw(char ch) {
+	// Find where to draw the character
+	uint16_t* entry = &g_terminal_buffer->grid[g_cursor_pos.y][g_cursor_pos.x];
+	
+	// Draw the character
+	*entry = make_terminal_entry(ch, g_terminal_color);
+	
+	// Advance cursor to next valid position
+	if(++g_cursor_pos.x >= TERM_WIDTH) {
+		newline();
+	}
+}
 
-    //move every character up by one row
-	for (size_t row = 0; row < TERMINAL_HEIGHT; row++) {
-		for (size_t col = 0; col < TERMINAL_WIDTH; col++) {
-			size_t index = (row+1) * TERMINAL_WIDTH + col;
-			uint8_t color = terminal_buffer[index] >> 8;
-			terminal_putentryat(terminal_buffer[index], color, col, row);
+static void backspace(void) {
+	term_cursor new_pos;
+	if(g_cursor_pos.x == 0) {
+		if(g_cursor_pos.y == 0) {
+			// Can't delete if we're at the first spot
+			return;
 		}
-	}
-	cursor_pos.y = TERMINAL_HEIGHT-1;
-}
-
-void terminal_putchar(char c) {
-	//check for newline character
-	if (c == '\n') {
-		cursor_pos.x = 0;
-		if (++cursor_pos.y >= TERMINAL_HEIGHT) {
-			terminal_push_back_line();
-		}
-	}
-	//tab character
-	else if (c == '\t') {
-		cursor_pos.x += 4;
-	}
-	//backspace character
-	else if (c == '\b') {
-		terminal_removechar();
+		
+		// Go back to last column on previous line
+		new_pos.x = TERM_WIDTH - 1;
+		new_pos.y = g_cursor_pos.y - 1;
 	}
 	else {
-		terminal_putentryat(c, terminal_color, cursor_pos.x, cursor_pos.y);
+		// Go back one character on this line
+		new_pos.x = g_cursor_pos.x - 1;
+		new_pos.y = g_cursor_pos.y;
 	}
 	
-	if (++cursor_pos.x == TERMINAL_WIDTH) {
-		cursor_pos.x = 0;
+	// Draw a space over the previous character, then back up
+	g_cursor_pos = new_pos;
+	putraw(' ');
+	g_cursor_pos = new_pos;
+}
 
-		if (++cursor_pos.y == TERMINAL_HEIGHT) {	
-			terminal_push_back_line();
+void terminal_putchar(char ch) {
+	switch(ch) {
+		// Newline
+		case '\n':
+			newline();
+			break;
+		
+		// Tab
+		case '\t': {
+			uint16_t tab = TERM_TABWIDTH - (g_cursor_pos.x % TERM_TABWIDTH);
+			while(tab--) {
+				if(g_cursor_pos.x >= TERM_WIDTH) {
+					// Wrap to new line
+					newline();
+					break;
+				}
+				
+				// Draw spaces to make the tab
+				putraw(' ');
+			}
+			break;
 		}
+		
+		// Backspace
+		case '\b':
+			backspace();
+			break;
+		
+		// Alarm
+		case '\a':
+			//TODO
+			break;
+		
+		// Formfeed
+		case '\f':
+			terminal_clear();
+			break;
+		
+		// Vertical tab
+		case '\v':
+			if(++g_cursor_pos.y >= TERM_HEIGHT) {
+				push_back_line();
+				g_cursor_pos.y = TERM_HEIGHT - 1;
+			}
+			break;
+		
+		// Normal characters
+		default:
+			putraw(ch);
+			break;
 	}
-
-	move_cursor();
+	
+	// Update displayed cursor position
+	terminal_updatecursor();
 }
 
-void terminal_removechar() {
-	terminal_putentryat(' ', terminal_color, cursor_pos.x - 1, cursor_pos.y);
-	cursor_pos.x -= 2;
-	move_cursor();
-}
-
-void terminal_writestring(const char* data) {
-	size_t datalen = strlen(data);
-	for (size_t i = 0; i < datalen; i++) {
-		terminal_putchar(data[i]);
+void terminal_writestring(const char* str) {
+	while(*str != '\0') {
+		terminal_putchar(*str++);
 	}
 }
 
-void terminal_clear() {
-	cursor_pos.x = 0;
-	cursor_pos.y = 0;
-
-	for (size_t y = 0; y < TERMINAL_HEIGHT; y++) {
-		for (size_t x = 0; x < TERMINAL_WIDTH; x++) {
-			const size_t index = y * TERMINAL_WIDTH + x;
-			terminal_buffer[index] = make_terminal_entry(' ', terminal_color);
-		}
-	}
+static rawcolor make_color(term_color fg, term_color bg) {
+	return (rawcolor){
+		.fg = fg,
+		.bg = bg
+	};
 }
 
-void set_cursor(cursor curs) {
-	cursor_pos = curs;
-	set_cursor_indicator(cursor_pos);
+static uint16_t make_terminal_entry(char ch, rawcolor color) {
+	return (color.raw << 8) | ch;
 }
 
-cursor get_cursor() {
-	return cursor_pos;
+void terminal_setcolor(term_color fg, term_color bg) {
+	g_terminal_color = make_color(fg, bg);
 }
 
-//update hardware cursor
-void set_cursor_indicator(cursor curs) {
-	//screen is 80 characters wide
-	uint16_t loc = curs.y * 80 + curs.x;
-	outb(0x3D4, 14); //tell VGA board we're setting high cursor byte
+void terminal_settextcolor(term_color color) {
+	g_terminal_color.fg = color;
+}
+
+void terminal_setbgcolor(term_color color) {
+	g_terminal_color.bg = color;
+}
+
+term_cursor terminal_getcursor(void) {
+	return g_cursor_pos;
+}
+
+void terminal_setcursor(term_cursor curs) {
+	ASSERT(curs.x < TERM_WIDTH && curs.y < TERM_HEIGHT,
+		"Cursor out of bounds: (%d, %d)", curs.x, curs.y);
+	g_cursor_pos = curs;
+}
+
+void terminal_updatecursor(void) {
+	uint16_t loc = g_cursor_pos.y * TERM_WIDTH + g_cursor_pos.x;
+	outb(0x3D4, 14);       //tell VGA board we're setting high cursor byte
 	outb(0x3D5, loc >> 8); //send high cursor byte
-	outb(0x3D4, 15); //tell VGA board we're setting the low cursor byte
-	outb(0x3D5, loc); //send low cursor byte
-	
+	outb(0x3D4, 15);       //tell VGA board we're setting the low cursor byte
+	outb(0x3D5, loc);      //send low cursor byte
 }
 
-void move_cursor() {
-	set_cursor_indicator(cursor_pos);
+void terminal_movecursor(term_cursor loc) {
+	terminal_setcursor(loc);
+	terminal_updatecursor();
 }
