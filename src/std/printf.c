@@ -1,5 +1,5 @@
 #include "printf.h"
-#include "common.h"
+#include <stdarg.h>
 
 char* convert(unsigned int num, int base) {
 	static char representation[] = "0123456789ABCDEF";

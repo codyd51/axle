@@ -1,14 +1,23 @@
-#include "common.h"
+#ifndef STD_KHEAP_H
+#define STD_KHEAP_H
+
+#include "std_base.h"
 #include "ordered_array.h"
+#include <stdint.h>
+
+__BEGIN_DECLS
 
 //page aligned
-uint32_t kmalloc_a(uint32_t sz);
+STDAPI uint32_t kmalloc_a(uint32_t sz);
+
 //returns physical address
-uint32_t kmalloc_p(uint32_t sz, uint32_t* phys);
+STDAPI uint32_t kmalloc_p(uint32_t sz, uint32_t* phys);
+
 //page aligned and returns physical address
-uint32_t kmalloc_ap(uint32_t sz, uint32_t* phys);
+STDAPI uint32_t kmalloc_ap(uint32_t sz, uint32_t* phys);
+
 //normal kmalloc
-uint32_t kmalloc(uint32_t sz);
+STDAPI uint32_t kmalloc(uint32_t sz);
 
 #define KHEAP_START		0x40000000
 #define KHEAP_INITIAL_SIZE	0x1000000
@@ -40,11 +49,14 @@ typedef struct {
 } heap_t;
 
 //create new heap
-heap_t* create_heap(uint32_t start, uint32_t end, uint32_t max, uint8_t supervisor, uint8_t readonly);
+STDAPI heap_t* create_heap(uint32_t start, uint32_t end, uint32_t max, uint8_t supervisor, uint8_t readonly);
 
 //allocates contiguous region of memory of size 'size'. If aligned, creates block starting on page boundary
-void* alloc(uint32_t size, uint8_t page_align, heap_t* heap);
+STDAPI void* alloc(uint32_t size, uint8_t page_align, heap_t* heap);
 
 //releases block allocated with alloc
-void free(void* p, heap_t* heap);
+STDAPI void free(void* p, heap_t* heap);
 
+__END_DECLS
+
+#endif // STD_KHEAP_H

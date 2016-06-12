@@ -1,48 +1,59 @@
-#ifndef MATH_H
-#define MATH_H
+#ifndef STD_MATH_H
+#define STD_MATH_H
 
-#define MIN(x, y) ({typeof(x) x_ = (x); typeof(y) y_ = (y); (x_ < y_) ? x_ : y_;})
-#define MAX(x, y) ({typeof(x) x_ = (x); typeof(y) y_ = (y); (x_ > y_) ? x_ : y_;})
+#include "std_base.h"
+
+__BEGIN_DECLS
+
+#define CMP(op, a, b) ({ \
+	__typeof__(a) _a = (a); \
+	__typeof__(b) _b = (b); \
+	(_a op _b) ? _a : _b; \
+})
+#define MIN(a, b) CMP(<=, a, b)
+#define MAX(a, b) CMP(>, a, b)
 
 #define M_PI 3.1415926536
 #define M_E 2.7182818285
 
-double pow(double x, double pow);
-unsigned long factorial(unsigned long x);
+STDAPI double pow(double x, double pow);
+STDAPI unsigned long factorial(unsigned long x);
 
 //trigonometric functions
-double sin(double val);
-double cos(double val);
-double tan(double val);
-double cot(double val);
-double sec(double val);
-double csc(double val);
-double exp(double x);
+STDAPI double sin(double val);
+STDAPI double cos(double val);
+STDAPI double tan(double val);
+STDAPI double cot(double val);
+STDAPI double sec(double val);
+STDAPI double csc(double val);
+STDAPI double exp(double x);
 
 //hyperbolic functions
-double sinh(double val);
-double cosh(double val);
-double tanh(double val);
-double coth(double val);
-double sech(double val);
-double csch(double val);
+STDAPI double sinh(double val);
+STDAPI double cosh(double val);
+STDAPI double tanh(double val);
+STDAPI double coth(double val);
+STDAPI double sech(double val);
+STDAPI double csch(double val);
 
 //inverse trigonometric functions
-double arcsin(double val);
-double arccos(double val);
-double arctan(double val);
-double arccot(double val);
-double arcsec(double val);
-double arccsc(double val);
-double atan2(double y, double x);
+STDAPI double arcsin(double val);
+STDAPI double arccos(double val);
+STDAPI double arctan(double val);
+STDAPI double arccot(double val);
+STDAPI double arcsec(double val);
+STDAPI double arccsc(double val);
+STDAPI double atan2(double y, double x);
 
-int abs(int val);
+STDAPI int abs(int val);
 
-double sqrt(double x);
-int round(double x);
+STDAPI double sqrt(double x);
+STDAPI int round(double x);
 
 #define RAND_MAX 32767
-int rand();
-void srand(unsigned int seed);
+STDAPI int rand();
+STDAPI void srand(unsigned int seed);
 
-#endif
+__END_DECLS
+
+#endif // STD_MATH_H

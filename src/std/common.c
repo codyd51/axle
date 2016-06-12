@@ -33,7 +33,7 @@ uint32_t inl(uint16_t port) {
 //force wait for i/o operation to complete
 //this should only be used when there's nothing like
 //a status register or IRQ to tell you info has been received
-void io_wait() {
+void io_wait(void) {
 	//TODO this is fragile
 	asm volatile("		\
 		jmp 1f;		\
@@ -43,7 +43,7 @@ void io_wait() {
 }
 
 //returns if interrupts are on
-char interrupts_enabled() {
+char interrupts_enabled(void) {
 	unsigned long flags;
 	asm volatile("	\
 		pushf;	\
