@@ -34,4 +34,6 @@ void boot_screen();
 
 void putpixel(Screen* screen, int x, int y, Color color);
 
+void write_screen(Screen* screen);
+
 #endif

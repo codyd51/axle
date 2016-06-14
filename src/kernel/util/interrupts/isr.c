@@ -141,7 +141,7 @@ void isr_handler(registers_t regs) {
 	uint8_t int_no = regs.int_no & 0xFF;
 	if (interrupt_handlers[int_no] != 0) {
 		isr_t handler = interrupt_handlers[int_no];
-		handler(&regs);
+		handler(regs);
 	}
 	else {
 		printf_err("Unhandled interrupt: %x", int_no);
@@ -178,6 +178,6 @@ void irq_handler(registers_t regs) {
 	pic_acknowledge(regs.int_no);
 	if (interrupt_handlers[regs.int_no] != 0) {
 		isr_t handler = interrupt_handlers[regs.int_no];
-		handler(&regs);
+		handler(regs);
 	}
 }

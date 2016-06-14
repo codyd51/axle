@@ -2,6 +2,8 @@
 #include <std/kheap.h>
 #include <std/std.h>
 #include <kernel/kernel.h>
+#include <std/printf.h>
+#include <gfx/lib/gfx.h>
 
 //bitset of frames - used or free
 uint32_t* frames;
@@ -47,7 +49,7 @@ static uint32_t test_frame(uint32_t frame_addr) {
 //static function to find the first free frame 
 static uint32_t first_frame() {
 	uint32_t i, j;
-	for (int i = 0; i < INDEX_FROM_BIT(nframes); i++) {
+	for (i = 0; i < INDEX_FROM_BIT(nframes); i++) {
 		if (frames[i] != 0xFFFFFFFF) {
 			//nothing free, exit early
 			for (j = 0; j < 32; j++) {
@@ -58,10 +60,11 @@ static uint32_t first_frame() {
 			}
 		}
 	}
+	return NULL;
 }
 
-void virtual_map_pages(long addr, long size, uint32_t rw, uint32_t user) {
-	long i = addr;
+void virtual_map_pages(long addr, unsigned long size, uint32_t rw, uint32_t user) {
+	unsigned long i = addr;
 	while (i < (addr + size + 0x1000)) {
 		if (i + size < memsize) {
 			//find first free frame
@@ -130,6 +133,8 @@ void identity_map_lfb(uint32_t location) {
 	}
 }
 
+static void page_fault(registers_t regs);
+
 void paging_install() {
 	printf_info("Initializing paging...");
 	
@@ -172,7 +177,7 @@ void paging_install() {
 	//note, inside this loop body we actually change placement_address
 	//by calling kmalloc(). A while loop causes this to be computed
 	//on-the-fly instead of once at the start
-	int idx = 0;
+	unsigned idx = 0;
 	while (idx < placement_address + 0x1000) {
 		//kernel code is readable but not writeable from userspace
 		alloc_frame(get_page(idx, 1, kernel_directory), 0, 0);
@@ -237,7 +242,7 @@ page_t* get_page(uint32_t address, int make, page_directory_t* dir) {
 	return 0;
 }
 
-void page_fault(registers_t* regs) {
+static void page_fault(registers_t regs) {
 	switch_to_text();
 
 	//page fault has occured
@@ -246,11 +251,11 @@ void page_fault(registers_t* regs) {
 	asm volatile("mov %%cr2, %0" : "=r" (faulting_address));
 
 	//error code tells us what happened
-	int present = !(regs->err_code & 0x1); //page not present
-	int rw = regs->err_code & 0x2; //write operation?
-	int us = regs->err_code & 0x4; //were we in user mode?
-	int reserved = regs->err_code & 0x8; //overwritten CPU-reserved bits of page entry?
-	int id = regs->err_code & 0x10; //caused by instruction fetch?
+	int present = !(regs.err_code & 0x1); //page not present
+	int rw = regs.err_code & 0x2; //write operation?
+	int us = regs.err_code & 0x4; //were we in user mode?
+	int reserved = regs.err_code & 0x8; //overwritten CPU-reserved bits of page entry?
+	int id = regs.err_code & 0x10; //caused by instruction fetch?
 
 	printf_err("Encountered page fault at %x. Info follows", faulting_address);
 
@@ -267,7 +272,7 @@ void page_fault(registers_t* regs) {
 
 	if (id) printf_err("Faulted during instruction fetch");
 
-	if (regs->eip != faulting_address) {
+	if (regs.eip != faulting_address) {
 		printf_err("Page fault caused by executing unpaged memory");
 	} 
 	else {
@@ -281,7 +286,7 @@ void page_fault(registers_t* regs) {
 		return;
 	}
 
-	common_halt(&regs);
+	common_halt(regs);
 }
 
 static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {

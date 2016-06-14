@@ -205,7 +205,7 @@ void startx_command(int argc, char **argv) {
 
 	//switch to VESA for x serv
 	Screen* vesa_screen = switch_to_vesa();
-	test_xserv(vesa_screen);
+	//test_xserv(vesa_screen);
 }
 
 void shell_init() {

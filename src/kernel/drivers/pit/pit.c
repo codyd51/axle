@@ -3,6 +3,7 @@
 #include <kernel/kernel.h>
 #include <std/math.h>
 #include <std/common.h>
+#include <std/printf.h>
 
 static volatile uint32_t tick = 0;
 

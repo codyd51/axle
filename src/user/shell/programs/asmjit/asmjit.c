@@ -1,5 +1,7 @@
 #include "asmjit.h"
 #include <std/std.h>
+#include <kernel/drivers/kb/kb.h>
+#include <std/printf.h>
 
 /*
 //allocates RW mem of given size and returns pointer to it. 

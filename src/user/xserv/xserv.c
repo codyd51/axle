@@ -15,10 +15,10 @@ Window* containing_window_int(Screen* screen, View* v) {
 
 	//traverse view hierarchy, find window which has view as its title or content view
 	if (screen->window->title_view == view || screen->window->content_view == view) return screen->window;
-	for (int i = 0; i < screen->window->subviews.size; i++) {
+	for (unsigned i = 0; i < screen->window->subviews.size; i++) {
 		Window* window = array_m_lookup(i, &(screen->window->subviews));
 		if (window->title_view == view || window->content_view == view) return window;
-		for (int j = 0; j < window->subviews.size; j++) {
+		for (unsigned j = 0; j < window->subviews.size; j++) {
 			Window* subwindow = array_m_lookup(j, &(window->subviews));
 			if (subwindow->title_view == view || subwindow->content_view == view) return subwindow;
 		}
@@ -98,7 +98,6 @@ void draw_label(Screen* screen, Label* label) {
 
 void draw_image(Screen* screen, Image* image) {
 	View* superview = image->superview;
-	
 	if (!image || !image->needs_redraw) return;
 	if (superview && !superview->needs_redraw) return;
 
@@ -110,9 +109,11 @@ void draw_image(Screen* screen, Image* image) {
 	//iterate through every pixel in the bitmap and draw it
 	int num_pixels = frame.size.width * frame.size.height;
 	for (int i = 0; i < num_pixels; i++) {
+		/*
 		int x = frame.origin.x + (i % frame.size.width);
 		int y = frame.origin.y + (i / frame.size.height);
-		//putpixel(screen, x, y, image->bitmap[i]); 
+		putpixel(screen, x, y, image->bitmap[i]); 
+		*/
 	}
 
 	image->needs_redraw = 0;
@@ -121,7 +122,7 @@ void draw_image(Screen* screen, Image* image) {
 void draw_view(Screen* screen, View* view) {
 	View* superview = view->superview;
 	Window* superwindow = containing_window_int(screen, view);
-	
+
 	if (!view || !view->needs_redraw) return;
 	if (superview && !superview->needs_redraw) return;
 	if (superwindow && !superwindow->needs_redraw) return;
@@ -136,19 +137,19 @@ void draw_view(Screen* screen, View* view) {
 	draw_rect(screen, frame, view->background_color, THICKNESS_FILLED);
 
 	//draw any labels this view has
-	for (int i = 0; i < view->labels.size; i++) {
+	for (unsigned i = 0; i < view->labels.size; i++) {
 		Label* label = (Label*)array_m_lookup(i, &(view->labels));
 		draw_label(screen, label);
 	}
 
 	//draw any images this view has
-	for (int i = 0; i < view->images.size; i++) {
+	for (unsigned i = 0; i < view->images.size; i++) {
 		Image* image = (Image*)array_m_lookup(i, &(view->images));
 		draw_image(screen, image);
 	}
 
 	//draw each subview of this view
-	for (int i = 0; i < view->subviews.size; i++) {
+	for (unsigned i = 0; i < view->subviews.size; i++) {
 		View* subview = (View*)array_m_lookup(i, &(view->subviews));
 		draw_view(screen, subview);
 	}
@@ -189,20 +190,18 @@ void add_taskbar(Screen* screen) {
 	taskbar_view->background_color = color_make(11, 136, 155);
 	add_subview(screen->window->content_view, taskbar_view);
 
-	/*
 	Coordinate name_label_origin = point_make(taskbar_view->frame.size.width * 0.925, taskbar_view->frame.size.height / 2 - (CHAR_HEIGHT / 2));
 	Rect label_rect = rect_make(name_label_origin, size_make(taskbar_size.width - name_label_origin.x, taskbar_size.height));
 	Label* name_label = create_label(label_rect, "axle os");
 	add_sublabel(taskbar_view, name_label);
-	*/
 }
 
 void draw_desktop(Screen* screen) {
 	//paint root desktop
 	draw_window(screen, screen->window);
-
+	
 	//paint every child window
-	for (int i = 0; i < screen->window->subviews.size; i++) {
+	for (unsigned i = 0; i < screen->window->subviews.size; i++) {
 		Window* win = (Window*)(array_m_lookup(i, &(screen->window->subviews)));
 		draw_window(screen, win);
 	}

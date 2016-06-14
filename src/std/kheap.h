@@ -57,6 +57,9 @@ STDAPI void* alloc(uint32_t size, uint8_t page_align, heap_t* heap);
 //releases block allocated with alloc
 STDAPI void free(void* p, heap_t* heap);
 
+//releases block allocated with alloc using current heap
+STDAPI void kfree(void* p);
+
 __END_DECLS
 
 #endif // STD_KHEAP_H

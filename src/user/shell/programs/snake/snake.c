@@ -77,8 +77,8 @@ void game_tick(game_state_t* game_state) {
 }
 
 void play_snake(void) {
-	game_state_t* game_state = kmalloc(sizeof(game_state_t));
-	snake_player_t* player = kmalloc(sizeof(snake_player_t));
+	game_state_t* game_state = (game_state_t*)kmalloc(sizeof(game_state_t));
+	snake_player_t* player = (snake_player_t*)kmalloc(sizeof(snake_player_t));
 	game_state->player->is_alive = 1;
 	game_state->last_move = 'd';
 	player->length = 10;
