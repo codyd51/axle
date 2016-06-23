@@ -73,6 +73,6 @@ void handle_tick(uint32_t tick) {
 }
 
 void sleep(uint32_t ms) {
-	uint32_t end = tick_count() + ms;
-	while (tick_count() < end) {}
+	uint32_t end = time() + ms;
+	while (time() < end) {}
 }

@@ -129,8 +129,17 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	test_printf();
 
+	test_time_unique();
+
 	//force_page_fault();
 	//force_hardware_irq();
+/*	
+	if (!fork(PRIO_LOW)) {
+		printf_info("Child, asserting");
+		ASSERT(0, "This was on purpose");
+	}
+	else printf_info("Parent");
+*/
 
 	shell_init();
 	shell_loop();

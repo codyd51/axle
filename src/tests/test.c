@@ -57,3 +57,21 @@ void test_printf() {
 	printf_info("Testing printf...");
 	printf_info("int: %d | hex: %x | char: %c | str: %s | float: %f | %%", 126, 0x14B7, 'q', "test", 3.1415926);
 }
+
+void test_time_unique() {
+	printf_info("Testing time_unique...");
+	for (int i = 0; i < 100; i++) {
+		static uint32_t last = 0;
+		uint32_t current = time_unique();
+
+		if (last == time_unique()) {
+			//we find the number of times this stamp was encountered by
+			//reverse engineering the clock slide
+			//the slide is the slide stamp minus the real stamp
+			printf_err("time_unique failed, stamp %u encountered %u times", time_unique(), time_unique() - time());
+			return;
+		}
+		last = current;
+	}
+	printf_info("time_unique test passed");
+}

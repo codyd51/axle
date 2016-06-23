@@ -179,7 +179,7 @@ void asmjit_command(int argc, char **argv) {
 }
 
 void tick_command(int argc, char **argv) {
-	printf("%d", tick_count());
+	printf("%d", time());
 }
 
 void snake_command(int argc, char **argv) {

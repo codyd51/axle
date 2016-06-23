@@ -94,9 +94,28 @@ void register_cmos(int reg) {
 	kernel_end_critical();	
 }
 
-unsigned char epoch_time();
-unsigned char time() {
-	return epoch_time();
+#include <kernel/drivers/pit/pit.h>
+uint32_t time() {
+	return tick_count();
+}
+
+uint32_t time_unique() {
+	static uint32_t seen[UINT16_MAX] = {0};
+	//every time we skip an id we lose a millisecond
+	//keep track of how many ids we threw away so we can keep track of what time we should report
+	static uint32_t slide = 0;
+
+	//increment counter of this stamp
+	seen[time()]++;
+	//have we seen this stamp more than just this time?
+	if (seen[time()] > 1) {
+		uint32_t seen_count = seen[time()];
+		slide++;
+
+		//first id was already unique, so don't add that one
+		return time() + (seen_count - 1) + slide;
+	}
+	return time() + slide;
 }
 
 char* date() {
