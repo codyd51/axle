@@ -158,6 +158,11 @@ int round(double x) {
 
 static unsigned long int next = 1;
 int rand() {
+	//seed rand
+	//ensure we always seed with a unique stamp by using time_unique
+	srand(time_unique());
+
+	//use LCG to generate pseudorandom values
 	next = next * 1103515245 + 12345;
 	return (unsigned int)(next / 65536) % RAND_MAX;
 }
