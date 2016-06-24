@@ -1,6 +1,7 @@
 #ifndef STD_MATH_H
 #define STD_MATH_H
 
+#include <stdint.h>
 #include "std_base.h"
 
 __BEGIN_DECLS
@@ -51,7 +52,7 @@ STDAPI double sqrt(double x);
 STDAPI int round(double x);
 
 #define RAND_MAX 32767
-STDAPI int rand();
+STDAPI uint32_t rand();
 STDAPI void srand(unsigned int seed);
 
 __END_DECLS
