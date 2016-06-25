@@ -147,6 +147,24 @@ char *strcpy(char *dest, const char *src) {
 	return dest;
 }
 
+char* strncpy(char* dest, const char* src, size_t count) {
+	int i = 0;
+	while (i < count) {
+		dest[i] = src[i];
+		if (dest[i] == '\0') {
+			break;
+		}
+		i++;
+	}
+	if (i != count) {
+		for (; i < count; i++) {
+			dest[i] = '\0';
+		}
+	}
+
+	return dest;
+}
+
 int isblank(char c) {
 	return (c == ' ' || c == '\t');
 }
