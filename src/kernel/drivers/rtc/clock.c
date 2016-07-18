@@ -1,6 +1,8 @@
 #include "clock.h"
 #include <std/common.h>
 #include <std/std.h>
+#include <kernel/kernel.h>
+#include <kernel/drivers/pit/pit.h>
 
 unsigned char second, minute, hour, day, month, year;
 
@@ -20,7 +22,7 @@ unsigned char get_RTC_register(int reg) {
 }
 
 void read_rtc() {
-	unsigned char last_second, last_minute, last_hour, last_day, last_month, last_year, last_century, registerB;
+	unsigned char last_second, last_minute, last_hour, last_day, last_month, last_year, registerB;
 
 	//note: we use the 'read registers until we get the same value twice' method to
 	//avoid getting inconsistent values due to RTC updates
@@ -100,7 +102,8 @@ uint32_t time() {
 }
 
 uint32_t time_unique() {
-	static uint32_t seen[UINT16_MAX] = {0};
+	/*
+	static uint32_t seen[UINT8_MAX] = {0};
 	//every time we skip an id we lose a millisecond
 	//keep track of how many ids we threw away so we can keep track of what time we should report
 	static uint32_t slide = 0;
@@ -116,12 +119,14 @@ uint32_t time_unique() {
 		return time() + (seen_count - 1) + slide;
 	}
 	return time() + slide;
+	*/
+	return time();
 }
 
 char* date() {
 	read_rtc();
 
-	char* res = kmalloc(sizeof(char) * 64);
+	char* res = (char*)kmalloc(sizeof(char) * 64);
 
 	char b[8];
 	itoa(hour, b);

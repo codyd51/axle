@@ -9,6 +9,8 @@
 #include <std/memory.h>
 #include <lib/iberty/iberty.h>
 #include <tests/test.h>
+#include <std/printf.h>
+#include <kernel/drivers/rtc/clock.h>
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
@@ -24,7 +26,11 @@ int findCommand(char* command) {
 			return i;
 		}
 	}
-	printf("Command %s not found.", command);
+	printf("Command '");
+	terminal_settextcolor(COLOR_LIGHT_BLUE);
+	printf("%s", command);
+	terminal_settextcolor(COLOR_WHITE);
+	printf("' not found.");
 	return -1;
 }
 
@@ -93,7 +99,7 @@ void process_character(char* inputstr, char ch) {
 }
 
 char* get_inputstring() {
-	char* input = kmalloc(sizeof(char) * 256);
+	char* input = (char*)kmalloc(sizeof(char) * 256);
 	unsigned char c = 0;
 	do {
 		c = getchar();
@@ -152,45 +158,45 @@ void help_command() {
 	}
 }
 
-void echo_command(int argc, char **argv) {
+void echo_command(int argc, char** argv) {
 	for (int i = 1; i < argc; i++) {
 		printf("%s%s", argv[i], i == argc ? "" : " ");
 	}
 }
 
-void time_command(int argc, char **argv) {
+void time_command() {
 	printf("%d", time());
 }
 
-void date_command(int argc, char **argv) {
+void date_command() {
 	printf(date());
 }
 
-void empty_command(int argc, char **argv) {
+void empty_command() {
 	//do nothing if nothing was entered
 }
 
-void clear_command(int argc, char **argv) {
+void clear_command() {
 	terminal_clear();
 }
 
-void asmjit_command(int argc, char **argv) {
-//	asmjit();
+void asmjit_command() {
+	asmjit();
 }
 
-void tick_command(int argc, char **argv) {
+void tick_command() {
 	printf("%d", time());
 }
 
-void snake_command(int argc, char **argv) {
+void snake_command() {
 	play_snake();
 }
 
-void shutdown_command(int argc, char **argv) {
+void shutdown_command() {
 
 }
 
-void startx_command(int argc, char **argv) {
+void startx_command() {
 	printf_info("Press 'q' to exit");
 	sleep(500);
 
@@ -206,6 +212,60 @@ void startx_command(int argc, char **argv) {
 	//switch to VESA for x serv
 	Screen* vesa_screen = switch_to_vesa();
 	//test_xserv(vesa_screen);
+}
+
+#define MAX_TABS 16
+#include <kernel/drivers/terminal/terminal.h>
+typedef struct tab_context_t {
+	char context[TERM_AREA];
+	//char* context;
+} tab_context;
+void switch_tab_context(tab_context* c) {
+	term_cursor t;
+	t.x = 0;
+	t.y = 0;
+	terminal_clear();
+	terminal_setcursor(t);
+	printf("%s\n", c->context);
+}
+tab_context* tab_make() {
+	tab_context* c = (tab_context*)kmalloc(sizeof(tab_context));
+	memset(c->context, 0, sizeof(c->context));
+	strcat(c->context, "New tab created!");
+	return c;
+}
+extern char buffer[TERM_AREA];
+void update_context(tab_context* c) {
+	strcpy(c->context, buffer);
+}
+void tab_command() {
+	static mutable_array_t tabs;
+	static unsigned current_tab = 0;
+	if (!tabs.size) {
+		tabs = array_m_create(4);
+		tab_context* initial = tab_make();
+		array_m_insert(initial, &tabs);
+	}
+
+	//update previous context before switching
+	tab_context* old = array_m_lookup(current_tab, &tabs);
+	update_context(old);
+
+	if (tabs.size <= 1) {
+		tab_context* new = tab_make();
+		array_m_insert(new, &tabs);
+	}
+
+	//switch to next tab in list
+	current_tab++;
+	if (current_tab == tabs.size) {
+		//reached end of list, loop back to first tab
+		current_tab = 0;
+	}
+	tab_context* new = array_m_lookup(current_tab, &tabs);
+	//present context
+	switch_tab_context(new);
+	printf_dbg("Switched to tab %d", current_tab);
 }
 
 void shell_init() {
@@ -225,6 +285,7 @@ void shell_init() {
 	add_new_command("gfxtest", "Run graphics tests", test_gfx);
 	add_new_command("startx", "Start window manager", startx_command);
 	add_new_command("heap", "Run heap test", test_heap);
+	add_new_command("tab", "Switch terminal tabs", tab_command);
 	add_new_command("", "", empty_command);
 }
 

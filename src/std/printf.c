@@ -1,6 +1,7 @@
 #include "printf.h"
 #include <stdarg.h>
 #include <kernel/util/mutex/mutex.h>
+#include <std/string.h>
 
 char* convert(unsigned int num, int base) {
 	static char representation[] = "0123456789ABCDEF";
@@ -59,9 +60,8 @@ void vprintf(char* format, va_list va) {
 			terminal_putchar(ch);
 		}
 		else {
-			char zero_pad = 0;
+			char zero_pad;
 			char* ptr;
-			unsigned int len;
 
 			ch = *(format++);
 
@@ -189,7 +189,7 @@ char* vsprintf(char* format, va_list va) {
 
 void printf(char* format, ...) {
 	//shared printf lock
-	static lock_t* mutex;
+	static lock_t* mutex = 0;
 	if (!mutex) mutex = lock_create();
 	lock(mutex);
 

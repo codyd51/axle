@@ -9,11 +9,11 @@ static volatile uint32_t tick = 0;
 
 //defined in timer.c
 //inform that a tick has occured
-extern handle_tick(uint32_t tick);
+extern void handle_tick(uint32_t tick);
 
 extern void switch_task();
 
-static void tick_callback(registers_t regs) {
+static void tick_callback() {
 	tick++;
 
 	handle_tick(tick);

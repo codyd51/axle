@@ -12,14 +12,10 @@ const unsigned short keypressFinishedMask = 2;
 unsigned int flags = 0;
 
 #define KBUF_SIZE 256
-//char* kb_buffer;
 char kb_buffer[KBUF_SIZE] = "";
 
-/* KBDUS means US Keyboard Layout. This is a scancode table
-*  used to layout a standard US keyboard. I have left some
-*  comments in to give you an idea of what key is what, even
-*  though I set it's array index to 0. You can change that to
-*  whatever you want using a macro, if you wish! */
+//KBDUS means US Keyboard Layout. This is a scancode table
+//used to layout a standard US keyboard.
 unsigned char kbdus[128] =
 {
 	0,  27, '1', '2', '3', '4', '5', '6', '7', '8',	/* 9 */
@@ -166,7 +162,6 @@ int haskey() {
 //does not block!
 char kgetch() {
 	//return last character from KB buffer, and remove that character
-	
 	char ret = kb_buffer[strlen(kb_buffer) - 1];
 	kb_buffer[strlen(kb_buffer) - 1] = 0;
 	return ret;

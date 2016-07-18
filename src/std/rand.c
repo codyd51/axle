@@ -2,6 +2,7 @@
 #include <std/std.h>
 #include <stdint.h>
 #include <std/rand_internal.h>
+#include <kernel/drivers/rtc/clock.h>
 
 unsigned long mtwist_seed_system(mtwist* mt) {
 	return time_unique();
@@ -29,7 +30,7 @@ mtwist* mtwist_new(void) {
 }
 
 void mtwist_free(mtwist* mt) {
-	if (mt) free(mt);
+	if (mt) kfree(mt);
 }
 
 void mtwist_init(mtwist* mt, unsigned long seed) {

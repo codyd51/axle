@@ -6,3 +6,5 @@ uint32_t time();
 //if time_unique() is called on the same timestamp more than once, it gaurantees the later request(s)
 //have a unique id of their own.
 uint32_t time_unique();
+
+char* date();
