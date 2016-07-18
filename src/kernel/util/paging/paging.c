@@ -22,6 +22,28 @@ extern heap_t* kheap;
 #define INDEX_FROM_BIT(a) (a/(8*4))
 #define OFFSET_FROM_BIT(a) (a%(8*4))
 
+uint32_t get_cr0() {
+	uint32_t cr0;
+	asm volatile("mov %%cr0, %0" : "=r"(cr0));
+	return cr0;
+}
+
+void set_cr0(uint32_t cr0) {
+	asm volatile("mov %0, %%cr0" : : "r"(cr0));
+}
+
+page_table_t* get_cr3() {
+	uint32_t cr3;
+	asm volatile("mov %%cr3, %0" : "=r"(cr3));
+	return cr3;
+}
+
+void set_cr3(page_directory_t* dir) {
+	//uint32_t addr = (uint32_t)&dir->tables[0];
+	//asm volatile("movl %%eax, %%cr3" :: "a" (addr));
+	asm volatile("mov %0, %%cr3" : : "r"(dir->physicalAddr));
+}
+
 //static function to set a bit in frames bitset
 static void set_frame(uint32_t frame_addr) {
 	uint32_t frame = frame_addr/0x1000;
@@ -135,6 +157,17 @@ void identity_map_lfb(uint32_t location) {
 
 static void page_fault(registers_t regs);
 
+void set_paging_bit(bool enabled) {
+	kernel_begin_critical();
+	if (enabled) {
+		set_cr0(get_cr0() | 0x80000000);
+	}
+	else {
+		set_cr0(get_cr0() & 0x80000000);
+	}
+	kernel_end_critical();
+}
+
 void paging_install() {
 	printf_info("Initializing paging...");
 	
@@ -199,12 +232,7 @@ void paging_install() {
 	printf_dbg("switch_page_directory");
 
 	//turn on paging
-	kernel_begin_critical();
-	uint32_t cr0;
-	asm volatile("mov %%cr0, %0" : "=r"(cr0));
-	cr0 |= 0x80000000;
-	asm volatile("mov %0, %%cr0" : : "r"(cr0));
-	kernel_end_critical();
+	set_paging_bit(true);
 
 	printf_dbg("paging enabled");
 
@@ -218,7 +246,7 @@ void paging_install() {
 
 void switch_page_directory(page_directory_t* dir) {
 	current_directory = dir;
-	asm volatile("mov %0, %%cr3" : : "r"(dir->physicalAddr));
+	set_cr3(dir);
 }
 
 page_t* get_page(uint32_t address, int make, page_directory_t* dir) {
