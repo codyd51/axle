@@ -1,5 +1,6 @@
 #include "printf.h"
 #include <stdarg.h>
+#include <kernel/util/mutex/mutex.h>
 
 char* convert(unsigned int num, int base) {
 	static char representation[] = "0123456789ABCDEF";
@@ -187,10 +188,17 @@ char* vsprintf(char* format, va_list va) {
 
 
 void printf(char* format, ...) {
+	//shared printf lock
+	static lock_t* mutex;
+	if (!mutex) mutex = lock_create();
+	lock(mutex);
+
 	va_list arg;
 	va_start(arg, format);
 	vprintf(format, arg);
 	va_end(arg);
+
+	unlock(mutex);
 }
 
 void sprintf(char* str, char* format, ...) {
