@@ -118,6 +118,12 @@ static void term_record_char(char ch) {
 	strccat(linebuf, ch);
 }
 
+static void term_record_backspace() {
+	// remove backspaced character
+	// remove space rendered in place of backspaced character
+	linebuf[strlen(linebuf) - 2] = '\0';
+}
+
 static void newline(void) {
 	//flush the current line to terminal history
 	term_record_current_line();
@@ -170,6 +176,8 @@ static void backspace(void) {
 	g_cursor_pos = new_pos;
 	putraw(' ');
 	g_cursor_pos = new_pos;
+
+	term_record_backspace();
 }
 
 void terminal_putchar(char ch) {
