@@ -1,8 +1,11 @@
 #include "terminal.h"
 #include <std/panic.h>
 #include <kernel/util/mutex/mutex.h>
+#include <std/mutable_array.h>
 
-//shared lock to keep all terminal operations atomic
+#define TERM_HISTORY_MAX 256
+
+/// Shared lock to keep all terminal operations atomic
 static lock_t* mutex;
 
 /// Combines a foreground and background color
@@ -29,9 +32,12 @@ static rawcolor g_terminal_color;
 /// Screen buffer for the terminal
 static term_display* const g_terminal_buffer = (term_display*)0xB8000;
 
-/// Buffer to keep track of characters currently on-screen
-char buffer[TERM_AREA];
+/// Buffer to keep track of terminal history, not just what's currently visible
+mutable_array_t term_history;
 
+/// Buffer to keep track of characters on current line
+/// Flushed to terminal history when newline is hit
+static char* linebuf;
 
 static void push_back_line(void);
 static void newline(void);
@@ -43,11 +49,14 @@ static void update_cursor(term_cursor loc);
 
 
 void terminal_initialize(void) {
-	terminal_setcolor(TERM_DEFAULT_FG, TERM_DEFAULT_BG);
-	terminal_clear();
-
 	//initialize shared lock
 	mutex = lock_create();
+
+	term_history = array_m_create(TERM_HISTORY_MAX);
+	linebuf = (char*)kmalloc(sizeof(char) * TERM_WIDTH);
+	
+	terminal_setcolor(TERM_DEFAULT_FG, TERM_DEFAULT_BG);
+	terminal_clear();
 }
 
 void terminal_clear(void) {
@@ -90,12 +99,29 @@ static void push_back_line(void) {
 	unlock(mutex);
 }
 
+static void term_record_current_line() {
+	//if history is at capacity, dump the oldest line
+	if (term_history.size == TERM_HISTORY_MAX - 1) {
+		array_m_remove(0, &term_history);
+	}
+
+	char* linecopy = kmalloc(sizeof(char) * strlen(linebuf) + 1);
+	strcpy(linecopy, linebuf);
+	linecopy[strlen(linecopy)] = '\0';
+	array_m_insert(linecopy, &term_history);
+
+	memset(linebuf, 0, strlen(linebuf));
+}
+
+static void term_record_char(char ch) {
+	//add this character to line buffer
+	strccat(linebuf, ch);
+}
+
 static void newline(void) {
-	//append this character to the buffer
-	uint16_t pos = (g_cursor_pos.y * TERM_WIDTH) + g_cursor_pos.x;
-	buffer[pos] = ' ';
-	//buffer[pos + 1] = '\0';
-	
+	//flush the current line to terminal history
+	term_record_current_line();
+
 	g_cursor_pos.x = 0;
 	if(++g_cursor_pos.y >= TERM_HEIGHT) {
 		push_back_line();
@@ -106,13 +132,10 @@ static void newline(void) {
 static void putraw(char ch) {
 	lock(mutex);
 
+	term_record_char(ch);
+
 	// Find where to draw the character
 	uint16_t* entry = &g_terminal_buffer->grid[g_cursor_pos.y][g_cursor_pos.x];
-		
-	//append this character to the buffer
-	uint16_t pos = (g_cursor_pos.y * TERM_WIDTH) + g_cursor_pos.x;
-	buffer[pos] = ch;
-	//buffer[pos + 1] = '\0';
 	
 	// Draw the character
 	*entry = make_terminal_entry(ch, g_terminal_color);
