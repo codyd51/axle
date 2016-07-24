@@ -1,5 +1,9 @@
 #include "terminal.h"
 #include <std/panic.h>
+#include <kernel/util/mutex/mutex.h>
+
+//shared lock to keep all terminal operations atomic
+static lock_t* mutex;
 
 /// Combines a foreground and background color
 typedef union rawcolor {
@@ -25,6 +29,9 @@ static rawcolor g_terminal_color;
 /// Screen buffer for the terminal
 static term_display* const g_terminal_buffer = (term_display*)0xB8000;
 
+/// Buffer to keep track of characters currently on-screen
+char buffer[TERM_AREA];
+
 
 static void push_back_line(void);
 static void newline(void);
@@ -38,18 +45,27 @@ static void update_cursor(term_cursor loc);
 void terminal_initialize(void) {
 	terminal_setcolor(TERM_DEFAULT_FG, TERM_DEFAULT_BG);
 	terminal_clear();
+
+	//initialize shared lock
+	mutex = lock_create();
 }
 
 void terminal_clear(void) {
+	lock(mutex);
+
 	for(int i = 0; i < TERM_AREA; i++) {
 		uint16_t blank = make_terminal_entry(' ', g_terminal_color);
 		g_terminal_buffer->mem[i] = blank;
 	}
 	
 	terminal_setcursor((term_cursor){0, 0});
+	
+	unlock(mutex);
 }
 
 static void push_back_line(void) {
+	lock(mutex);
+	
 	// Move all lines up one. This won't clear the last line
 	
 	/*
@@ -70,9 +86,16 @@ static void push_back_line(void) {
 	for(uint16_t x = 0; x < TERM_WIDTH; x++) {
 		g_terminal_buffer->grid[TERM_HEIGHT - 1][x] = blank;
 	}
+	
+	unlock(mutex);
 }
 
 static void newline(void) {
+	//append this character to the buffer
+	uint16_t pos = (g_cursor_pos.y * TERM_WIDTH) + g_cursor_pos.x;
+	buffer[pos] = ' ';
+	//buffer[pos + 1] = '\0';
+	
 	g_cursor_pos.x = 0;
 	if(++g_cursor_pos.y >= TERM_HEIGHT) {
 		push_back_line();
@@ -81,8 +104,15 @@ static void newline(void) {
 }
 
 static void putraw(char ch) {
+	lock(mutex);
+
 	// Find where to draw the character
 	uint16_t* entry = &g_terminal_buffer->grid[g_cursor_pos.y][g_cursor_pos.x];
+		
+	//append this character to the buffer
+	uint16_t pos = (g_cursor_pos.y * TERM_WIDTH) + g_cursor_pos.x;
+	buffer[pos] = ch;
+	//buffer[pos + 1] = '\0';
 	
 	// Draw the character
 	*entry = make_terminal_entry(ch, g_terminal_color);
@@ -91,6 +121,8 @@ static void putraw(char ch) {
 	if(++g_cursor_pos.x >= TERM_WIDTH) {
 		newline();
 	}
+
+	unlock(mutex);
 }
 
 static void backspace(void) {
