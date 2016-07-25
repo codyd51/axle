@@ -315,11 +315,11 @@ void terminal_setcolor(term_color fg, term_color bg) {
 }
 
 void terminal_settextcolor(term_color color) {
-	g_terminal_color.fg = color;
+	terminal_setcolor(color, g_terminal_color.bg);
 }
 
 void terminal_setbgcolor(term_color color) {
-	g_terminal_color.bg = color;
+	terminal_setcolor(g_terminal_color.fg, color);
 }
 
 term_cursor terminal_getcursor(void) {
@@ -378,7 +378,7 @@ void term_scroll(term_scroll_direction dir) {
 			//print character
 			terminal_putchar(ch);
 		}
-		if (y > 0) printf("\n");
+		if (y > 0) terminal_putchar('\n');
 	}
 	is_scroll_redraw = false;
 
