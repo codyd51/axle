@@ -23,6 +23,14 @@ typedef union term_display {
 	uint16_t mem[TERM_AREA];
 } term_display;
 
+/// Internal scroll state
+typedef struct term_scroll_state {
+	int height;
+} term_scroll_t;
+
+/// Current scroll state
+term_scroll_t scroll_state;
+
 /// Current position of the terminal cursor
 static struct term_cursor g_cursor_pos;
 
@@ -136,6 +144,12 @@ static void term_record_backspace() {
 	current[strlen(current) - 2] = '\0';
 }
 
+static void term_scroll_to_bottom() {
+	while (scroll_state.height > 0) {
+		term_scroll(TERM_SCROLL_DOWN);
+	}
+}
+
 typedef struct term_cell_color {
 	term_color fg;
 	term_color bg;
@@ -218,6 +232,11 @@ static void backspace(void) {
 }
 
 void terminal_putchar(char ch) {
+	if (!is_scroll_redraw) {
+		//make sure we're at the bottom of the terminal before printing more
+		term_scroll_to_bottom();
+	}
+
 	switch(ch) {
 		// Newline
 		case '\n':
@@ -326,12 +345,6 @@ void terminal_movecursor(term_cursor loc) {
 	terminal_updatecursor();
 }
 
-typedef struct term_scroll_state {
-	int height;
-} term_scroll_t;
-
-term_scroll_t scroll_state;
-
 void term_scroll(term_scroll_direction dir) {
 	lock(mutex);
 
@@ -346,7 +359,8 @@ void term_scroll(term_scroll_direction dir) {
 	}
 	
 	is_scroll_redraw = true;
-	terminal_clear();	
+	terminal_clear();
+	terminal_setcolor(COLOR_GREEN, COLOR_BLACK);
 	for (int y = TERM_HEIGHT - 1; y >= 0; y--) {
 		char* line = array_m_lookup(term_history.size - 1 - y - scroll_state.height, &term_history);
 		for (int i = 0; i < strlen(line); i++) {
@@ -362,9 +376,8 @@ void term_scroll(term_scroll_direction dir) {
 			}
 
 			//print character
-			putraw(ch);
+			terminal_putchar(ch);
 		}
-		//printf("%s", line);
 		if (y > 0) printf("\n");
 	}
 	is_scroll_redraw = false;
