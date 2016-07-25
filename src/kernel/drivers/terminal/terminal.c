@@ -35,7 +35,12 @@ static term_display* const g_terminal_buffer = (term_display*)0xB8000;
 /// Buffer to keep track of terminal history, not just what's currently visible
 mutable_array_t term_history;
 
-//TODO add info
+/// Buffer to keep track of terminal color switch history
+/// TODO combine this and term_history into history struct
+mutable_array_t color_switches;
+
+/// Keeps state of when we're redrawing the terminal while scrolling
+/// No history is recorded while this flag is set
 static bool is_scroll_redraw;
 
 static void push_back_line(void);
@@ -53,6 +58,7 @@ void terminal_initialize(void) {
 
 	is_scroll_redraw = false;
 	term_history = array_m_create(TERM_HISTORY_MAX);
+	color_switches = array_m_create(TERM_HISTORY_MAX * 4);
 
 	//set up first line buffer
 	term_end_line();
@@ -128,6 +134,31 @@ static void term_record_backspace() {
 	// remove space rendered in place of backspaced character
 	char* current = array_m_lookup(term_history.size - 1, &term_history);
 	current[strlen(current) - 2] = '\0';
+}
+
+typedef struct term_cell_color {
+	term_color fg;
+	term_color bg;
+} term_cell_color;
+
+typedef struct term_color_switch {
+	term_cell_color new;
+	term_cursor loc;
+} color_switch;
+
+static void term_record_color(term_cell_color col) {
+	if (is_scroll_redraw) return;
+/*
+	//if history is at capacity, dump oldest color switch
+	//TODO define color_switches_max
+	if (color_switches.size == (TERM_HISTORY_MAX * 4) - 1) {
+		array_m_remove(0, &color_switches);
+	}
+*/
+	color_switch* sw = (color_switch*)kmalloc(sizeof(color_switch));
+	sw->new = col;
+	sw->loc = terminal_getcursor();
+	array_m_insert(sw, &color_switches);
 }
 
 static void newline(void) {
@@ -260,6 +291,7 @@ static uint16_t make_terminal_entry(char ch, rawcolor color) {
 }
 
 void terminal_setcolor(term_color fg, term_color bg) {
+	term_record_color((term_cell_color){fg, bg});
 	g_terminal_color = make_color(fg, bg);
 }
 
@@ -317,7 +349,22 @@ void term_scroll(term_scroll_direction dir) {
 	terminal_clear();	
 	for (int y = TERM_HEIGHT - 1; y >= 0; y--) {
 		char* line = array_m_lookup(term_history.size - 1 - y - scroll_state.height, &term_history);
-		printf("%s", line);
+		for (int i = 0; i < strlen(line); i++) {
+			char ch = line[i];
+
+			//check if we're due for a color switch
+			for (int j = 0; j < color_switches.size; j++) {
+				color_switch* sw = array_m_lookup(j, &color_switches);
+				term_cursor current = terminal_getcursor();
+				if (sw->loc.x == current.x && sw->loc.y == current.y) {
+					terminal_setcolor(sw->new.fg, sw->new.bg);
+				}
+			}
+
+			//print character
+			putraw(ch);
+		}
+		//printf("%s", line);
 		if (y > 0) printf("\n");
 	}
 	is_scroll_redraw = false;
