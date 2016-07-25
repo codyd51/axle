@@ -314,10 +314,11 @@ void term_scroll(term_scroll_direction dir) {
 	}
 	
 	is_scroll_redraw = true;
-	terminal_movecursor((term_cursor){0, 0});
+	terminal_clear();	
 	for (int y = TERM_HEIGHT - 1; y >= 0; y--) {
 		char* line = array_m_lookup(term_history.size - 1 - y - scroll_state.height, &term_history);
-		printf("%s\n", line);
+		printf("%s", line);
+		if (y > 0) printf("\n");
 	}
 	is_scroll_redraw = false;
 
