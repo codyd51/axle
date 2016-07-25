@@ -3,6 +3,7 @@
 #include <std/common.h>
 #include <std/std.h>
 #include <kernel/util/interrupts/isr.h>
+#include <kernel/util/kbman/kbman.h>
 
 #define KBD_DATA_PORT 0x60
 
@@ -86,6 +87,10 @@ void kb_callback(registers_t regs) {
 			flags = flags ^ shiftMask;
 			return;
 		}
+
+		// if this key was a special key, inform os
+		// TODO dedicated function to check for special keys 
+		kbman_process(c);
 
 		//rest for next use
 		flags = flags ^ keypressFinishedMask;
