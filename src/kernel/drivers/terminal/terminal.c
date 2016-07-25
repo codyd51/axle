@@ -1,7 +1,7 @@
 #include "terminal.h"
 #include <std/panic.h>
 #include <kernel/util/mutex/mutex.h>
-#include <std/mutable_array.h>
+#include <std/std.h>
 
 #define TERM_HISTORY_MAX 256
 
@@ -35,9 +35,8 @@ static term_display* const g_terminal_buffer = (term_display*)0xB8000;
 /// Buffer to keep track of terminal history, not just what's currently visible
 mutable_array_t term_history;
 
-/// Buffer to keep track of characters on current line
-/// Flushed to terminal history when newline is hit
-static char* linebuf;
+//TODO add info
+static bool is_scroll_redraw;
 
 static void push_back_line(void);
 static void newline(void);
@@ -46,14 +45,17 @@ static void backspace(void);
 static rawcolor make_color(term_color fg, term_color bg);
 static uint16_t make_terminal_entry(char ch, rawcolor color);
 static void update_cursor(term_cursor loc);
-
+static void term_end_line();
 
 void terminal_initialize(void) {
 	//initialize shared lock
 	mutex = lock_create();
 
+	is_scroll_redraw = false;
 	term_history = array_m_create(TERM_HISTORY_MAX);
-	linebuf = (char*)kmalloc(sizeof(char) * TERM_WIDTH);
+
+	//set up first line buffer
+	term_end_line();
 	
 	terminal_setcolor(TERM_DEFAULT_FG, TERM_DEFAULT_BG);
 	terminal_clear();
@@ -95,38 +97,42 @@ static void push_back_line(void) {
 	for(uint16_t x = 0; x < TERM_WIDTH; x++) {
 		g_terminal_buffer->grid[TERM_HEIGHT - 1][x] = blank;
 	}
-	
+
 	unlock(mutex);
 }
 
-static void term_record_current_line() {
+static void term_end_line() {
+	if (is_scroll_redraw) return;
+
 	//if history is at capacity, dump the oldest line
 	if (term_history.size == TERM_HISTORY_MAX - 1) {
 		array_m_remove(0, &term_history);
 	}
 
-	char* linecopy = kmalloc(sizeof(char) * strlen(linebuf) + 1);
-	strcpy(linecopy, linebuf);
-	linecopy[strlen(linecopy)] = '\0';
-	array_m_insert(linecopy, &term_history);
-
-	memset(linebuf, 0, strlen(linebuf));
+	char* new = (char*)kmalloc(sizeof(char) * TERM_WIDTH);
+	array_m_insert(new, &term_history);
 }
 
 static void term_record_char(char ch) {
+	if (is_scroll_redraw) return;
+
 	//add this character to line buffer
-	strccat(linebuf, ch);
+	char* current = array_m_lookup(term_history.size - 1, &term_history);
+	strccat(current, ch);
 }
 
 static void term_record_backspace() {
+	if (is_scroll_redraw) return;
+
 	// remove backspaced character
 	// remove space rendered in place of backspaced character
-	linebuf[strlen(linebuf) - 2] = '\0';
+	char* current = array_m_lookup(term_history.size - 1, &term_history);
+	current[strlen(current) - 2] = '\0';
 }
 
 static void newline(void) {
 	//flush the current line to terminal history
-	term_record_current_line();
+	term_end_line();
 
 	g_cursor_pos.x = 0;
 	if(++g_cursor_pos.y >= TERM_HEIGHT) {
@@ -286,4 +292,34 @@ void terminal_updatecursor(void) {
 void terminal_movecursor(term_cursor loc) {
 	terminal_setcursor(loc);
 	terminal_updatecursor();
+}
+
+typedef struct term_scroll_state {
+	int height;
+} term_scroll_t;
+
+term_scroll_t scroll_state;
+
+void term_scroll(term_scroll_direction dir) {
+	lock(mutex);
+
+	if (dir == TERM_SCROLL_UP) {
+		if (scroll_state.height + TERM_HEIGHT == term_history.size) return;
+
+		scroll_state.height++;
+	} else {
+		if (scroll_state.height == 0) return;
+
+		scroll_state.height--;
+	}
+	
+	is_scroll_redraw = true;
+	terminal_movecursor((term_cursor){0, 0});
+	for (int y = TERM_HEIGHT - 1; y >= 0; y--) {
+		char* line = array_m_lookup(term_history.size - 1 - y - scroll_state.height, &term_history);
+		printf("%s\n", line);
+	}
+	is_scroll_redraw = false;
+
+	unlock(mutex);
 }

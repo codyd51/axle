@@ -32,6 +32,11 @@ typedef struct term_cursor {
 	uint16_t y;
 } term_cursor;
 
+/// Directions used for scrolling terminal window
+typedef enum term_scroll_direction {
+	TERM_SCROLL_UP = 0,
+	TERM_SCROLL_DOWN,
+} term_scroll_direction;
 
 /// Width of the terminal screen in characters
 #define TERM_WIDTH       80
@@ -95,6 +100,10 @@ STDAPI void terminal_updatecursor(void);
 /// Move the terminal cursor and update the displayed cursor
 /// @param loc New position for the terminal cursor
 STDAPI void terminal_movecursor(term_cursor loc);
+
+/// Scroll the terminal viewport by one line
+/// @param dir Direction to scroll in
+void term_scroll(term_scroll_direction dir);
 
 __END_DECLS
 
