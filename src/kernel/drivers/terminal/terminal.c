@@ -2,6 +2,8 @@
 #include <std/panic.h>
 #include <kernel/util/mutex/mutex.h>
 #include <std/std.h>
+#include <std/ctype.h>
+#include <std/math.h>
 
 #define TERM_HISTORY_MAX 256
 
@@ -43,10 +45,6 @@ static term_display* const g_terminal_buffer = (term_display*)0xB8000;
 /// Buffer to keep track of terminal history, not just what's currently visible
 mutable_array_t term_history;
 
-/// Buffer to keep track of terminal color switch history
-/// TODO combine this and term_history into history struct
-mutable_array_t color_switches;
-
 /// Keeps state of when we're redrawing the terminal while scrolling
 /// No history is recorded while this flag is set
 static bool is_scroll_redraw;
@@ -66,7 +64,6 @@ void terminal_initialize(void) {
 
 	is_scroll_redraw = false;
 	term_history = array_m_create(TERM_HISTORY_MAX);
-	color_switches = array_m_create(TERM_HISTORY_MAX * 4);
 
 	//set up first line buffer
 	term_end_line();
@@ -123,7 +120,7 @@ static void term_end_line() {
 		array_m_remove(0, &term_history);
 	}
 
-	char* new = (char*)kmalloc(sizeof(char) * TERM_WIDTH);
+	char* new = (char*)kmalloc(sizeof(char) * TERM_WIDTH * 2);
 	array_m_insert(new, &term_history);
 }
 
@@ -155,24 +152,20 @@ typedef struct term_cell_color {
 	term_color bg;
 } term_cell_color;
 
-typedef struct term_color_switch {
-	term_cell_color new;
-	term_cursor loc;
-} color_switch;
-
 static void term_record_color(term_cell_color col) {
 	if (is_scroll_redraw) return;
-/*
-	//if history is at capacity, dump oldest color switch
-	//TODO define color_switches_max
-	if (color_switches.size == (TERM_HISTORY_MAX * 4) - 1) {
-		array_m_remove(0, &color_switches);
-	}
-*/
-	color_switch* sw = (color_switch*)kmalloc(sizeof(color_switch));
-	sw->new = col;
-	sw->loc = terminal_getcursor();
-	array_m_insert(sw, &color_switches);
+
+	//append color format to line history
+	char* current = array_m_lookup(term_history.size - 1, &term_history);
+	strcat(current, "\e[");
+	
+	//convert color code to string
+	char buf[3];
+	itoa(col.fg, buf);
+	buf[2] = '\0';
+
+	strcat(current, buf);
+	strcat(current, ";");
 }
 
 static void newline(void) {
@@ -231,7 +224,28 @@ static void backspace(void) {
 	term_record_backspace();
 }
 
+//TODO REWORK THIS
+//IMPORTANT
+//SPAGEHTTI UPSETTI
+static bool matching_color;
+static char col_code[3];
+static int parse_idx;
 void terminal_putchar(char ch) {
+	if (matching_color) {
+		parse_idx++;
+		if (ch == ';' || parse_idx >= 5) {
+			matching_color = false;
+			col_code[2] = '\0';
+			int col = atoi(col_code);
+			terminal_settextcolor(col);
+			return;
+		}
+		if (parse_idx >= 2 && isdigit(ch)) {
+			strccat(col_code, ch);
+		}
+		return;
+	}
+
 	if (!is_scroll_redraw) {
 		//make sure we're at the bottom of the terminal before printing more
 		term_scroll_to_bottom();
@@ -281,7 +295,16 @@ void terminal_putchar(char ch) {
 				g_cursor_pos.y = TERM_HEIGHT - 1;
 			}
 			break;
-		
+
+		// Color change
+		case '\e':
+			matching_color = true;
+			//reset temp args for this color switch
+			parse_idx = 0;
+			memset(col_code, 0, 3);
+			return;
+			break;
+
 		// Normal characters
 		default:
 			putraw(ch);
@@ -310,6 +333,8 @@ static uint16_t make_terminal_entry(char ch, rawcolor color) {
 }
 
 void terminal_setcolor(term_color fg, term_color bg) {
+	if (fg > 15 || bg > 15) return;
+
 	term_record_color((term_cell_color){fg, bg});
 	g_terminal_color = make_color(fg, bg);
 }
@@ -350,36 +375,22 @@ void term_scroll(term_scroll_direction dir) {
 
 	if (dir == TERM_SCROLL_UP) {
 		if (scroll_state.height + TERM_HEIGHT == term_history.size) return;
-
 		scroll_state.height++;
 	} else {
 		if (scroll_state.height == 0) return;
-
 		scroll_state.height--;
 	}
 	
 	is_scroll_redraw = true;
 	terminal_clear();
 	terminal_setcolor(COLOR_GREEN, COLOR_BLACK);
+
 	for (int y = TERM_HEIGHT - 1; y >= 0; y--) {
-		char* line = array_m_lookup(term_history.size - 1 - y - scroll_state.height, &term_history);
-		for (int i = 0; i < strlen(line); i++) {
-			char ch = line[i];
-
-			//check if we're due for a color switch
-			for (int j = 0; j < color_switches.size; j++) {
-				color_switch* sw = array_m_lookup(j, &color_switches);
-				term_cursor current = terminal_getcursor();
-				if (sw->loc.x == current.x && sw->loc.y == current.y) {
-					terminal_setcolor(sw->new.fg, sw->new.bg);
-				}
-			}
-
-			//print character
-			terminal_putchar(ch);
-		}
-		if (y > 0) terminal_putchar('\n');
+		char* current = array_m_lookup(term_history.size - 1 - y - scroll_state.height, &term_history);
+		printf("%s", current);
+		if (y > 0) printf("\n");
 	}
+
 	is_scroll_redraw = false;
 
 	unlock(mutex);
