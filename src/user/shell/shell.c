@@ -26,11 +26,7 @@ int findCommand(char* command) {
 			return i;
 		}
 	}
-	printf("Command '");
-	terminal_settextcolor(COLOR_LIGHT_BLUE);
-	printf("%s", command);
-	terminal_settextcolor(COLOR_WHITE);
-	printf("' not found.");
+	printf("Command '\e[9;%s\e[15;' not found.", command);
 	return -1;
 }
 
@@ -74,7 +70,7 @@ void process_character(char* inputstr, char ch) {
 			//if we're removing a space, check if we should reset the color to indicate a command
 			if (lastChar == ' ') {
 				//TODO make sure there's only one word left before resetting color
-				terminal_settextcolor(COLOR_LIGHT_BLUE);
+				printf("\e[9;");
 			}
 
 			inputstr = delchar(inputstr);
@@ -94,7 +90,7 @@ void process_character(char* inputstr, char ch) {
 
 	//if this character was a space, change text color to indicate an argument
 	if (ch == ' ') {
-		terminal_settextcolor(COLOR_LIGHT_MAGENTA);
+		printf("\e[13;");
 	}
 }
 
@@ -111,17 +107,15 @@ char* get_inputstring() {
 
 int shell() {
 	//reset terminal color in case it was changed
-	terminal_settextcolor(COLOR_GREEN);
-	printf("\naxle> ");
-
-	//set terminal color to input color
-	terminal_settextcolor(COLOR_LIGHT_BLUE);
+	//then set to input color
+	printf("\n\e[10;axle> \e[9;");
 	
 	char* input = get_inputstring();
 
 	//set terminal color to stdout color
-	terminal_settextcolor(COLOR_WHITE);
+	printf("\e[15;");
 	process_command(input);
+	//kfree(input);
 
 	if (strcmp(input, "shutdown") == 0) {
 		return 1;
@@ -144,8 +138,7 @@ void add_new_command(char* name, char* description, void* function) {
 extern void print_os_name();
 void help_command() {
 	print_os_name();
-	terminal_settextcolor(COLOR_WHITE);
-	
+	printf("\e[15;");
 	printf("\nAll commands listed here are internally defined.");
 	printf("\nType 'help' to see this list\n");
 	for (size_t i = 0; i < CommandNum; i++) {
@@ -234,9 +227,9 @@ tab_context* tab_make() {
 	strcat(c->context, "New tab created!");
 	return c;
 }
-extern char buffer[TERM_AREA];
+//extern char buffer[TERM_AREA];
 void update_context(tab_context* c) {
-	strcpy(c->context, buffer);
+	//strcpy(c->context, buffer);
 }
 void tab_command() {
 	static mutable_array_t tabs;
@@ -268,9 +261,17 @@ void tab_command() {
 	printf_dbg("Switched to tab %d", current_tab);
 }
 
+extern mutable_array_t term_history;
+void hist_command() {
+	printf("Lines: %d\n", term_history.size);
+	for (int i = 0; i < term_history.size - 1; i++) {
+		printf("%s\n", array_m_lookup(i, &term_history));
+	}
+}
+
 void shell_init() {
 	//set shell color
-	terminal_settextcolor(COLOR_GREEN);
+	printf("\e[10;");
 	
 	//set up command table
 	add_new_command("help", "Display help information", help_command);
@@ -286,6 +287,7 @@ void shell_init() {
 	add_new_command("startx", "Start window manager", startx_command);
 	add_new_command("heap", "Run heap test", test_heap);
 	add_new_command("tab", "Switch terminal tabs", tab_command);
+	add_new_command("hist", "Test terminal driver history", hist_command);
 	add_new_command("", "", empty_command);
 }
 

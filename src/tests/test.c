@@ -6,8 +6,7 @@
 void test_colors() {
 	printf_info("Testing colors...");
 	for (int i = 0; i < 16; i++) {
-		terminal_settextcolor(i);
-		printf("@");
+		printf("\e[%d;@", i);
 	}
 	printf("\n");
 }

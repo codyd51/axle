@@ -25,8 +25,7 @@ uint32_t tick_count() {
 
 void pit_install(uint32_t frequency) {
 	printf_info("Initializing PIT timer...");
-	
-	terminal_settextcolor(COLOR_LIGHT_GREY);
+	printf("\e[7;");
 	
 	//firstly, register our timer callback
 	register_interrupt_handler(IRQ0, &tick_callback);
