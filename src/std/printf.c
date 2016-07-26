@@ -113,7 +113,7 @@ void vprintf(char* format, va_list va) {
 					fnum = (fnum - (int)fnum) * 1000000;
 					printf("%d", (int)fnum);
 					break;
-
+				
 				case '%':
 				default:
 					terminal_putchar(ch);
@@ -175,8 +175,8 @@ char* vsprintf(char* format, va_list va) {
 					ptr = va_arg(va, char*);
 					strcat(ret, ptr);
 					break;
-				case '*':
 
+				case '*':
 				default:
 					strccat(ret, ch);
 					break;
@@ -210,35 +210,25 @@ void sprintf(char* str, char* format, ...) {
 }
 
 void printf_dbg(char* format, ...) {
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("[");
-	terminal_settextcolor(COLOR_LIGHT_MAGENTA);
-	printf("DEBUG ");
-	terminal_settextcolor(COLOR_WHITE);
+	printf("\e[10;[\e[11;DEBUG \e[15;");
 
 	va_list arg;
 	va_start(arg, format);
 	vprintf(format, arg);
 	va_end(arg);
 
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("]\n");	
+	printf("\e[10;]\n");	
 }
 
 void printf_info(char* format, ...) {
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("[");
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("INFO ");
-	terminal_settextcolor(COLOR_WHITE);
+	printf("\e[10;[INFO \e[15;");
 
 	va_list arg;
 	va_start(arg, format);
 	vprintf(format, arg);
 	va_end(arg);
 
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("]\n");	
+	printf("\e[10;]\n");	
 }
 
 void printf_err(const char* format, ...) {
@@ -249,14 +239,9 @@ void printf_err(const char* format, ...) {
 }
 
 void vprintf_err(const char* format, va_list ap) {
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("[");
-	terminal_settextcolor(COLOR_LIGHT_RED);
-	printf("ERROR ");
-	terminal_settextcolor(COLOR_WHITE);
+	printf("\e[10;[\e[12;ERROR \e[15;");
 
 	vprintf(format, ap);
 
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("]\n");
+	printf("\e[10;]\n");
 }
