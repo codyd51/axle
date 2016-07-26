@@ -32,6 +32,22 @@ char* itoa(int i, char b[]) {
 	return b;
 }
 
+long long int atoi(const char *c) {
+    long long int value = 0;
+    int sign = 1;
+    if( *c == '+' || *c == '-' ) {
+        if(*c == '-') sign = -1;
+        c++;
+    }
+    while (isdigit(*c))
+    {
+        value *= 10;
+        value += (int) (*c-'0');
+        c++;
+    }
+    return (value * sign);
+}
+
 char* strcat(char *dest, const char *src) {
 	size_t i,j;
 	for (i = 0; dest[i] != '\0'; i++)
