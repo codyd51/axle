@@ -104,7 +104,7 @@ void draw_image(Screen* screen, Image* image) {
 	image->needs_redraw = 1;
 	dirtied = 1;
 
-	Rect frame = absolute_frame(screen, image);
+	Rect frame = absolute_frame(screen, (View*)image);
 
 	//iterate through every pixel in the bitmap and draw it
 	int num_pixels = frame.size.width * frame.size.height;
@@ -158,16 +158,19 @@ void draw_view(Screen* screen, View* view) {
 }
 
 void draw_window(Screen* screen, Window* window) {
-	if (!window->needs_redraw && !window->content_view->needs_redraw && !window->title_view->needs_redraw			) return;
+	if (!window->needs_redraw && !window->content_view->needs_redraw && !window->title_view->needs_redraw) return;
 
 	window->needs_redraw = 1;
 	dirtied = 1;
 
-	//paint navy blue window
+	//paint window
 	draw_rect(screen, window->frame, window->border_color, window->border_width);
 	
 	//only draw a title bar if title_view exists
 	if (window->title_view) {
+		//update title label of window
+		Label* title_label = array_m_lookup(0, &window->title_view->labels);
+		title_label->text = window->title;
 		draw_view(screen, window->title_view);
 	}
 
@@ -179,7 +182,6 @@ void draw_window(Screen* screen, Window* window) {
 	if (window->content_view) {
 		draw_view(screen, window->content_view);
 	}
-	
 	window->needs_redraw = 0;
 }
 

@@ -204,7 +204,7 @@ void startx_command() {
 
 	//switch to VESA for x serv
 	Screen* vesa_screen = switch_to_vesa();
-	//test_xserv(vesa_screen);
+	test_xserv(vesa_screen);
 }
 
 #define MAX_TABS 16
@@ -261,14 +261,6 @@ void tab_command() {
 	printf_dbg("Switched to tab %d", current_tab);
 }
 
-extern mutable_array_t term_history;
-void hist_command() {
-	printf("Lines: %d\n", term_history.size);
-	for (int i = 0; i < term_history.size - 1; i++) {
-		printf("%s\n", array_m_lookup(i, &term_history));
-	}
-}
-
 void shell_init() {
 	//set shell color
 	printf("\e[10;");
@@ -287,9 +279,5 @@ void shell_init() {
 	add_new_command("startx", "Start window manager", startx_command);
 	add_new_command("heap", "Run heap test", test_heap);
 	add_new_command("tab", "Switch terminal tabs", tab_command);
-	add_new_command("hist", "Test terminal driver history", hist_command);
 	add_new_command("", "", empty_command);
 }
-
-
-

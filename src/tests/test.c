@@ -52,6 +52,16 @@ void test_heap() {
 	else printf_err("Heap test failed, expected %x to be marked free", a);
 }
 
+void test_malloc() {
+	printf_info("Testing malloc limit...");
+	for (int i = 0; i < 32; i++) {
+		//printf_dbg("allocating %d bytes", pow(2, i));
+		uint32_t tmp = kmalloc(4096);
+		printf_dbg("freeing %x", tmp);
+		kfree(tmp);
+	}
+}
+
 void test_printf() {
 	printf_info("Testing printf...");
 	printf_info("int: %d | hex: %x | char: %c | str: %s | float: %f | %%", 126, 0x14B7, 'q', "test", 3.1415926);

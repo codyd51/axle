@@ -20,14 +20,7 @@
 #include <std/printf.h>
 
 void print_os_name(void) {
-	terminal_settextcolor(COLOR_GREEN);
-	printf("[");
-	terminal_settextcolor(COLOR_LIGHT_CYAN);
-	printf("AXLE OS v");
-	terminal_settextcolor(COLOR_LIGHT_RED);
-	printf("0.3.0");
-	terminal_settextcolor(COLOR_GREEN);
-	printf("]\n");
+	printf("\e[10;[\e[11;AXLE OS v\e[12;0.4.0\e[10;]\n");
 }
 
 void shell_loop(void) {
@@ -68,21 +61,23 @@ void kernel_end_critical(void) {
 }
 
 void info_panel_refresh(void) {
-	// term_cursor pos = terminal_getcursor();
+	/*
+	term_cursor pos = terminal_getcursor();
 
-	// //set cursor near top right, leaving space to write
-	// term_cursor curs = (term_cursor){65, 0};
-	// terminal_setcursor(curs);
+	//set cursor near top right, leaving space to write
+	term_cursor curs = (term_cursor){65, 0};
+	terminal_setcursor(curs);
 
-	// printf("PIT: %d", tick_count());
-	// //using \n would move cursor x = 0
-	// //instead, manually set to next row
-	// curs.y += 1;
-	// terminal_setcursor(curs);
-	// printf("RTC: %d", time());
+	printf("PIT: %d", tick_count());
+	//using \n would move cursor x = 0
+	//instead, manually set to next row
+	curs.y += 1;
+	terminal_setcursor(curs);
+	printf("RTC: %d", time());
 
-	// //now that we're done, put the cursor back
-	// terminal_setcursor(pos);
+	//now that we're done, put the cursor back
+	terminal_setcursor(pos);
+	*/
 }
 
 void info_panel_install(void) {
@@ -133,17 +128,24 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	//force_page_fault();
 	//force_hardware_irq();
-/*	
+	/*
 	if (!fork(PRIO_LOW)) {
-		printf_info("Child, asserting");
-		ASSERT(0, "This was on purpose");
+		while (1) {
+			sleep(1000);
+			printf_info("%d", getpid());
+		}
 	}
-	else printf_info("Parent");
-*/
+	while (1) {
+		sleep(100);
+		printf_info("%d", getpid());
+	}
+	*/
+
+	test_malloc();
 
 	shell_init();
 	shell_loop();
-
+	
 	while (1) {}
 }
 
