@@ -314,8 +314,8 @@ void free(void* p, heap_t* heap) {
 	footer_t* footer = (footer_t*)((uint32_t)header + header->size - sizeof(footer_t));
 
 	//ensure these are valid
-	ASSERT(header->magic == HEAP_MAGIC, "invalid header magic");
-	ASSERT(footer->magic == HEAP_MAGIC, "invalid footer magic");
+	ASSERT(header->magic == HEAP_MAGIC, "invalid header magic in %x", p);
+	ASSERT(footer->magic == HEAP_MAGIC, "invalid footer magic in %x", p);
 
 	//turn this into a hole
 	header->hole = 1;
@@ -326,7 +326,7 @@ void free(void* p, heap_t* heap) {
 	//attempt merge left
 	//if thing to left of us is a footer...
 	footer_t* test_footer = (footer_t*)((uint32_t)header - sizeof(footer_t));
-	if (test_footer->magic == HEAP_MAGIC && test_footer->header->hole == 1) {
+	if (test_footer->magic == HEAP_MAGIC && test_footer->header->hole) {
 		uint32_t cache_size = header->size; //cache current size
 		header = test_footer->header; //rewrite header with new one
 		footer->header = header; //rewrite footer to point to new header
@@ -337,10 +337,10 @@ void free(void* p, heap_t* heap) {
 	//attempt merge right
 	//if thing to right of us is a header...
 	header_t* test_header = (header_t*)((uint32_t)footer + sizeof(footer_t));
-	if (test_header->magic == HEAP_MAGIC && test_header->hole == 1) {
-		header->size += test_header->size; //increase size to fit merged hole
-		test_footer = (footer_t*)((uint32_t)test_header + test_header->size - sizeof(footer_t)); //rewrite its footer to point to our header
-		footer = test_footer;
+	if (test_header->magic == HEAP_MAGIC && test_header->hole) {
+		//header->size += test_header->size; //increase size to fit merged hole
+		//test_footer = (footer_t*)((uint32_t)test_header + test_header->size - sizeof(footer_t)); //rewrite its footer to point to our header
+		//footer = test_footer;
 
 		//find and remove this header from index
 		uint32_t iterator = 0;
@@ -395,7 +395,7 @@ void free(void* p, heap_t* heap) {
 		}
 	}
 
-	if (add = 1) {
+	if (add == 1) {
 		array_o_insert((void*)header, &heap->index);
 	}
 }
