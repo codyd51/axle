@@ -17,19 +17,13 @@
 #include <gfx/lib/view.h>
 #include <kernel/util/syscall/syscall.h>
 #include <kernel/util/mutex/mutex.h>
+#include <std/printf.h>
 
-void print_os_name() {
-	terminal_settextcolor(COLOR_GREEN);
-	printf("[");
-	terminal_settextcolor(COLOR_LIGHT_CYAN);
-	printf("AXLE OS v");
-	terminal_settextcolor(COLOR_LIGHT_RED);
-	printf("0.3.0");
-	terminal_settextcolor(COLOR_GREEN);
-	printf("]\n");
+void print_os_name(void) {
+	printf("\e[10;[\e[11;AXLE OS v\e[12;0.4.0\e[10;]\n");
 }
 
-void shell_loop() {
+void shell_loop(void) {
 	int exit_status = 0;
 	while (!exit_status) {
 		exit_status = shell();
@@ -56,37 +50,37 @@ void shell_loop() {
 	terminal_clear();
 } 
 
-void kernel_begin_critical() {
+void kernel_begin_critical(void) {
 	//disable interrupts while critical code executes
 	asm ("cli");
 }
 
-void kernel_end_critical() {
+void kernel_end_critical(void) {
 	//reenable interrupts now that a critical section is complete
 	asm ("sti");
 }
 
-void info_panel_refresh() {
-	cursor pos = get_cursor();
+void info_panel_refresh(void) {
+	/*
+	term_cursor pos = terminal_getcursor();
 
-	//set cursor near top left, leaving space to write
-	cursor curs;
-	curs.x = 65;
-	curs.y = 0;
-	set_cursor(curs);
+	//set cursor near top right, leaving space to write
+	term_cursor curs = (term_cursor){65, 0};
+	terminal_setcursor(curs);
 
 	printf("PIT: %d", tick_count());
 	//using \n would move cursor x = 0
 	//instead, manually set to next row
 	curs.y += 1;
-	set_cursor(curs);
+	terminal_setcursor(curs);
 	printf("RTC: %d", time());
 
 	//now that we're done, put the cursor back
-	set_cursor(pos);
+	terminal_setcursor(pos);
+	*/
 }
 
-void info_panel_install() {
+void info_panel_install(void) {
 	printf_info("Installing text-mode info panel...");
 	timer_callback info_callback = add_callback(info_panel_refresh, 1, 1, NULL);
 }
@@ -94,14 +88,11 @@ void info_panel_install() {
 extern uint32_t placement_address;
 uint32_t initial_esp;
 
-#if defined(__cplusplus)
-extern "C" //use C linkage for kernel_main
-#endif
 void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	initial_esp = initial_stack;
 
 	//initialize terminal interface
-	terminal_initialize();	
+	terminal_initialize();
 
 	//introductory message
 	print_os_name();
@@ -126,21 +117,47 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	kb_install();
 	mouse_install();
 
-	test_heap();	
+	test_heap();
 
 	//set up info panel
 	info_panel_install();
 
+	test_printf();
+
+	test_time_unique();
+
 	//force_page_fault();
-	//force_hardware_irq();	
-
-	while (1) {
-		shell_init();
-		shell_loop();
+	//force_hardware_irq();
+	/*
+	if (!fork(PRIO_LOW)) {
+		while (1) {
+			sleep(1000);
+			printf_info("%d", getpid());
+		}
 	}
+	while (1) {
+		sleep(100);
+		printf_info("%d", getpid());
+	}
+	*/
 
-	asm volatile("sti");
-	return 0;
+	test_malloc();
+
+	printf("number of modules: %d\n", mboot_ptr->mods_count);
+	printf("flags: %x\n", mboot_ptr->flags);
+	printf("address of module: %x\n", mboot_ptr->mods_addr);
+
+	typedef void (*call_module_t)(void);
+	call_module_t prog = (call_module_t)mboot_ptr->mods_addr;
+	prog();
+	/*
+	printf("program ended\n");
+
+	shell_init();
+	shell_loop();
+	
+	while (1) {}
+	*/
 }
 
 

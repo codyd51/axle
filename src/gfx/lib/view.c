@@ -1,6 +1,7 @@
 #include "view.h"
 #include <std/kheap.h>
 #include <gfx/lib/shapes.h>
+#include <stddef.h>
 
 #define MAX_ELEMENTS 64
 

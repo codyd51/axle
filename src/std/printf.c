@@ -1,5 +1,7 @@
 #include "printf.h"
-#include "common.h"
+#include <stdarg.h>
+#include <kernel/util/mutex/mutex.h>
+#include <std/string.h>
 
 char* convert(unsigned int num, int base) {
 	static char representation[] = "0123456789ABCDEF";
@@ -58,9 +60,8 @@ void vprintf(char* format, va_list va) {
 			terminal_putchar(ch);
 		}
 		else {
-			char zero_pad = 0;
+			char zero_pad;
 			char* ptr;
-			unsigned int len;
 
 			ch = *(format++);
 
@@ -87,8 +88,6 @@ void vprintf(char* format, va_list va) {
 				case 'x':
 				case 'X':
 					printf_hex(va_arg(va, uint32_t));
-					//itoa(convert(va_arg(va, unsigned int), 16), bf);
-					//terminal_writestring(bf);
 					break;
 
 				case 'c':
@@ -99,8 +98,23 @@ void vprintf(char* format, va_list va) {
 					ptr = va_arg(va, char*);
 					terminal_writestring(ptr);
 					break;
-				case '*':
 
+				case 'f':
+				case 'F':
+					//labels must be followed by statements, and the declaration below
+					//is not a statement, which causes a compiler error
+					//to get around this, we have an empty statement
+					;
+
+					double fnum = va_arg(va, double);
+					//print integer part, truncate fraction
+					printf("%d.", (int)fnum);
+					//get numbers after decimal
+					fnum = (fnum - (int)fnum) * 1000000;
+					printf("%d", (int)fnum);
+					break;
+				
+				case '%':
 				default:
 					terminal_putchar(ch);
 					break;
@@ -161,8 +175,8 @@ char* vsprintf(char* format, va_list va) {
 					ptr = va_arg(va, char*);
 					strcat(ret, ptr);
 					break;
-				case '*':
 
+				case '*':
 				default:
 					strccat(ret, ch);
 					break;
@@ -174,10 +188,17 @@ char* vsprintf(char* format, va_list va) {
 
 
 void printf(char* format, ...) {
+	//shared printf lock
+	static lock_t* mutex = 0;
+	if (!mutex) mutex = lock_create();
+	lock(mutex);
+
 	va_list arg;
 	va_start(arg, format);
 	vprintf(format, arg);
 	va_end(arg);
+
+	unlock(mutex);
 }
 
 void sprintf(char* str, char* format, ...) {
@@ -189,49 +210,38 @@ void sprintf(char* str, char* format, ...) {
 }
 
 void printf_dbg(char* format, ...) {
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("[");
-	terminal_settextcolor(COLOR_LIGHT_MAGENTA);
-	printf("DEBUG ");
-	terminal_settextcolor(COLOR_WHITE);
+	printf("\e[10;[\e[11;DEBUG \e[15;");
 
 	va_list arg;
 	va_start(arg, format);
 	vprintf(format, arg);
 	va_end(arg);
 
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("]\n");	
+	printf("\e[10;]\n");	
 }
 
 void printf_info(char* format, ...) {
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("[");
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("INFO ");
-	terminal_settextcolor(COLOR_WHITE);
+	printf("\e[10;[INFO \e[15;");
 
 	va_list arg;
 	va_start(arg, format);
 	vprintf(format, arg);
 	va_end(arg);
 
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("]\n");	
+	printf("\e[10;]\n");	
 }
 
-void printf_err(char* format, ...) {
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("[");
-	terminal_settextcolor(COLOR_LIGHT_RED);
-	printf("ERROR ");
-	terminal_settextcolor(COLOR_WHITE);
+void printf_err(const char* format, ...) {
+	va_list ap;
+	va_start(ap, format);
+	vprintf_err(format, ap);
+	va_end(ap);
+}
 
-	va_list arg;
-	va_start(arg, format);
-	vprintf(format, arg);
-	va_end(arg);
+void vprintf_err(const char* format, va_list ap) {
+	printf("\e[10;[\e[12;ERROR \e[15;");
 
-	terminal_settextcolor(COLOR_LIGHT_GREEN);
-	printf("]\n");	
+	vprintf(format, ap);
+
+	printf("\e[10;]\n");
 }

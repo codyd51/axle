@@ -139,12 +139,6 @@ task_t* scheduler_lottery() {
 		num_tickets += tmp->tickets;
 	} while((tmp = tmp->next));
 
-	static int i = 0;
-	i++;
-	if (i == 1000) {
-		i = 0;
-	}
-
 	//generate winning ticket of this lottery
 	int winning_ticket = rand() % (num_tickets + 1);
 	//find task owning winning ticket

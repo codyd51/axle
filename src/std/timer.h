@@ -1,7 +1,11 @@
-#ifndef TIMER_H
-#define TIMER_H
+#ifndef STD_TIMER_H
+#define STD_TIMER_H
 
-#include <std/std.h>
+#include "std_base.h"
+#include <stdbool.h>
+#include <stdint.h>
+
+__BEGIN_DECLS
 
 #define MAX_CALLBACKS 100
 
@@ -13,7 +17,10 @@ typedef struct {
 	void* context;
 } timer_callback;
 
-timer_callback add_callback(void* callback, int interval, bool repeats, void* context);
-void remove_callback_at_index(int index);
+STDAPI void sleep(uint32_t ms);
+STDAPI timer_callback add_callback(void* callback, int interval, bool repeats, void* context);
+STDAPI void remove_callback_at_index(int index);
 
-#endif
+__END_DECLS
+
+#endif // STD_TIMER_H

@@ -3,6 +3,7 @@
 #include <std/common.h>
 #include <std/std.h>
 #include <kernel/util/interrupts/isr.h>
+#include <kernel/util/kbman/kbman.h>
 
 #define KBD_DATA_PORT 0x60
 
@@ -12,14 +13,10 @@ const unsigned short keypressFinishedMask = 2;
 unsigned int flags = 0;
 
 #define KBUF_SIZE 256
-//char* kb_buffer;
 char kb_buffer[KBUF_SIZE] = "";
 
-/* KBDUS means US Keyboard Layout. This is a scancode table
-*  used to layout a standard US keyboard. I have left some
-*  comments in to give you an idea of what key is what, even
-*  though I set it's array index to 0. You can change that to
-*  whatever you want using a macro, if you wish! */
+//KBDUS means US Keyboard Layout. This is a scancode table
+//used to layout a standard US keyboard.
 unsigned char kbdus[128] =
 {
 	0,  27, '1', '2', '3', '4', '5', '6', '7', '8',	/* 9 */
@@ -90,6 +87,10 @@ void kb_callback(registers_t regs) {
 			flags = flags ^ shiftMask;
 			return;
 		}
+
+		// if this key was a special key, inform os
+		// TODO dedicated function to check for special keys 
+		kbman_process(c);
 
 		//rest for next use
 		flags = flags ^ keypressFinishedMask;
@@ -166,7 +167,6 @@ int haskey() {
 //does not block!
 char kgetch() {
 	//return last character from KB buffer, and remove that character
-	
 	char ret = kb_buffer[strlen(kb_buffer) - 1];
 	kb_buffer[strlen(kb_buffer) - 1] = 0;
 	return ret;

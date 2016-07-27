@@ -241,27 +241,66 @@ void draw_triangle_int(Screen* screen, Triangle triangle, Color color) {
 	draw_line(screen, l3, color, 1);
 }
 
+Line shrink_line(Coordinate p1, Coordinate p2, float pixel_count) {
+	//return line_make(point_make(p1.x - 5, p1.y - 5), l.p2);
+	//if (p1.x == p2.x && p1.y == p2.y) return l;
+	double dx = p2.x - p1.x;
+	double dy = p2.y - p1.y;
+	if (!dx) {
+		//vertical line
+		if (p2.y < p1.y) {
+			p2.y -= pixel_count;
+		}
+		else {
+			p2.y += pixel_count;
+		}
+	}
+	else if (!dy) {
+		//horizontal line
+		if (p2.x < p1.x) {
+			p2.x -= pixel_count;
+		}
+		else {
+			p2.x += pixel_count;
+		}
+	}
+	else {
+		//diagonal line
+		double length = sqrt(dx * dx + dy * dy);
+		double scale = (length + pixel_count) / length;
+		dx *= scale;
+		dy *= scale;
+		p2.x = (int)(p1.x + (int)dx);
+		p2.y = (int)(p1.y + (int)dy);
+	}
+	return line_make(p1, p2);
+}
+
 void draw_triangle(Screen* screen, Triangle tri, Color color, int thickness) {
 	normalize_coordinate(screen, tri.p1);
 	normalize_coordinate(screen, tri.p2);
 	normalize_coordinate(screen, tri.p3);
 
-	draw_triangle_int(screen, tri, color);
-	return;
+	//draw_triangle_int(screen, tri, color);
+	//return;
 
 	//TODO fix implementation below
 	
 	//the max thickness of a triangle is the shortest distance
 	//between the center and a vertice
 	Coordinate center = triangle_center(tri);
-	double l1 = line_length(line_make(center, line_center(line_make(tri.p1, tri.p2))));
-	double l2 = line_length(line_make(center, line_center(line_make(tri.p2, tri.p3))));
-	double l3 = line_length(line_make(center, line_center(line_make(tri.p3, tri.p1))));
+	Line line1 = line_make(center, line_center(line_make(tri.p1, tri.p2)));
+	Line line2 = line_make(center, line_center(line_make(tri.p2, tri.p3)));
+	Line line3 = line_make(center, line_center(line_make(tri.p2, tri.p3)));
+	double l1 = line_length(line1);
+	double l2 = line_length(line2);
+	double l3 = line_length(line3);
 
-	double shortest_line = MIN(l1, l2);
-	shortest_line = MIN(shortest_line, l3);
+	//double shortest_line = MIN(l1, l2);
+	//shortest_line = MIN(shortest_line, l3);
 
-	int max_thickness = shortest_line;
+	//int max_thickness = shortest_line;
+	int max_thickness = 20;
 
 	//if thickness indicates shape should be filled, set to max_thickness
 	if (thickness < 0) thickness = max_thickness;
@@ -278,15 +317,16 @@ void draw_triangle(Screen* screen, Triangle tri, Color color, int thickness) {
 	Coordinate p2 = tri.p2;
 	Coordinate p3 = tri.p3;	
 
-	for (int i = 0; i < thickness; i++) {
-		draw_triangle_int(screen, triangle_make(p1, p2, p3), color);
+	for (int i = 0; i < 15; i++) {
 
 		//shrink for next shell
-		p1.y += 1;
-		p2.x += 1;
-		p2.y -= 1;
-		p3.x -= 1;
-		p3.y -= 1;
+		line1 = shrink_line(p1, p2, 1);
+		line2 = shrink_line(p2, p3, 1);
+		line3 = shrink_line(p3, p1, 1);
+		p1 = line1.p1;
+		p2 = line2.p1;
+		p3 = line3.p1;
+		draw_triangle_int(screen, triangle_make(p1, p2, p3), color);
 	}
 }
 

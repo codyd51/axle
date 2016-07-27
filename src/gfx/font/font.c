@@ -1,9 +1,10 @@
 #include "font.h"
 #include <std/std.h>
+#include <std/kheap.h>
 #include <gfx/lib/gfx.h>
 
 Font* setup_font() {
-	Font* font_map = kmalloc(sizeof(Font));
+	Font* font_map = (Font*)kmalloc(sizeof(Font));
 	memset(font_map->characters, 0, FONT8_SIZE);
 
 	uint8_t a_vals[] = {0x18, 0x3C, 0x66, 0xC3, 0xFF, 0xFF, 0xC3, 0xC3};

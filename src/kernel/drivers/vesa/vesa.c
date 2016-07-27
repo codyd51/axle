@@ -2,10 +2,24 @@
 #include <kernel/util/paging/paging.h>
 #include <gfx/lib/shapes.h>
 #include <gfx/lib/view.h>
+#include <gfx/lib/gfx.h>
 #include <user/xserv/xserv.h>
 #include <gfx/font/font.h>
+#include <std/memory.h>
+#include <kernel/drivers/kb/kb.h>
 
 void vesa_screen_refresh(Screen* screen) {
+	//check if there are any keys pending
+	while (haskey()) {
+		char ch = getchar();
+		if (ch == 'q') {
+			//quit xserv
+			gfx_teardown(screen);
+			switch_to_text();
+			return;
+		}
+	}
+
 	if (!screen->finished_drawing) return;
 
 	//if no changes occured this refresh, don't bother writing the screen

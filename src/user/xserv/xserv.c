@@ -1,8 +1,8 @@
 #include "xserv.h"
-<<<<<<< HEAD
 #include <kernel/drivers/mouse/mouse.h>
-=======
+#include <stddef.h>
 #include <std/math.h>
+#include <std/panic.h>
 
 //has the screen been modified this refresh?
 static char dirtied = 0;
@@ -16,17 +16,16 @@ Window* containing_window_int(Screen* screen, View* v) {
 
 	//traverse view hierarchy, find window which has view as its title or content view
 	if (screen->window->title_view == view || screen->window->content_view == view) return screen->window;
-	for (int i = 0; i < screen->window->subviews.size; i++) {
+	for (unsigned i = 0; i < screen->window->subviews.size; i++) {
 		Window* window = array_m_lookup(i, &(screen->window->subviews));
 		if (window->title_view == view || window->content_view == view) return window;
-		for (int j = 0; j < window->subviews.size; j++) {
+		for (unsigned j = 0; j < window->subviews.size; j++) {
 			Window* subwindow = array_m_lookup(j, &(window->subviews));
 			if (subwindow->title_view == view || subwindow->content_view == view) return subwindow;
 		}
 	}
 	return NULL;
 }
->>>>>>> master
 
 #define CHAR_WIDTH 8
 #define CHAR_HEIGHT 8
@@ -100,21 +99,22 @@ void draw_label(Screen* screen, Label* label) {
 
 void draw_image(Screen* screen, Image* image) {
 	View* superview = image->superview;
-	
 	if (!image || !image->needs_redraw) return;
 	if (superview && !superview->needs_redraw) return;
 
 	image->needs_redraw = 1;
 	dirtied = 1;
 
-	Rect frame = absolute_frame(screen, image);
+	Rect frame = absolute_frame(screen, (View*)image);
 
 	//iterate through every pixel in the bitmap and draw it
 	int num_pixels = frame.size.width * frame.size.height;
 	for (int i = 0; i < num_pixels; i++) {
+		/*
 		int x = frame.origin.x + (i % frame.size.width);
 		int y = frame.origin.y + (i / frame.size.height);
-		//putpixel(screen, x, y, image->bitmap[i]); 
+		putpixel(screen, x, y, image->bitmap[i]); 
+		*/
 	}
 
 	image->needs_redraw = 0;
@@ -123,7 +123,7 @@ void draw_image(Screen* screen, Image* image) {
 void draw_view(Screen* screen, View* view) {
 	View* superview = view->superview;
 	Window* superwindow = containing_window_int(screen, view);
-	
+
 	if (!view || !view->needs_redraw) return;
 	if (superview && !superview->needs_redraw) return;
 	if (superwindow && !superwindow->needs_redraw) return;
@@ -138,19 +138,19 @@ void draw_view(Screen* screen, View* view) {
 	draw_rect(screen, frame, view->background_color, THICKNESS_FILLED);
 
 	//draw any labels this view has
-	for (int i = 0; i < view->labels.size; i++) {
+	for (unsigned i = 0; i < view->labels.size; i++) {
 		Label* label = (Label*)array_m_lookup(i, &(view->labels));
 		draw_label(screen, label);
 	}
 
 	//draw any images this view has
-	for (int i = 0; i < view->images.size; i++) {
+	for (unsigned i = 0; i < view->images.size; i++) {
 		Image* image = (Image*)array_m_lookup(i, &(view->images));
 		draw_image(screen, image);
 	}
 
 	//draw each subview of this view
-	for (int i = 0; i < view->subviews.size; i++) {
+	for (unsigned i = 0; i < view->subviews.size; i++) {
 		View* subview = (View*)array_m_lookup(i, &(view->subviews));
 		draw_view(screen, subview);
 	}
@@ -159,16 +159,19 @@ void draw_view(Screen* screen, View* view) {
 }
 
 void draw_window(Screen* screen, Window* window) {
-	if (!window->needs_redraw && !window->content_view->needs_redraw && !window->title_view->needs_redraw			) return;
+	if (!window->needs_redraw && !window->content_view->needs_redraw && !window->title_view->needs_redraw) return;
 
 	window->needs_redraw = 1;
 	dirtied = 1;
 
-	//paint navy blue window
+	//paint window
 	draw_rect(screen, window->frame, window->border_color, window->border_width);
 	
 	//only draw a title bar if title_view exists
 	if (window->title_view) {
+		//update title label of window
+		Label* title_label = array_m_lookup(0, &window->title_view->labels);
+		title_label->text = window->title;
 		draw_view(screen, window->title_view);
 	}
 
@@ -180,7 +183,6 @@ void draw_window(Screen* screen, Window* window) {
 	if (window->content_view) {
 		draw_view(screen, window->content_view);
 	}
-	
 	window->needs_redraw = 0;
 }
 
@@ -191,29 +193,21 @@ void add_taskbar(Screen* screen) {
 	taskbar_view->background_color = color_make(11, 136, 155);
 	add_subview(screen->window->content_view, taskbar_view);
 
-	/*
 	Coordinate name_label_origin = point_make(taskbar_view->frame.size.width * 0.925, taskbar_view->frame.size.height / 2 - (CHAR_HEIGHT / 2));
 	Rect label_rect = rect_make(name_label_origin, size_make(taskbar_size.width - name_label_origin.x, taskbar_size.height));
 	Label* name_label = create_label(label_rect, "axle os");
 	add_sublabel(taskbar_view, name_label);
-	*/
 }
 
 void draw_desktop(Screen* screen) {
 	//paint root desktop
 	draw_window(screen, screen->window);
-
+	
 	//paint every child window
-	for (int i = 0; i < screen->window->subviews.size; i++) {
+	for (unsigned i = 0; i < screen->window->subviews.size; i++) {
 		Window* win = (Window*)(array_m_lookup(i, &(screen->window->subviews)));
 		draw_window(screen, win);
 	}
-*/
-	//draw mouse last!
-	Coordinate mouse = mouse_point();
-	//draw a box
-	Rect mouse_r = rect_make(point_make(mouse.x, screen->window->size.height - mouse.y), size_make(10, 20));
-	draw_rect(screen, mouse_r, color_make(255, 0, 0), THICKNESS_FILLED);
 }
 
 void desktop_setup(Screen* screen) {
@@ -226,6 +220,10 @@ char xserv_draw(Screen* screen) {
 
 	dirtied = 0;
 	draw_desktop(screen);
+
+	Coordinate cursor = mouse_point();
+	Rect r = rect_make(cursor, size_make(10, 20));
+	draw_rect(screen, r, color_make(0, 0, 255), THICKNESS_FILLED);
 
 	screen->finished_drawing = 1;
 

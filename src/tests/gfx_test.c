@@ -163,7 +163,7 @@ void test_text(Screen* screen) {
 	char* str = "Lorem ipsum dolor sit amet consectetur apipiscing elit Donex purus arcu suscipit ed felis eu blandit blandit quam Donec finibus euismod lobortis Sed massa nunc malesuada ac ante eleifend dictum laoreet massa Aliquam nec dictum turpis pellentesque lacinia ligula Donec et tellus maximum dapibus justo auctor egestas sapien Integer venantis egesta malesdada Maecenas venenatis urna id posuere bibendum eros torto gravida ipsum sed tempor arcy andte ac odio Morbi elementum libero id velit bibendum auctor It sit amet ex eget urna venenatis laoreet Proin posuere urna nec ante tutum lobortis Cras nec elit tristique dolor congue eleifend";
 	Label* label = create_label(rect_make(point_make(0, 0), size_make(screen->window->size.width, screen->window->size.height)), str);
 	label->text_color = color_make(12, 0, 0);
-	draw_label(screen, label);
+	//draw_label(screen, label);
 }
 
 void draw_button(Screen* screen) {
@@ -188,7 +188,7 @@ void draw_button(Screen* screen) {
 	Rect label_rect = rect_make(point_make(p3.x + 5, p3.y - (8 / 2)), size_make(in_rect.size.width, in_rect.size.height));
 	Label* play_label = create_label(label_rect, "Play");
 	play_label->text_color = color_make(1, 0, 0);
-	draw_label(screen, play_label);
+	//draw_label(screen, play_label);
 }
 
 void test_gfx(int argc, char **argv) {
@@ -227,55 +227,27 @@ void test_gfx(int argc, char **argv) {
 }
 
 void test_xserv(Screen* vesa_screen) {
-	Rect r = rect_make(point_make(50, 50), size_make(400, 500));
-	Window* window = create_window(r);
+	Window* window = create_window(rect_make(point_make(50, 50), size_make(400, 500)));
+	window->title = "Color test";
 	add_subwindow(vesa_screen->window, window);
-/*
-	Rect image_frame = window->content_view->frame;
-	uint32_t* bitmap = kmalloc(image_frame.size.width * image_frame.size.height * sizeof(uint32_t));
 	
-	for (int i = 0; i < (image_frame.size.width * image_frame.size.height); i++) {
-		static uint32_t col = 0x0;
-		bitmap[i] = col;
-		col += 0x1;
+	Window* label_win = create_window(rect_make(point_make(350, 100), size_make(500, 200)));
+	label_win->title = "Text test";
+	Label* test_label = create_label(rect_make(point_make(0, 0), label_win->content_view->frame.size), "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque pulvinar dui bibendum nunc convallis, bibendum venenatis mauris ornare. Donec et libero lacus. Nulla tristique auctor pulvinar. Aenean enim elit, malesuada nec dignissim eget, varius ac nunc. Vestibulum varius lectus nisi, in dignissim orci volutpat in. Aliquam eget eros lorem. Quisque tempor est a rhoncus consequat. Quisque vestibulum finibus sapien. Etiam enim sem, vehicula ac lorem vitae, mattis mollis mauris. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Vivamus eleifend dui vel nulla suscipit pretium. Suspendisse vel nunc efficitur, lobortis dui convallis, tristique tellus. Ut ut viverra est. Etiam tempor justo risus. Cras laoreet eu sapien et lacinia. Nunc imperdiet blandit purus a semper.");
+	add_sublabel(label_win->content_view, test_label);
+	add_subwindow(vesa_screen->window, label_win);
+
+	//create evenly spaced subsections
+	for (int i = 0; i < 34; i++) {
+		double height = window->content_view->frame.size.height / 32;
+		View* view = create_view(rect_make(point_make(0, height * i), size_make(window->content_view->frame.size.width, height)));
+		add_subview(window->content_view, view);
 	}
-	
-	Image* image = create_image(image_frame, bitmap);
-	//add_subimage(window->content_view, image);
-	
-	Label* label = create_label(image_frame, "Lorem ipsum dolor sit amet consectetur apipiscing elit Donex purus arcu suscipit ed felis eu blandit blandit quam Donec finibus euismod lobortis Sed massa nunc malesuada ac ante eleifend dictum laoreet massa Aliquam nec dictum turpis pellentesque lacinia ligula Donec et tellus maximum dapibus justo auctor egestas sapien Integer venantis egesta malesdada Maecenas venenatis urna id posuere bibendum eros torto gravida ipsum sed tempor arcy andte ac odio Morbi elementum libero id velit bibendum auctor It sit amet ex eget urna venenatis laoreet Proin posuere urna nec ante tutum lobortis Cras nec elit tristique dolor congue eleifend");
-	add_sublabel(window->content_view, label);
-
-	sleep(1000);
-	View* subview = create_view(rect_make(point_make(0, 200), size_make(500, 250)));
-	subview->background_color = color_make(200, 0, 255);
-	add_subview(window->content_view, subview);
-
-	sleep(1000);
-	remove_subview(window->content_view, subview);
-	*/
-	/*
-	int origin_y = 0;
-	for (int i = 0; i < 10; i++) {
-		Rect label_rect = rect_make(point_make(0, origin_y), window->content_view->frame.size);
-		Label* label = create_label(label_rect, "The brown fox jumped over the lazy dog");
-		add_sublabel(window->content_view, label);
-
-		origin_y += 10;
-		sleep(100);
+	for (int i = 0; i < 1000; i++) {
+		for (int j = 0; j < window->content_view->subviews.size; j++) {
+			View* subview = array_m_lookup(j, &window->content_view->subviews);
+			set_background_color(subview, color_make(rand() % 256, rand() % 256, rand() % 256));
+		}
+		sleep(50);
 	}
-	*/
-
-	View* view = create_view(rect_make(point_make(50, 50), size_make(150, 150)));
-	add_subview(window->content_view, view);
-	set_background_color(view, color_make(255, 0, 0));
-	sleep(1000);
-	set_background_color(view, color_make(0, 255, 0));
-	sleep(1000);
-	set_background_color(view, color_make(0, 0, 255));
-	sleep(1000);
-	set_background_color(view, color_make(100, 200, 0));
-	sleep(1000);
-	remove_subview(window->content_view, view);
-
 }	

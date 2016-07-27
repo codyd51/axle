@@ -1,7 +1,7 @@
 #ifndef SNAKE_H
 #define SNAKE_H
 
-#include <std/common.h>
+#include <stdint.h>
 
 typedef struct snake_player {
 	uint8_t length;
@@ -16,6 +16,6 @@ typedef struct game_state {
 	int is_running;
 } game_state_t;
 
-void play_snake();
+void play_snake(void);
 
 #endif

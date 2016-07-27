@@ -1,23 +1,28 @@
 #ifndef STD_BASE_H
 #define STD_BASE_H
 
-#if !defined(__cplusplus)
-#include <stdbool.h> //C doesn't have boolean type by default
-#endif
-#include <stddef.h>
-#include <stdint.h>
-
-//check if the compiler thinks we're targeting the wrong OS
+// Check if the compiler thinks we're targeting the wrong OS
 #if defined(__linux__)
-#error "You are not using a cross compiler! You will certainly run into trouble."
-#endif
+# error "You are not using a cross compiler! You will certainly run into trouble."
+#endif // __linux__
 
-//OS only works for the 32-bit ix86 target
+// OS only works for the 32-bit ix86 target
 #if !defined(__i386__)
-#error "OS must be compiled with a ix86-elf compiler."
-#endif
+# error "OS must be compiled with a ix86-elf compiler."
+#endif // __i386__
 
-#include <stdarg.h>
-#include "common.h"
+// Allow headers to work properly on both C and C++ compilers
+#ifdef __cplusplus
+# define __BEGIN_DECLS extern "C" {
+# define __END_DECLS }
+#else // __cplusplus
+# define __BEGIN_DECLS
+# define __END_DECLS
+#endif // __cplusplus
 
-#endif
+// Publicly visible library functions
+#ifndef STDAPI
+# define STDAPI extern
+#endif // STDAPI
+
+#endif // STD_BASE_H

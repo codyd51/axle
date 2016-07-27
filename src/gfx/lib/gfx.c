@@ -5,6 +5,7 @@
 #include <gfx/font/font.h>
 #include "shapes.h"
 #include <std/std.h>
+#include <std/kheap.h>
 #include <tests/gfx_test.h>
 #include <kernel/drivers/vga/vga.h>
 #include <kernel/drivers/vesa/vesa.h>
