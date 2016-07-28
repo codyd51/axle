@@ -99,7 +99,7 @@ void test_triangles(Screen* screen) {
 
 	for (int i = 1; i <= 12; i++) {
 		Triangle t = triangle_make(p1, p2, p3);
-		draw_triangle(screen, t, color_make(i, 0, 0), 1);
+		draw_triangle(screen, t, color_make(i, 0, 0), THICKNESS_FILLED);
 
 		p1.y += i * 2;
 		p2.x += i * 1.5;
@@ -192,7 +192,7 @@ void draw_button(Screen* screen) {
 }
 
 void test_gfx(int argc, char **argv) {
-	int delay = 500;
+	int delay = 1000;
 	
 	Screen* screen = switch_to_vga();
 

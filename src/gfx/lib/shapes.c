@@ -231,6 +231,32 @@ void draw_line(Screen* screen, Line line, Color color, int thickness) {
 	}
 }
 
+void draw_triangle_int_fast(Screen* screen, Triangle triangle, Color color) {
+	//bounding rectangle
+	Coordinate min;
+	Coordinate max;
+	min.x = MIN(triangle.p1.x, triangle.p2.x);
+	min.x = MIN(min.x, triangle.p3.x);
+	min.y = MIN(triangle.p1.y, triangle.p2.y);
+	min.y = MIN(min.y, triangle.p3.y);
+	max.x = MAX(triangle.p1.x, triangle.p2.x);
+	max.x = MAX(min.x, triangle.p3.x);
+	max.y = MAX(triangle.p1.y, triangle.p2.y);
+	max.y = MAX(min.y, triangle.p3.y);
+
+	//scan bounding rectangle
+	for (int y = min.y; y < max.y; y++) {
+		for (int x = min.x; x < max.x; x++) {
+			//the pixel is bounded by the rectangle if all half-space functions are positive
+			if ((triangle.p1.x - triangle.p2.x) * (y - triangle.p1.y) - (triangle.p1.y - triangle.p2.y) * (x - triangle.p1.x) > 0 &&
+			    (triangle.p2.x - triangle.p3.x) * (y - triangle.p2.y) - (triangle.p2.y - triangle.p3.y) * (x - triangle.p2.x) > 0 &&
+			    (triangle.p3.x - triangle.p1.x) * (y - triangle.p3.y) - (triangle.p3.y - triangle.p1.y) * (x - triangle.p3.x) > 0) {
+				putpixel(screen, x, y, color);
+			}
+		}
+	}
+}
+
 void draw_triangle_int(Screen* screen, Triangle triangle, Color color) {
 	Line l1 = line_make(triangle.p1, triangle.p2);
 	Line l2 = line_make(triangle.p2, triangle.p3);
@@ -281,53 +307,12 @@ void draw_triangle(Screen* screen, Triangle tri, Color color, int thickness) {
 	normalize_coordinate(screen, tri.p2);
 	normalize_coordinate(screen, tri.p3);
 
-	//draw_triangle_int(screen, tri, color);
-	//return;
-
-	//TODO fix implementation below
-	
-	//the max thickness of a triangle is the shortest distance
-	//between the center and a vertice
-	Coordinate center = triangle_center(tri);
-	Line line1 = line_make(center, line_center(line_make(tri.p1, tri.p2)));
-	Line line2 = line_make(center, line_center(line_make(tri.p2, tri.p3)));
-	Line line3 = line_make(center, line_center(line_make(tri.p2, tri.p3)));
-	double l1 = line_length(line1);
-	double l2 = line_length(line2);
-	double l3 = line_length(line3);
-
-	//double shortest_line = MIN(l1, l2);
-	//shortest_line = MIN(shortest_line, l3);
-
-	//int max_thickness = shortest_line;
-	int max_thickness = 20;
-
-	//if thickness indicates shape should be filled, set to max_thickness
-	if (thickness < 0) thickness = max_thickness;
-
-	//make sure thickness isn't too big
-	thickness = MIN(thickness, max_thickness);
-
-	printf_info("max_thickness: %d", max_thickness);
-	printf_info("thickness: %d", thickness);
-	printf_info("center.x: %d", center.x);
-	printf_info("center.y: %d", center.y);
-
-	Coordinate p1 = tri.p1;
-	Coordinate p2 = tri.p2;
-	Coordinate p3 = tri.p3;	
-
-	for (int i = 0; i < 15; i++) {
-
-		//shrink for next shell
-		line1 = shrink_line(p1, p2, 1);
-		line2 = shrink_line(p2, p3, 1);
-		line3 = shrink_line(p3, p1, 1);
-		p1 = line1.p1;
-		p2 = line2.p1;
-		p3 = line3.p1;
-		draw_triangle_int(screen, triangle_make(p1, p2, p3), color);
+	if (thickness == THICKNESS_FILLED) {
+		draw_triangle_int_fast(screen, tri, color);
+		return;
 	}
+
+	draw_triangle_int(screen, tri, color);
 }
 
 void draw_circle_int(Screen* screen, Circle circle, Color color) {	
