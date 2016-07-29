@@ -21,7 +21,7 @@ Circles | Rectangles | Triangles | Julia set | Mandelbrot set
 
 VESA-mode window manager
 -------------
-        |              
+Color test | Text rendering test             
 :------:|:------:
 ![Colors](/screenshots/color_test.png) | ![Text](/screenshots/text_test.png)
 
