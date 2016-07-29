@@ -3,7 +3,7 @@
 
 #include <std/std_base.h>
 #include <stdint.h>
-#include <std/mutable_array.h>
+#include <std/array_m.h>
 #include "color.h"
 
 __BEGIN_DECLS
@@ -28,7 +28,7 @@ typedef struct window {
 	Rect frame;
 	char needs_redraw;
 	struct window* superview;
-	mutable_array_t subviews;
+	array_m* subviews;
 
 	Size size;
 	char* title;
@@ -64,11 +64,11 @@ typedef struct view {
 	Rect frame;
 	char needs_redraw;
 	struct view *superview;
-	mutable_array_t subviews;
+	array_m* subviews;
 	
 	Color background_color;
-	mutable_array_t labels;
-	mutable_array_t images;
+	array_m* labels;
+	array_m* images;
 } View;
 
 

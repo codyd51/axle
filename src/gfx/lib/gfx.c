@@ -21,38 +21,38 @@ void label_teardown(Label* label) {
 }
 
 void view_teardown(View* view) {
-	for (int i = 0; i < view->subviews.size; i++) {
-		View* view = (View*)array_m_lookup(i, &(view->subviews));
+	for (int i = 0; i < view->subviews->size; i++) {
+		View* view = (View*)array_m_lookup(view->subviews, i);
 		view_teardown(view);
 	}
 	//free subviews array
-	array_m_destroy(&(view->subviews));
+	array_m_destroy(view->subviews);
 
-	for (int i = 0; i < view->labels.size; i++) {
-		Label* label = (Label*)array_m_lookup(i, &(view->labels));
+	for (int i = 0; i < view->labels->size; i++) {
+		Label* label = (Label*)array_m_lookup(view->labels, i);
 		label_teardown(label);
 	}
 	//free sublabels
-	array_m_destroy(&(view->labels));
+	array_m_destroy(view->labels);
 
-	for (int i = 0; i < view->images.size; i++) {
-		Image* image = (Image*)array_m_lookup(i, &(view->images));
+	for (int i = 0; i < view->images->size; i++) {
+		Image* image = (Image*)array_m_lookup(view->images, i);
 		image_teardown(image);
 	}
 	//free subimages
-	array_m_destroy(&(view->images));
+	array_m_destroy(view->images);
 	
 	//finally, free view itself
 	kfree(view);
 }
 
 void window_teardown(Window* window) {
-	for (int i = 0; i < window->subviews.size; i++) {
-		Window* window = (Window*)array_m_lookup(i, &(window->subviews));
+	for (int i = 0; i < window->subviews->size; i++) {
+		Window* window = (Window*)array_m_lookup(window->subviews, i);
 		window_teardown(window);
 	}
 	//free subviews array
-	array_m_destroy(&(window->subviews));
+	array_m_destroy(window->subviews);
 
 	//free the views associated with this window
 	view_teardown(window->title_view);

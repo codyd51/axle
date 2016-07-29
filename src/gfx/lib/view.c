@@ -87,41 +87,41 @@ void mark_needs_redraw(View* view) {
 }
 
 void add_sublabel(View* view, Label* label) {
-	array_m_insert(label, &(view->labels));
+	array_m_insert(view->labels, label);
 	label->superview = view;
 	label->needs_redraw = 1;
 	mark_needs_redraw(view);
 }
 
 void remove_sublabel(View* view, Label* label) {
-	array_m_remove(array_m_index(label, &(view->labels)), &(view->labels));
+	array_m_remove(view->labels, array_m_index(view->labels, label));
 	label->superview = NULL;
 	label->needs_redraw = 1;
 	mark_needs_redraw(view);
 }
 
 void add_subimage(View* view, Image* image) {
-	array_m_insert(image, &(view->images));
+	array_m_insert(view->images, image);
 	image->superview = view;
 	image->needs_redraw = 1;
 	mark_needs_redraw(view);
 }
 
 void remove_subimage(View* view, Image* image) {
-	array_m_remove(array_m_index(image, &(view->images)), &(view->images));
+	array_m_remove(view->images, array_m_index(view->images, image));
 	image->superview = NULL;
 	image->needs_redraw = 1;
 	mark_needs_redraw(view);
 }
 
 void add_subview(View* view, View* subview) {
-	array_m_insert(subview, &(view->subviews));
+	array_m_insert(view->subviews, subview);
 	subview->superview = view;
 	mark_needs_redraw(view);
 }
 
 void remove_subview(View* view, View* subview) {
-	array_m_remove(array_m_index(subview, &(view->subviews)), &(view->subviews));
+	array_m_remove(view->subviews, array_m_index(view->subviews, subview));
 	subview->superview = NULL;
 	subview->needs_redraw = 1;
 	mark_needs_redraw(view);
@@ -133,13 +133,13 @@ void set_background_color(View* view, Color color) {
 }
 
 void add_subwindow(Window* window, Window* subwindow) {
-	array_m_insert(subwindow, &(window->subviews));
+	array_m_insert(window->subviews, subwindow);
 	subwindow->superview = window;
 	mark_needs_redraw(window);
 }
 
 void remove_subwindow(Window* window, Window* subwindow) {
-	array_m_remove(array_m_index(subwindow, &(window->subviews)), &(window->subviews));
+	array_m_remove(window->subviews, array_m_index(window->subviews, subwindow));
 	subwindow->superview = NULL;
 	mark_needs_redraw(window);
 }

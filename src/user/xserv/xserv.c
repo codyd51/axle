@@ -15,11 +15,11 @@ Window* containing_window_int(Screen* screen, View* v) {
 
 	//traverse view hierarchy, find window which has view as its title or content view
 	if (screen->window->title_view == view || screen->window->content_view == view) return screen->window;
-	for (unsigned i = 0; i < screen->window->subviews.size; i++) {
-		Window* window = array_m_lookup(i, &(screen->window->subviews));
+	for (unsigned i = 0; i < screen->window->subviews->size; i++) {
+		Window* window = array_m_lookup(screen->window->subviews, i);
 		if (window->title_view == view || window->content_view == view) return window;
-		for (unsigned j = 0; j < window->subviews.size; j++) {
-			Window* subwindow = array_m_lookup(j, &(window->subviews));
+		for (unsigned j = 0; j < window->subviews->size; j++) {
+			Window* subwindow = array_m_lookup(window->subviews, j);
 			if (subwindow->title_view == view || subwindow->content_view == view) return subwindow;
 		}
 	}
@@ -137,20 +137,20 @@ void draw_view(Screen* screen, View* view) {
 	draw_rect(screen, frame, view->background_color, THICKNESS_FILLED);
 
 	//draw any labels this view has
-	for (unsigned i = 0; i < view->labels.size; i++) {
-		Label* label = (Label*)array_m_lookup(i, &(view->labels));
+	for (unsigned i = 0; i < view->labels->size; i++) {
+		Label* label = (Label*)array_m_lookup(view->labels, i);
 		draw_label(screen, label);
 	}
 
 	//draw any images this view has
-	for (unsigned i = 0; i < view->images.size; i++) {
-		Image* image = (Image*)array_m_lookup(i, &(view->images));
+	for (unsigned i = 0; i < view->images->size; i++) {
+		Image* image = (Image*)array_m_lookup(view->images, i);
 		draw_image(screen, image);
 	}
 
 	//draw each subview of this view
-	for (unsigned i = 0; i < view->subviews.size; i++) {
-		View* subview = (View*)array_m_lookup(i, &(view->subviews));
+	for (unsigned i = 0; i < view->subviews->size; i++) {
+		View* subview = (View*)array_m_lookup(view->subviews, i);
 		draw_view(screen, subview);
 	}
 
@@ -169,7 +169,7 @@ void draw_window(Screen* screen, Window* window) {
 	//only draw a title bar if title_view exists
 	if (window->title_view) {
 		//update title label of window
-		Label* title_label = array_m_lookup(0, &window->title_view->labels);
+		Label* title_label = array_m_lookup(window->title_view->labels, 0);
 		title_label->text = window->title;
 		draw_view(screen, window->title_view);
 	}
@@ -182,6 +182,7 @@ void draw_window(Screen* screen, Window* window) {
 	if (window->content_view) {
 		draw_view(screen, window->content_view);
 	}
+
 	window->needs_redraw = 0;
 }
 
@@ -203,8 +204,8 @@ void draw_desktop(Screen* screen) {
 	draw_window(screen, screen->window);
 	
 	//paint every child window
-	for (unsigned i = 0; i < screen->window->subviews.size; i++) {
-		Window* win = (Window*)(array_m_lookup(i, &(screen->window->subviews)));
+	for (unsigned i = 0; i < screen->window->subviews->size; i++) {
+		Window* win = (Window*)(array_m_lookup(screen->window->subviews, 0));
 		draw_window(screen, win);
 	}
 }

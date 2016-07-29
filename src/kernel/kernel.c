@@ -126,21 +126,6 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	test_time_unique();
 
-	//force_page_fault();
-	//force_hardware_irq();
-	/*
-	if (!fork(PRIO_LOW)) {
-		while (1) {
-			sleep(1000);
-			printf_info("%d", getpid());
-		}
-	}
-	while (1) {
-		sleep(100);
-		printf_info("%d", getpid());
-	}
-	*/
-
 	test_malloc();
 
 	shell_init();

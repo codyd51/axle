@@ -232,30 +232,30 @@ void update_context(tab_context* c) {
 	//strcpy(c->context, buffer);
 }
 void tab_command() {
-	static mutable_array_t tabs;
+	static array_m* tabs;
 	static unsigned current_tab = 0;
-	if (!tabs.size) {
+	if (!tabs->size) {
 		tabs = array_m_create(4);
 		tab_context* initial = tab_make();
-		array_m_insert(initial, &tabs);
+		array_m_insert(tabs, initial);
 	}
 
 	//update previous context before switching
-	tab_context* old = array_m_lookup(current_tab, &tabs);
+	tab_context* old = array_m_lookup(tabs, current_tab);
 	update_context(old);
 
-	if (tabs.size <= 1) {
+	if (tabs->size <= 1) {
 		tab_context* new = tab_make();
-		array_m_insert(new, &tabs);
+		array_m_insert(tabs, new);
 	}
 
 	//switch to next tab in list
 	current_tab++;
-	if (current_tab == tabs.size) {
+	if (current_tab == tabs->size) {
 		//reached end of list, loop back to first tab
 		current_tab = 0;
 	}
-	tab_context* new = array_m_lookup(current_tab, &tabs);
+	tab_context* new = array_m_lookup(tabs, current_tab);
 	//present context
 	switch_tab_context(new);
 	printf_dbg("Switched to tab %d", current_tab);

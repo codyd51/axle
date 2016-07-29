@@ -43,7 +43,7 @@ static rawcolor g_terminal_color;
 static term_display* const g_terminal_buffer = (term_display*)0xB8000;
 
 /// Buffer to keep track of terminal history, not just what's currently visible
-mutable_array_t term_history;
+array_m* term_history;
 
 /// Keeps state of when we're redrawing the terminal while scrolling
 /// No history is recorded while this flag is set
@@ -116,19 +116,19 @@ static void term_end_line() {
 	if (is_scroll_redraw) return;
 
 	//if history is at capacity, dump the oldest line
-	if (term_history.size == TERM_HISTORY_MAX - 1) {
-		array_m_remove(0, &term_history);
+	if (term_history->size == TERM_HISTORY_MAX - 1) {
+		array_m_remove(term_history, 0);
 	}
 
 	char* new = (char*)kmalloc(sizeof(char) * TERM_WIDTH * 2);
-	array_m_insert(new, &term_history);
+	array_m_insert(term_history, new);
 }
 
 static void term_record_char(char ch) {
 	if (is_scroll_redraw) return;
 
 	//add this character to line buffer
-	char* current = array_m_lookup(term_history.size - 1, &term_history);
+	char* current = array_m_lookup(term_history, term_history->size - 1);
 	strccat(current, ch);
 }
 
@@ -137,7 +137,7 @@ static void term_record_backspace() {
 
 	// remove backspaced character
 	// remove space rendered in place of backspaced character
-	char* current = array_m_lookup(term_history.size - 1, &term_history);
+	char* current = array_m_lookup(term_history, term_history->size - 1);
 	current[strlen(current) - 2] = '\0';
 }
 
@@ -156,7 +156,7 @@ static void term_record_color(term_cell_color col) {
 	if (is_scroll_redraw) return;
 
 	//append color format to line history
-	char* current = array_m_lookup(term_history.size - 1, &term_history);
+	char* current = array_m_lookup(term_history, term_history->size - 1);
 	strcat(current, "\e[");
 	
 	//convert color code to string
@@ -374,7 +374,7 @@ void term_scroll(term_scroll_direction dir) {
 	lock(mutex);
 
 	if (dir == TERM_SCROLL_UP) {
-		if (scroll_state.height + TERM_HEIGHT == term_history.size) return;
+		if (scroll_state.height + TERM_HEIGHT == term_history->size) return;
 		scroll_state.height++;
 	} else {
 		if (scroll_state.height == 0) return;
@@ -386,7 +386,7 @@ void term_scroll(term_scroll_direction dir) {
 	terminal_setcolor(COLOR_GREEN, COLOR_BLACK);
 
 	for (int y = TERM_HEIGHT - 1; y >= 0; y--) {
-		char* current = array_m_lookup(term_history.size - 1 - y - scroll_state.height, &term_history);
+		char* current = array_m_lookup(term_history, term_history->size - 1 - y - scroll_state.height);
 		printf("%s", current);
 		if (y > 0) printf("\n");
 	}
