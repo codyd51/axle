@@ -79,3 +79,7 @@ Roadmap
 - [ ] Thread API
 - [ ] Polygon support 
 - [ ] UI toolkit
+
+License
+--------------
+MIT license. axle is provided free of charge for use or learning purposes. If you create a derivative work based on axle, please provide attribution to the original project.
