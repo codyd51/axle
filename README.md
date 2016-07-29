@@ -1,16 +1,14 @@
 axle
 ============================
 
-Boot logo|Startup info       
-:-------:|:------:
-![Boot logo](/screenshots/boot.png) | ![Startup](/screenshots/startup.png)
+![Boot logo](/screenshots/boot.png)
 
-axle is a small UNIX-like hobby operating system. It uses GRUB as its bootloader, but everything else is built up from scratch. We run C on 'bare metal', meaning we do not even have a standard library. Everything used is implemented within axle.
+axle is a small UNIX-like hobby operating system. It uses GRUB as its bootloader, but everything else is built up from scratch. We run C on 'bare metal', meaning we do not even have a standard library. Everything used is implemented within axle. axle is mainly interfaced through a shell.
 
-axle is interfaced through a shell. VGA and higher-resolution VESA drivers are available, along with a small graphics library supporting both modes. A small window manager is also provided.
+![Startup](/screenshots/startup.png)
 
-Shell commands | 
-:--------:
+While axle is mainly used through a terminal, VGA and higher-resolution VESA drivers are available, along with a small graphics library supporting both modes. A small window manager is also provided.
+
 ![Shell](/screenshots/help.png)
 
 VGA graphics
@@ -19,11 +17,11 @@ Circles | Rectangles | Triangles | Julia set | Mandelbrot set
 :------:|:----------:|:---------:|:---------:|:-------------:
 ![Circles](/screenshots/circle.png) | ![Rectangles](/screenshots/rect.png) | ![Triangles](/screenshots/triangle.png) | ![Julia set](/screenshots/julia.png) | ![Mandelbrot set](/screenshots/mandelbrot.png)
 
-VESA-mode window manager
--------------
-Color test | Text rendering test             
-:------:|:------:
-![Colors](/screenshots/color_test.png) | ![Text](/screenshots/text_test.png)
+axle's window manager exposes an API for creating and managing UI elements such as windows, views, labels, and more. In VESA mode, full RGB is supported.
+![Colors](/screenshots/color_test.png) 
+
+axle provides a text-renderer and a default 8x8 font.
+![Text](/screenshots/text_test.png)
 
 The initial entry point must be done in ASM, as we have to do some special tasks such as setting up the GRUB header, pushing our stack, and calling our C entry point. This means that the first code run is in `boot.s`, but the 'real' entry point is in `kernel.c`.
 
