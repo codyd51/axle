@@ -1,22 +1,26 @@
 axle
 ============================
 
-        |       
-:------:|:------:
+Boot logo|Startup info       
+:-------:|:------:
 ![Boot logo](/screenshots/boot.png) | ![Startup](/screenshots/startup.png)
 
 axle is a small UNIX-like hobby operating system. It uses GRUB as its bootloader, but everything else is built up from scratch. We run C on 'bare metal', meaning we do not even have a standard library. Everything used is implemented within axle.
 
 axle is interfaced through a shell. VGA and higher-resolution VESA drivers are available, along with a small graphics library supporting both modes. A small window manager is also provided.
 
+Shell commands | 
+:--------:
 ![Shell](/screenshots/help.png)
 
-#VGA graphics
+VGA graphics
+-------------
 Circles | Rectangles | Triangles | Julia set | Mandelbrot set
 :------:|:----------:|:---------:|:---------:|:-------------:
 ![Circles](/screenshots/circle.png) | ![Rectangles](/screenshots/rect.png) | ![Triangles](/screenshots/triangle.png) | ![Julia set](/screenshots/julia.png) | ![Mandelbrot set](/screenshots/mandelbrot.png)
 
-#VESA-mode window manager
+VESA-mode window manager
+-------------
         |              
 :------:|:------:
 ![Colors](/screenshots/color_test.png) | ![Text](/screenshots/text_test.png)
