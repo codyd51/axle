@@ -2,7 +2,7 @@
 
 <p align="center"><img src="screenshots/boot.png"></p>
 
-axle is a small UNIX-like hobby operating system. Everything used within axle is implemented from the ground up, aside from the bootloader, for which we use GRUB. axle is a multiboot compliant kernel. axle runs C on 'bare metal' in freestanding mode, meaning even the C standard library is not included. A subset of the C standard library is implemented within axle's kernel, and a userspace version is planned. axle is mainly interfaced through a shell.
+axle is a small **UNIX-like** hobby operating system. Everything used within axle is **implemented from the ground up**, aside from the bootloader, for which we use GRUB. axle is a **multiboot compliant** kernel. axle runs C on 'bare metal' in freestanding mode, meaning even the C standard library is not included. A subset of the C standard library is implemented within axle's kernel, and a userspace version is planned. axle is mainly **interfaced through a shell**.
 
 <p align="center"><img src="screenshots/startup.png"></p>
 
