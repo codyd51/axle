@@ -20,7 +20,7 @@ array_m* array_m_place(void* addr, uint32_t max_size) {
 }
 
 void array_m_destroy(array_m* array) {
-
+	kfree(array);
 }
 
 void array_m_insert(array_m* array, type_t item) {
