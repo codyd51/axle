@@ -53,11 +53,9 @@ void test_heap() {
 }
 
 void test_malloc() {
-	printf_info("Testing malloc limit...");
+	printf_info("Testing malloc...");
 	for (int i = 0; i < 32; i++) {
-		//printf_dbg("allocating %d bytes", pow(2, i));
 		uint32_t tmp = kmalloc(4096);
-		printf_dbg("freeing %x", tmp);
 		kfree(tmp);
 	}
 }

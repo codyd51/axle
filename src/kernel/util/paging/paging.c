@@ -191,8 +191,6 @@ void paging_install() {
 	uint32_t vesa_mem_addr = 0xFD000000; //TODO replace with function
 	identity_map_lfb(vesa_mem_addr);
 
-	printf_dbg("Identity mapped VESA LFB");
-
 	//map pages in kernel heap area
 	//we call get_page but not alloc_frame
 	//this causes page_table_t's to be created where necessary
@@ -202,7 +200,6 @@ void paging_install() {
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
 		get_page(i, 1, kernel_directory);
 	}
-	printf_dbg("map kernel pages");
 
 	//we need to identity map (phys addr = virtual addr) from
 	//0x0 to end of used memory, so we can access this
@@ -216,7 +213,6 @@ void paging_install() {
 		alloc_frame(get_page(idx, 1, kernel_directory), 0, 0);
 		idx += 0x1000;
 	}
-	printf_dbg("identity map kernel pages");
 
 	//allocate pages we mapped earlier
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
@@ -229,12 +225,8 @@ void paging_install() {
 	//enable paging
 	switch_page_directory(kernel_directory);
 
-	printf_dbg("switch_page_directory");
-
 	//turn on paging
 	set_paging_bit(true);
-
-	printf_dbg("paging enabled");
 
 	//initialize kernel heap
 	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, KHEAP_START + KHEAP_MAX_ADDRESS, 0, 0);

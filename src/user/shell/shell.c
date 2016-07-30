@@ -277,7 +277,6 @@ void shell_init() {
 	add_new_command("shutdown", "Shutdown PC", shutdown_command);
 	add_new_command("gfxtest", "Run graphics tests", test_gfx);
 	add_new_command("startx", "Start window manager", startx_command);
-	add_new_command("heap", "Run heap test", test_heap);
 	add_new_command("tab", "Switch terminal tabs", tab_command);
 	add_new_command("", "", empty_command);
 }
