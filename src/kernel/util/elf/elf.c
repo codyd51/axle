@@ -1,6 +1,8 @@
 #include "elf.h"
+#include <stdint.h>
+#include <std/std.h>
 
-bool elf_check_magic(elf_header* hdr) {
+static bool elf_check_magic(elf_header* hdr) {
 	if (!hdr) return false;
 
 	if (hdr->ident[EI_MAG0] != ELFMAG0) {
@@ -22,7 +24,7 @@ bool elf_check_magic(elf_header* hdr) {
 	return true;
 }
 
-bool elf_check_supported(elf_header* hdr) {
+static bool elf_check_supported(elf_header* hdr) {
 	if (hdr->ident[EI_CLASS] != ELFCLASS32) {
 		printf_err("ELF parser: Unsupported file class");
 		return false;
@@ -53,6 +55,8 @@ bool elf_validate(elf_header* hdr) {
 	if (!elf_check_supported(hdr)) {
 		printf_err("ELF parser: File not supported");
 	}
+	printf_info("ELF parser: File passed validation");
+	return true;
 }
 
 static inline void* elf_load_rel(elf_header* hdr) {
@@ -96,11 +100,89 @@ static inline elf_s_header* elf_get_section(elf_header* hdr, int idx) {
 
 static inline char* elf_str_table(elf_header* hdr) {
 	if (hdr->shstrndx == SHN_UNDEF) return NULL;
-	return (char*)hdr + elf_get_section(hdr, hdr->shstrndx)->sh_offset;
+	return (char*)hdr + elf_get_section(hdr, hdr->shstrndx)->offset;
 }
 
 static inline char* elf_lookup_string(elf_header* hdr, int offset) {
 	char* strtab = elf_str_table(hdr);
 	if (!strtab) return NULL;
 	return strtab + offset;
+}
+
+static void* elf_lookup_symbol(const char* name) {
+	//TODO implement
+	return NULL;
+}
+
+static int elf_get_symval(elf_header* hdr, int table, unsigned int idx) {
+	if (table == SHN_UNDEF || idx == SHN_UNDEF) return 0;
+	elf_s_header* symtab = elf_get_section(hdr, table);
+
+	uint32_t entries = symtab->size / symtab->entsize;
+	if (idx >= entries) {
+		printf_err("ELF loader: Symbol index %d out of bounds %u", idx, table);
+		return ELF_RELOC_ERR;
+	}
+
+	int addr = (int)hdr + symtab->offset;
+	elf_sym_tab* symbol = &((elf_sym_tab*)symaddr)[idx];
+
+	if (symbol->shndx == SHN_UNDEF) {
+		//external symbol!
+		//lookup value
+		elf_s_header* str_tab = elf_get_section(hdr, symtab->link);
+		const char* name = (const char*)hdr + str_tab->offset + symbol->name;
+
+		void* target = elf_lookup_symbol(name);
+		if (!target) {
+			//external symbol not found
+			if (ELF32_ST_BIND(symbol->info) & STB_WEAK) {
+				//weak symbol initialized to 0
+				return 0;
+			}
+			else {
+				printf_err("ELF loader: Undefined external symbol: %s", name);
+				return ELF_RELOC_ERR;
+			}
+		}
+		else {
+			return (int)target;
+		}
+	}
+	else if (symbol->shndx == SHN_ABS) {
+		//absolute symbol
+		return symbol->value;
+	}
+	else {
+		//internally defined symbol
+		elf_s_header* target = elf_get_section(hdr, symbol->shndx);
+		return (int)hdr + symbol->value + target->offset;
+	}
+}
+
+static int elf_load_stage1(elf_header* hdr) {
+	elf_s_header* shdr = elf_get_s_header(hdr);
+
+	//iterate section headers
+	for (int i = 0; i < hdr->shnum; i++) {
+		elf_s_header* section = &shdr[i];
+
+		//if section isn't present in file
+		if (section->type == SHT_NOBITS) {
+			//skip if section is empty
+			if (!section->size) continue;
+
+			//should section appear in memory?
+			if (section->flags & SHF_ALLOC) {
+				//allocate and zero memory
+				void* mem = kmalloc(section->size);
+				memset(mem, 0, section->size);
+
+				//assign memory offset to section offset
+				section->offset = (int)mem - (int)hdr;
+
+				printf_dbg("ELF loader: Allocated memory for section %d (%d)", i, section->size);
+			}
+		}
+	}
 }

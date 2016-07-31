@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define ELF_RELOC_ERR -1
+
 #define ELF_IDENT_LENGTH 16
 typedef struct {
 	uint8_t		ident[ELF_IDENT_LENGTH];
@@ -21,18 +23,42 @@ typedef struct {
 	uint16_t 	shstrndx;
 } elf_header;
 
-typdef struct {
-	uint32_t 	sh_name;
-	uint32_t 	sh_type;
-	uint32_t 	sh_flags;
-	uint32_t 	sh_addr;
-	uint32_t 	sh_offset;
-	uint32_t 	sh_size;
-	uint32_t 	sh_link;
-	uint32_t 	sh_info;
-	uint32_t 	sh_addralign;
-	uint32_t 	sh_entsize;
+typedef struct {
+	uint32_t 	name;
+	uint32_t 	type;
+	uint32_t 	flags;
+	uint32_t 	addr;
+	uint32_t 	offset;
+	uint32_t 	size;
+	uint32_t 	link;
+	uint32_t 	info;
+	uint32_t 	addralign;
+	uint32_t 	entsize;
 } elf_s_header;
+
+typedef struct {
+	uint32_t 	name;
+	uint32_t 	value;
+	uint32_t 	size;
+	uint8_t 	info;
+	uint8_t 	other;
+	uint16_t 	shndx;
+} elf_sym_tab;
+
+#define ELF32_ST_BIND(INFO)	((INFO) >> 4)
+#define ELF32_ST_TYPE(INFO) 	((INFO) & 0x0F)
+
+enum elf_sym_tab_bindings {
+	STB_LOCAL	= 0, //local scope
+	STB_GLOBAL	= 1, //global scope
+	STB_WEAK 	= 2, //weak (__attribute__((weak)))
+};
+
+enum elf_sym_tab_types {
+	STT_NOTYPE	= 0, //no type
+	STT_OBJECT	= 1, //variable/array/etc
+	STT_FUNC	= 2, //method/function
+};
 
 #define SHN_UNDEF 	(0x00) //undefined/not present
 enum elf_sh_types {
@@ -78,5 +104,7 @@ enum elf_type {
 
 #define EM_386		(3)  //x86 type
 #define EV_CURRENT	(1)  //ELF current version
+
+void* elf_load_file(void* file);
 
 #endif
