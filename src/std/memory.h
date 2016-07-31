@@ -6,7 +6,7 @@
 
 __BEGIN_DECLS
 
-STDAPI int memcp(const void*, const void*, size_t);
+STDAPI int memcmp(const void*, const void*, size_t);
 STDAPI void* memcpy(void* __restrict, const void* __restrict, size_t);
 STDAPI void* memmove(void*, const void*, size_t);
 STDAPI void* memset(void*, int, size_t);
