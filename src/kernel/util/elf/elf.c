@@ -1,6 +1,7 @@
 #include "elf.h"
 #include <stdint.h>
 #include <std/std.h>
+#include <std/printf.h>
 
 static bool elf_check_magic(elf_header* hdr) {
 	if (!hdr) return false;
@@ -59,6 +60,9 @@ bool elf_validate(elf_header* hdr) {
 	return true;
 }
 
+static int elf_load_stage1(elf_header* hdr);
+static int elf_load_stage2(elf_header* hdr);
+
 static inline void* elf_load_rel(elf_header* hdr) {
 	int result = elf_load_stage1(hdr);
 	if (result == ELF_RELOC_ERR) {
@@ -78,7 +82,7 @@ void* elf_load_file(void* file) {
 	elf_header* hdr = (elf_header*)file;
 	if (!elf_validate(hdr)) {
 		printf_err("ELF loader: File cannot be loaded");
-		return;
+		return NULL;
 	}
 	switch (hdr->type) {
 		case ET_EXEC:
@@ -125,7 +129,7 @@ static int elf_get_symval(elf_header* hdr, int table, unsigned int idx) {
 	}
 
 	int addr = (int)hdr + symtab->offset;
-	elf_sym_tab* symbol = &((elf_sym_tab*)symaddr)[idx];
+	elf_sym_tab* symbol = &((elf_sym_tab*)addr)[idx];
 
 	if (symbol->shndx == SHN_UNDEF) {
 		//external symbol!
@@ -185,4 +189,68 @@ static int elf_load_stage1(elf_header* hdr) {
 			}
 		}
 	}
+	return 0;
+}
+
+static int elf_do_reloc(elf_header* hdr, elf_rel* rel, elf_s_header* rel_tab);
+
+static int elf_load_stage2(elf_header* hdr) {
+	elf_s_header* shdr = elf_get_s_header(hdr);
+
+	//iterate section headers
+	for (int i = 0; i < hdr->shnum; i++) {
+		elf_s_header* section = &shdr[i];
+
+		//relocation section?
+		if (section->type == SHT_REL) {
+			//process each entry in table
+			for (int idx = 0; i < section->size / section->entsize; idx++) {
+				elf_rel* rel_tab = &((elf_rel*)((int)hdr + section->offset))[idx];
+				int result = elf_do_reloc(hdr, rel_tab, section);
+				
+				if (result == ELF_RELOC_ERR) {
+					printf_err("ELF loader: Failed to relocate symbol");
+					return ELF_RELOC_ERR;
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+#define DO_386_32(S, A)		((S) + (A))
+#define DO_386_PC32(S, A, P) 	((S) + (A) - (P))
+
+static int elf_do_reloc(elf_header* hdr, elf_rel* rel, elf_s_header* rel_tab) {
+	elf_s_header* target = elf_get_section(hdr, rel_tab->info);
+
+	int addr = (int)hdr + target->offset;
+	int* ref = (int*)(addr + rel->offset);
+
+	//symbol val
+	int symval = 0;
+	if (ELF_R_SYM(rel->info) != SHN_UNDEF) {
+		symval = elf_get_symval(hdr, rel_tab->link, ELF_R_SYM(rel->info));
+		if (symval == ELF_RELOC_ERR) return ELF_RELOC_ERR;
+	}
+
+	//relocate based on type
+	switch (ELF_R_TYPE(rel->info)) {
+		case R_386_NONE:
+			//no relocation
+			break;
+		case R_386_32:
+			//symbol + offset
+			*ref = DO_386_32(symval, *ref);
+			break;
+		case R_386_PC32:
+			//symbol + offset - section offset
+			*ref = DO_386_PC32(symval, *ref, (int)ref);
+			break;
+		default:
+			//unsupported relocation type
+			printf_err("ELF loader: Unsupported relocation type %d", ELF_R_TYPE(rel->info));
+			return ELF_RELOC_ERR;
+	}
+	return symval;
 }

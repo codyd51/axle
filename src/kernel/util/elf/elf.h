@@ -61,6 +61,7 @@ enum elf_sym_tab_types {
 };
 
 #define SHN_UNDEF 	(0x00) //undefined/not present
+#define SHN_ABS		(0xfff1)
 enum elf_sh_types {
 	SHT_NULL	= 0, //null section
 	SHT_PROGBITS	= 1, //program information
@@ -104,6 +105,26 @@ enum elf_type {
 
 #define EM_386		(3)  //x86 type
 #define EV_CURRENT	(1)  //ELF current version
+
+typedef struct {
+	uint32_t 	offset;
+	uint32_t 	info;
+} elf_rel;
+
+typedef struct {
+	uint32_t offset;
+	uint32_t info;
+	int32_t addend;
+} elf_rela;
+
+#define ELF_R_SYM(INFO)	((INFO) >> 8)
+#define ELF_R_TYPE(INFO)((uint8_t)(INFO))
+
+enum elf_rt_types {
+	R_386_NONE 	= 0, //no relocation
+	R_386_32	= 1, //symbol + offset
+	R_386_PC32	= 2, //symbol + offset - section offset
+};
 
 void* elf_load_file(void* file);
 
