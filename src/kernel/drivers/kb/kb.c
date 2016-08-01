@@ -4,16 +4,17 @@
 #include <std/std.h>
 #include <kernel/util/interrupts/isr.h>
 #include <kernel/util/kbman/kbman.h>
+#include <kernel/util/mutex/mutex.h>
 
 #define KBD_DATA_PORT 0x60
 
 //TODO implement bitmask for special keys (shift/ctrl/fn/etc)
-const unsigned short shiftMask = 4;
-const unsigned short keypressFinishedMask = 2;
-unsigned int flags = 0;
+static const unsigned short shiftMask = 4;
+static const unsigned short keypressFinishedMask = 2;
+static unsigned int flags = 0;
 
-#define KBUF_SIZE 256
-char kb_buffer[KBUF_SIZE] = "";
+static array_m* kb_buffer;
+static lock_t* mutex;
 
 //KBDUS means US Keyboard Layout. This is a scancode table
 //used to layout a standard US keyboard.
@@ -58,7 +59,9 @@ unsigned char kbdus[128] =
 };
 
 void add_character_to_buffer(char ch) {
-	kb_buffer[strlen(kb_buffer)] = ch;
+	lock(mutex);
+	array_m_insert(kb_buffer, ch);
+	unlock(mutex);
 }
 
 void kb_callback(registers_t regs) {
@@ -157,18 +160,26 @@ char toupper_special(char character) {
 
 void kb_install() {
 	printf_info("Initializing keyboard driver...");
+
+	kb_buffer = array_m_create(256);
+	mutex = lock_create();
+
 	register_interrupt_handler(IRQ1, &kb_callback);
 }
 
 int haskey() {
-	return (strlen(kb_buffer) != 0);
+	return kb_buffer->size > 0;
 }
 
 //does not block!
 char kgetch() {
+	lock(mutex);
+
 	//return last character from KB buffer, and remove that character
-	char ret = kb_buffer[strlen(kb_buffer) - 1];
-	kb_buffer[strlen(kb_buffer) - 1] = 0;
+	char ret = array_m_lookup(kb_buffer, kb_buffer->size - 1);
+	array_m_remove(kb_buffer, kb_buffer->size - 1);
+	
+	unlock(mutex);
 	return ret;
 }
 
