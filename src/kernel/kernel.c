@@ -128,6 +128,8 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	test_malloc();
 
+	test_crypto();
+
 	shell_init();
 	shell_loop();
 	
