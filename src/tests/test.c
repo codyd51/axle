@@ -2,6 +2,7 @@
 #include <std/std.h>
 #include <kernel/drivers/terminal/terminal.h>
 #include <kernel/drivers/vesa/vesa.h>
+#include <crypto/crypto.h>
 
 void test_colors() {
 	printf_info("Testing colors...");
@@ -81,4 +82,11 @@ void test_time_unique() {
 		last = current;
 	}
 	printf_info("time_unique test passed");
+}
+
+void test_crypto() {
+	printf_info("Testing SHA256...");
+	printf_info("SHA256 test %s", sha256_test() ? "passed":"failed");
+	printf_info("Testing AES...");
+	printf_info("AES test %s", aes_test() ? "passed":"failed");
 }

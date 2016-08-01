@@ -7,3 +7,4 @@ isodir/
 *.bin
 *.iso
 .DS_Store
+i686-toolchain/
