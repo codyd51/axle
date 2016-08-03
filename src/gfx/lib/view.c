@@ -6,7 +6,7 @@
 #define MAX_ELEMENTS 64
 
 View* create_view(Rect frame) {
-	View* view = kmalloc(sizeof(View));
+	View* view = (View*)kmalloc(sizeof(View));
 	view->frame = frame;
 	view->superview = NULL;
 	view->background_color = color_make(0, 255, 0);
@@ -43,7 +43,7 @@ static View* create_content_view(Window* window) {
 }
 
 Window* create_window(Rect frame) {
-	Window* window = kmalloc(sizeof(Window));
+	Window* window = (Window*)kmalloc(sizeof(Window));
 	window->size = frame.size;
 	window->frame = frame;
 	window->border_color = color_make(0, 0, 255);
@@ -60,7 +60,7 @@ Window* create_window(Rect frame) {
 }
 
 Label* create_label(Rect frame, char* text) {
-	Label* label = kmalloc(sizeof(Label));
+	Label* label = (Label*)kmalloc(sizeof(Label));
 	label->frame = frame;
 	label->text = text;
 	label->superview = NULL;
@@ -70,11 +70,21 @@ Label* create_label(Rect frame, char* text) {
 }
 
 Image* create_image(Rect frame, uint32_t* bitmap) {
-	Image* image = kmalloc(sizeof(Image));
+	Image* image = (Image*)kmalloc(sizeof(Image));
 	image->frame = frame;
 	image->bitmap = bitmap;
 	image->needs_redraw = 1;
 	return image;
+}
+
+Button* create_button(Rect frame, char* text) {
+	View* button = create_view(frame);
+
+	Label* title = create_label(frame, text);
+	add_sublabel(button, title);
+
+	button->needs_redraw = 1;
+	return (Button*)button;
 }
 
 void mark_needs_redraw(View* view) {
@@ -135,18 +145,18 @@ void set_background_color(View* view, Color color) {
 void add_subwindow(Window* window, Window* subwindow) {
 	array_m_insert(window->subviews, subwindow);
 	subwindow->superview = window;
-	mark_needs_redraw(window);
+	mark_needs_redraw((View*)window);
 }
 
 void remove_subwindow(Window* window, Window* subwindow) {
 	array_m_remove(window->subviews, array_m_index(window->subviews, subwindow));
 	subwindow->superview = NULL;
-	mark_needs_redraw(window);
+	mark_needs_redraw((View*)window);
 }
 
 void set_border_width(Window* window, int width) {
 	window->border_width = width;
-	mark_needs_redraw(window);
+	mark_needs_redraw((View*)window);
 }
 
 void set_frame(View* view, Rect frame) {
