@@ -8,7 +8,7 @@ array_m* array_m_create(uint32_t max_size) {
 	mutex = lock_create();
 
 	array_m* ret = (array_m*)kmalloc(sizeof(array_m));
-	ret->array = (void*)kmalloc(max_size * sizeof(type_t));
+	ret->array = (void**)kmalloc(max_size * sizeof(type_t));
 	memset(ret->array, 0, max_size * sizeof(type_t));
 	ret->size = 0;
 	ret->max_size = max_size;

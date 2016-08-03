@@ -1,5 +1,6 @@
 #include "memory.h"
 #include <stdint.h>
+#include <std/kheap.h>
 
 int memcmp(const void* aptr, const void* bptr, size_t size) {
 	const unsigned char* a = (const unsigned char*) aptr;
@@ -38,7 +39,7 @@ void* memset(void* bufptr, int value, size_t size) {
 	return bufptr;
 }
 
-void* memcpy(void* restrict dstptr, const void* restrict srcptr, size_t size) {
+void* memcpy(void* dstptr, const void* srcptr, size_t size) {
 	//how many 32b chunks we can write
 	uint32_t num_dwords = size / 4;
 	//leftover bytes that couldn't be written in larger chunk
@@ -62,13 +63,13 @@ void* memcpy(void* restrict dstptr, const void* restrict srcptr, size_t size) {
 }
 
 void* calloc(size_t num, size_t size) {
-	void* mem = kmalloc(num * size);
+	void* mem = (void*)kmalloc(num * size);
 	memset(mem, 0, num * size);
 	return mem;
 }
 
 static size_t getsize(void* p) {
-	size_t* in = p;
+	size_t* in = (size_t*)p;
 	if (in) { 
 		--in;
 		return *in;
@@ -81,7 +82,7 @@ void* realloc(void* ptr, size_t size) {
 	int msize = getsize(ptr);
 	if (size <= msize) return ptr;
 
-	newptr = kmalloc(size);
+	newptr = (void*)kmalloc(size);
 	memcpy(newptr, ptr, msize);
 
 	kfree(ptr);

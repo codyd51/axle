@@ -17,15 +17,15 @@ DEFN_SYSCALL1(terminal_putchar, 1, char);
 DEFN_SYSCALL0(yield, 2);
 
 static void* syscalls[3] = {
-	&terminal_writestring,
-	&terminal_putchar,
-	&yield,
+	(void*)&terminal_writestring,
+	(void*)&terminal_putchar,
+	(void*)&yield,
 };
 uint32_t num_syscalls = 3;
 
 void syscall_install() {
 	printf_info("Initializing syscalls...");
-	register_interrupt_handler(0x80, &syscall_handler);
+	register_interrupt_handler(0x80, (isr_t)&syscall_handler);
 }
 
 void syscall_handler(registers_t* regs) {

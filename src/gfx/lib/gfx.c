@@ -1,7 +1,7 @@
 #include "gfx.h"
 #include <std/std.h>
 #include <kernel/kernel.h>
-#include <kernel/drivers/pit/pit.h>
+#include <std/timer.h>
 #include <gfx/font/font.h>
 #include "shapes.h"
 #include <std/std.h>
@@ -103,7 +103,7 @@ void putpixel(Screen* screen, int x, int y, Color color) {
 
 void fill_screen(Screen* screen, Color color) {
 	for (int loc = 0; loc < (screen->window->size.width * screen->window->size.height * (screen->depth / 8)); loc += (screen->depth / 8)) {
-		memcpy(&screen->vmem[loc], color.val[0], (screen->depth / 8) * sizeof(uint8_t));
+		memcpy(&screen->vmem[loc], (const void*)color.val[0], (screen->depth / 8) * sizeof(uint8_t));
 	}
 }
 
@@ -146,6 +146,8 @@ void vga_boot_screen(Screen* screen) {
 	Label* label = create_label(rect_make(lab_origin, lab_size), "axle os");
 	label->text_color = color_make(2, 0, 0);
 	add_sublabel(screen->window->content_view, label);
+
+	extern void draw_label(Screen* screen, Label* label);
 	draw_label(screen, label);
 
 	float rect_length = screen->window->size.width / 3;

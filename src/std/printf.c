@@ -76,31 +76,27 @@ void vprintf(char* format, va_list va) {
 			}
 
 			switch (ch) {
-				case 0:
+				case 0: {
 					return;
-
+				} break;	
 				case 'u':
-				case 'd':
+				case 'd': {
 					itoa(va_arg(va, unsigned int), bf);
 					terminal_writestring(bf);
-					break;
-
+				} break;
 				case 'x':
-				case 'X':
+				case 'X': {
 					printf_hex(va_arg(va, uint32_t));
-					break;
-
-				case 'c':
+				} break;
+				case 'c': {
 					terminal_putchar((char)(va_arg(va, int)));
-					break;
-
-				case 's':
+				} break;
+				case 's': {
 					ptr = va_arg(va, char*);
 					terminal_writestring(ptr);
-					break;
-
+				} break;
 				case 'f':
-				case 'F':
+				case 'F': {
 					//labels must be followed by statements, and the declaration below
 					//is not a statement, which causes a compiler error
 					//to get around this, we have an empty statement
@@ -112,12 +108,10 @@ void vprintf(char* format, va_list va) {
 					//get numbers after decimal
 					fnum = (fnum - (int)fnum) * 1000000;
 					printf("%d", (int)fnum);
-					break;
-				
-				case '%':
-				default:
+				} break;
+				default: {
 					terminal_putchar(ch);
-					break;
+				} break;
 			}
 		}
 	}
@@ -143,7 +137,7 @@ char* vsprintf(char* format, va_list va) {
 			//zero padding requested
 			if (ch == '0') {
 				ch = *(format++);
-				if (ch == '\0') return;
+				if (ch == '\0') return NULL;
 				if (ch >= '0' && ch <= '9') {
 					zero_pad = ch - '0';
 				}
@@ -152,7 +146,7 @@ char* vsprintf(char* format, va_list va) {
 
 			switch (ch) {
 				case 0:
-					return;
+					return NULL;
 
 				case 'u':
 				case 'd':
@@ -241,7 +235,7 @@ void printf_err(const char* format, ...) {
 void vprintf_err(const char* format, va_list ap) {
 	printf("\e[10;[\e[12;ERROR \e[15;");
 
-	vprintf(format, ap);
+	vprintf((char*)format, ap);
 
 	printf("\e[10;]\n");
 }

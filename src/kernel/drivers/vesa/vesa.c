@@ -7,6 +7,7 @@
 #include <gfx/font/font.h>
 #include <std/memory.h>
 #include <kernel/drivers/kb/kb.h>
+#include <kernel/kernel.h>
 
 void vesa_screen_refresh(Screen* screen) {
 	//check if there are any keys pending
@@ -29,10 +30,9 @@ void vesa_screen_refresh(Screen* screen) {
 }
 
 void setup_vesa_screen_refresh(Screen* screen, double interval) {
-	screen->callback = add_callback(vesa_screen_refresh, interval, true, screen);
+	screen->callback = add_callback((void*)vesa_screen_refresh, interval, true, screen);
 }
 
-extern flush_cache();
 extern page_directory_t* kernel_directory;
 
 //sets bank if LFB isn't supported/enabled
@@ -65,7 +65,7 @@ Screen* switch_to_vesa() {
 		//buffer stores info before being copied into structure	
 		uint32_t buffer = (uint32_t)kmalloc(sizeof(vesa_info)) & 0xFFFFF;
 
-		memcpy(buffer, "VBE2", 4);
+		memcpy((void*)buffer, "VBE2", 4);
 		memset(&regs, 0, sizeof(regs));
 
 		regs.ax = 0x4F00; //00 gets VESA information
@@ -74,7 +74,7 @@ Screen* switch_to_vesa() {
 		int32(0x10, &regs);
 
 		//copy info from buffer into struct
-		memcpy(&info, buffer, sizeof(vesa_info));
+		memcpy(&info, (void*)buffer, sizeof(vesa_info));
 
 		//get VESA mode information
 
@@ -92,7 +92,7 @@ Screen* switch_to_vesa() {
 		int32(0x10, &regs);
 		
 		//copy mode info from buffer into struct
-		memcpy(&mode_info, mode_buffer, sizeof(vbe_mode_info));
+		memcpy(&mode_info, (void*)mode_buffer, sizeof(vbe_mode_info));
 	
 		regs.ax = 0x4F02; //02 sets graphics mode
 
@@ -102,7 +102,7 @@ Screen* switch_to_vesa() {
 		int32(0x10, &regs);
 
 		Screen* screen = (Screen*)kmalloc(sizeof(Screen));
-		screen->vmem = kmalloc(mode_info.x_res * mode_info.y_res * (mode_info.bpp / 8));
+		screen->vmem = (uint8_t*)kmalloc(mode_info.x_res * mode_info.y_res * (mode_info.bpp / 8));
 		screen->depth = mode_info.bpp;
 		//linear frame buffer (LFB) address
 		screen->physbase = (uint8_t*)mode_info.physbase;

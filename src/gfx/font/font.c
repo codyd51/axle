@@ -118,7 +118,7 @@ Font* setup_font() {
 }
 
 void draw_char(Screen* screen, Font* font_map, char ch, int x, int y, Color color) {
-	uint8_t* bitmap = &(font_map->characters[8*ch]);
+	uint8_t* bitmap = (uint8_t*)(&(font_map->characters[8*ch]));
 	for (int i = 0; i < 8; i++) {
 		uint8_t row = bitmap[i];
 		for (int j = 0; j < 8; j++) {

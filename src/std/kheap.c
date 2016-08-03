@@ -228,7 +228,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		}
 		else {
 			//last header needs adjusting
-			header_t* header = array_o_lookup(heap->index, idx);
+			header_t* header = (header_t*)array_o_lookup(heap->index, idx);
 			header->size += new_length - old_length;
 
 			//rewrite footer

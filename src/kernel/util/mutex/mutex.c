@@ -4,7 +4,7 @@
 //atomically test if *ptr == expected
 //if so, set *ptr to new
 //else, do nothing
-static char cmp_swap(int *ptr, int expected, int new) {
+static char cmp_swap(int *ptr, int expected, int new_val) {
 	unsigned char ret;
 
 	//note: sete sets a byte, not the word
@@ -13,7 +13,7 @@ static char cmp_swap(int *ptr, int expected, int new) {
 		cmpxchgl %2, %1;\
 		sete %0;	\
 	" : "=q" (ret), "=m" (*ptr)
-	: "r" (new), "m" (*ptr), "a" (expected)
+	: "r" (new_val), "m" (*ptr), "a" (expected)
 	: "memory");
 	return ret;
 }

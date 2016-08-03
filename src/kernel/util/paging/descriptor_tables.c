@@ -1,5 +1,6 @@
 #include "descriptor_tables.h"
 #include <kernel/util/interrupts/isr.h>
+#include <std/std.h>
 
 //access ASM functions from C
 extern void gdt_flush(uint32_t);

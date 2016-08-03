@@ -3,7 +3,6 @@
 #include <std/std.h>
 #include <kernel/kernel.h>
 #include <std/printf.h>
-#include <gfx/lib/gfx.h>
 
 //bitset of frames - used or free
 uint32_t* frames;
@@ -35,7 +34,7 @@ void set_cr0(uint32_t cr0) {
 page_table_t* get_cr3() {
 	uint32_t cr3;
 	asm volatile("mov %%cr3, %0" : "=r"(cr3));
-	return cr3;
+	return (page_table_t*)cr3;
 }
 
 void set_cr3(page_directory_t* dir) {
@@ -306,6 +305,7 @@ static void page_fault(registers_t regs) {
 		return;
 	}
 
+	extern void common_halt(registers_t regs);
 	common_halt(regs);
 }
 
@@ -329,6 +329,8 @@ static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
 		if (src->pages[i].accessed) table->pages[i].accessed = 1;
 		if (src->pages[i].dirty) table->pages[i].dirty = 1;
 		//physically copy data across
+		
+		extern void copy_page_physical(uint32_t page, uint32_t dest);
 		copy_page_physical(src->pages[i].frame * 0x1000, table->pages[i].frame * 0x1000);
 	}
 	return table;

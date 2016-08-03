@@ -1,3 +1,4 @@
+#include <kernel/drivers/rtc/clock.h>
 #include "math.h"
 #include "rand.h"
 

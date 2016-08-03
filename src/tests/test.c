@@ -2,6 +2,7 @@
 #include <std/std.h>
 #include <kernel/drivers/terminal/terminal.h>
 #include <kernel/drivers/vesa/vesa.h>
+#include <kernel/drivers/rtc/clock.h>
 #include <crypto/crypto.h>
 
 void test_colors() {
@@ -40,12 +41,12 @@ void test_heap() {
 	uint32_t a = kmalloc(8);
 	uint32_t b = kmalloc(8);
 	printf_dbg("a: %x, b: %x", a, b);
-	kfree(a);
-	kfree(b);
+	kfree((void*)a);
+	kfree((void*)b);
 
 	uint32_t c = kmalloc(12);
 	printf_dbg("c: %x", c);
-	kfree(c);
+	kfree((void*)c);
 
 	if (a == c) {
 		printf_info("Heap test passed");
@@ -57,7 +58,7 @@ void test_malloc() {
 	printf_info("Testing malloc...");
 	for (int i = 0; i < 32; i++) {
 		uint32_t tmp = kmalloc(4096);
-		kfree(tmp);
+		kfree((void*)tmp);
 	}
 }
 

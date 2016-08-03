@@ -1,12 +1,13 @@
 #include "vga.h"
 #include <gfx/lib/shapes.h>
+#include <kernel/kernel.h>
 
 void vga_screen_refresh(Screen* screen) {
 	write_screen(screen);
 }
 
 void setup_vga_screen_refresh(Screen* screen, double interval) {
-	screen->callback = add_callback(vga_screen_refresh, interval, true, screen);
+	screen->callback = add_callback((void*)vga_screen_refresh, interval, true, screen);
 }
 
 Screen* switch_to_vga() {
@@ -18,8 +19,8 @@ Screen* switch_to_vga() {
 	Screen* screen = (Screen*)kmalloc(sizeof(Screen));
 	screen->window = create_window(rect_make(point_make(0, 0), size_make(width, height)));
 	screen->depth = VGA_DEPTH;
-	screen->vmem = kmalloc(width * height * sizeof(uint8_t));
-	screen->physbase = VRAM_START;
+	screen->vmem = (uint8_t*)kmalloc(width * height * sizeof(uint8_t));
+	screen->physbase = (uint8_t*)VRAM_START;
 	screen->font = setup_font();
 
 	regs16_t regs;

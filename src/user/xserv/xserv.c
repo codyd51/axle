@@ -16,10 +16,10 @@ Window* containing_window_int(Screen* screen, View* v) {
 	//traverse view hierarchy, find window which has view as its title or content view
 	if (screen->window->title_view == view || screen->window->content_view == view) return screen->window;
 	for (unsigned i = 0; i < screen->window->subviews->size; i++) {
-		Window* window = array_m_lookup(screen->window->subviews, i);
+		Window* window = (Window*)array_m_lookup(screen->window->subviews, i);
 		if (window->title_view == view || window->content_view == view) return window;
 		for (unsigned j = 0; j < window->subviews->size; j++) {
-			Window* subwindow = array_m_lookup(window->subviews, j);
+			Window* subwindow = (Window*)array_m_lookup(window->subviews, j);
 			if (subwindow->title_view == view || subwindow->content_view == view) return subwindow;
 		}
 	}
@@ -69,7 +69,7 @@ void draw_label(Screen* screen, Label* label) {
 	label->needs_redraw = 1;
 	dirtied = 1;
 
-	Rect frame = absolute_frame(screen, label);
+	Rect frame = absolute_frame(screen, (View*)label);
 
 	int idx = 0;
 	char* str = label->text;
@@ -169,7 +169,7 @@ void draw_window(Screen* screen, Window* window) {
 	//only draw a title bar if title_view exists
 	if (window->title_view) {
 		//update title label of window
-		Label* title_label = array_m_lookup(window->title_view->labels, 0);
+		Label* title_label = (Label*)array_m_lookup(window->title_view->labels, 0);
 		title_label->text = window->title;
 		draw_view(screen, window->title_view);
 	}

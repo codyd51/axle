@@ -1,6 +1,8 @@
 #include "task.h"
 #include <std/std.h>
+#include <std/math.h>
 #include <std/memory.h>
+#include <kernel/util/paging/descriptor_tables.h>
 
 #define STACK_MAGIC 0xDEADBEEF
 
@@ -71,12 +73,13 @@ void tasking_install() {
 	move_stack((void*)0xE0000000, 0x2000);
 
 	//init first task (kernel task)
-	current_task = ready_queue = create_process(PRIO_HIGH);
+	ready_queue = (volatile task_t*)create_process(PRIO_HIGH);
+	current_task = (task_t*)ready_queue;
 	current_task->page_directory = current_directory;
 	current_task->kernel_stack = kmalloc_a(KERNEL_STACK_SIZE);
 
 	//create callback to switch tasks
-	add_callback(switch_callback, 1, 1, 0);
+	add_callback((void*)switch_callback, 1, 1, 0);
 
 	//reenable interrupts
 	asm volatile("sti");
@@ -115,7 +118,7 @@ int fork(int priority) {
 		asm volatile("sti");
 
 		int count = 1;
-		task_t* tmp = ready_queue;
+		task_t* tmp = (task_t*)ready_queue;
 		while (tmp->next) {
 			tmp = tmp->next;
 			count++;
@@ -134,7 +137,7 @@ int fork(int priority) {
 task_t* scheduler_lottery() {
 	//find total number of tickets in existence
 	int num_tickets = 0;
-	task_t* tmp = ready_queue;
+	task_t* tmp = (task_t*)ready_queue;
 	do {
 		num_tickets += tmp->tickets;
 	} while((tmp = tmp->next));
@@ -143,7 +146,7 @@ task_t* scheduler_lottery() {
 	int winning_ticket = rand() % (num_tickets + 1);
 	//find task owning winning ticket
 	int ticket_counter = 0;
-	tmp = ready_queue;
+	tmp = (task_t*)ready_queue;
 	do {
 		ticket_counter += tmp->tickets;
 		if (ticket_counter >= winning_ticket) break;

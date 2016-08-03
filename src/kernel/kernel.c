@@ -82,7 +82,7 @@ void info_panel_refresh(void) {
 
 void info_panel_install(void) {
 	printf_info("Installing text-mode info panel...");
-	timer_callback info_callback = add_callback(info_panel_refresh, 1, 1, NULL);
+	//timer_callback info_callback = add_callback(info_panel_refresh, 1, 1, NULL);
 }
 
 extern uint32_t placement_address;

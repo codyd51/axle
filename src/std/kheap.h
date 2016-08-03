@@ -60,6 +60,9 @@ STDAPI void free(void* p, heap_t* heap);
 //releases block allocated with alloc using current heap
 STDAPI void kfree(void* p);
 
+//enlarges heap to new_size
+void expand(uint32_t new_size, heap_t* heap);
+
 __END_DECLS
 
 #endif // STD_KHEAP_H

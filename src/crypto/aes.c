@@ -1,4 +1,5 @@
 #include "aes.h"
+#include <std/printf.h>
 
 #define KE_ROTWORD(x) (((x) << 8) | ((x) >> 24))
 

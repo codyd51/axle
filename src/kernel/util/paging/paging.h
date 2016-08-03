@@ -38,7 +38,7 @@ void paging_install();
 
 //causes passed page directory to be loaded into 
 //CR3 register
-void switch_page_directory(page_directory_t* new);
+void switch_page_directory(page_directory_t* new_dir);
 
 //retrieves pointer to page required
 //if make == 1, if the page-table in which this page should

@@ -13,8 +13,8 @@ static lock_t* mutex;
 /// Combines a foreground and background color
 typedef union rawcolor {
 	struct {
-		uint8_t fg : 4;
-		uint8_t bg : 4;
+		term_color fg : 4;
+		term_color bg : 4;
 	};
 	uint8_t raw;
 } rawcolor;
@@ -120,15 +120,15 @@ static void term_end_line() {
 		array_m_remove(term_history, 0);
 	}
 
-	char* new = (char*)kmalloc(sizeof(char) * TERM_WIDTH * 2);
-	array_m_insert(term_history, new);
+	char* newline = (char*)kmalloc(sizeof(char) * TERM_WIDTH * 2);
+	array_m_insert(term_history, newline);
 }
 
 static void term_record_char(char ch) {
 	if (is_scroll_redraw) return;
 
 	//add this character to line buffer
-	char* current = array_m_lookup(term_history, term_history->size - 1);
+	char* current = (char*)array_m_lookup(term_history, term_history->size - 1);
 	strccat(current, ch);
 }
 
@@ -137,7 +137,7 @@ static void term_record_backspace() {
 
 	// remove backspaced character
 	// remove space rendered in place of backspaced character
-	char* current = array_m_lookup(term_history, term_history->size - 1);
+	char* current = (char*)array_m_lookup(term_history, term_history->size - 1);
 	current[strlen(current) - 2] = '\0';
 }
 
@@ -156,7 +156,7 @@ static void term_record_color(term_cell_color col) {
 	if (is_scroll_redraw) return;
 
 	//append color format to line history
-	char* current = array_m_lookup(term_history, term_history->size - 1);
+	char* current = (char*)array_m_lookup(term_history, term_history->size - 1);
 	strcat(current, "\e[");
 	
 	//convert color code to string
@@ -236,7 +236,7 @@ void terminal_putchar(char ch) {
 		if (ch == ';' || parse_idx >= 5) {
 			matching_color = false;
 			col_code[2] = '\0';
-			int col = atoi(col_code);
+			term_color col = (term_color)atoi(col_code);
 			terminal_settextcolor(col);
 			return;
 		}
@@ -322,10 +322,10 @@ void terminal_writestring(const char* str) {
 }
 
 static rawcolor make_color(term_color fg, term_color bg) {
-	return (rawcolor){
-		.fg = fg,
-		.bg = bg
-	};
+	rawcolor ret;
+	ret.fg =  fg;
+	ret.bg = bg;
+	return ret;
 }
 
 static uint16_t make_terminal_entry(char ch, rawcolor color) {
@@ -386,7 +386,7 @@ void term_scroll(term_scroll_direction dir) {
 	terminal_setcolor(COLOR_GREEN, COLOR_BLACK);
 
 	for (int y = TERM_HEIGHT - 1; y >= 0; y--) {
-		char* current = array_m_lookup(term_history, term_history->size - 1 - y - scroll_state.height);
+		char* current = (char*)array_m_lookup(term_history, term_history->size - 1 - y - scroll_state.height);
 		printf("%s", current);
 		if (y > 0) printf("\n");
 	}

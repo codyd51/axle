@@ -60,7 +60,7 @@ unsigned char kbdus[128] =
 
 void add_character_to_buffer(char ch) {
 	lock(mutex);
-	array_m_insert(kb_buffer, ch);
+	array_m_insert(kb_buffer, &ch);
 	unlock(mutex);
 }
 
@@ -176,11 +176,11 @@ char kgetch() {
 	lock(mutex);
 
 	//return last character from KB buffer, and remove that character
-	char ret = array_m_lookup(kb_buffer, kb_buffer->size - 1);
+	char* ret = (char*)array_m_lookup(kb_buffer, kb_buffer->size - 1);
 	array_m_remove(kb_buffer, kb_buffer->size - 1);
 	
 	unlock(mutex);
-	return ret;
+	return *ret;
 }
 
 //blocks until character is received

@@ -1,5 +1,7 @@
 #include "timer.h"
 #include <limits.h>
+#include <std/memory.h>
+#include <kernel/drivers/rtc/clock.h>
 
 int callback_num;
 static timer_callback callback_table[MAX_CALLBACKS];
@@ -61,7 +63,7 @@ void handle_tick(uint32_t tick) {
 			//reset for next firing
 			callback_table[i].time_left = callback_table[i].interval;
 
-			void(*callback_func)(void*) = callback_table[i].callback;
+			void(*callback_func)(void*) = (void(*)(void*))callback_table[i].callback;
 			callback_func(callback_table[i].context);
 
 			//if we only fire once, trash this callback

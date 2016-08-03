@@ -11,6 +11,9 @@
 #include <tests/test.h>
 #include <std/printf.h>
 #include <kernel/drivers/rtc/clock.h>
+#include <kernel/drivers/vga/vga.h>
+#include <kernel/drivers/vesa/vesa.h>
+#include <gfx/lib/gfx.h>
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
@@ -56,7 +59,7 @@ void process_command(char* string) {
 
 	int i = findCommand(command);
 	if (i >= 0) {
-		void (*command_function)(int, char **) = CommandTable[i].function;
+		void (*command_function)(int, char **) = (void(*)(int, char**))CommandTable[i].function;
 		command_function(argc, argv);
 	}
 }
@@ -123,11 +126,11 @@ int shell() {
 	return 0;
 }
 
-void add_new_command(char* name, char* description, void* function) {
+void add_new_command(char* name, char* description, void(*function)(void)) {
 	if (CommandNum + 1 < MAX_COMMANDS) {
 		CommandTable[CommandNum].name = name;
 		CommandTable[CommandNum].description = description;
-		CommandTable[CommandNum].function = function;
+		CommandTable[CommandNum].function = (void*)function;
 
 		CommandNum++;
 	}
@@ -207,67 +210,13 @@ void startx_command() {
 	test_xserv(vesa_screen);
 }
 
-#define MAX_TABS 16
-#include <kernel/drivers/terminal/terminal.h>
-typedef struct tab_context_t {
-	char context[TERM_AREA];
-	//char* context;
-} tab_context;
-void switch_tab_context(tab_context* c) {
-	term_cursor t;
-	t.x = 0;
-	t.y = 0;
-	terminal_clear();
-	terminal_setcursor(t);
-	printf("%s\n", c->context);
-}
-tab_context* tab_make() {
-	tab_context* c = (tab_context*)kmalloc(sizeof(tab_context));
-	memset(c->context, 0, sizeof(c->context));
-	strcat(c->context, "New tab created!");
-	return c;
-}
-//extern char buffer[TERM_AREA];
-void update_context(tab_context* c) {
-	//strcpy(c->context, buffer);
-}
-void tab_command() {
-	static array_m* tabs;
-	static unsigned current_tab = 0;
-	if (!tabs->size) {
-		tabs = array_m_create(4);
-		tab_context* initial = tab_make();
-		array_m_insert(tabs, initial);
-	}
-
-	//update previous context before switching
-	tab_context* old = array_m_lookup(tabs, current_tab);
-	update_context(old);
-
-	if (tabs->size <= 1) {
-		tab_context* new = tab_make();
-		array_m_insert(tabs, new);
-	}
-
-	//switch to next tab in list
-	current_tab++;
-	if (current_tab == tabs->size) {
-		//reached end of list, loop back to first tab
-		current_tab = 0;
-	}
-	tab_context* new = array_m_lookup(tabs, current_tab);
-	//present context
-	switch_tab_context(new);
-	printf_dbg("Switched to tab %d", current_tab);
-}
-
 void shell_init() {
 	//set shell color
 	printf("\e[10;");
 	
 	//set up command table
 	add_new_command("help", "Display help information", help_command);
-	add_new_command("echo", "Outputs args to stdout", echo_command);
+	add_new_command("echo", "Outputs args to stdout", (void(*)())echo_command);
 	add_new_command("time", "Outputs system time", time_command);
 	add_new_command("date", "Outputs system time as date format", date_command);
 	add_new_command("clear", "Clear terminal", clear_command);
@@ -277,6 +226,5 @@ void shell_init() {
 	add_new_command("shutdown", "Shutdown PC", shutdown_command);
 	add_new_command("gfxtest", "Run graphics tests", test_gfx);
 	add_new_command("startx", "Start window manager", startx_command);
-	add_new_command("tab", "Switch terminal tabs", tab_command);
 	add_new_command("", "", empty_command);
 }

@@ -3,6 +3,8 @@
 #include <gfx/font/font.h>
 #include <user/shell/shell.h>
 #include <gfx/lib/color.h>
+#include <std/math.h>
+#include <kernel/drivers/vga/vga.h>
 
 //draw Mandelbrot set
 void draw_mandelbrot(Screen* screen) {
@@ -156,6 +158,7 @@ void test_lines(Screen* screen) {
 	}
 }
 
+extern void draw_label(Screen*, Label*);
 void test_text(Screen* screen) {
 	fill_screen(screen, color_make(2, 0, 0));
 	Font* font = setup_font();
@@ -163,7 +166,8 @@ void test_text(Screen* screen) {
 	char* str = "Lorem ipsum dolor sit amet consectetur apipiscing elit Donex purus arcu suscipit ed felis eu blandit blandit quam Donec finibus euismod lobortis Sed massa nunc malesuada ac ante eleifend dictum laoreet massa Aliquam nec dictum turpis pellentesque lacinia ligula Donec et tellus maximum dapibus justo auctor egestas sapien Integer venantis egesta malesdada Maecenas venenatis urna id posuere bibendum eros torto gravida ipsum sed tempor arcy andte ac odio Morbi elementum libero id velit bibendum auctor It sit amet ex eget urna venenatis laoreet Proin posuere urna nec ante tutum lobortis Cras nec elit tristique dolor congue eleifend";
 	Label* label = create_label(rect_make(point_make(0, 0), size_make(screen->window->size.width, screen->window->size.height)), str);
 	label->text_color = color_make(12, 0, 0);
-	//draw_label(screen, label);
+	add_sublabel(screen->window->content_view, label);
+	draw_label(screen, label);
 }
 
 void draw_button(Screen* screen) {
@@ -188,7 +192,8 @@ void draw_button(Screen* screen) {
 	Rect label_rect = rect_make(point_make(p3.x + 5, p3.y - (8 / 2)), size_make(in_rect.size.width, in_rect.size.height));
 	Label* play_label = create_label(label_rect, "Play");
 	play_label->text_color = color_make(1, 0, 0);
-	//draw_label(screen, play_label);
+	add_sublabel(screen->window->content_view, play_label);
+	draw_label(screen, play_label);
 }
 
 void test_gfx(int argc, char **argv) {
@@ -227,6 +232,14 @@ void test_gfx(int argc, char **argv) {
 }
 
 void test_xserv(Screen* vesa_screen) {
+	
+	Coordinate origin = point_make(vesa_screen->window->size.width * 0.25, vesa_screen->window->size.height * 0.25);
+	Size sz = size_make(vesa_screen->window->size.width * 0.25, vesa_screen->window->size.height * 0.25);
+	Rect r = rect_make(origin, sz);
+	Button* button = create_button(r, "Testing");
+	add_subview(vesa_screen->window->content_view, (View*)button);
+
+	/*
 	Window* window = create_window(rect_make(point_make(50, 50), size_make(400, 500)));
 	window->title = "Color test";
 	add_subwindow(vesa_screen->window, window);
@@ -250,4 +263,5 @@ void test_xserv(Screen* vesa_screen) {
 		}
 		sleep(50);
 	}
+	*/
 }	

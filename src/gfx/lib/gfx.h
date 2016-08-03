@@ -30,9 +30,11 @@ void switch_to_text();
 
 void gfx_teardown(Screen* screen);
 
-void boot_screen();
+void vga_boot_screen(Screen* screen);
 
 void putpixel(Screen* screen, int x, int y, Color color);
+
+void fill_screen(Screen* screen, Color color);
 
 void write_screen(Screen* screen);
 
