@@ -232,14 +232,6 @@ void test_gfx(int argc, char **argv) {
 }
 
 void test_xserv(Screen* vesa_screen) {
-	
-	Coordinate origin = point_make(vesa_screen->window->size.width * 0.25, vesa_screen->window->size.height * 0.25);
-	Size sz = size_make(vesa_screen->window->size.width * 0.25, vesa_screen->window->size.height * 0.25);
-	Rect r = rect_make(origin, sz);
-	Button* button = create_button(r, "Testing");
-	add_subview(vesa_screen->window->content_view, (View*)button);
-
-	/*
 	Window* window = create_window(rect_make(point_make(50, 50), size_make(400, 500)));
 	window->title = "Color test";
 	add_subwindow(vesa_screen->window, window);
@@ -263,5 +255,4 @@ void test_xserv(Screen* vesa_screen) {
 		}
 		sleep(50);
 	}
-	*/
 }	

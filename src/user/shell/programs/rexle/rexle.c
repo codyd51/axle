@@ -7,8 +7,17 @@
 #include <std/math.h>
 #include <kernel/drivers/vga/vga.h>
 #include <kernel/drivers/pit/pit.h>
+#include <kernel/util/kbman/kbman.h>
 
-//Size map_size = (Size){24, 24};
+typedef enum {
+	WALL_NONE = 0,
+	WALL_1,
+	WALL_2,
+	WALL_3,
+	WALL_4,
+	WALL_5,
+} WALL_TYPE;
+
 #define map_width 24
 #define map_height 24
 int world[map_width][map_height] = 
@@ -56,8 +65,13 @@ int rexle() {
 	Screen* screen = switch_to_vesa();
 	Size screen_size = screen->window->frame.size;
 
-	//clear screen
-	fill_screen(screen, color_make(255, 255, 255));
+	Font* font = setup_font();
+	Label* fps_label = create_label(rect_make(point_make(0, 0), size_make(100, 100)), "test");
+	fps_label->text_color = color_make(12, 0, 0);
+	add_sublabel(screen->window->content_view, fps_label);
+
+	double time = 0; //current frame timestamp
+	double time_prev = 0; //prev frame timestamp
 
 	Vec2d pos = vec2d(22, 12); //starting position
 	Vec2d dir = vec2d(-1, 0); //direction vector
@@ -67,7 +81,7 @@ int rexle() {
 	while (running) {
 		for (int x = 0; x < screen_size.width; x++) {
 			//ray position + distance
-			double cam_x = 2 * x / (double)screen_size.width- 1; //x in camera space
+			double cam_x = 2 * x / (double)screen_size.width - 1; //x in camera space
 			Vec2d ray_pos = vec2d(pos.x, pos.y);
 			Vec2d ray_dir = vec2d(dir.x + plane.x * cam_x,
 					      dir.y + plane.y * cam_x);
@@ -75,7 +89,7 @@ int rexle() {
 			Vec2d map_pos = vec2d((int)(ray_pos.x), (int)(ray_pos.y));		
 
 			//length from current pos to next side
-			Vec2d size_dist;
+			Vec2d side_dist;
 
 			//length from one side to next
 			Vec2d delta_dist = vec2d(sqrt(1 + (ray_dir.y * ray_dir.y) / (ray_dir.x * ray_dir.x)),
@@ -86,7 +100,6 @@ int rexle() {
 
 			int hit = 0; //wall hit?
 			int side; //NS or EW wall?
-			Vec2d side_dist;
 
 			//calculate step and initial side_dist
 			if (ray_dir.x < 0) {
@@ -139,17 +152,17 @@ int rexle() {
 			//wall color
 			Color col;
 			switch(world[(int)map_pos.x][(int)map_pos.y]) {
-				case 1:  col = color_make(255, 0, 0); 		break;
-				case 2:  col = color_make(0, 255, 0); 		break;
-				case 3:  col = color_make(0, 0, 255);	 	break;
-				case 4:  col = color_make(0, 0, 0);		break;
-				default: col = color_make(255, 255, 255);	break;
+				case 1:  col = color_red(); 		break;
+				case 2:  col = color_green(); 		break;
+				case 3:  col = color_blue();	 	break;
+				case 4:  col = color_purple();		break;
+				default: col = color_black();	break;
 				/*
 				case 1:  col = color_make(3, 0, 0); 		break;
 				case 2:  col = color_make(4, 0, 0); 		break;
 				case 3:  col = color_make(1, 0, 0);	 	break;
-				case 4:  col = color_make(3, 0, 100);		break;
-				default: col = color_make(4, 0, 0);	break;
+				case 4:  col = color_make(3, 0, 0);		break;
+				default: col = color_make(4, 0, 0);		break;
 				*/
 			}
 
@@ -163,8 +176,60 @@ int rexle() {
 			Line slice = line_make(point_make(x, start), point_make(x, end));
 			draw_line(screen, slice, col, 1);
 		}
+
+		//timing
+		time_prev = time;
+		time = tick_count();
+		double frame_time = (time - time_prev) / 1000.0;
+	
+		//speed modifiers
+		double move_speed = frame_time * 5.0; //squares/sec
+		double rot_speed = frame_time * 3.0; //rads/sec
+
+		//move forward if not blocked by wall
+		if (key_down(KEY_UP)) {
+			if (world[(int)(pos.x + dir.x * move_speed)][(int)pos.y] == WALL_NONE) {
+				pos.x += dir.x * move_speed;
+			}
+			if (world[(int)pos.x][(int)(pos.y + dir.y * move_speed)] == WALL_NONE) {
+				pos.y += dir.y * move_speed;
+			}
+		}
+		//move backwards if not blocked by wall
+		if (key_down(KEY_DOWN)) {
+			if (world[(int)(pos.x - dir.x * move_speed)][(int)pos.y] == WALL_NONE) {
+				pos.x -= dir.x * move_speed;
+			}
+			if (world[(int)pos.x][(int)(pos.y - dir.y * move_speed)] == WALL_NONE) {
+				pos.y -= dir.y * move_speed;
+			}
+		}
+		//rotate right
+		if (key_down(KEY_RIGHT)) {
+			//camera and plane must both be rotated
+			double old_dir_x = dir.x;
+			dir.x = dir.x * cos(-rot_speed) - dir.y * sin(-rot_speed);
+			dir.y = old_dir_x * sin(-rot_speed) + dir.y * cos(-rot_speed);
+			
+			double old_plane_x = plane.x;
+			plane.x = plane.x * cos(-rot_speed) - plane.y * sin(-rot_speed);
+			plane.y = old_plane_x * sin(-rot_speed) + plane.y * cos(-rot_speed);
+		}
+		//rotate left
+		if (key_down(KEY_LEFT)) {
+			//camera and plane must both be rotated
+			double old_dir_x = dir.x;
+			dir.x = dir.x * cos(rot_speed) - dir.y * sin(rot_speed);
+			dir.y = old_dir_x * sin(rot_speed) + dir.y * cos(rot_speed);
+
+			double old_plane_x = plane.x;
+			plane.x = plane.x * cos(rot_speed) - plane.y * sin(rot_speed);
+			plane.y = old_plane_x * sin(rot_speed) + plane.y * cos(rot_speed);
+		}
+		//draw_label(screen, fps_label);
 		write_screen(screen);
+		//clear screen
+		fill_screen(screen, color_black());
 	}
-	sleep(2000);
 	switch_to_text();
 }

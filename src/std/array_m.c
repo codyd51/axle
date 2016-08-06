@@ -50,7 +50,7 @@ type_t array_m_lookup(array_m* array, uint32_t i) {
 
 uint32_t array_m_index(array_m* array, type_t item) {
 	//TODO optimize this
-	for (int i = 0; i < array->size; i++) {
+	for (uint32_t i = 0; i < array->size; i++) {
 		if (array_m_lookup(array, i) == item) return i;
 	}
 	return -1;
