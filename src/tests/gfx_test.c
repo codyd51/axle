@@ -258,7 +258,7 @@ void test_xserv(Screen* vesa_screen) {
 	}
 	for (int i = 0; i < 1000; i++) {
 		for (int j = 0; j < window->content_view->subviews->size; j++) {
-			View* subview = array_m_lookup(window->content_view->subviews, j);
+			View* subview = (View*)array_m_lookup(window->content_view->subviews, j);
 			set_background_color(subview, color_make(rand() % 256, rand() % 256, rand() % 256));
 		}
 		sleep(50);

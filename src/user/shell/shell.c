@@ -14,6 +14,7 @@
 #include <kernel/drivers/vga/vga.h>
 #include <kernel/drivers/vesa/vesa.h>
 #include <gfx/lib/gfx.h>
+#include <user/shell/programs/rexle/rexle.h>
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
@@ -226,5 +227,6 @@ void shell_init() {
 	add_new_command("shutdown", "Shutdown PC", shutdown_command);
 	add_new_command("gfxtest", "Run graphics tests", test_gfx);
 	add_new_command("startx", "Start window manager", startx_command);
+	add_new_command("rexle", "Start 3D renderer", rexle);
 	add_new_command("", "", empty_command);
 }
