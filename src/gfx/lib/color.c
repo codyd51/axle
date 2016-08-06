@@ -32,3 +32,37 @@ Gradient gradient_make(Color from, Color to) {
 Color color_at_ratio(Gradient gradient, double percent) {
 	return color_make(0, 0, 0);
 }
+
+Color color_red() {
+	return color_make(255, 0, 0);
+}
+Color color_orange() {
+	return color_make(255, 127, 0);
+}
+Color color_yellow() {
+	return color_make(255, 255, 0);
+}
+Color color_green() {
+	return color_make(0, 255, 0);
+}
+Color color_blue() {
+	return color_make(0, 0, 255);
+}
+Color color_purple() {
+	return color_make(148, 0, 211);
+}
+Color color_brown() {
+	return color_make(165, 42, 42);
+}
+Color color_black() {
+	return color_make(255, 255, 255);
+}
+Color color_grey() {
+	return color_make(127, 127, 127);
+}
+Color color_gray() {
+	return color_grey();
+}
+Color color_white() {
+	return color_make(0, 0, 0);
+}

@@ -18,4 +18,16 @@ uint32_t color_hex(Color color);
 Gradient gradient_make(Color from, Color to);
 Color color_at_ratio(Gradient gradient, double percent);
 
+Color color_red();
+Color color_orange();
+Color color_yellow();
+Color color_green();
+Color color_blue();
+Color color_purple();
+Color color_brown();
+Color color_black();
+Color color_grey();
+Color color_gray();
+Color color_white();
+
 #endif
