@@ -78,6 +78,11 @@ void kb_callback(registers_t regs) {
 			if ((c == 170 || c == 182) && (flags & shiftMask)) {
 				flags = flags ^ shiftMask;
 			}
+
+			//inform OS
+			//clear released bit
+			kbman_process_release(c ^ 0x80);
+
 			return;
 		}
 		char mappedchar = kbdus[c];
