@@ -1,6 +1,8 @@
 #ifndef KBMAN_H
 #define KBMAN_H
 
+#include <stdbool.h>
+
 #define KEY_UP 		0x48
 #define KEY_DOWN 	0x50
 #define KEY_LEFT 	0x4B

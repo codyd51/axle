@@ -1,12 +1,6 @@
 #include "kbman.h"
 #include <kernel/drivers/terminal/terminal.h>
 #include <std/array_m.h>
-#include <stdbool.h>
-
-#define KEY_UP 		0x48
-#define KEY_DOWN 	0x50
-#define KEY_LEFT 	0x4B
-#define KEY_RIGHT 	0x4D
 
 static array_m* keys_down;
 void kbman_process(char c) {
@@ -14,18 +8,29 @@ void kbman_process(char c) {
 		keys_down = array_m_create(32);
 	}
 
-	array_m_insert(keys_down, c);
-
-	if (c == KEY_UP) {
-		term_scroll(TERM_SCROLL_UP);	
+	//only insert into array if it's not already present
+	if (!key_down(c)) {
+		array_m_insert(keys_down, c);
 	}
-	else if (c == KEY_DOWN) {
-		term_scroll(TERM_SCROLL_DOWN);
+
+	//dispatch key if necessary
+	switch (c) {
+		case KEY_UP:
+			term_scroll(TERM_SCROLL_UP);
+			break;
+		case KEY_DOWN:
+			term_scroll(TERM_SCROLL_DOWN);
+			break;
+		default:
+			break;
 	}
 }
 
 void kbman_process_release(char c) {
-	array_m_remove(keys_down, c);	
+	//ensure all instances of this key are removed
+	while (key_down(c)) {
+		array_m_remove(keys_down, c);	
+	}
 }
 
 bool key_down(char c) {
