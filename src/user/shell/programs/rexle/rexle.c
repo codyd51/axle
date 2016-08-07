@@ -3,10 +3,11 @@
 #include <gfx/lib/view.h>
 #include <gfx/lib/shapes.h>
 #include <stdint.h>
-#include <std/std.h>
+//#include <std/std.h>
 #include <std/math.h>
+#include <std/sincostan.h>
 #include <kernel/drivers/vga/vga.h>
-#include <kernel/drivers/pit/pit.h>
+#include <kernel/drivers/rtc/clock.h>
 #include <kernel/util/kbman/kbman.h>
 
 typedef enum {
@@ -65,12 +66,7 @@ int rexle() {
 	Screen* screen = switch_to_vesa();
 	Size screen_size = screen->window->frame.size;
 
-	Font* font = setup_font();
-	Label* fps_label = create_label(rect_make(point_make(0, 0), size_make(100, 100)), "test");
-	fps_label->text_color = color_make(12, 0, 0);
-	add_sublabel(screen->window->content_view, fps_label);
-
-	double time = 0; //current frame timestamp
+	double timestamp = 0; //current frame timestamp
 	double time_prev = 0; //prev frame timestamp
 
 	Vec2d pos = vec2d(22, 12); //starting position
@@ -80,9 +76,6 @@ int rexle() {
 	bool running = 1;
 	while (running) {
 		for (int x = 0; x < screen_size.width; x++) {
-			//draw floor
-			draw_line(screen, line_make(point_make(x, screen_size.height / 2), point_make(x, screen_size.height)), color_gray(), 1);
-
 			//ray position + distance
 			double cam_x = 2 * x / (double)screen_size.width - 1; //x in camera space
 			Vec2d ray_pos = vec2d(pos.x, pos.y);
@@ -155,22 +148,36 @@ int rexle() {
 			//wall color
 			Color col;
 			switch(world[(int)map_pos.x][(int)map_pos.y]) {
-				case 1:  col = color_red(); 		break;
-				case 2:  col = color_green(); 		break;
-				case 3:  col = color_blue();	 	break;
-				case 4:  col = color_purple();		break;
-				default: col = color_black();	break;
+				case 1:  col = color_make(220, 40, 40); 		break;
+				case 2:  col = color_make(130, 220, 50); 		break;
+				case 3:  col = color_make(230, 170, 100);	 	break;
+				case 4:  col = color_make(130, 50, 220);		break;
+				default: col = color_make(100, 170, 230);		break;
 				/*
-				case 1:  col = color_make(3, 0, 0); 		break;
-				case 2:  col = color_make(4, 0, 0); 		break;
-				case 3:  col = color_make(1, 0, 0);	 	break;
-				case 4:  col = color_make(3, 0, 0);		break;
-				default: col = color_make(4, 0, 0);		break;
+				case 1:  col = color_make(0x0C, 0, 0); 		break;
+				case 2:  col = color_make(0x0A, 0, 0); 		break;
+				case 3:  col = color_make(0x09, 0, 0);	 	break;
+				case 4:  col = color_make(0x0E, 0, 0);		break;
+				default: col = color_make(0x08, 0, 0);		break;
 				*/
 			}
 
 			//give x and y sides different brightness
 			if (side == 1) {
+				/*
+				switch (col.val[0]) {
+					case 0x0C:
+						col.val[0] = 0x04;		break;
+					case 0x0A:
+						col.val[0] = 0x02;		break;
+					case 0x09:
+						col.val[0] = 0x01;		break;
+					case 0x0E:
+						col.val[0] = 0x2C;		break;
+					default:
+						col.val[0] = 0x00;		break;
+				}
+				*/
 				col.val[0] /= 2;
 				col.val[1] /= 2;
 				col.val[2] /= 2;
@@ -178,12 +185,25 @@ int rexle() {
 
 			Line slice = line_make(point_make(x, start), point_make(x, end));
 			draw_line(screen, slice, col, 1);
+
+			//draw ceiling above this ray
+			Line ceiling = line_make(point_make(x, 0), point_make(x, start));
+			draw_line(screen, ceiling, color_make(140, 140, 60), 1);
+
+			//draw floor below the ray
+			Line floor = line_make(point_make(x, end), point_make(x, screen_size.height));
+			draw_line(screen, floor, color_make(190, 190, 190), 1);
+			
+			//draw borders
+			Color border = color_white();
+			putpixel(screen, x, start, border);
+			putpixel(screen, x, end, border);
 		}
 
 		//timing
-		time_prev = time;
-		time = tick_count();
-		double frame_time = (time - time_prev) / 1000.0;
+		time_prev = timestamp;
+		timestamp = time();
+		double frame_time = (timestamp - time_prev) / 1000.0;
 	
 		//speed modifiers
 		double move_speed = frame_time * 5.0; //squares/sec
