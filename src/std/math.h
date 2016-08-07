@@ -46,7 +46,7 @@ STDAPI double atan2(double y, double x);
 
 STDAPI int abs(int val);
 
-STDAPI double sqrt(double x);
+STDAPI float sqrt(const float x);
 STDAPI int round(double x);
 
 #define RAND_MAX 32767

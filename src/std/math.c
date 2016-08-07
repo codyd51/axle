@@ -123,20 +123,19 @@ int abs(int val) {
 	return val;
 }
 
-double sqrt(double val) {
-	//TODO handle this case
-	if (val < 0) return -1;
-
-	double a = 1;
-	double b = val;
-	double epsilon = 0.001;
-
-	while (abs(a - b) > epsilon) {
-		a = (a+b) / 2;
-		b = val/a;
-	}
-	return a;
-}
+#define SQRT_MAGIC_F 0x5f3759df 
+float sqrt(const float x) {
+	const float xhalf = 0.5f*x;
+	
+	//get bits for floating value
+	union {
+		float x;
+		int i;
+	} u;
+	u.x = x;
+	u.i = SQRT_MAGIC_F - (u.i >> 1); //gives initial guess y0
+	return x*u.x*(1.5f - xhalf*u.x*u.x); //Newton step, repeating increases accuracy 
+}   
 
 int round(double x) {
 	if (x < 0.0) return (int)(x - 0.5);
