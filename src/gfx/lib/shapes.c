@@ -147,11 +147,7 @@ void draw_hline_fast(Screen* screen, Line line, Color color, int thickness) {
 		//increment y for next thickness since this line is horizontal
 		int loc = (line.p1.x * screen->depth / 8) + ((line.p1.y + i) * (screen->depth / 8));
 		for (int j = 0; j < (line.p2.x - line.p1.x); j++) {
-			/*
-			screen->physbase[loc + 0] = color & 0xFF; //blue
-			screen->physbase[loc + 1] = (color >> 8) & 0xFF; //green
-			screen->physbase[loc + 2] = (color >> 16) & 0xFF; //red
-			*/
+			putpixel(screen, line.p1.x + j, line.p1.y, color);
 		}
 	}
 }
@@ -162,7 +158,7 @@ void draw_vline_fast(Screen* screen, Line line, Color color, int thickness) {
 		//increment x for next thickness since line is vertical
 		uint16_t loc = (line.p1.y * screen->window->size.width) + (line.p1.x + i);
 		for (int j = 0; j < (line.p2.y - line.p1.y); j++) {
-			screen->vmem[loc + (j * screen->window->size.width)] = color_hex(color);	
+			putpixel(screen, line.p1.x, line.p1.y + j, color);
 		}
 		
 	}
@@ -175,7 +171,6 @@ void draw_line(Screen* screen, Line line, Color color, int thickness) {
 
 	//if the line is perfectly vertical or horizontal, this is a special case
 	//that can be drawn much faster
-	/*
 	if (line.p1.x == line.p2.x) {
 		draw_vline_fast(screen, line, color, thickness);
 		return;
@@ -184,7 +179,6 @@ void draw_line(Screen* screen, Line line, Color color, int thickness) {
 		draw_hline_fast(screen, line, color, thickness);
 		return;
 	}
-	*/
 	
 	int t;
 	int distance;
