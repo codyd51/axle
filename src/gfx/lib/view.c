@@ -13,6 +13,7 @@ View* create_view(Rect frame) {
 	view->subviews = array_m_create(MAX_ELEMENTS);
 	view->labels = array_m_create(MAX_ELEMENTS);
 	view->images = array_m_create(MAX_ELEMENTS);
+	view->bmps = array_m_create(MAX_ELEMENTS);
 	view->needs_redraw = 1;
 	return view;
 }
@@ -87,6 +88,13 @@ Button* create_button(Rect frame, char* text) {
 	return (Button*)button;
 }
 
+Bmp* create_bmp(Rect frame, Color** raw) {
+	Bmp* bmp = (Bmp*)kmalloc(sizeof(Bmp));
+	bmp->frame = frame;
+	bmp->raw = raw;
+	return bmp;
+}
+
 void mark_needs_redraw(View* view) {
 	//if this view has already been marked, quit
 	if (view->needs_redraw) return;
@@ -134,6 +142,18 @@ void remove_subview(View* view, View* subview) {
 	array_m_remove(view->subviews, array_m_index(view->subviews, subview));
 	subview->superview = NULL;
 	subview->needs_redraw = 1;
+	mark_needs_redraw(view);
+}
+
+void add_bmp(View* view, Bmp* bmp) {
+	array_m_insert(view->bmps, bmp);
+	bmp->superview = view;
+	mark_needs_redraw(view);
+}
+
+void remove_bmp(View* view, Bmp* bmp) {
+	array_m_remove(view->bmps, array_m_index(view->bmps, bmp));
+	bmp->superview = NULL;
 	mark_needs_redraw(view);
 }
 
