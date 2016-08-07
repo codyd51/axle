@@ -80,6 +80,9 @@ int rexle() {
 	bool running = 1;
 	while (running) {
 		for (int x = 0; x < screen_size.width; x++) {
+			//draw floor
+			draw_line(screen, line_make(point_make(x, screen_size.height / 2), point_make(x, screen_size.height)), color_gray(), 1);
+
 			//ray position + distance
 			double cam_x = 2 * x / (double)screen_size.width - 1; //x in camera space
 			Vec2d ray_pos = vec2d(pos.x, pos.y);
