@@ -13,28 +13,13 @@ double pow(double x, double pow) {
 unsigned long factorial(unsigned long x) {
 	if (x == 0) return 1;
 	return (x * factorial(x - 1));
-}
-
-double sin(double x) {
-	//approximate taylor series for sin
-	double ret = x;
-	ret -= (pow(x, 3)/factorial(3));
-	ret += (pow(x, 5)/factorial(5));
-	ret -= (pow(x, 7)/factorial(7));
+	/*
+	int ret = 1;
+	for (int i = 1; i <= x; x++) {
+		ret *= i;
+	}
 	return ret;
-}
-
-double cos(double x) {
-	//approximate taylor series for cos
-	double ret = 1;
-	ret -= (pow(x, 2)/factorial(2));
-	ret += (pow(x, 4)/factorial(4));
-	ret -= (pow(x, 6)/factorial(6));
-	return ret;
-}
-
-double tan(double x) {
-		return sin(x)/cos(x);
+	*/
 }
 
 double cot(double x) {

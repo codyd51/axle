@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "std_base.h"
+#include "sincostan.h"
 
 __BEGIN_DECLS
 
@@ -21,9 +22,6 @@ STDAPI double pow(double x, double pow);
 STDAPI unsigned long factorial(unsigned long x);
 
 //trigonometric functions
-STDAPI double sin(double val);
-STDAPI double cos(double val);
-STDAPI double tan(double val);
 STDAPI double cot(double val);
 STDAPI double sec(double val);
 STDAPI double csc(double val);
