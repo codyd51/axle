@@ -59,6 +59,29 @@ Rect absolute_frame(Screen* screen, View* view) {
 	return convert_rect(win->frame, ret);
 }
 
+void draw_bmp(Screen* screen, Bmp* bmp) {
+	printf_dbg("draw_bmp called");
+
+	View* superview = bmp->superview;
+	ASSERT(superview, "bmp had no superview!");
+
+//	if (!bmp || !bmp->needs_redraw) return;
+//	if (superview && !superview->needs_redraw) return;
+
+	bmp->needs_redraw = 1;
+	dirtied = 1;
+
+	Rect frame = absolute_frame(screen, (View*)bmp);
+
+	for (int w = 0; w < frame.size.width; w++) {
+		Color* row = bmp->raw[w % 8];
+		for (int h = 0; h < frame.size.height; h++) {
+			Color px = row[h % 8];
+			putpixel(screen, frame.origin.x + w, frame.origin.y + h, px);
+		}
+	}
+}
+
 void draw_label(Screen* screen, Label* label) {
 	View* superview = label->superview;
 	ASSERT(superview, "label had no superview!");
@@ -140,6 +163,12 @@ void draw_view(Screen* screen, View* view) {
 	for (unsigned i = 0; i < view->labels->size; i++) {
 		Label* label = (Label*)array_m_lookup(view->labels, i);
 		draw_label(screen, label);
+	}
+
+	//draw any bmps this view has
+	for (unsigned i = 0; i < view->bmps->size; i++) {
+		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
+		draw_bmp(screen, bmp);
 	}
 
 	//draw any images this view has

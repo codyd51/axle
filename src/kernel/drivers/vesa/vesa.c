@@ -115,7 +115,6 @@ Screen* switch_to_vesa() {
 		desktop_setup(screen);
 
 		//start refresh loop
-		//screen->finished_drawing = 0;
 		setup_vesa_screen_refresh(screen, 83);
 		//refresh once now so we don't wait for the first tick
 		vesa_screen_refresh(screen);
