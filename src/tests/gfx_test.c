@@ -1,6 +1,5 @@
 #include "gfx_test.h"
 #include <gfx/lib/shapes.h>
-#include <gfx/font/font.h>
 #include <user/shell/shell.h>
 #include <gfx/lib/color.h>
 #include <std/math.h>
@@ -161,7 +160,6 @@ void test_lines(Screen* screen) {
 extern void draw_label(Screen*, Label*);
 void test_text(Screen* screen) {
 	fill_screen(screen, color_make(2, 0, 0));
-	Font* font = setup_font();
 
 	char* str = "Lorem ipsum dolor sit amet consectetur apipiscing elit Donex purus arcu suscipit ed felis eu blandit blandit quam Donec finibus euismod lobortis Sed massa nunc malesuada ac ante eleifend dictum laoreet massa Aliquam nec dictum turpis pellentesque lacinia ligula Donec et tellus maximum dapibus justo auctor egestas sapien Integer venantis egesta malesdada Maecenas venenatis urna id posuere bibendum eros torto gravida ipsum sed tempor arcy andte ac odio Morbi elementum libero id velit bibendum auctor It sit amet ex eget urna venenatis laoreet Proin posuere urna nec ante tutum lobortis Cras nec elit tristique dolor congue eleifend";
 	Label* label = create_label(rect_make(point_make(0, 0), size_make(screen->window->size.width, screen->window->size.height)), str);
@@ -232,15 +230,14 @@ void test_gfx(int argc, char **argv) {
 }
 
 void test_xserv(Screen* vesa_screen) {
-	Window* window = create_window(rect_make(point_make(50, 50), size_make(400, 500)));
-	window->title = "Color test";
-	add_subwindow(vesa_screen->window, window);
-	
-	Window* label_win = create_window(rect_make(point_make(350, 100), size_make(500, 200)));
+	Window* label_win = create_window(rect_make(point_make(350, 100), size_make(500, 600)));
 	label_win->title = "Text test";
-	Label* test_label = create_label(rect_make(point_make(0, 0), label_win->content_view->frame.size), "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque pulvinar dui bibendum nunc convallis, bibendum venenatis mauris ornare. Donec et libero lacus. Nulla tristique auctor pulvinar. Aenean enim elit, malesuada nec dignissim eget, varius ac nunc. Vestibulum varius lectus nisi, in dignissim orci volutpat in. Aliquam eget eros lorem. Quisque tempor est a rhoncus consequat. Quisque vestibulum finibus sapien. Etiam enim sem, vehicula ac lorem vitae, mattis mollis mauris. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Vivamus eleifend dui vel nulla suscipit pretium. Suspendisse vel nunc efficitur, lobortis dui convallis, tristique tellus. Ut ut viverra est. Etiam tempor justo risus. Cras laoreet eu sapien et lacinia. Nunc imperdiet blandit purus a semper.");
+	Label* test_label = create_label(rect_make(point_make(10, 10), size_make(label_win->content_view->frame.size.width - 10, label_win->content_view->frame.size.height - 20)), "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque pulvinar dui bibendum nunc convallis, bibendum venenatis mauris ornare. Donec et libero lacus. Nulla tristique auctor pulvinar. Aenean enim elit, malesuada nec dignissim eget, varius ac nunc. Vestibulum varius lectus nisi, in dignissim orci volutpat in. Aliquam eget eros lorem. Quisque tempor est a rhoncus consequat. Quisque vestibulum finibus sapien. Etiam enim sem, vehicula ac lorem vitae, mattis mollis mauris. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Vivamus eleifend dui vel nulla suscipit pretium. Suspendisse vel nunc efficitur, lobortis dui convallis, tristique tellus. Ut ut viverra est. Etiam tempor justo risus. Cras laoreet eu sapien et lacinia. Nunc imperdiet blandit purus a semper.");
 	add_sublabel(label_win->content_view, test_label);
 	add_subwindow(vesa_screen->window, label_win);
+	
+	Window* window = create_window(rect_make(point_make(50, 50), size_make(400, 500)));
+	window->title = "Color test";
 
 	//create evenly spaced subsections
 	for (int i = 0; i < 34; i++) {
@@ -248,6 +245,7 @@ void test_xserv(Screen* vesa_screen) {
 		View* view = create_view(rect_make(point_make(0, height * i), size_make(window->content_view->frame.size.width, height)));
 		add_subview(window->content_view, view);
 	}
+	add_subwindow(vesa_screen->window, window);
 	for (int i = 0; i < 1000; i++) {
 		for (int j = 0; j < window->content_view->subviews->size; j++) {
 			View* subview = (View*)array_m_lookup(window->content_view->subviews, j);
@@ -255,4 +253,6 @@ void test_xserv(Screen* vesa_screen) {
 		}
 		sleep(50);
 	}
+	
+	switch_to_text();
 }	
