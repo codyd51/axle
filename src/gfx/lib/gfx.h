@@ -21,7 +21,6 @@ typedef struct screen_t {
 	uint8_t* physbase;
 	timer_callback callback;
 	int finished_drawing;
-	Font* font;
 } Screen;
 
 extern void int32(unsigned char intnum, regs16_t* regs);

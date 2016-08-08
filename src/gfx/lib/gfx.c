@@ -68,7 +68,6 @@ void gfx_teardown(Screen* screen) {
 
 	//free screen
 	kfree(screen->vmem);
-	kfree(screen->font);
 	window_teardown(screen->window);
 	kfree(screen);
 }

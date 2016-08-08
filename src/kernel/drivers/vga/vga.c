@@ -21,7 +21,6 @@ Screen* switch_to_vga() {
 	screen->depth = VGA_DEPTH;
 	screen->vmem = (uint8_t*)kmalloc(width * height * sizeof(uint8_t));
 	screen->physbase = (uint8_t*)VRAM_START;
-	screen->font = setup_font();
 
 	regs16_t regs;
 	regs.ax = 0x0013;

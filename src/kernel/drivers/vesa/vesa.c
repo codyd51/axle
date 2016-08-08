@@ -4,7 +4,6 @@
 #include <gfx/lib/view.h>
 #include <gfx/lib/gfx.h>
 #include <user/xserv/xserv.h>
-#include <gfx/font/font.h>
 #include <std/memory.h>
 #include <kernel/drivers/kb/kb.h>
 #include <kernel/kernel.h>
@@ -83,7 +82,7 @@ Screen* switch_to_vesa() {
 
 		memset(&regs, 0, sizeof(regs));
 
-		uint32_t vesa_mode = 0x118; //1024x768x24
+		uint32_t vesa_mode = 0x112; //1024x768x24
 
 		regs.ax = 0x4F01; //01 gets VBE mode information
 		regs.di = mode_buffer & 0xF;
@@ -107,7 +106,6 @@ Screen* switch_to_vesa() {
 		//linear frame buffer (LFB) address
 		screen->physbase = (uint8_t*)mode_info.physbase;
 		
-		screen->font = setup_font();
 		screen->window = create_window(rect_make(point_make(0, 0), size_make(mode_info.x_res, mode_info.y_res)));
 		set_frame(screen->window->title_view, rect_make(point_make(0, 0), size_make(0, 0)));
 		set_frame(screen->window->content_view, screen->window->frame);

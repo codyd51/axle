@@ -86,7 +86,7 @@ void draw_label(Screen* screen, Label* label) {
 	View* superview = label->superview;
 	ASSERT(superview, "label had no superview!");
 	
-	if (!label || !label->needs_redraw) return;
+//	if (!label || !label->needs_redraw) return;
 	if (superview && !superview->needs_redraw) return;
 
 	label->needs_redraw = 1;
@@ -109,7 +109,7 @@ void draw_label(Screen* screen, Label* label) {
 			y += CHAR_HEIGHT + CHAR_PADDING;
 		}
 
-		draw_char(screen, screen->font, str[idx], x, y, label->text_color);
+		draw_char(screen, str[idx], x, y, label->text_color);
 		
 		x += CHAR_WIDTH + CHAR_PADDING;
 
