@@ -3,7 +3,7 @@
 #include <gfx/lib/shapes.h>
 #include <stddef.h>
 
-#define MAX_ELEMENTS 64
+#define MAX_ELEMENTS 128
 
 View* create_view(Rect frame) {
 	View* view = (View*)kmalloc(sizeof(View));
@@ -26,7 +26,7 @@ static View* create_title_view(Window* window) {
 	//add title label to title view
 	Rect label_frame = rect_make(point_make(15, 5), title_view_frame.size);
 	Label* title_label = create_label(label_frame, window->title);
-	title_label->text_color = color_make(255, 255, 255);
+	title_label->text_color = color_black();
 	add_sublabel(title_view, title_label);
 
 	return title_view;
@@ -47,7 +47,7 @@ Window* create_window(Rect frame) {
 	Window* window = (Window*)kmalloc(sizeof(Window));
 	window->size = frame.size;
 	window->frame = frame;
-	window->border_color = color_make(0, 0, 255);
+	window->border_color = color_make(120, 245, 80);
 	window->border_width = 1;
 	window->subviews = array_m_create(MAX_ELEMENTS);
 	window->title = "Window";
@@ -65,7 +65,7 @@ Label* create_label(Rect frame, char* text) {
 	label->frame = frame;
 	label->text = text;
 	label->superview = NULL;
-	label->text_color = color_make(0, 0, 0);
+	label->text_color = color_black();
 	label->needs_redraw = 1;
 	return label;
 }

@@ -55,7 +55,7 @@ Color color_brown() {
 	return color_make(165, 42, 42);
 }
 Color color_black() {
-	return color_make(255, 255, 255);
+	return color_make(0, 0, 0);
 }
 Color color_grey() {
 	return color_make(127, 127, 127);
@@ -64,5 +64,5 @@ Color color_gray() {
 	return color_grey();
 }
 Color color_white() {
-	return color_make(0, 0, 0);
+	return color_make(255, 255, 255);
 }

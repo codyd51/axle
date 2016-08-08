@@ -28,7 +28,8 @@ Window* containing_window_int(Screen* screen, View* v) {
 
 #define CHAR_WIDTH 8
 #define CHAR_HEIGHT 8
-#define CHAR_PADDING 2
+#define CHAR_PADDING_W 0
+#define CHAR_PADDING_H 8 
 
 Rect convert_rect(Rect outer, Rect inner) {
 	Rect ret;
@@ -87,7 +88,7 @@ void draw_label(Screen* screen, Label* label) {
 	ASSERT(superview, "label had no superview!");
 	
 //	if (!label || !label->needs_redraw) return;
-	if (superview && !superview->needs_redraw) return;
+//	if (superview && !superview->needs_redraw) return;
 
 	label->needs_redraw = 1;
 	dirtied = 1;
@@ -100,18 +101,18 @@ void draw_label(Screen* screen, Label* label) {
 	int y = frame.origin.y;
 	while (str[idx] != NULL) {
 		//go to next line if necessary
-		if ((x + CHAR_WIDTH + CHAR_PADDING) > (frame.origin.x + frame.size.width) || str[idx] == '\n') {
+		if ((x + CHAR_WIDTH + CHAR_PADDING_W) > (frame.origin.x + frame.size.width) || str[idx] == '\n') {
 			x = frame.origin.x;
 
 			//quit if going to next line would exceed view bounds
-			if ((y + CHAR_WIDTH + CHAR_PADDING) > (frame.origin.y + frame.size.height)) break;
-
-			y += CHAR_HEIGHT + CHAR_PADDING;
+			if ((y + CHAR_WIDTH + CHAR_PADDING_H) > (frame.origin.y + frame.size.height)) break;
+			
+			y += CHAR_HEIGHT + CHAR_PADDING_H;
 		}
 
 		draw_char(screen, str[idx], x, y, label->text_color);
 		
-		x += CHAR_WIDTH + CHAR_PADDING;
+		x += CHAR_WIDTH + CHAR_PADDING_W;
 
 		idx++;
 	}
@@ -119,36 +120,15 @@ void draw_label(Screen* screen, Label* label) {
 	label->needs_redraw = 0;
 }
 
-void draw_image(Screen* screen, Image* image) {
-	View* superview = image->superview;
-	if (!image || !image->needs_redraw) return;
-	if (superview && !superview->needs_redraw) return;
-
-	image->needs_redraw = 1;
-	dirtied = 1;
-
-	Rect frame = absolute_frame(screen, (View*)image);
-
-	//iterate through every pixel in the bitmap and draw it
-	int num_pixels = frame.size.width * frame.size.height;
-	for (int i = 0; i < num_pixels; i++) {
-		/*
-		int x = frame.origin.x + (i % frame.size.width);
-		int y = frame.origin.y + (i / frame.size.height);
-		putpixel(screen, x, y, image->bitmap[i]); 
-		*/
-	}
-
-	image->needs_redraw = 0;
-}
-
 void draw_view(Screen* screen, View* view) {
 	View* superview = view->superview;
 	Window* superwindow = containing_window_int(screen, view);
 
+	/*
 	if (!view || !view->needs_redraw) return;
 	if (superview && !superview->needs_redraw) return;
 	if (superwindow && !superwindow->needs_redraw) return;
+	*/
 
 	//inform subviews that we're being redrawn
 	view->needs_redraw = 1;
@@ -171,12 +151,6 @@ void draw_view(Screen* screen, View* view) {
 		draw_bmp(screen, bmp);
 	}
 
-	//draw any images this view has
-	for (unsigned i = 0; i < view->images->size; i++) {
-		Image* image = (Image*)array_m_lookup(view->images, i);
-		draw_image(screen, image);
-	}
-
 	//draw each subview of this view
 	for (unsigned i = 0; i < view->subviews->size; i++) {
 		View* subview = (View*)array_m_lookup(view->subviews, i);
@@ -187,7 +161,7 @@ void draw_view(Screen* screen, View* view) {
 }
 
 void draw_window(Screen* screen, Window* window) {
-	if (!window->needs_redraw && !window->content_view->needs_redraw && !window->title_view->needs_redraw) return;
+//	if (!window->needs_redraw && !window->content_view->needs_redraw && !window->title_view->needs_redraw) return;
 
 	window->needs_redraw = 1;
 	dirtied = 1;
@@ -204,27 +178,55 @@ void draw_window(Screen* screen, Window* window) {
 	}
 
 	//put a small red square in top left corner of the window
-	Rect close_button = rect_make(window->frame.origin, size_make(5, 5));
-	draw_rect(screen, close_button, color_make(255, 0, 0), THICKNESS_FILLED);
+	if (window->frame.size.width > 25 && window->frame.size.height > 25) {
+		Rect close_button = rect_make(window->frame.origin, size_make(5, 5));
+		draw_rect(screen, close_button, color_make(255, 0, 0), THICKNESS_FILLED);
+	}
 
 	//only draw the content view if content_view exists
 	if (window->content_view) {
 		draw_view(screen, window->content_view);
+
+		//draw dividing border between window border and other content
+		if (window->border_width) {
+			//outer border
+			Rect outer_border = rect_make(absolute_frame(screen, window).origin, size_make(absolute_frame(screen, window).size.width, absolute_frame(screen, window).size.height));
+			draw_rect(screen, outer_border, color_black(), 1);
+			
+			//inner border
+			Rect inner_border = rect_make(absolute_frame(screen, window->content_view).origin, size_make(absolute_frame(screen, window->content_view).size.width, absolute_frame(screen, window->content_view).size.height));
+			draw_rect(screen, inner_border, color_gray(), 1);
+		}
 	}
 
 	window->needs_redraw = 0;
 }
 
 void add_taskbar(Screen* screen) {
-	Size taskbar_size = size_make(screen->window->frame.size.width, screen->window->frame.size.height * 0.05);
-	Coordinate taskbar_origin = point_make(0, screen->window->frame.size.height - taskbar_size.height);
+	Size taskbar_size = size_make(screen->window->frame.size.width, screen->window->frame.size.height * 0.045);
+	Rect border_r = rect_make(point_make(0, 0), size_make(taskbar_size.width, 5));
+	taskbar_size.height -= border_r.size.height;
+
+	Coordinate taskbar_origin = point_make(0, screen->window->frame.size.height - taskbar_size.height + border_r.size.height);
 	View* taskbar_view = create_view(rect_make(taskbar_origin, taskbar_size));
-	taskbar_view->background_color = color_make(11, 136, 155);
+	taskbar_view->background_color = color_make(245, 120, 80);
 	add_subview(screen->window->content_view, taskbar_view);
 
-	Coordinate name_label_origin = point_make(taskbar_view->frame.size.width * 0.925, taskbar_view->frame.size.height / 2 - (CHAR_HEIGHT / 2));
+	//add top 'border' to taskbar
+	//TODO add window border API
+	View* border = create_view(border_r);
+	border->background_color = color_make(200, 80, 245);
+	add_subview(taskbar_view, border);
+	
+	//inner border seperating top and bottom of taskbar
+	View* inner_border = create_view(rect_make(point_make(0, border_r.size.height), size_make(screen->window->frame.size.width, 1)));
+	inner_border->background_color = color_make(50, 50, 50);
+	add_subview(taskbar_view, inner_border);
+
+	Rect usable = rect_make(point_make(0, border_r.origin.y + border_r.size.height), size_make(taskbar_view->frame.size.width, taskbar_view->frame.size.height - border_r.size.height));
+	Coordinate name_label_origin = point_make(taskbar_view->frame.size.width * 0.925, usable.origin.y + (usable.size.height / 2) - (CHAR_HEIGHT / 2));
 	Rect label_rect = rect_make(name_label_origin, size_make(taskbar_size.width - name_label_origin.x, taskbar_size.height));
-	Label* name_label = create_label(label_rect, "axle os");
+	Label* name_label = create_label(label_rect, "axle OS");
 	add_sublabel(taskbar_view, name_label);
 }
 
@@ -240,7 +242,7 @@ void draw_desktop(Screen* screen) {
 }
 
 void desktop_setup(Screen* screen) {
-	screen->window->content_view->background_color = color_make(192, 192, 192);
+	screen->window->content_view->background_color = color_make(80, 200, 245);
 	add_taskbar(screen);
 }
 
