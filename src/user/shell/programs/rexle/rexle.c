@@ -66,6 +66,11 @@ int rexle() {
 	Screen* screen = switch_to_vesa();
 	Size screen_size = screen->window->frame.size;
 
+	//FPS counter
+	Label* fps = create_label(rect_make(point_make(3, 3), size_make(300, 50)), "FPS Counter");
+	fps->text_color = color_make(2, 0, 0);
+	add_sublabel(screen->window->content_view, fps);
+
 	double timestamp = 0; //current frame timestamp
 	double time_prev = 0; //prev frame timestamp
 
@@ -249,10 +254,14 @@ int rexle() {
 			plane.x = plane.x * cos(rot_speed) - plane.y * sin(rot_speed);
 			plane.y = old_plane_x * sin(rot_speed) + plane.y * cos(rot_speed);
 		}
-		//draw_label(screen, fps_label);
+
+		char buf[32];
+		itoa(frame_time * 100000, &buf);
+		strcat(buf, " ns/frame");
+		fps->text = buf;
+		draw_label(screen, fps);
+
 		write_screen(screen);
-		//clear screen
-		fill_screen(screen, color_black());
 	}
 	switch_to_text();
 }
