@@ -135,7 +135,12 @@ float sqrt(const float x) {
 	u.x = x;
 	u.i = SQRT_MAGIC_F - (u.i >> 1); //gives initial guess y0
 	return x*u.x*(1.5f - xhalf*u.x*u.x); //Newton step, repeating increases accuracy 
-}   
+}
+
+double floor(double x) {
+	int xi = (int)x;
+	return x < xi ? xi - 1 : xi;
+}
 
 int round(double x) {
 	if (x < 0.0) return (int)(x - 0.5);

@@ -43,7 +43,7 @@ void array_m_insert(array_m* array, type_t item) {
 }
 
 type_t array_m_lookup(array_m* array, uint32_t i) {
-	ASSERT(i < array->size, "index was out of bounds");
+	ASSERT(i < array->size, "index (%d) was out of bounds (%d)", i, array->size);
 
 	return array->array[i];
 }

@@ -48,6 +48,7 @@ STDAPI int abs(int val);
 
 STDAPI float sqrt(const float x);
 STDAPI int round(double x);
+STDAPI double floor(double x);
 
 #define RAND_MAX 32767
 STDAPI uint32_t rand();
