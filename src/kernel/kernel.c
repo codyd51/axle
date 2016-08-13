@@ -89,13 +89,14 @@ void info_panel_install(void) {
 extern uint32_t placement_address;
 uint32_t initial_esp;
 
-void module_detect() {
+uint32_t module_detect(multiboot* mboot_ptr) {
 	printf_info("Detected %d GRUB modules", mboot_ptr->mods_count);
 	ASSERT(mboot_ptr->mods_count > 0, "no GRUB modules detected");
 	uint32_t initrd_loc = *((uint32_t*)mboot_ptr->mods_addr);
 	uint32_t initrd_end = *(uint32_t*)(mboot_ptr->mods_addr+4);
 	//don't trample modules
 	placement_address = initrd_end;
+	return initrd_loc;
 }
 
 
@@ -121,12 +122,12 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	pit_install(1000);
 
 	//find grub modules
-	module_detect();
+	uint32_t mod_end = module_detect(mboot_ptr);
 
 	paging_install();
 
 	//initialize initrd, and set as fs root
-	fs_root = initrd_install(initrd_loc);
+	fs_root = initrd_install(mod_end);
 
 	syscall_install();
 

@@ -15,6 +15,7 @@
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
+fs_node_t* current_dir;
 
 int findCommand(char* command) {
 	size_t i;
@@ -262,13 +263,13 @@ void tab_command() {
 	printf_dbg("Switched to tab %d", current_tab);
 }
 
-void fst_command() {
-	//list contents of /
+void ls_command() {
+	//list contents of current directory
 	int i = 0;
 	struct dirent* node = 0;
-	while ((node = readdir_fs(fs_root, i)) != 0) {
+	while ((node = readdir_fs(current_dir, i)) != 0) {
 		printf("Found file %s", node->name);
-		fs_node_t* fsnode = finddir_fs(fs_root, node->name);
+		fs_node_t* fsnode = finddir_fs(current_dir, node->name);
 
 		if ((fsnode->flags & 0x7) == FS_DIRECTORY) {
 			printf("\n\t(directory)\n");
@@ -304,6 +305,9 @@ void shell_init() {
 	add_new_command("startx", "Start window manager", startx_command);
 	add_new_command("heap", "Run heap test", test_heap);
 	add_new_command("tab", "Switch terminal tabs", tab_command);
-	add_new_command("fst", "Traverse filesystem", fst_command);
+	add_new_command("ls", "List contents of current directory", ls_command);
 	add_new_command("", "", empty_command);
+
+	//set current dir to fs root
+	current_dir = fs_root;
 }
