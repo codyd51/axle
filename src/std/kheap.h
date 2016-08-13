@@ -63,6 +63,9 @@ STDAPI void kfree(void* p);
 //enlarges heap to new_size
 void expand(uint32_t new_size, heap_t* heap);
 
+//returns number of bytes currently in use by heap
+uint32_t used_mem();
+
 __END_DECLS
 
 #endif // STD_KHEAP_H

@@ -14,6 +14,7 @@ extern page_directory_t* kernel_directory;
 extern page_directory_t* current_directory;
 
 heap_t* kheap = 0;
+static uint32_t used_bytes;
 
 uint32_t kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
 	//if the heap already exists, pass through
@@ -303,6 +304,9 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		array_o_insert(heap->index, (void*)hole_header);
 	}
 
+	//add this allocation to used memory 
+	used_bytes += size;
+
 	return (void*)((uint32_t)block_header + sizeof(header_t));
 }
 
@@ -316,6 +320,9 @@ void free(void* p, heap_t* heap) {
 	//ensure these are valid
 	ASSERT(header->magic == HEAP_MAGIC, "invalid header magic in %x", p);
 	ASSERT(footer->magic == HEAP_MAGIC, "invalid footer magic in %x", p);
+
+	//we're about to free this memory, untrack it from used memory
+	used_bytes -= header->size;
 
 	//turn this into a hole
 	header->hole = 1;
@@ -398,5 +405,9 @@ void free(void* p, heap_t* heap) {
 	if (add == 1) {
 		array_o_insert(heap->index, (void*)header);
 	}
+}
+
+uint32_t used_mem() {
+	return used_bytes;
 }
 
