@@ -11,6 +11,7 @@
 #include <tests/test.h>
 #include <std/printf.h>
 #include <kernel/drivers/rtc/clock.h>
+#include <kernel/util/vfs/fs.h>
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
@@ -261,6 +262,30 @@ void tab_command() {
 	printf_dbg("Switched to tab %d", current_tab);
 }
 
+void fst_command() {
+	//list contents of /
+	int i = 0;
+	struct dirent* node = 0;
+	while ((node = readdir_fs(fs_root, i)) != 0) {
+		printf("Found file %s", node->name);
+		fs_node_t* fsnode = finddir_fs(fs_root, node->name);
+
+		if ((fsnode->flags & 0x7) == FS_DIRECTORY) {
+			printf("\n\t(directory)\n");
+		}
+		else {
+			printf("\n\t contents: \"");
+			char filebuf[1024];
+			uint32_t sz = read_fs(fsnode, 0, 1024, filebuf);
+			for (int j = 0; j < sz; j++) {
+				printf("%c", filebuf[j]);
+			}
+			printf("\n");
+		}
+		i++;
+	}
+}
+
 void shell_init() {
 	//set shell color
 	printf("\e[10;");
@@ -279,5 +304,6 @@ void shell_init() {
 	add_new_command("startx", "Start window manager", startx_command);
 	add_new_command("heap", "Run heap test", test_heap);
 	add_new_command("tab", "Switch terminal tabs", tab_command);
+	add_new_command("fst", "Traverse filesystem", fst_command);
 	add_new_command("", "", empty_command);
 }
