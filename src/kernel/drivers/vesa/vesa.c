@@ -8,6 +8,7 @@
 #include <kernel/drivers/kb/kb.h>
 #include <kernel/kernel.h>
 
+static Label* fps;
 void vesa_screen_refresh(Screen* screen) {
 	//check if there are any keys pending
 	while (haskey()) {
@@ -23,9 +24,28 @@ void vesa_screen_refresh(Screen* screen) {
 	if (!screen->finished_drawing) return;
 
 	//if no changes occured this refresh, don't bother writing the screen
+	/*
 	if (xserv_draw(screen)) {
 		write_screen(screen);
 	}
+	*/
+
+	static double timestamp = 0; //current frame timestamp
+	static double time_prev = 0; //prev frame timestamp
+	
+	xserv_draw(screen);
+
+	time_prev = timestamp;
+	timestamp = time();
+	double frame_time = (timestamp - time_prev) / 1000.0;
+	//update frame time tracker 
+	char buf[32];
+	itoa(frame_time * 100000, &buf);
+	strcat(buf, " ns/frame");
+	fps->text = buf;
+	draw_label(screen, fps);
+
+	write_screen(screen);
 }
 
 void setup_vesa_screen_refresh(Screen* screen, double interval) {
@@ -112,10 +132,15 @@ Screen* switch_to_vesa() {
 		set_border_width(screen->window, 0);
 		desktop_setup(screen);
 
+		//add FPS tracker
+		fps = create_label(rect_make(point_make(3, 3), size_make(300, 50)), "FPS counter");
+		fps->text_color = color_black();
+		add_sublabel(screen->window->content_view, fps);
+
 		//start refresh loop
-		setup_vesa_screen_refresh(screen, 83);
+		setup_vesa_screen_refresh(screen, 100);
 		//refresh once now so we don't wait for the first tick
-		vesa_screen_refresh(screen);
+		//vesa_screen_refresh(screen);
 
 		kernel_end_critical();
 
