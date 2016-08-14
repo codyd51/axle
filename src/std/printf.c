@@ -170,6 +170,21 @@ char* vsprintf(char* format, va_list va) {
 					strcat(ret, ptr);
 					break;
 
+				case 'f':
+				case 'F': {
+						//labels must be followed by statements, and the declaration below
+						//is not a statement, which causes a compiler error
+						//to get around this, we have an empty statement
+						;
+
+						double fnum = va_arg(va, double);
+						//print integer part, truncate fraction
+						sprintf(ret, "%d.", (int)fnum);
+						//get numbers after decimal
+						fnum = (fnum - (int)fnum) * 1000000;
+						sprintf(ret, "%d", (int)fnum);
+					} break;
+
 				case '*':
 				default:
 					strccat(ret, ch);
@@ -196,7 +211,6 @@ void printf(char* format, ...) {
 }
 
 void sprintf(char* str, char* format, ...) {
-	printf_dbg("format: %s", format);
 	va_list arg;
 	va_start(arg, format);
 	strcat(str, vsprintf(format, arg));
