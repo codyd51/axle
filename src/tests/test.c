@@ -37,16 +37,16 @@ void test_interrupts() {
 
 void test_heap() {
 	printf_info("Testing heap...");
-
-	uint32_t a = kmalloc(8);
-	uint32_t b = kmalloc(8);
+	
+	uint32_t* a = kmalloc(8);
+	uint32_t* b = kmalloc(8);
 	printf_dbg("a: %x, b: %x", a, b);
-	kfree((void*)a);
-	kfree((void*)b);
+	kfree(a);
+	kfree(b);
 
-	uint32_t c = kmalloc(12);
+	uint32_t* c = kmalloc(12);
 	printf_dbg("c: %x", c);
-	kfree((void*)c);
+	kfree(c);
 
 	if (a == c) {
 		printf_info("Heap test passed");
@@ -56,10 +56,21 @@ void test_heap() {
 
 void test_malloc() {
 	printf_info("Testing malloc...");
+
+	//Check used memory before malloc test
+	//if more mem is used after test, then the test failed
+	uint32_t used = used_mem();
+
 	for (int i = 0; i < 32; i++) {
-		uint32_t tmp = kmalloc(4096);
-		kfree((void*)tmp);
+		uint32_t* tmp = kmalloc(4096);
+		kfree(tmp);
 	}
+	
+	if (used != used_mem()) {
+		printf_err("Malloc test failed. Expected %x bytes in use, had %x", used, used_mem());
+		return;
+	}
+	printf_info("Malloc test passed");
 }
 
 void test_printf() {

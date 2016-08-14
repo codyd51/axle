@@ -175,12 +175,13 @@ void draw_window(Screen* screen, Window* window) {
 		Label* title_label = (Label*)array_m_lookup(window->title_view->labels, 0);
 		title_label->text = window->title;
 		draw_view(screen, window->title_view);
-	}
 
-	//put a small red square in top left corner of the window
-	if (window->frame.size.width > 25 && window->frame.size.height > 25) {
-		Rect close_button = rect_make(window->frame.origin, size_make(5, 5));
-		draw_rect(screen, close_button, color_make(255, 0, 0), THICKNESS_FILLED);
+		//put a small red square in top left corner of the window
+		if (window->frame.size.width > 25 && window->frame.size.height > 25) {
+			double close_rad = 3;
+			Circle close_button = circle_make(point_make(window->frame.origin.x + close_rad * 2, absolute_frame(screen, title_label).origin.y + close_rad), close_rad);
+			draw_circle(screen, close_button, color_red(), THICKNESS_FILLED);
+		}
 	}
 
 	//only draw the content view if content_view exists
@@ -230,6 +231,18 @@ void add_taskbar(Screen* screen) {
 	add_sublabel(taskbar_view, name_label);
 }
 
+void add_status_bar(Screen* screen) {
+	Rect status_bar_r = rect_make(point_make(0, 0), size_make(screen->window->content_view->frame.size.width, screen->window->frame.size.height * 0.03));
+	View* status_bar = create_view(status_bar_r);
+	status_bar->background_color = color_make(150, 150, 150);
+	add_subview(screen->window->content_view, status_bar);
+
+	//border
+	View* border = create_view(rect_make(point_make(0, status_bar_r.size.height - 1), size_make(status_bar_r.size.width, 1)));
+	border->background_color = color_purple();
+	add_subview(status_bar, border);
+}
+
 void draw_desktop(Screen* screen) {
 	//paint root desktop
 	draw_window(screen, screen->window);
@@ -243,6 +256,7 @@ void draw_desktop(Screen* screen) {
 
 void desktop_setup(Screen* screen) {
 	screen->window->content_view->background_color = color_make(80, 200, 245);
+	add_status_bar(screen);
 	add_taskbar(screen);
 }
 
