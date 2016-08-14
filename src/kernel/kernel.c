@@ -122,12 +122,12 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	pit_install(1000);
 
 	//find grub modules
-	uint32_t mod_end = module_detect(mboot_ptr);
+	uint32_t initrd_loc = module_detect(mboot_ptr);
 
 	paging_install();
 
 	//initialize initrd, and set as fs root
-	fs_root = initrd_install(mod_end);
+	fs_root = initrd_install(initrd_loc);
 
 	syscall_install();
 

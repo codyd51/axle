@@ -268,23 +268,51 @@ void ls_command() {
 	int i = 0;
 	struct dirent* node = 0;
 	while ((node = readdir_fs(current_dir, i)) != 0) {
-		printf("Found file %s", node->name);
 		fs_node_t* fsnode = finddir_fs(current_dir, node->name);
-
 		if ((fsnode->flags & 0x7) == FS_DIRECTORY) {
-			printf("\n\t(directory)\n");
+			printf("(dir)  %s/\n", node->name);
 		}
 		else {
-			printf("\n\t contents: \"");
-			char filebuf[1024];
-			uint32_t sz = read_fs(fsnode, 0, 1024, filebuf);
-			for (int j = 0; j < sz; j++) {
-				printf("%c", filebuf[j]);
-			}
-			printf("\n");
+			printf("(file) %s\n", node->name);
 		}
 		i++;
 	}
+}
+
+void cat_command(int argc, char** argv) {
+	if (argc < 2) {
+		printf_err("Please specify a file");
+		return;
+	}
+	char* file = argv[1];
+	fs_node_t* node = finddir_fs(current_dir, file);
+	if (!node) {
+		printf_err("File %s not found");
+		return;
+	}
+	char filebuf[2048];
+	memset(filebuf, 0, 2048);
+	uint32_t sz = read_fs(node, 0, 2048, filebuf);
+	printf("%s", filebuf);
+}
+
+void cd_command(int argc, char** argv) {
+	if (argc < 2) {
+		printf_err("Please specify a directory");
+		return;
+	}
+
+	char* dest = argv[1];
+	fs_node_t* new_dir = finddir_fs(current_dir, dest);
+	if (new_dir) {
+		current_dir = new_dir;
+		return;
+	}
+	printf_err("Directory %s not found", dest);
+}
+
+void pwd_command() {
+	printf("%s", current_dir->name);
 }
 
 void shell_init() {
@@ -306,6 +334,9 @@ void shell_init() {
 	add_new_command("heap", "Run heap test", test_heap);
 	add_new_command("tab", "Switch terminal tabs", tab_command);
 	add_new_command("ls", "List contents of current directory", ls_command);
+	add_new_command("cd", "Switch to another directory", cd_command);
+	add_new_command("pwd", "Print working directory", pwd_command);
+	add_new_command("cat", "Write file to stdout", cat_command);
 	add_new_command("", "", empty_command);
 
 	//set current dir to fs root
