@@ -49,8 +49,8 @@ $(ISO_DIR)/boot/grub/grub.cfg: $(RESOURCES)/grub.cfg
 	@mkdir -p `dirname $@`
 	cp $^ $@
 
-$(ISO_NAME): $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg
-	$(ISO_MAKER) -o $@ $(ISO_DIR)
+$(ISO_NAME): $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg $(ISO_DIR)/boot/initrd.img
+	grub-mkrescue -o $@ $(ISO_DIR)
 
 run: $(ISO_NAME)
 	$(EMULATOR) -vga std -cdrom $^

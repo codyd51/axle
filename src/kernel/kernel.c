@@ -13,11 +13,12 @@
 #include <user/xserv/xserv.h>
 #include "multiboot.h"
 #include <gfx/font/font.h>
-#include <kernel/util/multitasking/task.h>
+//#include <kernel/util/multitasking/task.h>
 #include <gfx/lib/view.h>
 #include <kernel/util/syscall/syscall.h>
 #include <kernel/util/mutex/mutex.h>
 #include <std/printf.h>
+#include <kernel/util/vfs/initrd.h>
 
 void print_os_name(void) {
 	printf("\e[10;[\e[11;AXLE OS v\e[12;0.4.0\e[10;]\n");
@@ -88,6 +89,17 @@ void info_panel_install(void) {
 extern uint32_t placement_address;
 uint32_t initial_esp;
 
+uint32_t module_detect(multiboot* mboot_ptr) {
+	printf_info("Detected %d GRUB modules", mboot_ptr->mods_count);
+	ASSERT(mboot_ptr->mods_count > 0, "no GRUB modules detected");
+	uint32_t initrd_loc = *((uint32_t*)mboot_ptr->mods_addr);
+	uint32_t initrd_end = *(uint32_t*)(mboot_ptr->mods_addr+4);
+	//don't trample modules
+	placement_address = initrd_end;
+	return initrd_loc;
+}
+
+
 void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	initial_esp = initial_stack;
 
@@ -109,7 +121,13 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	pit_install(1000);
 
+	//find grub modules
+	uint32_t initrd_loc = module_detect(mboot_ptr);
+
 	paging_install();
+
+	//initialize initrd, and set as fs root
+	fs_root = initrd_install(initrd_loc);
 
 	syscall_install();
 
@@ -132,7 +150,8 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	shell_init();
 	shell_loop();
-	
+
+	//in case the shell ever exits, just spin
 	while (1) {}
 }
 

@@ -2,7 +2,7 @@
 #include <kernel/util/interrupts/isr.h>
 #include <kernel/drivers/terminal/terminal.h>
 #include <kernel/drivers/pit/pit.h>
-#include <kernel/util/multitasking/task.h>
+#include <kernel/util/multitasking/tasks/task.h>
 
 static void syscall_handler(registers_t* regs);
 
