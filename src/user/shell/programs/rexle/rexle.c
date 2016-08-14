@@ -162,8 +162,13 @@ int rexle() {
 
 	//FPS counter
 	Label* fps = create_label(rect_make(point_make(3, 3), size_make(300, 50)), "FPS Counter");
-	fps->text_color = color_make(2, 0, 0);
+	fps->text_color = color_black();
 	add_sublabel(screen->window->content_view, fps);
+
+	//Memory usage tracker
+	Label* mem = create_label(rect_make(point_make(fps->frame.size.width, 3), size_make(300, 50)), "Memory tracker");
+	mem->text_color = color_black();
+	add_sublabel(screen->window->content_view, mem);
 
 	double timestamp = 0; //current frame timestamp
 	double time_prev = 0; //prev frame timestamp
@@ -387,6 +392,12 @@ int rexle() {
 		strcat(buf, " ns/frame");
 		fps->text = buf;
 		draw_label(screen, fps);
+
+		char mem_buf[32];
+		itoa(used_mem(), &mem_buf);
+		strcat(mem_buf, " bytes in use");
+		mem->text = mem_buf;
+		draw_label(screen, mem);
 
 		write_screen(screen);
 	}
