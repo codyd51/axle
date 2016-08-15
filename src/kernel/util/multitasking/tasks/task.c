@@ -83,8 +83,6 @@ void tasking_install() {
 
 	//reenable interrupts
 	asm volatile("sti");
-
-	sleep(1);
 }
 
 int fork(int priority) {
@@ -116,14 +114,7 @@ int fork(int priority) {
 		task->eip = eip;
 		//all finished! reenable interrupts
 		asm volatile("sti");
-
-		int count = 1;
-		task_t* tmp = (task_t*)ready_queue;
-		while (tmp->next) {
-			tmp = tmp->next;
-			count++;
-		}
-
+		
 		return task->id;
 	}
 	else {
@@ -160,6 +151,9 @@ void task_switch(char yielded) {
 	if (!current_task) {
 		return;
 	}
+
+	//if we're the only running process, quit early
+	//if (!ready_queue->next) return;
 
 	//set yielded flag on the active task for later reference
 	current_task->yielded = yielded;

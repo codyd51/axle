@@ -21,12 +21,14 @@ void print_regs(registers_t regs) {
 	printf("ds:  %x		eflags: %x\n", regs.ds, regs.eflags);
 }
 
-void common_halt(registers_t regs) {
+void common_halt(registers_t regs, bool recoverable) {
 	//print out register info for debugging
 	print_regs(regs);
 
-	//stop everything so we don't triple fault
-	halt_execution();
+	if (!recoverable) {
+		//stop everything so we don't triple fault
+		halt_execution();
+	}
 }
 
 void print_selector_error_code(uint32_t err_code) {
@@ -47,73 +49,73 @@ void print_selector_error_code(uint32_t err_code) {
 
 void handle_divide_by_zero(registers_t regs) {
 	printf_err("Attempted division by zero");
-	common_halt(regs);
+	common_halt(regs, false);
 }
 
 void handle_bound_range_exceeded(registers_t regs) {
 	printf_err("Bound range exception");
-	common_halt(regs);
+	common_halt(regs, false);
 }
 
 void handle_invalid_opcode(registers_t regs) {
 	printf_err("Invalid opcode encountered");
-	common_halt(regs);
+	common_halt(regs, false);
 }
 
 void handle_device_not_available(registers_t regs) {
 	printf_err("Device not available");
-	common_halt(regs);
+	common_halt(regs, false);
 }
 
 void handle_double_fault(registers_t regs) {
 	printf_err("=======================");
 	printf_err("Caught double fault!");
 	printf_err("=======================");
-	common_halt(regs);
+	common_halt(regs, false);
 }
 
 void handle_invalid_tss(registers_t regs) {
 	printf_err("Invalid TSS section!");
 	print_selector_error_code(regs.err_code);
-	common_halt(regs);
+	common_halt(regs, false);
 }
 
 void handle_segment_not_present(registers_t regs) {
 	printf_err("Segment not present");
 	print_selector_error_code(regs.err_code);
-	common_halt(regs);
+	common_halt(regs, false);
 }
 
 void handle_stack_segment_fault(registers_t regs) {
 	printf_err("Stack segment fault");
 	print_selector_error_code(regs.err_code);
-	common_halt(regs);
+	common_halt(regs, false);
 }
 
 void handle_general_protection_fault(registers_t regs) {
 	printf_err("General protection fault");
 	print_selector_error_code(regs.err_code);
-	common_halt(regs);
+	common_halt(regs, false);
 }
 
 void handle_floating_point_exception(registers_t regs) {
 	printf_err("Floating point exception");
-	common_halt(regs);
+	common_halt(regs, false);
 }
 
 void handle_alignment_check(registers_t regs) {
 	printf_err("Alignment check");
-	common_halt(regs);
+	common_halt(regs, false);
 }
 
 void handle_machine_check(registers_t regs) {
 	printf_err("Machine check");
-	common_halt(regs);
+	common_halt(regs, false);
 }
 
 void handle_virtualization_exception(registers_t regs) {
 	printf_err("Virtualization exception");
-	common_halt(regs);
+	common_halt(regs, false);
 }
 
 isr_t interrupt_handlers[256];
@@ -145,7 +147,7 @@ void isr_handler(registers_t regs) {
 	}
 	else {
 		printf_err("Unhandled interrupt: %x", int_no);
-		common_halt(regs);
+		common_halt(regs, false);
 	}
 }
 
