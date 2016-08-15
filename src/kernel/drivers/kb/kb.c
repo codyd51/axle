@@ -190,7 +190,9 @@ char kgetch() {
 
 //blocks until character is received
 char getchar() {
-	while (!haskey()) {}
+	while (!haskey()) {
+		syscall_yield();
+	}
 	return kgetch();
 }
 

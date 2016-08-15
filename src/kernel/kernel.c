@@ -13,7 +13,7 @@
 #include <user/xserv/xserv.h>
 #include "multiboot.h"
 #include <gfx/font/font.h>
-//#include <kernel/util/multitasking/task.h>
+#include <kernel/util/multitasking/tasks/task.h>
 #include <gfx/lib/view.h>
 #include <kernel/util/syscall/syscall.h>
 #include <kernel/util/mutex/mutex.h>
@@ -105,11 +105,8 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	//initialize terminal interface
 	terminal_initialize();
-
 	//introductory message
 	print_os_name();
-	
-	//run color test
 	test_colors();
 
 	printf_info("Available memory:");
@@ -125,6 +122,9 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	uint32_t initrd_loc = module_detect(mboot_ptr);
 
 	paging_install();
+	syscall_install();
+	tasking_install();
+	kb_install();
 
 	//initialize initrd, and set as fs root
 	fs_root = initrd_install(initrd_loc);
@@ -141,11 +141,8 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	info_panel_install();
 
 	test_printf();
-
 	test_time_unique();
-
 	test_malloc();
-
 	test_crypto();
 
 	shell_init();
