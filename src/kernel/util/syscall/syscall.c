@@ -1,40 +1,43 @@
 #include "syscall.h"
+#include "sysfuncs.h"
 #include <kernel/util/interrupts/isr.h>
 #include <kernel/drivers/terminal/terminal.h>
 #include <kernel/drivers/pit/pit.h>
 #include <kernel/util/multitasking/tasks/task.h>
+#include <std/array_m.h>
 
-static void syscall_handler(registers_t* regs);
+#define MAX_SYSCALLS 128 
 
-void yield() {
-	//TODO ensure PIT doesn't fire while we're here
-	//go to next task
-	task_switch(1);
-}
+static void syscall_handler(registers_t regs);
 
-DEFN_SYSCALL1(terminal_writestring, 0, const char*);
-DEFN_SYSCALL1(terminal_putchar, 1, char);
-DEFN_SYSCALL0(yield, 2);
-
-static void* syscalls[3] = {
-	(void*)&terminal_writestring,
-	(void*)&terminal_putchar,
-	(void*)&yield,
-};
-uint32_t num_syscalls = 3;
+array_m* syscalls;
 
 void syscall_install() {
 	printf_info("Initializing syscalls...");
+	
 	register_interrupt_handler(0x80, (isr_t)&syscall_handler);
+	syscalls = array_m_create(MAX_SYSCALLS);
+	create_sysfuncs();
 }
 
-void syscall_handler(registers_t* regs) {
-	//check requested syscall number
-	//found in eax
-	if (regs->eax >= num_syscalls) return;
+void syscall_insert(void* syscall) {
+	if (syscalls->size + 1 == MAX_SYSCALLS) {
+		printf_err("Not installing syscall %d, too many in use!", syscalls->size);
+		return;
+	}
+	array_m_insert(syscalls, syscall);
+}
 
-	//get required syscall location
-	void* location = syscalls[regs->eax];
+void syscall_handler(registers_t regs) {
+	//check requested syscall number
+	//stored in eax
+	if (!syscalls || regs.eax >= MAX_SYSCALLS) {
+		printf_err("Syscall %d called but not defined", regs.eax);
+		return;
+	}
+
+	//location of syscall funcptr
+	int (*location)() = array_m_lookup(syscalls, regs.eax);
 
 	//we don't know how many arguments the function wants.
 	//so just push them all on the stack in correct order
@@ -53,6 +56,6 @@ void syscall_handler(registers_t* regs) {
 		pop %%ebx;	\
 		pop %%ebx;	\
 		pop %%ebx;	\
-	" : "=a" (ret) : "r" (regs->edi), "r" (regs->esi), "r" (regs->edx), "r" (regs->ecx), "r" (regs->ebx), "r" (location));
-	regs->eax = ret;
+	" : "=a" (ret) : "r" (regs.edi), "r" (regs.esi), "r" (regs.edx), "r" (regs.ecx), "r" (regs.ebx), "r" (location));
+	regs.eax = ret;
 }

@@ -4,6 +4,7 @@
 #include <std/std.h>
 
 void syscall_install();
+bool syscalls_installed();
 
 #define DECL_SYSCALL0(fn) int syscall_##fn();
 #define DECL_SYSCALL1(fn, p1) int syscall_##fn(p1);
@@ -54,7 +55,6 @@ int syscall_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) { \
 	return a; \
 }
 
-DECL_SYSCALL1(terminal_writestring, const char*);
-DECL_SYSCALL1(terminal_putchar, char);
+void syscall_insert(void* syscall);
 
 #endif
