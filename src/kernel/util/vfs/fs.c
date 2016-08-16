@@ -47,3 +47,27 @@ fs_node_t* finddir_fs(fs_node_t* node, char* name) {
 	}
 	return 0;
 }
+
+FILE* fopen(const char* filename, const char* mode) {
+	/*
+	//first, try looking in the current directory
+	fs_node_t* file = finddir_fs(current_dir, name);
+	//if that didn't work, check root directory
+	//*/
+	fs_node_t* file = finddir_fs(fs_root, filename);
+	if (!file) {
+		printf_err("Couldn't find file %s", filename);
+		return;
+	}
+	FILE* stream = (FILE*)kmalloc(sizeof(FILE));
+	memset(stream, 0, sizeof(FILE));
+	stream->node = file;
+	stream->fpos = 0;
+	return stream;
+}
+
+int fgetc(FILE* stream) {
+	char ch;
+	read_fs(stream->node, stream->fpos++, 1, &ch);
+	return ch;
+}

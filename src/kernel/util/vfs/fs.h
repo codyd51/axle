@@ -36,7 +36,13 @@ typedef struct fs_node {
 	readdir_type_t readdir;
 	finddir_type_t finddir;
 	struct fs_node* ptr;	//used by mountpoints and symlinks
+	struct fs_node* parent; //parent directory of this node
 } fs_node_t;
+
+typedef struct file_t {
+	uint32_t fpos;
+	fs_node_t* node;
+} FILE;
 
 struct dirent {
 	char name[128];		//filename
@@ -54,5 +60,8 @@ void open_fs(fs_node_t* node, uint8_t read, uint8_t write);
 void close_fs(fs_node_t* node);
 struct dirent* readdir_fs(fs_node_t* node, uint32_t index);
 fs_node_t* finddir_fs(fs_node_t* node, char* name);
+
+FILE* fopen(const char* filename, const char* mode);
+int fgetc(FILE* stream);
 
 #endif
