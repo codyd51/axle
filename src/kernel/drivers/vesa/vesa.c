@@ -72,7 +72,7 @@ void set_bank(int bank) {
 }
 
 //sets up VESA for mode
-Screen* switch_to_vesa() {
+Screen* switch_to_vesa(uint32_t vesa_mode) {
 		kernel_begin_critical();
 		
 		vesa_info info;
@@ -102,7 +102,9 @@ Screen* switch_to_vesa() {
 
 		memset(&regs, 0, sizeof(regs));
 
-		uint32_t vesa_mode = 0x112; //1024x768x24
+		//VESA mode
+		//0x118: 1024x768x24
+		//0x112: 640x400x24
 
 		regs.ax = 0x4F01; //01 gets VBE mode information
 		regs.di = mode_buffer & 0xF;

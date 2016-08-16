@@ -154,7 +154,7 @@ array_m* sample_tex_create(Size screen_size) {
 
 int rexle() {
 	//switch graphics modes
-	Screen* screen = switch_to_vesa();
+	Screen* screen = switch_to_vesa(0x112);
 	Size screen_size = screen->window->frame.size;
 
 	//initialize textures
@@ -278,50 +278,6 @@ int rexle() {
 
 				putpixel(screen, x, y, col);
 			}
-
-			/*
-			//wall color
-			Color col;
-			switch(world[(int)map_pos.x][(int)map_pos.y]) {
-				case 1:  col = color_make(220, 40, 40); 		break;
-				case 2:  col = color_make(130, 220, 50); 		break;
-				case 3:  col = color_make(230, 170, 100);	 	break;
-				case 4:  col = color_make(130, 50, 220);		break;
-				default: col = color_make(100, 170, 230);		break;
-				/*
-				case 1:  col = color_make(0x0C, 0, 0); 		break;
-				case 2:  col = color_make(0x0A, 0, 0); 		break;
-				case 3:  col = color_make(0x09, 0, 0);	 	break;
-				case 4:  col = color_make(0x0E, 0, 0);		break;
-				default: col = color_make(0x08, 0, 0);		break;
-				**
-			}
-
-			//give x and y sides different brightness
-			if (side == 1) {
-				/*
-				switch (col.val[0]) {
-					case 0x0C:
-						col.val[0] = 0x04;		break;
-					case 0x0A:
-						col.val[0] = 0x02;		break;
-					case 0x09:
-						col.val[0] = 0x01;		break;
-					case 0x0E:
-						col.val[0] = 0x2C;		break;
-					default:
-						col.val[0] = 0x00;		break;
-				}
-				**
-				col.val[0] /= 2;
-				col.val[1] /= 2;
-				col.val[2] /= 2;
-			};
-			*/
-/*
-			Line slice = line_make(point_make(x, start), point_make(x, end));
-			draw_line(screen, slice, col, 1);
-*/
 
 			//draw ceiling above this ray
 			Line ceiling = line_make(point_make(x, 0), point_make(x, start));

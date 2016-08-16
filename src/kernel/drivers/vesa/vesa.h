@@ -58,7 +58,7 @@ typedef struct vesa_info {
 		unsigned char oem_data[256];
 } vesa_info;
 
-Screen* switch_to_vesa();
+Screen* switch_to_vesa(uint32_t mode);
 void putpixel_vesa(Screen* screen, int x, int y, Color color);
 
 #endif
