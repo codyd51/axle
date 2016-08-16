@@ -83,6 +83,7 @@ fs_node_t* initrd_install(uint32_t location) {
 	initrd_dev->finddir = &initrd_finddir;
 	initrd_dev->ptr = 0;
 	initrd_dev->impl = 0;
+	initrd_dev->parent = initrd_root;
 
 	root_nodes = (fs_node_t*)kmalloc(sizeof(fs_node_t) * initrd_header->nfiles);
 	nroot_nodes = initrd_header->nfiles;
@@ -106,6 +107,7 @@ fs_node_t* initrd_install(uint32_t location) {
 		root_nodes[i].readdir = 0;
 		root_nodes[i].finddir = 0;
 		root_nodes[i].impl = 0;
+		root_nodes[i].parent = initrd_root;
 	}
 
 	return initrd_root;

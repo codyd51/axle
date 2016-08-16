@@ -2,6 +2,7 @@
 #include <std/kheap.h>
 #include <gfx/lib/shapes.h>
 #include <stddef.h>
+#include <kernel/util/vfs/fs.h>
 
 #define MAX_ELEMENTS 128
 
@@ -92,6 +93,39 @@ Bmp* create_bmp(Rect frame, Color** raw) {
 	Bmp* bmp = (Bmp*)kmalloc(sizeof(Bmp));
 	bmp->frame = frame;
 	bmp->raw = raw;
+	return bmp;
+}
+
+Bmp* load_bmp(Rect frame, const char* filename) {
+	FILE* file = fopen(filename, "");
+	if (!file) {
+		printf_err("File %s not found! Not loading BMP", filename);
+		return;
+	}
+
+	int const tex_width = 8;
+	int const tex_height = 8;
+	Color** raw = kmalloc(sizeof(Color*) * tex_width);
+	for (int i = 0; i < tex_height; i++) {
+		Color* row = kmalloc(sizeof(Color) * tex_width);
+		raw[i] = row;
+
+		//copy this row into memory
+		for (int i = 0; i < tex_width; i++) {
+			char col = fgetc(file);
+			if (col == '0') {
+				row[i] = color_gray();
+			}
+			else if (col == '1') {
+				row[i] = color_white();
+			}
+			else {
+				printf_err("Unknown color %c in texture file %s", col, filename);
+			}
+		}
+	}
+
+	Bmp* bmp = create_bmp(frame, raw);
 	return bmp;
 }
 
