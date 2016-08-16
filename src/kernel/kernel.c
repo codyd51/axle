@@ -129,12 +129,6 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//initialize initrd, and set as fs root
 	fs_root = initrd_install(initrd_loc);
 
-	syscall_install();
-
-	tasking_install();
-	
-	kb_install();
-
 	test_heap();
 
 	//set up info panel

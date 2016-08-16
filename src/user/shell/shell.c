@@ -16,6 +16,7 @@
 #include <gfx/lib/gfx.h>
 #include <user/shell/programs/rexle/rexle.h>
 #include <kernel/util/vfs/fs.h>
+#include <kernel/util/multitasking/tasks/task.h>
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
@@ -243,7 +244,28 @@ void cat_command(int argc, char** argv) {
 	char filebuf[2048];
 	memset(filebuf, 0, 2048);
 	uint32_t sz = read_fs(node, 0, 2048, filebuf);
-	printf("%s", filebuf);
+	for (int i = 0; i < sz; i++) {
+		terminal_putchar(filebuf[i]);
+	}
+}
+
+void hex_command(int argc, char** argv) {
+	if (argc < 2) {
+		printf_err("Please specify a file");
+		return;
+	}
+	char* file = argv[1];
+	fs_node_t* node = finddir_fs(current_dir, file);
+	if (!node) {
+		printf_err("File %s not found");
+		return;
+	}
+	char filebuf[8];
+	memset(filebuf, 0, 8);
+	uint32_t sz = read_fs(node, 0, 8, filebuf);
+	for (int i = 0; i < sz; i++) {
+		printf("%x ", filebuf[i]);
+	}
 }
 
 void cd_command(int argc, char** argv) {
@@ -275,9 +297,7 @@ void shell_init() {
 	add_new_command("time", "Outputs system time", time_command);
 	add_new_command("date", "Outputs system time as date format", date_command);
 	add_new_command("clear", "Clear terminal", clear_command);
-	add_new_command("asmjit", "Starts JIT prompt", asmjit_command);
 	add_new_command("tick", "Prints current tick count from PIT", tick_command);
-	add_new_command("snake", "Have some fun!", snake_command);
 	add_new_command("shutdown", "Shutdown PC", shutdown_command);
 	add_new_command("gfxtest", "Run graphics tests", test_gfx);
 	add_new_command("startx", "Start window manager", startx_command);
