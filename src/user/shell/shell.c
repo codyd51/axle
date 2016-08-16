@@ -284,6 +284,20 @@ void cd_command(int argc, char** argv) {
 }
 
 void pwd_command() {
+	array_m* parents = array_m_create(16);
+	
+	//find all parent directories up to root
+	fs_node_t* parent = current_dir->parent;
+	if (parent) {
+		do {
+			array_m_insert(parents, parent->name);
+		} while ((parent = parent->parent));
+	}
+
+	//print out all parent directories, starting with the topmost
+	for (int i = parents->size - 1; i >= 0; i--) {
+		printf("%s/", array_m_lookup(parents, i));
+	}
 	printf("%s", current_dir->name);
 }
 
@@ -307,6 +321,8 @@ void shell_init() {
 	add_new_command("cd", "Switch to another directory", cd_command);
 	add_new_command("pwd", "Print working directory", pwd_command);
 	add_new_command("cat", "Write file to stdout", cat_command);
+	add_new_command("hex", "Write hex dump of file to stdout", hex_command);
+	add_new_command("open", "Load file", open_command);
 	add_new_command("", "", empty_command);
 
 	//set current dir to fs root
