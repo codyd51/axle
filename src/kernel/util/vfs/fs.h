@@ -11,6 +11,8 @@
 #define FS_SYMLINK	0x06
 #define FS_MOUNTPOINT	0x08 //use 8 instead of 7 so we can OR with FS_DIRECTORY
 
+#define EOF (-1)
+
 struct fs_node;
 
 typedef uint32_t (*read_type_t)(struct fs_node*, uint32_t, uint32_t, uint8_t*);

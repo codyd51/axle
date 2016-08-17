@@ -1,4 +1,5 @@
 #include "fs.h"
+#include <std/std.h>
 
 fs_node_t* fs_root = 0; //filesystem root
 
@@ -67,7 +68,20 @@ FILE* fopen(const char* filename, const char* mode) {
 }
 
 int fgetc(FILE* stream) {
-	char ch;
-	read_fs(stream->node, stream->fpos++, 1, &ch);
+	int ch;
+	uint32_t sz = read_fs(stream->node, stream->fpos++, 1, &ch);
+	if (ch == EOF || !sz) return EOF;
 	return ch;
+}
+
+char* fgets(char* buf, int count, FILE* stream) {
+	int c;
+	char* cs = buf;
+	while (--count > 0 && (c = fgetc(stream)) != EOF) {
+		//place input char in current position, then increment
+		//quit on newline
+		if ((*cs++ = c) == '\n') break;
+	}
+	*cs = '\0';
+	return (c == EOF && cs == buf) ? EOF : buf;
 }
