@@ -31,10 +31,10 @@ void set_cr0(uint32_t cr0) {
 	asm volatile("mov %0, %%cr0" : : "r"(cr0));
 }
 
-page_table_t* get_cr3() {
+page_directory_t* get_cr3() {
 	uint32_t cr3;
 	asm volatile("mov %%cr3, %0" : "=r"(cr3));
-	return (page_table_t*)cr3;
+	return (page_directory_t*)cr3;
 }
 
 void set_cr3(page_directory_t* dir) {
@@ -103,6 +103,18 @@ void virtual_map_pages(long addr, unsigned long size, uint32_t rw, uint32_t user
 		i += 0x1000;
 	}
 	return;
+}
+
+void vmem_map(uint32_t virtual, uint32_t physical) {
+	uint16_t id = virtual >> 22;
+	for (int i = 0; i < 0x1000; i++) {
+		page_t* page = get_page(virtual + (i * 0x1000), 1, current_directory);
+		page->present = 1;
+		page->rw = 1;
+		page->user = 1;
+		page->frame = (virtual + (i * 0x1000)) / 0x1000;
+	}
+	printf_info("Mapping %x (%x) -> %x", virtual, id, physical);
 }
 
 //function to allocate a frame
