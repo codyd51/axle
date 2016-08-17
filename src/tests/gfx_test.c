@@ -235,6 +235,9 @@ void test_xserv(Screen* vesa_screen) {
 	Label* test_label = create_label(rect_make(point_make(10, 10), size_make(label_win->content_view->frame.size.width - 10, label_win->content_view->frame.size.height - 20)), "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque pulvinar dui bibendum nunc convallis, bibendum venenatis mauris ornare. Donec et libero lacus. Nulla tristique auctor pulvinar. Aenean enim elit, malesuada nec dignissim eget, varius ac nunc. Vestibulum varius lectus nisi, in dignissim orci volutpat in. Aliquam eget eros lorem. Quisque tempor est a rhoncus consequat. Quisque vestibulum finibus sapien. Etiam enim sem, vehicula ac lorem vitae, mattis mollis mauris. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Vivamus eleifend dui vel nulla suscipit pretium. Suspendisse vel nunc efficitur, lobortis dui convallis, tristique tellus. Ut ut viverra est. Etiam tempor justo risus. Cras laoreet eu sapien et lacinia. Nunc imperdiet blandit purus a semper.");
 	add_sublabel(label_win->content_view, test_label);
 	
+	Bmp* bmp = load_bmp(rect_make(point_make(100, 100), size_make(400, 400)), "tex.bmp");
+	add_bmp(label_win->content_view, bmp);
+	
 	Window* window = create_window(rect_make(point_make(50, 50), size_make(400, 500)));
 	window->title = "Color test";
 

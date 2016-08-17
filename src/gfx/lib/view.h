@@ -75,6 +75,7 @@ typedef struct bitmap {
 	struct view* superview;
 
 	Color** raw;
+	Size raw_size;
 } Bmp;
 
 Label* create_label(Rect frame, char* text);

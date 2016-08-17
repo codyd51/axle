@@ -74,10 +74,10 @@ void draw_bmp(Screen* screen, Bmp* bmp) {
 
 	Rect frame = absolute_frame(screen, (View*)bmp);
 
-	for (int w = 0; w < frame.size.width; w++) {
-		Color* row = bmp->raw[w % 8];
-		for (int h = 0; h < frame.size.height; h++) {
-			Color px = row[h % 8];
+	for (int h = 0; h < frame.size.height; h++) {
+		Color* row = bmp->raw[h % bmp->raw_size.height];
+		for (int w = 0; w < frame.size.width; w++) {
+			Color px = row[w % bmp->raw_size.width];
 			putpixel(screen, frame.origin.x + w, frame.origin.y + h, px);
 		}
 	}
