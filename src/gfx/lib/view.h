@@ -5,23 +5,9 @@
 #include <stdint.h>
 #include <std/array_m.h>
 #include "color.h"
+#include "rect.h"
 
 __BEGIN_DECLS
-
-typedef struct coordinate {
-	int x;
-	int y;
-} Coordinate;
-
-typedef struct size {
-	int width;
-	int height;
-} Size;
-
-typedef struct rect {
-	Coordinate origin;
-	Size size;
-} Rect;
 
 typedef struct window {
 	//common

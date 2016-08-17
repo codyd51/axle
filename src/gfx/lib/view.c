@@ -104,7 +104,7 @@ Bmp* load_bmp(Rect frame, const char* filename) {
 	}
 
 	int const tex_width = 8;
-	int const tex_height = 8;
+	int const tex_height = 16;
 	Color** raw = kmalloc(sizeof(Color*) * tex_width);
 	for (int i = 0; i < tex_height; i++) {
 		Color* row = kmalloc(sizeof(Color) * tex_width);
@@ -112,15 +112,26 @@ Bmp* load_bmp(Rect frame, const char* filename) {
 
 		//copy this row into memory
 		for (int i = 0; i < tex_width; i++) {
-			char col = fgetc(file);
+			int col;
+			//skip newlines
+			while ((col = fgetc(file)) == '\n')
+				;
 			if (col == '0') {
-				row[i] = color_gray();
+				row[i] = color_red();
 			}
 			else if (col == '1') {
-				row[i] = color_white();
+				row[i] = color_green();
+			}
+			else if (col == '2') {
+				row[i] = color_blue();
+			}
+			else if (col == '3') {
+				row[i] = color_purple();
 			}
 			else {
-				printf_err("Unknown color %c in texture file %s", col, filename);
+				row[i] = color_white();
+
+				//printf_err("Unknown color %c in texture file %s", col, filename);
 			}
 		}
 	}

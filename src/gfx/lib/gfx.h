@@ -5,6 +5,7 @@
 #include <std/timer.h>
 #include <gfx/font/font.h>
 
+#include "rect.h"
 #include "view.h"
 
 typedef struct __attribute__((packed)) {

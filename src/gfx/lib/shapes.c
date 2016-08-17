@@ -23,28 +23,6 @@ Coordinate triangle_center(Triangle t) {
 	return point_make(x, y);
 }
 
-//functions to create shape structures
-Coordinate point_make(int x, int y) {
-	Coordinate coord;
-	coord.x = x;
-	coord.y = y;
-	return coord;
-}
-
-Size size_make(int w, int h) {
-	Size size;
-	size.width = w;
-	size.height = h;
-	return size;
-}
-
-Rect rect_make(Coordinate origin, Size size) {
-	Rect rect;
-	rect.origin = origin;
-	rect.size = size;
-	return rect;
-}
-
 Line line_make(Coordinate p1, Coordinate p2) {
 	Line line;
 	line.p1 = p1;
