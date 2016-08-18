@@ -30,14 +30,14 @@ void vesa_screen_refresh(Screen* screen) {
 	}
 	*/
 
-	static double timestamp = 0; //current frame timestamp
-	static double time_prev = 0; //prev frame timestamp
+	double timestamp = 0; //current frame timestamp
+	//static double time_prev = 0; //prev frame timestamp
+	double time_start = time();
 	
 	xserv_draw(screen);
 
-	time_prev = timestamp;
 	timestamp = time();
-	double frame_time = (timestamp - time_prev) / 1000.0;
+	double frame_time = (timestamp - time_start) / 1000.0;
 	//update frame time tracker 
 	char buf[32];
 	itoa(frame_time * 100000, &buf);
@@ -142,7 +142,7 @@ Screen* switch_to_vesa(uint32_t vesa_mode) {
 		//start refresh loop
 		setup_vesa_screen_refresh(screen, 100);
 		//refresh once now so we don't wait for the first tick
-		//vesa_screen_refresh(screen);
+		vesa_screen_refresh(screen);
 
 		kernel_end_critical();
 
@@ -151,8 +151,8 @@ Screen* switch_to_vesa(uint32_t vesa_mode) {
 
 void putpixel_vesa(Screen* screen, int x, int y, Color color) {
 		int offset = x * (screen->depth / 8) + y * (screen->window->size.width * (screen->depth / 8));
-		uint32_t hex = color_hex(color);
-		screen->vmem[offset + 0] = hex & 0xFF;
-		screen->vmem[offset + 1] = (hex >> 8) & 0xFF;
-		screen->vmem[offset + 2] = (hex >> 16) & 0xFF;
+		//we have to write the pixels in BGR, not RGB
+		screen->vmem[offset + 0] = color.val[2];
+		screen->vmem[offset + 1] = color.val[1];
+		screen->vmem[offset + 2] = color.val[0];
 }

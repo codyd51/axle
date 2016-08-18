@@ -30,6 +30,12 @@ static View* create_title_view(Window* window) {
 	title_label->text_color = color_black();
 	add_sublabel(title_view, title_label);
 
+	/*
+	//add close button
+	int close_rad = 3;
+	Bmp* close_button = load_bmp(rect_make(point_make(close_rad * 2, label_frame.origin.y+ close_rad), size_make(25, 25)), "close.bmp");
+	add_bmp(title_view, close_button);
+	*/
 	return title_view;
 }
 
@@ -124,12 +130,12 @@ Bmp* load_bmp(Rect frame, const char* filename) {
 		//for (int j = 0; j < width; j++) {
 		for (int j = 0; j < width; j++) {
 			Color px;
-			px.val[0] = fgetc(file);
-			px.val[1] = fgetc(file);
 			px.val[2] = fgetc(file);
+			px.val[1] = fgetc(file);
+			px.val[0] = fgetc(file);
 			row[j] = px;
 			//fourth byte/px is reversed and should be ignored
-			fgetc(file);
+//			fgetc(file);
 		}
 	}
 
