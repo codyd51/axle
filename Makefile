@@ -49,6 +49,12 @@ $(ISO_DIR)/boot/grub/grub.cfg: $(RESOURCES)/grub.cfg
 	@mkdir -p `dirname $@`
 	cp $^ $@
 
+fsgen: fsgen.c
+	clang -o $@ $<
+
+$(ISO_DIR)/boot/initrd.img: fsgen
+	pushd ./initrd; ../fsgen .; popd; mv ./initrd/initrd.img $@
+
 $(ISO_NAME): $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg $(ISO_DIR)/boot/initrd.img
 	$(ISO_MAKER) -o $@ $(ISO_DIR)
 
