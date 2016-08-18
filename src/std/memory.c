@@ -39,6 +39,7 @@ void* memset(void* bufptr, int value, size_t size) {
 	return bufptr;
 }
 
+/*
 void* memcpy(void* dstptr, const void* srcptr, size_t size) {
 	//how many 32b chunks we can write
 	uint32_t num_dwords = size / 4;
@@ -61,6 +62,7 @@ void* memcpy(void* dstptr, const void* srcptr, size_t size) {
 	}
 	return dstptr;
 }
+*/
 
 void* calloc(size_t num, size_t size) {
 	void* mem = (void*)kmalloc(num * size);

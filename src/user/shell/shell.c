@@ -210,7 +210,7 @@ void startx_command() {
 	switch_to_text();
 
 	//switch to VESA for x serv
-	Screen* vesa_screen = switch_to_vesa();
+	Screen* vesa_screen = switch_to_vesa(0x118);
 	test_xserv(vesa_screen);
 }
 
