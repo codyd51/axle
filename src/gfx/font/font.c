@@ -4,7 +4,7 @@
 #include <gfx/lib/gfx.h>
 
 void draw_char(Screen* screen, char ch, int x, int y, Color color) {
-	char* bitmap = font8x8_basic[ch];
+	int* bitmap = font8x8_basic[ch];
 	for (int i = 0; i < 8; i++) {
 		char row = bitmap[i];
 		for (int j = 0; j < 8; j++) {

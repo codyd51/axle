@@ -3,6 +3,7 @@
 #include <gfx/lib/shapes.h>
 #include <stddef.h>
 #include <kernel/util/vfs/fs.h>
+#include <std/printf.h>
 
 #define MAX_ELEMENTS 128
 
@@ -102,28 +103,26 @@ Bmp* create_bmp(Rect frame, Color** raw) {
 	return bmp;
 }
 
-Bmp* load_bmp(Rect frame, const char* filename) {
-	FILE* file = fopen(filename, "");
+Bmp* load_bmp(Rect frame, char* filename) {
+	FILE* file = fopen(filename, (char*)"");
 	if (!file) {
 		printf_err("File %s not found! Not loading BMP", filename);
-		return;
+		return NULL;
 	}
 
 	unsigned char header[54];
 	//TODO replace with fread
-	for (int i = 0; i < 54; i++) {
-		header[i] = fgetc(file);
-	}
+	fread(header, sizeof(char), 54, file);
 
 	//get width and height from header
 	int width = *(int*)&header[18];
 	int height = *(int*)&header[22];
 	printf_dbg("loading BMP with dimensions (%d,%d", width, height);
 
-	Color** raw = kmalloc(sizeof(Color*) * height);
+	Color** raw = (Color**)kmalloc(sizeof(Color*) * height);
 	//for (int i = 0; i < height; i++) {
 	for (int i = height; i >= 0; i--) {
-		Color* row = kmalloc(sizeof(Color) * width);
+		Color* row = (Color*)kmalloc(sizeof(Color) * width);
 		raw[i] = row;
 
 		//copy this row into memory

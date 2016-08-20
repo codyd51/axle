@@ -10,7 +10,7 @@ void kbman_process(char c) {
 
 	//only insert into array if it's not already present
 	if (!key_down(c)) {
-		array_m_insert(keys_down, c);
+		array_m_insert(keys_down, (type_t*)c);
 	}
 
 	//dispatch key if necessary
@@ -34,6 +34,6 @@ void kbman_process_release(char c) {
 }
 
 bool key_down(char c) {
-	if (array_m_index(keys_down, c) != -1) return true;
+	if (array_m_index(keys_down, (type_t*)c) != -1) return true;
 	return false;
 }

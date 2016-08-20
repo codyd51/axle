@@ -49,16 +49,11 @@ fs_node_t* finddir_fs(fs_node_t* node, char* name) {
 	return 0;
 }
 
-FILE* fopen(const char* filename, const char* mode) {
-	/*
-	//first, try looking in the current directory
-	fs_node_t* file = finddir_fs(current_dir, name);
-	//if that didn't work, check root directory
-	//*/
+FILE* fopen(char* filename, char* mode) {
 	fs_node_t* file = finddir_fs(fs_root, filename);
 	if (!file) {
 		printf_err("Couldn't find file %s", filename);
-		return;
+		return NULL;
 	}
 	FILE* stream = (FILE*)kmalloc(sizeof(FILE));
 	memset(stream, 0, sizeof(FILE));
@@ -67,8 +62,8 @@ FILE* fopen(const char* filename, const char* mode) {
 	return stream;
 }
 
-int fgetc(FILE* stream) {
-	int ch;
+uint8_t fgetc(FILE* stream) {
+	uint8_t ch;
 	uint32_t sz = read_fs(stream->node, stream->fpos++, 1, &ch);
 	if (ch == EOF || !sz) return EOF;
 	return ch;
@@ -83,5 +78,17 @@ char* fgets(char* buf, int count, FILE* stream) {
 		if ((*cs++ = c) == '\n') break;
 	}
 	*cs = '\0';
-	return (c == EOF && cs == buf) ? EOF : buf;
+	return (c == EOF && cs == buf) ? (char*)EOF : buf;
+}
+
+uint32_t fread(void* buffer, uint32_t size, uint32_t count, FILE* stream) {
+	unsigned char* chbuf = (unsigned char*)buffer;
+	uint32_t sum;
+	for (int i = 0; i < count; i++) {
+		unsigned char buf;
+		sum += read_fs(stream->node, stream->fpos++, size, (uint8_t*)&buf);
+		//TODO check for eof and break early
+		chbuf[i] = buf;
+	}
+	return sum;
 }

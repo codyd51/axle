@@ -85,7 +85,7 @@ Window* create_window(Rect frame);
 Button* create_button(Rect frame, char* text);
 
 Bmp* create_bmp(Rect frame, Color** raw);
-Bmp* load_bmp(Rect frame, const char* filename);
+Bmp* load_bmp(Rect frame, char* filename);
 
 void add_subview(View* view, View* subview);
 void remove_subview(View* view, View* subview);

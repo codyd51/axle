@@ -1,4 +1,5 @@
 #include "initrd.h"
+#include <std/std.h>
 
 initrd_header_t* initrd_header;		//header
 initrd_file_header_t* file_headers;	//list of file headers
@@ -22,7 +23,7 @@ static uint32_t initrd_read(fs_node_t* node, uint32_t offset, uint32_t size, uin
 	return size;
 }
 
-static uint32_t initrd_readdir(fs_node_t* node, uint32_t index) {
+static struct dirent* initrd_readdir(fs_node_t* node, uint32_t index) {
 	if (node == initrd_root && index == 0) {
 		strcpy(dirent.name, "dev");
 		dirent.name[3] = 0; //null terminate string
@@ -96,7 +97,7 @@ fs_node_t* initrd_install(uint32_t location) {
 		//we want it relative to the start of memory
 		file_headers[i].offset += location;
 		//create new file node
-		strcpy(root_nodes[i].name, &file_headers[i].name);
+		strcpy(root_nodes[i].name, (const char*)&file_headers[i].name);
 		root_nodes[i].mask = root_nodes[i].uid = root_nodes[i].gid = 0;
 		root_nodes[i].length = file_headers[i].length;
 		root_nodes[i].inode = i;
