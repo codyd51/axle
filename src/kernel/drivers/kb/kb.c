@@ -5,6 +5,8 @@
 #include <kernel/util/interrupts/isr.h>
 #include <kernel/util/kbman/kbman.h>
 #include <kernel/util/mutex/mutex.h>
+#include <kernel/drivers/kb/kb.h>
+#include <kernel/util/syscall/sysfuncs.h>
 
 #define KBD_DATA_PORT 0x60
 
@@ -191,7 +193,7 @@ char kgetch() {
 //blocks until character is received
 char getchar() {
 	while (!haskey()) {
-		syscall_yield();
+		sys_yield();
 	}
 	return kgetch();
 }

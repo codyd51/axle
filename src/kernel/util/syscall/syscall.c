@@ -8,19 +8,19 @@
 
 #define MAX_SYSCALLS 128 
 
-static void syscall_handler(registers_t regs);
+static void sys_handler(registers_t regs);
 
 array_m* syscalls;
 
-void syscall_install() {
+void sys_install() {
 	printf_info("Initializing syscalls...");
 	
-	register_interrupt_handler(0x80, (isr_t)&syscall_handler);
+	register_interrupt_handler(0x80, (isr_t)&sys_handler);
 	syscalls = array_m_create(MAX_SYSCALLS);
 	create_sysfuncs();
 }
 
-void syscall_insert(void* syscall) {
+void sys_insert(void* syscall) {
 	if (syscalls->size + 1 == MAX_SYSCALLS) {
 		printf_err("Not installing syscall %d, too many in use!", syscalls->size);
 		return;
@@ -28,7 +28,7 @@ void syscall_insert(void* syscall) {
 	array_m_insert(syscalls, syscall);
 }
 
-void syscall_handler(registers_t regs) {
+void sys_handler(registers_t regs) {
 	//check requested syscall number
 	//stored in eax
 	if (!syscalls || regs.eax >= MAX_SYSCALLS) {
@@ -37,7 +37,7 @@ void syscall_handler(registers_t regs) {
 	}
 
 	//location of syscall funcptr
-	int (*location)() = array_m_lookup(syscalls, regs.eax);
+	int (*location)() = (int(*)())array_m_lookup(syscalls, regs.eax);
 
 	//we don't know how many arguments the function wants.
 	//so just push them all on the stack in correct order

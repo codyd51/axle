@@ -2,7 +2,7 @@
 #include <limits.h>
 #include <std/memory.h>
 #include <kernel/drivers/rtc/clock.h>
-#include <kernel/util/syscall/syscall.h>
+#include <kernel/util/syscall/sysfuncs.h>
 
 int callback_num;
 static timer_callback callback_table[MAX_CALLBACKS];
@@ -78,6 +78,6 @@ void handle_tick(uint32_t tick) {
 void sleep(uint32_t ms) {
 	uint32_t end = time() + ms;
 	while (time() < end) {
-		syscall_yield();
+		sys_yield();
 	}
 }

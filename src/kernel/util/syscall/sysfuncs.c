@@ -12,7 +12,7 @@ DEFN_SYSCALL1(terminal_putchar, 1, char);
 DEFN_SYSCALL0(yield, 2);
 
 void create_sysfuncs() {
-	syscall_insert(&terminal_writestring);
-	syscall_insert(&terminal_putchar);
-	syscall_insert(&yield);
+	sys_insert((void*)&terminal_writestring);
+	sys_insert((void*)&terminal_putchar);
+	sys_insert((void*)&yield);
 }
