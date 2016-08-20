@@ -7,50 +7,8 @@
 #include <std/memory.h>
 #include <kernel/drivers/kb/kb.h>
 #include <kernel/kernel.h>
-
-static Label* fps;
-void vesa_screen_refresh(Screen* screen) {
-	//check if there are any keys pending
-	while (haskey()) {
-		char ch = getchar();
-		if (ch == 'q') {
-			//quit xserv
-			gfx_teardown(screen);
-			switch_to_text();
-			return;
-		}
-	}
-
-	if (!screen->finished_drawing) return;
-
-	//if no changes occured this refresh, don't bother writing the screen
-	/*
-	if (xserv_draw(screen)) {
-		write_screen(screen);
-	}
-	*/
-
-	double timestamp = 0; //current frame timestamp
-	//static double time_prev = 0; //prev frame timestamp
-	double time_start = time();
-	
-	xserv_draw(screen);
-
-	timestamp = time();
-	double frame_time = (timestamp - time_start) / 1000.0;
-	//update frame time tracker 
-	char buf[32];
-	itoa(frame_time * 100000, &buf);
-	strcat(buf, " ns/frame");
-	fps->text = buf;
-	draw_label(screen, fps);
-
-	write_screen(screen);
-}
-
-void setup_vesa_screen_refresh(Screen* screen, double interval) {
-	screen->callback = add_callback((void*)vesa_screen_refresh, interval, true, screen);
-}
+#include <std/timer.h>
+#include <kernel/drivers/rtc/clock.h>
 
 extern page_directory_t* kernel_directory;
 
@@ -127,23 +85,8 @@ Screen* switch_to_vesa(uint32_t vesa_mode) {
 		screen->depth = mode_info.bpp;
 		//linear frame buffer (LFB) address
 		screen->physbase = (uint8_t*)mode_info.physbase;
-		
 		screen->window = create_window(rect_make(point_make(0, 0), size_make(mode_info.x_res, mode_info.y_res)));
-		set_frame(screen->window->title_view, rect_make(point_make(0, 0), size_make(0, 0)));
-		set_frame(screen->window->content_view, screen->window->frame);
-		set_border_width(screen->window, 0);
-		desktop_setup(screen);
-
-		//add FPS tracker
-		fps = create_label(rect_make(point_make(3, 3), size_make(300, 50)), "FPS counter");
-		fps->text_color = color_black();
-		add_sublabel(screen->window->content_view, fps);
-
-		//start refresh loop
-		setup_vesa_screen_refresh(screen, 100);
-		//refresh once now so we don't wait for the first tick
-		vesa_screen_refresh(screen);
-
+		
 		kernel_end_critical();
 
 		return screen;

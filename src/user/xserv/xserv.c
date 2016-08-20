@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <std/math.h>
 #include <std/panic.h>
+#include <std/std.h>
 
 //has the screen been modified this refresh?
 static char dirtied = 0;
@@ -175,13 +176,6 @@ void draw_window(Screen* screen, Window* window) {
 		Label* title_label = (Label*)array_m_lookup(window->title_view->labels, 0);
 		title_label->text = window->title;
 		draw_view(screen, window->title_view);
-
-		//put a small red square in top left corner of the window
-		if (window->frame.size.width > 25 && window->frame.size.height > 25) {
-			double close_rad = 3;
-			Circle close_button = circle_make(point_make(window->frame.origin.x + close_rad * 2, absolute_frame(screen, title_label).origin.y + close_rad), close_rad);
-			draw_circle(screen, close_button, color_red(), THICKNESS_FILLED);
-		}
 	}
 
 	//only draw the content view if content_view exists
@@ -191,7 +185,7 @@ void draw_window(Screen* screen, Window* window) {
 		//draw dividing border between window border and other content
 		if (window->border_width) {
 			//outer border
-			Rect outer_border = rect_make(absolute_frame(screen, window).origin, size_make(absolute_frame(screen, window).size.width, absolute_frame(screen, window).size.height));
+			Rect outer_border = rect_make(absolute_frame(screen, (View*)window).origin, size_make(absolute_frame(screen, (View*)window).size.width, absolute_frame(screen, (View*)window).size.height));
 			draw_rect(screen, outer_border, color_black(), 1);
 			
 			//inner border
@@ -249,13 +243,15 @@ void draw_desktop(Screen* screen) {
 	
 	//paint every child window
 	for (unsigned i = 0; i < screen->window->subviews->size; i++) {
-		Window* win = (Window*)(array_m_lookup(screen->window->subviews, 0));
+		Window* win = (Window*)(array_m_lookup(screen->window->subviews, i));
 		draw_window(screen, win);
 	}
 }
 
 void desktop_setup(Screen* screen) {
-	screen->window->content_view->background_color = color_make(80, 200, 245);
+	//set up background image
+	Bmp* background = load_bmp(screen->window->content_view->frame, "windows-xp.bmp");
+	add_bmp(screen->window->content_view, background);
 	add_status_bar(screen);
 	add_taskbar(screen);
 }
@@ -269,4 +265,70 @@ char xserv_draw(Screen* screen) {
 	screen->finished_drawing = 1;
 
 	return dirtied;
+}
+
+static Label* fps;
+void xserv_refresh(Screen* screen) {
+	//check if there are any keys pending
+	while (haskey()) {
+		char ch = getchar();
+		if (ch == 'q') {
+			//quit xserv
+			gfx_teardown(screen);
+			switch_to_text();
+			return;
+		}
+	}
+
+	if (!screen->finished_drawing) return;
+
+	//if no changes occured this refresh, don't bother writing the screen
+	/*
+	if (xserv_draw(screen)) {
+		write_screen(screen);
+	}
+	*/
+
+	double timestamp = 0; //current frame timestamp
+	//static double time_prev = 0; //prev frame timestamp
+	double time_start = time();
+	
+	xserv_draw(screen);
+
+	timestamp = time();
+	double frame_time = (timestamp - time_start) / 1000.0;
+	//update frame time tracker 
+	char buf[32];
+	itoa(frame_time * 100000, &buf);
+	strcat(buf, " ns/frame");
+	fps->text = buf;
+	draw_label(screen, fps);
+
+	write_screen(screen);
+}
+
+void xserv_refresh_setup(Screen* screen, double interval) {
+	screen->callback = add_callback((void*)xserv_refresh, interval, true, screen);
+}
+
+void xserv_init() {
+	//switch to VESA for x serv
+	Screen* screen = switch_to_vesa(0x118);
+	
+	set_frame(screen->window->title_view, rect_make(point_make(0, 0), size_make(0, 0)));
+	set_frame(screen->window->content_view, screen->window->frame);
+	set_border_width(screen->window, 0);
+	desktop_setup(screen);
+
+	//add FPS tracker
+	fps = create_label(rect_make(point_make(3, 3), size_make(300, 50)), "FPS counter");
+	fps->text_color = color_black();
+	add_sublabel(screen->window->content_view, fps);
+		
+	//start refresh loop
+	xserv_refresh_setup(screen, 100);
+	//refresh once now so we don't wait for the first tick
+	xserv_refresh(screen);
+
+	test_xserv(screen);
 }

@@ -209,9 +209,7 @@ void startx_command() {
 	gfx_teardown(vga_screen);
 	switch_to_text();
 
-	//switch to VESA for x serv
-	Screen* vesa_screen = switch_to_vesa(0x118);
-	test_xserv(vesa_screen);
+	xserv_init();
 }
 
 void ls_command() {
@@ -241,7 +239,7 @@ void cat_command(int argc, char** argv) {
 		printf_err("File %s not found");
 		return;
 	}
-	char filebuf[2048];
+	uint8_t filebuf[2048];
 	memset(filebuf, 0, 2048);
 	uint32_t sz = read_fs(node, 0, 2048, filebuf);
 	for (int i = 0; i < sz; i++) {
@@ -260,7 +258,7 @@ void hex_command(int argc, char** argv) {
 		printf_err("File %s not found");
 		return;
 	}
-	char filebuf[8];
+	uint8_t filebuf[8];
 	memset(filebuf, 0, 8);
 	uint32_t sz = read_fs(node, 0, 8, filebuf);
 	for (int i = 0; i < sz; i++) {
@@ -299,6 +297,34 @@ void pwd_command() {
 		printf("%s/", array_m_lookup(parents, i));
 	}
 	printf("%s", current_dir->name);
+}
+
+void open_command(int argc, char** argv) {
+	if (argc < 2) {
+		printf_err("Please specify a directory");
+		return;
+	}
+
+	loader_init();
+	elf_init();
+
+	uint8_t* name = argv[1];
+	fs_node_t* file = finddir_fs(current_dir, name);
+	if (file) {
+		uint8_t* filebuf = (uint8_t*)kmalloc(sizeof(uint8_t) * 8192);
+		memset(filebuf, 0, 8192);
+		//fs_node_t* file = fopen(name, 0);
+		uint32_t sz = read_fs(file, 0, 8192, filebuf);
+
+		//if (!fork(PRIO_MED)) {
+			exec_start(filebuf);
+			//in case the above ever returns
+			printf_err("exec_start returned!");
+			while (1) {}
+		//}
+		return;
+	}
+	printf_err("File %s not found", name);
 }
 
 void shell_init() {

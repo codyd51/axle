@@ -4,6 +4,7 @@
 #include <gfx/lib/gfx.h>
 #include <gfx/lib/shapes.h>
 
+void xserv_init();
 void desktop_setup(Screen* screen);
 char xserv_draw(Screen* screen);
 
