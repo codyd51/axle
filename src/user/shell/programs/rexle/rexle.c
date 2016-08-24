@@ -2,6 +2,7 @@
 #include <gfx/lib/gfx.h>
 #include <gfx/lib/view.h>
 #include <gfx/lib/shapes.h>
+#include <gfx/lib/rect.h>
 #include <stdint.h>
 #include <std/std.h>
 #include <std/math.h>
@@ -10,6 +11,8 @@
 #include <kernel/drivers/vga/vga.h>
 #include <kernel/drivers/rtc/clock.h>
 #include <kernel/util/kbman/kbman.h>
+#include <kernel/drivers/vesa/vesa.h>
+#include "map2.h"
 
 typedef enum {
 	WALL_NONE = 0,
@@ -29,35 +32,6 @@ typedef enum {
 	WALL_WHITE	= 14,
 } WALL_TYPE;
 
-#define map_width 24
-#define map_height 24
-int world[map_width][map_height] = 
-{
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,2,2,2,2,2,0,0,0,0,3,0,3,0,3,0,0,0,1},
-  {1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,3,0,3,0,3,0,0,0,1},
-  {1,0,0,0,0,0,2,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,2,2,0,2,2,0,0,0,0,3,0,3,0,3,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,1},
-  {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,1},
-  {1,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,8,0,0,0,0,0,0,1},
-  {1,4,0,4,0,0,0,0,4,0,0,0,0,0,0,0,0,9,0,0,0,0,0,1},
-  {1,4,0,0,0,0,5,0,4,0,0,0,0,0,0,0,0,0,10,0,0,0,0,1},
-  {1,4,0,4,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,11,0,0,0,1},
-  {1,4,0,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,12,0,0,1},
-  {1,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,13,0,1},
-  {1,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,0,0,0,0,14,1},
-  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
-};
 
 typedef struct Vec2d {
 	double x;
@@ -71,98 +45,30 @@ Vec2d vec2d(double x, float y) {
 	return vec;
 }
 
-float wave(float x, float amount) {
-	return (sin(x*amount) + 1.) * .5;
-}
-
-#define tex_width 64
-#define tex_height 64
-array_m* sample_tex_create(Size screen_size) {
-	array_m* textures = array_m_create(32);
-	//initialize raw Color arrays
-	for (int i = 0; i < textures->max_size; i++) {
-		Color** raw = kmalloc(sizeof(Color*) * tex_width);
-		for (int i = 0; i < tex_height; i++) {
-			Color* row = kmalloc(sizeof(Color) * tex_width);
-			raw[i] = row;
-		}
-		Bmp* tex = create_bmp(rect_make(point_make(0, 0), size_make(tex_width, tex_height)), raw);
-		array_m_insert(textures, tex);
-	}
-	for (int tex_idx = 0; tex_idx < textures->max_size; tex_idx++) {
-		Bmp* bmp = array_m_lookup(textures, tex_idx);
-		for (int x = 0; x < tex_width; x++) {
-			for (int y = 0; y < tex_height; y++) {
-				switch (tex_idx) {
-					Vec2d uv = vec2d(x / (double)(tex_width), x / (double)(tex_height));
-					case WALL_1: {
-						if ((x % 32) == 16 || (y % 16) == 8) {
-							bmp->raw[x][y] = color_gray();
-						}
-						else bmp->raw[x][y] = color_make(220, 40, 40);
-					} break;
-					case WALL_2: {
-						if (x == y || (tex_width - x == y)) {
-							bmp->raw[x][y] = color_white();
-						}
-						else bmp->raw[x][y] = color_make(130, 220, 50);
-					} break;
-					case WALL_3: {
-						bmp->raw[x][y] = color_make(x * (255/(double)tex_width), y * (255/(double)tex_width), 100);
-					} break;
-					case WALL_4: {
-						if ((x % 32) <= 16) {
-							if ((y % 32) <= 16) {
-								bmp->raw[x][y] = color_purple();
-							}
-							else bmp->raw[x][y] = color_gray();
-						}
-						else {
-							if ((y % 32) <= 16) {
-								bmp->raw[x][y] = color_gray();
-							}
-							else bmp->raw[x][y] = color_purple();
-						}
-					} break;
-					case WALL_5:
-					case WALL_RED:
-						bmp->raw[x][y] = color_make(220, 40, 40);
-						break;
-					case WALL_ORANGE:
-						bmp->raw[x][y] = color_make(130, 220, 50);
-						break;
-					case WALL_YELLOW:
-						bmp->raw[x][y] = color_make(230, 170, 100);
-						break;
-					case WALL_GREEN:
-						bmp->raw[x][y] = color_make(130, 50, 220);
-						break;
-					case WALL_BLUE:
-					case WALL_PURPLE:
-						bmp->raw[x][y] = color_make(130, 50, 220);
-						break;
-					default: {
-						double xorcolor = (x * 256 / tex_width) ^ (y * 256 / tex_height);
-						bmp->raw[x][y] = color_make(xorcolor, xorcolor, xorcolor);
-					} break;
-				}
-			}
-		}
-	}
-	return textures;
-}
-
 int rexle() {
 	//switch graphics modes
 	Screen* screen = switch_to_vesa(0x112);
+	//Screen* screen = switch_to_vga();
 	Size screen_size = screen->window->frame.size;
 
 	//initialize textures
-	array_m* textures = sample_tex_create(screen_size);
+	array_m* textures = array_m_create(16);
+	Bmp* bmp = load_bmp(rect_make(point_make(0, 0), size_make(100, 100)), "wood.bmp");
+	array_m_insert(textures, bmp);
+	bmp = load_bmp(rect_make(point_make(0, 0), size_make(100, 100)), "bluestone.bmp");
+	array_m_insert(textures, bmp);
+	bmp = load_bmp(rect_make(point_make(0, 0), size_make(100, 100)), "colorstone.bmp");
+	array_m_insert(textures, bmp);
+	bmp = load_bmp(rect_make(point_make(0, 0), size_make(100, 100)), "redbrick.bmp");
+	array_m_insert(textures, bmp);
+	bmp = load_bmp(rect_make(point_make(0, 0), size_make(100, 100)), "eagle.bmp");
+	array_m_insert(textures, bmp);
+	bmp = load_bmp(rect_make(point_make(0, 0), size_make(100, 100)), "mossy.bmp");
+	array_m_insert(textures, bmp);
 
 	//FPS counter
 	Label* fps = create_label(rect_make(point_make(3, 3), size_make(300, 50)), "FPS Counter");
-	fps->text_color = color_black();
+	fps->text_color = color_white();
 	add_sublabel(screen->window->content_view, fps);
 
 	//Memory usage tracker
@@ -173,9 +79,9 @@ int rexle() {
 	double timestamp = 0; //current frame timestamp
 	double time_prev = 0; //prev frame timestamp
 
-	Vec2d pos = vec2d(22, 12); //starting position
-	Vec2d dir = vec2d(-1, 0); //direction vector
-	Vec2d plane = vec2d(0, 0.66); //2d raycaster version of camera plane
+	Vec2d pos = vec2d(22.0, 12.0); //starting position
+	Vec2d dir = vec2d(-1.01, 0.01); //direction vector
+	Vec2d plane = vec2d(0.0, 0.66); //2d raycaster version of camera plane
 
 	bool running = 1;
 	while (running) {
@@ -250,8 +156,11 @@ int rexle() {
 			if (end >= screen_size.height) end = screen_size.height - 1;
 
 			//texture rendering
-			int tex_idx = world[(int)map_pos.x][(int)map_pos.y];
-			Bmp* tex = array_m_lookup(textures, tex_idx);
+			int tex_idx = world[(int)map_pos.x][(int)map_pos.y] - 1;
+			Bmp* tex = (Bmp*)array_m_lookup(textures, tex_idx % textures->size);
+			int tex_width = tex->raw_size.width;
+			int tex_height = tex->raw_size.height;
+
 			//calculate where wall was hit
 			double wall_x;
 			if (!side) wall_x = ray_pos.y + perp_wall_dist * ray_dir.y;
@@ -268,7 +177,7 @@ int rexle() {
 				int tex_y = ((d * tex_height) / line_h) / 256;
 
 				//we have x and y, find color at this point in texture
-				Color col = tex->raw[tex_x % tex_width][tex_y % tex_height];
+				Color col = tex->raw[tex_y % tex_height][tex_x % tex_width];
 				//make color darker if far side
 				if (side) {
 					col.val[0] /= 2;
@@ -281,16 +190,11 @@ int rexle() {
 
 			//draw ceiling above this ray
 			Line ceiling = line_make(point_make(x, 0), point_make(x, start));
-			draw_line(screen, ceiling, color_make(140, 140, 60), 1);
+			draw_line(screen, ceiling, color_make(130, 40, 100), 1);
 
 			//draw floor below the ray
 			Line floor = line_make(point_make(x, end), point_make(x, screen_size.height));
 			draw_line(screen, floor, color_make(190, 190, 190), 1);
-			
-			//draw borders
-			Color border = color_black();
-			putpixel(screen, x, start, border);
-			putpixel(screen, x, end, border);
 		}
 
 		//timing
