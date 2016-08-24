@@ -87,20 +87,6 @@ void vsync() {
 	do {} while (!(inb(0x3DA) & 8));
 }
 
-void putpixel(Screen* screen, int x, int y, Color color) {
-	//don't attempt writing a pixel outside of screen bounds
-	if (x >= screen->window->size.width || y >= screen->window->size.height) return;
-
-	if (screen->depth == VGA_DEPTH) {
-		//VGA mode
-		putpixel_vga(screen, x, y, color);
-	}
-	else if (screen->depth == VESA_DEPTH) {
-		//VESA mode
-		putpixel_vesa(screen, x, y, color);
-	}
-}
-
 void fill_screen(Screen* screen, Color color) {
 	for (int loc = 0; loc < (screen->window->size.width * screen->window->size.height * (screen->depth / 8)); loc += (screen->depth / 8)) {
 		memcpy(&screen->vmem[loc], (const void*)color.val[0], (screen->depth / 8) * sizeof(uint8_t));
@@ -108,7 +94,7 @@ void fill_screen(Screen* screen, Color color) {
 }
 
 void write_screen(Screen* screen) {
-	vsync();
+	//vsync();
 	memcpy((char*)screen->physbase, screen->vmem, (screen->window->size.width * screen->window->size.height * (screen->depth / 8)));
 }
 
@@ -141,7 +127,7 @@ void vga_boot_screen(Screen* screen) {
 	tri_col.val[0] = 2;
 	draw_triangle(screen, triangle, tri_col, 5);
 
-	Coordinate lab_origin = point_make(screen->window->size.width / 2 - 35, screen->window->size.height * 0.5);
+	Coordinate lab_origin = point_make(screen->window->size.width / 2 - (3.75 * 8), screen->window->size.height * 0.5);
 	Size lab_size = size_make((10 * strlen("axle os")), 12);
 	Label* label = create_label(rect_make(lab_origin, lab_size), "axle os");
 	label->text_color = color_make(2, 0, 0);

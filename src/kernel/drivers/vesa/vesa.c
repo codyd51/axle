@@ -91,11 +91,3 @@ Screen* switch_to_vesa(uint32_t vesa_mode) {
 
 		return screen;
 }
-
-void putpixel_vesa(Screen* screen, int x, int y, Color color) {
-		int offset = x * (screen->depth / 8) + y * (screen->window->size.width * (screen->depth / 8));
-		//we have to write the pixels in BGR, not RGB
-		screen->vmem[offset + 0] = color.val[2];
-		screen->vmem[offset + 1] = color.val[1];
-		screen->vmem[offset + 2] = color.val[0];
-}
