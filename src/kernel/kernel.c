@@ -99,6 +99,12 @@ uint32_t module_detect(multiboot* mboot_ptr) {
 	return initrd_loc;
 }
 
+void thread() {
+	while (1) {
+		printf("%d ", getpid());
+		sleep(50);
+	}
+}
 
 void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	initial_esp = initial_stack;
@@ -120,15 +126,15 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	//find grub modules
 	uint32_t initrd_loc = module_detect(mboot_ptr);
-
+	
 	paging_install();
-	syscall_install();
+	sys_install();
 	tasking_install();
 	kb_install();
 
 	//initialize initrd, and set as fs root
 	fs_root = initrd_install(initrd_loc);
-
+	
 	test_heap();
 
 	//set up info panel
@@ -144,6 +150,8 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	//in case the shell ever exits, just spin
 	while (1) {}
+
+	ASSERT(0, "Kernel exited");
 }
 
 

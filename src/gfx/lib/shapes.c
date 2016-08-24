@@ -120,25 +120,21 @@ void draw_rect(Screen* screen, Rect r, Color color, int thickness) {
 }
 
 void draw_hline_fast(Screen* screen, Line line, Color color, int thickness) {
-	for (int i = 0; i < thickness; i++) {
-		//calculate starting point
-		//increment y for next thickness since this line is horizontal
-		int loc = (line.p1.x * screen->depth / 8) + ((line.p1.y + i) * (screen->depth / 8));
-		for (int j = 0; j < (line.p2.x - line.p1.x); j++) {
-			putpixel(screen, line.p1.x + j, line.p1.y, color);
-		}
+	//calculate starting point
+	//increment y for next thickness since this line is horizontal
+	int loc = (line.p1.x * screen->depth / 8) + ((line.p1.y + i) * (screen->depth / 8));
+	for (int j = 0; j < (line.p2.x - line.p1.x); j++) {
+		putpixel(screen, line.p1.x + j, line.p1.y, color);
 	}
 }
 
 void draw_vline_fast(Screen* screen, Line line, Color color, int thickness) {
-	for (int i = 0; i < thickness; i++) {
-		//calculate starting point
-		//increment x for next thickness since line is vertical
-		uint16_t loc = (line.p1.y * screen->window->size.width) + (line.p1.x + i);
-		for (int j = 0; j < (line.p2.y - line.p1.y); j++) {
-			putpixel(screen, line.p1.x, line.p1.y + j, color);
-		}
-		
+	//calculate starting point
+	//increment y for next thickness since this line is vertical 
+	int loc = (line.p1.x * screen->depth / 8) + (line.p1.y * (screen->depth / 8));
+	int end =  line.p2.y - line.p1.y;
+	for (int i = 0; i < end; i++) {
+		putpixel(screen, line.p1.x, line.p1.y + i, color);
 	}
 }
 

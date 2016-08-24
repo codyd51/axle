@@ -62,7 +62,7 @@ unsigned char kbdus[128] =
 
 void add_character_to_buffer(char ch) {
 	lock(mutex);
-	array_m_insert(kb_buffer, &ch);
+	array_m_insert(kb_buffer, ch);
 	unlock(mutex);
 }
 
@@ -112,6 +112,7 @@ void kb_callback(registers_t regs) {
 				mappedchar = toupper(mappedchar);
 			}
 		}
+
 		add_character_to_buffer(mappedchar);
 	}
 }
@@ -168,7 +169,7 @@ char toupper_special(char character) {
 void kb_install() {
 	printf_info("Initializing keyboard driver...");
 
-	kb_buffer = array_m_create(256);
+	kb_buffer = array_m_create(1024);
 	mutex = lock_create();
 
 	register_interrupt_handler(IRQ1, &kb_callback);
@@ -182,12 +183,14 @@ int haskey() {
 char kgetch() {
 	lock(mutex);
 
+	if (!haskey()) return NULL;
+
 	//return last character from KB buffer, and remove that character
-	char* ret = (char*)array_m_lookup(kb_buffer, kb_buffer->size - 1);
-	array_m_remove(kb_buffer, kb_buffer->size - 1);
+	char ret = (char)array_m_lookup(kb_buffer, kb_buffer->size - 1);
+	array_m_remove(kb_buffer, array_m_index(kb_buffer, ret));
 	
 	unlock(mutex);
-	return *ret;
+	return ret;
 }
 
 //blocks until character is received

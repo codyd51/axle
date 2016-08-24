@@ -29,7 +29,7 @@ void kbman_process(char c) {
 void kbman_process_release(char c) {
 	//ensure all instances of this key are removed
 	while (key_down(c)) {
-		array_m_remove(keys_down, c);	
+		array_m_remove(keys_down, array_m_index(keys_down, (type_t*)c));	
 	}
 }
 

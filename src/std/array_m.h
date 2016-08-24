@@ -10,13 +10,13 @@ typedef void* type_t;
 
 typedef struct {
 	type_t* array;
-	uint32_t size;
-	uint32_t max_size;
+	int32_t size;
+	int32_t max_size;
 } array_m;
 
 //create mutable array
-STDAPI array_m* array_m_create(uint32_t max_size);
-STDAPI array_m* array_m_place(void* addr, uint32_t max_size);
+STDAPI array_m* array_m_create(int32_t max_size);
+STDAPI array_m* array_m_place(void* addr, int32_t max_size);
 
 //destroy mutable array
 STDAPI void array_m_destroy(array_m* array);
@@ -25,13 +25,13 @@ STDAPI void array_m_destroy(array_m* array);
 STDAPI void array_m_insert(array_m* array, type_t item);
 
 //lookup item at index i
-STDAPI type_t array_m_lookup(array_m* array, uint32_t i);
+STDAPI type_t array_m_lookup(array_m* array, int32_t i);
 
 //find index of item
-STDAPI uint32_t array_m_index(array_m* array, type_t item);
+STDAPI int32_t array_m_index(array_m* array, type_t item);
 
 //deletes item at location i from the array
-STDAPI void array_m_remove(array_m* array, uint32_t i);
+STDAPI void array_m_remove(array_m* array, int32_t i);
 
 __END_DECLS
 

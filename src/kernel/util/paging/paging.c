@@ -3,6 +3,7 @@
 #include <std/std.h>
 #include <kernel/kernel.h>
 #include <std/printf.h>
+#include <gfx/lib/gfx.h>
 
 //bitset of frames - used or free
 uint32_t* frames;
@@ -44,7 +45,7 @@ void set_cr3(page_directory_t* dir) {
 }
 
 //static function to set a bit in frames bitset
-static void set_frame(uint32_t frame_addr) {
+static void set_bit_frame(uint32_t frame_addr) {
 	uint32_t frame = frame_addr/0x1000;
 	uint32_t idx = INDEX_FROM_BIT(frame);
 	uint32_t off = OFFSET_FROM_BIT(frame);
@@ -89,7 +90,7 @@ void virtual_map_pages(long addr, unsigned long size, uint32_t rw, uint32_t user
 	while (i < (addr + size + 0x1000)) {
 		if (i + size < memsize) {
 			//find first free frame
-			set_frame(first_frame());
+			set_bit_frame(first_frame());
 
 			//set space to taken anyway
 			kmalloc(0x1000);
@@ -105,16 +106,16 @@ void virtual_map_pages(long addr, unsigned long size, uint32_t rw, uint32_t user
 	return;
 }
 
-void vmem_map(uint32_t virtual, uint32_t physical) {
-	uint16_t id = virtual >> 22;
+void vmem_map(uint32_t virt, uint32_t physical) {
+	uint16_t id = virt>> 22;
 	for (int i = 0; i < 0x1000; i++) {
-		page_t* page = get_page(virtual + (i * 0x1000), 1, current_directory);
+		page_t* page = get_page(virt+ (i * 0x1000), 1, current_directory);
 		page->present = 1;
 		page->rw = 1;
 		page->user = 1;
-		page->frame = (virtual + (i * 0x1000)) / 0x1000;
+		page->frame = (virt+ (i * 0x1000)) / 0x1000;
 	}
-	printf_info("Mapping %x (%x) -> %x", virtual, id, physical);
+	printf_info("Mapping %x (%x) -> %x", virt, id, physical);
 }
 
 //function to allocate a frame
@@ -127,7 +128,7 @@ void alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 	if (idx == (uint32_t)-1) {
 		PANIC("No free frames!");
 	}
-	set_frame(idx*0x1000); //frame is now ours
+	set_bit_frame(idx*0x1000); //frame is now ours
 	page->present = 1; //mark as present
 	page->rw = (is_writeable) ? 1 : 0; //should page be writable?
 	page->user = (is_kernel) ? 0 : 1; //should page be user mode?
@@ -153,7 +154,7 @@ void identity_map_lfb(uint32_t location) {
 	while (j < location + (VESA_WIDTH * VESA_HEIGHT * 4)) {
 		//if frame is valid
 		if (j + location + (VESA_WIDTH * VESA_HEIGHT * 4) < memsize) {
-			set_frame(j); //tell frame bitset this frame is in use
+			set_bit_frame(j); //tell frame bitset this frame is in use
 		}
 		//get page
 		page_t* page = get_page(j, 1, kernel_directory);
