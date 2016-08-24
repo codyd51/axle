@@ -46,7 +46,7 @@ __attribute__((always_inline)) void inline putpixel(Screen* screen, int x, int y
 	}
 	else if (screen->depth == VESA_DEPTH) {
 		//VESA mode
-		int bpp = 24 / 8;
+		static int bpp = 24 / 8;
 		int offset = x * bpp + y * screen->window->size.width * bpp;
 		//we have to write the pixels in BGR, not RGB
 		screen->vmem[offset + 0] = color.val[2];

@@ -14,7 +14,6 @@ View* create_view(Rect frame) {
 	view->background_color = color_make(0, 255, 0);
 	view->subviews = array_m_create(MAX_ELEMENTS);
 	view->labels = array_m_create(MAX_ELEMENTS);
-	view->images = array_m_create(MAX_ELEMENTS);
 	view->bmps = array_m_create(MAX_ELEMENTS);
 	view->needs_redraw = 1;
 	return view;
@@ -76,14 +75,6 @@ Label* create_label(Rect frame, char* text) {
 	label->text_color = color_black();
 	label->needs_redraw = 1;
 	return label;
-}
-
-Image* create_image(Rect frame, uint32_t* bitmap) {
-	Image* image = (Image*)kmalloc(sizeof(Image));
-	image->frame = frame;
-	image->bitmap = bitmap;
-	image->needs_redraw = 1;
-	return image;
 }
 
 Button* create_button(Rect frame, char* text) {
@@ -163,20 +154,6 @@ void remove_sublabel(View* view, Label* label) {
 	array_m_remove(view->labels, array_m_index(view->labels, label));
 	label->superview = NULL;
 	label->needs_redraw = 1;
-	mark_needs_redraw(view);
-}
-
-void add_subimage(View* view, Image* image) {
-	array_m_insert(view->images, image);
-	image->superview = view;
-	image->needs_redraw = 1;
-	mark_needs_redraw(view);
-}
-
-void remove_subimage(View* view, Image* image) {
-	array_m_remove(view->images, array_m_index(view->images, image));
-	image->superview = NULL;
-	image->needs_redraw = 1;
 	mark_needs_redraw(view);
 }
 

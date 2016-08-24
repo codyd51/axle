@@ -11,13 +11,18 @@
 #include <kernel/drivers/vesa/vesa.h>
 #include "color.h"
 
-void image_teardown(Image* image) {
-	kfree(image->bitmap);
-	kfree(image);
-}
-
 void label_teardown(Label* label) {
 	kfree(label);
+}
+
+void bmp_teardown(Bmp* bmp) {
+	for (int i = 0; i < bmp->raw_size.height; i++) {
+		//free color row
+		kfree(bmp->raw[i]);
+	}
+	//free rows array
+	kfree(bmp->raw);
+	kfree(bmp);
 }
 
 void view_teardown(View* view) {
@@ -35,12 +40,12 @@ void view_teardown(View* view) {
 	//free sublabels
 	array_m_destroy(view->labels);
 
-	for (int i = 0; i < view->images->size; i++) {
-		Image* image = (Image*)array_m_lookup(view->images, i);
-		image_teardown(image);
+	for (int i = 0; i < view->bmps->size; i++) {
+		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
+		bmp_teardown(bmp);
 	}
-	//free subimages
-	array_m_destroy(view->images);
+	//free bmps
+	array_m_destroy(view->bmps);
 	
 	//finally, free view itself
 	kfree(view);
@@ -64,7 +69,9 @@ void window_teardown(Window* window) {
 
 void gfx_teardown(Screen* screen) {
 	//stop refresh loop for this screen
-	remove_callback(screen->callback);
+	//if (screen->callback) {
+		remove_callback(screen->callback);
+	//}
 
 	//free screen
 	kfree(screen->vmem);
@@ -94,7 +101,7 @@ void fill_screen(Screen* screen, Color color) {
 }
 
 void write_screen(Screen* screen) {
-	//vsync();
+	vsync();
 	memcpy((char*)screen->physbase, screen->vmem, (screen->window->size.width * screen->window->size.height * (screen->depth / 8)));
 }
 
