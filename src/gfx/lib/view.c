@@ -2,17 +2,19 @@
 #include <std/kheap.h>
 #include <gfx/lib/shapes.h>
 #include <stddef.h>
+#include <kernel/util/vfs/fs.h>
+#include <std/printf.h>
 
-#define MAX_ELEMENTS 64
+#define MAX_ELEMENTS 128
 
 View* create_view(Rect frame) {
-	View* view = kmalloc(sizeof(View));
+	View* view = (View*)kmalloc(sizeof(View));
 	view->frame = frame;
 	view->superview = NULL;
 	view->background_color = color_make(0, 255, 0);
 	view->subviews = array_m_create(MAX_ELEMENTS);
 	view->labels = array_m_create(MAX_ELEMENTS);
-	view->images = array_m_create(MAX_ELEMENTS);
+	view->bmps = array_m_create(MAX_ELEMENTS);
 	view->needs_redraw = 1;
 	return view;
 }
@@ -25,9 +27,15 @@ static View* create_title_view(Window* window) {
 	//add title label to title view
 	Rect label_frame = rect_make(point_make(15, 5), title_view_frame.size);
 	Label* title_label = create_label(label_frame, window->title);
-	title_label->text_color = color_make(255, 255, 255);
+	title_label->text_color = color_black();
 	add_sublabel(title_view, title_label);
 
+	/*
+	//add close button
+	int close_rad = 3;
+	Bmp* close_button = load_bmp(rect_make(point_make(close_rad * 2, label_frame.origin.y+ close_rad), size_make(25, 25)), "close.bmp");
+	add_bmp(title_view, close_button);
+	*/
 	return title_view;
 }
 
@@ -43,10 +51,10 @@ static View* create_content_view(Window* window) {
 }
 
 Window* create_window(Rect frame) {
-	Window* window = kmalloc(sizeof(Window));
+	Window* window = (Window*)kmalloc(sizeof(Window));
 	window->size = frame.size;
 	window->frame = frame;
-	window->border_color = color_make(0, 0, 255);
+	window->border_color = color_make(120, 245, 80);
 	window->border_width = 1;
 	window->subviews = array_m_create(MAX_ELEMENTS);
 	window->title = "Window";
@@ -60,21 +68,70 @@ Window* create_window(Rect frame) {
 }
 
 Label* create_label(Rect frame, char* text) {
-	Label* label = kmalloc(sizeof(Label));
+	Label* label = (Label*)kmalloc(sizeof(Label));
 	label->frame = frame;
 	label->text = text;
 	label->superview = NULL;
-	label->text_color = color_make(0, 0, 0);
+	label->text_color = color_black();
 	label->needs_redraw = 1;
 	return label;
 }
 
-Image* create_image(Rect frame, uint32_t* bitmap) {
-	Image* image = kmalloc(sizeof(Image));
-	image->frame = frame;
-	image->bitmap = bitmap;
-	image->needs_redraw = 1;
-	return image;
+Button* create_button(Rect frame, char* text) {
+	View* button = create_view(frame);
+
+	Label* title = create_label(frame, text);
+	add_sublabel(button, title);
+
+	button->needs_redraw = 1;
+	return (Button*)button;
+}
+
+Bmp* create_bmp(Rect frame, Color** raw) {
+	Bmp* bmp = (Bmp*)kmalloc(sizeof(Bmp));
+	bmp->frame = frame;
+	bmp->raw = raw;
+	return bmp;
+}
+
+Bmp* load_bmp(Rect frame, char* filename) {
+	FILE* file = fopen(filename, (char*)"");
+	if (!file) {
+		printf_err("File %s not found! Not loading BMP", filename);
+		return NULL;
+	}
+
+	unsigned char header[54];
+	//TODO replace with fread
+	fread(header, sizeof(char), 54, file);
+
+	//get width and height from header
+	int width = *(int*)&header[18];
+	int height = *(int*)&header[22];
+	printf_dbg("loading BMP with dimensions (%d,%d", width, height);
+
+	Color** raw = (Color**)kmalloc(sizeof(Color*) * height);
+	//for (int i = 0; i < height; i++) {
+	for (int i = height; i >= 0; i--) {
+		Color* row = (Color*)kmalloc(sizeof(Color) * width);
+		raw[i] = row;
+
+		//copy this row into memory
+		//for (int j = 0; j < width; j++) {
+		for (int j = 0; j < width; j++) {
+			Color px;
+			px.val[2] = fgetc(file);
+			px.val[1] = fgetc(file);
+			px.val[0] = fgetc(file);
+			row[j] = px;
+			//fourth byte/px is reversed and should be ignored
+//			fgetc(file);
+		}
+	}
+
+	Bmp* bmp = create_bmp(frame, raw);
+	bmp->raw_size = size_make(width, height);
+	return bmp;
 }
 
 void mark_needs_redraw(View* view) {
@@ -87,43 +144,41 @@ void mark_needs_redraw(View* view) {
 }
 
 void add_sublabel(View* view, Label* label) {
-	array_m_insert(label, &(view->labels));
+	array_m_insert(view->labels, label);
 	label->superview = view;
 	label->needs_redraw = 1;
 	mark_needs_redraw(view);
 }
 
 void remove_sublabel(View* view, Label* label) {
-	array_m_remove(array_m_index(label, &(view->labels)), &(view->labels));
+	array_m_remove(view->labels, array_m_index(view->labels, label));
 	label->superview = NULL;
 	label->needs_redraw = 1;
 	mark_needs_redraw(view);
 }
 
-void add_subimage(View* view, Image* image) {
-	array_m_insert(image, &(view->images));
-	image->superview = view;
-	image->needs_redraw = 1;
-	mark_needs_redraw(view);
-}
-
-void remove_subimage(View* view, Image* image) {
-	array_m_remove(array_m_index(image, &(view->images)), &(view->images));
-	image->superview = NULL;
-	image->needs_redraw = 1;
-	mark_needs_redraw(view);
-}
-
 void add_subview(View* view, View* subview) {
-	array_m_insert(subview, &(view->subviews));
+	array_m_insert(view->subviews, subview);
 	subview->superview = view;
 	mark_needs_redraw(view);
 }
 
 void remove_subview(View* view, View* subview) {
-	array_m_remove(array_m_index(subview, &(view->subviews)), &(view->subviews));
+	array_m_remove(view->subviews, array_m_index(view->subviews, subview));
 	subview->superview = NULL;
 	subview->needs_redraw = 1;
+	mark_needs_redraw(view);
+}
+
+void add_bmp(View* view, Bmp* bmp) {
+	array_m_insert(view->bmps, bmp);
+	bmp->superview = view;
+	mark_needs_redraw(view);
+}
+
+void remove_bmp(View* view, Bmp* bmp) {
+	array_m_remove(view->bmps, array_m_index(view->bmps, bmp));
+	bmp->superview = NULL;
 	mark_needs_redraw(view);
 }
 
@@ -133,20 +188,20 @@ void set_background_color(View* view, Color color) {
 }
 
 void add_subwindow(Window* window, Window* subwindow) {
-	array_m_insert(subwindow, &(window->subviews));
+	array_m_insert(window->subviews, subwindow);
 	subwindow->superview = window;
-	mark_needs_redraw(window);
+	mark_needs_redraw((View*)window);
 }
 
 void remove_subwindow(Window* window, Window* subwindow) {
-	array_m_remove(array_m_index(subwindow, &(window->subviews)), &(window->subviews));
+	array_m_remove(window->subviews, array_m_index(window->subviews, subwindow));
 	subwindow->superview = NULL;
-	mark_needs_redraw(window);
+	mark_needs_redraw((View*)window);
 }
 
 void set_border_width(Window* window, int width) {
 	window->border_width = width;
-	mark_needs_redraw(window);
+	mark_needs_redraw((View*)window);
 }
 
 void set_frame(View* view, Rect frame) {

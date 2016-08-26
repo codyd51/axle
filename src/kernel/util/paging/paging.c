@@ -32,10 +32,10 @@ void set_cr0(uint32_t cr0) {
 	asm volatile("mov %0, %%cr0" : : "r"(cr0));
 }
 
-page_table_t* get_cr3() {
+page_directory_t* get_cr3() {
 	uint32_t cr3;
 	asm volatile("mov %%cr3, %0" : "=r"(cr3));
-	return cr3;
+	return (page_directory_t*)cr3;
 }
 
 void set_cr3(page_directory_t* dir) {
@@ -45,7 +45,7 @@ void set_cr3(page_directory_t* dir) {
 }
 
 //static function to set a bit in frames bitset
-static void set_frame(uint32_t frame_addr) {
+static void set_bit_frame(uint32_t frame_addr) {
 	uint32_t frame = frame_addr/0x1000;
 	uint32_t idx = INDEX_FROM_BIT(frame);
 	uint32_t off = OFFSET_FROM_BIT(frame);
@@ -90,7 +90,7 @@ void virtual_map_pages(long addr, unsigned long size, uint32_t rw, uint32_t user
 	while (i < (addr + size + 0x1000)) {
 		if (i + size < memsize) {
 			//find first free frame
-			set_frame(first_frame());
+			set_bit_frame(first_frame());
 
 			//set space to taken anyway
 			kmalloc(0x1000);
@@ -106,6 +106,18 @@ void virtual_map_pages(long addr, unsigned long size, uint32_t rw, uint32_t user
 	return;
 }
 
+void vmem_map(uint32_t virt, uint32_t physical) {
+	uint16_t id = virt>> 22;
+	for (int i = 0; i < 0x1000; i++) {
+		page_t* page = get_page(virt+ (i * 0x1000), 1, current_directory);
+		page->present = 1;
+		page->rw = 1;
+		page->user = 1;
+		page->frame = (virt+ (i * 0x1000)) / 0x1000;
+	}
+	printf_info("Mapping %x (%x) -> %x", virt, id, physical);
+}
+
 //function to allocate a frame
 void alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 	if (page->frame != 0) {
@@ -116,7 +128,7 @@ void alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 	if (idx == (uint32_t)-1) {
 		PANIC("No free frames!");
 	}
-	set_frame(idx*0x1000); //frame is now ours
+	set_bit_frame(idx*0x1000); //frame is now ours
 	page->present = 1; //mark as present
 	page->rw = (is_writeable) ? 1 : 0; //should page be writable?
 	page->user = (is_kernel) ? 0 : 1; //should page be user mode?
@@ -142,7 +154,7 @@ void identity_map_lfb(uint32_t location) {
 	while (j < location + (VESA_WIDTH * VESA_HEIGHT * 4)) {
 		//if frame is valid
 		if (j + location + (VESA_WIDTH * VESA_HEIGHT * 4) < memsize) {
-			set_frame(j); //tell frame bitset this frame is in use
+			set_bit_frame(j); //tell frame bitset this frame is in use
 		}
 		//get page
 		page_t* page = get_page(j, 1, kernel_directory);
@@ -191,8 +203,6 @@ void paging_install() {
 	uint32_t vesa_mem_addr = 0xFD000000; //TODO replace with function
 	identity_map_lfb(vesa_mem_addr);
 
-	printf_dbg("Identity mapped VESA LFB");
-
 	//map pages in kernel heap area
 	//we call get_page but not alloc_frame
 	//this causes page_table_t's to be created where necessary
@@ -202,7 +212,6 @@ void paging_install() {
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
 		get_page(i, 1, kernel_directory);
 	}
-	printf_dbg("map kernel pages");
 
 	//we need to identity map (phys addr = virtual addr) from
 	//0x0 to end of used memory, so we can access this
@@ -216,7 +225,6 @@ void paging_install() {
 		alloc_frame(get_page(idx, 1, kernel_directory), 0, 0);
 		idx += 0x1000;
 	}
-	printf_dbg("identity map kernel pages");
 
 	//allocate pages we mapped earlier
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
@@ -229,12 +237,8 @@ void paging_install() {
 	//enable paging
 	switch_page_directory(kernel_directory);
 
-	printf_dbg("switch_page_directory");
-
 	//turn on paging
 	set_paging_bit(true);
-
-	printf_dbg("paging enabled");
 
 	//initialize kernel heap
 	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, KHEAP_START + KHEAP_MAX_ADDRESS, 0, 0);
@@ -314,6 +318,7 @@ static void page_fault(registers_t regs) {
 		return;
 	}
 
+	extern void common_halt(registers_t regs);
 	common_halt(regs);
 }
 
@@ -337,6 +342,8 @@ static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
 		if (src->pages[i].accessed) table->pages[i].accessed = 1;
 		if (src->pages[i].dirty) table->pages[i].dirty = 1;
 		//physically copy data across
+		
+		extern void copy_page_physical(uint32_t page, uint32_t dest);
 		copy_page_physical(src->pages[i].frame * 0x1000, table->pages[i].frame * 0x1000);
 	}
 	return table;

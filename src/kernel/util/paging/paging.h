@@ -38,12 +38,18 @@ void paging_install();
 
 //causes passed page directory to be loaded into 
 //CR3 register
-void switch_page_directory(page_directory_t* new);
+void switch_page_directory(page_directory_t* new_dir);
 
 //retrieves pointer to page required
 //if make == 1, if the page-table in which this page should
 //reside isn't created, create it
 page_t* get_page(uint32_t address, int make, page_directory_t* dir);
+
+//retrieves current cr3 (current paging dir)
+page_directory_t* get_cr3();
+
+//maps physical range to virtual memory
+void vmem_map(uint32_t virt, uint32_t physical);
 
 void alloc_frame(page_t* page, int is_kernel, int is_writeable);
 void free_frame(page_t* page);

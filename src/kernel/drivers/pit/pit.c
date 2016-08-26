@@ -13,7 +13,7 @@ extern void handle_tick(uint32_t tick);
 
 extern void switch_task();
 
-static void tick_callback() {
+static void tick_callback(registers_t regs) {
 	tick++;
 
 	handle_tick(tick);

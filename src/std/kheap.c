@@ -14,6 +14,7 @@ extern page_directory_t* kernel_directory;
 extern page_directory_t* current_directory;
 
 heap_t* kheap = 0;
+static uint32_t used_bytes;
 
 uint32_t kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
 	//if the heap already exists, pass through
@@ -63,8 +64,8 @@ void kfree(void* p) {
 static int32_t find_smallest_hole(uint32_t size, uint8_t align, heap_t* heap) {
 	//find smallest hole that will fit
 	uint32_t iterator = 0;
-	while (iterator < heap->index.size) {
-		header_t* header = (header_t*)array_o_lookup(iterator, &heap->index);
+	while (iterator < heap->index->size) {
+		header_t* header = (header_t*)array_o_lookup(heap->index, iterator);
 
 		//check if magic is valid
 		ASSERT(header->magic == HEAP_MAGIC, "invalid header magic");
@@ -89,7 +90,7 @@ static int32_t find_smallest_hole(uint32_t size, uint8_t align, heap_t* heap) {
 	}
 
 	//why did the loop exit?
-	if (iterator == heap->index.size) {
+	if (iterator == heap->index->size) {
 		//reached end of index and didn't find any holes small enough
 		return -1;
 	}
@@ -133,7 +134,7 @@ heap_t* create_heap(uint32_t start, uint32_t end_addr, uint32_t max, uint8_t sup
 	hole->size = end_addr - start;
 	hole->magic = HEAP_MAGIC;
 	hole->hole = 1;
-	array_o_insert((void*)hole, &heap->index);
+	array_o_insert(heap->index, (void*)hole);
 
 	return heap;
 }
@@ -205,8 +206,8 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		//hold index of and value of endmost header found so far
 		uint32_t idx = -1;
 		uint32_t val = 0x0;
-		while (iterator < heap->index.size) {
-			uint32_t tmp = (uint32_t)array_o_lookup(iterator, &heap->index);
+		while (iterator < heap->index->size) {
+			uint32_t tmp = (uint32_t)array_o_lookup(heap->index, iterator);
 			if (tmp > val) {
 				val = tmp;
 				idx = iterator;
@@ -224,11 +225,11 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 			footer_t* footer = (footer_t*)(old_end_address + header->size - sizeof(footer_t));
 			footer->magic = HEAP_MAGIC;
 			footer->header = header;
-			array_o_insert((void*)header, &heap->index);
+			array_o_insert(heap->index, (void*)header);
 		}
 		else {
 			//last header needs adjusting
-			header_t* header = array_o_lookup(idx, &heap->index);
+			header_t* header = (header_t*)array_o_lookup(heap->index, idx);
 			header->size += new_length - old_length;
 
 			//rewrite footer
@@ -242,7 +243,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		return alloc(size, align, heap);
 	}
 
-	header_t* orig_hole_header = (header_t*)array_o_lookup(iterator, &heap->index);
+	header_t* orig_hole_header = (header_t*)array_o_lookup(heap->index, iterator);
 	uint32_t orig_hole_pos = (uint32_t)orig_hole_header;
 	uint32_t orig_hole_size = orig_hole_header->size;
 
@@ -271,7 +272,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 	}
 	else {
 		//we don't need this hole any more, delete it from index
-		array_o_remove(iterator, &heap->index);
+		array_o_remove(heap->index, iterator);
 	}
 
 	//overwrite original header
@@ -300,8 +301,11 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		}
 
 		//put new hole in index
-		array_o_insert((void*)hole_header, &heap->index);
+		array_o_insert(heap->index, (void*)hole_header);
 	}
+
+	//add this allocation to used memory 
+	used_bytes += size;
 
 	return (void*)((uint32_t)block_header + sizeof(header_t));
 }
@@ -316,6 +320,9 @@ void free(void* p, heap_t* heap) {
 	//ensure these are valid
 	ASSERT(header->magic == HEAP_MAGIC, "invalid header magic in %x", p);
 	ASSERT(footer->magic == HEAP_MAGIC, "invalid footer magic in %x", p);
+
+	//we're about to free this memory, untrack it from used memory
+	used_bytes -= header->size;
 
 	//turn this into a hole
 	header->hole = 1;
@@ -344,15 +351,15 @@ void free(void* p, heap_t* heap) {
 
 		//find and remove this header from index
 		uint32_t iterator = 0;
-		while ((iterator < heap->index.size) && (array_o_lookup(iterator, &heap->index) != (void*)test_header)) {
+		while ((iterator < heap->index->size) && (array_o_lookup(heap->index, iterator) != (void*)test_header)) {
 			iterator++;
 		}
 
 		//ensure we actually found the item
-		ASSERT(iterator < heap->index.size, "couldn't find item!");
+		ASSERT(iterator < heap->index->size, "couldn't find item!");
 
 		//header is fake, delete it and process as if there was nothing
-		if (iterator > heap->index.size) {
+		if (iterator > heap->index->size) {
 			//delete fake header
 			test_header->magic = 0;
 			test_header->hole = 1;
@@ -364,7 +371,7 @@ void free(void* p, heap_t* heap) {
 			test_footer = (footer_t*)((uint32_t)test_header + test_header->size - sizeof(footer_t));
 			footer = test_footer;
 			//remove it
-			array_o_remove(iterator, &heap->index);
+			array_o_remove(heap->index, iterator);
 		}
 	}
 
@@ -384,19 +391,23 @@ void free(void* p, heap_t* heap) {
 			//we no longer exist
 			//remove us from index
 			uint32_t iterator = 0;
-			while ((iterator < heap->index.size) && (array_o_lookup(iterator, &heap->index) != (void*)test_header)) {
+			while ((iterator < heap->index->size) && (array_o_lookup(heap->index, iterator) != (void*)test_header)) {
 				iterator++;
 			}
 
 			//if we didn't find ourselves, we have nothing to remove
-			if (iterator < heap->index.size) {
-				array_o_remove(iterator, &heap->index);
+			if (iterator < heap->index->size) {
+				array_o_remove(heap->index, iterator);
 			}
 		}
 	}
 
 	if (add == 1) {
-		array_o_insert((void*)header, &heap->index);
+		array_o_insert(heap->index, (void*)header);
 	}
+}
+
+uint32_t used_mem() {
+	return used_bytes;
 }
 

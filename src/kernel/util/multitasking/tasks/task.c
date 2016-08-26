@@ -1,6 +1,9 @@
 #include "task.h"
 #include <std/std.h>
+#include <std/math.h>
 #include <std/memory.h>
+#include <kernel/util/paging/descriptor_tables.h>
+#include <kernel/util/multitasking/util.h>
 
 #define STACK_MAGIC 0xDEADBEEF
 
@@ -14,7 +17,6 @@ volatile task_t* ready_queue;
 extern page_directory_t* kernel_directory;
 extern page_directory_t* current_directory;
 extern void alloc_frame(page_t*, int, int);
-extern uint32_t initial_esp;
 extern uint32_t read_eip();
 
 extern void perform_task_switch(uint32_t, uint32_t, uint32_t, uint32_t);
@@ -71,17 +73,16 @@ void tasking_install() {
 	move_stack((void*)0xE0000000, 0x2000);
 
 	//init first task (kernel task)
-	current_task = ready_queue = create_process(PRIO_HIGH);
+	ready_queue = (volatile task_t*)create_process(PRIO_HIGH);
+	current_task = (task_t*)ready_queue;
 	current_task->page_directory = current_directory;
 	current_task->kernel_stack = kmalloc_a(KERNEL_STACK_SIZE);
 
 	//create callback to switch tasks
-	add_callback(switch_callback, 1, 1, 0);
+	add_callback((void*)switch_callback, 1, 1, 0);
 
 	//reenable interrupts
 	asm volatile("sti");
-
-	sleep(1);
 }
 
 int fork(int priority) {
@@ -113,14 +114,7 @@ int fork(int priority) {
 		task->eip = eip;
 		//all finished! reenable interrupts
 		asm volatile("sti");
-
-		int count = 1;
-		task_t* tmp = ready_queue;
-		while (tmp->next) {
-			tmp = tmp->next;
-			count++;
-		}
-
+		
 		return task->id;
 	}
 	else {
@@ -134,7 +128,7 @@ int fork(int priority) {
 task_t* scheduler_lottery() {
 	//find total number of tickets in existence
 	int num_tickets = 0;
-	task_t* tmp = ready_queue;
+	task_t* tmp = (task_t*)ready_queue;
 	do {
 		num_tickets += tmp->tickets;
 	} while((tmp = tmp->next));
@@ -143,7 +137,7 @@ task_t* scheduler_lottery() {
 	int winning_ticket = rand() % (num_tickets + 1);
 	//find task owning winning ticket
 	int ticket_counter = 0;
-	tmp = ready_queue;
+	tmp = (task_t*)ready_queue;
 	do {
 		ticket_counter += tmp->tickets;
 		if (ticket_counter >= winning_ticket) break;
@@ -157,6 +151,9 @@ void task_switch(char yielded) {
 	if (!current_task) {
 		return;
 	}
+
+	//if we're the only running process, quit early
+	//if (!ready_queue->next) return;
 
 	//set yielded flag on the active task for later reference
 	current_task->yielded = yielded;
@@ -204,53 +201,6 @@ void task_switch(char yielded) {
 	//restart interrupts
 	//jump to location in ecx (new eip is stored there)
 	perform_task_switch(eip, current_directory->physicalAddr, ebp, esp);
-}
-
-void move_stack(void* new_stack_start, uint32_t size) {
-	//allocate space for new stack
-	for (int i = (uint32_t)new_stack_start; i >= ((uint32_t)new_stack_start - size); i -= 0x1000) {
-		//general purpose stack is user mode
-		alloc_frame(get_page(i, 1, current_directory), 0, 1);
-	}
-
-	//flush TLB by reading and writing page directory address again
-	uint32_t pd_addr;
-	asm volatile("mov %%cr3, %0" : "=r" (pd_addr));
-	asm volatile("mov %0, %%cr3" : : "r" (pd_addr));
-
-	//old ESP and EBP
-	uint32_t old_sp;
-	asm volatile("mov %%esp, %0" : "=r" (old_sp));
-	uint32_t old_bp;
-	asm volatile("mov %%ebp, %0" : "=r" (old_bp));
-
-	//offset to add to old stack addresses to get new stack address
-	uint32_t offset = (uint32_t)new_stack_start - initial_esp;
-
-	//new esp and ebp
-	uint32_t new_sp = old_sp + offset;
-	uint32_t new_bp = old_bp + offset;
-
-	//copy stack!
-	memcpy((void*)new_sp, (void*)old_sp, initial_esp - old_sp);
-
-	//backtrace through original stack, copying new values into new stack
-	for (int i = (uint32_t)new_stack_start; i > (uint32_t)new_stack_start - size; i -= 4) {
-		uint32_t tmp = *(uint32_t*)i;
-		//if value of tmp is inside range of old stack, 
-		//assume it's a base pointer and remap it
-		//TODO keep in mind this will remap ANY value in this range,
-		//whether it's a base pointer or not
-		if ((old_sp < tmp) && (tmp < initial_esp)) {
-			tmp = tmp + offset;
-			uint32_t* tmp2 = (uint32_t*)i;
-			*tmp2 = tmp;
-		}
-	}
-
-	//change stacks
-	asm volatile("mov %0, %%esp" : : "r" (new_sp));
-	asm volatile("mov %0, %%ebp" : : "r" (new_bp));
 }
 
 int getpid() {

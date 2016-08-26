@@ -6,6 +6,6 @@
 void draw_mandelbrot(Screen* screen);
 void draw_julia(Screen* screen);
 void test_gfx();
-void test_xserv();
+void test_xserv(Screen* screen);
 
 #endif

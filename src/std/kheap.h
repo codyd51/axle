@@ -2,7 +2,7 @@
 #define STD_KHEAP_H
 
 #include "std_base.h"
-#include "ordered_array.h"
+#include "array_o.h"
 #include <stdint.h>
 
 __BEGIN_DECLS
@@ -40,7 +40,7 @@ typedef struct {
 } footer_t;
 
 typedef struct {
-	ordered_array_t index;
+	array_o* index;
 	uint32_t start_address; //start of allocated space
 	uint32_t end_address; //end of allocated space (can be expanded up to max_address)
 	uint32_t max_address; //maximum address heap can be expanded to
@@ -59,6 +59,12 @@ STDAPI void free(void* p, heap_t* heap);
 
 //releases block allocated with alloc using current heap
 STDAPI void kfree(void* p);
+
+//enlarges heap to new_size
+void expand(uint32_t new_size, heap_t* heap);
+
+//returns number of bytes currently in use by heap
+uint32_t used_mem();
 
 __END_DECLS
 

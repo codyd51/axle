@@ -1,3 +1,4 @@
+#include <kernel/drivers/rtc/clock.h>
 #include "math.h"
 #include "rand.h"
 
@@ -12,28 +13,13 @@ double pow(double x, double pow) {
 unsigned long factorial(unsigned long x) {
 	if (x == 0) return 1;
 	return (x * factorial(x - 1));
-}
-
-double sin(double x) {
-	//approximate taylor series for sin
-	double ret = x;
-	ret -= (pow(x, 3)/factorial(3));
-	ret += (pow(x, 5)/factorial(5));
-	ret -= (pow(x, 7)/factorial(7));
+	/*
+	int ret = 1;
+	for (int i = 1; i <= x; x++) {
+		ret *= i;
+	}
 	return ret;
-}
-
-double cos(double x) {
-	//approximate taylor series for cos
-	double ret = 1;
-	ret -= (pow(x, 2)/factorial(2));
-	ret += (pow(x, 4)/factorial(4));
-	ret -= (pow(x, 6)/factorial(6));
-	return ret;
-}
-
-double tan(double x) {
-		return sin(x)/cos(x);
+	*/
 }
 
 double cot(double x) {
@@ -137,19 +123,23 @@ int abs(int val) {
 	return val;
 }
 
-double sqrt(double val) {
-	//TODO handle this case
-	if (val < 0) return -1;
+#define SQRT_MAGIC_F 0x5f3759df 
+float sqrt(const float x) {
+	const float xhalf = 0.5f*x;
+	
+	//get bits for floating value
+	union {
+		float x;
+		int i;
+	} u;
+	u.x = x;
+	u.i = SQRT_MAGIC_F - (u.i >> 1); //gives initial guess y0
+	return x*u.x*(1.5f - xhalf*u.x*u.x); //Newton step, repeating increases accuracy 
+}
 
-	double a = 1;
-	double b = val;
-	double epsilon = 0.001;
-
-	while (abs(a - b) > epsilon) {
-		a = (a+b) / 2;
-		b = val/a;
-	}
-	return a;
+double floor(double x) {
+	int xi = (int)x;
+	return x < xi ? xi - 1 : xi;
 }
 
 int round(double x) {

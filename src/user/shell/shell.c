@@ -11,9 +11,16 @@
 #include <tests/test.h>
 #include <std/printf.h>
 #include <kernel/drivers/rtc/clock.h>
+#include <kernel/drivers/vga/vga.h>
+#include <kernel/drivers/vesa/vesa.h>
+#include <gfx/lib/gfx.h>
+#include <user/shell/programs/rexle/rexle.h>
+#include <kernel/util/vfs/fs.h>
+#include <kernel/util/multitasking/tasks/task.h>
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
+fs_node_t* current_dir;
 
 int findCommand(char* command) {
 	size_t i;
@@ -56,14 +63,36 @@ void process_command(char* string) {
 
 	int i = findCommand(command);
 	if (i >= 0) {
-		void (*command_function)(int, char **) = CommandTable[i].function;
+		void (*command_function)(int, char **) = (void(*)(int, char**))CommandTable[i].function;
 		command_function(argc, argv);
 	}
 }
 
 void process_character(char* inputstr, char ch) {
+	//handle escapes
+	if (ch == '\033') {
+		//skip [
+		getchar();
+		char ch = getchar();
+		switch (ch) {
+			//up arrow
+			case 'A':
+				term_scroll(TERM_SCROLL_UP);
+				break;
+			//down arrow
+			case 'B':
+				term_scroll(TERM_SCROLL_DOWN);
+				break;
+			//right arrow
+			case 'C':
+				break;
+			//left arrow
+			case 'D':
+				break;
+		}
+	}
 	//handle backspace	
-	if (ch == '\b') {
+	else if (ch == '\b') {
 		//remove last character from input string
 		if (strlen(inputstr) > 0) {
 			char lastChar = inputstr[strlen(inputstr)-1];
@@ -95,7 +124,7 @@ void process_character(char* inputstr, char ch) {
 }
 
 char* get_inputstring() {
-	char* input = (char*)kmalloc(sizeof(char) * 256);
+	char* input = (char*)kmalloc(sizeof(char) * 512);
 	unsigned char c = 0;
 	do {
 		c = getchar();
@@ -123,11 +152,11 @@ int shell() {
 	return 0;
 }
 
-void add_new_command(char* name, char* description, void* function) {
+void add_new_command(char* name, char* description, void(*function)(void)) {
 	if (CommandNum + 1 < MAX_COMMANDS) {
 		CommandTable[CommandNum].name = name;
 		CommandTable[CommandNum].description = description;
-		CommandTable[CommandNum].function = function;
+		CommandTable[CommandNum].function = (void*)function;
 
 		CommandNum++;
 	}
@@ -202,63 +231,122 @@ void startx_command() {
 	gfx_teardown(vga_screen);
 	switch_to_text();
 
-	//switch to VESA for x serv
-	Screen* vesa_screen = switch_to_vesa();
-	test_xserv(vesa_screen);
+	xserv_init();
 }
 
-#define MAX_TABS 16
-#include <kernel/drivers/terminal/terminal.h>
-typedef struct tab_context_t {
-	char context[TERM_AREA];
-	//char* context;
-} tab_context;
-void switch_tab_context(tab_context* c) {
-	term_cursor t;
-	t.x = 0;
-	t.y = 0;
-	terminal_clear();
-	terminal_setcursor(t);
-	printf("%s\n", c->context);
+void ls_command() {
+	//list contents of current directory
+	int i = 0;
+	struct dirent* node = 0;
+	while ((node = readdir_fs(current_dir, i)) != 0) {
+		fs_node_t* fsnode = finddir_fs(current_dir, node->name);
+		if ((fsnode->flags & 0x7) == FS_DIRECTORY) {
+			printf("(dir)  %s/\n", node->name);
+		}
+		else {
+			printf("(file) %s\n", node->name);
+		}
+		i++;
+	}
 }
-tab_context* tab_make() {
-	tab_context* c = (tab_context*)kmalloc(sizeof(tab_context));
-	memset(c->context, 0, sizeof(c->context));
-	strcat(c->context, "New tab created!");
-	return c;
+
+void cat_command(int argc, char** argv) {
+	if (argc < 2) {
+		printf_err("Please specify a file");
+		return;
+	}
+	char* file = argv[1];
+	fs_node_t* node = finddir_fs(current_dir, file);
+	if (!node) {
+		printf_err("File %s not found");
+		return;
+	}
+	uint8_t filebuf[2048];
+	memset(filebuf, 0, 2048);
+	uint32_t sz = read_fs(node, 0, 2048, filebuf);
+	for (int i = 0; i < sz; i++) {
+		terminal_putchar(filebuf[i]);
+	}
 }
-//extern char buffer[TERM_AREA];
-void update_context(tab_context* c) {
-	//strcpy(c->context, buffer);
+
+void hex_command(int argc, char** argv) {
+	if (argc < 2) {
+		printf_err("Please specify a file");
+		return;
+	}
+	char* file = argv[1];
+	fs_node_t* node = finddir_fs(current_dir, file);
+	if (!node) {
+		printf_err("File %s not found");
+		return;
+	}
+	uint8_t filebuf[8];
+	memset(filebuf, 0, 8);
+	uint32_t sz = read_fs(node, 0, 8, filebuf);
+	for (int i = 0; i < sz; i++) {
+		printf("%x ", filebuf[i]);
+	}
 }
-void tab_command() {
-	static mutable_array_t tabs;
-	static unsigned current_tab = 0;
-	if (!tabs.size) {
-		tabs = array_m_create(4);
-		tab_context* initial = tab_make();
-		array_m_insert(initial, &tabs);
+
+void cd_command(int argc, char** argv) {
+	if (argc < 2) {
+		printf_err("Please specify a directory");
+		return;
 	}
 
-	//update previous context before switching
-	tab_context* old = array_m_lookup(current_tab, &tabs);
-	update_context(old);
+	char* dest = argv[1];
+	fs_node_t* new_dir = finddir_fs(current_dir, dest);
+	if (new_dir) {
+		current_dir = new_dir;
+		return;
+	}
+	printf_err("Directory %s not found", dest);
+}
 
-	if (tabs.size <= 1) {
-		tab_context* new = tab_make();
-		array_m_insert(new, &tabs);
+void pwd_command() {
+	array_m* parents = array_m_create(16);
+	
+	//find all parent directories up to root
+	fs_node_t* parent = current_dir->parent;
+	if (parent) {
+		do {
+			array_m_insert(parents, parent->name);
+		} while ((parent = parent->parent));
 	}
 
-	//switch to next tab in list
-	current_tab++;
-	if (current_tab == tabs.size) {
-		//reached end of list, loop back to first tab
-		current_tab = 0;
+	//print out all parent directories, starting with the topmost
+	for (int i = parents->size - 1; i >= 0; i--) {
+		printf("%s/", array_m_lookup(parents, i));
 	}
-	tab_context* new = array_m_lookup(current_tab, &tabs);
-	//present context
-	switch_tab_context(new);
-	printf_dbg("Switched to tab %d", current_tab);
+	printf("%s", current_dir->name);
+}
+
+void open_command(int argc, char** argv) {
+	if (argc < 2) {
+		printf_err("Please specify a directory");
+		return;
+	}
+
+	loader_init();
+	elf_init();
+
+	uint8_t* name = argv[1];
+	fs_node_t* file = finddir_fs(current_dir, name);
+	if (file) {
+		uint8_t* filebuf = (uint8_t*)kmalloc(sizeof(uint8_t) * 8192);
+		memset(filebuf, 0, 8192);
+		//fs_node_t* file = fopen(name, 0);
+		uint32_t sz = read_fs(file, 0, 8192, filebuf);
+
+		//if (!fork(PRIO_MED)) {
+			exec_start(filebuf);
+			//in case the above ever returns
+			printf_err("exec_start returned!");
+			while (1) {}
+		//}
+		return;
+	}
+	printf_err("File %s not found", name);
 }
 
 void shell_init() {
@@ -267,17 +355,24 @@ void shell_init() {
 	
 	//set up command table
 	add_new_command("help", "Display help information", help_command);
-	add_new_command("echo", "Outputs args to stdout", echo_command);
+	add_new_command("echo", "Outputs args to stdout", (void(*)())echo_command);
 	add_new_command("time", "Outputs system time", time_command);
 	add_new_command("date", "Outputs system time as date format", date_command);
 	add_new_command("clear", "Clear terminal", clear_command);
-	add_new_command("asmjit", "Starts JIT prompt", asmjit_command);
 	add_new_command("tick", "Prints current tick count from PIT", tick_command);
-	add_new_command("snake", "Have some fun!", snake_command);
 	add_new_command("shutdown", "Shutdown PC", shutdown_command);
 	add_new_command("gfxtest", "Run graphics tests", test_gfx);
 	add_new_command("startx", "Start window manager", startx_command);
+	add_new_command("rexle", "Start 3D renderer", rexle);
 	add_new_command("heap", "Run heap test", test_heap);
-	add_new_command("tab", "Switch terminal tabs", tab_command);
+	add_new_command("ls", "List contents of current directory", ls_command);
+	add_new_command("cd", "Switch to another directory", cd_command);
+	add_new_command("pwd", "Print working directory", pwd_command);
+	add_new_command("cat", "Write file to stdout", cat_command);
+	add_new_command("hex", "Write hex dump of file to stdout", hex_command);
+	add_new_command("open", "Load file", open_command);
 	add_new_command("", "", empty_command);
+
+	//set current dir to fs root
+	current_dir = fs_root;
 }

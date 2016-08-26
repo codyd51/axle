@@ -4,16 +4,19 @@
 #include <std/std.h>
 #include <kernel/util/interrupts/isr.h>
 #include <kernel/util/kbman/kbman.h>
+#include <kernel/util/mutex/mutex.h>
+#include <kernel/drivers/kb/kb.h>
+#include <kernel/util/syscall/sysfuncs.h>
 
 #define KBD_DATA_PORT 0x60
 
 //TODO implement bitmask for special keys (shift/ctrl/fn/etc)
-const unsigned short shiftMask = 4;
-const unsigned short keypressFinishedMask = 2;
-unsigned int flags = 0;
+static const unsigned short shiftMask = 4;
+static const unsigned short keypressFinishedMask = 2;
+static unsigned int flags = 0;
 
-#define KBUF_SIZE 256
-char kb_buffer[KBUF_SIZE] = "";
+static array_m* kb_buffer;
+static lock_t* mutex;
 
 //KBDUS means US Keyboard Layout. This is a scancode table
 //used to layout a standard US keyboard.
@@ -58,7 +61,9 @@ unsigned char kbdus[128] =
 };
 
 void add_character_to_buffer(char ch) {
-	kb_buffer[strlen(kb_buffer)] = ch;
+	lock(mutex);
+	array_m_insert(kb_buffer, ch);
+	unlock(mutex);
 }
 
 void kb_callback(registers_t regs) {
@@ -75,6 +80,11 @@ void kb_callback(registers_t regs) {
 			if ((c == 170 || c == 182) && (flags & shiftMask)) {
 				flags = flags ^ shiftMask;
 			}
+
+			//inform OS
+			//clear released bit
+			kbman_process_release(c ^ 0x80);
+
 			return;
 		}
 		char mappedchar = kbdus[c];
@@ -102,7 +112,30 @@ void kb_callback(registers_t regs) {
 				mappedchar = toupper(mappedchar);
 			}
 		}
-		add_character_to_buffer(mappedchar);
+		
+		if (c == KEY_UP) {
+			add_character_to_buffer('A');
+			add_character_to_buffer('[');
+			add_character_to_buffer('\033');
+		}
+		else if (c == KEY_DOWN) {
+			add_character_to_buffer('B');
+			add_character_to_buffer('[');
+			add_character_to_buffer('\033');
+		}
+		else if (c == KEY_RIGHT) {
+			add_character_to_buffer('C');
+			add_character_to_buffer('[');
+			add_character_to_buffer('\033');
+		}
+		else if (c == KEY_LEFT) {
+			add_character_to_buffer('D');
+			add_character_to_buffer('[');
+			add_character_to_buffer('\033');
+		}
+		else {
+			add_character_to_buffer(mappedchar);
+		}
 	}
 }
 
@@ -157,24 +190,36 @@ char toupper_special(char character) {
 
 void kb_install() {
 	printf_info("Initializing keyboard driver...");
+
+	kb_buffer = array_m_create(1024);
+	mutex = lock_create();
+
 	register_interrupt_handler(IRQ1, &kb_callback);
 }
 
 int haskey() {
-	return (strlen(kb_buffer) != 0);
+	return kb_buffer->size > 0;
 }
 
 //does not block!
 char kgetch() {
+	lock(mutex);
+
+	if (!haskey()) return NULL;
+
 	//return last character from KB buffer, and remove that character
-	char ret = kb_buffer[strlen(kb_buffer) - 1];
-	kb_buffer[strlen(kb_buffer) - 1] = 0;
+	char ret = (char)array_m_lookup(kb_buffer, kb_buffer->size - 1);
+	array_m_remove(kb_buffer, array_m_index(kb_buffer, ret));
+	
+	unlock(mutex);
 	return ret;
 }
 
 //blocks until character is received
 char getchar() {
-	while (!haskey()) {}
+	while (!haskey()) {
+		sys_yield();
+	}
 	return kgetch();
 }
 

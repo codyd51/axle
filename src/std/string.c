@@ -1,4 +1,5 @@
 #include "string.h"
+#include "std.h"
 #include <std/kheap.h>
 
 #define ALIGN_DOWN(base, size)  ((base) & -((__typeof__ (base)) (size)))
@@ -121,7 +122,7 @@ char **strsplit(const char *string, const char *delim, size_t *out) {
 	char *str = strdup(string);
 	// Allocate as much space as characters in the string
 	size_t size = strlen(str);
-	char **v = calloc(size, sizeof(char *));
+	char **v = (char**)calloc(size, sizeof(char *));
 
 	char *saveptr;
 	char *s = strtok_r(str, delim, &saveptr);
@@ -131,7 +132,7 @@ char **strsplit(const char *string, const char *delim, size_t *out) {
 		s = strtok_r(NULL, delim, &saveptr);
 	}
 	// Then resize the array to a smaller size
-	v = realloc(v, (i + 1) * sizeof(char *));
+	v = (char**)realloc(v, (i + 1) * sizeof(char *));
 
 	v[i] = NULL;
 	if (out) {
@@ -190,7 +191,7 @@ int isspace(char c) {
 }
 
 char *strdup (const char *s) {
-	char *d = kmalloc (strlen (s) + 1);
+	char *d = (char*)kmalloc (strlen (s) + 1);
 	if (d == NULL) return NULL;
 	strcpy (d,s);
 	return d;
@@ -208,7 +209,7 @@ size_t strspn(const char *str, const char *accept) {
 
 
 	unsigned char table[256];
-	unsigned char *p = memset(table, 0, 64);
+	unsigned char *p = (unsigned char*)memset(table, 0, 64);
 	memset(p + 64, 0, 64);
 	memset(p + 128, 0, 64);
 	memset(p + 192, 0, 64);
@@ -254,7 +255,7 @@ char *__strchrnul (const char *s, int c_in) {
 		((unsigned long int) char_ptr & (sizeof (longword) - 1)) != 0;
 		++char_ptr)
 		if (*char_ptr == c || *char_ptr == '\0')
-			return (void *) char_ptr;
+			return (char*)char_ptr;
 
 		/* All these elucidatory comments refer to 4-byte longwords,
 		but the theory applies equally well to 8-byte longwords.  */
@@ -278,8 +279,9 @@ char *__strchrnul (const char *s, int c_in) {
 		if (sizeof (longword) > 4)
 		/* Do the shift in two steps to avoid a warning if long has 32 bits.  */
 			charmask |= (charmask << 16) << 16;
-		if (sizeof (longword) > 8)
-			abort ();
+		if (sizeof (longword) > 8) {
+			//abort ();
+		}
 
 		/* Instead of the traditional loop which tests each character,
 		we will test a longword at a time.  The tricky part is testing
@@ -374,7 +376,7 @@ size_t strcspn(const char *str, const char *reject) {
 
 /* Use multiple small memsets to enable inlining on most targets.  */
 	unsigned char table[256];
-	unsigned char *p = memset (table, 0, 64);
+	unsigned char *p = (unsigned char*)memset (table, 0, 64);
 	memset (p + 64, 0, 64);
 	memset (p + 128, 0, 64);
 	memset (p + 192, 0, 64);
@@ -424,7 +426,7 @@ char *strchr(const char *s, int c_in) {
 		((unsigned long int) char_ptr & (sizeof (longword) - 1)) != 0;
 		++char_ptr) {
 		if (*char_ptr == c) {
-			return (void *) char_ptr;
+			return (char*)char_ptr;
 		} else if (*char_ptr == '\0') {
 			return NULL;
 		}
@@ -441,7 +443,7 @@ char *strchr(const char *s, int c_in) {
 		charmask |= (charmask << 16) << 16;
 	}
 	if (sizeof (longword) > 8) {
-		abort ();
+		//abort ();
 	}
 	for (;;) {
 		longword = *longword_ptr++;

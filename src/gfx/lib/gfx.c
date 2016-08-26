@@ -1,7 +1,7 @@
 #include "gfx.h"
 #include <std/std.h>
 #include <kernel/kernel.h>
-#include <kernel/drivers/pit/pit.h>
+#include <std/timer.h>
 #include <gfx/font/font.h>
 #include "shapes.h"
 #include <std/std.h>
@@ -11,48 +11,53 @@
 #include <kernel/drivers/vesa/vesa.h>
 #include "color.h"
 
-void image_teardown(Image* image) {
-	kfree(image->bitmap);
-	kfree(image);
-}
-
 void label_teardown(Label* label) {
 	kfree(label);
 }
 
+void bmp_teardown(Bmp* bmp) {
+	for (int i = 0; i < bmp->raw_size.height; i++) {
+		//free color row
+		kfree(bmp->raw[i]);
+	}
+	//free rows array
+	kfree(bmp->raw);
+	kfree(bmp);
+}
+
 void view_teardown(View* view) {
-	for (int i = 0; i < view->subviews.size; i++) {
-		View* view = (View*)array_m_lookup(i, &(view->subviews));
+	for (int i = 0; i < view->subviews->size; i++) {
+		View* view = (View*)array_m_lookup(view->subviews, i);
 		view_teardown(view);
 	}
 	//free subviews array
-	array_m_destroy(&(view->subviews));
+	array_m_destroy(view->subviews);
 
-	for (int i = 0; i < view->labels.size; i++) {
-		Label* label = (Label*)array_m_lookup(i, &(view->labels));
+	for (int i = 0; i < view->labels->size; i++) {
+		Label* label = (Label*)array_m_lookup(view->labels, i);
 		label_teardown(label);
 	}
 	//free sublabels
-	array_m_destroy(&(view->labels));
+	array_m_destroy(view->labels);
 
-	for (int i = 0; i < view->images.size; i++) {
-		Image* image = (Image*)array_m_lookup(i, &(view->images));
-		image_teardown(image);
+	for (int i = 0; i < view->bmps->size; i++) {
+		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
+		bmp_teardown(bmp);
 	}
-	//free subimages
-	array_m_destroy(&(view->images));
+	//free bmps
+	array_m_destroy(view->bmps);
 	
 	//finally, free view itself
 	kfree(view);
 }
 
 void window_teardown(Window* window) {
-	for (int i = 0; i < window->subviews.size; i++) {
-		Window* window = (Window*)array_m_lookup(i, &(window->subviews));
+	for (int i = 0; i < window->subviews->size; i++) {
+		Window* window = (Window*)array_m_lookup(window->subviews, i);
 		window_teardown(window);
 	}
 	//free subviews array
-	array_m_destroy(&(window->subviews));
+	array_m_destroy(window->subviews);
 
 	//free the views associated with this window
 	view_teardown(window->title_view);
@@ -64,11 +69,12 @@ void window_teardown(Window* window) {
 
 void gfx_teardown(Screen* screen) {
 	//stop refresh loop for this screen
-	remove_callback(screen->callback);
+	//if (screen->callback) {
+		remove_callback(screen->callback);
+	//}
 
 	//free screen
 	kfree(screen->vmem);
-	kfree(screen->font);
 	window_teardown(screen->window);
 	kfree(screen);
 }
@@ -77,6 +83,7 @@ void switch_to_text() {
 	regs16_t regs;
 	regs.ax = 0x0003;
 	int32(0x10, &regs);
+	term_scroll(TERM_SCROLL_UP);
 }
 
 void vsync() {
@@ -87,23 +94,9 @@ void vsync() {
 	do {} while (!(inb(0x3DA) & 8));
 }
 
-void putpixel(Screen* screen, int x, int y, Color color) {
-	//don't attempt writing a pixel outside of screen bounds
-	if (x >= screen->window->size.width || y >= screen->window->size.height) return;
-
-	if (screen->depth == VGA_DEPTH) {
-		//VGA mode
-		putpixel_vga(screen, x, y, color);
-	}
-	else if (screen->depth == VESA_DEPTH) {
-		//VESA mode
-		putpixel_vesa(screen, x, y, color);
-	}
-}
-
 void fill_screen(Screen* screen, Color color) {
 	for (int loc = 0; loc < (screen->window->size.width * screen->window->size.height * (screen->depth / 8)); loc += (screen->depth / 8)) {
-		memcpy(&screen->vmem[loc], color.val[0], (screen->depth / 8) * sizeof(uint8_t));
+		memcpy(&screen->vmem[loc], (const void*)color.val[0], (screen->depth / 8) * sizeof(uint8_t));
 	}
 }
 
@@ -141,11 +134,13 @@ void vga_boot_screen(Screen* screen) {
 	tri_col.val[0] = 2;
 	draw_triangle(screen, triangle, tri_col, 5);
 
-	Coordinate lab_origin = point_make(screen->window->size.width / 2 - 35, screen->window->size.height * 0.5);
+	Coordinate lab_origin = point_make(screen->window->size.width / 2 - (3.75 * 8), screen->window->size.height * 0.5);
 	Size lab_size = size_make((10 * strlen("axle os")), 12);
 	Label* label = create_label(rect_make(lab_origin, lab_size), "axle os");
 	label->text_color = color_make(2, 0, 0);
 	add_sublabel(screen->window->content_view, label);
+
+	extern void draw_label(Screen* screen, Label* label);
 	draw_label(screen, label);
 
 	float rect_length = screen->window->size.width / 3;

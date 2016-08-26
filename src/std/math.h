@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "std_base.h"
+#include "sincostan.h"
 
 __BEGIN_DECLS
 
@@ -21,9 +22,6 @@ STDAPI double pow(double x, double pow);
 STDAPI unsigned long factorial(unsigned long x);
 
 //trigonometric functions
-STDAPI double sin(double val);
-STDAPI double cos(double val);
-STDAPI double tan(double val);
 STDAPI double cot(double val);
 STDAPI double sec(double val);
 STDAPI double csc(double val);
@@ -48,8 +46,9 @@ STDAPI double atan2(double y, double x);
 
 STDAPI int abs(int val);
 
-STDAPI double sqrt(double x);
+STDAPI float sqrt(const float x);
 STDAPI int round(double x);
+STDAPI double floor(double x);
 
 #define RAND_MAX 32767
 STDAPI uint32_t rand();

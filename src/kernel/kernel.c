@@ -13,11 +13,12 @@
 #include <user/xserv/xserv.h>
 #include "multiboot.h"
 #include <gfx/font/font.h>
-#include <kernel/util/multitasking/task.h>
+#include <kernel/util/multitasking/tasks/task.h>
 #include <gfx/lib/view.h>
 #include <kernel/util/syscall/syscall.h>
 #include <kernel/util/mutex/mutex.h>
 #include <std/printf.h>
+#include <kernel/util/vfs/initrd.h>
 
 void print_os_name(void) {
 	printf("\e[10;[\e[11;AXLE OS v\e[12;0.4.0\e[10;]\n");
@@ -82,22 +83,36 @@ void info_panel_refresh(void) {
 
 void info_panel_install(void) {
 	printf_info("Installing text-mode info panel...");
-	timer_callback info_callback = add_callback(info_panel_refresh, 1, 1, NULL);
+	//timer_callback info_callback = add_callback(info_panel_refresh, 1, 1, NULL);
 }
 
 extern uint32_t placement_address;
 uint32_t initial_esp;
+
+uint32_t module_detect(multiboot* mboot_ptr) {
+	printf_info("Detected %d GRUB modules", mboot_ptr->mods_count);
+	ASSERT(mboot_ptr->mods_count > 0, "no GRUB modules detected");
+	uint32_t initrd_loc = *((uint32_t*)mboot_ptr->mods_addr);
+	uint32_t initrd_end = *(uint32_t*)(mboot_ptr->mods_addr+4);
+	//don't trample modules
+	placement_address = initrd_end;
+	return initrd_loc;
+}
+
+void thread() {
+	while (1) {
+		printf("%d ", getpid());
+		sleep(50);
+	}
+}
 
 void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	initial_esp = initial_stack;
 
 	//initialize terminal interface
 	terminal_initialize();
-
 	//introductory message
 	print_os_name();
-	
-	//run color test
 	test_colors();
 
 	printf_info("Available memory:");
@@ -109,55 +124,35 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	pit_install(1000);
 
-	paging_install();
-
-	syscall_install();
-	tasking_install();
+	//find grub modules
+	uint32_t initrd_loc = module_detect(mboot_ptr);
 	
+	paging_install();
+	sys_install();
+	tasking_install();
 	kb_install();
 	mouse_install();
 
+	//initialize initrd, and set as fs root
+	fs_root = initrd_install(initrd_loc);
+	
 	test_heap();
 
 	//set up info panel
 	info_panel_install();
 
 	test_printf();
-
 	test_time_unique();
-
-	//force_page_fault();
-	//force_hardware_irq();
-	/*
-	if (!fork(PRIO_LOW)) {
-		while (1) {
-			sleep(1000);
-			printf_info("%d", getpid());
-		}
-	}
-	while (1) {
-		sleep(100);
-		printf_info("%d", getpid());
-	}
-	*/
-
 	test_malloc();
-
-	printf("number of modules: %d\n", mboot_ptr->mods_count);
-	printf("flags: %x\n", mboot_ptr->flags);
-	printf("address of module: %x\n", mboot_ptr->mods_addr);
-
-	typedef void (*call_module_t)(void);
-	call_module_t prog = (call_module_t)mboot_ptr->mods_addr;
-	prog();
-	/*
-	printf("program ended\n");
+	test_crypto();
 
 	shell_init();
 	shell_loop();
-	
+
+	//in case the shell ever exits, just spin
 	while (1) {}
-	*/
+
+	ASSERT(0, "Kernel exited");
 }
 
 

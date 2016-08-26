@@ -2,6 +2,8 @@
 #include <std/std.h>
 #include <kernel/drivers/terminal/terminal.h>
 #include <kernel/drivers/vesa/vesa.h>
+#include <kernel/drivers/rtc/clock.h>
+#include <crypto/crypto.h>
 
 void test_colors() {
 	printf_info("Testing colors...");
@@ -35,14 +37,14 @@ void test_interrupts() {
 
 void test_heap() {
 	printf_info("Testing heap...");
-
-	uint32_t a = kmalloc(8);
-	uint32_t b = kmalloc(8);
+	
+	uint32_t* a = (uint32_t*)kmalloc(8);
+	uint32_t* b = (uint32_t*)kmalloc(8);
 	printf_dbg("a: %x, b: %x", a, b);
 	kfree(a);
 	kfree(b);
 
-	uint32_t c = kmalloc(12);
+	uint32_t* c = (uint32_t*)kmalloc(12);
 	printf_dbg("c: %x", c);
 	kfree(c);
 
@@ -53,13 +55,22 @@ void test_heap() {
 }
 
 void test_malloc() {
-	printf_info("Testing malloc limit...");
+	printf_info("Testing malloc...");
+
+	//Check used memory before malloc test
+	//if more mem is used after test, then the test failed
+	uint32_t used = used_mem();
+
 	for (int i = 0; i < 32; i++) {
-		//printf_dbg("allocating %d bytes", pow(2, i));
-		uint32_t tmp = kmalloc(4096);
-		printf_dbg("freeing %x", tmp);
+		uint32_t* tmp = (uint32_t*)kmalloc(4096);
 		kfree(tmp);
 	}
+	
+	if (used != used_mem()) {
+		printf_err("Malloc test failed. Expected %x bytes in use, had %x", used, used_mem());
+		return;
+	}
+	printf_info("Malloc test passed");
 }
 
 void test_printf() {
@@ -83,4 +94,11 @@ void test_time_unique() {
 		last = current;
 	}
 	printf_info("time_unique test passed");
+}
+
+void test_crypto() {
+	printf_info("Testing SHA256...");
+	printf_info("SHA256 test %s", sha256_test() ? "passed":"failed");
+	printf_info("Testing AES...");
+	printf_info("AES test %s", aes_test() ? "passed":"failed");
 }

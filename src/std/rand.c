@@ -1,5 +1,6 @@
 #include <std/rand.h>
 #include <std/std.h>
+#include <std/math.h>
 #include <stdint.h>
 #include <std/rand_internal.h>
 #include <kernel/drivers/rtc/clock.h>
@@ -19,7 +20,7 @@ unsigned long mtwist_seed_system(mtwist* mt) {
 
 mtwist* mtwist_new(void) {
 	mtwist* mt;
-	mt = calloc(1, sizeof(*mt));
+	mt = (mtwist*)calloc(1, sizeof(*mt));
 	if (!mt) return NULL;
 
 	mt->left = 0;

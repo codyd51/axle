@@ -2,6 +2,7 @@
 #include "common.h"
 #include <kernel/drivers/terminal/terminal.h>
 #include <stdarg.h>
+#include <std/std.h>
 
 // Until we have a better way to print stack traces...
 #define TRY_PRINT_FRAME(num) do { \
@@ -44,7 +45,9 @@ __attribute__((__noreturn__)) void panic(uint16_t line, const char* file) {
 }
 
 __attribute__((__noreturn__)) void panic_msg(uint16_t line, const char* file, const char* msg, ...) {
+	extern void switch_to_text();
 	switch_to_text();
+
 	terminal_clear();
 
 	printf_err("Kernel panic!");
