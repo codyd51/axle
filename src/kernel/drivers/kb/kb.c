@@ -112,8 +112,30 @@ void kb_callback(registers_t regs) {
 				mappedchar = toupper(mappedchar);
 			}
 		}
-
-		add_character_to_buffer(mappedchar);
+		
+		if (c == KEY_UP) {
+			add_character_to_buffer('A');
+			add_character_to_buffer('[');
+			add_character_to_buffer('\033');
+		}
+		else if (c == KEY_DOWN) {
+			add_character_to_buffer('B');
+			add_character_to_buffer('[');
+			add_character_to_buffer('\033');
+		}
+		else if (c == KEY_RIGHT) {
+			add_character_to_buffer('C');
+			add_character_to_buffer('[');
+			add_character_to_buffer('\033');
+		}
+		else if (c == KEY_LEFT) {
+			add_character_to_buffer('D');
+			add_character_to_buffer('[');
+			add_character_to_buffer('\033');
+		}
+		else {
+			add_character_to_buffer(mappedchar);
+		}
 	}
 }
 
