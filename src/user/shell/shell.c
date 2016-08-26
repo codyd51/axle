@@ -69,8 +69,30 @@ void process_command(char* string) {
 }
 
 void process_character(char* inputstr, char ch) {
+	//handle escapes
+	if (ch == '\033') {
+		//skip [
+		getchar();
+		char ch = getchar();
+		switch (ch) {
+			//up arrow
+			case 'A':
+				term_scroll(TERM_SCROLL_UP);
+				break;
+			//down arrow
+			case 'B':
+				term_scroll(TERM_SCROLL_DOWN);
+				break;
+			//right arrow
+			case 'C':
+				break;
+			//left arrow
+			case 'D':
+				break;
+		}
+	}
 	//handle backspace	
-	if (ch == '\b') {
+	else if (ch == '\b') {
 		//remove last character from input string
 		if (strlen(inputstr) > 0) {
 			char lastChar = inputstr[strlen(inputstr)-1];
@@ -102,7 +124,7 @@ void process_character(char* inputstr, char ch) {
 }
 
 char* get_inputstring() {
-	char* input = (char*)kmalloc(sizeof(char) * 256);
+	char* input = (char*)kmalloc(sizeof(char) * 512);
 	unsigned char c = 0;
 	do {
 		c = getchar();

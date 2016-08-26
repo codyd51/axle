@@ -15,12 +15,6 @@ void kbman_process(char c) {
 
 	//dispatch key if necessary
 	switch (c) {
-		case KEY_UP:
-			term_scroll(TERM_SCROLL_UP);
-			break;
-		case KEY_DOWN:
-			term_scroll(TERM_SCROLL_DOWN);
-			break;
 		default:
 			break;
 	}

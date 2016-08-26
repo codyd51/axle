@@ -4,8 +4,9 @@
 #include <std/std.h>
 #include <std/ctype.h>
 #include <std/math.h>
+#include <kernel/util/kbman/kbman.h>
 
-#define TERM_HISTORY_MAX 256
+#define TERM_HISTORY_MAX 512
 
 /// Shared lock to keep all terminal operations atomic
 static lock_t* mutex;
@@ -47,7 +48,7 @@ array_m* term_history;
 
 /// Keeps state of when we're redrawing the terminal while scrolling
 /// No history is recorded while this flag is set
-static bool is_scroll_redraw;
+static volatile bool is_scroll_redraw;
 
 static void push_back_line(void);
 static void newline(void);
@@ -231,11 +232,12 @@ static bool matching_color;
 static char col_code[3];
 static int parse_idx;
 void terminal_putchar(char ch) {
+	if (ch == KEY_UP || ch == KEY_DOWN) return;
+
 	if (matching_color) {
 		parse_idx++;
 		if (ch == ';' || parse_idx >= 5) {
 			matching_color = false;
-			col_code[2] = '\0';
 			term_color col = (term_color)atoi(col_code);
 			terminal_settextcolor(col);
 			return;
@@ -384,11 +386,12 @@ void term_scroll(term_scroll_direction dir) {
 	is_scroll_redraw = true;
 	terminal_clear();
 	terminal_setcolor(COLOR_GREEN, COLOR_BLACK);
-
-	for (int y = TERM_HEIGHT - 1; y >= 0; y--) {
-		char* current = (char*)array_m_lookup(term_history, term_history->size - 1 - y - scroll_state.height);
-		printf("%s", current);
-		if (y > 0) printf("\n");
+	
+	for (int y = 0; y < TERM_HEIGHT; y++) {
+		int32_t line_idx = term_history->size - (TERM_HEIGHT - y) - scroll_state.height;
+		char* line = (char*)array_m_lookup(term_history, line_idx);
+		printf("%s", line);
+		if (y < TERM_HEIGHT - 1) printf("\n");
 	}
 
 	is_scroll_redraw = false;
