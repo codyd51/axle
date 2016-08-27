@@ -114,24 +114,24 @@ void kb_callback(registers_t regs) {
 		}
 		
 		if (c == KEY_UP) {
-			add_character_to_buffer('A');
-			add_character_to_buffer('[');
 			add_character_to_buffer('\033');
+			add_character_to_buffer('[');
+			add_character_to_buffer('A');
 		}
 		else if (c == KEY_DOWN) {
-			add_character_to_buffer('B');
-			add_character_to_buffer('[');
 			add_character_to_buffer('\033');
+			add_character_to_buffer('[');
+			add_character_to_buffer('B');
 		}
 		else if (c == KEY_RIGHT) {
-			add_character_to_buffer('C');
-			add_character_to_buffer('[');
 			add_character_to_buffer('\033');
+			add_character_to_buffer('[');
+			add_character_to_buffer('C');
 		}
 		else if (c == KEY_LEFT) {
-			add_character_to_buffer('D');
-			add_character_to_buffer('[');
 			add_character_to_buffer('\033');
+			add_character_to_buffer('[');
+			add_character_to_buffer('D');
 		}
 		else {
 			add_character_to_buffer(mappedchar);
@@ -207,9 +207,9 @@ char kgetch() {
 
 	if (!haskey()) return NULL;
 
-	//return last character from KB buffer, and remove that character
-	char ret = (char)array_m_lookup(kb_buffer, kb_buffer->size - 1);
-	array_m_remove(kb_buffer, array_m_index(kb_buffer, ret));
+	//return first character from KB buffer, and remove that character
+	char ret = (char)array_m_lookup(kb_buffer, 0);
+	array_m_remove(kb_buffer, 0);
 	
 	unlock(mutex);
 	return ret;
