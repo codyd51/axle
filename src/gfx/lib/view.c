@@ -111,13 +111,11 @@ Bmp* load_bmp(Rect frame, char* filename) {
 	printf_dbg("loading BMP with dimensions (%d,%d", width, height);
 
 	Color** raw = (Color**)kmalloc(sizeof(Color*) * height);
-	//for (int i = 0; i < height; i++) {
 	for (int i = height; i >= 0; i--) {
 		Color* row = (Color*)kmalloc(sizeof(Color) * width);
 		raw[i] = row;
 
 		//copy this row into memory
-		//for (int j = 0; j < width; j++) {
 		for (int j = 0; j < width; j++) {
 			Color px;
 			px.val[2] = fgetc(file);
@@ -125,7 +123,7 @@ Bmp* load_bmp(Rect frame, char* filename) {
 			px.val[0] = fgetc(file);
 			row[j] = px;
 			//fourth byte/px is reversed and should be ignored
-//			fgetc(file);
+			//fgetc(file);
 		}
 	}
 

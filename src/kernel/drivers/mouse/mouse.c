@@ -1,6 +1,7 @@
 #include "mouse.h"
 #include <kernel/util/interrupts/isr.h>
 #include <std/math.h>
+#include <std/std.h>
 
 typedef unsigned char byte;
 typedef signed char sbyte;
@@ -8,14 +9,17 @@ typedef unsigned int dword;
 
 volatile int running_x = 0;
 volatile int running_y = 0;
+volatile uint8_t mouse_state;
 
 Coordinate mouse_point() {
 	return point_make(running_x, running_y);
 }
+uint8_t mouse_events() {
+	return mouse_state;
+}
 
 #define VESA_WIDTH 1024
 #define VESA_HEIGHT 768
-
 void update_mouse_position(int x, int y) {
 	running_x += x;
 	running_x = MAX(running_x, 0);
@@ -37,6 +41,20 @@ void mouse_callback(registers_t* regs) {
 		case 1:
 			mouse_byte[1] = inb(0x60);
 			mouse_cycle++;
+
+			//this byte contains information about mouse state (button events)
+			bool middle = mouse_byte[1] & 0x4;
+			if (middle) mouse_state |= 0x4;
+			else mouse_state &= ~0x4;
+
+			bool right = mouse_byte[1] & 0x2;
+			if (right) mouse_state |= 0x2;
+			else mouse_state &= ~0x2;
+
+			bool left = mouse_byte[1] & 0x1;
+			if (left) mouse_state |= 0x1;
+			else mouse_state &= ~0x1;
+
 			break;
 		case 2:
 			mouse_byte[2] = inb(0x60);
@@ -107,7 +125,7 @@ void mouse_install() {
 	mouse_write(0xF6);
 	mouse_read(); //acknowledge
 
-	//enable mouse
+	//enable data reporting 
 	mouse_write(0xF4);
 	mouse_read(); //acknowledge
 

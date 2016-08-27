@@ -4,6 +4,7 @@
 #include <std/math.h>
 #include <std/panic.h>
 #include <std/std.h>
+#include <kernel/util/multitasking/tasks/task.h>
 
 //has the screen been modified this refresh?
 static char dirtied = 0;
@@ -27,11 +28,6 @@ Window* containing_window_int(Screen* screen, View* v) {
 	}
 	return NULL;
 }
-
-#define CHAR_WIDTH 8
-#define CHAR_HEIGHT 8
-#define CHAR_PADDING_W 0
-#define CHAR_PADDING_H 8 
 
 Rect convert_rect(Rect outer, Rect inner) {
 	Rect ret;
@@ -265,11 +261,17 @@ char xserv_draw(Screen* screen) {
 
 	Coordinate cursor = mouse_point();
 	Rect r = rect_make(cursor, size_make(10, 20));
-	draw_rect(screen, r, color_make(0, 0, 255), THICKNESS_FILLED);
+	//get mouse events
+	uint8_t events = mouse_events();
+	//0th bit is left mouse button
+	bool left = events & 0x1;
+	draw_rect(screen, r, left ? color_red() : color_blue(), THICKNESS_FILLED);
 
 	screen->finished_drawing = 1;
 
-	return dirtied;
+	char ret = dirtied;
+	dirtied = 0;
+	return ret;
 }
 
 static Label* fps;
@@ -288,35 +290,31 @@ void xserv_refresh(Screen* screen) {
 	if (!screen->finished_drawing) return;
 
 	//if no changes occured this refresh, don't bother writing the screen
-	/*
+/*	
 	if (xserv_draw(screen)) {
 		write_screen(screen);
 	}
-	*/
-
-	double timestamp = 0; //current frame timestamp
-	//static double time_prev = 0; //prev frame timestamp
+*/
 	double time_start = time();
-	
 	xserv_draw(screen);
+	double frame_time = (time() - time_start) / 1000.0;
 
-	timestamp = time();
-	double frame_time = (timestamp - time_start) / 1000.0;
 	//update frame time tracker 
 	char buf[32];
-	itoa(frame_time * 100000, &buf);
-	strcat(buf, " ns/frame");
+	itoa(frame_time * 1000, &buf);
+	strcat(buf, " ms/frame");
 	fps->text = buf;
 	draw_label(screen, fps);
-
+	
+	//draw rect to indicate whether the screen was dirtied this frame
+	//red indicates dirtied, green indicates clean
+	Rect dirtied_indicator = rect_make(point_make(0, screen->window->size.height - 25), size_make(25, 25));
+	draw_rect(screen, dirtied_indicator, (dirtied ? color_red() : color_green()), THICKNESS_FILLED);
+	
 	write_screen(screen);
 }
 
-void xserv_refresh_setup(Screen* screen, double interval) {
-	screen->callback = add_callback((void*)xserv_refresh, interval, true, screen);
-}
-
-void xserv_init() {
+void xserv_init_late() {
 	//switch to VESA for x serv
 	Screen* screen = switch_to_vesa(0x118);
 	
@@ -329,11 +327,20 @@ void xserv_init() {
 	fps = create_label(rect_make(point_make(3, 3), size_make(300, 50)), "FPS counter");
 	fps->text_color = color_black();
 	add_sublabel(screen->window->content_view, fps);
-		
-	//start refresh loop
-	xserv_refresh_setup(screen, 100);
-	//refresh once now so we don't wait for the first tick
-	xserv_refresh(screen);
 
 	test_xserv(screen);
+	
+	add_callback(xserv_refresh, 100, true, screen);
+	//refresh once now so we don't wait for the first tick
+	xserv_refresh(screen);
+	
+	while (1) {
+		xserv_refresh(screen);
+		sys_yield();
+	}
+}
+
+void xserv_init() {
+	//add_process(create_process(PRIO_MED, (uint32_t)xserv_init_late));
+	xserv_init_late();
 }
