@@ -297,8 +297,14 @@ static void process_mouse_events(Screen* screen) {
 		Coordinate p = mouse_point();
 		//find the window that got this click
 		Window* owner = window_containing_point(screen, p);
+
 		//don't move root window! :p
 		if (owner != screen->window) {
+			//bring click owner to forefront
+			//TODO place this in its own function?
+			remove_subwindow(screen->window, owner);
+			add_subwindow(screen->window, owner);
+
 			owner->frame.origin = p;
 		}
 	}
