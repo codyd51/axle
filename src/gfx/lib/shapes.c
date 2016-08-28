@@ -45,12 +45,12 @@ Triangle triangle_make(Coordinate p1, Coordinate p2, Coordinate p3) {
 	return triangle;
 }
 
-void normalize_coordinate(Screen* screen, Coordinate p) {
+void normalize_coordinate(Screen* screen, Coordinate* p) {
 	//don't try to write anywhere outside screen bounds
-	p.x = MAX(p.x, 0);
-	p.y = MAX(p.y, 0);
-	p.x = MIN(p.x, screen->window->size.width);
-	p.y = MIN(p.y, screen->window->size.height);
+	p->x = MAX(p->x, 0);
+	p->y = MAX(p->y, 0);
+	p->x = MIN(p->x, screen->window->size.width);
+	p->y = MIN(p->y, screen->window->size.height);
 }
 
 //functions to draw shape structures
@@ -94,7 +94,7 @@ void draw_rect(Screen* screen, Rect r, Color color, int thickness) {
 	if (thickness == 0) return;
 
 	//make sure we don't try to write to an invalid location
-	normalize_coordinate(screen, r.origin);	
+	normalize_coordinate(screen, &r.origin);	
 	if (r.origin.x + r.size.width > screen->window->size.width) {
 		r.size.width = screen->window->size.width - r.origin.x;
 	}
@@ -177,8 +177,8 @@ void draw_vline_fast(Screen* screen, Line line, Color color, int thickness) {
 
 void draw_line(Screen* screen, Line line, Color color, int thickness) {
 	//don't try to write anywhere outside screen bounds
-	normalize_coordinate(screen, line.p1);
-	normalize_coordinate(screen, line.p2);
+	normalize_coordinate(screen, &line.p1);
+	normalize_coordinate(screen, &line.p2);
 
 	//if the line is perfectly vertical or horizontal, this is a special case
 	//that can be drawn much faster
@@ -308,9 +308,9 @@ Line shrink_line(Coordinate p1, Coordinate p2, float pixel_count) {
 }
 
 void draw_triangle(Screen* screen, Triangle tri, Color color, int thickness) {
-	normalize_coordinate(screen, tri.p1);
-	normalize_coordinate(screen, tri.p2);
-	normalize_coordinate(screen, tri.p3);
+	normalize_coordinate(screen, &tri.p1);
+	normalize_coordinate(screen, &tri.p2);
+	normalize_coordinate(screen, &tri.p3);
 
 	if (thickness == THICKNESS_FILLED) {
 		draw_triangle_int_fast(screen, tri, color);
@@ -350,7 +350,7 @@ void draw_circle_int(Screen* screen, Circle circle, Color color) {
 }
 
 void draw_circle(Screen* screen, Circle circ, Color color, int thickness) {
-	normalize_coordinate(screen, circ.center);
+	normalize_coordinate(screen, &circ.center);
 	if (circ.center.x + circ.radius > screen->window->size.width) {
 		circ.radius = screen->window->size.width - circ.center.x;
 	}
