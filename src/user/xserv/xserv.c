@@ -59,8 +59,6 @@ Rect absolute_frame(Screen* screen, View* view) {
 }
 
 void draw_bmp(Screen* screen, Bmp* bmp) {
-	printf_dbg("draw_bmp called");
-
 	View* superview = bmp->superview;
 	ASSERT(superview, "bmp had no superview!");
 

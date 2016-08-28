@@ -101,7 +101,6 @@ void draw_rect(Screen* screen, Rect r, Color color, int thickness) {
 	if (r.origin.y + r.size.height > screen->window->size.height) {
 		r.size.height = screen->window->size.height - r.origin.y;
 	}
-
 	int max_thickness = (MIN(r.size.width, r.size.height)) / 2;
 
 	//if thickness is negative, fill the shape
@@ -109,13 +108,12 @@ void draw_rect(Screen* screen, Rect r, Color color, int thickness) {
 	
 	//make sure they don't request a thickness too big
 	thickness = MIN(thickness, max_thickness);
-
 	//a filled shape is a special case that can be drawn faster
 	if (thickness == max_thickness) {
 		draw_rect_int_fast(screen, r, color);
 		return;
 	}
-
+	
 	int x = r.origin.x;
 	int y = r.origin.y;
 	int w = r.size.width;
@@ -136,21 +134,44 @@ void draw_rect(Screen* screen, Rect r, Color color, int thickness) {
 }
 
 void draw_hline_fast(Screen* screen, Line line, Color color, int thickness) {
+	bool rgb = (screen->depth == VESA_DEPTH);
+	int bpp = (rgb ? 3 : 1);
+
 	//calculate starting point
-	//increment y for next thickness since this line is horizontal
-	int loc = (line.p1.x * screen->depth / 8) + (line.p1.y * (screen->depth / 8));
-	for (int j = 0; j < (line.p2.x - line.p1.x); j++) {
-		putpixel(screen, line.p1.x + j, line.p1.y, color);
+	int offset = (line.p1.x * bpp) + (line.p1.y * bpp * screen->window->frame.size.width);
+	for (int i = 0; i < line.p2.x - line.p1.x; i++) {
+		if (rgb) {
+			//we have to write the pixels in BGR, not RGB
+			screen->vmem[offset++] = color.val[2];
+			screen->vmem[offset++] = color.val[1];
+			screen->vmem[offset++] = color.val[0];
+		}
+		else {
+			screen->vmem[offset++] = color.val[0];
+		}
 	}
 }
 
 void draw_vline_fast(Screen* screen, Line line, Color color, int thickness) {
+	bool rgb = (screen->depth == VESA_DEPTH);
+	int bpp = (rgb ? 3 : 1);
+
 	//calculate starting point
-	//increment y for next thickness since this line is vertical 
-	int loc = (line.p1.x * screen->depth / 8) + (line.p1.y * (screen->depth / 8));
-	int end =  line.p2.y - line.p1.y;
-	for (int i = 0; i < end; i++) {
-		putpixel(screen, line.p1.x, line.p1.y + i, color);
+	int offset = (line.p1.x * bpp) + (line.p1.y * bpp * screen->window->frame.size.width);
+	int row_start = offset;
+	for (int i = 0; i < line.p2.y - line.p1.y; i++) {
+		if (rgb) {
+			//we have to write the pixels in BGR, not RGB
+			screen->vmem[offset++] = color.val[2];
+			screen->vmem[offset++] = color.val[1];
+			screen->vmem[offset] = color.val[0];
+		}
+		else {
+			screen->vmem[offset] = color.val[0];
+		}
+		//go to next row
+		row_start += screen->window->size.width * bpp;
+		offset = row_start;
 	}
 }
 

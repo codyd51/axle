@@ -121,7 +121,6 @@ void rainbow_animation(Screen* screen, Rect r) {
 }
 
 void vga_boot_screen(Screen* screen) {
-	//Color color = color_make(0, 0, 0);
 	Color color;
 	color.val[0] = 2;
 	fill_screen(screen, color);

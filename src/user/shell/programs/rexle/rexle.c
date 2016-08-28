@@ -72,8 +72,8 @@ int rexle() {
 	add_sublabel(screen->window->content_view, fps);
 
 	//Memory usage tracker
-	Label* mem = create_label(rect_make(point_make(fps->frame.size.width, 3), size_make(300, 50)), "Memory tracker");
-	mem->text_color = color_black();
+	Label* mem = create_label(rect_make(point_make(screen->window->size.width - 200, 3), size_make(200, 50)), "Memory tracker");
+	mem->text_color = color_white();
 	add_sublabel(screen->window->content_view, mem);
 
 	double timestamp = 0; //current frame timestamp
@@ -248,7 +248,8 @@ int rexle() {
 		}
 
 		char buf[32];
-		itoa(frame_time * 100000, &buf);
+		double fps_time = 1 / frame_time;
+		itoa(frame_time * 1000000, &buf);
 		strcat(buf, " ns/frame");
 		fps->text = buf;
 		draw_label(screen, fps);
@@ -260,6 +261,14 @@ int rexle() {
 		draw_label(screen, mem);
 
 		write_screen(screen);
+
+		if (haskey()) {
+			char ch = getchar();
+			if (ch == 'q') {
+				running = 0;
+			}
+		}
 	}
+	gfx_teardown(screen);
 	switch_to_text();
 }
