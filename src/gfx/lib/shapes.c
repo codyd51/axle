@@ -55,10 +55,26 @@ void normalize_coordinate(Screen* screen, Coordinate p) {
 
 //functions to draw shape structures
 static void draw_rect_int_fast(Screen* screen, Rect rect, Color color) {
+	bool rgb = screen->depth == VESA_DEPTH;
+	int bpp = (rgb ? 3 : 1);
+
+	int offset = rect.origin.x * bpp + rect.origin.y * screen->window->size.width * bpp;
+	int row_start = offset;
 	for (int y = rect.origin.y; y < rect.origin.y + rect.size.height; y++) {
 		for (int x = rect.origin.x; x < rect.origin.x + rect.size.width; x++) {
-			putpixel(screen, x, y, color);
+			if (rgb) {
+				//we have to write the pixels in BGR, not RGB
+				screen->vmem[offset++] = color.val[2];
+				screen->vmem[offset++] = color.val[1];
+				screen->vmem[offset++] = color.val[0];
+			}
+			else {
+				screen->vmem[offset++] = color.val[0];
+			}
 		}
+		//move down 1 row
+		row_start += screen->window->size.width * bpp;
+		offset = row_start;
 	}
 }
 
