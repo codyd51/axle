@@ -23,10 +23,10 @@ uint8_t mouse_events() {
 void update_mouse_position(int x, int y) {
 	running_x += x;
 	running_x = MAX(running_x, 0);
-	running_x = MIN(running_x, VESA_WIDTH);
+	running_x = MIN(running_x, VESA_WIDTH - 5);
 	running_y -= y;
 	running_y = MAX(running_y, 0);
-	running_y = MIN(running_y, VESA_HEIGHT);
+	running_y = MIN(running_y, VESA_HEIGHT - 5);
 }
 
 void mouse_callback(registers_t* regs) {

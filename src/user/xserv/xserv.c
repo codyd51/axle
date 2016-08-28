@@ -69,7 +69,7 @@ void draw_bmp(Screen* screen, Bmp* bmp) {
 	dirtied = 1;
 
 	Rect frame = absolute_frame(screen, (View*)bmp);
-
+/*
 	for (int h = 0; h < frame.size.height; h++) {
 		Color* row = bmp->raw[h % bmp->raw_size.height];
 		for (int w = 0; w < frame.size.width; w++) {
@@ -77,6 +77,7 @@ void draw_bmp(Screen* screen, Bmp* bmp) {
 			putpixel(screen, frame.origin.x + w, frame.origin.y + h, px);
 		}
 	}
+*/
 }
 
 void draw_label(Screen* screen, Label* label) {
@@ -272,6 +273,37 @@ char xserv_draw(Screen* screen) {
 	return ret;
 }
 
+static Window* window_containing_point(Screen* screen, Coordinate p) {
+	//traverse window hierarchy, starting with the topmost window
+	for (int i = screen->window->subviews->size - 1; i >= 0; i--) {
+		Window* w = (Window*)array_m_lookup(screen->window->subviews, i);
+		//TODO implement rect_intersects
+		if (p.x >= w->frame.origin.x && p.y >= w->frame.origin.y && p.x - w->frame.origin.x <= w->frame.size.width && p.y - w->frame.origin.y <= w->frame.size.height) {
+			return w;
+		}
+	}
+	//wasn't in any subwindows
+	//point must be within root window
+	//TODO should we check anyways?
+	return screen->window;
+}
+
+static void process_mouse_events(Screen* screen) {
+	//get mouse events
+	uint8_t events = mouse_events();
+	//0th bit is left mouse button
+	bool left = events & 0x1;
+	if (left) {
+		Coordinate p = mouse_point();
+		//find the window that got this click
+		Window* owner = window_containing_point(screen, p);
+		//don't move root window! :p
+		if (owner != screen->window) {
+			owner->frame.origin = p;
+		}
+	}
+}
+
 static Label* fps;
 void xserv_refresh(Screen* screen) {
 	//check if there are any keys pending
@@ -308,6 +340,9 @@ void xserv_refresh(Screen* screen) {
 	//red indicates dirtied, green indicates clean
 	Rect dirtied_indicator = rect_make(point_make(0, screen->window->size.height - 25), size_make(25, 25));
 	draw_rect(screen, dirtied_indicator, (dirtied ? color_red() : color_green()), THICKNESS_FILLED);
+
+	//handle mouse events
+	process_mouse_events(screen);
 	
 	write_screen(screen);
 }
