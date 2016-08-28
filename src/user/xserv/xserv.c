@@ -288,26 +288,42 @@ static Window* window_containing_point(Screen* screen, Coordinate p) {
 	return screen->window;
 }
 
+static Window* selected_window;
 static void process_mouse_events(Screen* screen) {
+	static Coordinate last_mouse_pos;
+
 	//get mouse events
 	uint8_t events = mouse_events();
+	Coordinate p = mouse_point();
+
 	//0th bit is left mouse button
 	bool left = events & 0x1;
 	if (left) {
-		Coordinate p = mouse_point();
-		//find the window that got this click
-		Window* owner = window_containing_point(screen, p);
+		if (!selected_window) {
+			//find the window that got this click
+			Window* owner = window_containing_point(screen, p);
+			selected_window = owner;
 
-		//don't move root window! :p
-		if (owner != screen->window) {
-			//bring click owner to forefront
-			//TODO place this in its own function?
-			remove_subwindow(screen->window, owner);
-			add_subwindow(screen->window, owner);
+			//don't move root window! :p
+			if (selected_window != screen->window) {
+				//bring click owner to forefront
+				//TODO place this in its own function?
+				remove_subwindow(screen->window, selected_window);
+				add_subwindow(screen->window, owner);
 
-			owner->frame.origin = p;
+			}
+		}
+		if (&last_mouse_pos != NULL) {
+			//move this window by the difference between current mouse position and last mouse position
+			selected_window->frame.origin.x -= (last_mouse_pos.x - p.x);
+			selected_window->frame.origin.y -= (last_mouse_pos.y - p.y);
 		}
 	}
+	else {
+		//click event ended, release window
+		selected_window = NULL;
+	}
+	last_mouse_pos = p;
 }
 
 static Label* fps;
