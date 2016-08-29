@@ -37,7 +37,7 @@ void write_screen(Screen* screen);
 #define VGA_DEPTH 8 
 __attribute__((always_inline)) void inline putpixel(Screen* screen, int x, int y, Color color) {
 	//don't attempt writing a pixel outside of screen bounds
-	if (x >= screen->window->size.width || y >= screen->window->size.height) return;
+	if (x < 0 || y < 0 || x >= screen->window->size.width || y >= screen->window->size.height) return;
 
 	if (screen->depth == VGA_DEPTH) {
 		//VGA mode

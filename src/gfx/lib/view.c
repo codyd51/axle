@@ -122,7 +122,8 @@ Bmp* load_bmp(Rect frame, char* filename) {
 			px.val[1] = fgetc(file);
 			px.val[0] = fgetc(file);
 			row[j] = px;
-			//fourth byte/px is reversed and should be ignored
+			//fourth byte is for alpha channel if we used 32bit BMPs
+			//we only use 24bit, so don't try to read it
 			//fgetc(file);
 		}
 	}

@@ -55,6 +55,22 @@ void normalize_coordinate(Screen* screen, Coordinate* p) {
 
 //functions to draw shape structures
 static void draw_rect_int_fast(Screen* screen, Rect rect, Color color) {
+	//make sure we don't try to write to an invalid location
+	if (rect.origin.x < 0) {
+		rect.size.width += rect.origin.x;
+		rect.origin.x = 0;
+	}
+	if (rect.origin.y < 0) {
+		rect.size.height += rect.origin.y;
+		rect.origin.y = 0;
+	}
+	if (rect.origin.x + rect.size.width >= screen->window->frame.size.width) {
+		rect.size.width -= (rect.origin.x + rect.size.width - screen->window->frame.size.width);
+	}
+	if (rect.origin.y + rect.size.height >= screen->window->frame.size.height) {
+		rect.size.height -= (rect.origin.y + rect.size.height - screen->window->frame.size.height);
+	}
+	
 	bool rgb = screen->depth == VESA_DEPTH;
 	int bpp = (rgb ? 3 : 1);
 
@@ -93,14 +109,6 @@ static void draw_rect_int(Screen* screen, Rect rect, Color color) {
 void draw_rect(Screen* screen, Rect r, Color color, int thickness) {
 	if (thickness == 0) return;
 
-	//make sure we don't try to write to an invalid location
-	normalize_coordinate(screen, &r.origin);	
-	if (r.origin.x + r.size.width > screen->window->size.width) {
-		r.size.width = screen->window->size.width - r.origin.x;
-	}
-	if (r.origin.y + r.size.height > screen->window->size.height) {
-		r.size.height = screen->window->size.height - r.origin.y;
-	}
 	int max_thickness = (MIN(r.size.width, r.size.height)) / 2;
 
 	//if thickness is negative, fill the shape
@@ -134,6 +142,10 @@ void draw_rect(Screen* screen, Rect r, Color color, int thickness) {
 }
 
 void draw_hline_fast(Screen* screen, Line line, Color color, int thickness) {
+	//don't try to write anywhere outside screen bounds
+	normalize_coordinate(screen, &line.p1);
+	normalize_coordinate(screen, &line.p2);
+
 	bool rgb = (screen->depth == VESA_DEPTH);
 	int bpp = (rgb ? 3 : 1);
 
@@ -153,6 +165,10 @@ void draw_hline_fast(Screen* screen, Line line, Color color, int thickness) {
 }
 
 void draw_vline_fast(Screen* screen, Line line, Color color, int thickness) {
+	//don't try to write anywhere outside screen bounds
+	normalize_coordinate(screen, &line.p1);
+	normalize_coordinate(screen, &line.p2);
+
 	bool rgb = (screen->depth == VESA_DEPTH);
 	int bpp = (rgb ? 3 : 1);
 
@@ -176,10 +192,6 @@ void draw_vline_fast(Screen* screen, Line line, Color color, int thickness) {
 }
 
 void draw_line(Screen* screen, Line line, Color color, int thickness) {
-	//don't try to write anywhere outside screen bounds
-	normalize_coordinate(screen, &line.p1);
-	normalize_coordinate(screen, &line.p2);
-
 	//if the line is perfectly vertical or horizontal, this is a special case
 	//that can be drawn much faster
 	if (line.p1.x == line.p2.x) {
@@ -308,10 +320,6 @@ Line shrink_line(Coordinate p1, Coordinate p2, float pixel_count) {
 }
 
 void draw_triangle(Screen* screen, Triangle tri, Color color, int thickness) {
-	normalize_coordinate(screen, &tri.p1);
-	normalize_coordinate(screen, &tri.p2);
-	normalize_coordinate(screen, &tri.p3);
-
 	if (thickness == THICKNESS_FILLED) {
 		draw_triangle_int_fast(screen, tri, color);
 		return;
@@ -350,7 +358,6 @@ void draw_circle_int(Screen* screen, Circle circle, Color color) {
 }
 
 void draw_circle(Screen* screen, Circle circ, Color color, int thickness) {
-	normalize_coordinate(screen, &circ.center);
 	if (circ.center.x + circ.radius > screen->window->size.width) {
 		circ.radius = screen->window->size.width - circ.center.x;
 	}

@@ -19,6 +19,8 @@ typedef struct triangle {
 	Coordinate p3;
 } Triangle;
 
+void normalize_coordinate(Screen* screen, Coordinate* p);
+
 Coordinate point_make(int x, int y);
 Size size_make(int w, int h);
 Rect rect_make(Coordinate origin, Size size);
