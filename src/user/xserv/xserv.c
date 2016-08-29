@@ -16,8 +16,8 @@ Window* containing_window_int(Screen* screen, View* v) {
 		view = view->superview;
 	}
 
-	//traverse view hierarchy, find window which has view as its title or content view
 	if (screen->window->title_view == view || screen->window->content_view == view) return screen->window;
+	//traverse view hierarchy, find window which has view as its title or content view
 	for (unsigned i = 0; i < screen->window->subviews->size; i++) {
 		Window* window = (Window*)array_m_lookup(screen->window->subviews, i);
 		if (window->title_view == view || window->content_view == view) return window;
@@ -26,7 +26,7 @@ Window* containing_window_int(Screen* screen, View* v) {
 			if (subwindow->title_view == view || subwindow->content_view == view) return subwindow;
 		}
 	}
-	return NULL;
+	return screen->window;
 }
 
 Rect convert_rect(Rect outer, Rect inner) {
@@ -53,14 +53,23 @@ Rect absolute_frame(Screen* screen, View* view) {
 		v = v->superview;
 		ret = convert_frame(v, ret);
 	}
+
 	//find containing window
 	Window* win = containing_window_int(screen, v);
+	ASSERT(win, "couldn't find container window!");
+
 	return convert_rect(win->frame, ret);
 }
 
 void draw_bmp(Screen* screen, Bmp* bmp) {
 	View* superview = bmp->superview;
-	ASSERT(superview, "bmp had no superview!");
+	//don't assert as the mouse cursor doesn't have a superview
+	//TODO figure out workaround that works long-term
+	//ASSERT(superview, "bmp had no superview!");
+	if (!superview) {
+		printf_err("bmp had no superview!");
+		superview = screen->window->content_view;
+	}
 
 //	if (!bmp || !bmp->needs_redraw) return;
 //	if (superview && !superview->needs_redraw) return;
@@ -69,7 +78,10 @@ void draw_bmp(Screen* screen, Bmp* bmp) {
 	dirtied = 1;
 
 	Rect frame = absolute_frame(screen, (View*)bmp);
-/*
+
+#ifndef BMP
+	if (bmp->raw_size.width > 100 || bmp->raw_size.height > 100) return;
+#endif;
 	for (int h = 0; h < frame.size.height; h++) {
 		Color* row = bmp->raw[h % bmp->raw_size.height];
 		for (int w = 0; w < frame.size.width; w++) {
@@ -77,7 +89,6 @@ void draw_bmp(Screen* screen, Bmp* bmp) {
 			putpixel(screen, frame.origin.x + w, frame.origin.y + h, px);
 		}
 	}
-*/
 }
 
 void draw_label(Screen* screen, Label* label) {
@@ -252,19 +263,24 @@ void desktop_setup(Screen* screen) {
 	add_taskbar(screen);
 }
 
+void draw_cursor(Screen* screen) {
+	static Bmp* cursor;
+	if (!cursor) {
+		cursor = load_bmp(rect_make(point_zero(), size_make(30, 30)), "cursor.bmp");
+		cursor->frame.size = cursor->raw_size;
+	}
+	cursor->frame.origin = mouse_point();
+	//we do not call add_bmp on the cursor
+	//we draw it manually to ensure it is always above all other content
+	draw_bmp(screen, cursor);
+}
+
 char xserv_draw(Screen* screen) {
 	screen->finished_drawing = 0;
 
 	dirtied = 0;
 	draw_desktop(screen);
-
-	Coordinate cursor = mouse_point();
-	Rect r = rect_make(cursor, size_make(10, 20));
-	//get mouse events
-	uint8_t events = mouse_events();
-	//0th bit is left mouse button
-	bool left = events & 0x1;
-	draw_rect(screen, r, left ? color_red() : color_blue(), THICKNESS_FILLED);
+	draw_cursor(screen);
 
 	screen->finished_drawing = 1;
 
@@ -313,10 +329,14 @@ static void process_mouse_events(Screen* screen) {
 
 			}
 		}
-		if (&last_mouse_pos != NULL) {
+		if (&last_mouse_pos != NULL && selected_window != screen->window) {
 			//move this window by the difference between current mouse position and last mouse position
 			selected_window->frame.origin.x -= (last_mouse_pos.x - p.x);
 			selected_window->frame.origin.y -= (last_mouse_pos.y - p.y);
+
+			//ensure we don't exceed screen bounds
+			//selected_window->frame.origin.x = MAX(selected_window->frame.origin.x, 0);
+			//selected_window->frame.origin.y = MAX(selected_window->frame.origin.y, 0);
 		}
 	}
 	else {

@@ -194,7 +194,7 @@ int rexle() {
 
 			//draw floor below the ray
 			Line floor = line_make(point_make(x, end), point_make(x, screen_size.height));
-			draw_line(screen, floor, color_make(190, 190, 190), 1);
+			draw_line(screen, floor, color_make(135, 150, 200), 1);
 		}
 
 		//timing

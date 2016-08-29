@@ -24,6 +24,11 @@ PATHS = $(shell find $(SRC_DIR) -type d -print)
 AXLE_FILES = $(foreach path, $(PATHS), $(call findfiles, $(path)))
 OBJECTS = $(patsubst $(SRC_DIR)/%, $(OBJ_DIR)/%, $(call getobjs, $(AXLE_FILES)))
 
+# Compilation flag helpers
+ifdef BMP
+CFLAGS += -DBMP
+endif
+
 # Rules
 all: $(ISO_DIR)/boot/axle.bin
 

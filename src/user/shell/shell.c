@@ -322,6 +322,7 @@ void pwd_command() {
 }
 
 void open_command(int argc, char** argv) {
+	/*
 	if (argc < 2) {
 		printf_err("Please specify a directory");
 		return;
@@ -347,6 +348,7 @@ void open_command(int argc, char** argv) {
 		return;
 	}
 	printf_err("File %s not found", name);
+	*/
 }
 
 void shell_init() {
