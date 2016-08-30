@@ -8,6 +8,7 @@
 
 //has the screen been modified this refresh?
 static char dirtied = 0;
+static volatile Window* active_window;
 
 Window* containing_window_int(Screen* screen, View* v) {
 	//find root window
@@ -67,7 +68,7 @@ void draw_bmp(Screen* screen, Bmp* bmp) {
 	//TODO figure out workaround that works long-term
 	//ASSERT(superview, "bmp had no superview!");
 	if (!superview) {
-		printf_err("bmp had no superview!");
+		//printf_err("bmp had no superview!");
 		superview = screen->window->content_view;
 	}
 
@@ -78,22 +79,40 @@ void draw_bmp(Screen* screen, Bmp* bmp) {
 	dirtied = 1;
 
 	Rect frame = absolute_frame(screen, (View*)bmp);
+	int row_start = 0;
+	int row_end = MIN(bmp->raw_size.width, frame.size.width);
+	//ensure we don't draw images outside screen bounds
+	if (frame.origin.x + frame.size.width >= screen->window->frame.size.width) {
+		row_end -= ((frame.origin.x + frame.size.width - screen->window->frame.size.width));
+	}
+	if (frame.origin.x < 0) {
+		row_start -= frame.origin.x;
+	}
+	int col_start = 0;
+	if (frame.origin.y < 0) {
+		col_start -= frame.origin.y;
+	}
+	
+	int bpp = 24 / 8;
+	int offset = frame.origin.x * bpp + frame.origin.y * screen->window->size.width * bpp;
+	offset += (col_start * screen->window->size.width * bpp);
+	int current_row_ptr = offset;
+	
+	Color* row = bmp->raw + (bmp->raw_size.width * col_start);
+	int max_cols = MIN(bmp->raw_size.height, frame.size.height) - col_start;
+	for (int i = 0; i < max_cols; i++) {
+		memcpy(screen->vmem + offset, row + row_start, row_end * bpp);
 
-#ifndef BMP
-	if (bmp->raw_size.width > 100 || bmp->raw_size.height > 100) return;
-#endif;
-	for (int h = 0; h < frame.size.height; h++) {
-		Color* row = bmp->raw[h % bmp->raw_size.height];
-		for (int w = 0; w < frame.size.width; w++) {
-			Color px = row[w % bmp->raw_size.width];
-			putpixel(screen, frame.origin.x + w, frame.origin.y + h, px);
-		}
+		row += bmp->raw_size.width;
+
+		current_row_ptr += screen->window->size.width * bpp;
+		offset = current_row_ptr;
 	}
 }
 
 void draw_label(Screen* screen, Label* label) {
 	View* superview = label->superview;
-	ASSERT(superview, "label had no superview!");
+	//ASSERT(superview, "label had no superview!");
 	
 //	if (!label || !label->needs_redraw) return;
 //	if (superview && !superview->needs_redraw) return;
@@ -154,6 +173,7 @@ void draw_view(Screen* screen, View* view) {
 	}
 
 	//draw any bmps this view has
+	//im
 	for (unsigned i = 0; i < view->bmps->size; i++) {
 		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
 		draw_bmp(screen, bmp);
@@ -304,8 +324,8 @@ static Window* window_containing_point(Screen* screen, Coordinate p) {
 	return screen->window;
 }
 
-static Window* selected_window;
 static void process_mouse_events(Screen* screen) {
+	static Window* grabbed_window;
 	static Coordinate last_mouse_pos;
 
 	//get mouse events
@@ -315,24 +335,25 @@ static void process_mouse_events(Screen* screen) {
 	//0th bit is left mouse button
 	bool left = events & 0x1;
 	if (left) {
-		if (!selected_window) {
+		if (!grabbed_window) {
 			//find the window that got this click
 			Window* owner = window_containing_point(screen, p);
-			selected_window = owner;
+			grabbed_window = owner;
 
 			//don't move root window! :p
-			if (selected_window != screen->window) {
+			if (grabbed_window != screen->window) {
 				//bring click owner to forefront
 				//TODO place this in its own function?
-				remove_subwindow(screen->window, selected_window);
+				remove_subwindow(screen->window, grabbed_window);
 				add_subwindow(screen->window, owner);
 
+				active_window = grabbed_window;
 			}
 		}
-		if (&last_mouse_pos != NULL && selected_window != screen->window) {
+		if (&last_mouse_pos != NULL && grabbed_window != screen->window) {
 			//move this window by the difference between current mouse position and last mouse position
-			selected_window->frame.origin.x -= (last_mouse_pos.x - p.x);
-			selected_window->frame.origin.y -= (last_mouse_pos.y - p.y);
+			grabbed_window->frame.origin.x -= (last_mouse_pos.x - p.x);
+			grabbed_window->frame.origin.y -= (last_mouse_pos.y - p.y);
 
 			//ensure we don't exceed screen bounds
 			//selected_window->frame.origin.x = MAX(selected_window->frame.origin.x, 0);
@@ -341,13 +362,15 @@ static void process_mouse_events(Screen* screen) {
 	}
 	else {
 		//click event ended, release window
-		selected_window = NULL;
+		grabbed_window = NULL;
 	}
 	last_mouse_pos = p;
 }
 
 static Label* fps;
 void xserv_refresh(Screen* screen) {
+	if (!screen->finished_drawing) return;
+/*
 	//check if there are any keys pending
 	while (haskey()) {
 		char ch = getchar();
@@ -359,25 +382,19 @@ void xserv_refresh(Screen* screen) {
 		}
 	}
 
-	if (!screen->finished_drawing) return;
-
-	//if no changes occured this refresh, don't bother writing the screen
-/*	
-	if (xserv_draw(screen)) {
-		write_screen(screen);
-	}
 */
-	double time_start = time();
+	//double time_start = time();
 	xserv_draw(screen);
-	double frame_time = (time() - time_start) / 1000.0;
+	//double frame_time = (time() - time_start) / 1000.0;
 
 	//update frame time tracker 
-	char buf[32];
-	itoa(frame_time * 1000, &buf);
-	strcat(buf, " ms/frame");
-	fps->text = buf;
-	draw_label(screen, fps);
-	
+	//char buf[32];
+	//itoa(frame_time * 1000, &buf);
+	//strcat(buf, " ms/frame");
+	//fps->text = "Testing";
+	//draw_label(screen, fps);
+
+
 	//draw rect to indicate whether the screen was dirtied this frame
 	//red indicates dirtied, green indicates clean
 	Rect dirtied_indicator = rect_make(point_make(0, screen->window->size.height - 25), size_make(25, 25));
@@ -399,23 +416,18 @@ void xserv_init_late() {
 	desktop_setup(screen);
 
 	//add FPS tracker
-	fps = create_label(rect_make(point_make(3, 3), size_make(300, 50)), "FPS counter");
-	fps->text_color = color_black();
-	add_sublabel(screen->window->content_view, fps);
+	//fps = create_label(rect_make(point_make(3, 3), size_make(300, 50)), "FPS counter");
+	//fps->text_color = color_black();
+	//add_sublabel(screen->window->content_view, fps);
 
 	test_xserv(screen);
-	
-	add_callback(xserv_refresh, 100, true, screen);
-	//refresh once now so we don't wait for the first tick
-	xserv_refresh(screen);
-	
+
 	while (1) {
 		xserv_refresh(screen);
-		sys_yield();
+		//sys_yield();
 	}
 }
 
 void xserv_init() {
-	//add_process(create_process(PRIO_MED, (uint32_t)xserv_init_late));
-	xserv_init_late();
+	add_process(create_process((uint32_t)xserv_init_late));
 }

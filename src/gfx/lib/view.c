@@ -70,10 +70,13 @@ Window* create_window(Rect frame) {
 Label* create_label(Rect frame, char* text) {
 	Label* label = (Label*)kmalloc(sizeof(Label));
 	label->frame = frame;
-	label->text = text;
 	label->superview = NULL;
 	label->text_color = color_black();
 	label->needs_redraw = 1;
+
+	label->text = kmalloc(sizeof(char) * 4096);
+	//label->text = text;
+	strcpy(label->text, text);
 	return label;
 }
 
@@ -110,22 +113,17 @@ Bmp* load_bmp(Rect frame, char* filename) {
 	int height = *(int*)&header[22];
 	printf_dbg("loading BMP with dimensions (%d,%d", width, height);
 
-	Color** raw = (Color**)kmalloc(sizeof(Color*) * height);
-	for (int i = height; i >= 0; i--) {
-		Color* row = (Color*)kmalloc(sizeof(Color) * width);
-		raw[i] = row;
-
-		//copy this row into memory
-		for (int j = 0; j < width; j++) {
-			Color px;
-			px.val[2] = fgetc(file);
-			px.val[1] = fgetc(file);
-			px.val[0] = fgetc(file);
-			row[j] = px;
-			//fourth byte is for alpha channel if we used 32bit BMPs
-			//we only use 24bit, so don't try to read it
-			//fgetc(file);
-		}
+	Color* raw = (Color*)kmalloc(sizeof(Color*) * width * height);
+	//image is upside down in memory so build array from bottom up
+	for (int i = width * height - 1; i >= 0; i--) {
+		Color px;
+		px.val[0] = fgetc(file);
+		px.val[1] = fgetc(file);
+		px.val[2] = fgetc(file);
+		raw[i] = px;
+		//fourth byte is for alpha channel if we used 32bit BMPs
+		//we only use 24bit, so don't try to read it
+		//fgetc(file);
 	}
 
 	Bmp* bmp = create_bmp(frame, raw);

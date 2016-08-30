@@ -21,7 +21,7 @@ typedef struct screen_t {
 	uint8_t* vmem;
 	uint8_t* physbase;
 	timer_callback callback;
-	int finished_drawing;
+	volatile int finished_drawing;
 } Screen;
 
 extern void int32(unsigned char intnum, regs16_t* regs);
