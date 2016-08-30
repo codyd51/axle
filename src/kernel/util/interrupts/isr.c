@@ -12,13 +12,9 @@ void halt_execution() {
 }
 
 void print_regs(registers_t regs) {
-	printf_info("Register dump");
-	printf("eax: %x		ecx: %x\n", regs.eax, regs.ecx);
-	printf("edx: %x		ebx: %x\n", regs.edx, regs.ebx);
-	printf("esp: %x		ebp: %x\n", regs.esp, regs.ebp);
-	printf("esi: %x		edi: %x\n", regs.esi, regs.edi);
-	printf("eip: %x		cs:  %x\n", regs.eip, regs.cs);
-	printf("ds:  %x		eflags: %x\n", regs.ds, regs.eflags);
+	printf("eax: %x		ecx: %x		edx: %x		ebx: %x\n", regs.eax, regs.ecx, regs.edx, regs.ebx);
+	printf("esp: %x		ebp: %x 	esi: %x		edi: %x\n", regs.esp, regs.ebp, regs.esi, regs.edi);
+	printf("eip: %x		cs:  %x		ds:  %x		eflags: %x\n", regs.eip, regs.cs, regs.ds, regs.eflags);
 }
 
 void common_halt(registers_t regs, bool recoverable) {
@@ -139,15 +135,15 @@ void isr_install_default() {
 
 //gets called from ASM interrupt handler stub
 void isr_handler(registers_t regs) {
-	interrupt_handlers[13] = handle_general_protection_fault;
-	uint8_t int_no = regs.int_no & 0xFF;
+	//uint8_t int_no = regs.int_no & 0xFF;
+	uint8_t int_no = regs.int_no;
 	if (interrupt_handlers[int_no] != 0) {
 		isr_t handler = interrupt_handlers[int_no];
 		handler(regs);
 	}
 	else {
 		printf_err("Unhandled interrupt: %x", int_no);
-		common_halt(regs, false);
+		common_halt(regs, true);
 	}
 }
 

@@ -8,25 +8,26 @@
 
 enum { PRIO_LOW, PRIO_MED, PRIO_HIGH} PRIO;
 
-//describes a process
 typedef struct task {
 	int id; //process id
-	uint32_t esp, ebp; //stack and base pointers
-	uint32_t eip; //instruction pointer
-	page_directory_t* page_directory; 
-	uint32_t kernel_stack; //kernel stack location
+	volatile registers_t regs; //register state
+	page_directory_t* page_directory; //paging dir for this process
 	struct task* next; //next task in linked list
-	int tickets; //tickets this task holds for lottery
-	int priority; //priority associated with this task
-	char yielded; //did this task yield the last time it was ran?
 } task_t;
 
 //initializes tasking system
 void tasking_install();
 
+//initialize a new process structure
+//does not add returned process to running queue
+task_t* create_process(uint32_t eip);
+
+//adds task to running queue
+void add_process(task_t* task);
+
 //called by timer
 //changes running process
-void task_switch(char yielded);
+volatile void task_switch();
 
 //forks current process
 //spawns new process with different memory space

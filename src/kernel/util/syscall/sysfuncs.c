@@ -2,9 +2,8 @@
 #include <kernel/util/multitasking/tasks/task.h>
 
 void yield() {
-	//TODO ensure PIT doesn't fire while we're here
 	//go to next task
-	task_switch(1);
+	task_switch();
 }
 
 DEFN_SYSCALL1(terminal_writestring, 0, const char*);
