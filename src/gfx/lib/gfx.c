@@ -10,42 +10,52 @@
 #include <kernel/drivers/vga/vga.h>
 #include <kernel/drivers/vesa/vesa.h>
 #include "color.h"
+#include "shader.h"
+
+Vec2d vec2d(double x, float y) {
+	Vec2d vec;
+	vec.x = x;
+	vec.y = y;
+	return vec;
+}
+
 
 void label_teardown(Label* label) {
 	kfree(label);
 }
 
 void bmp_teardown(Bmp* bmp) {
-	for (int i = 0; i < bmp->raw_size.height; i++) {
-		//free color row
-		kfree(bmp->raw[i]);
-	}
 	//free rows array
 	kfree(bmp->raw);
 	kfree(bmp);
+}
+
+void shader_teardown(Shader* shader) {
+	kfree(shader);
 }
 
 void view_teardown(View* view) {
 	for (int i = 0; i < view->subviews->size; i++) {
 		View* view = (View*)array_m_lookup(view->subviews, i);
 		view_teardown(view);
+		
+		Label* label = (Label*)array_m_lookup(view->labels, i);
+		label_teardown(label);
+		
+		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
+		bmp_teardown(bmp);
+
+		Shader* s = (Shader*)array_m_lookup(view->shaders, i);
+		shader_teardown(s);
 	}
 	//free subviews array
 	array_m_destroy(view->subviews);
-
-	for (int i = 0; i < view->labels->size; i++) {
-		Label* label = (Label*)array_m_lookup(view->labels, i);
-		label_teardown(label);
-	}
 	//free sublabels
 	array_m_destroy(view->labels);
-
-	for (int i = 0; i < view->bmps->size; i++) {
-		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
-		bmp_teardown(bmp);
-	}
 	//free bmps
 	array_m_destroy(view->bmps);
+	//free shaders
+	array_m_destroy(view->shaders);
 	
 	//finally, free view itself
 	kfree(view);

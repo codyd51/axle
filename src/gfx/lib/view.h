@@ -46,6 +46,7 @@ typedef struct view {
 	Color background_color;
 	array_m* labels;
 	array_m* bmps;
+	array_m* shaders;
 } View;
 
 typedef struct button {
@@ -64,7 +65,7 @@ typedef struct bitmap {
 	char needs_redraw;
 	struct view* superview;
 
-	Color** raw;
+	Color* raw;
 	Size raw_size;
 } Bmp;
 
@@ -73,7 +74,7 @@ View* create_view(Rect frame);
 Window* create_window(Rect frame);
 Button* create_button(Rect frame, char* text);
 
-Bmp* create_bmp(Rect frame, Color** raw);
+Bmp* create_bmp(Rect frame, Color* raw);
 Bmp* load_bmp(Rect frame, char* filename);
 
 void add_subview(View* view, View* subview);

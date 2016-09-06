@@ -1,0 +1,50 @@
+#include "shader.h"
+//#include "view.h"
+#include <user/xserv/xserv.h>
+
+Shader* create_shader(Vec2d dir) {
+	Shader* s = (Shader*)kmalloc(sizeof(Shader));
+
+	s->dir = dir;
+	return s;
+}
+
+Shader* compute_shader(Shader* s) {
+	if (s->raw) {
+		kfree(s->raw);
+	}
+	Rect frame = s->superview->frame;
+	s->raw = (Color*)kmalloc(sizeof(Color) * frame.size.width * frame.size.height);
+	for (int y = 0; y < frame.size.height; y++) {
+		for (int x = 0; x < frame.size.width; x++) {
+			int idx = (y * frame.size.width) + x;
+			double y_pc = y / (double)frame.size.height;
+			double x_pc = x / (double)frame.size.width;
+			
+			Color px;
+			px.val[0] = (1 - y_pc) * 255;
+			px.val[1] = (1 - x_pc) * 255;
+			px.val[2] = y_pc * 255;
+			s->raw[idx] = px;
+		}
+	}
+}
+
+void draw_shader(Screen* screen, Shader* s) {
+	Rect frame = absolute_frame(screen, s->superview);
+
+	int bpp = 24 / 8;
+	int offset = (frame.origin.x * bpp) + (frame.origin.y * screen->window->size.width * bpp);
+	Color* shader_offset = s->raw;
+	for (int i = 0; i < frame.size.height; i++) {
+		offset += (screen->window->size.width * bpp);
+		shader_offset += frame.size.width;
+
+		//TODO try getting each pixel value and adding a var to it, then rewriting it
+		for (int j = 0; j < frame.size.width; j++) {
+			Color px = *shader_offset++;
+			addpixel(screen, j + frame.origin.x, i + frame.origin.y, px);
+		}
+	}
+}
+

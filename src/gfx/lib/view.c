@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <kernel/util/vfs/fs.h>
 #include <std/printf.h>
+#include "shader.h"
 
 #define MAX_ELEMENTS 128
 
@@ -15,6 +16,7 @@ View* create_view(Rect frame) {
 	view->subviews = array_m_create(MAX_ELEMENTS);
 	view->labels = array_m_create(MAX_ELEMENTS);
 	view->bmps = array_m_create(MAX_ELEMENTS);
+	view->shaders = array_m_create(MAX_ELEMENTS);
 	view->needs_redraw = 1;
 	return view;
 }
@@ -74,9 +76,7 @@ Label* create_label(Rect frame, char* text) {
 	label->text_color = color_black();
 	label->needs_redraw = 1;
 
-	label->text = kmalloc(sizeof(char) * 4096);
-	//label->text = text;
-	strcpy(label->text, text);
+	label->text = text;
 	return label;
 }
 
@@ -90,7 +90,7 @@ Button* create_button(Rect frame, char* text) {
 	return (Button*)button;
 }
 
-Bmp* create_bmp(Rect frame, Color** raw) {
+Bmp* create_bmp(Rect frame, Color* raw) {
 	Bmp* bmp = (Bmp*)kmalloc(sizeof(Bmp));
 	bmp->frame = frame;
 	bmp->raw = raw;
@@ -111,9 +111,10 @@ Bmp* load_bmp(Rect frame, char* filename) {
 	//get width and height from header
 	int width = *(int*)&header[18];
 	int height = *(int*)&header[22];
-	printf_dbg("loading BMP with dimensions (%d,%d", width, height);
+	printf_dbg("loading BMP with dimensions (%d,%d)", width, height);
 
-	Color* raw = (Color*)kmalloc(sizeof(Color*) * width * height);
+	Color* raw = kmalloc(sizeof(Color) * width * height);
+	printf_info("raw %x", raw);
 	//image is upside down in memory so build array from bottom up
 	for (int i = width * height - 1; i >= 0; i--) {
 		Color px;
@@ -176,6 +177,19 @@ void add_bmp(View* view, Bmp* bmp) {
 void remove_bmp(View* view, Bmp* bmp) {
 	array_m_remove(view->bmps, array_m_index(view->bmps, bmp));
 	bmp->superview = NULL;
+	mark_needs_redraw(view);
+}
+
+void add_shader(View* view, Shader* s) {
+	array_m_insert(view->shaders, s);
+	s->superview = view;
+	mark_needs_redraw(view);
+	compute_shader(s);
+}
+
+void remove_shader(View* view, Shader* s) {
+	array_m_remove(view->shaders, array_m_index(view->shaders, s));
+	s->superview = NULL;
 	mark_needs_redraw(view);
 }
 
