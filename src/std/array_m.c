@@ -8,10 +8,9 @@ array_m* array_m_create(int32_t max_size) {
 	mutex = lock_create();
 
 	array_m* ret = (array_m*)kmalloc(sizeof(array_m));
-	ret->array = (void**)kmalloc(max_size * sizeof(type_t));
-	memset(ret->array, 0, max_size * sizeof(type_t));
 	ret->size = 0;
 	ret->max_size = max_size;
+    ret->array = (type_t*)calloc(max_size, sizeof(type_t));
 	return ret;
 }
 
@@ -19,10 +18,10 @@ array_m* array_m_place(void* addr, int32_t max_size) {
 	mutex = lock_create();
 
 	array_m* ret = (array_m*)kmalloc(sizeof(array_m));
-	ret->array = (type_t*)addr;
-	memset(ret->array, 0, max_size * sizeof(type_t));
 	ret->size = 0;
 	ret->max_size = max_size;
+	ret->array = (type_t)addr;
+	memset(ret->array, 0, max_size * sizeof(type_t));
 	return ret;
 }
 

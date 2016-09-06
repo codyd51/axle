@@ -3,6 +3,7 @@
 
 #define NULL (0)
 
+#include <stdint.h>
 #include "std_base.h"
 #include "common.h"
 #include "ctype.h"

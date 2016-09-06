@@ -9,7 +9,6 @@
 %macro ISR_ERRCODE 1
 	[GLOBAL isr%1]
 	isr%1:
-		cli
 		push byte %1
 		jmp isr_common_stub
 %endmacro
@@ -53,7 +52,7 @@ ISR_NOERRCODE 128
 %macro IRQ 2
 	[GLOBAL irq%1]
 	irq%1:
-		push byte 0
+		push byte 0x00
 		push byte %2
 		jmp irq_common_stub
 %endmacro
@@ -81,28 +80,31 @@ IRQ 	15, 	47
 ; up kernel mode segments, calls C-level fault handler,
 ; and finally restores stack frame
 isr_common_stub:
-	pusha		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
+	pushad		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
 
-	mov ax, ds 	; keep ds
-	push eax 	; save data segment descriptor
+	push ds
+	push es
+	push fs
+	push gs
 
-	mov ax, 0x10	; loads kernel data segment argument
+	mov ax, 0x10 	; loads kernel data segment argument
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
 	mov gs, ax
 
+	; call fault handler
+	push esp
 	call isr_handler
+	add esp, 4
 
-	pop ebx		; reload original data segment descriptor
-	mov ds, bx
-	mov es, bx
-	mov fs, bx
-	mov gs, bx
+	pop gs
+	pop fs
+	pop es
+	pop ds
 	
-	popa 		; pop edi, esi, ebp, etc
+	popad 		; pop edi, esi, ebp, etc
 	add esp, 8 	; cleans up pushed error code and pushed ISR number
-	sti
 	iret		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
 
 [EXTERN irq_handler]
@@ -111,10 +113,12 @@ isr_common_stub:
 ; up for kernel mode arguments, calls C-level fault handler,
 ; and finally restores stack frame
 irq_common_stub:
-	pusha		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
+	pushad		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
 
-	mov ax, ds	; lower 16 bits of eax = ds
-	push eax 	; save data segment descriptor
+	push ds
+	push es
+	push fs
+	push gs
 
 	mov ax, 0x10	; load kernel data segment descriptor
 	mov ds, ax
@@ -122,17 +126,17 @@ irq_common_stub:
 	mov fs, ax
 	mov gs, ax
 
+	push esp
 	call irq_handler
+	add esp, 4
 
-	pop ebx 	; reload original data segment descriptor
-	mov ds, bx
-	mov es, bx
-	mov fs, bx
-	mov gs, bx
+	pop gs
+	pop fs
+	pop es
+	pop ds
 
-	popa		; pops edi, esi, ebp, etc
-	add esp, 8	; cleans up pushed error code and pushed ISR number
-	sti
+	popad		; pops edi, esi, ebp, etc
+	add esp, 8	; cleans up pushed error code and pushed ISR numbe
 	iret		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
 
 [GLOBAL find_eip]

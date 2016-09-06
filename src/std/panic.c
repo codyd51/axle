@@ -41,6 +41,7 @@ __attribute__((__noreturn__)) void panic(uint16_t line, const char* file) {
 	print_stack();
 	
 	//enter infinite loop
+    kernel_begin_critical();
 	do {} while (1);
 }
 
@@ -64,5 +65,6 @@ __attribute__((__noreturn__)) void panic_msg(uint16_t line, const char* file, co
 	print_stack();
 	
 	//enter infinite loop
+    kernel_begin_critical();
 	do {} while (1);
 }

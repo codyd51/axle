@@ -6,12 +6,13 @@
 
 __BEGIN_DECLS
 
+//if the memory layout of this changes, kernel/util/interrupts/interrupt.s must be changed as well
+//to correct offsets
 typedef struct registers {
-	uint32_t ds; 					//data segment selector
-	uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax;//pushed by pusha
-	uint32_t int_no, err_code; 			//interrupt number and error code
-	uint32_t eip, cs, eflags, useresp, ss; 		//pushed by the processor automatically
-	uint32_t cr3; 					//page directory
+	unsigned int gs, fs, es, ds;				//segment registers 
+	unsigned int edi, esi, ebp, esp, ebx, edx, ecx, eax;	//pushed by pusha
+	unsigned int int_no, err_code; 				//interrupt number and error code
+	unsigned int eip, cs, eflags, useresp, ss;		//pushed by the processor automatically
 } registers_t;
 
 //write byte to port

@@ -2,6 +2,7 @@
 #define SYSFUNCS_H
 
 #include "syscall.h"
+#include <kernel/util/multitasking/tasks/task.h>
 
 //installs common syscalls into syscall table
 void create_sysfuncs();
@@ -14,6 +15,6 @@ DECL_SYSCALL1(terminal_putchar, char);
 
 //Yeilds current process's running state to a different process
 //Typically invoked if process is blocked by I/O, or sleeping
-DECL_SYSCALL0(yield);
+DECL_SYSCALL1(yield, task_state);
 
 #endif
