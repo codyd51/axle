@@ -6,7 +6,7 @@
 #include <std/math.h>
 #include <kernel/util/kbman/kbman.h>
 
-#define TERM_HISTORY_MAX 512
+#define TERM_HISTORY_MAX 2048
 
 /// Shared lock to keep all terminal operations atomic
 static lock_t* mutex;
@@ -117,9 +117,9 @@ static void term_end_line() {
 	if (is_scroll_redraw) return;
 
 	//if history is at capacity, dump the oldest line
-	if (term_history->size == TERM_HISTORY_MAX - 1) {
-		array_m_remove(term_history, 0);
-	}
+    while (term_history->size >= TERM_HISTORY_MAX - 1) {
+        array_m_remove(term_history, 0);
+    }
 
 	char* newline = (char*)kmalloc(sizeof(char) * TERM_WIDTH * 2);
 	array_m_insert(term_history, newline);

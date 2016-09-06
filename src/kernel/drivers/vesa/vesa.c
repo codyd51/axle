@@ -30,7 +30,7 @@ void set_bank(int bank) {
 }
 
 //sets up VESA for mode
-Screen* switch_to_vesa(uint32_t vesa_mode) {
+Screen* switch_to_vesa(uint32_t vesa_mode, bool create) {
 		kernel_begin_critical();
 		
 		vesa_info info;
@@ -80,14 +80,16 @@ Screen* switch_to_vesa(uint32_t vesa_mode) {
 		regs.bx = (vesa_mode | 0x4000);
 		int32(0x10, &regs);
 
-		Screen* screen = (Screen*)kmalloc(sizeof(Screen));
-		screen->vmem = (uint8_t*)kmalloc(mode_info.x_res * mode_info.y_res * (mode_info.bpp / 8));
-		screen->depth = mode_info.bpp;
-		//linear frame buffer (LFB) address
-		screen->physbase = (uint8_t*)mode_info.physbase;
-		screen->window = create_window(rect_make(point_make(0, 0), size_make(mode_info.x_res, mode_info.y_res)));
-		
 		kernel_end_critical();
+		if (create) {
+			Screen* screen = (Screen*)kmalloc(sizeof(Screen));
+			screen->vmem = (uint8_t*)kmalloc(mode_info.x_res * mode_info.y_res * (mode_info.bpp / 8));
+			screen->depth = mode_info.bpp;
+			//linear frame buffer (LFB) address
+			screen->physbase = (uint8_t*)mode_info.physbase;
+			screen->window = create_window(rect_make(point_make(0, 0), size_make(mode_info.x_res, mode_info.y_res)));
 
-		return screen;
+			return screen;
+		}
+		return 0;
 }

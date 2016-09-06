@@ -5,6 +5,7 @@
 #include <std/panic.h>
 #include <std/std.h>
 #include <kernel/util/multitasking/tasks/task.h>
+#include <gfx/lib/shader.h>
 
 //has the screen been modified this refresh?
 static char dirtied = 0;
@@ -79,30 +80,33 @@ void draw_bmp(Screen* screen, Bmp* bmp) {
 	dirtied = 1;
 
 	Rect frame = absolute_frame(screen, (View*)bmp);
-	int row_start = 0;
-	int row_end = MIN(bmp->raw_size.width, frame.size.width);
-	//ensure we don't draw images outside screen bounds
-	if (frame.origin.x + frame.size.width >= screen->window->frame.size.width) {
-		row_end -= ((frame.origin.x + frame.size.width - screen->window->frame.size.width));
-	}
-	if (frame.origin.x < 0) {
-		row_start -= frame.origin.x;
-	}
-	int col_start = 0;
-	if (frame.origin.y < 0) {
-		col_start -= frame.origin.y;
-	}
-	
-	int bpp = 24 / 8;
-	int offset = frame.origin.x * bpp + frame.origin.y * screen->window->size.width * bpp;
-	offset += (col_start * screen->window->size.width * bpp);
-	int current_row_ptr = offset;
-	
-	Color* row = bmp->raw + (bmp->raw_size.width * col_start);
-	int max_cols = MIN(bmp->raw_size.height, frame.size.height) - col_start;
-	for (int i = 0; i < max_cols; i++) {
-		memcpy(screen->vmem + offset, row + row_start, row_end * bpp);
+	frame.size.width = MIN(frame.size.width, bmp->raw_size.width);
+	frame.size.height = MIN(frame.size.height, bmp->raw_size.height);
 
+	int row_min = 0;
+	if (frame.origin.x < 0) {
+		row_min = -frame.origin.x;
+	}
+	int row_max = frame.size.width;
+	if (frame.size.width + frame.origin.x > screen->window->frame.size.width) {
+		row_max -= abs(frame.size.width + frame.origin.x - screen->window->frame.size.width);
+	}
+	int col_min = 0;
+	if (frame.origin.y < 0) {
+		col_min = -frame.origin.y;
+	}
+	int col_max = frame.size.height;
+	if (frame.size.height + frame.origin.y > screen->window->frame.size.height) {
+		col_max -= abs(frame.size.height + frame.origin.y - screen->window->frame.size.height);
+	}
+
+	int bpp = 24 / 8;
+	int offset = frame.origin.x * bpp + (frame.origin.y + col_min) * screen->window->size.width * bpp + (row_min * bpp);
+
+	int current_row_ptr = offset;
+	Color* row = bmp->raw + row_min + (col_min * bmp->raw_size.width);
+	for (int i = col_min; i < col_max; i++) {
+		memcpy(screen->vmem + offset, row, row_max * bpp - row_min * bpp);
 		row += bmp->raw_size.width;
 
 		current_row_ptr += screen->window->size.width * bpp;
@@ -173,10 +177,15 @@ void draw_view(Screen* screen, View* view) {
 	}
 
 	//draw any bmps this view has
-	//im
 	for (unsigned i = 0; i < view->bmps->size; i++) {
 		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
 		draw_bmp(screen, bmp);
+	}
+
+	//draw shaders last
+	for (unsigned i = 0; i < view->shaders->size; i++) {
+		Shader* s = (Shader*)array_m_lookup(view->shaders, i);
+		draw_shader(screen, s);
 	}
 
 	//draw each subview of this view
@@ -370,30 +379,28 @@ static void process_mouse_events(Screen* screen) {
 static Label* fps;
 void xserv_refresh(Screen* screen) {
 	if (!screen->finished_drawing) return;
-/*
+
 	//check if there are any keys pending
-	while (haskey()) {
-		char ch = getchar();
+	char ch;
+	if ((ch = kgetch())) {
 		if (ch == 'q') {
 			//quit xserv
-			gfx_teardown(screen);
-			switch_to_text();
+			//gfx_teardown(screen);
+			xserv_pause();
 			return;
 		}
 	}
 
-*/
-	//double time_start = time();
+	double time_start = time();
 	xserv_draw(screen);
-	//double frame_time = (time() - time_start) / 1000.0;
+	double frame_time = (time() - time_start) / 1000.0;
 
 	//update frame time tracker 
-	//char buf[32];
-	//itoa(frame_time * 1000, &buf);
-	//strcat(buf, " ms/frame");
-	//fps->text = "Testing";
-	//draw_label(screen, fps);
-
+	char buf[32];
+	itoa(frame_time * 1000, &buf);
+	strcat(buf, " ms/frame");
+	fps->text = buf;
+	draw_label(screen, fps);
 
 	//draw rect to indicate whether the screen was dirtied this frame
 	//red indicates dirtied, green indicates clean
@@ -406,9 +413,23 @@ void xserv_refresh(Screen* screen) {
 	write_screen(screen);
 }
 
+void xserv_pause() {
+	switch_to_text();
+}
+
+void xserv_resume() {
+	switch_to_vesa(0x118, false);
+}
+
+void xserv_temp_stop(uint32_t pause_length) {
+	xserv_pause();
+	//sleep(pause_length);
+	xserv_resume();
+}
+
 void xserv_init_late() {
 	//switch to VESA for x serv
-	Screen* screen = switch_to_vesa(0x118);
+	Screen* screen = switch_to_vesa(0x118, true);
 	
 	set_frame(screen->window->title_view, rect_make(point_make(0, 0), size_make(0, 0)));
 	set_frame(screen->window->content_view, screen->window->frame);
@@ -416,11 +437,11 @@ void xserv_init_late() {
 	desktop_setup(screen);
 
 	//add FPS tracker
-	//fps = create_label(rect_make(point_make(3, 3), size_make(300, 50)), "FPS counter");
-	//fps->text_color = color_black();
-	//add_sublabel(screen->window->content_view, fps);
+	fps = create_label(rect_make(point_make(3, 3), size_make(300, 50)), "FPS counter");
+	fps->text_color = color_black();
+	add_sublabel(screen->window->content_view, fps);
 
-	test_xserv(screen);
+	//test_xserv(screen);
 
 	while (1) {
 		xserv_refresh(screen);
@@ -430,4 +451,6 @@ void xserv_init_late() {
 
 void xserv_init() {
 	add_process(create_process((uint32_t)xserv_init_late));
+    sleep(500);
+    xserv_pause();
 }
