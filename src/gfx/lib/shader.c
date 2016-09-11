@@ -35,16 +35,11 @@ void draw_shader(Screen* screen, Shader* s) {
 
 	int bpp = 24 / 8;
 	int offset = (frame.origin.x * bpp) + (frame.origin.y * screen->window->size.width * bpp);
-	Color* shader_offset = s->raw;
-	for (int i = 0; i < frame.size.height; i++) {
+	uint8_t* shader_offset = s->raw;
+	for (int i = 0; i < frame.size.width; i++) {
+		memadd(screen->vmem + offset, shader_offset, frame.size.width * bpp);
 		offset += (screen->window->size.width * bpp);
-		shader_offset += frame.size.width;
-
-		//TODO try getting each pixel value and adding a var to it, then rewriting it
-		for (int j = 0; j < frame.size.width; j++) {
-			Color px = *shader_offset++;
-			addpixel(screen, j + frame.origin.x, i + frame.origin.y, px);
-		}
+		shader_offset += frame.size.width * bpp;
 	}
 }
 

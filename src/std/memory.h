@@ -10,6 +10,7 @@ __BEGIN_DECLS
 STDAPI int memcmp(const void*, const void*, size_t);
 STDAPI void* memmove(void*, const void*, size_t);
 STDAPI void* memset(void*, int, size_t);
+STDAPI void memadd(void*, void*, size_t);
 STDAPI void* calloc(size_t num, size_t size);
 STDAPI void* realloc(void* ptr, size_t size);
 

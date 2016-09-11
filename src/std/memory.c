@@ -64,6 +64,28 @@ void* memcpy(void* dstptr, const void* srcptr, size_t size) {
 }
 */
 
+void memadd(void* dstptr, void* srcptr, size_t size) {
+	//how many 32b chunks we can write
+	uint32_t num_dwords = size / 4;
+	//leftover bytes that couldn't be written in larger chunk
+	uint32_t num_bytes = size % 4;
+	//write in 32b chunks
+	uint32_t* dest32 = (uint32_t*)dstptr;
+	uint32_t* src32 = (uint32_t*)srcptr;
+	//find where we need to start writing byte-wise
+	uint8_t* dest8 = ((uint8_t*)dstptr) + (num_dwords * 4);
+	uint8_t* src8 = ((uint8_t*)srcptr) + (num_dwords * 4);
+
+	//write large chunks
+	for (uint32_t i = 0; i < num_dwords; i++) {
+		dest32[i] += src32[i];
+	}
+	//write leftover bytes
+	for (uint32_t i = 0; i < num_bytes; i++) {
+		dest8[i] += src8[i];
+	}
+}
+
 void* calloc(size_t num, size_t size) {
 	void* mem = (void*)kmalloc(num * size);
 	memset(mem, 0, num * size);
