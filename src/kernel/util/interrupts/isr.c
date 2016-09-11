@@ -12,10 +12,44 @@ void halt_execution() {
 }
 
 void print_regs(registers_t regs) {
-    printf("\n=================                registers                ====================\n");
+    printf("\n==============================    registers    ================================\n");
 	printf("eax: %x		ecx: %x		edx: %x		ebx: %x\n", regs.eax, regs.ecx, regs.edx, regs.ebx);
 	printf("esp: %x		ebp: %x 	esi: %x		edi: %x\n", regs.esp, regs.ebp, regs.esi, regs.edi);
-	printf("eip: %x		cs:  %x		ds:  %x		eflags: %x\n", regs.eip, regs.cs, regs.ds, regs.eflags);
+	printf("eip: %x		int: %x		err: %x		cs:  %x\n", regs.eip, regs.int_no, regs.err_code, regs.cs);
+	printf("useresp: %x ss:  %x		efl: %x\n", regs.useresp, regs.ss, regs.eflags);
+	printf("gs:  %x		fs:	 %x		es:  %x		ds:  %x\n", regs.gs, regs.fs, regs.es, regs.ds);
+
+	//dump_stack(regs.esp);
+}
+
+void dump_stack(uint32_t* esp) {
+	for (int i = 0; i < 8; i++) {
+		esp--;
+		if (i % 2) {
+			printf("\e[2;");
+		}
+		else {
+			printf("\e[3;");
+		}
+		uint8_t* esp_byte = esp;
+		
+		printf("[%x] %x %x %x %x ", esp, *(esp--), *(esp--), *(esp--), *(esp--));
+		//we want to print out every byte of the 4 words we just printed out
+		//words are 4 bytes
+		//four words * (size of word / size of byte)
+		//for (int i = 0; i < (4 * sizeof(uint32_t) / sizeof(uint8_t)); i++) {
+		for (int i = 0; i < 4 * 4; i++) {
+			uint8_t val = *esp_byte;
+			if (isalnum(val)) {
+				printf("%c", val);
+			}
+			else {
+				printf(".");
+			}
+			esp_byte--;
+		}
+		printf("\n");
+	}
 }
 
 void common_halt(registers_t regs, bool recoverable) {
@@ -135,17 +169,17 @@ void isr_install_default() {
 }
 
 //gets called from ASM interrupt handler stub
-void isr_handler(registers_t* regs) {
-	uint8_t int_no = regs->int_no;
+void isr_handler(registers_t regs) {
+	uint8_t int_no = regs.int_no;
     pic_acknowledge(int_no);
 
 	if (interrupt_handlers[int_no] != 0) {
 		isr_t handler = interrupt_handlers[int_no];
-		handler(*regs);
+		handler(regs);
 	}
 	else {
 		printf_err("Unhandled ISR: %x", int_no);
-		common_halt(*regs, true);
+		common_halt(regs, true);
 	}
 }
 
@@ -174,10 +208,11 @@ void pic_acknowledge(unsigned int interrupt) {
 }
 
 //gets called from ASM interrupt handler stub
-void irq_handler(registers_t* regs) {
-	pic_acknowledge(regs->int_no);
-	if (interrupt_handlers[regs->int_no] != 0) {
-		isr_t handler = interrupt_handlers[regs->int_no];
-		handler(*regs);
+void irq_handler(registers_t regs) {
+	pic_acknowledge(regs.int_no);
+	if (interrupt_handlers[regs.int_no] != 0) {
+		isr_t handler = interrupt_handlers[regs.int_no];
+		handler(regs);
 	}
 }
+
