@@ -32,18 +32,11 @@ copy_page_physical:
 
 [GLOBAL read_eip]
 read_eip:
-	pop eax
-	jmp eax
+	mov eax, [esp]
+	ret
 
 [GLOBAL perform_task_switch]
+[EXTERN irq_common_stub_ret]
 perform_task_switch:
-	cli;
-	mov ecx, [esp+4]
-	mov eax, [esp+8]
-	mov ebp, [esp+12]
-	mov esp, [esp+16]
-	mov cr3, eax
-	mov eax, 0xDEADBEEF
-	sti
-	jmp ecx
-
+	mov esp, [esp + 4]	; esp
+	jmp irq_common_stub_ret

@@ -1,6 +1,7 @@
 %macro ISR_NOERRCODE 1 		; define a macro, taking one parameter
 	[GLOBAL isr%1] 			; %1 accesses the first parameteer
 	isr%1:
+		cli
 		push byte 0		; push dummy error code (if ISR0 doesn't push its own error code)
 		push byte %1 		; push interrupt number 
 		jmp isr_common_stub 	; go to common handler
@@ -9,6 +10,7 @@
 %macro ISR_ERRCODE 1
 	[GLOBAL isr%1]
 	isr%1:
+		cli
 		push byte %1
 		jmp isr_common_stub
 %endmacro
@@ -45,13 +47,14 @@ ISR_NOERRCODE 28
 ISR_NOERRCODE 29
 ISR_NOERRCODE 30
 ISR_NOERRCODE 31
-ISR_NOERRCODE 128
+;ISR_NOERRCODE 128
 
 ; this macro creates a stub for an IRQ - the first parameter is 
 ; the IRQ number, the second is the ISR number it's remapped to
 %macro IRQ 2
 	[GLOBAL irq%1]
 	irq%1:
+		cli
 		push byte 0x00
 		push byte %2
 		jmp irq_common_stub
@@ -75,6 +78,7 @@ IRQ 	14,	46
 IRQ 	15, 	47
 
 [EXTERN isr_handler]
+[EXTERN print_regs]
 
 ; common ISR stub. Saves processor state, sets
 ; up kernel mode segments, calls C-level fault handler,
@@ -94,9 +98,7 @@ isr_common_stub:
 	mov gs, ax
 
 	; call fault handler
-	push esp
 	call isr_handler
-	add esp, 4
 
 	pop gs
 	pop fs
@@ -105,7 +107,8 @@ isr_common_stub:
 	
 	popad 		; pop edi, esi, ebp, etc
 	add esp, 8 	; cleans up pushed error code and pushed ISR number
-	iret		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
+	sti
+	iretd		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
 
 [EXTERN irq_handler]
 
@@ -113,6 +116,7 @@ isr_common_stub:
 ; up for kernel mode arguments, calls C-level fault handler,
 ; and finally restores stack frame
 irq_common_stub:
+	cli
 	pushad		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
 
 	push ds
@@ -126,20 +130,18 @@ irq_common_stub:
 	mov fs, ax
 	mov gs, ax
 
-	push esp
 	call irq_handler
-	add esp, 4
 
+; return falls through to irq_common_stub_ret
+[GLOBAL irq_common_stub_ret]
+irq_common_stub_ret:
 	pop gs
 	pop fs
 	pop es
 	pop ds
 
 	popad		; pops edi, esi, ebp, etc
-	add esp, 8	; cleans up pushed error code and pushed ISR numbe
-	iret		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
+	add esp, 8	; cleans up pushed error code and pushed ISR number
+	;sti
+	iretd		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
 
-[GLOBAL find_eip]
-find_eip:
-	mov eax, [esp]
-	ret
