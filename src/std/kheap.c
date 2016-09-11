@@ -26,11 +26,12 @@ uint32_t kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
 		}
 		return (uint32_t)addr;
 	}
+
 	//if addr is not already page aligned
-	if (align == 1 && (placement_address & 0xFFFFF000)) {
+	if (align && (placement_address & 0xFFFFF000)) {
 		//align it
 		placement_address &= 0xFFFFF000;
-       		placement_address += PAGE_SIZE;
+		placement_address += PAGE_SIZE;
 	}
 	if (phys) {
 		*phys = placement_address;
@@ -99,7 +100,7 @@ static int32_t find_smallest_hole(uint32_t size, uint8_t align, heap_t* heap) {
 }
 
 static int8_t header_t_less_than(void* a, void* b) {
-	return (((header_t*)a)->size < ((header_t*)b)->size) ? 1 : 0;
+	return (((header_t*)a)->size < ((header_t*)b)->size);
 }
 
 heap_t* create_heap(uint32_t start, uint32_t end_addr, uint32_t max, uint8_t supervisor, uint8_t readonly) {
@@ -155,13 +156,14 @@ void expand(uint32_t new_size, heap_t* heap) {
 	uint32_t old_size = heap->end_address - heap->start_address;
 	uint32_t i = old_size;
 	while (i < new_size) {
-		alloc_frame(get_page(heap->start_address + i, 1, current_directory == 0 ? kernel_directory : current_directory), (heap->supervisor) ? 1 : 0, (heap->readonly) ? 0 : 1);
+	//printf_info("allocating page at %x", heap->start_address + i);
+		alloc_frame(get_page(heap->start_address + i, 1, kernel_directory), heap->supervisor, !heap->readonly);
 		i += PAGE_SIZE;
 	}
 	heap->end_address = heap->start_address + new_size;
 }
 
-static uint32_t contract(uint32_t new_size, heap_t* heap) {
+static uint32_t contract(int32_t new_size, heap_t* heap) {
 	//sanity check
 	ASSERT(new_size < heap->end_address - heap->start_address, "new_size was larger than heap");
 
@@ -174,8 +176,8 @@ static uint32_t contract(uint32_t new_size, heap_t* heap) {
 	//don't contract too far
 	new_size = MAX(new_size, HEAP_MIN_SIZE);
 	
-	uint32_t old_size = heap->end_address - heap->start_address;
-	uint32_t i = old_size - PAGE_SIZE;
+	int32_t old_size = heap->end_address - heap->start_address;
+	int32_t i = old_size - PAGE_SIZE;
 	while (new_size < i) {
 		free_frame(get_page(heap->start_address + i, 0, current_directory == 0 ? kernel_directory : current_directory));
 		i -= PAGE_SIZE;
@@ -204,7 +206,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		//find last header
 		iterator = 0;
 		//hold index of and value of endmost header found so far
-		uint32_t idx = -1;
+		int32_t idx = -1;
 		uint32_t val = 0x0;
 		while (iterator < heap->index->size) {
 			uint32_t tmp = (uint32_t)array_o_lookup(heap->index, iterator);
@@ -240,6 +242,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 
 		//we should now have enough space
 		//try allocation again
+		printf_info("alloc added header, retrying allocation");
 		return alloc(size, align, heap);
 	}
 
@@ -258,7 +261,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 
 	//if it needs to be page aligned, do it now and
 	//make a new hole in front of our block
-	if (align && orig_hole_pos & 0xFFFFF000) {
+	if (align && (orig_hole_pos & 0xFFFFF000)) {
 		uint32_t new_location = orig_hole_pos + PAGE_SIZE - (orig_hole_pos & 0xFFF) - sizeof(header_t);
 		header_t* hole_header = (header_t*)orig_hole_pos;
 		hole_header->size = PAGE_SIZE - (orig_hole_pos & 0xFFF) - sizeof(header_t);

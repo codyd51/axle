@@ -144,7 +144,7 @@ int shell() {
 	//set terminal color to stdout color
 	printf("\e[15;");
 	process_command(input);
-	//kfree(input);
+	kfree(input);
 
 	if (strcmp(input, "shutdown") == 0) {
 		return 1;

@@ -6,12 +6,12 @@
 
 typedef struct page {
 	uint32_t present	:  1; //page present in memory
-	uint32_t rw	:  1; //read-only if clear, readwrite if set
-	uint32_t user 	:  1; //kernel level only if clear
+	uint32_t rw		:  1; //read-only if clear, readwrite if set
+	uint32_t user 		:  1; //kernel level only if clear
 	uint32_t accessed	:  1; //has page been accessed since last refresh?
-	uint32_t dirty	:  1; //has page been written to since last refresh?
-	uint32_t unused	:  7; //unused/reserved bits
-	uint32_t frame	: 20; //frame address, shifted right 12 bits
+	uint32_t dirty		:  1; //has page been written to since last refresh?
+	uint32_t unused		:  7; //unused/reserved bits
+	uint32_t frame		: 20; //frame address, shifted right 12 bits
 } page_t;
 
 typedef struct page_table {

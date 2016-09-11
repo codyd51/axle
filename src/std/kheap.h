@@ -19,12 +19,13 @@ STDAPI uint32_t kmalloc_ap(uint32_t sz, uint32_t* phys);
 //normal kmalloc
 STDAPI uint32_t kmalloc(uint32_t sz);
 
-#define KHEAP_START		0x40000000
-#define KHEAP_INITIAL_SIZE	0x1000000
-#define KHEAP_MAX_ADDRESS	0xFFFF000
+#define KHEAP_START		0xC0000000
+#define KHEAP_INITIAL_SIZE	0x100000
+//#define KHEAP_MAX_ADDRESS	0xFFFFF000
+#define KHEAP_MAX_ADDRESS 	0xCFFFF000
 
 #define HEAP_INDEX_SIZE		0x20000
-#define HEAP_MAGIC		0x25A56F9
+#define HEAP_MAGIC		0x25A56F9C
 #define HEAP_MIN_SIZE		0x70000
 
 //size information for hole/block

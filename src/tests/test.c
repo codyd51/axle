@@ -30,9 +30,9 @@ void force_page_fault() {
 void test_interrupts() {
 	printf_info("Testing interrupts...");
 	asm volatile("mov $0xdeadbeef, %eax");
-	asm volatile("mov $0xcafebabe, %edx");
+	asm volatile("mov $0xcafebabe, %ecx");
 	asm volatile("int $0x3");
-	asm volatile("int $0x4");
+	//asm volatile("int $0x4");
 }
 
 void test_heap() {
@@ -62,7 +62,7 @@ void test_malloc() {
 	uint32_t used = used_mem();
 
 	for (int i = 0; i < 32; i++) {
-		uint32_t* tmp = (uint32_t*)kmalloc(4096);
+		uint32_t* tmp = (uint32_t*)kmalloc(0x1000);
 		kfree(tmp);
 	}
 	

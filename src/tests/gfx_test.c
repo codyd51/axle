@@ -4,6 +4,7 @@
 #include <gfx/lib/color.h>
 #include <std/math.h>
 #include <kernel/drivers/vga/vga.h>
+#include <gfx/lib/shader.h>
 
 //draw Mandelbrot set
 void draw_mandelbrot(Screen* screen) {
@@ -230,31 +231,21 @@ void test_gfx(int argc, char **argv) {
 }
 
 void test_xserv(Screen* vesa_screen) {
-	Window* label_win = create_window(rect_make(point_make(350, 100), size_make(500, 600)));
+	Window* image_viewer = create_window(rect_make(point_make(400, 50), size_make(512, 512)));
+	image_viewer->title = "Image Viewer";
+	image_viewer->content_view->background_color = color_make(135, 206, 250);
+	Bmp* bmp = load_bmp(rect_make(point_zero(), size_make(600, 600)), "Lenna.bmp");
+	add_bmp(image_viewer->content_view, bmp);
+	add_subwindow(vesa_screen->window, image_viewer);
+	
+	Window* label_win = create_window(rect_make(point_make(100, 100), size_make(500, 500)));
 	label_win->title = "Text test";
 	Label* test_label = create_label(rect_make(point_make(10, 10), size_make(label_win->content_view->frame.size.width - 10, label_win->content_view->frame.size.height - 20)), "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque pulvinar dui bibendum nunc convallis, bibendum venenatis mauris ornare. Donec et libero lacus. Nulla tristique auctor pulvinar. Aenean enim elit, malesuada nec dignissim eget, varius ac nunc. Vestibulum varius lectus nisi, in dignissim orci volutpat in. Aliquam eget eros lorem. Quisque tempor est a rhoncus consequat. Quisque vestibulum finibus sapien. Etiam enim sem, vehicula ac lorem vitae, mattis mollis mauris. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Vivamus eleifend dui vel nulla suscipit pretium. Suspendisse vel nunc efficitur, lobortis dui convallis, tristique tellus. Ut ut viverra est. Etiam tempor justo risus. Cras laoreet eu sapien et lacinia. Nunc imperdiet blandit purus a semper.");
+	test_label->text_color = color_make(200, 0, 100);
 	add_sublabel(label_win->content_view, test_label);
 	
-	Bmp* bmp = load_bmp(rect_make(point_make(100, 100), size_make(400, 400)), "tex.bmp");
-	add_bmp(label_win->content_view, bmp);
-	
-	Window* window = create_window(rect_make(point_make(50, 50), size_make(400, 500)));
-	window->title = "Color test";
+	Shader* s = create_shader(vec2d(-1.0, 1.0));
+	add_shader(label_win->content_view, s);
 
-	//create evenly spaced subsections
-	for (int i = 0; i < 34; i++) {
-		double height = window->content_view->frame.size.height / 32;
-		View* view = create_view(rect_make(point_make(0, height * i), size_make(window->content_view->frame.size.width, height)));
-		add_subview(window->content_view, view);
-	}
 	add_subwindow(vesa_screen->window, label_win);
-	add_subwindow(vesa_screen->window, window);
-	for (int i = 0; i < 1000; i++) {
-		for (int j = 0; j < window->content_view->subviews->size; j++) {
-			View* subview = (View*)array_m_lookup(window->content_view->subviews, j);
-			set_background_color(subview, color_make(rand() % 256, rand() % 256, rand() % 256));
-		}
-		sleep(50);
-	}
-	switch_to_text();
 }	

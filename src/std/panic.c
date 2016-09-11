@@ -9,7 +9,7 @@
 	if(__builtin_frame_address(num) == 0) { \
 		return; \
 	} \
-	printf("[%d] 0x%x\n", num, __builtin_return_address(num)); \
+	printf("[%d] %x\n", num, __builtin_return_address(num)); \
 } while(0)
 
 static inline __attribute__((__always_inline__)) void print_stack(void) {
