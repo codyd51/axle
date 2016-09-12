@@ -3,7 +3,10 @@
 extern task_t* current_task;
 
 void yield(task_state reason) {
-    current_task->state = reason;
+	kernel_begin_critical();
+	block_task(current_task, reason);
+	kernel_end_critical();
+
 	//go to next task
 	task_switch();
 }

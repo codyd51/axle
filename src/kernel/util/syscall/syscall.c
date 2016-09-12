@@ -15,7 +15,7 @@ array_m* syscalls;
 void sys_install() {
 	printf_info("Initializing syscalls...");
 	
-	register_interrupt_handler(0x80, (isr_t)&sys_handler);
+	register_interrupt_handler(0x80, (isr_t)sys_handler);
 	syscalls = array_m_create(MAX_SYSCALLS);
 	create_sysfuncs();
 }

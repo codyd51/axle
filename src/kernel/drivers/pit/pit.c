@@ -11,8 +11,6 @@ static volatile uint32_t tick = 0;
 //inform that a tick has occured
 extern void handle_tick(uint32_t tick);
 
-extern void switch_task();
-
 static void tick_callback(registers_t regs) {
 	tick++;
 
