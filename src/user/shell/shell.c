@@ -219,6 +219,14 @@ void shutdown_command() {
 }
 
 void startx_command() {
+	//spawn xserv into its own process
+	if (fork()) {
+		sleep(3000);
+		switch_to_text();
+		printf_err("xserv quite!");
+		return;
+	}
+
 	printf_info("Press 'q' to exit");
 	sleep(500);
 

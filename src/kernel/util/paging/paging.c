@@ -226,7 +226,7 @@ void paging_install() {
 	//this causes page_table_t's to be created where necessary
 	//don't alloc the frames yet, they need to be identity 
 	//mapped below first.
-    	unsigned int i = 0;
+    unsigned int i = 0;
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
 		get_page(i, 1, kernel_directory);
 	}
@@ -369,13 +369,13 @@ static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
 		//get new frame
 		alloc_frame(&table->pages[i], 0, 0);
 		//clone flags from source to destination
-		if (src->pages[i].present) table->pages[i].present = 1;
-		if (src->pages[i].rw) table->pages[i].rw = 1;
-		if (src->pages[i].user) table->pages[i].user = 1;
-		if (src->pages[i].accessed) table->pages[i].accessed = 1;
-		if (src->pages[i].dirty) table->pages[i].dirty = 1;
-		//physically copy data across
+		table->pages[i].present = src->pages[i].present;
+		table->pages[i].rw = src->pages[i].rw;
+		table->pages[i].user = src->pages[i].user;
+		table->pages[i].accessed = src->pages[i].accessed;
+		table->pages[i].dirty = src->pages[i].dirty;
 		
+		//physically copy data across
 		extern void copy_page_physical(uint32_t page, uint32_t dest);
 		copy_page_physical(src->pages[i].frame * 0x1000, table->pages[i].frame * 0x1000);
 	}
@@ -400,7 +400,7 @@ page_directory_t* clone_directory(page_directory_t* src) {
 		if (!src->tables[i]) continue;
 
 		if (kernel_directory->tables[i] == src->tables[i]) {
-			//in kernel, so just reuse same pointer
+			//in kernel, so just reuse same pointer (link)
 			dir->tables[i] = src->tables[i];
 			dir->tablesPhysical[i] = src->tablesPhysical[i];
 		}
