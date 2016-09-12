@@ -18,8 +18,6 @@ void print_regs(registers_t regs) {
 	printf("eip: %x		int: %x		err: %x		cs:  %x\n", regs.eip, regs.int_no, regs.err_code, regs.cs);
 	printf("useresp: %x ss:  %x		efl: %x\n", regs.useresp, regs.ss, regs.eflags);
 	printf("gs:  %x		fs:	 %x		es:  %x		ds:  %x\n", regs.gs, regs.fs, regs.es, regs.ds);
-
-	//dump_stack(regs.esp);
 }
 
 void dump_stack(uint32_t* esp) {
@@ -37,7 +35,6 @@ void dump_stack(uint32_t* esp) {
 		//we want to print out every byte of the 4 words we just printed out
 		//words are 4 bytes
 		//four words * (size of word / size of byte)
-		//for (int i = 0; i < (4 * sizeof(uint32_t) / sizeof(uint8_t)); i++) {
 		for (int i = 0; i < 4 * 4; i++) {
 			uint8_t val = *esp_byte;
 			if (isalnum(val)) {
@@ -178,8 +175,8 @@ void isr_handler(registers_t regs) {
 		handler(regs);
 	}
 	else {
-		printf_err("Unhandled ISR: %x", int_no);
-		common_halt(regs, true);
+		printf_err("Unhandled ISR: %d", int_no);
+		//common_halt(*regs, true);
 	}
 }
 
@@ -214,5 +211,6 @@ void irq_handler(registers_t regs) {
 		isr_t handler = interrupt_handlers[regs.int_no];
 		handler(regs);
 	}
+	else printf_dbg("unhandled IRQ %d", regs.int_no);
 }
 

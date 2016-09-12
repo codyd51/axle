@@ -11,7 +11,6 @@ extern void tss_flush();
 static void init_gdt();
 static void gdt_set_gate(int32_t, uint32_t, uint32_t, uint8_t, uint8_t);
 static void init_idt();
-static void idt_set_gate(uint8_t, uint32_t, uint16_t, uint8_t);
 static void write_tss(int32_t, uint16_t, uint32_t);
 
 gdt_entry_t gdt_entries[5];
@@ -112,7 +111,7 @@ void idt_install() {
 	idt_set_gate(45, (uint32_t)irq13, 0x08, 0x8E);
 	idt_set_gate(46, (uint32_t)irq14, 0x08, 0x8E);
 	idt_set_gate(47, (uint32_t)irq15, 0x08, 0x8E);
-	//idt_set_gate(128, (uint32_t)isr128, 0x08, 0x8E);
+	idt_set_gate(128, (uint32_t)isr128, 0x08, 0x8E);
 
 	idt_flush((uint32_t)&idt_ptr);
 
@@ -120,7 +119,7 @@ void idt_install() {
 	isr_install_default();
 }
 
-static void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
+void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
 	idt_entries[num].base_lo	= base & 0xFFFF;
 	idt_entries[num].base_hi	= (base >> 16) & 0xFFFF;
 

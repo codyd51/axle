@@ -130,3 +130,5 @@ extern void irq16();
 extern void irq17();
 
 extern void isr128();
+ 
+void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags);

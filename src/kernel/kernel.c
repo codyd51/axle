@@ -19,6 +19,7 @@
 #include <kernel/util/mutex/mutex.h>
 #include <std/printf.h>
 #include <kernel/util/vfs/initrd.h>
+#include <kernel/drivers/pci/pci_detect.h>
 
 void print_os_name(void) {
 	printf("\e[10;[\e[11;AXLE OS v\e[12;0.4.0\e[10;]\n");
@@ -29,7 +30,7 @@ void shell_loop(void) {
 	while (!exit_status) {
 		exit_status = shell();
 	}
-
+/*
 	//give them a chance to recover
 	for (int i = 5; i > 0; i--) {
 		terminal_clear();
@@ -46,6 +47,7 @@ void shell_loop(void) {
 			break;
 		}
 	}
+*/
 	
 	//we're dead
 	terminal_clear();
@@ -101,9 +103,17 @@ uint32_t module_detect(multiboot* mboot_ptr) {
 
 void thread() {
 	while (1) {
-		printf("%d ", getpid());
+		printf_info("%d ", getpid());
 		sleep(50);
 	}
+}
+
+int fun1() {
+    return 0xCAFE;
+}
+
+int fun2() {
+    return 0xBEEF;
 }
 
 void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
@@ -111,41 +121,52 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	//initialize terminal interface
 	terminal_initialize();
+
 	//introductory message
 	print_os_name();
 	test_colors();
 
 	printf_info("Available memory:");
 	printf("%d -> %dMB\n", mboot_ptr->mem_upper, (mboot_ptr->mem_upper/1024));
-	
+
+	//descriptor tables
 	gdt_install();
 	idt_install();
-	//test_interrupts();
+	
+	test_interrupts();
 
+	//timer driver (many functions depend on timer interrupt so start early)
 	pit_install(1000);
 
-	//find grub modules
+	//find any loaded grub modules
 	uint32_t initrd_loc = module_detect(mboot_ptr);
-	
+
+	//utilities
 	paging_install();
 	sys_install();
 	tasking_install();
+    
+	//drivers
 	kb_install();
 	mouse_install();
 
 	//initialize initrd, and set as fs root
 	fs_root = initrd_install(initrd_loc);
-	
+
+	//test facilities
 	test_heap();
-
-	//set up info panel
-	info_panel_install();
-
 	test_printf();
 	test_time_unique();
 	test_malloc();
-	test_crypto();
+	//test_crypto();
 
+	if (!fork("sleep test")) {
+		sleep(2000);
+		printf_dbg("Child slept!");
+		_kill();
+	}
+
+	//start shell 
 	shell_init();
 	shell_loop();
 

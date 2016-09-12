@@ -77,7 +77,7 @@ void handle_tick(uint32_t tick) {
 
 void sleep(uint32_t ms) {
 	uint32_t end = time() + ms;
-	while (time() < end) {
-		sys_yield();
-	}
+    extern task_t* current_task;
+    current_task->wake_timestamp = end;
+    sys_yield(PIT_WAIT);
 }
