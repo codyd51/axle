@@ -32,11 +32,20 @@ copy_page_physical:
 
 [GLOBAL read_eip]
 read_eip:
-	mov eax, [esp]
-	ret
+	;mov eax, [esp]
+	;ret
+	pop eax
+	jmp eax
 
-[GLOBAL perform_task_switch]
-[EXTERN irq_common_stub_ret]
-perform_task_switch:
-	mov esp, [esp + 4]	; esp
-	jmp irq_common_stub_ret
+[GLOBAL task_switch_real]
+task_switch_real:
+	xchg bx, bx
+	cli
+	mov ecx, [esp + 4]	; eip
+	mov eax, [esp + 8]	; physical address of current paging dir
+	mov ebp, [esp + 12] ; ebp
+	mov esp, [esp + 16] ; esp
+	mov cr3, eax		; set paging directory
+	mov eax, 0xDEADBEEF	; magic value to detect task switch
+	sti
+	jmp ecx
