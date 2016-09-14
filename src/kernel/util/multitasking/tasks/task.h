@@ -27,6 +27,8 @@ typedef struct task {
 	uint32_t eip; //instruction pointer
 
 	page_directory_t* page_dir; //paging directory for this process
+
+	array_m* files;
 } task_t;
 
 //initializes tasking system
@@ -56,5 +58,8 @@ void update_blocked_tasks();
 
 //returns pid of current process
 int getpid();
+
+//print all active processes
+void proc();
 
 #endif

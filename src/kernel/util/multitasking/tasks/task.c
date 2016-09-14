@@ -12,6 +12,7 @@
 #define STACK_MAGIC 0xDEADBEEF
 
 #define MAX_TASKS 128
+#define MAX_FILES 32
 
 extern page_directory_t* current_directory;
 extern page_directory_t* kernel_directory;
@@ -20,6 +21,17 @@ static volatile int next_pid = 1;
 volatile task_t* current_task;
 volatile array_m* tasks;
 volatile array_m* blocked;
+
+void stdin_read(char* buf, uint32_t count);
+void stdout_read(char* buffer, uint32_t count);
+void stderr_read(char* buffer, uint32_t count);
+static void setup_fds(task_t* task) {
+	task->files = array_m_create(MAX_FILES);
+	array_m_insert(task->files, stdin_read);
+	array_m_insert(task->files, stdout_read);
+	array_m_insert(task->files, stderr_read);
+}
+
 
 int getpid() {
 	return current_task->id;
@@ -31,7 +43,7 @@ void block_task(task_t* task, task_state reason) {
 	if (task->state != RUNNABLE) {
 		return;
 	}
-
+	
 	kernel_begin_critical();
 
 	task->state = reason;
@@ -51,6 +63,8 @@ void block_task(task_t* task, task_state reason) {
 	}
 
 	kernel_end_critical();
+	
+	task_switch();
 }
 
 void unblock_task(task_t* task) {
@@ -59,7 +73,7 @@ void unblock_task(task_t* task) {
 	if (task->state == RUNNABLE) {
 		return;
 	}
-	
+
 	kernel_begin_critical();
 	task->state = RUNNABLE;
 	int idx = array_m_index(blocked, task);
@@ -90,57 +104,17 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	task->name = strdup(name);
 	task->id = next_pid++;
 	task->page_dir = cloned;
+	setup_fds(task);
 
 	uint32_t current_eip = read_eip();
 	if (current_task == parent) {
 		task->eip = current_eip;
 		return task;
 	}
-	else {
-		return;
-	}
 
 	task->state = RUNNABLE;
 	task->wake_timestamp = 0;
 
-	task->esp = (uint32_t)kmalloc_a(0x1000) + 0x1000;
-	uint32_t* stack = task->esp;
-	
-	//cpu data (iret)
-	*--stack = 0x202; //eflags
-	*--stack = 0x8; //cs
-	*--stack = (uint32_t)eip; //eip
-
-	//irq_common_stub_ret adds 8 to esp to skip isr number and error code
-	//compensate for that offset here
-	*--stack = 0x0;
-	*--stack = 0x0;
-
-	//emulates pusha
-	*--stack = 0xAAAAAAAA; //eax
-	*--stack = 0xCCCCCCCC; //ecx
-	*--stack = 0xDDDDDDDD; //edx
-	*--stack = 0xBBBBBBBB; //ebx
-
-	*--stack = 0x0; //esp (ignored)
-	*--stack = 0x0; //ebp
-	*--stack = 0x0; //esi
-	*--stack = 0x0; //edi
-	
-	//data segments
-	*--stack = 0x10; //ds
-	*--stack = 0x10; //es
-	*--stack = 0x10; //fs
-	*--stack = 0x10; //gs
-
-	task->esp = stack;
-	//task->esp += 0x1000;
-
-	task->switched_once = false;
-
-	printf_dbg("made task with esp %x, eip %x", task->esp, eip);
-*/
-	
 	return task;
 }
 
@@ -151,6 +125,27 @@ void add_process(task_t* task) {
 
 void idle() {
 	while (1) {}
+}
+
+void reap() {
+	while (1) {
+		for (int i = 0; i < blocked->size; i++) {
+			task_t* task = array_m_lookup(blocked, i);
+			if (task->state == ZOMBIE) {
+				array_m_remove(blocked, i);
+			}
+		}
+		//we have nothing else to do, yield cpu
+		sys_yield(RUNNABLE);
+	}
+}
+
+void iosent() {
+	while (1) {
+		update_blocked_tasks();
+		//yield cpu to next task
+		sys_yield(RUNNABLE);
+	}
 }
 
 bool tasking_installed() {
@@ -175,18 +170,30 @@ void tasking_install() {
 	kernel->name = "kax";
 	kernel->id = next_pid++;
 	kernel->page_dir = current_directory;
+	setup_fds(kernel);
+	
 	current_task = kernel;
 	array_m_insert(tasks, kernel);
 	
 	//create callback to switch tasks
-	add_callback((void*)task_switch, 50, true, 0);
-	//callback to check up on blocked tasks
-	add_callback((void*)update_blocked_tasks, 100, true, 0);
+	add_callback((void*)task_switch, 4, true, 0);
 
 	//idle task
 	//runs when anything (including kernel) is blocked for i/o
 	if (!fork("idle")) {
 		idle();
+	}
+
+	//task reaper
+	//cleans up zombied tasks
+	if (!fork("reaper")) {
+		reap();
+	}
+
+	//blocked task sentinel
+	//watches system events and wakes threads as necessary
+	if (!fork("iosentinel")) {
+		iosent();
 	}
 
 	//reenable interrupts
@@ -198,24 +205,27 @@ void tasking_install() {
 void update_blocked_tasks() {
 	if (!tasking_installed()) return;
 
+	kernel_begin_critical();
+
 	for (int i = 0; i < blocked->size; i++) {
 		task_t* task = array_m_lookup(blocked, i);
-		if (task->state == ZOMBIE) {
-			array_m_remove(blocked, i);
-		}
-		else if (task->state == PIT_WAIT) {
+		if (task->state == PIT_WAIT) {
 			if (time() >= task->wake_timestamp) {
 				unblock_task(task);
+				//goto_pid(task->id);
+				//return;
 			}
 		}
 		else if (task->state == KB_WAIT) {
 			if (haskey()) {
 				unblock_task(task);
-				goto_pid(task->id);
-				return;
+				//goto_pid(task->id);
+				//return;
 			}
 		}
 	}
+
+	kernel_end_critical();
 }
 
 int fork(char* name) {
@@ -261,29 +271,24 @@ int fork(char* name) {
 task_t* next_runnable_task() {
 	if (!tasking_installed()) return;
 
+	if (tasks->size < 1) {
+		ASSERT(0, "next_runnable_task(): no runnable tasks!");
+	}
+	else if (tasks->size == 1) {
+		//idle was the only available task
+		task_t* idle = array_m_lookup(tasks, 0);
+		return idle;
+	}
+
 	//find index of currently running task
 	int idx = array_m_index(tasks, current_task);
-	//if this is the last index loop around to the start of the array
-	if (idx + 1 >= tasks->size) {
-		//TODO FIX
-		//this ASSUMES idle is PID 2
-		//(kax is 1)
-		/*
-		task_t* tmp = array_m_lookup(tasks, 1);
-		int diff = strcmp("idle", tmp->name);
-		if (diff) {
-			proc();
-			ASSERT(!diff, "next_runnable_task(): PID %d was not idle, it was %s (strcmp: %d)", 2, tmp->name, diff);
-		}
-		*/
-		/*
-		for (int i = 0; i < tasks->size; i++) {
-			task_t* tmp = array_m_lookup(tasks, i);
-			if (tmp->id == 2) {
-				return tmp;
-			}
-		}
-		*/
+	/*
+	if (idx < 0) {
+		ASSERT(0, "Task %s [%d] was executing but not marked as Runnable!", current_task->name, current_task->id);
+	}
+	*/
+	//if this is the last index, loop around to the start of the array
+	if (idx + 1 >= tasks->size || idx < 0) {
 		return array_m_lookup(tasks, 0);
 	}
 	//return task at the next index
@@ -324,12 +329,18 @@ void goto_pid(int id) {
 	//switch to PID passed to us
 	//TODO optimize this
 	//find task with this PID
+	bool found_task = false;
 	for (int i = 0; i < tasks->size; i++) {
 		task_t* tmp = array_m_lookup(tasks, i);
 		if (tmp->id == id) {
 			current_task = tmp;
+			found_task = true;
 			break;
 		}
+	}
+	if (!found_task) {
+		printf_err("Couldn't find non-blocked PID %d!", id);
+		ASSERT(0, "Invalid context switch state");
 	}
 
 	eip = current_task->eip;
@@ -341,16 +352,15 @@ void goto_pid(int id) {
 
 volatile uint32_t task_switch() {
 	//check if idle is only available task
-	/*
 	if (tasks->size <= 1 || tasks->size >= MAX_TASKS) {
 		//don't bother trying to find a task and context switching
 		//idle can keep running
 		return;
 	}
-	*/
+	
 	//find next runnable task
 	task_t* next = next_runnable_task();
-	//printf_info("switching to %s [%d]", next->name, next->id);
+	//printf_dbg("task_switch(): switching to %s %d", next->name, next->id);
 	goto_pid(next->id);
 }
 
@@ -359,14 +369,47 @@ void _kill() {
 
 	kernel_begin_critical();
 	block_task(current_task, ZOMBIE);
-	update_blocked_tasks();
-	task_switch();
 	kernel_end_critical();
 }
 
 void proc() {
-	for (int i = 0; i < tasks->size; i++) {
-		task_t* tmp = array_m_lookup(tasks, i);
-		printf("%s (PID %d)			|	esp %x	|	ebp %x	|	cr3 %x\n", tmp->name, tmp->id, tmp->esp, tmp->ebp, tmp->page_dir);
+	terminal_settextcolor(COLOR_WHITE);
+
+	printf("-----------------------proc-----------------------\n");
+	if (tasks->size) {
+		printf("Active: \n");
+		for (int i = 0; i < tasks->size; i++) {
+			task_t* tmp = array_m_lookup(tasks, i);
+			printf("[%d] %s\n", tmp->id, tmp->name);
+			//printf("\tesp: %x ebp %x eip: %x cr3: %x\n", tmp->esp, tmp->ebp, tmp->eip, tmp->page_dir);
+		}
 	}
+	else {
+		printf("No active tasks\n");
+	}
+	if (blocked->size) {
+		printf("Blocked: \n");
+		for (int i = 0; i < blocked->size; i++) {
+			task_t* tmp = array_m_lookup(blocked, i);
+			printf("[%d] %s\n", tmp->id, tmp->name);
+			//printf("\tesp: %x ebp %x eip: %x cr3: %x\n", tmp->esp, tmp->ebp, tmp->eip, tmp->page_dir);
+			printf("\tBlocked for ");
+			switch (tmp->state) {
+				case KB_WAIT:
+					printf("keyboard.");
+					break;
+				case PIT_WAIT:
+					printf("timer (waking at timestamp %d)", tmp->wake_timestamp);
+					break;
+				default:
+					printf("%d (unknown reason)", tmp->state);
+					break;
+			}
+			printf("\n");
+		}
+	}
+	else {
+		printf("No blocked tasks.\n");
+	}
+	printf("---------------------------------------------------\n");
 }
