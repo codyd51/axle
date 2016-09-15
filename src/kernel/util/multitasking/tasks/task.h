@@ -15,6 +15,11 @@ typedef enum task_state {
     PIT_WAIT,
 } task_state;
 
+typedef enum mlfq_option {
+	LOW_LATENCY = 0, //minimize latency between tasks running, tasks share a single queue
+	PRIORITIZE_INTERACTIVE, //use more queues, allowing interactive tasks to dominate
+} mlfq_option;
+
 typedef struct task {
 	char* name; //user-printable process name
 	int id;  //PID

@@ -14,11 +14,11 @@
 #define MAX_TASKS 128
 #define MAX_FILES 32
 
-#define MLFQ_QUEUES 16
-#define MLFQ_MAX_QUEUE_LENGTH 32
+#define MLFQ_DEFAULT_QUEUE_COUNT 8
+#define MLFQ_MAX_QUEUE_LENGTH 16
 
 #define QUANTUM 20
-#define BOOSTER_PERIOD 800
+#define BOOSTER_PERIOD 1000
 
 extern page_directory_t* current_directory;
 extern page_directory_t* kernel_directory;
@@ -127,7 +127,7 @@ void iosent() {
 
 void enqueue_task(task_t* task, int queue) {
 	kernel_begin_critical();
-	if (queue < 0 || queue >= MLFQ_QUEUES) {
+	if (queue < 0 || queue >= queues->size) {
 		ASSERT(0, "Tried to insert %s into invalid queue %d", task->name, queue);
 	}
 	array_m* raw = array_m_lookup(queues, queue);
@@ -138,7 +138,7 @@ void enqueue_task(task_t* task, int queue) {
 
 void dequeue_task(task_t* task) {
 	kernel_begin_critical();
-	if (task->queue < 0 || task->queue >= MLFQ_QUEUES) {
+	if (task->queue < 0 || task->queue >= queues->size) {
 		ASSERT(0, "Tried to remove %s from invalid queue %d", task->name, task->queue);
 	}
 	array_m* raw = array_m_lookup(queues, task->queue);
@@ -160,7 +160,7 @@ void switch_queue(task_t* task, int new) {
 void demote_task(task_t* task) {
 	//printf_dbg("demoting %s to queue %d", task->name, task->queue + 1);
 	//if we're already at the bottom task, don't attempt to demote further
-	if (task->queue >= MLFQ_QUEUES - 1) {
+	if (task->queue >= queues->size - 1) {
 		return;
 	}
 	switch_queue(task, task->queue + 1);
@@ -172,7 +172,7 @@ void promote_task(task_t* task) {
 }
 
 bool tasking_installed() {
-	return (queues->size >= 1);
+	return (queues->size >= 1 && current_task);
 }
 
 void booster() {
@@ -187,7 +187,7 @@ void booster() {
 	kernel_end_critical();
 }
 
-void tasking_install() {
+void tasking_install(mlfq_option options) {
 	if (tasking_installed()) return;
 
 	printf_info("Initializing tasking...");
@@ -196,8 +196,19 @@ void tasking_install() {
 
 	move_stack((void*)0xE0000000, 0x2000);
 
-	queues = array_m_create(MLFQ_QUEUES + 1);
-	for (int i = 0; i < MLFQ_QUEUES; i++) {
+	int queue_count = 0;
+	switch (options) {
+		case LOW_LATENCY:
+			queue_count = 1;
+			break;
+		case PRIORITIZE_INTERACTIVE:
+		default:
+			queue_count = MLFQ_DEFAULT_QUEUE_COUNT;
+			break;
+	}
+
+	queues = array_m_create(queue_count + 1);
+	for (int i = 0; i < queue_count; i++) {
 		array_m* queue = array_m_create(MLFQ_MAX_QUEUE_LENGTH);
 		array_m_insert(queues, queue);
 	}
@@ -486,10 +497,10 @@ void proc() {
 					printf("(runnable)");
 					break;
 				case KB_WAIT:
-					printf("(blocked by keyboard.)");
+					printf("(blocked by keyboard)");
 					break;
 				case PIT_WAIT:
-					printf("(blocked by timer, wakes %d.)", task->wake_timestamp);
+					printf("(blocked by timer, wakes %d)", task->wake_timestamp);
 					break;
 				default:
 					break;
