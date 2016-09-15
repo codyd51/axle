@@ -79,9 +79,9 @@ void window_teardown(Window* window) {
 
 void gfx_teardown(Screen* screen) {
 	//stop refresh loop for this screen
-	//if (screen->callback) {
+	if (screen->callback.callback) {
 		remove_callback(screen->callback);
-	//}
+	}
 
 	//free screen
 	kfree(screen->vmem);

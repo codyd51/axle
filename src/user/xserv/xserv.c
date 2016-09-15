@@ -79,6 +79,16 @@ void draw_bmp(Screen* screen, Bmp* bmp) {
 	bmp->needs_redraw = 1;
 	dirtied = 1;
 
+	//if this BMP is taking up the whole screen (such as desktop background)
+	//don't bother writing row by row or doing bound checks
+	//just memcpy the whole image all at once
+	/*
+	if (bmp->frame.size.width == screen->window->frame.size.width && bmp->frame.size.height == screen->window->frame.size.height) {
+		memcpy(screen->vmem, bmp->raw, bmp->frame.size.width * bmp->frame.size.height * 3);
+		return;
+	}
+	*/
+
 	Rect frame = absolute_frame(screen, (View*)bmp);
 	frame.size.width = MIN(frame.size.width, bmp->raw_size.width);
 	frame.size.height = MIN(frame.size.height, bmp->raw_size.height);
@@ -363,10 +373,6 @@ static void process_mouse_events(Screen* screen) {
 			//move this window by the difference between current mouse position and last mouse position
 			grabbed_window->frame.origin.x -= (last_mouse_pos.x - p.x);
 			grabbed_window->frame.origin.y -= (last_mouse_pos.y - p.y);
-
-			//ensure we don't exceed screen bounds
-			//selected_window->frame.origin.x = MAX(selected_window->frame.origin.x, 0);
-			//selected_window->frame.origin.y = MAX(selected_window->frame.origin.y, 0);
 		}
 	}
 	else {
@@ -381,15 +387,19 @@ void xserv_refresh(Screen* screen) {
 	if (!screen->finished_drawing) return;
 
 	//check if there are any keys pending
-	char ch;
-	if ((ch = kgetch())) {
-		if (ch == 'q') {
-			//quit xserv
-			//gfx_teardown(screen);
-			xserv_pause();
-			return;
+	/*
+	if (haskey()) {
+		char ch;
+		if ((ch = kgetch())) {
+			if (ch == 'q') {
+				//quit xserv
+				//gfx_teardown(screen);
+				xserv_pause();
+				return;
+			}
 		}
 	}
+	*/
 
 	double time_start = time();
 	xserv_draw(screen);
@@ -441,16 +451,13 @@ void xserv_init_late() {
 	fps->text_color = color_black();
 	add_sublabel(screen->window->content_view, fps);
 
-	//test_xserv(screen);
+	test_xserv(screen);
 
 	while (1) {
 		xserv_refresh(screen);
-		//sys_yield();
 	}
 }
 
 void xserv_init() {
-	add_process(create_process((uint32_t)xserv_init_late));
-    sleep(500);
-    xserv_pause();
+	xserv_init_late();
 }

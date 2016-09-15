@@ -220,10 +220,10 @@ void shutdown_command() {
 
 void startx_command() {
 	//spawn xserv into its own process
-	if (fork()) {
-		sleep(3000);
-		switch_to_text();
-		printf_err("xserv quite!");
+	int xserv_pid = fork("xserv");
+	if (xserv_pid) {
+		//immediately launch xserv process! We don't want to wait for scheduler
+		//goto_pid(xserv_pid);
 		return;
 	}
 
@@ -381,6 +381,7 @@ void shell_init() {
 	add_new_command("cat", "Write file to stdout", cat_command);
 	add_new_command("hex", "Write hex dump of file to stdout", hex_command);
 	add_new_command("open", "Load file", open_command);
+	add_new_command("proc", "List running processes", proc);
 	add_new_command("", "", empty_command);
 
 	//set current dir to fs root

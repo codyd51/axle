@@ -63,7 +63,6 @@ unsigned char kbdus[128] =
 void add_character_to_buffer(char ch) {
 	lock(mutex);
 	array_m_insert(kb_buffer, ch);
-	//update_blocked_tasks();
 	unlock(mutex);
 }
 

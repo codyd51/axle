@@ -22,7 +22,7 @@
 #include <kernel/drivers/pci/pci_detect.h>
 
 void print_os_name(void) {
-	printf("\e[10;[\e[11;AXLE OS v\e[12;0.4.0\e[10;]\n");
+	printf("\e[10;[\e[11;AXLE OS v\e[12;0.5.0\e[10;]\n");
 }
 
 void shell_loop(void) {
@@ -144,12 +144,12 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//utilities
 	paging_install();
 	sys_install();
-	tasking_install();
-    
+	tasking_install(LOW_LATENCY);
+
 	//drivers
 	kb_install();
 	mouse_install();
-
+   
 	//initialize initrd, and set as fs root
 	fs_root = initrd_install(initrd_loc);
 
@@ -158,17 +158,21 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	test_printf();
 	test_time_unique();
 	test_malloc();
-	//test_crypto();
+	test_crypto();
 
-	if (!fork("sleep test")) {
-		sleep(2000);
-		printf_dbg("Child slept!");
+	if (!fork("shell")) {
+		//start shell 
+		shell_init();
+		shell_loop();
+	}
+
+	if (!fork("sleepy")) {
+		sleep(20000);
+		printf_dbg("Sleepy thread slept!");
 		_kill();
 	}
 
-	//start shell 
-	shell_init();
-	shell_loop();
+	proc();
 
 	//in case the shell ever exits, just spin
 	while (1) {}

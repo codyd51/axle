@@ -158,7 +158,6 @@ void switch_queue(task_t* task, int new) {
 }
 
 void demote_task(task_t* task) {
-	//printf_dbg("demoting %s to queue %d", task->name, task->queue + 1);
 	//if we're already at the bottom task, don't attempt to demote further
 	if (task->queue >= queues->size - 1) {
 		return;
@@ -167,7 +166,6 @@ void demote_task(task_t* task) {
 }
 
 void promote_task(task_t* task) {
-	//printf_dbg("promoting %s to queue %d", task->name, task->queue - 1);
 	switch_queue(task, task->queue - 1);
 }
 
@@ -355,15 +353,12 @@ task_t* mlfq_schedule() {
 	}
 
 	//increment lifespan by how long this task ran
-	//printf_dbg("bumped %s lifespan from %d", current_task->name, current_task->lifespan);
 	if (current_task->relinquish_date && current_task->begin_date) {
 		current_task->lifespan += (current_task->relinquish_date - current_task->begin_date);
 	}
-	//printf_dbg("to %d", current_task->lifespan);
 	
 	if (current_task->lifespan >= QUANTUM) {
 		current_task->lifespan = 0;
-		//printf_dbg("[%d] %s used up quantum, demoting...", current_task->id, current_task->name);
 		demote_task(current_task);
 	}
 
@@ -488,10 +483,10 @@ void proc() {
 
 	for (int i = 0; i < queues->size; i++) {
 		array_m* queue = array_m_lookup(queues, i);
-		//printf("queue %d: ", i);
 		for (int j = 0; j < queue->size; j++) {
 			task_t* task = array_m_lookup(queue, j);
-			printf("[%d] %s (queue %d - used %d of %d ms) ", task->id, task->name, task->queue, task->lifespan, QUANTUM);
+			float age = (task->lifespan / (float)QUANTUM);
+			printf("[%d] %s (queue %d - used %d/%d ms) ", task->id, task->name, task->queue, task->lifespan, QUANTUM);
 			switch (task->state) {
 				case RUNNABLE:
 					printf("(runnable)");
