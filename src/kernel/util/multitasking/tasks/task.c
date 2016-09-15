@@ -17,6 +17,9 @@
 #define MLFQ_QUEUES 16
 #define MLFQ_MAX_QUEUE_LENGTH 32
 
+#define QUANTUM 20
+#define BOOSTER_PERIOD 800
+
 extern page_directory_t* current_directory;
 extern page_directory_t* kernel_directory;
 
@@ -46,9 +49,9 @@ void block_task(task_t* task, task_state reason) {
 	kernel_end_critical();
 
 	//immediately switch tasks if active task was just blocked
-	//if (task == current_task) {
+	if (task == current_task) {
 		task_switch();
-	//}
+	}
 }
 
 void unblock_task(task_t* task) {
@@ -71,7 +74,6 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	task->name = strdup(name);
 	task->id = next_pid++;
 	task->page_dir = cloned;
-	task->queue = 0;
 	setup_fds(task);
 
 	uint32_t current_eip = read_eip();
@@ -98,6 +100,7 @@ void idle() {
 
 void reap() {
 	while (1) {
+		kernel_begin_critical();
 		//TODO optimize this
 		for (int i = 0; i < queues->size; i++) {
 			array_m* queue = array_m_lookup(queues, i);
@@ -108,6 +111,7 @@ void reap() {
 				}
 			}
 		}
+		kernel_end_critical();
 		//we have nothing else to do, yield cpu
 		sys_yield(RUNNABLE);
 	}
@@ -133,6 +137,7 @@ void enqueue_task(task_t* task, int queue) {
 }
 
 void dequeue_task(task_t* task) {
+	kernel_begin_critical();
 	if (task->queue < 0 || task->queue >= MLFQ_QUEUES) {
 		ASSERT(0, "Tried to remove %s from invalid queue %d", task->name, task->queue);
 	}
@@ -142,11 +147,14 @@ void dequeue_task(task_t* task) {
 		ASSERT(0, "Tried to dequeue %s from queue %d it didn't belong to!", task->name, task->queue);
 	}
 	array_m_remove(raw, idx);
+	kernel_end_critical();
 }
 
 void switch_queue(task_t* task, int new) {
+	kernel_begin_critical();
 	dequeue_task(task);
 	enqueue_task(task, new);
+	kernel_end_critical();
 }
 
 void demote_task(task_t* task) {
@@ -165,6 +173,18 @@ void promote_task(task_t* task) {
 
 bool tasking_installed() {
 	return (queues->size >= 1);
+}
+
+void booster() {
+	kernel_begin_critical();
+	for (int i = 0; i < queues->size; i++) {
+		array_m* queue = array_m_lookup(queues, i);
+		for (int j = 0; j < queue->size; j++) {
+			task_t* tmp = array_m_lookup(queue, j);
+			switch_queue(tmp, 0);
+		}
+	}
+	kernel_end_critical();
 }
 
 void tasking_install() {
@@ -194,7 +214,8 @@ void tasking_install() {
 	enqueue_task(current_task, 0);
 	
 	//create callback to switch tasks
-	add_callback((void*)task_switch, 10, true, 0);
+	add_callback((void*)task_switch, QUANTUM, true, 0);
+	add_callback(booster, BOOSTER_PERIOD, true, 0);
 
 	//idle task
 	//runs when anything (including kernel) is blocked for i/o
@@ -232,7 +253,6 @@ void update_blocked_tasks() {
 			task_t* task = array_m_lookup(tmp, j);
 			if (task->state == PIT_WAIT) {
 				if (time() >= task->wake_timestamp) {
-					printf_info("time(): %d time->wake_timestamp: %d", time(), task->wake_timestamp);
 					unblock_task(task);
 					//goto_pid(task->id);
 					//return;
@@ -313,7 +333,7 @@ array_m* first_queue_containing_runnable(void) {
 	ASSERT(0, "No queues contained any runnable tasks!");
 }
 
-task_t* next_runnable_task() {
+task_t* mlfq_schedule() {
 	if (!tasking_installed()) return;
 
 	//find current index in queue
@@ -323,9 +343,16 @@ task_t* next_runnable_task() {
 		ASSERT(0, "Couldn't find current task in queue %d", current_task->queue);
 	}
 
-	//if this task was preempted, it should be demoted by one queue
-	if (current_task->state == RUNNABLE) {
-		//printf_dbg("demoting task that used up time slice");
+	//increment lifespan by how long this task ran
+	//printf_dbg("bumped %s lifespan from %d", current_task->name, current_task->lifespan);
+	if (current_task->relinquish_date && current_task->begin_date) {
+		current_task->lifespan += (current_task->relinquish_date - current_task->begin_date);
+	}
+	//printf_dbg("to %d", current_task->lifespan);
+	
+	if (current_task->lifespan >= QUANTUM) {
+		current_task->lifespan = 0;
+		//printf_dbg("[%d] %s used up quantum, demoting...", current_task->id, current_task->name);
 		demote_task(current_task);
 	}
 
@@ -413,6 +440,8 @@ void goto_pid(int id) {
 		ASSERT(0, "Invalid context switch state");
 	}
 
+	current_task->begin_date = time();
+
 	eip = current_task->eip;
 	esp = current_task->esp;
 	ebp = current_task->ebp;
@@ -421,9 +450,14 @@ void goto_pid(int id) {
 }
 
 volatile uint32_t task_switch() {
+	kernel_begin_critical();
+
+	current_task->relinquish_date = time();
 	//find next runnable task
-	task_t* next = next_runnable_task();
+	task_t* next = mlfq_schedule();
 	ASSERT(next->state == RUNNABLE, "Tried to switch to non-runnable task %s (reason: %d)!", next->name, next->state);
+
+	kernel_end_critical();
 
 	goto_pid(next->id);
 }
@@ -446,7 +480,7 @@ void proc() {
 		//printf("queue %d: ", i);
 		for (int j = 0; j < queue->size; j++) {
 			task_t* task = array_m_lookup(queue, j);
-			printf("[%d] %s (queue %d) ", task->id, task->name, task->queue);
+			printf("[%d] %s (queue %d - used %d of %d ms) ", task->id, task->name, task->queue, task->lifespan, QUANTUM);
 			switch (task->state) {
 				case RUNNABLE:
 					printf("(runnable)");
@@ -459,7 +493,7 @@ void proc() {
 					break;
 				default:
 					break;
-			}
+		}
 			printf("\n");
 		}
 	}

@@ -23,6 +23,10 @@ typedef struct task {
 	task_state state; //current process state 
     int32_t wake_timestamp; //used if process is in PIT_WAIT state
 
+	uint32_t begin_date;
+	uint32_t relinquish_date;
+	uint32_t lifespan;
+
 	uint32_t esp; //stack pointer
 	uint32_t ebp; //base pointer
 	uint32_t eip; //instruction pointer
@@ -38,7 +42,7 @@ bool tasking_installed();
 
 //initialize a new process structure
 //does not add returned process to running queue
-task_t* create_process(uint32_t eip);
+task_t* create_process(char* name, uint32_t eip, bool wants_stack);
 
 //adds task to running queue
 void add_process(task_t* task);
