@@ -14,13 +14,15 @@
 #define MAX_TASKS 128
 #define MAX_FILES 32
 
+#define MLFQ_QUEUES 16
+#define MLFQ_MAX_QUEUE_LENGTH 32
+
 extern page_directory_t* current_directory;
 extern page_directory_t* kernel_directory;
 
 static volatile int next_pid = 1;
 volatile task_t* current_task;
-volatile array_m* tasks;
-volatile array_m* blocked;
+volatile array_m* queues;
 
 void stdin_read(char* buf, uint32_t count);
 void stdout_read(char* buffer, uint32_t count);
@@ -32,7 +34,6 @@ static void setup_fds(task_t* task) {
 	array_m_insert(task->files, stderr_read);
 }
 
-
 int getpid() {
 	return current_task->id;
 }
@@ -40,55 +41,21 @@ int getpid() {
 void block_task(task_t* task, task_state reason) {
 	if (!tasking_installed()) return;
 
-	if (task->state != RUNNABLE) {
-		return;
-	}
-	
 	kernel_begin_critical();
-
 	task->state = reason;
-	//we assume whatever called this has already updated the task's state
-	int idx = array_m_index(tasks, task);
-	if (idx >= 0) {
-		array_m_remove(tasks, idx);
-		if (array_m_index(blocked, task) < 0) {
-			array_m_insert(blocked, task);
-		}
-		else {
-			printf_err("%s [%d] was already in blocked", task->name, task->id);
-		}
-	}
-	else {
-		printf_err("%s [%d] wasn't in tasks", task->name, task->id);
-	}
-
 	kernel_end_critical();
-	
-	task_switch();
+
+	//immediately switch tasks if active task was just blocked
+	if (task == current_task) {
+		task_switch();
+	}
 }
 
 void unblock_task(task_t* task) {
 	if (!tasking_installed()) return;
 
-	if (task->state == RUNNABLE) {
-		return;
-	}
-
 	kernel_begin_critical();
 	task->state = RUNNABLE;
-	int idx = array_m_index(blocked, task);
-	if (idx >= 0) {
-		array_m_remove(blocked, idx);
-		if (array_m_index(tasks, task) < 0) {
-			array_m_insert(tasks, task);
-		}
-		else {
-			printf_err("%s [%d] was already in tasks", task->name, task->id);
-		}
-	}
-	else {
-		printf_err("%s [%d] wasn't in blocked", task->name, task->id);
-	}
 	kernel_end_critical();
 }
 
@@ -104,6 +71,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	task->name = strdup(name);
 	task->id = next_pid++;
 	task->page_dir = cloned;
+	task->queue = 0;
 	setup_fds(task);
 
 	uint32_t current_eip = read_eip();
@@ -120,7 +88,8 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 
 void add_process(task_t* task) {
 	if (!tasking_installed()) return;
-	array_m_insert(tasks, task);
+	//all new tasks are placed on highest priority queue
+	enqueue_task(task, 0);
 }
 
 void idle() {
@@ -129,10 +98,14 @@ void idle() {
 
 void reap() {
 	while (1) {
-		for (int i = 0; i < blocked->size; i++) {
-			task_t* task = array_m_lookup(blocked, i);
-			if (task->state == ZOMBIE) {
-				array_m_remove(blocked, i);
+		//TODO optimize this
+		for (int i = 0; i < queues->size; i++) {
+			array_m* queue = array_m_lookup(queues, i);
+			for (int j = 0; j < queue->size; j++) {
+				task_t* task = array_m_lookup(queue, j);
+				if (task->state == ZOMBIE) {
+					array_m_remove(queue, j);
+				}
 			}
 		}
 		//we have nothing else to do, yield cpu
@@ -148,8 +121,50 @@ void iosent() {
 	}
 }
 
+void enqueue_task(task_t* task, int queue) {
+	kernel_begin_critical();
+	if (queue < 0 || queue >= MLFQ_QUEUES) {
+		ASSERT(0, "Tried to insert %s into invalid queue %d", task->name, queue);
+	}
+	array_m* raw = array_m_lookup(queues, queue);
+	array_m_insert(raw, task);
+	task->queue = queue;
+	kernel_end_critical();
+}
+
+void dequeue_task(task_t* task) {
+	if (task->queue < 0 || task->queue >= MLFQ_QUEUES) {
+		ASSERT(0, "Tried to remove %s from invalid queue %d", task->name, task->queue);
+	}
+	array_m* raw = array_m_lookup(queues, task->queue);
+	int idx = array_m_index(raw, task);
+	if (idx < 0) {
+		ASSERT(0, "Tried to dequeue %s from queue %d it didn't belong to!", task->name, task->queue);
+	}
+	array_m_remove(raw, idx);
+}
+
+void switch_queue(task_t* task, int new) {
+	dequeue_task(task);
+	enqueue_task(task, new);
+}
+
+void demote_task(task_t* task) {
+	//printf_dbg("demoting %s to queue %d", task->name, task->queue + 1);
+	//if we're already at the bottom task, don't attempt to demote further
+	if (task->queue >= MLFQ_QUEUES - 1) {
+		return;
+	}
+	switch_queue(task, task->queue + 1);
+}
+
+void promote_task(task_t* task) {
+	//printf_dbg("promoting %s to queue %d", task->name, task->queue - 1);
+	switch_queue(task, task->queue - 1);
+}
+
 bool tasking_installed() {
-	return (tasks->size >= 1);
+	return (queues->size >= 1);
 }
 
 void tasking_install() {
@@ -161,8 +176,15 @@ void tasking_install() {
 
 	move_stack((void*)0xE0000000, 0x2000);
 
-	tasks = array_m_create(MAX_TASKS);
-	blocked = array_m_create(MAX_TASKS);
+	//tasks = array_m_create(MAX_TASKS);
+	//blocked = array_m_create(MAX_TASKS);
+
+	queues = array_m_create(MLFQ_QUEUES + 1);
+	for (int i = 0; i < MLFQ_QUEUES; i++) {
+		array_m* queue = array_m_create(MLFQ_MAX_QUEUE_LENGTH);
+		array_m_insert(queues, queue);
+	}
+	printf_dbg("created queues");
 
 	//init first task (kernel task)
 	task_t* kernel = (task_t*)kmalloc(sizeof(task_t));
@@ -173,10 +195,10 @@ void tasking_install() {
 	setup_fds(kernel);
 	
 	current_task = kernel;
-	array_m_insert(tasks, kernel);
+	enqueue_task(current_task, 0);
 	
 	//create callback to switch tasks
-	add_callback((void*)task_switch, 4, true, 0);
+	add_callback((void*)task_switch, 10, true, 0);
 
 	//idle task
 	//runs when anything (including kernel) is blocked for i/o
@@ -206,21 +228,25 @@ void update_blocked_tasks() {
 	if (!tasking_installed()) return;
 
 	kernel_begin_critical();
-
-	for (int i = 0; i < blocked->size; i++) {
-		task_t* task = array_m_lookup(blocked, i);
-		if (task->state == PIT_WAIT) {
-			if (time() >= task->wake_timestamp) {
-				unblock_task(task);
-				//goto_pid(task->id);
-				//return;
+	
+	//TODO is this optimizable?
+	for (int i = 0; i < queues->size; i++) {
+		array_m* tmp = array_m_lookup(queues, i);
+		for (int j = 0; j < tmp->size; j++) {
+			task_t* task = array_m_lookup(tmp, j);
+			if (task->state == PIT_WAIT) {
+				if (time() >= task->wake_timestamp) {
+					unblock_task(task);
+					//goto_pid(task->id);
+					//return;
+				}
 			}
-		}
-		else if (task->state == KB_WAIT) {
-			if (haskey()) {
-				unblock_task(task);
-				//goto_pid(task->id);
-				//return;
+			else if (task->state == KB_WAIT) {
+				if (haskey()) {
+					unblock_task(task);
+					//goto_pid(task->id);
+					//return;
+				}
 			}
 		}
 	}
@@ -268,35 +294,85 @@ int fork(char* name) {
 	}
 }
 
+task_t* first_queue_runnable(array_m* queue, int offset) {
+	for (int i = offset; i < queue->size; i++) {
+		task_t* tmp = array_m_lookup(queue, i);
+		if (tmp->state == RUNNABLE) {
+			return tmp;
+		}
+	}
+	//no runnable tasks within this queue!
+	return NULL;
+}
+
+array_m* first_queue_containing_runnable(void) {
+	for (int i = 0; i < queues->size; i++) {
+		array_m* tmp = array_m_lookup(queues, i);
+		if (first_queue_runnable(tmp, 0) != NULL) {
+			return tmp;
+		}
+	}
+	//no queues contained any runnable tasks!
+	ASSERT(0, "No queues contained any runnable tasks!");
+}
+
 task_t* next_runnable_task() {
 	if (!tasking_installed()) return;
 
-	if (tasks->size < 1) {
-		ASSERT(0, "next_runnable_task(): no runnable tasks!");
+	//find current index in queue
+	array_m* current_queue = array_m_lookup(queues, current_task->queue);
+	int current_task_idx = array_m_index(current_queue, current_task);
+	if (current_task_idx < 0) {
+		ASSERT(0, "Couldn't find current task in queue %d", current_task->queue);
 	}
-	else if (tasks->size == 1) {
-		//idle was the only available task
-		task_t* idle = array_m_lookup(tasks, 0);
-		return idle;
+	//printf_dbg("current task (%s) is in queue %d", current_task->name, current_task->queue);
+
+	//if this task was preempted, it should be demoted by one queue
+	if (current_task->state == RUNNABLE) {
+		//printf_dbg("demoting task that used up time slice");
+		demote_task(current_task);
 	}
 
-	//find index of currently running task
-	int idx = array_m_index(tasks, current_task);
-	/*
-	if (idx < 0) {
-		ASSERT(0, "Task %s [%d] was executing but not marked as Runnable!", current_task->name, current_task->id);
+	//find first non-empty queue
+	array_m* new_queue = first_queue_containing_runnable();
+	ASSERT(new_queue->size, "Couldn't find any queues with tasks to run!");
+
+	if (new_queue->size >= 1) {
+		//round-robin through this queue
+		
+		//if this is the same queue as the previous task, start at that index
+		if (current_queue == new_queue) {
+			//if this is the last index, loop around to the start of the array
+			if (current_task_idx + 1 >= new_queue->size) {
+				task_t* valid = first_queue_runnable(new_queue, 0);
+				if (valid != NULL) {
+					return valid;
+				}
+			}
+			//return task at the next index
+			task_t* valid = first_queue_runnable(new_queue, current_task_idx + 1);
+			if (valid != NULL) {
+				return valid;
+			}
+		}
+
+		//we're on a new queue
+		//start from the first task in it
+		task_t* valid = first_queue_runnable(new_queue, 0);
+		if (valid != NULL) {
+			return valid;
+		}
 	}
-	*/
-	//if this is the last index, loop around to the start of the array
-	if (idx + 1 >= tasks->size || idx < 0) {
-		return array_m_lookup(tasks, 0);
-	}
-	//return task at the next index
-	return array_m_lookup(tasks, idx + 1);
+	ASSERT(0, "Couldn't find task to switch to!");
 }
 
 void goto_pid(int id) {
+	/*
 	if (!current_task || !tasks || tasks->size == 0) {
+		return;
+	}
+	*/
+	if (!current_task || !queues) {
 		return;
 	}
 	kernel_begin_critical();
@@ -330,12 +406,15 @@ void goto_pid(int id) {
 	//TODO optimize this
 	//find task with this PID
 	bool found_task = false;
-	for (int i = 0; i < tasks->size; i++) {
-		task_t* tmp = array_m_lookup(tasks, i);
-		if (tmp->id == id) {
-			current_task = tmp;
-			found_task = true;
-			break;
+	for (int i = 0; i < queues->size; i++) {
+		array_m* tasks = array_m_lookup(queues, i);
+		for (int i = 0; i < tasks->size; i++) {
+			task_t* tmp = array_m_lookup(tasks, i);
+			if (tmp->id == id) {
+				current_task = tmp;
+				found_task = true;
+				break;
+			}
 		}
 	}
 	if (!found_task) {
@@ -351,16 +430,10 @@ void goto_pid(int id) {
 }
 
 volatile uint32_t task_switch() {
-	//check if idle is only available task
-	if (tasks->size <= 1 || tasks->size >= MAX_TASKS) {
-		//don't bother trying to find a task and context switching
-		//idle can keep running
-		return;
-	}
-	
 	//find next runnable task
 	task_t* next = next_runnable_task();
-	//printf_dbg("task_switch(): switching to %s %d", next->name, next->id);
+	ASSERT(next->state == RUNNABLE, "Tried to switch to non-runnable task %s (reason: %d)!", next->name, next->state);
+
 	goto_pid(next->id);
 }
 
@@ -376,6 +449,7 @@ void proc() {
 	terminal_settextcolor(COLOR_WHITE);
 
 	printf("-----------------------proc-----------------------\n");
+	/*
 	if (tasks->size) {
 		printf("Active: \n");
 		for (int i = 0; i < tasks->size; i++) {
@@ -412,4 +486,5 @@ void proc() {
 		printf("No blocked tasks.\n");
 	}
 	printf("---------------------------------------------------\n");
+	*/
 }

@@ -18,6 +18,7 @@ typedef enum task_state {
 typedef struct task {
 	char* name;
 	int id; 
+	int queue;
 
 	task_state state; //current process state 
     uint32_t wake_timestamp; //used if process is in PIT_WAIT state
