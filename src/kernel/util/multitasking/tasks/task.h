@@ -9,19 +9,19 @@
 enum { PRIO_LOW, PRIO_MED, PRIO_HIGH} PRIO;
 
 typedef enum task_state {
-    RUNNABLE = 0,
-	ZOMBIE,
+    RUNNABLE = 0, 
+	ZOMBIE, //intermediate state after task finishes executing before being flushed from system
     KB_WAIT,
     PIT_WAIT,
 } task_state;
 
 typedef struct task {
-	char* name;
-	int id; 
-	int queue;
+	char* name; //user-printable process name
+	int id;  //PID
+	int queue; //scheduler ring this task is slotted in
 
 	task_state state; //current process state 
-    uint32_t wake_timestamp; //used if process is in PIT_WAIT state
+    int32_t wake_timestamp; //used if process is in PIT_WAIT state
 
 	uint32_t esp; //stack pointer
 	uint32_t ebp; //base pointer
@@ -38,7 +38,7 @@ bool tasking_installed();
 
 //initialize a new process structure
 //does not add returned process to running queue
-//task_t* create_process(uint32_t eip);
+task_t* create_process(uint32_t eip);
 
 //adds task to running queue
 void add_process(task_t* task);

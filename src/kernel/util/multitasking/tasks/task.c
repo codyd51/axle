@@ -46,9 +46,9 @@ void block_task(task_t* task, task_state reason) {
 	kernel_end_critical();
 
 	//immediately switch tasks if active task was just blocked
-	if (task == current_task) {
+	//if (task == current_task) {
 		task_switch();
-	}
+	//}
 }
 
 void unblock_task(task_t* task) {
@@ -176,15 +176,11 @@ void tasking_install() {
 
 	move_stack((void*)0xE0000000, 0x2000);
 
-	//tasks = array_m_create(MAX_TASKS);
-	//blocked = array_m_create(MAX_TASKS);
-
 	queues = array_m_create(MLFQ_QUEUES + 1);
 	for (int i = 0; i < MLFQ_QUEUES; i++) {
 		array_m* queue = array_m_create(MLFQ_MAX_QUEUE_LENGTH);
 		array_m_insert(queues, queue);
 	}
-	printf_dbg("created queues");
 
 	//init first task (kernel task)
 	task_t* kernel = (task_t*)kmalloc(sizeof(task_t));
@@ -236,6 +232,7 @@ void update_blocked_tasks() {
 			task_t* task = array_m_lookup(tmp, j);
 			if (task->state == PIT_WAIT) {
 				if (time() >= task->wake_timestamp) {
+					printf_info("time(): %d time->wake_timestamp: %d", time(), task->wake_timestamp);
 					unblock_task(task);
 					//goto_pid(task->id);
 					//return;
@@ -325,7 +322,6 @@ task_t* next_runnable_task() {
 	if (current_task_idx < 0) {
 		ASSERT(0, "Couldn't find current task in queue %d", current_task->queue);
 	}
-	//printf_dbg("current task (%s) is in queue %d", current_task->name, current_task->queue);
 
 	//if this task was preempted, it should be demoted by one queue
 	if (current_task->state == RUNNABLE) {
@@ -367,11 +363,6 @@ task_t* next_runnable_task() {
 }
 
 void goto_pid(int id) {
-	/*
-	if (!current_task || !tasks || tasks->size == 0) {
-		return;
-	}
-	*/
 	if (!current_task || !queues) {
 		return;
 	}
@@ -449,42 +440,28 @@ void proc() {
 	terminal_settextcolor(COLOR_WHITE);
 
 	printf("-----------------------proc-----------------------\n");
-	/*
-	if (tasks->size) {
-		printf("Active: \n");
-		for (int i = 0; i < tasks->size; i++) {
-			task_t* tmp = array_m_lookup(tasks, i);
-			printf("[%d] %s\n", tmp->id, tmp->name);
-			//printf("\tesp: %x ebp %x eip: %x cr3: %x\n", tmp->esp, tmp->ebp, tmp->eip, tmp->page_dir);
-		}
-	}
-	else {
-		printf("No active tasks\n");
-	}
-	if (blocked->size) {
-		printf("Blocked: \n");
-		for (int i = 0; i < blocked->size; i++) {
-			task_t* tmp = array_m_lookup(blocked, i);
-			printf("[%d] %s\n", tmp->id, tmp->name);
-			//printf("\tesp: %x ebp %x eip: %x cr3: %x\n", tmp->esp, tmp->ebp, tmp->eip, tmp->page_dir);
-			printf("\tBlocked for ");
-			switch (tmp->state) {
+
+	for (int i = 0; i < queues->size; i++) {
+		array_m* queue = array_m_lookup(queues, i);
+		//printf("queue %d: ", i);
+		for (int j = 0; j < queue->size; j++) {
+			task_t* task = array_m_lookup(queue, j);
+			printf("[%d] %s (queue %d) ", task->id, task->name, task->queue);
+			switch (task->state) {
+				case RUNNABLE:
+					printf("(runnable)");
+					break;
 				case KB_WAIT:
-					printf("keyboard.");
+					printf("(blocked by keyboard.)");
 					break;
 				case PIT_WAIT:
-					printf("timer (waking at timestamp %d)", tmp->wake_timestamp);
+					printf("(blocked by timer, wakes %d.)", task->wake_timestamp);
 					break;
 				default:
-					printf("%d (unknown reason)", tmp->state);
 					break;
 			}
 			printf("\n");
 		}
 	}
-	else {
-		printf("No blocked tasks.\n");
-	}
 	printf("---------------------------------------------------\n");
-	*/
 }
