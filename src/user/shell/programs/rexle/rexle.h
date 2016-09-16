@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-int rexle();
+void rexle();
 
 #ifdef __cplusplus
 }

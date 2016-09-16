@@ -22,8 +22,8 @@ typedef enum {
 	WALL_4,
 	WALL_5,
 	WALL_RED 	= 6,
-	WALL_ORANGE 	= 7,
-	WALL_YELLOW 	= 8,
+	WALL_ORANGE = 7,
+	WALL_YELLOW = 8,
 	WALL_GREEN	= 9,
 	WALL_BLUE	= 10,
 	WALL_PURPLE	= 11,
@@ -32,22 +32,16 @@ typedef enum {
 	WALL_WHITE	= 14,
 } WALL_TYPE;
 
-
-typedef struct Vec2d {
-	double x;
-	double y;
-} Vec2d;
-
-Vec2d vec2d(double x, float y) {
-	Vec2d vec;
-	vec.x = x;
-	vec.y = y;
-	return vec;
+void rexle() {
+	if (!fork("rexle")) {
+		rexle_int();
+		_kill();
+	}
 }
 
-int rexle() {
+int rexle_int() {
 	//switch graphics modes
-	Screen* screen = switch_to_vesa(0x112);
+	Screen* screen = switch_to_vesa(0x112, true);
 	//Screen* screen = switch_to_vga();
 	Size screen_size = screen->window->frame.size;
 
@@ -166,18 +160,27 @@ int rexle() {
 			if (!side) wall_x = ray_pos.y + perp_wall_dist * ray_dir.y;
 			else wall_x = ray_pos.x + perp_wall_dist * ray_dir.x;
 			wall_x -= floor(wall_x);
-
+			
 			//x coordinate on texture
 			int tex_x = (int)(wall_x * (double)tex_width);
 			if (!side && ray_dir.x > 0) tex_x = tex_width - tex_x - 1;
 			if (side && ray_dir.y < 0) tex_x = tex_width - tex_x - 1;
 
+			//this texture was not taking up the majority of the screen
+			//we must now do perspective calculations on every pixel in this vertical line of the texture
 			for (int y = start; y < end; y++) {
 				int d = y * 256 - screen_size.height * 128 + line_h * 128;
 				int tex_y = ((d * tex_height) / line_h) / 256;
 
 				//we have x and y, find color at this point in texture
-				Color col = tex->raw[tex_y % tex_height][tex_x % tex_width];
+				Coordinate tex_px = point_make(tex_x % tex_width, tex_y % tex_height);
+				Color col = tex->raw[tex_px.y * tex_width + tex_px.x];
+
+				//swap BGR
+				uint8_t tmp = col.val[0];
+				col.val[0] = col.val[2];
+				col.val[2] = tmp;
+
 				//make color darker if far side
 				if (side) {
 					col.val[0] /= 2;
@@ -262,11 +265,10 @@ int rexle() {
 
 		write_screen(screen);
 
-		if (haskey()) {
-			char ch = getchar();
-			if (ch == 'q') {
-				running = 0;
-			}
+		char ch = kgetch();
+		if (ch == 'q') {
+			running = 0;
+			break;
 		}
 	}
 	gfx_teardown(screen);
