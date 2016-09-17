@@ -52,7 +52,7 @@ axle includes a text renderer and a default 8x8 bitmap font.
 
 Running
 ----------------------
-Unless your platform natively outputs 32-bit x86 binaries, you will need a cross compiler to build axle. [http://wiki.osdev.org/GCC_Cross-Compiler](This link) provides detailed instructions on how to cross-compile GCC to build suitable binaries. Alternatively, a precompiled toolchain can be downloaded [https://github.com/mstg/i686-toolchain](here).
+Unless your platform natively outputs 32-bit x86 binaries, you will need a cross compiler to build axle. [http://wiki.osdev.org/GCC_Cross-Compiler](This link) provides detailed instructions on how to cross-compile GCC to build suitable binaries. Alternatively, a precompiled toolchain can be downloaded [here](https://github.com/mstg/i686-toolchain).
 axle uses QEMU as its standard emulator, though any other could be used, such as Bochs. To modify this and other build parameters, see the `Makefile`.
 To run and test axle on OS X, run `./install.sh` to attempt to build the toolchain, then `make run` to start the emulator.
 
