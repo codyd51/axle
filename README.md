@@ -10,6 +10,7 @@ The initial entry point must be done in ASM, as we have to do some special tasks
 
 Features
 ------------
+* MLFQ scheduler
 * Monolithic kernel
 * PS/2 keyboard/mouse drivers
 * PIT/RTC drivers
@@ -20,10 +21,8 @@ Features
 * Paging
 * Multicolored, scrolling shell with history
 * Kernel-space standard library
-* Multitasking
 * User mode (ring3)
 * Syscalls
-* Software interrupts
 
 Graphics
 -------------
@@ -53,9 +52,9 @@ axle includes a text renderer and a default 8x8 bitmap font.
 
 Running
 ----------------------
-Unless your platform natively outputs 32-bit x86 binaries, you will need a cross compiler to build axle. [http://wiki.osdev.org/GCC_Cross-Compiler](This link) provides detailed instructions on how to cross-compile GCC to build suitable binaries.
+Unless your platform natively outputs 32-bit x86 binaries, you will need a cross compiler to build axle. [http://wiki.osdev.org/GCC_Cross-Compiler](This link) provides detailed instructions on how to cross-compile GCC to build suitable binaries. Alternatively, a precompiled toolchain can be downloaded [here](https://github.com/mstg/i686-toolchain).
 axle uses QEMU as its standard emulator, though any other could be used, such as Bochs. To modify this and other build parameters, see the `Makefile`.
-To run and test axle on OS X, run `./install.sh` to install the necessary requirements, then `make run` to start the emulator.
+To run and test axle on OS X, run `./install.sh` to attempt to build the toolchain, then `make run` to start the emulator.
 
 Roadmap
 ---------------------
