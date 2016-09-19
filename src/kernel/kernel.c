@@ -51,8 +51,9 @@ void shell_loop(void) {
 	
 	//we're dead
 	terminal_clear();
-} 
+}
 
+/*
 void kernel_begin_critical(void) {
 	//disable interrupts while critical code executes
 	asm ("cli");
@@ -62,6 +63,7 @@ void kernel_end_critical(void) {
 	//reenable interrupts now that a critical section is complete
 	asm ("sti");
 }
+*/
 
 void info_panel_refresh(void) {
 	/*
@@ -144,7 +146,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//utilities
 	paging_install();
 	sys_install();
-	tasking_install(LOW_LATENCY);
+	tasking_install(PRIORITIZE_INTERACTIVE);
 
 	//drivers
 	kb_install();
@@ -173,6 +175,8 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	}
 
 	proc();
+
+	pci_install();
 
 	//in case the shell ever exits, just spin
 	while (1) {}

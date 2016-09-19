@@ -21,12 +21,11 @@
 #define BOOSTER_PERIOD 1000
 
 extern page_directory_t* current_directory;
-extern page_directory_t* kernel_directory;
 
-static volatile int next_pid = 1;
-volatile task_t* current_task;
-volatile array_m* queues;
-volatile task_t* active_list;
+static int next_pid = 1;
+task_t* current_task;
+static array_m* queues;
+static task_t* active_list;
 
 void stdin_read(char* buf, uint32_t count);
 void stdout_read(char* buffer, uint32_t count);
