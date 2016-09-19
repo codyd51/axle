@@ -6,8 +6,6 @@
 
 #define KERNEL_STACK_SIZE 2048 //use 2kb kernel stack
 
-enum { PRIO_LOW, PRIO_MED, PRIO_HIGH} PRIO;
-
 typedef enum task_state {
     RUNNABLE = 0, 
 	ZOMBIE, //intermediate state after task finishes executing before being flushed from system
@@ -31,6 +29,7 @@ typedef struct task {
 	uint32_t begin_date;
 	uint32_t relinquish_date;
 	uint32_t lifespan;
+	struct task* next;
 
 	uint32_t esp; //stack pointer
 	uint32_t ebp; //base pointer

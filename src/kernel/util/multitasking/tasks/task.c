@@ -26,6 +26,7 @@ extern page_directory_t* kernel_directory;
 static volatile int next_pid = 1;
 volatile task_t* current_task;
 volatile array_m* queues;
+volatile task_t* active_list;
 
 void stdin_read(char* buf, uint32_t count);
 void stdout_read(char* buffer, uint32_t count);
@@ -39,6 +40,42 @@ static void setup_fds(task_t* task) {
 
 int getpid() {
 	return current_task->id;
+}
+
+void unlist_task(task_t* task) {
+	//walk linked list
+	task_t* prev = active_list;
+	task_t* current = prev->next;
+	while (current->next != NULL) {
+		if (current == task) {
+			break;
+		}
+		prev = current;
+		current = current->next;
+	}
+	//did we find it?
+	if (task != current) {
+		//printf_err("[%d] %s unlist failed, wasn't listed", task->id, task->name);
+		return;
+	}
+
+	//remove from list
+	prev->next = current->next;
+}
+
+void list_task(task_t* task) {
+	//walk linked list
+	task_t* current = active_list;
+	while (current->next != NULL) {
+		if (task == current) {
+			//printf_err("[%d] %s was already present in active list", task->id, task->name);
+			return;
+		}
+		current = current->next;
+	}
+
+	//extend list
+	current->next = task;
 }
 
 void block_task(task_t* task, task_state reason) {
@@ -90,6 +127,9 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 
 void add_process(task_t* task) {
 	if (!tasking_installed()) return;
+
+	list_task(task);
+
 	//all new tasks are placed on highest priority queue
 	enqueue_task(task, 0);
 }
@@ -101,16 +141,29 @@ void idle() {
 void reap() {
 	while (1) {
 		kernel_begin_critical();
-		//TODO optimize this
+		
+		task_t* tmp = active_list;
+		while (tmp != NULL) {
+			if (tmp->state == ZOMBIE) {
+				array_m* queue = array_m_lookup(queues, tmp->queue);
+				array_m_remove(queue, array_m_index(queue, tmp));
+				unlist_task(tmp);
+			}
+			tmp = tmp->next;
+		}
+	
+		/*
 		for (int i = 0; i < queues->size; i++) {
 			array_m* queue = array_m_lookup(queues, i);
 			for (int j = 0; j < queue->size; j++) {
 				task_t* task = array_m_lookup(queue, j);
 				if (task->state == ZOMBIE) {
 					array_m_remove(queue, j);
+					unlist_task(task);
 				}
 			}
 		}
+		*/
 		kernel_end_critical();
 		//we have nothing else to do, yield cpu
 		sys_yield(RUNNABLE);
@@ -210,7 +263,7 @@ void tasking_install(mlfq_option options) {
 		array_m* queue = array_m_create(MLFQ_MAX_QUEUE_LENGTH);
 		array_m_insert(queues, queue);
 	}
-
+	
 	//init first task (kernel task)
 	task_t* kernel = (task_t*)kmalloc(sizeof(task_t));
 	memset(kernel, 0, sizeof(task_t));
@@ -220,6 +273,7 @@ void tasking_install(mlfq_option options) {
 	setup_fds(kernel);
 	
 	current_task = kernel;
+	active_list = kernel;
 	enqueue_task(current_task, 0);
 	
 	//create callback to switch tasks
@@ -270,7 +324,7 @@ void update_blocked_tasks() {
 			else if (task->state == KB_WAIT) {
 				if (haskey()) {
 					unblock_task(task);
-					//goto_pid(task->id);
+					goto_pid(task->id);
 					//return;
 				}
 			}
@@ -426,24 +480,39 @@ void goto_pid(int id) {
 	current_task->esp = esp;
 	current_task->ebp = ebp;
 
-	//switch to PID passed to us
-	//TODO optimize this
 	//find task with this PID
 	bool found_task = false;
-	for (int i = 0; i < queues->size; i++) {
-		array_m* tasks = array_m_lookup(queues, i);
-		for (int i = 0; i < tasks->size; i++) {
-			task_t* tmp = array_m_lookup(tasks, i);
-			if (tmp->id == id) {
-				current_task = tmp;
-				found_task = true;
-				break;
+	task_t* tmp = active_list;
+	while (tmp != NULL) {
+		if (tmp->id == id && tmp->state == RUNNABLE) {
+			//switch to PID passed to us
+			current_task = tmp;
+			found_task = true;
+			break;
+		}
+		tmp = tmp->next;
+	}
+	
+	if (!found_task) {
+		printf_err("PID %d wasn't in active list, falling back on queue search", id);
+		//fall back on searching through each queue for this task
+		for (int i = 0; i < queues->size; i++) {
+			array_m* tasks = array_m_lookup(queues, i);
+			for (int j = 0; j < tasks->size; j++) {
+				task_t* tmp = array_m_lookup(tasks, j);
+				if (tmp->id == id) {
+					current_task = tmp;
+					found_task = true;
+					break;
+				}
 			}
 		}
-	}
-	if (!found_task) {
-		printf_err("Couldn't find non-blocked PID %d!", id);
-		ASSERT(0, "Invalid context switch state");
+
+		//did we still not find it?
+		if (!found_task) {
+			printf_err("goto_pid: Nonexistant PID %d!", id);
+			ASSERT(0, "Invalid context switch state");
+		}
 	}
 
 	current_task->begin_date = time();

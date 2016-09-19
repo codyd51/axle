@@ -66,6 +66,13 @@ void add_character_to_buffer(char ch) {
 	unlock(mutex);
 }
 
+static void finalize_keystroke(void) {
+	//hook into task switch
+	//trigger iosentinel
+	extern void update_blocked_tasks();
+	update_blocked_tasks();
+}
+
 void kb_callback(registers_t regs) {
 	static unsigned char c = 0;
 	
@@ -136,6 +143,8 @@ void kb_callback(registers_t regs) {
 		else {
 			add_character_to_buffer(mappedchar);
 		}
+		//we've finished processing this keystroke, allow tasks blocked for kb to run
+		finalize_keystroke();
 	}
 }
 
