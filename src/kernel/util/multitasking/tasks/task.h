@@ -27,6 +27,8 @@ typedef struct task {
     int32_t wake_timestamp; //used if process is in PIT_WAIT state
 
 	uint32_t begin_date;
+	uint32_t end_date;
+
 	uint32_t relinquish_date;
 	uint32_t lifespan;
 	struct task* next;

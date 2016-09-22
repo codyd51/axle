@@ -14,10 +14,9 @@
 #define MAX_TASKS 128
 #define MAX_FILES 32
 
-#define MLFQ_DEFAULT_QUEUE_COUNT 8
+#define MLFQ_DEFAULT_QUEUE_COUNT 16
 #define MLFQ_MAX_QUEUE_LENGTH 16
 
-#define QUANTUM 20
 #define BOOSTER_PERIOD 1000
 
 extern page_directory_t* current_directory;
@@ -25,6 +24,7 @@ extern page_directory_t* current_directory;
 static int next_pid = 1;
 task_t* current_task;
 static array_m* queues;
+static array_m* queue_lifetimes;
 static task_t* active_list;
 
 void stdin_read(char* buf, uint32_t count);
@@ -54,7 +54,6 @@ void unlist_task(task_t* task) {
 	}
 	//did we find it?
 	if (task != current) {
-		//printf_err("[%d] %s unlist failed, wasn't listed", task->id, task->name);
 		return;
 	}
 
@@ -67,7 +66,6 @@ void list_task(task_t* task) {
 	task_t* current = active_list;
 	while (current->next != NULL) {
 		if (task == current) {
-			//printf_err("[%d] %s was already present in active list", task->id, task->name);
 			return;
 		}
 		current = current->next;
@@ -151,18 +149,6 @@ void reap() {
 			tmp = tmp->next;
 		}
 	
-		/*
-		for (int i = 0; i < queues->size; i++) {
-			array_m* queue = array_m_lookup(queues, i);
-			for (int j = 0; j < queue->size; j++) {
-				task_t* task = array_m_lookup(queue, j);
-				if (task->state == ZOMBIE) {
-					array_m_remove(queue, j);
-					unlist_task(task);
-				}
-			}
-		}
-		*/
 		kernel_end_critical();
 		//we have nothing else to do, yield cpu
 		sys_yield(RUNNABLE);
@@ -262,6 +248,11 @@ void tasking_install(mlfq_option options) {
 		array_m* queue = array_m_create(MLFQ_MAX_QUEUE_LENGTH);
 		array_m_insert(queues, queue);
 	}
+
+	queue_lifetimes = array_m_create(queue_count + 1);
+	for (int i = 0; i < queue_count; i++) {
+		array_m_insert(queue_lifetimes, 5 * (i + 1));
+	}
 	
 	//init first task (kernel task)
 	task_t* kernel = (task_t*)kmalloc(sizeof(task_t));
@@ -276,8 +267,8 @@ void tasking_install(mlfq_option options) {
 	enqueue_task(current_task, 0);
 	
 	//create callback to switch tasks
-	add_callback((void*)task_switch, QUANTUM, true, 0);
-	add_callback(booster, BOOSTER_PERIOD, true, 0);
+	void handle_pit_tick();
+	add_callback((void*)handle_pit_tick, 2, true, 0);
 
 	//idle task
 	//runs when anything (including kernel) is blocked for i/o
@@ -410,7 +401,7 @@ task_t* mlfq_schedule() {
 		current_task->lifespan += (current_task->relinquish_date - current_task->begin_date);
 	}
 	
-	if (current_task->lifespan >= QUANTUM) {
+	if (current_task->lifespan >= array_m_lookup(queue_lifetimes, current_task->queue)) {
 		current_task->lifespan = 0;
 		demote_task(current_task);
 	}
@@ -471,9 +462,6 @@ void goto_pid(int id) {
 		return;
 	}
 
-	//TODO move this out of task_switch
-	//add callback to PIT?
-
 	//haven't switched yet, save old task's values
 	current_task->eip = eip;
 	current_task->esp = esp;
@@ -515,6 +503,8 @@ void goto_pid(int id) {
 	}
 
 	current_task->begin_date = time();
+	int lifetime = array_m_lookup(queue_lifetimes, current_task->queue);
+	current_task->end_date = current_task->begin_date + lifetime;
 
 	eip = current_task->eip;
 	esp = current_task->esp;
@@ -536,6 +526,32 @@ volatile uint32_t task_switch() {
 	goto_pid(next->id);
 }
 
+void handle_pit_tick() {
+	static int tick = 0;
+	static int last_boost = 0;
+	
+	if (!tick) {
+		//first run
+		//get real time
+		tick = time();
+		last_boost = tick;
+	}
+
+	//due to an apparant bug in the PIT callback mechanism, 
+	//having a callback every tick introduces bugs and triple faults
+	//going as fast as every other tick does not have this problem
+	//so, this function is called every other tick
+	//so we need to increment by 2 ticks
+	tick += 2;
+	if (tick >= current_task->end_date) {
+		task_switch();
+	}
+	if (tick >= last_boost + BOOSTER_PERIOD) {
+		last_boost = tick;
+		booster();
+	}
+}
+
 void _kill() {
 	if (!tasking_installed()) return;
 
@@ -553,8 +569,9 @@ void proc() {
 		array_m* queue = array_m_lookup(queues, i);
 		for (int j = 0; j < queue->size; j++) {
 			task_t* task = array_m_lookup(queue, j);
-			float age = (task->lifespan / (float)QUANTUM);
-			printf("[%d] %s (queue %d - used %d/%d ms) ", task->id, task->name, task->queue, task->lifespan, QUANTUM);
+			int runtime = array_m_lookup(queue_lifetimes, task->queue);
+			float age = (task->lifespan / (float)runtime);
+			printf("[%d Q %d] %s (used %d/%d ms) ", task->id, task->queue, task->name, task->lifespan, runtime);
 			switch (task->state) {
 				case RUNNABLE:
 					printf("(runnable)");
