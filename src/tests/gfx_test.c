@@ -43,6 +43,44 @@ void draw_mandelbrot(Screen* screen) {
 	}
 }
 
+void draw_burning_ship(Screen* screen) {
+	//each iteration, we calculate: new = old * old + p, where p is current pixel,
+	//old starts at the origin
+	double pr, pi; //real and imaginary parts of pixel p
+	double new_re, new_im, old_re, old_im; //real & imaginary parts of new and old z
+	double zoom = 1, move_x = -0.5, move_y = 0; 
+	int max_iterations = 300;
+
+	//for every pixel
+	for (int y = 0; y < screen->window->size.height; y++) {
+		for (int x = 0; x < screen->window->size.width; x++) {
+			//calculate real and imaginary part of z
+			//based on pixel location and zoom and position vals
+			pr = 1.5 * (x - screen->window->size.width / 2) / (0.5 * zoom * screen->window->size.width) + move_x;
+			pi = (y - screen->window->size.height / 2) / (0.5 * zoom * screen->window->size.height) + move_y;
+			new_re = new_im = old_re = old_im = 0; //start at 0.0
+
+			int i;
+			for (i = 0; i < max_iterations; i++) {
+				//remember value of previous iteration
+				old_re = new_re;
+				old_im = new_im;
+
+				//actual iteration, real and imaginary parts are calculated
+				if (old_im < 0) old_im *= -1;
+				if (old_re < 0) old_re *= -1;
+				new_re = (old_re * old_re) - (old_im * old_im) + pr;
+				new_im = 2 * old_re * old_im + pi;
+
+				//if point is outside circle with radius 2, stop
+				if ((new_re * new_re + new_im * new_im) > 4) break;
+			}
+			Color color = color_make(5 + i % max_iterations, 0, 0);
+			putpixel(screen, x, y, color);
+		}
+	}
+}
+
 //draw julia set
 void draw_julia(Screen* screen) {
 	//each iteration, we calculate: new = old * old + c
@@ -219,6 +257,9 @@ void test_gfx(int argc, char **argv) {
 
 	test_text(screen);
 	sleep(delay);
+	
+	draw_burning_ship(screen);
+	sleep(delay);
 
 	draw_julia(screen);
 	sleep(delay);
@@ -241,11 +282,16 @@ void test_xserv(Screen* vesa_screen) {
 	Window* label_win = create_window(rect_make(point_make(100, 100), size_make(500, 500)));
 	label_win->title = "Text test";
 	Label* test_label = create_label(rect_make(point_make(10, 10), size_make(label_win->content_view->frame.size.width - 10, label_win->content_view->frame.size.height - 20)), "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque pulvinar dui bibendum nunc convallis, bibendum venenatis mauris ornare. Donec et libero lacus. Nulla tristique auctor pulvinar. Aenean enim elit, malesuada nec dignissim eget, varius ac nunc. Vestibulum varius lectus nisi, in dignissim orci volutpat in. Aliquam eget eros lorem. Quisque tempor est a rhoncus consequat. Quisque vestibulum finibus sapien. Etiam enim sem, vehicula ac lorem vitae, mattis mollis mauris. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Vivamus eleifend dui vel nulla suscipit pretium. Suspendisse vel nunc efficitur, lobortis dui convallis, tristique tellus. Ut ut viverra est. Etiam tempor justo risus. Cras laoreet eu sapien et lacinia. Nunc imperdiet blandit purus a semper.");
-	test_label->text_color = color_make(200, 0, 100);
+	//test_label->text_color = color_make(200, 0, 100);
 	add_sublabel(label_win->content_view, test_label);
 	
-	Shader* s = create_shader(vec2d(-1.0, 1.0));
-	add_shader(label_win->content_view, s);
+	//Shader* s = create_shader(vec2d(-1.0, 1.0));
+	//add_shader(label_win->content_view, s);
 
 	add_subwindow(vesa_screen->window, label_win);
+
+	Window* fractal = create_window(rect_make(point_make(100, 100), size_make(512, 512)));
+	fractal->title = "Fractal test";
+	
+	add_subwindow(vesa_screen->window, fractal);
 }	
