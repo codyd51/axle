@@ -176,11 +176,15 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	proc();
 
-	pci_install();
+	//pci_install();
 
-	//in case the shell ever exits, just spin
+	//_kill();
+
+	//this should never be reached as the above call is never executed
+	//if for some reason it is, just spin
 	while (1) {}
 
+	//if by some act of god we've reached this point, just give up and assert
 	ASSERT(0, "Kernel exited");
 }
 

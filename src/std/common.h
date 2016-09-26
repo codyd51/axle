@@ -6,6 +6,9 @@
 
 __BEGIN_DECLS
 
+#define kernel_begin_critical() __asm__("cli");
+#define kernel_end_critical() __asm__("sti");
+
 //if the memory layout of this changes, kernel/util/interrupts/interrupt.s must be changed as well
 //to correct offsets
 typedef struct registers {
