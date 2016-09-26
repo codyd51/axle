@@ -132,7 +132,13 @@ void add_process(task_t* task) {
 }
 
 void idle() {
-	while (1) {}
+	while (1) {
+		//nothing to do!
+		//put the CPU to sleep until the next interrupt
+		asm volatile("hlt");
+		//once we return from above, go to next task
+		sys_yield();
+	}
 }
 
 void reap() {
@@ -571,7 +577,15 @@ void proc() {
 			task_t* task = array_m_lookup(queue, j);
 			int runtime = array_m_lookup(queue_lifetimes, task->queue);
 			float age = (task->lifespan / (float)runtime);
-			printf("[%d Q %d] %s (used %d/%d ms) ", task->id, task->queue, task->name, task->lifespan, runtime);
+			printf("[%d Q %d] %s ", task->id, task->queue, task->name);
+			if (task == current_task) {
+				printf("(active");
+			}
+			else {
+				printf("used");
+			}
+			printf(" %d/%d ms) ", task->lifespan, runtime);
+			
 			switch (task->state) {
 				case RUNNABLE:
 					printf("(runnable)");
