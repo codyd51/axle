@@ -23,11 +23,22 @@ Features
 * Kernel-space standard library
 * User mode (ring3)
 * Syscalls
+* PCI enumeration
+
+Overview
+-------------
+axle is designed so everything is preemptible, including the kernel itself. Tasks are scheduled according to an MLFQ policy, although a round-robin implementation is also provided if the user requires low-latency between tasks. To prevent starvation in MLFQ mode, a priority booster is also included which drops every task into the highest priority queue at regular intervals. The scheduler quantum, boost quantum, queue counts and queue sizes are all configurable, as many constants within axle's kernel are.
+
+axle's kernel begins by boostrapping essential facilities, such as descriptor tables, paging, the PIT driver (a neccesary component of many other mechanisms), multitasking, and more. A shell process is then launched, which supports many commands for interfacing with axle. Additionally, the shell supports backspacing over commands and automatically records all history (both input and output) to support scrolling back through previous messages.
+
+Among axle's built-in demonstrations is rexle, a pseudo-3D renderer which utilizes raycasting. Rexle paints walls with textures loaded from axle's filesystem, represented as BMPs. BMPs can also be rendered in axle's desktop environment, so that provides a background and image viewer.
+
+axle also includes a JIT compiler which is capable of executing assembly as it is entered. (At the present moment it accepts opcodes directly, though the translation from assembly to opcodes is not a domain-specific problem, and you can feel free to use your favorite assembler to do so).
 
 Graphics
 -------------
 
-While axle is mainly used through a terminal, VGA and higher-resolution VESA drivers are available, along with a small graphics library which can be used with both modes. A window manager and associated API is also provided. VGA mode supports 256 colors and VESA supports full RGB.
+While axle is mainly used through a terminal, VGA and higher-resolution VESA drivers are available, along with a graphics library which can be used with both modes. A window manager and associated API is also provided. VGA mode supports 256 colors and VESA supports full RGB.
 
 <p align="center"><img src="screenshots/help.png"></p>
 
@@ -42,12 +53,14 @@ Julia set | Mandelbrot set
 
 ##Window manager
 
-Window manager updates are tied to the PIT. When the window server starts, a callback is added to the PIT to be ran 30 times a second. When this happens, the window manager traverses its heirarchy and draws its contents from the bottom up, and written to a temporary buffer. As `memcpy`ing to video memory is a slow operation, the window manager does not transfer the contents of the buffer to video memory if no contents have changed from the last frame. Additionally, the contents of the buffer are not modified for any UI elements whose state has not changed from the previous refresh.
+While in previous versions of axle the window manager refresh rate was implemented as a callback from the PIT, as axle is now capable of multitasking this is no longer necessary. The window manager spawns its own process and refreshes its contents whenever necessary. Upon a refresh, the window manager traverses its heirarchy and draws its contents from the bottom up, writes to a temporary buffer, and decides whether to transfer this buffer to real video memory. The window manager attempts to minimize modifying video memory, and only does so if there has been a change from the current frame. Additionally, the buffer itself is not modified if no UI elements have notified the manager that they need to be redrawn.
 
-axle's window manager exposes an API for creating and managing UI elements such as windows, views, labels, and more. In VESA mode, full RGB is supported.
+axle's window manager exposes an API for creating and managing UI elements such as windows, views, labels, BMPs, and more. In VESA mode, full RGB is supported.
+
+(TODO update these screenshots with current ones! These are very outdated.)
 <p align="center"><img src="screenshots/color_test.png"></p>
 
-axle includes a text renderer and a default 8x8 bitmap font.
+axle includes a text renderer and default 8x8 bitmap font, though any font in this format could be trivially loaded from axle's filesystem.
 <p align="center"><img src="screenshots/text_test.png"></p>
 
 Running
@@ -75,9 +88,11 @@ Roadmap
 - [x] Shutdown/reboot commands
 - [ ] Modifiable filesystem
 - [ ] Load external binaries
-- [ ] Thread API
+- [x] Thread API
 - [ ] Polygon support 
 - [ ] UI toolkit
+- [x] MLFQ scheduling
+- [x] Variable scheduling modes
 
 License
 --------------
