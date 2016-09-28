@@ -57,11 +57,12 @@ While in previous versions of axle the window manager refresh rate was implement
 
 axle's window manager exposes an API for creating and managing UI elements such as windows, views, labels, BMPs, and more. In VESA mode, full RGB is supported.
 
-(TODO update these screenshots with current ones! These are very outdated.)
-<p align="center"><img src="screenshots/color_test.png"></p>
-
 axle includes a text renderer and default 8x8 bitmap font, though any font in this format could be trivially loaded from axle's filesystem.
 <p align="center"><img src="screenshots/text_test.png"></p>
+
+This image shows axle's window manager as it was in an earlier version, before configurable fonts and bitmap rendering.
+<p align="center"><img src="screenshots/color_test.png"></p>
+
 
 Running
 ----------------------
@@ -93,6 +94,8 @@ Roadmap
 - [ ] UI toolkit
 - [x] MLFQ scheduling
 - [x] Variable scheduling modes
+- [x] PCI enumeration
+- [ ] E1000 network driver
 
 License
 --------------
