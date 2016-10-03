@@ -17,6 +17,7 @@
 #define MLFQ_DEFAULT_QUEUE_COUNT 16
 #define MLFQ_MAX_QUEUE_LENGTH 16
 
+#define HIGH_PRIO_QUANTUM 50
 #define BOOSTER_PERIOD 1000
 
 extern page_directory_t* current_directory;
@@ -257,7 +258,7 @@ void tasking_install(mlfq_option options) {
 
 	queue_lifetimes = array_m_create(queue_count + 1);
 	for (int i = 0; i < queue_count; i++) {
-		array_m_insert(queue_lifetimes, 5 * (i + 1));
+		array_m_insert(queue_lifetimes, HIGH_PRIO_QUANTUM * (i + 1));
 	}
 	
 	//init first task (kernel task)
@@ -274,7 +275,7 @@ void tasking_install(mlfq_option options) {
 	
 	//create callback to switch tasks
 	void handle_pit_tick();
-	add_callback((void*)handle_pit_tick, 2, true, 0);
+	add_callback((void*)handle_pit_tick, 4, true, 0);
 
 	//idle task
 	//runs when anything (including kernel) is blocked for i/o
@@ -412,6 +413,38 @@ task_t* mlfq_schedule() {
 		demote_task(current_task);
 	}
 
+	//if we're running in low-latency mode, save time by just using round-robin
+	if (queues->size == 1) {
+		//attempt to save time by first looking at the next task in linked list
+		task_t* next = current_task->next;
+		if (!next) next = active_list;
+		while (next->state != RUNNABLE) {
+			next = next->next;
+			if (!next) {
+				next = active_list;
+			}
+		}
+		/*
+		//if we reached the end of the list or the next task was not runnable, fall back on slower call to find runnable task
+		if (!next || next->state != RUNNABLE) {
+			return first_queue_runnable(array_m_lookup(queues, 0), 0);
+		}
+		*/
+		ASSERT(next != NULL, "Couldn't find valid runnable task!");
+		return next;
+		/*
+		array_m* queue = array_m_lookup(queues, 0);
+		int current_idx = array_m_index(queue, current_task);
+		if (current_idx >= queue->size - 1) current_idx = 0;
+		task_t* next = NULL;
+		for (int i = current_idx; i < queue->size; i++) {
+			next = array_m_lookup(queue, i);
+			if (next->state == RUNNABLE) break;
+		}
+		if (next) return next;
+		*/
+	}
+
 	//find first non-empty queue
 	array_m* new_queue = first_queue_containing_runnable();
 	ASSERT(new_queue->size, "Couldn't find any queues with tasks to run!");
@@ -546,15 +579,19 @@ void handle_pit_tick() {
 	//due to an apparant bug in the PIT callback mechanism, 
 	//having a callback every tick introduces bugs and triple faults
 	//going as fast as every other tick does not have this problem
-	//so, this function is called every other tick
-	//so we need to increment by 2 ticks
-	tick += 2;
+	//it seems as if the bug happens if we don't finish the tick interrupt before the next interrupt fires
+	//to be safe, this is only called once every 4 ticks
+	//so, we need to increment tick count by 4 ticks
+	tick += 4;
 	if (tick >= current_task->end_date) {
 		task_switch();
 	}
 	if (tick >= last_boost + BOOSTER_PERIOD) {
-		last_boost = tick;
-		booster();
+		//don't boost if we're in low latency mode!
+		if (queues->size > 1) {
+			last_boost = tick;
+			booster();
+		}
 	}
 }
 
