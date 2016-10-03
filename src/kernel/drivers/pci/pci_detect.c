@@ -82,6 +82,59 @@ uint16_t pci_device_id(uint16_t bus, uint16_t device, uint16_t function) {
 	return pci_config_readw(bus, device, function, 2);
 }
 
+void pci_print_device(pci_device* device) {
+#define INTEL_VENDOR 0x8086
+#define TECH_CORP_VENDOR 0x1234
+	//TODO fix naming below to remove this var
+	uint16_t device_id = device->device;
+	//index pci devices by how many times this function is called 
+	//TODO change?
+	static int count = 0;
+	printf("pci device %d - vendor %x ", count++, device->vendor);
+	switch (device->vendor) {
+		case INTEL_VENDOR:
+			printf("(Intel) ");
+			break;
+		case TECH_CORP_VENDOR:
+			printf("(TchCo) ");
+			break;
+		default:
+			printf("(Unkwn) ");
+			break;
+	}
+	printf(": device %x ", device_id);
+	if (device->vendor == INTEL_VENDOR) {
+		switch (device_id) {
+			case 0x1237:
+				printf("(pci / memcontrol)");
+				break;
+			case 0x7000:
+				printf("(isa control)");
+				break;
+			case 0x7010:
+				printf("(ide control)");
+				break;
+			case 0x7113:
+				printf("(acpi control)");
+				break;
+			case 0x100e:
+				printf("(ethernet cont)");
+				break;
+			default:
+				printf("(Unkwn)");
+				break;
+		}
+	}
+	else if (device->vendor == TECH_CORP_VENDOR) {
+		switch (device_id) {
+			default:
+				printf("(Unkwn)");
+				break;
+		}
+	}
+	printf("\n");
+}
+
 void pci_traverse_buses(void) {
 	for (uint32_t bus = 0; bus < 256; bus++) {
 		for (uint32_t slot = 0; slot < 32; slot++) {
@@ -90,19 +143,33 @@ void pci_traverse_buses(void) {
 				if (vendor == 0xFFFF) continue;
 
 				uint16_t device_id = pci_device_id(bus, slot, func);
-				printf_info("PCI vendor %x device %x", vendor, device_id);
 				pci_device* device = kmalloc(sizeof(pci_device));
 				device->vendor = vendor;
 				device->device = device_id;
 				device->func = func;
 				array_m_insert(devices, device);
+				pci_print_device(device);
 			}
 		}
 	}
 }
 
+pci_device* pci_get_device(uint16_t vendor_id, uint16_t device_id) {
+	//look at all known pci devices
+	for (int i = 0; i < devices->size; i++) {
+		pci_device* tmp = array_m_lookup(devices, i);
+		if (tmp->vendor == vendor_id && tmp->device == device_id) {
+			//found the device they wanted!
+			return tmp;
+		}
+	}
+	//device not found!
+	printf_err("pci device with vendor %x device %x did not exist.", vendor_id, device_id);
+	return NULL;
+}
+
 void pci_install() {
-	printf_info("Registering PCI devices...");
+	printf_info("Registering pci devices...");
 
 	devices = array_m_create(MAX_DEVICES);
 	pci_traverse_buses();
