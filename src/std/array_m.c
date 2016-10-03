@@ -41,12 +41,6 @@ void array_m_insert(array_m* array, type_t item) {
 	unlock(mutex);
 }
 
-type_t array_m_lookup(array_m* array, int32_t i) {
-	ASSERT(i < array->size && i >= 0, "index (%d) was out of bounds (%d)", i, array->size - 1);
-
-	return array->array[i];
-}
-
 int32_t array_m_index(array_m* array, type_t item) {
 	//TODO optimize this
 	for (int32_t i = 0; i < array->size; i++) {

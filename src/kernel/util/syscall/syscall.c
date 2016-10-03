@@ -20,6 +20,11 @@ void sys_install() {
 	create_sysfuncs();
 }
 
+bool sys_installed() {
+	//has the syscalls array been created?
+	return (syscalls);
+}
+
 void sys_insert(void* syscall) {
 	if (syscalls->size + 1 == MAX_SYSCALLS) {
 		printf_err("Not installing syscall %d, too many in use!", syscalls->size);
