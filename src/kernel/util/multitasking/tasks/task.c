@@ -17,7 +17,7 @@
 #define MLFQ_DEFAULT_QUEUE_COUNT 16
 #define MLFQ_MAX_QUEUE_LENGTH 16
 
-#define HIGH_PRIO_QUANTUM 50
+#define HIGH_PRIO_QUANTUM 5
 #define BOOSTER_PERIOD 1000
 
 extern page_directory_t* current_directory;
@@ -178,6 +178,8 @@ void enqueue_task(task_t* task, int queue) {
 	array_m* raw = array_m_lookup(queues, queue);
 	array_m_insert(raw, task);
 	task->queue = queue;
+	//new queue, reset lifespan
+	task->lifespan = 0;
 	kernel_end_critical();
 }
 
@@ -220,12 +222,10 @@ bool tasking_installed() {
 
 void booster() {
 	kernel_begin_critical();
-	for (int i = 0; i < queues->size; i++) {
-		array_m* queue = array_m_lookup(queues, i);
-		for (int j = 0; j < queue->size; j++) {
-			task_t* tmp = array_m_lookup(queue, j);
-			switch_queue(tmp, 0);
-		}
+	task_t* tmp = active_list;
+	while (tmp) {
+		switch_queue(tmp, 0);
+		tmp = tmp->next;
 	}
 	kernel_end_critical();
 }
@@ -307,25 +307,21 @@ void update_blocked_tasks() {
 	kernel_begin_critical();
 	
 	//TODO is this optimizable?
-	for (int i = 0; i < queues->size; i++) {
-		array_m* tmp = array_m_lookup(queues, i);
-		for (int j = 0; j < tmp->size; j++) {
-			task_t* task = array_m_lookup(tmp, j);
-			if (task->state == PIT_WAIT) {
-				if (time() >= task->wake_timestamp) {
-					unblock_task(task);
-					//goto_pid(task->id);
-					//return;
-				}
-			}
-			else if (task->state == KB_WAIT) {
-				if (haskey()) {
-					unblock_task(task);
-					goto_pid(task->id);
-					//return;
-				}
+	//don't look through every queue, use linked list of tasks
+	task_t* task = active_list;
+	while (task) {
+		if (task->state == PIT_WAIT) {
+			if (time() >= task->wake_timestamp) {
+				unblock_task(task);
 			}
 		}
+		else if (task->state == KB_WAIT) {
+			if (haskey()) {
+				unblock_task(task);
+				goto_pid(task->id);
+			}
+		}
+		task = task->next;
 	}
 
 	kernel_end_critical();
@@ -383,14 +379,34 @@ task_t* first_queue_runnable(array_m* queue, int offset) {
 }
 
 array_m* first_queue_containing_runnable(void) {
-	for (int i = 0; i < queues->size; i++) {
-		array_m* tmp = array_m_lookup(queues, i);
-		if (first_queue_runnable(tmp, 0) != NULL) {
-			return tmp;
+	//we could look at every queue individually, but that would be slow
+	//let's take advantage of our linked list of tasks and search that
+	task_t* curr = active_list;
+	task_t* highest_prio_runnable = NULL;
+	while (curr) {
+		if (curr->state == RUNNABLE) {
+			//if this task has a lower priority, or this is the first runnablet task we've found, 
+			//mark it as best
+			if (!highest_prio_runnable || curr->queue < highest_prio_runnable->queue) {
+				highest_prio_runnable = curr;
+			}
+		}
+		curr = curr->next;
+	}
+
+	if (!highest_prio_runnable) {
+		printf_err("Couldn't find runnable task in linked list of tasks!");
+		for (int i = 0; i < queues->size; i++) {
+			array_m* tmp = array_m_lookup(queues, i);
+			if (first_queue_runnable(tmp, 0) != NULL) {
+				return tmp;
+			}
 		}
 	}
 	//no queues contained any runnable tasks!
-	ASSERT(0, "No queues contained any runnable tasks!");
+	ASSERT(highest_prio_runnable, "No queues contained any runnable tasks!");
+
+	return array_m_lookup(queues, highest_prio_runnable->queue);
 }
 
 task_t* mlfq_schedule() {
@@ -409,7 +425,6 @@ task_t* mlfq_schedule() {
 	}
 	
 	if (current_task->lifespan >= array_m_lookup(queue_lifetimes, current_task->queue)) {
-		current_task->lifespan = 0;
 		demote_task(current_task);
 	}
 
@@ -424,25 +439,8 @@ task_t* mlfq_schedule() {
 				next = active_list;
 			}
 		}
-		/*
-		//if we reached the end of the list or the next task was not runnable, fall back on slower call to find runnable task
-		if (!next || next->state != RUNNABLE) {
-			return first_queue_runnable(array_m_lookup(queues, 0), 0);
-		}
-		*/
-		ASSERT(next != NULL, "Couldn't find valid runnable task!");
+		ASSERT(next, "Couldn't find valid runnable task!");
 		return next;
-		/*
-		array_m* queue = array_m_lookup(queues, 0);
-		int current_idx = array_m_index(queue, current_task);
-		if (current_idx >= queue->size - 1) current_idx = 0;
-		task_t* next = NULL;
-		for (int i = current_idx; i < queue->size; i++) {
-			next = array_m_lookup(queue, i);
-			if (next->state == RUNNABLE) break;
-		}
-		if (next) return next;
-		*/
 	}
 
 	//find first non-empty queue
@@ -451,7 +449,7 @@ task_t* mlfq_schedule() {
 
 	if (new_queue->size >= 1) {
 		//round-robin through this queue
-		
+
 		//if this is the same queue as the previous task, start at that index
 		if (current_queue == new_queue) {
 			//if this is the last index, loop around to the start of the array
@@ -574,6 +572,7 @@ void handle_pit_tick() {
 		//get real time
 		tick = time();
 		last_boost = tick;
+		return;
 	}
 
 	//due to an apparant bug in the PIT callback mechanism, 
