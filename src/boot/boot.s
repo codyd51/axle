@@ -28,6 +28,7 @@ mboot:
 [EXTERN kernel_main]		; C entry point
 start:
 	; load multiboot information
+	mov esp, stack_space
 	push esp
 	push ebx
 
@@ -40,3 +41,7 @@ start:
 
 ; set size of the _start symbol to the current location '.' minus its start
 ; .size _start, . -_start
+
+[SECTION .bss]
+RESB 8192 ; reserve 8kb stack
+stack_space:
