@@ -283,7 +283,6 @@ page_t* get_page(uint32_t address, int make, page_directory_t* dir) {
 		return &dir->tables[table_idx]->pages[address%1024];
 	}
 	else if (make) {
-		printf_info("creating page at %x", address);
 		uint32_t tmp;
 		dir->tables[table_idx] = (page_table_t*)kmalloc_ap(sizeof(page_table_t), &tmp);
 		memset(dir->tables[table_idx], 0, 0x1000);

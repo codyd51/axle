@@ -10,5 +10,6 @@ typedef struct pci_device {
 } pci_device;
 
 void pci_install(void);
+void pci_list(void);
 
 #endif

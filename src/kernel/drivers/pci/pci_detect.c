@@ -132,6 +132,9 @@ void pci_print_device(pci_device* device) {
 				break;
 		}
 	}
+	else {
+		printf("(Unkwn)");
+	}
 	printf("\n");
 }
 
@@ -148,9 +151,16 @@ void pci_traverse_buses(void) {
 				device->device = device_id;
 				device->func = func;
 				array_m_insert(devices, device);
-				pci_print_device(device);
 			}
 		}
+	}
+}
+
+void pci_list() {
+	//print out all registered devices
+	for (int i = 0; i < devices->size; i++) {
+		pci_device* device = array_m_lookup(devices, i);
+		pci_print_device(device);
 	}
 }
 

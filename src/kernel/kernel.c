@@ -103,21 +103,6 @@ uint32_t module_detect(multiboot* mboot_ptr) {
 	return initrd_loc;
 }
 
-void thread() {
-	while (1) {
-		printf_info("%d ", getpid());
-		sleep(50);
-	}
-}
-
-int fun1() {
-    return 0xCAFE;
-}
-
-int fun2() {
-    return 0xBEEF;
-}
-
 void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	initial_esp = initial_stack;
 
@@ -147,10 +132,12 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	paging_install();
 	sys_install();
 	tasking_install(PRIORITIZE_INTERACTIVE);
+	//tasking_install(LOW_LATENCY);
 
 	//drivers
 	kb_install();
 	mouse_install();
+	pci_install();
    
 	//initialize initrd, and set as fs root
 	fs_root = initrd_install(initrd_loc);
@@ -173,12 +160,6 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 		printf_dbg("Sleepy thread slept!");
 		_kill();
 	}
-
-	proc();
-
-	//pci_install();
-
-	//_kill();
 
 	//this should never be reached as the above call is never executed
 	//if for some reason it is, just spin

@@ -18,10 +18,10 @@ SECTIONS {
     */
     .text ALIGN(4K) : {
         *(.multiboot)
-	code = .; _code = .; __code = .;
-        *(.mboot)
-	*(.text)
-	. = ALIGN(4096);
+		code = .; _code = .; __code = .;
+		*(.mboot)
+		*(.text)
+		. = ALIGN(4096);
     }
 
     /*  read-only data
@@ -33,16 +33,16 @@ SECTIONS {
     /*  read-write data (initialized)
     */
     .data : {
-	data = .; _data = .; __data = .;
+		data = .; _data = .; __data = .;
         *(.data)
-	*(.rodata)
-	. = ALIGN(4096);
+		*(.rodata)
+		. = ALIGN(4096);
     }
 
     /*  read-write data (uninitialized) and stack
     */
     .bss : {
-	bss = .; _bss = .; __bss = .;
+		bss = .; _bss = .; __bss = .;
         *(COMMON)
         *(.bss)
         *(.bootstrap_stack)
