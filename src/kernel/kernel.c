@@ -22,7 +22,7 @@
 #include <kernel/drivers/pci/pci_detect.h>
 
 void print_os_name(void) {
-	printf("\e[10;[\e[11;AXLE OS v\e[12;0.5.0\e[10;]\n");
+	printf("\e[10;[\e[11;AXLE OS v\e[12;0.6.0\e[10;]\n");
 }
 
 void shell_loop(void) {
@@ -30,7 +30,7 @@ void shell_loop(void) {
 	while (!exit_status) {
 		exit_status = shell();
 	}
-/*
+
 	//give them a chance to recover
 	for (int i = 5; i > 0; i--) {
 		terminal_clear();
@@ -47,47 +47,9 @@ void shell_loop(void) {
 			break;
 		}
 	}
-*/
 	
 	//we're dead
 	terminal_clear();
-}
-
-/*
-void kernel_begin_critical(void) {
-	//disable interrupts while critical code executes
-	asm ("cli");
-}
-
-void kernel_end_critical(void) {
-	//reenable interrupts now that a critical section is complete
-	asm ("sti");
-}
-*/
-
-void info_panel_refresh(void) {
-	/*
-	term_cursor pos = terminal_getcursor();
-
-	//set cursor near top right, leaving space to write
-	term_cursor curs = (term_cursor){65, 0};
-	terminal_setcursor(curs);
-
-	printf("PIT: %d", tick_count());
-	//using \n would move cursor x = 0
-	//instead, manually set to next row
-	curs.y += 1;
-	terminal_setcursor(curs);
-	printf("RTC: %d", time());
-
-	//now that we're done, put the cursor back
-	terminal_setcursor(pos);
-	*/
-}
-
-void info_panel_install(void) {
-	printf_info("Installing text-mode info panel...");
-	//timer_callback info_callback = add_callback(info_panel_refresh, 1, 1, NULL);
 }
 
 extern uint32_t placement_address;
@@ -131,8 +93,8 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//utilities
 	paging_install();
 	sys_install();
-	//tasking_install(PRIORITIZE_INTERACTIVE);
-	tasking_install(LOW_LATENCY);
+	tasking_install(PRIORITIZE_INTERACTIVE);
+	//tasking_install(LOW_LATENCY);
 
 	//drivers
 	kb_install();
@@ -161,6 +123,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 		_kill();
 	}
 
+	//done bootstrapping, kill process
 	_kill();
 
 	//this should never be reached as the above call is never executed

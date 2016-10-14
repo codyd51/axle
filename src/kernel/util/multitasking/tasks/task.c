@@ -156,7 +156,7 @@ void reap() {
 			if (tmp->state == ZOMBIE) {
 				array_m* queue = array_m_lookup(queues, tmp->queue);
 				int idx = array_m_index(queue, tmp);
-				if (idx != -1) {
+				if (idx != ARR_NOT_FOUND) {
 					array_m_remove(queue, idx);
 					unlist_task(tmp);
 				}
@@ -207,7 +207,7 @@ void enqueue_task(task_t* task, int queue) {
 	array_m* raw = array_m_lookup(queues, queue);
 
 	//ensure task does not already exist in this queue
-	if (array_m_index(raw, task) == -1) {
+	if (array_m_index(raw, task) == ARR_NOT_FOUND) {
 		array_m_insert(raw, task);
 		task->queue = queue;
 		//new queue, reset lifespan
@@ -252,7 +252,7 @@ void dequeue_task(task_t* task) {
 
 	//if for some reason this task is still in the queue (if it was added to queue twice),
 	//dequeue it again
-	if (array_m_index(raw, idx) != -1) {
+	if (array_m_index(raw, idx) != ARR_NOT_FOUND) {
 		dequeue_task(task);
 	}
 
@@ -447,7 +447,6 @@ array_m* first_queue_containing_runnable(void) {
 	task_t* highest_prio_runnable = NULL;
 
 	//TODO figure out why this block doesn't work
-	/*
 	while (curr) {
 		if (curr->state == RUNNABLE) {
 			//if this task has a higher priority (lower queue #), or this is the first runnable task we've found, 
@@ -460,9 +459,8 @@ array_m* first_queue_containing_runnable(void) {
 	}
 
 	array_m* queue = array_m_lookup(queues, highest_prio_runnable->queue);
-	*/
-	//if (!highest_prio_runnable || highest_prio_runnable->state != RUNNABLE || !queue->size) {
-	if (1) {
+	if (!highest_prio_runnable || highest_prio_runnable->state != RUNNABLE || !queue->size) {
+	//if (1) {
 		//printf_err("Couldn't find runnable task in linked list of tasks!");
 		for (int i = 0; i < queues->size; i++) {
 			array_m* tmp = array_m_lookup(queues, i);
@@ -477,8 +475,7 @@ array_m* first_queue_containing_runnable(void) {
 		ASSERT(highest_prio_runnable, "No queues contained any runnable tasks!");
 	}
 
-	//return queue;
-	return NULL;
+	return queue;
 }
 
 task_t* mlfq_schedule() {
@@ -630,14 +627,7 @@ volatile uint32_t task_switch() {
 
 	current_task->relinquish_date = time();
 	//find next runnable task
-	bool killed_kernel = (current_task->state == ZOMBIE && current_task->id == 1);
-	if (killed_kernel) {
-		printf_info("kernel task died");
-	}
 	task_t* next = mlfq_schedule();
-	if (killed_kernel) {
-		printf_info("kernel is dead, next task is %s[%d]", next->name, next->id);
-	}
 
 	ASSERT(next->state == RUNNABLE, "Tried to switch to non-runnable task %s (reason: %d)!", next->name, next->state);
 

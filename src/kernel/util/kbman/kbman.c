@@ -2,10 +2,12 @@
 #include <kernel/drivers/terminal/terminal.h>
 #include <std/array_m.h>
 
+#define MAX_KB_BUFFER_LENGTH 64
+
 static array_m* keys_down;
 void kbman_process(char c) {
 	if (!keys_down) {
-		keys_down = array_m_create(32);
+		keys_down = array_m_create(MAX_KB_BUFFER_LENGTH);
 	}
 
 	//only insert into array if it's not already present
@@ -28,6 +30,6 @@ void kbman_process_release(char c) {
 }
 
 bool key_down(char c) {
-	if (array_m_index(keys_down, (type_t*)c) != -1) return true;
+	if (array_m_index(keys_down, (type_t*)c) != ARR_NOT_FOUND) return true;
 	return false;
 }

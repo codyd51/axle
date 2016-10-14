@@ -2,9 +2,12 @@
 #define STD_ARRAY_M_H
 
 #include "std_base.h"
+#include "panic.h"
 #include <stdint.h>
 
 __BEGIN_DECLS
+
+#define ARR_NOT_FOUND -1
 
 typedef void* type_t;
 
@@ -27,7 +30,7 @@ STDAPI void array_m_insert(array_m* array, type_t item);
 //lookup item at index i
 //STDAPI type_t array_m_lookup(array_m* array, int32_t i);
 __attribute__((always_inline)) type_t inline array_m_lookup(array_m* array, int32_t i) {
-	//ASSERT(i < array->size && i >= 0, "index (%d) was out of bounds (%d)", i, array->size - 1);
+	ASSERT(i < array->size && i >= 0, "index (%d) was out of bounds (%d)", i, array->size - 1);
 
 	return array->array[i];
 }
