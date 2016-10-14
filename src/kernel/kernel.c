@@ -131,8 +131,8 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//utilities
 	paging_install();
 	sys_install();
-	tasking_install(PRIORITIZE_INTERACTIVE);
-	//tasking_install(LOW_LATENCY);
+	//tasking_install(PRIORITIZE_INTERACTIVE);
+	tasking_install(LOW_LATENCY);
 
 	//drivers
 	kb_install();
@@ -161,9 +161,13 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 		_kill();
 	}
 
+	_kill();
+
 	//this should never be reached as the above call is never executed
 	//if for some reason it is, just spin
-	while (1) {}
+	while (1) {
+		sys_yield();
+	}
 
 	//if by some act of god we've reached this point, just give up and assert
 	ASSERT(0, "Kernel exited");

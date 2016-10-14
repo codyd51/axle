@@ -31,8 +31,7 @@ static task_t* active_list;
 void stdin_read(char* buf, uint32_t count);
 void stdout_read(char* buffer, uint32_t count);
 void stderr_read(char* buffer, uint32_t count);
-static void setup_fds(task_t* task) {
-	task->files = array_m_create(MAX_FILES);
+static void setup_fds(task_t* task) { task->files = array_m_create(MAX_FILES);
 	array_m_insert(task->files, stdin_read);
 	array_m_insert(task->files, stdout_read);
 	array_m_insert(task->files, stderr_read);
@@ -43,23 +42,29 @@ int getpid() {
 }
 
 void unlist_task(task_t* task) {
-	//walk linked list
-	task_t* prev = active_list;
-	task_t* current = prev->next;
-	while (current->next != NULL) {
-		if (current == task) {
-			break;
+	//if task to unlist is head, move head
+	if (task == active_list) {
+		active_list = task->next;
+	}
+	else {
+		//walk linked list
+		task_t* prev = active_list;
+		task_t* current = prev->next;
+		while (current->next != NULL) {
+			if (current == task) {
+				break;
+			}
+			prev = current;
+			current = current->next;
 		}
-		prev = current;
-		current = current->next;
-	}
-	//did we find it?
-	if (task != current) {
-		return;
-	}
+		//did we find it?
+		if (task != current) {
+			return;
+		}
 
-	//remove from list
-	prev->next = current->next;
+		//remove from list
+		prev->next = current->next;
+	}
 }
 
 void list_task(task_t* task) {
@@ -150,8 +155,31 @@ void reap() {
 		while (tmp != NULL) {
 			if (tmp->state == ZOMBIE) {
 				array_m* queue = array_m_lookup(queues, tmp->queue);
-				array_m_remove(queue, array_m_index(queue, tmp));
-				unlist_task(tmp);
+				int idx = array_m_index(queue, tmp);
+				if (idx != -1) {
+					array_m_remove(queue, idx);
+					unlist_task(tmp);
+				}
+				else {
+					//couldn't find task in the queue it said it was in
+					//fall back on searching through each queue
+					bool found = false;
+					for (int i = 0; i < queues->size, !found; i++) {
+						array_m* queue = array_m_lookup(queues, i);
+						for (int j = 0; j < queues->size, !found; j++) {
+							task_t* to_test = array_m_lookup(queue, j);
+							if (to_test == tmp) {
+								array_m_remove(queue, j);
+								unlist_task(tmp);
+								found = true;
+								break;
+							}
+						}
+					}
+					if (!found) {
+						printf_err("Tried to reap task %s[%d] but it didn't exist in a queue", tmp->name, tmp->id);
+					}
+				}
 			}
 			tmp = tmp->next;
 		}
@@ -175,11 +203,19 @@ void enqueue_task(task_t* task, int queue) {
 	if (queue < 0 || queue >= queues->size) {
 		ASSERT(0, "Tried to insert %s into invalid queue %d", task->name, queue);
 	}
+
 	array_m* raw = array_m_lookup(queues, queue);
-	array_m_insert(raw, task);
-	task->queue = queue;
-	//new queue, reset lifespan
-	task->lifespan = 0;
+
+	//ensure task does not already exist in this queue
+	if (array_m_index(raw, task) == -1) {
+		array_m_insert(raw, task);
+		task->queue = queue;
+		//new queue, reset lifespan
+		task->lifespan = 0;
+	}
+	else {
+		printf_err("Tried to enqueue %s onto queue where it already existed (%d)", task->name, queue);
+	}
 	kernel_end_critical();
 }
 
@@ -189,11 +225,37 @@ void dequeue_task(task_t* task) {
 		ASSERT(0, "Tried to remove %s from invalid queue %d", task->name, task->queue);
 	}
 	array_m* raw = array_m_lookup(queues, task->queue);
+
 	int idx = array_m_index(raw, task);
 	if (idx < 0) {
-		ASSERT(0, "Tried to dequeue %s from queue %d it didn't belong to!", task->name, task->queue);
+		printf_err("Tried to dequeue %s from queue %d it didn't belong to!", task->name, task->queue);
+		//fall back on searching all queues for this task
+		for (int i = 0; i < queues->size; i++) {
+			array_m* queue = array_m_lookup(queues, i);
+			for (int j = 0; j < queue->size; j++) {
+				task_t* tmp = array_m_lookup(queue, j);
+				if (task == tmp) {
+					//found task we were looking for
+					printf_info("Task was actually in queue %d", i);
+					array_m_remove(queue, j);
+					kernel_end_critical();
+					return;
+				}
+			}
+		}
+		//never found the task!
+		printf_err("Task %s did not exist in any queues!", task->name);
+		return;
 	}
+
 	array_m_remove(raw, idx);
+
+	//if for some reason this task is still in the queue (if it was added to queue twice),
+	//dequeue it again
+	if (array_m_index(raw, idx) != -1) {
+		dequeue_task(task);
+	}
+
 	kernel_end_critical();
 }
 
@@ -383,9 +445,12 @@ array_m* first_queue_containing_runnable(void) {
 	//let's take advantage of our linked list of tasks and search that
 	task_t* curr = active_list;
 	task_t* highest_prio_runnable = NULL;
+
+	//TODO figure out why this block doesn't work
+	/*
 	while (curr) {
 		if (curr->state == RUNNABLE) {
-			//if this task has a lower priority, or this is the first runnablet task we've found, 
+			//if this task has a higher priority (lower queue #), or this is the first runnable task we've found, 
 			//mark it as best
 			if (!highest_prio_runnable || curr->queue < highest_prio_runnable->queue) {
 				highest_prio_runnable = curr;
@@ -394,8 +459,11 @@ array_m* first_queue_containing_runnable(void) {
 		curr = curr->next;
 	}
 
-	if (!highest_prio_runnable) {
-		printf_err("Couldn't find runnable task in linked list of tasks!");
+	array_m* queue = array_m_lookup(queues, highest_prio_runnable->queue);
+	*/
+	//if (!highest_prio_runnable || highest_prio_runnable->state != RUNNABLE || !queue->size) {
+	if (1) {
+		//printf_err("Couldn't find runnable task in linked list of tasks!");
 		for (int i = 0; i < queues->size; i++) {
 			array_m* tmp = array_m_lookup(queues, i);
 			if (first_queue_runnable(tmp, 0) != NULL) {
@@ -404,9 +472,13 @@ array_m* first_queue_containing_runnable(void) {
 		}
 	}
 	//no queues contained any runnable tasks!
-	ASSERT(highest_prio_runnable, "No queues contained any runnable tasks!");
+	if (!highest_prio_runnable) {
+		proc();
+		ASSERT(highest_prio_runnable, "No queues contained any runnable tasks!");
+	}
 
-	return array_m_lookup(queues, highest_prio_runnable->queue);
+	//return queue;
+	return NULL;
 }
 
 task_t* mlfq_schedule() {
@@ -445,7 +517,10 @@ task_t* mlfq_schedule() {
 
 	//find first non-empty queue
 	array_m* new_queue = first_queue_containing_runnable();
-	ASSERT(new_queue->size, "Couldn't find any queues with tasks to run!");
+	if (!new_queue->size) {
+		proc();
+	}
+	ASSERT(new_queue->size, "Couldn't find any queues with tasks to run in queue %d!", array_m_index(queues, new_queue));
 
 	if (new_queue->size >= 1) {
 		//round-robin through this queue
@@ -555,7 +630,15 @@ volatile uint32_t task_switch() {
 
 	current_task->relinquish_date = time();
 	//find next runnable task
+	bool killed_kernel = (current_task->state == ZOMBIE && current_task->id == 1);
+	if (killed_kernel) {
+		printf_info("kernel task died");
+	}
 	task_t* next = mlfq_schedule();
+	if (killed_kernel) {
+		printf_info("kernel is dead, next task is %s[%d]", next->name, next->id);
+	}
+
 	ASSERT(next->state == RUNNABLE, "Tried to switch to non-runnable task %s (reason: %d)!", next->name, next->state);
 
 	kernel_end_critical();

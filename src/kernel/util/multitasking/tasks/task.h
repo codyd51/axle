@@ -3,6 +3,7 @@
 
 #include <std/std.h>
 #include <kernel/util/paging/paging.h>
+#include <std/array_l.h>
 
 #define KERNEL_STACK_SIZE 2048 //use 2kb kernel stack
 
