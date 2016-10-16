@@ -17,6 +17,7 @@
 #include <user/shell/programs/rexle/rexle.h>
 #include <kernel/util/vfs/fs.h>
 #include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/drivers/pci/pci_detect.h>
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
@@ -330,7 +331,6 @@ void pwd_command() {
 }
 
 void open_command(int argc, char** argv) {
-	/*
 	if (argc < 2) {
 		printf_err("Please specify a directory");
 		return;
@@ -347,16 +347,21 @@ void open_command(int argc, char** argv) {
 		//fs_node_t* file = fopen(name, 0);
 		uint32_t sz = read_fs(file, 0, 8192, filebuf);
 
-		//if (!fork(PRIO_MED)) {
-			exec_start(filebuf);
-			//in case the above ever returns
-			printf_err("exec_start returned!");
-			while (1) {}
-		//}
+		exec_start(filebuf);
 		return;
 	}
 	printf_err("File %s not found", name);
-	*/
+}
+
+void hypervisor_command() {
+	printf("(0x1210) MOV R0, #1\n");
+	printf("(0x1020) MOV R1, #2\n");
+	printf("(0x2302) ADD R2, R0 + R1\n");
+	printf("(0x4303) MUL R2, R1 * R2\n");
+	printf("(0x1210) MOV R3, #1\n");
+	printf("(0x3332) SUB R2, R2 - R3\n");
+	printf("(0x0000) END\n");
+	printf("--- cpu state: R0 = 1 R1 = 2 R2 = 5 R3 = 1 ---\n");
 }
 
 void shell_init() {
@@ -382,7 +387,13 @@ void shell_init() {
 	add_new_command("hex", "Write hex dump of file to stdout", hex_command);
 	add_new_command("open", "Load file", open_command);
 	add_new_command("proc", "List running processes", proc);
+	add_new_command("pci", "List PCI devices", pci_list);
+	add_new_command("hypervisor", "Run VM", hypervisor_command);
 	add_new_command("", "", empty_command);
+
+	//register ourselves as the first responder
+	//this makes us the designated target for keystrokes
+	become_first_responder();
 
 	//set current dir to fs root
 	current_dir = fs_root;

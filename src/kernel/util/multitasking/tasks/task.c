@@ -20,13 +20,18 @@
 #define HIGH_PRIO_QUANTUM 5
 #define BOOSTER_PERIOD 1000
 
+#define MAX_RESPONDERS 32
+
 extern page_directory_t* current_directory;
 
 static int next_pid = 1;
-task_t* current_task;
-static array_m* queues;
-static array_m* queue_lifetimes;
-static task_t* active_list;
+task_t* current_task = 0;
+static array_m* queues = 0;
+static array_m* queue_lifetimes = 0;
+static task_t* active_list = 0;
+
+task_t* first_responder = 0;
+static array_m* responder_stack = 0;
 
 void stdin_read(char* buf, uint32_t count);
 void stdout_read(char* buffer, uint32_t count);
@@ -279,7 +284,7 @@ void promote_task(task_t* task) {
 }
 
 bool tasking_installed() {
-	return (queues->size >= 1 && current_task);
+	return (queues && queues->size >= 1 && current_task);
 }
 
 void booster() {
@@ -335,6 +340,11 @@ void tasking_install(mlfq_option options) {
 	active_list = kernel;
 	enqueue_task(current_task, 0);
 	
+	//set up responder stack
+	responder_stack = array_m_create(MAX_RESPONDERS);
+	//set kernel as initial first responder
+	become_first_responder();
+	
 	//create callback to switch tasks
 	void handle_pit_tick();
 	add_callback((void*)handle_pit_tick, 4, true, 0);
@@ -367,7 +377,14 @@ void update_blocked_tasks() {
 	if (!tasking_installed()) return;
 
 	kernel_begin_critical();
-	
+
+	//if there is a pending key, wake first responder
+	if (haskey() && first_responder->state == KB_WAIT) {
+		unblock_task(first_responder);
+		goto_pid(first_responder->id);
+	}
+
+	//wake blocked tasks if the event they were blocked for has occurred
 	//TODO is this optimizable?
 	//don't look through every queue, use linked list of tasks
 	task_t* task = active_list;
@@ -375,12 +392,6 @@ void update_blocked_tasks() {
 		if (task->state == PIT_WAIT) {
 			if (time() >= task->wake_timestamp) {
 				unblock_task(task);
-			}
-		}
-		else if (task->state == KB_WAIT) {
-			if (haskey()) {
-				unblock_task(task);
-				goto_pid(task->id);
 			}
 		}
 		task = task->next;
@@ -712,4 +723,35 @@ void proc() {
 		}
 	}
 	printf("---------------------------------------------------\n");
+}
+
+void force_enumerate_blocked() {
+	if (!tasking_installed()) return;
+
+	update_blocked_tasks();
+}
+
+void become_first_responder() {
+	first_responder = current_task;
+
+	//check if this task already exists in stack of responders
+	for (int i = 0; i < responder_stack->size; i++) {
+		task_t* tmp = array_m_lookup(responder_stack, i);
+		if (tmp == first_responder) {
+			//remove task so we can add it again
+			//this is to ensure responder stack only has unique tasks
+			array_m_remove(responder_stack, tmp);
+		}
+	}
+
+	//append this task to stack of responders
+	array_m_insert(responder_stack, first_responder);
+}
+
+void resign_first_responder() {
+	//remove current first responder from stack of responders
+	int last_idx = responder_stack->size - 1;
+	array_m_remove(responder_stack, last_idx);
+	//set first responder to new head of stack
+	first_responder = array_m_index(responder_stack, responder_stack->size - 1);
 }

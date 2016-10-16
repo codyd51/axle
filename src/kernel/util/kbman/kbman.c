@@ -1,6 +1,7 @@
 #include "kbman.h"
 #include <kernel/drivers/terminal/terminal.h>
 #include <std/array_m.h>
+#include <kernel/util/multitasking/tasks/task.h>
 
 #define MAX_KB_BUFFER_LENGTH 64
 
@@ -20,6 +21,10 @@ void kbman_process(char c) {
 		default:
 			break;
 	}
+
+	//inform scheduler that a keystroke has been recieved
+	//this call forces any tasks waiting on a keystroke to be woken
+	force_enumerate_blocked();
 }
 
 void kbman_process_release(char c) {

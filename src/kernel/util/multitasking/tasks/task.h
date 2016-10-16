@@ -74,4 +74,17 @@ int getpid();
 //print all active processes
 void proc();
 
+//used to immediately invoke iosentinel process
+//to wake any processes that were waiting on an i/o event that
+//has now been recieved
+void force_enumerate_blocked();
+
+//appends current task to stack of responders,
+//and marks current task as designated recipient of keyboard events
+void become_first_responder();
+
+//relinquish first responder status
+//process which first responder status was taken from becomes first responder
+void resign_first_responder();
+
 #endif
