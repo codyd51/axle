@@ -14,7 +14,7 @@ AS = nasm
 AFLAGS = -f elf
 
 CC = $(TOOLCHAIN)/bin/i686-elf-gcc
-CFLAGS = -ffreestanding -std=gnu99 -Wall -Wextra -I ./src
+CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -I ./src
 LDFLAGS = -ffreestanding -nostdlib -lgcc -T $(RESOURCES)/linker.ld
 
 # Tools
@@ -66,7 +66,7 @@ $(ISO_NAME): $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg $(ISO_DIR)/b
 	$(ISO_MAKER) -o $@ $(ISO_DIR)
 
 run: $(ISO_NAME)
-	$(EMULATOR) -vga std -cdrom $^
+	$(EMULATOR) -net nic,model=ne2k_pci -d cpu_reset -D qemu.log  -vga std -cdrom $^
 
 clean:
 	@rm -rf $(OBJECTS) $(ISO_DIR) $(ISO_NAME) $(FSGENERATOR)

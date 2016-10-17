@@ -40,6 +40,8 @@ void rexle() {
 }
 
 int rexle_int() {
+	become_first_responder();
+
 	//switch graphics modes
 	Screen* screen = switch_to_vesa(0x112, true);
 	//Screen* screen = switch_to_vga();
@@ -273,4 +275,5 @@ int rexle_int() {
 	}
 	gfx_teardown(screen);
 	switch_to_text();
+	resign_first_responder();
 }

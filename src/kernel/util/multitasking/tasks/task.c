@@ -753,5 +753,5 @@ void resign_first_responder() {
 	int last_idx = responder_stack->size - 1;
 	array_m_remove(responder_stack, last_idx);
 	//set first responder to new head of stack
-	first_responder = array_m_index(responder_stack, responder_stack->size - 1);
+	first_responder = array_m_lookup(responder_stack, responder_stack->size - 1);
 }
