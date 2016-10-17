@@ -192,6 +192,14 @@ void draw_vline_fast(Screen* screen, Line line, Color color, int thickness) {
 }
 
 void draw_line(Screen* screen, Line line, Color color, int thickness) {
+	//first things first
+	//ensure we never try to draw outside screen bounds
+	//normalize line coordinates
+	line.p1.x = MAX(0, line.p1.x);
+	line.p1.y = MAX(0, line.p1.y);
+	line.p2.x = MIN(screen->window->frame.size.width - 1, line.p2.x);
+	line.p2.y = MIN(screen->window->frame.size.height - 1, line.p2.y);
+
 	//if the line is perfectly vertical or horizontal, this is a special case
 	//that can be drawn much faster
 	if (line.p1.x == line.p2.x) {
