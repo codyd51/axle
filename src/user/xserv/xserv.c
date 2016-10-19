@@ -382,32 +382,34 @@ static void process_mouse_events(Screen* screen) {
 	last_mouse_pos = p;
 }
 
+void xserv_quit(Screen* screen) {
+	switch_to_text();
+	gfx_teardown(screen);
+	resign_first_responder();
+	_kill();
+}
+
 static Label* fps;
 void xserv_refresh(Screen* screen) {
 	if (!screen->finished_drawing) return;
 
 	//check if there are any keys pending
-	/*
 	if (haskey()) {
 		char ch;
 		if ((ch = kgetch())) {
 			if (ch == 'q') {
 				//quit xserv
-				//gfx_teardown(screen);
-				xserv_pause();
-				return;
+				xserv_quit(screen);
 			}
 		}
 	}
-	*/
 
 	double time_start = time();
 	xserv_draw(screen);
 	double frame_time = (time() - time_start) / 1000.0;
 
 	//update frame time tracker 
-	char buf[32];
-	itoa(frame_time * 1000, &buf);
+	char buf[32]; itoa(frame_time * 1000, &buf);
 	strcat(buf, " ms/frame");
 	fps->text = buf;
 	draw_label(screen, fps);
@@ -433,14 +435,14 @@ void xserv_resume() {
 
 void xserv_temp_stop(uint32_t pause_length) {
 	xserv_pause();
-	//sleep(pause_length);
+	sleep(pause_length);
 	xserv_resume();
 }
 
 void xserv_init_late() {
 	//switch to VESA for x serv
 	Screen* screen = switch_to_vesa(0x118, true);
-	
+
 	set_frame(screen->window->title_view, rect_make(point_make(0, 0), size_make(0, 0)));
 	set_frame(screen->window->content_view, screen->window->frame);
 	set_border_width(screen->window, 0);
@@ -455,9 +457,11 @@ void xserv_init_late() {
 
 	while (1) {
 		xserv_refresh(screen);
+		sys_yield(RUNNABLE);
 	}
 }
 
 void xserv_init() {
+	become_first_responder();
 	xserv_init_late();
 }

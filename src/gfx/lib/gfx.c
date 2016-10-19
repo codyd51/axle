@@ -21,20 +21,29 @@ Vec2d vec2d(double x, float y) {
 
 
 void label_teardown(Label* label) {
+	if (!label) return;
+
+	kfree(label->text);
 	kfree(label);
 }
 
 void bmp_teardown(Bmp* bmp) {
+	if (!bmp) return;
+
 	//free rows array
 	kfree(bmp->raw);
 	kfree(bmp);
 }
 
 void shader_teardown(Shader* shader) {
+	if (!shader) return;
+
 	kfree(shader);
 }
 
 void view_teardown(View* view) {
+	if (!view) return;
+
 	for (int i = 0; i < view->subviews->size; i++) {
 		View* view = (View*)array_m_lookup(view->subviews, i);
 		view_teardown(view);
@@ -62,6 +71,8 @@ void view_teardown(View* view) {
 }
 
 void window_teardown(Window* window) {
+	if (!window) return;
+
 	for (int i = 0; i < window->subviews->size; i++) {
 		Window* window = (Window*)array_m_lookup(window->subviews, i);
 		window_teardown(window);
@@ -78,6 +89,8 @@ void window_teardown(Window* window) {
 }
 
 void gfx_teardown(Screen* screen) {
+	if (!screen) return;
+
 	//stop refresh loop for this screen
 	if (screen->callback.callback) {
 		remove_callback(screen->callback);

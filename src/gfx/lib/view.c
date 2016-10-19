@@ -22,6 +22,8 @@ View* create_view(Rect frame) {
 }
 
 static View* create_title_view(Window* window) {
+	if (!window) return NULL;
+
 	Rect title_view_frame = rect_make(point_make(0, 0), size_make(window->frame.size.width, 20));
 	View* title_view = create_view(title_view_frame);
 	title_view->background_color = window->border_color;
@@ -42,6 +44,8 @@ static View* create_title_view(Window* window) {
 }
 
 static View* create_content_view(Window* window) {
+	if (!window) return NULL;
+
 	int title_height = 20;
 	if (window->title_view) title_height = window->title_view->frame.size.height;
 
@@ -76,7 +80,7 @@ Label* create_label(Rect frame, char* text) {
 	label->text_color = color_black();
 	label->needs_redraw = 1;
 
-	label->text = text;
+	label->text = strdup(text);
 	return label;
 }
 
@@ -91,6 +95,8 @@ Button* create_button(Rect frame, char* text) {
 }
 
 Bmp* create_bmp(Rect frame, Color* raw) {
+	if (!raw) return NULL;
+
 	Bmp* bmp = (Bmp*)kmalloc(sizeof(Bmp));
 	bmp->frame = frame;
 	bmp->raw = raw;
@@ -133,6 +139,8 @@ Bmp* load_bmp(Rect frame, char* filename) {
 }
 
 void mark_needs_redraw(View* view) {
+	if (!view) return;
+
 	//if this view has already been marked, quit
 	if (view->needs_redraw) return;
 	view->needs_redraw = 1;
@@ -142,6 +150,8 @@ void mark_needs_redraw(View* view) {
 }
 
 void add_sublabel(View* view, Label* label) {
+	if (!view || !label) return;
+
 	array_m_insert(view->labels, label);
 	label->superview = view;
 	label->needs_redraw = 1;
@@ -149,6 +159,8 @@ void add_sublabel(View* view, Label* label) {
 }
 
 void remove_sublabel(View* view, Label* label) {
+	if (!view || !label) return;
+
 	array_m_remove(view->labels, array_m_index(view->labels, label));
 	label->superview = NULL;
 	label->needs_redraw = 1;
@@ -156,12 +168,16 @@ void remove_sublabel(View* view, Label* label) {
 }
 
 void add_subview(View* view, View* subview) {
+	if (!view || !subview) return;
+
 	array_m_insert(view->subviews, subview);
 	subview->superview = view;
 	mark_needs_redraw(view);
 }
 
 void remove_subview(View* view, View* subview) {
+	if (!view || !subview) return;
+
 	array_m_remove(view->subviews, array_m_index(view->subviews, subview));
 	subview->superview = NULL;
 	subview->needs_redraw = 1;
@@ -169,18 +185,24 @@ void remove_subview(View* view, View* subview) {
 }
 
 void add_bmp(View* view, Bmp* bmp) {
+	if (!view || !bmp) return;
+
 	array_m_insert(view->bmps, bmp);
 	bmp->superview = view;
 	mark_needs_redraw(view);
 }
 
 void remove_bmp(View* view, Bmp* bmp) {
+	if (!view || !bmp) return;
+
 	array_m_remove(view->bmps, array_m_index(view->bmps, bmp));
 	bmp->superview = NULL;
 	mark_needs_redraw(view);
 }
 
 void add_shader(View* view, Shader* s) {
+	if (!view || !s) return;
+
 	array_m_insert(view->shaders, s);
 	s->superview = view;
 	mark_needs_redraw(view);
@@ -188,34 +210,46 @@ void add_shader(View* view, Shader* s) {
 }
 
 void remove_shader(View* view, Shader* s) {
+	if (!view || !s) return;
+
 	array_m_remove(view->shaders, array_m_index(view->shaders, s));
 	s->superview = NULL;
 	mark_needs_redraw(view);
 }
 
 void set_background_color(View* view, Color color) {
+	if (!view) return;
+
 	view->background_color = color;
 	mark_needs_redraw(view);
 }
 
 void add_subwindow(Window* window, Window* subwindow) {
+	if (!window || !subwindow) return;
+
 	array_m_insert(window->subviews, subwindow);
 	subwindow->superview = window;
 	mark_needs_redraw((View*)window);
 }
 
 void remove_subwindow(Window* window, Window* subwindow) {
+	if (!window || !subwindow) return;
+
 	array_m_remove(window->subviews, array_m_index(window->subviews, subwindow));
 	subwindow->superview = NULL;
 	mark_needs_redraw((View*)window);
 }
 
 void set_border_width(Window* window, int width) {
+	if (!window) return;
+
 	window->border_width = width;
 	mark_needs_redraw((View*)window);
 }
 
 void set_frame(View* view, Rect frame) {
+	if (!view) return;
+
 	view->frame = frame;
 	mark_needs_redraw(view);
 }

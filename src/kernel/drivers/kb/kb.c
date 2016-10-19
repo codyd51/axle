@@ -229,9 +229,3 @@ char getchar() {
     sys_yield(KB_WAIT);
 	return kgetch();
 }
-
-
-
-
-
-

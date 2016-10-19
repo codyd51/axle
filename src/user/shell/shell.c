@@ -45,7 +45,7 @@ void prepare_shell() {
 void process_command(char* string) {
 	prepare_shell();
 
-	if ((string != NULL) && (string[0] == '\0'))
+	if ((string != NULL) && (string[0] == '\0') || !strlen(string))
 		return;
 
 	int argc;
@@ -145,11 +145,12 @@ int shell() {
 	//set terminal color to stdout color
 	printf("\e[15;");
 	process_command(input);
-	kfree(input);
 
 	if (strcmp(input, "shutdown") == 0) {
+		kfree(input);
 		return 1;
 	}
+	kfree(input);
 	return 0;
 }
 
@@ -236,10 +237,10 @@ void startx_command() {
 	
 	//display boot screen
 	vga_boot_screen(vga_screen);
-
 	gfx_teardown(vga_screen);
 	switch_to_text();
 
+	//actually launch xserv
 	xserv_init();
 }
 

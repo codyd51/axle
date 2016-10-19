@@ -226,7 +226,7 @@ void draw_button(Screen* screen) {
 	Triangle tri = triangle_make(p1, p2, p3);
 	draw_triangle(screen, tri, color_make(15, 0, 0), 1);
 	
-	Rect label_rect = rect_make(point_make(p3.x + 5, p3.y - (8 / 2)), size_make(in_rect.size.width, in_rect.size.height));
+	Rect label_rect = rect_make(point_make(p3.x + 5, in_origin.y), size_make(in_rect.size.width, in_rect.size.height));
 	Label* play_label = create_label(label_rect, "Play");
 	play_label->text_color = color_make(1, 0, 0);
 	add_sublabel(screen->window->content_view, play_label);
