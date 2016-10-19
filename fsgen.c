@@ -18,57 +18,66 @@ typedef struct initrd_header {
 	unsigned int length;	//length of file
 } rd_header;
 
-int is_file(const char* path) {
-	struct stat path_stat;
-	stat(path, &path_stat);
-	return S_ISREG(path_stat.st_mode);
+FILE* openfile(const char* dirname, struct dirent* dir, const char* mode) {
+	char pathname[1024]; //should be big enough
+	FILE *fp;
+
+	sprintf(pathname, "%s/%s", dirname, dir->d_name);
+	printf("trying to open file %s\n", pathname);
+	fp = fopen(pathname, mode);
+	return fp;
 }
 
-void write_dir(const char* name) {
+void write_dir(const char* dirname) {
 	rd_header headers[HEADERS_MAX];
 	//initial file offset is size of initrd header * max headers + actual header count
 	unsigned int off = sizeof(rd_header) * HEADERS_MAX + sizeof(int);
 	
-	DIR* dp;
-	struct dirent* ep;
-	dp = opendir(name);
-	int nheaders = 0;
-	if (dp) {
-		while ((ep = readdir(dp))) {	
-			const char* name = ep->d_name;
-			printf("name: %s\n", name);
-			if (!is_file(name)) {
-				printf("Found directory %s, skipping for now\n", name);
-				continue;
-			}
-
-			printf("writing file %s at 0x%x\n", name, off);
-			strcpy(headers[nheaders].name, name);
-			//add null byte to end of filename
-			headers[nheaders].name[strlen(ep->d_name)] = 0;
-
-			//write offset into initrd
-			headers[nheaders].offset = off;
-			FILE* stream = fopen(name, "r");
-			if (!stream) {
-				printf("Error: file not found: %s\n", name);
-				//return 1;
-			}
-			
-			//find length of file 
-			fseek(stream, 0, SEEK_END);
-			headers[nheaders].length = ftell(stream);
-			printf("length is %d\n", headers[nheaders].length);
-
-			off += headers[nheaders].length;
-			fclose(stream);
-			headers[nheaders].magic = HEADER_MAGIC;
-
-			nheaders++;	
-		}
-	}
-	else {
+	DIR* dp = opendir(dirname);
+	if (!dp) {
 		perror("Couldn't find directory");
+		return;
+	}
+
+	int nheaders = 0;
+	struct dirent* ep;
+	while ((ep = readdir(dp))) {	
+		if (ep->d_type != DT_REG) {
+			printf("Found non-file (directory?) %s, skipping for now\n", ep->d_name);
+			continue;
+		}
+		
+		char pathname[1024];
+		sprintf(pathname, "%s/%s", dirname, ep->d_name);
+		printf("writing file %s at 0x%x\n", pathname, off);
+
+		strcpy(headers[nheaders].name, pathname);
+		//add null byte to end of filename
+		headers[nheaders].name[strlen(pathname)] = 0;
+
+		//write offset into initrd
+		headers[nheaders].offset = off;
+
+		//open file so we can write binary data to initrd
+		//FILE* stream = openfile(dirname, ep, "rb");
+		FILE* stream = fopen(pathname, "rb");
+		if (!stream) {
+			printf("Error: file not found: %s\n", pathname);
+			exit(1);
+		}
+	
+		//find length of file 
+		fseek(stream, 0, SEEK_END);
+		headers[nheaders].length = ftell(stream);
+		printf("length is %d\n", headers[nheaders].length);
+		
+		fclose(stream);
+
+		off += headers[nheaders].length;
+		headers[nheaders].magic = HEADER_MAGIC;
+
+		//prepare to write next file
+		nheaders++;	
 	}
 	
 	FILE* wstream = fopen("./initrd.img", "w");
@@ -80,8 +89,11 @@ void write_dir(const char* name) {
 	//write actual file data to initrd
 	printf("writing %d headers to initrd\n", nheaders);
 	for (int i = 0; i < nheaders; i++) {
-		const char* name = headers[i].name;
-		FILE* stream = fopen(name, "r");
+		FILE* stream = fopen(headers[i].name, "r");
+		if (!stream) {
+			printf("Couldn't find file %s!\n", headers[i].name);
+			continue;
+		}
 
 		unsigned char* buf = (unsigned char*)malloc(headers[i].length);
 		fread(buf, 1, headers[i].length, stream);
