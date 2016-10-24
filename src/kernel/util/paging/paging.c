@@ -166,8 +166,7 @@ void free_frame(page_t* page) {
 
 #define VESA_WIDTH 1024
 #define VESA_HEIGHT 768
-void identity_map_lfb(uint32_t location) {
-	uint32_t j = location;
+void identity_map_lfb(uint32_t location) { uint32_t j = location;
 	//TODO use screen object instead of these vals
 	while (j < location + (VESA_WIDTH * VESA_HEIGHT * 4)) {
 		//if frame is valid
@@ -411,5 +410,22 @@ page_directory_t* clone_directory(page_directory_t* src) {
 		}
 	}
 	return dir;
+}
+
+void free_directory(page_directory_t* dir) {
+	//first free all tables
+	for (int i = 0; i < 1024; i++) {
+		page_table_t* table = dir->tables[i];
+		//free all pages in table
+		for (int j = 0; j < 1024; j++) {
+			page_t page = table->pages[j];
+			free_frame(&page);
+		}
+
+		//free table itself
+		kfree(table);
+	}
+	//finally, free directory
+	kfree(dir);
 }
 

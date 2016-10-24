@@ -152,6 +152,13 @@ void idle() {
 	}
 }
 
+void destroy_task(task_t* task) {
+	//remove task from queues and active list
+	unlist_task(task);
+	//free task's page directory
+	free_directory(task->page_dir);
+}
+
 void reap() {
 	while (1) {
 		kernel_begin_critical();
@@ -175,7 +182,7 @@ void reap() {
 							task_t* to_test = array_m_lookup(queue, j);
 							if (to_test == tmp) {
 								array_m_remove(queue, j);
-								unlist_task(tmp);
+								destroy_task(tmp);
 								found = true;
 								break;
 							}

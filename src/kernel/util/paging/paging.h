@@ -6,7 +6,7 @@
 
 typedef struct page {
 	uint32_t present	:  1; //page present in memory
-	uint32_t rw		:  1; //read-only if clear, readwrite if set
+	uint32_t rw			:  1; //read-only if clear, readwrite if set
 	uint32_t user 		:  1; //kernel level only if clear
 	uint32_t accessed	:  1; //has page been accessed since last refresh?
 	uint32_t dirty		:  1; //has page been written to since last refresh?
@@ -54,6 +54,10 @@ void vmem_map(uint32_t virt, uint32_t physical);
 void alloc_frame(page_t* page, int is_kernel, int is_writeable);
 void free_frame(page_t* page);
 
+//create a new page directory with all the info of src
+//kernel pages are linked instead of copied
 page_directory_t* clone_directory(page_directory_t* src);
+//free all memory associated with a page directory dir
+void free_directory(page_directory_t* dir);
 
 #endif
