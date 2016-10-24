@@ -73,8 +73,7 @@ void draw_bmp(Screen* screen, Bmp* bmp) {
 		superview = screen->window->content_view;
 	}
 
-//	if (!bmp || !bmp->needs_redraw) return;
-//	if (superview && !superview->needs_redraw) return;
+	//if (!bmp || !bmp->needs_redraw) return;
 
 	bmp->needs_redraw = 1;
 	dirtied = 1;
@@ -128,8 +127,7 @@ void draw_label(Screen* screen, Label* label) {
 	View* superview = label->superview;
 	//ASSERT(superview, "label had no superview!");
 	
-//	if (!label || !label->needs_redraw) return;
-//	if (superview && !superview->needs_redraw) return;
+	//if (!label || !label->needs_redraw) return;
 
 	label->needs_redraw = 1;
 	dirtied = 1;
@@ -165,11 +163,7 @@ void draw_view(Screen* screen, View* view) {
 	View* superview = view->superview;
 	Window* superwindow = containing_window_int(screen, view);
 
-	/*
-	if (!view || !view->needs_redraw) return;
-	if (superview && !superview->needs_redraw) return;
-	if (superwindow && !superwindow->needs_redraw) return;
-	*/
+	//if (!view || !view->needs_redraw) return;
 
 	//inform subviews that we're being redrawn
 	view->needs_redraw = 1;
@@ -208,7 +202,7 @@ void draw_view(Screen* screen, View* view) {
 }
 
 void draw_window(Screen* screen, Window* window) {
-//	if (!window->needs_redraw && !window->content_view->needs_redraw && !window->title_view->needs_redraw) return;
+	//if (!window->needs_redraw && !window->content_view->needs_redraw && !window->title_view->needs_redraw) return;
 
 	window->needs_redraw = 1;
 	dirtied = 1;
@@ -302,13 +296,47 @@ void desktop_setup(Screen* screen) {
 	add_taskbar(screen);
 }
 
+Bmp* screen_contents(Screen* screen, Rect frame) {
+	Color* raw = kmalloc(sizeof(Color) * frame.size.width * frame.size.height);
+
+	int bpp = 24 / 8;
+	int offset = frame.origin.x * bpp + (frame.origin.y * screen->window->size.width * bpp);
+
+	for (int i = 0; i < frame.size.height; i++) {
+		memcpy(raw + (frame.size.width * i), screen->vmem + offset, frame.size.width * bpp);
+
+		offset += screen->window->size.width * bpp;
+	}
+
+	//construct bmp
+	Bmp* contents = create_bmp(frame, raw);
+	contents->raw_size = frame.size;
+	return contents;
+}
+
 void draw_cursor(Screen* screen) {
+	//actual cursor bitmap
 	static Bmp* cursor;
+	//store region behind cursor so we can restore after cursor moves
+	static Bmp* behind_cursor;
+
 	if (!cursor) {
 		cursor = load_bmp(rect_make(point_zero(), size_make(30, 30)), "cursor.bmp");
 		cursor->frame.size = cursor->raw_size;
 	}
+
+	if (behind_cursor) {
+		//restore whatever was behind cursor
+		draw_bmp(screen, behind_cursor);
+		//free it
+		bmp_teardown(behind_cursor);
+	}
+
+	//update cursor position
 	cursor->frame.origin = mouse_point();
+	//update region behind cursor
+	behind_cursor = screen_contents(screen, cursor->frame);
+	
 	//we do not call add_bmp on the cursor
 	//we draw it manually to ensure it is always above all other content
 	draw_bmp(screen, cursor);
@@ -373,6 +401,7 @@ static void process_mouse_events(Screen* screen) {
 			//move this window by the difference between current mouse position and last mouse position
 			grabbed_window->frame.origin.x -= (last_mouse_pos.x - p.x);
 			grabbed_window->frame.origin.y -= (last_mouse_pos.y - p.y);
+			mark_needs_redraw(grabbed_window);
 		}
 	}
 	else {
