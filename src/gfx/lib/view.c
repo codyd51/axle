@@ -58,6 +58,8 @@ static View* create_content_view(Window* window) {
 
 Window* create_window(Rect frame) {
 	Window* window = (Window*)kmalloc(sizeof(Window));
+	memset(window, 0, sizeof(Window));
+
 	window->size = frame.size;
 	window->frame = frame;
 	window->border_color = color_make(120, 245, 80);
@@ -100,6 +102,7 @@ Bmp* create_bmp(Rect frame, Color* raw) {
 	Bmp* bmp = (Bmp*)kmalloc(sizeof(Bmp));
 	bmp->frame = frame;
 	bmp->raw = raw;
+	bmp->needs_redraw = 1;
 	return bmp;
 }
 
@@ -143,8 +146,9 @@ void mark_needs_redraw(View* view) {
 
 	//if this view has already been marked, quit
 	if (view->needs_redraw) return;
+
 	view->needs_redraw = 1;
-	if (view->superview) {
+	if (view->superview && view->superview->superview) {
 		mark_needs_redraw(view->superview);
 	}
 }
