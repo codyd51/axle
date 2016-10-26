@@ -8,6 +8,14 @@
 
 #define MAX_ELEMENTS 128
 
+ca_layer* create_layer(Size size, int bpp) {
+	ca_layer* ret = kmalloc(sizeof(ca_layer));
+	ret->size = size;
+	ret->depth = bpp;
+	ret->raw = kmalloc(sizeof(uint8_t) * size.width * size.height * bpp);
+	return ret;
+}
+
 View* create_view(Rect frame) {
 	View* view = (View*)kmalloc(sizeof(View));
 	view->frame = frame;
@@ -69,6 +77,8 @@ Window* create_window(Rect frame) {
 
 	window->title_view = create_title_view(window);
 	window->content_view = create_content_view(window);
+
+	window->layer = kmalloc(sizeof(Color) * frame.size.width * frame.size.height);
 
 	window->needs_redraw = 1;
 		

@@ -22,6 +22,7 @@ typedef struct window {
 	struct view* content_view;
 	Color border_color;
 	int border_width;
+	Color* layer;
 } Window;
 
 //TODO make proper subclass (c++?)
@@ -68,6 +69,8 @@ typedef struct bitmap {
 	Color* raw;
 	Size raw_size;
 } Bmp;
+
+struct ca_layer_t* create_layer(Size size, int bpp);
 
 Label* create_label(Rect frame, char* text);
 View* create_view(Rect frame);

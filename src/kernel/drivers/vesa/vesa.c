@@ -85,11 +85,13 @@ Screen* switch_to_vesa(uint32_t vesa_mode, bool create) {
 			Screen* screen = (Screen*)kmalloc(sizeof(Screen));
 			memset(screen, 0, sizeof(screen));
 
-			screen->vmem = (uint8_t*)kmalloc(mode_info.x_res * mode_info.y_res * (mode_info.bpp / 8));
 			screen->depth = mode_info.bpp;
+			screen->layer = create_layer(size_make(mode_info.x_res, mode_info.y_res), screen->depth);
+
 			//linear frame buffer (LFB) address
 			screen->physbase = (uint8_t*)mode_info.physbase;
 			screen->window = create_window(rect_make(point_make(0, 0), size_make(mode_info.x_res, mode_info.y_res)));
+			screen->layer = kmalloc(sizeof(Color) * mode_info.x_res * mode_info.y_res);
 
 			return screen;
 		}

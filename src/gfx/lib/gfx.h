@@ -13,12 +13,18 @@ typedef struct __attribute__((packed)) {
 	unsigned short gs, fs, es, ds, eflags;
 } regs16_t;
 
+typedef struct ca_layer_t {
+	Size size;
+	uint8_t* raw;
+	int depth;
+} ca_layer;
+
 typedef struct screen_t {
 	Window* window;
 	uint16_t pitch;
 	uint16_t depth;
 	uint16_t pixelwidth;
-	uint8_t* vmem;
+	ca_layer* layer;
 	uint8_t* physbase;
 	timer_callback callback;
 	volatile int finished_drawing;
@@ -42,42 +48,42 @@ Vec2d vec2d(double x, float y);
 
 #define VESA_DEPTH 24
 #define VGA_DEPTH 8 
-__attribute__((always_inline)) void inline putpixel(Screen* screen, int x, int y, Color color) {
+__attribute__((always_inline)) void inline putpixel(ca_layer* layer, int x, int y, Color color) {
 	//don't attempt writing a pixel outside of screen bounds
-	if (x < 0 || y < 0 || x >= screen->window->size.width || y >= screen->window->size.height) return;
+	if (x < 0 || y < 0 || x >= layer->size.width || y >= layer->size.height) return;
 
-	if (screen->depth == VGA_DEPTH) {
+	if (layer->depth == VGA_DEPTH) {
 		//VGA mode
-		uint16_t loc = ((y * screen->window->size.width) + x);
-		screen->vmem[loc] = color.val[0];
+		uint16_t loc = ((y * layer->size.width) + x);
+		layer->raw[loc] = color.val[0];
 	}
-	else if (screen->depth == VESA_DEPTH) {
+	else if (layer->depth == VESA_DEPTH) {
 		//VESA mode
 		static int bpp = 24 / 8;
-		int offset = x * bpp + y * screen->window->size.width * bpp;
+		int offset = x * bpp + y * layer->size.width * bpp;
 		//we have to write the pixels in BGR, not RGB
-		screen->vmem[offset + 0] = color.val[2];
-		screen->vmem[offset + 1] = color.val[1];
-		screen->vmem[offset + 2] = color.val[0];
+		layer->raw[offset + 0] = color.val[2];
+		layer->raw[offset + 1] = color.val[1];
+		layer->raw[offset + 2] = color.val[0];
 	}
 }
-__attribute__((always_inline)) void inline addpixel(Screen* screen, int x, int y, Color color) {
+__attribute__((always_inline)) void inline addpixel(ca_layer* layer, int x, int y, Color color) {
 	//don't attempt writing a pixel outside of screen bounds
-	if (x < 0 || y < 0 || x >= screen->window->size.width || y >= screen->window->size.height) return;
+	if (x < 0 || y < 0 || x >= layer->size.width || y >= layer->size.height) return;
 
-	if (screen->depth == VGA_DEPTH) {
+	if (layer->depth == VGA_DEPTH) {
 		//VGA mode
-		uint16_t loc = ((y * screen->window->size.width) + x);
-		screen->vmem[loc] += color.val[0];
+		uint16_t loc = ((y * layer->size.width) + x);
+		layer->raw[loc] += color.val[0];
 	}
-	else if (screen->depth == VESA_DEPTH) {
+	else if (layer->depth == VESA_DEPTH) {
 		//VESA mode
 		static int bpp = 24 / 8;
-		int offset = x * bpp + y * screen->window->size.width * bpp;
+		int offset = x * bpp + y * layer->size.width * bpp;
 		//we have to write the pixels in BGR, not RGB
-		screen->vmem[offset + 0] += color.val[0];
-		screen->vmem[offset + 1] += color.val[1];
-		screen->vmem[offset + 2] += color.val[2];
+		layer->raw[offset + 0] += color.val[0];
+		layer->raw[offset + 1] += color.val[1];
+		layer->raw[offset + 2] += color.val[2];
 	}
 }
 

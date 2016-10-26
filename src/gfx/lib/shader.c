@@ -37,7 +37,7 @@ void draw_shader(Screen* screen, Shader* s) {
 	int offset = (frame.origin.x * bpp) + (frame.origin.y * screen->window->size.width * bpp);
 	uint8_t* shader_offset = s->raw;
 	for (int i = 0; i < frame.size.width; i++) {
-		memadd(screen->vmem + offset, shader_offset, frame.size.width * bpp);
+		memadd(screen->layer->raw + offset, shader_offset, frame.size.width * bpp);
 		offset += (screen->window->size.width * bpp);
 		shader_offset += frame.size.width * bpp;
 	}

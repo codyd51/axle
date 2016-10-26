@@ -9,9 +9,7 @@
 #define CHAR_PADDING_W 0
 #define CHAR_PADDING_H 6
 
-struct screen_t;
-typedef struct screen_t Screen;
-
-void draw_char(Screen* screen, char ch, int x, int y, Color color);
+typedef struct ca_layer_t ca_layer;
+void draw_char(ca_layer* layer, char ch, int x, int y, Color color);
 
 #endif

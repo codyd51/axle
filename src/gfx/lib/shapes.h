@@ -19,7 +19,7 @@ typedef struct triangle {
 	Coordinate p3;
 } Triangle;
 
-void normalize_coordinate(Screen* screen, Coordinate* p);
+void normalize_coordinate(ca_layer* layer, Coordinate* p);
 
 Coordinate point_make(int x, int y);
 Size size_make(int w, int h);
@@ -30,8 +30,8 @@ Triangle triangle_make(Coordinate p1, Coordinate p2, Coordinate p3);
 
 #define THICKNESS_FILLED -1
 
-void draw_rect(Screen* screen, Rect rect, Color color, int thickness);
-void draw_line(Screen* screen, Line line, Color color, int thickness);
-void draw_triangle(Screen* screen, Triangle triangle, Color color, int thickness);
-void draw_circle(Screen* screen, Circle circle, Color color, int thickness);
+void draw_rect(ca_layer* layer, Rect rect, Color color, int thickness);
+void draw_line(ca_layer* layer, Line line, Color color, int thickness);
+void draw_triangle(ca_layer* layer, Triangle triangle, Color color, int thickness);
+void draw_circle(ca_layer* layer, Circle circle, Color color, int thickness);
 #endif

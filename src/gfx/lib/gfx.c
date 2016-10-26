@@ -97,8 +97,9 @@ void gfx_teardown(Screen* screen) {
 	}
 
 	//free screen
-	kfree(screen->vmem);
 	window_teardown(screen->window);
+	kfree(screen->layer->raw);
+	kfree(screen->layer);
 	kfree(screen);
 }
 
@@ -119,13 +120,13 @@ void vsync() {
 
 void fill_screen(Screen* screen, Color color) {
 	for (int loc = 0; loc < (screen->window->size.width * screen->window->size.height * (screen->depth / 8)); loc += (screen->depth / 8)) {
-		memcpy(&screen->vmem[loc], (const void*)color.val[0], (screen->depth / 8) * sizeof(uint8_t));
+		memcpy(&screen->layer->raw[loc], (const void*)color.val[0], (screen->depth / 8) * sizeof(uint8_t));
 	}
 }
 
 void write_screen(Screen* screen) {
 	vsync();
-	memcpy((char*)screen->physbase, screen->vmem, (screen->window->size.width * screen->window->size.height * (screen->depth / 8)));
+	memcpy((char*)screen->physbase, screen->layer->raw, (screen->window->size.width * screen->window->size.height * (screen->depth / 8)));
 }
 
 void rainbow_animation(Screen* screen, Rect r) {
