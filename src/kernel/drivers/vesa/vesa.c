@@ -83,6 +83,8 @@ Screen* switch_to_vesa(uint32_t vesa_mode, bool create) {
 		kernel_end_critical();
 		if (create) {
 			Screen* screen = (Screen*)kmalloc(sizeof(Screen));
+			memset(screen, 0, sizeof(screen));
+
 			screen->vmem = (uint8_t*)kmalloc(mode_info.x_res * mode_info.y_res * (mode_info.bpp / 8));
 			screen->depth = mode_info.bpp;
 			//linear frame buffer (LFB) address

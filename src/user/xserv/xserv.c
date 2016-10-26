@@ -11,6 +11,24 @@
 static char dirtied = 0;
 static volatile Window* active_window;
 
+Bmp* screen_contents(Screen* screen, Rect frame) {
+	Color* raw = kmalloc(sizeof(Color) * frame.size.width * frame.size.height);
+
+	int bpp = 24 / 8;
+	int offset = frame.origin.x * bpp + (frame.origin.y * screen->window->size.width * bpp);
+
+	for (int i = 0; i < frame.size.height; i++) {
+		memcpy(raw + (frame.size.width * i), screen->vmem + offset, frame.size.width * bpp);
+
+		offset += screen->window->size.width * bpp;
+	}
+
+	//construct bmp
+	Bmp* contents = create_bmp(frame, raw);
+	contents->raw_size = frame.size;
+	return contents;
+}
+
 Window* containing_window_int(Screen* screen, View* v) {
 	//find root window
 	View* view = v;
@@ -63,30 +81,22 @@ Rect absolute_frame(Screen* screen, View* view) {
 	return convert_rect(win->frame, ret);
 }
 
-void draw_bmp(Screen* screen, Bmp* bmp) {
+void draw_bmp_int(Screen* screen, Bmp* bmp, bool force) {
 	View* superview = bmp->superview;
 	//don't assert as the mouse cursor doesn't have a superview
 	//TODO figure out workaround that works long-term
-	//ASSERT(superview, "bmp had no superview!");
 	if (!superview) {
 		//printf_err("bmp had no superview!");
 		superview = screen->window->content_view;
 	}
 
-	//if (!bmp || !bmp->needs_redraw) return;
-
-	bmp->needs_redraw = 1;
-	dirtied = 1;
-
-	//if this BMP is taking up the whole screen (such as desktop background)
-	//don't bother writing row by row or doing bound checks
-	//just memcpy the whole image all at once
-	/*
-	if (bmp->frame.size.width == screen->window->frame.size.width && bmp->frame.size.height == screen->window->frame.size.height) {
-		memcpy(screen->vmem, bmp->raw, bmp->frame.size.width * bmp->frame.size.height * 3);
-		return;
+	if (!bmp || !containing_window_int(screen, bmp)->needs_redraw) {
+		if (!force) {
+			return;
+		}
 	}
-	*/
+
+	dirtied = 1;
 
 	Rect frame = absolute_frame(screen, (View*)bmp);
 	frame.size.width = MIN(frame.size.width, bmp->raw_size.width);
@@ -121,16 +131,22 @@ void draw_bmp(Screen* screen, Bmp* bmp) {
 		current_row_ptr += screen->window->size.width * bpp;
 		offset = current_row_ptr;
 	}
+
+	bmp->needs_redraw = 0;
+}
+
+void draw_bmp(Screen* screen, Bmp* bmp) {
+	draw_bmp_int(screen, bmp, false);
 }
 
 void draw_label(Screen* screen, Label* label) {
-	View* superview = label->superview;
-	//ASSERT(superview, "label had no superview!");
+	if (!label) return;
 	
-	//if (!label || !label->needs_redraw) return;
+	View* superview = label->superview;
+	Window* win = containing_window_int(screen, label);
 
-	label->needs_redraw = 1;
-	dirtied = 1;
+	if (win != screen->window && !win->needs_redraw) return;
+	else if (!superview) return;
 
 	Rect frame = absolute_frame(screen, (View*)label);
 
@@ -163,10 +179,12 @@ void draw_view(Screen* screen, View* view) {
 	View* superview = view->superview;
 	Window* superwindow = containing_window_int(screen, view);
 
-	//if (!view || !view->needs_redraw) return;
+	if (!view) return;
+	if (!containing_window_int(screen, view)->needs_redraw) {
+		return;
+	}
 
 	//inform subviews that we're being redrawn
-	view->needs_redraw = 1;
 	dirtied = 1;
 	
 	Rect frame = absolute_frame(screen, view);
@@ -280,7 +298,7 @@ void add_status_bar(Screen* screen) {
 void draw_desktop(Screen* screen) {
 	//paint root desktop
 	draw_window(screen, screen->window);
-	
+
 	//paint every child window
 	for (unsigned i = 0; i < screen->window->subviews->size; i++) {
 		Window* win = (Window*)(array_m_lookup(screen->window->subviews, i));
@@ -296,24 +314,6 @@ void desktop_setup(Screen* screen) {
 	add_taskbar(screen);
 }
 
-Bmp* screen_contents(Screen* screen, Rect frame) {
-	Color* raw = kmalloc(sizeof(Color) * frame.size.width * frame.size.height);
-
-	int bpp = 24 / 8;
-	int offset = frame.origin.x * bpp + (frame.origin.y * screen->window->size.width * bpp);
-
-	for (int i = 0; i < frame.size.height; i++) {
-		memcpy(raw + (frame.size.width * i), screen->vmem + offset, frame.size.width * bpp);
-
-		offset += screen->window->size.width * bpp;
-	}
-
-	//construct bmp
-	Bmp* contents = create_bmp(frame, raw);
-	contents->raw_size = frame.size;
-	return contents;
-}
-
 void draw_cursor(Screen* screen) {
 	//actual cursor bitmap
 	static Bmp* cursor;
@@ -324,10 +324,14 @@ void draw_cursor(Screen* screen) {
 		cursor = load_bmp(rect_make(point_zero(), size_make(30, 30)), "cursor.bmp");
 		cursor->frame.size = cursor->raw_size;
 	}
+	
+	//drawing cursor shouldn't change dirtied flag
+	//save dirtied flag, draw cursor, and restore it
+	char prev_dirtied = dirtied;
 
 	if (behind_cursor) {
 		//restore whatever was behind cursor
-		draw_bmp(screen, behind_cursor);
+		draw_bmp_int(screen, behind_cursor, true);
 		//free it
 		bmp_teardown(behind_cursor);
 	}
@@ -339,7 +343,9 @@ void draw_cursor(Screen* screen) {
 	
 	//we do not call add_bmp on the cursor
 	//we draw it manually to ensure it is always above all other content
-	draw_bmp(screen, cursor);
+	draw_bmp_int(screen, cursor, true);
+
+	dirtied = prev_dirtied;
 }
 
 char xserv_draw(Screen* screen) {
@@ -351,9 +357,7 @@ char xserv_draw(Screen* screen) {
 
 	screen->finished_drawing = 1;
 
-	char ret = dirtied;
-	dirtied = 0;
-	return ret;
+	return (char)dirtied;
 }
 
 static Window* window_containing_point(Screen* screen, Coordinate p) {
@@ -389,11 +393,6 @@ static void process_mouse_events(Screen* screen) {
 
 			//don't move root window! :p
 			if (grabbed_window != screen->window) {
-				//bring click owner to forefront
-				//TODO place this in its own function?
-				remove_subwindow(screen->window, grabbed_window);
-				add_subwindow(screen->window, owner);
-
 				active_window = grabbed_window;
 			}
 		}
@@ -401,6 +400,7 @@ static void process_mouse_events(Screen* screen) {
 			//move this window by the difference between current mouse position and last mouse position
 			grabbed_window->frame.origin.x -= (last_mouse_pos.x - p.x);
 			grabbed_window->frame.origin.y -= (last_mouse_pos.y - p.y);
+
 			mark_needs_redraw(grabbed_window);
 		}
 	}
@@ -436,22 +436,25 @@ void xserv_refresh(Screen* screen) {
 	double time_start = time();
 	xserv_draw(screen);
 	double frame_time = (time() - time_start) / 1000.0;
-
-	//update frame time tracker 
-	char buf[32]; itoa(frame_time * 1000, &buf);
-	strcat(buf, " ms/frame");
-	fps->text = buf;
-	draw_label(screen, fps);
-
+	
 	//draw rect to indicate whether the screen was dirtied this frame
 	//red indicates dirtied, green indicates clean
 	Rect dirtied_indicator = rect_make(point_make(0, screen->window->size.height - 25), size_make(25, 25));
 	draw_rect(screen, dirtied_indicator, (dirtied ? color_red() : color_green()), THICKNESS_FILLED);
 
+	//update frame time tracker 
+	char buf[32]; 
+	itoa(frame_time * 1000, &buf);
+	strcat(buf, " ms/frame");
+	fps->text = buf;
+	draw_label(screen, fps);
+
 	//handle mouse events
 	process_mouse_events(screen);
 	
 	write_screen(screen);
+	
+	dirtied = 0;
 }
 
 void xserv_pause() {
