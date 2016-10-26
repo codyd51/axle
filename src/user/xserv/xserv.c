@@ -336,15 +336,24 @@ void desktop_setup(Screen* screen) {
 
 void draw_cursor(Screen* screen) {
 	//actual cursor bitmap
-	static Bmp* cursor;
+	static Bmp* cursor = 0;
 	//store region behind cursor so we can restore after cursor moves
-	static Bmp* behind_cursor;
+	static Bmp* behind_cursor = 0;
+	//keep track of previous cursor origin so we know if it moved at all
+	static Coordinate previous_pos;
 
 	if (!cursor) {
 		cursor = load_bmp(rect_make(point_zero(), size_make(30, 30)), "cursor.bmp");
 		cursor->frame.size = cursor->raw_size;
 	}
 
+	Coordinate new_pos = mouse_point();
+	if (new_pos.x == previous_pos.x && new_pos.y == previous_pos.y) {
+		return;
+	}
+	//update cursor position
+	cursor->frame.origin = mouse_point();
+	
 	//drawing cursor shouldn't change dirtied flag
 	//save dirtied flag, draw cursor, and restore it
 	char prev_dirtied = dirtied;
@@ -356,8 +365,6 @@ void draw_cursor(Screen* screen) {
 		bmp_teardown(behind_cursor);
 	}
 
-	//update cursor position
-	cursor->frame.origin = mouse_point();
 	//update region behind cursor
 	behind_cursor = screen_contents(screen, cursor->frame);
 	
@@ -418,10 +425,10 @@ static void process_mouse_events(Screen* screen) {
 		}
 		if (&last_mouse_pos != NULL && grabbed_window != screen->window) {
 			//move this window by the difference between current mouse position and last mouse position
-			grabbed_window->frame.origin.x -= (last_mouse_pos.x - p.x);
-			grabbed_window->frame.origin.y -= (last_mouse_pos.y - p.y);
-
-			mark_needs_redraw(grabbed_window);
+			Rect new_frame = grabbed_window->frame;
+			new_frame.origin.x -= (last_mouse_pos.x - p.x);
+			new_frame.origin.y -= (last_mouse_pos.y - p.y);
+			set_frame(grabbed_window, new_frame);
 		}
 	}
 	else {
