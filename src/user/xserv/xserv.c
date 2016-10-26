@@ -150,6 +150,27 @@ void draw_label(Screen* screen, Label* label) {
 
 	Rect frame = absolute_frame(screen, (View*)label);
 
+	//find bounding box of text
+	float bounding_width = strlen(label->text) * CHAR_WIDTH;
+	float bounding_height = CHAR_HEIGHT;
+
+	if (bounding_width > frame.size.width) {
+		bounding_width = frame.size.width;
+	
+		//how many lines will we need to fit this text?
+		int characters_on_line = bounding_width / CHAR_WIDTH;
+		bounding_height = strlen(label->text) / (float)characters_on_line * CHAR_HEIGHT * 2;
+	}
+
+	Rect bounding_box = rect_make(frame.origin, size_make(bounding_width, bounding_height));
+	Color bounding_box_bg_color = color_red();
+	//try to match text bounding box to superview's background color
+	if (superview) {
+		bounding_box_bg_color = superview->background_color;
+	}
+	draw_rect(screen, bounding_box, bounding_box_bg_color, THICKNESS_FILLED);
+
+	//actually render text
 	int idx = 0;
 	char* str = label->text;
 	int x = frame.origin.x;
@@ -220,14 +241,13 @@ void draw_view(Screen* screen, View* view) {
 }
 
 void draw_window(Screen* screen, Window* window) {
-	//if (!window->needs_redraw && !window->content_view->needs_redraw && !window->title_view->needs_redraw) return;
+	if (!window->needs_redraw) return;
 
-	window->needs_redraw = 1;
 	dirtied = 1;
 
 	//paint window
 	draw_rect(screen, window->frame, window->border_color, window->border_width);
-	
+
 	//only draw a title bar if title_view exists
 	if (window->title_view) {
 		//update title label of window
@@ -324,7 +344,7 @@ void draw_cursor(Screen* screen) {
 		cursor = load_bmp(rect_make(point_zero(), size_make(30, 30)), "cursor.bmp");
 		cursor->frame.size = cursor->raw_size;
 	}
-	
+
 	//drawing cursor shouldn't change dirtied flag
 	//save dirtied flag, draw cursor, and restore it
 	char prev_dirtied = dirtied;
