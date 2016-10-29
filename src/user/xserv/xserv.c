@@ -5,28 +5,42 @@
 #include <std/panic.h>
 #include <std/std.h>
 #include <kernel/util/multitasking/tasks/task.h>
+#include <gfx/lib/gfx.h>
 #include <gfx/lib/shader.h>
 
 //has the screen been modified this refresh?
 static char dirtied = 0;
 static volatile Window* active_window;
 
-Bmp* screen_contents(Screen* screen, Rect frame) {
-	Color* raw = kmalloc(sizeof(Color) * frame.size.width * frame.size.height);
-
-	int bpp = 24 / 8;
-	int offset = frame.origin.x * bpp + (frame.origin.y * screen->window->size.width * bpp);
-
-	for (int i = 0; i < frame.size.height; i++) {
-		memcpy(raw + (frame.size.width * i), screen->vmem + offset, frame.size.width * bpp);
-
-		offset += screen->window->size.width * bpp;
+ca_layer* layer_snapshot(ca_layer* src, Rect frame) {
+	//clip frame
+	rect_min_x(frame) = MAX(0, rect_min_x(frame));
+	rect_min_y(frame) = MAX(0, rect_min_y(frame));
+	if (rect_max_x(frame) >= src->size.width) {
+		double overhang = rect_max_x(frame) - src->size.width;
+		frame.size.width -= overhang;
+	}
+	if (rect_max_y(frame) >= src->size.height) {
+		double overhang = rect_max_y(frame) - src->size.height;
+		frame.size.height -= overhang;
 	}
 
-	//construct bmp
-	Bmp* contents = create_bmp(frame, raw);
-	contents->raw_size = frame.size;
-	return contents;
+	ca_layer* snapshot = create_layer(frame.size);
+	
+	//pointer to current row of snapshot to write to
+	uint8_t* snapshot_row = snapshot->raw;
+	//pointer to start of row currently writing to snapshot
+	uint8_t* row_start = src->raw + (rect_min_y(frame) * src->size.width * gfx_bpp()) + (rect_min_x(frame) * gfx_bpp());
+
+	//copy row by row
+	for (int i = 0; i < frame.size.height; i++) {
+		memcpy(snapshot_row, row_start, frame.size.width * gfx_bpp());
+		
+		snapshot_row += (snapshot->size.width * gfx_bpp());
+		row_start += (src->size.width * gfx_bpp());
+	}
+
+	return snapshot;
 }
 
 Window* containing_window_int(Screen* screen, View* v) {
@@ -81,56 +95,69 @@ Rect absolute_frame(Screen* screen, View* view) {
 	return convert_rect(win->frame, ret);
 }
 
-void draw_bmp_int(Screen* screen, Bmp* bmp, bool force) {
+void draw_bmp_int(ca_layer* dest, Bmp* bmp, bool force) {
 	View* superview = bmp->superview;
 	//don't assert as the mouse cursor doesn't have a superview
 	//TODO figure out workaround that works long-term
 	if (!superview) {
 		//printf_err("bmp had no superview!");
-		superview = screen->window->content_view;
+		//superview = screen->window->content_view;
 	}
 
+	/*
 	if (!bmp || !containing_window_int(screen, bmp)->needs_redraw) {
 		if (!force) {
 			return;
 		}
 	}
+	*/
 
 	dirtied = 1;
 
+	/*
 	Rect frame = absolute_frame(screen, (View*)bmp);
 	frame.size.width = MIN(frame.size.width, bmp->raw_size.width);
 	frame.size.height = MIN(frame.size.height, bmp->raw_size.height);
+	*/
+	//Rect frame = rect_make(point_zero(), bmp->frame.size);
 
+	/*
 	int row_min = 0;
 	if (frame.origin.x < 0) {
 		row_min = -frame.origin.x;
 	}
 	int row_max = frame.size.width;
-	if (frame.size.width + frame.origin.x > screen->window->frame.size.width) {
+	/*
+	if (rect_max_x(frame) > screen->window->frame.size.width) {
 		row_max -= abs(frame.size.width + frame.origin.x - screen->window->frame.size.width);
 	}
+	*/
+	/*
 	int col_min = 0;
 	if (frame.origin.y < 0) {
 		col_min = -frame.origin.y;
 	}
 	int col_max = frame.size.height;
+	/*
 	if (frame.size.height + frame.origin.y > screen->window->frame.size.height) {
 		col_max -= abs(frame.size.height + frame.origin.y - screen->window->frame.size.height);
 	}
 
 	int bpp = 24 / 8;
-	int offset = frame.origin.x * bpp + (frame.origin.y + col_min) * screen->window->size.width * bpp + (row_min * bpp);
+	int offset = frame.origin.x * bpp + (frame.origin.y + col_min) * dest->size.width * bpp + (row_min * bpp);
 
 	int current_row_ptr = offset;
 	Color* row = bmp->raw + row_min + (col_min * bmp->raw_size.width);
 	for (int i = col_min; i < col_max; i++) {
-		memcpy(screen->vmem + offset, row, row_max * bpp - row_min * bpp);
+		memcpy(dest + offset, row, row_max * bpp - row_min * bpp);
 		row += bmp->raw_size.width;
 
-		current_row_ptr += screen->window->size.width * bpp;
+		current_row_ptr += dest->size.width * bpp;
 		offset = current_row_ptr;
 	}
+	*/
+
+	blit_layer(dest, bmp->layer, bmp->frame.origin); 
 
 	bmp->needs_redraw = 0;
 }
@@ -139,18 +166,21 @@ void draw_bmp(Screen* screen, Bmp* bmp) {
 	draw_bmp_int(screen, bmp, false);
 }
 
-void draw_label(Screen* screen, Label* label) {
+void draw_label(ca_layer* dest, Label* label) {
 	if (!label) return;
 	
 	View* superview = label->superview;
-	Window* win = containing_window_int(screen, label);
+	//Window* win = containing_window_int(screen, label);
 
+	/*
 	if (win != screen->window && !win->needs_redraw) return;
 	else if (!superview) return;
+	*/
 
-	Rect frame = absolute_frame(screen, (View*)label);
-
-	//find bounding box of text
+	//Rect frame = absolute_frame(screen, (View*)label);
+	Rect frame = label->frame;
+	frame.origin = point_zero();
+//find bounding box of text
 	float bounding_width = strlen(label->text) * CHAR_WIDTH;
 	float bounding_height = CHAR_HEIGHT;
 
@@ -161,75 +191,83 @@ void draw_label(Screen* screen, Label* label) {
 		int characters_on_line = bounding_width / CHAR_WIDTH;
 		bounding_height = strlen(label->text) / (float)characters_on_line * CHAR_HEIGHT * 2;
 	}
+	if (bounding_height > frame.size.height) {
+		bounding_height = frame.size.height;
+	}
 
-	Rect bounding_box = rect_make(frame.origin, size_make(bounding_width, bounding_height));
+	Rect bounding_box = rect_make(point_zero(), size_make(bounding_width, bounding_height));
 	Color bounding_box_bg_color = color_red();
 	//try to match text bounding box to superview's background color
 	if (superview) {
 		bounding_box_bg_color = superview->background_color;
 	}
-	draw_rect(screen, bounding_box, bounding_box_bg_color, THICKNESS_FILLED);
+	//draw_rect(label->layer, bounding_box, bounding_box_bg_color, THICKNESS_FILLED);
+	draw_rect(label->layer, frame, bounding_box_bg_color, THICKNESS_FILLED);
 
 	//actually render text
 	int idx = 0;
 	char* str = label->text;
-	int x = frame.origin.x;
-	int y = frame.origin.y;
+	int x = 0;
+	int y = 0;
 	while (str[idx] != NULL) {
 		//go to next line if necessary
-		if ((x + CHAR_WIDTH + CHAR_PADDING_W) > (frame.origin.x + frame.size.width) || str[idx] == '\n') {
-			x = frame.origin.x;
+		if ((x + CHAR_WIDTH + CHAR_PADDING_W) > frame.size.width || str[idx] == '\n') {
+			x = 0;
 
 			//quit if going to next line would exceed view bounds
-			if ((y + CHAR_WIDTH + CHAR_PADDING_H) > (frame.origin.y + frame.size.height)) break;
+			if ((y + CHAR_WIDTH + CHAR_PADDING_H) > frame.size.height) break;
 			
 			y += CHAR_HEIGHT + CHAR_PADDING_H;
 		}
 
-		draw_char(screen, str[idx], x, y, label->text_color);
+		draw_char(label->layer, str[idx], x, y, label->text_color);
 		
 		x += CHAR_WIDTH + CHAR_PADDING_W;
 
 		idx++;
 	}
 
+	blit_layer(dest, label->layer, label->frame.origin);
+
 	label->needs_redraw = 0;
 }
 
 void draw_view(Screen* screen, View* view) {
-	View* superview = view->superview;
-	Window* superwindow = containing_window_int(screen, view);
+	//View* superview = view->superview;
+	//Window* superwindow = containing_window_int(screen, view);
 
+	/*
 	if (!view) return;
 	if (!containing_window_int(screen, view)->needs_redraw) {
 		return;
 	}
+	*/
 
 	//inform subviews that we're being redrawn
 	dirtied = 1;
 	
-	Rect frame = absolute_frame(screen, view);
-
 	//fill view with its background color
-	draw_rect(screen, frame, view->background_color, THICKNESS_FILLED);
+	draw_rect(view->layer, rect_make(point_zero(), view->frame.size), view->background_color, THICKNESS_FILLED);
 
 	//draw any labels this view has
 	for (unsigned i = 0; i < view->labels->size; i++) {
 		Label* label = (Label*)array_m_lookup(view->labels, i);
-		draw_label(screen, label);
+		draw_label(view->layer, label);
 	}
 
 	//draw any bmps this view has
 	for (unsigned i = 0; i < view->bmps->size; i++) {
 		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
-		draw_bmp(screen, bmp);
+		draw_bmp(view->layer, bmp);
 	}
 
+	/*
 	//draw shaders last
 	for (unsigned i = 0; i < view->shaders->size; i++) {
 		Shader* s = (Shader*)array_m_lookup(view->shaders, i);
 		draw_shader(screen, s);
 	}
+	*/
 
 	//draw each subview of this view
 	for (unsigned i = 0; i < view->subviews->size; i++) {
@@ -240,13 +278,41 @@ void draw_view(Screen* screen, View* view) {
 	view->needs_redraw = 0;
 }
 
+void blit_layer(ca_layer* dest, ca_layer* src, Coordinate origin) {
+	Rect copy_frame = rect_make(origin, src->size);
+	//make sure we don't write outside dest's frame
+	rect_min_x(copy_frame) = MAX(0, rect_min_x(copy_frame));
+	rect_min_y(copy_frame) = MAX(0, rect_min_y(copy_frame));
+	if (rect_max_x(copy_frame) >= dest->size.width) {
+		double overhang = rect_max_x(copy_frame) - dest->size.width;
+		copy_frame.size.width -= overhang;
+	}
+	if (rect_max_y(copy_frame) >= dest->size.height) {
+		double overhang = rect_max_y(copy_frame) - dest->size.height;
+		copy_frame.size.height -= overhang;
+	}
+
+	//offset into dest that we start writing
+	uint8_t* dest_row_start = dest->raw + (rect_min_y(copy_frame) * dest->size.width * gfx_bpp()) + (rect_min_x(copy_frame) * gfx_bpp());
+	//data from source to write to dest
+	uint8_t* row_start = src->raw;
+
+	//copy row by row
+	for (int i = 0; i < copy_frame.size.height; i++) {
+		memcpy(dest_row_start, row_start, copy_frame.size.width * gfx_bpp());
+		
+		dest_row_start += (dest->size.width * gfx_bpp());
+		row_start += (src->size.width * gfx_bpp());
+	}
+}
+
 void draw_window(Screen* screen, Window* window) {
-	if (!window->needs_redraw) return;
+	//if (!window->needs_redraw) return;
 
 	dirtied = 1;
 
 	//paint window
-	draw_rect(screen, window->frame, window->border_color, window->border_width);
+	draw_rect(window->layer, rect_make(point_zero(), window->frame.size), window->border_color, window->border_width);
 
 	//only draw a title bar if title_view exists
 	if (window->title_view) {
@@ -263,14 +329,16 @@ void draw_window(Screen* screen, Window* window) {
 		//draw dividing border between window border and other content
 		if (window->border_width) {
 			//outer border
-			Rect outer_border = rect_make(absolute_frame(screen, (View*)window).origin, size_make(absolute_frame(screen, (View*)window).size.width, absolute_frame(screen, (View*)window).size.height));
-			draw_rect(screen, outer_border, color_black(), 1);
+			draw_rect(window->layer, rect_make(point_zero(), window->frame.size), color_black(), 1);
 			
 			//inner border
-			Rect inner_border = rect_make(absolute_frame(screen, window->content_view).origin, size_make(absolute_frame(screen, window->content_view).size.width, absolute_frame(screen, window->content_view).size.height));
-			draw_rect(screen, inner_border, color_gray(), 1);
+			draw_rect(window->layer, rect_make(point_zero(), window->content_view->frame.size), color_gray(), 1);
 		}
 	}
+
+	//composite views of this window into layer
+	blit_layer(window->layer, window->title_view->layer, window->title_view->frame.origin);
+	blit_layer(window->layer, window->content_view->layer, window->content_view->frame.origin);
 
 	window->needs_redraw = 0;
 }
@@ -288,8 +356,7 @@ void add_taskbar(Screen* screen) {
 	//add top 'border' to taskbar
 	//TODO add window border API
 	View* border = create_view(border_r);
-	border->background_color = color_make(200, 80, 245);
-	add_subview(taskbar_view, border);
+	border->background_color = color_make(200, 80, 245); add_subview(taskbar_view, border);
 	
 	//inner border seperating top and bottom of taskbar
 	View* inner_border = create_view(rect_make(point_make(0, border_r.size.height), size_make(screen->window->frame.size.width, 1)));
@@ -323,15 +390,19 @@ void draw_desktop(Screen* screen) {
 	for (unsigned i = 0; i < screen->window->subviews->size; i++) {
 		Window* win = (Window*)(array_m_lookup(screen->window->subviews, i));
 		draw_window(screen, win);
+		//composite child window onto root window
+		blit_layer(screen->window->layer, win->layer, win->frame.origin);
 	}
 }
 
 void desktop_setup(Screen* screen) {
 	//set up background image
 	Bmp* background = load_bmp(screen->window->content_view->frame, "windows-xp.bmp");
+	//Bmp* background = load_bmp(screen->window->content_view->frame, "windows-xp.bmp");
+	//Bmp* background = load_bmp(rect_make(point_make(100, 100), size_make(512, 512)), "Lenna.bmp");
 	add_bmp(screen->window->content_view, background);
-	add_status_bar(screen);
-	add_taskbar(screen);
+	//add_status_bar(screen);
+	//add_taskbar(screen);
 }
 
 void draw_cursor(Screen* screen) {
@@ -344,7 +415,6 @@ void draw_cursor(Screen* screen) {
 
 	if (!cursor) {
 		cursor = load_bmp(rect_make(point_zero(), size_make(30, 30)), "cursor.bmp");
-		cursor->frame.size = cursor->raw_size;
 	}
 
 	Coordinate new_pos = mouse_point();
@@ -360,17 +430,17 @@ void draw_cursor(Screen* screen) {
 
 	if (behind_cursor) {
 		//restore whatever was behind cursor
-		draw_bmp_int(screen, behind_cursor, true);
+		//draw_bmp_int(screen->window->layer, behind_cursor, true);
 		//free it
-		bmp_teardown(behind_cursor);
+		//bmp_teardown(behind_cursor);
 	}
 
 	//update region behind cursor
-	behind_cursor = screen_contents(screen, cursor->frame);
+	//behind_cursor = layer_snapshot(screen->window->layer, cursor->frame);
 	
 	//we do not call add_bmp on the cursor
 	//we draw it manually to ensure it is always above all other content
-	draw_bmp_int(screen, cursor, true);
+	draw_bmp_int(screen->window->layer, cursor, true);
 
 	dirtied = prev_dirtied;
 }
@@ -447,8 +517,9 @@ void xserv_quit(Screen* screen) {
 
 static Label* fps;
 void xserv_refresh(Screen* screen) {
-	if (!screen->finished_drawing) return;
+	//if (!screen->finished_drawing) return;
 
+	/*
 	//check if there are any keys pending
 	if (haskey()) {
 		char ch;
@@ -459,11 +530,12 @@ void xserv_refresh(Screen* screen) {
 			}
 		}
 	}
+	*/
 
 	double time_start = time();
 	xserv_draw(screen);
 	double frame_time = (time() - time_start) / 1000.0;
-	
+
 	//draw rect to indicate whether the screen was dirtied this frame
 	//red indicates dirtied, green indicates clean
 	Rect dirtied_indicator = rect_make(point_make(0, screen->window->size.height - 25), size_make(25, 25));
@@ -474,11 +546,11 @@ void xserv_refresh(Screen* screen) {
 	itoa(frame_time * 1000, &buf);
 	strcat(buf, " ms/frame");
 	fps->text = buf;
-	draw_label(screen, fps);
+	draw_label(screen->window->layer, fps);
 
 	//handle mouse events
 	process_mouse_events(screen);
-	
+
 	write_screen(screen);
 	
 	dirtied = 0;
@@ -502,15 +574,18 @@ void xserv_init_late() {
 	//switch to VESA for x serv
 	Screen* screen = switch_to_vesa(0x118, true);
 
+	/*
 	set_frame(screen->window->title_view, rect_make(point_make(0, 0), size_make(0, 0)));
 	set_frame(screen->window->content_view, screen->window->frame);
 	set_border_width(screen->window, 0);
+	*/
 	desktop_setup(screen);
 
 	//add FPS tracker
+	//don't call add_sublabel on fps because it's drawn manually
+	//(drawn manually so we can update text with accurate frame draw time)
 	fps = create_label(rect_make(point_make(3, 3), size_make(300, 50)), "FPS counter");
 	fps->text_color = color_black();
-	add_sublabel(screen->window->content_view, fps);
 
 	test_xserv(screen);
 
@@ -518,6 +593,8 @@ void xserv_init_late() {
 		xserv_refresh(screen);
 		sys_yield(RUNNABLE);
 	}
+	
+	_kill();
 }
 
 void xserv_init() {
