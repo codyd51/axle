@@ -19,6 +19,11 @@ typedef struct triangle {
 	Coordinate p3;
 } Triangle;
 
+#define rect_min_x(r) ((r).origin.x)
+#define rect_min_y(r) ((r).origin.y)
+#define rect_max_x(r) ((r).origin.x + (r).size.width)
+#define rect_max_y(r) ((r).origin.y + (r).size.height)
+
 void normalize_coordinate(ca_layer* layer, Coordinate* p);
 
 Coordinate point_make(int x, int y);
