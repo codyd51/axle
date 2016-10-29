@@ -37,9 +37,9 @@ void stdin_read(char* buf, uint32_t count);
 void stdout_read(char* buffer, uint32_t count);
 void stderr_read(char* buffer, uint32_t count);
 static void setup_fds(task_t* task) { task->files = array_m_create(MAX_FILES);
-	array_m_insert(task->files, stdin_read);
-	array_m_insert(task->files, stdout_read);
-	array_m_insert(task->files, stderr_read);
+	// array_m_insert(task->files, stdin_read);
+	// array_m_insert(task->files, stdout_read);
+	// array_m_insert(task->files, stderr_read);
 }
 
 int getpid() {
@@ -162,7 +162,7 @@ void destroy_task(task_t* task) {
 void reap() {
 	while (1) {
 		kernel_begin_critical();
-		
+
 		task_t* tmp = active_list;
 		while (tmp != NULL) {
 			if (tmp->state == ZOMBIE) {
@@ -195,7 +195,7 @@ void reap() {
 			}
 			tmp = tmp->next;
 		}
-	
+
 		kernel_end_critical();
 		//we have nothing else to do, yield cpu
 		sys_yield(RUNNABLE);
@@ -308,7 +308,7 @@ void tasking_install(mlfq_option options) {
 	if (tasking_installed()) return;
 
 	printf_info("Initializing tasking...");
-	
+
 	kernel_begin_critical();
 
 	move_stack((void*)0xE0000000, 0x2000);
@@ -334,7 +334,7 @@ void tasking_install(mlfq_option options) {
 	for (int i = 0; i < queue_count; i++) {
 		array_m_insert(queue_lifetimes, HIGH_PRIO_QUANTUM * (i + 1));
 	}
-	
+
 	//init first task (kernel task)
 	task_t* kernel = (task_t*)kmalloc(sizeof(task_t));
 	memset(kernel, 0, sizeof(task_t));
@@ -342,16 +342,16 @@ void tasking_install(mlfq_option options) {
 	kernel->id = next_pid++;
 	kernel->page_dir = current_directory;
 	setup_fds(kernel);
-	
+
 	current_task = kernel;
 	active_list = kernel;
 	enqueue_task(current_task, 0);
-	
+
 	//set up responder stack
 	responder_stack = array_m_create(MAX_RESPONDERS);
 	//set kernel as initial first responder
 	become_first_responder();
-	
+
 	//create callback to switch tasks
 	void handle_pit_tick();
 	add_callback((void*)handle_pit_tick, 4, true, 0);
@@ -467,7 +467,7 @@ array_m* first_queue_containing_runnable(void) {
 	//TODO figure out why this block doesn't work
 	while (curr) {
 		if (curr->state == RUNNABLE) {
-			//if this task has a higher priority (lower queue #), or this is the first runnable task we've found, 
+			//if this task has a higher priority (lower queue #), or this is the first runnable task we've found,
 			//mark it as best
 			if (!highest_prio_runnable || curr->queue < highest_prio_runnable->queue) {
 				highest_prio_runnable = curr;
@@ -510,7 +510,7 @@ task_t* mlfq_schedule() {
 	if (current_task->relinquish_date && current_task->begin_date) {
 		current_task->lifespan += (current_task->relinquish_date - current_task->begin_date);
 	}
-	
+
 	if (current_task->lifespan >= array_m_lookup(queue_lifetimes, current_task->queue)) {
 		demote_task(current_task);
 	}
@@ -579,7 +579,7 @@ void goto_pid(int id) {
 
 	//as in fork(), this returns the address of THIS LINE
 	//so when the next process starts executing, it will begin by executing this line
-	//to differentiate whether it's the first time it's run and we're trying to actually get EIP or we just started executing the next process, 
+	//to differentiate whether it's the first time it's run and we're trying to actually get EIP or we just started executing the next process,
 	//task_switch() puts a magic value in eax right before switching to the next process
 	//that way, we can check if it returned this magic value which indicates that we're executing the next process.
 	eip = read_eip();
@@ -606,7 +606,7 @@ void goto_pid(int id) {
 		}
 		tmp = tmp->next;
 	}
-	
+
 	if (!found_task) {
 		printf_err("PID %d wasn't in active list, falling back on queue search", id);
 		//fall back on searching through each queue for this task
@@ -657,7 +657,7 @@ volatile uint32_t task_switch() {
 void handle_pit_tick() {
 	static int tick = 0;
 	static int last_boost = 0;
-	
+
 	if (!tick) {
 		//first run
 		//get real time
@@ -666,7 +666,7 @@ void handle_pit_tick() {
 		return;
 	}
 
-	//due to an apparant bug in the PIT callback mechanism, 
+	//due to an apparant bug in the PIT callback mechanism,
 	//having a callback every tick introduces bugs and triple faults
 	//going as fast as every other tick does not have this problem
 	//it seems as if the bug happens if we don't finish the tick interrupt before the next interrupt fires
@@ -712,7 +712,7 @@ void proc() {
 				printf("used");
 			}
 			printf(" %d/%d ms) ", task->lifespan, runtime);
-			
+
 			switch (task->state) {
 				case RUNNABLE:
 					printf("(runnable)");

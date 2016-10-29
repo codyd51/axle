@@ -47,8 +47,9 @@ void write_screen(Screen* screen);
 Vec2d vec2d(double x, float y);
 
 #define VESA_DEPTH 24
-#define VGA_DEPTH 8 
-__attribute__((always_inline)) void inline putpixel(ca_layer* layer, int x, int y, Color color) {
+#define VGA_DEPTH 8
+__attribute__((always_inline))
+inline void putpixel(ca_layer* layer, int x, int y, Color color) {
 	//don't attempt writing a pixel outside of screen bounds
 	if (x < 0 || y < 0 || x >= layer->size.width || y >= layer->size.height) return;
 
@@ -59,7 +60,7 @@ __attribute__((always_inline)) void inline putpixel(ca_layer* layer, int x, int 
 	}
 	else if (layer->depth == VESA_DEPTH) {
 		//VESA mode
-		static int bpp = 24 / 8;
+		int bpp = 24 / 8;
 		int offset = x * bpp + y * layer->size.width * bpp;
 		//we have to write the pixels in BGR, not RGB
 		layer->raw[offset + 0] = color.val[2];
@@ -67,7 +68,8 @@ __attribute__((always_inline)) void inline putpixel(ca_layer* layer, int x, int 
 		layer->raw[offset + 2] = color.val[0];
 	}
 }
-__attribute__((always_inline)) void inline addpixel(ca_layer* layer, int x, int y, Color color) {
+__attribute__((always_inline))
+inline void addpixel(ca_layer* layer, int x, int y, Color color) {
 	//don't attempt writing a pixel outside of screen bounds
 	if (x < 0 || y < 0 || x >= layer->size.width || y >= layer->size.height) return;
 
@@ -78,7 +80,7 @@ __attribute__((always_inline)) void inline addpixel(ca_layer* layer, int x, int 
 	}
 	else if (layer->depth == VESA_DEPTH) {
 		//VESA mode
-		static int bpp = 24 / 8;
+		int bpp = 24 / 8;
 		int offset = x * bpp + y * layer->size.width * bpp;
 		//we have to write the pixels in BGR, not RGB
 		layer->raw[offset + 0] += color.val[0];

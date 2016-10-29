@@ -23,5 +23,5 @@ void create_sysfuncs() {
 	sys_insert((void*)&terminal_writestring);
 	sys_insert((void*)&terminal_putchar);
 	sys_insert((void*)&yield);
-	sys_insert((void*)&read);
+	// sys_insert((void*)&read);
 }
