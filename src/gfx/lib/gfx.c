@@ -47,10 +47,10 @@ void view_teardown(View* view) {
 	for (int i = 0; i < view->subviews->size; i++) {
 		View* view = (View*)array_m_lookup(view->subviews, i);
 		view_teardown(view);
-		
+
 		Label* label = (Label*)array_m_lookup(view->labels, i);
 		label_teardown(label);
-		
+
 		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
 		bmp_teardown(bmp);
 
@@ -65,7 +65,7 @@ void view_teardown(View* view) {
 	array_m_destroy(view->bmps);
 	//free shaders
 	array_m_destroy(view->shaders);
-	
+
 	//finally, free view itself
 	kfree(view);
 }
@@ -120,7 +120,7 @@ void vsync() {
 
 void fill_screen(Screen* screen, Color color) {
 	for (int loc = 0; loc < (screen->window->size.width * screen->window->size.height * (screen->depth / 8)); loc += (screen->depth / 8)) {
-		memcpy(&screen->layer->raw[loc], (const void*)color.val[0], (screen->depth / 8) * sizeof(uint8_t));
+		memcpy(&screen->layer->raw[loc], (const void*)&color.val[0], (screen->depth / 8) * sizeof(uint8_t));
 	}
 }
 
@@ -139,7 +139,7 @@ void rainbow_animation(Screen* screen, Rect r) {
 
 		Color col;
 		col.val[0] = colors[i];
-		draw_rect(screen, seg, col, THICKNESS_FILLED);
+		draw_rect(screen->layer, seg, col, THICKNESS_FILLED);
 		sleep(500 / 7);
 	}
 }
@@ -155,7 +155,7 @@ void vga_boot_screen(Screen* screen) {
 	Triangle triangle = triangle_make(p1, p2, p3);
 	Color tri_col;
 	tri_col.val[0] = 2;
-	draw_triangle(screen, triangle, tri_col, 5);
+	draw_triangle(screen->layer, triangle, tri_col, 5);
 
 	Coordinate lab_origin = point_make(screen->window->size.width / 2 - (3.75 * 8), screen->window->size.height * 0.5);
 	Size lab_size = size_make((10 * strlen("axle os")), 12);
@@ -174,14 +174,14 @@ void vga_boot_screen(Screen* screen) {
 	//fill the rectangle with white initially
 	Color white;
 	white.val[0] = 15;
-	draw_rect(screen, border_rect, white, 1);
+	draw_rect(screen->layer, border_rect, white, 1);
 
 	sleep(500);
 
 	Coordinate rainbow_origin = point_make(origin.x + 2, origin.y + 2);
 	Size rainbow_size = size_make(rect_length - 4, sz.height - 3);
 	Rect rainbow_rect = rect_make(rainbow_origin, rainbow_size);
-	rainbow_animation(screen, rainbow_rect);    
-	
+	rainbow_animation(screen, rainbow_rect);
+
 	sleep(250);
 }
