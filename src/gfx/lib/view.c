@@ -6,18 +6,18 @@
 #include <std/printf.h>
 #include "shader.h"
 
-#define MAX_ELEMENTS 128
+#define MAX_ELEMENTS 64 
 
-ca_layer* create_layer(Size size, int bpp) {
+ca_layer* create_layer(Size size) {
 	ca_layer* ret = kmalloc(sizeof(ca_layer));
 	ret->size = size;
-	ret->depth = bpp;
-	ret->raw = kmalloc(sizeof(uint8_t) * size.width * size.height * bpp);
+	ret->raw = kmalloc(size.width * size.height * gfx_bpp());
 	return ret;
 }
 
 View* create_view(Rect frame) {
 	View* view = (View*)kmalloc(sizeof(View));
+	view->layer = create_layer(frame.size);
 	view->frame = frame;
 	view->superview = NULL;
 	view->background_color = color_make(0, 255, 0);
@@ -68,6 +68,7 @@ Window* create_window(Rect frame) {
 	Window* window = (Window*)kmalloc(sizeof(Window));
 	memset(window, 0, sizeof(Window));
 
+	window->layer = create_layer(frame.size);
 	window->size = frame.size;
 	window->frame = frame;
 	window->border_color = color_make(120, 245, 80);
@@ -78,8 +79,6 @@ Window* create_window(Rect frame) {
 	window->title_view = create_title_view(window);
 	window->content_view = create_content_view(window);
 
-	window->layer = kmalloc(sizeof(Color) * frame.size.width * frame.size.height);
-
 	window->needs_redraw = 1;
 		
 	return window;
@@ -87,6 +86,7 @@ Window* create_window(Rect frame) {
 
 Label* create_label(Rect frame, char* text) {
 	Label* label = (Label*)kmalloc(sizeof(Label));
+	label->layer = create_layer(frame.size);
 	label->frame = frame;
 	label->superview = NULL;
 	label->text_color = color_black();
@@ -106,12 +106,12 @@ Button* create_button(Rect frame, char* text) {
 	return (Button*)button;
 }
 
-Bmp* create_bmp(Rect frame, Color* raw) {
-	if (!raw) return NULL;
+Bmp* create_bmp(Rect frame, ca_layer* layer) {
+	if (!layer) return NULL;
 
 	Bmp* bmp = (Bmp*)kmalloc(sizeof(Bmp));
 	bmp->frame = frame;
-	bmp->raw = raw;
+	bmp->layer = layer;
 	bmp->needs_redraw = 1;
 	return bmp;
 }
@@ -124,30 +124,28 @@ Bmp* load_bmp(Rect frame, char* filename) {
 	}
 
 	unsigned char header[54];
-	//TODO replace with fread
 	fread(header, sizeof(char), 54, file);
 
 	//get width and height from header
 	int width = *(int*)&header[18];
 	int height = *(int*)&header[22];
-	printf_dbg("loading BMP with dimensions (%d,%d)", width, height);
+	printf_info("loading BMP with dimensions (%d,%d)", width, height);
 
-	Color* raw = kmalloc(sizeof(Color) * width * height);
-	printf_info("raw %x", raw);
+	int bpp = gfx_bpp();
+	ca_layer* layer = create_layer(size_make(width, height));
 	//image is upside down in memory so build array from bottom up
-	for (int i = width * height - 1; i >= 0; i--) {
-		Color px;
-		px.val[0] = fgetc(file);
-		px.val[1] = fgetc(file);
-		px.val[2] = fgetc(file);
-		raw[i] = px;
+	for (int i = width * height; i >= 0; i--) {
+		int idx = i * bpp;
+		//we process 3 bytes at a time because image is stored in BGR, we need RGB
+		layer->raw[idx + 0] = fgetc(file);
+		layer->raw[idx + 1] = fgetc(file);
+		layer->raw[idx + 2] = fgetc(file);
 		//fourth byte is for alpha channel if we used 32bit BMPs
 		//we only use 24bit, so don't try to read it
 		//fgetc(file);
 	}
 
-	Bmp* bmp = create_bmp(frame, raw);
-	bmp->raw_size = size_make(width, height);
+	Bmp* bmp = create_bmp(frame, layer);
 	return bmp;
 }
 
@@ -264,6 +262,12 @@ void set_border_width(Window* window, int width) {
 void set_frame(View* view, Rect frame) {
 	if (!view) return;
 
+	Rect old_frame = view->frame;
 	view->frame = frame;
+
+	//resize layer
+	int layer_bytes = old_frame.size.width * old_frame.size.height;
+	//realloc(view->layer, layer_bytes);
+	
 	mark_needs_redraw(view);
 }

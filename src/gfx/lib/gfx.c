@@ -12,6 +12,28 @@
 #include "color.h"
 #include "shader.h"
 
+static int current_depth = 0;
+void process_gfx_switch(int new_depth) {
+	current_depth = new_depth;
+}
+
+int gfx_depth() {
+	if (!current_depth) {
+		//fall back on assuming VESA
+		current_depth = VESA_DEPTH;
+	}
+	return current_depth;
+}
+
+int gfx_bpp() {
+	if (!current_depth) {
+		//fall back on assuming VESA
+		current_depth = VESA_DEPTH;
+	}
+	//each px component is 8 bits
+	return current_depth / 8;
+}
+
 Vec2d vec2d(double x, float y) {
 	Vec2d vec;
 	vec.x = x;
@@ -19,10 +41,17 @@ Vec2d vec2d(double x, float y) {
 	return vec;
 }
 
+void layer_teardown(ca_layer* layer) {
+	if (!layer) return;
+
+	kfree(layer->raw);
+	kfree(layer);
+}
 
 void label_teardown(Label* label) {
 	if (!label) return;
 
+	layer_teardown(label->layer);
 	kfree(label->text);
 	kfree(label);
 }
@@ -30,8 +59,7 @@ void label_teardown(Label* label) {
 void bmp_teardown(Bmp* bmp) {
 	if (!bmp) return;
 
-	//free rows array
-	kfree(bmp->raw);
+	layer_teardown(bmp->layer);
 	kfree(bmp);
 }
 
@@ -65,6 +93,9 @@ void view_teardown(View* view) {
 	array_m_destroy(view->bmps);
 	//free shaders
 	array_m_destroy(view->shaders);
+
+	//free backing layer
+	layer_teardown(view->layer);
 	
 	//finally, free view itself
 	kfree(view);
@@ -84,6 +115,9 @@ void window_teardown(Window* window) {
 	view_teardown(window->title_view);
 	view_teardown(window->content_view);
 
+	//free backing layer
+	layer_teardown(window->layer);
+
 	//finally, free window itself
 	kfree(window);
 }
@@ -98,8 +132,6 @@ void gfx_teardown(Screen* screen) {
 
 	//free screen
 	window_teardown(screen->window);
-	kfree(screen->layer->raw);
-	kfree(screen->layer);
 	kfree(screen);
 }
 
@@ -119,14 +151,12 @@ void vsync() {
 }
 
 void fill_screen(Screen* screen, Color color) {
-	for (int loc = 0; loc < (screen->window->size.width * screen->window->size.height * (screen->depth / 8)); loc += (screen->depth / 8)) {
-		memcpy(&screen->layer->raw[loc], (const void*)color.val[0], (screen->depth / 8) * sizeof(uint8_t));
-	}
+	memset(screen->window->layer->raw, color.val[0], screen->window->size.width * screen->window->size.height * gfx_bpp());
 }
 
 void write_screen(Screen* screen) {
 	vsync();
-	memcpy((char*)screen->physbase, screen->layer->raw, (screen->window->size.width * screen->window->size.height * (screen->depth / 8)));
+	memcpy(screen->physbase, screen->window->layer->raw, screen->window->layer->size.width * screen->window->layer->size.height * gfx_bpp());
 }
 
 void rainbow_animation(Screen* screen, Rect r) {
@@ -139,14 +169,16 @@ void rainbow_animation(Screen* screen, Rect r) {
 
 		Color col;
 		col.val[0] = colors[i];
-		draw_rect(screen, seg, col, THICKNESS_FILLED);
+		draw_rect(screen->window->layer, seg, col, THICKNESS_FILLED);
+		write_screen(screen);
+
 		sleep(500 / 7);
 	}
 }
 
 void vga_boot_screen(Screen* screen) {
 	Color color;
-	color.val[0] = 2;
+	color.val[0] = 0;
 	fill_screen(screen, color);
 
 	Coordinate p1 = point_make(screen->window->size.width / 2, screen->window->size.height * 0.25);
@@ -155,7 +187,7 @@ void vga_boot_screen(Screen* screen) {
 	Triangle triangle = triangle_make(p1, p2, p3);
 	Color tri_col;
 	tri_col.val[0] = 2;
-	draw_triangle(screen, triangle, tri_col, 5);
+	draw_triangle(screen->window->layer, triangle, tri_col, 5);
 
 	Coordinate lab_origin = point_make(screen->window->size.width / 2 - (3.75 * 8), screen->window->size.height * 0.5);
 	Size lab_size = size_make((10 * strlen("axle os")), 12);
@@ -163,8 +195,8 @@ void vga_boot_screen(Screen* screen) {
 	label->text_color = color_make(2, 0, 0);
 	add_sublabel(screen->window->content_view, label);
 
-	extern void draw_label(Screen* screen, Label* label);
-	draw_label(screen, label);
+	extern void draw_label(ca_layer* dest, Label* label);
+	draw_label(screen->window->layer, label);
 
 	float rect_length = screen->window->size.width / 3;
 	Coordinate origin = point_make((screen->window->size.width/2) - (rect_length / 2), screen->window->size.height / 4 * 3);
@@ -174,7 +206,9 @@ void vga_boot_screen(Screen* screen) {
 	//fill the rectangle with white initially
 	Color white;
 	white.val[0] = 15;
-	draw_rect(screen, border_rect, white, 1);
+	draw_rect(screen->window->layer, border_rect, white, 1);
+	
+	write_screen(screen);
 
 	sleep(500);
 

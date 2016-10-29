@@ -9,10 +9,16 @@
 
 __BEGIN_DECLS
 
+typedef struct ca_layer_t {
+	Size size;
+	uint8_t* raw;
+} ca_layer;
+
 typedef struct window {
 	//common
 	Rect frame;
 	char needs_redraw;
+	ca_layer* layer;
 	struct window* superview;
 	array_m* subviews;
 
@@ -22,7 +28,6 @@ typedef struct window {
 	struct view* content_view;
 	Color border_color;
 	int border_width;
-	Color* layer;
 } Window;
 
 //TODO make proper subclass (c++?)
@@ -31,6 +36,7 @@ typedef struct label {
 	//common
 	Rect frame;
 	char needs_redraw;
+	ca_layer* layer;
 	struct view* superview;
 
 	char* text;
@@ -40,7 +46,8 @@ typedef struct label {
 typedef struct view {
 	//common
 	Rect frame;
-	char needs_redraw;
+	char needs_redraw; 
+	ca_layer* layer;
 	struct view *superview;
 	array_m* subviews;
 	
@@ -54,6 +61,7 @@ typedef struct button {
 	//common 
 	Rect frame;
 	char needs_redraw;
+	ca_layer* layer;
 	struct view* superview;
 
 	char* text;
@@ -64,20 +72,18 @@ typedef struct bitmap {
 	//common
 	Rect frame;
 	char needs_redraw;
+	ca_layer* layer;
 	struct view* superview;
-
-	Color* raw;
-	Size raw_size;
 } Bmp;
 
-struct ca_layer_t* create_layer(Size size, int bpp);
+struct ca_layer_t* create_layer(Size size);
 
 Label* create_label(Rect frame, char* text);
 View* create_view(Rect frame);
 Window* create_window(Rect frame);
 Button* create_button(Rect frame, char* text);
 
-Bmp* create_bmp(Rect frame, Color* raw);
+Bmp* create_bmp(Rect frame, ca_layer* layer);
 Bmp* load_bmp(Rect frame, char* filename);
 
 void add_subview(View* view, View* subview);

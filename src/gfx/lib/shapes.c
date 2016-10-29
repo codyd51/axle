@@ -71,7 +71,7 @@ static void draw_rect_int_fast(ca_layer* layer, Rect rect, Color color) {
 		rect.size.height -= (rect.origin.y + rect.size.height - layer->size.height);
 	}
 	
-	bool rgb = layer->depth == VESA_DEPTH;
+	bool rgb = (gfx_depth() == VESA_DEPTH);
 	int bpp = (rgb ? 3 : 1);
 
 	int offset = rect.origin.x * bpp + rect.origin.y * layer->size.width * bpp;
@@ -146,7 +146,7 @@ void draw_hline_fast(ca_layer* layer, Line line, Color color, int thickness) {
 	normalize_coordinate(layer, &line.p1);
 	normalize_coordinate(layer, &line.p2);
 
-	bool rgb = (layer->depth == VESA_DEPTH);
+	bool rgb = (gfx_depth() == VESA_DEPTH);
 	int bpp = (rgb ? 3 : 1);
 
 	//calculate starting point
@@ -169,7 +169,7 @@ void draw_vline_fast(ca_layer* layer, Line line, Color color, int thickness) {
 	normalize_coordinate(layer, &line.p1);
 	normalize_coordinate(layer, &line.p2);
 
-	bool rgb = (layer->depth == VESA_DEPTH);
+	bool rgb = (gfx_depth() == VESA_DEPTH);
 	int bpp = (rgb ? 3 : 1);
 
 	//calculate starting point
