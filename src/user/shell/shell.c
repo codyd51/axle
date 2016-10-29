@@ -92,7 +92,7 @@ void process_character(char* inputstr, char ch) {
 				break;
 		}
 	}
-	//handle backspace	
+	//handle backspace
 	else if (ch == '\b') {
 		//remove last character from input string
 		if (strlen(inputstr) > 0) {
@@ -110,7 +110,7 @@ void process_character(char* inputstr, char ch) {
 	}
 	//handle newline
 	else if (ch == '\n') {
-		
+
 	}
 	else  {
 		//add this character to the input string and output it
@@ -139,7 +139,7 @@ int shell() {
 	//reset terminal color in case it was changed
 	//then set to input color
 	printf("\n\e[10;axle> \e[9;");
-	
+
 	char* input = get_inputstring();
 
 	//set terminal color to stdout color
@@ -234,7 +234,7 @@ void startx_command() {
 
 	//switch into VGA for boot screen
 	Screen* vga_screen = switch_to_vga();
-	
+
 	//display boot screen
 	vga_boot_screen(vga_screen);
 	gfx_teardown(vga_screen);
@@ -315,7 +315,7 @@ void cd_command(int argc, char** argv) {
 
 void pwd_command() {
 	array_m* parents = array_m_create(16);
-	
+
 	//find all parent directories up to root
 	fs_node_t* parent = current_dir->parent;
 	if (parent) {
@@ -337,8 +337,8 @@ void open_command(int argc, char** argv) {
 		return;
 	}
 
-	loader_init();
-	elf_init();
+	// loader_init();
+	// elf_init();
 
 	uint8_t* name = argv[1];
 	fs_node_t* file = finddir_fs(current_dir, name);
@@ -348,7 +348,7 @@ void open_command(int argc, char** argv) {
 		//fs_node_t* file = fopen(name, 0);
 		uint32_t sz = read_fs(file, 0, 8192, filebuf);
 
-		exec_start(filebuf);
+		// exec_start(filebuf);
 		return;
 	}
 	printf_err("File %s not found", name);
@@ -368,7 +368,7 @@ void hypervisor_command() {
 void shell_init() {
 	//set shell color
 	printf("\e[10;");
-	
+
 	//set up command table
 	add_new_command("help", "Display help information", help_command);
 	add_new_command("echo", "Outputs args to stdout", (void(*)())echo_command);

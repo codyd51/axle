@@ -47,7 +47,7 @@ void shell_loop(void) {
 			break;
 		}
 	}
-	
+
 	//we're dead
 	terminal_clear();
 }
@@ -81,7 +81,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//descriptor tables
 	gdt_install();
 	idt_install();
-	
+
 	test_interrupts();
 
 	//timer driver (many functions depend on timer interrupt so start early)
@@ -93,14 +93,14 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//utilities
 	paging_install();
 	sys_install();
-	tasking_install(PRIORITIZE_INTERACTIVE);
-	//tasking_install(LOW_LATENCY);
+	// tasking_install(PRIORITIZE_INTERACTIVE);
+	tasking_install(LOW_LATENCY);
 
 	//drivers
 	kb_install();
 	mouse_install();
 	pci_install();
-   
+
 	//initialize initrd, and set as fs root
 	fs_root = initrd_install(initrd_loc);
 
@@ -112,7 +112,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	test_crypto();
 
 	if (!fork("shell")) {
-		//start shell 
+		//start shell
 		shell_init();
 		shell_loop();
 	}
@@ -135,5 +135,3 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//if by some act of god we've reached this point, just give up and assert
 	ASSERT(0, "Kernel exited");
 }
-
-

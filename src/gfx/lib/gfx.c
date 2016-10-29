@@ -75,10 +75,10 @@ void view_teardown(View* view) {
 	for (int i = 0; i < view->subviews->size; i++) {
 		View* view = (View*)array_m_lookup(view->subviews, i);
 		view_teardown(view);
-		
+
 		Label* label = (Label*)array_m_lookup(view->labels, i);
 		label_teardown(label);
-		
+
 		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
 		bmp_teardown(bmp);
 
@@ -171,7 +171,7 @@ void rainbow_animation(Screen* screen, Rect r) {
 		col.val[0] = colors[i];
 		draw_rect(screen->window->layer, seg, col, THICKNESS_FILLED);
 		write_screen(screen);
-
+		
 		sleep(500 / 7);
 	}
 }
@@ -215,7 +215,7 @@ void vga_boot_screen(Screen* screen) {
 	Coordinate rainbow_origin = point_make(origin.x + 2, origin.y + 2);
 	Size rainbow_size = size_make(rect_length - 4, sz.height - 3);
 	Rect rainbow_rect = rect_make(rainbow_origin, rainbow_size);
-	rainbow_animation(screen, rainbow_rect);    
-	
+	rainbow_animation(screen, rainbow_rect);
+
 	sleep(250);
 }

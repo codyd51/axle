@@ -30,7 +30,8 @@ STDAPI void array_l_destroy(array_l* array);
 STDAPI void array_l_insert(array_l* array, type_t item);
 
 //lookup item at index idx
-__attribute__((always_inline)) type_t inline array_l_lookup(array_l* array, int32_t idx) {
+__attribute__((always_inline))
+inline type_t array_l_lookup(array_l* array, int32_t idx) {
 	ASSERT(idx < array->size && idx >= 0, "index (%d) was out of bounds (%d)", idx, array->size - 1);
 
 	//walk list

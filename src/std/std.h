@@ -1,7 +1,9 @@
 #ifndef STD_H
 #define STD_H
 
+#ifndef NULL
 #define NULL (0)
+#endif
 
 #include <stdint.h>
 #include "std_base.h"
