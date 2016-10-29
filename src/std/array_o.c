@@ -46,6 +46,8 @@ void array_o_insert(array_o* array, type_t item) {
 
 	validate(array);
 	ASSERT(array->less_than, "ordered array didn't have a less-than predicate!");
+	ASSERT(array->array->size < array->array->max_size - 1, "array_o would exceed max_size (%d)", array->array->max_size);
+
 	uint32_t iterator = 0;
 	while (iterator < array->size && array->less_than(array_m_lookup(array->array, iterator), item)) {
 		iterator++;

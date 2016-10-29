@@ -343,7 +343,7 @@ void open_command(int argc, char** argv) {
 	uint8_t* name = argv[1];
 	fs_node_t* file = finddir_fs(current_dir, name);
 	if (file) {
-		uint8_t* filebuf = (uint8_t*)kmalloc(sizeof(uint8_t) * 8192);
+		uint8_t* filebuf = kmalloc(8192);
 		memset(filebuf, 0, 8192);
 		//fs_node_t* file = fopen(name, 0);
 		uint32_t sz = read_fs(file, 0, 8192, filebuf);

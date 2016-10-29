@@ -56,7 +56,10 @@ Screen* switch_to_vesa(uint32_t vesa_mode, bool create) {
 		//get VESA mode information
 
 		//buffer to store mode info before copying into structure
-		uint32_t mode_buffer = (uint32_t)kmalloc(sizeof(vbe_mode_info)) & 0xFFFFF;
+		//TODO figure out why this isn't a pointer
+		//things break if we make this a pointer
+		//but it's a leak ATM
+		uint32_t mode_buffer = kmalloc(sizeof(vbe_mode_info)) & 0xFFFFF;
 
 		memset(&regs, 0, sizeof(regs));
 
@@ -71,7 +74,7 @@ Screen* switch_to_vesa(uint32_t vesa_mode, bool create) {
 		int32(0x10, &regs);
 		
 		//copy mode info from buffer into struct
-		memcpy(&mode_info, (void*)mode_buffer, sizeof(vbe_mode_info));
+		memcpy(&mode_info, mode_buffer, sizeof(vbe_mode_info));
 	
 		regs.ax = 0x4F02; //02 sets graphics mode
 
@@ -80,20 +83,21 @@ Screen* switch_to_vesa(uint32_t vesa_mode, bool create) {
 		regs.bx = (vesa_mode | 0x4000);
 		int32(0x10, &regs);
 
+		process_gfx_switch(mode_info.bpp);
+
 		kernel_end_critical();
+
 		if (create) {
 			Screen* screen = (Screen*)kmalloc(sizeof(Screen));
-			memset(screen, 0, sizeof(screen));
-
-			screen->depth = mode_info.bpp;
-			screen->layer = create_layer(size_make(mode_info.x_res, mode_info.y_res), screen->depth);
-
+			
 			//linear frame buffer (LFB) address
 			screen->physbase = (uint8_t*)mode_info.physbase;
 			screen->window = create_window(rect_make(point_make(0, 0), size_make(mode_info.x_res, mode_info.y_res)));
-			screen->layer = kmalloc(sizeof(Color) * mode_info.x_res * mode_info.y_res);
+			screen->depth = mode_info.bpp;
+			screen->bpp = screen->depth / 8;
 
 			return screen;
 		}
+		
 		return 0;
 }

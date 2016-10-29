@@ -156,7 +156,7 @@ void alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 //function to dealloc a frame
 void free_frame(page_t* page) {
 	uint32_t frame;
-	if (!(frame=page->frame)) {
+	if (!(frame = page->frame)) {
 		//page didn't actually have an allocated frame!
 		return;
 	}

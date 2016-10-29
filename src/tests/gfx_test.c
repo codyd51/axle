@@ -7,7 +7,7 @@
 #include <gfx/lib/shader.h>
 
 //draw Mandelbrot set
-void draw_mandelbrot(Screen* screen) {
+void draw_mandelbrot(Screen* screen, bool rgb) {
 	//each iteration, we calculate: new = old * old + p, where p is current pixel,
 	//old starts at the origin
 	double pr, pi; //real and imaginary parts of pixel p
@@ -16,14 +16,13 @@ void draw_mandelbrot(Screen* screen) {
 	int max_iterations = 300;
 
 	//for every pixel
-	for (int y = 0; y < screen->window->size.height; y++) {
-		for (int x = 0; x < screen->window->size.width; x++) {
+	for (int y = 0; y < screen->window->frame.size.height; y++) {
+		for (int x = 0; x < screen->window->frame.size.width; x++) {
 			//calculate real and imaginary part of z
 			//based on pixel location and zoom and position vals
-			pr = 1.5 * (x - screen->window->size.width / 2) / (0.5 * zoom * screen->window->size.width) + move_x;
-			pi = (y - screen->window->size.height / 2) / (0.5 * zoom * screen->window->size.height) + move_y;
-			new_re = new_im = old_re = old_im = 0; //start at 0.0
-
+			pr = 1.5 * (x - screen->window->frame.size.width / 2) / (0.5 * zoom * screen->window->frame.size.width) + move_x;
+			pi = (y - screen->window->frame.size.height / 2) / (0.5 * zoom * screen->window->frame.size.height) + move_y;
+			new_re = new_im = old_re = old_im = 0; //start at 0.0 int i;
 			int i;
 			for (i = 0; i < max_iterations; i++) {
 				//remember value of previous iteration
@@ -34,16 +33,19 @@ void draw_mandelbrot(Screen* screen) {
 				new_re = old_re * old_re - old_im * old_im + pr;
 				new_im = 2 * old_re * old_im + pi;
 
-				//if piont is outside circle with radius 2, stop
+				//if point is outside circle with radius 2, stop
 				if ((new_re * new_re + new_im * new_im) > 4) break;
 			}
 			Color color = color_make(5 + i % max_iterations, 0, 0);
-			putpixel(screen, x, y, color);
+			if (rgb) {
+				color = color_make(i, i % max_iterations, (i < max_iterations) ? 0 : 255);
+			}
+			putpixel(screen->window->layer, x, y, color);
 		}
 	}
 }
 
-void draw_burning_ship(Screen* screen) {
+void draw_burning_ship(Screen* screen, bool rgb) {
 	//each iteration, we calculate: new = old * old + p, where p is current pixel,
 	//old starts at the origin
 	double pr, pi; //real and imaginary parts of pixel p
@@ -76,13 +78,16 @@ void draw_burning_ship(Screen* screen) {
 				if ((new_re * new_re + new_im * new_im) > 4) break;
 			}
 			Color color = color_make(5 + i % max_iterations, 0, 0);
-			putpixel(screen, x, y, color);
+			if (rgb) {
+				color = color_make(i, i % max_iterations, (i < max_iterations) ? 0 : 255);
+			}
+			putpixel(screen->window->layer, x, y, color);
 		}
 	}
 }
 
 //draw julia set
-void draw_julia(Screen* screen) {
+void draw_julia(Screen* screen, bool rgb) {
 	//each iteration, we calculate: new = old * old + c
 	//c is constant
 	//old starts at current pixel
@@ -125,13 +130,16 @@ void draw_julia(Screen* screen) {
 
 			//Color color = color_make(180 * (i % max_iterations), 20 * (i % max_iterations), 100 * (i % max_iterations));
 			Color color = color_make(i % max_iterations + 2, 0, 0);
-			putpixel(screen, x, y, color);
+			if (rgb) {
+				color = color_make(i, i % max_iterations, (i < max_iterations) ? 0 : 255);
+			}
+			putpixel(screen->window->layer, x, y, color);
 		}
 	}
 }
 
 void test_triangles(Screen* screen) {
-	fill_screen(screen, color_make(2, 0, 0));
+	fill_screen(screen, color_make(0, 0, 0));
 
 	Coordinate p1 = point_make(screen->window->size.width / 2, 0);
 	Coordinate p2 = point_make(0, screen->window->size.height - 10);
@@ -139,7 +147,7 @@ void test_triangles(Screen* screen) {
 
 	for (int i = 1; i <= 12; i++) {
 		Triangle t = triangle_make(p1, p2, p3);
-		draw_triangle(screen, t, color_make(i, 0, 0), THICKNESS_FILLED);
+		draw_triangle(screen->window->layer, t, color_make(i, 0, 0), THICKNESS_FILLED);
 
 		p1.y += i * 2;
 		p2.x += i * 1.5;
@@ -150,14 +158,14 @@ void test_triangles(Screen* screen) {
 }
 
 void test_rects(Screen* screen) {
-	fill_screen(screen, color_make(2, 0, 0));
+	fill_screen(screen, color_make(0, 0, 0));
 
 	Coordinate origin = point_make(0, 0);
 	Size sz = screen->window->size;
 	
 	for (int i = 0; i < 20; i++) {
 		Rect rt = rect_make(origin, sz);
-		draw_rect(screen, rt, color_make(i, 0, 0), 1);
+		draw_rect(screen->window->layer, rt, color_make(i, 0, 0), 1);
 
 		origin.x += 4;
 		origin.y += 4;
@@ -167,108 +175,129 @@ void test_rects(Screen* screen) {
 }
 
 void test_circles(Screen* screen) {
-	fill_screen(screen, color_make(2, 0, 0));
+	fill_screen(screen, color_make(0, 0, 0));
 
 	Coordinate center = point_make(screen->window->size.width/2, screen->window->size.height/2);
 	int radius = screen->window->size.height/2;
 
 	for (int i = 0; i < 26; i++) {
 		Circle c = circle_make(center, radius);
-		draw_circle(screen, c, color_make(i, 0, 0), 1);
+		draw_circle(screen->window->layer, c, color_make(i, 0, 0), 1);
 
 		radius -= 4;
 	}
 }
 
 void test_lines(Screen* screen) {
-	fill_screen(screen, color_make(2, 0, 0));
+	fill_screen(screen, color_make(0, 0, 0));
 
+	ca_layer* layer = screen->window->layer;
 	for (int i = 0; i < 128; i++) {
-		int p1x = rand() % (screen->window->size.width + 1);
-		int p1y = rand() % (screen->window->size.height + 1);
-		int p2x = rand() % (screen->window->size.width + 1);
-		int p2y = rand() % (screen->window->size.height + 1);
+		int p1x = rand() % (layer->size.width + 1);
+		int p1y = rand() % (layer->size.height + 1);
+		int p2x = rand() % (layer->size.width + 1);
+		int p2y = rand() % (layer->size.height + 1);
 
 		Coordinate p1 = point_make(p1x, p1y);
 		Coordinate p2 = point_make(p2x, p2y);
 		Line line = line_make(p1, p2);
-		draw_line(screen, line, color_make(i, 0, 0), 1);
+		draw_line(layer, line, color_make(i, 0, 0), 1);
 	}
 }
 
-extern void draw_label(Screen*, Label*);
+extern void draw_label(ca_layer*, Label*);
 void test_text(Screen* screen) {
-	fill_screen(screen, color_make(2, 0, 0));
+	fill_screen(screen, color_make(0, 0, 0));
 
 	char* str = "Lorem ipsum dolor sit amet consectetur apipiscing elit Donex purus arcu suscipit ed felis eu blandit blandit quam Donec finibus euismod lobortis Sed massa nunc malesuada ac ante eleifend dictum laoreet massa Aliquam nec dictum turpis pellentesque lacinia ligula Donec et tellus maximum dapibus justo auctor egestas sapien Integer venantis egesta malesdada Maecenas venenatis urna id posuere bibendum eros torto gravida ipsum sed tempor arcy andte ac odio Morbi elementum libero id velit bibendum auctor It sit amet ex eget urna venenatis laoreet Proin posuere urna nec ante tutum lobortis Cras nec elit tristique dolor congue eleifend";
 	Label* label = create_label(rect_make(point_make(0, 0), size_make(screen->window->size.width, screen->window->size.height)), str);
 	label->text_color = color_make(12, 0, 0);
 	add_sublabel(screen->window->content_view, label);
-	draw_label(screen, label);
+	draw_label(screen->window->layer, label);
+
+	kfree(label);
 }
 
 void draw_button(Screen* screen) {
-	fill_screen(screen, color_make(2, 0, 0));
+	fill_screen(screen, color_make(0, 0, 0));
 
 	Coordinate origin = point_make(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
 	Size sz = size_make(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
-	Rect r = rect_make(origin, sz);
-	draw_rect(screen, r, color_make(2, 0, 0), 1);
+	Rect r = rect_make(origin, sz); 
+	draw_rect(screen->window->layer, r, color_make(2, 0, 0), 1);
 
 	Coordinate in_origin = point_make(origin.x + 1, origin.y + 1);
 	Size in_size = size_make(sz.width - 2, sz.height - 2);
 	Rect in_rect = rect_make(in_origin, in_size);
-	draw_rect(screen, in_rect, color_make(12, 0, 0), 30);
+	draw_rect(screen->window->layer, in_rect, color_make(12, 0, 0), 30);
 
 	Coordinate p1 = point_make(origin.x + sz.width * 0.1, origin.y + sz.height * 0.1);
 	Coordinate p2 = point_make(origin.x + sz.width * 0.1, origin.y + sz.height * 0.9);
 	Coordinate p3 = point_make(origin.x + sz.width * 0.4, origin.y + sz.height * 0.5);
 	Triangle tri = triangle_make(p1, p2, p3);
-	draw_triangle(screen, tri, color_make(15, 0, 0), 1);
+	draw_triangle(screen->window->layer, tri, color_make(15, 0, 0), 1);
 	
 	Rect label_rect = rect_make(point_make(p3.x + 5, in_origin.y), size_make(in_rect.size.width, in_rect.size.height));
 	Label* play_label = create_label(label_rect, "Play");
 	play_label->text_color = color_make(1, 0, 0);
 	add_sublabel(screen->window->content_view, play_label);
-	draw_label(screen, play_label);
+	draw_label(screen->window->layer, play_label);
+	
+	kfree(play_label);
 }
 
 void test_gfx(int argc, char **argv) {
+	if (fork("gfxtest")) {
+		//parent
+		return;
+	}
+
 	int delay = 1000;
 	
 	Screen* screen = switch_to_vga();
 
-	fill_screen(screen, color_make(2, 0, 0));
+	fill_screen(screen, color_make(0, 0, 0));
 
 	draw_button(screen);
+	write_screen(screen);
 	sleep(delay);
 
 	test_lines(screen);
+	write_screen(screen);
 	sleep(delay);
-
+	
 	test_circles(screen);
+	write_screen(screen);
 	sleep(delay);
 
 	test_rects(screen);
+	write_screen(screen);
 	sleep(delay);
 
 	test_triangles(screen);
+	write_screen(screen);
 	sleep(delay);
 
 	test_text(screen);
-	sleep(delay);
-	
-	draw_burning_ship(screen);
+	write_screen(screen);
 	sleep(delay);
 
-	draw_julia(screen);
+	draw_julia(screen, false);
+	write_screen(screen);
 	sleep(delay);
 	
-	draw_mandelbrot(screen);
+	draw_mandelbrot(screen, false);
+	write_screen(screen);
+	sleep(delay);
+	
+	draw_burning_ship(screen, false);
+	write_screen(screen);
 	sleep(delay);
 
 	gfx_teardown(screen);
 	switch_to_text();
+
+	_kill();
 }
 
 void test_xserv(Screen* vesa_screen) {
@@ -291,7 +320,8 @@ void test_xserv(Screen* vesa_screen) {
 	add_subwindow(vesa_screen->window, label_win);
 
 	Window* fractal = create_window(rect_make(point_make(100, 100), size_make(512, 512)));
+	fractal->content_view->background_color = color_make(50, 75, 150);
 	fractal->title = "Fractal test";
 	
-	add_subwindow(vesa_screen->window, fractal);
+	//add_subwindow(vesa_screen->window, fractal);
 }	

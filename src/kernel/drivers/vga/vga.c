@@ -15,21 +15,19 @@ Screen* switch_to_vga() {
 
 	int width = 320;
 	int height = 200;
+	
+	process_gfx_switch(VGA_DEPTH);
 
 	Screen* screen = (Screen*)kmalloc(sizeof(Screen));
 	screen->window = create_window(rect_make(point_make(0, 0), size_make(width, height)));
 	screen->depth = VGA_DEPTH;
-
-	screen->layer = create_layer(screen->window->frame.size, screen->depth);
+	screen->bpp = 1;
 
 	screen->physbase = (uint8_t*)VRAM_START;
 
 	regs16_t regs;
 	regs.ax = 0x0013;
 	int32(0x10, &regs);
-	
-	//start refresh loop
-	setup_vga_screen_refresh(screen, 33);
 
 	kernel_end_critical();
 
