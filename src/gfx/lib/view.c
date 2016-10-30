@@ -51,11 +51,14 @@ static View* create_title_view(Window* window) {
 	return title_view;
 }
 
-static View* create_content_view(Window* window) {
+static View* create_content_view(Window* window, bool root) {
 	if (!window) return NULL;
 
 	int title_height = 20;
-	if (window->title_view) title_height = window->title_view->frame.size.height;
+	if (window->title_view) {
+		title_height = window->title_view->frame.size.height;
+	}
+	if (root) title_height = 0;
 
 	Rect inner_frame = rect_make(point_make((window->border_width * 2), title_height), size_make(window->frame.size.width - (window->border_width * 4), window->frame.size.height - title_height - (window->border_width * 2)));
 	View* content_view = create_view(inner_frame);
@@ -64,7 +67,7 @@ static View* create_content_view(Window* window) {
 	return content_view;
 }
 
-Window* create_window(Rect frame) {
+Window* create_window_int(Rect frame, bool root) {
 	Window* window = (Window*)kmalloc(sizeof(Window));
 	memset(window, 0, sizeof(Window));
 
@@ -76,12 +79,19 @@ Window* create_window(Rect frame) {
 	window->subviews = array_m_create(MAX_ELEMENTS);
 	window->title = "Window";
 
-	window->title_view = create_title_view(window);
-	window->content_view = create_content_view(window);
+	//root window doesn't have a title view
+	if (!root) {
+		window->title_view = create_title_view(window);
+	}
+	window->content_view = create_content_view(window, root);
 
 	window->needs_redraw = 1;
 		
 	return window;
+}
+
+Window* create_window(Rect frame) {
+	return create_window_int(frame, false);
 }
 
 Label* create_label(Rect frame, char* text) {

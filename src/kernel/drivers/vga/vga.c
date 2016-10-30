@@ -2,6 +2,8 @@
 #include <gfx/lib/shapes.h>
 #include <kernel/kernel.h>
 
+Window* create_window_int(Rect frame, bool root);
+
 void vga_screen_refresh(Screen* screen) {
 	write_screen(screen);
 }
@@ -19,7 +21,7 @@ Screen* switch_to_vga() {
 	process_gfx_switch(VGA_DEPTH);
 
 	Screen* screen = (Screen*)kmalloc(sizeof(Screen));
-	screen->window = create_window(rect_make(point_make(0, 0), size_make(width, height)));
+	screen->window = create_window_int(rect_make(point_make(0, 0), size_make(width, height)), true);
 	screen->depth = VGA_DEPTH;
 	screen->bpp = 1;
 
