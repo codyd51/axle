@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <std/std.h>
 #include <std/printf.h>
+#include <std/kheap.h>
 
 static bool elf_check_magic(elf_header* hdr) {
 	if (!hdr) return false;
@@ -113,10 +114,13 @@ static inline char* elf_lookup_string(elf_header* hdr, int offset) {
 	return strtab + offset;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 static void* elf_lookup_symbol(const char* name) {
 	//TODO implement
 	return NULL;
 }
+#pragma GCC diagnostic pop
 
 static int elf_get_symval(elf_header* hdr, int table, unsigned int idx) {
 	if (table == SHN_UNDEF || idx == SHN_UNDEF) return 0;
@@ -179,7 +183,7 @@ static int elf_load_stage1(elf_header* hdr) {
 			//should section appear in memory?
 			if (section->flags & SHF_ALLOC) {
 				//allocate and zero memory
-				void* mem = kmalloc(section->size);
+				void* mem = (void *)kmalloc(section->size);
 				memset(mem, 0, section->size);
 
 				//assign memory offset to section offset
@@ -204,10 +208,10 @@ static int elf_load_stage2(elf_header* hdr) {
 		//relocation section?
 		if (section->type == SHT_REL) {
 			//process each entry in table
-			for (int idx = 0; i < section->size / section->entsize; idx++) {
+			for (unsigned int idx = 0; idx < section->size / section->entsize; idx++) {
 				elf_rel* rel_tab = &((elf_rel*)((int)hdr + section->offset))[idx];
 				int result = elf_do_reloc(hdr, rel_tab, section);
-				
+
 				if (result == ELF_RELOC_ERR) {
 					printf_err("ELF loader: Failed to relocate symbol");
 					return ELF_RELOC_ERR;

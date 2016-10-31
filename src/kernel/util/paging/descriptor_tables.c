@@ -62,7 +62,7 @@ void idt_install() {
 	outb(0x21, 0x0);
 	outb(0xA1, 0x0);
 
-	idt_set_gate( 0, (uint32_t)isr0 , 0x08, 0x08E);   
+	idt_set_gate( 0, (uint32_t)isr0 , 0x08, 0x08E);
 	idt_set_gate( 1, (uint32_t)isr1 , 0x08, 0x08E);
 	idt_set_gate( 2, (uint32_t)isr2 , 0x08, 0x08E);
 	idt_set_gate( 3, (uint32_t)isr3 , 0x08, 0x08E);
@@ -94,7 +94,7 @@ void idt_install() {
 	idt_set_gate(29, (uint32_t)isr29, 0x08, 0x08E);
 	idt_set_gate(30, (uint32_t)isr30, 0x08, 0x08E);
 	idt_set_gate(31, (uint32_t)isr31, 0x08, 0x08E);
-	
+
 	idt_set_gate(32, (uint32_t)irq0 , 0x08, 0x8E);
 	idt_set_gate(33, (uint32_t)irq1 , 0x08, 0x8E);
 	idt_set_gate(34, (uint32_t)irq2 , 0x08, 0x8E);
@@ -136,13 +136,23 @@ static void gdt_set_gate(int32_t num, uint32_t base, uint32_t limit, uint8_t acc
 	gdt_entries[num].base_low 	= (base & 0xFFFF);
 	gdt_entries[num].base_middle 	= (base >> 16) & 0xFF;
 	gdt_entries[num].base_high 	= (base >> 24) & 0xFF;
-	
+
 	gdt_entries[num].limit_low	= (limit & 0xFFFF);
 	gdt_entries[num].granularity	= (limit >> 16) & 0x0F;
 
 	gdt_entries[num].granularity 	|= gran & 0xF0;
 	gdt_entries[num].access 	= access;
 }
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+static void init_gdt() {
+	//TODO: implement it
+}
+static void init_idt() {
+	//TODO: implement it
+}
+#pragma GCC diagnostic pop
 
 //initialize task state segment structure
 static void write_tss(int32_t num, uint16_t ss0, uint32_t esp0) {
@@ -159,7 +169,7 @@ static void write_tss(int32_t num, uint16_t ss0, uint32_t esp0) {
 	//set kernel stack segment
 	tss_entry.ss0 = ss0;
 	//set kernel stack pointer
-	tss_entry.esp0 = esp0; 
+	tss_entry.esp0 = esp0;
 
 	//set cs, ss, ds, es, fs, and gs entries in TSS
 	//specify what segments should be loaded when processor switches to kernel mode

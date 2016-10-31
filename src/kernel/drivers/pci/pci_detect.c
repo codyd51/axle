@@ -8,7 +8,7 @@ uint16_t pci_config_readw(uint8_t bus, uint8_t slot, uint8_t function, uint8_t o
 	uint32_t long_bus = (uint32_t)bus;
 	uint32_t long_slot = (uint32_t)slot;
 	uint32_t long_func = (uint32_t)function;
-	
+
 	//create config address
 	//bit layout:
 	//0-1 		00
@@ -34,7 +34,8 @@ uint16_t pci_vendor_id(uint8_t bus, uint8_t slot, uint8_t function) {
 	uint16_t vendor = pci_config_readw(bus, slot, function, 0);
 	//since there are no vendors equal to 0xFFFF, it must be a non-existent device
 	if (vendor != 0xFFFF) {
-		uint16_t device = pci_config_readw(bus, slot, function, 2);
+		//TODO: add to devices global variable??
+		// uint16_t device = pci_config_readw(bus, slot, function, 2);
 	}
 	return (vendor);
 }
@@ -87,7 +88,7 @@ void pci_print_device(pci_device* device) {
 #define TECH_CORP_VENDOR 0x1234
 	//TODO fix naming below to remove this var
 	uint16_t device_id = device->device;
-	//index pci devices by how many times this function is called 
+	//index pci devices by how many times this function is called
 	//TODO change?
 	static int count = 0;
 	printf("pci device %d - vendor %x ", count++, device->vendor);
@@ -146,7 +147,7 @@ void pci_traverse_buses(void) {
 				if (vendor == 0xFFFF) continue;
 
 				uint16_t device_id = pci_device_id(bus, slot, func);
-				pci_device* device = kmalloc(sizeof(pci_device));
+				pci_device* device = (pci_device*)kmalloc(sizeof(pci_device));
 				device->vendor = vendor;
 				device->device = device_id;
 				device->func = func;

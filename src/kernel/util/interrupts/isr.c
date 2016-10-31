@@ -20,7 +20,10 @@ void print_regs(registers_t regs) {
 	printf("gs:  %x		fs:	 %x		es:  %x		ds:  %x\n", regs.gs, regs.fs, regs.es, regs.ds);
 }
 
-void dump_stack(uint32_t* esp) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsequence-point"
+//TODO: figure out undefinedness of "esp--"
+void dump_stack(uint8_t* esp) {
 	for (int i = 0; i < 8; i++) {
 		esp--;
 		if (i % 2) {
@@ -30,7 +33,7 @@ void dump_stack(uint32_t* esp) {
 			printf("\e[3;");
 		}
 		uint8_t* esp_byte = esp;
-		
+
 		printf("[%x] %x %x %x %x ", esp, *(esp--), *(esp--), *(esp--), *(esp--));
 		//we want to print out every byte of the 4 words we just printed out
 		//words are 4 bytes
@@ -48,6 +51,7 @@ void dump_stack(uint32_t* esp) {
 		printf("\n");
 	}
 }
+#pragma GCC diagnostic pop
 
 void common_halt(registers_t regs, bool recoverable) {
 	//print out register info for debugging
@@ -213,4 +217,3 @@ void irq_handler(registers_t regs) {
 	}
 	else printf_dbg("unhandled IRQ %d", regs.int_no);
 }
-

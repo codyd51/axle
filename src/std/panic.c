@@ -12,9 +12,12 @@
 	printf("[%d] %x\n", num, __builtin_return_address(num)); \
 } while(0)
 
-static inline __attribute__((__always_inline__)) void print_stack(void) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wframe-address"
+__attribute__((__always_inline__))
+static inline void print_stack(void) {
 	printf("Stack trace:\n");
-	
+
 	// First stack frame is a panic() function, so ignore it
 	TRY_PRINT_FRAME(1);
 	TRY_PRINT_FRAME(2);
@@ -33,13 +36,14 @@ static inline __attribute__((__always_inline__)) void print_stack(void) {
 	TRY_PRINT_FRAME(15);
 	TRY_PRINT_FRAME(16);
 }
+#pragma GCC diagnostic pop
 
 __attribute__((__noreturn__)) void panic(uint16_t line, const char* file) {
 	printf("\n");
 	printf_err("PANIC %s: line %d", file, line);
-	
+
 	print_stack();
-	
+
 	//enter infinite loop
     kernel_begin_critical();
 	do {} while (1);
@@ -57,13 +61,13 @@ __attribute__((__noreturn__)) void panic_msg(uint16_t line, const char* file, co
 	va_start(ap, msg);
 	vprintf_err(msg, ap);
 	va_end(ap);
-	
+
 	// Inline the panic() code for stack frame count
 	printf("\n");
 	printf_err("PANIC %s: line %d", file, line);
-	
+
 	print_stack();
-	
+
 	//enter infinite loop
     kernel_begin_critical();
 	do {} while (1);

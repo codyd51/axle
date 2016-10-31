@@ -1,4 +1,5 @@
 #include "sysfuncs.h"
+#include <kernel/util/multitasking/tasks/task.h>
 
 void yield(task_state reason) {
 	if (!tasking_installed()) return;

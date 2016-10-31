@@ -15,8 +15,10 @@ void test_colors() {
 
 void force_hardware_irq() {
 	printf_info("Forcing hardware IRQ...");
-	int i;
-	i = 500/0;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdiv-by-zero"
+	int i = 500/0;
+#pragma GCC diagnostic pop
 	printf_dbg("%d", i);
 }
 
@@ -37,7 +39,7 @@ void test_interrupts() {
 
 void test_heap() {
 	printf_info("Testing heap...");
-	
+
 	uint32_t* a = (uint32_t*)kmalloc(8);
 	uint32_t* b = (uint32_t*)kmalloc(8);
 	printf_dbg("a: %x, b: %x", a, b);
@@ -65,7 +67,7 @@ void test_malloc() {
 		uint32_t* tmp = (uint32_t*)kmalloc(0x1000);
 		kfree(tmp);
 	}
-	
+
 	if (used != used_mem()) {
 		printf_err("Malloc test failed. Expected %x bytes in use, had %x", used, used_mem());
 		return;

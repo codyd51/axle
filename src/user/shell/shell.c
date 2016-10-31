@@ -1,34 +1,32 @@
 #include "shell.h"
-#include <kernel/kernel.h>
-#include <kernel/drivers/kb/kb.h>
-#include <user/shell/programs/asmjit/asmjit.h>
-#include <kernel/drivers/pit/pit.h>
-#include <user/shell/programs/snake/snake.h>
-#include <tests/gfx_test.h>
+#include <lib/iberty/iberty.h>
 #include <std/kheap.h>
 #include <std/memory.h>
-#include <lib/iberty/iberty.h>
-#include <tests/test.h>
 #include <std/printf.h>
+#include <gfx/lib/gfx.h>
+#include <user/shell/programs/asmjit/asmjit.h>
+#include <user/shell/programs/snake/snake.h>
+#include <user/shell/programs/rexle/rexle.h>
+#include <user/xserv/xserv.h>
+#include <kernel/kernel.h>
+#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/util/vfs/fs.h>
+#include <kernel/drivers/kb/kb.h>
+#include <kernel/drivers/pci/pci_detect.h>
+#include <kernel/drivers/pit/pit.h>
 #include <kernel/drivers/rtc/clock.h>
 #include <kernel/drivers/vga/vga.h>
 #include <kernel/drivers/vesa/vesa.h>
-#include <gfx/lib/gfx.h>
-#include <user/shell/programs/rexle/rexle.h>
-#include <kernel/util/vfs/fs.h>
-#include <kernel/util/multitasking/tasks/task.h>
-#include <kernel/drivers/pci/pci_detect.h>
+#include <tests/test.h>
+#include <tests/gfx_test.h>
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
 fs_node_t* current_dir;
 
 int findCommand(char* command) {
-	size_t i;
-	int ret;
-
-	for (i = 0; i < CommandNum + 1; i++) {
-		ret = strcmp(command, CommandTable[i].name);
+	for (size_t i = 0; i < CommandNum + 1; i++) {
+		int ret = strcmp(command, CommandTable[i].name);
 
 		if (ret == 0) {
 			return i;
@@ -45,7 +43,7 @@ void prepare_shell() {
 void process_command(char* string) {
 	prepare_shell();
 
-	if ((string != NULL) && (string[0] == '\0') || !strlen(string))
+	if (((string != NULL) && (string[0] == '\0')) || !strlen(string))
 		return;
 
 	int argc;
@@ -274,7 +272,7 @@ void cat_command(int argc, char** argv) {
 	uint8_t filebuf[2048];
 	memset(filebuf, 0, 2048);
 	uint32_t sz = read_fs(node, 0, 2048, filebuf);
-	for (int i = 0; i < sz; i++) {
+	for (uint32_t i = 0; i < sz; i++) {
 		terminal_putchar(filebuf[i]);
 	}
 }
@@ -293,7 +291,7 @@ void hex_command(int argc, char** argv) {
 	uint8_t filebuf[8];
 	memset(filebuf, 0, 8);
 	uint32_t sz = read_fs(node, 0, 8, filebuf);
-	for (int i = 0; i < sz; i++) {
+	for (uint32_t i = 0; i < sz; i++) {
 		printf("%x ", filebuf[i]);
 	}
 }
@@ -340,13 +338,13 @@ void open_command(int argc, char** argv) {
 	// loader_init();
 	// elf_init();
 
-	uint8_t* name = argv[1];
+	char* name = argv[1];
 	fs_node_t* file = finddir_fs(current_dir, name);
 	if (file) {
-		uint8_t* filebuf = kmalloc(8192);
+		uint8_t* filebuf = (uint8_t*)kmalloc(8192);
 		memset(filebuf, 0, 8192);
 		//fs_node_t* file = fopen(name, 0);
-		uint32_t sz = read_fs(file, 0, 8192, filebuf);
+		// uint32_t sz = read_fs(file, 0, 8192, filebuf); //TODO: make use of it?
 
 		// exec_start(filebuf);
 		return;
@@ -382,11 +380,11 @@ void shell_init() {
 	add_new_command("rexle", "Start 3D renderer", rexle);
 	add_new_command("heap", "Run heap test", test_heap);
 	add_new_command("ls", "List contents of current directory", ls_command);
-	add_new_command("cd", "Switch to another directory", cd_command);
+	add_new_command("cd", "Switch to another directory", (void(*)())cd_command);
 	add_new_command("pwd", "Print working directory", pwd_command);
-	add_new_command("cat", "Write file to stdout", cat_command);
-	add_new_command("hex", "Write hex dump of file to stdout", hex_command);
-	add_new_command("open", "Load file", open_command);
+	add_new_command("cat", "Write file to stdout", (void(*)())cat_command);
+	add_new_command("hex", "Write hex dump of file to stdout", (void(*)())hex_command);
+	add_new_command("open", "Load file", (void(*)())open_command);
 	add_new_command("proc", "List running processes", proc);
 	add_new_command("pci", "List PCI devices", pci_list);
 	add_new_command("hypervisor", "Run VM", hypervisor_command);

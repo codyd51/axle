@@ -26,5 +26,6 @@
 typedef void (*isr_t)(registers_t);
 void register_interrupt_handler(uint8_t n, isr_t handler);
 void isr_install_default();
+void pic_acknowledge(unsigned int interrupt);
 
 #endif

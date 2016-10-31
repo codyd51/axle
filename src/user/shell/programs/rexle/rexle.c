@@ -8,9 +8,10 @@
 #include <std/math.h>
 #include <std/sincostan.h>
 #include <std/array_m.h>
+#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/util/kbman/kbman.h>
 #include <kernel/drivers/vga/vga.h>
 #include <kernel/drivers/rtc/clock.h>
-#include <kernel/util/kbman/kbman.h>
 #include <kernel/drivers/vesa/vesa.h>
 #include "map2.h"
 
@@ -88,7 +89,7 @@ int rexle_int() {
 			Vec2d ray_dir = vec2d(dir.x + plane.x * cam_x,
 					      dir.y + plane.y * cam_x);
 			//current position in grid
-			Vec2d map_pos = vec2d((int)(ray_pos.x), (int)(ray_pos.y));		
+			Vec2d map_pos = vec2d((int)(ray_pos.x), (int)(ray_pos.y));
 
 			//length from current pos to next side
 			Vec2d side_dist;
@@ -154,15 +155,15 @@ int rexle_int() {
 			//texture rendering
 			int tex_idx = world[(int)map_pos.x][(int)map_pos.y] - 1;
 			Bmp* tex = (Bmp*)array_m_lookup(textures, tex_idx % textures->size);
-			int tex_width = tex->raw_size.width;
-			int tex_height = tex->raw_size.height;
+			int tex_width = tex->layer->size.width;
+			int tex_height = tex->layer->size.height;
 
 			//calculate where wall was hit
 			double wall_x;
 			if (!side) wall_x = ray_pos.y + perp_wall_dist * ray_dir.y;
 			else wall_x = ray_pos.x + perp_wall_dist * ray_dir.x;
 			wall_x -= floor(wall_x);
-			
+
 			//x coordinate on texture
 			int tex_x = (int)(wall_x * (double)tex_width);
 			if (!side && ray_dir.x > 0) tex_x = tex_width - tex_x - 1;
@@ -176,7 +177,7 @@ int rexle_int() {
 
 				//we have x and y, find color at this point in texture
 				Coordinate tex_px = point_make(tex_x % tex_width, tex_y % tex_height);
-				Color col = tex->raw[tex_px.y * tex_width + tex_px.x];
+				Color col = *((Color *)&(tex->layer->raw[tex_px.y * tex_width + tex_px.x]));
 
 				//swap BGR
 				uint8_t tmp = col.val[0];
@@ -188,7 +189,7 @@ int rexle_int() {
 					col.val[0] /= 2;
 					col.val[1] /= 2;
 					col.val[2] /= 2;
-				}	
+				}
 
 				putpixel(screen, x, y, col);
 			}
@@ -206,7 +207,7 @@ int rexle_int() {
 		time_prev = timestamp;
 		timestamp = time();
 		double frame_time = (timestamp - time_prev) / 1000.0;
-	
+
 		//speed modifiers
 		double move_speed = frame_time * 5.0; //squares/sec
 		double rot_speed = frame_time * 3.0; //rads/sec
@@ -235,7 +236,7 @@ int rexle_int() {
 			double old_dir_x = dir.x;
 			dir.x = dir.x * cos(-rot_speed) - dir.y * sin(-rot_speed);
 			dir.y = old_dir_x * sin(-rot_speed) + dir.y * cos(-rot_speed);
-			
+
 			double old_plane_x = plane.x;
 			plane.x = plane.x * cos(-rot_speed) - plane.y * sin(-rot_speed);
 			plane.y = old_plane_x * sin(-rot_speed) + plane.y * cos(-rot_speed);

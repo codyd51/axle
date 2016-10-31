@@ -34,7 +34,7 @@ void printf_hex(uint32_t n) {
 		if (tmp >= 0xA) {
 			noZeroes = 0;
 			terminal_putchar(tmp-0xA + 'a');
-		} 
+		}
 		else {
 			noZeroes = 0;
 			terminal_putchar(tmp + '0');
@@ -45,7 +45,7 @@ void printf_hex(uint32_t n) {
 	tmp = n & 0xF;
 	if (tmp >= 0xA) {
 		terminal_putchar(tmp-0xA + 'a');
-	} 
+	}
 	else {
 		terminal_putchar(tmp + '0');
 	}
@@ -60,7 +60,7 @@ void vprintf(char* format, va_list va) {
 			terminal_putchar(ch);
 		}
 		else {
-			char zero_pad;
+			// char zero_pad; //TODO: make use of this
 			char* ptr;
 
 			ch = *(format++);
@@ -70,7 +70,7 @@ void vprintf(char* format, va_list va) {
 				ch = *(format++);
 				if (ch == '\0') return;
 				if (ch >= '0' && ch <= '9') {
-					zero_pad = ch - '0';
+					// zero_pad = ch - '0';
 				}
 				ch = *(format++);
 			}
@@ -78,7 +78,7 @@ void vprintf(char* format, va_list va) {
 			switch (ch) {
 				case 0: {
 					return;
-				} break;	
+				} break;
 				case 'u':
 				case 'd': {
 					itoa(va_arg(va, unsigned int), bf);
@@ -125,12 +125,12 @@ char* vsprintf(char* format, va_list va) {
 
 	while ((ch = *(format++)) != 0) {
 		if (ch != '%') {
-			strccat(ret, ch);	
+			strccat(ret, ch);
 		}
 		else {
-			char zero_pad = 0;
+			// char zero_pad = 0; //TODO: make use of this
 			char* ptr;
-			unsigned int len;
+			// unsigned int len;
 
 			ch = *(format++);
 
@@ -139,7 +139,7 @@ char* vsprintf(char* format, va_list va) {
 				ch = *(format++);
 				if (ch == '\0') return NULL;
 				if (ch >= '0' && ch <= '9') {
-					zero_pad = ch - '0';
+					// zero_pad = ch - '0';
 				}
 				ch = *(format++);
 			}
@@ -225,7 +225,7 @@ void printf_dbg(char* format, ...) {
 	vprintf(format, arg);
 	va_end(arg);
 
-	printf("\e[10;]\n");	
+	printf("\e[10;]\n");
 }
 
 void printf_info(char* format, ...) {
@@ -236,7 +236,7 @@ void printf_info(char* format, ...) {
 	vprintf(format, arg);
 	va_end(arg);
 
-	printf("\e[10;]\n");	
+	printf("\e[10;]\n");
 }
 
 void printf_err(const char* format, ...) {

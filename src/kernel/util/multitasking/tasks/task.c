@@ -2,9 +2,11 @@
 #include <std/std.h>
 #include <std/math.h>
 #include <std/memory.h>
+#include <kernel/drivers/kb/kb.h>
 #include <kernel/util/paging/descriptor_tables.h>
-#include <kernel/util/multitasking/util.h>
 #include <kernel/util/paging/paging.h>
+#include <kernel/util/multitasking/util.h>
+#include <kernel/util/syscall/sysfuncs.h>
 
 //magic value placed in eax at end of task switch
 //we read eax when trying to catch current eip
@@ -42,6 +44,7 @@ static void setup_fds(task_t* task) { task->files = array_m_create(MAX_FILES);
 	// array_m_insert(task->files, stderr_read);
 }
 
+void goto_pid(int id);
 int getpid() {
 	return current_task->id;
 }
@@ -107,6 +110,8 @@ void unblock_task(task_t* task) {
 	kernel_end_critical();
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	task_t* parent = current_task;
 
@@ -132,6 +137,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 
 	return task;
 }
+#pragma GCC diagnostic pop
 
 void add_process(task_t* task) {
 	if (!tasking_installed()) return;
@@ -148,7 +154,7 @@ void idle() {
 		//put the CPU to sleep until the next interrupt
 		asm volatile("hlt");
 		//once we return from above, go to next task
-		sys_yield();
+		sys_yield(RUNNABLE);
 	}
 }
 
@@ -176,9 +182,9 @@ void reap() {
 					//couldn't find task in the queue it said it was in
 					//fall back on searching through each queue
 					bool found = false;
-					for (int i = 0; i < queues->size, !found; i++) {
+					for (int i = 0; i < queues->size && !found; i++) {
 						array_m* queue = array_m_lookup(queues, i);
-						for (int j = 0; j < queues->size, !found; j++) {
+						for (int j = 0; j < queues->size && !found; j++) {
 							task_t* to_test = array_m_lookup(queue, j);
 							if (to_test == tmp) {
 								array_m_remove(queue, j);
@@ -264,7 +270,7 @@ void dequeue_task(task_t* task) {
 
 	//if for some reason this task is still in the queue (if it was added to queue twice),
 	//dequeue it again
-	if (array_m_index(raw, idx) != ARR_NOT_FOUND) {
+	if (array_m_index(raw, task) != ARR_NOT_FOUND) {
 		dequeue_task(task);
 	}
 
@@ -408,7 +414,7 @@ void update_blocked_tasks() {
 }
 
 int fork(char* name) {
-	if (!tasking_installed());
+	if (!tasking_installed()) return 0; //TODO: check this result
 
 	kernel_begin_critical();
 
@@ -497,7 +503,7 @@ array_m* first_queue_containing_runnable(void) {
 }
 
 task_t* mlfq_schedule() {
-	if (!tasking_installed()) return;
+	if (!tasking_installed()) return NULL;
 
 	//find current index in queue
 	array_m* current_queue = array_m_lookup(queues, current_task->queue);
@@ -640,7 +646,7 @@ void goto_pid(int id) {
 	task_switch_real(eip, current_directory->physicalAddr, ebp, esp);
 }
 
-volatile uint32_t task_switch() {
+uint32_t task_switch() {
 	kernel_begin_critical();
 
 	current_task->relinquish_date = time();
@@ -652,6 +658,9 @@ volatile uint32_t task_switch() {
 	kernel_end_critical();
 
 	goto_pid(next->id);
+
+	//TODO: what should be returned here?
+	return 0;
 }
 
 void handle_pit_tick() {
@@ -747,7 +756,7 @@ void become_first_responder() {
 		if (tmp == first_responder) {
 			//remove task so we can add it again
 			//this is to ensure responder stack only has unique tasks
-			array_m_remove(responder_stack, tmp);
+			array_m_remove(responder_stack, i);
 		}
 	}
 

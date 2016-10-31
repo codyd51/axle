@@ -1,10 +1,11 @@
 #include "gfx_test.h"
-#include <gfx/lib/shapes.h>
+#include <std/math.h>
 #include <user/shell/shell.h>
 #include <gfx/lib/color.h>
-#include <std/math.h>
-#include <kernel/drivers/vga/vga.h>
+#include <gfx/lib/shapes.h>
 #include <gfx/lib/shader.h>
+#include <kernel/drivers/vga/vga.h>
+#include <kernel/util/multitasking/tasks/task.h>
 
 //draw Mandelbrot set
 void draw_mandelbrot(Screen* screen, bool rgb) {
@@ -12,7 +13,7 @@ void draw_mandelbrot(Screen* screen, bool rgb) {
 	//old starts at the origin
 	double pr, pi; //real and imaginary parts of pixel p
 	double new_re, new_im, old_re, old_im; //real & imaginary parts of new and old z
-	double zoom = 1, move_x = -0.5, move_y = 0; 
+	double zoom = 1, move_x = -0.5, move_y = 0;
 	int max_iterations = 300;
 
 	//for every pixel
@@ -50,7 +51,7 @@ void draw_burning_ship(Screen* screen, bool rgb) {
 	//old starts at the origin
 	double pr, pi; //real and imaginary parts of pixel p
 	double new_re, new_im, old_re, old_im; //real & imaginary parts of new and old z
-	double zoom = 1, move_x = -0.5, move_y = 0; 
+	double zoom = 1, move_x = -0.5, move_y = 0;
 	int max_iterations = 300;
 
 	//for every pixel
@@ -94,7 +95,7 @@ void draw_julia(Screen* screen, bool rgb) {
 	double cRe, cIm; //real and imaginary parts of c
 	double new_re, new_im, old_re, old_im; //real and imaginary parts of new and old
 	double zoom = 1, move_x = 0, move_y = 0;
-	int max_iterations = 300; 
+	int max_iterations = 300;
 
 	//pick some values for constant c
 	//determines shape
@@ -113,7 +114,7 @@ void draw_julia(Screen* screen, bool rgb) {
 			//based on pixel location and zoom and position values
 			new_re = 1.5 * (x - w / 2) / (0.5 * zoom * w) + move_x;
 			new_im = (y - h / 2) / (0.5 * zoom * h) + move_y;
-			
+
 			int i;
 			for (i = 0; i < max_iterations; i++) {
 				//remember value of previous iteration
@@ -162,7 +163,7 @@ void test_rects(Screen* screen) {
 
 	Coordinate origin = point_make(0, 0);
 	Size sz = screen->window->size;
-	
+
 	for (int i = 0; i < 20; i++) {
 		Rect rt = rect_make(origin, sz);
 		draw_rect(screen->window->layer, rt, color_make(i, 0, 0), 1);
@@ -223,7 +224,7 @@ void draw_button(Screen* screen) {
 
 	Coordinate origin = point_make(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
 	Size sz = size_make(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
-	Rect r = rect_make(origin, sz); 
+	Rect r = rect_make(origin, sz);
 	draw_rect(screen->window->layer, r, color_make(2, 0, 0), 1);
 
 	Coordinate in_origin = point_make(origin.x + 1, origin.y + 1);
@@ -236,16 +237,17 @@ void draw_button(Screen* screen) {
 	Coordinate p3 = point_make(origin.x + sz.width * 0.4, origin.y + sz.height * 0.5);
 	Triangle tri = triangle_make(p1, p2, p3);
 	draw_triangle(screen->window->layer, tri, color_make(15, 0, 0), 1);
-	
+
 	Rect label_rect = rect_make(point_make(p3.x + 5, in_origin.y), size_make(in_rect.size.width, in_rect.size.height));
 	Label* play_label = create_label(label_rect, "Play");
 	play_label->text_color = color_make(1, 0, 0);
 	add_sublabel(screen->window->content_view, play_label);
 	draw_label(screen->window->layer, play_label);
-	
+
 	kfree(play_label);
 }
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 void test_gfx(int argc, char **argv) {
 	if (fork("gfxtest")) {
 		//parent
@@ -253,7 +255,7 @@ void test_gfx(int argc, char **argv) {
 	}
 
 	int delay = 1000;
-	
+
 	Screen* screen = switch_to_vga();
 
 	fill_screen(screen, color_make(0, 0, 0));
@@ -265,7 +267,7 @@ void test_gfx(int argc, char **argv) {
 	test_lines(screen);
 	write_screen(screen);
 	sleep(delay);
-	
+
 	test_circles(screen);
 	write_screen(screen);
 	sleep(delay);
@@ -285,11 +287,11 @@ void test_gfx(int argc, char **argv) {
 	draw_julia(screen, false);
 	write_screen(screen);
 	sleep(delay);
-	
+
 	draw_mandelbrot(screen, false);
 	write_screen(screen);
 	sleep(delay);
-	
+
 	draw_burning_ship(screen, false);
 	write_screen(screen);
 	sleep(delay);
@@ -299,6 +301,7 @@ void test_gfx(int argc, char **argv) {
 
 	_kill();
 }
+#pragma GCC diagnostic pop
 
 void test_xserv(Screen* vesa_screen) {
 	Window* image_viewer = create_window(rect_make(point_make(400, 50), size_make(512, 512)));
@@ -307,13 +310,13 @@ void test_xserv(Screen* vesa_screen) {
 	Bmp* bmp = load_bmp(rect_make(point_zero(), size_make(600, 600)), "Lenna.bmp");
 	add_bmp(image_viewer->content_view, bmp);
 	add_subwindow(vesa_screen->window, image_viewer);
-	
+
 	Window* label_win = create_window(rect_make(point_make(100, 100), size_make(500, 500)));
 	label_win->title = "Text test";
 	Label* test_label = create_label(rect_make(point_make(10, 10), size_make(label_win->content_view->frame.size.width - 10, label_win->content_view->frame.size.height - 20)), "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque pulvinar dui bibendum nunc convallis, bibendum venenatis mauris ornare. Donec et libero lacus. Nulla tristique auctor pulvinar. Aenean enim elit, malesuada nec dignissim eget, varius ac nunc. Vestibulum varius lectus nisi, in dignissim orci volutpat in. Aliquam eget eros lorem. Quisque tempor est a rhoncus consequat. Quisque vestibulum finibus sapien. Etiam enim sem, vehicula ac lorem vitae, mattis mollis mauris. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Vivamus eleifend dui vel nulla suscipit pretium. Suspendisse vel nunc efficitur, lobortis dui convallis, tristique tellus. Ut ut viverra est. Etiam tempor justo risus. Cras laoreet eu sapien et lacinia. Nunc imperdiet blandit purus a semper.");
 	//test_label->text_color = color_make(200, 0, 100);
 	add_sublabel(label_win->content_view, test_label);
-	
+
 	//Shader* s = create_shader(vec2d(-1.0, 1.0));
 	//add_shader(label_win->content_view, s);
 
@@ -322,6 +325,6 @@ void test_xserv(Screen* vesa_screen) {
 	Window* fractal = create_window(rect_make(point_make(100, 100), size_make(512, 512)));
 	fractal->content_view->background_color = color_make(50, 75, 150);
 	fractal->title = "Fractal test";
-	
+
 	//add_subwindow(vesa_screen->window, fractal);
-}	
+}

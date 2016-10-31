@@ -32,14 +32,14 @@ void set_bank(int bank) {
 //sets up VESA for mode
 Screen* switch_to_vesa(uint32_t vesa_mode, bool create) {
 		kernel_begin_critical();
-		
+
 		vesa_info info;
 		vbe_mode_info mode_info;
 		regs16_t regs;
 
 		//get VESA information
-		
-		//buffer stores info before being copied into structure	
+
+		//buffer stores info before being copied into structure
 		uint32_t buffer = (uint32_t)kmalloc(sizeof(vesa_info)) & 0xFFFFF;
 
 		memcpy((void*)buffer, "VBE2", 4);
@@ -72,10 +72,10 @@ Screen* switch_to_vesa(uint32_t vesa_mode, bool create) {
 		regs.es = (mode_buffer >> 4) & 0xFFFF;
 		regs.cx = vesa_mode; //mode to get info for
 		int32(0x10, &regs);
-		
+
 		//copy mode info from buffer into struct
-		memcpy(&mode_info, mode_buffer, sizeof(vbe_mode_info));
-	
+		memcpy(&mode_info, (uint32_t*)mode_buffer, sizeof(vbe_mode_info));
+
 		regs.ax = 0x4F02; //02 sets graphics mode
 
 		//sets up mode with linear frame buffer instead of bank switching
@@ -89,7 +89,7 @@ Screen* switch_to_vesa(uint32_t vesa_mode, bool create) {
 
 		if (create) {
 			Screen* screen = (Screen*)kmalloc(sizeof(Screen));
-			
+
 			//linear frame buffer (LFB) address
 			screen->physbase = (uint8_t*)mode_info.physbase;
 			screen->window = create_window(rect_make(point_make(0, 0), size_make(mode_info.x_res, mode_info.y_res)));
@@ -98,6 +98,6 @@ Screen* switch_to_vesa(uint32_t vesa_mode, bool create) {
 
 			return screen;
 		}
-		
+
 		return 0;
 }

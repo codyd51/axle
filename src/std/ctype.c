@@ -138,11 +138,11 @@ uint8_t _ctype[256] = {
 
 
 bool isalnum(char ch) {
-	return _ctype[ch] & (CTYPE_LOWER | CTYPE_UPPER | CTYPE_DIGIT);
+	return _ctype[(uint8_t)ch] & (CTYPE_LOWER | CTYPE_UPPER | CTYPE_DIGIT);
 }
 
 bool isalpha(char ch) {
-	return _ctype[ch] & (CTYPE_LOWER | CTYPE_UPPER);
+	return _ctype[(uint8_t)ch] & (CTYPE_LOWER | CTYPE_UPPER);
 }
 
 bool isascii(char ch) {
@@ -151,40 +151,40 @@ bool isascii(char ch) {
 }
 
 bool iscntrl(char ch) {
-	return _ctype[ch] & (CTYPE_CNTRL);
+	return _ctype[(uint8_t)ch] & (CTYPE_CNTRL);
 }
 
 bool isdigit(char ch) {
-	return _ctype[ch] & CTYPE_DIGIT;
+	return _ctype[(uint8_t)ch] & CTYPE_DIGIT;
 }
 
 bool isgraph(char ch) {
-	return _ctype[ch] & (CTYPE_LOWER | CTYPE_UPPER | CTYPE_DIGIT | CTYPE_PUNCT);
+	return _ctype[(uint8_t)ch] & (CTYPE_LOWER | CTYPE_UPPER | CTYPE_DIGIT | CTYPE_PUNCT);
 }
 
 bool islower(char ch) {
-	return _ctype[ch] & CTYPE_LOWER;
+	return _ctype[(uint8_t)ch] & CTYPE_LOWER;
 }
 
 bool isprint(char ch) {
-	return _ctype[ch] & CTYPE_PRINT;
+	return _ctype[(uint8_t)ch] & CTYPE_PRINT;
 }
 
 bool isupper(char ch) {
-	return _ctype[ch] & CTYPE_UPPER;
+	return _ctype[(uint8_t)ch] & CTYPE_UPPER;
 }
 
 bool isxdigit(char ch) {
-	return _ctype[ch] & CTYPE_HEX;
+	return _ctype[(uint8_t)ch] & CTYPE_HEX;
 }
 
 
 int digittoint(char ch) {
-	if(_ctype[ch] & CTYPE_DIGIT) {
+	if(_ctype[(uint8_t)ch] & CTYPE_DIGIT) {
 		// Character is 0-9, so get the value
 		return ch - '0';
 	}
-	else if(_ctype[ch] & CTYPE_HEX) {
+	else if(_ctype[(uint8_t)ch] & CTYPE_HEX) {
 		// Character is a-f or A-F, so force to lowercase and convert to value
 		return (ch | 0x20) - 'a' + 0xa;
 	}
@@ -201,7 +201,7 @@ char toascii(char ch) {
 
 char toupper(char ch) {
 	// If already uppercase or not an alphabetic, just return the character
-	if (_ctype[ch] & CTYPE_LOWER) {
+	if (_ctype[(uint8_t)ch] & CTYPE_LOWER) {
 		ch &= ~0x20;
 	}
 	return ch;
@@ -209,7 +209,7 @@ char toupper(char ch) {
 
 char tolower(char ch) {
 	// If already lowercase or not an alphabetic, just return the character
-	if (_ctype[ch] & CTYPE_UPPER) {
+	if (_ctype[(uint8_t)ch] & CTYPE_UPPER) {
 		ch |= 0x20;
 	}
 	return ch;

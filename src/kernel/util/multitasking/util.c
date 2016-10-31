@@ -8,7 +8,7 @@ extern uint32_t initial_esp;
 
 void move_stack(void* new_stack_start, uint32_t size) {
 	//allocate space for new stack
-	for (int i = (uint32_t)new_stack_start; i >= ((uint32_t)new_stack_start - size); i -= 0x1000) {
+	for (uint32_t i = (uint32_t)new_stack_start; i >= ((uint32_t)new_stack_start - size); i -= 0x1000) {
 		//general purpose stack is user mode
 		alloc_frame(get_page(i, 1, current_directory), 0, 1);
 	}
@@ -35,9 +35,9 @@ void move_stack(void* new_stack_start, uint32_t size) {
 	memcpy((void*)new_sp, (void*)old_sp, initial_esp - old_sp);
 
 	//backtrace through original stack, copying new values into new stack
-	for (int i = (uint32_t)new_stack_start; i > (uint32_t)new_stack_start - size; i -= 4) {
+	for (uint32_t i = (uint32_t)new_stack_start; i > (uint32_t)new_stack_start - size; i -= 4) {
 		uint32_t tmp = *(uint32_t*)i;
-		//if value of tmp is inside range of old stack, 
+		//if value of tmp is inside range of old stack,
 		//assume it's a base pointer and remap it
 		//TODO keep in mind this will remap ANY value in this range,
 		//whether it's a base pointer or not

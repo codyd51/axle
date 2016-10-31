@@ -38,7 +38,7 @@ uint32_t kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
 	}
 	uint32_t tmp = placement_address;
 	placement_address += sz;
-	
+
 	return tmp;
 }
 
@@ -80,13 +80,13 @@ static int32_t find_smallest_hole(uint32_t size, uint8_t align, heap_t* heap) {
 			if (((location + sizeof(header_t)) & 0xFFFFF000) != 0) {
 				offset = PAGE_SIZE - ((location + sizeof(header_t)) % PAGE_SIZE);
 			}
-			
+
 			int32_t hole_size = (int32_t)header->size - offset;
 			//do we still fit?
 			if (hole_size >= (int32_t)size) break;
 		}
 		else if (header->size >= size) break;
-		
+
 		iterator++;
 	}
 
@@ -95,7 +95,7 @@ static int32_t find_smallest_hole(uint32_t size, uint8_t align, heap_t* heap) {
 		//reached end of index and didn't find any holes small enough
 		return -1;
 	}
-	
+
 	return iterator;
 }
 
@@ -165,7 +165,7 @@ void expand(uint32_t new_size, heap_t* heap) {
 
 static uint32_t contract(int32_t new_size, heap_t* heap) {
 	//sanity check
-	ASSERT(new_size < heap->end_address - heap->start_address, "new_size was larger than heap");
+	ASSERT((uint32_t)new_size < heap->end_address - heap->start_address, "new_size was larger than heap");
 
 	//get nearest page boundary
 	if (new_size & PAGE_SIZE) {
@@ -175,7 +175,7 @@ static uint32_t contract(int32_t new_size, heap_t* heap) {
 
 	//don't contract too far
 	new_size = MAX(new_size, HEAP_MIN_SIZE);
-	
+
 	int32_t old_size = heap->end_address - heap->start_address;
 	int32_t i = old_size - PAGE_SIZE;
 	while (new_size < i) {
@@ -194,7 +194,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 
 	if (iterator == -1) {
 		//no free hole large enough was found
-		
+
 		//save some previous data
 		uint32_t old_length = heap->end_address - heap->start_address;
 		uint32_t old_end_address = heap->end_address;
@@ -223,7 +223,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 			header->magic = HEAP_MAGIC;
 			header->hole = 1;
 			header->size = new_length - old_length;
-			
+
 			footer_t* footer = (footer_t*)(old_end_address + header->size - sizeof(footer_t));
 			footer->magic = HEAP_MAGIC;
 			footer->header = header;
@@ -251,7 +251,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 	uint32_t orig_hole_size = orig_hole_header->size;
 
 	//check if we should split hole into 2 parts
-	//this is only worth it if the new hole's size is greater than the 
+	//this is only worth it if the new hole's size is greater than the
 	//size we need to store the header and footer
 	if (orig_hole_size - new_size < sizeof(header_t) + sizeof(footer_t)) {
 		//increase size to size of hole we found
@@ -296,7 +296,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		hole_header->magic = HEAP_MAGIC;
 		hole_header->hole = 1;
 		hole_header->size = orig_hole_size - new_size;
-		
+
 		footer_t* hole_footer = (footer_t*)((uint32_t)hole_header + orig_hole_size - new_size - sizeof(footer_t));
 		if ((uint32_t)hole_footer < heap->end_address) {
 			hole_footer->magic = HEAP_MAGIC;
@@ -307,7 +307,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		array_o_insert(heap->index, (void*)hole_header);
 	}
 
-	//add this allocation to used memory 
+	//add this allocation to used memory
 	used_bytes += size;
 
 	return (void*)((uint32_t)block_header + sizeof(header_t));
@@ -413,4 +413,3 @@ void free(void* p, heap_t* heap) {
 uint32_t used_mem() {
 	return used_bytes;
 }
-

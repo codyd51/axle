@@ -30,7 +30,19 @@ Gradient gradient_make(Color from, Color to) {
 }
 
 Color color_at_ratio(Gradient gradient, double percent) {
-	return color_make(0, 0, 0);
+	Color from = gradient.from;
+	Color to = gradient.to;
+
+	uint8_t diff[3] = {
+		from.val[0] - to.val[0],
+	 	from.val[1] - to.val[1],
+		from.val[2] - to.val[2]
+	};
+	return color_make(
+		from.val[0] + percent * diff[0],
+		from.val[1] + percent * diff[1],
+		from.val[2] + percent * diff[2]
+	);
 }
 
 Color color_red() {

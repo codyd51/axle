@@ -29,7 +29,9 @@ void update_mouse_position(int x, int y) {
 	running_y = MIN(running_y, VESA_HEIGHT - 5);
 }
 
-void mouse_callback(registers_t* regs) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+void mouse_callback(registers_t regs) {
 	static sbyte mouse_byte[3];
 	static byte mouse_cycle = 0;
 
@@ -66,6 +68,7 @@ void mouse_callback(registers_t* regs) {
 			break;
 	}
 }
+#pragma GCC diagnostic pop
 
 void mouse_wait(byte a_type) {
 	dword timeout = 100000;
@@ -125,7 +128,7 @@ void mouse_install() {
 	mouse_write(0xF6);
 	mouse_read(); //acknowledge
 
-	//enable data reporting 
+	//enable data reporting
 	mouse_write(0xF4);
 	mouse_read(); //acknowledge
 

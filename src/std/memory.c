@@ -27,7 +27,7 @@ void* memset(void* bufptr, int value, size_t size) {
 
 	uint32_t val32 = value | (value << 8) | (value << 16) | (value << 24);
 	uint8_t val8 = (uint8_t)value;
-	
+
 	//write 4 byte chunks
 	for (uint32_t i = 0; i < num_dwords; i++) {
 		dest32[i] = val32;
@@ -94,7 +94,7 @@ void* calloc(size_t num, size_t size) {
 
 static size_t getsize(void* p) {
 	size_t* in = (size_t*)p;
-	if (in) { 
+	if (in) {
 		--in;
 		return *in;
 	}
@@ -103,7 +103,7 @@ static size_t getsize(void* p) {
 
 void* realloc(void* ptr, size_t size) {
 	void* newptr;
-	int msize = getsize(ptr);
+	size_t msize = getsize(ptr);
 	if (size <= msize) return ptr;
 
 	newptr = (void*)kmalloc(size);

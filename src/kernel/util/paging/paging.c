@@ -72,20 +72,22 @@ static void clear_frame(uint32_t frame_addr) {
 }
 
 //static function to test if a bit is sset
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 static uint32_t test_frame(uint32_t frame_addr) {
 	uint32_t frame = frame_addr/0x1000;
 	uint32_t idx = INDEX_FROM_BIT(frame);
 	uint32_t off = OFFSET_FROM_BIT(frame);
 	return (frames[idx] & (0x1 << off));
 }
+#pragma GCC diagnostic pop
 
-//static function to find the first free frame 
+//static function to find the first free frame
 static int32_t first_frame() {
-	int32_t i, j;
-	for (i = 0; i < INDEX_FROM_BIT(nframes); i++) {
+	for (uint32_t i = 0; i < INDEX_FROM_BIT(nframes); i++) {
 		if (frames[i] != 0xFFFFFFFF) {
 			//at least one free bit
-			for (j = 0; j < 32; j++) {
+			for (uint32_t j = 0; j < 32; j++) {
 				uint32_t bit = 0x1 << j;
 				if (!(frames[i] & bit)) {
 					//found unused bit i in addr
@@ -199,19 +201,19 @@ void set_paging_bit(bool enabled) {
 
 void paging_install() {
 	printf_info("Initializing paging...");
-	
+
 	//size of physical memory
 	//assume 32MB
 	uint32_t mem_end_page = 0x10000000;
 	//uint32_t mem_end_page = memory_size;
 	memsize = mem_end_page;
-		
+
 	nframes = mem_end_page / 0x1000;
 	frames = (uint32_t*)kmalloc(INDEX_FROM_BIT(nframes));
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
 
 	//make page directory
-	uint32_t phys;
+	// uint32_t phys;
 	kernel_directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
 	memset(kernel_directory, 0, sizeof(page_directory_t));
 	kernel_directory->physicalAddr = (uint32_t)kernel_directory->tablesPhysical;
@@ -223,7 +225,7 @@ void paging_install() {
 	//map pages in kernel heap area
 	//we call get_page but not alloc_frame
 	//this causes page_table_t's to be created where necessary
-	//don't alloc the frames yet, they need to be identity 
+	//don't alloc the frames yet, they need to be identity
 	//mapped below first.
     unsigned int i = 0;
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
@@ -311,7 +313,7 @@ static void page_fault(registers_t regs) {
 
 	if (present) printf_err("Page present");
 	else printf_err("Page not present");
-	
+
 	if (rw) printf_err("Write operation");
 	else printf_err("Read operation");
 
@@ -324,7 +326,7 @@ static void page_fault(registers_t regs) {
 
 	if (regs.eip != faulting_address) {
 		printf_err("Page fault caused by executing unpaged memory");
-	} 
+	}
 	else {
 		printf_err("Page fault caused by reading unpaged memory");
 	}
@@ -342,10 +344,10 @@ static void page_fault(registers_t regs) {
 		page_t* page = (page_t*)(faulting_address & page_mask);
 		printf_info("page addr %x", &page);
 		printf_info("page frame: %x", page->frame);
-		alloc_frame(get_page(&page, present, kernel_directory), 0, rw);
+		alloc_frame(get_page((uint32_t)&page, present, kernel_directory), 0, rw);
 
 		asm volatile("xchgw %bx, %bx");
-		
+
 		//return;
 	}
 
@@ -372,7 +374,7 @@ static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
 		table->pages[i].user = src->pages[i].user;
 		table->pages[i].accessed = src->pages[i].accessed;
 		table->pages[i].dirty = src->pages[i].dirty;
-		
+
 		//physically copy data across
 		extern void copy_page_physical(uint32_t page, uint32_t dest);
 		copy_page_physical(src->pages[i].frame * 0x1000, table->pages[i].frame * 0x1000);
@@ -428,4 +430,3 @@ void free_directory(page_directory_t* dir) {
 	//finally, free directory
 	kfree(dir);
 }
-

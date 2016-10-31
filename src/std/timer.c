@@ -31,17 +31,17 @@ timer_callback add_callback(void* callback, int interval, bool repeats, void* co
 		callback_table[callback_num].interval = interval;
 		callback_table[callback_num].time_left = interval;
 		callback_table[callback_num].repeats = repeats;
-		callback_table[callback_num].context = context;	
+		callback_table[callback_num].context = context;
 
 		callback_num++;
 
 		return callback_table[callback_num];
 	}
-	
+
 	//TODO expand table instead of clearing it
 	clear_table();
 	//try adding the callback again now that we know the table has room
-	return add_callback(callback, interval, repeats, context);	
+	return add_callback(callback, interval, repeats, context);
 }
 
 void remove_callback(timer_callback callback) {
@@ -53,6 +53,8 @@ void remove_callback(timer_callback callback) {
 	}
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 void handle_tick(uint32_t tick) {
 	//look through every callback and see if we should fire
 	for (int i = 0; i < callback_num; i++) {
@@ -74,6 +76,7 @@ void handle_tick(uint32_t tick) {
 		}
 	}
 }
+#pragma GCC diagnostic pop
 
 void sleep(uint32_t ms) {
 	uint32_t end = time() + ms;

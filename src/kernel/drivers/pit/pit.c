@@ -11,11 +11,14 @@ static volatile uint32_t tick = 0;
 //inform that a tick has occured
 extern void handle_tick(uint32_t tick);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 static void tick_callback(registers_t regs) {
 	tick++;
 
 	handle_tick(tick);
 }
+#pragma GCC diagnostic pop
 
 uint32_t tick_count() {
 	return tick;
@@ -24,7 +27,7 @@ uint32_t tick_count() {
 void pit_install(uint32_t frequency) {
 	printf_info("Initializing PIT timer...");
 	printf("\e[7;");
-	
+
 	//firstly, register our timer callback
 	register_interrupt_handler(IRQ0, &tick_callback);
 
@@ -44,4 +47,3 @@ void pit_install(uint32_t frequency) {
 	outb(0x40, l);
 	outb(0x40, h);
 }
-

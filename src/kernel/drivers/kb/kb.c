@@ -62,7 +62,10 @@ unsigned char kbdus[128] =
 
 void add_character_to_buffer(char ch) {
 	lock(mutex);
-	array_m_insert(kb_buffer, ch);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+	array_m_insert(kb_buffer, (type_t)ch);
+#pragma GCC diagnostic pop
 	unlock(mutex);
 }
 
@@ -73,14 +76,16 @@ static void finalize_keystroke(void) {
 	update_blocked_tasks();
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 void kb_callback(registers_t regs) {
 	static unsigned char c = 0;
-	
+
 	//read from keyboard's data buffer
 	if (inb(KBD_DATA_PORT) != c) {
 		c = inb(KBD_DATA_PORT);
 
-		//if top byte we read from KB is set, 
+		//if top byte we read from KB is set,
 		//then a key was just released
 		if (c & 0x80) {
 			// If the key released was shift, then remove the mask
@@ -106,7 +111,7 @@ void kb_callback(registers_t regs) {
 		}
 
 		// if this key was a special key, inform os
-		// TODO dedicated function to check for special keys 
+		// TODO dedicated function to check for special keys
 		kbman_process(c);
 
 		//rest for next use
@@ -119,7 +124,7 @@ void kb_callback(registers_t regs) {
 				mappedchar = toupper(mappedchar);
 			}
 		}
-		
+
 		if (c == KEY_UP) {
 			add_character_to_buffer('\033');
 			add_character_to_buffer('[');
@@ -147,6 +152,7 @@ void kb_callback(registers_t regs) {
 		finalize_keystroke();
 	}
 }
+#pragma GCC diagnostic pop
 
 char toupper_special(char character) {
 	switch(character) {
@@ -214,12 +220,15 @@ int haskey() {
 char kgetch() {
 	lock(mutex);
 
-	if (!haskey()) return NULL;
+	if (!haskey()) return 0;
 
 	//return first character from KB buffer, and remove that character
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
 	char ret = (char)array_m_lookup(kb_buffer, 0);
+#pragma GCC diagnostic pop
 	array_m_remove(kb_buffer, 0);
-	
+
 	unlock(mutex);
 	return ret;
 }

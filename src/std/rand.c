@@ -5,9 +5,12 @@
 #include <std/rand_internal.h>
 #include <kernel/drivers/rtc/clock.h>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 unsigned long mtwist_seed_system(mtwist* mt) {
 	return time_unique();
 }
+#pragma GCC diagnostic pop
 
 #define MTWIST_UPPER_MASK    UINT32_C(0x80000000)
 #define MTWIST_LOWER_MASK    UINT32_C(0x7FFFFFFF)
@@ -35,7 +38,6 @@ void mtwist_free(mtwist* mt) {
 }
 
 void mtwist_init(mtwist* mt, unsigned long seed) {
-	int i;
 	if (!mt) return;
 
 	mt->state[0] = (uint32_t)(seed & MTWIST_FULL_MASK);

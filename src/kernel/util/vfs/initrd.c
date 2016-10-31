@@ -6,7 +6,7 @@ initrd_file_header_t* file_headers;	//list of file headers
 fs_node_t* initrd_root;			//root directory node
 fs_node_t* initrd_dev;			//add directory node for /dev so we can mount devfs later on
 fs_node_t* root_nodes;			//list of file nodes
-int nroot_nodes;			//number of file nodes
+uint8_t nroot_nodes;			//number of file nodes
 
 struct dirent dirent;
 
@@ -34,8 +34,9 @@ static struct dirent* initrd_readdir(fs_node_t* node, uint32_t index) {
 	if (index - 1 >= nroot_nodes) {
 		return 0;
 	}
-	strcpy(dirent.name, root_nodes[index - 1].name);
-	dirent.name[strlen(root_nodes[index-1].name)] = 0; //null terminate string
+	char* name = root_nodes[index - 1].name;
+	strcpy(dirent.name, name);
+	dirent.name[strlen(name)] = 0; //null terminate string
 	dirent.ino = root_nodes[index-1].inode;
 	return &dirent;
 }
@@ -91,7 +92,7 @@ fs_node_t* initrd_install(uint32_t location) {
 	nroot_nodes = initrd_header->nfiles;
 
 	//for every file
-	for (int i = 0 ; i < initrd_header->nfiles; i++) {
+	for (uint8_t i = 0 ; i < initrd_header->nfiles; i++) {
 		//edit every file's header
 		//currently, holds file offset relative to start of ramdisk
 		//we want it relative to the start of memory

@@ -1,25 +1,27 @@
 #include <kernel/kernel.h>
-#include <user/shell/shell.h>
-#include <kernel/drivers/rtc/clock.h>
-#include <std/common.h>
-#include <kernel/util/paging/descriptor_tables.h>
-#include <kernel/drivers/pit/pit.h>
-#include <kernel/util/paging/paging.h>
-#include <stdarg.h>
-#include <gfx/lib/gfx.h>
-#include <kernel/drivers/vesa/vesa.h>
-#include <std/kheap.h>
-#include <tests/test.h>
-#include <user/xserv/xserv.h>
 #include "multiboot.h"
-#include <gfx/font/font.h>
-#include <kernel/util/multitasking/tasks/task.h>
-#include <gfx/lib/view.h>
-#include <kernel/util/syscall/syscall.h>
-#include <kernel/util/mutex/mutex.h>
+#include <stdarg.h>
+#include <std/common.h>
+#include <std/kheap.h>
 #include <std/printf.h>
+#include <user/shell/shell.h>
+#include <user/xserv/xserv.h>
+#include <gfx/lib/gfx.h>
+#include <gfx/lib/view.h>
+#include <gfx/font/font.h>
+#include <kernel/util/syscall/syscall.h>
+#include <kernel/util/syscall/sysfuncs.h>
+#include <kernel/util/paging/descriptor_tables.h>
+#include <kernel/util/paging/paging.h>
+#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/util/mutex/mutex.h>
 #include <kernel/util/vfs/initrd.h>
+#include <kernel/drivers/rtc/clock.h>
+#include <kernel/drivers/pit/pit.h>
+#include <kernel/drivers/mouse/mouse.h>
+#include <kernel/drivers/vesa/vesa.h>
 #include <kernel/drivers/pci/pci_detect.h>
+#include <tests/test.h>
 
 void print_os_name(void) {
 	printf("\e[10;[\e[11;AXLE OS v\e[12;0.6.0\e[10;]\n");
@@ -129,7 +131,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//this should never be reached as the above call is never executed
 	//if for some reason it is, just spin
 	while (1) {
-		sys_yield();
+		sys_yield(RUNNABLE);
 	}
 
 	//if by some act of god we've reached this point, just give up and assert

@@ -1,4 +1,6 @@
 #include "shader.h"
+#include <std/kheap.h>
+#include <std/memory.h>
 //#include "view.h"
 #include <user/xserv/xserv.h>
 
@@ -20,7 +22,7 @@ Shader* compute_shader(Shader* s) {
 			int idx = (y * frame.size.width) + x;
 			double y_pc = y / (double)frame.size.height;
 			double x_pc = x / (double)frame.size.width;
-			
+
 			Color px;
 			px.val[0] = (1 - y_pc) * 255;
 			px.val[1] = (1 - x_pc) * 255;
@@ -28,6 +30,7 @@ Shader* compute_shader(Shader* s) {
 			s->raw[idx] = px;
 		}
 	}
+	return s;
 }
 
 void draw_shader(Screen* screen, Shader* s) {
@@ -35,11 +38,10 @@ void draw_shader(Screen* screen, Shader* s) {
 
 	int bpp = 24 / 8;
 	int offset = (frame.origin.x * bpp) + (frame.origin.y * screen->window->size.width * bpp);
-	uint8_t* shader_offset = s->raw;
+	uint8_t* shader_offset = (uint8_t*)s->raw;
 	for (int i = 0; i < frame.size.width; i++) {
 		memadd(screen->window->layer->raw + offset, shader_offset, frame.size.width * bpp);
 		offset += (screen->window->size.width * bpp);
 		shader_offset += frame.size.width * bpp;
 	}
 }
-

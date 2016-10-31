@@ -8,7 +8,7 @@
 #define KERNEL_STACK_SIZE 2048 //use 2kb kernel stack
 
 typedef enum task_state {
-    RUNNABLE = 0, 
+    RUNNABLE = 0,
 	ZOMBIE, //intermediate state after task finishes executing before being flushed from system
     KB_WAIT,
     PIT_WAIT,
@@ -24,7 +24,7 @@ typedef struct task {
 	int id;  //PID
 	int queue; //scheduler ring this task is slotted in
 
-	task_state state; //current process state 
+	task_state state; //current process state
     int32_t wake_timestamp; //used if process is in PIT_WAIT state
 
 	uint32_t begin_date;
@@ -47,6 +47,8 @@ typedef struct task {
 void tasking_install();
 bool tasking_installed();
 
+void block_task(task_t* task, task_state reason);
+
 //initialize a new process structure
 //does not add returned process to running queue
 task_t* create_process(char* name, uint32_t eip, bool wants_stack);
@@ -55,7 +57,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack);
 void add_process(task_t* task);
 
 //changes running process
-volatile uint32_t task_switch();
+uint32_t task_switch();
 
 //forks current process
 //spawns new process with different memory space

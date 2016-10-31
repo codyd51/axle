@@ -161,7 +161,7 @@ unsigned char ide_print_error(unsigned int drive, unsigned char err) {
 		printf("- Write Protected\n");
 		err = 8;
 	}
-	printf("- [%s %s] %s\n", 
+	printf("- [%s %s] %s\n",
 		//use the channel as an index into array
 		(const char*[]){"Primary", "Secondary"}[ide_devices[drive].Channel],
 		//same as above, using drive
@@ -286,7 +286,7 @@ void ide_initialize(unsigned int BAR0, unsigned int BAR1, unsigned int BAR2, uns
 }
 
 unsigned char ide_ata_access(unsigned char direction, unsigned char drive, unsigned int lba, unsigned char numsects, unsigned short selector, unsigned int edi) {
-	unsigned char lba_mode /*0: CHS, 1: LBA28, 2: LBA48 **, dma /* 0: No DMA, 1: DMA **, cmd;
+	unsigned char lba_mode //0: CHS, 1: LBA28, 2: LBA48 **, dma // 0: No DMA, 1: DMA **, cmd;
 	unsigned char lba_io[6];
 	//read the channel
 	unsigned int channel 		= ide_devices[drive].Channel;
@@ -314,7 +314,7 @@ unsigned char ide_ata_access(unsigned char direction, unsigned char drive, unsig
 		lba_io[5] = 0;
 		//lower 4 bits of HDDEVSEL are not used here
 		head 	  = 0;
-	} 
+	}
 	//does drive support LBA?
 	else if (ide_devices[drive].Capabilities & 0x200) {
 		//LBA28:
@@ -422,7 +422,7 @@ unsigned char ide_ata_access(unsigned char direction, unsigned char drive, unsig
 				asm("popw %ds");
 				edi += (words * 2);
 			}
-			ide_write(channel, ATA_REG_COMMAND, (char[]){ 
+			ide_write(channel, ATA_REG_COMMAND, (char[]){
 				ATA_CMD_CACHE_FLUSH,
 				ATA_CMD_CACHE_FLUSH,
 				ATA_CMD_CACHE_FLUSH_EXT}[lba_mode]);
@@ -521,7 +521,7 @@ unsigned char ide_atapi_read(unsigned char drive, unsigned int lba, unsigned cha
 
 	return 0;
 }
-/*
+
 void ide_read_sectors(unsigned char drive, unsigned char numsects, unsigned int lba, unsigned short es, unsigned int edi) {
 	//check if drive present
 	if (drive > 3 || ide_devices[drive].Reserved == 0) {
@@ -651,14 +651,3 @@ void ide_atapi_eject(unsigned char drive) {
 
 
 //ide_initialize(0x1F0, 0x36, 0x170, 0x376, 0x000);
-
-
-
-
-
-
-
-
-
-
-

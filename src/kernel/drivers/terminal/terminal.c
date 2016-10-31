@@ -56,7 +56,13 @@ static void putraw(char ch);
 static void backspace(void);
 static rawcolor make_color(term_color fg, term_color bg);
 static uint16_t make_terminal_entry(char ch, rawcolor color);
-static void update_cursor(term_cursor loc);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#pragma GCC diagnostic ignored "-Wunused-function"
+static void update_cursor(term_cursor loc) {
+	//TODO: implement it
+}
+#pragma GCC diagnostic pop
 static void term_end_line();
 
 void terminal_initialize(void) {
@@ -68,7 +74,7 @@ void terminal_initialize(void) {
 
 	//set up first line buffer
 	term_end_line();
-	
+
 	terminal_setcolor(TERM_DEFAULT_FG, TERM_DEFAULT_BG);
 	terminal_clear();
 }
@@ -80,30 +86,30 @@ void terminal_clear(void) {
 		uint16_t blank = make_terminal_entry(' ', g_terminal_color);
 		g_terminal_buffer->mem[i] = blank;
 	}
-	
+
 	terminal_setcursor((term_cursor){0, 0});
-	
+
 	unlock(mutex);
 }
 
 static void push_back_line(void) {
 	lock(mutex);
-	
+
 	// Move all lines up one. This won't clear the last line
-	
+
 	/*
 	memmove(&g_terminal_buffer->mem[0],
 	        &g_terminal_buffer->mem[TERM_WIDTH],
 	        TERM_COUNT - TERM_WIDTH);
 	*/
-	
+
 	// memmove is not currently implemented, so do this for now
 	for(uint16_t y = 1; y < TERM_HEIGHT; y++) {
 		memcpy(&g_terminal_buffer->grid[y-1][0],
 		       &g_terminal_buffer->grid[y][0],
 		       TERM_WIDTH * sizeof(g_terminal_buffer->grid[0][0]));
 	}
-	
+
 	// Clear the last line
 	uint16_t blank = make_terminal_entry(' ', g_terminal_color);
 	for(uint16_t x = 0; x < TERM_WIDTH; x++) {
@@ -159,7 +165,7 @@ static void term_record_color(term_cell_color col) {
 	//append color format to line history
 	char* current = (char*)array_m_lookup(term_history, term_history->size - 1);
 	strcat(current, "\e[");
-	
+
 	//convert color code to string
 	char buf[3];
 	itoa(col.fg, buf);
@@ -187,10 +193,10 @@ static void putraw(char ch) {
 
 	// Find where to draw the character
 	uint16_t* entry = &g_terminal_buffer->grid[g_cursor_pos.y][g_cursor_pos.x];
-	
+
 	// Draw the character
 	*entry = make_terminal_entry(ch, g_terminal_color);
-	
+
 	// Advance cursor to next valid position
 	if(++g_cursor_pos.x >= TERM_WIDTH) {
 		newline();
@@ -206,7 +212,7 @@ static void backspace(void) {
 			// Can't delete if we're at the first spot
 			return;
 		}
-		
+
 		// Go back to last column on previous line
 		new_pos.x = TERM_WIDTH - 1;
 		new_pos.y = g_cursor_pos.y - 1;
@@ -216,7 +222,7 @@ static void backspace(void) {
 		new_pos.x = g_cursor_pos.x - 1;
 		new_pos.y = g_cursor_pos.y;
 	}
-	
+
 	// Draw a space over the previous character, then back up
 	g_cursor_pos = new_pos;
 	putraw(' ');
@@ -258,7 +264,7 @@ void terminal_putchar(char ch) {
 		case '\n':
 			newline();
 			break;
-		
+
 		// Tab
 		case '\t': {
 			uint16_t tab = TERM_TABWIDTH - (g_cursor_pos.x % TERM_TABWIDTH);
@@ -268,28 +274,28 @@ void terminal_putchar(char ch) {
 					newline();
 					break;
 				}
-				
+
 				// Draw spaces to make the tab
 				putraw(' ');
 			}
 			break;
 		}
-		
+
 		// Backspace
 		case '\b':
 			backspace();
 			break;
-		
+
 		// Alarm
 		case '\a':
 			//TODO
 			break;
-		
+
 		// Formfeed
 		case '\f':
 			terminal_clear();
 			break;
-		
+
 		// Vertical tab
 		case '\v':
 			if(++g_cursor_pos.y >= TERM_HEIGHT) {
@@ -312,7 +318,7 @@ void terminal_putchar(char ch) {
 			putraw(ch);
 			break;
 	}
-	
+
 	// Update displayed cursor position
 	terminal_updatecursor();
 }
@@ -382,11 +388,11 @@ void term_scroll(term_scroll_direction dir) {
 		if (scroll_state.height == 0) return;
 		scroll_state.height--;
 	}
-	
+
 	is_scroll_redraw = true;
 	terminal_clear();
 	terminal_setcolor(COLOR_GREEN, COLOR_BLACK);
-	
+
 	for (int y = 0; y < TERM_HEIGHT; y++) {
 		int32_t line_idx = term_history->size - (TERM_HEIGHT - y) - scroll_state.height;
 		char* line = (char*)array_m_lookup(term_history, line_idx);

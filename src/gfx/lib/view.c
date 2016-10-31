@@ -4,14 +4,16 @@
 #include <stddef.h>
 #include <kernel/util/vfs/fs.h>
 #include <std/printf.h>
-#include "shader.h"
+#include <std/string.h>
+#include <std/memory.h>
+#include <gfx/lib/shader.h>
 
-#define MAX_ELEMENTS 64 
+#define MAX_ELEMENTS 64
 
 ca_layer* create_layer(Size size) {
-	ca_layer* ret = kmalloc(sizeof(ca_layer));
+	ca_layer* ret = (ca_layer*)kmalloc(sizeof(ca_layer));
 	ret->size = size;
-	ret->raw = kmalloc(size.width * size.height * gfx_bpp());
+	ret->raw = (uint8_t*)kmalloc(size.width * size.height * gfx_bpp());
 	return ret;
 }
 
@@ -60,7 +62,7 @@ static View* create_content_view(Window* window) {
 	Rect inner_frame = rect_make(point_make((window->border_width * 2), title_height), size_make(window->frame.size.width - (window->border_width * 4), window->frame.size.height - title_height - (window->border_width * 2)));
 	View* content_view = create_view(inner_frame);
 	content_view->background_color = color_make(255, 255, 255);
-	
+
 	return content_view;
 }
 
@@ -80,7 +82,7 @@ Window* create_window(Rect frame) {
 	window->content_view = create_content_view(window);
 
 	window->needs_redraw = 1;
-		
+
 	return window;
 }
 
@@ -263,11 +265,12 @@ void set_frame(View* view, Rect frame) {
 	if (!view) return;
 
 	Rect old_frame = view->frame;
+	old_frame = old_frame; // TODO: do something here
 	view->frame = frame;
 
 	//resize layer
-	int layer_bytes = old_frame.size.width * old_frame.size.height;
+	// int layer_bytes = old_frame.size.width * old_frame.size.height;
 	//realloc(view->layer, layer_bytes);
-	
+
 	mark_needs_redraw(view);
 }

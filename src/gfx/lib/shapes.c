@@ -70,7 +70,7 @@ static void draw_rect_int_fast(ca_layer* layer, Rect rect, Color color) {
 	if (rect.origin.y + rect.size.height >= layer->size.height) {
 		rect.size.height -= (rect.origin.y + rect.size.height - layer->size.height);
 	}
-	
+
 	bool rgb = (gfx_depth() == VESA_DEPTH);
 	int bpp = (rgb ? 3 : 1);
 
@@ -113,7 +113,7 @@ void draw_rect(ca_layer* layer, Rect r, Color color, int thickness) {
 
 	//if thickness is negative, fill the shape
 	if (thickness < 0) thickness = max_thickness;
-	
+
 	//make sure they don't request a thickness too big
 	thickness = MIN(thickness, max_thickness);
 	//a filled shape is a special case that can be drawn faster
@@ -121,7 +121,7 @@ void draw_rect(ca_layer* layer, Rect r, Color color, int thickness) {
 		draw_rect_int_fast(layer, r, color);
 		return;
 	}
-	
+
 	int x = r.origin.x;
 	int y = r.origin.y;
 	int w = r.size.width;
@@ -140,7 +140,8 @@ void draw_rect(ca_layer* layer, Rect r, Color color, int thickness) {
 		h -= 2;
 	}
 }
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 void draw_hline_fast(ca_layer* layer, Line line, Color color, int thickness) {
 	//don't try to write anywhere outside screen bounds
 	normalize_coordinate(layer, &line.p1);
@@ -190,6 +191,7 @@ void draw_vline_fast(ca_layer* layer, Line line, Color color, int thickness) {
 		offset = row_start;
 	}
 }
+#pragma GCC diagnostic pop
 
 void draw_line(ca_layer* layer, Line line, Color color, int thickness) {
 	//first things first
@@ -210,7 +212,7 @@ void draw_line(ca_layer* layer, Line line, Color color, int thickness) {
 		draw_hline_fast(layer, line, color, thickness);
 		return;
 	}
-	
+
 	int t;
 	int distance;
 	int xerr = 0, yerr = 0, delta_x, delta_y;
@@ -221,7 +223,7 @@ void draw_line(ca_layer* layer, Line line, Color color, int thickness) {
 	delta_y = line.p2.y - line.p1.y;
 
 	//figure out direction of increment
-	//incrememnt of 0 indicates either vertical or 
+	//incrememnt of 0 indicates either vertical or
 	//horizontal line
 	if (delta_x > 0) incx = 1;
 	else if (delta_x == 0) incx = 0;
@@ -336,7 +338,7 @@ void draw_triangle(ca_layer* layer, Triangle tri, Color color, int thickness) {
 	draw_triangle_int(layer, tri, color);
 }
 
-void draw_circle_int(ca_layer* layer, Circle circle, Color color) {	
+void draw_circle_int(ca_layer* layer, Circle circle, Color color) {
 	int x = 0;
 	int y = circle.radius;
 	int dp = 1 - circle.radius;
@@ -389,4 +391,3 @@ void draw_circle(ca_layer* layer, Circle circ, Color color, int thickness) {
 		c.radius -= 1;
 	}
 }
-

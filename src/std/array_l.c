@@ -7,7 +7,7 @@ static lock_t* mutex;
 array_l* array_l_create() {
 	mutex = lock_create();
 
-	array_l* ret = kmalloc(sizeof(array_l));
+	array_l* ret = (array_l*)kmalloc(sizeof(array_l));
 	memset(ret, 0, sizeof(array_l));
 
 	return ret;
@@ -27,7 +27,7 @@ void array_l_insert(array_l* array, type_t item) {
 	lock(mutex);
 
 	//create container
-	array_l_item* real = kmalloc(sizeof(array_l_item));
+	array_l_item* real = (array_l_item*)kmalloc(sizeof(array_l_item));
 	real->item = item;
 	real->next = NULL;
 
