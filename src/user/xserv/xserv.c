@@ -54,10 +54,15 @@ Window* containing_window_int(Screen* screen, View* v) {
 		view = view->superview;
 	}
 
-	if (screen->window->title_view == view || screen->window->content_view == view) return screen->window;
+	//if (screen->window->title_view == view || screen->window->content_view == view) return screen->window
+
 	//traverse view hierarchy, find window which has view as its title or content view
 	for (int32_t i = 0; i < screen->window->subviews->size; i++) {
 		Window* window = (Window*)array_m_lookup(screen->window->subviews, i);
+
+		//if user passed a Window, check against that
+		if (window == view) return window;
+
 		if (window->title_view == view || window->content_view == view) return window;
 		for (int32_t j = 0; j < window->subviews->size; j++) {
 			Window* subwindow = (Window*)array_m_lookup(window->subviews, j);
@@ -176,10 +181,8 @@ void draw_label(ca_layer* dest, Label* label) {
 	View* superview = label->superview;
 	//Window* win = containing_window_int(screen, label);
 
-	/*
-	if (win != screen->window && !win->needs_redraw) return;
-	else if (!superview) return;
-	*/
+	//if (win != screen->window && !win->needs_redraw) return;
+	//else if (!superview) return;
 
 	//Rect frame = absolute_frame(screen, (View*)label);
 	Rect frame = label->frame;
@@ -240,12 +243,10 @@ void draw_view(Screen* screen, View* view) {
 	//View* superview = view->superview;
 	//Window* superwindow = containing_window_int(screen, view);
 
-	/*
 	if (!view) return;
 	if (!containing_window_int(screen, view)->needs_redraw) {
 		return;
 	}
-	*/
 
 	//inform subviews that we're being redrawn
 	dirtied = 1;
@@ -278,7 +279,6 @@ void draw_view(Screen* screen, View* view) {
 		View* subview = (View*)array_m_lookup(view->subviews, i);
 		draw_view(screen, subview);
 	}
-
 	view->needs_redraw = 0;
 }
 
@@ -311,7 +311,7 @@ void blit_layer(ca_layer* dest, ca_layer* src, Coordinate origin) {
 }
 
 void draw_window(Screen* screen, Window* window) {
-	//if (!window->needs_redraw) return;
+	if (!window->needs_redraw) return;
 
 	dirtied = 1;
 
@@ -331,39 +331,47 @@ void draw_window(Screen* screen, Window* window) {
 		draw_view(screen, window->content_view);
 
 		//draw dividing border between window border and other content
-		if (window->border_width) {
-			//outer border
-			draw_rect(window->layer, rect_make(point_zero(), window->frame.size), color_black(), 1);
-
+		if (window->border_width && window != screen->window) {
 			//inner border
-			draw_rect(window->layer, rect_make(point_zero(), window->content_view->frame.size), color_gray(), 1);
+			draw_rect(window->content_view->layer, rect_make(point_zero(), window->content_view->frame.size), color_gray(), window->border_width);
 		}
 	}
 
 	//composite views of this window into layer
-	blit_layer(window->layer, window->title_view->layer, window->title_view->frame.origin);
-	blit_layer(window->layer, window->content_view->layer, window->content_view->frame.origin);
+	if (window->title_view) {
+		blit_layer(window->layer, window->title_view->layer, window->title_view->frame.origin);
+	}
+	if (window->content_view) {
+		blit_layer(window->layer, window->content_view->layer, window->content_view->frame.origin);
+	}
+
+	//draw window border
+	if (window != screen->window) {
+		draw_rect(window->layer, rect_make(point_zero(), window->frame.size), color_black(), 1);
+	}
 
 	window->needs_redraw = 0;
 }
 
 void add_taskbar(Screen* screen) {
-	Size taskbar_size = size_make(screen->window->frame.size.width, screen->window->frame.size.height * 0.045);
+	View* content = screen->window->content_view;
+	Size taskbar_size = size_make(content->frame.size.width, content->frame.size.height * 0.045);
 	Rect border_r = rect_make(point_make(0, 0), size_make(taskbar_size.width, 5));
 	taskbar_size.height -= border_r.size.height;
 
-	Coordinate taskbar_origin = point_make(0, screen->window->frame.size.height - taskbar_size.height + border_r.size.height);
+	Coordinate taskbar_origin = point_make(0, content->frame.size.height - taskbar_size.height + border_r.size.height);
 	View* taskbar_view = create_view(rect_make(taskbar_origin, taskbar_size));
 	taskbar_view->background_color = color_make(245, 120, 80);
-	add_subview(screen->window->content_view, taskbar_view);
+	add_subview(content, taskbar_view);
 
 	//add top 'border' to taskbar
 	//TODO add window border API
 	View* border = create_view(border_r);
-	border->background_color = color_make(200, 80, 245); add_subview(taskbar_view, border);
+	border->background_color = color_make(200, 80, 245);
+	add_subview(taskbar_view, border);
 
 	//inner border seperating top and bottom of taskbar
-	View* inner_border = create_view(rect_make(point_make(0, border_r.size.height), size_make(screen->window->frame.size.width, 1)));
+	View* inner_border = create_view(rect_make(point_make(0, border_r.size.height), size_make(content->frame.size.width, 1)));
 	inner_border->background_color = color_make(50, 50, 50);
 	add_subview(taskbar_view, inner_border);
 
@@ -402,11 +410,9 @@ void draw_desktop(Screen* screen) {
 void desktop_setup(Screen* screen) {
 	//set up background image
 	Bmp* background = load_bmp(screen->window->content_view->frame, "windows-xp.bmp");
-	//Bmp* background = load_bmp(screen->window->content_view->frame, "windows-xp.bmp");
-	//Bmp* background = load_bmp(rect_make(point_make(100, 100), size_make(512, 512)), "Lenna.bmp");
 	add_bmp(screen->window->content_view, background);
-	//add_status_bar(screen);
-	//add_taskbar(screen);
+	add_status_bar(screen);
+	add_taskbar(screen);
 }
 
 void draw_cursor(Screen* screen) {
@@ -466,7 +472,7 @@ static Window* window_containing_point(Screen* screen, Coordinate p) {
 	for (int i = screen->window->subviews->size - 1; i >= 0; i--) {
 		Window* w = (Window*)array_m_lookup(screen->window->subviews, i);
 		//TODO implement rect_intersects
-		if (p.x >= w->frame.origin.x && p.y >= w->frame.origin.y && p.x - w->frame.origin.x <= w->frame.size.width && p.y - w->frame.origin.y <= w->frame.size.height) {
+		if (p.x >= rect_min_x(w->frame)  && p.y >= rect_min_y(w->frame) && p.x - rect_min_x(w->frame) <= w->frame.size.width && p.y - rect_min_y(w->frame) <= w->frame.size.height) {
 			return w;
 		}
 	}
@@ -523,7 +529,6 @@ static Label* fps;
 void xserv_refresh(Screen* screen) {
 	//if (!screen->finished_drawing) return;
 
-	/*
 	//check if there are any keys pending
 	if (haskey()) {
 		char ch;
@@ -534,11 +539,11 @@ void xserv_refresh(Screen* screen) {
 			}
 		}
 	}
-	*/
 
 	double time_start = time();
 	xserv_draw(screen);
 	double frame_time = (time() - time_start) / 1000.0;
+	double fps_conv = 1 / frame_time;
 
 	//draw rect to indicate whether the screen was dirtied this frame
 	//red indicates dirtied, green indicates clean
@@ -547,8 +552,10 @@ void xserv_refresh(Screen* screen) {
 
 	//update frame time tracker
 	char buf[32];
-	itoa(frame_time * 1000, &buf);
-	strcat(buf, " ms/frame");
+	itoa(fps_conv, &buf);
+	strcat(buf, " FPS");
+	//itoa(frame_time * 1000, &buf);
+	//strcat(buf, " ms/frame");
 	fps->text = buf;
 	draw_label(screen->window->layer, fps);
 

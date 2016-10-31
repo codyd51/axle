@@ -11,6 +11,7 @@
 #include <kernel/drivers/rtc/clock.h>
 
 extern page_directory_t* kernel_directory;
+Window* create_window_int(Rect frame, bool root);
 
 //sets bank if LFB isn't supported/enabled
 void set_bank(int bank) {
@@ -92,7 +93,7 @@ Screen* switch_to_vesa(uint32_t vesa_mode, bool create) {
 
 			//linear frame buffer (LFB) address
 			screen->physbase = (uint8_t*)mode_info.physbase;
-			screen->window = create_window(rect_make(point_make(0, 0), size_make(mode_info.x_res, mode_info.y_res)));
+			screen->window = create_window_int(rect_make(point_make(0, 0), size_make(mode_info.x_res, mode_info.y_res)), true);
 			screen->depth = mode_info.bpp;
 			screen->bpp = screen->depth / 8;
 
