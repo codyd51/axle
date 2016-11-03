@@ -8,16 +8,16 @@
 __BEGIN_DECLS
 
 //page aligned
-STDAPI uint32_t kmalloc_a(uint32_t sz);
+STDAPI void* kmalloc_a(uint32_t sz);
 
 //returns physical address
-STDAPI uint32_t kmalloc_p(uint32_t sz, uint32_t* phys);
+STDAPI void* kmalloc_p(uint32_t sz, uint32_t* phys);
 
 //page aligned and returns physical address
-STDAPI uint32_t kmalloc_ap(uint32_t sz, uint32_t* phys);
+STDAPI void* kmalloc_ap(uint32_t sz, uint32_t* phys);
 
 //normal kmalloc
-STDAPI uint32_t kmalloc(uint32_t sz);
+STDAPI void* kmalloc(uint32_t sz);
 
 #define KHEAP_START		0xC0000000
 #define KHEAP_INITIAL_SIZE	0x100000

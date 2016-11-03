@@ -16,7 +16,7 @@ extern page_directory_t* current_directory;
 heap_t* kheap = 0;
 static uint32_t used_bytes;
 
-uint32_t kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
+void* kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
 	//if the heap already exists, pass through
 	if (kheap) {
 		void* addr = alloc(sz, (uint8_t)align, kheap);
@@ -24,7 +24,7 @@ uint32_t kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
 			page_t* page = get_page((uint32_t)addr, 0, kernel_directory);
 			*phys = page->frame * PAGE_SIZE + ((uint32_t)addr & 0xFFF);
 		}
-		return (uint32_t)addr;
+		return addr;
 	}
 
 	//if addr is not already page aligned
@@ -39,22 +39,22 @@ uint32_t kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
 	uint32_t tmp = placement_address;
 	placement_address += sz;
 
-	return tmp;
+	return (void*)tmp;
 }
 
-uint32_t kmalloc_a(uint32_t sz) {
+void* kmalloc_a(uint32_t sz) {
 	return kmalloc_int(sz, 1, 0);
 }
 
-uint32_t kmalloc_p(uint32_t sz, uint32_t* phys) {
+void* kmalloc_p(uint32_t sz, uint32_t* phys) {
 	return kmalloc_int(sz, 0, phys);
 }
 
-uint32_t kmalloc_ap(uint32_t sz, uint32_t* phys) {
+void* kmalloc_ap(uint32_t sz, uint32_t* phys) {
 	return kmalloc_int(sz, 1, phys);
 }
 
-uint32_t kmalloc(uint32_t sz) {
+void* kmalloc(uint32_t sz) {
 	return kmalloc_int(sz, 0, 0);
 }
 
@@ -155,8 +155,10 @@ void expand(uint32_t new_size, heap_t* heap) {
 	//this *should* always be on a page boundary
 	uint32_t old_size = heap->end_address - heap->start_address;
 	uint32_t i = old_size;
+
+	//do expansion
 	while (i < new_size) {
-	//printf_info("allocating page at %x", heap->start_address + i);
+		//printf_info("allocating page at %x", heap->start_address + i);
 		alloc_frame(get_page(heap->start_address + i, 1, kernel_directory), heap->supervisor, !heap->readonly);
 		i += PAGE_SIZE;
 	}
@@ -242,7 +244,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 
 		//we should now have enough space
 		//try allocation again
-		printf_info("alloc added header, retrying allocation");
+		printf_info("alloc added header, retrying allocation (heap %x)", new_size);
 		return alloc(size, align, heap);
 	}
 
