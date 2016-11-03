@@ -407,6 +407,13 @@ void update_blocked_tasks() {
 				unblock_task(task);
 			}
 		}
+
+		//TODO figure out when exactly tasks with MOUSE_WAIT should be unblocked
+		if (task->state == MOUSE_WAIT) {
+			unblock_task(task);
+			goto_pid(task->id);
+		}
+
 		task = task->next;
 	}
 

@@ -105,14 +105,6 @@ Rect absolute_frame(Screen* screen, View* view) {
 }
 
 void draw_bmp_int(ca_layer* dest, Bmp* bmp, bool force) {
-	View* superview = bmp->superview;
-	//don't assert as the mouse cursor doesn't have a superview
-	//TODO figure out workaround that works long-term
-	if (!superview) {
-		//printf_err("bmp had no superview!");
-		//superview = screen->window->content_view;
-	}
-
 	/*
 	if (!bmp || !containing_window_int(screen, bmp)->needs_redraw) {
 		if (!force) {
@@ -121,52 +113,7 @@ void draw_bmp_int(ca_layer* dest, Bmp* bmp, bool force) {
 	}
 	*/
 
-	dirtied = 1;
-
-	/*
-	Rect frame = absolute_frame(screen, (View*)bmp);
-	frame.size.width = MIN(frame.size.width, bmp->raw_size.width);
-	frame.size.height = MIN(frame.size.height, bmp->raw_size.height);
-	*/
-	//Rect frame = rect_make(point_zero(), bmp->frame.size);
-
-	/*
-	int row_min = 0;
-	if (frame.origin.x < 0) {
-		row_min = -frame.origin.x;
-	}
-	int row_max = frame.size.width;
-	/*
-	if (rect_max_x(frame) > screen->window->frame.size.width) {
-		row_max -= abs(frame.size.width + frame.origin.x - screen->window->frame.size.width);
-	}
-	*/
-	/*
-	int col_min = 0;
-	if (frame.origin.y < 0) {
-		col_min = -frame.origin.y;
-	}
-	int col_max = frame.size.height;
-	/*
-	if (frame.size.height + frame.origin.y > screen->window->frame.size.height) {
-		col_max -= abs(frame.size.height + frame.origin.y - screen->window->frame.size.height);
-	}
-
-	int bpp = 24 / 8;
-	int offset = frame.origin.x * bpp + (frame.origin.y + col_min) * dest->size.width * bpp + (row_min * bpp);
-
-	int current_row_ptr = offset;
-	Color* row = bmp->raw + row_min + (col_min * bmp->raw_size.width);
-	for (int i = col_min; i < col_max; i++) {
-		memcpy(dest + offset, row, row_max * bpp - row_min * bpp);
-		row += bmp->raw_size.width;
-
-		current_row_ptr += dest->size.width * bpp;
-		offset = current_row_ptr;
-	}
-	*/
-
-	blit_layer(dest, bmp->layer, bmp->frame.origin);
+	blit_layer(dest, bmp->layer, bmp->frame.origin); 
 
 	bmp->needs_redraw = 0;
 }
@@ -179,15 +126,10 @@ void draw_label(ca_layer* dest, Label* label) {
 	if (!label) return;
 
 	View* superview = label->superview;
-	//Window* win = containing_window_int(screen, label);
-
-	//if (win != screen->window && !win->needs_redraw) return;
-	//else if (!superview) return;
-
-	//Rect frame = absolute_frame(screen, (View*)label);
 	Rect frame = label->frame;
 	frame.origin = point_zero();
-//find bounding box of text
+
+	//find bounding box of text
 	float bounding_width = strlen(label->text) * CHAR_WIDTH;
 	float bounding_height = CHAR_HEIGHT;
 
@@ -203,7 +145,7 @@ void draw_label(ca_layer* dest, Label* label) {
 	}
 
 	Rect bounding_box = rect_make(point_zero(), size_make(bounding_width, bounding_height));
-	Color bounding_box_bg_color = color_red();
+	Color bounding_box_bg_color = color_white();
 	//try to match text bounding box to superview's background color
 	if (superview) {
 		bounding_box_bg_color = superview->background_color;
@@ -240,9 +182,6 @@ void draw_label(ca_layer* dest, Label* label) {
 }
 
 void draw_view(Screen* screen, View* view) {
-	//View* superview = view->superview;
-	//Window* superwindow = containing_window_int(screen, view);
-
 	if (!view) return;
 	if (!containing_window_int(screen, view)->needs_redraw) {
 		return;
@@ -331,7 +270,7 @@ void draw_window(Screen* screen, Window* window) {
 		draw_view(screen, window->content_view);
 
 		//draw dividing border between window border and other content
-		if (window->border_width && window != screen->window) {
+		if (window->border_width) {
 			//inner border
 			draw_rect(window->content_view->layer, rect_make(point_zero(), window->content_view->frame.size), color_gray(), window->border_width);
 		}
@@ -346,9 +285,7 @@ void draw_window(Screen* screen, Window* window) {
 	}
 
 	//draw window border
-	if (window != screen->window) {
-		draw_rect(window->layer, rect_make(point_zero(), window->frame.size), color_black(), 1);
-	}
+	draw_rect(window->layer, rect_make(point_zero(), window->frame.size), color_black(), 1);
 
 	window->needs_redraw = 0;
 }
@@ -409,7 +346,7 @@ void draw_desktop(Screen* screen) {
 
 void desktop_setup(Screen* screen) {
 	//set up background image
-	Bmp* background = load_bmp(screen->window->content_view->frame, "windows-xp.bmp");
+	Bmp* background = load_bmp(screen->window->content_view->frame, "background.bmp");
 	add_bmp(screen->window->content_view, background);
 	add_status_bar(screen);
 	add_taskbar(screen);
@@ -440,13 +377,13 @@ void draw_cursor(Screen* screen) {
 
 	if (behind_cursor) {
 		//restore whatever was behind cursor
-		//draw_bmp_int(screen->window->layer, behind_cursor, true);
+		draw_bmp_int(screen->window->layer, behind_cursor, true);
 		//free it
-		//bmp_teardown(behind_cursor);
+		bmp_teardown(behind_cursor);
 	}
 
 	//update region behind cursor
-	//behind_cursor = layer_snapshot(screen->window->layer, cursor->frame);
+	behind_cursor = create_bmp(cursor->frame, layer_snapshot(screen->window->layer, cursor->frame));
 
 	//we do not call add_bmp on the cursor
 	//we draw it manually to ensure it is always above all other content
@@ -478,7 +415,6 @@ static Window* window_containing_point(Screen* screen, Coordinate p) {
 	}
 	//wasn't in any subwindows
 	//point must be within root window
-	//TODO should we check anyways?
 	return screen->window;
 }
 
@@ -584,25 +520,19 @@ void xserv_temp_stop(uint32_t pause_length) {
 void xserv_init_late() {
 	//switch to VESA for x serv
 	Screen* screen = switch_to_vesa(0x118, true);
-
-	/*
-	set_frame(screen->window->title_view, rect_make(point_make(0, 0), size_make(0, 0)));
-	set_frame(screen->window->content_view, screen->window->frame);
-	set_border_width(screen->window, 0);
-	*/
 	desktop_setup(screen);
 
 	//add FPS tracker
 	//don't call add_sublabel on fps because it's drawn manually
 	//(drawn manually so we can update text with accurate frame draw time)
-	fps = create_label(rect_make(point_make(3, 3), size_make(300, 50)), "FPS counter");
+	fps = create_label(rect_make(point_make(3, 3), size_make(60, 20)), "FPS counter");
 	fps->text_color = color_black();
 
 	test_xserv(screen);
 
 	while (1) {
 		xserv_refresh(screen);
-		sys_yield(RUNNABLE);
+		mouse_event_wait();
 	}
 
 	_kill();

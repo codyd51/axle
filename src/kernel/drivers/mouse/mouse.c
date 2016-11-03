@@ -2,6 +2,7 @@
 #include <kernel/util/interrupts/isr.h>
 #include <std/math.h>
 #include <std/std.h>
+#include <kernel/util/multitasking/tasks/task.h>
 
 typedef unsigned char byte;
 typedef signed char sbyte;
@@ -65,6 +66,12 @@ void mouse_callback(registers_t regs) {
 			//QEMU
 			update_mouse_position(mouse_byte[2], mouse_byte[0]);
 			mouse_cycle = 0;
+
+			//hook into task switch
+			//trigger iosentinel
+			extern void update_blocked_tasks();
+			update_blocked_tasks();
+			
 			break;
 	}
 }
@@ -134,4 +141,8 @@ void mouse_install() {
 
 	//setup mouse handler
 	register_interrupt_handler(IRQ12, &mouse_callback);
+}
+
+void mouse_event_wait() {
+	sys_yield(MOUSE_WAIT);
 }

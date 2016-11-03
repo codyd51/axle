@@ -15,4 +15,7 @@ Coordinate mouse_point();
 //2nd bit is middle button state
 uint8_t mouse_events();
 
+//blocks running task until mouse event is recieved
+void mouse_event_wait();
+
 #endif

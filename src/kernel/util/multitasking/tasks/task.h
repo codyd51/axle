@@ -12,6 +12,7 @@ typedef enum task_state {
 	ZOMBIE, //intermediate state after task finishes executing before being flushed from system
     KB_WAIT,
     PIT_WAIT,
+	MOUSE_WAIT,
 } task_state;
 
 typedef enum mlfq_option {
