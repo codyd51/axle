@@ -3,6 +3,7 @@
 
 #include <std/common.h>
 #include <std/timer.h>
+#include <std/list.h>
 
 #include "rect.h"
 #include "view.h"
@@ -14,12 +15,13 @@ typedef struct __attribute__((packed)) {
 } regs16_t;
 
 typedef struct screen_t {
-	Window* window;
-	uint16_t pitch;
-	uint16_t depth;
-	uint8_t bpp;
-	uint16_t pixelwidth; uint8_t* physbase;
-	timer_callback callback; volatile int finished_drawing;
+	Window* window; //root window
+	uint16_t pitch; //redundant?
+	uint16_t depth; //bits per pixel
+	uint8_t bpp; //bytes per pixel
+	uint16_t pixelwidth; //redundant?
+	uint8_t* physbase; //address of beginning of framebuffer
+	volatile int finished_drawing; //are we currently rendering a frame?
 } Screen;
 
 typedef struct Vec2d {
@@ -28,6 +30,8 @@ typedef struct Vec2d {
 } Vec2d;
 
 extern void int32(unsigned char intnum, regs16_t* regs);
+
+Screen* screen_create(Size dimensions, uint32_t* physbase, uint8_t depth);
 
 void switch_to_text();
 void gfx_teardown(Screen* screen);

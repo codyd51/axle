@@ -41,6 +41,19 @@ Vec2d vec2d(double x, float y) {
 	return vec;
 }
 
+Screen* screen_create(Size dimensions, uint32_t* physbase, uint8_t depth) {
+			Screen* screen = kmalloc(sizeof(Screen));
+
+			//linear frame buffer (LFB) address
+			screen->physbase = physbase;
+			screen->window = create_window_int(rect_make(point_make(0, 0), dimensions), true);
+			screen->depth = depth;
+			//8 bits in a byte
+			screen->bpp = depth / 8;
+
+			return screen;
+}
+
 void layer_teardown(ca_layer* layer) {
 	if (!layer) return;
 
@@ -124,11 +137,6 @@ void window_teardown(Window* window) {
 
 void gfx_teardown(Screen* screen) {
 	if (!screen) return;
-
-	//stop refresh loop for this screen
-	if (screen->callback.callback) {
-		remove_callback(screen->callback);
-	}
 
 	//free screen
 	window_teardown(screen->window);
