@@ -6,42 +6,11 @@
 #include <std/array_m.h>
 #include "color.h"
 #include "rect.h"
+#include "bmp.h"
+#include "label.h"
+#include "window.h"
 
 __BEGIN_DECLS
-
-typedef struct ca_layer_t {
-	Size size;
-	uint8_t* raw;
-} ca_layer;
-
-typedef struct window {
-	//common
-	Rect frame;
-	char needs_redraw;
-	ca_layer* layer;
-	struct window* superview;
-	array_m* subviews;
-
-	Size size;
-	char* title;
-	struct view* title_view;
-	struct view* content_view;
-	Color border_color;
-	int border_width;
-} Window;
-
-//TODO make proper subclass (c++?)
-//Label is a type of View
-typedef struct label {
-	//common
-	Rect frame;
-	char needs_redraw;
-	ca_layer* layer;
-	struct view* superview;
-
-	char* text;
-	Color text_color;
-} Label;
 
 typedef struct view {
 	//common
@@ -57,48 +26,21 @@ typedef struct view {
 	array_m* shaders;
 } View;
 
-typedef struct button {
-	//common 
-	Rect frame;
-	char needs_redraw;
-	ca_layer* layer;
-	struct view* superview;
-
-	char* text;
-	Color text_color;
-} Button;
-
-typedef struct bitmap {
-	//common
-	Rect frame;
-	char needs_redraw;
-	ca_layer* layer;
-	struct view* superview;
-} Bmp;
-
-struct ca_layer_t* create_layer(Size size);
-
-Label* create_label(Rect frame, char* text);
 View* create_view(Rect frame);
-Window* create_window(Rect frame);
-Button* create_button(Rect frame, char* text);
 
-Bmp* create_bmp(Rect frame, ca_layer* layer);
-Bmp* load_bmp(Rect frame, char* filename);
+void set_background_color(View* view, Color color);
+void set_frame(View* view, Rect frame);
 
 void add_subview(View* view, View* subview);
 void remove_subview(View* view, View* subview);
+
 void add_sublabel(View* view, Label* label);
 void remove_sublabel(View* view, Label* sublabel);
+
 void add_bmp(View* view, Bmp* bmp);
 void remove_bmp(View* view, Bmp* bmp);
 
-void add_subwindow(Window* window, Window* subwindow);
-void remove_subwindow(Window* window, Window* subwindow);
-
-void set_background_color(View* view, Color color);
-void set_border_width(Window* window, int width);
-void set_frame(View* view, Rect frame);
+void mark_needs_redraw(View* view);
 	
 __END_DECLS
 
