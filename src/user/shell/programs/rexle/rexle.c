@@ -13,6 +13,7 @@
 #include <kernel/drivers/vga/vga.h>
 #include <kernel/drivers/rtc/clock.h>
 #include <kernel/drivers/vesa/vesa.h>
+#include <kernel/drivers/kb/kb.h>
 #include "map2.h"
 
 typedef enum {
@@ -33,6 +34,9 @@ typedef enum {
 	WALL_WHITE	= 14,
 } WALL_TYPE;
 
+extern void draw_label(ca_layer* dest, Label* label);
+void rexle_int();
+
 void rexle() {
 	if (!fork("rexle")) {
 		rexle_int();
@@ -40,13 +44,13 @@ void rexle() {
 	}
 }
 
-int rexle_int() {
-	become_first_responder();
-
+void rexle_int() {
 	//switch graphics modes
 	Screen* screen = switch_to_vesa(0x112, true);
 	//Screen* screen = switch_to_vga();
 	Size screen_size = screen->window->frame.size;
+	
+	become_first_responder();
 
 	//initialize textures
 	array_m* textures = array_m_create(16);
@@ -177,7 +181,12 @@ int rexle_int() {
 
 				//we have x and y, find color at this point in texture
 				Coordinate tex_px = point_make(tex_x % tex_width, tex_y % tex_height);
-				Color col = *((Color *)&(tex->layer->raw[tex_px.y * tex_width + tex_px.x]));
+				
+				uint8_t* raw = (uint8_t*)(tex->layer->raw + (tex_px.y * tex_width * gfx_bpp()) + (tex_px.x * gfx_bpp()));
+				Color col;
+				col.val[0] = *raw++;
+				col.val[1] = *raw++;
+				col.val[2] = *raw++;
 
 				//swap BGR
 				uint8_t tmp = col.val[0];
@@ -191,16 +200,16 @@ int rexle_int() {
 					col.val[2] /= 2;
 				}
 
-				putpixel(screen, x, y, col);
+				putpixel(screen->window->layer, x, y, col);
 			}
 
 			//draw ceiling above this ray
 			Line ceiling = line_make(point_make(x, 0), point_make(x, start));
-			draw_line(screen, ceiling, color_make(130, 40, 100), 1);
+			draw_line(screen->window->layer, ceiling, color_make(130, 40, 100), 1);
 
 			//draw floor below the ray
 			Line floor = line_make(point_make(x, end), point_make(x, screen_size.height));
-			draw_line(screen, floor, color_make(135, 150, 200), 1);
+			draw_line(screen->window->layer, floor, color_make(135, 150, 200), 1);
 		}
 
 		//timing
@@ -254,17 +263,16 @@ int rexle_int() {
 		}
 
 		char buf[32];
-		double fps_time = 1 / frame_time;
-		itoa(frame_time * 1000000, &buf);
+		itoa(frame_time * 1000000, (char*)&buf);
 		strcat(buf, " ns/frame");
 		fps->text = buf;
-		draw_label(screen, fps);
+		draw_label(screen->window->layer, fps);
 
 		char mem_buf[32];
-		itoa(used_mem(), &mem_buf);
+		itoa(used_mem(), (char*)&mem_buf);
 		strcat(mem_buf, " bytes in use");
 		mem->text = mem_buf;
-		draw_label(screen, mem);
+		draw_label(screen->window->layer, mem);
 
 		write_screen(screen);
 

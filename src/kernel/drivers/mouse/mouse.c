@@ -3,6 +3,7 @@
 #include <std/math.h>
 #include <std/std.h>
 #include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/util/syscall/sysfuncs.h>
 
 typedef unsigned char byte;
 typedef signed char sbyte;

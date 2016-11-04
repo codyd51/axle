@@ -26,7 +26,7 @@ typedef struct task {
 	int queue; //scheduler ring this task is slotted in
 
 	task_state state; //current process state
-    int32_t wake_timestamp; //used if process is in PIT_WAIT state
+    uint32_t wake_timestamp; //used if process is in PIT_WAIT state
 
 	uint32_t begin_date;
 	uint32_t end_date;

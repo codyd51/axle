@@ -11,6 +11,7 @@
 #include <kernel/drivers/rtc/clock.h>
 #include <kernel/drivers/vesa/vesa.h>
 #include <tests/gfx_test.h>
+#include <kernel/drivers/kb/kb.h>
 
 //has the screen been modified this refresh?
 static char dirtied = 0;
@@ -61,7 +62,7 @@ Window* containing_window_int(Screen* screen, View* v) {
 		Window* window = (Window*)array_m_lookup(screen->window->subviews, i);
 
 		//if user passed a Window, check against that
-		if (window == view) return window;
+		if (window == (Window*)view) return window;
 
 		if (window->title_view == view || window->content_view == view) return window;
 		for (int32_t j = 0; j < window->subviews->size; j++) {
@@ -104,22 +105,10 @@ Rect absolute_frame(Screen* screen, View* view) {
 	return convert_rect(win->frame, ret);
 }
 
-void draw_bmp_int(ca_layer* dest, Bmp* bmp, bool force) {
-	/*
-	if (!bmp || !containing_window_int(screen, bmp)->needs_redraw) {
-		if (!force) {
-			return;
-		}
-	}
-	*/
-
+void draw_bmp(ca_layer* dest, Bmp* bmp) {
 	blit_layer(dest, bmp->layer, bmp->frame.origin); 
 
 	bmp->needs_redraw = 0;
-}
-
-void draw_bmp(Screen* screen, Bmp* bmp) {
-	draw_bmp_int(screen, bmp, false);
 }
 
 void draw_label(ca_layer* dest, Label* label) {
@@ -150,15 +139,14 @@ void draw_label(ca_layer* dest, Label* label) {
 	if (superview) {
 		bounding_box_bg_color = superview->background_color;
 	}
-	//draw_rect(label->layer, bounding_box, bounding_box_bg_color, THICKNESS_FILLED);
-	draw_rect(label->layer, frame, bounding_box_bg_color, THICKNESS_FILLED);
+	draw_rect(label->layer, bounding_box, bounding_box_bg_color, THICKNESS_FILLED);
 
 	//actually render text
 	int idx = 0;
 	char* str = label->text;
 	int x = 0;
 	int y = 0;
-	while (str[idx] != NULL) {
+	while (str[idx]) {
 		//go to next line if necessary
 		if ((x + CHAR_WIDTH + CHAR_PADDING_W) > frame.size.width || str[idx] == '\n') {
 			x = 0;
@@ -194,13 +182,13 @@ void draw_view(Screen* screen, View* view) {
 	draw_rect(view->layer, rect_make(point_zero(), view->frame.size), view->background_color, THICKNESS_FILLED);
 
 	//draw any labels this view has
-	for (unsigned i = 0; i < view->labels->size; i++) {
+	for (int i = 0; i < view->labels->size; i++) {
 		Label* label = (Label*)array_m_lookup(view->labels, i);
 		draw_label(view->layer, label);
 	}
 
 	//draw any bmps this view has
-	for (unsigned i = 0; i < view->bmps->size; i++) {
+	for (int i = 0; i < view->bmps->size; i++) {
 		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
 		draw_bmp(view->layer, bmp);
 	}
@@ -214,39 +202,11 @@ void draw_view(Screen* screen, View* view) {
 	*/
 
 	//draw each subview of this view
-	for (unsigned i = 0; i < view->subviews->size; i++) {
+	for (int i = 0; i < view->subviews->size; i++) {
 		View* subview = (View*)array_m_lookup(view->subviews, i);
 		draw_view(screen, subview);
 	}
 	view->needs_redraw = 0;
-}
-
-void blit_layer(ca_layer* dest, ca_layer* src, Coordinate origin) {
-	Rect copy_frame = rect_make(origin, src->size);
-	//make sure we don't write outside dest's frame
-	rect_min_x(copy_frame) = MAX(0, rect_min_x(copy_frame));
-	rect_min_y(copy_frame) = MAX(0, rect_min_y(copy_frame));
-	if (rect_max_x(copy_frame) >= dest->size.width) {
-		double overhang = rect_max_x(copy_frame) - dest->size.width;
-		copy_frame.size.width -= overhang;
-	}
-	if (rect_max_y(copy_frame) >= dest->size.height) {
-		double overhang = rect_max_y(copy_frame) - dest->size.height;
-		copy_frame.size.height -= overhang;
-	}
-
-	//offset into dest that we start writing
-	uint8_t* dest_row_start = dest->raw + (rect_min_y(copy_frame) * dest->size.width * gfx_bpp()) + (rect_min_x(copy_frame) * gfx_bpp());
-	//data from source to write to dest
-	uint8_t* row_start = src->raw;
-
-	//copy row by row
-	for (int i = 0; i < copy_frame.size.height; i++) {
-		memcpy(dest_row_start, row_start, copy_frame.size.width * gfx_bpp());
-
-		dest_row_start += (dest->size.width * gfx_bpp());
-		row_start += (src->size.width * gfx_bpp());
-	}
 }
 
 void draw_window(Screen* screen, Window* window) {
@@ -336,7 +296,7 @@ void draw_desktop(Screen* screen) {
 	draw_window(screen, screen->window);
 
 	//paint every child window
-	for (unsigned i = 0; i < screen->window->subviews->size; i++) {
+	for (int i = 0; i < screen->window->subviews->size; i++) {
 		Window* win = (Window*)(array_m_lookup(screen->window->subviews, i));
 		draw_window(screen, win);
 		//composite child window onto root window
@@ -377,7 +337,7 @@ void draw_cursor(Screen* screen) {
 
 	if (behind_cursor) {
 		//restore whatever was behind cursor
-		draw_bmp_int(screen->window->layer, behind_cursor, true);
+		draw_bmp(screen->window->layer, behind_cursor);
 		//free it
 		bmp_teardown(behind_cursor);
 	}
@@ -387,7 +347,7 @@ void draw_cursor(Screen* screen) {
 
 	//we do not call add_bmp on the cursor
 	//we draw it manually to ensure it is always above all other content
-	draw_bmp_int(screen->window->layer, cursor, true);
+	draw_bmp(screen->window->layer, cursor);
 
 	dirtied = prev_dirtied;
 }
@@ -444,7 +404,7 @@ static void process_mouse_events(Screen* screen) {
 			Rect new_frame = grabbed_window->frame;
 			new_frame.origin.x -= (last_mouse_pos.x - p.x);
 			new_frame.origin.y -= (last_mouse_pos.y - p.y);
-			set_frame(grabbed_window, new_frame);
+			set_frame((View*)grabbed_window, new_frame);
 		}
 	}
 	else {
@@ -484,11 +444,11 @@ void xserv_refresh(Screen* screen) {
 	//draw rect to indicate whether the screen was dirtied this frame
 	//red indicates dirtied, green indicates clean
 	Rect dirtied_indicator = rect_make(point_make(0, screen->window->size.height - 25), size_make(25, 25));
-	draw_rect(screen, dirtied_indicator, (dirtied ? color_red() : color_green()), THICKNESS_FILLED);
+	draw_rect(screen->window->layer, dirtied_indicator, (dirtied ? color_red() : color_green()), THICKNESS_FILLED);
 
 	//update frame time tracker
 	char buf[32];
-	itoa(fps_conv, &buf);
+	itoa(fps_conv, (char*)&buf);
 	strcat(buf, " FPS");
 	//itoa(frame_time * 1000, &buf);
 	//strcat(buf, " ms/frame");

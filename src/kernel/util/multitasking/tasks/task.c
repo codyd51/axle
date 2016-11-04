@@ -7,6 +7,13 @@
 #include <kernel/util/paging/paging.h>
 #include <kernel/util/multitasking/util.h>
 #include <kernel/util/syscall/sysfuncs.h>
+#include <kernel/drivers/rtc/clock.h>
+
+//function defined in asm which returns the current instruction pointer
+uint32_t read_eip();
+//defined in asm
+//performs actual task switch
+void task_switch_real(uint32_t eip, uint32_t paging_dir, uint32_t ebp, uint32_t esp);
 
 //magic value placed in eax at end of task switch
 //we read eax when trying to catch current eip
@@ -34,6 +41,9 @@ static task_t* active_list = 0;
 
 task_t* first_responder = 0;
 static array_m* responder_stack = 0;
+
+void enqueue_task(task_t* task, int queue);
+void dequeue_task(task_t* task);
 
 void stdin_read(char* buf, uint32_t count);
 void stdout_read(char* buffer, uint32_t count);
@@ -338,7 +348,7 @@ void tasking_install(mlfq_option options) {
 
 	queue_lifetimes = array_m_create(queue_count + 1);
 	for (int i = 0; i < queue_count; i++) {
-		array_m_insert(queue_lifetimes, HIGH_PRIO_QUANTUM * (i + 1));
+		array_m_insert(queue_lifetimes, (type_t)(HIGH_PRIO_QUANTUM * (i + 1)));
 	}
 
 	//init first task (kernel task)
@@ -524,7 +534,7 @@ task_t* mlfq_schedule() {
 		current_task->lifespan += (current_task->relinquish_date - current_task->begin_date);
 	}
 
-	if (current_task->lifespan >= array_m_lookup(queue_lifetimes, current_task->queue)) {
+	if (current_task->lifespan >= (uint32_t)array_m_lookup(queue_lifetimes, current_task->queue)) {
 		demote_task(current_task);
 	}
 
@@ -643,7 +653,7 @@ void goto_pid(int id) {
 	}
 
 	current_task->begin_date = time();
-	int lifetime = array_m_lookup(queue_lifetimes, current_task->queue);
+	int lifetime = (int)array_m_lookup(queue_lifetimes, current_task->queue);
 	current_task->end_date = current_task->begin_date + lifetime;
 
 	eip = current_task->eip;
@@ -671,8 +681,8 @@ uint32_t task_switch() {
 }
 
 void handle_pit_tick() {
-	static int tick = 0;
-	static int last_boost = 0;
+	static uint32_t tick = 0;
+	static uint32_t last_boost = 0;
 
 	if (!tick) {
 		//first run
@@ -718,8 +728,7 @@ void proc() {
 		array_m* queue = array_m_lookup(queues, i);
 		for (int j = 0; j < queue->size; j++) {
 			task_t* task = array_m_lookup(queue, j);
-			int runtime = array_m_lookup(queue_lifetimes, task->queue);
-			float age = (task->lifespan / (float)runtime);
+			uint32_t runtime = (uint32_t)array_m_lookup(queue_lifetimes, task->queue);
 			printf("[%d Q %d] %s ", task->id, task->queue, task->name);
 			if (task == current_task) {
 				printf("(active");
