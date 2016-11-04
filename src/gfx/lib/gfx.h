@@ -3,7 +3,6 @@
 
 #include <std/common.h>
 #include <std/timer.h>
-#include <std/list.h>
 
 #include "rect.h"
 #include "view.h"
