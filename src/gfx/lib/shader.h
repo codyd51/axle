@@ -14,6 +14,8 @@ typedef struct shader {
 } Shader;
 
 Shader* create_shader();
+void shader_teardown(Shader* shader);
+
 void draw_shader(Screen* screen, Shader* s);
 Shader* compute_shader(Shader* s);
 

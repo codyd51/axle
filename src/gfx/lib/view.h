@@ -27,6 +27,7 @@ typedef struct view {
 } View;
 
 View* create_view(Rect frame);
+void view_teardown(View* view);
 
 void set_background_color(View* view, Color color);
 void set_frame(View* view, Rect frame);

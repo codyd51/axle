@@ -21,6 +21,7 @@ typedef struct label {
 } Label;
 
 Label* create_label(Rect frame, char* text);
+void label_teardown(Label* label);
 
 __END_DECLS
 

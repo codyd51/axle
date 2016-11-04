@@ -10,6 +10,38 @@
 
 #define MAX_ELEMENTS 64
 
+void view_teardown(View* view) {
+	if (!view) return;
+
+	for (int i = 0; i < view->subviews->size; i++) {
+		View* view = (View*)array_m_lookup(view->subviews, i);
+		view_teardown(view);
+
+		Label* label = (Label*)array_m_lookup(view->labels, i);
+		label_teardown(label);
+
+		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
+		bmp_teardown(bmp);
+
+		Shader* s = (Shader*)array_m_lookup(view->shaders, i);
+		shader_teardown(s);
+	}
+	//free subviews array
+	array_m_destroy(view->subviews);
+	//free sublabels
+	array_m_destroy(view->labels);
+	//free bmps
+	array_m_destroy(view->bmps);
+	//free shaders
+	array_m_destroy(view->shaders);
+
+	//free backing layer
+	layer_teardown(view->layer);
+	
+	//finally, free view itself
+	kfree(view);
+}
+
 View* create_view(Rect frame) {
 	View* view = (View*)kmalloc(sizeof(View));
 	view->layer = create_layer(frame.size);

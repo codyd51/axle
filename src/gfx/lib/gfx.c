@@ -12,6 +12,9 @@
 #include "color.h"
 #include "shader.h"
 
+//private Window function to create root window
+Window* create_window_int(Rect frame, bool root);
+
 static int current_depth = 0;
 void process_gfx_switch(int new_depth) {
 	current_depth = new_depth;
@@ -52,87 +55,6 @@ Screen* screen_create(Size dimensions, uint32_t* physbase, uint8_t depth) {
 			screen->bpp = depth / 8;
 
 			return screen;
-}
-
-void layer_teardown(ca_layer* layer) {
-	if (!layer) return;
-
-	kfree(layer->raw);
-	kfree(layer);
-}
-
-void label_teardown(Label* label) {
-	if (!label) return;
-
-	layer_teardown(label->layer);
-	kfree(label->text);
-	kfree(label);
-}
-
-void bmp_teardown(Bmp* bmp) {
-	if (!bmp) return;
-
-	layer_teardown(bmp->layer);
-	kfree(bmp);
-}
-
-void shader_teardown(Shader* shader) {
-	if (!shader) return;
-
-	kfree(shader);
-}
-
-void view_teardown(View* view) {
-	if (!view) return;
-
-	for (int i = 0; i < view->subviews->size; i++) {
-		View* view = (View*)array_m_lookup(view->subviews, i);
-		view_teardown(view);
-
-		Label* label = (Label*)array_m_lookup(view->labels, i);
-		label_teardown(label);
-
-		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
-		bmp_teardown(bmp);
-
-		Shader* s = (Shader*)array_m_lookup(view->shaders, i);
-		shader_teardown(s);
-	}
-	//free subviews array
-	array_m_destroy(view->subviews);
-	//free sublabels
-	array_m_destroy(view->labels);
-	//free bmps
-	array_m_destroy(view->bmps);
-	//free shaders
-	array_m_destroy(view->shaders);
-
-	//free backing layer
-	layer_teardown(view->layer);
-	
-	//finally, free view itself
-	kfree(view);
-}
-
-void window_teardown(Window* window) {
-	if (!window) return;
-
-	for (int i = 0; i < window->subviews->size; i++) {
-		Window* window = (Window*)array_m_lookup(window->subviews, i);
-		window_teardown(window);
-	}
-	//free subviews array
-	array_m_destroy(window->subviews);
-
-	//free the views associated with this window
-	view_teardown(window->title_view);
-	view_teardown(window->content_view);
-
-	//free backing layer
-	layer_teardown(window->layer);
-
-	//finally, free window itself
-	kfree(window);
 }
 
 void gfx_teardown(Screen* screen) {

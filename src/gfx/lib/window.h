@@ -27,6 +27,7 @@ typedef struct window {
 } Window;
 
 Window* create_window(Rect frame);
+void window_teardown(Window* window);
 
 void add_subwindow(Window* window, Window* subwindow);
 void remove_subwindow(Window* window, Window* subwindow);

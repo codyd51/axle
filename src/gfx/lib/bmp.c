@@ -3,6 +3,13 @@
 #include <kernel/util/vfs/fs.h>
 #include "gfx.h"
 
+void bmp_teardown(Bmp* bmp) {
+	if (!bmp) return;
+
+	layer_teardown(bmp->layer);
+	kfree(bmp);
+}
+
 Bmp* create_bmp(Rect frame, ca_layer* layer) {
 	if (!layer) return NULL;
 

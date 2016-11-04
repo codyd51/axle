@@ -20,7 +20,7 @@ typedef struct screen_t {
 	uint16_t depth; //bits per pixel
 	uint8_t bpp; //bytes per pixel
 	uint16_t pixelwidth; //redundant?
-	uint8_t* physbase; //address of beginning of framebuffer
+	uint32_t* physbase; //address of beginning of framebuffer
 	volatile int finished_drawing; //are we currently rendering a frame?
 } Screen;
 

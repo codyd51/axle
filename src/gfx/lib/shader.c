@@ -45,3 +45,10 @@ void draw_shader(Screen* screen, Shader* s) {
 		shader_offset += frame.size.width * bpp;
 	}
 }
+
+void shader_teardown(Shader* shader) {
+	if (!shader) return;
+
+	kfree(shader);
+}
+

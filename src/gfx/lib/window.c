@@ -90,3 +90,24 @@ void set_border_width(Window* window, int width) {
 	window->border_width = width;
 	mark_needs_redraw((View*)window);
 }
+
+void window_teardown(Window* window) {
+	if (!window) return;
+
+	for (int i = 0; i < window->subviews->size; i++) {
+		Window* window = (Window*)array_m_lookup(window->subviews, i);
+		window_teardown(window);
+	}
+	//free subviews array
+	array_m_destroy(window->subviews);
+
+	//free the views associated with this window
+	view_teardown(window->title_view);
+	view_teardown(window->content_view);
+
+	//free backing layer
+	layer_teardown(window->layer);
+
+	//finally, free window itself
+	kfree(window);
+}
