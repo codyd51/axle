@@ -48,7 +48,7 @@ Window* create_window_int(Rect frame, bool root) {
 	window->layer = create_layer(frame.size);
 	window->size = frame.size;
 	window->frame = frame;
-	window->border_color = color_make(120, 245, 80);
+	window->border_color = color_make(50, 122, 40);
 	window->border_width = 1;
 	window->subviews = array_m_create(MAX_ELEMENTS);
 	window->title = "Window";

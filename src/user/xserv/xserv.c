@@ -306,7 +306,6 @@ void draw_cursor(Screen* screen) {
 	static Bmp* cursor = 0;
 	//store region behind cursor so we can restore after cursor moves
 	static Bmp* behind_cursor = 0;
-	//keep track of previous cursor origin so we know if it moved at all
 	static Coordinate previous_pos;
 
 	if (!cursor) {
@@ -314,9 +313,20 @@ void draw_cursor(Screen* screen) {
 	}
 
 	Coordinate new_pos = mouse_point();
-	if (new_pos.x == previous_pos.x && new_pos.y == previous_pos.y) {
-		return;
+
+	if (abs(new_pos.x - previous_pos.x) > 1) {
+		//left or right?
+		int dir = new_pos.x > previous_pos.x;
+		new_pos.x = (dir) ? (previous_pos.x + 1) : (previous_pos.x - 1);
 	}
+	if (abs(new_pos.y - previous_pos.y) > 1) {
+		//up or down?
+		int dir = new_pos.y > previous_pos.y;
+		new_pos.y = (!dir) ? (previous_pos.y + 1) : (previous_pos.y - 1);
+	}
+
+	previous_pos = new_pos;
+
 	//update cursor position
 	cursor->frame.origin = mouse_point();
 
@@ -367,6 +377,23 @@ static Window* window_containing_point(Screen* screen, Coordinate p) {
 	return screen->window;
 }
 
+static void set_active_window(Screen* screen, Window* grabbed_window) {
+	active_window = grabbed_window;
+	for (int i = 0; i < screen->window->subviews->size; i++) {
+		Window* win = array_m_lookup(screen->window->subviews, i);
+		Color color;
+		if (win == active_window) {
+			color = color_make(120, 245, 80);
+		}
+		else {
+			color = color_make(50, 122, 40);
+		}
+		set_background_color(win->title_view, color);
+		mark_needs_redraw((View*)win);
+	}
+
+}
+
 static void process_mouse_events(Screen* screen) {
 	static Window* grabbed_window = NULL;
 	static Coordinate last_mouse_pos = { -1, -1 };
@@ -385,7 +412,7 @@ static void process_mouse_events(Screen* screen) {
 
 			//don't move root window! :p
 			if (grabbed_window != screen->window && grabbed_window->layer->alpha > 0.0) {
-				active_window = grabbed_window;
+				set_active_window(screen, grabbed_window);
 
 				//bring this window to forefont
 				array_m_remove(screen->window->subviews, array_m_index(screen->window->subviews, (type_t)active_window));
