@@ -10,6 +10,7 @@ __BEGIN_DECLS
 typedef struct ca_layer_t {
        	Size size;
        	uint8_t* raw;
+		float alpha;
 } ca_layer;
 
 struct ca_layer_t* create_layer(Size size);
