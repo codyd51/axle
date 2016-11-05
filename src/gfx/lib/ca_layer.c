@@ -66,16 +66,33 @@ void blit_layer_alpha(ca_layer* dest, ca_layer* src, Rect copy_frame) {
 	uint8_t* row_start = src->raw;
 	
 	//multiply by 100 so we can use fixed point math
-	int alpha = (1 - src->alpha) * 100;
-	alpha = abs(alpha);
+	int alpha = (1 - src->alpha) * 256;
+	//alpha = abs(alpha);
 	//precalculate inverse alpha
-	int inv = 100 - alpha;
+	//int inv = 100 - alpha;
 
 	for (int i = 0; i < copy_frame.size.height; i++) {
 		uint8_t* dest_px = dest_row_start;
 		uint8_t* row_px = row_start;
 
 		for (int j = 0; j < copy_frame.size.width; j++) {
+			//TODO fix this code
+			//yellow shifted
+			//maybe we're dropping the first color byte?
+			uint32_t* wide_dest = (uint32_t*)dest_px;
+			uint32_t* wide_row = (uint32_t*)row_px;
+
+			uint32_t rb = *wide_row & 0xFF00FF;
+			uint32_t g = *wide_row & 0x00FF00;
+			rb += ((*wide_dest & 0xFF00FF) - rb) * alpha >> 8;
+			g += ((*wide_dest & 0x00FF00) - g) * alpha >> 8;
+			*wide_dest = (rb & 0xFF00FF)  | (g & 0x00FF00);
+
+			dest_px += 3;
+			row_px += 3;
+
+			//below works, but is 10FPS slower than above
+			/*
 			//R component
 			*dest_px = ((*dest_px * alpha) + (*row_px * inv)) / 100;
 			dest_px++;
@@ -90,6 +107,7 @@ void blit_layer_alpha(ca_layer* dest, ca_layer* src, Rect copy_frame) {
 			*dest_px = ((*dest_px * alpha) + (*row_px * inv)) / 100;
 			dest_px++;
 			row_px++;
+			*/
 		}
 
 		//next iteration, start at the next row
