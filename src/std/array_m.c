@@ -33,7 +33,7 @@ void array_m_insert(array_m* array, type_t item) {
 	lock(mutex);
 
 	// Make sure we can't go over the allocated size
-	ASSERT(array->size < array->max_size - 1, "array would exceed max_size (%d)", array->max_size);
+	ASSERT(array->size + 1 <= array->max_size, "array would exceed max_size (%d)", array->max_size);
 
 	// Add item to array
 	array->array[array->size++] = item;
