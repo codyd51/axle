@@ -50,6 +50,7 @@ Screen* screen_create(Size dimensions, uint32_t* physbase, uint8_t depth) {
 			//linear frame buffer (LFB) address
 			screen->physbase = physbase;
 			screen->window = create_window_int(rect_make(point_make(0, 0), dimensions), true);
+			screen->window->superview = NULL;
 			screen->depth = depth;
 			//8 bits in a byte
 			screen->bpp = depth / 8;
@@ -63,6 +64,7 @@ void gfx_teardown(Screen* screen) {
 
 	//free screen
 	window_teardown(screen->window);
+	kfree(screen->vmem);
 	kfree(screen);
 }
 
@@ -100,7 +102,7 @@ void rainbow_animation(Screen* screen, Rect r) {
 
 		Color col;
 		col.val[0] = colors[i];
-		draw_rect(screen->window->layer, seg, col, THICKNESS_FILLED);
+		draw_rect(screen->vmem, seg, col, THICKNESS_FILLED);
 		write_screen(screen);
 		
 		sleep(500 / 7);
@@ -118,7 +120,7 @@ void vga_boot_screen(Screen* screen) {
 	Triangle triangle = triangle_make(p1, p2, p3);
 	Color tri_col;
 	tri_col.val[0] = 2;
-	draw_triangle(screen->window->layer, triangle, tri_col, 5);
+	draw_triangle(screen->vmem, triangle, tri_col, 5);
 
 	Coordinate lab_origin = point_make(screen->window->size.width / 2 - (3.75 * 8), screen->window->size.height * 0.5);
 	Size lab_size = size_make((10 * strlen("axle os")), 12);
@@ -127,7 +129,7 @@ void vga_boot_screen(Screen* screen) {
 	add_sublabel(screen->window->content_view, label);
 
 	extern void draw_label(ca_layer* dest, Label* label);
-	draw_label(screen->window->layer, label);
+	draw_label(screen->vmem, label);
 
 	float rect_length = screen->window->size.width / 3;
 	Coordinate origin = point_make((screen->window->size.width/2) - (rect_length / 2), screen->window->size.height / 4 * 3);
@@ -137,7 +139,7 @@ void vga_boot_screen(Screen* screen) {
 	//fill the rectangle with white initially
 	Color white;
 	white.val[0] = 15;
-	draw_rect(screen->window->layer, border_rect, white, 1);
+	draw_rect(screen->vmem, border_rect, white, 1);
 	
 	write_screen(screen);
 
