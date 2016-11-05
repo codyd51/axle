@@ -433,6 +433,14 @@ void xserv_refresh(Screen* screen) {
 				//quit xserv
 				xserv_quit(screen);
 			}
+			else if (ch == 'r') {
+				//force everything to refresh
+				screen->window->needs_redraw = 1;
+				for (int i = 0; i < screen->window->subviews->size; i++) {
+					Window* w = array_m_lookup(screen->window->subviews, i);
+					w->needs_redraw = 1;
+				}
+			}
 		}
 	}
 
