@@ -20,9 +20,45 @@ ca_layer* create_layer(Size size) {
 	return ret;
 }
 
+void blit_layer_alpha_fast(ca_layer* dest, ca_layer* src, Rect copy_frame) {
+	//for every pixel in dest, calculate what the pixel should be based on 
+	//dest's pixel, src's pixel, and the alpha
+	
+	//offset into dest that we start writing
+	uint8_t* dest_row_start = dest->raw + (rect_min_y(copy_frame) * dest->size.width * gfx_bpp()) + (rect_min_x(copy_frame) * gfx_bpp());
+	//data from source to write to dest
+	uint8_t* row_start = src->raw;
+	
+	for (int i = 0; i < copy_frame.size.height; i++) {
+		uint8_t* dest_px = dest_row_start;
+		uint8_t* row_px = row_start;
+
+		for (int j = 0; j < copy_frame.size.width; j++) {
+			//R
+			*dest_px = (*dest_px + *row_px++) / 2;
+			dest_px++;
+			//G
+			*dest_px = (*dest_px + *row_px++) / 2;
+			dest_px++;
+			//B
+			*dest_px = (*dest_px + *row_px++) / 2;
+			dest_px++;
+		}
+
+		//next iteration, start at the next row
+		dest_row_start += (dest->size.width * gfx_bpp());
+		row_start += (src->size.width * gfx_bpp());
+	}
+}
+
 void blit_layer_alpha(ca_layer* dest, ca_layer* src, Rect copy_frame) {
 	//for every pixel in dest, calculate what the pixel should be based on 
 	//dest's pixel, src's pixel, and the alpha
+	
+	if (src->alpha == 0.5) {
+		blit_layer_alpha_fast(dest, src, copy_frame);
+		return;
+	}
 		
 	//offset into dest that we start writing
 	uint8_t* dest_row_start = dest->raw + (rect_min_y(copy_frame) * dest->size.width * gfx_bpp()) + (rect_min_x(copy_frame) * gfx_bpp());
@@ -30,7 +66,8 @@ void blit_layer_alpha(ca_layer* dest, ca_layer* src, Rect copy_frame) {
 	uint8_t* row_start = src->raw;
 	
 	//multiply by 100 so we can use fixed point math
-	int alpha = src->alpha * 100;
+	int alpha = (1 - src->alpha) * 100;
+	alpha = abs(alpha);
 	//precalculate inverse alpha
 	int inv = 100 - alpha;
 

@@ -310,7 +310,7 @@ void draw_cursor(Screen* screen) {
 	static Coordinate previous_pos;
 
 	if (!cursor) {
-		cursor = load_bmp(rect_make(point_zero(), size_make(30, 30)), "cursor.bmp");
+		cursor = load_bmp(rect_make(point_zero(), size_make(12, 18)), "cursor.bmp");
 	}
 
 	Coordinate new_pos = mouse_point();
@@ -369,7 +369,6 @@ static Window* window_containing_point(Screen* screen, Coordinate p) {
 
 static void process_mouse_events(Screen* screen) {
 	static Window* grabbed_window = NULL;
-	static float grabbed_real_alpha = 1.0;
 	static Coordinate last_mouse_pos = { -1, -1 };
 
 	//get mouse events
@@ -387,8 +386,6 @@ static void process_mouse_events(Screen* screen) {
 			//don't move root window! :p
 			if (grabbed_window != screen->window && grabbed_window->layer->alpha > 0.0) {
 				active_window = grabbed_window;
-				grabbed_real_alpha = active_window->layer->alpha;
-				set_alpha((View*)active_window, 1.0);
 
 				//bring this window to forefont
 				array_m_remove(screen->window->subviews, array_m_index(screen->window->subviews, (type_t)active_window));
@@ -406,8 +403,6 @@ static void process_mouse_events(Screen* screen) {
 	else {
 		if (grabbed_window) {
 			//click event ended, release window
-			//reset alpha to original value
-			set_alpha((View*)grabbed_window, grabbed_real_alpha);
 			grabbed_window = NULL;
 		}
 	}
