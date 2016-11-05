@@ -1,14 +1,12 @@
 #include <std/common.h>
 #include "isr.h"
 #include <kernel/kernel.h>
+#include <kernel/util/multitasking/tasks/task.h>
 
 void halt_execution() {
-	//disable interrupts so this never ends
-	kernel_begin_critical();
-
-	//enter infinite loop
-	printf_err("Halting execution");
-	do {} while (1);
+	//kill this task
+	printf_info("PID %d encountered unrecoverable fault, killing...", getpid());
+	_kill();
 }
 
 void print_regs(registers_t regs) {

@@ -391,8 +391,8 @@ static void process_mouse_events(Screen* screen) {
 				set_alpha((View*)active_window, 1.0);
 
 				//bring this window to forefont
-				array_m_remove(screen->window->subviews, array_m_index(screen->window->subviews, active_window));
-				array_m_insert(screen->window->subviews, active_window);
+				array_m_remove(screen->window->subviews, array_m_index(screen->window->subviews, (type_t)active_window));
+				array_m_insert(screen->window->subviews, (type_t)active_window);
 			}
 		}
 		if (last_mouse_pos.x != -1 && grabbed_window != screen->window) {

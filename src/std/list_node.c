@@ -1,5 +1,6 @@
 #include "list_node.h"
 #include "kheap.h"
+#include "memory.h"
 
 list_node* list_node_create(void* payload) {
 	//malloc or fail
