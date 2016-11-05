@@ -148,23 +148,23 @@ void set_frame(View* view, Rect frame) {
 	if (!view) return;
 
 	Rect old_frame = view->frame;
-	old_frame = old_frame; // TODO: do something here
 	view->frame = frame;
 
 	//resize layer
 	// int layer_bytes = old_frame.size.width * old_frame.size.height;
 	//realloc(view->layer, layer_bytes);
 
-	mark_needs_redraw(view);
+	//only redraw view if size changed
+	if (old_frame.size.width != frame.size.width || old_frame.size.height != frame.size.height) {
+		mark_needs_redraw(view);
+	}
 }
 
 void set_alpha(View* view, float alpha) {
 	float old = view->layer->alpha;
 	if (alpha == old) return;
 	
-	alpha = MAX(0, alpha);
-	alpha = MIN(1, alpha);
+	alpha = MAX(MIN(alpha, 1), 0);
 
 	view->layer->alpha = alpha;
-	mark_needs_redraw(view);
 }
