@@ -7,6 +7,7 @@
 #include <std/string.h>
 #include <std/memory.h>
 #include <gfx/lib/shader.h>
+#include <std/math.h>
 
 #define MAX_ELEMENTS 64
 
@@ -154,5 +155,16 @@ void set_frame(View* view, Rect frame) {
 	// int layer_bytes = old_frame.size.width * old_frame.size.height;
 	//realloc(view->layer, layer_bytes);
 
+	mark_needs_redraw(view);
+}
+
+void set_alpha(View* view, float alpha) {
+	float old = view->layer->alpha;
+	if (alpha == old) return;
+	
+	alpha = MAX(0, alpha);
+	alpha = MIN(1, alpha);
+
+	view->layer->alpha = alpha;
 	mark_needs_redraw(view);
 }

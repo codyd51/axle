@@ -31,6 +31,7 @@ void view_teardown(View* view);
 
 void set_background_color(View* view, Color color);
 void set_frame(View* view, Rect frame);
+void set_alpha(View* view, float alpha);
 
 void add_subview(View* view, View* subview);
 void remove_subview(View* view, View* subview);

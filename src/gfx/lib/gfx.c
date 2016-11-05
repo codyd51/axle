@@ -53,6 +53,7 @@ Screen* screen_create(Size dimensions, uint32_t* physbase, uint8_t depth) {
 			screen->depth = depth;
 			//8 bits in a byte
 			screen->bpp = depth / 8;
+			screen->vmem = create_layer(dimensions);
 
 			return screen;
 }
@@ -86,7 +87,7 @@ void fill_screen(Screen* screen, Color color) {
 
 void write_screen(Screen* screen) {
 	vsync();
-	memcpy(screen->physbase, screen->window->layer->raw, screen->window->layer->size.width * screen->window->layer->size.height * gfx_bpp());
+	memcpy(screen->physbase, screen->vmem->raw, screen->vmem->size.width * screen->vmem->size.height * gfx_bpp());
 }
 
 void rainbow_animation(Screen* screen, Rect r) {

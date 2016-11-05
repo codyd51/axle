@@ -21,6 +21,7 @@ typedef struct screen_t {
 	uint16_t pixelwidth; //redundant?
 	uint32_t* physbase; //address of beginning of framebuffer
 	volatile int finished_drawing; //are we currently rendering a frame?
+	ca_layer* vmem; //raw framebuffer pushed to screen
 } Screen;
 
 typedef struct Vec2d {

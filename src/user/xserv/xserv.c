@@ -118,28 +118,12 @@ void draw_label(ca_layer* dest, Label* label) {
 	Rect frame = label->frame;
 	frame.origin = point_zero();
 
-	//find bounding box of text
-	float bounding_width = strlen(label->text) * CHAR_WIDTH;
-	float bounding_height = CHAR_HEIGHT;
-
-	if (bounding_width > frame.size.width) {
-		bounding_width = frame.size.width;
-
-		//how many lines will we need to fit this text?
-		int characters_on_line = bounding_width / CHAR_WIDTH;
-		bounding_height = strlen(label->text) / (float)characters_on_line * CHAR_HEIGHT * 2;
-	}
-	if (bounding_height > frame.size.height) {
-		bounding_height = frame.size.height;
-	}
-
-	Rect bounding_box = rect_make(point_zero(), size_make(bounding_width, bounding_height));
-	Color bounding_box_bg_color = color_white();
+	Color background_color = color_white();
 	//try to match text bounding box to superview's background color
 	if (superview) {
-		bounding_box_bg_color = superview->background_color;
+		background_color = superview->background_color;
 	}
-	draw_rect(label->layer, bounding_box, bounding_box_bg_color, THICKNESS_FILLED);
+	draw_rect(label->layer, rect_make(point_zero(), label->frame.size), background_color, THICKNESS_FILLED);
 
 	//actually render text
 	int idx = 0;
@@ -209,8 +193,8 @@ void draw_view(Screen* screen, View* view) {
 	view->needs_redraw = 0;
 }
 
-void draw_window(Screen* screen, Window* window) {
-	if (!window->needs_redraw) return;
+bool draw_window(Screen* screen, Window* window) {
+	if (!window->needs_redraw) return false;
 
 	dirtied = 1;
 
@@ -248,6 +232,8 @@ void draw_window(Screen* screen, Window* window) {
 	draw_rect(window->layer, rect_make(point_zero(), window->frame.size), color_black(), 1);
 
 	window->needs_redraw = 0;
+
+	return true;
 }
 
 void add_taskbar(Screen* screen) {
@@ -294,13 +280,16 @@ void add_status_bar(Screen* screen) {
 void draw_desktop(Screen* screen) {
 	//paint root desktop
 	draw_window(screen, screen->window);
+	blit_layer(screen->vmem, screen->window->layer, point_zero());
 
 	//paint every child window
 	for (int i = 0; i < screen->window->subviews->size; i++) {
 		Window* win = (Window*)(array_m_lookup(screen->window->subviews, i));
+		//if (draw_window(screen, win)) {
 		draw_window(screen, win);
-		//composite child window onto root window
-		blit_layer(screen->window->layer, win->layer, win->frame.origin);
+			//composite child window onto root window
+			blit_layer(screen->vmem, win->layer, win->frame.origin);
+		//}
 	}
 }
 
@@ -337,17 +326,17 @@ void draw_cursor(Screen* screen) {
 
 	if (behind_cursor) {
 		//restore whatever was behind cursor
-		draw_bmp(screen->window->layer, behind_cursor);
+		draw_bmp(screen->vmem, behind_cursor);
 		//free it
 		bmp_teardown(behind_cursor);
 	}
 
 	//update region behind cursor
-	behind_cursor = create_bmp(cursor->frame, layer_snapshot(screen->window->layer, cursor->frame));
+	behind_cursor = create_bmp(cursor->frame, layer_snapshot(screen->vmem, cursor->frame));
 
 	//we do not call add_bmp on the cursor
 	//we draw it manually to ensure it is always above all other content
-	draw_bmp(screen->window->layer, cursor);
+	draw_bmp(screen->vmem, cursor);
 
 	dirtied = prev_dirtied;
 }
@@ -379,7 +368,8 @@ static Window* window_containing_point(Screen* screen, Coordinate p) {
 }
 
 static void process_mouse_events(Screen* screen) {
-	static Window* grabbed_window;
+	static Window* grabbed_window = NULL;
+	static float grabbed_real_alpha = 1.0;
 	static Coordinate last_mouse_pos = { -1, -1 };
 
 	//get mouse events
@@ -395,8 +385,14 @@ static void process_mouse_events(Screen* screen) {
 			grabbed_window = owner;
 
 			//don't move root window! :p
-			if (grabbed_window != screen->window) {
+			if (grabbed_window != screen->window && grabbed_window->layer->alpha > 0.0) {
 				active_window = grabbed_window;
+				grabbed_real_alpha = active_window->layer->alpha;
+				set_alpha((View*)active_window, 1.0);
+
+				//bring this window to forefont
+				array_m_remove(screen->window->subviews, array_m_index(screen->window->subviews, active_window));
+				array_m_insert(screen->window->subviews, active_window);
 			}
 		}
 		if (last_mouse_pos.x != -1 && grabbed_window != screen->window) {
@@ -408,8 +404,12 @@ static void process_mouse_events(Screen* screen) {
 		}
 	}
 	else {
-		//click event ended, release window
-		grabbed_window = NULL;
+		if (grabbed_window) {
+			//click event ended, release window
+			//reset alpha to original value
+			set_alpha((View*)grabbed_window, grabbed_real_alpha);
+			grabbed_window = NULL;
+		}
 	}
 	last_mouse_pos = p;
 }
