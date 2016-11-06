@@ -1,240 +1,109 @@
 #include "kb.h"
-#include <kernel/kernel.h>
+#include "kb_us.h"
 #include <std/common.h>
 #include <std/std.h>
 #include <kernel/util/interrupts/isr.h>
-#include <kernel/util/kbman/kbman.h>
-#include <kernel/util/mutex/mutex.h>
-#include <kernel/drivers/kb/kb.h>
 #include <kernel/util/syscall/sysfuncs.h>
+#include <kernel/util/kbman/kbman.h>
 
-#define KBD_DATA_PORT 0x60
+void kb_callback(registers_t regs);
 
-//TODO implement bitmask for special keys (shift/ctrl/fn/etc)
-static const unsigned short shiftMask = 4;
-static const unsigned short keypressFinishedMask = 2;
-static unsigned int flags = 0;
+keymap_t* layout;
 
-static array_m* kb_buffer;
-static lock_t* mutex;
+//index into circular buffer of kb data
+uint32_t kb_buffer_start;
+uint32_t kb_buffer_end;
+//circular buffer of kb data
+char kb_buffer[256];
 
-//KBDUS means US Keyboard Layout. This is a scancode table
-//used to layout a standard US keyboard.
-unsigned char kbdus[128] =
-{
-	0,  27, '1', '2', '3', '4', '5', '6', '7', '8',	/* 9 */
-	'9', '0', '-', '=', '\b',	/* Backspace */
-	'\t',			/* Tab */
-	'q', 'w', 'e', 'r',	/* 19 */
-	't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',	/* Enter key */
-		0,			/* 29   - Control */
-	'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';',	/* 39 */
- '\'', '`',   0,		/* Left shift */
- '\\', 'z', 'x', 'c', 'v', 'b', 'n',			/* 49 */
-	'm', ',', '.', '/',   0,				/* Right shift */
-	'*',
-		0,	/* Alt */
-	' ',	/* Space bar */
-		0,	/* Caps lock */
-		0,	/* 59 - F1 key ... > */
-		0,   0,   0,   0,   0,   0,   0,   0,
-		0,	/* < ... F10 */
-		0,	/* 69 - Num lock*/
-		0,	/* Scroll Lock */
-		0,	/* Home key */
-		0,	/* Up Arrow */
-		0,	/* Page Up */
-	'-',
-		0,	/* Left Arrow */
-		0,
-		0,	/* Right Arrow */
-	'+',
-		0,	/* 79 - End key*/
-		0,	/* Down Arrow */
-		0,	/* Page Down */
-		0,	/* Insert Key */
-		0,	/* Delete Key */
-		0,   0,   0,
-		0,	/* F11 Key */
-		0,	/* F12 Key */
-		0,	/* All other keys are undefined */
-};
+void kb_install() {
+	printf_info("Initializing keyboard driver...");
 
-void add_character_to_buffer(char ch) {
-	lock(mutex);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
-	array_m_insert(kb_buffer, (type_t)ch);
-#pragma GCC diagnostic pop
-	unlock(mutex);
+	register_interrupt_handler(IRQ1, &kb_callback);
+	switch_layout(&kb_us);
+
+	kb_buffer_start = 0;
+	kb_buffer_end = 0;
 }
 
-static void finalize_keystroke(void) {
-	//hook into task switch
-	//trigger iosentinel
-	extern void update_blocked_tasks();
-	update_blocked_tasks();
+char kgetch() {
+	//printf("getch start %d end %d\n", kb_buffer_start, kb_buffer_end);
+	if (kb_buffer_start != kb_buffer_end) {
+		char c = kb_buffer[kb_buffer_start++];
+		//if we went out of bounds, wrap to start of buffer
+		kb_buffer_start &= 255;
+		return c;
+	}
+	//no characters available
+	return '\0';
+}
+
+char getchar() {
+	sys_yield(KB_WAIT);
+	return kgetch();
+}
+
+bool haskey() {
+	return (kb_buffer_start != kb_buffer_end);
+}
+
+void switch_layout(keymap_t* new) {
+	layout = new;
 }
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 void kb_callback(registers_t regs) {
-	static unsigned char c = 0;
+	uint8_t scancode = inb(0x60);
 
-	//read from keyboard's data buffer
-	if (inb(KBD_DATA_PORT) != c) {
-		c = inb(KBD_DATA_PORT);
-
-		//if top byte we read from KB is set,
-		//then a key was just released
-		if (c & 0x80) {
-			// If the key released was shift, then remove the mask
-			if ((c == 170 || c == 182) && (flags & shiftMask)) {
-				flags = flags ^ shiftMask;
+	//check if key was released
+	if (scancode & RELEASED_MASK) {
+		//modifier flags stored in first 5 bits
+		for (int i = 0; i < 5; i++) {
+			if (layout->control_map[i] == (scancode & ~RELEASED_MASK)) {
+				//releasing key always disables its function
+				layout->controls &= ~(1 << i);
+				return;
 			}
-
-			//inform OS
-			//clear released bit
-			kbman_process_release(c ^ 0x80);
-
-			return;
-		}
-		char mappedchar = kbdus[c];
-
-		//TODO scan to see if suer released shift/alt/control keys
-		flags = flags | keypressFinishedMask;
-
-		// If shift is detected and the mask hasn't been added, add it
-		if ((c == 42 || c == 54) && !(flags & shiftMask)) {
-			flags = flags ^ shiftMask;
-			return;
 		}
 
+		//inform OS
+		//clear released bit
+		kbman_process_release(scancode ^ 0x80);
+	}
+	else {
+		//was this a control key?
+		//also invert bit in status map
+		for (int i = 0; i < 8; i++) {
+			if (layout->control_map[i] == scancode) {
+				//if bit was set, delete it
+				if (layout->controls & 1 << i) {
+					layout->controls &= ~(1 << i);
+				}
+				//set it
+				else {
+					layout->controls |= 1 << i;
+				}
+				return;
+			}
+		}
+
+		//non-control key
+		//get uppercase/lowecase version depending on control keys status
+		uint8_t* scancodes = layout->scancodes;
+		if ((layout->controls & (LSHIFT | RSHIFT | CAPSLOCK)) && !(layout->controls & CONTROL)) {
+			scancodes = layout->shift_scancodes;
+		}
+
+		//don't overflow buffer if possible :p
+		if (kb_buffer_end != kb_buffer_start - 1) {
+			kb_buffer[kb_buffer_end++] = scancodes[scancode];
+			kb_buffer_end &= 255;
+		}
+		
 		// if this key was a special key, inform os
-		// TODO dedicated function to check for special keys
-		kbman_process(c);
-
-		//rest for next use
-		flags = flags ^ keypressFinishedMask;
-
-		if (flags & shiftMask) {
-			if (toupper(mappedchar) == mappedchar) {
-				mappedchar = toupper_special(mappedchar);
-			} else {
-				mappedchar = toupper(mappedchar);
-			}
-		}
-
-		if (c == KEY_UP) {
-			add_character_to_buffer('\033');
-			add_character_to_buffer('[');
-			add_character_to_buffer('A');
-		}
-		else if (c == KEY_DOWN) {
-			add_character_to_buffer('\033');
-			add_character_to_buffer('[');
-			add_character_to_buffer('B');
-		}
-		else if (c == KEY_RIGHT) {
-			add_character_to_buffer('\033');
-			add_character_to_buffer('[');
-			add_character_to_buffer('C');
-		}
-		else if (c == KEY_LEFT) {
-			add_character_to_buffer('\033');
-			add_character_to_buffer('[');
-			add_character_to_buffer('D');
-		}
-		else {
-			add_character_to_buffer(mappedchar);
-		}
-		//we've finished processing this keystroke, allow tasks blocked for kb to run
-		finalize_keystroke();
+		kbman_process(scancode);
 	}
 }
 #pragma GCC diagnostic pop
 
-char toupper_special(char character) {
-	switch(character) {
-		case '`':
-			return '~';
-		case '1':
-			return '!';
-		case '2':
-			return '@';
-		case '3':
-			return '#';
-		case '4':
-			return '$';
-		case '5':
-			return '%';
-		case '6':
-			return '^';
-		case '7':
-			return '&';
-		case '8':
-			return '*';
-		case '9':
-			return '(';
-		case '0':
-			return ')';
-		case '-':
-			return '_';
-		case '=':
-			return '+';
-		case '[':
-			return '{';
-		case ']':
-			return '}';
-		case '\\':
-			return '|';
-		case ';':
-			return ':';
-		case '\'':
-			return '"';
-		case ',':
-			return '<';
-		case '.':
-			return '>';
-		case '/':
-			return '?';
-		default:
-			return character;
-	}
-}
-
-void kb_install() {
-	printf_info("Initializing keyboard driver...");
-
-	kb_buffer = array_m_create(1024);
-	mutex = lock_create();
-
-	register_interrupt_handler(IRQ1, &kb_callback);
-}
-
-int haskey() {
-	return kb_buffer->size > 0;
-}
-
-//does not block!
-char kgetch() {
-	lock(mutex);
-
-	if (!haskey()) return 0;
-
-	//return first character from KB buffer, and remove that character
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
-	char ret = (char)array_m_lookup(kb_buffer, 0);
-#pragma GCC diagnostic pop
-	array_m_remove(kb_buffer, 0);
-
-	unlock(mutex);
-	return ret;
-}
-
-//blocks until character is received
-char getchar() {
-    sys_yield(KB_WAIT);
-	return kgetch();
-}
