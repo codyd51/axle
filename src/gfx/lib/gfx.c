@@ -92,7 +92,7 @@ void write_screen(Screen* screen) {
 	memcpy(screen->physbase, screen->vmem->raw, screen->vmem->size.width * screen->vmem->size.height * gfx_bpp());
 }
 
-void rainbow_animation(Screen* screen, Rect r) {
+void rainbow_animation(Screen* screen, Rect r, int animationStep) {
 	//ROY G BIV
 	int colors[] = {4, 42, 44, 46, 1, 13, 34};
 	for (int i = 0; i < 7; i++) {
@@ -105,7 +105,7 @@ void rainbow_animation(Screen* screen, Rect r) {
 		draw_rect(screen->vmem, seg, col, THICKNESS_FILLED);
 		write_screen(screen);
 		
-		sleep(500 / 7);
+		sleep(animationStep / 7);
 	}
 }
 
@@ -122,7 +122,7 @@ void vga_boot_screen(Screen* screen) {
 	tri_col.val[0] = 2;
 	draw_triangle(screen->vmem, triangle, tri_col, 5);
 
-	Coordinate lab_origin = point_make(screen->window->size.width / 2 - (3.75 * 8), screen->window->size.height * 0.5);
+	Coordinate lab_origin = point_make(screen->window->size.width / 2 - (3.75 * 8), screen->window->size.height * 0.625);
 	Size lab_size = size_make((10 * strlen("axle os")), 12);
 	Label* label = create_label(rect_make(lab_origin, lab_size), "axle os");
 	label->text_color = color_make(2, 0, 0);
@@ -148,7 +148,7 @@ void vga_boot_screen(Screen* screen) {
 	Coordinate rainbow_origin = point_make(origin.x + 2, origin.y + 2);
 	Size rainbow_size = size_make(rect_length - 4, sz.height - 3);
 	Rect rainbow_rect = rect_make(rainbow_origin, rainbow_size);
-	rainbow_animation(screen, rainbow_rect);
+	rainbow_animation(screen, rainbow_rect, 750);
 
 	sleep(250);
 }
