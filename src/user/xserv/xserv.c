@@ -463,6 +463,15 @@ void xserv_refresh(Screen* screen) {
 					w->needs_redraw = 1;
 				}
 			}
+			else if (ch == 'a') {
+				//toggle alpha of topmost window between 0.5 and 1.0
+				Window* topmost = array_m_lookup(screen->window->subviews, screen->window->subviews->size - 1);
+				float new = 0.5;
+				if (topmost->layer->alpha == new) {
+					new = 1.0;
+				}
+				set_alpha((View*)topmost, new);
+			}
 		}
 	}
 
