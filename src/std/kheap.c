@@ -350,33 +350,17 @@ void free(void* p, heap_t* heap) {
 	//if thing to right of us is a header...
 	header_t* test_header = (header_t*)((uint32_t)footer + sizeof(footer_t));
 	if (test_header->magic == HEAP_MAGIC && test_header->hole) {
-		//header->size += test_header->size; //increase size to fit merged hole
-		//test_footer = (footer_t*)((uint32_t)test_header + test_header->size - sizeof(footer_t)); //rewrite its footer to point to our header
-		//footer = test_footer;
+		header->size += test_header->size; //increase size to fit merged hole
+		test_footer = (footer_t*)((uint32_t)test_header + test_header->size - sizeof(footer_t)); //rewrite its footer to point to our header
+		footer = test_footer;
 
 		//find and remove this header from index
-		uint32_t iterator = 0;
-		while ((iterator < heap->index->size) && (array_o_lookup(heap->index, iterator) != (void*)test_header)) {
-			iterator++;
-		}
-
-		//ensure we actually found the item
-		ASSERT(iterator < heap->index->size, "couldn't find item!");
-
-		//header is fake, delete it and process as if there was nothing
-		if (iterator > heap->index->size) {
-			//delete fake header
-			test_header->magic = 0;
-			test_header->hole = 1;
-		}
-		else {
-			//everything was normal
-			//increase size
-			header->size += test_header->size;
-			test_footer = (footer_t*)((uint32_t)test_header + test_header->size - sizeof(footer_t));
-			footer = test_footer;
-			//remove it
-			array_o_remove(heap->index, iterator);
+		for (int i = 0; i < heap->index->size; i++) {
+			header_t* tmp = array_o_lookup(heap->index, i);
+			if (tmp == test_header) {
+				array_o_remove(heap->index, i);
+				break;
+			}
 		}
 	}
 
