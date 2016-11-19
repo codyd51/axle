@@ -41,7 +41,7 @@ void draw_mandelbrot(Screen* screen, bool rgb) {
 			if (rgb) {
 				color = color_make(i, i % max_iterations, (i < max_iterations) ? 0 : 255);
 			}
-			putpixel(screen->window->layer, x, y, color);
+			putpixel(screen->vmem, x, y, color);
 		}
 	}
 }
@@ -82,7 +82,7 @@ void draw_burning_ship(Screen* screen, bool rgb) {
 			if (rgb) {
 				color = color_make(i, i % max_iterations, (i < max_iterations) ? 0 : 255);
 			}
-			putpixel(screen->window->layer, x, y, color);
+			putpixel(screen->vmem, x, y, color);
 		}
 	}
 }
@@ -134,7 +134,7 @@ void draw_julia(Screen* screen, bool rgb) {
 			if (rgb) {
 				color = color_make(i, i % max_iterations, (i < max_iterations) ? 0 : 255);
 			}
-			putpixel(screen->window->layer, x, y, color);
+			putpixel(screen->vmem, x, y, color);
 		}
 	}
 }
@@ -148,7 +148,7 @@ void test_triangles(Screen* screen) {
 
 	for (int i = 1; i <= 12; i++) {
 		Triangle t = triangle_make(p1, p2, p3);
-		draw_triangle(screen->window->layer, t, color_make(i, 0, 0), THICKNESS_FILLED);
+		draw_triangle(screen->vmem, t, color_make(i, 0, 0), THICKNESS_FILLED);
 
 		p1.y += i * 2;
 		p2.x += i * 1.5;
@@ -166,7 +166,7 @@ void test_rects(Screen* screen) {
 
 	for (int i = 0; i < 20; i++) {
 		Rect rt = rect_make(origin, sz);
-		draw_rect(screen->window->layer, rt, color_make(i, 0, 0), 1);
+		draw_rect(screen->vmem, rt, color_make(i, 0, 0), 1);
 
 		origin.x += 4;
 		origin.y += 4;
@@ -183,7 +183,7 @@ void test_circles(Screen* screen) {
 
 	for (int i = 0; i < 26; i++) {
 		Circle c = circle_make(center, radius);
-		draw_circle(screen->window->layer, c, color_make(i, 0, 0), 1);
+		draw_circle(screen->vmem, c, color_make(i, 0, 0), 1);
 
 		radius -= 4;
 	}
@@ -192,7 +192,7 @@ void test_circles(Screen* screen) {
 void test_lines(Screen* screen) {
 	fill_screen(screen, color_make(0, 0, 0));
 
-	ca_layer* layer = screen->window->layer;
+	ca_layer* layer = screen->vmem;
 	for (int i = 0; i < 128; i++) {
 		int p1x = rand() % (layer->size.width + 1);
 		int p1y = rand() % (layer->size.height + 1);
@@ -214,7 +214,7 @@ void test_text(Screen* screen) {
 	Label* label = create_label(rect_make(point_make(0, 0), size_make(screen->window->size.width, screen->window->size.height)), str);
 	label->text_color = color_make(12, 0, 0);
 	add_sublabel(screen->window->content_view, label);
-	draw_label(screen->window->layer, label);
+	draw_label(screen->vmem, label);
 
 	kfree(label);
 }
@@ -225,24 +225,24 @@ void draw_button(Screen* screen) {
 	Coordinate origin = point_make(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
 	Size sz = size_make(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
 	Rect r = rect_make(origin, sz);
-	draw_rect(screen->window->layer, r, color_make(2, 0, 0), 1);
+	draw_rect(screen->vmem, r, color_make(2, 0, 0), 1);
 
 	Coordinate in_origin = point_make(origin.x + 1, origin.y + 1);
 	Size in_size = size_make(sz.width - 2, sz.height - 2);
 	Rect in_rect = rect_make(in_origin, in_size);
-	draw_rect(screen->window->layer, in_rect, color_make(12, 0, 0), 30);
+	draw_rect(screen->vmem, in_rect, color_make(12, 0, 0), 30);
 
 	Coordinate p1 = point_make(origin.x + sz.width * 0.1, origin.y + sz.height * 0.1);
 	Coordinate p2 = point_make(origin.x + sz.width * 0.1, origin.y + sz.height * 0.9);
 	Coordinate p3 = point_make(origin.x + sz.width * 0.4, origin.y + sz.height * 0.5);
 	Triangle tri = triangle_make(p1, p2, p3);
-	draw_triangle(screen->window->layer, tri, color_make(15, 0, 0), 1);
+	draw_triangle(screen->vmem, tri, color_make(15, 0, 0), 1);
 
 	Rect label_rect = rect_make(point_make(p3.x + 5, in_origin.y), size_make(in_rect.size.width, in_rect.size.height));
 	Label* play_label = create_label(label_rect, "Play");
 	play_label->text_color = color_make(1, 0, 0);
 	add_sublabel(screen->window->content_view, play_label);
-	draw_label(screen->window->layer, play_label);
+	draw_label(screen->vmem, play_label);
 
 	kfree(play_label);
 }
@@ -259,39 +259,46 @@ void test_gfx(int argc, char **argv) {
 	Screen* screen = switch_to_vga();
 
 	fill_screen(screen, color_make(0, 0, 0));
-
 	draw_button(screen);
 	write_screen(screen);
 	sleep(delay);
 
+	fill_screen(screen, color_make(0, 0, 0));
 	test_lines(screen);
 	write_screen(screen);
 	sleep(delay);
 
+	fill_screen(screen, color_make(0, 0, 0));
 	test_circles(screen);
 	write_screen(screen);
 	sleep(delay);
 
+	fill_screen(screen, color_make(0, 0, 0));
 	test_rects(screen);
 	write_screen(screen);
 	sleep(delay);
 
+	fill_screen(screen, color_make(0, 0, 0));
 	test_triangles(screen);
 	write_screen(screen);
 	sleep(delay);
 
+	fill_screen(screen, color_make(0, 0, 0));
 	test_text(screen);
 	write_screen(screen);
 	sleep(delay);
 
+	fill_screen(screen, color_make(0, 0, 0));
 	draw_julia(screen, false);
 	write_screen(screen);
 	sleep(delay);
 
+	fill_screen(screen, color_make(0, 0, 0));
 	draw_mandelbrot(screen, false);
 	write_screen(screen);
 	sleep(delay);
 
+	fill_screen(screen, color_make(0, 0, 0));
 	draw_burning_ship(screen, false);
 	write_screen(screen);
 	sleep(delay);

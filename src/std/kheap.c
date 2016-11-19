@@ -68,8 +68,9 @@ static int32_t find_smallest_hole(uint32_t size, uint8_t align, heap_t* heap) {
 	while (iterator < heap->index->size) {
 		header_t* header = (header_t*)array_o_lookup(heap->index, iterator);
 
-		//check if magic is valid
+		//check if header is valid
 		ASSERT(header->magic == HEAP_MAGIC, "invalid header magic");
+		ASSERT(header->hole, "header %x was in free block index but was not a hole!", header);
 
 		//if user has requested memory be page aligned
 		//
@@ -315,6 +316,30 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 	return (void*)((uint32_t)block_header + sizeof(header_t));
 }
 
+void heap_int_test() {
+	for (int i = 1; i < 1024; i++) {
+		char* c = kmalloc(73);
+
+		//get header and footer associated with this pointer
+		header_t* header = (header_t*)((uint32_t)c - sizeof(header_t));
+		footer_t* footer = (footer_t*)((uint32_t)header + header->size - sizeof(footer_t));
+
+		if (header->magic != HEAP_MAGIC) {
+			printf_err("heap_int_test(): invalid header magic (got %x)", header->magic);
+			kfree(c);
+			return;
+		}
+		if (footer->magic != HEAP_MAGIC) {
+			printf_err("heap_int_test(): invalid footer magic (got %x)", footer->magic);
+			kfree(c);
+			return;
+		}
+
+		kfree(c);
+	}
+	printf_info("heap_int_test(): test passed normally");
+}
+
 void free(void* p, heap_t* heap) {
 	if (p == 0) return;
 
@@ -323,8 +348,8 @@ void free(void* p, heap_t* heap) {
 	footer_t* footer = (footer_t*)((uint32_t)header + header->size - sizeof(footer_t));
 
 	//ensure these are valid
-	ASSERT(header->magic == HEAP_MAGIC, "invalid header magic in %x", p);
-	ASSERT(footer->magic == HEAP_MAGIC, "invalid footer magic in %x", p);
+	ASSERT(header->magic == HEAP_MAGIC, "invalid header magic in %x (got %x)", p, header->magic);
+	ASSERT(footer->magic == HEAP_MAGIC, "invalid footer magic in %x (got %x)", p, footer->magic);
 
 	//we're about to free this memory, untrack it from used memory
 	used_bytes -= header->size;

@@ -67,6 +67,9 @@ void expand(uint32_t new_size, heap_t* heap);
 //returns number of bytes currently in use by heap
 uint32_t used_mem();
 
+//performs test of various allocation sizes and logs if any heap management errors were detected
+void heap_int_test();
+
 __END_DECLS
 
 #endif // STD_KHEAP_H

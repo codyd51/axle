@@ -84,7 +84,7 @@ void vsync() {
 }
 
 void fill_screen(Screen* screen, Color color) {
-	memset(screen->window->layer->raw, color.val[0], screen->window->size.width * screen->window->size.height * gfx_bpp());
+	memset(screen->vmem->raw, color.val[0], screen->window->size.width * screen->window->size.height * gfx_bpp());
 }
 
 void write_screen(Screen* screen) {
