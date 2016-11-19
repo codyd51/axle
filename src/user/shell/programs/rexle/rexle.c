@@ -68,14 +68,9 @@ void rexle_int() {
 	array_m_insert(textures, bmp);
 
 	//FPS counter
-	Label* fps = create_label(rect_make(point_make(3, 3), size_make(300, 50)), "FPS Counter");
-	fps->text_color = color_white();
+	Label* fps = create_label(rect_make(point_make(3, 3), size_make(100, 15)), "FPS Counter");
+	fps->text_color = color_black();
 	add_sublabel(screen->window->content_view, fps);
-
-	//Memory usage tracker
-	Label* mem = create_label(rect_make(point_make(screen->window->size.width - 200, 3), size_make(200, 50)), "Memory tracker");
-	mem->text_color = color_white();
-	add_sublabel(screen->window->content_view, mem);
 
 	double timestamp = 0; //current frame timestamp
 	double time_prev = 0; //prev frame timestamp
@@ -200,16 +195,16 @@ void rexle_int() {
 					col.val[2] /= 2;
 				}
 
-				putpixel(screen->window->layer, x, y, col);
+				putpixel(screen->vmem, x, y, col);
 			}
 
 			//draw ceiling above this ray
 			Line ceiling = line_make(point_make(x, 0), point_make(x, start));
-			draw_line(screen->window->layer, ceiling, color_make(130, 40, 100), 1);
+			draw_line(screen->vmem, ceiling, color_make(130, 40, 100), 1);
 
 			//draw floor below the ray
 			Line floor = line_make(point_make(x, end), point_make(x, screen_size.height));
-			draw_line(screen->window->layer, floor, color_make(135, 150, 200), 1);
+			draw_line(screen->vmem, floor, color_make(135, 150, 200), 1);
 		}
 
 		//timing
@@ -262,17 +257,12 @@ void rexle_int() {
 			plane.y = old_plane_x * sin(rot_speed) + plane.y * cos(rot_speed);
 		}
 
+		int real_fps = 1 / frame_time;
 		char buf[32];
-		itoa(frame_time * 1000000, (char*)&buf);
-		strcat(buf, " ns/frame");
+		itoa(real_fps, (char*)&buf);
+		strcat(buf, " FPS");
 		fps->text = buf;
-		draw_label(screen->window->layer, fps);
-
-		char mem_buf[32];
-		itoa(used_mem(), (char*)&mem_buf);
-		strcat(mem_buf, " bytes in use");
-		mem->text = mem_buf;
-		draw_label(screen->window->layer, mem);
+		draw_label(screen->vmem, fps);
 
 		write_screen(screen);
 
@@ -282,7 +272,16 @@ void rexle_int() {
 			break;
 		}
 	}
+
+	//cleanup
+	//free textures
+	for (int i = 0; i < textures->size; i++) {
+		Bmp* bmp = array_m_lookup(textures, i);
+		printf_dbg("freeing bmp [%d]%x", i, bmp);
+		bmp_teardown(bmp);
+	}
 	gfx_teardown(screen);
+
 	switch_to_text();
 	resign_first_responder();
 }
