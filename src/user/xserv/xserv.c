@@ -106,7 +106,9 @@ Rect absolute_frame(Screen* screen, View* view) {
 }
 
 void draw_bmp(ca_layer* dest, Bmp* bmp) {
-	blit_layer(dest, bmp->layer, bmp->frame.origin); 
+	if (!bmp) return;
+
+	blit_layer(dest, bmp->layer, bmp->frame); 
 
 	bmp->needs_redraw = 0;
 }
@@ -174,7 +176,9 @@ void draw_view(Screen* screen, View* view) {
 	//draw any bmps this view has
 	for (int i = 0; i < view->bmps->size; i++) {
 		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
-		draw_bmp(view->layer, bmp);
+		if (bmp) {
+			draw_bmp(view->layer, bmp);
+		}
 	}
 
 	/*
@@ -285,7 +289,6 @@ void draw_desktop(Screen* screen) {
 	//paint every child window
 	for (int i = 0; i < screen->window->subviews->size; i++) {
 		Window* win = (Window*)(array_m_lookup(screen->window->subviews, i));
-		//if (draw_window(screen, win)) {
 		draw_window(screen, win);
 			//composite child window onto root window
 			blit_layer(screen->vmem, win->layer, win->frame.origin);
@@ -296,7 +299,9 @@ void draw_desktop(Screen* screen) {
 void desktop_setup(Screen* screen) {
 	//set up background image
 	Bmp* background = load_bmp(screen->window->content_view->frame, "background.bmp");
-	add_bmp(screen->window->content_view, background);
+	if (background) {
+		add_bmp(screen->window->content_view, background);
+	}
 	add_status_bar(screen);
 	add_taskbar(screen);
 }
@@ -304,28 +309,13 @@ void desktop_setup(Screen* screen) {
 void draw_cursor(Screen* screen) {
 	//actual cursor bitmap
 	static Bmp* cursor = 0;
-	//store region behind cursor so we can restore after cursor moves
-	static Bmp* behind_cursor = 0;
-	static Coordinate previous_pos;
+	static bool tried_loading_cursor = false;
+	static int max_per_frame_movement = 5;
 
-	if (!cursor) {
+	if (!tried_loading_cursor) {
 		cursor = load_bmp(rect_make(point_zero(), size_make(12, 18)), "cursor.bmp");
+		tried_loading_cursor = true;
 	}
-
-	Coordinate new_pos = mouse_point();
-
-	if (abs(new_pos.x - previous_pos.x) > 1) {
-		//left or right?
-		int dir = new_pos.x > previous_pos.x;
-		new_pos.x = (dir) ? (previous_pos.x + 1) : (previous_pos.x - 1);
-	}
-	if (abs(new_pos.y - previous_pos.y) > 1) {
-		//up or down?
-		int dir = new_pos.y > previous_pos.y;
-		new_pos.y = (!dir) ? (previous_pos.y + 1) : (previous_pos.y - 1);
-	}
-
-	previous_pos = new_pos;
 
 	//update cursor position
 	cursor->frame.origin = mouse_point();
@@ -334,19 +324,15 @@ void draw_cursor(Screen* screen) {
 	//save dirtied flag, draw cursor, and restore it
 	char prev_dirtied = dirtied;
 
-	if (behind_cursor) {
-		//restore whatever was behind cursor
-		draw_bmp(screen->vmem, behind_cursor);
-		//free it
-		bmp_teardown(behind_cursor);
-	}
-
-	//update region behind cursor
-	behind_cursor = create_bmp(cursor->frame, layer_snapshot(screen->vmem, cursor->frame));
-
 	//we do not call add_bmp on the cursor
 	//we draw it manually to ensure it is always above all other content
-	draw_bmp(screen->vmem, cursor);
+	if (cursor) {
+		draw_bmp(screen->vmem, cursor);
+	}
+	else {
+		//couldn't load cursor, use backup
+		draw_rect(screen->vmem, rect_make(mouse_point(), size_make(10, 12)), color_blue(), THICKNESS_FILLED);
+	}
 
 	dirtied = prev_dirtied;
 }

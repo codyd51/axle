@@ -14,7 +14,35 @@ volatile int running_y = 0;
 volatile uint8_t mouse_state;
 
 Coordinate mouse_point() {
-	return point_make(running_x, running_y);
+	static Coordinate previous_pos;
+
+	Coordinate new_pos = point_make(running_x, running_y);
+	//initial case, no previous mouse position recorded
+	if (!previous_pos.x && !previous_pos.y) {
+		previous_pos = new_pos;
+		return new_pos;
+	}
+
+	//mouse acceleration
+	//new position = new_pos + sqrt(offset from last pos)
+	//provides logarithmic acceleration
+	{
+		//left or right?
+		int dir = new_pos.x > previous_pos.x;
+
+		int offset = (int)sqrt(abs(new_pos.x - previous_pos.x));
+		new_pos.x = (dir) ? (previous_pos.x + offset) : (previous_pos.x - offset);
+	}
+	{
+		//up or down?
+		int dir = new_pos.y < previous_pos.y;
+
+		int offset = (int)sqrt(abs(new_pos.y - previous_pos.y));
+		new_pos.y = (!dir) ? (previous_pos.y + offset) : (previous_pos.y - offset);
+	}
+
+	previous_pos = new_pos;
+	return new_pos;
 }
 uint8_t mouse_events() {
 	return mouse_state;
