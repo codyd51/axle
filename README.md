@@ -66,7 +66,7 @@ This image shows axle's window manager as it was in an earlier version, before c
 
 Running
 ----------------------
-Unless your platform natively outputs 32-bit x86 binaries, you will need a cross compiler to build axle. [http://wiki.osdev.org/GCC_Cross-Compiler](This link) provides detailed instructions on how to cross-compile GCC to build suitable binaries. Alternatively, a precompiled toolchain can be downloaded [here](https://github.com/mstg/i686-toolchain).
+Unless your platform natively outputs 32-bit x86 binaries, you will need a cross compiler to build axle. [http://wiki.osdev.org/GCC_Cross-Compiler](http://wiki.osdev.org/GCC_Cross-Compiler) provides detailed instructions on how to cross-compile GCC to build suitable binaries. Alternatively, a precompiled toolchain can be downloaded [here](https://github.com/mstg/i686-toolchain).
 axle uses QEMU as its standard emulator, though any other could be used, such as Bochs. To modify this and other build parameters, see the `Makefile`.
 To run and test axle on OS X, run `./install.sh` to attempt to build the toolchain, then `make run` to start the emulator.
 
