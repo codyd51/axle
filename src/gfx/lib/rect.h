@@ -23,6 +23,9 @@ bool rect_intersects(Rect A, Rect B);
 
 //explode subject rect into array of contiguous rects which are
 //not occluded by cutting rect
-array_m* rect_clip(Rect subject, Rect cutting);
+Rect* rect_clip(Rect subject, Rect cutting);
+
+//find the intersecting rect of a and b
+Rect rect_intersect(Rect a, Rect b);
 
 #endif
