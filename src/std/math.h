@@ -15,6 +15,8 @@ __BEGIN_DECLS
 #define MIN(a, b) CMP(<=, a, b)
 #define MAX(a, b) CMP(>, a, b)
 
+#define abs(val) ((val) < 0) ? -(val) : (val)
+
 #define M_PI 3.1415926536
 #define M_E 2.7182818285
 
@@ -43,8 +45,6 @@ STDAPI double arccot(double val);
 STDAPI double arcsec(double val);
 STDAPI double arccsc(double val);
 STDAPI double atan2(double y, double x);
-
-STDAPI int abs(int val);
 
 STDAPI float sqrt(const float x);
 STDAPI int round(double x);

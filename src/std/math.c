@@ -118,11 +118,6 @@ double atan2(double y, double x) {
 	return -1;
 }
 
-int abs(int val) {
-	if (val < 0) return -val;
-	return val;
-}
-
 #define SQRT_MAGIC_F 0x5f3759df 
 float sqrt(const float x) {
 	const float xhalf = 0.5f*x;
