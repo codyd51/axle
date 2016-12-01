@@ -1,4 +1,5 @@
 #include "label.h"
+#include "view.h"
 #include <std/std.h>
 
 void label_teardown(Label* label) {
@@ -12,7 +13,7 @@ void label_teardown(Label* label) {
 void set_text(Label* label, char* text) {
 	kfree(label->text);
 	label->text = strdup(text);
-	mark_needs_redraw(label);
+	mark_needs_redraw((View*)label);
 }
 
 Label* create_label(Rect frame, char* text) {

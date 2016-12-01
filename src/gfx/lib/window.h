@@ -32,6 +32,12 @@ void window_teardown(Window* window);
 void add_subwindow(Window* window, Window* subwindow);
 void remove_subwindow(Window* window, Window* subwindow);
 
+//add window to desktop hierarchy
+void present_window(Window* window);
+//remove window from desktop hierarchy
+//should this also free window resources? What if window should be presented again later?
+void kill_window(Window* window);
+
 void set_border_width(Window* window, int width);
 
 __END_DECLS

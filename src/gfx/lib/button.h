@@ -11,7 +11,7 @@
 
 __BEGIN_DECLS
 
-typedef void (*mousedown_fp)(struct button* b);
+typedef void (*mousedown_fp)(void* b);
 typedef struct button {
 	//common 
 	Rect frame;

@@ -1,6 +1,7 @@
 #include "window.h"
 #include "view.h"
 #include <std/std.h>
+#include "gfx.h"
 
 #define MAX_ELEMENTS 64
 
@@ -82,6 +83,16 @@ void remove_subwindow(Window* window, Window* subwindow) {
 	array_m_remove(window->subviews, array_m_index(window->subviews, subwindow));
 	subwindow->superview = NULL;
 	mark_needs_redraw((View*)window);
+}
+
+void present_window(Window* window) {
+	Screen* current = gfx_screen();
+	add_subwindow(current->window, window);
+}
+
+void kill_window(Window* window) {
+	Screen* current = gfx_screen();
+	remove_subwindow(current->window, window);
 }
 
 void set_border_width(Window* window, int width) {
