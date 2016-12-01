@@ -9,6 +9,7 @@
 #include "bmp.h"
 #include "label.h"
 #include "window.h"
+#include "button.h"
 
 __BEGIN_DECLS
 
@@ -24,6 +25,7 @@ typedef struct view {
 	array_m* labels;
 	array_m* bmps;
 	array_m* shaders;
+	array_m* buttons;
 } View;
 
 View* create_view(Rect frame);
@@ -41,6 +43,9 @@ void remove_sublabel(View* view, Label* sublabel);
 
 void add_bmp(View* view, Bmp* bmp);
 void remove_bmp(View* view, Bmp* bmp);
+
+void add_button(View* view, Button* button);
+void remove_button(View* view, Button* button);
 
 void mark_needs_redraw(View* view);
 	

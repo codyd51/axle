@@ -55,7 +55,7 @@ static void newline(void);
 static void putraw(char ch);
 static void backspace(void);
 static rawcolor make_color(term_color fg, term_color bg);
-static uint16_t make_terminal_entry(char ch, rawcolor color);
+static uint16_t make_terminal_entry(uint8_t ch, rawcolor color);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-function"
@@ -96,14 +96,6 @@ static void push_back_line(void) {
 	lock(mutex);
 
 	// Move all lines up one. This won't clear the last line
-
-	/*
-	memmove(&g_terminal_buffer->mem[0],
-	        &g_terminal_buffer->mem[TERM_WIDTH],
-	        TERM_COUNT - TERM_WIDTH);
-	*/
-
-	// memmove is not currently implemented, so do this for now
 	for(uint16_t y = 1; y < TERM_HEIGHT; y++) {
 		memcpy(&g_terminal_buffer->grid[y-1][0],
 		       &g_terminal_buffer->grid[y][0],
@@ -336,7 +328,7 @@ static rawcolor make_color(term_color fg, term_color bg) {
 	return ret;
 }
 
-static uint16_t make_terminal_entry(char ch, rawcolor color) {
+static uint16_t make_terminal_entry(uint8_t ch, rawcolor color) {
 	return (color.raw << 8) | ch;
 }
 

@@ -9,6 +9,12 @@ void label_teardown(Label* label) {
 	kfree(label);
 }
 
+void set_text(Label* label, char* text) {
+	kfree(label->text);
+	label->text = strdup(text);
+	mark_needs_redraw(label);
+}
+
 Label* create_label(Rect frame, char* text) {
 	Label* label = (Label*)kmalloc(sizeof(Label));
 	label->layer = create_layer(frame.size);

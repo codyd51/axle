@@ -6,21 +6,26 @@
 #include "color.h"
 #include "rect.h"
 #include "ca_layer.h"
+#include "label.h"
+#include <stdbool.h>
 
 __BEGIN_DECLS
 
+typedef void (*mousedown_fp)(struct button* b);
 typedef struct button {
 	//common 
 	Rect frame;
 	char needs_redraw;
 	ca_layer* layer;
 	struct view* superview;
+	mousedown_fp mousedown_handler;
 
-	char* text;
-	Color text_color;
+	bool toggled;
+	Label* label;
 } Button;
 
 Button* create_button(Rect frame, char* text);
+void button_handle_click();
 
 __END_DECLS
 

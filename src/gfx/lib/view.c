@@ -53,6 +53,7 @@ View* create_view(Rect frame) {
 	view->labels = array_m_create(MAX_ELEMENTS);
 	view->bmps = array_m_create(MAX_ELEMENTS);
 	view->shaders = array_m_create(MAX_ELEMENTS);
+	view->buttons = array_m_create(MAX_ELEMENTS);
 	view->needs_redraw = 1;
 	return view;
 }
@@ -134,6 +135,22 @@ void remove_shader(View* view, Shader* s) {
 
 	array_m_remove(view->shaders, array_m_index(view->shaders, s));
 	s->superview = NULL;
+	mark_needs_redraw(view);
+}
+
+void add_button(View* view, Button* button) {
+	if (!view || !button) return;
+
+	array_m_insert(view->buttons, button);
+	button->superview = view;
+	mark_needs_redraw(view);
+}
+
+void remove_button(View* view, Button* button) {
+	if (!view || !button) return;
+
+	array_m_remove(view->buttons, array_m_index(view->buttons, button));
+	button->superview = NULL;
 	mark_needs_redraw(view);
 }
 
