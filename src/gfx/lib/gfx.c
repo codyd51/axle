@@ -16,7 +16,9 @@
 Window* create_window_int(Rect frame, bool root);
 
 static int current_depth = 0;
-void process_gfx_switch(int new_depth) {
+static Screen* current_screen = 0;
+void process_gfx_switch(Screen* screen, int new_depth) {
+	current_screen = screen;
 	current_depth = new_depth;
 }
 
@@ -35,6 +37,10 @@ int gfx_bpp() {
 	}
 	//each px component is 8 bits
 	return current_depth / 8;
+}
+
+Screen* gfx_screen() {
+	return current_screen;
 }
 
 Vec2d vec2d(double x, float y) {

@@ -75,6 +75,12 @@ Color color_grey() {
 Color color_gray() {
 	return color_grey();
 }
+Color color_dark_grey() {
+	return color_make(80, 80, 80);
+}
+Color color_dark_gray() {
+	return color_dark_grey();
+}
 Color color_white() {
 	return color_make(255, 255, 255);
 }

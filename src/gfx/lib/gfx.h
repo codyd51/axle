@@ -40,9 +40,10 @@ void vga_boot_screen(Screen* screen);
 void fill_screen(Screen* screen, Color color);
 void write_screen(Screen* screen);
 
-void process_gfx_switch(int new_depth);
+void process_gfx_switch(Screen* screen, int new_depth);
 int gfx_depth();
 int gfx_bpp();
+Screen* gfx_screen();
 
 Vec2d vec2d(double x, float y);
 

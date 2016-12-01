@@ -28,6 +28,8 @@ Color color_brown();
 Color color_black();
 Color color_grey();
 Color color_gray();
+Color color_dark_grey();
+Color color_dark_gray();
 Color color_white();
 
 #endif
