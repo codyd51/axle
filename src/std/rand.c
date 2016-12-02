@@ -92,7 +92,7 @@ unsigned long mtwist_rand(mtwist* mt) {
 
 	r &= MTWIST_FULL_MASK;
 
-	return (unsigned long)abs(r);
+	return r;
 }
 
 double mtwist_drange(mtwist* mt) {

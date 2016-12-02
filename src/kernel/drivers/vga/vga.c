@@ -12,9 +12,8 @@ Screen* switch_to_vga() {
 	int width = 320;
 	int height = 200;
 	
-	process_gfx_switch(VGA_DEPTH);
-
 	Screen* screen = screen_create(size_make(width, height), (uint32_t*)VRAM_START, VGA_DEPTH);
+	process_gfx_switch(screen, VGA_DEPTH);
 
 	regs16_t regs;
 	regs.ax = 0x0013;

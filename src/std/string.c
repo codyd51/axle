@@ -9,7 +9,7 @@
 #define PTR_ALIGN_DOWN(base, size) \
 	  ((__typeof__ (base)) ALIGN_DOWN ((uintptr_t) (base), (size)))
 
-char* itoa(int i, char b[]) {
+char* itoa(int i, char* b) {
 	char const digit[] = "0123456789";
 	char* p = b;
 	if (i < 0) {

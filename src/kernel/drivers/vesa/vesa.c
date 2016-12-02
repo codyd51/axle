@@ -66,12 +66,11 @@ Screen* switch_to_vesa(uint32_t vesa_mode, bool create) {
 		regs.bx = (vesa_mode | 0x4000);
 		int32(0x10, &regs);
 
-		process_gfx_switch(mode_info.bpp);
-
 		kernel_end_critical();
 
 		if (create) {
 			Screen* screen = screen_create(size_make(mode_info.x_res, mode_info.y_res), (uint32_t*)mode_info.physbase, mode_info.bpp);
+			process_gfx_switch(screen, mode_info.bpp);
 			return screen;
 		}
 

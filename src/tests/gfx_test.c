@@ -6,6 +6,7 @@
 #include <gfx/lib/shader.h>
 #include <kernel/drivers/vga/vga.h>
 #include <kernel/util/multitasking/tasks/task.h>
+#include <user/programs/calculator.h>
 
 //draw Mandelbrot set
 void draw_mandelbrot(Screen* screen, bool rgb) {
@@ -219,7 +220,7 @@ void test_text(Screen* screen) {
 	kfree(label);
 }
 
-void draw_button(Screen* screen) {
+void draw_test_button(Screen* screen) {
 	fill_screen(screen, color_make(0, 0, 0));
 
 	Coordinate origin = point_make(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
@@ -259,7 +260,7 @@ void test_gfx(int argc, char **argv) {
 	Screen* screen = switch_to_vga();
 
 	fill_screen(screen, color_make(0, 0, 0));
-	draw_button(screen);
+	draw_test_button(screen);
 	write_screen(screen);
 	sleep(delay);
 
@@ -310,28 +311,23 @@ void test_gfx(int argc, char **argv) {
 }
 #pragma GCC diagnostic pop
 
-void test_xserv(Screen* vesa_screen) {
+
+void test_xserv() {
 	Window* image_viewer = create_window(rect_make(point_make(400, 50), size_make(512, 512)));
 	image_viewer->title = "Image Viewer";
 	image_viewer->content_view->background_color = color_make(135, 206, 250);
 	Bmp* bmp = load_bmp(rect_make(point_zero(), size_make(600, 600)), "Lenna.bmp");
-	add_bmp(image_viewer->content_view, bmp);
-	add_subwindow(vesa_screen->window, image_viewer);
+	if (bmp) {
+		add_bmp(image_viewer->content_view, bmp);
+	}
+	present_window(image_viewer);
 
 	Window* label_win = create_window(rect_make(point_make(100, 100), size_make(500, 500)));
 	label_win->title = "Text test";
 	Label* test_label = create_label(rect_make(point_make(10, 10), size_make(label_win->content_view->frame.size.width - 10, label_win->content_view->frame.size.height - 20)), "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque pulvinar dui bibendum nunc convallis, bibendum venenatis mauris ornare. Donec et libero lacus. Nulla tristique auctor pulvinar. Aenean enim elit, malesuada nec dignissim eget, varius ac nunc. Vestibulum varius lectus nisi, in dignissim orci volutpat in. Aliquam eget eros lorem. Quisque tempor est a rhoncus consequat. Quisque vestibulum finibus sapien. Etiam enim sem, vehicula ac lorem vitae, mattis mollis mauris. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Vivamus eleifend dui vel nulla suscipit pretium. Suspendisse vel nunc efficitur, lobortis dui convallis, tristique tellus. Ut ut viverra est. Etiam tempor justo risus. Cras laoreet eu sapien et lacinia. Nunc imperdiet blandit purus a semper.");
-	//test_label->text_color = color_make(200, 0, 100);
 	add_sublabel(label_win->content_view, test_label);
 
-	//Shader* s = create_shader(vec2d(-1.0, 1.0));
-	//add_shader(label_win->content_view, s);
+	present_window(label_win);
 
-	add_subwindow(vesa_screen->window, label_win);
-
-	Window* fractal = create_window(rect_make(point_make(100, 100), size_make(512, 512)));
-	fractal->content_view->background_color = color_make(50, 75, 150);
-	fractal->title = "Fractal test";
-
-	//add_subwindow(vesa_screen->window, fractal);
+	calculator_xserv();
 }

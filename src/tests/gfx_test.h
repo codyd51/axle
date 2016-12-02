@@ -7,6 +7,6 @@ void draw_mandelbrot(Screen* screen, bool rgb);
 void draw_burning_ship(Screen* screen, bool rgb);
 void draw_julia(Screen* screen, bool rgb);
 void test_gfx();
-void test_xserv(Screen* screen);
+void test_xserv();
 
 #endif
