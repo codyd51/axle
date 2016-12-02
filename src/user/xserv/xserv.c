@@ -302,7 +302,7 @@ void add_status_bar(Screen* screen) {
 void draw_desktop(Screen* screen) {
 	//paint root desktop
 	draw_window(screen, screen->window);
-	blit_layer(screen->vmem, screen->window->layer, point_zero());
+	blit_layer(screen->vmem, screen->window->layer, screen->window->frame);
 
 	//paint every child window
 	for (int i = 0; i < screen->window->subviews->size; i++) {
@@ -366,12 +366,68 @@ char xserv_draw(Screen* screen) {
 	return (char)dirtied;
 }
 
-static Window* window_containing_point(Screen* screen, Coordinate p) {
+//recursively checks view hierarchy, returning lowest view bounding point
+static View* view_containing_point_sub(View* view, Coordinate p) {
+	if (rect_contains_point(view->frame, p)) {
+		if (!view->subviews->size) {
+			return view;
+		}
+		//traverse subviews and find one containing this point
+		for (int i = 0; i < view->subviews->size; i++) {
+			View* subview = (View*)array_m_lookup(view->subviews, i);
+
+			//convert point to subview's coordinate space
+			Coordinate converted = p;
+			converted.x -= view->frame.origin.x;
+			converted.y -= view->frame.origin.y;
+
+			if (rect_contains_point(subview->frame, converted)) {
+				return view_containing_point_sub(subview, converted);
+			}
+		}
+		//no subviews contained the point
+		//return root window
+		return view;
+	}
+	//this view doesn't bound the point
+	return NULL;
+}
+
+//uses view_containing_point_sub to try to find a point owner
+//if none own click, checks against window's title and content views
+static View* view_containing_point(Window* window, Coordinate p) {
+	//is this point bounded at all?
+	if (!rect_contains_point(window->frame, p)) {
+		return NULL;
+	}
+	
+	p.x -= window->frame.origin.x;
+	p.y -= window->frame.origin.y;
+
+	//quick check to check if it was in the window's title view
+	if (rect_contains_point(window->title_view->frame, p)) {
+		return window->title_view;
+	}
+
+	//remove title view offset
+	Coordinate c = p;
+	c.x -= window->title_view->frame.origin.x;
+	c.y -= window->title_view->frame.origin.y;
+
+	View* owner = view_containing_point_sub(window->content_view, c);
+	if (owner) {
+		return owner;
+	}
+	
+	return window->content_view;
+}
+
+static Window* window_containing_point(Coordinate p) {
+	Screen* screen = gfx_screen();
 	//traverse window hierarchy, starting with the topmost window
 	for (int i = screen->window->subviews->size - 1; i >= 0; i--) {
 		Window* w = (Window*)array_m_lookup(screen->window->subviews, i);
-		//TODO implement rect_intersects
-		if (p.x >= rect_min_x(w->frame)  && p.y >= rect_min_y(w->frame) && p.x - rect_min_x(w->frame) <= w->frame.size.width && p.y - rect_min_y(w->frame) <= w->frame.size.height) {
+		if (rect_contains_point(w->frame, p)) {
 			return w;
 		}
 	}
@@ -394,12 +450,45 @@ static void set_active_window(Screen* screen, Window* grabbed_window) {
 		set_background_color(win->title_view, color);
 		mark_needs_redraw((View*)win);
 	}
+}
 
+static Coordinate world_point_to_owner_space_sub(Coordinate p, View* view) {
+	if (rect_contains_point(view->frame, p)) {
+		p.x -= view->frame.origin.x;
+		p.y -= view->frame.origin.y;
+
+		if (!view->subviews->size) {
+			return p;
+		}
+		//traverse subviews
+		for (int i = 0; i < view->subviews->size; i++) {
+			View* subview = (View*)array_m_lookup(view->subviews, i);
+			if (rect_contains_point(subview->frame, p)) {
+				return world_point_to_owner_space_sub(p, subview);
+			}
+		}
+	}
+	return p;
+}
+
+//converts gloabl point to view's coordinate space
+Coordinate world_point_to_owner_space(Coordinate p) {
+	Coordinate converted = p;
+	Window* win = window_containing_point(p);
+	converted.x -= win->frame.origin.x;
+	converted.y -= win->frame.origin.y;
+
+	if (rect_contains_point(win->title_view->frame, converted)) {
+		return converted;
+	}
+
+	return world_point_to_owner_space_sub(converted, win->content_view);
 }
 
 static void process_mouse_events(Screen* screen) {
 	static Window* grabbed_window = NULL;
 	static Coordinate last_mouse_pos = { -1, -1 };
+	static uint8_t last_event = 0;
 
 	//get mouse events
 	uint8_t events = mouse_events();
@@ -410,24 +499,49 @@ static void process_mouse_events(Screen* screen) {
 	if (left) {
 		if (!grabbed_window) {
 			//find the window that got this click
-			Window* owner = window_containing_point(screen, p);
-			grabbed_window = owner;
-
+			Window* owner = window_containing_point(p);
+			//find element within window that owns click
+			View* local_owner = view_containing_point(owner, p);
+			
 			//don't move root window! :p
-			if (grabbed_window != screen->window && grabbed_window->layer->alpha > 0.0) {
-				set_active_window(screen, grabbed_window);
+			if (owner != screen->window && owner->layer->alpha > 0.0) {
+				set_active_window(screen, owner);
 
 				//bring this window to forefont
 				array_m_remove(screen->window->subviews, array_m_index(screen->window->subviews, (type_t)active_window));
 				array_m_insert(screen->window->subviews, (type_t)active_window);
+
+				//only move window if title view was selected
+				if (local_owner == owner->title_view) {
+					grabbed_window = owner;
+				}
+			}
+
+			if (local_owner) {
+				for (int j = 0; j < local_owner->buttons->size; j++) {
+					//convert point to local coordinate space
+					Coordinate conv = world_point_to_owner_space(p);
+
+					Button* b = (Button*)array_m_lookup(local_owner->buttons, j);
+					if (rect_contains_point(b->frame, conv)) {
+						//only perform mousedown handler if mouse was previously not clicked
+						if (!(last_event & 0x1)) {
+							button_handle_click(b);
+						}
+					}
+					draw_rect(screen->window->layer, rect_make(conv, size_make(10, 10)), color_green(), THICKNESS_FILLED);
+					draw_rect(screen->window->layer, rect_make(p, size_make(10, 10)), color_blue(), THICKNESS_FILLED);
+				}
 			}
 		}
-		if (last_mouse_pos.x != -1 && grabbed_window != screen->window) {
-			//move this window by the difference between current mouse position and last mouse position
-			Rect new_frame = grabbed_window->frame;
-			new_frame.origin.x -= (last_mouse_pos.x - p.x);
-			new_frame.origin.y -= (last_mouse_pos.y - p.y);
-			set_frame((View*)grabbed_window, new_frame);
+		else {
+			if (last_mouse_pos.x != -1 && grabbed_window != screen->window) {
+				//move this window by the difference between current mouse position and last mouse position
+				Rect new_frame = grabbed_window->frame;
+				new_frame.origin.x -= (last_mouse_pos.x - p.x);
+				new_frame.origin.y -= (last_mouse_pos.y - p.y);
+				set_frame((View*)grabbed_window, new_frame);
+			}
 		}
 	}
 	else {
@@ -437,6 +551,7 @@ static void process_mouse_events(Screen* screen) {
 		}
 	}
 	last_mouse_pos = p;
+	last_event = events;
 }
 
 void xserv_quit(Screen* screen) {
