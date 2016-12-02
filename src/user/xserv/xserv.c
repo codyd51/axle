@@ -150,16 +150,31 @@ void draw_label(ca_layer* dest, Label* label) {
 		idx++;
 	}
 
-	blit_layer(dest, label->layer, label->frame.origin);
+	blit_layer(dest, label->layer, label->frame);
 
 	label->needs_redraw = 0;
 }
 
-void draw_view(Screen* screen, View* view) {
-	if (!view) return;
-	if (!containing_window_int(screen, view)->needs_redraw) {
-		return;
+void draw_button(ca_layer* dest, Button* button) {
+	if (!button) return;
+
+	Color background_color = color_gray();
+	if (button->toggled) {
+		background_color = color_dark_gray();
 	}
+
+	//background
+	draw_rect(dest, button->frame, background_color, THICKNESS_FILLED);
+	//button border
+	draw_rect(dest, button->frame, color_black(), 1);
+	//title
+	draw_label(dest, button->label);
+
+	button->needs_redraw = 0;
+}
+
+void draw_view(View* view) {
+	if (!view) return;
 
 	//inform subviews that we're being redrawn
 	dirtied = 1;
@@ -189,10 +204,19 @@ void draw_view(Screen* screen, View* view) {
 	}
 	*/
 
+	//draw buttons
+	for (int i = 0; i < view->buttons->size; i++) {
+		Button* button = (Button*)array_m_lookup(view->buttons, i);
+		if (button) {
+			draw_button(view->layer, button);
+		}
+	}
+
 	//draw each subview of this view
 	for (int i = 0; i < view->subviews->size; i++) {
 		View* subview = (View*)array_m_lookup(view->subviews, i);
-		draw_view(screen, subview);
+		draw_view(subview);
+		blit_layer(view->layer, subview->layer, subview->frame);
 	}
 	view->needs_redraw = 0;
 }
@@ -210,26 +234,20 @@ bool draw_window(Screen* screen, Window* window) {
 		//update title label of window
 		Label* title_label = (Label*)array_m_lookup(window->title_view->labels, 0);
 		title_label->text = window->title;
-		draw_view(screen, window->title_view);
+		draw_view(window->title_view);
+		blit_layer(window->layer, window->title_view->layer, window->title_view->frame);
 	}
 
 	//only draw the content view if content_view exists
 	if (window->content_view) {
-		draw_view(screen, window->content_view);
+		draw_view(window->content_view);
+		blit_layer(window->layer, window->content_view->layer, window->content_view->frame);
 
 		//draw dividing border between window border and other content
 		if (window->border_width) {
 			//inner border
 			draw_rect(window->content_view->layer, rect_make(point_zero(), window->content_view->frame.size), color_gray(), window->border_width);
 		}
-	}
-
-	//composite views of this window into layer
-	if (window->title_view) {
-		blit_layer(window->layer, window->title_view->layer, window->title_view->frame.origin);
-	}
-	if (window->content_view) {
-		blit_layer(window->layer, window->content_view->layer, window->content_view->frame.origin);
 	}
 
 	//draw window border
@@ -310,7 +328,6 @@ void draw_cursor(Screen* screen) {
 	//actual cursor bitmap
 	static Bmp* cursor = 0;
 	static bool tried_loading_cursor = false;
-	static int max_per_frame_movement = 5;
 
 	if (!tried_loading_cursor) {
 		cursor = load_bmp(rect_make(point_zero(), size_make(12, 18)), "cursor.bmp");
@@ -513,7 +530,7 @@ void xserv_init_late() {
 	fps = create_label(rect_make(point_make(3, 3), size_make(60, 20)), "FPS counter");
 	fps->text_color = color_black();
 
-	test_xserv(screen);
+	test_xserv();
 
 	while (1) {
 		xserv_refresh(screen);
