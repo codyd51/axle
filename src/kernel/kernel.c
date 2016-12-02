@@ -112,6 +112,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	test_time_unique();
 	test_malloc();
 	test_crypto();
+	heap_int_test();
 
 	if (!fork("shell")) {
 		//start shell

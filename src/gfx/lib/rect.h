@@ -27,5 +27,7 @@ Rect* rect_clip(Rect subject, Rect cutting);
 
 //find the intersecting rect of a and b
 Rect rect_intersect(Rect a, Rect b);
+//returns true if point is bounded by rect
+bool rect_contains_point(Rect r, Coordinate p);
 
 #endif

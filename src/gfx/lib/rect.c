@@ -149,3 +149,9 @@ Rect rect_intersect(Rect a, Rect b) {
 	return result;
 }
 
+bool rect_contains_point(Rect r, Coordinate p) {
+	if (p.x >= rect_min_x(r) && p.y >= rect_min_y(r) && p.x < rect_max_x(r) && p.y < rect_max_y(r)) {
+		return true;
+	}
+	return false;
+}

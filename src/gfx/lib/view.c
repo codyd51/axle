@@ -9,7 +9,7 @@
 #include <gfx/lib/shader.h>
 #include <std/math.h>
 
-#define MAX_ELEMENTS 64
+#define MAX_ELEMENTS 32
 
 void view_teardown(View* view) {
 	if (!view) return;

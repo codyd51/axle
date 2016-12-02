@@ -20,6 +20,8 @@ Button* create_button(Rect frame, char* text) {
 	Label* title = create_label(rect_make(point_make(frame.origin.x + frame.size.width * 0.125, frame.origin.y + frame.size.height * 0.25), size_make(frame.size.width * 0.75, CHAR_HEIGHT)), text);
 	button->label = title;
 
+	button->mousedown_handler = NULL;
+
 	button->needs_redraw = 1;
 	return button;
 }

@@ -65,6 +65,10 @@ Screen* switch_to_vesa(uint32_t vesa_mode, bool create) {
 		//or 0x4000 turns on linear frame buffer
 		regs.bx = (vesa_mode | 0x4000);
 		int32(0x10, &regs);
+			
+		//screen_create depends on knowing gfx_bpp, so we must call this with NULL for the screen to create the screen,
+		//and then we can call it normally after the screen is created
+		process_gfx_switch(NULL, mode_info.bpp);
 
 		kernel_end_critical();
 
