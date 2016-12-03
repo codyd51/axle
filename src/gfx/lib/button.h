@@ -11,14 +11,15 @@
 
 __BEGIN_DECLS
 
-typedef void (*mousedown_fp)(void* b);
+typedef void (*event_fp)(struct button* b);
 typedef struct button {
 	//common 
 	Rect frame;
 	char needs_redraw;
 	ca_layer* layer;
 	struct view* superview;
-	mousedown_fp mousedown_handler;
+	event_fp mousedown_handler;
+	event_fp mouseup_handler;
 
 	bool toggled;
 	Label* label;
@@ -26,6 +27,11 @@ typedef struct button {
 
 Button* create_button(Rect frame, char* text);
 void button_handle_click();
+
+//internal functions to process clicks on buttons
+//should only be used by window manager to inform button of state change
+void button_handle_mousedown(Button* button);
+void button_handle_mouseup(Button* button);
 
 __END_DECLS
 

@@ -55,7 +55,9 @@ Window* containing_window_int(Screen* screen, View* v) {
 		view = view->superview;
 	}
 
-	//if (screen->window->title_view == view || screen->window->content_view == view) return screen->window
+	if (screen->window->title_view == view || screen->window->content_view == view) {
+		return screen->window;
+	}
 
 	//traverse view hierarchy, find window which has view as its title or content view
 	for (int32_t i = 0; i < screen->window->subviews->size; i++) {
@@ -118,7 +120,6 @@ void draw_label(ca_layer* dest, Label* label) {
 
 	View* superview = label->superview;
 	Rect frame = label->frame;
-	frame.origin = point_zero();
 
 	Color background_color = color_white();
 	//try to match text bounding box to superview's background color
@@ -138,8 +139,7 @@ void draw_label(ca_layer* dest, Label* label) {
 			x = 0;
 
 			//quit if going to next line would exceed view bounds
-			if ((y + CHAR_WIDTH + CHAR_PADDING_H) > frame.size.height) break;
-
+			if ((y + CHAR_HEIGHT + CHAR_PADDING_H) >= frame.size.height) break;
 			y += CHAR_HEIGHT + CHAR_PADDING_H;
 		}
 
@@ -236,6 +236,7 @@ bool draw_window(Screen* screen, Window* window) {
 		title_label->text = window->title;
 		draw_view(window->title_view);
 		blit_layer(window->layer, window->title_view->layer, window->title_view->frame);
+		draw_rect(window->layer, window->title_view->frame, color_gray(), 2);
 	}
 
 	//only draw the content view if content_view exists
@@ -265,6 +266,7 @@ void add_taskbar(Screen* screen) {
 	taskbar_size.height -= border_r.size.height;
 
 	Coordinate taskbar_origin = point_make(0, content->frame.size.height - taskbar_size.height + border_r.size.height);
+
 	View* taskbar_view = create_view(rect_make(taskbar_origin, taskbar_size));
 	taskbar_view->background_color = color_make(245, 120, 80);
 	add_subview(content, taskbar_view);
@@ -607,13 +609,8 @@ void xserv_refresh(Screen* screen) {
 	char buf[32];
 	itoa(fps_conv, (char*)&buf);
 	strcat(buf, " FPS");
-	//itoa(frame_time * 1000, &buf);
-	//strcat(buf, " ms/frame");
 	fps->text = buf;
 	draw_label(screen->window->layer, fps);
-
-	//handle mouse events
-	process_mouse_events(screen);
 
 	write_screen(screen);
 
