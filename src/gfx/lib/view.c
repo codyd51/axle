@@ -6,7 +6,6 @@
 #include <std/printf.h>
 #include <std/string.h>
 #include <std/memory.h>
-#include <gfx/lib/shader.h>
 #include <std/math.h>
 
 #define MAX_ELEMENTS 32
@@ -23,9 +22,6 @@ void view_teardown(View* view) {
 
 		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
 		bmp_teardown(bmp);
-
-		Shader* s = (Shader*)array_m_lookup(view->shaders, i);
-		shader_teardown(s);
 	}
 	//free subviews array
 	array_m_destroy(view->subviews);
@@ -33,8 +29,6 @@ void view_teardown(View* view) {
 	array_m_destroy(view->labels);
 	//free bmps
 	array_m_destroy(view->bmps);
-	//free shaders
-	array_m_destroy(view->shaders);
 
 	//free backing layer
 	layer_teardown(view->layer);
@@ -52,7 +46,6 @@ View* create_view(Rect frame) {
 	view->subviews = array_m_create(MAX_ELEMENTS);
 	view->labels = array_m_create(MAX_ELEMENTS);
 	view->bmps = array_m_create(MAX_ELEMENTS);
-	view->shaders = array_m_create(MAX_ELEMENTS);
 	view->buttons = array_m_create(MAX_ELEMENTS);
 	view->needs_redraw = 1;
 	return view;
@@ -118,23 +111,6 @@ void remove_bmp(View* view, Bmp* bmp) {
 
 	array_m_remove(view->bmps, array_m_index(view->bmps, bmp));
 	bmp->superview = NULL;
-	mark_needs_redraw(view);
-}
-
-void add_shader(View* view, Shader* s) {
-	if (!view || !s) return;
-
-	array_m_insert(view->shaders, s);
-	s->superview = view;
-	mark_needs_redraw(view);
-	compute_shader(s);
-}
-
-void remove_shader(View* view, Shader* s) {
-	if (!view || !s) return;
-
-	array_m_remove(view->shaders, array_m_index(view->shaders, s));
-	s->superview = NULL;
 	mark_needs_redraw(view);
 }
 
