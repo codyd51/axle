@@ -5,13 +5,13 @@
 #include <std/panic.h>
 #include <std/std.h>
 #include <gfx/lib/gfx.h>
-#include <gfx/lib/shader.h>
 #include <kernel/util/syscall/sysfuncs.h>
 #include <kernel/util/multitasking/tasks/task.h>
 #include <kernel/drivers/rtc/clock.h>
 #include <kernel/drivers/vesa/vesa.h>
 #include <tests/gfx_test.h>
 #include <kernel/drivers/kb/kb.h>
+#include "animator.h"
 
 //has the screen been modified this refresh?
 static char dirtied = 0;
@@ -182,12 +182,6 @@ void draw_view(View* view) {
 	//fill view with its background color
 	draw_rect(view->layer, rect_make(point_zero(), view->frame.size), view->background_color, THICKNESS_FILLED);
 
-	//draw any labels this view has
-	for (int i = 0; i < view->labels->size; i++) {
-		Label* label = (Label*)array_m_lookup(view->labels, i);
-		draw_label(view->layer, label);
-	}
-
 	//draw any bmps this view has
 	for (int i = 0; i < view->bmps->size; i++) {
 		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
@@ -195,14 +189,12 @@ void draw_view(View* view) {
 			draw_bmp(view->layer, bmp);
 		}
 	}
-
-	/*
-	//draw shaders last
-	for (unsigned i = 0; i < view->shaders->size; i++) {
-		Shader* s = (Shader*)array_m_lookup(view->shaders, i);
-		draw_shader(screen, s);
+	
+	//draw any labels this view has
+	for (int i = 0; i < view->labels->size; i++) {
+		Label* label = (Label*)array_m_lookup(view->labels, i);
+		draw_label(view->layer, label);
 	}
-	*/
 
 	//draw buttons
 	for (int i = 0; i < view->buttons->size; i++) {
@@ -498,13 +490,36 @@ static void process_mouse_events(Screen* screen) {
 
 	//0th bit is left mouse button
 	bool left = events & 0x1;
+	//2nd bit is right button
+	bool right = events & 0x2;
+
+	//find the window that got this click
+	Window* owner = window_containing_point(p);
+	//find element within window that owns click
+	View* local_owner = view_containing_point(owner, p);
+	if (local_owner) {
+		for (int j = 0; j < local_owner->buttons->size; j++) {
+			//convert point to local coordinate space
+			Coordinate conv = world_point_to_owner_space(p);
+
+			Button* b = (Button*)array_m_lookup(local_owner->buttons, j);
+			if (rect_contains_point(b->frame, conv)) {
+				//only perform mousedown handler if mouse was previously not clicked
+				if (left && !(last_event & 0x1)) {
+					button_handle_mousedown(b);
+				}
+				//only perform mouseup handler if mouse was just released
+				else if (!left && (last_event & 0x1)) {
+					button_handle_mouseup(b);
+				}
+				break;
+			}
+			draw_rect(screen->window->layer, rect_make(conv, size_make(10, 10)), color_green(), THICKNESS_FILLED);
+			draw_rect(screen->window->layer, rect_make(p, size_make(10, 10)), color_blue(), THICKNESS_FILLED);
+		}
+	}
 	if (left) {
 		if (!grabbed_window) {
-			//find the window that got this click
-			Window* owner = window_containing_point(p);
-			//find element within window that owns click
-			View* local_owner = view_containing_point(owner, p);
-			
 			//don't move root window! :p
 			if (owner != screen->window && owner->layer->alpha > 0.0) {
 				set_active_window(screen, owner);
@@ -516,23 +531,6 @@ static void process_mouse_events(Screen* screen) {
 				//only move window if title view was selected
 				if (local_owner == owner->title_view) {
 					grabbed_window = owner;
-				}
-			}
-
-			if (local_owner) {
-				for (int j = 0; j < local_owner->buttons->size; j++) {
-					//convert point to local coordinate space
-					Coordinate conv = world_point_to_owner_space(p);
-
-					Button* b = (Button*)array_m_lookup(local_owner->buttons, j);
-					if (rect_contains_point(b->frame, conv)) {
-						//only perform mousedown handler if mouse was previously not clicked
-						if (!(last_event & 0x1)) {
-							button_handle_click(b);
-						}
-					}
-					draw_rect(screen->window->layer, rect_make(conv, size_make(10, 10)), color_green(), THICKNESS_FILLED);
-					draw_rect(screen->window->layer, rect_make(p, size_make(10, 10)), color_blue(), THICKNESS_FILLED);
 				}
 			}
 		}
@@ -594,11 +592,23 @@ void xserv_refresh(Screen* screen) {
 			}
 		}
 	}
-
+	
 	double time_start = time();
+
+	//handle mouse events
+	process_mouse_events(screen);
+	//keyboard events
+	process_kb_events(screen);
+	//main refresh loop
+	//traverse view hierarchy,
+	//redraw views if necessary,
+	//composite everything onto root layer
 	xserv_draw(screen);
+
 	double frame_time = (time() - time_start) / 1000.0;
 	double fps_conv = 1 / frame_time;
+
+	update_all_animations(screen, frame_time);
 
 	//draw rect to indicate whether the screen was dirtied this frame
 	//red indicates dirtied, green indicates clean

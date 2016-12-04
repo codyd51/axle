@@ -10,7 +10,6 @@
 #include <kernel/drivers/vga/vga.h>
 #include <kernel/drivers/vesa/vesa.h>
 #include "color.h"
-#include "shader.h"
 
 //private Window function to create root window
 Window* create_window_int(Rect frame, bool root);

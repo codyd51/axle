@@ -27,6 +27,7 @@ typedef struct window {
 	Color border_color;
 	int border_width;
 	bool dotted_title;
+	array_m* animations;
 } Window;
 
 Window* create_window(Rect frame);

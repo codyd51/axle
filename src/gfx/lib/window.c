@@ -78,6 +78,7 @@ Window* create_window_int(Rect frame, bool root) {
 	window->border_width = 1;
 	window->subviews = array_m_create(MAX_ELEMENTS);
 	window->title = "Window";
+	window->animations = array_m_create(8);
 
 	//root window doesn't have a title view
 	if (!root) {
@@ -105,14 +106,22 @@ void add_subwindow(Window* window, Window* subwindow) {
 void remove_subwindow(Window* window, Window* subwindow) {
 	if (!window || !subwindow) return;
 
-	array_m_remove(window->subviews, array_m_index(window->subviews, subwindow));
+	int idx = array_m_index(window->subviews, subwindow);
+	if (idx != ARR_NOT_FOUND) {
+		array_m_remove(window->subviews, idx);
+	}
 	subwindow->superview = NULL;
 	mark_needs_redraw((View*)window);
 }
 
 void present_window(Window* window) {
+	window->layer->alpha = 0.0;
+
 	Screen* current = gfx_screen();
 	add_subwindow(current->window, window);
+
+	ca_animation* anim = create_animation(ALPHA_ANIM, 1.0, 1.0);
+	add_animation(window, anim);
 }
 
 void kill_window(Window* window) {
