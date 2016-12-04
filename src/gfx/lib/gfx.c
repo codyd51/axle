@@ -22,7 +22,7 @@ void process_gfx_switch(Screen* screen, int new_depth) {
 	current_depth = new_depth;
 }
 
-int gfx_depth() {
+__attribute__((always_inline)) int gfx_depth() {
 	if (!current_depth) {
 		//fall back on assuming VESA
 		current_depth = VESA_DEPTH;
@@ -30,7 +30,7 @@ int gfx_depth() {
 	return current_depth;
 }
 
-int gfx_bpp() {
+__attribute__((always_inline)) int gfx_bpp() {
 	if (!current_depth) {
 		//fall back on assuming VESA
 		current_depth = VESA_DEPTH;

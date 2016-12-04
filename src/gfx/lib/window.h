@@ -10,6 +10,8 @@
 
 __BEGIN_DECLS
 
+#define WINDOW_TITLE_VIEW_HEIGHT 25
+
 typedef struct window {
 	//common
 	Rect frame;
@@ -24,6 +26,7 @@ typedef struct window {
 	struct view* content_view;
 	Color border_color;
 	int border_width;
+	bool dotted_title;
 } Window;
 
 Window* create_window(Rect frame);

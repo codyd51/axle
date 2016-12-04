@@ -2,18 +2,21 @@
 #include "view.h"
 #include <std/std.h>
 #include "gfx.h"
+#include <user/xserv/animator.h>
 
 #define MAX_ELEMENTS 64
 
 static View* create_title_view(Window* window) {
 	if (!window) return NULL;
 
-	Rect title_view_frame = rect_make(point_make(0, 0), size_make(window->frame.size.width, 20));
+	Rect title_view_frame = rect_make(point_make(0, 0), size_make(window->frame.size.width, WINDOW_TITLE_VIEW_HEIGHT));
 	View* title_view = create_view(title_view_frame);
 	title_view->background_color = window->border_color;
 
 	//add title label to title view
-	Rect label_frame = rect_make(point_make(15, 5), title_view_frame.size);
+	//int label_length = strlen(window->title) * CHAR_WIDTH;
+	int label_length = 16 * CHAR_WIDTH;
+	Rect label_frame = rect_make(point_make(15, title_view_frame.size.height / 2 - (CHAR_HEIGHT / 2)), size_make(label_length, CHAR_HEIGHT));
 	Label* title_label = create_label(label_frame, window->title);
 	title_label->text_color = color_black();
 	add_sublabel(title_view, title_label);
@@ -24,6 +27,28 @@ static View* create_title_view(Window* window) {
 	Bmp* close_button = load_bmp(rect_make(point_make(close_rad * 2, label_frame.origin.y+ close_rad), size_make(25, 25)), "close.bmp");
 	add_bmp(title_view, close_button);
 	*/
+
+	window->dotted_title = true;
+	if (window->dotted_title) {
+		Bmp* dots = create_bmp(title_view_frame, create_layer(title_view_frame.size));
+		uint8_t* ref = dots->layer->raw;
+		for (int y = 0; y < dots->frame.size.height; y++) {
+			for (int x = 0; x < dots->frame.size.width; x++) {
+				if (!((x + y) % 2)) {
+					*ref++ = 50;
+					*ref++ = 50;
+					*ref++ = 50;
+				}
+				else {
+					*ref++ = 200;
+					*ref++ = 160;
+					*ref++ = 90;
+				}
+			}
+		}
+		add_bmp(title_view, dots);
+	}
+
 	return title_view;
 }
 
