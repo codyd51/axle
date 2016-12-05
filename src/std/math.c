@@ -177,3 +177,8 @@ uint32_t rand() {
 void srand(unsigned int seed) {
 	next = seed;
 }
+
+inline float lerp(float a, float b, float t) {
+    return a + (b - a) * t;
+}
+

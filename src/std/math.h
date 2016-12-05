@@ -54,6 +54,9 @@ STDAPI double floor(double x);
 STDAPI uint32_t rand();
 STDAPI void srand(unsigned int seed);
 
+//linear interpolation
+STDAPI float lerp(float a, float b, float c);
+
 __END_DECLS
 
 #endif // STD_MATH_H
