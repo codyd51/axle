@@ -409,6 +409,41 @@ Coordinate world_point_to_owner_space(Coordinate p) {
 	return world_point_to_owner_space_sub(converted, win->content_view);
 }
 
+static void process_kb_events(Screen* screen) {
+	//check if there are any keys pending
+	if (!haskey()) return;
+
+	char ch;
+	if ((ch = kgetch())) {
+		if (ch == 'q') {
+			//quit xserv
+			xserv_quit(screen);
+		}
+		else if (ch == 'r') {
+			//force everything to refresh
+			screen->window->needs_redraw = 1;
+			for (int i = 0; i < screen->window->subviews->size; i++) {
+				Window* w = array_m_lookup(screen->window->subviews, i);
+				w->needs_redraw = 1;
+			}
+		}
+		else if (ch == 'a') {
+			//toggle alpha of topmost window between 0.5 and 1.0
+			if (screen->window->subviews->size) {
+				Window* topmost = array_m_lookup(screen->window->subviews, screen->window->subviews->size - 1);
+				float new = 0.5;
+				if (topmost->layer->alpha == new) {
+					new = 1.0;
+				}
+				set_alpha((View*)topmost, new);
+			}
+		}
+		else if (ch == 'c') {
+			calculator_xserv();
+		}
+	}
+}
+
 static void process_mouse_events(Screen* screen) {
 	static Window* grabbed_window = NULL;
 	static Coordinate last_mouse_pos = { -1, -1 };
@@ -427,27 +462,7 @@ static void process_mouse_events(Screen* screen) {
 	Window* owner = window_containing_point(p);
 	//find element within window that owns click
 	View* local_owner = view_containing_point(owner, p);
-	if (local_owner) {
-		for (int j = 0; j < local_owner->buttons->size; j++) {
-			//convert point to local coordinate space
-			Coordinate conv = world_point_to_owner_space(p);
-
-			Button* b = (Button*)array_m_lookup(local_owner->buttons, j);
-			if (rect_contains_point(b->frame, conv)) {
-				//only perform mousedown handler if mouse was previously not clicked
-				if (left && !(last_event & 0x1)) {
-					button_handle_mousedown(b);
-				}
-				//only perform mouseup handler if mouse was just released
-				else if (!left && (last_event & 0x1)) {
-					button_handle_mouseup(b);
-				}
-				break;
-			}
-			draw_rect(screen->window->layer, rect_make(conv, size_make(10, 10)), color_green(), THICKNESS_FILLED);
-			draw_rect(screen->window->layer, rect_make(p, size_make(10, 10)), color_blue(), THICKNESS_FILLED);
-		}
-	}
+	
 	if (left) {
 		if (!grabbed_window) {
 			//don't move root window! :p

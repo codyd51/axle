@@ -48,7 +48,10 @@ void calc_op_click(Button* b) {
 				break;
 			case DIV_OP:
 			default:
-				result_num = pending_val / new_val;
+				//divison by 0 = axle sad
+				if (new_val != 0) {
+					result_num = pending_val / new_val;
+				}
 				break;
 		}
 
@@ -76,15 +79,16 @@ void calc_op_click(Button* b) {
 }
 
 void calculator_xserv() {
-	Size button_size = size_make(75, 50);
+	Size button_size = size_make(60, 60);
+	int result_view_height = 50;
 	int button_spacing = 0;
 
 	//width is button_size * 4 because 3 rows of # buttons + 1 row of operators
-	Window* calc_win = create_window(rect_make(point_make(200, 300), size_make(button_size.width * 4, 300)));
+	Window* calc_win = create_window(rect_make(point_make(200, 300), size_make(button_size.width * 4, WINDOW_TITLE_VIEW_HEIGHT + result_view_height + button_spacing + (button_size.height * 4))));
 	calc_win->title = "Calculator";
 
 	//number display
-	View* label_view = create_view(rect_make(point_zero(), size_make(calc_win->frame.size.width, 25)));
+	View* label_view = create_view(rect_make(point_zero(), size_make(calc_win->frame.size.width, result_view_height)));
 	result_label = create_label(rect_make(point_make(10, 10), label_view->frame.size), "0");
 	label_view->background_color = color_white();
 	add_sublabel(label_view, result_label);
@@ -101,18 +105,22 @@ void calculator_xserv() {
 			char title[32];
 			itoa(val, (char*)&title);
 
-			Button* b = create_button(rect_make(point_make((row * button_size.width) + button_spacing, (col * button_size.height) + button_spacing + button_size.height), button_size), title);
-			b->mousedown_handler = &calc_num_click;
+			Button* b = create_button(rect_make(point_make((row * button_size.width) + button_spacing, (col * button_size.height) + button_spacing), button_size), title);
+			b->mousedown_handler = (event_handler)&calc_num_click;
 			add_button(button_view, b);
 		}
 	}
-	//4 * button spacing to account for above buttons
-	Button* zero = create_button(rect_make(point_make(button_spacing, 4 * button_size.height + button_spacing), size_make(button_size.width * 2, button_size.height)), "0");
-	zero->mousedown_handler = &calc_num_click;
+	//3 * button spacing to account for above buttons
+	Button* zero = create_button(rect_make(point_make(button_spacing, 3 * button_size.height + button_spacing), size_make(button_size.width * 2, button_size.height)), "0");
+	zero->mousedown_handler = (event_handler)&calc_num_click;
 	add_button(button_view, zero);
+
+	Button* equals = create_button(rect_make(point_make(rect_max_x(zero->frame), 3 * button_size.height + button_spacing), size_make(button_size.width, button_size.height)), "=");
+	equals->mousedown_handler = (event_handler)&calc_op_click;
+	add_button(button_view, equals);
 	
 	//operator buttons
-	for (int i = 0; i < 5; i++){
+	for (int i = 0; i < 4; i++){
 		char* title;
 		switch (i) {
 			case 0:
@@ -125,15 +133,12 @@ void calculator_xserv() {
 				title = "-";
 				break;
 			case 3:
-				title = "+";
-				break;
-			case 4:
 			default:
-				title = "=";
+				title = "+";
 				break;
 		}
 		Button* b = create_button(rect_make(point_make((3 * button_size.width) + button_spacing, button_size.height * i + button_spacing), button_size), title);
-		b->mousedown_handler = &calc_op_click;
+		b->mousedown_handler = (event_handler)&calc_op_click;
 		add_button(button_view, b);
 	}
 

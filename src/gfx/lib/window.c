@@ -3,6 +3,7 @@
 #include "view.h"
 #include "button.h"
 #include "util.h"
+#include <std/math.h>
 #include <std/std.h>
 #include <user/xserv/animator.h>
 
@@ -33,7 +34,7 @@ static View* create_title_view(Window* window) {
 	add_button(title_view, minimize_button);
 
 	//add title label to title view
-	int label_length = strlen(window->title) * CHAR_WIDTH;
+	int label_length = MAX((int)strlen(window->title), 16) * CHAR_WIDTH;
 	Rect label_frame = rect_make(point_make(rect_max_x(minimize_button->frame) + 15, title_view_frame.size.height / 2 - (CHAR_HEIGHT / 2)), size_make(label_length, CHAR_HEIGHT));
 	Label* title_label = create_label(label_frame, window->title);
 	title_label->text_color = color_black();
@@ -123,16 +124,14 @@ void remove_subwindow(Window* window, Window* subwindow) {
 }
 
 void present_window(Window* window) {
-	//window->layer->alpha = 0.0;
+	window->layer->alpha = 0.0;
 
 	Screen* current = gfx_screen();
 	add_subwindow(current->window, window);
 
-	/*
 	float to = 1.0;
 	ca_animation* anim = create_animation(ALPHA_ANIM, &to, 0.25);
 	add_animation(window, anim);
-	*/
 }
 
 void kill_window(Window* window) {
