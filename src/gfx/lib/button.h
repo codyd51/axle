@@ -3,6 +3,7 @@
 
 #include <std/std_base.h>
 #include <stdint.h>
+#include "gfx.h"
 #include "color.h"
 #include "rect.h"
 #include "ca_layer.h"
@@ -11,15 +12,14 @@
 
 __BEGIN_DECLS
 
-typedef void (*event_fp)(struct button* b);
 typedef struct button {
 	//common 
 	Rect frame;
 	char needs_redraw;
 	ca_layer* layer;
 	struct view* superview;
-	event_fp mousedown_handler;
-	event_fp mouseup_handler;
+	event_handler mousedown_handler;
+	event_handler mouseup_handler;
 
 	bool toggled;
 	Label* label;

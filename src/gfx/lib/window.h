@@ -3,6 +3,7 @@
 
 #include <std/std_base.h>
 #include <stdint.h>
+#include "gfx.h"
 #include "rect.h"
 #include "ca_layer.h"
 #include "color.h"
@@ -26,8 +27,8 @@ typedef struct window {
 	struct view* content_view;
 	Color border_color;
 	int border_width;
-	bool dotted_title;
 	array_m* animations;
+	event_handler teardown_handler;
 } Window;
 
 Window* create_window(Rect frame);
@@ -43,6 +44,9 @@ void present_window(Window* window);
 void kill_window(Window* window);
 
 void set_border_width(Window* window, int width);
+
+//is xserv displaying this window?
+bool window_presented(Window* w);
 
 __END_DECLS
 

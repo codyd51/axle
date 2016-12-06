@@ -19,11 +19,6 @@
 static char dirtied = 0;
 static volatile Window* active_window;
 
-bool window_presented(Window* w) {
-	Screen* s = gfx_screen();
-	return (array_m_index(s->window->subviews, w) != ARR_NOT_FOUND);
-}
-
 void xserv_quit(Screen* screen) {
 	switch_to_text();
 	gfx_teardown(screen);

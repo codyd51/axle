@@ -3,10 +3,10 @@
 #include <user/shell/shell.h>
 #include <gfx/lib/color.h>
 #include <gfx/lib/shapes.h>
-#include <gfx/lib/shader.h>
 #include <kernel/drivers/vga/vga.h>
 #include <kernel/util/multitasking/tasks/task.h>
 #include <user/programs/calculator.h>
+#include <user/xserv/animator.h>
 
 //draw Mandelbrot set
 void draw_mandelbrot(Screen* screen, bool rgb) {
@@ -313,21 +313,33 @@ void test_gfx(int argc, char **argv) {
 
 
 void test_xserv() {
-	Window* image_viewer = create_window(rect_make(point_make(400, 50), size_make(512, 512)));
-	image_viewer->title = "Image Viewer";
-	image_viewer->content_view->background_color = color_make(135, 206, 250);
-	Bmp* bmp = load_bmp(rect_make(point_zero(), size_make(600, 600)), "Lenna.bmp");
-	if (bmp) {
-		add_bmp(image_viewer->content_view, bmp);
-	}
-	present_window(image_viewer);
+	Window* alpha_win = create_window(rect_make(point_make(100, 200), size_make(250, 250)));
+	alpha_win->title = "Alpha animation";
+	alpha_win->content_view->background_color = color_green();
+	Label* bye_label = create_label(rect_make(point_make(50, 75), size_make(125, CHAR_HEIGHT)), "Goodbye!");
+	add_sublabel(alpha_win->content_view, bye_label);
+	float to = 0.0;
+	ca_animation* anim = create_animation(ALPHA_ANIM, &to, 2.0);
+	add_animation(alpha_win, anim);
+	present_window(alpha_win);
+	
+	Window* color_win = create_window(rect_make(point_make(700, 200), size_make(250, 250)));
+	color_win->title = "Color animation";
+	color_win->content_view->background_color = color_green();
+	Label* color_label = create_label(rect_make(point_make(50, 75), size_make(150, CHAR_HEIGHT)), "I'm feeling blue...");
+	add_sublabel(color_win->content_view, color_label);
+	Color color_to = color_blue();
+	ca_animation* color = create_animation(COLOR_ANIM, &color_to, 2.0);
+	add_animation(color_win, color);
+	present_window(color_win);
 
-	Window* label_win = create_window(rect_make(point_make(100, 100), size_make(500, 500)));
-	label_win->title = "Text test";
-	Label* test_label = create_label(rect_make(point_make(10, 10), size_make(label_win->content_view->frame.size.width - 10, label_win->content_view->frame.size.height - 20)), "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque pulvinar dui bibendum nunc convallis, bibendum venenatis mauris ornare. Donec et libero lacus. Nulla tristique auctor pulvinar. Aenean enim elit, malesuada nec dignissim eget, varius ac nunc. Vestibulum varius lectus nisi, in dignissim orci volutpat in. Aliquam eget eros lorem. Quisque tempor est a rhoncus consequat. Quisque vestibulum finibus sapien. Etiam enim sem, vehicula ac lorem vitae, mattis mollis mauris. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Vivamus eleifend dui vel nulla suscipit pretium. Suspendisse vel nunc efficitur, lobortis dui convallis, tristique tellus. Ut ut viverra est. Etiam tempor justo risus. Cras laoreet eu sapien et lacinia. Nunc imperdiet blandit purus a semper.");
-	add_sublabel(label_win->content_view, test_label);
-
-	present_window(label_win);
-
-	calculator_xserv();
+	Window* pos_win = create_window(rect_make(point_make(400, 200), size_make(250, 250)));
+	pos_win->title = "Position animation";
+	Coordinate pos_to = alpha_win->frame.origin;
+	ca_animation* pos = create_animation(POS_ANIM, &pos_to, 2.0);
+	Label* label = create_label(rect_make(point_make(75, 125), size_make(125, CHAR_HEIGHT)), "Wheeee!");
+	add_sublabel(pos_win->content_view, label);
+	add_animation(pos_win, pos);
+	present_window(pos_win);
 }
+

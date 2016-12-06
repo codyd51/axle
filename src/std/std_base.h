@@ -25,4 +25,13 @@
 # define STDAPI extern
 #endif // STDAPI
 
+// Suppress unused parameter warnings
+#ifndef UNUSED
+#ifdef __GNUC__
+#  define UNUSED(x) UNUSED_ ## x __attribute__((__unused__))
+#else
+#  define UNUSED(x) UNUSED_ ## x
+#endif // __GNUC__
+#endif // UNUSED
+
 #endif // STD_BASE_H

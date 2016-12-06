@@ -7,8 +7,8 @@ void button_handle_mousedown(Button* button) {
 	button->toggled = true;
 
 	if (button->mousedown_handler) {
-		event_fp handler = button->mousedown_handler;
-		handler(button);
+		event_handler handler = button->mousedown_handler;
+		handler(button, NULL);
 	}
 }
 
@@ -16,8 +16,8 @@ void button_handle_mouseup(Button* button) {
 	button->toggled = false;
 
 	if (button->mouseup_handler) {
-		event_fp handler = button->mouseup_handler;
-		handler(button);
+		event_handler handler = button->mouseup_handler;
+		handler(button, NULL);
 	}
 }
 
