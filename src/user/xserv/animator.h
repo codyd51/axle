@@ -20,6 +20,7 @@ typedef struct ca_animation {
 	Color color_to;
 
 	animation_update update;
+	event_handler finished_handler;
 
 	float duration;
 	uint32_t end_date;

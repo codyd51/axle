@@ -23,6 +23,12 @@ void finalize_animation(Window* window, ca_animation* anim) {
 			window->content_view->background_color = anim->color_to;
 			break;
 	}
+	
+	event_handler finished = anim->finished_handler;
+	if (finished) {
+		finished(window, NULL);
+	}
+
 	mark_needs_redraw((View*)window);
 
 	array_m_remove(window->animations, array_m_index(window->animations, anim));
