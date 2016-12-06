@@ -130,11 +130,11 @@ void present_window(Window* window) {
 	add_subwindow(current->window, window);
 
 	float to = 1.0;
-	ca_animation* anim = create_animation(ALPHA_ANIM, &to, 0.25);
-	add_animation(window, anim);
+	ca_animation* fade_in = create_animation(ALPHA_ANIM, &to, 0.25);
+	add_animation(window, fade_in);
 }
 
-void kill_window(Window* window) {
+static void kill_window_real(Window* window) {
 	remove_subwindow(gfx_screen()->window, window);
 
 	if (window->teardown_handler) {
@@ -143,6 +143,15 @@ void kill_window(Window* window) {
 	}
 
 	//window_teardown(window);
+}
+
+void kill_window(Window* window) {
+	//fade out window
+	float to = 0.0;
+	ca_animation* fade_out = create_animation(ALPHA_ANIM, &to, 0.25);
+	//when animation finishes, perform real teardown
+	fade_out->finished_handler = (event_handler)&kill_window_real;
+	add_animation(window, fade_out);
 }
 
 void set_border_width(Window* window, int width) {
