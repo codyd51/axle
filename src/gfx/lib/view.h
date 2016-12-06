@@ -9,7 +9,6 @@
 #include "bmp.h"
 #include "label.h"
 #include "window.h"
-#include "button.h"
 
 __BEGIN_DECLS
 
@@ -44,10 +43,14 @@ void remove_sublabel(View* view, Label* sublabel);
 void add_bmp(View* view, Bmp* bmp);
 void remove_bmp(View* view, Bmp* bmp);
 
+typedef struct button Button;
 void add_button(View* view, Button* button);
 void remove_button(View* view, Button* button);
 
 void mark_needs_redraw(View* view);
+
+//convert frame to view's coordinate space
+Rect convert_frame(View* view, Rect frame);
 	
 __END_DECLS
 

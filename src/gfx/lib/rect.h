@@ -30,4 +30,7 @@ Rect rect_intersect(Rect a, Rect b);
 //returns true if point is bounded by rect
 bool rect_contains_point(Rect r, Coordinate p);
 
+//convert inner to outer's coordinate space
+Rect convert_rect(Rect outer, Rect inner);
+
 #endif

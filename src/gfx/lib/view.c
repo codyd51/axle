@@ -1,4 +1,5 @@
 #include "view.h"
+#include "button.h"
 #include <std/kheap.h>
 #include <gfx/lib/shapes.h>
 #include <stddef.h>
@@ -160,4 +161,11 @@ void set_alpha(View* view, float alpha) {
 	alpha = MAX(MIN(alpha, 1), 0);
 
 	view->layer->alpha = alpha;
+}
+
+Rect convert_frame(View* view, Rect frame) {
+	if (!view) return frame;
+
+	Rect ret = convert_rect(view->frame, frame);
+	return ret;
 }

@@ -2,6 +2,7 @@
 #include <std/kheap.h>
 #include <std/printf.h>
 #include <std/std.h>
+#include <std/math.h>
 
 static bool val_in_range(int value, int min, int max) { 
 	return (value >= min) && (value <= max); 
@@ -155,3 +156,13 @@ bool rect_contains_point(Rect r, Coordinate p) {
 	}
 	return false;
 }
+
+Rect convert_rect(Rect outer, Rect inner) {
+	Rect ret;
+	ret.origin.x = inner.origin.x + outer.origin.x;
+	ret.origin.y = inner.origin.y + outer.origin.y;
+	ret.size.width = MIN(inner.size.width, outer.size.width);
+	ret.size.height = MIN(inner.size.height, outer.size.height);
+	return ret;
+}
+

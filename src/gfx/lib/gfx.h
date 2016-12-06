@@ -4,8 +4,11 @@
 #include <std/common.h>
 #include <std/timer.h>
 
+typedef void (*event_handler)(void* obj, void* context);
+
 #include "rect.h"
 #include "view.h"
+#include "button.h"
 #include <gfx/font/font.h>
 
 typedef struct __attribute__((packed)) {
@@ -13,6 +16,7 @@ typedef struct __attribute__((packed)) {
 	unsigned short gs, fs, es, ds, eflags;
 } regs16_t;
 
+typedef struct window Window;
 typedef struct screen_t {
 	Window* window; //root window
 	uint16_t pitch; //redundant?
