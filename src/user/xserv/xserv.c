@@ -228,13 +228,33 @@ void draw_desktop(Screen* screen) {
 	draw_window(screen, screen->window);
 	blit_layer(screen->vmem, screen->window->layer, screen->window->frame);
 
-	//paint every child window
-	for (int i = 0; i < screen->window->subviews->size; i++) {
-		Window* win = (Window*)(array_m_lookup(screen->window->subviews, i));
-		draw_window(screen, win);
-			//composite child window onto root window
-			blit_layer(screen->vmem, win->layer, win->frame.origin);
-		//}
+	if (screen->window->subviews->size) {
+		Window* highest = array_m_lookup(screen->window->subviews, screen->window->subviews->size - 1);
+		//find clipping intersections with every window below the highest one
+		//redraw every child window at the same time if necessary
+		for (int i = 0; i < screen->window->subviews->size - 1; i++) {
+			Window* win = (Window*)(array_m_lookup(screen->window->subviews, i));
+			draw_window(screen, win);
+
+			Rect* visible_rects = rect_clip(win->frame, highest->frame);
+			if (!visible_rects || highest->layer->alpha < 1.0) {
+				//not occluded by highest at all
+				//draw view normally, composite onto vmem
+				blit_layer(screen->vmem, win->layer, win->frame);
+			}
+			else {
+				//maximum 4 sub-rects
+				for (int j = 0; j < 4; j++) {
+					Rect r = visible_rects[j];
+					if (r.size.width == 0 && r.size.height == 0) break;
+
+					blit_layer(screen->vmem, win->layer, r);
+				}
+			}
+		}
+		//finally, composite highest window
+		draw_window(screen, highest);
+		blit_layer(screen->vmem, highest->layer, highest->frame);
 	}
 }
 
