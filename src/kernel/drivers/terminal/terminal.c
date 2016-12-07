@@ -230,8 +230,6 @@ static bool matching_color;
 static char col_code[3];
 static int parse_idx;
 void terminal_putchar(char ch) {
-	if (ch == KEY_UP || ch == KEY_DOWN) return;
-
 	if (matching_color) {
 		parse_idx++;
 		if (ch == ';' || parse_idx >= 5) {
