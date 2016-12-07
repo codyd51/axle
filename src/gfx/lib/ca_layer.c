@@ -53,6 +53,34 @@ void blit_layer_alpha_fast(ca_layer* dest, ca_layer* src, Rect copy_frame) {
 	}
 }
 
+/*
+#define EXPAND(x) ((x) + ((x) > 0))
+void blit_layer_alpha(ca_layer* dest, ca_layer* src, Rect copy_frame) {
+	uint8_t* from_px = src->raw;
+	//uint8_t* to_px = dest->raw[(copy_frame.origin.y * copy_frame.size.width * gfx_bpp()) + (copy_frame.origin.x + gfx_bpp())];
+	uint8_t* to_px = dest->raw;
+	int a = src->alpha * 255;
+	int h = copy_frame.size.height * gfx_bpp();
+
+	copy_frame.origin = point_zero();
+	copy_frame.size = src->size;
+
+	do {
+		for (int x = 0; x < copy_frame.size.width; x++) {
+			unsigned r = ((1 - (*from_px++)) * a >> 8);
+			unsigned g = ((1 - (*from_px++)) * a >> 8);
+			unsigned b = ((1 - (*from_px++)) * a >> 8);
+			*to_px = ((r - (*to_px++)) * a >> 16);
+			*to_px = ((g - (*to_px++)) * a >> 16);
+			*to_px = ((b - (*to_px++)) * a >> 16);
+		}
+		from_px += src->size.width * gfx_bpp();
+
+		to_px += dest->size.width * gfx_bpp();
+	} while (--h);
+}
+*/
+
 void blit_layer_alpha(ca_layer* dest, ca_layer* src, Rect copy_frame) {
 	//for every pixel in dest, calculate what the pixel should be based on 
 	//dest's pixel, src's pixel, and the alpha
@@ -67,20 +95,14 @@ void blit_layer_alpha(ca_layer* dest, ca_layer* src, Rect copy_frame) {
 	//data from source to write to dest
 	uint8_t* row_start = src->raw;
 	
-	//multiply by 100 so we can use fixed point math
-	int alpha = (1 - src->alpha) * 256;
-	//alpha = abs(alpha);
-	//precalculate inverse alpha
-	//int inv = 100 - alpha;
+	int alpha = (1 - src->alpha) * 255;
+	int inv = 100 - alpha;
 
 	for (int i = 0; i < copy_frame.size.height; i++) {
 		uint8_t* dest_px = dest_row_start;
 		uint8_t* row_px = row_start;
 
 		for (int j = 0; j < copy_frame.size.width; j++) {
-			//TODO fix this code
-			//yellow shifted
-			//maybe we're dropping the first color byte?
 			uint32_t* wide_dest = (uint32_t*)dest_px;
 			uint32_t* wide_row = (uint32_t*)row_px;
 
@@ -88,28 +110,10 @@ void blit_layer_alpha(ca_layer* dest, ca_layer* src, Rect copy_frame) {
 			uint32_t g = *wide_row & 0x00FF00;
 			rb += ((*wide_dest & 0xFF00FF) - rb) * alpha >> 8;
 			g += ((*wide_dest & 0x00FF00) - g) * alpha >> 8;
-			*wide_dest = (rb & 0xFF00FF)  | (g & 0x00FF00);
+			*wide_dest = (rb & 0xFF00FF) | (g & 0x00FF00) | (*wide_dest & 0xFF000000);
 
 			dest_px += 3;
 			row_px += 3;
-
-			//below works, but is 10FPS slower than above
-			/*
-			//R component
-			*dest_px = ((*dest_px * alpha) + (*row_px * inv)) / 100;
-			dest_px++;
-			row_px++;
-
-			//G component
-			*dest_px = ((*dest_px * alpha) + (*row_px * inv)) / 100;
-			dest_px++;
-			row_px++;
-
-			//B component
-			*dest_px = ((*dest_px * alpha) + (*row_px * inv)) / 100;
-			dest_px++;
-			row_px++;
-			*/
 		}
 
 		//next iteration, start at the next row
