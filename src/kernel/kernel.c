@@ -21,6 +21,7 @@
 #include <kernel/drivers/mouse/mouse.h>
 #include <kernel/drivers/vesa/vesa.h>
 #include <kernel/drivers/pci/pci_detect.h>
+#include <kernel/drivers/serial/serial.h>
 #include <tests/test.h>
 
 void print_os_name(void) {
@@ -88,6 +89,9 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	//timer driver (many functions depend on timer interrupt so start early)
 	pit_install(1000);
+
+	//serial output for syslog
+	serial_init();
 
 	//find any loaded grub modules
 	uint32_t initrd_loc = module_detect(mboot_ptr);
