@@ -66,7 +66,8 @@ $(ISO_NAME): $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg $(ISO_DIR)/b
 	$(ISO_MAKER) -o $@ $(ISO_DIR)
 
 run: $(ISO_NAME)
-	$(EMULATOR) -net nic,model=ne2k_pci -d cpu_reset -D qemu.log  -vga std -cdrom $^
+	tmux split-window -p 75 "tail -f syslog.log"
+	$(EMULATOR) -net nic,model=ne2k_pci -d cpu_reset -D qemu.log -serial file:syslog.log -vga std -cdrom $^
 
 clean:
 	@rm -rf $(OBJECTS) $(ISO_DIR) $(ISO_NAME) $(FSGENERATOR)
