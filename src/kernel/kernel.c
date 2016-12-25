@@ -89,6 +89,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	//timer driver (many functions depend on timer interrupt so start early)
 	pit_install(1000);
+	rtc_install();
 
 	//serial output for syslog
 	serial_init();

@@ -4,7 +4,7 @@
 #include <kernel/kernel.h>
 #include <kernel/drivers/pit/pit.h>
 
-unsigned char second, minute, hour, day, month, year;
+time_t current_time;
 
 enum {
 	cmos_address = 0x70,
@@ -21,79 +21,58 @@ unsigned char get_RTC_register(int reg) {
 	return inb(cmos_data);
 }
 
-void read_rtc() {
-	unsigned char last_second, last_minute, last_hour, last_day, last_month, last_year, registerB;
-
-	//note: we use the 'read registers until we get the same value twice' method to
-	//avoid getting inconsistent values due to RTC updates
-
-	//make sure an update isn't in progress
-	while (get_update_in_progress_flag());
-	second = get_RTC_register(0x00);
-	minute = get_RTC_register(0x02);
-	hour = get_RTC_register(0x04);
-	day = get_RTC_register(0x07);
-	month = get_RTC_register(0x08);
-	year = get_RTC_register(0x09);
-
-	do {
-		last_second = second;
-		last_minute = minute;
-		last_hour = hour;
-		last_day = day;
-		last_month = month;
-		last_year = year;
-
-		//make sure update isnt in progress
-		while (get_update_in_progress_flag());
-		second = get_RTC_register(0x00);
-		minute = get_RTC_register(0x02);
-		hour = get_RTC_register(0x04);
-		day = get_RTC_register(0x07);
-		month = get_RTC_register(0x08);
-		year = get_RTC_register(0x09);
-	} while ((last_second != second) || (last_minute != minute) || (last_hour != hour) || (last_day != day) || (last_month != month) || (last_year != year));
-
-	registerB = get_RTC_register(0x0B);
-
-	//convert BCD to binary vals if necessary
-	if (!(registerB & 0x04)) {
-		second = (second & 0x0F) + ((second / 16) * 10);
-		minute = (minute & 0x0F) + ((minute / 16) * 10);
-		hour = ( (hour & 0x0F) + (((hour & 0x70) / 16) * 10) ) | (hour & 0x80);
-		day = (day & 0x0F) + ((day / 16) * 10);
-		month = (month & 0x0F) + ((month / 16) * 10);
-		year = (year & 0x0F) + ((year / 16) * 10);
-	}
-
-	//convert 12 hour clock to 24 hour clock if necessary
-	if (!(registerB & 0x02) && (hour & 0x80)) {
-		//hour = ((hour & 0x7F) + 12) % 24;
-	}
-
-	//calculate full 24-digit year
-	/*
-	if (century_register != 0) {
-		year += century * 100;
-	}
-	else {
-		year += (CURRENT_YEAR / 100) * 100;
-		if (year < CURRENT_YEAR) {
-			year += 100;
-		}
-	}
-	*/
+unsigned char read_rtc_register(unsigned char reg) {
+	outb(0x70, reg);
+	return inb(0x71);
 }
 
-void register_cmos(int reg) {
-	//disable all IRQs
-	kernel_begin_critical();
+unsigned char bcd2bin(unsigned char bcd) {
+	return ((bcd >> 4) * 10) + (bcd & 0x0F);
+}
 
-	int val = 0x70;
-	outb(val, reg);
+static bool bcd;
+static void handle_rtc_update() {
+	bool ready = read_rtc_register(0x0C) & 0x10;
+    if(ready){
+        if(bcd){
+            current_time.second = bcd2bin(read_rtc_register(0x00));
+            current_time.minute = bcd2bin(read_rtc_register(0x02));
+            current_time.hour   = bcd2bin(read_rtc_register(0x04));
+            current_time.month  = bcd2bin(read_rtc_register(0x08));
+            current_time.year   = bcd2bin(read_rtc_register(0x09));
+            current_time.day_of_month = bcd2bin(read_rtc_register(0x07));
+        }
+		else {
+            current_time.second = read_rtc_register(0x00);
+            current_time.minute = read_rtc_register(0x02);
+            current_time.hour   = read_rtc_register(0x04);
+            current_time.month  = read_rtc_register(0x08);
+            current_time.year   = read_rtc_register(0x09);
+            current_time.day_of_month = read_rtc_register(0x07);
+        }
+    }
+	char now[64];
+	memset(now, 0, 64);
+	date(&now);
+	printk("heartbeat\n", now);
+}
 
-	//reenable IRQs
-	kernel_end_critical();	
+void rtc_install() {
+	unsigned char status = read_rtc_register(0x0B);
+	status |=  0x02;				//24h clock
+	status |=  0x10;				//update ended interrupts
+	status &= ~0x20;				//no alarm interrupts
+	status &= ~0x40;				//no periodic interrupt
+	bcd		= !(status & 0x04);		//check if it's BCD format
+	
+	//write status to RTC
+	outb(0x70, 0x0B);
+	outb(0x71, status);
+
+	//read status from RTC
+	read_rtc_register(0x0C);
+
+	register_interrupt_handler(40, handle_rtc_update);
 }
 
 #include <kernel/drivers/pit/pit.h>
@@ -123,127 +102,38 @@ uint32_t time_unique() {
 	return time();
 }
 
-char* date() {
-	read_rtc();
-
-	char* res = (char*)kmalloc(sizeof(char) * 64);
-
+void date(char* res) {
 	char b[8];
-	itoa(hour, b);
+	itoa(current_time.hour, b);
 	strcat(res, b);
 	strcat(res, ":");
 
-	itoa(minute, b);
+	itoa(current_time.minute, b);
 	strcat(res, b);
 	strcat(res, ":");
 
-	itoa(second, b);
+	itoa(current_time.second, b);
 	strcat(res, b);
 	strcat(res, ", ");
 
-	itoa(month, b);
+	itoa(current_time.month, b);
 	strcat(res, b);
 	strcat(res, "/");
 
-	itoa(day, b);
+	itoa(current_time.day_of_month, b);
 	strcat(res, b);
 	strcat(res, "/");
 
-	itoa(year, b);
+	//RTC has buggy year value, so if year seems bad print -1
+	//TODO update this in 8000 years
+	int usable_year = current_time.year;
+	if (usable_year >= 10000) usable_year = -1;
+	itoa(usable_year, b);
 	strcat(res, b);
-
-	return res;
 }
 
-bool is_leap_year(int year) {
-	return (year % 4 == 0);
-}
-
-int days_in_year(int year) {
-	if (is_leap_year(year)) return 366;
-	return 365;
-}
-
-int days_in_month(int month, int year) {
-	switch (month) {
-		case 0:
-			return 31;
-			break;
-		case 1:
-			if (is_leap_year(year)) return 29;
-			return 28;
-			break;
-		case 2:
-			return 31;
-			break;
-		case 3:
-			return 30;
-			break;
-		case 4:
-			return 31;
-			break;
-		case 5:
-			return 30;
-			break;
-		case 6:
-			return 31;
-			break;
-		case 7:
-			return 31;
-			break;
-		case 8:
-			return 30;
-			break;
-		case 9:
-			return 31;
-			break;
-		case 10:
-			return 30;
-			break;
-		default:
-			case 11:
-		return 31;
-			break;
-	}
-	return -1;
-}
-
-unsigned char epoch_time() {
-	//get current time
-	read_rtc();
-
-	size_t secs_since_1970 = 0;
-
-	//compute years since 1970
-	int passed_years = 30 + year;
-	//year = 60s * 60m * 24h * 365d
-	for (int i = 1; i < passed_years; i++) {
-		int currYear = year - i;
-		secs_since_1970 += (days_in_year(currYear) * 24 * 60 * 60);
-	}
-
-	//compute months in year
-	//month = 60s * 60m * 24h
-	for (int i = 0; i < month; i++) {
-		secs_since_1970 += (days_in_month(i, year) * 24 * 60 * 60);
-	}
-
-	//compute days in month
-	//day = 60s * 60m * 24h
-	secs_since_1970 += day * 24 * 60 * 60;
-
-	//compute hours in day
-	//hour = 60s * 60m
-	secs_since_1970 += hour * 60 * 60;
-
-	//compute minutes in hour
-	//minutes = 60s
-	secs_since_1970 += minute * 60;
-
-	//compute seconds in minute
-	//seconds = seconds
-	secs_since_1970 += second;
-
-	return secs_since_1970;
+uint32_t epoch_time() {
+	//TODO write
+	return 0;
 }
 

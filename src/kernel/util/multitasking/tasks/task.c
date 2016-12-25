@@ -56,7 +56,10 @@ static void setup_fds(task_t* task) { task->files = array_m_create(MAX_FILES);
 
 void goto_pid(int id);
 int getpid() {
-	return current_task->id;
+	if (current_task) {
+		return current_task->id;
+	}
+	return -1;
 }
 
 void unlist_task(task_t* task) {
@@ -713,10 +716,7 @@ void handle_pit_tick() {
 
 void _kill() {
 	if (!tasking_installed()) return;
-
-	kernel_begin_critical();
 	block_task(current_task, ZOMBIE);
-	kernel_end_critical();
 }
 
 void proc() {
