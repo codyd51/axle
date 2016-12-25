@@ -2,6 +2,9 @@
 #include <stdarg.h>
 #include <kernel/util/mutex/mutex.h>
 #include <kernel/drivers/serial/serial.h>
+#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/drivers/rtc/clock.h>
+#include <kernel/drivers/pit/pit.h>
 #include <std/string.h>
 
 char* convert(unsigned int num, int base) {
@@ -84,9 +87,26 @@ void printk_hex(uint32_t n) {
 	print_hex_common(SERIAL_OUTPUT, n);
 }
 
+void printk_debug_info() {
+	char now[64];
+	memset(now, 0, 64);
+	date(&now);
+	printk("[PID %d @ %s (tick %d)] ", getpid(), now, tick_count());
+}
+
 void vprintf(int dest, char* format, va_list va) {
 	char bf[24];
 	char ch;
+
+	//if this is output to kernel log, print process/timestamp info
+	//don't go into an infinite loop!
+	static bool in_debug_output = false;
+	if (!in_debug_output && dest == SERIAL_OUTPUT) {
+		//mark we're about to use vprintf for debug output
+		in_debug_output = true;
+		printk_debug_info();
+		in_debug_output = false;
+	}
 
 	while ((ch = *(format++))) {
 		if (ch != '%') {

@@ -53,13 +53,13 @@ __attribute__((__noreturn__)) void panic_msg(uint16_t line, const char* file, co
 	extern void switch_to_text();
 	switch_to_text();
 
-	terminal_clear();
+	//terminal_clear();
 
-	printf_err("Kernel panic!");
+	printf_err("Kernel panic! See syslog for more info.");
 
 	va_list ap;
 	va_start(ap, msg);
-	vprintf_err(msg, ap);
+	vprintf(msg, ap);
 	va_end(ap);
 
 	// Inline the panic() code for stack frame count

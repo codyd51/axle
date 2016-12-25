@@ -191,7 +191,9 @@ void time_command() {
 }
 
 void date_command() {
-	printf(date());
+	char buf[64];
+	date(&buf);
+	printf(buf);
 }
 
 void empty_command() {
