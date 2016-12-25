@@ -94,6 +94,9 @@ void printk_debug_info() {
 	printk("[PID %d @ %s (tick %d)] ", getpid(), now, tick_count());
 }
 
+//keep track of when to print debug info
+//only do so on newline
+bool seen_newline = false;
 void vprintf(int dest, char* format, va_list va) {
 	char bf[24];
 	char ch;
@@ -102,14 +105,21 @@ void vprintf(int dest, char* format, va_list va) {
 	//don't go into an infinite loop!
 	static bool in_debug_output = false;
 	if (!in_debug_output && dest == SERIAL_OUTPUT) {
-		//mark we're about to use vprintf for debug output
-		in_debug_output = true;
-		printk_debug_info();
-		in_debug_output = false;
+		//only print debug info if we're on a new line
+		if (seen_newline) {
+			//mark we're about to use vprintf for debug output
+			in_debug_output = true;
+			printk_debug_info();
+			in_debug_output = false;
+			seen_newline = false;
+		}
 	}
 
 	while ((ch = *(format++))) {
 		if (ch != '%') {
+			if (ch == '\n') {
+				seen_newline = true;
+			}
 			outputc(dest, ch);
 		}
 		else {
@@ -186,7 +196,7 @@ char* vsprintf(char* format, va_list va) {
 	char bf[24];
 	char ch;
 
-	char* ret = "";
+	char* ret = kmalloc(strlen(format) * 2);
 
 	while ((ch = *(format++)) != 0) {
 		if (ch != '%') {
