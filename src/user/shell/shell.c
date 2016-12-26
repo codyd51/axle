@@ -19,6 +19,7 @@
 #include <kernel/drivers/vesa/vesa.h>
 #include <tests/test.h>
 #include <tests/gfx_test.h>
+#include <std/klog.h>
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
@@ -49,22 +50,23 @@ void process_command(char* string) {
 	int argc;
 	char *sdup = strdup(string);
 	char **argv = buildargv(sdup, &argc);
-
-	//split the string to get the command, the rest is taken care of by libiberty
-	size_t out;
-	char** tokens = strsplit(sdup, " ", &out);
 	kfree(sdup);
 
-	if (out == 0)
+	if (argc == 0) {
+		freeargv(argv);
 		return;
+	}
 
-	char* command = tokens[0];
+	char* command = argv[0];
 
 	int i = findCommand(command);
 	if (i >= 0) {
 		void (*command_function)(int, char **) = (void(*)(int, char**))CommandTable[i].function;
 		command_function(argc, argv);
 	}
+
+	//cleanup
+	freeargv(argv);
 }
 
 void process_character(char* inputstr, char ch) {
@@ -123,12 +125,17 @@ void process_character(char* inputstr, char ch) {
 }
 
 char* get_inputstring() {
-	char* input = (char*)kmalloc(sizeof(char) * 512);
+	const int max_chars = 128;
+	char* input = KLOG(kmalloc, max_chars);
 	unsigned char c = 0;
-	do {
+
+	for (int i = 0; i < max_chars; i++) {
 		c = getchar();
 		process_character(input, c);
-	} while (c != '\n');
+		if (c == '\n') {
+			break;
+		}
+	}
 
 	return input;
 }
@@ -145,10 +152,10 @@ int shell() {
 	process_command(input);
 
 	if (strcmp(input, "shutdown") == 0) {
-		kfree(input);
+		KLOG(kfree, input);
 		return 1;
 	}
-	kfree(input);
+	KLOG(kfree, input);
 	return 0;
 }
 
