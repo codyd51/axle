@@ -15,7 +15,7 @@ typedef struct ca_layer_t {
 
 struct ca_layer_t* create_layer(Size size);
 void layer_teardown(ca_layer* layer);
-void blit_layer(ca_layer* dest, ca_layer* src, Rect copy_frame);
+void blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame);
 ca_layer* layer_snapshot(ca_layer* src, Rect frame);
 
 __END_DECLS
