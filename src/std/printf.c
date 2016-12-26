@@ -101,20 +101,6 @@ void vprintf(int dest, char* format, va_list va) {
 	char bf[24];
 	char ch;
 
-	//if this is output to kernel log, print process/timestamp info
-	//don't go into an infinite loop!
-	static bool in_debug_output = false;
-	if (!in_debug_output && dest == SERIAL_OUTPUT) {
-		//only print debug info if we're on a new line
-		if (seen_newline) {
-			//mark we're about to use vprintf for debug output
-			in_debug_output = true;
-			printk_debug_info();
-			in_debug_output = false;
-			seen_newline = false;
-		}
-	}
-
 	while ((ch = *(format++))) {
 		if (ch != '%') {
 			if (ch == '\n') {
@@ -187,6 +173,20 @@ void vprintf(int dest, char* format, va_list va) {
 				default: {
 					terminal_putchar(ch);
 				} break;
+			}
+		}
+
+		//if this is output to kernel log, print process/timestamp info
+		//don't go into an infinite loop!
+		static bool in_debug_output = false;
+		if (!in_debug_output && dest == SERIAL_OUTPUT) {
+			//only print debug info if we're on a new line
+			if (seen_newline) {
+				//mark we're about to use vprintf for debug output
+				in_debug_output = true;
+				printk_debug_info();
+				in_debug_output = false;
+				seen_newline = false;
 			}
 		}
 	}

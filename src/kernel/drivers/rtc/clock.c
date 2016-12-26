@@ -3,6 +3,7 @@
 #include <std/std.h>
 #include <kernel/kernel.h>
 #include <kernel/drivers/pit/pit.h>
+#include <kernel/util/multitasking/tasks/task.h>
 
 time_t current_time;
 
@@ -51,10 +52,10 @@ static void handle_rtc_update() {
             current_time.day_of_month = read_rtc_register(0x07);
         }
     }
-	char now[64];
-	memset(now, 0, 64);
-	date(&now);
-	printk("heartbeat\n", now);
+	printk("heartbeat\n");
+	if (tasking_installed()) {
+		proc();
+	}
 }
 
 void rtc_install() {

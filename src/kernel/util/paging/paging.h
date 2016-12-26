@@ -1,6 +1,7 @@
 #ifndef PAGING_H
 #define PAGING_H
 
+#include <stdbool.h>
 #include <std/common.h>
 #include <kernel/util/interrupts/isr.h>
 
@@ -51,7 +52,7 @@ page_directory_t* get_cr3();
 //maps physical range to virtual memory
 void vmem_map(uint32_t virt, uint32_t physical);
 
-void alloc_frame(page_t* page, int is_kernel, int is_writeable);
+bool alloc_frame(page_t* page, int is_kernel, int is_writeable);
 void free_frame(page_t* page);
 
 //create a new page directory with all the info of src

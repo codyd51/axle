@@ -22,6 +22,7 @@
 #include <kernel/drivers/vesa/vesa.h>
 #include <kernel/drivers/pci/pci_detect.h>
 #include <kernel/drivers/serial/serial.h>
+#include <std/klog.h>
 #include <tests/test.h>
 
 void print_os_name(void) {
@@ -86,6 +87,9 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	idt_install();
 
 	test_interrupts();
+
+	//serial output for syslog
+	serial_init();
 
 	//timer driver (many functions depend on timer interrupt so start early)
 	pit_install(1000);

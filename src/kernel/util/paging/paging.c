@@ -134,25 +134,25 @@ void vmem_map(uint32_t virt, uint32_t physical) {
 }
 
 //function to allocate a frame
-void alloc_frame(page_t* page, int is_kernel, int is_writeable) {
-	/*
+bool alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 	if (page->frame != 0) {
 		//frame was already allocated, return early
 		printf_info("alloc_frame: page %x already alloced (frame %x)", &page, page->frame);
-		return;
+		return false;
 	}
-	*/
+	
 	int32_t idx = first_frame(); //index of first free frame
 	if (idx == -1) {
 		PANIC("No free frames!");
 	}
-	//printf_info("alloc_frame(): setting bit frame %x", idx);
+
 	set_bit_frame(idx*0x1000); //frame is now ours
 	page->present = 1; //mark as present
 	page->rw = is_writeable; //should page be writable?
 	page->user = !is_kernel; //should page be user mode?
 	page->frame = idx;
-	//printf_info("finished allocating frame %x", &page);
+
+	return true;
 }
 
 //function to dealloc a frame
@@ -231,6 +231,7 @@ void paging_install() {
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
 		get_page(i, 1, kernel_directory);
 	}
+	printk("alloc'd heap pages\n");
 
 	//we need to identity map (phys addr = virtual addr) from
 	//0x0 to end of used memory, so we can access this
@@ -249,6 +250,7 @@ void paging_install() {
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
 		alloc_frame(get_page(i, 1, kernel_directory), 0, 0);
 	}
+	printk("assigned heap pages\n");
 	printf_info("finished identity mapping kernel pages");
 
 	//before we enable paging, register page fault handler
@@ -262,10 +264,12 @@ void paging_install() {
 
 	//initialize kernel heap
 	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, KHEAP_MAX_ADDRESS, 0, 0);
-	expand(0x1000000, kheap);
+	//expand(0x1000000, kheap);
 
 	current_directory = clone_directory(kernel_directory);
+	printk("cloned kernel directory\n");
 	switch_page_directory(current_directory);
+	printk("switched to cloned directory\n");
 }
 
 void switch_page_directory(page_directory_t* dir) {
@@ -303,12 +307,23 @@ static void page_fault(registers_t regs) {
 	asm volatile("mov %%cr2, %0" : "=r" (faulting_address));
 
 	//error code tells us what happened
-	int present = !(regs.err_code & 0x1); //page not present
+	int present = regs.err_code & 0x1; //page not present
 	int rw = regs.err_code & 0x2; //write operation?
 	int us = regs.err_code & 0x4; //were we in user mode?
 	int reserved = regs.err_code & 0x8; //overwritten CPU-reserved bits of page entry?
 	int id = regs.err_code & 0x10; //caused by instruction fetch?
 
+	//if this page was present, attempt to recover by allocating the page
+	if (!present) {
+		bool attempt = alloc_frame(get_page(faulting_address, 1, current_directory), 0, rw);
+		if (attempt) {
+			//recovered successfully
+			printf_info("allocated page at virt %x", faulting_address);
+			return;
+		}
+	}
+
+	//if execution reaches here, recovery failed or recovery wasn't possible
 	printf_err("Encountered page fault at %x", faulting_address);
 
 	if (present) printf_err("Page present");
@@ -331,31 +346,14 @@ static void page_fault(registers_t regs) {
 		printf_err("Page fault caused by reading unpaged memory");
 	}
 
-	//if this page was present, attempt to recover by allocating the page
-	if (present) {
-		printf_info("attempting page fault recovery...");
-		//upper 10 bits of faulting addr has pde
-		unsigned table_mask = (1 << 10) - 1;
-		page_table_t* table = (page_table_t*)(faulting_address & table_mask);
-		printf_info("Addr of table: %x", &table);
-
-		//middle 10 bits has pte
-		unsigned page_mask = ((1 << 10) - 1) << 10;
-		page_t* page = (page_t*)(faulting_address & page_mask);
-		printf_info("page addr %x", &page);
-		printf_info("page frame: %x", page->frame);
-		alloc_frame(get_page((uint32_t)&page, present, kernel_directory), 0, rw);
-
-		asm volatile("xchgw %bx, %bx");
-
-		//return;
-	}
 
 	extern void common_halt(registers_t regs, bool recoverable);
 	common_halt(regs, false);
 }
 
 static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
+	printk("cloning table at %x phys %x\n", src, physAddr);
+
 	//make new page aligned table
 	page_table_t* table = (page_table_t*)kmalloc_ap(sizeof(page_table_t), physAddr);
 	//ensure new table is blank

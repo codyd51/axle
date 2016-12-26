@@ -4,6 +4,7 @@
 #include "std_base.h"
 #include "array_o.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 __BEGIN_DECLS
 
