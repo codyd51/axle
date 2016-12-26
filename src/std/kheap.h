@@ -21,28 +21,25 @@ STDAPI void* kmalloc_ap(uint32_t sz, uint32_t* phys);
 STDAPI void* kmalloc(uint32_t sz);
 
 #define KHEAP_START		0xC0000000
-#define KHEAP_INITIAL_SIZE	0x100000
+//#define KHEAP_INITIAL_SIZE	0x300000
+#define KHEAP_INITIAL_SIZE 0x3000000
 //#define KHEAP_MAX_ADDRESS	0xFFFFF000
 #define KHEAP_MAX_ADDRESS 	0xCFFFF000
 
-#define HEAP_INDEX_SIZE		0x20000
-#define HEAP_MAGIC		0x25A56F9C
-#define HEAP_MIN_SIZE		0x70000
+//#define HEAP_INDEX_SIZE 0xF000
+#define HEAP_MAGIC		0xCAFEBABE
+#define HEAP_MIN_SIZE	0x70000
 
 //size information for hole/block
-typedef struct {
+typedef struct alloc_block_t {
 	uint32_t magic; //magic number
-	uint8_t hole; //block or hole?
-	uint32_t size; //size, including end footer
-} header_t;
+	struct alloc_block_t* next;
+	struct alloc_block_t* prev;
+	bool free; //is this block in use?
+	uint32_t size; //usable size
+} alloc_block_t;
 
 typedef struct {
-	uint32_t magic; 
-	header_t* header; //reference to header
-} footer_t;
-
-typedef struct {
-	array_o* index;
 	uint32_t start_address; //start of allocated space
 	uint32_t end_address; //end of allocated space (can be expanded up to max_address)
 	uint32_t max_address; //maximum address heap can be expanded to
@@ -68,8 +65,8 @@ void expand(uint32_t new_size, heap_t* heap);
 //returns number of bytes currently in use by heap
 uint32_t used_mem();
 
-//performs test of various allocation sizes and logs if any heap management errors were detected
-void heap_int_test();
+//debug function to dump last 20 kernel heap allocs
+void heap_print();
 
 __END_DECLS
 

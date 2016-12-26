@@ -21,32 +21,39 @@ void print_regs(registers_t regs) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsequence-point"
 //TODO: figure out undefinedness of "esp--"
-void dump_stack(uint8_t* esp) {
+void dump_stack(uint32_t* esp) {
+	printk("dump @ %x\n", esp);
+	
+	uint32_t orig_esp = esp;
+	//jump back 16 bytes
+	//4 bytes in a uint32_t
+	//16 / 4 == 4
+	esp -= 4;
+	printk("stack dump starting at %x\n", esp);
+
 	for (int i = 0; i < 8; i++) {
-		esp--;
-		if (i % 2) {
-			printf("\e[2;");
-		}
-		else {
-			printf("\e[3;");
-		}
 		uint8_t* esp_byte = esp;
 
-		printf("[%x] %x %x %x %x ", esp, *(esp--), *(esp--), *(esp--), *(esp--));
+		printk("[%x] ", esp);
+		//print each byte in word
+		for (int j = 0; j < 4; j++) {
+			printk("%x ", *(esp++));
+		}
+
 		//we want to print out every byte of the 4 words we just printed out
 		//words are 4 bytes
-		//four words * (size of word / size of byte)
+		//4 words * (size of word / size of byte)
 		for (int i = 0; i < 4 * 4; i++) {
 			uint8_t val = *esp_byte;
 			if (isalnum(val)) {
-				printf("%c", val);
+				printk("%c", val);
 			}
 			else {
-				printf(".");
+				printk(".");
 			}
-			esp_byte--;
+			esp_byte++;
 		}
-		printf("\n");
+		printk("\n");
 	}
 }
 #pragma GCC diagnostic pop
