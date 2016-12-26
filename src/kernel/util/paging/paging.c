@@ -381,10 +381,18 @@ static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
 }
 
 page_directory_t* clone_directory(page_directory_t* src) {
+	printk_info("cloning page directory at phys %x virt %x", src->physicalAddr, src);
+
 	uint32_t phys;
 
 	//make new page directory and get physaddr
+	printk_info("attemping to create new page dir");
+	heap_print(kheap);
 	page_directory_t* dir = (page_directory_t*)kmalloc_ap(sizeof(page_directory_t), &phys);
+	printk_info("alloc'd new page dir @ %x (phys %x)", dir, phys);
+
+	printk_info("after making new page dir:");
+
 	//blank it
 	memset((uint8_t*)dir, 0, sizeof(page_directory_t));
 

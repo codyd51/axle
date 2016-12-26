@@ -99,6 +99,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	serial_init();
 
 	//find any loaded grub modules
+	//must be done before paging to set placement_address
 	uint32_t initrd_loc = module_detect(mboot_ptr);
 
 	//utilities
@@ -108,6 +109,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	tasking_install(LOW_LATENCY);
 
 	//drivers
+	KLOG(printk, "installing drivers...\n");
 	kb_install();
 	mouse_install();
 	pci_install();

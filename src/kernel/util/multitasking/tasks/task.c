@@ -8,6 +8,7 @@
 #include <kernel/util/multitasking/util.h>
 #include <kernel/util/syscall/sysfuncs.h>
 #include <kernel/drivers/rtc/clock.h>
+#include <std/klog.h>
 
 //function defined in asm which returns the current instruction pointer
 uint32_t read_eip();
@@ -132,7 +133,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	page_directory_t* cloned = clone_directory(current_directory);
 
 	//create new process
-	task_t* task = (task_t*)kmalloc(sizeof(task_t));
+	task_t* task = KLOG(kmalloc, sizeof(task_t));
 	memset(task, 0, sizeof(task_t));
 	task->name = strdup(name);
 	task->id = next_pid++;
@@ -330,7 +331,9 @@ void tasking_install(mlfq_option options) {
 
 	kernel_begin_critical();
 
+	printk_info("moving stack...");
 	move_stack((void*)0xE0000000, 0x2000);
+	printk_info("moved stack\n");
 
 	int queue_count = 0;
 	switch (options) {
@@ -354,8 +357,10 @@ void tasking_install(mlfq_option options) {
 		array_m_insert(queue_lifetimes, (type_t)(HIGH_PRIO_QUANTUM * (i + 1)));
 	}
 
+	printk("queues\n");
+
 	//init first task (kernel task)
-	task_t* kernel = (task_t*)kmalloc(sizeof(task_t));
+	task_t* kernel = KLOG(kmalloc, sizeof(task_t));
 	memset(kernel, 0, sizeof(task_t));
 	kernel->name = "kax";
 	kernel->id = next_pid++;
@@ -720,41 +725,39 @@ void _kill() {
 }
 
 void proc() {
-	terminal_settextcolor(COLOR_WHITE);
-
-	printf("-----------------------proc-----------------------\n");
+	printk("-----------------------proc-----------------------\n");
 
 	for (int i = 0; i < queues->size; i++) {
 		array_m* queue = array_m_lookup(queues, i);
 		for (int j = 0; j < queue->size; j++) {
 			task_t* task = array_m_lookup(queue, j);
 			uint32_t runtime = (uint32_t)array_m_lookup(queue_lifetimes, task->queue);
-			printf("[%d Q %d] %s ", task->id, task->queue, task->name);
+			printk("[%d Q %d] %s ", task->id, task->queue, task->name);
 			if (task == current_task) {
-				printf("(active");
+				printk("(active");
 			}
 			else {
-				printf("used");
+				printk("used");
 			}
-			printf(" %d/%d ms) ", task->lifespan, runtime);
+			printk(" %d/%d ms) ", task->lifespan, runtime);
 
 			switch (task->state) {
 				case RUNNABLE:
-					printf("(runnable)");
+					printk("(runnable)");
 					break;
 				case KB_WAIT:
-					printf("(blocked by keyboard)");
+					printk("(blocked by keyboard)");
 					break;
 				case PIT_WAIT:
-					printf("(blocked by timer, wakes %d)", task->wake_timestamp);
+					printk("(blocked by timer, wakes %d)", task->wake_timestamp);
 					break;
 				default:
 					break;
 		}
-			printf("\n");
+			printk("\n");
 		}
 	}
-	printf("---------------------------------------------------\n");
+	printk("---------------------------------------------------\n");
 }
 
 void force_enumerate_blocked() {
