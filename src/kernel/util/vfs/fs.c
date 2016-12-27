@@ -68,6 +68,10 @@ FILE* fopen(char* filename, char* mode) {
 }
 #pragma GCC diagnostic pop
 
+void fclose(FILE* stream) {
+	kfree(stream);
+}
+
 uint8_t fgetc(FILE* stream) {
 	uint8_t ch;
 	uint32_t sz = read_fs(stream->node, stream->fpos++, 1, &ch);

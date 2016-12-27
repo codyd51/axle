@@ -64,6 +64,8 @@ struct dirent* readdir_fs(fs_node_t* node, uint32_t index);
 fs_node_t* finddir_fs(fs_node_t* node, char* name);
 
 FILE* fopen(char* filename, char* mode);
+void fclose(FILE* stream);
+
 uint8_t fgetc(FILE* stream);
 uint32_t fread(void* buffer, uint32_t size, uint32_t count, FILE* stream);
 
