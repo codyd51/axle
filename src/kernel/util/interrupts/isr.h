@@ -28,4 +28,8 @@ void register_interrupt_handler(uint8_t n, isr_t handler);
 void isr_install_default();
 void pic_acknowledge(unsigned int interrupt);
 
+//debug function
+//dumps memory around 'ptr' to kernel log
+void dump_stack(uint32_t* ptr);
+
 #endif

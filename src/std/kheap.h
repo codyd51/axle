@@ -20,15 +20,13 @@ STDAPI void* kmalloc_ap(uint32_t sz, uint32_t* phys);
 //normal kmalloc
 STDAPI void* kmalloc(uint32_t sz);
 
-#define KHEAP_START		0xC0000000
-//#define KHEAP_INITIAL_SIZE	0x300000
-#define KHEAP_INITIAL_SIZE 0x3000000
-//#define KHEAP_MAX_ADDRESS	0xFFFFF000
+#define KHEAP_START			0xC0000000
+#define KHEAP_INITIAL_SIZE	0x6000000
 #define KHEAP_MAX_ADDRESS 	0xCFFFF000
 
-//#define HEAP_INDEX_SIZE 0xF000
-#define HEAP_MAGIC		0xCAFEBABE
-#define HEAP_MIN_SIZE	0x70000
+#define HEAP_MAGIC			0xCAFEBABE
+#define HEAP_MIN_SIZE		0x70000
+#define MIN_BLOCK_SIZE		0x10
 
 //size information for hole/block
 typedef struct alloc_block_t {
@@ -65,8 +63,10 @@ void expand(uint32_t new_size, heap_t* heap);
 //returns number of bytes currently in use by heap
 uint32_t used_mem();
 
-//debug function to dump last 20 kernel heap allocs
-void heap_print();
+//debug function to dump last 'count' kernel heap allocs
+//if 'count' is larger than total heap allocations, or 
+//count is -1, prints all heap allocations
+void heap_print(int count);
 
 __END_DECLS
 

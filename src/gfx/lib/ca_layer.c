@@ -70,7 +70,6 @@ void blit_layer_alpha(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_f
 	uint8_t* row_start = src->raw + (rect_min_y(src_frame) * src->size.width * gfx_bpp()) + rect_min_x(src_frame) * gfx_bpp();
 	
 	int alpha = (1 - src->alpha) * 255;
-	int inv = 100 - alpha;
 	for (int i = 0; i < src_frame.size.height; i++) {
 		uint8_t* dest_px = dest_row_start;
 		uint8_t* row_px = row_start;

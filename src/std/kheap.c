@@ -4,6 +4,8 @@
 #include "std.h"
 #include <std/math.h>
 #include <kernel/util/mutex/mutex.h>
+#include <kernel/util/interrupts/isr.h>
+#include <kernel/util/multitasking/tasks/task.h>
 
 #define PAGE_SIZE 0x1000 /* 4kb page */
 
@@ -65,6 +67,15 @@ void* kmalloc(uint32_t sz) {
 
 void kfree(void* p) {
 	free(p, kheap);
+}
+
+void heap_fail(void* dump) {
+	heap_print(-1);
+	dump_stack(dump);
+
+	printk_err("PID %d encountered corrupted heap. Halting execution...", getpid());
+	//_kill();
+	while (1) {}
 }
 
 //create a heap header at addr, where the block in questoin is size bytes
@@ -201,8 +212,8 @@ static uint32_t contract(int32_t UNUSED(new_size), heap_t* UNUSED(heap)) {
 	//TODO code this
 }
 
-//prints last 50 alloc's items in heap
-void kheap_print(heap_t* heap) {
+//prints last 'display_count' alloc's in heap
+void kheap_print(heap_t* heap, int display_count) {
 	alloc_block_t* counter = first_block(heap);
 	int block_count = 0;
 	while (counter) {
@@ -210,9 +221,7 @@ void kheap_print(heap_t* heap) {
 		counter = counter->next;
 	}
 	int starting_idx = 0;
-	//make this an arg?
-	const int display_count = 20;
-	if (block_count > display_count) {
+	if (block_count > display_count && display_count != -1) {
 		starting_idx = block_count - display_count;
 	}
 
@@ -227,16 +236,16 @@ void kheap_print(heap_t* heap) {
 	printk("|------------|------------|-----------|\n");
 	printk("| addr       | size       | free      |\n");
 	printk("|------------|------------|-----------|\n");
-	printk("| ... %d more heap items ...    |\n", starting_idx);
+	printk("| ... %d more heap items ...		 |\n", starting_idx);
 	while (curr) {
-		printk("| %x | %x | %s       %s|\n", (uint32_t)curr, curr->size, (curr->free) ? "free" : "used", (curr->magic == HEAP_MAGIC) ? "" : "invalid header");
+		printk("| %x | %x | %s      %s|\n", (uint32_t)curr, curr->size, (curr->free) ? "free" : "used", (curr->magic == HEAP_MAGIC) ? "" : "invalid header");
 		curr = curr->next;
 	}
 	printk("|-------------------------------------|\n");
 }
 
-void heap_print() {
-	kheap_print(kheap);
+void heap_print(int count) {
+	kheap_print(kheap, count);
 }
 
 //reserve heap block with size >= 'size'
@@ -258,9 +267,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 
 	//check if block should be split into 2 blocks
 	//only worth it if the size of the second block will be greater than at least a block header
-	//minimum block size is 0x10
-	//TODO define this?
-	if (candidate->size - size > sizeof(alloc_block_t) + 0x10) {
+	if (candidate->size - size > sizeof(alloc_block_t) + MIN_BLOCK_SIZE) {
 		//create second block
 		uint32_t split_block = (uint32_t)candidate + sizeof(alloc_block_t) + size;
 		uint32_t split_size = candidate->size - size - sizeof(alloc_block_t);
@@ -282,8 +289,6 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 
 		//shrink block we just split in two
 		candidate->size = size;
-
-		heap_print();
 	}
 
 	//add this allocation to used memory
@@ -296,7 +301,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 	uint32_t* ptr = (uint32_t)candidate + sizeof(alloc_block_t);
 	memset(ptr, 0, candidate->size);
 	printk("memset candidate, checking heap integrity...\n");
-	heap_print();
+	heap_print(5);
 
 	//check heap integrity
 	alloc_block_t* tmp = first_block(heap);
@@ -304,12 +309,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 	do {
 		if (tmp->magic != HEAP_MAGIC) {
 			printk_err("block @ %x had invalid magic", (uint32_t)tmp);
-			kheap_print(kheap);
-			dump_stack(tmp);
-
-			printk_err("PID %d encountered corrupted heap. Halting execution...", getpid());
-			//_kill();
-			while (1) {}
+			heap_fail(tmp);
 		}
 	} while ((tmp = tmp->next) != NULL);
 
@@ -350,13 +350,21 @@ bool merge_blocks(alloc_block_t* left, alloc_block_t* right) {
 //unreserve heap block which points to p
 //also, attempts to re-merge free blocks in heap 
 void free(void* p, heap_t* heap) {
-	if (p == 0) return;
+	if (p == 0) {
+		return;
+	}
 
 	//get header associated with this pointer
 	alloc_block_t* header = (alloc_block_t*)((uint32_t)p - sizeof(alloc_block_t));
+	printk_dbg("kfree() %x [%x]\n", header, header->size);
 
 	//ensure these are valid
-	ASSERT(header->magic == HEAP_MAGIC, "invalid header magic in %x (got %x)", p, header->magic);
+	//ASSERT(header->magic == HEAP_MAGIC, "invalid header magic in %x (got %x)", p, header->magic);
+	if (header->magic != HEAP_MAGIC) {
+		printk_err("free() invalid block @ %x", header);
+		heap_fail(header);
+		while (1) {}
+	}
 
 	//we're about to free this memory, untrack it from used memory
 	used_bytes -= header->size;

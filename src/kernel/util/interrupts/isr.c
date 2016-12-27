@@ -24,34 +24,36 @@ void print_regs(registers_t regs) {
 void dump_stack(uint32_t* esp) {
 	printk("dump @ %x\n", esp);
 	
-	uint32_t orig_esp = esp;
 	//jump back 16 bytes
 	//4 bytes in a uint32_t
 	//16 / 4 == 4
 	esp -= 4;
-	printk("stack dump starting at %x\n", esp);
 
 	for (int i = 0; i < 8; i++) {
-		uint8_t* esp_byte = esp;
-
+		uint32_t* current_base = esp;
 		printk("[%x] ", esp);
 		//print each byte in word
 		for (int j = 0; j < 4; j++) {
 			printk("%x ", *(esp++));
 		}
 
+#define GET_BYTE(number, byte_idx) (number >> (8*byte_idx)) & 0xff
 		//we want to print out every byte of the 4 words we just printed out
 		//words are 4 bytes
 		//4 words * (size of word / size of byte)
 		for (int i = 0; i < 4 * 4; i++) {
-			uint8_t val = *esp_byte;
-			if (isalnum(val)) {
-				printk("%c", val);
+			uint32_t* ptr = current_base;
+			//for each byte in current word
+			for (size_t j = 0; j < sizeof(uint32_t); j++) {
+				uint8_t val = GET_BYTE(*ptr, j);
+				if (isalnum(val)) {
+					printk("%c", val);
+				}
+				else {
+					printk(".");
+				}
 			}
-			else {
-				printk(".");
-			}
-			esp_byte++;
+			ptr++;
 		}
 		printk("\n");
 	}

@@ -23,7 +23,7 @@ Bmp* create_bmp(Rect frame, ca_layer* layer) {
 Bmp* load_bmp(Rect frame, char* filename) {
 	FILE* file = fopen(filename, (char*)"");
 	if (!file) {
-		printf_err("File %s not found! Not loading BMP", filename);
+		printk_err("File %s not found! Not loading BMP", filename);
 		return NULL;
 	}
 
@@ -52,5 +52,7 @@ Bmp* load_bmp(Rect frame, char* filename) {
 
 	Bmp* bmp = create_bmp(frame, layer);
 	printk_dbg("load_bmp() made bmp %x", bmp);
+
+	fclose(file);
 	return bmp;
 }

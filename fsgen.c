@@ -48,7 +48,7 @@ void write_dir(const char* dirname) {
 		}
 		
 		char pathname[1024];
-		sprintf(pathname, "%s/%s", dirname, ep->d_name);
+		sprintf(pathname, "%s", ep->d_name);
 		printf("writing file %s at 0x%x\n", pathname, off);
 
 		strcpy(headers[nheaders].name, pathname);

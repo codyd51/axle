@@ -387,7 +387,7 @@ page_directory_t* clone_directory(page_directory_t* src) {
 
 	//make new page directory and get physaddr
 	printk_info("attemping to create new page dir");
-	heap_print(kheap);
+	heap_print(-1);
 	page_directory_t* dir = (page_directory_t*)kmalloc_ap(sizeof(page_directory_t), &phys);
 	printk_info("alloc'd new page dir @ %x (phys %x)", dir, phys);
 

@@ -25,6 +25,7 @@ lock_t* lock_create() {
 }
 
 void lock(lock_t* lock) {
+	if (!lock) return;
 	while (cmp_swap(&lock->flag, 0, 1) == 1) {
 		//spin
 		;
@@ -32,5 +33,6 @@ void lock(lock_t* lock) {
 }
 
 void unlock(lock_t* lock) {
+	if (!lock) return;
 	lock->flag = 0;
 }
