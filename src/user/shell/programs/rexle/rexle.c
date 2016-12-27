@@ -89,26 +89,32 @@ void rexle_int(int mode) {
 			}
 		}
 	}
-	else {
+	else if (mode == MODE_VGA || !textures->size) {
 		ca_layer* layer = create_layer(size_make(100, 100));
 		for (int y = 0; y < layer->size.height; y++) {
 			for (int x = 0; x < layer->size.width; x++) {
 				int idx = (y * layer->size.width) + x * gfx_bpp();
-				if (x == y) {
-					layer->raw[idx] = 0x30;
-				}
-				else if (x == (100 - y)) {
-					layer->raw[idx] = 0x60;
+				if (mode == MODE_VGA) {
+					if (x == y) {
+						layer->raw[idx] = 0x30;
+					}
+					else if (x == (100 - y)) {
+						layer->raw[idx] = 0x60;
+					}
+					else {
+						layer->raw[idx] = 0x40;
+					}
 				}
 				else {
-					layer->raw[idx] = 0x40;
+					layer->raw[idx + 0] = x % 255;
+					layer->raw[idx + 1] = y % 255;
+					layer->raw[idx + 2] = (x * y) % 255;
 				}
 			}
 		}
 		Bmp* bmp = create_bmp(rect_make(point_zero(), layer->size), layer);
 		array_m_insert(textures, bmp);
 	}
-
 
 	//FPS counter
 	Label* fps = create_label(rect_make(point_make(3, 3), size_make(100, 15)), "FPS Counter");

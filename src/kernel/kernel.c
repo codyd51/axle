@@ -66,6 +66,7 @@ uint32_t module_detect(multiboot* mboot_ptr) {
 	uint32_t initrd_end = *(uint32_t*)(mboot_ptr->mods_addr+4);
 	//don't trample modules
 	placement_address = initrd_end;
+	printk_info("GRUB loaded initrd at %x - %x", initrd_loc, initrd_end);
 	return initrd_loc;
 }
 

@@ -208,8 +208,9 @@ void expand(uint32_t UNUSED(new_size), heap_t* UNUSED(heap)) {
 	//TODO code this
 }
 
-static uint32_t contract(int32_t UNUSED(new_size), heap_t* UNUSED(heap)) {
+uint32_t contract(int32_t UNUSED(new_size), heap_t* UNUSED(heap)) {
 	//TODO code this
+	return -1;
 }
 
 //prints last 'display_count' alloc's in heap
@@ -276,7 +277,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		create_block(split_block, split_size);
 		
 		//insert new block into linked list
-		insert_block(candidate, split_block);
+		insert_block(candidate, (alloc_block_t*)split_block);
 
 		if (candidate->next != (alloc_block_t*)split_block || ((alloc_block_t*)split_block)->prev != candidate) {
 			printk_err("Heap insertion failed!");
@@ -298,7 +299,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 	candidate->free = false;
 
 	//start off by clearing this block
-	uint32_t* ptr = (uint32_t)candidate + sizeof(alloc_block_t);
+	uint32_t* ptr = (uint32_t*)((uint32_t)candidate + sizeof(alloc_block_t));
 	memset(ptr, 0, candidate->size);
 	printk("memset candidate, checking heap integrity...\n");
 	heap_print(5);
@@ -349,7 +350,7 @@ bool merge_blocks(alloc_block_t* left, alloc_block_t* right) {
 
 //unreserve heap block which points to p
 //also, attempts to re-merge free blocks in heap 
-void free(void* p, heap_t* heap) {
+void free(void* p, heap_t* UNUSED(heap)) {
 	if (p == 0) {
 		return;
 	}

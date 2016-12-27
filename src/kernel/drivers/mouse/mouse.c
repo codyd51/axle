@@ -90,10 +90,7 @@ void mouse_callback(registers_t regs) {
 			break;
 		case 2:
 			mouse_byte[2] = inb(0x60);
-			//Bochs
-			//update_mouse_position(mouse_byte[1], mouse_byte[2]);
-			//QEMU
-			update_mouse_position(mouse_byte[2], mouse_byte[0]);
+			update_mouse_position(mouse_byte[1], mouse_byte[2]);
 			mouse_cycle = 0;
 
 			//hook into task switch
