@@ -90,7 +90,7 @@ void printk_hex(uint32_t n) {
 void printk_debug_info() {
 	char now[64];
 	memset(now, 0, 64);
-	date(&now);
+	date((char*)&now);
 	printk("[PID %d @ %s (tick %d)] ", getpid(), now, tick_count());
 }
 

@@ -40,13 +40,13 @@ void test_interrupts() {
 void test_heap() {
 	printf_info("Testing heap...");
 
-	uint32_t* a = (uint32_t*)kmalloc(8);
-	uint32_t* b = (uint32_t*)kmalloc(8);
+	uint32_t* a = kmalloc(8);
+	uint32_t* b = kmalloc(8);
 	printf_dbg("a: %x, b: %x", a, b);
 	kfree(a);
 	kfree(b);
 
-	uint32_t* c = (uint32_t*)kmalloc(12);
+	uint32_t* c = kmalloc(12);
 	printf_dbg("c: %x", c);
 	kfree(c);
 

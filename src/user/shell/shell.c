@@ -199,7 +199,7 @@ void time_command() {
 
 void date_command() {
 	char buf[64];
-	date(&buf);
+	date((char*)&buf);
 	printf(buf);
 }
 

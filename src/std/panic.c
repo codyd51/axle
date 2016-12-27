@@ -38,6 +38,9 @@ static inline void print_stack(void) {
 }
 #pragma GCC diagnostic pop
 
+extern void switch_to_text();
+extern void vprintf(int dest, char* format, va_list va);
+
 __attribute__((__noreturn__)) void panic(uint16_t line, const char* file) {
 	printf("\n");
 	printf_err("PANIC %s: line %d", file, line);
@@ -50,7 +53,6 @@ __attribute__((__noreturn__)) void panic(uint16_t line, const char* file) {
 }
 
 __attribute__((__noreturn__)) void panic_msg(uint16_t line, const char* file, const char* msg, ...) {
-	extern void switch_to_text();
 	switch_to_text();
 
 	//terminal_clear();
@@ -59,7 +61,8 @@ __attribute__((__noreturn__)) void panic_msg(uint16_t line, const char* file, co
 
 	va_list ap;
 	va_start(ap, msg);
-	vprintf(msg, ap);
+	//1 == serial output
+	vprintf(1, msg, ap);
 	va_end(ap);
 
 	// Inline the panic() code for stack frame count

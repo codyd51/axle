@@ -37,35 +37,78 @@ typedef enum {
 extern void draw_label(ca_layer* dest, Label* label);
 void rexle_int();
 
-void rexle() {
+enum {
+	MODE_VESA,
+	MODE_VGA,
+};
+
+void rexle(int argc, char** argv) {
+	int mode = MODE_VESA;
+	if (argc > 1) {
+		if (!strcmp(argv[1], "vga")) {
+			mode = MODE_VGA;
+		}
+	}
+
 	if (!fork("rexle")) {
-		rexle_int();
+		rexle_int(mode);
 		_kill();
 	}
 }
 
-void rexle_int() {
+void rexle_int(int mode) {
 	//switch graphics modes
-	Screen* screen = switch_to_vesa(0x112, true);
-	//Screen* screen = switch_to_vga();
+	Screen* screen;
+	switch (mode) {
+		case MODE_VESA:
+		default:
+			screen = switch_to_vesa(0x112, true);
+			break;
+		case MODE_VGA:
+			screen = switch_to_vga();
+			break;
+	}
 	Size screen_size = screen->window->frame.size;
 	
 	become_first_responder();
 
 	//initialize textures
-	array_m* textures = array_m_create(16);
-	Bmp* bmp = load_bmp(rect_make(point_make(0, 0), size_make(100, 100)), "wood.bmp");
-	array_m_insert(textures, bmp);
-	bmp = load_bmp(rect_make(point_make(0, 0), size_make(100, 100)), "bluestone.bmp");
-	array_m_insert(textures, bmp);
-	bmp = load_bmp(rect_make(point_make(0, 0), size_make(100, 100)), "colorstone.bmp");
-	array_m_insert(textures, bmp);
-	bmp = load_bmp(rect_make(point_make(0, 0), size_make(100, 100)), "redbrick.bmp");
-	array_m_insert(textures, bmp);
-	bmp = load_bmp(rect_make(point_make(0, 0), size_make(100, 100)), "eagle.bmp");
-	array_m_insert(textures, bmp);
-	bmp = load_bmp(rect_make(point_make(0, 0), size_make(100, 100)), "mossy.bmp");
-	array_m_insert(textures, bmp);
+	array_m* textures = array_m_create(8);
+	if (mode == MODE_VESA) {
+		char files[6][32 + 1] = {	"wood.bmp",
+									"bluestone.bmp",
+									"colorstone.bmp",
+									"redbrick.bmp",
+									"eagle.bmp",
+									"mossy.bmp",
+								};
+		for (int i = 0; i < 6; i++) {
+			Bmp* bmp = load_bmp(rect_make(point_make(0, 0), size_make(100, 100)), files[i]);
+			if (bmp) {
+				array_m_insert(textures, bmp);
+			}
+		}
+	}
+	else {
+		ca_layer* layer = create_layer(size_make(100, 100));
+		for (int y = 0; y < layer->size.height; y++) {
+			for (int x = 0; x < layer->size.width; x++) {
+				int idx = (y * layer->size.width) + x * gfx_bpp();
+				if (x == y) {
+					layer->raw[idx] = 0x30;
+				}
+				else if (x == (100 - y)) {
+					layer->raw[idx] = 0x60;
+				}
+				else {
+					layer->raw[idx] = 0x40;
+				}
+			}
+		}
+		Bmp* bmp = create_bmp(rect_make(point_zero(), layer->size), layer);
+		array_m_insert(textures, bmp);
+	}
+
 
 	//FPS counter
 	Label* fps = create_label(rect_make(point_make(3, 3), size_make(100, 15)), "FPS Counter");
@@ -180,19 +223,23 @@ void rexle_int() {
 				uint8_t* raw = (uint8_t*)(tex->layer->raw + (tex_px.y * tex_width * gfx_bpp()) + (tex_px.x * gfx_bpp()));
 				Color col;
 				col.val[0] = *raw++;
-				col.val[1] = *raw++;
-				col.val[2] = *raw++;
+				if (mode == MODE_VESA) {
+					col.val[1] = *raw++;
+					col.val[2] = *raw++;
 
-				//swap BGR
-				uint8_t tmp = col.val[0];
-				col.val[0] = col.val[2];
-				col.val[2] = tmp;
+					//swap BGR
+					uint8_t tmp = col.val[0];
+					col.val[0] = col.val[2];
+					col.val[2] = tmp;
+				}
 
 				//make color darker if far side
 				if (side) {
 					col.val[0] /= 2;
-					col.val[1] /= 2;
-					col.val[2] /= 2;
+					if (mode == MODE_VESA) {
+						col.val[1] /= 2;
+						col.val[2] /= 2;
+					}
 				}
 
 				putpixel(screen->vmem, x, y, col);
