@@ -5,6 +5,7 @@
 #include "array_o.h"
 #include <stdint.h>
 #include <stdbool.h>
+#include <std/klog.h>
 
 __BEGIN_DECLS
 
@@ -17,8 +18,12 @@ STDAPI void* kmalloc_p(uint32_t sz, uint32_t* phys);
 //page aligned and returns physical address
 STDAPI void* kmalloc_ap(uint32_t sz, uint32_t* phys);
 
-//normal kmalloc
-STDAPI void* kmalloc(uint32_t sz);
+//private functions/macros required for kmalloc macro
+//TODO figure out how to hide these while keeping kmalloc public
+void* kmalloc_real(uint32_t sz);
+void kmalloc_track_int(char* file, int line, uint32_t size);
+#define kmalloc_track(bytes) ({ kmalloc_track_int(__FILE__, __LINE__, bytes); kmalloc_real(bytes); })
+#define kmalloc(bytes) kmalloc_track(bytes)
 
 #define KHEAP_START			0xC0000000
 #define KHEAP_INITIAL_SIZE	0x6000000
@@ -66,7 +71,12 @@ uint32_t used_mem();
 //debug function to dump last 'count' kernel heap allocs
 //if 'count' is larger than total heap allocations, or 
 //count is -1, prints all heap allocations
+//outputs to syslog
 void heap_print(int count);
+
+//debug function to dump amounts of memory in use by axle source files
+//outputs to syslog
+void memdebug();
 
 __END_DECLS
 

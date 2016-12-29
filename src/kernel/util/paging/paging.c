@@ -231,7 +231,6 @@ void paging_install() {
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
 		get_page(i, 1, kernel_directory);
 	}
-	printk("alloc'd heap pages\n");
 
 	//we need to identity map (phys addr = virtual addr) from
 	//0x0 to end of used memory, so we can access this
@@ -250,7 +249,6 @@ void paging_install() {
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
 		alloc_frame(get_page(i, 1, kernel_directory), 0, 0);
 	}
-	printk("assigned heap pages\n");
 	printf_info("finished identity mapping kernel pages");
 
 	//before we enable paging, register page fault handler
@@ -267,9 +265,7 @@ void paging_install() {
 	//expand(0x1000000, kheap);
 
 	current_directory = clone_directory(kernel_directory);
-	printk("cloned kernel directory\n");
 	switch_page_directory(current_directory);
-	printk("switched to cloned directory\n");
 }
 
 void switch_page_directory(page_directory_t* dir) {
@@ -386,12 +382,8 @@ page_directory_t* clone_directory(page_directory_t* src) {
 	uint32_t phys;
 
 	//make new page directory and get physaddr
-	printk_info("attemping to create new page dir");
-	heap_print(-1);
+	//heap_print(-1);
 	page_directory_t* dir = (page_directory_t*)kmalloc_ap(sizeof(page_directory_t), &phys);
-	printk_info("alloc'd new page dir @ %x (phys %x)", dir, phys);
-
-	printk_info("after making new page dir:");
 
 	//blank it
 	memset((uint8_t*)dir, 0, sizeof(page_directory_t));

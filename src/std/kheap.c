@@ -61,7 +61,7 @@ void* kmalloc_ap(uint32_t sz, uint32_t* phys) {
 	return kmalloc_int(sz, 1, phys);
 }
 
-void* kmalloc(uint32_t sz) {
+void* kmalloc_real(uint32_t sz) {
 	return kmalloc_int(sz, 0, 0);
 }
 
@@ -116,7 +116,7 @@ static alloc_block_t* first_block(heap_t* heap) {
 //if page aligning is requested, is large enough to be page aligned
 //(if so, page-aligns block and returns aligned block)
 static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap) {
-	printk_info("find_smallest_hole(): %x bytes align? %d", size, align);
+	//printk_info("find_smallest_hole(): %x bytes align? %d", size, align);
 	//start off with first block
 	alloc_block_t* candidate = first_block(heap);
 
@@ -125,7 +125,7 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 		if (candidate->free) {
 			if (candidate->size >= size) {
 				//found valid header!
-				printk_info("find_smallest_hole() found likely candidate %x", (uint32_t)candidate);
+				//printk_info("find_smallest_hole() found likely candidate %x", (uint32_t)candidate);
 				
 				//attempt to align if user requested
 				//make sure addr isn't already page aligned before aligning
@@ -143,7 +143,7 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 						uint32_t new_size = candidate->size - distance - sizeof(alloc_block_t);
 						alloc_block_t* aligned = create_block((uint32_t)aligned_addr, new_size);
 						
-						printk_dbg("find_smallest_hole(): candidate is %x next %x", candidate, candidate->next);
+						//printk_dbg("find_smallest_hole(): candidate is %x next %x", candidate, candidate->next);
 						insert_block(candidate, aligned);
 
 						//make sure we shrink original candidate since some of it is now in new aligned block
@@ -153,14 +153,14 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 						return aligned;
 					}
 					else {
-						printk_info("find_smallest_hole(): addr %x aligned %x distance %x", addr, aligned_addr, distance);
+						//printk_info("find_smallest_hole(): addr %x aligned %x distance %x", addr, aligned_addr, distance);
 						//block too small to align
-						printk_info("find_smallest_hole(): block @ %x [%x] too small to align to %x (needs %x usable bytes), leftover size is %x", addr, candidate->size, aligned_addr, size, candidate->size - distance);
+						//printk_info("find_smallest_hole(): block @ %x [%x] too small to align to %x (needs %x usable bytes), leftover size is %x", addr, candidate->size, aligned_addr, size, candidate->size - distance);
 						continue;
 					}
 				}
 				else if (align) {
-					printk_info("find_smallest_hole(): addr %x requested page align but already aligned", addr);
+					//printk_info("find_smallest_hole(): addr %x requested page align but already aligned", addr);
 				}
 				return candidate;
 			}
@@ -233,11 +233,10 @@ void kheap_print(heap_t* heap, int display_count) {
 	}
 
 	printk("|-------------------------------------|\n");
-	printk("| Heap state                          |\n");
+	printk("| Heap state (%d more heap items)    |\n", starting_idx);
 	printk("|------------|------------|-----------|\n");
 	printk("| addr       | size       | free      |\n");
 	printk("|------------|------------|-----------|\n");
-	printk("| ... %d more heap items ...		 |\n", starting_idx);
 	while (curr) {
 		printk("| %x | %x | %s      %s|\n", (uint32_t)curr, curr->size, (curr->free) ? "free" : "used", (curr->magic == HEAP_MAGIC) ? "" : "invalid header");
 		curr = curr->next;
@@ -254,10 +253,10 @@ void heap_print(int count) {
 void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 	kernel_begin_critical();
 
-	printk("alloc() %x\n", size);
+	//printk("alloc() %x\n", size);
 	//find smallest hole that will fit
 	alloc_block_t* candidate = find_smallest_hole(size, align, heap);
-	printk_info("alloc(): candidate @ %x [%x bytes]", (uint32_t)candidate, candidate->size);
+	//printk_info("alloc(): candidate @ %x [%x bytes]", (uint32_t)candidate, candidate->size);
 
 	//handle if we couldn't find a candidate block
 	if (!candidate) {
@@ -273,7 +272,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		uint32_t split_block = (uint32_t)candidate + sizeof(alloc_block_t) + size;
 		uint32_t split_size = candidate->size - size - sizeof(alloc_block_t);
 
-		printk_info("alloc(): candidate can be split into second block @ %x [%x bytes]", split_block, split_size);
+		//printk_info("alloc(): candidate can be split into second block @ %x [%x bytes]", split_block, split_size);
 		create_block(split_block, split_size);
 		
 		//insert new block into linked list
@@ -286,7 +285,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 			while (1) {}
 		}
 
-		printk("candidate: %x split_block: %x\n", candidate, split_block);
+		printk("alloc() candidate: %x split_block: %x\n", candidate, split_block);
 
 		//shrink block we just split in two
 		candidate->size = size;
@@ -301,8 +300,8 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 	//start off by clearing this block
 	uint32_t* ptr = (uint32_t*)((uint32_t)candidate + sizeof(alloc_block_t));
 	memset(ptr, 0, candidate->size);
-	printk("memset candidate, checking heap integrity...\n");
-	heap_print(5);
+	//printk("memset candidate, checking heap integrity...\n");
+	//heap_print(3);
 
 	//check heap integrity
 	alloc_block_t* tmp = first_block(heap);
@@ -343,7 +342,7 @@ bool merge_blocks(alloc_block_t* left, alloc_block_t* right) {
 	left->next = right->next;
 	left->next->prev = left;
 
-	printk_info("merge_blocks() merged block %x into %x", right, left);
+	//printk_info("merge_blocks() merged block %x into %x", right, left);
 	//all done
 	return true;
 }
@@ -383,6 +382,74 @@ void free(void* p, heap_t* UNUSED(heap)) {
 	}
 
 	//TODO contract if this block is at end of heap space
+}
+
+#define MAX_FILES 256
+#define MAX_FILENAME 64
+//array of filenames using kmalloc
+static char kmalloc_users[MAX_FILES][MAX_FILENAME];
+//array of bytes used by each file corresponding to kmalloc_users
+static int kmalloc_users_used[MAX_FILES];
+//keep track of current amount of users in array
+static int current_filecount = 0;
+void kmalloc_track_int(char* file, int UNUSED(line), uint32_t size) {
+	//if this is first run, memset arrays
+	if (!current_filecount) {
+		memset(kmalloc_users, 0, sizeof(kmalloc_users));
+		memset(kmalloc_users_used, 0, sizeof(kmalloc_users_used));
+	}
+	//are we about to exceed array bounds?
+	if (current_filecount + 1 >= MAX_FILES) {
+		printk("kmalloc_track_int() exceeds array\n");
+		while (1) {}
+	}
+
+	//search if this file is already in users
+	char* line = 0;
+	int idx = -1;
+	for (int i = 0; i < current_filecount; i++) {
+		line = (char*)kmalloc_users[i];
+
+		//is this a match?
+		if (strcmp(file, line) == 0) {
+			idx = i;
+			break;
+		}
+	}
+
+	//did this user already exist?
+	if (idx == -1) {
+		idx = current_filecount;
+		strcpy(kmalloc_users[current_filecount++], file);
+	}
+	kmalloc_users_used[idx] += size;
+}
+
+void memdebug() {
+	//find length of longest filename
+	int longest_len = 0;
+	for (int i = 0; i < current_filecount; i++) {
+		int curr_len = strlen(kmalloc_users[i]);
+		longest_len = MAX(longest_len, curr_len);
+	}
+
+	printk("\n---memdebug---\n");
+	for (int i = 0; i < current_filecount; i++) {
+		//print filename
+		printk("%s:", kmalloc_users[i]);
+
+		//print out some spaces 
+		//# of spaces is the difference between this filename's length and the
+		//longest filename's length
+		//this is so the output is aligned in syslog
+		int diff = longest_len - strlen(kmalloc_users[i]);
+		for (int j = 0; j < diff; j++) {
+			printk(" ");
+		}
+
+		printk(" %x bytes\n", kmalloc_users_used[i]);
+	}
+	printk("--------------\n");
 }
 
 uint32_t used_mem() {

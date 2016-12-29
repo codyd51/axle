@@ -14,7 +14,7 @@
 #include <kernel/drivers/rtc/clock.h>
 #include <kernel/drivers/vesa/vesa.h>
 #include <kernel/drivers/kb/kb.h>
-#include "map2.h"
+#include "map1.h"
 
 typedef enum {
 	WALL_NONE = 0,
@@ -75,12 +75,13 @@ void rexle_int(int mode) {
 	//initialize textures
 	array_m* textures = array_m_create(8);
 	if (mode == MODE_VESA) {
-		char files[6][32 + 1] = {	"wood.bmp",
+		char files[6][32 + 1] = {	"mossy.bmp",
+
 									"bluestone.bmp",
 									"colorstone.bmp",
 									"redbrick.bmp",
 									"eagle.bmp",
-									"mossy.bmp",
+									"wood.bmp",
 								};
 		for (int i = 0; i < 6; i++) {
 			Bmp* bmp = load_bmp(rect_make(point_make(0, 0), size_make(100, 100)), files[i]);

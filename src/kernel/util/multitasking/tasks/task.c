@@ -133,7 +133,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	page_directory_t* cloned = clone_directory(current_directory);
 
 	//create new process
-	task_t* task = KLOG(kmalloc, sizeof(task_t));
+	task_t* task = kmalloc(sizeof(task_t));
 	memset(task, 0, sizeof(task_t));
 	task->name = strdup(name);
 	task->id = next_pid++;
@@ -360,7 +360,7 @@ void tasking_install(mlfq_option options) {
 	printk("queues\n");
 
 	//init first task (kernel task)
-	task_t* kernel = KLOG(kmalloc, sizeof(task_t));
+	task_t* kernel = kmalloc(sizeof(task_t));
 	memset(kernel, 0, sizeof(task_t));
 	kernel->name = "kax";
 	kernel->id = next_pid++;
