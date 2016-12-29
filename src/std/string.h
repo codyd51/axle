@@ -56,6 +56,9 @@ STDAPI char *strpbrk(const char *s, const char *accept);
 /// Locate character in string
 char *strchr(const char *s, int c_in);
 
+/// Find first occurance of s2 in s1
+char *strstr(const char *s1, const char *s2);
+
 __END_DECLS
 
 #endif // STD_STRING_H

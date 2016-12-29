@@ -29,6 +29,7 @@ void kbman_process(char c) {
 			//dump dynamic memory users whenever ctrl+m is pressed
 			case 'm':
 				memdebug();
+				printf_info("Dynamic memory usage logged");
 				break;
 			default:
 				break;
