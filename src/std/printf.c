@@ -192,11 +192,11 @@ void vprintf(int dest, char* format, va_list va) {
 	}
 }
 
-char* vsprintf(char* format, va_list va) {
+void vsprintf(char* ret, char* format, va_list va) {
 	char bf[24];
 	char ch;
 
-	char* ret = kmalloc(strlen(format) * 2);
+	strcpy(ret, "");
 
 	while ((ch = *(format++)) != 0) {
 		if (ch != '%') {
@@ -226,7 +226,7 @@ char* vsprintf(char* format, va_list va) {
 				case 'u':
 				case 'd':
 					itoa(va_arg(va, unsigned int), bf);
-					strcat(format, bf);
+					strcat(ret, bf);
 					break;
 
 				case 'x':
@@ -267,7 +267,6 @@ char* vsprintf(char* format, va_list va) {
 			}
 		}
 	}
-	return ret;
 }
 
 void print_common(int dest, char* format, va_list va) {
@@ -296,10 +295,10 @@ void printk(char* format, ...) {
 	va_end(arg);
 }
 
-void sprintf(char* str, char* format, ...) {
+void sprintf(char* buffer, char* format, ...) {
 	va_list arg;
 	va_start(arg, format);
-	strcat(str, vsprintf(format, arg));
+	vsprintf(buffer, format, arg);
 	va_end(arg);
 }
 
