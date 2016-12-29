@@ -51,6 +51,10 @@ void switch_layout(keymap_t* new) {
 	layout = new;
 }
 
+key_status_t kb_modifiers() {
+	return layout->controls;
+}
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 void kb_callback(registers_t regs) {
@@ -101,8 +105,8 @@ void kb_callback(registers_t regs) {
 			kb_buffer_end &= 255;
 		}
 		
-		// if this key was a special key, inform os
-		kbman_process(scancode);
+		//inform OS of keypress
+		kbman_process(scancodes[scancode]);
 	}
 }
 #pragma GCC diagnostic pop

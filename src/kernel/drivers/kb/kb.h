@@ -17,10 +17,19 @@ __BEGIN_DECLS
 
 #define RELEASED_MASK 0x80
 
+//non-blocking getchar()
+//returns NULL if no pending keys
 char kgetch();
+//blocks until character is recieved
 char getchar();
+//check if there is a pending keypress
 bool haskey();
+//return mask of modifier keys
+key_status_t kb_modifiers();
+
+//install PS/2 keyboard driver
 void kb_install();
+//swap layout to interpret incoming scancodes
 void switch_layout(keymap_t* layout);
 
 __END_DECLS
