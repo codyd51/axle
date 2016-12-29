@@ -69,6 +69,43 @@ void process_command(char* string) {
 	freeargv(argv);
 }
 
+static void predict_command(char* buf, int len, char* input) {
+	memset(buf, 0, len);
+
+	//distance from first char to first occurance of first char of input
+	//this is a heuristic for closest match
+	int best_match_distance = 1000;
+	//index in command table of best match
+	int best_match_idx = -1;
+
+	//look through every command in command table
+	//see if any contain input as a substring
+	//if so, it's a safe guess
+	//TODO this just uses the first result, improve this?
+	for (int i = 0; i < CommandNum; i++) {
+		char* command = CommandTable[i].name;
+		char* pos = strstr(command, input);
+		if (pos != NULL) {
+			//this command contained match of input
+			//look at how far match was from start of command name
+			int length = pos - command;
+			printk("predict_command(): found fuzzy match of %s to %s (distance %d)\n", input, command, length);
+			//is this the closest match we've found?
+			if (length < best_match_distance) {
+				best_match_distance = length;
+				best_match_idx = i;
+			}
+		}
+	}
+
+	//did we find a match?
+	if (best_match_idx != -1) {
+		char* command = CommandTable[best_match_idx].name;
+		printk("predict_command(): best match of %s was %s\n", input, command);
+		strcpy(buf, command);
+	}
+}
+
 void process_character(char* inputstr, char ch) {
 	//handle escapes
 	if (ch == '\033') {
@@ -111,6 +148,21 @@ void process_character(char* inputstr, char ch) {
 	//handle newline
 	else if (ch == '\n') {
 
+	}
+	//handle tab
+	//predict input
+	else if (ch == '\t') {
+		char prediction[64];
+		predict_command(&prediction, 64, inputstr);
+		//did we get a prediction?
+		if (*prediction) {
+			//remove existing input and print prediction
+			for (int i = 0; i < strlen(inputstr); i++) {
+				terminal_putchar('\b');
+			}
+			strcpy(inputstr, prediction);
+			terminal_writestring(inputstr);
+		}
 	}
 	else  {
 		//add this character to the input string and output it
