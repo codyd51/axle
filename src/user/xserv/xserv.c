@@ -18,6 +18,7 @@
 //has the screen been modified this refresh?
 static char dirtied = 0;
 static volatile Window* active_window;
+const float shadow_count = 3.0;
 
 void xserv_quit(Screen* screen) {
 	switch_to_text();
@@ -29,7 +30,7 @@ void xserv_quit(Screen* screen) {
 void draw_bmp(ca_layer* dest, Bmp* bmp) {
 	if (!bmp) return;
 
-	blit_layer(dest, bmp->layer, bmp->frame); 
+	blit_layer(dest, bmp->layer, bmp->frame, rect_make(point_zero(), bmp->frame.size)); 
 
 	bmp->needs_redraw = 0;
 }
@@ -69,7 +70,7 @@ void draw_label(ca_layer* dest, Label* label) {
 		idx++;
 	}
 
-	blit_layer(dest, label->layer, label->frame);
+	blit_layer(dest, label->layer, rect_make(label->frame.origin, dest->size), rect_make(point_zero(), label->frame.size));
 
 	label->needs_redraw = 0;
 }
@@ -127,13 +128,16 @@ void draw_view(View* view) {
 	for (int i = 0; i < view->subviews->size; i++) {
 		View* subview = (View*)array_m_lookup(view->subviews, i);
 		draw_view(subview);
-		blit_layer(view->layer, subview->layer, subview->frame);
+		blit_layer(view->layer, subview->layer, rect_make(subview->frame.origin, view->layer->size), rect_make(point_zero(), subview->frame.size));
 	}
 	view->needs_redraw = 0;
 }
 
 bool draw_window(Screen* UNUSED(screen), Window* window) {
 	if (!window->needs_redraw) return false;
+
+	//if window is invisible, don't bother drawing
+	if (!window->layer->alpha) return false;
 
 	dirtied = 1;
 
@@ -146,14 +150,14 @@ bool draw_window(Screen* UNUSED(screen), Window* window) {
 		Label* title_label = (Label*)array_m_lookup(window->title_view->labels, 0);
 		title_label->text = window->title;
 		draw_view(window->title_view);
-		blit_layer(window->layer, window->title_view->layer, window->title_view->frame);
+		blit_layer(window->layer, window->title_view->layer, rect_make(point_zero(), window->layer->size), window->title_view->frame);
 		draw_rect(window->layer, window->title_view->frame, color_gray(), 2);
 	}
 
 	//only draw the content view if content_view exists
 	if (window->content_view) {
 		draw_view(window->content_view);
-		blit_layer(window->layer, window->content_view->layer, window->content_view->frame);
+		blit_layer(window->layer, window->content_view->layer, rect_make(window->content_view->frame.origin, window->layer->size), rect_make(point_zero(), window->content_view->frame.size));
 
 		//draw dividing border between window border and other content
 		if (window->border_width) {
@@ -223,13 +227,28 @@ void add_status_bar(Screen* screen) {
 	add_subview(status_bar, border);
 }
 
+static Coordinate last_grabbed_window_pos;
+static void draw_window_shadow(Screen* screen, Window* window, Coordinate new) {
+	Coordinate old = last_grabbed_window_pos;
+	for (float i = 0; i < shadow_count; i++) {
+		int lerp_x = lerp(old.x, new.x, (1 / shadow_count) * i);
+		int lerp_y = lerp(old.y, new.y, (1 / shadow_count) * i);
+		Coordinate shadow_loc = point_make(lerp_x, lerp_y);
+
+		//draw snapshot of window
+		blit_layer(screen->vmem, window->layer, rect_make(shadow_loc, window->layer->size), rect_make(point_zero(), window->layer->size));
+	}
+}
+
+static Window* grabbed_window = NULL;
 void draw_desktop(Screen* screen) {
 	//paint root desktop
 	draw_window(screen, screen->window);
-	blit_layer(screen->vmem, screen->window->layer, screen->window->frame);
+	blit_layer(screen->vmem, screen->window->layer, screen->window->frame, screen->window->frame);
 
 	if (screen->window->subviews->size) {
 		Window* highest = array_m_lookup(screen->window->subviews, screen->window->subviews->size - 1);
+
 		//find clipping intersections with every window below the highest one
 		//redraw every child window at the same time if necessary
 		for (int i = 0; i < screen->window->subviews->size - 1; i++) {
@@ -240,7 +259,7 @@ void draw_desktop(Screen* screen) {
 			if (!visible_rects || highest->layer->alpha < 1.0) {
 				//not occluded by highest at all
 				//draw view normally, composite onto vmem
-				blit_layer(screen->vmem, win->layer, win->frame);
+				blit_layer(screen->vmem, win->layer, win->frame, rect_make(point_zero(), win->frame.size));
 			}
 			else {
 				//maximum 4 sub-rects
@@ -248,19 +267,27 @@ void draw_desktop(Screen* screen) {
 					Rect r = visible_rects[j];
 					if (r.size.width == 0 && r.size.height == 0) break;
 
-					blit_layer(screen->vmem, win->layer, r);
+					Coordinate origin_offset;
+					origin_offset.x = abs(win->frame.origin.x - r.origin.x);
+					origin_offset.y = abs(win->frame.origin.y - r.origin.y);
+					blit_layer(screen->vmem, win->layer, r, rect_make(origin_offset, r.size));
 				}
 			}
 		}
+		
 		//finally, composite highest window
 		draw_window(screen, highest);
-		blit_layer(screen->vmem, highest->layer, highest->frame);
+		blit_layer(screen->vmem, highest->layer, highest->frame, rect_make(point_zero(), highest->layer->size));
+
+	}
+	if (grabbed_window) {
+		draw_window_shadow(screen, grabbed_window, grabbed_window->frame.origin);
 	}
 }
 
 void desktop_setup(Screen* screen) {
 	//set up background image
-	Bmp* background = load_bmp(screen->window->content_view->frame, "background.bmp");
+	Bmp* background = load_bmp(screen->window->content_view->frame, "altitude.bmp");
 	if (background) {
 		add_bmp(screen->window->content_view, background);
 	}
@@ -268,18 +295,32 @@ void desktop_setup(Screen* screen) {
 	add_taskbar(screen);
 }
 
+static void draw_mouse_shadow(Screen* screen, Coordinate old, Coordinate new) {
+	for (float i = 0; i < shadow_count; i++) {
+		int lerp_x = lerp(old.x, new.x, (1 / shadow_count) * i);
+		int lerp_y = lerp(old.y, new.y, (1 / shadow_count) * i);
+		Coordinate shadow_loc = point_make(lerp_x, lerp_y);
+
+		//draw cursor shadow
+		draw_rect(screen->vmem, rect_make(shadow_loc, size_make(10, 12)), color_make(200, 200, 230), THICKNESS_FILLED);
+		//draw border
+		draw_rect(screen->vmem, rect_make(shadow_loc, size_make(10, 12)), color_dark_gray(), 1);
+	}
+}
+
+static Coordinate last_mouse_pos = { -1, -1 };
 void draw_cursor(Screen* screen) {
 	//actual cursor bitmap
 	static Bmp* cursor = 0;
 	static bool tried_loading_cursor = false;
 
 	if (!tried_loading_cursor) {
-		cursor = load_bmp(rect_make(point_zero(), size_make(12, 18)), "cursor.bmp");
+		//cursor = load_bmp(rect_make(point_zero(), size_make(12, 18)), "cursor.bmp");
 		tried_loading_cursor = true;
 	}
 
 	//update cursor position
-	cursor->frame.origin = mouse_point();
+	//cursor->frame.origin = mouse_point();
 
 	//drawing cursor shouldn't change dirtied flag
 	//save dirtied flag, draw cursor, and restore it
@@ -288,12 +329,14 @@ void draw_cursor(Screen* screen) {
 	//we do not call add_bmp on the cursor
 	//we draw it manually to ensure it is always above all other content
 	if (cursor) {
-		draw_bmp(screen->vmem, cursor);
+	//	draw_bmp(screen->vmem, cursor);
 	}
 	else {
 		//couldn't load cursor, use backup
-		draw_rect(screen->vmem, rect_make(mouse_point(), size_make(10, 12)), color_blue(), THICKNESS_FILLED);
+		//draw_rect(screen->vmem, rect_make(mouse_point(), size_make(10, 12)), color_green(), THICKNESS_FILLED);
 	}
+
+	draw_mouse_shadow(screen, last_mouse_pos, mouse_point());
 
 	dirtied = prev_dirtied;
 }
@@ -465,8 +508,6 @@ static void process_kb_events(Screen* screen) {
 }
 
 static void process_mouse_events(Screen* screen) {
-	static Window* grabbed_window = NULL;
-	static Coordinate last_mouse_pos = { -1, -1 };
 	static uint8_t last_event = 0;
 
 	//get mouse events
@@ -496,16 +537,20 @@ static void process_mouse_events(Screen* screen) {
 				//only move window if title view was selected
 				if (local_owner == owner->title_view) {
 					grabbed_window = owner;
+					last_grabbed_window_pos = grabbed_window->frame.origin;
 				}
 			}
 		}
 		else {
 			if (last_mouse_pos.x != -1 && grabbed_window != screen->window) {
 				//move this window by the difference between current mouse position and last mouse position
-				Rect new_frame = grabbed_window->frame;
+				Rect old_frame = grabbed_window->frame;
+				Rect new_frame = old_frame;
 				new_frame.origin.x -= (last_mouse_pos.x - p.x);
 				new_frame.origin.y -= (last_mouse_pos.y - p.y);
+
 				set_frame((View*)grabbed_window, new_frame);
+				last_grabbed_window_pos = old_frame.origin;
 			}
 		}
 	}
@@ -536,11 +581,12 @@ static void process_mouse_events(Screen* screen) {
 		}
 	}
 
-
 	//did a right click just happen?
 	if (right && !(last_event & 0x2)) {
 		launcher_invoke(p);
 	}
+
+	draw_mouse_shadow(screen, last_mouse_pos, p);
 
 	last_mouse_pos = p;
 	last_event = events;
@@ -562,8 +608,8 @@ void xserv_refresh(Screen* screen) {
 	//composite everything onto root layer
 	xserv_draw(screen);
 
-	double frame_time = (time() - time_start) / 500.0;
-	double fps_conv = 1 / frame_time;
+	double frame_time = (time() - time_start) / 1000.0;
+	double fps_conv = 1 / frame_time / 10;
 
 	update_all_animations(screen, frame_time);
 
@@ -601,7 +647,7 @@ void xserv_init_late() {
 	//add FPS tracker
 	//don't call add_sublabel on fps because it's drawn manually
 	//(drawn manually so we can update text with accurate frame draw time)
-	fps = create_label(rect_make(point_make(3, 3), size_make(60, 20)), "FPS counter");
+	fps = create_label(rect_make(point_make(3, 3), size_make(60, 25)), "FPS counter");
 	fps->text_color = color_black();
 
 	test_xserv();
@@ -618,3 +664,4 @@ void xserv_init() {
 	become_first_responder();
 	xserv_init_late();
 }
+
