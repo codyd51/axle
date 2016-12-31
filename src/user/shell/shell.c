@@ -69,8 +69,10 @@ void process_command(char* string) {
 	freeargv(argv);
 }
 
-static void predict_command(char* buf, int len, char* input) {
-	memset(buf, 0, len);
+static int visible_input_len = 0;
+static void predict_command(char* name_buf, int name_len, char* description_buf, int description_len, char* input) {
+	memset(name_buf, 0, name_len);
+	memset(description_buf, 0, description_len);
 
 	//distance from first char to first occurance of first char of input
 	//this is a heuristic for closest match
@@ -82,7 +84,7 @@ static void predict_command(char* buf, int len, char* input) {
 	//see if any contain input as a substring
 	//if so, it's a safe guess
 	//TODO this just uses the first result, improve this?
-	for (int i = 0; i < CommandNum; i++) {
+	for (size_t i = 0; i < CommandNum; i++) {
 		char* command = CommandTable[i].name;
 		char* pos = strstr(command, input);
 		if (pos != NULL) {
@@ -102,7 +104,8 @@ static void predict_command(char* buf, int len, char* input) {
 	if (best_match_idx != -1) {
 		char* command = CommandTable[best_match_idx].name;
 		printk("predict_command(): best match of %s was %s\n", input, command);
-		strcpy(buf, command);
+		strcpy(name_buf, command);
+		strcpy(description_buf, CommandTable[best_match_idx].description);
 	}
 }
 
@@ -132,7 +135,7 @@ void process_character(char* inputstr, char ch) {
 	//handle backspace
 	else if (ch == '\b') {
 		//remove last character from input string
-		if (strlen(inputstr) > 0) {
+		if (visible_input_len > 0) {
 			char lastChar = inputstr[strlen(inputstr)-1];
 			//if we're removing a space, check if we should reset the color to indicate a command
 			if (lastChar == ' ') {
@@ -143,6 +146,7 @@ void process_character(char* inputstr, char ch) {
 			inputstr = delchar(inputstr);
 			//terminal driver will remove last char
 			terminal_putchar(ch);
+			visible_input_len--;
 		}
 	}
 	//handle newline
@@ -153,21 +157,24 @@ void process_character(char* inputstr, char ch) {
 	//predict input
 	else if (ch == '\t') {
 		char prediction[64];
-		predict_command(&prediction, 64, inputstr);
+		char description[128];
+		predict_command((char*)&prediction, 64, (char*)&description, 128, inputstr);
 		//did we get a prediction?
 		if (*prediction) {
 			//remove existing input and print prediction
-			for (int i = 0; i < strlen(inputstr); i++) {
+			for (size_t i = 0; i < strlen(inputstr); i++) {
 				terminal_putchar('\b');
 			}
 			strcpy(inputstr, prediction);
-			terminal_writestring(inputstr);
+			printf("%s \e[7;(%s)", inputstr, description);
+			visible_input_len = strlen(inputstr) + strlen(description) + 3;
 		}
 	}
 	else  {
 		//add this character to the input string and output it
 		strccat(inputstr, ch);
 		terminal_putchar(ch);
+		visible_input_len++;
 	}
 
 	//if this character was a space, change text color to indicate an argument
