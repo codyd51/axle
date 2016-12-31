@@ -9,52 +9,58 @@ typedef unsigned char byte;
 typedef signed char sbyte;
 typedef unsigned int dword;
 
-volatile int running_x = 0;
-volatile int running_y = 0;
+static int running_x = 0;
+static int running_y = 0;
 volatile uint8_t mouse_state;
 
+static inline uint32_t log2(const uint32_t x) {
+  uint32_t y;
+  asm ( "\tbsr %1, %0\n"
+      : "=r"(y)
+      : "r" (x)
+  );
+  return y;
+}
+
+#define VESA_WIDTH 1024
+#define VESA_HEIGHT 768
 Coordinate mouse_point() {
-	static Coordinate previous_pos;
+	static int prev_running_x = 0;
+	static int prev_running_y = 0;
 
-	Coordinate new_pos = point_make(running_x, running_y);
-	//initial case, no previous mouse position recorded
-	if (!previous_pos.x && !previous_pos.y) {
-		previous_pos = new_pos;
-		return new_pos;
-	}
+	int delt_x = prev_running_x - running_x;
+	int delt_y = prev_running_y - running_y;
 
-	//mouse acceleration
-	//new position = new_pos + sqrt(offset from last pos)
+	//scale factor = log base 2 of delt-x + delt-y
 	//provides logarithmic acceleration
-	{
-		//left or right?
-		int dir = new_pos.x > previous_pos.x;
+	int scaling = log2(delt_x + delt_y);
+	delt_x *= scaling;
+	delt_y *= scaling;
 
-		int offset = (int)sqrt(abs(new_pos.x - previous_pos.x));
-		new_pos.x = (dir) ? (previous_pos.x + offset) : (previous_pos.x - offset);
-	}
-	{
-		//up or down?
-		int dir = new_pos.y < previous_pos.y;
+	Coordinate new_pos = point_make(running_x + delt_x, running_y + delt_y);
 
-		int offset = (int)sqrt(abs(new_pos.y - previous_pos.y));
-		new_pos.y = (!dir) ? (previous_pos.y + offset) : (previous_pos.y - offset);
-	}
+	new_pos.x = MAX(new_pos.x, 0);
+	new_pos.x = MIN(new_pos.x, VESA_WIDTH - 5);
+	new_pos.y = MAX(new_pos.y, 0);
+	new_pos.y = MIN(new_pos.y, VESA_HEIGHT - 5);
 
-	previous_pos = new_pos;
-	return new_pos;
+	prev_running_x = running_x;
+	prev_running_y = running_y;
+
+	return point_make(running_x, running_y);
 }
 uint8_t mouse_events() {
 	return mouse_state;
 }
 
-#define VESA_WIDTH 1024
-#define VESA_HEIGHT 768
 void update_mouse_position(int x, int y) {
+	y = -y;
+
 	running_x += x;
+	running_y += y;
+
 	running_x = MAX(running_x, 0);
 	running_x = MIN(running_x, VESA_WIDTH - 5);
-	running_y -= y;
 	running_y = MAX(running_y, 0);
 	running_y = MIN(running_y, VESA_HEIGHT - 5);
 }
@@ -69,23 +75,24 @@ void mouse_callback(registers_t regs) {
 		case 0:
 			mouse_byte[0] = inb(0x60);
 			mouse_cycle++;
+
+			//this byte contains information about mouse state (button events)
+			bool middle = mouse_byte[0] & 0x4;
+			if (middle) mouse_state |= 0x4;
+			else mouse_state &= ~0x4;
+
+			bool right = mouse_byte[0] & 0x2;
+			if (right) mouse_state |= 0x2;
+			else mouse_state &= ~0x2;
+
+			bool left = mouse_byte[0] & 0x1;
+			if (left) mouse_state |= 0x1;
+			else mouse_state &= ~0x1;
+
 			break;
 		case 1:
 			mouse_byte[1] = inb(0x60);
 			mouse_cycle++;
-
-			//this byte contains information about mouse state (button events)
-			bool middle = mouse_byte[1] & 0x4;
-			if (middle) mouse_state |= 0x4;
-			else mouse_state &= ~0x4;
-
-			bool right = mouse_byte[1] & 0x2;
-			if (right) mouse_state |= 0x2;
-			else mouse_state &= ~0x2;
-
-			bool left = mouse_byte[1] & 0x1;
-			if (left) mouse_state |= 0x1;
-			else mouse_state &= ~0x1;
 
 			break;
 		case 2:
