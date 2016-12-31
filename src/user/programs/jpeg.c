@@ -492,7 +492,7 @@ static int njGetVLC(nj_vlc_code_t* vlc, unsigned char* code) {
     if (!bits) return 0;
     value = njGetBits(bits);
     if (value < (1 << (bits - 1)))
-        value += ((-1) << bits) + 1;
+        value += ((uint32_t)(-1) << bits) + 1;
     return value;
 }
 
