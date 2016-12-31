@@ -62,7 +62,7 @@ __attribute__((__noreturn__)) void panic_msg(uint16_t line, const char* file, co
 	va_list ap;
 	va_start(ap, msg);
 	//1 == serial output
-	vprintf(1, msg, ap);
+	vprintf(1, (char*)msg, ap);
 	va_end(ap);
 
 	// Inline the panic() code for stack frame count

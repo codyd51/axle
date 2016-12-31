@@ -39,9 +39,7 @@ void dump_stack(uint32_t* esp) {
 
 #define GET_BYTE(number, byte_idx) (number >> (8*byte_idx)) & 0xff
 		//we want to print out every byte of the 4 words we just printed out
-		//words are 4 bytes
-		//4 words * (size of word / size of byte)
-		for (int i = 0; i < 4 * 4; i++) {
+		for (int i = 0; i < 4; i++) {
 			uint32_t* ptr = current_base;
 			//for each byte in current word
 			for (size_t j = 0; j < sizeof(uint32_t); j++) {

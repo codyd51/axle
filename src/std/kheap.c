@@ -70,8 +70,9 @@ void kfree(void* p) {
 }
 
 void heap_fail(void* dump) {
-	heap_print(-1);
+	heap_print(10);
 	dump_stack(dump);
+	memdebug();
 
 	printk_err("PID %d encountered corrupted heap. Halting execution...", getpid());
 	//_kill();

@@ -68,13 +68,14 @@ void update_color_anim(Window* window, ca_animation* anim, float frame_time) {
 	mark_needs_redraw((View*)window);
 }
 
-void process_animations(Window* window, float frame_time) {
-	uint32_t now = time();
+void process_animations(Window* window, float UNUSED(frame_time)) {
+	//uint32_t now = time();
 	for (int i = 0; i < window->animations->size; i++) {
 		ca_animation* anim = array_m_lookup(window->animations, i);
 
-		if (now >= anim->end_date) {
+		//if (now >= anim->end_date) {
 			finalize_animation(window, anim);
+			/*
 		}
 		else {
 			animation_update handler = anim->update;
@@ -82,6 +83,7 @@ void process_animations(Window* window, float frame_time) {
 				handler(window, anim, frame_time);
 			}
 		}
+		*/
 	}
 }
 

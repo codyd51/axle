@@ -212,7 +212,8 @@ void vsprintf(char* ret, char* format, va_list va) {
 			//zero padding requested
 			if (ch == '0') {
 				ch = *(format++);
-				if (ch == '\0') return NULL;
+				//TODO fill in
+				//if (ch == '\0') ;
 				if (ch >= '0' && ch <= '9') {
 					// zero_pad = ch - '0';
 				}
@@ -221,7 +222,7 @@ void vsprintf(char* ret, char* format, va_list va) {
 
 			switch (ch) {
 				case 0:
-					return NULL;
+					return;
 
 				case 'u':
 				case 'd':
@@ -272,12 +273,12 @@ void vsprintf(char* ret, char* format, va_list va) {
 void print_common(int dest, char* format, va_list va) {
 	//shared printf lock
 	static lock_t* mutex = 0;
-	//if (!mutex) mutex = lock_create();
-	//lock(mutex);
+	if (!mutex) mutex = lock_create();
+	lock(mutex);
 
 	vprintf(dest, format, va);
 
-	//unlock(mutex);
+	unlock(mutex);
 
 }
 

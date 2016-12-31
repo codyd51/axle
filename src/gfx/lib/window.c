@@ -141,17 +141,19 @@ static void kill_window_real(Window* window) {
 		event_handler teardown = window->teardown_handler;
 		teardown(window, NULL);
 	}
-
-	//window_teardown(window);
+	window_teardown(window);
 }
 
 void kill_window(Window* window) {
+	/*
 	//fade out window
 	float to = 0.0;
 	ca_animation* fade_out = create_animation(ALPHA_ANIM, &to, 0.25);
 	//when animation finishes, perform real teardown
 	fade_out->finished_handler = (event_handler)&kill_window_real;
 	add_animation(window, fade_out);
+	*/
+	kill_window_real(window);
 }
 
 void set_border_width(Window* window, int width) {

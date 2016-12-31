@@ -66,6 +66,7 @@ void launcher_invoke(Coordinate origin) {
 		b->mouseup_handler = (event_handler)&launcher_dismiss;
 		add_button(launcher_win->content_view, b);
 	}
+	
 	present_window(launcher_win);
 }
 
