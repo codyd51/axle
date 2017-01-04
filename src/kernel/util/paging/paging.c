@@ -137,7 +137,7 @@ void vmem_map(uint32_t virt, uint32_t physical) {
 bool alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 	if (page->frame != 0) {
 		//frame was already allocated, return early
-		printf_info("alloc_frame: page %x already alloced (frame %x)", &page, page->frame);
+		printk_info("alloc_frame: page %x already alloced (frame %x)", &page, page->frame);
 		return false;
 	}
 	
@@ -415,12 +415,26 @@ page_directory_t* clone_directory(page_directory_t* src) {
 void free_directory(page_directory_t* dir) {
 	//first free all tables
 	for (int i = 0; i < 1024; i++) {
+		if (!dir->tables[i]) {
+			continue;
+		}
+
 		page_table_t* table = dir->tables[i];
-		//free all pages in table
+		//only free pages in table if table wasn't linked in from kernel tables
+		if (kernel_directory->tables[i] == table) {
+			printk("free_directory() page table %x was linked from kernel\n", table);
+			continue;
+		}
+		printk("free_directory() proc owned table %x\n", table);
+
+		//this page table belonged to the dead process alone
+		//free pages in table
+		/*
 		for (int j = 0; j < 1024; j++) {
 			page_t page = table->pages[j];
 			free_frame(&page);
 		}
+		*/
 
 		//free table itself
 		kfree(table);
@@ -428,3 +442,4 @@ void free_directory(page_directory_t* dir) {
 	//finally, free directory
 	kfree(dir);
 }
+

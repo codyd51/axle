@@ -1099,3 +1099,4 @@ double tan(double x)
 		case 1:	case 3: return - cosp(r) / sinp(r);
 	}
 }
+

@@ -128,6 +128,9 @@ void vprintf(int dest, char* format, va_list va) {
 				case 0: {
 					return;
 				} break;
+				case '%': {
+					outputc(dest, '%');
+				} break;
 				case 'u':
 				case 'd': {
 					itoa(va_arg(va, unsigned int), bf);
@@ -248,18 +251,18 @@ void vsprintf(char* ret, char* format, va_list va) {
 
 				case 'f':
 				case 'F': {
-						//labels must be followed by statements, and the declaration below
-						//is not a statement, which causes a compiler error
-						//to get around this, we have an empty statement
-						;
-
+						char buf[32];
 						double fnum = va_arg(va, double);
-						//print integer part, truncate fraction
-						sprintf(ret, "%d.", (int)fnum);
+						//write integer part, truncate fraction
+						itoa((int)fnum, &buf);
+						strcat(ret, buf);
+						strccat(ret, '.');
+
 						//get numbers after decimal
-						fnum = (fnum - (int)fnum) * 1000000;
-						sprintf(ret, "%d", (int)fnum);
-					} break;
+						fnum = (fnum - (int)fnum) * 100;
+						itoa((int)fnum, &buf);
+						strcat(ret, buf);
+				} break;
 
 				case '*':
 				default:

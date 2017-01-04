@@ -9,6 +9,8 @@
 #include <kernel/util/syscall/sysfuncs.h>
 #include <kernel/drivers/rtc/clock.h>
 #include <std/klog.h>
+#include <kernel/util/mutex/mutex.h>
+#include "record.h"
 
 //function defined in asm which returns the current instruction pointer
 uint32_t read_eip();
@@ -43,6 +45,8 @@ static task_t* active_list = 0;
 task_t* first_responder = 0;
 static array_m* responder_stack = 0;
 
+static lock_t* mutex = 0;
+
 void enqueue_task(task_t* task, int queue);
 void dequeue_task(task_t* task);
 
@@ -53,6 +57,25 @@ static void setup_fds(task_t* task) { task->files = array_m_create(MAX_FILES);
 	// array_m_insert(task->files, stdin_read);
 	// array_m_insert(task->files, stdout_read);
 	// array_m_insert(task->files, stderr_read);
+}
+
+static void kill(task_t* task) {
+	if (!tasking_installed()) return;
+
+	//TODO only go back to terminal mode if task we're killing changed gfx mode
+	//instead of hard coding these
+	printk("_kill() checking if need to change gfx mode for task %s\n", task->name);
+	if (!strcmp(task->name, "xserv") || !strcmp(task->name, "rexle")) {
+		printk("_kill() switching back to terminal mode\n");
+		switch_to_text();
+	}
+	block_task(task, ZOMBIE);
+}
+
+void _kill() {
+	block_task(current_task, ZOMBIE);
+	reap();
+	//kill(current_task);
 }
 
 void goto_pid(int id);
@@ -71,8 +94,8 @@ void unlist_task(task_t* task) {
 	else {
 		//walk linked list
 		task_t* prev = active_list;
-		task_t* current = prev->next;
-		while (current->next != NULL) {
+		task_t* current = prev;
+		while (current && current->next != NULL) {
 			if (current == task) {
 				break;
 			}
@@ -81,6 +104,7 @@ void unlist_task(task_t* task) {
 		}
 		//did we find it?
 		if (task != current) {
+			printk("unlist_task() couldn't unlist %s\n", task->name);
 			return;
 		}
 
@@ -106,9 +130,7 @@ void list_task(task_t* task) {
 void block_task(task_t* task, task_state reason) {
 	if (!tasking_installed()) return;
 
-	kernel_begin_critical();
 	task->state = reason;
-	kernel_end_critical();
 
 	//immediately switch tasks if active task was just blocked
 	if (task == current_task) {
@@ -119,9 +141,9 @@ void block_task(task_t* task, task_state reason) {
 void unblock_task(task_t* task) {
 	if (!tasking_installed()) return;
 
-	kernel_begin_critical();
+	lock(mutex);
 	task->state = RUNNABLE;
-	kernel_end_critical();
+	unlock(mutex);
 }
 
 #pragma GCC diagnostic push
@@ -176,21 +198,24 @@ void destroy_task(task_t* task) {
 	//remove task from queues and active list
 	unlist_task(task);
 	//free task's page directory
-	free_directory(task->page_dir);
+	//free_directory(task->page_dir);
 }
 
 void reap() {
 	while (1) {
-		kernel_begin_critical();
-
 		task_t* tmp = active_list;
 		while (tmp != NULL) {
 			if (tmp->state == ZOMBIE) {
 				array_m* queue = array_m_lookup(queues, tmp->queue);
 				int idx = array_m_index(queue, tmp);
 				if (idx != ARR_NOT_FOUND) {
+					printk("reap() unlisting %s\n", tmp->name);
+
+					lock(mutex);
 					array_m_remove(queue, idx);
-					unlist_task(tmp);
+					unlock(mutex);
+
+					destroy_task(tmp);
 				}
 				else {
 					//couldn't find task in the queue it said it was in
@@ -201,7 +226,10 @@ void reap() {
 						for (int j = 0; j < queues->size && !found; j++) {
 							task_t* to_test = array_m_lookup(queue, j);
 							if (to_test == tmp) {
+								lock(mutex);
 								array_m_remove(queue, j);
+								unlock(mutex);
+
 								destroy_task(tmp);
 								found = true;
 								break;
@@ -216,7 +244,6 @@ void reap() {
 			tmp = tmp->next;
 		}
 
-		kernel_end_critical();
 		//we have nothing else to do, yield cpu
 		sys_yield(RUNNABLE);
 	}
@@ -231,7 +258,7 @@ void iosent() {
 }
 
 void enqueue_task(task_t* task, int queue) {
-	kernel_begin_critical();
+	lock(mutex);
 	if (queue < 0 || queue >= queues->size) {
 		ASSERT(0, "Tried to insert %s into invalid queue %d", task->name, queue);
 	}
@@ -240,7 +267,10 @@ void enqueue_task(task_t* task, int queue) {
 
 	//ensure task does not already exist in this queue
 	if (array_m_index(raw, task) == ARR_NOT_FOUND) {
+		lock(mutex);
 		array_m_insert(raw, task);
+		unlock(mutex);
+
 		task->queue = queue;
 		//new queue, reset lifespan
 		task->lifespan = 0;
@@ -248,11 +278,11 @@ void enqueue_task(task_t* task, int queue) {
 	else {
 		printf_err("Tried to enqueue %s onto queue where it already existed (%d)", task->name, queue);
 	}
-	kernel_end_critical();
+	unlock(mutex);
 }
 
 void dequeue_task(task_t* task) {
-	kernel_begin_critical();
+	lock(mutex);
 	if (task->queue < 0 || task->queue >= queues->size) {
 		ASSERT(0, "Tried to remove %s from invalid queue %d", task->name, task->queue);
 	}
@@ -270,7 +300,8 @@ void dequeue_task(task_t* task) {
 					//found task we were looking for
 					printf_info("Task was actually in queue %d", i);
 					array_m_remove(queue, j);
-					kernel_end_critical();
+					unlock(mutex);
+
 					return;
 				}
 			}
@@ -281,21 +312,18 @@ void dequeue_task(task_t* task) {
 	}
 
 	array_m_remove(raw, idx);
+	unlock(mutex);
 
 	//if for some reason this task is still in the queue (if it was added to queue twice),
 	//dequeue it again
 	if (array_m_index(raw, task) != ARR_NOT_FOUND) {
 		dequeue_task(task);
 	}
-
-	kernel_end_critical();
 }
 
 void switch_queue(task_t* task, int new) {
-	kernel_begin_critical();
 	dequeue_task(task);
 	enqueue_task(task, new);
-	kernel_end_critical();
 }
 
 void demote_task(task_t* task) {
@@ -315,13 +343,11 @@ bool tasking_installed() {
 }
 
 void booster() {
-	kernel_begin_critical();
 	task_t* tmp = active_list;
 	while (tmp) {
 		switch_queue(tmp, 0);
 		tmp = tmp->next;
 	}
-	kernel_end_critical();
 }
 
 void tasking_install(mlfq_option options) {
@@ -398,6 +424,8 @@ void tasking_install(mlfq_option options) {
 		iosent();
 	}
 
+	mutex = lock_create();
+
 	//reenable interrupts
 	kernel_end_critical();
 
@@ -406,8 +434,6 @@ void tasking_install(mlfq_option options) {
 
 void update_blocked_tasks() {
 	if (!tasking_installed()) return;
-
-	kernel_begin_critical();
 
 	//if there is a pending key, wake first responder
 	if (haskey() && first_responder->state == KB_WAIT) {
@@ -434,8 +460,6 @@ void update_blocked_tasks() {
 
 		task = task->next;
 	}
-
-	kernel_end_critical();
 }
 
 int fork(char* name) {
@@ -472,6 +496,7 @@ int fork(char* name) {
 		return child->id;
 	}
 	else {
+		kernel_end_critical();
 		//now executing child process
 		//return 0 by convention
 		return 0;
@@ -539,7 +564,9 @@ task_t* mlfq_schedule() {
 
 	//increment lifespan by how long this task ran
 	if (current_task->relinquish_date && current_task->begin_date) {
-		current_task->lifespan += (current_task->relinquish_date - current_task->begin_date);
+		uint32_t current_runtime = (current_task->relinquish_date - current_task->begin_date);
+		current_task->lifespan += current_runtime;
+		sched_record_usage(current_task, current_runtime);
 	}
 
 	if (current_task->lifespan >= (uint32_t)array_m_lookup(queue_lifetimes, current_task->queue)) {
@@ -601,6 +628,10 @@ void goto_pid(int id) {
 	if (!current_task || !queues) {
 		return;
 	}
+	if (id == current_task->id) {
+		return;
+	}
+
 	kernel_begin_critical();
 
 	//read esp, ebp now for saving later
@@ -672,18 +703,13 @@ void goto_pid(int id) {
 }
 
 uint32_t task_switch() {
-	kernel_begin_critical();
-
 	current_task->relinquish_date = time();
 	//find next runnable task
 	task_t* next = mlfq_schedule();
 
 	ASSERT(next->state == RUNNABLE, "Tried to switch to non-runnable task %s (reason: %d)!", next->name, next->state);
 
-	kernel_end_critical();
-
 	goto_pid(next->id);
-
 	//TODO: what should be returned here?
 	return 0;
 }
@@ -719,11 +745,6 @@ void handle_pit_tick() {
 	}
 }
 
-void _kill() {
-	if (!tasking_installed()) return;
-	block_task(current_task, ZOMBIE);
-}
-
 void proc() {
 	printk("-----------------------proc-----------------------\n");
 
@@ -734,12 +755,12 @@ void proc() {
 			uint32_t runtime = (uint32_t)array_m_lookup(queue_lifetimes, task->queue);
 			printk("[%d Q %d] %s ", task->id, task->queue, task->name);
 			if (task == current_task) {
-				printk("(active");
+				printk("(active)");
 			}
 			else {
 				printk("used");
 			}
-			printk(" %d/%d ms) ", task->lifespan, runtime);
+			printk(" %d/%d ms ", task->lifespan, runtime);
 
 			switch (task->state) {
 				case RUNNABLE:
@@ -750,6 +771,12 @@ void proc() {
 					break;
 				case PIT_WAIT:
 					printk("(blocked by timer, wakes %d)", task->wake_timestamp);
+					break;
+				case MOUSE_WAIT:
+					printk("(blocked by mouse)");
+					break;
+				case ZOMBIE:
+					printk("(zombie)");
 					break;
 				default:
 					break;
@@ -790,3 +817,4 @@ void resign_first_responder() {
 	//set first responder to new head of stack
 	first_responder = array_m_lookup(responder_stack, responder_stack->size - 1);
 }
+

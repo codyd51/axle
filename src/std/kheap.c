@@ -74,9 +74,8 @@ void heap_fail(void* dump) {
 	dump_stack(dump);
 	memdebug();
 
-	printk_err("PID %d encountered corrupted heap. Halting execution...", getpid());
-	//_kill();
-	while (1) {}
+	printk_err("PID %d encountered corrupted heap. Killing task...", getpid());
+	_kill();
 }
 
 //create a heap header at addr, where the block in questoin is size bytes
@@ -97,6 +96,8 @@ static void insert_block(alloc_block_t* prev, alloc_block_t* new) {
 		return;
 	}
 
+	lock(mutex);
+
 	if (prev->next) {
 		new->next = prev->next;
 	}
@@ -106,6 +107,8 @@ static void insert_block(alloc_block_t* prev, alloc_block_t* new) {
 
 	prev->next = new;
 	new->prev = prev;
+
+	unlock(mutex);
 }
 
 //get the first block header in linked list
@@ -120,6 +123,8 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 	//printk_info("find_smallest_hole(): %x bytes align? %d", size, align);
 	//start off with first block
 	alloc_block_t* candidate = first_block(heap);
+
+	lock(mutex);
 
 	//search every hole
 	do {
@@ -151,6 +156,7 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 						candidate->size = candidate->size - aligned->size - sizeof(alloc_block_t);
 						//all done!
 
+						unlock(mutex);
 						return aligned;
 					}
 					else {
@@ -167,6 +173,8 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 			}
 		}
 	} while ((candidate = candidate->next) != NULL);
+
+	unlock(mutex);
 	
 	//didn't find any matches
 	printk_err("find_smallest_hole(): found no holes large enough (size: %x align: %d)", size, align);
@@ -252,9 +260,18 @@ void heap_print(int count) {
 //reserve heap block with size >= 'size'
 //will page align block if 'align'
 void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
-	kernel_begin_critical();
+	//check heap integrity
+	alloc_block_t* tmp = first_block(heap);
+	//search every hole
+	do {
+		if (tmp->magic != HEAP_MAGIC) {
+			printk_err("alloc() self check: block @ %x had invalid magic", (uint32_t)tmp);
+			heap_fail(tmp);
+			kernel_begin_critical();
+			while (1) {}
+		}
+	} while ((tmp = tmp->next) != NULL);
 
-	//printk("alloc() %x\n", size);
 	//find smallest hole that will fit
 	alloc_block_t* candidate = find_smallest_hole(size, align, heap);
 	//printk_info("alloc(): candidate @ %x [%x bytes]", (uint32_t)candidate, candidate->size);
@@ -265,6 +282,8 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		//TODO fill in
 		ASSERT(0, "alloc() %x bytes failed, find_smallest_hole() had no candidates\n");
 	}
+
+	lock(mutex);
 
 	//check if block should be split into 2 blocks
 	//only worth it if the size of the second block will be greater than at least a block header
@@ -281,12 +300,11 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 
 		if (candidate->next != (alloc_block_t*)split_block || ((alloc_block_t*)split_block)->prev != candidate) {
 			printk_err("Heap insertion failed!");
-			//TODO add common fail function
-			//with memdump and heap print
+			heap_fail(candidate);
 			while (1) {}
 		}
 
-		printk("alloc() candidate: %x split_block: %x\n", candidate, split_block);
+		//printk("alloc() candidate: %x split_block: %x\n", candidate, split_block);
 
 		//shrink block we just split in two
 		candidate->size = size;
@@ -301,20 +319,9 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 	//start off by clearing this block
 	uint32_t* ptr = (uint32_t*)((uint32_t)candidate + sizeof(alloc_block_t));
 	memset(ptr, 0, candidate->size);
-	//printk("memset candidate, checking heap integrity...\n");
-	//heap_print(3);
 
-	//check heap integrity
-	alloc_block_t* tmp = first_block(heap);
-	//search every hole
-	do {
-		if (tmp->magic != HEAP_MAGIC) {
-			printk_err("block @ %x had invalid magic", (uint32_t)tmp);
-			heap_fail(tmp);
-		}
-	} while ((tmp = tmp->next) != NULL);
+	unlock(mutex);
 
-	kernel_end_critical();
 	return (void*)((uint32_t)candidate + sizeof(alloc_block_t));
 }
 
@@ -336,6 +343,8 @@ bool merge_blocks(alloc_block_t* left, alloc_block_t* right) {
 		return false;
 	}
 
+	lock(mutex);
+
 	//ready to merge
 	//increase left block by size of right block and right block's header
 	left->size += right->size + sizeof(alloc_block_t);
@@ -345,6 +354,8 @@ bool merge_blocks(alloc_block_t* left, alloc_block_t* right) {
 
 	//printk_info("merge_blocks() merged block %x into %x", right, left);
 	//all done
+	unlock(mutex);
+
 	return true;
 }
 
@@ -357,7 +368,7 @@ void free(void* p, heap_t* UNUSED(heap)) {
 
 	//get header associated with this pointer
 	alloc_block_t* header = (alloc_block_t*)((uint32_t)p - sizeof(alloc_block_t));
-	printk_dbg("kfree() %x [%x]\n", header, header->size);
+	//printk_dbg("kfree() %x [%x]", header, header->size);
 
 	//ensure these are valid
 	//ASSERT(header->magic == HEAP_MAGIC, "invalid header magic in %x (got %x)", p, header->magic);
@@ -366,6 +377,8 @@ void free(void* p, heap_t* UNUSED(heap)) {
 		heap_fail(header);
 		while (1) {}
 	}
+
+	lock(mutex);
 
 	//we're about to free this memory, untrack it from used memory
 	used_bytes -= header->size;
@@ -382,6 +395,7 @@ void free(void* p, heap_t* UNUSED(heap)) {
 		merge_blocks(header, header->next);
 	}
 
+	unlock(mutex);
 	//TODO contract if this block is at end of heap space
 }
 
