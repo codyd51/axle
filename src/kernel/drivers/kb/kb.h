@@ -31,6 +31,8 @@ key_status_t kb_modifiers();
 void kb_install();
 //swap layout to interpret incoming scancodes
 void switch_layout(keymap_t* layout);
+//get current layout
+keymap_t* kb_layout();
 
 __END_DECLS
 

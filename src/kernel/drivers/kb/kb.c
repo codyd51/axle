@@ -73,7 +73,8 @@ void kb_callback(registers_t regs) {
 
 		//inform OS
 		//clear released bit
-		kbman_process_release(scancode ^ 0x80);
+		scancode &= ~RELEASED_MASK;
+		kbman_process_release(layout->scancodes[scancode]);
 	}
 	else {
 		//was this a control key?

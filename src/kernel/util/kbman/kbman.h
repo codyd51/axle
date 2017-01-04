@@ -2,11 +2,12 @@
 #define KBMAN_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
-#define KEY_UP 		0x48
-#define KEY_DOWN 	0x50
-#define KEY_LEFT 	0x4B
-#define KEY_RIGHT 	0x4D
+#define KEY_UP 		72
+#define KEY_DOWN 	80
+#define KEY_LEFT 	75
+#define KEY_RIGHT 	77
 
 void kbman_process(char c);
 void kbman_process_release(char c);

@@ -9,17 +9,17 @@ typedef unsigned char byte;
 typedef signed char sbyte;
 typedef unsigned int dword;
 
-static int running_x = 0;
-static int running_y = 0;
+static int running_x = 512;
+static int running_y = 384;
 volatile uint8_t mouse_state;
 
 static inline uint32_t log2(const uint32_t x) {
-  uint32_t y;
-  asm ( "\tbsr %1, %0\n"
-      : "=r"(y)
-      : "r" (x)
-  );
-  return y;
+	uint32_t y;
+	asm ( "\tbsr %1, %0\n"
+			: "=r"(y)
+			: "r" (x)
+		);
+	return y;
 }
 
 #define VESA_WIDTH 1024
@@ -68,6 +68,8 @@ void update_mouse_position(int x, int y) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 void mouse_callback(registers_t regs) {
+	kernel_begin_critical();
+
 	static sbyte mouse_byte[3];
 	static byte mouse_cycle = 0;
 
@@ -102,11 +104,14 @@ void mouse_callback(registers_t regs) {
 
 			//hook into task switch
 			//trigger iosentinel
+			kernel_end_critical();
 			extern void update_blocked_tasks();
 			update_blocked_tasks();
-			
+		default:	
+			mouse_cycle = 0;
 			break;
 	}
+	kernel_end_critical();
 }
 #pragma GCC diagnostic pop
 

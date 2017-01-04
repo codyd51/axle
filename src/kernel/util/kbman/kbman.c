@@ -4,6 +4,7 @@
 #include <kernel/util/multitasking/tasks/task.h>
 #include <std/kheap.h>
 #include <kernel/drivers/kb/kb.h>
+#include <kernel/util/multitasking/tasks/record.h>
 
 #define MAX_KB_BUFFER_LENGTH 64
 
@@ -31,6 +32,10 @@ void kbman_process(char c) {
 				memdebug();
 				printf_info("Dynamic memory usage logged");
 				break;
+			case 'p':
+				sched_log_history();
+				printf_info("CPU usage logged");
+				break;
 			default:
 				break;
 		}
@@ -54,3 +59,4 @@ bool key_down(char c) {
 	return false;
 }
 #pragma GCC diagnostic push
+
