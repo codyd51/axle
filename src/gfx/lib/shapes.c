@@ -3,6 +3,8 @@
 #include <std/math.h>
 #include "color.h"
 
+static void draw_rect_int(ca_layer* layer, Rect rect, Color color);
+
 //convenience functions to make life easier
 double line_length(Line line) {
 	//distance formula
@@ -94,18 +96,6 @@ static void draw_rect_int_fast(ca_layer* layer, Rect rect, Color color) {
 	}
 }
 
-static void draw_rect_int(ca_layer* layer, Rect rect, Color color) {
-	Line h1 = line_make(rect.origin, point_make(rect.origin.x + rect.size.width, rect.origin.y));
-	Line h2 = line_make(point_make(rect.origin.x, rect.origin.y + rect.size.height), point_make(rect.origin.x + rect.size.width, rect.origin.y + rect.size.height));
-	Line v1 = line_make(rect.origin, point_make(rect.origin.x, rect.origin.y + rect.size.height));
-	Line v2 = line_make(point_make(rect.origin.x + rect.size.width, rect.origin.y), point_make(rect.origin.x + rect.size.width, rect.origin.y + rect.size.height + 1));
-
-	draw_line(layer, h1, color, 1);
-	draw_line(layer, h2, color, 1);
-	draw_line(layer, v1, color, 1);
-	draw_line(layer, v2, color, 1);
-}
-
 void draw_rect(ca_layer* layer, Rect r, Color color, int thickness) {
 	if (thickness == 0) return;
 
@@ -192,6 +182,18 @@ void draw_vline_fast(ca_layer* layer, Line line, Color color, int thickness) {
 	}
 }
 #pragma GCC diagnostic pop
+
+static void draw_rect_int(ca_layer* layer, Rect rect, Color color) {
+	Line h1 = line_make(rect.origin, point_make(rect.origin.x + rect.size.width, rect.origin.y));
+	Line h2 = line_make(point_make(rect.origin.x, rect.origin.y + rect.size.height), point_make(rect.origin.x + rect.size.width, rect.origin.y + rect.size.height));
+	Line v1 = line_make(rect.origin, point_make(rect.origin.x, rect.origin.y + rect.size.height));
+	Line v2 = line_make(point_make(rect.origin.x + rect.size.width, rect.origin.y), point_make(rect.origin.x + rect.size.width, rect.origin.y + rect.size.height + 1));
+
+	draw_hline_fast(layer, h1, color, 1);
+	draw_hline_fast(layer, h2, color, 1);
+	draw_vline_fast(layer, v1, color, 1);
+	draw_vline_fast(layer, v2, color, 1);
+}
 
 void draw_line(ca_layer* layer, Line line, Color color, int thickness) {
 	//first things first

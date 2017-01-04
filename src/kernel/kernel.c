@@ -14,6 +14,7 @@
 #include <kernel/util/paging/descriptor_tables.h>
 #include <kernel/util/paging/paging.h>
 #include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/util/multitasking/tasks/record.h>
 #include <kernel/util/mutex/mutex.h>
 #include <kernel/util/vfs/initrd.h>
 #include <kernel/drivers/rtc/clock.h>
@@ -143,9 +144,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	//this should never be reached as the above call is never executed
 	//if for some reason it is, just spin
-	while (1) {
-		sys_yield(RUNNABLE);
-	}
+	while (1) {}
 
 	//if by some act of god we've reached this point, just give up and assert
 	ASSERT(0, "Kernel exited");
