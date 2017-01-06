@@ -359,7 +359,7 @@ void tasking_install(mlfq_option options) {
 
 	printk_info("moving stack...");
 	move_stack((void*)0xE0000000, 0x2000);
-	printk_info("moved stack\n");
+	printk_info("moved stack");
 
 	int queue_count = 0;
 	switch (options) {

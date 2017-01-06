@@ -1,6 +1,8 @@
 #ifndef CALCULATOR_H
 #define CALCULATOR_H
 
-void calculator_xserv();
+#include <gfx/lib/shapes.h>
+
+void calculator_xserv(Coordinate origin);
 
 #endif

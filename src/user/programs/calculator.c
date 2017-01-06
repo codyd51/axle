@@ -78,13 +78,13 @@ void calc_op_click(Button* b) {
 	}
 }
 
-void calculator_xserv() {
+void calculator_xserv(Coordinate origin) {
 	Size button_size = size_make(60, 60);
 	int result_view_height = 50;
 	int button_spacing = 0;
 
 	//width is button_size * 4 because 3 rows of # buttons + 1 row of operators
-	Window* calc_win = create_window(rect_make(point_make(200, 300), size_make(button_size.width * 4, WINDOW_TITLE_VIEW_HEIGHT + result_view_height + button_spacing + (button_size.height * 4))));
+	Window* calc_win = create_window(rect_make(origin, size_make(button_size.width * 4, WINDOW_TITLE_VIEW_HEIGHT + result_view_height + button_spacing + (button_size.height * 4))));
 	calc_win->title = "Calculator";
 
 	//number display

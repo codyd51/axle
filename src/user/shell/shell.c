@@ -20,6 +20,7 @@
 #include <tests/test.h>
 #include <tests/gfx_test.h>
 #include <std/klog.h>
+#include <user/programs/usage_monitor.h>
 
 size_t CommandNum;
 command_table_t CommandTable[MAX_COMMANDS];
@@ -202,7 +203,7 @@ char* get_inputstring() {
 int shell() {
 	//reset terminal color in case it was changed
 	//then set to input color
-	printf("\n\e[10;axle> \e[9;");
+	printf("\e[10;axle> \e[9;");
 
 	char* input = get_inputstring();
 
@@ -215,6 +216,7 @@ int shell() {
 		return 1;
 	}
 	KLOG(kfree, input);
+	printf("\n");
 	return 0;
 }
 
@@ -237,7 +239,7 @@ void help_command() {
 	printf("\nAll commands listed here are internally defined.");
 	printf("\nType 'help' to see this list\n");
 	for (size_t i = 0; i < CommandNum; i++) {
-		int spaces_needed = 10 - strlen(CommandTable[i].name);
+		int spaces_needed = 11 - strlen(CommandTable[i].name);
 		printf("\n\t%s", CommandTable[i].name);
 		for (int i = 0; i < spaces_needed; i++) {
 			printf(" ");
@@ -258,6 +260,7 @@ void time_command() {
 
 void date_command() {
 	char buf[64];
+	memset(&buf, 0, sizeof(buf));
 	date((char*)&buf);
 	printf(buf);
 }
@@ -287,16 +290,15 @@ void shutdown_command() {
 }
 
 void startx_command() {
+	printf_info("Press 'q' to exit xserv");
+	printf_info("Press any key to continue");
+	getchar();
+
 	//spawn xserv into its own process
 	int xserv_pid = fork("xserv");
 	if (xserv_pid) {
-		//immediately launch xserv process! We don't want to wait for scheduler
-		//goto_pid(xserv_pid);
 		return;
 	}
-
-	printf_info("Press 'q' to exit");
-	sleep(500);
 
 	//switch into VGA for boot screen
 	Screen* vga_screen = switch_to_vga();
@@ -308,6 +310,15 @@ void startx_command() {
 
 	//actually launch xserv
 	xserv_init();
+}
+
+void rexle_command() {
+	printf_info("Press 'q' to exit");
+	printf_info("Move with WASD");
+	printf_info("Press any key to continue");
+	getchar();
+
+	rexle();
 }
 
 void ls_command() {
@@ -432,6 +443,7 @@ void hypervisor_command() {
 }
 
 void shell_init() {
+	printf_info("Type 'help' for a list of available commands");
 	//set shell color
 	printf("\e[10;");
 
@@ -445,7 +457,7 @@ void shell_init() {
 	add_new_command("shutdown", "Shutdown PC", shutdown_command);
 	add_new_command("gfxtest", "Run graphics tests", test_gfx);
 	add_new_command("startx", "Start window manager", startx_command);
-	add_new_command("rexle", "Start 3D renderer", rexle);
+	add_new_command("rexle", "Start 3D renderer (pass VGA for VGA mode)", rexle_command);
 	add_new_command("heap", "Run heap test", test_heap);
 	add_new_command("ls", "List contents of current directory", ls_command);
 	add_new_command("cd", "Switch to another directory", (void(*)())cd_command);
@@ -465,3 +477,4 @@ void shell_init() {
 	//set current dir to fs root
 	current_dir = fs_root;
 }
+

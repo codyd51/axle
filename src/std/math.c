@@ -182,3 +182,43 @@ inline float lerp(float a, float b, float t) {
     return a + (b - a) * t;
 }
 
+#define LN10 2.3025850929940456840179914546844
+double log10(double x) {
+    return ln(x) / LN10;    
+}
+
+double ln(double x) {
+	double old_sum = 0.0;
+	double xmlxpl = (x - 1) / (x + 1);
+	double xmlxpl_2 = xmlxpl * xmlxpl;
+	double denom = 1.0;
+	double frac = xmlxpl;
+	//denom start from 1.0
+	double term = frac;
+	double sum = term;
+
+	while (sum != old_sum) {
+		old_sum = sum;
+		denom += 2.0;
+		frac *= xmlxpl_2;
+		sum += frac / denom;
+	}
+	return 2.0 * sum;
+}
+
+int ceil(float num) {
+    int inum = (int)num;
+    if (num == (float)inum) {
+        return inum;
+    }
+    return inum + 1;
+}
+
+float modf(float arg, float* iptr) {
+	int iarg = (int)arg;
+	float fractional = arg - iarg;
+	if (iptr) {
+		*iptr = (float)iarg;
+	}
+	return fractional;
+}

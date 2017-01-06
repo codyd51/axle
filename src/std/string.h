@@ -7,7 +7,7 @@
 __BEGIN_DECLS
 
 
-STDAPI char* itoa(int i, char* b);
+STDAPI void itoa(int i, char* b);
 
 STDAPI long long int atoi(const char *c);
 

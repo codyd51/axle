@@ -5,10 +5,8 @@
 #include <gfx/lib/button.h>
 #include <std/string.h>
 
-static void launcher_buttonpress(Button* b) {
-	char* title = b->label->text;
-	if (!strcmp(title, "Image Viewer")) {
-		Window* image_viewer = create_window(rect_make(point_make(400, 50), size_make(512, 512)));
+void display_sample_image(Coordinate origin) {
+		Window* image_viewer = create_window(rect_make(origin, size_make(512, 512)));
 		image_viewer->title = "Image Viewer";
 		image_viewer->content_view->background_color = color_make(135, 206, 250);
 		Bmp* bmp = load_bmp(rect_make(point_zero(), size_make(600, 600)), "Lenna.bmp");
@@ -16,6 +14,12 @@ static void launcher_buttonpress(Button* b) {
 			add_bmp(image_viewer->content_view, bmp);
 		}
 		present_window(image_viewer);
+}
+
+static void launcher_buttonpress(Button* b) {
+	char* title = b->label->text;
+	if (!strcmp(title, "Image Viewer")) {
+		display_sample_image(point_make(400, 300));
 	}
 	if (!strcmp(title, "Text Viewer")) {
 		Window* label_win = create_window(rect_make(point_make(100, 100), size_make(500, 500)));
@@ -25,7 +29,7 @@ static void launcher_buttonpress(Button* b) {
 		present_window(label_win);
 	}
 	if (!strcmp(title, "Calculator")) {
-		calculator_xserv();
+		calculator_xserv(point_make(100, 500));
 	}
 
 	launcher_dismiss();

@@ -271,7 +271,7 @@ void rexle_int(int mode) {
 		double rot_speed = frame_time * 3.0; //rads/sec
 
 		//move forward if not blocked by wall
-		if (key_down(KEY_UP)) {
+		if (key_down('w')) {
 			if (world[(int)(pos.x + dir.x * move_speed)][(int)pos.y] == WALL_NONE) {
 				pos.x += dir.x * move_speed;
 			}
@@ -280,7 +280,7 @@ void rexle_int(int mode) {
 			}
 		}
 		//move backwards if not blocked by wall
-		if (key_down(KEY_DOWN)) {
+		if (key_down('s')) {
 			if (world[(int)(pos.x - dir.x * move_speed)][(int)pos.y] == WALL_NONE) {
 				pos.x -= dir.x * move_speed;
 			}
@@ -289,7 +289,7 @@ void rexle_int(int mode) {
 			}
 		}
 		//rotate right
-		if (key_down(KEY_RIGHT)) {
+		if (key_down('d')) {
 			//camera and plane must both be rotated
 			double old_dir_x = dir.x;
 			dir.x = dir.x * cos(-rot_speed) - dir.y * sin(-rot_speed);
@@ -300,7 +300,7 @@ void rexle_int(int mode) {
 			plane.y = old_plane_x * sin(-rot_speed) + plane.y * cos(-rot_speed);
 		}
 		//rotate left
-		if (key_down(KEY_LEFT)) {
+		if (key_down('a')) {
 			//camera and plane must both be rotated
 			double old_dir_x = dir.x;
 			dir.x = dir.x * cos(rot_speed) - dir.y * sin(rot_speed);
@@ -320,11 +320,12 @@ void rexle_int(int mode) {
 
 		write_screen(screen);
 
-		char ch = kgetch();
-		if (ch == 'q') {
+		if (key_down('q')) {
 			running = 0;
-			break;
 		}
+
+		//eat keypresses
+		while (haskey()) kgetch();
 	}
 
 	//cleanup

@@ -57,6 +57,9 @@ STDAPI void srand(unsigned int seed);
 //linear interpolation
 STDAPI float lerp(float a, float b, float c);
 
+double log10(double x);
+double ln(double x);
+
 __END_DECLS
 
 #endif // STD_MATH_H

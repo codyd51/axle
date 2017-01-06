@@ -44,6 +44,7 @@ void draw_mandelbrot(Screen* screen, bool rgb) {
 			}
 			putpixel(screen->vmem, x, y, color);
 		}
+		write_screen(screen);
 	}
 }
 
@@ -85,6 +86,7 @@ void draw_burning_ship(Screen* screen, bool rgb) {
 			}
 			putpixel(screen->vmem, x, y, color);
 		}
+		write_screen(screen);
 	}
 }
 
@@ -137,6 +139,7 @@ void draw_julia(Screen* screen, bool rgb) {
 			}
 			putpixel(screen->vmem, x, y, color);
 		}
+		write_screen(screen);
 	}
 }
 
@@ -313,6 +316,7 @@ void test_gfx(int argc, char **argv) {
 
 
 void test_xserv() {
+	/*
 	Window* alpha_win = create_window(rect_make(point_make(100, 200), size_make(250, 250)));
 	alpha_win->title = "Alpha animation";
 	alpha_win->content_view->background_color = color_green();
@@ -341,5 +345,7 @@ void test_xserv() {
 	add_sublabel(pos_win->content_view, label);
 	add_animation(pos_win, pos);
 	present_window(pos_win);
+	*/
+
 }
 
