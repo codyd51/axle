@@ -18,7 +18,7 @@
 //has the screen been modified this refresh?
 static char dirtied = 0;
 static volatile Window* active_window;
-const float shadow_count = 3.0;
+const float shadow_count = 4.0;
 
 void xserv_quit(Screen* screen) {
 	switch_to_text();
@@ -47,28 +47,7 @@ void draw_label(ca_layer* dest, Label* label) {
 		background_color = superview->background_color;
 	}
 	draw_rect(label->layer, rect_make(point_zero(), label->frame.size), background_color, THICKNESS_FILLED);
-
-	//actually render text
-	int idx = 0;
-	char* str = label->text;
-	int x = 0;
-	int y = 0;
-	while (str[idx]) {
-		//go to next line if necessary
-		if ((x + CHAR_WIDTH + CHAR_PADDING_W) > frame.size.width || str[idx] == '\n') {
-			x = 0;
-
-			//quit if going to next line would exceed view bounds
-			if ((y + CHAR_HEIGHT + CHAR_PADDING_H) >= frame.size.height) break;
-			y += CHAR_HEIGHT + CHAR_PADDING_H;
-		}
-
-		draw_char(label->layer, str[idx], x, y, label->text_color);
-
-		x += CHAR_WIDTH + CHAR_PADDING_W;
-
-		idx++;
-	}
+	draw_string(label->layer, label->text, point_make(CHAR_WIDTH, CHAR_HEIGHT), label->text_color);
 
 	blit_layer(dest, label->layer, rect_make(label->frame.origin, dest->size), rect_make(point_zero(), label->frame.size));
 
@@ -128,16 +107,28 @@ void draw_view(View* view) {
 	for (int i = 0; i < view->subviews->size; i++) {
 		View* subview = (View*)array_m_lookup(view->subviews, i);
 		draw_view(subview);
-		blit_layer(view->layer, subview->layer, rect_make(subview->frame.origin, view->layer->size), rect_make(point_zero(), subview->frame.size));
+		blit_layer(view->layer, subview->layer, rect_make(subview->frame.origin, subview->layer->size), rect_make(point_zero(), subview->layer->size));
 	}
+	
 	view->needs_redraw = 0;
 }
 
 bool draw_window(Screen* UNUSED(screen), Window* window) {
-	if (!window->needs_redraw) return false;
-
 	//if window is invisible, don't bother drawing
 	if (!window->layer->alpha) return false;
+	//if window doesn't need to be redrawn, no work to do
+	if (!window->needs_redraw) {
+		//however, if there's a redraw callback, call it
+		if (window->redraw_handler) {
+			//draw_rect(window->content_view->layer, rect_make(point_zero(), window->content_view->frame.size), window->content_view->background_color, THICKNESS_FILLED);
+			event_handler redraw = window->redraw_handler;
+			redraw(window, NULL);
+			blit_layer(window->layer, window->content_view->layer, rect_make(window->content_view->frame.origin, window->layer->size), rect_make(point_zero(), window->content_view->frame.size));
+
+			return true;
+		}
+		return false;
+	}
 
 	dirtied = 1;
 
@@ -157,6 +148,13 @@ bool draw_window(Screen* UNUSED(screen), Window* window) {
 	//only draw the content view if content_view exists
 	if (window->content_view) {
 		draw_view(window->content_view);
+
+		//if there's a redraw callback, call it
+		if (window->redraw_handler) {
+			event_handler redraw = window->redraw_handler;
+			redraw(window, NULL);
+		}
+
 		blit_layer(window->layer, window->content_view->layer, rect_make(window->content_view->frame.origin, window->layer->size), rect_make(point_zero(), window->content_view->frame.size));
 
 		//draw dividing border between window border and other content
@@ -230,9 +228,16 @@ void add_status_bar(Screen* screen) {
 static Coordinate last_grabbed_window_pos;
 static void draw_window_shadow(Screen* screen, Window* window, Coordinate new) {
 	Coordinate old = last_grabbed_window_pos;
-	for (float i = 0; i < shadow_count; i++) {
-		int lerp_x = lerp(old.x, new.x, (1 / shadow_count) * i);
-		int lerp_y = lerp(old.y, new.y, (1 / shadow_count) * i);
+	float actual_shadow_count = shadow_count;
+	if (window->layer->alpha < 1.0) actual_shadow_count = 2.0;
+	for (float i = 0; i < actual_shadow_count; i++) {
+		int lerp_x = lerp(old.x, new.x, (1 / actual_shadow_count) * i);
+		int lerp_y = lerp(old.y, new.y, (1 / actual_shadow_count) * i);
+		/*
+		if (abs(old.x - new.x) < 2 || abs(old.y - new.y) < 2) {
+			continue;
+		}
+		*/
 		Coordinate shadow_loc = point_make(lerp_x, lerp_y);
 
 		//draw snapshot of window
@@ -255,11 +260,12 @@ void draw_desktop(Screen* screen) {
 			Window* win = (Window*)(array_m_lookup(screen->window->subviews, i));
 			draw_window(screen, win);
 
-			Rect* visible_rects = rect_clip(win->frame, highest->frame);
-			if (!visible_rects || highest->layer->alpha < 1.0) {
+			//Rect* visible_rects = rect_clip(win->frame, highest->frame);
+			//if (!visible_rects || highest->layer->alpha < 1.0) {
 				//not occluded by highest at all
 				//draw view normally, composite onto vmem
 				blit_layer(screen->vmem, win->layer, win->frame, rect_make(point_zero(), win->frame.size));
+				/*
 			}
 			else {
 				//maximum 4 sub-rects
@@ -273,6 +279,7 @@ void draw_desktop(Screen* screen) {
 					blit_layer(screen->vmem, win->layer, r, rect_make(origin_offset, r.size));
 				}
 			}
+			*/
 		}
 		
 		//finally, composite highest window
@@ -285,6 +292,16 @@ void draw_desktop(Screen* screen) {
 	}
 }
 
+static void display_about_window(Coordinate origin) {
+	//TODO this text should load off a file
+	//localization?
+	Window* about_win = create_window(rect_make(origin, size_make(800, 300)));
+	about_win->title = "About axle";
+	Label* body_label = create_label(rect_make(point_make(0, 0), size_make(about_win->content_view->frame.size.width, about_win->content_view->frame.size.height)), "Welcome to axle OS.\n\nVisit www.github.com/codyd51/axle for this OS's source code.\nYou are in axle's window manager, called xserv. xserv is a compositing window manager, meaning window bitmaps are stored offscreen and combined into a final image each frame.\n\tYou can right click anywhere on the desktop to access axle's application launcher. These are a few apps to show what axle and xserv can do, such as load a bitmap from axle's filesystem or display live CPU usage animations.\n\nIf you want to force a full xserv redraw, press 'r'\nIf you want to toggle the transparency of the topmost window between 0.5 and 1, press 'a'\n\nPress ctrl+m any time to log source file dynamic memory usage.\nPress ctrl+p at any time to log CPU usage.\n");
+	add_sublabel(about_win->content_view, body_label);
+	present_window(about_win);
+}
+
 void desktop_setup(Screen* screen) {
 	//set up background image
 	Bmp* background = load_bmp(screen->window->content_view->frame, "altitude.bmp");
@@ -293,6 +310,11 @@ void desktop_setup(Screen* screen) {
 	}
 	add_status_bar(screen);
 	add_taskbar(screen);
+
+	//display_sample_image(point_make(450, 100));
+	//display_about_window(point_make(100, 250));
+	//calculator_xserv(point_make(400, 300));
+	//display_usage_monitor(point_make(400, 600));
 }
 
 static void draw_mouse_shadow(Screen* screen, Coordinate old, Coordinate new) {
@@ -502,7 +524,7 @@ static void process_kb_events(Screen* screen) {
 			}
 		}
 		else if (ch == 'c') {
-			calculator_xserv();
+			calculator_xserv(point_make(100, 500));
 		}
 	}
 }
@@ -639,8 +661,9 @@ void xserv_temp_stop(uint32_t pause_length) {
 	xserv_resume();
 }
 
-void xserv_init_late() {
-	//switch to VESA for x serv
+void xserv_init() {
+	become_first_responder();
+	//switch to VESA for xserv
 	Screen* screen = switch_to_vesa(0x118, true);
 	desktop_setup(screen);
 
@@ -658,10 +681,5 @@ void xserv_init_late() {
 	}
 
 	_kill();
-}
-
-void xserv_init() {
-	become_first_responder();
-	xserv_init_late();
 }
 

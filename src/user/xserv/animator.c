@@ -5,7 +5,7 @@
 
 void add_animation(Window* window, ca_animation* anim) {
 	array_m_insert(window->animations, anim);
-	anim->end_date = time() + (anim->duration * 1000);
+	anim->end_date = tick_count() + (anim->duration * 1000);
 }
 
 void finalize_animation(Window* window, ca_animation* anim) {
