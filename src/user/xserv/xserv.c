@@ -47,9 +47,17 @@ void draw_label(ca_layer* dest, Label* label) {
 		background_color = superview->background_color;
 	}
 	draw_rect(label->layer, rect_make(point_zero(), label->frame.size), background_color, THICKNESS_FILLED);
-	draw_string(label->layer, label->text, point_make(CHAR_WIDTH, CHAR_HEIGHT), label->text_color);
 
-	blit_layer(dest, label->layer, rect_make(label->frame.origin, dest->size), rect_make(point_zero(), label->frame.size));
+	Point origin = point_zero();
+	/*
+	if (label->frame.size.width >= CHAR_WIDTH && label->frame.size.height >= CHAR_HEIGHT) {
+		origin.x = CHAR_WIDTH;
+		origin.y = CHAR_HEIGHT;
+	}
+	*/
+	draw_string(label->layer, label->text, origin, label->text_color, label->font_size);
+
+	blit_layer(dest, label->layer, rect_make(label->frame.origin, label->layer->size), rect_make(point_zero(), label->layer->size));
 
 	label->needs_redraw = 0;
 }
@@ -183,7 +191,7 @@ void add_taskbar(Screen* screen) {
 	Rect border_r = rect_make(point_make(0, 0), size_make(taskbar_size.width, 5));
 	taskbar_size.height -= border_r.size.height;
 
-	Coordinate taskbar_origin = point_make(0, content->frame.size.height - taskbar_size.height + border_r.size.height);
+	Point taskbar_origin = point_make(0, content->frame.size.height - taskbar_size.height + border_r.size.height);
 
 	View* taskbar_view = create_view(rect_make(taskbar_origin, taskbar_size));
 	taskbar_view->background_color = color_make(245, 120, 80);
@@ -201,7 +209,7 @@ void add_taskbar(Screen* screen) {
 	add_subview(taskbar_view, inner_border);
 
 	Rect usable = rect_make(point_make(0, border_r.origin.y + border_r.size.height), size_make(taskbar_view->frame.size.width, taskbar_view->frame.size.height - border_r.size.height));
-	Coordinate name_label_origin = point_make(taskbar_view->frame.size.width * 0.925, usable.origin.y + (usable.size.height / 2) - (CHAR_HEIGHT / 2));
+	Point name_label_origin = point_make(taskbar_view->frame.size.width * 0.925, usable.origin.y + (usable.size.height / 2) - (CHAR_HEIGHT / 2));
 	Rect label_rect = rect_make(name_label_origin, size_make(taskbar_size.width - name_label_origin.x, taskbar_size.height));
 	Label* name_label = create_label(label_rect, "axle OS");
 	add_sublabel(taskbar_view, name_label);
@@ -225,9 +233,9 @@ void add_status_bar(Screen* screen) {
 	add_subview(status_bar, border);
 }
 
-static Coordinate last_grabbed_window_pos;
-static void draw_window_shadow(Screen* screen, Window* window, Coordinate new) {
-	Coordinate old = last_grabbed_window_pos;
+static Point last_grabbed_window_pos;
+static void draw_window_shadow(Screen* screen, Window* window, Point new) {
+	Point old = last_grabbed_window_pos;
 	float actual_shadow_count = shadow_count;
 	if (window->layer->alpha < 1.0) actual_shadow_count = 2.0;
 	for (float i = 0; i < actual_shadow_count; i++) {
@@ -238,7 +246,7 @@ static void draw_window_shadow(Screen* screen, Window* window, Coordinate new) {
 			continue;
 		}
 		*/
-		Coordinate shadow_loc = point_make(lerp_x, lerp_y);
+		Point shadow_loc = point_make(lerp_x, lerp_y);
 
 		//draw snapshot of window
 		blit_layer(screen->vmem, window->layer, rect_make(shadow_loc, window->layer->size), rect_make(point_zero(), window->layer->size));
@@ -273,7 +281,7 @@ void draw_desktop(Screen* screen) {
 					Rect r = visible_rects[j];
 					if (r.size.width == 0 && r.size.height == 0) break;
 
-					Coordinate origin_offset;
+					Point origin_offset;
 					origin_offset.x = abs(win->frame.origin.x - r.origin.x);
 					origin_offset.y = abs(win->frame.origin.y - r.origin.y);
 					blit_layer(screen->vmem, win->layer, r, rect_make(origin_offset, r.size));
@@ -292,12 +300,13 @@ void draw_desktop(Screen* screen) {
 	}
 }
 
-static void display_about_window(Coordinate origin) {
+static void display_about_window(Point origin) {
 	//TODO this text should load off a file
 	//localization?
 	Window* about_win = create_window(rect_make(origin, size_make(800, 300)));
 	about_win->title = "About axle";
 	Label* body_label = create_label(rect_make(point_make(0, 0), size_make(about_win->content_view->frame.size.width, about_win->content_view->frame.size.height)), "Welcome to axle OS.\n\nVisit www.github.com/codyd51/axle for this OS's source code.\nYou are in axle's window manager, called xserv. xserv is a compositing window manager, meaning window bitmaps are stored offscreen and combined into a final image each frame.\n\tYou can right click anywhere on the desktop to access axle's application launcher. These are a few apps to show what axle and xserv can do, such as load a bitmap from axle's filesystem or display live CPU usage animations.\n\nIf you want to force a full xserv redraw, press 'r'\nIf you want to toggle the transparency of the topmost window between 0.5 and 1, press 'a'\n\nPress ctrl+m any time to log source file dynamic memory usage.\nPress ctrl+p at any time to log CPU usage.\n");
+	body_label->font_size = size_make(16, 16);
 	add_sublabel(about_win->content_view, body_label);
 	present_window(about_win);
 }
@@ -312,16 +321,16 @@ void desktop_setup(Screen* screen) {
 	add_taskbar(screen);
 
 	//display_sample_image(point_make(450, 100));
-	//display_about_window(point_make(100, 250));
+	display_about_window(point_make(100, 250));
 	//calculator_xserv(point_make(400, 300));
-	//display_usage_monitor(point_make(400, 600));
+	//display_usage_monitor(point_make(350, 500));
 }
 
-static void draw_mouse_shadow(Screen* screen, Coordinate old, Coordinate new) {
+static void draw_mouse_shadow(Screen* screen, Point old, Point new) {
 	for (float i = 0; i < shadow_count; i++) {
 		int lerp_x = lerp(old.x, new.x, (1 / shadow_count) * i);
 		int lerp_y = lerp(old.y, new.y, (1 / shadow_count) * i);
-		Coordinate shadow_loc = point_make(lerp_x, lerp_y);
+		Point shadow_loc = point_make(lerp_x, lerp_y);
 
 		//draw cursor shadow
 		draw_rect(screen->vmem, rect_make(shadow_loc, size_make(10, 12)), color_make(200, 200, 230), THICKNESS_FILLED);
@@ -330,7 +339,7 @@ static void draw_mouse_shadow(Screen* screen, Coordinate old, Coordinate new) {
 	}
 }
 
-static Coordinate last_mouse_pos = { -1, -1 };
+static Point last_mouse_pos = { -1, -1 };
 void draw_cursor(Screen* screen) {
 	//actual cursor bitmap
 	static Bmp* cursor = 0;
@@ -376,7 +385,7 @@ char xserv_draw(Screen* screen) {
 }
 
 //recursively checks view hierarchy, returning lowest view bounding point
-static View* view_containing_point_sub(View* view, Coordinate p) {
+static View* view_containing_point_sub(View* view, Point p) {
 	if (rect_contains_point(view->frame, p)) {
 		if (!view->subviews->size) {
 			return view;
@@ -386,7 +395,7 @@ static View* view_containing_point_sub(View* view, Coordinate p) {
 			View* subview = (View*)array_m_lookup(view->subviews, i);
 
 			//convert point to subview's coordinate space
-			Coordinate converted = p;
+			Point converted = p;
 			converted.x -= view->frame.origin.x;
 			converted.y -= view->frame.origin.y;
 
@@ -404,7 +413,7 @@ static View* view_containing_point_sub(View* view, Coordinate p) {
 
 //uses view_containing_point_sub to try to find a point owner
 //if none own click, checks against window's title and content views
-static View* view_containing_point(Window* window, Coordinate p) {
+static View* view_containing_point(Window* window, Point p) {
 	//is this point bounded at all?
 	if (!rect_contains_point(window->frame, p)) {
 		return NULL;
@@ -419,7 +428,7 @@ static View* view_containing_point(Window* window, Coordinate p) {
 	}
 
 	//remove title view offset
-	Coordinate c = p;
+	Point c = p;
 	c.x -= window->title_view->frame.origin.x;
 	c.y -= window->title_view->frame.origin.y;
 
@@ -431,7 +440,7 @@ static View* view_containing_point(Window* window, Coordinate p) {
 	return window->content_view;
 }
 
-static Window* window_containing_point(Coordinate p) {
+static Window* window_containing_point(Point p) {
 	Screen* screen = gfx_screen();
 	//traverse window hierarchy, starting with the topmost window
 	for (int i = screen->window->subviews->size - 1; i >= 0; i--) {
@@ -461,7 +470,7 @@ static void set_active_window(Screen* screen, Window* grabbed_window) {
 	}
 }
 
-static Coordinate world_point_to_owner_space_sub(Coordinate p, View* view) {
+static Point world_point_to_owner_space_sub(Point p, View* view) {
 	if (rect_contains_point(view->frame, p)) {
 		p.x -= view->frame.origin.x;
 		p.y -= view->frame.origin.y;
@@ -481,8 +490,8 @@ static Coordinate world_point_to_owner_space_sub(Coordinate p, View* view) {
 }
 
 //converts gloabl point to view's coordinate space
-Coordinate world_point_to_owner_space(Coordinate p) {
-	Coordinate converted = p;
+Point world_point_to_owner_space(Point p) {
+	Point converted = p;
 	Window* win = window_containing_point(p);
 	converted.x -= win->frame.origin.x;
 	converted.y -= win->frame.origin.y;
@@ -534,7 +543,7 @@ static void process_mouse_events(Screen* screen) {
 
 	//get mouse events
 	uint8_t events = mouse_events();
-	Coordinate p = mouse_point();
+	Point p = mouse_point();
 
 	//0th bit is left mouse button
 	bool left = events & 0x1;
@@ -586,7 +595,7 @@ static void process_mouse_events(Screen* screen) {
 	if (local_owner) {
 		for (int j = 0; j < local_owner->buttons->size; j++) {
 			//convert point to local coordinate space
-			Coordinate conv = world_point_to_owner_space(p);
+			Point conv = world_point_to_owner_space(p);
 
 			Button* b = (Button*)array_m_lookup(local_owner->buttons, j);
 			if (rect_contains_point(b->frame, conv)) {
@@ -633,7 +642,7 @@ void xserv_refresh(Screen* screen) {
 	double frame_time = (time() - time_start) / 1000.0;
 	double fps_conv = 1 / frame_time / 10;
 
-	update_all_animations(screen, frame_time);
+	//update_all_animations(screen, frame_time);
 
 	//update frame time tracker
 	char buf[32];

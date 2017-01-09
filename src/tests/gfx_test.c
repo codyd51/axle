@@ -146,9 +146,9 @@ void draw_julia(Screen* screen, bool rgb) {
 void test_triangles(Screen* screen) {
 	fill_screen(screen, color_make(0, 0, 0));
 
-	Coordinate p1 = point_make(screen->window->size.width / 2, 0);
-	Coordinate p2 = point_make(0, screen->window->size.height - 10);
-	Coordinate p3 = point_make(screen->window->size.width, screen->window->size.height - 10);
+	Point p1 = point_make(screen->window->size.width / 2, 0);
+	Point p2 = point_make(0, screen->window->size.height - 10);
+	Point p3 = point_make(screen->window->size.width, screen->window->size.height - 10);
 
 	for (int i = 1; i <= 12; i++) {
 		Triangle t = triangle_make(p1, p2, p3);
@@ -165,7 +165,7 @@ void test_triangles(Screen* screen) {
 void test_rects(Screen* screen) {
 	fill_screen(screen, color_make(0, 0, 0));
 
-	Coordinate origin = point_make(0, 0);
+	Point origin = point_make(0, 0);
 	Size sz = screen->window->size;
 
 	for (int i = 0; i < 20; i++) {
@@ -182,7 +182,7 @@ void test_rects(Screen* screen) {
 void test_circles(Screen* screen) {
 	fill_screen(screen, color_make(0, 0, 0));
 
-	Coordinate center = point_make(screen->window->size.width/2, screen->window->size.height/2);
+	Point center = point_make(screen->window->size.width/2, screen->window->size.height/2);
 	int radius = screen->window->size.height/2;
 
 	for (int i = 0; i < 26; i++) {
@@ -203,8 +203,8 @@ void test_lines(Screen* screen) {
 		int p2x = rand() % (layer->size.width + 1);
 		int p2y = rand() % (layer->size.height + 1);
 
-		Coordinate p1 = point_make(p1x, p1y);
-		Coordinate p2 = point_make(p2x, p2y);
+		Point p1 = point_make(p1x, p1y);
+		Point p2 = point_make(p2x, p2y);
 		Line line = line_make(p1, p2);
 		draw_line(layer, line, color_make(i, 0, 0), 1);
 	}
@@ -226,19 +226,19 @@ void test_text(Screen* screen) {
 void draw_test_button(Screen* screen) {
 	fill_screen(screen, color_make(0, 0, 0));
 
-	Coordinate origin = point_make(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
+	Point origin = point_make(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
 	Size sz = size_make(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
 	Rect r = rect_make(origin, sz);
 	draw_rect(screen->vmem, r, color_make(2, 0, 0), 1);
 
-	Coordinate in_origin = point_make(origin.x + 1, origin.y + 1);
+	Point in_origin = point_make(origin.x + 1, origin.y + 1);
 	Size in_size = size_make(sz.width - 2, sz.height - 2);
 	Rect in_rect = rect_make(in_origin, in_size);
 	draw_rect(screen->vmem, in_rect, color_make(12, 0, 0), 30);
 
-	Coordinate p1 = point_make(origin.x + sz.width * 0.1, origin.y + sz.height * 0.1);
-	Coordinate p2 = point_make(origin.x + sz.width * 0.1, origin.y + sz.height * 0.9);
-	Coordinate p3 = point_make(origin.x + sz.width * 0.4, origin.y + sz.height * 0.5);
+	Point p1 = point_make(origin.x + sz.width * 0.1, origin.y + sz.height * 0.1);
+	Point p2 = point_make(origin.x + sz.width * 0.1, origin.y + sz.height * 0.9);
+	Point p3 = point_make(origin.x + sz.width * 0.4, origin.y + sz.height * 0.5);
 	Triangle tri = triangle_make(p1, p2, p3);
 	draw_triangle(screen->vmem, tri, color_make(15, 0, 0), 1);
 
@@ -339,7 +339,7 @@ void test_xserv() {
 
 	Window* pos_win = create_window(rect_make(point_make(400, 200), size_make(250, 250)));
 	pos_win->title = "Position animation";
-	Coordinate pos_to = alpha_win->frame.origin;
+	Point pos_to = alpha_win->frame.origin;
 	ca_animation* pos = create_animation(POS_ANIM, &pos_to, 2.0);
 	Label* label = create_label(rect_make(point_make(75, 125), size_make(125, CHAR_HEIGHT)), "Wheeee!");
 	add_sublabel(pos_win->content_view, label);

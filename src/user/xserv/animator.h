@@ -16,7 +16,7 @@ typedef struct ca_animation {
 	animation_type type;
 
 	float alpha_to;
-	Coordinate pos_to;
+	Point pos_to;
 	Color color_to;
 
 	animation_update update;

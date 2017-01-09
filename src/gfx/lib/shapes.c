@@ -11,35 +11,35 @@ double line_length(Line line) {
 	return sqrt(pow(line.p2.x - line.p1.x, 2) + pow(line.p2.y - line.p1.y, 2));
 }
 
-Coordinate line_center(Line line) {
+Point line_center(Line line) {
 	//average coordinates together
 	double x = (line.p1.x + line.p2.x) / 2;
 	double y = (line.p1.y + line.p2.y) / 2;
 	return point_make(x, y);
 }
 
-Coordinate triangle_center(Triangle t) {
+Point triangle_center(Triangle t) {
 	//average coordinates together
 	double x = (t.p1.x + t.p2.x + t.p3.x) / 3;
 	double y = (t.p1.y + t.p2.y + t.p3.y) / 3;
 	return point_make(x, y);
 }
 
-Line line_make(Coordinate p1, Coordinate p2) {
+Line line_make(Point p1, Point p2) {
 	Line line;
 	line.p1 = p1;
 	line.p2 = p2;
 	return line;
 }
 
-Circle circle_make(Coordinate center, int radius) {
+Circle circle_make(Point center, int radius) {
 	Circle circle;
 	circle.center = center;
 	circle.radius = radius;
 	return circle;
 }
 
-Triangle triangle_make(Coordinate p1, Coordinate p2, Coordinate p3) {
+Triangle triangle_make(Point p1, Point p2, Point p3) {
 	Triangle triangle;
 	triangle.p1 = p1;
 	triangle.p2 = p2;
@@ -47,7 +47,7 @@ Triangle triangle_make(Coordinate p1, Coordinate p2, Coordinate p3) {
 	return triangle;
 }
 
-void normalize_coordinate(ca_layer* layer, Coordinate* p) {
+void normalize_coordinate(ca_layer* layer, Point* p) {
 	//don't try to write anywhere outside screen bounds
 	p->x = MAX(p->x, 0);
 	p->y = MAX(p->y, 0);
@@ -117,7 +117,7 @@ void draw_rect(ca_layer* layer, Rect r, Color color, int thickness) {
 	int w = r.size.width;
 	int h = r.size.height;
 	for (int i = 0; i <= thickness; i++) {
-		Coordinate origin = point_make(x, y);
+		Point origin = point_make(x, y);
 		Size size = size_make(w, h);
 		Rect rt = rect_make(origin, size);
 
@@ -137,13 +137,17 @@ void draw_hline_fast(ca_layer* layer, Line line, Color color, int thickness) {
 	normalize_coordinate(layer, &line.p1);
 	normalize_coordinate(layer, &line.p2);
 
-	bool rgb = (gfx_depth() == VESA_DEPTH);
-	int bpp = (rgb ? 3 : 1);
+	int bpp = gfx_bpp();
 
 	//calculate starting point
 	int offset = (line.p1.x * bpp) + (line.p1.y * bpp * layer->size.width);
-	for (int i = 0; i < line.p2.x - line.p1.x; i++) {
-		if (rgb) {
+	int length = line.p2.x - line.p1.x;
+	int overhang = length + line.p1.x - layer->size.width;
+	if (overhang > 0) {
+		length -= overhang;
+	}
+	for (int i = 0; i < length; i++) {
+		if (bpp > 1) {
 			//we have to write the pixels in BGR, not RGB
 			layer->raw[offset++] = color.val[2];
 			layer->raw[offset++] = color.val[1];
@@ -262,8 +266,8 @@ void draw_line(ca_layer* layer, Line line, Color color, int thickness) {
 
 void draw_triangle_int_fast(ca_layer* layer, Triangle triangle, Color color) {
 	//bounding rectangle
-	Coordinate min;
-	Coordinate max;
+	Point min;
+	Point max;
 	min.x = MIN(triangle.p1.x, triangle.p2.x);
 	min.x = MIN(min.x, triangle.p3.x);
 	min.y = MIN(triangle.p1.y, triangle.p2.y);
@@ -296,7 +300,7 @@ void draw_triangle_int(ca_layer* layer, Triangle triangle, Color color) {
 	draw_line(layer, l3, color, 1);
 }
 
-Line shrink_line(Coordinate p1, Coordinate p2, float pixel_count) {
+Line shrink_line(Point p1, Point p2, float pixel_count) {
 	//return line_make(point_make(p1.x - 5, p1.y - 5), l.p2);
 	//if (p1.x == p2.x && p1.y == p2.y) return l;
 	double dx = p2.x - p1.x;

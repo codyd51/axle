@@ -4,29 +4,29 @@
 #include "gfx.h"
 
 typedef struct line {
-	Coordinate p1;
-	Coordinate p2;
+	Point p1;
+	Point p2;
 } Line;
 
 typedef struct circle {
-	Coordinate center;
+	Point center;
 	int radius;
 } Circle;
 
 typedef struct triangle {
-	Coordinate p1;
-	Coordinate p2;
-	Coordinate p3;
+	Point p1;
+	Point p2;
+	Point p3;
 } Triangle;
 
-void normalize_coordinate(ca_layer* layer, Coordinate* p);
+void normalize_coordinate(ca_layer* layer, Point* p);
 
-Coordinate point_make(int x, int y);
+Point point_make(int x, int y);
 Size size_make(int w, int h);
-Rect rect_make(Coordinate origin, Size size);
-Line line_make(Coordinate p1, Coordinate p2);
-Circle circle_make(Coordinate center, int radius);
-Triangle triangle_make(Coordinate p1, Coordinate p2, Coordinate p3);
+Rect rect_make(Point origin, Size size);
+Line line_make(Point p1, Point p2);
+Circle circle_make(Point center, int radius);
+Triangle triangle_make(Point p1, Point p2, Point p3);
 
 #define THICKNESS_FILLED -1
 

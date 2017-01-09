@@ -74,6 +74,13 @@ void gfx_teardown(Screen* screen) {
 }
 
 void switch_to_text() {
+	//do nothing if we're already in terminal mode
+	/*
+	if (!current_screen) {
+		return;
+	}
+	*/
+
 	regs16_t regs;
 	regs.ax = 0x0003;
 	int32(0x10, &regs);
@@ -101,7 +108,7 @@ void rainbow_animation(Screen* screen, Rect r, int animationStep) {
 	//ROY G BIV
 	int colors[] = {4, 42, 44, 46, 1, 13, 34};
 	for (int i = 0; i < 7; i++) {
-		Coordinate origin = point_make(r.origin.x + (r.size.width / 7) * i, r.origin.y);
+		Point origin = point_make(r.origin.x + (r.size.width / 7) * i, r.origin.y);
 		Size size = size_make((r.size.width / 7), r.size.height);
 		Rect seg = rect_make(origin, size);
 
@@ -119,15 +126,15 @@ void vga_boot_screen(Screen* screen) {
 	color.val[0] = 0;
 	fill_screen(screen, color);
 
-	Coordinate p1 = point_make(screen->window->size.width / 2, screen->window->size.height * 0.25);
-	Coordinate p2 = point_make(screen->window->size.width / 2 - 25, screen->window->size.height * 0.25 + 50);
-	Coordinate p3 = point_make(screen->window->size.width / 2 + 25, screen->window->size.height * 0.25 + 50);
+	Point p1 = point_make(screen->window->size.width / 2, screen->window->size.height * 0.25);
+	Point p2 = point_make(screen->window->size.width / 2 - 25, screen->window->size.height * 0.25 + 50);
+	Point p3 = point_make(screen->window->size.width / 2 + 25, screen->window->size.height * 0.25 + 50);
 	Triangle triangle = triangle_make(p1, p2, p3);
 	Color tri_col;
 	tri_col.val[0] = 2;
 	draw_triangle(screen->vmem, triangle, tri_col, 5);
 
-	Coordinate lab_origin = point_make(screen->window->size.width / 2 - (3.75 * 8), screen->window->size.height * 0.625);
+	Point lab_origin = point_make(screen->window->size.width / 2 - (3.75 * 8), screen->window->size.height * 0.625);
 	Size lab_size = size_make((10 * strlen("axle os")), 12);
 	Label* label = create_label(rect_make(lab_origin, lab_size), "axle os");
 	label->text_color = color_make(2, 0, 0);
@@ -137,7 +144,7 @@ void vga_boot_screen(Screen* screen) {
 	draw_label(screen->vmem, label);
 
 	float rect_length = screen->window->size.width / 3;
-	Coordinate origin = point_make((screen->window->size.width/2) - (rect_length / 2), screen->window->size.height / 4 * 3);
+	Point origin = point_make((screen->window->size.width/2) - (rect_length / 2), screen->window->size.height / 4 * 3);
 	Size sz = size_make(rect_length - 5, screen->window->size.height / 16);
 	Rect border_rect = rect_make(origin, sz);
 
@@ -150,7 +157,7 @@ void vga_boot_screen(Screen* screen) {
 
 	sleep(500);
 
-	Coordinate rainbow_origin = point_make(origin.x + 2, origin.y + 2);
+	Point rainbow_origin = point_make(origin.x + 2, origin.y + 2);
 	Size rainbow_size = size_make(rect_length - 4, sz.height - 3);
 	Rect rainbow_rect = rect_make(rainbow_origin, rainbow_size);
 	rainbow_animation(screen, rainbow_rect, 750);

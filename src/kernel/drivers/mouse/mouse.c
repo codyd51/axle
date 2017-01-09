@@ -24,7 +24,7 @@ static inline uint32_t log2(const uint32_t x) {
 
 #define VESA_WIDTH 1024
 #define VESA_HEIGHT 768
-Coordinate mouse_point() {
+Point mouse_point() {
 	static int prev_running_x = 0;
 	static int prev_running_y = 0;
 
@@ -37,7 +37,7 @@ Coordinate mouse_point() {
 	delt_x *= scaling;
 	delt_y *= scaling;
 
-	Coordinate new_pos = point_make(running_x + delt_x, running_y + delt_y);
+	Point new_pos = point_make(running_x + delt_x, running_y + delt_y);
 
 	new_pos.x = MAX(new_pos.x, 0);
 	new_pos.x = MIN(new_pos.x, VESA_WIDTH - 5);

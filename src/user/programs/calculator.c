@@ -78,7 +78,7 @@ void calc_op_click(Button* b) {
 	}
 }
 
-void calculator_xserv(Coordinate origin) {
+void calculator_xserv(Point origin) {
 	Size button_size = size_make(60, 60);
 	int result_view_height = 50;
 	int button_spacing = 0;

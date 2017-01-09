@@ -106,7 +106,7 @@ ca_animation* create_animation(animation_type type, void* to, float duration) {
 			ret->update = &update_alpha_anim;
 			break;
 		case POS_ANIM:
-			ret->pos_to = *(Coordinate*)to;
+			ret->pos_to = *(Point*)to;
 			ret->update = &update_pos_anim;
 			break;
 		case COLOR_ANIM:

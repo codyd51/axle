@@ -41,6 +41,7 @@ static void outputc(int dest, char c) {
 }
 
 static void output(int dest, char* str) {
+	if (!str) return;
 	while (*str) {
 		outputc(dest, *(str++));
 	}
@@ -149,10 +150,14 @@ void vprintf(int dest, char* format, va_list va) {
 				} break;
 				case 'f':
 				case 'F': {
-					//labels must be followed by statements, and the declaration below
-					//is not a statement, which causes a compiler error
-					//to get around this, we have an empty statement
-					;
+					/*
+					double fnum = va_arg(va, double);
+					//print integer part, truncate fraction
+					print_common(dest, "%d.", (int)fnum);
+					//get numbers after decimal
+					fnum = (fnum - (int)fnum) * 1000000;
+					print_common(dest, "%d", (int)fnum);
+					*/
 
 					double fnum = va_arg(va, double);
 					//TODO find better way to do this

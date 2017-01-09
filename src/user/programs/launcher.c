@@ -5,7 +5,7 @@
 #include <gfx/lib/button.h>
 #include <std/string.h>
 
-void display_sample_image(Coordinate origin) {
+void display_sample_image(Point origin) {
 		Window* image_viewer = create_window(rect_make(origin, size_make(512, 512)));
 		image_viewer->title = "Image Viewer";
 		image_viewer->content_view->background_color = color_make(135, 206, 250);
@@ -41,7 +41,7 @@ void launcher_teardown() {
 	launcher_win = NULL;
 }
 
-void launcher_invoke(Coordinate origin) {
+void launcher_invoke(Point origin) {
 	if (launcher_win) return;
 
 	Size button_size = size_make(150, 50);

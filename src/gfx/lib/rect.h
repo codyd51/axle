@@ -12,11 +12,11 @@
 #define rect_max_y(r) ((r).origin.y + (r).size.height)
 
 typedef struct rect {
-	Coordinate origin;
+	Point origin;
 	Size size;
 } Rect;
 
-Rect rect_make(Coordinate origin, Size size);
+Rect rect_make(Point origin, Size size);
 Rect rect_zero();
 
 bool rect_intersects(Rect A, Rect B);
@@ -28,7 +28,7 @@ Rect* rect_clip(Rect subject, Rect cutting);
 //find the intersecting rect of a and b
 Rect rect_intersect(Rect a, Rect b);
 //returns true if point is bounded by rect
-bool rect_contains_point(Rect r, Coordinate p);
+bool rect_contains_point(Rect r, Point p);
 
 //convert inner to outer's coordinate space
 Rect convert_rect(Rect outer, Rect inner);

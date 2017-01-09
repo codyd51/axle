@@ -39,7 +39,7 @@ void update_usage_stats(Window* win) {
 		for (int j = 0; j < diff; j++) {
 			strcat(&name, " ");
 		}
-		draw_string(win->content_view->layer, &name, point_make(CHAR_WIDTH, CHAR_HEIGHT + (section_height * i)), color_black());
+		draw_string(win->content_view->layer, &name, point_make(CHAR_WIDTH, CHAR_HEIGHT + (section_height * i)), color_black(), size_make(CHAR_WIDTH, CHAR_HEIGHT));
 
 		draw_line(win->content_view->layer, line_make(point_make(0, section_height * (i+1)), point_make(label_length, section_height * (i+1))), color_gray(), 1);
 		draw_line(win->content_view->layer, line_make(point_make(label_length, section_height * (i+1)), point_make(win->content_view->frame.size.width, section_height * (i + 1))), color_black(), 1);
@@ -59,7 +59,7 @@ void update_usage_stats(Window* win) {
 	kfree(history);
 }
 
-void display_usage_monitor(Coordinate origin) {
+void display_usage_monitor(Point origin) {
 	Window* usage_win = create_window(rect_make(origin, size_make(500, 200)));
 	//usage_win->teardown_handler = usage_monitor_teardown;
 	usage_win->title = "Usage monitor";

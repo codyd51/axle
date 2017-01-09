@@ -442,8 +442,17 @@ void hypervisor_command() {
 	printf("--- cpu state: R0 = 1 R1 = 2 R2 = 5 R3 = 1 ---\n");
 }
 
+void proc_command() {
+	proc();
+	printf_info("Process state logged");
+}
+
 void shell_init() {
+	printf("\n");
+	printf_info("Boostrap complete.");
 	printf_info("Type 'help' for a list of available commands");
+	printf_info("Try 'startx' to launch axle's window manager.");
+	printf_info("axle's shell supports autocomplete on <tab>. Try it!");
 	//set shell color
 	printf("\e[10;");
 
@@ -465,7 +474,7 @@ void shell_init() {
 	add_new_command("cat", "Write file to stdout", (void(*)())cat_command);
 	add_new_command("hex", "Write hex dump of file to stdout", (void(*)())hex_command);
 	add_new_command("open", "Load file", (void(*)())open_command);
-	add_new_command("proc", "List running processes", proc);
+	add_new_command("proc", "List running processes", proc_command);
 	add_new_command("pci", "List PCI devices", pci_list);
 	add_new_command("hypervisor", "Run VM", hypervisor_command);
 	add_new_command("", "", empty_command);

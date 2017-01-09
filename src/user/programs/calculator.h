@@ -3,6 +3,6 @@
 
 #include <gfx/lib/shapes.h>
 
-void calculator_xserv(Coordinate origin);
+void calculator_xserv(Point origin);
 
 #endif

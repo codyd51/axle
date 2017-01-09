@@ -18,7 +18,7 @@ bool rect_intersects(Rect A, Rect B) {
     return x_overlap && y_overlap;
 }
 
-Rect rect_make(Coordinate origin, Size size) {
+Rect rect_make(Point origin, Size size) {
 	Rect rect;
 	rect.origin = origin;
 	rect.size = size;
@@ -150,7 +150,7 @@ Rect rect_intersect(Rect a, Rect b) {
 	return result;
 }
 
-bool rect_contains_point(Rect r, Coordinate p) {
+bool rect_contains_point(Rect r, Point p) {
 	if (p.x >= rect_min_x(r) && p.y >= rect_min_y(r) && p.x < rect_max_x(r) && p.y < rect_max_y(r)) {
 		return true;
 	}

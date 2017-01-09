@@ -225,7 +225,7 @@ void rexle_int(int mode) {
 				int tex_y = ((d * tex_height) / line_h) / 256;
 
 				//we have x and y, find color at this point in texture
-				Coordinate tex_px = point_make(tex_x % tex_width, tex_y % tex_height);
+				Point tex_px = point_make(tex_x % tex_width, tex_y % tex_height);
 				
 				uint8_t* raw = (uint8_t*)(tex->layer->raw + (tex_px.y * tex_width * gfx_bpp()) + (tex_px.x * gfx_bpp()));
 				Color col;

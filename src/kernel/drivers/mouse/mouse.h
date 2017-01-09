@@ -7,7 +7,7 @@
 void mouse_install();
 
 //return current mouse coordinates, bounded by VESA 0x118 resolution
-Coordinate mouse_point();
+Point mouse_point();
 
 //returns current button states in bitmask
 //0th bit is left button state

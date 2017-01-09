@@ -4,9 +4,9 @@
 typedef struct coordinate {
 	int x;
 	int y;
-} Coordinate;
+} Point;
 
-Coordinate point_make(int x, int y);
-Coordinate point_zero();
+Point point_make(int x, int y);
+Point point_zero();
 
 #endif
