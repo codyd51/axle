@@ -29,6 +29,7 @@ typedef struct window {
 	int border_width;
 	array_m* animations;
 	event_handler teardown_handler;
+	event_handler redraw_handler;
 } Window;
 
 Window* create_window(Rect frame);

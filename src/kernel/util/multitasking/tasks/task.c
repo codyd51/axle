@@ -86,6 +86,18 @@ static bool is_dead_task_crit(task_t* task) {
 	return false;
 }
 
+static void tasking_critical_fail() {
+	char* msg = "One or more critical tasks died. axle has died.\n";
+	printf("%s\n", msg);
+	printk("%s\n", msg);
+	//turn off interrupts
+	kernel_begin_critical();
+	//sleep until next interrupt (infinite loop)
+	asm("hlt");
+	//in case that ever finishes, infinite loop again
+	while (1) {}
+}
+
 void _kill() {
 	printk("_kill() strcmp %s returns %d\n", current_task->name, strcmp(current_task->name, "xserv"));
 	bool show_died_message = !strcmp(current_task->name, "xserv");

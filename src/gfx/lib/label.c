@@ -23,6 +23,7 @@ Label* create_label(Rect frame, char* text) {
 	label->superview = NULL;
 	label->text_color = color_black();
 	label->needs_redraw = 1;
+	label->font_size = size_make(CHAR_WIDTH, CHAR_HEIGHT);
 
 	label->text = strdup(text);
 	return label;

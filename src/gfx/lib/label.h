@@ -18,6 +18,7 @@ typedef struct label {
 
 	char* text;
 	Color text_color;
+	Size font_size;
 } Label;
 
 Label* create_label(Rect frame, char* text);

@@ -2,6 +2,7 @@
 #include <std/std.h>
 #include <kernel/util/vfs/fs.h>
 #include "gfx.h"
+#include <std/math.h>
 
 void bmp_teardown(Bmp* bmp) {
 	if (!bmp) return;
@@ -31,23 +32,48 @@ Bmp* load_bmp(Rect frame, char* filename) {
 	fread(&header, sizeof(char), 54, file);
 
 	//get width and height from header
-	int width = *(int*)&header[18];
-	int height = *(int*)&header[22];
+	int file_width, file_height;
+	int width = file_width = *(int*)&header[18];
+	int height = file_height = *(int*)&header[22];
+
+	//don't exceed given frame
+	width = MIN(width, frame.size.width);
+	height = MIN(height, frame.size.height);
 	printk_info("loading BMP %s with dimensions (%d,%d)", filename, width, height);
 
 	int bpp = gfx_bpp();
 	ca_layer* layer = create_layer(size_make(width, height));
 	printk_dbg("load_bmp() got layer %x", layer);
 	//image is upside down in memory so build array from bottom up
-	for (int i = (width * height) - 1; i >= 0; i--) {
-		int idx = i * bpp;
-		//we process 3 bytes at a time because image is stored in BGR, we need RGB
-		layer->raw[idx + 0] = fgetc(file);
-		layer->raw[idx + 1] = fgetc(file);
-		layer->raw[idx + 2] = fgetc(file);
-		//fourth byte is for alpha channel if we used 32bit BMPs
-		//we only use 24bit, so don't try to read it
-		//fgetc(file);
+	for (int y = file_height; y >= 0; y--) {
+		if (y >= height) {
+			//y is too large to fit in layer
+			//eat bytes of this pixel
+			fgetc(file);
+			fgetc(file);
+			fgetc(file);
+			continue;
+		}
+		for (int x = file_width; x >= 0; x--) {
+			if (x >= width) {
+				//x is too large to fit in layer
+				//eat bytes of this pixel
+				fgetc(file);
+				fgetc(file);
+				fgetc(file);
+				continue;
+			}
+
+			if (y == file_height && x == file_width) continue;
+
+			int idx = (y * width * bpp) + (x * bpp);
+			if (idx >= width * height * bpp) break;
+
+			//we process 3 bytes at a time because image is stored in BGR, we need RGB
+			layer->raw[idx + 0] = fgetc(file);
+			layer->raw[idx + 1] = fgetc(file);
+			layer->raw[idx + 2] = fgetc(file);
+		}
 	}
 
 	Bmp* bmp = create_bmp(frame, layer);

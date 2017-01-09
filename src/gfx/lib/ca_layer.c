@@ -105,7 +105,18 @@ void blit_layer_filled(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_
 
 	//copy height - y origin rows
 	for (int i = 0; i < src_frame.size.height; i++) {
-		memcpy(dest_row_start, row_start, src_frame.size.width * gfx_bpp());
+		if (i >= rect_max_y(dest_frame)) break;
+
+		//figure out how many px we can actually transfer over,
+		//in case src_frame exceeds dest
+		int transferabble_px = src_frame.size.width * gfx_bpp();
+		int overhang = (uint32_t)dest_row_start + (uint32_t)row_start + transferabble_px - rect_max_x(dest_frame);
+		//shrink line if necessary
+		if (overhang > 0) {
+			transferabble_px -= overhang;
+		}
+
+		memcpy(dest_row_start, row_start, transferabble_px);
 
 		dest_row_start += (dest->size.width * gfx_bpp());
 		row_start += (src->size.width * gfx_bpp());
@@ -121,12 +132,26 @@ void blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) 
 
 	rect_min_x(src_frame) = MAX(0, rect_min_x(src_frame));
 	rect_min_y(src_frame) = MAX(0, rect_min_y(src_frame));
-	if (rect_max_x(src_frame) >= dest->size.width) {
-		double overhang = rect_max_x(src_frame) - dest->size.width;
+	src_frame.size.width = MIN(src_frame.size.width, src->size.width);
+	src_frame.size.height = MIN(src_frame.size.height, src->size.height);
+
+	//clip src_frame within src
+	if (rect_max_x(src_frame) >= src->size.width) {
+		float overhang = rect_max_x(src_frame) - src->size.width;
 		src_frame.size.width -= overhang;
 	}
-	if (rect_max_y(src_frame) >= dest->size.height) {
-		double overhang = rect_max_y(src_frame) - dest->size.height;
+	if (rect_max_y(src_frame) >= src->size.height) {
+		float overhang = rect_max_y(src_frame) - src->size.height;
+		src_frame.size.height -= overhang;
+	}
+
+	//clip src_frame within dest_frame
+	if (rect_max_x(src_frame) + rect_min_x(dest_frame) >= dest->size.width) {
+		float overhang = rect_max_x(src_frame) + rect_min_x(dest_frame) - dest->size.width;
+		src_frame.size.width -= overhang;
+	}
+	if (rect_max_y(src_frame) + rect_min_y(dest_frame) >= dest->size.height) {
+		float overhang = rect_max_y(src_frame) + rect_min_y(dest_frame) - dest->size.height;
 		src_frame.size.height -= overhang;
 	}
 
