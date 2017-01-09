@@ -72,10 +72,34 @@ static void kill(task_t* task) {
 	block_task(task, ZOMBIE);
 }
 
+static bool is_dead_task_crit(task_t* task) {
+	static char* crit_tasks[3] = {"idle",
+									 "reaper",
+									 "iosentinel"
+	};
+
+	for (int i = 0; i < sizeof(crit_tasks) / sizeof(crit_tasks[0]); i++) {
+		if (!strcmp(crit_tasks[i], task->name)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void _kill() {
+	printk("_kill() strcmp %s returns %d\n", current_task->name, strcmp(current_task->name, "xserv"));
+	bool show_died_message = !strcmp(current_task->name, "xserv");
+	if (show_died_message) {
+		xserv_fail();
+	}
+
+	if (is_dead_task_crit(current_task)) {
+		tasking_critical_fail();
+	}
+
 	block_task(current_task, ZOMBIE);
 	reap();
-	//kill(current_task);
+	kill(current_task);
 }
 
 void goto_pid(int id);
@@ -195,8 +219,12 @@ void idle() {
 }
 
 void destroy_task(task_t* task) {
+	if (task == first_responder) {
+		resign_first_responder();
+	}
 	//remove task from queues and active list
 	unlist_task(task);
+	printf_info("%s[%d] destroyed.", task->name, task->id);
 	//free task's page directory
 	//free_directory(task->page_dir);
 }
@@ -450,6 +478,10 @@ void update_blocked_tasks() {
 			if (time() >= task->wake_timestamp) {
 				unblock_task(task);
 			}
+		}
+		if (haskey() && task->state == KB_WAIT) {
+			unblock_task(task);
+			goto_pid(task->id);
 		}
 
 		//TODO figure out when exactly tasks with MOUSE_WAIT should be unblocked
@@ -811,10 +843,19 @@ void become_first_responder() {
 }
 
 void resign_first_responder() {
+	if (!first_responder) return;
+	//if (current_task != first_responder) return;
+
 	//remove current first responder from stack of responders
 	int last_idx = responder_stack->size - 1;
 	array_m_remove(responder_stack, last_idx);
-	//set first responder to new head of stack
-	first_responder = array_m_lookup(responder_stack, responder_stack->size - 1);
+
+	if (responder_stack->size) {
+		//set first responder to new head of stack
+		first_responder = array_m_lookup(responder_stack, responder_stack->size - 1);
+	}
+	else {
+		first_responder = NULL;
+	}
 }
 
