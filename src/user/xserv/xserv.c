@@ -692,3 +692,23 @@ void xserv_init() {
 	_kill();
 }
 
+void xserv_fail() {
+	printk_err("xserv fail\n");
+	Screen* screen = gfx_screen();
+	if (!screen) return;
+
+	float rect_width = rect_max_x(screen->window->frame);
+	float rect_height = rect_max_y(screen->window->frame) / 8;
+	float origin_x = 0;
+	float origin_y = (rect_max_y(screen->window->frame) / 2) - (rect_height / 2);
+	Rect error_box = rect_make(point_make(origin_x, origin_y), size_make(rect_width, rect_height));
+
+	draw_rect(screen->vmem, error_box, color_red(), THICKNESS_FILLED);
+	draw_rect(screen->vmem, error_box, color_black(), 2);
+	draw_string(screen->vmem, "CRITICAL ERROR: xserv has died.\naxle will switch back to text in 10 seconds.\nIf this fails, please restart axle.\nError: corrupted heap", point_make(error_box.origin.x + CHAR_WIDTH, error_box.origin.y + CHAR_HEIGHT), color_black(), size_make(CHAR_WIDTH, CHAR_HEIGHT));
+	write_screen(screen);
+	sleep(10000);
+	switch_to_text();
+	kernel_end_critical();
+}
+

@@ -14,5 +14,7 @@ void xserv_pause();
 void xserv_resume();
 //pauses xserv for pause_length seconds, then resumes
 void xserv_temp_stop(uint32_t pause_length);
+//displays error message for informing user of heap corruption
+void xserv_fail();
 
 #endif
