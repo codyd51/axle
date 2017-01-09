@@ -47,8 +47,6 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 	int scale_x = font_size.width / CHAR_WIDTH;
 	int scale_y = font_size.height / CHAR_HEIGHT;
 
-	int* bitmap = font8x8_basic[(int)ch];
-
 	uint32_t supersample[CHAR_HEIGHT * SSAA_FACTOR] = {0};
 	generate_supersampled_map(supersample, ch);
 
@@ -112,7 +110,7 @@ static char* link_hueristic(char* str) {
 	};
 	char* test = NULL;
 	//check if this matches any link hints
-	for (int i = 0; i < sizeof(link_stubs) / sizeof(link_stubs[0]); i++) {
+	for (uint32_t i = 0; i < sizeof(link_stubs) / sizeof(link_stubs[0]); i++) {
 		test = strstr(str, link_stubs[i]);
 		//match?
 		if (test) {

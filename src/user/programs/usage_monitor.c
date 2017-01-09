@@ -6,7 +6,7 @@
 
 //TODO instead of being global, this should be context to teardown func
 Window* usage_win = 0;
-static void usage_monitor_teardown() {
+void usage_monitor_teardown() {
 	if (usage_win) {
 		window_teardown(usage_win);
 	}
@@ -19,7 +19,6 @@ void update_usage_stats(Window* win) {
 	//find longest task name
 	int longest_len = 0;
 	for (int i = 0; i < history->count; i++) {
-		char* curr = history->history[i];
 		int curr_len = strlen(history->history[i]);
 		longest_len = MAX(curr_len, longest_len);
 	}
@@ -37,9 +36,9 @@ void update_usage_stats(Window* win) {
 		sprintf((char*)&name, "%s (%f CPU)", history->history[i], percent_cpu * 100);
 		int diff = longest_len - strlen(name);
 		for (int j = 0; j < diff; j++) {
-			strcat(&name, " ");
+			strcat((char*)&name, " ");
 		}
-		draw_string(win->content_view->layer, &name, point_make(CHAR_WIDTH, CHAR_HEIGHT + (section_height * i)), color_black(), size_make(CHAR_WIDTH, CHAR_HEIGHT));
+		draw_string(win->content_view->layer, (char*)&name, point_make(CHAR_WIDTH, CHAR_HEIGHT + (section_height * i)), color_black(), size_make(CHAR_WIDTH, CHAR_HEIGHT));
 
 		draw_line(win->content_view->layer, line_make(point_make(0, section_height * (i+1)), point_make(label_length, section_height * (i+1))), color_gray(), 1);
 		draw_line(win->content_view->layer, line_make(point_make(label_length, section_height * (i+1)), point_make(win->content_view->frame.size.width, section_height * (i + 1))), color_black(), 1);

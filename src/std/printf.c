@@ -150,15 +150,6 @@ void vprintf(int dest, char* format, va_list va) {
 				} break;
 				case 'f':
 				case 'F': {
-					/*
-					double fnum = va_arg(va, double);
-					//print integer part, truncate fraction
-					print_common(dest, "%d.", (int)fnum);
-					//get numbers after decimal
-					fnum = (fnum - (int)fnum) * 1000000;
-					print_common(dest, "%d", (int)fnum);
-					*/
-
 					double fnum = va_arg(va, double);
 					//TODO find better way to do this
 					switch (dest) {
@@ -259,13 +250,13 @@ void vsprintf(char* ret, char* format, va_list va) {
 						char buf[32];
 						double fnum = va_arg(va, double);
 						//write integer part, truncate fraction
-						itoa((int)fnum, &buf);
+						itoa((int)fnum, (char*)&buf);
 						strcat(ret, buf);
 						strccat(ret, '.');
 
 						//get numbers after decimal
 						fnum = (fnum - (int)fnum) * 100;
-						itoa((int)fnum, &buf);
+						itoa((int)fnum, (char*)&buf);
 						strcat(ret, buf);
 				} break;
 

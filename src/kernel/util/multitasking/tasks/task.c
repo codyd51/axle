@@ -11,6 +11,8 @@
 #include <std/klog.h>
 #include <kernel/util/mutex/mutex.h>
 #include "record.h"
+#include <gfx/lib/gfx.h>
+#include <user/xserv/xserv.h>
 
 //function defined in asm which returns the current instruction pointer
 uint32_t read_eip();
@@ -78,7 +80,7 @@ static bool is_dead_task_crit(task_t* task) {
 									 "iosentinel"
 	};
 
-	for (int i = 0; i < sizeof(crit_tasks) / sizeof(crit_tasks[0]); i++) {
+	for (uint32_t i = 0; i < sizeof(crit_tasks) / sizeof(crit_tasks[0]); i++) {
 		if (!strcmp(crit_tasks[i], task->name)) {
 			return true;
 		}
@@ -86,6 +88,7 @@ static bool is_dead_task_crit(task_t* task) {
 	return false;
 }
 
+void reap();
 static void tasking_critical_fail() {
 	char* msg = "One or more critical tasks died. axle has died.\n";
 	printf("%s\n", msg);

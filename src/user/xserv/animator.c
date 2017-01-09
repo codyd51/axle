@@ -2,6 +2,7 @@
 #include <std/math.h>
 #include <std/kheap.h>
 #include <kernel/drivers/rtc/clock.h>
+#include <kernel/drivers/pit/pit.h>
 
 void add_animation(Window* window, ca_animation* anim) {
 	array_m_insert(window->animations, anim);
