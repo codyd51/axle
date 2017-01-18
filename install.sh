@@ -1,3 +1,4 @@
+#!/bin/bash
 echo "Prefix: $PREFIX"
 echo "Target (i686-elf recommended): $TARGET"
 echo "Path: $PATH"
