@@ -1,7 +1,8 @@
 MBOOT_PAGE_ALIGN	equ 1<<0	; load kernel and modules on page boundary
 MBOOT_MEM_INFO		equ 1<<1	; provide kernel. with memory info
+MBOOT_VBE_MODE		equ 1<<2	; have GRUB set video mode
 MBOOT_HEADER_MAGIC	equ 0x1BADB002	; multiboot magic value
-MBOOT_HEADER_FLAGS	equ MBOOT_PAGE_ALIGN | MBOOT_MEM_INFO
+MBOOT_HEADER_FLAGS	equ MBOOT_PAGE_ALIGN | MBOOT_MEM_INFO | MBOOT_VBE_MODE
 MBOOT_CHECKSUM		equ -(MBOOT_HEADER_MAGIC + MBOOT_HEADER_FLAGS)
 
 [BITS 32]
@@ -11,11 +12,23 @@ MBOOT_CHECKSUM		equ -(MBOOT_HEADER_MAGIC + MBOOT_HEADER_FLAGS)
 [EXTERN bss]			; start of .bss
 [EXTERN end]			; end of last loadable section
 
-[SECTION .mboot]
+[SECTION .mboot] 
 mboot:
 	dd MBOOT_HEADER_MAGIC	; header value for GRUB
 	dd MBOOT_HEADER_FLAGS	; grub settings
 	dd MBOOT_CHECKSUM	; ensure above values are correct
+
+	dd 0 ; these flags are unused
+	dd 0
+	dd 0
+	dd 0
+	dd 0 
+
+	dd 0 ; set video mode
+	;1024 x 768 x 24
+	dd 1024
+	dd 768
+	dd 24
 
 	dd mboot		; location of this descriptor
 	dd code			; start of .text (code) section
