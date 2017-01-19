@@ -55,6 +55,8 @@ void shell_loop(void) {
 
 	//we're dead
 	terminal_clear();
+	asm("cli");
+	asm("hlt");
 }
 
 extern uint32_t placement_address;
@@ -73,6 +75,13 @@ uint32_t module_detect(multiboot* mboot_ptr) {
 
 void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	initial_esp = initial_stack;
+	gfx_init(mboot_ptr);
+	
+	Screen* screen = gfx_screen();
+	Size res = screen->resolution;
+	fill_screen(gfx_screen(), color_black());
+	//draw_string(gfx_screen()->vmem, "axle OS\n\n", point_zero(), color_green(), size_make(8, 8));
+	write_screen(gfx_screen());
 
 	//initialize terminal interface
 	terminal_initialize();
@@ -93,12 +102,10 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//serial output for syslog
 	serial_init();
 
+
 	//timer driver (many functions depend on timer interrupt so start early)
 	pit_install(1000);
 	rtc_install();
-
-	//serial output for syslog
-	serial_init();
 
 	//find any loaded grub modules
 	//must be done before paging to set placement_address
@@ -109,6 +116,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	sys_install();
 	//tasking_install(PRIORITIZE_INTERACTIVE);
 	tasking_install(LOW_LATENCY);
+
 
 	//drivers
 	kb_install();

@@ -96,9 +96,16 @@ uint32_t fread(void* buffer, uint32_t size, uint32_t count, FILE* stream) {
 	uint32_t sum;
 	for (uint32_t i = 0; i < count; i++) {
 		unsigned char buf;
-		sum += read_fs(stream->node, stream->fpos++, size, (uint8_t*)&buf);
-		//TODO check for eof and break early
+		
+		int read_bytes = read_fs(stream->node, stream->fpos++, size, (uint8_t*)&buf);
+		sum += read_bytes;
 		chbuf[i] = buf;
+		//if we read less than we asked for,
+		//we hit the end of the file
+		if (read_bytes < size) {
+			break;
+		}
 	}
 	return sum;
 }
+

@@ -39,7 +39,7 @@ read_eip:
 
 [GLOBAL task_switch_real]
 task_switch_real:
-	xchg bx, bx
+	;xchg bx, bx
 	cli
 	mov ecx, [esp + 4]	; eip
 	mov eax, [esp + 8]	; physical address of current paging dir
