@@ -124,7 +124,7 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 	//start off with first block
 	alloc_block_t* candidate = first_block(heap);
 
-	lock(mutex);
+	//lock(mutex);
 
 	//search every hole
 	do {
@@ -174,7 +174,7 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 		}
 	} while ((candidate = candidate->next) != NULL);
 
-	unlock(mutex);
+	//unlock(mutex);
 	
 	//didn't find any matches
 	printk_err("find_smallest_hole(): found no holes large enough (size: %x align: %d)", size, align);
@@ -257,11 +257,9 @@ void heap_print(int count) {
 	kheap_print(kheap, count);
 }
 
-//reserve heap block with size >= 'size'
-//will page align block if 'align'
-void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
+void heap_verify_integrity() {
 	//check heap integrity
-	alloc_block_t* tmp = first_block(heap);
+	alloc_block_t* tmp = first_block(kheap);
 	//search every hole
 	do {
 		if (tmp->magic != HEAP_MAGIC) {
@@ -271,6 +269,43 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 			while (1) {}
 		}
 	} while ((tmp = tmp->next) != NULL);
+}
+
+static void heap_expand(heap_t* heap, uint32_t expand_size) {
+
+	lock(mutex);
+
+	uint32_t curr_size = heap->end_address - heap->start_address;
+	if (curr_size + expand_size >= heap->max_address) {
+		ASSERT(0, "Heap ran out of space!\n");
+		while (1) {}
+	}
+
+	alloc_block_t* curr = first_block(heap);
+	while (curr->next) {
+		curr = curr->next;
+	}
+	if (!curr->free) {
+		uint32_t new_block_addr = (uint32_t)curr + sizeof(alloc_block_t) + curr->size;
+		printk("heap_expand() creating new block at end of heap of size %x\n", new_block_addr);
+
+		alloc_block_t* new_block = create_block(new_block_addr, (expand_size * 4));
+		insert_block(curr, new_block);
+
+		heap->end_address += sizeof(alloc_block_t) + expand_size;
+	}
+	else {
+		printk("heap_expand() expanding block %x from %x to %x\n", curr, curr->size, curr->size + expand_size);
+		curr->size += expand_size;
+		heap->end_address += expand_size;
+	}
+
+	unlock(mutex);
+}
+
+//reserve heap block with size >= 'size'
+//will page align block if 'align'
+void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 
 	//find smallest hole that will fit
 	alloc_block_t* candidate = find_smallest_hole(size, align, heap);
@@ -280,7 +315,13 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 	if (!candidate) {
 		//expand heap
 		//TODO fill in
-		ASSERT(0, "alloc() %x bytes failed, find_smallest_hole() had no candidates\n");
+		//ASSERT(0, "alloc() %x bytes failed, find_smallest_hole() had no candidates\n");
+		uint32_t curr_size = heap->end_address - heap->start_address;
+		uint32_t expand_size = curr_size + size;
+		printk("Heap could not fit alloc %x, expanding size by %x\n", size, expand_size);
+		heap_expand(heap, expand_size);
+		//heap should now have enough space, try alloc again
+		return alloc(size, align, heap);
 	}
 
 	lock(mutex);

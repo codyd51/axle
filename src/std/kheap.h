@@ -78,6 +78,11 @@ void heap_print(int count);
 //outputs to syslog
 void memdebug();
 
+//internal function to traverse heap and verify that
+//no heap data has been corrupted
+//on failure, kills current process
+void heap_verify_integrity();
+
 __END_DECLS
 
 #endif // STD_KHEAP_H
