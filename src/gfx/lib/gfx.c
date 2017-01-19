@@ -10,6 +10,9 @@
 #include <kernel/drivers/vga/vga.h>
 #include <kernel/drivers/vesa/vesa.h>
 #include "color.h"
+#include <kernel/drivers/vbe/vbe.h>
+#include <kernel/multiboot.h>
+#include <std/math.h>
 
 //private Window function to create root window
 Window* create_window_int(Rect frame, bool root);
@@ -19,6 +22,10 @@ static Screen* current_screen = 0;
 void process_gfx_switch(Screen* screen, int new_depth) {
 	current_screen = screen;
 	current_depth = new_depth;
+}
+
+void set_gfx_depth(uint32_t depth) {
+	current_depth = depth;
 }
 
 inline int gfx_depth() {
@@ -33,6 +40,10 @@ inline int gfx_bpp() {
 	if (!current_depth) {
 		//fall back on assuming VESA
 		current_depth = VESA_DEPTH;
+	}
+	if (current_depth == 32) {
+		//last byte is unused
+		return 3;
 	}
 	//each px component is 8 bits
 	return current_depth / 8;
@@ -96,12 +107,49 @@ void vsync() {
 }
 
 void fill_screen(Screen* screen, Color color) {
-	memset(screen->vmem->raw, color.val[0], screen->window->size.width * screen->window->size.height * gfx_bpp());
+	int max = 0;
+	max = MAX(max, color.val[0]);
+	max = MAX(max, color.val[1]);
+	max = MAX(max, color.val[2]);
+	memset(screen->vmem->raw, max, screen->resolution.width * screen->resolution.height * gfx_bpp());
+	write_screen(screen);
 }
 
+#define BANK_SIZE 0x10000
+#define VBE_DISPI_LFB_PHYSICAL_ADDRESS 0xA0000
 void write_screen(Screen* screen) {
 	vsync();
-	memcpy(screen->physbase, screen->vmem->raw, screen->vmem->size.width * screen->vmem->size.height * gfx_bpp());
+	uint8_t* raw_vmem = (uint8_t*)VBE_DISPI_LFB_PHYSICAL_ADDRESS;
+	uint8_t* raw_double_buf = screen->vmem->raw;
+
+	//video memory uses bank switching
+	//figure out how many banks we'll need to write to
+	int bytes_on_screen = (screen->resolution.width * screen->resolution.height * gfx_bpp());
+	int banks_needed = bytes_on_screen / BANK_SIZE;
+	for (int bank = 0; bank <= banks_needed; bank++) {
+		vbe_set_bank(bank);
+		memcpy(raw_vmem, raw_double_buf + (BANK_SIZE * bank), BANK_SIZE);
+	}
+}
+
+void write_screen_region(Rect region) {
+	Screen* screen = gfx_screen();
+	//vsync();
+	uint8_t* raw_vmem = (uint8_t*)VBE_DISPI_LFB_PHYSICAL_ADDRESS;
+	uint8_t* raw_double_buf = screen->vmem->raw;
+	int idx = (rect_min_y(region) * screen->resolution.width * screen->bpp) + (rect_min_x(region) * screen->bpp);
+
+	for (int y = 0; y < region.size.height; y++) {
+		int bank = idx / BANK_SIZE;
+		vbe_set_bank(bank);
+	int offset = idx % BANK_SIZE;
+		//copy current row
+		//dest: bank window + offset from bank start
+		//src: vmem + real idx of screen vmem
+		memcpy(raw_vmem + offset, raw_double_buf + idx, region.size.width * screen->bpp);
+		//advance to next row of region
+		idx += screen->resolution.width * screen->bpp;
+	}
 }
 
 void rainbow_animation(Screen* screen, Rect r, int animationStep) {
@@ -164,3 +212,16 @@ void vga_boot_screen(Screen* screen) {
 
 	sleep(250);
 }
+
+void gfx_init(void* mboot_ptr) {
+	multiboot* mboot = (multiboot*)mboot_ptr;
+	vbe_mode_info* mode = (vbe_mode_info*)mboot->vbe_mode_info;
+	static Screen screen;
+
+	screen.resolution = size_make(mode->x_res, mode->y_res);
+	screen.vmem = create_layer(screen.resolution);
+	screen.depth = mode->bpp;
+	screen.bpp = screen.depth / 8;
+	process_gfx_switch(&screen, mode->bpp);
+}
+

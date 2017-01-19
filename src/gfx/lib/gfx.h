@@ -19,10 +19,9 @@ typedef struct __attribute__((packed)) {
 typedef struct window Window;
 typedef struct screen_t {
 	Window* window; //root window
-	uint16_t pitch; //redundant?
 	uint16_t depth; //bits per pixel
 	uint8_t bpp; //bytes per pixel
-	uint16_t pixelwidth; //redundant?
+	Size resolution;
 	uint32_t* physbase; //address of beginning of framebuffer
 	volatile int finished_drawing; //are we currently rendering a frame?
 	ca_layer* vmem; //raw framebuffer pushed to screen
@@ -44,7 +43,9 @@ void vga_boot_screen(Screen* screen);
 void fill_screen(Screen* screen, Color color);
 void write_screen(Screen* screen);
 
+void gfx_init(void* mboot_ptr);
 void process_gfx_switch(Screen* screen, int new_depth);
+void set_gfx_depth(uint32_t depth);
 int gfx_depth();
 int gfx_bpp();
 Screen* gfx_screen();
@@ -65,12 +66,13 @@ inline void putpixel(ca_layer* layer, int x, int y, Color color) {
 		layer->raw[loc] = color.val[0];
 	}
 	else {
+		int bpp = gfx_bpp();
 		//VESA mode
-		int offset = (x * gfx_bpp()) + (y * layer->size.width * gfx_bpp());
-		//we have to write the pixels in BGR, not RGB
-		layer->raw[offset + 0] = color.val[2];
-		layer->raw[offset + 1] = color.val[1];
-		layer->raw[offset + 2] = color.val[0];
+		int offset = (x * bpp) + (y * layer->size.width * bpp);
+		for (int i = 0; i < bpp; i++) {
+			//we have to write the pixels in BGR, not RGB
+			layer->raw[offset + i] = color.val[bpp - 1 - i];
+		}
 	}
 }
 __attribute__((always_inline))
@@ -86,12 +88,12 @@ inline void addpixel(ca_layer* layer, int x, int y, Color color) {
 	}
 	else {
 		//VESA mode
-		int bpp = 24 / 8;
+		int bpp = gfx_bpp();
 		int offset = x * bpp + y * layer->size.width * bpp;
-		//we have to write the pixels in BGR, not RGB
-		layer->raw[offset + 0] += color.val[0];
-		layer->raw[offset + 1] += color.val[1];
-		layer->raw[offset + 2] += color.val[2];
+		for (int i = 0; i < bpp; i++) {
+			//we have to write the pixels in BGR, not RGB
+			layer->raw[offset + i] += color.val[bpp - 1 - i];
+		}
 	}
 }
 
