@@ -22,6 +22,7 @@ Bmp* create_bmp(Rect frame, ca_layer* layer) {
 }
 
 Bmp* load_bmp(Rect frame, char* filename) {
+	//return NULL;
 	FILE* file = fopen(filename, (char*)"");
 	if (!file) {
 		printk_err("File %s not found! Not loading BMP", filename);
@@ -45,7 +46,8 @@ Bmp* load_bmp(Rect frame, char* filename) {
 	ca_layer* layer = create_layer(size_make(width, height));
 	printk_dbg("load_bmp() got layer %x", layer);
 	//image is upside down in memory so build array from bottom up
-	for (int y = file_height; y >= 0; y--) {
+	for (int y = file_height - 1; y >= 0; y--) {
+		/*
 		if (y >= height) {
 			//y is too large to fit in layer
 			//eat bytes of this pixel
@@ -54,7 +56,9 @@ Bmp* load_bmp(Rect frame, char* filename) {
 			fgetc(file);
 			continue;
 		}
-		for (int x = file_width; x >= 0; x--) {
+		*/
+		for (int x = file_width - 1; x >= 0; x--) {
+			/*
 			if (x >= width) {
 				//x is too large to fit in layer
 				//eat bytes of this pixel
@@ -63,11 +67,12 @@ Bmp* load_bmp(Rect frame, char* filename) {
 				fgetc(file);
 				continue;
 			}
+			*/
 
-			if (y == file_height && x == file_width) continue;
+			//if (y == file_height && x == file_width) continue;
 
 			int idx = (y * width * bpp) + (x * bpp);
-			if (idx >= width * height * bpp) break;
+			if (idx > width * height * bpp) break;
 
 			//we process 3 bytes at a time because image is stored in BGR, we need RGB
 			layer->raw[idx + 0] = fgetc(file);

@@ -105,6 +105,7 @@ void blit_layer_filled(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_
 
 	//copy height - y origin rows
 	for (int i = 0; i < src_frame.size.height; i++) {
+		//if (i + rect_min_y(src_frame) < rect_min_y(dest_frame)) continue;
 		if (i >= rect_max_y(dest_frame)) break;
 
 		//figure out how many px we can actually transfer over,
@@ -113,8 +114,10 @@ void blit_layer_filled(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_
 		int overhang = (uint32_t)dest_row_start + (uint32_t)row_start + transferabble_px - rect_max_x(dest_frame);
 		//shrink line if necessary
 		if (overhang > 0) {
-			transferabble_px -= overhang;
+			transferabble_px -= overhang + 1;
 		}
+
+		if (((uint32_t)dest_row_start - (uint32_t)dest->raw) + transferabble_px >= (dest->size.width * dest->size.height * gfx_bpp())) break;
 
 		memcpy(dest_row_start, row_start, transferabble_px);
 
@@ -161,11 +164,14 @@ void blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) 
 	}
 	else if (src->alpha <= 0) {
 		//do nothing
-		return;
+		//return;
 	}
 	else {
 		blit_layer_alpha(dest, src, dest_frame, src_frame);
 	}
+
+	//printk("blit_layer() verifying heap after blitting {%d,%d,%d,%d} to {%d,%d,%d,%d}\n", rect_min_x(src_frame), rect_min_y(src_frame), src_frame.size.width, src_frame.size.height, rect_min_x(dest_frame), rect_min_y(dest_frame), dest_frame.size.width, dest_frame.size.height);
+	//heap_verify_integrity();
 }
 
 ca_layer* layer_snapshot(ca_layer* src, Rect frame) {

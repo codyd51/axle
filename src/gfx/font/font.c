@@ -17,9 +17,17 @@ static bool font_px_on(char ch, int x, int y) {
 	return false;
 }
 
+static uint32_t supersample_map_cache[256][CHAR_WIDTH * SSAA_FACTOR] = {{0}};
 //generate supersampled bitmap of font character
 static void generate_supersampled_map(uint32_t* supersample, char ch) {
-	//memset(supersample, 0, sizeof(supersample));
+	//use cached map if existing
+	uint32_t* cached = supersample_map_cache[(int)ch];
+	if (*cached) {
+		memcpy(supersample, cached, CHAR_WIDTH * SSAA_FACTOR * sizeof(uint32_t));
+		return;
+	}
+
+	memset(supersample, 0, CHAR_WIDTH * SSAA_FACTOR);
 
 	//for every col in SS bitmap
 	for (int y = 0; y < CHAR_HEIGHT * SSAA_FACTOR; y++) {
@@ -37,6 +45,8 @@ static void generate_supersampled_map(uint32_t* supersample, char ch) {
 		}
 		supersample[y] = ssaa_row;
 	}
+	//save this map for caching purposes
+	memcpy(cached, supersample, CHAR_WIDTH * SSAA_FACTOR * sizeof(uint32_t));
 }
 
 void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_size) {
@@ -44,26 +54,29 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 	if (p.x < 0 || p.y < 0 || p.x >= layer->size.width || p.y >= layer->size.height) return;
 
 	//find scale factor of default font size to size requested
-	int scale_x = font_size.width / CHAR_WIDTH;
-	int scale_y = font_size.height / CHAR_HEIGHT;
+	float scale_x = font_size.width / (float)CHAR_WIDTH;
+	float scale_y = font_size.height / (float)CHAR_HEIGHT;
 
-	uint32_t supersample[CHAR_HEIGHT * SSAA_FACTOR] = {0};
+	uint32_t supersample[CHAR_WIDTH * SSAA_FACTOR];
 	generate_supersampled_map(supersample, ch);
 
-	//TODO bg_color should adapt to actual background color of dest layer
-	Color bg_color = color_white();
+	uint32_t idx = ((y * layer->size.width * gfx_bpp()) + (x * gfx_bpp()));
+	Color bg_color;
+	bg_color.val[0] = layer->raw[idx + 2];
+	bg_color.val[1] = layer->raw[idx + 1];
+	bg_color.val[2] = layer->raw[idx + 0];
 
-	for (int y = 0; y < font_size.height; y++) {
+	for (int draw_y = 0; draw_y < font_size.height; draw_y++) {
 		//get the corresponding y of default font size
-		int font_y = y / scale_y;
-		if (font_y >= CHAR_HEIGHT) continue;
-
-		for (int x = 0; x < font_size.width; x++) {
+		int font_y = draw_y / scale_y;
+		int font_row = font8x8_basic[(int)ch][font_y];
+		
+		for (int draw_x = 0; draw_x < font_size.width; draw_x++) {
+			if (ch == ' ') {
+				putpixel(layer, p.x + draw_x, p.y + draw_y, bg_color);
+			}
 			//corresponding x of default font size
-			int font_x = x / scale_x;
-
-			//skip this pixel if it isn't set in font
-			if (!font_px_on(ch, font_x, font_y)) continue;
+			int font_x = draw_x / scale_x;
 
 			//antialiasing
 			//holds number of 'on' pixels in supersampled region
@@ -76,28 +89,32 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 			//record any 'on' pixels in supersample
 			for (int dx = -1; dx <= 1; dx++) {
 				for (int dy = -1; dy <= 1; dy++) {
-					int ssaa_x = (font_x * SSAA_FACTOR) + dx;
-					int ssaa_y = (font_y * SSAA_FACTOR) + dy;
+					//is this pixel valid?
+					if (font_x + dx >= 0 &&
+						font_y + dy >= 0 &&
+						font_x + dx <= CHAR_WIDTH &&
+						font_y + dy <= CHAR_HEIGHT) {
+						int ssaa_x = (font_x * SSAA_FACTOR) + dx;
+						int ssaa_y = (font_y * SSAA_FACTOR) + dy;
 
-					uint32_t ssaa_row = supersample[ssaa_y];
-					total_count++;
-					if ((ssaa_row >> ssaa_x) & 1) {
-						on_count++;
+						uint32_t ssaa_row = supersample[ssaa_y];
+						total_count++;
+						if ((ssaa_row >> ssaa_x) & 1) {
+							on_count++;
+						}
 					}
 				}
 			}
 
 			//'on' pixels / total pixel count in SSAA region = alpha of pixel to draw
 			float alpha = (float)on_count / (float)total_count;
-			//if (alpha) {
-				Color avg_color = color;
-				//set avg_color to color * alpha
-				//this is a lerp of background color to text color, at alpha
-				for (int i = 0; i < gfx_bpp(); i++) {
-					avg_color.val[i] = lerp(bg_color.val[i], avg_color.val[i], alpha);
-				}
-				putpixel(layer, p.x + x, p.y + y, avg_color);
-			//}
+			Color avg_color = color;
+			//set avg_color to color * alpha
+			//this is a lerp of background color to text color, at alpha
+			for (int i = 0; i < gfx_bpp(); i++) {
+				avg_color.val[i] = lerp(bg_color.val[i], avg_color.val[i], alpha);
+			}
+			putpixel(layer, p.x + draw_x, p.y + draw_y, avg_color);
 		}
 	}
 }

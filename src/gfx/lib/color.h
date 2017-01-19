@@ -4,7 +4,7 @@
 #include <std/common.h>
 
 typedef struct color {
-	uint8_t val[3];
+	uint8_t val[4];
 } Color;
 
 typedef struct gradient {
@@ -30,6 +30,8 @@ Color color_grey();
 Color color_gray();
 Color color_dark_grey();
 Color color_dark_gray();
+Color color_light_grey();
+Color color_light_gray();
 Color color_white();
 
 #endif
