@@ -6,6 +6,7 @@
 #include <kernel/drivers/rtc/clock.h>
 #include <kernel/drivers/pit/pit.h>
 #include <std/string.h>
+#include <gfx/lib/gfx.h>
 
 char* convert(unsigned int num, int base) {
 	static char representation[] = "0123456789ABCDEF";
@@ -28,16 +29,96 @@ enum {
 	SERIAL_OUTPUT,
 };
 
+static void backspace(Point* cursor_pos) {
+	Point new_pos;
+	if(cursor_pos->x == 0) {
+		if(cursor_pos->y == 0) {
+			// Can't delete if we're at the first spot
+			return;
+		}
+
+		// Go back to last column on previous line
+		new_pos.x = gfx_screen()->resolution.width - 1;
+		new_pos.y = cursor_pos->y - 1;
+	}
+	else {
+		// Go back one character on this line
+		new_pos.x = cursor_pos->x - 1;
+		new_pos.y = cursor_pos->y;
+	}
+
+	// Draw a space over the previous character, then back up
+	*cursor_pos = new_pos;
+	putchar(' ');
+	*cursor_pos = new_pos;
+}
+
+static Color printf_draw_color = {0, 255, 0};
 static void outputc(int dest, char c) {
+	static Size font_size = {12, 12};
+	static Point cursor_pos = {0, 0};
+	static Point padding = {1, 1};
 	switch (dest) {
-		case TERM_OUTPUT:
+		case TERM_OUTPUT: {
 			terminal_putchar(c);
+
+			Point old_cursor_pos = cursor_pos;
+			draw_char(gfx_screen()->vmem, c, cursor_pos.x, cursor_pos.y, printf_draw_color, font_size);
+			cursor_pos.x += font_size.width + padding.x;
+			if (c == '\n' || cursor_pos.x >= gfx_screen()->resolution.width) {
+				cursor_pos.y += font_size.height + padding.y;
+				cursor_pos.x = 0;
+				if (cursor_pos.y >= gfx_screen()->resolution.height) {
+					//clear screen
+					fill_screen(gfx_screen(), color_black());
+					cursor_pos.y = 0;
+				}
+			}
+			if (c == '\b') {
+				backspace(&cursor_pos);
+			}
+			write_screen_region(rect_make(old_cursor_pos, font_size));
 			break;
+		}
 		case SERIAL_OUTPUT:
 		default:
 			serial_putchar(c);
 			break;
 	}
+}
+
+int putchar(int ch) {
+	outputc(TERM_OUTPUT, (unsigned char)ch);
+	return ch;
+}
+
+Color term_color_code(int code) {
+	switch (code) {
+		case 0: return color_black(); break;
+		case 1: return color_blue(); break;
+		case 2: return color_green(); break;
+		case 3: return color_blue(); break;
+		case 4: return color_red(); break;
+		case 5: return color_purple(); break;
+		case 6: return color_orange(); break;
+		case 7: return color_light_gray(); break;
+		case 8: return color_dark_gray(); break;
+		case 9: return color_blue(); break;
+		case 10: return color_green(); break;
+		case 11: return color_blue(); break;
+		case 12: return color_red(); break;
+		case 13: return color_purple(); break;
+		case 14: return color_yellow(); break;
+		case 15: return color_white(); break;
+		case 16: return color_black(); break;
+		case 17: return color_dark_gray(); break;
+		case 18: return color_dark_gray(); break;
+		case 19: return color_gray(); break;
+		case 20: return color_gray(); break;
+
+		default: return color_red(); break;
+	}
+	return color_white();
 }
 
 static void output(int dest, char* str) {
@@ -106,6 +187,23 @@ void vprintf(int dest, char* format, va_list va) {
 		if (ch != '%') {
 			if (ch == '\n') {
 				seen_newline = true;
+			}
+			else if (dest == TERM_OUTPUT && ch == '\e' && *format == '[' && isdigit(*(format + 1))) {
+				//skip \e
+				//format++;
+				//skip [
+				format++;
+
+				char buf[16] = {0};
+				int digit_count = 0;
+				while ((buf[digit_count++] = *(format++)) != ';') {
+				}
+				int as_num = atoi(buf);
+				Color new_display_col = term_color_code(as_num);
+				printf_draw_color = new_display_col;
+
+				ch = *format;
+				continue;
 			}
 			outputc(dest, ch);
 		}

@@ -146,7 +146,7 @@ void process_character(char* inputstr, char ch) {
 
 			inputstr = delchar(inputstr);
 			//terminal driver will remove last char
-			terminal_putchar(ch);
+			putchar(ch);
 			visible_input_len--;
 		}
 	}
@@ -164,7 +164,7 @@ void process_character(char* inputstr, char ch) {
 		if (*prediction) {
 			//remove existing input and print prediction
 			for (size_t i = 0; i < strlen(inputstr); i++) {
-				terminal_putchar('\b');
+				putchar('\b');
 			}
 			strcpy(inputstr, prediction);
 			printf("%s \e[7;(%s)", inputstr, description);
@@ -174,7 +174,7 @@ void process_character(char* inputstr, char ch) {
 	else  {
 		//add this character to the input string and output it
 		strccat(inputstr, ch);
-		terminal_putchar(ch);
+		putchar(ch);
 		visible_input_len++;
 	}
 
@@ -297,6 +297,8 @@ void startx_command() {
 	//spawn xserv into its own process
 	int xserv_pid = fork("xserv");
 	if (xserv_pid) {
+		//sleep(4000);
+		//display_usage_monitor(point_make(100, 300));
 		return;
 	}
 
@@ -352,7 +354,7 @@ void cat_command(int argc, char** argv) {
 	memset(filebuf, 0, 2048);
 	uint32_t sz = read_fs(node, 0, 2048, filebuf);
 	for (uint32_t i = 0; i < sz; i++) {
-		terminal_putchar(filebuf[i]);
+		putchar(filebuf[i]);
 	}
 }
 

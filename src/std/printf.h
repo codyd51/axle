@@ -6,6 +6,7 @@
 
 //standard printf
 void printf(char* format, ...);
+int putchar(int ch);
 //same as above, but outputs to syslog
 //(applies to all _k functions listed here)
 void printk(char* format, ...);

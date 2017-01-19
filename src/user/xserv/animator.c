@@ -3,10 +3,16 @@
 #include <std/kheap.h>
 #include <kernel/drivers/rtc/clock.h>
 #include <kernel/drivers/pit/pit.h>
+#include <kernel/util/mutex/mutex.h>
 
+static lock_t* mutex = 0;
 void add_animation(Window* window, ca_animation* anim) {
+	if (!mutex) mutex = lock_create();
+
+	lock(mutex);
 	array_m_insert(window->animations, anim);
 	anim->end_date = tick_count() + (anim->duration * 1000);
+	unlock(mutex);
 }
 
 void finalize_animation(Window* window, ca_animation* anim) {
@@ -32,7 +38,10 @@ void finalize_animation(Window* window, ca_animation* anim) {
 
 	mark_needs_redraw((View*)window);
 
+	lock(mutex);
 	array_m_remove(window->animations, array_m_index(window->animations, anim));
+	unlock(mutex);
+
 	kfree(anim);
 }
 
@@ -53,17 +62,17 @@ void update_alpha_anim(Window* window, ca_animation* anim, float frame_time) {
 }
 
 void update_pos_anim(Window* window, ca_animation* anim, float frame_time) {
-	float step = frame_time * 2 * (1 / anim->duration);
-	window->frame.origin.x = (int)lerp(window->frame.origin.x, anim->pos_to.x, 1.0 * step);
-	window->frame.origin.y = (int)lerp(window->frame.origin.y, anim->pos_to.y, 1.0 * step);
+	float step = frame_time * (1.0 / anim->duration);
+	window->frame.origin.x = (int)lerp(window->frame.origin.x, anim->pos_to.x, step);
+	window->frame.origin.y = (int)lerp(window->frame.origin.y, anim->pos_to.y, step);
 }
 
 void update_color_anim(Window* window, ca_animation* anim, float frame_time) {
-	float step = frame_time * 2 * (1 / anim->duration);
+	float step = frame_time * (1.0 / anim->duration);
 	Color current = window->content_view->background_color;
-	current.val[0] = (uint8_t)lerp(current.val[0], anim->color_to.val[0], 1.0 * step);
-	current.val[1] = (uint8_t)lerp(current.val[1], anim->color_to.val[1], 1.0 * step);
-	current.val[2] = (uint8_t)lerp(current.val[2], anim->color_to.val[2], 1.0 * step);
+	current.val[0] = (uint8_t)lerp(current.val[0], anim->color_to.val[0], step);
+	current.val[1] = (uint8_t)lerp(current.val[1], anim->color_to.val[1], step);
+	current.val[2] = (uint8_t)lerp(current.val[2], anim->color_to.val[2], step);
 
 	window->content_view->background_color = current;
 	mark_needs_redraw((View*)window);
@@ -82,8 +91,8 @@ void process_animations(Window* window, float frame_time) {
 			if (handler) {
 				handler(window, anim, frame_time);
 			}
+			anim->duration -= frame_time;
 		}
-		*/
 	}
 }
 
@@ -91,6 +100,7 @@ void update_all_animations(Screen* screen, float frame_time) {
 	for (int i = 0; i < screen->window->subviews->size; i++) {
 		Window* w = array_m_lookup(screen->window->subviews, i);
 		if (w->animations->size) {
+			printk("processing %d animations for %x\n", w->animations->size, w);
 			process_animations(w, frame_time);
 		}
 	}

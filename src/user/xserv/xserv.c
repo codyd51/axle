@@ -306,7 +306,7 @@ static void display_about_window(Point origin) {
 	Window* about_win = create_window(rect_make(origin, size_make(800, 300)));
 	about_win->title = "About axle";
 	Label* body_label = create_label(rect_make(point_make(0, 0), size_make(about_win->content_view->frame.size.width, about_win->content_view->frame.size.height)), "Welcome to axle OS.\n\nVisit www.github.com/codyd51/axle for this OS's source code.\nYou are in axle's window manager, called xserv. xserv is a compositing window manager, meaning window bitmaps are stored offscreen and combined into a final image each frame.\n\tYou can right click anywhere on the desktop to access axle's application launcher. These are a few apps to show what axle and xserv can do, such as load a bitmap from axle's filesystem or display live CPU usage animations.\n\nIf you want to force a full xserv redraw, press 'r'\nIf you want to toggle the transparency of the topmost window between 0.5 and 1, press 'a'\n\nPress ctrl+m any time to log source file dynamic memory usage.\nPress ctrl+p at any time to log CPU usage.\n");
-	body_label->font_size = size_make(16, 16);
+	body_label->font_size = size_make(8, 8);
 	add_sublabel(about_win->content_view, body_label);
 	present_window(about_win);
 }
@@ -321,9 +321,9 @@ void desktop_setup(Screen* screen) {
 	add_taskbar(screen);
 
 	//display_sample_image(point_make(450, 100));
-	display_about_window(point_make(100, 250));
+	display_about_window(point_make(100, 200));
 	//calculator_xserv(point_make(400, 300));
-	//display_usage_monitor(point_make(350, 500));
+	display_usage_monitor(point_make(350, 500));
 }
 
 static void draw_mouse_shadow(Screen* screen, Point old, Point new) {
@@ -614,6 +614,7 @@ static void process_mouse_events(Screen* screen) {
 
 	//did a right click just happen?
 	if (right && !(last_event & 0x2)) {
+		printk("invoking launcher for right click...\n");
 		launcher_invoke(p);
 	}
 
@@ -642,7 +643,7 @@ void xserv_refresh(Screen* screen) {
 	double frame_time = (time() - time_start) / 1000.0;
 	double fps_conv = 1 / frame_time / 10;
 
-	//update_all_animations(screen, frame_time);
+	update_all_animations(screen, frame_time);
 
 	//update frame time tracker
 	char buf[32];
