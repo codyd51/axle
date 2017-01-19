@@ -269,6 +269,28 @@ void empty_command() {
 	//do nothing if nothing was entered
 }
 
+void script_command(int argc, char** argv) {
+	if (argc < 2) {
+		printf_err("Please specify a script");
+		return;
+	}
+	
+	char* file = argv[1];
+	fs_node_t* node = finddir_fs(current_dir, file);
+	if (!node) {
+		printf_err("File %s not found");
+		return;
+	}
+	
+	//Read file line-by-line and use each line as a command
+	uint8_t filebuf[2048];
+	memset(filebuf, 0, 2048);
+	uint32_t sz = read_fs(node, 0, 2048, filebuf);
+	for (uint32_t i = 0; i < sz; i++) {
+		process_command(filebuf[i]);
+	}
+}
+
 void clear_command() {
 	terminal_clear();
 }
@@ -477,6 +499,7 @@ void shell_init() {
 	add_new_command("proc", "List running processes", proc_command);
 	add_new_command("pci", "List PCI devices", pci_list);
 	add_new_command("hypervisor", "Run VM", hypervisor_command);
+	add_new_command("script", "Run a script", script_command);
 	add_new_command("", "", empty_command);
 
 	//register ourselves as the first responder
@@ -486,4 +509,3 @@ void shell_init() {
 	//set current dir to fs root
 	current_dir = fs_root;
 }
-
