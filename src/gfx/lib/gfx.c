@@ -30,20 +30,16 @@ void set_gfx_depth(uint32_t depth) {
 
 inline int gfx_depth() {
 	if (!current_depth) {
-		//fall back on assuming VESA
-		current_depth = VESA_DEPTH;
+		//fall back on assuming 3bpp
+		current_depth = 24;
 	}
 	return current_depth;
 }
 
 inline int gfx_bpp() {
 	if (!current_depth) {
-		//fall back on assuming VESA
-		current_depth = VESA_DEPTH;
-	}
-	if (current_depth == 32) {
-		//last byte is unused
-		return 3;
+		//fall back on assuming 3bpp
+		current_depth = 24;
 	}
 	//each px component is 8 bits
 	return current_depth / 8;
@@ -86,16 +82,15 @@ void gfx_teardown(Screen* screen) {
 
 void switch_to_text() {
 	//do nothing if we're already in terminal mode
-	/*
 	if (!current_screen) {
 		return;
 	}
-	*/
 
 	regs16_t regs;
 	regs.ax = 0x0003;
 	int32(0x10, &regs);
-	term_scroll(TERM_SCROLL_UP);
+	process_gfx_switch((void*)NULL, 0);
+	//term_scroll(TERM_SCROLL_UP);
 }
 
 void vsync() {
@@ -115,8 +110,6 @@ void fill_screen(Screen* screen, Color color) {
 	write_screen(screen);
 }
 
-#define BANK_SIZE 0x10000
-#define VBE_DISPI_LFB_PHYSICAL_ADDRESS 0xA0000
 void write_screen(Screen* screen) {
 	vsync();
 	uint8_t* raw_vmem = (uint8_t*)VBE_DISPI_LFB_PHYSICAL_ADDRESS;
@@ -154,52 +147,54 @@ void write_screen_region(Rect region) {
 
 void rainbow_animation(Screen* screen, Rect r, int animationStep) {
 	//ROY G BIV
-	int colors[] = {4, 42, 44, 46, 1, 13, 34};
-	for (int i = 0; i < 7; i++) {
-		Point origin = point_make(r.origin.x + (r.size.width / 7) * i, r.origin.y);
-		Size size = size_make((r.size.width / 7), r.size.height);
+	//int colors[] = {4, 42, 44, 46, 1, 13, 34};
+	Color colors[] = {color_red(),
+					  color_orange(),
+					  color_yellow(),
+					  color_green(),
+					  color_blue(),
+					  color_purple(),
+	};
+	int count = sizeof(colors) / sizeof(colors[0]);
+
+	for (int i = 0; i < count; i++) {
+		Point origin = point_make(r.origin.x + (r.size.width / count) * i, r.origin.y);
+		Size size = size_make((r.size.width / count), r.size.height);
 		Rect seg = rect_make(origin, size);
 
-		Color col;
-		col.val[0] = colors[i];
+		Color col = colors[i];
 		draw_rect(screen->vmem, seg, col, THICKNESS_FILLED);
 		write_screen(screen);
 		
-		sleep(animationStep / 7);
+		sleep(animationStep / count);
 	}
 }
 
-void vga_boot_screen(Screen* screen) {
-	Color color;
-	color.val[0] = 0;
-	fill_screen(screen, color);
+void display_boot_screen() {
+	Screen* screen = gfx_screen();
+	fill_screen(screen, color_black());
 
-	Point p1 = point_make(screen->window->size.width / 2, screen->window->size.height * 0.25);
-	Point p2 = point_make(screen->window->size.width / 2 - 25, screen->window->size.height * 0.25 + 50);
-	Point p3 = point_make(screen->window->size.width / 2 + 25, screen->window->size.height * 0.25 + 50);
+	Point p1 = point_make(screen->resolution.width / 2, screen->resolution.height * 0.25);
+	Point p2 = point_make(screen->resolution.width / 2 - screen->resolution.width / 10, screen->resolution.height * 0.5);
+	Point p3 = point_make(screen->resolution.width / 2 + screen->resolution.width / 10, screen->resolution.height * 0.5);
 	Triangle triangle = triangle_make(p1, p2, p3);
-	Color tri_col;
-	tri_col.val[0] = 2;
-	draw_triangle(screen->vmem, triangle, tri_col, 5);
+	draw_triangle(screen->vmem, triangle, color_green(), THICKNESS_FILLED);
 
-	Point lab_origin = point_make(screen->window->size.width / 2 - (3.75 * 8), screen->window->size.height * 0.625);
-	Size lab_size = size_make((10 * strlen("axle os")), 12);
-	Label* label = create_label(rect_make(lab_origin, lab_size), "axle os");
-	label->text_color = color_make(2, 0, 0);
-	add_sublabel(screen->window->content_view, label);
+	Size default_size = screen->default_font_size;
+	Size font_size = size_make(default_size.width * 2, default_size.height * 2);
+	Size padding = font_padding_for_size(font_size);
+	char* label_text = "axle os";
+	int text_width = strlen(label_text) * font_size.width;
+	Point lab_origin = point_make((screen->resolution.width / 2) - (text_width / 2), screen->resolution.height * 0.6);
+	draw_string(screen->vmem, label_text, lab_origin, color_white(), font_size);
 
-	extern void draw_label(ca_layer* dest, Label* label);
-	draw_label(screen->vmem, label);
-
-	float rect_length = screen->window->size.width / 3;
-	Point origin = point_make((screen->window->size.width/2) - (rect_length / 2), screen->window->size.height / 4 * 3);
-	Size sz = size_make(rect_length - 5, screen->window->size.height / 16);
+	float rect_length = screen->resolution.width / 3;
+	Point origin = point_make((screen->resolution.width / 2) - (rect_length / 2), (screen->resolution.height / 4) * 3);
+	Size sz = size_make(rect_length - 5, screen->resolution.height / 16);
 	Rect border_rect = rect_make(origin, sz);
 
 	//fill the rectangle with white initially
-	Color white;
-	white.val[0] = 15;
-	draw_rect(screen->vmem, border_rect, white, 1);
+	draw_rect(screen->vmem, border_rect, color_white(), THICKNESS_FILLED);
 	
 	write_screen(screen);
 
@@ -208,9 +203,36 @@ void vga_boot_screen(Screen* screen) {
 	Point rainbow_origin = point_make(origin.x + 2, origin.y + 2);
 	Size rainbow_size = size_make(rect_length - 4, sz.height - 3);
 	Rect rainbow_rect = rect_make(rainbow_origin, rainbow_size);
-	rainbow_animation(screen, rainbow_rect, 750);
+	rainbow_animation(screen, rainbow_rect, 1500);
 
 	sleep(250);
+}
+
+static Size font_size_for_resolution(Size resolution) {
+	Size size = {12, 12};
+	const int required_rows = 60;
+	const int required_cols = 60;
+	//shrink font size until we can at least fit 80 chars on a line * 20 lines
+	//if we can't fit more than 20 characters on a line, shrink font and try again
+	while (resolution.width / size.width < required_rows) {
+		size.width /= 1.5;
+	}
+	while (resolution.height / size.height < required_cols) {
+		size.height /= 1.5;
+	}
+	/*
+	//keep width/height near each other
+	if (size.width > size.height * 1.25) {
+		size.width = lerp(size.width, size.height, 0.5);
+	}
+	else if (size.height > size.width * 1.25) {
+		size.height = lerp(size.height, size.width, 0.5);
+	}
+	*/
+	//int min = MAX(size.width, size.height);
+	//size.width = min;
+	//size.height = min;
+	return size;
 }
 
 void gfx_init(void* mboot_ptr) {
@@ -222,6 +244,17 @@ void gfx_init(void* mboot_ptr) {
 	screen.vmem = create_layer(screen.resolution);
 	screen.depth = mode->bpp;
 	screen.bpp = screen.depth / 8;
+	screen.window = NULL;
 	process_gfx_switch(&screen, mode->bpp);
+
+	//set default font size to fraction of screen size
+	Size s = font_size_for_resolution(screen.resolution);
+	screen.default_font_size = s;
+
+	fill_screen(gfx_screen(), color_black());
+	write_screen(gfx_screen());
+
+	Size padding = font_padding_for_size(s);
+	printf("Running in %d x %d x %d\nRecommended font size is %dx%d, recommended padding is %dx%d\n\n", screen.resolution.width, screen.resolution.height, screen.bpp, s.width, s.height, padding.width, padding.height);
 }
 

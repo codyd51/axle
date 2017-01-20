@@ -87,7 +87,7 @@ Window* create_window_int(Rect frame, bool root) {
 	window->border_width = 1;
 	window->subviews = array_m_create(MAX_ELEMENTS);
 	window->title = "Window";
-	window->animations = array_m_create(8);
+	window->animations = array_m_create(16);
 
 	//root window doesn't have a title view
 	if (!root) {
@@ -145,15 +145,15 @@ static void kill_window_real(Window* window, void* UNUSED(context)) {
 }
 
 void kill_window(Window* window) {
-	/*
+	printk("kill_window called on %x\n", window);
 	//fade out window
 	float to = 0.0;
 	ca_animation* fade_out = create_animation(ALPHA_ANIM, &to, 0.25);
+	printk("fade out animation: %x\n", fade_out);
 	//when animation finishes, perform real teardown
 	fade_out->finished_handler = (event_handler)kill_window_real;
 	add_animation(window, fade_out);
-	*/
-	kill_window_real(window, NULL);
+	//kill_window_real(window, NULL);
 }
 
 void set_border_width(Window* window, int width) {

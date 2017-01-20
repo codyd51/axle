@@ -10,6 +10,7 @@ typedef void (*event_handler)(void* obj, void* context);
 #include "view.h"
 #include "button.h"
 #include <gfx/font/font.h>
+#include <std/math.h>
 
 typedef struct __attribute__((packed)) {
 	unsigned short di, si, bp, sp, bx, dx, cx, ax;
@@ -25,6 +26,7 @@ typedef struct screen_t {
 	uint32_t* physbase; //address of beginning of framebuffer
 	volatile int finished_drawing; //are we currently rendering a frame?
 	ca_layer* vmem; //raw framebuffer pushed to screen
+	Size default_font_size; //recommended font size for screen resolution
 } Screen;
 
 typedef struct Vec2d {
@@ -40,8 +42,12 @@ void switch_to_text();
 void gfx_teardown(Screen* screen);
 void vga_boot_screen(Screen* screen);
 
+//fill double buffer with a given Color
 void fill_screen(Screen* screen, Color color);
+//copy all double buffer data to real screen
 void write_screen(Screen* screen);
+//copy 'region' from double buffer to real screen
+void write_screen_region(Rect region);
 
 void gfx_init(void* mboot_ptr);
 void process_gfx_switch(Screen* screen, int new_depth);
@@ -52,27 +58,17 @@ Screen* gfx_screen();
 
 Vec2d vec2d(double x, float y);
 
-#define VESA_DEPTH 24
-#define VGA_DEPTH 8
 __attribute__((always_inline))
 inline void putpixel(ca_layer* layer, int x, int y, Color color) {
 	//don't attempt writing a pixel outside of screen bounds
 	if (x < 0 || y < 0 || x >= layer->size.width || y >= layer->size.height) return;
 
-	int depth = gfx_depth();
-	if (depth == VGA_DEPTH) {
-		//VGA mode
-		uint16_t loc = ((y * layer->size.width * gfx_bpp()) + (x * gfx_bpp()));
-		layer->raw[loc] = color.val[0];
-	}
-	else {
-		int bpp = gfx_bpp();
-		//VESA mode
-		int offset = (x * bpp) + (y * layer->size.width * bpp);
-		for (int i = 0; i < bpp; i++) {
-			//we have to write the pixels in BGR, not RGB
-			layer->raw[offset + i] = color.val[bpp - 1 - i];
-		}
+	int bpp = gfx_bpp();
+	int offset = (x * bpp) + (y * layer->size.width * bpp);
+	for (int i = 0; i < MIN(3, bpp); i++) {
+		//we have to write the pixels in BGR, not RGB
+		//layer->raw[offset + i] = color.val[bpp - 1 - i];
+		layer->raw[offset + i] = color.val[bpp - 1 - i];
 	}
 }
 __attribute__((always_inline))
@@ -80,20 +76,11 @@ inline void addpixel(ca_layer* layer, int x, int y, Color color) {
 	//don't attempt writing a pixel outside of screen bounds
 	if (x < 0 || y < 0 || x >= layer->size.width || y >= layer->size.height) return;
 
-	int depth = gfx_depth();
-	if (depth == VGA_DEPTH) {
-		//VGA mode
-		uint16_t loc = ((y * layer->size.width) + x);
-		layer->raw[loc] += color.val[0];
-	}
-	else {
-		//VESA mode
-		int bpp = gfx_bpp();
-		int offset = x * bpp + y * layer->size.width * bpp;
-		for (int i = 0; i < bpp; i++) {
-			//we have to write the pixels in BGR, not RGB
-			layer->raw[offset + i] += color.val[bpp - 1 - i];
-		}
+	int bpp = gfx_bpp();
+	int offset = (x * bpp) + (y * layer->size.width * bpp);
+	for (int i = 0; i < bpp; i++) {
+		//we have to write the pixels in BGR, not RGB
+		layer->raw[offset + i] += color.val[bpp - 1 - i];
 	}
 }
 

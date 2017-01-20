@@ -117,7 +117,7 @@ void blit_layer_filled(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_
 			transferabble_px -= overhang + 1;
 		}
 
-		if (((uint32_t)dest_row_start - (uint32_t)dest->raw) + transferabble_px >= (dest->size.width * dest->size.height * gfx_bpp())) break;
+		if (((uint32_t)dest_row_start - (uint32_t)dest->raw) + transferabble_px >= (uint32_t)(dest->size.width * dest->size.height * gfx_bpp())) break;
 
 		memcpy(dest_row_start, row_start, transferabble_px);
 

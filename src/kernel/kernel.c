@@ -70,21 +70,17 @@ uint32_t module_detect(multiboot* mboot_ptr) {
 	//don't trample modules
 	placement_address = initrd_end;
 	printk_info("GRUB loaded initrd at %x - %x", initrd_loc, initrd_end);
+	printf_info("GRUB loaded initrd at %x - %x", initrd_loc, initrd_end);
 	return initrd_loc;
 }
 
 void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	initial_esp = initial_stack;
-	gfx_init(mboot_ptr);
 	
-	Screen* screen = gfx_screen();
-	Size res = screen->resolution;
-	fill_screen(gfx_screen(), color_black());
-	//draw_string(gfx_screen()->vmem, "axle OS\n\n", point_zero(), color_green(), size_make(8, 8));
-	write_screen(gfx_screen());
-
 	//initialize terminal interface
 	terminal_initialize();
+
+	gfx_init(mboot_ptr);
 
 	//introductory message
 	print_os_name();
