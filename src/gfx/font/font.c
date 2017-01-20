@@ -5,17 +5,7 @@
 #include <std/math.h>
 
 //TODO configurable SSAA factor?
-#define SSAA_FACTOR 4
-
-//check if a given pixel at x/y is set in character bitmap of font
-static bool font_px_on(char ch, int x, int y) {
-	char font_row = font8x8_basic[(int)ch][y];
-	//is pixel at idx x in row at y on?
-	if ((font_row >> x) & 1) {
-		return true;
-	}
-	return false;
-}
+#define SSAA_FACTOR 0
 
 static uint32_t supersample_map_cache[256][CHAR_WIDTH * SSAA_FACTOR] = {{0}};
 //generate supersampled bitmap of font character
@@ -69,14 +59,22 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 	for (int draw_y = 0; draw_y < font_size.height; draw_y++) {
 		//get the corresponding y of default font size
 		int font_y = draw_y / scale_y;
-		int font_row = font8x8_basic[(int)ch][font_y];
 		
 		for (int draw_x = 0; draw_x < font_size.width; draw_x++) {
-			if (ch == ' ') {
-				putpixel(layer, p.x + draw_x, p.y + draw_y, bg_color);
-			}
 			//corresponding x of default font size
 			int font_x = draw_x / scale_x;
+
+			//skip antialiasing?
+			if (!SSAA_FACTOR) {
+				uint32_t font_row = font8x8_basic[(int)ch][font_y];
+				if ((font_row >> font_x) & 1) {
+					putpixel(layer, x + draw_x, y + draw_y, color);
+				}
+				else {
+					putpixel(layer, x + draw_x, y + draw_y, bg_color);
+				}
+				continue;
+			}
 
 			//antialiasing
 			//holds number of 'on' pixels in supersampled region
@@ -137,6 +135,11 @@ static char* link_hueristic(char* str) {
 	return test;
 }
 
+Size font_padding_for_size(Size s) {
+	const int factor = 8;
+	return size_make(s.width / 8, s.height / 8);
+}
+
 void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font_size) {
 	//get a pointer to location of a web link in this string, if any
 	char* link_loc = link_hueristic(str);
@@ -148,13 +151,12 @@ void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font
 	//scale font parameters to size requested
 	int scale_x = font_size.width / CHAR_WIDTH;
 	int scale_y = font_size.height / CHAR_HEIGHT;
-	int padding_w = CHAR_PADDING_W * scale_x;
-	int padding_h = CHAR_PADDING_H * scale_y;
+	Size padding = font_padding_for_size(font_size);
 
 	while (str[idx]) {
 		bool inserting_hyphen = false;
 		//do we need to break a word onto 2 lines?
-		if ((x + font_size.width + padding_w + 1) >= dest->size.width) {
+		if ((x + font_size.width + padding.width + 1) >= dest->size.width) {
 			//don't bother if it was puncutation anyways
 			if (str[idx] != ' ') {
 				inserting_hyphen = true;
@@ -164,8 +166,8 @@ void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font
 			x = 0;
 
 			//quit if going to next line would exceed view bounds
-			if ((y + font_size.height + padding_h + 1) >= dest->size.height) break;
-			y += font_size.height + padding_h;
+			if ((y + font_size.height + padding.height + 1) >= dest->size.height) break;
+			y += font_size.height + padding.height;
 		}
 
 		//if this is a link, draw blue
@@ -191,15 +193,15 @@ void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font
 			x = 0;
 
 			//quit if going to next line would exceed view bounds
-			if ((y + font_size.height + padding_h + 1) >= dest->size.height) break;
-			y += font_size.height + padding_h;
+			if ((y + font_size.height + padding.height+ 1) >= dest->size.height) break;
+			y += font_size.height + padding.height;
 
 			continue;
 		}
 
 		draw_char(dest, str[idx], x, y, draw_color, font_size);
 
-		x += font_size.width + padding_w;
+		x += font_size.width + padding.width;
 		idx++;
 	}
 }
