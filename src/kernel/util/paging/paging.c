@@ -218,10 +218,6 @@ void paging_install() {
 	memset(kernel_directory, 0, sizeof(page_directory_t));
 	kernel_directory->physicalAddr = (uint32_t)kernel_directory->tablesPhysical;
 
-	//identity map VESA LFB
-	uint32_t vesa_mem_addr = 0xFD000000; //TODO replace with function
-	identity_map_lfb(vesa_mem_addr);
-
 	//map pages in kernel heap area
 	//we call get_page but not alloc_frame
 	//this causes page_table_t's to be created where necessary
@@ -258,7 +254,6 @@ void paging_install() {
 	switch_page_directory(kernel_directory);
 	//turn on paging
 	set_paging_bit(true);
-
 
 	//initialize kernel heap
 	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, KHEAP_MAX_ADDRESS, 0, 0);

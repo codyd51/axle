@@ -164,7 +164,7 @@ void rainbow_animation(Screen* screen, Rect r, int animationStep) {
 
 		Color col = colors[i];
 		draw_rect(screen->vmem, seg, col, THICKNESS_FILLED);
-		write_screen(screen);
+		write_screen_region(seg);
 		
 		sleep(animationStep / count);
 	}
@@ -206,6 +206,7 @@ void display_boot_screen() {
 	rainbow_animation(screen, rainbow_rect, 1500);
 
 	sleep(250);
+	fill_screen(screen, color_black());
 }
 
 static Size font_size_for_resolution(Size resolution) {

@@ -98,7 +98,6 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//serial output for syslog
 	serial_init();
 
-
 	//timer driver (many functions depend on timer interrupt so start early)
 	pit_install(1000);
 	rtc_install();
@@ -113,7 +112,6 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//tasking_install(PRIORITIZE_INTERACTIVE);
 	tasking_install(LOW_LATENCY);
 
-
 	//drivers
 	kb_install();
 	mouse_install();
@@ -123,13 +121,11 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	fs_root = initrd_install(initrd_loc);
 
 	//test facilities
-	/*
 	test_heap();
 	test_printf();
 	test_time_unique();
 	test_malloc();
 	test_crypto();
-	*/
 
 	if (!fork("shell")) {
 		//start shell

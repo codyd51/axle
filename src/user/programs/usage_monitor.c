@@ -23,6 +23,7 @@ void update_usage_stats(Window* win) {
 		int curr_len = strlen(history->history[i]);
 		longest_len = MAX(curr_len, longest_len);
 	}
+	longest_len += 4;
 
 	float section_height = win->frame.size.height / ((float)history->count + 2.0);
 	int label_length = (longest_len + 12) * CHAR_WIDTH;
@@ -90,7 +91,7 @@ void display_usage_monitor(Point origin) {
 	Window* usage_win = create_window(rect_make(origin, size_make(500, 260)));
 	usage_win->teardown_handler = usage_monitor_teardown;
 	usage_win->title = "Usage monitor";
-	usage_win->redraw_handler = update_usage_stats;
+	usage_win->redraw_handler = (event_handler)update_usage_stats;
 	present_window(usage_win);
 }
 

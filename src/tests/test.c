@@ -7,9 +7,28 @@
 
 void test_colors() {
 	printf_info("Testing colors...");
+	/*
 	for (int i = 0; i < 16; i++) {
 		printf("\e[%d;@", i);
 	}
+	*/
+	printf("\e[1;@");
+	printf("\e[2;@");
+	printf("\e[3;@");
+	printf("\e[4;@");
+	printf("\e[5;@");
+	printf("\e[6;@");
+	printf("\e[7;@");
+	printf("\e[8;@");
+	printf("\e[9;@");
+	printf("\e[10;@");
+	printf("\e[11;@");
+	printf("\e[12;@");
+	printf("\e[13;@");
+	printf("\e[14;@");
+	printf("\e[15;@");
+	printf("\e[16;@");
+
 	printf("\n");
 }
 

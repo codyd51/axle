@@ -30,7 +30,10 @@ enum {
 };
 
 static void backspace(Point* cursor_pos) {
-	Point new_pos;
+	Point new_pos = *cursor_pos;
+	Size font_size = gfx_screen()->default_font_size;
+	Size padding = font_padding_for_size(font_size);
+
 	if(cursor_pos->x == 0) {
 		if(cursor_pos->y == 0) {
 			// Can't delete if we're at the first spot
@@ -38,13 +41,12 @@ static void backspace(Point* cursor_pos) {
 		}
 
 		// Go back to last column on previous line
-		new_pos.x = gfx_screen()->resolution.width - 1;
-		new_pos.y = cursor_pos->y - 1;
+		new_pos.x = gfx_screen()->resolution.width - font_size.width - padding.width;
+		new_pos.y = cursor_pos->y - font_size.height - padding.height;
 	}
 	else {
 		// Go back one character on this line
-		new_pos.x = cursor_pos->x - 1;
-		new_pos.y = cursor_pos->y;
+		new_pos.x = cursor_pos->x - font_size.width - padding.width;
 	}
 
 	// Draw a space over the previous character, then back up
@@ -53,29 +55,48 @@ static void backspace(Point* cursor_pos) {
 	*cursor_pos = new_pos;
 }
 
-static Color printf_draw_color = {0, 255, 0};
+void scroll_display_up() {
+	Screen* screen = gfx_screen();
+	Size font_size = screen->default_font_size;
+
+	//top line of text is lost
+	Rect shifted = rect_make(point_make(0, font_size.height), size_make(screen->resolution.width, screen->resolution.height - font_size.height));
+	//for each line in shifted, copy data upwards
+	for (int y = rect_min_y(shifted); y <= rect_max_y(shifted); y++) {
+		int overwrite_y = y - font_size.height;
+		int overwrite_idx = (overwrite_y * screen->resolution.width * screen->bpp);
+		int source_idx = (y * screen->resolution.width * screen->bpp);
+		memcpy(screen->vmem->raw + overwrite_idx, screen->vmem->raw + source_idx, screen->resolution.width * screen->bpp);
+	}
+	write_screen(screen);
+}
+
+static Color printf_draw_color = {{0, 255, 0}};
 static void outputc(int dest, char c) {
-	static Size font_size = {12, 12};
 	static Point cursor_pos = {0, 0};
-	static Point padding = {1, 1};
+
+	Size font_size = gfx_screen()->default_font_size;
+	Size padding = font_padding_for_size(font_size);
 	switch (dest) {
 		case TERM_OUTPUT: {
 			terminal_putchar(c);
+			if (c == '\b') {
+				backspace(&cursor_pos);
+				return;
+			}
 
 			Point old_cursor_pos = cursor_pos;
 			draw_char(gfx_screen()->vmem, c, cursor_pos.x, cursor_pos.y, printf_draw_color, font_size);
-			cursor_pos.x += font_size.width + padding.x;
+			cursor_pos.x += font_size.width + padding.width;
 			if (c == '\n' || cursor_pos.x >= gfx_screen()->resolution.width) {
-				cursor_pos.y += font_size.height + padding.y;
+				cursor_pos.y += font_size.height + padding.height;
 				cursor_pos.x = 0;
 				if (cursor_pos.y >= gfx_screen()->resolution.height) {
-					//clear screen
+					//move all screen data up a line
+					//scroll_display_up();
 					fill_screen(gfx_screen(), color_black());
 					cursor_pos.y = 0;
 				}
-			}
-			if (c == '\b') {
-				backspace(&cursor_pos);
 			}
 			write_screen_region(rect_make(old_cursor_pos, font_size));
 			break;
@@ -96,17 +117,17 @@ Color term_color_code(int code) {
 	switch (code) {
 		case 0: return color_black(); break;
 		case 1: return color_blue(); break;
-		case 2: return color_green(); break;
-		case 3: return color_blue(); break;
-		case 4: return color_red(); break;
+		case 2: return color_make(29, 224, 65); break;
+		case 3: return color_make(29, 90, 224); break;
+		case 4: return color_make(229, 29, 187); break;
 		case 5: return color_purple(); break;
 		case 6: return color_orange(); break;
 		case 7: return color_light_gray(); break;
 		case 8: return color_dark_gray(); break;
-		case 9: return color_blue(); break;
-		case 10: return color_green(); break;
+		case 9: return color_make(29, 90, 224); break;
+		case 10: return color_make(29, 224, 65); break;
 		case 11: return color_blue(); break;
-		case 12: return color_red(); break;
+		case 12: return color_make(229, 29, 187); break;
 		case 13: return color_purple(); break;
 		case 14: return color_yellow(); break;
 		case 15: return color_white(); break;

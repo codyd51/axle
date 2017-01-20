@@ -14,6 +14,7 @@
 #include "animator.h"
 #include <user/programs/launcher.h>
 #include <user/programs/calculator.h>
+#include <user/programs/usage_monitor.h>
 
 //has the screen been modified this refresh?
 static char dirtied = 0;
@@ -39,7 +40,6 @@ void draw_label(ca_layer* dest, Label* label) {
 	if (!label) return;
 
 	View* superview = label->superview;
-	Rect frame = label->frame;
 
 	Color background_color = color_white();
 	//try to match text bounding box to superview's background color
@@ -312,6 +312,9 @@ static void display_about_window(Point origin) {
 }
 
 void desktop_setup(Screen* screen) {
+	screen->window = create_window_int(rect_make(point_zero(), screen->resolution), true);
+	screen->window->superview = NULL;
+
 	//set up background image
 	Bmp* background = load_bmp(screen->window->content_view->frame, "altitude.bmp");
 	if (background) {
@@ -673,8 +676,7 @@ void xserv_temp_stop(uint32_t pause_length) {
 
 void xserv_init() {
 	become_first_responder();
-	//switch to VESA for xserv
-	Screen* screen = switch_to_vesa(0x118, true);
+	Screen* screen = gfx_screen();
 	desktop_setup(screen);
 
 	//add FPS tracker
@@ -694,7 +696,7 @@ void xserv_init() {
 }
 
 void xserv_fail() {
-	printk_err("xserv fail\n");
+	printk_err("xserv fail");
 	Screen* screen = gfx_screen();
 	if (!screen) return;
 

@@ -319,19 +319,11 @@ void startx_command() {
 	//spawn xserv into its own process
 	int xserv_pid = fork("xserv");
 	if (xserv_pid) {
-		//sleep(4000);
-		//display_usage_monitor(point_make(100, 300));
 		return;
 	}
 
-	//switch into VGA for boot screen
-	Screen* vga_screen = switch_to_vga();
-
 	//display boot screen
-	vga_boot_screen(vga_screen);
-	gfx_teardown(vga_screen);
-	switch_to_text();
-
+	display_boot_screen();
 	//actually launch xserv
 	xserv_init();
 }
