@@ -50,17 +50,15 @@ void set_cr3(page_directory_t* dir) {
 
 //static function to set a bit in frames bitset
 static void set_bit_frame(uint32_t frame_addr) {
-	//if (frame_addr < nframes * 4 * 0x400) {
+	if (frame_addr < nframes * 4 * 0x400) {
 		uint32_t frame = frame_addr/0x1000;
 		uint32_t idx = INDEX_FROM_BIT(frame);
 		uint32_t off = OFFSET_FROM_BIT(frame);
 		frames[idx] |= (0x1 << off);
-		/*
 	}
 	else {
-		printf_err("couldn't set frame %x", frame_addr);
+		printk_err("set_bit_frame() couldn't set frame %x", frame_addr);
 	}
-	*/
 }
 
 //static function to clear a bit in the frames bitset
@@ -310,10 +308,10 @@ void page_fault(registers_t regs) {
 
 	//if this page was present, attempt to recover by allocating the page
 	if (!present) {
-		bool attempt = alloc_frame(get_page(faulting_address, 1, current_directory), 0, rw);
+		bool attempt = alloc_frame(get_page(faulting_address, 1, kernel_directory), 1, 1);
 		if (attempt) {
 			//recovered successfully
-			printf_info("allocated page at virt %x", faulting_address);
+			//printf_info("allocated page at virt %x", faulting_address);
 			return;
 		}
 	}

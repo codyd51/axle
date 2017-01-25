@@ -50,6 +50,8 @@ void write_screen(Screen* screen);
 //copy 'region' from double buffer to real screen
 void write_screen_region(Rect region);
 
+void draw_boot_background();
+
 void gfx_init(void* mboot_ptr);
 void process_gfx_switch(Screen* screen, int new_depth);
 void set_gfx_depth(uint32_t depth);
