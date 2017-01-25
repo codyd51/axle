@@ -2,6 +2,7 @@
 #include "view.h"
 #include <gfx/font/font.h>
 #include <std/std.h>
+#include <gfx/lib/shapes.h>
 
 void button_handle_mousedown(Button* button) {
 	button->toggled = true;
@@ -36,3 +37,22 @@ Button* create_button(Rect frame, char* text) {
 	button->needs_redraw = 1;
 	return button;
 }
+
+void draw_button(ca_layer* dest, Button* button) {
+	if (!button || !dest) return;
+
+	Color background_color = color_gray();
+	if (button->toggled) {
+		background_color = color_dark_gray();
+	}
+
+	//background
+	draw_rect(dest, button->frame, background_color, THICKNESS_FILLED);
+	//button border
+	draw_rect(dest, button->frame, color_black(), 1);
+	//title	
+	draw_label(dest, button->label);
+
+	button->needs_redraw = 0;
+}
+

@@ -19,6 +19,8 @@ typedef struct bitmap {
 
 Bmp* create_bmp(Rect frame, ca_layer* layer);
 Bmp* load_bmp(Rect frame, char* filename);
+void draw_bmp(ca_layer* dest, Bmp* bmp);
+
 void bmp_teardown(Bmp* bmp);
 
 __END_DECLS

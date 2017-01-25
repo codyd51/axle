@@ -72,3 +72,12 @@ Bmp* load_bmp(Rect frame, char* filename) {
 	fclose(file);
 	return bmp;
 }
+
+void draw_bmp(ca_layer* dest, Bmp* bmp) {
+	if (!bmp) return;
+
+	blit_layer(dest, bmp->layer, bmp->frame, rect_make(point_zero(), bmp->frame.size)); 
+
+	bmp->needs_redraw = 0;
+}
+

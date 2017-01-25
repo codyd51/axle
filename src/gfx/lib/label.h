@@ -22,6 +22,8 @@ typedef struct label {
 } Label;
 
 Label* create_label(Rect frame, char* text);
+void draw_label(ca_layer* dest, Label* label);
+
 void label_teardown(Label* label);
 void set_text(Label* label, char* text);
 

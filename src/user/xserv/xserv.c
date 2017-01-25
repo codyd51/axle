@@ -29,151 +29,6 @@ void xserv_quit(Screen* screen) {
 	resign_first_responder();
 	_kill();
 }
-
-void draw_label(ca_layer* dest, Label* label) {
-	if (!label) return;
-
-	View* superview = label->superview;
-
-	Color background_color = color_white();
-	//try to match text bounding box to superview's background color
-	if (superview) {
-		background_color = superview->background_color;
-	}
-	draw_rect(label->layer, rect_make(point_zero(), label->frame.size), background_color, THICKNESS_FILLED);
-
-	Point origin = point_zero();
-	/*
-	if (label->frame.size.width >= CHAR_WIDTH && label->frame.size.height >= CHAR_HEIGHT) {
-		origin.x = CHAR_WIDTH;
-		origin.y = CHAR_HEIGHT;
-	}
-	*/
-	draw_string(label->layer, label->text, origin, label->text_color, label->font_size);
-
-	blit_layer(dest, label->layer, rect_make(label->frame.origin, label->layer->size), rect_make(point_zero(), label->layer->size));
-
-	label->needs_redraw = 0;
-}
-
-void draw_button(ca_layer* dest, Button* button) {
-	if (!button || !dest) return;
-
-	Color background_color = color_gray();
-	if (button->toggled) {
-		background_color = color_dark_gray();
-	}
-
-	//background
-	draw_rect(dest, button->frame, background_color, THICKNESS_FILLED);
-	//button border
-	draw_rect(dest, button->frame, color_black(), 1);
-	//title	
-	draw_label(dest, button->label);
-
-	button->needs_redraw = 0;
-}
-
-void draw_view(View* view) {
-	if (!view) return;
-
-	//inform subviews that we're being redrawn
-	dirtied = 1;
-
-	//fill view with its background color
-	draw_rect(view->layer, rect_make(point_zero(), view->frame.size), view->background_color, THICKNESS_FILLED);
-
-	//draw any bmps this view has
-	for (int i = 0; i < view->bmps->size; i++) {
-		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
-		if (bmp) {
-			draw_bmp(view->layer, bmp);
-		}
-	}
-	
-	//draw any labels this view has
-	for (int i = 0; i < view->labels->size; i++) {
-		Label* label = (Label*)array_m_lookup(view->labels, i);
-		draw_label(view->layer, label);
-	}
-
-	//draw buttons
-	for (int i = 0; i < view->buttons->size; i++) {
-		Button* button = (Button*)array_m_lookup(view->buttons, i);
-		if (button) {
-			draw_button(view->layer, button);
-		}
-	}
-
-	//draw each subview of this view
-	for (int i = 0; i < view->subviews->size; i++) {
-		View* subview = (View*)array_m_lookup(view->subviews, i);
-		draw_view(subview);
-		blit_layer(view->layer, subview->layer, rect_make(subview->frame.origin, subview->layer->size), rect_make(point_zero(), subview->layer->size));
-	}
-	
-	view->needs_redraw = 0;
-}
-
-bool draw_window(Screen* UNUSED(screen), Window* window) {
-	//if window is invisible, don't bother drawing
-	if (!window->layer->alpha) return false;
-	//if window doesn't need to be redrawn, no work to do
-	if (!window->needs_redraw) {
-		//however, if there's a redraw callback, call it
-		if (window->redraw_handler) {
-			//draw_rect(window->content_view->layer, rect_make(point_zero(), window->content_view->frame.size), window->content_view->background_color, THICKNESS_FILLED);
-			event_handler redraw = window->redraw_handler;
-			redraw(window, NULL);
-			blit_layer(window->layer, window->content_view->layer, rect_make(window->content_view->frame.origin, window->layer->size), rect_make(point_zero(), window->content_view->frame.size));
-
-			return true;
-		}
-		return false;
-	}
-
-	dirtied = 1;
-
-	//paint window
-	draw_rect(window->layer, rect_make(point_zero(), window->frame.size), window->border_color, window->border_width);
-
-	//only draw a title bar if title_view exists
-	if (window->title_view) {
-		//update title label of window
-		Label* title_label = (Label*)array_m_lookup(window->title_view->labels, 0);
-		title_label->text = window->title;
-		draw_view(window->title_view);
-		blit_layer(window->layer, window->title_view->layer, rect_make(point_zero(), window->layer->size), window->title_view->frame);
-		draw_rect(window->layer, window->title_view->frame, color_gray(), 2);
-	}
-
-	//only draw the content view if content_view exists
-	if (window->content_view) {
-		draw_view(window->content_view);
-
-		//if there's a redraw callback, call it
-		if (window->redraw_handler) {
-			event_handler redraw = window->redraw_handler;
-			redraw(window, NULL);
-		}
-
-		blit_layer(window->layer, window->content_view->layer, rect_make(window->content_view->frame.origin, window->layer->size), rect_make(point_zero(), window->content_view->frame.size));
-
-		//draw dividing border between window border and other content
-		if (window->border_width) {
-			//inner border
-			draw_rect(window->content_view->layer, rect_make(point_zero(), window->content_view->frame.size), color_gray(), window->border_width);
-		}
-	}
-
-	//draw window border
-	draw_rect(window->layer, rect_make(point_zero(), window->frame.size), color_black(), 1);
-
-	window->needs_redraw = 0;
-
-	return true;
-}
-
 void launcher_button_clicked(Button* UNUSED(b)) {
 	//launcher_invoke(point_make(20, rect_min_y(b->frame) - 200));
 	launcher_invoke(point_make(20, 20));
@@ -250,7 +105,7 @@ static void draw_window_shadow(Screen* screen, Window* window, Point new) {
 static Window* grabbed_window = NULL;
 void draw_desktop(Screen* screen) {
 	//paint root desktop
-	draw_window(screen, screen->window);
+	draw_window(screen->window);
 	blit_layer(screen->vmem, screen->window->layer, screen->window->frame, screen->window->frame);
 
 	if (screen->window->subviews->size) {
@@ -260,7 +115,7 @@ void draw_desktop(Screen* screen) {
 		//redraw every child window at the same time if necessary
 		for (int i = 0; i < screen->window->subviews->size - 1; i++) {
 			Window* win = (Window*)(array_m_lookup(screen->window->subviews, i));
-			draw_window(screen, win);
+			draw_window(win);
 
 			//Rect* visible_rects = rect_clip(win->frame, highest->frame);
 			//if (!visible_rects || highest->layer->alpha < 1.0) {
@@ -285,7 +140,7 @@ void draw_desktop(Screen* screen) {
 		}
 		
 		//finally, composite highest window
-		draw_window(screen, highest);
+		draw_window(highest);
 		blit_layer(screen->vmem, highest->layer, highest->frame, rect_make(point_zero(), highest->layer->size));
 
 	}

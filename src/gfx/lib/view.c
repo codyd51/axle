@@ -169,3 +169,45 @@ Rect convert_frame(View* view, Rect frame) {
 	Rect ret = convert_rect(view->frame, frame);
 	return ret;
 }
+
+void draw_view(View* view) {
+	if (!view) return;
+
+	//inform subviews that we're being redrawn
+	//dirtied = 1;
+
+	//fill view with its background color
+	draw_rect(view->layer, rect_make(point_zero(), view->frame.size), view->background_color, THICKNESS_FILLED);
+
+	//draw any bmps this view has
+	for (int i = 0; i < view->bmps->size; i++) {
+		Bmp* bmp = (Bmp*)array_m_lookup(view->bmps, i);
+		if (bmp) {
+			draw_bmp(view->layer, bmp);
+		}
+	}
+	
+	//draw any labels this view has
+	for (int i = 0; i < view->labels->size; i++) {
+		Label* label = (Label*)array_m_lookup(view->labels, i);
+		draw_label(view->layer, label);
+	}
+
+	//draw buttons
+	for (int i = 0; i < view->buttons->size; i++) {
+		Button* button = (Button*)array_m_lookup(view->buttons, i);
+		if (button) {
+			draw_button(view->layer, button);
+		}
+	}
+
+	//draw each subview of this view
+	for (int i = 0; i < view->subviews->size; i++) {
+		View* subview = (View*)array_m_lookup(view->subviews, i);
+		draw_view(subview);
+		blit_layer(view->layer, subview->layer, rect_make(subview->frame.origin, subview->layer->size), rect_make(point_zero(), subview->layer->size));
+	}
+	
+	view->needs_redraw = 0;
+}
+

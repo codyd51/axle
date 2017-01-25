@@ -26,6 +26,8 @@ typedef struct button {
 } Button;
 
 Button* create_button(Rect frame, char* text);
+void draw_button(ca_layer* dest, Button* button);
+
 void button_handle_click();
 
 //internal functions to process clicks on buttons

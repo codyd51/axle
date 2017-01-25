@@ -6,6 +6,7 @@
 #include <std/math.h>
 #include <std/std.h>
 #include <user/xserv/animator.h>
+#include <gfx/lib/shapes.h>
 
 #define MAX_ELEMENTS 64
 
@@ -187,5 +188,64 @@ void window_teardown(Window* window) {
 bool window_presented(Window* w) {
 	Screen* s = gfx_screen();
 	return (array_m_index(s->window->subviews, w) != ARR_NOT_FOUND);
+}
+
+bool draw_window(Window* window) {
+	//if window is invisible, don't bother drawing
+	if (!window->layer->alpha) return false;
+	//if window doesn't need to be redrawn, no work to do
+	if (!window->needs_redraw) {
+		//however, if there's a redraw callback, call it
+		if (window->redraw_handler) {
+			//draw_rect(window->content_view->layer, rect_make(point_zero(), window->content_view->frame.size), window->content_view->background_color, THICKNESS_FILLED);
+			event_handler redraw = window->redraw_handler;
+			redraw(window, NULL);
+			blit_layer(window->layer, window->content_view->layer, rect_make(window->content_view->frame.origin, window->layer->size), rect_make(point_zero(), window->content_view->frame.size));
+
+			return true;
+		}
+		return false;
+	}
+
+	//dirtied = 1;
+
+	//paint window
+	draw_rect(window->layer, rect_make(point_zero(), window->frame.size), window->border_color, window->border_width);
+
+	//only draw a title bar if title_view exists
+	if (window->title_view) {
+		//update title label of window
+		Label* title_label = (Label*)array_m_lookup(window->title_view->labels, 0);
+		title_label->text = window->title;
+		draw_view(window->title_view);
+		blit_layer(window->layer, window->title_view->layer, rect_make(point_zero(), window->layer->size), window->title_view->frame);
+		draw_rect(window->layer, window->title_view->frame, color_gray(), 2);
+	}
+
+	//only draw the content view if content_view exists
+	if (window->content_view) {
+		draw_view(window->content_view);
+
+		//if there's a redraw callback, call it
+		if (window->redraw_handler) {
+			event_handler redraw = window->redraw_handler;
+			redraw(window, NULL);
+		}
+
+		blit_layer(window->layer, window->content_view->layer, rect_make(window->content_view->frame.origin, window->layer->size), rect_make(point_zero(), window->content_view->frame.size));
+
+		//draw dividing border between window border and other content
+		if (window->border_width) {
+			//inner border
+			draw_rect(window->content_view->layer, rect_make(point_zero(), window->content_view->frame.size), color_gray(), window->border_width);
+		}
+	}
+
+	//draw window border
+	draw_rect(window->layer, rect_make(point_zero(), window->frame.size), color_black(), 1);
+
+	window->needs_redraw = 0;
+
+	return true;
 }
 

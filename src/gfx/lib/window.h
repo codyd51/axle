@@ -33,6 +33,7 @@ typedef struct window {
 } Window;
 
 Window* create_window(Rect frame);
+bool draw_window(Window* window);
 void window_teardown(Window* window);
 
 void add_subwindow(Window* window, Window* subwindow);
