@@ -34,4 +34,6 @@ Color color_light_grey();
 Color color_light_gray();
 Color color_white();
 
+bool color_equal(Color a, Color b);
+
 #endif

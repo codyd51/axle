@@ -85,17 +85,19 @@ static void outputc(int dest, char c) {
 				return;
 			}
 
+			Screen* screen = gfx_screen();
 			Point old_cursor_pos = cursor_pos;
-			draw_char(gfx_screen()->vmem, c, cursor_pos.x, cursor_pos.y, printf_draw_color, font_size);
+
+			draw_char(screen->vmem, c, cursor_pos.x, cursor_pos.y, printf_draw_color, font_size);
 			cursor_pos.x += font_size.width + padding.width;
-			if (c == '\n' || cursor_pos.x >= gfx_screen()->resolution.width) {
+			if (c == '\n' || cursor_pos.x >= screen->resolution.width) {
 				cursor_pos.y += font_size.height + padding.height;
 				cursor_pos.x = 0;
-				if (cursor_pos.y >= gfx_screen()->resolution.height) {
-					//move all screen data up a line
-					//scroll_display_up();
-					fill_screen(gfx_screen(), color_black());
+				if (cursor_pos.y >= screen->resolution.height - font_size.height) {
+					//clear screen, redraw background
+					draw_boot_background();
 					cursor_pos.y = 0;
+					break;
 				}
 			}
 			write_screen_region(rect_make(old_cursor_pos, font_size));
@@ -401,6 +403,7 @@ void print_common(int dest, char* format, va_list va) {
 }
 
 void printf(char* format, ...) {
+	//if (!gfx_screen()->vmem) return;
 	va_list arg;
 	va_start(arg, format);
 	print_common(TERM_OUTPUT, format, arg);

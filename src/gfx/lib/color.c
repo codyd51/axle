@@ -90,3 +90,10 @@ Color color_light_gray() {
 Color color_white() {
 	return color_make(255, 255, 255);
 }
+
+bool color_equal(Color a, Color b) {
+	return (a.val[0] == b.val[0] &&
+			a.val[1] == b.val[1] &&
+			a.val[2] == b.val[2]);
+}
+

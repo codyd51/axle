@@ -5,7 +5,7 @@
 #include <std/math.h>
 
 //TODO configurable SSAA factor?
-#define SSAA_FACTOR 0
+#define SSAA_FACTOR 3
 
 static uint32_t supersample_map_cache[256][CHAR_WIDTH * SSAA_FACTOR] = {{0}};
 //generate supersampled bitmap of font character
@@ -106,13 +106,34 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 
 			//'on' pixels / total pixel count in SSAA region = alpha of pixel to draw
 			float alpha = (float)on_count / (float)total_count;
-			Color avg_color = color;
-			//set avg_color to color * alpha
-			//this is a lerp of background color to text color, at alpha
-			for (int i = 0; i < gfx_bpp(); i++) {
-				avg_color.val[i] = lerp(bg_color.val[i], avg_color.val[i], alpha);
+			
+			//if drawing black or white text, try to increase legibility
+			if (color_equal(color, color_white()) ||
+				color_equal(color, color_black())) {
+				//find brightest color component of background
+				int max_color = 0;
+				max_color = MAX(max_color, bg_color.val[0]);
+				max_color = MAX(max_color, bg_color.val[1]);
+				max_color = MAX(max_color, bg_color.val[2]);
+				//if brightest component is more than halfway to max brightness, draw dark
+				if (max_color >= 127) {
+					color = color_black();
+				}
+				else {
+					color = color_white();
+				}
 			}
-			putpixel(layer, p.x + draw_x, p.y + draw_y, avg_color);
+
+			Color avg_color = color;
+
+			if (alpha) {
+				//set avg_color to color * alpha
+				//this is a lerp of background color to text color, at alpha
+				for (int i = 0; i < gfx_bpp(); i++) {
+					avg_color.val[i] = lerp(bg_color.val[i], avg_color.val[i], alpha);
+				}
+				putpixel(layer, p.x + draw_x, p.y + draw_y, avg_color);
+			}
 		}
 	}
 }

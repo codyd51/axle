@@ -92,6 +92,7 @@ fs_node_t* initrd_install(uint32_t location) {
 	nroot_nodes = initrd_header->nfiles;
 
 	//for every file
+	printf("initrd() has %d files\n", initrd_header->nfiles);
 	for (uint8_t i = 0 ; i < initrd_header->nfiles; i++) {
 		//edit every file's header
 		//currently, holds file offset relative to start of ramdisk
