@@ -33,51 +33,36 @@ Bmp* load_bmp(Rect frame, char* filename) {
 	fread(&header, sizeof(char), 54, file);
 
 	//get width and height from header
-	int file_width, file_height;
-	int width = file_width = *(int*)&header[18];
-	int height = file_height = *(int*)&header[22];
+	int file_width = *(int*)&header[18];
+	int file_height = *(int*)&header[22];
+	int width = frame.size.width;
+	int height = frame.size.height;
 
-	//don't exceed given frame
-	width = MIN(width, frame.size.width);
-	height = MIN(height, frame.size.height);
-	printk_info("loading BMP %s with dimensions (%d,%d)", filename, width, height);
+	printk_info("loading BMP %s with dimensions (%d,%d) scaled to (%d,%d)", filename, file_width, file_height, width, height);
+
+	//find scale factor of actual image dimensions to size requested
+	float scale_x = width / (float)file_width;
+	float scale_y = height / (float)file_height;
 
 	int bpp = gfx_bpp();
 	ca_layer* layer = create_layer(size_make(width, height));
-	printk_dbg("load_bmp() got layer %x", layer);
 	//image is upside down in memory so build array from bottom up
-	for (int y = file_height - 1; y >= 0; y--) {
-		/*
-		if (y >= height) {
-			//y is too large to fit in layer
-			//eat bytes of this pixel
-			fgetc(file);
-			fgetc(file);
-			fgetc(file);
-			continue;
-		}
-		*/
-		for (int x = file_width - 1; x >= 0; x--) {
-			/*
-			if (x >= width) {
-				//x is too large to fit in layer
-				//eat bytes of this pixel
-				fgetc(file);
-				fgetc(file);
-				fgetc(file);
-				continue;
-			}
-			*/
+	//for (int draw_y = height - 1; draw_y >= 0; draw_y--) {
+	for (int draw_y = 0; draw_y < height; draw_y++) {
+		int translated_y = draw_y / scale_y;
+		//for (int draw_x = width - 1; draw_x >= 0; draw_x--) {
+		for (int draw_x = 0; draw_x < width; draw_x++) {
+			int translated_x = draw_x / scale_x;
 
-			//if (y == file_height && x == file_width) continue;
+			int idx = (translated_y * file_width * bpp) + (translated_x * bpp);
+			//if (idx + 2 > file_width * file_height * bpp) break;
+			fseek(file, idx, SEEK_END);
 
-			int idx = (y * width * bpp) + (x * bpp);
-			if (idx > width * height * bpp) break;
-
+			int draw_idx = (draw_y * width * bpp) + (draw_x * bpp);
 			//we process 3 bytes at a time because image is stored in BGR, we need RGB
-			layer->raw[idx + 0] = fgetc(file);
-			layer->raw[idx + 1] = fgetc(file);
-			layer->raw[idx + 2] = fgetc(file);
+			layer->raw[draw_idx + 2] = fgetc(file);
+			layer->raw[draw_idx + 1] = fgetc(file);
+			layer->raw[draw_idx + 0] = fgetc(file);
 		}
 	}
 

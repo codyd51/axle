@@ -63,23 +63,26 @@ extern uint32_t placement_address;
 uint32_t initial_esp;
 
 uint32_t module_detect(multiboot* mboot_ptr) {
-	printf_info("Detected %d GRUB modules", mboot_ptr->mods_count);
 	ASSERT(mboot_ptr->mods_count > 0, "no GRUB modules detected");
 	uint32_t initrd_loc = *((uint32_t*)mboot_ptr->mods_addr);
 	uint32_t initrd_end = *(uint32_t*)(mboot_ptr->mods_addr+4);
 	//don't trample modules
-	placement_address = initrd_end;
-	printk_info("GRUB loaded initrd at %x - %x", initrd_loc, initrd_end);
-	printf_info("GRUB loaded initrd at %x - %x", initrd_loc, initrd_end);
+	placement_address = MAX(placement_address, initrd_end);
 	return initrd_loc;
 }
 
 void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	initial_esp = initial_stack;
-	
+
 	//initialize terminal interface
 	terminal_initialize();
 
+	//find any loaded grub modules
+	//this MUST be done before gfx_init or paging_install
+	//otherwise, create_layer has a high chance of overwriting modules
+	//module_detect has the side effect of safely incrementing placement_address past any module data
+	uint32_t initrd_loc = module_detect(mboot_ptr);
+	
 	gfx_init(mboot_ptr);
 
 	//introductory message
@@ -102,12 +105,9 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	pit_install(1000);
 	rtc_install();
 
-	//find any loaded grub modules
-	//must be done before paging to set placement_address
-	uint32_t initrd_loc = module_detect(mboot_ptr);
-
 	//utilities
 	paging_install();
+
 	sys_install();
 	//tasking_install(PRIORITIZE_INTERACTIVE);
 	tasking_install(LOW_LATENCY);
@@ -119,6 +119,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	//initialize initrd, and set as fs root
 	fs_root = initrd_install(initrd_loc);
+	draw_boot_background();
 
 	//test facilities
 	test_heap();

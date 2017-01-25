@@ -168,11 +168,13 @@ void free_frame(page_t* page) {
 
 #define VESA_WIDTH 1024
 #define VESA_HEIGHT 768
-void identity_map_lfb(uint32_t location) { uint32_t j = location;
+#define VESA_BPP 3
+void identity_map_lfb(uint32_t location) { 
+	uint32_t j = location;
 	//TODO use screen object instead of these vals
-	while (j < location + (VESA_WIDTH * VESA_HEIGHT * 4)) {
+	while (j < location + (VESA_WIDTH * VESA_HEIGHT * VESA_BPP)) {
 		//if frame is valid
-		if (j + location + (VESA_WIDTH * VESA_HEIGHT * 4) < memsize) {
+		if (j + location + (VESA_WIDTH * VESA_HEIGHT * VESA_BPP) < memsize) {
 			set_bit_frame(j); //tell frame bitset this frame is in use
 		}
 		//get page
@@ -228,6 +230,8 @@ void paging_install() {
 		get_page(i, 1, kernel_directory);
 	}
 
+	printk("paging_install() identity mapping up to %x\n", placement_address);
+	printf("paging_install() identity mapping up to %x\n", placement_address);
 	//we need to identity map (phys addr = virtual addr) from
 	//0x0 to end of used memory, so we can access this
 	//transparently, as if paging wasn't enabled
@@ -289,7 +293,7 @@ page_t* get_page(uint32_t address, int make, page_directory_t* dir) {
 	return 0;
 }
 
-static void page_fault(registers_t regs) {
+void page_fault(registers_t regs) {
 	switch_to_text();
 
 	//page fault has occured

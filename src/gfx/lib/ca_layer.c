@@ -169,9 +169,6 @@ void blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) 
 	else {
 		blit_layer_alpha(dest, src, dest_frame, src_frame);
 	}
-
-	//printk("blit_layer() verifying heap after blitting {%d,%d,%d,%d} to {%d,%d,%d,%d}\n", rect_min_x(src_frame), rect_min_y(src_frame), src_frame.size.width, src_frame.size.height, rect_min_x(dest_frame), rect_min_y(dest_frame), dest_frame.size.width, dest_frame.size.height);
-	//heap_verify_integrity();
 }
 
 ca_layer* layer_snapshot(ca_layer* src, Rect frame) {

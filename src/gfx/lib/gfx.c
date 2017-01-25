@@ -102,12 +102,14 @@ void vsync() {
 }
 
 void fill_screen(Screen* screen, Color color) {
-	int max = 0;
-	max = MAX(max, color.val[0]);
-	max = MAX(max, color.val[1]);
-	max = MAX(max, color.val[2]);
-	memset(screen->vmem->raw, max, screen->resolution.width * screen->resolution.height * gfx_bpp());
-	write_screen(screen);
+	for (int y = 0; y < screen->resolution.height; y++) {
+		for (int x = 0; x < screen->resolution.width; x++) {
+			putpixel(screen->vmem, x, y, color);
+		}
+	}
+	if (screen->vmem) {
+		write_screen(screen);
+	}
 }
 
 void write_screen(Screen* screen) {
@@ -201,11 +203,11 @@ void display_boot_screen() {
 	sleep(500);
 
 	Point rainbow_origin = point_make(origin.x + 2, origin.y + 2);
-	Size rainbow_size = size_make(rect_length - 4, sz.height - 3);
+	Size rainbow_size = size_make(rect_length - 6, sz.height - 3);
 	Rect rainbow_rect = rect_make(rainbow_origin, rainbow_size);
-	rainbow_animation(screen, rainbow_rect, 1500);
+	rainbow_animation(screen, rainbow_rect, 1000);
 
-	sleep(250);
+	sleep(500);
 	fill_screen(screen, color_black());
 }
 
@@ -253,7 +255,6 @@ void gfx_init(void* mboot_ptr) {
 	screen.default_font_size = s;
 
 	fill_screen(gfx_screen(), color_black());
-	write_screen(gfx_screen());
 
 	Size padding = font_padding_for_size(s);
 	printf("Running in %d x %d x %d\nRecommended font size is %dx%d, recommended padding is %dx%d\n\n", screen.resolution.width, screen.resolution.height, screen.bpp, s.width, s.height, padding.width, padding.height);
