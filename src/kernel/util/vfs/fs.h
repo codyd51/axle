@@ -13,6 +13,12 @@
 
 #define EOF (-1)
 
+enum {
+	SEEK_SET = 0,
+	SEEK_CUR,
+	SEEK_END,
+};
+
 struct fs_node;
 
 typedef uint32_t (*read_type_t)(struct fs_node*, uint32_t, uint32_t, uint8_t*);
@@ -66,6 +72,8 @@ fs_node_t* finddir_fs(fs_node_t* node, char* name);
 FILE* fopen(char* filename, char* mode);
 void fclose(FILE* stream);
 
+int ftell(FILE* stream);
+int fseek(FILE* stream, long offset, int origin);
 uint8_t fgetc(FILE* stream);
 uint32_t fread(void* buffer, uint32_t size, uint32_t count, FILE* stream);
 

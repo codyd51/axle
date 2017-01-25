@@ -1,5 +1,6 @@
 #include "fs.h"
 #include <std/std.h>
+#include <std/math.h>
 
 fs_node_t* fs_root = 0; //filesystem root
 
@@ -72,6 +73,31 @@ void fclose(FILE* stream) {
 	kfree(stream);
 }
 
+int fseek(FILE* stream, long offset, int origin) {
+	if (!stream) return 1;
+
+	switch (origin) {
+		case SEEK_SET:
+			stream->fpos = offset;
+			break;
+		case SEEK_CUR:
+			stream->fpos += offset;
+			break;
+		case SEEK_END:
+		default:
+			stream->fpos = stream->node->length - offset;
+			break;
+	}
+	stream->fpos = MAX(stream->fpos, 0);
+	stream->fpos = MIN(stream->fpos, stream->node->length);
+	return 0;
+}
+
+int ftell(FILE* stream) {
+	if (!stream) return 1;
+	return stream->fpos;
+}
+
 uint8_t fgetc(FILE* stream) {
 	uint8_t ch;
 	uint32_t sz = read_fs(stream->node, stream->fpos++, 1, &ch);
@@ -95,6 +121,26 @@ uint32_t fread(void* buffer, uint32_t size, uint32_t count, FILE* stream) {
 	unsigned char* chbuf = (unsigned char*)buffer;
 	uint32_t sum;
 	for (uint32_t i = 0; i < count; i++) {
+		for (int j = 0; j < size; j++) {
+			int idx = (i * size) + j;
+			chbuf[idx] = fgetc(stream);
+		}
+	}
+	return count;
+		/*
+		unsigned char buf;
+		
+		int read_bytes = read_fs(stream->node, stream->fpos++, size, (uint8_t*)&buf);
+		sum += read_bytes;
+		chbuf[i] = buf;
+		//if we read less than we asked for,
+		//we hit the end of the file
+		if (read_bytes < size) {
+			break;
+		}
+		sum += read_fs(stream->node, stream->fpos++, size, (uint8_t*)&buf);
+		//TODO check for eof and break early
+		chbuf[i] = buf;
 		int read_bytes = read_fs(stream->node, stream->fpos++, size, (uint8_t*)chbuf);
 		sum += read_bytes;
 		//chbuf[i] = buf;
@@ -105,5 +151,6 @@ uint32_t fread(void* buffer, uint32_t size, uint32_t count, FILE* stream) {
 		}
 	}
 	return sum;
+		*/
 }
 
