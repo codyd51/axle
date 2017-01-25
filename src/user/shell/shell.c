@@ -283,11 +283,11 @@ void script_command(int argc, char** argv) {
 	}
 	
 	//Read file line-by-line and use each line as a command
-	uint8_t filebuf[2048];
-	memset(filebuf, 0, 2048);
-	uint32_t sz = read_fs(node, 0, 2048, filebuf);
+	uint8_t filebuf[128][2048];
+	memset(&filebuf, 0, sizeof(filebuf) / sizeof(filebuf[0]));
+	uint32_t sz = read_fs(node, 0, 2048, (uint8_t*)&filebuf);
 	for (uint32_t i = 0; i < sz; i++) {
-		process_command(filebuf[i]);
+		process_command((char*)filebuf[i]);
 	}
 }
 
@@ -493,7 +493,7 @@ void shell_init() {
 	add_new_command("proc", "List running processes", proc_command);
 	add_new_command("pci", "List PCI devices", pci_list);
 	add_new_command("hypervisor", "Run VM", hypervisor_command);
-	add_new_command("script", "Run a script", script_command);
+	add_new_command("script", "Run a script", (void(*)())script_command);
 	add_new_command("", "", empty_command);
 
 	//register ourselves as the first responder

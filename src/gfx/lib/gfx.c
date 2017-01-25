@@ -13,6 +13,7 @@
 #include <kernel/drivers/vbe/vbe.h>
 #include <kernel/multiboot.h>
 #include <std/math.h>
+#include "bmp.h"
 
 //private Window function to create root window
 Window* create_window_int(Rect frame, bool root);
@@ -184,7 +185,6 @@ void display_boot_screen() {
 
 	Size default_size = screen->default_font_size;
 	Size font_size = size_make(default_size.width * 2, default_size.height * 2);
-	Size padding = font_padding_for_size(font_size);
 	char* label_text = "axle os";
 	int text_width = strlen(label_text) * font_size.width;
 	Point lab_origin = point_make((screen->resolution.width / 2) - (text_width / 2), screen->resolution.height * 0.6);
@@ -223,18 +223,6 @@ static Size font_size_for_resolution(Size resolution) {
 	while (resolution.height / size.height < required_cols) {
 		size.height /= 1.5;
 	}
-	/*
-	//keep width/height near each other
-	if (size.width > size.height * 1.25) {
-		size.width = lerp(size.width, size.height, 0.5);
-	}
-	else if (size.height > size.width * 1.25) {
-		size.height = lerp(size.height, size.width, 0.5);
-	}
-	*/
-	//int min = MAX(size.width, size.height);
-	//size.width = min;
-	//size.height = min;
 	return size;
 }
 

@@ -51,6 +51,7 @@ void write_screen(Screen* screen);
 void write_screen_region(Rect region);
 
 void draw_boot_background();
+void display_boot_screen();
 
 void gfx_init(void* mboot_ptr);
 void process_gfx_switch(Screen* screen, int new_depth);

@@ -158,7 +158,7 @@ static char* link_hueristic(char* str) {
 
 Size font_padding_for_size(Size s) {
 	const int factor = 8;
-	return size_make(s.width / 8, s.height / 8);
+	return size_make(s.width / factor, s.height / factor);
 }
 
 void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font_size) {
@@ -168,10 +168,6 @@ void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font
 	int idx = 0;
 	int x = origin.x;
 	int y = origin.y;
-
-	//scale font parameters to size requested
-	int scale_x = font_size.width / CHAR_WIDTH;
-	int scale_y = font_size.height / CHAR_HEIGHT;
 	Size padding = font_padding_for_size(font_size);
 
 	while (str[idx]) {

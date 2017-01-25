@@ -2,6 +2,7 @@
 #define COLOR_H
 
 #include <std/common.h>
+#include <stdbool.h>
 
 typedef struct color {
 	uint8_t val[4];

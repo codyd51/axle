@@ -88,7 +88,7 @@ int fseek(FILE* stream, long offset, int origin) {
 			stream->fpos = stream->node->length - offset;
 			break;
 	}
-	stream->fpos = MAX(stream->fpos, 0);
+	stream->fpos = MAX(stream->fpos, (uint32_t)0);
 	stream->fpos = MIN(stream->fpos, stream->node->length);
 	return 0;
 }
@@ -119,9 +119,9 @@ char* fgets(char* buf, int count, FILE* stream) {
 
 uint32_t fread(void* buffer, uint32_t size, uint32_t count, FILE* stream) {
 	unsigned char* chbuf = (unsigned char*)buffer;
-	uint32_t sum;
+	//uint32_t sum;
 	for (uint32_t i = 0; i < count; i++) {
-		for (int j = 0; j < size; j++) {
+		for (uint32_t j = 0; j < size; j++) {
 			int idx = (i * size) + j;
 			chbuf[idx] = fgetc(stream);
 		}

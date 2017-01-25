@@ -16,6 +16,8 @@
 #include <user/programs/calculator.h>
 #include <user/programs/usage_monitor.h>
 
+Window* create_window_int(Rect frame, bool is_root_window);
+
 //has the screen been modified this refresh?
 static char dirtied = 0;
 static volatile Window* active_window;
@@ -26,14 +28,6 @@ void xserv_quit(Screen* screen) {
 	gfx_teardown(screen);
 	resign_first_responder();
 	_kill();
-}
-
-void draw_bmp(ca_layer* dest, Bmp* bmp) {
-	if (!bmp) return;
-
-	blit_layer(dest, bmp->layer, bmp->frame, rect_make(point_zero(), bmp->frame.size)); 
-
-	bmp->needs_redraw = 0;
 }
 
 void draw_label(ca_layer* dest, Label* label) {
