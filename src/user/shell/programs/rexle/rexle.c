@@ -58,17 +58,10 @@ void rexle(int argc, char** argv) {
 
 void rexle_int(int mode) {
 	//switch graphics modes
-	Screen* screen;
-	switch (mode) {
-		case MODE_VESA:
-		default:
-			screen = switch_to_vesa(0x112, true);
-			break;
-		case MODE_VGA:
-			screen = switch_to_vga();
-			break;
-	}
-	Size screen_size = screen->window->frame.size;
+	Screen* screen = gfx_screen();
+	Size viewport_size = size_make(screen->resolution.width / 2, screen->resolution.height / 2);
+	Point viewport_origin = point_make((screen->resolution.width / 2) - (viewport_size.width / 2), (screen->resolution.height / 2) - (viewport_size.height / 2));
+	Rect viewport_rect = rect_make(viewport_origin, viewport_size);
 	
 	become_first_responder();
 
@@ -120,7 +113,7 @@ void rexle_int(int mode) {
 	//FPS counter
 	Label* fps = create_label(rect_make(point_make(3, 3), size_make(100, 15)), "FPS Counter");
 	fps->text_color = color_black();
-	add_sublabel(screen->window->content_view, fps);
+	//add_sublabel(screen->window->content_view, fps);
 
 	double timestamp = 0; //current frame timestamp
 	double time_prev = 0; //prev frame timestamp
@@ -131,9 +124,11 @@ void rexle_int(int mode) {
 
 	bool running = 1;
 	while (running) {
-		for (int x = 0; x < screen_size.width; x++) {
+		for (int x = 0; x < viewport_size.width; x++) {
+			int real_x = x + rect_min_x(viewport_rect);
+
 			//ray position + distance
-			double cam_x = 2 * x / (double)screen_size.width - 1; //x in camera space
+			double cam_x = 2 * x / (double)viewport_size.width - 1; //x in camera space
 			Vec2d ray_pos = vec2d(pos.x, pos.y);
 			Vec2d ray_dir = vec2d(dir.x + plane.x * cam_x,
 					      dir.y + plane.y * cam_x);
@@ -194,12 +189,12 @@ void rexle_int(int mode) {
 			else 	   perp_wall_dist = (map_pos.y - ray_pos.y + (1 - step.y) / 2) / ray_dir.y;
 
 			//height of line to draw
-			int line_h = (int)(screen_size.height / perp_wall_dist);
+			int line_h = (int)(viewport_size.height / perp_wall_dist);
 			//find lowest and heighest pixel to fill on stripe
-			int start = -line_h / 2 + screen_size.height / 2;
+			int start = -line_h / 2 + viewport_size.height / 2;
 			start = MAX(start, 0);
-			int end = line_h / 2 + screen_size.height / 2;
-			if (end >= screen_size.height) end = screen_size.height - 1;
+			int end = line_h / 2 + viewport_size.height / 2;
+			if (end >= viewport_size.height) end = viewport_size.height - 1;
 
 			//texture rendering
 			int tex_idx = world[(int)map_pos.x][(int)map_pos.y] - 1;
@@ -221,7 +216,9 @@ void rexle_int(int mode) {
 			//this texture was not taking up the majority of the screen
 			//we must now do perspective calculations on every pixel in this vertical line of the texture
 			for (int y = start; y < end; y++) {
-				int d = y * 256 - screen_size.height * 128 + line_h * 128;
+				int real_y = y + rect_min_y(viewport_rect);
+
+				int d = y * 256 - viewport_size.height * 128 + line_h * 128;
 				int tex_y = ((d * tex_height) / line_h) / 256;
 
 				//we have x and y, find color at this point in texture
@@ -248,16 +245,16 @@ void rexle_int(int mode) {
 						col.val[2] /= 2;
 					}
 				}
-
-				putpixel(screen->vmem, x, y, col);
+				putpixel(screen->vmem, real_x, real_y, col);
 			}
 
+			int y_off = rect_min_y(viewport_rect);
 			//draw ceiling above this ray
-			Line ceiling = line_make(point_make(x, 0), point_make(x, start));
+			Line ceiling = line_make(point_make(real_x, y_off), point_make(real_x, y_off + start));
 			draw_line(screen->vmem, ceiling, color_make(130, 40, 100), 1);
 
 			//draw floor below the ray
-			Line floor = line_make(point_make(x, end), point_make(x, screen_size.height));
+			Line floor = line_make(point_make(real_x, y_off + end), point_make(real_x, y_off + viewport_size.height));
 			draw_line(screen->vmem, floor, color_make(135, 150, 200), 1);
 		}
 
@@ -340,3 +337,4 @@ void rexle_int(int mode) {
 	switch_to_text();
 	resign_first_responder();
 }
+
