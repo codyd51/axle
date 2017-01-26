@@ -489,16 +489,15 @@ void update_blocked_tasks() {
 	//don't look through every queue, use linked list of tasks
 	task_t* task = active_list;
 	while (task) {
+		if (!first_responder && haskey() && task->state == KB_WAIT) {
+			unblock_task(task);
+			goto_pid(task->id);
+		}
 		if (task->state == PIT_WAIT) {
 			if (time() >= task->wake_timestamp) {
 				unblock_task(task);
 			}
 		}
-		if (haskey() && task->state == KB_WAIT) {
-			unblock_task(task);
-			goto_pid(task->id);
-		}
-
 		//TODO figure out when exactly tasks with MOUSE_WAIT should be unblocked
 		if (task->state == MOUSE_WAIT) {
 			unblock_task(task);
