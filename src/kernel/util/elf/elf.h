@@ -24,6 +24,17 @@ typedef struct {
 } elf_header;
 
 typedef struct {
+	uint32_t	type;			/* Segment type */
+	uint32_t	offset;		/* Segment file offset */
+	uint32_t	vaddr;		/* Segment virtual address */
+	uint32_t	paddr;		/* Segment physical address */
+	uint32_t	filesz;		/* Segment size in file */
+	uint32_t	memsz;		/* Segment size in memory */
+	uint32_t	flags;		/* Segment flags */
+	uint32_t	align;		/* Segment alignment */
+} elf_phdr;
+
+typedef struct {
 	uint32_t 	name;
 	uint32_t 	type;
 	uint32_t 	flags;
@@ -126,6 +137,11 @@ enum elf_rt_types {
 	R_386_PC32	= 2, //symbol + offset - section offset
 };
 
-void* elf_load_file(void* file);
+#define PT_LOAD		1
+#define PT_DYNAMIC	2
+#define PT_INTERP	3
+
+
+void* elf_load_file(void* file, uint32_t size);
 
 #endif
