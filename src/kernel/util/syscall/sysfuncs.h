@@ -8,8 +8,9 @@
 //installs common syscalls into syscall table
 void create_sysfuncs();
 
+/*
 //Standard terminal driver puts
-DECL_SYSCALL1(terminal_writestring, const char*);
+DECL_SYSCALL2(output, int, char*);
 
 //Standard terminal driver putc
 DECL_SYSCALL1(terminal_putchar, char);
@@ -21,5 +22,16 @@ DECL_SYSCALL1(yield, task_state);
 //Standard read syscall
 //reads at most count characters into buf using file descriptor fd
 DECL_SYSCALL3(read, int, void*, size_t);
+*/
+
+DECL_SYSCALL0(kill);
+DECL_SYSCALL3(exec,		char*		, char**, char**);
+DECL_SYSCALL2(fopen,	const char*	, int);
+DECL_SYSCALL3(read,		int			, char*	, size_t);
+DECL_SYSCALL2(output,	int			, char*);
+DECL_SYSCALL1(yield,	task_state);
+DECL_SYSCALL5(mmap,		void*		, int,	  int,		int,	int);
+DECL_SYSCALL2(munmap,	void*		, int);
+DECL_SYSCALL1(sbrk,		int);
 
 #endif

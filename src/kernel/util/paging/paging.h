@@ -61,4 +61,10 @@ page_directory_t* clone_directory(page_directory_t* src);
 //free all memory associated with a page directory dir
 void free_directory(page_directory_t* dir);
 
+void *mmap(void *addr, uint32_t length, int flags, int fd, uint32_t offset);
+int munmap(void* addr, uint32_t length);
+
+int brk(void* addr);
+void* sbrk(int increment);
+
 #endif
