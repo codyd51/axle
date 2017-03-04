@@ -75,6 +75,8 @@ void fclose(FILE* stream);
 int ftell(FILE* stream);
 int fseek(FILE* stream, long offset, int origin);
 uint8_t fgetc(FILE* stream);
+
 uint32_t fread(void* buffer, uint32_t size, uint32_t count, FILE* stream);
+uint32_t read(int fd, void* buf, uint32_t count);
 
 #endif
