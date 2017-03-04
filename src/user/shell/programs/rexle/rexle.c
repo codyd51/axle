@@ -59,7 +59,7 @@ void rexle(int argc, char** argv) {
 void rexle_int(int mode) {
 	//switch graphics modes
 	Screen* screen = gfx_screen();
-	Size viewport_size = size_make(screen->resolution.width / 2, screen->resolution.height / 2);
+	Size viewport_size = size_make(screen->resolution.width / 2.5, screen->resolution.height / 2.5);
 	Point viewport_origin = point_make((screen->resolution.width / 2) - (viewport_size.width / 2), (screen->resolution.height / 2) - (viewport_size.height / 2));
 	Rect viewport_rect = rect_make(viewport_origin, viewport_size);
 	
@@ -111,7 +111,7 @@ void rexle_int(int mode) {
 	}
 
 	//FPS counter
-	Label* fps = create_label(rect_make(point_make(3, 3), size_make(100, 15)), "FPS Counter");
+	Label* fps = create_label(rect_make(point_make(rect_min_x(viewport_rect) + 3, rect_min_y(viewport_rect) + 3), size_make(100, 15)), "FPS Counter");
 	fps->text_color = color_black();
 	//add_sublabel(screen->window->content_view, fps);
 

@@ -72,9 +72,14 @@ void scroll_display_up() {
 }
 
 static Color printf_draw_color = {{0, 255, 0}};
-static void outputc(int dest, char c) {
-	static Point cursor_pos = {0, 0};
+static Point cursor_pos = {0, 0};
 
+void reset_cursor_pos() {
+	cursor_pos.x = 0;
+	cursor_pos.y = 0;
+}
+
+static void outputc(int dest, char c) {
 	Size font_size = gfx_screen()->default_font_size;
 	Size padding = font_padding_for_size(font_size);
 	switch (dest) {
@@ -144,7 +149,7 @@ Color term_color_code(int code) {
 	return color_white();
 }
 
-static void output(int dest, char* str) {
+void output(int dest, char* str) {
 	if (!str) return;
 	while (*str) {
 		outputc(dest, *(str++));
@@ -157,14 +162,15 @@ void print_hex_common(int dest, uint32_t n) {
 
 	char noZeroes = 1;
 	int i;
+	bool leading_zeroes = true;
 	for (i = 28; i > 0; i -= 4) {
 		tmp = (n >> i) & 0xF;
-		if (tmp == 0 && noZeroes != 0) {
+		if (tmp == 0 && noZeroes != 0 && !leading_zeroes) {
 			outputc(dest, '0');
 			continue;
 		}
-
 		if (tmp >= 0xA) {
+			leading_zeroes = false;
 			noZeroes = 0;
 			outputc(dest, tmp - 0xA + 'a');
 		}
@@ -173,7 +179,6 @@ void print_hex_common(int dest, uint32_t n) {
 			outputc(dest, tmp + '0');
 		}
 	}
-
 
 	tmp = n & 0xF;
 	if (tmp >= 0xA) {
@@ -196,13 +201,20 @@ void printk_debug_info() {
 	char now[64];
 	memset(now, 0, 64);
 	date((char*)&now);
-	printk("[PID %d @ %s (tick %d)] ", getpid(), now, tick_count());
+	//printk("[PID %d @ %s (tick %d)] ", getpid(), now, tick_count());
+#include <kernel/util/multitasking/tasks/task.h>
+	extern task_t* current_task;
+	printk("[%s[%d] %d] ", (current_task) ? current_task->name : "no", getpid(), tick_count());
 }
 
 //keep track of when to print debug info
 //only do so on newline
 bool seen_newline = false;
 void vprintf(int dest, char* format, va_list va) {
+	if (dest == TERM_OUTPUT) {
+		vprintf(SERIAL_OUTPUT, format, va);
+	}
+
 	char bf[24];
 	char ch;
 
@@ -390,9 +402,9 @@ void vsprintf(char* ret, char* format, va_list va) {
 	}
 }
 
+static lock_t* mutex = 0;
 void print_common(int dest, char* format, va_list va) {
 	//shared printf lock
-	static lock_t* mutex = 0;
 	if (!mutex) mutex = lock_create();
 	lock(mutex);
 

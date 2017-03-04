@@ -272,7 +272,6 @@ void heap_verify_integrity() {
 }
 
 static void heap_expand(heap_t* heap, uint32_t expand_size) {
-
 	lock(mutex);
 
 	uint32_t curr_size = heap->end_address - heap->start_address;
@@ -289,7 +288,7 @@ static void heap_expand(heap_t* heap, uint32_t expand_size) {
 		uint32_t new_block_addr = (uint32_t)curr + sizeof(alloc_block_t) + curr->size;
 		printk("heap_expand() creating new block at end of heap of size %x\n", new_block_addr);
 
-		alloc_block_t* new_block = create_block(new_block_addr, (expand_size * 4));
+		alloc_block_t* new_block = create_block(new_block_addr, expand_size);
 		insert_block(curr, new_block);
 
 		heap->end_address += sizeof(alloc_block_t) + expand_size;
@@ -317,12 +316,16 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		//TODO fill in
 		//ASSERT(0, "alloc() %x bytes failed, find_smallest_hole() had no candidates\n");
 		uint32_t curr_size = heap->end_address - heap->start_address;
-		uint32_t expand_size = curr_size + size;
+		//uint32_t expand_size = curr_size + size;
+		uint32_t expand_size = curr_size * 2;
+		expand_size = MIN(expand_size, heap->max_address - heap->start_address);
 		printk("Heap could not fit alloc %x, expanding size by %x\n", size, expand_size);
 		heap_expand(heap, expand_size);
 		//heap should now have enough space, try alloc again
 		return alloc(size, align, heap);
 	}
+
+	printk("DEB M %x %x\n", candidate, candidate->size);
 
 	lock(mutex);
 
@@ -418,6 +421,8 @@ void free(void* p, heap_t* UNUSED(heap)) {
 		heap_fail(header);
 		while (1) {}
 	}
+
+	printk("DEB F %x %x\n", p, header->size);
 
 	lock(mutex);
 

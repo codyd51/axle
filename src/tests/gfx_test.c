@@ -229,22 +229,22 @@ void draw_test_button(Screen* screen) {
 	Point origin = point_make(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
 	Size sz = size_make(screen->window->size.width * 0.25, screen->window->size.height * 0.25);
 	Rect r = rect_make(origin, sz);
-	draw_rect(screen->vmem, r, color_make(2, 0, 0), 1);
+	draw_rect(screen->vmem, r, color_make(200, 0, 0), 1);
 
 	Point in_origin = point_make(origin.x + 1, origin.y + 1);
 	Size in_size = size_make(sz.width - 2, sz.height - 2);
 	Rect in_rect = rect_make(in_origin, in_size);
-	draw_rect(screen->vmem, in_rect, color_make(12, 0, 0), 30);
+	draw_rect(screen->vmem, in_rect, color_make(120, 30, 50), 30);
 
 	Point p1 = point_make(origin.x + sz.width * 0.1, origin.y + sz.height * 0.1);
 	Point p2 = point_make(origin.x + sz.width * 0.1, origin.y + sz.height * 0.9);
 	Point p3 = point_make(origin.x + sz.width * 0.4, origin.y + sz.height * 0.5);
 	Triangle tri = triangle_make(p1, p2, p3);
-	draw_triangle(screen->vmem, tri, color_make(15, 0, 0), 1);
+	draw_triangle(screen->vmem, tri, color_make(30, 50, 130), 1);
 
 	Rect label_rect = rect_make(point_make(p3.x + 5, in_origin.y), size_make(in_rect.size.width, in_rect.size.height));
 	Label* play_label = create_label(label_rect, "Play");
-	play_label->text_color = color_make(1, 0, 0);
+	play_label->text_color = color_make(0, 0, 0);
 	add_sublabel(screen->window->content_view, play_label);
 	draw_label(screen->vmem, play_label);
 
@@ -260,13 +260,15 @@ void test_gfx(int argc, char **argv) {
 
 	int delay = 1000;
 
-	Screen* screen = switch_to_vga();
+	//Screen* screen = switch_to_vga();
+	Screen* screen = gfx_screen();
 
 	fill_screen(screen, color_make(0, 0, 0));
 	draw_test_button(screen);
 	write_screen(screen);
 	sleep(delay);
 
+	return 0;
 	fill_screen(screen, color_make(0, 0, 0));
 	test_lines(screen);
 	write_screen(screen);
@@ -316,7 +318,6 @@ void test_gfx(int argc, char **argv) {
 
 
 void test_xserv() {
-	/*
 	Window* alpha_win = create_window(rect_make(point_make(100, 200), size_make(250, 250)));
 	alpha_win->title = "Alpha animation";
 	alpha_win->content_view->background_color = color_green();
@@ -345,7 +346,5 @@ void test_xserv() {
 	add_sublabel(pos_win->content_view, label);
 	add_animation(pos_win, pos);
 	present_window(pos_win);
-	*/
-
 }
 

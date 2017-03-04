@@ -185,7 +185,7 @@ void process_character(char* inputstr, char ch) {
 }
 
 char* get_inputstring() {
-	const int max_chars = 128;
+	const int max_chars = 512;
 	char* input = kmalloc(max_chars);
 	unsigned char c = 0;
 

@@ -4,6 +4,8 @@
 #include <kernel/drivers/terminal/terminal.h>
 #include <stdarg.h>
 
+void output(int dest, char* str);
+
 //standard printf
 void printf(char* format, ...);
 int putchar(int ch);
@@ -24,5 +26,7 @@ void printf_err(char* format, ...);
 void printk_err(char* format, ...);
 
 void sprintf(char* str, char* format, ...);
+
+void reset_cursor_pos();
 
 #endif
