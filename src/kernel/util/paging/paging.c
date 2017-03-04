@@ -280,6 +280,72 @@ void paging_install() {
 	switch_page_directory(current_directory);
 }
 
+void *mmap(void *addr, uint32_t length, int flags, int fd, uint32_t offset) {
+	char* chbuf = (char*)addr;
+	int diff = ((uint32_t)chbuf % 0x1000);
+	if (diff) {
+		printf("mmap page-aligning from %x to %x\n", (uint32_t)addr, (uint32_t)addr - diff);
+		length += diff;
+		chbuf -= diff;
+	}
+	uint32_t page_aligned = length + 
+							(0x1000 - (length % 0x1000));
+	if (page_aligned != length) {
+		printf("mmap page-aligning chunk size from %x to %x\n", length, page_aligned);
+	}
+
+	printf("mmap @ %x + %x\n", addr, page_aligned);
+	//allocate every necessary page
+	for (int i = 0; i < page_aligned; i += 0x1000) {
+		//TODO change alloc_frame flags based on 'flags'
+		alloc_frame(get_page((uint32_t)chbuf + i, 1, current_directory), 1, 1);
+		//memset((uint32_t)chbuf + i, 0, 1);
+		//chbuf[i] = 0;
+		for (int j = 0; j < 0x1000; j++) {
+			chbuf[i + j] = 0;
+		}
+	}
+	return chbuf;
+}
+
+int munmap(void *addr, uint32_t length) {
+	ASSERT(0, "munmap called");
+}
+
+void* sbrk(int increment) {
+	if (increment < 0) {
+		ASSERT(0, "used sbrk with negative increment");
+	}
+
+	task_t* current = task_with_pid(getpid());
+	char* brk = current->prog_break;
+
+	printf("sbrk [%x to %x]\n", brk, brk + increment);
+
+	if (!increment) {
+		return brk;
+	}
+
+	current->prog_break += increment;
+
+	//map this new memory
+	//mmap(brk, increment, 0, 0, 0);
+
+	/*
+	printf("sbrk(%x) gives chunk @ %x\n", increment, brk);
+	printf("sbrk new break @ %x\n", (uint32_t)brk + increment);
+	sleep(2000);
+	*/
+	return brk;
+}
+
+int brk(void* addr) {
+	printf("BRK(%x)\n", addr);
+	task_t* current = task_with_pid(getpid());
+	current->prog_break = addr;
+	return 0;
+}
+
 void switch_page_directory(page_directory_t* dir) {
 	current_directory = dir;
 	set_cr3(dir);
@@ -307,8 +373,6 @@ page_t* get_page(uint32_t address, int make, page_directory_t* dir) {
 }
 
 void page_fault(registers_t regs) {
-	switch_to_text();
-
 	//page fault has occured
 	//faulting address is stored in CR2 register
 	uint32_t faulting_address;
