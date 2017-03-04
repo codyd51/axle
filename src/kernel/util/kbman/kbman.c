@@ -32,6 +32,10 @@ void kbman_process(char c) {
 				memdebug();
 				printf_info("Dynamic memory usage logged");
 				break;
+			case 'h':
+				heap_print(-1);
+				printf_info("Heap allocations logged");
+				break;
 			case 'p':
 				sched_log_history();
 				printf_info("CPU usage logged");

@@ -42,6 +42,15 @@ typedef struct task {
 	page_directory_t* page_dir; //paging directory for this process
 
 	array_m* files;
+
+	//the below only exist for non-kernel tasks
+	//(such as loaded ELFs)
+	//end of .bss section of current task
+	//used with ELF-loaded programs
+	uint32_t prog_break; 
+	//virtual load address of task
+	//non-kernel tasks have this
+	uint32_t load_addr;
 } task_t;
 
 //initializes tasking system
@@ -82,6 +91,11 @@ void proc();
 //has now been recieved
 void force_enumerate_blocked();
 
+//internal function to query current task holding first responder status
+//the first responder of axle receives all keyboard, mouse events out of 
+//tasks waiting for keystrokes
+task_t* first_responder();
+
 //appends current task to stack of responders,
 //and marks current task as designated recipient of keyboard events
 void become_first_responder();
@@ -89,5 +103,9 @@ void become_first_responder();
 //relinquish first responder status
 //process which first responder status was taken from becomes first responder
 void resign_first_responder();
+
+//find task_t associated with PID 'pid'
+//returns NULL if no task_t with given PID exists
+task_t* task_with_pid(int pid);
 
 #endif

@@ -44,7 +44,7 @@ static array_m* queues = 0;
 static array_m* queue_lifetimes = 0;
 static task_t* active_list = 0;
 
-task_t* first_responder = 0;
+task_t* first_responder_task = 0;
 static array_m* responder_stack = 0;
 
 static lock_t* mutex = 0;
@@ -214,6 +214,17 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 }
 #pragma GCC diagnostic pop
 
+task_t* task_with_pid(int pid) {
+	task_t* tmp = active_list;
+	while (tmp != NULL) {
+		if (tmp->id == pid) {
+			return tmp;
+		}
+		tmp = tmp->next;
+	}
+	return NULL;
+}
+
 void add_process(task_t* task) {
 	if (!tasking_installed()) return;
 
@@ -234,7 +245,7 @@ void idle() {
 }
 
 void destroy_task(task_t* task) {
-	if (task == first_responder) {
+	if (task == first_responder_task) {
 		resign_first_responder();
 	}
 	//remove task from queues and active list
@@ -479,9 +490,9 @@ void update_blocked_tasks() {
 	if (!tasking_installed()) return;
 
 	//if there is a pending key, wake first responder
-	if (haskey() && first_responder->state == KB_WAIT) {
-		unblock_task(first_responder);
-		goto_pid(first_responder->id);
+	if (haskey() && first_responder_task->state == KB_WAIT) {
+		unblock_task(first_responder_task);
+		goto_pid(first_responder_task->id);
 	}
 
 	//wake blocked tasks if the event they were blocked for has occurred
@@ -489,7 +500,7 @@ void update_blocked_tasks() {
 	//don't look through every queue, use linked list of tasks
 	task_t* task = active_list;
 	while (task) {
-		if (!first_responder && haskey() && task->state == KB_WAIT) {
+		if (!first_responder_task && haskey() && task->state == KB_WAIT) {
 			unblock_task(task);
 			goto_pid(task->id);
 		}
@@ -506,6 +517,10 @@ void update_blocked_tasks() {
 
 		task = task->next;
 	}
+}
+
+task_t* first_responder() {
+	return first_responder_task;
 }
 
 int fork(char* name) {
@@ -799,7 +814,7 @@ void proc() {
 		for (int j = 0; j < queue->size; j++) {
 			task_t* task = array_m_lookup(queue, j);
 			uint32_t runtime = (uint32_t)array_m_lookup(queue_lifetimes, task->queue);
-			printk("[%d Q %d] %s ", task->id, task->queue, task->name);
+			printk("[%d Q %d] %s %s", task->id, task->queue, task->name, (task == first_responder()) ? "(FR)" : "");
 			if (task == current_task) {
 				printk("(active)");
 			}
@@ -840,12 +855,12 @@ void force_enumerate_blocked() {
 }
 
 void become_first_responder() {
-	first_responder = current_task;
+	first_responder_task = current_task;
 
 	//check if this task already exists in stack of responders
 	for (int i = 0; i < responder_stack->size; i++) {
 		task_t* tmp = array_m_lookup(responder_stack, i);
-		if (tmp == first_responder) {
+		if (tmp == first_responder_task) {
 			//remove task so we can add it again
 			//this is to ensure responder stack only has unique tasks
 			array_m_remove(responder_stack, i);
@@ -853,12 +868,12 @@ void become_first_responder() {
 	}
 
 	//append this task to stack of responders
-	array_m_insert(responder_stack, first_responder);
+	array_m_insert(responder_stack, first_responder_task);
 }
 
 void resign_first_responder() {
-	if (!first_responder) return;
-	//if (current_task != first_responder) return;
+	if (!first_responder_task) return;
+	//if (current_task != first_responder_task) return;
 
 	//remove current first responder from stack of responders
 	int last_idx = responder_stack->size - 1;
@@ -866,10 +881,31 @@ void resign_first_responder() {
 
 	if (responder_stack->size) {
 		//set first responder to new head of stack
-		first_responder = array_m_lookup(responder_stack, responder_stack->size - 1);
+		first_responder_task = array_m_lookup(responder_stack, responder_stack->size - 1);
 	}
 	else {
-		first_responder = NULL;
+		first_responder_task = NULL;
 	}
+}
+
+void jump_user_mode() {
+	// Set up a stack structure for switching to user mode.
+	asm volatile("  \ 
+			cli; \ 
+			mov $0x23, %ax; \ 
+			mov %ax, %ds; \ 
+			mov %ax, %es; \ 
+			mov %ax, %fs; \ 
+			mov %ax, %gs; \ 
+			\ 
+			mov %esp, %eax; \ 
+			pushl $0x23; \ 
+			pushl %eax; \ 
+			pushf; \ 
+			pushl $0x1B; \ 
+			push $1f; \ 
+			iret; \ 
+			1: \ 
+			");
 }
 

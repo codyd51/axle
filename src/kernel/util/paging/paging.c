@@ -4,6 +4,7 @@
 #include <kernel/kernel.h>
 #include <std/printf.h>
 #include <gfx/lib/gfx.h>
+#include <kernel/util/multitasking/tasks/task.h>
 
 //bitset of frames - used or free
 uint32_t* frames;
@@ -80,6 +81,11 @@ static uint32_t test_frame(uint32_t frame_addr) {
 }
 #pragma GCC diagnostic pop
 
+static uint32_t* page_from_frame(int32_t frame) {
+	int addr = frame * 0x1000;
+	return addr;
+}
+
 //static function to find the first free frame
 static int32_t first_frame() {
 	for (uint32_t i = 0; i < INDEX_FROM_BIT(nframes); i++) {
@@ -135,7 +141,8 @@ void vmem_map(uint32_t virt, uint32_t physical) {
 bool alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 	if (page->frame != 0) {
 		//frame was already allocated, return early
-		printk_info("alloc_frame: page %x already alloced (frame %x)", &page, page->frame);
+		printk_info("alloc_frame: page %x already alloced (frame %x)", page, page->frame);
+		printf_info("alloc_frame: page %x already alloced (frame %x)", page, page->frame);
 		return false;
 	}
 	
@@ -197,6 +204,14 @@ void set_paging_bit(bool enabled) {
 		set_cr0(get_cr0() & 0x80000000);
 	}
 	kernel_end_critical();
+}
+
+void force_frame(page_t *page, int is_kernel, int is_writeable, unsigned int addr) {
+	page->present = 1;
+	page->rw = is_writeable;
+	page->user = !is_kernel;
+	page->frame = addr >> 12;
+	set_bit_frame(addr);
 }
 
 void paging_install() {
