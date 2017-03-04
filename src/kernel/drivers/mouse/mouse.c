@@ -9,8 +9,8 @@ typedef unsigned char byte;
 typedef signed char sbyte;
 typedef unsigned int dword;
 
-static int running_x = 512;
-static int running_y = 384;
+static int running_x = -1;
+static int running_y = -1;
 volatile uint8_t mouse_state;
 
 static inline uint32_t log2(const uint32_t x) {
@@ -22,8 +22,23 @@ static inline uint32_t log2(const uint32_t x) {
 	return y;
 }
 
+static inline Size screen_dimensions() {
 #define VESA_WIDTH 1024
 #define VESA_HEIGHT 768
+	Screen* s = gfx_screen();
+	int screen_width, screen_height;
+	if (s) {
+		screen_width = s->resolution.width;
+		screen_height = s->resolution.height;
+	}
+	else {
+		//fall back on assuming 1024x768
+		screen_width = VESA_WIDTH;
+		screen_height = VESA_HEIGHT;
+	}
+	return size_make(screen_width, screen_height);
+}
+
 Point mouse_point() {
 	static int prev_running_x = 0;
 	static int prev_running_y = 0;
@@ -38,11 +53,12 @@ Point mouse_point() {
 	delt_y *= scaling;
 
 	Point new_pos = point_make(running_x + delt_x, running_y + delt_y);
+	Size dimensions = screen_dimensions();
 
 	new_pos.x = MAX(new_pos.x, 0);
-	new_pos.x = MIN(new_pos.x, VESA_WIDTH - 5);
+	new_pos.x = MIN(new_pos.x, dimensions.width - 5);
 	new_pos.y = MAX(new_pos.y, 0);
-	new_pos.y = MIN(new_pos.y, VESA_HEIGHT - 5);
+	new_pos.y = MIN(new_pos.y, dimensions.height - 5);
 
 	prev_running_x = running_x;
 	prev_running_y = running_y;
@@ -54,15 +70,29 @@ uint8_t mouse_events() {
 }
 
 void update_mouse_position(int x, int y) {
+	//set initial mouse position if necessary
+	if (running_x == -1 && running_y == -1) {
+		Screen* s = gfx_screen();
+		if (s) {
+			running_x = s->resolution.width / 2;
+			running_y = s->resolution.height / 2;
+		}
+		else {
+			//fall back on putting cursor at origin
+			running_x = running_y = 0;
+		}
+	}
+
 	y = -y;
 
 	running_x += x;
 	running_y += y;
 
+	Size dimensions = screen_dimensions();
 	running_x = MAX(running_x, 0);
-	running_x = MIN(running_x, VESA_WIDTH - 5);
+	running_x = MIN(running_x, dimensions.width - 5);
 	running_y = MAX(running_y, 0);
-	running_y = MIN(running_y, VESA_HEIGHT - 5);
+	running_y = MIN(running_y, dimensions.height - 5);
 }
 
 #pragma GCC diagnostic push
