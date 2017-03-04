@@ -12,9 +12,11 @@ TOOLCHAIN ?= ./i686-toolchain
 # Compilers and flags
 AS = nasm
 AFLAGS = -f elf
+LD = $(TOOLCHAIN)/bin/i686-elf-ld
 
 CC = $(TOOLCHAIN)/bin/i686-elf-gcc
 CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -I ./src
+CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -fstack-protector-all -I ./src
 LDFLAGS = -ffreestanding -nostdlib -lgcc -T $(RESOURCES)/linker.ld
 
 # Tools
@@ -67,7 +69,20 @@ $(ISO_NAME): $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg $(ISO_DIR)/b
 
 run: $(ISO_NAME)
 	tmux split-window -p 75 "tail -f syslog.log"
-	$(EMULATOR) -net nic,model=ne2k_pci -d cpu_reset -D qemu.log -serial file:syslog.log -vga std -cdrom $^
+	$(EMULATOR) -vga std -net nic,model=ne2k_pci -d cpu_reset -D qemu.log -serial file:syslog.log -cdrom $^
+
+.ONESHELL:
+elf: test.c
+	$(AS) -f elf crt0.s -o crt0.o
+	$(CC) -I$(SYSROOT)/usr/include -g -L$(SYSROOT)/usr/lib -Wl,-Bstatic -lc test.c crt0.o -o test.elf -nostartfiles; \
+	mv test.elf initrd/; \
+	cd initrd; \
+	../fsgen .; \
+	mv initrd.img ../../initrd.img; \
+	cd ..; \
+	cp ../initrd.img isodir/boot/; 
+	nifz ../initrd.img;
 
 clean:
 	@rm -rf $(OBJECTS) $(ISO_DIR) $(ISO_NAME) $(FSGENERATOR)
+
