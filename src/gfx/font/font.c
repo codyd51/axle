@@ -5,19 +5,42 @@
 #include <std/math.h>
 
 //TODO configurable SSAA factor?
-#define SSAA_FACTOR 3
+//#define SSAA_FACTOR 3
+#define SSAA_FACTOR 0
+
+#define BITS_IN_WORD (sizeof(uint32_t) * 8)
+static inline void bitset_set(uint32_t* bitset, int idx) {
+	//figure out which index in array of ints to use
+	int word_idx = idx / BITS_IN_WORD;
+	//get offset within word
+	int offset = idx % BITS_IN_WORD;
+	//turn on bit
+	bitset[word_idx] |= 1 << offset;
+}
+
+static inline bool bitset_check(uint32_t* bitset, int idx) {
+	//figure out which index in array of ints to use
+	int word_idx = idx / BITS_IN_WORD;
+	//get offset within word
+	int offset = idx % BITS_IN_WORD;
+	//check bit
+	return ((bitset[word_idx] >> offset) & 1);
+}
 
 static uint32_t supersample_map_cache[256][CHAR_WIDTH * SSAA_FACTOR] = {{0}};
 //generate supersampled bitmap of font character
 static void generate_supersampled_map(uint32_t* supersample, char ch) {
+	//bitset of characters which are stored in cache
+	//256 / sizeof(uint32_t) = 8
+	//so we need 8 uint32_t's to store all 256 possible characters
+	static uint32_t present_in_cache[8] = {0};
+
 	//use cached map if existing
-	uint32_t* cached = supersample_map_cache[(int)ch];
-	if (*cached) {
+	uint32_t* cached = &supersample_map_cache[(int)ch];
+	if (bitset_check((uint32_t*)&present_in_cache, (int)ch)) {
 		memcpy(supersample, cached, CHAR_WIDTH * SSAA_FACTOR * sizeof(uint32_t));
 		return;
 	}
-
-	memset(supersample, 0, CHAR_WIDTH * SSAA_FACTOR);
 
 	//for every col in SS bitmap
 	for (int y = 0; y < CHAR_HEIGHT * SSAA_FACTOR; y++) {
@@ -34,9 +57,11 @@ static void generate_supersampled_map(uint32_t* supersample, char ch) {
 			}
 		}
 		supersample[y] = ssaa_row;
+		//save this row in cache
+		cached[y] = ssaa_row;
 	}
-	//save this map for caching purposes
-	memcpy(cached, supersample, CHAR_WIDTH * SSAA_FACTOR * sizeof(uint32_t));
+	//mark as saved in bitset
+	bitset_set((uint32_t*)&present_in_cache, (int)ch);
 }
 
 void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_size) {
@@ -48,13 +73,30 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 	float scale_y = font_size.height / (float)CHAR_HEIGHT;
 
 	uint32_t supersample[CHAR_WIDTH * SSAA_FACTOR];
-	generate_supersampled_map(supersample, ch);
+	if (SSAA_FACTOR) {
+		generate_supersampled_map(&supersample, ch);
+	}
 
-	uint32_t idx = ((y * layer->size.width * gfx_bpp()) + (x * gfx_bpp()));
-	Color bg_color;
-	bg_color.val[0] = layer->raw[idx + 2];
-	bg_color.val[1] = layer->raw[idx + 1];
-	bg_color.val[2] = layer->raw[idx + 0];
+	Color bg_color = color_black();
+	int avg_red, avg_grn, avg_blu, sum_num;
+	avg_red = avg_grn = avg_blu = sum_num = 0;
+	//bg_color is the average color of the rect represented by 
+	//{{x, y}, {font_size.width, font_size.height}}
+	for (int bg_y = y; bg_y < y + font_size.height; bg_y++) {
+		for (int bg_x = x; bg_x < x + font_size.width; bg_x++) {
+			uint32_t idx = ((bg_y * layer->size.width * gfx_bpp()) + (bg_x * gfx_bpp()));
+			avg_red += layer->raw[idx + 2];
+			avg_grn += layer->raw[idx + 1];
+			avg_blu += layer->raw[idx + 0];
+			sum_num++;
+		}
+	}
+	avg_red /= sum_num;
+	avg_grn /= sum_num;
+	avg_blu /= sum_num;
+	bg_color.val[0] = avg_red;
+	bg_color.val[1] = avg_grn;
+	bg_color.val[2] = avg_blu;
 
 	for (int draw_y = 0; draw_y < font_size.height; draw_y++) {
 		//get the corresponding y of default font size
@@ -67,12 +109,21 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 			//skip antialiasing?
 			if (!SSAA_FACTOR) {
 				uint32_t font_row = font8x8_basic[(int)ch][font_y];
+
+				Color draw_color = color_white();
+				float a = 1 - ( 0.299 * bg_color.val[0] + 
+								0.587 * bg_color.val[1] + 
+								0.114 * bg_color.val[2])/255;
+				if (a < 0.5) draw_color = color_black();
+				draw_color = color;
 				if ((font_row >> font_x) & 1) {
-					putpixel(layer, x + draw_x, y + draw_y, color);
+					putpixel(layer, x + draw_x, y + draw_y, draw_color);
 				}
+				/*
 				else {
 					putpixel(layer, x + draw_x, y + draw_y, bg_color);
 				}
+				*/
 				continue;
 			}
 
@@ -108,23 +159,25 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 			float alpha = (float)on_count / (float)total_count;
 			
 			//if drawing black or white text, try to increase legibility
+			/*
 			if (color_equal(color, color_white()) ||
 				color_equal(color, color_black())) {
-				//find brightest color component of background
-				int max_color = 0;
-				max_color = MAX(max_color, bg_color.val[0]);
-				max_color = MAX(max_color, bg_color.val[1]);
-				max_color = MAX(max_color, bg_color.val[2]);
-				//if brightest component is more than halfway to max brightness, draw dark
-				if (max_color >= 127) {
+				if ((bg_color.val[0] * 0.299 + 
+					bg_color.val[1] * 0.587 +
+					bg_color.val[2] * 0.114) > 186) {
 					color = color_black();
 				}
 				else {
 					color = color_white();
 				}
-			}
+			//}
 
+			*/
 			Color avg_color = color;
+			uint8_t tmp = avg_color.val[0];
+			avg_color.val[0] = avg_color.val[1];
+			avg_color.val[1] = avg_color.val[2];
+			avg_color.val[2] = tmp;
 
 			if (alpha) {
 				//set avg_color to color * alpha
@@ -141,6 +194,7 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 //returns first pointer to a string that looks like a web link in 'str', 
 //or NULL if none is found
 static char* link_hueristic(char* str) {
+	return NULL;
 	static char link_stubs[2][16] = {"http",
 									 "www",
 	};
@@ -175,7 +229,8 @@ void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font
 		//do we need to break a word onto 2 lines?
 		if ((x + font_size.width + padding.width + 1) >= dest->size.width) {
 			//don't bother if it was puncutation anyways
-			if (str[idx] != ' ') {
+			//also, don't hypenate if string is too short
+			if (str[idx] != ' ' && strlen(str) > 1) {
 				inserting_hyphen = true;
 			}
 		}
