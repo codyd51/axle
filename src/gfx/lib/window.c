@@ -95,8 +95,8 @@ Window* create_window_int(Rect frame, bool root) {
 		window->title_view = create_title_view(window);
 	}
 	window->content_view = create_content_view(window, root);
-
 	window->needs_redraw = 1;
+	window->last_draw_timestamp = time();
 
 	return window;
 }
@@ -202,6 +202,8 @@ bool draw_window(Window* window) {
 			redraw(window, NULL);
 			blit_layer(window->layer, window->content_view->layer, rect_make(window->content_view->frame.origin, window->layer->size), rect_make(point_zero(), window->content_view->frame.size));
 
+			window->last_draw_timestamp = time();
+
 			return true;
 		}
 		return false;
@@ -245,6 +247,8 @@ bool draw_window(Window* window) {
 	draw_rect(window->layer, rect_make(point_zero(), window->frame.size), color_black(), 1);
 
 	window->needs_redraw = 0;
+
+	window->last_draw_timestamp = time();
 
 	return true;
 }

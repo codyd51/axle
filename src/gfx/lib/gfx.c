@@ -43,7 +43,8 @@ inline int gfx_bpp() {
 		current_depth = 24;
 	}
 	//each px component is 8 bits
-	return current_depth / 8;
+	//this could be les than 1 (round to 0), so account for that
+	return MAX(1, current_depth / 8);
 }
 
 Screen* gfx_screen() {
@@ -111,6 +112,7 @@ void fill_screen(Screen* screen, Color color) {
 	if (screen->vmem) {
 		write_screen(screen);
 	}
+	reset_cursor_pos();
 }
 
 void write_screen(Screen* screen) {
@@ -227,6 +229,8 @@ static Size font_size_for_resolution(Size resolution) {
 }
 
 void draw_boot_background() {
+	fill_screen(gfx_screen(), color_black());
+	return;
 	//this is static because it will be first alloc'd before heap is active
 	//(almost immediately after boot)
 	//because it's alloc'd with placement_address, it cannot be freed

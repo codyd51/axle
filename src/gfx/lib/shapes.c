@@ -77,7 +77,22 @@ static void draw_rect_int_fast(ca_layer* layer, Rect rect, Color color) {
 	bool rgb = (bpp >= 3);
 
 	int offset = rect.origin.x * bpp + rect.origin.y * layer->size.width * bpp;
-	int row_start = offset;
+
+	uint8_t copy[rect.size.width * bpp];
+	for (int i = 0; i < rect.size.width; i++) {
+		int idx = i * bpp;
+		copy[idx + 0] = color.val[2];
+		copy[idx + 1] = color.val[1];
+		copy[idx + 2] = color.val[0];
+	}
+	for (int y = 0; y < rect.size.height; y++) {
+		memcpy(layer->raw + offset, copy, rect.size.width * bpp);
+		//move down 1 row
+		offset += layer->size.width * bpp;
+	}
+
+
+	/*
 	for (int y = rect.origin.y; y < rect.origin.y + rect.size.height; y++) {
 		for (int x = rect.origin.x; x < rect.origin.x + rect.size.width; x++) {
 			if (rgb) {
@@ -90,10 +105,8 @@ static void draw_rect_int_fast(ca_layer* layer, Rect rect, Color color) {
 				layer->raw[offset++] = color.val[0];
 			}
 		}
-		//move down 1 row
-		row_start += layer->size.width * bpp;
-		offset = row_start;
 	}
+	*/
 }
 
 void draw_rect(ca_layer* layer, Rect r, Color color, int thickness) {

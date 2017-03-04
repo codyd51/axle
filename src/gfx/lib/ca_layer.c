@@ -103,9 +103,13 @@ void blit_layer_filled(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_
 	//data from source to write to dest
 	uint8_t* row_start = src->raw + (rect_min_y(src_frame) * src->size.width * gfx_bpp()) + rect_min_x(src_frame) * gfx_bpp();
 
+	int transferabble_rows = src_frame.size.height;
+	int overhang = rect_max_y(src_frame) - src->size.height;
+	if (overhang > 0) {
+		transferabble_rows -= overhang;
+	}
 	//copy height - y origin rows
-	for (int i = 0; i < src_frame.size.height; i++) {
-		//if (i + rect_min_y(src_frame) < rect_min_y(dest_frame)) continue;
+	for (int i = 0; i < transferabble_rows; i++) {
 		if (i >= rect_max_y(dest_frame)) break;
 
 		//figure out how many px we can actually transfer over,

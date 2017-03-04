@@ -67,19 +67,29 @@ inline void putpixel(ca_layer* layer, int x, int y, Color color) {
 	//don't attempt writing a pixel outside of screen bounds
 	//if (x < 0 || y < 0 || x >= layer->size.width || y >= layer->size.height) return;
 
+	int depth = gfx_depth();
 	int bpp = gfx_bpp();
 	bool write_directly = !(layer);
 	int offset = (x * bpp) + (y * layer->size.width * bpp);
-	if (write_directly) {
+
+	
+	if (depth == 4 || write_directly) {
 		offset = (x * bpp) + (y * gfx_screen()->resolution.width * bpp);
 
 		int bank = offset / BANK_SIZE;
 		int bank_offset = offset % BANK_SIZE;
 		vbe_set_bank(bank);
+
 		uint8_t* vmem = (uint8_t*)VBE_DISPI_LFB_PHYSICAL_ADDRESS;
-		vmem[bank_offset + 0] = color.val[0];
-		vmem[bank_offset + 1] = color.val[1];
-		vmem[bank_offset + 2] = color.val[2];
+
+		if (depth == 4) {
+			vmem[bank_offset] = 3;
+		}
+		else if (write_directly) {
+			vmem[bank_offset + 0] = color.val[0];
+			vmem[bank_offset + 1] = color.val[1];
+			vmem[bank_offset + 2] = color.val[2];
+		}
 		return;
 	}
 

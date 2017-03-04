@@ -31,8 +31,7 @@ Rect rect_zero() {
 
 Rect* rect_clip(Rect subject, Rect cutting) {
 	//maximum possible 4 rectangles
-	static Rect clipped[4];
-	//array_m* clipped = array_m_create(4);
+	static Rect clipped[4] = {0};
 
 	//if these rectangles don't intersect, do nothing
 	if (!rect_intersects(subject, cutting)) {
@@ -110,6 +109,7 @@ Rect* rect_clip(Rect subject, Rect cutting) {
 	}
 
 	//finally, return output rects
+	//return &clipped;
 	return clipped;
 }
 

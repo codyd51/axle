@@ -30,6 +30,8 @@ typedef struct window {
 	array_m* animations;
 	event_handler teardown_handler;
 	event_handler redraw_handler;
+
+	uint32_t last_draw_timestamp;
 } Window;
 
 Window* create_window(Rect frame);
