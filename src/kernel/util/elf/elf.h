@@ -144,4 +144,6 @@ enum elf_rt_types {
 
 void* elf_load_file(void* file, uint32_t size);
 
+int execve(const char *filename, char *const argv[], char *const envp[]);
+
 #endif
