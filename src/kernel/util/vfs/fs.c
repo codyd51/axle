@@ -122,7 +122,7 @@ void* ipc_convert_to_abs_mem(void* addr) {
 	task_t* current = task_with_pid(getpid());
 	void* real = (void*)(addr + current->load_addr);
 	real -= 0xe0000000;
-	return addr;
+	return real;
 }
 
 

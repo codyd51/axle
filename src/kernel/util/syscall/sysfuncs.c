@@ -2,6 +2,7 @@
 #include <kernel/util/multitasking/tasks/task.h>
 #include <std/printf.h>
 #include <kernel/util/paging/paging.h>
+#include <kernel/util/elf/elf.h>
 
 void yield(task_state reason) {
 	if (!tasking_installed()) return;
@@ -23,7 +24,7 @@ int write(int file, const void* buf, int len) {
 }
 
 DEFN_SYSCALL0(kill,		0);
-DEFN_SYSCALL3(exec,		1, char*		, char**, char**);
+DEFN_SYSCALL3(execve,		1, char*		, char**, char**);
 DEFN_SYSCALL2(fopen,	2, const char*	, int);
 DEFN_SYSCALL3(read,		3, int			, char*	, size_t);
 DEFN_SYSCALL2(output,	4, int			, char*);
@@ -32,10 +33,6 @@ DEFN_SYSCALL1(sbrk,		6, int);
 DEFN_SYSCALL1(brk,		7, void*);
 DEFN_SYSCALL5(mmap,		8, void*		, int,	  int,		int,	int);
 DEFN_SYSCALL2(munmap,	9, void*		, int);
-
-int execve(const char *filename, char *const argv[], char *const envp[]) {
-	printf("execve %s\n", filename);
-}
 
 void create_sysfuncs() {
 	sys_insert((void*)&_kill);
