@@ -110,6 +110,7 @@ bool elf_load_segment(unsigned char* src, elf_phdr* seg) {
 #include <kernel/util/paging/paging.h>
 		extern page_directory_t* current_directory;
 		page_t* page = get_page(i, 1, current_directory);
+
 		if (page) {
 			if (!alloc_frame(page, 1, 1)) {
 				//printf_err("ELF: alloc_frame failed");
@@ -135,7 +136,6 @@ uint32_t elf_load_small(unsigned char* src) {
 	if (!segcount) return 0;
 
 	printf_info("ELF has %d segments", segcount);
-	printk_info("ELF has %d segments", segcount);
 
 	bool found_loadable_seg = false;
 	//load each segment
@@ -180,6 +180,7 @@ void* elf_load_file(void* file, uint32_t binary_size) {
 	char* string_table = elf_get_string_table(hdr, binary_size);
 
 	uint32_t prog_break = 0;
+	uint32_t bss_loc = 0;
 	for (uint32_t x = 0; x < hdr->shentsize * hdr->shnum; x += hdr->shentsize) {
 		if (hdr->shoff + x > binary_size) {
 			printf("Tried to read beyond the end of the file.\n");
@@ -194,13 +195,18 @@ void* elf_load_file(void* file, uint32_t binary_size) {
 			uintptr_t page_aligned = shdr->size + 
 									 (0x1000 - 
 									 (shdr->size % 0x1000));
-			printf(".bss @ [%x to %x]\n", shdr->addr, shdr->addr + page_aligned);
 			for (int i = 0; i <= page_aligned; i += 0x1000) {
 				extern page_directory_t* current_directory;
-				alloc_frame(get_page(shdr->addr + i, 1, current_directory), 0, 0);
+				alloc_frame(get_page(shdr->addr + i, 1, current_directory), 1, 1);
 			}
+
+			//zero out .bss
+			char* buf = (char*)shdr->addr;
+			memset(buf, 0, shdr->size);
+
 			//set program break to .bss segment
-			prog_break = shdr->addr + shdr->offset + shdr->size;
+			prog_break = shdr->addr + shdr->size;
+			bss_loc = shdr->addr;
 		}
 	}
 
@@ -210,9 +216,7 @@ void* elf_load_file(void* file, uint32_t binary_size) {
 		if (!fork("ELF Program")) {
 			task_t* elf = task_with_pid(getpid());
 			elf->prog_break = prog_break;
-
-			elf->load_addr = 0x08054000;
-			//elf->load_addr = 0x08059c24;
+			elf->bss_loc = bss_loc;
 
 			int(*elf_main)(void) = (int(*)(void))entry;
 			become_first_responder();
@@ -221,6 +225,7 @@ void* elf_load_file(void* file, uint32_t binary_size) {
 
 			printf("ELF returned with status %x\n", ret);
 			//TODO replace w/ exit() sysall
+			kfree(file);
 			_kill();
 		}
 		else {
