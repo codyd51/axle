@@ -324,14 +324,16 @@ void* sbrk(int increment) {
 
 	current->prog_break += increment;
 
+	page_t* new = get_page(brk, 1, current_directory);
+	if (!new->frame) {
+		alloc_frame(new, 1, 1);
+	}
+
+	memset(brk, 0, increment);
+
 	//map this new memory
 	//mmap(brk, increment, 0, 0, 0);
 
-	/*
-	printf("sbrk(%x) gives chunk @ %x\n", increment, brk);
-	printf("sbrk new break @ %x\n", (uint32_t)brk + increment);
-	sleep(2000);
-	*/
 	return brk;
 }
 
@@ -383,7 +385,7 @@ void page_fault(registers_t regs) {
 
 	//if this page was present, attempt to recover by allocating the page
 	if (!present) {
-		bool attempt = alloc_frame(get_page(faulting_address, 1, kernel_directory), 1, 1);
+		bool attempt = alloc_frame(get_page(faulting_address, 1, current_directory), 1, 1);
 		if (attempt) {
 			//recovered successfully
 			//printf_info("allocated page at virt %x", faulting_address);
@@ -413,7 +415,6 @@ void page_fault(registers_t regs) {
 	else {
 		printf_err("Page fault caused by reading unpaged memory");
 	}
-
 
 	extern void common_halt(registers_t regs, bool recoverable);
 	common_halt(regs, false);
