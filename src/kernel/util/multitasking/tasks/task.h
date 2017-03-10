@@ -45,12 +45,12 @@ typedef struct task {
 
 	//the below only exist for non-kernel tasks
 	//(such as loaded ELFs)
+	
 	//end of .bss section of current task
 	//used with ELF-loaded programs
 	uint32_t prog_break; 
-	//virtual load address of task
-	//non-kernel tasks have this
-	uint32_t load_addr;
+	//virtual address of .bss segment
+	uint32_t bss_loc;
 } task_t;
 
 //initializes tasking system

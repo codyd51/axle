@@ -141,8 +141,8 @@ void vmem_map(uint32_t virt, uint32_t physical) {
 bool alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 	if (page->frame != 0) {
 		//frame was already allocated, return early
-		printk_info("alloc_frame: page %x already alloced (frame %x)", page, page->frame);
-		printf_info("alloc_frame: page %x already alloced (frame %x)", page, page->frame);
+		printf_info("alloc_frame error: page %x already alloced (frame %x)", page, page->frame);
+		printf_err("Warning: If you access %x, you will page fault");
 		return false;
 	}
 	
@@ -252,7 +252,7 @@ void paging_install() {
 	//by calling kmalloc(). A while loop causes this to be computed
 	//on-the-fly instead of once at the start
 	unsigned idx = 0;
-	while (idx < placement_address + 0x1000) {
+	while (idx < (placement_address + 0x1000)) {
 		//kernel code is readable but not writeable from userspace
 		alloc_frame(get_page(idx, 1, kernel_directory), 0, 0);
 		idx += 0x1000;
@@ -299,11 +299,7 @@ void *mmap(void *addr, uint32_t length, int flags, int fd, uint32_t offset) {
 	for (int i = 0; i < page_aligned; i += 0x1000) {
 		//TODO change alloc_frame flags based on 'flags'
 		alloc_frame(get_page((uint32_t)chbuf + i, 1, current_directory), 1, 1);
-		//memset((uint32_t)chbuf + i, 0, 1);
-		//chbuf[i] = 0;
-		for (int j = 0; j < 0x1000; j++) {
-			chbuf[i + j] = 0;
-		}
+		memset((uint32_t)chbuf + i, 0, 0x1000);
 	}
 	return chbuf;
 }
@@ -320,7 +316,7 @@ void* sbrk(int increment) {
 	task_t* current = task_with_pid(getpid());
 	char* brk = current->prog_break;
 
-	printf("sbrk [%x to %x]\n", brk, brk + increment);
+	printf_info("sbrk [%x to %x]", brk, brk + increment);
 
 	if (!increment) {
 		return brk;

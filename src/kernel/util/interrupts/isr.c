@@ -14,8 +14,6 @@ void print_regs(registers_t regs) {
 	printf("eax: %x		ecx: %x		edx: %x		ebx: %x\n", regs.eax, regs.ecx, regs.edx, regs.ebx);
 	printf("esp: %x		ebp: %x 	esi: %x		edi: %x\n", regs.esp, regs.ebp, regs.esi, regs.edi);
 	printf("eip: %x		int: %x		err: %x		cs:  %x\n", regs.eip, regs.int_no, regs.err_code, regs.cs);
-	printf("useresp: %x ss:  %x		efl: %x\n", regs.useresp, regs.ss, regs.eflags);
-	printf("gs:  %x		fs:	 %x		es:  %x		ds:  %x\n", regs.gs, regs.fs, regs.es, regs.ds);
 }
 
 #pragma GCC diagnostic push
@@ -175,18 +173,29 @@ void isr_install_default() {
 }
 
 //gets called from ASM interrupt handler stub
-void isr_handler(registers_t regs) {
-	uint8_t int_no = regs.int_no;
+int isr_handler(registers_t* regs) {
+	uint8_t int_no = regs->int_no;
     pic_acknowledge(int_no);
 
+	int ret = 0;
 	if (interrupt_handlers[int_no] != 0) {
-		isr_t handler = interrupt_handlers[int_no];
-		handler(regs);
+		//syscalls get pointer to register state
+		//also, return value is syscall return
+		if (int_no == 0x80) {
+			typedef int (*isr_reg_t)(registers_t*);
+			isr_reg_t handler = interrupt_handlers[int_no];
+			//set ret val
+			ret = handler(regs);
+		}
+		else {
+			isr_t handler = interrupt_handlers[int_no];
+			handler(*regs);
+		}
 	}
 	else {
 		printf_err("Unhandled ISR: %d", int_no);
-		//common_halt(*regs, true);
 	}
+	return ret;
 }
 
 void register_interrupt_handler(uint8_t n, isr_t handler) {
