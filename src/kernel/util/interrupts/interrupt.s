@@ -91,6 +91,8 @@ isr_common_stub:
 	push fs
 	push gs
 
+	push esp
+
 	mov ax, 0x10 	; loads kernel data segment argument
 	mov ds, ax
 	mov es, ax
@@ -99,6 +101,17 @@ isr_common_stub:
 
 	; call fault handler
 	call isr_handler
+
+	; set stored eax value to return value of this interrupt
+	; pushad pushes 7 values after eax, go back in stack
+	sub esp, 7 
+	; set value
+	mov [esp], eax
+	; reset sp
+	add esp, 7
+
+	; throw away esp ptr on stack
+	pop ebx
 
 	pop gs
 	pop fs
