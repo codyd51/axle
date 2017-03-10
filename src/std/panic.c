@@ -38,7 +38,6 @@ static inline void print_stack(void) {
 }
 #pragma GCC diagnostic pop
 
-extern void switch_to_text();
 extern void vprintf(int dest, char* format, va_list va);
 
 __attribute__((__noreturn__)) void panic(uint16_t line, const char* file) {
@@ -53,7 +52,6 @@ __attribute__((__noreturn__)) void panic(uint16_t line, const char* file) {
 }
 
 __attribute__((__noreturn__)) void panic_msg(uint16_t line, const char* file, const char* msg, ...) {
-	switch_to_text();
 
 	//terminal_clear();
 

@@ -34,7 +34,6 @@ int findCommand(char* command) {
 			return i;
 		}
 	}
-	printf("Command '\e[9;%s\e[15;' not found.", command);
 	return -1;
 }
 
@@ -64,6 +63,19 @@ void process_command(char* string) {
 	if (i >= 0) {
 		void (*command_function)(int, char **) = (void(*)(int, char**))CommandTable[i].function;
 		command_function(argc, argv);
+	}
+	else {
+		//not a valid command
+		//are we trying to execute a binary?
+		FILE* stream = fopen(command, 'r');
+		if (stream) {
+			execve(command, 0, 0);
+		}
+		else {
+			//invalid input
+			printf("Command '\e[9;%s\e[15;' not found.", command);
+		}
+		fclose(stream);
 	}
 
 	//cleanup
@@ -463,6 +475,16 @@ void proc_command() {
 	printf_info("Process state logged");
 }
 
+void execve_command(int argc, char** argv) {
+	if (argc < 2) {
+		printf_err("Please specify the file to run.");
+		return;
+	}
+	if (!fork("execve")) {
+		execve(argv[1], NULL, NULL);
+	}
+}
+
 void shell_init() {
 	printf("\n");
 	printf_info("Boostrap complete.");
@@ -494,6 +516,7 @@ void shell_init() {
 	add_new_command("pci", "List PCI devices", pci_list);
 	add_new_command("hypervisor", "Run VM", hypervisor_command);
 	add_new_command("script", "Run a script", (void(*)())script_command);
+	add_new_command("run", "Execute a binary", (void(*)())execve_command);
 	add_new_command("", "", empty_command);
 
 	//register ourselves as the first responder

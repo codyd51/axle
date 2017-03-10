@@ -117,19 +117,9 @@ char* fgets(char* buf, int count, FILE* stream) {
 	return (c == EOF && cs == buf) ? (char*)EOF : buf;
 }
 
-#include <kernel/util/multitasking/tasks/task.h>
-void* ipc_convert_to_abs_mem(void* addr) {
-	task_t* current = task_with_pid(getpid());
-	void* real = (void*)(addr + current->load_addr);
-	real -= 0xe0000000;
-	return real;
-}
-
-
 uint32_t read(int fd, void* buf, uint32_t count) {
-	buf = ipc_convert_to_abs_mem(buf);
 	unsigned char* chbuf = buf;
-	//printf("read %d %x %x\n", fd, buf, count);
+	memset(chbuf, 0, count);
 
 	if (fd < 3) {
 		int i = 0;
@@ -143,9 +133,8 @@ uint32_t read(int fd, void* buf, uint32_t count) {
 			}
 		}
 		chbuf[i+1] = '\0';
-		printf("read(%d, %x, %d): %s\n", fd, buf, count, chbuf);
 		//return smaller of line count / requested count
-		return MIN(i, count);
+		return i+1;
 	}
 
 	return fread(buf, sizeof(char), count, 0);

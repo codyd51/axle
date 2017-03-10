@@ -24,7 +24,6 @@ static volatile Window* active_window;
 const float shadow_count = 4.0;
 
 void xserv_quit(Screen* screen) {
-	switch_to_text();
 	gfx_teardown(screen);
 	resign_first_responder();
 	_kill();

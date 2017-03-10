@@ -310,7 +310,6 @@ void test_gfx(int argc, char **argv) {
 	sleep(delay);
 
 	gfx_teardown(screen);
-	switch_to_text();
 
 	_kill();
 }

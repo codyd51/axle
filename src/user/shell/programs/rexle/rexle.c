@@ -334,7 +334,6 @@ void rexle_int(int mode) {
 	}
 	gfx_teardown(screen);
 
-	switch_to_text();
 	resign_first_responder();
 }
 
