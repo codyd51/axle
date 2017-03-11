@@ -40,6 +40,21 @@ void kbman_process(char c) {
 				sched_log_history();
 				printf_info("CPU usage logged");
 				break;
+			case 'c': {
+				//kill first responder
+				//TODO we should send a signalt to first_responder here
+				task_t* foremost = first_responder();
+				printf_info("Ctrl+C killing task %s", foremost->name);
+				kill_task(foremost);
+				break;
+			}
+			case 't': {
+				//spawn shell
+				if (!fork("launch")) {
+					execve("shell", 0, 0);
+				}
+				break;
+			}
 			default:
 				break;
 		}
