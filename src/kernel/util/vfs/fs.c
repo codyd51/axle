@@ -58,7 +58,6 @@ fs_node_t* finddir_fs(fs_node_t* node, char* name) {
 FILE* fopen(char* filename, char* mode) {
 	fs_node_t* file = finddir_fs(fs_root, filename);
 	if (!file) {
-		printf_err("Couldn't find file %s", filename);
 		return NULL;
 	}
 	FILE* stream = (FILE*)kmalloc(sizeof(FILE));
@@ -133,7 +132,6 @@ uint32_t read(int fd, void* buf, uint32_t count) {
 			}
 		}
 		chbuf[i+1] = '\0';
-		//return smaller of line count / requested count
 		return i+1;
 	}
 

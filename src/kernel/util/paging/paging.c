@@ -316,8 +316,6 @@ void* sbrk(int increment) {
 	task_t* current = task_with_pid(getpid());
 	char* brk = current->prog_break;
 
-	printf_info("sbrk [%x to %x]", brk, brk + increment);
-
 	if (!increment) {
 		return brk;
 	}

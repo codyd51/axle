@@ -33,5 +33,10 @@ DECL_SYSCALL1(yield,	task_state);
 DECL_SYSCALL5(mmap,		void*		, int,	  int,		int,	int);
 DECL_SYSCALL2(munmap,	void*		, int);
 DECL_SYSCALL1(sbrk,		int);
+DECL_SYSCALL3(lseek,	int			, int,	  int);
+DECL_SYSCALL3(write,	int			, char*,  int);
+DECL_SYSCALL0(fork);
+DECL_SYSCALL0(getpid);
+DECL_SYSCALL3(waitpid,	int			, int*,	  int);
 
 #endif
