@@ -15,7 +15,7 @@ AFLAGS = -f elf
 LD = $(TOOLCHAIN)/bin/i686-elf-ld
 
 CC = $(TOOLCHAIN)/bin/i686-elf-gcc
-CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -I ./src
+SYSROOT = /Users/PhillipTennen/axle/
 CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -fstack-protector-all -I ./src
 LDFLAGS = -ffreestanding -nostdlib -lgcc -T $(RESOURCES)/linker.ld
 
@@ -30,8 +30,14 @@ getobjs = $(foreach ext, c s, $(filter %.o,$(patsubst %.$(ext),%.o,$(1))))
 
 # Source files
 PATHS = $(shell find $(SRC_DIR) -type d -print)
+PATHS := $(foreach f,$(PATHS),$(if $(filter extern,$(subst /, ,$f)),,$f))
+#PATHS := $(filter-out, , $(PATHS))
+
 AXLE_FILES = $(foreach path, $(PATHS), $(call findfiles, $(path)))
+
 OBJECTS = $(patsubst $(SRC_DIR)/%, $(OBJ_DIR)/%, $(call getobjs, $(AXLE_FILES)))
+OBJECTS := $(foreach f,$(OBJECTS),$(if $(filter extern,$(subst /, ,$f)),,$f))
+
 INITRD = ./initrd
 
 # Compilation flag helpers
@@ -71,18 +77,24 @@ run: $(ISO_NAME)
 	tmux split-window -p 75 "tail -f syslog.log"
 	$(EMULATOR) -vga std -net nic,model=ne2k_pci -d cpu_reset -D qemu.log -serial file:syslog.log -cdrom $^
 
+clean:
+	@rm -rf $(OBJECTS) $(ISO_DIR) $(ISO_NAME) $(FSGENERATOR)
+
+
+ELFS := $(wildcard $(SRC_DIR)/user/extern/*)
+TOPTARGETS := all clean
+$(TOPTARGETS): $(ELFS)
+
 .ONESHELL:
-elf: test.c
-	$(AS) -f elf crt0.s -o crt0.o
-	$(CC) -I$(SYSROOT)/usr/include -g -L$(SYSROOT)/usr/lib -Wl,-Bstatic -lc test.c crt0.o -o test.elf -nostartfiles; \
-	mv test.elf initrd/; \
+$(ELFS):
+	$(AS) -f elf crt0.s -o crt0.o; \
+	$(MAKE) -C $@ $(MAKECMDGOALS)
 	cd initrd; \
 	../fsgen .; \
 	mv initrd.img ../../initrd.img; \
 	cd ..; \
-	cp ../initrd.img isodir/boot/; 
+	cp ../initrd.img isodir/boot/;  \
 	nifz ../initrd.img;
 
-clean:
-	@rm -rf $(OBJECTS) $(ISO_DIR) $(ISO_NAME) $(FSGENERATOR)
+.PHONY: $(TOPTARGETS) $(ELFS)
 
