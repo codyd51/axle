@@ -142,7 +142,7 @@ enum elf_rt_types {
 #define PT_INTERP	3
 
 
-void* elf_load_file(void* file, uint32_t size);
+void* elf_load_file(char* filename, void* file, uint32_t size);
 
 int execve(const char *filename, char *const argv[], char *const envp[]);
 

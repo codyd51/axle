@@ -66,11 +66,10 @@ bool elf_validate(elf_header* hdr) {
 }
 
 int execve(const char *filename, char *const argv[], char *const envp[]) {
-	printf("Loading ELF %s\n", filename);
+	//printf("Loading ELF %s\n", filename);
 	FILE* elf = fopen(filename, "r");
 	if (!elf) {
-		printf_err("ELF couldn't find file!");
-		printk_err("ELF couldn't find file!");
+		printf_err("Couldn't find file %s", filename);
 		return;
 	}
 
@@ -83,13 +82,11 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 	for (int i = 0; i < size; i++) {
 		filebuf[i] = fgetc(elf);
 	}
-	elf_load_file(filebuf, size);
+	elf_load_file(filename, filebuf, size);
+	return -1;
 }
 
 bool elf_load_segment(unsigned char* src, elf_phdr* seg) {
-	printf("ELF loading segment type %d (%x) ", seg->type, seg);
-	printk("ELF loading segment type %d (%x) ", seg->type, seg);
-
 	//loadable?
 	if (seg->type != PT_LOAD) {
 		printf_err("Tried to load non-loadable segment");
@@ -102,8 +99,6 @@ bool elf_load_segment(unsigned char* src, elf_phdr* seg) {
 	unsigned char* dest_base = (unsigned char*)seg->vaddr;
 
 	unsigned char* dest_limit = (uintptr_t)(dest_base + seg->memsz + 0x1000) & 0xFFFFF000;
-
-	printf("@ [%x to %x]\n", dest_base, dest_limit);
 
 	//alloc enough mem for new task
 	for (uint32_t i = dest_base; i < dest_limit; i += 0x1000) {
@@ -134,8 +129,6 @@ uint32_t elf_load_small(unsigned char* src) {
 
 	int segcount = hdr->phnum; 
 	if (!segcount) return 0;
-
-	printf_info("ELF has %d segments", segcount);
 
 	bool found_loadable_seg = false;
 	//load each segment
@@ -171,7 +164,7 @@ char* elf_get_string_table(void* file, uint32_t binary_size) {
 	}
 }
 
-void* elf_load_file(void* file, uint32_t binary_size) {
+void* elf_load_file(char* name, void* file, uint32_t binary_size) {
 	elf_header* hdr = (elf_header*)file;
 	if (!elf_validate(hdr)) {
 		return;
@@ -211,28 +204,19 @@ void* elf_load_file(void* file, uint32_t binary_size) {
 	}
 
 	uint32_t entry = elf_load_small(file);
-	printf_info("ELF entry point @ %x, valid? %s", entry, (entry) ? "yes, jumping..." : "no");
+	kfree(file);
+
 	if (entry) {
-		if (!fork("ELF Program")) {
-			task_t* elf = task_with_pid(getpid());
-			elf->prog_break = prog_break;
-			elf->bss_loc = bss_loc;
+		task_t* elf = task_with_pid(getpid());
+		elf->prog_break = prog_break;
+		elf->bss_loc = bss_loc;
+		elf->name = strdup(name);
 
-			int(*elf_main)(void) = (int(*)(void))entry;
-			become_first_responder();
+		int(*elf_main)(void) = (int(*)(void))entry;
+		become_first_responder();
 
-			int ret = elf_main();
-
-			printf("ELF returned with status %x\n", ret);
-			//TODO replace w/ exit() sysall
-			kfree(file);
-			_kill();
-		}
-		else {
-			//parent process
-			//kill parent
-			_kill();
-		}
+		int ret = elf_main();
+		ASSERT(0, "this should be unreachable!");
 	}
 	else {
 		printf_err("ELF wasn't loadable!");
