@@ -13,6 +13,7 @@ typedef enum task_state {
     KB_WAIT,
     PIT_WAIT,
 	MOUSE_WAIT,
+	CHILD_WAIT,
 } task_state;
 
 typedef enum mlfq_option {
@@ -43,14 +44,28 @@ typedef struct task {
 
 	array_m* files;
 
-	//the below only exist for non-kernel tasks
-	//(such as loaded ELFs)
-	
+	/*
+	 * the below only exist for non-kernel tasks
+	 * (such as loaded ELFs)
+	 */
+
 	//end of .bss section of current task
-	//used with ELF-loaded programs
 	uint32_t prog_break; 
 	//virtual address of .bss segment
 	uint32_t bss_loc;
+
+	/* array of child tasks this process has spawned
+	 * each time a process fork()'s,
+	 * the new child is added to this array
+	 * when wait() is used, it uses the tasks in this array
+	 */
+	array_m* child_tasks;
+	//parent process that spawned this one
+	struct task* parent;
+
+	//exit status of zombie task
+	//this field is undefined until task finishes executing
+	int exit_code;
 } task_t;
 
 //initializes tasking system
@@ -75,6 +90,9 @@ int fork();
 
 //stop executing the current process and remove it from active processes
 void _kill();
+
+//kill task associated with task struct
+void kill_task(task_t* task);
 
 //used whenever a system event occurs
 //looks at blocked tasks and unblocks as necessary
@@ -107,5 +125,9 @@ void resign_first_responder();
 //find task_t associated with PID 'pid'
 //returns NULL if no task_t with given PID exists
 task_t* task_with_pid(int pid);
+
+//suspend execution until child process terminates
+int waitpid(int pid, int* status, int options);
+int wait(int* status);
 
 #endif

@@ -199,6 +199,8 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	task->state = RUNNABLE;
 	task->wake_timestamp = 0;
 
+	task->child_tasks = array_m_create(32);
+
 	return task;
 }
 #pragma GCC diagnostic pop
@@ -425,6 +427,7 @@ void tasking_install(mlfq_option options) {
 	kernel->name = "kax";
 	kernel->id = next_pid++;
 	kernel->page_dir = current_directory;
+	kernel->child_tasks = array_m_create(32);
 	setup_fds(kernel);
 
 	current_task = kernel;
@@ -444,12 +447,6 @@ void tasking_install(mlfq_option options) {
 	//runs when anything (including kernel) is blocked for i/o
 	if (!fork("idle")) {
 		idle();
-	}
-
-	//task reaper
-	//cleans up zombied tasks
-	if (!fork("reaper")) {
-		reap();
 	}
 
 	//blocked task sentinel
@@ -495,6 +492,27 @@ void update_blocked_tasks() {
 			goto_pid(task->id);
 		}
 
+		if (task->state == CHILD_WAIT) {
+			//search if any of this task's children are zombies
+			for (int i = 0; i < task->child_tasks->size; i++) {
+				task_t* child = array_m_lookup(task->child_tasks, i);
+				if (child->state == ZOMBIE) {
+					//found a zombie!
+					//wake parent
+					unblock_task(task);
+					break;
+				}
+			}
+		}
+
+		if (task->state == ZOMBIE) {
+			if (task->parent) {
+				if (task->parent->state != CHILD_WAIT) {
+					printk("parent %d isn't waiting for dangling child %d\n", task->parent->id, task->id);
+				}
+			}
+		}
+
 		task = task->next;
 	}
 }
@@ -513,6 +531,16 @@ int fork(char* name) {
 
 	task_t* child = create_process(name, 0, false);
 	add_process(child);
+
+	//set parent process of newly created process to currently running task
+	child->parent = parent;
+	//insert the newly created child task into the parent's array of children
+	if (parent->child_tasks->size < 32) {
+		array_m_insert(parent->child_tasks, child);
+	}
+	else {
+		ASSERT(0, "fork() child_tasks was full!\n");
+	}
 
 	//THIS LINE will be the entry point for child process
 	//(as read_eip will give us the address of this line)
@@ -819,6 +847,9 @@ void proc() {
 				case ZOMBIE:
 					printk("(zombie)");
 					break;
+				case CHILD_WAIT:
+					printk("(blocked by child)");
+					break;
 				default:
 					break;
 		}
@@ -857,6 +888,9 @@ void resign_first_responder() {
 
 	//remove current first responder from stack of responders
 	int last_idx = responder_stack->size - 1;
+	task_t* removed = array_m_lookup(responder_stack, last_idx);
+	ASSERT(removed == first_responder_task, "top of responder stack wasn't first responder!");
+
 	array_m_remove(responder_stack, last_idx);
 
 	if (responder_stack->size) {
@@ -888,4 +922,42 @@ void jump_user_mode() {
 			1: \ 
 			");
 }
+
+int waitpid(int pid, int* status, int options) {
+	task_t* parent = current_task;
+	block_task(parent, CHILD_WAIT);
+
+	//wait finished!
+	//find child which terminated
+	for (int i = 0; i < parent->child_tasks; i++) {
+		task_t* child = array_m_lookup(parent->child_tasks, i);
+		//check if this pid is suitable to wake parent
+		//if requested pid is -1, any child is acceptable
+		//otherwise, we need exact match
+		bool valid_pid = false;
+		if (pid == -1 || pid == child->id) {
+			valid_pid = true;
+		}
+
+		if (child->state == ZOMBIE && valid_pid) {
+			int ret = child->exit_code;
+			int pid = child->id;
+			array_m_remove(parent->child_tasks, i);
+			reap_task(child);
+
+			if (status) {
+				*status = ret;
+			}
+
+			return pid;
+		}
+	}
+	ASSERT(0, "parent unblocked but no child terminated!\n");
+	return -1;
+}
+
+int wait(int* status) {
+	return waitpid(-1, status, 0);
+}
+
 
