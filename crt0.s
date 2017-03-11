@@ -5,4 +5,8 @@
 start:
 _start:
 	call main
-	ret
+	; put return code in ebx
+	mov ebx, eax
+	; exit is syscall # 12
+	mov eax, 12
+	int 0x80
