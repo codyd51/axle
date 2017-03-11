@@ -61,23 +61,9 @@ static void setup_fds(task_t* task) { task->files = array_m_create(MAX_FILES);
 	// array_m_insert(task->files, stderr_read);
 }
 
-static void kill(task_t* task) {
-	if (!tasking_installed()) return;
-
-	//TODO only go back to terminal mode if task we're killing changed gfx mode
-	//instead of hard coding these
-	printk("_kill() checking if need to change gfx mode for task %s\n", task->name);
-	if (!strcmp(task->name, "xserv") || !strcmp(task->name, "rexle")) {
-		printk("_kill() switching back to terminal mode\n");
-		switch_to_text();
-	}
-	block_task(task, ZOMBIE);
-}
-
 static bool is_dead_task_crit(task_t* task) {
 	static char* crit_tasks[3] = {"idle",
-									 "reaper",
-									 "iosentinel"
+								  "iosentinel"
 	};
 
 	for (uint32_t i = 0; i < sizeof(crit_tasks) / sizeof(crit_tasks[0]); i++) {
@@ -88,7 +74,6 @@ static bool is_dead_task_crit(task_t* task) {
 	return false;
 }
 
-void reap();
 static void tasking_critical_fail() {
 	char* msg = "One or more critical tasks died. axle has died.\n";
 	printf("%s\n", msg);
@@ -101,20 +86,24 @@ static void tasking_critical_fail() {
 	while (1) {}
 }
 
-void _kill() {
-	printk("_kill() strcmp %s returns %d\n", current_task->name, strcmp(current_task->name, "xserv"));
-	bool show_died_message = !strcmp(current_task->name, "xserv");
+void kill_task(task_t* task) {
+	bool show_died_message = !strcmp(task->name, "xserv");
 	if (show_died_message) {
 		xserv_fail();
 	}
 
-	if (is_dead_task_crit(current_task)) {
+	if (is_dead_task_crit(task)) {
 		tasking_critical_fail();
 	}
 
-	block_task(current_task, ZOMBIE);
-	reap();
-	kill(current_task);
+	if (task == first_responder_task) {
+		resign_first_responder();
+	}
+	block_task(task, ZOMBIE);
+}
+
+void _kill() {
+	kill_task(current_task);
 }
 
 void goto_pid(int id);
@@ -250,56 +239,47 @@ void destroy_task(task_t* task) {
 	}
 	//remove task from queues and active list
 	unlist_task(task);
-	printf_info("%s[%d] destroyed.", task->name, task->id);
+	//printf_info("%s[%d] destroyed.", task->name, task->id);
 	//free task's page directory
 	//free_directory(task->page_dir);
 }
 
-void reap() {
-	while (1) {
-		task_t* tmp = active_list;
-		while (tmp != NULL) {
-			if (tmp->state == ZOMBIE) {
-				array_m* queue = array_m_lookup(queues, tmp->queue);
-				int idx = array_m_index(queue, tmp);
-				if (idx != ARR_NOT_FOUND) {
-					printk("reap() unlisting %s\n", tmp->name);
+void reap_task(task_t* tmp) {
+	if (tmp->state == ZOMBIE) {
+		array_m* queue = array_m_lookup(queues, tmp->queue);
+		int idx = array_m_index(queue, tmp);
+		if (idx != ARR_NOT_FOUND) {
+			printk("reap() unlisting %s\n", tmp->name);
 
-					lock(mutex);
-					array_m_remove(queue, idx);
-					unlock(mutex);
+			lock(mutex);
+			array_m_remove(queue, idx);
+			unlock(mutex);
 
-					destroy_task(tmp);
-				}
-				else {
-					//couldn't find task in the queue it said it was in
-					//fall back on searching through each queue
-					bool found = false;
-					for (int i = 0; i < queues->size && !found; i++) {
-						array_m* queue = array_m_lookup(queues, i);
-						for (int j = 0; j < queues->size && !found; j++) {
-							task_t* to_test = array_m_lookup(queue, j);
-							if (to_test == tmp) {
-								lock(mutex);
-								array_m_remove(queue, j);
-								unlock(mutex);
+			destroy_task(tmp);
+		}
+		else {
+			//couldn't find task in the queue it said it was in
+			//fall back on searching through each queue
+			bool found = false;
+			for (int i = 0; i < queues->size && !found; i++) {
+				array_m* queue = array_m_lookup(queues, i);
+				for (int j = 0; j < queues->size && !found; j++) {
+					task_t* to_test = array_m_lookup(queue, j);
+					if (to_test == tmp) {
+						lock(mutex);
+						array_m_remove(queue, j);
+						unlock(mutex);
 
-								destroy_task(tmp);
-								found = true;
-								break;
-							}
-						}
-					}
-					if (!found) {
-						printf_err("Tried to reap task %s[%d] but it didn't exist in a queue", tmp->name, tmp->id);
+						destroy_task(tmp);
+						found = true;
+						break;
 					}
 				}
 			}
-			tmp = tmp->next;
+			if (!found) {
+				printf_err("Tried to reap task %s[%d] but it didn't exist in a queue", tmp->name, tmp->id);
+			}
 		}
-
-		//we have nothing else to do, yield cpu
-		sys_yield(RUNNABLE);
 	}
 }
 
