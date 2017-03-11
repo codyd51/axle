@@ -69,7 +69,14 @@ void process_command(char* string) {
 		//are we trying to execute a binary?
 		FILE* stream = fopen(command, 'r');
 		if (stream) {
-			execve(command, 0, 0);
+			int pid = sys_fork();
+			if (!pid) {
+				execve(command, 0, 0);
+			}
+			else {
+				int status;
+				waitpid(pid, &status, 0);
+			}
 		}
 		else {
 			//invalid input
@@ -480,9 +487,12 @@ void execve_command(int argc, char** argv) {
 		printf_err("Please specify the file to run.");
 		return;
 	}
-	if (!fork("execve")) {
+	int pid = sys_fork();
+	if (!pid) {
 		execve(argv[1], NULL, NULL);
 	}
+	int status;
+	waitpid(pid, &status, 0);
 }
 
 void shell_init() {
