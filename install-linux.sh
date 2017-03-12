@@ -20,9 +20,6 @@ sudo apt-get install qemu libmpc-dev xorriso tmux curl \
 	grub2 build-essential libstdc++6:i386 clang \
 	git nasm
 
-mkdir tools -p
-cd tools
-
 # Get prebuilt GCC
 git clone https://github.com/rbheromax/i686-toolchain
 
