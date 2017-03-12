@@ -23,7 +23,7 @@ sudo apt-get install qemu libmpc-dev xorriso tmux curl \
 mkdir tools -p
 cd tools
 
-Get and build GCC
+# Get prebuilt GCC
 git clone https://github.com/rbheromax/i686-toolchain
 
 cd $cwd

@@ -3,6 +3,7 @@ grub/
 objconv/
 isodir/
 .objs/
+*.log
 *.o
 *.bin
 *.iso
