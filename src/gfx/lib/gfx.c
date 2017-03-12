@@ -82,19 +82,6 @@ void gfx_teardown(Screen* screen) {
 	kfree(screen);
 }
 
-void switch_to_text() {
-	//do nothing if we're already in terminal mode
-	if (!current_screen) {
-		return;
-	}
-
-	regs16_t regs;
-	regs.ax = 0x0003;
-	int32(0x10, &regs);
-	process_gfx_switch((void*)NULL, 0);
-	//term_scroll(TERM_SCROLL_UP);
-}
-
 void vsync() {
 	//wait until previous retrace has ended
 	do {} while (inb(0x3DA) & 8);

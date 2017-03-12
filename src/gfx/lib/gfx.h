@@ -39,7 +39,6 @@ extern void int32(unsigned char intnum, regs16_t* regs);
 
 Screen* screen_create(Size dimensions, uint32_t* physbase, uint8_t depth);
 
-void switch_to_text();
 void gfx_teardown(Screen* screen);
 void vga_boot_screen(Screen* screen);
 
