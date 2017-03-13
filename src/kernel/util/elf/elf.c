@@ -70,7 +70,7 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 	FILE* elf = fopen(filename, "r");
 	if (!elf) {
 		printf_err("Couldn't find file %s", filename);
-		return;
+		sys__exit(1);
 	}
 
 	//find file size
@@ -83,7 +83,9 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 		filebuf[i] = fgetc(elf);
 	}
 	elf_load_file(filename, filebuf, size);
-	return -1;
+
+	//we should never reach this point
+	sys__exit(1);
 }
 
 bool elf_load_segment(unsigned char* src, elf_phdr* seg) {
@@ -108,8 +110,7 @@ bool elf_load_segment(unsigned char* src, elf_phdr* seg) {
 
 		if (page) {
 			if (!alloc_frame(page, 1, 1)) {
-				//printf_err("ELF: alloc_frame failed");
-				//while (1) {}
+				printk_err("ELF segment page %x fail", i);
 			}
 		}
 	}
@@ -164,6 +165,31 @@ char* elf_get_string_table(void* file, uint32_t binary_size) {
 	}
 }
 
+
+//map pages for bss segment pointed to by shdr
+//stores program break (end of .bss segment) in prog_break
+//stored start of .bss segment in bss_loc
+static void alloc_bss(elf_s_header* shdr, int* prog_break, int* bss_loc) {
+	uintptr_t page_aligned = shdr->size + 
+							 (0x1000 - 
+							 (shdr->size % 0x1000));
+	for (int i = 0; i <= page_aligned; i += 0x1000) {
+		extern page_directory_t* current_directory;
+		page_t* page = get_page(shdr->addr + i, 1, current_directory);
+		if (!alloc_frame(page, 1, 1)) {
+			printk_err(".bss %x wasn't alloc'd", shdr->addr + i);
+		}
+	}
+
+	//zero out .bss
+	//char* buf = (char*)shdr->addr;
+	//memset(buf, 0, shdr->size);
+
+	//set program break to .bss segment
+	*prog_break = shdr->addr + shdr->size;
+	*bss_loc = shdr->addr;
+}
+
 void* elf_load_file(char* name, void* file, uint32_t binary_size) {
 	elf_header* hdr = (elf_header*)file;
 	if (!elf_validate(hdr)) {
@@ -185,21 +211,7 @@ void* elf_load_file(char* name, void* file, uint32_t binary_size) {
 
 		//alloc memory for .bss segment
 		if (!strcmp(section_name, ".bss")) {
-			uintptr_t page_aligned = shdr->size + 
-									 (0x1000 - 
-									 (shdr->size % 0x1000));
-			for (int i = 0; i <= page_aligned; i += 0x1000) {
-				extern page_directory_t* current_directory;
-				alloc_frame(get_page(shdr->addr + i, 1, current_directory), 1, 1);
-			}
-
-			//zero out .bss
-			char* buf = (char*)shdr->addr;
-			memset(buf, 0, shdr->size);
-
-			//set program break to .bss segment
-			prog_break = shdr->addr + shdr->size;
-			bss_loc = shdr->addr;
+			alloc_bss(shdr, &prog_break, &bss_loc);
 		}
 	}
 
@@ -216,7 +228,10 @@ void* elf_load_file(char* name, void* file, uint32_t binary_size) {
 		become_first_responder();
 
 		int ret = elf_main();
-		ASSERT(0, "this should be unreachable!");
+
+		//binary should have called _exit()
+		//if we got to this point, something went catastrophically wrong
+		ASSERT(0, "ELF binary returned execution to loader!");
 	}
 	else {
 		printf_err("ELF wasn't loadable!");

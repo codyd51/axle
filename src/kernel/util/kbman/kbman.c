@@ -55,7 +55,7 @@ void kbman_process(char c) {
 					execve("shell", 0, 0);
 					sys__exit(1);
 				}
-				//waitpid(pid, NULL, NULL);
+				waitpid(pid, NULL, NULL);
 				break;
 			}
 			default:
