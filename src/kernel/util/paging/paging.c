@@ -141,8 +141,7 @@ void vmem_map(uint32_t virt, uint32_t physical) {
 bool alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 	if (page->frame != 0) {
 		//frame was already allocated, return early
-		printf_info("alloc_frame error: page %x already alloced (frame %x)", page, page->frame);
-		printf_err("Warning: If you access %x, you will page fault");
+		printk_err("alloc_frame fail, frame %x taken", page->frame);
 		return false;
 	}
 	

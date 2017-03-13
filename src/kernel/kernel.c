@@ -62,13 +62,12 @@ void shell_loop(void) {
 extern uint32_t placement_address;
 uint32_t initial_esp;
 
-uint32_t module_detect(multiboot* mboot_ptr) {
+void module_detect(multiboot* mboot_ptr, uint32_t* initrd_loc, uint32_t* initrd_end) {
 	ASSERT(mboot_ptr->mods_count > 0, "no GRUB modules detected");
-	uint32_t initrd_loc = *((uint32_t*)mboot_ptr->mods_addr);
-	uint32_t initrd_end = *(uint32_t*)(mboot_ptr->mods_addr+4);
+	*initrd_loc = *((uint32_t*)mboot_ptr->mods_addr);
+	*initrd_end = *(uint32_t*)(mboot_ptr->mods_addr+4);
 	//don't trample modules
-	placement_address = MAX(placement_address, initrd_end);
-	return initrd_loc;
+	placement_address = MAX(placement_address, *initrd_end);
 }
 
 void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
@@ -81,8 +80,10 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//this MUST be done before gfx_init or paging_install
 	//otherwise, create_layer has a high chance of overwriting modules
 	//module_detect has the side effect of safely incrementing placement_address past any module data
-	uint32_t initrd_loc = module_detect(mboot_ptr);
+	uint32_t initrd_loc, initrd_end;
+	module_detect(mboot_ptr, &initrd_loc, &initrd_end);
 	
+	//set up graphical terminal
 	gfx_init(mboot_ptr);
 
 	//introductory message
@@ -96,20 +97,21 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	gdt_install();
 	idt_install();
 
-	test_interrupts();
-
 	//serial output for syslog
 	serial_init();
 
 	//timer driver (many functions depend on timer interrupt so start early)
 	pit_install(1000);
+	//wall clock driver
 	rtc_install();
 
 	//utilities
 	paging_install();
-
 	sys_install();
-	//tasking_install(PRIORITIZE_INTERACTIVE);
+
+	//choose scheduler policy here!
+	//MLFQ policy: PRIORITIZE_INTERACTIVE
+	//round-robin policy: LOW_LATENCY
 	tasking_install(LOW_LATENCY);
 
 	//drivers
@@ -117,36 +119,57 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	mouse_install();
 	pci_install();
 
-	//initialize initrd, and set as fs root
+	//init ramdisk filesystem,
+	//and set up filesystem root
 	fs_root = initrd_install(initrd_loc);
-	draw_boot_background();
 
+	/*
 	//test facilities
 	test_heap();
 	test_printf();
 	test_time_unique();
 	test_malloc();
 	test_crypto();
+	*/
 
-	if (!fork("shell")) {
+	//kernel shell
+	if (!fork("kern shell")) {
 		//start shell
 		shell_init();
 		shell_loop();
 	}
 
+	//test task to simply sleep, print, and quit
+	//useful for ensuring multitasking/PIT driver/task blocking
+	//work as expected
 	if (!fork("sleepy")) {
 		sleep(20000);
 		printf_dbg("Sleepy thread slept!");
-		_kill();
+		sys__exit(0);
 	}
+
+	//launch ELF shell
+	//this is non-kernel code, loaded from filesystem
+	if (!sys_fork()) {
+		execve("shell", 0, 0);
+		sys__exit(1);
+	}
+
+	wait(NULL);
 
 	//done bootstrapping, kill process
 	_kill();
 
-	//this should never be reached as the above call is never executed
-	//if for some reason it is, just spin
-	while (1) {}
+	//this should never be reached as the above call never returns
+	//if it does, assert
+	ASSERT(0, "Kernel bootstrap ran past _kill, is tasking broken?");
 
-	//if by some act of god we've reached this point, just give up and assert
-	ASSERT(0, "Kernel exited");
+	//if by some act of god we've reached this point, 
+	//just clear all interrupts and wait forever
+	//turn off interrupts
+	asm volatile("cli");
+	//sleep CPU until next interrupt (never)
+	asm volatile("hlt");
+	while (1) {}
 }
+

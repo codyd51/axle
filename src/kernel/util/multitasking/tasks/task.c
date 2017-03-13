@@ -188,6 +188,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	task->name = strdup(name);
 	task->id = next_pid++;
 	task->page_dir = cloned;
+	task->child_tasks = array_m_create(32);
 	setup_fds(task);
 
 	uint32_t current_eip = read_eip();
@@ -198,8 +199,6 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 
 	task->state = RUNNABLE;
 	task->wake_timestamp = 0;
-
-	task->child_tasks = array_m_create(32);
 
 	return task;
 }
@@ -535,7 +534,10 @@ int fork(char* name) {
 	//set parent process of newly created process to currently running task
 	child->parent = parent;
 	//insert the newly created child task into the parent's array of children
-	if (parent->child_tasks->size < 32) {
+	if (!parent->child_tasks) {
+		ASSERT(0, "%s[%d] had no child_task array!\n", parent->name, parent->id);
+	}
+	if (parent->child_tasks->size < parent->child_tasks->max_size) {
 		array_m_insert(parent->child_tasks, child);
 	}
 	else {
@@ -939,9 +941,10 @@ int waitpid(int pid, int* status, int options) {
 			valid_pid = true;
 		}
 
+
 		if (child->state == ZOMBIE && valid_pid) {
 			int ret = child->exit_code;
-			int pid = child->id;
+			int child_pid = child->id;
 			array_m_remove(parent->child_tasks, i);
 			reap_task(child);
 
@@ -949,7 +952,14 @@ int waitpid(int pid, int* status, int options) {
 				*status = ret;
 			}
 
-			return pid;
+			//if pid is -1, then we are waiting for all child tasks to complete
+			//so, if pid is -1 and there is another child process running,
+			//keep waiting
+			if (pid == -1 && parent->child_tasks->size) {
+				return waitpid(pid, status, options);
+			}
+
+			return child_pid;
 		}
 	}
 	ASSERT(0, "parent unblocked but no child terminated!\n");
@@ -959,5 +969,4 @@ int waitpid(int pid, int* status, int options) {
 int wait(int* status) {
 	return waitpid(-1, status, 0);
 }
-
 
