@@ -537,6 +537,12 @@ int fork(char* name) {
 	task_t* parent = current_task;
 
 	task_t* child = create_process(name, 0, false);
+
+	//copy pipes from parent to child
+	for (int i = 0; i < parent->pipes->size; i++) {
+		array_m_insert(child->pipes, array_m_lookup(parent->pipes, i));
+	}
+
 	add_process(child);
 
 	//set parent process of newly created process to currently running task
