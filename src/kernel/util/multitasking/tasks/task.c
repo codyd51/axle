@@ -55,7 +55,8 @@ void dequeue_task(task_t* task);
 void stdin_read(char* buf, uint32_t count);
 void stdout_read(char* buffer, uint32_t count);
 void stderr_read(char* buffer, uint32_t count);
-static void setup_fds(task_t* task) { task->files = array_m_create(MAX_FILES);
+static void setup_fds(task_t* task) { 
+	task->files = array_m_create(MAX_FILES);
 	// array_m_insert(task->files, stdin_read);
 	// array_m_insert(task->files, stdout_read);
 	// array_m_insert(task->files, stderr_read);
@@ -189,7 +190,11 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	task->id = next_pid++;
 	task->page_dir = cloned;
 	task->child_tasks = array_m_create(32);
+	task->pipes = array_m_create(32);
 	setup_fds(task);
+
+	//first 3 file descriptors are for stdin, stdout, stderr
+	task->fd_max = 3;
 
 	uint32_t current_eip = read_eip();
 	if (current_task == parent) {
@@ -427,7 +432,10 @@ void tasking_install(mlfq_option options) {
 	kernel->id = next_pid++;
 	kernel->page_dir = current_directory;
 	kernel->child_tasks = array_m_create(32);
+	kernel->pipes = array_m_create(32);
 	setup_fds(kernel);
+	//first 3 file descriptors are for stdin, stdout, stderr
+	kernel->fd_max = 3;
 
 	current_task = kernel;
 	active_list = kernel;

@@ -66,6 +66,15 @@ typedef struct task {
 	//exit status of zombie task
 	//this field is undefined until task finishes executing
 	int exit_code;
+
+	//array of pipe_t's used for IPC
+	array_m* pipes;
+
+	//largest file descriptor in use
+	//when a file or pipe is opened, the file descriptor is set to this variable,
+	//then it is incremented.
+	//TODO file descriptors should account for descriptors who were registered and later closed
+	int fd_max;
 } task_t;
 
 //initializes tasking system
