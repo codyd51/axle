@@ -2,6 +2,7 @@
 #define PIPE_H
 
 #include "circular_buffer.h"
+#include <std/array_m.h>
 
 typedef enum PIPE_DIR {
 	READ = 0,
@@ -16,11 +17,15 @@ typedef struct pipe_t {
 
 	//backing buffer
 	circular_buffer* cb;
+
+	//list of PIDs referencing this pipe
+	array_m* pids;
 } pipe_t;
 
 int pipe(int pipefd[2]);
 
 int pipe_read(int fd, char* buf, int count);
 int pipe_write(int fd, char* buf, int count);
+int pipe_close(int fd);
 
 #endif

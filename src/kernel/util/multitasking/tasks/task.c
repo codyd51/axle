@@ -13,6 +13,7 @@
 #include "record.h"
 #include <gfx/lib/gfx.h>
 #include <user/xserv/xserv.h>
+#include <kernel/util/multitasking/pipe.h>
 
 //function defined in asm which returns the current instruction pointer
 uint32_t read_eip();
@@ -243,6 +244,12 @@ void destroy_task(task_t* task) {
 	if (task == first_responder_task) {
 		resign_first_responder();
 	}
+	//close all pipes this process has opened
+	for (int i = 0; i < task->pipes->size; i++) {
+		pipe_t* pipe = array_m_lookup(task->pipes, i);
+		pipe_close(pipe->fd);
+	}
+
 	//remove task from queues and active list
 	unlist_task(task);
 	//printf_info("%s[%d] destroyed.", task->name, task->id);
@@ -538,9 +545,12 @@ int fork(char* name) {
 
 	task_t* child = create_process(name, 0, false);
 
-	//copy pipes from parent to child
+	//add parent's pipes to child,
+	//and add this new child to the pipe's reference list
 	for (int i = 0; i < parent->pipes->size; i++) {
-		array_m_insert(child->pipes, array_m_lookup(parent->pipes, i));
+		pipe_t* pipe = array_m_lookup(parent->pipes, i);
+		array_m_insert(child->pipes, pipe);
+		array_m_insert(pipe->pids, child->id);
 	}
 
 	add_process(child);
