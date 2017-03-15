@@ -59,8 +59,9 @@ void write_dir(const char* dirname) {
 		headers[nheaders].offset = off;
 
 		//open file so we can write binary data to initrd
-		//FILE* stream = openfile(dirname, ep, "rb");
-		FILE* stream = fopen(pathname, "rb");
+		FILE* stream = openfile(dirname, ep, "rb");
+		//support your fellow linux brothers
+		//FILE* stream = fopen(pathname, "rb");
 		if (!stream) {
 			printf("Error: file not found: %s\n", pathname);
 			exit(1);
