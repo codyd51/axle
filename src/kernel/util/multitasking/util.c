@@ -26,15 +26,10 @@ void move_stack(void* new_stack_start, uint32_t size) {
 
 	//offset to add to old stack addresses to get new stack address
 	uint32_t offset = (uint32_t)new_stack_start - initial_esp;
-	printk("move_stack() offset: %x\n", offset);
 
 	//new esp and ebp
 	uint32_t new_sp = old_sp + offset;
 	uint32_t new_bp = old_bp + offset;
-
-	printk("initial_esp: %x\n", initial_esp);
-	printk("old_sp: %x new_sp: %x\n", old_sp, new_sp);
-	printk("old_bp: %x new_bp: %x\n", old_bp, new_bp);
 
 	//copy stack!
 	memcpy((void*)new_sp, (void*)old_sp, initial_esp - old_sp);
