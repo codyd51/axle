@@ -22,6 +22,11 @@ typedef struct pipe_t {
 	array_m* pids;
 } pipe_t;
 
+typedef struct pipe_block_info {
+	pipe_t* pipe;
+	int free_bytes_needed;
+} pipe_block_info;
+
 int pipe(int pipefd[2]);
 
 int pipe_read(int fd, char* buf, int count);

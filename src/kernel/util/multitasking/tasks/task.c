@@ -79,7 +79,6 @@ static bool is_dead_task_crit(task_t* task) {
 static void tasking_critical_fail() {
 	char* msg = "One or more critical tasks died. axle has died.\n";
 	printf("%s\n", msg);
-	printk("%s\n", msg);
 	//turn off interrupts
 	kernel_begin_critical();
 	//sleep until next interrupt (infinite loop)
@@ -410,9 +409,7 @@ void tasking_install(mlfq_option options) {
 
 	kernel_begin_critical();
 
-	printk_info("moving stack...");
 	move_stack((void*)0xE0000000, 0x2000);
-	printk_info("moved stack");
 
 	int queue_count = 0;
 	switch (options) {
@@ -435,8 +432,6 @@ void tasking_install(mlfq_option options) {
 	for (int i = 0; i < queue_count; i++) {
 		array_m_insert(queue_lifetimes, (type_t)(HIGH_PRIO_QUANTUM * (i + 1)));
 	}
-
-	printk("queues\n");
 
 	//init first task (kernel task)
 	task_t* kernel = kmalloc(sizeof(task_t));
@@ -507,12 +502,11 @@ void update_blocked_tasks() {
 			}
 		}
 		//TODO figure out when exactly tasks with MOUSE_WAIT should be unblocked
-		if (task->state == MOUSE_WAIT) {
+		else if (task->state == MOUSE_WAIT) {
 			unblock_task(task);
 			goto_pid(task->id);
 		}
-
-		if (task->state == CHILD_WAIT) {
+		else if (task->state == CHILD_WAIT) {
 			//search if any of this task's children are zombies
 			for (int i = 0; i < task->child_tasks->size; i++) {
 				task_t* child = array_m_lookup(task->child_tasks, i);
@@ -524,11 +518,28 @@ void update_blocked_tasks() {
 				}
 			}
 		}
-
-		if (task->state == ZOMBIE) {
+		else if (task->state == PIPE_FULL) {
+			pipe_block_info* info = (pipe_block_info*)task->block_context;
+			pipe_t* waiting = info->pipe;
+			int free_bytes = waiting->cb->capacity - waiting->cb->count;
+			if (free_bytes >= info->free_bytes_needed) {
+				//space has freed up in the pipe
+				//we can now unblock
+				unblock_task(task);
+			}
+		}
+		else if (task->state == PIPE_EMPTY) {
+			pipe_t* waiting = task->block_context;
+			if (waiting->cb->count > 0) {
+				//pipe now has data we can read
+				//we can now unblock
+				unblock_task(task);
+			}
+		}
+		else if (task->state == ZOMBIE) {
 			if (task->parent) {
 				if (task->parent->state != CHILD_WAIT) {
-					printk("parent %d isn't waiting for dangling child %d\n", task->parent->id, task->id);
+					//printk("parent %d isn't waiting for dangling child %d\n", task->parent->id, task->id);
 				}
 			}
 		}
@@ -881,6 +892,10 @@ void proc() {
 					break;
 				case CHILD_WAIT:
 					printk("(blocked by child)");
+					break;
+				case PIPE_EMPTY:
+				case PIPE_FULL:
+					printk("(blocked by pipe)");
 					break;
 				default:
 					break;

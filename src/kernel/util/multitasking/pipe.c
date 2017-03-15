@@ -23,7 +23,7 @@ static void pipe_create(pipe_t** read, pipe_t** write) {
 
 	//read and write pipe share the same buffer
 	w->cb = kmalloc(sizeof(circular_buffer));
-	cb_init(w->cb, 64, 1);
+	cb_init(w->cb, 4096, 1);
 	r->cb = w->cb;
 
 	*read = r;
@@ -89,6 +89,8 @@ int pipe_read(int fd, char* buf, int count) {
 	for (; i < count; i++) {
 		//check if we're out of items to read 
 		if (pipe->cb->count == 0) {
+			//block until we have something to read
+			block_task_context(current, PIPE_EMPTY, pipe);
 			break;
 		}
 
@@ -121,10 +123,23 @@ int pipe_write(int fd, char* buf, int count) {
 		return -1;
 	}
 
+	//make sure we can fulfill the full write
+	int available = pipe->cb->capacity - pipe->cb->count;
+	if (available < count) {
+		//block until there's more space available
+		pipe_block_info info;
+		info.pipe = pipe;
+		info.free_bytes_needed = count;
+		block_task_context(current, PIPE_FULL, &info);
+		//retry write call
+		return pipe_write(fd, buf, count);
+	}
+
 	int i = 0;
 	for (; i < count; i++) {
-		if (pipe->cb->count == pipe->cb->capacity) {
-			printf_err("pipe_write: pipe was full");
+		if (pipe->cb->count >= pipe->cb->capacity) {
+			//block until pipe has been read from
+			ASSERT(0, "pipe_write() pipe didn't have enough free space!");
 			break;
 		}
 		cb_push_back(pipe->cb, &(buf[i]));

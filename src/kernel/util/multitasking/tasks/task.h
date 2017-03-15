@@ -14,6 +14,8 @@ typedef enum task_state {
     PIT_WAIT,
 	MOUSE_WAIT,
 	CHILD_WAIT,
+	PIPE_FULL,
+	PIPE_EMPTY,
 } task_state;
 
 typedef enum mlfq_option {
