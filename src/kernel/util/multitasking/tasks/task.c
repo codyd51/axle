@@ -157,10 +157,11 @@ void list_task(task_t* task) {
 	current->next = task;
 }
 
-void block_task(task_t* task, task_state reason) {
+void block_task_context(task_t* task, task_state reason, void* context) {
 	if (!tasking_installed()) return;
 
 	task->state = reason;
+	task->block_context = context;
 
 	//immediately switch tasks if active task was just blocked
 	if (task == current_task) {
@@ -168,11 +169,16 @@ void block_task(task_t* task, task_state reason) {
 	}
 }
 
+void block_task(task_t* task, task_state reason) {
+	block_task_context(task, reason, NULL);
+}
+
 void unblock_task(task_t* task) {
 	if (!tasking_installed()) return;
 
 	lock(mutex);
 	task->state = RUNNABLE;
+	task->block_context = NULL;
 	unlock(mutex);
 }
 

@@ -75,6 +75,11 @@ typedef struct task {
 	//then it is incremented.
 	//TODO file descriptors should account for descriptors who were registered and later closed
 	int fd_max;
+
+	//TODO move this near task_state and make clean
+	//optional context provided with blocking reason
+	//up to user what this means
+	void* block_context;
 } task_t;
 
 //initializes tasking system
@@ -82,6 +87,7 @@ void tasking_install();
 bool tasking_installed();
 
 void block_task(task_t* task, task_state reason);
+void block_task_context(task_t* task, task_state reason, void* context);
 
 //initialize a new process structure
 //does not add returned process to running queue
