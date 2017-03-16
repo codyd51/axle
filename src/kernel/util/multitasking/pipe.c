@@ -10,16 +10,26 @@ static void pipe_create(pipe_t** read, pipe_t** write) {
 	pipe_t* r = (pipe_t*)kmalloc(sizeof(pipe_t));
 	memset(r, 0, sizeof(pipe_t));
 	r->dir = READ;
-	r->fd = current->fd_max++;
 	r->pids = array_m_create(32);
 	array_m_insert(r->pids, getpid());
 
 	pipe_t* w = (pipe_t*)kmalloc(sizeof(pipe_t));
 	memset(w, 0, sizeof(pipe_t));
 	w->dir = WRITE;
-	w->fd = current->fd_max++;
 	w->pids = array_m_create(32);
 	array_m_insert(w->pids, getpid());
+
+	//add pipes to current tasks's file descriptor table
+	//read pipe entry
+	fd_entry rfd;
+	rfd.type = PIPE_TYPE;
+	rfd.payload = r;
+	r->fd = fd_add(current, rfd);
+	//write pipe entry
+	fd_entry wfd;
+	wfd.type = PIPE_TYPE;
+	wfd.payload = w;
+	w->fd = fd_add(current, wfd);
 
 	//read and write pipe share the same buffer
 	w->cb = kmalloc(sizeof(circular_buffer));
@@ -45,27 +55,17 @@ int pipe(int pipefd[2]) {
 	//then, assign file descriptors of new pipes to input array
 	pipefd[0] = read->fd;
 	pipefd[1] = write->fd;
-
-	if (current->pipes->size + 1 >= current->pipes->max_size) {
-		ASSERT(0, "%s[%d] ran out of pipes!", current->name, current->id);
-	}
-
-	array_m_insert(current->pipes, read);
-	array_m_insert(current->pipes, write);
 }
 
 static pipe_t* find_pipe(int fd) {
 	task_t* current = task_with_pid(getpid());
-	pipe_t* pipe = NULL;
-	for (int i = 0; i < current->pipes->size; i++) {
-		pipe_t* tmp = array_m_lookup(current->pipes, i);
-		if (tmp->fd == fd) {
-			//found the pipe we're looking for!
-			pipe = tmp;
-			break;
-		}
+
+	fd_entry entry = current->fd_table[fd];
+	if (entry.type != PIPE_TYPE || fd_empty(entry)) {
+		//fd passed to us was not a valid pipe!
+		return NULL;
 	}
-	return pipe;
+	return entry.payload;
 }
 
 int pipe_read(int fd, char* buf, int count) {
@@ -163,8 +163,7 @@ int pipe_close(int fd) {
 	//we need to write EOF *before* removing the pipe from the tasks's
 	//list of pipes because pipe_write calls pipe_find to see if the pipe is valid,
 	//which check's the process's list of pipes
-	task_t* current = task_with_pid(getpid());
-	if (pipe->dir == WRITE && current->pipes->size == 1) {
+	if (pipe->dir == WRITE && pipe->pids->size == 1) {
 		//when closing write end,
 		//write EOF to buffer
 		char eof = EOF;
@@ -179,13 +178,8 @@ int pipe_close(int fd) {
 	}
 	array_m_remove(pipe->pids, idx);
 
-	//remove this pipe from process's list of pipes
-	idx = array_m_index(current->pipes, pipe);
-	if (idx == ARR_NOT_FOUND) {
-		printf_err("pipe_close() on pipe not present in proc list");
-		return;
-	}
-	array_m_remove(current->pipes, idx);
+	//remove this pipe from process's file descriptor list
+	fd_remove(current, pipe->fd);
 	
 	//if there are more processes referencing this pipe, 
 	//quit early

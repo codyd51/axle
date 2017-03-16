@@ -4,8 +4,10 @@
 #include <std/std.h>
 #include <kernel/util/paging/paging.h>
 #include <std/array_l.h>
+#include <kernel/util/multitasking/fd_entry.h>
 
 #define KERNEL_STACK_SIZE 2048 //use 2kb kernel stack
+#define FD_MAX 64
 
 typedef enum task_state {
     RUNNABLE = 0,
@@ -23,6 +25,7 @@ typedef enum mlfq_option {
 	PRIORITIZE_INTERACTIVE, //use more queues, allowing interactive tasks to dominate
 } mlfq_option;
 
+struct fd_entry;
 typedef struct task {
 	char* name; //user-printable process name
 	int id;  //PID
@@ -44,7 +47,6 @@ typedef struct task {
 
 	page_directory_t* page_dir; //paging directory for this process
 
-	array_m* files;
 
 	/*
 	 * the below only exist for non-kernel tasks
@@ -69,19 +71,15 @@ typedef struct task {
 	//this field is undefined until task finishes executing
 	int exit_code;
 
-	//array of pipe_t's used for IPC
-	array_m* pipes;
-
-	//largest file descriptor in use
-	//when a file or pipe is opened, the file descriptor is set to this variable,
-	//then it is incremented.
-	//TODO file descriptors should account for descriptors who were registered and later closed
-	int fd_max;
-
 	//TODO move this near task_state and make clean
 	//optional context provided with blocking reason
 	//up to user what this means
 	void* block_context;
+
+	//file descriptor table
+	//this stores all types of file descriptors, 
+	//including stdin/out/err, open files, and pipes
+	fd_entry fd_table[FD_MAX];
 } task_t;
 
 //initializes tasking system

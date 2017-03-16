@@ -27,7 +27,6 @@ void task_switch_real(uint32_t eip, uint32_t paging_dir, uint32_t ebp, uint32_t 
 #define STACK_MAGIC 0xDEADBEEF
 
 #define MAX_TASKS 128
-#define MAX_FILES 32
 
 #define MLFQ_DEFAULT_QUEUE_COUNT 16
 #define MLFQ_MAX_QUEUE_LENGTH 16
@@ -57,10 +56,23 @@ void stdin_read(char* buf, uint32_t count);
 void stdout_read(char* buffer, uint32_t count);
 void stderr_read(char* buffer, uint32_t count);
 static void setup_fds(task_t* task) { 
-	task->files = array_m_create(MAX_FILES);
-	// array_m_insert(task->files, stdin_read);
-	// array_m_insert(task->files, stdout_read);
-	// array_m_insert(task->files, stderr_read);
+	memset(&task->fd_table, 0, sizeof(fd_entry) * FD_MAX);
+
+	//set up initial std types
+	fd_entry in;
+	in.type = STDIN_TYPE;
+	in.payload = &in;
+	task->fd_table[0] = in;
+
+	fd_entry out;
+	out.type = STDOUT_TYPE;
+	out.payload = &out;
+	task->fd_table[1] = out;
+
+	fd_entry err;
+	err.type = STDERR_TYPE;
+	err.payload = &err;
+	task->fd_table[2] = err;
 }
 
 static bool is_dead_task_crit(task_t* task) {
@@ -196,11 +208,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	task->id = next_pid++;
 	task->page_dir = cloned;
 	task->child_tasks = array_m_create(32);
-	task->pipes = array_m_create(32);
 	setup_fds(task);
-
-	//first 3 file descriptors are for stdin, stdout, stderr
-	task->fd_max = 3;
 
 	uint32_t current_eip = read_eip();
 	if (current_task == parent) {
@@ -249,10 +257,16 @@ void destroy_task(task_t* task) {
 	if (task == first_responder_task) {
 		resign_first_responder();
 	}
+
 	//close all pipes this process has opened
-	for (int i = 0; i < task->pipes->size; i++) {
-		pipe_t* pipe = array_m_lookup(task->pipes, i);
-		pipe_close(pipe->fd);
+	for (int i = 0; i < FD_MAX; i++) {
+		fd_entry entry = task->fd_table[i];
+		if (fd_empty(entry)) continue;
+
+		if (entry.type == PIPE_TYPE) {
+			pipe_t* pipe = (pipe_t*)entry.payload;
+			pipe_close(pipe->fd);
+		}
 	}
 
 	//remove task from queues and active list
@@ -440,10 +454,7 @@ void tasking_install(mlfq_option options) {
 	kernel->id = next_pid++;
 	kernel->page_dir = current_directory;
 	kernel->child_tasks = array_m_create(32);
-	kernel->pipes = array_m_create(32);
 	setup_fds(kernel);
-	//first 3 file descriptors are for stdin, stdout, stderr
-	kernel->fd_max = 3;
 
 	current_task = kernel;
 	active_list = kernel;
@@ -562,12 +573,18 @@ int fork(char* name) {
 
 	task_t* child = create_process(name, 0, false);
 
-	//add parent's pipes to child,
-	//and add this new child to the pipe's reference list
-	for (int i = 0; i < parent->pipes->size; i++) {
-		pipe_t* pipe = array_m_lookup(parent->pipes, i);
-		array_m_insert(child->pipes, pipe);
-		array_m_insert(pipe->pids, child->id);
+	//copy all file descriptors from parent to child
+	for (int i = 0; i < FD_MAX; i++) {
+		fd_entry entry = parent->fd_table[i];
+		if (fd_empty(entry)) continue;
+
+		//NOTE it seems fd_empty doesn't work as expected!
+		fd_add_index(child, entry, i);
+		if (entry.type == PIPE_TYPE) {
+			pipe_t* pipe = (pipe_t*)entry.payload;
+			//and add this new child to the pipe's reference list
+			array_m_insert(pipe->pids, child->id);
+		}
 	}
 
 	add_process(child);
