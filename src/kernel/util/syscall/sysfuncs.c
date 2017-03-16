@@ -3,6 +3,8 @@
 #include <std/printf.h>
 #include <kernel/util/paging/paging.h>
 #include <kernel/util/elf/elf.h>
+#include <kernel/util/unistd/read.h>
+#include <kernel/util/unistd/write.h>
 
 void yield(task_state reason) {
 	if (!tasking_installed()) return;
@@ -16,16 +18,6 @@ void yield(task_state reason) {
 	}
 	extern task_t* current_task;
 	block_task(current_task, reason);
-}
-
-int write(int file, const void* buf, int len) {
-	//TODO improve!
-	char* chbuf = buf;
-	int i = 0;
-	for (; i < len && chbuf[i+1] != '\0'; i++) {
-		putchar(chbuf[i]);
-	}
-	return i;
 }
 
 int lseek(int fd, int offset, int whence) {

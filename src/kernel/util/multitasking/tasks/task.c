@@ -578,7 +578,6 @@ int fork(char* name) {
 		fd_entry entry = parent->fd_table[i];
 		if (fd_empty(entry)) continue;
 
-		//NOTE it seems fd_empty doesn't work as expected!
 		fd_add_index(child, entry, i);
 		if (entry.type == PIPE_TYPE) {
 			pipe_t* pipe = (pipe_t*)entry.payload;

@@ -98,7 +98,6 @@ int pipe_read(int fd, char* buf, int count) {
 
 		//check if we hit EOF
 		if (buf[i] == EOF) {
-			i--;
 			break;
 		}
 	}
@@ -179,6 +178,7 @@ int pipe_close(int fd) {
 	array_m_remove(pipe->pids, idx);
 
 	//remove this pipe from process's file descriptor list
+	task_t* current = task_with_pid(getpid());
 	fd_remove(current, pipe->fd);
 	
 	//if there are more processes referencing this pipe, 
