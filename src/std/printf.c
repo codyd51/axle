@@ -24,11 +24,6 @@ char* convert(unsigned int num, int base) {
 	return (ptr);
 }
 
-enum {
-	TERM_OUTPUT = 0,
-	SERIAL_OUTPUT,
-};
-
 static void backspace(Point* cursor_pos) {
 	Point new_pos = *cursor_pos;
 	Size font_size = gfx_screen()->default_font_size;
@@ -79,7 +74,7 @@ void reset_cursor_pos() {
 	cursor_pos.y = 0;
 }
 
-static void outputc(int dest, char c) {
+void outputc(int dest, char c) {
 	Size font_size = gfx_screen()->default_font_size;
 	Size padding = font_padding_for_size(font_size);
 	switch (dest) {
@@ -116,8 +111,22 @@ static void outputc(int dest, char c) {
 }
 
 int putchar(int ch) {
-	outputc(TERM_OUTPUT, (unsigned char)ch);
+	write(stdout, &ch, 1);
 	return ch;
+}
+
+int putchar_dest(int dest, int ch) {
+	switch (dest) {
+		case TERM_OUTPUT:
+			return putchar(ch);
+			break;
+		case SERIAL_OUTPUT:
+		default:
+			outputc(dest, ch);
+			return ch;
+			break;
+	}
+	return -1;
 }
 
 Color term_color_code(int code) {
@@ -152,7 +161,7 @@ Color term_color_code(int code) {
 void output(int dest, char* str) {
 	if (!str) return;
 	while (*str) {
-		outputc(dest, *(str++));
+		putchar_dest(dest, *(str++));
 	}
 }
 
@@ -166,26 +175,26 @@ void print_hex_common(int dest, uint32_t n) {
 	for (i = 28; i > 0; i -= 4) {
 		tmp = (n >> i) & 0xF;
 		if (tmp == 0 && noZeroes != 0 && !leading_zeroes) {
-			outputc(dest, '0');
+			putchar_dest(dest, '0');
 			continue;
 		}
 		if (tmp >= 0xA) {
 			leading_zeroes = false;
 			noZeroes = 0;
-			outputc(dest, tmp - 0xA + 'a');
+			putchar_dest(dest, tmp - 0xA + 'a');
 		}
 		else {
 			noZeroes = 0;
-			outputc(dest, tmp + '0');
+			putchar_dest(dest, tmp + '0');
 		}
 	}
 
 	tmp = n & 0xF;
 	if (tmp >= 0xA) {
-		outputc(dest, tmp - 0xA + 'a');
+		putchar_dest(dest, tmp - 0xA + 'a');
 	}
 	else {
-		outputc(dest, tmp + '0');
+		putchar_dest(dest, tmp + '0');
 	}
 }
 
@@ -244,7 +253,7 @@ void vprintf(int dest, char* format, va_list va) {
 				output(dest, "(null)");
 				continue;
 			}
-			outputc(dest, ch);
+			putchar_dest(dest, ch);
 		}
 		else {
 			// char zero_pad; //TODO: make use of this
@@ -267,7 +276,7 @@ void vprintf(int dest, char* format, va_list va) {
 					return;
 				} break;
 				case '%': {
-					outputc(dest, '%');
+					putchar_dest(dest, '%');
 				} break;
 				case 'u':
 				case 'd': {
@@ -279,7 +288,7 @@ void vprintf(int dest, char* format, va_list va) {
 					print_hex_common(dest, va_arg(va, uint32_t));
 				} break;
 				case 'c': {
-					outputc(dest, (char)(va_arg(va, int)));
+					putchar_dest(dest, (char)(va_arg(va, int)));
 				} break;
 				case 's': {
 					ptr = va_arg(va, char*);

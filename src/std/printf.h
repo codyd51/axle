@@ -4,7 +4,13 @@
 #include <kernel/drivers/terminal/terminal.h>
 #include <stdarg.h>
 
+enum {
+	TERM_OUTPUT = 0,
+	SERIAL_OUTPUT,
+};
+
 void output(int dest, char* str);
+void outputc(int dest, char ch);
 
 //standard printf
 void printf(char* format, ...);

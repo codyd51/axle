@@ -17,7 +17,7 @@ int close(int fd) {
 		case STDIN_TYPE:
 		case STDOUT_TYPE:
 		case STDERR_TYPE:
-			ret = -1;
+			ret = 0;
 			break;
 		case FILE_TYPE:
 			fclose((FILE*)ent.payload);
