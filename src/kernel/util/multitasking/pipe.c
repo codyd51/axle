@@ -69,9 +69,6 @@ static pipe_t* find_pipe(int fd) {
 }
 
 int pipe_read(int fd, char* buf, int count) {
-
-	task_t* current = task_with_pid(getpid());
-
 	//ensure fd is a valid pipe
 	pipe_t* pipe = find_pipe(fd);
 	//did we find it?
@@ -84,6 +81,8 @@ int pipe_read(int fd, char* buf, int count) {
 		printf_err("pipe_read: fd %d was not a read pipe", fd);
 		return -1;
 	}
+
+	task_t* current = task_with_pid(getpid());
 
 	int i = 0;
 	for (; i < count; i++) {
@@ -106,8 +105,6 @@ int pipe_read(int fd, char* buf, int count) {
 }
 
 int pipe_write(int fd, char* buf, int count) {
-	task_t* current = task_with_pid(getpid());
-
 	//ensure fd is a valid pipe
 	pipe_t* pipe = find_pipe(fd);
 	//did we find it?
@@ -122,6 +119,8 @@ int pipe_write(int fd, char* buf, int count) {
 		return -1;
 	}
 
+	task_t* current = task_with_pid(getpid());
+
 	//make sure we can fulfill the full write
 	int available = pipe->cb->capacity - pipe->cb->count;
 	if (available < count) {
@@ -130,20 +129,18 @@ int pipe_write(int fd, char* buf, int count) {
 		info.pipe = pipe;
 		info.free_bytes_needed = count;
 		block_task_context(current, PIPE_FULL, &info);
-		//retry write call
+		//we've unblocked, so enough space should now be available
+		//we could just continue executing, but 
+		//recurse instead to repeat state checking
+		//(as we've blocked and state may have changed)
 		return pipe_write(fd, buf, count);
 	}
 
 	int i = 0;
 	for (; i < count; i++) {
-		if (pipe->cb->count >= pipe->cb->capacity) {
-			//block until pipe has been read from
-			ASSERT(0, "pipe_write() pipe didn't have enough free space!");
-			break;
-		}
+		ASSERT(pipe->cb->count < pipe->cb->capacity, "pipe_write() pipe %d didn't have enough free space to fulfill write!", fd);
 		cb_push_back(pipe->cb, &(buf[i]));
 	}
-
 	return i;
 }
 

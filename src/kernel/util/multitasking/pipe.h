@@ -1,7 +1,7 @@
 #ifndef PIPE_H
 #define PIPE_H
 
-#include "circular_buffer.h"
+#include <std/circular_buffer.h>
 #include <std/array_m.h>
 
 typedef enum PIPE_DIR {
