@@ -5,6 +5,7 @@
 #include <kernel/util/interrupts/isr.h>
 #include <kernel/util/syscall/sysfuncs.h>
 #include <kernel/util/kbman/kbman.h>
+#include <kernel/util/multitasking/tasks/task.h>
 
 void kb_callback(registers_t regs);
 
@@ -27,6 +28,7 @@ void kb_install() {
 }
 
 char kgetch() {
+	/*
 	//printf("getch start %d end %d\n", kb_buffer_start, kb_buffer_end);
 	if (kb_buffer_start != kb_buffer_end) {
 		char c = kb_buffer[kb_buffer_start++];
@@ -36,15 +38,30 @@ char kgetch() {
 	}
 	//no characters available
 	return '\0';
+	*/
+	task_t* curr = task_with_pid(getpid());
+	if (curr->stdin_buf->count) {
+		char ch;
+		read_proc(first_responder(), 0, &ch, 1);
+		return ch;
+	}
+	return '\0';
 }
 
 char getchar() {
-	sys_yield(KB_WAIT);
-	return kgetch();
+	char ch;
+	read_proc(first_responder(), 0, &ch, 1);
+	return ch;
+	//sys_yield(KB_WAIT);
+	//return kgetch();
 }
 
 bool haskey() {
-	return (kb_buffer_start != kb_buffer_end);
+	//return (kb_buffer_start != kb_buffer_end);
+	if (!tasking_installed()) return false;
+	//task_t* curr = task_with_pid(getpid());
+	task_t* fp = first_responder();
+	return fp->stdin_buf->count;
 }
 
 void switch_layout(keymap_t* new) {
@@ -100,11 +117,15 @@ void kb_callback(registers_t regs) {
 			scancodes = layout->shift_scancodes;
 		}
 
+		/*
 		//don't overflow buffer if possible :p
 		if (kb_buffer_end != kb_buffer_start - 1) {
 			kb_buffer[kb_buffer_end++] = scancodes[scancode];
 			kb_buffer_end &= 255;
 		}
+		*/
+		char ch = scancodes[scancode];
+		write_proc(first_responder(), 0, &ch, 1);
 		
 		//inform OS of keypress
 		kbman_process(scancodes[scancode]);

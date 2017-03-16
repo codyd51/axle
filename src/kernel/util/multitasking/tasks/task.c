@@ -61,17 +61,17 @@ static void setup_fds(task_t* task) {
 	//set up initial std types
 	fd_entry in;
 	in.type = STDIN_TYPE;
-	in.payload = &in;
+	in.payload = task->stdin_buf;
 	task->fd_table[0] = in;
 
 	fd_entry out;
 	out.type = STDOUT_TYPE;
-	out.payload = &out;
+	out.payload = task->stdout_buf;
 	task->fd_table[1] = out;
 
 	fd_entry err;
 	err.type = STDERR_TYPE;
-	err.payload = &err;
+	err.payload = task->stderr_buf;
 	task->fd_table[2] = err;
 }
 
@@ -193,6 +193,16 @@ void unblock_task(task_t* task) {
 	unlock(mutex);
 }
 
+void create_std_bufs(task_t* task) {
+	task->stdin_buf = kmalloc(sizeof(circular_buffer));
+	task->stdout_buf = kmalloc(sizeof(circular_buffer));
+	task->stderr_buf = kmalloc(sizeof(circular_buffer));
+
+	cb_init(task->stdin_buf, 1024, sizeof(char));
+	cb_init(task->stdout_buf, 1024, sizeof(char));
+	cb_init(task->stderr_buf, 1024, sizeof(char));
+}
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
@@ -208,6 +218,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	task->id = next_pid++;
 	task->page_dir = cloned;
 	task->child_tasks = array_m_create(32);
+	create_std_bufs(task);
 	setup_fds(task);
 
 	uint32_t current_eip = read_eip();
@@ -454,6 +465,7 @@ void tasking_install(mlfq_option options) {
 	kernel->id = next_pid++;
 	kernel->page_dir = current_directory;
 	kernel->child_tasks = array_m_create(32);
+	create_std_bufs(kernel);
 	setup_fds(kernel);
 
 	current_task = kernel;
@@ -492,22 +504,33 @@ void tasking_install(mlfq_option options) {
 void update_blocked_tasks() {
 	if (!tasking_installed()) return;
 
+	/*
 	//if there is a pending key, wake first responder
 	if (haskey() && first_responder_task->state == KB_WAIT) {
 		unblock_task(first_responder_task);
 		goto_pid(first_responder_task->id);
 	}
+	*/
 
 	//wake blocked tasks if the event they were blocked for has occurred
 	//TODO is this optimizable?
 	//don't look through every queue, use linked list of tasks
 	task_t* task = active_list;
 	while (task) {
+		/*
 		if (!first_responder_task && haskey() && task->state == KB_WAIT) {
 			unblock_task(task);
 			goto_pid(task->id);
 		}
-		if (task->state == PIT_WAIT) {
+		*/
+		if (task->state == KB_WAIT) {
+			//unblock if stdin buffer has data
+			if (task->stdin_buf->count) {
+				unblock_task(task);
+				goto_pid(task->id);
+			}
+		}
+		else if (task->state == PIT_WAIT) {
 			if (time() >= task->wake_timestamp) {
 				unblock_task(task);
 			}

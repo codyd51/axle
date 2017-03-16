@@ -25,6 +25,10 @@
 #include <kernel/drivers/serial/serial.h>
 #include <std/klog.h>
 #include <tests/test.h>
+#include <kernel/util/ffs/fsdec.h>
+#include <kernel/util/ffs/rd_file.h>
+#include <kernel/util/multitasking/pipe.h>
+#include <kernel/util/unistd/unistd.h>
 
 void print_os_name(void) {
 	printf("\e[10;[\e[11;AXLE OS v\e[12;0.6.0\e[10;]\n");
@@ -122,16 +126,17 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//init ramdisk filesystem,
 	//and set up filesystem root
 	fs_root = initrd_install(initrd_loc);
+	//fs_file* root = NULL;
+	//fsDeserialize(initrd_loc, initrd_end - initrd_loc, &root);
 
-	/*
 	//test facilities
 	test_heap();
 	test_printf();
 	test_time_unique();
 	test_malloc();
 	test_crypto();
-	*/
 
+	/*
 	//kernel shell
 	if (!fork("kern shell")) {
 		//start shell
@@ -154,6 +159,81 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 		execve("shell", 0, 0);
 		sys__exit(1);
 	}
+	*/
+
+	/*
+	int pipes[2];
+	pipe(&pipes);
+
+	int pid = sys_fork();
+	if (!pid) {
+		become_first_responder();
+		//sleep(2000);
+		//close unused write end
+		close(pipes[1]);
+		
+		//close(0);
+		//int d = dup(pipes[0]);
+		//printf("dup(%d) = %d\n", pipes[0], d);
+
+		char buf;
+		//while (read(pipes[0], &buf, 1) > 0) {
+		while (read(pipes[0], &buf, 1)) {
+			printf("%c", buf);
+		}
+		printf("\n");
+
+		close(pipes[0]);
+		sys__exit(0);
+	}
+	else {
+		//close unused read end
+		close(pipes[0])
+		char* message = "This message was sent over a pipe";
+		write(pipes[1], message, strlen(message));
+		close(pipes[1]);
+	}
+	*/
+	//char* msg = "written with write\nline2\n";
+	//write(stdout, msg, strlen(msg));
+
+	become_first_responder();
+
+	int pipefd[2];
+	pipe(&pipefd);
+	if (!sys_fork()) {
+		sleep(500);
+		//close unused pipe write
+		close(pipefd[1]);
+		//replace stdin with pipe read
+		dup2(pipefd[0], 0);
+
+		/*	
+		char ch;
+		while (read(0, &ch, 1) > 0) {
+			printf("read %c\n", ch);
+		}
+		*/
+		//become_first_responder();
+		char ch;
+		while ((ch = getchar()) != EOF) {
+			printf("read %c\n", ch);
+		}
+		close(pipefd[0]);
+		sys__exit(0);
+	}
+	//close unused pipe read
+	close(pipefd[0]);
+	write(pipefd[1], "hello!\n", strlen("hello!\n"));
+	close(pipefd[1]);
+	
+	/*
+	//write(0, "test", strlen("test"));
+	while (1) {
+		char ch = getchar();
+		printf("got %c\n", ch);
+	}
+	*/
 
 	wait(NULL);
 

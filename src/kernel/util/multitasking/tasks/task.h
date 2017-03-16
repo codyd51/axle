@@ -5,6 +5,7 @@
 #include <kernel/util/paging/paging.h>
 #include <std/array_l.h>
 #include <kernel/util/multitasking/fd_entry.h>
+#include <std/circular_buffer.h>
 
 #define KERNEL_STACK_SIZE 2048 //use 2kb kernel stack
 #define FD_MAX 64
@@ -80,6 +81,13 @@ typedef struct task {
 	//this stores all types of file descriptors, 
 	//including stdin/out/err, open files, and pipes
 	fd_entry fd_table[FD_MAX];
+
+	//process-specific buffers for stdin, stdout, stderr
+	//kernel manages reading/writing/flushing these
+	//
+	circular_buffer* stdin_buf;
+	circular_buffer* stdout_buf;
+	circular_buffer* stderr_buf;
 } task_t;
 
 //initializes tasking system
