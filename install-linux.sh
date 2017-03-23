@@ -10,20 +10,30 @@ while [ "$key" != "r" ]; do
 done
 echo ""
 
-arch=$(uname -m)
-cwd=$(pwd)
+arch="$(uname -m)"
+cwd="$(pwd)"
 
-# Get basic toold
+# Get basic tools
 echo "Verifing you have proper tools installed"
-sleep 3
-sudo apt-get install qemu libmpc-dev xorriso tmux curl \
+if command -v apt-get >/dev/null 2>&1; then
+	sudo apt-get install qemu libmpc-dev xorriso tmux curl \
 	grub2 build-essential libstdc++6:i386 clang \
 	git nasm
+else
+	echo "You need to have apt-get installed to auto-install the tools."
+	echo "Make sure you have the needed tools installed, then type r."
+	echo "Needed tools: qemu libmpc-dev xorriso tmux curl grub2 build-essential libstdc++6:i386 clang git nasm"
+	# Wait for input.
+	read -n1 -rsp "" key
+	while [ "$key" != "r" ]; do
+    		read -n1 -r -p "" key
+	done
+fi
 
 # Get prebuilt GCC
 git clone https://github.com/rbheromax/i686-toolchain
 
-cd $cwd
+cd "$cwd"
 
 echo ""
 echo "Compile Axle-OS now?: Press r to continue..."
@@ -37,6 +47,6 @@ if [ "$key" = "r" ]; then
 echo ""
 echo "Type: 'make run' to open Axle-OS in Qemu"
 else
-cd $cwd
+cd "$cwd"
 fi
 echo ""
