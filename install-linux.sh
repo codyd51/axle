@@ -20,8 +20,9 @@ if command -v apt-get >/dev/null 2>&1; then
 	grub2 build-essential libstdc++6:i386 clang \
 	git nasm
 else
-	echo "You need to have apt-get installed."
+	echo "You need to have apt-get installed to auto-install the tools."
 	echo "Make sure you have the needed tools installed, then type r."
+	echo "Needed tools: qemu libmpc-dev xorriso tmux curl grub2 build-essential libstdc++6:i386 clang git nasm"
 	# Wait for input.
 	read -n1 -rsp "" key
 	while [ "$key" != "r" ]; do
