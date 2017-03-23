@@ -17,7 +17,7 @@ cd $PREFIX
 mkdir temp
 cd temp
 
-# Get basic toold
+# Get basic tools
 brew install qemu gmp mpfr libmpc xorriso
 
 mkdir tools
