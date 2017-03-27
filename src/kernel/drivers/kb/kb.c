@@ -5,37 +5,29 @@
 #include <kernel/util/interrupts/isr.h>
 #include <kernel/util/syscall/sysfuncs.h>
 #include <kernel/util/kbman/kbman.h>
+#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/util/multitasking/std_stream.h>
 
 void kb_callback(registers_t regs);
 
 keymap_t* layout;
-
-//index into circular buffer of kb data
-uint32_t kb_buffer_start;
-uint32_t kb_buffer_end;
-//circular buffer of kb data
-char kb_buffer[256];
 
 void kb_install() {
 	printf_info("Initializing keyboard driver...");
 
 	register_interrupt_handler(IRQ1, &kb_callback);
 	switch_layout(&kb_us);
-
-	kb_buffer_start = 0;
-	kb_buffer_end = 0;
 }
 
 char kgetch() {
-	//printf("getch start %d end %d\n", kb_buffer_start, kb_buffer_end);
-	if (kb_buffer_start != kb_buffer_end) {
-		char c = kb_buffer[kb_buffer_start++];
-		//if we went out of bounds, wrap to start of buffer
-		kb_buffer_start &= 255;
-		return c;
+	char ch;
+	int c = read(0, &ch, 1);
+	if (!c || ch == -1) {
+		//either read error or 
+		//no characters available
+		return '\0';
 	}
-	//no characters available
-	return '\0';
+	return ch;
 }
 
 char getchar() {
@@ -44,7 +36,14 @@ char getchar() {
 }
 
 bool haskey() {
-	return (kb_buffer_start != kb_buffer_end);
+	if (!tasking_installed()) {
+		return false;
+	}
+	task_t* current = task_with_pid(getpid());
+	if (!current) {
+		return false;
+	}
+	return !!current->std_stream->buf->count;
 }
 
 void switch_layout(keymap_t* new) {
@@ -100,12 +99,12 @@ void kb_callback(registers_t regs) {
 			scancodes = layout->shift_scancodes;
 		}
 
-		//don't overflow buffer if possible :p
-		if (kb_buffer_end != kb_buffer_start - 1) {
-			kb_buffer[kb_buffer_end++] = scancodes[scancode];
-			kb_buffer_end &= 255;
+		task_t* current = task_with_pid(getpid());
+		if (current) {
+			std_stream_pushc(current, scancodes[scancode]);
 		}
-		
+		putchar(scancodes[scancode]);
+
 		//inform OS of keypress
 		kbman_process(scancodes[scancode]);
 	}
