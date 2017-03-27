@@ -55,9 +55,13 @@ static fs_node_t* initrd_finddir(fs_node_t* node, char* name) {
 }
 
 fs_node_t* initrd_install(uint32_t location) {
-	//initialize main and file header pointers and populate root directory
+	//cast to header at this memory loc
 	initrd_header = (initrd_header_t*)location;
+	//cast location of file headers
 	file_headers = (initrd_file_header_t*)(location + sizeof(initrd_header_t));
+
+	//verify header magic (make sure initrd isn't corrupted
+	ASSERT(file_headers->magic == HEADER_MAGIC, "bad initrd magic (%x)", file_headers->magic);
 
 	//initialize root directory
 	initrd_root = (fs_node_t*)kmalloc(sizeof(fs_node_t));

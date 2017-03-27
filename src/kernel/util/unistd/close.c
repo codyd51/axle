@@ -14,9 +14,7 @@ int close(int fd) {
 
 	int ret = -1;
 	switch (ent.type) {
-		case STDIN_TYPE:
-		case STDOUT_TYPE:
-		case STDERR_TYPE:
+		case STD_TYPE:
 			ret = -1;
 			break;
 		case FILE_TYPE:

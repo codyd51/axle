@@ -2,25 +2,23 @@
 #include <kernel/util/multitasking/fd.h>
 #include <kernel/util/multitasking/tasks/task.h>
 #include <kernel/util/multitasking/pipe.h>
+#include <kernel/util/multitasking/std_stream.h>
 
-int stdin_write(const void* buf, int len) {
-
-}
-
-int stdout_write(const void* buf, int len) {
-	char* chbuf = buf;
+int std_write(task_t* task, int fd, const void* buf, int len) {
+	char* chbuf = (char*)buf;
 	int i = 0;
-	for (; i < len && chbuf[i+1] != '\0'; i++) {
+	for (; i < len; i++) {
 		putchar(chbuf[i]);
 	}
 	return i;
 }
 
-int stderr_write(const void* buf, int len) {
-
-}
-
 int write(int fd, const void* buf, int len) {
+	if (!tasking_installed()) {
+		return -1;
+	}
+	if (!len) return 0;
+
 	task_t* current = task_with_pid(getpid());
 	fd_entry ent = current->fd_table[fd];
 	if (fd_empty(ent)) {
@@ -29,15 +27,8 @@ int write(int fd, const void* buf, int len) {
 	}
 
 	switch (ent.type) {
-		case STDIN_TYPE:
-			return stdin_write(buf, len);
-			break;
-		case STDOUT_TYPE:
-			return stdout_write(buf, len);
-			break;
-		case STDERR_TYPE:
-			return stderr_write(buf, len);
-			break;
+		case STD_TYPE:
+			return std_write(current, fd, buf, len);
 		case FILE_TYPE:
 			//TODO implement this!
 			//return fwrite(fd, buf, len);

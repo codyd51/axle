@@ -50,3 +50,12 @@ void cb_pop_front(circular_buffer *cb, char *item) {
     cb->count--;
 }
 
+void cb_peek(circular_buffer *cb, char *item) {
+    if(cb->count == 0){
+		printf_err("peeking from empty circular_buffer!");
+		return;
+    }
+
+    memcpy(item, cb->tail, cb->sz);
+}
+

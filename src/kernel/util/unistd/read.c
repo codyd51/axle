@@ -3,35 +3,36 @@
 #include <kernel/util/multitasking/tasks/task.h>
 #include <kernel/drivers/kb/kb.h>
 #include <kernel/util/vfs/fs.h>
+#include <kernel/util/multitasking/std_stream.h>
 
-int stdin_read(void* buf, uint32_t count) {
+int std_read(task_t* task, int fd, void* buf, int count) {
 	char* chbuf = (char*)buf;
 	int i = 0;
-	for (; i < count; i++) {
-		chbuf[i] = getchar();
-		putchar(chbuf[i]);
-		//quit early on newline
-		//TODO this should only happen when terminal is cooked
-		if (chbuf[i] == '\n') {
+	//TODO implement newline_wait
+
+	for (; i < count - 1; i++) {
+		char ch = std_stream_popc(task);
+		if (ch == -1) {
+			//no more items to read!
+			break;
+		}
+		chbuf[i] = ch;
+
+		if (ch == '\n' || ch == '\0') {
 			break;
 		}
 	}
-	chbuf[i+1] = '\0';
-	return i+1;
-}
-
-int stdout_read(void* buf, uint32_t count) {
-	char* chbuf = (char*)buf;
-	char* tst = "stdout_read test message";
-	int i = 0;
-	for (; i < count; i++) {
-		chbuf[i] = tst[i];
-	}
-	chbuf[i+1] = '\0';
 	return i;
 }
 
 uint32_t read(int fd, void* buf, uint32_t count) {
+	if (!tasking_installed()) {
+		return -1;
+	}
+	if (!count) {
+		return 0;
+	}
+
 	unsigned char* chbuf = buf;
 	memset(chbuf, 0, count);
 
@@ -46,13 +47,8 @@ uint32_t read(int fd, void* buf, uint32_t count) {
 	//what type of file descriptor is this?
 	//dispatch appropriately
 	switch (ent.type) {
-		case STDIN_TYPE:
-			return stdin_read(buf, count);
-			break;
-		case STDOUT_TYPE:
-		case STDERR_TYPE:
-			return stdout_read(buf, count);
-			break;
+		case STD_TYPE:
+			return std_read(current, fd, buf, count);
 		case FILE_TYPE:
 			return fread(buf, sizeof(char), count, (FILE*)ent.payload);
 		case PIPE_TYPE:

@@ -4,6 +4,8 @@
 #include <std/common.h>
 #include "fs.h"
 
+#define HEADER_MAGIC 0xBF
+
 typedef struct {
 	uint32_t nfiles;	//# of files in ramdisk
 } initrd_header_t;
