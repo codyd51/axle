@@ -99,24 +99,25 @@ bool elf_load_segment(unsigned char* src, elf_phdr* seg) {
 	unsigned char* src_base = src + seg->offset;
 	//figure out range to map this binary to in virtual memory
 	unsigned char* dest_base = (unsigned char*)seg->vaddr;
-
-	unsigned char* dest_limit = (uintptr_t)(dest_base + seg->memsz + 0x1000) & 0xFFFFF000;
+	unsigned char* dest_limit = (uintptr_t)(dest_base + seg->memsz);
 
 	//alloc enough mem for new task
-	for (uint32_t i = dest_base; i < dest_limit; i += 0x1000) {
+	for (uint32_t i = dest_base; i <= dest_limit; i += 0x1000) {
 #include <kernel/util/paging/paging.h>
 		extern page_directory_t* current_directory;
 		page_t* page = get_page(i, 1, current_directory);
 
 		if (page) {
-			if (!alloc_frame(page, 1, 1)) {
-				printk_err("ELF segment page %x fail", i);
-			}
+			alloc_frame(page, 1, 1);
 		}
 	}
 
 	// Copy data
-	memcpy(dest_base, src_base, seg->memsz);
+	memset(dest_base, 0, (dest_limit - dest_base));
+	//only seg->filesz bytes are garuanteed to be in the file!
+	//_not_ memsz
+	//any extra bytes between filesz and memsz should be set to 0, which is done above
+	memcpy(dest_base, src_base, seg->filesz);
 
 	return true;
 }
@@ -170,27 +171,25 @@ char* elf_get_string_table(void* file, uint32_t binary_size) {
 //stores program break (end of .bss segment) in prog_break
 //stored start of .bss segment in bss_loc
 static void alloc_bss(elf_s_header* shdr, int* prog_break, int* bss_loc) {
-	uintptr_t page_aligned = shdr->size + 
-							 (0x1000 - 
-							 (shdr->size % 0x1000));
-	for (int i = 0; i <= page_aligned; i += 0x1000) {
+	//printf("ELF .bss mapped @ %x - %x\n", shdr->addr, shdr->addr + shdr->size);
+	for (int i = 0; i <= shdr->size + 0x1000; i += 0x1000) {
 		extern page_directory_t* current_directory;
 		page_t* page = get_page(shdr->addr + i, 1, current_directory);
 		if (!alloc_frame(page, 1, 1)) {
-			printk_err(".bss %x wasn't alloc'd", shdr->addr + i);
+			//printf_err(".bss %x wasn't alloc'd", shdr->addr + i);
 		}
 	}
 
 	//zero out .bss
-	//char* buf = (char*)shdr->addr;
-	//memset(buf, 0, shdr->size);
+	char* buf = (char*)shdr->addr;
+	memset(buf, 0, shdr->size);
 
 	//set program break to .bss segment
 	*prog_break = shdr->addr + shdr->size;
 	*bss_loc = shdr->addr;
 }
 
-void* elf_load_file(char* name, void* file, uint32_t binary_size) {
+void* elf_load_file(char* name, void* file, uint32_t binary_size, char** argv) {
 	elf_header* hdr = (elf_header*)file;
 	if (!elf_validate(hdr)) {
 		return;
