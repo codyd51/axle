@@ -194,7 +194,7 @@ void process_character(char* inputstr, char ch) {
 	else  {
 		//add this character to the input string and output it
 		strccat(inputstr, ch);
-		putchar(ch);
+		//putchar(ch);
 		visible_input_len++;
 	}
 
