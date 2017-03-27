@@ -66,7 +66,7 @@ bool elf_validate(elf_header* hdr) {
 }
 
 int execve(const char *filename, char *const argv[], char *const envp[]) {
-	//printf("Loading ELF %s\n", filename);
+	printk("Loading ELF %s\n", filename);
 	FILE* elf = fopen(filename, "r");
 	if (!elf) {
 		printf_err("Couldn't find file %s", filename);
@@ -82,7 +82,7 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 	for (int i = 0; i < size; i++) {
 		filebuf[i] = fgetc(elf);
 	}
-	elf_load_file(filename, filebuf, size);
+	elf_load_file(filename, filebuf, size, argv);
 
 	//we should never reach this point
 	sys__exit(1);
@@ -224,10 +224,18 @@ void* elf_load_file(char* name, void* file, uint32_t binary_size) {
 		elf->bss_loc = bss_loc;
 		elf->name = strdup(name);
 
-		int(*elf_main)(void) = (int(*)(void))entry;
+		int(*elf_main)(int, char**) = (int(*)(int, char**))entry;
 		become_first_responder();
 
-		int ret = elf_main();
+		//calculate argc count
+		int argc = 0;
+		char* tmp = argv[argc];
+		while (argv[argc+1] != NULL) {
+			argc++;
+		}
+
+		//jump to ELF entry point!
+		int ret = elf_main(argc, argv);
 
 		//binary should have called _exit()
 		//if we got to this point, something went catastrophically wrong
