@@ -2,7 +2,7 @@
 
 <p align="center"><img src="screenshots/boot.png"></p>
 
-axle is a small **UNIX-like** hobby operating system. Everything used within axle is **implemented from the ground up**, aside from the bootloader, for which we use GRUB. axle is a **multiboot compliant** kernel. axle runs C on 'bare metal' in freestanding mode, meaning even the C standard library is not included. A subset of the C standard library is implemented within axle's kernel, and a userspace version is planned. axle is mainly **interfaced through a shell**.
+axle is a small **UNIX-like** hobby operating system. Everything used within axle is **implemented from the ground up**, aside from the bootloader, for which we use GRUB. axle is a **multiboot compliant** kernel. axle runs C on 'bare metal' in freestanding mode, meaning even the C standard library is not included. A subset of the C standard library is implemented within axle's kernel, and a userspace is provided through a **Newlib port**. axle is mainly **interfaced through a shell**.
 
 <p align="center"><img src="screenshots/startup.png"></p>
 
@@ -10,14 +10,16 @@ The initial entry point must be done in ASM, as we have to do some special tasks
 
 Features
 ------------
+* Compositing window manager with clipping and alpha blending
+* Text renderer with SSAA antialiasing
+* Auto-boots in 1024x768 full RGB
+* ELF loader
+* Newlib port
 * MLFQ scheduler
-* Monolithic kernel
 * PS/2 keyboard/mouse drivers
 * PIT/RTC drivers
 * Various graphics modes/resolutions
 * Graphics library
-* Window manager
-* Text renderer
 * Paging
 * Multicolored, scrolling shell with history
 * Kernel-space standard library
@@ -31,7 +33,9 @@ axle is designed so everything is preemptible, including the kernel itself. Task
 
 axle's kernel begins by boostrapping essential facilities, such as descriptor tables, paging, the PIT driver (a neccesary component of many other mechanisms), multitasking, and more. A shell process is then launched, which supports many commands for interfacing with axle. Additionally, the shell supports backspacing over commands and automatically records all history (both input and output) to support scrolling back through previous messages.
 
-Among axle's built-in demonstrations is rexle, a pseudo-3D renderer which utilizes raycasting. Rexle paints walls with textures loaded from axle's filesystem, represented as BMPs. BMPs can also be rendered in axle's desktop environment, so that provides a background and image viewer.
+axle can load ELF processes from the virtual filesystem, and, recently, the main shell itself is no longer part of the kernel. and is a user-mode process. ELFs can utilize axle's newlib port as a standard library implementation.
+
+Among axle's built-in demonstrations is rexle, a pseudo-3D renderer which utilizes raycasting. Rexle paints walls with textures loaded from axle's virtual filesystem, represented as BMPs. BMPs can also be rendered in axle's desktop environment, so that provides a background and image viewer.
 
 axle also includes a JIT compiler which is capable of executing assembly as it is entered. (At the present moment it accepts opcodes directly, though the translation from assembly to opcodes is not a domain-specific problem, and you can feel free to use your favorite assembler to do so).
 
@@ -59,10 +63,6 @@ axle's window manager exposes an API for creating and managing UI elements such 
 
 axle includes a text renderer and default 8x8 bitmap font, though any font in this format could be trivially loaded from axle's filesystem.
 <p align="center"><img src="screenshots/text_test.png"></p>
-
-This image shows axle's window manager as it was in an earlier version, before configurable fonts and bitmap rendering.
-<p align="center"><img src="screenshots/color_test.png"></p>
-
 
 Running
 ----------------------
