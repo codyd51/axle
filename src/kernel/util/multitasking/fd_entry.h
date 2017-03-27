@@ -2,9 +2,7 @@
 #define FD_ENTRY_H
 
 typedef enum descriptor_type {
-	STDIN_TYPE = 0,
-	STDOUT_TYPE,
-	STDERR_TYPE,
+	STD_TYPE = 0,
 	FILE_TYPE,
 	PIPE_TYPE,
 } descriptor_type;

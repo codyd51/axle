@@ -5,6 +5,7 @@
 #include <kernel/util/paging/paging.h>
 #include <std/array_l.h>
 #include <kernel/util/multitasking/fd_entry.h>
+//#include <kernel/util/multitasking/std_stream.h>
 
 #define KERNEL_STACK_SIZE 2048 //use 2kb kernel stack
 #define FD_MAX 64
@@ -80,6 +81,12 @@ typedef struct task {
 	//this stores all types of file descriptors, 
 	//including stdin/out/err, open files, and pipes
 	fd_entry fd_table[FD_MAX];
+
+	//pseudo-terminal stream
+	//this field provides implementation for
+	//stdin/stdout/stderr
+	//(all of these map to the same backing stream)
+	struct std_stream* std_stream;
 } task_t;
 
 //initializes tasking system

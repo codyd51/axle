@@ -14,6 +14,7 @@
 #include <gfx/lib/gfx.h>
 #include <user/xserv/xserv.h>
 #include <kernel/util/multitasking/pipe.h>
+#include <kernel/util/multitasking/std_stream.h>
 
 //function defined in asm which returns the current instruction pointer
 uint32_t read_eip();
@@ -58,21 +59,18 @@ void stderr_read(char* buffer, uint32_t count);
 static void setup_fds(task_t* task) { 
 	memset(&task->fd_table, 0, sizeof(fd_entry) * FD_MAX);
 
-	//set up initial std types
-	fd_entry in;
-	in.type = STDIN_TYPE;
-	in.payload = &in;
-	task->fd_table[0] = in;
+	//initialize backing std stream
+	task->std_stream = std_stream_create();
 
-	fd_entry out;
-	out.type = STDOUT_TYPE;
-	out.payload = &out;
-	task->fd_table[1] = out;
+	//set up stdin/out/err to point to task's std stream
+	//this stream backs all 3 descriptors
+	fd_entry std;
+	std.type = STD_TYPE;
+	std.payload = task->std_stream;
 
-	fd_entry err;
-	err.type = STDERR_TYPE;
-	err.payload = &err;
-	task->fd_table[2] = err;
+	task->fd_table[0] = std;
+	task->fd_table[1] = std;
+	task->fd_table[2] = std;
 }
 
 static bool is_dead_task_crit(task_t* task) {
@@ -493,21 +491,23 @@ void update_blocked_tasks() {
 	if (!tasking_installed()) return;
 
 	//if there is a pending key, wake first responder
+	/*
 	if (haskey() && first_responder_task->state == KB_WAIT) {
 		unblock_task(first_responder_task);
 		goto_pid(first_responder_task->id);
 	}
+	*/
 
 	//wake blocked tasks if the event they were blocked for has occurred
 	//TODO is this optimizable?
 	//don't look through every queue, use linked list of tasks
 	task_t* task = active_list;
 	while (task) {
-		if (!first_responder_task && haskey() && task->state == KB_WAIT) {
+		if (task->std_stream->buf->count && task->state == KB_WAIT) {
 			unblock_task(task);
 			goto_pid(task->id);
 		}
-		if (task->state == PIT_WAIT) {
+		else if (task->state == PIT_WAIT) {
 			if (time() >= task->wake_timestamp) {
 				unblock_task(task);
 			}
