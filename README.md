@@ -55,7 +55,7 @@ Julia set | Mandelbrot set
 :--------:|:-------------:
 ![Julia set](/screenshots/julia.png) | ![Mandelbrot set](/screenshots/mandelbrot.png)
 
-##Window manager
+## Window manager
 
 While in previous versions of axle the window manager refresh rate was implemented as a callback from the PIT, as axle is now capable of multitasking this is no longer necessary. The window manager spawns its own process and refreshes its contents whenever necessary. Upon a refresh, the window manager traverses its heirarchy and draws its contents from the bottom up, writes to a temporary buffer, and decides whether to transfer this buffer to real video memory. The window manager attempts to minimize modifying video memory, and only does so if there has been a change from the current frame. Additionally, the buffer itself is not modified if no UI elements have notified the manager that they need to be redrawn.
 
