@@ -3,13 +3,30 @@
 #include "macho.h"
 #include <kernel/util/vfs/fs.h>
 
-void mach_dump_segments(FILE* mach);
+//tee hee
+static char* mach_slide = 0xEFF00000;
+void mach_load_segments(FILE* mach);
 
 void mach_load_file(char* filename) {
-	printf("Parsing Mach-O file \'%s\'\n", filename);
+	printf("Loading Mach-O file \'%s\'\n", filename);
 
 	FILE* mach = fopen(filename, "rb");
-	mach_dump_segments(mach);
+	mach_load_segments(mach);
+
+	//TODO fix this!
+	//find entry point from TEXT section
+	char* mach_entry = 0x1f37 + mach_slide;
+	int(*mach_main)(void) = (int(*)(void))mach_entry;
+	int pid = fork();
+	if (!pid) {
+		printf("jumping to mach main @ %x\n", mach_entry);
+		mach_main();
+		ASSERT(0, "returned from mach-o binary!\n");
+	}
+	int status;
+	waitpid(pid, &status, NULL);
+	printf("Mach-O exited with status %x\n", status);
+
 	fclose(mach);
 }
 
@@ -35,7 +52,7 @@ static void* mach_load_bytes(FILE* mach, int offset, int size) {
 	return buf;
 }
 
-static void mach_dump_segment_commands(FILE* mach, int offset, int should_swap, int count) {
+static void mach_load_segment_commands(FILE* mach, int offset, int should_swap, int count, char* buf) {
 	int real = offset;
 	for (int i = 0; i < count; i++) {
 		struct load_command* cmd = mach_load_bytes(mach, real, sizeof(struct load_command));
@@ -47,7 +64,36 @@ static void mach_dump_segment_commands(FILE* mach, int offset, int should_swap, 
 			if (should_swap) {
 				//swap_segment_command(segment, 0);
 			}
-			printf("Segment[%d] = %s [%x to %x]\n", i, segment->segname, segment->vmaddr, segment->vmaddr + segment->vmsize);
+			printf("Segment[%d] = %s [%x to %x], %d sections\n", i, 
+													segment->segname, 
+													mach_slide + segment->vmaddr, 
+													mach_slide + segment->vmaddr + segment->vmsize,
+													segment->nsects);
+
+			char* segment_start = buf + segment->fileoff;
+			char* vmem_seg_start = mach_slide + segment->vmaddr;
+			memset(vmem_seg_start, 0, segment->vmsize);
+			memcpy(vmem_seg_start, segment_start, segment->filesize);
+
+			if (segment->nsects) {
+				/*
+				for (int j = 0; j < segment->nsects; j++) {
+					char* chbuf = (char*)segment + sizeof(struct segment_command);
+					chbuf += (segment->cmdsize * j);
+					struct section* sect = (struct section*)chbuf;
+					printf("    Section[%d] = %s addr %x size %x\n", j, sect->sectname, sect->addr, sect->size);
+				}
+				*/
+				//putchar('\n');
+			}
+			/*
+			if (strstr(segment->segname, "TEXT")) {
+				for (int i = 0; i < 20; i+=4) {
+					if (i % 8 == 0) putchar('\n');
+					printf("%x ", vmem_seg_start[i]);
+				}
+			}
+			*/
 
 			kfree(segment);
 		}
@@ -84,13 +130,14 @@ static const char* cpu_type_name(cpu_type_t cpu_type) {
 	return "unknown";
 }
 
-static void mach_dump_header(FILE* mach, int offset, int is_64, int should_swap) {
+static void mach_load_from_header(FILE* mach, int offset, int is_64, int should_swap, char* filebuf) {
 	uint32_t cmds_count = 0;
 	int load_commands_offset = offset;
 
 	if (is_64) {
 		//TODO add 64-bit support
 		printf("Couldn't dump 64-bit mach\n");
+		return;
 	}
 	else {
 		struct mach_header* header = mach_load_bytes(mach, offset, sizeof(struct mach_header));
@@ -101,17 +148,32 @@ static void mach_dump_header(FILE* mach, int offset, int is_64, int should_swap)
 		cmds_count = header->ncmds;
 		load_commands_offset += sizeof(struct mach_header);
 
-		printf("CPU type: %s\n", cpu_type_name(header->cputype));
+		printf("CPU type: %s (%s)\n", cpu_type_name(header->cputype),
+									  (header->cputype == CPU_TYPE_I386) ? "Supported" :
+																			"Unsupported");
 
 		kfree(header);
 	}
-	mach_dump_segment_commands(mach, load_commands_offset, should_swap, cmds_count);
+	mach_load_segment_commands(mach, load_commands_offset, should_swap, cmds_count, filebuf);
 }
 
-void mach_dump_segments(FILE* mach) {
+void mach_load_segments(FILE* mach) {
 	uint32_t magic = mach_read_magic(mach, 0);
 	bool is_64 = mach_magic_64(magic);
 	bool should_swap = mach_swap_bytes(magic);
-	mach_dump_header(mach, 0, is_64, should_swap);
+
+	//find file size
+	fseek(mach, 0, SEEK_END);
+	uint32_t size = ftell(mach);
+	fseek(mach, 0, SEEK_SET);
+
+	//map mach o from file into memory
+	char* filebuf = kmalloc(size);
+	for (int i = 0; i < size; i++) {
+		filebuf[i] = fgetc(mach);
+	}
+
+	mach_load_from_header(mach, 0, is_64, should_swap, filebuf);
+	kfree(filebuf);
 }
 
