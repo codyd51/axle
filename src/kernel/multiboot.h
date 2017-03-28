@@ -1,3 +1,6 @@
+#ifndef MULTIBOOT_H
+#define MULTIBOOT_H
+
 #include <std/common.h>
 
 #define MULTIBOOT_FLAG_MEM	0x001
@@ -40,3 +43,5 @@ typedef struct multiboot_info {
 } multiboot; 
 
 //typedef struct multiboot_header multiboot_header_t;
+
+#endif

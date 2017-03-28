@@ -25,6 +25,7 @@
 #include <kernel/drivers/serial/serial.h>
 #include <std/klog.h>
 #include <tests/test.h>
+#include <kernel/elf.h>
 
 void print_os_name(void) {
 	printf("\e[10;[\e[11;AXLE OS v\e[12;0.6.0\e[10;]\n");
@@ -59,6 +60,11 @@ void shell_loop(void) {
 	asm("hlt");
 }
 
+static elf_t kern_elf_sym;
+elf_t* kern_elf() {
+	return &kern_elf_sym;
+}
+
 extern uint32_t placement_address;
 uint32_t initial_esp;
 
@@ -67,14 +73,11 @@ void module_detect(multiboot* mboot_ptr, uint32_t* initrd_loc, uint32_t* initrd_
 	*initrd_loc = *((uint32_t*)mboot_ptr->mods_addr);
 	*initrd_end = *(uint32_t*)(mboot_ptr->mods_addr+4);
 	//don't trample modules
-	placement_address = MAX(placement_address, *initrd_end);
+	placement_address = *initrd_end;
 }
 
 void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	initial_esp = initial_stack;
-
-	//initialize terminal interface
-	terminal_initialize();
 
 	//find any loaded grub modules
 	//this MUST be done before gfx_init or paging_install
@@ -82,13 +85,19 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//module_detect has the side effect of safely incrementing placement_address past any module data
 	uint32_t initrd_loc, initrd_end;
 	module_detect(mboot_ptr, &initrd_loc, &initrd_end);
-	
+
+	//initialize terminal interface
+	terminal_initialize();
+
 	//set up graphical terminal
 	gfx_init(mboot_ptr);
 
 	//introductory message
 	print_os_name();
 	test_colors();
+
+	elf_from_multiboot(mboot_ptr, &kern_elf_sym);
+	printf("kern_elf_sym = %x\n", kern_elf_sym);
 
 	printf_info("Available memory:");
 	printf("%d -> %dMB\n", mboot_ptr->mem_upper, (mboot_ptr->mem_upper/1024));
@@ -107,6 +116,21 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	//utilities
 	paging_install();
+
+	//init ramdisk filesystem,
+	//map ramdisk to 0xE0000000
+	//heap max addr is at 0xDFFFF000, so this is placed just after that
+	int initrd_size = initrd_end - initrd_loc;
+	int initrd_vmem = 0xE0000000;
+	//virtual_map_pages(initrd_vmem, initrd_size, 1, 1);
+
+	printf("map initrd from: [%x -> %x]\n             to: [%x -> %x]\n", initrd_loc, initrd_end, initrd_vmem, initrd_vmem + initrd_size);
+	for (int i = 0; i < initrd_size + 0x1000; i += 0x1000) {
+		memcpy(initrd_vmem + i, initrd_loc + i, 0x1000);
+	}
+	//and set up filesystem root
+	fs_root = initrd_install(initrd_vmem);
+
 	sys_install();
 
 	//choose scheduler policy here!
@@ -119,10 +143,6 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	mouse_install();
 	pci_install();
 
-	//init ramdisk filesystem,
-	//and set up filesystem root
-	fs_root = initrd_install(initrd_loc);
-
 	/*
 	//test facilities
 	test_heap();
@@ -133,27 +153,38 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	*/
 
 	//kernel shell
+	/*
 	if (!fork("kern shell")) {
 		//start shell
 		shell_init();
 		shell_loop();
 	}
+	*/
 
 	//test task to simply sleep, print, and quit
 	//useful for ensuring multitasking/PIT driver/task blocking
 	//work as expected
+	/*
 	if (!fork("sleepy")) {
 		sleep(20000);
 		printf_dbg("Sleepy thread slept!");
 		sys__exit(0);
 	}
 
+	*/
+	//getchar();
 	//launch ELF shell
 	//this is non-kernel code, loaded from filesystem
+	/*
 	if (!sys_fork()) {
-		execve("shell", 0, 0);
+		char* argv[] = {"shell", "test", "123"};
+		execve(argv[0], argv, 0);
 		sys__exit(1);
 	}
+	*/
+
+	//testing mach-o loader
+	mach_load_file("machs");
 
 	wait(NULL);
 
