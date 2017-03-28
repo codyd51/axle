@@ -50,9 +50,12 @@ void kbman_process(char c) {
 			}
 			case 't': {
 				//spawn shell
-				if (!fork("launch")) {
+				int pid = sys_fork();
+				if (!pid) {
 					execve("shell", 0, 0);
+					sys__exit(1);
 				}
+				waitpid(pid, NULL, NULL);
 				break;
 			}
 			default:

@@ -116,38 +116,20 @@ char* fgets(char* buf, int count, FILE* stream) {
 	return (c == EOF && cs == buf) ? (char*)EOF : buf;
 }
 
-uint32_t read(int fd, void* buf, uint32_t count) {
-	unsigned char* chbuf = buf;
-	memset(chbuf, 0, count);
-
-	if (fd < 3) {
-		int i = 0;
-		for (; i < count; i++) {
-			chbuf[i] = getchar();
-			putchar(chbuf[i]);
-			//quit early on newline
-			//TODO this should only happen when terminal is cooked
-			if (chbuf[i] == '\n') {
-				break;
-			}
-		}
-		chbuf[i+1] = '\0';
-		return i+1;
-	}
-
-	return fread(buf, sizeof(char), count, 0);
-}
-
 uint32_t fread(void* buffer, uint32_t size, uint32_t count, FILE* stream) {
 	unsigned char* chbuf = (unsigned char*)buffer;
-	//uint32_t sum;
-	for (uint32_t i = 0; i < count; i++) {
+	uint32_t i = 0;
+	for (; i < count; i++) {
 		for (uint32_t j = 0; j < size; j++) {
 			int idx = (i * size) + j;
 			chbuf[idx] = fgetc(stream);
+			if (chbuf[idx] == EOF) {
+				break;
+			}
 		}
 	}
-	return count;
+	chbuf[i] = '\0';
+	return i;
 		/*
 		unsigned char buf;
 		

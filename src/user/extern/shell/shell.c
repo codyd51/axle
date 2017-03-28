@@ -2,6 +2,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+#include "lib/iberty/iberty.h"
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
 
 void prompt() {
 	printf("me@axle[%d] /$ ", getpid());
@@ -11,17 +18,9 @@ void prompt() {
 int get_inputstring(char* buf, int len) {
 	memset(buf, 0, len);
 
-	char ch;
-	int count = 0;
-	for (int i = 0; i < len; i++) {
-		ch = getchar();
-		if (ch == '\n') {
-			break;
-		}
-		buf[count++] = ch;
-	}
+	int count = read(0, buf, len);
 	buf[count] = '\0';
-	return count-1;
+	return count;
 }
 
 typedef int (*command_func)(int, char**);
@@ -54,25 +53,46 @@ int find_command(char* command) {
 //holds exit code of last run command
 static int exit_code = 0;
 int process_command(char* input) {
-	int index = find_command(input);
+	if (((input != NULL) && (input[0] == '\0')) || !strlen(input))
+		return;
+
+	int argc;
+	char *sdup = strdup(input);
+	char **argv = buildargv(sdup, &argc);
+	free(sdup);
+
+	int index = find_command(argv[0]);
+
 	if (index == -1) {
 		//TODO check if valid file!
 		int pid = fork();
 		if (!pid) {
-			execve(input, 0, 0);
-			_exit(1);
+			FILE* attempt = fopen(input, "r");
+			if (attempt) {
+				fclose(attempt);
+				execve(argv[0], argv, 0);
+				_exit(1);
+			}
+			else {
+				printf("Command %s not found.\n", input);
+				return -1;
+			}
 		}
 		else {
 			int status;
 			pid = waitpid(pid, &status, 0);
+			freeargv(argv);
 			return status;
 		}
 		//printf("Command %s not found.\n", input);
 		//return -1;
 	}
-	
+
 	command_func func = cmdtable[index].func;
-	return func(1, &cmdtable[index].name);
+	int ret = func(argc, argv);
+	freeargv(argv);
+
+	return ret;
 }
 
 int help(int argc, char** argv) {
@@ -116,12 +136,11 @@ int main(int argc, char** argv) {
 		prompt();
 
 		char input[256];
-		get_inputstring(&input, sizeof(input));
+		get_inputstring((char*)&input, sizeof(input));
 
 		exit_code = process_command(input);
 		printf("[%d]\n", exit_code);
-		free(input);
 	}
-	return 42;
+	return 0;
 }
 

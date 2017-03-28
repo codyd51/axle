@@ -240,6 +240,10 @@ void vprintf(int dest, char* format, va_list va) {
 				ch = *format;
 				continue;
 			}
+			else if (ch == '\0') {
+				output(dest, "(null)");
+				continue;
+			}
 			outputc(dest, ch);
 		}
 		else {
@@ -517,5 +521,21 @@ void printk_err(char* format, ...) {
 	va_start(arg, format);
 	print_msg_common(SERIAL_OUTPUT, ERR_PRINT, format, arg);
 	va_end(arg);
+}
+
+void fprintf(int stream, char* format, ...) {
+	va_list arg;
+	va_start(arg, format);
+	//stdout
+	if (stream == 1) {
+		print_msg_common(TERM_OUTPUT, INFO_PRINT, format, arg);
+	}
+	//stderr
+	else if (stream == 2) {
+		print_msg_common(TERM_OUTPUT, ERR_PRINT, format, arg);
+	}
+	else {
+		ASSERT(0, "fprintf to invalid stream %d\n", stream);
+	}
 }
 

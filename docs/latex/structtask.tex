@@ -1,0 +1,76 @@
+\hypertarget{structtask}{}\section{task Struct Reference}
+\label{structtask}\index{task@{task}}
+\subsection*{Public Attributes}
+\begin{DoxyCompactItemize}
+\item 
+\mbox{\Hypertarget{structtask_a9aef5dbd16cfbbdb0c8b13416549a07f}\label{structtask_a9aef5dbd16cfbbdb0c8b13416549a07f}} 
+char $\ast$ {\bfseries name}
+\item 
+\mbox{\Hypertarget{structtask_a22d3a20ff225043177b269ec1a0a5f1a}\label{structtask_a22d3a20ff225043177b269ec1a0a5f1a}} 
+int {\bfseries id}
+\item 
+\mbox{\Hypertarget{structtask_a495326f350fe8bc5a03739af57481a2e}\label{structtask_a495326f350fe8bc5a03739af57481a2e}} 
+int {\bfseries queue}
+\item 
+\mbox{\Hypertarget{structtask_a665dc156ee4493d4541bc117bd657d67}\label{structtask_a665dc156ee4493d4541bc117bd657d67}} 
+task\+\_\+state {\bfseries state}
+\item 
+\mbox{\Hypertarget{structtask_a73ffa8e22580f103cd5e63796a4d494a}\label{structtask_a73ffa8e22580f103cd5e63796a4d494a}} 
+uint32\+\_\+t {\bfseries wake\+\_\+timestamp}
+\item 
+\mbox{\Hypertarget{structtask_a44185edf4086dec51b3d23e6edb2e884}\label{structtask_a44185edf4086dec51b3d23e6edb2e884}} 
+uint32\+\_\+t {\bfseries begin\+\_\+date}
+\item 
+\mbox{\Hypertarget{structtask_a45a89be105fab99fd428a8201d888668}\label{structtask_a45a89be105fab99fd428a8201d888668}} 
+uint32\+\_\+t {\bfseries end\+\_\+date}
+\item 
+\mbox{\Hypertarget{structtask_acc7db59bd7fd5a94666d485d0cd8f0c9}\label{structtask_acc7db59bd7fd5a94666d485d0cd8f0c9}} 
+uint32\+\_\+t {\bfseries relinquish\+\_\+date}
+\item 
+\mbox{\Hypertarget{structtask_ac48bb50cf51cfe699fe871295497f85d}\label{structtask_ac48bb50cf51cfe699fe871295497f85d}} 
+uint32\+\_\+t {\bfseries lifespan}
+\item 
+\mbox{\Hypertarget{structtask_a3f2c7149983c28824baf1aebdfa7af98}\label{structtask_a3f2c7149983c28824baf1aebdfa7af98}} 
+struct \hyperlink{structtask}{task} $\ast$ {\bfseries next}
+\item 
+\mbox{\Hypertarget{structtask_a1e5835e5305cec65a69e65db7d5f2ac1}\label{structtask_a1e5835e5305cec65a69e65db7d5f2ac1}} 
+uint32\+\_\+t {\bfseries esp}
+\item 
+\mbox{\Hypertarget{structtask_a6f44e80b32d0c8f7a8fa954f6228db97}\label{structtask_a6f44e80b32d0c8f7a8fa954f6228db97}} 
+uint32\+\_\+t {\bfseries ebp}
+\item 
+\mbox{\Hypertarget{structtask_a85be201e7055bac8b2b784b33989896c}\label{structtask_a85be201e7055bac8b2b784b33989896c}} 
+uint32\+\_\+t {\bfseries eip}
+\item 
+\mbox{\Hypertarget{structtask_afd0d4d57f6e6cf0781b31c77af6cfadd}\label{structtask_afd0d4d57f6e6cf0781b31c77af6cfadd}} 
+\hyperlink{structpage__directory}{page\+\_\+directory\+\_\+t} $\ast$ {\bfseries page\+\_\+dir}
+\item 
+\mbox{\Hypertarget{structtask_a416ae3d0f5dd166d8557ea5dfb3ed6d4}\label{structtask_a416ae3d0f5dd166d8557ea5dfb3ed6d4}} 
+uint32\+\_\+t {\bfseries prog\+\_\+break}
+\item 
+\mbox{\Hypertarget{structtask_a159f0ff918ba7f58534a978a1d2830f7}\label{structtask_a159f0ff918ba7f58534a978a1d2830f7}} 
+uint32\+\_\+t {\bfseries bss\+\_\+loc}
+\item 
+\mbox{\Hypertarget{structtask_a15427d4eaab0f7bf6cd150a23265697d}\label{structtask_a15427d4eaab0f7bf6cd150a23265697d}} 
+\hyperlink{structarray__m}{array\+\_\+m} $\ast$ {\bfseries child\+\_\+tasks}
+\item 
+\mbox{\Hypertarget{structtask_a34c6613744820a1e8127756fb6a5392c}\label{structtask_a34c6613744820a1e8127756fb6a5392c}} 
+struct \hyperlink{structtask}{task} $\ast$ {\bfseries parent}
+\item 
+\mbox{\Hypertarget{structtask_a7bdea2e1b4866892cbb0221721fdb79b}\label{structtask_a7bdea2e1b4866892cbb0221721fdb79b}} 
+int {\bfseries exit\+\_\+code}
+\item 
+\mbox{\Hypertarget{structtask_aad04ee923594394226b0fc3e2038c9ad}\label{structtask_aad04ee923594394226b0fc3e2038c9ad}} 
+void $\ast$ {\bfseries block\+\_\+context}
+\item 
+\mbox{\Hypertarget{structtask_a667966ddf53f9a9cbb707189654f42b8}\label{structtask_a667966ddf53f9a9cbb707189654f42b8}} 
+\hyperlink{structfd__entry}{fd\+\_\+entry} {\bfseries fd\+\_\+table} \mbox{[}F\+D\+\_\+\+M\+AX\mbox{]}
+\item 
+\mbox{\Hypertarget{structtask_ab6942aa3abb7738252aaa2417c5d7fbc}\label{structtask_ab6942aa3abb7738252aaa2417c5d7fbc}} 
+struct \hyperlink{structstd__stream}{std\+\_\+stream} $\ast$ {\bfseries std\+\_\+stream}
+\end{DoxyCompactItemize}
+
+
+The documentation for this struct was generated from the following file\+:\begin{DoxyCompactItemize}
+\item 
+src/kernel/util/multitasking/tasks/task.\+h\end{DoxyCompactItemize}

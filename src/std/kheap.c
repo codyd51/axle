@@ -143,13 +143,14 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 
 					//does the align adjustment fit in the block?
 					if (distance < size) {
+#ifdef DEBUG
 						printk_info("find_smallest_hole(): page aligning block @ %x to %x (really starts at %x)", addr, aligned_addr, aligned_addr + sizeof(alloc_block_t));
+#endif
 
 						//create new block at page aligned addr
 						uint32_t new_size = candidate->size - distance - sizeof(alloc_block_t);
 						alloc_block_t* aligned = create_block((uint32_t)aligned_addr, new_size);
 						
-						//printk_dbg("find_smallest_hole(): candidate is %x next %x", candidate, candidate->next);
 						insert_block(candidate, aligned);
 
 						//make sure we shrink original candidate since some of it is now in new aligned block
@@ -160,14 +161,8 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 						return aligned;
 					}
 					else {
-						//printk_info("find_smallest_hole(): addr %x aligned %x distance %x", addr, aligned_addr, distance);
-						//block too small to align
-						//printk_info("find_smallest_hole(): block @ %x [%x] too small to align to %x (needs %x usable bytes), leftover size is %x", addr, candidate->size, aligned_addr, size, candidate->size - distance);
 						continue;
 					}
-				}
-				else if (align) {
-					//printk_info("find_smallest_hole(): addr %x requested page align but already aligned", addr);
 				}
 				return candidate;
 			}
@@ -308,7 +303,6 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 
 	//find smallest hole that will fit
 	alloc_block_t* candidate = find_smallest_hole(size, align, heap);
-	//printk_info("alloc(): candidate @ %x [%x bytes]", (uint32_t)candidate, candidate->size);
 
 	//handle if we couldn't find a candidate block
 	if (!candidate) {
@@ -325,7 +319,9 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		return alloc(size, align, heap);
 	}
 
+#ifdef DEBUG
 	printk("DEB M %x %x\n", candidate, candidate->size);
+#endif
 
 	lock(mutex);
 
@@ -336,7 +332,6 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		uint32_t split_block = (uint32_t)candidate + sizeof(alloc_block_t) + size;
 		uint32_t split_size = candidate->size - size - sizeof(alloc_block_t);
 
-		//printk_info("alloc(): candidate can be split into second block @ %x [%x bytes]", split_block, split_size);
 		create_block(split_block, split_size);
 		
 		//insert new block into linked list
@@ -347,8 +342,6 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 			heap_fail(candidate);
 			while (1) {}
 		}
-
-		//printk("alloc() candidate: %x split_block: %x\n", candidate, split_block);
 
 		//shrink block we just split in two
 		candidate->size = size;
@@ -396,7 +389,6 @@ bool merge_blocks(alloc_block_t* left, alloc_block_t* right) {
 	left->next = right->next;
 	left->next->prev = left;
 
-	//printk_info("merge_blocks() merged block %x into %x", right, left);
 	//all done
 	unlock(mutex);
 
@@ -412,7 +404,6 @@ void free(void* p, heap_t* UNUSED(heap)) {
 
 	//get header associated with this pointer
 	alloc_block_t* header = (alloc_block_t*)((uint32_t)p - sizeof(alloc_block_t));
-	//printk_dbg("kfree() %x [%x]", header, header->size);
 
 	//ensure these are valid
 	//ASSERT(header->magic == HEAP_MAGIC, "invalid header magic in %x (got %x)", p, header->magic);
@@ -422,7 +413,9 @@ void free(void* p, heap_t* UNUSED(heap)) {
 		while (1) {}
 	}
 
+#ifdef DEBUG
 	printk("DEB F %x %x\n", p, header->size);
+#endif
 
 	lock(mutex);
 

@@ -72,6 +72,7 @@ void process_command(char* string) {
 			int pid = sys_fork();
 			if (!pid) {
 				execve(command, 0, 0);
+				sys__exit(1);
 			}
 			else {
 				int status;
@@ -193,7 +194,7 @@ void process_character(char* inputstr, char ch) {
 	else  {
 		//add this character to the input string and output it
 		strccat(inputstr, ch);
-		putchar(ch);
+		//putchar(ch);
 		visible_input_len++;
 	}
 
@@ -490,6 +491,7 @@ void execve_command(int argc, char** argv) {
 	int pid = sys_fork();
 	if (!pid) {
 		execve(argv[1], NULL, NULL);
+		sys__exit(1);
 	}
 	int status;
 	waitpid(pid, &status, 0);

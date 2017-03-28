@@ -13,6 +13,8 @@
 #include "record.h"
 #include <gfx/lib/gfx.h>
 #include <user/xserv/xserv.h>
+#include <kernel/util/multitasking/pipe.h>
+#include <kernel/util/multitasking/std_stream.h>
 
 //function defined in asm which returns the current instruction pointer
 uint32_t read_eip();
@@ -26,7 +28,6 @@ void task_switch_real(uint32_t eip, uint32_t paging_dir, uint32_t ebp, uint32_t 
 #define STACK_MAGIC 0xDEADBEEF
 
 #define MAX_TASKS 128
-#define MAX_FILES 32
 
 #define MLFQ_DEFAULT_QUEUE_COUNT 16
 #define MLFQ_MAX_QUEUE_LENGTH 16
@@ -55,10 +56,21 @@ void dequeue_task(task_t* task);
 void stdin_read(char* buf, uint32_t count);
 void stdout_read(char* buffer, uint32_t count);
 void stderr_read(char* buffer, uint32_t count);
-static void setup_fds(task_t* task) { task->files = array_m_create(MAX_FILES);
-	// array_m_insert(task->files, stdin_read);
-	// array_m_insert(task->files, stdout_read);
-	// array_m_insert(task->files, stderr_read);
+static void setup_fds(task_t* task) { 
+	memset(&task->fd_table, 0, sizeof(fd_entry) * FD_MAX);
+
+	//initialize backing std stream
+	task->std_stream = std_stream_create();
+
+	//set up stdin/out/err to point to task's std stream
+	//this stream backs all 3 descriptors
+	fd_entry std;
+	std.type = STD_TYPE;
+	std.payload = task->std_stream;
+
+	task->fd_table[0] = std;
+	task->fd_table[1] = std;
+	task->fd_table[2] = std;
 }
 
 static bool is_dead_task_crit(task_t* task) {
@@ -77,7 +89,6 @@ static bool is_dead_task_crit(task_t* task) {
 static void tasking_critical_fail() {
 	char* msg = "One or more critical tasks died. axle has died.\n";
 	printf("%s\n", msg);
-	printk("%s\n", msg);
 	//turn off interrupts
 	kernel_begin_critical();
 	//sleep until next interrupt (infinite loop)
@@ -155,10 +166,11 @@ void list_task(task_t* task) {
 	current->next = task;
 }
 
-void block_task(task_t* task, task_state reason) {
+void block_task_context(task_t* task, task_state reason, void* context) {
 	if (!tasking_installed()) return;
 
 	task->state = reason;
+	task->block_context = context;
 
 	//immediately switch tasks if active task was just blocked
 	if (task == current_task) {
@@ -166,11 +178,16 @@ void block_task(task_t* task, task_state reason) {
 	}
 }
 
+void block_task(task_t* task, task_state reason) {
+	block_task_context(task, reason, NULL);
+}
+
 void unblock_task(task_t* task) {
 	if (!tasking_installed()) return;
 
 	lock(mutex);
 	task->state = RUNNABLE;
+	task->block_context = NULL;
 	unlock(mutex);
 }
 
@@ -188,6 +205,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	task->name = strdup(name);
 	task->id = next_pid++;
 	task->page_dir = cloned;
+	task->child_tasks = array_m_create(32);
 	setup_fds(task);
 
 	uint32_t current_eip = read_eip();
@@ -198,8 +216,6 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 
 	task->state = RUNNABLE;
 	task->wake_timestamp = 0;
-
-	task->child_tasks = array_m_create(32);
 
 	return task;
 }
@@ -239,6 +255,18 @@ void destroy_task(task_t* task) {
 	if (task == first_responder_task) {
 		resign_first_responder();
 	}
+
+	//close all pipes this process has opened
+	for (int i = 0; i < FD_MAX; i++) {
+		fd_entry entry = task->fd_table[i];
+		if (fd_empty(entry)) continue;
+
+		if (entry.type == PIPE_TYPE) {
+			pipe_t* pipe = (pipe_t*)entry.payload;
+			pipe_close(pipe->fd);
+		}
+	}
+
 	//remove task from queues and active list
 	unlist_task(task);
 	//printf_info("%s[%d] destroyed.", task->name, task->id);
@@ -393,9 +421,7 @@ void tasking_install(mlfq_option options) {
 
 	kernel_begin_critical();
 
-	printk_info("moving stack...");
 	move_stack((void*)0xE0000000, 0x2000);
-	printk_info("moved stack");
 
 	int queue_count = 0;
 	switch (options) {
@@ -418,8 +444,6 @@ void tasking_install(mlfq_option options) {
 	for (int i = 0; i < queue_count; i++) {
 		array_m_insert(queue_lifetimes, (type_t)(HIGH_PRIO_QUANTUM * (i + 1)));
 	}
-
-	printk("queues\n");
 
 	//init first task (kernel task)
 	task_t* kernel = kmalloc(sizeof(task_t));
@@ -467,32 +491,33 @@ void update_blocked_tasks() {
 	if (!tasking_installed()) return;
 
 	//if there is a pending key, wake first responder
+	/*
 	if (haskey() && first_responder_task->state == KB_WAIT) {
 		unblock_task(first_responder_task);
 		goto_pid(first_responder_task->id);
 	}
+	*/
 
 	//wake blocked tasks if the event they were blocked for has occurred
 	//TODO is this optimizable?
 	//don't look through every queue, use linked list of tasks
 	task_t* task = active_list;
 	while (task) {
-		if (!first_responder_task && haskey() && task->state == KB_WAIT) {
+		if (task->std_stream->buf->count && task->state == KB_WAIT) {
 			unblock_task(task);
 			goto_pid(task->id);
 		}
-		if (task->state == PIT_WAIT) {
+		else if (task->state == PIT_WAIT) {
 			if (time() >= task->wake_timestamp) {
 				unblock_task(task);
 			}
 		}
 		//TODO figure out when exactly tasks with MOUSE_WAIT should be unblocked
-		if (task->state == MOUSE_WAIT) {
+		else if (task->state == MOUSE_WAIT) {
 			unblock_task(task);
 			goto_pid(task->id);
 		}
-
-		if (task->state == CHILD_WAIT) {
+		else if (task->state == CHILD_WAIT) {
 			//search if any of this task's children are zombies
 			for (int i = 0; i < task->child_tasks->size; i++) {
 				task_t* child = array_m_lookup(task->child_tasks, i);
@@ -504,11 +529,28 @@ void update_blocked_tasks() {
 				}
 			}
 		}
-
-		if (task->state == ZOMBIE) {
+		else if (task->state == PIPE_FULL) {
+			pipe_block_info* info = (pipe_block_info*)task->block_context;
+			pipe_t* waiting = info->pipe;
+			int free_bytes = waiting->cb->capacity - waiting->cb->count;
+			if (free_bytes >= info->free_bytes_needed) {
+				//space has freed up in the pipe
+				//we can now unblock
+				unblock_task(task);
+			}
+		}
+		else if (task->state == PIPE_EMPTY) {
+			pipe_t* waiting = task->block_context;
+			if (waiting->cb->count > 0) {
+				//pipe now has data we can read
+				//we can now unblock
+				unblock_task(task);
+			}
+		}
+		else if (task->state == ZOMBIE) {
 			if (task->parent) {
 				if (task->parent->state != CHILD_WAIT) {
-					printk("parent %d isn't waiting for dangling child %d\n", task->parent->id, task->id);
+					//printk("parent %d isn't waiting for dangling child %d\n", task->parent->id, task->id);
 				}
 			}
 		}
@@ -530,12 +572,29 @@ int fork(char* name) {
 	task_t* parent = current_task;
 
 	task_t* child = create_process(name, 0, false);
+
+	//copy all file descriptors from parent to child
+	for (int i = 0; i < FD_MAX; i++) {
+		fd_entry entry = parent->fd_table[i];
+		if (fd_empty(entry)) continue;
+
+		fd_add_index(child, entry, i);
+		if (entry.type == PIPE_TYPE) {
+			pipe_t* pipe = (pipe_t*)entry.payload;
+			//and add this new child to the pipe's reference list
+			array_m_insert(pipe->pids, child->id);
+		}
+	}
+
 	add_process(child);
 
 	//set parent process of newly created process to currently running task
 	child->parent = parent;
 	//insert the newly created child task into the parent's array of children
-	if (parent->child_tasks->size < 32) {
+	if (!parent->child_tasks) {
+		ASSERT(0, "%s[%d] had no child_task array!\n", parent->name, parent->id);
+	}
+	if (parent->child_tasks->size < parent->child_tasks->max_size) {
 		array_m_insert(parent->child_tasks, child);
 	}
 	else {
@@ -850,6 +909,10 @@ void proc() {
 				case CHILD_WAIT:
 					printk("(blocked by child)");
 					break;
+				case PIPE_EMPTY:
+				case PIPE_FULL:
+					printk("(blocked by pipe)");
+					break;
 				default:
 					break;
 		}
@@ -939,9 +1002,10 @@ int waitpid(int pid, int* status, int options) {
 			valid_pid = true;
 		}
 
+
 		if (child->state == ZOMBIE && valid_pid) {
 			int ret = child->exit_code;
-			int pid = child->id;
+			int child_pid = child->id;
 			array_m_remove(parent->child_tasks, i);
 			reap_task(child);
 
@@ -949,7 +1013,14 @@ int waitpid(int pid, int* status, int options) {
 				*status = ret;
 			}
 
-			return pid;
+			//if pid is -1, then we are waiting for all child tasks to complete
+			//so, if pid is -1 and there is another child process running,
+			//keep waiting
+			if (pid == -1 && parent->child_tasks->size) {
+				return waitpid(pid, status, options);
+			}
+
+			return child_pid;
 		}
 	}
 	ASSERT(0, "parent unblocked but no child terminated!\n");
@@ -959,5 +1030,4 @@ int waitpid(int pid, int* status, int options) {
 int wait(int* status) {
 	return waitpid(-1, status, 0);
 }
-
 

@@ -4,8 +4,11 @@
 #include <std/std.h>
 #include <kernel/util/paging/paging.h>
 #include <std/array_l.h>
+#include <kernel/util/multitasking/fd_entry.h>
+//#include <kernel/util/multitasking/std_stream.h>
 
 #define KERNEL_STACK_SIZE 2048 //use 2kb kernel stack
+#define FD_MAX 64
 
 typedef enum task_state {
     RUNNABLE = 0,
@@ -14,6 +17,8 @@ typedef enum task_state {
     PIT_WAIT,
 	MOUSE_WAIT,
 	CHILD_WAIT,
+	PIPE_FULL,
+	PIPE_EMPTY,
 } task_state;
 
 typedef enum mlfq_option {
@@ -21,6 +26,7 @@ typedef enum mlfq_option {
 	PRIORITIZE_INTERACTIVE, //use more queues, allowing interactive tasks to dominate
 } mlfq_option;
 
+struct fd_entry;
 typedef struct task {
 	char* name; //user-printable process name
 	int id;  //PID
@@ -42,7 +48,6 @@ typedef struct task {
 
 	page_directory_t* page_dir; //paging directory for this process
 
-	array_m* files;
 
 	/*
 	 * the below only exist for non-kernel tasks
@@ -66,6 +71,22 @@ typedef struct task {
 	//exit status of zombie task
 	//this field is undefined until task finishes executing
 	int exit_code;
+
+	//TODO move this near task_state and make clean
+	//optional context provided with blocking reason
+	//up to user what this means
+	void* block_context;
+
+	//file descriptor table
+	//this stores all types of file descriptors, 
+	//including stdin/out/err, open files, and pipes
+	fd_entry fd_table[FD_MAX];
+
+	//pseudo-terminal stream
+	//this field provides implementation for
+	//stdin/stdout/stderr
+	//(all of these map to the same backing stream)
+	struct std_stream* std_stream;
 } task_t;
 
 //initializes tasking system
@@ -73,6 +94,7 @@ void tasking_install();
 bool tasking_installed();
 
 void block_task(task_t* task, task_state reason);
+void block_task_context(task_t* task, task_state reason, void* context);
 
 //initialize a new process structure
 //does not add returned process to running queue

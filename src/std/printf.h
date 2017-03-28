@@ -27,6 +27,15 @@ void printk_err(char* format, ...);
 
 void sprintf(char* str, char* format, ...);
 
+#define stdin  0
+#define stdout 1
+#define stderr 2
+//fprintf stub
+//axle's current filesystem doesn't support writeable files,
+//so fprintf only works with stdout and stderr.
+//any other stream causes a critical failure
+void fprintf(int stream, char* format, ...);
+
 void reset_cursor_pos();
 
 #endif
