@@ -126,11 +126,6 @@ int query_exit(int argc, char** argv) {
 }
 
 int main(int argc, char** argv) {
-	printf("argc %d argv 0x%x\n", argc, argv);
-	for (int i = 0; i < argc; i++) {
-		printf("argv[%d] = %s\n", i, argv[i]);
-	}
-
 	memset(cmdtable, 0, sizeof(command_t) * MAX_COMMANDS);
 	register_command("help", "print help", &help);
 	register_command("exit", "quit shell", &quit);

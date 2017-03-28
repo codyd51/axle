@@ -509,7 +509,7 @@ void xserv_refresh(Screen* screen) {
 }
 
 void xserv_pause() {
-	switch_to_text();
+	//switch_to_text();
 }
 
 void xserv_resume() {

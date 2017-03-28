@@ -141,7 +141,7 @@ void vmem_map(uint32_t virt, uint32_t physical) {
 bool alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 	if (page->frame != 0) {
 		//frame was already allocated, return early
-		printk_err("alloc_frame fail, frame %x taken", page->frame);
+		printk_err("alloc_frame fail, frame %x taken", page->frame * 0x1000);
 		return false;
 	}
 	
@@ -261,7 +261,6 @@ void paging_install() {
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
 		alloc_frame(get_page(i, 1, kernel_directory), 0, 0);
 	}
-	printf_info("finished identity mapping kernel pages");
 
 	//before we enable paging, register page fault handler
 	register_interrupt_handler(14, page_fault);
@@ -307,9 +306,16 @@ int munmap(void *addr, uint32_t length) {
 	ASSERT(0, "munmap called");
 }
 
+void* unsbrk(int increment) {
+	task_t* current = task_with_pid(getpid());
+	char* brk = current->prog_break;
+	return brk;
+}
+
 void* sbrk(int increment) {
 	if (increment < 0) {
-		ASSERT(0, "used sbrk with negative increment");
+		ASSERT(0, "sbrk w/ neg increment");
+		return unsbrk(increment);
 	}
 
 	task_t* current = task_with_pid(getpid());
@@ -319,12 +325,15 @@ void* sbrk(int increment) {
 		return brk;
 	}
 
+	//printf("sbrk %x + %x\n", current->prog_break, increment);
 	current->prog_break += increment;
 
+	/*
 	page_t* new = get_page(brk, 1, current_directory);
 	if (!new->frame) {
 		alloc_frame(new, 1, 1);
 	}
+	*/
 
 	memset(brk, 0, increment);
 
@@ -418,7 +427,7 @@ void page_fault(registers_t regs) {
 }
 
 static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
-	printk("cloning table at %x phys %x\n", src, physAddr);
+	printk("cloning table at %x\n", src);
 
 	//make new page aligned table
 	page_table_t* table = (page_table_t*)kmalloc_ap(sizeof(page_table_t), physAddr);
@@ -431,7 +440,7 @@ static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
 		if (!src->pages[i].frame) continue;
 
 		//get new frame
-		alloc_frame(&table->pages[i], 0, 0);
+		alloc_frame(&(table->pages[i]), 0, 0);
 		//clone flags from source to destination
 		table->pages[i].present = src->pages[i].present;
 		table->pages[i].rw = src->pages[i].rw;
@@ -492,19 +501,17 @@ void free_directory(page_directory_t* dir) {
 		page_table_t* table = dir->tables[i];
 		//only free pages in table if table wasn't linked in from kernel tables
 		if (kernel_directory->tables[i] == table) {
-			printk("free_directory() page table %x was linked from kernel\n", table);
+			printf("free_directory() page table %x was linked from kernel\n", table);
 			continue;
 		}
-		printk("free_directory() proc owned table %x\n", table);
+		printf("free_directory() proc owned table %x\n", table);
 
 		//this page table belonged to the dead process alone
 		//free pages in table
-		/*
 		for (int j = 0; j < 1024; j++) {
 			page_t page = table->pages[j];
 			free_frame(&page);
 		}
-		*/
 
 		//free table itself
 		kfree(table);

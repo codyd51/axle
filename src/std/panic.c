@@ -4,12 +4,31 @@
 #include <stdarg.h>
 #include <std/std.h>
 
+void pretty_print_frame(void* func) {
+	uint32_t addr = (uint32_t)func;
+	if (!addr) {
+		return; 
+	} 
+	char* sym = elf_sym_lookup(kern_elf(), addr); 
+	printf("%s ", sym); 
+	int spaces_needed = 16 - strlen(sym); 
+	for (int i = 0; i < spaces_needed; i++) { 
+		printf(" "); 
+	} 
+	printf("@ %x ", addr);
+	//hack!
+	if (addr < 0x8048080) {
+		printf("[KERN]");
+	}
+	else {
+		printf("[ELF ]");
+	}
+	printf("\n");
+}
+
 // Until we have a better way to print stack traces...
 #define TRY_PRINT_FRAME(num) do { \
-	if(__builtin_frame_address(num) == 0) { \
-		return; \
-	} \
-	printf("[%d] %x\n", num, __builtin_return_address(num)); \
+	pretty_print_frame(__builtin_return_address(num)); \
 } while(0)
 
 #pragma GCC diagnostic push
