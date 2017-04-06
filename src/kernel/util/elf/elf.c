@@ -3,7 +3,6 @@
 #include <std/std.h>
 #include <std/printf.h>
 #include <std/kheap.h>
-#include <kernel/util/vfs/fs.h>
 #include <kernel/util/paging/paging.h>
 #include <kernel/util/multitasking/tasks/task.h>
 
@@ -11,19 +10,15 @@ static bool elf_check_magic(elf_header* hdr) {
 	if (!hdr) return false;
 
 	if (hdr->ident[EI_MAG0] != ELFMAG0) {
-		printf_err("ELF parser: EI_MAG0 (%d) incorrect", hdr->ident[EI_MAG0]);
 		return false;
 	}
 	if (hdr->ident[EI_MAG1] != ELFMAG1) {
-		printf_err("ELF parser: EI_MAG1 (%d) incorrect", hdr->ident[EI_MAG1]);
 		return false;
 	}
 	if (hdr->ident[EI_MAG2] != ELFMAG2) {
-		printf_err("ELF parser: EI_MAG2 (%d) incorrect", hdr->ident[EI_MAG2]);
 		return false;
 	}
 	if (hdr->ident[EI_MAG3] != ELFMAG3) {
-		printf_err("ELF parser: EI_MAG3 (%d) incorrect", hdr->ident[EI_MAG3]);
 		return false;
 	}
 	return true;
@@ -31,61 +26,44 @@ static bool elf_check_magic(elf_header* hdr) {
 
 static bool elf_check_supported(elf_header* hdr) {
 	if (hdr->ident[EI_CLASS] != ELFCLASS32) {
-		printf_err("ELF parser: Unsupported file class");
 		return false;
 	}
 	if (hdr->ident[EI_DATA] != ELFDATA2LSB) {
-		printf_err("ELF parser: Unsupported byte order");
 		return false;
 	}
 	if (hdr->machine != EM_386) {
-		printf_err("ELF parser: Unsupported target");
 		return false;
 	}
 	if (hdr->ident[EI_VERSION] != EV_CURRENT) {
-		printf_err("ELF parser: Unsupported version");
 		return false;
 	}
 	if (hdr->type != ET_REL && hdr->type != ET_EXEC) {
-		printf_err("ELF parser: Unsupported file type");
 		return false;
 	}
 	return true;
 }
 
-bool elf_validate(elf_header* hdr) {
+bool elf_validate_header(elf_header* hdr) {
 	if (!elf_check_magic(hdr)) {
-		printf_err("ELF parser: Invalid ELF magic");
 		return false;
 	}
 	if (!elf_check_supported(hdr)) {
-		printf_err("ELF parser: File not supported");
 		return false;
 	}
 	return true;
 }
 
-int execve(const char *filename, char *const argv[], char *const envp[]) {
-	printk("Loading ELF %s\n", filename);
-	FILE* elf = fopen(filename, "r");
-	if (!elf) {
-		printf_err("Couldn't find file %s", filename);
-		sys__exit(1);
+bool elf_validate(FILE* file) {
+	char buf[sizeof(elf_header)];
+	fseek(file, 0, SEEK_SET);
+	///fread(&buf, sizeof(elf_header), 1, file);
+	for (int i = 0; i < sizeof(elf_header); i++) {
+		buf[i] = fgetc(file);
 	}
+	elf_header* hdr = (elf_header*)(&buf);
 
-	//find file size
-	fseek(elf, 0, SEEK_END);
-	uint32_t size = ftell(elf);
-	fseek(elf, 0, SEEK_SET);
-
-	char* filebuf = kmalloc(size);
-	for (int i = 0; i < size; i++) {
-		filebuf[i] = fgetc(elf);
-	}
-	elf_load_file(filename, filebuf, size, argv);
-
-	//we should never reach this point
-	sys__exit(1);
+	fseek(file, 0, SEEK_SET);
+	return elf_validate_header(hdr);
 }
 
 bool elf_load_segment(unsigned char* src, elf_phdr* seg) {
@@ -189,9 +167,19 @@ static void alloc_bss(elf_s_header* shdr, int* prog_break, int* bss_loc) {
 	*bss_loc = shdr->addr;
 }
 
-void* elf_load_file(char* name, void* file, uint32_t binary_size, char** argv) {
-	elf_header* hdr = (elf_header*)file;
-	if (!elf_validate(hdr)) {
+void elf_load_file(char* name, FILE* elf, char** argv) {
+	//find file size
+	fseek(elf, 0, SEEK_END);
+	uint32_t binary_size = ftell(elf);
+	fseek(elf, 0, SEEK_SET);
+
+	char* filebuf = kmalloc(binary_size);
+	for (int i = 0; i < binary_size; i++) {
+		filebuf[i] = fgetc(elf);
+	}
+
+	elf_header* hdr = (elf_header*)filebuf;
+	if (!elf_validate_header(hdr)) {
 		return;
 	}
 
@@ -202,10 +190,10 @@ void* elf_load_file(char* name, void* file, uint32_t binary_size, char** argv) {
 	for (uint32_t x = 0; x < hdr->shentsize * hdr->shnum; x += hdr->shentsize) {
 		if (hdr->shoff + x > binary_size) {
 			printf("Tried to read beyond the end of the file.\n");
-			return NULL;
+			return;
 		}
 
-		elf_s_header* shdr = (elf_s_header*)((uintptr_t)file + (hdr->shoff + x));
+		elf_s_header* shdr = (elf_s_header*)((uintptr_t)filebuf + (hdr->shoff + x));
 		char* section_name = (char*)((uintptr_t)string_table + shdr->name);
 
 		//alloc memory for .bss segment
@@ -214,8 +202,8 @@ void* elf_load_file(char* name, void* file, uint32_t binary_size, char** argv) {
 		}
 	}
 
-	uint32_t entry = elf_load_small(file);
-	kfree(file);
+	uint32_t entry = elf_load_small(filebuf);
+	kfree(filebuf);
 
 	if (entry) {
 		task_t* elf = task_with_pid(getpid());
@@ -242,7 +230,6 @@ void* elf_load_file(char* name, void* file, uint32_t binary_size, char** argv) {
 	}
 	else {
 		printf_err("ELF wasn't loadable!");
-		printk_err("ELF wasn't loadable!");
 		return;
 	}
 }

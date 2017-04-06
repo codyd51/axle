@@ -87,6 +87,10 @@ typedef struct task {
 	//stdin/stdout/stderr
 	//(all of these map to the same backing stream)
 	struct std_stream* std_stream;
+
+	//virtual memory 'slide'
+	//offset in virtual memory where this program is to be placed
+	uint32_t vmem_slide;
 } task_t;
 
 //initializes tasking system

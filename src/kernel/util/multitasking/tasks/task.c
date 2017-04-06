@@ -216,6 +216,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 
 	task->state = RUNNABLE;
 	task->wake_timestamp = 0;
+	task->vmem_slide = 0;
 
 	return task;
 }
