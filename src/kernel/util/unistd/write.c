@@ -13,13 +13,18 @@ int std_write(task_t* task, int fd, const void* buf, int len) {
 	return i;
 }
 
-int write(int fd, const void* buf, int len) {
+int write(int fd, char* buf, int len) {
 	if (!tasking_installed()) {
 		return -1;
 	}
 	if (!len) return 0;
 
+	//translate address if binary is mapped at an offset in memory
 	task_t* current = task_with_pid(getpid());
+	if (current->vmem_slide) {
+		buf += current->vmem_slide;
+	}
+
 	fd_entry ent = current->fd_table[fd];
 	if (fd_empty(ent)) {
 		//errno = EBADF;
