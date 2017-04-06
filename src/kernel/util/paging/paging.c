@@ -137,6 +137,14 @@ void vmem_map(uint32_t virt, uint32_t physical) {
 	printf_info("Mapping %x (%x) -> %x", virt, id, physical);
 }
 
+page_directory_t* page_dir_kern() {
+	return kernel_directory;
+}
+
+page_directory_t* page_dir_current() {
+	return current_directory;
+}
+
 //function to allocate a frame
 bool alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 	if (page->frame != 0) {

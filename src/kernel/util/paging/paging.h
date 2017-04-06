@@ -67,4 +67,7 @@ int munmap(void* addr, uint32_t length);
 int brk(void* addr);
 void* sbrk(int increment);
 
+page_directory_t* page_dir_kern();
+page_directory_t* page_dir_current();
+
 #endif
