@@ -117,20 +117,12 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//utilities
 	paging_install();
 
-	//init ramdisk filesystem,
-	//map ramdisk to 0xE0000000
+	//map ramdisk to 0xE0001000
 	//heap max addr is at 0xDFFFF000, so this is placed just after that
-	int initrd_size = initrd_end - initrd_loc;
-	int initrd_vmem = 0xE0000000;
-	//virtual_map_pages(initrd_vmem, initrd_size, 1, 1);
-
-	printf("map initrd from: [%x -> %x]\n             to: [%x -> %x]\n", initrd_loc, initrd_end, initrd_vmem, initrd_vmem + initrd_size);
-	for (int i = 0; i < initrd_size + 0x1000; i += 0x1000) {
-		memcpy(initrd_vmem + i, initrd_loc + i, 0x1000);
-	}
-	//and set up filesystem root
-	fs_root = initrd_install(initrd_vmem);
-
+	//relocated stack is 0xE0000000
+	//stack grows downwards, so anything above 0xE0000000 should be unused
+	//just to be safe, skip a page 
+	initrd_install(initrd_loc, initrd_end, 0xE0001000);
 	sys_install();
 
 	//choose scheduler policy here!

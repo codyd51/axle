@@ -18,8 +18,9 @@ typedef struct {
 } initrd_file_header_t;
 
 //initializes initial ramdisk
-//gets passed address of multiboot module,
-//and returns completed filesystem node
-fs_node_t* initrd_install(uint32_t location);
+//gets passed address range of multiboot module,
+//sets up filesystem root,
+//and remaps initrd module to initrd_vmem
+void initrd_install(int initrd_loc, int initrd_end, int initrd_vmem);
 
 #endif
