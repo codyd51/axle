@@ -2,39 +2,68 @@
 #include <std/std.h>
 #include "macho.h"
 #include <kernel/util/vfs/fs.h>
+#include <kernel/util/multitasking/tasks/task.h>
 
-//tee hee
-static char* mach_slide = 0xEFF00000;
-void mach_load_segments(FILE* mach);
+void mach_load_segments(FILE* mach, int* entry_point, uint32_t slide);
 
 void mach_load_file(char* filename) {
-	printf("Loading Mach-O file \'%s\'\n", filename);
+	printk("Loading Mach-O file \'%s\'\n", filename);
+
+	//figure out virtual memory slide
+	char* mach_slide = 0xEFF00000;
+	task_t* mach_task = task_with_pid(getpid());
+	mach_task->vmem_slide = mach_slide;
 
 	FILE* mach = fopen(filename, "rb");
-	mach_load_segments(mach);
-
-	//TODO fix this!
-	//find entry point from TEXT section
-	char* mach_entry = 0x1f37 + mach_slide;
-	int(*mach_main)(void) = (int(*)(void))mach_entry;
-	int pid = fork();
-	if (!pid) {
-		printf("jumping to mach main @ %x\n", mach_entry);
-		mach_main();
-		ASSERT(0, "returned from mach-o binary!\n");
-	}
-	int status;
-	waitpid(pid, &status, NULL);
-	printf("Mach-O exited with status %x\n", status);
-
+	int entry_point = 0;
+	mach_load_segments(mach, &entry_point, mach_task->vmem_slide);
 	fclose(mach);
+
+	if (entry_point == NULL) {
+		printf_err("Couldn't find mach-o entry point");
+		return;
+	}
+
+	void* mach_entry = entry_point + mach_task->vmem_slide;
+	int(*mach_main)(void) = (int(*)(void))mach_entry;
+
+	printf("jumping to mach main @ %x\n\n", mach_entry);
+	mach_main();
+
+	ASSERT(0, "returned from mach-o binary!\n");
 }
 
 static uint32_t mach_read_magic(FILE* mach, int offset) {
 	uint32_t magic;
 	fseek(mach, offset, SEEK_SET);
 	fread(&magic, sizeof(uint32_t), 1, mach);
+
+	fseek(mach, offset, SEEK_SET);
+	char buf[4];
+	for (int i = 0; i < sizeof(buf); i++) {
+		buf[i] = fgetc(mach);
+	}
+	fseek(mach, offset, SEEK_SET);
+
 	return magic;
+}
+
+bool mach_validate(FILE* mach) {
+	//uint32_t magic = mach_read_magic(mach, 0);
+	fseek(mach, 0, SEEK_SET);
+	unsigned char buf[4] = {0};
+	for (int i = 0; i < sizeof(buf); i++) {
+		buf[i] = fgetc(mach);
+	}
+	fseek(mach, 0, SEEK_SET);
+
+	if (buf[0] == 0xce &&
+		buf[1] == 0xfa &&
+		buf[2] == 0xed &&
+		buf[3] == 0xfe) {
+		return true;
+	}
+	return false;
 }
 
 static bool mach_magic_64(uint32_t magic) {
@@ -52,7 +81,7 @@ static void* mach_load_bytes(FILE* mach, int offset, int size) {
 	return buf;
 }
 
-static void mach_load_segment_commands(FILE* mach, int offset, int should_swap, int count, char* buf) {
+static void mach_load_segment_commands(FILE* mach, int offset, int should_swap, int count, char* buf, int* entry_point, uint32_t slide) {
 	int real = offset;
 	for (int i = 0; i < count; i++) {
 		struct load_command* cmd = mach_load_bytes(mach, real, sizeof(struct load_command));
@@ -64,36 +93,35 @@ static void mach_load_segment_commands(FILE* mach, int offset, int should_swap, 
 			if (should_swap) {
 				//swap_segment_command(segment, 0);
 			}
+			/*
 			printf("Segment[%d] = %s [%x to %x], %d sections\n", i, 
 													segment->segname, 
-													mach_slide + segment->vmaddr, 
-													mach_slide + segment->vmaddr + segment->vmsize,
+													slide + segment->vmaddr, 
+													slide + segment->vmaddr + segment->vmsize,
 													segment->nsects);
+													*/
 
 			char* segment_start = buf + segment->fileoff;
-			char* vmem_seg_start = mach_slide + segment->vmaddr;
+			char* vmem_seg_start = slide + segment->vmaddr;
 			memset(vmem_seg_start, 0, segment->vmsize);
 			memcpy(vmem_seg_start, segment_start, segment->filesize);
 
 			if (segment->nsects) {
-				/*
 				for (int j = 0; j < segment->nsects; j++) {
-					char* chbuf = (char*)segment + sizeof(struct segment_command);
-					chbuf += (segment->cmdsize * j);
-					struct section* sect = (struct section*)chbuf;
-					printf("    Section[%d] = %s addr %x size %x\n", j, sect->sectname, sect->addr, sect->size);
+					int sect_offset = real + sizeof(struct segment_command) + (sizeof(struct section) * j); 
+					struct section* sect = mach_load_bytes(mach, sect_offset, sizeof(struct section));
+					//printf("    %s section %d: addr %x size %x\n", sect->segname, j, sect->addr, sect->size);
+
+					//if this seems to be the entry point, record it
+					//TODO check for LC_MAIN once we port libSystem and don't have to define our own entry point
+					//this is just a hack
+					//we assume that if section is in the TEXT segment, that the first addr will be the entry point
+					if (strstr(sect->segname, "TEXT") && !(*entry_point)) {
+						*entry_point = sect->addr;
+					}
+					kfree(sect);
 				}
-				*/
-				//putchar('\n');
 			}
-			/*
-			if (strstr(segment->segname, "TEXT")) {
-				for (int i = 0; i < 20; i+=4) {
-					if (i % 8 == 0) putchar('\n');
-					printf("%x ", vmem_seg_start[i]);
-				}
-			}
-			*/
 
 			kfree(segment);
 		}
@@ -130,7 +158,7 @@ static const char* cpu_type_name(cpu_type_t cpu_type) {
 	return "unknown";
 }
 
-static void mach_load_from_header(FILE* mach, int offset, int is_64, int should_swap, char* filebuf) {
+static void mach_load_from_header(FILE* mach, int offset, int is_64, int should_swap, char* filebuf, int* entry_point, uint32_t slide) {
 	uint32_t cmds_count = 0;
 	int load_commands_offset = offset;
 
@@ -148,16 +176,18 @@ static void mach_load_from_header(FILE* mach, int offset, int is_64, int should_
 		cmds_count = header->ncmds;
 		load_commands_offset += sizeof(struct mach_header);
 
+		/*
 		printf("CPU type: %s (%s)\n", cpu_type_name(header->cputype),
 									  (header->cputype == CPU_TYPE_I386) ? "Supported" :
 																			"Unsupported");
+		*/
 
 		kfree(header);
 	}
-	mach_load_segment_commands(mach, load_commands_offset, should_swap, cmds_count, filebuf);
+	mach_load_segment_commands(mach, load_commands_offset, should_swap, cmds_count, filebuf, entry_point, slide);
 }
 
-void mach_load_segments(FILE* mach) {
+void mach_load_segments(FILE* mach, int* entry_point, uint32_t slide) {
 	uint32_t magic = mach_read_magic(mach, 0);
 	bool is_64 = mach_magic_64(magic);
 	bool should_swap = mach_swap_bytes(magic);
@@ -173,7 +203,7 @@ void mach_load_segments(FILE* mach) {
 		filebuf[i] = fgetc(mach);
 	}
 
-	mach_load_from_header(mach, 0, is_64, should_swap, filebuf);
+	mach_load_from_header(mach, 0, is_64, should_swap, filebuf, entry_point, slide);
 	kfree(filebuf);
 }
 

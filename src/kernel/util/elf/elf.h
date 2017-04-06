@@ -2,6 +2,8 @@
 #define ELF_H
 
 #include <stdint.h>
+#include <stdbool.h>
+#include <kernel/util/vfs/fs.h>
 
 #define ELF_RELOC_ERR -1
 
@@ -142,8 +144,7 @@ enum elf_rt_types {
 #define PT_INTERP	3
 
 
-void* elf_load_file(char* filename, void* file, uint32_t size, char** argv);
-
-int execve(const char *filename, char *const argv[], char *const envp[]);
+bool elf_validate(FILE* file);
+void elf_load_file(char* filename, FILE* file, char** argv);
 
 #endif

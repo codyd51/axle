@@ -2,6 +2,7 @@
 #define MACH_O_H
 
 #include <stdint.h>
+#include <kernel/util/vfs/fs.h>
 
 typedef int integer_t;
 typedef integer_t	cpu_type_t;
@@ -106,6 +107,7 @@ struct load_command {
 	uint32_t cmdsize;
 };
 
+bool mach_validate(FILE* mach);
 void mach_load_file(char* filename);
 
 #endif
