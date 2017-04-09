@@ -283,7 +283,42 @@ void paging_install() {
 	//expand(0x1000000, kheap);
 
 	current_directory = clone_directory(kernel_directory);
-	switch_page_directory(current_directory);
+	switch_page_directory(current_directory);	
+
+	page_regions_print(current_directory);
+}
+
+void page_regions_print(page_directory_t* dir) {
+	if (!dir) return;
+	printf("page directory %x regions:\n", dir);
+
+	uint32_t run_start = -1;
+	for (int i = 0; i < 1024; i++) {
+		page_table_t* tab = dir->tables[i];
+		if (!tab) continue;
+
+		for (int j = 0; j < 1024; j++) {
+			if (tab->pages[j].present) {
+				//page present
+				//start run if we're not in one
+				if (run_start == -1) {
+					run_start = tab->pages[j].frame * 0x1000;
+				}
+			}
+			else {
+				//are we in a run?
+				if (run_start != -1) {
+					//run finished!
+					//run ends on previous page
+					uint32_t run_end = (tab->pages[j-1].frame * 0x1000);
+					printf("[%x - %x]\n", run_start, run_end);
+
+					//reset run state
+					run_start = -1;
+				}
+			}
+		}
+	}
 }
 
 void *mmap(void *addr, uint32_t length, int flags, int fd, uint32_t offset) {

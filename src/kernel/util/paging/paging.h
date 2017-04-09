@@ -70,4 +70,9 @@ void* sbrk(int increment);
 page_directory_t* page_dir_kern();
 page_directory_t* page_dir_current();
 
+//debug function to print regions
+//of in-use pages in a page directory
+void page_regions_print(page_directory_t* dir);
+
+
 #endif
