@@ -291,7 +291,12 @@ void destroy_task(task_t* task) {
 	unlist_task(task);
 	//printf_info("%s[%d] destroyed.", task->name, task->id);
 	//free task's page directory
-	//free_directory(task->page_dir);
+	free_directory(task->page_dir);
+	array_m_destroy(task->child_tasks);
+	std_stream_destroy(task);
+
+	kfree(task->name);
+	kfree(task);
 }
 
 void reap_task(task_t* tmp) {
