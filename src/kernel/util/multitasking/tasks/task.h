@@ -10,6 +10,12 @@
 #define KERNEL_STACK_SIZE 2048 //use 2kb kernel stack
 #define FD_MAX 64
 
+//if a task has PROC_MASTER_PERMISSION set, 
+//it is allowed to use task_with_pid
+//this flag is set through a program's Info.plist
+//<param proc_master="allow"/>
+#define PROC_MASTER_PERMISSION 1 << 0
+
 typedef enum task_state {
     RUNNABLE = 0,
 	ZOMBIE, //intermediate state after task finishes executing before being flushed from system
@@ -91,6 +97,9 @@ typedef struct task {
 	//virtual memory 'slide'
 	//offset in virtual memory where this program is to be placed
 	uint32_t vmem_slide;
+
+	//bitmap of privileged actions this task can perform
+	uint32_t permissions;
 } task_t;
 
 //initializes tasking system
@@ -151,6 +160,8 @@ void resign_first_responder();
 //find task_t associated with PID 'pid'
 //returns NULL if no task_t with given PID exists
 task_t* task_with_pid(int pid);
+task_t* task_with_pid_auth(int pid);
+task_t* task_current();
 
 //suspend execution until child process terminates
 int waitpid(int pid, int* status, int options);

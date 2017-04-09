@@ -222,6 +222,21 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 }
 #pragma GCC diagnostic pop
 
+task_t* task_with_pid_auth(int pid) {
+	//first, ensure this task is allowed to do this!
+	//permission to use task_with_pid is controlled by the PROC_MASTER_PERMISSION flag
+	//only check if this is a non-kernel task
+	//check for .bss segment as heuristic for whether this is an external program
+	if (current_task->prog_break) {
+		if (!(current_task->permissions & PROC_MASTER_PERMISSION)) {
+			printf_err("%s[%d] is not authorized to use task_with_pid!", current_task->name, getpid());
+			return NULL;
+		}
+	}
+	//operation permitted
+	return task_with_pid(pid);
+}
+
 task_t* task_with_pid(int pid) {
 	task_t* tmp = active_list;
 	while (tmp != NULL) {
@@ -231,6 +246,10 @@ task_t* task_with_pid(int pid) {
 		tmp = tmp->next;
 	}
 	return NULL;
+}
+
+task_t* task_current() {
+	return current_task;
 }
 
 void add_process(task_t* task) {
