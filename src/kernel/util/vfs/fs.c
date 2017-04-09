@@ -81,6 +81,11 @@ FILE* fopen(char* filename, char* mode) {
 }
 #pragma GCC diagnostic pop
 
+int open(char* filename, int oflag) {
+	FILE* f = fopen(filename, "rw");
+	return f->fd;
+}
+
 void fclose(FILE* stream) {
 	kfree(stream);
 }

@@ -3,8 +3,7 @@
 #include <std/printf.h>
 #include <kernel/util/paging/paging.h>
 #include <kernel/util/elf/elf.h>
-#include <kernel/util/unistd/read.h>
-#include <kernel/util/unistd/write.h>
+#include <kernel/util/unistd/unistd.h>
 
 void yield(task_state reason) {
 	if (!tasking_installed()) return;
@@ -37,7 +36,7 @@ int sysfork() {
 
 DEFN_SYSCALL0(kill,		0);
 DEFN_SYSCALL3(execve,	1, char*		, char**, char**);
-DEFN_SYSCALL2(fopen,	2, const char*	, int);
+DEFN_SYSCALL2(open,		2, const char*	, int);
 DEFN_SYSCALL3(read,		3, int			, char*	, size_t);
 DEFN_SYSCALL2(output,	4, int			, char*);
 DEFN_SYSCALL1(yield,	5, task_state);
@@ -51,11 +50,12 @@ DEFN_SYSCALL1(_exit,   12, int);
 DEFN_SYSCALL0(fork,	   13);
 DEFN_SYSCALL0(getpid,  14);
 DEFN_SYSCALL3(waitpid, 15,	 int		, int*,	  int);
+DEFN_SYSCALL1(task_with_pid, 16,	 int);
 
 void create_sysfuncs() {
 	sys_insert((void*)&_kill);
 	sys_insert((void*)&execve);
-	sys_insert((void*)&fopen);
+	sys_insert((void*)&open);
 	sys_insert((void*)&read);
 	sys_insert((void*)&output);
 	sys_insert((void*)&yield);
@@ -69,5 +69,6 @@ void create_sysfuncs() {
 	sys_insert((void*)&sysfork);
 	sys_insert((void*)&getpid);
 	sys_insert((void*)&waitpid);
+	sys_insert((void*)&task_with_pid_auth);
 }
 

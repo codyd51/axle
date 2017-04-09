@@ -26,7 +26,7 @@ DECL_SYSCALL3(read, int, void*, size_t);
 
 DECL_SYSCALL0(kill);
 DECL_SYSCALL3(exec,		char*		, char**, char**);
-DECL_SYSCALL2(fopen,	const char*	, int);
+DECL_SYSCALL2(open,		const char*	, int);
 DECL_SYSCALL3(read,		int			, char*	, size_t);
 DECL_SYSCALL2(output,	int			, char*);
 DECL_SYSCALL1(yield,	task_state);
@@ -38,5 +38,6 @@ DECL_SYSCALL3(write,	int			, char*,  int);
 DECL_SYSCALL0(fork);
 DECL_SYSCALL0(getpid);
 DECL_SYSCALL3(waitpid,	int			, int*,	  int);
+DECL_SYSCALL1(task_with_pid,	int);
 
 #endif
