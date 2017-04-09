@@ -217,7 +217,7 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 		//calculate argc count
 		int argc = 0;
 		char* tmp = argv[argc];
-		while (argv[argc+1] != NULL) {
+		while (argv[argc] != NULL) {
 			argc++;
 		}
 
