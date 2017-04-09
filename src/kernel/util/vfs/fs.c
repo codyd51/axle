@@ -1,6 +1,7 @@
 #include "fs.h"
 #include <std/std.h>
 #include <std/math.h>
+#include <kernel/util/multitasking/fd_entry.h>
 
 fs_node_t* fs_root = 0; //filesystem root
 
@@ -56,6 +57,12 @@ fs_node_t* finddir_fs(fs_node_t* node, char* name) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 FILE* fopen(char* filename, char* mode) {
+	//skip preceding ./
+	//TODO properly traverse file paths
+	while (!isalpha(*filename)) {
+		filename++;
+	}
+
 	fs_node_t* file = finddir_fs(fs_root, filename);
 	if (!file) {
 		return NULL;
@@ -64,6 +71,12 @@ FILE* fopen(char* filename, char* mode) {
 	memset(stream, 0, sizeof(FILE));
 	stream->node = file;
 	stream->fpos = 0;
+
+	fd_entry file_fd;
+	file_fd.type = FILE_TYPE;
+	file_fd.payload = stream;
+	stream->fd = fd_add(task_with_pid(getpid()), file_fd);
+
 	return stream;
 }
 #pragma GCC diagnostic pop

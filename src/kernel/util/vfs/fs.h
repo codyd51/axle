@@ -50,6 +50,7 @@ typedef struct fs_node {
 typedef struct file_t {
 	uint32_t fpos;
 	fs_node_t* node;
+	int fd;
 } FILE;
 
 struct dirent {
