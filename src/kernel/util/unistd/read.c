@@ -12,17 +12,17 @@ int std_read(task_t* task, int fd, void* buf, int count) {
 
 	for (; i < count - 1; i++) {
 		char ch = std_stream_popc(task);
+		chbuf[i] = ch;
 		if (ch == -1) {
 			//no more items to read!
 			break;
 		}
-		chbuf[i] = ch;
 
 		if (ch == '\n' || ch == '\0') {
 			break;
 		}
 	}
-	return i;
+	return i+1;
 }
 
 uint32_t read(int fd, void* buf, uint32_t count) {

@@ -411,7 +411,7 @@ page_t* get_page(uint32_t address, int make, page_directory_t* dir) {
 	else if (make) {
 		uint32_t tmp;
 		dir->tables[table_idx] = (page_table_t*)kmalloc_ap(sizeof(page_table_t), &tmp);
-		memset(dir->tables[table_idx], 0, 0x1000);
+		memset(dir->tables[table_idx], 0, sizeof(page_table_t));
 		//PRESENT, RW, US
 		dir->tablesPhysical[table_idx] = tmp | 0x7;
 		return &dir->tables[table_idx]->pages[address%1024];

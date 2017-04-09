@@ -5,5 +5,6 @@
 #include "write.h"
 #include "close.h"
 #include "dup.h"
+#include "exec.h"
 
 #endif

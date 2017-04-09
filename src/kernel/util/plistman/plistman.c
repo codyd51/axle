@@ -1,6 +1,7 @@
 #include "plistman.h"
 #include <kernel/util/yxml/yxml.h>
 #include <std/kheap.h>
+#include <std/memory.h>
 
 #define BUFSIZE 1024
 #define PROC_MASTER_PERMISSION 1 << 0

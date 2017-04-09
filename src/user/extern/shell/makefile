@@ -7,5 +7,5 @@ CFLAGS = -I$(SYSROOT)/usr/include -g -L$(SYSROOT)/usr/lib -Wl,-Bstatic -lc -nost
 
 .ONESHELL:
 shell: shell.c lib/iberty/iberty.c
-	$(CC) $(CFLAGS) $(DIR)/crt0.o shell.c lib/iberty/iberty.c -o shell; \
-	mv shell $(DIR)/initrd;
+	$(CC) $(CFLAGS) $(DIR)/crt0.o shell.c lib/iberty/iberty.c -o ash; \
+	mv ash $(DIR)/initrd;

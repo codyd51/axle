@@ -11,14 +11,31 @@
 #include <ctype.h>
 
 void prompt() {
-	printf("me@axle[%d] /$ ", getpid());
+	printf("wheel@ash[%d] /$ ", getpid());
 	fflush(stdout);
 }
 
 int get_inputstring(char* buf, int len) {
 	memset(buf, 0, len);
 
-	int count = read(0, buf, len);
+	int i = 0;
+	for (; i < len; i++) {
+		char ch = getchar();
+		buf[i] = ch;
+		buf[i+1] = '\0';
+		if (ch == '\n' || ch == EOF || ch == -1) {
+			break;
+		}
+		else if (ch == '\b') {
+			//decrement i to delete previous char
+			i--;
+			buf[i] = '\0';
+			//decrement again to reset cursor position
+			i--;
+			continue;
+		}
+	}
+	int count = i;
 	buf[count] = '\0';
 	return count;
 }
@@ -68,6 +85,7 @@ int process_command(char* input) {
 		int pid = fork();
 		if (!pid) {
 			FILE* attempt = fopen(input, "r");
+			
 			if (attempt) {
 				fclose(attempt);
 				execve(argv[0], argv, 0);
