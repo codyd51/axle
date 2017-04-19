@@ -129,18 +129,18 @@ void draw_rect(ca_layer* layer, Rect r, Color color, int thickness) {
 	int y = r.origin.y;
 	int w = r.size.width;
 	int h = r.size.height;
-	for (int i = 0; i <= thickness; i++) {
-		Point origin = point_make(x, y);
-		Size size = size_make(w, h);
-		Rect rt = rect_make(origin, size);
+	Point origin = point_make(r.origin.x, r.origin.y);
+	Size size = size_make(r.size.width, r.size.height);
+	Rect rt = rect_make(origin, size);
 
+	for (int i = 0; i <= thickness; i++) {
 		draw_rect_int(layer, rt, color);
 
 		//decrement values for next shell
-		x++;
-		y++;
-		w -= 2;
-		h -= 2;
+		rt.origin.x++;
+		rt.origin.y++;
+		rt.size.width -= 2;
+		rt.size.height -= 2;
 	}
 }
 #pragma GCC diagnostic push
@@ -201,6 +201,7 @@ void draw_vline_fast(ca_layer* layer, Line line, Color color, int thickness) {
 #pragma GCC diagnostic pop
 
 static void draw_rect_int(ca_layer* layer, Rect rect, Color color) {
+	/*
 	Line h1 = line_make(rect.origin, point_make(rect.origin.x + rect.size.width, rect.origin.y));
 	Line h2 = line_make(point_make(rect.origin.x, rect.origin.y + rect.size.height), point_make(rect.origin.x + rect.size.width, rect.origin.y + rect.size.height));
 	Line v1 = line_make(rect.origin, point_make(rect.origin.x, rect.origin.y + rect.size.height));
@@ -210,6 +211,15 @@ static void draw_rect_int(ca_layer* layer, Rect rect, Color color) {
 	draw_hline_fast(layer, h2, color, 1);
 	draw_vline_fast(layer, v1, color, 1);
 	draw_vline_fast(layer, v2, color, 1);
+	*/
+	for (int x = rect_min_x(rect); x < rect_max_x(rect); x++) {
+		putpixel(layer, x, rect_min_y(rect), color);
+		putpixel(layer, x, rect_max_y(rect) - 1, color);
+	}
+	for (int y = rect_min_y(rect); y < rect_max_y(rect); y++) {
+		putpixel(layer, rect_min_x(rect), y, color);
+		putpixel(layer, rect_max_x(rect) - 1, y, color);
+	}
 }
 
 void draw_line(ca_layer* layer, Line line, Color color, int thickness) {
