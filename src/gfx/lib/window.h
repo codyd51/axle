@@ -32,6 +32,7 @@ typedef struct window {
 	event_handler redraw_handler;
 
 	uint32_t last_draw_timestamp;
+	int owner_pid;
 } Window;
 
 Window* create_window(Rect frame);

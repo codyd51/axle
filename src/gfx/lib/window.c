@@ -35,7 +35,7 @@ static View* create_title_view(Window* window) {
 	add_button(title_view, minimize_button);
 
 	//add title label to title view
-	int label_length = MAX((int)strlen(window->title), 16) * CHAR_WIDTH;
+	int label_length = 20 * CHAR_WIDTH;
 	Rect label_frame = rect_make(point_make(rect_max_x(minimize_button->frame) + 15, title_view_frame.size.height / 2 - (CHAR_HEIGHT / 2)), size_make(label_length, CHAR_HEIGHT));
 	Label* title_label = create_label(label_frame, window->title);
 	title_label->text_color = color_black();
@@ -98,6 +98,12 @@ Window* create_window_int(Rect frame, bool root) {
 	window->needs_redraw = 1;
 	window->last_draw_timestamp = time();
 
+	//if this window was created by a call to xserv_win_create(),
+	//then we're in a syscall handler and getpid() will return the pid of the 
+	//proc that ran the syscall
+	//this is how we know when a user proc is connected to a window
+	window->owner_pid = getpid();
+
 	return window;
 }
 
@@ -125,12 +131,13 @@ void remove_subwindow(Window* window, Window* subwindow) {
 }
 
 void present_window(Window* window) {
+	float old_alpha = window->layer->alpha;
 	window->layer->alpha = 0.0;
 
 	Screen* current = gfx_screen();
 	add_subwindow(current->window, window);
 
-	float to = 1.0;
+	float to = old_alpha;
 	ca_animation* fade_in = create_animation(ALPHA_ANIM, &to, 0.25);
 	add_animation(window, fade_in);
 }
@@ -154,7 +161,6 @@ void kill_window(Window* window) {
 	//when animation finishes, perform real teardown
 	fade_out->finished_handler = (event_handler)kill_window_real;
 	add_animation(window, fade_out);
-	//kill_window_real(window, NULL);
 }
 
 void set_border_width(Window* window, int width) {
@@ -193,19 +199,21 @@ bool window_presented(Window* w) {
 bool draw_window(Window* window) {
 	//if window is invisible, don't bother drawing
 	if (!window->layer->alpha) return false;
+
+	//if window has a redraw handler, call it
+	if (window->redraw_handler) {
+		//draw_rect(window->content_view->layer, rect_make(point_zero(), window->content_view->frame.size), window->content_view->background_color, THICKNESS_FILLED);
+		event_handler redraw = window->redraw_handler;
+		redraw(window, NULL);
+		blit_layer(window->layer, window->content_view->layer, rect_make(window->content_view->frame.origin, window->layer->size), rect_make(point_zero(), window->content_view->frame.size));
+
+		window->last_draw_timestamp = time();
+
+		return true;
+	}
+
 	//if window doesn't need to be redrawn, no work to do
-	if (!window->needs_redraw) {
-		//however, if there's a redraw callback, call it
-		if (window->redraw_handler) {
-			//draw_rect(window->content_view->layer, rect_make(point_zero(), window->content_view->frame.size), window->content_view->background_color, THICKNESS_FILLED);
-			event_handler redraw = window->redraw_handler;
-			redraw(window, NULL);
-			blit_layer(window->layer, window->content_view->layer, rect_make(window->content_view->frame.origin, window->layer->size), rect_make(point_zero(), window->content_view->frame.size));
-
-			window->last_draw_timestamp = time();
-
-			return true;
-		}
+	if (window->layer->alpha == 1.0 && !window->needs_redraw) {
 		return false;
 	}
 
