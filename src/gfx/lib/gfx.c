@@ -119,6 +119,10 @@ void write_screen(Screen* screen) {
 
 void write_screen_region(Rect region) {
 	Screen* screen = gfx_screen();
+
+	//bind input region to screen size
+	region = rect_intersect(region, screen->window->frame);
+
 	//vsync();
 	uint8_t* raw_vmem = (uint8_t*)VBE_DISPI_LFB_PHYSICAL_ADDRESS;
 	uint8_t* raw_double_buf = screen->vmem->raw;
