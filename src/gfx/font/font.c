@@ -211,13 +211,17 @@ static char* link_hueristic(char* str) {
 }
 
 Size font_padding_for_size(Size s) {
-	const int factor = 8;
+	const int factor = 6;
 	return size_make(s.width / factor, s.height / factor);
 }
 
 void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font_size) {
 	//get a pointer to location of a web link in this string, if any
-	char* link_loc = link_hueristic(str);
+	//don't check if str is too short to be a URL
+	char* link_loc = NULL;
+	if (strlen(str) < 7) {
+		char* link_loc = link_hueristic(str);
+	}
 
 	int idx = 0;
 	int x = origin.x;
@@ -226,13 +230,28 @@ void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font
 
 	while (str[idx]) {
 		bool inserting_hyphen = false;
+		bool needs_newline = false;
 		//do we need to break a word onto 2 lines?
 		if ((x + font_size.width + padding.width + 1) >= dest->size.width) {
-			//don't bother if it was puncutation anyways
-			//also, don't hypenate if string is too short
-			if (str[idx] != ' ' && strlen(str) > 1) {
-				inserting_hyphen = true;
+			int word_len = 0;
+			for (int i = idx; i >= 0; i--) {
+				if (!isalnum(str[i])) {
+						break;
+				}
+				word_len++;
 			}
+			//if string is too short to hypenate, just add a newline
+			//don't bother if it was puncutation anyways
+			//if (!isalnum(str[idx])) {
+			if (1) {
+				if (word_len > 10000) {
+					needs_newline = true;
+				}
+				else {
+					inserting_hyphen = true;
+				}
+			}
+			//needs_newline = true;
 		}
 		else if (str[idx] == '\n') {
 			x = 0;
@@ -240,6 +259,8 @@ void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font
 			//quit if going to next line would exceed view bounds
 			if ((y + font_size.height + padding.height + 1) >= dest->size.height) break;
 			y += font_size.height + padding.height;
+			idx++;
+			continue;
 		}
 
 		//if this is a link, draw blue
