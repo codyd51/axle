@@ -1,7 +1,7 @@
 #include "fs.h"
 #include <std/std.h>
 #include <std/math.h>
-#include <kernel/util/multitasking/fd_entry.h>
+#include <kernel/util/multitasking/fd.h>
 
 fs_node_t* fs_root = 0; //filesystem root
 
@@ -56,14 +56,14 @@ fs_node_t* finddir_fs(fs_node_t* node, char* name) {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
-FILE* fopen(char* filename, char* mode) {
+FILE* fopen(const char* filename, char* mode) {
 	//skip preceding ./
 	//TODO properly traverse file paths
 	while (!isalpha(*filename)) {
 		filename++;
 	}
 
-	fs_node_t* file = finddir_fs(fs_root, filename);
+	fs_node_t* file = finddir_fs(fs_root, (char*)filename);
 	if (!file) {
 		return NULL;
 	}
@@ -81,7 +81,7 @@ FILE* fopen(char* filename, char* mode) {
 }
 #pragma GCC diagnostic pop
 
-int open(char* filename, int oflag) {
+int open(const char* filename, int oflag) {
 	FILE* f = fopen(filename, "rw");
 	return f->fd;
 }
@@ -135,18 +135,16 @@ char* fgets(char* buf, int count, FILE* stream) {
 }
 
 uint32_t fread(void* buffer, uint32_t size, uint32_t count, FILE* stream) {
-	unsigned char* chbuf = (unsigned char*)buffer;
+	char* chbuf = (char*)buffer;
 	uint32_t i = 0;
-	for (; i < count; i++) {
-		for (uint32_t j = 0; j < size; j++) {
-			int idx = (i * size) + j;
-			chbuf[idx] = fgetc(stream);
-			if (chbuf[idx] == EOF) {
-				break;
-			}
+	for (; i < count * size; i++) {
+		chbuf[i] = fgetc(stream);
+		if (chbuf[i] == EOF) {
+			break;
 		}
 	}
 	chbuf[i] = '\0';
+	i /= size;
 	return i;
 		/*
 		unsigned char buf;

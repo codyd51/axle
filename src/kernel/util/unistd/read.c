@@ -5,10 +5,15 @@
 #include <kernel/util/vfs/fs.h>
 #include <kernel/util/multitasking/std_stream.h>
 
+#include <gfx/lib/gfx.h>
+#include <gfx/lib/Window.h>
+#include <gfx/lib/Label.h>
+
 int std_read(task_t* task, int fd, void* buf, int count) {
 	char* chbuf = (char*)buf;
 	int i = 0;
 	//TODO implement newline_wait
+	//
 
 	for (; i < count - 1; i++) {
 		char ch = std_stream_popc(task);
@@ -22,6 +27,8 @@ int std_read(task_t* task, int fd, void* buf, int count) {
 			break;
 		}
 	}
+	//Window* xterm = xterm_get();
+	//std_write(task, fd, buf, i+1);
 	return i+1;
 }
 
