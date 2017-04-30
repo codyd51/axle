@@ -14,6 +14,10 @@ STDAPI long long int atoi(const char *c);
 /// Concatenate strings
 STDAPI char* strcat(char *dest, const char *src);
 
+
+/// Concatenate strings with a given maximum length to copy
+STDAPI char* strncat(char *dest, const char *src, int len);
+
 /// Concatenate char to string
 STDAPI char* strccat(char* dest, char src);
 

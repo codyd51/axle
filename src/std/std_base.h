@@ -7,9 +7,9 @@
 #endif // __linux__
 
 // OS only works for the 32-bit ix86 target
-#if !defined(__i386__)
-# error "OS must be compiled with a ix86-elf compiler."
-#endif // __i386__
+//#if !defined(__i386__)
+//# error "OS must be compiled with a ix86-elf compiler."
+//#endif // __i386__
 
 // Allow headers to work properly on both C and C++ compilers
 #ifdef __cplusplus

@@ -58,6 +58,16 @@ char* strcat(char *dest, const char *src) {
 	return dest;
 }
 
+char* strncat(char *dest, const char *src, int len) {
+	size_t i,j;
+	for (i = 0; dest[i] != '\0'; i++)
+			;
+	for (j = 0; src[j] != '\0' && j < len; j++)
+			dest[i+j] = src[j];
+	dest[i+j] = '\0';
+	return dest;
+}
+
 char* strccat(char* dest, char src) {
 	size_t i;
 	for (i = 0; dest[i] != '\0'; i++)
