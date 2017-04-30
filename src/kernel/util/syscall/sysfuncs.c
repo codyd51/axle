@@ -4,6 +4,11 @@
 #include <kernel/util/paging/paging.h>
 #include <kernel/util/elf/elf.h>
 #include <kernel/util/unistd/unistd.h>
+#include <user/xserv/api.h>
+#include <gfx/lib/gfx.h>
+#include <gfx/lib/window.h>
+#include <gfx/lib/rect.h>
+#include <user/xserv/xserv.h>
 
 void yield(task_state reason) {
 	if (!tasking_installed()) return;
@@ -52,6 +57,11 @@ DEFN_SYSCALL0(getpid,  14);
 DEFN_SYSCALL3(waitpid, 15,	 int		, int*,	  int);
 DEFN_SYSCALL1(task_with_pid, 16,	 int);
 
+DEFN_SYSCALL2(xserv_win_create, 17,	 Window*, Rect*);
+DEFN_SYSCALL1(xserv_win_present, 18, Window*);
+DEFN_SYSCALL1(xserv_win_destroy, 19, Window*);
+DEFN_SYSCALL0(xserv_init, 20);
+
 void create_sysfuncs() {
 	sys_insert((void*)&_kill);
 	sys_insert((void*)&execve);
@@ -70,5 +80,9 @@ void create_sysfuncs() {
 	sys_insert((void*)&getpid);
 	sys_insert((void*)&waitpid);
 	sys_insert((void*)&task_with_pid_auth);
+	sys_insert((void*)&xserv_win_create);
+	sys_insert((void*)&xserv_win_present);
+	sys_insert((void*)&xserv_win_destroy);
+	sys_insert((void*)&xserv_init);
 }
 

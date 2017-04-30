@@ -40,4 +40,9 @@ DECL_SYSCALL0(getpid);
 DECL_SYSCALL3(waitpid,	int			, int*,	  int);
 DECL_SYSCALL1(task_with_pid,	int);
 
+DECL_SYSCALL2(xserv_win_create,  Window*, Rect*);
+DECL_SYSCALL1(xserv_win_present, Window*);
+DECL_SYSCALL1(xserv_win_destroy, Window*);
+DECL_SYSCALL0(xserv_init);
+
 #endif

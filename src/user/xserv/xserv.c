@@ -15,13 +15,14 @@
 #include <user/programs/launcher.h>
 #include <user/programs/calculator.h>
 #include <user/programs/usage_monitor.h>
+#include <user/programs/jpeg.h>
 
 Window* create_window_int(Rect frame, bool is_root_window);
 
 //has the screen been modified this refresh?
 static char dirtied = 0;
 static volatile Window* active_window;
-const float shadow_count = 4.0;
+const int shadow_count = 3;
 
 void xserv_quit(Screen* screen) {
 	gfx_teardown(screen);
@@ -560,5 +561,18 @@ void xserv_fail() {
 	write_screen(screen);
 	sleep(5000);
 	kernel_end_critical();
+}
+
+void xserv_win_create(Window** out, Rect* frame) {
+	printf("xserv_win_create called out %x de %x frame %x\n", out, *out, frame);
+	*out = task_register_window(*frame);
+}
+
+void xserv_win_present(Window* win) {
+	present_window(win);
+}
+
+void xserv_win_destroy(Window* win) {
+	window_teardown(win);
 }
 
