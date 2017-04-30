@@ -36,7 +36,7 @@ void set_cr0(uint32_t cr0) {
 page_directory_t* get_cr3() {
 	uint32_t cr3;
 	asm volatile("mov %%cr3, %0" : "=r"(cr3));
-	return (page_directory_t*)cr3;
+	return (page_directory_t*)(long)cr3;
 }
 
 void set_cr3(page_directory_t* dir) {
@@ -83,7 +83,7 @@ static uint32_t test_frame(uint32_t frame_addr) {
 
 static uint32_t* page_from_frame(int32_t frame) {
 	int addr = frame * 0x1000;
-	return addr;
+	return (uint32_t*)(long)addr;
 }
 
 //static function to find the first free frame
@@ -398,11 +398,18 @@ void switch_page_directory(page_directory_t* dir) {
 	set_cr3(dir);
 }
 
+uint32_t vmem_from_frame(uint32_t phys) {
+	phys *= 0x1000;
+	return phys;
+}
+
 page_t* get_page(uint32_t address, int make, page_directory_t* dir) {
 	//turn address into an index
 	address /= 0x1000;
 	//find page table containing this address
 	uint32_t table_idx = address / 1024;
+
+	ASSERT(table_idx < 1024, "get_page called with unreasonable address %x\n", address);
 
 	//if this page is already assigned
 	if (dir->tables[table_idx]) {
@@ -412,6 +419,7 @@ page_t* get_page(uint32_t address, int make, page_directory_t* dir) {
 		uint32_t tmp;
 		dir->tables[table_idx] = (page_table_t*)kmalloc_ap(sizeof(page_table_t), &tmp);
 		memset(dir->tables[table_idx], 0, sizeof(page_table_t));
+		//printf("page_table_t alloc %d %x\n", table_idx, dir->tables[table_idx]);
 		//PRESENT, RW, US
 		dir->tablesPhysical[table_idx] = tmp | 0x7;
 		return &dir->tables[table_idx]->pages[address%1024];
@@ -426,15 +434,16 @@ void page_fault(registers_t regs) {
 	asm volatile("mov %%cr2, %0" : "=r" (faulting_address));
 
 	//error code tells us what happened
-	int present = regs.err_code & 0x1; //page not present
+	int present = !(regs.err_code & 0x1); //page not present
 	int rw = regs.err_code & 0x2; //write operation?
 	int us = regs.err_code & 0x4; //were we in user mode?
 	int reserved = regs.err_code & 0x8; //overwritten CPU-reserved bits of page entry?
 	int id = regs.err_code & 0x10; //caused by instruction fetch?
 
 	//if this page was present, attempt to recover by allocating the page
-	if (!present) {
+	if (present) {
 		bool attempt = alloc_frame(get_page(faulting_address, 1, current_directory), 1, 1);
+		//bool attempt = false;
 		if (attempt) {
 			//recovered successfully
 			//printf_info("allocated page at virt %x", faulting_address);
@@ -443,27 +452,16 @@ void page_fault(registers_t regs) {
 	}
 
 	//if execution reaches here, recovery failed or recovery wasn't possible
-	printf_err("Encountered page fault at %x", faulting_address);
-
-	if (present) printf_err("Page present");
-	else printf_err("Page not present");
-
-	if (rw) printf_err("Write operation");
-	else printf_err("Read operation");
-
-	if (us) printf_err("User mode");
-	else printf_err("Supervisor mode");
+	printf_err("page fault @ virt %x, flags: ", faulting_address);
+	printf_err("%spresent", present ? "" : "not ");
+	printf_err("%s operation", rw ? "write" : "read");
+	printf_err("%s mode", us ? "user" : "kernel");
 
 	if (reserved) printf_err("Overwrote CPU-resereved bits of page entry");
-
 	if (id) printf_err("Faulted during instruction fetch");
 
-	if (regs.eip != faulting_address) {
-		printf_err("Page fault caused by executing unpaged memory");
-	}
-	else {
-		printf_err("Page fault caused by reading unpaged memory");
-	}
+	bool caused_by_execution = (regs.eip == faulting_address);
+	printf_err("caused by %s unpaged memory", caused_by_execution ? "executing" : "reading");
 
 	extern void common_halt(registers_t regs, bool recoverable);
 	common_halt(regs, false);

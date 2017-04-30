@@ -99,11 +99,11 @@ void kb_callback(registers_t regs) {
 			scancodes = layout->shift_scancodes;
 		}
 
-		task_t* current = task_with_pid(getpid());
+		//task_t* current = task_with_pid(getpid());
+		task_t* current = first_responder();
 		if (current) {
 			std_stream_pushc(current, scancodes[scancode]);
 		}
-		putchar(scancodes[scancode]);
 
 		//inform OS of keypress
 		kbman_process(scancodes[scancode]);

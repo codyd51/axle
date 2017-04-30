@@ -15,6 +15,13 @@ int std_stream_pushc(task_t* task, char ch) {
 		return -1;
 	}
 	cb_push_back(buf, &ch);
+
+	//if an xterm is active, push this stdin
+	Window* term = xterm_get();
+	if (term) {
+		std_write(task, 1, &ch, 1);
+	}
+
 	return 0;
 }
 

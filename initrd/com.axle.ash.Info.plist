@@ -1,0 +1,5 @@
+<app>
+	<param id="com.axle.ash"/>
+	<param proc_master="allow"/>
+</app>
+

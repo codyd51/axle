@@ -4,6 +4,8 @@
 #include <std/panic.h>
 #include <kernel/util/paging/paging.h>
 #include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/util/plistman/plistman.h>
+#include <kernel/util/syscall/sysfuncs.h>
 
 typedef enum {
 	ELF_TYPE,
@@ -49,13 +51,52 @@ void wipe_page_tables(page_directory_t* page_dir) {
 		}
 		kfree(tab);
 		page_dir->tables[i] = NULL;
-		page_dir->tablesPhysical[i] = NULL;
+		page_dir->tablesPhysical[i] = 0;
 	}
 }
 
+static plist_t* find_plist(const char* filename) {
+	plist_t* plist = NULL;
+	struct dirent* ent;
+
+	int i = 0;
+	while ((ent = readdir_fs(fs_root, i++))) {
+		if (strstr(ent->name, filename) && strstr(ent->name, ".plist")) {
+			//plist found!
+			printf("found plist for %s: %s\n", filename, ent->name);
+			FILE* info = fopen(ent->name, "r");
+			plist = kmalloc(sizeof(plist_t));
+			plist_parse(plist, info);
+			fclose(info);
+			break;
+		}
+	}
+	return plist;
+}
+
 int execve(const char *filename, char *const argv[], char *const envp[]) {
+	task_t* current = task_current();
+	current->permissions = 0;
+
+	plist_t* program_plist = find_plist(filename);
+	if (program_plist) {
+		for (int i = 0; i < program_plist->key_count; i++) {
+			printf("%s = %s\n", program_plist->keys[i], program_plist->vals[i]);
+			if (!strcmp(program_plist->keys[i], "id")) {
+				current->name = strdup(program_plist->vals[i]);
+			}
+			if (!strcmp(program_plist->keys[i], "proc_master")) {
+				if (!strcmp(program_plist->vals[i], "allow")) {
+					current->permissions |= PROC_MASTER_PERMISSION;
+					printf_info("granting task \"%s\" proc_master-allow.", current->name); 
+					printf_info("this incident will be reported");
+				}
+			}
+		}
+		kfree(program_plist);
+	}
 	//clear page tables from fork()
-	task_t* current = task_with_pid(getpid());
+	//task_t* current = task_with_pid(getpid());
 	//wipe_page_tables(current->page_dir);
 
 	printk("Loading binary %s\n", filename);
@@ -66,6 +107,7 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 	}
 
 	program_type type = find_program_type(file);
+
 	//program_type type = ELF_TYPE;
 	if (type == UNKWN_TYPE) {
 		printf_err("%s was not executable", filename);
