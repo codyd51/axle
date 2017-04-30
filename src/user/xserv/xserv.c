@@ -102,57 +102,199 @@ static void draw_window_shadow(Screen* screen, Window* window, Point new) {
 	}
 }
 
+void draw_window_backdrop_segments(Screen* screen, Window* win, int segments) {
+#define LEFT_EDGE 0x1
+#define RIGHT_EDGE 0x2
+#define BOTTOM_EDGE 0x4
+	//draw gradient around bottom, left, and right edges of window
+	//gives 'depth' to windows
+	Rect draw = win->frame;
+	int max_dist = 10;
+	draw.origin.x -= 10;
+	draw.size.width += max_dist * 2;
+	draw.size.height += max_dist;
+
+	Color col = color_black();
+	//maximum alpha [0-255]
+	int darkest = 200;
+
+	for (int y = rect_min_y(draw); y < rect_max_y(draw); y++) {
+		//past bottom of window?
+		//only do bottom edge if that option is set
+		if (!(segments & BOTTOM_EDGE)) {
+			continue;
+		}
+
+		if (y < rect_min_y(win->frame) || y >= rect_max_y(win->frame)) {
+			for (int x = rect_min_x(draw); x < rect_max_x(draw); x++) {
+				int alpha = 0;
+				//deal with corners
+				if (x < rect_min_x(win->frame) || x >= rect_max_x(win->frame)) {
+					int x_dist = 0;
+					if (x < rect_min_x(win->frame)) {
+						//left corner
+						x_dist = rect_min_x(win->frame) - x;
+					}
+					else {
+						//right corner
+						x_dist = x - rect_max_x(win->frame);
+					}
+
+					int y_dist = 0;
+					if (y < rect_max_y(win->frame)) {
+						y_dist = rect_min_y(win->frame) - y;
+					}
+					else {
+						y_dist = y - rect_max_y(win->frame);
+					}
+
+					//distance formula to get distance from corner
+					float fact = (x_dist*x_dist) + (y_dist*y_dist);
+					float norm = sqrt(fact);
+					//invert intensity
+					norm = max_dist - norm;
+
+					alpha = (darkest / max_dist) * (norm);
+				}
+				//non-corner
+				else {
+					int y_dist = 0;
+					if (y < rect_min_y(win->frame)) {
+						y_dist = rect_min_y(win->frame) - y;
+					}
+					else {
+						y_dist = (y - rect_max_y(win->frame));
+					}
+					alpha = (darkest / max_dist) * (max_dist - y_dist);
+				}
+				putpixel_alpha(screen->vmem, x, y, col, alpha);
+			}
+		}
+		else {
+			if (segments & LEFT_EDGE) {
+				//left edge of window
+				for (int x = rect_min_x(draw); x < rect_min_x(win->frame); x++) {
+					int dist = (x - rect_min_x(draw));
+					int alpha = (darkest / max_dist) * dist;
+					putpixel_alpha(screen->vmem, x, y, col, alpha);
+				}
+			}
+			if (segments & RIGHT_EDGE) {
+				//right edge of window
+				for (int x = rect_max_x(win->frame); x < rect_max_x(draw); x++) {
+					int dist = (max_dist - (x - rect_max_x(win->frame)));
+					int alpha = (darkest / max_dist) * dist;
+					putpixel_alpha(screen->vmem, x, y, col, alpha);
+				}
+			}
+		}
+	}
+
+}
+
+void draw_window_backdrop(Screen* screen, Window* win) {
+	draw_window_backdrop_segments(screen, win, 0x7);
+}
+
 static Window* grabbed_window = NULL;
-void draw_desktop(Screen* screen) {
+void draw_desktop(Screen* screen, Rect* modified_viewport) {
 	//paint root desktop
 	draw_window(screen->window);
 	blit_layer(screen->vmem, screen->window->layer, screen->window->frame, screen->window->frame);
+
+	static int redraw_count = 0;
 
 	if (screen->window->subviews->size) {
 		Window* highest = array_m_lookup(screen->window->subviews, screen->window->subviews->size - 1);
 
 		//find clipping intersections with every window below the highest one
 		//redraw every child window at the same time if necessary
-		for (int i = 0; i < screen->window->subviews->size - 1; i++) {
+		for (int i = 0; i < screen->window->subviews->size; i++) {
 			Window* win = (Window*)(array_m_lookup(screen->window->subviews, i));
-			draw_window(win);
+			//if (!draw_window(win)) continue;
+			//we draw windows at less frequent intervals depending on how close they are to forefront
+			//the foremost window is subviews[subviews.size - 1]
+			//a window will get drawn only when the tick count is a multiple of their z-index
+			int z_idx = i - screen->window->subviews->size;
+			//reduce how often windows redraw by doubling length between redraw allowances
+			z_idx *= 2;
 
-			//Rect* visible_rects = rect_clip(win->frame, highest->frame);
-			//if (!visible_rects || highest->layer->alpha < 1.0) {
-				//not occluded by highest at all
-				//draw view normally, composite onto vmem
-				blit_layer(screen->vmem, win->layer, win->frame, rect_make(point_zero(), win->frame.size));
-				/*
+			if (redraw_count % z_idx == 0) {
+				draw_window(win);
 			}
-			else {
-				//maximum 4 sub-rects
-				for (int j = 0; j < 4; j++) {
-					Rect r = visible_rects[j];
-					if (r.size.width == 0 && r.size.height == 0) break;
 
-					Point origin_offset;
-					origin_offset.x = abs(win->frame.origin.x - r.origin.x);
-					origin_offset.y = abs(win->frame.origin.y - r.origin.y);
-					blit_layer(screen->vmem, win->layer, r, rect_make(origin_offset, r.size));
-				}
+			//if this window has an alpha channel, we can't 
+			/*
+			if (win->layer->alpha != 1.0) {
+				blit_layer(screen->vmem, win->layer, win->frame, rect_make(point_zero(), win->frame.size));
+				continue;
 			}
 			*/
-		}
-		
-		//finally, composite highest window
-		draw_window(highest);
-		blit_layer(screen->vmem, highest->layer, highest->frame, rect_make(point_zero(), highest->layer->size));
 
+			//if highest window, don't bother trying to clip.
+			//just draw
+			if (win == highest) {
+				blit_layer(screen->vmem, win->layer, win->frame, rect_make(point_zero(), win->frame.size));
+				continue;
+			}
+
+			int count = 0;
+			bool occluded = false;
+			Rect* visible_rects = rect_clip(win->frame, highest->frame, &count, &occluded);
+			//if window is completely occluded, don't draw it!
+			if (occluded) {
+				continue;
+			}
+			//not occluded, but no intersection
+			//draw entire window
+			if (!count) {
+				blit_layer(screen->vmem, win->layer, win->frame, rect_make(point_zero(), win->frame.size));
+				draw_window_backdrop(screen, win);
+				continue;
+			}
+			//segment format
+			int segments = 0;
+			//composite clipped window frame
+			for (int j = 0; j < count; j++) {
+				Rect r = visible_rects[j];
+				if (r.size.width == 0 || r.size.height == 0) continue;
+
+				Point origin_offset;
+				origin_offset.x = rect_min_x(r) - rect_min_x(win->frame);
+				origin_offset.y = rect_min_y(r) - rect_min_y(win->frame);
+				Rect local_r;
+				local_r.origin = origin_offset;
+				local_r.size = r.size;
+
+				blit_layer(screen->vmem, win->layer, r, local_r);
+				
+				//left edge?
+				if (rect_min_x(r) == rect_min_x(win->frame)) {
+					segments |= 0x1;
+				}
+				//right edge
+				if (rect_max_x(r) == rect_max_x(win->frame)) {
+					segments |= 0x2;
+				}
+				//bottom edge
+				if (rect_max_y(r) == rect_max_y(win->frame)) {
+					segments |= 0x4;
+				}
+			}
+			draw_window_backdrop_segments(screen, win, segments);
+		}
 	}
 	if (grabbed_window) {
-		draw_window_shadow(screen, grabbed_window, grabbed_window->frame.origin);
+		//draw_window_shadow(screen, grabbed_window, grabbed_window->frame.origin);
 	}
+	redraw_count++;
 }
 
+Label* fps;
 static void display_about_window(Point origin) {
 	//TODO this text should load off a file
 	//localization?
-	Window* about_win = create_window(rect_make(origin, size_make(800, 300)));
+	Window* about_win = create_window(rect_make(origin, size_make(800, 330)));
 	about_win->title = "About axle";
 	Label* body_label = create_label(rect_make(point_make(0, 0), size_make(about_win->content_view->frame.size.width, about_win->content_view->frame.size.height)), "Welcome to axle OS.\n\nVisit www.github.com/codyd51/axle for this OS's source code.\nYou are in axle's window manager, called xserv. xserv is a compositing window manager, meaning window bitmaps are stored offscreen and combined into a final image each frame.\n\tYou can right click anywhere on the desktop to access axle's application launcher. These are a few apps to show what axle and xserv can do, such as load a bitmap from axle's filesystem or display live CPU usage animations.\n\nIf you want to force a full xserv redraw, press 'r'\nIf you want to toggle the transparency of the topmost window between 0.5 and 1, press 'a'\n\nPress ctrl+m any time to log source file dynamic memory usage.\nPress ctrl+p at any time to log CPU usage.\n");
 	body_label->font_size = size_make(8, 8);
@@ -165,29 +307,32 @@ void desktop_setup(Screen* screen) {
 	screen->window->superview = NULL;
 
 	//set up background image
-	Bmp* background = load_bmp(screen->window->content_view->frame, "altitude.bmp");
+	Bmp* background = load_bmp(screen->window->frame, "bg.jpg");
 	if (background) {
 		add_bmp(screen->window->content_view, background);
 	}
+
 	add_status_bar(screen);
 	add_taskbar(screen);
 
-	//display_sample_image(point_make(450, 100));
-	display_about_window(point_make(100, 200));
+	display_sample_image(point_make(450, 100));
 	//calculator_xserv(point_make(400, 300));
 	display_usage_monitor(point_make(350, 500));
+	display_about_window(point_make(100, 200));
 }
 
 static void draw_mouse_shadow(Screen* screen, Point old, Point new) {
-	for (float i = 0; i < shadow_count; i++) {
-		int lerp_x = lerp(old.x, new.x, (1 / shadow_count) * i);
-		int lerp_y = lerp(old.y, new.y, (1 / shadow_count) * i);
+	Size cursor_size = size_make(12, 14);
+	for (int i = 0; i < shadow_count; i++) {
+		int lerp_x = lerp(old.x, new.x, (1 / (float)shadow_count) * i);
+		int lerp_y = lerp(old.y, new.y, (1 / (float)shadow_count) * i);
 		Point shadow_loc = point_make(lerp_x, lerp_y);
 
 		//draw cursor shadow
-		draw_rect(screen->vmem, rect_make(shadow_loc, size_make(10, 12)), color_make(200, 200, 230), THICKNESS_FILLED);
+		//draw_rect(screen->vmem, rect_make(shadow_loc, cursor_size), color_make(200, 200, 230), THICKNESS_FILLED);
 		//draw border
-		draw_rect(screen->vmem, rect_make(shadow_loc, size_make(10, 12)), color_dark_gray(), 1);
+		draw_rect(screen->vmem, rect_make(shadow_loc, cursor_size), color_make(0, 150, 0), THICKNESS_FILLED);
+		draw_rect(screen->vmem, rect_make(shadow_loc, cursor_size), color_black(), 1);
 	}
 }
 
@@ -224,11 +369,15 @@ void draw_cursor(Screen* screen) {
 	dirtied = prev_dirtied;
 }
 
-char xserv_draw(Screen* screen) {
+Point cursor_pos() {
+	return last_mouse_pos;
+}
+
+char xserv_draw(Screen* screen, Rect* modified_viewport) {
 	screen->finished_drawing = 0;
 
 	dirtied = 0;
-	draw_desktop(screen);
+	draw_desktop(screen, modified_viewport);
 	draw_cursor(screen);
 
 	screen->finished_drawing = 1;
@@ -360,7 +509,7 @@ static void process_kb_events(Screen* screen) {
 	if (!haskey()) return;
 
 	char ch;
-	if ((ch = kgetch())) {
+	if (read(0, &ch, 1)) {
 		if (ch == 'q') {
 			//quit xserv
 			xserv_quit(screen);
