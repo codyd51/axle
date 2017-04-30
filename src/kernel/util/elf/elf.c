@@ -5,6 +5,7 @@
 #include <std/kheap.h>
 #include <kernel/util/paging/paging.h>
 #include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/util/paging/paging.h>
 
 static bool elf_check_magic(elf_header* hdr) {
 	if (!hdr) return false;
@@ -76,13 +77,12 @@ bool elf_load_segment(unsigned char* src, elf_phdr* seg) {
 
 	unsigned char* src_base = src + seg->offset;
 	//figure out range to map this binary to in virtual memory
-	unsigned char* dest_base = (unsigned char*)seg->vaddr;
-	unsigned char* dest_limit = (uintptr_t)(dest_base + seg->memsz);
+	uint32_t dest_base = seg->vaddr;
+	uint32_t dest_limit = dest_base + seg->memsz;
 
 	//alloc enough mem for new task
 	for (uint32_t i = dest_base; i <= dest_limit; i += 0x1000) {
-#include <kernel/util/paging/paging.h>
-		extern page_directory_t* current_directory;
+		page_directory_t* current_directory = page_dir_current();
 		page_t* page = get_page(i, 1, current_directory);
 
 		if (page) {
@@ -91,7 +91,7 @@ bool elf_load_segment(unsigned char* src, elf_phdr* seg) {
 	}
 
 	// Copy data
-	memset(dest_base, 0, (dest_limit - dest_base));
+	memset((void*)dest_base, 0, (void*)(dest_limit - dest_base));
 	//only seg->filesz bytes are garuanteed to be in the file!
 	//_not_ memsz
 	//any extra bytes between filesz and memsz should be set to 0, which is done above

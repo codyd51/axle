@@ -228,6 +228,19 @@ void irq_handler(registers_t regs) {
 	if (interrupt_handlers[regs.int_no] != 0) {
 		isr_t handler = interrupt_handlers[regs.int_no];
 		handler(regs);
+
+		//unblock any tasks waiting for this IRQ
+		task_t* tmp = task_list();
+		while (tmp != NULL) {
+			if (tmp->state == IRQ_WAIT) {
+				int requested = (int)tmp->block_context;
+				if (requested == regs.int_no) {
+					tmp->irq_satisfied = true;
+					update_blocked_tasks();
+				}
+			}
+			tmp = tmp->next;
+		}
 	}
 	else printf_dbg("unhandled IRQ %d", regs.int_no);
 }

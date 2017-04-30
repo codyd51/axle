@@ -73,6 +73,10 @@ static void setup_fds(task_t* task) {
 	task->fd_table[2] = std;
 }
 
+task_t* task_list() {
+	return active_list;
+}
+
 static bool is_dead_task_crit(task_t* task) {
 	static char* crit_tasks[3] = {"idle",
 								  "iosentinel"
@@ -579,9 +583,22 @@ void update_blocked_tasks() {
 				}
 			}
 		}
+		else if (task->state == IRQ_WAIT) {
+			if (task->irq_satisfied) {
+				task->irq_satisfied = false;
+				unblock_task(task);
+			}
+		}
 
 		task = task->next;
 	}
+}
+
+void int_wait(int irq) {
+	task_t* task = current_task;
+	task->block_context = task;
+	task->irq_satisfied = false;
+	block_task_context(task, IRQ_WAIT, IRQ1);
 }
 
 task_t* first_responder() {
@@ -937,6 +954,9 @@ void proc() {
 				case PIPE_EMPTY:
 				case PIPE_FULL:
 					printk("(blocked by pipe)");
+					break;
+				case IRQ_WAIT:
+					printk("(blocked by IRQ)");
 					break;
 				default:
 					break;
