@@ -10,6 +10,10 @@
 #include <string.h>
 #include <ctype.h>
 
+#include "gfx.h"
+
+void xserv_init();
+
 void prompt() {
 	printf("wheel@ash[%d] /$ ", getpid());
 	fflush(stdout);
@@ -97,6 +101,9 @@ int process_command(char* input) {
 			}
 		}
 		else {
+			void* task = task_with_pid(pid);
+			printf("[%d] task_with_pid returned %x\n", getpid(), task);
+
 			int status;
 			pid = waitpid(pid, &status, 0);
 			freeargv(argv);
@@ -143,10 +150,32 @@ int query_exit(int argc, char** argv) {
 	return exit_code;
 }
 
+void spawn_xserv() {
+	return;
+	xserv_init();
+
+	Window* win = NULL;
+
+	Point origin;
+	origin.x = 200;
+	origin.y = 400;
+	Size size;
+	size.width = 300;
+	size.height = 200;
+	Rect frame;
+	frame.origin = origin;
+	frame.size = size;
+
+	xserv_win_create(&win, &frame);
+	xserv_win_present(win);
+}
+
 int main(int argc, char** argv) {
+
 	memset(cmdtable, 0, sizeof(command_t) * MAX_COMMANDS);
 	register_command("help", "print help", &help);
 	register_command("exit", "quit shell", &quit);
+	register_command("startx", "initialize awm", &spawn_xserv);
 	register_command("?", "print exit code of last command", &query_exit);
 	register_command("", "", &empty);
 

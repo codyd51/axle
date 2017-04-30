@@ -35,13 +35,15 @@ void finalize_animation(Window* window, ca_animation* anim) {
 	lock(mutex);
 	array_m_remove(window->animations, array_m_index(window->animations, anim));
 	unlock(mutex);
-
-	//kfree(anim);
 	
 	event_handler finished = anim->finished_handler;
 	if (finished) {
+		printf("calling finished_handler %x for win %x\n", finished, window);
 		finished(window, NULL);
 	}
+
+	kfree(anim);
+
 	mark_needs_redraw((View*)window);
 }
 
@@ -108,6 +110,7 @@ void update_all_animations(Screen* screen, float frame_time) {
 
 ca_animation* create_animation(animation_type type, void* to, float duration) {
 	ca_animation* ret = kmalloc(sizeof(ca_animation));
+	memset(ret, 0, sizeof(ca_animation));
 	ret->type = type;
 
 	switch (type) {
