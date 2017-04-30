@@ -32,6 +32,11 @@ STDAPI uint16_t inw(uint16_t port);
 //read 32bits from port
 STDAPI uint32_t inl(uint16_t port);
 
+STDAPI void insm(unsigned short port, unsigned char * data, unsigned long size);
+
+#define insl(port, buffer, count) \
+         __asm__ ("cld; rep; insl" :: "D" (buffer), "d" (port), "c" (count))
+
 //force wait for i/o operation to complete
 //this should only be used when there's nothing like
 //a status register or IRQ to tell you info has been received

@@ -30,6 +30,10 @@ uint32_t inl(uint16_t port) {
 	return _v;
 }
 
+void insm(unsigned short port, unsigned char * data, unsigned long size) {
+	asm volatile ("rep insw" : "+D" (data), "+c" (size) : "d" (port) : "memory");
+}
+
 //force wait for i/o operation to complete
 //this should only be used when there's nothing like
 //a status register or IRQ to tell you info has been received

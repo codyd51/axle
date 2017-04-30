@@ -16,11 +16,16 @@ static uint32_t initrd_read(fs_node_t* node, uint32_t offset, uint32_t size, uin
 		*buffer = EOF;
 		return 0;
 	}
-	if (offset + size > header.length) {
-		size = header.length - offset;
+	bool add_eof = false;
+	if (offset + size >= header.length) {
+		size = header.length - offset - 1;
+		add_eof = true;
 	}
 	memcpy(buffer, (uint8_t*)(header.offset + offset), size);
-	return size;
+	if (add_eof) {
+		buffer[size++] = EOF;
+	}
+	return size + (add_eof ? 1 : 0);
 }
 
 static struct dirent* initrd_readdir(fs_node_t* node, uint32_t index) {

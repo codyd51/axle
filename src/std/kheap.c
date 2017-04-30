@@ -66,6 +66,9 @@ void* kmalloc_real(uint32_t sz) {
 }
 
 void kfree(void* p) {
+	if (p <= kheap->start_address || p >= kheap->end_address) {
+		printk("kfree() invalid block %x\n", p);
+	}
 	free(p, kheap);
 }
 

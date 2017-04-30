@@ -71,19 +71,16 @@ __attribute__((__noreturn__)) void panic(uint16_t line, const char* file) {
 }
 
 __attribute__((__noreturn__)) void panic_msg(uint16_t line, const char* file, const char* msg, ...) {
-
 	//terminal_clear();
-
-	printf_err("Kernel panic! See syslog for more info.");
-
 	va_list ap;
 	va_start(ap, msg);
 	//1 == serial output
 	vprintf(0, (char*)msg, ap);
 	va_end(ap);
 
+	printf_err("\nKernel panic! See syslog for more info.");
+
 	// Inline the panic() code for stack frame count
-	printf("\n");
 	printf_err("PANIC %s: line %d", file, line);
 
 	print_stack();

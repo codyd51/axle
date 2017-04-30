@@ -94,9 +94,12 @@ static void outputc(int dest, char c) {
 			Point old_cursor_pos = cursor_pos;
 
 			draw_char(screen->vmem, c, cursor_pos.x, cursor_pos.y, printf_draw_color, font_size);
-			cursor_pos.x += font_size.width + padding.width;
+			//cursor_pos.x += font_size.width + padding.width;
+			int pad = 3;
+			cursor_pos.x += font_size.width + pad;
 			if (c == '\n' || cursor_pos.x >= screen->resolution.width) {
-				cursor_pos.y += font_size.height + padding.height;
+				//cursor_pos.y += font_size.height + padding.height;
+				cursor_pos.y += font_size.height + pad;
 				cursor_pos.x = 0;
 				if (cursor_pos.y >= screen->resolution.height - font_size.height) {
 					//clear screen, redraw background
