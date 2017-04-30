@@ -29,12 +29,14 @@ Rect rect_zero() {
 	return rect_make(point_zero(), size_zero());
 }
 
-Rect* rect_clip(Rect subject, Rect cutting) {
+Rect* rect_clip(Rect subject, Rect cutting, int* count, bool* occluded) {
 	//maximum possible 4 rectangles
 	static Rect clipped[4] = {0};
 
 	//if these rectangles don't intersect, do nothing
 	if (!rect_intersects(subject, cutting)) {
+		*count = 0;
+		*occluded = false;
 		return NULL;
 	}
 
@@ -43,11 +45,10 @@ Rect* rect_clip(Rect subject, Rect cutting) {
 		rect_min_y(subject) >= rect_min_y(cutting) &&
 		rect_max_x(subject) <= rect_max_x(cutting) &&
 		rect_max_y(subject) <= rect_max_y(cutting)) {
+		*count = 0;
+		*occluded = true;
 		return NULL;
 	}
-
-	memset(clipped, 0, sizeof(clipped));
-	int count = 0;
 
 	//holds new rects before they get added to clipped
 	Rect tmp;
@@ -59,7 +60,7 @@ Rect* rect_clip(Rect subject, Rect cutting) {
 		tmp = rect_make(subject.origin, size_make(rect_min_x(cutting) - rect_min_x(subject), subject.size.height));
 
 		//add to output list
-		clipped[count++] = tmp;
+		clipped[(*count)++] = tmp;
 
 		//shrink subject to exclude split portion
 		//subject.size.width = cutting.size.width;
@@ -74,7 +75,7 @@ Rect* rect_clip(Rect subject, Rect cutting) {
 		tmp = rect_make(subject.origin, size_make(subject.size.width, rect_min_y(cutting) - rect_min_y(subject)));
 
 		//add to output list
-		clipped[count++] = tmp;
+		clipped[(*count)++] = tmp;
 
 		//shrink subject to exclude split portion
 		int diff = cutting.origin.y - subject.origin.y;
@@ -88,7 +89,7 @@ Rect* rect_clip(Rect subject, Rect cutting) {
 		tmp = rect_make(point_make(rect_max_x(cutting), subject.origin.y), size_make(rect_max_x(subject) - rect_max_x(cutting), subject.size.height));
 
 		//add to output list
-		clipped[count++] = tmp;
+		clipped[(*count)++] = tmp;
 
 		//shrink subject to exclude split portion
 		int diff = rect_max_x(subject) - rect_max_x(cutting);
@@ -101,7 +102,7 @@ Rect* rect_clip(Rect subject, Rect cutting) {
 		tmp = rect_make(point_make(rect_min_x(subject), rect_max_y(cutting)), size_make(subject.size.width, rect_max_y(subject) - rect_max_y(cutting)));
 
 		//add to output list
-		clipped[count++] = tmp;
+		clipped[(*count)++] = tmp;
 
 		//shrink subject to exclude split portion
 		int diff = rect_max_y(subject) - rect_max_y(cutting);
@@ -109,7 +110,8 @@ Rect* rect_clip(Rect subject, Rect cutting) {
 	}
 
 	//finally, return output rects
-	//return &clipped;
+	//also, assign output params
+	*occluded = false;
 	return clipped;
 }
 

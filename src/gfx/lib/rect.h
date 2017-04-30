@@ -23,12 +23,23 @@ bool rect_intersects(Rect A, Rect B);
 
 //explode subject rect into array of contiguous rects which are
 //not occluded by cutting rect
-Rect* rect_clip(Rect subject, Rect cutting);
+Rect* rect_clip(Rect subject, Rect cutting, int* count, bool* occluded);
 
 //find the intersecting rect of a and b
 Rect rect_intersect(Rect a, Rect b);
 //returns true if point is bounded by rect
 bool rect_contains_point(Rect r, Point p);
+
+//finds the smallest rectangle that bounds A and B
+Rect rect_union(Rect a, Rect b);
+
+//returns true if rect is equal to the null rectangle
+bool rect_is_null(Rect rect);
+//returns a rectangle representing the null rectangle
+Rect rect_null();
+
+//
+Rect rect_inset(Rect src, int dx, int dy);
 
 //convert inner to outer's coordinate space
 Rect convert_rect(Rect outer, Rect inner);
