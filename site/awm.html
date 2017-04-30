@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+    
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1">
+        <title>axle window manager</title>
+        <meta name="description" content="axle OS">
+        <link rel="stylesheet" href="main.css">
+    </head>
+    <body>
+        <script src="https://cdn.rawgit.com/google/code-prettify/master/loader/run_prettify.js?skin=desert"></script>
+        <h1>awm</h1>
+        <p>
+            axle window manager (abbreviated 'awm') is a kernel system that provides a window manager. awm is not an X variant, and does not support any X API's. 
+            awm is largely a front-end for axle's lower-level compositing API and view/window functionality.
+            The Window struct is awm's primitive for an application viewport. A Window is the root view of an application, and may contain many Views.
+            Window, View, and all other UI structs are an abstraction built on ca_layer, which represents a rectangle of raw pixel data. 
+        </p>
+        <p>
+            A ca_layer represents a contiguous array of RGB data, with one byte per color channel per pixel (for a total of 3 bytes per pixel).
+            ca_layer provides an API which does all the heavy lifting of compositing layers together. 
+            Additionally, ca_layer implements blitting a layer with an alpha channel, enabling window transparency.
+        </p>
+        <p>
+            On a screen redraw, awm traverses the list of open windows. 
+            Each window has all of its View's drawn. When a View is drawn it draws all of its sub-Views, Labels, Button, Bmp's, etc.
+        </p>
+        <p>
+            Views composite all of their sub-elements onto their backing ca_layer.
+            Views and their elements are composited together onto the Window, which is composited to the desktop view.
+            awm tries to prevent drawing where unnecessary, and draws forefront windows more often than obscured windows. It does not draw Window's which are obscured.
+            Alternatively, the programmer can provide a draw callback, filling in a View ca_layer manually. This is the preferred API, and the imperative draw-stack is marked for deprecation.
+            Just like the imperative API, draw callbacks are called less frequently depending on the Window's z-index.
+        </p>
+
+        <pre class="prettyprint">
+#include &lt;gfx/lib/window.h&gt; //Window*
+#include &lt;gfx/lib/ca_layer.h&gt; //ca_layer*
+#include &lt;gfx/lib/Label.h&gt; //Label*
+#include &lt;gfx/lib/gfx.h&gt; //rect_make, point_make, size_make
+#include &lt;user/xserv/animator.h&gt; //create_animation, add_animation
+
+Window* window = create_window(rect_make(origin, size_make(500, 260)));
+window->teardown_handler = (event_handler)my_window_teardown;
+window->title = "Draw callback example";
+window->redraw_handler = (event_handler)update_example_window;
+present_window(window);
+        </pre>
+        <p>
+            Since we've set the update_example_window() function as our redraw handler, that function will be called every time your Window updates.
+            You can query the delta time since the last redraw from the Window struct.
+            Note: This makes it easy to write a dynamic UI!
+            Static UI's are easy too, you just draw the same thing each frame.
+        </p>
+            
+        <p>
+            This example code will blank out whatever was in the layer from the last redraw, 
+            then render a string and underline to the canvas.
+            Note that, as per these functions, filling shapes of given sizes,
+            scaled font rendering, and graphics primites are all available.
+        </p>
+        <pre class="prettyprint">
+void update_example_window(Window* win) {
+    //clear canvas
+    draw_rect(win-&lt;content_view-&gt;layer, 
+              rect_make(point_zero(), 
+                        win-&gt;content_view-&gt;layer-&gt;size), 
+              color_white(), 
+              THICKNESS_FILLED);
+              
+    const char* message = "Hello world!";
+    float label_length = CHAR_WIDTH * strlen(message);
+    draw_string(win-&gt;content_view-&gt;layer, 
+               message, 
+               point_make(0, 0), 
+               color_black(), 
+               size_make(label_length, CHAR_HEIGHT));
+
+    draw_line(win-&gt;content_view-&gt;layer, 
+              line_make(point_make(0, CHAR_HEIGHT + 1), 
+                        point_make(label_length, CHAR_HEIGHT + 1), 
+                        color_gray(), 
+                        1));
+}
+        </pre>
+        
+        <pre class="prettyprint">
+void my_window_teardown(Window* win) {
+    //do any necessary cleanup
+    kfree(my_data);
+
+    //end process
+	_kill();
+}
+        </pre>
+        <p>
+            awm makes use of axle's text renderer. The text renderer is capable of full 4x SSAA antialiasing. 
+            An example of using the Window, View, Label, and animation API's is shown below
+        </p>
+        <pre class="prettyprint">
+Window* window = create_window(rect_make(point_make(100, 200), size_make(250, 250)));
+window->title = "Example window";
+//sets background color of root View of Window
+window->content_view->background_color = color_green();
+
+Label* example_label = create_label(rect_make(point_make(50, 75), size_make(125, CHAR_HEIGHT)), "Hello world!");
+add_sublabel(window->content_view, example_label);
+float to = 0.0;
+//create an alpha animation with a duration of 2 seconds
+ca_animation* anim = create_animation(ALPHA_ANIM, &to, 2.0);
+add_animation(alpha_win, anim);
+
+//add Window to active window hierarchy
+present_window(alpha_win);
+        </pre>
+    </body>
+</html>
