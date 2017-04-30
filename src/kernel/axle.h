@@ -31,5 +31,6 @@
 #include <kernel/elf.h>
 #include <kernel/util/yxml/yxml.h>
 #include <kernel/util/plistman/plistman.h>
+#include <kernel/drivers/ide/ide.h>
 
 #endif
