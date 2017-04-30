@@ -118,10 +118,14 @@ void blit_layer_filled(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_
 		int overhang = (uint32_t)dest_row_start + (uint32_t)row_start + transferabble_px - rect_max_x(dest_frame);
 		//shrink line if necessary
 		if (overhang > 0) {
-			transferabble_px -= overhang + 1;
+			transferabble_px -= overhang;
 		}
 
-		if (((uint32_t)dest_row_start - (uint32_t)dest->raw) + transferabble_px >= (uint32_t)(dest->size.width * dest->size.height * gfx_bpp())) break;
+		int offset = (uint32_t)dest_row_start - (uint32_t)dest->raw;
+		int total_px_in_layer = (uint32_t)(dest->size.width * dest->size.height * gfx_bpp());
+		if (offset >= total_px_in_layer) {
+			break;
+		}
 
 		memcpy(dest_row_start, row_start, transferabble_px);
 
@@ -143,22 +147,12 @@ void blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) 
 	src_frame.size.height = MIN(src_frame.size.height, src->size.height);
 
 	//clip src_frame within src
-	if (rect_max_x(src_frame) >= src->size.width) {
-		float overhang = rect_max_x(src_frame) - src->size.width;
+	if (src_frame.size.width + rect_min_x(dest_frame) >= dest->size.width) {
+		int overhang = src_frame.size.width + rect_min_x(dest_frame) - dest->size.width;
 		src_frame.size.width -= overhang;
 	}
-	if (rect_max_y(src_frame) >= src->size.height) {
-		float overhang = rect_max_y(src_frame) - src->size.height;
-		src_frame.size.height -= overhang;
-	}
-
-	//clip src_frame within dest_frame
-	if (rect_max_x(src_frame) + rect_min_x(dest_frame) >= dest->size.width) {
-		float overhang = rect_max_x(src_frame) + rect_min_x(dest_frame) - dest->size.width;
-		src_frame.size.width -= overhang;
-	}
-	if (rect_max_y(src_frame) + rect_min_y(dest_frame) >= dest->size.height) {
-		float overhang = rect_max_y(src_frame) + rect_min_y(dest_frame) - dest->size.height;
+	if (src_frame.size.height + rect_min_y(dest_frame) >= dest->size.height) {
+		int overhang = src_frame.size.height + rect_min_y(dest_frame) - dest->size.height;
 		src_frame.size.height -= overhang;
 	}
 
