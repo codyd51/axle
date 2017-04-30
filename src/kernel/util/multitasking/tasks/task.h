@@ -6,6 +6,9 @@
 #include <std/array_l.h>
 #include <kernel/util/multitasking/fd_entry.h>
 //#include <kernel/util/multitasking/std_stream.h>
+#include <gfx/lib/gfx.h>
+#include <gfx/lib/rect.h>
+#include <gfx/lib/window.h>
 
 #define KERNEL_STACK_SIZE 2048 //use 2kb kernel stack
 #define FD_MAX 64
@@ -25,6 +28,7 @@ typedef enum task_state {
 	CHILD_WAIT,
 	PIPE_FULL,
 	PIPE_EMPTY,
+	IRQ_WAIT,
 } task_state;
 
 typedef enum mlfq_option {
@@ -100,6 +104,12 @@ typedef struct task {
 
 	//bitmap of privileged actions this task can perform
 	uint32_t permissions;
+
+	//array of xserv windows this task has spawned
+	//this is so we know where to send stdio to
+	array_m* windows;
+
+	bool irq_satisfied;
 } task_t;
 
 //initializes tasking system
@@ -153,6 +163,10 @@ task_t* first_responder();
 //and marks current task as designated recipient of keyboard events
 void become_first_responder();
 
+//performs the same actions as become_first_responder(),
+//but operates on the task with PID 'pid' instead of the currently running task
+void become_first_responder_pid(int pid);
+
 //relinquish first responder status
 //process which first responder status was taken from becomes first responder
 void resign_first_responder();
@@ -166,5 +180,12 @@ task_t* task_current();
 //suspend execution until child process terminates
 int waitpid(int pid, int* status, int options);
 int wait(int* status);
+
+//utility function to retrieve head of linked list of tasks 
+task_t* task_list();
+
+//create window with frame 'frame',
+//and add to current task's list of registered windows
+Window* task_register_window(Rect frame);
 
 #endif

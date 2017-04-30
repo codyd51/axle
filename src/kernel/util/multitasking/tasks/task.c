@@ -221,6 +221,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	task->state = RUNNABLE;
 	task->wake_timestamp = 0;
 	task->vmem_slide = 0;
+	task->windows = array_m_create(16);
 
 	return task;
 }
@@ -973,8 +974,14 @@ void force_enumerate_blocked() {
 	update_blocked_tasks();
 }
 
-void become_first_responder() {
-	first_responder_task = current_task;
+void become_first_responder_pid(int pid) {
+	task_t* task = task_with_pid(pid);
+	if (!task) {
+		printk("become_first_responder_pid(%d) failed\n", pid);
+		return;
+	}
+
+	first_responder_task = task;
 
 	//check if this task already exists in stack of responders
 	for (int i = 0; i < responder_stack->size; i++) {
@@ -988,6 +995,10 @@ void become_first_responder() {
 
 	//append this task to stack of responders
 	array_m_insert(responder_stack, first_responder_task);
+}
+
+void become_first_responder() {
+	become_first_responder_pid(getpid());
 }
 
 void resign_first_responder() {
@@ -1074,5 +1085,16 @@ int waitpid(int pid, int* status, int options) {
 
 int wait(int* status) {
 	return waitpid(-1, status, 0);
+}
+
+Window* task_register_window(Rect frame) {
+	//if we're creating a window for a task through xserv_win_create
+	//then we're in a syscall handler and getpid() will return the pid of the 
+	//proc that ran the syscall
+	//this is how we know when a user proc is connected to a window
+	task_t* current = task_with_pid(getpid());
+	Window* win = create_window(frame);
+	array_m_insert(current->windows, win);
+	return win;
 }
 
