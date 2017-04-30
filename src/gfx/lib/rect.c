@@ -115,6 +115,26 @@ Rect* rect_clip(Rect subject, Rect cutting, int* count, bool* occluded) {
 	return clipped;
 }
 
+Rect rect_union(Rect a, Rect b) {
+	Rect ret;
+	ret.origin.x = MIN(rect_min_x(a), rect_min_x(b));
+	ret.origin.y = MIN(rect_min_y(a), rect_min_y(b));
+	ret.size.width = MAX(a.size.width, b.size.width);
+	ret.size.height = MAX(a.size.height, b.size.height);
+	return ret;
+}
+
+bool rect_is_null(Rect rect) {
+	return (rect_min_x(rect) == 0 &&
+			rect_min_y(rect) == 0 &&
+			rect_max_x(rect) == 0 &&
+			rect_max_y(rect) == 0);
+}
+
+Rect rect_null() {
+	return rect_zero();
+}
+
 Rect rect_intersect(Rect a, Rect b) {
 	Rect result;
 
@@ -165,6 +185,19 @@ Rect convert_rect(Rect outer, Rect inner) {
 	ret.origin.y = inner.origin.y + outer.origin.y;
 	ret.size.width = MIN(inner.size.width, outer.size.width);
 	ret.size.height = MIN(inner.size.height, outer.size.height);
+	return ret;
+}
+
+Rect rect_inset(Rect src, int dx, int dy) {
+	Rect ret;
+	ret.origin.x = src.origin.x - dx;
+	ret.origin.y = src.origin.y - dy;
+	ret.size.width = src.size.width + (dx * 2);
+	ret.size.height = src.size.height + (dy * 2);
+
+	if (ret.size.width < 0 || ret.size.height < 0) {
+		return rect_null();
+	}
 	return ret;
 }
 
