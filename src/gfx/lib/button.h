@@ -25,14 +25,34 @@ typedef struct button {
 	Label* label;
 } Button;
 
+/**
+ * @brief Construct a Button container using a given size and label
+ * @param frame The size of the Button to create
+ * @param text The label to render to the button
+ * @return The newly constructed Button
+ */
 Button* create_button(Rect frame, char* text);
+
+/**
+ * @brief Render the image represented by @p button to the graphical layer @p dest
+ * @param dest The graphical layer to render to
+ * @param button Button object used to render image
+ */
 void draw_button(ca_layer* dest, Button* button);
 
-void button_handle_click();
 
-//internal functions to process clicks on buttons
-//should only be used by window manager to inform button of state change
+/**
+ * @brief Internal function to process clicks on buttons
+ * Forwards button event to button->mousedown_handler
+ * @param button The Button whose delegate should be notified of the event
+ */
 void button_handle_mousedown(Button* button);
+
+/**
+ * @brief Internal function to process clicks on buttons
+ * Forwards button event to button->mouseup_handler
+ * @param button The Button whose delegate should be notified of the event
+ */
 void button_handle_mouseup(Button* button);
 
 __END_DECLS

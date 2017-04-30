@@ -13,21 +13,40 @@ typedef struct ca_layer_t {
 		float alpha; //transparency value bounded to continuous range [0..1]
 } ca_layer;
 
-//initialize layer with a given size
+/**
+ * @brief initialize layer with a given size
+ * @param size The maximum size the layer can render
+ * @return The newly constructed graphical layer
+ */
 struct ca_layer_t* create_layer(Size size);
 
-//free all resources associated with a layer
-//no fields of 'layer' should be accessed after this call
+/**
+ * @brief free all resources associated with a layer
+ * @param layer The graphical layer whose resources should be freed
+ * @warning No fields of 'layer' should be accessed after this call
+ */
 void layer_teardown(ca_layer* layer);
 
-//blit RGB contents of 'src' onto 'dest'
-//automatically switches to compositing if 'dest' needs ot be alpha blended
-//only copies pixels from the rectangle bounded by 'src_frame'
-//only copies pixels into the rectangle bounded by 'dest_frame'
+/**
+ * @brief blit RGB contents of 'src' onto 'dest'
+ * automatically switches to compositing if 'dest' needs ot be alpha blended
+ * only copies pixels from the rectangle bounded by 'src_frame'
+ * only copies pixels into the rectangle bounded by 'dest_frame'
+ * @param dest Destination layer to copy pixels to
+ * @param src Layer to copy pixels from
+ * @param dest_frame Rectangle inset of @p dest which pixels should be copied into
+ * @param src_frame Rectangle inset of @p src which pixels should be copied from
+ */
 void blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame);
 
 //create a copy of layer pointed to by src
 //only copies pixels bounded by the rectangle 'frame'
+/**
+ * @brief Copies pixels bounded by @frame into graphical layer @src
+ * @param src Source layer to copy from
+ * @param frame Rectangle inset of @p src which pixels should be copied from
+ * @return The newly constructed layer containing the copied data
+ */
 ca_layer* layer_snapshot(ca_layer* src, Rect frame);
 
 __END_DECLS

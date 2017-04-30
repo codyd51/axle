@@ -13,7 +13,14 @@ typedef struct gradient {
 	Color to;
 } Gradient;
 
+/**
+ * @brief Constructs a new Color with the given RGB channels
+ */
 Color color_make(uint8_t red, uint8_t green, uint8_t blue);
+
+/**
+ * @brief Split @p color into its components elements, with 8 bits used for each channel in RGB.
+ */
 uint32_t color_hex(Color color);
 
 Gradient gradient_make(Color from, Color to);

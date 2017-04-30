@@ -5,7 +5,7 @@
 #include <std/math.h>
 
 //TODO configurable SSAA factor?
-//#define SSAA_FACTOR 3
+//#define SSAA_FACTOR 4
 #define SSAA_FACTOR 0
 
 #define BITS_IN_WORD (sizeof(uint32_t) * 8)
@@ -41,6 +41,7 @@ static void generate_supersampled_map(uint32_t* supersample, char ch) {
 		memcpy(supersample, cached, CHAR_WIDTH * SSAA_FACTOR * sizeof(uint32_t));
 		return;
 	}
+	printk("generate_supersampled_map() didn't hit cache\n");
 
 	//for every col in SS bitmap
 	for (int y = 0; y < CHAR_HEIGHT * SSAA_FACTOR; y++) {

@@ -24,7 +24,7 @@ mboot:
 	dd 0
 	dd 0 
 
-	dd 0 ; set video mode
+	dd 0 ; set GRUB video mode
 	;1024 x 768 x 24
 	dd 1024
 	dd 768
