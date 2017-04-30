@@ -1,3 +1,6 @@
+#ifndef IDE_H
+#define IDE_H
+
 #define ATA_SR_BSY	0x80 //busy
 #define ATA_SR_DRDY	0x40 //drive ready
 #define ATA_SR_DF	0x20 //drive write fault
@@ -48,3 +51,52 @@
 #define IDE_ATA		0x00 
 #define IDE_ATAPI	0x01
 
+#define ATA_REG_DATA       0x00
+#define ATA_REG_ERROR      0x01
+#define ATA_REG_FEATURES   0x01
+#define ATA_REG_SECCOUNT0  0x02
+#define ATA_REG_LBA0       0x03
+#define ATA_REG_LBA1       0x04
+#define ATA_REG_LBA2       0x05
+#define ATA_REG_HDDEVSEL   0x06
+#define ATA_REG_COMMAND    0x07
+#define ATA_REG_STATUS     0x07
+#define ATA_REG_SECCOUNT1  0x08
+#define ATA_REG_LBA3       0x09
+#define ATA_REG_LBA4       0x0A
+#define ATA_REG_LBA5       0x0B
+#define ATA_REG_CONTROL    0x0C
+#define ATA_REG_ALTSTATUS  0x0C
+#define ATA_REG_DEVADDRESS 0x0D
+
+// Channels:
+#define      ATA_PRIMARY      0x00
+#define      ATA_SECONDARY    0x01
+ 
+// Directions:
+#define      ATA_READ      0x00
+#define      ATA_WRITE     0x01
+
+void ide_initialize(unsigned int BAR0, unsigned int BAR1, unsigned int BAR2, unsigned int BAR3, unsigned int BAR4);
+
+/**
+ * @brief Reads @p numsects hard drive sectors from the drive specified by @p drive into the buffer @p buf
+ * @param drive IDE drive channel to read from
+ * @param lba Block to begin reading from
+ * @param numsects Number of 512-byte sectors to copy into @p buf
+ * @param buf Buffer to store read contents
+ * @warning This function does not bounds-check @buf
+ */
+void ide_ata_read(unsigned char drive, unsigned int lba, unsigned char numsects, unsigned int buf);
+
+/**
+ * @brief Writes @p numsects hard drive sectors from buffer @p buf to IDE drive @p drive starting at block @p lba
+ * @param drive IDE drive channel to write to
+ * @param lba Block to begin writing to
+ * @param numsects Number of 512-byte sectors to copy from @p buf
+ * @param buf Buffer to copy data from
+ * @warning This function does not bounds-check @buf
+ */
+void ide_ata_write(unsigned char drive, unsigned int lba, unsigned char numsects, unsigned int buf);
+
+#endif
