@@ -141,6 +141,8 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//getchar();
 	//launch ELF shell
 	//this is non-kernel code, loaded from filesystem
+	
+	fat_format_disk(0);
 	/*
 	if (!sys_fork()) {
 		char* argv[] = {"shell", "test", "123"};

@@ -37,6 +37,15 @@ STDAPI void insm(unsigned short port, unsigned char * data, unsigned long size);
 #define insl(port, buffer, count) \
          __asm__ ("cld; rep; insl" :: "D" (buffer), "d" (port), "c" (count))
 
+#define insw(port, buffer, count) \
+		__asm__ ("rep insw" :: "D"(buffer), "d"(port), "c"(count))
+
+#define insb(port, buffer, count) \
+		__asm__ ("rep insb" :: "D"(buffer), "d"(port), "c"(count))
+
+#define outsw(port, buffer, count) \
+		__asm__ ("rep outsw" :: "c"(count), "d"(port), "S"(edi))
+
 //force wait for i/o operation to complete
 //this should only be used when there's nothing like
 //a status register or IRQ to tell you info has been received
