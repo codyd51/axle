@@ -1,5 +1,6 @@
 #include "ide.h"
 #include <std/common.h>
+#include <std/math.h>
 
 #define IO_WAIT_DELAY 10
 
@@ -27,6 +28,8 @@ struct ide_device {
 	unsigned int   Size;        // Size in Sectors.
 	unsigned char  Model[41];   // Model in string.
 } ide_devices[4];
+
+#define SECTOR_SIZE 512
 
 unsigned char ide_read(unsigned char channel, unsigned char reg) {
 	unsigned char result;
@@ -251,15 +254,15 @@ void ide_initialize(unsigned int BAR0, unsigned int BAR1, unsigned int BAR2, uns
 	}
 }
 
-unsigned char ide_ata_access(unsigned char direction, unsigned char drive, unsigned int lba, unsigned char numsects, unsigned int edi) {
+unsigned char ide_ata_access(unsigned char direction, unsigned char drive, unsigned int lba, unsigned int edi, unsigned int byte_count) {
 	unsigned char lba_mode /* 0: CHS, 1:LBA28, 2: LBA48 */, dma /* 0: No DMA, 1: DMA */, cmd;
 	unsigned char lba_io[6];
 	unsigned int  channel      = ide_devices[drive].Channel; // Read the Channel.
 	unsigned int  slavebit      = ide_devices[drive].Drive; // Read the Drive [Master/Slave]
 	unsigned int  bus = channels[channel].base; // Bus Base, like 0x1F0 which is also data port.
-	unsigned int  words      = 256; // Almost every ATA drive has a sector-size of 512-byte.
 	unsigned short cyl, i;
 	unsigned char head, sect, err;
+	unsigned int numsects = sectors_from_bytes(byte_count);
 
 	ide_write(channel, ATA_REG_CONTROL, channels[channel].nIEN = (ide_irq_invoked = 0x0) + 0x02);
 
@@ -362,7 +365,9 @@ unsigned char ide_ata_access(unsigned char direction, unsigned char drive, unsig
 					//polling, set error and exit if there is
 					return err;
 				}
-				insm(bus, edi, words);
+
+				int words = SECTOR_SIZE / 2;
+				insw(bus, edi, words);
 				edi += (words * 2);
 			}
 		}
@@ -371,6 +376,8 @@ unsigned char ide_ata_access(unsigned char direction, unsigned char drive, unsig
 			for (int i = 0; i < numsects; i++) {
 				//polling
 				ide_polling(channel, 0);
+
+				int words = SECTOR_SIZE / 2;
 				asm("rep outsw"::"c"(words), "d"(bus), "S"(edi)); //send data
 				edi += (words * 2);
 			}
@@ -471,7 +478,13 @@ unsigned char ide_atapi_read(unsigned char drive, unsigned int lba, unsigned cha
 	return 0;
 }
 
-void ide_ata_read(unsigned char drive, unsigned int lba, unsigned char numsects, unsigned int edi) {
+void ide_ata_read(unsigned char drive, unsigned int lba, unsigned int edi, unsigned int byte_count, unsigned int offset) {
+	//if offset is greater than a sector, offset lba so we're starting at the correct sector
+	int sector_offset = offset / SECTOR_SIZE;
+	lba += sector_offset;
+	offset -= (sector_offset * SECTOR_SIZE);
+
+	unsigned int numsects = sectors_from_bytes(byte_count);
 	//check if drive present
 	if (drive > 3 || ide_devices[drive].Reserved == 0) {
 		//drive not found
@@ -488,7 +501,20 @@ void ide_ata_read(unsigned char drive, unsigned int lba, unsigned char numsects,
 	else {
 		unsigned char err;
 		if (ide_devices[drive].Type == IDE_ATA) {
-			err = ide_ata_access(ATA_READ, drive, lba, numsects, edi);
+			for (int i = 0; i < numsects; i++) {
+				int sector = lba + i;
+				char sector_buf[512];
+				err = ide_ata_access(ATA_READ, drive, sector, sector_buf, SECTOR_SIZE);
+
+				//only copy a sector at at time!
+				int copy_count = MIN(byte_count, SECTOR_SIZE);
+
+				memcpy(edi, &sector_buf[offset], copy_count);
+				//if we've just accounted for the requested offset, remove the offset
+				offset = 0;
+				//we've copied 'copy_count' bytes, decrement from amount left to copy
+				byte_count -= copy_count;
+			}
 		}
 		else if (ide_devices[drive].Type == IDE_ATAPI) {
 			for (int i = 0; i < numsects; i++) {
@@ -500,7 +526,14 @@ void ide_ata_read(unsigned char drive, unsigned int lba, unsigned char numsects,
 	ide_print_error(drive, package[0]);
 }
 
-void ide_ata_write(unsigned char drive, unsigned int lba, unsigned char numsects, unsigned int edi) {
+void ide_ata_write(unsigned char drive, unsigned int lba, unsigned int edi, unsigned int byte_count, unsigned int offset) {
+	//if offset is greater than a sector, offset lba so we're starting at the correct sector
+	int sector_offset = offset / SECTOR_SIZE;
+	lba += sector_offset;
+	offset -= (sector_offset * SECTOR_SIZE);
+
+	unsigned int numsects = sectors_from_bytes(byte_count);
+
 	//check if drive is present
 	if (drive > 3 || ide_devices[drive].Reserved == 0) {
 		//drive not found!
@@ -515,7 +548,25 @@ void ide_ata_write(unsigned char drive, unsigned int lba, unsigned char numsects
 	else {
 		unsigned char err;
 		if (ide_devices[drive].Type == IDE_ATA) {
-			err = ide_ata_access(ATA_WRITE, drive, lba, numsects, edi);
+			for (int i = 0; i < numsects; i++) {
+				int sector = lba + i;
+				char sector_buf[512];
+				memset(sector_buf, 0, sizeof(sector_buf));
+				ide_ata_read(drive, sector, sector_buf, SECTOR_SIZE, 0);
+
+				//copy over data to write
+				//only copy a sector at at time!
+				int copy_count = MIN(byte_count, SECTOR_SIZE);
+
+				memcpy(&sector_buf[offset], edi, copy_count);
+				//if we've just accounted for the requested offset, remove the offset
+				offset = 0;
+				//we've copied 'copy_count' bytes, decrement from amount left to copy
+				byte_count -= copy_count;
+
+				//copy back to actual sector
+				err = ide_ata_access(ATA_WRITE, drive, sector, sector_buf, SECTOR_SIZE);
+			}
 		}
 		else if (ide_devices[drive].Type == IDE_ATAPI) {
 			//write protected

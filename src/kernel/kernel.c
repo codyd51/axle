@@ -107,6 +107,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	kb_install();
 	mouse_install();
 	pci_install();
+	ide_initialize(0x1F0, 0x3F6, 0x170, 0x376, 0x000);
 
 	/*
 	//test facilities
