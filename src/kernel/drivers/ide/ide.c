@@ -478,6 +478,18 @@ unsigned char ide_atapi_read(unsigned char drive, unsigned int lba, unsigned cha
 	return 0;
 }
 
+uint32_t ide_ata_read_int(unsigned char drive, unsigned int lba, unsigned int offset) {
+	char buf[sizeof(uint32_t)];
+	ide_ata_read(drive, lba, buf, sizeof(buf), offset);
+	uint32_t val = *(uint32_t*)buf;
+	return val;
+}
+
+void ide_ata_write_int(unsigned char drive, unsigned int lba, uint32_t val, unsigned int offset) {
+	char* bytes = (char*)&val;
+	ide_ata_write(drive, lba, bytes, sizeof(int), offset);
+}
+
 void ide_ata_read(unsigned char drive, unsigned int lba, unsigned int edi, unsigned int byte_count, unsigned int offset) {
 	//if offset is greater than a sector, offset lba so we're starting at the correct sector
 	int sector_offset = offset / SECTOR_SIZE;
