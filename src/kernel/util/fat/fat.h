@@ -5,6 +5,20 @@
 #include <std/std.h>
 
 /*!
+ * @brief Represents a FAT directory entry
+ */
+
+typedef struct {
+    char name[31];
+    char is_directory:1;
+    char reserved:3;
+    char padded:4;
+    uint32_t size;
+    uint32_t first_sector;
+    uint32_t access_time;
+} fat_dirent;
+
+/*!
  * @brief Calculate hard drive sectors needed to store @p bytes 
  */
 int sectors_from_bytes(int bytes);
@@ -31,9 +45,10 @@ void fat_print_file_links(uint32_t sector);
 
 /*!
  * @brief Register a new file with the current FAT
+ * @param file_size Size to allocate initially, in bytes
  * @return The first sector of the newly created file
  */
-int fat_file_create();
+int fat_file_create(int file_size);
 
 /*!
  * @brief Expand @p file by @p byte_count
@@ -62,5 +77,39 @@ void fat_format_disk(unsigned char drive);
  * @brief Write contents of current FAT to physical disk.
  */
 void fat_flush();
+
+/*!
+ * @brief Add the directory entry @p new_entry to the directory represented by the sector @p directory_sector
+ * @param directory_sector The sector where the directory to append to begins
+ * @param new_entry Struct containing the new directory entry info to add
+ */
+void fat_dir_add_file(int directory_sector, fat_dirent* new_entry);
+
+/*!
+ * @brief Find and read from the file located at absolute path @p name
+ * @param name The absolute path of the file to find
+ * @param buffer Character buffer to store data from file into
+ * @param count Number of bytes to read from specified file
+ * @param offset Number of bytes in file to skip before beginning to read
+ * @warning Traversing up a directory is not currently supported.
+ */
+int fat_read_absolute_file(char* name, char* buffer, int count, int offset);
+
+/*!
+ * @brief Find and write from the file located at absolute path @p name
+ * @param name The absolute path of the file to find
+ * @param buffer Character buffer to store data from file into
+ * @param count Number of bytes to write to specified file
+ * @param offset Number of bytes in file to skip before beginning to write
+ * @warning Traversing up a directory is not currently supported.
+ */
+int fat_write_absolute_file(char* name, char* buffer, int count, int offset); 
+
+/*!
+ * @brief Attempt to find the FAT index associated with absolute path @p name
+ * @param name The absolute path of the entry to search for
+ * @return The index of the first sector of the resource, or -1 if the resource wasn't found.
+ */
+int fat_find_absolute_file(char* name);
 
 #endif

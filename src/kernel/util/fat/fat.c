@@ -66,14 +66,6 @@ void fat_record_superblock(int sector_size, int fat_sector_count) {
 
 	int data_region_start = fat_sector_count / SECTOR_SIZE;
 	ide_ata_write_int(fat_disk, SUPERBLOCK_SECTOR, data_region_start, sizeof(uint32_t) * 2);
-
-	/*
-	//print superblock info to ensure it was written correctly!
-	int ssize = ide_ata_read_int(drive, SUPERBLOCK_SECTOR, 0);
-	printf("Sector size from superblock: %d\n", ssize);
-	int fat_size = ide_ata_read_int(drive, SUPERBLOCK_SECTOR, sizeof(uint32_t));
-	printf("Sectors in FAT (32b each): %d\n", fat_size);
-	*/
 }
 
 int fat_file_last_sector(int sector, int* sectors_in_file) {
@@ -179,22 +171,9 @@ void fat_flush() {
 	ide_ata_write(fat_disk, FAT_SECTOR, fat_get(), fat_read_sector_count() * sizeof(uint32_t), 0);
 }
 
-//directory entry:
-//32byte name
-//4byte size
-//4byte first sector
-//1byte type (0 == file, 1 == dir)
-//12 entries per sector
 typedef struct {
-	char name[32];
-	uint32_t size;
-	uint32_t first_sector;
-	bool is_directory;
-} fat_dirent;
-
-typedef struct {
-	//41 bytes each * 12 entries = 492 bytes
 	fat_dirent entries[11];
+	char reserved[28];
 } fat_directory;
 
 void fat_dir_add_file(int dir_start_sector, fat_dirent* new_entry) {
@@ -312,12 +291,21 @@ int fat_read_file(int file_sector, char* buffer, int byte_count, int offset) {
 	return read_count;
 }
 
-int fat_file_create() {
-	int new_sector = fat_alloc_sector(EOF_BLOCK);
+int fat_file_create(int file_size) {
+	int sector_count = sectors_from_bytes(file_size);
+	int last_sector = EOF_BLOCK;
 	char buf[SECTOR_SIZE];
+	int first_sector = -1;
 	memset(buf, 0, sizeof(buf));
-	fat_write_file(new_sector, buf, sizeof(buf), 0);
-	return new_sector;
+	for (int i = 0; i < sector_count; i++) {
+		last_sector = fat_alloc_sector(last_sector);
+		fat_write_file(last_sector, buf, sizeof(buf), 0);
+
+		if (first_sector < 0) {
+			first_sector = last_sector;
+		}
+	}
+	return first_sector;
 }
 
 void fat_print_file_links(uint32_t sector) {
@@ -340,9 +328,21 @@ int fat_find_absolute_file(char* name) {
 	int current_directory = ROOT_DIRECTORY_SECTOR;
 
 	while (component) {
-		//printf("component %s traversing from %d to ", component, current_directory);
-		current_directory = fat_dir_read(current_directory, component);
-		//printf("%d\n", current_directory);
+		if (!strcmp(component, ".")) {
+			//stay in current directory
+			//we don't need to do anything here
+		}
+		else if (!strcmp(component, "..")) {
+			//TODO figure way to go back a directory!
+			printf("Traversing up a directory not yet supported.\n");
+		}
+		else if (strlen(component)) {
+			current_directory = fat_dir_read(current_directory, component);
+			if (current_directory < 0) {
+				//not found!
+				return -1;
+			}
+		}
 		component = strtok_r(NULL, "/", save);
 	}
 	kfree(name_copy);
@@ -384,6 +384,7 @@ int fat_dir_read(int dir_start_sector, char* name) {
 		}
 	}
 	printf("fat_dir_add_file() couldn't find requested file %s\n", name);
+	return -1;
 }
 
 void fat_format_disk(unsigned char drive) {
@@ -409,18 +410,11 @@ void fat_format_disk(unsigned char drive) {
 	fat_record_superblock(SECTOR_SIZE, sectors);
 
 	//after FAT, place root directory entry
-	int root_dir = fat_file_create();
-	//add some sectors to root dir
-	//expand by 4kb
-	fat_expand_file(root_dir, 0xE00);
-	char buf[SECTOR_SIZE];
-	memset(buf, 0, sizeof(buf));
-	for (int i = 0; i < 8; i++) {
-		fat_write_file(root_dir, buf, SECTOR_SIZE, i * SECTOR_SIZE);
-	}
-	//fat_dir_print(root_dir);
+	//4kb
+	int root_dir = fat_file_create(0x1000);
+	fat_dir_print(root_dir);
 
-	int test1 = fat_file_create();
+	int test1 = fat_file_create(0x1000);
 	fat_dirent ent;
 	strcpy(ent.name, "test1.txt");
 	ent.size = SECTOR_SIZE;
@@ -428,21 +422,21 @@ void fat_format_disk(unsigned char drive) {
 	ent.is_directory = false;
 	fat_dir_add_file(root_dir, &ent);
 
-	int test2 = fat_file_create();
+	int test2 = fat_file_create(SECTOR_SIZE);
 	strcpy(ent.name, "test2.txt");
 	ent.size = SECTOR_SIZE;
 	ent.first_sector = test2;
 	ent.is_directory = false;
 	fat_dir_add_file(root_dir, &ent);
 
-	int dir_test = fat_file_create();
+	int dir_test = fat_file_create(SECTOR_SIZE);
 	strcpy(ent.name, "usr");
 	ent.size = SECTOR_SIZE;
 	ent.first_sector = dir_test;
 	ent.is_directory = true;
 	fat_dir_add_file(root_dir, &ent);
 
-	int bin_dir = fat_file_create();
+	int bin_dir = fat_file_create(SECTOR_SIZE);
 	strcpy(ent.name, "bin");
 	ent.size = SECTOR_SIZE;
 	ent.first_sector = bin_dir;
@@ -455,23 +449,14 @@ void fat_format_disk(unsigned char drive) {
 	ent.is_directory = false;
 	fat_dir_add_file(bin_dir, &ent);
 
-	//fat_dir_print(root_dir);
-
+	char lorem_buf[4096];
+	strcpy(lorem_buf, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur sit amet augue nibh. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla efficitur vel sapien non imperdiet. Ut augue purus, semper eget maximus vitae, accumsan in nisi. Nulla porttitor consequat libero, cursus dignissim tellus. Maecenas vehicula et tortor vitae tristique. Vivamus pretium convallis nisi eget ullamcorper. Phasellus volutpat, mi dictum pretium suscipit, leo lacus convallis urna, eu tincidunt velit risus a lacus. Vestibulum eu ipsum malesuada, bibendum felis ut, blandit mauris. Nunc venenatis lorem convallis vehicula blandit. Morbi id elit eget lacus varius laoreet nec quis tellus. Aliquam pulvinar dolor eu tellus consequat, id accumsan lorem fermentum. Ut pretium molestie risus vitae porta. Donec dapibus augue sed orci viverra, vel ornare justo maximus. In id ligula mi. Morbi sit amet pharetra turpis, sed commodo ipsum. Fusce eleifend fringilla diam ut tristique.");
+	//strcpy(lorem_buf, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur sit amet augue nibh. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla efficitur vel sapien non imperdiet. Ut augue purus, semper eget maximus vitae, accumsan in nisi. Nulla porttitor consequat libero, cursus dignissim tellus. Maecenas vehicula et tortor vitae tristique. Vivamus pretium convallis nisi eget ullamcorper. Phasellus volutpat, mi dictum pretium suscipit, leo lacus convallis urna, eu tincidunt velit risus a lacus. Vestibulum eu ipsum malesuada, bibendum felis ut, blandit mauris. Nunc venenatis lorem convallis vehicula blandit. Morbi id elit eget lacus varius laoreet nec quis tellus. Aliquam pulvinar dolor eu tellus consequat, id accumsan lorem fermentum. Ut pretium molestie risus vitae porta. Donec dapibus augue sed orci viverra, vel ornare justo maximus. In id ligula mi. Morbi sit amet pharetra turpis, sed commodo ipsum. Fusce eleifend fringilla diam ut tristique. Nam eu lacus nibh. Quisque volutpat imperdiet libero eu efficitur. Sed non mollis leo. Phasellus sit amet imperdiet nulla, vitae convallis nibh.Vestibulum purus odio, consectetur quis metus in, congue pulvinar odio. Praesent rutrum orci enim, vel pulvinar enim viverra non. Vivamus laoreet tempus quam in suscipit. Integer odio nisi, laoreet gravida nulla eu, sagittis scelerisque augue. Maecenas sollicitudin tempus pulvinar. Praesent magna velit, pulvinar et iaculis ut, facilisis ut enim. Vivamus bibendum purus a risus vehicula, a fringilla turpis porta. Etiam augue tellus, mattis sodales egestas vitae, placerat ut purus. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Praesent bibendum velit elit, eget elementum arcu porta non. Vestibulum congue maximus metus, nec ullamcorper turpis placerat eu.");
 	char* path = "/usr/bin/test1.txt";
-	strcpy(buf, "Path traversal ayyy lmao!");
-	fat_write_absolute_file(path, buf, SECTOR_SIZE, 0);
-	memset(buf, 0, sizeof(buf));
+	fat_write_absolute_file(path, lorem_buf, sizeof(lorem_buf), 0);
+	memset(lorem_buf, 0, sizeof(lorem_buf));
 
-	fat_read_absolute_file(path, buf, SECTOR_SIZE, 0);
-	printf("Read from %s: %s\n", path, buf);
-
-	/*
-	char buf[4096];
-	strcpy(buf, "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur sit amet augue nibh. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla efficitur vel sapien non imperdiet. Ut augue purus, semper eget maximus vitae, accumsan in nisi. Nulla porttitor consequat libero, cursus dignissim tellus. Maecenas vehicula et tortor vitae tristique. Vivamus pretium convallis nisi eget ullamcorper. Phasellus volutpat, mi dictum pretium suscipit, leo lacus convallis urna, eu tincidunt velit risus a lacus. Vestibulum eu ipsum malesuada, bibendum felis ut, blandit mauris. Nunc venenatis lorem convallis vehicula blandit. Morbi id elit eget lacus varius laoreet nec quis tellus. Aliquam pulvinar dolor eu tellus consequat, id accumsan lorem fermentum. Ut pretium molestie risus vitae porta. Donec dapibus augue sed orci viverra, vel ornare justo maximus. In id ligula mi. Morbi sit amet pharetra turpis, sed commodo ipsum. Fusce eleifend fringilla diam ut tristique. Nam eu lacus nibh. Quisque volutpat imperdiet libero eu efficitur. Sed non mollis leo. Phasellus sit amet imperdiet nulla, vitae convallis nibh.Vestibulum purus odio, consectetur quis metus in, congue pulvinar odio. Praesent rutrum orci enim, vel pulvinar enim viverra non. Vivamus laoreet tempus quam in suscipit. Integer odio nisi, laoreet gravida nulla eu, sagittis scelerisque augue. Maecenas sollicitudin tempus pulvinar. Praesent magna velit, pulvinar et iaculis ut, facilisis ut enim. Vivamus bibendum purus a risus vehicula, a fringilla turpis porta. Etiam augue tellus, mattis sodales egestas vitae, placerat ut purus. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Praesent bibendum velit elit, eget elementum arcu porta non. Vestibulum congue maximus metus, nec ullamcorper turpis placerat eu.");
-	fat_write_file(root_dir, buf, sizeof(buf), 0);
-	memset(buf, 0, sizeof(buf));
-	fat_read_file(root_dir, buf, sizeof(buf), 0);
-	printf("FAT read:\n%s\n", buf);
-	*/
+	fat_read_absolute_file(path, lorem_buf, sizeof(lorem_buf), 0);
+	printf("Read from %s:\n%s\n", path, lorem_buf);
 }
 
