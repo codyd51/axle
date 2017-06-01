@@ -4,16 +4,24 @@
 #include <std/memory.h>
 #include <std/math.h>
 #include <std/string.h>
+#include <kernel/drivers/ide/ide.h>
 
 #define MBR_SECTOR 0
 #define SUPERBLOCK_SECTOR 1
 #define FAT_SECTOR 2
 #define SECTOR_SIZE 512
 
-#define EOF_BLOCK -2
-#define FREE_BLOCK -1
+#define EOF_BLOCK (uint32_t)-2
+#define FREE_BLOCK (uint32_t)-1
 
 #define ROOT_DIRECTORY_SECTOR 0
+
+int fat_read_file(fat_dirent* file, char* buffer, int byte_count, int offset);
+int fat_write_file(fat_dirent* file, char* buffer, int byte_count, int offset);
+int fat_dir_read_dirent(fat_dirent* directory, char* name, fat_dirent* store);
+bool dirent_for_start_sector(uint32_t desired_sector, fat_dirent* directory, fat_dirent* store);
+
+fat_dirent root_dir;
 
 int sectors_from_bytes(int bytes) {
 	int sectors = bytes / SECTOR_SIZE;
@@ -42,36 +50,73 @@ bool is_valid_sector(int sector) {
 	return (sector >= 0 && sector < fat_read_sector_count());
 }
 
+int fat_read_magic() {
+	static int magic = 0;
+	if (!magic) {
+		magic = ide_ata_read_int(fat_disk, SUPERBLOCK_SECTOR, 0);
+	}
+	return magic;
+}
+
 int fat_read_sector_size() {
-	int ssize = ide_ata_read_int(fat_disk, SUPERBLOCK_SECTOR, 0);
-	return ssize;
+	static int sector_size = 0;
+	if (!sector_size) {
+		sector_size = ide_ata_read_int(fat_disk, SUPERBLOCK_SECTOR, sizeof(uint32_t));
+	}
+	return sector_size;
 }
 
 int fat_read_sector_count() {
-	int fat_size = ide_ata_read_int(fat_disk, SUPERBLOCK_SECTOR, sizeof(uint32_t));
+	static int fat_size = 0;
+	if (!fat_size) {
+		fat_size = ide_ata_read_int(fat_disk, SUPERBLOCK_SECTOR, sizeof(uint32_t) * 2);
+	}
 	return fat_size;
 }
 
 int fat_read_data_region() {
-	int data_region_start = ide_ata_read_int(fat_disk, SUPERBLOCK_SECTOR, sizeof(uint32_t) * 2);
+	int data_region_start = ide_ata_read_int(fat_disk, SUPERBLOCK_SECTOR, sizeof(uint32_t) * 3);
 	return data_region_start;
 }
 
+#define FAT_MAGIC 0xFEEDFACE
 void fat_record_superblock(int sector_size, int fat_sector_count) {
-	char buf[512];
+	char buf[SECTOR_SIZE];
 	memset(buf, 0, sizeof(buf));
 	itoa(sector_size, buf);
-	ide_ata_write_int(fat_disk, SUPERBLOCK_SECTOR, sector_size, 0);
-	ide_ata_write_int(fat_disk, SUPERBLOCK_SECTOR, fat_sector_count, sizeof(uint32_t));
+
+	int offset = 0;
+	ide_ata_write_int(fat_disk, SUPERBLOCK_SECTOR, FAT_MAGIC, offset);
+	offset += sizeof(uint32_t);
+
+	ide_ata_write_int(fat_disk, SUPERBLOCK_SECTOR, sector_size, offset);
+	offset += sizeof(uint32_t);
+
+	ide_ata_write_int(fat_disk, SUPERBLOCK_SECTOR, fat_sector_count, offset);
+	offset += sizeof(uint32_t);
 
 	int data_region_start = fat_sector_count / SECTOR_SIZE;
-	ide_ata_write_int(fat_disk, SUPERBLOCK_SECTOR, data_region_start, sizeof(uint32_t) * 2);
+	//account for boot sector plus superblock
+	//add 1 for boot sector
+	//add 1 for superblock
+	data_region_start += 2;
+	ide_ata_write_int(fat_disk, SUPERBLOCK_SECTOR, data_region_start, offset);
 }
 
-int fat_file_last_sector(int sector, int* sectors_in_file) {
-	uint32_t* fat = fat_get();
+int fat_file_last_sector(int sector, uint32_t* sectors_in_file) {
+	if (!sectors_in_file) {
+		uint32_t local_sectors_in_file;
+		sectors_in_file = &local_sectors_in_file;
+	}
+
+	*sectors_in_file = 0;
+	if (!is_valid_sector(sector)) {
+		return EOF_BLOCK;
+	}
+
 	//we always start with at least a sector!
 	(*sectors_in_file)++;
+
 	while (fat[sector] != EOF_BLOCK) {
 		(*sectors_in_file)++;
 		if (fat[sector] == FREE_BLOCK) {
