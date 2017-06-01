@@ -146,6 +146,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	/*
 	if (!sys_fork()) {
 		char* argv[] = {"shell", "test", "123"};
+	fat_install(0, true);
 		execve(argv[0], argv, 0);
 		sys__exit(1);
 	}
@@ -153,6 +154,11 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 
 	//testing mach-o loader
 	mach_load_file("machs");
+	if (!sys_fork()) {
+		xserv_init();
+		char* argv[] = {"ash", "test", "123", NULL};
+		execve(argv[0], argv, 0);
+	}
 
 	wait(NULL);
 

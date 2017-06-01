@@ -1,5 +1,6 @@
 #include "label.h"
 #include "view.h"
+#include "util.h"
 #include <std/std.h>
 #include <gfx/lib/shapes.h>
 
@@ -14,7 +15,9 @@ void label_teardown(Label* label) {
 void set_text(Label* label, char* text) {
 	kfree(label->text);
 	label->text = strdup(text);
-	mark_needs_redraw((View*)label);
+	if (label->superview) {
+		mark_needs_redraw((View*)containing_window((View*)label));
+	}
 }
 
 Label* create_label(Rect frame, char* text) {
