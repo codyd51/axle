@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <std/std.h>
+#include <kernel/util/multitasking/fd.h>
+#include <kernel/util/vfs/fs.h>
 
 /*!
  * @brief Represents a FAT directory entry
@@ -83,7 +85,7 @@ void fat_flush();
  * @param directory_sector The sector where the directory to append to begins
  * @param new_entry Struct containing the new directory entry info to add
  */
-void fat_dir_add_file(int directory_sector, fat_dirent* new_entry);
+void fat_dir_add_file(fat_dirent* directory, fat_dirent* new_entry);
 
 /*!
  * @brief Find and read from the file located at absolute path @p name
@@ -108,8 +110,15 @@ int fat_write_absolute_file(char* name, char* buffer, int count, int offset);
 /*!
  * @brief Attempt to find the FAT index associated with absolute path @p name
  * @param name The absolute path of the entry to search for
+ * @param store Optional user-provided buffer to store dirent of the found file
  * @return The index of the first sector of the resource, or -1 if the resource wasn't found.
  */
-int fat_find_absolute_file(char* name);
+int fat_find_absolute_file(char* name, fat_dirent* store);
+
+size_t fat_fread(void* ptr, size_t size, size_t count, FILE* stream);
+size_t fat_fwrite(void* ptr, size_t size, size_t count, FILE* stream);
+FILE* fat_fopen(char* filename, char* mode);
+
+int sectors_from_bytes(int bytes);
 
 #endif
