@@ -1,6 +1,9 @@
 #ifndef IDE_H
 #define IDE_H
 
+#include <stdint.h>
+#include <std/std.h>
+
 #define ATA_SR_BSY	0x80 //busy
 #define ATA_SR_DRDY	0x40 //drive ready
 #define ATA_SR_DF	0x20 //drive write fault
@@ -87,7 +90,7 @@ void ide_initialize(unsigned int BAR0, unsigned int BAR1, unsigned int BAR2, uns
  * @param buf Buffer to store read contents
  * @warning This function does not bounds-check @buf
  */
-void ide_ata_read(unsigned char drive, unsigned int lba, unsigned char numsects, unsigned int buf);
+void ide_ata_read(unsigned char drive, unsigned int lba, unsigned int buf, unsigned int count, unsigned int offset);
 
 /**
  * @brief Writes @p numsects hard drive sectors from buffer @p buf to IDE drive @p drive starting at block @p lba
@@ -97,6 +100,9 @@ void ide_ata_read(unsigned char drive, unsigned int lba, unsigned char numsects,
  * @param buf Buffer to copy data from
  * @warning This function does not bounds-check @buf
  */
-void ide_ata_write(unsigned char drive, unsigned int lba, unsigned char numsects, unsigned int buf);
+void ide_ata_write(unsigned char drive, unsigned int lba, unsigned int buf, unsigned int count, unsigned int offset);
+
+void ide_ata_write_int(unsigned char drive, unsigned int lba, unsigned int val, unsigned int offset);
+uint32_t ide_ata_read_int(unsigned char drive, unsigned int lba, unsigned int offset);
 
 #endif

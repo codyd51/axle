@@ -2,6 +2,9 @@
 #include <std/common.h>
 #include <std/math.h>
 
+//defined in kernel/util/fat/fat.h
+int sectors_from_bytes(int bytes);
+
 #define IO_WAIT_DELAY 10
 
 struct IDEChannelRegisters {
@@ -14,8 +17,8 @@ struct IDEChannelRegisters {
 int package[4];
 
 unsigned char ide_buf[2048] = {0};
-unsigned static char ide_irq_invoked = 0;
-unsigned static char atapi_packet[12] = {0xA8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static unsigned char ide_irq_invoked = 0;
+static unsigned char atapi_packet[12] = {0xA8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 struct ide_device {
 	unsigned char  Reserved;    // 0 (Empty) or 1 (This Drive really exists).
@@ -29,7 +32,9 @@ struct ide_device {
 	unsigned char  Model[41];   // Model in string.
 } ide_devices[4];
 
-#define SECTOR_SIZE 512
+#define SECTOR_SIZE ((uint32_t)512)
+
+void ide_write(unsigned char channel, unsigned char reg, unsigned char data);
 
 unsigned char ide_read(unsigned char channel, unsigned char reg) {
 	unsigned char result;
@@ -361,7 +366,7 @@ unsigned char ide_ata_access(unsigned char direction, unsigned char drive, unsig
 		if (direction == 0) {
 			//PIO read
 			for (i = 0; i < numsects; i++) {
-				if (err = ide_polling(channel, 1)) {
+				if ((err = ide_polling(channel, 1))) {
 					//polling, set error and exit if there is
 					return err;
 				}
@@ -373,7 +378,7 @@ unsigned char ide_ata_access(unsigned char direction, unsigned char drive, unsig
 		}
 		else {
 			//PIO write
-			for (int i = 0; i < numsects; i++) {
+			for (uint32_t i = 0; i < numsects; i++) {
 				//polling
 				ide_polling(channel, 0);
 
@@ -451,7 +456,7 @@ unsigned char ide_atapi_read(unsigned char drive, unsigned int lba, unsigned cha
 	ide_write(channel, ATA_REG_COMMAND, ATA_CMD_PACKET);
 
 	//waiting for driver to finish or return error code
-	if (err = ide_polling(channel, 1)) return err;
+	if ((err = ide_polling(channel, 1))) return err;
 
 	//sending packet data
 	asm("rep outsw" :: "c"(6), "d"(bus), "S"(atapi_packet));
@@ -460,11 +465,11 @@ unsigned char ide_atapi_read(unsigned char drive, unsigned int lba, unsigned cha
 	for (i = 0; i < numsects; i++) {
 		//wait for IRQ
 		ide_wait_irq();
-		if (err = ide_polling(channel, 1)) {
+		if ((err = ide_polling(channel, 1))) {
 			return err;
 		}
 		//receive data
-		insm(bus, edi, words);
+		insm(bus, (unsigned char*)edi, words);
 		edi += (words * 2);
 	}
 
@@ -480,14 +485,14 @@ unsigned char ide_atapi_read(unsigned char drive, unsigned int lba, unsigned cha
 
 uint32_t ide_ata_read_int(unsigned char drive, unsigned int lba, unsigned int offset) {
 	char buf[sizeof(uint32_t)];
-	ide_ata_read(drive, lba, buf, sizeof(buf), offset);
+	ide_ata_read(drive, lba, (unsigned int)buf, sizeof(buf), offset);
 	uint32_t val = *(uint32_t*)buf;
 	return val;
 }
 
-void ide_ata_write_int(unsigned char drive, unsigned int lba, uint32_t val, unsigned int offset) {
+void ide_ata_write_int(unsigned char drive, unsigned int lba, unsigned int val, unsigned int offset) {
 	char* bytes = (char*)&val;
-	ide_ata_write(drive, lba, bytes, sizeof(int), offset);
+	ide_ata_write(drive, lba, (unsigned int)bytes, sizeof(int), offset);
 }
 
 void ide_ata_read(unsigned char drive, unsigned int lba, unsigned int edi, unsigned int byte_count, unsigned int offset) {
@@ -513,15 +518,15 @@ void ide_ata_read(unsigned char drive, unsigned int lba, unsigned int edi, unsig
 	else {
 		unsigned char err;
 		if (ide_devices[drive].Type == IDE_ATA) {
-			for (int i = 0; i < numsects; i++) {
+			for (uint32_t i = 0; i < numsects; i++) {
 				int sector = lba + i;
 				char sector_buf[512];
-				err = ide_ata_access(ATA_READ, drive, sector, sector_buf, SECTOR_SIZE);
+				err = ide_ata_access(ATA_READ, drive, sector, (uint32_t)sector_buf, SECTOR_SIZE);
 
 				//only copy a sector at at time!
 				int copy_count = MIN(byte_count, SECTOR_SIZE);
 
-				memcpy(edi, &sector_buf[offset], copy_count);
+				memcpy((unsigned char*)edi, &sector_buf[offset], copy_count);
 				//if we've just accounted for the requested offset, remove the offset
 				offset = 0;
 				//we've copied 'copy_count' bytes, decrement from amount left to copy
@@ -529,7 +534,7 @@ void ide_ata_read(unsigned char drive, unsigned int lba, unsigned int edi, unsig
 			}
 		}
 		else if (ide_devices[drive].Type == IDE_ATAPI) {
-			for (int i = 0; i < numsects; i++) {
+			for (uint32_t i = 0; i < numsects; i++) {
 				err = ide_atapi_read(drive, lba + i, 1, edi + (i*2048));
 			}
 		}
@@ -560,24 +565,24 @@ void ide_ata_write(unsigned char drive, unsigned int lba, unsigned int edi, unsi
 	else {
 		unsigned char err;
 		if (ide_devices[drive].Type == IDE_ATA) {
-			for (int i = 0; i < numsects; i++) {
+			for (uint32_t i = 0; i < numsects; i++) {
 				int sector = lba + i;
 				char sector_buf[512];
 				memset(sector_buf, 0, sizeof(sector_buf));
-				ide_ata_read(drive, sector, sector_buf, SECTOR_SIZE, 0);
+				ide_ata_read(drive, sector, (uint32_t)sector_buf, SECTOR_SIZE, 0);
 
 				//copy over data to write
 				//only copy a sector at at time!
 				int copy_count = MIN(byte_count, SECTOR_SIZE);
 
-				memcpy(&sector_buf[offset], edi, copy_count);
+				memcpy(&sector_buf[offset], (unsigned char*)edi, copy_count);
 				//if we've just accounted for the requested offset, remove the offset
 				offset = 0;
 				//we've copied 'copy_count' bytes, decrement from amount left to copy
 				byte_count -= copy_count;
 
 				//copy back to actual sector
-				err = ide_ata_access(ATA_WRITE, drive, sector, sector_buf, SECTOR_SIZE);
+				err = ide_ata_access(ATA_WRITE, drive, sector, (uint32_t)sector_buf, SECTOR_SIZE);
 			}
 		}
 		else if (ide_devices[drive].Type == IDE_ATAPI) {
@@ -592,8 +597,6 @@ void ide_atapi_eject(unsigned char drive) {
 	unsigned int 	channel  = ide_devices[drive].Channel;
 	unsigned int 	slavebit = ide_devices[drive].Drive;
 	unsigned int 	bus 	 = channels[channel].base;
-	//sector size in words
-	unsigned int 	words 	 = 2048 / 2;
 	unsigned char   err 	 = 0;
 	ide_irq_invoked = 0;
 
@@ -639,7 +642,10 @@ void ide_atapi_eject(unsigned char drive) {
 		ide_write(channel, ATA_REG_COMMAND, ATA_CMD_PACKET);
 
 		//waiting for the driver to finish/invoke error
-		if (err = ide_polling(channel, 1)) return err;
+		if ((err = ide_polling(channel, 1))) {
+			package[0] = ide_print_error(drive, err);
+			return;
+		}
 		//sending data packet
 		else {
 			asm("rep outsw"::"c"(6), "d"(bus), "S"(atapi_packet));
