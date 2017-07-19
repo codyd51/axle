@@ -42,11 +42,23 @@ page_directory_t* get_cr3() {
 void set_cr3(page_directory_t* dir) {
 	//uint32_t addr = (uint32_t)&dir->tables[0];
 	//asm volatile("movl %%eax, %%cr3" :: "a" (addr));
-	//asm volatile("mov %0, %%cr3" : : "r"(dir->physicalAddr));
-	asm volatile("mov %0, %%cr3":: "r"(dir->physicalAddr));
-	uint32_t cr0 = get_cr0();
-	cr0 |= 0x80000000; //enable paging
+	/*
+	int cr0 = get_cr0();
+	cr0 &= ~0x80000000;
 	set_cr0(cr0);
+	*/
+	
+	printf("set_cr3() %x\n", dir->physicalAddr);
+	asm volatile("mov %0, %%cr3" : : "r"(dir->physicalAddr));
+	printf("switched cr3\n");
+	//turn off paging first
+	//asm volatile("mov %0, %%cr3":: "r"(dir->physicalAddr));
+	//if paging is not already enabled
+	int cr0 = get_cr0();
+	//if (!(cr0 & 0x80000000)) {
+		cr0 |= 0x80000000; //enable paging
+		set_cr0(cr0);
+	//}
 }
 
 //static function to set a bit in frames bitset
@@ -145,6 +157,21 @@ page_directory_t* page_dir_current() {
 	return current_directory;
 }
 
+//just set present bit!
+//don't actually allocate frame until page is accessed
+bool alloc_frame_lazy(page_t* page, int is_kernel, int is_writeable) {
+	if (page->frame != 0) {
+		//frame was already allocated, return early
+		printk_err("alloc_frame_lazy fail, frame %x taken", page->frame * 0x1000);
+		return false;
+	}
+	page->present = 1; //mark as present
+	page->rw = is_writeable; //should page be writable?
+	page->user = !is_kernel; //should page be user mode?
+	page->frame = 0;
+	return true;
+}
+
 //function to allocate a frame
 bool alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 	if (page->frame != 0) {
@@ -176,6 +203,7 @@ void free_frame(page_t* page) {
 	}
 	clear_frame(frame); //frame is now free again
 	page->frame = 0x0; //page now doesn't have a frame
+	page->present = 0;
 }
 
 #define VESA_WIDTH 1024
@@ -217,7 +245,7 @@ void force_frame(page_t *page, int is_kernel, int is_writeable, unsigned int add
 	page->present = 1;
 	page->rw = is_writeable;
 	page->user = !is_kernel;
-	page->frame = addr >> 12;
+	page->frame = addr / 0x1000;
 	set_bit_frame(addr);
 }
 
@@ -225,7 +253,7 @@ void paging_install() {
 	printf_info("Initializing paging...");
 
 	//size of physical memory
-	//assume 32MB
+	//assume 256MB 
 	uint32_t mem_end_page = 0x10000000;
 	//uint32_t mem_end_page = memory_size;
 	memsize = mem_end_page;
@@ -280,6 +308,8 @@ void paging_install() {
 
 	//initialize kernel heap
 	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, KHEAP_MAX_ADDRESS, 0, 0);
+	current_directory = kernel_directory;
+	//move_stack((void*)0xE0000000, 0x2000);
 	//expand(0x1000000, kheap);
 
 	current_directory = clone_directory(kernel_directory);
@@ -290,7 +320,7 @@ void paging_install() {
 
 void page_regions_print(page_directory_t* dir) {
 	if (!dir) return;
-	printf("page directory %x regions:\n", dir);
+	printk("page directory %x regions:\n", dir);
 
 	uint32_t run_start = -1;
 	for (int i = 0; i < 1024; i++) {
@@ -311,7 +341,7 @@ void page_regions_print(page_directory_t* dir) {
 					//run finished!
 					//run ends on previous page
 					uint32_t run_end = (tab->pages[j-1].frame * 0x1000);
-					printf("[%x - %x]\n", run_start, run_end);
+					printk("[%x - %x]\n", run_start, run_end);
 
 					//reset run state
 					run_start = -1;
@@ -323,15 +353,16 @@ void page_regions_print(page_directory_t* dir) {
 
 void *mmap(void *addr, uint32_t length, int flags, int fd, uint32_t offset) {
 	char* chbuf = (char*)addr;
-	int diff = ((uint32_t)chbuf % 0x1000);
+	int diff = (uintptr_t)chbuf % 0x1000;
 	if (diff) {
 		printf("mmap page-aligning from %x to %x\n", (uint32_t)addr, (uint32_t)addr - diff);
 		length += diff;
 		chbuf -= diff;
 	}
-	uint32_t page_aligned = length + 
-							(0x1000 - (length % 0x1000));
-	if (page_aligned != length) {
+	uint32_t page_aligned = length;
+	if (page_aligned % 0x1000) {
+		page_aligned = length + 
+					   (0x1000 - (length % 0x1000));
 		printf("mmap page-aligning chunk size from %x to %x\n", length, page_aligned);
 	}
 
@@ -372,9 +403,11 @@ void* sbrk(int increment) {
 	current->prog_break += increment;
 
 	/*
-	page_t* new = get_page(brk, 1, current_directory);
-	if (!new->frame) {
-		alloc_frame(new, 1, 1);
+	int page_count = increment / 0x1000;
+	if (increment % 0x1000) page_count++;
+	for (int i = 0; i < page_count; i++) {
+		page_t* new = get_page(brk + (i * 0x100), 1, current->page_dir);
+		alloc_frame(new, 0, 1);
 	}
 	*/
 
@@ -442,9 +475,9 @@ void page_fault(registers_t regs) {
 
 	//if this page was present, attempt to recover by allocating the page
 	if (present) {
-		bool attempt = alloc_frame(get_page(faulting_address, 1, current_directory), 1, 1);
+		//bool attempt = alloc_frame(get_page(faulting_address, 1, current_directory), 1, 1);
 		//bool attempt = false;
-		if (attempt) {
+		if (0) {
 			//recovered successfully
 			//printf_info("allocated page at virt %x", faulting_address);
 			return;
@@ -469,6 +502,7 @@ void page_fault(registers_t regs) {
 
 static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
 	printk("cloning table at %x\n", src);
+	int cloned_pages = 0;
 
 	//make new page aligned table
 	page_table_t* table = (page_table_t*)kmalloc_ap(sizeof(page_table_t), physAddr);
@@ -479,6 +513,7 @@ static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
 	for (int i = 0; i < 1024; i++) {
 		//if source entry has a frame associated with it
 		if (!src->pages[i].frame) continue;
+		cloned_pages++;
 
 		//get new frame
 		alloc_frame(&(table->pages[i]), 0, 0);
@@ -493,6 +528,7 @@ static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
 		extern void copy_page_physical(uint32_t page, uint32_t dest);
 		copy_page_physical(src->pages[i].frame * 0x1000, table->pages[i].frame * 0x1000);
 	}
+	printf("clone_table() copied %d pages, %d kb\n", cloned_pages, ((cloned_pages * 0x1000) / 1024));
 	return table;
 }
 
@@ -526,6 +562,7 @@ page_directory_t* clone_directory(page_directory_t* src) {
 			//copy table
 			uint32_t phys;
 			dir->tables[i] = clone_table(src->tables[i], &phys);
+			printk("cloned table: %x\n", dir->tables[i]);
 			dir->tablesPhysical[i] = phys | 0x07;
 		}
 	}
@@ -542,10 +579,10 @@ void free_directory(page_directory_t* dir) {
 		page_table_t* table = dir->tables[i];
 		//only free pages in table if table wasn't linked in from kernel tables
 		if (kernel_directory->tables[i] == table) {
-			printf("free_directory() page table %x was linked from kernel\n", table);
+			//printf("free_directory() page table %x was linked from kernel\n", table);
 			continue;
 		}
-		printf("free_directory() proc owned table %x\n", table);
+		//printf("free_directory() proc owned table %x\n", table);
 
 		//this page table belonged to the dead process alone
 		//free pages in table

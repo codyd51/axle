@@ -57,6 +57,7 @@ void wipe_page_tables(page_directory_t* page_dir) {
 
 static plist_t* find_plist(const char* filename) {
 	plist_t* plist = NULL;
+	/*
 	struct dirent* ent;
 
 	int i = 0;
@@ -71,13 +72,21 @@ static plist_t* find_plist(const char* filename) {
 			break;
 		}
 	}
+	*/
 	return plist;
 }
 
 int execve(const char *filename, char *const argv[], char *const envp[]) {
+	/*
+	printf("current directory phys %x\ kernel dir phys %x\n", page_dir_current()->physicalAddr, page_dir_kern()->physicalAddr);
+	switch_page_directory(page_dir_kern());
+	while (1) {}
+	*/
+	printf("switched director %x\n", page_dir_current());
 	task_t* current = task_current();
 	current->permissions = 0;
 
+	/*
 	plist_t* program_plist = find_plist(filename);
 	if (program_plist) {
 		for (int i = 0; i < program_plist->key_count; i++) {
@@ -95,9 +104,19 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 		}
 		kfree(program_plist);
 	}
+	*/
 	//clear page tables from fork()
 	//task_t* current = task_with_pid(getpid());
 	//wipe_page_tables(current->page_dir);
+	
+	/*
+	extern volatile page_directory_t* current_directory;
+	printf("EXEC current_directory %x kernel_directory %x\n", current_directory, page_dir_kern());
+	switch_page_directory(page_dir_kern());
+	printf("after switching, current %x\n", current_directory);
+	return;
+	*/
+	//sys_exec_stage_2(filename);
 
 	printk("Loading binary %s\n", filename);
 	FILE* file = fopen(filename, "rb");
@@ -106,19 +125,10 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 		sys__exit(1);
 	}
 
-	program_type type = find_program_type(file);
+	//program_type type = find_program_type(file);
 
-	//program_type type = ELF_TYPE;
-	if (type == UNKWN_TYPE) {
-		printf_err("%s was not executable", filename);
-		sys__exit(1);
-	}
-	else if (type == ELF_TYPE) {
-		elf_load_file(filename, file, argv);
-	}
-	else if (type == MACH_TYPE) {
-		mach_load_file(filename);
-	}
+	program_type type = ELF_TYPE;
+	elf_load_file(filename, file, argv);
 
 	//we should never reach this point
 	ASSERT(0, "execve didn't exit");

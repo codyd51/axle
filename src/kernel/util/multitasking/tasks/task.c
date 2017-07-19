@@ -210,6 +210,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	task->id = next_pid++;
 	task->page_dir = cloned;
 	task->child_tasks = array_m_create(32);
+	//task->kernel_stack = kmalloc_a(KERNEL_STACK_SIZE);
 	setup_fds(task);
 
 	uint32_t current_eip = read_eip();
@@ -482,6 +483,7 @@ void tasking_install(mlfq_option options) {
 	kernel->id = next_pid++;
 	kernel->page_dir = current_directory;
 	kernel->child_tasks = array_m_create(32);
+	//kernel->kernel_stack = kmalloc_a(KERNEL_STACK_SIZE);
 	setup_fds(kernel);
 
 	current_task = kernel;
@@ -872,6 +874,7 @@ void goto_pid(int id, bool update_current_task_state) {
 	current_task->begin_date = time();
 	int lifetime = (int)array_m_lookup(queue_lifetimes, current_task->queue);
 	current_task->end_date = current_task->begin_date + lifetime;
+	//set_kernel_stack(current_task->kernel_stack + KERNEL_STACK_SIZE);
 
 	eip = current_task->eip;
 	esp = current_task->esp;
@@ -1110,6 +1113,7 @@ Window* task_register_window(Rect frame) {
 	task_t* current = task_with_pid(getpid());
 	Window* win = create_window(frame);
 	array_m_insert(current->windows, win);
+
 	return win;
 }
 

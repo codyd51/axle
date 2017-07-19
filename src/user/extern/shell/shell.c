@@ -150,8 +150,8 @@ int query_exit(int argc, char** argv) {
 	return exit_code;
 }
 
-void spawn_xserv() {
-	return;
+int spawn_xserv() {
+	return -1;
 	xserv_init();
 
 	Window* win = NULL;
@@ -171,7 +171,6 @@ void spawn_xserv() {
 }
 
 int main(int argc, char** argv) {
-
 	memset(cmdtable, 0, sizeof(command_t) * MAX_COMMANDS);
 	register_command("help", "print help", &help);
 	register_command("exit", "quit shell", &quit);

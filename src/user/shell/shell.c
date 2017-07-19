@@ -41,6 +41,9 @@ void prepare_shell() {
 	printf("\n");
 }
 
+int sys_fork();
+int execve(void*, void*, void*);
+int sys__exit(int);
 void process_command(char* string) {
 	prepare_shell();
 
@@ -67,7 +70,7 @@ void process_command(char* string) {
 	else {
 		//not a valid command
 		//are we trying to execute a binary?
-		FILE* stream = fopen(command, 'r');
+		FILE* stream = fopen(command, "r");
 		if (stream) {
 			int pid = sys_fork();
 			if (!pid) {
@@ -362,12 +365,12 @@ void ls_command() {
 	int i = 0;
 	struct dirent* node = 0;
 	while ((node = readdir_fs(current_dir, i)) != 0) {
-		fs_node_t* fsnode = finddir_fs(current_dir, node->name);
+		fs_node_t* fsnode = finddir_fs(current_dir, node->d_name);
 		if ((fsnode->flags & 0x7) == FS_DIRECTORY) {
-			printf("(dir)  %s/\n", node->name);
+			printf("(dir)  %s/\n", node->d_name);
 		}
 		else {
-			printf("(file) %s\n", node->name);
+			printf("(file) %s\n", node->d_name);
 		}
 		i++;
 	}
