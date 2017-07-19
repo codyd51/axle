@@ -66,6 +66,7 @@ ca_layer* layer_snapshot(ca_layer* src, Rect frame);
  */
 void layer_add_clip_rect(ca_layer* layer, Rect added_clip_rect);
 void layer_clear_clip_rects(ca_layer* layer);
+void layer_add_clip_context(ca_layer* layer, ca_layer* clip_subject, Rect added_clip_rect);
 
 __END_DECLS
 

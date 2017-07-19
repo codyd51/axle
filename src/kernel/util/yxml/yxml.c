@@ -24,6 +24,7 @@
 
 #include "yxml.h"
 #include <std/string.h>
+#include <std/std.h>
 
 typedef enum {
 	YXMLS_string,
@@ -225,12 +226,12 @@ static void yxml_popstack(yxml_t *x) {
 
 static inline yxml_ret_t yxml_elemstart  (yxml_t *x, unsigned ch) { return yxml_pushstack(x, &x->elem, ch); }
 static inline yxml_ret_t yxml_elemname   (yxml_t *x, unsigned ch) { return yxml_pushstackc(x, ch); }
-static inline yxml_ret_t yxml_elemnameend(yxml_t *x, unsigned ch) { return YXML_ELEMSTART; }
+static inline yxml_ret_t yxml_elemnameend(yxml_t* UNUSED(x), unsigned UNUSED(ch)) { return YXML_ELEMSTART; }
 
 
 /* Also used in yxml_elemcloseend(), since this function just removes the last
  * element from the stack and returns ELEMEND. */
-static yxml_ret_t yxml_selfclose(yxml_t *x, unsigned ch) {
+static yxml_ret_t yxml_selfclose(yxml_t *x, unsigned UNUSED(ch)) {
 	yxml_popstack(x);
 	if(x->stacklen) {
 		x->elem = (char *)x->stack+x->stacklen-1;
@@ -261,20 +262,20 @@ static inline yxml_ret_t yxml_elemcloseend(yxml_t *x, unsigned ch) {
 
 static inline yxml_ret_t yxml_attrstart  (yxml_t *x, unsigned ch) { return yxml_pushstack(x, &x->attr, ch); }
 static inline yxml_ret_t yxml_attrname   (yxml_t *x, unsigned ch) { return yxml_pushstackc(x, ch); }
-static inline yxml_ret_t yxml_attrnameend(yxml_t *x, unsigned ch) { return YXML_ATTRSTART; }
-static inline yxml_ret_t yxml_attrvalend (yxml_t *x, unsigned ch) { yxml_popstack(x); return YXML_ATTREND; }
+static inline yxml_ret_t yxml_attrnameend(yxml_t *UNUSED(x), unsigned UNUSED(ch)) { return YXML_ATTRSTART; }
+static inline yxml_ret_t yxml_attrvalend (yxml_t *x, unsigned UNUSED(ch)) { yxml_popstack(x); return YXML_ATTREND; }
 
 
 static inline yxml_ret_t yxml_pistart  (yxml_t *x, unsigned ch) { return yxml_pushstack(x, &x->pi, ch); }
 static inline yxml_ret_t yxml_piname   (yxml_t *x, unsigned ch) { return yxml_pushstackc(x, ch); }
-static inline yxml_ret_t yxml_piabort  (yxml_t *x, unsigned ch) { yxml_popstack(x); return YXML_OK; }
-static inline yxml_ret_t yxml_pinameend(yxml_t *x, unsigned ch) {
+static inline yxml_ret_t yxml_piabort  (yxml_t *x, unsigned UNUSED(ch)) { yxml_popstack(x); return YXML_OK; }
+static inline yxml_ret_t yxml_pinameend(yxml_t *x, unsigned UNUSED(ch)) {
 	return (x->pi[0]|32) == 'x' && (x->pi[1]|32) == 'm' && (x->pi[2]|32) == 'l' && !x->pi[3] ? YXML_ESYN : YXML_PISTART;
 }
-static inline yxml_ret_t yxml_pivalend (yxml_t *x, unsigned ch) { yxml_popstack(x); x->pi = (char *)x->stack; return YXML_PIEND; }
+static inline yxml_ret_t yxml_pivalend (yxml_t *x, unsigned UNUSED(ch)) { yxml_popstack(x); x->pi = (char *)x->stack; return YXML_PIEND; }
 
 
-static inline yxml_ret_t yxml_refstart(yxml_t *x, unsigned ch) {
+static inline yxml_ret_t yxml_refstart(yxml_t *x, unsigned UNUSED(ch)) {
 	memset(x->data, 0, sizeof(x->data));
 	x->reflen = 0;
 	return YXML_OK;
@@ -320,8 +321,8 @@ static yxml_ret_t yxml_refend(yxml_t *x, yxml_ret_t ret) {
 }
 
 
-static inline yxml_ret_t yxml_refcontent(yxml_t *x, unsigned ch) { return yxml_refend(x, YXML_CONTENT); }
-static inline yxml_ret_t yxml_refattrval(yxml_t *x, unsigned ch) { return yxml_refend(x, YXML_ATTRVAL); }
+static inline yxml_ret_t yxml_refcontent(yxml_t *x, unsigned UNUSED(ch)) { return yxml_refend(x, YXML_CONTENT); }
+static inline yxml_ret_t yxml_refattrval(yxml_t *x, unsigned UNUSED(ch)) { return yxml_refend(x, YXML_ATTRVAL); }
 
 
 void yxml_init(yxml_t *x, void *stack, size_t stacksize) {

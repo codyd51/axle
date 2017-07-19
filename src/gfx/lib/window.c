@@ -7,6 +7,8 @@
 #include <std/std.h>
 #include <user/xserv/animator.h>
 #include <gfx/lib/shapes.h>
+#include <kernel/drivers/rtc/clock.h>
+#include <kernel/util/multitasking/tasks/task.h>
 
 #define MAX_ELEMENTS 64
 
@@ -267,6 +269,8 @@ bool draw_window(Window* window) {
 
 //record up to 'len' Windows spawned by PID 'pid'
 //store each pointer in 'out' array
+/*
 void window_with_pid_get(int pid, Window** out, int len) {
 }
+*/
 

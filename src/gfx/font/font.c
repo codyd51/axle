@@ -6,7 +6,8 @@
 
 //TODO configurable SSAA factor?
 //#define SSAA_FACTOR 4
-#define SSAA_FACTOR 0
+//#define SSAA_FACTOR (0)
+#define SSAA_FACTOR 1 
 
 #define BITS_IN_WORD (sizeof(uint32_t) * 8)
 static inline void bitset_set(uint32_t* bitset, int idx) {
@@ -27,7 +28,7 @@ static inline bool bitset_check(uint32_t* bitset, int idx) {
 	return ((bitset[word_idx] >> offset) & 1);
 }
 
-static uint32_t supersample_map_cache[256][CHAR_WIDTH * SSAA_FACTOR] = {{0}};
+static uint32_t supersample_map_cache[256][CHAR_WIDTH * SSAA_FACTOR];
 //generate supersampled bitmap of font character
 static void generate_supersampled_map(uint32_t* supersample, char ch) {
 	//bitset of characters which are stored in cache
@@ -36,7 +37,7 @@ static void generate_supersampled_map(uint32_t* supersample, char ch) {
 	static uint32_t present_in_cache[8] = {0};
 
 	//use cached map if existing
-	uint32_t* cached = &supersample_map_cache[(int)ch];
+	uint32_t* cached = (uint32_t*)&supersample_map_cache[(int)ch];
 	if (bitset_check((uint32_t*)&present_in_cache, (int)ch)) {
 		memcpy(supersample, cached, CHAR_WIDTH * SSAA_FACTOR * sizeof(uint32_t));
 		return;
@@ -48,12 +49,13 @@ static void generate_supersampled_map(uint32_t* supersample, char ch) {
 		uint32_t ssaa_row = 0;
 
 		//get row from sampled bitmap
-		int font_row = font8x8_basic[(int)ch][y / SSAA_FACTOR];
+		int factor = MAX(SSAA_FACTOR, 1);
+		int font_row = font8x8_basic[(int)ch][y / factor];
 
 		//for every row in SS bitmap
 		for (int x = 0; x < CHAR_WIDTH * SSAA_FACTOR; x++) {
 			//copy state of sampled bitmap
-			if ((font_row >> (x / SSAA_FACTOR)) & 1) {
+			if ((font_row >> (x / factor)) & 1) {
 				ssaa_row |= (1 << x);
 			}
 		}
@@ -75,7 +77,7 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 
 	uint32_t supersample[CHAR_WIDTH * SSAA_FACTOR];
 	if (SSAA_FACTOR) {
-		generate_supersampled_map(&supersample, ch);
+		generate_supersampled_map((uint32_t*)&supersample, ch);
 	}
 
 	Color bg_color = color_black();
@@ -102,7 +104,7 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 	for (int draw_y = 0; draw_y < font_size.height; draw_y++) {
 		//get the corresponding y of default font size
 		int font_y = draw_y / scale_y;
-		
+
 		for (int draw_x = 0; draw_x < font_size.width; draw_x++) {
 			//corresponding x of default font size
 			int font_x = draw_x / scale_x;
@@ -113,18 +115,18 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 
 				Color draw_color = color_white();
 				float a = 1 - ( 0.299 * bg_color.val[0] + 
-								0.587 * bg_color.val[1] + 
-								0.114 * bg_color.val[2])/255;
+						0.587 * bg_color.val[1] + 
+						0.114 * bg_color.val[2])/255;
 				if (a < 0.5) draw_color = color_black();
 				draw_color = color;
 				if ((font_row >> font_x) & 1) {
 					putpixel(layer, x + draw_x, y + draw_y, draw_color);
 				}
 				/*
-				else {
-					putpixel(layer, x + draw_x, y + draw_y, bg_color);
-				}
-				*/
+				   else {
+				   putpixel(layer, x + draw_x, y + draw_y, bg_color);
+				   }
+				   */
 				continue;
 			}
 
@@ -141,9 +143,9 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 				for (int dy = -1; dy <= 1; dy++) {
 					//is this pixel valid?
 					if (font_x + dx >= 0 &&
-						font_y + dy >= 0 &&
-						font_x + dx <= CHAR_WIDTH &&
-						font_y + dy <= CHAR_HEIGHT) {
+							font_y + dy >= 0 &&
+							font_x + dx <= CHAR_WIDTH &&
+							font_y + dy <= CHAR_HEIGHT) {
 						int ssaa_x = (font_x * SSAA_FACTOR) + dx;
 						int ssaa_y = (font_y * SSAA_FACTOR) + dy;
 
@@ -158,22 +160,20 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 
 			//'on' pixels / total pixel count in SSAA region = alpha of pixel to draw
 			float alpha = (float)on_count / (float)total_count;
-			
+
 			//if drawing black or white text, try to increase legibility
-			/*
 			if (color_equal(color, color_white()) ||
-				color_equal(color, color_black())) {
+					color_equal(color, color_black())) {
 				if ((bg_color.val[0] * 0.299 + 
-					bg_color.val[1] * 0.587 +
-					bg_color.val[2] * 0.114) > 186) {
+							bg_color.val[1] * 0.587 +
+							bg_color.val[2] * 0.114) > 186) {
 					color = color_black();
 				}
 				else {
 					color = color_white();
 				}
-			//}
+			}
 
-			*/
 			Color avg_color = color;
 			uint8_t tmp = avg_color.val[0];
 			avg_color.val[0] = avg_color.val[1];
@@ -194,10 +194,9 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 
 //returns first pointer to a string that looks like a web link in 'str', 
 //or NULL if none is found
-static char* link_hueristic(char* str) {
-	return NULL;
+char* link_hueristic(char* str) {
 	static char link_stubs[2][16] = {"http",
-									 "www",
+		"www",
 	};
 	char* test = NULL;
 	//check if this matches any link hints
@@ -216,7 +215,7 @@ Size font_padding_for_size(Size s) {
 	return size_make(s.width / factor, s.height / factor);
 }
 
-static int visual_lines_for_string(char* str, Size font_size, Size render_region) {
+int visual_lines_for_string(char* str, Size font_size, Size render_region) {
 	int count = 0;
 	//int characters_per_line = ceil(render_region.width / (float)font_size.width);
 	float characters_per_line = render_region.width / font_size.width;
@@ -237,7 +236,7 @@ void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font
 	//don't check if str is too short to be a URL
 	char* link_loc = NULL;
 	if (strlen(str) < 7) {
-		char* link_loc = link_hueristic(str);
+		link_loc = link_hueristic(str);
 	}
 
 	int x = origin.x;
@@ -255,7 +254,7 @@ void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font
 
 	//printk("characters_per_line %f string_len %d lines_to_render %f max_lines_possible %fstring %s\n", characters_per_line, string_len, lines_to_render, max_lines_possible, str);
 	int idx = 0;
-	
+
 	if (lines_to_render > max_lines_possible) {
 		int lines_to_skip = lines_to_render - max_lines_possible;
 		idx += (characters_per_line * lines_to_skip);
@@ -268,28 +267,20 @@ void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font
 
 	while (str[idx]) {
 		bool inserting_hyphen = false;
-		bool needs_newline = false;
 		//do we need to break a word onto 2 lines?
 		if ((x + font_size.width + padding.width + 1) >= dest->size.width) {
 			int word_len = 0;
 			for (int i = idx; i >= 0; i--) {
 				if (!isalnum(str[i])) {
-						break;
+					break;
 				}
 				word_len++;
 			}
 			//if string is too short to hypenate, just add a newline
 			//don't bother if it was puncutation anyways
-			//if (!isalnum(str[idx])) {
-			if (1) {
-				if (word_len > 10000) {
-					needs_newline = true;
-				}
-				else {
-					inserting_hyphen = true;
-				}
+			if (!isalnum(str[idx])) {
+				inserting_hyphen = true;
 			}
-			//needs_newline = true;
 		}
 		else if (str[idx] == '\n') {
 			x = 0;
@@ -320,7 +311,7 @@ void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font
 		if (inserting_hyphen) {
 			draw_char(dest, '-', x, y, draw_color, font_size);
 			//drew hyphen, continue without drawing current character in input string
-			
+
 			x = 0;
 
 			//quit if going to next line would exceed view bounds
@@ -336,3 +327,4 @@ void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font
 		idx++;
 	}
 }
+

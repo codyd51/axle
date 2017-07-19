@@ -16,5 +16,6 @@ void xserv_resume();
 void xserv_temp_stop(uint32_t pause_length);
 //displays error message for informing user of heap corruption
 void xserv_fail();
+Window* xterm_get();
 
 #endif

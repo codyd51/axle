@@ -62,6 +62,8 @@ DEFN_SYSCALL1(xserv_win_present, 18, Window*);
 DEFN_SYSCALL1(xserv_win_destroy, 19, Window*);
 DEFN_SYSCALL0(xserv_init, 20);
 
+DEFN_SYSCALL3(getdents, 21, unsigned int, struct dirent*, unsigned int);
+
 void create_sysfuncs() {
 	sys_insert((void*)&_kill);
 	sys_insert((void*)&execve);
@@ -84,5 +86,6 @@ void create_sysfuncs() {
 	sys_insert((void*)&xserv_win_present);
 	sys_insert((void*)&xserv_win_destroy);
 	sys_insert((void*)&xserv_init);
+	sys_insert((void*)&getdents);
 }
 

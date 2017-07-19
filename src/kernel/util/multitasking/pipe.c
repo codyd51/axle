@@ -3,6 +3,7 @@
 #include <std/memory.h>
 #include <std/std.h>
 #include <kernel/util/vfs/fs.h>
+#include <kernel/util/multitasking/fd.h>
 
 static void pipe_create(pipe_t** read, pipe_t** write) {
 	task_t* current = task_with_pid(getpid());
@@ -11,13 +12,13 @@ static void pipe_create(pipe_t** read, pipe_t** write) {
 	memset(r, 0, sizeof(pipe_t));
 	r->dir = READ;
 	r->pids = array_m_create(32);
-	array_m_insert(r->pids, getpid());
+	array_m_insert(r->pids, (type_t)getpid());
 
 	pipe_t* w = (pipe_t*)kmalloc(sizeof(pipe_t));
 	memset(w, 0, sizeof(pipe_t));
 	w->dir = WRITE;
 	w->pids = array_m_create(32);
-	array_m_insert(w->pids, getpid());
+	array_m_insert(w->pids, (type_t)getpid());
 
 	//add pipes to current tasks's file descriptor table
 	//read pipe entry
@@ -45,8 +46,6 @@ static void pipe_destroy(pipe_t* pipe) {
 }
 
 int pipe(int pipefd[2]) {
-	task_t* current = task_with_pid(getpid());
-	
 	//create read and write pipes
 	pipe_t* read = NULL;
 	pipe_t* write = NULL;
@@ -55,6 +54,8 @@ int pipe(int pipefd[2]) {
 	//then, assign file descriptors of new pipes to input array
 	pipefd[0] = read->fd;
 	pipefd[1] = write->fd;
+
+	return 0;
 }
 
 static pipe_t* find_pipe(int fd) {
@@ -96,9 +97,11 @@ int pipe_read(int fd, char* buf, int count) {
 		cb_pop_front(pipe->cb, &(buf[i]));
 
 		//check if we hit EOF
+		/*
 		if (buf[i] == EOF) {
 			break;
 		}
+		*/
 	}
 	buf[i] = '\0';
 	return i;
@@ -167,10 +170,10 @@ int pipe_close(int fd) {
 	}
 
 	//remove current PID from list of PIDs referencing this pipe end
-	int idx = array_m_index(pipe->pids, getpid());
+	int idx = array_m_index(pipe->pids, (type_t)getpid());
 	if (idx == ARR_NOT_FOUND) {
 		printf_err("pipe_close() on pipe not owned in proc");
-		return;
+		return -1;
 	}
 	array_m_remove(pipe->pids, idx);
 
@@ -181,7 +184,7 @@ int pipe_close(int fd) {
 	//if there are more processes referencing this pipe, 
 	//quit early
 	if (pipe->pids->size) {
-		return;
+		return -1;
 	}
 
 	//if no PIDs are referencing this pipe end, 
@@ -194,5 +197,7 @@ int pipe_close(int fd) {
 		kfree(pipe->cb);
 	}
 	pipe_destroy(pipe);
+
+	return 0;
 }
 

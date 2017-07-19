@@ -3,12 +3,13 @@
 #include <kernel/util/multitasking/tasks/task.h>
 #include <kernel/util/multitasking/pipe.h>
 #include <kernel/util/multitasking/std_stream.h>
+#include <user/xserv/xserv.h>
 
 #include <gfx/lib/gfx.h>
 #include <gfx/lib/Window.h>
 #include <gfx/lib/Label.h>
 
-int xserv_write(task_t* task, int fd, const void* buf, int len) {
+int xserv_write(task_t* task, int UNUSED(fd), const void* buf, int len) {
 	const char* chbuf = (char*)buf;
 
 	Window* xterm = xterm_get();

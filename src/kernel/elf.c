@@ -1,11 +1,13 @@
 #include "elf.h"
+#include <std/printf.h>
+#include <std/string.h>
 
 void elf_from_multiboot(multiboot* mb, elf_t* elf) {
 	elf_section_header_t* sh = (elf_section_header_t*)mb->addr;
 
 	uint32_t shstrtab = sh[mb->shndx].addr;
 	printf("sh %x shstrab %x\n", sh, shstrtab);
-	for (int i = 0; i < mb->num; i++) {
+	for (uint32_t i = 0; i < mb->num; i++) {
 		const char* name = (const char*)(shstrtab + sh[i].name);
 		if (!strcmp(name, ".strtab")) {
 			printf("found strtab\n");
@@ -21,7 +23,7 @@ void elf_from_multiboot(multiboot* mb, elf_t* elf) {
 }
 
 const char* elf_sym_lookup(elf_t* elf, uint32_t addr) {
-	for (int i = 0; i < (elf->symtabsz / sizeof(elf_symbol_t)); i++) {
+	for (uint32_t i = 0; i < (elf->symtabsz / sizeof(elf_symbol_t)); i++) {
 		const char* name = (const char*)((uint32_t)elf->strtab + elf->symtab[i].name);
 		//function type is 0x2
 		if (ELF32_ST_TYPE(elf->symtab[i].info) != 0x2) {

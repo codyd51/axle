@@ -1,6 +1,7 @@
 #include "dup.h"
 #include <kernel/util/multitasking/tasks/task.h>
 #include <kernel/util/multitasking/fd.h>
+#include <kernel/util/unistd/close.h>
 
 int dup(int fd) {
 	task_t* current = task_with_pid(getpid());

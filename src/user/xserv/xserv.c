@@ -18,6 +18,7 @@
 #include <user/programs/jpeg.h>
 #include <std/List.h>
 #include <gfx/lib/rect.h>
+#include <kernel/util/unistd/exec.h>
 
 Window* create_window_int(Rect frame, bool is_root_window);
 
@@ -85,7 +86,7 @@ void add_status_bar(Screen* screen) {
 }
 
 static Point last_grabbed_window_pos;
-static void draw_window_shadow(Screen* screen, Window* window, Point new) {
+void draw_window_shadow(Screen* screen, Window* window, Point new) {
 	return;
 	Point old = last_grabbed_window_pos;
 	int actual_shadow_count = shadow_count;
@@ -208,7 +209,7 @@ Color color_rand() {
 }
 
 static Window* grabbed_window = NULL;
-void draw_desktop(Screen* screen, Rect* modified_viewport) {
+void draw_desktop(Screen* screen) {
 	static int redraw_count = 0;
 
 	layer_clear_clip_rects(screen->vmem);
@@ -239,7 +240,7 @@ void draw_desktop(Screen* screen, Rect* modified_viewport) {
 	}
 
 	//printk("Drawing %d clip rects\n", screen->vmem->clip_rects->count);
-	for (int i = 0; i < screen->vmem->clip_rects->count; i++) {
+	for (uint32_t i = 0; i < screen->vmem->clip_rects->count; i++) {
 		clip_context_t* c = List_get_at(screen->vmem->clip_rects, i);
 		/*
 		printk("Drawing clip {%d,%d,%d,%d} (origin {%d,%d}) from layer %x\n", c->clip_rect.origin.x,
@@ -253,7 +254,6 @@ void draw_desktop(Screen* screen, Rect* modified_viewport) {
 		blit_layer(screen->vmem, c->source_layer, c->clip_rect, rect_make(c->local_origin, c->clip_rect.size));
 		//draw_rect(screen->vmem, c->clip_rect, color_green(), 1);
 	}
-	//*modified_viewport = screen->frame;
 
 	/*
 				//blit_layer(screen->vmem, win->layer, win->frame, rect_make(point_zero(), win->frame.size));
@@ -421,11 +421,11 @@ Point cursor_pos() {
 	return last_mouse_pos;
 }
 
-char xserv_draw(Screen* screen, Rect* modified_viewport) {
+char xserv_draw(Screen* screen) {
 	screen->finished_drawing = 0;
 
 	dirtied = 0;
-	draw_desktop(screen, modified_viewport);
+	draw_desktop(screen);
 	draw_cursor(screen);
 
 	screen->finished_drawing = 1;
@@ -554,7 +554,7 @@ Point world_point_to_owner_space(Point p) {
 	return world_point_to_owner_space_sub(converted, win->content_view);
 }
 
-static void process_kb_events(Screen* screen) {
+void process_kb_events(Screen* screen) {
 	//check if there are any keys pending
 	if (!haskey()) return;
 
@@ -681,7 +681,6 @@ void xserv_refresh(Screen* screen) {
 	long time_start = time();
 	static long last_redraw = 0;
 
-	Rect old_cursor_rect = rect_make(cursor_pos(), size_make(12, 14));
 	//handle mouse events
 	process_mouse_events(screen);
 	//keyboard events
@@ -690,9 +689,7 @@ void xserv_refresh(Screen* screen) {
 	//traverse view hierarchy,
 	//redraw views if necessary,
 	//composite everything onto root layer
-	//
-	Rect modified_viewport = rect_null();
-	xserv_draw(screen, &modified_viewport);
+	xserv_draw(screen);
 
 	long frame_end = time();
 

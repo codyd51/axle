@@ -10,21 +10,21 @@ void mach_load_file(char* filename) {
 	printk("Loading Mach-O file \'%s\'\n", filename);
 
 	//figure out virtual memory slide
-	char* mach_slide = 0xEFF00000;
+	char* mach_slide = (char*)0xEFF00000;
 	task_t* mach_task = task_with_pid(getpid());
-	mach_task->vmem_slide = mach_slide;
+	mach_task->vmem_slide = (uint32_t)mach_slide;
 
 	FILE* mach = fopen(filename, "rb");
 	int entry_point = 0;
 	mach_load_segments(mach, &entry_point, mach_task->vmem_slide);
 	fclose(mach);
 
-	if (entry_point == NULL) {
+	if (!entry_point) {
 		printf_err("Couldn't find mach-o entry point");
 		return;
 	}
 
-	void* mach_entry = entry_point + mach_task->vmem_slide;
+	void* mach_entry = (void*)entry_point + mach_task->vmem_slide;
 	int(*mach_main)(void) = (int(*)(void))mach_entry;
 
 	printf("jumping to mach main @ %x\n\n", mach_entry);
@@ -40,7 +40,7 @@ static uint32_t mach_read_magic(FILE* mach, int offset) {
 
 	fseek(mach, offset, SEEK_SET);
 	char buf[4];
-	for (int i = 0; i < sizeof(buf); i++) {
+	for (uint32_t i = 0; i < sizeof(buf); i++) {
 		buf[i] = fgetc(mach);
 	}
 	fseek(mach, offset, SEEK_SET);
@@ -52,7 +52,7 @@ bool mach_validate(FILE* mach) {
 	//uint32_t magic = mach_read_magic(mach, 0);
 	fseek(mach, 0, SEEK_SET);
 	unsigned char buf[4] = {0};
-	for (int i = 0; i < sizeof(buf); i++) {
+	for (uint32_t i = 0; i < sizeof(buf); i++) {
 		buf[i] = fgetc(mach);
 	}
 	fseek(mach, 0, SEEK_SET);
@@ -102,12 +102,12 @@ static void mach_load_segment_commands(FILE* mach, int offset, int should_swap, 
 													*/
 
 			char* segment_start = buf + segment->fileoff;
-			char* vmem_seg_start = slide + segment->vmaddr;
+			char* vmem_seg_start = slide + (char*)segment->vmaddr;
 			memset(vmem_seg_start, 0, segment->vmsize);
 			memcpy(vmem_seg_start, segment_start, segment->filesize);
 
 			if (segment->nsects) {
-				for (int j = 0; j < segment->nsects; j++) {
+				for (uint32_t j = 0; j < segment->nsects; j++) {
 					int sect_offset = real + sizeof(struct segment_command) + (sizeof(struct section) * j); 
 					struct section* sect = mach_load_bytes(mach, sect_offset, sizeof(struct section));
 					//printf("    %s section %d: addr %x size %x\n", sect->segname, j, sect->addr, sect->size);
@@ -148,7 +148,7 @@ static struct _cpu_type_names cpu_type_names[] = {
 	{CPU_TYPE_ARM64,	"arm64"}
 };
 
-static const char* cpu_type_name(cpu_type_t cpu_type) {
+const char* cpu_type_name(cpu_type_t cpu_type) {
 	static int cpu_type_names_size = sizeof(cpu_type_names) / sizeof(struct _cpu_type_names);
 	for (int i = 0; i < cpu_type_names_size; i++) {
 		if (cpu_type == cpu_type_names[i].cputype) {
@@ -199,7 +199,7 @@ void mach_load_segments(FILE* mach, int* entry_point, uint32_t slide) {
 
 	//map mach o from file into memory
 	char* filebuf = kmalloc(size);
-	for (int i = 0; i < size; i++) {
+	for (uint32_t i = 0; i < size; i++) {
 		filebuf[i] = fgetc(mach);
 	}
 

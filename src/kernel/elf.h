@@ -36,6 +36,8 @@ typedef struct {
   uint32_t      strtabsz;
 } elf_t;
 
+elf_t* kern_elf();
+
 //takes a multiboot struct and returns an elf struct containing relavent info
 void elf_from_multiboot(multiboot* mb, elf_t* elf);
 //elf_t elf_from_multiboot(multiboot* mb);

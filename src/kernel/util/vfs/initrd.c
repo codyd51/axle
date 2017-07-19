@@ -1,5 +1,6 @@
 #include "initrd.h"
 #include <std/std.h>
+#include <kernel/util/paging/paging.h>
 
 initrd_header_t* initrd_header;		//header
 initrd_file_header_t* file_headers;	//list of file headers
@@ -129,7 +130,7 @@ void initrd_remap(int initrd_loc, int initrd_end, int initrd_vmem) {
 	int i = 0;
 	for (; i < initrd_size + 0x1000; i += 0x1000) {
 		alloc_frame(get_page(initrd_vmem + i, 1, page_dir_current()), 1, 1);
-		memcpy(initrd_vmem + i, initrd_loc + i, 0x1000);
+		memcpy((uint32_t*)initrd_vmem + i, (uint32_t*)initrd_loc + i, 0x1000);
 	}
 	printf("alloc'd %d pages for initrd\n", i / 0x1000);
 }

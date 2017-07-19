@@ -209,7 +209,7 @@ void layer_add_clip_context(ca_layer* layer, ca_layer* clip_subject, Rect added_
 	Rect cur_rect;
 
 	//check each existing clip rect and see if it overlaps with new one
-	for (int i = 0; i < layer->clip_rects->count; ) {
+	for (uint32_t i = 0; i < layer->clip_rects->count; ) {
 		clip_context_t* context = List_get_at(layer->clip_rects, i);
 		cur_rect = context->clip_rect;
 		if (!rect_intersects(cur_rect, added_clip_rect)) {

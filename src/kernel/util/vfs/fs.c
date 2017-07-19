@@ -2,6 +2,7 @@
 #include <std/std.h>
 #include <std/math.h>
 #include <kernel/util/multitasking/fd.h>
+#include <kernel/util/fat/fat.h>
 
 fs_node_t* fs_root = 0; //filesystem root
 
@@ -85,17 +86,18 @@ FILE* initrd_fopen(char* filename, char* mode) {
 FILE* fopen(const char* filename, char* mode) {
 	//FILE* new_file = fat_fopen(filename, mode);
 	//if (new_file) return new_file;
-	return initrd_fopen(filename, mode);
+	char* mutable = (char*)filename;
+	return initrd_fopen(mutable, mode);
 }
 #pragma GCC diagnostic pop
 
-int open(const char* filename, int oflag) {
+int open(const char* filename, int UNUSED(oflag)) {
 	FILE* f = fopen(filename, "rw");
 	return f->fd;
 }
 
 void fclose(FILE* stream) {
-	fd_remove(getpid(), stream->fd);
+	fd_remove(task_with_pid(getpid()), stream->fd);
 	kfree(stream);
 }
 
@@ -213,7 +215,7 @@ int getdents(unsigned int fd, struct dirent* dirp, unsigned int count) {
 		return 0;
 	}
 
-	int i = 0;
+	uint32_t i = 0;
 	for (; i < count; i++) {
 		fat_dirent fat_ent;
 		int read_count = fat_fread(&fat_ent, sizeof(char), sizeof(fat_dirent), ent.payload);
@@ -222,7 +224,7 @@ int getdents(unsigned int fd, struct dirent* dirp, unsigned int count) {
 			break;
 		}
 		struct dirent* curr = (struct dirent*)(dirp + i);
-		strncpy(curr->d_name, &fat_ent.name, sizeof(fat_ent.name));
+		strncpy(curr->d_name, (const char*)&fat_ent.name, sizeof(fat_ent.name));
 		curr->d_ino = i;
 		curr->d_off = (i + 1) * sizeof(fat_dirent);
 		curr->d_reclen = sizeof(fat_dirent);

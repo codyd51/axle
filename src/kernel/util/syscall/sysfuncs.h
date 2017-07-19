@@ -45,4 +45,6 @@ DECL_SYSCALL1(xserv_win_present, Window*);
 DECL_SYSCALL1(xserv_win_destroy, Window*);
 DECL_SYSCALL0(xserv_init);
 
+DECL_SYSCALL3(getdents, unsigned int, struct dirent*, unsigned int);
+
 #endif

@@ -12,7 +12,7 @@ static char* read_file(FILE* file) {
 	int i = 0;
 	for (; i < BUFSIZE; i++) {
 		raw[i] = fgetc(file);
-		if (raw[i] == EOF) break;
+		//if (raw[i] == EOF) break;
 	}
 	raw[i] = '\0';
 	return raw;
@@ -21,7 +21,7 @@ static char* read_file(FILE* file) {
 void plist_parse(plist_t* plist, FILE* file) {
 	memset(plist, 0, sizeof(plist));
 	//task_t->permissions
-	uint32_t permissions = 0;
+	//uint32_t permissions = 0;
 
 	char* doc = read_file(file);
 	char* raw = doc;
@@ -62,7 +62,7 @@ void plist_parse(plist_t* plist, FILE* file) {
 			continue;
 		}
 		else if (r == YXML_ATTREND) {
-			strcpy(&(plist->keys[plist->key_count++]), x->attr);
+			strcpy((char*)&(plist->keys[plist->key_count++]), x->attr);
 		}
 		else if (r == YXML_ATTRVAL) {
 			//it's so beautiful ;_;
@@ -81,7 +81,7 @@ void plist_parse(plist_t* plist, FILE* file) {
 
 char* plist_val_for_key(plist_t* plist, char* key) {
 	for (int i = 0; i < plist->key_count; i++) {
-		if (!strcmp(plist->keys, key)) {
+		if (!strcmp((const char*)plist->keys, key)) {
 			return plist->vals[i];
 		}
 	}
@@ -90,7 +90,7 @@ char* plist_val_for_key(plist_t* plist, char* key) {
 
 char* plist_key_for_val(plist_t* plist, char* val) {
 	for (int i = 0; i < plist->key_count; i++) {
-		if (!strcmp(plist->vals, val)) {
+		if (!strcmp((const char*)plist->vals, val)) {
 			return plist->keys[i];
 		}
 	}

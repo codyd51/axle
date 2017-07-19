@@ -1,4 +1,6 @@
 #include "std_stream.h"
+#include <user/xserv/xserv.c>
+#include <kernel/util/unistd/write.h>
 
 int std_stream_push(task_t* task, char* buf, int len) {
 	for (int i = 0; i < len; i++) {

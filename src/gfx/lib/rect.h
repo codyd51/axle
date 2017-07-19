@@ -5,6 +5,7 @@
 #include "size.h"
 #include <std/array_m.h>
 #include <stdbool.h>
+#include <std/List.h>
 
 #define rect_min_x(r) ((r).origin.x)
 #define rect_min_y(r) ((r).origin.y)
@@ -20,10 +21,6 @@ Rect rect_make(Point origin, Size size);
 Rect rect_zero();
 
 bool rect_intersects(Rect A, Rect B);
-
-//explode subject rect into array of contiguous rects which are
-//not occluded by cutting rect
-Rect* rect_clip(Rect subject, Rect cutting, int* count, bool* occluded);
 
 //find the intersecting rect of a and b
 Rect rect_intersect(Rect a, Rect b);
@@ -43,5 +40,11 @@ Rect rect_inset(Rect src, int dx, int dy);
 
 //convert inner to outer's coordinate space
 Rect convert_rect(Rect outer, Rect inner);
+
+Rect* Rect_new(int top, int left, int bottom, int right);
+
+//explode subject rect into array of contiguous rects which are
+//not occluded by cutting rect
+List* Rect_split(Rect subject_rect, Rect cutting_rect);
 
 #endif

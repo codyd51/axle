@@ -74,7 +74,6 @@ static void draw_rect_int_fast(ca_layer* layer, Rect rect, Color color) {
 	}
 
 	int bpp = gfx_bpp();
-	bool rgb = (bpp >= 3);
 
 	int offset = rect.origin.x * bpp + rect.origin.y * layer->size.width * bpp;
 
@@ -125,10 +124,6 @@ void draw_rect(ca_layer* layer, Rect r, Color color, int thickness) {
 		return;
 	}
 
-	int x = r.origin.x;
-	int y = r.origin.y;
-	int w = r.size.width;
-	int h = r.size.height;
 	Point origin = point_make(r.origin.x, r.origin.y);
 	Size size = size_make(r.size.width, r.size.height);
 	Rect rt = rect_make(origin, size);

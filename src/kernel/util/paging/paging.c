@@ -93,7 +93,7 @@ static uint32_t test_frame(uint32_t frame_addr) {
 }
 #pragma GCC diagnostic pop
 
-static uint32_t* page_from_frame(int32_t frame) {
+uint32_t* page_from_frame(int32_t frame) {
 	int addr = frame * 0x1000;
 	return (uint32_t*)(long)addr;
 }
@@ -322,7 +322,7 @@ void page_regions_print(page_directory_t* dir) {
 	if (!dir) return;
 	printk("page directory %x regions:\n", dir);
 
-	uint32_t run_start = -1;
+	int32_t run_start = -1;
 	for (int i = 0; i < 1024; i++) {
 		page_table_t* tab = dir->tables[i];
 		if (!tab) continue;
@@ -351,7 +351,7 @@ void page_regions_print(page_directory_t* dir) {
 	}
 }
 
-void *mmap(void *addr, uint32_t length, int flags, int fd, uint32_t offset) {
+void *mmap(void *addr, uint32_t length, int UNUSED(flags), int UNUSED(fd), uint32_t UNUSED(offset)) {
 	char* chbuf = (char*)addr;
 	int diff = (uintptr_t)chbuf % 0x1000;
 	if (diff) {
@@ -368,21 +368,21 @@ void *mmap(void *addr, uint32_t length, int flags, int fd, uint32_t offset) {
 
 	printf("mmap @ %x + %x\n", addr, page_aligned);
 	//allocate every necessary page
-	for (int i = 0; i < page_aligned; i += 0x1000) {
+	for (uint32_t i = 0; i < page_aligned; i += 0x1000) {
 		//TODO change alloc_frame flags based on 'flags'
 		alloc_frame(get_page((uint32_t)chbuf + i, 1, current_directory), 1, 1);
-		memset((uint32_t)chbuf + i, 0, 0x1000);
+		memset((uint32_t*)chbuf + i, 0, 0x1000);
 	}
 	return chbuf;
 }
 
-int munmap(void *addr, uint32_t length) {
+int munmap(void *UNUSED(addr), uint32_t UNUSED(length)) {
 	ASSERT(0, "munmap called");
 }
 
-void* unsbrk(int increment) {
+void* unsbrk(int UNUSED(increment)) {
 	task_t* current = task_with_pid(getpid());
-	char* brk = current->prog_break;
+	char* brk = (char*)current->prog_break;
 	return brk;
 }
 
@@ -393,7 +393,7 @@ void* sbrk(int increment) {
 	}
 
 	task_t* current = task_with_pid(getpid());
-	char* brk = current->prog_break;
+	char* brk = (char*)current->prog_break;
 
 	if (!increment) {
 		return brk;
@@ -422,7 +422,7 @@ void* sbrk(int increment) {
 int brk(void* addr) {
 	printf("BRK(%x)\n", addr);
 	task_t* current = task_with_pid(getpid());
-	current->prog_break = addr;
+	current->prog_break = (uint32_t)addr;
 	return 0;
 }
 

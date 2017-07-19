@@ -15,6 +15,7 @@
 #include <user/xserv/xserv.h>
 #include <kernel/util/multitasking/pipe.h>
 #include <kernel/util/multitasking/std_stream.h>
+#include <kernel/util/multitasking/fd.h>
 
 //function defined in asm which returns the current instruction pointer
 uint32_t read_eip();
@@ -599,9 +600,9 @@ void update_blocked_tasks() {
 
 void int_wait(int irq) {
 	task_t* task = current_task;
-	task->block_context = task;
+	task->block_context = (void*)irq;
 	task->irq_satisfied = false;
-	block_task_context(task, IRQ_WAIT, IRQ1);
+	block_task_context(task, IRQ_WAIT, (void*)IRQ1);
 }
 
 task_t* first_responder() {
@@ -627,7 +628,7 @@ int fork(char* name) {
 		if (entry.type == PIPE_TYPE) {
 			pipe_t* pipe = (pipe_t*)entry.payload;
 			//and add this new child to the pipe's reference list
-			array_m_insert(pipe->pids, child->id);
+			array_m_insert(pipe->pids, (type_t)child->id);
 		}
 	}
 
@@ -1038,25 +1039,25 @@ void jump_user_mode() {
 	// this ensures interrupts will be turned back on upon iret, as we do a cli at the 
 	// beginning of this routine, and can't do an sti once we're done since we're in user mode
 	//set_kernel_stack(current_task->kernel_stack + KERNEL_STACK_SIZE);
-	asm volatile("  \ 
-			cli; \ 
-			mov $0x23, %ax; \ 
-			mov %ax, %ds; \ 
-			mov %ax, %es; \ 
-			mov %ax, %fs; \ 
-			mov %ax, %gs; \ 
-			\ 
-			mov %esp, %eax; \ 
-			pushl $0x23; \ 
-			pushl %eax; \ 
-			pushf; \ 
+	asm volatile("  \
+			cli; \
+			mov $0x23, %ax; \
+			mov %ax, %ds; \
+			mov %ax, %es; \
+			mov %ax, %fs; \
+			mov %ax, %gs; \
+			\
+			mov %esp, %eax; \
+			pushl $0x23; \
+			pushl %eax; \
+			pushf; \
 			pop %eax; \
 			or %eax, 0x200; \
 			push %eax; \
-			pushl $0x1B; \ 
-			push $1f; \ 
-			iret; \ 
-			1: \ 
+			pushl $0x1B; \
+			push $1f; \
+			iret; \
+			1: \
 			");
 }
 
@@ -1066,7 +1067,7 @@ int waitpid(int pid, int* status, int options) {
 
 	//wait finished!
 	//find child which terminated
-	for (int i = 0; i < parent->child_tasks; i++) {
+	for (int i = 0; i < parent->child_tasks->size; i++) {
 		task_t* child = array_m_lookup(parent->child_tasks, i);
 		//check if this pid is suitable to wake parent
 		//if requested pid is -1, any child is acceptable
