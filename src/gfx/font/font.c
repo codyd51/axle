@@ -216,6 +216,22 @@ Size font_padding_for_size(Size s) {
 	return size_make(s.width / factor, s.height / factor);
 }
 
+static int visual_lines_for_string(char* str, Size font_size, Size render_region) {
+	int count = 0;
+	//int characters_per_line = ceil(render_region.width / (float)font_size.width);
+	float characters_per_line = render_region.width / font_size.width;
+	int line_index = 0;
+	while (*str) {
+		if (line_index >= characters_per_line || *str == '\n') {
+			count++;
+			line_index = 0;
+		}
+		line_index++;
+		str++;
+	}
+	return count;
+}
+
 void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font_size) {
 	//get a pointer to location of a web link in this string, if any
 	//don't check if str is too short to be a URL
@@ -224,10 +240,31 @@ void draw_string(ca_layer* dest, char* str, Point origin, Color color, Size font
 		char* link_loc = link_hueristic(str);
 	}
 
-	int idx = 0;
 	int x = origin.x;
 	int y = origin.y;
 	Size padding = font_padding_for_size(font_size);
+
+	//if the size of the string to draw is larger than the area to draw in, 
+	//'scroll' the string and only draw the last visible area
+	//TODO scroll behavior should be configurable!
+	//first, we need to figure out how much space the string would take to display
+	float characters_per_line = dest->size.width / font_size.width;
+	int string_len = strlen(str);
+	int lines_to_render = visual_lines_for_string(str, font_size, dest->size);
+	float max_lines_possible = dest->size.height / font_size.height;
+
+	//printk("characters_per_line %f string_len %d lines_to_render %f max_lines_possible %fstring %s\n", characters_per_line, string_len, lines_to_render, max_lines_possible, str);
+	int idx = 0;
+	
+	if (lines_to_render > max_lines_possible) {
+		int lines_to_skip = lines_to_render - max_lines_possible;
+		idx += (characters_per_line * lines_to_skip);
+		//printk("draw_string skipping first %d lines of text\n", lines_to_skip);
+		if (idx >= string_len) {
+			printk("draw_string scrolled past end of text\n");
+			return;
+		}
+	}
 
 	while (str[idx]) {
 		bool inserting_hyphen = false;
