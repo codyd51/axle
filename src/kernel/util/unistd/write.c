@@ -58,7 +58,6 @@ int std_write(task_t* task, int fd, const void* buf, int len) {
 	}
 	else {
 		for (; i < len; i++) {
-			printk("putchar\n");
 			putchar(chbuf[i]);
 		}
 	}

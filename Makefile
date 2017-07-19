@@ -45,6 +45,15 @@ ifdef BMP
 CFLAGS += -DBMP
 endif
 
+EMFLAGS = -hda ax_drive.img -vga std -net nic,model=ne2k_pci -d cpu_reset -D qemu.log -serial file:syslog.log 
+ifdef debug
+EMFLAGS += -s -S
+endif
+ifdef net
+EMFLAGS += -net nic,model=ne2k_pci
+endif
+
+
 # Rules
 all: $(ISO_DIR)/boot/axle.bin
 
@@ -75,7 +84,7 @@ $(ISO_NAME): $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg $(ISO_DIR)/b
 
 run: $(ISO_NAME)
 	tmux split-window -p 75 "tail -f syslog.log"
-	$(EMULATOR) -vga std -net nic,model=ne2k_pci -d cpu_reset -D qemu.log -serial file:syslog.log -cdrom $^
+	$(EMULATOR) $(EMFLAGS) -cdrom $^
 
 clean:
 	@rm -rf $(OBJECTS) $(ISO_DIR) $(ISO_NAME) $(FSGENERATOR)
@@ -97,4 +106,10 @@ $(ELFS):
 	nifz ../initrd.img;
 
 .PHONY: $(TOPTARGETS) $(ELFS)
+
+macho: macho.s
+	$(AS) -f macho $< -o $@
+	#ld -o $@ -e mystart -macosx_version_min 10.7 $@
+	ld -o $@ -macosx_version_min 10.7 $@ mach_crt0.o
+	cp $@ initrd/
 
