@@ -4,6 +4,8 @@
 #include <std/std_base.h>
 #include <stdint.h>
 #include "rect.h"
+#include <std/array_l.h>
+#include <std/list.h>
 
 __BEGIN_DECLS
 
@@ -11,7 +13,14 @@ typedef struct ca_layer_t {
        	Size size; //width/height in pixels
        	uint8_t* raw; //raw RGB values backing this layer
 		float alpha; //transparency value bounded to continuous range [0..1]
+		List* clip_rects; //list of visible rects within layer that should be rendered
 } ca_layer;
+
+typedef struct clip_context {
+	ca_layer* source_layer;
+	Rect clip_rect;
+	Point local_origin;
+} clip_context_t;
 
 /**
  * @brief initialize layer with a given size
@@ -48,6 +57,15 @@ void blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame);
  * @return The newly constructed layer containing the copied data
  */
 ca_layer* layer_snapshot(ca_layer* src, Rect frame);
+
+/**
+ * @brief Add @p rect to layer's clip list
+ * This function will also split all existing clip rectangles against
+ * the newly added rect to prevent overlap.
+ * When a layer is drawn, it will only draw regions in its clip list.
+ */
+void layer_add_clip_rect(ca_layer* layer, Rect added_clip_rect);
+void layer_clear_clip_rects(ca_layer* layer);
 
 __END_DECLS
 

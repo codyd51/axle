@@ -3,6 +3,7 @@
 #include <std/printf.h>
 #include <std/std.h>
 #include <std/math.h>
+#include <std/list.h>
 
 static bool val_in_range(int value, int min, int max) { 
 	return (value >= min) && (value <= max); 
@@ -29,10 +30,10 @@ Rect rect_zero() {
 	return rect_make(point_zero(), size_zero());
 }
 
+/*
 Rect* rect_clip(Rect subject, Rect cutting, int* count, bool* occluded) {
-	//maximum possible 4 rectangles
-	static Rect clipped[4] = {0};
-
+	//maximum possible 4 rectangles static Rect clipped[4] = {0}; 
+	/*
 	//if these rectangles don't intersect, do nothing
 	if (!rect_intersects(subject, cutting)) {
 		*count = 0;
@@ -41,6 +42,7 @@ Rect* rect_clip(Rect subject, Rect cutting, int* count, bool* occluded) {
 	}
 
 	//if subject is completely occluded by cutting, do nothing
+	/*
 	if (rect_min_x(subject) >= rect_min_x(cutting) &&
 		rect_min_y(subject) >= rect_min_y(cutting) &&
 		rect_max_x(subject) <= rect_max_x(cutting) &&
@@ -49,6 +51,7 @@ Rect* rect_clip(Rect subject, Rect cutting, int* count, bool* occluded) {
 		*occluded = true;
 		return NULL;
 	}
+	*
 
 	//holds new rects before they get added to clipped
 	Rect tmp;
@@ -113,6 +116,139 @@ Rect* rect_clip(Rect subject, Rect cutting, int* count, bool* occluded) {
 	//also, assign output params
 	*occluded = false;
 	return clipped;
+}
+*/
+
+Rect* Rect_new(int top, int left, int bottom, int right) {
+    //Attempt to allocate the object
+    Rect* rect;
+    if(!(rect = (Rect*)kmalloc(sizeof(Rect))))
+        return rect;
+
+    //Assign intial values
+	rect->origin.x = left;
+	rect->origin.y = top;
+	rect->size.width = right - left;
+	rect->size.height = bottom - top;
+
+    return rect;
+}
+
+List* Rect_split(Rect subject_rect, Rect cutting_rect) {
+    //Allocate the list of result rectangles
+    List* output_rects;
+    if(!(output_rects = List_new()))
+        return output_rects;
+
+    Rect subject_copy = subject_rect;
+
+    //We need a rectangle to hold new rectangles before
+    //they get pushed into the output list
+    Rect* temp_rect;
+
+    //Begin splitting
+    //1 -Split by left edge if that edge is between the subject's left and right edges 
+    if(rect_min_x(cutting_rect) > rect_min_x(subject_copy) && rect_min_x(cutting_rect) <= rect_max_x(subject_copy)) {
+
+        //Try to make a new rectangle spanning from the subject rectangle's left and stopping before 
+        //the cutting rectangle's left
+        if(!(temp_rect = Rect_new(rect_min_y(subject_copy), rect_min_x(subject_copy),
+                                  rect_max_y(subject_copy), rect_min_x(cutting_rect) - 1))) {
+
+            //If the object creation failed, we need to delete the list and exit failed
+            kfree(output_rects);
+
+            return (List*)0;
+        }
+
+        //Add the new rectangle to the output list
+        List_add(output_rects, temp_rect);
+
+        //Shrink the subject rectangle to exclude the split portion
+		int diff = rect_min_x(cutting_rect) - rect_min_x(subject_copy);
+		rect_min_x(subject_copy) += diff;
+		subject_copy.size.width -= diff;
+    }
+
+    //2 -Split by top edge if that edge is between the subject's top and bottom edges 
+    if(rect_min_y(cutting_rect) > rect_min_y(subject_copy) && rect_min_y(cutting_rect) <= rect_max_y(subject_copy)) {
+
+        //Try to make a new rectangle spanning from the subject rectangle's top and stopping before 
+        //the cutting rectangle's top
+        if(!(temp_rect = Rect_new(rect_min_y(subject_copy), rect_min_x(subject_copy),
+                                  rect_min_y(cutting_rect) - 1, rect_max_x(subject_copy)))) {
+
+            //If the object creation failed, we need to delete the list and exit failed
+            //This time, also delete any previously allocated rectangles
+            for(; output_rects->count; temp_rect = List_remove_at(output_rects, 0))
+                kfree(temp_rect);
+
+            kfree(output_rects);
+
+            return (List*)0;
+        }
+
+        //Add the new rectangle to the output list
+        List_add(output_rects, temp_rect);
+
+        //Shrink the subject rectangle to exclude the split portion
+		int diff = rect_min_y(cutting_rect) - rect_min_y(subject_copy);
+		rect_min_y(subject_copy) += diff;
+		subject_copy.size.height -= diff;
+    }
+
+    //3 -Split by right edge if that edge is between the subject's left and right edges 
+    if(rect_max_x(cutting_rect) >= rect_min_x(subject_copy) && rect_max_x(cutting_rect) < rect_max_x(subject_copy)) {
+
+        //Try to make a new rectangle spanning from the subject rectangle's right and stopping before 
+        //the cutting rectangle's right
+        if(!(temp_rect = Rect_new(rect_min_y(subject_copy), rect_max_x(cutting_rect) + 1,
+                                  rect_max_y(subject_copy), rect_max_x(subject_copy)))) {
+
+            //Free on fail
+            for(; output_rects->count; temp_rect = List_remove_at(output_rects, 0))
+                kfree(temp_rect);
+
+            kfree(output_rects);
+
+            return (List*)0;
+        }
+
+        //Add the new rectangle to the output list
+        List_add(output_rects, temp_rect);
+
+        //Shrink the subject rectangle to exclude the split portion
+		int shrink_amount = rect_max_x(subject_copy) - rect_max_x(cutting_rect);
+		subject_copy.size.width -= shrink_amount;
+    }
+
+    //4 -Split by bottom edge if that edge is between the subject's top and bottom edges 
+    if(rect_max_y(cutting_rect) >= rect_min_y(subject_copy) && rect_max_y(cutting_rect) < rect_max_y(subject_copy)) {
+
+        //Try to make a new rectangle spanning from the subject rectangle's bottom and stopping before 
+        //the cutting rectangle's bottom
+        if(!(temp_rect = Rect_new(rect_max_y(cutting_rect) + 1, rect_min_x(subject_copy),
+                                  rect_max_y(subject_copy), rect_max_x(subject_copy)))) {
+
+            //Free on fail
+            for(; output_rects->count; temp_rect = List_remove_at(output_rects, 0))
+                kfree(temp_rect);
+
+            kfree(output_rects);
+
+            return (List*)0;
+        }
+
+        //Add the new rectangle to the output list
+        List_add(output_rects, temp_rect);
+
+        //Shrink the subject rectangle to exclude the split portion
+		int shrink_amount = rect_max_y(subject_copy) - rect_max_y(cutting_rect);
+		subject_copy.size.height -= shrink_amount;
+    }
+ 
+    //Finally, after all that, we can return the output rectangles 
+    return output_rects;
 }
 
 Rect rect_union(Rect a, Rect b) {

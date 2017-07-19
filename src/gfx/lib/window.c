@@ -143,12 +143,14 @@ void present_window(Window* window) {
 }
 
 static void kill_window_real(Window* window, void* UNUSED(context)) {
+	printf("kill_window_real called\n");
 	remove_subwindow(gfx_screen()->window, window);
 
 	if (window->teardown_handler) {
 		event_handler teardown = window->teardown_handler;
 		teardown(window, NULL);
 	}
+
 	window_teardown(window);
 }
 
@@ -197,6 +199,8 @@ bool window_presented(Window* w) {
 }
 
 bool draw_window(Window* window) {
+		//blit_layer(window->layer, window->content_view->layer, rect_make(window->content_view->frame.origin, window->layer->size), rect_make(point_zero(), window->content_view->frame.size));
+		//return;
 	//if window is invisible, don't bother drawing
 	if (!window->layer->alpha) return false;
 
@@ -259,5 +263,10 @@ bool draw_window(Window* window) {
 	window->last_draw_timestamp = time();
 
 	return true;
+}
+
+//record up to 'len' Windows spawned by PID 'pid'
+//store each pointer in 'out' array
+void window_with_pid_get(int pid, Window** out, int len) {
 }
 

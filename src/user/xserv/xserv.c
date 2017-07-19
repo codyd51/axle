@@ -16,6 +16,8 @@
 #include <user/programs/calculator.h>
 #include <user/programs/usage_monitor.h>
 #include <user/programs/jpeg.h>
+#include <std/List.h>
+#include <gfx/lib/rect.h>
 
 Window* create_window_int(Rect frame, bool is_root_window);
 
@@ -84,12 +86,13 @@ void add_status_bar(Screen* screen) {
 
 static Point last_grabbed_window_pos;
 static void draw_window_shadow(Screen* screen, Window* window, Point new) {
+	return;
 	Point old = last_grabbed_window_pos;
-	float actual_shadow_count = shadow_count;
+	int actual_shadow_count = shadow_count;
 	if (window->layer->alpha < 1.0) actual_shadow_count = 2.0;
-	for (float i = 0; i < actual_shadow_count; i++) {
-		int lerp_x = lerp(old.x, new.x, (1 / actual_shadow_count) * i);
-		int lerp_y = lerp(old.y, new.y, (1 / actual_shadow_count) * i);
+	for (int i = 0; i < actual_shadow_count; i++) {
+		int lerp_x = lerp(old.x, new.x, (1 / (float)actual_shadow_count) * i);
+		int lerp_y = lerp(old.y, new.y, (1 / (float)actual_shadow_count) * i);
 		/*
 		if (abs(old.x - new.x) < 2 || abs(old.y - new.y) < 2) {
 			continue;
@@ -196,47 +199,64 @@ void draw_window_backdrop(Screen* screen, Window* win) {
 	draw_window_backdrop_segments(screen, win, 0x7);
 }
 
+Color color_rand() {
+	Color c;
+	c.val[0] = rand() % 255;
+	c.val[1] = rand() % 255;
+	c.val[2] = rand() % 255;
+	return c;
+}
+
 static Window* grabbed_window = NULL;
 void draw_desktop(Screen* screen, Rect* modified_viewport) {
+	static int redraw_count = 0;
+
+	layer_clear_clip_rects(screen->vmem);
 	//paint root desktop
 	draw_window(screen->window);
 	blit_layer(screen->vmem, screen->window->layer, screen->window->frame, screen->window->frame);
 
-	static int redraw_count = 0;
+	for (int i = 0; i < screen->window->subviews->size; i++) {
+		Window* win = array_m_lookup(screen->window->subviews, i);
 
-	if (screen->window->subviews->size) {
-		Window* highest = array_m_lookup(screen->window->subviews, screen->window->subviews->size - 1);
+		//we draw windows at less frequent intervals depending on how close they are to forefront
+		//the foremost window is subviews[subviews.size - 1]
+		//a window will get drawn only when the tick count is a multiple of their z-index
+		int z_idx = i - screen->window->subviews->size;
+		//reduce how often windows redraw by doubling length between redraw allowances
+		z_idx *= 2;
 
-		//find clipping intersections with every window below the highest one
-		//redraw every child window at the same time if necessary
-		for (int i = 0; i < screen->window->subviews->size; i++) {
-			Window* win = (Window*)(array_m_lookup(screen->window->subviews, i));
-			//if (!draw_window(win)) continue;
-			//we draw windows at less frequent intervals depending on how close they are to forefront
-			//the foremost window is subviews[subviews.size - 1]
-			//a window will get drawn only when the tick count is a multiple of their z-index
-			int z_idx = i - screen->window->subviews->size;
-			//reduce how often windows redraw by doubling length between redraw allowances
-			z_idx *= 2;
+		if (redraw_count % z_idx == 0) {
+			draw_window(win);
+		}
 
-			if (redraw_count % z_idx == 0) {
-				draw_window(win);
-			}
+		Rect* adjusted = Rect_new(rect_min_y(win->frame),
+								 rect_min_x(win->frame),
+								 rect_max_y(win->frame) - 1,
+								 rect_max_x(win->frame) - 1);
+		layer_add_clip_context(screen->vmem, win->layer, *adjusted);
+		kfree(adjusted);
+	}
 
-			//if this window has an alpha channel, we can't 
-			/*
-			if (win->layer->alpha != 1.0) {
-				blit_layer(screen->vmem, win->layer, win->frame, rect_make(point_zero(), win->frame.size));
-				continue;
-			}
-			*/
+	//printk("Drawing %d clip rects\n", screen->vmem->clip_rects->count);
+	for (int i = 0; i < screen->vmem->clip_rects->count; i++) {
+		clip_context_t* c = List_get_at(screen->vmem->clip_rects, i);
+		/*
+		printk("Drawing clip {%d,%d,%d,%d} (origin {%d,%d}) from layer %x\n", c->clip_rect.origin.x,
+																			  c->clip_rect.origin.y,
+																			  c->clip_rect.size.width,
+																			  c->clip_rect.size.height,
+																			  c->local_origin.x,
+																			  c->local_origin.y,
+																			  c->source_layer);
+																			  */
+		blit_layer(screen->vmem, c->source_layer, c->clip_rect, rect_make(c->local_origin, c->clip_rect.size));
+		//draw_rect(screen->vmem, c->clip_rect, color_green(), 1);
+	}
+	//*modified_viewport = screen->frame;
 
-			//if highest window, don't bother trying to clip.
-			//just draw
-			if (win == highest) {
-				blit_layer(screen->vmem, win->layer, win->frame, rect_make(point_zero(), win->frame.size));
-				continue;
-			}
+	/*
+				//blit_layer(screen->vmem, win->layer, win->frame, rect_make(point_zero(), win->frame.size));
 
 			int count = 0;
 			bool occluded = false;
@@ -284,6 +304,7 @@ void draw_desktop(Screen* screen, Rect* modified_viewport) {
 			draw_window_backdrop_segments(screen, win, segments);
 		}
 	}
+	*/
 	if (grabbed_window) {
 		//draw_window_shadow(screen, grabbed_window, grabbed_window->frame.origin);
 	}
@@ -302,6 +323,31 @@ static void display_about_window(Point origin) {
 	present_window(about_win);
 }
 
+static Window* xterm = NULL;
+void xterm_set(Window* w) {
+	xterm = w;
+}
+
+Window* xterm_get() {
+	return xterm;
+}
+
+static void display_xterm(Point origin) {
+	Window* xterm = create_window(rect_make(origin, size_make(600, 300)));
+	xterm->title = "awm IO";
+	xterm->content_view->background_color = color_black();
+
+	Label* out = create_label(rect_make(point_zero(), xterm->content_view->frame.size), "");
+	out->font_size = size_make(8, 8);
+	out->text_color = color_make(30, 200, 0);
+
+	set_alpha((View*)xterm, 0.85);
+
+	add_sublabel(xterm->content_view, out);
+	present_window(xterm);
+	xterm_set(xterm);
+}
+
 void desktop_setup(Screen* screen) {
 	screen->window = create_window_int(rect_make(point_zero(), screen->resolution), true);
 	screen->window->superview = NULL;
@@ -318,7 +364,9 @@ void desktop_setup(Screen* screen) {
 	display_sample_image(point_make(450, 100));
 	//calculator_xserv(point_make(400, 300));
 	display_usage_monitor(point_make(350, 500));
-	display_about_window(point_make(100, 200));
+	//display_about_window(point_make(100, 200));
+	display_about_window(point_make(50, 100));
+	display_xterm(point_make(100, 100));
 }
 
 static void draw_mouse_shadow(Screen* screen, Point old, Point new) {
@@ -469,6 +517,8 @@ static void set_active_window(Screen* screen, Window* grabbed_window) {
 		set_background_color(win->title_view, color);
 		mark_needs_redraw((View*)win);
 	}
+	printk("setting PID %d to first responder...\n", grabbed_window->owner_pid);
+	become_first_responder_pid(grabbed_window->owner_pid);
 }
 
 static Point world_point_to_owner_space_sub(Point p, View* view) {
@@ -625,37 +675,66 @@ static void process_mouse_events(Screen* screen) {
 	last_event = events;
 }
 
-static Label* fps;
 void xserv_refresh(Screen* screen) {
 	//if (!screen->finished_drawing) return;
 	
-	double time_start = time();
+	long time_start = time();
+	static long last_redraw = 0;
 
+	Rect old_cursor_rect = rect_make(cursor_pos(), size_make(12, 14));
 	//handle mouse events
 	process_mouse_events(screen);
 	//keyboard events
-	process_kb_events(screen);
+	//process_kb_events(screen);
 	//main refresh loop
 	//traverse view hierarchy,
 	//redraw views if necessary,
 	//composite everything onto root layer
-	xserv_draw(screen);
+	//
+	Rect modified_viewport = rect_null();
+	xserv_draw(screen, &modified_viewport);
 
-	double frame_time = (time() - time_start) / 1000.0;
-	double fps_conv = 1 / frame_time / 10;
+	long frame_end = time();
 
-	update_all_animations(screen, frame_time);
+	update_all_animations(screen, frame_end - time_start);
+	
+	frame_end = time();
+	long frame_time = (frame_end - time_start);
 
-	//update frame time tracker
+	long render_time = frame_time;
+	long real_fps = 1000 / (frame_end - last_redraw);
+
 	char buf[32];
-	itoa(fps_conv, (char*)&buf);
-	strcat(buf, " FPS");
-	fps->text = buf;
+	strcpy(buf, " real (fps): ");
+	itoa(real_fps, &(buf[strlen(buf)]));
+	strcat(buf, "\nrender (ms): ");
+	char* next = &(buf[strlen(buf)]);
+	itoa(render_time, next);
+
+	set_text(fps, buf);
 	draw_label(screen->window->layer, fps);
 
+	/*
+	write_screen_region(fps->frame);
+	Rect new_cursor_rect = rect_make(cursor_pos(), size_make(12, 14));
+	Rect cursor_bound_rect = rect_union(old_cursor_rect, new_cursor_rect);
+	cursor_bound_rect = rect_inset(cursor_bound_rect, 12, 14);
+	write_screen_region(cursor_bound_rect);
+
+	write_screen_region(modified_viewport);
+	*/
 	write_screen(screen);
 
+	last_redraw = time_start;
+
 	dirtied = 0;
+}
+
+void rect_print(Rect r) {
+	printk("{{%d,%d},{%d,%d}}\n", rect_min_x(r),
+								  rect_min_y(r),
+								  rect_max_x(r),
+								  rect_max_y(r));
 }
 
 void xserv_pause() {
@@ -673,20 +752,34 @@ void xserv_temp_stop(uint32_t pause_length) {
 }
 
 void xserv_init() {
-	become_first_responder();
+	if (sys_fork()) return;
+
+	//become_first_responder();
 	Screen* screen = gfx_screen();
 	desktop_setup(screen);
 
 	//add FPS tracker
 	//don't call add_sublabel on fps because it's drawn manually
 	//(drawn manually so we can update text with accurate frame draw time)
-	fps = create_label(rect_make(point_make(3, 3), size_make(60, 25)), "FPS counter");
+	fps = create_label(rect_make(point_make(5, 10), size_make(150, 30)), "FPS counter");
 	fps->text_color = color_black();
 
-	test_xserv();
+	//test_xserv();
+	if (!sys_fork()) {
+		char* argv[] = {"ash", NULL};
+		execve(argv[0], argv, NULL);
+		ASSERT(0, "execve returned");
+	}
+	if (!sys_fork()) {
+		char* argv[] = {"files", NULL};
+		become_first_responder_pid(getpid());
+		execve(argv[0], argv, NULL);
+		ASSERT(0, "execve returned");
+	}
 
 	while (1) {
 		xserv_refresh(screen);
+		//sys_yield(RUNNABLE);
 		mouse_event_wait();
 	}
 
@@ -713,7 +806,7 @@ void xserv_fail() {
 }
 
 void xserv_win_create(Window** out, Rect* frame) {
-	printf("xserv_win_create called out %x de %x frame %x\n", out, *out, frame);
+	printf("xserv_win_create called out %x deref %x frame %x\n", out, *out, frame);
 	*out = task_register_window(*frame);
 }
 

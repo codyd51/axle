@@ -49,6 +49,17 @@ void module_detect(multiboot* mboot_ptr, uint32_t* initrd_loc, uint32_t* initrd_
 	placement_address = *initrd_end;
 }
 
+void _int_heap_stability_test() {
+	for (int i = 2; i < 4096*16*16*16; i*=1.5) {
+		char* mem = kmalloc(i);
+		memset(mem, 0, i);
+		printf("malloc: %x\n", mem);
+		kfree(mem);
+	}
+	printf("success\n");
+	while (1) {}
+}
+
 void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	initial_esp = initial_stack;
 
