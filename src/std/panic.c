@@ -3,6 +3,7 @@
 #include <kernel/drivers/terminal/terminal.h>
 #include <stdarg.h>
 #include <std/std.h>
+#include <kernel/elf.h>
 
 void pretty_print_frame(void* func) {
 	uint32_t addr = (uint32_t)func;

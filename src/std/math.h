@@ -60,6 +60,8 @@ STDAPI float lerp(float a, float b, float c);
 double log10(double x);
 double ln(double x);
 
+int ceil(float num);
+
 __END_DECLS
 
 #endif // STD_MATH_H

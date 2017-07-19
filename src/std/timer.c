@@ -4,7 +4,7 @@
 #include <kernel/drivers/rtc/clock.h>
 #include <kernel/util/syscall/sysfuncs.h>
 
-int callback_num;
+static int callback_num = 0;
 static timer_callback callback_table[MAX_CALLBACKS];
 
 static void clear_table() {

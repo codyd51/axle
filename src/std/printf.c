@@ -81,7 +81,6 @@ void reset_cursor_pos() {
 
 static void outputc(int dest, char c) {
 	Size font_size = gfx_screen()->default_font_size;
-	Size padding = font_padding_for_size(font_size);
 	switch (dest) {
 		case TERM_OUTPUT: {
 			terminal_putchar(c);
@@ -112,8 +111,8 @@ static void outputc(int dest, char c) {
 			break;
 		}
 		case SERIAL_OUTPUT:
-		default:
 			serial_putchar(c);
+		default:
 			break;
 	}
 }
@@ -411,6 +410,10 @@ void vsprintf(char* ret, char* format, va_list va) {
 
 static lock_t* mutex = 0;
 void print_common(int dest, char* format, va_list va) {
+	if (dest != TERM_OUTPUT && dest != SERIAL_OUTPUT) {
+		ASSERT(0, "print_common called with weird args");
+		return;
+	}
 	//shared printf lock
 	if (!mutex) mutex = lock_create();
 	lock(mutex);

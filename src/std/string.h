@@ -39,6 +39,9 @@ STDAPI size_t strlen(const char* str);
 /// Copies src into dest
 STDAPI char *strcpy(char *dest, const char *src);
 
+/// Copies src into dest, copying at most @p count bytes
+STDAPI char* strncpy(char* dest, const char* src, size_t count);
+
 /// Check if char is blank
 STDAPI int isblank(char c);
 

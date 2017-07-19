@@ -17,7 +17,7 @@ void yield(task_state reason) {
 	//then it should not be blocked
 	//block_task would manage this itself, but we can skip block_task overhead by doing it here ourselves
 	if (reason == RUNNABLE) {
-		task_switch();
+		task_switch(true);
 		return;
 	}
 	extern task_t* current_task;

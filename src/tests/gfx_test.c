@@ -268,7 +268,8 @@ void test_gfx(int argc, char **argv) {
 	write_screen(screen);
 	sleep(delay);
 
-	return 0;
+	return;
+
 	fill_screen(screen, color_make(0, 0, 0));
 	test_lines(screen);
 	write_screen(screen);

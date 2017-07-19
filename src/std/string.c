@@ -59,7 +59,7 @@ char* strcat(char *dest, const char *src) {
 }
 
 char* strncat(char *dest, const char *src, int len) {
-	size_t i,j;
+	int i,j;
 	for (i = 0; dest[i] != '\0'; i++)
 			;
 	for (j = 0; src[j] != '\0' && j < len; j++)
