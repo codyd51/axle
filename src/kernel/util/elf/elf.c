@@ -86,8 +86,7 @@ bool elf_load_segment(page_directory_t* new_dir, unsigned char* src, elf_phdr* s
 	for (uint32_t i = dest_base, page_counter = 0; i <= dest_limit; i += PAGE_SIZE, page_counter++) {
 		page_t* page = get_page(i, 1, new_dir);
 		ASSERT(page, "elf_load_segment couldn't get page in new addrspace at %x\n", i);
-		//alloc_frame(page, 0, 0);
-		alloc_frame(page, 0, 1);
+		alloc_frame(page, 0, 0);
 		
 		char* pagebuf = kmalloc_a(PAGE_SIZE);
 		page_t* local_page = get_page(pagebuf, 0, page_dir_current());
@@ -175,7 +174,6 @@ static void alloc_bss(page_directory_t* new_dir, elf_s_header* shdr, int* prog_b
 	printf("ELF .bss mapped @ %x - %x\n", shdr->addr, shdr->addr + shdr->size);
 	for (int i = 0; i <= shdr->size + 0x1000; i += 0x1000) {
 		page_t* page = get_page(shdr->addr + i, 1, new_dir);
-		//if (!alloc_frame(page, 0, 1)) {
 		if (!alloc_frame(page, 0, 1)) {
 			printf_err(".bss %x wasn't alloc'd", shdr->addr + i);
 		}
