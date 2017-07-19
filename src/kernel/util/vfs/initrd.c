@@ -16,23 +16,18 @@ static uint32_t initrd_read(fs_node_t* node, uint32_t offset, uint32_t size, uin
 		*buffer = EOF;
 		return 0;
 	}
-	bool add_eof = false;
 	if (offset + size >= header.length) {
 		size = header.length - offset - 1;
-		add_eof = true;
 	}
 	memcpy(buffer, (uint8_t*)(header.offset + offset), size);
-	if (add_eof) {
-		buffer[size++] = EOF;
-	}
-	return size + (add_eof ? 1 : 0);
+	return size;
 }
 
 static struct dirent* initrd_readdir(fs_node_t* node, uint32_t index) {
 	if (node == initrd_root && index == 0) {
-		strcpy(dirent.name, "dev");
-		dirent.name[3] = 0; //null terminate string
-		dirent.ino = 0;
+		strcpy(dirent.d_name, "dev");
+		dirent.d_name[3] = 0; //null terminate string
+		dirent.d_ino = 0;
 		return &dirent;
 	}
 
@@ -40,9 +35,9 @@ static struct dirent* initrd_readdir(fs_node_t* node, uint32_t index) {
 		return 0;
 	}
 	char* name = root_nodes[index - 1].name;
-	strcpy(dirent.name, name);
-	dirent.name[strlen(name)] = 0; //null terminate string
-	dirent.ino = root_nodes[index-1].inode;
+	strcpy(dirent.d_name, name);
+	dirent.d_name[strlen(name)] = 0; //null terminate string
+	dirent.d_ino = root_nodes[index-1].inode;
 	return &dirent;
 }
 

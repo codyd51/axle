@@ -56,7 +56,8 @@ fs_node_t* finddir_fs(fs_node_t* node, char* name) {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
-FILE* fopen(const char* filename, char* mode) {
+FILE* initrd_fopen(char* filename, char* mode) {
+	printf("initrd_fopen(\"%s\")\n", filename);
 	//skip preceding ./
 	//TODO properly traverse file paths
 	while (!isalpha(*filename)) {
@@ -71,6 +72,7 @@ FILE* fopen(const char* filename, char* mode) {
 	memset(stream, 0, sizeof(FILE));
 	stream->node = file;
 	stream->fpos = 0;
+	stream->start_sector = -1;
 
 	fd_entry file_fd;
 	file_fd.type = FILE_TYPE;
@@ -78,6 +80,12 @@ FILE* fopen(const char* filename, char* mode) {
 	stream->fd = fd_add(task_with_pid(getpid()), file_fd);
 
 	return stream;
+}
+
+FILE* fopen(const char* filename, char* mode) {
+	//FILE* new_file = fat_fopen(filename, mode);
+	//if (new_file) return new_file;
+	return initrd_fopen(filename, mode);
 }
 #pragma GCC diagnostic pop
 
@@ -87,6 +95,7 @@ int open(const char* filename, int oflag) {
 }
 
 void fclose(FILE* stream) {
+	fd_remove(getpid(), stream->fd);
 	kfree(stream);
 }
 
@@ -115,11 +124,19 @@ int ftell(FILE* stream) {
 	return stream->fpos;
 }
 
-uint8_t fgetc(FILE* stream) {
+uint8_t initrd_fgetc(FILE* stream) {
 	uint8_t ch;
 	uint32_t sz = read_fs(stream->node, stream->fpos++, 1, &ch);
-	if ((int8_t)ch == EOF || !sz) return EOF;
+	if (ch == EOF || !sz) return EOF;
 	return ch;
+}
+
+uint8_t fgetc(FILE* stream) {
+	if (stream->start_sector >= 0) {
+		//return fat_fgetc(stream);
+		return EOF;
+	}
+	return initrd_fgetc(stream);
 }
 
 char* fgets(char* buf, int count, FILE* stream) {
@@ -134,16 +151,22 @@ char* fgets(char* buf, int count, FILE* stream) {
 	return (c == EOF && cs == buf) ? (char*)EOF : buf;
 }
 
-uint32_t fread(void* buffer, uint32_t size, uint32_t count, FILE* stream) {
+size_t fwrite(void* ptr, size_t size, size_t count, FILE* stream) {
+	return fat_fwrite(ptr, size, count, stream);
+}
+
+uint32_t initrd_fread(void* buffer, uint32_t size, uint32_t count, FILE* stream) {
 	char* chbuf = (char*)buffer;
 	uint32_t i = 0;
 	for (; i < count * size; i++) {
 		chbuf[i] = fgetc(stream);
+		/*
 		if (chbuf[i] == EOF) {
 			break;
 		}
+		*/
 	}
-	chbuf[i] = '\0';
+	//chbuf[i] = '\0';
 	i /= size;
 	return i;
 		/*
@@ -171,5 +194,39 @@ uint32_t fread(void* buffer, uint32_t size, uint32_t count, FILE* stream) {
 	}
 	return sum;
 		*/
+}
+
+uint32_t fread(void* buffer, uint32_t size, uint32_t count, FILE* stream) {
+	if (stream->start_sector >= 0) {
+		return fat_fread(buffer, size, count, stream);
+	}
+	return initrd_fread(buffer, size, count, stream);
+}
+
+#include <kernel/util/fat/fat_dirent.h>
+int getdents(unsigned int fd, struct dirent* dirp, unsigned int count) {
+	//TODO add fd.c function to get fd_entry from fd
+	task_t* task = task_with_pid(getpid());
+	fd_entry ent = task->fd_table[fd];
+	if (fd_empty(ent)) {
+		printf("getdents invalid fd %d\n", fd);
+		return 0;
+	}
+
+	int i = 0;
+	for (; i < count; i++) {
+		fat_dirent fat_ent;
+		int read_count = fat_fread(&fat_ent, sizeof(char), sizeof(fat_dirent), ent.payload);
+		if (read_count != sizeof(fat_dirent)) {
+			printf("getdents ent %d read less than dirent size (%d vs %d), stopping\n", i, read_count, sizeof(fat_dirent));
+			break;
+		}
+		struct dirent* curr = (struct dirent*)(dirp + i);
+		strncpy(curr->d_name, &fat_ent.name, sizeof(fat_ent.name));
+		curr->d_ino = i;
+		curr->d_off = (i + 1) * sizeof(fat_dirent);
+		curr->d_reclen = sizeof(fat_dirent);
+	}
+	return i;
 }
 

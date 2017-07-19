@@ -774,6 +774,7 @@ void fat_format_disk(unsigned char drive) {
 	fat_dirent welcome_txt;
 	fat_dir_new_file(&include_dir, "welcome.txt", 0x200, false, &welcome_txt);
 
+	/*
 	char buf[SECTOR_SIZE];
 	strcpy(buf, "Welcome to axle OS.\n\nThis file is stored on a physical hard drive, retrieved using PIO mode on an ATA drive.\nThe drive is formatted with axle's FAT clone filesystem.\nThis filesystem supports expandable files, as well as directories.\nThere are also reserved directory entry sections to be used for file permissions, access times, etc.\n\nVisit www.github.com/codyd51/axle for this OS's source code.\n");
 	fat_write_file(&welcome_txt, buf, sizeof(buf), 0);
@@ -786,6 +787,7 @@ void fat_format_disk(unsigned char drive) {
 	int read_count = fread(buf, sizeof(char), sizeof(buf), fp);
 	//int read_count = fat_fread(buf, sizeof(char), sizeof(buf), fp);
 	printf("fp read %d bytes: %s\n", read_count, buf);
+	*/
 	/*
 	char* argv[] = {"/usr/bin/false", NULL};
 

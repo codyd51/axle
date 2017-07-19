@@ -5,20 +5,7 @@
 #include <std/std.h>
 #include <kernel/util/multitasking/fd.h>
 #include <kernel/util/vfs/fs.h>
-
-/*!
- * @brief Represents a FAT directory entry
- */
-
-typedef struct {
-    char name[31];
-    char is_directory:1;
-    char reserved:3;
-    char padded:4;
-    uint32_t size;
-    uint32_t first_sector;
-    uint32_t access_time;
-} fat_dirent;
+#include "fat_dirent.h"
 
 /*!
  * @brief Calculate hard drive sectors needed to store @p bytes 
