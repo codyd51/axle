@@ -24,7 +24,8 @@ void array_l_destroy(array_l* array) {
 }
 
 void array_l_insert(array_l* array, type_t item) {
-	lock(mutex);
+	printk("array_l_insert %x\n", item);
+	//lock(mutex);
 
 	//create container
 	array_l_item* real = (array_l_item*)kmalloc(sizeof(array_l_item));
@@ -34,6 +35,7 @@ void array_l_insert(array_l* array, type_t item) {
 	//extend list
 	if (array->head) {
 		array_l_item* last = array_l_lookup(array, array->size - 1);
+		printk("adding item to list, last %x\n", last);
 		last->next = real;
 	}
 	else {
@@ -43,7 +45,7 @@ void array_l_insert(array_l* array, type_t item) {
 	//increase size
 	array->size++;
 
-	unlock(mutex);
+	//unlock(mutex);
 }
 
 int32_t array_l_index(array_l* array, type_t item) {
@@ -62,25 +64,44 @@ int32_t array_l_index(array_l* array, type_t item) {
 }
 
 void array_l_remove(array_l* array, int32_t idx) {
-	lock(mutex);
+	//lock(mutex);
 
 	ASSERT(idx < array->size && idx >= 0, "can't remove object at index (%d) in array with (%d) elements", idx, array->size);
 
 	array_l_item* tmp = array->head;
+	if (!idx) {
+		array->head = array->head->next;
+		//kfree(tmp);
+		array->size--;
+		return;
+	}
+
 	//go up to element before one to remove
 	for (int i = 0; i < idx - 1; i++) {
 		tmp = tmp->next;
 	}
 
-	array_l_item* removed = tmp->next;
-	if (removed) {
+	array_l_item* to_remove = tmp->next;
+	/*
+	if (!idx) {
+		to_remove = array->head;
+		array->head = array->head->next;
+	}
+	else {
+	*/
 		//set next of previous element to next of element to remove
-		tmp->next = removed->next;
-		//free container
-		kfree(removed);
+		tmp->next = to_remove->next;
+	//}
 
-		array->size--;
+	if (!to_remove) {
+		printk("array_l_remove couldn't find element to remove idx %d\n", idx);
+		return;
 	}
 
-	unlock(mutex);
+	//free container
+	//kfree(to_remove);
+
+	array->size--;
+
+//	unlock(mutex);
 }

@@ -57,6 +57,9 @@ STDAPI char interrupts_enabled(void);
 //requests CPUID
 STDAPI void cpuid(int code, uint32_t* a, uint32_t* d);
 
+//invalidate TLB entry associated with virtual address @p m
+void invlpg(void* m);
+
 __END_DECLS
 
 #endif // STD_COMMON_H

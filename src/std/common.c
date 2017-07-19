@@ -1,5 +1,10 @@
 #include "common.h"
 
+void invlpg(void* m) {
+    /* Clobber memory to avoid optimizer re-ordering access before invlpg, which may cause nasty bugs. */
+    asm volatile ( "invlpg (%0)" : : "b"(m) : "memory" );
+}
+
 void outb(uint16_t port, uint8_t val) {
 	 asm volatile("outb %0, %1" : : "a"(val), "Nd"(port) );
 }
