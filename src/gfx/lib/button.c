@@ -27,7 +27,7 @@ Button* create_button(Rect frame, char* text) {
 	button->frame = frame;
 	button->superview = NULL;
 
-	int label_width = strlen(text) * CHAR_WIDTH;
+	int label_width = strlen(text) * (CHAR_WIDTH + font_padding_for_size(size_make(CHAR_WIDTH, CHAR_HEIGHT)).width);
 	Label* title = create_label(rect_make(point_make(frame.origin.x + (frame.size.width * 0.5) - (label_width / 2), frame.origin.y - CHAR_HEIGHT + frame.size.height * 0.5), size_make(label_width, CHAR_HEIGHT)), text);
 	button->label = title;
 

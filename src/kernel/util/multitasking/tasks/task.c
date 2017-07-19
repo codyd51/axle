@@ -121,7 +121,7 @@ void _kill() {
 	kill_task(current_task);
 }
 
-void goto_pid(int id);
+void goto_pid(int id, bool update_current_task_state);
 int getpid() {
 	if (current_task) {
 		return current_task->id;
@@ -178,7 +178,7 @@ void block_task_context(task_t* task, task_state reason, void* context) {
 
 	//immediately switch tasks if active task was just blocked
 	if (task == current_task) {
-		task_switch();
+		task_switch(true);
 	}
 }
 
@@ -535,7 +535,7 @@ void update_blocked_tasks() {
 	while (task) {
 		if (task->std_stream->buf->count && task->state == KB_WAIT) {
 			unblock_task(task);
-			goto_pid(task->id);
+			goto_pid(task->id, true);
 		}
 		else if (task->state == PIT_WAIT) {
 			if (time() >= task->wake_timestamp) {
@@ -545,7 +545,7 @@ void update_blocked_tasks() {
 		//TODO figure out when exactly tasks with MOUSE_WAIT should be unblocked
 		else if (task->state == MOUSE_WAIT) {
 			unblock_task(task);
-			goto_pid(task->id);
+			goto_pid(task->id, true);
 		}
 		else if (task->state == CHILD_WAIT) {
 			//search if any of this task's children are zombies
@@ -795,12 +795,17 @@ task_t* mlfq_schedule() {
 	ASSERT(0, "Couldn't find task to switch to!");
 }
 
-void goto_pid(int id) {
+void goto_pid(int id, bool update_current_task_state) {
+	if (!update_current_task_state) {
+		//printk("goto_pid(%d %d)\n", id, update_current_task_state);
+		update_current_task_state = 0;
+	}
+
 	if (!current_task || !queues) {
 		return;
 	}
 	if (id == current_task->id) {
-		return;
+		//printk("called goto_pid with current_task->id %d, is this intentional?", id);
 	}
 
 	kernel_begin_critical();
@@ -823,9 +828,11 @@ void goto_pid(int id) {
 	}
 
 	//haven't switched yet, save old task's values
-	current_task->eip = eip;
-	current_task->esp = esp;
-	current_task->ebp = ebp;
+	if (update_current_task_state) {
+		current_task->eip = eip;
+		current_task->esp = esp;
+		current_task->ebp = ebp;
+	}
 
 	//find task with this PID
 	bool found_task = false;
@@ -873,14 +880,14 @@ void goto_pid(int id) {
 	task_switch_real(eip, current_directory->physicalAddr, ebp, esp);
 }
 
-uint32_t task_switch() {
+uint32_t task_switch(bool update_current_task_state) {
 	current_task->relinquish_date = time();
 	//find next runnable task
 	task_t* next = mlfq_schedule();
 
 	ASSERT(next->state == RUNNABLE, "Tried to switch to non-runnable task %s (reason: %d)!", next->name, next->state);
 
-	goto_pid(next->id);
+	goto_pid(next->id, update_current_task_state);
 	//TODO: what should be returned here?
 	return 0;
 }
@@ -905,7 +912,7 @@ void handle_pit_tick() {
 	//so, we need to increment tick count by 4 ticks
 	tick += 4;
 	if (tick >= current_task->end_date) {
-		task_switch();
+		task_switch(true);
 	}
 	if (tick >= last_boost + BOOSTER_PERIOD) {
 		//don't boost if we're in low latency mode!
@@ -1023,6 +1030,11 @@ void resign_first_responder() {
 
 void jump_user_mode() {
 	// Set up a stack structure for switching to user mode.
+	// the pop eax, or, and re-push take eflags which was pushed onto the stack, 
+	// and turns on the interrupt enabled flag
+	// this ensures interrupts will be turned back on upon iret, as we do a cli at the 
+	// beginning of this routine, and can't do an sti once we're done since we're in user mode
+	//set_kernel_stack(current_task->kernel_stack + KERNEL_STACK_SIZE);
 	asm volatile("  \ 
 			cli; \ 
 			mov $0x23, %ax; \ 
@@ -1035,6 +1047,9 @@ void jump_user_mode() {
 			pushl $0x23; \ 
 			pushl %eax; \ 
 			pushf; \ 
+			pop %eax; \
+			or %eax, 0x200; \
+			push %eax; \
 			pushl $0x1B; \ 
 			push $1f; \ 
 			iret; \ 

@@ -127,7 +127,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack);
 void add_process(task_t* task);
 
 //changes running process
-uint32_t task_switch();
+uint32_t task_switch(bool update_current_task_state);
 
 //forks current process
 //spawns new process with different memory space
