@@ -48,9 +48,7 @@ void set_cr3(page_directory_t* dir) {
 	set_cr0(cr0);
 	*/
 	
-	printf("set_cr3() %x\n", dir->physicalAddr);
 	asm volatile("mov %0, %%cr3" : : "r"(dir->physicalAddr));
-	printf("switched cr3\n");
 	//turn off paging first
 	//asm volatile("mov %0, %%cr3":: "r"(dir->physicalAddr));
 	//if paging is not already enabled
@@ -64,7 +62,7 @@ void set_cr3(page_directory_t* dir) {
 //static function to set a bit in frames bitset
 static void set_bit_frame(uint32_t frame_addr) {
 	if (frame_addr < nframes * 4 * 0x400) {
-		uint32_t frame = frame_addr/0x1000;
+		uint32_t frame = frame_addr/PAGE_SIZE;
 		uint32_t idx = INDEX_FROM_BIT(frame);
 		uint32_t off = OFFSET_FROM_BIT(frame);
 		frames[idx] |= (0x1 << off);
@@ -76,7 +74,7 @@ static void set_bit_frame(uint32_t frame_addr) {
 
 //static function to clear a bit in the frames bitset
 static void clear_frame(uint32_t frame_addr) {
-	uint32_t frame = frame_addr/0x1000;
+	uint32_t frame = frame_addr/PAGE_SIZE;
 	uint32_t idx = INDEX_FROM_BIT(frame);
 	uint32_t off = OFFSET_FROM_BIT(frame);
 	frames[idx] &= ~(0x1 << off);
@@ -86,7 +84,7 @@ static void clear_frame(uint32_t frame_addr) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-function"
 static uint32_t test_frame(uint32_t frame_addr) {
-	uint32_t frame = frame_addr/0x1000;
+	uint32_t frame = frame_addr/PAGE_SIZE;
 	uint32_t idx = INDEX_FROM_BIT(frame);
 	uint32_t off = OFFSET_FROM_BIT(frame);
 	return (frames[idx] & (0x1 << off));
@@ -94,7 +92,7 @@ static uint32_t test_frame(uint32_t frame_addr) {
 #pragma GCC diagnostic pop
 
 uint32_t* page_from_frame(int32_t frame) {
-	int addr = frame * 0x1000;
+	int addr = frame * PAGE_SIZE;
 	return (uint32_t*)(long)addr;
 }
 
@@ -118,33 +116,33 @@ static int32_t first_frame() {
 
 void virtual_map_pages(long addr, unsigned long size, uint32_t rw, uint32_t user) {
 	unsigned long i = addr;
-	while (i < (addr + size + 0x1000)) {
+	while (i < (addr + size + PAGE_SIZE)) {
 		if (i + size < memsize) {
 			//find first free frame
 			set_bit_frame(first_frame());
 
 			//set space to taken anyway
-			kmalloc(0x1000);
+			kmalloc(PAGE_SIZE);
 		}
 
 		page_t* page = get_page(i, 1, current_directory);
 		page->present = 1;
 		page->rw = rw;
 		page->user = user;
-		page->frame = i / 0x1000;
-		i += 0x1000;
+		page->frame = i / PAGE_SIZE;
+		i += PAGE_SIZE;
 	}
 	return;
 }
 
 void vmem_map(uint32_t virt, uint32_t physical) {
 	uint16_t id = virt >> 22;
-	for (int i = 0; i < 0x1000; i++) {
-		page_t* page = get_page(virt+ (i * 0x1000), 1, current_directory);
+	for (int i = 0; i < PAGE_SIZE; i++) {
+		page_t* page = get_page(virt+ (i * PAGE_SIZE), 1, current_directory);
 		page->present = 1;
 		page->rw = 1;
 		page->user = 1;
-		page->frame = (virt+ (i * 0x1000)) / 0x1000;
+		page->frame = (virt+ (i * PAGE_SIZE)) / PAGE_SIZE;
 	}
 	printf_info("Mapping %x (%x) -> %x", virt, id, physical);
 }
@@ -162,7 +160,7 @@ page_directory_t* page_dir_current() {
 bool alloc_frame_lazy(page_t* page, int is_kernel, int is_writeable) {
 	if (page->frame != 0) {
 		//frame was already allocated, return early
-		printk_err("alloc_frame_lazy fail, frame %x taken", page->frame * 0x1000);
+		printk_err("alloc_frame_lazy fail, frame %x taken", page->frame * PAGE_SIZE);
 		return false;
 	}
 	page->present = 1; //mark as present
@@ -176,7 +174,7 @@ bool alloc_frame_lazy(page_t* page, int is_kernel, int is_writeable) {
 bool alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 	if (page->frame != 0) {
 		//frame was already allocated, return early
-		printk_err("alloc_frame fail, frame %x taken", page->frame * 0x1000);
+		printk_err("alloc_frame fail, frame %x taken", page->frame * PAGE_SIZE);
 		return false;
 	}
 	
@@ -185,7 +183,7 @@ bool alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 		PANIC("No free frames!");
 	}
 
-	set_bit_frame(idx*0x1000); //frame is now ours
+	set_bit_frame(idx*PAGE_SIZE); //frame is now ours
 	page->present = 1; //mark as present
 	page->rw = is_writeable; //should page be writable?
 	page->user = !is_kernel; //should page be user mode?
@@ -223,8 +221,8 @@ void identity_map_lfb(uint32_t location) {
 		page->present = 1;
 		page->rw = 1;
 		page->user = 1;
-		page->frame = j / 0x1000;
-		j += 0x1000;
+		page->frame = j / PAGE_SIZE;
+		j += PAGE_SIZE;
 	}
 }
 
@@ -245,7 +243,7 @@ void force_frame(page_t *page, int is_kernel, int is_writeable, unsigned int add
 	page->present = 1;
 	page->rw = is_writeable;
 	page->user = !is_kernel;
-	page->frame = addr / 0x1000;
+	page->frame = addr / PAGE_SIZE;
 	set_bit_frame(addr);
 }
 
@@ -258,8 +256,8 @@ void paging_install() {
 	//uint32_t mem_end_page = memory_size;
 	memsize = mem_end_page;
 
-	nframes = mem_end_page / 0x1000;
-	frames = (uint32_t*)kmalloc(INDEX_FROM_BIT(nframes));
+	nframes = mem_end_page / PAGE_SIZE;
+	frames = (uint32_t*)kmalloc(INDEX_FROM_BIT(nframes) * sizeof(uint32_t));
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
 
 	//make page directory
@@ -273,13 +271,11 @@ void paging_install() {
 	//this causes page_table_t's to be created where necessary
 	//don't alloc the frames yet, they need to be identity
 	//mapped below first.
-    unsigned int i = 0;
-	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
+    uint32_t i = 0;
+	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += PAGE_SIZE) {
 		get_page(i, 1, kernel_directory);
 	}
 
-	printk("paging_install() identity mapping up to %x\n", placement_address);
-	printf("paging_install() identity mapping up to %x\n", placement_address);
 	//we need to identity map (phys addr = virtual addr) from
 	//0x0 to end of used memory, so we can access this
 	//transparently, as if paging wasn't enabled
@@ -287,15 +283,23 @@ void paging_install() {
 	//by calling kmalloc(). A while loop causes this to be computed
 	//on-the-fly instead of once at the start
 	unsigned idx = 0;
-	while (idx < (placement_address + 0x1000)) {
+	while (idx < (placement_address + PAGE_SIZE)) {
 		//kernel code is readable but not writeable from userspace
-		alloc_frame(get_page(idx, 1, kernel_directory), 0, 0);
-		idx += 0x1000;
+		alloc_frame(get_page(idx, 1, kernel_directory), 1, 0);
+		idx += PAGE_SIZE;
 	}
+	printf_info("Kernel VirtMem identity mapped up to %x", placement_address);
+
 
 	//allocate pages we mapped earlier
-	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += 0x1000) {
-		alloc_frame(get_page(i, 1, kernel_directory), 0, 0);
+	uint32_t heap_end = KHEAP_START + KHEAP_INITIAL_SIZE;
+	for (i = KHEAP_START; i < heap_end; i += PAGE_SIZE) {
+		page_t* page = get_page(i, 1, kernel_directory);
+		alloc_frame(page, 1, 0);
+		unsigned char* ptr = (unsigned char*)kernel_directory->tables;
+		if (*ptr == 0xff) {
+			printf("broken! %x %x %x\n", KHEAP_START, KHEAP_INITIAL_SIZE, heap_end);
+		}
 	}
 
 	//before we enable paging, register page fault handler
@@ -308,7 +312,6 @@ void paging_install() {
 
 	//initialize kernel heap
 	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, KHEAP_MAX_ADDRESS, 0, 0);
-	current_directory = kernel_directory;
 	//move_stack((void*)0xE0000000, 0x2000);
 	//expand(0x1000000, kheap);
 
@@ -332,7 +335,7 @@ void page_regions_print(page_directory_t* dir) {
 				//page present
 				//start run if we're not in one
 				if (run_start == -1) {
-					run_start = tab->pages[j].frame * 0x1000;
+					run_start = tab->pages[j].frame * PAGE_SIZE;
 				}
 			}
 			else {
@@ -340,7 +343,7 @@ void page_regions_print(page_directory_t* dir) {
 				if (run_start != -1) {
 					//run finished!
 					//run ends on previous page
-					uint32_t run_end = (tab->pages[j-1].frame * 0x1000);
+					uint32_t run_end = (tab->pages[j-1].frame * PAGE_SIZE);
 					printk("[%x - %x]\n", run_start, run_end);
 
 					//reset run state
@@ -353,25 +356,25 @@ void page_regions_print(page_directory_t* dir) {
 
 void *mmap(void *addr, uint32_t length, int UNUSED(flags), int UNUSED(fd), uint32_t UNUSED(offset)) {
 	char* chbuf = (char*)addr;
-	int diff = (uintptr_t)chbuf % 0x1000;
+	int diff = (uintptr_t)chbuf % PAGE_SIZE;
 	if (diff) {
 		printf("mmap page-aligning from %x to %x\n", (uint32_t)addr, (uint32_t)addr - diff);
 		length += diff;
 		chbuf -= diff;
 	}
 	uint32_t page_aligned = length;
-	if (page_aligned % 0x1000) {
+	if (page_aligned % PAGE_SIZE) {
 		page_aligned = length + 
-					   (0x1000 - (length % 0x1000));
+					   (PAGE_SIZE - (length % PAGE_SIZE));
 		printf("mmap page-aligning chunk size from %x to %x\n", length, page_aligned);
 	}
 
 	printf("mmap @ %x + %x\n", addr, page_aligned);
 	//allocate every necessary page
-	for (uint32_t i = 0; i < page_aligned; i += 0x1000) {
+	for (uint32_t i = 0; i < page_aligned; i += PAGE_SIZE) {
 		//TODO change alloc_frame flags based on 'flags'
 		alloc_frame(get_page((uint32_t)chbuf + i, 1, current_directory), 1, 1);
-		memset((uint32_t*)chbuf + i, 0, 0x1000);
+		memset((uint32_t*)chbuf + i, 0, PAGE_SIZE);
 	}
 	return chbuf;
 }
@@ -432,13 +435,13 @@ void switch_page_directory(page_directory_t* dir) {
 }
 
 uint32_t vmem_from_frame(uint32_t phys) {
-	phys *= 0x1000;
+	phys *= PAGE_SIZE;
 	return phys;
 }
 
 page_t* get_page(uint32_t address, int make, page_directory_t* dir) {
 	//turn address into an index
-	address /= 0x1000;
+	address /= PAGE_SIZE;
 	//find page table containing this address
 	uint32_t table_idx = address / 1024;
 
@@ -526,9 +529,9 @@ static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
 
 		//physically copy data across
 		extern void copy_page_physical(uint32_t page, uint32_t dest);
-		copy_page_physical(src->pages[i].frame * 0x1000, table->pages[i].frame * 0x1000);
+		copy_page_physical(src->pages[i].frame * PAGE_SIZE, table->pages[i].frame * PAGE_SIZE);
 	}
-	printf("clone_table() copied %d pages, %d kb\n", cloned_pages, ((cloned_pages * 0x1000) / 1024));
+	printk("clone_table() copied %d pages, %d kb\n", cloned_pages, ((cloned_pages * PAGE_SIZE) / 1024));
 	return table;
 }
 
