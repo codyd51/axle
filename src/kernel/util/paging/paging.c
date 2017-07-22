@@ -251,8 +251,8 @@ void paging_install() {
 	printf_info("Initializing paging...");
 
 	//size of physical memory
-	//assume 256MB 
-	uint32_t mem_end_page = 0x10000000;
+	//system_mem() returns kilobytes, so multiply by 1024 to get bytes
+	uint32_t mem_end_page = system_mem() * 1024;
 	//uint32_t mem_end_page = memory_size;
 	memsize = mem_end_page;
 
