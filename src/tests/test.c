@@ -6,12 +6,6 @@
 #include <crypto/crypto.h>
 
 void test_colors() {
-	printf_info("Testing colors...");
-	/*
-	for (int i = 0; i < 16; i++) {
-		printf("\e[%d;@", i);
-	}
-	*/
 	printf("\e[1;@");
 	printf("\e[2;@");
 	printf("\e[3;@");

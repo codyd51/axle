@@ -75,7 +75,7 @@ int find_command(char* command) {
 static int exit_code = 0;
 int process_command(char* input) {
 	if (((input != NULL) && (input[0] == '\0')) || !strlen(input))
-		return;
+		return -1;
 
 	int argc;
 	char *sdup = strdup(input);
@@ -101,16 +101,17 @@ int process_command(char* input) {
 			}
 		}
 		else {
+			/*
 			void* task = task_with_pid(pid);
 			printf("[%d] task_with_pid returned %x\n", getpid(), task);
-
 			int status;
 			pid = waitpid(pid, &status, 0);
 			freeargv(argv);
 			return status;
+			*/
 		}
-		//printf("Command %s not found.\n", input);
-		//return -1;
+		printf("Command %s not found.\n", input);
+		return -1;
 	}
 
 	command_func func = cmdtable[index].func;
@@ -166,8 +167,8 @@ int spawn_xserv() {
 	frame.origin = origin;
 	frame.size = size;
 
-	xserv_win_create(&win, &frame);
-	xserv_win_present(win);
+	//xserv_win_create(&win, &frame);
+	//xserv_win_present(win);
 }
 
 int main(int argc, char** argv) {

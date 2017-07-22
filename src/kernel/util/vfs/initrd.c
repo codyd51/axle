@@ -122,22 +122,29 @@ fs_node_t* initrd_init(uint32_t location) {
 	return initrd_root;
 }
 
-void initrd_remap(int initrd_loc, int initrd_end, int initrd_vmem) {
+void initrd_remap(char* initrd_loc, char* initrd_end, char* initrd_vmem) {
 	//remap initrd to given vmem address
-	int initrd_size = initrd_end - initrd_loc;
+	uint32_t initrd_size = initrd_end - initrd_loc;
 
 	printf("map initrd from: [%x -> %x]\n             to: [%x -> %x]\n", initrd_loc, initrd_end, initrd_vmem, initrd_vmem + initrd_size);
-	int i = 0;
-	for (; i < initrd_size + 0x1000; i += 0x1000) {
-		alloc_frame(get_page(initrd_vmem + i, 1, page_dir_current()), 1, 1);
-		memcpy((uint32_t*)initrd_vmem + i, (uint32_t*)initrd_loc + i, 0x1000);
+	char* i = initrd_vmem;
+	char* src = initrd_loc;
+	for (; i < initrd_vmem + initrd_size + PAGE_SIZE; i += PAGE_SIZE, src += PAGE_SIZE) {
+		page_t* page = get_page((uint32_t)i, 1, page_dir_current());
+		ASSERT(page, "initrd_remap couldn't get page");
+		alloc_frame(page, true, false);
+		invlpg(i);
+		memcpy(i, src, PAGE_SIZE);
 	}
-	printf("alloc'd %d pages for initrd\n", i / 0x1000);
+	
+	float mb = initrd_size / 1024.0 / 1024.0;
+	uint32_t page_count = initrd_size / PAGE_SIZE;
+	printf_info("Ramdisk is %f MB (%d pages)", mb, page_count);
 }
 
-void initrd_install(int initrd_loc, int initrd_end, int initrd_vmem) {
+void initrd_install(uint32_t initrd_loc, uint32_t initrd_end, uint32_t initrd_vmem) {
 	//remap initrd in vmem
-	initrd_remap(initrd_loc, initrd_end, initrd_vmem);
+	initrd_remap((char*)initrd_loc, (char*)initrd_end, (char*)initrd_vmem);
 	//and set up filesystem root
 	fs_root = initrd_init(initrd_vmem);
 }

@@ -50,7 +50,6 @@ Bmp* _load_jpg(Rect frame, FILE* file) {
 	printf("JPEG NJ size: {%d, %d}\n", njGetWidth(), njGetHeight());
 	kfree(jpeg_buf);
 
-	int bpp = gfx_bpp();
 	ca_layer* layer = create_layer(size_make(frame.size.width, frame.size.height));
 	
 	int layer_size = layer->size.width * layer->size.height * gfx_bpp();

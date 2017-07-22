@@ -10,7 +10,7 @@ void pretty_print_frame(void* func) {
 	if (!addr) {
 		return; 
 	} 
-	char* sym = elf_sym_lookup(kern_elf(), addr); 
+	const char* sym = elf_sym_lookup(kern_elf(), addr); 
 	printf("%s ", sym); 
 	int spaces_needed = 16 - strlen(sym); 
 	for (int i = 0; i < spaces_needed; i++) { 

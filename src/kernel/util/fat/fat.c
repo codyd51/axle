@@ -180,7 +180,7 @@ void fat_expand_file(uint32_t file, uint32_t size_increase) {
 		last = fat_alloc_sector(last);
 	}
 
-	fat_dirent* entry;
+	fat_dirent* entry = NULL;
 	dirent_for_start_sector(file, &root_dir, entry);
 	if (!entry) {
 		printf("fat_expand_file(%d) couldn't find dirent to expand!\n");
@@ -495,7 +495,7 @@ int fat_dir_read_dirent(fat_dirent* directory, char* name, fat_dirent* store) {
 
 	printk("fat_dir_read_dirent directory: %s %d %d\n", directory->name, directory->size, directory->first_sector);
 	for (int i = 0; i >= 0; i++) {
-		if (i * SECTOR_SIZE >= directory->size) {
+		if (i * SECTOR_SIZE >= (int)directory->size) {
 			break;
 		}
 
@@ -506,7 +506,7 @@ int fat_dir_read_dirent(fat_dirent* directory, char* name, fat_dirent* store) {
 			fat_dirent entry = sector_contents.entries[j];
 			if (!strcmp(name, entry.name)) {
 				//found entry we're looking for!
-				strcpy(store->name, &entry.name);
+				strcpy(store->name, (const char*)&entry.name);
 				store->size = entry.size;
 				store->first_sector = entry.first_sector;
 				printf("fat_dir_read_dirent found entry idx %d %s %d %d \n", j, store->name, store->size, store->first_sector);
@@ -546,7 +546,7 @@ void fat_print_directory(fat_dirent* directory, int tablevel, bool print_header)
 	}
 }
 
-int fat_dir_read(int dir_sector, char* name) {
+int fat_dir_read(int UNUSED(dir_sector), char* UNUSED(name)) {
 	ASSERT(0, "fat_dir_read");
 	return -1;
 	//return fat_dir_read_dirent(dir_sector, name, NULL);
@@ -598,8 +598,8 @@ int fat_copy_initrd_file(fat_dirent* dir, char* name, fat_dirent* store) {
 		int offset = i * SECTOR_SIZE;
 
 		int count = 0;
-		for (int j = 0; j < sizeof(buf); j++) {
-			if (offset + j >= size) break;
+		for (uint32_t j = 0; j < sizeof(buf); j++) {
+			if ((int)(offset + j) >= size) break;
 
 			uint8_t byte = initrd_fgetc(file);
 			if (byte == EOF) {
@@ -636,7 +636,7 @@ size_t fat_fwrite(void* ptr, size_t size, size_t count, FILE* stream) {
 	return wrote_count;
 }
 
-FILE* fat_fopen(char* filename, char* mode) {
+FILE* fat_fopen(char* filename, char* UNUSED(mode)) {
 	int fat_sector = fat_find_absolute_file(filename, NULL);
 	if (!is_valid_sector(fat_sector)) {
 		printf("fat_fopen(%s) No such file or directory\n", filename);
@@ -719,7 +719,7 @@ bool dirent_for_start_sector(uint32_t desired_sector, fat_dirent* directory, fat
 void fat_install(unsigned char drive, bool force_format) {
 	//check if this drive has already been formatted
 	int magic = fat_read_magic();
-	if (!force_format && magic == FAT_MAGIC) {
+	if (!force_format && (uint32_t)magic == FAT_MAGIC) {
 		printf("FAT filesystem has already been formatted\n");	
 
 		strcpy((char*)&root_dir.name, "/");
@@ -734,7 +734,7 @@ void fat_install(unsigned char drive, bool force_format) {
 	fat_format_disk(drive);
 }
 
-void fat_format_disk(unsigned char drive) {
+void fat_format_disk(unsigned char UNUSED(drive)) {
 	//skip the first 2 blocks, these are reserved for boot sector and super block
 	//create FAT in first unused block, block 3
 	

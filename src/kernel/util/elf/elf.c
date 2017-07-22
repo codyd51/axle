@@ -58,7 +58,7 @@ bool elf_validate(FILE* file) {
 	char buf[sizeof(elf_header)];
 	fseek(file, 0, SEEK_SET);
 	///fread(&buf, sizeof(elf_header), 1, file);
-	for (int i = 0; i < sizeof(elf_header); i++) {
+	for (uint32_t i = 0; i < sizeof(elf_header); i++) {
 		buf[i] = fgetc(file);
 	}
 	elf_header* hdr = (elf_header*)(&buf);
@@ -82,14 +82,13 @@ bool elf_load_segment(page_directory_t* new_dir, unsigned char* src, elf_phdr* s
 
 	printf("dest_base %x dest_limit %x\n", dest_base, dest_limit);
 	//alloc enough mem for new task
-#define PAGE_SIZE 0x1000
 	for (uint32_t i = dest_base, page_counter = 0; i <= dest_limit; i += PAGE_SIZE, page_counter++) {
 		page_t* page = get_page(i, 1, new_dir);
 		ASSERT(page, "elf_load_segment couldn't get page in new addrspace at %x\n", i);
 		alloc_frame(page, 0, 0);
 		
 		char* pagebuf = kmalloc_a(PAGE_SIZE);
-		page_t* local_page = get_page(pagebuf, 0, page_dir_current());
+		page_t* local_page = get_page((uint32_t)pagebuf, 0, page_dir_current());
 		ASSERT(local_page, "couldn't get local_page!");
 		int old_frame = local_page->frame;
 		local_page->frame = page->frame;
@@ -110,8 +109,6 @@ bool elf_load_segment(page_directory_t* new_dir, unsigned char* src, elf_phdr* s
 		//and copy backing physical frame data to physical frame of
 		//page in new address space
 
-		//copy_page_physical(local_page->frame * PAGE_SIZE, page->frame * PAGE_SIZE);
-
 		//now that the buffer has been copied, we can safely free the buffer
 		local_page->frame = old_frame;
 		invlpg(pagebuf);
@@ -126,7 +123,6 @@ bool elf_load_segment(page_directory_t* new_dir, unsigned char* src, elf_phdr* s
 
 uint32_t elf_load_small(page_directory_t* new_dir, unsigned char* src) {
 	elf_header* hdr = (elf_header*)src;
-	elf_phdr* phdr_table = (elf_phdr*)((uint32_t)hdr + hdr->phoff);
 	uintptr_t phdr_table_addr = (uint32_t)hdr + hdr->phoff;
 
 	int segcount = hdr->phnum; 
@@ -152,7 +148,7 @@ char* elf_get_string_table(void* file, uint32_t binary_size) {
 	elf_header* hdr = (elf_header*)file;
 	char* string_table;
 	uint32_t i = 0;
-	for (uint32_t x = 0; x < hdr->shentsize * hdr->shnum; x += hdr->shentsize) {
+	for (int x = 0; x < hdr->shentsize * hdr->shnum; x += hdr->shentsize) {
 		if (hdr->shoff + x > binary_size) {
 			printf("ELF: Tried to read beyond the end of the file.\n");
 			return NULL;
@@ -164,6 +160,7 @@ char* elf_get_string_table(void* file, uint32_t binary_size) {
 		}
 		i++;
 	}
+	return NULL;
 }
 
 
@@ -172,21 +169,21 @@ char* elf_get_string_table(void* file, uint32_t binary_size) {
 //stored start of .bss segment in bss_loc
 static void alloc_bss(page_directory_t* new_dir, elf_s_header* shdr, int* prog_break, int* bss_loc) {
 	printf("ELF .bss mapped @ %x - %x\n", shdr->addr, shdr->addr + shdr->size);
-	for (int i = 0; i <= shdr->size + 0x1000; i += 0x1000) {
+	for (uint32_t i = 0; i <= shdr->size + PAGE_SIZE; i += PAGE_SIZE) {
 		page_t* page = get_page(shdr->addr + i, 1, new_dir);
 		if (!alloc_frame(page, 0, 1)) {
 			printf_err(".bss %x wasn't alloc'd", shdr->addr + i);
 		}
 
-		char* pagebuf = kmalloc_a(0x1000);
+		char* pagebuf = kmalloc_a(PAGE_SIZE);
 		//zero out .bss
-		memset(pagebuf, 0, 0x1000);
+		memset(pagebuf, 0, PAGE_SIZE);
 
-		page_t* local_page = get_page(pagebuf, 1, page_dir_current());
+		page_t* local_page = get_page((uint32_t)pagebuf, 1, page_dir_current());
 		ASSERT(local_page, "elf_load_segment couldn't find page for pagebuf");
 
 		extern void copy_page_physical(uint32_t page, uint32_t dest);
-		copy_page_physical(local_page->frame * 0x1000, page->frame * 0x1000);
+		copy_page_physical(local_page->frame * PAGE_SIZE, page->frame * PAGE_SIZE);
 
 		//now that the buffer has been copied, we can safely free the buffer
 		kfree(pagebuf);
@@ -204,7 +201,7 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 	fseek(elf, 0, SEEK_SET);
 
 	char* filebuf = kmalloc(binary_size);
-	for (int i = 0; i < binary_size; i++) {
+	for (uint32_t i = 0; i < binary_size; i++) {
 		filebuf[i] = fgetc(elf);
 	}
 
@@ -229,7 +226,7 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 
 	uint32_t prog_break = 0;
 	uint32_t bss_loc = 0;
-	for (uint32_t x = 0; x < hdr->shentsize * hdr->shnum; x += hdr->shentsize) {
+	for (int x = 0; x < hdr->shentsize * hdr->shnum; x += hdr->shentsize) {
 		if (hdr->shoff + x > binary_size) {
 			printf("Tried to read beyond the end of the file.\n");
 			return;
@@ -240,11 +237,11 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 
 		//alloc memory for .bss segment
 		if (!strcmp(section_name, ".bss")) {
-			alloc_bss(new_dir, shdr, &prog_break, &bss_loc);
+			alloc_bss(new_dir, shdr, (int*)&prog_break, (int*)&bss_loc);
 		}
 	}
 
-	uint32_t entry = elf_load_small(new_dir, filebuf);
+	uint32_t entry = elf_load_small(new_dir, (unsigned char*)filebuf);
 	kfree(filebuf);
 
 	//alloc stack space
@@ -254,13 +251,12 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 		page_t* stacktop = get_page(stack_addr, 1, new_dir);
 		//user, writeable
 		alloc_frame(stacktop, 0, 1);
-		stack_addr += 0x1000;
+		stack_addr += PAGE_SIZE;
 	}
-	stack_addr -= 0x1000;
+	stack_addr -= PAGE_SIZE;
 
 	//calculate argc count
 	int argc = 0;
-	char* tmp = argv[argc];
 	while (argv[argc] != NULL) {
 		argc++;
 	}

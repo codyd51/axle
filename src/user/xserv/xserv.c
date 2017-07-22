@@ -767,12 +767,14 @@ void xserv_init() {
 		execve(argv[0], argv, NULL);
 		ASSERT(0, "execve returned");
 	}
+	/*
 	if (!sys_fork()) {
 		char* argv[] = {"files", NULL};
 		become_first_responder_pid(getpid());
 		execve(argv[0], argv, NULL);
 		ASSERT(0, "execve returned");
 	}
+	*/
 
 	while (1) {
 		xserv_refresh(screen);

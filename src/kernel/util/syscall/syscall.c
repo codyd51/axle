@@ -38,7 +38,7 @@ static int sys_handler(registers_t* regs) {
 	//stored in eax
 	if (!syscalls || regs->eax >= MAX_SYSCALLS) {
 		printf_err("Syscall %d called but not defined", regs->eax);
-		return;
+		return -1;
 	}
 
 	//location of syscall funcptr
@@ -63,4 +63,5 @@ static int sys_handler(registers_t* regs) {
 		pop %%ebx;	\
 	" : "=a" (ret) : "r" (regs->edi), "r" (regs->esi), "r" (regs->edx), "r" (regs->ecx), "r" (regs->ebx), "r" (location));
 	regs->eax = ret;
+	return ret;
 }

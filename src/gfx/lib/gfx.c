@@ -261,6 +261,7 @@ void gfx_init(void* mboot_ptr) {
 	draw_boot_background();
 
 	Size padding = font_padding_for_size(s);
-	printf("Running in %d x %d x %d\nRecommended font size is %dx%d, recommended padding is %dx%d\n\n", screen.resolution.width, screen.resolution.height, screen.depth, s.width, s.height, padding.width, padding.height);
+	printf_info("Running in %d x %d x %d", screen.resolution.width, screen.resolution.height, screen.depth);
+	printf_info("Recommended font size is %dx%d, recommended padding is %dx%d", s.width, s.height, padding.width, padding.height);
 }
 

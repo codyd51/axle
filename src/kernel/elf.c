@@ -3,19 +3,17 @@
 #include <std/string.h>
 
 void elf_from_multiboot(multiboot* mb, elf_t* elf) {
+	printf_info("Parsing multiboot header and kernel symbols");
 	elf_section_header_t* sh = (elf_section_header_t*)mb->addr;
 
 	uint32_t shstrtab = sh[mb->shndx].addr;
-	printf("sh %x shstrab %x\n", sh, shstrtab);
 	for (uint32_t i = 0; i < mb->num; i++) {
 		const char* name = (const char*)(shstrtab + sh[i].name);
 		if (!strcmp(name, ".strtab")) {
-			printf("found strtab\n");
 			elf->strtab = (const char*)sh[i].addr;
 			elf->strtabsz = sh[i].size;
 		}
 		if (!strcmp(name, ".symtab")) {
-			printf("found symtab\n");
 			elf->symtab = (elf_symbol_t*)sh[i].addr;
 			elf->symtabsz = sh[i].size;
 		}

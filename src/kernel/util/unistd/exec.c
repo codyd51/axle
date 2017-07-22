@@ -7,13 +7,15 @@
 #include <kernel/util/plistman/plistman.h>
 #include <kernel/util/syscall/sysfuncs.h>
 
+int sys__exit(int code);
+
 typedef enum {
 	ELF_TYPE,
 	MACH_TYPE,
 	UNKWN_TYPE,
 } program_type;
 
-static program_type find_program_type(FILE* file) {
+program_type find_program_type(FILE* file) {
 	if (mach_validate(file)) {
 		return MACH_TYPE;
 	}
@@ -55,7 +57,7 @@ void wipe_page_tables(page_directory_t* page_dir) {
 	}
 }
 
-static plist_t* find_plist(const char* filename) {
+plist_t* find_plist(const char* UNUSED(filename)) {
 	plist_t* plist = NULL;
 	/*
 	struct dirent* ent;
@@ -76,13 +78,12 @@ static plist_t* find_plist(const char* filename) {
 	return plist;
 }
 
-int execve(const char *filename, char *const argv[], char *const envp[]) {
+int execve(const char *filename, char *const argv[], char *const UNUSED(envp[])) {
 	/*
 	printf("current directory phys %x\ kernel dir phys %x\n", page_dir_current()->physicalAddr, page_dir_kern()->physicalAddr);
 	switch_page_directory(page_dir_kern());
 	while (1) {}
 	*/
-	printf("switched director %x\n", page_dir_current());
 	task_t* current = task_current();
 	current->permissions = 0;
 
@@ -127,8 +128,7 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 
 	//program_type type = find_program_type(file);
 
-	program_type type = ELF_TYPE;
-	elf_load_file(filename, file, argv);
+	elf_load_file((char*)filename, file, (char**)argv);
 
 	//we should never reach this point
 	ASSERT(0, "execve didn't exit");

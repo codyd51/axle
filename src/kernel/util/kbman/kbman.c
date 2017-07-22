@@ -5,6 +5,8 @@
 #include <std/kheap.h>
 #include <kernel/drivers/kb/kb.h>
 #include <kernel/util/multitasking/tasks/record.h>
+#include <kernel/util/syscall/sysfuncs.h>
+#include <kernel/util/unistd/exec.h>
 
 #define MAX_KB_BUFFER_LENGTH 64
 
@@ -46,16 +48,6 @@ void kbman_process(char c) {
 				task_t* foremost = first_responder();
 				printf_info("Ctrl+C killing task %s", foremost->name);
 				kill_task(foremost);
-				break;
-			}
-			case 't': {
-				//spawn shell
-				int pid = sys_fork();
-				if (!pid) {
-					execve("shell", 0, 0);
-					sys__exit(1);
-				}
-				waitpid(pid, NULL, NULL);
 				break;
 			}
 			default:

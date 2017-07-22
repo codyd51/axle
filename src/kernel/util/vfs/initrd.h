@@ -21,6 +21,7 @@ typedef struct {
 //gets passed address range of multiboot module,
 //sets up filesystem root,
 //and remaps initrd module to initrd_vmem
-void initrd_install(int initrd_loc, int initrd_end, int initrd_vmem);
+//void initrd_install(int initrd_loc, int initrd_end, int initrd_vmem);
+void initrd_install(uint32_t initrd_loc, uint32_t initrd_end, uint32_t initrd_vmem);
 
 #endif

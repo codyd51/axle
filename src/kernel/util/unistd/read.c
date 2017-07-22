@@ -4,12 +4,13 @@
 #include <kernel/drivers/kb/kb.h>
 #include <kernel/util/vfs/fs.h>
 #include <kernel/util/multitasking/std_stream.h>
+#include <kernel/util/multitasking/pipe.h>
 
 #include <gfx/lib/gfx.h>
 #include <gfx/lib/Window.h>
 #include <gfx/lib/Label.h>
 
-int std_read(task_t* task, int fd, void* buf, int count) {
+int std_read(task_t* task, int UNUSED(fd), void* buf, int count) {
 	char* chbuf = (char*)buf;
 	int i = 0;
 	//TODO implement newline_wait

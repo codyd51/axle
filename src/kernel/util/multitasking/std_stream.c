@@ -1,5 +1,5 @@
 #include "std_stream.h"
-#include <user/xserv/xserv.c>
+#include <user/xserv/xserv.h>
 #include <kernel/util/unistd/write.h>
 
 int std_stream_push(task_t* task, char* buf, int len) {

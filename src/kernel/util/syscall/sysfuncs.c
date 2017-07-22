@@ -24,7 +24,7 @@ void yield(task_state reason) {
 	block_task(current_task, reason);
 }
 
-int lseek(int fd, int offset, int whence) {
+int lseek(int UNUSED(fd), int UNUSED(offset), int UNUSED(whence)) {
 	printf("lseek called\n");
 	return 0;
 }
@@ -33,6 +33,7 @@ extern task_t* current_task;
 int exit(int code) {
 	current_task->exit_code = code;
 	_kill();
+	return code;
 }
 
 int sysfork() {

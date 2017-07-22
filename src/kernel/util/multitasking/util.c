@@ -8,7 +8,7 @@ extern uint32_t initial_esp;
 
 void move_stack(void* new_stack_start, uint32_t size) {
 	//allocate space for new stack
-	for (uint32_t i = (uint32_t)new_stack_start; i >= ((uint32_t)new_stack_start - size); i -= 0x1000) {
+	for (uint32_t i = (uint32_t)new_stack_start; i >= ((uint32_t)new_stack_start - size); i -= PAGE_SIZE) {
 		//general purpose stack is user mode
 		alloc_frame(get_page(i, 1, current_directory), 0, 1);
 	}
@@ -52,3 +52,4 @@ void move_stack(void* new_stack_start, uint32_t size) {
 	asm volatile("mov %0, %%esp" : : "r" (new_sp));
 	asm volatile("mov %0, %%ebp" : : "r" (new_bp));
 }
+

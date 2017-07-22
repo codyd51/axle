@@ -23,6 +23,7 @@ struct gdt_ptr_struct {
 typedef struct gdt_ptr_struct gdt_ptr_t;
 
 //publicly accessible initialization function
+void descriptor_tables_install();
 void gdt_install();
 void idt_install();
 

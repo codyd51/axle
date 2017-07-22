@@ -10,7 +10,7 @@ void halt_execution() {
 }
 
 void print_regs(registers_t regs) {
-    printf("\n==============================    registers    ================================\n");
+    printf("\n======================    registers    ========================\n");
 	printf("eax: %x		ecx: %x		edx: %x		ebx: %x\n", regs.eax, regs.ecx, regs.edx, regs.ebx);
 	printf("esp: %x		ebp: %x 	esi: %x		edi: %x\n", regs.esp, regs.ebp, regs.esi, regs.edi);
 	printf("eip: %x		int: %x		err: %x		cs:  %x\n", regs.eip, regs.int_no, regs.err_code, regs.cs);
@@ -183,7 +183,7 @@ int isr_handler(registers_t* regs) {
 		//also, return value is syscall return
 		if (int_no == 0x80) {
 			typedef int (*isr_reg_t)(registers_t*);
-			isr_reg_t handler = interrupt_handlers[int_no];
+			isr_reg_t handler = ((isr_reg_t*)interrupt_handlers)[int_no];
 			//set ret val
 			ret = handler(regs);
 		}
@@ -233,7 +233,7 @@ void irq_handler(registers_t regs) {
 		task_t* tmp = task_list();
 		while (tmp != NULL) {
 			if (tmp->state == IRQ_WAIT) {
-				int requested = (int)tmp->block_context;
+				uint32_t requested = (uint32_t)tmp->block_context;
 				if (requested == regs.int_no) {
 					tmp->irq_satisfied = true;
 					update_blocked_tasks();
