@@ -35,7 +35,7 @@ void* kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
 	}
 
 	//if addr is not already page aligned
-	if (align && (placement_address & 0xFFFFF000)) {
+	if (align && (placement_address & 0xFFF)) {
 		//align it
 		placement_address &= 0xFFFFF000;
 		placement_address += PAGE_SIZE;
