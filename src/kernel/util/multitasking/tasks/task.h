@@ -9,6 +9,7 @@
 #include <gfx/lib/gfx.h>
 #include <gfx/lib/rect.h>
 #include <gfx/lib/window.h>
+#include <kernel/util/ipc/ipc.h>
 
 #define KERNEL_STACK_SIZE 2048 //use 2kb kernel stack
 #define FD_MAX 64
@@ -110,6 +111,7 @@ typedef struct task {
 	array_m* windows;
 
 	bool irq_satisfied;
+	ipc_state_t* ipc_state;
 } task_t;
 
 //initializes tasking system

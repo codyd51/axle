@@ -804,9 +804,14 @@ void xserv_fail() {
 	kernel_end_critical();
 }
 
-void xserv_win_create(Window** out, Rect* frame) {
-	printf("xserv_win_create called out %x deref %x frame %x\n", out, *out, frame);
-	*out = task_register_window(*frame);
+char* xserv_win_create(Window** UNUSED(out), Rect* UNUSED(frame)) {
+	//*out = task_register_window(*frame);
+	char* test = kmalloc_a(PAGE_SIZE);
+	strcpy(test, "Message sent from kernel");
+	char* destination = NULL;
+	ipc_send(test, PAGE_SIZE, getpid(), &destination);
+	printf("xserv_win_create dest %x\n", destination);
+	return destination;
 }
 
 void xserv_win_present(Window* win) {

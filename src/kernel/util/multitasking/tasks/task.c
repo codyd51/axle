@@ -16,6 +16,7 @@
 #include <kernel/util/multitasking/pipe.h>
 #include <kernel/util/multitasking/std_stream.h>
 #include <kernel/util/multitasking/fd.h>
+#include <kernel/util/shmem/shmem.h>
 
 //function defined in asm which returns the current instruction pointer
 uint32_t read_eip();
