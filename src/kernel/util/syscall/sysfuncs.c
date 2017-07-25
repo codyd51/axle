@@ -9,6 +9,7 @@
 #include <gfx/lib/window.h>
 #include <gfx/lib/rect.h>
 #include <user/xserv/xserv.h>
+#include <kernel/util/shmem/shmem.h>
 
 void yield(task_state reason) {
 	if (!tasking_installed()) return;
@@ -40,6 +41,11 @@ int sysfork() {
 	return fork(current_task->name);
 }
 
+char* shmem_create(uint32_t size) {
+	task_t* current = task_with_pid(getpid());
+	return shmem_get(current->page_dir, size, 0x0, NULL, true);
+}
+
 DEFN_SYSCALL0(kill,		0);
 DEFN_SYSCALL3(execve,	1, char*		, char**, char**);
 DEFN_SYSCALL2(open,		2, const char*	, int);
@@ -64,6 +70,7 @@ DEFN_SYSCALL1(xserv_win_destroy, 19, Window*);
 DEFN_SYSCALL0(xserv_init, 20);
 
 DEFN_SYSCALL3(getdents, 21, unsigned int, struct dirent*, unsigned int);
+DEFN_SYSCALL1(shmem_create, 22, uint32_t);
 
 void create_sysfuncs() {
 	sys_insert((void*)&_kill);
@@ -88,5 +95,6 @@ void create_sysfuncs() {
 	sys_insert((void*)&xserv_win_destroy);
 	sys_insert((void*)&xserv_init);
 	sys_insert((void*)&getdents);
+	sys_insert((void*)&shmem_create);
 }
 
