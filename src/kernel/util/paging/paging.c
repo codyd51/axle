@@ -174,8 +174,8 @@ bool alloc_frame_lazy(page_t* page, int is_kernel, int is_writeable) {
 bool alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 	if (page->frame != 0) {
 		//frame was already allocated, return early
-		printk_err("alloc_frame fail, frame %x taken", page->frame * PAGE_SIZE);
-		return false;
+		printk_err("alloc_frame() page already assigned frame %x", page->frame * PAGE_SIZE);
+		//return false;
 	}
 	
 	int32_t idx = first_frame(); //index of first free frame
@@ -323,31 +323,41 @@ void paging_install() {
 
 void page_regions_print(page_directory_t* dir) {
 	if (!dir) return;
-	printk("page directory %x regions:\n", dir);
+	printf("page directory %x regions:\n", dir);
 
-	int32_t run_start = -1;
+	uint32_t run_start, run_end;
+	bool in_run = false;
 	for (int i = 0; i < 1024; i++) {
 		page_table_t* tab = dir->tables[i];
 		if (!tab) continue;
 
+		//page tables map 1024 4kb pages
+		//page directories contains 1024 page tables
+		//therefore, each page table maps 4mb of the virtual addr space
+		//for a given table index and page index, the virtual address is:
+		//table index * (range mapped by each table) + page index * (range mapped by each page)
+		//table index * 4mb + page index * 4kb
+		int page_table_virt_range = PAGE_SIZE * PAGE_SIZE / 4;
+
 		for (int j = 0; j < 1024; j++) {
-			if (tab->pages[j].present) {
+			if (tab->pages[j].present || tab->pages[j].frame) {
 				//page present
 				//start run if we're not in one
-				if (run_start == -1) {
-					run_start = tab->pages[j].frame * PAGE_SIZE;
+				if (!in_run) {
+					in_run = true;
+					run_start = (i * page_table_virt_range) + (j * PAGE_SIZE);
 				}
 			}
 			else {
 				//are we in a run?
-				if (run_start != -1) {
+				if (in_run) {
 					//run finished!
 					//run ends on previous page
-					uint32_t run_end = (tab->pages[j-1].frame * PAGE_SIZE);
-					printk("[%x - %x]\n", run_start, run_end);
+					//uint32_t run_end = (tab->pages[j-1].frame * PAGE_SIZE);
+					run_end = (i * page_table_virt_range) + (j * PAGE_SIZE);
+					printf("[%x - %x]\n", run_start, run_end);
 
-					//reset run state
-					run_start = -1;
+					in_run = false;
 				}
 			}
 		}

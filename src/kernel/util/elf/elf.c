@@ -85,7 +85,8 @@ bool elf_load_segment(page_directory_t* new_dir, unsigned char* src, elf_phdr* s
 	for (uint32_t i = dest_base, page_counter = 0; i <= dest_limit; i += PAGE_SIZE, page_counter++) {
 		page_t* page = get_page(i, 1, new_dir);
 		ASSERT(page, "elf_load_segment couldn't get page in new addrspace at %x\n", i);
-		alloc_frame(page, 0, 0);
+		bool got_frame = alloc_frame(page, 0, 0);
+		ASSERT(got_frame, "elf_load_segment couldn't alloc frame for page %x\n", i);
 		
 		char* pagebuf = kmalloc_a(PAGE_SIZE);
 		page_t* local_page = get_page((uint32_t)pagebuf, 0, page_dir_current());
