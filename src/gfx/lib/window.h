@@ -33,9 +33,6 @@ typedef struct window {
 
 	uint32_t last_draw_timestamp;
 	int owner_pid;
-
-	uint32_t canvas_base;
-	uint32_t canvas_size;
 } Window;
 
 Window* create_window(Rect frame);

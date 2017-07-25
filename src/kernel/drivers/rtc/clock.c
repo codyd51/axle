@@ -52,9 +52,15 @@ static void handle_rtc_update() {
             current_time.day_of_month = read_rtc_register(0x07);
         }
     }
+
+	static int flip = 0;
 	printk("heartbeat\n");
-	if (tasking_installed()) {
+	if (tasking_installed() && flip == 3) {
 		proc();
+		flip = 0;
+	}
+	else {
+		flip++;
 	}
 }
 
