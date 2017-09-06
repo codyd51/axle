@@ -1,4 +1,4 @@
-<img align="center" src="site/assets/axle.svg"/>
+<p align="center"><img width="285px" src="site/assets/axle.svg"/></p>
 
 <p align="center"><img src="screenshots/boot.png"></p>
 
