@@ -170,6 +170,7 @@ void display_boot_screen() {
 	Screen* screen = gfx_screen();
 	fill_screen(screen, color_black());
 
+	//TODO: Draw new logo
 	Point p1 = point_make(screen->resolution.width / 2, screen->resolution.height * 0.25);
 	Point p2 = point_make(screen->resolution.width / 2 - screen->resolution.width / 10, screen->resolution.height * 0.5);
 	Point p3 = point_make(screen->resolution.width / 2 + screen->resolution.width / 10, screen->resolution.height * 0.5);
