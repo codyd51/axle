@@ -1,5 +1,8 @@
 #include "axle.h"
 
+#define SPIN while (1) {sys_yield(RUNNABLE);}
+#define SPIN_NOMULTI while (1) {}
+
 void print_os_name(void) {
 	printf("\e[10;[\e[11;AXLE OS v\e[12;0.6.0\e[10;]\n");
 }
@@ -99,13 +102,83 @@ void kernel_process_multiboot(multiboot* mboot_ptr) {
 
 	//mem_upper / 1024 converts kb to mb
 	printf_info("%f MB of memory available", mboot_ptr->mem_upper / 1024.0);
-	
+}
+
+bool run_shmem_test() {
+	int mem_size = 0x100;
+	page_directory_t* dir = page_dir_current();
+	printf_info("shmem testing mem_size ");
+	for (int i = 0; i < 2; i++) {
+		printf("%d-", mem_size);
+		char* kernel_mem_addr = NULL;
+		char* new_mem = shmem_get_region_and_map(dir, mem_size, 0x0, &kernel_mem_addr, true);
+		if (!new_mem || !kernel_mem_addr) {
+			return false;
+		}
+
+		memset(new_mem, 'x', mem_size);
+		//kfree(kernel_mem_addr);
+
+		mem_size *= 2;
+	}
+	printf("\n");
+	return true;
+}
+
+bool run_module_tests() {
+	if (!run_shmem_test()) {
+		printf_err("shmem test failed!\n");
+		return false;
+	}
+	else {
+		printf_dbg("shmem test passed");
+	}
+	return true;
+}
+/*
+ * Multiboot spec module structure:
+             +-------------------+
+     0       | mod_start         |
+     4       | mod_end           |
+             +-------------------+
+     8       | string            |
+             +-------------------+
+     12      | reserved (0)      |
+             +-------------------+
+ */
+typedef struct multiboot_module {
+	//physical address of module head
+	uint32_t	mod_start;
+	//physical address of module tail
+	//
+	uint32_t	mod_end;
+	//unique module identifier
+	char*		cmdline;
+	uint32_t	mmo_reserved;
+} multiboot_module_t;
+
+static multiboot_module_t boot_modules[16] = {0};
+static int boot_modules_count = 0;
+
+void kernel_bootmod_init(multiboot* mboot_ptr) {
+	memset(boot_modules, 0, sizeof(boot_modules));
+
+	multiboot_module_t* mod = (multiboot_module_t*)mboot_ptr->mods_addr;
+	for (int i = 0; i < (int)mboot_ptr->mods_count; i++) {
+		boot_modules[i].mod_start = mod->mod_start;
+		boot_modules[i].mod_end = mod->mod_end;
+		boot_modules[i].cmdline = mod->cmdline;
+
+		mod++;
+	}
+	boot_modules_count = mboot_ptr->mods_count;
 }
 
 void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	initial_esp = initial_stack;
 
 	kernel_process_multiboot(mboot_ptr);
+	kernel_bootmod_init(mboot_ptr);
 
 	//introductory message
 	print_os_name();
@@ -123,6 +196,16 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	rtc_install();
 
 	//utilities
+	printf_info("%d boot modules detected", boot_modules_count);
+	printf ("mods_count = %d, mods_addr = 0x%x\n",
+			(int) mboot_ptr->mods_count, (int) mboot_ptr->mods_addr);
+	for (int i = 0; i < boot_modules_count; i++) {
+		multiboot_module_t mod = boot_modules[i];
+		printf("mod %d: mod_start = %x, mod_end = %x, cmdline = %s\n", i,
+			   (unsigned)mod.mod_start,
+			   (unsigned)mod.mod_end,
+			   (char *)mod.cmdline);
+	}
 	paging_install();
 
 	//map ramdisk to 0xE0001000
@@ -146,7 +229,11 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	pci_install();
 	ide_initialize(0x1F0, 0x3F6, 0x170, 0x376, 0x000);
 
+	bool tests_succeeded = run_module_tests();
+	ASSERT(tests_succeeded, "At least one kernel module test failed, halting");
+
 	/*
+	void sys_execve(char*, void*, int);
 	//test facilities
 	test_heap();
 	test_printf();
