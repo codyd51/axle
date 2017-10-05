@@ -10,6 +10,7 @@
 #include <gfx/lib/rect.h>
 #include <user/xserv/xserv.h>
 #include <kernel/util/shmem/shmem.h>
+#include <gfx/lib/surface.h>
 
 void yield(task_state reason) {
 	if (!tasking_installed()) return;
@@ -43,7 +44,15 @@ int sysfork() {
 
 char* shmem_create(uint32_t size) {
 	task_t* current = task_with_pid(getpid());
-	return shmem_get(current->page_dir, size, 0x0, NULL, true);
+	return shmem_get_region_and_map(current->page_dir, size, 0x0, NULL, true);
+}
+
+Surface* surface_create(uint32_t width, uint32_t height) {
+	return surface_make(width, height, getpid());
+}
+
+int aipc_send(char* data, uint32_t size, uint32_t dest_pid, char** destination) {
+	return ipc_send(data, size, dest_pid, destination);
 }
 
 DEFN_SYSCALL0(kill,		0);
@@ -71,6 +80,8 @@ DEFN_SYSCALL0(xserv_init, 20);
 
 DEFN_SYSCALL3(getdents, 21, unsigned int, struct dirent*, unsigned int);
 DEFN_SYSCALL1(shmem_create, 22, uint32_t);
+DEFN_SYSCALL2(surface_create, 23, uint32_t, uint32_t);
+DEFN_SYSCALL4(aipc_send, 24, char*, uint32_t, uint32_t, char**);
 
 void create_sysfuncs() {
 	sys_insert((void*)&_kill);
@@ -96,5 +107,7 @@ void create_sysfuncs() {
 	sys_insert((void*)&xserv_init);
 	sys_insert((void*)&getdents);
 	sys_insert((void*)&shmem_create);
+	sys_insert((void*)&surface_create);
+	sys_insert((void*)&aipc_send);
 }
 

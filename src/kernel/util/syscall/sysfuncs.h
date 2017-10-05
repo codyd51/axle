@@ -47,5 +47,7 @@ DECL_SYSCALL0(xserv_init);
 
 DECL_SYSCALL3(getdents, unsigned int, struct dirent*, unsigned int);
 DECL_SYSCALL1(shmem_create, uint32_t);
+DECL_SYSCALL2(surface_create, uint32_t, uint32_t);
+DECL_SYSCALL4(aipc_send, char*, uint32_t, uint32_t, char**);
 
 #endif
