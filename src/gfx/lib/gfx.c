@@ -70,6 +70,10 @@ Screen* screen_create(Size dimensions, uint32_t* physbase, uint8_t depth) {
 			screen->bpp = depth / 8;
 			screen->vmem = create_layer(dimensions);
 
+			screen->surfaces = array_m_create(128);
+			printk_info("screen surfaces %x\n", screen->surfaces);
+			printk_info("screen surfaces size %x\n", screen->surfaces->size);
+
 			return screen;
 }
 
@@ -252,6 +256,7 @@ void gfx_init(void* mboot_ptr) {
 	screen.depth = mode->bpp;
 	screen.bpp = screen.depth / 8;
 	screen.window = NULL;
+	screen.surfaces = array_m_create(128);
 	process_gfx_switch(&screen, mode->bpp);
 
 	//set default font size to fraction of screen size

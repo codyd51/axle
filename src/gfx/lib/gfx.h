@@ -12,6 +12,7 @@ typedef void (*event_handler)(void* obj, void* context);
 #include <gfx/font/font.h>
 #include <std/math.h>
 #include <kernel/drivers/vbe/vbe.h>
+#include <gfx/lib/surface.h>
 
 typedef struct __attribute__((packed)) {
 	unsigned short di, si, bp, sp, bx, dx, cx, ax;
@@ -28,6 +29,7 @@ typedef struct screen_t {
 	volatile int finished_drawing; //are we currently rendering a frame?
 	ca_layer* vmem; //raw framebuffer pushed to screen
 	Size default_font_size; //recommended font size for screen resolution
+	array_m* surfaces;
 } Screen;
 
 typedef struct Vec2d {
