@@ -126,7 +126,7 @@ void initrd_remap(char* initrd_loc, char* initrd_end, char* initrd_vmem) {
 	//remap initrd to given vmem address
 	uint32_t initrd_size = initrd_end - initrd_loc;
 
-	printf("map initrd from: [%x -> %x]\n             to: [%x -> %x]\n", initrd_loc, initrd_end, initrd_vmem, initrd_vmem + initrd_size);
+	printf_info("map initrd from: [%x -> %x]\n             to: [%x -> %x]\n", initrd_loc, initrd_end, initrd_vmem, initrd_vmem + initrd_size);
 	char* i = initrd_vmem;
 	char* src = initrd_loc;
 	for (; i < initrd_vmem + initrd_size + PAGE_SIZE; i += PAGE_SIZE, src += PAGE_SIZE) {

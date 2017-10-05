@@ -132,6 +132,7 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 
 	//search every hole
 	do {
+		ASSERT(candidate->magic == HEAP_MAGIC, "find_smallest_hole() detected heap corruption");
 		if (candidate->free) {
 			if (candidate->size >= size) {
 				//found valid header!
@@ -147,9 +148,9 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 
 					//does the align adjustment fit in the block?
 					if (distance < size) {
-#ifdef DEBUG
+//#ifdef DEBUG
 						printk_info("find_smallest_hole(): page aligning block @ %x to %x (really starts at %x)", addr, aligned_addr, aligned_addr + sizeof(alloc_block_t));
-#endif
+//#endif
 
 						//create new block at page aligned addr
 						uint32_t new_size = candidate->size - distance - sizeof(alloc_block_t);
@@ -171,7 +172,7 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 				return candidate;
 			}
 		}
-	} while ((candidate = candidate->next) != NULL);
+	} while ((candidate = candidate->next) != NULL && ((uint32_t)candidate < heap->end_address));
 
 	//unlock(mutex);
 	

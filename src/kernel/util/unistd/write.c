@@ -49,7 +49,7 @@ int xserv_write(task_t* task, int UNUSED(fd), const void* buf, int len) {
 }
 
 int std_write(task_t* task, int fd, const void* buf, int len) {
-	printk("%s[%d] calls std_write\n", task->name, task->id);
+	printk("%s[%d] std_write %s\n", task->name, task->id, buf);
 	char* chbuf = (char*)buf;
 	int i = 0;
 

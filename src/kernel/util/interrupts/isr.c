@@ -56,9 +56,10 @@ void dump_stack(uint32_t* esp) {
 }
 #pragma GCC diagnostic pop
 
-void common_halt(registers_t regs, bool recoverable) {
+void common_halt(registers_t UNUSED(regs), bool recoverable) {
 	//print out register info for debugging
-	print_regs(regs);
+	//print_regs(regs);
+	printf("skipping reg output\n");
 
 	if (!recoverable) {
 		//stop everything so we don't triple fault
