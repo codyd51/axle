@@ -33,5 +33,8 @@
 #include <kernel/util/plistman/plistman.h>
 #include <kernel/drivers/ide/ide.h>
 #include <kernel/util/fat/fat.h>
+#include <gfx/lib/surface.h>
+#include <kernel/util/shmem/shmem.h>
+#include <kernel/util/ipc/ipc.h>
 
 #endif
