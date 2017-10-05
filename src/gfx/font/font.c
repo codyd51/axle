@@ -6,8 +6,8 @@
 
 //TODO configurable SSAA factor?
 //#define SSAA_FACTOR 4
-//#define SSAA_FACTOR (0)
-#define SSAA_FACTOR 1 
+#define SSAA_FACTOR (0)
+//#define SSAA_FACTOR 1
 
 #define BITS_IN_WORD (sizeof(uint32_t) * 8)
 static inline void bitset_set(uint32_t* bitset, int idx) {
