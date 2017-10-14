@@ -55,33 +55,33 @@ int aipc_send(char* data, uint32_t size, uint32_t dest_pid, char** destination) 
 	return ipc_send(data, size, dest_pid, destination);
 }
 
-DEFN_SYSCALL0(kill,		0);
-DEFN_SYSCALL3(execve,	1, char*		, char**, char**);
-DEFN_SYSCALL2(open,		2, const char*	, int);
-DEFN_SYSCALL3(read,		3, int			, char*	, size_t);
-DEFN_SYSCALL2(output,	4, int			, char*);
-DEFN_SYSCALL1(yield,	5, task_state);
-DEFN_SYSCALL1(sbrk,		6, int);
-DEFN_SYSCALL1(brk,		7, void*);
-DEFN_SYSCALL5(mmap,		8, void*		, int,	  int,		int,	int);
-DEFN_SYSCALL2(munmap,	9, void*		, int);
-DEFN_SYSCALL3(lseek,   10, int			, int,	  int);
-DEFN_SYSCALL3(write,   11, int			, char*,	  int);
-DEFN_SYSCALL1(_exit,   12, int);
-DEFN_SYSCALL0(fork,	   13);
-DEFN_SYSCALL0(getpid,  14);
-DEFN_SYSCALL3(waitpid, 15,	 int		, int*,	  int);
-DEFN_SYSCALL1(task_with_pid, 16,	 int);
+DEFN_SYSCALL(kill, 0);
+DEFN_SYSCALL(execve, 1, char*, char**, char**);
+DEFN_SYSCALL(open, 2, const char*, int);
+DEFN_SYSCALL(read, 3, int, char*, size_t);
+DEFN_SYSCALL(output, 4, int, char*);
+DEFN_SYSCALL(yield, 5, task_state);
+DEFN_SYSCALL(sbrk, 6, int);
+DEFN_SYSCALL(brk, 7, void*);
+DEFN_SYSCALL(mmap, 8, void*, int, int, int, int);
+DEFN_SYSCALL(munmap, 9, void*, int);
+DEFN_SYSCALL(lseek, 10, int, int, int);
+DEFN_SYSCALL(write, 11, int, char*, int);
+DEFN_SYSCALL(_exit, 12, int);
+DEFN_SYSCALL(fork, 13);
+DEFN_SYSCALL(getpid, 14);
+DEFN_SYSCALL(waitpid, 15, int, int*, int);
+DEFN_SYSCALL(task_with_pid, 16, int);
 
-DEFN_SYSCALL2(xserv_win_create, 17,	 Window*, Rect*);
-DEFN_SYSCALL1(xserv_win_present, 18, Window*);
-DEFN_SYSCALL1(xserv_win_destroy, 19, Window*);
-DEFN_SYSCALL0(xserv_init, 20);
+DEFN_SYSCALL(xserv_win_create, 17, Window*, Rect*);
+DEFN_SYSCALL(xserv_win_present, 18, Window*);
+DEFN_SYSCALL(xserv_win_destroy, 19, Window*);
+DEFN_SYSCALL(xserv_init, 20);
 
-DEFN_SYSCALL3(getdents, 21, unsigned int, struct dirent*, unsigned int);
-DEFN_SYSCALL1(shmem_create, 22, uint32_t);
-DEFN_SYSCALL2(surface_create, 23, uint32_t, uint32_t);
-DEFN_SYSCALL4(aipc_send, 24, char*, uint32_t, uint32_t, char**);
+DEFN_SYSCALL(getdents, 21, unsigned int, struct dirent*, unsigned int);
+DEFN_SYSCALL(shmem_create, 22, uint32_t);
+DEFN_SYSCALL(surface_create, 23, uint32_t, uint32_t);
+DEFN_SYSCALL(aipc_send, 24, char*, uint32_t, uint32_t, char**);
 
 void create_sysfuncs() {
 	sys_insert((void*)&_kill);
@@ -110,4 +110,3 @@ void create_sysfuncs() {
 	sys_insert((void*)&surface_create);
 	sys_insert((void*)&aipc_send);
 }
-

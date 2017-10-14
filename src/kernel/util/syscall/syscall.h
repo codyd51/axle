@@ -6,54 +6,31 @@
 void sys_install();
 bool sys_installed();
 
-#define DECL_SYSCALL0(fn) int sys_##fn();
-#define DECL_SYSCALL1(fn, p1) int sys_##fn(p1);
-#define DECL_SYSCALL2(fn, p1, p2) int sys_##fn(p1, p2);
-#define DECL_SYSCALL3(fn, p1, p2, p3) int sys_##fn(p1, p2, p3);
-#define DECL_SYSCALL4(fn, p1, p2, p3, p4) int sys_##fn(p1, p2, p3, p4);
-#define DECL_SYSCALL5(fn, p1, p2, p3, p4, p5) int sys_##fn(p1, p2, p3, p4, p5);
+#define DECL_SYSCALL(fn, ...) int sys_##fn(__VA_ARGS__)
 
-#define DEFN_SYSCALL0(fn, num) \
-int sys_##fn() { \
-	int a; \
-	asm volatile("int $0x80" : "=a" (a) : "0" (num)); \
-	return a; \
-}
+#define _ASM_SYSCALL_ARGS_0()
+#define _ASM_SYSCALL_ARGS_1(P1) P1 p1
+#define _ASM_SYSCALL_ARGS_2(P1, P2) _ASM_SYSCALL_ARGS_1(P1), P2 p2
+#define _ASM_SYSCALL_ARGS_3(P1, P2, P3) _ASM_SYSCALL_ARGS_2(P1, P2), P3 p3
+#define _ASM_SYSCALL_ARGS_4(P1, P2, P3, P4) _ASM_SYSCALL_ARGS_3(P1, P2, P3), P4 p4
+#define _ASM_SYSCALL_ARGS_5(P1, P2, P3, P4, P5) _ASM_SYSCALL_ARGS_4(P1, P2, P3, P4), P5 p5
 
-#define DEFN_SYSCALL1(fn, num, P1) \
-int sys_##fn(P1 p1) { \
-	int a; \
-	asm volatile("int $0x80" : "=a" (a) : "0" (num), "b" ((int)p1)); \
-	return a; \
-}
+#define _ASM_SYSCALL_BODY_0(num) "int $0x80" : "=a" (a) : "0" (num)
+#define _ASM_SYSCALL_BODY_1(num) _ASM_SYSCALL_BODY_0(num), "b" ((int)p1)
+#define _ASM_SYSCALL_BODY_2(num) _ASM_SYSCALL_BODY_1(num), "c" ((int)p2)
+#define _ASM_SYSCALL_BODY_3(num) _ASM_SYSCALL_BODY_2(num), "d" ((int)p3)
+#define _ASM_SYSCALL_BODY_4(num) _ASM_SYSCALL_BODY_3(num), "S" ((int)p4)
+#define _ASM_SYSCALL_BODY_5(num) _ASM_SYSCALL_BODY_4(num), "D" ((int)p5)
 
-#define DEFN_SYSCALL2(fn, num, P1, P2) \
-int sys_##fn(P1 p1, P2 p2) { \
-	int a; \
-	asm volatile("int $0x80" : "=a" (a) : "0" (num), "b" ((int)p1), "c" ((int)p2)); \
-	return a; \
-}
+#define _ARG_COUNT(z, a, b, c, d, e, f, N, ...) N
+#define ARG_COUNT(...) _ARG_COUNT(,##__VA_ARGS__, 6, 5, 4, 3, 2, 1, 0)
 
-#define DEFN_SYSCALL3(fn, num, P1, P2, P3) \
-int sys_##fn(P1 p1, P2 p2, P3 p3) { \
-	int a; \
-	asm volatile("int $0x80" : "=a" (a) : "0" (num), "b" ((int)p1), "c" ((int)p2), "d" ((int)p3)); \
-	return a; \
+#define __DEFN_SYSCALL(N, fn, num, ...) \
+int sys_##fn(_ASM_SYSCALL_ARGS_##N(__VA_ARGS__)) { \
+	int a; asm volatile(_ASM_SYSCALL_BODY_##N(num)); return a; \
 }
-
-#define DEFN_SYSCALL4(fn, num, P1, P2, P3, P4) \
-int sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4) { \
-	int a; \
-	asm volatile("int $0x80" : "=a" (a) : "0" (num), "b" ((int)p1), "c" ((int)p2), "d" ((int)p3), "S" ((int)p4)); \
-	return a; \
-}
-
-#define DEFN_SYSCALL5(fn, num, P1, P2, P3, P4, P5) \
-int sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) { \
-	int a; \
-	asm volatile("int $0x80" : "=a" (a) : "0" (num), "b" ((int)p1), "c" ((int)p2), "d" ((int)p3), "S" ((int)p4), "D" ((int)p5)); \
-	return a; \
-}
+#define _DEFN_SYSCALL(N, fn, num, ...) __DEFN_SYSCALL(N, fn, num, ##__VA_ARGS__)
+#define DEFN_SYSCALL(fn, num, ...) _DEFN_SYSCALL(ARG_COUNT(__VA_ARGS__), fn, num, ##__VA_ARGS__)
 
 void sys_insert(void* syscall);
 
