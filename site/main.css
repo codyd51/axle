@@ -48,6 +48,13 @@ img {
     max-width: 95%;
 }
 
+img.logo {
+    animation: none;
+    border: none;
+    margin: 5px 0px;
+    max-width: 185px;
+}
+
 @keyframes colorize {
     0% {
         -webkit-filter: grayscale(100%);
