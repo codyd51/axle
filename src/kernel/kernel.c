@@ -174,7 +174,7 @@ void kernel_bootmod_init(multiboot* mboot_ptr) {
 	boot_modules_count = mboot_ptr->mods_count;
 }
 
-void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
+bool boot_stage1(multiboot* mboot_ptr, uint32_t initial_stack) {
 	initial_esp = initial_stack;
 
 	kernel_process_multiboot(mboot_ptr);
@@ -208,6 +208,11 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	}
 	paging_install();
 
+	printf_info("boot phase 1 ok, rtc,pit,paging set up");
+	return true;
+}
+
+bool boot_stage2(void) {
 	//map ramdisk to 0xE0001000
 	//heap max addr is at 0xDFFFF000, so this is placed just after that
 	//relocated stack is 0xE0000000
@@ -229,6 +234,11 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	pci_install();
 	ide_initialize(0x1F0, 0x3F6, 0x170, 0x376, 0x000);
 
+	printf_info("boot phase 2 ok, processes,syscalls,initrd,drivers set up");
+	return true;
+}
+
+bool boot_stage3(void) {
 	bool tests_succeeded = run_module_tests();
 	ASSERT(tests_succeeded, "At least one kernel module test failed, halting");
 
@@ -256,9 +266,26 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	waitpid(pid, &stat, 0);
 	printf("%s returned %d\n", argv[0], stat);
 
+	printf_info("boot stage 3 returned?");
+	return true;
+}
+
+void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
+	if (!boot_stage1(mboot_ptr, initial_stack)) {
+		ASSERT(0, "boot stage 1 failed");
+	}
+	if (!boot_stage2()) {
+		ASSERT(0, "boot stage 2 failed");
+	}
+	SPIN_NOMULTI;
+	if (!boot_stage3()) {
+		ASSERT(0, "boot stage 3 failed");
+	}
+
+	//wait for all children processes to finish
 	wait(NULL);
 
-	//done bootstrapping, kill process
+	//all tasks have died, kill kernel
 	_kill();
 
 	//this should never be reached as the above call never returns
