@@ -1,4 +1,4 @@
-<h1 align="center">axle OS</h1>
+<p align="center"><img width="285px" src="site/assets/axle.svg"/></p>
 
 <p align="center"><img src="screenshots/boot.png"></p>
 
