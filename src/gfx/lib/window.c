@@ -201,6 +201,10 @@ bool window_presented(Window* w) {
 }
 
 bool draw_window(Window* window) {
+	if (window->user_backed) {
+		return true;
+	}
+
 		//blit_layer(window->layer, window->content_view->layer, rect_make(window->content_view->frame.origin, window->layer->size), rect_make(point_zero(), window->content_view->frame.size));
 		//return;
 	//if window is invisible, don't bother drawing

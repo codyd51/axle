@@ -33,6 +33,7 @@ typedef struct window {
 
 	uint32_t last_draw_timestamp;
 	int owner_pid;
+	bool user_backed;
 } Window;
 
 Window* create_window(Rect frame);
