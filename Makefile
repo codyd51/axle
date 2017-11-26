@@ -20,7 +20,7 @@ CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -fstack-protector-all -I ./s
 LDFLAGS = -ffreestanding -nostdlib -lgcc -T $(RESOURCES)/linker.ld
 
 # Tools
-ISO_MAKER = $(TOOLCHAIN)/bin/grub-mkrescue --directory=$(TOOLCHAIN)/lib/grub/i386-pc
+ISO_MAKER = $(TOOLCHAIN)/bin/grub-mkrescue
 EMULATOR = qemu-system-i386
 FSGENERATOR = fsgen
 
@@ -45,7 +45,7 @@ ifdef BMP
 CFLAGS += -DBMP
 endif
 
-EMFLAGS = -hda ax_drive.img -vga std -net nic,model=ne2k_pci -d cpu_reset -D qemu.log -serial file:syslog.log 
+EMFLAGS = -vga std -net nic,model=ne2k_pci -d cpu_reset -D qemu.log -serial file:syslog.log 
 ifdef debug
 EMFLAGS += -s -S
 endif
@@ -80,7 +80,7 @@ $(ISO_DIR)/boot/initrd.img: $(FSGENERATOR)
 	@./$(FSGENERATOR) $(INITRD); mv $(INITRD).img $@
 
 $(ISO_NAME): $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg $(ISO_DIR)/boot/initrd.img
-	$(ISO_MAKER) -o $@ $(ISO_DIR)
+	$(ISO_MAKER) -d ./i686-toolchain/lib/grub/i386-pc -o $@ $(ISO_DIR)
 
 run: $(ISO_NAME)
 	tmux split-window -p 75 "tail -f syslog.log"
