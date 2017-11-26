@@ -15,7 +15,7 @@ AFLAGS = -f elf
 LD = $(TOOLCHAIN)/bin/i686-elf-ld
 
 CC = $(TOOLCHAIN)/bin/i686-elf-gcc
-SYSROOT = ./axle-sysroot/
+SYSROOT = $(dir $(realpath $(firstword $(MAKEFILE_LIST))))axle-sysroot/
 CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -fstack-protector-all -I ./src
 LDFLAGS = -ffreestanding -nostdlib -lgcc -T $(RESOURCES)/linker.ld
 
@@ -97,13 +97,12 @@ $(TOPTARGETS): $(ELFS)
 .ONESHELL:
 $(ELFS):
 	$(AS) -f elf crt0.s -o crt0.o; \
-	$(MAKE) -C $@ $(MAKECMDGOALS)
+	$(MAKE) -C $@ $(MAKECMDGOALS) SYSROOT=$(SYSROOT)
 	cd initrd; \
 	../fsgen .; \
 	mv initrd.img ../../initrd.img; \
 	cd ..; \
 	cp ../initrd.img isodir/boot/;  \
-	nifz ../initrd.img;
 
 .PHONY: $(TOPTARGETS) $(ELFS)
 
