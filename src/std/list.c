@@ -13,7 +13,7 @@ List* List_new() {
     //Fill in initial property values
     //(All we know for now is that we start out with no items) 
     list->count = 0;
-    list->root_node = (ListNode*)0;
+    list->root_node = (list_node*)0;
 
     return list;
 }
@@ -23,8 +23,8 @@ List* List_new() {
 int List_add(List* list, void* payload) {
 
     //Try to make a new node, exit early on fail 
-    ListNode* new_node;
-    if(!(new_node = ListNode_new(payload))) 
+    list_node* new_node;
+    if(!(new_node = list_node_create(payload))) 
         return 0;
 
     //If there aren't any items in the list yet, assign the
@@ -35,7 +35,7 @@ int List_add(List* list, void* payload) {
     } else {
 
         //Otherwise, we'll find the last node and add our new node after it
-        ListNode* current_node = list->root_node;
+        list_node* current_node = list->root_node;
 
         //Fast forward to the end of the list 
         while(current_node->next)
@@ -62,7 +62,7 @@ void* List_get_at(List* list, unsigned int index) {
         return (void*)0;
 
     //Iterate through the items in the list until we hit our index
-    ListNode* current_node = list->root_node;
+    list_node* current_node = list->root_node;
 
     //Iteration, making sure we don't hang on malformed lists
     for(unsigned int current_index = 0; (current_index < index) && current_node; current_index++)
@@ -86,7 +86,7 @@ void* List_remove_at(List* list, unsigned int index) {
         return (void*)0;
 
     //Iterate through the items
-    ListNode* current_node = list->root_node;
+    list_node* current_node = list->root_node;
 
     for(unsigned int current_index = 0; (current_index < index) && current_node; current_index++)
         current_node = current_node->next;

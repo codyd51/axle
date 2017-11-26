@@ -1,14 +1,14 @@
 #ifndef LIST_H
 #define LIST_H
 
-#include "listnode.h"
+#include "list_node.h"
 
 //================| List Class Declaration |================//
 
 //A type to encapsulate a basic dynamic list
 typedef struct List_struct {
     unsigned int count; 
-    ListNode* root_node;
+    list_node* root_node;
 } List;
 
 //Methods
