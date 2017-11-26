@@ -15,7 +15,7 @@ AFLAGS = -f elf
 LD = $(TOOLCHAIN)/bin/i686-elf-ld
 
 CC = $(TOOLCHAIN)/bin/i686-elf-gcc
-SYSROOT = /Users/PhillipTennen/axle/
+SYSROOT = ./axle-sysroot/
 CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -fstack-protector-all -I ./src
 LDFLAGS = -ffreestanding -nostdlib -lgcc -T $(RESOURCES)/linker.ld
 
