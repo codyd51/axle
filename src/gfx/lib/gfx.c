@@ -224,29 +224,6 @@ static Size font_size_for_resolution(Size resolution) {
 	return size;
 }
 
-void draw_boot_background() {
-	fill_screen(gfx_screen(), color_black());
-	return;
-	//this is static because it will be first alloc'd before heap is active
-	//(almost immediately after boot)
-	//because it's alloc'd with placement_address, it cannot be freed
-	//so, just reuse the same one
-	static Bmp* boot_background = 0;
-	Screen* screen = gfx_screen();
-	if (!boot_background) {
-		boot_background = load_bmp(rect_make(point_zero(), screen->resolution), "altitude.bmp");
-		printk("draw_boot_background() got %x\n", boot_background);
-
-		if (!boot_background) {
-			printk("draw_boot_background() couldn't load background, will try again next screen clear\n");
-			fill_screen(screen, color_black());
-			return;
-		}
-	}
-	draw_bmp(screen->vmem, boot_background);
-	write_screen(screen);
-}
-
 void gfx_init(void* mboot_ptr) {
 	multiboot* mboot = (multiboot*)mboot_ptr;
 	vbe_mode_info* mode = (vbe_mode_info*)mboot->vbe_mode_info;
@@ -263,8 +240,6 @@ void gfx_init(void* mboot_ptr) {
 	//set default font size to fraction of screen size
 	Size s = font_size_for_resolution(screen.resolution);
 	screen.default_font_size = s;
-
-	draw_boot_background();
 
 	Size padding = font_padding_for_size(s);
 	printf_info("Running in %d x %d x %d", screen.resolution.width, screen.resolution.height, screen.depth);
