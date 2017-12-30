@@ -454,6 +454,7 @@ void tasking_install(mlfq_option options) {
 
 	kernel_begin_critical();
 
+	printf_dbg("moving stack");
 	move_stack((void*)0xE0000000, 0x2000);
 
 	int queue_count = 0;
@@ -467,6 +468,7 @@ void tasking_install(mlfq_option options) {
 			break;
 	}
 
+	printf_dbg("creating task queues");
 	queues = array_m_create(queue_count + 1);
 	for (int i = 0; i < queue_count; i++) {
 		array_m* queue = array_m_create(MLFQ_MAX_QUEUE_LENGTH);
@@ -478,10 +480,12 @@ void tasking_install(mlfq_option options) {
 		array_m_insert(queue_lifetimes, (type_t)(HIGH_PRIO_QUANTUM * (i + 1)));
 	}
 
+
+	printf_dbg("setting up kernel task");
 	//init first task (kernel task)
 	task_t* kernel = kmalloc(sizeof(task_t));
 	memset(kernel, 0, sizeof(task_t));
-	kernel->name = "kax";
+	strcpy(kernel->name, "kax");
 	kernel->id = next_pid++;
 	kernel->page_dir = current_directory;
 	kernel->child_tasks = array_m_create(32);
@@ -501,6 +505,7 @@ void tasking_install(mlfq_option options) {
 	void handle_pit_tick();
 	add_callback((void*)handle_pit_tick, 4, true, 0);
 
+	printf_dbg("forking system processes");
 	//idle task
 	//runs when anything (including kernel) is blocked for i/o
 	if (!fork("idle")) {

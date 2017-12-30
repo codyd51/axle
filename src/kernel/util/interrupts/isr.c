@@ -6,6 +6,10 @@
 void halt_execution() {
 	//kill this task
 	printf_info("PID %d encountered unrecoverable fault, killing...", getpid());
+	if (getpid() == 1 || getpid() == -1) {
+		printf_info("kernel died!");
+		while (1) {}
+	}
 	_kill();
 }
 

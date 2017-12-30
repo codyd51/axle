@@ -10,6 +10,7 @@
 #include <gfx/lib/rect.h>
 #include <gfx/lib/window.h>
 #include <kernel/util/ipc/ipc.h>
+#include <gfx/lib/surface.h>
 
 #define KERNEL_STACK_SIZE 2048 //use 2kb kernel stack
 #define FD_MAX 64
@@ -112,6 +113,8 @@ typedef struct task {
 
 	bool irq_satisfied;
 	ipc_state_t* ipc_state;
+
+	char* kernel_stack;
 } task_t;
 
 //initializes tasking system
@@ -189,5 +192,9 @@ task_t* task_list();
 //create window with frame 'frame',
 //and add to current task's list of registered windows
 Window* task_register_window(Rect frame);
+
+void task_register_surface(Surface* s, char* kernel_base);
+
+void move_stack(void* new_stack_start, uint32_t size);
 
 #endif

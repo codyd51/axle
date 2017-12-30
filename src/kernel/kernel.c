@@ -1,7 +1,7 @@
 #include "axle.h"
 
 #define SPIN while (1) {sys_yield(RUNNABLE);}
-#define SPIN_NOMULTI while (1) {}
+#define SPIN_NOMULTI do {} while (1);
 
 void print_os_name(void) {
 	printf("\e[10;[\e[11;AXLE OS v\e[12;0.6.0\e[10;]\n");
@@ -77,7 +77,7 @@ uint32_t system_mem() {
 }
 
 static uint32_t initrd_start, initrd_end;
-void initrd_loc(uint32_t* start, uint32_t* end) {
+static void get_initrd_loc(uint32_t* start, uint32_t* end) {
 	*start = initrd_start;
 	*end = initrd_end;
 }
@@ -219,8 +219,8 @@ bool boot_stage2(void) {
 	//stack grows downwards, so anything above 0xE0000000 should be unused
 	//just to be safe, skip a page 
 	uint32_t initrd_start, initrd_end;
-	initrd_loc(&initrd_start, &initrd_end);
-	initrd_install(initrd_start, initrd_end, 0xE0001000);
+	get_initrd_loc(&initrd_start, &initrd_end);
+	initrd_install(initrd_start, initrd_end, 0xE0000000);
 
 	sys_install();
 	//choose scheduler policy here!
