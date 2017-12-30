@@ -22,6 +22,8 @@ typedef struct screen_state {
 screen_state_t screen_state;
 
 void vga_screen_clear() {
+	screen_state.cursor_row = 0;
+	screen_state.cursor_col = 0;
 	for (size_t y = 0; y < VGA_SCREEN_HEIGHT; y++) {
 		for (size_t x = 0; x < VGA_SCREEN_WIDTH; x++) {
 			const size_t index = y * VGA_SCREEN_WIDTH + x;
@@ -35,12 +37,35 @@ static void vga_screen_setcolor(vga_screen_color col) {
 }
 
 void vga_screen_init() {
-	screen_state.cursor_row = 0;
-	screen_state.cursor_col = 0;
 	vga_screen_setcolor(vga_screen_color_make(VGA_TEXT_MODE_COLOR_GREEN, VGA_TEXT_MODE_COLOR_BLACK));
 	screen_state.buffer = (uint16_t*)0xB8000;
-	
 	vga_screen_clear();
+}
+
+static void vga_screen_scroll_up_line(void) {
+	for (size_t y = 0; y < VGA_SCREEN_HEIGHT - 1; y++) {
+		for (size_t x = 0; x < VGA_SCREEN_WIDTH; x++) {
+			const size_t index = y * VGA_SCREEN_WIDTH + x;
+			//copy the data here to the spot 1 row above
+			const size_t above_index = (y - 1) * VGA_SCREEN_WIDTH + x;
+			screen_state.buffer[above_index] = screen_state.buffer[index];
+		}
+	}
+	//empty bottom line
+	const bottom_row = VGA_SCREEN_HEIGHT - 1;
+	for (size_t x = 0; x < VGA_SCREEN_WIDTH; x++) {
+		const size_t index = bottom_row * VGA_SCREEN_WIDTH + x;
+		screen_state.buffer[index] = vga_screen_entry_make(' ', screen_state.color);
+	}
+}
+
+static void vga_screen_newline(void) {
+	screen_state.cursor_row++;
+	screen_state.cursor_col = 0;
+
+	if (screen_state.cursor_row >= VGA_SCREEN_HEIGHT) {
+		vga_screen_scroll_up_line();
+	}
 }
 
 void vga_screen_place_char(unsigned char ch, vga_screen_color color, size_t x, size_t y) {
@@ -51,12 +76,7 @@ void vga_screen_place_char(unsigned char ch, vga_screen_color color, size_t x, s
 static void vga_screen_cursor_increment(void) {
 	screen_state.cursor_col++;
 	if (screen_state.cursor_col >= VGA_SCREEN_WIDTH) {
-		screen_state.cursor_col = 0;
-		screen_state.cursor_row++;
-		if (screen_state.cursor_row >= VGA_SCREEN_HEIGHT) {
-			// TODO(PT): ran out of screen space. implement scrolling :)
-			screen_state.cursor_row = 0;
-		}
+		vga_screen_newline();
 	}
 }
 
@@ -69,8 +89,7 @@ static void vga_screen_putchar_special(unsigned char ch) {
 	// TODO(PT): verify ch is a special char!
 	switch (ch) {
 		case '\n':
-			screen_state.cursor_row++;
-			screen_state.cursor_col = 0;
+			vga_screen_newline();
 			break;
 		default:
 			break;
