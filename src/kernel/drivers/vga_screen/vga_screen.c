@@ -1,4 +1,5 @@
 #include "vga_screen.h"
+#include <std/ctype.h>
 
 typedef uint16_t vga_screen_entry;
 static const size_t VGA_SCREEN_WIDTH = 80;
@@ -29,17 +30,17 @@ void vga_screen_clear() {
 	}
 }
 
+static void vga_screen_setcolor(vga_screen_color col) {
+	screen_state.color = col;
+}
+
 void vga_screen_init() {
 	screen_state.cursor_row = 0;
 	screen_state.cursor_col = 0;
-	screen_state.color = vga_screen_color_make(VGA_TEXT_MODE_COLOR_GREEN, VGA_TEXT_MODE_COLOR_BLACK);
+	vga_screen_setcolor(vga_screen_color_make(VGA_TEXT_MODE_COLOR_GREEN, VGA_TEXT_MODE_COLOR_BLACK));
 	screen_state.buffer = (uint16_t*)0xB8000;
 	
 	vga_screen_clear();
-}
-
-static void vga_screen_setcolor(vga_screen_color col) {
-	screen_state.color = col;
 }
 
 void vga_screen_place_char(unsigned char ch, vga_screen_color color, size_t x, size_t y) {
@@ -47,8 +48,7 @@ void vga_screen_place_char(unsigned char ch, vga_screen_color color, size_t x, s
 	screen_state.buffer[index] = vga_screen_entry_make(ch, screen_state.color);
 }
 
-void vga_screen_putchar(unsigned char ch) {
-	vga_screen_place_char(ch, screen_state.color, screen_state.cursor_col, screen_state.cursor_row);
+static void vga_screen_cursor_increment(void) {
 	screen_state.cursor_col++;
 	if (screen_state.cursor_col >= VGA_SCREEN_WIDTH) {
 		screen_state.cursor_col = 0;
@@ -57,6 +57,32 @@ void vga_screen_putchar(unsigned char ch) {
 			// TODO(PT): ran out of screen space. implement scrolling :)
 			screen_state.cursor_row = 0;
 		}
+	}
+}
+
+static void vga_screen_putchar_printable(unsigned char ch) {
+	vga_screen_place_char(ch, screen_state.color, screen_state.cursor_col, screen_state.cursor_row);
+	vga_screen_cursor_increment();
+}
+
+static void vga_screen_putchar_special(unsigned char ch) {
+	// TODO(PT): verify ch is a special char!
+	switch (ch) {
+		case '\n':
+			screen_state.cursor_row++;
+			screen_state.cursor_col = 0;
+			break;
+		default:
+			break;
+	}
+}
+
+void vga_screen_putchar(unsigned char ch) {
+	if (isprint(ch)) {
+		vga_screen_putchar_printable(ch);
+	}
+	else {
+		vga_screen_putchar_special(ch);
 	}
 }
 
