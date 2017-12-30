@@ -247,6 +247,34 @@ void force_frame(page_t *page, int is_kernel, int is_writeable, unsigned int add
 	set_bit_frame(addr);
 }
 
+static void create_heap_page_tables(page_directory_t* dir) {
+	//here, we call get_page but not alloc_frame
+	//this causes page_table_t's to be alloc'd if not already existing
+	//we call this function before identity map so all page tables needed to alloc
+	//heap pages will be mapped into the address space.
+	for (uint32_t i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += PAGE_SIZE) {
+		get_page(i, 1, dir);
+	}
+}
+
+static void map_heap_pages(page_directory_t* dir) {
+	//all of the page tables necessary have already been alloc'd and identity mapped thanks
+	//to the loop just before the identity map
+	uint32_t heap_end = KHEAP_START + KHEAP_INITIAL_SIZE;
+	//figure out how much memory is being reserved for heap
+	uint32_t heap_kb = (heap_end - KHEAP_START) / 1024;
+	float heap_mb = heap_kb / 1024.0;
+	printf_info("reserving %x MB for kernel heap", heap_mb);
+	for (uint32_t i = KHEAP_START; i < heap_end; i += PAGE_SIZE) {
+		page_t* page = get_page(i, 1, dir);
+		alloc_frame(page, 1, 0);
+		unsigned char* ptr = (unsigned char*)dir->tables;
+		if (*ptr == 0xff) {
+			printf("broken! %x %x %x\n", KHEAP_START, KHEAP_INITIAL_SIZE, heap_end);
+		}
+	}
+}
+
 void paging_install() {
 	printf_info("Initializing paging...");
 
@@ -266,15 +294,9 @@ void paging_install() {
 	memset(kernel_directory, 0, sizeof(page_directory_t));
 	kernel_directory->physicalAddr = (uint32_t)kernel_directory->tablesPhysical;
 
-	//map pages in kernel heap area
-	//we call get_page but not alloc_frame
-	//this causes page_table_t's to be created where necessary
-	//don't alloc the frames yet, they need to be identity
-	//mapped below first.
-    uint32_t i = 0;
-	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += PAGE_SIZE) {
-		get_page(i, 1, kernel_directory);
-	}
+	//reference kernel heap page tables,
+	//forcing them to be alloc'd before we identity map all alloc'd memory
+	create_heap_page_tables(kernel_directory);
 
 	//we need to identity map (phys addr = virtual addr) from
 	//0x0 to end of used memory, so we can access this
@@ -290,17 +312,8 @@ void paging_install() {
 	}
 	printf_info("Kernel VirtMem identity mapped up to %x", placement_address);
 
-
-	//allocate pages we mapped earlier
-	uint32_t heap_end = KHEAP_START + KHEAP_INITIAL_SIZE;
-	for (i = KHEAP_START; i < heap_end; i += PAGE_SIZE) {
-		page_t* page = get_page(i, 1, kernel_directory);
-		alloc_frame(page, 1, 0);
-		unsigned char* ptr = (unsigned char*)kernel_directory->tables;
-		if (*ptr == 0xff) {
-			printf("broken! %x %x %x\n", KHEAP_START, KHEAP_INITIAL_SIZE, heap_end);
-		}
-	}
+	//allocate initial heap pages
+	map_heap_pages(kernel_directory);
 
 	//before we enable paging, register page fault handler
 	register_interrupt_handler(14, page_fault);
