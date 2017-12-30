@@ -16,7 +16,7 @@ LD = $(TOOLCHAIN)/bin/i686-elf-ld
 
 CC = $(TOOLCHAIN)/bin/i686-elf-gcc
 SYSROOT = $(dir $(realpath $(firstword $(MAKEFILE_LIST))))axle-sysroot/
-CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -fstack-protector-all -I ./src
+CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -I./src
 LDFLAGS = -ffreestanding -nostdlib -lgcc -T $(RESOURCES)/linker.ld
 
 # Tools
@@ -83,7 +83,6 @@ $(ISO_NAME): $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg $(ISO_DIR)/b
 	$(ISO_MAKER) -d ./i686-toolchain/lib/grub/i386-pc -o $@ $(ISO_DIR)
 
 run: $(ISO_NAME)
-	tmux split-window -p 75 "tail -f syslog.log"
 	$(EMULATOR) $(EMFLAGS) -cdrom $^
 
 clean:
