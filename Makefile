@@ -11,11 +11,14 @@ LDFLAGS = -ffreestanding -nostdlib -O2 -lgcc
 
 SRC_DIR = ./src
 
-OBJECTS = kernel.o boot.o
+OBJECTS = kernel.o boot.o vga_screen.o
 
 all:
+	# compile step
 	$(AS) $(SRC_DIR)/kernel/boot.s -o boot.o
 	$(CC) -c $(SRC_DIR)/kernel/kernel.c -o kernel.o $(CFLAGS)
+	$(CC) -c $(SRC_DIR)/kernel/drivers/vga_screen/vga_screen.c -o vga_screen.o $(CFLAGS)
+	# link step
 	$(CC) -T link.ld -o tremble.bin $(LDFLAGS) $(OBJECTS)
 	
 	cp tremble.bin isodir/boot/tremble.bin
