@@ -79,8 +79,16 @@ void reset_cursor_pos() {
 	cursor_pos.y = 0;
 }
 
+void gfx_set_cursor_pos(int x, int y) {
+	cursor_pos.x = x;
+	cursor_pos.y = y;
+}
+
+Point gfx_get_cursor_pos() {
+	return cursor_pos;
+}
+
 static void outputc(int dest, char c) {
-	Size font_size = gfx_screen()->default_font_size;
 	switch (dest) {
 		case TERM_OUTPUT: {
 			terminal_putchar(c);
@@ -89,25 +97,7 @@ static void outputc(int dest, char c) {
 				return;
 			}
 
-			Screen* screen = gfx_screen();
-			Point old_cursor_pos = cursor_pos;
-
-			draw_char(screen->vmem, c, cursor_pos.x, cursor_pos.y, printf_draw_color, font_size);
-			//cursor_pos.x += font_size.width + padding.width;
-			int pad = 3;
-			cursor_pos.x += font_size.width + pad;
-			if (c == '\n' || cursor_pos.x >= screen->resolution.width) {
-				//cursor_pos.y += font_size.height + padding.height;
-				cursor_pos.y += font_size.height + pad;
-				cursor_pos.x = 0;
-				if (cursor_pos.y >= screen->resolution.height - font_size.height) {
-					//clear screen, redraw background
-					draw_boot_background();
-					cursor_pos.y = 0;
-					break;
-				}
-			}
-			write_screen_region(rect_make(old_cursor_pos, font_size));
+			gfx_terminal_putchar(c);
 			break;
 		}
 		case SERIAL_OUTPUT:
