@@ -140,14 +140,6 @@ void process_character(char* inputstr, char ch) {
 		getchar();
 		char ch = getchar();
 		switch (ch) {
-			//up arrow
-			case 'A':
-				term_scroll(TERM_SCROLL_UP);
-				break;
-			//down arrow
-			case 'B':
-				term_scroll(TERM_SCROLL_DOWN);
-				break;
 			//right arrow
 			case 'C':
 				break;
