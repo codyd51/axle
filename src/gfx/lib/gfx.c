@@ -246,3 +246,41 @@ void gfx_init(void* mboot_ptr) {
 	printf_info("Recommended font size is %dx%d, recommended padding is %dx%d", s.width, s.height, padding.width, padding.height);
 }
 
+static Point cursor_pos = {0, 0};
+void gfx_terminal_putchar(char c) {
+	Screen* screen = gfx_screen();
+	Size font_size = screen->default_font_size;
+
+	//Point gfx_get_cursor_pos();
+	//Point old_cursor_pos = gfx_get_cursor_pos();
+	//Point new_cursor_pos = old_cursor_pos;
+	Point new_cursor_pos = cursor_pos;
+
+	int pad = 3;
+	new_cursor_pos.x += font_size.width + pad;
+
+	if (c == '\n' || new_cursor_pos.x + font_size.width + pad >= screen->resolution.width) {
+		new_cursor_pos.y += font_size.height + pad;
+		new_cursor_pos.x = 0;
+	}
+	if (new_cursor_pos.y + font_size.height >= screen->resolution.height) {
+		gfx_terminal_clear();
+	}
+	//else {
+		//if (c != '\n') {
+			//draw_char(screen->vmem, c, new_cursor_pos.x, new_cursor_pos.y, printf_draw_color, font_size);
+			draw_char(screen->vmem, c, new_cursor_pos.x, new_cursor_pos.y, color_white(), font_size);
+			write_screen_region(rect_make(cursor_pos, font_size));
+		//}
+	//}
+	cursor_pos = new_cursor_pos;
+
+}
+
+void gfx_terminal_clear() {
+	//clear screen, redraw background
+	fill_screen(gfx_screen(), color_black());
+	//gfx_set_cursor_pos(0, 0);
+	cursor_pos.x = cursor_pos.y = 0;
+	write_screen(gfx_screen());
+}
