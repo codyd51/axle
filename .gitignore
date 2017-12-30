@@ -1,0 +1,4 @@
+./i686-toolchain
+*.o
+*.iso
+*.bin
