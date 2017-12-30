@@ -6,7 +6,7 @@
 .set CHECKSUM, -(MAGIC + FLAGS) # CRC
 
 # put multiboot header in its own section so we can force its location in the linker script
-.section multiboot_header
+.section .multiboot_header
 .align 4
 .long MAGIC
 .long FLAGS

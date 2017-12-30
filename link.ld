@@ -7,7 +7,7 @@ SECTIONS {
 
 	/* firstly, drop the multiboot header */
 	.text BLOCK(4K) : ALIGN(4K) {
-		*(.multiboot)
+		*(.multiboot_header)
 		*(.text)
 	}
 

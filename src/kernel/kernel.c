@@ -12,8 +12,8 @@ size_t strlen(const char* str) {
 	return len;
 }
 
-
 void kernel_main(void) {
 	vga_screen_init();
 	vga_screen_puts("Hello world!\n");
+	vga_screen_puts("Newline test.\nYay!");
 }
