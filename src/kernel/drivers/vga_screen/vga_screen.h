@@ -35,7 +35,7 @@ void vga_screen_puts(const char* str);
 
 /* Write the ASCII character `ch` to the text-mode VGA buffer
  */
-void vga_screen_putc(unsigned char ch);
+void vga_screen_putchar(unsigned char ch);
 
 void vga_screen_init(void);
 

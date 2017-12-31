@@ -11,7 +11,7 @@ LDFLAGS = -ffreestanding -nostdlib -lgcc -O2
 
 SRC_DIR = ./src
 
-OBJECTS = kernel.o boot.o vga_screen.o ctype.o
+OBJECTS = kernel.o boot.o vga_screen.o ctype.o printf.o
 
 all:
 	# compile step
@@ -19,6 +19,7 @@ all:
 	$(CC) -c $(SRC_DIR)/kernel/kernel.c -o kernel.o $(CFLAGS)
 	$(CC) -c $(SRC_DIR)/kernel/drivers/vga_screen/vga_screen.c -o vga_screen.o $(CFLAGS)
 	$(CC) -c $(SRC_DIR)/std/ctype.c -o ctype.o $(CFLAGS)
+	$(CC) -c $(SRC_DIR)/std/printf.c -o printf.o $(CFLAGS)
 	
 	# link step
 	$(CC) -T link.ld -o tremble.bin $(LDFLAGS) $(OBJECTS)

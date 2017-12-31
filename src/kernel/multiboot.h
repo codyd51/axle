@@ -1,7 +1,7 @@
 #ifndef MULTIBOOT_H
 #define MULTIBOOT_H
 
-#include <std/common.h>
+#include <stdint.h>
 
 #define MULTIBOOT_FLAG_MEM	0x001
 #define MULTIBOOT_FLAG_DEVICE	0x002
@@ -40,8 +40,6 @@ typedef struct multiboot_info {
 	uint32_t vbe_interface_seg;
 	uint32_t vbe_interface_off;
 	uint32_t vbe_interface_len;
-} multiboot; 
-
-//typedef struct multiboot_header multiboot_header_t;
+} multiboot_info; 
 
 #endif
