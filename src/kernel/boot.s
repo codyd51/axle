@@ -1,7 +1,8 @@
 # Declare constants for Multiboot header
 .set ALIGN,		1 << 0 # align modules on page boundaries
-.set MEMINFO,	1 << 1 # give us memory map
-.set FLAGS,		ALIGN | MEMINFO 
+.set MEM_INFO,	1 << 1 # give us memory map
+.set VID_INFO,   1 << 2 # set video mode and give us video mode info
+.set FLAGS,		ALIGN | MEM_INFO #| VID_INFO
 .set MAGIC,		0x1BADB002 # multiboot magic
 .set CHECKSUM, -(MAGIC + FLAGS) # CRC
 
@@ -16,9 +17,13 @@
 # drop a marker, skip some kb, and drop another marker
 .section .bss
 .align 16
-stack_bottom:
+
+.global kernel_stack
+.global kernel_stack_bottom
+
+kernel_stack_bottom:
 .skip 16384 # 16kb
-stack_top:
+kernel_stack:
 
 # this is the entry point we define in the linker script!
 .section .text
@@ -31,11 +36,15 @@ _start:
 	# paging is off
 
 	# set esp to the stack we defined in .bss
-	mov $stack_top, %esp
+	mov $kernel_stack, %esp
 
 	# do crucial environment setup here!
 	# TODO(PT): load GDT here
 	# TODO(PT): setup paging here
+
+	# push multiboot struct to stack
+	# this is so it's passed as an argument to kernel_main
+	push %ebx
 
 	# C entry point
 	call kernel_main
