@@ -27,9 +27,9 @@ typedef enum physical_memory_region_type {
 } physical_memory_region_type;
 
 typedef struct physical_memory_region {
-	uint32_t start_addr;
-	uint32_t end_addr;
 	physical_memory_region_type type;
+	uint32_t addr;
+	uint32_t len;
 } physical_memory_region_t;
 
 typedef struct boot_info {
@@ -55,8 +55,8 @@ static void multiboot_interpret_memory_map(struct multiboot_info* mboot_data, bo
 	while (read_byte_count < mboot_data->mmap_length) {
 		struct multiboot_mmap_entry* ent = (struct multiboot_mmap_entry*)(mboot_data->mmap_addr + read_byte_count);
 
-		out_info->mem_regions[region_count].start_addr = ent->addr;
-		out_info->mem_regions[region_count].end_addr = ent->addr + ent->len;
+		out_info->mem_regions[region_count].addr = ent->addr;
+		out_info->mem_regions[region_count].len = ent->len;
 
 		physical_memory_region_type type = REGION_RESERVED;
 		if (ent->type == MULTIBOOT_MEMORY_AVAILABLE) {
@@ -150,7 +150,7 @@ static void boot_info_dump(boot_info_t* info) {
 		if (region.type == REGION_RESERVED) {
 			type = "Reserved";
 		}
-		printf("\t%s RAM region 0x%x to 0x%x\n", type, region.start_addr, region.end_addr);
+		printf("\t%s RAM region 0x%x, 0x%x bytes\n", type, region.addr, region.len);
 	}
 }
 
