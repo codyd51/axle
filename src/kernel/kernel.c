@@ -21,12 +21,16 @@ void _assert(const char* msg, const char* file, int line) {
 	while (1) {}
 }
 
+typedef struct boot_info {
+	uint32_t boot_stack_top_phys;
+	uint32_t boot_stack_bottom_phys;
+	uint32_t boot_stack_size;
 
-size_t strlen(const char* str) {
-	size_t len = 0;
-	while (str[len] != '\0') {
-		len++;
-static void multiboot_interpret_memory_map(struct multiboot_info* mboot_data, system_info_t* out_info) {
+	uint32_t mem_low_phys;
+	uint32_t mem_high_phys;
+} boot_info_t;
+
+static void multiboot_interpret_memory_map(struct multiboot_info* mboot_data, boot_info_t* out_info) {
 	if (!(mboot_data->flags & MULTIBOOT_INFO_MEMORY)) {
 		assert("No memory map available!");
 	}
@@ -37,7 +41,7 @@ static void multiboot_interpret_memory_map(struct multiboot_info* mboot_data, sy
 	struct multiboot_mmap_entry ent = mboot_data->
 }
 
-static void multiboot_interpret_boot_device(struct multiboot_info* mboot_data, system_info_t* out_info) {
+static void multiboot_interpret_boot_device(struct multiboot_info* mboot_data, boot_info_t* out_info) {
 	if (!(mboot_data->flags & MULTIBOOT_INFO_BOOTDEV)) {
 		printf("No boot device set\n");
 		return;
@@ -45,7 +49,7 @@ static void multiboot_interpret_boot_device(struct multiboot_info* mboot_data, s
 	printf("Boot device set\n");
 }
 
-static void multiboot_interpret_modules(struct multiboot_info* mboot_data, system_info_t* out_info) {
+static void multiboot_interpret_modules(struct multiboot_info* mboot_data, boot_info_t* out_info) {
 	if (!(mboot_data->flags & MULTIBOOT_INFO_MODS)) {
 		printf("No boot modules loaded\n");
 		return;
@@ -53,7 +57,7 @@ static void multiboot_interpret_modules(struct multiboot_info* mboot_data, syste
 	printf("There are boot modules!\n");
 }
 
-static void multiboot_interpret_symbol_table(struct multiboot_info* mboot_data, system_info_t* out_info) {
+static void multiboot_interpret_symbol_table(struct multiboot_info* mboot_data, boot_info_t* out_info) {
 	if (mboot_data->flags & MULTIBOOT_INFO_AOUT_SYMS) {
 		printf("AOUT Symbol table available\n");
 		return;
@@ -63,7 +67,7 @@ static void multiboot_interpret_symbol_table(struct multiboot_info* mboot_data, 
 	}
 }
 
-static void multiboot_interpret_bootloader(struct multiboot_info* mboot_data, system_info_t* out_info) {
+static void multiboot_interpret_bootloader(struct multiboot_info* mboot_data, boot_info_t* out_info) {
 	if (!(mboot_data->flags & MULTIBOOT_INFO_BOOT_LOADER_NAME)) {
 		printf("No bootloader name included\n");
 		return;
@@ -71,7 +75,7 @@ static void multiboot_interpret_bootloader(struct multiboot_info* mboot_data, sy
 	printf("Bootloader name included\n");
 }
 
-static void multiboot_interpret_video_info(struct multiboot_info* mboot_data, system_info_t* out_info) {
+static void multiboot_interpret_video_info(struct multiboot_info* mboot_data, boot_info_t* out_info) {
 	if (!(mboot_data->flags & MULTIBOOT_INFO_VBE_INFO)) {
 		printf("No VBE info included\n");
 		return;
@@ -86,7 +90,7 @@ static void multiboot_interpret_video_info(struct multiboot_info* mboot_data, sy
 	printf("Framebuffer info included\n");
 }
 
-static void multiboot_interpret(struct multiboot_info* mboot_data, system_info_t* out_info) {
+static void multiboot_interpret(struct multiboot_info* mboot_data, boot_info_t* out_info) {
 	printf("Multiboot info at 0x%x\n", mboot_data);
 	printf("Multiboot flags: 0x%x\n", mboot_data->flags);
 	multiboot_interpret_memory_map(mboot_data, out_info);
@@ -97,23 +101,21 @@ static void multiboot_interpret(struct multiboot_info* mboot_data, system_info_t
 	multiboot_interpret_video_info(mboot_data, out_info);
 }
 
-static void system_info_read(struct multiboot_info* mboot_data, system_info_t* system) {
+static void system_info_read(struct multiboot_info* mboot_data, boot_info_t* system) {
 	system->boot_stack_top_phys = &kernel_stack;
 	system->boot_stack_bottom_phys = &kernel_stack_bottom;
 	system->boot_stack_size = &kernel_stack - &kernel_stack_bottom;
 	multiboot_interpret(mboot_data, system);
 }
 
-static void system_info_dump(system_info_t* info) {
+static void system_info_dump(boot_info_t* info) {
 	printf("Kernel stack at 0x%x. Size: 0x%x\n", info->boot_stack_top_phys, info->boot_stack_size);
 }
 
 void kernel_main(struct multiboot_info* mboot_data) {
 	vga_screen_init();
 
-	
-
-	system_info_t system;
+	boot_info_t system;
 	system_info_read(mboot_data, &system);
 	system_info_dump(&system);
 }
