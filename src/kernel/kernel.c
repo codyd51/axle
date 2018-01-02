@@ -21,13 +21,24 @@ void _assert(const char* msg, const char* file, int line) {
 	while (1) {}
 }
 
+typedef enum physical_memory_region_type {
+	REGION_USABLE,
+	REGION_RESERVED
+} physical_memory_region_type;
+
+typedef struct physical_memory_region {
+	uint32_t start_addr;
+	uint32_t end_addr;
+	physical_memory_region_type type;
+} physical_memory_region_t;
+
 typedef struct boot_info {
 	uint32_t boot_stack_top_phys;
 	uint32_t boot_stack_bottom_phys;
 	uint32_t boot_stack_size;
 
-	uint32_t mem_low_phys;
-	uint32_t mem_high_phys;
+	uint32_t mem_region_count;
+	physical_memory_region_t mem_regions[32];
 } boot_info_t;
 
 static void multiboot_interpret_memory_map(struct multiboot_info* mboot_data, boot_info_t* out_info) {
@@ -38,7 +49,27 @@ static void multiboot_interpret_memory_map(struct multiboot_info* mboot_data, bo
 		//we must interpret the basic memory map
 		NotImplemented();
 	}
-	struct multiboot_mmap_entry ent = mboot_data->
+
+	uint32_t read_byte_count = 0;
+	uint32_t region_count = 0;
+	while (read_byte_count < mboot_data->mmap_length) {
+		struct multiboot_mmap_entry* ent = (struct multiboot_mmap_entry*)(mboot_data->mmap_addr + read_byte_count);
+
+		out_info->mem_regions[region_count].start_addr = ent->addr;
+		out_info->mem_regions[region_count].end_addr = ent->addr + ent->len;
+
+		physical_memory_region_type type = REGION_RESERVED;
+		if (ent->type == MULTIBOOT_MEMORY_AVAILABLE) {
+			type = REGION_USABLE;
+		}
+		out_info->mem_regions[region_count].type = type;
+
+		//add 4 bytes extra because the size field does not include the size of the size field itself
+		//the size field is a uint32_t, so add the value of the size field + sizeof(uint32_t)
+		read_byte_count += ent->size + sizeof(ent->size);
+		region_count++;
+	}
+	out_info->mem_region_count = region_count;
 }
 
 static void multiboot_interpret_boot_device(struct multiboot_info* mboot_data, boot_info_t* out_info) {
@@ -101,21 +132,32 @@ static void multiboot_interpret(struct multiboot_info* mboot_data, boot_info_t* 
 	multiboot_interpret_video_info(mboot_data, out_info);
 }
 
-static void system_info_read(struct multiboot_info* mboot_data, boot_info_t* system) {
-	system->boot_stack_top_phys = &kernel_stack;
-	system->boot_stack_bottom_phys = &kernel_stack_bottom;
-	system->boot_stack_size = &kernel_stack - &kernel_stack_bottom;
-	multiboot_interpret(mboot_data, system);
+static void boot_info_read(struct multiboot_info* mboot_data, boot_info_t* boot_info) {
+	boot_info->boot_stack_top_phys = &kernel_stack;
+	boot_info->boot_stack_bottom_phys = &kernel_stack_bottom;
+	boot_info->boot_stack_size = &kernel_stack - &kernel_stack_bottom;
+	multiboot_interpret(mboot_data, boot_info);
 }
 
-static void system_info_dump(boot_info_t* info) {
+static void boot_info_dump(boot_info_t* info) {
 	printf("Kernel stack at 0x%x. Size: 0x%x\n", info->boot_stack_top_phys, info->boot_stack_size);
+
+	//dump memory map
+	printf("Boot-time RAM map:\n");
+	for (int i = 0; i < info->mem_region_count; i++) {
+		physical_memory_region_t region = info->mem_regions[i];
+		char* type = "Usable  ";
+		if (region.type == REGION_RESERVED) {
+			type = "Reserved";
+		}
+		printf("\t%s RAM region 0x%x to 0x%x\n", type, region.start_addr, region.end_addr);
+	}
 }
 
 void kernel_main(struct multiboot_info* mboot_data) {
 	vga_screen_init();
 
-	boot_info_t system;
-	system_info_read(mboot_data, &system);
-	system_info_dump(&system);
+	boot_info_t boot_info = {0};
+	boot_info_read(mboot_data, &boot_info);
+	boot_info_dump(&boot_info);
 }
