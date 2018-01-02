@@ -68,6 +68,13 @@ static void vga_screen_newline(void) {
 	}
 }
 
+static void vga_screen_tab(void) {
+	const int tab_len = 4;
+	for (int i = 0; i < tab_len; i++) {
+		vga_screen_putchar(' ');
+	}
+}
+
 void vga_screen_place_char(unsigned char ch, vga_screen_color color, size_t x, size_t y) {
 	const size_t index = y * VGA_SCREEN_WIDTH + x;
 	screen_state.buffer[index] = vga_screen_entry_make(ch, screen_state.color);
@@ -90,6 +97,9 @@ static void vga_screen_putchar_special(unsigned char ch) {
 	switch (ch) {
 		case '\n':
 			vga_screen_newline();
+			break;
+		case '\t':
+			vga_screen_tab();
 			break;
 		default:
 			break;
