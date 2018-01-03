@@ -37,7 +37,7 @@ static void vga_screen_setcolor(vga_screen_color col) {
 }
 
 void vga_screen_init() {
-	vga_screen_setcolor(vga_screen_color_make(VGA_TEXT_MODE_COLOR_GREEN, VGA_TEXT_MODE_COLOR_BLACK));
+	vga_screen_setcolor(vga_screen_color_make(VGA_TEXT_MODE_COLOR_WHITE, VGA_TEXT_MODE_COLOR_BLACK));
 	screen_state.buffer = (uint16_t*)0xB8000;
 	vga_screen_clear();
 }
