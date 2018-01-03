@@ -234,5 +234,10 @@ uint32_t pmm_alloc(void) {
 }
 
 void pmm_free(uint32_t frame_address) {
-    NotImplemented();
+    pmm_state_t* pmm = pmm_get();
+    //sanity check
+    if (!bitmap_check_address(&pmm->allocation_state, frame_address)) {
+        assert("attempted to free non-allocated frame");
+    }
+    bitmap_unset_address(&pmm->allocation_state, frame_address);
 }
