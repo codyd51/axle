@@ -181,7 +181,6 @@ static uint32_t frame_floor(uint32_t addr) {
         addr &= PAGING_FRAME_MASK;
         return addr - PAGING_FRAME_SIZE;
     }
-    printf("floor(0x%08x) = 0x%08x\n", orig, addr);
     return addr;
 
 }
@@ -214,6 +213,8 @@ void pmm_init() {
 
     //map out kernel image region
     unset_memory_region(&pmm->system_accessible_frames, info->kernel_image_start, frame_ceil(info->kernel_image_size));
+    //map out framebuffer
+    unset_memory_region(&pmm->system_accessible_frames, info->framebuffer.address, frame_ceil(info->framebuffer.size));
 }
 
 static uint32_t index_of_first_set_bit_in_bitmap(address_space_frame_bitmap_t* bitmap) {
