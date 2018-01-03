@@ -13,13 +13,18 @@ LDFLAGS = -ffreestanding -nostdlib -lgcc -O2
 
 SRC_DIR = ./src
 
-OBJECTS = kernel.o boot.o vga_screen.o ctype.o printf.o string.o memory.o
+OBJECTS = kernel.o boot.o vga_screen.o ctype.o printf.o string.o memory.o boot_info.o assert.o pmm.o
 
 all:
 	# compile step
 	$(AS) $(SRC_DIR)/kernel/boot.s -o boot.o
 	$(CC) -c $(SRC_DIR)/kernel/kernel.c -o kernel.o $(CFLAGS)
+	$(CC) -c $(SRC_DIR)/kernel/boot_info.c -o boot_info.o $(CFLAGS)
+	$(CC) -c $(SRC_DIR)/kernel/assert.c -o assert.o $(CFLAGS)
+
+	$(CC) -c $(SRC_DIR)/kernel/pmm/pmm.c -o pmm.o $(CFLAGS)
 	$(CC) -c $(SRC_DIR)/kernel/drivers/vga_screen/vga_screen.c -o vga_screen.o $(CFLAGS)
+
 	$(CC) -c $(SRC_DIR)/std/ctype.c -o ctype.o $(CFLAGS)
 	$(CC) -c $(SRC_DIR)/std/printf.c -o printf.o $(CFLAGS)
 	$(CC) -c $(SRC_DIR)/std/string.c -o string.o $(CFLAGS)
