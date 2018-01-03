@@ -5,6 +5,8 @@ SECTIONS {
 	/* start dropping sections at 1mb */
 	. = 1M;
 
+	kernel_image_start = .;
+
 	/* firstly, drop the multiboot header */
 	.text BLOCK(4K) : ALIGN(4K) {
 		*(.multiboot_header)
@@ -23,4 +25,6 @@ SECTIONS {
 		*(COMMON)
 		*(.bss)
 	}
+
+	kernel_image_end = .;
 }

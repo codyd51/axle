@@ -24,6 +24,10 @@ typedef struct physical_memory_region {
 } physical_memory_region_t;
 
 typedef struct boot_info {
+	uint32_t kernel_image_start;
+	uint32_t kernel_image_end;
+	uint32_t kernel_image_size;
+	
 	uint32_t boot_stack_top_phys;
 	uint32_t boot_stack_bottom_phys;
 	uint32_t boot_stack_size;

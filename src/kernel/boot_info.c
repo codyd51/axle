@@ -164,17 +164,24 @@ boot_info_t* boot_info_get(void) {
 void boot_info_read(struct multiboot_info* mboot_data) {
     boot_info_t* boot_info = boot_info_get();
     memset(boot_info, 0, sizeof(boot_info_t));
-    
+
 	boot_info->boot_stack_top_phys = (uint32_t)&kernel_stack;
 	boot_info->boot_stack_bottom_phys = (uint32_t)&kernel_stack_bottom;
 	boot_info->boot_stack_size = boot_info->boot_stack_top_phys - boot_info->boot_stack_bottom_phys;
+
+    boot_info->kernel_image_start = (uint32_t)&kernel_image_start;
+    boot_info->kernel_image_end = (uint32_t)&kernel_image_end;
+    boot_info->kernel_image_size = boot_info->kernel_image_end - boot_info->kernel_image_start;
 
 	multiboot_interpret(mboot_data, boot_info);
 }
 
 void boot_info_dump() {
     boot_info_t* info = boot_info_get();
+
+    printf("Kernel image at [0x%08x to 0x%08x]. Size: 0x%x\n", info->kernel_image_start, info->kernel_image_end, info->kernel_image_size);
 	printf("Kernel stack at [0x%08x to 0x%08x]. Size: 0x%x\n", info->boot_stack_bottom_phys, info->boot_stack_top_phys, info->boot_stack_size);
+
 	boot_info_dump_memory_map(info);
 	boot_info_dump_boot_device(info);
 	boot_info_dump_symbol_table(info);
