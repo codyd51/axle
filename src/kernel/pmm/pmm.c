@@ -209,8 +209,11 @@ void pmm_init() {
         //this cuts off a bit of usable memory but we'll only lose a few frames at most
         uint32_t addr = frame_ceil(region.addr);
         uint32_t len = frame_floor(region.len);
-        set_memory_region(&(pmm->system_accessible_frames), addr, len);
+        set_memory_region(&pmm->system_accessible_frames, addr, len);
     }
+
+    //map out kernel image region
+    unset_memory_region(&pmm->system_accessible_frames, info->kernel_image_start, frame_ceil(info->kernel_image_size));
 }
 
 static uint32_t index_of_first_set_bit_in_bitmap(address_space_frame_bitmap_t* bitmap) {
