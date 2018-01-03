@@ -1,2 +1,0 @@
-interpret all the grub fields and do something with the data
-PMM using the reserved regions from multiboot map
