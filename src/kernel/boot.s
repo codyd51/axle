@@ -16,7 +16,7 @@
 # set up the stack pointer
 # drop a marker, skip some kb, and drop another marker
 .section .bss
-.align 16
+.align 4096
 
 .global kernel_stack
 .global kernel_stack_bottom
