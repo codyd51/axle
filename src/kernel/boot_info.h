@@ -23,11 +23,20 @@ typedef struct physical_memory_region {
 	uint32_t len;
 } physical_memory_region_t;
 
+typedef struct framebuffer_info {
+	uint32_t type;
+	uint32_t address;
+	uint32_t width;
+	uint32_t height;
+	uint32_t bpp;
+	uint32_t size;
+} framebuffer_info_t;
+
 typedef struct boot_info {
 	uint32_t kernel_image_start;
 	uint32_t kernel_image_end;
 	uint32_t kernel_image_size;
-	
+
 	uint32_t boot_stack_top_phys;
 	uint32_t boot_stack_bottom_phys;
 	uint32_t boot_stack_size;
@@ -37,6 +46,7 @@ typedef struct boot_info {
 
 	multiboot_boot_device_t boot_device;
 	multiboot_elf_section_header_table_t symbol_table_info;
+	framebuffer_info_t framebuffer;
 } boot_info_t;
 
 boot_info_t* boot_info(void);

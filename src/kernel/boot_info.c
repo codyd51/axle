@@ -72,7 +72,7 @@ static void multiboot_interpret_boot_device(struct multiboot_info* mboot_data, b
 }
 
 static void boot_info_dump_boot_device(boot_info_t* info) {
-	printf("Booted from disk 0x%x partition %d:%d:%d\n", 
+	printf("Booted from disk 0x%02x partition %02x:%02x:%02x\n", 
 		info->boot_device.drive,
 		info->boot_device.partition1,
 		info->boot_device.partition2,
@@ -112,40 +112,52 @@ static void multiboot_interpret_bootloader(struct multiboot_info* mboot_data, bo
 	printf("Bootloader: %s\n", bootloader_name);
 }
 
-static void multiboot_interpret_video_info(struct multiboot_info* mboot_data, boot_info_t* out_info) {
+static void multiboot_interpret_framebuffer(struct multiboot_info* mboot_data, boot_info_t* out_info) {
 	if (!(mboot_data->flags & MULTIBOOT_INFO_VBE_INFO)) {
-		printf("No VBE info included\n");
+		assert("no VBE info\n");
 		return;
 	}
-	//VBE fields are valid
 	if (!(mboot_data->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO)) {
-		printf("No framebuffer info included\n");
-		return;
+		assert("no framebuffer info\n");
+        return;
 	}
-	//framebuffer fields are valid
-	char* framebuffer_type;
-	switch (mboot_data->framebuffer_type) {
-		case MULTIBOOT_FRAMEBUFFER_TYPE_INDEXED:
-			framebuffer_type = "Indexed";
-			break;
-		case MULTIBOOT_FRAMEBUFFER_TYPE_RGB:
-			framebuffer_type = "RGB";
-			break;
-		case MULTIBOOT_FRAMEBUFFER_TYPE_EGA_TEXT:
-			framebuffer_type = "Text-mode";
-			break;
-		default:
-			framebuffer_type = "Unknown";
-			break;
-	}
-	printf("%s framebuffer at 0x%08x. %d x %d, %dbpp\n", 
-		framebuffer_type, 
-		(uint32_t)mboot_data->framebuffer_addr,
-		mboot_data->framebuffer_width,
-		mboot_data->framebuffer_height,
-		mboot_data->framebuffer_bpp
-	);
+    out_info->framebuffer.type = mboot_data->framebuffer_type;
+    out_info->framebuffer.address = mboot_data->framebuffer_addr;
+    out_info->framebuffer.width = mboot_data->framebuffer_width;
+    out_info->framebuffer.height = mboot_data->framebuffer_height;
+    out_info->framebuffer.bpp = mboot_data->framebuffer_bpp;
+
+    uint32_t bytes_per_pixel = (int)(out_info->framebuffer.bpp / 8);
+    uint32_t framebuffer_size = out_info->framebuffer.width * out_info->framebuffer.height * bytes_per_pixel;
+    out_info->framebuffer.size = framebuffer_size;
 }
+
+static void boot_info_dump_framebuffer(boot_info_t* info) {
+    framebuffer_info_t fb_info = info->framebuffer;
+
+    char* framebuffer_type;
+    switch (fb_info.type) {
+        case MULTIBOOT_FRAMEBUFFER_TYPE_INDEXED:
+            framebuffer_type = "Indexed";
+            break;
+        case MULTIBOOT_FRAMEBUFFER_TYPE_RGB:
+            framebuffer_type = "RGB";
+            break;
+        case MULTIBOOT_FRAMEBUFFER_TYPE_EGA_TEXT:
+            framebuffer_type = "Text-mode";
+            break;
+        default:
+            framebuffer_type = "Unknown";
+            break;
+    }
+    printf("%s framebuffer resolution: %d x %d @ %d bpp\n", 
+        framebuffer_type,
+        fb_info.width,
+        fb_info.height,
+        fb_info.bpp);
+    printf("Framebuffer  at [0x%08x to 0x%08x]. Size: 0x%x\n", fb_info.address, fb_info.address+fb_info.size, fb_info.size);
+}
+
 
 static void multiboot_interpret(struct multiboot_info* mboot_data, boot_info_t* out_info) {
 	multiboot_interpret_bootloader(mboot_data, out_info);
@@ -153,7 +165,7 @@ static void multiboot_interpret(struct multiboot_info* mboot_data, boot_info_t* 
 	multiboot_interpret_boot_device(mboot_data, out_info);
 	multiboot_interpret_modules(mboot_data, out_info);
 	multiboot_interpret_symbol_table(mboot_data, out_info);
-	multiboot_interpret_video_info(mboot_data, out_info);
+	multiboot_interpret_framebuffer(mboot_data, out_info);
 }
 
 boot_info_t* boot_info_get(void) {
@@ -179,6 +191,7 @@ void boot_info_read(struct multiboot_info* mboot_data) {
 void boot_info_dump() {
     boot_info_t* info = boot_info_get();
 
+    boot_info_dump_framebuffer(info);
     printf("Kernel image at [0x%08x to 0x%08x]. Size: 0x%x\n", info->kernel_image_start, info->kernel_image_end, info->kernel_image_size);
 	printf("Kernel stack at [0x%08x to 0x%08x]. Size: 0x%x\n", info->boot_stack_bottom_phys, info->boot_stack_top_phys, info->boot_stack_size);
 

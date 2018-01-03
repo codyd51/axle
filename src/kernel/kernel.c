@@ -24,8 +24,8 @@ void kernel_main(struct multiboot_info* mboot_data) {
 
 	pmm_init();
     uint32_t frame1 = pmm_alloc();
-    //uint32_t frame2 = pmm_alloc();
-    //uint32_t frame3 = pmm_alloc();
-    //printf("PMM gave 0x%08x, 0x%08x, 0x%08x\n", frame1, frame2, frame3);
+    uint32_t frame2 = pmm_alloc();
+    uint32_t frame3 = pmm_alloc();
+    printf("PMM gave 0x%08x, 0x%08x, 0x%08x\n", frame1, frame2, frame3);
     pmm_dump();
 }
