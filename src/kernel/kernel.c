@@ -11,15 +11,8 @@
 #include <kernel/drivers/vga_screen/vga_screen.h>
 #include <kernel/multiboot.h>
 #include <kernel/boot.h>
-
-#define NotImplemented() do {_assert("Not implemented", __FILE__, __LINE__);} while(0);
-#define assert(msg) do {_assert(msg, __FILE__, __LINE__);} while(0);
-
-void _assert(const char* msg, const char* file, int line) {
-	printf("Kernel assertion. %s, line %d: %s\n", file, line, msg);
-	asm("cli");
-	while (1) {}
-}
+#include <kernel/assert.h>
+#include <kernel/boot_info.h>
 
 typedef enum physical_memory_region_type {
 	REGION_USABLE,
