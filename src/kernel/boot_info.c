@@ -7,6 +7,7 @@
 #include <std/printf.h>
 #include <std/string.h>
 #include <std/memory.h>
+#include <std/common.h>
 
 //kernel headers
 #include <kernel/drivers/vga_screen/vga_screen.h>
@@ -72,7 +73,7 @@ static void multiboot_interpret_boot_device(struct multiboot_info* mboot_data, b
 }
 
 static void boot_info_dump_boot_device(boot_info_t* info) {
-	printf("Booted from disk 0x%02x partition %02x:%02x:%02x\n", 
+	printf("Booted from disk 0x%02x partition %d:%d:%d\n", 
 		info->boot_device.drive,
 		info->boot_device.partition1,
 		info->boot_device.partition2,
@@ -127,7 +128,7 @@ static void multiboot_interpret_framebuffer(struct multiboot_info* mboot_data, b
     out_info->framebuffer.height = mboot_data->framebuffer_height;
     out_info->framebuffer.bpp = mboot_data->framebuffer_bpp;
 
-    uint32_t bytes_per_pixel = (int)(out_info->framebuffer.bpp / 8);
+    uint32_t bytes_per_pixel = (int)(out_info->framebuffer.bpp / BITS_PER_BYTE);
     uint32_t framebuffer_size = out_info->framebuffer.width * out_info->framebuffer.height * bytes_per_pixel;
     out_info->framebuffer.size = framebuffer_size;
 }

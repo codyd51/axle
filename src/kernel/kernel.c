@@ -23,9 +23,24 @@ void kernel_main(struct multiboot_info* mboot_data) {
 	boot_info_dump();
 
 	pmm_init();
-    uint32_t frame1 = pmm_alloc();
-    uint32_t frame2 = pmm_alloc();
-    uint32_t frame3 = pmm_alloc();
-    printf("PMM gave 0x%08x, 0x%08x, 0x%08x\n", frame1, frame2, frame3);
+
+    vga_screen_clear();
+
+    printf("Allocating 4096 frames... \n");
+    static uint32_t b[0x1000] = {0};
+    for (int i = 0; i < 0x1000; i++) {
+        uint32_t frame = pmm_alloc();
+        b[i] = frame;
+    }
+    pmm_dump();
+
+    printf("\nFreeing 4096 frames...\n");
+    for (int i = 0; i < 0x1000; i++) {
+        pmm_free(b[i]);
+    }
+    pmm_dump();
+
+    printf("\nAllocating 1 frame\n");
+    uint32_t frame = pmm_alloc();
     pmm_dump();
 }
