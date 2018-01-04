@@ -4,6 +4,8 @@
 
 axle is a small **UNIX-like** hobby operating system. Everything used within axle is **implemented from the ground up**, aside from the bootloader, for which we use GRUB. axle is a **multiboot compliant** kernel. axle runs C on 'bare metal' in freestanding mode, meaning even the C standard library is not included. A subset of the C standard library is implemented within axle's kernel, and a userspace is provided through a **Newlib port**. axle is mainly **interfaced through a shell**.
 
+**Important note**: axle is currently undergoing a rewrite. The full codebase prior to the beginning of the rewrite is on the 1.0 branch. master is far behind feature parity with the 1.0 branch.
+
 <p align="center"><img src="screenshots/startup.png"></p>
 
 The initial entry point must be done in ASM, as we have to do some special tasks such as setting up the GRUB header, pushing our stack, and calling our C entry point. This means that the first code run is in `boot.s`, but the 'real' entry point is in `kernel.c`.
