@@ -2,9 +2,10 @@
 #include <kernel/assert.h>
 #include <kernel/boot_info.h>
 
+#include <std/common.h>
+
 #include "pmm.h"
 
-#define BITS_PER_BYTE 8
 #define BITS_PER_BITMAP_ENTRY (sizeof(uint32_t) * BITS_PER_BYTE)
 
 #define BITMAP_INDEX(x, y) ((x) * BITS_PER_BITMAP_ENTRY + (y))
@@ -53,7 +54,7 @@ static uint32_t index_of_first_bit_with_value_in_bitmap(address_space_frame_bitm
     for (int i = 0; i < ADDRESS_SPACE_BITMAP_SIZE; i++) {
         uint32_t bitmap = pmm->system_accessible_frames.set[i];
         //check if it's totally full (every bit is already set)
-        if (bitmap == 0xffffffff) {
+        if (!(~bitmap)) {
             continue;
         }
         //iterate the bits
