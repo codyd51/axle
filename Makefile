@@ -17,7 +17,7 @@ OBJECTS = kernel.o boot.o vga_screen.o ctype.o printf.o string.o memory.o boot_i
 
 all:
 	# compile step
-	$(AS) $(SRC_DIR)/kernel/boot.s -o boot.o
+	$(AS) -c $(SRC_DIR)/kernel/boot.s -o boot.o
 	$(CC) -c $(SRC_DIR)/kernel/kernel.c -o kernel.o $(CFLAGS)
 	$(CC) -c $(SRC_DIR)/kernel/boot_info.c -o boot_info.o $(CFLAGS)
 	$(CC) -c $(SRC_DIR)/kernel/assert.c -o assert.o $(CFLAGS)
@@ -31,11 +31,11 @@ all:
 	$(CC) -c $(SRC_DIR)/std/memory.c -o memory.o $(CFLAGS)
 	
 	# link step
-	$(CC) -T link.ld -o tremble.bin $(LDFLAGS) $(OBJECTS)
+	$(CC) -T link.ld -o axle.bin $(LDFLAGS) $(OBJECTS)
 	
-	cp tremble.bin isodir/boot/tremble.bin
+	cp axle.bin isodir/boot/axle.bin
 	cp grub.cfg isodir/boot/grub/grub.cfg
-	$(ISO_MAKER) -d $(TOOLCHAIN)/lib/grub/i386-pc -o tremble.iso isodir
+	$(ISO_MAKER) -d $(TOOLCHAIN)/lib/grub/i386-pc -o axle.iso isodir
 
 run:
-	qemu-system-i386 -cdrom tremble.iso
+	qemu-system-x86_64 -monitor stdio -cdrom axle.iso
