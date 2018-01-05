@@ -9,9 +9,8 @@
 
 #define PAGE_SIZE 0x1000 /* 4kb page */
 
-//end is defined in linker script
-extern uint32_t end;
-uint32_t placement_address = (uint32_t)&end;
+extern uint32_t _kernel_image_end;
+uint32_t placement_address = (uint32_t)&_kernel_image_end;
 
 extern page_directory_t* kernel_directory;
 extern page_directory_t* current_directory;
