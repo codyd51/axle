@@ -1,8 +1,10 @@
 #include "elf.h"
 #include <std/printf.h>
 #include <std/string.h>
+#include <kernel/assert.h>
 
-void elf_from_multiboot(multiboot* mb, elf_t* elf) {
+/*
+void elf_from_multiboot(struct multiboot_info* mb, elf_t* elf) {
 	printf_info("Parsing multiboot header and kernel symbols");
 	elf_section_header_t* sh = (elf_section_header_t*)mb->addr;
 
@@ -35,4 +37,13 @@ const char* elf_sym_lookup(elf_t* elf, uint32_t addr) {
 		}
 	}
 	return "?";
+}
+*/
+
+void elf_from_multiboot(struct multiboot_info* mb, elf_t* elf) {
+	NotImplemented();
+}
+
+const char* elf_symb_lookup(elf_t* elf, uint32_t addr) {
+	NotImplemented();
 }

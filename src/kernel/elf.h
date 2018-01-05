@@ -1,6 +1,8 @@
 #ifndef KERNEL_ELF_H
 #define KERNEL_ELF_H
 
+#include <stdint.h>
+
 #include "multiboot.h"
 
 #define ELF32_ST_BIND(i) ((i)>>4)
@@ -39,7 +41,7 @@ typedef struct {
 elf_t* kern_elf();
 
 //takes a multiboot struct and returns an elf struct containing relavent info
-void elf_from_multiboot(multiboot* mb, elf_t* elf);
+void elf_from_multiboot(struct multiboot_info* mb, elf_t* elf);
 //elf_t elf_from_multiboot(multiboot* mb);
 
 //looks up symbol at addr
