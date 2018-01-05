@@ -1,9 +1,9 @@
 # Declare constants for Multiboot header
-.set ALIGN,		1 << 0 # align modules on page boundaries
-.set MEM_INFO,	1 << 1 # give us memory map
-.set VID_INFO,   1 << 2 # set video mode and give us video mode info
-.set FLAGS,		ALIGN | MEM_INFO #| VID_INFO
-.set MAGIC,		0x1BADB002 # multiboot magic
+.set ALIGN,			1 << 0 # align modules on page boundaries
+.set MEM_INFO,		1 << 1 # give us memory map
+.set VID_INFO,		1 << 2 # set video mode and give us video mode info
+.set FLAGS,			ALIGN | MEM_INFO #| VID_INFO
+.set MAGIC,			0x1BADB002 # multiboot magic
 .set CHECKSUM, -(MAGIC + FLAGS) # CRC
 
 # put multiboot header in its own section so we can force its location in the linker script
@@ -18,12 +18,12 @@
 .section .bss
 .align 4096
 
-.global kernel_stack
-.global kernel_stack_bottom
+.global _kernel_stack
+.global _kernel_stack_bottom
 
-kernel_stack_bottom:
+_kernel_stack_bottom:
 .skip 16384 # 16kb
-kernel_stack:
+_kernel_stack:
 
 # this is the entry point we define in the linker script!
 .section .text
@@ -37,6 +37,7 @@ _start:
 
 	# set esp to the stack we defined in .bss
 	mov $kernel_stack, %esp
+	mov $_kernel_stack, %esp
 
 	# do crucial environment setup here!
 	# TODO(PT): load GDT here

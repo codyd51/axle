@@ -178,12 +178,12 @@ void boot_info_read(struct multiboot_info* mboot_data) {
     boot_info_t* boot_info = boot_info_get();
     memset(boot_info, 0, sizeof(boot_info_t));
 
-	boot_info->boot_stack_top_phys = (uint32_t)&kernel_stack;
-	boot_info->boot_stack_bottom_phys = (uint32_t)&kernel_stack_bottom;
+	boot_info->boot_stack_top_phys = (uint32_t)&_kernel_stack;
+	boot_info->boot_stack_bottom_phys = (uint32_t)&_kernel_stack_bottom;
 	boot_info->boot_stack_size = boot_info->boot_stack_top_phys - boot_info->boot_stack_bottom_phys;
 
-    boot_info->kernel_image_start = (uint32_t)&kernel_image_start;
-    boot_info->kernel_image_end = (uint32_t)&kernel_image_end;
+    boot_info->kernel_image_start = (uint32_t)&_kernel_image_start;
+    boot_info->kernel_image_end = (uint32_t)&_kernel_image_end;
     boot_info->kernel_image_size = boot_info->kernel_image_end - boot_info->kernel_image_start;
 
 	multiboot_interpret(mboot_data, boot_info);
