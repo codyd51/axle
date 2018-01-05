@@ -88,26 +88,3 @@ run: $(ISO_NAME)
 clean:
 	@rm -rf $(OBJECTS) $(ISO_DIR) $(ISO_NAME) $(FSGENERATOR)
 
-
-ELFS := $(wildcard $(SRC_DIR)/user/extern/*)
-TOPTARGETS := all clean
-$(TOPTARGETS): $(ELFS)
-
-.ONESHELL:
-$(ELFS):
-	$(AS) -f elf crt0.s -o crt0.o; \
-	$(MAKE) -C $@ $(MAKECMDGOALS) SYSROOT=$(SYSROOT)
-	cd initrd; \
-	../fsgen .; \
-	mv initrd.img ../../initrd.img; \
-	cd ..; \
-	cp ../initrd.img isodir/boot/;  \
-
-.PHONY: $(TOPTARGETS) $(ELFS)
-
-macho: macho.s
-	$(AS) -f macho $< -o $@
-	#ld -o $@ -e mystart -macosx_version_min 10.7 $@
-	ld -o $@ -macosx_version_min 10.7 $@ mach_crt0.o
-	cp $@ initrd/
-
