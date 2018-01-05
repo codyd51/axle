@@ -13,6 +13,7 @@ typedef void (*event_handler)(void* obj, void* context);
 #include <std/math.h>
 #include <kernel/drivers/vbe/vbe.h>
 #include <gfx/lib/surface.h>
+#include <kernel/multiboot.h>
 
 typedef struct __attribute__((packed)) {
 	unsigned short di, si, bp, sp, bx, dx, cx, ax;
@@ -54,7 +55,7 @@ void write_screen_region(Rect region);
 void draw_boot_background();
 void display_boot_screen();
 
-void gfx_init(void* mboot_ptr);
+void gfx_init(struct multiboot_info* mboot_info);
 void process_gfx_switch(Screen* screen, int new_depth);
 void set_gfx_depth(uint32_t depth);
 int gfx_depth();

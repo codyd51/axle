@@ -224,8 +224,8 @@ static Size font_size_for_resolution(Size resolution) {
 	return size;
 }
 
-void gfx_init(void* mboot_ptr) {
-	multiboot* mboot = (multiboot*)mboot_ptr;
+void gfx_init(struct multiboot_info* mboot_ptr) {
+	struct multiboot_info* mboot = (struct multiboot_info*)mboot_ptr;
 	vbe_mode_info* mode = (vbe_mode_info*)mboot->vbe_mode_info;
 	static Screen screen;
 

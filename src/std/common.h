@@ -7,6 +7,7 @@
 __BEGIN_DECLS
 
 #define PAGE_SIZE 0x1000
+#define BITS_PER_BYTE 8
 
 #define kernel_begin_critical() __asm__("cli");
 #define kernel_end_critical() __asm__("sti");

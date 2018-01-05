@@ -4,7 +4,7 @@
 
 #include <kernel/drivers/text_mode/text_mode.h>
 #include <std/string.h>
-#include <std/panic.h>
+#include <kernel/assert.h>
 
 static int normalize(double *val) {
     int exponent = 0;
