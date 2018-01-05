@@ -1,5 +1,5 @@
 #include "terminal.h"
-#include <std/panic.h>
+#include <kernel/assert.h>
 #include <kernel/util/mutex/mutex.h>
 #include <std/std.h>
 #include <std/ctype.h>

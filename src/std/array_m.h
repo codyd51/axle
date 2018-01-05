@@ -2,7 +2,7 @@
 #define STD_ARRAY_M_H
 
 #include "std_base.h"
-#include "panic.h"
+#include <kernel/assert.h>
 #include <stdint.h>
 
 __BEGIN_DECLS

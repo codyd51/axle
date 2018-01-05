@@ -2,7 +2,7 @@
 #define STD_ARRAY_L_H
 
 #include "std_base.h"
-#include "panic.h"
+#include <kernel/assert.h>
 #include <stdint.h>
 #include "std.h"
 

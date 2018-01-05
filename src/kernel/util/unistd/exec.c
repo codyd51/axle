@@ -1,7 +1,7 @@
 #include "exec.h"
 #include <kernel/util/elf/elf.h>
 #include <kernel/util/macho/macho.h>
-#include <std/panic.h>
+#include <kernel/assert.h>
 #include <kernel/util/paging/paging.h>
 #include <kernel/util/multitasking/tasks/task.h>
 #include <kernel/util/plistman/plistman.h>

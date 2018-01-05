@@ -2,7 +2,7 @@
 #include <kernel/drivers/mouse/mouse.h>
 #include <stddef.h>
 #include <std/math.h>
-#include <std/panic.h>
+#include <kernel/assert.h>
 #include <std/std.h>
 #include <gfx/lib/gfx.h>
 #include <kernel/util/syscall/sysfuncs.h>
