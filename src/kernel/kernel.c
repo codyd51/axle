@@ -1,4 +1,5 @@
 #include "axle.h"
+#include <kernel/drivers/text_mode/text_mode.h>
 
 #define SPIN while (1) {sys_yield(RUNNABLE);}
 #define SPIN_NOMULTI do {} while (1);
@@ -271,6 +272,9 @@ bool boot_stage3(void) {
 }
 
 void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
+	text_mode_init();
+	text_mode_puts("Hello, axle OS 2.0!\nNewline.\n\tTabbed line.\n");
+	/*
 	if (!boot_stage1(mboot_ptr, initial_stack)) {
 		ASSERT(0, "boot stage 1 failed");
 	}
@@ -299,6 +303,7 @@ void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	//sleep CPU until next interrupt (never)
 	asm volatile("hlt");
 	while (1) {}
+	*/
 }
 
 void rect_printf(Rect r) {
