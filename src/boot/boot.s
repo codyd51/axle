@@ -30,6 +30,10 @@ _start:
 	jmp $
 
 [section .bss]
+
+[global _kernel_stack_bottom]
+[global _kernel_stack_top]
+
 _kernel_stack_bottom:
 align 4096 ; ensure stack is page-aligned
 resb 16384 ; reserve 16kb stack for kernel
