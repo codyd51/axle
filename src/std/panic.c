@@ -61,31 +61,14 @@ static inline void print_stack(void) {
 extern void vprintf(int dest, char* format, va_list va);
 
 __attribute__((__noreturn__)) void panic(uint16_t line, const char* file) {
-	printf("\n");
-	printf_err("PANIC %s: line %d", file, line);
-
-	print_stack();
-
+	printf("Kernel assertion in %s line %d", file, line);
 	//enter infinite loop
     kernel_begin_critical();
 	do {} while (1);
 }
 
 __attribute__((__noreturn__)) void panic_msg(uint16_t line, const char* file, const char* msg, ...) {
-	//terminal_clear();
-	va_list ap;
-	va_start(ap, msg);
-	//1 == serial output
-	vprintf(0, (char*)msg, ap);
-	va_end(ap);
-
-	printf_err("\nKernel panic! See syslog for more info.");
-
-	// Inline the panic() code for stack frame count
-	printf_err("PANIC %s: line %d", file, line);
-
-	print_stack();
-
+	printf("Kernel assertion in %s line %d: %s\n", file, line, msg);
 	//enter infinite loop
     kernel_begin_critical();
 	do {} while (1);
