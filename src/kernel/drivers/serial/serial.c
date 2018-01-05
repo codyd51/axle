@@ -53,7 +53,7 @@ void serial_putchar(char c) {
 	}
 }
 
-void serial_writestring(char* str) {
+void serial_puts(char* str) {
 	//is this string too big to be directly conc'd with buffer?
 	//idx == strlen(buffer)
 	if (idx + strlen(str) < BUF_SIZE) {

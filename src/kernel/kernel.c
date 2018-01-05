@@ -274,6 +274,10 @@ bool boot_stage3(void) {
 void kernel_main(multiboot* mboot_ptr, uint32_t initial_stack) {
 	text_mode_init();
 	text_mode_puts("Hello, axle OS 2.0!\nNewline.\n\tTabbed line.\n");
+	printf("printf test! int %d string %s hex %x char %c float %f\n", 69, "xxx", 0xdeadbeef, 'x', 3.1415926);
+	printf_info("help");
+	printf_dbg("%s", "sex\nmemes");
+	printf_err("error %f", 6.69);
 	/*
 	if (!boot_stage1(mboot_ptr, initial_stack)) {
 		ASSERT(0, "boot stage 1 failed");

@@ -8,6 +8,6 @@
 void serial_init();
 
 void serial_putchar(char c);
-void serial_writestring(char* str);
+void serial_puts(char* str);
 
 #endif
