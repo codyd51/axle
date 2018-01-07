@@ -1,6 +1,7 @@
 #include "descriptor_tables.h"
 #include <kernel/util/interrupts/isr.h>
 #include <std/std.h>
+#include <kernel/assert.h>
 
 //access ASM functions from C
 extern void gdt_flush(uint32_t);
@@ -9,37 +10,27 @@ extern void tss_flush();
 
 //internal function prototypes
 static void init_gdt();
-static void gdt_set_gate(int32_t, uint32_t, uint32_t, uint8_t, uint8_t);
 static void init_idt();
 static void write_tss(int32_t, uint16_t, uint32_t);
 
-gdt_entry_t gdt_entries[5];
-gdt_ptr_t   gdt_ptr;
 idt_entry_t idt_entries[256];
 idt_ptr_t   idt_ptr;
 tss_entry_t tss_entry;
 
 extern isr_t interrupt_handlers[];
 
+static void gdt_install(void) {
+	NotImplemented();
+}
+
+static void gdt_set_gate(int32_t a, uint32_t b, uint32_t c, uint8_t d, uint8_t e) {
+	NotImplemented();
+}
+
 void descriptor_tables_install() {
 	printf_info("Setting up descriptor tables");
 	gdt_install();
 	idt_install();
-}
-
-void gdt_install() {
-	gdt_ptr.limit = (sizeof(gdt_entry_t) * 6) - 1;
-	gdt_ptr.base = (uint32_t)&gdt_entries;
-
-	gdt_set_gate(0, 0, 0, 0, 0); 			//null segment
-	gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0xCF);	//code segment
-	gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF); 	//data segment
-	gdt_set_gate(3, 0, 0xFFFFFFFF, 0xFA, 0xCF); 	//user mode code segment
-	gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF);	//user mode data segment
-	write_tss(5, 0x10, 0x0);
-
-	gdt_flush((uint32_t)&gdt_ptr);
-	tss_flush();
 }
 
 void idt_install() {
@@ -131,19 +122,6 @@ void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
 	//we must uncomment the OR below when we get to user mode
 	//it sets the interrupt gate's privilege level to 3
 	idt_entries[num].flags		= flags | 0x60;
-}
-
-//sets value of one GDT entry
-static void gdt_set_gate(int32_t num, uint32_t base, uint32_t limit, uint8_t access, uint8_t gran) {
-	gdt_entries[num].base_low 	= (base & 0xFFFF);
-	gdt_entries[num].base_middle 	= (base >> 16) & 0xFF;
-	gdt_entries[num].base_high 	= (base >> 24) & 0xFF;
-
-	gdt_entries[num].limit_low	= (limit & 0xFFFF);
-	gdt_entries[num].granularity	= (limit >> 16) & 0x0F;
-
-	gdt_entries[num].granularity 	|= gran & 0xF0;
-	gdt_entries[num].access 	= access;
 }
 
 #pragma GCC diagnostic push
