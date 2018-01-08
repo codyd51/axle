@@ -20,6 +20,7 @@ typedef struct gdt_descriptor gdt_descriptor_t;
 //defined in gdt.s
 extern void gdt_activate(uint32_t* gdt_pointer);
 
+//This implementation was modified from an excerpt on http://wiki.osdev.org/GDT_Tutorial
 // Each define here is for a specific flag in the descriptor.
 // Refer to the intel documentation for a description of what each one does.
 #define SEG_DESCTYPE(x)  ((x) << 0x04) // Descriptor type (0 for system, 1 for code/data)
@@ -82,8 +83,8 @@ static void gdt_write_descriptor(gdt_entry_t* entry, uint32_t base, uint32_t lim
 }
 
 void gdt_init() {
-    static gdt_entry_t gdt_entries[5]        = {0};
-    static gdt_descriptor_t   gdt_descriptor = {0};
+    static gdt_entry_t          gdt_entries[5] = {0};
+    static gdt_descriptor_t     gdt_descriptor = {0};
 
     gdt_descriptor.table_base = (uint32_t)&gdt_entries;
     gdt_descriptor.table_size = sizeof(gdt_entries) - 1;
