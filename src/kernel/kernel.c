@@ -13,6 +13,7 @@
 #include <kernel/boot.h>
 #include <kernel/assert.h>
 #include <kernel/boot_info.h>
+#include <kernel/gdt/gdt.h>
 
 #define SPIN while (1) {sys_yield(RUNNABLE);}
 #define SPIN_NOMULTI do {} while (1);
@@ -35,4 +36,5 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
 
 	pmm_init();
 	pmm_dump();
+	gdt_init();
 }
