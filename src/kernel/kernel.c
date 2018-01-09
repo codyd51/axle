@@ -14,6 +14,7 @@
 #include <kernel/assert.h>
 #include <kernel/boot_info.h>
 #include <kernel/gdt/gdt.h>
+#include <kernel/interrupts/idt.h>
 
 #define SPIN while (1) {sys_yield(RUNNABLE);}
 #define SPIN_NOMULTI do {} while (1);
