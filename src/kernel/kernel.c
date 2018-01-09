@@ -37,4 +37,5 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
 	pmm_init();
 	pmm_dump();
 	gdt_init();
+    idt_init();
 }
