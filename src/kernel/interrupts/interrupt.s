@@ -1,9 +1,9 @@
 %macro ISR_NOERRCODE 1 		; define a macro, taking one parameter
-	[GLOBAL isr%1] 			; %1 accesses the first parameteer
+	[global isr%1] 			; %1 accesses the first parameteer
 	isr%1:
 		cli
-		push byte 0		; push dummy error code (if ISR0 doesn't push its own error code)
-		push byte %1 		; push interrupt number 
+		push byte 0				; push dummy error code, so the stack frame is the same as if coming from ISR_ERRCODE
+		push byte %1 			; push interrupt number 
 		jmp isr_common_stub 	; go to common handler
 %endmacro
 
@@ -11,10 +11,13 @@
 	[GLOBAL isr%1]
 	isr%1:
 		cli
+		; error code is implicitly pushed by CPU
 		push byte %1
 		jmp isr_common_stub
 %endmacro
 
+; Intel manual states that interrupts 8, 10, 11, 12, 13, 14 pass error codes
+; Use ISR_ERRCODE macro for those, and ISR_NOERRCODE for every other ISR
 ISR_NOERRCODE 0
 ISR_NOERRCODE 1
 ISR_NOERRCODE 2
@@ -47,7 +50,7 @@ ISR_NOERRCODE 28
 ISR_NOERRCODE 29
 ISR_NOERRCODE 30
 ISR_NOERRCODE 31
-ISR_NOERRCODE 128
+; ISR_NOERRCODE 128
 
 ; this macro creates a stub for an IRQ - the first parameter is 
 ; the IRQ number, the second is the ISR number it's remapped to
@@ -55,7 +58,7 @@ ISR_NOERRCODE 128
 	[GLOBAL irq%1]
 	irq%1:
 		cli
-		push byte 0x00
+		push byte 0x00 ; push dummy error code
 		push byte %2
 		jmp irq_common_stub
 %endmacro
@@ -77,8 +80,7 @@ IRQ	13, 	45
 IRQ 14,		46
 IRQ 15, 	47
 
-[EXTERN isr_handler]
-[EXTERN print_regs]
+[extern isr_receive]
 
 ; common ISR stub. Saves processor state, sets
 ; up kernel mode segments, calls C-level fault handler,
@@ -86,37 +88,28 @@ IRQ 15, 	47
 isr_common_stub:
 	pushad		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
 
-	push ds
-	push es
-	push fs
-	push gs
+	; move current data segment into ax
+	; push to stack so we can restore it later
+	mov ax, ds 
+	push eax
 
-	push esp
-
-	mov ax, 0x10 	; loads kernel data segment argument
+	; loads kernel data segment argument
+	; this constant is defined in <kernel/gdt/gdt_structures.h>
+	mov ax, 0x10 	
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
 	mov gs, ax
 
-	; call fault handler
-	call isr_handler
+	; call general isr handler
+	call isr_receive
 
-	; set stored eax value to return value of this interrupt
-	; pushad pushes 7 values after eax, go back in stack
-	sub esp, 7 
-	; set value
-	mov [esp], eax
-	; reset sp
-	add esp, 7
-
-	; throw away esp ptr on stack
-	pop ebx
-
-	pop gs
-	pop fs
-	pop es
-	pop ds
+	; restore data segment selector
+	pop eax
+	mov gs, ax
+	mov fs, ax
+	mov es, ax
+	mov ds, ax
 	
 	popad 		; pop edi, esi, ebp, etc
 	add esp, 8 	; cleans up pushed error code and pushed ISR number

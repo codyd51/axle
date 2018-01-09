@@ -1,8 +1,13 @@
-#include <std/common.h>
 #include "isr.h"
+#include "idt_structures.h"
+
+#include <std/common.h>
+
 #include <kernel/kernel.h>
 #include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/assert.h>
 
+/*
 void halt_execution() {
 	//kill this task
 	printf_info("PID %d encountered unrecoverable fault, killing...", getpid());
@@ -176,9 +181,27 @@ void isr_install_default() {
 	register_interrupt_handler(18, &handle_machine_check);
 	register_interrupt_handler(20, &handle_virtualization_exception);
 }
+*/
+
+void register_interrupt_handler(uint8_t n, isr_t handler) {
+	NotImplemented();
+}
+
+void common_halt(void) {
+	NotImplemented();
+}
+
+void irq_handler(void) {
+	NotImplemented();
+}
+
+void dump_stack(uint32_t* mem) {
+	NotImplemented();
+}
 
 //gets called from ASM interrupt handler stub
-int isr_handler(registers_t* regs) {
+int isr_receive(register_state_t regs) {
+	/*
 	uint8_t int_no = regs->int_no;
     pic_acknowledge(int_no);
 
@@ -201,8 +224,11 @@ int isr_handler(registers_t* regs) {
 		printf_err("Unhandled ISR: %d", int_no);
 	}
 	return ret;
+	*/
+	printf("Received interrupt: %d\n", regs.int_no);
 }
 
+/*
 void register_interrupt_handler(uint8_t n, isr_t handler) {
 	interrupt_handlers[n] = handler;
 }
@@ -249,3 +275,5 @@ void irq_handler(registers_t regs) {
 	}
 	else printf_dbg("unhandled IRQ %d", regs.int_no);
 }
+
+*/
