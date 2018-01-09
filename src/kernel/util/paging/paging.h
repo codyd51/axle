@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include <std/common.h>
-#include <kernel/util/interrupts/isr.h>
+#include <kernel/interrupts/isr.h>
 
 typedef struct page {
 	uint32_t present	:  1; //page present in memory

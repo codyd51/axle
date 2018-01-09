@@ -1,9 +1,3 @@
-[GLOBAL idt_flush] 	; allow this to be called from C
-idt_flush:
-	mov eax, [esp+4] 	; get the pointer to the IDT, passed as a parameter
-	lidt [eax] 		; load IDT pointer
-	ret
-
 [GLOBAL tss_flush]
 tss_flush:
 	mov ax, 0x2B		; load index of TSS structure
