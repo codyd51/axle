@@ -1,6 +1,8 @@
 #include "idt.h"
 #include "idt_structures.h"
 #include "isr.h"
+#include "pic.h"
+
 #include <kernel/gdt/gdt_structures.h>
 #include <kernel/assert.h>
 
@@ -20,25 +22,6 @@ static void idt_set_gate(idt_entry_t* entry, uint32_t base, uint16_t sel, idt_en
     //we must uncomment the OR below when we get to user mode
     //it sets the interrupt gate's privilege level to 3
     entry->flags                = flags/* | 0x60*/;
-}
-
-static void idt_remap_irq_table(void) {
-    //remap IRQ table
-    //begin initialization
-    outb(0x20, 0x11);
-    outb(0xA0, 0x11);
-    //remap offset address of IDT
-    outb(0x21, 0x20);
-    outb(0xA1, 0x28);
-    outb(0x21, 0x04);
-    outb(0xA1, 0x02);
-    //environment info
-    outb(0x21, 0x01);
-    outb(0xA1, 0x01);
-    //the second argument here is used to mask interrupts
-    //as we're passing 0x00, no interrupts are masked
-    outb(0x21, 0x00);
-    outb(0xA1, 0x00);
 }
 
 static void idt_map_all_gates(idt_entry_t* table) {
@@ -105,10 +88,10 @@ void idt_init(void) {
     idt_ptr.table_base = (uint32_t)&idt_entries;
     idt_ptr.table_size = sizeof(idt_entries) - 1;
 
-    idt_remap_irq_table();
+#define PIC_MASTER_OFFSET	0x28
+#define PIC_SLAVE_OFFSET	0x28
+	pic_remap(PIC_MASTER_OFFSET, PIC_SLAVE_OFFSET);
+
     idt_map_all_gates(idt_entries);
     idt_activate((uint32_t)&idt_ptr);
-
-    //memset(&interrupt_handlers, 0, sizeof(isr_t)*256);
-    //isr_install_default();
 }
