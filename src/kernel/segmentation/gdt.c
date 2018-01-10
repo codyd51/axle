@@ -35,3 +35,4 @@ void gdt_init() {
 
     gdt_activate((uint32_t)&gdt_descriptor);
 }
+

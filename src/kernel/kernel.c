@@ -13,7 +13,7 @@
 #include <kernel/boot.h>
 #include <kernel/assert.h>
 #include <kernel/boot_info.h>
-#include <kernel/gdt/gdt.h>
+#include <kernel/segmentation/gdt.h>
 #include <kernel/interrupts/idt.h>
 
 #define SPIN while (1) {sys_yield(RUNNABLE);}
@@ -36,7 +36,9 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
 	boot_info_dump();
 
 	pmm_init();
-	pmm_dump();
 	gdt_init();
     idt_init();
+
+	asm volatile("int $0x4");
+	asm volatile("int $0x5");
 }

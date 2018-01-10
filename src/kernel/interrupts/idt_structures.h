@@ -6,13 +6,13 @@
 typedef uint8_t idt_entry_flags_t;
 //struct describing interrupt gate
 struct idt_entry_struct {
-   //lower 16 bits of the address to jump to when this interrupt fires
+    //lower 16 bits of the address to jump to when this interrupt fires
     uint16_t base_lo;
     //kernel segment selector
     uint16_t segment_selector;
     //must always be zero
     uint8_t always0;
-    
+
     //description of this field:
     //bit 0: 0
     //bit 1: 1
@@ -39,10 +39,10 @@ struct idt_descriptor_struct {
 typedef struct idt_descriptor_struct idt_descriptor_t;
 
 typedef struct register_state {
-   uint32_t ds;                  // Data segment selector
-   uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; // Pushed by pusha.
-   uint32_t int_no, err_code;    // Interrupt number and error code (if applicable)
-   uint32_t eip, cs, eflags, useresp, ss; // Pushed by the processor automatically.
+    uint32_t ds;                  // Data segment selector
+    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; // Pushed by pusha.
+    uint32_t int_no, err_code;    // Interrupt number and error code (if applicable)
+    uint32_t eip, cs, eflags, useresp, ss; // Pushed by the processor automatically.
 } register_state_t;
 
 
