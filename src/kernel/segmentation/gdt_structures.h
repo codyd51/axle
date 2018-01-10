@@ -70,4 +70,4 @@ extern void gdt_activate(uint32_t* gdt_pointer);
 #define GDT_BYTE_INDEX_USER_CODE 0x18
 #define GDT_BYTE_INDEX_USER_DATA 0x20
 
-#endif
+#endif 

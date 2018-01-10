@@ -3,7 +3,7 @@
 #include "isr.h"
 #include "pic.h"
 
-#include <kernel/gdt/gdt_structures.h>
+#include <kernel/segmentation/gdt_structures.h>
 #include <kernel/assert.h>
 
 static void idt_set_gate(idt_entry_t* entry, uint32_t base, uint16_t sel, idt_entry_flags_t flags) {
@@ -83,14 +83,14 @@ static void idt_map_all_gates(idt_entry_t* table) {
 
 void idt_init(void) {
     static idt_entry_t idt_entries[256] = {0};
-    static idt_descriptor_t idt_ptr;
+    static idt_descriptor_t idt_ptr = {0};
 
     idt_ptr.table_base = (uint32_t)&idt_entries;
     idt_ptr.table_size = sizeof(idt_entries) - 1;
 
 #define PIC_MASTER_OFFSET	0x28
 #define PIC_SLAVE_OFFSET	0x28
-	pic_remap(PIC_MASTER_OFFSET, PIC_SLAVE_OFFSET);
+    pic_remap(PIC_MASTER_OFFSET, PIC_SLAVE_OFFSET);
 
     idt_map_all_gates(idt_entries);
     idt_activate((uint32_t)&idt_ptr);
