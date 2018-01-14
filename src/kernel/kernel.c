@@ -30,6 +30,10 @@ void system_mem() {
 	NotImplemented();
 }
 
+void drivers_init(void) {
+    pit_timer_init(PIT_TICK_GRANULARITY_1MS);
+}
+
 uint32_t initial_esp = 0;
 void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
 	initial_esp = initial_stack;
@@ -40,8 +44,10 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
 
 	pmm_init();
 	gdt_init();
-    idt_init();
+    interrupt_init();
+	asm("sti");
 
-	asm volatile("int $0x4");
-	asm volatile("int $0x5");
+    drivers_init();
+
+    while (1) {}
 }
