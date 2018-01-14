@@ -1,4 +1,4 @@
-#include "interrupt_handlers.h"
+#include "cpu_fault_handlers.h"
 
 #include <stdbool.h>
 #include <std/printf.h>

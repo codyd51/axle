@@ -1,5 +1,5 @@
-#ifndef INTERRUPT_HANDLERS_H
-#define INTERRUPT_HANDLERS_H
+#ifndef CPU_FAULT_HANDLERS_H
+#define CPU_FAULT_HANDLERS_H
 
 #include "idt_structures.h"
 
