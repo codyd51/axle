@@ -6,6 +6,15 @@
 #include <std/common.h>
 #include <std/printf.h>
 
+//channel 0 used for generating IRQ0
+#define PIT_PORT_CHANNEL0 0x40
+//channel 1 used for refreshing DRAM
+#define PIT_PORT_CHANNEL1 0x41
+//channel 2 used for controlling speaker
+#define PIT_PORT_CHANNEL2 0x42
+//command port for controlling PIT
+#define PIT_PORT_COMMAND  0x43
+
 static volatile uint32_t tick = 0;
 
 //defined in timer.c
@@ -16,8 +25,9 @@ extern void handle_tick(uint32_t tick);
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static void tick_callback(registers_t regs) {
 	tick++;
+    printf("tick %d\n", tick);
 
-	handle_tick(tick);
+	//handle_tick(tick);
 }
 #pragma GCC diagnostic pop
 
@@ -41,13 +51,13 @@ void pit_timer_init(uint32_t frequency) {
 	uint32_t divisor = 1193180 / frequency;
 
 	//send command byte
-	outb(0x43, 0x36);
+	outb(PIT_PORT_COMMAND, 0x36);
 
 	//divisor has to be sent byte-wise, so split here into upper/lower bytes
 	uint8_t l = (uint8_t )(divisor & 0xFF);
 	uint8_t h = (uint8_t)((divisor >> 8) & 0xFF);
 
 	//send frequency divisor
-	outb(0x40, l);
-	outb(0x40, h);
+	outb(PIT_PORT_CHANNEL0, l);
+	outb(PIT_PORT_CHANNEL0, h);
 }
