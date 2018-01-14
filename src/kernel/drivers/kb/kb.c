@@ -2,7 +2,7 @@
 #include "kb_us.h"
 #include <std/common.h>
 #include <std/std.h>
-#include <kernel/util/interrupts/isr.h>
+#include <kernel/interrupts/interrupts.h>
 #include <kernel/util/syscall/sysfuncs.h>
 #include <kernel/util/kbman/kbman.h>
 #include <kernel/util/multitasking/tasks/task.h>
@@ -15,7 +15,7 @@ keymap_t* layout;
 void kb_install() {
 	printf_info("Initializing keyboard driver...");
 
-	register_interrupt_handler(IRQ1, &kb_callback);
+	interrupt_setup_callback(INT_VECTOR_IRQ1, &kb_callback);
 	switch_layout(&kb_us);
 }
 
@@ -23,7 +23,7 @@ char kgetch() {
 	char ch;
 	int c = read(0, &ch, 1);
 	if (!c || ch == -1) {
-		//either read error or 
+		//either read error or
 		//no characters available
 		return '\0';
 	}
@@ -110,4 +110,3 @@ void kb_callback(registers_t regs) {
 	}
 }
 #pragma GCC diagnostic pop
-

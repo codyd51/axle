@@ -8,19 +8,22 @@
 #include <std/string.h>
 
 //kernel headers
-#include <kernel/drivers/text_mode/text_mode.h>
 #include <kernel/multiboot.h>
 #include <kernel/boot.h>
 #include <kernel/assert.h>
 #include <kernel/boot_info.h>
 #include <kernel/segmentation/gdt.h>
-#include <kernel/interrupts/idt.h>
+#include <kernel/interrupts/interrupts.h>
+
+//kernel drivers
+#include <kernel/drivers/pit/pit.h>
+#include <kernel/drivers/text_mode/text_mode.h>
 
 #define SPIN while (1) {sys_yield(RUNNABLE);}
 #define SPIN_NOMULTI do {} while (1);
 
 void print_os_name() {
-	NotImplemented();
+    NotImplemented();
 }
 
 void system_mem() {

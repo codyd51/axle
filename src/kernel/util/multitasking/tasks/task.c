@@ -58,7 +58,7 @@ void dequeue_task(task_t* task);
 void stdin_read(char* buf, uint32_t count);
 void stdout_read(char* buffer, uint32_t count);
 void stderr_read(char* buffer, uint32_t count);
-static void setup_fds(task_t* task) { 
+static void setup_fds(task_t* task) {
 	memset(&task->fd_table, 0, sizeof(fd_entry) * FD_MAX);
 
 	//initialize backing std stream
@@ -608,7 +608,7 @@ void int_wait(int irq) {
 	task_t* task = current_task;
 	task->block_context = (void*)irq;
 	task->irq_satisfied = false;
-	block_task_context(task, IRQ_WAIT, (void*)IRQ1);
+	block_task_context(task, IRQ_WAIT, (void*)INT_VECTOR_IRQ1);
 }
 
 task_t* first_responder() {
@@ -1040,9 +1040,9 @@ void resign_first_responder() {
 
 void jump_user_mode() {
 	// Set up a stack structure for switching to user mode.
-	// the pop eax, or, and re-push take eflags which was pushed onto the stack, 
+	// the pop eax, or, and re-push take eflags which was pushed onto the stack,
 	// and turns on the interrupt enabled flag
-	// this ensures interrupts will be turned back on upon iret, as we do a cli at the 
+	// this ensures interrupts will be turned back on upon iret, as we do a cli at the
 	// beginning of this routine, and can't do an sti once we're done since we're in user mode
 	//set_kernel_stack(current_task->kernel_stack + KERNEL_STACK_SIZE);
 	asm volatile("  \
@@ -1114,7 +1114,7 @@ int wait(int* status) {
 
 Window* task_register_window(Rect frame) {
 	//if we're creating a window for a task through xserv_win_create
-	//then we're in a syscall handler and getpid() will return the pid of the 
+	//then we're in a syscall handler and getpid() will return the pid of the
 	//proc that ran the syscall
 	//this is how we know when a user proc is connected to a window
 	task_t* current = task_with_pid(getpid());
@@ -1123,4 +1123,3 @@ Window* task_register_window(Rect frame) {
 
 	return win;
 }
-

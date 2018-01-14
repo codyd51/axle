@@ -1,6 +1,7 @@
 #include "pit.h"
-#include <kernel/util/interrupts/isr.h>
+#include <kernel/interrupts/interrupts.h>
 #include <kernel/kernel.h>
+#include <kernel/assert.h>
 #include <std/math.h>
 #include <std/common.h>
 #include <std/printf.h>

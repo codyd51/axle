@@ -1,5 +1,5 @@
 #include "mouse.h"
-#include <kernel/util/interrupts/isr.h>
+#include <kernel/interrupts/interrupts.h>
 #include <std/math.h>
 #include <std/std.h>
 #include <kernel/util/multitasking/tasks/task.h>
@@ -137,7 +137,7 @@ void mouse_callback(registers_t regs) {
 			kernel_end_critical();
 			extern void update_blocked_tasks();
 			update_blocked_tasks();
-		default:	
+		default:
 			mouse_cycle = 0;
 			break;
 	}
@@ -208,7 +208,7 @@ void mouse_install() {
 	mouse_read(); //acknowledge
 
 	//setup mouse handler
-	register_interrupt_handler(IRQ12, &mouse_callback);
+	interrupt_setup_callback(INT_VECTOR_IRQ12, &mouse_callback);
 }
 
 void mouse_event_wait() {

@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include <std/common.h>
-#include <kernel/interrupts/isr.h>
+#include <kernel/interrupts/interrupts.h>
 
 typedef struct page {
 	uint32_t present	:  1; //page present in memory
@@ -27,7 +27,7 @@ typedef struct page_directory {
 	//location, for loading into CR3 reg
 	uint32_t tablesPhysical[1024];
 
-	//physical addr of tablesPhysical. 
+	//physical addr of tablesPhysical.
 	//needed once kernel heap is allocated and
 	//directory may be in a different location in virtual memory
 	uint32_t physicalAddr;
@@ -37,7 +37,7 @@ typedef struct page_directory {
 //and, enables paging
 void paging_install();
 
-//causes passed page directory to be loaded into 
+//causes passed page directory to be loaded into
 //CR3 register
 void switch_page_directory(page_directory_t* new_dir);
 

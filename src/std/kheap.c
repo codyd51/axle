@@ -4,7 +4,7 @@
 #include "std.h"
 #include <std/math.h>
 #include <kernel/util/mutex/mutex.h>
-#include <kernel/util/interrupts/isr.h>
+#include <kernel/interrupts/interrupts.h>
 #include <kernel/util/multitasking/tasks/task.h>
 
 #define PAGE_SIZE 0x1000 /* 4kb page */

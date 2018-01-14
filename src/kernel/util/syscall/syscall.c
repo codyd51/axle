@@ -1,12 +1,12 @@
 #include "syscall.h"
 #include "sysfuncs.h"
-#include <kernel/util/interrupts/isr.h>
+#include <kernel/interrupts/interrupts.h>
 #include <kernel/drivers/terminal/terminal.h>
 #include <kernel/drivers/pit/pit.h>
 #include <kernel/util/multitasking/tasks/task.h>
 #include <std/array_m.h>
 
-#define MAX_SYSCALLS 128 
+#define MAX_SYSCALLS 128
 
 static int sys_handler(registers_t* regs);
 
@@ -14,8 +14,8 @@ array_m* syscalls;
 
 void sys_install() {
 	printf_info("Initializing syscalls...");
-	
-	register_interrupt_handler(0x80, (isr_t)sys_handler);
+
+	interrupt_setup_callback(INT_VECTOR_SYSCALL, (int_callback_t)sys_handler);
 	syscalls = array_m_create(MAX_SYSCALLS);
 	create_sysfuncs();
 }
