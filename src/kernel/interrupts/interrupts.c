@@ -1,7 +1,7 @@
 #include "interrupts.h"
 #include "idt_structures.h"
 #include "idt.h"
-#include "interrupt_handlers.h"
+#include "cpu_fault_handlers.h"
 
 #include <std/common.h>
 
@@ -35,30 +35,6 @@ void print_regs(registers_t regs) {
 	printf("esp: %x		ebp: %x 	esi: %x		edi: %x\n", regs.esp, regs.ebp, regs.esi, regs.edi);
 	printf("eip: %x		int: %x		err: %x		cs:  %x\n", regs.eip, regs.int_no, regs.err_code, regs.cs);
 }
-/*
-//gets called from ASM interrupt handler stub
-void irq_handler(registers_t regs) {
-	pic_acknowledge(regs.int_no);
-	if (interrupt_handlers[regs.int_no] != 0) {
-		isr_t handler = interrupt_handlers[regs.int_no];
-		handler(regs);
-
-		//unblock any tasks waiting for this IRQ
-		task_t* tmp = task_list();
-		while (tmp != NULL) {
-			if (tmp->state == IRQ_WAIT) {
-				uint32_t requested = (uint32_t)tmp->block_context;
-				if (requested == regs.int_no) {
-					tmp->irq_satisfied = true;
-					update_blocked_tasks();
-				}
-			}
-			tmp = tmp->next;
-		}
-	}
-	else printf_dbg("unhandled IRQ %d", regs.int_no);
-}
-
 */
 
 void register_interrupt_handler(uint8_t n, int_callback_t handler) {
@@ -79,10 +55,8 @@ void dump_stack(uint32_t* mem) {
 
 //gets called from ASM interrupt handler stub
 int isr_receive(register_state_t regs) {
-	uint8_t int_no = regs.int_no;
-    pic_signal_end_of_interrupt(int_no);
-
 	int ret = 0;
+	uint8_t int_no = regs.int_no;
 	if (interrupt_handlers[int_no] != 0) {
 		int_callback_t handler = interrupt_handlers[int_no];
 		ret = handler(regs);
@@ -92,6 +66,25 @@ int isr_receive(register_state_t regs) {
 	}
 	return ret;
 }
+
+//gets called from ASM interrupt handler stub
+void irq_receive(register_state_t regs) {
+	uint8_t int_no = regs.int_no;
+
+	int ret = 0;
+	if (interrupt_handlers[int_no] != 0) {
+		int_callback_t handler = interrupt_handlers[int_no];
+		ret = handler(regs);
+	}
+	else {
+		printf("Unhandled IRQ: %d\n", int_no);
+	}
+
+    pic_signal_end_of_interrupt(int_no);
+	return ret;
+}
+
+
 
 static void interrupt_setup_error_callbacks(void) {
     interrupt_setup_callback(0, &interrupt_handle_divide_by_zero);
@@ -113,6 +106,8 @@ static void interrupt_setup_error_callbacks(void) {
 void interrupt_init(void) {
     idt_init();
     interrupt_setup_error_callbacks();
+    //now that we've set everything up, enable interrupts
+    asm("sti");
 }
 
 void interrupt_setup_callback(uint8_t interrupt_num, int_callback_t callback) {
@@ -121,4 +116,3 @@ void interrupt_setup_callback(uint8_t interrupt_num, int_callback_t callback) {
     }
     interrupt_handlers[interrupt_num] = callback;
 }
-
