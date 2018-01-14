@@ -58,7 +58,7 @@ extern void irq14();
 extern void irq15();
 extern void irq16();
 extern void irq17();
-
+//syscall vector
 extern void isr128();
 
 static void idt_set_gate(idt_entry_t* entry, uint32_t base, uint16_t sel, idt_entry_flags_t flags) {
@@ -81,6 +81,7 @@ static void idt_set_gate(idt_entry_t* entry, uint32_t base, uint16_t sel, idt_en
 
 static void idt_map_all_gates(idt_entry_t* table) {
     //the first 32 interrupt lines will be delivered from the CPU
+    //TODO(PT): these should be changed to IRQ_VECTOR_ISR/IRQ#number
     idt_set_gate(&table[ 0], (uint32_t)isr0 , GDT_BYTE_INDEX_KERNEL_CODE, 0x08E);
     idt_set_gate(&table[ 1], (uint32_t)isr1 , GDT_BYTE_INDEX_KERNEL_CODE, 0x08E);
     idt_set_gate(&table[ 2], (uint32_t)isr2 , GDT_BYTE_INDEX_KERNEL_CODE, 0x08E);
@@ -114,7 +115,6 @@ static void idt_map_all_gates(idt_entry_t* table) {
     idt_set_gate(&table[30], (uint32_t)isr30, GDT_BYTE_INDEX_KERNEL_CODE, 0x08E);
     idt_set_gate(&table[31], (uint32_t)isr31, GDT_BYTE_INDEX_KERNEL_CODE, 0x08E);
 
-    /*
     //interrupts above 32 will be delivered by the OS
     idt_set_gate(&table[32], (uint32_t)irq0 , GDT_BYTE_INDEX_KERNEL_CODE, 0x8E);
     idt_set_gate(&table[33], (uint32_t)irq1 , GDT_BYTE_INDEX_KERNEL_CODE, 0x8E);
@@ -133,7 +133,6 @@ static void idt_map_all_gates(idt_entry_t* table) {
     idt_set_gate(&table[46], (uint32_t)irq14, GDT_BYTE_INDEX_KERNEL_CODE, 0x8E);
     idt_set_gate(&table[47], (uint32_t)irq15, GDT_BYTE_INDEX_KERNEL_CODE, 0x8E);
     idt_set_gate(&table[128], (uint32_t)isr128, GDT_BYTE_INDEX_KERNEL_CODE, 0x8E);
-    */
 }
 
 void idt_init(void) {
