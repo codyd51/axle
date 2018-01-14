@@ -116,37 +116,37 @@ isr_common_stub:
 	sti
 	iretd		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
 
-[EXTERN irq_handler]
+[EXTERN irq_receive]
 
 ; common IRQ stub. Saves processor state, sets
 ; up for kernel mode arguments, calls C-level fault handler,
 ; and finally restores stack frame
 irq_common_stub:
-	cli
 	pushad		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
 
-	push ds
-	push es
-	push fs
-	push gs
+	; move current data segment into ax
+	; push to stack so we can restore it later
+	mov ax, ds
+	push eax
 
-	mov ax, 0x10	; load kernel data segment descriptor
+	; loads kernel data segment argument
+	; this constant is defined in <kernel/gdt/gdt_structures.h>
+	mov ax, 0x10
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
 	mov gs, ax
 
-	call irq_handler
+	call irq_receive
 
-; return falls through to irq_common_stub_ret
-[GLOBAL irq_common_stub_ret]
-irq_common_stub_ret:
-	pop gs
-	pop fs
-	pop es
-	pop ds
+	; restore data segment selector
+	pop eax
+	mov gs, ax
+	mov fs, ax
+	mov es, ax
+	mov ds, ax
 
-	popad		; pops edi, esi, ebp, etc
-	add esp, 8	; cleans up pushed error code and pushed ISR number
-	;sti
+	popad 		; pop edi, esi, ebp, etc
+	add esp, 8 	; cleans up pushed error code and pushed ISR number
+	sti
 	iretd		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
