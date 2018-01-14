@@ -44,7 +44,7 @@ void text_mode_init() {
 }
 
 static void text_mode_scroll_up_line(void) {
-    for (size_t y = 0; y < TEXT_MODE_HEIGHT - 1; y++) {
+    for (size_t y = 1; y < TEXT_MODE_HEIGHT; y++) {
         for (size_t x = 0; x < TEXT_MODE_WIDTH; x++) {
             const size_t index = y * TEXT_MODE_WIDTH + x;
             //copy the data here to the spot 1 row above
@@ -61,11 +61,12 @@ static void text_mode_scroll_up_line(void) {
 }
 
 static void text_mode_newline(void) {
-    screen_state.cursor_row++;
     screen_state.cursor_col = 0;
-
-    if (screen_state.cursor_row >= TEXT_MODE_HEIGHT) {
+    if (screen_state.cursor_row == TEXT_MODE_HEIGHT - 1) {
         text_mode_scroll_up_line();
+    }
+    else {
+        screen_state.cursor_row++;
     }
 }
 
