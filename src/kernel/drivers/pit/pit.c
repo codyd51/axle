@@ -21,16 +21,19 @@ static void tick_callback(registers_t regs) {
 }
 #pragma GCC diagnostic pop
 
-uint32_t tick_count() {
+uint32_t pit_clock() {
 	return tick;
 }
 
-void pit_install(uint32_t frequency) {
+uint32_t tick_count() {
+    NotImplemented();
+}
+
+void pit_timer_init(uint32_t frequency) {
 	printf_info("Initializing PIT timer...");
-	printf("\e[7;");
 
 	//firstly, register our timer callback
-	register_interrupt_handler(IRQ0, &tick_callback);
+	interrupt_setup_callback(INT_VECOR_IRQ0, &tick_callback);
 
 	//value we need to send to PIC is value to divide it's input clock
 	//(1193180 Hz) by, to get desired frequency
