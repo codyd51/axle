@@ -142,8 +142,8 @@ void idt_init(void) {
     idt_ptr.table_base = (uint32_t)&idt_entries;
     idt_ptr.table_size = sizeof(idt_entries) - 1;
 
-#define PIC_MASTER_OFFSET	0x28
-#define PIC_SLAVE_OFFSET	0x28
+#define PIC_MASTER_OFFSET	0x20 //int 32 mapped to IRQ 0
+#define PIC_SLAVE_OFFSET	0x28 //int 40+ mapped to IRQ8+
     pic_remap(PIC_MASTER_OFFSET, PIC_SLAVE_OFFSET);
 
     idt_map_all_gates(idt_entries);
