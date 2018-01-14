@@ -93,31 +93,32 @@ int isr_receive(register_state_t regs) {
 	return ret;
 }
 
-static void interrupt_register_defaults(void) {
-    interrupt_register_handler(0, &interrupt_handle_divide_by_zero);
-	interrupt_register_handler(5, &interrupt_handle_bound_range_exceeded);
-	interrupt_register_handler(6, &interrupt_handle_invalid_opcode);
-	interrupt_register_handler(7, &interrupt_handle_device_not_available);
-	interrupt_register_handler(8, &interrupt_handle_double_fault);
-	interrupt_register_handler(10, &interrupt_handle_invalid_tss);
-	interrupt_register_handler(11, &interrupt_handle_segment_not_present);
-	interrupt_register_handler(12, &interrupt_handle_stack_segment_fault);
-	interrupt_register_handler(13, &interrupt_handle_general_protection_fault);
-	interrupt_register_handler(16, &interrupt_handle_floating_point_exception);
-	interrupt_register_handler(19, &interrupt_handle_floating_point_exception);
-	interrupt_register_handler(17, &interrupt_handle_alignment_check);
-	interrupt_register_handler(18, &interrupt_handle_machine_check);
-	interrupt_register_handler(20, &interrupt_handle_virtualization_exception);
+static void interrupt_setup_error_callbacks(void) {
+    interrupt_setup_callback(0, &interrupt_handle_divide_by_zero);
+	interrupt_setup_callback(5, &interrupt_handle_bound_range_exceeded);
+	interrupt_setup_callback(6, &interrupt_handle_invalid_opcode);
+	interrupt_setup_callback(7, &interrupt_handle_device_not_available);
+	interrupt_setup_callback(8, &interrupt_handle_double_fault);
+	interrupt_setup_callback(10, &interrupt_handle_invalid_tss);
+	interrupt_setup_callback(11, &interrupt_handle_segment_not_present);
+	interrupt_setup_callback(12, &interrupt_handle_stack_segment_fault);
+	interrupt_setup_callback(13, &interrupt_handle_general_protection_fault);
+	interrupt_setup_callback(16, &interrupt_handle_floating_point_exception);
+	interrupt_setup_callback(19, &interrupt_handle_floating_point_exception);
+	interrupt_setup_callback(17, &interrupt_handle_alignment_check);
+	interrupt_setup_callback(18, &interrupt_handle_machine_check);
+	interrupt_setup_callback(20, &interrupt_handle_virtualization_exception);
 }
 
 void interrupt_init(void) {
     idt_init();
-    interrupt_register_defaults();
+    interrupt_setup_error_callbacks();
 }
 
-void interrupt_register_handler(uint8_t interrupt_num, int_callback_t callback) {
+void interrupt_setup_callback(uint8_t interrupt_num, int_callback_t callback) {
     if (interrupt_handlers[interrupt_num] != 0) {
         assert("Tried to overwrite handler for interrupt %d", interrupt_num);
     }
     interrupt_handlers[interrupt_num] = callback;
 }
+

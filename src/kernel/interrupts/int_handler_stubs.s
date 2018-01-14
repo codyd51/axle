@@ -3,7 +3,7 @@
 	isr%1:
 		cli
 		push byte 0				; push dummy error code, so the stack frame is the same as if coming from ISR_ERRCODE
-		push byte %1 			; push interrupt number 
+		push byte %1 			; push interrupt number
 		jmp isr_common_stub 	; go to common handler
 %endmacro
 
@@ -50,9 +50,9 @@ ISR_NOERRCODE 28
 ISR_NOERRCODE 29
 ISR_NOERRCODE 30
 ISR_NOERRCODE 31
-; ISR_NOERRCODE 128
+ISR_NOERRCODE 128
 
-; this macro creates a stub for an IRQ - the first parameter is 
+; this macro creates a stub for an IRQ - the first parameter is
 ; the IRQ number, the second is the ISR number it's remapped to
 %macro IRQ 2
 	[GLOBAL irq%1]
@@ -90,12 +90,12 @@ isr_common_stub:
 
 	; move current data segment into ax
 	; push to stack so we can restore it later
-	mov ax, ds 
+	mov ax, ds
 	push eax
 
 	; loads kernel data segment argument
 	; this constant is defined in <kernel/gdt/gdt_structures.h>
-	mov ax, 0x10 	
+	mov ax, 0x10
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
@@ -110,7 +110,7 @@ isr_common_stub:
 	mov fs, ax
 	mov es, ax
 	mov ds, ax
-	
+
 	popad 		; pop edi, esi, ebp, etc
 	add esp, 8 	; cleans up pushed error code and pushed ISR number
 	sti
@@ -150,4 +150,3 @@ irq_common_stub_ret:
 	add esp, 8	; cleans up pushed error code and pushed ISR number
 	;sti
 	iretd		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
-
