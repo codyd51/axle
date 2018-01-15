@@ -25,7 +25,6 @@ extern void handle_tick(uint32_t tick);
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static void tick_callback(registers_t regs) {
 	tick++;
-    printf("tick %d\n", tick);
 
 	//handle_tick(tick);
 }
