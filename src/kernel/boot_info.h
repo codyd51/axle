@@ -49,7 +49,7 @@ typedef struct boot_info {
     framebuffer_info_t framebuffer;
 } boot_info_t;
 
-boot_info_t* boot_info(void);
+boot_info_t* boot_info_get(void);
 void boot_info_read(struct multiboot_info* mboot_data);
 void boot_info_dump();
 
