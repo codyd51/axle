@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <kernel/address_space.h>
+#include <kernel/address_space_bitmap.h>
 
 typedef struct pmm_state {
     //if a frame's bit is set, it is general-purpose RAM which can be allocated to the virtual memory manager

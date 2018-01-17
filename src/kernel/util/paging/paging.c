@@ -5,6 +5,9 @@
 #include <std/printf.h>
 #include <gfx/lib/gfx.h>
 #include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/boot_info.h>
+
+static void page_fault(register_state_t regs);
 
 //bitset of frames - used or free
 uint32_t* frames;
@@ -40,111 +43,37 @@ page_directory_t* get_cr3() {
 }
 
 void set_cr3(page_directory_t* dir) {
-	//uint32_t addr = (uint32_t)&dir->tables[0];
-	//asm volatile("movl %%eax, %%cr3" :: "a" (addr));
-	/*
-	int cr0 = get_cr0();
-	cr0 &= ~0x80000000;
-	set_cr0(cr0);
-	*/
-	
 	asm volatile("mov %0, %%cr3" : : "r"(dir->physicalAddr));
-	//turn off paging first
-	//asm volatile("mov %0, %%cr3":: "r"(dir->physicalAddr));
-	//if paging is not already enabled
 	int cr0 = get_cr0();
-	//if (!(cr0 & 0x80000000)) {
-		cr0 |= 0x80000000; //enable paging
-		set_cr0(cr0);
-	//}
+	cr0 |= 0x80000000; //enable paging bit
+	set_cr0(cr0);
 }
 
 //static function to set a bit in frames bitset
 static void set_bit_frame(uint32_t frame_addr) {
-	if (frame_addr < nframes * 4 * 0x400) {
-		uint32_t frame = frame_addr/PAGE_SIZE;
-		uint32_t idx = INDEX_FROM_BIT(frame);
-		uint32_t off = OFFSET_FROM_BIT(frame);
-		frames[idx] |= (0x1 << off);
-	}
-	else {
-		printk_err("set_bit_frame() couldn't set frame %x", frame_addr);
-	}
+    NotImplemented();
 }
 
 //static function to clear a bit in the frames bitset
 static void clear_frame(uint32_t frame_addr) {
-	uint32_t frame = frame_addr/PAGE_SIZE;
-	uint32_t idx = INDEX_FROM_BIT(frame);
-	uint32_t off = OFFSET_FROM_BIT(frame);
-	frames[idx] &= ~(0x1 << off);
+    NotImplemented();
 }
-
-//static function to test if a bit is sset
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-function"
-static uint32_t test_frame(uint32_t frame_addr) {
-	uint32_t frame = frame_addr/PAGE_SIZE;
-	uint32_t idx = INDEX_FROM_BIT(frame);
-	uint32_t off = OFFSET_FROM_BIT(frame);
-	return (frames[idx] & (0x1 << off));
-}
-#pragma GCC diagnostic pop
 
 uint32_t* page_from_frame(int32_t frame) {
-	int addr = frame * PAGE_SIZE;
-	return (uint32_t*)(long)addr;
+    NotImplemented();
 }
 
 //static function to find the first free frame
 static int32_t first_frame() {
-	for (uint32_t i = 0; i < INDEX_FROM_BIT(nframes); i++) {
-		if (frames[i] != 0xFFFFFFFF) {
-			//at least one free bit
-			for (uint32_t j = 0; j < 32; j++) {
-				uint32_t bit = 0x1 << j;
-				if (!(frames[i] & bit)) {
-					//found unused bit i in addr
-					return i*4*8+j;
-				}
-			}
-		}
-	}
-	printf_info("first_frame(): no free frames!");
-	return -1;
+    NotImplemented();
 }
 
 void virtual_map_pages(long addr, unsigned long size, uint32_t rw, uint32_t user) {
-	unsigned long i = addr;
-	while (i < (addr + size + PAGE_SIZE)) {
-		if (i + size < memsize) {
-			//find first free frame
-			set_bit_frame(first_frame());
-
-			//set space to taken anyway
-			kmalloc(PAGE_SIZE);
-		}
-
-		page_t* page = get_page(i, 1, current_directory);
-		page->present = 1;
-		page->rw = rw;
-		page->user = user;
-		page->frame = i / PAGE_SIZE;
-		i += PAGE_SIZE;
-	}
-	return;
+    NotImplemented();
 }
 
 void vmem_map(uint32_t virt, uint32_t physical) {
-	uint16_t id = virt >> 22;
-	for (int i = 0; i < PAGE_SIZE; i++) {
-		page_t* page = get_page(virt+ (i * PAGE_SIZE), 1, current_directory);
-		page->present = 1;
-		page->rw = 1;
-		page->user = 1;
-		page->frame = (virt+ (i * PAGE_SIZE)) / PAGE_SIZE;
-	}
-	printf_info("Mapping %x (%x) -> %x", virt, id, physical);
+    NotImplemented();
 }
 
 page_directory_t* page_dir_kern() {
@@ -158,6 +87,7 @@ page_directory_t* page_dir_current() {
 //just set present bit!
 //don't actually allocate frame until page is accessed
 bool alloc_frame_lazy(page_t* page, int is_kernel, int is_writeable) {
+    /*
 	if (page->frame != 0) {
 		//frame was already allocated, return early
 		printk_err("alloc_frame_lazy fail, frame %x taken", page->frame * PAGE_SIZE);
@@ -168,16 +98,19 @@ bool alloc_frame_lazy(page_t* page, int is_kernel, int is_writeable) {
 	page->user = !is_kernel; //should page be user mode?
 	page->frame = 0;
 	return true;
+    */
+    NotImplemented();
 }
 
 //function to allocate a frame
 bool alloc_frame(page_t* page, int is_kernel, int is_writeable) {
+    /*
 	if (page->frame != 0) {
 		//frame was already allocated, return early
 		printk_err("alloc_frame() page already assigned frame %x", page->frame * PAGE_SIZE);
 		//return false;
 	}
-	
+
 	int32_t idx = first_frame(); //index of first free frame
 	if (idx == -1) {
 		PANIC("No free frames!");
@@ -190,10 +123,13 @@ bool alloc_frame(page_t* page, int is_kernel, int is_writeable) {
 	page->frame = idx;
 
 	return true;
+    */
+    NotImplemented();
 }
 
 //function to dealloc a frame
 void free_frame(page_t* page) {
+    /*
 	uint32_t frame;
 	if (!(frame = page->frame)) {
 		//page didn't actually have an allocated frame!
@@ -202,31 +138,13 @@ void free_frame(page_t* page) {
 	clear_frame(frame); //frame is now free again
 	page->frame = 0x0; //page now doesn't have a frame
 	page->present = 0;
+    */
+    NotImplemented();
 }
 
-#define VESA_WIDTH 1024
-#define VESA_HEIGHT 768
-#define VESA_BPP 3
-void identity_map_lfb(uint32_t location) { 
-	uint32_t j = location;
-	//TODO use screen object instead of these vals
-	while (j < location + (VESA_WIDTH * VESA_HEIGHT * VESA_BPP)) {
-		//if frame is valid
-		if (j + location + (VESA_WIDTH * VESA_HEIGHT * VESA_BPP) < memsize) {
-			set_bit_frame(j); //tell frame bitset this frame is in use
-		}
-		//get page
-		page_t* page = get_page(j, 1, kernel_directory);
-		//fill it
-		page->present = 1;
-		page->rw = 1;
-		page->user = 1;
-		page->frame = j / PAGE_SIZE;
-		j += PAGE_SIZE;
-	}
+void identity_map_lfb(uint32_t location) {
+    NotImplemented();
 }
-
-static void page_fault(registers_t regs);
 
 void set_paging_bit(bool enabled) {
 	kernel_begin_critical();
@@ -278,9 +196,14 @@ static void map_heap_pages(page_directory_t* dir) {
 void paging_install() {
 	printf_info("Initializing paging...");
 
+    boot_info_t* info = boot_info_get();
+
 	//size of physical memory
 	//system_mem() returns kilobytes, so multiply by 1024 to get bytes
-	uint32_t mem_end_page = system_mem() * 1024;
+	//uint32_t mem_end_page = system_mem() * 1024;
+    //testing
+    //assume 128mb
+    uint32_t mem_end_page = 0x8000000;
 	//uint32_t mem_end_page = memory_size;
 	memsize = mem_end_page;
 
@@ -316,7 +239,7 @@ void paging_install() {
 	map_heap_pages(kernel_directory);
 
 	//before we enable paging, register page fault handler
-	register_interrupt_handler(14, page_fault);
+	interrupt_setup_callback(INT_VECTOR_INT14, page_fault);
 
 	//enable paging
 	switch_page_directory(kernel_directory);
@@ -329,7 +252,7 @@ void paging_install() {
 	//expand(0x1000000, kheap);
 
 	current_directory = clone_directory(kernel_directory);
-	switch_page_directory(current_directory);	
+	switch_page_directory(current_directory);
 
 	page_regions_print(current_directory);
 }
@@ -368,7 +291,7 @@ void page_regions_print(page_directory_t* dir) {
 					//run ends on previous page
 					//uint32_t run_end = (tab->pages[j-1].frame * PAGE_SIZE);
 					run_end = (i * page_table_virt_range) + (j * PAGE_SIZE);
-					printf("[%x - %x]\n", run_start, run_end);
+					printf("[0x%08x - 0x%08x]\n", run_start, run_end);
 
 					in_run = false;
 				}
@@ -387,7 +310,7 @@ void *mmap(void *addr, uint32_t length, int UNUSED(flags), int UNUSED(fd), uint3
 	}
 	uint32_t page_aligned = length;
 	if (page_aligned % PAGE_SIZE) {
-		page_aligned = length + 
+		page_aligned = length +
 					   (PAGE_SIZE - (length % PAGE_SIZE));
 		printf("mmap page-aligning chunk size from %x to %x\n", length, page_aligned);
 	}
@@ -486,7 +409,7 @@ page_t* get_page(uint32_t address, int make, page_directory_t* dir) {
 	return 0;
 }
 
-void page_fault(registers_t regs) {
+static void page_fault(register_state_t regs) {
 	//page fault has occured
 	//faulting address is stored in CR2 register
 	uint32_t faulting_address;
@@ -511,7 +434,7 @@ void page_fault(registers_t regs) {
 	}
 
 	//if execution reaches here, recovery failed or recovery wasn't possible
-	printf_err("page fault @ virt %x, flags: ", faulting_address);
+	printf_err("page fault @ virt 0x%08x, flags: ", faulting_address);
 	printf_err("%spresent", present ? "" : "not ");
 	printf_err("%s operation", rw ? "write" : "read");
 	printf_err("%s mode", us ? "user" : "kernel");
@@ -521,9 +444,8 @@ void page_fault(registers_t regs) {
 
 	bool caused_by_execution = (regs.eip == faulting_address);
 	printf_err("caused by %s unpaged memory", caused_by_execution ? "executing" : "reading");
-
-	extern void common_halt(registers_t regs, bool recoverable);
-	common_halt(regs, false);
+    asm("sti");
+    while (1) {}
 }
 
 static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
@@ -623,4 +545,3 @@ void free_directory(page_directory_t* dir) {
 	//finally, free directory
 	kfree(dir);
 }
-

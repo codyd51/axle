@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <std/common.h>
 #include <kernel/interrupts/interrupts.h>
+#include <kernel/address_space_bitmap.h>
 
 typedef struct page {
 	uint32_t present	:  1; //page present in memory
@@ -18,6 +19,15 @@ typedef struct page {
 typedef struct page_table {
 	page_t pages[1024];
 } page_table_t;
+
+typedef struct vmm_memory_region {
+    uint32_t region_start_addr;
+    uint32_t region_size;
+} vmm_memory_region_t;
+
+typedef struct vmm_address_space {
+    vmm_memory_region_t* region_list;
+} vmm_address_space_t;
 
 typedef struct page_directory {
 	//array of pointers to pagetables

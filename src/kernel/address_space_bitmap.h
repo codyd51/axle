@@ -16,6 +16,7 @@ typedef struct address_space_frame_bitset {
     //available_frames[0] & (1 << 0) == reference to the first frame in the address space, 0x0000 to 0x1000
     uint32_t set[ADDRESS_SPACE_BITMAP_SIZE];
 } address_space_frame_bitmap_t;
+typedef address_space_frame_bitmap_t address_space_page_bitmap_t;
 
 
 void bitmap_set(address_space_frame_bitmap_t* bitmap, uint32_t index, uint32_t offset);
