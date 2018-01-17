@@ -18,6 +18,7 @@ pmm_state_t* pmm_get(void);
 void pmm_init(void);
 
 uint32_t pmm_alloc(void);
+void pmm_alloc_address(uint32_t address);
 void pmm_free(uint32_t frame_addr);
 
 void pmm_dump(void);

@@ -109,11 +109,20 @@ void pmm_init() {
     unset_memory_region(&pmm->system_accessible_frames, info->framebuffer.address, addr_space_frame_ceil(info->framebuffer.size));
 }
 
+void pmm_alloc_address(uint32_t address) {
+    pmm_state_t* pmm = pmm_get();
+    //has this frame already been alloc'd?
+    if (addr_space_bitmap_check_address(&pmm->allocation_state, address)) {
+        panic("frame was alloc'd twice");
+    }
+    addr_space_bitmap_set_address(&pmm->allocation_state, address);
+}
+
 uint32_t pmm_alloc(void) {
     pmm_state_t* pmm = pmm_get();
     uint32_t index = first_usable_pmm_index(pmm);
     uint32_t frame_address = index * PAGING_FRAME_SIZE;
-    addr_space_bitmap_set_address(&pmm->allocation_state, frame_address);
+    pmm_alloc_address(frame_address);
     return frame_address;
 }
 
