@@ -103,7 +103,7 @@ static uint32_t first_usable_pmm_index(pmm_state_t* pmm) {
     }
     panic("first_usable_pmm_index() found nothing!");
     return 0;
-} 
+}
 
 static void set_memory_region(address_space_frame_bitmap_t* bitmap, uint32_t region_start_addr, uint32_t region_len) {
     if (region_start_addr % PAGING_FRAME_SIZE) {
@@ -176,24 +176,6 @@ void pmm_dump(void) {
     bitmap_dump_set_ranges(&pmm->allocation_state);
 }
 
-static uint32_t frame_floor(uint32_t addr) {
-    uint32_t orig=addr;
-    if (addr & ~PAGING_FRAME_MASK) {
-        addr &= PAGING_FRAME_MASK;
-        return addr - PAGING_FRAME_SIZE;
-    }
-    return addr;
-
-}
-
-static uint32_t frame_ceil(uint32_t addr) {
-    if (addr & ~PAGING_FRAME_MASK) {
-        addr &= PAGING_FRAME_MASK;
-        return addr + PAGING_FRAME_SIZE;
-    }
-    return addr;
-}
-
 void pmm_init() {
     pmm_state_t* pmm = pmm_get();
     memset(pmm, 0, sizeof(pmm_state_t));
@@ -207,15 +189,15 @@ void pmm_init() {
         }
         //mask to frame size
         //this cuts off a bit of usable memory but we'll only lose a few frames at most
-        uint32_t addr = frame_ceil(region.addr);
-        uint32_t len = frame_floor(region.len);
+        uint32_t addr = addr_space_frame_ceil(region.addr);
+        uint32_t len = addr_space_frame_floor(region.len);
         set_memory_region(&pmm->system_accessible_frames, addr, len);
     }
 
     //map out kernel image region
-    unset_memory_region(&pmm->system_accessible_frames, info->kernel_image_start, frame_ceil(info->kernel_image_size));
+    unset_memory_region(&pmm->system_accessible_frames, info->kernel_image_start, addr_space_frame_ceil(info->kernel_image_size));
     //map out framebuffer
-    unset_memory_region(&pmm->system_accessible_frames, info->framebuffer.address, frame_ceil(info->framebuffer.size));
+    unset_memory_region(&pmm->system_accessible_frames, info->framebuffer.address, addr_space_frame_ceil(info->framebuffer.size));
 }
 
 static uint32_t index_of_first_set_bit_in_bitmap(address_space_frame_bitmap_t* bitmap) {
