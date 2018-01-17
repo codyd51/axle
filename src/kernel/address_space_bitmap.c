@@ -71,3 +71,30 @@ bool addr_space_bitmap_check_address(address_space_frame_bitmap_t* bitmap, uint3
     uint32_t offset = addr_to_bitmap_entry_offset(address);
     return bitmap_check(bitmap, index, offset);
 }
+
+void addr_space_bitmap_dump_set_ranges(address_space_frame_bitmap_t* bitmap) {
+    uint32_t range_start = 0;
+    uint32_t range_end = 0;
+    bool in_range = false;
+    for (int i = 0; i < ADDRESS_SPACE_BITMAP_SIZE; i++) {
+        uint32_t entry = bitmap->set[i];
+        for (int j = 0; j < BITS_PER_BITMAP_ENTRY; j++) {
+            if (!in_range) {
+                //if we encounter an on bit, a on region begins here
+                if (entry & (1 << j)) {
+                    range_start = BITMAP_INDEX(i, j) * PAGING_FRAME_SIZE;
+                    in_range = true;
+                    continue;
+                }
+            }
+            else {
+                //if we're in an on region and we encounter an off bit, an on region stops here
+                if (!(entry & (1 << j))) {
+                    range_end = BITMAP_INDEX(i, j) * PAGING_FRAME_SIZE;
+                    in_range = false;
+                    printf("\t\t0x%08x - 0x%08x\n", range_start, range_end);
+                }
+            }
+        }
+    }
+}

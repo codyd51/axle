@@ -30,5 +30,6 @@ void addr_space_bitmap_set_address(address_space_frame_bitmap_t* bitmap, uint32_
 void addr_space_bitmap_unset_address(address_space_frame_bitmap_t* bitmap, uint32_t address);
 bool addr_space_bitmap_check_address(address_space_frame_bitmap_t* bitmap, uint32_t address);
 
+void addr_space_bitmap_dump_set_ranges(address_space_frame_bitmap_t* bitmap);
 
 #endif
