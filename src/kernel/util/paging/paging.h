@@ -84,5 +84,9 @@ page_directory_t* page_dir_current();
 //of in-use pages in a page directory
 void page_regions_print(page_directory_t* dir);
 
+page_t* vmm_get_page_for_virtual_address(page_directory_t* dir, uint32_t virt_addr);
+page_t* vmm_page_alloc_for_phys_addr(page_directory_t* dir, uint32_t phys_addr);
+page_t* vmm_page_alloc_for_virt_addr(page_directory_t* dir, uint32_t virt_addr);
+
 
 #endif

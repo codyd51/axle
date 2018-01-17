@@ -6,6 +6,7 @@
 #include <gfx/lib/gfx.h>
 #include <kernel/util/multitasking/tasks/task.h>
 #include <kernel/boot_info.h>
+#include <kernel/address_space.h>
 
 static void page_fault(register_state_t regs);
 
@@ -165,13 +166,40 @@ void force_frame(page_t *page, int is_kernel, int is_writeable, unsigned int add
 	set_bit_frame(addr);
 }
 
+#define PAGES_IN_PAGE_TABLE 1024
+#define PAGE_TABLES_IN_PAGE_DIR 1024
+
+static uint32_t vmm_page_table_idx_for_virt_addr(uint32_t addr) {
+    uint32_t page_idx = addr / PAGING_PAGE_SIZE;
+    uint32_t table_idx = page_idx / PAGE_TABLES_IN_PAGE_DIR;
+    return table_idx;
+}
+
+static uint32_t vmm_page_idx_within_table_for_virt_addr(uint32_t addr) {
+    uint32_t page_idx = addr / PAGING_PAGE_SIZE;
+    return page_idx % PAGES_IN_PAGE_TABLE;
+}
+
+static void vmm_page_table_alloc_for_virt_addr(page_directory_t* dir, uint32_t addr) {
+    uint32_t table_idx = vmm_page_table_idx_for_virt_addr(addr);
+    //does this page table already exist?
+    if (!dir->tables[table_idx]) {
+        //create the page table
+		uint32_t tmp;
+		dir->tables[table_idx] = (page_table_t*)kmalloc_ap(sizeof(page_table_t), &tmp);
+		memset(dir->tables[table_idx], 0, sizeof(page_table_t));
+		//PRESENT, RW, US
+		dir->tablesPhysical[table_idx] = tmp | 0x7;
+    }
+}
+
 static void create_heap_page_tables(page_directory_t* dir) {
 	//here, we call get_page but not alloc_frame
 	//this causes page_table_t's to be alloc'd if not already existing
 	//we call this function before identity map so all page tables needed to alloc
 	//heap pages will be mapped into the address space.
 	for (uint32_t i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += PAGE_SIZE) {
-		get_page(i, 1, dir);
+        vmm_page_table_alloc_for_virt_addr(dir, i);
 	}
 }
 
@@ -184,12 +212,7 @@ static void map_heap_pages(page_directory_t* dir) {
 	float heap_mb = heap_kb / 1024.0;
 	printf_info("reserving %x MB for kernel heap", heap_mb);
 	for (uint32_t i = KHEAP_START; i < heap_end; i += PAGE_SIZE) {
-		page_t* page = get_page(i, 1, dir);
-		alloc_frame(page, 1, 0);
-		unsigned char* ptr = (unsigned char*)dir->tables;
-		if (*ptr == 0xff) {
-			printf("broken! %x %x %x\n", KHEAP_START, KHEAP_INITIAL_SIZE, heap_end);
-		}
+        vmm_page_alloc_for_virt_addr(dir, i);
 	}
 }
 
@@ -198,25 +221,12 @@ void paging_install() {
 
     boot_info_t* info = boot_info_get();
 
-	//size of physical memory
-	//system_mem() returns kilobytes, so multiply by 1024 to get bytes
-	//uint32_t mem_end_page = system_mem() * 1024;
-    //testing
-    //assume 128mb
-    uint32_t mem_end_page = 0x8000000;
-	//uint32_t mem_end_page = memory_size;
-	memsize = mem_end_page;
-
-	nframes = mem_end_page / PAGE_SIZE;
-	frames = (uint32_t*)kmalloc(INDEX_FROM_BIT(nframes) * sizeof(uint32_t));
-	memset(frames, 0, INDEX_FROM_BIT(nframes));
-
-	//make page directory
-	// uint32_t phys;
 	kernel_directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
 	memset(kernel_directory, 0, sizeof(page_directory_t));
+    //we know tablesPhysical is the physical address because paging isn't enabled yet
 	kernel_directory->physicalAddr = (uint32_t)kernel_directory->tablesPhysical;
 
+    /*
 	//reference kernel heap page tables,
 	//forcing them to be alloc'd before we identity map all alloc'd memory
 	create_heap_page_tables(kernel_directory);
@@ -230,11 +240,29 @@ void paging_install() {
 	unsigned idx = 0;
 	while (idx < (placement_address + PAGE_SIZE)) {
 		//kernel code is readable but not writeable from userspace
-		alloc_frame(get_page(idx, 1, kernel_directory), 1, 0);
+		//alloc_frame(get_page(idx, 1, kernel_directory), 1, 0);
+        vmm_alloc_page(kernel_directory, idx);
 		idx += PAGE_SIZE;
 	}
 	printf_info("Kernel VirtMem identity mapped up to %x", placement_address);
+    */
+    //map from 0x0 to top of kernel stack
+    uint32_t identity_map_min = 0x0;
+    uint32_t identity_map_max = info->kernel_image_end;
 
+    if (identity_map_min & ~PAGING_FRAME_MASK) {
+        panic("identity_map_max not page aligned!");
+    }
+    if (identity_map_max & ~PAGING_FRAME_MASK) {
+        panic("identity_map_max not page aligned!");
+    }
+
+    printf_dbg("Identity mapping from 0x%08x to 0x%08x", identity_map_min, identity_map_max);
+    for (int i = identity_map_min; i < identity_map_max; i += PAGING_PAGE_SIZE) {
+        vmm_page_alloc_for_phys_addr(kernel_directory, i);
+    }
+
+    printf_dbg("Mapping kernel heap");
 	//allocate initial heap pages
 	map_heap_pages(kernel_directory);
 
@@ -246,6 +274,7 @@ void paging_install() {
 	//turn on paging
 	set_paging_bit(true);
 
+    /*
 	//initialize kernel heap
 	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, KHEAP_MAX_ADDRESS, 0, 0);
 	//move_stack((void*)0xE0000000, 0x2000);
@@ -255,6 +284,7 @@ void paging_install() {
 	switch_page_directory(current_directory);
 
 	page_regions_print(current_directory);
+    */
 }
 
 void page_regions_print(page_directory_t* dir) {
@@ -385,28 +415,53 @@ uint32_t vmem_from_frame(uint32_t phys) {
 	return phys;
 }
 
+page_t* vmm_get_page_for_virtual_address(page_directory_t* dir, uint32_t virt_addr) {
+    if (virt_addr & ~PAGING_FRAME_MASK) {
+        panic("vmm_page_for_virtual_address() frame address not page-aligned");
+    }
+    uint32_t page_in_table_idx = vmm_page_idx_within_table_for_virt_addr(virt_addr);
+    uint32_t table_idx = vmm_page_table_idx_for_virt_addr(virt_addr);
+
+    //does this page table already exist?
+    if (!dir->tables[table_idx]) {
+        vmm_page_table_alloc_for_virt_addr(dir, virt_addr);
+    }
+    page_t* page = &dir->tables[table_idx]->pages[page_in_table_idx];
+    return page;
+}
+
+page_t* vmm_page_alloc_for_phys_addr(page_directory_t* dir, uint32_t phys_addr) {
+    page_t* page = vmm_get_page_for_virtual_address(dir, phys_addr);
+
+	page->present = 1; //mark as present
+    page->rw = true;
+    page->user = false;
+
+    pmm_alloc_address(phys_addr);
+	page->frame = phys_addr / PAGING_FRAME_SIZE;
+
+    return page;
+}
+
+page_t* vmm_page_alloc_for_virt_addr(page_directory_t* dir, uint32_t virt_addr) {
+    page_t* page = vmm_get_page_for_virtual_address(dir, virt_addr);
+
+	page->present = 1; //mark as present
+	//page->rw = is_writeable; //should page be writable?
+	//page->user = !is_kernel; //should page be user mode?
+    page->rw = true;
+    page->user = false;
+
+    uint32_t frame_addr = pmm_alloc();
+    uint32_t frame_index = frame_addr / PAGING_FRAME_SIZE;
+	page->frame = frame_index;
+
+    return page;
+}
+
 page_t* get_page(uint32_t address, int make, page_directory_t* dir) {
-	//turn address into an index
-	address /= PAGE_SIZE;
-	//find page table containing this address
-	uint32_t table_idx = address / 1024;
-
-	ASSERT(table_idx < 1024, "get_page called with unreasonable address %x\n", address);
-
-	//if this page is already assigned
-	if (dir->tables[table_idx]) {
-		return &dir->tables[table_idx]->pages[address%1024];
-	}
-	else if (make) {
-		uint32_t tmp;
-		dir->tables[table_idx] = (page_table_t*)kmalloc_ap(sizeof(page_table_t), &tmp);
-		memset(dir->tables[table_idx], 0, sizeof(page_table_t));
-		//printf("page_table_t alloc %d %x\n", table_idx, dir->tables[table_idx]);
-		//PRESENT, RW, US
-		dir->tablesPhysical[table_idx] = tmp | 0x7;
-		return &dir->tables[table_idx]->pages[address%1024];
-	}
-	return 0;
+    NotImplemented();
+    return NULL;
 }
 
 static void page_fault(register_state_t regs) {
