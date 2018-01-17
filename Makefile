@@ -24,6 +24,9 @@ ISO_MAKER = $(TOOLCHAIN)/bin/grub-mkrescue
 EMULATOR = qemu-system-i386
 FSGENERATOR = fsgen
 
+GDB = $(TOOLCHAIN)/bin/i686-elf-gdb
+GDB_FLAGS = -x script.gdb
+
 # Functions
 findfiles = $(foreach ext, c s, $(wildcard $(1)/*.$(ext)))
 getobjs = $(foreach ext, c s, $(filter %.o,$(patsubst %.$(ext),%.o,$(1))))
@@ -84,6 +87,9 @@ $(ISO_NAME): $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg
 
 run: $(ISO_NAME)
 	$(EMULATOR) $(EMFLAGS) -cdrom $^
+
+dbg:
+	$(GDB) $(GDB_FLAGS)
 
 clean:
 	@rm -rf $(OBJECTS) $(ISO_DIR) $(ISO_NAME) $(FSGENERATOR)
