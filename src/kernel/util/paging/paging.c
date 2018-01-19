@@ -212,6 +212,22 @@ static void map_heap_pages(page_directory_t* dir) {
 	}
 }
 
+static void vmm_remap_kernel(page_directory_t* dir, uint32_t dest_virt_addr) {
+    boot_info_t* info = boot_info_get();
+    uint32_t kernel_base = info->kernel_image_start;
+    uint32_t kernel_size = info->kernel_image_size;
+
+    for (int i = 0; i < kernel_size; i += PAGING_PAGE_SIZE) {
+        //figure out the address of the physical frame
+        uint32_t frame_addr = i + kernel_base;
+
+        //map this kernel frame to a virtual page
+        uint32_t dest_page_addr = dest_virt_addr + i;
+        page_t* dest_page = vmm_get_page_for_virtual_address(dir, dest_page_addr);
+        vmm_map_page_to_frame(dest_page, frame_addr);
+    }
+}
+
 void paging_install() {
 	printf_info("Initializing paging...");
 
