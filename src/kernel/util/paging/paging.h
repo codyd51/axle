@@ -88,5 +88,7 @@ page_t* vmm_get_page_for_virtual_address(page_directory_t* dir, uint32_t virt_ad
 page_t* vmm_page_alloc_for_phys_addr(page_directory_t* dir, uint32_t phys_addr);
 page_t* vmm_page_alloc_for_virt_addr(page_directory_t* dir, uint32_t virt_addr);
 
+void vmm_map_page_to_frame(page_t* page, uint32_t frame_addr);
+
 
 #endif
