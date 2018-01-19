@@ -459,6 +459,17 @@ page_t* vmm_page_alloc_for_phys_addr(page_directory_t* dir, uint32_t phys_addr) 
     return page;
 }
 
+page_t* vmm_duplicate_frame_mapping(page_directory_t* dir, page_t* source, uint32_t dest_virt_addr) {
+    page_t* dest = vmm_get_page_for_virtual_address(dir, dest_virt_addr);
+
+	dest->present = source->present;
+    dest->rw = source->rw;
+    dest->user = source->user;
+	dest->frame = source->frame;
+
+    return dest;
+}
+
 page_t* vmm_page_alloc_for_virt_addr(page_directory_t* dir, uint32_t virt_addr) {
     page_t* page = vmm_get_page_for_virtual_address(dir, virt_addr);
 
@@ -469,8 +480,7 @@ page_t* vmm_page_alloc_for_virt_addr(page_directory_t* dir, uint32_t virt_addr) 
     page->user = false;
 
     uint32_t frame_addr = pmm_alloc();
-    uint32_t frame_index = frame_addr / PAGING_FRAME_SIZE;
-	page->frame = frame_index;
+    vmm_map_page_to_frame(page, frame_addr);
 
     return page;
 }
