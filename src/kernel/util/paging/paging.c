@@ -159,11 +159,7 @@ void set_paging_bit(bool enabled) {
 }
 
 void force_frame(page_t *page, int is_kernel, int is_writeable, unsigned int addr) {
-	page->present = 1;
-	page->rw = is_writeable;
-	page->user = !is_kernel;
-	page->frame = addr / PAGE_SIZE;
-	set_bit_frame(addr);
+    NotImplemented();
 }
 
 #define PAGES_IN_PAGE_TABLE 1024
