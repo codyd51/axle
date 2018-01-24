@@ -54,6 +54,7 @@ void vmm_init(void) {
 
     //since the current page_directory structure isn't page-aligned, it's easier to statically allocate it than pmm-alloc it.
     static page_directory_t kernel_directory __attribute__((aligned(PAGING_FRAME_SIZE))) = {0};
+    info->vmm_kernel = &kernel_directory;
     //we know tablesPhysical is the physical address because paging isn't enabled yet
 	kernel_directory.physicalAddr = (uint32_t)&kernel_directory.tablesPhysical;
 
