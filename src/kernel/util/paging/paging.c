@@ -198,6 +198,21 @@ static void create_heap_page_tables(page_directory_t* dir) {
         vmm_page_table_alloc_for_virt_addr(dir, i);
 	}
 }
+        //this relies on a page table being a frame size, so verify this assumption
+        assert(PAGING_FRAME_SIZE == sizeof(page_table_t), "page_table_t was a different size from a frame");
+        //TODO (PT) add a check here for whether paging is active here
+        //if it is, maybe it should be a virtual memory allocator?
+        //high when i wrote this so feel free to discard if incorrect/wrong assumption`
+        //1/23 high again, the above seems to be correct.
+        //maybe a _vmm_internal_alloc() that either does pmm or vmm allocation,
+        //based on whether paging is enabled.
+        uint32_t identity_mapped_table_addr = pmm_alloc();
+        page_table_t* identity_mapped_table = (page_table_t*)identity_mapped_table_addr;
+
+		dir->tables[table_idx] = identity_mapped_table;
+		//PRESENT, RW, US
+        uint32_t table_page_flags = 0x7;
+		dir->tablesPhysical[table_idx] = (identity_mapped_table_addr) | table_page_flags;
 
 static void map_heap_pages(page_directory_t* dir) {
 	//all of the page tables necessary have already been alloc'd and identity mapped thanks
