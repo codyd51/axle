@@ -181,23 +181,7 @@ static void vmm_page_table_alloc_for_virt_addr(page_directory_t* dir, uint32_t a
     //does this page table already exist?
     if (!dir->tables[table_idx]) {
         //create the page table
-		uint32_t tmp;
-		dir->tables[table_idx] = (page_table_t*)kmalloc_ap(sizeof(page_table_t), &tmp);
-		memset(dir->tables[table_idx], 0, sizeof(page_table_t));
-		//PRESENT, RW, US
-		dir->tablesPhysical[table_idx] = tmp | 0x7;
-    }
-}
 
-static void create_heap_page_tables(page_directory_t* dir) {
-	//here, we call get_page but not alloc_frame
-	//this causes page_table_t's to be alloc'd if not already existing
-	//we call this function before identity map so all page tables needed to alloc
-	//heap pages will be mapped into the address space.
-	for (uint32_t i = KHEAP_START; i < KHEAP_START + KHEAP_INITIAL_SIZE; i += PAGE_SIZE) {
-        vmm_page_table_alloc_for_virt_addr(dir, i);
-	}
-}
         //this relies on a page table being a frame size, so verify this assumption
         assert(PAGING_FRAME_SIZE == sizeof(page_table_t), "page_table_t was a different size from a frame");
         //TODO (PT) add a check here for whether paging is active here
@@ -214,17 +198,8 @@ static void create_heap_page_tables(page_directory_t* dir) {
         uint32_t table_page_flags = 0x7;
 		dir->tablesPhysical[table_idx] = (identity_mapped_table_addr) | table_page_flags;
 
-static void map_heap_pages(page_directory_t* dir) {
-	//all of the page tables necessary have already been alloc'd and identity mapped thanks
-	//to the loop just before the identity map
-	uint32_t heap_end = KHEAP_START + KHEAP_INITIAL_SIZE;
-	//figure out how much memory is being reserved for heap
-	uint32_t heap_kb = (heap_end - KHEAP_START) / 1024;
-	float heap_mb = heap_kb / 1024.0;
-	printf_info("reserving %x MB for kernel heap", heap_mb);
-	for (uint32_t i = KHEAP_START; i < heap_end; i += PAGE_SIZE) {
-        vmm_page_alloc_for_virt_addr(dir, i);
-	}
+		memset(dir->tables[table_idx], 0, sizeof(page_table_t));
+    }
 }
 
 static void vmm_remap_kernel(page_directory_t* dir, uint32_t dest_virt_addr) {
@@ -264,70 +239,39 @@ void paging_install() {
 
     boot_info_t* info = boot_info_get();
 
-	kernel_directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
-	memset(kernel_directory, 0, sizeof(page_directory_t));
+    static page_directory_t kernel_directory __attribute__((aligned(PAGING_FRAME_SIZE))) = {0};
+    //page_directory_t* kernel_directory =
+	//kernel_directory = (page_directory_t*)kmalloc_a(sizeof(page_directory_t));
+	//memset(kernel_directory, 0, sizeof(page_directory_t));
     //we know tablesPhysical is the physical address because paging isn't enabled yet
-	kernel_directory->physicalAddr = (uint32_t)kernel_directory->tablesPhysical;
+	kernel_directory.physicalAddr = (uint32_t)&kernel_directory.tablesPhysical;
 
-    /*
-	//reference kernel heap page tables,
-	//forcing them to be alloc'd before we identity map all alloc'd memory
-	create_heap_page_tables(kernel_directory);
+    //map kernel image, including .bss stack
+    //vmm_identity_map_region(&kernel_directory, info->kernel_image_start, info->kernel_image_size);
+    //map text-mode vga buffer
+    //vmm_identity_map_region(&kernel_directory, 0xb8000, 0x4000);
+    //identity-map everything up to the kernel image end, plus a little extra space
+    //the extra space is to allow the PMM to allocate a few frames before paging is enabled
+    //we reserve 1mb
+    //NOTE: this variable is defined both here and in pmm.c
+    //if you update it here, you must update it there are well, and vice versa
+    //TODO(PT): make this more rigorous
+    uint32_t extra_identity_map_region_size = 0x100000;
+    vmm_identity_map_region(&kernel_directory, 0x0, info->kernel_image_end + extra_identity_map_region_size);
 
-	//we need to identity map (phys addr = virtual addr) from
-	//0x0 to end of used memory, so we can access this
-	//transparently, as if paging wasn't enabled
-	//note, inside this loop body we actually change placement_address
-	//by calling kmalloc(). A while loop causes this to be computed
-	//on-the-fly instead of once at the start
-	unsigned idx = 0;
-	while (idx < (placement_address + PAGE_SIZE)) {
-		//kernel code is readable but not writeable from userspace
-		//alloc_frame(get_page(idx, 1, kernel_directory), 1, 0);
-        vmm_alloc_page(kernel_directory, idx);
-		idx += PAGE_SIZE;
-	}
-	printf_info("Kernel VirtMem identity mapped up to %x", placement_address);
-    */
-    //map from 0x0 to top of kernel stack
-    uint32_t identity_map_min = 0x0;
-    uint32_t identity_map_max = info->kernel_image_end;
+    printf("VMM state:");
+    page_regions_print(&kernel_directory);
 
-    if (identity_map_min & ~PAGING_FRAME_MASK) {
-        panic("identity_map_max not page aligned!");
-    }
-    if (identity_map_max & ~PAGING_FRAME_MASK) {
-        panic("identity_map_max not page aligned!");
-    }
-
-    printf_dbg("Identity mapping from 0x%08x to 0x%08x", identity_map_min, identity_map_max);
-    for (int i = identity_map_min; i < identity_map_max; i += PAGING_PAGE_SIZE) {
-        vmm_page_alloc_for_phys_addr(kernel_directory, i);
-    }
-
-    printf_dbg("Mapping kernel heap");
-	//allocate initial heap pages
-	map_heap_pages(kernel_directory);
+	//map_heap_pages(kernel_directory);
+    //vmm_identity_map_pmm_state(&kernel_directory, pmm_get());
 
 	//before we enable paging, register page fault handler
 	interrupt_setup_callback(INT_VECTOR_INT14, page_fault);
 
 	//enable paging
-	switch_page_directory(kernel_directory);
-	//turn on paging
-	set_paging_bit(true);
+	switch_page_directory(&kernel_directory);
 
-    /*
-	//initialize kernel heap
-	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INITIAL_SIZE, KHEAP_MAX_ADDRESS, 0, 0);
-	//move_stack((void*)0xE0000000, 0x2000);
-	//expand(0x1000000, kheap);
-
-	current_directory = clone_directory(kernel_directory);
-	switch_page_directory(current_directory);
-
-	page_regions_print(current_directory);
-    */
+    //vmm_remap_kernel(&kernel_directory, 0xC0000000);
 }
 
 void page_regions_print(page_directory_t* dir) {
@@ -421,7 +365,6 @@ void* sbrk(int increment) {
 		return brk;
 	}
 
-	//printf("sbrk %x + %x\n", current->prog_break, increment);
 	current->prog_break += increment;
 
 	/*
