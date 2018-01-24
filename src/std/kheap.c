@@ -6,6 +6,7 @@
 #include <kernel/util/mutex/mutex.h>
 #include <kernel/interrupts/interrupts.h>
 #include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/assert.h>
 
 #define PAGE_SIZE 0x1000 /* 4kb page */
 
@@ -23,6 +24,7 @@ static uint32_t used_bytes;
 //increments placement_address if there is no heap
 //otherwise, pass through to heap with given options
 void* kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
+    Deprecated();
 	//if the heap already exists, pass through
 	if (kheap) {
 		void* addr = alloc(sz, (uint8_t)align, kheap);
@@ -119,7 +121,7 @@ static alloc_block_t* first_block(heap_t* heap) {
 	return (alloc_block_t*)heap->start_address;
 }
 
-//find the smallest block at least size bytes big, and, 
+//find the smallest block at least size bytes big, and,
 //if page aligning is requested, is large enough to be page aligned
 //(if so, page-aligns block and returns aligned block)
 static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap) {
@@ -136,7 +138,7 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 			if (candidate->size >= size) {
 				//found valid header!
 				//printk_info("find_smallest_hole() found likely candidate %x", (uint32_t)candidate);
-				
+
 				//attempt to align if user requested
 				//make sure addr isn't already page aligned before aligning
 				uint32_t addr = (uint32_t)candidate + sizeof(alloc_block_t);
@@ -154,7 +156,7 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 						//create new block at page aligned addr
 						uint32_t new_size = candidate->size - distance - sizeof(alloc_block_t);
 						alloc_block_t* aligned = create_block((uint32_t)aligned_addr, new_size);
-						
+
 						insert_block(candidate, aligned);
 
 						//make sure we shrink original candidate since some of it is now in new aligned block
@@ -174,7 +176,7 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 	} while ((candidate = candidate->next) != NULL && ((uint32_t)candidate < heap->end_address));
 
 	//unlock(mutex);
-	
+
 	//didn't find any matches
 	printk_err("find_smallest_hole(): found no holes large enough (size: %x align: %d)", size, align);
 	return NULL;
@@ -337,7 +339,7 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		uint32_t split_size = candidate->size - size - sizeof(alloc_block_t);
 
 		create_block(split_block, split_size);
-		
+
 		//insert new block into linked list
 		insert_block(candidate, (alloc_block_t*)split_block);
 
@@ -400,7 +402,7 @@ bool merge_blocks(alloc_block_t* left, alloc_block_t* right) {
 }
 
 //unreserve heap block which points to p
-//also, attempts to re-merge free blocks in heap 
+//also, attempts to re-merge free blocks in heap
 void free(void* p, heap_t* UNUSED(heap)) {
 	if (p == 0) {
 		return;
@@ -496,7 +498,7 @@ void memdebug() {
 		//print filename
 		printk("%s:", kmalloc_users[i]);
 
-		//print out some spaces 
+		//print out some spaces
 		//# of spaces is the difference between this filename's length and the
 		//longest filename's length
 		//this is so the output is aligned in syslog
@@ -513,4 +515,3 @@ void memdebug() {
 uint32_t used_mem() {
 	return used_bytes;
 }
-
