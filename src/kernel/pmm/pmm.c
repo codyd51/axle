@@ -7,6 +7,8 @@
 
 #include "pmm.h"
 
+void pmm_reserve_mem_region(pmm_state_t* pmm, uint32_t start, uint32_t size);
+
 static uint32_t first_usable_pmm_index(pmm_state_t* pmm) {
     for (int i = 0; i < ADDRESS_SPACE_BITMAP_SIZE; i++) {
         uint32_t system_frames_entry = pmm->system_accessible_frames.set[i];
@@ -34,7 +36,7 @@ static uint32_t first_usable_pmm_index(pmm_state_t* pmm) {
                 continue;
             }
             //we found a bit which was on in both arrays!
-            return BITMAP_INDEX(i, j);
+            return BITMAP_BIT_INDEX(i, j);
         }
     }
     panic("first_usable_pmm_index() found nothing!");
@@ -100,7 +102,7 @@ void pmm_init() {
         //this cuts off a bit of usable memory but we'll only lose a few frames at most
         uint32_t addr = addr_space_frame_ceil(region.addr);
         uint32_t len = addr_space_frame_floor(region.len);
-        set_memory_region(&pmm->system_accessible_frames, addr, len);
+        set_memory_region(&(pmm->system_accessible_frames), addr, len);
     }
 
     //for identity mapping purposes
@@ -116,13 +118,20 @@ void pmm_init() {
     pmm_reserve_mem_region(pmm, info->framebuffer.address, info->framebuffer.size);
 }
 
+//marks a block of physical memory as unallocatable
+//the size does not need to be frame-aligned, it will be aligned to the next largest frame
+void pmm_reserve_mem_region(pmm_state_t* pmm, uint32_t start, uint32_t size) {
+    uint32_t aligned_start = addr_space_frame_floor(start);
+    uint32_t aligned_size = addr_space_frame_ceil(size);
+    unset_memory_region(&(pmm->system_accessible_frames), aligned_start, aligned_size);
 }
 
 void pmm_alloc_address(uint32_t address) {
     pmm_state_t* pmm = pmm_get();
     //has this frame already been alloc'd?
     if (addr_space_bitmap_check_address(&pmm->allocation_state, address)) {
-        panic("frame was alloc'd twice");
+        printf("frame 0x%08x was alloc'd twice\n", address);
+        panic("PMM double alloc");
     }
     addr_space_bitmap_set_address(&pmm->allocation_state, address);
 }
@@ -134,6 +143,7 @@ uint32_t pmm_alloc(void) {
     pmm_alloc_address(frame_address);
     return frame_address;
 }
+
 
 void pmm_free(uint32_t frame_address) {
     pmm_state_t* pmm = pmm_get();
