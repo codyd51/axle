@@ -28,7 +28,7 @@ static uint32_t bitmap_index_of_first_bit_with_value(address_space_frame_bitmap_
             bool bit = bitmap_entry & (1 << j);
             if (bit == desired_value) {
                 //found bit we're looking for
-                return BITMAP_INDEX(i, j);
+                return BITMAP_BIT_INDEX(i, j);
             }
         }
     }
@@ -82,7 +82,7 @@ void addr_space_bitmap_dump_set_ranges(address_space_frame_bitmap_t* bitmap) {
             if (!in_range) {
                 //if we encounter an on bit, a on region begins here
                 if (entry & (1 << j)) {
-                    range_start = BITMAP_INDEX(i, j) * PAGING_FRAME_SIZE;
+                    range_start = BITMAP_BIT_INDEX(i, j) * PAGING_FRAME_SIZE;
                     in_range = true;
                     continue;
                 }
@@ -90,7 +90,7 @@ void addr_space_bitmap_dump_set_ranges(address_space_frame_bitmap_t* bitmap) {
             else {
                 //if we're in an on region and we encounter an off bit, an on region stops here
                 if (!(entry & (1 << j))) {
-                    range_end = BITMAP_INDEX(i, j) * PAGING_FRAME_SIZE;
+                    range_end = BITMAP_BIT_INDEX(i, j) * PAGING_FRAME_SIZE;
                     in_range = false;
                     printf("\t\t0x%08x - 0x%08x\n", range_start, range_end);
                 }
