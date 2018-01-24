@@ -1,6 +1,7 @@
 #include "initrd.h"
 #include <std/std.h>
 #include <kernel/util/paging/paging.h>
+#include <kernel/pmm/pmm.h>
 
 initrd_header_t* initrd_header;		//header
 initrd_file_header_t* file_headers;	//list of file headers
@@ -136,7 +137,7 @@ void initrd_remap(char* initrd_loc, char* initrd_end, char* initrd_vmem) {
 		invlpg(i);
 		memcpy(i, src, PAGE_SIZE);
 	}
-	
+
 	float mb = initrd_size / 1024.0 / 1024.0;
 	uint32_t page_count = initrd_size / PAGE_SIZE;
 	printf_info("Ramdisk is %f MB (%d pages)", mb, page_count);
@@ -148,4 +149,3 @@ void initrd_install(uint32_t initrd_loc, uint32_t initrd_end, uint32_t initrd_vm
 	//and set up filesystem root
 	fs_root = initrd_init(initrd_vmem);
 }
-

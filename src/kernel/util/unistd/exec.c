@@ -26,7 +26,7 @@ program_type find_program_type(FILE* file) {
 }
 
 void wipe_page_tables(page_directory_t* page_dir) {
-	page_regions_print(page_dir);
+	vmm_dump(page_dir);
 	page_directory_t* kern = page_dir_kern();
 	for (int i = 0; i < 1024; i++) {
 		page_table_t* tab = page_dir->tables[i];
@@ -98,7 +98,7 @@ int execve(const char *filename, char *const argv[], char *const UNUSED(envp[]))
 			if (!strcmp(program_plist->keys[i], "proc_master")) {
 				if (!strcmp(program_plist->vals[i], "allow")) {
 					current->permissions |= PROC_MASTER_PERMISSION;
-					printf_info("granting task \"%s\" proc_master-allow.", current->name); 
+					printf_info("granting task \"%s\" proc_master-allow.", current->name);
 					printf_info("this incident will be reported");
 				}
 			}
@@ -109,7 +109,7 @@ int execve(const char *filename, char *const argv[], char *const UNUSED(envp[]))
 	//clear page tables from fork()
 	//task_t* current = task_with_pid(getpid());
 	//wipe_page_tables(current->page_dir);
-	
+
 	/*
 	extern volatile page_directory_t* current_directory;
 	printf("EXEC current_directory %x kernel_directory %x\n", current_directory, page_dir_kern());
@@ -134,4 +134,3 @@ int execve(const char *filename, char *const argv[], char *const UNUSED(envp[]))
 	ASSERT(0, "execve didn't exit");
 	sys__exit(1);
 }
-

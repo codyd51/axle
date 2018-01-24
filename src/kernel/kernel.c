@@ -19,6 +19,10 @@
 #include <kernel/drivers/pit/pit.h>
 #include <kernel/drivers/text_mode/text_mode.h>
 
+//higher-level kernel features
+#include <kernel/pmm/pmm.h>
+#include <kernel/vmm/vmm.h>
+
 #define SPIN while (1) {sys_yield(RUNNABLE);}
 #define SPIN_NOMULTI do {} while (1);
 
@@ -34,6 +38,11 @@ void drivers_init(void) {
     pit_timer_init(PIT_TICK_GRANULARITY_1MS);
 }
 
+static void kernel_spinloop() {
+    printf("\nBoot complete, kernel spinlooping.\n");
+    while (1) {}
+}
+
 uint32_t initial_esp = 0;
 void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
 	initial_esp = initial_stack;
@@ -45,9 +54,8 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
 	pmm_init();
 	gdt_init();
     interrupt_init();
-	asm("sti");
-
     drivers_init();
+    vmm_init();
 
-    while (1) {}
+    kernel_spinloop();
 }
