@@ -103,10 +103,19 @@ void pmm_init() {
         set_memory_region(&pmm->system_accessible_frames, addr, len);
     }
 
+    //for identity mapping purposes
+    //reserve any allocatable memory from 0x0 to start of kernel image
+    pmm_reserve_mem_region(pmm, 0x00000000, info->kernel_image_start);
     //map out kernel image region
-    unset_memory_region(&pmm->system_accessible_frames, info->kernel_image_start, addr_space_frame_ceil(info->kernel_image_size));
+    pmm_reserve_mem_region(pmm, info->kernel_image_start, info->kernel_image_size);
+    //give extra region for an identity_map_buffer
+    uint32_t extra_identity_map_region_size = 0x100000;
+    uint32_t kernel_max = info->kernel_image_start + info->kernel_image_size;
+    pmm_reserve_mem_region(pmm, kernel_max, extra_identity_map_region_size);
     //map out framebuffer
-    unset_memory_region(&pmm->system_accessible_frames, info->framebuffer.address, addr_space_frame_ceil(info->framebuffer.size));
+    pmm_reserve_mem_region(pmm, info->framebuffer.address, info->framebuffer.size);
+}
+
 }
 
 void pmm_alloc_address(uint32_t address) {
