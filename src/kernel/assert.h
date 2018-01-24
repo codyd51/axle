@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #define NotImplemented() do {_panic("Not implemented", __FILE__, __LINE__);} while(0);
+#define Deprecated() do {_panic("Explicitly deprecated", __FILE__, __LINE__);} while(0);
 
 #define panic(msg) do {_panic(msg, __FILE__, __LINE__);} while (0);
 #define PANIC(msg) panic(msg)
