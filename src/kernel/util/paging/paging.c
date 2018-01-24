@@ -243,6 +243,22 @@ static void vmm_remap_kernel(page_directory_t* dir, uint32_t dest_virt_addr) {
     }
 }
 
+void vmm_identity_map_region(page_directory_t* dir, uint32_t start, uint32_t size) {
+    if (start & ~PAGING_FRAME_MASK) {
+        panic("vmm_identity_map_region start not page aligned!");
+    }
+    if (size & ~PAGING_FRAME_MASK) {
+        panic("vmm_identity_map_region size not page aligned!");
+    }
+
+    printf_dbg("Identity mapping from 0x%08x to 0x%08x", start, start + size);
+    int frame_count = size / PAGING_PAGE_SIZE;
+    for (int i = 0; i < frame_count; i++) {
+        uint32_t page = start + (i * PAGING_PAGE_SIZE);
+        vmm_page_alloc_for_phys_addr(dir, page);
+    }
+}
+
 void paging_install() {
 	printf_info("Initializing paging...");
 
