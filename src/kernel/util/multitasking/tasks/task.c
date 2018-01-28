@@ -3,8 +3,8 @@
 #include <std/math.h>
 #include <std/memory.h>
 #include <kernel/drivers/kb/kb.h>
-#include <kernel/util/paging/descriptor_tables.h>
-#include <kernel/util/paging/paging.h>
+#include <kernel/interrupts/interrupts.h>
+#include <kernel/vmm/vmm.h>
 #include <kernel/util/multitasking/util.h>
 #include <kernel/util/syscall/sysfuncs.h>
 #include <kernel/drivers/rtc/clock.h>
@@ -38,8 +38,6 @@ void task_switch_real(uint32_t eip, uint32_t paging_dir, uint32_t ebp, uint32_t 
 #define BOOSTER_PERIOD 1000
 
 #define MAX_RESPONDERS 32
-
-extern page_directory_t* current_directory;
 
 static int next_pid = 1;
 task_t* current_task = 0;
@@ -203,7 +201,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	task_t* parent = current_task;
 
 	//clone address space
-	page_directory_t* cloned = clone_directory(current_directory);
+	page_directory_t* cloned = clone_directory(vmm_active_pdir());
 
 	//create new process
 	task_t* task = kmalloc(sizeof(task_t));
@@ -487,7 +485,7 @@ void tasking_install(mlfq_option options) {
 	memset(kernel, 0, sizeof(task_t));
 	strcpy(kernel->name, "kax");
 	kernel->id = next_pid++;
-	kernel->page_dir = current_directory;
+	kernel->page_dir = vmm_active_pdir();
 	kernel->child_tasks = array_m_create(32);
 	//kernel->kernel_stack = kmalloc_a(KERNEL_STACK_SIZE);
 	setup_fds(kernel);
@@ -886,8 +884,8 @@ void goto_pid(int id, bool update_current_task_state) {
 	eip = current_task->eip;
 	esp = current_task->esp;
 	ebp = current_task->ebp;
-	current_directory = current_task->page_dir;
-	task_switch_real(eip, current_directory->physicalAddr, ebp, esp);
+    vmm_load_pdir(current_task->page_dir);
+	task_switch_real(eip, current_task->page_dir->physicalAddr, ebp, esp);
 }
 
 uint32_t task_switch(bool update_current_task_state) {

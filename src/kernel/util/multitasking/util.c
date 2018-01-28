@@ -2,17 +2,14 @@
 #include <std/std.h>
 #include <std/memory.h>
 #include <kernel/util/paging/paging.h>
+#include <kernel/vmm/vmm.h>
 
-extern page_directory_t* current_directory;
 extern uint32_t initial_esp;
 
 void move_stack(void* new_stack_start, uint32_t size) {
 	//allocate space for new stack
 	printf_dbg("allocating stack space at %x of size %x", new_stack_start, size);
-	for (uint32_t i = (uint32_t)new_stack_start; i >= ((uint32_t)new_stack_start - size); i -= PAGE_SIZE) {
-		//general purpose stack is user mode and writable
-		alloc_frame(get_page(i, 1, current_directory), 0, 1);
-	}
+    vmm_map_region(vmm_active_pdir(), new_stack_start, size);
 
 	//flush TLB by reading and writing page directory address again
 	printf_dbg("flushing TLB");
@@ -56,4 +53,3 @@ void move_stack(void* new_stack_start, uint32_t size) {
 	asm volatile("mov %0, %%esp" : : "r" (new_sp));
 	asm volatile("mov %0, %%ebp" : : "r" (new_bp));
 }
-
