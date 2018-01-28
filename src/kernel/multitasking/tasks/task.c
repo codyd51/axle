@@ -201,7 +201,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	task_t* parent = current_task;
 
 	//clone address space
-	page_directory_t* cloned = clone_directory(vmm_active_pdir());
+	page_directory_t* cloned = vmm_clone_pdir(vmm_active_pdir());
 
 	//create new process
 	task_t* task = kmalloc(sizeof(task_t));
