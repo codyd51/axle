@@ -7,8 +7,8 @@
 #include <kernel/interrupts/interrupts.h>
 #include <kernel/util/multitasking/tasks/task.h>
 #include <kernel/assert.h>
-
-#define PAGE_SIZE 0x1000 /* 4kb page */
+#include <kernel/vmm/vmm.h>
+#include <kernel/boot_info.h>
 
 extern uint32_t _kernel_image_end;
 uint32_t placement_address = (uint32_t)&_kernel_image_end;
@@ -16,7 +16,8 @@ uint32_t placement_address = (uint32_t)&_kernel_image_end;
 extern page_directory_t* kernel_directory;
 extern page_directory_t* current_directory;
 
-heap_t* kheap = 0;
+heap_t kheap_raw = {0};
+heap_t* kheap = &kheap_raw;
 lock_t* mutex = 0;
 static uint32_t used_bytes;
 
@@ -24,30 +25,20 @@ static uint32_t used_bytes;
 //increments placement_address if there is no heap
 //otherwise, pass through to heap with given options
 void* kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
-    Deprecated();
 	//if the heap already exists, pass through
 	if (kheap) {
 		void* addr = alloc(sz, (uint8_t)align, kheap);
 		if (phys) {
+            /*
 			page_t* page = get_page((uint32_t)addr, 0, kernel_directory);
-			*phys = page->frame * PAGE_SIZE + ((uint32_t)addr & 0xFFF);
+			*phys = page->frame * PAGING_PAGE_SIZE + ((uint32_t)addr & 0xFFF);
+            */
+            panic("kmalloc() needs to return physical address");
 		}
 		return addr;
 	}
-
-	//if addr is not already page aligned
-	if (align && (placement_address & 0xFFF)) {
-		//align it
-		placement_address &= 0xFFFFF000;
-		placement_address += PAGE_SIZE;
-	}
-	if (phys) {
-		*phys = placement_address;
-	}
-	uint32_t tmp = placement_address;
-	placement_address += sz;
-
-	return (void*)tmp;
+    panic("kmalloc_int called before heap was alive.");
+    return NULL;
 }
 
 void* kmalloc_a(uint32_t sz) {
@@ -144,7 +135,7 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 				uint32_t addr = (uint32_t)candidate + sizeof(alloc_block_t);
 				if (align && (addr & 0xFFF)) {
 					//find distance to page align
-					uint32_t aligned_addr = ((addr & 0xFFFFF000) + PAGE_SIZE) - sizeof(alloc_block_t);
+					uint32_t aligned_addr = ((addr & 0xFFFFF000) + PAGING_PAGE_SIZE) - sizeof(alloc_block_t);
 					uint32_t distance = aligned_addr - addr;
 
 					//does the align adjustment fit in the block?
@@ -182,36 +173,33 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 	return NULL;
 }
 
-heap_t* create_heap(uint32_t start, uint32_t end_addr, uint32_t max, uint8_t supervisor, uint8_t readonly) {
-	heap_t* heap = (heap_t*)kmalloc(sizeof(heap_t));
+void kheap_init() {
+    boot_info_t* info = boot_info_get();
+    uint32_t start = info->kernel_image_end + 0x100000;
+    uint32_t end_addr = start + KHEAP_INITIAL_SIZE;
+    uint32_t max = KHEAP_MAX_ADDRESS;
+    uint32_t max_size = max - start;
 
 	//start and end MUST be page aligned
-	ASSERT(start % PAGE_SIZE == 0, "start wasn't page aligned");
-	ASSERT(end_addr % PAGE_SIZE == 0, "end_addr wasn't page aligned");
+	ASSERT(start % PAGING_PAGE_SIZE == 0, "start wasn't page aligned");
+	ASSERT(end_addr % PAGING_PAGE_SIZE == 0, "end_addr wasn't page aligned");
 
-	//shift start address forward to resemble where we can start putting data
-	//start += sizeof(type_t) * HEAP_INDEX_SIZE;
-
-	//make sure start is still page aligned)
-	if ((start & 0xFFFFF000) != 0) {
-		start &= 0xFFFFF000;
-		start += PAGE_SIZE;
-	}
+    printf_info("Creating kernel heap at [0x%08x - 0x%08x]", start, end_addr);
 
 	//write start, end, and max addresses into heap structure
-	heap->start_address = start;
-	heap->end_address = end_addr;
-	heap->max_address = max;
-	heap->supervisor = supervisor;
-	heap->readonly = readonly;
+	kheap->start_address = start;
+	kheap->end_address = end_addr;
+	kheap->max_address = max;
+	kheap->supervisor = true;
+	kheap->readonly = false;
+
+    //map this memory into kernel page directory
+    page_directory_t* kernel_vmm = info->vmm_kernel;
+    vmm_map_region(kernel_vmm, start, KHEAP_INITIAL_SIZE);
 
 	//we start off with one large free block
 	//this represents the whole heap at this point
 	create_block(start, end_addr - start);
-
-	mutex = lock_create();
-
-	return heap;
 }
 
 void expand(uint32_t UNUSED(new_size), heap_t* UNUSED(heap)) {
