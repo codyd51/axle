@@ -137,4 +137,7 @@ bool vmm_is_active();
 void vmm_load_pdir(vmm_pdir_t* dir);
 vmm_pdir_t* vmm_active_pdir();
 
+uint32_t vmm_get_phys_for_virt(uint32_t virtualaddr);
+void vmm_map_virt_to_phys(vmm_pdir_t* dir, uint32_t page_addr, uint32_t frame_addr);
+
 #endif

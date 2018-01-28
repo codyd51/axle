@@ -97,7 +97,7 @@ void vmm_init(void) {
 	vmm_load_pdir(&kernel_directory);
 }
 
-void * get_physaddr(void * virtualaddr) {
+uint32_t vmm_get_phys_for_virt(uint32_t virtualaddr) {
     unsigned long pdindex = (unsigned long)virtualaddr >> 22;
     unsigned long ptindex = (unsigned long)virtualaddr >> 12 & 0x03FF;
 
@@ -113,7 +113,7 @@ void * get_physaddr(void * virtualaddr) {
         panic("no pt entry");
     }
 
-    return (void *)((pt[ptindex] & ~0xFFF) + ((unsigned long)virtualaddr & 0xFFF));
+    return (uint32_t)((pt[ptindex] & ~0xFFF) + ((unsigned long)virtualaddr & 0xFFF));
 }
 
 static void page_fault(register_state_t regs) {

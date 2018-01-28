@@ -29,11 +29,7 @@ void* kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
 	if (kheap) {
 		void* addr = alloc(sz, (uint8_t)align, kheap);
 		if (phys) {
-            /*
-			page_t* page = get_page((uint32_t)addr, 0, kernel_directory);
-			*phys = page->frame * PAGING_PAGE_SIZE + ((uint32_t)addr & 0xFFF);
-            */
-            panic("kmalloc() needs to return physical address");
+            *phys = vmm_get_phys_for_virt(addr);
 		}
 		return addr;
 	}
