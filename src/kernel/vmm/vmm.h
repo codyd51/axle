@@ -18,11 +18,13 @@ typedef struct page {
 	uint32_t dirty		:  1; //has page been written to since last refresh?
 	uint32_t unused		:  7; //unused/reserved bits
 	uint32_t frame		: 20; //frame address, shifted right 12 bits
-} page_t;
+} vmm_pte_t;
+typedef vmm_pte_t page_t;
 
 typedef struct page_table {
-	page_t pages[1024];
-} page_table_t;
+	vmm_pte_t pages[1024];
+} vmm_pde_t;
+typedef vmm_pde_t page_table_t;
 
 typedef struct vmm_memory_region {
     uint32_t region_start_addr;
@@ -46,6 +48,12 @@ typedef struct page_directory {
 	//directory may be in a different location in virtual memory
 	uint32_t physicalAddr;
 } page_directory_t;
+
+typedef struct vmm_pdir {
+    vmm_pde_t* tables[1024];
+    vmm_pde_t* tablesPhysical[1024];
+    uint32_t physicalAddr;
+} vmm_pdir_t;
 
 /*
 typedef struct vmm_page {

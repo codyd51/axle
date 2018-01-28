@@ -20,7 +20,6 @@ static void vmm_remap_kernel(page_directory_t* dir, uint32_t dest_virt_addr);
 static bool vmm_is_active();
 
 void * get_physaddr(void * virtualaddr);
-void map_page(void * physaddr, void * virtualaddr, unsigned int flags);
 
 uint32_t get_cr0() {
 	uint32_t cr0;
@@ -38,26 +37,32 @@ page_directory_t* get_cr3() {
 	return (page_directory_t*)(long)cr3;
 }
 
-void set_cr3(page_directory_t* dir) {
-	asm volatile("mov %0, %%cr3" : : "r"(dir->physicalAddr));
+void set_cr3(uint32_t addr) {
+	asm volatile("mov %0, %%cr3" : : "r"(addr));
 	int cr0 = get_cr0();
 	cr0 |= 0x80000000; //enable paging bit
 	set_cr0(cr0);
 }
 
-void switch_page_directory(page_directory_t* dir) {
-    static page_directory_t* current_directory = {0};
-	current_directory = dir;
-	set_cr3(dir);
-}
-
 //since the current page_directory structure isn't page-aligned, it's easier to statically allocate it than pmm-alloc it.
 static page_directory_t kernel_directory __attribute__((aligned(PAGING_FRAME_SIZE))) = {0};
+static vmm_pdir_t* _loaded_pdir = 0;
 
 static bool vmm_is_active() {
     //check if paging bit is set in cr0
     uint32_t cr0 = get_cr0();
-	return cr0 & 0x80000000;
+    return cr0 & 0x80000000;
+}
+
+void vmm_load_pdir(vmm_pdir_t* dir) {
+    asm("cli");
+    set_cr3(dir->physicalAddr);
+    _loaded_pdir = dir;
+    asm("sti");
+}
+
+vmm_pdir_t* vmm_active_pdir() {
+    return _loaded_pdir;
 }
 
 void vmm_init(void) {
@@ -79,6 +84,9 @@ void vmm_init(void) {
     printf("identity map from [0x%08x to 0x%08x]\n", 0x0, info->kernel_image_end + extra_identity_map_region_size);
     vmm_identity_map_region(&kernel_directory, 0x0, info->kernel_image_end + extra_identity_map_region_size);
 
+    //map last PDE to the page directory itself
+    //this is a trick to read/write to the page directory after it's been loaded
+    //TODO(PT): add links here, tired now
     kernel_directory.tablesPhysical[1023] = kernel_directory.physicalAddr | 0x7;
 
     //vmm_dump(&kernel_directory);
@@ -87,17 +95,7 @@ void vmm_init(void) {
 	interrupt_setup_callback(INT_VECTOR_INT14, page_fault);
 
 	//enable paging
-	switch_page_directory(&kernel_directory);
-
-    printf("trying to alloc a new page after vmm_init()\n");
-    //vmm_map_region(&kernel_directory, 0xA0000000, 0x4000);
-    uint32_t* try = 0xa0000000;
-    *try = 0xdeadbeef;
-    uint32_t frame = pmm_alloc();
-    uint32_t* ptr = 0xa0000000;
-    map_page(frame, ptr, 0x0);
-    *ptr = 0xdeadbeef;
-    printf("reading from 0x%08x: 0x%08x\n", ptr, *ptr);
+	vmm_load_pdir(&kernel_directory);
 }
 
 void * get_physaddr(void * virtualaddr) {
@@ -117,34 +115,6 @@ void * get_physaddr(void * virtualaddr) {
     }
 
     return (void *)((pt[ptindex] & ~0xFFF) + ((unsigned long)virtualaddr & 0xFFF));
-}
-
-void map_page(void * physaddr, void * virtualaddr, unsigned int flags) {
-    // Make sure that both addresses are page-aligned.
-    unsigned long pdindex = (unsigned long)virtualaddr >> 22;
-    unsigned long ptindex = (unsigned long)virtualaddr >> 12 & 0x03FF;
-
-    unsigned long * pd = (unsigned long *)0xFFFFF000;
-    // Here you need to check whether the PD entry is present.
-    // When it is not present, you need to create a new empty PT and
-    // adjust the PDE accordingly.
-    if (!(pd[pdindex])) {
-        pd[pdindex] = pmm_alloc() | 0x07; //present, rw, us
-    }
-
-    unsigned long * pt = ((unsigned long *)0xFFC00000) + (0x400 * pdindex);
-    // Here you need to check whether the PT entry is present.
-    // When it is, then there is already a mapping present. What do you do now?
-    if (pt[ptindex]) {
-        panic("tried to overwrite existing mapping?");
-    }
-
-    pt[ptindex] = ((unsigned long)physaddr) | (flags & 0xFFF) | 0x01; // Present
-
-    // Now you need to flush the entry in the TLB
-    // or you might not notice the change.
-    uint32_t cr3 = get_cr3();
-	asm volatile("mov %0, %%cr3" : : "r"(cr3));
 }
 
 static void page_fault(register_state_t regs) {
@@ -211,17 +181,53 @@ void vmm_map_page_to_frame(page_t* page, uint32_t frame_addr) {
 	page->frame = frame_addr / PAGING_FRAME_SIZE;
 }
 
-page_t* vmm_page_alloc_for_phys_addr(page_directory_t* dir, uint32_t phys_addr) {
-    page_t* page = vmm_get_page_for_virtual_address(dir, phys_addr);
+static void _active_vmm_map_virt_to_phys(vmm_pdir_t* dir, uint32_t page_addr, uint32_t frame_addr, uint16_t flags) {
+    // Make sure that both addresses are page-aligned.
+    unsigned long pdindex = (unsigned long)page_addr >> 22;
+    unsigned long ptindex = (unsigned long)page_addr >> 12 & 0x03FF;
+
+    unsigned long * pd = (unsigned long *)0xFFFFF000;
+    // Here you need to check whether the PD entry is present.
+    // When it is not present, you need to create a new empty PT and
+    // adjust the PDE accordingly.
+    if (!(pd[pdindex])) {
+        pd[pdindex] = pmm_alloc() | 0x07; //present, rw, us
+    }
+
+    unsigned long * pt = ((unsigned long *)0xFFC00000) + (0x400 * pdindex);
+    // Here you need to check whether the PT entry is present.
+    // When it is, then there is already a mapping present. What do you do now?
+    if (pt[ptindex]) {
+        panic("tried to overwrite existing mapping?");
+    }
+
+    pt[ptindex] = ((unsigned long)frame_addr) | (flags & 0xFFF) | 0x01; // Present
+
+    // Now you need to flush the entry in the TLB
+    // or you might not notice the change.
+    uint32_t cr3 = get_cr3();
+	asm volatile("mov %0, %%cr3" : : "r"(cr3));
+}
+
+void vmm_map_virt_to_phys(vmm_pdir_t* dir, uint32_t page_addr, uint32_t frame_addr) {
+    if (vmm_is_active()) {
+        if (vmm_active_pdir() == dir) {
+            _active_vmm_map_virt_to_phys(dir, page_addr, frame_addr, 0x00);
+            return;
+        }
+    }
+    page_t* page = vmm_get_page_for_virtual_address(dir, frame_addr);
 
 	page->present = 1; //mark as present
     page->rw = true;
     page->user = false;
 
-    pmm_alloc_address(phys_addr);
-    vmm_map_page_to_frame(page, phys_addr);
+    pmm_alloc_address(frame_addr);
+    vmm_map_page_to_frame(page, frame_addr);
+}
 
-    return page;
+void vmm_map_virt(page_directory_t* dir, uint32_t page_addr) {
+    vmm_map_virt_to_phys(dir, page_addr, pmm_alloc());
 }
 
 page_t* vmm_duplicate_frame_mapping(page_directory_t* dir, page_t* source, uint32_t dest_virt_addr) {
@@ -233,21 +239,6 @@ page_t* vmm_duplicate_frame_mapping(page_directory_t* dir, page_t* source, uint3
 	dest->frame = source->frame;
 
     return dest;
-}
-
-page_t* vmm_page_alloc_for_virt_addr(page_directory_t* dir, uint32_t virt_addr) {
-    page_t* page = vmm_get_page_for_virtual_address(dir, virt_addr);
-
-	page->present = 1; //mark as present
-	//page->rw = is_writeable; //should page be writable?
-	//page->user = !is_kernel; //should page be user mode?
-    page->rw = true;
-    page->user = false;
-
-    uint32_t frame_addr = pmm_alloc();
-    vmm_map_page_to_frame(page, frame_addr);
-
-    return page;
 }
 
 void vmm_dump(page_directory_t* dir) {
@@ -391,8 +382,8 @@ void vmm_map_region(page_directory_t* dir, uint32_t start, uint32_t size) {
     int frame_count = size / PAGING_PAGE_SIZE;
     for (int i = 0; i < frame_count; i++) {
         uint32_t page_addr = start + (i * PAGING_PAGE_SIZE);
-        printf_dbg("allocing virt page 0x%08x", page_addr);
-        vmm_page_alloc_for_virt_addr(dir, page_addr);
+        printf_dbg("VMM allocing virt page 0x%08x", page_addr);
+        vmm_map_virt(dir, page_addr);
     }
 }
 
@@ -407,7 +398,8 @@ void vmm_identity_map_region(page_directory_t* dir, uint32_t start, uint32_t siz
     printf_dbg("Identity mapping from 0x%08x to 0x%08x", start, start + size);
     int frame_count = size / PAGING_PAGE_SIZE;
     for (int i = 0; i < frame_count; i++) {
-        uint32_t page = start + (i * PAGING_PAGE_SIZE);
-        vmm_page_alloc_for_phys_addr(dir, page);
+        uint32_t frame_addr = start + (i * PAGING_PAGE_SIZE);
+        uint32_t page_addr = frame_addr;
+        vmm_map_virt_to_phys(dir, page_addr, frame_addr);
     }
 }
