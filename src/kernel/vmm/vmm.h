@@ -117,6 +117,8 @@ page_t* vmm_page_alloc_for_phys_addr(page_directory_t* dir, uint32_t phys_addr);
 page_t* vmm_page_alloc_for_virt_addr(page_directory_t* dir, uint32_t virt_addr);
 
 void vmm_map_page_to_frame(page_t* page, uint32_t frame_addr);
+
+void vmm_map_region(page_directory_t* dir, uint32_t start, uint32_t size);
 void vmm_identity_map_region(page_directory_t* dir, uint32_t start, uint32_t size);
 
 void vmm_dump(page_directory_t* dir);
