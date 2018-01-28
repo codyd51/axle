@@ -453,7 +453,7 @@ void tasking_install(mlfq_option options) {
 	kernel_begin_critical();
 
 	printf_dbg("moving stack");
-	move_stack((void*)0xE0000000, 0x2000);
+	move_stack((void*)0xDFFFF000, 0x4000);
 
 	int queue_count = 0;
 	switch (options) {

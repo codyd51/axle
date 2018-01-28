@@ -70,7 +70,7 @@ void expand(uint32_t new_size, heap_t* heap);
 uint32_t used_mem();
 
 //debug function to dump last 'count' kernel heap allocs
-//if 'count' is larger than total heap allocations, or 
+//if 'count' is larger than total heap allocations, or
 //count is -1, prints all heap allocations
 //outputs to syslog
 void heap_print(int count);

@@ -22,6 +22,10 @@
 //higher-level kernel features
 #include <kernel/pmm/pmm.h>
 #include <kernel/vmm/vmm.h>
+#include <std/kheap.h>
+
+//testing!
+#include <kernel/util/multitasking/tasks/task.h>
 
 #define SPIN while (1) {sys_yield(RUNNABLE);}
 #define SPIN_NOMULTI do {} while (1);
@@ -52,13 +56,15 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
 	boot_info_read(mboot_ptr);
 	boot_info_dump();
 
-	pmm_init();
 	gdt_init();
     interrupt_init();
     drivers_init();
-    vmm_init();
 
-    //kheap_init();
+	pmm_init();
+    vmm_init();
+    kheap_init();
+
+    tasking_install();
 
     kernel_spinloop();
 }
