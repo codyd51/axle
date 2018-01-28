@@ -3,8 +3,9 @@
 
 #include <std/std.h>
 
-void sys_install();
-bool sys_installed();
+void syscall_init();
+bool syscall_is_setup();
+void syscall_add(void* syscall);
 
 #define DECL_SYSCALL(fn, ...) int sys_##fn(__VA_ARGS__)
 
@@ -31,7 +32,5 @@ int sys_##fn(_ASM_SYSCALL_ARGS_##N(__VA_ARGS__)) { \
 }
 #define _DEFN_SYSCALL(N, fn, num, ...) __DEFN_SYSCALL(N, fn, num, ##__VA_ARGS__)
 #define DEFN_SYSCALL(fn, num, ...) _DEFN_SYSCALL(ARG_COUNT(__VA_ARGS__), fn, num, ##__VA_ARGS__)
-
-void sys_insert(void* syscall);
 
 #endif

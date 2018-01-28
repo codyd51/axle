@@ -8,24 +8,24 @@
 
 #define MAX_SYSCALLS 128
 
-static int sys_handler(registers_t* regs);
+static int syscall_handler(register_state_t regs);
 
-array_m* syscalls;
+array_m* syscalls = {0};
 
-void sys_install() {
-	printf_info("Initializing syscalls...");
+void syscall_init() {
+	printf_info("Syscalls init...");
 
-	interrupt_setup_callback(INT_VECTOR_SYSCALL, (int_callback_t)sys_handler);
+	interrupt_setup_callback(INT_VECTOR_SYSCALL, (int_callback_t)syscall_handler);
 	syscalls = array_m_create(MAX_SYSCALLS);
 	create_sysfuncs();
 }
 
-bool sys_installed() {
+bool syscall_is_setup() {
 	//has the syscalls array been created?
 	return (syscalls);
 }
 
-void sys_insert(void* syscall) {
+void syscall_add(void* syscall) {
 	if (syscalls->size + 1 == MAX_SYSCALLS) {
 		printf_err("Not installing syscall %d, too many in use!", syscalls->size);
 		return;
@@ -33,16 +33,16 @@ void sys_insert(void* syscall) {
 	array_m_insert(syscalls, syscall);
 }
 
-static int sys_handler(registers_t* regs) {
+static int syscall_handler(register_state_t regs) {
 	//check requested syscall number
 	//stored in eax
-	if (!syscalls || regs->eax >= MAX_SYSCALLS) {
-		printf_err("Syscall %d called but not defined", regs->eax);
+	if (!syscalls || regs.eax >= MAX_SYSCALLS) {
+		printf_err("Syscall %d called but not defined", regs.eax);
 		return -1;
 	}
 
 	//location of syscall funcptr
-	int (*location)() = (int(*)())array_m_lookup(syscalls, regs->eax);
+	int (*location)() = (int(*)())array_m_lookup(syscalls, regs.eax);
 
 	//we don't know how many arguments the function wants.
 	//so just push them all on the stack in correct order
@@ -61,7 +61,7 @@ static int sys_handler(registers_t* regs) {
 		pop %%ebx;	\
 		pop %%ebx;	\
 		pop %%ebx;	\
-	" : "=a" (ret) : "r" (regs->edi), "r" (regs->esi), "r" (regs->edx), "r" (regs->ecx), "r" (regs->ebx), "r" (location));
-	regs->eax = ret;
+	" : "=a" (ret) : "r" (regs.edi), "r" (regs.esi), "r" (regs.edx), "r" (regs.ecx), "r" (regs.ebx), "r" (location));
+	regs.eax = ret;
 	return ret;
 }
