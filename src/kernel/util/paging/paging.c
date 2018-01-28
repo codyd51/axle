@@ -130,6 +130,64 @@ static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
 	return table;
 }
 
+void vmm_copy_page_table_pointers(vmm_pdir_t* src, vmm_pdir_t* dst) {
+    for (int i = 0; i < 1024; i++) {
+        if (!src->tablesPhysical[i]) {
+            continue;
+        }
+        if (dst->tablesPhysical[i]) {
+            panic("tried to overwrite pde entry in dst");
+        }
+        printf("vmm_copy_page_table_pointers copying %d\n", i);
+        dst->tablesPhysical[i] = src->tablesPhysical[i];
+    }
+}
+
+vmm_pdir_t* vmm_clone_pdir(vmm_pdir_t* src) {
+    printf("VMM cloning page directory 0x%08x\n", src);
+    uint32_t phys;
+    vmm_pdir_t* new_dir = kmalloc_ap(sizeof(vmm_pdir_t), &phys);
+    memset(new_dir, 0, sizeof(vmm_pdir_t));
+    uint32_t tablesOffset = (uint32_t)src->tablesPhysical - (uint32_t)src;
+    phys += tablesOffset;
+    new_dir->physicalAddr = phys;
+    printf("VMM new dir at 0x%08x, physicalAddr 0x%08x\n", new_dir, phys);
+
+    //map in kernel code + data
+    //these mappings are shared between all page directories
+    vmm_pdir_t* kernel_pdir = boot_info_get()->vmm_kernel;
+    vmm_copy_page_table_pointers(kernel_pdir, new_dir);
+    //set up recursive page table entry
+    //TODO(PT): put this into its own function, its done here and in vmm_init
+    new_dir->tablesPhysical[1023] = new_dir->physicalAddr | 0x7;
+
+    //copy each table
+    for (int i = 0; i < 1024; i++) {
+        if (!src->tablesPhysical[i]) {
+            continue;
+        }
+        //if there's already a kernel mapping for this table, skip it
+        //TODO(PT) this will waste tables that only have a couple kernel pages
+        //in use! do we care?
+        if (new_dir->tablesPhysical[i]) {
+            continue;
+        }
+
+        /*
+        //copy table
+        uint32_t table_phys;
+        dir->tablesPhysical[i] = vmm_clone_table(src->tables[i]);
+        dir->tables[i] = clone_table(src->tables[i], &phys);
+        printk("cloned table: %x\n", dir->tables[i]);
+        dir->tablesPhysical[i] = phys | 0x07;
+        */
+        printf("table %d in src and not in new_dir\n", i);
+        panic("src has tables that aren't in kernel dir");
+    }
+
+    return new_dir;
+}
+
 page_directory_t* clone_directory(page_directory_t* src) {
     Deprecated();
     /*
