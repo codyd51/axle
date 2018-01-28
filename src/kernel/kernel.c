@@ -23,7 +23,7 @@
 #include <kernel/pmm/pmm.h>
 #include <kernel/vmm/vmm.h>
 #include <std/kheap.h>
-#include <kernel/util/syscall/syscall.h>
+#include <kernel/syscall/syscall.h>
 
 //testing!
 #include <kernel/util/multitasking/tasks/task.h>
