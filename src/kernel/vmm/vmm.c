@@ -17,7 +17,6 @@ static uint32_t vmm_page_table_idx_for_virt_addr(uint32_t addr);
 static uint32_t vmm_page_idx_within_table_for_virt_addr(uint32_t addr);
 static void vmm_page_table_alloc_for_virt_addr(page_directory_t* dir, uint32_t addr);
 static void vmm_remap_kernel(page_directory_t* dir, uint32_t dest_virt_addr);
-static bool vmm_is_active();
 
 void * get_physaddr(void * virtualaddr);
 
@@ -48,7 +47,7 @@ void set_cr3(uint32_t addr) {
 static page_directory_t kernel_directory __attribute__((aligned(PAGING_FRAME_SIZE))) = {0};
 static vmm_pdir_t* _loaded_pdir = 0;
 
-static bool vmm_is_active() {
+bool vmm_is_active() {
     //check if paging bit is set in cr0
     uint32_t cr0 = get_cr0();
     return cr0 & 0x80000000;
@@ -382,7 +381,6 @@ void vmm_map_region(page_directory_t* dir, uint32_t start, uint32_t size) {
     int frame_count = size / PAGING_PAGE_SIZE;
     for (int i = 0; i < frame_count; i++) {
         uint32_t page_addr = start + (i * PAGING_PAGE_SIZE);
-        printf_dbg("VMM allocing virt page 0x%08x", page_addr);
         vmm_map_virt(dir, page_addr);
     }
 }

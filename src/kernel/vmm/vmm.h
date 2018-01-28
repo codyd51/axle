@@ -132,5 +132,9 @@ void vmm_identity_map_region(page_directory_t* dir, uint32_t start, uint32_t siz
 void vmm_dump(page_directory_t* dir);
 
 void vmm_init(void);
+bool vmm_is_active();
+
+void vmm_load_pdir(vmm_pdir_t* dir);
+vmm_pdir_t* vmm_active_pdir();
 
 #endif
