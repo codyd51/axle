@@ -1,12 +1,8 @@
 #ifndef PAGING_H
 #define PAGING_H
 
-//All functions here are explicitly deprecated. The currnet implementations are in this include.
+//All functions here are explicitly deprecated. The current implementations is in this include.
 #include <kernel/vmm/vmm.h>
-
-//deprecated symbols
-page_directory_t* kernel_directory;
-page_directory_t* current_directory;
 
 //retrieves pointer to page required
 //if make == 1, if the page-table in which this page should

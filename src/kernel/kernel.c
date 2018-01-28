@@ -40,7 +40,8 @@ void drivers_init(void) {
 
 static void kernel_spinloop() {
     printf("\nBoot complete, kernel spinlooping.\n");
-    while (1) {}
+    asm("cli");
+    asm("hlt");
 }
 
 uint32_t initial_esp = 0;
@@ -56,6 +57,8 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     interrupt_init();
     drivers_init();
     vmm_init();
+
+    //kheap_init();
 
     kernel_spinloop();
 }

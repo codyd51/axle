@@ -35,7 +35,8 @@ static uint32_t first_usable_pmm_index(pmm_state_t* pmm) {
             if (pmm_frames_entry & (1 << j)) {
                 continue;
             }
-            //we found a bit which was on in both arrays!
+            //we found a bit which was on in the list of accessible frames,
+            //and off in the list of allocated frames
             return BITMAP_BIT_INDEX(i, j);
         }
     }
