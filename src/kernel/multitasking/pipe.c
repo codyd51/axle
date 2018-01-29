@@ -1,9 +1,9 @@
 #include "pipe.h"
-#include <kernel/util/multitasking/tasks/task.h>
 #include <std/memory.h>
 #include <std/std.h>
 #include <kernel/util/vfs/fs.h>
-#include <kernel/util/multitasking/fd.h>
+#include <kernel/multitasking/tasks/task.h>
+#include <kernel/multitasking/fd.h>
 
 static void pipe_create(pipe_t** read, pipe_t** write) {
 	task_t* current = task_with_pid(getpid());
@@ -87,7 +87,7 @@ int pipe_read(int fd, char* buf, int count) {
 
 	int i = 0;
 	for (; i < count; i++) {
-		//check if we're out of items to read 
+		//check if we're out of items to read
 		if (pipe->cb->count == 0) {
 			//block until we have something to read
 			block_task_context(current, PIPE_EMPTY, pipe);
@@ -133,7 +133,7 @@ int pipe_write(int fd, char* buf, int count) {
 		info.free_bytes_needed = count;
 		block_task_context(current, PIPE_FULL, &info);
 		//we've unblocked, so enough space should now be available
-		//we could just continue executing, but 
+		//we could just continue executing, but
 		//recurse instead to repeat state checking
 		//(as we've blocked and state may have changed)
 		return pipe_write(fd, buf, count);
@@ -155,7 +155,7 @@ int pipe_close(int fd) {
 	}
 
 	//if the number of tasks referencing this pipe end is exactly 1,
-	//then after removing this pipe from that tasks the pipe will be 
+	//then after removing this pipe from that tasks the pipe will be
 	//ready to be destroyed.
 	//if this is a write pipe and this is the only task referencing it,
 	//then we should write EOF
@@ -180,16 +180,16 @@ int pipe_close(int fd) {
 	//remove this pipe from process's file descriptor list
 	task_t* current = task_with_pid(getpid());
 	fd_remove(current, pipe->fd);
-	
-	//if there are more processes referencing this pipe, 
+
+	//if there are more processes referencing this pipe,
 	//quit early
 	if (pipe->pids->size) {
 		return -1;
 	}
 
-	//if no PIDs are referencing this pipe end, 
+	//if no PIDs are referencing this pipe end,
 	//tear it down
-	
+
 	if (pipe->dir == READ) {
 		//when closing a read end where there are no other processes
 		//with a reference to the pipe, it's safe to destroy backing pipe resources
@@ -200,4 +200,3 @@ int pipe_close(int fd) {
 
 	return 0;
 }
-

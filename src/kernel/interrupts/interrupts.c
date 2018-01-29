@@ -6,7 +6,7 @@
 #include <std/common.h>
 
 #include <kernel/kernel.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking//tasks/task.h>
 #include <kernel/assert.h>
 
 static int_callback_t interrupt_handlers[256] = {0};

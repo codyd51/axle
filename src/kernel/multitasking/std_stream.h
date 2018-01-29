@@ -7,7 +7,7 @@ typedef struct std_stream {
 	circular_buffer* buf;
 } std_stream;
 
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 
 std_stream* std_stream_create();
 void std_stream_destroy(task_t* task);

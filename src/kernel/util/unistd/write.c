@@ -1,8 +1,8 @@
 #include "write.h"
-#include <kernel/util/multitasking/fd.h>
-#include <kernel/util/multitasking/tasks/task.h>
-#include <kernel/util/multitasking/pipe.h>
-#include <kernel/util/multitasking/std_stream.h>
+#include <kernel/multitasking/fd.h>
+#include <kernel/multitasking/tasks/task.h>
+#include <kernel/multitasking/pipe.h>
+#include <kernel/multitasking/std_stream.h>
 #include <user/xserv/xserv.h>
 
 #include <gfx/lib/gfx.h>
@@ -20,7 +20,7 @@ int xserv_write(task_t* task, int UNUSED(fd), const void* buf, int len) {
 	}
 
 	printk("xserv_write xterm %x\n", xterm);
-	
+
 	int old_len = strlen(output->text);
 	int proc_len = strlen(task->name);
 	int concat_len = strlen(chbuf);
@@ -98,4 +98,3 @@ int write(int fd, char* buf, int len) {
 	}
 	return -1;
 }
-

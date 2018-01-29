@@ -19,14 +19,13 @@ static volatile uint32_t tick = 0;
 
 //defined in timer.c
 //inform that a tick has occured
-extern void handle_tick(uint32_t tick);
+extern void handle_tick();
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static void tick_callback(registers_t regs) {
 	tick++;
-
-	//handle_tick(tick);
+	handle_tick();
 }
 #pragma GCC diagnostic pop
 
@@ -35,7 +34,8 @@ uint32_t pit_clock() {
 }
 
 uint32_t tick_count() {
-    NotImplemented();
+    //Deprecated();
+    return pit_clock();
 }
 
 void pit_timer_init(uint32_t frequency) {

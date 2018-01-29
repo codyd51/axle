@@ -9,7 +9,7 @@
 #include <user/shell/programs/rexle/rexle.h>
 #include <user/xserv/xserv.h>
 #include <kernel/kernel.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 #include <kernel/util/vfs/fs.h>
 #include <kernel/drivers/kb/kb.h>
 #include <kernel/drivers/pci/pci_detect.h>
@@ -289,14 +289,14 @@ void script_command(int argc, char** argv) {
 		printf_err("Please specify a script");
 		return;
 	}
-	
+
 	char* file = argv[1];
 	fs_node_t* node = finddir_fs(current_dir, file);
 	if (!node) {
 		printf_err("File %s not found");
 		return;
 	}
-	
+
 	//Read file line-by-line and use each line as a command
 	uint8_t filebuf[128][2048];
 	memset(&filebuf, 0, sizeof(filebuf) / sizeof(filebuf[0]));

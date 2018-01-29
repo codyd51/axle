@@ -4,7 +4,7 @@
 #include <kernel/kernel.h>
 #include <std/printf.h>
 #include <gfx/lib/gfx.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 #include <kernel/boot_info.h>
 #include <kernel/address_space.h>
 
@@ -74,7 +74,6 @@ void* sbrk(int increment) {
 	}
 
 	current->prog_break += increment;
-
 
 	memset(brk, 0, increment);
 

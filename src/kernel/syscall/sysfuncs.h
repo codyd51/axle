@@ -2,7 +2,7 @@
 #define SYSFUNCS_H
 
 #include "syscall.h"
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 #include <kernel/util/vfs/fs.h>
 
 //installs common syscalls into syscall table

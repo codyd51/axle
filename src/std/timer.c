@@ -2,7 +2,7 @@
 #include <limits.h>
 #include <std/memory.h>
 #include <kernel/drivers/rtc/clock.h>
-#include <kernel/util/syscall/sysfuncs.h>
+#include <kernel/syscall/sysfuncs.h>
 
 static int callback_num = 0;
 static timer_callback callback_table[MAX_CALLBACKS];
@@ -53,9 +53,7 @@ void remove_callback(timer_callback callback) {
 	}
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-void handle_tick(uint32_t tick) {
+void handle_tick() {
 	//look through every callback and see if we should fire
 	for (int i = 0; i < callback_num; i++) {
 		//decrement time left
@@ -76,7 +74,6 @@ void handle_tick(uint32_t tick) {
 		}
 	}
 }
-#pragma GCC diagnostic pop
 
 void sleep(uint32_t ms) {
 	uint32_t end = time() + ms;

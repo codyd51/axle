@@ -8,7 +8,7 @@
 #include <std/math.h>
 #include <std/sincostan.h>
 #include <std/array_m.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 #include <kernel/util/kbman/kbman.h>
 #include <kernel/drivers/vga/vga.h>
 #include <kernel/drivers/rtc/clock.h>
@@ -62,7 +62,7 @@ void rexle_int(int mode) {
 	Size viewport_size = size_make(screen->resolution.width / 2.5, screen->resolution.height / 2.5);
 	Point viewport_origin = point_make((screen->resolution.width / 2) - (viewport_size.width / 2), (screen->resolution.height / 2) - (viewport_size.height / 2));
 	Rect viewport_rect = rect_make(viewport_origin, viewport_size);
-	
+
 	become_first_responder();
 
 	//initialize textures
@@ -223,7 +223,7 @@ void rexle_int(int mode) {
 
 				//we have x and y, find color at this point in texture
 				Point tex_px = point_make(tex_x % tex_width, tex_y % tex_height);
-				
+
 				uint8_t* raw = (uint8_t*)(tex->layer->raw + (tex_px.y * tex_width * gfx_bpp()) + (tex_px.x * gfx_bpp()));
 				Color col;
 				col.val[0] = *raw++;
@@ -336,4 +336,3 @@ void rexle_int(int mode) {
 
 	resign_first_responder();
 }
-

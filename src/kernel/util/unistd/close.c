@@ -1,7 +1,7 @@
 #include "close.h"
-#include <kernel/util/multitasking/pipe.h>
-#include <kernel/util/multitasking/fd.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/pipe.h>
+#include <kernel/multitasking/fd.h>
+#include <kernel/multitasking/tasks/task.h>
 #include <kernel/util/vfs/fs.h>
 
 int close(int fd) {

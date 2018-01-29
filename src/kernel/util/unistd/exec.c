@@ -3,9 +3,9 @@
 #include <kernel/util/macho/macho.h>
 #include <kernel/assert.h>
 #include <kernel/util/paging/paging.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 #include <kernel/util/plistman/plistman.h>
-#include <kernel/util/syscall/sysfuncs.h>
+#include <kernel/syscall/sysfuncs.h>
 
 int sys__exit(int code);
 

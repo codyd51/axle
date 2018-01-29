@@ -1,11 +1,11 @@
 #include "kbman.h"
 #include <kernel/drivers/terminal/terminal.h>
 #include <std/array_m.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 #include <std/kheap.h>
 #include <kernel/drivers/kb/kb.h>
-#include <kernel/util/multitasking/tasks/record.h>
-#include <kernel/util/syscall/sysfuncs.h>
+#include <kernel/multitasking/tasks/record.h>
+#include <kernel/syscall/sysfuncs.h>
 #include <kernel/util/unistd/exec.h>
 
 #define MAX_KB_BUFFER_LENGTH 64
@@ -22,7 +22,7 @@ void kbman_process(char c) {
 	if (!key_down(c)) {
 		array_m_insert(keys_down, (type_t)c);
 	}
-	
+
 	key_status_t mods = kb_modifiers();
 
 	//least significant bit of mods mask is control key
@@ -73,4 +73,3 @@ bool key_down(char c) {
 	return false;
 }
 #pragma GCC diagnostic push
-

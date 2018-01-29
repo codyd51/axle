@@ -1,7 +1,7 @@
 #include "fs.h"
 #include <std/std.h>
 #include <std/math.h>
-#include <kernel/util/multitasking/fd.h>
+#include <kernel/multitasking/fd.h>
 #include <kernel/util/fat/fat.h>
 
 fs_node_t* fs_root = 0; //filesystem root
@@ -173,7 +173,7 @@ uint32_t initrd_fread(void* buffer, uint32_t size, uint32_t count, FILE* stream)
 	return i;
 		/*
 		unsigned char buf;
-		
+
 		int read_bytes = read_fs(stream->node, stream->fpos++, size, (uint8_t*)&buf);
 		sum += read_bytes;
 		chbuf[i] = buf;
@@ -231,4 +231,3 @@ int getdents(unsigned int fd, struct dirent* dirp, unsigned int count) {
 	}
 	return i;
 }
-

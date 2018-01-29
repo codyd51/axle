@@ -4,7 +4,7 @@
 #include <gfx/lib/color.h>
 #include <gfx/lib/shapes.h>
 #include <kernel/drivers/vga/vga.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 #include <user/programs/calculator.h>
 #include <user/xserv/animator.h>
 
@@ -327,7 +327,7 @@ void test_xserv() {
 	ca_animation* anim = create_animation(ALPHA_ANIM, &to, 2.0);
 	add_animation(alpha_win, anim);
 	present_window(alpha_win);
-	
+
 	Window* color_win = create_window(rect_make(point_make(700, 200), size_make(250, 250)));
 	color_win->title = "Color animation";
 	color_win->content_view->background_color = color_green();
@@ -347,4 +347,3 @@ void test_xserv() {
 	add_animation(pos_win, pos);
 	present_window(pos_win);
 }
-

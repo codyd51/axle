@@ -3,10 +3,10 @@
 #include <std/common.h>
 #include <std/std.h>
 #include <kernel/interrupts/interrupts.h>
-#include <kernel/util/syscall/sysfuncs.h>
+#include <kernel/syscall/sysfuncs.h>
 #include <kernel/util/kbman/kbman.h>
-#include <kernel/util/multitasking/tasks/task.h>
-#include <kernel/util/multitasking/std_stream.h>
+#include <kernel/multitasking/tasks/task.h>
+#include <kernel/multitasking/std_stream.h>
 
 void kb_callback(registers_t regs);
 

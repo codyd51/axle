@@ -3,12 +3,12 @@
 
 #include <stdint.h>
 #include <std/std.h>
-#include <kernel/util/multitasking/fd.h>
+#include <kernel/multitasking/fd.h>
 #include <kernel/util/vfs/fs.h>
 #include "fat_dirent.h"
 
 /*!
- * @brief Calculate hard drive sectors needed to store @p bytes 
+ * @brief Calculate hard drive sectors needed to store @p bytes
  */
 int sectors_from_bytes(int bytes);
 
@@ -48,7 +48,7 @@ void fat_expand_file(uint32_t file, uint32_t byte_count);
 
 /*!
  * @brief Shrink @p file by @byte_count
- * Deallocates sectors required to contain @p byte_count, 
+ * Deallocates sectors required to contain @p byte_count,
  * starting from the end of the file.
  * @param file The first sector of the file to shrink
  * @param byte_count The number of bytes to shrink the file
@@ -92,7 +92,7 @@ int fat_read_absolute_file(char* name, char* buffer, int count, int offset);
  * @param offset Number of bytes in file to skip before beginning to write
  * @warning Traversing up a directory is not currently supported.
  */
-int fat_write_absolute_file(char* name, char* buffer, int count, int offset); 
+int fat_write_absolute_file(char* name, char* buffer, int count, int offset);
 
 /*!
  * @brief Attempt to find the FAT index associated with absolute path @p name

@@ -1,5 +1,5 @@
 #include "sysfuncs.h"
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking//tasks/task.h>
 #include <std/printf.h>
 #include <kernel/util/paging/paging.h>
 #include <kernel/util/elf/elf.h>

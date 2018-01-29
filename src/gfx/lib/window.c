@@ -8,7 +8,7 @@
 #include <user/xserv/animator.h>
 #include <gfx/lib/shapes.h>
 #include <kernel/drivers/rtc/clock.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 
 #define MAX_ELEMENTS 64
 
@@ -101,7 +101,7 @@ Window* create_window_int(Rect frame, bool root) {
 	window->last_draw_timestamp = time();
 
 	//if this window was created by a call to xserv_win_create(),
-	//then we're in a syscall handler and getpid() will return the pid of the 
+	//then we're in a syscall handler and getpid() will return the pid of the
 	//proc that ran the syscall
 	//this is how we know when a user proc is connected to a window
 	window->owner_pid = getpid();
@@ -277,4 +277,3 @@ bool draw_window(Window* window) {
 void window_with_pid_get(int pid, Window** out, int len) {
 }
 */
-

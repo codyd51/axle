@@ -1,5 +1,5 @@
 #include "fd.h"
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 #include <stdbool.h>
 
 bool fd_empty(fd_entry entry) {
@@ -32,4 +32,3 @@ int fd_add_index(task_t* task, fd_entry entry, int index) {
 	task->fd_table[index] = entry;
 	return index;
 }
-

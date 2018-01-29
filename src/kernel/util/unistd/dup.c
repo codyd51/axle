@@ -1,6 +1,6 @@
 #include "dup.h"
-#include <kernel/util/multitasking/tasks/task.h>
-#include <kernel/util/multitasking/fd.h>
+#include <kernel/multitasking/tasks/task.h>
+#include <kernel/multitasking/fd.h>
 #include <kernel/util/unistd/close.h>
 
 int dup(int fd) {
@@ -35,4 +35,3 @@ int dup2(int fd, int newfd) {
 	//now, copy entry at fd into newfd
 	return fd_add_index(current, ent, newfd);
 }
-

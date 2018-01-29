@@ -12,12 +12,12 @@
 #include <gfx/lib/gfx.h>
 #include <gfx/lib/view.h>
 #include <gfx/font/font.h>
-#include <kernel/util/syscall/syscall.h>
-#include <kernel/util/syscall/sysfuncs.h>
+#include <kernel/syscall//syscall.h>
+#include <kernel/syscall//sysfuncs.h>
 #include <kernel/util/paging/descriptor_tables.h>
 #include <kernel/util/paging/paging.h>
-#include <kernel/util/multitasking/tasks/task.h>
-#include <kernel/util/multitasking/tasks/record.h>
+#include <kernel/multitasking//tasks/task.h>
+#include <kernel/multitasking//tasks/record.h>
 #include <kernel/util/mutex/mutex.h>
 #include <kernel/util/vfs/initrd.h>
 #include <kernel/drivers/rtc/clock.h>

@@ -1,6 +1,6 @@
 #include "shmem.h"
 #include <std/std.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking//tasks/task.h>
 
 #define PAGE_MASK 0xFFFFF000
 

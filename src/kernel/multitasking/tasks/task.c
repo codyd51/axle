@@ -5,18 +5,19 @@
 #include <kernel/drivers/kb/kb.h>
 #include <kernel/interrupts/interrupts.h>
 #include <kernel/vmm/vmm.h>
-#include <kernel/util/multitasking/util.h>
-#include <kernel/util/syscall/sysfuncs.h>
+#include <kernel/multitasking//util.h>
+#include <kernel/syscall//sysfuncs.h>
 #include <kernel/drivers/rtc/clock.h>
 #include <std/klog.h>
 #include <kernel/util/mutex/mutex.h>
 #include "record.h"
 #include <gfx/lib/gfx.h>
 #include <user/xserv/xserv.h>
-#include <kernel/util/multitasking/pipe.h>
-#include <kernel/util/multitasking/std_stream.h>
-#include <kernel/util/multitasking/fd.h>
+#include <kernel/multitasking//pipe.h>
+#include <kernel/multitasking//std_stream.h>
+#include <kernel/multitasking//fd.h>
 #include <kernel/util/shmem/shmem.h>
+#include <kernel/boot_info.h>
 
 //function defined in asm which returns the current instruction pointer
 uint32_t read_eip();

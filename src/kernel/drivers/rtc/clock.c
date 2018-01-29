@@ -3,7 +3,7 @@
 #include <std/std.h>
 #include <kernel/kernel.h>
 #include <kernel/drivers/pit/pit.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 
 time_t current_time;
 
@@ -71,7 +71,7 @@ void rtc_install() {
 	status &= ~0x20;				//no alarm interrupts
 	status &= ~0x40;				//no periodic interrupt
 	bcd		= !(status & 0x04);		//check if it's BCD format
-	
+
 	//write status to RTC
 	outb(0x70, 0x0B);
 	outb(0x71, status);
@@ -143,4 +143,3 @@ uint32_t epoch_time() {
 	//TODO write
 	return 0;
 }
-

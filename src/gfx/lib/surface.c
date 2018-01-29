@@ -1,7 +1,7 @@
 #include "surface.h"
 #include <kernel/util/shmem/shmem.h>
 #include <kernel/util/ipc/ipc.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 
 Surface* surface_make(uint32_t width, uint32_t height, uint32_t dest_pid) {
 	task_t* dest = task_with_pid(dest_pid);
@@ -24,7 +24,7 @@ Surface* surface_make(uint32_t width, uint32_t height, uint32_t dest_pid) {
 	Surface* ipc_destination;
 	ipc_send((char*)surface_to_send, sizeof(Surface), 4, (char**)&ipc_destination);
 	printk_info("IPC placed OUR NEW SURFACE at %x base_address %x kern %x", surface_to_send, surface_to_send->base_address, surface_to_send->kernel_base);
-	
+
 	printk_info("ipc_destination->width %d ipc_destination->height %d", ipc_destination->width, ipc_destination->height);
 
 	Screen* s = gfx_screen();
@@ -32,4 +32,3 @@ Surface* surface_make(uint32_t width, uint32_t height, uint32_t dest_pid) {
 
 	return surface_to_send;
 }
-

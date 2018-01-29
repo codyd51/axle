@@ -1,6 +1,6 @@
 #include "usage_monitor.h"
 #include <gfx/lib/gfx.h>
-#include <kernel/util/multitasking/tasks/record.h>
+#include <kernel/multitasking/tasks/record.h>
 #include <std/math.h>
 #include <gfx/lib/shapes.h>
 
@@ -67,7 +67,7 @@ void update_usage_stats(Window* win) {
 		float gradient_percent = percent_cpu * 2;
 		Color from = color_make(0, 190, 20);
 		Color to = color_orange();
-		
+
 		if (gradient_percent >= 1.0) {
 			from = color_orange();
 			to = color_red();
@@ -94,4 +94,3 @@ void display_usage_monitor(Point origin) {
 	usage_win->redraw_handler = (event_handler)update_usage_stats;
 	present_window(usage_win);
 }
-

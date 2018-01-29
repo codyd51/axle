@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "fd_entry.h"
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 
 /* query whether file descriptor entry 'entry' refers to
  * and unused file descriptor
@@ -16,14 +16,14 @@ bool fd_empty(fd_entry entry);
  */
 void fd_remove(task_t* task, int index);
 
-/* add the file descriptor entry 'entry' to 
+/* add the file descriptor entry 'entry' to
  * 'task's file descriptor table at the first
  * empty location
  */
 int fd_add(task_t* task, fd_entry entry);
 
 
-/* add the file descriptor entry 'entry' to 
+/* add the file descriptor entry 'entry' to
  * 'task's file descriptor table at index 'index'
  * if an entry already exists at 'index', this silently
  * calls 'fd_remove' on it
@@ -31,4 +31,3 @@ int fd_add(task_t* task, fd_entry entry);
 int fd_add_index(task_t* task, fd_entry entry, int index);
 
 #endif
-

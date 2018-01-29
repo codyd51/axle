@@ -4,8 +4,8 @@
 #include <std/std.h>
 #include <kernel/util/paging/paging.h>
 #include <std/array_l.h>
-#include <kernel/util/multitasking/fd_entry.h>
-//#include <kernel/util/multitasking/std_stream.h>
+#include <kernel/multitasking/fd_entry.h>
+//#include <kernel/multitasking//std_stream.h>
 #include <gfx/lib/gfx.h>
 #include <gfx/lib/rect.h>
 #include <gfx/lib/window.h>

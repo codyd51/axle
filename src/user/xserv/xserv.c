@@ -5,8 +5,8 @@
 #include <kernel/assert.h>
 #include <std/std.h>
 #include <gfx/lib/gfx.h>
-#include <kernel/util/syscall/sysfuncs.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/syscall/sysfuncs.h>
+#include <kernel/multitasking/tasks/task.h>
 #include <kernel/drivers/rtc/clock.h>
 #include <kernel/drivers/vesa/vesa.h>
 #include <tests/gfx_test.h>
@@ -287,7 +287,7 @@ void draw_desktop(Screen* screen) {
 				local_r.size = r.size;
 
 				blit_layer(screen->vmem, win->layer, r, local_r);
-				
+
 				//left edge?
 				if (rect_min_x(r) == rect_min_x(win->frame)) {
 					segments |= 0x1;
@@ -467,7 +467,7 @@ static View* view_containing_point(Window* window, Point p) {
 	if (!rect_contains_point(window->frame, p)) {
 		return NULL;
 	}
-	
+
 	p.x -= window->frame.origin.x;
 	p.y -= window->frame.origin.y;
 
@@ -485,7 +485,7 @@ static View* view_containing_point(Window* window, Point p) {
 	if (owner) {
 		return owner;
 	}
-	
+
 	return window->content_view;
 }
 
@@ -605,7 +605,7 @@ static void process_mouse_events(Screen* screen) {
 	Window* owner = window_containing_point(p);
 	//find element within window that owns click
 	View* local_owner = view_containing_point(owner, p);
-	
+
 	if (left) {
 		if (!grabbed_window) {
 			//don't move root window! :p
@@ -642,7 +642,7 @@ static void process_mouse_events(Screen* screen) {
 			grabbed_window = NULL;
 		}
 	}
-	
+
 	if (local_owner) {
 		for (int j = 0; j < local_owner->buttons->size; j++) {
 			//convert point to local coordinate space
@@ -677,7 +677,7 @@ static void process_mouse_events(Screen* screen) {
 
 void xserv_refresh(Screen* screen) {
 	//if (!screen->finished_drawing) return;
-	
+
 	long time_start = time();
 	static long last_redraw = 0;
 
@@ -694,7 +694,7 @@ void xserv_refresh(Screen* screen) {
 	long frame_end = time();
 
 	update_all_animations(screen, frame_end - time_start);
-	
+
 	frame_end = time();
 	long frame_time = (frame_end - time_start);
 
@@ -821,4 +821,3 @@ void xserv_win_present(Window* win) {
 void xserv_win_destroy(Window* win) {
 	window_teardown(win);
 }
-

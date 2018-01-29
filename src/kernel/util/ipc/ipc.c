@@ -1,6 +1,6 @@
 #include "ipc.h"
 #include <kernel/util/shmem/shmem.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 
 #define PAGE_MASK 0xFFFFF000
 
@@ -22,7 +22,7 @@ static void expand_ipc_region(task_t* dest, uint32_t size) {
 		char* shmem_region = shmem_get_region_and_map(dest->page_dir, page_padded_size, 0x0, &ipc_region->kernel_addr, true);
 		ipc_region->region_start = shmem_region;
 		ASSERT(!((uint32_t)ipc_region->region_start % PAGE_SIZE), "ipc region start wasn't page aligned");
-		
+
 		ipc_region->region_end = ipc_region->region_start + page_padded_size;
 		ASSERT(!((uint32_t)ipc_region->region_end % PAGE_SIZE), "ipc region end wasn't page aligned");
 
@@ -56,4 +56,3 @@ int ipc_send(char* data, uint32_t size, uint32_t dest_pid, char** destination) {
 	printk_info("*destination %x used_bytes %x next_unused_addr %x", *destination, used_bytes, ipc_region->next_unused_addr);
 	return 0;
 }
-

@@ -2,7 +2,7 @@
 #include <std/std.h>
 #include "macho.h"
 #include <kernel/util/vfs/fs.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 
 void mach_load_segments(FILE* mach, int* entry_point, uint32_t slide);
 
@@ -94,9 +94,9 @@ static void mach_load_segment_commands(FILE* mach, int offset, int should_swap, 
 				//swap_segment_command(segment, 0);
 			}
 			/*
-			printf("Segment[%d] = %s [%x to %x], %d sections\n", i, 
-													segment->segname, 
-													slide + segment->vmaddr, 
+			printf("Segment[%d] = %s [%x to %x], %d sections\n", i,
+													segment->segname,
+													slide + segment->vmaddr,
 													slide + segment->vmaddr + segment->vmsize,
 													segment->nsects);
 													*/
@@ -108,7 +108,7 @@ static void mach_load_segment_commands(FILE* mach, int offset, int should_swap, 
 
 			if (segment->nsects) {
 				for (uint32_t j = 0; j < segment->nsects; j++) {
-					int sect_offset = real + sizeof(struct segment_command) + (sizeof(struct section) * j); 
+					int sect_offset = real + sizeof(struct segment_command) + (sizeof(struct section) * j);
 					struct section* sect = mach_load_bytes(mach, sect_offset, sizeof(struct section));
 					//printf("    %s section %d: addr %x size %x\n", sect->segname, j, sect->addr, sect->size);
 
@@ -206,4 +206,3 @@ void mach_load_segments(FILE* mach, int* entry_point, uint32_t slide) {
 	mach_load_from_header(mach, 0, is_64, should_swap, filebuf, entry_point, slide);
 	kfree(filebuf);
 }
-
