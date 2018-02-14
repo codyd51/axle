@@ -5,7 +5,7 @@
 #include <std/math.h>
 #include <kernel/util/mutex/mutex.h>
 #include <kernel/interrupts/interrupts.h>
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 #include <kernel/assert.h>
 #include <kernel/vmm/vmm.h>
 #include <kernel/boot_info.h>
@@ -173,7 +173,7 @@ void kheap_init() {
     boot_info_t* info = boot_info_get();
     uint32_t start = info->kernel_image_end + 0x100000;
     uint32_t end_addr = start + KHEAP_INITIAL_SIZE;
-    uint32_t max = KHEAP_MAX_ADDRESS;
+    uint32_t max = end_addr;
     uint32_t max_size = max - start;
 
 	//start and end MUST be page aligned
@@ -196,6 +196,8 @@ void kheap_init() {
 	//we start off with one large free block
 	//this represents the whole heap at this point
 	create_block(start, end_addr - start);
+
+    info->heap_kernel = kheap;
 }
 
 void expand(uint32_t UNUSED(new_size), heap_t* UNUSED(heap)) {
