@@ -15,7 +15,7 @@
 #define KERNEL_STACK_SIZE 2048 //use 2kb kernel stack
 #define FD_MAX 64
 
-//if a task has PROC_MASTER_PERMISSION set, 
+//if a task has PROC_MASTER_PERMISSION set,
 //it is allowed to use task_with_pid
 //this flag is set through a program's Info.plist
 //<param proc_master="allow"/>
@@ -67,7 +67,7 @@ typedef struct task {
 	 */
 
 	//end of .bss section of current task
-	uint32_t prog_break; 
+	uint32_t prog_break;
 	//virtual address of .bss segment
 	uint32_t bss_loc;
 
@@ -90,7 +90,7 @@ typedef struct task {
 	void* block_context;
 
 	//file descriptor table
-	//this stores all types of file descriptors, 
+	//this stores all types of file descriptors,
 	//including stdin/out/err, open files, and pipes
 	fd_entry fd_table[FD_MAX];
 
@@ -118,8 +118,8 @@ typedef struct task {
 } task_t;
 
 //initializes tasking system
-void tasking_install();
-bool tasking_installed();
+void tasking_init();
+bool tasking_is_active();
 
 void block_task(task_t* task, task_state reason);
 void block_task_context(task_t* task, task_state reason, void* context);
@@ -160,7 +160,7 @@ void proc();
 void force_enumerate_blocked();
 
 //internal function to query current task holding first responder status
-//the first responder of axle receives all keyboard, mouse events out of 
+//the first responder of axle receives all keyboard, mouse events out of
 //tasks waiting for keystrokes
 task_t* first_responder();
 
@@ -186,7 +186,7 @@ task_t* task_current();
 int waitpid(int pid, int* status, int options);
 int wait(int* status);
 
-//utility function to retrieve head of linked list of tasks 
+//utility function to retrieve head of linked list of tasks
 task_t* task_list();
 
 //create window with frame 'frame',
