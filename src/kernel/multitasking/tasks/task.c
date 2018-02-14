@@ -172,7 +172,7 @@ void list_task(task_t* task) {
 }
 
 void block_task_context(task_t* task, task_state reason, void* context) {
-	if (!tasking_installed()) return;
+	if (!tasking_is_active()) return;
 
 	task->state = reason;
 	task->block_context = context;
@@ -188,7 +188,7 @@ void block_task(task_t* task, task_state reason) {
 }
 
 void unblock_task(task_t* task) {
-	if (!tasking_installed()) return;
+	if (!tasking_is_active()) return;
 
 	lock(mutex);
 	task->state = RUNNABLE;
@@ -260,7 +260,7 @@ task_t* task_current() {
 }
 
 void add_process(task_t* task) {
-	if (!tasking_installed()) return;
+	if (!tasking_is_active()) return;
 
 	list_task(task);
 
@@ -434,7 +434,7 @@ void promote_task(task_t* task) {
 	switch_queue(task, task->queue - 1);
 }
 
-bool tasking_installed() {
+bool tasking_is_active() {
 	return (queues && queues->size >= 1 && current_task);
 }
 
@@ -446,12 +446,19 @@ void booster() {
 	}
 }
 
-void tasking_install(mlfq_option options) {
-	if (tasking_installed()) return;
+void tasking_install() {
+    Deprecated();
+}
 
-	printf_info("Initializing tasking...");
+void tasking_installed() {
+    Deprecated();
+}
 
-	kernel_begin_critical();
+void tasking_init(mlfq_option options) {
+	if (tasking_is_active()) {
+        panic("called tasking_init() after it was already active");
+        return;
+    }
 
 	printf_dbg("moving stack");
 	move_stack((void*)0xDFFFF000, 0x4000);
@@ -526,7 +533,7 @@ void tasking_install(mlfq_option options) {
 }
 
 void update_blocked_tasks() {
-	if (!tasking_installed()) return;
+	if (!tasking_is_active()) return;
 
 	//if there is a pending key, wake first responder
 	/*
@@ -615,7 +622,10 @@ task_t* first_responder() {
 }
 
 int fork(char* name) {
-	if (!tasking_installed()) return 0; //TODO: check this result
+	if (!tasking_is_active()) {
+        panic("called fork() before tasking was active");
+        return 0;
+    }
 
 	kernel_begin_critical();
 
@@ -732,7 +742,10 @@ array_m* first_queue_containing_runnable(void) {
 }
 
 task_t* mlfq_schedule() {
-	if (!tasking_installed()) return NULL;
+	if (!tasking_is_active()) {
+        panic("called mlfq_schedule() before tasking was active");
+        return NULL;
+    }
 
 	//find current index in queue
 	array_m* current_queue = array_m_lookup(queues, current_task->queue);
@@ -985,7 +998,7 @@ void proc() {
 }
 
 void force_enumerate_blocked() {
-	if (!tasking_installed()) return;
+	if (!tasking_is_active()) return;
 
 	update_blocked_tasks();
 }
