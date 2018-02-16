@@ -1,7 +1,7 @@
 #include "serial.h"
 
 //COM 1
-#define PORT 0x3F8 
+#define PORT 0x3F8
 
 #define BUF_SIZE 1028*8
 static char buffer[BUF_SIZE];
@@ -56,16 +56,19 @@ void serial_putchar(char c) {
 void serial_puts(char* str) {
 	//is this string too big to be directly conc'd with buffer?
 	//idx == strlen(buffer)
+    /*
 	if (idx + strlen(str) < BUF_SIZE) {
 		strcat(buffer, str);
 		idx += strlen(str);
 	}
 	else {
+    */
 		char* ptr = str;
 		while (*ptr) {
 			serial_putchar(*(ptr++));
 		}
-	}
+        serial_flush();
+	//}
 }
 
 void serial_init() {
@@ -75,11 +78,9 @@ void serial_init() {
 
 	outb(PORT + 1, 0x00); //interrupts off
 	outb(PORT + 3, 0x80); //baud rate
-	outb(PORT + 0, 0x03); //divisor to 3 
-	outb(PORT + 1, 0x00); 
+	outb(PORT + 0, 0x03); //divisor to 3
+	outb(PORT + 1, 0x00);
 	outb(PORT + 3, 0x03); //1 byte, no parity, 1 stop bit
 	outb(PORT + 2, 0xC7); //FIFO, 14-byte threshold
 	outb(PORT + 4, 0x0B); //irq on, RTS/DSR set
 }
-
-
