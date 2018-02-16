@@ -11,7 +11,7 @@ void move_stack(void* new_stack_start, uint32_t size) {
     printf("move_stack() mapping region 0x%08x to 0x%08x\n", new_stack_start - size, new_stack_start);
     //alloc 1 extra page at the top of the stack so if you don't page fault if you
     //access the very top of the stack
-    vmm_map_region(vmm_active_pdir(), new_stack_start - size, size + PAGING_PAGE_SIZE);
+    vmm_map_region(vmm_active_pdir(), new_stack_start - size, size + PAGING_PAGE_SIZE, PAGE_PRESENT_FLAG|PAGE_WRITE_FLAG);
 
 	//flush TLB by reading and writing page directory address again
 	printf_dbg("flushing TLB");

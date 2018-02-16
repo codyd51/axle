@@ -10,6 +10,10 @@
 
 #include <kernel/interrupts/interrupts.h>
 
+#define PAGE_PRESENT_FLAG 0x1
+#define PAGE_WRITE_FLAG 0x2
+#define PAGE_USER_FLAG 0x4
+
 typedef struct page {
 	uint32_t present	:  1; //page present in memory
 	uint32_t rw			:  1; //read-only if clear, readwrite if set
@@ -51,7 +55,7 @@ typedef struct page_directory {
 
 typedef struct vmm_pdir {
     vmm_pde_t* tables[1024];
-    vmm_pde_t* tablesPhysical[1024];
+    uint32_t tablesPhysical[1024];
     uint32_t physicalAddr;
 } vmm_pdir_t;
 
@@ -92,8 +96,8 @@ void switch_page_directory(page_directory_t* new_dir);
 //reside isn't created, create it
 page_t* get_page(uint32_t address, int make, page_directory_t* dir);
 
-//retrieves current cr3 (current paging dir)
-page_directory_t* get_cr3();
+//retrieves the physical address currently loaded into cr3
+uint32_t get_cr3();
 
 //maps physical range to virtual memory
 void vmem_map(uint32_t virt, uint32_t physical);
@@ -120,14 +124,14 @@ page_directory_t* page_dir_current();
 //of in-use pages in a page directory
 void page_regions_print(page_directory_t* dir);
 
-page_t* vmm_get_page_for_virtual_address(page_directory_t* dir, uint32_t virt_addr);
+page_t* vmm_get_page_for_virtual_address(vmm_pdir_t* dir, uint32_t virt_addr);
 page_t* vmm_page_alloc_for_phys_addr(page_directory_t* dir, uint32_t phys_addr);
 page_t* vmm_page_alloc_for_virt_addr(page_directory_t* dir, uint32_t virt_addr);
 
 void vmm_map_page_to_frame(page_t* page, uint32_t frame_addr);
 
-void vmm_map_region(page_directory_t* dir, uint32_t start, uint32_t size);
-void vmm_identity_map_region(page_directory_t* dir, uint32_t start, uint32_t size);
+void vmm_map_region(vmm_pdir_t* dir, uint32_t start, uint32_t size, uint16_t flags);
+void vmm_identity_map_region(vmm_pdir_t* dir, uint32_t start, uint32_t size, uint16_t flags);
 
 void vmm_dump(page_directory_t* dir);
 
@@ -138,6 +142,7 @@ void vmm_load_pdir(vmm_pdir_t* dir);
 vmm_pdir_t* vmm_active_pdir();
 
 uint32_t vmm_get_phys_for_virt(uint32_t virtualaddr);
-void vmm_map_virt_to_phys(vmm_pdir_t* dir, uint32_t page_addr, uint32_t frame_addr);
+void vmm_map_virt_to_phys(vmm_pdir_t* dir, uint32_t page_addr, uint32_t frame_addr, uint16_t flags);
+void vmm_map_virt(vmm_pdir_t* dir, uint32_t page_addr, uint16_t flags);
 
 #endif

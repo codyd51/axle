@@ -190,8 +190,8 @@ void kheap_init() {
 	kheap->readonly = false;
 
     //map this memory into kernel page directory
-    page_directory_t* kernel_vmm = info->vmm_kernel;
-    vmm_map_region(kernel_vmm, start, KHEAP_INITIAL_SIZE);
+    vmm_pdir_t* kernel_vmm = info->vmm_kernel;
+    vmm_map_region(kernel_vmm, start, KHEAP_INITIAL_SIZE, PAGE_PRESENT_FLAG|PAGE_WRITE_FLAG);
 
 	//we start off with one large free block
 	//this represents the whole heap at this point

@@ -15,8 +15,7 @@
 static void page_fault(register_state_t regs);
 static uint32_t vmm_page_table_idx_for_virt_addr(uint32_t addr);
 static uint32_t vmm_page_idx_within_table_for_virt_addr(uint32_t addr);
-static void vmm_page_table_alloc_for_virt_addr(page_directory_t* dir, uint32_t addr);
-static void vmm_remap_kernel(page_directory_t* dir, uint32_t dest_virt_addr);
+static void vmm_page_table_alloc_for_virt_addr(vmm_pdir_t* dir, uint32_t addr);
 
 void * get_physaddr(void * virtualaddr);
 
@@ -30,10 +29,10 @@ void set_cr0(uint32_t cr0) {
 	asm volatile("mov %0, %%cr0" : : "r"(cr0));
 }
 
-page_directory_t* get_cr3() {
+uint32_t get_cr3() {
 	uint32_t cr3;
 	asm volatile("mov %%cr3, %0" : "=r"(cr3));
-	return (page_directory_t*)(long)cr3;
+	return cr3;
 }
 
 void set_cr3(uint32_t addr) {
@@ -74,14 +73,16 @@ void vmm_init(void) {
 	kernel_directory.physicalAddr = (uint32_t)&kernel_directory.tablesPhysical;
 
     //identity-map everything up to the kernel image end, plus a little extra space
+    vmm_identity_map_region((vmm_pdir_t*)&kernel_directory, 0x0, info->kernel_image_end, PAGE_PRESENT_FLAG);
     //the extra space is to allow the PMM to allocate a few frames before paging is enabled
     //we reserve 1mb
     //NOTE: this variable is defined both here and in pmm.c
     //if you update it here, you must update it there are well, and vice versa
     //TODO(PT): make this more rigorous
     uint32_t extra_identity_map_region_size = 0x100000;
+    vmm_identity_map_region((vmm_pdir_t*)&kernel_directory, info->kernel_image_end, extra_identity_map_region_size, PAGE_PRESENT_FLAG|PAGE_WRITE_FLAG);
+
     printf("identity map from [0x%08x to 0x%08x]\n", 0x0, info->kernel_image_end + extra_identity_map_region_size);
-    vmm_identity_map_region(&kernel_directory, 0x0, info->kernel_image_end + extra_identity_map_region_size);
 
     //map last PDE to the page directory itself
     //this is a trick to read/write to the page directory after it's been loaded
@@ -91,10 +92,10 @@ void vmm_init(void) {
     //vmm_dump(&kernel_directory);
 
 	//before we enable paging, register page fault handler
-	interrupt_setup_callback(INT_VECTOR_INT14, page_fault);
+	interrupt_setup_callback(INT_VECTOR_INT14, (int_callback_t)page_fault);
 
 	//enable paging
-	vmm_load_pdir(&kernel_directory);
+	vmm_load_pdir((vmm_pdir_t*)&kernel_directory);
 }
 
 uint32_t vmm_get_phys_for_virt(uint32_t virtualaddr) {
@@ -158,7 +159,7 @@ static void page_fault(register_state_t regs) {
     while (1) {}
 }
 
-page_t* vmm_get_page_for_virtual_address(page_directory_t* dir, uint32_t virt_addr) {
+page_t* vmm_get_page_for_virtual_address(vmm_pdir_t* dir, uint32_t virt_addr) {
     if (virt_addr & ~PAGING_FRAME_MASK) {
         panic("vmm_page_for_virtual_address() frame address not page-aligned");
     }
@@ -208,28 +209,28 @@ static void _active_vmm_map_virt_to_phys(vmm_pdir_t* dir, uint32_t page_addr, ui
 	asm volatile("mov %0, %%cr3" : : "r"(cr3));
 }
 
-void vmm_map_virt_to_phys(vmm_pdir_t* dir, uint32_t page_addr, uint32_t frame_addr) {
+void vmm_map_virt_to_phys(vmm_pdir_t* dir, uint32_t page_addr, uint32_t frame_addr, uint16_t flags) {
     if (vmm_is_active()) {
         if (vmm_active_pdir() == dir) {
-            _active_vmm_map_virt_to_phys(dir, page_addr, frame_addr, 0x00);
+            _active_vmm_map_virt_to_phys(dir, page_addr, frame_addr, flags);
             return;
         }
     }
     page_t* page = vmm_get_page_for_virtual_address(dir, frame_addr);
 
 	page->present = 1; //mark as present
-    page->rw = true;
-    page->user = false;
+    page->rw = flags & 0x2;
+    page->user = flags & 0x4;
 
     pmm_alloc_address(frame_addr);
     vmm_map_page_to_frame(page, frame_addr);
 }
 
-void vmm_map_virt(page_directory_t* dir, uint32_t page_addr) {
-    vmm_map_virt_to_phys(dir, page_addr, pmm_alloc());
+void vmm_map_virt(vmm_pdir_t* dir, uint32_t page_addr, uint16_t flags) {
+    vmm_map_virt_to_phys(dir, page_addr, pmm_alloc(), flags);
 }
 
-page_t* vmm_duplicate_frame_mapping(page_directory_t* dir, page_t* source, uint32_t dest_virt_addr) {
+page_t* vmm_duplicate_frame_mapping(vmm_pdir_t* dir, page_t* source, uint32_t dest_virt_addr) {
     page_t* dest = vmm_get_page_for_virtual_address(dir, dest_virt_addr);
 
 	dest->present = source->present;
@@ -297,7 +298,7 @@ static uint32_t vmm_page_idx_within_table_for_virt_addr(uint32_t addr) {
     return page_idx % PAGES_IN_PAGE_TABLE;
 }
 
-static void vmm_page_table_alloc_for_virt_addr(page_directory_t* dir, uint32_t virt_addr) {
+static void vmm_page_table_alloc_for_virt_addr(vmm_pdir_t* dir, uint32_t virt_addr) {
     uint32_t table_idx = vmm_page_table_idx_for_virt_addr(virt_addr);
     uint32_t page_idx = vmm_page_idx_within_table_for_virt_addr(virt_addr);
     //does this page table already exist?
@@ -311,65 +312,25 @@ static void vmm_page_table_alloc_for_virt_addr(page_directory_t* dir, uint32_t v
 
     //this relies on a page table being a frame size, so verify this assumption
     assert(PAGING_FRAME_SIZE == sizeof(page_table_t), "page_table_t was a different size from a frame");
-    //TODO (PT) add a check here for whether paging is active here
-    //if it is, maybe it should be a virtual memory allocator?
-    //high when i wrote this so feel free to discard if incorrect/wrong assumption`
-    //1/23 high again, the above seems to be correct.
-    //maybe a _vmm_internal_alloc() that either does pmm or vmm allocation,
-    //based on whether paging is enabled.
-	//PRESENT, RW, US
-    uint32_t table_page_flags = 0x7;
+	//PRESENT, RW
+    //TODO(PT): add PAGE_USER_FLAG if running in userland
+    uint32_t table_page_flags = PAGE_PRESENT_FLAG | PAGE_WRITE_FLAG;
+
     if (!vmm_is_active()) {
         uint32_t identity_mapped_table_addr = pmm_alloc();
         printf("page table alloc 0x%08x\n", identity_mapped_table_addr);
         page_table_t* identity_mapped_table = (page_table_t*)identity_mapped_table_addr;
 
-    	dir->tablesPhysical[table_idx] = (identity_mapped_table_addr) | table_page_flags;
+    	dir->tablesPhysical[table_idx] = (uint32_t)identity_mapped_table_addr | table_page_flags;
     	dir->tables[page_idx] = identity_mapped_table;
     	memset(dir->tables[page_idx], 0, sizeof(page_table_t));
     }
     else {
-        /*
-        uint32_t frame_addr = pmm_alloc();
-        printf("vmm-active page table alloc, virt 0x%08x phys 0x%08x\n", virt_addr, frame_addr);
-
-        dir->tables[table_idx] = frame_addr;
-        dir->tablesPhysical[table_idx] = (frame_addr) | table_page_flags;
-        uint32_t cr3 = get_cr3();
-        printf("reloading cr3 (current physicalAddr 0x%08x)\n", cr3);
-        set_cr3(dir);
-        //asm("movl %cr3, %eax");
-        //asm("movl %eax,%cr3");
-        printf("memesetting table\n");
-        memset(dir->tables[table_idx], 0, sizeof(page_table_t));
-        printf("done");
-        */
-        panic("vmm-active page table alloc");
-
-        /*
-        page_table_t (*vmm_virtual_page_tables)[1024] = (page_table_t(*)[1024])0xFFC00000;
-        uint32_t (*virtual_page_dir)[1024] = (uint32_t(*)[1024])0xFFFFF000;
-        */
+        panic("vmm_page_table_alloc_for_virt_addr() called instead of _active_vmm_map_virt_to_phys when VMM was alive");
     }
 }
 
-static void vmm_remap_kernel(page_directory_t* dir, uint32_t dest_virt_addr) {
-    boot_info_t* info = boot_info_get();
-    uint32_t kernel_base = info->kernel_image_start;
-    uint32_t kernel_size = info->kernel_image_size;
-
-    for (int i = 0; i < kernel_size; i += PAGING_PAGE_SIZE) {
-        //figure out the address of the physical frame
-        uint32_t frame_addr = i + kernel_base;
-
-        //map this kernel frame to a virtual page
-        uint32_t dest_page_addr = dest_virt_addr + i;
-        page_t* dest_page = vmm_get_page_for_virtual_address(dir, dest_page_addr);
-        vmm_map_page_to_frame(dest_page, frame_addr);
-    }
-}
-
-void vmm_map_region(page_directory_t* dir, uint32_t start, uint32_t size) {
+void vmm_map_region(vmm_pdir_t* dir, uint32_t start, uint32_t size, uint16_t flags) {
     if (start & ~PAGING_FRAME_MASK) {
         panic("vmm_map_region start not page aligned!");
     }
@@ -381,11 +342,11 @@ void vmm_map_region(page_directory_t* dir, uint32_t start, uint32_t size) {
     int frame_count = size / PAGING_PAGE_SIZE;
     for (int i = 0; i < frame_count; i++) {
         uint32_t page_addr = start + (i * PAGING_PAGE_SIZE);
-        vmm_map_virt(dir, page_addr);
+        vmm_map_virt(dir, page_addr, flags);
     }
 }
 
-void vmm_identity_map_region(page_directory_t* dir, uint32_t start, uint32_t size) {
+void vmm_identity_map_region(vmm_pdir_t* dir, uint32_t start, uint32_t size, uint16_t flags) {
     if (start & ~PAGING_FRAME_MASK) {
         panic("vmm_identity_map_region start not page aligned!");
     }
@@ -398,6 +359,6 @@ void vmm_identity_map_region(page_directory_t* dir, uint32_t start, uint32_t siz
     for (int i = 0; i < frame_count; i++) {
         uint32_t frame_addr = start + (i * PAGING_PAGE_SIZE);
         uint32_t page_addr = frame_addr;
-        vmm_map_virt_to_phys(dir, page_addr, frame_addr);
+        vmm_map_virt_to_phys(dir, page_addr, frame_addr, flags);
     }
 }
