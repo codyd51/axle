@@ -97,36 +97,6 @@ page_t* get_page(uint32_t address, int make, page_directory_t* dir) {
 }
 
 static page_table_t* clone_table(page_table_t* src, uint32_t* physAddr) {
-    Deprecated();
-	printk("cloning table at %x\n", src);
-	int cloned_pages = 0;
-
-	//make new page aligned table
-	page_table_t* table = (page_table_t*)kmalloc_ap(sizeof(page_table_t), physAddr);
-	//ensure new table is blank
-	memset((uint8_t*)table, 0, sizeof(page_table_t));
-
-	//for each entry in table
-	for (int i = 0; i < 1024; i++) {
-		//if source entry has a frame associated with it
-		if (!src->pages[i].frame) continue;
-		cloned_pages++;
-
-		//get new frame
-		alloc_frame(&(table->pages[i]), 0, 0);
-		//clone flags from source to destination
-		table->pages[i].present = src->pages[i].present;
-		table->pages[i].rw = src->pages[i].rw;
-		table->pages[i].user = src->pages[i].user;
-		table->pages[i].accessed = src->pages[i].accessed;
-		table->pages[i].dirty = src->pages[i].dirty;
-
-		//physically copy data across
-		extern void copy_page_physical(uint32_t page, uint32_t dest);
-		copy_page_physical(src->pages[i].frame * PAGE_SIZE, table->pages[i].frame * PAGE_SIZE);
-	}
-	printk("clone_table() copied %d pages, %d kb\n", cloned_pages, ((cloned_pages * PAGE_SIZE) / 1024));
-	return table;
 }
 
 void vmm_copy_page_table_pointers(vmm_pdir_t* src, vmm_pdir_t* dst) {
@@ -137,18 +107,16 @@ void vmm_copy_page_table_pointers(vmm_pdir_t* src, vmm_pdir_t* dst) {
         if (dst->tablesPhysical[i]) {
             panic("tried to overwrite pde entry in dst");
         }
-        printf("vmm_copy_page_table_pointers copying %d\n", i);
+        printf("vmm_copy_page_table_pointers copying page table pointer #%d\n", i);
         dst->tablesPhysical[i] = src->tablesPhysical[i];
     }
 }
 
-vmm_pdir_t* vmm_clone_pdir(vmm_pdir_t* src) {
-    printf("VMM cloning page directory 0x%08x\n", src);
+vmm_pdir_t* vmm_setup_new_pdir() {
     uint32_t phys;
     vmm_pdir_t* new_dir = kmalloc_ap(sizeof(vmm_pdir_t), &phys);
     memset(new_dir, 0, sizeof(vmm_pdir_t));
-    uint32_t tablesOffset = (uint32_t)src->tablesPhysical - (uint32_t)src;
-    phys += tablesOffset;
+    phys += offsetof(vmm_pdir_t, tablesPhysical);
     new_dir->physicalAddr = phys;
     printf("VMM new dir at 0x%08x, physicalAddr 0x%08x\n", new_dir, phys);
 
@@ -160,8 +128,54 @@ vmm_pdir_t* vmm_clone_pdir(vmm_pdir_t* src) {
     //TODO(PT): put this into its own function, its done here and in vmm_init
     new_dir->tablesPhysical[1023] = new_dir->physicalAddr | 0x7;
 
+    return new_dir;
+}
+
+vmm_pdir_t* vmm_clone_active_page_table_at_index(vmm_pdir_t* dst_dir, uint32_t table_index) {
+    printf("vmm_clone_active_page_table_at_index %d\n", table_index);
+    unsigned long* src_table = ((unsigned long *)0xFFC00000) + (0x400 * table_index);
+
+	//make new page aligned table
+    uint32_t physAddr;
+	unsigned long* new_table = (unsigned long*)kmalloc_ap(sizeof(page_table_t), (uint32_t*)&physAddr);
+	//ensure new table is blank
+	memset((uint8_t*)new_table, 0, sizeof(page_table_t));
+    dst_dir->tablesPhysical[table_index] = physAddr | 0x07;
+
+	//for each entry in table
+	int cloned_pages = 0;
+	for (int page_idx = 0; page_idx < 1024; page_idx++) {
+        if (!src_table[page_idx]) {
+            continue;
+        }
+        printf("contents of page %d = 0x%08x\n", src_table[page_idx]);
+		cloned_pages++;
+
+        printf("is this the same? 0x%08x 0x%08x\n", (src_table[page_idx] >> 22) * PAGING_FRAME_SIZE, src_table[page_idx]);
+
+        uint32_t source_frame = (src_table[page_idx] >> 22) * PAGING_FRAME_SIZE;
+        uint32_t dest_frame = pmm_alloc();
+
+        new_table[page_idx] = dest_frame / PAGING_FRAME_SIZE;
+        //clone the flags from the source
+        //present, rw, user, accessed, dirty = 0b11111 = 0x1f
+        new_table[page_idx] |= src_table[page_idx] & 0x1f;
+
+		//physically copy data across
+		extern void copy_page_physical(uint32_t page, uint32_t dest);
+        copy_page_physical(source_frame, dest_frame);
+	}
+	printf("clone_table() copied %d pages, %d kb\n", cloned_pages, ((cloned_pages * PAGE_SIZE) / 1024));
+}
+
+vmm_pdir_t* vmm_clone_active_pdir() {
+    vmm_pdir_t* src = vmm_active_pdir();
+    printf("VMM cloning page directory 0x%08x\n", src);
+    vmm_pdir_t* new_dir = vmm_setup_new_pdir();
+
     //copy each table
     for (int i = 0; i < 1024; i++) {
+        //no table to copy at this index from the source
         if (!src->tablesPhysical[i]) {
             continue;
         }
@@ -169,19 +183,19 @@ vmm_pdir_t* vmm_clone_pdir(vmm_pdir_t* src) {
         //TODO(PT) this will waste tables that only have a couple kernel pages
         //in use! do we care?
         if (new_dir->tablesPhysical[i]) {
+            printf("vmm_clone_pdir not copying already copied table index %d\n", i);
             continue;
         }
 
-        /*
         //copy table
         uint32_t table_phys;
-        dir->tablesPhysical[i] = vmm_clone_table(src->tables[i]);
-        dir->tables[i] = clone_table(src->tables[i], &phys);
-        printk("cloned table: %x\n", dir->tables[i]);
-        dir->tablesPhysical[i] = phys | 0x07;
-        */
-        printf("table %d in src and not in new_dir\n", i);
-        panic("src has tables that aren't in kernel dir");
+        unsigned long pdindex = i;
+        unsigned long * pt = ((unsigned long *)0xFFC00000) + (0x400 * pdindex);
+
+        vmm_clone_active_page_table_at_index(new_dir, i);
+        new_dir->tables[i] = clone_table(pt, &table_phys);
+        printf("cloned table: 0x%08x phys 0x%08x\n", pt, table_phys);
+        new_dir->tablesPhysical[i] = table_phys | 0x07;
     }
 
     return new_dir;
