@@ -27,7 +27,7 @@
 #include <kernel/syscall/syscall.h>
 
 //testing!
-#include <kernel/util/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 
 #define SPIN while (1) {sys_yield(RUNNABLE);}
 #define SPIN_NOMULTI do {} while (1);

@@ -202,7 +202,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 	task_t* parent = current_task;
 
 	//clone address space
-	page_directory_t* cloned = vmm_clone_pdir(vmm_active_pdir());
+	page_directory_t* cloned = vmm_clone_active_pdir();
 
 	//create new process
 	task_t* task = kmalloc(sizeof(task_t));
@@ -460,8 +460,7 @@ void tasking_init(mlfq_option options) {
         return;
     }
 
-	printf_dbg("moving stack");
-	move_stack((void*)0xDFFFF000, 0x4000);
+	printf_info("Multitasking init...");
 
 	int queue_count = 0;
 	switch (options) {
@@ -474,7 +473,6 @@ void tasking_init(mlfq_option options) {
 			break;
 	}
 
-	printf_dbg("creating task queues");
 	queues = array_m_create(queue_count + 1);
 	for (int i = 0; i < queue_count; i++) {
 		array_m* queue = array_m_create(MLFQ_MAX_QUEUE_LENGTH);
@@ -486,17 +484,21 @@ void tasking_init(mlfq_option options) {
 		array_m_insert(queue_lifetimes, (type_t)(HIGH_PRIO_QUANTUM * (i + 1)));
 	}
 
-
 	printf_dbg("setting up kernel task");
 	//init first task (kernel task)
 	task_t* kernel = kmalloc(sizeof(task_t));
 	memset(kernel, 0, sizeof(task_t));
-	strcpy(kernel->name, "kax");
+	kernel->name = "kax";
 	kernel->id = next_pid++;
-	kernel->page_dir = vmm_active_pdir();
 	kernel->child_tasks = array_m_create(32);
 	//kernel->kernel_stack = kmalloc_a(KERNEL_STACK_SIZE);
 	setup_fds(kernel);
+
+    uint32_t pdir_phys;
+    vmm_pdir_t* kernel_task_pdir = vmm_clone_active_pdir();
+    vmm_load_pdir(kernel_task_pdir);
+    move_stack(0xDFFFF000, 0x4000);
+    kernel->page_dir = kernel_task_pdir;
 
 	current_task = kernel;
 	active_list = kernel;
