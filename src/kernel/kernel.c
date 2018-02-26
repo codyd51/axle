@@ -17,6 +17,7 @@
 
 //kernel drivers
 #include <kernel/drivers/pit/pit.h>
+#include <kernel/drivers/serial/serial.h>
 #include <kernel/drivers/text_mode/text_mode.h>
 
 //higher-level kernel features
@@ -41,6 +42,7 @@ void system_mem() {
 
 void drivers_init(void) {
     pit_timer_init(PIT_TICK_GRANULARITY_1MS);
+    serial_init();
 }
 
 static void kernel_spinloop() {
