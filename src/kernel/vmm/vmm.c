@@ -182,16 +182,28 @@ void vmm_map_page_to_frame(page_t* page, uint32_t frame_addr) {
 }
 
 static void _active_vmm_map_virt_to_phys(vmm_pdir_t* dir, uint32_t page_addr, uint32_t frame_addr, uint16_t flags) {
+    vmm_pdir_t* active_pdir = vmm_active_pdir();
+    if (dir != active_pdir) {
+        panic("incorrect pdir passed to _active_vmm_map_virt_to_phys");
+    }
+
     // Make sure that both addresses are page-aligned.
     unsigned long pdindex = (unsigned long)page_addr >> 22;
     unsigned long ptindex = (unsigned long)page_addr >> 12 & 0x03FF;
 
     unsigned long * pd = (unsigned long *)0xFFFFF000;
-    // Here you need to check whether the PD entry is present.
-    // When it is not present, you need to create a new empty PT and
-    // adjust the PDE accordingly.
+    //if the page table didn't already exist, alloc one
     if (!(pd[pdindex])) {
-        pd[pdindex] = pmm_alloc() | 0x07; //present, rw, us
+        uint32_t new_table_frame = pmm_alloc();
+        pd[pdindex] = new_table_frame | 0x07; //present, rw, us
+        //consistency check!
+        //make sure the above worked as we expect
+        //remove page table flags before checking
+        uint32_t dir_frame = dir->tablesPhysical[pdindex] & ~0xFFF;
+        if (dir_frame != new_table_frame) {
+            printf("dir 0x%08x arr 0x%08x\n eq %d", dir_frame, new_table_frame, (int)dir_frame==new_table_frame);
+            panic("dir->tablesPhysical wasn't updated after assigning page table pointer");
+        }
     }
 
     unsigned long * pt = ((unsigned long *)0xFFC00000) + (0x400 * pdindex);
