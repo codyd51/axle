@@ -463,29 +463,27 @@ void tasking_init(mlfq_option options) {
 
     printf_info("Multitasking init...");
 
-    /*
     int queue_count = 0;
     switch (options) {
-    case LOW_LATENCY:
-    queue_count = 1;
-    break;
-    case PRIORITIZE_INTERACTIVE:
-    default:
-    queue_count = MLFQ_DEFAULT_QUEUE_COUNT;
-    break;
-}
+        case LOW_LATENCY:
+            queue_count = 1;
+            break;
+        case PRIORITIZE_INTERACTIVE:
+        default:
+            queue_count = MLFQ_DEFAULT_QUEUE_COUNT;
+            break;
+    }
 
-queues = array_m_create(queue_count + 1);
-for (int i = 0; i < queue_count; i++) {
-array_m* queue = array_m_create(MLFQ_MAX_QUEUE_LENGTH);
-array_m_insert(queues, queue);
-}
+    queues = array_m_create(queue_count + 1);
+    for (int i = 0; i < queue_count; i++) {
+        array_m* queue = array_m_create(MLFQ_MAX_QUEUE_LENGTH);
+        array_m_insert(queues, queue);
+    }
 
-queue_lifetimes = array_m_create(queue_count + 1);
-for (int i = 0; i < queue_count; i++) {
-array_m_insert(queue_lifetimes, (type_t)(HIGH_PRIO_QUANTUM * (i + 1)));
-}
-*/
+    queue_lifetimes = array_m_create(queue_count + 1);
+    for (int i = 0; i < queue_count; i++) {
+        array_m_insert(queue_lifetimes, (type_t)(HIGH_PRIO_QUANTUM * (i + 1)));
+    }
 
 printf_dbg("setting up kernel task");
 //init first task (kernel task)
