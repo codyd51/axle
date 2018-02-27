@@ -435,7 +435,8 @@ void promote_task(task_t* task) {
 }
 
 bool tasking_is_active() {
-	return (queues && queues->size >= 1 && current_task);
+	//return (queues && queues->size >= 1 && current_task);
+    return current_task != 0;
 }
 
 void booster() {
@@ -462,6 +463,7 @@ void tasking_init(mlfq_option options) {
 
 	printf_info("Multitasking init...");
 
+    /*
 	int queue_count = 0;
 	switch (options) {
 		case LOW_LATENCY:
@@ -483,31 +485,34 @@ void tasking_init(mlfq_option options) {
 	for (int i = 0; i < queue_count; i++) {
 		array_m_insert(queue_lifetimes, (type_t)(HIGH_PRIO_QUANTUM * (i + 1)));
 	}
+    */
 
 	printf_dbg("setting up kernel task");
 	//init first task (kernel task)
-	task_t* kernel = kmalloc(sizeof(task_t));
-	memset(kernel, 0, sizeof(task_t));
+	task_small_t* kernel = kmalloc(sizeof(task_small_t));
+	memset(kernel, 0, sizeof(task_small_t));
 	kernel->name = "kax";
 	kernel->id = next_pid++;
-	kernel->child_tasks = array_m_create(32);
-	//kernel->kernel_stack = kmalloc_a(KERNEL_STACK_SIZE);
-	setup_fds(kernel);
+	kernel->context.kernel_stack = (uint32_t)kmalloc_a(KERNEL_STACK_SIZE);
+	//setup_fds(kernel);
 
     uint32_t pdir_phys;
     vmm_pdir_t* kernel_task_pdir = vmm_clone_active_pdir();
     vmm_load_pdir(kernel_task_pdir);
     move_stack(0xDFFFF000, 0x4000);
-    kernel->page_dir = kernel_task_pdir;
+    kernel->context.page_dir = kernel_task_pdir;
+    //update the kernel directory in boot_info
+    boot_info_t* boot_info = boot_info_get();
+    boot_info->vmm_kernel = kernel_task_pdir;
 
 	current_task = kernel;
-	active_list = kernel;
-	enqueue_task(current_task, 0);
+	//active_list = kernel;
+	//enqueue_task(current_task, 0);
 
 	//set up responder stack
-	responder_stack = array_m_create(MAX_RESPONDERS);
+	//responder_stack = array_m_create(MAX_RESPONDERS);
 	//set kernel as initial first responder
-	become_first_responder();
+	//become_first_responder();
 
 	//create callback to switch tasks
 	void handle_pit_tick();
@@ -847,6 +852,7 @@ void goto_pid(int id, bool update_current_task_state) {
 
 	//did the next task just start executing?
 	if (eip == STACK_MAGIC) {
+        kernel_end_critical();
 		return;
 	}
 
@@ -900,7 +906,8 @@ void goto_pid(int id, bool update_current_task_state) {
 	eip = current_task->eip;
 	esp = current_task->esp;
 	ebp = current_task->ebp;
-    vmm_load_pdir(current_task->page_dir);
+ //   vmm_load_pdir(current_task->page_dir);
+    kernel_end_critical();
 	task_switch_real(eip, current_task->page_dir->physicalAddr, ebp, esp);
 }
 

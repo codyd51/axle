@@ -3,15 +3,14 @@
 #include <std/memory.h>
 #include <kernel/util/paging/paging.h>
 #include <kernel/vmm/vmm.h>
-
-extern uint32_t initial_esp;
+#include <kernel/boot_info.h>
 
 void move_stack(void* new_stack_start, uint32_t size) {
 	//allocate space for new stack
     printf("move_stack() mapping region 0x%08x to 0x%08x\n", new_stack_start - size, new_stack_start);
     //alloc 1 extra page at the top of the stack so if you don't page fault if you
     //access the very top of the stack
-    vmm_map_region(vmm_active_pdir(), new_stack_start - size, size + PAGING_PAGE_SIZE, PAGE_PRESENT_FLAG|PAGE_WRITE_FLAG);
+    vmm_map_region(vmm_active_pdir(), (uint32_t*)(new_stack_start - size), size + PAGING_PAGE_SIZE, PAGE_PRESENT_FLAG|PAGE_WRITE_FLAG);
 
 	//flush TLB by reading and writing page directory address again
 	printf_dbg("flushing TLB");
@@ -26,7 +25,8 @@ void move_stack(void* new_stack_start, uint32_t size) {
 	asm volatile("mov %%ebp, %0" : "=r" (old_bp));
 
 	//offset to add to old stack addresses to get new stack address
-	uint32_t offset = (uint32_t)new_stack_start - initial_esp;
+    uint32_t boot_esp = boot_info_get()->boot_stack_top_phys;
+	uint32_t offset = (uint32_t)new_stack_start - boot_esp;
 
 	//new esp and ebp
 	uint32_t new_sp = old_sp + offset;
@@ -35,16 +35,16 @@ void move_stack(void* new_stack_start, uint32_t size) {
 
 	//copy stack!
 	printf("copying stack data!\n");
-	memcpy((void*)new_sp, (void*)old_sp, initial_esp - old_sp);
+	memcpy((void*)new_sp, (void*)old_sp, boot_esp - old_sp);
 
 	//backtrace through original stack, copying new values into new stack
-	for (uint32_t i = (uint32_t)new_stack_start; i > (uint32_t)new_stack_start - size; i -= sizeof(uint32_t)) {
+	for (uint32_t i = (uint32_t)new_sp; i > (uint32_t)new_sp - size; i -= sizeof(uint32_t)) {
 		uint32_t tmp = *(uint32_t*)i;
 		//if value of tmp is inside range of old stack,
 		//assume it's a base pointer and remap it
 		//TODO keep in mind this will remap ANY value in this range,
 		//whether it's a base pointer or not
-		if ((old_sp < tmp) && (tmp < initial_esp)) {
+		if ((old_sp < tmp) && (tmp < boot_esp)) {
 			tmp = tmp + offset;
 			uint32_t* tmp2 = (uint32_t*)i;
 			*tmp2 = tmp;
