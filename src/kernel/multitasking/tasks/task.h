@@ -12,7 +12,7 @@
 #include <kernel/util/ipc/ipc.h>
 #include <gfx/lib/surface.h>
 
-#define KERNEL_STACK_SIZE 2048 //use 2kb kernel stack
+#define KERNEL_STACK_SIZE 4096 //use 4kb kernel stack
 #define FD_MAX 64
 
 //if a task has PROC_MASTER_PERMISSION set,
@@ -37,6 +37,22 @@ typedef enum mlfq_option {
 	LOW_LATENCY = 0, //minimize latency between tasks running, tasks share a single queue
 	PRIORITIZE_INTERACTIVE, //use more queues, allowing interactive tasks to dominate
 } mlfq_option;
+
+typedef struct task_context {
+	vmm_pdir_t* page_dir; //address space state of process
+
+	uint32_t esp; //stack pointer
+	uint32_t ebp; //base pointer
+	uint32_t eip; //instruction pointer
+    uint32_t kernel_stack;
+} task_context_t;
+
+typedef struct task_small {
+    char* name;
+    int id;
+    task_state state; // TODO(pt) change to task_wait_state?
+    task_context_t context;
+} task_small_t;
 
 struct fd_entry;
 typedef struct task {
