@@ -1,19 +1,19 @@
 %macro ISR_NOERRCODE 1 		; define a macro, taking one parameter
-	[global isr%1] 			; %1 accesses the first parameteer
-	isr%1:
-		cli
-		push byte 0				; push dummy error code, so the stack frame is the same as if coming from ISR_ERRCODE
-		push byte %1 			; push interrupt number
-		jmp isr_common_stub 	; go to common handler
+    [global isr%1] 			; %1 accesses the first parameteer
+    isr%1:
+        cli
+        push byte 0				; push dummy error code, so the stack frame is the same as if coming from ISR_ERRCODE
+        push byte %1 			; push interrupt number
+        jmp isr_common_stub 	; go to common handler
 %endmacro
 
 %macro ISR_ERRCODE 1
-	[GLOBAL isr%1]
-	isr%1:
-		cli
-		; error code is implicitly pushed by CPU
-		push byte %1
-		jmp isr_common_stub
+    [GLOBAL isr%1]
+    isr%1:
+        cli
+        ; error code is implicitly pushed by CPU
+        push byte %1
+        jmp isr_common_stub
 %endmacro
 
 ; Intel manual states that interrupts 8, 10, 11, 12, 13, 14 pass error codes
@@ -55,12 +55,12 @@ ISR_NOERRCODE 128
 ; this macro creates a stub for an IRQ - the first parameter is
 ; the IRQ number, the second is the ISR number it's remapped to
 %macro IRQ 2
-	[GLOBAL irq%1]
-	irq%1:
-		cli
-		push byte 0x00 ; push dummy error code
-		push byte %2
-		jmp irq_common_stub
+    [GLOBAL irq%1]
+    irq%1:
+        cli
+        push byte 0x00 ; push dummy error code
+        push byte %2
+        jmp irq_common_stub
 %endmacro
 
 IRQ	 0,		32
@@ -86,35 +86,40 @@ IRQ 15, 	47
 ; up kernel mode segments, calls C-level fault handler,
 ; and finally restores stack frame
 isr_common_stub:
-	pushad		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
+    pushad		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
 
-	; move current data segment into ax
-	; push to stack so we can restore it later
-	mov ax, ds
-	push eax
+    ; move current data segment into ax
+    ; push to stack so we can restore it later
+    mov ax, ds
+    push eax
 
-	; loads kernel data segment argument
-	; this constant is defined in <kernel/gdt/gdt_structures.h>
-	mov ax, 0x10
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
+    ; loads kernel data segment argument
+    ; this constant is defined in <kernel/gdt/gdt_structures.h>
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
 
-	; call general isr handler
-	call isr_receive
+    push esp
 
-	; restore data segment selector
-	pop eax
-	mov gs, ax
-	mov fs, ax
-	mov es, ax
-	mov ds, ax
+    ; call general isr handler
+    call isr_receive
 
-	popad 		; pop edi, esi, ebp, etc
-	add esp, 8 	; cleans up pushed error code and pushed ISR number
-	sti
-	iretd		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
+    ; add esp, 4
+    pop esp
+
+    ; restore data segment selector
+    pop eax
+    mov gs, ax
+    mov fs, ax
+    mov es, ax
+    mov ds, ax
+
+    popad 		; pop edi, esi, ebp, etc
+    add esp, 8 	; cleans up pushed error code and pushed ISR number
+    sti
+    iretd		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
 
 [EXTERN irq_receive]
 
@@ -122,31 +127,47 @@ isr_common_stub:
 ; up for kernel mode arguments, calls C-level fault handler,
 ; and finally restores stack frame
 irq_common_stub:
-	pushad		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
+    ; push in this order:
+    ; EAX
+    ; ECX 
+    ; EDX 
+    ; EBX 
+    ; EBP 
+    ; ESP (original value)
+    ; EBP
+    ; ESI
+    ; EDI
+    pushad
 
-	; move current data segment into ax
-	; push to stack so we can restore it later
-	mov ax, ds
-	push eax
+    ; move current data segment into ax
+    ; push to stack so we can restore it later
+    mov ax, ds
+    push eax
 
-	; loads kernel data segment argument
-	; this constant is defined in <kernel/gdt/gdt_structures.h>
-	mov ax, 0x10
-	mov ds, ax
-	mov es, ax
-	mov fs, ax
-	mov gs, ax
+    ; loads kernel data segment argument
+    ; this constant is defined in <kernel/gdt/gdt_structures.h>
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
 
-	call irq_receive
+    push esp
 
-	; restore data segment selector
-	pop eax
-	mov gs, ax
-	mov fs, ax
-	mov es, ax
-	mov ds, ax
+    call irq_receive
 
-	popad 		; pop edi, esi, ebp, etc
-	add esp, 8 	; cleans up pushed error code and pushed ISR number
-	sti
-	iretd		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
+    ; pop esp pointer from stack without storing it
+    ;  add esp, 4
+    pop esp
+
+    ; restore data segment selector
+    pop eax
+    mov gs, ax
+    mov fs, ax
+    mov es, ax
+    mov ds, ax
+
+    popad 		; pop edi, esi, ebp, etc
+    add esp, 8 	; cleans up pushed error code and pushed ISR number
+    sti
+    iretd		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
