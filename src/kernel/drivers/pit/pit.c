@@ -21,13 +21,12 @@ static volatile uint32_t tick = 0;
 //inform that a tick has occured
 extern void handle_tick();
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-static void tick_callback(registers_t regs) {
+static void context_switch(register_state_t* regs);
+static int tick_callback(register_state_t* regs) {
 	tick++;
-	handle_tick();
+	handle_tick(regs);
+	return 0;
 }
-#pragma GCC diagnostic pop
 
 uint32_t pit_clock() {
 	return tick;

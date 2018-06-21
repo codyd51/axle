@@ -1,6 +1,7 @@
 #include "timer.h"
 #include <limits.h>
 #include <std/memory.h>
+#include <std/common.h>
 #include <kernel/drivers/rtc/clock.h>
 #include <kernel/syscall/sysfuncs.h>
 
@@ -53,7 +54,7 @@ void remove_callback(timer_callback callback) {
 	}
 }
 
-void handle_tick() {
+void handle_tick(registers_t* register_state) {
 	//look through every callback and see if we should fire
 	for (int i = 0; i < callback_num; i++) {
 		//decrement time left
@@ -64,8 +65,8 @@ void handle_tick() {
 			//reset for next firing
 			callback_table[i].time_left = callback_table[i].interval;
 
-			void(*callback_func)(void*) = (void(*)(void*))callback_table[i].callback;
-			callback_func(callback_table[i].context);
+			void(*callback_func)(registers_t*, void*) = (void(*)(registers_t*, void*))callback_table[i].callback;
+			callback_func(register_state, callback_table[i].context);
 
 			//if we only fire once, trash this callback
 			if (!callback_table[i].repeats) {
