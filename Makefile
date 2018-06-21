@@ -48,7 +48,7 @@ ifdef BMP
 CFLAGS += -DBMP
 endif
 
-EMFLAGS = -vga std -net nic,model=ne2k_pci -d cpu_reset -D qemu.log -serial file:syslog.log -monitor stdio
+EMFLAGS = -vga std -net nic,model=ne2k_pci -D qemu.log -serial file:syslog.log -monitor stdio -d guest_errors
 ifdef debug
 EMFLAGS += -s -S
 endif
