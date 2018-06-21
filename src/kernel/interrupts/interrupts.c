@@ -54,9 +54,9 @@ void dump_stack(uint32_t* mem) {
 }
 
 //gets called from ASM interrupt handler stub
-int isr_receive(register_state_t regs) {
+int isr_receive(register_state_t* regs) {
 	int ret = 0;
-	uint8_t int_no = regs.int_no;
+	uint8_t int_no = regs->int_no;
 	if (interrupt_handlers[int_no] != 0) {
 		int_callback_t handler = interrupt_handlers[int_no];
 		ret = handler(regs);
@@ -68,8 +68,8 @@ int isr_receive(register_state_t regs) {
 }
 
 //gets called from ASM interrupt handler stub
-void irq_receive(register_state_t regs) {
-	uint8_t int_no = regs.int_no;
+void irq_receive(register_state_t* regs) {
+	uint8_t int_no = regs->int_no;
 
 	int ret = 0;
 	if (interrupt_handlers[int_no] != 0) {

@@ -6,7 +6,7 @@
 #include "idt_structures.h"
 #include "idt.h"
 
-typedef int (*int_callback_t)(register_state_t);
+typedef int (*int_callback_t)(register_state_t*);
 
 //sets up IDT,
 //and registers default interrupt handlers
