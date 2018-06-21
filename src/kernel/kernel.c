@@ -37,7 +37,7 @@ void print_os_name() {
 }
 
 void system_mem() {
-	NotImplemented();
+    NotImplemented();
 }
 
 void drivers_init(void) {
@@ -53,23 +53,23 @@ static void kernel_spinloop() {
 
 uint32_t initial_esp = 0;
 void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
-	initial_esp = initial_stack;
+    initial_esp = initial_stack;
     //set up this driver first so we can output to framebuffer
-	text_mode_init();
+    text_mode_init();
 
     //environment info
-	boot_info_read(mboot_ptr);
-	boot_info_dump();
+    boot_info_read(mboot_ptr);
+    boot_info_dump();
 
     //x86 descriptor tables
-	gdt_init();
+    gdt_init();
     interrupt_init();
 
     //external device drivers
     drivers_init();
 
     //kernel features
-	pmm_init();
+    pmm_init();
     vmm_init();
     kheap_init();
     syscall_init();

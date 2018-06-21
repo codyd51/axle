@@ -8,7 +8,7 @@
 #include <kernel/multitasking/tasks/task.h>
 #include <kernel/multitasking/std_stream.h>
 
-void kb_callback(registers_t regs);
+void kb_callback(registers_t* regs);
 
 keymap_t* layout;
 
@@ -56,7 +56,7 @@ key_status_t kb_modifiers() {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
-void kb_callback(registers_t regs) {
+void kb_callback(registers_t* regs) {
 	uint8_t scancode = inb(0x60);
 
 	//check if key was released

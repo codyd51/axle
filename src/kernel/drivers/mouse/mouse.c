@@ -97,7 +97,7 @@ void update_mouse_position(int x, int y) {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
-void mouse_callback(registers_t regs) {
+void mouse_callback(registers_t* regs) {
 	kernel_begin_critical();
 
 	static sbyte mouse_byte[3];
