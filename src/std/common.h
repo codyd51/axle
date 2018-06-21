@@ -3,6 +3,7 @@
 
 #include "std_base.h"
 #include <stdint.h>
+#include <kernel/interrupts/idt_structures.h>
 
 __BEGIN_DECLS
 
@@ -12,14 +13,8 @@ __BEGIN_DECLS
 #define kernel_begin_critical() __asm__("cli");
 #define kernel_end_critical() __asm__("sti");
 
-//if the memory layout of this changes, kernel/util/interrupts/interrupt.s must be changed as well
-//to correct offsets
-typedef struct registers {
-	unsigned int gs, fs, es, ds;				//segment registers 
-	unsigned int edi, esi, ebp, esp, ebx, edx, ecx, eax;	//pushed by pusha
-	unsigned int int_no, err_code; 				//interrupt number and error code
-	unsigned int eip, cs, eflags, useresp, ss;		//pushed by the processor automatically
-} registers_t;
+typedef register_state_t registers_t;
+
 
 //write byte to port
 STDAPI void outb(uint16_t port, uint8_t val);
