@@ -251,7 +251,7 @@ typedef enum {
 static int print_common(print_destination dest, const char* fmt, va_list va) {
     if (dest != PRINT_DESTINATION_TEXT_MODE && dest != PRINT_DESTINATION_SERIAL) {
         ASSERT(0, "print_common called with bad args");
-        return;
+        return -1;
     }
 
     int ret;

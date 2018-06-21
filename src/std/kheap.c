@@ -11,7 +11,7 @@
 #include <kernel/boot_info.h>
 
 extern uint32_t _kernel_image_end;
-uint32_t placement_address = (uint32_t)&_kernel_image_end;
+// uint32_t placement_address = (uint32_t)&_kernel_image_end;
 
 extern page_directory_t* kernel_directory;
 extern page_directory_t* current_directory;
