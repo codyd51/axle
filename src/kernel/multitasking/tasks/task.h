@@ -38,23 +38,6 @@ typedef enum mlfq_option {
 	PRIORITIZE_INTERACTIVE, //use more queues, allowing interactive tasks to dominate
 } mlfq_option;
 
-typedef struct task_context {
-	vmm_pdir_t* page_dir; //address space state of process
-
-	uint32_t esp; //stack pointer
-	uint32_t ebp; //base pointer
-	uint32_t eip; //instruction pointer
-    uint32_t kernel_stack;
-} task_context_t;
-
-typedef struct task_small {
-    char* name;
-    int id;
-    task_state state; // TODO(pt) change to task_wait_state?
-    task_context_t context;
-	registers_t register_state;
-} task_small_t;
-
 struct fd_entry;
 typedef struct task {
 	char* name; //user-printable process name

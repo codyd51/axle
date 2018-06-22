@@ -19,6 +19,7 @@
 #include <kernel/util/shmem/shmem.h>
 #include <kernel/boot_info.h>
 #include <kernel/segmentation/gdt_structures.h>
+#include "task_small.h"
 
 //function defined in asm which returns the current instruction pointer
 uint32_t read_eip();
@@ -278,7 +279,8 @@ static void _tasking_register_process(task_small_t* task) {
     list_task(task);
 
     //all new tasks are placed on highest priority queue
-    enqueue_task(task, 0);
+    // XXX(PT): disabling queues for lower-level tasking work. Scheduling is round-robing for now
+    // enqueue_task(task, 0);
 }
 
 void idle() {
@@ -472,35 +474,6 @@ void tasking_installed() {
     Deprecated();
 }
 
-void new_task_entry() {
-    printf("Hello!\n");
-    while (1) {}
-}
-
-task_small_t* kernel = {0};
-void context_switch(registers_t* registers) {
-   registers->eip = kernel->register_state.eip;
-   registers->esp = kernel->register_state.esp;
-}
-
-task_small_t* task_construct(uint32_t entry_point) {
-    task_small_t* new_task = kmalloc(sizeof(task_small_t));
-    memset(new_task, 0, sizeof(task_small_t));
-    new_task->id = next_pid++;
-
-    registers_t initial_register_state = {0};
-    initial_register_state.ds = GDT_BYTE_INDEX_KERNEL_DATA;
-    initial_register_state.eip = entry_point;
-
-    char* stack = kmalloc(0x1000);
-    initial_register_state.esp = stack;
-    initial_register_state.ebp = stack;
-
-    new_task->register_state = initial_register_state;
-
-    return new_task;
-}
-
 static void _create_task_queues(mlfq_option options) {
     int queue_count = 0;
     switch (options) {
@@ -525,30 +498,6 @@ static void _create_task_queues(mlfq_option options) {
     }
 }
 
-void tasking_init_easy() {
-    if (tasking_is_active()) {
-        panic("called tasking_init() after it was already active");
-        return;
-    }
-    kernel_begin_critical();
-
-    printf_info("Multitasking init...");
-
-    mlfq_option options = LOW_LATENCY;
-    _create_task_queues(options);
-
-    //init first task (kernel task)
-    kernel = task_construct((uint32_t)&new_task_entry);
-    add_callback((void*)context_switch, 4, true, 0);
-
-    current_task = kernel;
-    mutex = lock_create();
-
-    printf_info("Tasking initialized with kernel PID %d", getpid());
-
-    kernel_end_critical();
-}
-
 void tasking_init(mlfq_option options) {
     Deprecated();
     if (tasking_is_active()) {
@@ -565,14 +514,14 @@ void tasking_init(mlfq_option options) {
     memset(kernel, 0, sizeof(task_small_t));
     kernel->name = "kax";
     kernel->id = next_pid++;
-    kernel->context.kernel_stack = (uint32_t)kmalloc_a(KERNEL_STACK_SIZE);
+    // kernel->context.kernel_stack = (uint32_t)kmalloc_a(KERNEL_STACK_SIZE);
     //setup_fds(kernel);
 
     uint32_t pdir_phys;
     vmm_pdir_t* kernel_task_pdir = vmm_clone_active_pdir();
     vmm_load_pdir(kernel_task_pdir);
     move_stack(0xDFFFF000, 0x4000);
-    kernel->context.page_dir = kernel_task_pdir;
+    // kernel->context.page_dir = kernel_task_pdir;
     //update the kernel directory in boot_info
     boot_info_t* boot_info = boot_info_get();
     boot_info->vmm_kernel = kernel_task_pdir;
