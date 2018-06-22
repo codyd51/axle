@@ -52,13 +52,14 @@ static array_m* responder_stack = 0;
 
 static lock_t* mutex = 0;
 
-void enqueue_task(task_t* task, int queue);
-void dequeue_task(task_t* task);
+void enqueue_task(task_small_t* task, int queue);
+void dequeue_task(task_small_t* task);
 
 void stdin_read(char* buf, uint32_t count);
 void stdout_read(char* buffer, uint32_t count);
 void stderr_read(char* buffer, uint32_t count);
 static void setup_fds(task_t* task) {
+    Deprecated();
     memset(&task->fd_table, 0, sizeof(fd_entry) * FD_MAX);
 
     //initialize backing std stream
@@ -80,19 +81,22 @@ task_t* task_list() {
 }
 
 static bool is_dead_task_crit(task_t* task) {
-    static char* crit_tasks[3] = {"idle",
-    "iosentinel"
-};
+    Deprecated();
+    static char* crit_tasks[3] = {
+        "idle",
+        "iosentinel"
+    };
 
-for (uint32_t i = 0; i < sizeof(crit_tasks) / sizeof(crit_tasks[0]); i++) {
-    if (!strcmp(crit_tasks[i], task->name)) {
-        return true;
+    for (uint32_t i = 0; i < sizeof(crit_tasks) / sizeof(crit_tasks[0]); i++) {
+        if (!strcmp(crit_tasks[i], task->name)) {
+            return true;
+        }
     }
-}
-return false;
+    return false;
 }
 
 static void tasking_critical_fail() {
+    Deprecated();
     char* msg = "One or more critical tasks died. axle has died.\n";
     printf("%s\n", msg);
     //turn off interrupts
@@ -104,6 +108,7 @@ static void tasking_critical_fail() {
 }
 
 void kill_task(task_t* task) {
+    Deprecated();
     bool show_died_message = !strcmp(task->name, "xserv");
     if (show_died_message) {
         xserv_fail();
@@ -120,6 +125,7 @@ void kill_task(task_t* task) {
 }
 
 void _kill() {
+    Deprecated();
     kill_task(current_task);
 }
 
@@ -131,15 +137,15 @@ int getpid() {
     return -1;
 }
 
-void unlist_task(task_t* task) {
+void unlist_task(task_small_t* task) {
     //if task to unlist is head, move head
     if (task == active_list) {
         active_list = task->next;
     }
     else {
         //walk linked list
-        task_t* prev = active_list;
-        task_t* current = prev;
+        task_small_t* prev = active_list;
+        task_small_t* current = prev;
         while (current && current->next != NULL) {
             if (current == task) {
                 break;
@@ -158,9 +164,9 @@ void unlist_task(task_t* task) {
     }
 }
 
-void list_task(task_t* task) {
+void list_task(task_small_t* task) {
     //walk linked list
-    task_t* current = active_list;
+    task_small_t* current = active_list;
     while (current->next != NULL) {
         if (task == current) {
             return;
@@ -173,6 +179,7 @@ void list_task(task_t* task) {
 }
 
 void block_task_context(task_t* task, task_state reason, void* context) {
+    Deprecated();
     if (!tasking_is_active()) return;
 
     task->state = reason;
@@ -185,10 +192,12 @@ void block_task_context(task_t* task, task_state reason, void* context) {
 }
 
 void block_task(task_t* task, task_state reason) {
+    Deprecated();
     block_task_context(task, reason, NULL);
 }
 
 void unblock_task(task_t* task) {
+    Deprecated();
     if (!tasking_is_active()) return;
 
     lock(mutex);
@@ -200,6 +209,7 @@ void unblock_task(task_t* task) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
+    Deprecated();
     task_t* parent = current_task;
 
     //clone address space
@@ -231,6 +241,7 @@ task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
 #pragma GCC diagnostic pop
 
 task_t* task_with_pid_auth(int pid) {
+    Deprecated();
     //first, ensure this task is allowed to do this!
     //permission to use task_with_pid is controlled by the PROC_MASTER_PERMISSION flag
     //only check if this is a non-kernel task
@@ -246,6 +257,7 @@ task_t* task_with_pid_auth(int pid) {
 }
 
 task_t* task_with_pid(int pid) {
+    Deprecated();
     task_t* tmp = active_list;
     while (tmp != NULL) {
         if (tmp->id == pid) {
@@ -260,7 +272,7 @@ task_t* task_current() {
     return current_task;
 }
 
-void add_process(task_t* task) {
+static void _tasking_register_process(task_small_t* task) {
     if (!tasking_is_active()) return;
 
     list_task(task);
@@ -280,6 +292,7 @@ void idle() {
 }
 
 void destroy_task(task_t* task) {
+    Deprecated();
     if (task == first_responder_task) {
         resign_first_responder();
     }
@@ -308,6 +321,7 @@ void destroy_task(task_t* task) {
 }
 
 void reap_task(task_t* tmp) {
+    Deprecated();
     if (tmp->state == ZOMBIE) {
         array_m* queue = array_m_lookup(queues, tmp->queue);
         int idx = array_m_index(queue, tmp);
@@ -347,6 +361,7 @@ void reap_task(task_t* tmp) {
 }
 
 void iosent() {
+    Deprecated();
     while (1) {
         update_blocked_tasks();
         //yield cpu to next task
@@ -354,7 +369,7 @@ void iosent() {
     }
 }
 
-void enqueue_task(task_t* task, int queue) {
+void enqueue_task(task_small_t* task, int queue) {
     lock(mutex);
     if (queue < 0 || queue >= queues->size) {
         ASSERT(0, "Tried to insert %s into invalid queue %d", task->name, queue);
@@ -378,7 +393,7 @@ void enqueue_task(task_t* task, int queue) {
     unlock(mutex);
 }
 
-void dequeue_task(task_t* task) {
+void dequeue_task(task_small_t* task) {
     lock(mutex);
     if (task->queue < 0 || task->queue >= queues->size) {
         ASSERT(0, "Tried to remove %s from invalid queue %d", task->name, task->queue);
@@ -418,12 +433,12 @@ void dequeue_task(task_t* task) {
     }
 }
 
-void switch_queue(task_t* task, int new) {
+void switch_queue(task_small_t* task, int new) {
     dequeue_task(task);
     enqueue_task(task, new);
 }
 
-void demote_task(task_t* task) {
+void demote_task(task_small_t* task) {
     //if we're already at the bottom task, don't attempt to demote further
     if (task->queue >= queues->size - 1) {
         return;
@@ -431,7 +446,7 @@ void demote_task(task_t* task) {
     switch_queue(task, task->queue + 1);
 }
 
-void promote_task(task_t* task) {
+void promote_task(task_small_t* task) {
     switch_queue(task, task->queue - 1);
 }
 
@@ -441,6 +456,7 @@ bool tasking_is_active() {
 }
 
 void booster() {
+    Deprecated();
     task_t* tmp = active_list;
     while (tmp) {
         switch_queue(tmp, 0);
@@ -471,8 +487,6 @@ task_small_t* task_construct(uint32_t entry_point) {
     task_small_t* new_task = kmalloc(sizeof(task_small_t));
     memset(new_task, 0, sizeof(task_small_t));
     new_task->id = next_pid++;
-    //kernel->context.kernel_stack = (uint32_t)kmalloc_a(KERNEL_STACK_SIZE);
-    //setup_fds(kernel);
 
     registers_t initial_register_state = {0};
     initial_register_state.ds = GDT_BYTE_INDEX_KERNEL_DATA;
@@ -487,25 +501,7 @@ task_small_t* task_construct(uint32_t entry_point) {
     return new_task;
 }
 
-void tasking_init_easy() {
-    kernel_begin_critical();
-
-    //init first task (kernel task)
-    printf_info("tasking init");
-    kernel = task_construct((uint32_t)&new_task_entry);
-    add_callback((void*)context_switch, 4, true, 0);
-
-    kernel_end_critical();
-}
-
-void tasking_init(mlfq_option options) {
-    if (tasking_is_active()) {
-        panic("called tasking_init() after it was already active");
-        return;
-    }
-
-    printf_info("Multitasking init...");
-
+static void _create_task_queues(mlfq_option options) {
     int queue_count = 0;
     switch (options) {
         case LOW_LATENCY:
@@ -527,6 +523,41 @@ void tasking_init(mlfq_option options) {
     for (int i = 0; i < queue_count; i++) {
         array_m_insert(queue_lifetimes, (type_t)(HIGH_PRIO_QUANTUM * (i + 1)));
     }
+}
+
+void tasking_init_easy() {
+    if (tasking_is_active()) {
+        panic("called tasking_init() after it was already active");
+        return;
+    }
+    kernel_begin_critical();
+
+    printf_info("Multitasking init...");
+
+    mlfq_option options = LOW_LATENCY;
+    _create_task_queues(options);
+
+    //init first task (kernel task)
+    kernel = task_construct((uint32_t)&new_task_entry);
+    add_callback((void*)context_switch, 4, true, 0);
+
+    current_task = kernel;
+    mutex = lock_create();
+
+    printf_info("Tasking initialized with kernel PID %d", getpid());
+
+    kernel_end_critical();
+}
+
+void tasking_init(mlfq_option options) {
+    Deprecated();
+    if (tasking_is_active()) {
+        panic("called tasking_init() after it was already active");
+        return;
+    }
+
+    printf_info("Multitasking init...");
+    _create_task_queues(options);
 
     printf_dbg("setting up kernel task");
     //init first task (kernel task)
@@ -576,89 +607,106 @@ void tasking_init(mlfq_option options) {
 
     //reenable interrupts
     kernel_end_critical();
-
-    printf_info("Tasking initialized with kernel PID %d", getpid());
 }
 
 void update_blocked_tasks() {
+    Deprecated();
     if (!tasking_is_active()) return;
 
     //if there is a pending key, wake first responder
     /*
     if (haskey() && first_responder_task->state == KB_WAIT) {
-    unblock_task(first_responder_task);
-    goto_pid(first_responder_task->id);
-}
-*/
+        unblock_task(first_responder_task);
+        goto_pid(first_responder_task->id);
+    }
+    */
 
-//wake blocked tasks if the event they were blocked for has occurred
-//TODO is this optimizable?
-//don't look through every queue, use linked list of tasks
-task_t* task = active_list;
-while (task) {
-    if (task->std_stream->buf->count && task->state == KB_WAIT) {
-        unblock_task(task);
-        goto_pid(task->id, true);
-    }
-    else if (task->state == PIT_WAIT) {
-        if (time() >= task->wake_timestamp) {
+    //wake blocked tasks if the event they were blocked for has occurred
+    //TODO is this optimizable?
+    //don't look through every queue, use linked list of tasks
+    task_t *task = active_list;
+    while (task)
+    {
+        if (task->std_stream->buf->count && task->state == KB_WAIT)
+        {
             unblock_task(task);
+            goto_pid(task->id, true);
         }
-    }
-    //TODO figure out when exactly tasks with MOUSE_WAIT should be unblocked
-    else if (task->state == MOUSE_WAIT) {
-        unblock_task(task);
-        goto_pid(task->id, true);
-    }
-    else if (task->state == CHILD_WAIT) {
-        //search if any of this task's children are zombies
-        for (int i = 0; i < task->child_tasks->size; i++) {
-            task_t* child = array_m_lookup(task->child_tasks, i);
-            if (child->state == ZOMBIE) {
-                //found a zombie!
-                //wake parent
+        else if (task->state == PIT_WAIT)
+        {
+            if (time() >= task->wake_timestamp)
+            {
                 unblock_task(task);
-                break;
             }
         }
-    }
-    else if (task->state == PIPE_FULL) {
-        pipe_block_info* info = (pipe_block_info*)task->block_context;
-        pipe_t* waiting = info->pipe;
-        int free_bytes = waiting->cb->capacity - waiting->cb->count;
-        if (free_bytes >= info->free_bytes_needed) {
-            //space has freed up in the pipe
-            //we can now unblock
+        //TODO figure out when exactly tasks with MOUSE_WAIT should be unblocked
+        else if (task->state == MOUSE_WAIT)
+        {
             unblock_task(task);
+            goto_pid(task->id, true);
         }
-    }
-    else if (task->state == PIPE_EMPTY) {
-        pipe_t* waiting = task->block_context;
-        if (waiting->cb->count > 0) {
-            //pipe now has data we can read
-            //we can now unblock
-            unblock_task(task);
-        }
-    }
-    else if (task->state == ZOMBIE) {
-        if (task->parent) {
-            if (task->parent->state != CHILD_WAIT) {
-                //printk("parent %d isn't waiting for dangling child %d\n", task->parent->id, task->id);
+        else if (task->state == CHILD_WAIT)
+        {
+            //search if any of this task's children are zombies
+            for (int i = 0; i < task->child_tasks->size; i++)
+            {
+                task_t *child = array_m_lookup(task->child_tasks, i);
+                if (child->state == ZOMBIE)
+                {
+                    //found a zombie!
+                    //wake parent
+                    unblock_task(task);
+                    break;
+                }
             }
         }
-    }
-    else if (task->state == IRQ_WAIT) {
-        if (task->irq_satisfied) {
-            task->irq_satisfied = false;
-            unblock_task(task);
+        else if (task->state == PIPE_FULL)
+        {
+            pipe_block_info *info = (pipe_block_info *)task->block_context;
+            pipe_t *waiting = info->pipe;
+            int free_bytes = waiting->cb->capacity - waiting->cb->count;
+            if (free_bytes >= info->free_bytes_needed)
+            {
+                //space has freed up in the pipe
+                //we can now unblock
+                unblock_task(task);
+            }
         }
-    }
+        else if (task->state == PIPE_EMPTY)
+        {
+            pipe_t *waiting = task->block_context;
+            if (waiting->cb->count > 0)
+            {
+                //pipe now has data we can read
+                //we can now unblock
+                unblock_task(task);
+            }
+        }
+        else if (task->state == ZOMBIE)
+        {
+            if (task->parent)
+            {
+                if (task->parent->state != CHILD_WAIT)
+                {
+                    //printk("parent %d isn't waiting for dangling child %d\n", task->parent->id, task->id);
+                }
+            }
+        }
+        else if (task->state == IRQ_WAIT)
+        {
+            if (task->irq_satisfied)
+            {
+                task->irq_satisfied = false;
+                unblock_task(task);
+            }
+        }
 
-    task = task->next;
-}
+        task = task->next;
+    }
 }
 
 void int_wait(int irq) {
+    Deprecated();
     task_t* task = current_task;
     task->block_context = (void*)irq;
     task->irq_satisfied = false;
@@ -666,10 +714,12 @@ void int_wait(int irq) {
 }
 
 task_t* first_responder() {
+    Deprecated();
     return first_responder_task;
 }
 
 int fork(char* name) {
+    Deprecated();
     if (!tasking_is_active()) {
         panic("called fork() before tasking was active");
         return 0;
@@ -695,7 +745,7 @@ int fork(char* name) {
         }
     }
 
-    add_process(child);
+    _tasking_register_process(child);
 
     //set parent process of newly created process to currently running task
     child->parent = parent;
@@ -740,9 +790,9 @@ int fork(char* name) {
     }
 }
 
-task_t* first_queue_runnable(array_m* queue, int offset) {
+task_small_t* first_queue_runnable(array_m* queue, int offset) {
     for (int i = offset; i < queue->size; i++) {
-        task_t* tmp = array_m_lookup(queue, i);
+        task_small_t* tmp = array_m_lookup(queue, i);
         if (tmp->state == RUNNABLE) {
             return tmp;
         }
@@ -754,8 +804,8 @@ task_t* first_queue_runnable(array_m* queue, int offset) {
 array_m* first_queue_containing_runnable(void) {
     //we could look at every queue individually, but that would be slow
     //let's take advantage of our linked list of tasks and search that
-    task_t* curr = active_list;
-    task_t* highest_prio_runnable = NULL;
+    task_small_t* curr = active_list;
+    task_small_t* highest_prio_runnable = NULL;
 
     //TODO figure out why this block doesn't work
     while (curr) {
@@ -789,7 +839,7 @@ array_m* first_queue_containing_runnable(void) {
     return queue;
 }
 
-task_t* mlfq_schedule() {
+task_small_t* mlfq_schedule() {
     if (!tasking_is_active()) {
         panic("called mlfq_schedule() before tasking was active");
         return NULL;
@@ -816,7 +866,7 @@ task_t* mlfq_schedule() {
     //if we're running in low-latency mode, save time by just using round-robin
     if (queues->size == 1) {
         //attempt to save time by first looking at the next task in linked list
-        task_t* next = current_task->next;
+        task_small_t* next = current_task->next;
         if (!next) next = active_list;
         while (next->state != RUNNABLE) {
             next = next->next;
@@ -842,13 +892,13 @@ task_t* mlfq_schedule() {
         if (current_queue == new_queue) {
             //if this is the last index, loop around to the start of the array
             if (current_task_idx + 1 >= new_queue->size) {
-                task_t* valid = first_queue_runnable(new_queue, 0);
+                task_small_t* valid = first_queue_runnable(new_queue, 0);
                 if (valid != NULL) {
                     return valid;
                 }
             }
             //return task at the next index
-            task_t* valid = first_queue_runnable(new_queue, current_task_idx + 1);
+            task_small_t* valid = first_queue_runnable(new_queue, current_task_idx + 1);
             if (valid != NULL) {
                 return valid;
             }
@@ -856,7 +906,7 @@ task_t* mlfq_schedule() {
 
         //we're on a new queue
         //start from the first task in it
-        task_t* valid = first_queue_runnable(new_queue, 0);
+        task_small_t* valid = first_queue_runnable(new_queue, 0);
         if (valid != NULL) {
             return valid;
         }
@@ -865,6 +915,7 @@ task_t* mlfq_schedule() {
 }
 
 void goto_pid(int id, bool update_current_task_state) {
+    Deprecated();
     if (!update_current_task_state) {
         //printk("goto_pid(%d %d)\n", id, update_current_task_state);
         update_current_task_state = 0;
@@ -953,6 +1004,7 @@ void goto_pid(int id, bool update_current_task_state) {
 }
 
 uint32_t task_switch(bool update_current_task_state) {
+    Deprecated();
     current_task->relinquish_date = time();
     //find next runnable task
     task_t* next = mlfq_schedule();
@@ -966,6 +1018,7 @@ uint32_t task_switch(bool update_current_task_state) {
 }
 
 void handle_pit_tick() {
+    Deprecated();
     static uint32_t tick = 0;
     static uint32_t last_boost = 0;
 
@@ -1002,7 +1055,7 @@ void proc() {
     for (int i = 0; i < queues->size; i++) {
         array_m* queue = array_m_lookup(queues, i);
         for (int j = 0; j < queue->size; j++) {
-            task_t* task = array_m_lookup(queue, j);
+            task_small_t* task = array_m_lookup(queue, j);
             uint32_t runtime = (uint32_t)array_m_lookup(queue_lifetimes, task->queue);
             printk("[%d Q %d] %s %s", task->id, task->queue, task->name, (task == first_responder()) ? "(FR)" : "");
             if (task == current_task) {
@@ -1055,6 +1108,7 @@ void force_enumerate_blocked() {
 }
 
 void become_first_responder_pid(int pid) {
+    Deprecated();
     task_t* task = task_with_pid(pid);
     if (!task) {
         printk("become_first_responder_pid(%d) failed\n", pid);
@@ -1078,10 +1132,12 @@ void become_first_responder_pid(int pid) {
 }
 
 void become_first_responder() {
+    Deprecated();
     become_first_responder_pid(getpid());
 }
 
 void resign_first_responder() {
+    Deprecated();
     if (!first_responder_task) return;
     //if (current_task != first_responder_task) return;
 
@@ -1102,6 +1158,7 @@ void resign_first_responder() {
 }
 
 void jump_user_mode() {
+    Deprecated();
     // Set up a stack structure for switching to user mode.
     // the pop eax, or, and re-push take eflags which was pushed onto the stack,
     // and turns on the interrupt enabled flag
@@ -1131,6 +1188,7 @@ void jump_user_mode() {
 }
 
 int waitpid(int pid, int* status, int options) {
+    Deprecated();
     task_t* parent = current_task;
     block_task(parent, CHILD_WAIT);
 
@@ -1172,10 +1230,12 @@ int waitpid(int pid, int* status, int options) {
 }
 
 int wait(int* status) {
+    Deprecated();
     return waitpid(-1, status, 0);
 }
 
 Window* task_register_window(Rect frame) {
+    Deprecated();
     //if we're creating a window for a task through xserv_win_create
     //then we're in a syscall handler and getpid() will return the pid of the
     //proc that ran the syscall
