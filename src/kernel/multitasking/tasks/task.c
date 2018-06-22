@@ -18,6 +18,7 @@
 #include <kernel/multitasking//fd.h>
 #include <kernel/util/shmem/shmem.h>
 #include <kernel/boot_info.h>
+#include <kernel/segmentation/gdt_structures.h>
 
 //function defined in asm which returns the current instruction pointer
 uint32_t read_eip();
@@ -455,6 +456,17 @@ void tasking_installed() {
     Deprecated();
 }
 
+void new_task_entry() {
+    printf("Hello!\n");
+    while (1) {}
+}
+
+task_small_t* kernel = {0};
+void context_switch(registers_t* registers) {
+   registers->eip = kernel->register_state.eip;
+   registers->esp = kernel->register_state.esp;
+}
+
 task_small_t* task_construct(uint32_t entry_point) {
     task_small_t* new_task = kmalloc(sizeof(task_small_t));
     memset(new_task, 0, sizeof(task_small_t));
@@ -474,6 +486,18 @@ task_small_t* task_construct(uint32_t entry_point) {
 
     return new_task;
 }
+
+void tasking_init_easy() {
+    kernel_begin_critical();
+
+    //init first task (kernel task)
+    printf_info("tasking init");
+    kernel = task_construct((uint32_t)&new_task_entry);
+    add_callback((void*)context_switch, 4, true, 0);
+
+    kernel_end_critical();
+}
+
 void tasking_init(mlfq_option options) {
     if (tasking_is_active()) {
         panic("called tasking_init() after it was already active");
@@ -504,56 +528,56 @@ void tasking_init(mlfq_option options) {
         array_m_insert(queue_lifetimes, (type_t)(HIGH_PRIO_QUANTUM * (i + 1)));
     }
 
-printf_dbg("setting up kernel task");
-//init first task (kernel task)
-task_small_t* kernel = kmalloc(sizeof(task_small_t));
-memset(kernel, 0, sizeof(task_small_t));
-kernel->name = "kax";
-kernel->id = next_pid++;
-kernel->context.kernel_stack = (uint32_t)kmalloc_a(KERNEL_STACK_SIZE);
-//setup_fds(kernel);
+    printf_dbg("setting up kernel task");
+    //init first task (kernel task)
+    task_small_t* kernel = kmalloc(sizeof(task_small_t));
+    memset(kernel, 0, sizeof(task_small_t));
+    kernel->name = "kax";
+    kernel->id = next_pid++;
+    kernel->context.kernel_stack = (uint32_t)kmalloc_a(KERNEL_STACK_SIZE);
+    //setup_fds(kernel);
 
-uint32_t pdir_phys;
-vmm_pdir_t* kernel_task_pdir = vmm_clone_active_pdir();
-vmm_load_pdir(kernel_task_pdir);
-move_stack(0xDFFFF000, 0x4000);
-kernel->context.page_dir = kernel_task_pdir;
-//update the kernel directory in boot_info
-boot_info_t* boot_info = boot_info_get();
-boot_info->vmm_kernel = kernel_task_pdir;
+    uint32_t pdir_phys;
+    vmm_pdir_t* kernel_task_pdir = vmm_clone_active_pdir();
+    vmm_load_pdir(kernel_task_pdir);
+    move_stack(0xDFFFF000, 0x4000);
+    kernel->context.page_dir = kernel_task_pdir;
+    //update the kernel directory in boot_info
+    boot_info_t* boot_info = boot_info_get();
+    boot_info->vmm_kernel = kernel_task_pdir;
 
-current_task = kernel;
-//active_list = kernel;
-//enqueue_task(current_task, 0);
+    current_task = kernel;
+    //active_list = kernel;
+    //enqueue_task(current_task, 0);
 
-//set up responder stack
-//responder_stack = array_m_create(MAX_RESPONDERS);
-//set kernel as initial first responder
-//become_first_responder();
+    //set up responder stack
+    //responder_stack = array_m_create(MAX_RESPONDERS);
+    //set kernel as initial first responder
+    //become_first_responder();
 
-//create callback to switch tasks
-void handle_pit_tick();
-add_callback((void*)handle_pit_tick, 4, true, 0);
+    //create callback to switch tasks
+    void handle_pit_tick();
+    add_callback((void*)handle_pit_tick, 4, true, 0);
 
-printf_dbg("forking system processes");
-//idle task
-//runs when anything (including kernel) is blocked for i/o
-if (!fork("idle")) {
-    idle();
-}
+    printf_dbg("forking system processes");
+    //idle task
+    //runs when anything (including kernel) is blocked for i/o
+    if (!fork("idle")) {
+        idle();
+    }
 
-//blocked task sentinel
-//watches system events and wakes threads as necessary
-if (!fork("iosentinel")) {
-    iosent();
-}
+    //blocked task sentinel
+    //watches system events and wakes threads as necessary
+    if (!fork("iosentinel")) {
+        iosent();
+    }
 
-mutex = lock_create();
+    mutex = lock_create();
 
-//reenable interrupts
-kernel_end_critical();
+    //reenable interrupts
+    kernel_end_critical();
 
-printf_info("Tasking initialized with kernel PID %d", getpid());
+    printf_info("Tasking initialized with kernel PID %d", getpid());
 }
 
 void update_blocked_tasks() {
@@ -935,13 +959,13 @@ uint32_t task_switch(bool update_current_task_state) {
 
     ASSERT(next->state == RUNNABLE, "Tried to switch to non-runnable task %s (reason: %d)!", next->name, next->state);
 
+    printf("going to %d\n", next->id);
     goto_pid(next->id, update_current_task_state);
     //TODO: what should be returned here?
     return 0;
 }
 
 void handle_pit_tick() {
-    printf("handle_pit_tick()");
     static uint32_t tick = 0;
     static uint32_t last_boost = 0;
 
