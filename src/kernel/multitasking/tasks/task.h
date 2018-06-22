@@ -52,6 +52,7 @@ typedef struct task_small {
     int id;
     task_state state; // TODO(pt) change to task_wait_state?
     task_context_t context;
+	registers_t register_state;
 } task_small_t;
 
 struct fd_entry;

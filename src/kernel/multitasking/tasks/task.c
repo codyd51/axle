@@ -455,6 +455,25 @@ void tasking_installed() {
     Deprecated();
 }
 
+task_small_t* task_construct(uint32_t entry_point) {
+    task_small_t* new_task = kmalloc(sizeof(task_small_t));
+    memset(new_task, 0, sizeof(task_small_t));
+    new_task->id = next_pid++;
+    //kernel->context.kernel_stack = (uint32_t)kmalloc_a(KERNEL_STACK_SIZE);
+    //setup_fds(kernel);
+
+    registers_t initial_register_state = {0};
+    initial_register_state.ds = GDT_BYTE_INDEX_KERNEL_DATA;
+    initial_register_state.eip = entry_point;
+
+    char* stack = kmalloc(0x1000);
+    initial_register_state.esp = stack;
+    initial_register_state.ebp = stack;
+
+    new_task->register_state = initial_register_state;
+
+    return new_task;
+}
 void tasking_init(mlfq_option options) {
     if (tasking_is_active()) {
         panic("called tasking_init() after it was already active");
