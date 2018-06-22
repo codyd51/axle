@@ -131,13 +131,6 @@ void _kill() {
 }
 
 void goto_pid(int id, bool update_current_task_state);
-int getpid() {
-    if (current_task) {
-        return current_task->id;
-    }
-    return -1;
-}
-
 void unlist_task(task_small_t* task) {
     //if task to unlist is head, move head
     if (task == active_list) {
@@ -450,11 +443,6 @@ void demote_task(task_small_t* task) {
 
 void promote_task(task_small_t* task) {
     switch_queue(task, task->queue - 1);
-}
-
-bool tasking_is_active() {
-    //return (queues && queues->size >= 1 && current_task);
-    return current_task != 0;
 }
 
 void booster() {

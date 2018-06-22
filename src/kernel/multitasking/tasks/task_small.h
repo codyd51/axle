@@ -20,6 +20,8 @@ typedef struct task_small {
 	uint32_t relinquish_date;
 	uint32_t lifespan;
 	struct task* next;
+
+    bool _has_run; //has the task ever been scheduled?
 } task_small_t;
 
 void tasking_init_small();
