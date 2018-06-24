@@ -1,5 +1,5 @@
 #include "sysfuncs.h"
-#include <kernel/multitasking//tasks/task.h>
+#include <kernel/multitasking/tasks/task_small.h>
 #include <std/printf.h>
 #include <kernel/util/paging/paging.h>
 #include <kernel/util/elf/elf.h>
@@ -13,15 +13,16 @@
 #include <gfx/lib/surface.h>
 
 void yield(task_state reason) {
-	if (!tasking_installed()) return;
+	if (!tasking_is_active()) return;
 
 	//if a task is yielding not because it's waiting for i/o, but because it willingly gave up cpu,
 	//then it should not be blocked
 	//block_task would manage this itself, but we can skip block_task overhead by doing it here ourselves
 	if (reason == RUNNABLE) {
-		task_switch(true);
+		task_switch_now();
 		return;
 	}
+	panic("not runnable");
 	extern task_t* current_task;
 	block_task(current_task, reason);
 }

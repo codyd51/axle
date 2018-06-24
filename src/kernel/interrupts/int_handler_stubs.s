@@ -101,12 +101,13 @@ isr_common_stub:
     mov fs, ax
     mov gs, ax
 
+    ; push registers_t* arg
     push esp
 
     ; call general isr handler
     call isr_receive
 
-    ; add esp, 4
+    ; push registers_t* arg back into esp
     pop esp
 
     ; restore data segment selector
@@ -152,12 +153,12 @@ irq_common_stub:
     mov fs, ax
     mov gs, ax
 
+    ; push registers_t* arg
     push esp
 
     call irq_receive
 
-    ; pop esp pointer from stack without storing it
-    ;  add esp, 4
+    ; push registers_t* arg back into esp
     pop esp
 
     ; restore data segment selector

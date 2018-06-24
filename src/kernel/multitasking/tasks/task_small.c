@@ -2,21 +2,30 @@
 
 #include <kernel/util/mutex/mutex.h>
 #include <kernel/segmentation/gdt_structures.h>
+#include <std/timer.h>
+
+#define TASK_QUANTUM 20
 
 static int next_pid = 1;
 
-task_small_t* _current_task_small = 0;
-task_small_t* _task_list_head = 0;
+static task_small_t* _current_task = 0;
+static task_small_t* _task_list_head = 0;
+static timer_callback_t* pit_callback = 0;
 
 static lock_t* mutex = 0;
 
 void new_task_entry() {
     while (1) {
+        printf("a");
+        sys_yield(RUNNABLE);
     }
 }
 
 void new_my_task2() {
+    int i = 0;
     while (1) {
+        printf("b");
+        sys_yield(RUNNABLE);
     }
 }
 
@@ -31,10 +40,10 @@ static task_small_t* _tasking_get_next_task(task_small_t* previous_task) {
 }
 
 static task_small_t* _tasking_last_task_in_runlist() {
-    if (!_current_task_small) {
+    if (!_current_task) {
         return NULL;
     }
-    task_small_t* iter = _current_task_small;
+    task_small_t* iter = _current_task;
     for (int i = 0; i < 16; i++) {
         if ((iter)->next == NULL) {
             return iter;
@@ -45,9 +54,12 @@ static task_small_t* _tasking_last_task_in_runlist() {
     return NULL;
 }
 
-void context_switch(registers_t* registers) {
-    task_small_t* previous_task = _current_task_small;
+static void task_switch_from_pit(registers_t* registers) {
+    static int switch_count = 0;
+    task_small_t* previous_task = _current_task;
     task_small_t* next_task = _tasking_get_next_task(previous_task);
+
+    previous_task->relinquish_date = time();
 
     //only overwrite preempted task's register state if it's been scheduled before and doesn't just contain setup values
     if (previous_task->_has_run) {
@@ -68,20 +80,36 @@ void context_switch(registers_t* registers) {
         memcpy(registers, &(next_task->register_state), sizeof(registers_t));
     }
 
-    _current_task_small = next_task;
+    next_task->current_timeslice_start_date = time();
+    next_task->current_timeslice_end_date = time() + TASK_QUANTUM;
+
+    _current_task = next_task;
     next_task->_has_run = true;
 
-    printf("%d\n", _current_task_small->id);
+    switch_count++;
+    printf("\ntask switch %d: goto PID %d\n", switch_count, next_task->id);
+    printf("%d\n", _current_task->id);
+}
+
+void task_switch_now() {
+    /*
+    Immediately preempt the running task.
+    */
+    //set the process's time left to run to zero
+    //set the time to next schedule to 0
+    //task_switch_from_pit will be called on the next PIT interrupt
+    _current_task->current_timeslice_end_date = time();
+    timer_deliver_immediately(pit_callback);
+    //put CPU to sleep until the next interrupt
+    asm("hlt");
 }
 
 static void _tasking_add_task_to_runlist(task_small_t* task) {
-    if (!_current_task_small) {
-        printf_dbg("first runlist task");
-        _current_task_small = task;
+    if (!_current_task) {
+        _current_task = task;
         return;
     }
     task_small_t* list_tail = _tasking_last_task_in_runlist();
-    printf_dbg("last task is pid %d", list_tail->id);
     list_tail->next = task;
 }
 
@@ -107,15 +135,21 @@ task_small_t* task_construct(uint32_t entry_point) {
 }
 
 int getpid() {
-    if (!_current_task_small) {
+    if (!_current_task) {
         return -1;
     }
-    return _current_task_small->id;
+    return _current_task->id;
 }
 
 bool tasking_is_active() {
     //return (queues && queues->size >= 1 && current_task);
-    return _current_task_small != 0;
+    return _current_task != 0;
+}
+
+static void scheduler_tick(registers_t* registers) {
+    if (time() >= _current_task->current_timeslice_end_date) {
+        task_switch_from_pit(registers);
+    }
 }
 
 void tasking_init_small() {
@@ -127,11 +161,11 @@ void tasking_init_small() {
 
     printf_info("Multitasking init...");
     mutex = lock_create();
-    add_callback((void*)context_switch, 200, true, 0);
+    pit_callback = add_callback((void*)scheduler_tick, 10, true, 0);
 
     //init first task (kernel task)
-    _current_task_small = task_construct((uint32_t)&new_task_entry);
-    _task_list_head = _current_task_small;
+    _current_task = task_construct((uint32_t)&new_task_entry);
+    _task_list_head = _current_task;
     //init another
     task_small_t* buddy = task_construct((uint32_t)&new_my_task2);
 

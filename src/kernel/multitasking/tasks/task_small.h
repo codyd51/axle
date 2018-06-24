@@ -14,8 +14,8 @@ typedef struct task_small {
 	int queue; //scheduler ring this task is slotted in
     uint32_t wake_timestamp; //used if process is in PIT_WAIT state
 
-	uint32_t begin_date;
-	uint32_t end_date;
+	uint32_t current_timeslice_start_date;
+	uint32_t current_timeslice_end_date;
 
 	uint32_t relinquish_date;
 	uint32_t lifespan;
@@ -25,5 +25,7 @@ typedef struct task_small {
 } task_small_t;
 
 void tasking_init_small();
+void task_switch_now();
+bool tasking_is_active();
 
 #endif

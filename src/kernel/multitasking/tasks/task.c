@@ -181,7 +181,7 @@ void block_task_context(task_t* task, task_state reason, void* context) {
 
     //immediately switch tasks if active task was just blocked
     if (task == current_task) {
-        task_switch(true);
+        task_switch_old(true);
     }
 }
 
@@ -443,6 +443,11 @@ void demote_task(task_small_t* task) {
 
 void promote_task(task_small_t* task) {
     switch_queue(task, task->queue - 1);
+}
+
+bool tasking_is_active_old() {
+    //return (queues && queues->size >= 1 && current_task);
+    return current_task != 0;
 }
 
 void booster() {
@@ -940,7 +945,7 @@ void goto_pid(int id, bool update_current_task_state) {
     task_switch_real(eip, current_task->page_dir->physicalAddr, ebp, esp);
 }
 
-uint32_t task_switch(bool update_current_task_state) {
+uint32_t task_switch_old(bool update_current_task_state) {
     Deprecated();
     current_task->relinquish_date = time();
     //find next runnable task
@@ -975,7 +980,7 @@ void handle_pit_tick() {
     //so, we need to increment tick count by 4 ticks
     tick += 4;
     if (tick >= current_task->end_date) {
-        task_switch(true);
+        task_switch_old(true);
     }
     if (tick >= last_boost + BOOSTER_PERIOD) {
         //don't boost if we're in low latency mode!

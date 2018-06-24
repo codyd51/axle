@@ -24,7 +24,7 @@ extern void handle_tick();
 static void context_switch(register_state_t* regs);
 static int tick_callback(register_state_t* regs) {
 	tick++;
-	handle_tick(regs);
+	_timer_handle_pit_tick(regs);
 	return 0;
 }
 
