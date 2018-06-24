@@ -10,6 +10,9 @@ The initial entry point must be done in ASM, as we have to do some special tasks
 
 Features
 ------------
+
+[![Join the chat at https://gitter.im/axleOS/Lobby](https://badges.gitter.im/axleOS/Lobby.svg)](https://gitter.im/axleOS/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 * Compositing window manager with clipping and alpha blending
 * Text renderer with SSAA antialiasing
 * Auto-boots in 1024x768 full RGB
