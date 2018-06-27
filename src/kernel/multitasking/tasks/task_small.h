@@ -4,6 +4,15 @@
 #include <stdint.h>
 #include <kernel/multitasking/tasks/task.h>
 
+struct context {
+	uint32_t ebp;
+	uint32_t edi;
+	uint32_t esi;
+	uint32_t ebx;
+	uint32_t eax;
+	uint32_t eip;
+};
+
 typedef struct task_small {
 	char* name; //user-printable process name
 	int id;  //PID
@@ -19,9 +28,11 @@ typedef struct task_small {
 
 	uint32_t relinquish_date;
 	uint32_t lifespan;
-	struct task* next;
+	struct task_small_t* next;
 
     bool _has_run; //has the task ever been scheduled?
+
+	struct context* context;
 } task_small_t;
 
 void tasking_init_small();
