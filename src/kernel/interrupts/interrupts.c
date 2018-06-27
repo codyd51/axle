@@ -81,6 +81,7 @@ void irq_receive(register_state_t* regs) {
 	}
 
     pic_signal_end_of_interrupt(int_no);
+
 	return ret;
 }
 

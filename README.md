@@ -13,6 +13,7 @@ Features
 * Compositing window manager with clipping and alpha blending
 * Text renderer with SSAA antialiasing
 * Auto-boots in 1024x768 full RGB
+* FAT filesystem with IDE hard-drive driver, and an initrd.
 * ELF loader
 * Newlib port
 * MLFQ scheduler

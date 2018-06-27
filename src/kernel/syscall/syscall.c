@@ -8,7 +8,7 @@
 
 #define MAX_SYSCALLS 128
 
-static int syscall_handler(register_state_t regs);
+static int syscall_handler(register_state_t* regs);
 
 array_m* syscalls = {0};
 
@@ -33,16 +33,16 @@ void syscall_add(void* syscall) {
 	array_m_insert(syscalls, syscall);
 }
 
-static int syscall_handler(register_state_t regs) {
+static int syscall_handler(register_state_t* regs) {
 	//check requested syscall number
 	//stored in eax
-	if (!syscalls || regs.eax >= MAX_SYSCALLS) {
-		printf_err("Syscall %d called but not defined", regs.eax);
+	if (!syscalls || regs->eax >= MAX_SYSCALLS) {
+		printf_err("Syscall %d called but not defined", regs->eax);
 		return -1;
 	}
 
 	//location of syscall funcptr
-	int (*location)() = (int(*)())array_m_lookup(syscalls, regs.eax);
+	int (*location)() = (int(*)())array_m_lookup(syscalls, regs->eax);
 
 	//we don't know how many arguments the function wants.
 	//so just push them all on the stack in correct order
@@ -61,7 +61,7 @@ static int syscall_handler(register_state_t regs) {
 		pop %%ebx;	\
 		pop %%ebx;	\
 		pop %%ebx;	\
-	" : "=a" (ret) : "r" (regs.edi), "r" (regs.esi), "r" (regs.edx), "r" (regs.ecx), "r" (regs.ebx), "r" (location));
-	regs.eax = ret;
+	" : "=a" (ret) : "r" (regs->edi), "r" (regs->esi), "r" (regs->edx), "r" (regs->ecx), "r" (regs->ebx), "r" (location));
+	regs->eax = ret;
 	return ret;
 }

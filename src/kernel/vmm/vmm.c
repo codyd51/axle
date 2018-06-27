@@ -12,7 +12,7 @@
 #define PAGES_IN_PAGE_TABLE 1024
 #define PAGE_TABLES_IN_PAGE_DIR 1024
 
-static void page_fault(register_state_t regs);
+static void page_fault(const register_state_t* regs);
 static uint32_t vmm_page_table_idx_for_virt_addr(uint32_t addr);
 static uint32_t vmm_page_idx_within_table_for_virt_addr(uint32_t addr);
 static void vmm_page_table_alloc_for_virt_addr(vmm_pdir_t* dir, uint32_t addr);
@@ -117,18 +117,18 @@ uint32_t vmm_get_phys_for_virt(uint32_t virtualaddr) {
     return (uint32_t)((pt[ptindex] & ~0xFFF) + ((unsigned long)virtualaddr & 0xFFF));
 }
 
-static void page_fault(register_state_t regs) {
+static void page_fault(const register_state_t* regs) {
 	//page fault has occured
 	//faulting address is stored in CR2 register
 	uint32_t faulting_address;
 	asm volatile("mov %%cr2, %0" : "=r" (faulting_address));
 
 	//error code tells us what happened
-	int present = !(regs.err_code & 0x1); //page not present
-	int rw = regs.err_code & 0x2; //write operation?
-	int us = regs.err_code & 0x4; //were we in user mode?
-	int reserved = regs.err_code & 0x8; //overwritten CPU-reserved bits of page entry?
-	int id = regs.err_code & 0x10; //caused by instruction fetch?
+	int present = !(regs->err_code & 0x1); //page not present
+	int rw = regs->err_code & 0x2; //write operation?
+	int us = regs->err_code & 0x4; //were we in user mode?
+	int reserved = regs->err_code & 0x8; //overwritten CPU-reserved bits of page entry?
+	int id = regs->err_code & 0x10; //caused by instruction fetch?
 
 	//if this page was present, attempt to recover by allocating the page
 	if (present) {
@@ -152,10 +152,10 @@ static void page_fault(register_state_t regs) {
 	if (reserved) printf_err("Overwrote CPU-resereved bits of page entry");
 	if (id) printf_err("Faulted during instruction fetch");
 
-	bool caused_by_execution = (regs.eip == faulting_address);
+	bool caused_by_execution = (regs->eip == faulting_address);
 	printf("Caused by %s unpaged memory\n", caused_by_execution ? "executing" : "reading");
     printf("Kernel spinlooping due to unhandled page fault\n");
-    asm("sti");
+    //asm("sti");
     while (1) {}
 }
 

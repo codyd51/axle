@@ -158,7 +158,7 @@ irq_common_stub:
 
     call irq_receive
 
-    ; push registers_t* arg back into esp
+    ; pop registers_t* arg back into esp
     pop esp
 
     ; restore data segment selector
