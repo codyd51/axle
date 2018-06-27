@@ -129,14 +129,18 @@ void tasking_init_small() {
 
     printf_info("Multitasking init...");
     mutex = lock_create();
-    pit_callback = add_callback((void*)scheduler_tick, 10, true, 0);
+    //pit_callback = add_callback((void*)scheduler_tick, 5, true, 0);
 
     //init first task (kernel task)
     _current_task_small = task_construct((uint32_t)&new_task_entry);
     _task_list_head = _current_task_small;
     //init another
     task_small_t* buddy = task_construct((uint32_t)&new_my_task2);
+    //task_small_t* buddy1 = task_construct((uint32_t)&new_my_task3);
 
-    printf_info("Tasking initialized with kernel PID %d", getpid());
     kernel_end_critical();
+}
+
+void access_context(struct task_small t) {
+    t.context = 1;
 }
