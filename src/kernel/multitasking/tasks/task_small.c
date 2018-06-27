@@ -8,8 +8,8 @@
 
 static int next_pid = 1;
 
-const int task_small_offset_to_context = offsetof(struct task_small, context);
 task_small_t* _current_task_small = 0;
+const uint32_t _task_context_offset = offsetof(struct task_small, machine_state);
 static task_small_t* _task_list_head = 0;
 static timer_callback_t* pit_callback = 0;
 
@@ -90,7 +90,7 @@ task_small_t* task_construct(uint32_t entry_point) {
     *(stack_top--) = 0;                //edi
     *(stack_top)   = 0;                //ebp
 
-    new_task->context = (struct context*)stack_top;
+    new_task->machine_state = (task_context_t*)stack_top;
 
     _tasking_add_task_to_runlist(new_task);
 }
@@ -149,9 +149,12 @@ void tasking_init() {
     //task_small_t* buddy1 = task_construct((uint32_t)&new_my_task3);
 
     printf_info("Multitasking initialized");
+    //printf("offset: 0x%x\n", task_small_offset_to_context);
     kernel_end_critical();
 }
 
-void access_context(struct task_small t) {
-    t.context = 1;
+void access_context(task_small_t* t) {
+    t->machine_state = 1;
+    struct task_small x= *t;
+    x.machine_state = 7;
 }

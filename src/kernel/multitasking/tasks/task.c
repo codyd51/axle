@@ -735,7 +735,7 @@ int fork(char* name) {
 task_small_t* first_queue_runnable(array_m* queue, int offset) {
     for (int i = offset; i < queue->size; i++) {
         task_small_t* tmp = array_m_lookup(queue, i);
-        if (tmp->state == RUNNABLE) {
+        if (tmp->waiting_state == RUNNABLE) {
             return tmp;
         }
     }
@@ -751,7 +751,7 @@ array_m* first_queue_containing_runnable(void) {
 
     //TODO figure out why this block doesn't work
     while (curr) {
-        if (curr->state == RUNNABLE) {
+        if (curr->waiting_state == RUNNABLE) {
             //if this task has a higher priority (lower queue #), or this is the first runnable task we've found,
             //mark it as best
             if (!highest_prio_runnable || curr->queue < highest_prio_runnable->queue) {
@@ -762,7 +762,7 @@ array_m* first_queue_containing_runnable(void) {
     }
 
     array_m* queue = array_m_lookup(queues, highest_prio_runnable->queue);
-    if (!highest_prio_runnable || highest_prio_runnable->state != RUNNABLE || !queue->size) {
+    if (!highest_prio_runnable || highest_prio_runnable->waiting_state != RUNNABLE || !queue->size) {
         //if (1) {
         //printf_err("Couldn't find runnable task in linked list of tasks!");
         for (int i = 0; i < queues->size; i++) {
@@ -810,7 +810,7 @@ task_small_t* mlfq_schedule() {
         //attempt to save time by first looking at the next task in linked list
         task_small_t* next = current_task->next;
         if (!next) next = active_list;
-        while (next->state != RUNNABLE) {
+        while (next->waiting_state != RUNNABLE) {
             next = next->next;
             if (!next) {
                 next = active_list;
@@ -951,7 +951,7 @@ uint32_t task_switch_old(bool update_current_task_state) {
     //find next runnable task
     task_t* next = mlfq_schedule();
 
-    ASSERT(next->state == RUNNABLE, "Tried to switch to non-runnable task %s (reason: %d)!", next->name, next->state);
+    ASSERT(next->state == RUNNABLE, "Tried to switch to non-runnable task %s (reason: %d)!", next->name, next->waiting_state);
 
     printf("going to %d\n", next->id);
     goto_pid(next->id, update_current_task_state);
@@ -1008,7 +1008,7 @@ void proc() {
             }
             printk(" %d/%d ms ", task->lifespan, runtime);
 
-            switch (task->state) {
+            switch (task->waiting_state) {
                 case RUNNABLE:
                 printk("(runnable)");
                 break;
