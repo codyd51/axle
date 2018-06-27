@@ -45,10 +45,10 @@ static task_small_t* _tasking_get_next_task(task_small_t* previous_task) {
 }
 
 static task_small_t* _tasking_last_task_in_runlist() {
-    if (!_current_task) {
+    if (!_current_task_small) {
         return NULL;
     }
-    task_small_t* iter = _current_task;
+    task_small_t* iter = _current_task_small;
     for (int i = 0; i < 16; i++) {
         if ((iter)->next == NULL) {
             return iter;
@@ -66,15 +66,15 @@ void task_switch_now() {
     //set the process's time left to run to zero
     //set the time to next schedule to 0
     //task_switch_from_pit will be called on the next PIT interrupt
-    _current_task->current_timeslice_end_date = time();
+    _current_task_small->current_timeslice_end_date = time();
     timer_deliver_immediately(pit_callback);
     //put CPU to sleep until the next interrupt
     asm("hlt");
 }
 
 static void _tasking_add_task_to_runlist(task_small_t* task) {
-    if (!_current_task) {
-        _current_task = task;
+    if (!_current_task_small) {
+        _current_task_small = task;
         return;
     }
     task_small_t* list_tail = _tasking_last_task_in_runlist();
@@ -103,20 +103,20 @@ task_small_t* task_construct(uint32_t entry_point) {
 }
 
 int getpid() {
-    if (!_current_task) {
+    if (!_current_task_small) {
         return -1;
     }
-    return _current_task->id;
+    return _current_task_small->id;
 }
 
 bool tasking_is_active() {
     //return (queues && queues->size >= 1 && current_task);
-    return _current_task != 0;
+    return _current_task_small != 0;
 }
 
 static void scheduler_tick(registers_t* registers) {
-    if (time() >= _current_task->current_timeslice_end_date) {
-        task_switch_from_pit(registers);
+    if (time() >= _current_task_small->current_timeslice_end_date) {
+        //task_switch_from_pit(registers);
     }
 }
 
@@ -132,8 +132,8 @@ void tasking_init_small() {
     pit_callback = add_callback((void*)scheduler_tick, 10, true, 0);
 
     //init first task (kernel task)
-    _current_task = task_construct((uint32_t)&new_task_entry);
-    _task_list_head = _current_task;
+    _current_task_small = task_construct((uint32_t)&new_task_entry);
+    _task_list_head = _current_task_small;
     //init another
     task_small_t* buddy = task_construct((uint32_t)&new_my_task2);
 
