@@ -8,24 +8,29 @@
 
 static int next_pid = 1;
 
-static task_small_t* _current_task = 0;
+const int task_small_offset_to_context = offsetof(struct task_small, context);
+task_small_t* _current_task_small = 0;
 static task_small_t* _task_list_head = 0;
 static timer_callback_t* pit_callback = 0;
 
 static lock_t* mutex = 0;
 
+//defined in asm
+//performs actual task switch
+void task_switch_real(uint32_t eip, uint32_t paging_dir, uint32_t ebp, uint32_t esp);
+void switch_real(uint32_t esp);
+void task_entry();
+
 void new_task_entry() {
+    int i = 0;
     while (1) {
-        printf("a");
-        sys_yield(RUNNABLE);
+        printf("#");
     }
 }
 
 void new_my_task2() {
-    int i = 0;
     while (1) {
-        printf("b");
-        sys_yield(RUNNABLE);
+        printf("~");
     }
 }
 
@@ -52,43 +57,6 @@ static task_small_t* _tasking_last_task_in_runlist() {
     }
     panic("more than 16 tasks in runlist. increase me?");
     return NULL;
-}
-
-static void task_switch_from_pit(registers_t* registers) {
-    static int switch_count = 0;
-    task_small_t* previous_task = _current_task;
-    task_small_t* next_task = _tasking_get_next_task(previous_task);
-
-    previous_task->relinquish_date = time();
-
-    //only overwrite preempted task's register state if it's been scheduled before and doesn't just contain setup values
-    if (previous_task->_has_run) {
-        //record machine state in previous_task
-        memcpy(&(previous_task->register_state), registers, sizeof(registers_t));
-    }
-
-    //copy machine state into what will be restored when IRQ exits
-    if (!next_task->_has_run) {
-        //next_task is a newly constructed task
-        //its register_state doesn't contain actual machine state, only setup values
-        registers->eip = next_task->register_state.eip;
-        registers->esp = next_task->register_state.esp;
-        registers->ebp = next_task->register_state.ebp;
-    }
-    else {
-        //next_task has run in the past and has real state to restore
-        memcpy(registers, &(next_task->register_state), sizeof(registers_t));
-    }
-
-    next_task->current_timeslice_start_date = time();
-    next_task->current_timeslice_end_date = time() + TASK_QUANTUM;
-
-    _current_task = next_task;
-    next_task->_has_run = true;
-
-    switch_count++;
-    printf("\ntask switch %d: goto PID %d\n", switch_count, next_task->id);
-    printf("%d\n", _current_task->id);
 }
 
 void task_switch_now() {
