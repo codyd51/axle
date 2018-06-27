@@ -86,16 +86,18 @@ task_small_t* task_construct(uint32_t entry_point) {
     memset(new_task, 0, sizeof(task_small_t));
     new_task->id = next_pid++;
 
-    registers_t initial_register_state = {0};
-    initial_register_state.ds = GDT_BYTE_INDEX_KERNEL_DATA;
-    initial_register_state.eip = entry_point;
+    uint32_t stack_size = 0x2000;
+    char *stack = kmalloc(stack_size);
+    uint32_t *stack_top = (uint32_t *)(stack + stack_size - 0x4); // point to top of malloc'd stack
 
-    char* stack = kmalloc(0x1000);
-    initial_register_state.esp = stack;
-    initial_register_state.ebp = stack;
+    *(stack_top--) = entry_point;      //Address of task's startup function
+    *(stack_top--) = 0;                //eax
+    *(stack_top--) = 0;                //ebx
+    *(stack_top--) = 0;                //esi
+    *(stack_top--) = 0;                //edi
+    *(stack_top)   = 0;                //ebp
 
-    new_task->register_state = initial_register_state;
-    new_task->_has_run = false;
+    new_task->context = (struct context*)stack_top;
 
     _tasking_add_task_to_runlist(new_task);
 
