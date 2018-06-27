@@ -22,13 +22,6 @@ void switch_real(uint32_t esp);
 void task_entry();
 
 void new_task_entry() {
-    int i = 0;
-    while (1) {
-        printf("#");
-    }
-}
-
-void new_my_task2() {
     while (1) {
         printf("~");
     }
@@ -131,7 +124,7 @@ static void scheduler_tick(registers_t* registers) {
     }
 }
 
-void tasking_init_small() {
+void tasking_init() {
     if (tasking_is_active()) {
         panic("called tasking_init() after it was already active");
         return;
@@ -142,13 +135,20 @@ void tasking_init_small() {
     mutex = lock_create();
     //pit_callback = add_callback((void*)scheduler_tick, 5, true, 0);
 
-    //init first task (kernel task)
+    // create first task
+    // for the first task, the entry point argument is thrown away. Here is why:
+    // on a context_switch, context_switch saves the current runtime state and stores it in the preempted task's context field.
+    // when the first context switch happens and the first process is preempted, 
+    // the runtime state will be whatever we were doing after tasking_init returns.
+    // so, anything we set to be restored in this first task's setup state will be overwritten when it's preempted for the first time.
+    // thus, we can pass anything for the entry point of this first task, since it won't be used.
     _current_task_small = task_construct((uint32_t)&new_task_entry);
     _task_list_head = _current_task_small;
     //init another
-    task_small_t* buddy = task_construct((uint32_t)&new_my_task2);
+    task_small_t* buddy = task_construct((uint32_t)&new_task_entry);
     //task_small_t* buddy1 = task_construct((uint32_t)&new_my_task3);
 
+    printf_info("Multitasking initialized");
     kernel_end_critical();
 }
 

@@ -491,7 +491,7 @@ static void _create_task_queues(mlfq_option options) {
     }
 }
 
-void tasking_init(mlfq_option options) {
+void tasking_init_old(mlfq_option options) {
     Deprecated();
     if (tasking_is_active()) {
         panic("called tasking_init() after it was already active");

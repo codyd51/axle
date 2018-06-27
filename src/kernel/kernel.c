@@ -73,8 +73,11 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     vmm_init();
     kheap_init();
     syscall_init();
-    //testing!
-    tasking_init_small();
+    tasking_init();
+
+    while (1) {
+        printf("#");
+    }
 
     while (1) {}
     kernel_spinloop();
