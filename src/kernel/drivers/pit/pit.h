@@ -8,6 +8,7 @@
 #define PIT_TICK_GRANULARITY_10MS 100
 #define PIT_TICK_GRANULARITY_20MS 50
 #define PIT_TICK_GRANULARITY_50MS 20
+#define PIT_TICK_GRANULARITY_1000MS 1
 
 void pit_timer_init(uint32_t frequency);
 uint32_t pit_clock();
