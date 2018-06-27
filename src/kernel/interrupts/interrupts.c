@@ -82,6 +82,14 @@ void irq_receive(register_state_t* regs) {
 
     pic_signal_end_of_interrupt(int_no);
 
+	extern uint32_t* _current_task_small;
+	if (int_no == 0x20 && _current_task_small != NULL) {
+		void task_switch_new();
+		void access_context();
+		access_context();
+		task_switch_new();
+	}
+
 	return ret;
 }
 
