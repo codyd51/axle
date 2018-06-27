@@ -100,8 +100,17 @@ task_small_t* task_construct(uint32_t entry_point) {
     new_task->context = (struct context*)stack_top;
 
     _tasking_add_task_to_runlist(new_task);
+}
 
-    return new_task;
+void task_switch_new() {
+    void context_switch(uint32_t* new_task);
+
+    task_small_t* previous_task = _current_task_small;
+    task_small_t* next_task = _tasking_get_next_task(previous_task);
+
+    //will update _current_task_small
+    printf("S");
+    context_switch(next_task);
 }
 
 int getpid() {
