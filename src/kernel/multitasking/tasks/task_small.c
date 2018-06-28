@@ -52,19 +52,6 @@ static task_small_t* _tasking_last_task_in_runlist() {
     return NULL;
 }
 
-void task_switch_now() {
-    /*
-    Immediately preempt the running task.
-    */
-    //set the process's time left to run to zero
-    //set the time to next schedule to 0
-    //task_switch_from_pit will be called on the next PIT interrupt
-    _current_task_small->current_timeslice_end_date = time();
-    timer_deliver_immediately(pit_callback);
-    //put CPU to sleep until the next interrupt
-    asm("hlt");
-}
-
 static void _tasking_add_task_to_runlist(task_small_t* task) {
     if (!_current_task_small) {
         _current_task_small = task;

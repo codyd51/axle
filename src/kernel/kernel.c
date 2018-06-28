@@ -75,10 +75,6 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     syscall_init();
     tasking_init();
 
-    while (1) {
-        printf("#");
-    }
-
     while (1) {}
     kernel_spinloop();
 }
