@@ -25,21 +25,27 @@ void task_entry();
 void task2() {
     while (1) {
         printf("B");
-        task_switch_new();
+        task_switch();
     }
 }
 void task3() {
     while (1) {
         printf("C");
-        task_switch_new();
+        task_switch();
     }
 }
 
-void task_new() {
+void task_new(int i) {
     while (1) {
         printf("%d", getpid());
-        //task_switch_new();
+        sys_yield(RUNNABLE);
     }
+}
+
+void task_sleepy() {
+    sleep(2000);
+    printf("slept!\n");
+    while (1) {}
 }
 
 static task_small_t* _tasking_get_next_task(task_small_t* previous_task) {
