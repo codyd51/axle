@@ -2,6 +2,9 @@
 #define PIT_H
 
 #include <std/common.h>
+#include <kernel/interrupts/interrupts.h>
+
+#define PIT_INT_VECTOR INT_VECOR_IRQ0
 
 #define PIT_TICK_GRANULARITY_1MS  1000
 #define PIT_TICK_GRANULARITY_5MS  200

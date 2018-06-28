@@ -17,14 +17,13 @@ typedef struct {
 	void* context;
 } timer_callback_t;
 
-STDAPI timer_callback_t* timer_add_callback(void* callback, int interval, bool repeats, void* context);
-STDAPI void timer_remove_callback(timer_callback_t* callback);
-STDAPI void timer_deliver_immediately(timer_callback_t* callback);
+STDAPI void timer_init();
+
+STDAPI timer_callback_t* timer_callback_register(void* callback, int interval, bool repeats, void* context);
+STDAPI void timer_callback_remove(timer_callback_t* callback);
+STDAPI void timer_callback_deliver_immediately(timer_callback_t* callback);
 
 STDAPI void sleep(uint32_t ms);
-
-//friend function for pit.c
-void _timer_handle_pit_tick();
 
 __END_DECLS
 

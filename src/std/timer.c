@@ -2,11 +2,13 @@
 #include <limits.h>
 #include <std/memory.h>
 #include <std/common.h>
+#include <kernel/drivers/pit/pit.h>
 #include <kernel/drivers/rtc/clock.h>
 #include <kernel/syscall/sysfuncs.h>
+#include <kernel/interrupts/int_notifier.h>
 
 static int callback_num = 0;
-static timer_callback_t callback_table[MAX_CALLBACKS];
+static timer_callback_t callback_table[MAX_CALLBACKS] = {0};
 
 static void clear_table() {
 	memset(&callback_table, 0, sizeof(timer_callback_t) * callback_num);
@@ -24,7 +26,7 @@ static int next_open_callback_index() {
 	return callback_num;
 }
 
-timer_callback_t* add_callback(void* func, int interval, bool repeats, void* context) {
+timer_callback_t* timer_callback_register(void* func, int interval, bool repeats, void* context) {
 	int next_open_index = next_open_callback_index();
 	//only add callback if we have room
 	if (callback_num + 1 < MAX_CALLBACKS || next_open_index < callback_num) {
@@ -39,13 +41,14 @@ timer_callback_t* add_callback(void* func, int interval, bool repeats, void* con
 		return &(callback_table[callback_num]);
 	}
 
+	panic("timer callback table out of space");
 	//TODO expand table instead of clearing it
 	clear_table();
 	//try adding the callback again now that we know the table has room
-	return add_callback(func, interval, repeats, context);
+	return timer_callback_register(func, interval, repeats, context);
 }
 
-void remove_callback(timer_callback_t* callback) {
+void timer_callback_remove(timer_callback_t* callback) {
 	//find this callback in callback table
 	bool found = false;
 	for (int i = 0; i < callback_num; i++) {
@@ -60,7 +63,7 @@ void remove_callback(timer_callback_t* callback) {
 	memset(callback, 0, sizeof(timer_callback_t));
 }
 
-void _timer_handle_pit_tick(registers_t* register_state) {
+void _timer_handle_pit_tick() {
 	//look through every callback and see if we should fire
 	for (int i = 0; i < callback_num; i++) {
 		//decrement time left
@@ -71,25 +74,28 @@ void _timer_handle_pit_tick(registers_t* register_state) {
 			//reset for next firing
 			callback_table[i].time_left = callback_table[i].interval;
 
-			void(*callback_func)(registers_t*, void*) = (void(*)(registers_t*, void*))callback_table[i].func;
-			callback_func(register_state, callback_table[i].context);
+			void(*callback_func)(void*) = (void(*)(void*))callback_table[i].func;
+			callback_func(callback_table[i].context);
 
 			//if we only fire once, trash this callback
 			if (!callback_table[i].repeats) {
-				remove_callback(&(callback_table[i]));
+				timer_callback_remove(&(callback_table[i]));
 			}
 		}
 	}
 }
 
-void timer_deliver_immediately(timer_callback_t* callback) {
+void timer_callback_deliver_immediately(timer_callback_t* callback) {
 	callback->time_left = 0;
 }
 
 void sleep(uint32_t ms) {
-	Deprecated();
 	uint32_t end = time() + ms;
     extern task_t* current_task;
     current_task->wake_timestamp = end;
     sys_yield(PIT_WAIT);
+}
+
+void timer_init() {
+	int_notifier_register_callback(PIT_INT_VECTOR, _timer_handle_pit_tick, NULL, true);
 }

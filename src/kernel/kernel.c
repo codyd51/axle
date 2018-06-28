@@ -69,6 +69,7 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     drivers_init();
 
     //kernel features
+    timer_init();
     pmm_init();
     vmm_init();
     kheap_init();

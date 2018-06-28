@@ -1,5 +1,4 @@
 #include "pit.h"
-#include <kernel/interrupts/interrupts.h>
 #include <kernel/kernel.h>
 #include <kernel/assert.h>
 #include <std/math.h>
@@ -17,14 +16,9 @@
 
 static volatile uint32_t tick = 0;
 
-//defined in timer.c
-//inform that a tick has occured
-extern void handle_tick();
-
 static void context_switch(register_state_t* regs);
 static int tick_callback(register_state_t* regs) {
 	tick++;
-	_timer_handle_pit_tick(regs);
 	return 0;
 }
 
