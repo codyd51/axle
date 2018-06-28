@@ -5,6 +5,7 @@
 #include <std/timer.h>
 
 #define TASK_QUANTUM 20
+#define MAX_TASKS 64
 
 static int next_pid = 1;
 
@@ -21,9 +22,23 @@ void task_switch_real(uint32_t eip, uint32_t paging_dir, uint32_t ebp, uint32_t 
 void switch_real(uint32_t esp);
 void task_entry();
 
-void new_task_entry() {
+void task2() {
     while (1) {
-        printf("~");
+        printf("B");
+        task_switch_new();
+    }
+}
+void task3() {
+    while (1) {
+        printf("C");
+        task_switch_new();
+    }
+}
+
+void task_new() {
+    while (1) {
+        printf("%d", getpid());
+        //task_switch_new();
     }
 }
 
@@ -42,13 +57,13 @@ static task_small_t* _tasking_last_task_in_runlist() {
         return NULL;
     }
     task_small_t* iter = _current_task_small;
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < MAX_TASKS; i++) {
         if ((iter)->next == NULL) {
             return iter;
         }
         iter = (iter)->next;
     }
-    panic("more than 16 tasks in runlist. increase me?");
+    panic("more than MAX_TASKS tasks in runlist. increase me?");
     return NULL;
 }
 
@@ -66,7 +81,7 @@ task_small_t* task_construct(uint32_t entry_point) {
     memset(new_task, 0, sizeof(task_small_t));
     new_task->id = next_pid++;
 
-    uint32_t stack_size = 0x2000;
+    uint32_t stack_size = 0x1000;
     char *stack = kmalloc(stack_size);
     uint32_t *stack_top = (uint32_t *)(stack + stack_size - 0x4); // point to top of malloc'd stack
 
@@ -82,14 +97,18 @@ task_small_t* task_construct(uint32_t entry_point) {
     _tasking_add_task_to_runlist(new_task);
 }
 
-void task_switch_new() {
+void task_switch() {
+    /*
+    Immediately preempt the running task
+    */
     void context_switch(uint32_t* new_task);
 
     task_small_t* previous_task = _current_task_small;
     task_small_t* next_task = _tasking_get_next_task(previous_task);
 
-    //will update _current_task_small
-    printf("S");
+    printf("|");
+    // this method will update _current_task_small
+    // this method performs the actual context switch and also updates _current_task_small
     context_switch(next_task);
 }
 
@@ -129,19 +148,15 @@ void tasking_init() {
     // the runtime state will be whatever we were doing after tasking_init returns.
     // so, anything we set to be restored in this first task's setup state will be overwritten when it's preempted for the first time.
     // thus, we can pass anything for the entry point of this first task, since it won't be used.
-    _current_task_small = task_construct((uint32_t)&new_task_entry);
+    _current_task_small = task_construct(NULL);
     _task_list_head = _current_task_small;
     //init another
-    task_small_t* buddy = task_construct((uint32_t)&new_task_entry);
-    //task_small_t* buddy1 = task_construct((uint32_t)&new_my_task3);
+    //task_small_t* buddy = task_construct((uint32_t)&task2);
+    //task_small_t* buddy1 = task_construct((uint32_t)&task3);
+    for (int i = 0; i < MAX_TASKS; i++) {
+        task_construct((uint32_t)task_new);
+    }
 
     printf_info("Multitasking initialized");
-    //printf("offset: 0x%x\n", task_small_offset_to_context);
     kernel_end_critical();
-}
-
-void access_context(task_small_t* t) {
-    t->machine_state = 1;
-    struct task_small x= *t;
-    x.machine_state = 7;
 }

@@ -31,7 +31,8 @@ typedef struct task_small {
 } task_small_t;
 
 void tasking_init_small();
-void task_switch_now();
 bool tasking_is_active();
+
+void task_switch();
 
 #endif
