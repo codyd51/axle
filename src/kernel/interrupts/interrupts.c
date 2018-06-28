@@ -2,12 +2,13 @@
 #include "idt_structures.h"
 #include "idt.h"
 #include "cpu_fault_handlers.h"
+#include "int_notifier.h"
 
 #include <std/common.h>
 
 #include <kernel/kernel.h>
-#include <kernel/multitasking//tasks/task.h>
 #include <kernel/assert.h>
+#include <kernel/multitasking/tasks/task.h>
 
 static int_callback_t interrupt_handlers[256] = {0};
 
@@ -64,6 +65,9 @@ int isr_receive(register_state_t* regs) {
 	else {
 		printf("Unhandled interrupt: %d\n", int_no);
 	}
+
+	int_notifier_handle_interrupt(regs);
+
 	return ret;
 }
 
@@ -79,14 +83,9 @@ void irq_receive(register_state_t* regs) {
 	else {
 		printf("Unhandled IRQ: %d\n", int_no);
 	}
-
     pic_signal_end_of_interrupt(int_no);
 
-	extern uint32_t* _current_task_small;
-	if (int_no == 0x20 && _current_task_small != NULL) {
-		void task_switch();
-		task_switch();
-	}
+	int_notifier_handle_interrupt(regs);
 
 	return ret;
 }
