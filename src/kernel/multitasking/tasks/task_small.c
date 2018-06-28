@@ -1,7 +1,6 @@
 #include "task_small.h"
 
 #include <std/timer.h>
-#include <kernel/util/mutex/mutex.h>
 #include <kernel/segmentation/gdt_structures.h>
 
 #define TASK_QUANTUM 20
@@ -10,32 +9,16 @@
 static int next_pid = 1;
 
 task_small_t* _current_task_small = 0;
-const uint32_t _task_context_offset = offsetof(struct task_small, machine_state);
 static task_small_t* _task_list_head = 0;
+
 static timer_callback_t* pit_callback = 0;
+const uint32_t _task_context_offset = offsetof(struct task_small, machine_state);
 
-static lock_t* mutex = 0;
+// defined in process_small.s
+// performs the actual context switch
+void context_switch(uint32_t* new_task);
 
-//defined in asm
-//performs actual task switch
-void task_switch_real(uint32_t eip, uint32_t paging_dir, uint32_t ebp, uint32_t esp);
-void switch_real(uint32_t esp);
-void task_entry();
-
-void task2() {
-    while (1) {
-        printf("B");
-        task_switch();
-    }
-}
-void task3() {
-    while (1) {
-        printf("C");
-        task_switch();
-    }
-}
-
-void task_new(int i) {
+void task_new() {
     while (1) {
         printf("%d", getpid());
         sys_yield(RUNNABLE);
@@ -108,8 +91,6 @@ void task_switch() {
     /*
     Immediately preempt the running task
     */
-    void context_switch(uint32_t* new_task);
-
     task_small_t* previous_task = _current_task_small;
     task_small_t* next_task = _tasking_get_next_task(previous_task);
 
@@ -147,9 +128,7 @@ void tasking_init() {
     }
     kernel_begin_critical();
 
-    mutex = lock_create();
-    pit_callback = timer_callback_register((void*)task_timer_tick, 1, true, 0);
-
+    pit_callback = timer_callback_register((void*)task_timer_tick, 5, true, 0);
     // create first task
     // for the first task, the entry point argument is thrown away. Here is why:
     // on a context_switch, context_switch saves the current runtime state and stores it in the preempted task's context field.
@@ -162,9 +141,11 @@ void tasking_init() {
     //init another
     //task_small_t* buddy = task_construct((uint32_t)&task2, NULL);
     //task_small_t* buddy1 = task_construct((uint32_t)&task_sleepy, NULL);
+    /*
     for (int i = 0; i < MAX_TASKS; i++) {
         task_construct((uint32_t)task_new, i);
     }
+    */
 
     printf_info("Multitasking initialized");
     kernel_end_critical();
