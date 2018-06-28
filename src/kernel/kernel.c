@@ -51,6 +51,14 @@ static void kernel_spinloop() {
     asm("hlt");
 }
 
+static void kernel_idle() {
+    while (1) {
+        //nothing to do!
+        //put the CPU to sleep until the next interrupt
+        asm volatile("hlt");
+    }
+}
+
 uint32_t initial_esp = 0;
 void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     initial_esp = initial_stack;
@@ -74,8 +82,10 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     vmm_init();
     kheap_init();
     syscall_init();
+    
     tasking_init();
+    kernel_idle();
 
-    while (1) {}
+    //the above call should never return, but just in case...
     kernel_spinloop();
 }
