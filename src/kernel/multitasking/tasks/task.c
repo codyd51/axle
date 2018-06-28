@@ -530,7 +530,7 @@ void tasking_init_old(mlfq_option options) {
 
     //create callback to switch tasks
     void handle_pit_tick();
-    add_callback((void*)handle_pit_tick, 4, true, 0);
+    timer_callback_register((void*)handle_pit_tick, 4, true, 0);
 
     printf_dbg("forking system processes");
     //idle task

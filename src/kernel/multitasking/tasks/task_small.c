@@ -1,8 +1,8 @@
 #include "task_small.h"
 
+#include <std/timer.h>
 #include <kernel/util/mutex/mutex.h>
 #include <kernel/segmentation/gdt_structures.h>
-#include <std/timer.h>
 
 #define TASK_QUANTUM 20
 #define MAX_TASKS 64
@@ -131,10 +131,13 @@ bool tasking_is_active() {
     return _current_task_small != 0;
 }
 
-static void scheduler_tick(registers_t* registers) {
+static void task_timer_tick() {
+    task_switch();
+    /*
     if (time() >= _current_task_small->current_timeslice_end_date) {
         //task_switch_from_pit(registers);
     }
+    */
 }
 
 void tasking_init() {
@@ -144,9 +147,8 @@ void tasking_init() {
     }
     kernel_begin_critical();
 
-    printf_info("Multitasking init...");
     mutex = lock_create();
-    //pit_callback = add_callback((void*)scheduler_tick, 5, true, 0);
+    pit_callback = timer_callback_register((void*)task_timer_tick, 1, true, 0);
 
     // create first task
     // for the first task, the entry point argument is thrown away. Here is why:
@@ -160,9 +162,10 @@ void tasking_init() {
     //init another
     //task_small_t* buddy = task_construct((uint32_t)&task2, NULL);
     //task_small_t* buddy1 = task_construct((uint32_t)&task_sleepy, NULL);
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < MAX_TASKS; i++) {
         task_construct((uint32_t)task_new, i);
     }
+
     printf_info("Multitasking initialized");
     kernel_end_critical();
 }
