@@ -82,21 +82,22 @@ static void _tasking_add_task_to_runlist(task_small_t* task) {
     list_tail->next = task;
 }
 
-task_small_t* task_construct(uint32_t entry_point) {
+task_small_t* task_construct(void* entry_point, void* arg1) {
     task_small_t* new_task = kmalloc(sizeof(task_small_t));
     memset(new_task, 0, sizeof(task_small_t));
     new_task->id = next_pid++;
 
     uint32_t stack_size = 0x1000;
     char *stack = kmalloc(stack_size);
-    uint32_t *stack_top = (uint32_t *)(stack + stack_size - 0x4); // point to top of malloc'd stack
 
-    *(stack_top--) = entry_point;      //Address of task's startup function
-    *(stack_top--) = 0;                //eax
-    *(stack_top--) = 0;                //ebx
-    *(stack_top--) = 0;                //esi
-    *(stack_top--) = 0;                //edi
-    *(stack_top)   = 0;                //ebp
+    uint32_t *stack_top = (uint32_t *)(stack + stack_size - 0x4); // point to top of malloc'd stack
+    *(stack_top--) = arg1;          //argument to entry point
+    *(stack_top--) = entry_point;   //address of task's entry point
+    *(stack_top--) = 0;             //eax
+    *(stack_top--) = 0;             //ebx
+    *(stack_top--) = 0;             //esi
+    *(stack_top--) = 0;             //edi
+    *(stack_top)   = 0;             //ebp
 
     new_task->machine_state = (task_context_t*)stack_top;
 
@@ -154,15 +155,14 @@ void tasking_init() {
     // the runtime state will be whatever we were doing after tasking_init returns.
     // so, anything we set to be restored in this first task's setup state will be overwritten when it's preempted for the first time.
     // thus, we can pass anything for the entry point of this first task, since it won't be used.
-    _current_task_small = task_construct(NULL);
+    _current_task_small = task_construct(NULL, NULL);
     _task_list_head = _current_task_small;
     //init another
-    //task_small_t* buddy = task_construct((uint32_t)&task2);
-    //task_small_t* buddy1 = task_construct((uint32_t)&task3);
-    for (int i = 0; i < MAX_TASKS; i++) {
-        task_construct((uint32_t)task_new);
+    //task_small_t* buddy = task_construct((uint32_t)&task2, NULL);
+    //task_small_t* buddy1 = task_construct((uint32_t)&task_sleepy, NULL);
+    for (int i = 0; i < 9; i++) {
+        task_construct((uint32_t)task_new, i);
     }
-
     printf_info("Multitasking initialized");
     kernel_end_critical();
 }
