@@ -171,6 +171,7 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 
 void kheap_init() {
     boot_info_t* info = boot_info_get();
+	// XXX(PT): info->kernel_image_end is the region after the identity-map-protected region that the VMM and PMM coordinate.
     uint32_t start = info->kernel_image_end + 0x100000;
     uint32_t end_addr = start + KHEAP_INITIAL_SIZE;
     uint32_t max = end_addr;
@@ -258,6 +259,7 @@ void heap_verify_integrity() {
 }
 
 static void heap_expand(heap_t* heap, uint32_t expand_size) {
+	NotImplemented();
 	lock(mutex);
 
 	uint32_t curr_size = heap->end_address - heap->start_address;

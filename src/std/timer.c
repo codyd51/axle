@@ -89,13 +89,6 @@ void timer_callback_deliver_immediately(timer_callback_t* callback) {
 	callback->time_left = 0;
 }
 
-void sleep(uint32_t ms) {
-	uint32_t end = time() + ms;
-    extern task_t* current_task;
-    current_task->wake_timestamp = end;
-    sys_yield(PIT_WAIT);
-}
-
 void timer_init() {
 	int_notifier_register_callback(PIT_INT_VECTOR, _timer_handle_pit_tick, NULL, true);
 }
