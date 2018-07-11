@@ -14,11 +14,16 @@ typedef struct task_context {
 	uint32_t eip;
 } task_context_t;
 
+typedef struct task_block_state {
+	task_state status;
+	uint32_t wake_timestamp; // used if process is in PIT_WAIT
+} task_block_state_t;
+
 typedef struct task_small {
-	uint32_t id;  //PID
-	char* name; //user-printable process name
-	task_context_t* machine_state; //registers at the time of last preemption
-    task_state waiting_state; // TODO(pt) change to task_wait_state?
+	uint32_t id;  // PID
+	char* name; // user-printable process name
+	task_context_t* machine_state; // registers at the time of last preemption
+	task_block_state_t blocked_info; // runnable state
 	struct task_small_t* next; // next task in linked list of all tasks
 
 	uint32_t current_timeslice_start_date;

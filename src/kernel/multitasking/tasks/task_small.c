@@ -184,6 +184,35 @@ static void tasking_timer_tick() {
     }
 }
 
+void tasking_unblock_task(task_small_t* task, bool run_immediately) {
+    task->blocked_info.status = RUNNABLE;
+    if (run_immediately) {
+        tasking_goto_task(task);
+    }
+}
+
+static void tasking_update_blocked_tasks() {
+    while (1) {
+        task_small_t* task = _task_list_head;
+        while (task) {
+            if (task->blocked_info.status == RUNNABLE) {
+                task = task->next;
+                continue;
+            }
+            else if (task->blocked_info.status == PIT_WAIT) {
+                if (time() > task->blocked_info.wake_timestamp) {
+                    tasking_unblock_task(task, false);
+                }
+            }
+            else {
+                panic("unknown block reason");
+            }
+            task = task->next;
+        }
+        sys_yield(RUNNABLE);
+    }
+}
+
 void tasking_init() {
     if (tasking_is_active()) {
         panic("called tasking_init() after it was already active");
@@ -199,12 +228,11 @@ void tasking_init() {
     // the runtime state will be whatever we were doing after tasking_init returns.
     // so, anything we set to be restored in this first task's setup state will be overwritten when it's preempted for the first time.
     // thus, we can pass anything for the entry point of this first task, since it won't be used.
-    _current_task_small = task_construct(NULL);
+    _current_task_small = thread_spawn(NULL);
     _task_list_head = _current_task_small;
 
-    for (int i = 0; i < MAX_TASKS; i++) {
-        task_construct((uint32_t)task_new);
-    }
+    thread_spawn((uint32_t)task_sleepy);
+    thread_spawn((uint32_t)tasking_update_blocked_tasks);
 
     printf_info("Multitasking initialized");
     kernel_end_critical();
