@@ -3,7 +3,7 @@
 #include <std/timer.h>
 #include <kernel/segmentation/gdt_structures.h>
 
-#define TASK_QUANTUM 20
+#define TASK_QUANTUM 10
 #define MAX_TASKS 64
 
 static int next_pid = 1;
@@ -28,6 +28,12 @@ void task_sleepy() {
     sleep(2000);
     printf("slept!\n");
     while (1) {}
+}
+
+void sleep(uint32_t ms) {
+    _current_task_small->blocked_info.status = PIT_WAIT;
+    _current_task_small->blocked_info.wake_timestamp = time() + ms;
+    task_switch();
 }
 
 static task_small_t* _tasking_get_next_task(task_small_t* previous_task) {
