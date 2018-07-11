@@ -46,6 +46,18 @@ static task_small_t* _tasking_get_next_task(task_small_t* previous_task) {
     return next_task;
 }
 
+static task_small_t* _tasking_get_next_runnable_task(task_small_t* previous_task) {
+    task_small_t* iter = _tasking_get_next_task(previous_task);
+    for (int i = 0; i < MAX_TASKS; i++) {
+        if (iter->blocked_info.status != RUNNABLE) {
+            iter = _tasking_get_next_task(iter);
+            continue;
+        }
+        return iter;
+    }
+    panic("couldn't find runnable task");
+}
+
 static task_small_t* _tasking_last_task_in_runlist() {
     if (!_current_task_small) {
         return NULL;
@@ -70,10 +82,38 @@ static void _tasking_add_task_to_runlist(task_small_t* task) {
     list_tail->next = task;
 }
 
-task_small_t* task_construct(void* entry_point) {
+task_small_t* thread_spawn_with_machine_state(task_context_t* state) {
+    NotImplemented();
     task_small_t* new_task = kmalloc(sizeof(task_small_t));
     memset(new_task, 0, sizeof(task_small_t));
     new_task->id = next_pid++;
+    new_task->blocked_info.status = RUNNABLE;
+
+    uint32_t stack_size = 0x1000;
+    char *stack = kmalloc(stack_size);
+
+    // XXX(PT): this doesn't work because we'd need to clone the entire stack of the old task
+    uint32_t *stack_top = (uint32_t *)(stack + stack_size - 0x4); // point to top of malloc'd stack
+    //*(stack_top--) = state->esp;   //address of task's entry point
+    *(stack_top--) = 0;             //eax
+    *(stack_top--) = 0;             //ebx
+    *(stack_top--) = 0;             //esi
+    *(stack_top--) = 0;             //edi
+    *(stack_top)   = 0;             //ebp
+
+    new_task->machine_state = (task_context_t*)stack_top;
+
+    new_task->is_thread = true;
+    new_task->vmm = vmm_active_pdir();
+
+    _tasking_add_task_to_runlist(new_task);
+}
+
+task_small_t* thread_spawn(void* entry_point) {
+    task_small_t* new_task = kmalloc(sizeof(task_small_t));
+    memset(new_task, 0, sizeof(task_small_t));
+    new_task->id = next_pid++;
+    new_task->blocked_info.status = RUNNABLE;
 
     uint32_t stack_size = 0x1000;
     char *stack = kmalloc(stack_size);
@@ -88,24 +128,43 @@ task_small_t* task_construct(void* entry_point) {
 
     new_task->machine_state = (task_context_t*)stack_top;
 
+    new_task->is_thread = true;
+    new_task->vmm = vmm_active_pdir();
+
     _tasking_add_task_to_runlist(new_task);
 }
 
+task_small_t* task_spawn(void* entry_point) {
+    // a task is simply a thread with its own virtual address space
+    // the new task's address space is a clone of the task that spawned it
+    task_small_t* new_task = thread_spawn;
+    new_task->is_thread = false;
+    panic("clone vmm here");
+    //new_task->vmm 
+    return NULL;
+}
+
 /*
- * Immediately preempt the running task
+ * Immediately preempt the running task and begin running the provided one.
+ */
+void tasking_goto_task(task_small_t* new_task) {
+
+    uint32_t now = time();
+    new_task->current_timeslice_start_date = now;
+    new_task->current_timeslice_end_date = now + TASK_QUANTUM;
+
+    // this method will update _current_task_small
+    // this method performs the actual context switch and also updates _current_task_small
+    context_switch(new_task);
+}
+
+/*
+ * Pick the next task to schedule, and preempt the currently running one.
  */
 void task_switch() {
     task_small_t* previous_task = _current_task_small;
-    task_small_t* next_task = _tasking_get_next_task(previous_task);
-
-    uint32_t now = time();
-    next_task->current_timeslice_start_date = now;
-    next_task->current_timeslice_end_date = now + TASK_QUANTUM;
-
-    printf("|");
-    // this method will update _current_task_small
-    // this method performs the actual context switch and also updates _current_task_small
-    context_switch(next_task);
+    task_small_t* next_task = _tasking_get_next_runnable_task(previous_task);
+    tasking_goto_task(next_task);
 }
 
 int getpid() {

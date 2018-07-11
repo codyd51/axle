@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <kernel/multitasking/tasks/task.h>
+#include <kernel/vmm/vmm.h>
 
 typedef struct task_context {
 	uint32_t ebp;
@@ -27,11 +28,15 @@ typedef struct task_small {
 	uint32_t lifespan;
 
     uint32_t wake_timestamp; //used if process is in PIT_WAIT state
+	bool is_thread;
 } task_small_t;
 
 void tasking_init_small();
 bool tasking_is_active();
 
 void task_switch();
+
+task_small_t* thread_spawn(void* entry_point);
+task_small_t* task_spawn(void* entry_point);
 
 #endif
