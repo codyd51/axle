@@ -60,22 +60,24 @@ Vec2d vec2d(double x, float y) {
 }
 
 Screen* screen_create(Size dimensions, uint32_t* physbase, uint8_t depth) {
-            Screen* screen = kmalloc(sizeof(Screen));
+    Screen* screen = kmalloc(sizeof(Screen));
 
-            //linear frame buffer (LFB) address
-            screen->physbase = physbase;
-            screen->window = create_window_int(rect_make(point_make(0, 0), dimensions), true);
-            screen->window->superview = NULL;
-            screen->depth = depth;
-            //8 bits in a byte
-            screen->bpp = depth / 8;
-            screen->vmem = create_layer(dimensions);
+    //linear frame buffer (LFB) address
+    screen->physbase = physbase;
+    printk("create window int\n");
+    screen->window = create_window_int(rect_make(point_make(0, 0), dimensions), true);
+    printk("create window int returned\n");
+    screen->window->superview = NULL;
+    screen->depth = depth;
+    //8 bits in a byte
+    screen->bpp = depth / 8;
+    screen->vmem = create_layer(dimensions);
 
-            screen->surfaces = array_m_create(128);
-            printk_info("screen surfaces %x\n", screen->surfaces);
-            printk_info("screen surfaces size %x\n", screen->surfaces->size);
+    screen->surfaces = array_m_create(128);
+    printk_info("screen surfaces %x\n", screen->surfaces);
+    printk_info("screen surfaces size %x\n", screen->surfaces->size);
 
-            return screen;
+    return screen;
 }
 
 void gfx_teardown(Screen* screen) {

@@ -2,6 +2,14 @@
 #define MOUSE_H
 
 #include <gfx/lib/shapes.h>
+#include <stdbool.h>
+
+// TODO(PT): use this!
+typedef struct mouse_button_state {
+    bool left_down : 1;
+    bool right_down : 1;
+    bool middle_down : 1;
+} mouse_button_state_t;
 
 //install mouse driver
 void mouse_install();

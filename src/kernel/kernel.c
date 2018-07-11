@@ -43,6 +43,7 @@ void system_mem() {
 void drivers_init(void) {
     pit_timer_init(PIT_TICK_GRANULARITY_1MS);
     serial_init();
+    mouse_install();
 }
 
 static void kernel_spinloop() {

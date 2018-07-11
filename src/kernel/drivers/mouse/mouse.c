@@ -69,25 +69,21 @@ uint8_t mouse_events() {
 	return mouse_state;
 }
 
-void update_mouse_position(int x, int y) {
-	//set initial mouse position if necessary
-	if (running_x == -1 && running_y == -1) {
-		Screen* s = gfx_screen();
-		if (s) {
-			running_x = s->resolution.width / 2;
-			running_y = s->resolution.height / 2;
-		}
-		else {
-			//fall back on putting cursor at origin
-			running_x = running_y = 0;
-		}
+static void _mouse_set_initial_cursospos() {
+	Screen* s = gfx_screen();
+	if (s) {
+		running_x = s->resolution.width / 2;
+		running_y = s->resolution.height / 2;
+		running_x = 400;
+		running_y = 100;
 	}
+	else {
+		//fall back on putting cursor at origin
+		running_x = running_y = 0;
+	}
+}
 
-	y = -y;
-
-	running_x += x;
-	running_y += y;
-
+static void _mouse_constrain_to_screen_size() {
 	Size dimensions = screen_dimensions();
 	running_x = MAX(running_x, 0);
 	running_x = MIN(running_x, dimensions.width - 5);
@@ -95,9 +91,23 @@ void update_mouse_position(int x, int y) {
 	running_y = MIN(running_y, dimensions.height - 5);
 }
 
+static void mouse_handle_event(int x, int y) {
+	//set initial mouse position if necessary
+	if (running_x == -1 && running_y == -1) {
+		_mouse_set_initial_cursospos();
+	}
+
+	y = -y;
+
+	running_x += x;
+	running_y += y;
+
+	_mouse_constrain_to_screen_size();
+}
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
-void mouse_callback(registers_t* regs) {
+static int mouse_callback(registers_t* regs) {
 	kernel_begin_critical();
 
 	static sbyte mouse_byte[3];
@@ -134,18 +144,21 @@ void mouse_callback(registers_t* regs) {
 
 			//hook into task switch
 			//trigger iosentinel
+			/*
 			kernel_end_critical();
 			extern void update_blocked_tasks();
 			update_blocked_tasks();
+			*/
 		default:
 			mouse_cycle = 0;
 			break;
 	}
 	kernel_end_critical();
+	return 0;
 }
 #pragma GCC diagnostic pop
 
-void mouse_wait(byte a_type) {
+static void mouse_wait(byte a_type) {
 	dword timeout = 100000;
 	if (a_type == 0) {
 		while (timeout--) {
@@ -165,7 +178,7 @@ void mouse_wait(byte a_type) {
 	}
 }
 
-void mouse_write(byte a) {
+static void mouse_write(byte a) {
 	//wait to be able to send a command
 	mouse_wait(1);
 	//tell mouse we're sending a command
@@ -176,7 +189,7 @@ void mouse_write(byte a) {
 	outb(0x60, a);
 }
 
-byte mouse_read() {
+static byte mouse_read() {
 	//get response from mouse
 	mouse_wait(0);
 	return inb(0x60);
