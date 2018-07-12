@@ -72,6 +72,7 @@ Screen* screen_create(Size dimensions, uint32_t* physbase, uint8_t depth) {
     //8 bits in a byte
     screen->bpp = depth / 8;
     screen->vmem = create_layer(dimensions);
+    screen->resolution = dimensions;
 
     screen->surfaces = array_m_create(128);
     printk_info("screen surfaces %x\n", screen->surfaces);
