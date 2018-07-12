@@ -91,6 +91,7 @@ Window* create_window_int(Rect frame, bool root) {
 	window->subviews = array_m_create(MAX_ELEMENTS);
 	window->title = "Window";
 	window->animations = array_m_create(16);
+	window->superview = NULL;
 
 	//root window doesn't have a title view
 	if (!root) {
