@@ -69,7 +69,7 @@ uint8_t mouse_events() {
 	return mouse_state;
 }
 
-static void _mouse_set_initial_cursospos() {
+void mouse_reset_cursorpos() {
 	Screen* s = gfx_screen();
 	if (s) {
 		running_x = s->resolution.width / 2;
@@ -91,10 +91,10 @@ static void _mouse_constrain_to_screen_size() {
 	running_y = MIN(running_y, dimensions.height - 5);
 }
 
-static void mouse_handle_event(int x, int y) {
+static void _mouse_handle_event(int x, int y) {
 	//set initial mouse position if necessary
 	if (running_x == -1 && running_y == -1) {
-		_mouse_set_initial_cursospos();
+		mouse_reset_cursorpos();
 	}
 
 	y = -y;
@@ -139,7 +139,7 @@ static int mouse_callback(registers_t* regs) {
 			break;
 		case 2:
 			mouse_byte[2] = inb(0x60);
-			update_mouse_position(mouse_byte[1], mouse_byte[2]);
+			_mouse_handle_event(mouse_byte[1], mouse_byte[2]);
 			mouse_cycle = 0;
 
 			//hook into task switch

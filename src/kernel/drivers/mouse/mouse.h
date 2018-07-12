@@ -26,4 +26,6 @@ uint8_t mouse_events();
 //blocks running task until mouse event is recieved
 void mouse_event_wait();
 
+void mouse_reset_cursorpos();
+
 #endif
