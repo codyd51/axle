@@ -209,7 +209,7 @@ Color color_rand() {
 }
 
 static Window* grabbed_window = NULL;
-void draw_desktop(Screen* screen) {
+void xserv_draw_desktop(Screen* screen) {
 	static int redraw_count = 0;
 
 	layer_clear_clip_rects(screen->vmem);
@@ -413,6 +413,7 @@ void draw_cursor(Screen* screen) {
 	}
 
 	draw_mouse_shadow(screen, last_mouse_pos, mouse_point());
+	last_mouse_pos = mouse_point();
 
 	dirtied = prev_dirtied;
 }
@@ -425,7 +426,7 @@ char xserv_draw(Screen* screen) {
 	screen->finished_drawing = 0;
 
 	dirtied = 0;
-	draw_desktop(screen);
+	xserv_draw_desktop(screen);
 	draw_cursor(screen);
 
 	screen->finished_drawing = 1;
@@ -751,6 +752,7 @@ void xserv_temp_stop(uint32_t pause_length) {
 void xserv_init() {
 	if (sys_fork()) return;
 
+	switch_to_vesa(0x118, true);
 	//become_first_responder();
 	Screen* screen = gfx_screen();
 	desktop_setup(screen);

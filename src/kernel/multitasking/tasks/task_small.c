@@ -117,6 +117,7 @@ task_small_t* thread_spawn(void* entry_point) {
 
     uint32_t stack_size = 0x1000;
     char *stack = kmalloc(stack_size);
+    memset(stack, 0, stack_size);
 
     uint32_t *stack_top = (uint32_t *)(stack + stack_size - 0x4); // point to top of malloc'd stack
     *(stack_top--) = entry_point;   //address of task's entry point

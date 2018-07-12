@@ -170,18 +170,18 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 }
 
 void kheap_init() {
-    boot_info_t* info = boot_info_get();
+	boot_info_t *info = boot_info_get();
 	// XXX(PT): info->kernel_image_end is the region after the identity-map-protected region that the VMM and PMM coordinate.
-    uint32_t start = info->kernel_image_end + 0x100000;
-    uint32_t end_addr = start + KHEAP_INITIAL_SIZE;
-    uint32_t max = end_addr;
-    uint32_t max_size = max - start;
+	uint32_t start = info->kernel_image_end + 0x100000;
+	uint32_t end_addr = start + KHEAP_INITIAL_SIZE;
+	uint32_t max = end_addr;
+	uint32_t max_size = max - start;
 
 	//start and end MUST be page aligned
 	ASSERT(start % PAGING_PAGE_SIZE == 0, "start wasn't page aligned");
 	ASSERT(end_addr % PAGING_PAGE_SIZE == 0, "end_addr wasn't page aligned");
 
-    printf_info("Creating kernel heap at [0x%08x - 0x%08x]", start, end_addr);
+	printf_info("Creating kernel heap at [0x%08x - 0x%08x]", start, end_addr);
 
 	//write start, end, and max addresses into heap structure
 	kheap->start_address = start;
@@ -190,14 +190,14 @@ void kheap_init() {
 	kheap->supervisor = true;
 	kheap->readonly = false;
 
-    //map this memory into kernel page directory
-    vmm_map_region(vmm_active_pdir(), start, KHEAP_INITIAL_SIZE, PAGE_PRESENT_FLAG|PAGE_WRITE_FLAG);
+	//map this memory into kernel page directory
+	vmm_map_region(vmm_active_pdir(), start, KHEAP_INITIAL_SIZE, PAGE_PRESENT_FLAG | PAGE_WRITE_FLAG);
 
 	//we start off with one large free block
 	//this represents the whole heap at this point
 	create_block(start, end_addr - start);
 
-    info->heap_kernel = kheap;
+	info->heap_kernel = kheap;
 }
 
 void expand(uint32_t UNUSED(new_size), heap_t* UNUSED(heap)) {
@@ -265,7 +265,6 @@ static void heap_expand(heap_t* heap, uint32_t expand_size) {
 	uint32_t curr_size = heap->end_address - heap->start_address;
 	if (curr_size + expand_size >= heap->max_address) {
 		ASSERT(0, "Heap ran out of space!\n");
-		while (1) {}
 	}
 
 	alloc_block_t* curr = first_block(heap);

@@ -361,6 +361,3 @@ int sprintf() {
 int output() {
     NotImplemented();
 }
-int reset_cursor_pos() {
-    NotImplemented();
-}

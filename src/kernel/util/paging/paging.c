@@ -170,7 +170,7 @@ vmm_pdir_t* vmm_clone_active_page_table_at_index(vmm_pdir_t* dst_dir, uint32_t t
 
 vmm_pdir_t* vmm_clone_active_pdir() {
     vmm_pdir_t* src = vmm_active_pdir();
-    printf("VMM cloning page directory 0x%08x\n", src);
+    printk("VMM cloning page directory 0x%08x\n", src);
     vmm_pdir_t* new_dir = vmm_setup_new_pdir();
 
     //copy each table
@@ -183,7 +183,7 @@ vmm_pdir_t* vmm_clone_active_pdir() {
         //TODO(PT) this will waste tables that only have a couple kernel pages
         //in use! do we care?
         if (new_dir->tablesPhysical[i]) {
-            printf("vmm_clone_pdir not copying already copied table index %d\n", i);
+            printk("vmm_clone_pdir not copying already copied table index %d\n", i);
             continue;
         }
 
@@ -194,7 +194,7 @@ vmm_pdir_t* vmm_clone_active_pdir() {
 
         vmm_clone_active_page_table_at_index(new_dir, i);
         new_dir->tables[i] = clone_table(pt, &table_phys);
-        printf("cloned table: 0x%08x phys 0x%08x\n", pt, table_phys);
+        printk("cloned table: 0x%08x phys 0x%08x\n", pt, table_phys);
         new_dir->tablesPhysical[i] = table_phys | 0x07;
     }
 
