@@ -119,19 +119,15 @@ void blit_layer_filled(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_
 
 		//figure out how many px we can actually transfer over,
 		//in case src_frame exceeds dest
-		int transferabble_px = src_frame.size.width * gfx_bpp();
-		int overhang = (uint32_t)dest_row_start + (uint32_t)row_start + transferabble_px - rect_max_x(dest_frame);
-		//shrink line if necessary
-		if (overhang > 0) {
-			transferabble_px -= overhang;
-		}
-
 		int offset = (uint32_t)dest_row_start - (uint32_t)dest->raw;
 		int total_px_in_layer = (uint32_t)(dest->size.width * dest->size.height * gfx_bpp());
 		if (offset >= total_px_in_layer) {
 			break;
 		}
 
+		// blit_layer should handle bounding the provided frames so we never write to memory outside the layers,
+		// regardless of the frames passed.
+		int transferabble_px = src_frame.size.width * gfx_bpp();
 		memcpy(dest_row_start, row_start, transferabble_px);
 
 		dest_row_start += (dest->size.width * gfx_bpp());
@@ -151,7 +147,7 @@ void blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) 
 	src_frame.size.width = MIN(src_frame.size.width, src->size.width);
 	src_frame.size.height = MIN(src_frame.size.height, src->size.height);
 
-	//clip src_frame within src
+	//clip src_frame within dest
 	if (src_frame.size.width + rect_min_x(dest_frame) >= dest->size.width) {
 		int overhang = src_frame.size.width + rect_min_x(dest_frame) - dest->size.width;
 		src_frame.size.width -= overhang;
