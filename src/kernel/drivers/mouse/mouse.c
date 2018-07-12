@@ -103,6 +103,7 @@ static void _mouse_handle_event(int x, int y) {
 	running_y += y;
 
 	_mouse_constrain_to_screen_size();
+	printk_dbg("mouse: (%d, %d)", running_x, running_y);
 }
 
 #pragma GCC diagnostic push
