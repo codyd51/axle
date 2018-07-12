@@ -26,7 +26,7 @@ void kmalloc_track_int(char* file, int line, uint32_t size);
 #define kmalloc(bytes) kmalloc_track(bytes)
 
 #define KHEAP_START			0xC0000000
-#define KHEAP_INITIAL_SIZE	0x000F0000
+#define KHEAP_INITIAL_SIZE	0x01F00000
 #define KHEAP_MAX_ADDRESS 	0xDFFFF000
 //#define KHEAP_MAX_ADDRESS 	0xCFFFF000
 
