@@ -7,13 +7,16 @@
 #include <std/std.h>
 #include <std/kheap.h>
 #include <tests/gfx_test.h>
-#include <kernel/drivers/vga/vga.h>
-#include <kernel/drivers/vesa/vesa.h>
 #include "color.h"
-#include <kernel/drivers/vbe/vbe.h>
 #include <kernel/multiboot.h>
 #include <std/math.h>
 #include "bmp.h"
+
+#include <kernel/drivers/vga/vga.h>
+#include <kernel/drivers/vesa/vesa.h>
+#include <kernel/drivers/vbe/vbe.h>
+#include <kernel/drivers/mouse/mouse.h>
+#include <kernel/vmm/vmm.h>
 
 //private Window function to create root window
 Window* create_window_int(Rect frame, bool root);
@@ -64,9 +67,7 @@ Screen* screen_create(Size dimensions, uint32_t* physbase, uint8_t depth) {
 
     //linear frame buffer (LFB) address
     screen->physbase = physbase;
-    printk("create window int\n");
     screen->window = create_window_int(rect_make(point_make(0, 0), dimensions), true);
-    printk("create window int returned\n");
     screen->window->superview = NULL;
     screen->depth = depth;
     //8 bits in a byte
@@ -75,8 +76,8 @@ Screen* screen_create(Size dimensions, uint32_t* physbase, uint8_t depth) {
     screen->resolution = dimensions;
 
     screen->surfaces = array_m_create(128);
-    printk_info("screen surfaces %x\n", screen->surfaces);
-    printk_info("screen surfaces size %x\n", screen->surfaces->size);
+    printk_info("screen surfaces 0x%x", screen->surfaces);
+    printk_info("screen surfaces size 0x%x", screen->surfaces->size);
 
     return screen;
 }
@@ -107,7 +108,6 @@ void fill_screen(Screen* screen, Color color) {
     if (screen->vmem) {
         write_screen(screen);
     }
-    reset_cursor_pos();
 }
 
 void write_screen(Screen* screen) {
