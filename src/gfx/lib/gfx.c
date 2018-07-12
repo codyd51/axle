@@ -1,22 +1,24 @@
-#include "gfx.h"
 #include <std/std.h>
-#include <kernel/kernel.h>
-#include <std/timer.h>
-#include <gfx/font/font.h>
-#include "shapes.h"
-#include <std/std.h>
-#include <std/kheap.h>
-#include <tests/gfx_test.h>
-#include "color.h"
-#include <kernel/multiboot.h>
 #include <std/math.h>
-#include "bmp.h"
+#include <std/timer.h>
+#include <std/kheap.h>
 
-#include <kernel/drivers/vga/vga.h>
-#include <kernel/drivers/vesa/vesa.h>
-#include <kernel/drivers/vbe/vbe.h>
-#include <kernel/drivers/mouse/mouse.h>
+#include <kernel/kernel.h>
 #include <kernel/vmm/vmm.h>
+#include <kernel/multiboot.h>
+#include <kernel/drivers/vga/vga.h>
+#include <kernel/drivers/vbe/vbe.h>
+#include <kernel/drivers/vesa/vesa.h>
+#include <kernel/drivers/mouse/mouse.h>
+
+#include <gfx/font/font.h>
+#include <tests/gfx_test.h>
+
+#include "gfx.h"
+#include "bmp.h"
+#include "color.h"
+#include "shapes.h"
+
 
 //private Window function to create root window
 Window* create_window_int(Rect frame, bool root);

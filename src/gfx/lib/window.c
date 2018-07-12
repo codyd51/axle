@@ -91,7 +91,6 @@ Window* create_window_int(Rect frame, bool root) {
 	window->subviews = array_m_create(MAX_ELEMENTS);
 	window->title = "Window";
 	window->animations = array_m_create(16);
-	window->superview = NULL;
 
 	//root window doesn't have a title view
 	if (!root) {
@@ -206,8 +205,6 @@ bool draw_window(Window* window) {
 		return true;
 	}
 
-		//blit_layer(window->layer, window->content_view->layer, rect_make(window->content_view->frame.origin, window->layer->size), rect_make(point_zero(), window->content_view->frame.size));
-		//return;
 	//if window is invisible, don't bother drawing
 	if (!window->layer->alpha) return false;
 
