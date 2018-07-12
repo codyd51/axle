@@ -32,8 +32,8 @@ typedef struct task_small {
 	uint32_t queue; //scheduler ring this task is slotted in
 	uint32_t lifespan;
 
-    uint32_t wake_timestamp; //used if process is in PIT_WAIT state
 	bool is_thread;
+	vmm_pdir_t* vmm;
 } task_small_t;
 
 void tasking_init_small();

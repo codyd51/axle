@@ -135,13 +135,13 @@ task_small_t* thread_spawn(void* entry_point) {
 }
 
 task_small_t* task_spawn(void* entry_point) {
-    // a task is simply a thread with its own virtual address space
-    // the new task's address space is a clone of the task that spawned it
     task_small_t* new_task = thread_spawn;
     new_task->is_thread = false;
-    panic("clone vmm here");
-    //new_task->vmm 
-    return NULL;
+    // a task is simply a thread with its own virtual address space
+    // the new task's address space is a clone of the task that spawned it
+    new_task->vmm = vmm_clone_active_pdir();
+    return new_task;
+}
 }
 
 /*
@@ -153,6 +153,9 @@ void tasking_goto_task(task_small_t* new_task) {
     new_task->current_timeslice_start_date = now;
     new_task->current_timeslice_end_date = now + TASK_QUANTUM;
 
+    if (new_task->vmm != _current_task_small->vmm) {
+        vmm_load_pdir(new_task->vmm);
+    }
     // this method will update _current_task_small
     // this method performs the actual context switch and also updates _current_task_small
     context_switch(new_task);
