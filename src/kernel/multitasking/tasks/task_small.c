@@ -136,7 +136,7 @@ task_small_t* thread_spawn(void* entry_point) {
 }
 
 task_small_t* task_spawn(void* entry_point) {
-    task_small_t* new_task = thread_spawn;
+    task_small_t* new_task = thread_spawn(entry_point);
     new_task->is_thread = false;
     // a task is simply a thread with its own virtual address space
     // the new task's address space is a clone of the task that spawned it
