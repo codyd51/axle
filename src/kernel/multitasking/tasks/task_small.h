@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <kernel/multitasking/tasks/task.h>
 #include <kernel/vmm/vmm.h>
+#define FD_MAX 64
 
 typedef struct task_context {
 	uint32_t ebp;
@@ -44,4 +45,6 @@ void task_switch();
 task_small_t* thread_spawn(void* entry_point);
 task_small_t* task_spawn(void* entry_point);
 
+task_small_t* tasking_get_task_with_pid(int pid);
+task_small_t* tasking_get_current_task();
 #endif

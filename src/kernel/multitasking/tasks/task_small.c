@@ -1,6 +1,7 @@
 #include "task_small.h"
 
 #include <std/timer.h>
+#include <kernel/multitasking/std_stream.h>
 #include <kernel/segmentation/gdt_structures.h>
 
 #define TASK_QUANTUM 10
@@ -80,6 +81,25 @@ static void _tasking_add_task_to_runlist(task_small_t* task) {
     }
     task_small_t* list_tail = _tasking_last_task_in_runlist();
     list_tail->next = task;
+}
+
+task_small_t* tasking_get_task_with_pid(int pid) {
+    if (!_current_task_small) {
+        return NULL;
+    }
+    task_small_t* iter = _current_task_small;
+    for (int i = 0; i < MAX_TASKS; i++) {
+        if ((iter)->id == pid) {
+            return iter;
+        }
+        iter = (iter)->next;
+    }
+    //not found
+    return NULL;
+}
+
+task_small_t* tasking_get_current_task() {
+    return tasking_get_task_with_pid(getpid());
 }
 
 task_small_t* thread_spawn_with_machine_state(task_context_t* state) {
