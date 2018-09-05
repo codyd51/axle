@@ -193,6 +193,7 @@ static void _active_vmm_map_virt_to_phys(vmm_pdir_t* dir, uint32_t page_addr, ui
 
     unsigned long * pd = (unsigned long *)0xFFFFF000;
     //if the page table didn't already exist, alloc one
+    uint32_t* pt = (0xFFC00000 + (0x1000 * pdindex));
     if (!(pd[pdindex])) {
         uint32_t new_table_frame = pmm_alloc();
         pd[pdindex] = new_table_frame | 0x07; //present, rw, us
@@ -204,9 +205,10 @@ static void _active_vmm_map_virt_to_phys(vmm_pdir_t* dir, uint32_t page_addr, ui
             printf("dir 0x%08x arr 0x%08x\n eq %d", dir_frame, new_table_frame, (int)dir_frame==new_table_frame);
             panic("dir->tablesPhysical wasn't updated after assigning page table pointer");
         }
+        // immediately memset new table
+        printf("memsetting new page table at 0x%x\n", pt);
+        memset(pt, 0, PAGE_SIZE);
     }
-
-    unsigned long * pt = ((unsigned long *)0xFFC00000) + (0x400 * pdindex);
     // Here you need to check whether the PT entry is present.
     // When it is, then there is already a mapping present. What do you do now?
     if (pt[ptindex]) {
