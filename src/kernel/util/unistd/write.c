@@ -6,8 +6,8 @@
 #include <user/xserv/xserv.h>
 
 #include <gfx/lib/gfx.h>
-#include <gfx/lib/Window.h>
-#include <gfx/lib/Label.h>
+#include <gfx/lib/window.h>
+#include <gfx/lib/label.h>
 
 int xserv_write(task_t* task, int UNUSED(fd), const void* buf, int len) {
 	const char* chbuf = (char*)buf;

@@ -16,7 +16,7 @@
 #include <user/programs/calculator.h>
 #include <user/programs/usage_monitor.h>
 #include <user/programs/jpeg.h>
-#include <std/List.h>
+#include <std/list.h>
 #include <gfx/lib/rect.h>
 #include <kernel/util/unistd/exec.h>
 
