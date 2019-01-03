@@ -13,6 +13,8 @@ Features
 
 [![Join the chat at https://gitter.im/axleOS/Lobby](https://badges.gitter.im/axleOS/Lobby.svg)](https://gitter.im/axleOS/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
+[![Build Status](https://travis-ci.org/codyd51/axle.svg?branch=master)](https://travis-ci.org/codyd51/axle)
+
 * Compositing window manager with clipping and alpha blending
 * Text renderer with SSAA antialiasing
 * Auto-boots in 1024x768 full RGB
