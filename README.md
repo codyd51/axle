@@ -68,20 +68,23 @@ axle's window manager exposes an API for creating and managing UI elements such 
 axle includes a text renderer and default 8x8 bitmap font, though any font in this format could be trivially loaded from axle's filesystem.
 <p align="center"><img src="screenshots/text_test.png"></p>
 
-Running
+Running (without docker)
 ----------------------
 Unless your platform natively outputs 32-bit x86 binaries, you will need a cross compiler to build axle. [This link](http://wiki.osdev.org/GCC_Cross-Compiler) provides detailed instructions on how to cross-compile GCC to build suitable binaries. Alternatively, a precompiled toolchain can be downloaded [here](https://github.com/mstg/i686-toolchain).
 axle uses QEMU as its standard emulator, though any other could be used, such as Bochs. To modify this and other build parameters, see the `Makefile`.
 To run and test axle on OS X, run `./install.sh` to attempt to build the toolchain, then `make run` to start the emulator.
 
-Building
+Building (using docker)
 ----------------------
 ```
-#Build the docker container (only needs to be done the first time)
+# Build the docker container (only needs to be done the first time)
 $sudo docker build . --tag axle
 
-#Run make
+# Run make
 $sudo docker run --mount src="$(pwd)",target=/app,type=bind -lt --rm axle make
+
+# Create iso
+$sudo docker run --mount src="$(pwd)",target=/app,type=bind -lt --rm axle make axle.iso
 ```
 
 Roadmap
