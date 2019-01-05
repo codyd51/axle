@@ -7,7 +7,7 @@ ISO_NAME = axle.iso
 OBJ_DIR = .objs
 SRC_DIR = src
 
-TOOLCHAIN ?= ./i686-toolchain
+TOOLCHAIN ?= /i686-toolchain/x86_64
 
 # Compilers and flags
 AS = nasm
@@ -20,7 +20,7 @@ CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -I./src
 LDFLAGS = -ffreestanding -nostdlib -lgcc -T $(RESOURCES)/linker.ld
 
 # Tools
-ISO_MAKER = $(TOOLCHAIN)/bin/grub-mkrescue
+ISO_MAKER = grub-mkrescue 
 EMULATOR = qemu-system-i386
 FSGENERATOR = fsgen
 
@@ -83,7 +83,7 @@ $(ISO_DIR)/boot/initrd.img: $(FSGENERATOR)
 	@./$(FSGENERATOR) $(INITRD); mv $(INITRD).img $@
 
 $(ISO_NAME): $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg 
-	$(ISO_MAKER) -d ./i686-toolchain/lib/grub/i386-pc -o $@ $(ISO_DIR)
+	$(ISO_MAKER) -o $@ $(ISO_DIR)
 
 run: $(ISO_NAME)
 	$(EMULATOR) $(EMFLAGS) -cdrom $^

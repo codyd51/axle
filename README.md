@@ -74,6 +74,16 @@ Unless your platform natively outputs 32-bit x86 binaries, you will need a cross
 axle uses QEMU as its standard emulator, though any other could be used, such as Bochs. To modify this and other build parameters, see the `Makefile`.
 To run and test axle on OS X, run `./install.sh` to attempt to build the toolchain, then `make run` to start the emulator.
 
+Building
+----------------------
+```
+#Build the docker container (only needs to be done the first time)
+$sudo docker build . --tag axle
+
+#Run make
+$sudo docker run --mount src="$(pwd)",target=/app,type=bind -lt --rm axle make
+```
+
 Roadmap
 ---------------------
 
