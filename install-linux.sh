@@ -39,7 +39,7 @@ echo ""
 echo "Compile Axle-OS now?: Press r to continue..."
 read -n1 -rsp "" key
 if [ "$key" = "r" ]; then
-	sudo make axle.iso CC=i686-toolchain/$arch/bin/i686-elf-gcc \
+	make axle.iso CC=i686-toolchain/$arch/bin/i686-elf-gcc \
 	CFLAGS="-g -ffreestanding -std=gnu99 -Wall -Wextra -I ./src" \
 	LD=i686-toolchain/$arch/bin/i686-elf-ld \
 	ISO_MAKER=grub-mkrescue
