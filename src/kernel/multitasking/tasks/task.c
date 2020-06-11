@@ -660,7 +660,7 @@ task_t* first_responder() {
     return first_responder_task;
 }
 
-int fork_old(char* name) {
+int fork(char* name) {
     Deprecated();
     if (!tasking_is_active()) {
         panic("called fork() before tasking was active");

@@ -163,7 +163,6 @@ task_small_t* task_spawn(void* entry_point) {
     new_task->vmm = vmm_clone_active_pdir();
     return new_task;
 }
-}
 
 /*
  * Immediately preempt the running task and begin running the provided one.
