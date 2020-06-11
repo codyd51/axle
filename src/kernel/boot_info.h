@@ -50,7 +50,7 @@ typedef struct boot_info {
     multiboot_elf_section_header_table_t symbol_table_info;
     framebuffer_info_t framebuffer;
 
-    page_directory_t* vmm_kernel;
+    vmm_page_directory_t* vmm_kernel;
     heap_t* heap_kernel;
 } boot_info_t;
 

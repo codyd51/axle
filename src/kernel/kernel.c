@@ -80,8 +80,16 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     //kernel features
     timer_init();
     pmm_init();
+    pmm_dump();
     vmm_init();
+    asm("cli");
+    asm("hlt");
+    boot_info_t* info = boot_info_get();
+    //vmm_dump(info->vmm_kernel);
+    printf("starting heap\n");
     kheap_init();
+    printf("dump after heap\n");
+    //vmm_dump(info->vmm_kernel);
     syscall_init();
     
     tasking_init();

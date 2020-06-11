@@ -172,6 +172,7 @@ static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap
 void kheap_init() {
 	boot_info_t *info = boot_info_get();
 	// XXX(PT): info->kernel_image_end is the region after the identity-map-protected region that the VMM and PMM coordinate.
+	// Heap should just ask for a block from VMM instead of knowing this range
 	uint32_t start = info->kernel_image_end + 0x100000;
 	uint32_t end_addr = start + KHEAP_INITIAL_SIZE;
 	uint32_t max = end_addr;
@@ -191,7 +192,7 @@ void kheap_init() {
 	kheap->readonly = false;
 
 	//map this memory into kernel page directory
-	vmm_map_region(vmm_active_pdir(), start, KHEAP_INITIAL_SIZE, PAGE_PRESENT_FLAG | PAGE_WRITE_FLAG);
+	vmm_map_region(vmm_active_pdir(), start, KHEAP_INITIAL_SIZE, PAGE_PRESENT_FLAG | PAGE_READ_WRITE_FLAG);
 
 	//we start off with one large free block
 	//this represents the whole heap at this point

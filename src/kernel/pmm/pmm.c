@@ -45,6 +45,7 @@ static uint32_t first_usable_pmm_index(pmm_state_t* pmm) {
 }
 
 static void set_memory_region(address_space_frame_bitmap_t* bitmap, uint32_t region_start_addr, uint32_t region_len) {
+    printf("set_memory_region %x - %x\n", region_start_addr, region_start_addr + region_len);
     if (region_start_addr % PAGING_FRAME_SIZE) {
         panic("region_start_addr wasn't page aligned");
     }
@@ -112,9 +113,11 @@ void pmm_init() {
     //map out kernel image region
     pmm_reserve_mem_region(pmm, info->kernel_image_start, info->kernel_image_size);
     //give extra region for an identity_map_buffer
+    /*
     uint32_t extra_identity_map_region_size = 0x100000;
     uint32_t kernel_max = info->kernel_image_start + info->kernel_image_size;
     pmm_reserve_mem_region(pmm, kernel_max, extra_identity_map_region_size);
+    */
     //map out framebuffer
     pmm_reserve_mem_region(pmm, info->framebuffer.address, info->framebuffer.size);
 }
