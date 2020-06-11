@@ -262,6 +262,8 @@ static int print_common(print_destination dest, const char* fmt, va_list va) {
     switch (dest) {
         case PRINT_DESTINATION_TEXT_MODE:
             text_mode_puts(buf);
+            // Always mirror text-mode output to the syslog
+            serial_puts(buf);
             break;
         case PRINT_DESTINATION_SERIAL:
         default:
