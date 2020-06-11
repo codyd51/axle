@@ -86,6 +86,10 @@ $(ISO_NAME): $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg
 	$(ISO_MAKER) -d ./i686-toolchain/lib/grub/i386-pc -o $@ $(ISO_DIR)
 
 run: $(ISO_NAME)
+	echo 'Run starting' > syslog.log
+	echo '' > syslog.log
+	echo '' > syslog.log
+	echo '' > syslog.log
 	$(EMULATOR) $(EMFLAGS) -cdrom $^
 
 dbg:
