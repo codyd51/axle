@@ -19,6 +19,8 @@ void pmm_init(void);
 
 uint32_t pmm_alloc(void);
 void pmm_alloc_address(uint32_t address);
+uint32_t pmm_alloc_continuous_range(uint32_t size);
+
 void pmm_free(uint32_t frame_addr);
 
 void pmm_dump(void);
