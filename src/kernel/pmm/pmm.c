@@ -148,7 +148,6 @@ uint32_t pmm_alloc(void) {
     return frame_address;
 }
 
-
 void pmm_free(uint32_t frame_address) {
     pmm_state_t* pmm = pmm_get();
     //sanity check

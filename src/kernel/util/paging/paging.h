@@ -7,9 +7,9 @@
 //retrieves pointer to page required
 //if make == 1, if the page-table in which this page should
 //reside isn't created, create it
-page_t* get_page(uint32_t address, int make, page_directory_t* dir);
-bool alloc_frame(page_t* page, int is_kernel, int is_writeable);
-void free_frame(page_t* page);
+vmm_page_t* get_page(uint32_t address, int make, page_directory_t* dir);
+bool alloc_frame(vmm_page_t* page, int is_kernel, int is_writeable);
+void free_frame(vmm_page_t* page);
 //create a new page directory with all the info of src
 //kernel pages are linked instead of copied
 page_directory_t* clone_directory(page_directory_t* src);

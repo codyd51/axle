@@ -6,6 +6,7 @@
 
 //1048576 frames / 32-bit frame bitsets = 32,768 32-bit
 //frame bitsets needed to cover entire address space
+//32 frames total
 #define ADDRESS_SPACE_BITMAP_SIZE 0x8000
 
 //number of bool values stored by one entry in the address_space_frame_bitset.set array.
