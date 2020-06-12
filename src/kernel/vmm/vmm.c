@@ -188,15 +188,12 @@ void vmm_free_page(vmm_page_directory_t* vmm_dir, uint32_t page_addr) {
 }
 
 static vmm_page_directory_t* _alloc_page_directory(void) {
-    uint32_t* pd_head = pmm_alloc();
-    uint32_t* pd_frame = pd_head;
-    for (uint32_t i = 0; i < sizeof(vmm_page_directory_t); i += PAGING_FRAME_SIZE) {
-        uint32_t* next_frame = pmm_alloc();
-        assert((uint32_t)next_frame == (uint32_t)pd_frame + PAGING_FRAME_SIZE, "VMM dir alloc was not contiguous");
-        pd_frame = next_frame;
+    vmm_page_directory_t* page_dir = pmm_alloc_continuous_range(sizeof(vmm_page_directory_t));
+    memset((char*)page_dir, 0, sizeof(vmm_page_directory_t));
+    for (int i = 0; i < TABLES_IN_PAGE_DIRECTORY; i++) {
+        page_dir->table_pointers[i] = PAGE_KERNEL_ONLY_FLAG | PAGE_NOT_PRESENT_FLAG | PAGE_READ_WRITE_FLAG;
     }
-    memset(pd_head, 0, sizeof(vmm_page_directory_t));
-    return (vmm_page_directory_t*)pd_head;
+    return page_dir;
 }
 
 void vmm_init(void) {
@@ -207,9 +204,6 @@ void vmm_init(void) {
     boot_info_t* info = boot_info_get();
     info->vmm_kernel = kernel_vmm_pd;
 
-    for (int i = 0; i < TABLES_IN_PAGE_DIRECTORY - 1; i++) {
-        kernel_vmm_pd->table_pointers[i] = PAGE_KERNEL_ONLY_FLAG | PAGE_NOT_PRESENT_FLAG | PAGE_READ_WRITE_FLAG;
-    }
     // Identity-map the lowest region of memory up to the end of the kernel image
     vmm_identity_map_region(kernel_vmm_pd, 0x0, info->kernel_image_end);
 
@@ -226,14 +220,7 @@ void vmm_init(void) {
     interrupt_setup_callback(INT_VECTOR_INT14, (int_callback_t)page_fault);
     vmm_load_pdir(kernel_vmm_pd);
 
-    vmm_alloc_page_address(kernel_vmm_pd, 0x500000, true);
-    uint32_t* ptr = (uint32_t*)0x500000;
-    *ptr = 0xdeadbeef;
-
     vmm_dump(kernel_vmm_pd);
-
-    asm("cli");
-    asm("hlt");
 }
 
 vmm_page_directory_t* vmm_clone_pdir(vmm_page_directory_t* source_vmm_dir) {
@@ -305,9 +292,8 @@ static void page_fault(const register_state_t* regs) {
 void vmm_dump(vmm_page_directory_t* vmm_dir) {
 	if (!vmm_dir) return;
     printf("Virtual memory manager state:\n");
-    printf("\tLocated at physical address 0x%08x\n", vmm_dir);
+    printf("\tLocated at 0x%08x\n", vmm_dir);
     printf("\tMapped regions:\n");
-
 	uint32_t run_start, run_end;
 	bool in_run = false;
     uint32_t* page_directory = _get_page_tables_head(vmm_dir);
