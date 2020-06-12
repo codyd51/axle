@@ -16,6 +16,8 @@ static void page_fault(const register_state_t* regs);
 static uint32_t vmm_page_table_idx_for_virt_addr(uint32_t addr);
 static uint32_t vmm_page_idx_within_table_for_virt_addr(uint32_t addr);
 
+# pragma mark - Control-register utility functions
+
 static uint32_t _get_cr0() {
 	uint32_t cr0;
 	asm volatile("mov %%cr0, %0" : "=r"(cr0));
@@ -39,6 +41,9 @@ static void _set_cr3(uint32_t addr) {
 	_set_cr0(cr0);
 }
 
+# pragma mark - VMM
+
+volatile static vmm_page_directory_t* _loaded_pdir = 0;
 
 bool vmm_is_active() {
     //check if paging bit is set in cr0
@@ -46,14 +51,14 @@ bool vmm_is_active() {
     return cr0 & 0x80000000;
 }
 
-void vmm_load_pdir(vmm_pdir_t* dir) {
+void vmm_load_pdir(vmm_page_directory_t* dir) {
     asm("cli");
     _set_cr3(dir);
     _loaded_pdir = dir;
     asm("sti");
 }
 
-vmm_pdir_t* vmm_active_pdir() {
+vmm_page_directory_t* vmm_active_pdir() {
     return _loaded_pdir;
 }
 
@@ -128,24 +133,40 @@ void _vmm_set_page_table_entry(vmm_page_directory_t* vmm_dir, uint32_t page_addr
         panic("table was not page-aligned");
     }
 
+    //has this frame already been alloc'd?
+    if (addr_space_bitmap_check_address(&vmm_dir->allocated_pages, page_addr)) {
+        addr_space_bitmap_dump_set_ranges(&vmm_dir->allocated_pages);
+        printf("page 0x%08x was alloc'd twice\n", page_addr);
+        panic("VMM double alloc (bitmap)");
+    }
     uint32_t page_idx = vmm_page_idx_within_table_for_virt_addr(page_addr);
     if (table->pages[page_idx].present) {
-        panic("page was already allocated");
+        panic("VMM double alloc (page table)");
     }
 
     table->pages[page_idx].frame_idx = frame_addr / PAGING_FRAME_SIZE;
     table->pages[page_idx].present = present;
     table->pages[page_idx].writable = readwrite;
     table->pages[page_idx].user_mode = user_mode;
+    // Mark the page as allocated in the state bitmap
+    addr_space_bitmap_set_address(&vmm_dir->allocated_pages, page_addr);
 }
 
-void vmm_alloc_page(vmm_page_directory_t* vmm_dir, uint32_t page_addr, bool readwrite) {
+void vmm_alloc_page_address(vmm_page_directory_t* vmm_dir, uint32_t page_addr, bool readwrite) {
     uint32_t frame_addr = pmm_alloc();
     _vmm_set_page_table_entry(vmm_dir, page_addr, frame_addr, true, readwrite, false);
 }
 
+void vmm_alloc_page() {
+    NotImplemented();
+}
 void vmm_identity_map_page(vmm_page_directory_t* vmm_dir, uint32_t frame_addr) {
     _vmm_set_page_table_entry(vmm_dir, frame_addr, frame_addr, true, true, false);
+}
+
+
+void vmm_map_region(vmm_page_directory_t* vmm_dir, uint32_t start_addr, uint32_t size) {
+    NotImplemented();
 }
 
 void vmm_identity_map_region(vmm_page_directory_t* vmm_dir, uint32_t start_addr, uint32_t size) {
@@ -166,12 +187,26 @@ void vmm_free_page(vmm_page_directory_t* vmm_dir, uint32_t page_addr) {
     NotImplemented();
 }
 
+static vmm_page_directory_t* _alloc_page_directory(void) {
+    uint32_t* pd_head = pmm_alloc();
+    uint32_t* pd_frame = pd_head;
+    for (uint32_t i = 0; i < sizeof(vmm_page_directory_t); i += PAGING_FRAME_SIZE) {
+        uint32_t* next_frame = pmm_alloc();
+        assert((uint32_t)next_frame == (uint32_t)pd_frame + PAGING_FRAME_SIZE, "VMM dir alloc was not contiguous");
+        pd_frame = next_frame;
+    }
+    memset(pd_head, 0, sizeof(vmm_page_directory_t));
+    return (vmm_page_directory_t*)pd_head;
+}
+
 void vmm_init(void) {
     printf_info("Kernel VMM startup... ");
 
+    vmm_page_directory_t* kernel_vmm_pd = _alloc_page_directory();
+
     boot_info_t* info = boot_info_get();
-    vmm_page_directory_t* kernel_vmm_pd = pmm_alloc();
     info->vmm_kernel = kernel_vmm_pd;
+
     for (int i = 0; i < TABLES_IN_PAGE_DIRECTORY - 1; i++) {
         kernel_vmm_pd->table_pointers[i] = PAGE_KERNEL_ONLY_FLAG | PAGE_NOT_PRESENT_FLAG | PAGE_READ_WRITE_FLAG;
     }
@@ -191,7 +226,7 @@ void vmm_init(void) {
     interrupt_setup_callback(INT_VECTOR_INT14, (int_callback_t)page_fault);
     vmm_load_pdir(kernel_vmm_pd);
 
-    vmm_alloc_page(kernel_vmm_pd, 0x500000, true);
+    vmm_alloc_page_address(kernel_vmm_pd, 0x500000, true);
     uint32_t* ptr = (uint32_t*)0x500000;
     *ptr = 0xdeadbeef;
 
@@ -315,6 +350,8 @@ void vmm_dump(vmm_page_directory_t* vmm_dir) {
 			}
 		}
 	}
+    printf("\tBitmap:\n");
+    addr_space_bitmap_dump_set_ranges(&vmm_dir->allocated_pages);
 }
 
 static uint32_t vmm_page_table_idx_for_virt_addr(uint32_t addr) {
