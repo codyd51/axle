@@ -22,7 +22,6 @@
 #define PAGE_KERNEL_ONLY_FLAG (0 << 2)
 
 #define TABLES_IN_PAGE_DIRECTORY 1024
-#define ACTIVE_PAGE_DIRECTORY_HEAD 0xFFFFF000
 
 typedef struct page {
 	uint32_t present	:  1; //page present in memory
@@ -108,5 +107,7 @@ vmm_pdir_t* vmm_active_pdir();
 uint32_t vmm_get_phys_for_virt(uint32_t virtualaddr);
 void vmm_map_virt_to_phys(vmm_pdir_t* dir, uint32_t page_addr, uint32_t frame_addr, uint16_t flags);
 void vmm_map_virt(vmm_pdir_t* dir, uint32_t page_addr, uint16_t flags);
+
+vmm_page_directory_t* vmm_clone_pdir(vmm_page_directory_t* source_vmm_dir);
 
 #endif

@@ -63,62 +63,38 @@ vmm_pdir_t* vmm_active_pdir() {
 }
 
 static uint32_t* _get_page_tables_head(vmm_page_directory_t* vmm_dir) {
-    vmm_page_table_t* table_pointers;
-    if (vmm_dir == vmm_active_pdir()) {
-        table_pointers = (vmm_page_table_t*)ACTIVE_PAGE_DIRECTORY_HEAD;
-    }
-    else {
-        // If we're setting up paging for the first time, assume we're working with physical pointers
-        if (!_has_set_up_initial_page_directory) {
-            table_pointers = vmm_dir->table_pointers;
-        }
-        else {
-            panic("need active pdir");
-        }
-    }
+    vmm_page_table_t* table_pointers = vmm_dir->table_pointers;
     uint32_t* ptr_raw = (uint32_t*)((uint32_t)table_pointers & PAGE_DIRECTORY_ENTRY_MASK);
     return ptr_raw;
 }
 
-static vmm_page_table_t* _get_page_table_from_table_idx(vmm_page_directory_t* vmm_dir, int page_table_idx) {
-    vmm_page_table_t* table_pointers;
-    if (vmm_dir == vmm_active_pdir()) {
-        return 0xFFC00000 + (PAGE_SIZE * page_table_idx);
-    }
-
-    // If we're setting up paging for the first time, assume we're working with physical pointers
-    // TODO(PT): This may also work after we've set up paging for the first time,
-    // if all the page structures are mapped in.
-    if (!_has_set_up_initial_page_directory) {
-        uint32_t* page_tables = _get_page_tables_head(vmm_dir);
-        return (vmm_page_table_t*)(page_tables[page_table_idx] & PAGE_DIRECTORY_ENTRY_MASK);
-    }
-    NotImplemented();
+static uint32_t* _get_raw_page_table_pointer_from_table_idx(vmm_page_directory_t* vmm_dir, int page_table_idx) {
+    uint32_t* page_tables = _get_page_tables_head(vmm_dir);
+    return page_tables[page_table_idx];
 }
 
-static uint32_t* _get_page_table_pointer(vmm_page_directory_t* vmm_dir, int page_table_idx) {
-    uint32_t* page_tables = _get_page_tables_head(vmm_dir);
-    return (uint32_t*)(page_tables[page_table_idx]);
+static vmm_page_table_t* _get_page_table_from_table_idx(vmm_page_directory_t* vmm_dir, int page_table_idx) {
+    uint32_t* table_ptr_raw = _get_raw_page_table_pointer_from_table_idx(vmm_dir, page_table_idx);
+    return (vmm_page_table_t*)((uint32_t)table_ptr_raw & PAGE_DIRECTORY_ENTRY_MASK);
 }
 
 static uint32_t _get_page_table_flags(vmm_page_directory_t* vmm_dir, int page_table_idx) {
-    uint32_t* tab_ptr = _get_page_table_pointer(vmm_dir, page_table_idx);
-    return (uint32_t)tab_ptr & PAGE_TABLE_FLAG_BITS_MASK;
+    uint32_t* table_ptr_raw = _get_raw_page_table_pointer_from_table_idx(vmm_dir, page_table_idx);
+    return (uint32_t)table_ptr_raw & PAGE_TABLE_FLAG_BITS_MASK;
 }
 
 static bool vmm_page_table_is_present(vmm_page_directory_t* vmm_dir, int page_table_idx) {
-    uint32_t* page_tables = _get_page_tables_head(vmm_dir);
-    return page_tables[page_table_idx] & PAGE_PRESENT_FLAG;
+    return _get_page_table_flags(vmm_dir, page_table_idx) & PAGE_PRESENT_FLAG;
 }
 
 static void vmm_page_table_alloc(vmm_page_directory_t* vmm_dir, int page_table_idx) {
-    uint32_t* page_tables = _get_page_tables_head(vmm_dir);
-    if (page_tables[page_table_idx] & PAGE_PRESENT_FLAG) {
+    if (vmm_page_table_is_present(vmm_dir, page_table_idx)) {
         panic("table already allocd");
     }
 
     vmm_page_table_t* new_table = pmm_alloc();
     memset(new_table, 0, sizeof(vmm_page_table_t));
+    uint32_t* page_tables = _get_page_tables_head(vmm_dir);
     page_tables[page_table_idx] = (uint32_t)new_table | PAGE_KERNEL_ONLY_FLAG | PAGE_READ_WRITE_FLAG | PAGE_PRESENT_FLAG;
     printf("alloced page table %d at frame 0x%x, new table = 0x%x\n", page_table_idx, new_table, _get_page_table_from_table_idx(vmm_dir, page_table_idx));
 }
@@ -204,8 +180,6 @@ void vmm_init(void) {
     for (int i = 0; i < TABLES_IN_PAGE_DIRECTORY - 1; i++) {
         kernel_vmm_pd->table_pointers[i] = PAGE_KERNEL_ONLY_FLAG | PAGE_NOT_PRESENT_FLAG | PAGE_READ_WRITE_FLAG;
     }
-    kernel_vmm_pd->table_pointers[1023] = (uint32_t)kernel_vmm_pd | PAGE_KERNEL_ONLY_FLAG | PAGE_READ_WRITE_FLAG | PAGE_PRESENT_FLAG;
-
     // Identity-map the lowest region of memory up to the end of the kernel image
     vmm_identity_map_region(kernel_vmm_pd, 0x0, info->kernel_image_end);
 
@@ -238,14 +212,14 @@ vmm_page_directory_t* vmm_clone_pdir(vmm_page_directory_t* source_vmm_dir) {
     vmm_page_directory_t* new_pd = pmm_alloc();
     printf("new_pd 0x%x\n", new_pd);
     for (uint32_t i = 0; i < PAGE_TABLES_IN_PAGE_DIR - 1; i++) {
-        uint32_t* kernel_page_table = _get_page_table_pointer(kernel_vmm_pd, i);
+        uint32_t* kernel_page_table = _get_raw_page_table_pointer_from_table_idx(kernel_vmm_pd, i);
         uint32_t kernel_page_table_flags = (uint32_t)kernel_page_table & PAGE_TABLE_FLAG_BITS_MASK;
         if (kernel_page_table_flags & PAGE_PRESENT_FLAG) {
             printf("table %d is present in kernel dir, will link\n", i);
             new_pd->table_pointers[i] = (uint32_t)kernel_page_table;
         }
         else {
-            uint32_t* source_page_table = _get_page_table_pointer(source_vmm_dir, i);
+            uint32_t* source_page_table = _get_raw_page_table_pointer_from_table_idx(source_vmm_dir, i);
             uint32_t source_page_table_flags = (uint32_t)source_page_table & PAGE_TABLE_FLAG_BITS_MASK;
             new_pd->table_pointers[i] = PAGE_KERNEL_ONLY_FLAG | PAGE_NOT_PRESENT_FLAG | PAGE_READ_WRITE_FLAG;
             NotImplemented();
@@ -456,31 +430,22 @@ page_t* vmm_duplicate_frame_mapping(vmm_pdir_t* dir, page_t* source, uint32_t de
     return dest;
 }
 
-void vmm_dump(vmm_page_directory_t* dir) {
-    // Deprecated();
-	if (!dir) return;
+void vmm_dump(vmm_page_directory_t* vmm_dir) {
+	if (!vmm_dir) return;
     printf("Virtual memory manager state:\n");
-    printf("\tLocated at physical address 0x%08x\n", dir);
+    printf("\tLocated at physical address 0x%08x\n", vmm_dir);
     printf("\tMapped regions:\n");
 
 	uint32_t run_start, run_end;
 	bool in_run = false;
-    uint32_t* page_directory = _get_page_tables_head(dir);
+    uint32_t* page_directory = _get_page_tables_head(vmm_dir);
     uint32_t table_count_to_check = 1024;
-    // If we're checking the active page-directory, don't read the last page, 
-    // since we use a recursive page-directory mapping
-    if (vmm_active_pdir() == dir) {
-        table_count_to_check = 1023;
-    }
-	for (int i = 0; i < table_count_to_check; i++) {
-        uint32_t tab_ptr = page_directory[i];
-        if (tab_ptr & PAGE_PRESENT_FLAG) {
-            printf("\tTable 0x%x: 0x%x - 0x%x\n", tab_ptr & PAGE_TABLE_ENTRY_MASK, i * PAGE_SIZE * PAGE_TABLES_IN_PAGE_DIR, (i+1) * PAGE_SIZE * PAGE_TABLES_IN_PAGE_DIR);
-        }
-        else {
-            //printf("table %d not present 0x%x\n", i, tab_ptr);
+	for (int i = 0; i < PAGE_TABLES_IN_PAGE_DIR; i++) {
+        if (!vmm_page_table_is_present(vmm_dir, i)) {
             continue;
         }
+        vmm_page_table_t* table = _get_page_table_from_table_idx(vmm_dir, i);
+        printf("\tTable 0x%08x: 0x%08x - 0x%08x\n", table, i * PAGE_SIZE * PAGE_TABLES_IN_PAGE_DIR, (i+1) * PAGE_SIZE * PAGE_TABLES_IN_PAGE_DIR);
 
 		//page tables map 1024 4kb pages
 		//page directories contains 1024 page tables
@@ -490,9 +455,8 @@ void vmm_dump(vmm_page_directory_t* dir) {
 		//table index * 4mb + page index * 4kb
 		int page_table_virt_range = PAGE_SIZE * PAGE_SIZE / 4;
 
-        vmm_page_table_t* tab = _get_page_table_from_table_idx(dir, i);
 		for (int j = 0; j < 1024; j++) {
-			if (tab->pages[j].present) {
+			if (table->pages[j].present) {
 				//page present
 				//start run if we're not in one
 				if (!in_run) {
