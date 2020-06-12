@@ -96,6 +96,16 @@ static vmm_page_table_t* _get_page_table_from_table_idx(vmm_page_directory_t* vm
     NotImplemented();
 }
 
+static uint32_t* _get_page_table_pointer(vmm_page_directory_t* vmm_dir, int page_table_idx) {
+    uint32_t* page_tables = _get_page_tables_head(vmm_dir);
+    return (uint32_t*)(page_tables[page_table_idx]);
+}
+
+static uint32_t _get_page_table_flags(vmm_page_directory_t* vmm_dir, int page_table_idx) {
+    uint32_t* tab_ptr = _get_page_table_pointer(vmm_dir, page_table_idx);
+    return (uint32_t)tab_ptr & PAGE_TABLE_FLAG_BITS_MASK;
+}
+
 static bool vmm_page_table_is_present(vmm_page_directory_t* vmm_dir, int page_table_idx) {
     uint32_t* page_tables = _get_page_tables_head(vmm_dir);
     return page_tables[page_table_idx] & PAGE_PRESENT_FLAG;
@@ -219,13 +229,29 @@ void vmm_init(void) {
 
     vmm_dump(kernel_vmm_pd);
 
-    return;
-    //vmm_clone_pdir(kernel_vmm_pd);
-
-    //vmm_page_directory_t* new_pagedir = 
-
     asm("cli");
     asm("hlt");
+}
+
+vmm_page_directory_t* vmm_clone_pdir(vmm_page_directory_t* source_vmm_dir) {
+    vmm_page_directory_t* kernel_vmm_pd = boot_info_get()->vmm_kernel;
+    vmm_page_directory_t* new_pd = pmm_alloc();
+    printf("new_pd 0x%x\n", new_pd);
+    for (uint32_t i = 0; i < PAGE_TABLES_IN_PAGE_DIR - 1; i++) {
+        uint32_t* kernel_page_table = _get_page_table_pointer(kernel_vmm_pd, i);
+        uint32_t kernel_page_table_flags = (uint32_t)kernel_page_table & PAGE_TABLE_FLAG_BITS_MASK;
+        if (kernel_page_table_flags & PAGE_PRESENT_FLAG) {
+            printf("table %d is present in kernel dir, will link\n", i);
+            new_pd->table_pointers[i] = (uint32_t)kernel_page_table;
+        }
+        else {
+            uint32_t* source_page_table = _get_page_table_pointer(source_vmm_dir, i);
+            uint32_t source_page_table_flags = (uint32_t)source_page_table & PAGE_TABLE_FLAG_BITS_MASK;
+            new_pd->table_pointers[i] = PAGE_KERNEL_ONLY_FLAG | PAGE_NOT_PRESENT_FLAG | PAGE_READ_WRITE_FLAG;
+            NotImplemented();
+        }
+    }
+    new_pd->table_pointers[1023] = (uint32_t)new_pd | PAGE_KERNEL_ONLY_FLAG | PAGE_READ_WRITE_FLAG | PAGE_PRESENT_FLAG;
 }
 
 void vmm_init_old(void) {
