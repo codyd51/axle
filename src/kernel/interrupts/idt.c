@@ -76,7 +76,7 @@ static void idt_set_gate(idt_entry_t* entry, uint32_t base, uint16_t sel, idt_en
     entry->always0              = 0;
     //we must uncomment the OR below when we get to user mode
     //it sets the interrupt gate's privilege level to 3
-    entry->flags                = flags/* | 0x60*/;
+    entry->flags                = flags | 0x60;
 }
 
 static void idt_map_all_gates(idt_entry_t* table) {
