@@ -34,7 +34,18 @@ typedef struct task_small {
 	uint32_t lifespan;
 
 	bool is_thread;
-	vmm_pdir_t* vmm;
+	vmm_page_directory_t* vmm;
+
+	/*
+	 * The following attributes are set only 
+	 * for programs started via a loader,
+	 * such as an ELF from the filesystem
+	 */
+
+	// End of allocated "program break" data (for sbrk)
+	uint32_t sbrk_current_break;
+	// Virtual address of the start of the .bss segmen
+	uint32_t bss_segment_addr;
 } task_small_t;
 
 void tasking_init_small();
