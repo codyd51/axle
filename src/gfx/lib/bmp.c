@@ -23,6 +23,7 @@ Bmp* create_bmp(Rect frame, ca_layer* layer) {
 }
 
 Bmp* _load_jpg(Rect frame, FILE* file) {
+	NotImplemented();
 	njInit();
 
 	fseek(file, 0, SEEK_END);

@@ -10,6 +10,7 @@
 //kernel headers
 #include <kernel/multiboot.h>
 #include <kernel/boot.h>
+#include <kernel/elf.h>
 #include <kernel/assert.h>
 #include <kernel/boot_info.h>
 #include <kernel/segmentation/gdt.h>
@@ -28,6 +29,7 @@
 
 //testing!
 #include <kernel/multitasking/tasks/task.h>
+#include <kernel/util/vfs/fs.h>
 
 #define SPIN while (1) {sys_yield(RUNNABLE);}
 #define SPIN_NOMULTI do {} while (1);
@@ -82,19 +84,14 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     pmm_init();
     pmm_dump();
     vmm_init();
-    asm("cli");
-    asm("hlt");
-    boot_info_t* info = boot_info_get();
-    //vmm_dump(info->vmm_kernel);
-    printf("starting heap\n");
     kheap_init();
-    printf("dump after heap\n");
-    //vmm_dump(info->vmm_kernel);
     syscall_init();
     
     tasking_init();
     kernel_idle();
+    initrd_init();
 
+    while (1) {}
     //the above call should never return, but just in case...
     kernel_spinloop();
 }

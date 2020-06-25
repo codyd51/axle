@@ -16,7 +16,6 @@
 
 static volatile uint32_t tick = 0;
 
-static void context_switch(register_state_t* regs);
 static int tick_callback(register_state_t* regs) {
 	tick++;
 	return 0;
