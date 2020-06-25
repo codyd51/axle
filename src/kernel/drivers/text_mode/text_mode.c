@@ -1,5 +1,7 @@
-#include "text_mode.h"
 #include <std/ctype.h>
+#include <kernel/assert.h>
+
+#include "text_mode.h"
 
 typedef uint16_t text_mode_entry;
 static const size_t TEXT_MODE_WIDTH = 80;
@@ -95,7 +97,6 @@ static void text_mode_putchar_printable(unsigned char ch) {
 }
 
 static void text_mode_putchar_special(unsigned char ch) {
-    // TODO(PT): verify ch is a special char!
     switch (ch) {
         case '\n':
             text_mode_newline();
@@ -104,6 +105,8 @@ static void text_mode_putchar_special(unsigned char ch) {
             text_mode_tab();
             break;
         default:
+            printf("\nnon-control character: 0x%x", ch);
+            panic("char is not a control character");
             break;
     }
 }
