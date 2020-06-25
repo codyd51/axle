@@ -10,7 +10,7 @@ static int callback_num = 0;
 static int_notify_callback_t callback_table[MAX_CALLBACKS] = {0};
 
 static void clear_table() {
-	memset(&callback_table, 0, sizeof(timer_callback_t) * callback_num);
+	memset(&callback_table, 0, sizeof(int_notify_callback_t) * callback_num);
 	callback_num = 0;
 }
 
@@ -40,10 +40,7 @@ int_notify_callback_t* int_notifier_register_callback(uint32_t int_no, void* fun
 	}
 
     panic("int callback table out of space");
-	//TODO expand table instead of clearing it
-	clear_table();
-	//try adding the callback again now that we know the table has room
-    return int_notifier_register_callback(int_no, func, context, repeats);
+	return NULL;
 }
 
 void int_notifier_remove_callback(int_notify_callback_t* callback) {
