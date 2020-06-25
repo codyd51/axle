@@ -22,6 +22,12 @@
 #define PAGE_KERNEL_ONLY_FLAG (0 << 2)
 
 #define TABLES_IN_PAGE_DIRECTORY 1024
+#define ACTIVE_PAGE_DIRECTORY_HEAD 0xFFFFF000
+#define ACTIVE_PAGE_TABLE_ARRAY_HEAD 0xFFC00000
+#define ACTIVE_PAGE_BITMAP_HEAD (ACTIVE_PAGE_TABLE_ARRAY_HEAD - sizeof(address_space_page_bitmap_t))
+
+// TODO(PT): Flat structure for physically placed vas_state.
+// Virtual structure with pointers to ACTIVE_* or otherwise mapped structures
 
 typedef struct vmm_page {
     uint32_t present    :  1; //page present in memory
@@ -72,13 +78,16 @@ void vmm_dump(vmm_page_directory_t* dir);
 void vmm_init(void);
 bool vmm_is_active();
 
-void vmm_load_pdir(vmm_page_directory_t* dir);
-vmm_page_directory_t* vmm_active_pdir();
+void vmm_load_pdir(vmm_page_directory_t* dir, bool pause_interrupts);
+uint32_t vmm_active_pdir();
 
 uint32_t vmm_get_phys_for_virt(uint32_t virtualaddr);
 //void vmm_map_virt_to_phys(vmm_pdir_t* dir, uint32_t page_addr, uint32_t frame_addr, uint16_t flags);
 //void vmm_map_virt(vmm_pdir_t* dir, uint32_t page_addr, uint16_t flags);
 
 vmm_page_directory_t* vmm_clone_pdir(vmm_page_directory_t* source_vmm_dir);
+
+uint32_t vmm_alloc_page(vmm_page_directory_t* vmm_dir, bool readwrite);
+uint32_t vmm_alloc_continuous_range(vmm_page_directory_t* vmm_dir, uint32_t size, bool readwrite);
 
 #endif
