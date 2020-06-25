@@ -6,10 +6,12 @@
 void bitmap_set(address_space_frame_bitmap_t* bitmap, uint32_t index, uint32_t offset) {
     //TODO(PT) validate index and offset
     bitmap->set[index] = bitmap->set[index] | (1 << offset);
+    invlpg((uint32_t)&bitmap->set[index] & 0xfffff000);
 }
 
 void bitmap_unset(address_space_frame_bitmap_t* bitmap, uint32_t index, uint32_t offset) {
     bitmap->set[index] = bitmap->set[index] & ~(1 << offset);
+    invlpg((uint32_t)&bitmap->set[index] & 0xfffff000);
 }
 
 bool bitmap_check(address_space_frame_bitmap_t* bitmap, uint32_t index, uint32_t offset) {
@@ -92,7 +94,7 @@ void addr_space_bitmap_dump_set_ranges(address_space_frame_bitmap_t* bitmap) {
                 if (!(entry & (1 << j))) {
                     range_end = BITMAP_BIT_INDEX(i, j) * PAGING_FRAME_SIZE;
                     in_range = false;
-                    printf("\t\t0x%08x - 0x%08x\n", range_start, range_end);
+                    printf("\t\tbmp 0x%08x - 0x%08x\n", range_start, range_end);
                 }
             }
         }
