@@ -5,6 +5,7 @@
 
 #include <kernel/multiboot.h>
 #include <kernel/vmm/vmm.h>
+#include <kernel/elf.h>
 #include <std/kheap.h>
 
 typedef struct multiboot_boot_device {
@@ -43,11 +44,16 @@ typedef struct boot_info {
     uint32_t boot_stack_bottom_phys;
     uint32_t boot_stack_size;
 
+    uint32_t initrd_start;
+    uint32_t initrd_end;
+    uint32_t initrd_size;
+
     uint32_t mem_region_count;
     physical_memory_region_t mem_regions[32];
 
     multiboot_boot_device_t boot_device;
     multiboot_elf_section_header_table_t symbol_table_info;
+    elf_t kernel_elf_symbol_table;
     framebuffer_info_t framebuffer;
 
     vmm_page_directory_t* vmm_kernel;

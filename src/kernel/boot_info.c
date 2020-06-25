@@ -14,6 +14,7 @@
 #include <kernel/multiboot.h>
 #include <kernel/boot.h>
 #include <kernel/assert.h>
+#include <kernel/elf.h>
 
 #include "boot_info.h"
 
@@ -86,8 +87,28 @@ static void multiboot_interpret_modules(struct multiboot_info* mboot_data, boot_
         printf("0 boot modules.\n");
         return;
     }
-    printf("There are boot modules!\n");
-    NotImplemented();
+
+    uint32_t mods_count = mboot_data->mods_count;
+    printf("%d boot modules detected\n", mods_count);
+    assert(mods_count >= 1, "Modules flag was set, but no modules reported");
+
+    multiboot_module_t* mod = (multiboot_module_t*)mboot_data->mods_addr;
+    for (int i = 0; i < mods_count; i++) {
+
+        if (!strcmp(mod->cmdline, "initrd.img")) {
+            printf("Found initrd");
+            printf_info("Initrd @ 0x%08x - 0x%08x", mod->mod_start, mod->mod_end);
+            out_info->initrd_start = mod->mod_start;
+            out_info->initrd_end = mod->mod_end;
+            out_info->initrd_size = mod->mod_end - mod->mod_start;
+        }
+        else {
+            printf("Unknown boot module: %s", mod->cmdline);
+            panic("Unknown boot module");
+        }
+
+        mod = (multiboot_module_t*)mod->mod_end;
+    }
 }
 
 static void multiboot_interpret_symbol_table(struct multiboot_info* mboot_data, boot_info_t* out_info) {
@@ -97,6 +118,7 @@ static void multiboot_interpret_symbol_table(struct multiboot_info* mboot_data, 
     }
     else if (mboot_data->flags & MULTIBOOT_INFO_ELF_SHDR) {
         out_info->symbol_table_info = mboot_data->u.elf_sec;
+        elf_from_multiboot(mboot_data, &out_info->kernel_elf_symbol_table);
     }
 }
 
@@ -158,7 +180,6 @@ static void boot_info_dump_framebuffer(boot_info_t* info) {
         fb_info.bpp);
     printf("Framebuffer  at [0x%08x to 0x%08x]. Size: 0x%x\n", fb_info.address, fb_info.address+fb_info.size, fb_info.size);
 }
-
 
 static void multiboot_interpret(struct multiboot_info* mboot_data, boot_info_t* out_info) {
     multiboot_interpret_bootloader(mboot_data, out_info);
