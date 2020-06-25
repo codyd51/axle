@@ -3,7 +3,7 @@
     isr%1:
         cli
         push byte 0				; push dummy error code, so the stack frame is the same as if coming from ISR_ERRCODE
-        push byte %1 			; push interrupt number
+        push %1 			; push interrupt number
         jmp isr_common_stub 	; go to common handler
 %endmacro
 
@@ -12,7 +12,7 @@
     isr%1:
         cli
         ; error code is implicitly pushed by CPU
-        push byte %1
+        push %1
         jmp isr_common_stub
 %endmacro
 
@@ -85,6 +85,7 @@ IRQ 15, 	47
 ; common ISR stub. Saves processor state, sets
 ; up kernel mode segments, calls C-level fault handler,
 ; and finally restores stack frame
+[global isr_common_stub]
 isr_common_stub:
     pushad		; pushes edi, esi, ebp, esp, ebx, edx, ecx, eax
 
@@ -127,6 +128,7 @@ isr_common_stub:
 ; common IRQ stub. Saves processor state, sets
 ; up for kernel mode arguments, calls C-level fault handler,
 ; and finally restores stack frame
+[global irq_common_stub]
 irq_common_stub:
     ; push in this order:
     ; EAX
