@@ -349,7 +349,7 @@ void rexle_command() {
 	printf_info("Press any key to continue");
 	getchar();
 
-	rexle();
+	rexle_run();
 }
 
 void ls_command() {

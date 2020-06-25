@@ -42,28 +42,46 @@ enum {
 	MODE_VGA,
 };
 
-void rexle(int argc, char** argv) {
-	int mode = MODE_VESA;
+void rexle_run(int argc, char** argv) {
+	int mode = MODE_VGA;
 	if (argc > 1) {
 		if (!strcmp(argv[1], "vga")) {
 			mode = MODE_VGA;
 		}
 	}
 
-	if (!fork("rexle")) {
+	//jif (!fork("rexle")) {
 		rexle_int(mode);
 		_kill();
-	}
+	//}
 }
 
 void rexle_int(int mode) {
+	mode = MODE_VESA;
+
 	//switch graphics modes
-	Screen* screen = gfx_screen();
+	//Screen* screen = gfx_screen();
+	Screen* screen = kmalloc(sizeof(Screen));
+    vbe_set_video_mode(640, 480, 4, true, true);
+	screen->resolution.height = 480;
+	screen->resolution.width = 640;
+	screen->bpp = 4;
+    uint32_t* phys_video_mem = (uint32_t*)0xa0000;
+    //int vmem_size = 0xfdffffff - (int)phys_video_mem;
+	int vmem_size = 640 * 480;
+	printf("find vmem\n");
+    //§char* vmem = vmm_map_phys_range(phys_video_mem, vmem_size);
+    //§char* vmem = vmm_map_phys_range(phys_video_mem, vmem_size);
+	char* vmem = phys_video_mem;
+	printf("got vmem\n");
+	screen->vmem = vmem;
+
+	printf_info("screen 0x%08x", screen);
 	Size viewport_size = size_make(screen->resolution.width / 2.5, screen->resolution.height / 2.5);
 	Point viewport_origin = point_make((screen->resolution.width / 2) - (viewport_size.width / 2), (screen->resolution.height / 2) - (viewport_size.height / 2));
 	Rect viewport_rect = rect_make(viewport_origin, viewport_size);
 
-	become_first_responder();
+	//become_first_responder();
 
 	//initialize textures
 	array_m* textures = array_m_create(8);
@@ -109,11 +127,14 @@ void rexle_int(int mode) {
 		Bmp* bmp = create_bmp(rect_make(point_zero(), layer->size), layer);
 		array_m_insert(textures, bmp);
 	}
+	printf("got textures\n");
 
 	//FPS counter
 	Label* fps = create_label(rect_make(point_make(rect_min_x(viewport_rect) + 3, rect_min_y(viewport_rect) + 3), size_make(100, 15)), "FPS Counter");
 	fps->text_color = color_black();
+	printf("got label\n");
 	//add_sublabel(screen->window->content_view, fps);
+	printf("added\n");
 
 	double timestamp = 0; //current frame timestamp
 	double time_prev = 0; //prev frame timestamp
@@ -267,6 +288,7 @@ void rexle_int(int mode) {
 		double move_speed = frame_time * 5.0; //squares/sec
 		double rot_speed = frame_time * 3.0; //rads/sec
 
+		/*
 		//move forward if not blocked by wall
 		if (key_down('w')) {
 			if (world[(int)(pos.x + dir.x * move_speed)][(int)pos.y] == WALL_NONE) {
@@ -307,6 +329,7 @@ void rexle_int(int mode) {
 			plane.x = plane.x * cos(rot_speed) - plane.y * sin(rot_speed);
 			plane.y = old_plane_x * sin(rot_speed) + plane.y * cos(rot_speed);
 		}
+		*/
 
 		int real_fps = 1 / frame_time;
 		char buf[32];
@@ -316,13 +339,16 @@ void rexle_int(int mode) {
 		draw_label(screen->vmem, fps);
 
 		write_screen(screen);
+		printf("memcpy\n");
 
+		/*
 		if (key_down('q')) {
 			running = 0;
 		}
 
 		//eat keypresses
 		while (haskey()) kgetch();
+		*/
 	}
 
 	//cleanup
