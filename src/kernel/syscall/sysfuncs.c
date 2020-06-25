@@ -32,15 +32,17 @@ int lseek(int UNUSED(fd), int UNUSED(offset), int UNUSED(whence)) {
 	return 0;
 }
 
-extern task_t* current_task;
+//extern task_t* current_task;
 int exit(int code) {
-	current_task->exit_code = code;
-	_kill();
+	task_small_t* current = tasking_get_current_task();
+	printf("[%s [%d]] EXIT status code %d\n", current->name, current->id, code);
+	while (1) {sys_yield(RUNNABLE);}
 	return code;
 }
 
 int sysfork() {
-	return fork(current_task->name);
+	Deprecated();
+	//return fork(current_task->name);
 }
 
 char* shmem_create(uint32_t size) {
