@@ -5,6 +5,7 @@
 #include <std/kheap.h>
 #include <kernel/util/paging/paging.h>
 #include <kernel/multitasking//tasks/task.h>
+#include <kernel/multitasking/tasks/task_small.h>
 #include <kernel/util/paging/paging.h>
 
 static bool elf_check_magic(elf_header* hdr) {
@@ -67,11 +68,11 @@ bool elf_validate(FILE* file) {
 	return elf_validate_header(hdr);
 }
 
-bool elf_load_segment(page_directory_t* new_dir, unsigned char* src, elf_phdr* seg) {
+bool elf_load_segment(vmm_page_directory_t* new_dir_virt, unsigned char* src, elf_phdr* seg) {
+	printf("***** elf_load_segment 0x%08x 0x%08x %d\n", src, seg, seg->type);
 	//loadable?
 	if (seg->type != PT_LOAD) {
 		printf_err("Tried to load non-loadable segment");
-		printk_err("Tried to load non-loadable segment");
 		return false; 
 	}
 
@@ -80,45 +81,25 @@ bool elf_load_segment(page_directory_t* new_dir, unsigned char* src, elf_phdr* s
 	uint32_t dest_base = seg->vaddr;
 	uint32_t dest_limit = dest_base + seg->memsz;
 
-	printf("dest_base %x dest_limit %x\n", dest_base, dest_limit);
+	vmm_page_directory_t* virt_new_pd = new_dir_virt;
 	//alloc enough mem for new task
-	for (uint32_t i = dest_base, page_counter = 0; i <= dest_limit; i += PAGE_SIZE, page_counter++) {
-		page_t* page = get_page(i, 1, new_dir);
-		ASSERT(page, "elf_load_segment couldn't get page in new addrspace at %x\n", i);
-		bool got_frame = alloc_frame(page, 0, 0);
-		ASSERT(got_frame, "elf_load_segment couldn't alloc frame for page %x\n", i);
-		
-		char* pagebuf = kmalloc_a(PAGE_SIZE);
-		page_t* local_page = get_page((uint32_t)pagebuf, 0, page_dir_current());
-		ASSERT(local_page, "couldn't get local_page!");
-		int old_frame = local_page->frame;
-		local_page->frame = page->frame;
-		invlpg(pagebuf);
 
-		//create buffer in current address space,
-		//copy data,
-		//and then map frame into new address space
-		memset(pagebuf, 0, (dest_limit - dest_base));
-		//only seg->filesz bytes are garuanteed to be in the file!
-		//_not_ memsz
-		//any extra bytes between filesz and memsz should be set to 0, which is done above
-		//memcpy(dest_base, src_base, seg->filesz);
-		memcpy(pagebuf, src_base + (page_counter * PAGE_SIZE), seg->filesz);
-
-		//now that we've copied the data in the local address space, 
-		//get the page in local address space, 
-		//and copy backing physical frame data to physical frame of
-		//page in new address space
-
-		//now that the buffer has been copied, we can safely free the buffer
-		local_page->frame = old_frame;
-		invlpg(pagebuf);
-		kfree(pagebuf);
+	uint32_t remaining_bytes = seg->filesz;
+	for (uint32_t i = dest_base, page_counter = 0; /*i <= dest_limit || */remaining_bytes > 0; i += PAGE_SIZE, page_counter++) {
+		uint32_t src_off = src_base + (page_counter * PAGE_SIZE);
+		// uint32_t page = vmm_alloc_page_for_frame(new_dir, i, true);
+		uint32_t frame_addr = vas_virt_alloc_page_address(virt_new_pd, i, true);
+		printf("ELF seg map page %d, frame 0x%08x virt 0x%08x\n", page_counter, frame_addr, i);
+		uint32_t local_page = vas_active_map_phys_range(frame_addr, PAGING_FRAME_SIZE);
+		//printf("local page 0x%08x\n", local_page);
+		memset(local_page, 0, PAGING_PAGE_SIZE);
+		uint32_t bytes_to_copy = MIN(remaining_bytes, PAGING_PAGE_SIZE);
+		remaining_bytes -= bytes_to_copy;
+		printf("ELF copy 0x%08x bytes from 0x%08x to 0x%08x\n", bytes_to_copy, src_off, frame_addr);
+		memcpy(local_page, src_off, bytes_to_copy);
+		vmm_unmap_range(vmm_active_pdir(), local_page, PAGING_PAGE_SIZE);
 	}
-
-	// Copy data
-	//memset((void*)dest_base, 0, (void*)(dest_limit - dest_base));
-
+	
 	return true;
 }
 
@@ -169,27 +150,14 @@ char* elf_get_string_table(void* file, uint32_t binary_size) {
 //stores program break (end of .bss segment) in prog_break
 //stored start of .bss segment in bss_loc
 static void alloc_bss(page_directory_t* new_dir, elf_s_header* shdr, int* prog_break, int* bss_loc) {
-	printf("ELF .bss mapped @ %x - %x\n", shdr->addr, shdr->addr + shdr->size);
+	printf("ELF .bss mapped @ 0x%08x - 0x%08x\n", shdr->addr, shdr->addr + shdr->size);
 	for (uint32_t i = 0; i <= shdr->size + PAGE_SIZE; i += PAGE_SIZE) {
-		page_t* page = get_page(shdr->addr + i, 1, new_dir);
-		if (!alloc_frame(page, 0, 1)) {
-			printf_err(".bss %x wasn't alloc'd", shdr->addr + i);
-		}
-
-		char* pagebuf = kmalloc_a(PAGE_SIZE);
-		//zero out .bss
-		memset(pagebuf, 0, PAGE_SIZE);
-
-		page_t* local_page = get_page((uint32_t)pagebuf, 1, page_dir_current());
-		ASSERT(local_page, "elf_load_segment couldn't find page for pagebuf");
-
-		extern void copy_page_physical(uint32_t page, uint32_t dest);
-		copy_page_physical(local_page->frame * PAGE_SIZE, page->frame * PAGE_SIZE);
-
-		//now that the buffer has been copied, we can safely free the buffer
-		kfree(pagebuf);
+		uint32_t virt_addr = shdr->addr + i;
+		uint32_t frame_addr = vas_virt_alloc_page_address(new_dir, virt_addr, true);
+		uint32_t local_page = vas_active_map_phys_range(frame_addr, PAGING_FRAME_SIZE);
+		memset(local_page, 0, PAGING_PAGE_SIZE);
+		vmm_unmap_range(vmm_active_pdir(), local_page, PAGING_PAGE_SIZE);
 	}
-
 	//set program break to .bss segment
 	*prog_break = shdr->addr + shdr->size;
 	*bss_loc = shdr->addr;
@@ -211,17 +179,9 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 		return;
 	}
 
-	uint32_t new_dir_phys = 0;
-	page_directory_t* new_dir = kmalloc_ap(sizeof(page_directory_t), &new_dir_phys);
-	memset((uint8_t*)new_dir, 0, sizeof(page_directory_t));
-	//get offset of tablesPhysical from start of page_directory_t
-	uint32_t offset = (uint32_t)new_dir->tablesPhysical - (uint32_t)new_dir;
-	new_dir->physicalAddr = new_dir_phys + offset;
-
-	for (int i = 0; i < 1024; i++) {
-		new_dir->tables[i] = page_dir_kern()->tables[i];
-		new_dir->tablesPhysical[i] = page_dir_kern()->tablesPhysical[i] & ~4;
-	}
+	// TODO(PT): Free the VAS we're using up to now
+	vmm_page_directory_t* phys_new_pd = vmm_clone_active_pdir();
+    vmm_page_directory_t* virt_new_pd = (vmm_page_directory_t*)vas_active_map_temp(phys_new_pd, sizeof(vmm_page_directory_t));
 
 	char* string_table = elf_get_string_table(hdr, binary_size);
 
@@ -238,62 +198,53 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 
 		//alloc memory for .bss segment
 		if (!strcmp(section_name, ".bss")) {
-			alloc_bss(new_dir, shdr, (int*)&prog_break, (int*)&bss_loc);
+			alloc_bss(virt_new_pd, shdr, (int*)&prog_break, (int*)&bss_loc);
 		}
 	}
 
-	uint32_t entry = elf_load_small(new_dir, (unsigned char*)filebuf);
+	uint32_t entry_point = elf_load_small(virt_new_pd, (unsigned char*)filebuf);
+	printf("ELF prog_break 0x%08x bss_loc 0x%08x\n", prog_break, bss_loc);
 	kfree(filebuf);
 
-	//alloc stack space
-	uint32_t stack_addr = 0x10000000;
-	//give user program a 128kb stack
-	for (int i = 0; i < 32; i++) {
-		page_t* stacktop = get_page(stack_addr, 1, new_dir);
-		//user, writeable
-		alloc_frame(stacktop, 0, 1);
-		stack_addr += PAGE_SIZE;
-	}
-	stack_addr -= PAGE_SIZE;
+	// give user program a 32kb stack
+	uint32_t stack_size = PAGING_PAGE_SIZE * 8;
+	uint32_t stack_bottom = vas_virt_alloc_continuous_range(virt_new_pd, stack_size, true);
+	printf("allocated ELF stack at 0x%08x\n", stack_bottom);
+    uint32_t *stack_top = (uint32_t *)(stack_bottom + stack_size - 0x4); // point to top of malloc'd stack
+    *(stack_top--) = entry_point;   //address of task's entry point
+    *(stack_top--) = 0;             //eax
+    *(stack_top--) = 0;             //ebx
+    *(stack_top--) = 0;             //esi
+    *(stack_top--) = 0;             //edi
+    *(stack_top)   = 0;             //ebp
 
 	//calculate argc count
 	int argc = 0;
+	printf("ARGV 0x%08x\n", argv);
 	while (argv[argc] != NULL) {
+		printf("ELF found argv %s\n", argv[argc]);
 		argc++;
 	}
 
-	if (entry) {
-		become_first_responder();
-
+	if (entry_point) {
 		kernel_begin_critical();
+		//become_first_responder();
+		//vas_active_unmap_temp(sizeof(vmm_page_directory_t));
 
-		task_t* elf = task_with_pid(getpid());
-		elf->prog_break = prog_break;
-		elf->bss_loc = bss_loc;
+		task_small_t* elf = tasking_get_task_with_pid(getpid());
+		kernel_begin_critical();
+		elf->vmm = phys_new_pd;
+		elf->machine_state = (task_context_t*)stack_top;
+		elf->sbrk_current_break = prog_break;
+		elf->bss_segment_addr = bss_loc;
 		elf->name = strdup(name);
-		elf->esp = elf->ebp = stack_addr;
 
-		elf->eip = entry;
-		elf->page_dir = new_dir;
+		printf("Jumping to entry point of ELF [%s (%d)] @ 0x%08x\n", elf->name, elf->id, entry_point);
 
-		void goto_pid(int id, bool x);
-		goto_pid(elf->id, false);
-
-		/*
-
-		int(*elf_main)(int, char**) = (int(*)(int, char**))entry;
-		become_first_responder();
-
-		//calculate argc count
-		int argc = 0;
-		char* tmp = argv[argc];
-		while (argv[argc] != NULL) {
-			argc++;
-		}
-
-		//jump to ELF entry point!
-		int ret = elf_main(argc, argv);
-		*/
+		void tasking_goto_task(task_small_t* new_task);
+        vmm_load_pdir(phys_new_pd, false);
+		void (*elf_start)(int, char**) = (void(*)(int, char**))entry_point;
+		elf_start(argc, argv);
 
 		//binary should have called _exit()
 		//if we got to this point, something went catastrophically wrong
