@@ -9,7 +9,7 @@ void display_sample_image(Point origin) {
 		Window* image_viewer = create_window(rect_make(origin, size_make(512, 512)));
 		image_viewer->title = "Image Viewer";
 		image_viewer->content_view->background_color = color_make(135, 206, 250);
-		Bmp* bmp = load_bmp(rect_make(point_zero(), size_make(512, 512)), "Lenna.jpg");
+		Bmp* bmp = load_bmp(rect_make(point_zero(), size_make(512, 512)), "pillar.bmp");
 		if (bmp) {
 			add_bmp(image_viewer->content_view, bmp);
 		}

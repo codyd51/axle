@@ -25,13 +25,17 @@ void update_usage_stats(Window* win) {
 	}
 	longest_len += 4;
 
-	float section_height = win->frame.size.height / ((float)history->count + 2.0);
-	int label_length = (longest_len + 12) * CHAR_WIDTH;
 
-	for (int i = 0; i < history->count + 1; i++) {
+	int history_count = 5;
+	float section_height = win->frame.size.height / ((float)history_count + 2.0);
+	//int label_length = (longest_len + 12) * CHAR_WIDTH;
+	int label_length = 12 * CHAR_WIDTH;
+
+	for (int i = 0; i < history_count; i++) {
 		//print name, followed by required % of spaces to align output
 		float total_width = win->frame.size.width - label_length;
 		float percent_cpu = (history->vals[i] / (float)history->time);
+		//float percent_cpu = (rand() % 100) / 100.0;
 
 		if (i == history->count) {
 			static float last_test_bar_percent = 0.0;
@@ -47,7 +51,7 @@ void update_usage_stats(Window* win) {
 		char name[64];
 
 		//name of test bar
-		if (i == history->count) {
+		if (true || i == history->count) {
 			strcpy((char*)&name, "bar demo");
 		}
 		else {
