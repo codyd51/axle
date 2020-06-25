@@ -67,6 +67,12 @@ int std_write(task_t* task, int fd, const void* buf, int len) {
 }
 
 int write(int fd, char* buf, int len) {
+	printf("write %d->%d : ", getpid(), fd);
+	for (int i = 0; i < len; i++) {
+		putchar(buf[i]);
+	}
+	return;
+
 	if (!tasking_installed()) {
 		return -1;
 	}

@@ -57,6 +57,8 @@ fs_node_t* finddir_fs(fs_node_t* node, char* name) {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+fd_entry _tab[64];
+static int _fd_count = 0;
 FILE* initrd_fopen(char* filename, char* mode) {
 	printf("initrd_fopen(\"%s\")\n", filename);
 	//skip preceding ./
@@ -78,7 +80,8 @@ FILE* initrd_fopen(char* filename, char* mode) {
 	fd_entry file_fd;
 	file_fd.type = FILE_TYPE;
 	file_fd.payload = stream;
-	stream->fd = fd_add(task_with_pid(getpid()), file_fd);
+	stream->fd = &_tab[_fd_count++];
+	//stream->fd = fd_add(task_with_pid(getpid()), file_fd);
 
 	return stream;
 }
@@ -162,13 +165,11 @@ uint32_t initrd_fread(void* buffer, uint32_t size, uint32_t count, FILE* stream)
 	uint32_t i = 0;
 	for (; i < count * size; i++) {
 		chbuf[i] = fgetc(stream);
-		/*
 		if (chbuf[i] == EOF) {
 			break;
 		}
-		*/
 	}
-	//chbuf[i] = '\0';
+	chbuf[i] = '\0';
 	i /= size;
 	return i;
 		/*
@@ -232,4 +233,5 @@ int getdents(unsigned int fd, struct dirent* dirp, unsigned int count) {
 		curr->d_reclen = sizeof(fat_dirent);
 	}
 	return i;
+	*/
 }

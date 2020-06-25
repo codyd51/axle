@@ -29,7 +29,7 @@ void wipe_page_tables(page_directory_t* page_dir) {
 	vmm_dump(page_dir);
 	page_directory_t* kern = page_dir_kern();
 	for (int i = 0; i < 1024; i++) {
-		page_table_t* tab = page_dir->tables[i];
+		vmm_page_table_t* tab = page_dir->tables[i];
 		if (!tab) continue;
 
 		//skip if this table is linked from kernel
@@ -47,7 +47,7 @@ void wipe_page_tables(page_directory_t* page_dir) {
 			//printf("idx %d present\n", j);
 
 			//printf("clearing frame %d %x\n", j, tab->pages[j].frame);
-			printf("%x\n", tab->pages[j].frame);
+			//printf("%x\n", tab->pages[j].frame);
 			//free_frame(&(tab->pages[j]));
 			//tab->pages[j].present = 0;
 		}
