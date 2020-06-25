@@ -19,6 +19,9 @@ _start:
 	mov esp, _kernel_stack_top
 	push esp
 	push ebx
+	; Set ebp to 0. This is a marker for walking stack frames to know that 
+	; we've reached the base stack frame
+	xor ebp, ebp
 
 	; execute kernel
 	call kernel_main
