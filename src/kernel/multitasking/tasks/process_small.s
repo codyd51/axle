@@ -36,6 +36,6 @@ context_switch:
     pop ebx
     pop eax
 
-    ; Return to the new task's EIP (that was stored on its stack
+    ; Return to the new task's EIP (that was stored on its stack)
     sti
     ret

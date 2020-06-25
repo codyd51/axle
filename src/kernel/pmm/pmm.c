@@ -154,6 +154,7 @@ void pmm_init() {
     pmm_reserve_mem_region(pmm, info->kernel_image_start, info->kernel_image_size);
     //map out framebuffer
     pmm_reserve_mem_region(pmm, info->framebuffer.address, info->framebuffer.size);
+    pmm_reserve_mem_region(pmm, info->initrd_start, info->initrd_size);
 }
 
 //marks a block of physical memory as unallocatable
@@ -161,6 +162,7 @@ void pmm_init() {
 void pmm_reserve_mem_region(pmm_state_t* pmm, uint32_t start, uint32_t size) {
     uint32_t aligned_start = addr_space_frame_floor(start);
     uint32_t aligned_size = addr_space_frame_ceil(size);
+    printf("PMM reserving 0x%08x - 0x%08x\n", aligned_start, aligned_start + aligned_size);
     unset_memory_region(&(pmm->system_accessible_frames), aligned_start, aligned_size);
 }
 

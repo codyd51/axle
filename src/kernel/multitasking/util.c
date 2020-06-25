@@ -6,6 +6,8 @@
 #include <kernel/boot_info.h>
 
 void move_stack(void* new_stack_start, uint32_t size) {
+	Deprecated();
+	/*
 	//allocate space for new stack
     printf("move_stack() mapping region 0x%08x to 0x%08x\n", new_stack_start - size, new_stack_start);
     //alloc 1 extra page at the top of the stack so if you don't page fault if you
@@ -54,4 +56,5 @@ void move_stack(void* new_stack_start, uint32_t size) {
 	//change stacks
 	asm volatile("mov %0, %%esp" : : "r" (new_sp));
 	asm volatile("mov %0, %%ebp" : : "r" (new_bp));
+	*/
 }
