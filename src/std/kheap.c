@@ -10,20 +10,13 @@
 #include <kernel/vmm/vmm.h>
 #include <kernel/boot_info.h>
 
-extern uint32_t _kernel_image_end;
-// uint32_t placement_address = (uint32_t)&_kernel_image_end;
-
-extern page_directory_t* kernel_directory;
-extern page_directory_t* current_directory;
-
 heap_t kheap_raw = {0};
 heap_t* kheap = &kheap_raw;
 lock_t* mutex = 0;
 static uint32_t used_bytes;
 
 //root kmalloc function
-//increments placement_address if there is no heap
-//otherwise, pass through to heap with given options
+//, pass through to heap with given options
 void* kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
 	//if the heap already exists, pass through
 	if (kheap) {
@@ -56,7 +49,8 @@ void* kmalloc_real(uint32_t sz) {
 void kfree(void* p) {
 	uint32_t addr = (uint32_t)p;
 	if (addr <= kheap->start_address || addr >= kheap->end_address) {
-		printk("kfree() invalid block %x\n", addr);
+		printf("kfree() invalid block 0x08%x\n", addr);
+		panic("kfree() invalid block\n");
 	}
 	free(p, kheap);
 }
@@ -67,10 +61,11 @@ void heap_fail(void* dump) {
 	memdebug();
 
 	printk_err("PID %d encountered corrupted heap. Killing task...", getpid());
+	panic("corrupted heap");
 	_kill();
 }
 
-//create a heap header at addr, where the block in questoin is size bytes
+//create a heap header at `addr`, with the associated block being `size` bytes large
 static alloc_block_t* create_block(uint32_t addr, uint32_t size) {
 	alloc_block_t* block = (alloc_block_t*)addr;
 	memset(block, 0, sizeof(alloc_block_t));
@@ -108,106 +103,92 @@ static alloc_block_t* first_block(heap_t* heap) {
 	return (alloc_block_t*)heap->start_address;
 }
 
+void kheap_debug() {
+	boot_info_t* boot = boot_info_get();
+	alloc_block_t* b = first_block(boot->heap_kernel);
+	printf("------------ heap blocks ------------\n");
+	do {
+		const char* state = "allc";
+		if (b->free) {
+			state = "free";
+		}
+		printf("%s block @ 0x%08x - 0x%08x\n", state, b, b->size);
+	} while ((b = b->next) != NULL);
+	printf("-------------------------------------\n");
+}
+
 //find the smallest block at least size bytes big, and,
 //if page aligning is requested, is large enough to be page aligned
 //(if so, page-aligns block and returns aligned block)
 static alloc_block_t* find_smallest_hole(uint32_t size, bool align, heap_t* heap) {
-	//printk_info("find_smallest_hole(): %x bytes align? %d", size, align);
-	//start off with first block
+	//printf_info("find_smallest_hole(): %x bytes align? %d", size, align);
+	// Search each memory block
 	alloc_block_t* candidate = first_block(heap);
-
-	//lock(mutex);
-
-	//search every hole
 	do {
 		ASSERT(candidate->magic == HEAP_MAGIC, "find_smallest_hole() detected heap corruption");
-		if (candidate->free) {
-			if (candidate->size >= size) {
-				//found valid header!
-				//printk_info("find_smallest_hole() found likely candidate %x", (uint32_t)candidate);
-
-				//attempt to align if user requested
-				//make sure addr isn't already page aligned before aligning
-				uint32_t addr = (uint32_t)candidate + sizeof(alloc_block_t);
-				if (align && (addr & 0xFFF)) {
-					//find distance to page align
-					uint32_t aligned_addr = ((addr & 0xFFFFF000) + PAGING_PAGE_SIZE) - sizeof(alloc_block_t);
-					uint32_t distance = aligned_addr - addr;
-
-					//does the align adjustment fit in the block?
-					if (distance < size) {
-//#ifdef DEBUG
-						printk_info("find_smallest_hole(): page aligning block @ %x to %x (really starts at %x)", addr, aligned_addr, aligned_addr + sizeof(alloc_block_t));
-//#endif
-
-						//create new block at page aligned addr
-						uint32_t new_size = candidate->size - distance - sizeof(alloc_block_t);
-						alloc_block_t* aligned = create_block((uint32_t)aligned_addr, new_size);
-
-						insert_block(candidate, aligned);
-
-						//make sure we shrink original candidate since some of it is now in new aligned block
-						candidate->size = candidate->size - aligned->size - sizeof(alloc_block_t);
-						//all done!
-
-						unlock(mutex);
-						return aligned;
-					}
-					else {
-						continue;
-					}
-				}
-				return candidate;
-			}
+		if (!candidate->free) {
+			continue;
 		}
+		if (candidate->size < size) {
+			continue;
+		}
+		// Found a free block large enough to fit the alloc
+
+		//attempt to align if user requested
+		//make sure addr isn't already page aligned before aligning
+		uint32_t addr = (uint32_t)candidate + sizeof(alloc_block_t);
+		if (align && (addr & PAGE_FLAG_BITS_MASK)) {
+			//Deprecated();
+			//find distance to page align
+			uint32_t aligned_addr = ((addr & PAGING_PAGE_MASK) + PAGING_PAGE_SIZE) - sizeof(alloc_block_t);
+			uint32_t distance = aligned_addr - addr;
+
+			//does the align adjustment fit in the block?
+			if (distance >= size) {
+				continue;
+			}
+
+			printk_info("find_smallest_hole(): page aligning block @ %x to %x (really starts at %x)", addr, aligned_addr, aligned_addr + sizeof(alloc_block_t));
+			//create new block at page aligned addr
+			uint32_t new_size = candidate->size - distance - sizeof(alloc_block_t);
+			alloc_block_t* aligned = create_block((uint32_t)aligned_addr, new_size);
+
+			insert_block(candidate, aligned);
+
+			//make sure we shrink original candidate since some of it is now in new aligned block
+			candidate->size = candidate->size - aligned->size - sizeof(alloc_block_t);
+			//all done!
+
+			return aligned;
+		}
+		return candidate;
 	} while ((candidate = candidate->next) != NULL && ((uint32_t)candidate < heap->end_address));
 
-	//unlock(mutex);
-
 	//didn't find any matches
-	printk_err("find_smallest_hole(): found no holes large enough (size: %x align: %d)", size, align);
+	printf_err("find_smallest_hole(): no holes big enough (size: 0x%08x align: %d)", size, align);
+	panic("heap could not accomodate alloc");
 	return NULL;
 }
 
 void kheap_init() {
 	boot_info_t *info = boot_info_get();
-	// XXX(PT): info->kernel_image_end is the region after the identity-map-protected region that the VMM and PMM coordinate.
-	// Heap should just ask for a block from VMM instead of knowing this range
-	uint32_t start = info->kernel_image_end + 0x100000;
-	uint32_t end_addr = start + KHEAP_INITIAL_SIZE;
-	uint32_t max = end_addr;
-	uint32_t max_size = max - start;
 
-	//start and end MUST be page aligned
-	ASSERT(start % PAGING_PAGE_SIZE == 0, "start wasn't page aligned");
-	ASSERT(end_addr % PAGING_PAGE_SIZE == 0, "end_addr wasn't page aligned");
+	// Map a big block we'll chop up to use as a heap pool
+	uint32_t heap_size = KHEAP_INITIAL_SIZE;
+	uint32_t heap_start = vmm_alloc_continuous_range(vmm_active_pdir(), heap_size, true);
+	uint32_t heap_end = heap_start + heap_size;
+	printf_info("Kernel heap allocated at [0x%08x - 0x%08x]", heap_start, heap_end);
 
-	printf_info("Creating kernel heap at [0x%08x - 0x%08x]", start, end_addr);
-
-	//write start, end, and max addresses into heap structure
-	kheap->start_address = start;
-	kheap->end_address = end_addr;
-	kheap->max_address = max;
+	kheap->start_address = heap_start;
+	kheap->end_address = heap_end;
 	kheap->supervisor = true;
 	kheap->readonly = false;
 
-	//map this memory into kernel page directory
-	vmm_map_region(vmm_active_pdir(), start, KHEAP_INITIAL_SIZE, PAGE_PRESENT_FLAG | PAGE_READ_WRITE_FLAG);
-
 	//we start off with one large free block
 	//this represents the whole heap at this point
-	create_block(start, end_addr - start);
+	create_block(heap_start, heap_size);
 
 	info->heap_kernel = kheap;
-}
-
-void expand(uint32_t UNUSED(new_size), heap_t* UNUSED(heap)) {
-	//TODO code this
-}
-
-uint32_t contract(int32_t UNUSED(new_size), heap_t* UNUSED(heap)) {
-	//TODO code this
-	return -1;
 }
 
 //prints last 'display_count' alloc's in heap
@@ -253,68 +234,20 @@ void heap_verify_integrity() {
 		if (tmp->magic != HEAP_MAGIC) {
 			printk_err("alloc() self check: block @ %x had invalid magic", (uint32_t)tmp);
 			heap_fail(tmp);
-			kernel_begin_critical();
-			while (1) {}
 		}
 	} while ((tmp = tmp->next) != NULL);
-}
-
-static void heap_expand(heap_t* heap, uint32_t expand_size) {
-	NotImplemented();
-	lock(mutex);
-
-	uint32_t curr_size = heap->end_address - heap->start_address;
-	if (curr_size + expand_size >= heap->max_address) {
-		ASSERT(0, "Heap ran out of space!\n");
-	}
-
-	alloc_block_t* curr = first_block(heap);
-	while (curr->next) {
-		curr = curr->next;
-	}
-	if (!curr->free) {
-		uint32_t new_block_addr = (uint32_t)curr + sizeof(alloc_block_t) + curr->size;
-		printk("heap_expand() creating new block at end of heap of size %x\n", new_block_addr);
-
-		alloc_block_t* new_block = create_block(new_block_addr, expand_size);
-		insert_block(curr, new_block);
-
-		heap->end_address += sizeof(alloc_block_t) + expand_size;
-	}
-	else {
-		printk("heap_expand() expanding block %x from %x to %x\n", curr, curr->size, curr->size + expand_size);
-		curr->size += expand_size;
-		heap->end_address += expand_size;
-	}
-
-	unlock(mutex);
 }
 
 //reserve heap block with size >= 'size'
 //will page align block if 'align'
 void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
-
 	//find smallest hole that will fit
 	alloc_block_t* candidate = find_smallest_hole(size, align, heap);
 
 	//handle if we couldn't find a candidate block
 	if (!candidate) {
-		//expand heap
-		//TODO fill in
-		//ASSERT(0, "alloc() %x bytes failed, find_smallest_hole() had no candidates\n");
-		uint32_t curr_size = heap->end_address - heap->start_address;
-		//uint32_t expand_size = curr_size + size;
-		uint32_t expand_size = curr_size * 2;
-		expand_size = MIN(expand_size, heap->max_address - heap->start_address);
-		printk("Heap could not fit alloc %x, expanding size by %x\n", size, expand_size);
-		heap_expand(heap, expand_size);
-		//heap should now have enough space, try alloc again
-		return alloc(size, align, heap);
+		panic("heap couldn't accommodate alloc, needs growing");
 	}
-
-#ifdef DEBUG
-	printk("DEB M %x %x\n", candidate, candidate->size);
-#endif
 
 	lock(mutex);
 
@@ -333,7 +266,6 @@ void* alloc(uint32_t size, uint8_t align, heap_t* heap) {
 		if (candidate->next != (alloc_block_t*)split_block || ((alloc_block_t*)split_block)->prev != candidate) {
 			printk_err("Heap insertion failed!");
 			heap_fail(candidate);
-			while (1) {}
 		}
 
 		//shrink block we just split in two
@@ -399,16 +331,10 @@ void free(void* p, heap_t* UNUSED(heap)) {
 	alloc_block_t* header = (alloc_block_t*)((uint32_t)p - sizeof(alloc_block_t));
 
 	//ensure these are valid
-	//ASSERT(header->magic == HEAP_MAGIC, "invalid header magic in %x (got %x)", p, header->magic);
 	if (header->magic != HEAP_MAGIC) {
 		printk_err("free() invalid block @ %x", header);
 		heap_fail(header);
-		while (1) {}
 	}
-
-#ifdef DEBUG
-	printk("DEB F %x %x\n", p, header->size);
-#endif
 
 	lock(mutex);
 

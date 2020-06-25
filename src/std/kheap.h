@@ -23,14 +23,14 @@ STDAPI void* kmalloc_ap(uint32_t sz, uint32_t* phys);
 void* kmalloc_real(uint32_t sz);
 void kmalloc_track_int(char* file, int line, uint32_t size);
 #define kmalloc_track(bytes) ({ kmalloc_track_int(__FILE__, __LINE__, bytes); kmalloc_real(bytes); })
-#define kmalloc(bytes) kmalloc_track(bytes)
+// #define kmalloc(bytes) kmalloc_track(bytes)
+#define kmalloc(bytes) (kmalloc_real(bytes))
 
-#define KHEAP_START			0xC0000000
-#define KHEAP_INITIAL_SIZE	0x01F00000
+#define KHEAP_INITIAL_SIZE	0x4000000
 #define KHEAP_MAX_ADDRESS 	0xDFFFF000
 //#define KHEAP_MAX_ADDRESS 	0xCFFFF000
 
-#define HEAP_MAGIC			0xCAFEBABE
+#define HEAP_MAGIC			0xf00dface
 #define HEAP_MIN_SIZE		0x70000
 #define MIN_BLOCK_SIZE		0x10
 
