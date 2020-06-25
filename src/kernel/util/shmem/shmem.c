@@ -5,6 +5,7 @@
 #define PAGE_MASK 0xFFFFF000
 
 char* find_unmapped_region(page_directory_t* dir, uint32_t size, uint32_t begin_searching_at) {
+	Deprecated();
 	if (!dir || !size) {
 		return NULL;
 	}
@@ -13,6 +14,7 @@ char* find_unmapped_region(page_directory_t* dir, uint32_t size, uint32_t begin_
 	//bool in_run = false;
 	//1024 page tables in page dir
 	for (int i = 0; i < 1024; i++) {
+		/*
 		page_table_t* tab = dir->tables[i];
 
 		//page tables map 1024 4kb pages
@@ -43,6 +45,7 @@ char* find_unmapped_region(page_directory_t* dir, uint32_t size, uint32_t begin_
 				return (char*)current_tab_virt_start;
 			}
 		}
+		*/
 
 		/*
 		for (int j = 0; j < 1024; j++) {
@@ -105,6 +108,8 @@ char* shmem_create_map(page_directory_t* dir, uint8_t* backing_memory, uint32_t 
 	//no need to account for overlap because padded should be page aligned
 	uint32_t page_count = padded / PAGE_SIZE;
 	for (uint32_t i = 0; i < page_count; i++) {
+		Deprecated();
+		/*
 		char* local_to_map = (char*)(backing_memory + (i * PAGE_SIZE));
 		page_t* local_page = get_page((uint32_t)local_to_map, 1, page_dir_kern());
 		ASSERT(local_page, "shmem_get couldn't get local page");
@@ -121,6 +126,7 @@ char* shmem_create_map(page_directory_t* dir, uint8_t* backing_memory, uint32_t 
 		client_page->frame = local_page->frame;
 		invlpg(map_destination);
 		invlpg(local_to_map);
+		*/
 	}
 
 	printf_info("shmem mapped %x in kernel to %x in client", backing_memory, unmapped_region);

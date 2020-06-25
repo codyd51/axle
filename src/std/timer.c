@@ -42,10 +42,7 @@ timer_callback_t* timer_callback_register(void* func, int interval, bool repeats
 	}
 
 	panic("timer callback table out of space");
-	//TODO expand table instead of clearing it
-	clear_table();
-	//try adding the callback again now that we know the table has room
-	return timer_callback_register(func, interval, repeats, context);
+	return NULL;
 }
 
 void timer_callback_remove(timer_callback_t* callback) {

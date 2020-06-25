@@ -52,50 +52,7 @@ int munmap(void *UNUSED(addr), uint32_t UNUSED(length)) {
     NotImplemented();
 }
 
-void* unsbrk(int UNUSED(increment)) {
-    Deprecated();
-	task_t* current = task_with_pid(getpid());
-	char* brk = (char*)current->prog_break;
-	return brk;
-}
-
-void* sbrk(int increment) {
-    Deprecated();
-	if (increment < 0) {
-		ASSERT(0, "sbrk w/ neg increment");
-		return unsbrk(increment);
-	}
-
-	task_t* current = task_with_pid(getpid());
-	char* brk = (char*)current->prog_break;
-
-	if (!increment) {
-		return brk;
-	}
-
-	current->prog_break += increment;
-
-	memset(brk, 0, increment);
-
-	//map this new memory
-	//mmap(brk, increment, 0, 0, 0);
-
-	return brk;
-}
-
-int brk(void* addr) {
-    Deprecated();
-	printf("BRK(%x)\n", addr);
-	task_t* current = task_with_pid(getpid());
-	current->prog_break = (uint32_t)addr;
-	return 0;
-}
-
 vmm_page_directory_t* vmm_clone_active_page_table_at_index(vmm_page_directory_t* dst_dir, uint32_t table_index) {
-	Deprecated();
-}
-
-vmm_page_directory_t* vmm_clone_active_pdir() {
 	Deprecated();
 }
 

@@ -97,7 +97,7 @@ int open(const char* filename, int UNUSED(oflag)) {
 }
 
 void fclose(FILE* stream) {
-	fd_remove(task_with_pid(getpid()), stream->fd);
+	//fd_remove(task_with_pid(getpid()), stream->fd);
 	kfree(stream);
 }
 
@@ -207,7 +207,9 @@ uint32_t fread(void* buffer, uint32_t size, uint32_t count, FILE* stream) {
 
 #include <kernel/util/fat/fat_dirent.h>
 int getdents(unsigned int fd, struct dirent* dirp, unsigned int count) {
+	Deprecated();
 	//TODO add fd.c function to get fd_entry from fd
+	/*
 	task_t* task = task_with_pid(getpid());
 	fd_entry ent = task->fd_table[fd];
 	if (fd_empty(ent)) {

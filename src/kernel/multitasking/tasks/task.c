@@ -126,6 +126,7 @@ void kill_task(task_t* task) {
 }
 
 void _kill() {
+    return;
     Deprecated();
     kill_task(current_task);
 }
@@ -511,8 +512,8 @@ void tasking_init_old(mlfq_option options) {
     //setup_fds(kernel);
 
     uint32_t pdir_phys;
-    vmm_pdir_t* kernel_task_pdir = vmm_clone_active_pdir();
-    vmm_load_pdir(kernel_task_pdir);
+    vmm_page_directory_t* kernel_task_pdir = vmm_clone_active_pdir();
+    vmm_load_pdir(kernel_task_pdir, false);
     move_stack(0xDFFFF000, 0x4000);
     // kernel->context.page_dir = kernel_task_pdir;
     //update the kernel directory in boot_info
@@ -660,7 +661,7 @@ task_t* first_responder() {
     return first_responder_task;
 }
 
-int fork(char* name) {
+int fork_old(char* name) {
     Deprecated();
     if (!tasking_is_active()) {
         panic("called fork() before tasking was active");
@@ -1050,6 +1051,7 @@ void force_enumerate_blocked() {
 }
 
 void become_first_responder_pid(int pid) {
+    return;
     Deprecated();
     task_t* task = task_with_pid(pid);
     if (!task) {
@@ -1074,6 +1076,7 @@ void become_first_responder_pid(int pid) {
 }
 
 void become_first_responder() {
+    return;
     Deprecated();
     become_first_responder_pid(getpid());
 }
@@ -1100,7 +1103,6 @@ void resign_first_responder() {
 }
 
 void jump_user_mode() {
-    Deprecated();
     // Set up a stack structure for switching to user mode.
     // the pop eax, or, and re-push take eflags which was pushed onto the stack,
     // and turns on the interrupt enabled flag
