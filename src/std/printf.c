@@ -354,8 +354,9 @@ int printk_err(const char* format, ...) {
 int vprintf() {
     NotImplemented();
 }
-int putchar() {
-    NotImplemented();
+int putchar(char ch) {
+    printf("%c", ch);
+    //NotImplemented();
 }
 int sprintf() {
     NotImplemented();

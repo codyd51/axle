@@ -25,7 +25,7 @@ Window* create_window_int(Rect frame, bool is_root_window);
 //has the screen been modified this refresh?
 static char dirtied = 0;
 static volatile Window* active_window;
-const int shadow_count = 3;
+const int shadow_count = 4;
 
 void xserv_quit(Screen* screen) {
 	gfx_teardown(screen);
@@ -237,6 +237,7 @@ void xserv_draw_desktop(Screen* screen) {
 								 rect_max_x(win->frame) - 1);
 		layer_add_clip_context(screen->vmem, win->layer, *adjusted);
 		kfree(adjusted);
+		draw_window_backdrop(screen, win);
 	}
 
 	//printk("Drawing %d clip rects\n", screen->vmem->clip_rects->count);
@@ -306,7 +307,12 @@ void xserv_draw_desktop(Screen* screen) {
 	}
 	*/
 	if (grabbed_window) {
-		//draw_window_shadow(screen, grabbed_window, grabbed_window->frame.origin);
+		draw_window_shadow(screen, grabbed_window, grabbed_window->frame.origin);
+	}
+
+	for (int i = 0; i < screen->window->subviews->size; i++) {
+		Window* win = array_m_lookup(screen->window->subviews, i);
+		draw_window_backdrop(screen, win);
 	}
 	redraw_count++;
 }
@@ -341,7 +347,7 @@ static void display_xterm(Point origin) {
 	out->font_size = size_make(8, 8);
 	out->text_color = color_make(30, 200, 0);
 
-	set_alpha((View*)xterm, 0.85);
+	set_alpha((View*)xterm, 0.65);
 
 	add_sublabel(xterm->content_view, out);
 	present_window(xterm);
@@ -353,7 +359,7 @@ void desktop_setup(Screen* screen) {
 	screen->window->superview = NULL;
 
 	//set up background image
-	Bmp* background = load_bmp(screen->window->frame, "bg.jpg");
+	Bmp* background = load_bmp(screen->window->frame, "colorstone.bmp");
 	if (background) {
 		add_bmp(screen->window->content_view, background);
 	}
@@ -362,8 +368,8 @@ void desktop_setup(Screen* screen) {
 	add_taskbar(screen);
 
 	display_sample_image(point_make(450, 100));
-	//calculator_xserv(point_make(400, 300));
-	display_usage_monitor(point_make(350, 500));
+	calculator_xserv(point_make(400, 300));
+	//display_usage_monitor(point_make(350, 500));
 	//display_about_window(point_make(100, 200));
 	display_about_window(point_make(50, 100));
 	display_xterm(point_make(100, 100));
@@ -391,7 +397,7 @@ void draw_cursor(Screen* screen) {
 	static bool tried_loading_cursor = false;
 
 	if (!tried_loading_cursor) {
-		//cursor = load_bmp(rect_make(point_zero(), size_make(12, 18)), "cursor.bmp");
+		cursor = load_bmp(rect_make(point_zero(), size_make(12, 18)), "cursor.bmp");
 		tried_loading_cursor = true;
 	}
 
@@ -405,7 +411,7 @@ void draw_cursor(Screen* screen) {
 	//we do not call add_bmp on the cursor
 	//we draw it manually to ensure it is always above all other content
 	if (cursor) {
-	//	draw_bmp(screen->vmem, cursor);
+		draw_bmp(screen->vmem, cursor);
 	}
 	else {
 		//couldn't load cursor, use backup
@@ -645,12 +651,14 @@ static void process_mouse_events(Screen* screen) {
 	}
 
 	if (local_owner) {
+		printf("mouse event in local owner 0x%08x, buttons size %d\n", local_owner, local_owner->buttons->size);
 		for (int j = 0; j < local_owner->buttons->size; j++) {
 			//convert point to local coordinate space
 			Point conv = world_point_to_owner_space(p);
 
 			Button* b = (Button*)array_m_lookup(local_owner->buttons, j);
 			if (rect_contains_point(b->frame, conv)) {
+				printf("rect contains point");
 				//only perform mousedown handler if mouse was previously not clicked
 				if (left && !(last_event & 0x1)) {
 					button_handle_mousedown(b);
@@ -660,6 +668,9 @@ static void process_mouse_events(Screen* screen) {
 					button_handle_mouseup(b);
 				}
 				break;
+			}
+			else {
+				printf("rect not in ");
 			}
 		}
 	}
@@ -750,11 +761,12 @@ void xserv_temp_stop(uint32_t pause_length) {
 }
 
 void xserv_init() {
-	if (sys_fork()) return;
+	//if (sys_fork()) return;
 
 	switch_to_vesa(0x118, true);
 	//become_first_responder();
 	Screen* screen = gfx_screen();
+	printf("screen 0x%08x vmem 0x%08x\n", screen, screen->vmem);
 	desktop_setup(screen);
 
 	//add FPS tracker
@@ -764,6 +776,7 @@ void xserv_init() {
 	fps->text_color = color_black();
 
 	//test_xserv();
+	/*
 	if (!sys_fork()) {
 		char* argv[] = {"ash", NULL};
 		execve(argv[0], argv, NULL);
@@ -781,7 +794,7 @@ void xserv_init() {
 	while (1) {
 		xserv_refresh(screen);
 		//sys_yield(RUNNABLE);
-		mouse_event_wait();
+		//mouse_event_wait(); 
 	}
 
 	_kill();
