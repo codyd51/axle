@@ -83,8 +83,9 @@ void irq_receive(register_state_t* regs) {
 	else {
 		printf("Unhandled IRQ: %d\n", int_no);
 	}
-	pic_signal_end_of_interrupt(int_no);
 
+	kernel_begin_critical();
+	pic_signal_end_of_interrupt(int_no);
 	int_notifier_handle_interrupt(regs);
 
 	return ret;
