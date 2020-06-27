@@ -33,6 +33,7 @@ typedef struct address_space_frame_bitmap address_space_frame_bitmap_t;
 typedef address_space_frame_bitmap_t address_space_page_bitmap_t;
 
 void addr_space_bitmap_set_address(address_space_frame_bitmap_t* bitmap, uint32_t address);
+void addr_space_bitmap_set_range(address_space_frame_bitmap_t* bitmap, uint32_t start_address, uint32_t size);
 void addr_space_bitmap_unset_address(address_space_frame_bitmap_t* bitmap, uint32_t address);
 bool addr_space_bitmap_check_address(address_space_frame_bitmap_t* bitmap, uint32_t address);
 

@@ -66,6 +66,13 @@ void addr_space_bitmap_set_address(address_space_frame_bitmap_t* bitmap, uint32_
     unlock(&bitmap->lock);
 }
 
+void addr_space_bitmap_set_range(address_space_frame_bitmap_t* bitmap, uint32_t start_address, uint32_t size) {
+    if (size & PAGE_FLAG_BITS_MASK) panic("size is not page-aligned");
+    for (uint32_t addr = start_address; addr < start_address + size; addr += PAGING_PAGE_SIZE) {
+        addr_space_bitmap_set_address(bitmap, addr);
+    }
+}
+
 void addr_space_bitmap_unset_address(address_space_frame_bitmap_t* bitmap, uint32_t address) {
     lock(&bitmap->lock);
 
