@@ -3,6 +3,7 @@
 
 #include "std_base.h"
 #include <stdint.h>
+#include <stdbool.h>
 #include <kernel/interrupts/idt_structures.h>
 
 __BEGIN_DECLS
@@ -50,7 +51,7 @@ STDAPI void insm(unsigned short port, unsigned char * data, unsigned long size);
 STDAPI void io_wait(void);
 
 //returns if interrupts are on
-STDAPI char interrupts_enabled(void);
+STDAPI bool interrupts_enabled(void);
 
 //requests CPUID
 STDAPI void cpuid(int code, uint32_t* a, uint32_t* d);

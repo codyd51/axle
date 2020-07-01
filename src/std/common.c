@@ -52,13 +52,13 @@ void io_wait(void) {
 }
 
 //returns if interrupts are on
-char interrupts_enabled(void) {
+bool interrupts_enabled(void) {
 	unsigned long flags;
 	asm volatile("	\
 		pushf;	\
 		pop %0;	\
 		" : "=g"(flags));
-	return flags & (1 << 9);
+	return (bool)(flags & (1 << 9));
 }
 
 //requests CPUID
