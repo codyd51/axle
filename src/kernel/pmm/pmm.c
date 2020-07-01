@@ -162,6 +162,19 @@ void pmm_init() {
     //map out framebuffer
     pmm_reserve_mem_region(pmm, info->framebuffer.address, info->framebuffer.size);
     pmm_reserve_mem_region(pmm, info->initrd_start, info->initrd_size);
+
+    // TODO(PT): Rename this boot_info field as it's an ELF section header table, not a symbol table
+    multiboot_elf_section_header_table_t symbol_table_info = info->symbol_table_info;
+	elf_section_header_t* sh = (elf_section_header_t*)symbol_table_info.addr;
+	uint32_t shstrtab = sh[symbol_table_info.shndx].addr;
+	for (uint32_t i = 0; i < symbol_table_info.num; i++) {
+		const char* name = (const char*)(shstrtab + sh[i].name);
+        printf_info("PMM reserving kernel ELF section %s", name);
+        pmm_reserve_mem_region(pmm, sh[i].addr, sh[i].size);
+    }
+    // map out kernel symbol table and string table from ELF image
+    pmm_reserve_mem_region(pmm, info->kernel_elf_symbol_table.strtab, info->kernel_elf_symbol_table.strtabsz);
+    pmm_reserve_mem_region(pmm, info->kernel_elf_symbol_table.symtab, info->kernel_elf_symbol_table.symtabsz);
 }
 
 //marks a block of physical memory as unallocatable
