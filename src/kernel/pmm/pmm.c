@@ -175,8 +175,7 @@ void pmm_init() {
     pmm_reserve_mem_region(pmm, info->framebuffer.address, info->framebuffer.size);
     pmm_reserve_mem_region(pmm, info->initrd_start, info->initrd_size);
 
-    // TODO(PT): Rename this boot_info field as it's an ELF section header table, not a symbol table
-    multiboot_elf_section_header_table_t symbol_table_info = info->symbol_table_info;
+    multiboot_elf_section_header_table_t symbol_table_info = info->kernel_elf_section_header_table;
 	elf_section_header_t* sh = (elf_section_header_t*)symbol_table_info.addr;
 	uint32_t shstrtab = sh[symbol_table_info.shndx].addr;
 	for (uint32_t i = 0; i < symbol_table_info.num; i++) {
