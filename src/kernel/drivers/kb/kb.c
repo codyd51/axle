@@ -1,5 +1,6 @@
 #include "kb.h"
 #include "kb_us.h"
+#include "kb_colemak.h"
 #include <std/common.h>
 #include <std/std.h>
 #include <kernel/interrupts/interrupts.h>
@@ -16,7 +17,7 @@ void kb_install() {
 	printf_info("Initializing keyboard driver...");
 
 	interrupt_setup_callback(INT_VECTOR_IRQ1, &kb_callback);
-	switch_layout(&kb_us);
+	switch_layout(&kb_colemak);
 }
 
 char kgetch() {
