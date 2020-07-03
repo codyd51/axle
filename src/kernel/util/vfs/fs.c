@@ -60,7 +60,7 @@ fs_node_t* finddir_fs(fs_node_t* node, char* name) {
 fd_entry _tab[64];
 static int _fd_count = 0;
 FILE* initrd_fopen(char* filename, char* mode) {
-	printf("initrd_fopen(\"%s\")\n", filename);
+	//printf("initrd_fopen(\"%s\")\n", filename);
 	//skip preceding ./
 	//TODO properly traverse file paths
 	while (!isalpha(*filename)) {

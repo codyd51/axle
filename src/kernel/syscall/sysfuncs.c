@@ -35,7 +35,7 @@ int lseek(int UNUSED(fd), int UNUSED(offset), int UNUSED(whence)) {
 //extern task_t* current_task;
 int exit(int code) {
 	task_small_t* current = tasking_get_current_task();
-	printf("[%s [%d]] EXIT status code %d\n", current->name, current->id, code);
+	//printf("[%s [%d]] EXIT status code %d\n", current->name, current->id, code);
 	while (1) {sys_yield(RUNNABLE);}
 	return code;
 }
