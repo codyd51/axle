@@ -7,7 +7,7 @@
 #include <kernel/segmentation/gdt_structures.h>
 
 #define TASK_QUANTUM 10
-#define MAX_TASKS 64
+#define MAX_TASKS 256
 
 static lock_t* mutex = 0;
 
