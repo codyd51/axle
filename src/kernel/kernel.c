@@ -62,6 +62,18 @@ static void kernel_idle() {
     }
 }
 
+static void exec() {
+    const char* program_name = "cat";
+
+    FILE* fp = initrd_fopen(program_name, "rb");
+    char* filename = kmalloc(32);
+    snprintf(filename, 32, "test-%d.txt", getpid());
+    char* argv[] = {program_name, filename, NULL};
+
+    elf_load_file(program_name, fp, argv);
+    while (1) {}
+}
+
 uint32_t initial_esp = 0;
 void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     initial_esp = initial_stack;
@@ -88,8 +100,13 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     syscall_init();
     
     tasking_init();
-    kernel_idle();
     initrd_init();
+
+    for (int i = 0; i < 250; i++) {
+        task_spawn(exec);
+    }
+
+    kernel_idle();
 
     while (1) {}
     //the above call should never return, but just in case...
