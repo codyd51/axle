@@ -26,6 +26,7 @@ uint32_t vas_active_map_temp(uint32_t phys_start, uint32_t size);
 bool vmm_page_table_is_present(vmm_page_directory_t* vmm_dir, uint32_t page_table_idx);
 vmm_page_table_t* _get_page_table_from_table_idx(vmm_page_directory_t* vmm_dir, uint32_t page_table_idx);
 static vmm_page_directory_t* _alloc_page_directory(bool map_allocation_bitmap);
+uint32_t _get_phys_page_table_pointer_from_table_idx(vmm_page_directory_t* vmm_dir, int page_table_idx);
 
 static volatile vmm_page_directory_t* _loaded_pdir = 0;
 static bool _has_set_up_initial_page_directory = false;
@@ -202,6 +203,42 @@ void vmm_dump(vmm_page_directory_t* vmm_dir) {
 }
 
 /*
+ * VMM validation
+ */
+
+void vmm_validate_shared_tables_in_sync(vmm_page_directory_t* vmm_modified, vmm_page_directory_t* vmm_clean) {
+    address_space_page_bitmap_t* modified_allocator = _vmm_state_bitmap(vmm_modified);
+    address_space_page_bitmap_t* clean_allocator = _vmm_state_bitmap(vmm_clean);
+
+    for (uint32_t page_table_idx = 0; page_table_idx < TABLES_IN_PAGE_DIRECTORY; page_table_idx++) {
+        if (!vmm_page_table_is_present(vmm_modified, page_table_idx) || !vmm_page_table_is_present(vmm_clean, page_table_idx)) {
+            continue;
+        }
+
+        uint32_t clean_table_phys = _get_phys_page_table_pointer_from_table_idx(vmm_clean, page_table_idx) & PAGE_DIRECTORY_ENTRY_MASK;
+        uint32_t modified_table_phys = _get_phys_page_table_pointer_from_table_idx(vmm_modified, page_table_idx) & PAGE_DIRECTORY_ENTRY_MASK;
+
+        // Only look at page tables that are shared between the two directories
+        if (modified_table_phys != clean_table_phys) {
+            continue;
+        }
+		int page_table_virt_range = PAGE_SIZE * PAGE_SIZE / 4;
+        int page_table_virt_base = page_table_virt_range * page_table_idx;
+
+        for (int page_idx = 0; page_idx < 1024; page_idx++) {
+            uint32_t page_addr = page_table_virt_base + (page_idx * PAGE_SIZE);
+
+            if (addr_space_bitmap_check_address(modified_allocator, page_addr) != addr_space_bitmap_check_address(clean_allocator, page_addr)) {
+                printf("Task %d changed allocation state of page 0x%08x\n", getpid(), page_addr);
+                printf("Shared table %d @ phys 0x%08x\n", page_table_idx, clean_table_phys);
+                printf("Shared page table maps 0x%08x - 0x%08x\n", page_table_virt_base, page_table_virt_base + page_table_virt_range);
+                panic("Not implemented: Preempted task changed allocation state of shared page table");
+            }
+        }
+    }
+}
+
+/*
  * VMM initialization
  */
 
@@ -304,7 +341,7 @@ vmm_page_table_t* _get_page_table_from_table_idx(vmm_page_directory_t* vmm_dir, 
     NotImplemented();
 }
 
-uint32_t* _get_phys_page_table_pointer_from_table_idx(vmm_page_directory_t* vmm_dir, int page_table_idx) {
+uint32_t _get_phys_page_table_pointer_from_table_idx(vmm_page_directory_t* vmm_dir, int page_table_idx) {
     uint32_t* page_tables = _get_page_tables_head(vmm_dir);
     return page_tables[page_table_idx];
 }

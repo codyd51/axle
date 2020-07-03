@@ -23,7 +23,7 @@
 
 typedef enum task_state {
     RUNNABLE = 0,
-	ZOMBIE, //intermediate state after task finishes executing before being flushed from system
+	ZOMBIE, // intermediate state after task finishes executing before being flushed from system
     KB_WAIT,
     PIT_WAIT,
 	MOUSE_WAIT,

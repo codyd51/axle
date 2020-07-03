@@ -89,5 +89,6 @@ vmm_page_directory_t* vmm_clone_pdir(vmm_page_directory_t* source_vmm_dir);
 
 uint32_t vmm_alloc_page(vmm_page_directory_t* vmm_dir, bool readwrite);
 uint32_t vmm_alloc_continuous_range(vmm_page_directory_t* vmm_dir, uint32_t size, bool readwrite);
+void vmm_validate_shared_tables_in_sync(vmm_page_directory_t* vmm_with_potential_modifications, vmm_page_directory_t* vmm_without_new_modifications);
 
 #endif

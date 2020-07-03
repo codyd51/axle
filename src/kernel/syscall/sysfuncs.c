@@ -22,6 +22,7 @@ void yield(task_state reason) {
 		task_switch();
 		return;
 	}
+
 	panic("not runnable");
 	extern task_t* current_task;
 	block_task(current_task, reason);
@@ -32,12 +33,9 @@ int lseek(int UNUSED(fd), int UNUSED(offset), int UNUSED(whence)) {
 	return 0;
 }
 
-//extern task_t* current_task;
 int exit(int code) {
-	task_small_t* current = tasking_get_current_task();
+	task_die(code);
 	//printf("[%s [%d]] EXIT status code %d\n", current->name, current->id, code);
-	while (1) {sys_yield(RUNNABLE);}
-	return code;
 }
 
 int sysfork() {

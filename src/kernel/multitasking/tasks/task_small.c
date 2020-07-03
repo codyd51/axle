@@ -202,41 +202,16 @@ void tasking_goto_task(task_small_t* new_task) {
     // Any time that page table is updated, we update all the users of the page table's allocation state bitmaps
     vmm_page_directory_t* vmm_kernel = boot_info_get()->vmm_kernel;
     vmm_page_directory_t* vmm_preempted = vmm_active_pdir();
-    address_space_page_bitmap_t* kernel_allocator = _vmm_state_bitmap(boot_info_get()->vmm_kernel);
-    address_space_page_bitmap_t* preempted_allocator = _vmm_state_bitmap(vmm_preempted);
-
-    for (uint32_t page_table_idx = 0; page_table_idx < TABLES_IN_PAGE_DIRECTORY; page_table_idx++) {
-        if (!vmm_page_table_is_present(vmm_kernel, page_table_idx) || !vmm_page_table_is_present(vmm_preempted, page_table_idx)) {
-            continue;
-        }
-
-        uint32_t kernel_table_phys = _get_phys_page_table_pointer_from_table_idx(vmm_kernel, page_table_idx) & PAGE_DIRECTORY_ENTRY_MASK;
-        uint32_t preempted_table_phys = _get_phys_page_table_pointer_from_table_idx(vmm_preempted, page_table_idx) & PAGE_DIRECTORY_ENTRY_MASK;
-
-        // Only look at page tables that are shared by the kernel and the preempted task
-        if (kernel_table_phys != preempted_table_phys) {
-            continue;
-        }
-		int page_table_virt_range = PAGE_SIZE * PAGE_SIZE / 4;
-        int page_table_virt_base = page_table_virt_range * page_table_idx;
-
-        for (int page_idx = 0; page_idx < 1024; page_idx++) {
-            uint32_t page_addr = page_table_virt_base + (page_idx * PAGE_SIZE);
-
-            if (addr_space_bitmap_check_address(preempted_allocator, page_addr)) {
-                if (!addr_space_bitmap_check_address(kernel_allocator, page_addr)) {
-                    printf("Task %d changed allocation state of page 0x%08x\n", getpid(), page_addr);
-                    printf("Shared table %d @ phys 0x%08x\n", page_table_idx, kernel_table_phys);
-                    printf("Shared page table maps 0x%08x - 0x%08x\n", page_table_virt_base, page_table_virt_base + page_table_virt_range);
-                    panic("Not implemented: Preempted task changed allocation state of page table shared with kernel");
-                }
-            }
-        }
-    }
+    //vmm_validate_shared_tables_in_sync(vmm_preempted, vmm_kernel);
 
     if (new_task->vmm != vmm_active_pdir()) {
         vmm_load_pdir(new_task->vmm, false);
     }
+
+/*
+    vmm_validate_shared_tables_in_sync(vmm_active_pdir(), vmm_kernel);
+    vmm_validate_shared_tables_in_sync(vmm_kernel, vmm_active_pdir());
+    */
 
     // Synchronize the allocation state with the kernel tables
     /*

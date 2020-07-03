@@ -159,6 +159,12 @@ static void alloc_bss(elf_s_header* shdr, int* prog_break, int* bss_loc) {
 	*bss_loc = shdr->addr;
 }
 
+static void _elf_task_bootstrap(uint32_t entry_point_ptr, uint32_t arg2) {
+    int(*entry_point)(void) = (int(*)(void))entry_point_ptr;
+    int status = entry_point();
+    task_die(status);
+}
+
 void elf_load_file(char* name, FILE* elf, char** argv) {
 	//find file size
 	fseek(elf, 0, SEEK_END);
@@ -219,7 +225,6 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 	}
 
 	if (entry_point) {
-		kernel_begin_critical();
 		//become_first_responder();
 		//vas_active_unmap_temp(sizeof(vmm_page_directory_t));
 
