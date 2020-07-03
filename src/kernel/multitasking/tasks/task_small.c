@@ -117,9 +117,20 @@ task_small_t* tasking_get_current_task() {
     return tasking_get_task_with_pid(getpid());
 }
 
-void task_die() {
-    printf("[%d] self-terminated. Spinlooping\n", getpid());
-    while (1) {asm("hlt");}
+void task_die(int exit_code) {
+    printf("[%d] self-terminated with exit %d. Zombie\n", getpid(), exit_code);
+    // TODO(PT): Clean up the resources associated with the task
+    // VMM, stack, file pointers, etc
+    tasking_get_current_task()->blocked_info.status = ZOMBIE;
+    task_switch();
+    panic("Should never be scheduled again\n");
+    //sys_yield(ZOMBIE);
+}
+
+static void _task_bootstrap(uint32_t entry_point_ptr, uint32_t arg2) {
+    int(*entry_point)(void) = (int(*)(void))entry_point_ptr;
+    int status = entry_point();
+    task_die(status);
 }
 
 task_small_t* _thread_create(void* entry_point) {
@@ -134,21 +145,14 @@ task_small_t* _thread_create(void* entry_point) {
 
     uint32_t* stack_top = (uint32_t *)(stack + stack_size - 0x4); // point to top of malloc'd stack
     //printf_info("thread_create ent 0x%08x", entry_point);
-    *(stack_top--) = entry_point;   //address of task's entry point
+    *(stack_top--) = entry_point;   // Argument to bootstrap function (which we'll then jump to)
+    *(stack_top--) = 0;     // Alignment
+    *(stack_top--) = _task_bootstrap;   // Entry point for new thread
     *(stack_top--) = 0;             //eax
     *(stack_top--) = 0;             //ebx
     *(stack_top--) = 0;             //esi
     *(stack_top--) = 0;             //edi
     *(stack_top)   = 0;             //ebp
-
-    // PT: Could have a "setup-task" entry point that looks like:
-    /*
-    - (void)_bootstrap:(void*)entry_point {
-        entry_point();
-        _kill();
-    }
-    */
-    // Thus ensuring that tasks always terminate in a defined way.
 
     new_task->machine_state = (task_context_t*)stack_top;
 
