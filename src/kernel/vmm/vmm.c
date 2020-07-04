@@ -30,6 +30,7 @@ uint32_t _get_phys_page_table_pointer_from_table_idx(vmm_page_directory_t* vmm_d
 
 static volatile vmm_page_directory_t* _loaded_pdir = 0;
 static bool _has_set_up_initial_page_directory = false;
+static uint32_t _first_page_outside_shared_kernel_tables = 0;
 
 /*
  * Control-register utility functions
@@ -69,16 +70,21 @@ address_space_page_bitmap_t* _vmm_state_bitmap(vmm_page_directory_t* vmm_dir) {
     return &vmm_dir->allocated_pages;
 }
 
-static uint32_t find_free_region(vmm_page_directory_t* vmm_dir, uint32_t region_size) {
+static uint32_t find_free_region(vmm_page_directory_t* vmm_dir, uint32_t region_size, uint32_t start_address) {
     address_space_page_bitmap_t* bitmap = _vmm_state_bitmap(vmm_dir);
 
 	uint32_t run_start_idx, run_end_idx;
 	bool in_run = false;
-    for (int i = 0; i < ADDRESS_SPACE_BITMAP_SIZE; i++) {
+    // Don't bother searching bit-frames that are below the provided address to start searching
+    for (int i = BITMAP_WORD_INDEX(start_address); i < ADDRESS_SPACE_BITMAP_SIZE; i++) {
         uint32_t vmm_pages_entry = bitmap->set[i];
 
         for (int j = 0; j < BITS_PER_BITMAP_ENTRY; j++) {
             uint32_t page_addr = (i * PAGING_PAGE_SIZE * BITS_PER_BITMAP_ENTRY) + (j * PAGING_PAGE_SIZE);
+            // Don't consider the word if it's before the provided start address
+            if (page_addr < start_address) {
+                continue;
+            }
 
             if (vmm_pages_entry & (1 << j)) {
                 if (in_run) {
@@ -265,6 +271,10 @@ void vmm_init(void) {
     _has_set_up_initial_page_directory = true;
 
     vmm_dump(kernel_vmm_pd);
+}
+
+void vmm_notify_shared_kernel_memory_allocated() {
+    _first_page_outside_shared_kernel_tables = 0x4801000;
 }
 
 static vmm_page_directory_t* _alloc_page_directory(bool map_allocation_bitmap) {
@@ -626,7 +636,7 @@ uint32_t vas_virt_alloc_continuous_range(vmm_page_directory_t* virt_vas, uint32_
     if (size & PAGE_FLAG_BITS_MASK) {
         panic("size must be page-aligned");
     }
-    uint32_t index = find_free_region(virt_vas, size);
+    uint32_t index = find_free_region(virt_vas, size, _first_page_outside_shared_kernel_tables);
     uint32_t first_page_address = index * PAGING_PAGE_SIZE;
     VAS_PRINTF("vas_phys_alloc_continuous_range found region at 0x%08x\n", first_page_address);
 
@@ -660,7 +670,7 @@ uint32_t vas_active_map_phys_range(uint32_t phys_start, uint32_t size) {
         panic("size is not page aligned");
     }
 
-    uint32_t index = find_free_region(vmm_active_pdir(), size);
+    uint32_t index = find_free_region(vmm_active_pdir(), size, _first_page_outside_shared_kernel_tables);
     uint32_t first_page_address = index * PAGING_PAGE_SIZE;
     VAS_PRINTF("vas_active_map_phys [P 0x%08x - 0x%08x] [V 0x%08x - 0x%08x]\n", phys_start, phys_start + size, first_page_address, first_page_address + size);
     for (uint32_t i = 0; i < size; i += PAGING_PAGE_SIZE) {
@@ -675,7 +685,7 @@ uint32_t vmm_alloc_continuous_range(vmm_page_directory_t* vmm_dir, uint32_t size
         size = (size & PAGING_PAGE_MASK) + PAGING_PAGE_SIZE;
     }
 
-    uint32_t index = find_free_region(vmm_dir, size);
+    uint32_t index = find_free_region(vmm_dir, size, _first_page_outside_shared_kernel_tables);
     uint32_t first_page_address = index * PAGING_PAGE_SIZE;
     printf("vmm_alloc_continuous_range found region at 0x%08x\n", first_page_address);
     // Bug here if a user PDir allocates something in a shared table
@@ -743,7 +753,7 @@ uint32_t vmm_map_phys_range(vmm_page_directory_t* vmm_dir, uint32_t phys_start, 
         size = (size & PAGING_PAGE_MASK) + PAGING_PAGE_SIZE;
     }
 
-    uint32_t index = find_free_region(vmm_dir, size);
+    uint32_t index = find_free_region(vmm_dir, size, _first_page_outside_shared_kernel_tables);
     uint32_t first_page_address = index * PAGING_PAGE_SIZE;
     for (uint32_t i = 0; i < size; i += PAGING_PAGE_SIZE) {
         uint32_t page_address = first_page_address + i;

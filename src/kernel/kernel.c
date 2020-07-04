@@ -98,9 +98,11 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     vmm_init();
     kheap_init();
     syscall_init();
-    
-    tasking_init();
     initrd_init();
+    
+    vmm_dump(boot_info_get()->vmm_kernel);
+    vmm_notify_shared_kernel_memory_allocated();
+    tasking_init();
 
     for (int i = 0; i < 250; i++) {
         task_spawn(exec);
