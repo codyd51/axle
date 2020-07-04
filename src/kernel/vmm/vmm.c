@@ -284,15 +284,40 @@ void vmm_init(void) {
     boot_info_t* info = boot_info_get();
     info->vmm_kernel = kernel_vmm_pd;
 
-    // Identity-map the lowest region of memory up to the end of the kernel image
-    vmm_identity_map_region(kernel_vmm_pd, 0x0, info->kernel_image_end);
+    // Identity map kernel code + data and other resources that we want to be identity-mapped after enabling paging
+    // Some of these regions overlap with each other, which is fine. We just want to ensure every one of these 
+    // regions is identity-mapped.
 
-    // Identity-map a memory region just above the kernel image
-    // This allows the PMM to allocate some frames before paging is enabled, 
+    // Identity map low memory, 
+    vmm_identity_map_region(kernel_vmm_pd, 0x0, info->kernel_image_start);
+    printf("kernel image start 0x%08x\n", info->kernel_image_start);
+    // Each kernel ELF section,
+    multiboot_elf_section_header_table_t symbol_table_info = info->symbol_table_info;
+	elf_section_header_t* sh = (elf_section_header_t*)symbol_table_info.addr;
+	uint32_t shstrtab = sh[symbol_table_info.shndx].addr;
+	for (uint32_t i = 0; i < symbol_table_info.num; i++) {
+		const char* name = (const char*)(shstrtab + sh[i].name);
+        printf("VMM identity map ELF section %s\n", name);
+        vmm_identity_map_region(kernel_vmm_pd, sh[i].addr, sh[i].size);
+    }
+    // Kernel symbol table and string table,
+    vmm_identity_map_region(kernel_vmm_pd, info->kernel_elf_symbol_table.strtab, info->kernel_elf_symbol_table.strtabsz);
+    vmm_identity_map_region(kernel_vmm_pd, info->kernel_elf_symbol_table.symtab, info->kernel_elf_symbol_table.symtabsz);
+    // Kernel code+data,
+    vmm_identity_map_region(kernel_vmm_pd, info->kernel_image_start, info->kernel_image_size);
+    // VGA text-mode framebuffer,
+    vmm_identity_map_region(kernel_vmm_pd, info->framebuffer.address, info->framebuffer.size);
+    // Ramdisk,
+    vmm_identity_map_region(kernel_vmm_pd, info->initrd_start, info->initrd_size);
+    // And an extra region above the kernel image. 
+    // This region allows the PMM to allocate some frames before paging is enabled, 
     // and to have those frames accessible as-is once paging is enabled.
-    // *** We currently reserve 1MB ***
     uint32_t extra_identity_mapped_block_size = 0x400000;
     vmm_identity_map_region(kernel_vmm_pd, info->kernel_image_end, extra_identity_mapped_block_size);
+    // Identity map up to where the initial VMM was allocated
+    uint32_t last_mapped_addr = info->kernel_image_end + extra_identity_mapped_block_size;
+    uint32_t initial_page_dir_phys_end = (uint32_t)kernel_vmm_pd + sizeof(vmm_page_directory_t);
+    vmm_identity_map_region(kernel_vmm_pd, last_mapped_addr, (initial_page_dir_phys_end - last_mapped_addr));
 
     interrupt_setup_callback(INT_VECTOR_INT14, (int_callback_t)page_fault);
     vmm_load_pdir(kernel_vmm_pd, true);
