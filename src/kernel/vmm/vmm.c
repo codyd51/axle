@@ -412,6 +412,17 @@ static void vmm_page_table_alloc(vmm_page_directory_t* vmm_dir, int page_table_i
     if (vmm_page_table_is_present(vmm_dir, page_table_idx)) {
         panic("table already allocd");
     }
+
+    // Protect against allocating new tables in the shared kernel directory
+    if (vmm_dir == boot_info_get()->vmm_kernel) {
+        // Have we already allocated all the "static" kernel memory?
+        if (_first_page_outside_shared_kernel_tables > 0) {
+            printf("Cannot alloc new PTs in kernel dir after allocating static memory.\n");
+            printf("Tried to alloc PT %d\n", page_table_idx);
+            panic("Cannot alloc new page tables in kernel!");
+        }
+    }
+
     uint32_t new_table = pmm_alloc();
     VAS_PRINTF("Page table alloc @ 0x%08x (maps 0x%08x - 0x%08x)\n", new_table, (page_table_idx * 1024 * 1024 * 4), ((page_table_idx + 1) * 1024 * 1024 * 4));
 
