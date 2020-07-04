@@ -302,7 +302,7 @@ void vmm_init(void) {
 }
 
 void vmm_notify_shared_kernel_memory_allocated() {
-    _first_page_outside_shared_kernel_tables = 0x4801000;
+    _first_page_outside_shared_kernel_tables = 0x6000000;
 }
 
 static vmm_page_directory_t* _alloc_page_directory(bool map_allocation_bitmap) {
@@ -733,7 +733,25 @@ void vmm_map_region(vmm_page_directory_t* vmm_dir, uint32_t start_addr, uint32_t
     NotImplemented();
 }
 
+bool vmm_address_is_mapped(vmm_page_directory_t* vmm_dir, uint32_t page_addr) {
+    return vmm_bitmap_check_address(vmm_dir, page_addr);
+}
+
+uint32_t vmm_get_phys_address_for_mapped_page(vmm_page_directory_t* vmm_dir, uint32_t page_addr) {
+    if (!vmm_address_is_mapped(vmm_dir, page_addr)) {
+        panic("Address is not mapped\n");
+    }
+    vmm_page_table_t* table = vmm_table_for_page_addr(vmm_dir, page_addr, false);
+    if (!table) {
+        panic("failed to get page table");
+    }
+    uint32_t page_idx = vmm_page_idx_within_table_for_virt_addr(page_addr);
+    return table->pages[vmm_page_idx_within_table_for_virt_addr(page_addr)].frame_idx * PAGING_FRAME_SIZE;
+}
+
 void vmm_identity_map_region(vmm_page_directory_t* vmm_dir, uint32_t start_addr, uint32_t size) {
+    start_addr = addr_space_page_floor(start_addr);
+    size = addr_space_page_ceil(size);
     if (start_addr & PAGE_FLAG_BITS_MASK) {
         panic("vmm_identity_map_region start not page aligned");
     }
@@ -741,8 +759,13 @@ void vmm_identity_map_region(vmm_page_directory_t* vmm_dir, uint32_t start_addr,
         panic("vmm_identity_map_region size not page aligned");
     }
 
-    VAS_PRINTF("Identity mapping from 0x%08x to 0x%08x", start_addr, start_addr + size);
+    VAS_PRINTF("Identity mapping from 0x%08x to 0x%08x\n", start_addr, start_addr + size);
     for (uint32_t addr = start_addr; addr < start_addr + size; addr += PAGE_SIZE) {
+        if (vmm_address_is_mapped(vmm_dir, addr)) {
+            uint32_t frame = vmm_get_phys_address_for_mapped_page(vmm_dir, addr);
+            assert(frame == addr, "Expected page to be identity-mapped");
+            continue;
+        }
         vmm_identity_map_page(vmm_dir, addr);
     }
 }
