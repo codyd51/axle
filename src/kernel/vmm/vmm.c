@@ -706,8 +706,21 @@ uint32_t vas_active_map_phys_range(uint32_t phys_start, uint32_t size) {
         panic("size is not page aligned");
     }
 
-    uint32_t index = find_free_region(vmm_active_pdir(), size, _first_page_outside_shared_kernel_tables);
+    // If we're mapping in the root directory, we're allowed to allocate within a shared page table
+    // TODO(PT): Now that the shared tables bitmap allocation state is globally shared, 
+    // we might not need to restrict allocations like this anymore.
+    // However, we'll still need to guard against things like an allocation spilling into unshared memory
+    uint32_t alloc_min_address = 0x0;
+    if (vmm_active_pdir() == boot_info_get()->vmm_kernel) {
+        alloc_min_address = 0x0;
+    }
+    // Otherwise, we must map within non-shared page tables
+    else {
+        alloc_min_address = _first_page_outside_shared_kernel_tables;
+    }
+    uint32_t index = find_free_region(vmm_active_pdir(), size, alloc_min_address);
     uint32_t first_page_address = index * PAGING_PAGE_SIZE;
+
     VAS_PRINTF("vas_active_map_phys [P 0x%08x - 0x%08x] [V 0x%08x - 0x%08x]\n", phys_start, phys_start + size, first_page_address, first_page_address + size);
     for (uint32_t i = 0; i < size; i += PAGING_PAGE_SIZE) {
         uint32_t page_address = first_page_address + i;
