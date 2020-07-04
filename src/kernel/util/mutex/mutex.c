@@ -26,13 +26,16 @@ lock_t* lock_create() {
 
 void lock(lock_t* lock) {
 	if (!lock) return;
+	if (!tasking_is_active()) return;
 	while (cmp_swap(&lock->flag, 0, 1) == 1) {
 		//spin
 		;
+		asm("pause");
 	}
 }
 
 void unlock(lock_t* lock) {
 	if (!lock) return;
+	if (!tasking_is_active()) return;
 	lock->flag = 0;
 }
