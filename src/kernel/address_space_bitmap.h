@@ -8,12 +8,17 @@
 //frame bitsets needed to cover entire address space
 //32 frames total
 #define ADDRESS_SPACE_BITMAP_SIZE 0x8000
+#define PAGE_SIZE 0x1000
 
 //number of bool values stored by one entry in the address_space_frame_bitset.set array.
 #define BITS_PER_BITMAP_ENTRY (sizeof(uint32_t) * BITS_PER_BYTE)
-//translate a {word index, bit-within-word index} pari to
+//translate a {word index, bit-within-word index} pair to
 //the absolute bit index into the bitset
 #define BITMAP_BIT_INDEX(x, y) ((x) * BITS_PER_BITMAP_ENTRY + (y))
+// translate an address into the index of the 32-bit word that contains its corresponding bit
+#define BITMAP_WORD_INDEX(addr) (addr / (PAGE_SIZE * BITS_PER_BITMAP_ENTRY))
+// translate an address into the bit-index within 32-bit word that contains its corresponding bit
+#define BITMAP_INDEX_WITHIN_WORD(addr) ((addr % (PAGE_SIZE * BITS_PER_BITMAP_ENTRY) / PAGE_SIZE))
 
 typedef struct address_space_frame_bitset {
     //bitset where each bit refers to a 4kb frame

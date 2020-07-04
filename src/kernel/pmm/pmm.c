@@ -2,14 +2,18 @@
 #include <kernel/assert.h>
 #include <kernel/boot_info.h>
 #include <kernel/address_space_bitmap.h>
+#include <kernel/util/mutex/mutex.h>
 
 #include <std/common.h>
 
 #include "pmm.h"
 
+static lock_t _pmm_lock = {0};
+
 void pmm_reserve_mem_region(pmm_state_t* pmm, uint32_t start, uint32_t size);
 
 static uint32_t find_free_region(pmm_state_t* pmm, uint32_t region_size) {
+    lock(&_pmm_lock);
 	uint32_t run_start_idx, run_end_idx;
 	bool in_run = false;
     for (int i = 0; i < ADDRESS_SPACE_BITMAP_SIZE; i++) {
@@ -40,6 +44,7 @@ static uint32_t find_free_region(pmm_state_t* pmm, uint32_t region_size) {
                 run_end_idx = BITMAP_BIT_INDEX(i, j);
                 uint32_t run_size = run_end_idx - run_start_idx;
                 if (run_size >= (region_size / PAGING_FRAME_SIZE)) {
+                    unlock(&_pmm_lock);
                     return run_start_idx;
                 }
             }
@@ -50,6 +55,7 @@ static uint32_t find_free_region(pmm_state_t* pmm, uint32_t region_size) {
 }
 
 static uint32_t first_usable_pmm_index(pmm_state_t* pmm) {
+    lock(&_pmm_lock);
     for (int i = 0; i < ADDRESS_SPACE_BITMAP_SIZE; i++) {
         uint32_t system_frames_entry = pmm->system_accessible_frames.set[i];
         //skip early if either of these entries are unusable
@@ -77,6 +83,7 @@ static uint32_t first_usable_pmm_index(pmm_state_t* pmm) {
             }
             //we found a bit which was on in the list of accessible frames,
             //and off in the list of allocated frames
+            unlock(&_pmm_lock);
             return BITMAP_BIT_INDEX(i, j);
         }
     }
@@ -167,6 +174,7 @@ void pmm_reserve_mem_region(pmm_state_t* pmm, uint32_t start, uint32_t size) {
 }
 
 void pmm_alloc_address(uint32_t address) {
+    lock(&_pmm_lock);
     pmm_state_t* pmm = pmm_get();
     //has this frame already been alloc'd?
     if (addr_space_bitmap_check_address(&pmm->allocation_state, address)) {
@@ -174,6 +182,7 @@ void pmm_alloc_address(uint32_t address) {
         panic("PMM double alloc");
     }
     addr_space_bitmap_set_address(&pmm->allocation_state, address);
+    unlock(&_pmm_lock);
 }
 
 uint32_t pmm_alloc(void) {
@@ -185,6 +194,7 @@ uint32_t pmm_alloc(void) {
 }
 
 uint32_t pmm_alloc_continuous_range(uint32_t size) {
+    lock(&_pmm_lock);
     pmm_state_t* pmm = pmm_get();
     if (size & PAGE_FLAG_BITS_MASK) {
         size = (size & PAGING_FRAME_MASK) + PAGING_FRAME_SIZE;
@@ -195,6 +205,7 @@ uint32_t pmm_alloc_continuous_range(uint32_t size) {
         uint32_t frame_address = first_frame_address + i;
         pmm_alloc_address(frame_address);
     }
+    unlock(&_pmm_lock);
     return first_frame_address;
 }
 
