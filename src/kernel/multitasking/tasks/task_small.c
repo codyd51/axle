@@ -195,34 +195,15 @@ void tasking_goto_task(task_small_t* new_task) {
     new_task->current_timeslice_start_date = now;
     new_task->current_timeslice_end_date = now + TASK_QUANTUM;
 
-    // Synchronize the allocation state with the kernel tables
-    // If the previously running task allocated memory within a shared page table,
-    // then every VMM that shares the page table needs its allocation state updated.
-    // Maybe we keep a linked-list of VMMs that share a page table
-    // Any time that page table is updated, we update all the users of the page table's allocation state bitmaps
-    vmm_page_directory_t* vmm_kernel = boot_info_get()->vmm_kernel;
-    vmm_page_directory_t* vmm_preempted = vmm_active_pdir();
-    vmm_validate_shared_tables_in_sync(vmm_preempted, vmm_kernel);
+    // Ensure that any shared page tables between the kernel and the preempted VMM have an in-sync allocation state
+    // This check should no longer be needed, since allocations within the shared kernel pages are always
+    // marked within the shared kernel bitmap. 
+    // However, keep the check in to ensure this never regresses.
+    vmm_validate_shared_tables_in_sync(vmm_active_pdir(), boot_info_get()->vmm_kernel);
 
     if (new_task->vmm != vmm_active_pdir()) {
         vmm_load_pdir(new_task->vmm, false);
     }
-
-    vmm_validate_shared_tables_in_sync(vmm_active_pdir(), vmm_kernel);
-    vmm_validate_shared_tables_in_sync(vmm_kernel, vmm_active_pdir());
-
-    // Synchronize the allocation state with the kernel tables
-    /*
-    address_space_page_bitmap_t* new_allocator = (address_space_page_bitmap_t*)(ACTIVE_PAGE_BITMAP_HEAD);
-    for (uint32_t page = 0; page < 1024 * 1024 * 512; page += PAGE_SIZE) {
-        if (addr_space_bitmap_check_address(kernel_allocator, page)) {
-            if (!addr_space_bitmap_check_address(new_allocator, page)) {
-                printf("Page is allocd in kernel bitmap but not %d bitmap: 0x%08x\n", new_task->id, page);
-                panic("kernel state is aheard of task state");
-            }
-        }
-    }
-    */
 
     // this method will update _current_task_small
     // this method performs the actual context switch and also updates _current_task_small
