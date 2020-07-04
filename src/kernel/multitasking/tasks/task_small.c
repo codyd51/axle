@@ -144,15 +144,17 @@ task_small_t* _thread_create(void* entry_point) {
     memset(stack, 0, stack_size);
 
     uint32_t* stack_top = (uint32_t *)(stack + stack_size - 0x4); // point to top of malloc'd stack
-    //printf_info("thread_create ent 0x%08x", entry_point);
-    *(stack_top--) = entry_point;   // Argument to bootstrap function (which we'll then jump to)
-    *(stack_top--) = 0;     // Alignment
-    *(stack_top--) = _task_bootstrap;   // Entry point for new thread
-    *(stack_top--) = 0;             //eax
-    *(stack_top--) = 0;             //ebx
-    *(stack_top--) = 0;             //esi
-    *(stack_top--) = 0;             //edi
-    *(stack_top)   = 0;             //ebp
+    if (entry_point) {
+        //printf_info("thread_create ent 0x%08x", entry_point);
+        *(stack_top--) = entry_point;   // Argument to bootstrap function (which we'll then jump to)
+        *(stack_top--) = 0;     // Alignment
+        *(stack_top--) = _task_bootstrap;   // Entry point for new thread
+        *(stack_top--) = 0;             //eax
+        *(stack_top--) = 0;             //ebx
+        *(stack_top--) = 0;             //esi
+        *(stack_top--) = 0;             //edi
+        *(stack_top)   = 0;             //ebp
+    }
 
     new_task->machine_state = (task_context_t*)stack_top;
 
