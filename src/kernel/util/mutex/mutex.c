@@ -18,6 +18,9 @@ static char cmp_swap(int *ptr, int expected, int new_val) {
 	return ret;
 }
 
+/* Compile read-write barrier */
+#define barrier() asm volatile("": : :"memory")
+
 lock_t* lock_create() {
 	lock_t* ret = (lock_t*)kmalloc(sizeof(lock_t));
 	ret->flag = 0;
@@ -37,5 +40,6 @@ void lock(lock_t* lock) {
 void unlock(lock_t* lock) {
 	if (!lock) return;
 	if (!tasking_is_active()) return;
+	barrier();
 	lock->flag = 0;
 }
