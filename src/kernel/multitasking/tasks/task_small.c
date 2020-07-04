@@ -202,16 +202,14 @@ void tasking_goto_task(task_small_t* new_task) {
     // Any time that page table is updated, we update all the users of the page table's allocation state bitmaps
     vmm_page_directory_t* vmm_kernel = boot_info_get()->vmm_kernel;
     vmm_page_directory_t* vmm_preempted = vmm_active_pdir();
-    //vmm_validate_shared_tables_in_sync(vmm_preempted, vmm_kernel);
+    vmm_validate_shared_tables_in_sync(vmm_preempted, vmm_kernel);
 
     if (new_task->vmm != vmm_active_pdir()) {
         vmm_load_pdir(new_task->vmm, false);
     }
 
-/*
     vmm_validate_shared_tables_in_sync(vmm_active_pdir(), vmm_kernel);
     vmm_validate_shared_tables_in_sync(vmm_kernel, vmm_active_pdir());
-    */
 
     // Synchronize the allocation state with the kernel tables
     /*
