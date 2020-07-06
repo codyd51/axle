@@ -71,7 +71,6 @@ static void exec() {
     char* argv[] = {program_name, filename, NULL};
 
     elf_load_file(program_name, fp, argv);
-    while (1) {}
 }
 
 uint32_t initial_esp = 0;
@@ -104,7 +103,7 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     vmm_notify_shared_kernel_memory_allocated();
     tasking_init();
 
-    for (int i = 0; i < 250; i++) {
+    for (int i = 0; i < 512; i++) {
         task_spawn(exec);
     }
 

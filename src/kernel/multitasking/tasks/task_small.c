@@ -230,7 +230,7 @@ int getpid() {
 }
 
 bool tasking_is_active() {
-    return _current_task_small != 0;
+    return _current_task_small != 0 && pit_callback != 0;
 }
 
 static void tasking_timer_tick() {

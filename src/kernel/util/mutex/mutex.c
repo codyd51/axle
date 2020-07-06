@@ -31,8 +31,7 @@ void lock(lock_t* lock) {
 	if (!lock) return;
 	if (!tasking_is_active()) return;
 	while (cmp_swap(&lock->flag, 0, 1) == 1) {
-		//spin
-		;
+		// Inform the CPU we're in a spin-loop
 		asm("pause");
 	}
 }
