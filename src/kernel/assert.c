@@ -8,7 +8,7 @@ void _panic(const char* msg, const char* file, int line) {
     asm("cli");
     printf("\nAssertion failed: %s\n", msg);
     printf("%s:%d\n", file, line);
-    if (false) {
+    if (true) {
         printf("Stack trace:\n");
         uint32_t stack_addrs[_BACKTRACE_SIZE] = {0};
         walk_stack(stack_addrs, _BACKTRACE_SIZE);
