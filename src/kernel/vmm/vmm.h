@@ -24,7 +24,7 @@
 #define TABLES_IN_PAGE_DIRECTORY 1024
 #define ACTIVE_PAGE_DIRECTORY_HEAD 0xFFFFF000
 #define ACTIVE_PAGE_TABLE_ARRAY_HEAD 0xFFC00000
-#define ACTIVE_PAGE_BITMAP_HEAD (ACTIVE_PAGE_TABLE_ARRAY_HEAD - sizeof(address_space_page_bitmap_t))
+#define ACTIVE_PAGE_BITMAP_HEAD (addr_space_page_floor(ACTIVE_PAGE_TABLE_ARRAY_HEAD - sizeof(address_space_page_bitmap_t)))
 
 // TODO(PT): Flat structure for physically placed vas_state.
 // Virtual structure with pointers to ACTIVE_* or otherwise mapped structures

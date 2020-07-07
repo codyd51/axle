@@ -9,8 +9,6 @@
 #define TASK_QUANTUM 10
 #define MAX_TASKS 1024
 
-static lock_t* mutex = 0;
-
 static volatile int next_pid = 0;
 
 task_small_t* _current_task_small = 0;
@@ -170,7 +168,9 @@ task_small_t* thread_spawn(void* entry_point) {
 }
 
 task_small_t* task_spawn(void* entry_point) {
-    lock(mutex);
+    static lock_t _lock;
+    lock(&_lock);
+
     // Use the internal thread-state constructor so that this task won't get
     // scheduled until we've had a chance to set all of its state
     task_small_t* new_task = _thread_create(entry_point);
@@ -182,7 +182,7 @@ task_small_t* task_spawn(void* entry_point) {
     // Task is now ready to run - make it schedulable
     _tasking_add_task_to_runlist(new_task);
 
-    unlock(mutex);
+    unlock(&_lock);
     return new_task;
 }
 
@@ -190,8 +190,10 @@ task_small_t* task_spawn(void* entry_point) {
  * Immediately preempt the running task and begin running the provided one.
  */
 void tasking_goto_task(task_small_t* new_task) {
+    static lock_t _lock;
+    lock(&_lock);
     kernel_begin_critical();
-    lock(mutex);
+
     //assert(new_task != _current_task_small, "new_task == _current task");
     uint32_t now = time();
     new_task->current_timeslice_start_date = now;
@@ -209,7 +211,7 @@ void tasking_goto_task(task_small_t* new_task) {
 
     // this method will update _current_task_small
     // this method performs the actual context switch and also updates _current_task_small
-    unlock(mutex);
+    unlock(&_lock);
     context_switch(new_task);
 }
 
@@ -283,8 +285,6 @@ void tasking_init() {
         panic("called tasking_init() after it was already active");
         return;
     }
-
-	mutex = lock_create();
 
     // create first task
     // for the first task, the entry point argument is thrown away. Here is why:

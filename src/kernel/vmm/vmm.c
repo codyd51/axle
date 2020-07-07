@@ -728,6 +728,7 @@ uint32_t vas_active_map_phys_range(uint32_t phys_start, uint32_t size) {
         panic("phys_start is not page aligned");
     }
     if (size & PAGE_FLAG_BITS_MASK) {
+        printf("size 0x%08x\n", size);
         panic("size is not page aligned");
     }
 
@@ -801,10 +802,12 @@ uint32_t vmm_get_phys_address_for_mapped_page(vmm_page_directory_t* vmm_dir, uin
 void vmm_identity_map_region(vmm_page_directory_t* vmm_dir, uint32_t start_addr, uint32_t size) {
     start_addr = addr_space_page_floor(start_addr);
     size = addr_space_page_ceil(size);
+
     if (start_addr & PAGE_FLAG_BITS_MASK) {
         panic("vmm_identity_map_region start not page aligned");
     }
     if (size & ~PAGING_FRAME_MASK) {
+        printf("size: 0x%08x\n", size);
         panic("vmm_identity_map_region size not page aligned");
     }
 
@@ -827,7 +830,8 @@ void vmm_map_region_phys_to_virt(vmm_page_directory_t* vmm_dir, uint32_t phys_st
         panic("vmm_map_region_phys_to_virt virt_start start not page aligned");
     }
     if (size & ~PAGING_FRAME_MASK) {
-        panic("vmm_identity_map_region size not page aligned");
+        printf("size: 0x%08x\n", size);
+        panic("vmm_map_region_phys_to_virt size not page aligned");
     }
 
     VAS_PRINTF("VAS 0x%08x: Mapping phys 0x%08x - 0x%08x to virt 0x%08x - 0x%08x\n", vmm_dir, phys_start, phys_start + size, virt_start, virt_start + size);
