@@ -3,6 +3,7 @@
 
 #include "std_base.h"
 #include <kernel/assert.h>
+#include <kernel/util/mutex/mutex.h>
 #include <stdint.h>
 
 __BEGIN_DECLS
@@ -15,6 +16,7 @@ typedef struct {
 	type_t* array;
 	int32_t size;
 	int32_t max_size;
+	lock_t lock;
 } array_m;
 
 //create mutable array

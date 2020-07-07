@@ -2,11 +2,7 @@
 #include "std.h"
 #include <kernel/util/mutex/mutex.h>
 
-static lock_t* mutex;
-
 array_l* array_l_create() {
-	mutex = lock_create();
-
 	array_l* ret = (array_l*)kmalloc(sizeof(array_l));
 	memset(ret, 0, sizeof(array_l));
 
@@ -14,18 +10,34 @@ array_l* array_l_create() {
 }
 
 void array_l_destroy(array_l* array) {
+	// This function can't be used with a locking wrapper because it frees the lock memory
+	lock(&array->lock);
 	array_l_item* tmp = array->head;
 	while (tmp) {
 		array_l_item* next = tmp->next;
 		kfree(tmp);
 		tmp = next;
 	}
+	unlock(&array->lock);
 	kfree(array);
 }
 
-void array_l_insert(array_l* array, type_t item) {
+static type_t _array_l_lookup_unlocked(array_l* array, int32_t idx) {
+	ASSERT(idx < array->size && idx >= 0, "index (%d) was out of bounds (%d)", idx, array->size - 1);
+
+	//walk list
+	array_l_item* tmp = array->head;
+	for (int i = 0; i < idx; i++) {
+		tmp = tmp->next;
+	}
+	if (tmp) {
+		return tmp->item;
+	}
+	return NULL;
+}
+
+static void _array_l_insert_unlocked(array_l* array, type_t item) {
 	printk("array_l_insert %x\n", item);
-	//lock(mutex);
 
 	//create container
 	array_l_item* real = (array_l_item*)kmalloc(sizeof(array_l_item));
@@ -34,7 +46,7 @@ void array_l_insert(array_l* array, type_t item) {
 
 	//extend list
 	if (array->head) {
-		array_l_item* last = array_l_lookup(array, array->size - 1);
+		array_l_item* last = _array_l_lookup_unlocked(array, array->size - 1);
 		printk("adding item to list, last %x\n", last);
 		last->next = real;
 	}
@@ -44,11 +56,9 @@ void array_l_insert(array_l* array, type_t item) {
 
 	//increase size
 	array->size++;
-
-	//unlock(mutex);
 }
 
-int32_t array_l_index(array_l* array, type_t item) {
+static int32_t _array_l_index_unlocked(array_l* array, type_t item) {
 	//walk list to find item
 	array_l_item* tmp = array->head;
 	int idx = 0;
@@ -63,9 +73,7 @@ int32_t array_l_index(array_l* array, type_t item) {
 	return -1;
 }
 
-void array_l_remove(array_l* array, int32_t idx) {
-	//lock(mutex);
-
+static void _array_l_remove_unlocked(array_l* array, int32_t idx) {
 	ASSERT(idx < array->size && idx >= 0, "can't remove object at index (%d) in array with (%d) elements", idx, array->size);
 
 	array_l_item* tmp = array->head;
@@ -102,6 +110,34 @@ void array_l_remove(array_l* array, int32_t idx) {
 	//kfree(to_remove);
 
 	array->size--;
+}
 
-//	unlock(mutex);
+/*
+ * Public API wrappers
+ * Enforces mutex on array reads and writes
+ */
+
+void array_l_insert(array_l* array, type_t item) {
+	lock(&array->lock);
+	_array_l_insert_unlocked(array, item);
+	unlock(&array->lock);
+}
+
+int32_t array_l_index(array_l* array, type_t item) {
+	lock(&array->lock);
+	int32_t ret = _array_l_index_unlocked(array, item);
+	unlock(&array->lock);
+	return ret;
+}
+
+void array_l_remove(array_l* array, int32_t idx) {
+	lock(&array->lock);
+	_array_l_remove_unlocked(array, idx);
+	unlock(&array->lock);
+}
+
+type_t array_l_lookup(array_l* array, int32_t idx) {
+	lock(&array->lock);
+	_array_l_lookup_unlocked(array, idx);
+	unlock(&array->lock);
 }

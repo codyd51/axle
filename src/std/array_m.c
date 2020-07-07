@@ -2,12 +2,9 @@
 #include "std.h"
 #include <kernel/util/mutex/mutex.h>
 
-static lock_t* mutex;
-
 array_m* array_m_create(int32_t max_size) {
-	mutex = lock_create();
-
 	array_m* ret = (array_m*)kmalloc(sizeof(array_m));
+	memset(ret, 0, sizeof(ret));
 	ret->size = 0;
 	ret->max_size = max_size;
     ret->array = (type_t*)calloc(max_size, sizeof(type_t));
@@ -15,43 +12,30 @@ array_m* array_m_create(int32_t max_size) {
 }
 
 array_m* array_m_place(void* addr, int32_t max_size) {
-	mutex = lock_create();
-
-	array_m* ret = (array_m*)kmalloc(sizeof(array_m));
-	ret->size = 0;
-	ret->max_size = max_size;
-	ret->array = (type_t)addr;
-	memset(ret->array, 0, max_size * sizeof(type_t));
-	return ret;
+	Deprecated();
+	return NULL;
 }
 
 void array_m_destroy(array_m* array) {
 	kfree(array);
 }
 
-void array_m_insert(array_m* array, type_t item) {
-	lock(mutex);
-
+static void _array_m_insert_unlocked(array_m* array, type_t item) {
 	// Make sure we can't go over the allocated size
 	ASSERT(array->size + 1 <= array->max_size, "array would exceed max_size (%d)", array->max_size);
 
 	// Add item to array
 	array->array[array->size++] = item;
-
-	unlock(mutex);
 }
 
-int32_t array_m_index(array_m* array, type_t item) {
-	//TODO optimize this
+static int32_t _array_m_index_unlocked(array_m* array, type_t item) {
 	for (int32_t i = 0; i < array->size; i++) {
 		if (array_m_lookup(array, i) == item) return i;
 	}
 	return -1;
 }
 
-void array_m_remove(array_m* array, int32_t i) {
-	lock(mutex);
-
+static void _array_m_remove_unlocked(array_m* array, int32_t i) {
 	ASSERT(i < array->size && i >= 0, "can't remove object at index (%d) in array with (%d) elements", i, array->size);
 
 	//shift back all elements
@@ -60,6 +44,27 @@ void array_m_remove(array_m* array, int32_t i) {
 		i++;
 	}
 	array->size--;
+}
 
-	unlock(mutex);
+/*
+ * Public API wrappers
+ * Enforces mutex on array reads and writes
+ */
+
+void array_m_insert(array_m* array, type_t item) {
+	lock(&array->lock);
+	_array_m_insert_unlocked(array, item);
+	unlock(&array->lock);
+}
+
+int32_t array_m_index(array_m* array, type_t item) {
+	lock(&array->lock);
+	_array_m_index_unlocked(array, item);
+	unlock(&array->lock);
+}
+
+void array_m_remove(array_m* array, int32_t i) {
+	lock(&array->lock);
+	_array_m_remove_unlocked(array, i);
+	unlock(&array->lock);
 }

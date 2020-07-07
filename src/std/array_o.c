@@ -7,6 +7,7 @@ int8_t standard_lessthan_predicate(type_t a, type_t b) {
 
 array_o* array_o_create(uint32_t max_size, lessthan_predicate_t less_than) {
 	array_o* ret = (array_o*)kmalloc(sizeof(array_o));
+	memset(ret, 0, sizeof(array_o));
 	ret->array = array_m_create(max_size);
 	ret->size = ret->array->size;
 	ret->less_than = less_than;
@@ -14,18 +15,16 @@ array_o* array_o_create(uint32_t max_size, lessthan_predicate_t less_than) {
 }
 
 array_o* array_o_place(void* addr, uint32_t max_size, lessthan_predicate_t less_than) {
-	array_o* ret = (array_o*)kmalloc(sizeof(array_o));
-	ret->array = array_m_place(addr, max_size);
-	ret->size = ret->array->size;
-	ret->less_than = less_than;
-	return ret;
+	Deprecated();
+	return NULL;
 }
 
 void array_o_destroy(array_o* array) {
-	array_m_destroy(array->array);
+	Deprecated();
+	//array_m_destroy(array->array);
 }
 
-void array_o_insert(array_o* array, type_t item) {
+static void _array_o_insert_unlocked(array_o* array, type_t item) {
 	ASSERT(array->less_than, "ordered array didn't have a less-than predicate!");
 	ASSERT(array->array->size < array->array->max_size - 1, "array_o would exceed max_size (%d)", array->array->max_size);
 
@@ -54,16 +53,44 @@ void array_o_insert(array_o* array, type_t item) {
 	}
 }
 
-type_t array_o_lookup(array_o* array, uint32_t i) {
+static type_t _array_o_lookup_unlocked(array_o* array, uint32_t i) {
 	return array_m_lookup(array->array, i);
 }
 
-uint16_t array_o_index(array_o* array, type_t item) {
+static uint16_t _array_o_index_unlocked(array_o* array, type_t item) {
 	return array_m_index(array->array, item);
 }
 
-void array_o_remove(array_o* array, uint32_t i) {
+static void _array_o_remove_unlocked(array_o* array, uint32_t i) {
 	array_m_remove(array->array, i);
 	array->size = array->array->size;
 }
 
+/*
+ * Public API wrappers
+ * Enforces mutex on array reads and writes
+ */
+
+void array_o_insert(array_o* array, type_t item) {
+	lock(&array->lock);
+	_array_o_insert_unlocked(array, item);
+	unlock(&array->lock);
+}
+
+type_t array_o_lookup(array_o* array, uint32_t i) {
+	lock(&array->lock);
+	_array_o_lookup_unlocked(array, i);
+	unlock(&array->lock);
+}
+
+uint16_t array_o_index(array_o* array, type_t item) {
+	lock(&array->lock);
+	_array_o_index_unlocked(array, item);
+	unlock(&array->lock);
+}
+
+void array_o_remove(array_o* array, uint32_t i) {
+	lock(&array->lock);
+	_array_o_remove_unlocked(array, i);
+	unlock(&array->lock);
+}

@@ -16,6 +16,7 @@ typedef struct {
 	array_m* array;
 	uint16_t size;
 	lessthan_predicate_t less_than;
+	lock_t lock;
 } array_o;
 
 //standard less than predicate
