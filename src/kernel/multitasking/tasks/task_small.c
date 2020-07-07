@@ -203,7 +203,7 @@ void tasking_goto_task(task_small_t* new_task) {
     // This check should no longer be needed, since allocations within the shared kernel pages are always
     // marked within the shared kernel bitmap. 
     // However, keep the check in to ensure this never regresses.
-    vmm_validate_shared_tables_in_sync(vmm_active_pdir(), boot_info_get()->vmm_kernel);
+    // vmm_validate_shared_tables_in_sync(vmm_active_pdir(), boot_info_get()->vmm_kernel);
 
     if (new_task->vmm != vmm_active_pdir()) {
         vmm_load_pdir(new_task->vmm, false);
