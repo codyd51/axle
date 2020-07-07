@@ -6,7 +6,7 @@
 void _panic(const char* msg, const char* file, int line) {
     //enter infinite loop
     asm("cli");
-    printf("\nAssertion failed: %s\n", msg);
+    printf("Assertion failed: %s\n", msg);
     printf("%s:%d\n", file, line);
     if (true) {
         printf("Stack trace:\n");
