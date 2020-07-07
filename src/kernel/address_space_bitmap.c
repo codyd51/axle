@@ -39,11 +39,11 @@ static uint32_t bitmap_index_of_first_bit_with_value(address_space_frame_bitmap_
     panic("bitmap_index_of_first_bit_with_value found no available bits");
 }
 
-uint32_t bitmap_index_of_first_set_bit(address_space_frame_bitmap_t* bitmap) {
+static uint32_t bitmap_index_of_first_set_bit(address_space_frame_bitmap_t* bitmap) {
     return bitmap_index_of_first_bit_with_value(bitmap, true);
 }
 
-uint32_t bitmap_index_of_first_unset_bit(address_space_frame_bitmap_t* bitmap) {
+static uint32_t bitmap_index_of_first_unset_bit(address_space_frame_bitmap_t* bitmap) {
     return bitmap_index_of_first_bit_with_value(bitmap, false);
 }
 
@@ -57,21 +57,34 @@ static uint32_t addr_to_bitmap_entry_offset(uint32_t address) {
 }
 
 void addr_space_bitmap_set_address(address_space_frame_bitmap_t* bitmap, uint32_t address) {
+    lock(&bitmap->lock);
+
     uint32_t index = addr_to_bitmap_index(address);
     uint32_t offset = addr_to_bitmap_entry_offset(address);
     bitmap_set(bitmap, index, offset);
+
+    unlock(&bitmap->lock);
 }
 
 void addr_space_bitmap_unset_address(address_space_frame_bitmap_t* bitmap, uint32_t address) {
+    lock(&bitmap->lock);
+
     uint32_t index = addr_to_bitmap_index(address);
     uint32_t offset = addr_to_bitmap_entry_offset(address);
     bitmap_unset(bitmap, index, offset);
+
+    unlock(&bitmap->lock);
 }
 
 bool addr_space_bitmap_check_address(address_space_frame_bitmap_t* bitmap, uint32_t address) {
+    lock(&bitmap->lock);
+
     uint32_t index = addr_to_bitmap_index(address);
     uint32_t offset = addr_to_bitmap_entry_offset(address);
-    return bitmap_check(bitmap, index, offset);
+
+    bool ret = bitmap_check(bitmap, index, offset);
+    unlock(&bitmap->lock);
+    return ret;
 }
 
 void addr_space_bitmap_dump_set_ranges(address_space_frame_bitmap_t* bitmap) {

@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <kernel/util/mutex/mutex.h>
 
 //1048576 frames / 32-bit frame bitsets = 32,768 32-bit
 //frame bitsets needed to cover entire address space
@@ -20,20 +21,16 @@
 // translate an address into the bit-index within 32-bit word that contains its corresponding bit
 #define BITMAP_INDEX_WITHIN_WORD(addr) ((addr % (PAGE_SIZE * BITS_PER_BITMAP_ENTRY) / PAGE_SIZE))
 
-typedef struct address_space_frame_bitset {
-    //bitset where each bit refers to a 4kb frame
-    //available_frames[0] & (1 << 0) == reference to the first frame in the address space, 0x0000 to 0x1000
+struct address_space_frame_bitmap {
+    // bitset where each bit refers to a 4kb frame
+    // available_frames[0] & (1 << 0) == reference to the first frame in the address space, 0x0000 to 0x1000
     uint32_t set[ADDRESS_SPACE_BITMAP_SIZE];
-} address_space_frame_bitmap_t;
+    // Lock to ensure the bitset is always modified in an exclusive fashion
+    lock_t lock;
+} __attribute__((aligned(PAGE_SIZE)));
+
+typedef struct address_space_frame_bitmap address_space_frame_bitmap_t;
 typedef address_space_frame_bitmap_t address_space_page_bitmap_t;
-
-
-void bitmap_set(address_space_frame_bitmap_t* bitmap, uint32_t index, uint32_t offset);
-void bitmap_unset(address_space_frame_bitmap_t* bitmap, uint32_t index, uint32_t offset);
-bool bitmap_check(address_space_frame_bitmap_t* bitmap, uint32_t index, uint32_t offset);
-
-uint32_t bitmap_index_of_first_set_bit(address_space_frame_bitmap_t* bitmap);
-uint32_t bitmap_index_of_first_unset_bit(address_space_frame_bitmap_t* bitmap);
 
 void addr_space_bitmap_set_address(address_space_frame_bitmap_t* bitmap, uint32_t address);
 void addr_space_bitmap_unset_address(address_space_frame_bitmap_t* bitmap, uint32_t address);
