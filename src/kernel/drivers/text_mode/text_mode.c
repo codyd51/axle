@@ -105,8 +105,7 @@ static void text_mode_putchar_special(unsigned char ch) {
             text_mode_tab();
             break;
         default:
-            printf("\nnon-control character: 0x%x", ch);
-            panic("char is not a control character");
+            printf("(%02x)", ch);
             break;
     }
 }
