@@ -48,7 +48,7 @@ ifdef BMP
 CFLAGS += -DBMP
 endif
 
-EMFLAGS = -vga std -D qemu.log -serial file:syslog.log -monitor stdio -d cpu_reset -no-reboot
+EMFLAGS = -vga std -D qemu.log -serial file:syslog.log -monitor stdio -d cpu_reset -no-reboot -m 512m
 ifdef debug
 EMFLAGS += -s -S
 endif
