@@ -280,6 +280,7 @@ void vmm_init(void) {
     printf_info("Kernel VMM startup... ");
 
     vmm_page_directory_t* kernel_vmm_pd = _alloc_page_directory(true);
+    kernel_vmm_pd->allocated_pages.lock.name = "VMM kernel bmp lock";
 
     boot_info_t* info = boot_info_get();
     info->vmm_kernel = kernel_vmm_pd;
@@ -341,6 +342,8 @@ static vmm_page_directory_t* _alloc_page_directory(bool map_allocation_bitmap) {
     }
 
     memset((char*)virt_page_dir, 0, sizeof(vmm_page_directory_t));
+    virt_page_dir->allocated_pages.lock.name = "VMM alloc lock";
+
     for (int i = 0; i < TABLES_IN_PAGE_DIRECTORY; i++) {
         virt_page_dir->table_pointers[i] = PAGE_KERNEL_ONLY_FLAG | PAGE_NOT_PRESENT_FLAG | PAGE_READ_WRITE_FLAG;
     }

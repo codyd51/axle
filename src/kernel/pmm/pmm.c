@@ -102,6 +102,9 @@ void pmm_dump(void) {
 void pmm_init() {
     pmm_state_t* pmm = pmm_get();
     memset(pmm, 0, sizeof(pmm_state_t));
+    pmm->lock.name = "PMM global lock";
+    pmm->allocation_state.lock.name = "PMM allocations lock";
+    pmm->system_accessible_frames.lock.name = "PMM reserved frames lock";
 
     boot_info_t* info = boot_info_get();
     //mark usable sections of the address space

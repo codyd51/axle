@@ -26,7 +26,7 @@ void lock(lock_t* lock) {
 	uint32_t contention_start = 0;
 	if (lock->flag != 0) {
 		contention_start = time();
-		printf("Proc %d found contended lock 0x%08x %d at %d\n", getpid(), lock, lock->flag, contention_start);
+		printf("Mutex: [%d] found contended %s %d at %d\n", getpid(), lock->name ?: "lock", lock->flag, contention_start);
 		if (getpid() == 0 && (uint32_t)lock > 0xff000000) {
 			panic("root proc contended");
 		}

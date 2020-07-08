@@ -3,6 +3,7 @@
 
 typedef struct lock_t {
 	int flag;
+	const char* name;
 } lock_t;
 
 lock_t* lock_create();
