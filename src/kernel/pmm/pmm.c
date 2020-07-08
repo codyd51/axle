@@ -10,10 +10,7 @@
 
 void pmm_reserve_mem_region(pmm_state_t* pmm, uint32_t start, uint32_t size);
 
-static uint32_t find_free_region(pmm_state_t* pmm, uint32_t region_size) {
-    static lock_t _bitmap_region_lock = {0};
-    lock(&_bitmap_region_lock);
-
+static uint32_t _find_free_region_unlocked(pmm_state_t* pmm, uint32_t region_size) {
 	uint32_t run_start_idx, run_end_idx;
 	bool in_run = false;
     for (int i = 0; i < ADDRESS_SPACE_BITMAP_SIZE; i++) {
@@ -44,7 +41,6 @@ static uint32_t find_free_region(pmm_state_t* pmm, uint32_t region_size) {
                 run_end_idx = BITMAP_BIT_INDEX(i, j);
                 uint32_t run_size = run_end_idx - run_start_idx;
                 if (run_size >= (region_size / PAGING_FRAME_SIZE)) {
-                    unlock(&_bitmap_region_lock);
                     return run_start_idx;
                 }
             }
@@ -54,10 +50,7 @@ static uint32_t find_free_region(pmm_state_t* pmm, uint32_t region_size) {
     return 0;
 }
 
-static uint32_t first_usable_pmm_index(pmm_state_t* pmm) {
-    static lock_t _bitmap_lock = {0};
-    lock(&_bitmap_lock);
-
+static uint32_t _first_usable_pmm_index_unlocked(pmm_state_t* pmm) {
     for (int i = 0; i < ADDRESS_SPACE_BITMAP_SIZE; i++) {
         uint32_t system_frames_entry = pmm->system_accessible_frames.set[i];
         //skip early if either of these entries are unusable
@@ -85,53 +78,11 @@ static uint32_t first_usable_pmm_index(pmm_state_t* pmm) {
             }
             //we found a bit which was on in the list of accessible frames,
             //and off in the list of allocated frames
-            unlock(&_bitmap_lock);
             return BITMAP_BIT_INDEX(i, j);
         }
     }
     panic("first_usable_pmm_index() found nothing!");
     return 0;
-}
-
-static void set_memory_region(address_space_frame_bitmap_t* bitmap, uint32_t region_start_addr, uint32_t region_len) {
-    static lock_t _lock = {0};
-    lock(&_lock);
-
-    printf("set_memory_region 0x%08x - 0x%08x\n", region_start_addr, region_start_addr + region_len);
-    if (region_start_addr % PAGING_FRAME_SIZE) {
-        panic("region_start_addr wasn't page aligned");
-    }
-    if (region_len % PAGING_FRAME_SIZE) {
-        panic("region_len wasn't frame aligned");
-    }
-
-    uint32_t frames_in_region = region_len / PAGING_FRAME_SIZE;
-    for (int i = 0; i < frames_in_region; i++) {
-        uint32_t frame = region_start_addr + (i * PAGING_FRAME_SIZE);
-        addr_space_bitmap_set_address(bitmap, frame);
-    }
-
-    unlock(&_lock);
-}
-
-static void unset_memory_region(address_space_frame_bitmap_t* bitmap, uint32_t region_start_addr, uint32_t region_len) {
-    static lock_t _lock = {0};
-    lock(&_lock);
-
-    if (region_start_addr % PAGING_FRAME_SIZE) {
-        panic("region_start_addr wasn't page aligned");
-    }
-    if (region_len % PAGING_FRAME_SIZE) {
-        panic("region_len wasn't frame aligned");
-    }
-
-    uint32_t frames_in_region = region_len / PAGING_FRAME_SIZE;
-    for (int i = 0; i < frames_in_region; i++) {
-        uint32_t frame = region_start_addr + (i * PAGING_FRAME_SIZE);
-        addr_space_bitmap_unset_address(bitmap, frame);
-    }
-
-    unlock(&_lock);
 }
 
 pmm_state_t* pmm_get(void) {
@@ -163,7 +114,7 @@ void pmm_init() {
         //this cuts off a bit of usable memory but we'll only lose a few frames at most
         uint32_t addr = addr_space_frame_ceil(region.addr);
         uint32_t len = addr_space_frame_floor(region.len);
-        set_memory_region(&(pmm->system_accessible_frames), addr, len);
+        addr_space_bitmap_set_range(&(pmm->system_accessible_frames), addr, len);
     }
 
     //for identity mapping purposes
@@ -175,7 +126,7 @@ void pmm_init() {
     pmm_reserve_mem_region(pmm, info->framebuffer.address, info->framebuffer.size);
     pmm_reserve_mem_region(pmm, info->initrd_start, info->initrd_size);
 
-    multiboot_elf_section_header_table_t symbol_table_info = info->kernel_elf_section_header_table;
+    multiboot_elf_section_header_table_t symbol_table_info = info->symbol_table_info;
 	elf_section_header_t* sh = (elf_section_header_t*)symbol_table_info.addr;
 	uint32_t shstrtab = sh[symbol_table_info.shndx].addr;
 	for (uint32_t i = 0; i < symbol_table_info.num; i++) {
@@ -190,23 +141,14 @@ void pmm_init() {
 
 //marks a block of physical memory as unallocatable
 //the size does not need to be frame-aligned, it will be aligned to the next largest frame
-void pmm_reserve_mem_region(pmm_state_t* pmm, uint32_t start, uint32_t size) {
-    static lock_t _lock = {0};
-    lock(&_lock);
-
+static void _pmm_reserve_mem_region_unlocked(pmm_state_t* pmm, uint32_t start, uint32_t size) {
     uint32_t aligned_start = addr_space_frame_floor(start);
     uint32_t aligned_size = addr_space_frame_ceil(size);
     printf("PMM reserving 0x%08x - 0x%08x\n", aligned_start, aligned_start + aligned_size);
-    unset_memory_region(&(pmm->system_accessible_frames), aligned_start, aligned_size);
-
-    unlock(&_lock);
+    addr_space_bitmap_unset_range(&(pmm->system_accessible_frames), aligned_start, aligned_size);
 }
 
-void pmm_alloc_address(uint32_t address) {
-    static lock_t _alloc_address_lock = {0};
-    lock(&_alloc_address_lock);
-
-    pmm_state_t* pmm = pmm_get();
+static void _pmm_alloc_address_unlocked(pmm_state_t* pmm, uint32_t address) {
     //has this frame already been alloc'd?
     if (addr_space_bitmap_check_address(&pmm->allocation_state, address)) {
         pmm_dump();
@@ -214,52 +156,85 @@ void pmm_alloc_address(uint32_t address) {
         panic("PMM double alloc");
     }
     addr_space_bitmap_set_address(&pmm->allocation_state, address);
-
-    unlock(&_alloc_address_lock);
 }
 
-uint32_t pmm_alloc(void) {
-    static lock_t _pmm_alloc_lock = {0};
-    lock(&_pmm_alloc_lock);
-
-    pmm_state_t* pmm = pmm_get();
-    uint32_t index = first_usable_pmm_index(pmm);
+uint32_t _pmm_alloc_unlocked(pmm_state_t* pmm) {
+    uint32_t index = _first_usable_pmm_index_unlocked(pmm);
     uint32_t frame_address = index * PAGING_FRAME_SIZE;
-    pmm_alloc_address(frame_address);
+    _pmm_alloc_address_unlocked(pmm, frame_address);
 
-    unlock(&_pmm_alloc_lock);
     return frame_address;
 }
 
-uint32_t pmm_alloc_continuous_range(uint32_t size) {
-    static lock_t _alloc_range_lock = {0};
-    lock(&_alloc_range_lock);
-
-    pmm_state_t* pmm = pmm_get();
+static uint32_t _pmm_alloc_continuous_range_unlocked(pmm_state_t* pmm, uint32_t size) {
     if (size & PAGE_FLAG_BITS_MASK) {
         size = (size & PAGING_FRAME_MASK) + PAGING_FRAME_SIZE;
     }
-    uint32_t index = find_free_region(pmm, size);
+    uint32_t index = _find_free_region_unlocked(pmm, size);
     uint32_t first_frame_address = index * PAGING_FRAME_SIZE;
+    //printf("pmm_alloc_continuous_rang 0x%08x\n", first_frame_address);
     for (uint32_t i = 0; i < size; i += PAGING_FRAME_SIZE) {
         uint32_t frame_address = first_frame_address + i;
-        pmm_alloc_address(frame_address);
+        _pmm_alloc_address_unlocked(pmm, frame_address);
     }
 
-    unlock(&_alloc_range_lock);
     return first_frame_address;
 }
 
-void pmm_free(uint32_t frame_address) {
-    static lock_t _free_lock = {0};
-    lock(&_free_lock);
-
-    pmm_state_t* pmm = pmm_get();
+static void _pmm_free_unlocked(pmm_state_t* pmm, uint32_t frame_address) {
     //sanity check
     if (!addr_space_bitmap_check_address(&pmm->allocation_state, frame_address)) {
         panic("attempted to free non-allocated frame");
     }
     addr_space_bitmap_unset_address(&pmm->allocation_state, frame_address);
+}
 
-    unlock(&_free_lock);
+uint32_t find_free_region(pmm_state_t* pmm, uint32_t region_size) {
+    lock(&pmm->lock);
+    uint32_t ret = _find_free_region_unlocked(pmm, region_size);
+    unlock(&pmm->lock);
+    return ret;
+}
+
+uint32_t first_usable_pmm_index(pmm_state_t* pmm) {
+    lock(&pmm->lock);
+    uint32_t ret = _first_usable_pmm_index_unlocked(pmm);
+    unlock(&pmm->lock);
+    return ret;
+}
+
+void pmm_reserve_mem_region(pmm_state_t* pmm, uint32_t start, uint32_t size) {
+    lock(&pmm->lock);
+    _pmm_reserve_mem_region_unlocked(pmm, start, size);
+    unlock(&pmm->lock);
+}
+
+void pmm_alloc_address(uint32_t address) {
+    pmm_state_t* pmm = pmm_get();
+    lock(&pmm->lock);
+    _pmm_alloc_address_unlocked(pmm, address);
+    unlock(&pmm->lock);
+}
+
+uint32_t pmm_alloc(void) {
+    pmm_state_t* pmm = pmm_get();
+    lock(&pmm->lock);
+    uint32_t ret = _pmm_alloc_unlocked(pmm);
+    unlock(&pmm->lock);
+    return ret;
+}
+
+uint32_t pmm_alloc_continuous_range(uint32_t size) {
+    pmm_state_t* pmm = pmm_get();
+    lock(&pmm->lock);
+    uint32_t ret = _pmm_alloc_continuous_range_unlocked(pmm, size);
+    unlock(&pmm->lock);
+    return ret;
+}
+
+void pmm_free(uint32_t frame_address) {
+    pmm_state_t* pmm = pmm_get();
+    lock(&pmm->lock);
+    _pmm_free_unlocked(pmm, frame_address);
+    unlock(&pmm->lock);
 }
