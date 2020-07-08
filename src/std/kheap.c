@@ -158,6 +158,7 @@ void kheap_init() {
 	kheap->end_address = heap_end;
 	kheap->supervisor = true;
 	kheap->readonly = false;
+	kheap->lock.name = "Heap lock";
 
 	//we start off with one large free block
 	//this represents the whole heap at this point
@@ -280,18 +281,16 @@ void free(void* p, heap_t* UNUSED(heap)) {
  */
 
 void* kmalloc_int(uint32_t sz, int align, uint32_t* phys) {
-	static lock_t _lock = {0};
-	lock(&_lock);
+	lock(&kheap->lock);
 	void* ret = _kmalloc_int_unlocked(sz, align, phys);
-	unlock(&_lock);
+	unlock(&kheap->lock);
 	return ret;
 }
 
 void kfree(void* p) {
-	static lock_t _lock = {0};
-	lock(&_lock);
+	lock(&kheap->lock);
 	_kfree_unlocked(p);
-	unlock(&_lock);
+	unlock(&kheap->lock);
 }
 
 /*

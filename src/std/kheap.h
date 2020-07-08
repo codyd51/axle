@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <std/klog.h>
+#include <kernel/util/mutex/mutex.h>
 
 __BEGIN_DECLS
 
@@ -49,6 +50,7 @@ typedef struct {
 	uint32_t max_address; //maximum address heap can be expanded to
 	uint8_t supervisor; //should new pages mapped be marked as kernel mode?
 	uint8_t readonly; //should new pages mapped be marked as read-only?
+	lock_t lock;
 } heap_t;
 
 //create new heap

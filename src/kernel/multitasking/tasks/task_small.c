@@ -168,7 +168,10 @@ task_small_t* thread_spawn(void* entry_point) {
 }
 
 task_small_t* task_spawn(void* entry_point) {
-    static lock_t _lock;
+    static lock_t _lock = {0};
+    if (!_lock.name) {
+        _lock.name = "task_spawn lock";
+    }
     lock(&_lock);
 
     // Use the internal thread-state constructor so that this task won't get
@@ -190,7 +193,10 @@ task_small_t* task_spawn(void* entry_point) {
  * Immediately preempt the running task and begin running the provided one.
  */
 void tasking_goto_task(task_small_t* new_task) {
-    static lock_t _lock;
+    static lock_t _lock = {0};
+    if (!_lock.name) {
+        _lock.name = "tasking_goto_task lock";
+    }
     lock(&_lock);
     kernel_begin_critical();
 
