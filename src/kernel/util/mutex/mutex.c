@@ -33,9 +33,6 @@ void lock(lock_t* lock) {
 	}
     while (!atomic_compare_exchange(&lock->flag, 0, 1)) {
 		asm("pause");
-		if (time() - contention_start > 10000) {
-			panic("Deadlock");
-		}
     }
 	if (contention_start) {
 		printf("Prod %d received contended lock 0x%08x after %d ticks\n", getpid(), lock, time() - contention_start);
