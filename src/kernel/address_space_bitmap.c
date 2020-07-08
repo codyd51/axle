@@ -56,41 +56,39 @@ static uint32_t addr_to_bitmap_entry_offset(uint32_t address) {
     return (address / PAGING_FRAME_SIZE) % BITS_PER_BITMAP_ENTRY;
 }
 
-void addr_space_bitmap_set_address(address_space_frame_bitmap_t* bitmap, uint32_t address) {
-    lock(&bitmap->lock);
-
+static void _addr_space_bitmap_set_address_unlocked(address_space_frame_bitmap_t* bitmap, uint32_t address) {
     uint32_t index = addr_to_bitmap_index(address);
     uint32_t offset = addr_to_bitmap_entry_offset(address);
     bitmap_set(bitmap, index, offset);
-
-    unlock(&bitmap->lock);
 }
 
-void addr_space_bitmap_set_range(address_space_frame_bitmap_t* bitmap, uint32_t start_address, uint32_t size) {
-    if (size & PAGE_FLAG_BITS_MASK) panic("size is not page-aligned");
-    for (uint32_t addr = start_address; addr < start_address + size; addr += PAGING_PAGE_SIZE) {
-        addr_space_bitmap_set_address(bitmap, addr);
-    }
-}
-
-void addr_space_bitmap_unset_address(address_space_frame_bitmap_t* bitmap, uint32_t address) {
-    lock(&bitmap->lock);
-
+static void _addr_space_bitmap_unset_address_unlocked(address_space_frame_bitmap_t* bitmap, uint32_t address) {
     uint32_t index = addr_to_bitmap_index(address);
     uint32_t offset = addr_to_bitmap_entry_offset(address);
     bitmap_unset(bitmap, index, offset);
-
-    unlock(&bitmap->lock);
 }
 
-bool addr_space_bitmap_check_address(address_space_frame_bitmap_t* bitmap, uint32_t address) {
-    lock(&bitmap->lock);
+static void _addr_space_bitmap_set_range_unlocked(address_space_frame_bitmap_t* bitmap, uint32_t start_address, uint32_t size) {
+    if (start_address & PAGE_FLAG_BITS_MASK) panic("start_address is not page-aligned");
+    if (size & PAGE_FLAG_BITS_MASK) panic("size is not page-aligned");
+    for (uint32_t addr = start_address; addr < start_address + size; addr += PAGING_PAGE_SIZE) {
+        _addr_space_bitmap_set_address_unlocked(bitmap, addr);
+    }
+}
 
+static void _addr_space_bitmap_unset_range_unlocked(address_space_frame_bitmap_t* bitmap, uint32_t start_address, uint32_t size) {
+    if (start_address & PAGE_FLAG_BITS_MASK) panic("start_address is not page-aligned");
+    if (size & PAGE_FLAG_BITS_MASK) panic("size is not page-aligned");
+    for (uint32_t addr = start_address; addr < start_address + size; addr += PAGING_PAGE_SIZE) {
+        _addr_space_bitmap_unset_address_unlocked(bitmap, addr);
+    }
+}
+
+static bool _addr_space_bitmap_check_address_unlocked(address_space_frame_bitmap_t* bitmap, uint32_t address) {
     uint32_t index = addr_to_bitmap_index(address);
     uint32_t offset = addr_to_bitmap_entry_offset(address);
 
     bool ret = bitmap_check(bitmap, index, offset);
-    unlock(&bitmap->lock);
     return ret;
 }
 
@@ -119,4 +117,40 @@ void addr_space_bitmap_dump_set_ranges(address_space_frame_bitmap_t* bitmap) {
             }
         }
     }
+}
+
+/*
+ * Public API wrappers
+ * Enforces mutex on reads and writes
+ */
+
+void addr_space_bitmap_set_address(address_space_frame_bitmap_t* bitmap, uint32_t address) {
+    lock(&bitmap->lock);
+    _addr_space_bitmap_set_address_unlocked(bitmap, address);
+    unlock(&bitmap->lock);
+}
+
+void addr_space_bitmap_unset_address(address_space_frame_bitmap_t* bitmap, uint32_t address) {
+    lock(&bitmap->lock);
+    _addr_space_bitmap_unset_address_unlocked(bitmap, address);
+    unlock(&bitmap->lock);
+}
+
+void addr_space_bitmap_set_range(address_space_frame_bitmap_t* bitmap, uint32_t start_address, uint32_t size) {
+    lock(&bitmap->lock);
+    _addr_space_bitmap_set_range_unlocked(bitmap, start_address, size);
+    unlock(&bitmap->lock);
+}
+
+void addr_space_bitmap_unset_range(address_space_frame_bitmap_t* bitmap, uint32_t start_address, uint32_t size) {
+    lock(&bitmap->lock);
+    _addr_space_bitmap_unset_range_unlocked(bitmap, start_address, size);
+    unlock(&bitmap->lock);
+}
+
+bool addr_space_bitmap_check_address(address_space_frame_bitmap_t* bitmap, uint32_t address) {
+    lock(&bitmap->lock);
+    bool ret = _addr_space_bitmap_check_address_unlocked(bitmap, address);
+    unlock(&bitmap->lock);
+    return ret;
 }
