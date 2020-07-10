@@ -5,13 +5,9 @@
 #include <kernel/drivers/pit/pit.h>
 #include <kernel/util/mutex/mutex.h>
 
-static lock_t* mutex = 0;
 void add_animation(Window* window, ca_animation* anim) {
-	if (!mutex) mutex = lock_create();
-	lock(mutex);
 	array_m_insert(window->animations, anim);
 	anim->end_date = tick_count() + (anim->duration * 1000);
-	unlock(mutex);
 }
 
 void finalize_animation(Window* window, ca_animation* anim) {
@@ -32,9 +28,7 @@ void finalize_animation(Window* window, ca_animation* anim) {
 
 	//remove anim _before_ calling finalize handler
 	//finalize handler may destroy window so we need to do this first
-	lock(mutex);
 	array_m_remove(window->animations, array_m_index(window->animations, anim));
-	unlock(mutex);
 	
 	event_handler finished = anim->finished_handler;
 	if (finished) {
