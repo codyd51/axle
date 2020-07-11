@@ -36,7 +36,10 @@ static int32_t _array_m_index_unlocked(array_m* array, type_t item) {
 }
 
 static void _array_m_remove_unlocked(array_m* array, int32_t i) {
-	ASSERT(i < array->size && i >= 0, "can't remove object at index (%d) in array with (%d) elements", i, array->size);
+	if (i < array->size && i >= 0) {
+		printf("Removed index is out-of-bounds: %d larger than size %d\n", i, array->size);
+		panic("Array index is out-of-bounds");
+	}
 
 	//shift back all elements
 	while (i < array->size) {

@@ -5,7 +5,6 @@
 array_l* array_l_create() {
 	array_l* ret = (array_l*)kmalloc(sizeof(array_l));
 	memset(ret, 0, sizeof(array_l));
-
 	return ret;
 }
 
@@ -22,7 +21,7 @@ void array_l_destroy(array_l* array) {
 	kfree(array);
 }
 
-static type_t _array_l_lookup_unlocked(array_l* array, int32_t idx) {
+static type_t _array_l_lookup_unlocked(array_l* array, int32_t idx, array_l_item** out) {
 	ASSERT(idx < array->size && idx >= 0, "index (%d) was out of bounds (%d)", idx, array->size - 1);
 
 	//walk list
@@ -31,13 +30,16 @@ static type_t _array_l_lookup_unlocked(array_l* array, int32_t idx) {
 		tmp = tmp->next;
 	}
 	if (tmp) {
+		if (out) {
+			*out = tmp;
+		}
 		return tmp->item;
 	}
 	return NULL;
 }
 
 static void _array_l_insert_unlocked(array_l* array, type_t item) {
-	printk("array_l_insert %x\n", item);
+	printk("array_l_insert(0x%08x, 0x%08x) (curr size %d)\n", array, item, array->size);
 
 	//create container
 	array_l_item* real = (array_l_item*)kmalloc(sizeof(array_l_item));
@@ -46,8 +48,10 @@ static void _array_l_insert_unlocked(array_l* array, type_t item) {
 
 	//extend list
 	if (array->head) {
-		array_l_item* last = _array_l_lookup_unlocked(array, array->size - 1);
-		printk("adding item to list, last %x\n", last);
+		array_l_item* last = 0;
+		_array_l_lookup_unlocked(array, array->size - 1, &last);
+		assert(last, "Failed to find container for last list entry");
+		printk("  Found last elem 0x%08x\n", last);
 		last->next = real;
 	}
 	else {
@@ -79,35 +83,27 @@ static void _array_l_remove_unlocked(array_l* array, int32_t idx) {
 	array_l_item* tmp = array->head;
 	if (!idx) {
 		array->head = array->head->next;
-		//kfree(tmp);
 		array->size--;
+		kfree(tmp);
 		return;
 	}
 
-	//go up to element before one to remove
+	// Find the element just prior to the element to delete
 	for (int i = 0; i < idx - 1; i++) {
 		tmp = tmp->next;
 	}
 
 	array_l_item* to_remove = tmp->next;
-	/*
-	if (!idx) {
-		to_remove = array->head;
-		array->head = array->head->next;
-	}
-	else {
-	*/
-		//set next of previous element to next of element to remove
-		tmp->next = to_remove->next;
-	//}
-
 	if (!to_remove) {
 		printk("array_l_remove couldn't find element to remove idx %d\n", idx);
 		return;
 	}
 
-	//free container
-	//kfree(to_remove);
+	// Move its `next` pointer to the element just after the element to delete
+	tmp->next = to_remove->next;
+
+	// Free entry container
+	kfree(to_remove);
 
 	array->size--;
 }
@@ -138,6 +134,7 @@ void array_l_remove(array_l* array, int32_t idx) {
 
 type_t array_l_lookup(array_l* array, int32_t idx) {
 	lock(&array->lock);
-	_array_l_lookup_unlocked(array, idx);
+	type_t ret = _array_l_lookup_unlocked(array, idx, NULL);
 	unlock(&array->lock);
+	return ret;
 }

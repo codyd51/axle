@@ -24,7 +24,7 @@ void cb_free(circular_buffer *cb) {
 
 void cb_push_back(circular_buffer *cb, const char *item) {
     if(cb->count == cb->capacity){
-		printf_err("circular buffer at capacity!");
+		panic("circular buffer at capacity!");
 		return;
     }
 
@@ -38,8 +38,8 @@ void cb_push_back(circular_buffer *cb, const char *item) {
 
 void cb_pop_front(circular_buffer *cb, char *item) {
     if(cb->count == 0){
-		printf_err("popping from empty circular_buffer!");
-		return;
+		panic("popping from empty circular_buffer!");
+        return;
     }
 
     memcpy(item, cb->tail, cb->sz);
@@ -52,7 +52,7 @@ void cb_pop_front(circular_buffer *cb, char *item) {
 
 void cb_peek(circular_buffer *cb, char *item) {
     if(cb->count == 0){
-		printf_err("peeking from empty circular_buffer!");
+		panic("peeking from empty circular_buffer!");
 		return;
     }
 
