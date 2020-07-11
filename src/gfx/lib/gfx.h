@@ -41,8 +41,6 @@ typedef struct Vec2d {
 	double y;
 } Vec2d;
 
-extern void int32(unsigned char intnum, regs16_t* regs);
-
 Screen* screen_create(Size dimensions, uint32_t* physbase, uint8_t depth);
 
 void gfx_teardown(Screen* screen);
