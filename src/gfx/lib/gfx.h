@@ -22,14 +22,17 @@ typedef struct __attribute__((packed)) {
 
 typedef struct window Window;
 typedef struct screen_t {
-	Window* window; //root window
-	Size resolution;
 	uint32_t* physbase; //address of beginning of framebuffer
-	volatile int finished_drawing; //are we currently rendering a frame?
-	ca_layer* vmem; //raw framebuffer pushed to screen
+	uint32_t video_memory_size;
+
+	Size resolution;
 	uint16_t bits_per_pixel;
 	uint8_t bytes_per_pixel;
+
 	Size default_font_size; //recommended font size for screen resolution
+
+	ca_layer* vmem; //raw framebuffer pushed to screen
+	Window* window; //root window
 	array_m* surfaces;
 } Screen;
 
@@ -55,7 +58,7 @@ void write_screen_region(Rect region);
 void draw_boot_background();
 void display_boot_screen();
 
-void gfx_init(struct multiboot_info* mboot_info);
+Screen* gfx_init(void);
 Screen* gfx_screen();
 int gfx_bytes_per_pixel();
 int gfx_bits_per_pixel();
