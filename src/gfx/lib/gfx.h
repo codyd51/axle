@@ -63,6 +63,9 @@ Screen* gfx_screen();
 int gfx_bytes_per_pixel();
 int gfx_bits_per_pixel();
 
+void gfx_terminal_putchar(char ch);
+void gfx_terminal_puts(const char* str);
+
 Vec2d vec2d(double x, float y);
 
 __attribute__((always_inline))
@@ -122,8 +125,8 @@ inline void putpixel(ca_layer* layer, int x, int y, Color color) {
 
 	for (uint32_t i = 0; i < 3; i++) {
 		//we have to write the pixels in BGR, not RGB
-		//layer->raw[offset + i] = color.val[bpp - 1 - i];
-		layer->raw[offset + i] = color.val[i];
+		layer->raw[offset + i] = color.val[screen->bytes_per_pixel - 1 - i];
+		//layer->raw[offset + i] = color.val[i];
 	}
 }
 __attribute__((always_inline))

@@ -394,6 +394,10 @@ void gfx_terminal_putchar(char c) {
     cursor_pos = new_cursor_pos;
 }
 
+void gfx_terminal_puts(const char* str) {
+    for (size_t i = 0; i < strlen(str); i++) {
+        gfx_terminal_putchar(str[i]);
+    }
 }
 
 void gfx_terminal_clear() {
