@@ -53,7 +53,7 @@ Bmp* _load_jpg(Rect frame, FILE* file) {
 
 	ca_layer* layer = create_layer(size_make(frame.size.width, frame.size.height));
 	
-	int layer_size = layer->size.width * layer->size.height * gfx_bpp();
+	int layer_size = layer->size.width * layer->size.height * gfx_bytes_per_pixel();
 	int draw_size = MIN(stream_size, layer_size);
 
 	//TODO scale like _load_bmp
@@ -92,7 +92,7 @@ Bmp* _load_bmp(Rect frame, FILE* file) {
 	float scale_x = width / (float)file_width;
 	float scale_y = height / (float)file_height;
 
-	int bpp = gfx_bpp();
+	int bpp = gfx_bytes_per_pixel();
 	ca_layer* layer = create_layer(size_make(width, height));
 	//image is upside down in memory so build array from bottom up
 	//for (int draw_y = height - 1; draw_y >= 0; draw_y--) {

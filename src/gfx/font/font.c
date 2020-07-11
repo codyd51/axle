@@ -87,7 +87,7 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 	//{{x, y}, {font_size.width, font_size.height}}
 	for (int bg_y = y; bg_y < y + font_size.height; bg_y++) {
 		for (int bg_x = x; bg_x < x + font_size.width; bg_x++) {
-			uint32_t idx = ((bg_y * layer->size.width * gfx_bpp()) + (bg_x * gfx_bpp()));
+			uint32_t idx = ((bg_y * layer->size.width * gfx_bytes_per_pixel()) + (bg_x * gfx_bytes_per_pixel()));
 			avg_red += layer->raw[idx + 2];
 			avg_grn += layer->raw[idx + 1];
 			avg_blu += layer->raw[idx + 0];
@@ -123,10 +123,10 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 					putpixel(layer, x + draw_x, y + draw_y, draw_color);
 				}
 				/*
-				   else {
+				else {
 				   putpixel(layer, x + draw_x, y + draw_y, bg_color);
-				   }
-				   */
+				}
+				*/
 				continue;
 			}
 
@@ -183,7 +183,7 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 			if (alpha) {
 				//set avg_color to color * alpha
 				//this is a lerp of background color to text color, at alpha
-				for (int i = 0; i < gfx_bpp(); i++) {
+				for (int i = 0; i < gfx_bytes_per_pixel(); i++) {
 					avg_color.val[i] = lerp(bg_color.val[i], avg_color.val[i], alpha);
 				}
 				putpixel(layer, p.x + draw_x, p.y + draw_y, avg_color);

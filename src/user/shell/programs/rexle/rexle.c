@@ -65,7 +65,7 @@ void rexle_int(int mode) {
     vbe_set_video_mode(640, 480, 4, true, true);
 	screen->resolution.height = 480;
 	screen->resolution.width = 640;
-	screen->bpp = 4;
+	//screen->bpp = 4;
     uint32_t* phys_video_mem = (uint32_t*)0xa0000;
     //int vmem_size = 0xfdffffff - (int)phys_video_mem;
 	int vmem_size = 640 * 480;
@@ -105,7 +105,7 @@ void rexle_int(int mode) {
 		ca_layer* layer = create_layer(size_make(100, 100));
 		for (int y = 0; y < layer->size.height; y++) {
 			for (int x = 0; x < layer->size.width; x++) {
-				int idx = (y * layer->size.width) + x * gfx_bpp();
+				int idx = (y * layer->size.width) + x * gfx_bytes_per_pixel();
 				if (mode == MODE_VGA) {
 					if (x == y) {
 						layer->raw[idx] = 0x30;
@@ -245,7 +245,7 @@ void rexle_int(int mode) {
 				//we have x and y, find color at this point in texture
 				Point tex_px = point_make(tex_x % tex_width, tex_y % tex_height);
 
-				uint8_t* raw = (uint8_t*)(tex->layer->raw + (tex_px.y * tex_width * gfx_bpp()) + (tex_px.x * gfx_bpp()));
+				uint8_t* raw = (uint8_t*)(tex->layer->raw + (tex_px.y * tex_width * gfx_bytes_per_pixel()) + (tex_px.x * gfx_bytes_per_pixel()));
 				Color col;
 				col.val[0] = *raw++;
 				if (mode == MODE_VESA) {

@@ -29,28 +29,24 @@ static Screen* current_screen = 0;
 void process_gfx_switch(Screen* screen, int new_depth) {
     current_screen = screen;
     current_depth = new_depth;
-}
-
-void set_gfx_depth(uint32_t depth) {
-    current_depth = depth;
-}
-
 inline int gfx_depth() {
-    if (!current_depth) {
-        //fall back on assuming 3bpp
-        current_depth = 24;
-    }
-    return current_depth;
+    Deprecated();
+    return -1;
 }
 
 inline int gfx_bpp() {
-    if (!current_depth) {
-        //fall back on assuming 3bpp
-        current_depth = 24;
-    }
-    //each px component is 8 bits
-    //this could be les than 1 (round to 0), so account for that
-    return MAX(1, current_depth / 8);
+    Deprecated();
+    return -1;
+}
+
+inline int gfx_bytes_per_pixel() {
+    if (!_screen.bytes_per_pixel) panic("may not be called before gfx stack is active");
+    return _screen.bytes_per_pixel;
+}
+
+inline int gfx_bits_per_pixel() {
+    if (!_screen.bits_per_pixel) panic("may not be called before gfx stack is active");
+    return _screen.bits_per_pixel;
 }
 
 Screen* gfx_screen() {

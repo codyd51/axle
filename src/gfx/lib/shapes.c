@@ -73,7 +73,7 @@ static void draw_rect_int_fast(ca_layer* layer, Rect rect, Color color) {
 		rect.size.height -= (rect.origin.y + rect.size.height - layer->size.height);
 	}
 
-	int bpp = gfx_bpp();
+	int bpp = gfx_bytes_per_pixel();
 
 	int offset = rect.origin.x * bpp + rect.origin.y * layer->size.width * bpp;
 
@@ -145,7 +145,7 @@ void draw_hline_fast(ca_layer* layer, Line line, Color color, int thickness) {
 	normalize_coordinate(layer, &line.p1);
 	normalize_coordinate(layer, &line.p2);
 
-	int bpp = gfx_bpp();
+	int bpp = gfx_bytes_per_pixel();
 
 	//calculate starting point
 	int offset = (line.p1.x * bpp) + (line.p1.y * bpp * layer->size.width);
@@ -172,7 +172,7 @@ void draw_vline_fast(ca_layer* layer, Line line, Color color, int thickness) {
 	normalize_coordinate(layer, &line.p1);
 	normalize_coordinate(layer, &line.p2);
 
-	int bpp = gfx_bpp();
+	int bpp = gfx_bytes_per_pixel();
 	bool rgb = (bpp >= 3);
 
 	//calculate starting point

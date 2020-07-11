@@ -7,6 +7,9 @@ void vga_screen_refresh(Screen* screen) {
 }
 
 Screen* switch_to_vga() {
+	Deprecated();
+	return NULL;
+	/*
 	kernel_begin_critical();
 
 	int width = 320;
@@ -22,4 +25,5 @@ Screen* switch_to_vga() {
 	kernel_end_critical();
 
 	return screen;
+	*/
 }

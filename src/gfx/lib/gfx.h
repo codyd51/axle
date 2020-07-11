@@ -23,12 +23,12 @@ typedef struct __attribute__((packed)) {
 typedef struct window Window;
 typedef struct screen_t {
 	Window* window; //root window
-	uint16_t depth; //bits per pixel
-	uint8_t bpp; //bytes per pixel
 	Size resolution;
 	uint32_t* physbase; //address of beginning of framebuffer
 	volatile int finished_drawing; //are we currently rendering a frame?
 	ca_layer* vmem; //raw framebuffer pushed to screen
+	uint16_t bits_per_pixel;
+	uint8_t bytes_per_pixel;
 	Size default_font_size; //recommended font size for screen resolution
 	array_m* surfaces;
 } Screen;
@@ -56,11 +56,9 @@ void draw_boot_background();
 void display_boot_screen();
 
 void gfx_init(struct multiboot_info* mboot_info);
-void process_gfx_switch(Screen* screen, int new_depth);
-void set_gfx_depth(uint32_t depth);
-int gfx_depth();
-int gfx_bpp();
 Screen* gfx_screen();
+int gfx_bytes_per_pixel();
+int gfx_bits_per_pixel();
 
 Vec2d vec2d(double x, float y);
 
@@ -71,12 +69,12 @@ inline void putpixel_alpha(ca_layer* layer, int x, int y, Color color, int alpha
 	alpha = MAX(alpha, 0);
 	alpha = MIN(alpha, 255);
 
-	int depth = gfx_depth();
-	int bpp = gfx_bpp();
+	Screen* screen = gfx_screen();
 	bool write_directly = !(layer);
-	int offset = (x * bpp) + (y * layer->size.width * bpp);
 
+	int offset = (x * screen->bytes_per_pixel) + (y * layer->size.width * screen->bytes_per_pixel);
 	
+	/*
 	if (depth == 4 || write_directly) {
 		offset = (x * bpp) + (y * gfx_screen()->resolution.width * bpp);
 
@@ -96,11 +94,12 @@ inline void putpixel_alpha(ca_layer* layer, int x, int y, Color color, int alpha
 		}
 		return;
 	}
-	for (int i = 0; i < MIN(3, bpp); i++) {
+	*/
+	for (int i = 0; i < 3; i++) {
 		//((alpha*(src-dest))>>8)+dest
 		//we have to write the pixels in BGR, not RGB
 		//therefore, flip color order when getting src
-		int src = color.val[bpp - 1 - i];
+		int src = color.val[screen->bytes_per_pixel - 1 - i];
 		int dst = layer->raw[offset + i];
 		int composited = ((alpha * (src - dst)) >> 8) + dst;
 		layer->raw[offset + i] = composited;
@@ -112,36 +111,16 @@ inline void putpixel(ca_layer* layer, int x, int y, Color color) {
 	//don't attempt writing a pixel outside of screen bounds
 	if (x < 0 || y < 0 || x >= layer->size.width || y >= layer->size.height) return;
 
-	int depth = gfx_depth();
-	int bpp = gfx_bpp();
+	Screen* screen = gfx_screen();
+	if (!screen) panic("Cannot call putpixel() without a screen");
+
 	bool write_directly = !(layer);
-	int offset = (x * bpp) + (y * layer->size.width * bpp);
+	uint32_t offset = (x * screen->bytes_per_pixel) + (y * layer->size.width * screen->bytes_per_pixel);
 
-	
-	if (depth == 4 || write_directly) {
-		offset = (x * bpp) + (y * gfx_screen()->resolution.width * bpp);
-
-		int bank = offset / BANK_SIZE;
-		int bank_offset = offset % BANK_SIZE;
-		vbe_set_bank(bank);
-
-		uint8_t* vmem = (uint8_t*)VBE_DISPI_LFB_PHYSICAL_ADDRESS;
-
-		if (depth == 4) {
-			vmem[bank_offset] = 3;
-		}
-		else if (write_directly) {
-			vmem[bank_offset + 0] = color.val[0];
-			vmem[bank_offset + 1] = color.val[1];
-			vmem[bank_offset + 2] = color.val[2];
-		}
-		return;
-	}
-
-	for (int i = 0; i < MIN(3, bpp); i++) {
+	for (uint32_t i = 0; i < 3; i++) {
 		//we have to write the pixels in BGR, not RGB
 		//layer->raw[offset + i] = color.val[bpp - 1 - i];
-		layer->raw[offset + i] = color.val[bpp - 1 - i];
+		layer->raw[offset + i] = color.val[i];
 	}
 }
 __attribute__((always_inline))
@@ -149,11 +128,14 @@ inline void addpixel(ca_layer* layer, int x, int y, Color color) {
 	//don't attempt writing a pixel outside of screen bounds
 	if (x < 0 || y < 0 || x >= layer->size.width || y >= layer->size.height) return;
 
-	int bpp = gfx_bpp();
-	int offset = (x * bpp) + (y * layer->size.width * bpp);
-	for (int i = 0; i < bpp; i++) {
+	Screen* screen = gfx_screen();
+	if (!screen) panic("Cannot call putpixel() without a screen");
+
+	int bytes_per_pixel = screen->bytes_per_pixel;
+	int offset = (x * bytes_per_pixel) + (y * layer->size.width * bytes_per_pixel);
+	for (int i = 0; i < bytes_per_pixel; i++) {
 		//we have to write the pixels in BGR, not RGB
-		layer->raw[offset + i] += color.val[bpp - 1 - i];
+		layer->raw[offset + i] += color.val[bytes_per_pixel - 1 - i];
 	}
 }
 

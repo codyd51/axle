@@ -148,11 +148,10 @@ static void multiboot_interpret_framebuffer(struct multiboot_info* mboot_data, b
     out_info->framebuffer.address = mboot_data->framebuffer_addr;
     out_info->framebuffer.width = mboot_data->framebuffer_width;
     out_info->framebuffer.height = mboot_data->framebuffer_height;
-    out_info->framebuffer.bpp = mboot_data->framebuffer_bpp;
-
-    uint32_t bytes_per_pixel = (int)(out_info->framebuffer.bpp / BITS_PER_BYTE);
-    uint32_t framebuffer_size = out_info->framebuffer.width * out_info->framebuffer.height * bytes_per_pixel;
-    out_info->framebuffer.size = framebuffer_size;
+    out_info->framebuffer.bits_per_pixel = mboot_data->framebuffer_bpp;
+    out_info->framebuffer.bytes_per_pixel = (int)(out_info->framebuffer.bits_per_pixel / BITS_PER_BYTE);
+    out_info->framebuffer.size = out_info->framebuffer.width * out_info->framebuffer.height * out_info->framebuffer.bytes_per_pixel;
+    printf("out_info framebuffer 0x%08x\n", out_info->framebuffer.address);
 }
 
 static void boot_info_dump_framebuffer(boot_info_t* info) {
@@ -177,7 +176,7 @@ static void boot_info_dump_framebuffer(boot_info_t* info) {
         framebuffer_type,
         fb_info.width,
         fb_info.height,
-        fb_info.bpp);
+        fb_info.bits_per_pixel);
     printf("Framebuffer  at [0x%08x to 0x%08x]. Size: 0x%x\n", fb_info.address, fb_info.address+fb_info.size, fb_info.size);
 }
 

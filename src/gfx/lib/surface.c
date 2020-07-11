@@ -7,7 +7,7 @@ Surface* surface_make(uint32_t width, uint32_t height, uint32_t dest_pid) {
 	task_t* dest = task_with_pid(dest_pid);
 	ASSERT(dest, "surface_create invalid PID %d", dest_pid);
 
-	uint32_t bytes_needed = width * height * gfx_bpp();
+	uint32_t bytes_needed = width * height * gfx_bytes_per_pixel();
 	printf("surface_make(%d, %d) bytes needed %x\n", width, height, bytes_needed);
 
 	char* kernel_base = NULL;
@@ -18,7 +18,7 @@ Surface* surface_make(uint32_t width, uint32_t height, uint32_t dest_pid) {
 	surface_to_send->size = bytes_needed;
 	surface_to_send->width = width;
 	surface_to_send->height = height;
-	surface_to_send->bpp = gfx_bpp();
+	surface_to_send->bpp = gfx_bytes_per_pixel();
 	surface_to_send->kernel_base = (uint8_t*)kernel_base;
 
 	Surface* ipc_destination;
