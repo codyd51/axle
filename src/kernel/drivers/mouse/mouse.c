@@ -2,7 +2,7 @@
 #include <kernel/interrupts/interrupts.h>
 #include <std/math.h>
 #include <std/std.h>
-#include <kernel/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task_small.h>
 #include <kernel/syscall/sysfuncs.h>
 
 typedef unsigned char byte;
@@ -103,7 +103,7 @@ static void _mouse_handle_event(int x, int y) {
 	running_y += y;
 
 	_mouse_constrain_to_screen_size();
-	printk_dbg("mouse: (%d, %d)", running_x, running_y);
+	//printk_dbg("mouse: (%d, %d)", running_x, running_y);
 }
 
 #pragma GCC diagnostic push
@@ -226,5 +226,6 @@ void mouse_install() {
 }
 
 void mouse_event_wait() {
-	sys_yield(MOUSE_WAIT);
+	task_small_t* task_to_block = tasking_get_current_task();
+	tasking_block_task(task_to_block, MOUSE_WAIT);
 }
