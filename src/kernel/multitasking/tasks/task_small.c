@@ -414,3 +414,60 @@ void* sbrk(int increment) {
 int brk(void* addr) {
     NotImplemented();
     return 0;
+}
+
+task_small_t* get_first_responder() {
+    return _current_first_responder;
+}
+
+void become_first_responder_pid(int pid) {
+    task_small_t* task = tasking_get_task_with_pid(pid);
+    if (!task) {
+        printk("become_first_responder_pid(%d) failed\n", pid);
+        return;
+    }
+
+    _current_first_responder = task;
+
+    /*
+    //check if this task already exists in stack of responders
+    for (int i = 0; i < responder_stack->size; i++) {
+        task_t* tmp = array_m_lookup(responder_stack, i);
+        if (tmp == first_responder_task) {
+            //remove task so we can add it again
+            //this is to ensure responder stack only has unique tasks
+            array_m_remove(responder_stack, i);
+        }
+    }
+
+    //append this task to stack of responders
+    array_m_insert(responder_stack, first_responder_task);
+    */
+}
+
+void become_first_responder() {
+    become_first_responder_pid(getpid());
+}
+
+void resign_first_responder() {
+    Deprecated();
+    /*
+    if (!first_responder_task) return;
+    //if (current_task != first_responder_task) return;
+
+    //remove current first responder from stack of responders
+    int last_idx = responder_stack->size - 1;
+    task_t* removed = array_m_lookup(responder_stack, last_idx);
+    ASSERT(removed == first_responder_task, "top of responder stack wasn't first responder!");
+
+    array_m_remove(responder_stack, last_idx);
+
+    if (responder_stack->size) {
+        //set first responder to new head of stack
+        first_responder_task = array_m_lookup(responder_stack, responder_stack->size - 1);
+    }
+    else {
+        first_responder_task = NULL;
+    }
+    */
+}
