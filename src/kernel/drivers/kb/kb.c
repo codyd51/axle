@@ -6,8 +6,9 @@
 #include <kernel/interrupts/interrupts.h>
 #include <kernel/syscall/sysfuncs.h>
 #include <kernel/util/kbman/kbman.h>
-#include <kernel/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task_small.h>
 #include <kernel/multitasking/std_stream.h>
+#include <kernel/util/unistd/unistd.h>
 
 void kb_callback(registers_t* regs);
 
@@ -37,7 +38,7 @@ char getchar() {
 }
 
 bool haskey() {
-	if (!tasking_installed()) {
+	if (!tasking_is_active()) {
 		return false;
 	}
 	task_t* current = task_with_pid(getpid());
@@ -74,7 +75,7 @@ void kb_callback(registers_t* regs) {
 		//inform OS
 		//clear released bit
 		scancode &= ~RELEASED_MASK;
-		kbman_process_release(layout->scancodes[scancode]);
+		//kbman_process_release(layout->scancodes[scancode]);
 	}
 	else {
 		//was this a control key?
@@ -100,14 +101,20 @@ void kb_callback(registers_t* regs) {
 			scancodes = layout->shift_scancodes;
 		}
 
-		//task_t* current = task_with_pid(getpid());
-		task_t* current = first_responder();
-		if (current) {
-			std_stream_pushc(current, scancodes[scancode]);
+		task_small_t* first_responder = get_first_responder();
+		if (first_responder) {
+			std_stream_pushchar(first_responder->stdin_stream, scancodes[scancode]);
+			// TODO(PT): Instead of running iosentinel on all tasks,
+			// we could send some sort of signal that this specific task can be unblocked
+			// due to a keyboard event.
+			iosentinel_check_now();
+		}
+		else {
+			printf("Unrouted keystroke: %c\n", scancodes[scancode]);
 		}
 
 		//inform OS of keypress
-		kbman_process(scancodes[scancode]);
+		//kbman_process(scancodes[scancode]);
 	}
 }
 #pragma GCC diagnostic pop
