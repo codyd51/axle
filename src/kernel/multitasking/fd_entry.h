@@ -5,11 +5,11 @@ typedef enum descriptor_type {
 	STD_TYPE = 0,
 	FILE_TYPE,
 	PIPE_TYPE,
-} descriptor_type;
+} descriptor_type_t;
 
 typedef struct fd_entry {
-	descriptor_type type;
+	descriptor_type_t type;
 	void* payload;
-} fd_entry;
+} fd_entry_t;
 
 #endif

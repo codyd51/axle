@@ -649,7 +649,7 @@ FILE* fat_fopen(char* filename, char* UNUSED(mode)) {
 	stream->fpos = 0;
 	stream->start_sector = fat_sector;
 
-	fd_entry file_fd;
+	fd_entry_t file_fd;
 	file_fd.type = FILE_TYPE;
 	file_fd.payload = stream;
 	stream->fd = fd_add(task_with_pid(getpid()), file_fd);

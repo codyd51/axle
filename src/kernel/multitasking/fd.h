@@ -9,7 +9,7 @@
 /* query whether file descriptor entry 'entry' refers to
  * and unused file descriptor
  */
-bool fd_empty(fd_entry entry);
+bool fd_empty(fd_entry_t entry);
 
 /* replace file descriptor entry at index 'index in
  * 'task's file descriptor table with an empty entry
@@ -20,7 +20,7 @@ void fd_remove(task_t* task, int index);
  * 'task's file descriptor table at the first
  * empty location
  */
-int fd_add(task_t* task, fd_entry entry);
+int fd_add(task_t* task, fd_entry_t entry);
 
 
 /* add the file descriptor entry 'entry' to
@@ -28,6 +28,6 @@ int fd_add(task_t* task, fd_entry entry);
  * if an entry already exists at 'index', this silently
  * calls 'fd_remove' on it
  */
-int fd_add_index(task_t* task, fd_entry entry, int index);
+int fd_add_index(task_t* task, fd_entry_t entry, int index);
 
 #endif

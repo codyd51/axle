@@ -1,6 +1,6 @@
 #include "write.h"
 #include <kernel/multitasking/fd.h>
-#include <kernel/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task_small.h>
 #include <kernel/multitasking/pipe.h>
 #include <kernel/multitasking/std_stream.h>
 #include <user/xserv/xserv.h>
@@ -10,6 +10,8 @@
 #include <gfx/lib/Label.h>
 
 int xserv_write(task_t* task, int UNUSED(fd), const void* buf, int len) {
+	Deprecated();
+	/*
 	const char* chbuf = (char*)buf;
 
 	Window* xterm = xterm_get();

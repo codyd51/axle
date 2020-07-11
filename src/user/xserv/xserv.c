@@ -429,13 +429,9 @@ Point cursor_pos() {
 }
 
 char xserv_draw(Screen* screen) {
-	screen->finished_drawing = 0;
-
 	dirtied = 0;
 	xserv_draw_desktop(screen);
 	draw_cursor(screen);
-
-	screen->finished_drawing = 1;
 
 	return (char)dirtied;
 }
@@ -761,10 +757,7 @@ void xserv_temp_stop(uint32_t pause_length) {
 }
 
 void xserv_init() {
-	//if (sys_fork()) return;
-
-	switch_to_vesa(0x118, true);
-	//become_first_responder();
+	become_first_responder();
 	Screen* screen = gfx_screen();
 	printf("screen 0x%08x vmem 0x%08x\n", screen, screen->vmem);
 	desktop_setup(screen);

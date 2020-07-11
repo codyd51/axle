@@ -92,7 +92,7 @@ typedef struct task {
 	//file descriptor table
 	//this stores all types of file descriptors,
 	//including stdin/out/err, open files, and pipes
-	fd_entry fd_table[FD_MAX];
+	fd_entry_t fd_table[FD_MAX];
 
 	//pseudo-terminal stream
 	//this field provides implementation for

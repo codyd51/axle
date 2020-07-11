@@ -22,12 +22,12 @@ static void pipe_create(pipe_t** read, pipe_t** write) {
 
 	//add pipes to current tasks's file descriptor table
 	//read pipe entry
-	fd_entry rfd;
+	fd_entry_t rfd;
 	rfd.type = PIPE_TYPE;
 	rfd.payload = r;
 	r->fd = fd_add(current, rfd);
 	//write pipe entry
-	fd_entry wfd;
+	fd_entry_t wfd;
 	wfd.type = PIPE_TYPE;
 	wfd.payload = w;
 	w->fd = fd_add(current, wfd);
@@ -61,7 +61,7 @@ int pipe(int pipefd[2]) {
 static pipe_t* find_pipe(int fd) {
 	task_t* current = task_with_pid(getpid());
 
-	fd_entry entry = current->fd_table[fd];
+	fd_entry_t entry = current->fd_table[fd];
 	if (entry.type != PIPE_TYPE || fd_empty(entry)) {
 		//fd passed to us was not a valid pipe!
 		return NULL;

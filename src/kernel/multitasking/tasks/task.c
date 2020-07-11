@@ -61,13 +61,14 @@ void stdout_read(char* buffer, uint32_t count);
 void stderr_read(char* buffer, uint32_t count);
 static void setup_fds(task_t* task) {
     Deprecated();
-    memset(&task->fd_table, 0, sizeof(fd_entry) * FD_MAX);
+    memset(&task->fd_table, 0, sizeof(fd_entry_t) * FD_MAX);
 
     //initialize backing std stream
     task->std_stream = std_stream_create();
 
     //set up stdin/out/err to point to task's std stream
     //this stream backs all 3 descriptors
+    /*
     fd_entry std;
     std.type = STD_TYPE;
     std.payload = task->std_stream;
@@ -75,6 +76,7 @@ static void setup_fds(task_t* task) {
     task->fd_table[0] = std;
     task->fd_table[1] = std;
     task->fd_table[2] = std;
+    */
 }
 
 task_t* task_list() {
@@ -294,6 +296,7 @@ void destroy_task(task_t* task) {
     }
 
     //close all pipes this process has opened
+    /*
     for (int i = 0; i < FD_MAX; i++) {
         fd_entry entry = task->fd_table[i];
         if (fd_empty(entry)) continue;
@@ -303,6 +306,7 @@ void destroy_task(task_t* task) {
             pipe_close(pipe->fd);
         }
     }
+    */
 
     //remove task from queues and active list
     unlist_task(task);
@@ -552,7 +556,7 @@ void tasking_init_old(mlfq_option options) {
     kernel_end_critical();
 }
 
-void update_blocked_tasks() {
+void update_blocked_tasks_old() {
     Deprecated();
     if (!tasking_is_active()) return;
 
@@ -656,11 +660,6 @@ void int_wait(int irq) {
     block_task_context(task, IRQ_WAIT, (void*)INT_VECTOR_IRQ1);
 }
 
-task_t* first_responder() {
-    Deprecated();
-    return first_responder_task;
-}
-
 int fork_old(char* name) {
     Deprecated();
     if (!tasking_is_active()) {
@@ -676,6 +675,7 @@ int fork_old(char* name) {
     task_t* child = create_process(name, 0, false);
 
     //copy all file descriptors from parent to child
+    /*
     for (int i = 0; i < FD_MAX; i++) {
         fd_entry entry = parent->fd_table[i];
         if (fd_empty(entry)) continue;
@@ -687,6 +687,7 @@ int fork_old(char* name) {
             array_m_insert(pipe->pids, (type_t)child->id);
         }
     }
+    */
 
     _tasking_register_process(child);
 
@@ -1000,7 +1001,7 @@ void proc() {
         for (int j = 0; j < queue->size; j++) {
             task_small_t* task = array_m_lookup(queue, j);
             uint32_t runtime = (uint32_t)array_m_lookup(queue_lifetimes, task->queue);
-            printk("[%d Q %d] %s %s", task->id, task->queue, task->name, (task == first_responder()) ? "(FR)" : "");
+            printk("[%d Q %d] %s %s", task->id, task->queue, task->name, (task == get_first_responder()) ? "(FR)" : "");
             if (task == current_task) {
                 printk("(active)");
             }
@@ -1048,58 +1049,6 @@ void force_enumerate_blocked() {
     if (!tasking_is_active()) return;
 
     update_blocked_tasks();
-}
-
-void become_first_responder_pid(int pid) {
-    return;
-    Deprecated();
-    task_t* task = task_with_pid(pid);
-    if (!task) {
-        printk("become_first_responder_pid(%d) failed\n", pid);
-        return;
-    }
-
-    first_responder_task = task;
-
-    //check if this task already exists in stack of responders
-    for (int i = 0; i < responder_stack->size; i++) {
-        task_t* tmp = array_m_lookup(responder_stack, i);
-        if (tmp == first_responder_task) {
-            //remove task so we can add it again
-            //this is to ensure responder stack only has unique tasks
-            array_m_remove(responder_stack, i);
-        }
-    }
-
-    //append this task to stack of responders
-    array_m_insert(responder_stack, first_responder_task);
-}
-
-void become_first_responder() {
-    return;
-    Deprecated();
-    become_first_responder_pid(getpid());
-}
-
-void resign_first_responder() {
-    Deprecated();
-    if (!first_responder_task) return;
-    //if (current_task != first_responder_task) return;
-
-    //remove current first responder from stack of responders
-    int last_idx = responder_stack->size - 1;
-    task_t* removed = array_m_lookup(responder_stack, last_idx);
-    ASSERT(removed == first_responder_task, "top of responder stack wasn't first responder!");
-
-    array_m_remove(responder_stack, last_idx);
-
-    if (responder_stack->size) {
-        //set first responder to new head of stack
-        first_responder_task = array_m_lookup(responder_stack, responder_stack->size - 1);
-    }
-    else {
-        first_responder_task = NULL;
-    }
 }
 
 void jump_user_mode() {

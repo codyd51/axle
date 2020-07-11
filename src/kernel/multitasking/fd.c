@@ -2,7 +2,7 @@
 #include <kernel/multitasking/tasks/task.h>
 #include <stdbool.h>
 
-bool fd_empty(fd_entry entry) {
+bool fd_empty(fd_entry_t entry) {
 	bool empty = (entry.payload == 0);
 	return empty;
 }
@@ -14,7 +14,7 @@ void fd_remove(task_t* task, int index) {
 	task->fd_table[index].payload = NULL;
 }
 
-int fd_add(task_t* task, fd_entry entry) {
+int fd_add(task_t* task, fd_entry_t entry) {
 	//go through task's file descriptor table, looking for an empty slot
 	for (int i = 0; i < FD_MAX; i++) {
 		if (fd_empty(task->fd_table[i])) {
@@ -27,7 +27,7 @@ int fd_add(task_t* task, fd_entry entry) {
 	return -1;
 }
 
-int fd_add_index(task_t* task, fd_entry entry, int index) {
+int fd_add_index(task_t* task, fd_entry_t entry, int index) {
 	fd_remove(task, index);
 	task->fd_table[index] = entry;
 	return index;

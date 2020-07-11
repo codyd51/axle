@@ -1,7 +1,7 @@
 #include "kbman.h"
 #include <kernel/drivers/terminal/terminal.h>
 #include <std/array_m.h>
-#include <kernel/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task_small.h>
 #include <std/kheap.h>
 #include <kernel/drivers/kb/kb.h>
 #include <kernel/multitasking/tasks/record.h>
@@ -44,8 +44,8 @@ void kbman_process(char c) {
 				break;
 			case 'c': {
 				//kill first responder
-				//TODO we should send a signalt to first_responder here
-				task_t* foremost = first_responder();
+				//TODO we should send a signal to first_responder here
+				task_small_t* foremost = get_first_responder();
 				printf_info("Ctrl+C killing task %s", foremost->name);
 				kill_task(foremost);
 				break;

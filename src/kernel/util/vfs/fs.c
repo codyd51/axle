@@ -57,7 +57,7 @@ fs_node_t* finddir_fs(fs_node_t* node, char* name) {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
-fd_entry _tab[512];
+fd_entry_t _tab[512];
 static int _fd_count = 0;
 FILE* initrd_fopen(char* filename, char* mode) {
 	//printf("initrd_fopen(\"%s\")\n", filename);
@@ -77,7 +77,7 @@ FILE* initrd_fopen(char* filename, char* mode) {
 	stream->fpos = 0;
 	stream->start_sector = -1;
 
-	fd_entry file_fd;
+	fd_entry_t file_fd;
 	file_fd.type = FILE_TYPE;
 	file_fd.payload = stream;
 	stream->fd = &_tab[_fd_count++];
