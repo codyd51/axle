@@ -258,8 +258,21 @@ void tasking_unblock_task(task_small_t* task, bool run_immediately) {
     }
 }
 
-static void tasking_update_blocked_tasks() {
+void tasking_block_task(task_small_t* task, task_state blocked_state) {
+    // Some states are invalid "blocked" states
+    if (blocked_state == RUNNABLE || blocked_state == ZOMBIE) {
+        panic("Invalid blocked state");
+    }
+    task->blocked_info.status = blocked_state;
+    // If the current task just became blocked, switch to another
+    if (task == _current_task_small) {
+        task_switch();
+    }
+}
+
+void update_blocked_tasks() {
     while (1) {
+        // TODO(PT): Lock scheduler list now
         task_small_t* task = _task_list_head;
         while (task) {
             if (task->blocked_info.status == RUNNABLE) {
@@ -271,13 +284,29 @@ static void tasking_update_blocked_tasks() {
                     tasking_unblock_task(task, false);
                 }
             }
+            else if (task->blocked_info.status == KB_WAIT) {
+                if (task->stdin_stream->buf->count > 0) {
+                    tasking_unblock_task(task, false);
+                }
+            }
+            else if (task->blocked_info.status == MOUSE_WAIT) {
+
+            }
+            else if (task->blocked_info.status == ZOMBIE) {
+                // We should start a job to clean up this task
+            }
             else {
+                printf("PID [%d] is blocked with an unknown reason: %d\n", task->id, task->blocked_info.status);
                 panic("unknown block reason");
             }
             task = task->next;
         }
         sys_yield(RUNNABLE);
     }
+}
+
+void iosentinel_check_now() {
+    tasking_goto_task(_iosentinel_task);
 }
 
 void idle_task() {
@@ -311,6 +340,7 @@ void tasking_init() {
     thread_spawn((uint32_t)tasking_update_blocked_tasks);
     */
     task_spawn(idle_task);
+    _iosentinel_task = task_spawn(update_blocked_tasks);
 
     printf_info("Multitasking initialized");
 
@@ -353,4 +383,3 @@ void* sbrk(int increment) {
 int brk(void* addr) {
     NotImplemented();
     return 0;
-}
