@@ -5,6 +5,8 @@
 #include <kernel/util/vfs/fs.h>
 
 int close(int fd) {
+	NotImplemented();
+	/*
 	task_t* curr = task_with_pid(getpid());
 	fd_entry ent = curr->fd_table[fd];
 
@@ -29,4 +31,5 @@ int close(int fd) {
 
 	fd_remove(curr, fd);
 	return ret;
+	*/
 }

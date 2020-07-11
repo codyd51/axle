@@ -4,6 +4,8 @@
 #include <kernel/util/unistd/close.h>
 
 int dup(int fd) {
+	NotImplemented();
+	/*
 	task_t* current = task_with_pid(getpid());
 	fd_entry ent = current->fd_table[fd];
 
@@ -16,9 +18,12 @@ int dup(int fd) {
 	new_ent.type = ent.type;
 	new_ent.payload = ent.payload;
 	return fd_add(current, new_ent);
+	*/
 }
 
 int dup2(int fd, int newfd) {
+	NotImplemented();
+	/*
 	task_t* current = task_with_pid(getpid());
 	fd_entry ent = current->fd_table[fd];
 
@@ -34,4 +39,5 @@ int dup2(int fd, int newfd) {
 
 	//now, copy entry at fd into newfd
 	return fd_add_index(current, ent, newfd);
+	*/
 }

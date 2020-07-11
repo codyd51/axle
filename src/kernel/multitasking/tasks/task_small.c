@@ -12,6 +12,8 @@
 static volatile int next_pid = 0;
 
 task_small_t* _current_task_small = 0;
+static task_small_t* _current_first_responder = 0;
+static task_small_t* _iosentinel_task = 0;
 static task_small_t* _task_list_head = 0;
 
 static timer_callback_t* pit_callback = 0;
@@ -131,11 +133,40 @@ static void _task_bootstrap(uint32_t entry_point_ptr, uint32_t arg2) {
     task_die(status);
 }
 
+static void _setup_fds(task_small_t* new_task) {
+    new_task->fd_table = array_l_create();
+    
+    // Standard input stream
+    new_task->stdin_stream = std_stream_create();
+    fd_entry_t* stdin_entry = kmalloc(sizeof(fd_entry_t));
+    memset(stdin_entry, 0, sizeof(fd_entry_t));
+    stdin_entry->type = STD_TYPE;
+    stdin_entry->payload = new_task->stdin_stream;
+    array_l_insert(new_task->fd_table, stdin_entry);
+
+    // Standard output stream
+    new_task->stdout_stream = std_stream_create();
+    fd_entry_t* stdout_entry = kmalloc(sizeof(fd_entry_t));
+    memset(stdout_entry, 0, sizeof(fd_entry_t));
+    stdout_entry->type = STD_TYPE;
+    stdout_entry->payload = new_task->stdout_stream;
+    array_l_insert(new_task->fd_table, stdout_entry);
+
+    // Standard error stream
+    new_task->stderr_stream = std_stream_create();
+    fd_entry_t* stderr_entry = kmalloc(sizeof(fd_entry_t));
+    memset(stderr_entry, 0, sizeof(fd_entry_t));
+    stderr_entry->type = STD_TYPE;
+    stderr_entry->payload = new_task->stderr_stream;
+    array_l_insert(new_task->fd_table, stderr_entry);
+}
+
 task_small_t* _thread_create(void* entry_point) {
     task_small_t* new_task = kmalloc(sizeof(task_small_t));
     memset(new_task, 0, sizeof(task_small_t));
     new_task->id = next_pid++;
     new_task->blocked_info.status = RUNNABLE;
+    _setup_fds(new_task);
 
     uint32_t stack_size = 0x2000;
     char *stack = kmalloc(stack_size);

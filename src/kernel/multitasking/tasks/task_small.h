@@ -3,7 +3,9 @@
 
 #include <stdint.h>
 #include <kernel/multitasking/tasks/task.h>
+#include <kernel/multitasking/std_stream.h>
 #include <kernel/vmm/vmm.h>
+
 #define FD_MAX 64
 
 typedef struct task_context {
@@ -36,6 +38,11 @@ typedef struct task_small {
 	bool is_thread;
 	vmm_page_directory_t* vmm;
 
+	array_l* fd_table;
+	std_stream_t* stdin_stream;
+	std_stream_t* stdout_stream;
+	std_stream_t* stderr_stream;
+
 	/*
 	 * The following attributes are set only 
 	 * for programs started via a loader,
@@ -58,4 +65,15 @@ task_small_t* task_spawn(void* entry_point);
 
 task_small_t* tasking_get_task_with_pid(int pid);
 task_small_t* tasking_get_current_task();
+
+// Block a task because it must wait for the provided condition
+// The task will eventually become unblocked either through a call to 
+// tasking_unblock_task().
+// tasking_unblock_task() may be called either from another part of the system,
+// or from the iosentinel watchdog that notices that the block condition is 
+// satisfied.
+void tasking_block_task(task_small_t* task, task_state blocked_state);
+
+void iosentinel_check_now();
+
 #endif

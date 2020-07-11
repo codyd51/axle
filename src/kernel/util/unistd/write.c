@@ -48,38 +48,47 @@ int xserv_write(task_t* task, int UNUSED(fd), const void* buf, int len) {
 	set_text(output, new_str);
 
 	return len;
+	*/
 }
 
-int std_write(task_t* task, int fd, const void* buf, int len) {
-	printk("%s[%d] std_write %s\n", task->name, task->id, buf);
-	char* chbuf = (char*)buf;
-	int i = 0;
+int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
+	// Write to the standard out buffer, then immediately flush the buffer
+	// These steps can be separated when necessary
+	std_stream_push(task->stdout_stream, buf, len);
+	uint32_t char_count_remaining = len;
+	while (char_count_remaining > 0) {
+		char buf[64];
+		uint32_t char_count_processed_now = std_stream_pop(task->stdout_stream, &buf, MIN(sizeof(buf), char_count_remaining));
+		buf[char_count_processed_now] = '\0';
+		char_count_remaining -= char_count_processed_now;
+		printf(buf);
+	}
 
+	/*
 	Window* xterm = xterm_get();
 	if (xterm) {
 		i = xserv_write(task, fd, buf, len);
 	}
 	else {
-		for (; i < len; i++) {
-			putchar(chbuf[i]);
-		}
-	}
-
-	return i;
+  	}
+	*/
 }
 
 int write(int fd, char* buf, int len) {
-	printf("write %d->%d : ", getpid(), fd);
-	for (int i = 0; i < len; i++) {
-		putchar(buf[i]);
-	}
-	return;
-
-	if (!tasking_installed()) {
-		return -1;
-	}
+	assert(tasking_is_active(), "Can't write via fd until multitasking is active");
 	if (!len) return 0;
 
+	task_small_t* current = tasking_get_task_with_pid(getpid());
+	// Find the stream associated with the file descriptor
+	fd_entry_t* fd_ent = array_l_lookup(current->fd_table, fd);
+
+	if (fd_ent->type == STD_TYPE) {
+		return stdout_write(current, fd, buf, len);
+	}
+
+	NotImplemented();
+
+	/*
 	//translate address if binary is mapped at an offset in memory
 	task_t* current = task_with_pid(getpid());
 	if (current->vmem_slide) {
@@ -105,4 +114,5 @@ int write(int fd, char* buf, int len) {
 			break;
 	}
 	return -1;
+	*/
 }

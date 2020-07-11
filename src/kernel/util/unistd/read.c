@@ -1,6 +1,6 @@
 #include "read.h"
 #include <kernel/multitasking/fd.h>
-#include <kernel/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task_small.h>
 #include <kernel/drivers/kb/kb.h>
 #include <kernel/util/vfs/fs.h>
 #include <kernel/multitasking/std_stream.h>
@@ -10,37 +10,33 @@
 #include <gfx/lib/Window.h>
 #include <gfx/lib/Label.h>
 
-int std_read(task_t* task, int UNUSED(fd), void* buf, int count) {
+int stdin_read(task_small_t* task, int UNUSED(fd), void* buf, int count) {
 	char* chbuf = (char*)buf;
 	int i = 0;
-	//TODO implement newline_wait
-	//
-
-	for (; i < count - 1; i++) {
-		char ch = std_stream_popc(task);
+	for (; i < count; i++) {
+		//printf("Reading from stream: %d\n", task->stdin_stream->buf->count);
+		char ch = std_stream_popchar(task->stdin_stream);
 		chbuf[i] = ch;
-		if (ch == -1) {
-			//no more items to read!
-			break;
-		}
-
-		if (ch == '\n' || ch == '\0') {
-			break;
-		}
 	}
 	//Window* xterm = xterm_get();
 	//std_write(task, fd, buf, i+1);
-	return i+1;
+	return i;
 }
 
 uint32_t read(int fd, void* buf, uint32_t count) {
-	if (!tasking_installed()) {
-		return -1;
-	}
-	if (!count) {
-		return 0;
+	assert(tasking_is_active(), "Can't read via fd until multitasking is active");
+	if (!count) return 0;
+
+	task_small_t* current = tasking_get_task_with_pid(getpid());
+	// Find the stream associated with the file descriptor
+	fd_entry_t* fd_ent = array_l_lookup(current->fd_table, fd);
+
+	if (fd_ent->type == STD_TYPE) {
+		return stdin_read(current, fd, buf, count);
 	}
 
+	NotImplemented();
+	/*
 	unsigned char* chbuf = buf;
 	memset(chbuf, 0, count);
 
@@ -64,4 +60,5 @@ uint32_t read(int fd, void* buf, uint32_t count) {
 			return pipe_read(fd, buf, count);
 	}
 	return -1;
+	*/
 }
