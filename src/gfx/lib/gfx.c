@@ -96,6 +96,7 @@ void write_screen(Screen* screen) {
 }
 
 void write_screen_region(Rect region) {
+    // TODO(PT): This function seems to cause page faults... ensure it writes in-bounds
     vsync();
     Screen* screen = gfx_screen();
 
@@ -346,7 +347,6 @@ Screen* gfx_init(void) {
     framebuffer_info_t framebuffer_info = boot_info_get()->framebuffer; 
 
     _screen.physbase = (uint32_t*)framebuffer_info.address;
-    printf("framebuffer 0x%08x\n", framebuffer_info.address);
     _screen.video_memory_size = framebuffer_info.size;
 
     _screen.resolution = size_make(framebuffer_info.width, framebuffer_info.height);
@@ -357,31 +357,19 @@ Screen* gfx_init(void) {
     _screen.default_font_size = font_size_for_resolution(_screen.resolution);
 
     _screen.vmem = create_layer(_screen.resolution);
-    printf("created layer\n");
     _screen.window = create_window_int(rect_make(point_make(0, 0), _screen.resolution), true);
-    printf("created window\n");
     _screen.window->superview = NULL;
     _screen.surfaces = array_m_create(128);
-    printf("created surfaces\n");
 
     _gfx_is_active = true;
-    printf("test\n");
 
-    /*
-    process_gfx_switch(&_screen, _screen.bytes_per_pixel);
-    Size padding = font_padding_for_size(s);
-    printf_info("Running in %d x %d x %d", screen.resolution.width, screen.resolution.height, screen.depth);
-    printf_info("Recommended font size is %dx%d, recommended padding is %dx%d", s.width, s.height, padding.width, padding.height);
-    */
+    printf_info("Graphics: %d x %d, %d BPP", _screen.resolution.width, _screen.resolution.height, _screen.bits_per_pixel);
 }
 
 static Point cursor_pos = {0, 0};
 void gfx_terminal_putchar(char c) {
     Screen* screen = gfx_screen();
 
-    //Point gfx_get_cursor_pos();
-    //Point old_cursor_pos = gfx_get_cursor_pos();
-    //Point new_cursor_pos = old_cursor_pos;
     Size font_size = screen->default_font_size;
     Point new_cursor_pos = cursor_pos;
 
@@ -393,27 +381,22 @@ void gfx_terminal_putchar(char c) {
         new_cursor_pos.x = 0;
     }
     if (new_cursor_pos.y + font_size.height >= screen->resolution.height) {
-        gfx_terminal_clear();
+        // Reset cursor to origin and try again
+        cursor_pos.x = cursor_pos.y = 0;
         gfx_terminal_putchar(c);
         return;
     }
-    //else {
-        //if (c != '\n') {
-            //draw_char(screen->vmem, c, new_cursor_pos.x, new_cursor_pos.y, printf_draw_color, font_size);
-            draw_char(screen->vmem, c, new_cursor_pos.x, new_cursor_pos.y, color_black(), font_size);
-            write_screen_region(rect_make(cursor_pos, font_size));
-        //}
-    //}
+
+    //draw_char(screen->vmem, c, new_cursor_pos.x, new_cursor_pos.y, printf_draw_color, font_size);
+    draw_char(screen->vmem, c, new_cursor_pos.x, new_cursor_pos.y, color_black(), font_size);
+    write_screen_region(rect_make(cursor_pos, font_size));
+
     cursor_pos = new_cursor_pos;
 }
 
-    //write_screen(gfx_screen());
 }
 
 void gfx_terminal_clear() {
-    //clear screen, redraw background
-    //fill_screen(gfx_screen(), color_black());
-    //gfx_set_cursor_pos(0, 0);
-    cursor_pos.x = cursor_pos.y = 0;
-    //write_screen(gfx_screen());
+    // Clear the screen's double buffer and redraw the background
+    Deprecated();
 }
