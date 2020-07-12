@@ -8,8 +8,6 @@
 #include <kernel/vmm/vmm.h>
 #include <kernel/multiboot.h>
 #include <kernel/drivers/vga/vga.h>
-#include <kernel/drivers/vbe/vbe.h>
-#include <kernel/drivers/vesa/vesa.h>
 #include <kernel/drivers/mouse/mouse.h>
 
 #include <gfx/font/font.h>
@@ -19,6 +17,7 @@
 #include "bmp.h"
 #include "color.h"
 #include "shapes.h"
+#include "screen.h"
 
 
 //private Window function to create root window
@@ -61,13 +60,8 @@ Vec2d vec2d(double x, float y) {
     return vec;
 }
 
-void gfx_teardown(Screen* screen) {
-    if (!screen) return;
-
-    //free screen
-    window_teardown(screen->window);
-    kfree(screen->vmem);
-    kfree(screen);
+void gfx_teardown(void) {
+    Deprecated();
 }
 
 void vsync() {

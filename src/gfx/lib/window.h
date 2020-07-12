@@ -3,11 +3,11 @@
 
 #include <std/std_base.h>
 #include <stdint.h>
-#include "gfx.h"
 #include "rect.h"
 #include "ca_layer.h"
 #include "color.h"
 #include "view.h"
+#include "gfx.h"
 
 __BEGIN_DECLS
 
