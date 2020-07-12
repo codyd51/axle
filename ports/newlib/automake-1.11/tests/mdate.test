@@ -1,0 +1,34 @@
+#!/bin/sh
+# Copyright (C) 1996, 1997, 2001, 2002  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test that mdate-sh is required when Texinfo used and version.texi needed.
+
+. ./defs || Exit 1
+
+cat > Makefile.am << 'END'
+info_TEXINFOS = textutils.texi
+END
+
+cat > textutils.texi << 'END'
+@include version.texi
+@setfilename textutils.info
+END
+
+# Required when using Texinfo.
+: > texinfo.tex
+
+$ACLOCAL || Exit 1
+$AUTOMAKE 2>&1 > /dev/null | grep 'required file.*mdate-sh'

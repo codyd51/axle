@@ -1,0 +1,149 @@
+#! /bin/sh
+# Copyright (C) 2008  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Installing many files should not exceed the command line length limit.
+
+# This is the mans sister test of instmany.test, see there for details.
+
+. ./defs || Exit 1
+
+set -e
+
+# In order to have a useful test on modern systems (which have a high
+# limit, if any), use a fake install program that errors out for more
+# than 2K characters in a command line.  The POSIX limit is 4096, but
+# that may include space taken up by the environment.
+
+limit=2500
+subdir=long_subdir_name_with_many_characters
+nfiles=81
+
+# Let's use `seq' if available, it's faster than the loop.
+list=`(seq 1 $nfiles) 2>/dev/null || {
+  i=1
+  while test $i -le $nfiles; do
+    echo $i
+    i=\`expr $i + 1\`
+  done; }`
+
+sed "s|@limit@|$limit|g" >myinstall.in <<'END'
+#! /bin/sh
+# Fake install script.  This doesn't really install
+# (the INSTALL path below would be wrong outside this directory).
+limit=@limit@
+INSTALL='@INSTALL@'
+len=`expr "$INSTALL $*" : ".*" 2>/dev/null || echo $limit`
+if test $len -ge $limit; then
+  echo "$0: safe command line limit of $limit characters exceeded" >&2
+  exit 1
+fi
+exit 0
+END
+
+# Creative quoting in the next line to please maintainer-check.
+sed "s|@limit@|$limit|g" >'rm' <<'END'
+#! /bin/sh
+limit=@limit@
+PATH=$save_PATH
+export PATH
+RM='rm -f'
+len=`expr "$RM $*" : ".*" 2>/dev/null || echo $limit`
+if test $len -ge $limit; then
+  echo "$0: safe command line limit of $limit characters exceeded" >&2
+  exit 1
+fi
+exec $RM "$@"
+exit 1
+END
+
+chmod +x rm
+
+cat >>configure.in <<END
+AC_CONFIG_FILES([myinstall], [chmod +x ./myinstall])
+AC_CONFIG_FILES([$subdir/Makefile])
+AC_OUTPUT
+END
+
+cat >Makefile.am <<END
+SUBDIRS = $subdir
+END
+
+mkdir $subdir
+cd $subdir
+
+cat >Makefile.am <<'END'
+man_MANS =
+man3_MANS =
+notrans_man_MANS =
+notrans_man3_MANS =
+END
+
+for n in $list; do
+  cat >>Makefile.am <<END
+man_MANS += page$n.1
+man3_MANS += page$n.man
+notrans_man_MANS += npage$n.1
+notrans_man3_MANS += npage$n.man
+END
+  echo >page$n.1
+  echo >page$n.man
+  echo >npage$n.1
+  echo >npage$n.man
+done
+
+cd ..
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE --add-missing
+
+instdir=`pwd`/inst
+mkdir build
+cd build
+../configure --prefix="$instdir"
+$MAKE
+# Try whether native install (or install-sh) works.
+$MAKE install
+# Multiple uninstall should work, too.
+$MAKE uninstall
+$MAKE uninstall
+test `find "$instdir" -type f -print | wc -l` = 0
+
+# Try whether we don't exceed the low limit.
+INSTALL='$(SHELL) $(top_builddir)/myinstall' $MAKE -e install
+env save_PATH="$PATH" PATH="`pwd`/..:$PATH" $MAKE uninstall
+
+cd $subdir
+srcdir=../../$subdir
+
+# Ensure 'make install' fails when 'install' fails.
+
+# We cheat here, for efficiency, knowing the internal rule names.
+# For correctness, one should `$MAKE install' here always, or at
+# least use install-exec or install-data.
+
+for file in page3.1 page$nfiles.1 npage3.1 npage$nfiles.1; do
+  chmod a-r $srcdir/$file
+  test ! -r $srcdir/$file || Exit 77
+  $MAKE install-man1 && Exit 1
+  chmod u+r $srcdir/$file
+done
+
+for file in page3.man page$nfiles.man npage3.man npage$nfiles.man; do
+  chmod a-r $srcdir/$file
+  $MAKE install-man3 && Exit 1
+  chmod u+r $srcdir/$file
+done
+:

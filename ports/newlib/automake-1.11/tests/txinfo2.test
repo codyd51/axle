@@ -1,0 +1,44 @@
+#! /bin/sh
+# Copyright (C) 1996, 1997, 2001, 2002, 2003  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test to ensure that a ".info~" file doesn't end up in the
+# distribution.  Bug report from Greg McGary.
+
+. ./defs || Exit 1
+
+set -e
+
+echo AC_OUTPUT >> configure.in
+
+cat > Makefile.am << 'END'
+info_TEXINFOS = textutils.texi
+magic:
+	@echo $(DISTFILES)
+END
+
+: > texinfo.tex
+echo '@setfilename textutils.info' > textutils.texi
+: > textutils.info~
+
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE
+./configure
+$MAKE magic >stdout
+cat stdout
+grep '~' stdout && Exit 1
+Exit 0

@@ -1,0 +1,172 @@
+#! /bin/sh
+# Copyright (C) 2009  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test `make -n' for various targets, to ensure that stdout output is
+# sufficiently complete.  This currently only works for GNU make and
+# BSD make implementations that support the `.MAKE' special target.
+#
+# This test exercises the GCS-mandated targets (except for dist)
+# as well as tags, TAGS.
+
+# Please keep this test in sync with sister test maken3.test.
+
+required=GNUmake
+. ./defs-p || Exit 1
+
+set -e
+
+mkdir sub sub2
+
+cat >> configure.in << 'END'
+AC_CONFIG_FILES([sub/Makefile sub2/Makefile])
+AC_OUTPUT
+END
+
+cat > Makefile.am <<'END'
+TESTS = foo.test
+SUBDIRS = sub sub2
+##BUILT_SOURCES = foo
+foo:
+foo.test:
+all-local:
+	@: > stamp-all
+install-data-local:
+	@: > stamp-install
+uninstall-local:
+	@: > stamp-uninstall
+clean-local:
+	@: > stamp-clean
+distclean-local:
+	@: > stamp-distclean
+info-local:
+	@: > stamp-info
+html-local:
+	@: > stamp-html
+dvi-local:
+	@: > stamp-dvi
+ps-local:
+	@: > stamp-ps
+pdf-local:
+	@: > stamp-pdf
+check-local:
+	@: > stamp-check
+installcheck-local:
+	@: > stamp-installcheck
+mostlyclean-local:
+	@: > stamp-mostlyclean
+maintainer-clean-local:
+	@: > stamp-maintainer-clean
+END
+cat >sub/Makefile.am <<'END'
+all-local:
+	@: > stamp-all-sub
+install-data-local:
+	@: > stamp-install-sub
+uninstall-local:
+	@: > stamp-uninstall-sub
+clean-local:
+	@: > stamp-clean-sub
+distclean-local:
+	@: > stamp-distclean-sub
+info-local:
+	@: > stamp-info-sub
+html-local:
+	@: > stamp-html-sub
+dvi-local:
+	@: > stamp-dvi-sub
+ps-local:
+	@: > stamp-ps-sub
+pdf-local:
+	@: > stamp-pdf-sub
+check-local:
+	@: > stamp-check-sub
+installcheck-local:
+	@: > stamp-installcheck-sub
+tags:
+	@: > stamp-tags-sub
+TAGS:
+	@: > stamp-TAGS-sub
+mostlyclean-local:
+	@: > stamp-mostlyclean-sub
+maintainer-clean-local:
+	@: > stamp-maintainer-clean-sub
+END
+cat >sub2/Makefile.am <<'END'
+all install uninstall clean check:
+	@: > sub2-$@-should-not-be-executed
+info dvi pdf ps:
+	@: > sub2-$@-should-not-be-executed
+html:
+	@: > sub2-$@-should-not-be-executed
+install-info install-html install-dvi install-pdf install-ps:
+	@: > sub2-$@-should-not-be-executed
+installcheck installdirs tags TAGS mostlyclean:
+	@: > sub2-$@-should-not-be-executed
+## These targets cannot be overridden like this:
+## install-strip distclean maintainer-clean
+END
+
+$ACLOCAL
+$AUTOCONF
+
+check_targets ()
+{
+  set -e
+  for target in \
+    all install install-strip uninstall clean distclean check \
+    info html dvi pdf ps \
+    install-info install-html install-dvi install-pdf install-ps \
+    installcheck installdirs tags TAGS mostlyclean maintainer-clean
+  do
+    $MAKE -n $target >stdout || { cat stdout; Exit 1; }
+    cat stdout
+    case $target in
+    install-* | installdirs | tags | TAGS ) ;;
+    *)
+      grep "stamp-$target$" stdout || Exit 1
+      test ! -f "stamp-$target$" || Exit 1
+      ;;
+    esac
+    case $target in
+    install-* | installdirs ) ;;
+    *)
+      grep "stamp-$target-sub" stdout || Exit 1
+      test ! -f "sub/stamp-$target-sub" || Exit 1
+      ;;
+    esac
+    case $target in
+    distclean | maintainer-clean ) ;;
+    *)
+      grep "should-not-be-executed" stdout || Exit 1
+      test ! -f "sub2/sub2-$target-should-not-be-executed" || Exit 1
+      ;;
+    esac
+  done
+}
+
+$AUTOMAKE -Wno-override
+./configure
+check_targets || Exit 1
+
+# Now, introduce BUILT_SOURCES into the toplevel Makefile
+# TODO: add BUILT_SOURCES to sub2, fix fallout.
+sed 's/##//' < Makefile.am > t
+mv -f t Makefile.am
+$AUTOMAKE -Wno-override --force Makefile
+./configure
+check_targets || Exit 1
+
+Exit 0

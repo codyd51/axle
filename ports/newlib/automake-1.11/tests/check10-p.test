@@ -1,0 +1,87 @@
+#! /bin/sh
+# Copyright (C) 2008, 2009  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Check singular and plural in test summaries.
+
+. ./defs-p || Exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+TESTS = fail pass skip xfail xpass fail2 pass2 skip2 xfail2 xpass2
+XFAIL_TESTS = xfail xpass xfail2 xpass2
+END
+
+cat >>pass <<'END'
+#! /bin/sh
+exit 0
+END
+cat >>fail <<'END'
+#! /bin/sh
+exit 1
+END
+cat >>skip <<'END'
+#! /bin/sh
+exit 77
+END
+chmod a+x pass fail skip
+cp pass pass2
+cp pass xpass
+cp xpass xpass2
+cp fail xfail
+cp fail fail2
+cp xfail xfail2
+cp skip skip2
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE
+
+unset TESTS || :
+
+./configure
+(
+  # Do not check for failure in this subshell
+  set +e
+  env TESTS=pass $MAKE -e check
+  env TESTS=fail $MAKE -e check
+  env TESTS=skip $MAKE -e check
+  env TESTS=xfail $MAKE -e check
+  env TESTS=xpass $MAKE -e check
+  env TESTS="pass pass2" $MAKE -e check
+  env TESTS="fail fail2" $MAKE -e check
+  env TESTS="skip skip2" $MAKE -e check
+  env TESTS="xfail xfail2" $MAKE -e check
+  env TESTS="xpass xpass2" $MAKE -e check
+  env TESTS='pass skip xfail' $MAKE -e check
+  $MAKE check
+  :
+) >stdout
+cat stdout
+
+grep '1 [tT]ests' stdout && Exit 1
+grep '[02-9] [tT]est ' stdout && Exit 1
+grep '1 .* were ' stdout && Exit 1
+grep '[02-9].* was .*run' stdout && Exit 1
+grep 'All 1 ' stdout && Exit 1
+$EGREP '1 (un)?expected (failures|passes)' stdout && Exit 1
+$EGREP '[^1] (un)?expected (failure|pass)\)' stdout && Exit 1
+
+:

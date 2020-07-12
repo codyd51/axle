@@ -1,0 +1,64 @@
+#! /bin/sh
+# Copyright (C) 2008  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# The install rule should honor failures of the install program.
+# Some of these are already caught by instmany.test.
+
+# This is the java sister test of instfail.test.
+
+. ./defs || Exit 1
+
+set -e
+
+cat >>configure.in <<'END'
+AC_CHECK_PROG([HAS_JAVAC], [javac], [:], [exit])
+($HAS_JAVAC 77); $HAS_JAVAC 77
+AC_OUTPUT
+END
+
+cat >Makefile.am <<'END'
+javadir = $(datadir)/java
+java_JAVA = java1.java java2.java java3.java
+END
+
+for n in 1 2 3; do
+  cat >java$n.java <<END
+class java$n
+{
+}
+END
+done
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE --add-missing
+
+instdir=`pwd`/inst
+./configure --prefix="$instdir"
+$MAKE
+
+$MAKE install
+$MAKE uninstall
+
+for file in java1.class
+do
+  chmod a-r $file
+  test ! -r $file || Exit 77
+  $MAKE install-data && Exit 1
+  chmod u+r $file
+done
+
+:

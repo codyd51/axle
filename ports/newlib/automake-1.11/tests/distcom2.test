@@ -1,0 +1,72 @@
+#! /bin/sh
+# Copyright (C) 2001, 2002, 2004, 2006  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test to make sure that depcomp and compile are added to DIST_COMMON
+# From Pavel Roskin.
+
+. ./defs || Exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AM_PROG_CC_C_O
+AC_CONFIG_FILES([subdir/Makefile])
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+SUBDIRS = subdir
+END
+
+mkdir subdir
+: > subdir/foo.c
+
+cat > subdir/Makefile.am << 'END'
+noinst_PROGRAMS = foo
+foo_SOURCES = foo.c
+foo_CFLAGS = -DBAR
+END
+
+rm -f compile depcomp
+
+$ACLOCAL || Exit 1
+$AUTOMAKE --add-missing || Exit 1
+
+test -f compile || Exit 1
+test -f depcomp || Exit 1
+
+sed -n -e '/^DIST_COMMON =.*\\$/ {
+   :loop
+   p
+   n
+   t clear
+   :clear
+   s/\\$/\\/
+   t loop
+   p
+   n
+   }' -e '/^DIST_COMMON =/ p' Makefile.in | grep compile || Exit 1
+
+sed -n -e '/^DIST_COMMON =.*\\$/ {
+   :loop
+   p
+   n
+   t clear
+   :clear
+   s/\\$/\\/
+   t loop
+   p
+   n
+   }' -e '/^DIST_COMMON =/ p' Makefile.in | grep depcomp || Exit 1

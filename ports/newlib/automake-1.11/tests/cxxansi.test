@@ -1,0 +1,45 @@
+#! /bin/sh
+# Copyright (C) 2001, 2002  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test to make sure ansi2knr doesn't use `$U' for C++.
+# Report from Robert Boehne.
+
+. ./defs || Exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_CXX
+AM_C_PROTOTYPES
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = ansi2knr
+sbin_PROGRAMS = anonymous
+anonymous_SOURCES = doe.c jane.C
+END
+
+: > ansi2knr.c
+: > ansi2knr.1
+
+: > doe.C
+: > jane.C
+
+$ACLOCAL || Exit 1
+$AUTOMAKE || Exit 1
+
+$FGREP 'jane$U' Makefile.in && Exit 1
+$FGREP 'doe$U' Makefile.in || Exit 1
+
+Exit 0

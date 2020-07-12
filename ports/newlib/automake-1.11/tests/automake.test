@@ -1,0 +1,41 @@
+#! /bin/sh
+# Copyright (C) 2004, 2006  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test Automake's command-line options.
+. ./defs || Exit 1
+
+set -e
+
+$AUTOMAKE --help
+$AUTOMAKE --version
+AUTOMAKE_fails --voo
+grep 'unrecognized option.*--voo' stderr
+# older perl has a buggy Getopt::Long which makes this fail.
+if $PERL -e 'require 5.8.2;'; then
+  AUTOMAKE_fails -- --voo
+  grep 'input file.*--voo' stderr
+fi
+AUTOMAKE_fails ''
+grep 'empty argument' stderr
+AUTOMAKE_fails -W
+grep 'option.*-W.*requires an argument' stderr
+AUTOMAKE_fails --warnings
+grep 'option.*--warning.*requires an argument' stderr
+AUTOMAKE_fails --warnings --help
+grep 'unknown warning.*--help' stderr
+AUTOMAKE_fails --ver
+grep 'unrecognized option.*--ver' stderr
+$AUTOMAKE --vers

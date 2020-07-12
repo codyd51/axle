@@ -1,0 +1,88 @@
+#! /bin/sh
+# Copyright (C) 2009  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Check parallel-tests features:
+# - check-html
+# - recheck-html
+
+required=rst2html
+. ./defs-p || Exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+TEST_SUITE_LOG = mylog.log
+TESTS = foo.test bar.test baz.test
+check_SCRIPTS = bla
+bla:
+	echo bla > $@
+CLEANFILES = bla
+END
+
+cat >>foo.test <<'END'
+#! /bin/sh
+echo "this is $0"
+test -f bla || exit 1
+exit 0
+END
+cat >>bar.test <<'END'
+#! /bin/sh
+echo "this is $0"
+exit 99
+END
+cat >>baz.test <<'END'
+#! /bin/sh
+echo "this is $0"
+exit 1
+END
+chmod a+x foo.test bar.test baz.test
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+./configure
+$MAKE check-html >stdout && { cat stdout; Exit 1; }
+cat stdout
+test -f mylog.html
+
+# Always create the HTML output, even if there were no failures.
+rm -f mylog.html
+env TESTS=foo.test $MAKE -e check-html >stdout || { cat stdout; Exit 1; }
+cat stdout
+test -f mylog.html
+
+# Create HTML output also with recheck-html
+rm -f mylog.html
+env TESTS=foo.test $MAKE -e recheck-html >stdout || { cat stdout; Exit 1; }
+cat stdout
+test -f mylog.html
+
+# check-html and recheck-html should cause check_SCRIPTS to be created,
+# and recheck-html should rerun no tests if check has not been run.
+$MAKE clean
+env TESTS=foo.test $MAKE -e check-html
+test -f bla
+$MAKE clean
+env TESTS=foo.test $MAKE -e recheck-html
+test -f bla
+test ! -f foo.log
+test -f mylog.html
+:

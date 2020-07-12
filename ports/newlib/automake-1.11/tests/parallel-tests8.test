@@ -1,0 +1,75 @@
+#! /bin/sh
+# Copyright (C) 2009  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Check parallel-tests features:
+# - generated distributed tests.
+# - listing $(srcdir)/ or $(top_srcdir)/ in TESTS doesn't work ATM,
+#   and is thus diagnosed.
+
+# TODO: this test should also ensure that the `make' implementation
+#       properly adheres to rules in all cases.  See the Autoconf
+#       manual for the ugliness in this area, when VPATH comes into
+#       play.  :-/
+
+. ./defs-p || Exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+TESTS = foo.test
+## the next line will cause automake to error out:
+TESTS += $(srcdir)/bar.test $(top_srcdir)/baz.test
+.in.test:
+	cp $< $@
+	chmod +x $@
+check_SCRIPTS = $(TESTS)
+EXTRA_DIST = foo.in foo.test
+DISTCLEANFILES = foo.test
+END
+
+cat >>foo.in <<'END'
+#! /bin/sh
+echo "this is $0"
+exit 0
+END
+
+$ACLOCAL
+$AUTOCONF
+AUTOMAKE_fails -a
+grep '(srcdir.*bar' stderr
+grep 'top_srcdir.*baz' stderr
+
+sed '/srcdir/d' < Makefile.am > t
+mv -f t Makefile.am
+$AUTOMAKE -a
+
+./configure
+$MAKE check
+$MAKE distcheck
+$MAKE distclean
+
+mkdir build
+cd build
+../configure
+$MAKE check
+test ! -f ../foo.log
+$MAKE distcheck
+
+:

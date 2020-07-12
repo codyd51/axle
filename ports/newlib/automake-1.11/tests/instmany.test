@@ -1,0 +1,194 @@
+#! /bin/sh
+# Copyright (C) 2008  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Installing many files should not exceed the command line length limit.
+# Here, the main issue is that we may prepend `$(srcdir)/' to each file,
+# which may cause much longer command lines.  The list of files must
+# anyway remain below the limit, otherwise `make' won't be able to even
+# fork the command.
+#
+# Further, the install rule should honor failures of the install program.
+
+# Python is done in the sister test.
+# For texinfos, we expand names using $(srcdir) in the first place.
+# Let's hope nobody uses many texinfos.
+
+. ./defs || Exit 1
+
+set -e
+
+# In order to have a useful test on modern systems (which have a high
+# limit, if any), use a fake install program that errors out for more
+# than 2K characters in a command line.  The POSIX limit is 4096, but
+# that may include space taken up by the environment.
+
+limit=2500
+subdir=long_subdir_name_with_many_characters
+nfiles=81
+
+# Let's use `seq' if available, it's faster than the loop.
+list=`(seq 1 $nfiles) 2>/dev/null || {
+  i=1
+  while test $i -le $nfiles; do
+    echo $i
+    i=\`expr $i + 1\`
+  done; }`
+
+sed "s|@limit@|$limit|g" >myinstall.in <<'END'
+#! /bin/sh
+# Fake install script.  This doesn't really install
+# (the INSTALL path below would be wrong outside this directory).
+limit=@limit@
+INSTALL='@INSTALL@'
+len=`expr "$INSTALL $*" : ".*" 2>/dev/null || echo $limit`
+if test $len -ge $limit; then
+  echo "$0: safe command line limit of $limit characters exceeded" >&2
+  exit 1
+fi
+exit 0
+END
+
+# Creative quoting in the next line to please maintainer-check.
+sed "s|@limit@|$limit|g" >'rm' <<'END'
+#! /bin/sh
+limit=@limit@
+PATH=$save_PATH
+export PATH
+RM='rm -f'
+len=`expr "$RM $*" : ".*" 2>/dev/null || echo $limit`
+if test $len -ge $limit; then
+  echo "$0: safe command line limit of $limit characters exceeded" >&2
+  exit 1
+fi
+exec $RM "$@"
+exit 1
+END
+
+chmod +x rm
+
+cat >>configure.in <<END
+AC_CONFIG_FILES([myinstall], [chmod +x ./myinstall])
+AC_CONFIG_FILES([$subdir/Makefile])
+AC_OUTPUT
+END
+
+cat >Makefile.am <<END
+SUBDIRS = $subdir
+END
+
+mkdir $subdir
+cd $subdir
+
+cat >Makefile.am <<'END'
+bin_SCRIPTS =
+nobase_bin_SCRIPTS =
+data_DATA =
+nobase_data_DATA =
+include_HEADERS =
+nobase_include_HEADERS =
+END
+
+for n in $list; do
+  cat >>Makefile.am <<END
+bin_SCRIPTS += script$n
+nobase_bin_SCRIPTS += nscript$n
+data_DATA += data$n
+nobase_data_DATA += ndata$n
+include_HEADERS += header$n.h
+nobase_include_HEADERS += nheader$n.h
+END
+  echo >script$n
+  echo >nscript$n
+  echo >data$n
+  echo >ndata$n
+  echo >header$n.h
+  echo >nheader$n.h
+done
+
+cd ..
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE --add-missing
+
+instdir=`pwd`/inst
+mkdir build
+cd build
+../configure --prefix="$instdir"
+$MAKE
+# Try whether native install (or install-sh) works.
+$MAKE install
+# Multiple uninstall should work, too.
+$MAKE uninstall
+$MAKE uninstall
+test `find "$instdir" -type f -print | wc -l` = 0
+
+# Try whether we don't exceed the low limit.
+INSTALL='$(SHELL) $(top_builddir)/myinstall' $MAKE -e install
+env save_PATH="$PATH" PATH="`pwd`/..:$PATH" $MAKE uninstall
+
+cd $subdir
+srcdir=../../$subdir
+
+# Ensure 'make install' fails when 'install' fails.
+
+# We cheat here, for efficiency, knowing the internal rule names.
+# For correctness, one should `$MAKE install' here always, or at
+# least use install-exec or install-data.
+
+for file in script3 script$nfiles
+do
+  chmod a-r $srcdir/$file
+  test ! -r $srcdir/$file || Exit 77
+  $MAKE install-binSCRIPTS && Exit 1
+  chmod u+r $srcdir/$file
+done
+
+for file in nscript3 nscript$nfiles
+do
+  chmod a-r $srcdir/$file
+  $MAKE install-nobase_binSCRIPTS && Exit 1
+  chmod u+r $srcdir/$file
+done
+
+for file in data3 data$nfiles
+do
+  chmod a-r $srcdir/$file
+  $MAKE install-dataDATA && Exit 1
+  chmod u+r $srcdir/$file
+done
+
+for file in ndata3 ndata$nfiles
+do
+  chmod a-r $srcdir/$file
+  $MAKE install-nobase_dataDATA && Exit 1
+  chmod u+r $srcdir/$file
+done
+
+for file in header3.h header$nfiles.h
+do
+  chmod a-r $srcdir/$file
+  $MAKE install-includeHEADERS && Exit 1
+  chmod u+r $srcdir/$file
+done
+
+for file in nheader3.h nheader$nfiles.h
+do
+  chmod a-r $srcdir/$file
+  $MAKE install-nobase_includeHEADERS && Exit 1
+  chmod u+r $srcdir/$file
+done
+
+:

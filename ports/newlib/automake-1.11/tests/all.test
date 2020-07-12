@@ -1,0 +1,43 @@
+#! /bin/sh
+# Copyright (C) 1999, 2001, 2002, 2007  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test to make sure all-local and other -local targets work correctly.
+
+. ./defs || Exit 1
+set -e
+
+targets='all install-exec install-data uninstall'
+for target in $targets; do
+   echo "Doing $target"
+   echo "${target}-local:" > Makefile.am
+
+   $ACLOCAL
+   $AUTOMAKE
+
+   $FGREP "${target}-local ${target}-local" Makefile.in && Exit 1
+done
+
+# Several *-local's in a single rule.
+echo "Doing $targets"
+echo "$targets:" | sed -e 's/[ :]/-local&/g' > Makefile.am
+$ACLOCAL
+$AUTOMAKE
+
+for target in $targets; do
+  $EGREP "${target}-am:.*${target}-local" Makefile.in
+done
+
+Exit 0
