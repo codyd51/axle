@@ -52,20 +52,32 @@ extern "C" {
 #define _FNOFOLLOW      0x100000
 #define _FDIRECTORY     0x200000
 #define _FEXECSRCH      0x400000
+#define _FTMPFILE       0x800000
+#define _FNOATIME       0x1000000
 
 #define O_BINARY	_FBINARY
 #define O_TEXT		_FTEXT
-#define O_CLOEXEC	_FNOINHERIT
-#define O_DIRECT        _FDIRECT
-#define O_NOFOLLOW      _FNOFOLLOW
 #define O_DSYNC         _FSYNC
 #define O_RSYNC         _FSYNC
-#define O_DIRECTORY     _FDIRECTORY
 #define O_EXEC          _FEXECSRCH
 #define O_SEARCH        _FEXECSRCH
+
+/* POSIX-1.2008 specific flags */
+#if __POSIX_VISIBLE >= 200809
+#define O_CLOEXEC	_FNOINHERIT
+#define O_NOFOLLOW      _FNOFOLLOW
+#define O_DIRECTORY     _FDIRECTORY
 #endif
 
-#ifndef	_POSIX_SOURCE
+/* Linux-specific flags */
+#if __GNU_VISIBLE
+#define O_DIRECT        _FDIRECT
+#define O_TMPFILE	_FTMPFILE
+#define O_NOATIME	_FNOATIME
+#endif
+#endif
+
+#if __MISC_VISIBLE
 
 /*
  * Flags that work for fcntl(fd, F_SETFL, FXXXX)
@@ -97,7 +109,11 @@ extern "C" {
 #define	FEXCL		_FEXCL
 #define	FNOCTTY		_FNOCTTY
 
-#endif	/* !_POSIX_SOURCE */
+#endif	/* __MISC_VISIBLE */
+
+#if __BSD_VISIBLE
+#define	FNONBLOCK	_FNONBLOCK
+#endif	/* __BSD_VISIBLE */
 
 /* XXX close on exec request; must match UF_EXCLOSE in user.h */
 #define	FD_CLOEXEC	1	/* posix */
@@ -108,20 +124,20 @@ extern "C" {
 #define	F_SETFD		2	/* Set fildes flags (close on exec) */
 #define	F_GETFL		3	/* Get file flags */
 #define	F_SETFL		4	/* Set file flags */
-#ifndef	_POSIX_SOURCE
+#if __BSD_VISIBLE || __POSIX_VISIBLE >= 200112
 #define	F_GETOWN 	5	/* Get owner - for ASYNC */
 #define	F_SETOWN 	6	/* Set owner - for ASYNC */
-#endif	/* !_POSIX_SOURCE */
+#endif /* __BSD_VISIBLE || __POSIX_VISIBLE >= 200112 */
 #define	F_GETLK  	7	/* Get record-locking information */
 #define	F_SETLK  	8	/* Set or Clear a record-lock (Non-Blocking) */
 #define	F_SETLKW 	9	/* Set or Clear a record-lock (Blocking) */
-#ifndef	_POSIX_SOURCE
+#if __MISC_VISIBLE
 #define	F_RGETLK 	10	/* Test a remote lock to see if it is blocked */
 #define	F_RSETLK 	11	/* Set or unlock a remote lock */
 #define	F_CNVT 		12	/* Convert a fhandle to an open fd */
 #define	F_RSETLKW 	13	/* Set or Clear remote record-lock(Blocking) */
-#endif	/* !_POSIX_SOURCE */
-#ifdef __CYGWIN__
+#endif	/* __MISC_VISIBLE */
+#if __POSIX_VISIBLE >= 200809
 #define	F_DUPFD_CLOEXEC	14	/* As F_DUPFD, but set close-on-exec flag */
 #endif
 
@@ -129,11 +145,11 @@ extern "C" {
 #define	F_RDLCK		1	/* read lock */
 #define	F_WRLCK		2	/* write lock */
 #define	F_UNLCK		3	/* remove lock(s) */
-#ifndef	_POSIX_SOURCE
+#if __MISC_VISIBLE
 #define	F_UNLKSYS	4	/* remove remote locks for a given system */
-#endif	/* !_POSIX_SOURCE */
+#endif	/* __MISC_VISIBLE */
 
-#if __BSD_VISIBLE || __POSIX_VISIBLE >= 200809 || defined(__CYGWIN__)
+#if __BSD_VISIBLE || __POSIX_VISIBLE >= 200809
 /* Special descriptor value to denote the cwd in calls to openat(2) etc. */
 #define AT_FDCWD -2
 
@@ -166,7 +182,7 @@ struct flock {
 };
 #endif /* __CYGWIN__ */
 
-#ifndef	_POSIX_SOURCE
+#if __MISC_VISIBLE
 /* extended file segment locking set data type */
 struct eflock {
 	short	l_type;		/* F_RDLCK, F_WRLCK, or F_UNLCK */
@@ -178,13 +194,13 @@ struct eflock {
 	long	l_rpid;		/* Remote process id wanting this lock */
 	long	l_rsys;		/* Remote system id wanting this lock */
 };
-#endif	/* !_POSIX_SOURCE */
+#endif	/* __MISC_VISIBLE */
 
 #include <sys/types.h>
 #include <sys/stat.h>		/* sigh. for the mode bits for open/creat */
 
 extern int open _PARAMS ((const char *, int, ...));
-#if __BSD_VISIBLE || __POSIX_VISIBLE >= 200809 || defined(__CYGWIN__)
+#if __ATFILE_VISIBLE
 extern int openat _PARAMS ((int, const char *, int, ...));
 #endif
 extern int creat _PARAMS ((const char *, mode_t));
@@ -192,7 +208,7 @@ extern int fcntl _PARAMS ((int, int, ...));
 #if __BSD_VISIBLE
 extern int flock _PARAMS ((int, int));
 #endif
-#ifdef __CYGWIN__
+#if __GNU_VISIBLE
 #include <sys/time.h>
 extern int futimesat _PARAMS ((int, const char *, const struct timeval *));
 #endif

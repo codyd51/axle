@@ -11,7 +11,7 @@
 /* #undef _ELIX_LEVEL */
 
 /* Newlib version */
-#define _NEWLIB_VERSION "2.2.0"
+#include <_newlib_version.h>
 
 /* C99 formats support (such as %a, %zu, ...) in IO functions like
  * printf/scanf enabled */
@@ -54,20 +54,14 @@
 #define _ATEXIT_DYNAMIC_ALLOC 1
 
 /* True if long double supported.  */
-/* #undef _HAVE_LONG_DOUBLE */
+#define _HAVE_LONG_DOUBLE 1
 
 /* Define if compiler supports -fno-tree-loop-distribute-patterns. */
-/* #undef _HAVE_CC_INHIBIT_LOOP_TO_LIBCALL */
+#define _HAVE_CC_INHIBIT_LOOP_TO_LIBCALL 1
 
 /* True if long double supported and it is equal to double.  */
 /* #undef _LDBL_EQ_DBL */
  
-/* Define if uintptr_t is unsigned long on this architecture */
-/* #undef _UINTPTR_EQ_ULONG */
-
-/* Define if uintptr_t is unsigned long long on this architecture */
-/* #undef _UINTPTR_EQ_ULONGLONG */
-
 /* Define if ivo supported in streamio.  */
 #define _FVWRITE_IN_STREAMIO 1
 
@@ -86,8 +80,19 @@
 /* Define if declare atexit data as global.  */
 /* #undef _REENT_GLOBAL_ATEXIT */
 
+/* Define to move the stdio stream FILE objects out of struct _reent and make
+   them global.  The stdio stream pointers of struct _reent are initialized to
+   point to the global stdio FILE stream objects. */
+/* #undef _WANT_REENT_GLOBAL_STDIO_STREAMS */
+
 /* Define if small footprint nano-formatted-IO implementation used.  */
 /* #undef _NANO_FORMATTED_IO */
+
+/* Define if using retargetable functions for default lock routines.  */
+/* #undef _RETARGETABLE_LOCKING */
+
+/* Define to use type long for time_t.  */
+/* #undef _WANT_USE_LONG_TIME_T */
 
 /*
  * Iconv encodings enabled ("to" direction)

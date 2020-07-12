@@ -1,15 +1,13 @@
+/* <dirent.h> includes <sys/dirent.h>, which is this file.  On a
+   system which supports <dirent.h>, this file is overridden by
+   dirent.h in the libc/sys/.../sys directory.  On a system which does
+   not support <dirent.h>, we will get this file which uses #error to force
+   an error.  */
 
-struct dirent {
-
-	unsigned long  d_ino;     /* Inode number */
-	unsigned long  d_off;     /* Offset to next linux_dirent */
-	unsigned short d_reclen;  /* Length of this linux_dirent */
-	char           d_name[];  /* Filename (null-terminated) */
-	/* length is actually (d_reclen - 2 -
-	   offsetof(struct linux_dirent, d_name)) */
-	/*
-	   char           pad;       // Zero padding byte
-	   char           d_type;    // File type (only since Linux
-	// 2.6.4); offset is (d_reclen - 1)
-	*/
-};
+#ifdef __cplusplus
+extern "C" {
+#endif
+#error "<dirent.h> not supported"
+#ifdef __cplusplus
+}
+#endif
