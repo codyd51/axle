@@ -24,6 +24,7 @@ if test -n "${sys_dir}"; then
   case ${sys_dir} in
 	a29khif) AC_CONFIG_SUBDIRS(a29khif) ;;
 	arm) AC_CONFIG_SUBDIRS(arm) ;;
+	axle) AC_CONFIG_SUBDIRS(axle) ;;
 	d10v) AC_CONFIG_SUBDIRS(d10v) ;;
 	decstation) AC_CONFIG_SUBDIRS(decstation) ;;
 	epiphany) AC_CONFIG_SUBDIRS(epiphany) ;;

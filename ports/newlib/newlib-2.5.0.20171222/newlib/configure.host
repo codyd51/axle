@@ -415,6 +415,9 @@ case "${host}" in
 	  have_crt0="no"
 	fi
 	;;
+  i[3-7]86-*-axle*)
+    sys_dir=axle
+    ;;
   bfin-*-*)
 	sys_dir=
 	;;
