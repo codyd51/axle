@@ -1,6 +1,6 @@
 DIR = ../../../..
 TOOLCHAIN ?= $(DIR)/i686-toolchain
-SYSROOT = $(DIR)/axle-sysroot-2020
+SYSROOT = $(DIR)/axle-sysroot
 
 CC = $(TOOLCHAIN)/bin/i686-elf-gcc
 LD = $(TOOLCHAIN)/bin/i686-elf-ld

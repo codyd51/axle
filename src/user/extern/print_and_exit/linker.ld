@@ -1,4 +1,4 @@
-SEARCH_DIR(/Users/philliptennen/Documents/develop/axle/axle-sysroot-2020/usr/i686-axle/lib)
+SEARCH_DIR(/Users/philliptennen/Documents/develop/axle/axle-sysroot/usr/i686-axle/lib)
 STARTUP(crt0.o)
 ENTRY(_start)
 GROUP(
