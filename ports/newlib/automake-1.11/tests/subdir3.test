@@ -1,0 +1,39 @@
+#! /bin/sh
+# Copyright (C) 1999, 2001, 2002  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test to make sure subdir source file generates explicit dependency.
+
+. ./defs || Exit 1
+
+cat > Makefile.am << 'END'
+bin_PROGRAMS = zardoz widdershins
+zardoz_SOURCES = y.c x/z.c
+widdershins_SOURCES = x/z.c
+END
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+END
+
+mkdir x
+
+: > y.c
+: > x/z.c
+
+$ACLOCAL || Exit 1
+$AUTOMAKE || Exit 1
+
+grep '^z\.o: x/z\.c$' Makefile.in

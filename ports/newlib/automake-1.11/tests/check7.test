@@ -1,0 +1,66 @@
+#! /bin/sh
+# Copyright (C) 2007  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Check EXEEXT extension for XFAIL_TESTS.
+
+. ./defs || Exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+TESTS = $(XFAIL_TESTS)
+XFAIL_TESTS = a b c d
+check_PROGRAMS = a c d
+check_SCRIPTS = b
+
+print-xfail-tests:
+	@echo BEG: $(XFAIL_TESTS) :END
+END
+
+cat >>b <<'END'
+#! /bin/sh
+exit 1
+END
+chmod a+x b
+
+cat >>a.c <<'END'
+#include <stdlib.h>
+int main() { return EXIT_FAILURE; }
+END
+
+cp a.c c.c
+cp a.c d.c
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+./configure
+$MAKE check
+EXEEXT=.bin $MAKE -e print-xfail-tests >foo
+cat foo
+grep 'BEG: a.bin b c.bin d.bin :END' foo
+
+$MAKE distclean
+mkdir build
+cd build
+../configure
+$MAKE check

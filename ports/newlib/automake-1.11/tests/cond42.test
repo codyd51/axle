@@ -1,0 +1,59 @@
+#!/bin/sh
+# Copyright (C) 2008  Free Software Foundation, Inc.
+#
+# This file is part of GNU Automake.
+#
+# GNU Automake is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# GNU Automake is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Automake; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA 02110-1301, USA.
+
+# Ensure an error with inconsistent state of conditionals in configure.ac.
+# This shouldn't happen with user input, as _AM_COND_* are not documented,
+# but better to be safe.
+
+. ./defs
+set -e
+
+cat >>configure.in <<'END'
+AM_CONDITIONAL([COND], [:])
+# next line needed so that cond-if.m4 is pulled in.
+AM_COND_IF([COND])
+_AM_COND_IF([COND])
+AC_OUTPUT
+END
+: >Makefile.am
+
+$ACLOCAL
+AUTOMAKE_fails
+grep 'condition stack' stderr
+
+sed 's/_AM_COND_IF/_AM_COND_ELSE/' < configure.in >configure.int
+mv -f configure.int configure.in
+rm -rf autom4te*.cache
+AUTOMAKE_fails
+grep 'else without if' stderr
+
+sed 's/_AM_COND_ELSE/_AM_COND_ENDIF/' < configure.in >configure.int
+mv -f configure.int configure.in
+rm -rf autom4te*.cache
+AUTOMAKE_fails
+grep 'endif without if' stderr
+
+sed 's/\(_AM_COND_ENDIF\).*/_AM_COND_IF\
+_AM_COND_ENDIF/' < configure.in >configure.int
+mv -f configure.int configure.in
+rm -rf autom4te*.cache
+AUTOMAKE_fails
+test 2 = `grep -c 'not enough arguments' stderr`
+:

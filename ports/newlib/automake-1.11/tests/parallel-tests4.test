@@ -1,0 +1,70 @@
+#! /bin/sh
+# Copyright (C) 2009  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Check parallel-tests features:
+# - suffix rules
+
+. ./defs-p || Exit 1
+set -e
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+## Note that automake should not match the '/test' part
+## of 'sub/test' as '.test' suffix.
+TESTS = foo.chk bar.test $(check_PROGRAMS) sub/test
+check_PROGRAMS = baz bla.test bli.suff
+TEST_EXTENSIONS = .chk .test
+END
+
+mkdir sub
+
+cat >foo.chk << 'END'
+#! /bin/sh
+exit 0
+END
+chmod a+x foo.chk
+cp foo.chk bar.test
+cp foo.chk sub/test
+
+cat >baz.c << 'END'
+int main (void)
+{
+  return 0;
+}
+END
+cp baz.c bla.c
+cp baz.c bli.c
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+unset TESTS || :
+
+./configure
+$MAKE
+$MAKE check
+test -f foo.log
+test -f bar.log
+test -f baz.log
+test -f bla.log
+test -f bli.suff.log
+test -f sub/test.log
+:

@@ -1,0 +1,38 @@
+#! /bin/sh
+# Copyright (C) 1996, 1997, 2000, 2001, 2002  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test to make sure LIBOBJS file cannot be mentioned explicitly.
+
+. ./defs || Exit 1
+
+cat >> configure.in << 'END'
+AC_PROG_RANLIB
+AC_PROG_CC
+AC_LIBOBJ([fsusage])
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+noinst_LIBRARIES = libtu.a
+libtu_a_SOURCES = fsusage.c
+libtu_a_LIBADD = @LIBOBJS@
+END
+
+: > fsusage.c
+
+$ACLOCAL || Exit 1
+$AUTOMAKE 2>&1 | $FGREP fsusage.c || Exit 1
+Exit 0

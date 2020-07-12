@@ -1,0 +1,70 @@
+#! /bin/sh
+# Copyright (C) 2009  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# If $(infodir) is the empty string, then nothing should be installed there.
+# Likewise for the other install-* targets used for texinfo files.
+
+required='makeinfo-html tex texi2dvi'
+. ./defs || Exit 1
+
+(dvips --help 2>/dev/null >/dev/null) || Exit 77
+(pdfetex --help 2>/dev/null >/dev/null) ||
+  (pdftex --help 2>/dev/null >/dev/null) || Exit 77
+
+set -e
+
+cat >>configure.in <<'END'
+AC_OUTPUT
+END
+
+cat >Makefile.am <<'END'
+info_TEXINFOS = foo.texi
+END
+
+cat >foo.texi << 'END'
+\input texinfo
+@setfilename foo.info
+@settitle foo
+@node Top
+Hello walls.
+@include version.texi
+@bye
+END
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE --add-missing
+
+instdir=`pwd`/inst
+destdir=`pwd`/dest
+mkdir build
+cd build
+../configure --prefix="$instdir"
+$MAKE all dvi ps pdf html
+
+infodir= htmldir= dvidir= psdir= pdfdir=
+export infodir htmldir dvidir psdir pdfdir
+
+$MAKE -e install install-html install-dvi install-ps install-pdf
+test ! -d "$instdir"
+$MAKE -e install install-html install-dvi install-ps install-pdf DESTDIR="$destdir"
+test ! -d "$instdir"
+test ! -d "$destdir"
+$MAKE -e uninstall > stdout || { cat stdout; Exit 1; }
+cat stdout
+grep 'rm -f' stdout && Exit 1
+$MAKE -e uninstall DESTDIR="$destdir"
+:

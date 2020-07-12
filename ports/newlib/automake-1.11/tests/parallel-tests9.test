@@ -1,0 +1,87 @@
+#! /bin/sh
+# Copyright (C) 2009  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Check parallel-tests features:
+# - recheck
+
+. ./defs-p || Exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+TEST_SUITE_LOG = mylog.log
+TESTS = foo.test bar.test baz.test
+check_SCRIPTS = bla
+CLEANFILES = bla
+bla:
+	echo bla > $@
+END
+
+cat >>foo.test <<'END'
+#! /bin/sh
+echo "this is $0"
+test -f bla || exit 1
+exit 0
+END
+cat >>bar.test <<'END'
+#! /bin/sh
+echo "this is $0"
+exit 99
+END
+cat >>baz.test <<'END'
+#! /bin/sh
+echo "this is $0"
+exit 1
+END
+chmod a+x foo.test bar.test baz.test
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+./configure
+$MAKE check >stdout && { cat stdout; Exit 1; }
+cat stdout
+
+$MAKE recheck >stdout && { cat stdout; Exit 1; }
+cat stdout
+grep foo.test stdout && Exit 1
+grep bar.test stdout || Exit 1
+grep baz.test stdout || Exit 1
+grep '2 of 2.*failed' stdout
+
+# If we cannot read the log file, then redo it as well.
+chmod a-r foo.log
+if test ! -r foo.log; then
+   $MAKE recheck >stdout && { cat stdout; Exit 1; }
+   cat stdout
+   grep foo.test stdout || Exit 1
+fi
+
+# Ensure that recheck builds check_SCRIPTS, and that
+# recheck reruns nothing if check has not been run.
+$MAKE clean
+$MAKE recheck
+test -f bla
+test ! -f foo.log
+test ! -f bar.log
+test ! -f baz.log
+test -f mylog.log
+:

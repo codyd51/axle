@@ -1,0 +1,162 @@
+#!/bin/sh
+# Copyright (C) 2009  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Check silent-rules mode, languages other than C.
+
+required='g++ gfortran flex bison'
+. ./defs
+
+set -e
+
+mkdir sub
+
+cat >>configure.in <<'EOF'
+AM_SILENT_RULES
+AM_PROG_CC_C_O
+AC_PROG_CXX
+AC_PROG_F77
+AC_PROG_FC
+AC_PROG_LEX
+AC_PROG_YACC
+AC_CONFIG_FILES([sub/Makefile])
+AC_OUTPUT
+EOF
+
+cat > Makefile.am <<'EOF'
+# Need generic and non-generic rules.
+bin_PROGRAMS = foo bar
+bar_CFLAGS = $(AM_CFLAGS)
+foo_SOURCES = foo1.cpp foo2.f90 foo3.f foo5.l foo6.y
+SUBDIRS = sub
+AM_YFLAGS = -d
+LDADD = $(LEXLIB)
+BUILT_SOURCES = foo6.h
+EOF
+
+cat > sub/Makefile.am <<'EOF'
+AUTOMAKE_OPTIONS = subdir-objects
+# Need generic and non-generic rules.
+bin_PROGRAMS = baz bla
+bla_CFLAGS = $(AM_CFLAGS)
+baz_SOURCES = baz1.cpp baz2.f90 baz3.f baz5.l baz6.y
+AM_YFLAGS = -d
+LDADD = $(LEXLIB)
+BUILT_SOURCES = baz6.h
+EOF
+
+cat > foo1.cpp <<'EOF'
+int main ()
+{
+  return 0;
+}
+EOF
+cat > foo2.f90 <<'EOF'
+      subroutine foo2
+      return
+      end
+EOF
+cat > foo3.f <<'EOF'
+      subroutine foo3
+      return
+      end
+EOF
+cat > foo5.l <<'EOF'
+%%
+"END"   return EOF;
+.
+%%
+EOF
+cat > foo6.y <<'EOF'
+%{
+void yyerror (char *s) {}
+%}
+%token EOF
+%%
+fubar : 'f' 'o' 'o' 'b' 'a' 'r' EOF {};
+EOF
+cp foo1.cpp bar.c
+cp foo1.cpp sub/baz.c
+cp foo1.cpp sub/bla.c
+cp foo1.cpp sub/baz1.cpp
+cp foo2.f90 sub/baz2.f90
+cp foo3.f sub/baz3.f
+cp foo5.l sub/baz5.l
+cp foo6.y sub/baz6.y
+
+$ACLOCAL
+$AUTOMAKE --add-missing
+$AUTOCONF
+
+# configure once for fastdep, once for non-fastdep
+for config_args in '' am_cv_CC_dependencies_compiler_type=gcc
+do
+  ./configure $config_args --enable-silent-rules
+  $MAKE >stdout || { cat stdout; Exit 1; }
+  cat stdout
+  grep ' -c' stdout && Exit 1
+  grep ' -o ' stdout && Exit 1
+  grep mv stdout && Exit 1
+
+  grep 'CXX .*foo1\.' stdout
+  grep 'CXX .*baz1\.' stdout
+  grep 'FC .*foo2\.' stdout
+  grep 'FC .*baz2\.' stdout
+  grep 'F77 .*foo3\.' stdout
+  grep 'F77 .*baz3\.' stdout
+  grep 'LEX .*foo5\.' stdout
+  grep 'LEX .*baz5\.' stdout
+  grep ' CC .*foo5\.' stdout
+  grep ' CC .*baz5\.' stdout
+  grep 'YACC .*foo6\.' stdout
+  grep 'YACC .*baz6\.' stdout
+  grep ' CC .*foo6\.' stdout
+  grep ' CC .*baz6\.' stdout
+
+  grep 'CXXLD .*foo' stdout
+  grep 'CCLD .*bar' stdout
+  grep 'CXXLD .*baz' stdout
+  grep 'CCLD .*bla' stdout
+
+  $MAKE clean
+  $MAKE V=1 >stdout || { cat stdout; Exit 1; }
+  cat stdout
+  grep ' -c' stdout
+  grep ' -o ' stdout
+
+  grep 'CXX .*foo1\.' stdout && Exit 1
+  grep 'CXX .*baz1\.' stdout && Exit 1
+  grep 'FC .*foo2\.' stdout && Exit 1
+  grep 'FC .*baz2\.' stdout && Exit 1
+  grep 'F77 .*foo3\.' stdout && Exit 1
+  grep 'F77 .*baz3\.' stdout && Exit 1
+  grep 'LEX .*foo5\.' stdout && Exit 1
+  grep 'LEX .*baz5\.' stdout && Exit 1
+  grep ' CC .*foo5\.' stdout && Exit 1
+  grep ' CC .*baz5\.' stdout && Exit 1
+  grep 'YACC .*foo6\.' stdout && Exit 1
+  grep 'YACC .*baz6\.' stdout && Exit 1
+  grep ' CC .*foo6\.' stdout && Exit 1
+  grep ' CC .*baz6\.' stdout && Exit 1
+
+  grep 'CXXLD .*foo' stdout && Exit 1
+  grep 'CCLD .*bar' stdout && Exit 1
+  grep 'CXXLD .*baz' stdout && Exit 1
+  grep 'CCLD .*bla' stdout && Exit 1
+  $MAKE clean
+  $MAKE maintainer-clean
+done
+
+:

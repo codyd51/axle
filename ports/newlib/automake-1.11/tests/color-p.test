@@ -1,0 +1,115 @@
+#! /bin/sh
+# Copyright (C) 2007, 2008  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Test Automake TESTS color output.
+
+. ./defs-p || Exit 1
+
+set -e
+
+TERM=ansi
+export TERM
+
+red='[0;31m'
+grn='[0;32m'
+lgn='[1;32m'
+blu='[1;34m'
+std='[m'
+
+# Check that grep can parse nonprinting characters.
+# BSD 'grep' works from a pipe, but not a seekable file.
+# GNU or BSD 'grep -a' works on files, but is not portable.
+case `echo "$std" | grep .` in
+  $std) ;;
+  *) Exit 77 ;;
+esac
+
+cat >>configure.in <<END
+AC_OUTPUT
+END
+
+cat >Makefile.am <<'END'
+AUTOMAKE_OPTIONS = color-tests
+TESTS = $(check_SCRIPTS)
+check_SCRIPTS = pass fail skip xpass xfail
+XFAIL_TESTS = xpass xfail
+END
+
+cat >pass <<END
+#! /bin/sh
+exit 0
+END
+
+cat >fail <<END
+#! /bin/sh
+exit 1
+END
+
+cat >skip <<END
+#! /bin/sh
+exit 77
+END
+
+cp fail xfail
+cp pass xpass
+chmod +x pass fail skip xpass xfail
+
+$ACLOCAL
+$AUTOMAKE
+$AUTOCONF
+./configure
+
+test_color ()
+{
+  # Not a useless use of cat; see above comments about grep.
+  cat stdout | grep ": pass" | $FGREP "$grn"
+  cat stdout | grep ": fail" | $FGREP "$red"
+  cat stdout | grep ": xfail" | $FGREP "$lgn"
+  cat stdout | grep ": xpass" | $FGREP "$red"
+  cat stdout | grep ": skip" | $FGREP "$blu"
+}
+
+test_no_color ()
+{
+  # Not a useless use of cat; see above comments about grep.
+  cat stdout | grep ": pass" | $FGREP "$grn" && Exit 1
+  cat stdout | grep ": fail" | $FGREP "$red" && Exit 1
+  cat stdout | grep ": xfail" | $FGREP "$lgn" && Exit 1
+  cat stdout | grep ": xpass" | $FGREP "$red" && Exit 1
+  cat stdout | grep ": skip" | $FGREP "$blu" && Exit 1
+  :
+}
+
+cat >expect-make <<'END'
+#! /usr/bin/expect -f
+spawn $env(MAKE) -e check
+expect eof
+END
+
+unset TESTS || :
+
+AM_COLOR_TESTS=always $MAKE -e check >stdout && { cat stdout; Exit 1; }
+cat stdout
+test_color
+
+MAKE=$MAKE expect -f expect-make >stdout || { cat stdout; Exit 77; }
+cat stdout
+test_color
+
+AM_COLOR_TESTS=no MAKE=$MAKE expect -f expect-make >stdout || { cat stdout; Exit 77; }
+cat stdout
+test_no_color
+:

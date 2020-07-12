@@ -1,0 +1,95 @@
+#!/bin/sh
+# Copyright (C) 2009  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Check user extensibility of silent-rules mode.
+
+. ./defs
+
+set -e
+
+cat >>configure.in <<'EOF'
+AM_SILENT_RULES
+AC_OUTPUT
+EOF
+
+cat > Makefile.am <<'EOF'
+all-local: foo
+
+## And here's how you should do it in your own code:
+foo: foo.in
+	$(AM_V_GEN)cp $(srcdir)/foo.in $@
+	$(AM_V_at)echo more >> $@
+
+EXTRA_DIST = foo.in
+CLEANFILES = foo
+EOF
+
+: >foo.in
+
+$ACLOCAL
+$AUTOMAKE --add-missing
+$AUTOCONF
+
+./configure --disable-silent-rules
+$MAKE >stdout || { cat stdout; Exit 1; }
+cat stdout
+grep 'GEN.*foo' stdout && Exit 1
+grep 'cp ' stdout
+grep 'echo ' stdout
+
+$MAKE clean
+$MAKE V=1 >stdout || { cat stdout; Exit 1; }
+cat stdout
+grep 'GEN.*foo' stdout && Exit 1
+grep 'cp ' stdout
+grep 'echo ' stdout
+
+$MAKE clean
+$MAKE V=0 >stdout || { cat stdout; Exit 1; }
+cat stdout
+grep 'GEN.*foo' stdout
+grep 'cp ' stdout && Exit 1
+grep 'echo ' stdout && Exit 1
+
+
+$MAKE distclean
+
+./configure --enable-silent-rules
+$MAKE >stdout || { cat stdout; Exit 1; }
+cat stdout
+grep 'GEN.*foo' stdout
+grep 'cp ' stdout && Exit 1
+grep 'echo ' stdout && Exit 1
+
+$MAKE clean
+$MAKE V=0 >stdout || { cat stdout; Exit 1; }
+cat stdout
+grep 'GEN.*foo' stdout
+grep 'cp ' stdout && Exit 1
+grep 'echo ' stdout && Exit 1
+
+$MAKE clean
+$MAKE V=1 >stdout || { cat stdout; Exit 1; }
+cat stdout
+grep 'GEN.*foo' stdout && Exit 1
+grep 'cp ' stdout
+grep 'echo ' stdout
+
+# Ensure that setting `silent-rules' in a Makefile.am produces an error.
+echo 'AUTOMAKE_OPTIONS = silent-rules' >> Makefile.am
+AUTOMAKE_fails --force
+
+:

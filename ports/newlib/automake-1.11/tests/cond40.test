@@ -1,0 +1,78 @@
+#!/bin/sh
+# Copyright (C) 2008  Free Software Foundation, Inc.
+#
+# This file is part of GNU Automake.
+#
+# GNU Automake is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# GNU Automake is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Automake; see the file COPYING.  If not, write to
+# the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+# Boston, MA 02110-1301, USA.
+
+# Test AM_COND_IF.
+
+. ./defs
+set -e
+
+cat >>configure.in <<'END'
+AC_DEFUN([FOO],
+	 [AC_CONFIG_FILES([$1])])
+
+AM_CONDITIONAL([COND], [test "$cond" = yes])
+AM_COND_IF([COND],
+	   [AC_CONFIG_FILES([file1])])
+
+AM_CONDITIONAL([COND1], [test "$cond1" = yes])
+AM_CONDITIONAL([COND2], [test "$cond2" = yes])
+AM_CONDITIONAL([COND3], [test "$cond3" = yes])
+
+AM_COND_IF([COND1],
+	   [AM_COND_IF([COND2], [FOO([file2])],
+		       [AM_COND_IF([COND3],
+				   [FOO([file3])])])])
+
+AC_OUTPUT
+END
+
+: >Makefile.am
+: >file1.in
+: >file2.in
+: >file3.in
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+./configure cond=yes cond1=yes cond2=no cond3=yes
+test -f file1
+test ! -f file2
+test -f file3
+rm -f file1 file3
+$MAKE file1 file3
+$MAKE file2 && Exit 1
+test -f file1
+test ! -f file2
+test -f file3
+$MAKE distclean
+
+./configure cond=no cond1=yes cond2=yes
+test ! -f file1
+test -f file2
+test ! -f file3
+rm -f file2
+$MAKE file1 && Exit 1
+$MAKE file2
+$MAKE file3 && Exit 1
+test ! -f file1
+test -f file2
+test ! -f file3
+:

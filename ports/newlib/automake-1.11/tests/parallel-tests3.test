@@ -1,0 +1,85 @@
+#! /bin/sh
+# Copyright (C) 2009  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Check parallel-tests features:
+# - concurrent parallel execution
+
+required=GNUmake
+. ./defs-p || Exit 1
+
+# This test does not work well if $MAKE contains -j.
+case $MAKE in
+*\ -j*) Exit 77 ;;
+esac
+
+set -e
+
+cat >> configure.in << 'END'
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+TESTS =
+END
+
+for i in 1 2 3 4 5 6 7 8; do
+  echo "TESTS += foo$i.test" >> Makefile.am
+  cat >foo$i.test <<'END'
+#! /bin/sh
+echo "this is $0"
+# hack around maintainer-check check:
+sleep='sleep '1
+$sleep
+exit 0
+END
+  chmod a+x foo$i.test
+done
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+unset TESTS || :
+
+for build in serial parallel; do
+  mkdir $build
+  cd $build
+  ../configure
+  $MAKE
+  cd ..
+done
+
+cd serial
+$MAKE -j1 check &
+cd ../parallel
+$sleep
+# Use append mode here to avoid dropping output.
+# Yes, this actually happens.
+: >stdout
+$MAKE -j4 check >> stdout
+cd ..
+kill $!
+cat parallel/stdout
+test `grep -c PASS parallel/stdout` -eq 8
+
+# Wait long enough so that there are no open files any more
+# when the post-test cleanup runs.
+while test ! -f serial/test-suite.log
+do
+  $sleep
+done
+$sleep
+:

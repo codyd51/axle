@@ -1,0 +1,100 @@
+#! /bin/sh
+# Copyright (C) 2008, 2009  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Check subdir TESTS.
+
+. ./defs || Exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_PROG_CC
+AM_PROG_CC_C_O
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+AUTOMAKE_OPTIONS = subdir-objects
+TESTS = foo sub/foo $(check_PROGRAMS)
+XFAIL_TESTS = foo sub/baz
+check_PROGRAMS = bar sub/bar baz sub/baz
+END
+
+mkdir sub
+
+cat >>foo <<'END'
+#! /bin/sh
+test -f "$srcdir/Makefile.am"
+END
+cat >>sub/foo <<'END'
+#! /bin/sh
+test -f "$srcdir/Makefile.am"
+END
+chmod a+x foo sub/foo
+
+cat >>bar.c <<'END'
+int main() { return 0; }
+END
+cat >>sub/bar.c <<'END'
+int main() { return 0; }
+END
+cat >>baz.c <<'END'
+#include <stdlib.h>
+int main() { return EXIT_FAILURE; }
+END
+cat >>sub/baz.c <<'END'
+#include <stdlib.h>
+int main() { return EXIT_FAILURE; }
+END
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+unset TESTS || :
+
+./configure
+AM_COLOR_TESTS=always $MAKE -e check >stdout 2>stderr &&
+  { cat stdout; cat stderr >&2; Exit 1; }
+cat stdout
+cat stderr >&2
+grep 'XPASS.* foo$' stdout
+grep '^[^X]*PASS.* sub/foo$' stdout
+grep '^[^X]*PASS.* bar' stdout
+grep '^[^X]*PASS.* sub/bar' stdout
+grep '^[^X]*FAIL.* baz' stdout
+grep 'XFAIL.* sub/baz' stdout
+# parallel-tests should not add circular dependencies.
+# Look for known warnings from a couple of `make' implementations.
+grep -i 'circular.*dependency' stderr && Exit 1
+grep -i 'graph cycles' stderr && Exit 1
+
+$MAKE distclean
+
+mkdir build
+cd build
+../configure
+$MAKE check >stdout && { cat stdout; Exit 1; }
+cat stdout
+# Note: we are not grepping for the space here, due to the Solaris make VPATH
+# rewriting (if we fix that, we can still write a separate test for it).
+grep 'XPASS.*foo$' stdout
+grep '^[^X]*PASS.*sub/foo$' stdout
+grep '^[^X]*PASS.*bar' stdout
+grep '^[^X]*PASS.*sub/bar' stdout
+grep '^[^X]*FAIL.*baz' stdout
+grep 'XFAIL.*sub/baz' stdout
+:

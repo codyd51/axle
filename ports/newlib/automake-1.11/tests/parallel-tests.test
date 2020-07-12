@@ -1,0 +1,158 @@
+#! /bin/sh
+# Copyright (C) 2009  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Check parallel-tests features:
+# - VERBOSE
+# - clean
+# - TEST_SUITE_LOG
+# - dependencies between tests
+# - DISABLE_HARD_ERRORS
+# - TESTS
+# - TEST_LOGS
+# - RECHECK_LOGS
+
+. ./defs-p || Exit 1
+
+set -e
+
+cat >> configure.in << 'END'
+AC_OUTPUT
+END
+
+cat > Makefile.am << 'END'
+TEST_SUITE_LOG = mylog.log
+TESTS = foo.test bar.test baz.test
+XFAIL_TESTS = bar.test
+foo.log: bar.log
+bar.log: baz.log
+END
+
+cat >>foo.test <<'END'
+#! /bin/sh
+echo "this is $0"
+exit 0
+END
+cat >>bar.test <<'END'
+#! /bin/sh
+echo "this is $0"
+exit 99
+END
+cat >>baz.test <<'END'
+#! /bin/sh
+echo "this is $0"
+exit 1
+END
+chmod a+x foo.test bar.test baz.test
+
+$ACLOCAL
+$AUTOCONF
+$AUTOMAKE -a
+
+unset TESTS || :
+
+./configure
+# No hard errors: all tests should be run, there should be one failure.
+env DISABLE_HARD_ERRORS=yes $MAKE -e check >stdout && { cat stdout; Exit 1; }
+cat stdout
+test `grep -c '^FAIL' stdout` -eq 1
+test -f mylog.log
+test `grep -c '^FAIL' mylog.log` -eq 1
+test -f baz.log
+test -f bar.log
+test -f foo.log
+# The summary should be formatted correctly.
+grep 'failedn' stdout && Exit 1
+
+# clean should remove all log files (but not more).
+: > unrelated.log
+$MAKE clean
+test ! -f baz.log
+test ! -f bar.log
+test ! -f foo.log
+test ! -f mylog.log
+test -f unrelated.log
+
+$MAKE clean
+$MAKE check >stdout && { cat stdout; Exit 1; }
+cat stdout
+# Now, there should be two errors: bar.test is a hard error.
+test `grep -c '^FAIL' stdout` -eq 2
+test `grep -c '^FAIL' mylog.log` -eq 2
+
+# Check dependencies: baz.test needs to run before bar.test,
+# but foo.test is not needed.
+# Note that this usage has a problem: the summary will only
+# take bar.log into account, because the $(TEST_SUITE_LOG) rule
+# does not "see" baz.log.  Hmm.
+$MAKE clean
+env TESTS='bar.test' $MAKE -e check && Exit 1
+test -f baz.log
+test -f bar.log
+test ! -f foo.log
+test -f mylog.log
+
+# Upon a lazy rerun, foo.test should be run, but the others shouldn't.
+# Note that the lazy rerun still exits with a failure, due to the previous
+# test failures.
+# Note that the previous test and this one taken together expose the timing
+# issue that requires the check-TESTS rule to always remove TEST_SUITE_LOG
+# before running the tests lazily.
+env RECHECK_LOGS= $MAKE -e check > stdout && { cat stdout; Exit 1; }
+cat stdout
+test -f foo.log
+grep foo.test stdout
+grep bar.test stdout && Exit 1
+grep baz.test stdout && Exit 1
+grep '2.*tests.*failed' stdout
+
+# Now, explicitly retry with all test logs already updated, and ensure
+# that the summary is still displayed.
+env RECHECK_LOGS= $MAKE -e check > stdout && { cat stdout; Exit 1; }
+cat stdout
+grep foo.test stdout && Exit 1
+grep bar.test stdout && Exit 1
+grep baz.test stdout && Exit 1
+grep '2.*tests.*failed' stdout
+
+# Lazily rerunning only foo should only rerun this one test.
+env RECHECK_LOGS=foo.log $MAKE -e check > stdout && { cat stdout; Exit 1; }
+cat stdout
+grep foo.test stdout
+grep bar.test stdout && Exit 1
+grep baz.test stdout && Exit 1
+grep '2.*tests.*failed' stdout
+
+# Test VERBOSE.
+env VERBOSE=yes $MAKE -e check > stdout && { cat stdout; Exit 1; }
+cat stdout
+grep 'this is.*bar.test' stdout
+grep 'this is.*baz.test' stdout
+
+$MAKE clean
+env TEST_LOGS=baz.log $MAKE -e check > stdout && { cat stdout; Exit 1; }
+cat stdout
+grep foo.test stdout && Exit 1
+grep bar.test stdout && Exit 1
+grep baz.test stdout
+
+$MAKE clean
+env TESTS=baz.test $MAKE -e check > stdout && { cat stdout; Exit 1; }
+cat stdout
+grep foo.test stdout && Exit 1
+grep bar.test stdout && Exit 1
+grep baz.test stdout
+
+:

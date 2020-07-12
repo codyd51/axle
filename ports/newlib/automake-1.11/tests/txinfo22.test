@@ -1,0 +1,73 @@
+#! /bin/sh
+# Copyright (C) 2003, 2004, 2007, 2008  Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Make sure the user can override TEXINFO_TEX.
+# Report from Tom Tromey.
+# Also make sure Automake ignores in-line comments when using variables,
+# but preserve them in the output.
+# Also make sure TEXINFO_TEX is not distributed.
+
+required='makeinfo tex texi2dvi'
+. ./defs || Exit 1
+
+set -e
+
+cat > configure.in << 'END'
+AC_INIT([txinfo22], [1.0])
+AC_CONFIG_AUX_DIR([aux1])
+AM_INIT_AUTOMAKE
+AC_CONFIG_FILES([Makefile])
+AC_OUTPUT
+END
+
+# Use a slash in the comment, because automake takes the dirname
+# of TEXINFO_TEX to compute $(am__TEXINFO_TEX_DIR)...
+cat > Makefile.am << 'END'
+TEXINFO_TEX = $(srcdir)/tex/texinfo.tex    # some comment w/ a slash
+info_TEXINFOS = main.texi
+sure_it_exists:
+	test -f $(TEXINFO_TEX)
+	test -d "$(am__TEXINFO_TEX_DIR)"
+sure_it_is_not_distributed: distdir
+	test ! -f $(distdir)/tex/texinfo.tex
+END
+
+cat > main.texi << 'END'
+\input texinfo
+@setfilename main.info
+@settitle main
+@node Top
+Hello walls.
+@bye
+END
+
+mkdir aux1
+mkdir tex
+cp "$testsrcdir/../lib/texinfo.tex" tex
+
+$ACLOCAL
+$AUTOMAKE --add-missing
+$AUTOCONF
+
+test ! -f texinfo.tex
+test ! -f aux1/texinfo.tex
+test -f tex/texinfo.tex
+
+./configure
+$MAKE sure_it_exists
+$MAKE distcheck
+grep 'TEXINFO_TEX = .* # some comment w/ a slash' Makefile
+$MAKE sure_it_is_not_distributed
