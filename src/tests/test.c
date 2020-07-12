@@ -1,7 +1,6 @@
 #include "test.h"
 #include <std/std.h>
 #include <kernel/drivers/terminal/terminal.h>
-#include <kernel/drivers/vesa/vesa.h>
 #include <kernel/drivers/rtc/clock.h>
 #include <crypto/crypto.h>
 

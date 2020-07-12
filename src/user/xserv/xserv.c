@@ -8,7 +8,6 @@
 #include <kernel/syscall/sysfuncs.h>
 #include <kernel/multitasking/tasks/task.h>
 #include <kernel/drivers/rtc/clock.h>
-#include <kernel/drivers/vesa/vesa.h>
 #include <tests/gfx_test.h>
 #include <kernel/drivers/kb/kb.h>
 #include "animator.h"
@@ -747,7 +746,7 @@ void xserv_pause() {
 }
 
 void xserv_resume() {
-	switch_to_vesa(0x118, false);
+	//switch_to_vesa(0x118, false);
 }
 
 void xserv_temp_stop(uint32_t pause_length) {

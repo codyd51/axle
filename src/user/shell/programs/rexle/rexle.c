@@ -12,7 +12,6 @@
 #include <kernel/util/kbman/kbman.h>
 #include <kernel/drivers/vga/vga.h>
 #include <kernel/drivers/rtc/clock.h>
-#include <kernel/drivers/vesa/vesa.h>
 #include <kernel/drivers/kb/kb.h>
 #include "map1.h"
 
@@ -62,7 +61,7 @@ void rexle_int(int mode) {
 	//switch graphics modes
 	//Screen* screen = gfx_screen();
 	Screen* screen = kmalloc(sizeof(Screen));
-    vbe_set_video_mode(640, 480, 4, true, true);
+    //vbe_set_video_mode(640, 480, 4, true, true);
 	screen->resolution.height = 480;
 	screen->resolution.width = 640;
 	//screen->bpp = 4;
@@ -358,7 +357,6 @@ void rexle_int(int mode) {
 		printf_dbg("freeing bmp [%d]%x", i, bmp);
 		bmp_teardown(bmp);
 	}
-	gfx_teardown(screen);
 
 	resign_first_responder();
 }

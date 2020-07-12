@@ -5,7 +5,6 @@
 #include <std/printf.h>
 #include <gfx/lib/gfx.h>
 #include <user/shell/programs/asmjit/asmjit.h>
-#include <user/shell/programs/snake/snake.h>
 #include <user/shell/programs/rexle/rexle.h>
 #include <user/xserv/xserv.h>
 #include <kernel/kernel.h>
@@ -16,7 +15,6 @@
 #include <kernel/drivers/pit/pit.h>
 #include <kernel/drivers/rtc/clock.h>
 #include <kernel/drivers/vga/vga.h>
-#include <kernel/drivers/vesa/vesa.h>
 #include <tests/test.h>
 #include <tests/gfx_test.h>
 #include <std/klog.h>
@@ -316,10 +314,6 @@ void asmjit_command() {
 
 void tick_command() {
 	printf("%d", time());
-}
-
-void snake_command() {
-	play_snake();
 }
 
 void shutdown_command() {
