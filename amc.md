@@ -122,3 +122,24 @@ void amv_message_broadcast(amc_message* msg);
 
 // Block until a message has been received from the source service
 void amc_message_await(const char* source_service, amc_message_t** out);
+
+Flow of window stdout towards alc (axle log control)
+-----------
+
+User program:
+printf("abc");
+write(1, "abc", 4);
+amc_send_message("com.axle.tty", STDOUT, "abc", 4);
+
+com.axle.tty:
+char* msg = amc_await_message(STDOUT);
+amc_send_message("com.axle.awm", STDOUT, msg, 4);
+amc_send_message("com.axle.serial_driver", STDOUT, msg, 4);
+
+Abbrevs
+----------
+
+awm: axle window manager
+amc: axle message center
+ash: axle shell
+alc: axle log control
