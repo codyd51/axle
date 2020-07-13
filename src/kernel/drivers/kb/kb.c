@@ -39,7 +39,7 @@ static void _launch_kb_driver() {
 	panic("noreturn");
 }
 
-void kb_install() {
+void kb_init() {
 	printf_info("Initializing keyboard driver...");
 	interrupt_setup_callback(INT_VECTOR_IRQ1, &kb_callback);
 	task_spawn(_launch_kb_driver);

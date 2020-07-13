@@ -15,8 +15,8 @@ bool haskey();
 //return mask of modifier keys
 char kb_modifiers();
 
-//install PS/2 keyboard driver
-void kb_install();
+// Initialize PS/2 keyboard driver
+void kb_init();
 //swap layout to interpret incoming scancodes
 void switch_layout(void* layout);
 //get current layout

@@ -63,15 +63,21 @@ static void kernel_idle() {
     }
 }
 
-static void exec() {
-    const char* program_name = "cat";
+static void awm_init() {
+    const char* program_name = "awm";
 
     FILE* fp = initrd_fopen(program_name, "rb");
-    char* filename = kmalloc(32);
-    snprintf(filename, 32, "test-%d.txt", getpid());
-    char* argv[] = {program_name, filename, NULL};
+    // Pass a pointer to the VESA linear framebuffer in argv
+    // Not great, but kind of funny :-)
+    // Later, framebuffer info can be communicated to awm via 
+    // an init amc message.
+    framebuffer_info_t framebuffer_info = boot_info_get()->framebuffer; 
+    char* ptr = kmalloc(32);
+    snprintf(ptr, 32, "0x%08x", &(boot_info_get()->framebuffer));
+    char* argv[] = {program_name, ptr, NULL};
 
     elf_load_file(program_name, fp, argv);
+    while (1) {}
 }
 
 uint32_t initial_esp = 0;
@@ -100,16 +106,19 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     syscall_init();
     initrd_init();
 
+    // We've now allocated all the kernel memory that'll be mapped into every process 
+    // Inform the VMM so that it can begin allocating memory outside of shared page tables
     vmm_dump(boot_info_get()->vmm_kernel);
     vmm_notify_shared_kernel_memory_allocated();
+
     tasking_init();
 
-    kb_install();
-    
-    for (int i = 0; i < 512; i++) {
-        task_spawn(exec);
-    }
+    // Now that multitasking / program loading is available,
+    // launch external services and drivers
+    kb_init();
+    task_spawn(awm_init);
 
+    // Bootstrapping complete - kill this process
     printf("[t = %d] Bootstrap task [PID %d] will exit\n", time(), getpid());
     task_die(0);
     assert(0, "task_die should have killed us");

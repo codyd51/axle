@@ -328,6 +328,7 @@ void vmm_init(void) {
 }
 
 void vmm_notify_shared_kernel_memory_allocated() {
+    // TODO(PT): Derive this
     _first_page_outside_shared_kernel_tables = 0x6000000;
 }
 
