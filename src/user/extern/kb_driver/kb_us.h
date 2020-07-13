@@ -1,4 +1,4 @@
-#include "keymap.h"
+#include "kb_driver.h"
 
 keymap_t kb_us = {
 //normal keys
