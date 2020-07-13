@@ -44,9 +44,12 @@ char std_stream_popchar(std_stream_t* stream) {
 	if (!stream) panic("bad stream");
 	circular_buffer* buf = stream->buf;
 	if (!buf->count) {
+		/*
 		task_small_t* task_to_block = tasking_get_current_task();
 		tasking_block_task(task_to_block, KB_WAIT);
 		assert(buf->count > 0, "Stdio buffer was still empty after blocking for input");
+		*/
+		panic("std stream was empty");
 	}
 	char ch;
 	cb_pop_front(buf, &ch);
@@ -56,7 +59,7 @@ char std_stream_popchar(std_stream_t* stream) {
 std_stream_t* std_stream_create() {
 	std_stream_t* st = kmalloc(sizeof(std_stream_t));
 	memset(st, 0, sizeof(std_stream_t));
-	cb_init(st->buf, 16, sizeof(char));
+	cb_init(st->buf, 256, sizeof(char));
 	return st;
 }
 

@@ -11,6 +11,7 @@
 #include <user/xserv/xserv.h>
 #include <kernel/util/shmem/shmem.h>
 #include <gfx/lib/surface.h>
+#include <kernel/util/amc/amc.h>
 
 void yield(task_state reason) {
 	if (!tasking_is_active()) return;
@@ -84,6 +85,12 @@ DEFN_SYSCALL(shmem_create, 22, uint32_t);
 DEFN_SYSCALL(surface_create, 23, uint32_t, uint32_t);
 DEFN_SYSCALL(aipc_send, 24, char*, uint32_t, uint32_t, char**);
 
+DEFN_SYSCALL(amc_register_service, 25, const char*);
+DEFN_SYSCALL(amc_message_construct, 26, amc_message_type_t, const char*, int);
+DEFN_SYSCALL(amc_message_send, 27, const char*, amc_message_t*);
+DEFN_SYSCALL(amc_message_broadcast, 28, amc_message_t*);
+DEFN_SYSCALL(amc_message_await, 29, const char*, amc_message_t**);
+
 void create_sysfuncs() {
 	syscall_add((void*)&_kill);
 	syscall_add((void*)&execve);
@@ -110,4 +117,10 @@ void create_sysfuncs() {
 	syscall_add((void*)&shmem_create);
 	syscall_add((void*)&surface_create);
 	syscall_add((void*)&aipc_send);
+
+	syscall_add((void*)&amc_register_service);
+	syscall_add((void*)&amc_message_construct);
+	syscall_add((void*)&amc_message_send);
+	syscall_add((void*)&amc_message_broadcast);
+	syscall_add((void*)&amc_message_await);
 }

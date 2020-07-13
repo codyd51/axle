@@ -323,6 +323,9 @@ void update_blocked_tasks() {
             else if (task->blocked_info.status == MOUSE_WAIT) {
 
             }
+            else if (task->blocked_info.status == AMC_AWAIT_MESSAGE) {
+                // Will be unblocked by AMC
+            }
             else if (task->blocked_info.status == ZOMBIE) {
                 // We should start a job to clean up this task
             }
@@ -388,7 +391,8 @@ void* unsbrk(int UNUSED(increment)) {
 }
 
 void* sbrk(int increment) {
-	//printf("sbrk 0x%08x\n", increment);
+	printk("[%d] SBRK 0x%08x\n", getpid(), increment);
+
 	if (increment < 0) {
 		ASSERT(0, "sbrk w/ neg increment");
 		return NULL;

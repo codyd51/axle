@@ -31,6 +31,8 @@ typedef enum task_state {
 	PIPE_FULL,
 	PIPE_EMPTY,
 	IRQ_WAIT,
+	// The process has blocked until it receives an IPC message
+	AMC_AWAIT_MESSAGE,
 } task_state;
 
 typedef enum mlfq_option {

@@ -6,8 +6,22 @@
 #include <sys/errno.h>
 #include <sys/time.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #include "syscalls.h"
+
+typedef enum amc_message_type {
+    KEYSTROKE = 0,
+    STDOUT = 1,
+} amc_message_type_t;
+
+typedef struct amc_message {
+    const char* source;
+    const char* dest; // May be null if the message is globally broadcast
+    amc_message_type_t type;
+    char data[64];
+    int len;
+} amc_message_t;
 
 //DEFN_SYSCALL(kill, 0);
 //DEFN_SYSCALL(execve, 1, char*, char**, char**);
@@ -26,11 +40,20 @@ DEFN_SYSCALL(_exit, 12, int);
 DEFN_SYSCALL(getpid, 14);
 //DEFN_SYSCALL(waitpid, 15, int, int*, int);
 //DEFN_SYSCALL(task_with_pid, 16, int);
+DEFN_SYSCALL(amc_register_service, 25, const char*);
+DEFN_SYSCALL(amc_message_construct, 26, amc_message_type_t, const char*, int);
+DEFN_SYSCALL(amc_message_send, 27, const char*, amc_message_t*);
+DEFN_SYSCALL(amc_message_broadcast, 28, amc_message_t*);
+DEFN_SYSCALL(amc_message_await, 29, const char*, amc_message_t*);
 
 // According to the documentation, this is an acceptable minimal environ
 // https://sourceware.org/newlib/libc.html#Syscalls
 char* __env[1] = { 0 };
 char** environ = __env;
+
+/*
+ * Implemented syscalls
+ */
 
 caddr_t sbrk(int incr) {
     return sys_sbrk(incr);
@@ -47,6 +70,35 @@ int getpid() {
 int write(int file, char *ptr, int len) {
     return sys_write(file, ptr, len);
 }
+
+void amc_register_service(const char* name) {
+    sys_amc_register_service(name);
+}
+
+// Construct an amc message
+amc_message_t* amc_message_construct(amc_message_type_t type, const char* data, int len) {
+    return sys_amc_message_construct(type, data, len);
+}
+
+// Asynchronously send the message to the provided destination service
+bool amc_message_send(const char* destination_service, amc_message_t* msg) {
+    return sys_amc_message_send(destination_service, msg);
+}
+
+// Asynchronously send the message to any service awaiting a message from this service
+void amc_message_broadcast(amc_message_t* msg) {
+    sys_amc_message_broadcast(msg);
+}
+
+// Block until a message has been received from the source service
+void amc_message_await(const char* source_service, amc_message_t* out) {
+    sys_amc_message_await(source_service, out);
+}
+
+
+/*
+ * Unimplemented syscall stubs
+ */
 
 int close(int file) {
     return -1;
