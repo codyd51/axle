@@ -99,15 +99,20 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     kheap_init();
     syscall_init();
     initrd_init();
-    
+
     vmm_dump(boot_info_get()->vmm_kernel);
     vmm_notify_shared_kernel_memory_allocated();
     tasking_init();
 
+    kb_install();
+    
     for (int i = 0; i < 512; i++) {
         task_spawn(exec);
     }
 
+    printf("[t = %d] Bootstrap task [PID %d] will exit\n", time(), getpid());
+    task_die(0);
+    assert(0, "task_die should have killed us");
     kernel_idle();
 
     while (1) {}

@@ -19,6 +19,10 @@ cd ./src/user/extern/postman
 make
 cd ../../../../
 
+cd ./src/user/extern/kb_driver
+make
+cd ../../../../
+
 cd initrd
 ../fsgen ./
 mv initrd.img ../initrd.img

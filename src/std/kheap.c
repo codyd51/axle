@@ -226,6 +226,7 @@ bool merge_blocks(alloc_block_t* left, alloc_block_t* right) {
 	}
 	//ensure these blocks are adjacent
 	if (left->next != right) {
+		panic("merge_blocks got invalid data");
 		printk_err("merge_blocks(): left->next was %x, not %x", left->next, right);
 		return false;
 	}

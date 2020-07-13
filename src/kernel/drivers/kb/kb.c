@@ -31,6 +31,7 @@ void kb_callback(registers_t* regs) {
 }
 
 static void _launch_kb_driver() {
+	// TODO(PT): Refactored method to launch a driver
     const char* program_name = "kb_driver";
     FILE* fp = initrd_fopen(program_name, "rb");
     char* argv[] = {program_name, NULL};

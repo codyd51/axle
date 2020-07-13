@@ -23,7 +23,7 @@ void kbman_process(char c) {
 		array_m_insert(keys_down, (type_t)c);
 	}
 
-	key_status_t mods = kb_modifiers();
+	char mods = kb_modifiers();
 
 	//least significant bit of mods mask is control key
 	//dispatch any ctrl+key keystrokes

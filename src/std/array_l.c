@@ -39,7 +39,7 @@ static type_t _array_l_lookup_unlocked(array_l* array, int32_t idx, array_l_item
 }
 
 static void _array_l_insert_unlocked(array_l* array, type_t item) {
-	printk("array_l_insert(0x%08x, 0x%08x) (curr size %d)\n", array, item, array->size);
+	//printk("array_l_insert(0x%08x, 0x%08x) (curr size %d)\n", array, item, array->size);
 
 	//create container
 	array_l_item* real = (array_l_item*)kmalloc(sizeof(array_l_item));
@@ -51,7 +51,7 @@ static void _array_l_insert_unlocked(array_l* array, type_t item) {
 		array_l_item* last = 0;
 		_array_l_lookup_unlocked(array, array->size - 1, &last);
 		assert(last, "Failed to find container for last list entry");
-		printk("  Found last elem 0x%08x\n", last);
+		//printk("  Found last elem 0x%08x\n", last);
 		last->next = real;
 	}
 	else {

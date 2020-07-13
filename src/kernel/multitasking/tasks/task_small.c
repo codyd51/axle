@@ -6,7 +6,7 @@
 #include <kernel/util/mutex/mutex.h>
 #include <kernel/segmentation/gdt_structures.h>
 
-#define TASK_QUANTUM 10
+#define TASK_QUANTUM 20
 #define MAX_TASKS 1024
 
 static volatile int next_pid = 0;
