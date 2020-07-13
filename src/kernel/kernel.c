@@ -28,7 +28,8 @@
 #include <kernel/syscall/syscall.h>
 
 //testing!
-#include <kernel/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task_small.h>
+#include <kernel/util/amc/amc.h>
 #include <kernel/util/vfs/fs.h>
 
 #define SPIN while (1) {sys_yield(RUNNABLE);}

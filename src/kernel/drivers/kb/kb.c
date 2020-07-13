@@ -9,9 +9,11 @@
 #include <kernel/multitasking/tasks/task_small.h>
 #include <kernel/multitasking/std_stream.h>
 #include <kernel/util/unistd/unistd.h>
+#include <kernel/util/amc/amc.h>
 
 void kb_callback(registers_t* regs);
 
+static bool _has_registered = false;
 keymap_t* layout;
 
 void kb_install() {
@@ -101,6 +103,7 @@ void kb_callback(registers_t* regs) {
 			scancodes = layout->shift_scancodes;
 		}
 
+		/*
 		task_small_t* first_responder = get_first_responder();
 		if (first_responder) {
 			std_stream_pushchar(first_responder->stdin_stream, scancodes[scancode]);
@@ -112,6 +115,21 @@ void kb_callback(registers_t* regs) {
 		else {
 			printf("Unrouted keystroke: %c\n", scancodes[scancode]);
 		}
+		*/
+		// TODO(PT): This needs to be in a separate proc or multiple service names for the same proc
+		if (!_has_registered) {
+			// There is now a bug because the KB interrupt handler is sometimes called from a proc 
+			// other than the one that ran amc_register_service.
+			// The keyboard driver should be in two halves:
+			// One reads the raw scancode and transmits it to the "higher-level" driver
+			// The higher-level driver transforms the scancode based on the current keyboard map,
+			// and dispatches messages to IPC
+			amc_register_service("com.axle.kb_driver");
+			_has_registered = true;
+		}
+        amc_message_t* amc_msg = amc_message_construct(STDOUT, &scancodes[scancode], 1);
+        amc_message_send("com.axle.awm", amc_msg);
+
 
 		//inform OS of keypress
 		//kbman_process(scancodes[scancode]);
