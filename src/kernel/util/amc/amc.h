@@ -21,6 +21,8 @@ void amc_register_service(const char* name);
 
 // Construct an amc message
 amc_message_t* amc_message_construct(amc_message_type_t type, const char* data, int len);
+// Construct an amc message, with a hint that the source service is the "kernel core" (i.e. an interrupt handler)
+amc_message_t* amc_message_construct__from_core(amc_message_type_t type, const char* data, int len);
 
 // Asynchronously send the message to the provided destination service
 // Returns whether the message was successfully routed to the service
