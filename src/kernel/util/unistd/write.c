@@ -54,14 +54,25 @@ int xserv_write(task_t* task, int UNUSED(fd), const void* buf, int len) {
 int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
 	// Write to the standard out buffer, then immediately flush the buffer
 	// These steps can be separated when necessary
+	/*
 	std_stream_push(task->stdout_stream, buf, len);
 	uint32_t char_count_remaining = len;
 	while (char_count_remaining > 0) {
 		char buf[64];
+		memset(buf, 0, sizeof(buf));
+		printk("Requsting %d\n", MIN(sizeof(buf), char_count_remaining));
 		uint32_t char_count_processed_now = std_stream_pop(task->stdout_stream, &buf, MIN(sizeof(buf), char_count_remaining));
 		buf[char_count_processed_now] = '\0';
+		printk("Processed now: %d, %s\n", char_count_processed_now, buf);
+		printk("next iter\n");
 		char_count_remaining -= char_count_processed_now;
-		printf(buf);
+		//printf(buf);
+	}
+	*/
+	//printk("stdout_write %d bytes from %d str\n", len, strlen(buf));
+	char* chbuf = (char*)buf;
+	for (int i = 0; i < len; i++) {
+		serial_putchar(chbuf[i]);
 	}
 
 	/*
@@ -81,6 +92,8 @@ int write(int fd, char* buf, int len) {
 	task_small_t* current = tasking_get_task_with_pid(getpid());
 	// Find the stream associated with the file descriptor
 	fd_entry_t* fd_ent = array_l_lookup(current->fd_table, fd);
+
+	//printk("[%d] WRITE buf 0x%08x len %d, fd_ent type %d: %s\n", getpid(), buf, len, fd_ent->type, buf);
 
 	if (fd_ent->type == STD_TYPE) {
 		return stdout_write(current, fd, buf, len);
