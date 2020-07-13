@@ -1036,7 +1036,7 @@ static void page_fault(const register_state_t* regs) {
 
 	//if execution reaches here, recovery failed or recovery wasn't possible
     printf("|----------------|\n");
-    printf("|   Page Fault   |\n");
+    printf("|  Page Fault %d  |\n", getpid());
     printf("|-  0x%08x  -|\n", faulting_address);
 
 	if (reserved) printf_err("Overwrote CPU-resereved bits of page entry");
@@ -1045,7 +1045,7 @@ static void page_fault(const register_state_t* regs) {
 	bool caused_by_execution = (regs->eip == faulting_address);
     const char* reason = "run";
     if (!caused_by_execution) {
-        reason = rw ? "write" : "read";
+        reason = rw ? "write" : "read ";
     }
 	printf("| Unmapped %s |\n", reason);
     printf("|----------------|\n");
