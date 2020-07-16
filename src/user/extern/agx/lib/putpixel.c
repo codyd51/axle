@@ -36,6 +36,6 @@ inline void putpixel(ca_layer* layer, int x, int y, Color color) {
 
 	uint32_t offset = (x * screen->bytes_per_pixel) + (y * layer->size.width * screen->bytes_per_pixel);
 	for (uint32_t i = 0; i < 3; i++) {
-		layer->raw[offset + i] = color.val[2 - i];
+		layer->raw[offset + i] = color.val[i];
 	}
 }

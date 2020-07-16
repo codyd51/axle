@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "amc.h"
 #include "gfx.h"
 
+#include <kernel/amc.h>
 #include <agx/lib/size.h>
 #include <agx/lib/screen.h>
 #include <agx/lib/shapes.h>
