@@ -5,10 +5,11 @@
 
 #include "amc.h"
 #include "gfx.h"
-#include "lib/size.h"
-#include "lib/screen.h"
-#include "lib/shapes.h"
-#include "lib/ca_layer.h"
+
+#include <agx/lib/size.h>
+#include <agx/lib/screen.h>
+#include <agx/lib/shapes.h>
+#include <agx/lib/ca_layer.h>
 
 Screen _screen = {0};
 
