@@ -2,6 +2,7 @@
 #define AMC_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef enum amc_message_type {
     KEYSTROKE = 0,
@@ -33,5 +34,8 @@ void amc_message_broadcast(amc_message_t* msg);
 
 // Block until a message has been received from the source service
 void amc_message_await(const char* source_service, amc_message_t* out);
+// Block until a message has been received from any of the provided source services
+void amc_message_await_from_services(int source_service_count, const char** source_services, amc_message_t* out);
+
 
 #endif

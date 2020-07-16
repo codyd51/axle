@@ -67,10 +67,6 @@ void amc_register_service(const char* name) {
     }
     */
 
-    // TODO(PT): We might not need the attribute on task_small
-    // We could also store the inbox in the amc_service_t state
-    //current_task->amc_service_name = name;
-
     amc_service_t* service = kmalloc(sizeof(amc_service_t));
     memset(service, 0, sizeof(amc_service_t));
 
@@ -152,27 +148,42 @@ void amc_message_broadcast(amc_message_t* msg) {
     NotImplemented();
 }
 
+void amc_message_await_from_services(int source_service_count, const char** source_services, amc_message_t* out) {
+    amc_service_t* service = _amc_service_of_task(tasking_get_current_task());
+    while (true) {
+        // Read messages in FIFO, from the array head to the tail
+        for (int i = 0; i < service->message_queue->size; i++) {
+            amc_message_t* message = array_l_lookup(service->message_queue, i);
+            for (int service_name_idx = 0; service_name_idx < source_service_count; service_name_idx++) {
+                const char* source_service = source_services[service_name_idx];
+                if (!strcmp(source_service, message->source)) {
+                    // Found a message that we're currently blocked for
+                    array_l_remove(service->message_queue, i);
+                    // Copy the message into the receiver's storage, and free the internal storage
+                    memcpy(out, message, sizeof(amc_message_t));
+                    _amc_message_free(message);
+                    return;
+                }
+            }
+        }
+        // No message from a desired service is available
+        // Block until we receive another message (from any service)
+        tasking_block_task(service->task, AMC_AWAIT_MESSAGE);
+        // We've unblocked, so we now have a new message to read
+    }
+}
+
 // Block until a message has been received from the source service
 void amc_message_await(const char* source_service, amc_message_t* out) {
-    amc_service_t* service = _amc_service_of_task(tasking_get_current_task());
+    const char* services[] = {source_service};
+    amc_message_await_from_services(1, services, out);
 
-    // If there are no messages in our inbox, block until we've received one
-    if (service->message_queue->size == 0) {
-        tasking_block_task(service->task, AMC_AWAIT_MESSAGE);
-        // We've unblocked, so we now have a message to read
-        assert(service->message_queue->size >= 1, "Didn't have at least 1 message after unblocking");
-    }
-
-	// Read messages in FIFO
-    amc_message_t* message = array_l_lookup(service->message_queue, 0);
-	array_l_remove(service->message_queue, 0);
-
+    /*
     if (strcmp(message->source, source_service)) {
         printf("%s received an unexpected message. Expected message from %s, but read message from %s\n", service->name, source_service, message->source);
         panic("Received message from unexpected service");
     }
+    */
+}
 
-    // Copy the message into the receiver's storage, and free the internal storage
-    memcpy(out, message, sizeof(amc_message_t));
-    _amc_message_free(message);
 }
