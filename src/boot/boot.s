@@ -16,7 +16,7 @@ dd 0, 0, 0, 0, 0	; Unused flags for specifying load positions
 dd 0	; Graphics mode type (0 = linear graphics, 1 = EGA-standard text mode)
 dd 1920	; Graphics px width
 dd 1080	; Graphics px height
-dd 24	; Graphics bits per pixel
+dd 32	; Graphics bits per pixel
 
 [section .text]
 [global _start]

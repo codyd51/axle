@@ -6,7 +6,7 @@
 #include "font8x8.h"
 #include "font.h"
 
-int gfx_bytes_per_pixel() { return 3; }
+int gfx_bytes_per_pixel() { return 4; }
 
 #define BITS_IN_WORD (sizeof(uint32_t) * 8)
 static inline void bitset_set(uint32_t* bitset, int idx) {

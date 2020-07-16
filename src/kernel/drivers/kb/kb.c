@@ -30,17 +30,14 @@ void kb_callback(registers_t* regs) {
 	amc_message_send("com.axle.kb_driver", amc_msg);
 }
 
-static void _launch_kb_driver() {
+void kb_init() {
+	printf_info("Initializing keyboard driver...");
+	interrupt_setup_callback(INT_VECTOR_IRQ1, &kb_callback);
+
 	// TODO(PT): Refactored method to launch a driver
     const char* program_name = "kb_driver";
     FILE* fp = initrd_fopen(program_name, "rb");
     char* argv[] = {program_name, NULL};
     elf_load_file(program_name, fp, argv);
 	panic("noreturn");
-}
-
-void kb_init() {
-	printf_info("Initializing keyboard driver...");
-	interrupt_setup_callback(INT_VECTOR_IRQ1, &kb_callback);
-	task_spawn(_launch_kb_driver);
 }

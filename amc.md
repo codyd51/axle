@@ -143,3 +143,11 @@ awm: axle window manager
 amc: axle message center
 ash: axle shell
 alc: axle log control
+
+Next
+-----------
+
+We want a log-viewer that accepts messages from tty and draws them
+- Need gfx to be linked in every newlib app, and for the headers to be in sysroot
+- Syscall or message to xserv to get a window buffer
+- Syscall or message to sync that window buffer to xserv

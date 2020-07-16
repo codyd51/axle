@@ -1,7 +1,7 @@
 #include "assert.h"
 #include <kernel/boot_info.h>
 
-#define _BACKTRACE_SIZE 6
+#define _BACKTRACE_SIZE 12
 
 void _panic(const char* msg, const char* file, int line) {
     //enter infinite loop
