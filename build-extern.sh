@@ -23,6 +23,14 @@ cd ./src/user/extern/kb_driver
 make
 cd ../../../../
 
+cd ./src/user/extern/tty
+make
+cd ../../../../
+
+cd ./src/user/extern/window
+make
+cd ../../../../
+
 cd initrd
 ../fsgen ./
 mv initrd.img ../initrd.img
