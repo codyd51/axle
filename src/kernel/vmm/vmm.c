@@ -306,7 +306,7 @@ void vmm_init(void) {
     vmm_identity_map_region(kernel_vmm_pd, info->kernel_elf_symbol_table.symtab, info->kernel_elf_symbol_table.symtabsz);
     // Kernel code+data,
     vmm_identity_map_region(kernel_vmm_pd, info->kernel_image_start, info->kernel_image_size);
-    // VGA text-mode framebuffer,
+    // VESA Framebuffer,
     vmm_identity_map_region(kernel_vmm_pd, info->framebuffer.address, info->framebuffer.size);
     // Ramdisk,
     vmm_identity_map_region(kernel_vmm_pd, info->initrd_start, info->initrd_size);
@@ -866,6 +866,23 @@ uint32_t vmm_map_phys_range(vmm_page_directory_t* vmm_dir, uint32_t phys_start, 
         _vmm_set_page_table_entry(vmm_dir, page_address, frame_address, true, true, false);
     }
     return first_page_address;
+}
+
+uint32_t vmm_remote_map_phys_range(uint32_t phys_vmm_addr, uint32_t phys_start, uint32_t size) {
+    // Pad buffer size to page size
+    size = (size + PAGE_SIZE) & PAGING_PAGE_MASK;
+
+    // Map the remote VAS state into the active VAS
+    vmm_page_directory_t* virt_remote_pdir = (vmm_page_directory_t*)vas_active_map_temp(phys_vmm_addr, sizeof(vmm_page_directory_t));
+    uint32_t remote_start = find_free_region(virt_remote_pdir, size, _first_page_outside_shared_kernel_tables) * PAGING_PAGE_SIZE;
+    for (int i = 0; i < size; i+=PAGE_SIZE) {
+        uint32_t remote_addr = remote_start+i;
+        uint32_t phys_addr = phys_start+i;
+        _vas_virt_set_page_table_entry(virt_remote_pdir, remote_addr, phys_addr, true, true, false);
+    }
+    vas_active_unmap_temp(sizeof(vmm_page_directory_t));
+
+    return remote_start;
 }
 
 void vmm_unmap_range(vmm_page_directory_t* vmm_dir, uint32_t virt_start, uint32_t size) {

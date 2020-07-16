@@ -91,4 +91,9 @@ uint32_t vmm_alloc_page(vmm_page_directory_t* vmm_dir, bool readwrite);
 uint32_t vmm_alloc_continuous_range(vmm_page_directory_t* vmm_dir, uint32_t size, bool readwrite);
 void vmm_validate_shared_tables_in_sync(vmm_page_directory_t* vmm_with_potential_modifications, vmm_page_directory_t* vmm_without_new_modifications);
 
+// Map a physical region in a non-active VAS
+// To prevent nasty races, the task owning the provided VAS should be blocked 
+// with VMM_MODIFY before making this call.
+uint32_t vmm_remote_map_phys_range(uint32_t phys_vmm_addr, uint32_t phys_start, uint32_t size);
+
 #endif
