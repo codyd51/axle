@@ -81,21 +81,20 @@ void amc_register_service(const char* name) {
     array_l_insert(_amc_services, service);
 }
 
-static amc_message_t* _amc_message_construct_from_service_name(const char* source_service_name, amc_message_type_t type, const char* data, int len) {
+static amc_message_t* _amc_message_construct_from_service_name(const char* source_service_name, const char* data, int len) {
     assert(source_service_name != NULL, "Must provide a source service");
 
     amc_message_t* out = kmalloc(sizeof(amc_message_t));
     memset(out, 0, sizeof(amc_message_t));
 
     out->source = source_service_name;
-    out->type = type;
     strncpy(out->data, data, min(sizeof(out->data), len));
     out->len = len;
 
     return out;
 }
 
-amc_message_t* amc_message_construct__from_core(amc_message_type_t type, const char* data, int len) {
+amc_message_t* amc_message_construct__from_core(const char* data, int len) {
     /*
     This method solves a problem when dispatching messages from an interrupt handler.
     An interrupt handler could be jumped to from any running process. Even though the 
@@ -105,13 +104,13 @@ amc_message_t* amc_message_construct__from_core(amc_message_type_t type, const c
     originating from the core, so interrupt handlers that dispatch messages use this
     function instead of the amc_message_send() call.
     */
-   return _amc_message_construct_from_service_name("com.axle.core", type, data, len);
+   return _amc_message_construct_from_service_name("com.axle.core", data, len);
 }
 
-amc_message_t* amc_message_construct(amc_message_type_t type, const char* data, int len) {
+amc_message_t* amc_message_construct(const char* data, int len) {
     amc_service_t* current_service = _amc_service_of_task(tasking_get_current_task());
     assert(current_service != NULL, "Current task is not a registered amc service");
-    return _amc_message_construct_from_service_name(current_service->name, type, data, len);
+    return _amc_message_construct_from_service_name(current_service->name, data, len);
 }
 
 static void _amc_message_free(amc_message_t* msg) {

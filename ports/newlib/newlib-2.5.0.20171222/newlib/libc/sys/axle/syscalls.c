@@ -11,15 +11,10 @@
 
 #include "syscalls.h"
 
-typedef enum amc_message_type {
-    KEYSTROKE = 0,
-    STDOUT = 1,
-} amc_message_type_t;
-
+// TODO(PT): Can we copy this definition from the sysroot?
 typedef struct amc_message {
     const char* source;
     const char* dest; // May be null if the message is globally broadcast
-    amc_message_type_t type;
     char data[64];
     int len;
 } amc_message_t;
@@ -42,7 +37,7 @@ DEFN_SYSCALL(getpid, 14);
 //DEFN_SYSCALL(waitpid, 15, int, int*, int);
 //DEFN_SYSCALL(task_with_pid, 16, int);
 DEFN_SYSCALL(amc_register_service, 25, const char*);
-DEFN_SYSCALL(amc_message_construct, 26, amc_message_type_t, const char*, int);
+DEFN_SYSCALL(amc_message_construct, 26, const char*, int);
 DEFN_SYSCALL(amc_message_send, 27, const char*, amc_message_t*);
 DEFN_SYSCALL(amc_message_broadcast, 28, amc_message_t*);
 DEFN_SYSCALL(amc_message_await, 29, const char*, amc_message_t*);
@@ -79,8 +74,8 @@ void amc_register_service(const char* name) {
 }
 
 // Construct an amc message
-amc_message_t* amc_message_construct(amc_message_type_t type, const char* data, int len) {
-    return sys_amc_message_construct(type, data, len);
+amc_message_t* amc_message_construct(const char* data, int len) {
+    return sys_amc_message_construct(data, len);
 }
 
 // Asynchronously send the message to the provided destination service

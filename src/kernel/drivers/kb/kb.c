@@ -26,7 +26,7 @@ char kb_modifiers() {
 
 void kb_callback(registers_t* regs) {
 	uint8_t scancode = inb(0x60);
-	amc_message_t* amc_msg = amc_message_construct__from_core(STDOUT, &scancode, 1);
+	amc_message_t* amc_msg = amc_message_construct__from_core(&scancode, 1);
 	amc_message_send("com.axle.kb_driver", amc_msg);
 }
 

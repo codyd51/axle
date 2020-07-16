@@ -86,7 +86,7 @@ DEFN_SYSCALL(surface_create, 23, uint32_t, uint32_t);
 DEFN_SYSCALL(aipc_send, 24, char*, uint32_t, uint32_t, char**);
 
 DEFN_SYSCALL(amc_register_service, 25, const char*);
-DEFN_SYSCALL(amc_message_construct, 26, amc_message_type_t, const char*, int);
+DEFN_SYSCALL(amc_message_construct, 26, const char*, int);
 DEFN_SYSCALL(amc_message_send, 27, const char*, amc_message_t*);
 DEFN_SYSCALL(amc_message_broadcast, 28, amc_message_t*);
 DEFN_SYSCALL(amc_message_await, 29, const char*, amc_message_t**);

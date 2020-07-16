@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
 	printf("User window (PID [%d]) running!\n", getpid());
 	
 	const char* cmd = "get_framebuf";
-	amc_message_t* get_framebuf_msg = amc_message_construct(KEYSTROKE, cmd, strlen(cmd));
+	amc_message_t* get_framebuf_msg = amc_message_construct(cmd, strlen(cmd));
 	amc_message_send("com.axle.awm", get_framebuf_msg);
 	amc_message_t receive_framebuf = {0};
 	amc_message_await("com.axle.awm", &receive_framebuf);
@@ -61,7 +61,7 @@ int main(int argc, char** argv) {
 			draw_rect(&dummy_layer, rect_make(point_make(x, y), size_make(w, h)), color_make(r, g, b), THICKNESS_FILLED);
 			if (true || i%10 == 0) {
 				const char* cmd2 = "update_framebuf";
-				amc_message_t* draw_framebuf_msg = amc_message_construct(KEYSTROKE, cmd2, strlen(cmd2));
+				amc_message_t* draw_framebuf_msg = amc_message_construct(cmd2, strlen(cmd2));
 				amc_message_send("com.axle.awm", draw_framebuf_msg);
 			}
 			continue;
@@ -87,7 +87,7 @@ int main(int argc, char** argv) {
 
 	/*
 	const char* cmd2 = "update_framebuf";
-	amc_message_t* draw_framebuf_msg = amc_message_construct(KEYSTROKE, cmd2, strlen(cmd2));
+	amc_message_t* draw_framebuf_msg = amc_message_construct(cmd2, strlen(cmd2));
 	amc_message_send("com.axle.awm", draw_framebuf_msg);
 	*/
 	//draw_rect(&dummy_layer, rect_make(point_zero(), size_make(500, 500)), color_white(), THICKNESS_FILLED);

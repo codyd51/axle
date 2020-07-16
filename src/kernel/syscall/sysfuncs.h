@@ -52,7 +52,7 @@ DECL_SYSCALL(surface_create, uint32_t, uint32_t);
 DECL_SYSCALL(aipc_send, char*, uint32_t, uint32_t, char**);
 
 DECL_SYSCALL(amc_register_service, const char*);
-DECL_SYSCALL(amc_message_construct, amc_message_type_t, const char*, int);
+DECL_SYSCALL(amc_message_construct, const char*, int);
 DECL_SYSCALL(amc_message_send, const char*, amc_message_t*);
 DECL_SYSCALL(amc_message_broadcast, amc_message_t*);
 DECL_SYSCALL(amc_message_await, const char*, amc_message_t**);

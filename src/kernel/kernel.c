@@ -113,7 +113,7 @@ static void acker() {
         //sleep(1000);
         sleep(20);
         char scancode = 'a';
-        amc_message_t* amc_msg = amc_message_construct__from_core(STDOUT, &scancode, 1);
+        amc_message_t* amc_msg = amc_message_construct__from_core(&scancode, 1);
         amc_message_send("com.user.window", amc_msg);
     }
 }

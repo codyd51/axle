@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
 			if (!strcmp(msg.data, "get_framebuf")) {
 				printf("Creating framebuffer for %s\n", msg.source);
 				// const char* window_fbuf = "0xcafebabe";
-				//amc_message_t* framebuf_msg = amc_message_construct(KEYSTROKE, window_fbuf, strlen(window_fbuf));
+				//amc_message_t* framebuf_msg = amc_message_construct(window_fbuf, strlen(window_fbuf));
 				uint32_t buffer_size = _screen.resolution.width * _screen.resolution.height * _screen.bytes_per_pixel;
 				uint32_t local_buffer;
 				uint32_t remote_buffer;
@@ -92,12 +92,12 @@ int main(int argc, char** argv) {
 				printf("Created shared memory region. Local 0x%08x remote 0x%08x\n", local_buffer, remote_buffer);
 				char buf[32];
 				snprintf(&buf, 32, "0x%08x", remote_buffer);
-				amc_message_t* framebuf_msg = amc_message_construct(KEYSTROKE, buf, sizeof(buf));
+				amc_message_t* framebuf_msg = amc_message_construct(buf, sizeof(buf));
 				amc_message_send("com.user.window", framebuf_msg);
 				//asm("cli");asm("hlt");
 				ready_to_redraw = true;
 				char* redraw_cmdstr = "redraw";
-				amc_message_t* redraw_cmd = amc_message_construct(KEYSTROKE, redraw_cmdstr, strlen(redraw_cmdstr));
+				amc_message_t* redraw_cmd = amc_message_construct(redraw_cmdstr, strlen(redraw_cmdstr));
 				amc_message_send("com.user.window", redraw_cmd);
 				continue;
 			}
@@ -111,9 +111,9 @@ int main(int argc, char** argv) {
 				remote_layer.alpha = 1.0;
 				blit_layer(&dummy_layer, &remote_layer, rect_make(point_make(400, 400), size_make(500, 500)), rect_make(point_zero(), size_make(500, 500)));
 				char* redraw_cmdstr = "redraw";
-				amc_message_t* redraw_cmd = amc_message_construct(KEYSTROKE, redraw_cmdstr, strlen(redraw_cmdstr));
+				amc_message_t* redraw_cmd = amc_message_construct(redraw_cmdstr, strlen(redraw_cmdstr));
 				amc_message_send("com.user.window", redraw_cmd);
-				//amc_message_t* ack = amc_message_construct(KEYSTROKE, "ack", 4);
+				//amc_message_t* ack = amc_message_construct("ack", 4);
 				//amc_message_send(msg.source, ack);
 				//blit_layer(&dummy_layer, &remote_layer, rect_make(point_zero(), size_make(300, 300)), rect_make(point_zero(), size_make(300, 300)));
 

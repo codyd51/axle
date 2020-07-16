@@ -3,6 +3,7 @@
 #include <kernel/multitasking/tasks/task_small.h>
 #include <kernel/multitasking/pipe.h>
 #include <kernel/multitasking/std_stream.h>
+#include <kernel/util/amc/amc.h>
 #include <user/xserv/xserv.h>
 
 #include <gfx/lib/gfx.h>
@@ -71,8 +72,12 @@ int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
 	*/
 	//printk("stdout_write %d bytes from %d str\n", len, strlen(buf));
 	char* chbuf = (char*)buf;
-	for (int i = 0; i < len; i++) {
-		serial_putchar(chbuf[i]);
+	for (int i = 0; i < len; i += 64) {
+		//serial_putchar(chbuf[i]);
+		//amc_message_t* amc_msg = amc_message_construct__from_core(&chbuf[i], 1);
+		// TODO limit to msg len?
+		amc_message_t* amc_msg = amc_message_construct__from_core(chbuf + i, 64);
+		amc_message_send("com.axle.tty", amc_msg);
 	}
 
 	/*
