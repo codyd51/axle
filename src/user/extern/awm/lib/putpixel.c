@@ -36,8 +36,6 @@ inline void putpixel(ca_layer* layer, int x, int y, Color color) {
 
 	uint32_t offset = (x * screen->bytes_per_pixel) + (y * layer->size.width * screen->bytes_per_pixel);
 	for (uint32_t i = 0; i < 3; i++) {
-		// Pixels are written in BGR, not RGB
-		// Thus, flip color order when reading a source color-byte
-		layer->raw[offset + i] = color.val[screen->bytes_per_pixel - i - 1];
+		layer->raw[offset + i] = color.val[i];
 	}
 }
