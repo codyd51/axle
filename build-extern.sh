@@ -3,6 +3,8 @@
 # Fail when building an external component doesn't compile
 set -e
 
+python3 ./build-libagx.py
+
 cd ./src/user/extern/print_and_exit
 make
 cd ../../../../

@@ -143,6 +143,7 @@ awm: axle window manager
 amc: axle message center
 ash: axle shell
 alc: axle log control
+agx: axle graphics lib
 
 Next
 -----------
