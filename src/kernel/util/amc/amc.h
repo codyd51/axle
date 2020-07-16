@@ -37,5 +37,9 @@ void amc_message_await(const char* source_service, amc_message_t* out);
 // Block until a message has been received from any of the provided source services
 void amc_message_await_from_services(int source_service_count, const char** source_services, amc_message_t* out);
 
+// Create a shared memory region between the current service and a destination service
+// Writes the virtual addresses of the local and remote regions to the "out" parameters
+// Both virtual memory regions point to the same physical memory
+void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, uint32_t* local_buffer, uint32_t* remote_buffer);
 
 #endif

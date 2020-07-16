@@ -134,6 +134,8 @@ bool amc_message_send(const char* destination_service, amc_message_t* msg) {
     }
 
     // And add the message to its inbox
+    amc_service_t* source = _amc_service_of_task(tasking_get_current_task());
+    printf("%s sends to %s with %d pending messages: %s\n", source->name, destination_service, dest->message_queue->size, msg->data);
     array_l_insert(dest->message_queue, msg);
     // And unblock the task if it was waiting for a message
     if (dest->task->blocked_info.status == AMC_AWAIT_MESSAGE) {
@@ -186,4 +188,35 @@ void amc_message_await(const char* source_service, amc_message_t* out) {
     */
 }
 
+void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, uint32_t* local_buffer_ptr, uint32_t* remote_buffer_ptr) {
+    amc_service_t* dest = _amc_service_with_name(remote_service);
+    if (dest == NULL) {
+        printf("Dropping shared memory request because service doesn't exist: %s\n", remote_service);
+        // TODO(PT): Need some way to communicate failure to the caller
+        return;
+    }
+
+    // Pad buffer size to page size
+    buffer_size = (buffer_size + PAGE_SIZE) & PAGING_PAGE_MASK;
+
+    // Map a buffer into the local address space
+    vmm_page_directory_t* local_pdir = vmm_active_pdir();
+    uint32_t local_buffer = vmm_alloc_continuous_range(local_pdir, buffer_size, true);
+
+    // Find the physical address the region was mapped
+    uint32_t physical_region = vmm_get_phys_address_for_mapped_page(local_pdir, local_buffer);
+    printf("Made local mapping: 0x%08x - 0x%08x\n", local_buffer, local_buffer+buffer_size);
+    printf("Shared physical region at 0x%08x - 0x%08x\n", physical_region, physical_region+buffer_size);
+
+    // Map a region in the destination task that points to the same physical memory
+    // And don't allow the destination task to be scheduled while we're modifying its VAS
+    tasking_block_task(dest->task, VMM_MODIFY);
+    uint32_t remote_start = vmm_remote_map_phys_range(dest->task->vmm, physical_region, buffer_size);
+    tasking_unblock_task(dest->task, false);
+
+    printf("remote buffer: 0x%08x\n", remote_start);
+
+    // Write the "out" info describing where memory was mapped
+    *local_buffer_ptr = local_buffer;
+    *remote_buffer_ptr = remote_start;
 }

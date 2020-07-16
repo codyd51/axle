@@ -29,4 +29,8 @@ void amc_message_broadcast(amc_message_t* msg);
 // Block until a message has been received from the source service
 void amc_message_await(const char* source_service, amc_message_t* out);
 
+void amc_message_await_from_services(int source_service_count, const char** source_services, amc_message_t* out);
+
+void amc_shared_memory_create(const char* remote_service, uint32_t region_size, uint32_t* local_buffer, uint32_t* remote_buffer);
+
 #endif
