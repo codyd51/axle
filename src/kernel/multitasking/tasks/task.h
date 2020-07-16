@@ -23,7 +23,8 @@
 
 typedef enum task_state {
     RUNNABLE = 0,
-	ZOMBIE, // intermediate state after task finishes executing before being flushed from system
+	// Intermediate state after task finishes executing before being flushed from system
+	ZOMBIE,
     KB_WAIT,
     PIT_WAIT,
 	MOUSE_WAIT,
@@ -33,6 +34,10 @@ typedef enum task_state {
 	IRQ_WAIT,
 	// The process has blocked until it receives an IPC message
 	AMC_AWAIT_MESSAGE,
+	// Kernel code is modifying the
+	// task's virtual address space
+	VMM_MODIFY,
+	
 } task_state;
 
 typedef enum mlfq_option {

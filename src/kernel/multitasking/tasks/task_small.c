@@ -326,6 +326,9 @@ void update_blocked_tasks() {
             else if (task->blocked_info.status == AMC_AWAIT_MESSAGE) {
                 // Will be unblocked by AMC
             }
+            else if (task->blocked_info.status == VMM_MODIFY) {
+                // Will be unblocked when the client is done modifying the VAS
+            }
             else if (task->blocked_info.status == ZOMBIE) {
                 // We should start a job to clean up this task
             }
