@@ -28,18 +28,25 @@ static void _array_m_insert_unlocked(array_m* array, type_t item) {
 	array->array[array->size++] = item;
 }
 
+static type_t _array_m_lookup_unlocked(array_m* array, int32_t i) {
+	ASSERT(i < array->size && i >= 0, "index (%d) was out of bounds (%d)", i, array->size - 1);
+
+	return array->array[i];
+}
+
 static int32_t _array_m_index_unlocked(array_m* array, type_t item) {
 	for (int32_t i = 0; i < array->size; i++) {
-		if (array_m_lookup(array, i) == item) return i;
+		if (_array_m_lookup_unlocked(array, i) == item) return i;
 	}
 	return -1;
 }
 
 static void _array_m_remove_unlocked(array_m* array, int32_t i) {
-	if (i < array->size && i >= 0) {
+	if (i >= array->size) {
 		printf("Removed index is out-of-bounds: %d larger than size %d\n", i, array->size);
 		panic("Array index is out-of-bounds");
 	}
+	if (i < 0) panic("Negative array index");
 
 	//shift back all elements
 	while (i < array->size) {
@@ -62,8 +69,16 @@ void array_m_insert(array_m* array, type_t item) {
 
 int32_t array_m_index(array_m* array, type_t item) {
 	lock(&array->lock);
-	_array_m_index_unlocked(array, item);
+	int32_t ret = _array_m_index_unlocked(array, item);
 	unlock(&array->lock);
+	return ret;
+}
+
+type_t array_m_lookup(array_m* array, int32_t i) {
+	lock(&array->lock);
+	type_t ret = _array_m_lookup_unlocked(array, i);
+	unlock(&array->lock);
+	return ret;
 }
 
 void array_m_remove(array_m* array, int32_t i) {
