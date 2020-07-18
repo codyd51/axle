@@ -40,7 +40,12 @@ static amc_service_t* _amc_service_matching_data(const char* name, task_small_t*
             return service;
         }
     }
-    printf("No service with name %s task 0x%08x\n", name, task);
+    if (name) {
+        printf("No service with name %s\n", name);
+    }
+    else if (task) {
+        printf("No service for task 0x%08x\n", task);
+    }
     return NULL;
     //panic("Didn't find amc service matching provided data");
 }
@@ -185,6 +190,25 @@ void amc_message_await(const char* source_service, amc_message_t* out) {
         panic("Received message from unexpected service");
     }
     */
+}
+
+// Await a message from any service
+// Blocks until a message is received
+void amc_message_await_any(amc_message_t* out) {
+    amc_service_t* service = _amc_service_of_task(tasking_get_current_task());
+    if (service->message_queue->size == 0) {
+        // No message available
+        // Block until we receive another message (from any service)
+        tasking_block_task(service->task, AMC_AWAIT_MESSAGE);
+    }
+    //lock(&service->lock);
+    // Read messages in FIFO, from the array head to the tail
+    amc_message_t* message = array_m_lookup(service->message_queue, 0);
+    array_m_remove(service->message_queue, 0);
+    // Copy the message into the receiver's storage, and free the internal storage
+    memcpy(out, message, sizeof(amc_message_t));
+    _amc_message_free(message);
+    //unlock(&service->lock);
 }
 
 void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, uint32_t* local_buffer_ptr, uint32_t* remote_buffer_ptr) {

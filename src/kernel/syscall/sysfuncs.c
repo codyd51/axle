@@ -91,7 +91,8 @@ DEFN_SYSCALL(amc_message_send, 27, const char*, amc_message_t*);
 DEFN_SYSCALL(amc_message_broadcast, 28, amc_message_t*);
 DEFN_SYSCALL(amc_message_await, 29, const char*, amc_message_t**);
 DEFN_SYSCALL(amc_message_await_from_services, 30, int, const char**, amc_message_t**);
-DEFN_SYSCALL(amc_shared_memory_create, 31, const char*, uint32_t, uint32_t*, uint32_t*);
+DEFN_SYSCALL(amc_message_await_any, 31, amc_message_t**);
+DEFN_SYSCALL(amc_shared_memory_create, 32, const char*, uint32_t, uint32_t*, uint32_t*);
 
 void create_sysfuncs() {
 	syscall_add((void*)&_kill);
@@ -126,5 +127,6 @@ void create_sysfuncs() {
 	syscall_add((void*)&amc_message_broadcast);
 	syscall_add((void*)&amc_message_await);
 	syscall_add((void*)&amc_message_await_from_services);
+	syscall_add((void*)&amc_message_await_any);
 	syscall_add((void*)&amc_shared_memory_create);
 }

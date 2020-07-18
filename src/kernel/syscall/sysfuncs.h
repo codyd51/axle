@@ -57,6 +57,7 @@ DECL_SYSCALL(amc_message_send, const char*, amc_message_t*);
 DECL_SYSCALL(amc_message_broadcast, amc_message_t*);
 DECL_SYSCALL(amc_message_await, const char*, amc_message_t**);
 DECL_SYSCALL(amc_message_await_from_services, int, const char**, amc_message_t**);
+DECL_SYSCALL(amc_message_await_any, amc_message_t**);
 DECL_SYSCALL(amc_shared_memory_create, const char*, uint32_t, uint32_t*, uint32_t*);
 
 #endif

@@ -26,7 +26,6 @@ void elf_from_multiboot(struct multiboot_info* mb, elf_t* elf) {
 }
 
 const char* elf_sym_lookup(elf_t* elf, uint32_t addr) {
-	asm("cli");
 	for (uint32_t i = 0; i < (elf->symtabsz / sizeof(elf_symbol_t)); i++) {
 		const char* name = (const char*)((uint32_t)elf->strtab + elf->symtab[i].name);
 		//function type is 0x2
@@ -37,10 +36,8 @@ const char* elf_sym_lookup(elf_t* elf, uint32_t addr) {
 		//check if addr is bounded by this function
 		if ((addr >= elf->symtab[i].value) &&
 			(addr < (elf->symtab[i].value + elf->symtab[i].size))) {
-            asm("sti");
 			return name;
 		}
 	}
-	asm("sti");
 	return "?";
 }

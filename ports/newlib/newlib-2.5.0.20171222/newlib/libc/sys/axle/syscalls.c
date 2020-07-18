@@ -42,7 +42,8 @@ DEFN_SYSCALL(amc_message_send, 27, const char*, amc_message_t*);
 DEFN_SYSCALL(amc_message_broadcast, 28, amc_message_t*);
 DEFN_SYSCALL(amc_message_await, 29, const char*, amc_message_t*);
 DEFN_SYSCALL(amc_message_await_from_services, 30, int, const char**, amc_message_t*);
-DEFN_SYSCALL(amc_shared_memory_create, 31, const char*, uint32_t, uint32_t*, uint32_t*);
+DEFN_SYSCALL(amc_message_await_any, 31, amc_message_t*);
+DEFN_SYSCALL(amc_shared_memory_create, 32, const char*, uint32_t, uint32_t*, uint32_t*);
 
 // According to the documentation, this is an acceptable minimal environ
 // https://sourceware.org/newlib/libc.html#Syscalls
@@ -96,6 +97,12 @@ void amc_message_await(const char* source_service, amc_message_t* out) {
 // Block until a message has been received from any of the source services
 void amc_message_await_from_services(int source_service_count, const char** source_services, amc_message_t* out) {
     sys_amc_message_await_from_services(source_service_count, source_services, out);
+}
+
+// Await a message from any service
+// Blocks until a message is received
+void amc_message_await_any(amc_message_t* out) {
+    sys_amc_message_await_any(out);
 }
 
 void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, uint32_t* local_buffer, uint32_t* remote_buffer) {
