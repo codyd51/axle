@@ -1,91 +1,86 @@
-#ifndef STD_KHEAP_H
-#define STD_KHEAP_H
+#ifndef _LIBALLOC_H
+#define _LIBALLOC_H
 
-#include "std_base.h"
-#include "array_o.h"
 #include <stdint.h>
-#include <stdbool.h>
-#include <std/klog.h>
-#include <kernel/util/mutex/mutex.h>
 
-__BEGIN_DECLS
+#define size_t uint32_t
 
-//page aligned
-STDAPI void* kmalloc_a(uint32_t sz);
+/** \defgroup ALLOCHOOKS liballoc hooks 
+ *
+ * These are the OS specific functions which need to 
+ * be implemented on any platform that the library
+ * is expected to work on.
+ */
 
-//returns physical address
-STDAPI void* kmalloc_p(uint32_t sz, uint32_t* phys);
+/** @{ */
 
-//page aligned and returns physical address
-STDAPI void* kmalloc_ap(uint32_t sz, uint32_t* phys);
 
-//private functions/macros required for kmalloc macro
-//TODO figure out how to hide these while keeping kmalloc public
-void* kmalloc_real(uint32_t sz);
-void kmalloc_track_int(char* file, int line, uint32_t size);
-#define kmalloc_track(bytes) ({ kmalloc_track_int(__FILE__, __LINE__, bytes); kmalloc_real(bytes); })
-// #define kmalloc(bytes) kmalloc_track(bytes)
-#define kmalloc(bytes) (kmalloc_real(bytes))
 
-#define KHEAP_INITIAL_SIZE	0x4000000
-#define KHEAP_MAX_ADDRESS 	0xDFFFF000
-//#define KHEAP_MAX_ADDRESS 	0xCFFFF000
+// If we are told to not define our own size_t, then we skip the define.
+//#define _HAVE_UINTPTR_T
+//typedef	unsigned long	uintptr_t;
 
-#define HEAP_MAGIC			0xf00dface
-#define HEAP_MIN_SIZE		0x70000
-#define MIN_BLOCK_SIZE		0x10
+//This lets you prefix malloc and friends
+#define PREFIX(func)		k ## func
 
-//size information for hole/block
-typedef struct alloc_block_t {
-	uint32_t magic; //magic number
-	struct alloc_block_t* next;
-	struct alloc_block_t* prev;
-	bool free; //is this block in use?
-	uint32_t size; //usable size
-} alloc_block_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-typedef struct {
-	uint32_t start_address; //start of allocated space
-	uint32_t end_address; //end of allocated space (can be expanded up to max_address)
-	uint32_t max_address; //maximum address heap can be expanded to
-	uint8_t supervisor; //should new pages mapped be marked as kernel mode?
-	uint8_t readonly; //should new pages mapped be marked as read-only?
-	lock_t lock;
-} heap_t;
 
-//create new heap
-STDAPI heap_t* create_heap(uint32_t start, uint32_t end, uint32_t max, uint8_t supervisor, uint8_t readonly);
 
-//allocates contiguous region of memory of size 'size'. If aligned, creates block starting on page boundary
-STDAPI void* alloc(uint32_t size, uint8_t page_align, heap_t* heap);
+/** This function is supposed to lock the memory data structures. It
+ * could be as simple as disabling interrupts or acquiring a spinlock.
+ * It's up to you to decide. 
+ *
+ * \return 0 if the lock was acquired successfully. Anything else is
+ * failure.
+ */
+int liballoc_lock();
 
-//releases block allocated with alloc
-STDAPI void free(void* p, heap_t* heap);
+/** This function unlocks what was previously locked by the liballoc_lock
+ * function.  If it disabled interrupts, it enables interrupts. If it
+ * had acquiried a spinlock, it releases the spinlock. etc.
+ *
+ * \return 0 if the lock was successfully released.
+ */
+int liballoc_unlock();
 
-//releases block allocated with alloc using current heap
-STDAPI void kfree(void* p);
+/** This is the hook into the local system which allocates pages. It
+ * accepts an integer parameter which is the number of pages
+ * required.  The page size was set up in the liballoc_init function.
+ *
+ * \return NULL if the pages were not allocated.
+ * \return A pointer to the allocated memory.
+ */
+void* liballoc_alloc(size_t);
 
-//enlarges heap to new_size
-void expand(uint32_t new_size, heap_t* heap);
+/** This frees previously allocated memory. The void* parameter passed
+ * to the function is the exact same value returned from a previous
+ * liballoc_alloc call.
+ *
+ * The integer value is the number of pages to free.
+ *
+ * \return 0 if the memory was successfully freed.
+ */
+int liballoc_free(void*,size_t);
 
-//returns number of bytes currently in use by heap
-uint32_t used_mem();
 
-//debug function to dump last 'count' kernel heap allocs
-//if 'count' is larger than total heap allocations, or
-//count is -1, prints all heap allocations
-//outputs to syslog
-void heap_print(int count);
+       
 
-//debug function to dump amounts of memory in use by axle source files
-//outputs to syslog
-void memdebug();
+extern void    *PREFIX(malloc)(size_t);				///< The standard function.
+extern void    *PREFIX(realloc)(void *, size_t);		///< The standard function.
+extern void    *PREFIX(calloc)(size_t, size_t);		///< The standard function.
+extern void     PREFIX(free)(void *);					///< The standard function.
 
-//internal function to traverse heap and verify that
-//no heap data has been corrupted
-//on failure, kills current process
-void heap_verify_integrity();
 
-__END_DECLS
+#ifdef __cplusplus
+}
+#endif
 
-#endif // STD_KHEAP_H
+
+/** @} */
+
+#endif
+
+
