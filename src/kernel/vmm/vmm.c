@@ -327,6 +327,17 @@ void vmm_init(void) {
     vmm_dump(kernel_vmm_pd);
 }
 
+/*
+ * Handling for allocations inside/outside globally shared kernel tables
+ */
+
+uint32_t _allocations_base_for_vmm(vmm_page_directory_t* vmm) {
+    if (vmm == boot_info_get()->vmm_kernel) {
+        return 0;
+    }
+    return _first_page_outside_shared_kernel_tables;
+}
+
 void vmm_notify_shared_kernel_memory_allocated() {
     // TODO(PT): Derive this
     _first_page_outside_shared_kernel_tables = 0x6000000;
@@ -534,6 +545,14 @@ vmm_page_table_t* vas_virt_table_for_page_addr(vmm_page_directory_t* vas_virt, u
     return (uint32_t)vas_virt->table_pointers[table_idx] & PAGE_DIRECTORY_ENTRY_MASK;
 }
 
+uint32_t vmm_alloc_global_kernel_memory(uint32_t size) {
+	uint32_t start = vmm_alloc_continuous_range(boot_info_get()->vmm_kernel, size, true);
+    if (_first_page_outside_shared_kernel_tables > 0 && start + size >= _first_page_outside_shared_kernel_tables) {
+        panic("Allocating shared kernel memory crossed over into an unshared page table");
+    }
+    return start;
+}
+
 void _vmm_unmap_page(vmm_page_directory_t* vmm_dir, uint32_t page_addr) {
     if (page_addr & PAGE_FLAG_BITS_MASK) {
         printf("page_addr 0x%x\n", page_addr);
@@ -701,7 +720,7 @@ uint32_t vas_virt_alloc_continuous_range(vmm_page_directory_t* virt_vas, uint32_
     if (size & PAGE_FLAG_BITS_MASK) {
         panic("size must be page-aligned");
     }
-    uint32_t index = find_free_region(virt_vas, size, _first_page_outside_shared_kernel_tables);
+    uint32_t index = find_free_region(virt_vas, size, _allocations_base_for_vmm(virt_vas));
     uint32_t first_page_address = index * PAGING_PAGE_SIZE;
     VAS_PRINTF("vas_phys_alloc_continuous_range found region at 0x%08x\n", first_page_address);
 
@@ -740,15 +759,8 @@ uint32_t vas_active_map_phys_range(uint32_t phys_start, uint32_t size) {
     // TODO(PT): Now that the shared tables bitmap allocation state is globally shared, 
     // we might not need to restrict allocations like this anymore.
     // However, we'll still need to guard against things like an allocation spilling into unshared memory
-    uint32_t alloc_min_address = 0x0;
-    if (vmm_active_pdir() == boot_info_get()->vmm_kernel) {
-        alloc_min_address = 0x0;
-    }
     // Otherwise, we must map within non-shared page tables
-    else {
-        alloc_min_address = _first_page_outside_shared_kernel_tables;
-    }
-    uint32_t index = find_free_region(vmm_active_pdir(), size, alloc_min_address);
+    uint32_t index = find_free_region(vmm_active_pdir(), size, _allocations_base_for_vmm(vmm_active_pdir()));
     uint32_t first_page_address = index * PAGING_PAGE_SIZE;
 
     VAS_PRINTF("vas_active_map_phys [P 0x%08x - 0x%08x] [V 0x%08x - 0x%08x]\n", phys_start, phys_start + size, first_page_address, first_page_address + size);
@@ -764,7 +776,7 @@ uint32_t vmm_alloc_continuous_range(vmm_page_directory_t* vmm_dir, uint32_t size
         size = (size & PAGING_PAGE_MASK) + PAGING_PAGE_SIZE;
     }
 
-    uint32_t index = find_free_region(vmm_dir, size, _first_page_outside_shared_kernel_tables);
+    uint32_t index = find_free_region(vmm_dir, size, _allocations_base_for_vmm(vmm_dir));
     uint32_t first_page_address = index * PAGING_PAGE_SIZE;
     printf("vmm_alloc_continuous_range found region at 0x%08x\n", first_page_address);
     // Bug here if a user PDir allocates something in a shared table
@@ -858,7 +870,7 @@ uint32_t vmm_map_phys_range(vmm_page_directory_t* vmm_dir, uint32_t phys_start, 
         size = (size & PAGING_PAGE_MASK) + PAGING_PAGE_SIZE;
     }
 
-    uint32_t index = find_free_region(vmm_dir, size, _first_page_outside_shared_kernel_tables);
+    uint32_t index = find_free_region(vmm_dir, size, _allocations_base_for_vmm(vmm_dir));
     uint32_t first_page_address = index * PAGING_PAGE_SIZE;
     for (uint32_t i = 0; i < size; i += PAGING_PAGE_SIZE) {
         uint32_t page_address = first_page_address + i;
@@ -874,7 +886,7 @@ uint32_t vmm_remote_map_phys_range(uint32_t phys_vmm_addr, uint32_t phys_start, 
 
     // Map the remote VAS state into the active VAS
     vmm_page_directory_t* virt_remote_pdir = (vmm_page_directory_t*)vas_active_map_temp(phys_vmm_addr, sizeof(vmm_page_directory_t));
-    uint32_t remote_start = find_free_region(virt_remote_pdir, size, _first_page_outside_shared_kernel_tables) * PAGING_PAGE_SIZE;
+    uint32_t remote_start = find_free_region(virt_remote_pdir, size, _allocations_base_for_vmm(phys_vmm_addr)) * PAGING_PAGE_SIZE;
     for (int i = 0; i < size; i+=PAGE_SIZE) {
         uint32_t remote_addr = remote_start+i;
         uint32_t phys_addr = phys_start+i;

@@ -96,4 +96,9 @@ void vmm_validate_shared_tables_in_sync(vmm_page_directory_t* vmm_with_potential
 // with VMM_MODIFY before making this call.
 uint32_t vmm_remote_map_phys_range(uint32_t phys_vmm_addr, uint32_t phys_start, uint32_t size);
 
+// Map memory within the globally shared kernel page tables
+// that are mapped identically across all processes.
+// Useful for kernel heap accessible everywhere.
+uint32_t vmm_alloc_global_kernel_memory(uint32_t size);
+
 #endif
