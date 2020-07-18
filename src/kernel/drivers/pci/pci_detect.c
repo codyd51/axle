@@ -1,4 +1,5 @@
 #include "pci_detect.h"
+#include <std/array_m.h>
 
 #define MAX_DEVICES 32
 

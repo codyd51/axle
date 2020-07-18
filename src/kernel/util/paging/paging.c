@@ -10,7 +10,6 @@
 
 //defined in kheap
 extern uint32_t placement_address;
-extern heap_t* kheap;
 
 page_directory_t* page_dir_kern() {
     Deprecated();

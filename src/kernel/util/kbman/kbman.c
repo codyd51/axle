@@ -31,11 +31,11 @@ void kbman_process(char c) {
 		switch (c) {
 			//dump dynamic memory users whenever ctrl+m is pressed
 			case 'm':
-				memdebug();
+				//memdebug();
 				printf_info("Dynamic memory usage logged");
 				break;
 			case 'h':
-				heap_print(-1);
+				//heap_print(-1);
 				printf_info("Heap allocations logged");
 				break;
 			case 'p':

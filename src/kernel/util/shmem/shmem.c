@@ -146,11 +146,14 @@ char* shmem_get_region_and_map(page_directory_t* dir, uint32_t size, uint32_t be
 	}
 	printk("shmem_get_region_and_map padded size %d", padded);
 
+	/*
 	uint8_t* backing_memory = kmalloc_a(padded);
 	if (kernel_mapped_address) {
 		*kernel_mapped_address = (char*)backing_memory;
 	}
 
 	return shmem_create_map(dir, backing_memory, padded, begin_searching_at, writeable);
+	*/
+	return NULL;
 }
 

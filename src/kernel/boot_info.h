@@ -6,7 +6,6 @@
 #include <kernel/multiboot.h>
 #include <kernel/vmm/vmm.h>
 #include <kernel/elf.h>
-#include <std/kheap.h>
 
 typedef struct multiboot_boot_device {
     char drive;
@@ -58,7 +57,6 @@ typedef struct boot_info {
     framebuffer_info_t framebuffer;
 
     vmm_page_directory_t* vmm_kernel;
-    heap_t* heap_kernel;
 } boot_info_t;
 
 boot_info_t* boot_info_get(void);
