@@ -33,5 +33,4 @@ void write_screen(Screen* screen);
 //copy 'region' from double buffer to real screen
 void write_screen_region(Rect region);
 
-
 #endif

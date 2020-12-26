@@ -212,11 +212,11 @@ void ps2_mouse_enable(void) {
 	interrupt_setup_callback(INT_VECTOR_IRQ12, &mouse_callback);
 
 	// Ask the PS/2 mouse to use default settings
-	ps2_device2_send(PS2_MOUSE_CMD_SET_DEFAULT_SETTINGS);
+	ps2_write_device(1, PS2_MOUSE_CMD_SET_DEFAULT_SETTINGS);
     ps2_expect_ack();
 
 	// Ask the PS/2 mouse to start sending events
-	ps2_device2_send(PS2_MOUSE_CMD_ENABLE_DATA_REPORTING);
+	ps2_write_device(1, PS2_MOUSE_CMD_ENABLE_DATA_REPORTING);
     ps2_expect_ack();
 }
 

@@ -35,19 +35,6 @@ uint8_t ps2_read(uint8_t port) {
     return inb(port);
 }
 
-static uint8_t _ps2_read_without_checking_for_available_data(void) {
-    return inb(PS2_RECV_PORT);
-}
-
-void ps2_device1_send(uint8_t byte) {
-    outb(PS2_DATA, byte);
-}
-
-void ps2_device2_send(uint8_t byte) {
-    ps2_write(PS2_CMD_PORT, PS2_CMD_WRITE_NEXT_BYTE_TO_SECOND_INPUT_PORT);
-    outb(PS2_DATA, byte);
-}
-
 /* Write a byte to the specified `device` input buffer.
  * This function is used to send command to devices.
  */
@@ -56,6 +43,19 @@ void ps2_write_device(uint32_t device, uint8_t b) {
         ps2_write(PS2_CMD_PORT, PS2_CMD_WRITE_NEXT_BYTE_TO_SECOND_INPUT_PORT);
     }
     return ps2_write(PS2_DATA, b);
+}
+
+static void ps2_controller_set_config(uint8_t config_byte) {
+    printf("[PS2] Writing new configuration byte: 0x%02x\n", config_byte);
+    ps2_write(PS2_CMD_PORT, PS2_CMD_SET_CONTROLLER_CONFIGURATION_BYTE);
+    ps2_write(PS2_DATA, config_byte);
+}
+
+static void ps2_test_device(uint8_t test_cmd) {
+    // Test device 1
+    ps2_write(PS2_CMD_PORT, test_cmd);
+    uint8_t device_status = ps2_read(PS2_DATA);
+    assert(device_status == PS2_CMD_RESP_TEST_DEVICE_SUCCESS, "PS2 device self-test failed");
 }
 
 void ps2_controller_init(void) {
@@ -87,10 +87,7 @@ void ps2_controller_init(void) {
     controller_config &= ~PS2_CFG_SECOND_PORT;
     // Disable port translation
     controller_config &= ~PS2_CFG_TRANSLATION;
-    // Set the new configuration
-    printf("PS/2 Controller new config: 0x%08x\n", controller_config);
-    ps2_write(PS2_CMD_PORT, PS2_CMD_SET_CONTROLLER_CONFIGURATION_BYTE);
-    ps2_write(PS2_DATA, controller_config);
+    ps2_controller_set_config(controller_config);
 
     // Perform controller self-test
     printf("PS/2 Self-Test\n");
@@ -100,20 +97,11 @@ void ps2_controller_init(void) {
 
     // Restore the configuration in case running the self-test reset the controller
     printf("PS/2 Re-set new config\n");
-    ps2_write(PS2_CMD_PORT, PS2_CMD_SET_CONTROLLER_CONFIGURATION_BYTE);
-    ps2_write(PS2_DATA, controller_config);
+    ps2_controller_set_config(controller_config);
 
-    // Test device 1
-    ps2_write(PS2_CMD_PORT, PS2_CMD_TEST_DEVICE_1);
-    uint8_t device_status = ps2_read(PS2_DATA);
-    printf("PS2 Device 1 status: 0x%08x\n", device_status);
-    assert(device_status == PS2_CMD_RESP_TEST_DEVICE_SUCCESS, "PS2 Device 1 self-test failed");
-
-    // Test device 2
-    ps2_write(PS2_CMD_PORT, PS2_CMD_TEST_DEVICE_2);
-    device_status = ps2_read(PS2_DATA);
-    printf("PS2 Device 2 status: 0x%08x\n", device_status);
-    assert(device_status == PS2_CMD_RESP_TEST_DEVICE_SUCCESS, "PS2 Device 2 self-test failed");
+    // Test and enable each device
+    ps2_test_device(PS2_CMD_TEST_DEVICE_1);
+    ps2_test_device(PS2_CMD_TEST_DEVICE_2);
 
     ps2_write(PS2_CMD_PORT, PS2_CMD_ENABLE_DEVICE_1);
     controller_config |= PS2_CFG_FIRST_PORT;
@@ -123,15 +111,13 @@ void ps2_controller_init(void) {
     controller_config |= PS2_CFG_SECOND_PORT;
     controller_config &= ~PS2_CFG_SECOND_CLOCK;
 
-    ps2_write(PS2_CMD_PORT, PS2_CMD_SET_CONTROLLER_CONFIGURATION_BYTE);
-    ps2_write(PS2_DATA, controller_config);
+    // Write out the config with each device enabled
+    ps2_controller_set_config(controller_config);
 
-    // Reset devices
+    // Reset each device
     for (uint32_t i = 0; i < 2; i++) {
         ps2_write_device(i, PS2_DEV_RESET);
         uint8_t ret = ps2_read(PS2_DATA);
-
-        // If it fails, disable the device's port
         assert(ret == PS2_DEV_ACK && ps2_read(PS2_DATA) == PS2_DEV_RESET_ACK, "Failed to reset device");
 
         // For some reason, mice send an additional 0x00 byte
@@ -141,6 +127,8 @@ void ps2_controller_init(void) {
         }
         */
     }
+
+    // Perform any extra setup / configuration of each device
     ps2_keyboard_enable();
     ps2_mouse_enable();
 
