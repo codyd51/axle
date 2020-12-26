@@ -202,30 +202,35 @@ void mouse_install() {
 	//enable mouse device
 	mouse_wait(1);
 	outb(0x64, 0xA8);
+#define PS2_MOUSE_CMD_SET_DEFAULT_SETTINGS 0xF7
+#define PS2_MOUSE_CMD_ENABLE_DATA_REPORTING 0xF4
+#define PS2_MOUSE_RESP_ACKNOWLEDGE 0xFA
 
-	//enable interrupts
-	mouse_wait(1);
-	outb(0x64, 0x20);
-	mouse_wait(0);
-	status = (inb(0x60) | 2);
-	mouse_wait(1);
-	outb(0x64, 0x60);
-	mouse_wait(1);
-	outb(0x60, status);
-
-	//tell mouse to use default settings
-	mouse_write(0xF6);
-	mouse_read(); //acknowledge
-
-	//enable data reporting
-	mouse_write(0xF4);
-	mouse_read(); //acknowledge
-
-	//setup mouse handler
+void ps2_mouse_enable(void) {
+	printf_info("[PS2] Enabling mouse...");
+	// Setup an interrupt handler to receive IRQ12's
 	interrupt_setup_callback(INT_VECTOR_IRQ12, &mouse_callback);
+
+	// Ask the PS/2 mouse to use default settings
+	ps2_device2_send(PS2_MOUSE_CMD_SET_DEFAULT_SETTINGS);
+    ps2_expect_ack();
+
+	// Ask the PS/2 mouse to start sending events
+	ps2_device2_send(PS2_MOUSE_CMD_ENABLE_DATA_REPORTING);
+    ps2_expect_ack();
+}
+
+void ps2_mouse_driver_launch(void) {
+	// TODO(PT): Refactored method to launch a driver
+    const char* program_name = "mouse_driver";
+    FILE* fp = initrd_fopen(program_name, "rb");
+    char* argv[] = {program_name, NULL};
+    elf_load_file(program_name, fp, argv);
+	panic("noreturn");
 }
 
 void mouse_event_wait() {
+	Deprecated();
 	task_small_t* task_to_block = tasking_get_current_task();
 	tasking_block_task(task_to_block, MOUSE_WAIT);
 }

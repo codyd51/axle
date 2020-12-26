@@ -11,8 +11,10 @@ typedef struct mouse_button_state {
     bool middle_down : 1;
 } mouse_button_state_t;
 
-//install mouse driver
-void mouse_install();
+// PS/2 controller calls this to do extra setup for the PS/2 mouse device
+void ps2_mouse_enable(void);
+// Kernel calls this to launch the mouse driver
+void ps2_mouse_driver_launch(void);
 
 //return current mouse coordinates, bounded by VESA 0x118 resolution
 Point mouse_point();

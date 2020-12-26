@@ -22,11 +22,36 @@
 #define PS2_CMD_READ_CONTROLLER_CONFIGURATION_BYTE 0x20
 #define PS2_CMD_SET_CONTROLLER_CONFIGURATION_BYTE 0x60
 
+// Device commands
+#define PS2_DEV_RESET 0xFF
+#define PS2_DEV_IDENTIFY 0xF2
+#define PS2_DEV_ENABLE_SCAN 0xF4
+#define PS2_DEV_DISABLE_SCAN 0xF5
+
 // Device responses
+#define PS2_DEV_RESET 0xFF
 #define PS2_DEV_ACK 0xFA
 #define PS2_DEV_RESET_ACK 0xAA
 
-void ps2_init(void);
+// Configuration byte
+#define PS2_CFG_FIRST_PORT (1 << 0)
+#define PS2_CFG_SECOND_PORT (1 << 1)
+#define PS2_CFG_SYSTEM_FLAG (1 << 2)
+#define PS2_CFG_FIRST_CLOCK (1 << 4)
+#define PS2_CFG_SECOND_CLOCK (1 << 5)
+#define PS2_CFG_TRANSLATION (1 << 6)
+#define PS2_CFG_MUST_BE_ZERO (1 << 7)
+
+typedef enum {
+    PS2_MOUSE = 0x00,
+    PS2_MOUSE_SCROLL_WHEEL = 0x03,
+    PS2_MOUSE_FIVE_BUTTONS = 0x04,
+    PS2_KEYBOARD,
+    PS2_KEYBOARD_TRANSLATED,
+    PS2_DEVICE_UNKNOWN
+};
+
+void ps2_controller_init(void);
 void ps2_enable_keyboard(void);
 void ps2_enable_mouse(void);
 

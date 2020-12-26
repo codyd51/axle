@@ -18,6 +18,7 @@
 
 //kernel drivers
 #include <kernel/drivers/kb/kb.h>
+#include <kernel/drivers/mouse/mouse.h>
 #include <kernel/drivers/pit/pit.h>
 #include <kernel/drivers/serial/serial.h>
 #include <kernel/drivers/text_mode/text_mode.h>
@@ -47,7 +48,6 @@ void system_mem() {
 void drivers_init(void) {
     pit_timer_init(PIT_TICK_GRANULARITY_1MS);
     serial_init();
-    mouse_install();
 }
 
 static void kernel_spinloop() {
@@ -151,9 +151,14 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
 
     tasking_init();
 
+    // Initialize PS/2 controller
+    ps2_controller_init();
+
     // Now that multitasking / program loading is available,
     // launch external services and drivers
-    task_spawn(kb_init);
+    task_spawn(ps2_keyboard_driver_launch);
+    task_spawn(ps2_mouse_driver_launch);
+
     task_spawn(awm_init);
     task_spawn(tty_init);
 
