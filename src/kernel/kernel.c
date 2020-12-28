@@ -46,8 +46,6 @@ void system_mem() {
 }
 
 void drivers_init(void) {
-    pit_timer_init(PIT_TICK_GRANULARITY_1MS);
-    serial_init();
 }
 
 static void kernel_spinloop() {
@@ -66,6 +64,10 @@ static void kernel_idle() {
 
 static void awm_init() {
     const char* program_name = "awm";
+
+    // VESA Framebuffer,
+    boot_info_t* info = boot_info_get();
+    vmm_identity_map_region(vmm_active_pdir(), info->framebuffer.address, info->framebuffer.size);
 
     FILE* fp = initrd_fopen(program_name, "rb");
     // Pass a pointer to the VESA linear framebuffer in argv
@@ -99,6 +101,15 @@ static void window() {
     panic("noreturn");
 }
 
+static void rainbow() {
+    const char* program_name = "rainbow";
+
+    FILE* fp = initrd_fopen(program_name, "rb");
+    char* argv[] = {program_name, NULL};
+    elf_load_file(program_name, fp, argv);
+    panic("noreturn");
+}
+
 static void tty_init() {
     const char* program_name = "tty";
     FILE* fp = initrd_fopen(program_name, "rb");
@@ -108,72 +119,57 @@ static void tty_init() {
 	uint8_t scancode = inb(0x60);
 }
 
-static void acker() {
-    while (true) {
-        //sleep(1000);
-        sleep(20);
-        char scancode = 'a';
-        amc_message_t* amc_msg = amc_message_construct__from_core(&scancode, 1);
-        amc_message_send("com.user.window", amc_msg);
-    }
-}
-
 uint32_t initial_esp = 0;
 void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     initial_esp = initial_stack;
-    //set up this driver first so we can output to framebuffer
     text_mode_init();
 
-    //environment info
+    // Environment info
     boot_info_read(mboot_ptr);
     boot_info_dump();
 
-    //x86 descriptor tables
+    // Descriptor tables
     gdt_init();
     interrupt_init();
 
-    //external device drivers
-    drivers_init();
+    // PIT and serial drivers
+    pit_timer_init(PIT_TICK_GRANULARITY_1MS);
+    serial_init();
 
-    //kernel features
+    // Kernel features
     timer_init();
     pmm_init();
     pmm_dump();
     vmm_init();
-    kheap_init();
+    vmm_notify_shared_kernel_memory_allocated();
     syscall_init();
     initrd_init();
 
     // We've now allocated all the kernel memory that'll be mapped into every process 
     // Inform the VMM so that it can begin allocating memory outside of shared page tables
     vmm_dump(boot_info_get()->vmm_kernel);
-    vmm_notify_shared_kernel_memory_allocated();
 
+    // Higher-level features like multitasking
     tasking_init();
 
     // Initialize PS/2 controller
     ps2_controller_init();
 
-    // Now that multitasking / program loading is available,
-    // launch external services and drivers
+    // Early boot is finished
+    // Multitasking and program loading is now available
+
+    // Launch some initial drivers and services
     task_spawn(ps2_keyboard_driver_launch);
-    task_spawn(ps2_mouse_driver_launch);
-
+    //task_spawn(ps2_mouse_driver_launch);
+    //task_spawn(tty_init);
     task_spawn(awm_init);
-    task_spawn(tty_init);
 
-    sleep(1000);
     //task_spawn(cat);
-    //task_spawn(acker);
-    task_spawn(window);
+    //task_spawn(rainbow);
+    //task_spawn(window);
 
     // Bootstrapping complete - kill this process
     printf("[t = %d] Bootstrap task [PID %d] will exit\n", time(), getpid());
     task_die(0);
-    assert(0, "task_die should have killed us");
-    kernel_idle();
-
-    while (1) {}
-    //the above call should never return, but just in case...
-    kernel_spinloop();
+    assert(0, "task_die should have stopped execution");
 }
