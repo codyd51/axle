@@ -118,7 +118,7 @@ void draw_rect(ca_layer* layer, Rect r, Color color, int thickness) {
 	//make sure they don't request a thickness too big
 	thickness = MIN(thickness, max_thickness);
 	//a filled shape is a special case that can be drawn faster
-	if (thickness == max_thickness && false) {
+	if (thickness == max_thickness) {
 		draw_rect_int_fast(layer, r, color);
 		return;
 	}

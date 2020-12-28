@@ -3,32 +3,21 @@
 
 #include <stdint.h>
 
-#define CONTROL		0x1
-#define ALT			0x2
-#define ALTGR		0x4
-#define LSHIFT		0x8
-#define RSHIFT		0x10
-#define CAPSLOCK	0x20
-#define SCROLLLOCK	0x40
-#define NUMLOCK		0x80
+#define SCANCODE_KEY_RELEASED		0xF0
+#define SCANCODE_SHIFT_L_PRESSED	0x12
+#define SCANCODE_SHIFT_R_PRESSED	0x59
 
-#define RELEASED_MASK 0x80
+typedef struct scancode_layout {
+	// Indices correspond to the scancode recevied from the PS/2 keyboard device
+	// Values correspond to the ASCII character to be input
+	// Generate the array literal using generate_keyboard_map.py
+	uint8_t scancode_idx_to_ord[256];
+} scancode_layout_t;
 
-//1 bit per control key, in order above (LSB = CONTROL, MSB = NUMLOCK)
-//1 == set, 0 == not set
-typedef uint8_t key_status_t;
-
-typedef struct keymap {
-	//chars mapped to scancodes
-	uint8_t scancodes[128];
-	uint8_t shift_scancodes[128];
-
-	//function keys mapped to bit positions in key status map
-	uint8_t control_map[8];
-
-	//statuses of control keys
-	key_status_t controls;
-} keymap_t;
-
+typedef struct ps2_kbd_state {
+	bool is_processing_key_release;
+	bool is_shift_held;
+	scancode_layout_t* layout;
+} ps2_kbd_state_t;
 
 #endif
