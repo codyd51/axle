@@ -1,6 +1,12 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
 #include "ca_layer.h"
 #include "rect.h"
 #include "../math.h"
+#include "../lib/putpixel.h"
+#include "../lib/gfx.h"
 
 void layer_teardown(ca_layer* layer) {
 	if (!layer) return;

@@ -1,6 +1,13 @@
-#include "shapes.h"
-#include "color.h"
+#include <math.h>
+#include <string.h>
+#include <stdlib.h>
+
 #include "../math.h"
+#include "../lib/gfx.h"
+#include "../lib/putpixel.h"
+#include "color.h"
+
+#include "shapes.h"
 
 static void draw_rect_int(ca_layer* layer, Rect rect, Color color);
 

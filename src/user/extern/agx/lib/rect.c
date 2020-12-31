@@ -1,7 +1,11 @@
-#include "rect.h"
 #include <stdio.h>
 #include <memory.h>
+#include <string.h>
+#include <stdlib.h>
+
 #include "../math.h"
+#include "../lib/putpixel.h"
+#include "rect.h"
 
 static bool val_in_range(int value, int min, int max) { 
 	return (value >= min) && (value <= max); 

@@ -1,8 +1,9 @@
-
-#include "putpixel.h"
-#include "../math.h"
-#include "screen.h"
 #include <assert.h>
+
+#include "../math.h"
+#include "../lib/gfx.h"
+#include "screen.h"
+#include "putpixel.h"
 
 __attribute__((always_inline))
 inline void putpixel_alpha(ca_layer* layer, int x, int y, Color color, int alpha) {
