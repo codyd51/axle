@@ -45,9 +45,6 @@ void system_mem() {
     NotImplemented();
 }
 
-void drivers_init(void) {
-}
-
 static void kernel_spinloop() {
     printf("\nBoot complete, kernel spinlooping.\n");
     asm("cli");
