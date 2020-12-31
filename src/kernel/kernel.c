@@ -156,10 +156,10 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     // Multitasking and program loading is now available
 
     // Launch some initial drivers and services
-    task_spawn(ps2_keyboard_driver_launch);
-    //task_spawn(ps2_mouse_driver_launch);
+    task_spawn(ps2_keyboard_driver_launch, PRIORITY_INTERRUPT_HANDLER);
+    task_spawn(ps2_mouse_driver_launch, PRIORITY_INTERRUPT_HANDLER);
     //task_spawn(tty_init);
-    task_spawn(awm_init);
+    task_spawn(awm_init, PRIORITY_NONE);
 
     //task_spawn(cat);
     //task_spawn(rainbow);

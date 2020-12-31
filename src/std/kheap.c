@@ -110,21 +110,16 @@ static long long l_errorCount = 0;			///< Number of actual errors
 static long long l_possibleOverruns = 0;	///< Number of possible overruns
 
 
-
 static lock_t _heap_lock = {0};
 int liballoc_lock() {
 	if (!_heap_lock.name) { _heap_lock.name = "Kernel heap lock"; }
 	//printf("Heap lock acquired by %d\n", getpid());
-	//print_stack_trace(8);
-	//asm("cli");
 	lock(&_heap_lock);
 	return 0;
 }
 
 int liballoc_unlock() {
-	//printf("Heap lock released by %d\n", getpid());
 	unlock(&_heap_lock);
-	//asm("sti");
 	return 0;
 }
 
@@ -140,7 +135,7 @@ void* liballoc_alloc(size_t page_count) {
 	uint32_t block_size = page_count * PAGE_SIZE;
 	printf("liballoc_alloc %d pages\n", page_count);
 	uint32_t new_heap_memory_start = vmm_alloc_global_kernel_memory(block_size);
-	printf("Got globally shared kernel memory 0x%08x - 0x%08x\n", new_heap_memory_start, block_size);
+	printf("Got globally shared kernel memory 0x%08x - 0x%08x\n", new_heap_memory_start, new_heap_memory_start + block_size);
 	return (void*)new_heap_memory_start;
 }
 

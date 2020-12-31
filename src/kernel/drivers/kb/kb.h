@@ -5,6 +5,13 @@
 
 __BEGIN_DECLS
 
+// "SSC" means "Scan Code Set" here, i.e. the set of bytes corresponding to
+// physical keyboard keys.
+#define KBD_SSC_CMD 0xF0
+#define KBD_SSC_GET 0x00
+#define KBD_SSC_2 0x02
+#define KBD_SSC_3 0x03
+
 //non-blocking getchar()
 //returns NULL if no pending keys
 char kgetch();

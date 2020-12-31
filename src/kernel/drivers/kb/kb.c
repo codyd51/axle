@@ -39,6 +39,15 @@ void ps2_keyboard_enable(void) {
 	// Setup an interrupt handler to receive IRQ1's
 	interrupt_setup_callback(INT_VECTOR_IRQ1, &kb_callback);
 
+	// Get the current scancode set
+	ps2_write_device(0, KBD_SSC_CMD);
+	ps2_expect_ack();
+	ps2_write_device(0, KBD_SSC_GET);
+	ps2_expect_ack();
+	uint8_t scancode_set = ps2_read(PS2_DATA);
+	printf("Scan code set %d\n", scancode_set);
+	assert(scancode_set == KBD_SSC_2, "Wrong keyboard scancode set\n");
+
 	// Ask the PS/2 keyboard to start sending events
 	ps2_write_device(0, PS2_DEV_ENABLE_SCAN);
 	// TODO(PT): Is this ack actually sent as an interrupt?
