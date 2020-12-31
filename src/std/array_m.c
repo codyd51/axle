@@ -8,6 +8,7 @@ array_m* array_m_create(int32_t max_size) {
 	ret->size = 0;
 	ret->max_size = max_size;
     ret->array = (type_t*)calloc(max_size, sizeof(type_t));
+	ret->lock.name = "array_m_lock";
 	return ret;
 }
 

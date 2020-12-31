@@ -189,6 +189,7 @@ task_small_t* _thread_create(void* entry_point) {
 
     new_task->is_thread = true;
     new_task->vmm = vmm_active_pdir();
+    new_task->priority = PRIORITY_NONE;
 }
 
 task_small_t* thread_spawn(void* entry_point) {
@@ -198,7 +199,7 @@ task_small_t* thread_spawn(void* entry_point) {
     return new_thread;
 }
 
-task_small_t* task_spawn(void* entry_point) {
+task_small_t* task_spawn(void* entry_point, task_priority_t priority) {
     static lock_t _lock = {0};
     if (!_lock.name) {
         _lock.name = "task_spawn lock";
@@ -209,10 +210,15 @@ task_small_t* task_spawn(void* entry_point) {
     // scheduled until we've had a chance to set all of its state
     task_small_t* new_task = _thread_create(entry_point);
     new_task->is_thread = false;
+
     // a task is simply a thread with its own virtual address space
     // the new task's address space is a clone of the task that spawned it
     vmm_page_directory_t* new_vmm = vmm_clone_active_pdir();
     new_task->vmm = new_vmm;
+
+    // Assign the provided priority
+    new_task->priority = priority;
+
     // Task is now ready to run - make it schedulable
     _tasking_add_task_to_runlist(new_task);
 
@@ -266,6 +272,13 @@ int getpid() {
         return -1;
     }
     return _current_task_small->id;
+}
+
+task_priority_t get_current_task_priority() {
+    if (!_current_task_small) {
+        return -1;
+    }
+    return _current_task_small->priority;
 }
 
 bool tasking_is_active() {
@@ -376,8 +389,8 @@ void tasking_init() {
     task_spawn((uint32_t)task_new);
     thread_spawn((uint32_t)tasking_update_blocked_tasks);
     */
-    task_spawn(idle_task);
-    _iosentinel_task = task_spawn(update_blocked_tasks);
+    task_spawn(idle_task, PRIORITY_NONE);
+    _iosentinel_task = task_spawn(update_blocked_tasks, PRIORITY_NONE);
 
     printf_info("Multitasking initialized");
 

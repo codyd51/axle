@@ -113,6 +113,7 @@ static long long l_possibleOverruns = 0;	///< Number of possible overruns
 
 static lock_t _heap_lock = {0};
 int liballoc_lock() {
+	if (!_heap_lock.name) { _heap_lock.name = "Kernel heap lock"; }
 	//printf("Heap lock acquired by %d\n", getpid());
 	//print_stack_trace(8);
 	//asm("cli");

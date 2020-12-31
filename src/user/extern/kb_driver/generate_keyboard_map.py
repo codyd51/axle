@@ -22,6 +22,7 @@ scancode_to_colemak = {
     0x1c: 'a',
     0x1b: 'r',
     0x23: 's',
+    0x29: ' ',
     0x2b: 't',
     0x34: 'd',
     0x33: 'h',
@@ -39,6 +40,7 @@ scancode_to_colemak = {
     0x41: ',',
     0x49: '.',
     0x4a: '/',
+    0x5a: '\n',
 }
 
 

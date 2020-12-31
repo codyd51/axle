@@ -79,14 +79,6 @@ int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
 		amc_message_t* amc_msg = amc_message_construct__from_core(chbuf + i, 64);
 		amc_message_send("com.axle.tty", amc_msg);
 	}
-
-	/*
-	Window* xterm = xterm_get();
-	if (xterm) {
-		i = xserv_write(task, fd, buf, len);
-	}
-	else {
-  	}
 	*/
 }
 

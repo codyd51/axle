@@ -22,6 +22,8 @@ typedef struct task_block_state {
 	uint32_t wake_timestamp; // used if process is in PIT_WAIT
 } task_block_state_t;
 
+typedef enum task_priority {PRIORITY_INTERRUPT_HANDLER = 9999, PRIORITY_NONE = 0} task_priority_t;
+
 typedef struct task_small {
 	uint32_t id;  // PID
 	char* name; // user-printable process name
@@ -53,6 +55,8 @@ typedef struct task_small {
 	uint32_t sbrk_current_break;
 	// Virtual address of the start of the .bss segmen
 	uint32_t bss_segment_addr;
+
+	task_priority_t priority;
 } task_small_t;
 
 void tasking_init_small();
@@ -61,7 +65,7 @@ bool tasking_is_active();
 void task_switch();
 
 task_small_t* thread_spawn(void* entry_point);
-task_small_t* task_spawn(void* entry_point);
+task_small_t* task_spawn(void* entry_point, task_priority_t priority);
 
 task_small_t* tasking_get_task_with_pid(int pid);
 task_small_t* tasking_get_current_task();
@@ -75,5 +79,9 @@ task_small_t* tasking_get_current_task();
 void tasking_block_task(task_small_t* task, task_state blocked_state);
 
 void iosentinel_check_now();
+
+// Query the active task
+int getpid();
+task_priority_t get_current_task_priority();
 
 #endif
