@@ -234,6 +234,7 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 		elf->machine_state = (task_context_t*)stack_top;
 		elf->sbrk_current_break = prog_break;
 		elf->bss_segment_addr = bss_loc;
+		elf->sbrk_current_page_head = (elf->sbrk_current_break + PAGE_SIZE) & PAGING_PAGE_MASK;
 		elf->name = strdup(name);
 
 		//printf("Jumping to entry point of ELF [%s (%d)] @ 0x%08x\n", elf->name, elf->id, entry_point);
