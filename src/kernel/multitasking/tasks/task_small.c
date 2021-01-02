@@ -421,11 +421,23 @@ void* sbrk(int increment) {
 		return brk;
 	}
 
-	current->sbrk_current_break += increment;
-    if (current->sbrk_current_break > current->bss_segment_addr + PAGING_PAGE_SIZE) {
-        // Not implemented yet
-        panic("Need to expand sbrk region by allocating more pages");
+    while (current->sbrk_current_break + increment >= current->sbrk_current_page_head) {
+        uint32_t next_page = current->sbrk_current_page_head;
+        current->sbrk_current_page_head += PAGE_SIZE;
+        if (vmm_address_is_mapped(vmm_active_pdir(), next_page)) {
+            // TODO(PT): Is it an error if growing the sbrk region encounters an already-mapped page?
+            printk("SBRK grew to cover an already-mapped page 0x%08x\n", next_page);
+            continue;
+        }
+        vmm_alloc_page_address(vmm_active_pdir(), next_page, true);
     }
+	current->sbrk_current_break += increment;
+
+    // TODO(PT): Just solved a bug where create_shared_memory_region()
+    // was allocating pages that otherwise would've been handed out by sbrk
+    // and sbrk() didn't panic that the page was already alloc'd because
+    // vmm_address_is_mapped() was checked
+    // Maybe we pre-reserve a big sbrk area and hand out shared memory regions well above it
 
 	memset(brk, 0, increment);
 	return brk;

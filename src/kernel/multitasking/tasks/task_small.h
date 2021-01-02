@@ -55,6 +55,7 @@ typedef struct task_small {
 	uint32_t sbrk_current_break;
 	// Virtual address of the start of the .bss segmen
 	uint32_t bss_segment_addr;
+	uint32_t sbrk_current_page_head;
 
 	task_priority_t priority;
 } task_small_t;
