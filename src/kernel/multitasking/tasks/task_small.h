@@ -101,4 +101,7 @@ task_priority_t get_current_task_priority();
 
 void tasking_print_processes(void);
 
+void tasking_disable_scheduling(void);
+void tasking_reenable_scheduling(void);
+
 #endif

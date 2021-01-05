@@ -256,10 +256,25 @@ void tasking_goto_task(task_small_t* new_task) {
     context_switch(new_task);
 }
 
+static bool _task_schedule_disabled = false;
+
+void tasking_disable_scheduling(void) {
+    _task_schedule_disabled = true;
+}
+
+void tasking_reenable_scheduling(void) {
+    _task_schedule_disabled = false;
+}
+
 /*
  * Pick the next task to schedule, and preempt the currently running one.
  */
 void task_switch() {
+    if (_task_schedule_disabled) {
+        printf("[Schedule] Skipping task-switch because scheduler is disabled\n");
+        return;
+    }
+
     task_small_t* previous_task = _current_task_small;
     task_small_t* next_task = _tasking_find_highest_priority_runnable_task();
     tasking_goto_task(next_task);
