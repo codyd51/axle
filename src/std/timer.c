@@ -11,6 +11,8 @@ static int callback_num = 0;
 static timer_callback_t callback_table[MAX_CALLBACKS] = {0};
 
 static void clear_table() {
+	Deprecated();
+
 	memset(&callback_table, 0, sizeof(timer_callback_t) * callback_num);
 	callback_num = 0;
 }
@@ -27,6 +29,8 @@ static int next_open_callback_index() {
 }
 
 timer_callback_t* timer_callback_register(void* func, int interval, bool repeats, void* context) {
+	//Deprecated();
+
 	int next_open_index = next_open_callback_index();
 	//only add callback if we have room
 	if (callback_num + 1 < MAX_CALLBACKS || next_open_index < callback_num) {
@@ -46,6 +50,8 @@ timer_callback_t* timer_callback_register(void* func, int interval, bool repeats
 }
 
 void timer_callback_remove(timer_callback_t* callback) {
+	Deprecated();
+
 	//find this callback in callback table
 	bool found = false;
 	for (int i = 0; i < callback_num; i++) {
@@ -60,7 +66,7 @@ void timer_callback_remove(timer_callback_t* callback) {
 	memset(callback, 0, sizeof(timer_callback_t));
 }
 
-void _timer_handle_pit_tick() {
+void _timer_handle_pit_tick(registers_t* regs) {
 	//look through every callback and see if we should fire
 	for (int i = 0; i < callback_num; i++) {
 		//decrement time left
@@ -83,9 +89,7 @@ void _timer_handle_pit_tick() {
 }
 
 void timer_callback_deliver_immediately(timer_callback_t* callback) {
-	callback->time_left = 0;
-}
+	Deprecated();
 
-void timer_init() {
-	int_notifier_register_callback(PIT_INT_VECTOR, _timer_handle_pit_tick, NULL, true);
+	callback->time_left = 0;
 }
