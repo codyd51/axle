@@ -67,6 +67,8 @@ int getpid() {
 }
 
 int write(int file, char *ptr, int len) {
+    // If sys_write returns an incorrect number of bytes written, 
+    // newlib will loop to try and write more bytes
     return sys_write(file, ptr, len);
 }
 

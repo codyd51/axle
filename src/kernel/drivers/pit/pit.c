@@ -16,8 +16,9 @@
 
 static volatile uint32_t tick = 0;
 
-static int tick_callback(register_state_t* regs) {
+static int tick_callback(registers_t* regs) {
 	tick++;
+	_timer_handle_pit_tick(regs);
 	return 0;
 }
 
