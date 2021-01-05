@@ -103,10 +103,10 @@ static void _tasking_add_task_to_runlist(task_small_t* task) {
 }
 
 task_small_t* tasking_get_task_with_pid(int pid) {
-    if (!_current_task_small) {
+    if (!_task_list_head) {
         return NULL;
     }
-    task_small_t* iter = _current_task_small;
+    task_small_t* iter = _task_list_head;
     for (int i = 0; i < MAX_TASKS; i++) {
         if ((iter)->id == pid) {
             return iter;
@@ -379,23 +379,18 @@ void tasking_init() {
     _task_list_head = _current_task_small;
     tasking_goto_task(_current_task_small);
 
-    /*
-    task_small_t* t = task_spawn((uint32_t)task_sleepy);
-    printf("bootstrap task is pid %d\n", _current_task_small->id);
-    printf("sleepy task is pid %d\n", t->id);
-    task_spawn((uint32_t)task_new);
-    thread_spawn((uint32_t)tasking_update_blocked_tasks);
-    */
-    task_spawn(idle_task, PRIORITY_NONE);
-    _iosentinel_task = task_spawn(update_blocked_tasks, PRIORITY_NONE);
+    task_spawn(idle_task, PRIORITY_IDLE, "idle");
+    //_iosentinel_task = task_spawn(update_blocked_tasks, PRIORITY_NONE);
 
     printf_info("Multitasking initialized");
+    asm("sti");
 
     pit_callback = timer_callback_register((void*)tasking_timer_tick, 100, true, 0);
 }
 
 int fork() {
     Deprecated();
+    return -1;
 }
 
 void* unsbrk(int UNUSED(increment)) {
