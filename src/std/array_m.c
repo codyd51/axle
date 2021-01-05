@@ -1,6 +1,6 @@
 #include "array_m.h"
 #include "std.h"
-#include <kernel/util/mutex/mutex.h>
+#include <kernel/util/spinlock/spinlock.h>
 
 array_m* array_m_create(int32_t max_size) {
 	array_m* ret = (array_m*)kmalloc(sizeof(array_m));
@@ -63,27 +63,27 @@ static void _array_m_remove_unlocked(array_m* array, int32_t i) {
  */
 
 void array_m_insert(array_m* array, type_t item) {
-	lock(&array->lock);
+	spinlock_acquire(&array->lock);
 	_array_m_insert_unlocked(array, item);
-	unlock(&array->lock);
+	spinlock_release(&array->lock);
 }
 
 int32_t array_m_index(array_m* array, type_t item) {
-	lock(&array->lock);
+	spinlock_acquire(&array->lock);
 	int32_t ret = _array_m_index_unlocked(array, item);
-	unlock(&array->lock);
+	spinlock_release(&array->lock);
 	return ret;
 }
 
 type_t array_m_lookup(array_m* array, int32_t i) {
-	lock(&array->lock);
+	spinlock_acquire(&array->lock);
 	type_t ret = _array_m_lookup_unlocked(array, i);
-	unlock(&array->lock);
+	spinlock_release(&array->lock);
 	return ret;
 }
 
 void array_m_remove(array_m* array, int32_t i) {
-	lock(&array->lock);
+	spinlock_acquire(&array->lock);
 	_array_m_remove_unlocked(array, i);
-	unlock(&array->lock);
+	spinlock_release(&array->lock);
 }
