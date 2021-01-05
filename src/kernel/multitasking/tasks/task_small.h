@@ -5,6 +5,7 @@
 #include <kernel/multitasking/tasks/task.h>
 #include <kernel/multitasking/std_stream.h>
 #include <kernel/vmm/vmm.h>
+#include <kernel/util/spinlock/spinlock.h>
 
 #define FD_MAX 64
 
@@ -22,7 +23,13 @@ typedef struct task_block_state {
 	uint32_t wake_timestamp; // used if process is in PIT_WAIT
 } task_block_state_t;
 
-typedef enum task_priority {PRIORITY_INTERRUPT_HANDLER = 9999, PRIORITY_NONE = 0} task_priority_t;
+typedef enum task_priority {
+	// Idle task has the lowest possible priority
+	PRIORITY_IDLE = 0,
+	PRIORITY_NONE = 1,
+	PRIORITY_DRIVER = 999,
+	PRIORITY_TASK_RUNNING_ISR = 1000
+} task_priority_t;
 
 typedef struct task_small {
 	uint32_t id;  // PID
@@ -58,6 +65,13 @@ typedef struct task_small {
 	uint32_t sbrk_current_page_head;
 
 	task_priority_t priority;
+	// Lock around modifying a task's priority
+	spinlock_t priority_lock;
+	// Meaning of this field is up to whatever sets the priority
+	// Ex: If the task priority is PRIORITY_TASK_RUNNING_ISR,
+	// i.e. this task is currently interrupted and executing an interrupt handler,
+	// this field will contain the original priority to be reset when the ISR returns.
+	uint32_t priority_context;
 } task_small_t;
 
 void tasking_init_small();
@@ -66,7 +80,7 @@ bool tasking_is_active();
 void task_switch();
 
 task_small_t* thread_spawn(void* entry_point);
-task_small_t* task_spawn(void* entry_point, task_priority_t priority);
+task_small_t* task_spawn(void* entry_point, task_priority_t priority, const char* task_name);
 
 task_small_t* tasking_get_task_with_pid(int pid);
 task_small_t* tasking_get_current_task();
@@ -84,5 +98,7 @@ void iosentinel_check_now();
 // Query the active task
 int getpid();
 task_priority_t get_current_task_priority();
+
+void tasking_print_processes(void);
 
 #endif

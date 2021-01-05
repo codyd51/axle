@@ -23,28 +23,6 @@ const uint32_t _task_context_offset = offsetof(struct task_small, machine_state)
 // performs the actual context switch
 void context_switch(uint32_t* new_task);
 
-void task_new() {
-    //printf("task_new running\n");
-    sleep(5000);
-    uint32_t* addr = 0x99900000;
-    vmm_page_directory_t* vmm_dir = vmm_active_pdir();
-    vmm_alloc_page_address(vmm_dir, addr, true);
-    *addr = 0xdeadbeef;
-    sleep(500);
-    printf("PID %d: 0x%08x: 0x%08x\n", getpid(), addr, *addr);
-    while (1) {}
-}
-
-void task_sleepy() {
-    uint32_t* addr = 0x99900000;
-    vmm_page_directory_t* vmm_dir = vmm_active_pdir();
-    vmm_alloc_page_address(vmm_dir, addr, true);
-    *addr = 0xdeadbeef;
-    sleep(500);
-    printf("PID %d: 0x%08x: 0x%08x\n", getpid(), addr, *addr);
-    while (1) {}
-}
-
 void sleep(uint32_t ms) {
     _current_task_small->blocked_info.status = PIT_WAIT;
     _current_task_small->blocked_info.wake_timestamp = time() + ms;
@@ -72,6 +50,32 @@ static task_small_t* _tasking_get_next_runnable_task(task_small_t* previous_task
         return iter;
     }
     panic("couldn't find runnable task");
+    return NULL;
+}
+
+static task_small_t* _tasking_find_highest_priority_runnable_task(void) {
+    task_small_t* iter = _task_list_head;
+    int32_t highest_runnable_priority = -1;
+    task_small_t* highest_priority_runnable_task = NULL;
+    while (true) {
+        //printf("Check task [%d] %s %d %d\n", iter->id, iter->name, iter->blocked_info.status, iter->priority);
+
+        if (iter->blocked_info.status == RUNNABLE) {
+            if ((int32_t)iter->priority > highest_runnable_priority) {
+                // Found a new highest priority runnable task
+                //printf("New best!\n");
+                highest_runnable_priority = iter->priority;
+                highest_priority_runnable_task = iter;
+            }
+        }
+
+        if (iter->next == NULL) {
+            break;
+        }
+        iter = iter->next;
+    }
+    assert(highest_priority_runnable_task != NULL, "Failed to find a highest priority runnable task");
+    return highest_priority_runnable_task;
 }
 
 static task_small_t* _tasking_last_task_in_runlist() {
@@ -190,6 +194,8 @@ task_small_t* _thread_create(void* entry_point) {
     new_task->is_thread = true;
     new_task->vmm = vmm_active_pdir();
     new_task->priority = PRIORITY_NONE;
+    new_task->priority_lock.name = "[Task priority spinlock]";
+    return new_task;
 }
 
 task_small_t* thread_spawn(void* entry_point) {
@@ -199,13 +205,7 @@ task_small_t* thread_spawn(void* entry_point) {
     return new_thread;
 }
 
-task_small_t* task_spawn(void* entry_point, task_priority_t priority) {
-    static lock_t _lock = {0};
-    if (!_lock.name) {
-        _lock.name = "task_spawn lock";
-    }
-    lock(&_lock);
-
+task_small_t* task_spawn(void* entry_point, task_priority_t priority, const char* task_name) {
     // Use the internal thread-state constructor so that this task won't get
     // scheduled until we've had a chance to set all of its state
     task_small_t* new_task = _thread_create(entry_point);
@@ -216,13 +216,13 @@ task_small_t* task_spawn(void* entry_point, task_priority_t priority) {
     vmm_page_directory_t* new_vmm = vmm_clone_active_pdir();
     new_task->vmm = new_vmm;
 
-    // Assign the provided priority
+    // Assign the provided attributes
     new_task->priority = priority;
+    new_task->name = task_name;
 
     // Task is now ready to run - make it schedulable
     _tasking_add_task_to_runlist(new_task);
 
-    unlock(&_lock);
     return new_task;
 }
 
@@ -230,17 +230,16 @@ task_small_t* task_spawn(void* entry_point, task_priority_t priority) {
  * Immediately preempt the running task and begin running the provided one.
  */
 void tasking_goto_task(task_small_t* new_task) {
-    static lock_t _lock = {0};
-    if (!_lock.name) {
-        _lock.name = "tasking_goto_task lock";
-    }
-    lock(&_lock);
-    kernel_begin_critical();
-
     //assert(new_task != _current_task_small, "new_task == _current task");
     uint32_t now = time();
     new_task->current_timeslice_start_date = now;
-    new_task->current_timeslice_end_date = now + TASK_QUANTUM;
+    uint32_t task_quantum = TASK_QUANTUM;
+    // If we're scheduling the idle task, give it a smaller slice
+    // This gives more opportunity for useful work to appear
+    if (!strcmp(new_task->name, "idle")) {
+        task_quantum = 5;
+    }
+    new_task->current_timeslice_end_date = now + task_quantum;
 
     // Ensure that any shared page tables between the kernel and the preempted VMM have an in-sync allocation state
     // This check should no longer be needed, since allocations within the shared kernel pages are always
@@ -254,7 +253,6 @@ void tasking_goto_task(task_small_t* new_task) {
 
     // this method will update _current_task_small
     // this method performs the actual context switch and also updates _current_task_small
-    unlock(&_lock);
     context_switch(new_task);
 }
 
@@ -263,7 +261,7 @@ void tasking_goto_task(task_small_t* new_task) {
  */
 void task_switch() {
     task_small_t* previous_task = _current_task_small;
-    task_small_t* next_task = _tasking_get_next_runnable_task(previous_task);
+    task_small_t* next_task = _tasking_find_highest_priority_runnable_task();
     tasking_goto_task(next_task);
 }
 
@@ -289,9 +287,6 @@ static void tasking_timer_tick() {
     kernel_begin_critical();
     if (time() > _current_task_small->current_timeslice_end_date) {
         task_switch();
-    }
-    else {
-        kernel_end_critical();
     }
 }
 
@@ -379,8 +374,10 @@ void tasking_init() {
     // so, anything we set to be restored in this first task's setup state will be overwritten when it's preempted for the first time.
     // thus, we can pass anything for the entry point of this first task, since it won't be used.
     _current_task_small = thread_spawn(NULL);
+    _current_task_small->name = "bootstrap";
     //strncpy(_current_task_small->name, "bootstrap", 10);
     _task_list_head = _current_task_small;
+    tasking_goto_task(_current_task_small);
 
     /*
     task_small_t* t = task_spawn((uint32_t)task_sleepy);
@@ -502,4 +499,54 @@ void resign_first_responder() {
         first_responder_task = NULL;
     }
     */
+}
+
+void tasking_print_processes(void) {
+    printk("-----------------------proc-----------------------\n");
+
+    if (!_task_list_head) {
+        return NULL;
+    }
+    task_small_t* iter = _task_list_head;
+    for (int i = 0; i < MAX_TASKS; i++) {
+        printk("[%d] %s ", iter->id, iter->name);
+            if (iter == _current_task_small) {
+                printk("(active)");
+            }
+
+            if (iter == _current_task_small) {
+                printk("(active for %d ms more) ", iter->current_timeslice_end_date - time());
+            }
+            else {
+                printk("(inactive since %d ms ago)", time() - iter->current_timeslice_end_date);
+            }
+
+            switch (iter->blocked_info.status) {
+                case RUNNABLE:
+                    printk("(runnable)");
+                    break;
+                case ZOMBIE:
+                    printk("(zombie)");
+                    break;
+                case KB_WAIT:
+                    printk("(blocked by keyboard)");
+                    break;
+                case AMC_AWAIT_MESSAGE:
+                    printk("(await AMC)");
+                    break;
+                case VMM_MODIFY:
+                    printk("(kernel VMM manipulation)");
+                    break;
+                default:
+                    printk("(unknwn)");
+                    break;
+            }
+            printk("\n");
+
+        if ((iter)->next == NULL) {
+            break;
+        }
+        iter = (iter)->next;
+    }
+    printk("---------------------------------------------------\n");
 }

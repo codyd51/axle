@@ -66,8 +66,6 @@ int isr_receive(register_state_t* regs) {
 		printf("Unhandled interrupt: %d\n", int_no);
 	}
 
-	int_notifier_handle_interrupt(regs);
-
 	return ret;
 }
 
@@ -84,9 +82,6 @@ void irq_receive(register_state_t* regs) {
 		printf("Unhandled IRQ: %d\n", int_no);
 	}
 
-	kernel_begin_critical();
-	pic_signal_end_of_interrupt(int_no);
-	int_notifier_handle_interrupt(regs);
 
 	return ret;
 }

@@ -130,11 +130,14 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     interrupt_init();
 
     // PIT and serial drivers
-    pit_timer_init(PIT_TICK_GRANULARITY_1MS);
+    // Set this to 1ms to cause issues with keystrokes being lost
+    // TODO(PT): Currently, a task-switch is a side-effect of a PIT ISR
+    // In the future, work like scheduling should be done outside the ISR
+    pit_timer_init(PIT_TICK_GRANULARITY_50MS);
+
     serial_init();
 
     // Kernel features
-    timer_init();
     pmm_init();
     pmm_dump();
     vmm_init();
@@ -150,16 +153,17 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     tasking_init();
 
     // Initialize PS/2 controller
+    // (and sub-drivers, such as a PS/2 keyboard and mouse)
     ps2_controller_init();
 
     // Early boot is finished
     // Multitasking and program loading is now available
 
     // Launch some initial drivers and services
-    task_spawn(ps2_keyboard_driver_launch, PRIORITY_INTERRUPT_HANDLER);
-    task_spawn(ps2_mouse_driver_launch, PRIORITY_INTERRUPT_HANDLER);
+    task_spawn(ps2_keyboard_driver_launch, PRIORITY_DRIVER, "");
+    task_spawn(ps2_mouse_driver_launch, PRIORITY_DRIVER, "");
     //task_spawn(tty_init);
-    task_spawn(awm_init, PRIORITY_NONE);
+    task_spawn(awm_init, PRIORITY_NONE, "");
 
     //task_spawn(cat);
     //task_spawn(rainbow);
