@@ -4,6 +4,7 @@
 #include <kernel/util/amc/amc.h>
 #include <kernel/util/vfs/fs.h>
 #include <kernel/drivers/ps2/ps2.h>
+#include <kernel/multitasking/tasks/task_small.h>
 
 char kgetch() {
 	Deprecated();
@@ -28,10 +29,27 @@ char kb_modifiers() {
 // TODO(PT): If a higher priority task comes in, context switch
 
 void kb_callback(registers_t* regs) {
+	task_small_t* interrupted_task = tasking_get_current_task();
+
+	/*
+	spinlock_acquire(&interrupted_task->priority_lock);
+	interrupted_task->priority_context = interrupted_task->priority;
+	interrupted_task->priority = PRIORITY_TASK_RUNNING_ISR;
+	spinlock_release(&interrupted_task->priority_lock);
+	*/
+
 	uint8_t scancode = ps2_read(PS2_DATA);
-	printf("PS2 keyboard scancode 0x%08x\n", scancode);
+	pic_signal_end_of_interrupt(regs->int_no);
+
 	amc_message_t* amc_msg = amc_message_construct__from_core(&scancode, 1);
-	amc_message_send("com.axle.kb_driver", amc_msg);
+	amc_message_send__from_isr("com.axle.kb_driver", amc_msg);
+
+	/*
+	spinlock_acquire(&interrupted_task->priority_lock);
+	interrupted_task->priority = interrupted_task->priority_context;
+	spinlock_release(&interrupted_task->priority_lock);
+	*/
+
 }
 
 void ps2_keyboard_enable(void) {

@@ -5,18 +5,33 @@
 #include <kernel/multitasking/tasks/task_small.h>
 #include <kernel/syscall/sysfuncs.h>
 #include <kernel/drivers/ps2/ps2.h>
+#include <kernel/util/spinlock/spinlock.h>
 
 
-#define PS2_MOUSE_CMD_SET_DEFAULT_SETTINGS 0xF7
+#define PS2_MOUSE_CMD_SET_DEFAULT_SETTINGS 0xF6
 #define PS2_MOUSE_CMD_ENABLE_DATA_REPORTING 0xF4
 #define PS2_MOUSE_RESP_ACKNOWLEDGE 0xFA
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 static int mouse_callback(registers_t* regs) {
+	task_small_t* interrupted_task = tasking_get_current_task();
+
+	spinlock_acquire(&interrupted_task->priority_lock);
+	interrupted_task->priority_context = interrupted_task->priority;
+	interrupted_task->priority = PRIORITY_TASK_RUNNING_ISR;
+	spinlock_release(&interrupted_task->priority_lock);
+
 	uint8_t byte = ps2_read(PS2_DATA);
+
+	spinlock_acquire(&interrupted_task->priority_lock);
+	pic_signal_end_of_interrupt(regs->int_no);
+	interrupted_task->priority = interrupted_task->priority_context;
+	spinlock_release(&interrupted_task->priority_lock);
+
 	amc_message_t* amc_msg = amc_message_construct__from_core(&byte, 1);
-	amc_message_send("com.axle.mouse_driver", amc_msg);
+	amc_message_send__from_isr("com.axle.mouse_driver", amc_msg);
+
 	return 0;
 }
 #pragma GCC diagnostic pop
@@ -25,6 +40,8 @@ void ps2_mouse_enable(void) {
 	printf_info("[PS2] Enabling mouse...");
 	// Setup an interrupt handler to receive IRQ12's
 	interrupt_setup_callback(INT_VECTOR_IRQ12, &mouse_callback);
+	uint8_t mouse_id = ps2_read(PS2_DATA);
+	printf_info("[PS2] Mouse ID: 0x%02x", mouse_id);
 
 	// Ask the PS/2 mouse to use default settings
 	ps2_write_device(1, PS2_MOUSE_CMD_SET_DEFAULT_SETTINGS);
@@ -50,14 +67,17 @@ void mouse_event_wait() {
 
 static inline Size screen_dimensions() {
 	Deprecated();
+	return size_make(0, 0);
 }
 
 Point mouse_point() {
 	Deprecated();
+	return point_make(0, 0);
 }
 
 uint8_t mouse_events() {
 	Deprecated();
+	return 0;
 }
 
 void mouse_reset_cursorpos() {
