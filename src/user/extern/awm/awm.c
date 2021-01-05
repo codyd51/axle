@@ -73,7 +73,7 @@ static void _awm_overlay_putchar(char ch, Color color) {
 }
 
 static void handle_keystroke(amc_message_t keystroke_msg) {
-	Color keystroke_color = color_red();
+	Color keystroke_color = color_white();
 	for (int i = 0; i < keystroke_msg.len; i++) {
 		char ch = keystroke_msg.data[i];
 
@@ -109,8 +109,8 @@ static void handle_mouse_event(amc_message_t mouse_event) {
 	// Bind mouse to screen dimensions
 	mouse_pos.x = max(0, mouse_pos.x);
 	mouse_pos.y = max(0, mouse_pos.y);
-	mouse_pos.x = min(_screen.resolution.width, mouse_pos.x);
-	mouse_pos.y = min(_screen.resolution.height, mouse_pos.y);
+	mouse_pos.x = min(_screen.resolution.width - 20, mouse_pos.x);
+	mouse_pos.y = min(_screen.resolution.height - 20, mouse_pos.y);
 }
 
 static void _draw_cursor(void) {
