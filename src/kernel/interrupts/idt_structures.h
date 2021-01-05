@@ -13,7 +13,8 @@ struct idt_entry_struct {
     //must always be zero
     uint8_t always0;
 
-    //description of this field:
+    // https://wiki.osdev.org/Interrupt_Descriptor_Table
+    // description of this field:
     //bit 0: 0
     //bit 1: 1
     //bot 2: 1

@@ -10,11 +10,15 @@ static int callback_num = 0;
 static int_notify_callback_t callback_table[MAX_CALLBACKS] = {0};
 
 static void clear_table() {
+	Deprecated();
+
 	memset(&callback_table, 0, sizeof(int_notify_callback_t) * callback_num);
 	callback_num = 0;
 }
 
 static int next_open_callback_index() {
+	Deprecated();
+
 	for (int i = 0; i < callback_num; i++) {
 		if (!callback_table[i].func) {
 			//this index doesn't have valid data, fit for reuse
@@ -26,6 +30,8 @@ static int next_open_callback_index() {
 }
 
 int_notify_callback_t* int_notifier_register_callback(uint32_t int_no, void* func, void* context, bool repeats) {
+	Deprecated();
+
 	int next_open_index = next_open_callback_index();
 	//only add callback if we have room
 	if (callback_num + 1 < MAX_CALLBACKS || next_open_index < callback_num) {
@@ -44,6 +50,8 @@ int_notify_callback_t* int_notifier_register_callback(uint32_t int_no, void* fun
 }
 
 void int_notifier_remove_callback(int_notify_callback_t* callback) {
+	Deprecated();
+
 	//find this callback in callback table
 	bool found = false;
 	for (int i = 0; i < callback_num; i++) {
@@ -59,6 +67,8 @@ void int_notifier_remove_callback(int_notify_callback_t* callback) {
 }
 
 void int_notifier_handle_interrupt(registers_t* register_state) {
+	Deprecated();
+
 	//look through every callback and see if we should fire
 	for (int i = 0; i < callback_num; i++) {
         // if this callback is waiting for the interrupt that was fired, invoke the callback
