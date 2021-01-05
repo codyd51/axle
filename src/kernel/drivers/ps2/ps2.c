@@ -80,13 +80,12 @@ void ps2_controller_init(void) {
     assert(two_ports_supported, "PS2 controller only supports a single device");
     assert((controller_config & PS2_CFG_MUST_BE_ZERO) == 0, "Invalid bit set in configuration byte");
 
-    controller_config |= PS2_CFG_SYSTEM_FLAG;
     // Disable IRQs for device 1
-    controller_config &= ~PS2_CFG_FIRST_PORT;
+    controller_config &= ~PS2_CFG_DEVICE_1_INTERRUPTS;
     // Disable IRQs for device 2
-    controller_config &= ~PS2_CFG_SECOND_PORT;
+    controller_config &= ~PS2_CFG_DEVICE_2_INTERRUPTS;
     // Disable port translation
-    controller_config &= ~PS2_CFG_TRANSLATION;
+    controller_config &= ~PS2_CFG_DEVICE_1_PORT_TRANSLATION;
     ps2_controller_set_config(controller_config);
 
     // Perform controller self-test
@@ -104,12 +103,12 @@ void ps2_controller_init(void) {
     ps2_test_device(PS2_CMD_TEST_DEVICE_2);
 
     ps2_write(PS2_CMD_PORT, PS2_CMD_ENABLE_DEVICE_1);
-    controller_config |= PS2_CFG_FIRST_PORT;
-    controller_config &= ~PS2_CFG_FIRST_CLOCK;
+    //controller_config |= PS2_CFG_DEVICE_1_INTERRUPTS;
+    controller_config &= ~PS2_CFG_DEVICE_1_ENABLED;
 
     ps2_write(PS2_CMD_PORT, PS2_CMD_ENABLE_DEVICE_2);
-    controller_config |= PS2_CFG_SECOND_PORT;
-    controller_config &= ~PS2_CFG_SECOND_CLOCK;
+    //controller_config |= PS2_CFG_DEVICE_2_INTERRUPTS;
+    controller_config &= ~PS2_CFG_DEVICE_2_ENABLED;
 
     // Write out the config with each device enabled
     ps2_controller_set_config(controller_config);
@@ -131,6 +130,11 @@ void ps2_controller_init(void) {
     // Perform any extra setup / configuration of each device
     ps2_keyboard_enable();
     ps2_mouse_enable();
+
+    controller_config |= PS2_CFG_DEVICE_1_INTERRUPTS;
+    controller_config |= PS2_CFG_DEVICE_2_INTERRUPTS;
+    // Write out the config with each device enabled
+    ps2_controller_set_config(controller_config);
 
     asm("sti");
 }

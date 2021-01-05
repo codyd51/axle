@@ -34,12 +34,12 @@
 #define PS2_DEV_RESET_ACK 0xAA
 
 // Configuration byte
-#define PS2_CFG_FIRST_PORT (1 << 0)
-#define PS2_CFG_SECOND_PORT (1 << 1)
+#define PS2_CFG_DEVICE_1_INTERRUPTS (1 << 0)
+#define PS2_CFG_DEVICE_2_INTERRUPTS (1 << 1)
 #define PS2_CFG_SYSTEM_FLAG (1 << 2)
-#define PS2_CFG_FIRST_CLOCK (1 << 4)
-#define PS2_CFG_SECOND_CLOCK (1 << 5)
-#define PS2_CFG_TRANSLATION (1 << 6)
+#define PS2_CFG_DEVICE_1_ENABLED (1 << 4)
+#define PS2_CFG_DEVICE_2_ENABLED (1 << 5)
+#define PS2_CFG_DEVICE_1_PORT_TRANSLATION (1 << 6)
 #define PS2_CFG_MUST_BE_ZERO (1 << 7)
 
 typedef enum {
