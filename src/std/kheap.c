@@ -2,7 +2,7 @@
 #include <std/std.h>
 #include <std/printf.h>
 
-#include <kernel/util/mutex/mutex.h>
+#include <kernel/util/spinlock/spinlock.h>
 #include <kernel/boot_info.h>
 #include <kernel/vmm/vmm.h>
 
@@ -110,16 +110,18 @@ static long long l_errorCount = 0;			///< Number of actual errors
 static long long l_possibleOverruns = 0;	///< Number of possible overruns
 
 
-static lock_t _heap_lock = {0};
+static spinlock_t _heap_lock = {0};
+
 int liballoc_lock() {
-	if (!_heap_lock.name) { _heap_lock.name = "Kernel heap lock"; }
-	//printf("Heap lock acquired by %d\n", getpid());
-	lock(&_heap_lock);
+	if (!_heap_lock.name) { _heap_lock.name = "[Kernel heap spinlock]"; }
+	spinlock_acquire(&_heap_lock);
 	return 0;
 }
 
 int liballoc_unlock() {
-	unlock(&_heap_lock);
+	assert(!interrupts_enabled(), "Interrupts enabled during spinlock");
+	spinlock_release(&_heap_lock);
+	//printf("Released heap spinlock (int? %d)\n", interrupts_enabled());
 	return 0;
 }
 
