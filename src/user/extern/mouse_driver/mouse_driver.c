@@ -27,6 +27,16 @@ int main(int argc, char** argv) {
 		if (state.idx == 0) {
 			state.idx += 1;
 
+			if (!((data_packet >> 3) & 0x1)) {
+				// This bit should always be one - we are misaligned!
+				// Ignore this packet to maintain alignment
+				// TODO(PT): Could this be caused by another mouse interrupt before we're done processing one?
+				printf("*** Unaligned mouse packet\n");
+				state.idx = 0;
+				memset(&state.buffer, 0, sizeof(state.buffer));
+				continue;
+			}
+
 			// This byte contains info about button events
 			/*
 			bool middle_button_pressed = data_packet & (1 << 2);
@@ -43,6 +53,15 @@ int main(int argc, char** argv) {
 			int8_t rel_x = state.buffer[1] - ((status_byte << 4) & 0x100);
 			// Always flip the Y axis as it arrives
 			int8_t rel_y = -(state.buffer[2]) - ((status_byte << 5) & 0x100);
+
+			if ((status_byte & 0x80) || (status_byte & 0x40)) {
+				printf("Skipping packet with overflow set\n");
+				state.idx = 0;
+				memset(&state.buffer, 0, sizeof(state.buffer));
+				continue;
+			}
+
+			printf("Sending packet to awm: %d %d %d (%d %d)\n", status_byte, state.buffer[1], state.buffer[2], rel_x, rel_y);
 
 			state.idx = 0;
 			memset(&state.buffer, 0, sizeof(state.buffer));
