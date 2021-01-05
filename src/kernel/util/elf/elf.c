@@ -225,11 +225,16 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 	}
 
 	if (entry_point) {
-		//become_first_responder();
 		//vas_active_unmap_temp(sizeof(vmm_page_directory_t));
 
 		task_small_t* elf = tasking_get_task_with_pid(getpid());
+
+		// TODO(PT): Instead of disabling interrupts, make this task unschedulable
+		// But this leads to a race in between making the task schedulable again and elf_start:
+		// If this task is pre-empted in between these two events, then it may never be scheduled again
+		// Maybe we can instead have a switch to disable the scheduler, without disabling interrupts too
 		kernel_begin_critical();
+
 		// TODO(PT): We should store the kmalloc()'d stack in the task structure so that we can free() it once the task dies.
 		elf->machine_state = (task_context_t*)stack_top;
 		elf->sbrk_current_break = prog_break;

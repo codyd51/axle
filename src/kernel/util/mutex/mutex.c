@@ -26,10 +26,11 @@ void lock(lock_t* lock) {
 	uint32_t contention_start = 0;
 	if (lock->flag != 0) {
 		contention_start = time();
-		printf("Mutex: [%d] found contended %s %d at %d\n", getpid(), lock->name ?: "lock", lock->flag, contention_start);
-		if (getpid() == 0 && (uint32_t)lock > 0xff000000) {
-			panic("root proc contended");
-		}
+		//printf("Mutex: [%d] found contended %s %d at %d\n", getpid(), lock->name ?: "lock", lock->flag, contention_start);
+		assert(lock->flag == 1, "Bad lock flag");
+		printf("Mutex: [%d] found contended lock %d at %d\n", getpid(), lock->flag, contention_start);
+		printf("Contended lock 0x%08x %s (int enabled? %d)\n", lock->name, lock->name, interrupts_enabled());
+		assert(0, "Contended lock");
 	}
     while (!atomic_compare_exchange(&lock->flag, 0, 1)) {
 		asm("pause");
@@ -37,6 +38,7 @@ void lock(lock_t* lock) {
 	if (contention_start) {
 		printf("Prod %d received contended lock 0x%08x after %d ticks\n", getpid(), lock, time() - contention_start);
 	}
+	//printf("PID [%d] took lock %d\n", getpid(), lock->flag);
 }
 
 void unlock(lock_t* lock) {

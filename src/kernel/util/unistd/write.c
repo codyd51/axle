@@ -70,8 +70,19 @@ int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
 		//printf(buf);
 	}
 	*/
-	//printk("stdout_write %d bytes from %d str\n", len, strlen(buf));
-	char* chbuf = (char*)buf;
+
+	// TODO(PT): IIRC this is to ensure the provided string is mapped in all addresses it may be
+	// forwarded to, but check if it's still necessary
+	char copy_buf[len+1];
+	strncpy(&copy_buf, buf, len);
+	copy_buf[len] = '\0';
+	printk("[PID %d] %s", task->id, copy_buf);
+
+	if (copy_buf[len-1] != '\n') printk("\n");
+	return len;
+
+	/*
+	char* chbuf = (char*)&copy_buf;
 	for (int i = 0; i < len; i += 64) {
 		//serial_putchar(chbuf[i]);
 		//amc_message_t* amc_msg = amc_message_construct__from_core(&chbuf[i], 1);
@@ -90,7 +101,7 @@ int write(int fd, char* buf, int len) {
 	// Find the stream associated with the file descriptor
 	fd_entry_t* fd_ent = array_l_lookup(current->fd_table, fd);
 
-	//printk("[%d] WRITE buf 0x%08x len %d, fd_ent type %d: %s\n", getpid(), buf, len, fd_ent->type, buf);
+	//printf("[%d] WRITE buf 0x%08x len %d, fd_ent type %d: %s\n", getpid(), buf, len, fd_ent->type, buf);
 
 	if (fd_ent->type == STD_TYPE) {
 		return stdout_write(current, fd, buf, len);
