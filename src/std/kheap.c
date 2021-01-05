@@ -151,10 +151,13 @@ void* liballoc_alloc(size_t page_count) {
  */
 int liballoc_free(void* ptr,size_t page_count) {
 	printf("liballoc_free 0x%08x %d\n", ptr, page_count);
+	/*
 	vmm_page_directory_t* vmm = boot_info_get()->vmm_kernel;
 	for (uint32_t i = (uint32_t)ptr; i < ((uint32_t)ptr + (page_count * 0x1000)); i += 0x1000) {
 		_vmm_unmap_page(vmm, i);
 	}
+	*/
+	vmm_free_global_kernel_memory(ptr, page_count * 0x1000);
 	return 0;
 }
 
