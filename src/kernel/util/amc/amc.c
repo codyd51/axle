@@ -226,10 +226,7 @@ static bool _amc_message_send_int(const char* destination_service, amc_message_t
     spinlock_acquire(&dest->spinlock);
 
     // And add the message to its inbox
-    // Find the physical address the region was mapped
-    uint32_t physical_region = vmm_get_phys_address_for_mapped_page(local_pdir, local_buffer);
     array_m_insert(dest->message_queue, msg);
-    printf("Shared physical region at 0x%08x - 0x%08x\n", physical_region, physical_region+buffer_size);
 
     // Release our exclusive access
     spinlock_release(&dest->spinlock);
@@ -352,26 +349,48 @@ void amc_message_await_any(amc_message_t* out) {
 }
 
 void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, uint32_t* local_buffer_ptr, uint32_t* remote_buffer_ptr) {
+    // TODO(PT): Revisit and check everything works, add spinlock?
+    Deprecated();
     amc_service_t* dest = _amc_service_with_name(remote_service);
     if (dest == NULL) {
         printf("Dropping shared memory request because service doesn't exist: %s\n", remote_service);
         // TODO(PT): Need some way to communicate failure to the caller
         return;
     }
+    //lock(&dest->lock);
 
     // Pad buffer size to page size
     buffer_size = (buffer_size + PAGE_SIZE) & PAGING_PAGE_MASK;
 
     // Map a buffer into the local address space
     vmm_page_directory_t* local_pdir = vmm_active_pdir();
-    uint32_t local_buffer = vmm_alloc_continuous_range(local_pdir, buffer_size, true);
+    uint32_t local_buffer = vmm_alloc_continuous_range(local_pdir, buffer_size, true, 0xa0000000);
 
     printf("Made local mapping: 0x%08x - 0x%08x\n", local_buffer, local_buffer+buffer_size);
 
     // Map a region in the destination task that points to the same physical memory
     // And don't allow the destination task to be scheduled while we're modifying its VAS
     tasking_block_task(dest->task, VMM_MODIFY);
-    uint32_t remote_start = vmm_remote_map_phys_range(dest->task->vmm, physical_region, buffer_size);
+
+    // Map the remote VAS state into the active VAS
+    vmm_page_directory_t* virt_remote_pdir = (vmm_page_directory_t*)vas_active_map_temp(dest->task->vmm, sizeof(vmm_page_directory_t));
+    printf("remote mapped pdir 0x%08x\n", virt_remote_pdir);
+
+    uint32_t remote_min_address = 0xa0000000;
+    uint32_t remote_start = vmm_find_start_of_free_region(virt_remote_pdir, buffer_size, remote_min_address);
+    //uint32_t remote_start = remote_min_address;
+    printf("found free remote addr 0x%08x\n", remote_start);
+
+    for (uint32_t i = 0; i < buffer_size; i += PAGE_SIZE) {
+        // Find the physical address the region was mapped
+        uint32_t phys_page = vmm_get_phys_address_for_mapped_page(local_pdir, local_buffer + i);
+        uint32_t remote_addr = remote_start + i;
+        //printf("local 0x%08x phys 0x%08x to 0x%08x\n", local_buffer + i, phys_page, remote_addr);
+        _vas_virt_set_page_table_entry(virt_remote_pdir, remote_addr, phys_page, true, true, false);
+    }
+
+    vas_active_unmap_temp(sizeof(vmm_page_directory_t));
+
     tasking_unblock_task(dest->task, false);
 
     printf("remote buffer: 0x%08x\n", remote_start);
@@ -379,4 +398,6 @@ void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, 
     // Write the "out" info describing where memory was mapped
     *local_buffer_ptr = local_buffer;
     *remote_buffer_ptr = remote_start;
+
+    //unlock(&dest->lock);
 }

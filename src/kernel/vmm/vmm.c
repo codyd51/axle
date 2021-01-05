@@ -8,11 +8,13 @@
 #include <kernel/multitasking//tasks/task.h>
 #include <kernel/boot_info.h>
 #include <kernel/address_space.h>
+#include <kernel/util/spinlock/spinlock.h>
 
 #define PAGES_IN_PAGE_TABLE 1024
 #define PAGE_TABLES_IN_PAGE_DIR 1024
 
-#define DBG_PAGING (false)
+static bool _vmm_debug = false;
+#define DBG_PAGING (_vmm_debug)
 #define VAS_PRINTF(fmt, ...) if (DBG_PAGING) { printf(fmt, ##__VA_ARGS__); }
 
 static void page_fault(const register_state_t* regs);
@@ -27,10 +29,12 @@ bool vmm_page_table_is_present(vmm_page_directory_t* vmm_dir, uint32_t page_tabl
 vmm_page_table_t* _get_page_table_from_table_idx(vmm_page_directory_t* vmm_dir, uint32_t page_table_idx);
 static vmm_page_directory_t* _alloc_page_directory(bool map_allocation_bitmap);
 uint32_t _get_phys_page_table_pointer_from_table_idx(vmm_page_directory_t* vmm_dir, int page_table_idx);
+vmm_page_table_t* vmm_table_for_page_addr(vmm_page_directory_t* vmm_dir, uint32_t page_addr, bool alloc);
 
 static volatile vmm_page_directory_t* _loaded_pdir = 0;
 static bool _has_set_up_initial_page_directory = false;
 static uint32_t _first_page_outside_shared_kernel_tables = 0;
+static spinlock_t _vmm_global_spinlock = {0};
 
 /*
  * Control-register utility functions
@@ -231,7 +235,7 @@ void vmm_dump(vmm_page_directory_t* vmm_dir) {
 			}
 		}
 	}
-    printf("\tBitmap:\n");
+    printf("\tBitmap (ignore entries below 0x%08x):\n", _first_page_outside_shared_kernel_tables);
     vmm_bitmap_dump_set_ranges(vmm_dir);
 }
 
@@ -279,6 +283,8 @@ void vmm_validate_shared_tables_in_sync(vmm_page_directory_t* vmm_modified, vmm_
 void vmm_init(void) {
     printf_info("Kernel VMM startup... ");
 
+    _vmm_global_spinlock.name = "[VMM global spinlock]";
+
     vmm_page_directory_t* kernel_vmm_pd = _alloc_page_directory(true);
     kernel_vmm_pd->allocated_pages.lock.name = "VMM kernel bmp lock";
 
@@ -306,8 +312,6 @@ void vmm_init(void) {
     vmm_identity_map_region(kernel_vmm_pd, info->kernel_elf_symbol_table.symtab, info->kernel_elf_symbol_table.symtabsz);
     // Kernel code+data,
     vmm_identity_map_region(kernel_vmm_pd, info->kernel_image_start, info->kernel_image_size);
-    // VESA Framebuffer,
-    vmm_identity_map_region(kernel_vmm_pd, info->framebuffer.address, info->framebuffer.size);
     // Ramdisk,
     vmm_identity_map_region(kernel_vmm_pd, info->initrd_start, info->initrd_size);
     // And an extra region above the kernel image. 
@@ -319,6 +323,19 @@ void vmm_init(void) {
     uint32_t last_mapped_addr = info->kernel_image_end + extra_identity_mapped_block_size;
     uint32_t initial_page_dir_phys_end = (uint32_t)kernel_vmm_pd + sizeof(vmm_page_directory_t);
     vmm_identity_map_region(kernel_vmm_pd, last_mapped_addr, (initial_page_dir_phys_end - last_mapped_addr));
+
+    // Allocate page tables up to 128MB
+    uint32_t kernel_page_tables_max = 0x8000000;
+    for (uint32_t addr = 0x0; addr < kernel_page_tables_max; addr += PAGE_SIZE * PAGES_IN_PAGE_TABLE) {
+        vmm_page_table_t* table = vmm_table_for_page_addr(kernel_vmm_pd, addr, false);
+        if (table) {
+            printf("Kernel table already allocated: 0x%08x - 0x%08x\n", addr, addr + (PAGE_SIZE * PAGES_IN_PAGE_TABLE));
+            continue;
+        }
+        table = vmm_table_for_page_addr(kernel_vmm_pd, addr, true);
+        assert(table != NULL, "Failed to allocate page table");
+        printf("Kernel allocated extra page table 0x%08x - 0x%08x\n", addr, addr + (PAGE_SIZE * PAGES_IN_PAGE_TABLE));
+    }
 
     interrupt_setup_callback(INT_VECTOR_INT14, (int_callback_t)page_fault);
     vmm_load_pdir(kernel_vmm_pd, true);
@@ -340,7 +357,7 @@ uint32_t _allocations_base_for_vmm(vmm_page_directory_t* vmm) {
 
 void vmm_notify_shared_kernel_memory_allocated() {
     // TODO(PT): Derive this
-    _first_page_outside_shared_kernel_tables = 0x6000000;
+    _first_page_outside_shared_kernel_tables = 0x8000000;
 }
 
 static vmm_page_directory_t* _alloc_page_directory(bool map_allocation_bitmap) {
@@ -546,11 +563,55 @@ vmm_page_table_t* vas_virt_table_for_page_addr(vmm_page_directory_t* vas_virt, u
 }
 
 uint32_t vmm_alloc_global_kernel_memory(uint32_t size) {
-	uint32_t start = vmm_alloc_continuous_range(boot_info_get()->vmm_kernel, size, true);
+    printf("vmm_alloc_global_kernel_memory 0x%08x\n", size);
+
+    // Modifying structures shared across all processes
+    spinlock_acquire(&_vmm_global_spinlock);
+
+    vmm_page_directory_t* active_vmm = vmm_active_pdir();
+
+    //if (active_vmm != boot_info_get()->vmm_kernel) panic("out of band global alloc");
+
+    vmm_load_pdir(boot_info_get()->vmm_kernel, false);
+	uint32_t start = vmm_alloc_continuous_range(vmm_active_pdir(), size, true, 0);
+    printf("vmm_alloc_global_kernel_memory got 0x%08x - 0x%08x\n", start, start + size);
+    //vmm_dump(vmm_active_pdir());
+
+    vmm_load_pdir(active_vmm, false);
+    //vmm_dump(vmm_active_pdir());
+
     if (_first_page_outside_shared_kernel_tables > 0 && start + size >= _first_page_outside_shared_kernel_tables) {
         panic("Allocating shared kernel memory crossed over into an unshared page table");
     }
+
+    spinlock_release(&_vmm_global_spinlock);
     return start;
+}
+
+void vmm_free_global_kernel_memory(uint32_t addr, uint32_t size) {
+    printf("vmm_free_global_kernel_memory 0x%08x - 0x%08x\n", addr, addr + size);
+
+    if (addr + size >= _first_page_outside_shared_kernel_tables) {
+        panic("Freed shared kernel memory in unshared page table");
+    }
+
+    // Modifying structures shared across all processes
+    spinlock_acquire(&_vmm_global_spinlock);
+
+    vmm_page_directory_t* active_vmm = vmm_active_pdir();
+
+    vmm_load_pdir(boot_info_get()->vmm_kernel, false);
+
+    for (uint32_t i = addr; i < addr + size; i += PAGE_SIZE) {
+        _vmm_unmap_page(vmm_active_pdir(), i);
+    }
+
+   // vmm_dump(vmm_active_pdir());
+
+    vmm_load_pdir(active_vmm, false);
+    //vmm_dump(vmm_active_pdir());
+
+    spinlock_release(&_vmm_global_spinlock);
 }
 
 void _vmm_unmap_page(vmm_page_directory_t* vmm_dir, uint32_t page_addr) {
@@ -578,7 +639,12 @@ void _vmm_unmap_page(vmm_page_directory_t* vmm_dir, uint32_t page_addr) {
     vmm_bitmap_unset_addr(vmm_dir, page_addr);
 }
 
+void vmm_debug(bool on) {
+    _vmm_debug = on;
+}
+
 void _vmm_set_page_table_entry(vmm_page_directory_t* vmm_dir, uint32_t page_addr, uint32_t frame_addr, bool present, bool readwrite, bool user_mode) {
+    //if (page_addr == 0x00c53000) panic("found it");
     if (page_addr & PAGE_FLAG_BITS_MASK) {
         printf("page_addr 0x%x\n", page_addr);
         panic("page_addr is not page aligned");
@@ -588,6 +654,7 @@ void _vmm_set_page_table_entry(vmm_page_directory_t* vmm_dir, uint32_t page_addr
     }
 
     vmm_page_table_t* table = vmm_table_for_page_addr(vmm_dir, page_addr, true);
+    //if (_vmm_debug) printf("got table for 0x%08x: 0x%08x\n", page_addr, table);
 
     if (!table) {
         panic("failed to get page table");
@@ -771,12 +838,44 @@ uint32_t vas_active_map_phys_range(uint32_t phys_start, uint32_t size) {
     return first_page_address;
 }
 
-uint32_t vmm_alloc_continuous_range(vmm_page_directory_t* vmm_dir, uint32_t size, bool readwrite) {
+uint32_t vmm_set_continuous_range_to_phys(vmm_page_directory_t* vmm_dir, uint32_t phys_addr, uint32_t size, bool readwrite, uint32_t min_address) {
     if (size & PAGE_FLAG_BITS_MASK) {
         size = (size & PAGING_PAGE_MASK) + PAGING_PAGE_SIZE;
     }
 
-    uint32_t index = find_free_region(vmm_dir, size, _allocations_base_for_vmm(vmm_dir));
+    min_address = max(_allocations_base_for_vmm(vmm_dir), min_address);
+    printf("vmm_set_continuous_range_to_phys MIN ADDRESS 0x%08x\n", min_address);
+    uint32_t index = find_free_region(vmm_dir, size, min_address);
+    uint32_t first_page_address = index * PAGING_PAGE_SIZE;
+    printf("vmm_set_continuous_range_to_phys found region at 0x%08x\n", first_page_address);
+    // Bug here if a user PDir allocates something in a shared table
+    // The bitmap will be set as used in the user PDir but will not be marked as used in the kernel PDir
+    // (Or any other PDir that shares the same table)
+    // Maybe we keep a linked-list of VMMs that share a page table
+    // Any time that page table is updated, we update all the users of the page table's allocation state bitmaps
+    for (uint32_t i = 0; i < size; i += PAGING_PAGE_SIZE) {
+        uint32_t page_address = first_page_address + i;
+        uint32_t frame_addr = phys_addr + i;
+        _vmm_set_page_table_entry(vmm_dir, page_address, frame_addr, true, true, false);
+    }
+    return first_page_address;
+}
+
+uint32_t vmm_find_start_of_free_region(vmm_page_directory_t* vmm_dir, uint32_t size, uint32_t min_address) {
+    min_address = max(_allocations_base_for_vmm(vmm_dir), min_address);
+    uint32_t index = find_free_region(vmm_dir, size, min_address);
+    uint32_t first_page_address = index * PAGING_PAGE_SIZE;
+    return first_page_address;
+}
+
+uint32_t vmm_alloc_continuous_range(vmm_page_directory_t* vmm_dir, uint32_t size, bool readwrite, uint32_t min_address) {
+    if (size & PAGE_FLAG_BITS_MASK) {
+        size = (size & PAGING_PAGE_MASK) + PAGING_PAGE_SIZE;
+    }
+
+    min_address = max(_allocations_base_for_vmm(vmm_dir), min_address);
+    printf("MIN ADDRESS 0x%08x\n", min_address);
+    uint32_t index = find_free_region(vmm_dir, size, min_address);
     uint32_t first_page_address = index * PAGING_PAGE_SIZE;
     printf("vmm_alloc_continuous_range found region at 0x%08x\n", first_page_address);
     // Bug here if a user PDir allocates something in a shared table
@@ -790,6 +889,7 @@ uint32_t vmm_alloc_continuous_range(vmm_page_directory_t* vmm_dir, uint32_t size
     }
     return first_page_address;
 }
+
 
 void vmm_identity_map_page(vmm_page_directory_t* vmm_dir, uint32_t frame_addr) {
     _vmm_set_page_table_entry(vmm_dir, frame_addr, frame_addr, true, true, false);
@@ -827,7 +927,7 @@ void vmm_identity_map_region(vmm_page_directory_t* vmm_dir, uint32_t start_addr,
         panic("vmm_identity_map_region size not page aligned");
     }
 
-    VAS_PRINTF("Identity mapping from 0x%08x to 0x%08x\n", start_addr, start_addr + size);
+    printf("VMM Identity mapping from 0x%08x to 0x%08x\n", start_addr, start_addr + size);
     for (uint32_t addr = start_addr; addr < start_addr + size; addr += PAGE_SIZE) {
         if (vmm_address_is_mapped(vmm_dir, addr)) {
             uint32_t frame = vmm_get_phys_address_for_mapped_page(vmm_dir, addr);
@@ -880,13 +980,17 @@ uint32_t vmm_map_phys_range(vmm_page_directory_t* vmm_dir, uint32_t phys_start, 
     return first_page_address;
 }
 
-uint32_t vmm_remote_map_phys_range(uint32_t phys_vmm_addr, uint32_t phys_start, uint32_t size) {
+uint32_t vmm_remote_map_phys_range(uint32_t phys_vmm_addr, uint32_t phys_start, uint32_t size, uint32_t min_address) {
     // Pad buffer size to page size
     size = (size + PAGE_SIZE) & PAGING_PAGE_MASK;
 
     // Map the remote VAS state into the active VAS
     vmm_page_directory_t* virt_remote_pdir = (vmm_page_directory_t*)vas_active_map_temp(phys_vmm_addr, sizeof(vmm_page_directory_t));
-    uint32_t remote_start = find_free_region(virt_remote_pdir, size, _allocations_base_for_vmm(phys_vmm_addr)) * PAGING_PAGE_SIZE;
+
+    min_address = max(_allocations_base_for_vmm(virt_remote_pdir), min_address);
+    printf("remote MIN ADDRESS 0x%08x\n", min_address);
+
+    uint32_t remote_start = find_free_region(virt_remote_pdir, size, min_address) * PAGING_PAGE_SIZE;
     for (int i = 0; i < size; i+=PAGE_SIZE) {
         uint32_t remote_addr = remote_start+i;
         uint32_t phys_addr = phys_start+i;
@@ -1010,6 +1114,7 @@ vmm_page_directory_t* vmm_clone_active_pdir() {
 
         // Link tables present in the kernel VAS
         if (kernel_page_table_flags & PAGE_PRESENT_FLAG) {
+            //printf("linking kernel page table 0x%08x - 0x%08x\n", (i * PAGE_SIZE * PAGES_IN_PAGE_TABLE), ((i+1)*PAGE_SIZE*PAGES_IN_PAGE_TABLE));
             new_page_tables[i] = (uint32_t)kernel_page_table_ptr | PAGE_KERNEL_ONLY_FLAG | PAGE_PRESENT_FLAG | PAGE_READ_WRITE_FLAG;
             continue;
         }
