@@ -85,56 +85,24 @@ task_t* task_list() {
 
 static bool is_dead_task_crit(task_t* task) {
     Deprecated();
-    static char* crit_tasks[3] = {
-        "idle",
-        "iosentinel"
-    };
-
-    for (uint32_t i = 0; i < sizeof(crit_tasks) / sizeof(crit_tasks[0]); i++) {
-        if (!strcmp(crit_tasks[i], task->name)) {
-            return true;
-        }
-    }
-    return false;
 }
 
 static void tasking_critical_fail() {
     Deprecated();
-    char* msg = "One or more critical tasks died. axle has died.\n";
-    printf("%s\n", msg);
-    //turn off interrupts
-    kernel_begin_critical();
-    //sleep until next interrupt (infinite loop)
-    asm("hlt");
-    //in case that ever finishes, infinite loop again
-    while (1) {}
 }
 
 void kill_task(task_t* task) {
     Deprecated();
-    bool show_died_message = !strcmp(task->name, "xserv");
-    if (show_died_message) {
-        xserv_fail();
-    }
-
-    if (is_dead_task_crit(task)) {
-        tasking_critical_fail();
-    }
-
-    if (task == first_responder_task) {
-        resign_first_responder();
-    }
-    block_task(task, ZOMBIE);
 }
 
 void _kill() {
-    return;
     Deprecated();
-    kill_task(current_task);
 }
 
 void goto_pid(int id, bool update_current_task_state);
 void unlist_task(task_small_t* task) {
+    Deprecated();
+
     //if task to unlist is head, move head
     if (task == active_list) {
         active_list = task->next;
@@ -162,6 +130,8 @@ void unlist_task(task_small_t* task) {
 }
 
 void list_task(task_small_t* task) {
+    Deprecated();
+
     //walk linked list
     task_small_t* current = active_list;
     while (current->next != NULL) {
@@ -177,63 +147,20 @@ void list_task(task_small_t* task) {
 
 void block_task_context(task_t* task, task_state reason, void* context) {
     Deprecated();
-    if (!tasking_is_active()) return;
-
-    task->state = reason;
-    task->block_context = context;
-
-    //immediately switch tasks if active task was just blocked
-    if (task == current_task) {
-        task_switch_old(true);
-    }
 }
 
 void block_task(task_t* task, task_state reason) {
     Deprecated();
-    block_task_context(task, reason, NULL);
 }
 
 void unblock_task(task_t* task) {
     Deprecated();
-    if (!tasking_is_active()) return;
-
-    lock(mutex);
-    task->state = RUNNABLE;
-    task->block_context = NULL;
-    unlock(mutex);
 }
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 task_t* create_process(char* name, uint32_t eip, bool wants_stack) {
     Deprecated();
-    task_t* parent = current_task;
-
-    //clone address space
-    page_directory_t* cloned = vmm_clone_active_pdir();
-
-    //create new process
-    task_t* task = kmalloc(sizeof(task_t));
-    memset(task, 0, sizeof(task_t));
-    task->name = strdup(name);
-    task->id = next_pid++;
-    task->page_dir = cloned;
-    task->child_tasks = array_m_create(32);
-    //task->kernel_stack = kmalloc_a(KERNEL_STACK_SIZE);
-    setup_fds(task);
-
-    uint32_t current_eip = read_eip();
-    if (current_task == parent) {
-        task->eip = current_eip;
-        return task;
-    }
-
-    task->state = RUNNABLE;
-    task->wake_timestamp = 0;
-    task->vmem_slide = 0;
-    task->windows = array_m_create(16);
-
-    return task;
 }
 #pragma GCC diagnostic pop
 
@@ -255,14 +182,6 @@ task_t* task_with_pid_auth(int pid) {
 
 task_t* task_with_pid(int pid) {
     Deprecated();
-    task_t* tmp = active_list;
-    while (tmp != NULL) {
-        if (tmp->id == pid) {
-            return tmp;
-        }
-        tmp = tmp->next;
-    }
-    return NULL;
 }
 
 task_t* task_current() {
@@ -270,6 +189,8 @@ task_t* task_current() {
 }
 
 static void _tasking_register_process(task_small_t* task) {
+    Deprecated();
+
     if (!tasking_is_active()) return;
 
     list_task(task);
@@ -280,6 +201,8 @@ static void _tasking_register_process(task_small_t* task) {
 }
 
 void idle() {
+    Deprecated();
+
     while (1) {
         //nothing to do!
         //put the CPU to sleep until the next interrupt
@@ -291,73 +214,10 @@ void idle() {
 
 void destroy_task(task_t* task) {
     Deprecated();
-    if (task == first_responder_task) {
-        resign_first_responder();
-    }
-
-    //close all pipes this process has opened
-    /*
-    for (int i = 0; i < FD_MAX; i++) {
-        fd_entry entry = task->fd_table[i];
-        if (fd_empty(entry)) continue;
-
-        if (entry.type == PIPE_TYPE) {
-            pipe_t* pipe = (pipe_t*)entry.payload;
-            pipe_close(pipe->fd);
-        }
-    }
-    */
-
-    //remove task from queues and active list
-    unlist_task(task);
-    //printf_info("%s[%d] destroyed.", task->name, task->id);
-    //free task's page directory
-    free_directory(task->page_dir);
-    array_m_destroy(task->child_tasks);
-    std_stream_destroy(task);
-
-    kfree(task->name);
-    kfree(task);
 }
 
 void reap_task(task_t* tmp) {
     Deprecated();
-    if (tmp->state == ZOMBIE) {
-        array_m* queue = array_m_lookup(queues, tmp->queue);
-        int idx = array_m_index(queue, tmp);
-        if (idx != ARR_NOT_FOUND) {
-            printk("reap() unlisting %s\n", tmp->name);
-
-            lock(mutex);
-            array_m_remove(queue, idx);
-            unlock(mutex);
-
-            destroy_task(tmp);
-        }
-        else {
-            //couldn't find task in the queue it said it was in
-            //fall back on searching through each queue
-            bool found = false;
-            for (int i = 0; i < queues->size && !found; i++) {
-                array_m* queue = array_m_lookup(queues, i);
-                for (int j = 0; j < queues->size && !found; j++) {
-                    task_t* to_test = array_m_lookup(queue, j);
-                    if (to_test == tmp) {
-                        lock(mutex);
-                        array_m_remove(queue, j);
-                        unlock(mutex);
-
-                        destroy_task(tmp);
-                        found = true;
-                        break;
-                    }
-                }
-            }
-            if (!found) {
-                printf_err("Tried to reap task %s[%d] but it didn't exist in a queue", tmp->name, tmp->id);
-            }
-        }
-    }
 }
 
 void iosent() {
@@ -370,6 +230,8 @@ void iosent() {
 }
 
 void enqueue_task(task_small_t* task, int queue) {
+    Deprecated();
+
     lock(mutex);
     if (queue < 0 || queue >= queues->size) {
         ASSERT(0, "Tried to insert %s into invalid queue %d", task->name, queue);
@@ -394,6 +256,8 @@ void enqueue_task(task_small_t* task, int queue) {
 }
 
 void dequeue_task(task_small_t* task) {
+    Deprecated();
+
     lock(mutex);
     if (task->queue < 0 || task->queue >= queues->size) {
         ASSERT(0, "Tried to remove %s from invalid queue %d", task->name, task->queue);
@@ -434,11 +298,15 @@ void dequeue_task(task_small_t* task) {
 }
 
 void switch_queue(task_small_t* task, int new) {
+    Deprecated();
+
     dequeue_task(task);
     enqueue_task(task, new);
 }
 
 void demote_task(task_small_t* task) {
+    Deprecated();
+
     //if we're already at the bottom task, don't attempt to demote further
     if (task->queue >= queues->size - 1) {
         return;
@@ -447,16 +315,21 @@ void demote_task(task_small_t* task) {
 }
 
 void promote_task(task_small_t* task) {
+    Deprecated();
+
     switch_queue(task, task->queue - 1);
 }
 
 bool tasking_is_active_old() {
+    Deprecated();
+
     //return (queues && queues->size >= 1 && current_task);
     return current_task != 0;
 }
 
 void booster() {
     Deprecated();
+
     task_t* tmp = active_list;
     while (tmp) {
         switch_queue(tmp, 0);
@@ -473,6 +346,8 @@ void tasking_installed() {
 }
 
 static void _create_task_queues(mlfq_option options) {
+    Deprecated();
+
     int queue_count = 0;
     switch (options) {
         case LOW_LATENCY:
@@ -498,62 +373,6 @@ static void _create_task_queues(mlfq_option options) {
 
 void tasking_init_old(mlfq_option options) {
     Deprecated();
-    if (tasking_is_active()) {
-        panic("called tasking_init() after it was already active");
-        return;
-    }
-
-    printf_info("Multitasking init...");
-    _create_task_queues(options);
-
-    printf_dbg("setting up kernel task");
-    //init first task (kernel task)
-    task_small_t* kernel = kmalloc(sizeof(task_small_t));
-    memset(kernel, 0, sizeof(task_small_t));
-    kernel->name = "kax";
-    kernel->id = next_pid++;
-    // kernel->context.kernel_stack = (uint32_t)kmalloc_a(KERNEL_STACK_SIZE);
-    //setup_fds(kernel);
-
-    uint32_t pdir_phys;
-    vmm_page_directory_t* kernel_task_pdir = vmm_clone_active_pdir();
-    vmm_load_pdir(kernel_task_pdir, false);
-    move_stack(0xDFFFF000, 0x4000);
-    // kernel->context.page_dir = kernel_task_pdir;
-    //update the kernel directory in boot_info
-    boot_info_t* boot_info = boot_info_get();
-    boot_info->vmm_kernel = kernel_task_pdir;
-
-    current_task = kernel;
-    //active_list = kernel;
-    //enqueue_task(current_task, 0);
-
-    //set up responder stack
-    //responder_stack = array_m_create(MAX_RESPONDERS);
-    //set kernel as initial first responder
-    //become_first_responder();
-
-    //create callback to switch tasks
-    void handle_pit_tick();
-    timer_callback_register((void*)handle_pit_tick, 4, true, 0);
-
-    printf_dbg("forking system processes");
-    //idle task
-    //runs when anything (including kernel) is blocked for i/o
-    if (!fork("idle")) {
-        idle();
-    }
-
-    //blocked task sentinel
-    //watches system events and wakes threads as necessary
-    if (!fork("iosentinel")) {
-        iosent();
-    }
-
-    mutex = lock_create();
-
-    //reenable interrupts
-    kernel_end_critical();
 }
 
 void update_blocked_tasks_old() {
@@ -654,10 +473,6 @@ void update_blocked_tasks_old() {
 
 void int_wait(int irq) {
     Deprecated();
-    task_t* task = current_task;
-    task->block_context = (void*)irq;
-    task->irq_satisfied = false;
-    block_task_context(task, IRQ_WAIT, (void*)INT_VECTOR_IRQ1);
 }
 
 int fork_old(char* name) {
@@ -735,6 +550,8 @@ int fork_old(char* name) {
 }
 
 task_small_t* first_queue_runnable(array_m* queue, int offset) {
+    Deprecated();
+
     for (int i = offset; i < queue->size; i++) {
         task_small_t* tmp = array_m_lookup(queue, i);
         if (tmp->blocked_info.status == RUNNABLE) {
@@ -746,6 +563,8 @@ task_small_t* first_queue_runnable(array_m* queue, int offset) {
 }
 
 array_m* first_queue_containing_runnable(void) {
+    Deprecated();
+
     //we could look at every queue individually, but that would be slow
     //let's take advantage of our linked list of tasks and search that
     task_small_t* curr = active_list;
@@ -784,6 +603,8 @@ array_m* first_queue_containing_runnable(void) {
 }
 
 task_small_t* mlfq_schedule() {
+    Deprecated();
+
     if (!tasking_is_active()) {
         panic("called mlfq_schedule() before tasking was active");
         return NULL;
@@ -860,140 +681,20 @@ task_small_t* mlfq_schedule() {
 
 void goto_pid(int id, bool update_current_task_state) {
     Deprecated();
-    if (!update_current_task_state) {
-        //printk("goto_pid(%d %d)\n", id, update_current_task_state);
-        update_current_task_state = 0;
-    }
-
-    if (!current_task || !queues) {
-        return;
-    }
-    if (id == current_task->id) {
-        //printk("called goto_pid with current_task->id %d, is this intentional?", id);
-    }
-
-    kernel_begin_critical();
-
-    //read esp, ebp now for saving later
-    uint32_t esp, ebp, eip;
-    asm volatile("mov %%esp, %0" : "=r"(esp));
-    asm volatile("mov %%ebp, %0" : "=r"(ebp));
-
-    //as in fork(), this returns the address of THIS LINE
-    //so when the next process starts executing, it will begin by executing this line
-    //to differentiate whether it's the first time it's run and we're trying to actually get EIP or we just started executing the next process,
-    //task_switch() puts a magic value in eax right before switching to the next process
-    //that way, we can check if it returned this magic value which indicates that we're executing the next process.
-    eip = read_eip();
-
-    //did the next task just start executing?
-    if (eip == STACK_MAGIC) {
-        kernel_end_critical();
-        return;
-    }
-
-    //haven't switched yet, save old task's values
-    if (update_current_task_state) {
-        current_task->eip = eip;
-        current_task->esp = esp;
-        current_task->ebp = ebp;
-    }
-
-    //find task with this PID
-    bool found_task = false;
-    task_t* tmp = active_list;
-    while (tmp != NULL) {
-        if (tmp->id == id && tmp->state == RUNNABLE) {
-            //switch to PID passed to us
-            current_task = tmp;
-            found_task = true;
-            break;
-        }
-        tmp = tmp->next;
-    }
-
-    if (!found_task) {
-        printf_err("PID %d wasn't in active list, falling back on queue search", id);
-        //fall back on searching through each queue for this task
-        for (int i = 0; i < queues->size; i++) {
-            array_m* tasks = array_m_lookup(queues, i);
-            for (int j = 0; j < tasks->size; j++) {
-                task_t* tmp = array_m_lookup(tasks, j);
-                if (tmp->id == id) {
-                    current_task = tmp;
-                    found_task = true;
-                    break;
-                }
-            }
-        }
-
-        //did we still not find it?
-        if (!found_task) {
-            printf_err("goto_pid: Nonexistant PID %d!", id);
-            ASSERT(0, "Invalid context switch state");
-        }
-    }
-
-    current_task->begin_date = time();
-    int lifetime = (int)array_m_lookup(queue_lifetimes, current_task->queue);
-    current_task->end_date = current_task->begin_date + lifetime;
-    //set_kernel_stack(current_task->kernel_stack + KERNEL_STACK_SIZE);
-
-    eip = current_task->eip;
-    esp = current_task->esp;
-    ebp = current_task->ebp;
-    //   vmm_load_pdir(current_task->page_dir);
-    kernel_end_critical();
-    task_switch_real(eip, current_task->page_dir->physicalAddr, ebp, esp);
 }
 
 uint32_t task_switch_old(bool update_current_task_state) {
     Deprecated();
-    current_task->relinquish_date = time();
-    //find next runnable task
-    task_t* next = mlfq_schedule();
-
-    ASSERT(next->state == RUNNABLE, "Tried to switch to non-runnable task %s (reason: %d)!", next->name, next->waiting_state);
-
-    printf("going to %d\n", next->id);
-    goto_pid(next->id, update_current_task_state);
-    //TODO: what should be returned here?
     return 0;
 }
 
 void handle_pit_tick() {
     Deprecated();
-    static uint32_t tick = 0;
-    static uint32_t last_boost = 0;
-
-    if (!tick) {
-        //first run
-        //get real time
-        tick = time();
-        last_boost = tick;
-        return;
-    }
-
-    //due to an apparant bug in the PIT callback mechanism,
-    //having a callback every tick introduces bugs and triple faults
-    //going as fast as every other tick does not have this problem
-    //it seems as if the bug happens if we don't finish the tick interrupt before the next interrupt fires
-    //to be safe, this is only called once every 4 ticks
-    //so, we need to increment tick count by 4 ticks
-    tick += 4;
-    if (tick >= current_task->end_date) {
-        task_switch_old(true);
-    }
-    if (tick >= last_boost + BOOSTER_PERIOD) {
-        //don't boost if we're in low latency mode!
-        if (queues->size > 1) {
-            last_boost = tick;
-            booster();
-        }
-    }
 }
 
 void proc() {
+    Deprecated();
+
     printk("-----------------------proc-----------------------\n");
 
     for (int i = 0; i < queues->size; i++) {
@@ -1046,12 +747,15 @@ void proc() {
 }
 
 void force_enumerate_blocked() {
-    if (!tasking_is_active()) return;
+    Deprecated();
 
+    if (!tasking_is_active()) return;
     update_blocked_tasks();
 }
 
 void jump_user_mode() {
+    Deprecated();
+
     // Set up a stack structure for switching to user mode.
     // the pop eax, or, and re-push take eflags which was pushed onto the stack,
     // and turns on the interrupt enabled flag
@@ -1082,6 +786,7 @@ void jump_user_mode() {
 
 int waitpid(int pid, int* status, int options) {
     Deprecated();
+
     task_t* parent = current_task;
     block_task(parent, CHILD_WAIT);
 
@@ -1129,6 +834,7 @@ int wait(int* status) {
 
 Window* task_register_window(Rect frame) {
     Deprecated();
+
     //if we're creating a window for a task through xserv_win_create
     //then we're in a syscall handler and getpid() will return the pid of the
     //proc that ran the syscall
