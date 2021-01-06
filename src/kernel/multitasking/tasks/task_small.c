@@ -372,6 +372,7 @@ void iosentinel_check_now() {
 void idle_task() {
     while (1) {
         asm("hlt");
+        sys_yield(RUNNABLE);
     }
 }
 
@@ -398,9 +399,8 @@ void tasking_init() {
     //_iosentinel_task = task_spawn(update_blocked_tasks, PRIORITY_NONE);
 
     printf_info("Multitasking initialized");
+    pit_callback = timer_callback_register((void*)tasking_timer_tick, 10, true, 0);
     asm("sti");
-
-    pit_callback = timer_callback_register((void*)tasking_timer_tick, 100, true, 0);
 }
 
 int fork() {
