@@ -4,23 +4,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/*
 typedef struct amc_message {
     const char* source;
     const char* dest; // May be null if the message is globally broadcast
     char data[64];
     int len;
-} amc_message_t;
-*/
-typedef struct amc_message {
-    const char* source;
-    const char* dest; // May be null if the message is globally broadcast
-    char data[64];
-    int len;
-    // From a statically allocated pool?
-    bool is_static;
-    bool is_allocated;
-    int static_pool_idx;
 } amc_message_t;
 
 // Register the running process as the provided service name
@@ -28,8 +16,6 @@ void amc_register_service(const char* name);
 
 // Construct an amc message
 amc_message_t* amc_message_construct(const char* data, int len);
-// Construct an amc message, with a hint that the source service is the "kernel core" (i.e. an interrupt handler)
-amc_message_t* amc_message_construct__from_core(const char* data, int len);
 
 // Asynchronously send the message to the provided destination service
 // Returns whether the message was successfully routed to the service

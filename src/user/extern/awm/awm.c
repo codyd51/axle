@@ -98,11 +98,13 @@ static void handle_mouse_event(amc_message_t mouse_event) {
 	uint8_t state = mouse_event.data[0];
 	int8_t rel_x = mouse_event.data[1];
 	int8_t rel_y = mouse_event.data[2];
+	/*
 	printf("Mouse state packet: ");
 	for (int i = 7; i >= 0; i--) {
 		printf("%d", (state >> i) & 0x1);
 	}
 	printf(" (%d %d)\n", rel_x, rel_y);
+	*/
 
 	mouse_pos.x += rel_x;
 	mouse_pos.y += rel_y;

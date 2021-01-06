@@ -8,8 +8,6 @@
 
 static array_m* _amc_services = 0;
 
-amc_message_t isr_static_message_pool[512] = {0};
-
 typedef struct amc_service {
     const char* name;
     task_small_t* task;
@@ -131,12 +129,9 @@ static amc_message_t* _amc_message_construct_from_service_name(const char* sourc
     //printf("_amc_message_construct_from_service_name(%s): %d %d %s\n", source_service_name, len, strlen(data), data);
     assert(source_service_name != NULL, "Must provide a source service");
 
-    // TODO(PT): It'd be good if amc_message_construct__from_core didn't do dynamic memory allocation
-    // Ref: https://forum.osdev.org/viewtopic.php?f=15&t=28056
     amc_message_t* out = kmalloc(sizeof(amc_message_t));
     memset(out, 0, sizeof(amc_message_t));
 
-    out->is_static = false;
     out->source = source_service_name;
 
     // Cap length to the size of the `data` field
@@ -153,43 +148,6 @@ static amc_message_t* _amc_message_construct_from_service_name(const char* sourc
     return out;
 }
 
-amc_message_t* amc_message_construct__from_core(const char* data, int len) {
-    /*
-    This method solves a problem when dispatching messages from an interrupt handler.
-    An interrupt handler could be jumped to from any running process. Even though the 
-    interrupt handler exists in kernel "core" code, any active task may be running when
-    the interrupt handler is invoked. 
-    Messages dispatched from an interrupt handler should always be reported as 
-    originating from the core, so interrupt handlers that dispatch messages use this
-    function instead of the amc_message_send() call.
-    */
-    //return _amc_message_construct_from_service_name("com.axle.core", data, len);
-
-    // PT: In the progress of taking care of the below comment!
-    // TODO(PT): It'd be good if amc_message_construct__from_core didn't do dynamic memory allocation
-    // Ref: https://forum.osdev.org/viewtopic.php?f=15&t=28056
-    for (int i = 0; i < sizeof(isr_static_message_pool) / sizeof(isr_static_message_pool[0]); i++) {
-        // Free?
-        amc_message_t* msg = isr_static_message_pool + i;
-        if (msg->is_allocated) {
-            continue;
-        }
-        // Allocate it
-        memset(msg, 0, sizeof(amc_message_t));
-        msg->is_allocated = true;
-        msg->is_static = true;
-        msg->static_pool_idx = i;
-
-        msg->source = "com.axle.core";
-        strncpy(msg->data, data, len);
-        msg->len = len;
-        //printf("Allocated static message %d\n", msg->static_pool_idx);
-        return msg;
-    }
-    assert(0, "Failed to find an unused message in the static buffer!");
-    return NULL;
-}
-
 amc_message_t* amc_message_construct(const char* data, int len) {
     amc_service_t* current_service = _amc_service_of_task(tasking_get_current_task());
     assert(current_service != NULL, "Current task is not a registered amc service");
@@ -197,17 +155,11 @@ amc_message_t* amc_message_construct(const char* data, int len) {
 }
 
 static void _amc_message_free(amc_message_t* msg) {
-    if (msg->is_static) {
-        //printf("Freeing static message %d\n", msg->static_pool_idx);
-        memset(msg, 0, sizeof(amc_message_t));
-        msg->is_allocated = false;
-    }
-    else {
-        kfree(msg);
-    }
+    kfree(msg);
 }
 
-static bool _amc_message_send_int(const char* destination_service, amc_message_t* msg, bool allow_preemption_for_high_priority_unblock) {
+// Asynchronously send the message to the provided destination service
+bool amc_message_send(const char* destination_service, amc_message_t* msg) {
     // If a destination wasn't specified, the message should be broadcast globally
     if (destination_service == NULL) {
         NotImplemented();
@@ -238,26 +190,11 @@ static bool _amc_message_send_int(const char* destination_service, amc_message_t
 
         // Higher priority tasks that were waiting on a message should preempt a lower priority active task
         if (dest->task->priority > get_current_task_priority()) {
-            // But don't jump away if we're coming from an interrupt handler
-            if (!allow_preemption_for_high_priority_unblock) {
-                printf("[AMC] Will not jump away because high-priority unblock was specifically disallowed\n");
-            }
-            else {
-                //printf("[AMC] Jump to higher-priority task [%d] %s from [%d]\n", dest->task->id, dest->task->name, getpid());
-                tasking_goto_task(dest->task);
-            }
+            printf("[AMC] Jump to higher-priority task [%d] %s from [%d]\n", dest->task->id, dest->task->name, getpid());
+            tasking_goto_task(dest->task);
         }
     }
     return true;
-}
-
-bool amc_message_send__from_isr(const char* destination_service, amc_message_t* msg) {
-    return _amc_message_send_int(destination_service, msg, true);
-}
-
-// Asynchronously send the message to the provided destination service
-bool amc_message_send(const char* destination_service, amc_message_t* msg) {
-    return _amc_message_send_int(destination_service, msg, true);
 }
 
 // Asynchronously send the message to any service awaiting a message from this service

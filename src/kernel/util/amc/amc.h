@@ -9,10 +9,6 @@ typedef struct amc_message {
     const char* dest; // May be null if the message is globally broadcast
     char data[64];
     int len;
-    // From a statically allocated pool?
-    bool is_static;
-    bool is_allocated;
-    int static_pool_idx;
 } amc_message_t;
 
 // Register the running process as the provided service name
@@ -20,13 +16,10 @@ void amc_register_service(const char* name);
 
 // Construct an amc message
 amc_message_t* amc_message_construct(const char* data, int len);
-// Construct an amc message, with a hint that the source service is the "kernel core" (i.e. an interrupt handler)
-amc_message_t* amc_message_construct__from_core(const char* data, int len);
 
 // Asynchronously send the message to the provided destination service
 // Returns whether the message was successfully routed to the service
 bool amc_message_send(const char* destination_service, amc_message_t* msg);
-bool amc_message_send__from_isr(const char* destination_service, amc_message_t* msg);
 
 // Asynchronously send the message to any service awaiting a message from this service
 void amc_message_broadcast(amc_message_t* msg);

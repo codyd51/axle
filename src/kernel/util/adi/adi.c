@@ -53,7 +53,6 @@ void adi_register_driver(const char* name, uint32_t irq) {
 }
 
 void adi_interrupt_await(uint32_t irq) {
-    printf("Provided IRQ vector %d\n", irq);
     assert(irq > 0 && irq < MAX_INT_VECTOR, "Invalid IRQ provided");
     assert(_adi_drivers[irq].task == tasking_get_current_task(), "Current task does not match driver layout");
 
