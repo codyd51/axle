@@ -5,9 +5,17 @@
 #include <unistd.h>
 
 #include <kernel/amc.h>
+#include <kernel/adi.h>
+#include <kernel/idt.h>
 
 #include "kb_driver.h"
 #include "kb_colemak.h"
+
+uint8_t inb(uint16_t port) {
+	uint8_t _v;
+	__asm__ __volatile__ ("inb %w1,%0":"=a" (_v):"Nd" (port));
+	return _v;
+}
 
 static int process_scancode(ps2_kbd_state_t* state, uint8_t scancode) {
 	// https://www.nutsvolts.com/magazine/article/get-ascii-data-from-ps-2-keyboards
@@ -59,29 +67,31 @@ static int process_scancode(ps2_kbd_state_t* state, uint8_t scancode) {
 }
 
 int main(int argc, char** argv) {
+	// This process will handle PS/2 keyboard IRQ's (IRQ 1)
+	adi_register_driver("com.axle.kb_driver", INT_VECTOR_IRQ1);
 	amc_register_service("com.axle.kb_driver");
+
 	ps2_kbd_state_t state = {0};
 	// TODO(PT): A knob that allows you to set the active layout to QWERTY
 	state.layout = &colemak;
 
 	while (true) {
-		// The message from the low-level keyboard driver will contain the bare scancode
-		amc_message_t msg = {0};
-		amc_message_await("com.axle.core", &msg);
-		uint8_t scancode = msg.data[0];
+		// Await an interrupt from the PS/2 keyboard
+		adi_interrupt_await(INT_VECTOR_IRQ1);
+
+		// An interrupt is ready to be serviced!
+		// TODO(PT): Copy the PS2 header to the sysroot as a build step, 
+		// and replace this port number with PS2_DATA
+		uint8_t scancode = inb(0x60);
+
 		uint8_t char_value = process_scancode(&state, scancode);
 		// Were we able to map a scancode?
 		if (char_value > 0) {
+			// Send a message to the window server telling it about the keystroke
 			amc_message_t* keypress_msg = amc_message_construct(&char_value, 1);
-			amc_message_send("com.axle.awm", keypress_msg);
-		}
-		/*
-		if (translated_key) {
-			amc_message_t* keypress_msg = amc_message_construct(&translated_key, 1);
 			//amc_message_broadcast(keypress_msg);
 			amc_message_send("com.axle.awm", keypress_msg);
 		}
-		*/
 	}
 	
 	return 0;

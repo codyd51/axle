@@ -1,40 +1,20 @@
 #include "mouse.h"
-#include <kernel/interrupts/interrupts.h>
 #include <std/math.h>
 #include <std/std.h>
-#include <kernel/multitasking/tasks/task_small.h>
-#include <kernel/syscall/sysfuncs.h>
+#include <kernel/util/vfs/fs.h>
+#include <kernel/util/adi/adi.h>
 #include <kernel/drivers/ps2/ps2.h>
-#include <kernel/util/spinlock/spinlock.h>
-
+#include <kernel/interrupts/idt.h>
+#include <kernel/interrupts/interrupts.h>
 
 #define PS2_MOUSE_CMD_SET_DEFAULT_SETTINGS 0xF6
 #define PS2_MOUSE_CMD_ENABLE_DATA_REPORTING 0xF4
 #define PS2_MOUSE_RESP_ACKNOWLEDGE 0xFA
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
 static int mouse_callback(registers_t* regs) {
-	task_small_t* interrupted_task = tasking_get_current_task();
-
-	spinlock_acquire(&interrupted_task->priority_lock);
-	interrupted_task->priority_context = interrupted_task->priority;
-	interrupted_task->priority = PRIORITY_TASK_RUNNING_ISR;
-	spinlock_release(&interrupted_task->priority_lock);
-
-	uint8_t byte = ps2_read(PS2_DATA);
-
-	spinlock_acquire(&interrupted_task->priority_lock);
-	pic_signal_end_of_interrupt(regs->int_no);
-	interrupted_task->priority = interrupted_task->priority_context;
-	spinlock_release(&interrupted_task->priority_lock);
-
-	amc_message_t* amc_msg = amc_message_construct__from_core(&byte, 1);
-	amc_message_send__from_isr("com.axle.mouse_driver", amc_msg);
-
+	adi_interrupt_dispatch(regs->int_no);
 	return 0;
 }
-#pragma GCC diagnostic pop
 
 void ps2_mouse_enable(void) {
 	printf_info("[PS2] Enabling mouse...");

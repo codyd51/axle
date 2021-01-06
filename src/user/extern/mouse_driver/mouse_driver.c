@@ -4,7 +4,9 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <kernel/adi.h>
 #include <kernel/amc.h>
+#include <kernel/idt.h>
 
 #include "mouse_driver.h"
 
@@ -13,16 +15,27 @@ typedef struct ps2_mouse_state {
 	uint8_t buffer[3];
 } ps2_mouse_state_t;
 
+uint8_t inb(uint16_t port) {
+	uint8_t _v;
+	__asm__ __volatile__ ("inb %w1,%0":"=a" (_v):"Nd" (port));
+	return _v;
+}
+
 int main(int argc, char** argv) {
+	// This process will handle PS/2 mouse IRQ's (IRQ 12)
+	adi_register_driver("com.axle.mouse_driver", INT_VECTOR_IRQ12);
 	amc_register_service("com.axle.mouse_driver");
 
 	ps2_mouse_state_t state = {0, 0};
-
 	while (true) {
-		// The message from the low-level mouse driver will contain a data packet
-		amc_message_t msg = {0};
-		amc_message_await("com.axle.core", &msg);
-		uint8_t data_packet = msg.data[0];
+		// Await an interrupt from the PS/2 mouse
+		adi_interrupt_await(INT_VECTOR_IRQ12);
+
+		// An interrupt is ready to be serviced!
+		// TODO(PT): Copy the PS2 header to the sysroot as a build step, 
+		// and replace this port number with PS2_DATA
+		uint8_t data_packet = inb(0x60);
+
 		state.buffer[state.idx] = data_packet;
 		if (state.idx == 0) {
 			state.idx += 1;
@@ -73,7 +86,6 @@ int main(int argc, char** argv) {
 			amc_message_t* amc_msg = amc_message_construct(&mouse_databuf, sizeof(mouse_databuf));
 			amc_message_send("com.axle.awm", amc_msg);
 		}
-
 	}
 	
 	return 0;

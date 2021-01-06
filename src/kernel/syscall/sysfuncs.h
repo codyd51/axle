@@ -5,6 +5,7 @@
 #include <kernel/multitasking/tasks/task.h>
 #include <kernel/util/vfs/fs.h>
 #include <kernel/util/amc/amc.h>
+#include <kernel/util/adi/adi.h>
 
 //installs common syscalls into syscall table
 void create_sysfuncs();
@@ -16,7 +17,7 @@ DECL_SYSCALL(output, int, char*);
 //Standard terminal driver putc
 DECL_SYSCALL(terminal_putchar, char);
 
-//Yeilds current process's running state to a different process
+//Yields current process's running state to a different process
 //Typically invoked if process is blocked by I/O, or sleeping
 DECL_SYSCALL(yield, task_state);
 
@@ -59,5 +60,8 @@ DECL_SYSCALL(amc_message_await, const char*, amc_message_t**);
 DECL_SYSCALL(amc_message_await_from_services, int, const char**, amc_message_t**);
 DECL_SYSCALL(amc_message_await_any, amc_message_t**);
 DECL_SYSCALL(amc_shared_memory_create, const char*, uint32_t, uint32_t*, uint32_t*);
+
+DECL_SYSCALL(adi_register_driver, const char*, uint32_t);
+DECL_SYSCALL(adi_interrupt_await, uint32_t);
 
 #endif

@@ -42,14 +42,14 @@
 #define PS2_CFG_DEVICE_1_PORT_TRANSLATION (1 << 6)
 #define PS2_CFG_MUST_BE_ZERO (1 << 7)
 
-typedef enum {
+typedef enum ps2_device_type {
     PS2_MOUSE = 0x00,
     PS2_MOUSE_SCROLL_WHEEL = 0x03,
     PS2_MOUSE_FIVE_BUTTONS = 0x04,
     PS2_KEYBOARD,
     PS2_KEYBOARD_TRANSLATED,
     PS2_DEVICE_UNKNOWN
-};
+} ps2_device_type_t;
 
 void ps2_controller_init(void);
 void ps2_enable_keyboard(void);

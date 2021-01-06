@@ -45,6 +45,9 @@ DEFN_SYSCALL(amc_message_await_from_services, 30, int, const char**, amc_message
 DEFN_SYSCALL(amc_message_await_any, 31, amc_message_t*);
 DEFN_SYSCALL(amc_shared_memory_create, 32, const char*, uint32_t, uint32_t*, uint32_t*);
 
+DEFN_SYSCALL(adi_register_driver, 33, const char*, uint32_t);
+DEFN_SYSCALL(adi_interrupt_await, 34, uint32_t);
+
 // According to the documentation, this is an acceptable minimal environ
 // https://sourceware.org/newlib/libc.html#Syscalls
 char* __env[1] = { 0 };
@@ -75,6 +78,10 @@ int write(int file, char *ptr, int len) {
 void amc_register_service(const char* name) {
     sys_amc_register_service(name);
 }
+
+/*
+AMC syscalls
+*/
 
 // Construct an amc message
 amc_message_t* amc_message_construct(const char* data, int len) {
@@ -109,6 +116,18 @@ void amc_message_await_any(amc_message_t* out) {
 
 void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, uint32_t* local_buffer, uint32_t* remote_buffer) {
     sys_amc_shared_memory_create(remote_service, buffer_size, local_buffer, remote_buffer);
+}
+
+/*
+ADI syscalls
+*/
+
+void adi_register_driver(const char* name, uint32_t irq) {
+    sys_adi_register_driver(name, irq);
+}
+
+void adi_interrupt_await(uint32_t irq) {
+    sys_adi_interrupt_await(irq);
 }
 
 /*

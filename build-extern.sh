@@ -19,6 +19,10 @@ cd ./src/user/extern/mouse_driver
 make
 cd ../../../../
 
+cd ./src/user/extern/kb_driver
+make
+cd ../../../../
+
 rm axle.iso
 make run
 
@@ -34,10 +38,6 @@ make
 cd ../../../../
 
 cd ./src/user/extern/postman
-make
-cd ../../../../
-
-cd ./src/user/extern/kb_driver
 make
 cd ../../../../
 

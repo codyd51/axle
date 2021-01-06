@@ -92,6 +92,7 @@ task_small_t* tasking_get_current_task();
 // or from the iosentinel watchdog that notices that the block condition is 
 // satisfied.
 void tasking_block_task(task_small_t* task, task_state blocked_state);
+void tasking_unblock_task(task_small_t* task, bool run_immediately);
 
 void iosentinel_check_now();
 

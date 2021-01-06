@@ -31,7 +31,6 @@ void spinlock_acquire(spinlock_t* lock) {
         // other task)
         if (!interrupts_enabled()) { 
             printf("Spinlock %s held by another consumer while interrupts are disabled\n", lock->name); 
-            printf("Proc [%d] holds the spinlock!\n", lock->holder_pid);
         }
         assert(interrupts_enabled(), "Spinlock held by another consumer while interrupts are disabled");
 
