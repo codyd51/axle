@@ -163,7 +163,7 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     task_spawn(ps2_keyboard_driver_launch, PRIORITY_DRIVER, "");
     task_spawn(ps2_mouse_driver_launch, PRIORITY_DRIVER, "");
     //task_spawn(tty_init);
-    task_spawn(awm_init, PRIORITY_NONE, "");
+    task_spawn(awm_init, PRIORITY_GUI, "");
 
     //task_spawn(cat);
     //task_spawn(rainbow);
