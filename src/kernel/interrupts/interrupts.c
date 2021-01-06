@@ -85,6 +85,7 @@ void irq_receive(register_state_t* regs) {
 	if (int_no != INT_VECTOR_IRQ12 && int_no != INT_VECTOR_IRQ1) {
 		pic_signal_end_of_interrupt(int_no);
 	}
+	if (tasking_is_active()) task_switch();
 
 	return ret;
 }
