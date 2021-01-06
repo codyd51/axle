@@ -12,23 +12,6 @@
 
 static int_callback_t interrupt_handlers[256] = {0};
 
-#define IRQ0  32
-#define IRQ1  33
-#define IRQ2  34
-#define IRQ3  35
-#define IRQ4  36
-#define IRQ5  37
-#define IRQ6  38
-#define IRQ7  39
-#define IRQ8  40
-#define IRQ9  41
-#define IRQ10 42
-#define IRQ11 43
-#define IRQ12 44
-#define IRQ13 45
-#define IRQ14 46
-#define IRQ15 47
-
 /*
 void print_regs(registers_t regs) {
     printf("\n======================    registers    ========================\n");
@@ -82,9 +65,12 @@ void irq_receive(register_state_t* regs) {
 		printf("Unhandled IRQ: %d\n", int_no);
 	}
 
-	if (int_no != INT_VECTOR_IRQ12 && int_no != INT_VECTOR_IRQ1) {
+	// If there is an adi driver for this IRQ, the EOI will be sent by adi
+	if (!adi_services_interrupt(int_no)) {
 		pic_signal_end_of_interrupt(int_no);
 	}
+
+	// If a driver thread was just unblocked to service the interrupt, allow it to run
 	if (tasking_is_active()) task_switch();
 
 	return ret;

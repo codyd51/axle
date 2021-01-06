@@ -50,7 +50,6 @@ static int process_scancode(ps2_kbd_state_t* state, uint8_t scancode) {
 				uint8_t char_value = state->layout->scancode_idx_to_ord[scancode];
 				if (char_value > 0) {
 					const char* desc = state->is_shift_held ? "upper" : "lower";
-					printf("Keypress %s %c\n", desc, char_value);
 					return char_value;
 				}
 				else {

@@ -79,3 +79,8 @@ void adi_interrupt_dispatch(uint32_t irq) {
     adi_driver_t* driver = _adi_drivers + irq;
     tasking_unblock_task(driver->task, false);
 }
+
+bool adi_services_interrupt(uint32_t irq) {
+    assert(irq > 0 && irq < MAX_INT_VECTOR, "Invalid IRQ provided");
+    return _adi_drivers[irq].task != NULL;
+}
