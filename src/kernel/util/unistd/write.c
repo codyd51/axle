@@ -62,7 +62,7 @@ int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
 		char buf[64];
 		memset(buf, 0, sizeof(buf));
 		printk("Requsting %d\n", MIN(sizeof(buf), char_count_remaining));
-		uint32_t char_count_processed_now = std_stream_pop(task->stdout_stream, &buf, MIN(sizeof(buf), char_count_remaining));
+		uint32_t char_count_processed_now = std_stream_pop(task->stdoueet_stream, &buf, MIN(sizeof(buf), char_count_remaining));
 		buf[char_count_processed_now] = '\0';
 		printk("Processed now: %d, %s\n", char_count_processed_now, buf);
 		printk("next iter\n");
@@ -71,26 +71,28 @@ int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
 	}
 	*/
 
-	// TODO(PT): IIRC this is to ensure the provided string is mapped in all addresses it may be
-	// forwarded to, but check if it's still necessary
+	// This string is mapped in the process performing the syscall,
+	// but copy it to kernel memory so we can forward it to any other process
+	// Also, the buffer may not be null-terminated at `len`, so we need to null terminate it ourselves
 	char copy_buf[len+1];
 	strncpy(&copy_buf, buf, len);
 	copy_buf[len] = '\0';
+
 	printk("[PID %d] %s", task->id, copy_buf);
-
 	if (copy_buf[len-1] != '\n') printk("\n");
-	return len;
 
-	/*
-	char* chbuf = (char*)&copy_buf;
-	for (int i = 0; i < len; i += 64) {
-		//serial_putchar(chbuf[i]);
-		//amc_message_t* amc_msg = amc_message_construct__from_core(&chbuf[i], 1);
-		// TODO limit to msg len?
-		amc_message_t* amc_msg = amc_message_construct__from_core(chbuf + i, 64);
-		amc_message_send("com.axle.tty", amc_msg);
+		char* chbuf = (char*)&copy_buf;
+		int bytes_remaining = len;
+		int stride = 64;
+		for (int i = 0; i < len; i += stride) {
+			stride = min(stride, bytes_remaining);
+			bytes_remaining -= stride;
+
+			amc_message_t* amc_msg = amc_message_construct__from_core(chbuf + i, stride);
+			amc_message_send("com.axle.tty", amc_msg);
 	}
-	*/
+
+	return len;
 }
 
 int write(int fd, char* buf, int len) {
@@ -100,8 +102,6 @@ int write(int fd, char* buf, int len) {
 	task_small_t* current = tasking_get_task_with_pid(getpid());
 	// Find the stream associated with the file descriptor
 	fd_entry_t* fd_ent = array_l_lookup(current->fd_table, fd);
-
-	//printf("[%d] WRITE buf 0x%08x len %d, fd_ent type %d: %s\n", getpid(), buf, len, fd_ent->type, buf);
 
 	if (fd_ent->type == STD_TYPE) {
 		return stdout_write(current, fd, buf, len);
