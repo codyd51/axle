@@ -9,6 +9,12 @@ export PATH=/Users/philliptennen/Documents/develop/axle.nosync/i686-toolchain/bi
 export PATH=/Users/philliptennen/Documents/develop/axle.nosync/ports/newlib/bin/bin/:$PATH
 cd "./ports/newlib/build-newlib"
 pwd
+
+# If you make some kind of config change to the axle target, such as adding new files within the newlib port,
+# you may have to run this command
+# You may see an error like the following while running this script:
+# /bin/sh: /Users/philliptennen/Documents/develop/axle/ports/newlib/newlib-2.5.0.20171222/etc/configure: No such file or directory
+
 # ../newlib-2.5.0.20171222/configure --prefix=/usr --target=i686-axle
 
 # Fail when newlib doesn't compile

@@ -9,15 +9,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <kernel/amc.h>
 #include "syscalls.h"
-
-// TODO(PT): Can we copy this definition from the sysroot?
-typedef struct amc_message {
-    const char* source;
-    const char* dest; // May be null if the message is globally broadcast
-    char data[64];
-    int len;
-} amc_message_t;
 
 //DEFN_SYSCALL(kill, 0);
 //DEFN_SYSCALL(execve, 1, char*, char**, char**);

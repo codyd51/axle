@@ -79,6 +79,7 @@ void tasking_init_small();
 bool tasking_is_active();
 
 void task_switch();
+void tasking_goto_task(task_small_t* new_task);
 
 task_small_t* thread_spawn(void* entry_point);
 task_small_t* task_spawn(void* entry_point, task_priority_t priority, const char* task_name);
