@@ -98,8 +98,8 @@ void amc_register_service(const char* name) {
 
     printf("Registering service with name 0x%08x (%s)\n", name, name);
     char buf[256];
-    snprintf(&buf, sizeof(buf), "[AMC spinlock for %s]", name);
-    service->spinlock.name = strdup(&buf);
+    snprintf((char*)&buf, sizeof(buf), "[AMC spinlock for %s]", name);
+    service->spinlock.name = strdup((char*)&buf);
 
     spinlock_acquire(&service->spinlock);
     // The provided string is mapped into the address space of the running process,
@@ -122,36 +122,53 @@ void amc_register_service(const char* name) {
     spinlock_release(&service->spinlock);
 
     printf("After register_service\n");
-    amc_print_services();
 }
 
 static amc_message_t* _amc_message_construct_from_service_name(const char* source_service_name, const char* data, int len) {
+    assert(len < (AMC_MESSAGE_PAYLOAD_SIZE - sizeof(uint8_t)), "invalid len");
     //printf("_amc_message_construct_from_service_name(%s): %d %d %s\n", source_service_name, len, strlen(data), data);
     assert(source_service_name != NULL, "Must provide a source service");
 
     amc_message_t* out = kmalloc(sizeof(amc_message_t));
     memset(out, 0, sizeof(amc_message_t));
 
-    out->source = source_service_name;
+    out->hdr.source = source_service_name;
 
     // Cap length to the size of the `data` field
     //len = min(sizeof(out->data), len);
     //len = min(sizeof(&out->data), len);
 
-    //memset(out->data, 0, 64);
+    //memset(out->body.charlist.data, 0, sizeof(&out->body.charlist.data));
 
-    strncpy(out->data, data, len);
-    //memcpy(out->data, data, len);
-
-    out->len = len;
+    //strncpy(out->data, data, len);
+    out->body.charlist.len = len;
+    memcpy(out->body.charlist.data, data, len);
 
     return out;
+}
+
+static void _amc_print_inbox(amc_service_t* inbox) {
+    printf("--------AMC inbox of %s-------\n", inbox->name);
+    for (int i = 0; i < inbox->message_queue->size; i++) {
+        amc_message_t* message = array_m_lookup(inbox->message_queue, i);
+        //printf("dest %s\n", message->hdr.dest);
+        //assert(message->hdr.dest == inbox->name, "name and dest dont match");
+        printf("\tMessage from %s to %s\n", message->hdr.source, message->hdr.dest);
+    }
+    printf("--------------------------------------\n");
 }
 
 amc_message_t* amc_message_construct(const char* data, int len) {
     amc_service_t* current_service = _amc_service_of_task(tasking_get_current_task());
     assert(current_service != NULL, "Current task is not a registered amc service");
     return _amc_message_construct_from_service_name(current_service->name, data, len);
+}
+
+amc_message_t* amc_message_construct__from_core(const char* data, int len) {
+    // Allows syscalls to send messaages reported as originating from "com.axle.core" 
+    // instead of the process that initiated the syscall
+    amc_message_t* retval = _amc_message_construct_from_service_name("com.axle.core", data, len);
+    return retval;
 }
 
 static void _amc_message_free(amc_message_t* msg) {
@@ -164,10 +181,11 @@ bool amc_message_send(const char* destination_service, amc_message_t* msg) {
     if (destination_service == NULL) {
         NotImplemented();
     }
-    msg->dest = destination_service;
-
     // Find the destination service
     amc_service_t* dest = _amc_service_with_name(destination_service);
+    // Copy the name from the service to ensure the string is mapped in kernel memory
+    // (and thus is available in all processes)
+    msg->hdr.dest = dest->name;
 
     if (dest == NULL) {
         printf("Dropping message because service doesn't exist: %s\n", destination_service);
@@ -213,25 +231,13 @@ void amc_message_await_from_services(int source_service_count, const char** sour
             amc_message_t* message = array_m_lookup(service->message_queue, i);
             for (int service_name_idx = 0; service_name_idx < source_service_count; service_name_idx++) {
                 const char* source_service = source_services[service_name_idx];
-                if (!strcmp(source_service, message->source)) {
-                    /*
-                    // If an interrupt handler were to append a new message while this message was being popped from its inbox,
-                    // the array lock would be held here and there would be contention
-                    // Disable interrupts while modifying the message queue to avoid this
-                    // But don't run an sti if interrupts were already disabled!
-                    bool interrupts_should_be_reenabled = interrupts_enabled();
-                    asm("cli");
-                    */
-
-
+                if (!strcmp(source_service, message->hdr.source)) {
                     // Found a message that we're currently blocked for
-                    //array_l_remove(service->message_queue, i);
                     array_m_remove(service->message_queue, i);
                     // Copy the message into the receiver's storage, and free the internal storage
                     memcpy(out, message, sizeof(amc_message_t));
                     _amc_message_free(message);
 
-                    //if (interrupts_should_be_reenabled) asm("sti");
                     //spinlock_release(&service->spinlock);
                     return;
                 }
@@ -287,14 +293,14 @@ void amc_message_await_any(amc_message_t* out) {
 
 void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, uint32_t* local_buffer_ptr, uint32_t* remote_buffer_ptr) {
     // TODO(PT): Revisit and check everything works, add spinlock?
-    Deprecated();
     amc_service_t* dest = _amc_service_with_name(remote_service);
     if (dest == NULL) {
         printf("Dropping shared memory request because service doesn't exist: %s\n", remote_service);
         // TODO(PT): Need some way to communicate failure to the caller
         return;
     }
-    //lock(&dest->lock);
+
+    spinlock_acquire(&dest->spinlock);
 
     // Pad buffer size to page size
     buffer_size = (buffer_size + PAGE_SIZE) & PAGING_PAGE_MASK;
@@ -307,7 +313,7 @@ void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, 
 
     // Map a region in the destination task that points to the same physical memory
     // And don't allow the destination task to be scheduled while we're modifying its VAS
-    tasking_block_task(dest->task, VMM_MODIFY);
+    //tasking_block_task(dest->task, VMM_MODIFY);
 
     // Map the remote VAS state into the active VAS
     vmm_page_directory_t* virt_remote_pdir = (vmm_page_directory_t*)vas_active_map_temp(dest->task->vmm, sizeof(vmm_page_directory_t));
@@ -328,7 +334,7 @@ void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, 
 
     vas_active_unmap_temp(sizeof(vmm_page_directory_t));
 
-    tasking_unblock_task(dest->task, false);
+    //tasking_unblock_task(dest->task, false);
 
     printf("remote buffer: 0x%08x\n", remote_start);
 
@@ -336,5 +342,5 @@ void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, 
     *local_buffer_ptr = local_buffer;
     *remote_buffer_ptr = remote_start;
 
-    //unlock(&dest->lock);
+    spinlock_release(&dest->spinlock);
 }
