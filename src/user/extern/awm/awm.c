@@ -3,13 +3,18 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <assert.h>
+#include <stdlib.h>
 
-#include <kernel/amc.h>
+#include <agx/font/font.h>
 #include <agx/lib/size.h>
 #include <agx/lib/screen.h>
 #include <agx/lib/shapes.h>
 #include <agx/lib/ca_layer.h>
+#include <agx/lib/putpixel.h>
 
+#include <libamc/libamc.h>
+
+#include "awm.h"
 #include "gfx.h"
 #include "math.h"
 
@@ -72,39 +77,26 @@ static void _awm_overlay_putchar(char ch, Color color) {
 	}
 }
 
-static void handle_keystroke(amc_message_t keystroke_msg) {
+static void handle_keystroke(amc_charlist_message_t* keystroke_msg) {
 	Color keystroke_color = color_white();
-	for (int i = 0; i < keystroke_msg.len; i++) {
-		char ch = keystroke_msg.data[i];
 
-		/*
-		if (ch == 'a') {
-			draw_rect(_screen.vmem, rect_make(point_zero(), _screen.resolution), color_make(rand()%254,rand()%254,rand()%254), THICKNESS_FILLED);
-			for (int i = 0; i < window_count; i++) {
-				user_window_t* win = &windows[i];
-				win->frame.origin.x = 100 + (rand() % 1000);
-				win->frame.origin.y = 100 + (rand() % 600);
-			}
-		}
-		*/
-	
+	uint8_t len = amc_charlist_msg__get_len(keystroke_msg);
+	char* data = amc_charlist_msg_data(keystroke_msg);
+	for (int i = 0; i < len; i++) {
+		char ch = data[i];
 		_awm_overlay_putchar(ch, keystroke_color);
 		printf("awm received keystroke: 0x%02x %c\n", ch, ch);
 	}
 }
 
 static Point mouse_pos = {0};
-static void handle_mouse_event(amc_message_t mouse_event) {
-	uint8_t state = mouse_event.data[0];
-	int8_t rel_x = mouse_event.data[1];
-	int8_t rel_y = mouse_event.data[2];
-	/*
-	printf("Mouse state packet: ");
-	for (int i = 7; i >= 0; i--) {
-		printf("%d", (state >> i) & 0x1);
-	}
-	printf(" (%d %d)\n", rel_x, rel_y);
-	*/
+static void handle_mouse_event(amc_charlist_message_t* mouse_event) {
+	// TODO(PT): Add bytelist
+	uint8_t* mouse_data = (uint8_t*)amc_charlist_msg_data(mouse_event);
+	uint8_t state = mouse_data[0];
+	int8_t rel_x = mouse_data[1];
+	int8_t rel_y = mouse_data[2];
+	printf("awm received mouse packet (state %d) (delta %d %d)\n", state, rel_x, rel_y);
 
 	mouse_pos.x += rel_x;
 	mouse_pos.y += rel_y;
@@ -119,10 +111,12 @@ static void _draw_cursor(void) {
 	draw_rect(_screen.vmem, rect_make(mouse_pos, size_make(10, 10)), color_green(), THICKNESS_FILLED);
 }
 
-static void handle_stdout(amc_message_t tty_msg) {
+static void handle_stdout(amc_charlist_message_t* tty_msg) {
 	Color stdout_color = color_purple();
-	for (int i = 0; i < tty_msg.len; i++) {
-		char ch = tty_msg.data[i];
+	uint8_t len = amc_charlist_msg__get_len(tty_msg);
+	char* charlist = (char*)amc_charlist_msg_data(tty_msg);
+	for (uint8_t i = 0; i < len; i++) {
+		char ch = charlist[i];
 		_awm_overlay_putchar(ch, stdout_color);
 	}
 }
@@ -150,14 +144,10 @@ static void window_create(const char* owner_service) {
 	amc_shared_memory_create(owner_service, buffer_size, &local_buffer, &remote_buffer);
 
 	printf("Created shared memory region for %s. Local 0x%08x - 0x%08x, remote 0x%08x - 0x%08x\n", owner_service, local_buffer, local_buffer + buffer_size, remote_buffer, remote_buffer + buffer_size);
-	char buf[32];
-	snprintf(&buf, 32, "0x%08x", remote_buffer);
-	amc_message_t* framebuf_msg = amc_message_construct(buf, sizeof(buf));
-	amc_message_send(owner_service, framebuf_msg);
+	amc_command_ptr_msg__send(owner_service, AWM_CREATED_WINDOW_FRAMEBUFFER, remote_buffer);
 
 	user_window_t* window = &windows[window_idx];
 	window->frame = rect_make(point_make(200, 300), size_make(800, 600));
-	//window->frame = rect_make(point_zero(), _screen.resolution);
 	window->layer = create_layer(_screen.resolution);
 	printf("Raw window layer: 0x%08x 0x%08x\n", window->layer, window->layer->raw);
 
@@ -196,8 +186,8 @@ static void window_create(const char* owner_service) {
 		}
 	}
 
-	// Draw left border margin
 	/*
+	// Draw left border margin
 	Line left_border = line_make(point_make(0, rect_max_y(title_bar_frame)), point_make(0, window->frame.size.height));
 	draw_line(window->layer, left_border, color_green(), border_margin*2);
 	Line right_border = line_make(point_make(rect_max_x(window->frame) - border_margin, rect_max_y(title_bar_frame)), point_make(rect_max_x(window->frame) - border_margin, window->frame.size.height));
@@ -207,14 +197,12 @@ static void window_create(const char* owner_service) {
 	Line bottom_border = line_make(point_make(0, rect_max_y(window->frame) - border_margin), point_make(rect_max_x(window->frame), rect_max_y(window->frame) - border_margin));
 	draw_line(window->layer, bottom_border, color_green(), border_margin*2);
 	*/
-
-	return window;
 }
 
 static void _request_redraw(const char* owner_service) {
 	char* redraw_cmdstr = "redraw";
 	amc_message_t* redraw_cmd = amc_message_construct(redraw_cmdstr, strlen(redraw_cmdstr));
-	amc_message_send(owner_service, redraw_cmd);
+	//amc_message_send(owner_service, redraw_cmd);
 }
 
 static void _update_window_framebuf_idx(int idx) {
@@ -247,17 +235,17 @@ static void _update_window_framebuf(const char* owner_service) {
 	//blit_layer(_screen.physbase, window->content_view->layer, rect_make(point_zero(), _screen.resolution), rect_make(point_zero(), _screen.resolution));
 }
 
-static void handle_user_message(amc_message_t user_message) {
+static void handle_user_message(amc_command_message_t* user_message) {
+	const char* source_service = amc_message_source(user_message);
 	// User requesting a window to draw in to?
-	if (!strcmp(user_message.data, "get_framebuf")) {
-		window_create(user_message.source);
-		_request_redraw(user_message.source);
+	if (amc_command_msg__get_command(user_message) == AWM_REQUEST_WINDOW_FRAMEBUFFER) {
+		window_create(source_service);
+		//_request_redraw(source_service);
 		return;
 	}
-
-	else if (!strcmp(user_message.data, "update_framebuf")) {
-		//_update_window_framebuf(user_message.source);
-		_request_redraw(user_message.source);
+	else if (amc_command_msg__get_command(user_message) == AWM_WINDOW_REDRAW_READY) {
+		_update_window_framebuf(source_service);
+		//_request_redraw(source_service);
 		return;
 	}
 }
@@ -270,6 +258,7 @@ int main(int argc, char** argv) {
 	printf("Got framebuffer addr %s 0x%08x\n", framebuffer_addr_str, framebuffer_addr);
 
 	framebuffer_info_t* framebuffer_info = (framebuffer_info_t*)framebuffer_addr;
+    printf("0x%08x 0x%08x (%d x %d x %d x %d)\n", framebuffer_info->address, framebuffer_info->size, framebuffer_info->width, framebuffer_info->height, framebuffer_info->bytes_per_pixel, framebuffer_info->bits_per_pixel);
 
     _screen.physbase = (uint32_t*)framebuffer_info->address;
     _screen.video_memory_size = framebuffer_info->size;
@@ -284,7 +273,7 @@ int main(int argc, char** argv) {
 
 	Rect screen_frame = rect_make(point_zero(), _screen.resolution);
 	ca_layer* background = create_layer(screen_frame.size);
-	draw_rect(background, screen_frame, color_purple(), THICKNESS_FILLED);
+	draw_rect(background, screen_frame, color_orange(), THICKNESS_FILLED);
     _screen.vmem = create_layer(screen_frame.size);
 
 	/*
@@ -306,16 +295,18 @@ int main(int argc, char** argv) {
 
 	while (true) {
 		// Wait for a system event or window event
-		amc_message_t msg = {0};
-		amc_message_await_any(&msg);
+		amc_message_t msg_struct = {0};
+		amc_message_t* msg = &msg_struct;
+		amc_message_await_any(msg);
+		const char* source_service = amc_message_source(msg);
 
 		// Process the message we just received
-		if (!strcmp(msg.source, "com.axle.kb_driver")) {
+		if (!strcmp(source_service, "com.axle.kb_driver")) {
 			handle_keystroke(msg);
 			//memcpy(_screen.physbase, _screen.vmem, _screen.resolution.width * 50 * _screen.bytes_per_pixel);
 			//continue;
 		}
-		else if (!strcmp(msg.source, "com.axle.mouse_driver")) {
+		else if (!strcmp(source_service, "com.axle.mouse_driver")) {
 			Point old_mouse_pos = mouse_pos;
 			// Update the mouse position based on the data packet
 			handle_mouse_event(msg);
@@ -331,23 +322,28 @@ int main(int argc, char** argv) {
 			draw_rect(_screen.vmem, rect_make(point_make(new_mouse_rect.origin.x + 2, new_mouse_rect.origin.y + 2), size_make(10, 10)), color_green(), THICKNESS_FILLED);
 
 			// TODO(PT): Determine dirty region and combine these two rects
-			blit_layer(&dummy_layer, _screen.vmem, old_mouse_rect, old_mouse_rect);
-			blit_layer(&dummy_layer, _screen.vmem, new_mouse_rect, new_mouse_rect);
+			//blit_layer(&dummy_layer, _screen.vmem, old_mouse_rect, old_mouse_rect);
+			//blit_layer(&dummy_layer, _screen.vmem, new_mouse_rect, new_mouse_rect);
 
-			continue;
-			//continue
+			//continue;
 		}
-		else if (!strcmp(msg.source, "com.user.window") || !strcmp(msg.source, "com.user.rainbow")) {
+		else if (!strcmp(source_service, "com.user.window") || !strcmp(source_service, "com.user.rainbow") || !strcmp(source_service, "com.axle.tty")) {
+			// TODO(PT): If a window sends REDRAW_READY, we can put it onto a "ready to redraw" list
+			// Items can be popped off the list based on their Z-index, or a periodic time-based update
 			handle_user_message(msg);
 		}
 		else {
-			printf("Unrecognized message: %s", msg.data);
+			printf("Unrecognized message from %s", source_service);
 		}
+
+		// Quick hack for now - each time we go through awm's process-message loop,
+		// update each user window
 		for (int i = 0; i < window_count; i++) {
 			_update_window_framebuf_idx(i);
 		}
+
+		// Copy our internal screen buffer to video memory
 		memcpy(_screen.physbase, _screen.vmem, _screen.resolution.width * _screen.resolution.height * _screen.bytes_per_pixel);
 	}
-
 	return 0;
 }
