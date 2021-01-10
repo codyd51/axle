@@ -9,6 +9,8 @@
 
 #include "shapes.h"
 
+// TODO(PT): Change all occurences of BGR to RGB
+
 static void draw_rect_int(ca_layer* layer, Rect rect, Color color);
 
 //convenience functions to make life easier
@@ -80,38 +82,18 @@ static void draw_rect_int_fast(ca_layer* layer, Rect rect, Color color) {
 	}
 
 	int bpp = gfx_bytes_per_pixel();
-
 	int offset = rect.origin.x * bpp + rect.origin.y * layer->size.width * bpp;
-
-	uint8_t copy[rect.size.width * bpp];
-	for (int i = 0; i < rect.size.width; i++) {
-		int idx = i * bpp;
-		copy[idx + 0] = color.val[2];
-		copy[idx + 1] = color.val[1];
-		copy[idx + 2] = color.val[0];
-	}
-	for (int y = 0; y < rect.size.height; y++) {
-		memcpy(layer->raw + offset, copy, rect.size.width * bpp);
-		//move down 1 row
-		offset += layer->size.width * bpp;
-	}
-
-
-	/*
-	for (int y = rect.origin.y; y < rect.origin.y + rect.size.height; y++) {
-		for (int x = rect.origin.x; x < rect.origin.x + rect.size.width; x++) {
-			if (rgb) {
-				//we have to write the pixels in BGR, not RGB
-				layer->raw[offset++] = color.val[2];
-				layer->raw[offset++] = color.val[1];
-				layer->raw[offset++] = color.val[0];
-			}
-			else {
-				layer->raw[offset++] = color.val[0];
-			}
+	// TODO(PT): This will need to change if our BPP isn't exactly 4
+	//uint32_t value = (color.val[2] << 0) | (color.val[1] << 8) | (color.val[0] << 16);
+	uint8_t* where = layer->raw + offset;
+	for (int i = 0; i < rect.size.height; i++) {
+		for (int j = 0; j < rect.size.width; j++) {
+			where[(j*bpp) + 0] = color.val[0];
+			where[(j*bpp) + 1] = color.val[1];
+			where[(j*bpp) + 2] = color.val[2];
 		}
+		where += layer->size.width * bpp;
 	}
-	*/
 }
 
 void draw_rect(ca_layer* layer, Rect r, Color color, int thickness) {
