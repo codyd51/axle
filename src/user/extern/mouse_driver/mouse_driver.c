@@ -9,6 +9,7 @@
 #include <kernel/idt.h>
 
 #include "mouse_driver.h"
+#include "math.h"
 
 typedef struct ps2_mouse_state {
 	uint8_t idx;
@@ -74,7 +75,7 @@ int main(int argc, char** argv) {
 				continue;
 			}
 
-			//printf("Sending packet to awm: %d %d %d (%d %d)\n", status_byte, state.buffer[1], state.buffer[2], rel_x, rel_y);
+			printf("Sending packet to awm: %d %d %d (%d %d)\n", status_byte, state.buffer[1], state.buffer[2], rel_x, rel_y);
 
 			state.idx = 0;
 			memset(&state.buffer, 0, sizeof(state.buffer));

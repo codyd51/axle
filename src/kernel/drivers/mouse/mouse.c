@@ -11,9 +11,8 @@
 #define PS2_MOUSE_CMD_ENABLE_DATA_REPORTING 0xF4
 #define PS2_MOUSE_RESP_ACKNOWLEDGE 0xFA
 
-static int mouse_callback(registers_t* regs) {
+static void mouse_callback(registers_t* regs) {
 	adi_interrupt_dispatch(regs->int_no);
-	return 0;
 }
 
 void ps2_mouse_enable(void) {

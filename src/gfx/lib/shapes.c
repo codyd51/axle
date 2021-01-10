@@ -5,6 +5,8 @@
 
 static void draw_rect_int(ca_layer* layer, Rect rect, Color color);
 
+// TODO(PT): Change all occurences of BGR to RGB
+
 //convenience functions to make life easier
 double line_length(Line line) {
 	//distance formula
@@ -109,6 +111,7 @@ static void draw_rect_int_fast(ca_layer* layer, Rect rect, Color color) {
 }
 
 void draw_rect(ca_layer* layer, Rect r, Color color, int thickness) {
+	Deprecated();
 	if (thickness == 0) return;
 
 	int max_thickness = (MIN(r.size.width, r.size.height)) / 2;

@@ -11,5 +11,5 @@ LDFLAGS = -T ./linker.ld -L$(SYSROOT)/usr/i686-axle/lib -lc
 tty: tty.c
 	$(CC) $(CFLAGS) -o tty.o -c tty.c; \
 	# Place LDFlags after object files: https://stackoverflow.com/questions/34848192/assembler-gcc-undefined-reference-to-puts
-	$(LD) -o tty tty.o $(LDFLAGS)
+	$(LD) -o tty tty.o -lagx -lamc $(LDFLAGS)
 	mv tty $(DIR)/initrd;
