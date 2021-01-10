@@ -11,9 +11,9 @@ Color color_make(uint8_t red, uint8_t green, uint8_t blue) {
 	blue = MIN(blue, 255);
 
 	Color ret;
-	ret.val[0] = red;
+	ret.val[0] = blue;
 	ret.val[1] = green;
-	ret.val[2] = blue;
+	ret.val[2] = red;
 	return ret;
 }
 
