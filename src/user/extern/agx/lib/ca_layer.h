@@ -10,7 +10,7 @@ typedef struct ca_layer_t {
 	uint8_t* raw; //raw RGB values backing this layer
 	float alpha; //transparency value bounded to continuous range [0..1]
 	//List* clip_rects; //list of visible rects within layer that should be rendered
-} ca_layer;
+} ca_layer; // TODO rename to ca_layer_t
 
 typedef struct clip_context {
 	ca_layer* source_layer;

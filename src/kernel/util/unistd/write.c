@@ -12,6 +12,7 @@
 
 int xserv_write(task_t* task, int UNUSED(fd), const void* buf, int len) {
 	Deprecated();
+	return -1;
 	/*
 	const char* chbuf = (char*)buf;
 
@@ -83,7 +84,7 @@ int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
 
 		char* chbuf = (char*)&copy_buf;
 		int bytes_remaining = len;
-		int stride = 64;
+		int stride = 40;
 		for (int i = 0; i < len; i += stride) {
 			stride = min(stride, bytes_remaining);
 			bytes_remaining -= stride;
@@ -108,6 +109,7 @@ int write(int fd, char* buf, int len) {
 	}
 
 	NotImplemented();
+	return -1;
 
 	/*
 	//translate address if binary is mapped at an offset in memory

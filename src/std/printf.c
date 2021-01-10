@@ -261,12 +261,14 @@ static int print_common(print_destination dest, const char* fmt, va_list va) {
     //TODO(PT): the buffered string should be sent to an stdout handle
     switch (dest) {
         case PRINT_DESTINATION_TEXT_MODE:
+            /*
             if (!gfx_screen()) {
                 text_mode_puts(buf);
             }
             else {
                 gfx_terminal_puts(buf);
             }
+            */
             // Always mirror text-mode output to the syslog
             serial_puts(buf);
             break;

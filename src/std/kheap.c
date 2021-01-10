@@ -283,12 +283,12 @@ struct liballoc_major *allocate_new_page( unsigned int size )
 
 		l_allocated += maj->size;
 
-		//#ifdef DEBUG
+		#ifdef DEBUG
 		printf( "liballoc: Resource allocated %x of %d pages (%d bytes) for %d size.\n", maj, st, maj->size, size );
 
 		printf( "liballoc: Total memory usage = %d KB\n",  (int)((l_allocated / (1024))) );
 		FLUSH();
-		//#endif
+		#endif
 	
 		
       return maj;

@@ -23,12 +23,10 @@ void layer_teardown(ca_layer* layer) {
 
 ca_layer* create_layer(Size size) {
 	ca_layer* ret = (ca_layer*)malloc(sizeof(ca_layer));
+	memset(ret, 0, sizeof(ca_layer));
 	ret->size = size;
-
 	ret->raw = malloc(size.width * size.height * gfx_bytes_per_pixel());
-
 	ret->alpha = 1.0;
-	//ret->clip_rects = List_new();
 	return ret;
 }
 
