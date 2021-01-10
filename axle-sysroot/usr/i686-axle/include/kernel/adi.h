@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <kernel/multitasking/tasks/task_small.h>
+//#include <kernel/multitasking/tasks/task_small.h>
 
 // TODO(PT): A build-system step that copies certain headers (AMC, ADI, idt.h) to the sysroot
 
@@ -11,7 +11,7 @@ typedef struct adi_driver {
     uint32_t irq;
     uint32_t int_count;
     const char* name;
-    task_small_t* task;
+    void* task; // task_small_t
 } adi_driver_t;
 
 // ############

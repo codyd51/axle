@@ -12,17 +12,14 @@ cp src/kernel/interrupts/idt.h axle-sysroot/usr/i686-axle/include/kernel/idt.h
 # This is so syscalls get the right struct definitions
 cp -r axle-sysroot/usr/i686-axle/include/kernel ports/newlib/newlib-2.5.0.20171222/newlib/libc/sys/axle/include/
 
-python3 ./build-libagx.py
+# Copy awm headers to the sysroot so other programs can use its message protocol
+cp src/user/extern/awm/awm.h axle-sysroot/usr/i686-axle/include/awm/awm.h
+
+python3 ./build-libs.py
 
 cd ./src/user/extern/awm
 make
 cd ../../../../
-
-cd initrd
-../fsgen ./
-mv initrd.img ../initrd.img
-cd ..
-mv initrd.img isodir/boot/initrd.img
 
 cd ./src/user/extern/mouse_driver
 make
@@ -35,6 +32,13 @@ cd ../../../../
 cd ./src/user/extern/tty
 make
 cd ../../../../
+
+cd initrd
+../fsgen ./
+mv initrd.img ../initrd.img
+cd ..
+mv initrd.img isodir/boot/initrd.img
+
 
 rm axle.iso
 make run

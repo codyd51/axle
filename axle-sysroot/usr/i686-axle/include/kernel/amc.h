@@ -48,6 +48,10 @@ typedef struct amc_message {
     amc_msg_body_t body;
 } amc_message_t;
 
+typedef amc_message_t amc_charlist_message_t;
+typedef amc_message_t amc_command_message_t;
+typedef amc_message_t amc_command_ptr_message_t;
+
 // Register the running process as the provided service name
 void amc_register_service(const char* name);
 
