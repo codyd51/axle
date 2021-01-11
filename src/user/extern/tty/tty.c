@@ -124,20 +124,19 @@ int main(int argc, char** argv) {
 
 	while (true) {
 		amc_charlist_message_t msg = {0};
-		// TODO(PT): While messages available, draw, then ask for redraw and block
-		// Need a blocking and non-blocking await
-		amc_message_await("com.axle.core", &msg);
+		do {
+			// Wait until we've unblocked with at least one message available
+			amc_message_await("com.axle.core", &msg);
 
-		for (int i = 0; i < msg.body.charlist.len; i++) {
-			char ch = msg.body.charlist.data[i];
-			_putchar(text_box, ch, color_make(135, 20, 20));
-		}
-		// TODO(PT): Weird page faults happen if this line is uncommented (Follow-up: shouldn't happen any more)
-		/*
-		const char* redraw_cmd = "update_framebuf";
-		amc_message_t* redraw_msg = amc_message_construct(redraw_cmd, strlen(redraw_cmd));
-		amc_message_send("com.axle.awm", redraw_msg);
-		*/
+			// We've got at least one message available
+			// Process each message in our inbox
+			for (int i = 0; i < msg.body.charlist.len; i++) {
+				char ch = msg.body.charlist.data[i];
+				_putchar(text_box, ch, color_make(135, 20, 20));
+			}
+		} while (amc_has_message_from("com.axle.core"));
+		// We're out of messages to process - ask awm to redraw the window with our updates
+		amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 	}
 	
 	return 0;
