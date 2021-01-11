@@ -37,9 +37,12 @@ DEFN_SYSCALL(amc_message_await, 29, const char*, amc_message_t*);
 DEFN_SYSCALL(amc_message_await_from_services, 30, int, const char**, amc_message_t*);
 DEFN_SYSCALL(amc_message_await_any, 31, amc_message_t*);
 DEFN_SYSCALL(amc_shared_memory_create, 32, const char*, uint32_t, uint32_t*, uint32_t*);
+DEFN_SYSCALL(amc_has_message_from, 33, const char*);
+DEFN_SYSCALL(amc_has_message, 34);
 
-DEFN_SYSCALL(adi_register_driver, 33, const char*, uint32_t);
-DEFN_SYSCALL(adi_interrupt_await, 34, uint32_t);
+DEFN_SYSCALL(adi_register_driver, 35, const char*, uint32_t);
+DEFN_SYSCALL(adi_interrupt_await, 36, uint32_t);
+
 
 // According to the documentation, this is an acceptable minimal environ
 // https://sourceware.org/newlib/libc.html#Syscalls
@@ -109,6 +112,14 @@ void amc_message_await_any(amc_message_t* out) {
 
 void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, uint32_t* local_buffer, uint32_t* remote_buffer) {
     sys_amc_shared_memory_create(remote_service, buffer_size, local_buffer, remote_buffer);
+}
+
+bool amc_has_message_from(const char* source_service) {
+    return sys_amc_has_message_from(source_service);
+}
+
+bool amc_has_message(void) {
+    return sys_amc_has_message();
 }
 
 /*

@@ -94,10 +94,12 @@ DEFN_SYSCALL(amc_message_await, 29, const char*, amc_message_t**);
 DEFN_SYSCALL(amc_message_await_from_services, 30, int, const char**, amc_message_t**);
 DEFN_SYSCALL(amc_message_await_any, 31, amc_message_t**);
 DEFN_SYSCALL(amc_shared_memory_create, 32, const char*, uint32_t, uint32_t*, uint32_t*);
+DEFN_SYSCALL(amc_has_message_from, 33, const char*);
+DEFN_SYSCALL(amc_has_message, 34);
 
 // ADI syscalls
-DEFN_SYSCALL(adi_register_driver, 33, const char*, uint32_t);
-DEFN_SYSCALL(adi_interrupt_await, 34, uint32_t);
+DEFN_SYSCALL(adi_register_driver, 35, const char*, uint32_t);
+DEFN_SYSCALL(adi_interrupt_await, 36, uint32_t);
 
 void create_sysfuncs() {
 	syscall_add((void*)&_kill);
@@ -134,8 +136,13 @@ void create_sysfuncs() {
 	syscall_add((void*)&amc_message_await_from_services);
 	syscall_add((void*)&amc_message_await_any);
 	syscall_add((void*)&amc_shared_memory_create);
+	syscall_add((void*)&amc_has_message_from);
+	syscall_add((void*)&amc_has_message);
 
 	syscall_add((void*)&adi_register_driver);
 	syscall_add((void*)&adi_interrupt_await);
 
+	syscall_add((void*)&debug_awm);
+	syscall_add((void*)&vmm_kern_global_alloc);
+	syscall_add((void*)&vmm_kern_global_free);
 }

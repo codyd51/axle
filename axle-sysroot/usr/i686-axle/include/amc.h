@@ -48,10 +48,6 @@ typedef struct amc_message {
     amc_msg_body_t body;
 } amc_message_t;
 
-typedef amc_message_t amc_charlist_message_t;
-typedef amc_message_t amc_command_message_t;
-typedef amc_message_t amc_command_ptr_message_t;
-
 // Register the running process as the provided service name
 void amc_register_service(const char* name);
 
@@ -72,13 +68,6 @@ void amc_message_await_from_services(int source_service_count, const char** sour
 // Await a message from any service
 // Blocks until a message is received
 void amc_message_await_any(amc_message_t* out);
-
-// Returns whether the service has a message in its inbox from the provided service
-// The return value indicates whether a call to `amc_message_await` is currently non-blocking
-bool amc_has_message_from(const char* source_service);
-// Returns whether the service has any message in its inbox
-// The return value indicates whether a call to `amc_message_await` is currently non-blocking
-bool amc_has_message(void);
 
 // Create a shared memory region between the current service and a destination service
 // Writes the virtual addresses of the local and remote regions to the "out" parameters

@@ -291,6 +291,26 @@ void amc_message_await_any(amc_message_t* out) {
     spinlock_release(&service->spinlock);
 }
 
+bool amc_has_message_from(const char* source_service) {
+    amc_service_t* service = _amc_service_of_task(tasking_get_current_task());
+    spinlock_acquire(&service->spinlock);
+
+    for (int i = 0; i < service->message_queue->size; i++) {
+        amc_message_t* message = array_m_lookup(service->message_queue, i);
+        if (!strcmp(source_service, message->hdr.source)) {
+            spinlock_release(&service->spinlock);
+            return true;
+        }
+    }
+    spinlock_release(&service->spinlock);
+    return false;
+}
+
+bool amc_has_message(void) {
+    amc_service_t* service = _amc_service_of_task(tasking_get_current_task());
+    return service->message_queue->size > 0;
+}
+
 void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, uint32_t* local_buffer_ptr, uint32_t* remote_buffer_ptr) {
     // TODO(PT): Revisit and check everything works, add spinlock?
     amc_service_t* dest = _amc_service_with_name(remote_service);

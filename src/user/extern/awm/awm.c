@@ -215,14 +215,13 @@ static void _update_window_framebuf_idx(int idx) {
 }
 
 static void _update_window_framebuf(const char* owner_service) {
-	printf("Reading shared framebuffer\n");
 	user_window_t* window = _window_for_service(owner_service);
 	if (!window) {
 		printf("Failed to find a window for %s\n", owner_service);
 		return;
 	}
 
-	printf("Blitting layer for %s: 0x%08x -> 0x%08x\n", owner_service, window->layer->raw, _screen.vmem->raw);
+	//printf("Blitting layer for %s: 0x%08x -> 0x%08x\n", owner_service, window->layer->raw, _screen.vmem->raw);
 	//blit_layer(_screen.vmem, window->layer, window->frame, rect_make(point_zero(), window->frame.size));
 
 	Rect title_bar_frame = rect_make(point_zero(), size_make(window->frame.size.width, 40));
