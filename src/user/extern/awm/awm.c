@@ -11,6 +11,7 @@
 #include <agx/lib/shapes.h>
 #include <agx/lib/ca_layer.h>
 #include <agx/lib/putpixel.h>
+#include <agx/lib/text_box.h>
 
 #include <libamc/libamc.h>
 
@@ -23,18 +24,9 @@ typedef struct view {
 	ca_layer* layer;
 } view_t;
 
-typedef struct text_box {
-	ca_layer* layer;
-	Size size;
-	Point origin;
-	Size font_size;
-	Size font_padding;
-	Point cursor_pos;
-} text_box_t;
-
 typedef struct user_window {
 	Rect frame;
-	text_box_t title_text_box;
+	text_box_t* title_text_box;
 	ca_layer* layer;
 	//view_t* title_view;
 	view_t* content_view;
@@ -199,14 +191,6 @@ static user_window_t* _window_for_service(const char* owner_service) {
 	return NULL;
 }
 
-// TODO(PT): Move text_box and this function into agx 
-// TODO(PT): (Use the variant from TTY as it includes newline, etc.)
-// TODO(PT): This is a stripped down version for window bar titles
-static void _putchar(text_box_t* text_box, char ch, Color color) {
-	draw_char(text_box->layer, ch, text_box->cursor_pos.x, text_box->cursor_pos.y, color, text_box->font_size);
-	text_box->cursor_pos.x += text_box->font_size.width + text_box->font_padding.width;
-}
-
 static void window_create(const char* owner_service, uint32_t width, uint32_t height) {
 	int window_idx = window_count++;
 	if (window_count > sizeof(windows) / sizeof(windows[0])) {
@@ -220,7 +204,9 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	uint32_t remote_buffer;
 	amc_shared_memory_create(owner_service, buffer_size, &local_buffer, &remote_buffer);
 
-	printf("Created shared memory region for %s. Local 0x%08x - 0x%08x, remote 0x%08x - 0x%08x\n", owner_service, local_buffer, local_buffer + buffer_size, remote_buffer, remote_buffer + buffer_size);
+	printf("AWM made shared framebuffer for %s\n", owner_service);
+	printf("\tAWM    memory: 0x%08x - 0x%08x\n", local_buffer, local_buffer + buffer_size);
+	printf("\tRemote memory: 0x%08x - 0x%08x\n", remote_buffer, remote_buffer + buffer_size);
 	amc_command_ptr_msg__send(owner_service, AWM_CREATED_WINDOW_FRAMEBUFFER, remote_buffer);
 
 	user_window_t* window = &windows[window_idx];
@@ -242,13 +228,7 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	window->owner_service = owner_service;
 
 	// Configure the title text box
-	memset(&window->title_text_box, 0, sizeof(text_box_t));
-	window->title_text_box.layer = window->layer;
-	window->title_text_box.origin = point_make(border_margin, border_margin);
-	window->title_text_box.size = title_bar_frame.size;
-	window->title_text_box.cursor_pos = window->title_text_box.origin;
-	window->title_text_box.font_size = size_make(10, 10);
-	window->title_text_box.font_padding = size_make(0, 2);
+	window->title_text_box = text_box_create(title_bar_size, color_black());
 
 	// Draw top window bar
 	Color c1 = color_make(200, 160, 90);
@@ -256,13 +236,13 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	Color active = c1;
 	Color inactive = c2;
 	int block_size = 4;
-	for (int y = 0; y < title_bar_frame.size.height; y++) {
+	for (int y = 0; y < title_bar_size.height; y++) {
 		if (y % block_size == 0) {
 			Color tmp = active;
 			active = inactive;
 			inactive = tmp;
 		}
-		for (int x = 0; x < title_bar_frame.size.width; x++) {
+		for (int x = 0; x < title_bar_size.width; x++) {
 			if (x % block_size == 0) {
 				Color tmp = active;
 				active = inactive;
@@ -273,32 +253,25 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	}
 
 	// Draw window title
-	uint32_t title_len = (10 * strlen(owner_service));
-	draw_rect(
+	uint32_t title_len = ((window->title_text_box->font_size.width + window->title_text_box->font_padding.width) * strlen(owner_service));
+	Point title_text_origin = point_make(border_margin, border_margin);
+	for (int i = 0; i < strlen(owner_service); i++) {
+		text_box_putchar(window->title_text_box, owner_service[i], color_white());
+	}
+	Size visible_title_bar_size = size_make(title_len, 14);
+	blit_layer(
 		window->layer, 
+		window->title_text_box->layer, 
 		rect_make(
 			point_make(
-				window->title_text_box.origin.x - 2,
-				window->title_text_box.origin.y - 2),
-			size_make(title_len + 4, 14)), 
-		color_black(), 
-		THICKNESS_FILLED
+				title_text_origin.x - 2,
+				title_text_origin.y - 2
+			),
+			visible_title_bar_size
+		),
+		rect_make(point_zero(), visible_title_bar_size)
 	);
-	for (int i = 0; i < strlen(owner_service); i++) {
-		_putchar(&window->title_text_box, owner_service[i], color_white());
-	}
 
-	/*
-	// Draw left border margin
-	Line left_border = line_make(point_make(0, rect_max_y(title_bar_frame)), point_make(0, window->frame.size.height));
-	draw_line(window->layer, left_border, color_green(), border_margin*2);
-	Line right_border = line_make(point_make(rect_max_x(window->frame) - border_margin, rect_max_y(title_bar_frame)), point_make(rect_max_x(window->frame) - border_margin, window->frame.size.height));
-	draw_line(window->layer, right_border, color_green(), border_margin*2);
-	Line top_border = line_make(point_make(0, rect_max_y(title_bar_frame)), point_make(rect_max_x(window->frame), rect_max_y(title_bar_frame)));
-	draw_line(window->layer, top_border, color_green(), border_margin*2);
-	Line bottom_border = line_make(point_make(0, rect_max_y(window->frame) - border_margin), point_make(rect_max_x(window->frame), rect_max_y(window->frame) - border_margin));
-	draw_line(window->layer, bottom_border, color_green(), border_margin*2);
-	*/
 }
 
 static void _request_redraw(const char* owner_service) {
@@ -436,6 +409,7 @@ int main(int argc, char** argv) {
 			blit_layer(_screen.vmem, window->layer, window->frame, rect_make(point_zero(), window->frame.size));
 		}
 		// Draw a VStack of currently active applications, so the user is aware
+		// TODO(PT): Move this to a `window_order_changed` delegate
 		Size vstack_row_size = size_make(200, 30);
 		uint32_t vstack_y = _screen.resolution.height - vstack_row_size.height;
 		for (int i = window_count-1; i >= 0; i--) {
@@ -444,19 +418,26 @@ int main(int argc, char** argv) {
 				point_make(0, vstack_y),
 				vstack_row_size
 			);
-			draw_rect(_screen.vmem, box, color_red(), THICKNESS_FILLED);
-			draw_rect(_screen.vmem, box, color_dark_gray(), 1);
 
-			text_box_t text_box;
-			text_box.layer = _screen.vmem;
-			text_box.origin = point_make(box.origin.x, vstack_y + 2);
-			text_box.size = vstack_row_size;
-			text_box.cursor_pos = point_make(text_box.origin.x + 2, text_box.origin.y);
-			text_box.font_size = size_make(10, 10);
-			text_box.font_padding = size_make(0, 2);
+			text_box_t* text_box = text_box_create(vstack_row_size, color_black());
+			text_box->font_size = size_make(10, 10);
+			text_box->font_padding = size_make(0, 2);
 			for (int i = 0; i < strlen(window->owner_service); i++) {
-				_putchar(&text_box, window->owner_service[i], color_white());
+				text_box_putchar(text_box, window->owner_service[i], color_white());
 			}
+			blit_layer(
+				_screen.vmem, 
+				text_box->layer, 
+				rect_make(
+					point_make(box.origin.x, vstack_y + 2), 
+					vstack_row_size
+				),
+				rect_make(
+					point_zero(), 
+					vstack_row_size
+				)
+			);
+			text_box_destroy(text_box);
 
 			vstack_y -= vstack_row_size.height;
 		}

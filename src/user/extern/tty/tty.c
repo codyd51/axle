@@ -10,6 +10,7 @@
 #include <agx/lib/shapes.h>
 #include <agx/lib/ca_layer.h>
 #include <agx/lib/putpixel.h>
+#include <agx/lib/text_box.h>
 
 // Window management
 #include <awm/awm.h>
@@ -18,15 +19,6 @@
 #include <libamc/libamc.h>
 
 #include "gfx.h"
-
-typedef struct text_box {
-	ca_layer* layer;
-	Size size;
-	Point origin;
-	Size font_size;
-	Size font_padding;
-	Point cursor_pos;
-} text_box_t;
 
 // Many graphics lib functions call gfx_screen() 
 Screen _screen = {0};
@@ -39,39 +31,6 @@ static void _handle_awm_message(amc_charlist_message_t awm_msg) {
 		const char* cmd2 = "update_framebuf";
 		amc_message_t* draw_framebuf_msg = amc_message_construct(cmd2, strlen(cmd2));
 		amc_message_send("com.axle.awm", draw_framebuf_msg);
-	}
-}
-
-static void _newline(text_box_t* text_box) {
-	text_box->cursor_pos.x = text_box->origin.x;
-	text_box->cursor_pos.y += text_box->font_size.height + text_box->font_padding.height;
-
-	if (text_box->cursor_pos.y >= text_box->size.height) {
-		draw_rect(text_box->layer, rect_make(text_box->origin, text_box->size), color_white(), THICKNESS_FILLED);
-		text_box->cursor_pos = text_box->origin;
-	}
-}
-
-static void _putchar(text_box_t* text_box, char ch, Color color) {
-	if (ch == '\n') {
-		_newline(text_box);
-		return;
-	}
-	draw_char(text_box->layer, ch, text_box->cursor_pos.x, text_box->cursor_pos.y, color, text_box->font_size);
-
-	text_box->cursor_pos.x += text_box->font_size.width + text_box->font_padding.width;
-	if (text_box->cursor_pos.x >= text_box->size.width) {
-		_newline(text_box);
-		return;
-	}
-}
-
-static void _handle_tty_message(text_box_t* text_box, amc_charlist_message_t tty_msg) {
-	Color stdout_color = color_purple();
-	text_box->cursor_pos.x = 0;
-	for (int i = 0; i < tty_msg.body.charlist.len; i++) {
-		char ch = tty_msg.body.charlist.data[i];
-		_putchar(text_box, ch, color_black());
 	}
 }
 
@@ -109,19 +68,23 @@ static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.tty");
 
-	Size window_size = size_make(900, 900);
+	Size window_size = size_make(700, 900);
+	Rect window_frame = rect_make(point_zero(), window_size);
 	ca_layer* window_layer = window_layer_get(window_size.width, window_size.height);
 
-	text_box_t* text_box = malloc(sizeof(text_box_t));
-	memset(text_box, 0, sizeof(text_box_t));
-	text_box->layer = window_layer;
-	text_box->origin = point_make(6, 6);
-	text_box->size = size_make(window_size.width - (text_box->origin.x * 2), window_size.height - (text_box->origin.y * 2));
-	text_box->cursor_pos = text_box->origin;
-	text_box->font_size = size_make(10, 10);
-	text_box->font_padding = size_make(0, 2);
-
-	draw_rect(window_layer, rect_make(point_zero(), window_size), color_white(), THICKNESS_FILLED);
+	int text_box_padding = 6;
+	Rect text_box_frame = rect_make(
+		point_make(
+			text_box_padding,
+			text_box_padding
+		),
+		size_make(
+			window_size.width - (text_box_padding * 2), 
+			window_size.height - (text_box_padding * 2)
+		)
+	);
+	draw_rect(window_layer, window_frame, color_light_gray(), THICKNESS_FILLED);
+	text_box_t* text_box = text_box_create(text_box_frame.size, color_white());
 
 	while (true) {
 		amc_charlist_message_t msg = {0};
@@ -129,14 +92,13 @@ int main(int argc, char** argv) {
 		do {
 			// Wait until we've unblocked with at least one message available
 			amc_message_await("com.axle.core", &msg);
-
-			// We've got at least one message available
-			// Process each message in our inbox
 			for (int i = 0; i < msg.body.charlist.len; i++) {
 				char ch = msg.body.charlist.data[i];
-				_putchar(text_box, ch, color_make(135, 20, 20));
+				text_box_putchar(text_box, ch, color_make(135, 20, 20));
 			}
 		} while (amc_has_message_from("com.axle.core"));
+		// Blit the text box to the window layer
+		blit_layer(window_layer, text_box->layer, text_box_frame, rect_make(point_zero(), text_box_frame.size));
 		// We're out of messages to process - ask awm to redraw the window with our updates
 		amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 	}

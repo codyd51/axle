@@ -88,14 +88,13 @@ int main(int argc, char** argv) {
 	draw_rect(window_layer, rect_make(point_zero(), window_size), color_red(), THICKNESS_FILLED);
 	amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 
-	int i = 0;
 	while (true) {
 		// TODO(PT): For some reason interrupts are disabled here - fix it
 		asm("sti");
 		Color c1 = color_make(rand() % 255, rand() % 255, rand() % 255);
 		Color c2 = color_make(rand() % 255, rand() % 255, rand() % 255);
 		//_radial_gradiant(window_layer, window_size, c1, c2, window_size.width/2, window_size.height / 2, (float)window_size.height/4);
-		_radial_gradiant(window_layer, window_size, c1, c2, window_size.width/2, 200, (float)window_size.height/4);
+		_radial_gradiant(window_layer, window_size, c1, c2, window_size.width/2, window_size.height/2, (float)window_size.height/4);
 		amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 	}
 
