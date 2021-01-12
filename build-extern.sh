@@ -33,6 +33,18 @@ cd ./src/user/extern/tty
 make
 cd ../../../../
 
+cd ./src/user/extern/rainbow
+make
+cd ../../../../
+
+cd ./src/user/extern/paintbrush
+make
+cd ../../../../
+
+cd ./src/user/extern/textpad
+make
+cd ../../../../
+
 cd initrd
 ../fsgen ./
 mv initrd.img ../initrd.img
@@ -62,9 +74,6 @@ cd ./src/user/extern/window
 make
 cd ../../../../
 
-cd ./src/user/extern/rainbow
-make
-cd ../../../../
 
 cd initrd
 ../fsgen ./
