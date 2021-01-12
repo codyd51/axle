@@ -122,7 +122,28 @@ static void mouse_dispatch_events(uint8_t mouse_state, Point mouse_point, int8_t
 		}
 		else {
 			// We've moved the mouse within a window
-			//printf("Mouse moved within %s\n", _prev_window_containing_mouse->owner_service);
+			// Try to see if we've just entered a higher window
+			uint32_t current_window_pos = _prev_window_containing_mouse - windows;
+			for (int i = 0; i < current_window_pos; i++) {
+				user_window_t* higher_window = &windows[i];
+				if (rect_contains_point(higher_window->frame, mouse_point)) {
+					printf("Mouse exited %s\n", _prev_window_containing_mouse->owner_service);
+					amc_command_msg__send(_prev_window_containing_mouse->owner_service, AWM_MOUSE_EXITED);
+					// Reset the cursor state
+					_prev_window_containing_mouse = NULL;
+					// TODO(PT): Everything to do with "left click state" should be managed within delegate functions
+					// TODO(PT): As well as everything to do with "window events"
+					_left_click_window = NULL;
+
+					printf("Entered higher window %s\n", higher_window->owner_service);
+					// Inform the window the mouse has just entered it
+					amc_command_msg__send(higher_window->owner_service, AWM_MOUSE_ENTERED);
+					// Keep track that we're currently within this window
+					_prev_window_containing_mouse = higher_window;
+					break;
+				}
+			}
+
 			Point local_mouse = point_make(mouse_point.x - _prev_window_containing_mouse->frame.origin.x, mouse_point.y - _prev_window_containing_mouse->frame.origin.y);
 			amc_msg_u32_3__send(_prev_window_containing_mouse->owner_service, AWM_MOUSE_MOVED, local_mouse.x, local_mouse.y);
 
