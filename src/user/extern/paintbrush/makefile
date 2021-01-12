@@ -8,8 +8,8 @@ LIBRARY_PATH=$(SYSROOT)/usr/i686-axle/lib:$(LIBRARY_PATH)
 CFLAGS = -I$(SYSROOT)/usr/i686-axle/include -g -L$(SYSROOT)/usr/i686-axle/lib -Wl,-Bstatic -lc -nostartfiles
 LDFLAGS = -T ./linker.ld -L$(SYSROOT)/usr/i686-axle/lib -lc
 
-rainbow: rainbow.c
-	$(CC) $(CFLAGS) -o rainbow.o -c rainbow.c; \
+paintbrush: paintbrush.c
+	$(CC) $(CFLAGS) -o paintbrush.o -c paintbrush.c; \
 	# Place LDFlags after object files: https://stackoverflow.com/questions/34848192/assembler-gcc-undefined-reference-to-puts
-	$(LD) -o rainbow rainbow.o -lagx -lamc $(LDFLAGS)
-	mv rainbow $(DIR)/initrd;
+	$(LD) -o paintbrush paintbrush.o -lagx -lamc $(LDFLAGS)
+	mv paintbrush $(DIR)/initrd;
