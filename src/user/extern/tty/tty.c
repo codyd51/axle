@@ -75,9 +75,9 @@ static void _handle_tty_message(text_box_t* text_box, amc_charlist_message_t tty
 	}
 }
 
-static ca_layer* window_layer_get() {
+static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 	// Ask awm to make a window for us
-	amc_command_msg__send("com.axle.awm", AWM_REQUEST_WINDOW_FRAMEBUFFER);
+	amc_msg_u32_3__send("com.axle.awm", AWM_REQUEST_WINDOW_FRAMEBUFFER, width, height);
 	// And get back info about the window it made
 	amc_command_ptr_message_t receive_framebuf = {0};
 	amc_message_await("com.axle.awm", &receive_framebuf);
@@ -109,21 +109,23 @@ static ca_layer* window_layer_get() {
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.tty");
 
-	ca_layer* window_layer = window_layer_get();
+	Size window_size = size_make(900, 900);
+	ca_layer* window_layer = window_layer_get(window_size.width, window_size.height);
 
 	text_box_t* text_box = malloc(sizeof(text_box_t));
 	memset(text_box, 0, sizeof(text_box_t));
 	text_box->layer = window_layer;
 	text_box->origin = point_make(6, 6);
-	text_box->size = size_make(800 - (text_box->origin.x * 2), 600 - (text_box->origin.y * 2));
+	text_box->size = size_make(window_size.width - (text_box->origin.x * 2), window_size.height - (text_box->origin.y * 2));
 	text_box->cursor_pos = text_box->origin;
 	text_box->font_size = size_make(10, 10);
 	text_box->font_padding = size_make(0, 2);
 
-	draw_rect(window_layer, rect_make(point_zero(), size_make(800, 600)), color_white(), THICKNESS_FILLED);
+	draw_rect(window_layer, rect_make(point_zero(), window_size), color_white(), THICKNESS_FILLED);
 
 	while (true) {
 		amc_charlist_message_t msg = {0};
+		// TODO(PT): Eat messages that aren't from core (like awm status messages)
 		do {
 			// Wait until we've unblocked with at least one message available
 			amc_message_await("com.axle.core", &msg);

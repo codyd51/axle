@@ -189,6 +189,7 @@ static user_window_t* _window_for_service(const char* owner_service) {
 }
 
 static void window_create(const char* owner_service) {
+static void window_create(const char* owner_service, uint32_t width, uint32_t height) {
 	int window_idx = window_count++;
 	if (window_count > sizeof(windows) / sizeof(windows[0])) {
 		assert("too many windows");
@@ -296,7 +297,8 @@ static void handle_user_message(amc_command_message_t* user_message) {
 	const char* source_service = amc_message_source(user_message);
 	// User requesting a window to draw in to?
 	if (amc_command_msg__get_command(user_message) == AWM_REQUEST_WINDOW_FRAMEBUFFER) {
-		window_create(source_service);
+		uint32_t* buf = (uint32_t*)amc_command_msg_data(user_message);
+		window_create(source_service, buf[0], buf[1]);
 		//_request_redraw(source_service);
 		return;
 	}

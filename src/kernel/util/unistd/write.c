@@ -82,15 +82,15 @@ int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
 	printk("[PID %d] %s", task->id, copy_buf);
 	if (copy_buf[len-1] != '\n') printk("\n");
 
-		char* chbuf = (char*)&copy_buf;
-		int bytes_remaining = len;
-		int stride = 40;
-		for (int i = 0; i < len; i += stride) {
-			stride = min(stride, bytes_remaining);
-			bytes_remaining -= stride;
+	char* chbuf = (char*)&copy_buf;
+	int bytes_remaining = len;
+	int stride = 40;
+	for (int i = 0; i < len; i += stride) {
+		stride = min(stride, bytes_remaining);
+		bytes_remaining -= stride;
 
-			amc_message_t* amc_msg = amc_message_construct__from_core(chbuf + i, stride);
-			amc_message_send("com.axle.tty", amc_msg);
+		amc_message_t* amc_msg = amc_message_construct__from_core(chbuf + i, stride);
+		amc_message_send("com.axle.tty", amc_msg);
 	}
 
 	return len;
