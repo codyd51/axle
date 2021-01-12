@@ -235,15 +235,33 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	amc_command_ptr_msg__send(owner_service, AWM_CREATED_WINDOW_FRAMEBUFFER, remote_buffer);
 
 	user_window_t* window = &windows[window_idx];
-	window->frame = rect_make(point_make(200, 300), size_make(800, 600));
+	// Place the window in the center of the screen
+	Point origin = point_make(
+		(_screen.resolution.width / 2) - (width / 2),
+		(_screen.resolution.height / 2) - (height / 2)
+	);
+	// Make the window a bit bigger than the user requested to accomodate for decorations
+	int border_margin = 4;
+	int full_window_width = width + (border_margin * 2);
+	Size title_bar_size = size_make(full_window_width, 24);
+	Size full_window_size = size_make(
+		full_window_width, 
+		height + title_bar_size.height + (border_margin * 2)
+	);
+
+	window->frame = rect_make(origin, full_window_size);
 	window->layer = create_layer(_screen.resolution);
 	printf("Raw window layer: 0x%08x 0x%08x\n", window->layer, window->layer->raw);
 
-	Rect title_bar_frame = rect_make(point_zero(), size_make(window->frame.size.width, 24));
-	int border_margin = 4;
-
 	view_t* content_view = malloc(sizeof(view_t));
-	content_view->frame = rect_make(point_make(border_margin, rect_max_y(title_bar_frame) + border_margin), size_make(window->frame.size.width - (border_margin*2), window->frame.size.height - rect_max_y(title_bar_frame) - (border_margin*2)));
+	content_view->frame = rect_make(
+		point_make(
+			border_margin, 
+			title_bar_size.height + border_margin
+		), 
+		size_make(width, height)
+	);
+
 	content_view->layer = malloc(sizeof(ca_layer));
 	content_view->layer->size = _screen.resolution;
 	content_view->layer->raw = (uint8_t*)local_buffer;
