@@ -4,11 +4,12 @@
 
 array_m* array_m_create(int32_t max_size) {
 	array_m* ret = (array_m*)kmalloc(sizeof(array_m));
-	memset(ret, 0, sizeof(ret));
+	memset(ret, 0, sizeof(array_m));
 	ret->size = 0;
 	ret->max_size = max_size;
     ret->array = (type_t*)calloc(max_size, sizeof(type_t));
 	ret->lock.name = "array_m_lock";
+	assert(ret->lock.flag == 0, "Lock flag was not zero on alloc");
 	return ret;
 }
 

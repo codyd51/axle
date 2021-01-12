@@ -3,7 +3,7 @@
 #include "circular_buffer.h"
 
 void cb_init(circular_buffer *cb, size_t capacity, size_t sz) {
-	memset(cb, 0, sizeof(cb));
+	memset(cb, 0, sizeof(circular_buffer));
     cb->buffer = kmalloc(capacity * sz);
     if(cb->buffer == NULL) {
 		return;
