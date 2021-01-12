@@ -435,6 +435,32 @@ int main(int argc, char** argv) {
 			user_window_t* window = &windows[i];
 			blit_layer(_screen.vmem, window->layer, window->frame, rect_make(point_zero(), window->frame.size));
 		}
+		// Draw a VStack of currently active applications, so the user is aware
+		Size vstack_row_size = size_make(200, 30);
+		uint32_t vstack_y = _screen.resolution.height - vstack_row_size.height;
+		for (int i = window_count-1; i >= 0; i--) {
+			user_window_t* window = &windows[i];
+			Rect box = rect_make(
+				point_make(0, vstack_y),
+				vstack_row_size
+			);
+			draw_rect(_screen.vmem, box, color_red(), THICKNESS_FILLED);
+			draw_rect(_screen.vmem, box, color_dark_gray(), 1);
+
+			text_box_t text_box;
+			text_box.layer = _screen.vmem;
+			text_box.origin = point_make(box.origin.x, vstack_y + 2);
+			text_box.size = vstack_row_size;
+			text_box.cursor_pos = point_make(text_box.origin.x + 2, text_box.origin.y);
+			text_box.font_size = size_make(10, 10);
+			text_box.font_padding = size_make(0, 2);
+			for (int i = 0; i < strlen(window->owner_service); i++) {
+				_putchar(&text_box, window->owner_service[i], color_white());
+			}
+
+			vstack_y -= vstack_row_size.height;
+		}
+
 		// And finally the cursor
 		_draw_cursor();
 
