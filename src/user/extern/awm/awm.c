@@ -47,36 +47,6 @@ void write_screen(Screen* screen) {
     memcpy(screen->physbase, screen->vmem->raw, screen->resolution.width * screen->resolution.height * screen->bytes_per_pixel);
 }
 
-static Point origin = {0};
-static Point cursor = {0};
-static Size font_size = {0};
-static Size padding = {0};
-
-static void _awm_overlay_putchar(char ch, Color color) {
-	if (!origin.x) origin = point_make(40, 40);
-	if (!cursor.x) cursor = point_make(40, 40);
-	if (!font_size.width) font_size = size_make(40, 64);
-	if (!padding.width) padding = size_make(1, 20);
-
-	draw_char(_screen.vmem, ch, cursor.x, cursor.y, color, font_size);
-	/*
-	char x = (rand() % ('z' - 'a')) + 'a';
-	printf("X: %c\n", x);
-	draw_char(_screen.vmem, x, 0, 0, color, font_size);
-	*/
-
-	cursor.x += font_size.width + padding.width;
-	if (cursor.x + font_size.width + padding.width >= _screen.resolution.width || ch == '\n') {
-		cursor.x = 1;
-		cursor.y += font_size.height + padding.height;
-	}
-
-	if (cursor.y + font_size.height + padding.height >= _screen.resolution.height) {
-		//draw_rect(&dummy_layer, rect_make(point_zero(), _screen.resolution), color_white(), THICKNESS_FILLED);
-		cursor = point_make(40, 40);
-	}
-}
-
 static void handle_keystroke(amc_charlist_message_t* keystroke_msg) {
 	Color keystroke_color = color_white();
 
@@ -84,19 +54,102 @@ static void handle_keystroke(amc_charlist_message_t* keystroke_msg) {
 	char* data = amc_charlist_msg_data(keystroke_msg);
 	for (int i = 0; i < len; i++) {
 		char ch = data[i];
-		_awm_overlay_putchar(ch, keystroke_color);
 		printf("awm received keystroke: 0x%02x %c\n", ch, ch);
+		// TODO(PT): This event is sent only to the foremost app
+		for (int i = 0; i < window_count; i++) {
+			user_window_t* window = &windows[i];
+			amc_command_ptr_msg__send(window->owner_service, AWM_KEY_DOWN, ch);
+		}
 	}
 }
 
 static Point mouse_pos = {0};
+#include <memory.h>
+
+static void mouse_dispatch_events(uint8_t mouse_state, Point mouse_point, int8_t delta_x, int8_t delta_y) {
+	static user_window_t* _prev_window_containing_mouse = NULL;
+	static bool _in_left_click = false;
+	static user_window_t* _left_click_window = NULL;
+
+	// Is the left button clicked?
+	if (mouse_state & (1 << 0)) {
+		if (!_in_left_click) {
+			printf("Begin left click\n");
+			// TODO(PT): Delegate dispatch for "mouse movements" and "window dragging" systems
+			_in_left_click = true;
+			if (_prev_window_containing_mouse) {
+				// Move this window to the top of the stack
+				user_window_t moved_window = *_prev_window_containing_mouse;
+				int win_pos = _prev_window_containing_mouse - windows;
+				// TODO(PT): replace with memmove
+				for (int i = win_pos; i > 0; i--) {
+					windows[i] = windows[i-1];
+				}
+				windows[0] = moved_window;
+				_prev_window_containing_mouse = &windows[0];
+				_left_click_window = _prev_window_containing_mouse;
+			}
+		}
+		else {
+			printf("Got packet within left click\n");
+		}
+	}
+	else {
+		if (_in_left_click) {
+			printf("End left click\n");
+			_in_left_click = false;
+			_left_click_window = NULL;
+		}
+	}
+
+	// Check if we're still overlapping with the previous window
+	if (_prev_window_containing_mouse) {
+		if (!rect_contains_point(_prev_window_containing_mouse->frame, mouse_point)) {
+			printf("Mouse exited %s\n", _prev_window_containing_mouse->owner_service);
+			amc_command_msg__send(_prev_window_containing_mouse->owner_service, AWM_MOUSE_EXITED);
+			// Reset the cursor state
+			_prev_window_containing_mouse = NULL;
+			// TODO(PT): Everything to do with "left click state" should be managed within delegate functions
+			// TODO(PT): As well as everything to do with "window events"
+			_left_click_window = NULL;
+		}
+		else {
+			// We've moved the mouse within a window
+			//printf("Mouse moved within %s\n", _prev_window_containing_mouse->owner_service);
+			Point local_mouse = point_make(mouse_point.x - _prev_window_containing_mouse->frame.origin.x, mouse_point.y - _prev_window_containing_mouse->frame.origin.y);
+			amc_msg_u32_3__send(_prev_window_containing_mouse->owner_service, AWM_MOUSE_MOVED, local_mouse.x, local_mouse.y);
+
+			if (_left_click_window) {
+				printf("Moving dragged window\n");
+				_prev_window_containing_mouse->frame.origin.x += delta_x;
+				_prev_window_containing_mouse->frame.origin.y += delta_y;
+			}
+		}
+		return;
+	}
+
+	// Check each window and see if we've just entered it
+	// This array is sorted in Z-order so we encounter the topmost window first
+	for (int i = 0; i < window_count; i++) {
+		user_window_t* window = &windows[i];
+		if (rect_contains_point(window->frame, mouse_point)) {
+			// Inform the window the mouse has just entered it
+			amc_command_msg__send(window->owner_service, AWM_MOUSE_ENTERED);
+			// Keep track that we're currently within this window
+			_prev_window_containing_mouse = window;
+			printf("Mouse entered %s\n", window->owner_service);
+			return;
+		}
+	}
+}
+
 static void handle_mouse_event(amc_charlist_message_t* mouse_event) {
 	// TODO(PT): Add bytelist
 	uint8_t* mouse_data = (uint8_t*)amc_charlist_msg_data(mouse_event);
 	uint8_t state = mouse_data[0];
 	int8_t rel_x = mouse_data[1];
 	int8_t rel_y = mouse_data[2];
-	printf("awm received mouse packet (state %d) (delta %d %d)\n", state, rel_x, rel_y);
+	//printf("awm received mouse packet (state %d) (delta %d %d)\n", state, rel_x, rel_y);
 
 	mouse_pos.x += rel_x;
 	mouse_pos.y += rel_y;
@@ -105,20 +158,24 @@ static void handle_mouse_event(amc_charlist_message_t* mouse_event) {
 	mouse_pos.y = max(0, mouse_pos.y);
 	mouse_pos.x = min(_screen.resolution.width - 20, mouse_pos.x);
 	mouse_pos.y = min(_screen.resolution.height - 20, mouse_pos.y);
+
+	mouse_dispatch_events(state, mouse_pos, rel_x, rel_y);
 }
 
 static void _draw_cursor(void) {
-	draw_rect(_screen.vmem, rect_make(mouse_pos, size_make(10, 10)), color_green(), THICKNESS_FILLED);
-}
+	// Re-draw the background where the mouse has just left
+	Size cursor_size = size_make(14, 14);
+	//Rect old_mouse_rect = rect_make(old_mouse_pos, cursor_size);
+	//blit_layer(_screen.vmem, background, old_mouse_rect, old_mouse_rect);
 
-static void handle_stdout(amc_charlist_message_t* tty_msg) {
-	Color stdout_color = color_purple();
-	uint8_t len = amc_charlist_msg__get_len(tty_msg);
-	char* charlist = (char*)amc_charlist_msg_data(tty_msg);
-	for (uint8_t i = 0; i < len; i++) {
-		char ch = charlist[i];
-		_awm_overlay_putchar(ch, stdout_color);
-	}
+	// Draw the new cursor
+	Rect new_mouse_rect = rect_make(mouse_pos, cursor_size);
+	draw_rect(_screen.vmem, new_mouse_rect, color_black(), THICKNESS_FILLED);
+	draw_rect(_screen.vmem, rect_make(point_make(new_mouse_rect.origin.x + 2, new_mouse_rect.origin.y + 2), size_make(10, 10)), color_green(), THICKNESS_FILLED);
+
+	// TODO(PT): Determine dirty region and combine these two rects
+	//blit_layer(&dummy_layer, _screen.vmem, old_mouse_rect, old_mouse_rect);
+	//blit_layer(&dummy_layer, _screen.vmem, new_mouse_rect, new_mouse_rect);
 }
 
 static user_window_t* _window_for_service(const char* owner_service) {
@@ -138,6 +195,7 @@ static void window_create(const char* owner_service) {
 	}
 
 	printf("Creating framebuffer for %s\n", owner_service);
+	// TODO(PT): By always making the buffer the size of the screen, we allow for window resizing later
 	uint32_t buffer_size = _screen.resolution.width * _screen.resolution.height * _screen.bytes_per_pixel;
 	uint32_t local_buffer;
 	uint32_t remote_buffer;
@@ -230,7 +288,7 @@ static void _update_window_framebuf(const char* owner_service) {
 
 	//blit_layer(window->layer, window->content_view->layer, rect_make(point_zero(), size_make(200, 400)), rect_make(point_zero(), size_make(200, 400)));
 	blit_layer(window->layer, window->content_view->layer, window->content_view->frame, rect_make(point_zero(), window->content_view->frame.size));
-	blit_layer(_screen.vmem, window->layer, window->frame, rect_make(point_zero(), window->frame.size));
+	//blit_layer(_screen.vmem, window->layer, window->frame, rect_make(point_zero(), window->frame.size));
 	//blit_layer(_screen.physbase, window->content_view->layer, rect_make(point_zero(), _screen.resolution), rect_make(point_zero(), _screen.resolution));
 }
 
@@ -272,7 +330,7 @@ int main(int argc, char** argv) {
 
 	Rect screen_frame = rect_make(point_zero(), _screen.resolution);
 	ca_layer* background = create_layer(screen_frame.size);
-	draw_rect(background, screen_frame, color_orange(), THICKNESS_FILLED);
+	draw_rect(background, screen_frame, color_white(), THICKNESS_FILLED);
     _screen.vmem = create_layer(screen_frame.size);
 
 	/*
