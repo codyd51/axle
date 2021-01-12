@@ -89,15 +89,6 @@ static void cat() {
     panic("noreturn");
 }
 
-static void window() {
-    const char* program_name = "window";
-
-    FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-    panic("noreturn");
-}
-
 static void rainbow() {
     const char* program_name = "rainbow";
 
@@ -187,7 +178,6 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
 
     //task_spawn(cat);
     //task_spawn(rainbow);
-    //task_spawn(window);
 
     // Bootstrapping complete - kill this process
     printf("[t = %d] Bootstrap task [PID %d] will exit\n", time(), getpid());
