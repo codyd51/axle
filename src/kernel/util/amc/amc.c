@@ -106,14 +106,8 @@ void amc_register_service(const char* name) {
     // but isn't mapped into kernel-space.
     // Copy the string so we can access it in kernel-space
     service->name = strdup(name);
-    /*
-    char buf[64];
-    snprintf(&buf, 64, "amc lock of %s", name);
-    service->lock.name = strdup(buf);
-    service->lock.flag = 0;
-    */
     service->task = current_task;
-    //service->message_queue = array_l_create();
+    assert(!interrupts_enabled(), "ints enabled during spinlock");
     service->message_queue = array_m_create(2048);
 
     //array_l_insert(_amc_services, service);

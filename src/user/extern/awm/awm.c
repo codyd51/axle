@@ -296,50 +296,44 @@ int main(int argc, char** argv) {
 		// Wait for a system event or window event
 		amc_message_t msg_struct = {0};
 		amc_message_t* msg = &msg_struct;
-		amc_message_await_any(msg);
-		const char* source_service = amc_message_source(msg);
+		do {
+			// Wait until we've unblocked with at least one message available
+			amc_message_await_any(msg);
+			const char* source_service = amc_message_source(msg);
 
-		// Process the message we just received
-		if (!strcmp(source_service, "com.axle.kb_driver")) {
-			handle_keystroke(msg);
-			//memcpy(_screen.physbase, _screen.vmem, _screen.resolution.width * 50 * _screen.bytes_per_pixel);
-			//continue;
-		}
-		else if (!strcmp(source_service, "com.axle.mouse_driver")) {
-			Point old_mouse_pos = mouse_pos;
-			// Update the mouse position based on the data packet
-			handle_mouse_event(msg);
-			//_draw_cursor();
-			// Re-draw the background where the mouse has just left
-			Size cursor_size = size_make(14, 14);
-			Rect old_mouse_rect = rect_make(old_mouse_pos, cursor_size);
-			blit_layer(_screen.vmem, background, old_mouse_rect, old_mouse_rect);
+			// Process the message we just received
+			if (!strcmp(source_service, "com.axle.kb_driver")) {
+				handle_keystroke(msg);
+				//memcpy(_screen.physbase, _screen.vmem, _screen.resolution.width * 50 * _screen.bytes_per_pixel);
+				//continue;
+			}
+			else if (!strcmp(source_service, "com.axle.mouse_driver")) {
+				// Update the mouse position based on the data packet
+				handle_mouse_event(msg);
+			}
+			else if (!strcmp(source_service, "com.user.window") || !strcmp(source_service, "com.user.rainbow") || !strcmp(source_service, "com.axle.tty") || !strcmp(source_service, "com.user.paintbrush") || !strcmp(source_service, "com.user.textpad")) {
+				// TODO(PT): If a window sends REDRAW_READY, we can put it onto a "ready to redraw" list
+				// Items can be popped off the list based on their Z-index, or a periodic time-based update
+				handle_user_message(msg);
+			}
+			else {
+				printf("Unrecognized message from %s\n", source_service);
+			}
+		} while (amc_has_message());
 
-			// Draw the new cursor
-			Rect new_mouse_rect = rect_make(mouse_pos, cursor_size);
-			draw_rect(_screen.vmem, new_mouse_rect, color_black(), THICKNESS_FILLED);
-			draw_rect(_screen.vmem, rect_make(point_make(new_mouse_rect.origin.x + 2, new_mouse_rect.origin.y + 2), size_make(10, 10)), color_green(), THICKNESS_FILLED);
-
-			// TODO(PT): Determine dirty region and combine these two rects
-			//blit_layer(&dummy_layer, _screen.vmem, old_mouse_rect, old_mouse_rect);
-			//blit_layer(&dummy_layer, _screen.vmem, new_mouse_rect, new_mouse_rect);
-
-			//continue;
+		// We're out of messages to process - composite everything together and redraw
+		// First draw the background
+		blit_layer(_screen.vmem, background, screen_frame, screen_frame);
+		// Then each window (without copying in the window's current shared framebuffer)
+		// Draw the bottom-most windows first
+		// TODO(PT): Replace with a loop that draws the topmost window and 
+		// splits lower windows into visible regions, then blits those
+		for (int i = window_count-1; i >= 0; i--) {
+			user_window_t* window = &windows[i];
+			blit_layer(_screen.vmem, window->layer, window->frame, rect_make(point_zero(), window->frame.size));
 		}
-		else if (!strcmp(source_service, "com.user.window") || !strcmp(source_service, "com.user.rainbow") || !strcmp(source_service, "com.axle.tty")) {
-			// TODO(PT): If a window sends REDRAW_READY, we can put it onto a "ready to redraw" list
-			// Items can be popped off the list based on their Z-index, or a periodic time-based update
-			handle_user_message(msg);
-		}
-		else {
-			printf("Unrecognized message from %s", source_service);
-		}
-
-		// Quick hack for now - each time we go through awm's process-message loop,
-		// update each user window
-		for (int i = 0; i < window_count; i++) {
-			_update_window_framebuf_idx(i);
-		}
+		// And finally the cursor
+		_draw_cursor();
 
 		// Copy our internal screen buffer to video memory
 		memcpy(_screen.physbase, _screen.vmem, _screen.resolution.width * _screen.resolution.height * _screen.bytes_per_pixel);

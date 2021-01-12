@@ -7,6 +7,9 @@
 const char* amc_message_source(amc_message_t* msg);
 const char* amc_message_dest(amc_message_t* msg);
 
+// Conviencience constructors
+void amc_msg_u32_3__send(const char* destination, uint32_t w1, uint32_t w2, uint32_t w3);
+
 // Valid for amc_charlist_message_t
 char* amc_charlist_msg_data(amc_charlist_message_t* msg);
 

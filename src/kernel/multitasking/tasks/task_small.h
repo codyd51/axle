@@ -27,6 +27,7 @@ typedef enum task_priority {
 	// Idle task has the lowest possible priority
 	PRIORITY_IDLE = 0,
 	PRIORITY_NONE = 1,
+	PRIORITY_TTY = 997,
 	PRIORITY_GUI = 998,
 	PRIORITY_DRIVER = 999,
 	PRIORITY_TASK_RUNNING_ISR = 1000

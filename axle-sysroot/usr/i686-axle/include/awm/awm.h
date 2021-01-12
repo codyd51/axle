@@ -15,4 +15,11 @@
 
 #define AWM_WINDOW_REDRAW_READY (1 << 1)
 
+#define AWM_MOUSE_ENTERED (1 << 2)
+#define AWM_MOUSE_EXITED (1 << 3)
+#define AWM_MOUSE_MOVED (1 << 4)
+
+#define AWM_KEY_DOWN (1 << 5)
+#define AWM_KEY_UP (1 << 6)
+
 #endif

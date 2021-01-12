@@ -135,9 +135,9 @@ int liballoc_unlock() {
 
 void* liballoc_alloc(size_t page_count) {
 	uint32_t block_size = page_count * PAGE_SIZE;
-	printf("liballoc_alloc %d pages\n", page_count);
+	printk("Expand kernel heap by %dkb\n", page_count / 4);
 	uint32_t new_heap_memory_start = vmm_alloc_global_kernel_memory(block_size);
-	printf("Got globally shared kernel memory 0x%08x - 0x%08x\n", new_heap_memory_start, new_heap_memory_start + block_size);
+	printf("New globally shared kernel memory 0x%08x - 0x%08x\n", new_heap_memory_start, new_heap_memory_start + block_size);
 	return (void*)new_heap_memory_start;
 }
 
