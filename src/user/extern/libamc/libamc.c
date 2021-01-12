@@ -70,3 +70,14 @@ void amc_command_ptr_msg__send(const char* destination, uint32_t command, uint32
 	amc_command_ptr_msg__set_ptr(msg, ptr_val);
 	amc_message_send(destination, msg);
 }
+
+// Convenience constructors
+void amc_msg_u32_3__send(const char* destination, uint32_t w1, uint32_t w2, uint32_t w3) {
+    int nil;
+    amc_command_message_t* msg = (amc_command_message_t*)amc_message_construct((const char*)&nil, 1);
+    amc_command_msg__set_command(msg, w1);
+    uint32_t* buf = (uint32_t*)amc_command_msg_data(msg);
+    buf[0] = w2;
+    buf[1] = w3;
+	amc_message_send(destination, msg);
+}
