@@ -69,6 +69,17 @@ static void handle_keystroke(amc_charlist_message_t* keystroke_msg) {
 static Point mouse_pos = {0};
 #include <memory.h>
 
+static user_window_t* _window_move_to_top(user_window_t* window) {
+	user_window_t moved_window = *window;
+	int win_pos = window - windows;
+	// TODO(PT): replace with memmove
+	for (int i = win_pos; i > 0; i--) {
+		windows[i] = windows[i-1];
+	}
+	windows[0] = moved_window;
+	return &windows[0];
+}
+
 static void mouse_dispatch_events(uint8_t mouse_state, Point mouse_point, int8_t delta_x, int8_t delta_y) {
 	static user_window_t* _prev_window_containing_mouse = NULL;
 	static bool _in_left_click = false;
@@ -82,14 +93,7 @@ static void mouse_dispatch_events(uint8_t mouse_state, Point mouse_point, int8_t
 			_in_left_click = true;
 			if (_prev_window_containing_mouse) {
 				// Move this window to the top of the stack
-				user_window_t moved_window = *_prev_window_containing_mouse;
-				int win_pos = _prev_window_containing_mouse - windows;
-				// TODO(PT): replace with memmove
-				for (int i = win_pos; i > 0; i--) {
-					windows[i] = windows[i-1];
-				}
-				windows[0] = moved_window;
-				_prev_window_containing_mouse = &windows[0];
+				_prev_window_containing_mouse = _window_move_to_top(_prev_window_containing_mouse);
 				_left_click_window = _prev_window_containing_mouse;
 			}
 		}
@@ -272,6 +276,8 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 		rect_make(point_zero(), visible_title_bar_size)
 	);
 
+	// Make the new window show up on top
+	_window_move_to_top(window);
 }
 
 static void _request_redraw(const char* owner_service) {
