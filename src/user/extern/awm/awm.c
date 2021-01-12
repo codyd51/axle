@@ -23,14 +23,25 @@ typedef struct view {
 	ca_layer* layer;
 } view_t;
 
+typedef struct text_box {
+	ca_layer* layer;
+	Size size;
+	Point origin;
+	Size font_size;
+	Size font_padding;
+	Point cursor_pos;
+} text_box_t;
+
 typedef struct user_window {
 	Rect frame;
+	text_box_t title_text_box;
 	ca_layer* layer;
 	//view_t* title_view;
 	view_t* content_view;
 	const char* owner_service;
 } user_window_t;
 
+// Sorted by Z-index
 user_window_t windows[32] = {0};
 int window_count = 0;
 
@@ -188,7 +199,14 @@ static user_window_t* _window_for_service(const char* owner_service) {
 	return NULL;
 }
 
-static void window_create(const char* owner_service) {
+// TODO(PT): Move text_box and this function into agx 
+// TODO(PT): (Use the variant from TTY as it includes newline, etc.)
+// TODO(PT): This is a stripped down version for window bar titles
+static void _putchar(text_box_t* text_box, char ch, Color color) {
+	draw_char(text_box->layer, ch, text_box->cursor_pos.x, text_box->cursor_pos.y, color, text_box->font_size);
+	text_box->cursor_pos.x += text_box->font_size.width + text_box->font_padding.width;
+}
+
 static void window_create(const char* owner_service, uint32_t width, uint32_t height) {
 	int window_idx = window_count++;
 	if (window_count > sizeof(windows) / sizeof(windows[0])) {
@@ -223,6 +241,15 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	printf("Content view window layer: 0x%08x\n", content_view->layer->raw);
 	window->owner_service = owner_service;
 
+	// Configure the title text box
+	memset(&window->title_text_box, 0, sizeof(text_box_t));
+	window->title_text_box.layer = window->layer;
+	window->title_text_box.origin = point_make(border_margin, border_margin);
+	window->title_text_box.size = title_bar_frame.size;
+	window->title_text_box.cursor_pos = window->title_text_box.origin;
+	window->title_text_box.font_size = size_make(10, 10);
+	window->title_text_box.font_padding = size_make(0, 2);
+
 	// Draw top window bar
 	Color c1 = color_make(200, 160, 90);
 	Color c2 = color_make(50, 50, 50);
@@ -243,6 +270,22 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 			}
 			putpixel(window->layer, x, y, active);
 		}
+	}
+
+	// Draw window title
+	uint32_t title_len = (10 * strlen(owner_service));
+	draw_rect(
+		window->layer, 
+		rect_make(
+			point_make(
+				window->title_text_box.origin.x - 2,
+				window->title_text_box.origin.y - 2),
+			size_make(title_len + 4, 14)), 
+		color_black(), 
+		THICKNESS_FILLED
+	);
+	for (int i = 0; i < strlen(owner_service); i++) {
+		_putchar(&window->title_text_box, owner_service[i], color_white());
 	}
 
 	/*
