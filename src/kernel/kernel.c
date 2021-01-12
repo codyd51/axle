@@ -107,6 +107,23 @@ static void rainbow() {
     panic("noreturn");
 }
 
+static void paintbrush() {
+    const char* program_name = "paintbrush";
+    FILE* fp = initrd_fopen(program_name, "rb");
+    char* argv[] = {program_name, NULL};
+    elf_load_file(program_name, fp, argv);
+    panic("noreturn");
+}
+
+static void textpad() {
+    const char* program_name = "textpad";
+    FILE* fp = initrd_fopen(program_name, "rb");
+    char* argv[] = {program_name, NULL};
+    elf_load_file(program_name, fp, argv);
+    panic("noreturn");
+}
+
+
 static void tty_init() {
     const char* program_name = "tty";
     FILE* fp = initrd_fopen(program_name, "rb");
@@ -163,7 +180,10 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     task_spawn(ps2_keyboard_driver_launch, PRIORITY_DRIVER, "");
     task_spawn(ps2_mouse_driver_launch, PRIORITY_DRIVER, "");
     task_spawn(awm_init, PRIORITY_GUI, "");
-    task_spawn(tty_init, PRIORITY_NONE, "");
+    task_spawn(tty_init, PRIORITY_TTY, "");
+    task_spawn(rainbow, PRIORITY_NONE, "");
+    task_spawn(paintbrush, 2, "");
+    task_spawn(textpad, 3, "");
 
     //task_spawn(cat);
     //task_spawn(rainbow);
