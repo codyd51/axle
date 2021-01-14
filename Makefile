@@ -48,13 +48,33 @@ ifdef BMP
 CFLAGS += -DBMP
 endif
 
-EMFLAGS = -vga virtio -D qemu.log -serial file:syslog.log -monitor stdio -d cpu_reset -no-reboot -m 512m
+EMFLAGS = -D qemu.log -serial file:syslog.log -monitor stdio -d cpu_reset -no-reboot -m 512m
 ifdef debug
 EMFLAGS += -s -S
 endif
-ifdef net
-EMFLAGS += -net nic,model=ne2k_pci
-endif
+#ifdef net
+# EMFLAGS += -net nic,model=ne2k_pci
+# https://www.qemu.org/2018/05/31/nic-parameter/
+# EMFLAGS += -nic user,model=rtl8139
+# EMFLAGS += -netdev tap,id=mynet,script=./qemu-ifup.sh,downscript=./qemu-ifdown.sh -net nic,model=rtl8139
+# EMFLAGS += -net tap
+# EMFLAGS += -netdev tap,id=network0,netdev=network0
+# EMFLAGS += -net tap,id=rtl8139.0,script=./tap-up.sh,downscript=./tap-down.sh
+# EMFLAGS += -net tap,script=./tap-up.sh,downscript=./tap-down.sh -net nic,model=rtl8139
+#EMFLAGS += -nic tap,model=rtl8139,script=./tap-up.sh,downscript=./tap-down.sh, -object filter-dump,id=tap0
+#EMFLAGS += -nic tap,model=rtl8139,script=./tap-up.sh,downscript=./tap-down.sh, -object filter-dump,id=tap0
+
+# EMFLAGS += -netdev tap,id=tap0,script=./tap-up.sh,downscript=./tap-down.sh -device rtl8139,netdev=tap0 -object filter-dump,id=f1,netdev=tap0,file=dump.txt
+# EMFLAGS += -netdev tap,id=mynet0,script=./tap-up.sh,downscript=./tap-down.sh -device rtl8139,netdev=mynet0 -object filter-dump,id=mydump1,netdev=mynet0,file=dump.dat
+# EMFLAGS += -netdev tap,id=tap0,script=./tap-up.sh,downscript=./tap-down.sh -device rtl8139,netdev=tap0 -object filter-dump,id=tap0,netdev=tap0,file=dump.dat
+# EMFLAGS += -nic tap,model=rtl8139,script=./tap-up.sh,downscript=./tap-down.sh,mac=54:54:00:55:55:55,id=test,ifname=tap0 -object filter-dump,id=test,netdev=test,file=dump.dat
+# EMFLAGS +=  -net tap,ifname=tap0,id=vtap0,script=./tap-up.sh,downscript=./tap-down.sh -object filter-dump,file=dump.dat,id=tap0,netdev=vtap0 -net nic,model=rtl8139,netdev=vtap0
+# EMFLAGS += -netdev tap,script=./tap-up.sh,downscript=./tap-down.sh,id=test -device rtl8139,netdev=test -object filter-dump,netdev=test,file=dump.txt,id=f1
+# EMFLAGS += -netdev user,id=test -device rtl8139,netdev=test -object filter-dump,netdev=test,file=dump.txt,id=f1
+#endif
+# EMFLAGS += -netdev tap,script=./qemu-ifup.sh,downscript=./qemu-ifdown.sh,id=test -device rtl8139,netdev=test -object filter-dump,id=f1,netdev=test,file=dump.txt
+# EMFLAGS += -netdev user,id=mynet0 -device rtl8139,netdev=mynet0 -object filter-dump,id=f1,netdev=mynet0,file=dump.txt
+EMFLAGS += -nic tap,model=rtl8139,script=./qemu-ifup.sh,downscript=./qemu-ifdown.sh,id=u1 -object filter-dump,id=f1,netdev=u1,file=dump.dat
 
 
 # Rules
@@ -90,7 +110,7 @@ run: $(ISO_NAME)
 	echo '' > syslog.log
 	echo '' > syslog.log
 	echo '' > syslog.log
-	$(EMULATOR) $(EMFLAGS) -cdrom $^
+	sudo $(EMULATOR) $(EMFLAGS) -cdrom $^
 
 dbg:
 	$(GDB) $(GDB_FLAGS)

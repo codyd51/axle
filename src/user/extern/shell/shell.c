@@ -172,6 +172,7 @@ int spawn_xserv() {
 }
 
 int main(int argc, char** argv) {
+	// TODO(PT): Update this app
 	memset(cmdtable, 0, sizeof(command_t) * MAX_COMMANDS);
 	register_command("help", "print help", &help);
 	register_command("exit", "quit shell", &quit);

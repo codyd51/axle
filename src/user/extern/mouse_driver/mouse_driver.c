@@ -8,7 +8,6 @@
 #include <kernel/amc.h>
 #include <kernel/idt.h>
 
-#include "mouse_driver.h"
 #include "math.h"
 
 typedef struct ps2_mouse_state {
