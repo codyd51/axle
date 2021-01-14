@@ -26,14 +26,6 @@ Screen* gfx_screen() {
 	return &_screen;
 }
 
-static void _handle_awm_message(amc_charlist_message_t awm_msg) {
-	if (!strcmp(awm_msg.body.charlist.data, "redraw")) {
-		const char* cmd2 = "update_framebuf";
-		amc_message_t* draw_framebuf_msg = amc_message_construct(cmd2, strlen(cmd2));
-		amc_message_send("com.axle.awm", draw_framebuf_msg);
-	}
-}
-
 static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 	// Ask awm to make a window for us
 	amc_msg_u32_3__send("com.axle.awm", AWM_REQUEST_WINDOW_FRAMEBUFFER, width, height);

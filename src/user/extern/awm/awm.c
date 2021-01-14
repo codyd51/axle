@@ -432,13 +432,10 @@ int main(int argc, char** argv) {
 				// Update the mouse position based on the data packet
 				handle_mouse_event(msg);
 			}
-			else if (!strcmp(source_service, "com.user.rainbow") || !strcmp(source_service, "com.axle.tty") || !strcmp(source_service, "com.user.paintbrush") || !strcmp(source_service, "com.user.textpad")) {
+			else {
 				// TODO(PT): If a window sends REDRAW_READY, we can put it onto a "ready to redraw" list
 				// Items can be popped off the list based on their Z-index, or a periodic time-based update
 				handle_user_message(msg);
-			}
-			else {
-				printf("Unrecognized message from %s\n", source_service);
 			}
 		} while (amc_has_message());
 

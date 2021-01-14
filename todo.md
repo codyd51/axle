@@ -16,3 +16,9 @@ Perhaps the Info.plist has enough info for the PCI manager to do discovery on av
 
 AMC services should also be able to "wait" until another AMC service is launched, then
 in _start after registering the service a system-wide notification can be posted that this service is alive
+
+Implement synchronous messaging: send, block until recv "ack"
+
+Fix task starvation of same priority, runnable
+
+Come up with better way to pass args to programs on startup

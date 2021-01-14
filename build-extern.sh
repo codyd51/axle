@@ -45,6 +45,10 @@ cd ./src/user/extern/textpad
 make
 cd ../../../../
 
+cd ./src/user/extern/pci_driver
+make
+cd ../../../../
+
 cd initrd
 ../fsgen ./
 mv initrd.img ../initrd.img

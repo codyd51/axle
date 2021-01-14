@@ -114,7 +114,6 @@ static void textpad() {
     panic("noreturn");
 }
 
-
 static void tty_init() {
     const char* program_name = "tty";
     FILE* fp = initrd_fopen(program_name, "rb");
@@ -124,363 +123,12 @@ static void tty_init() {
 	uint8_t scancode = inb(0x60);
 }
 
-
-
-#define PCI_CONFIG_ADDRESS_PORT 0xCF8
-#define PCI_CONFIG_DATA_PORT    0xCFC
-
-#define PCI_DEVICE_HEADER_TYPE_DEVICE               0x00
-#define PCI_DEVICE_HEADER_TYPE_PCI_TO_PCI_BRIDGE    0x01
-#define PCI_DEVICE_HEADER_TYPE_CARDBUS_BRIDGE       0x02
-
-// https://gist.github.com/cuteribs/0a4d85f745506c801d46bea22b554f7d
-#define PCI_VENDOR_NONE         0xFFFF
-#define PCI_VENDOR_INTEL        0x8086
-#define PCI_VENDOR_REALTEK      0x10EC
-#define PCI_VENDOR_QEMU         0x1234
-
-#define PCI_DEVICE_ID_INTEL_82441       0x1237
-#define PCI_DEVICE_ID_INTEL_82371SB_0   0x7000
-#define PCI_DEVICE_ID_INTEL_82371SB_1   0x7010
-#define PCI_DEVICE_ID_INTEL_82371AB_3   0x7113
-#define PCI_DEVICE_ID_QEMU_VGA          0x1111
-#define PCI_DEVICE_ID_REALTEK_8139      0x8139
-#define PCI_DEVICE_ID_NONE              0xFFFF
-
-// http://my.execpc.com/~geezer/code/pci.c
-#define PCI_DEVICE_CLASS_DISK_CONTROLLER    0x01
-#define PCI_DEVICE_CLASS_NETWORK_CONTROLLER 0x02
-#define PCI_DEVICE_CLASS_DISPLAY_CONTROLLER 0x03
-#define PCI_DEVICE_CLASS_BRIDGE             0x06
-
-#define PCI_DEVICE_SUBCLASS_DISK_CONTROLLER_IDE         0x01
-#define PCI_DEVICE_SUBCLASS_NETWORK_CONTROLLER_ETHERNET 0x00
-#define PCI_DEVICE_SUBCLASS_DISPLAY_CONTROLLER_VGA      0x00
-#define PCI_DEVICE_SUBCLASS_BRIDGE_CPU                  0x00
-#define PCI_DEVICE_SUBCLASS_BRIDGE_ISA                  0x01
-#define PCI_DEVICE_SUBCLASS_BRIDGE_OTHER                0x80
-
-
-// Device IDs https://github.com/qemu/qemu/blob/master/include/hw/pci/pci_ids.h
-// https://github.com/qemu/qemu/blob/master/docs/specs/pci-ids.txt
-
-uint16_t pci_config_read_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
-    // https://wiki.osdev.org/Pci#Enumerating_PCI_Buses
-    // Construct an address as per the PCI "Configuration Space Access Mechanism #1"
-    /*
-    uint32_t address = 0;
-    // Set "enable" bit
-    address |= 0x80000000;
-    // Set bus number in bits 23 - 16
-    address |= (uint32_t)(bus << 16);
-    // Set slot number in bits 15-11
-    address |= (uint32_t)(slot << 11);
-    // Set function number in bits 10-8
-    address |= (uint32_t)(func << 8);
-    // Set register offset in bits 7-2
-    // The register offset should always be 32-bit aligned
-    // (There are 64 32-bit registers to address within the 256-byte space)
-    address |= (uint32_t)offset & 0xfc;
-    // (Bits 1-0 should be zero)
-
-    // Write the request
-    outl(PCI_CONFIG_ADDRESS_PORT, address);
-    // Read in the returned data
-	// (offset & 2) * 8) == 0 will choose first word of 32b register
-	return (uint16_t)((inl(PCI_CONFIG_DATA_PORT) >> ((offset & 2) * 8)) & 0xFFFF);
-    */
-       uint32_t address;
-    uint32_t lbus  = (uint32_t)bus;
-    uint32_t lslot = (uint32_t)slot;
-    uint32_t lfunc = (uint32_t)func;
-    uint16_t tmp = 0;
- 
-    /* create configuration address as per Figure 1 */
-    address = (uint32_t)((lbus << 16) | (lslot << 11) |
-              (lfunc << 8) | (offset & 0xfc) | ((uint32_t)0x80000000));
- 
-    /* write out the address */
-    outl(0xCF8, address);
-    /* read in the data */
-    /* (offset & 2) * 8) = 0 will choose the first word of the 32 bits register */
-    tmp = (uint16_t)((inl(0xCFC) >> ((offset & 2) * 8)) & 0xffff);
-    return (tmp);
-}
-
-const char* pci_vendor_name_for_id(uint16_t vendor_id) {
-    switch (vendor_id) {
-        case PCI_VENDOR_INTEL:
-            return "Intel";
-        case PCI_VENDOR_QEMU:
-            return "Qemu";
-        case PCI_VENDOR_REALTEK:
-            return "RealTek";
-        case PCI_VENDOR_NONE:
-            return "No vendor/device";
-        default:
-            return "Unknown vendor";
-    }
-}
-
-const char* pci_device_name_for_id(uint16_t device_id) {
-    switch (device_id) {
-        case PCI_DEVICE_ID_INTEL_82441:
-            return "441FX Host Bridge";
-        case PCI_DEVICE_ID_INTEL_82371SB_0:
-            return "PIIX4 ISA Bridge";
-        case PCI_DEVICE_ID_INTEL_82371SB_1:
-            return "PIIX4 IDE Controller";
-        case PCI_DEVICE_ID_INTEL_82371AB_3:
-            // Taken from http://web.mit.edu/~linux/devel/redhat/Attic/6.0/src/pci-probing/foo
-            return "PIIX4 ACPI";
-        case PCI_DEVICE_ID_QEMU_VGA:
-            return "StdVGA";
-        case PCI_DEVICE_ID_REALTEK_8139:
-            return "RTL8139";
-        case PCI_DEVICE_ID_NONE:
-            return "No Device";
-        default:
-            return "Unknown device";
-    }
-}
-
-const char* pci_device_class_name(uint8_t device_class) {
-    switch (device_class) {
-        case PCI_DEVICE_CLASS_DISK_CONTROLLER:
-            return "Disk Controller";
-        case PCI_DEVICE_CLASS_NETWORK_CONTROLLER:
-            return "Network Controller";
-        case PCI_DEVICE_CLASS_DISPLAY_CONTROLLER:
-            return "Display Controller";
-        case PCI_DEVICE_CLASS_BRIDGE:
-            return "Bridge";
-        default:
-            return "Unknown device class";
-    }
-}
-
-const char* pci_device_subclass_name(uint8_t device_class, uint8_t device_subclass) {
-    if (device_class == PCI_DEVICE_CLASS_DISK_CONTROLLER) {
-        switch (device_subclass) {
-            case PCI_DEVICE_SUBCLASS_DISK_CONTROLLER_IDE:
-                return "IDE";
-            default:
-                break;
-        }
-    }
-    else if (device_class == PCI_DEVICE_CLASS_NETWORK_CONTROLLER) {
-        switch (device_subclass) {
-            case PCI_DEVICE_SUBCLASS_NETWORK_CONTROLLER_ETHERNET:
-                return "Ethernet";
-            default:
-                break;
-        }
-    }
-    else if (device_class == PCI_DEVICE_CLASS_DISPLAY_CONTROLLER) {
-        switch (device_subclass) {
-            case PCI_DEVICE_SUBCLASS_DISPLAY_CONTROLLER_VGA:
-                return "VGA";
-            default:
-                break;
-        }
-    }
-    else if (device_class == PCI_DEVICE_CLASS_BRIDGE) {
-        switch (device_subclass) {
-            case PCI_DEVICE_SUBCLASS_BRIDGE_CPU:
-                return "CPU";
-            case PCI_DEVICE_SUBCLASS_BRIDGE_ISA:
-                return "ISA";
-            case PCI_DEVICE_SUBCLASS_BRIDGE_OTHER:
-                return "Other";
-            default:
-                break;
-        }
-    }
-    assert(0, "Unknown PCI device class/subclass combo");
-    return NULL;
-}
-
-static unsigned long pci_read_dword(uint8_t bus, uint8_t slot, uint8_t func, unsigned reg) {
-    uint32_t lbus  = (uint32_t)bus;
-    uint32_t lslot = (uint32_t)slot;
-    uint32_t lfunc = (uint32_t)func;
-    uint16_t tmp = 0;
- 
-    /* create configuration address as per Figure 1 */
-    uint32_t address = (uint32_t)((lbus << 16) | (lslot << 11) |
-              (lfunc << 8) | (reg & 0xfc) | ((uint32_t)0x80000000));
-	outl(PCI_CONFIG_ADDRESS_PORT, address);
-	return inl(PCI_CONFIG_DATA_PORT);
-}
-
-static void pci_write_dword(int bus, int slot, int func, int addr, unsigned long value) {
-    // http://www.jbox.dk/sanos/source/sys/krnl/pci.c.html
-    outl(PCI_CONFIG_ADDRESS_PORT, ((unsigned long) 0x80000000 | (bus << 16) | (slot << 11) | (func << 8) | addr));
-    outl(PCI_CONFIG_ADDRESS_PORT, value);
-}
-
-// Device class and subclass http://my.execpc.com/~geezer/code/pci.c
-
-void pci_get_vendor(uint8_t bus, uint8_t slot) {
-    /* vendors that == 0xFFFF, it must be a non-existent device. */
-    // The first configuration register contains the vendor ID
-    // And the vendor ID is reported as "all 1's" if there's no device connected
-    for (int function = 0; function < 8; function++) {
-        uint16_t vendor_id = pci_config_read_word(bus, slot, function, 0);
-        if (vendor_id != PCI_VENDOR_NONE) {
-            uint16_t device = pci_config_read_word(bus, slot, function, 2);
-            const char* vendor = pci_vendor_name_for_id(vendor_id);
-            uint16_t class_and_subclass = pci_config_read_word(bus, slot, function, 0x0F);
-            printf("%s device found in bus %d slot %d: 0x%04x, class_and_sub\n", vendor, bus, slot, device);
-            printf("\tDevice ID:            0x%04x\n", device);
-            printf("\tFunction:             0x%04x\n", function);
-
-            printf("\tClass and subclass:   0x%04x\n", class_and_subclass);
-            uint32_t i = pci_read_dword(bus, slot, function, 0x08);
-			uint8_t _class	 = (unsigned)((i >> 24) & 0xFF);
-			uint8_t subclass = (unsigned)((i >> 16) & 0xFF);
-            printf("\t2        0x%08x       0x%02x 0x%02x\n", i, _class, subclass);
-            uint32_t j = pci_config_read_word(bus, slot, function, 0x0a);
-            printf("\t2        0x%08x       0x%02x 0x%02x\n", j, ((j >> 8) & 0xff), (j) & 0xff);
-
-            uint16_t bist_and_header_type = pci_config_read_word(bus, slot, function, 0x0E);
-            printf("\tBIST and header type: 0x%04x %d\n", bist_and_header_type, (uint8_t)bist_and_header_type);
-            uint8_t header_type = (uint8_t)bist_and_header_type;
-
-            // Does the device support multiple functions?
-            // https://forum.osdev.org/viewtopic.php?t=9987
-            if (header_type & (1 << 8)) {
-                // TODO(PT): Poll each function (8 possible? or more?)
-            }
-            else {
-                // TODO(PT): Only one function available
-            }
-
-            // TODO(PT): This If doesn't work because it doesn't consider devices that support multiple functions
-            if (header_type == PCI_DEVICE_HEADER_TYPE_DEVICE) {
-                uint16_t interrupt_line_and_pin = pci_config_read_word(bus, slot, function, 0x3C);
-                printf("\tIntl&pin              0x%04x\n", interrupt_line_and_pin);
-                printf("\tInterrupt line:           %d\n", interrupt_line_and_pin & 0xff);
-                printf("\tInterrupt pin:            %d %d\n", ((interrupt_line_and_pin & 0xff00) >> 4), (uint8_t)(interrupt_line_and_pin >> 8));
-            }
-            else {
-                //NotImplemented();
-                printf("Header type 0x%08x\n", header_type);
-            }
-        }
-        else {
-            //printf("No device in bus %d slot %d\n", bus, slot);
-        }
-    }
-}
-
-static void pci_init() {
-    // TODO(PT): Do PCI init in a driver
-    // https://forum.osdev.org/viewtopic.php?f=1&t=30546
-    // https://gist.github.com/extremecoders-re/e8fd8a67a515fee0c873dcafc81d811c
-    // https://www.qemu.org/2018/05/31/nic-parameter/
-    for (int bus = 0; bus < 256; bus++) {
-        for (int device_slot = 0; device_slot < 32; device_slot++) {
-            // Is there a device plugged into this slot?
-            uint16_t vendor_id = pci_config_read_word(bus, device_slot, 0, 0);
-            if (vendor_id == PCI_VENDOR_NONE) {
-                continue;
-            }
-
-            uint16_t tmp = pci_config_read_word(bus, device_slot, 0, 0x0e);
-            uint8_t bist = (tmp >> 8) & 0xff;
-            uint8_t header_type = tmp & 0xff;
-
-            // Every PCI device is required to at least provide function "0"
-            uint8_t function_count_to_poll = 1;
-            // If the high bit of the header type is set, the device supports multiple functions
-            // But we don't know what functions exactly are supported - we must poll each one
-            // https://forum.osdev.org/viewtopic.php?t=9987
-            if ((header_type >> 7) & 0x1) {
-                function_count_to_poll = 8;
-            }
-
-            for (int function = 0; function < function_count_to_poll; function++) {
-                uint16_t device_id = pci_config_read_word(bus, device_slot, function, 2);
-                // Did we find a device?
-                if (device_id == PCI_DEVICE_ID_NONE) {
-                    // Function 0 should always work
-                    assert(function != 0, "PCI function zero reported no device, which is not allowed");
-                    // Skip this function
-                    continue;
-                }
-                const char* vendor_name = pci_vendor_name_for_id(vendor_id);
-                const char* device_name = pci_device_name_for_id(device_id);
-
-                tmp = pci_config_read_word(bus, device_slot, function, 0x0a);
-                uint8_t device_class = (tmp >> 8) & 0xff;
-                uint8_t device_subclass = tmp & 0xff;
-                const char* device_class_name = pci_device_class_name(device_class);
-                const char* device_subclass_name = pci_device_subclass_name(device_class, device_subclass);
-
-                printf("%s %s\n", vendor_name, device_name);
-                printf("\t%s %s\n", device_subclass_name, device_class_name);
-                printf("\tBFD %d:%d:%d, ID %04x:%04x\n", bus, device_slot, function, vendor_id, device_id);
-
-                device_id = pci_config_read_word(bus, device_slot, function, 2);
-                #define PCI_BASE_ADDRESS_REGISTER_COUNT 7
-                for (int bar_idx = 0; bar_idx < PCI_BASE_ADDRESS_REGISTER_COUNT; bar_idx++) {
-                    // https://forum.osdev.org/viewtopic.php?t=11501
-                    uint32_t bar_offset = 0x10 + (bar_idx * sizeof(uint32_t));
-                    uint32_t base_address_register = pci_config_read_word(bus, device_slot, function, bar_offset);
-                    // Is there a Base Address Register (BAR) implemented?
-                    if (base_address_register == 0) {
-                        continue;
-                    }
-                    printf("\t\tBAR %d: 0x%08x\n", bar_idx, base_address_register);
-                    // For BARs, the first bit determines if the BAR is for a range of I/O ports 
-                    // or a range of addresses in the physical address space
-                    if ((base_address_register & 1) == 0) {
-                        // Memory
-                        uint32_t type = (base_address_register >> 1) & 0x03;
-                        if( (type & 2) == 0) {
-                            // 32 bit memory
-                            printf("\t\t32-bit memory\n");
-                            asm("cli");
-                            pci_write_dword(bus, device_slot, function, bar_offset, 0xFFFFFFFF);
-                            uint32_t bar_response = pci_config_read_word(bus, device_slot, function, bar_offset);
-                            // Clear flags
-                            bar_response = bar_response & 0xFFFFFFF0;          // Clear flags
-                            uint32_t size = (bar_response ^ 0xFFFFFFFF) + 1;
-                            // Rewrite the original BAR
-                            pci_write_dword(bus, device_slot, function, bar_offset, base_address_register);
-                            asm("sti");
-                            printf("\t\tPCI BAR %d:%d:%d offset %d = 0x%08x bytes (32 bit)\n", bus, device_slot, function, bar_offset, size);
-                        }
-                        else {
-                            // 64 bit memory
-                            printf("\t\t64-bit memory\n");
-                            NotImplemented();
-                        }
-                    }
-                    else {
-                        // IO space
-                        printf("\t\tIO Space\n");
-                        asm("cli");
-                        pci_write_dword(bus, device_slot, function, bar_offset, 0xFFFFFFFF);
-                        uint32_t bar_response = pci_config_read_word(bus, device_slot, function, bar_offset);
-                        bar_response = bar_response & 0xFFFFFFFC;          // Clear flags
-                        uint32_t size = (bar_response ^ 0xFFFFFFFF) + 1;
-                        // Rewrite the original BAR
-                        pci_write_dword(bus, device_slot, function, bar_offset, base_address_register);
-                        asm("sti");
-                        printf("\t\t\tBAR cleared 0x%08x\n", bar_response);
-                        printf("\t\tBAR offset %d = 0x%08x I/O ports\n", bar_offset, size);
-
-                        if (device_id == PCI_DEVICE_ID_REALTEK_8139) {
-                            realtek_8139_init(bus, device_slot, function, bar_response);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
+static void pci_driver() {
+    const char* program_name = "pci_driver";
+    FILE* fp = initrd_fopen(program_name, "rb");
+    char* argv[] = {program_name, NULL};
+    elf_load_file(program_name, fp, argv);
+    panic("noreturn");
 }
 
 void callback(registers_t* regs) {
@@ -521,6 +169,7 @@ void callback(registers_t* regs) {
 
 char* rx_buffer[(1024*8)+16] = {0};
 void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, uint32_t io_base) {
+    /*
     // https://wiki.osdev.org/RTL8139
     printf("Init realtek_8139 at %d,%d,%d, IO Base 0x%04x\n", bus, device_slot, function, io_base);
     uint32_t command_register = pci_config_read_word(bus, device_slot, function, 0x04);
@@ -596,7 +245,7 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
         printf("\n");
         asm("hlt");
     }
-    */
+    *
 
 
     // 7. Set RCR (Receive Configuration Register)
@@ -633,7 +282,7 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
     outb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF, 0x0C); 
     asm("sti");
 
-    uint32_t* packet_addr = &rx_buffer[0];
+    uint32_t* packet_addr = rx_buffer;
     //00 18 8b 75 1d e0 00 1f f3 d8 47 ab 08 0
     /*
     rx_buffer[0] = 0x00;
@@ -650,8 +299,8 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
     rx_buffer[11] = 0xab;
     rx_buffer[12] = 0x08;
     rx_buffer[13] = 0x00;
-    */
-   while (pit_clock() < 1000) {
+    *
+   while (pit_clock() < 500) {
        if (pit_clock() % 100 == 0) {
            printf("pic = %d\n", pit_clock());
        }
@@ -681,6 +330,7 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
     // Second, fill in physical address of data, and length
     outl(io_base + 0x20, packet_addr); 
     outl(io_base + 0x10, 14); 
+    */
 }
 
 uint32_t initial_esp = 0;
@@ -701,7 +351,6 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     // TODO(PT): Currently, a task-switch is a side-effect of a PIT ISR
     // In the future, work like scheduling should be done outside the ISR
     pit_timer_init(PIT_TICK_GRANULARITY_50MS);
-    /*
 
     serial_init();
 
@@ -723,26 +372,26 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     // Initialize PS/2 controller
     // (and sub-drivers, such as a PS/2 keyboard and mouse)
     ps2_controller_init();
-    */
 
     // Early boot is finished
     // Multitasking and program loading is now available
 
     // Launch some initial drivers and services
-    /*
     task_spawn(ps2_keyboard_driver_launch, PRIORITY_DRIVER, "");
     task_spawn(ps2_mouse_driver_launch, PRIORITY_DRIVER, "");
     task_spawn(awm_init, PRIORITY_GUI, "");
     task_spawn(tty_init, PRIORITY_TTY, "");
-    task_spawn(rainbow, PRIORITY_NONE, "");
-    task_spawn(paintbrush, 2, "");
-    task_spawn(textpad, 3, "");
-    */
-    pci_init();
+    //task_spawn(rainbow, PRIORITY_NONE, "");
+    //task_spawn(paintbrush, 2, "");
+    //task_spawn(textpad, 3, "");
+    task_spawn(pci_driver, 4, "");
+    //pci_init();
+    /*
     asm("sti");
     while (1) {
         asm("hlt");
     }
+    */
 
     //task_spawn(cat);
     //task_spawn(rainbow);
