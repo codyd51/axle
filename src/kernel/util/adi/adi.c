@@ -74,7 +74,7 @@ void adi_register_driver(const char* name, uint32_t irq) {
     spinlock_release(&int_spinlock);
 }
 
-void adi_interrupt_await(uint32_t irq) {
+bool adi_event_await(uint32_t irq) {
     assert(irq > 0 && irq < MAX_INT_VECTOR, "Invalid IRQ provided");
     assert(_adi_drivers[irq].task == tasking_get_current_task(), "Current task does not match driver layout");
 
@@ -83,12 +83,12 @@ void adi_interrupt_await(uint32_t irq) {
     if (driver->pending_irq_count) {
         return true;
     }
-    
-    // The previous interrupt has now been fully serviced
-    driver->int_count += 1;
-
-    // Await the next interrupt
-    tasking_block_task(driver->task, IRQ_WAIT);
+    // The driver has re-entered its await-interrupt loop
+    // Await the next interrupt or amc message
+    task_state unblock_reason = tasking_block_task(driver->task, IRQ_WAIT|AMC_AWAIT_MESSAGE);
+    // Make sure this was an event we're expecting
+    assert (unblock_reason == IRQ_WAIT || unblock_reason == AMC_AWAIT_MESSAGE, "ADI driver awoke for unknown reason");
+    return unblock_reason == IRQ_WAIT;
 }
 
 void adi_interrupt_dispatch(uint32_t irq) {

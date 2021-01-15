@@ -40,8 +40,8 @@ DEFN_SYSCALL(amc_shared_memory_create, 32, const char*, uint32_t, uint32_t*, uin
 DEFN_SYSCALL(amc_has_message_from, 33, const char*);
 DEFN_SYSCALL(amc_has_message, 34);
 
-DEFN_SYSCALL(adi_register_driver, 35, const char*, uint32_t);
-DEFN_SYSCALL(adi_interrupt_await, 36, uint32_t);
+DEFN_SYSCALL(adi_register_driver, 36, const char*, uint32_t);
+DEFN_SYSCALL(adi_event_await, 37, uint32_t);
 
 
 // According to the documentation, this is an acceptable minimal environ
@@ -130,8 +130,10 @@ void adi_register_driver(const char* name, uint32_t irq) {
     sys_adi_register_driver(name, irq);
 }
 
-void adi_interrupt_await(uint32_t irq) {
-    sys_adi_interrupt_await(irq);
+bool adi_event_await(uint32_t irq) {
+    return sys_adi_event_await(irq);
+}
+
 }
 
 /*

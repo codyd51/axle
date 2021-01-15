@@ -22,8 +22,12 @@ typedef struct adi_driver {
 // This driver will be responsible for handling the provided IRQ
 // The process's priority will be elevated to PRIORITY_DRIVER
 void adi_register_driver(const char* name, uint32_t irq);
-// Block until an interrupt is received
-void adi_interrupt_await(uint32_t irq);
+
+// Block until an event is received
+// An event will be either an interrupt that must be serviced, or an amc message
+// Returns true if the call returned due to an interrupt needing servicing,
+// or false if the call returned due to an amc message arriving
+bool adi_event_await(uint32_t irq);
 
 // ############
 // Called internally from kernel mode
