@@ -79,12 +79,9 @@ void adi_interrupt_await(uint32_t irq) {
     assert(_adi_drivers[irq].task == tasking_get_current_task(), "Current task does not match driver layout");
 
     adi_driver_t* driver = _adi_drivers + irq;
-    // The driver has re-entered its await-interrupt loop
-    // This means the IRQ has been serviced by the driver
-    // Tell the PIC we're ready for more
-    // Unless this is the first iteration of the event loop
-    if (driver->int_count != 0) {
-        pic_signal_end_of_interrupt(irq);
+    // If the driver has at least one interrupt to service now, don't block
+    if (driver->pending_irq_count) {
+        return true;
     }
     
     // The previous interrupt has now been fully serviced

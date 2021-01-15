@@ -6,7 +6,10 @@
 
 typedef struct adi_driver {
     uint32_t irq;
-    uint32_t int_count;
+    // A driver may perform an action that causes its IRQ to be raised while it's running
+    // (For example, the RTL8139 driver may send a packet, raising an IRQ quickly)
+    // Keep track of how many IRQs are awaiting servicing by the driver
+    uint32_t pending_irq_count;
     const char* name;
     void* task; // task_small_t
 } adi_driver_t;
