@@ -35,6 +35,7 @@ int main(int argc, char** argv) {
 		// TODO(PT): Copy the PS2 header to the sysroot as a build step, 
 		// and replace this port number with PS2_DATA
 		uint8_t data_packet = inb(0x60);
+		adi_send_eoi(INT_VECTOR_IRQ12);
 
 		state.buffer[state.idx] = data_packet;
 		if (state.idx == 0) {
@@ -73,8 +74,6 @@ int main(int argc, char** argv) {
 				memset(&state.buffer, 0, sizeof(state.buffer));
 				continue;
 			}
-
-			//printf("Sending packet to awm: %d %d %d (%d %d)\n", status_byte, state.buffer[1], state.buffer[2], rel_x, rel_y);
 
 			state.idx = 0;
 			memset(&state.buffer, 0, sizeof(state.buffer));

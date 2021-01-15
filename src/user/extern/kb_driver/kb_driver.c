@@ -82,6 +82,7 @@ int main(int argc, char** argv) {
 		// TODO(PT): Copy the PS2 header to the sysroot as a build step, 
 		// and replace this port number with PS2_DATA
 		uint8_t scancode = inb(0x60);
+		adi_send_eoi(INT_VECTOR_IRQ1);
 
 		uint8_t char_value = process_scancode(&state, scancode);
 		// Were we able to map a scancode?

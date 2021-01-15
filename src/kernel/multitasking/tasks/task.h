@@ -22,22 +22,22 @@
 #define PROC_MASTER_PERMISSION 1 << 0
 
 typedef enum task_state {
-    RUNNABLE = 0,
+	UNKNOWN = 			(0 << 0),
+    RUNNABLE = 			(1 << 0),
 	// Intermediate state after task finishes executing before being flushed from system
-	ZOMBIE,
-    KB_WAIT,
-    PIT_WAIT,
-	MOUSE_WAIT,
-	CHILD_WAIT,
-	PIPE_FULL,
-	PIPE_EMPTY,
-	IRQ_WAIT,
+	ZOMBIE = 			(1 << 1),
+    KB_WAIT = 			(1 << 2),
+    PIT_WAIT = 			(1 << 3),
+	MOUSE_WAIT = 		(1 << 4),
+	CHILD_WAIT = 		(1 << 5),
+	PIPE_FULL = 		(1 << 6),
+	PIPE_EMPTY = 		(1 << 7),
+	IRQ_WAIT = 			(1 << 8),
 	// The process has blocked until it receives an IPC message
-	AMC_AWAIT_MESSAGE,
+	AMC_AWAIT_MESSAGE = (1 << 9),
 	// Kernel code is modifying the
 	// task's virtual address space
-	VMM_MODIFY,
-	
+	VMM_MODIFY = 		(1 << 10),
 } task_state;
 
 typedef enum mlfq_option {

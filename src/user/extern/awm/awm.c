@@ -98,7 +98,7 @@ static void mouse_dispatch_events(uint8_t mouse_state, Point mouse_point, int8_t
 			}
 		}
 		else {
-			printf("Got packet within left click\n");
+			//printf("Got packet within left click\n");
 		}
 	}
 	else {
@@ -148,7 +148,7 @@ static void mouse_dispatch_events(uint8_t mouse_state, Point mouse_point, int8_t
 			amc_msg_u32_3__send(_prev_window_containing_mouse->owner_service, AWM_MOUSE_MOVED, local_mouse.x, local_mouse.y);
 
 			if (_left_click_window) {
-				printf("Moving dragged window\n");
+				//printf("Moving dragged window\n");
 				_prev_window_containing_mouse->frame.origin.x += delta_x;
 				_prev_window_containing_mouse->frame.origin.y += delta_y;
 			}
@@ -367,6 +367,9 @@ static void handle_user_message(amc_command_message_t* user_message) {
 		_update_window_framebuf(source_service);
 		//_request_redraw(source_service);
 		return;
+	}
+	else {
+		printf("Unknown message from %s: %d\n", source_service, amc_command_msg__get_command(user_message));
 	}
 }
 

@@ -178,7 +178,7 @@ task_small_t* _thread_create(void* entry_point) {
 
     uint32_t* stack_top = (uint32_t *)(stack + stack_size - 0x4); // point to top of malloc'd stack
     if (entry_point) {
-        //printf_info("thread_create ent 0x%08x", entry_point);
+        // TODO(PT): We should be able to pass another argument here to the bootstrap function
         *(stack_top--) = entry_point;   // Argument to bootstrap function (which we'll then jump to)
         *(stack_top--) = 0;     // Alignment
         *(stack_top--) = _task_bootstrap;   // Entry point for new thread
@@ -305,23 +305,35 @@ static void tasking_timer_tick() {
     }
 }
 
-void tasking_unblock_task(task_small_t* task, bool run_immediately) {
+void tasking_unblock_task_with_reason(task_small_t* task, bool run_immediately, task_state reason) {
+    // Record why we unblocked
+    task->blocked_info.unblock_reason = reason;
     task->blocked_info.status = RUNNABLE;
     if (run_immediately) {
         tasking_goto_task(task);
     }
 }
 
-void tasking_block_task(task_small_t* task, task_state blocked_state) {
+void tasking_unblock_task(task_small_t* task, bool run_immediately) {
+    // The caller should be updated to provide an unblock reason
+    tasking_unblock_task_with_reason(task, run_immediately, UNKNOWN);
+}
+
+task_state tasking_block_task(task_small_t* task, task_state blocked_state) {
     // Some states are invalid "blocked" states
     if (blocked_state == RUNNABLE || blocked_state == ZOMBIE) {
         panic("Invalid blocked state");
     }
-    task->blocked_info.status = blocked_state;
+    // Mask this block reason onto the task's block state
+    // If any block reasons in this state are serviced, the task will unblock
+    task->blocked_info.status |= blocked_state;
     // If the current task just became blocked, switch to another
     if (task == _current_task_small) {
         task_switch();
+        // The task is now unblocked. The `unblock_reason` stores why.
+        return task->blocked_info.unblock_reason;
     }
+    return RUNNABLE;
 }
 
 void update_blocked_tasks() {
