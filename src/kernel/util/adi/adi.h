@@ -26,9 +26,6 @@ void adi_interrupt_await(uint32_t irq);
 // Called internally from kernel mode
 // ############
 
-// Called by an interrupt handler to wake up the driver process to service the interrupt
-void adi_interrupt_dispatch(uint32_t irq);
-
 // Returns whether there is a driver registered to handle the provided IRQ
 bool adi_services_interrupt(uint32_t irq);
 

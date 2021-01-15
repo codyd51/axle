@@ -34,11 +34,28 @@ static adi_driver_t* _adi_driver_matching_data(const char* name, task_small_t* t
     return NULL;
 }
 
+static void _adi_interrupt_handler(registers_t* regs) {
+    // Wake up the driver thread that services this interrupt
+    int irq = regs->int_no;
+    assert(irq > 0 && irq < MAX_INT_VECTOR, "Invalid IRQ provided");
+    assert(_adi_drivers[irq].task != NULL, "IRQ does not have a corresponding driver");
+
+    adi_driver_t* driver = _adi_drivers + irq;
+    driver->pending_irq_count += 1;
+    task_small_t* task = (task_small_t*)driver->task;
+    tasking_unblock_task_with_reason(task, false, IRQ_WAIT);
+}
+
 void adi_register_driver(const char* name, uint32_t irq) {
     assert(irq > 0 && irq < MAX_INT_VECTOR, "Invalid IRQ provided");
     assert(!_adi_drivers[irq].task, "IRQ already mapped to a driver task");
 
     task_small_t* current_task = tasking_get_current_task();
+
+    // We're modifying interrupt handling - clear interrupts
+    spinlock_t int_spinlock = {0};
+    if (!int_spinlock.name) int_spinlock.name = "adi_register_driver interrupt clear";
+    spinlock_acquire(&int_spinlock);
 
     // Elevate the task's priority since it's a device driver
     spinlock_acquire(&current_task->priority_lock);
@@ -50,6 +67,11 @@ void adi_register_driver(const char* name, uint32_t irq) {
     // but isn't mapped into kernel-space.
     // Copy the string so we can access it in kernel-space
     _adi_drivers[irq].name = strdup(name);
+
+    // Set up an interrupt handler that will unblock the driver process
+    interrupt_setup_callback(irq, _adi_interrupt_handler);
+
+    spinlock_release(&int_spinlock);
 }
 
 void adi_interrupt_await(uint32_t irq) {

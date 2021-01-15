@@ -27,15 +27,8 @@ char kb_modifiers() {
 	return 0;
 }
 
-void kb_callback(registers_t* regs) {
-	adi_interrupt_dispatch(regs->int_no);
-}
-
 void ps2_keyboard_enable(void) {
 	printf_info("[PS2] Enabling keyboard...");
-	// Setup an interrupt handler to receive IRQ1's
-	interrupt_setup_callback(INT_VECTOR_IRQ1, &kb_callback);
-
 	// Get the current scancode set
 	ps2_write_device(0, KBD_SSC_CMD);
 	ps2_expect_ack();

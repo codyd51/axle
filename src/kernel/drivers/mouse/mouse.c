@@ -11,14 +11,8 @@
 #define PS2_MOUSE_CMD_ENABLE_DATA_REPORTING 0xF4
 #define PS2_MOUSE_RESP_ACKNOWLEDGE 0xFA
 
-static void mouse_callback(registers_t* regs) {
-	adi_interrupt_dispatch(regs->int_no);
-}
-
 void ps2_mouse_enable(void) {
 	printf_info("[PS2] Enabling mouse...");
-	// Setup an interrupt handler to receive IRQ12's
-	interrupt_setup_callback(INT_VECTOR_IRQ12, &mouse_callback);
 	uint8_t mouse_id = ps2_read(PS2_DATA);
 	printf_info("[PS2] Mouse ID: 0x%02x", mouse_id);
 
