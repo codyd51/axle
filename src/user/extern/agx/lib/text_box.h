@@ -19,6 +19,7 @@ text_box_t* text_box_create(Size size, Color background_color);
 void text_box_destroy(text_box_t* text_box);
 
 void text_box_putchar(text_box_t* text_box, char ch, Color color);
+void text_box_puts(text_box_t* text_box, const char* str, Color color);
 
 void text_box_set_cursor(text_box_t* text_box, Point point);
 void text_box_set_cursor_x(text_box_t* text_box, uint32_t x);

@@ -26,6 +26,12 @@ void text_box_putchar(text_box_t* text_box, char ch, Color color) {
 	}
 }
 
+void text_box_puts(text_box_t* text_box, const char* str, Color color) {
+    for (int i = 0; i < strlen(str); i++) {
+        text_box_putchar(text_box, str[i], color);
+    }
+}
+
 text_box_t* text_box_create(Size size, Color background_color) {
     text_box_t* tb = calloc(1, sizeof(text_box_t));
     tb->layer = create_layer(size);
