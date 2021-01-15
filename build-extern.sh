@@ -49,6 +49,10 @@ cd ./src/user/extern/pci_driver
 make
 cd ../../../../
 
+cd ./src/user/extern/realtek_8139_driver
+make
+cd ../../../../
+
 cd initrd
 ../fsgen ./
 mv initrd.img ../initrd.img
