@@ -325,75 +325,68 @@ static pci_dev_t* pci_find_devices() {
 	return dev_head;
 }
 
-				/*
-                #define PCI_BASE_ADDRESS_REGISTER_COUNT 7
-                for (int bar_idx = 0; bar_idx < PCI_BASE_ADDRESS_REGISTER_COUNT; bar_idx++) {
-                    // https://forum.osdev.org/viewtopic.php?t=11501
-                    uint32_t bar_offset = 0x10 + (bar_idx * sizeof(uint32_t));
-                    uint32_t base_address_register = pci_config_read_word(bus, device_slot, function, bar_offset);
-                    // Is there a Base Address Register (BAR) implemented?
-                    if (base_address_register == 0) {
-                        continue;
-                    }
-                    printf("\t\tBAR %d: 0x%08x\n", bar_idx, base_address_register);
-                    // For BARs, the first bit determines if the BAR is for a range of I/O ports 
-                    // or a range of addresses in the physical address space
-                    if ((base_address_register & 1) == 0) {
-                        // Memory
-                        uint32_t type = (base_address_register >> 1) & 0x03;
-                        if( (type & 2) == 0) {
-                            // 32 bit memory
-                            printf("\t\t32-bit memory\n");
-                            asm("cli");
-                            pci_write_dword(bus, device_slot, function, bar_offset, 0xFFFFFFFF);
-                            uint32_t bar_response = pci_config_read_word(bus, device_slot, function, bar_offset);
-                            // Clear flags
-                            bar_response = bar_response & 0xFFFFFFF0;          // Clear flags
-                            uint32_t size = (bar_response ^ 0xFFFFFFFF) + 1;
-                            // Rewrite the original BAR
-                            pci_write_dword(bus, device_slot, function, bar_offset, base_address_register);
-                            asm("sti");
-                            printf("\t\tPCI BAR %d:%d:%d offset %d = 0x%08x bytes (32 bit)\n", bus, device_slot, function, bar_offset, size);
-                        }
-                        else {
-                            // 64 bit memory
-                            printf("\t\t64-bit memory\n");
-                            NotImplemented();
-                        }
-                    }
-                    else {
-                        // IO space
-                        printf("\t\tIO Space\n");
-                        asm("cli");
-                        pci_write_dword(bus, device_slot, function, bar_offset, 0xFFFFFFFF);
-                        uint32_t bar_response = pci_config_read_word(bus, device_slot, function, bar_offset);
-                        bar_response = bar_response & 0xFFFFFFFC;          // Clear flags
-                        uint32_t size = (bar_response ^ 0xFFFFFFFF) + 1;
-                        // Rewrite the original BAR
-                        pci_write_dword(bus, device_slot, function, bar_offset, base_address_register);
-                        asm("sti");
-                        printf("\t\t\tBAR cleared 0x%08x\n", bar_response);
-                        printf("\t\tBAR offset %d = 0x%08x I/O ports\n", bar_offset, size);
+/*
+#define PCI_BASE_ADDRESS_REGISTER_COUNT 7
+for (int bar_idx = 0; bar_idx < PCI_BASE_ADDRESS_REGISTER_COUNT; bar_idx++) {
+    // https://forum.osdev.org/viewtopic.php?t=11501
+    uint32_t bar_offset = 0x10 + (bar_idx * sizeof(uint32_t));
+    uint32_t base_address_register = pci_config_read_word(bus, device_slot, function, bar_offset);
+    // Is there a Base Address Register (BAR) implemented?
+    if (base_address_register == 0) {
+        continue;
+    }
+    printf("\t\tBAR %d: 0x%08x\n", bar_idx, base_address_register);
+    // For BARs, the first bit determines if the BAR is for a range of I/O ports 
+    // or a range of addresses in the physical address space
+    if ((base_address_register & 1) == 0) {
+        // Memory
+        uint32_t type = (base_address_register >> 1) & 0x03;
+        if( (type & 2) == 0) {
+            // 32 bit memory
+            printf("\t\t32-bit memory\n");
+            asm("cli");
+            pci_write_dword(bus, device_slot, function, bar_offset, 0xFFFFFFFF);
+            uint32_t bar_response = pci_config_read_word(bus, device_slot, function, bar_offset);
+            // Clear flags
+            bar_response = bar_response & 0xFFFFFFF0;          // Clear flags
+            uint32_t size = (bar_response ^ 0xFFFFFFFF) + 1;
+            // Rewrite the original BAR
+            pci_write_dword(bus, device_slot, function, bar_offset, base_address_register);
+            asm("sti");
+            printf("\t\tPCI BAR %d:%d:%d offset %d = 0x%08x bytes (32 bit)\n", bus, device_slot, function, bar_offset, size);
+        }
+        else {
+            // 64 bit memory
+            printf("\t\t64-bit memory\n");
+            NotImplemented();
+        }
+    }
+    else {
+        // IO space
+        printf("\t\tIO Space\n");
+        asm("cli");
+        pci_write_dword(bus, device_slot, function, bar_offset, 0xFFFFFFFF);
+        uint32_t bar_response = pci_config_read_word(bus, device_slot, function, bar_offset);
+        bar_response = bar_response & 0xFFFFFFFC;          // Clear flags
+        uint32_t size = (bar_response ^ 0xFFFFFFFF) + 1;
+        // Rewrite the original BAR
+        pci_write_dword(bus, device_slot, function, bar_offset, base_address_register);
+        asm("sti");
+        printf("\t\t\tBAR cleared 0x%08x\n", bar_response);
+        printf("\t\tBAR offset %d = 0x%08x I/O ports\n", bar_offset, size);
 
-                        if (device_id == PCI_DEVICE_ID_REALTEK_8139) {
-                            realtek_8139_init(bus, device_slot, function, bar_response);
-                            break;
-                        }
-                    }
-                }
-				*/
-static void text_box_puts(text_box_t* text_box, const char* str) {
-    for (int i = 0; i < strlen(str); i++) {
-        text_box_putchar(text_box, str[i], color_green());
+        if (device_id == PCI_DEVICE_ID_REALTEK_8139) {
+            realtek_8139_init(bus, device_slot, function, bar_response);
+            break;
+        }
     }
 }
+*/
 
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.pci_driver");
-    // Perform PCI scan
-    pci_dev_t* dev = pci_find_devices();
 
-	Size window_size = size_make(500, 440);
+	Size window_size = size_make(500, 460);
 	Rect window_frame = rect_make(point_zero(), window_size);
 	ca_layer* window_layer = window_layer_get(window_size.width, window_size.height);
 
@@ -411,24 +404,47 @@ int main(int argc, char** argv) {
 	draw_rect(window_layer, window_frame, color_light_gray(), THICKNESS_FILLED);
 	text_box_t* text_box = text_box_create(text_box_frame.size, color_dark_gray());
 
+    // Perform PCI scan
+    pci_dev_t* dev = pci_find_devices();
+    pci_dev_t* dev_head = dev;
     // Iterate the PCI devices and draw them into the text box
+    Color text_color = color_green();
     while (dev != NULL) {
         const char buf[256];
         snprintf(buf, sizeof(buf), "%s %s\n", dev->vendor_name, dev->device_name);
-        text_box_puts(text_box, buf);
+        text_box_puts(text_box, buf, text_color);
         snprintf(buf, sizeof(buf), "\t%s %s\n", dev->device_subclass_name, dev->device_class_name);
-        text_box_puts(text_box, buf);
+        text_box_puts(text_box, buf, text_color);
         snprintf(buf, sizeof(buf), "\tBFD %d:%d:%d, ID %04x:%04x\n", dev->bus, dev->device_slot, dev->function, dev->vendor_id, dev->device_id);
-        text_box_puts(text_box, buf);
-        text_box_puts(text_box, "\n\n");
+        text_box_puts(text_box, buf, text_color);
+        text_box_puts(text_box, "\n\n", text_color);
 
         dev = dev->next;
     }
 
     // Blit the text box to the window layer
     blit_layer(window_layer, text_box->layer, text_box_frame, rect_make(point_zero(), text_box_frame.size));
-    // And ask awm to draw it
+    // And ask awm to draw our window
     amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
+
+    // Launch drivers for known devices
+    dev = dev_head;
+    while (dev != NULL) {
+        if (dev->device_id == PCI_DEVICE_ID_REALTEK_8139) {
+            printf("[PCI] Launching driver for %s %s\n", dev->vendor_id, dev->device_name);
+            // TODO(PT): This should be done via an amc interface
+            uint32_t command_register = pci_config_read_word(dev->bus, dev->device_slot, dev->function, 0x04);
+            printf("CmdReg before enable 0x%08x\n", command_register);
+            // Enable bus mastering bit
+            command_register |= (1 << 2);
+            printf("CmdReg after enable 0x%08x\n", command_register);
+            pci_config_write_word(dev->bus, dev->device_slot, dev->function, 0x04, command_register);
+
+            amc_launch_service("com.axle.realtek_8139");
+        }
+        dev = dev->next;
+    }
+    printf("Awaiting next message\nO");
 
 	while (true) {
 		amc_charlist_message_t msg = {0};
