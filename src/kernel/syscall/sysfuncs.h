@@ -60,6 +60,7 @@ DECL_SYSCALL(amc_message_await, const char*, amc_message_t**);
 DECL_SYSCALL(amc_message_await_from_services, int, const char**, amc_message_t**);
 DECL_SYSCALL(amc_message_await_any, amc_message_t**);
 DECL_SYSCALL(amc_shared_memory_create, const char*, uint32_t, uint32_t*, uint32_t*);
+DECL_SYSCALL(amc_launch_service, const char*);
 
 DECL_SYSCALL(adi_register_driver, const char*, uint32_t);
 DECL_SYSCALL(adi_event_await, uint32_t);

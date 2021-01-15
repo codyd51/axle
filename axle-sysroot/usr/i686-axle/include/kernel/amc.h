@@ -80,6 +80,10 @@ bool amc_has_message_from(const char* source_service);
 // The return value indicates whether a call to `amc_message_await` is currently non-blocking
 bool amc_has_message(void);
 
+// Launch an amc service with a known name.
+// Returns whether the service was successfully found and launched.
+bool amc_launch_service(const char* service_name);
+
 // Create a shared memory region between the current service and a destination service
 // Writes the virtual addresses of the local and remote regions to the "out" parameters
 // Both virtual memory regions point to the same physical memory

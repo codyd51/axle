@@ -358,3 +358,25 @@ void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, 
 
     spinlock_release(&dest->spinlock);
 }
+
+static void _amc_launch_realtek_8139() {
+    const char* program_name = "realtek_8139_driver";
+    void* fp = initrd_fopen(program_name, "rb");
+    char* argv[] = {program_name, NULL};
+    elf_load_file(program_name, fp, argv);
+    panic("noreturn");
+}
+
+bool amc_launch_service(const char* service_name) {
+    // TODO(PT): Eventually, this should iterate filesystem listings to 
+    // find all the available AMC services, and launch the provided one
+    // For now, hard-code known AMC services launched via this interface 
+    // to process names
+    if (!strcmp(service_name, "com.axle.realtek_8139")) {
+        task_spawn(_amc_launch_realtek_8139, PRIORITY_DRIVER, "");return true;
+    }
+    // TODO(PT): In the future, we could just return false when the name doesn't match any known service
+    // For now, to detect errors, raise an assertion
+    assert(0, "Cannot launch service: unknown name");
+    return false;
+}

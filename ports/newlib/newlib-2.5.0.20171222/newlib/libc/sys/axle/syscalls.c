@@ -39,6 +39,7 @@ DEFN_SYSCALL(amc_message_await_any, 31, amc_message_t*);
 DEFN_SYSCALL(amc_shared_memory_create, 32, const char*, uint32_t, uint32_t*, uint32_t*);
 DEFN_SYSCALL(amc_has_message_from, 33, const char*);
 DEFN_SYSCALL(amc_has_message, 34);
+DEFN_SYSCALL(amc_launch_service, 35, const char*);
 
 DEFN_SYSCALL(adi_register_driver, 36, const char*, uint32_t);
 DEFN_SYSCALL(adi_event_await, 37, uint32_t);
@@ -121,6 +122,10 @@ bool amc_has_message_from(const char* source_service) {
 
 bool amc_has_message(void) {
     return sys_amc_has_message();
+}
+
+bool amc_launch_service(const char* service_name) {
+    return sys_amc_launch_service(service_name);
 }
 
 /*
