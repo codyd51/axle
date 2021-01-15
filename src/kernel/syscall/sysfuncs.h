@@ -62,6 +62,7 @@ DECL_SYSCALL(amc_message_await_any, amc_message_t**);
 DECL_SYSCALL(amc_shared_memory_create, const char*, uint32_t, uint32_t*, uint32_t*);
 
 DECL_SYSCALL(adi_register_driver, const char*, uint32_t);
-DECL_SYSCALL(adi_interrupt_await, uint32_t);
+DECL_SYSCALL(adi_event_await, uint32_t);
+DECL_SYSCALL(adi_send_eoi, uint32_t);
 
 #endif

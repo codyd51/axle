@@ -42,6 +42,7 @@ DEFN_SYSCALL(amc_has_message, 34);
 
 DEFN_SYSCALL(adi_register_driver, 36, const char*, uint32_t);
 DEFN_SYSCALL(adi_event_await, 37, uint32_t);
+DEFN_SYSCALL(adi_send_eoi, 38, uint32_t);
 
 
 // According to the documentation, this is an acceptable minimal environ
@@ -132,6 +133,10 @@ void adi_register_driver(const char* name, uint32_t irq) {
 
 bool adi_event_await(uint32_t irq) {
     return sys_adi_event_await(irq);
+}
+
+void adi_send_eoi(uint32_t irq) {
+    return sys_adi_send_eoi(irq);
 }
 
 }

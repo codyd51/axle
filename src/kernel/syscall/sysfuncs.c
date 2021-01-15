@@ -98,8 +98,9 @@ DEFN_SYSCALL(amc_has_message_from, 33, const char*);
 DEFN_SYSCALL(amc_has_message, 34);
 
 // ADI syscalls
-DEFN_SYSCALL(adi_register_driver, 35, const char*, uint32_t);
-DEFN_SYSCALL(adi_interrupt_await, 36, uint32_t);
+DEFN_SYSCALL(adi_register_driver, 36, const char*, uint32_t);
+DEFN_SYSCALL(adi_event_await, 37, uint32_t);
+DEFN_SYSCALL(adi_send_eoi, 38, uint32_t);
 
 void create_sysfuncs() {
 	syscall_add((void*)&_kill);
@@ -140,7 +141,8 @@ void create_sysfuncs() {
 	syscall_add((void*)&amc_has_message);
 
 	syscall_add((void*)&adi_register_driver);
-	syscall_add((void*)&adi_interrupt_await);
+	syscall_add((void*)&adi_event_await);
+	syscall_add((void*)&adi_send_eoi);
 
 	syscall_add((void*)&debug_awm);
 	syscall_add((void*)&vmm_kern_global_alloc);

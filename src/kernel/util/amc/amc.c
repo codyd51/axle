@@ -196,13 +196,13 @@ bool amc_message_send(const char* destination_service, amc_message_t* msg) {
     spinlock_release(&dest->spinlock);
 
     // And unblock the task if it was waiting for a message
-    if (dest->task->blocked_info.status == AMC_AWAIT_MESSAGE) {
+    if ((dest->task->blocked_info.status & AMC_AWAIT_MESSAGE) != 0) {
         //printf("AMC Unblocking [%d] %s\n", dest->task->id, dest->task->name);
-        tasking_unblock_task(dest->task, false);
+        tasking_unblock_task_with_reason(dest->task, false, AMC_AWAIT_MESSAGE);
 
         // Higher priority tasks that were waiting on a message should preempt a lower priority active task
         if (dest->task->priority > get_current_task_priority()) {
-            printf("[AMC] Jump to higher-priority task [%d] %s from [%d]\n", dest->task->id, dest->task->name, getpid());
+            //printf("[AMC] Jump to higher-priority task [%d] %s from [%d]\n", dest->task->id, dest->task->name, getpid());
             tasking_goto_task(dest->task);
         }
     }

@@ -455,7 +455,7 @@ int main(int argc, char** argv) {
 		}
 		// Draw a VStack of currently active applications, so the user is aware
 		// TODO(PT): Move this to a `window_order_changed` delegate
-		Size vstack_row_size = size_make(200, 30);
+		Size vstack_row_size = size_make(260, 30);
 		uint32_t vstack_y = _screen.resolution.height - vstack_row_size.height;
 		for (int i = window_count-1; i >= 0; i--) {
 			user_window_t* window = &windows[i];
@@ -467,9 +467,7 @@ int main(int argc, char** argv) {
 			text_box_t* text_box = text_box_create(vstack_row_size, color_black());
 			text_box->font_size = size_make(10, 10);
 			text_box->font_padding = size_make(0, 2);
-			for (int i = 0; i < strlen(window->owner_service); i++) {
-				text_box_putchar(text_box, window->owner_service[i], color_white());
-			}
+			text_box_puts(text_box, window->owner_service, color_white());
 			blit_layer(
 				_screen.vmem, 
 				text_box->layer, 

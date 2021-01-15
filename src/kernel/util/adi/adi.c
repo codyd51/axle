@@ -91,12 +91,10 @@ bool adi_event_await(uint32_t irq) {
     return unblock_reason == IRQ_WAIT;
 }
 
-void adi_interrupt_dispatch(uint32_t irq) {
-    assert(irq > 0 && irq < MAX_INT_VECTOR, "Invalid IRQ provided");
-    assert(_adi_drivers[irq].task != NULL, "IRQ does not have a corresponding driver");
-
+bool adi_send_eoi(uint32_t irq) {
     adi_driver_t* driver = _adi_drivers + irq;
-    tasking_unblock_task(driver->task, false);
+    driver->pending_irq_count -= 1;
+    pic_signal_end_of_interrupt(irq);
 }
 
 bool adi_services_interrupt(uint32_t irq) {

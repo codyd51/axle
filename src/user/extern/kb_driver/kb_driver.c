@@ -76,7 +76,11 @@ int main(int argc, char** argv) {
 
 	while (true) {
 		// Await an interrupt from the PS/2 keyboard
-		adi_interrupt_await(INT_VECTOR_IRQ1);
+		bool awoke_for_interrupt = adi_event_await(INT_VECTOR_IRQ1);
+		if (!awoke_for_interrupt) {
+			printf("com.axle.kb_driver woke for an amc message... why?");
+			continue;
+		}
 
 		// An interrupt is ready to be serviced!
 		// TODO(PT): Copy the PS2 header to the sysroot as a build step, 

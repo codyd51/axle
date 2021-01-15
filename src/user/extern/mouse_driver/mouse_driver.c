@@ -29,7 +29,11 @@ int main(int argc, char** argv) {
 	ps2_mouse_state_t state = {0, 0};
 	while (true) {
 		// Await an interrupt from the PS/2 mouse
-		adi_interrupt_await(INT_VECTOR_IRQ12);
+		bool awoke_for_interrupt = adi_event_await(INT_VECTOR_IRQ12);
+		if (!awoke_for_interrupt) {
+			printf("com.axle.mouse_driver woke for an amc message... why?");
+			continue;
+		}
 
 		// An interrupt is ready to be serviced!
 		// TODO(PT): Copy the PS2 header to the sysroot as a build step, 
