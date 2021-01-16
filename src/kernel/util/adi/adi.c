@@ -67,6 +67,7 @@ void adi_register_driver(const char* name, uint32_t irq) {
     // but isn't mapped into kernel-space.
     // Copy the string so we can access it in kernel-space
     _adi_drivers[irq].name = strdup(name);
+    _adi_drivers[irq].pending_irq_count = 0;
 
     // Set up an interrupt handler that will unblock the driver process
     interrupt_setup_callback(irq, _adi_interrupt_handler);

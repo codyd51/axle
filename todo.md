@@ -23,9 +23,11 @@ Fix task starvation of same priority, runnable
 
 Come up with better way to pass args to programs on startup
 
-Driver library - provides in/out functions, what else?
+Driver library - provides in/out functions, assert, what else?
 
 awm library - helpers for constructing window, other communications? update title bar?
 
 The mouse can't pre-empt the RTL driver because they're the same priority, so it loses data
 The RTL driver needs to be split into a GUI and message server...
+
+Replace PMM mutex with spinlock

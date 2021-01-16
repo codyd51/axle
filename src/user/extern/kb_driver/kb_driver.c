@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
 		// Await an interrupt from the PS/2 keyboard
 		bool awoke_for_interrupt = adi_event_await(INT_VECTOR_IRQ1);
 		if (!awoke_for_interrupt) {
-			printf("com.axle.kb_driver woke for an amc message... why?");
+			printf("com.axle.kb_driver woke for an amc message... why?\n");
 			continue;
 		}
 
