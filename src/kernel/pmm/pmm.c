@@ -100,6 +100,7 @@ void pmm_dump(void) {
 }
 
 void pmm_init() {
+    // TODO(PT): Replace with spinlock
     pmm_state_t* pmm = pmm_get();
     memset(pmm, 0, sizeof(pmm_state_t));
     pmm->lock.name = "PMM global lock";

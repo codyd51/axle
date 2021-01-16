@@ -92,7 +92,7 @@ bool adi_event_await(uint32_t irq) {
     return unblock_reason == IRQ_WAIT;
 }
 
-bool adi_send_eoi(uint32_t irq) {
+void adi_send_eoi(uint32_t irq) {
     adi_driver_t* driver = _adi_drivers + irq;
     driver->pending_irq_count -= 1;
     pic_signal_end_of_interrupt(irq);

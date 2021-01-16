@@ -14,6 +14,7 @@ cp -r axle-sysroot/usr/i686-axle/include/kernel ports/newlib/newlib-2.5.0.201712
 
 # Copy awm headers to the sysroot so other programs can use its message protocol
 cp src/user/extern/awm/awm.h axle-sysroot/usr/i686-axle/include/awm/awm.h
+cp src/user/extern/pci_driver/pci_messages.h axle-sysroot/usr/i686-axle/include/pci/pci_messages.h
 
 python3 ./build-libs.py
 
@@ -29,19 +30,11 @@ cd ./src/user/extern/kb_driver
 make
 cd ../../../../
 
+cd ./src/user/extern/realtek_8139_driver
+make
+cd ../../../../
+
 cd ./src/user/extern/tty
-make
-cd ../../../../
-
-cd ./src/user/extern/rainbow
-make
-cd ../../../../
-
-cd ./src/user/extern/paintbrush
-make
-cd ../../../../
-
-cd ./src/user/extern/textpad
 make
 cd ../../../../
 
@@ -49,9 +42,6 @@ cd ./src/user/extern/pci_driver
 make
 cd ../../../../
 
-cd ./src/user/extern/realtek_8139_driver
-make
-cd ../../../../
 
 cd initrd
 ../fsgen ./
@@ -65,6 +55,17 @@ make run
 
 exit
 
+cd ./src/user/extern/rainbow
+make
+cd ../../../../
+
+cd ./src/user/extern/paintbrush
+make
+cd ../../../../
+
+cd ./src/user/extern/textpad
+make
+cd ../../../../
 
 cd ./src/user/extern/print_and_exit
 make

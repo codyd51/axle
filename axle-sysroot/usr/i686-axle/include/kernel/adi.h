@@ -31,7 +31,7 @@ bool adi_event_await(uint32_t irq);
 
 // Drivers call this once they've finished servicing the interrupt
 // This sends the "end-of-interrupt" signal to the PIC
-bool adi_send_eoi(uint32_t irq);
+void adi_send_eoi(uint32_t irq);
 
 // ############
 // Called internally from kernel mode

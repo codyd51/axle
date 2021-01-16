@@ -23,6 +23,7 @@
 #include <libamc/libamc.h>
 
 #include "pci_driver.h"
+#include "pci_messages.h"
 
 // Many graphics lib functions call gfx_screen() 
 Screen _screen = {0};
@@ -339,66 +340,26 @@ static pci_dev_t* pci_find_devices() {
 	return dev_head;
 }
 
-/*
-#define PCI_BASE_ADDRESS_REGISTER_COUNT 7
-for (int bar_idx = 0; bar_idx < PCI_BASE_ADDRESS_REGISTER_COUNT; bar_idx++) {
-    // https://forum.osdev.org/viewtopic.php?t=11501
-    uint32_t bar_offset = 0x10 + (bar_idx * sizeof(uint32_t));
-    uint32_t base_address_register = pci_config_read_word(bus, device_slot, function, bar_offset);
-    // Is there a Base Address Register (BAR) implemented?
-    if (base_address_register == 0) {
-        continue;
+bool is_service_pci_device_driver(const char* service_name) {
+    if (!strcmp(service_name, "com.axle.realtek_8139_driver")) {
+        return true;
     }
-    printf("\t\tBAR %d: 0x%08x\n", bar_idx, base_address_register);
-    // For BARs, the first bit determines if the BAR is for a range of I/O ports 
-    // or a range of addresses in the physical address space
-    if ((base_address_register & 1) == 0) {
-        // Memory
-        uint32_t type = (base_address_register >> 1) & 0x03;
-        if( (type & 2) == 0) {
-            // 32 bit memory
-            printf("\t\t32-bit memory\n");
-            asm("cli");
-            pci_write_dword(bus, device_slot, function, bar_offset, 0xFFFFFFFF);
-            uint32_t bar_response = pci_config_read_word(bus, device_slot, function, bar_offset);
-            // Clear flags
-            bar_response = bar_response & 0xFFFFFFF0;          // Clear flags
-            uint32_t size = (bar_response ^ 0xFFFFFFFF) + 1;
-            // Rewrite the original BAR
-            pci_write_dword(bus, device_slot, function, bar_offset, base_address_register);
-            asm("sti");
-            printf("\t\tPCI BAR %d:%d:%d offset %d = 0x%08x bytes (32 bit)\n", bus, device_slot, function, bar_offset, size);
-        }
-        else {
-            // 64 bit memory
-            printf("\t\t64-bit memory\n");
-            NotImplemented();
-        }
-    }
-    else {
-        // IO space
-        printf("\t\tIO Space\n");
-        asm("cli");
-        pci_write_dword(bus, device_slot, function, bar_offset, 0xFFFFFFFF);
-        uint32_t bar_response = pci_config_read_word(bus, device_slot, function, bar_offset);
-        bar_response = bar_response & 0xFFFFFFFC;          // Clear flags
-        uint32_t size = (bar_response ^ 0xFFFFFFFF) + 1;
-        // Rewrite the original BAR
-        pci_write_dword(bus, device_slot, function, bar_offset, base_address_register);
-        asm("sti");
-        printf("\t\t\tBAR cleared 0x%08x\n", bar_response);
-        printf("\t\tBAR offset %d = 0x%08x I/O ports\n", bar_offset, size);
+    return false;
+}
 
-        if (device_id == PCI_DEVICE_ID_REALTEK_8139) {
-            realtek_8139_init(bus, device_slot, function, bar_response);
-            break;
+static void launch_known_drivers(pci_dev_t* dev_head) {
+    pci_dev_t* dev = dev_head;
+    while (dev != NULL) {
+        if (dev->device_id == PCI_DEVICE_ID_REALTEK_8139) {
+            printf("[PCI] Launching driver for %s %s\n", dev->vendor_id, dev->device_name);
+            amc_launch_service("com.axle.realtek_8139_driver");
         }
+        dev = dev->next;
     }
 }
-*/
 
 int main(int argc, char** argv) {
-	amc_register_service("com.axle.pci_driver");
+	amc_register_service(PCI_SERVICE_NAME);
 
 	Size window_size = size_make(500, 460);
 	Rect window_frame = rect_make(point_zero(), window_size);
@@ -439,26 +400,11 @@ int main(int argc, char** argv) {
     // Blit the text box to the window layer
     blit_layer(window_layer, text_box->layer, text_box_frame, rect_make(point_zero(), text_box_frame.size));
     // And ask awm to draw our window
+    // TODO(PT): Define AWM_SERVICE_NAME like PCI_SERVICE_NAME
     amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 
     // Launch drivers for known devices
-    dev = dev_head;
-    while (dev != NULL) {
-        if (dev->device_id == PCI_DEVICE_ID_REALTEK_8139) {
-            printf("[PCI] Launching driver for %s %s\n", dev->vendor_id, dev->device_name);
-            // TODO(PT): This should be done via an amc interface
-            uint32_t command_register = pci_config_read_word(dev->bus, dev->device_slot, dev->function, 0x04);
-            printf("CmdReg before enable 0x%08x\n", command_register);
-            // Enable bus mastering bit
-            command_register |= (1 << 2);
-            printf("CmdReg after enable 0x%08x\n", command_register);
-            pci_config_write_word(dev->bus, dev->device_slot, dev->function, 0x04, command_register);
-
-            amc_launch_service("com.axle.realtek_8139");
-        }
-        dev = dev->next;
-    }
-    printf("Awaiting next message\nO");
+    launch_known_drivers(dev_head);
 
 	while (true) {
 		amc_charlist_message_t msg = {0};
@@ -466,6 +412,36 @@ int main(int argc, char** argv) {
 			// Wait until we've unblocked with at least one message available
 			amc_message_await_any(&msg);
 			// TODO(PT): Process the message
+            amc_command_message_t* cmd_msg = (amc_command_message_t*)&msg;
+            const char* source_service = amc_message_source(cmd_msg);
+            // If we're sent a message from someone other than a PCI device driver, ignore it
+            if (!is_service_pci_device_driver(source_service)) {
+                continue;
+            }
+            
+            printf("PCI request from %s\n", source_service);
+            uint32_t message_id = amc_msg_u32_get_word(cmd_msg, 0);
+            if (message_id == PCI_REQUEST_READ_CONFIG_WORD) {
+                uint32_t bus = amc_msg_u32_get_word(cmd_msg, 1);
+                uint32_t device_slot = amc_msg_u32_get_word(cmd_msg, 2);
+                uint32_t function = amc_msg_u32_get_word(cmd_msg, 3);
+                uint32_t config_word_offset = amc_msg_u32_get_word(cmd_msg, 4);
+                printf("Request to get config word [%d,%d,%d] @ %d\n", bus, device_slot, function, config_word_offset);
+                uint32_t config_word = pci_config_read_word(bus, device_slot, function, config_word_offset);
+                amc_msg_u32_2__send(source_service, PCI_RESPONSE_READ_CONFIG_WORD, config_word);
+            }
+            else if (message_id == PCI_REQUEST_WRITE_CONFIG_WORD) {
+                uint32_t bus = amc_msg_u32_get_word(cmd_msg, 1);
+                uint32_t device_slot = amc_msg_u32_get_word(cmd_msg, 2);
+                uint32_t function = amc_msg_u32_get_word(cmd_msg, 3);
+                uint32_t config_word_offset = amc_msg_u32_get_word(cmd_msg, 4);
+                uint32_t new_value = amc_msg_u32_get_word(cmd_msg, 5);
+                printf("Request to write config word [%d,%d,%d] @ %d to 0x%08x\n", bus, device_slot, function, config_word_offset, new_value);
+                pci_config_write_word(bus, device_slot, function, config_word_offset, new_value);
+                amc_msg_u32_1__send(source_service, PCI_RESPONSE_WRITE_CONFIG_WORD);
+            }
+
+            // Otherwise, ignore the message
 		} while (amc_has_message());
 		// We're out of messages to process
 		// Wait for a new message to arrive on the next loop iteration
