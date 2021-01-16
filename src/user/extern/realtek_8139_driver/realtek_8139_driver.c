@@ -19,6 +19,9 @@
 // Window management
 #include <awm/awm.h>
 
+// PCI
+#include <pci/pci_messages.h>
+
 // Communication with other processes
 #include <libamc/libamc.h>
 
@@ -109,8 +112,6 @@ static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 #define RX_BUF_ADDR 0x3a
 #define RX_MISSED 0x4c
 
-// TODO(PT): This MUST be a physical memory buffer!
-char* rx_buffer[(1024*8)+16] = {0};
 void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, uint32_t io_base) {
     // https://wiki.osdev.org/RTL8139
     printf("Init realtek_8139 at %d,%d,%d, IO Base 0x%04x\n", bus, device_slot, function, io_base);
@@ -124,8 +125,30 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
     outb(io_base + REALTEK_8139_CONFIG_1_REGISTER_OFF, 0x0);
     outb(io_base + 0x50, 0x0);
 
-    uint32_t tmp = inb(io_base + 0x52);
-    printf("Config1 %d %d\n", (tmp >> 3) & 0x1, (tmp >> 2) & 0x1);
+	// Enable bus mastering (must be done after power on)
+	amc_msg_u32_5__send(PCI_SERVICE_NAME, PCI_REQUEST_READ_CONFIG_WORD, bus, device_slot, function, 0x04);
+	// TODO(PT): Wrap up into sync interface
+	// TODO(PT): Should loop until the message is the desired one, discarding others
+	amc_command_message_t recv = {0};
+	amc_message_await(PCI_SERVICE_NAME, &recv);
+	// TODO(PT): Need a struct type selector
+	if (amc_msg_u32_get_word(&recv, 0) != PCI_RESPONSE_READ_CONFIG_WORD) {
+		printf("Invalid state. Expected response for read config word\n");
+	}
+	uint32_t command_register = amc_msg_u32_get_word(&recv, 1);
+
+	// Enable IO port access (though it should already be set)
+	command_register |= (1 << 0);
+	// Enable MMIO access (though it should already be set)
+	command_register |= (1 << 1);
+	// Enable bus mastering
+	command_register |= (1 << 2);
+
+	amc_msg_u32_6__send(PCI_SERVICE_NAME, PCI_REQUEST_WRITE_CONFIG_WORD, bus, device_slot, function, 0x04, command_register);
+	amc_message_await(PCI_SERVICE_NAME, &recv);
+	if (amc_msg_u32_get_word(&recv, 0) != PCI_RESPONSE_WRITE_CONFIG_WORD) {
+		printf("Invalid state. Expected response for write config word\n");
+	}
 
     // Software reset
     outb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF, (1 << 4));
@@ -133,6 +156,8 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
         printf("spin awaiting reset completion\n");
     }
 
+	// According to http://www.jbox.dk/sanos/source/sys/dev/rtl8139.c.html,
+	// we must enable Tx/Rx before setting transfer thresholds
     // Receiver enable
     outb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF, (1 << 3));
     while((inb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF) & (1 << 3)) == 0) {
@@ -145,18 +170,39 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
         printf("spin awaiting tx enable completion\n");
     }
 
+	uint32_t virt_memory_rx_addr = 0;
+	uint32_t phys_memory_rx_addr = 0;
+	uint32_t rx_buffer_size = 8192 + 16 + 1500;
+	amc_physical_memory_region_create(rx_buffer_size, &virt_memory_rx_addr, &phys_memory_rx_addr);
+	printf("Set RX buffer phys: 0x%08x\n", phys_memory_rx_addr);
+	outl(io_base + 0x30, phys_memory_rx_addr);
+
+    // Enable the "Transmit OK" and "Receive OK" interrupts
+    //outw(io_base + 0x3C, 0x0005);
+    outw(io_base + IMR, RX_OK | TX_OK | TX_ERR);
+	//outw(io_base + 0x3C, 0x0005);
+
+	#define RCR_AcceptRunt (1 << 4)
+	#define RECEIVE_CONFIG_ACCEPT_ERROR (1 << 5)
+	#define RECEIVE_CONFIG_WRAP (1 << 7)
+	uint32_t receive_config = RCR_AAP | RCR_APM | RCR_AM | RCR_AB | RCR_AcceptRunt | RECEIVE_CONFIG_ACCEPT_ERROR | RECEIVE_CONFIG_WRAP;
+	// Set max DMA burst to "unlimited"
+	receive_config |= (7 << 8);
+	// Set RX buffer length to 8k + 16
+	receive_config &= ~(00 << 11);
+	printf("receive_config 0x%08x\n", receive_config);
+	outl(io_base + RCR, receive_config);
+
     printf("Buffer empty? %d\n", inb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF) & (1 << 0));
 
     // Init receive buffer
     // Note: rx_buffer must be a pointer to a physical address
     // The OSDev Wiki recommends 8k + 16 bytes
-    outl(io_base + 0x30, &rx_buffer);
+    //outl(io_base + 0x30, &rx_buffer);
 
-    // Enable the "Transmit OK" and "Receive OK" interrupts
-    //outw(io_base + 0x3C, 0x0005);
-    //outw(io_base + IMR, RX_OK | TX_OK | TX_ERR);
 
     // Enable all interrupts
+	/*
     outw(io_base + IMR, 0x3f | (1 << 13) | (1 << 14) | (1 << 15));
     tmp = inl(io_base + 0x44);
     printf("tmp 0x%08x\n", tmp);
@@ -172,6 +218,7 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
     outl(io_base + 0x44, tmp);
     tmp = inl(io_base + 0x44);
     printf("tmp 0x%08x\n", tmp);
+	*/
 
     /*
     uint16_t word = inw(io_base + 0x3e);
@@ -185,8 +232,14 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
     }
     */
 
+    // Enable receiver and transmitter
+    // Sets the RE and TE bits high
+    //outb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF, 0x0C); 
+
     // 7. Set RCR (Receive Configuration Register)
-    outb(io_base + RCR, RCR_AAP | RCR_APM | RCR_AM | RCR_AB | RCR_WRAP);
+    //outb(io_base + RCR, RCR_AAP | RCR_APM | RCR_AM | RCR_AB | RCR_WRAP);
+	// (1 << 7) is the WRAP bit, 0xf is AB+AM+APM+AAP
+    //outl(io_base + 0x44, 0x0F);
 
     // (1 << 7) is the WRAP bit, 0xf is AB+AM+APM+AAP
     //outl(io_base + 0x44, 0x0f | (1 << 7));
@@ -197,6 +250,7 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
     printf("irq_number %d\n", irq_number);
 	*/
 
+	/*
     uint32_t mac_part1 = inl(io_base + 0x00);
     uint16_t mac_part2 = inw(io_base + 0x04);
     uint8_t mac_addr[8];
@@ -213,10 +267,18 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
                 mac_addr[3],
                 mac_addr[4],
                 mac_addr[5]);
+				*/
+			/*
+	uint32_t command_register = pci_config_read_word(dev->bus, dev->device_slot, dev->function, 0x04);
+	printf("CmdReg before enable 0x%08x\n", command_register);
+	// Enable bus mastering bit
+	command_register |= (1 << 2);
+	command_register &= ~0x400;
+	printf("CmdReg after enable 0x%08x\n", command_register);
+	pci_config_write_word(dev->bus, dev->device_slot, dev->function, 0x04, command_register);
+	*/
+	// https://stackoverflow.com/questions/87442/virtual-network-interface-in-mac-os-x
 
-    // Enable receiver and transmitter
-    // Sets the RE and TE bits high
-    outb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF, 0x0C); 
     asm("sti");
 }
 
@@ -276,11 +338,7 @@ int main(int argc, char** argv) {
     amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 
 	while (true) {
-		asm("sti");
 		// Wake on interrupt or AMC message
-		// Problem: we now have a process that's using both `adi_interrupt_await` and `amc_message_await`
-		// One to respond to an interrupt, the other to respond to a mouse event
-		// Either we need threads or 2 procs
 		// Even with 2 procs the issue is there: the driver proc would still need to listen for messages from the frontend
 		// We really do need a proc to be able to wait for both ADI or AMC, but think about it more
 		// TODO(PT): I might not have needed to remove the EOI from the adi_interrupt_await path -- 
@@ -291,18 +349,19 @@ int main(int argc, char** argv) {
 		// Perhaps if the driver proc is running, increment a "pending int count" if an int comes through.
 		// adi_interrupt_await will decrement this count instead of blocking until it hits zero
 		bool awoke_for_interrupt = adi_event_await(INT_VECTOR_IRQ11);
-		printf("Awoke for interrupt? %d\n", awoke_for_interrupt);
+		//printf("ADI returned: %d\n", awoke_for_interrupt);
 		if (awoke_for_interrupt) {
 			// The NIC needs some attention
-			printf("CALLBACK\n");
-			uint16_t status = inw(0xc000 + 0x3e);
+			// Reading the ISR register clears all interrupts
+			uint16_t status = inw(0xc000 + ISR);
+			printf("NIC interrupt. Status %04x\n", status);
 
 			#define TOK     (1<<2)
 			#define ROK                 (1<<0)
 			if(status & TOK) {
 				printf("Packet sent\n");
 			}
-			if (status & ROK) {
+			else if (status & ROK) {
 				printf("Received packet\n");
 				//receive_packet();
 			}
@@ -310,7 +369,10 @@ int main(int argc, char** argv) {
 				printf("Unknown status 0x%04x\n", status);
 			}
 
-			outw(0xc000 + 0x3E, 0x5);
+			// Set the OWN bit to zero
+			status &= ~(1 << 13);
+			//status &= ~(1 << 2);
+			outw(0xc000 + ISR, status);
 			adi_send_eoi(INT_VECTOR_IRQ11);
 		}
 		else {
@@ -324,27 +386,38 @@ int main(int argc, char** argv) {
 					char ch = amc_command_ptr_msg__get_ptr(&msg);
 					if (ch == 'z') {
 						printf("Sending packet!\n");
-						uint32_t* packet_addr = rx_buffer;
+
+						uint32_t virt_memory_addr = 0;
+						uint32_t phys_memory_addr = 0;
+						amc_physical_memory_region_create((1024*8) + 16, &virt_memory_addr, &phys_memory_addr);
+						outl(0xc000 + 0x20, phys_memory_addr);
+						printf("Phys mem 0x%08x\n", phys_memory_addr);
+						printf("Virt mem 0x%08x\n", virt_memory_addr);
+
+						uint8_t* buffer = (uint32_t*)virt_memory_addr;
+						memset(buffer, 'A', (1024*8)+16);
 						//00 18 8b 75 1d e0 00 1f f3 d8 47 ab 08 0
 						// 192.168.1.5: MAC b8:27:eb:b2:ec:75
-						rx_buffer[0] = 0xb8;
-						rx_buffer[1] = 0x27;
-						rx_buffer[2] = 0xeb;
-						rx_buffer[3] = 0xb2;
-						rx_buffer[4] = 0xec;
-						rx_buffer[5] = 0x75;
+						/*
+						buffer[0] = 0xb8;
+						buffer[1] = 0x27;
+						buffer[2] = 0xeb;
+						buffer[3] = 0xb2;
+						buffer[4] = 0xec;
+						buffer[5] = 0x75;
 
 						// We are MAC 52:54:00:12:34:56
-						rx_buffer[6] = 0x52;
-						rx_buffer[7] = 0x54;
-						rx_buffer[8] = 0x00;
-						rx_buffer[9] = 0x12;
-						rx_buffer[10] = 0x34;
-						rx_buffer[11] = 0x56;
+						buffer[6] = 0x52;
+						buffer[7] = 0x54;
+						buffer[8] = 0x00;
+						buffer[9] = 0x12;
+						buffer[10] = 0x34;
+						buffer[11] = 0x56;
 
 						// Protocol type 0x806: ARP
-						rx_buffer[12] = 0x08;
-						rx_buffer[13] = 0x06;
+						buffer[12] = 0x08;
+						buffer[13] = 0x06;
+						*/
 
 						// Second, fill in physical address of data, and length
 						uint8_t tx_buffer_port = tx_buffer_register_ports[tx_round_robin_counter];
@@ -353,8 +426,10 @@ int main(int argc, char** argv) {
 						if (tx_round_robin_counter > sizeof(tx_buffer_register_ports) / sizeof(tx_buffer_register_ports[0])) {
 							tx_round_robin_counter = 0;
 						}
-						outl(io_base + tx_buffer_port, packet_addr); 
-						outl(io_base + tx_status_command_port, 14); 
+						outl(io_base + tx_buffer_port, phys_memory_addr); 
+						outl(io_base + tx_status_command_port, (200)); 
+						// https://forum.osdev.org/viewtopic.php?f=1&t=26938
+						// TODO(PT): Give the tap device an IPv4 address on the host so we can ping it
 					}
 				}
 			} while (amc_has_message_from("com.axle.awm"));
