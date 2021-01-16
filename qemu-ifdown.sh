@@ -18,3 +18,4 @@ echo "Removing ipfw rule"
 # ipfw del `ipfw list | grep 'ip from any to any via en1' | sed -e 's/ .*//g'`
 echo "Stop natd"
 # killall -9 natd
+ifconfig en0 up

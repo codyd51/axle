@@ -95,9 +95,8 @@ task_small_t* tasking_get_current_task();
 // tasking_unblock_task() may be called either from another part of the system,
 // or from the iosentinel watchdog that notices that the block condition is 
 // satisfied.
-task_state tasking_block_task(task_small_t* task, task_state blocked_state);
+void tasking_block_task(task_small_t* task, task_state blocked_state);
 void tasking_unblock_task_with_reason(task_small_t* task, bool run_immediately, task_state reason);
-void tasking_unblock_task(task_small_t* task, bool run_immediately);
 
 void iosentinel_check_now();
 

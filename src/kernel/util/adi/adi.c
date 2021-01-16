@@ -42,8 +42,12 @@ static void _adi_interrupt_handler(registers_t* regs) {
 
     adi_driver_t* driver = _adi_drivers + irq;
     driver->pending_irq_count += 1;
+
     task_small_t* task = (task_small_t*)driver->task;
-    tasking_unblock_task_with_reason(task, false, IRQ_WAIT);
+    // If the driver is not currently running, unblock it for having received an IRQ
+    if (task != tasking_get_current_task()) {
+        tasking_unblock_task_with_reason(task, false, IRQ_WAIT);
+    }
 }
 
 void adi_register_driver(const char* name, uint32_t irq) {
@@ -68,6 +72,7 @@ void adi_register_driver(const char* name, uint32_t irq) {
     // Copy the string so we can access it in kernel-space
     _adi_drivers[irq].name = strdup(name);
     _adi_drivers[irq].pending_irq_count = 0;
+    printf("Mapped _adi_drivers[%d] = %s\n", irq, _adi_drivers[irq].name);
 
     // Set up an interrupt handler that will unblock the driver process
     interrupt_setup_callback(irq, _adi_interrupt_handler);
@@ -77,6 +82,9 @@ void adi_register_driver(const char* name, uint32_t irq) {
 
 bool adi_event_await(uint32_t irq) {
     assert(irq > 0 && irq < MAX_INT_VECTOR, "Invalid IRQ provided");
+    if (_adi_drivers[irq].task != tasking_get_current_task()) {
+        printf("adi maps IRQ %d to %s, but current task is %s\n", irq, _adi_drivers[irq].name, tasking_get_current_task()->name);
+    }
     assert(_adi_drivers[irq].task == tasking_get_current_task(), "Current task does not match driver layout");
 
     adi_driver_t* driver = _adi_drivers + irq;
@@ -84,10 +92,14 @@ bool adi_event_await(uint32_t irq) {
     if (driver->pending_irq_count) {
         return true;
     }
-    // The driver has re-entered its await-interrupt loop
+    // The driver has re-entered its await-event loop
     // Await the next interrupt or amc message
-    task_state unblock_reason = tasking_block_task(driver->task, IRQ_WAIT|AMC_AWAIT_MESSAGE);
+    tasking_block_task(driver->task, IRQ_WAIT|AMC_AWAIT_MESSAGE);
+    task_state unblock_reason = ((task_small_t*)(driver->task))->blocked_info.unblock_reason;
     // Make sure this was an event we're expecting
+    if (unblock_reason != IRQ_WAIT && unblock_reason != AMC_AWAIT_MESSAGE) {
+        printf("Unknown awake reason: %d\n", unblock_reason);
+    }
     assert (unblock_reason == IRQ_WAIT || unblock_reason == AMC_AWAIT_MESSAGE, "ADI driver awoke for unknown reason");
     return unblock_reason == IRQ_WAIT;
 }

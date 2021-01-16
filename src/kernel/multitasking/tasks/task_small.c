@@ -306,6 +306,17 @@ static void tasking_timer_tick() {
 }
 
 void tasking_unblock_task_with_reason(task_small_t* task, bool run_immediately, task_state reason) {
+    // Is this a reason why we're blocked?
+    if (!(task->blocked_info.status & reason)) {
+        printf("tasking_unblock_task_with_reason(%s, %d) called with reason the task is not blocked for (%d)\n", task->name, reason, task->blocked_info.status);
+        assert(0, "invalid call to tasking_unblock_task_with_reason");
+        return;
+    }
+    if (task == _current_task_small) {
+        printf("Current task unblocked while running with reason %d\n", reason);
+        assert(0, "current task unblocked while running??");
+        return;
+    }
     // Record why we unblocked
     task->blocked_info.unblock_reason = reason;
     task->blocked_info.status = RUNNABLE;
@@ -314,26 +325,16 @@ void tasking_unblock_task_with_reason(task_small_t* task, bool run_immediately, 
     }
 }
 
-void tasking_unblock_task(task_small_t* task, bool run_immediately) {
-    // The caller should be updated to provide an unblock reason
-    tasking_unblock_task_with_reason(task, run_immediately, UNKNOWN);
-}
-
-task_state tasking_block_task(task_small_t* task, task_state blocked_state) {
+void tasking_block_task(task_small_t* task, task_state blocked_state) {
     // Some states are invalid "blocked" states
     if (blocked_state == RUNNABLE || blocked_state == ZOMBIE) {
         panic("Invalid blocked state");
     }
-    // Mask this block reason onto the task's block state
-    // If any block reasons in this state are serviced, the task will unblock
-    task->blocked_info.status |= blocked_state;
+    task->blocked_info.status = blocked_state;
     // If the current task just became blocked, switch to another
     if (task == _current_task_small) {
         task_switch();
-        // The task is now unblocked. The `unblock_reason` stores why.
-        return task->blocked_info.unblock_reason;
     }
-    return RUNNABLE;
 }
 
 void update_blocked_tasks() {
@@ -347,12 +348,12 @@ void update_blocked_tasks() {
             }
             else if (task->blocked_info.status == PIT_WAIT) {
                 if (time() > task->blocked_info.wake_timestamp) {
-                    tasking_unblock_task(task, false);
+                    tasking_unblock_task_with_reason(task, false, PIT_WAIT);
                 }
             }
             else if (task->blocked_info.status == KB_WAIT) {
                 if (task->stdin_stream->buf->count > 0) {
-                    tasking_unblock_task(task, false);
+                    tasking_unblock_task_with_reason(task, false, KB_WAIT);
                 }
             }
             else if (task->blocked_info.status == MOUSE_WAIT) {
