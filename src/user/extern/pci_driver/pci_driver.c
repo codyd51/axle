@@ -124,10 +124,24 @@ uint16_t pci_config_read_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t o
     return (uint16_t)((inl(0xCFC) >> ((offset & 2) * 8)) & 0xffff);
 }
 
-static void pci_config_write_word(int bus, int slot, int func, int addr, uint32_t value) {
+void pci_config_write_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint32_t value) {
+    // https://wiki.osdev.org/Pci#Enumerating_PCI_Buses
     // http://www.jbox.dk/sanos/source/sys/krnl/pci.c.html
-    outl(PCI_CONFIG_ADDRESS_PORT, ((unsigned long) 0x80000000 | (bus << 16) | (slot << 11) | (func << 8) | addr));
-    outl(PCI_CONFIG_ADDRESS_PORT, value);
+    uint32_t lbus  = (uint32_t)bus;
+    uint32_t lslot = (uint32_t)slot;
+    uint32_t lfunc = (uint32_t)func;
+    uint16_t tmp = 0;
+ 
+    // Construct an address as per the PCI "Configuration Space Access Mechanism #1"
+    uint32_t address = (uint32_t)((lbus << 16) | 
+								  (lslot << 11) |
+								  (lfunc << 8) | 
+								  (offset & 0xfc) | 
+								  ((uint32_t)0x80000000));
+
+	// Write out the address
+    outl(PCI_CONFIG_ADDRESS_PORT, address);
+    outl(0xCFC, value);
 }
 
 const char* pci_vendor_name_for_id(uint16_t vendor_id) {
