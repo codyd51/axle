@@ -34,7 +34,7 @@ void print_stack_trace(int frame_count) {
 void _panic(const char* msg, const char* file, int line) {
     //enter infinite loop
     asm("cli");
-    printf("Assertion failed: %s\n", msg);
+    printf("[%d] Assertion failed: %s\n", getpid(), msg);
     printf("%s:%d\n", file, line);
     if (true) {
         print_stack_trace(12);

@@ -74,7 +74,10 @@ endif
 #endif
 # EMFLAGS += -netdev tap,script=./qemu-ifup.sh,downscript=./qemu-ifdown.sh,id=test -device rtl8139,netdev=test -object filter-dump,id=f1,netdev=test,file=dump.txt
 # EMFLAGS += -netdev user,id=mynet0 -device rtl8139,netdev=mynet0 -object filter-dump,id=f1,netdev=mynet0,file=dump.txt
-EMFLAGS += -nic tap,model=rtl8139,script=./qemu-ifup.sh,downscript=./qemu-ifdown.sh,id=u1 -object filter-dump,id=f1,netdev=u1,file=dump.dat
+
+EMFLAGS += -nic tap,model=rtl8139,script=./qemu-ifup.sh,downscript=./qemu-ifdown.sh,id=u1,mac=9a:59:71:00:00:88 -object filter-dump,id=f1,netdev=u1,file=dump.dat
+
+# EMFLAGS += -netdev user,id=mynet0,hostfwd=tcp::8080-:80 -device rtl8139,netdev=mynet0
 
 
 # Rules

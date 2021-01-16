@@ -95,7 +95,6 @@ void amc_register_service(const char* name) {
     memset(service, 0, sizeof(amc_service_t));
 
     printf("Service 0x%08x\n", service);
-
     printf("Registering service with name 0x%08x (%s)\n", name, name);
     char buf[256];
     snprintf((char*)&buf, sizeof(buf), "[AMC spinlock for %s]", name);
@@ -110,15 +109,12 @@ void amc_register_service(const char* name) {
     assert(!interrupts_enabled(), "ints enabled during spinlock");
     service->message_queue = array_m_create(2048);
 
-    //array_l_insert(_amc_services, service);
     array_m_insert(_amc_services, service);
 
     spinlock_release(&service->spinlock);
-
-    printf("After register_service\n");
 }
 
-static amc_message_t* _amc_message_construct_from_service_name(const char* source_service_name, const char* data, int len) {
+static amc_message_t* _amc_message_construct_from_service_name(const char* source_service_name, const char* data, uint32_t len) {
     assert(len < (AMC_MESSAGE_PAYLOAD_SIZE - sizeof(uint8_t)), "invalid len");
     //printf("_amc_message_construct_from_service_name(%s): %d %d %s\n", source_service_name, len, strlen(data), data);
     assert(source_service_name != NULL, "Must provide a source service");
@@ -197,7 +193,7 @@ bool amc_message_send(const char* destination_service, amc_message_t* msg) {
 
     // And unblock the task if it was waiting for a message
     if ((dest->task->blocked_info.status & AMC_AWAIT_MESSAGE) != 0) {
-        //printf("AMC Unblocking [%d] %s\n", dest->task->id, dest->task->name);
+        //printf("AMC Unblocking [%d] %s %d\n", dest->task->id, dest->task->name, dest->task->blocked_info.status);
         tasking_unblock_task_with_reason(dest->task, false, AMC_AWAIT_MESSAGE);
 
         // Higher priority tasks that were waiting on a message should preempt a lower priority active task
@@ -316,8 +312,10 @@ void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, 
 
     spinlock_acquire(&dest->spinlock);
 
-    // Pad buffer size to page size
-    buffer_size = (buffer_size + PAGE_SIZE) & PAGING_PAGE_MASK;
+    // Pad buffer size to page size if necessary
+    if (buffer_size & PAGE_FLAG_BITS_MASK) {
+        buffer_size = (buffer_size + PAGE_SIZE) & PAGING_PAGE_MASK;
+    }
 
     // Map a buffer into the local address space
     vmm_page_directory_t* local_pdir = vmm_active_pdir();
@@ -372,11 +370,37 @@ bool amc_launch_service(const char* service_name) {
     // find all the available AMC services, and launch the provided one
     // For now, hard-code known AMC services launched via this interface 
     // to process names
-    if (!strcmp(service_name, "com.axle.realtek_8139")) {
+    if (!strcmp(service_name, "com.axle.realtek_8139_driver")) {
         task_spawn(_amc_launch_realtek_8139, PRIORITY_DRIVER, "");return true;
     }
     // TODO(PT): In the future, we could just return false when the name doesn't match any known service
     // For now, to detect errors, raise an assertion
     assert(0, "Cannot launch service: unknown name");
     return false;
+}
+
+void amc_physical_memory_region_create(uint32_t region_size, uint32_t* virtual_region_start_out, uint32_t* physical_region_start_out) {
+    amc_service_t* current_service = _amc_service_of_task(tasking_get_current_task());
+    spinlock_acquire(&current_service->spinlock);
+
+    // Pad region size to page size
+    if (region_size & PAGE_FLAG_BITS_MASK) {
+        region_size = (region_size + PAGE_SIZE) & PAGING_PAGE_MASK;
+    }
+
+    // Map a buffer into the local address space
+    vmm_page_directory_t* local_pdir = vmm_active_pdir();
+    uint32_t virtual_region_start = vmm_alloc_continuous_range(local_pdir, region_size, true, 0xa0000000);
+
+    // Find the start of the physical memory region
+    uint32_t phys_start = vmm_get_phys_address_for_mapped_page(local_pdir, virtual_region_start);
+
+    printf("Made virtual mapping: 0x%08x - 0x%08x\n", virtual_region_start, virtual_region_start + region_size);
+    printf("     Physicl mapping: 0x%08x - 0x%08x\n", phys_start, phys_start + region_size);
+
+    // Write the "out" info describing where memory was mapped
+    *virtual_region_start_out = virtual_region_start;
+    *physical_region_start_out = phys_start;
+
+    spinlock_release(&current_service->spinlock);
 }

@@ -40,10 +40,11 @@ DEFN_SYSCALL(amc_shared_memory_create, 32, const char*, uint32_t, uint32_t*, uin
 DEFN_SYSCALL(amc_has_message_from, 33, const char*);
 DEFN_SYSCALL(amc_has_message, 34);
 DEFN_SYSCALL(amc_launch_service, 35, const char*);
+DEFN_SYSCALL(amc_physical_memory_region_create, 36, uint32_t, uint32_t*, uint32_t*);
 
-DEFN_SYSCALL(adi_register_driver, 36, const char*, uint32_t);
-DEFN_SYSCALL(adi_event_await, 37, uint32_t);
-DEFN_SYSCALL(adi_send_eoi, 38, uint32_t);
+DEFN_SYSCALL(adi_register_driver, 37, const char*, uint32_t);
+DEFN_SYSCALL(adi_event_await, 38, uint32_t);
+DEFN_SYSCALL(adi_send_eoi, 39, uint32_t);
 
 
 // According to the documentation, this is an acceptable minimal environ
@@ -114,6 +115,10 @@ void amc_message_await_any(amc_message_t* out) {
 
 void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, uint32_t* local_buffer, uint32_t* remote_buffer) {
     sys_amc_shared_memory_create(remote_service, buffer_size, local_buffer, remote_buffer);
+}
+
+void amc_physical_memory_region_create(uint32_t region_size, uint32_t* virtual_region_start_out, uint32_t* physical_region_start_out) {
+    sys_amc_physical_memory_region_create(region_size, virtual_region_start_out, physical_region_start_out);
 }
 
 bool amc_has_message_from(const char* source_service) {
