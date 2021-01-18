@@ -123,7 +123,7 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
     #define REALTEK_8139_CONFIG0_REGISTER_OFF 0x51
     #define REALTEK_8139_CONFIG_1_REGISTER_OFF 0x52
     outb(io_base + REALTEK_8139_CONFIG_1_REGISTER_OFF, 0x0);
-    outb(io_base + 0x50, 0x0);
+    //outb(io_base + 0x50, 0x0);
 
 	// Enable bus mastering (must be done after power on)
 	amc_msg_u32_5__send(PCI_SERVICE_NAME, PCI_REQUEST_READ_CONFIG_WORD, bus, device_slot, function, 0x04);
@@ -145,6 +145,7 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
 	command_register |= (1 << 2);
 
 	amc_msg_u32_6__send(PCI_SERVICE_NAME, PCI_REQUEST_WRITE_CONFIG_WORD, bus, device_slot, function, 0x04, command_register);
+	printf("Sent command to set command register to 0x%08x\n", command_register);
 	amc_message_await(PCI_SERVICE_NAME, &recv);
 	if (amc_msg_u32_get_word(&recv, 0) != PCI_RESPONSE_WRITE_CONFIG_WORD) {
 		printf("Invalid state. Expected response for write config word\n");
@@ -156,9 +157,24 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
         printf("spin awaiting reset completion\n");
     }
 
+	uint32_t virt_memory_rx_addr = 0;
+	uint32_t phys_memory_rx_addr = 0;
+	uint32_t rx_buffer_size = 8192 + 16 + 1500;
+	amc_physical_memory_region_create(rx_buffer_size, &virt_memory_rx_addr, &phys_memory_rx_addr);
+	printf("Set RX buffer phys: 0x%08x\n", phys_memory_rx_addr);
+	outl(io_base + 0x30, phys_memory_rx_addr);
+
+    // Enable the "Transmit OK" and "Receive OK" interrupts
+    //outw(io_base + 0x3C, 0x0005);
+    //outw(io_base + IMR, RX_OK | TX_OK | TX_ERR);
+	outw(io_base + 0x3C, 0x0005);
+
+	outl(io_base + 0x44, 0xf | (1 << 7));
+
 	// According to http://www.jbox.dk/sanos/source/sys/dev/rtl8139.c.html,
 	// we must enable Tx/Rx before setting transfer thresholds
     // Receiver enable
+	/*
     outb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF, (1 << 3));
     while((inb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF) & (1 << 3)) == 0) {
         printf("spin awaiting rx enable completion\n");
@@ -169,19 +185,10 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
     while((inb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF) & (1 << 2)) == 0) {
         printf("spin awaiting tx enable completion\n");
     }
+	*/
+	outb(io_base + 0x37, 0x0C);
 
-	uint32_t virt_memory_rx_addr = 0;
-	uint32_t phys_memory_rx_addr = 0;
-	uint32_t rx_buffer_size = 8192 + 16 + 1500;
-	amc_physical_memory_region_create(rx_buffer_size, &virt_memory_rx_addr, &phys_memory_rx_addr);
-	printf("Set RX buffer phys: 0x%08x\n", phys_memory_rx_addr);
-	outl(io_base + 0x30, phys_memory_rx_addr);
-
-    // Enable the "Transmit OK" and "Receive OK" interrupts
-    //outw(io_base + 0x3C, 0x0005);
-    outw(io_base + IMR, RX_OK | TX_OK | TX_ERR);
-	//outw(io_base + 0x3C, 0x0005);
-
+	/*
 	#define RCR_AcceptRunt (1 << 4)
 	#define RECEIVE_CONFIG_ACCEPT_ERROR (1 << 5)
 	#define RECEIVE_CONFIG_WRAP (1 << 7)
@@ -192,6 +199,7 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
 	receive_config &= ~(00 << 11);
 	printf("receive_config 0x%08x\n", receive_config);
 	outl(io_base + RCR, receive_config);
+	*/
 
     printf("Buffer empty? %d\n", inb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF) & (1 << 0));
 
