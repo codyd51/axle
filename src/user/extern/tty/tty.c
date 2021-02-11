@@ -60,7 +60,7 @@ static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.tty");
 
-	Size window_size = size_make(700, 900);
+	Size window_size = size_make(1100, 900);
 	Rect window_frame = rect_make(point_zero(), window_size);
 	ca_layer* window_layer = window_layer_get(window_size.width, window_size.height);
 

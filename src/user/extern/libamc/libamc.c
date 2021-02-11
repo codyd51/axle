@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "libamc.h"
 
 // Valid for all message types
@@ -130,4 +131,44 @@ uint32_t amc_msg_u32_get_word(amc_command_message_t* msg, uint32_t word_idx) {
     }
     uint32_t* buf = (uint32_t*)amc_command_msg_data(msg);
     return buf[word_idx-1];
+}
+
+void amc_msg_u32_4__request_response_sync(
+    amc_message_t* recv_out,
+    const char* destination, 
+    uint32_t request, 
+    uint32_t response, 
+    uint32_t w1, 
+    uint32_t w2, 
+    uint32_t w3, 
+    uint32_t w4
+) {
+    amc_msg_u32_5__send(destination, request, w1, w2, w3, w4);
+	// TODO(PT): Should loop until the message is the desired one, discarding others
+	amc_message_await(destination, recv_out);
+	if (amc_msg_u32_get_word(recv_out, 0) != response) {
+		printf("Invalid state. Expected response 0x%08x\n", response);
+        // TODO(PT): Implement assert library and throw one here
+	}
+}
+
+void amc_msg_u32_5__request_response_sync(
+    amc_message_t* recv_out,
+    const char* destination, 
+    uint32_t request, 
+    uint32_t response, 
+    uint32_t w1, 
+    uint32_t w2, 
+    uint32_t w3, 
+    uint32_t w4,
+    uint32_t w5
+) {
+
+    amc_msg_u32_6__send(destination, request, w1, w2, w3, w4, w5);
+	// TODO(PT): Should loop until the message is the desired one, discarding others
+	amc_message_await(destination, recv_out);
+	if (amc_msg_u32_get_word(recv_out, 0) != response) {
+		printf("Invalid state. Expected response 0x%08x\n", response);
+        // TODO(PT): Implement assert library and throw one here
+	}
 }

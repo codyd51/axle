@@ -31,3 +31,9 @@ The mouse can't pre-empt the RTL driver because they're the same priority, so it
 The RTL driver needs to be split into a GUI and message server...
 
 Replace PMM mutex with spinlock
+
+Don't map the null page
+
+amc should be able to send smaller or larger messages
+    Network packets can be 300+ bytes,
+    but I don't want to inflate amc message size for every message type
