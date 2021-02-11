@@ -38,7 +38,7 @@ typedef enum task_state {
 	// Kernel code is modifying the
 	// task's virtual address space
 	VMM_MODIFY = 		(1 << 10),
-} task_state;
+} task_state_t;
 
 typedef enum mlfq_option {
 	LOW_LATENCY = 0, //minimize latency between tasks running, tasks share a single queue
@@ -51,7 +51,7 @@ typedef struct task {
 	int id;  //PID
 	int queue; //scheduler ring this task is slotted in
 
-	task_state state; //current process state
+	task_state_t state; //current process state
     uint32_t wake_timestamp; //used if process is in PIT_WAIT state
 
 	uint32_t begin_date;
@@ -128,8 +128,8 @@ typedef struct task {
 void tasking_init();
 bool tasking_is_active();
 
-void block_task(task_t* task, task_state reason);
-void block_task_context(task_t* task, task_state reason, void* context);
+void block_task(task_t* task, task_state_t reason);
+void block_task_context(task_t* task, task_state_t reason, void* context);
 
 //initialize a new process structure
 //does not add returned process to running queue

@@ -13,7 +13,7 @@
 #include <gfx/lib/surface.h>
 #include <kernel/util/amc/amc.h>
 
-void yield(task_state reason) {
+void yield(task_state_t reason) {
 	if (!tasking_is_active()) return;
 
 	//if a task is yielding not because it's waiting for i/o, but because it willingly gave up cpu,
@@ -36,11 +36,13 @@ int lseek(int UNUSED(fd), int UNUSED(offset), int UNUSED(whence)) {
 
 int exit(int code) {
 	task_die(code);
+	return -1;
 	//printf("[%s [%d]] EXIT status code %d\n", current->name, current->id, code);
 }
 
 int sysfork() {
 	Deprecated();
+	return -1;
 	//return fork(current_task->name);
 }
 
@@ -62,7 +64,7 @@ DEFN_SYSCALL(execve, 1, char*, char**, char**);
 DEFN_SYSCALL(open, 2, const char*, int);
 DEFN_SYSCALL(read, 3, int, char*, size_t);
 DEFN_SYSCALL(output, 4, int, char*);
-DEFN_SYSCALL(yield, 5, task_state);
+DEFN_SYSCALL(yield, 5, task_state_t);
 DEFN_SYSCALL(sbrk, 6, int);
 DEFN_SYSCALL(brk, 7, void*);
 DEFN_SYSCALL(mmap, 8, void*, int, int, int, int);
