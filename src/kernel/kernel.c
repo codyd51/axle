@@ -183,16 +183,6 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     //task_spawn(paintbrush, 2, "");
     //task_spawn(textpad, 3, "");
     task_spawn(pci_driver, 4, "");
-    //pci_init();
-    /*
-    asm("sti");
-    while (1) {
-        asm("hlt");
-    }
-    */
-
-    //task_spawn(cat);
-    //task_spawn(rainbow);
 
     // Bootstrapping complete - kill this process
     printf("[t = %d] Bootstrap task [PID %d] will exit\n", time(), getpid());

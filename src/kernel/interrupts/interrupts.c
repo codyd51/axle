@@ -63,6 +63,7 @@ void irq_receive(register_state_t* regs) {
 	}
 	else {
 		printf("Unhandled IRQ: %d\n", int_no);
+		pic_signal_end_of_interrupt(int_no);
 	}
 
 	// If there is an adi driver for this IRQ, the EOI will be sent by adi

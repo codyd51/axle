@@ -19,9 +19,9 @@ typedef struct task_context {
 } task_context_t;
 
 typedef struct task_block_state {
-	task_state status;
+	volatile task_state_t status;
 	uint32_t wake_timestamp; // used if process is in PIT_WAIT
-	task_state unblock_reason;
+	volatile task_state_t unblock_reason;
 } task_block_state_t;
 
 typedef enum task_priority {
@@ -39,7 +39,7 @@ typedef struct task_small {
 	char* name; // user-printable process name
 	task_context_t* machine_state; // registers at the time of last preemption
 	task_block_state_t blocked_info; // runnable state
-	struct task_small_t* next; // next task in linked list of all tasks
+	struct task_small* next; // next task in linked list of all tasks
 
 	uint32_t current_timeslice_start_date;
 	uint32_t current_timeslice_end_date;
@@ -95,8 +95,8 @@ task_small_t* tasking_get_current_task();
 // tasking_unblock_task() may be called either from another part of the system,
 // or from the iosentinel watchdog that notices that the block condition is 
 // satisfied.
-void tasking_block_task(task_small_t* task, task_state blocked_state);
-void tasking_unblock_task_with_reason(task_small_t* task, bool run_immediately, task_state reason);
+void tasking_block_task(task_small_t* task, task_state_t blocked_state);
+void tasking_unblock_task_with_reason(task_small_t* task, bool run_immediately, task_state_t reason);
 
 void iosentinel_check_now();
 

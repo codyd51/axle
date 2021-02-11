@@ -179,9 +179,9 @@ task_small_t* _thread_create(void* entry_point) {
     uint32_t* stack_top = (uint32_t *)(stack + stack_size - 0x4); // point to top of malloc'd stack
     if (entry_point) {
         // TODO(PT): We should be able to pass another argument here to the bootstrap function
-        *(stack_top--) = entry_point;   // Argument to bootstrap function (which we'll then jump to)
+        *(stack_top--) = (uint32_t)entry_point;   // Argument to bootstrap function (which we'll then jump to)
         *(stack_top--) = 0;     // Alignment
-        *(stack_top--) = _task_bootstrap;   // Entry point for new thread
+        *(stack_top--) = (uint32_t)_task_bootstrap;   // Entry point for new thread
         *(stack_top--) = 0;             //eax
         *(stack_top--) = 0;             //ebx
         *(stack_top--) = 0;             //esi
@@ -192,7 +192,7 @@ task_small_t* _thread_create(void* entry_point) {
     new_task->machine_state = (task_context_t*)stack_top;
 
     new_task->is_thread = true;
-    new_task->vmm = vmm_active_pdir();
+    new_task->vmm = (vmm_page_directory_t*)vmm_active_pdir();
     new_task->priority = PRIORITY_NONE;
     new_task->priority_lock.name = "[Task priority spinlock]";
     return new_task;
@@ -218,7 +218,7 @@ task_small_t* task_spawn(void* entry_point, task_priority_t priority, const char
 
     // Assign the provided attributes
     new_task->priority = priority;
-    new_task->name = task_name;
+    new_task->name = strdup(task_name);
 
     // Task is now ready to run - make it schedulable
     _tasking_add_task_to_runlist(new_task);
@@ -275,7 +275,6 @@ void task_switch() {
         return;
     }
 
-    task_small_t* previous_task = _current_task_small;
     task_small_t* next_task = _tasking_find_highest_priority_runnable_task();
     tasking_goto_task(next_task);
 }
@@ -305,7 +304,7 @@ static void tasking_timer_tick() {
     }
 }
 
-void tasking_unblock_task_with_reason(task_small_t* task, bool run_immediately, task_state reason) {
+void tasking_unblock_task_with_reason(task_small_t* task, bool run_immediately, task_state_t reason) {
     // Is this a reason why we're blocked?
     if (!(task->blocked_info.status & reason)) {
         printf("tasking_unblock_task_with_reason(%s, %d) called with reason the task is not blocked for (%d)\n", task->name, reason, task->blocked_info.status);
@@ -325,7 +324,7 @@ void tasking_unblock_task_with_reason(task_small_t* task, bool run_immediately, 
     }
 }
 
-void tasking_block_task(task_small_t* task, task_state blocked_state) {
+void tasking_block_task(task_small_t* task, task_state_t blocked_state) {
     // Some states are invalid "blocked" states
     if (blocked_state == RUNNABLE || blocked_state == ZOMBIE) {
         panic("Invalid blocked state");
@@ -528,7 +527,7 @@ void tasking_print_processes(void) {
     printk("-----------------------proc-----------------------\n");
 
     if (!_task_list_head) {
-        return NULL;
+        return;
     }
     task_small_t* iter = _task_list_head;
     for (int i = 0; i < MAX_TASKS; i++) {
