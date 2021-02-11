@@ -134,8 +134,8 @@ bool amc_launch_service(const char* service_name) {
 }
 
 /*
-ADI syscalls
-*/
+ * ADI syscalls
+ */
 
 void adi_register_driver(const char* name, uint32_t irq) {
     sys_adi_register_driver(name, irq);
@@ -146,7 +146,9 @@ bool adi_event_await(uint32_t irq) {
 }
 
 void adi_send_eoi(uint32_t irq) {
-    return sys_adi_send_eoi(irq);
+    sys_adi_send_eoi(irq);
+}
+
 }
 
 }
