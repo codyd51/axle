@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include <kernel/adi.h>
@@ -24,6 +25,18 @@
 
 // Communication with other processes
 #include <libamc/libamc.h>
+
+#include "realtek_8139_driver.h"
+
+#define max(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a > _b ? _a : _b; })
+
+#define min(a,b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a <= _b ? _a : _b; })
 
 void outb(uint16_t port, uint8_t val) {
 	 asm volatile("outb %0, %1" : : "a"(val), "Nd"(port) );
@@ -55,7 +68,67 @@ uint32_t inl(uint16_t port) {
 	return _v;
 }
 
+void hexdump (const void * addr, const int len) {
+    const char* desc = "";
+    int i;
+    unsigned char buff[17];
+    const unsigned char * pc = (const unsigned char *)addr;
 
+    // Output description if given.
+
+    if (desc != NULL)
+        printf ("%s:\n", desc);
+
+    // Length checks.
+
+    if (len == 0) {
+        printf("  ZERO LENGTH\n");
+        return;
+    }
+    else if (len < 0) {
+        printf("  NEGATIVE LENGTH: %d\n", len);
+        return;
+    }
+
+    // Process every byte in the data.
+
+    for (i = 0; i < len; i++) {
+        // Multiple of 16 means new line (with line offset).
+
+        if ((i % 16) == 0) {
+            // Don't print ASCII buffer for the "zeroth" line.
+
+            if (i != 0)
+                printf ("  %s\n", buff);
+
+            // Output the offset.
+
+            printf ("  %04x ", i);
+        }
+
+        // Now the hex code for the specific character.
+        printf (" %02x", pc[i]);
+
+        // And buffer a printable ASCII character for later.
+
+        if ((pc[i] < 0x20) || (pc[i] > 0x7e)) // isprint() may be better.
+            buff[i % 16] = '.';
+        else
+            buff[i % 16] = pc[i];
+        buff[(i % 16) + 1] = '\0';
+    }
+
+    // Pad out last line if not exactly 16 characters.
+
+    while ((i % 16) != 0) {
+        printf ("   ");
+        i++;
+    }
+
+    // And print the final ASCII buffer.
+
+    printf ("  %s\n", buff);
+}
 
 // Many graphics lib functions call gfx_screen() 
 Screen _screen = {0};
@@ -94,6 +167,56 @@ static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 	return dummy_layer;
 }
 
+uint16_t flip_short(uint16_t short_int) {
+    uint32_t first_byte = *((uint8_t*)(&short_int));
+    uint32_t second_byte = *((uint8_t*)(&short_int) + 1);
+    return (first_byte << 8) | (second_byte);
+}
+
+uint32_t flip_long(uint32_t long_int) {
+    uint32_t first_byte = *((uint8_t*)(&long_int));
+    uint32_t second_byte = *((uint8_t*)(&long_int) + 1);
+    uint32_t third_byte = *((uint8_t*)(&long_int)  + 2);
+    uint32_t fourth_byte = *((uint8_t*)(&long_int) + 3);
+    return (first_byte << 24) | (second_byte << 16) | (third_byte << 8) | (fourth_byte);
+}
+
+/*
+ * Flip two parts within a byte
+ * For example, 0b11110000 will be 0b00001111 instead
+ * This is necessary because endiness is also relevant to byte, where there are two fields in one byte.
+ * number_bits: number of bits of the less significant field
+ * */
+uint8_t flip_byte(uint8_t byte, int num_bits) {
+    uint8_t t = byte << (8 - num_bits);
+    return t | (byte >> num_bits);
+}
+
+uint8_t htonb(uint8_t byte, int num_bits) {
+    return flip_byte(byte, num_bits);
+}
+
+uint8_t ntohb(uint8_t byte, int num_bits) {
+    return flip_byte(byte, 8 - num_bits);
+}
+
+
+uint16_t htons(uint16_t hostshort) {
+    return flip_short(hostshort);
+}
+
+uint32_t htonl(uint32_t hostlong) {
+    return flip_long(hostlong);
+}
+
+uint16_t ntohs(uint16_t netshort) {
+    return flip_short(netshort);
+}
+
+uint32_t ntohl(uint32_t netlong) {
+    return flip_long(netlong);
+}
+
 #define CMD 0x37
 #define IMR 0x3c // Interrupt Mask Register
 #define ISR 0x3e // Interrupt Status Register
@@ -111,31 +234,253 @@ static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 #define RX_BUF_PTR 0x38
 #define RX_BUF_ADDR 0x3a
 #define RX_MISSED 0x4c
+#define REALTEK_8139_COMMAND_REGISTER_OFF 0x37
+#define REALTEK_8139_CONFIG0_REGISTER_OFF 0x51
+#define REALTEK_8139_CONFIG_1_REGISTER_OFF 0x52
 
-void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, uint32_t io_base) {
-    // https://wiki.osdev.org/RTL8139
-    printf("Init realtek_8139 at %d,%d,%d, IO Base 0x%04x\n", bus, device_slot, function, io_base);
-	// TODO(PT): Enable bus mastering bit as a message to the PCI driver
-	// Currently it's done before this driver runs
+typedef struct rtl8139_state {
+	// Configuration encoded into the device
+	uint8_t tx_buffer_register_ports[4];
+	uint8_t tx_status_command_register_ports[4];
 
-    // Power on the device
-    #define REALTEK_8139_COMMAND_REGISTER_OFF 0x37
-    #define REALTEK_8139_CONFIG0_REGISTER_OFF 0x51
-    #define REALTEK_8139_CONFIG_1_REGISTER_OFF 0x52
-    outb(io_base + REALTEK_8139_CONFIG_1_REGISTER_OFF, 0x0);
-    //outb(io_base + 0x50, 0x0);
+	// Configuration read from PCI bus
+	uint32_t pci_bus;
+	uint32_t pci_device_slot;
+	uint32_t pci_function;
+	uint32_t io_base;
 
-	// Enable bus mastering (must be done after power on)
-	amc_msg_u32_5__send(PCI_SERVICE_NAME, PCI_REQUEST_READ_CONFIG_WORD, bus, device_slot, function, 0x04);
-	// TODO(PT): Wrap up into sync interface
-	// TODO(PT): Should loop until the message is the desired one, discarding others
-	amc_command_message_t recv = {0};
-	amc_message_await(PCI_SERVICE_NAME, &recv);
-	// TODO(PT): Need a struct type selector
-	if (amc_msg_u32_get_word(&recv, 0) != PCI_RESPONSE_READ_CONFIG_WORD) {
-		printf("Invalid state. Expected response for read config word\n");
+	// Configuration assigned by this driver
+	uint32_t receive_buffer_virt;
+	uint32_t receive_buffer_phys;
+	uint32_t transmit_buffer_virt;
+	uint32_t transmit_buffer_phys;
+
+	// Current running state
+	uint8_t tx_round_robin_counter;
+	uint32_t rx_curr_buf_off;
+} rtl8139_state_t;
+
+typedef struct ethernet_frame {
+	uint8_t dst_mac_addr[6];
+	uint8_t src_mac_addr[6];
+	uint16_t type;
+	uint8_t data[];
+} __attribute__((packed)) ethernet_frame_t;
+
+typedef struct arp_packet {
+	uint16_t hardware_type;
+	uint16_t protocol_type;
+	uint8_t hware_addr_len;
+	uint8_t proto_addr_len;
+	uint16_t opcode;
+	uint8_t sender_hware_addr[6];
+	uint8_t sender_proto_addr[4];
+	uint8_t target_hware_addr[6];
+	uint8_t target_proto_addr[4];
+} __attribute__((packed)) arp_packet_t;
+
+#define ETHTYPE_ARP		0x0806
+#define ETHTYPE_IPv4	0x0800
+#define ETHTYPE_IPv6	0x86dd
+
+static void _arp_handle_packet(arp_packet_t* arp_packet) {
+	printf("** ARP packet! **\n");
+
+	printf("HW type 		0x%04x\n", ntohs(arp_packet->hardware_type));
+	printf("Proto type 		0x%04x\n", ntohs(arp_packet->protocol_type));
+	printf("HW_addr len		%d\n", arp_packet->hware_addr_len);
+	printf("Proto addr len  %d\n", arp_packet->proto_addr_len);
+	printf("Opcode		    %d\n", ntohs(arp_packet->opcode));
+
+	char buf[64] = {0};
+	snprintf(
+		buf, 
+		sizeof(buf), 
+		"%02x:%02x:%02x:%02x:%02x:%02x", 
+		arp_packet->sender_hware_addr[0],
+		arp_packet->sender_hware_addr[1],
+		arp_packet->sender_hware_addr[2],
+		arp_packet->sender_hware_addr[3],
+		arp_packet->sender_hware_addr[4],
+		arp_packet->sender_hware_addr[5]
+	);
+	printf("Sender hware	%s\n", buf);
+	snprintf(
+		buf, 
+		sizeof(buf), 
+		"%d.%d.%d.%d", 
+		arp_packet->sender_proto_addr[0],
+		arp_packet->sender_proto_addr[1],
+		arp_packet->sender_proto_addr[2],
+		arp_packet->sender_proto_addr[3]
+	);
+	printf("Sender proto	%s\n", buf);
+	snprintf(
+		buf, 
+		sizeof(buf), 
+		"%02x:%02x:%02x:%02x:%02x:%02x", 
+		arp_packet->target_hware_addr[0],
+		arp_packet->target_hware_addr[1],
+		arp_packet->target_hware_addr[2],
+		arp_packet->target_hware_addr[3],
+		arp_packet->target_hware_addr[4],
+		arp_packet->target_hware_addr[5]
+	);
+	printf("Target hware	%s\n", buf);
+	snprintf(
+		buf, 
+		sizeof(buf), 
+		"%d.%d.%d.%d", 
+		arp_packet->target_proto_addr[0],
+		arp_packet->target_proto_addr[1],
+		arp_packet->target_proto_addr[2],
+		arp_packet->target_proto_addr[3]
+	);
+	printf("Target hware	%s\n", buf);
+
+	free(arp_packet);
+}
+
+static void _forward_packet(ethernet_frame_t* ethernet_frame, uint32_t size) {
+	// For now, try to interpret the packet here
+
+	uint16_t ethtype = ntohs(ethernet_frame->type);
+	const char* ethtype_name = "?";
+	switch (ethtype) {
+		case ETHTYPE_ARP:
+			ethtype_name = "ARP";
+			break;
+		case ETHTYPE_IPv4:
+			ethtype_name = "IPv4";
+			break;
+		case ETHTYPE_IPv6:
+			ethtype_name = "IPv6";
+			break;
+		default:
+			ethtype_name = "?";
+			break;
 	}
-	uint32_t command_register = amc_msg_u32_get_word(&recv, 1);
+	char dst_mac_buf[64] = {0};
+	snprintf(
+		dst_mac_buf, 
+		sizeof(dst_mac_buf), 
+		"%02x:%02x:%02x:%02x:%02x:%02x", 
+		ethernet_frame->dst_mac_addr[0],
+		ethernet_frame->dst_mac_addr[1],
+		ethernet_frame->dst_mac_addr[2],
+		ethernet_frame->dst_mac_addr[3],
+		ethernet_frame->dst_mac_addr[4],
+		ethernet_frame->dst_mac_addr[5]
+	);
+	char src_mac_buf[64] = {0};
+	snprintf(
+		src_mac_buf, 
+		sizeof(src_mac_buf), 
+		"%02x:%02x:%02x:%02x:%02x:%02x", 
+		ethernet_frame->src_mac_addr[0],
+		ethernet_frame->src_mac_addr[1],
+		ethernet_frame->src_mac_addr[2],
+		ethernet_frame->src_mac_addr[3],
+		ethernet_frame->src_mac_addr[4],
+		ethernet_frame->src_mac_addr[5]
+	);
+
+	printf("\tDestination MAC: %s\n", dst_mac_buf);
+	printf("\tSource MAC: %s\n", src_mac_buf);
+	printf("\tEthType: 0x%04x (%s)\n", ethtype, ethtype_name);
+
+	if (ethtype == ETHTYPE_ARP) {
+		// Strip off the Ethernet header and pass along the packet to ARP
+		arp_packet_t* packet_body = (arp_packet_t*)&ethernet_frame->data;
+		uint32_t arp_packet_size = size - offsetof(ethernet_frame_t, data);
+		arp_packet_t* copied_packet = malloc(arp_packet_size);
+		memcpy(copied_packet, packet_body, arp_packet_size);
+		_arp_handle_packet(copied_packet);
+	}
+
+	free(ethernet_frame);
+}
+
+static void receive_packet(rtl8139_state_t* state) {
+    while ((inb(state->io_base + RTL_REG_COMMAND_REGISTER) & RTL_CMD_REG_IS_RX_BUFFER_EMPTY) == 0) {
+		uint16_t* packet = (uint16_t*)(state->receive_buffer_virt + state->rx_curr_buf_off);
+		// The RTL8139 stores the packet metadata in the first 4 bytes of the buffer
+		uint16_t packet_header = packet[0];
+		uint16_t packet_len = packet[1];
+		printf("Packet info:\n");
+		printf("\tValid:   %s\n", (packet_header & RTL_RX_PACKET_STATUS_ROK) ? "yes" : "no");
+		printf("\tLength:  %d\n", packet_len);
+		printf("\tMAC address match? %s\n", (packet_header & RTL_RX_PACKET_STATUS_MAC_ADDRESS_MATCHES) ? "yes" : "no");
+
+		if (packet_header & RTL_RX_PACKET_STATUS_IS_BROADCAST) {
+			printf("\tBroadcast packet\n");
+		}
+		if (packet_header & RTL_RX_PACKET_STATUS_IS_MULTICAST) {
+			printf("\tMulticast packet\n");
+		}
+
+		if (packet_header & RTL_RX_PACKET_STATUS_LONG) {
+			printf("\tLong packet\n");
+		}
+		if (packet_header & RTL_RX_PACKET_STATUS_RUNT) {
+			printf("\tRunt packet\n");
+		}
+
+		if (packet_header & RTL_RX_PACKET_STATUS_FRAME_ALIGNMENT_ERROR) {
+			printf("\tFrame alignment error!\n");
+		}
+		if (packet_header & RTL_RX_PACKET_STATUS_CRC_ERROR) {
+			printf("\tCRC error!\n");
+		}
+		if (packet_header & RTL_RX_PACKET_STATUS_INVALID_SYMBOL_ERROR) {
+			printf("\tInvalid symbol error!\n");
+		}
+
+		// Get the main packet buffer, after the metadata
+		char* packet_data = (char*)&packet[2];
+		// Copy into a safe buffer, and trim off the 4-byte CRC at the end
+		uint32_t ethernet_frame_size = packet_len - 4;
+		ethernet_frame_t* ethernet_frame = malloc(ethernet_frame_size);
+		memcpy(ethernet_frame, packet_data, ethernet_frame_size);
+		_forward_packet(ethernet_frame, ethernet_frame_size);
+		//hexdump(packet_data, min(packet_len, 256));
+
+		// https://www.cs.usfca.edu/~cruse/cs326f04/RTL8139_ProgrammersGuide.pdf
+		// packet_len already includes the 4-byte CRC at the end
+		/*
+		state->rx_curr_buf_off += packet_len;
+		// And skip the 4-byte header at the beginning
+		state->rx_curr_buf_off += sizeof(uint16_t) * 2;
+		// And skip to the next 32-bit boundary
+		uint8_t w32_mask = sizeof(uint32_t) - 1;
+		state->rx_curr_buf_off = (state->rx_curr_buf_off + w32_mask) & ~w32_mask;
+		*/
+		state->rx_curr_buf_off = (state->rx_curr_buf_off + packet_len + 4 + 3) & ~3;
+
+		if (state->rx_curr_buf_off > 8192) {
+			printf("rollback\n");
+			state->rx_curr_buf_off -= 8192;
+		}
+
+		// I don't know why 0x10 is subtracted here, but other drivers do it and it works.
+		outw(state->io_base + RTL_REG_RX_CURRENT_ADDR_PACKET_READ, state->rx_curr_buf_off - 0x10);
+	}
+}
+
+static void _enable_device_bus_mastering(rtl8139_state_t* nic_state) {
+	// Read the current PCI config word
+	amc_message_t response;
+	amc_msg_u32_4__request_response_sync(
+		&response,
+		PCI_SERVICE_NAME,
+		PCI_REQUEST_READ_CONFIG_WORD,
+		PCI_RESPONSE_READ_CONFIG_WORD,
+		nic_state->pci_bus,
+		nic_state->pci_device_slot,
+		nic_state->pci_function,
+		0x04
+	);
+	uint32_t command_register = amc_msg_u32_get_word(&response, 1);
 
 	// Enable IO port access (though it should already be set)
 	command_register |= (1 << 0);
@@ -144,155 +489,222 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
 	// Enable bus mastering
 	command_register |= (1 << 2);
 
-	amc_msg_u32_6__send(PCI_SERVICE_NAME, PCI_REQUEST_WRITE_CONFIG_WORD, bus, device_slot, function, 0x04, command_register);
+	// Write the modified PCI config word
+	amc_msg_u32_5__request_response_sync(
+		&response,
+		PCI_SERVICE_NAME,
+		PCI_RESPONSE_WRITE_CONFIG_WORD,
+		PCI_RESPONSE_WRITE_CONFIG_WORD,
+		nic_state->pci_bus,
+		nic_state->pci_device_slot,
+		nic_state->pci_function,
+		0x04,
+		command_register
+	);
 	printf("Sent command to set command register to 0x%08x\n", command_register);
-	amc_message_await(PCI_SERVICE_NAME, &recv);
-	if (amc_msg_u32_get_word(&recv, 0) != PCI_RESPONSE_WRITE_CONFIG_WORD) {
-		printf("Invalid state. Expected response for write config word\n");
+}
+
+static void _perform_command(rtl8139_state_t* nic, uint8_t command, uint8_t expect) {
+    outb(nic->io_base + RTL_REG_COMMAND_REGISTER, command);
+	/*
+    while((inb(nic->io_base + RTL_REG_COMMAND_REGISTER) & command) != expect) {
+		printf("Spin awaiting RLT8139 command completion\n");
+    }
+	*/
+}
+
+void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, uint32_t io_base, rtl8139_state_t* out_state) {
+    // https://wiki.osdev.org/RTL8139
+    printf("Init realtek_8139 at %d,%d,%d, IO Base 0x%04x\n", bus, device_slot, function, io_base);
+
+	// Init default state and set up our input parameters 
+	memset(out_state, 0, sizeof(rtl8139_state_t));
+	out_state->pci_bus = bus;
+	out_state->pci_device_slot = device_slot;
+	out_state->pci_function = function;
+	out_state->io_base = io_base;
+	out_state->tx_round_robin_counter = 0;
+	for (int i = 0; i < 4; i++) {
+		out_state->tx_buffer_register_ports[i] = 0x20 + (i * sizeof(uint32_t));
+		out_state->tx_status_command_register_ports[i] = 0x10 + (i * sizeof(uint32_t));
 	}
 
-    // Software reset
-    outb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF, (1 << 4));
-    while((inb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF) & (1 << 4)) != 0) {
-        printf("spin awaiting reset completion\n");
-    }
+    // Power on the device
+    outb(io_base + REALTEK_8139_CONFIG_1_REGISTER_OFF, 0x0);
 
+	// Enable bus mastering (must be done after power on)
+	_enable_device_bus_mastering(out_state);
+
+    // Software reset
+	_perform_command(out_state, RTL_CMD_REG_RESET, 0);
+
+	// Set up RX and TX buffers, and give them to the device
 	uint32_t virt_memory_rx_addr = 0;
 	uint32_t phys_memory_rx_addr = 0;
 	uint32_t rx_buffer_size = 8192 + 16 + 1500;
 	amc_physical_memory_region_create(rx_buffer_size, &virt_memory_rx_addr, &phys_memory_rx_addr);
+	out_state->receive_buffer_virt = virt_memory_rx_addr;
+	out_state->receive_buffer_phys = phys_memory_rx_addr;
 	printf("Set RX buffer phys: 0x%08x\n", phys_memory_rx_addr);
-	outl(io_base + 0x30, phys_memory_rx_addr);
+	outl(io_base + RTL_REG_RX_BUFFER_PHYS_START, phys_memory_rx_addr);
 
-    // Enable the "Transmit OK" and "Receive OK" interrupts
-    //outw(io_base + 0x3C, 0x0005);
-    //outw(io_base + IMR, RX_OK | TX_OK | TX_ERR);
-	outw(io_base + 0x3C, 0x0005);
+	uint32_t virt_memory_tx_addr = 0;
+	uint32_t phys_memory_tx_addr = 0;
+	amc_physical_memory_region_create((1024*8) + 16, &virt_memory_tx_addr, &phys_memory_tx_addr);
+	out_state->transmit_buffer_virt = virt_memory_tx_addr;
+	out_state->transmit_buffer_phys = phys_memory_tx_addr;
+	printf("Set TX buffer phys: 0x%08x\n", phys_memory_tx_addr);
+	outl(io_base + RTL_REG_TX_0_PHYS_START, phys_memory_tx_addr);
+	// TODO(PT): Do we need to set up TSAD1,2,3?
 
-	outl(io_base + 0x44, 0xf | (1 << 7));
+	// Enable all interrupts
+	uint32_t int_mask = 0;
+	int_mask |= RTL_ISR_FLAG_ROK;
+	//int_mask |= RTL_ISR_FLAG_RER;
+	int_mask |= RTL_ISR_FLAG_TOK;
+	int_mask |= RTL_ISR_FLAG_TER;
+	int_mask |= RTL_ISR_FLAG_RX_BUFFER_OVERFLOW;
+	int_mask |= RTL_ISR_FLAG_LINK_CHANGE;
+	int_mask |= RTL_ISR_FLAG_RX_FIFO_OVERFLOW;
+    outw(io_base + RTL_REG_INTERRUPT_MASK, int_mask);
+
+	// Configure the types of packets that should be received
+	// And disable "wrap packet" mode
+	uint32_t receive_config = 0;
+	receive_config |= RTL_RX_CONFIG_FLAG_ACCEPT_ALL_PACKETS;
+	receive_config |= RTL_RX_CONFIG_FLAG_ACCEPT_MAC_MATCH_PACKETS;
+	receive_config |= RTL_RX_CONFIG_FLAG_ACCEPT_MULTICAST_PACKETS;
+	receive_config |= RTL_RX_CONFIG_FLAG_ACCEPT_BROADCAST_PACKETS;
+	receive_config |= RTL_RX_CONFIG_FLAG_ACCEPT_RUNT_PACKETS;
+	receive_config |= RTL_RX_CONFIG_FLAG_ACCEPT_ERROR_PACKETS;
+	receive_config |= RTL_RX_CONFIG_FLAG_ACCEPT_RUNT_PACKETS;
+	receive_config |= RTL_RX_CONFIG_FLAG_DO_NOT_WRAP;
+	outl(io_base + RTL_REG_RX_CONFIG, receive_config);
 
 	// According to http://www.jbox.dk/sanos/source/sys/dev/rtl8139.c.html,
 	// we must enable Tx/Rx before setting transfer thresholds
-    // Receiver enable
-	/*
-    outb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF, (1 << 3));
-    while((inb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF) & (1 << 3)) == 0) {
-        printf("spin awaiting rx enable completion\n");
-    }
-
-    // Transmitter enable
-    outb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF, (1 << 2));
-    while((inb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF) & (1 << 2)) == 0) {
-        printf("spin awaiting tx enable completion\n");
-    }
-	*/
-	outb(io_base + 0x37, 0x0C);
+	// Enable the receiver and transmitter
+	// It seems they must be sent in the same command 
+	_perform_command(out_state, RTL_CMD_REG_ENABLE_RECEIVE | RTL_CMD_REG_ENABLE_TRANSMIT, 1);
 
 	/*
-	#define RCR_AcceptRunt (1 << 4)
-	#define RECEIVE_CONFIG_ACCEPT_ERROR (1 << 5)
-	#define RECEIVE_CONFIG_WRAP (1 << 7)
-	uint32_t receive_config = RCR_AAP | RCR_APM | RCR_AM | RCR_AB | RCR_AcceptRunt | RECEIVE_CONFIG_ACCEPT_ERROR | RECEIVE_CONFIG_WRAP;
 	// Set max DMA burst to "unlimited"
 	receive_config |= (7 << 8);
 	// Set RX buffer length to 8k + 16
 	receive_config &= ~(00 << 11);
-	printf("receive_config 0x%08x\n", receive_config);
-	outl(io_base + RCR, receive_config);
 	*/
+}
 
-    printf("Buffer empty? %d\n", inb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF) & (1 << 0));
-
-    // Init receive buffer
-    // Note: rx_buffer must be a pointer to a physical address
-    // The OSDev Wiki recommends 8k + 16 bytes
-    //outl(io_base + 0x30, &rx_buffer);
-
-
-    // Enable all interrupts
-	/*
-    outw(io_base + IMR, 0x3f | (1 << 13) | (1 << 14) | (1 << 15));
-    tmp = inl(io_base + 0x44);
-    printf("tmp 0x%08x\n", tmp);
-    tmp &= ~0xe000;
-    tmp &= ~0x1800;
-    tmp |= (1 << 5);
-    tmp |= (1 << 4);
-    tmp |= (1 << 3);
-    tmp |= (1 << 2);
-    tmp |= (1 << 1);
-    tmp |= (1 << 0);
-    printf("rewrite 0x%08x\n", tmp);
-    outl(io_base + 0x44, tmp);
-    tmp = inl(io_base + 0x44);
-    printf("tmp 0x%08x\n", tmp);
-	*/
-
-    /*
-    uint16_t word = inw(io_base + 0x3e);
-    while (1) {
-        asm("sti");
-        for (int i =0; i < 16; i++) {
-            printf("%d",(word >> i) & 0x1);
-        }
-        printf("\n");
-        asm("hlt");
-    }
-    */
-
-    // Enable receiver and transmitter
-    // Sets the RE and TE bits high
-    //outb(io_base + REALTEK_8139_COMMAND_REGISTER_OFF, 0x0C); 
-
-    // 7. Set RCR (Receive Configuration Register)
-    //outb(io_base + RCR, RCR_AAP | RCR_APM | RCR_AM | RCR_AB | RCR_WRAP);
-	// (1 << 7) is the WRAP bit, 0xf is AB+AM+APM+AAP
-    //outl(io_base + 0x44, 0x0F);
-
-    // (1 << 7) is the WRAP bit, 0xf is AB+AM+APM+AAP
-    //outl(io_base + 0x44, 0x0f | (1 << 7));
-
-	/*
-    uint32_t irq_number = pci_config_read_word(bus,
-			device_slot, function, 0x3c) & 0xff;
-    printf("irq_number %d\n", irq_number);
-	*/
-
-	/*
-    uint32_t mac_part1 = inl(io_base + 0x00);
-    uint16_t mac_part2 = inw(io_base + 0x04);
-    uint8_t mac_addr[8];
+static void send_packet(rtl8139_state_t* nic_state) {
+	uint8_t* buffer = (uint8_t*)nic_state->transmit_buffer_virt;
+	// MAC destination - 6 bytes
+	uint32_t buf_idx = 0;
+	for (; buf_idx < 6; buf_idx++) {
+		buffer[buf_idx] = 0xff;
+	}
+	// MAC source - 6 bytes
+	uint32_t mac_part1 = inl(nic_state->io_base + 0x00);
+	uint16_t mac_part2 = inw(nic_state->io_base + 0x04);
+	uint8_t mac_addr[8];
 	mac_addr[0] = mac_part1 >> 0;
 	mac_addr[1] = mac_part1 >> 8;
 	mac_addr[2] = mac_part1 >> 16;
 	mac_addr[3] = mac_part1 >> 24;
 	mac_addr[4] = mac_part2 >> 0;
 	mac_addr[5] = mac_part2 >> 8;
-    printf("MAC address: %x:%x:%x:%x:%x:%x\n",
-                mac_addr[0],
-                mac_addr[1],
-                mac_addr[2],
-                mac_addr[3],
-                mac_addr[4],
-                mac_addr[5]);
-				*/
-			/*
-	uint32_t command_register = pci_config_read_word(dev->bus, dev->device_slot, dev->function, 0x04);
-	printf("CmdReg before enable 0x%08x\n", command_register);
-	// Enable bus mastering bit
-	command_register |= (1 << 2);
-	command_register &= ~0x400;
-	printf("CmdReg after enable 0x%08x\n", command_register);
-	pci_config_write_word(dev->bus, dev->device_slot, dev->function, 0x04, command_register);
-	*/
-	// https://stackoverflow.com/questions/87442/virtual-network-interface-in-mac-os-x
+	for (int i = 0; i < 6; i++) {
+		buffer[buf_idx++] = mac_addr[i];
+	}
 
-    asm("sti");
+	// EtherType (written in big endian)
+	buffer[buf_idx++] = 0x08;
+	buffer[buf_idx++] = 0x06;
+
+	// ARP packet follows
+	uint32_t arp_begin = buf_idx;
+	// https://en.wikipedia.org/wiki/Address_Resolution_Protocol
+	// Hardware type
+	buffer[buf_idx++] = 0;
+	buffer[buf_idx++] = 1;
+
+	// Protocol type
+	buffer[buf_idx++] = 0x08;
+	buffer[buf_idx++] = 0x00;
+
+	// Hardware address len
+	buffer[buf_idx++] = 0x06;
+	// Protocol address len
+	buffer[buf_idx++] = 0x04;
+
+	// Operation
+	buffer[buf_idx++] = 0x00;
+	buffer[buf_idx++] = 0x01;
+
+	// Sender hardware address
+	for (int i = 0; i < 6; i++) {
+		buffer[buf_idx++] = mac_addr[i];
+	}
+
+	// Sender protocol address
+	// 192.168.1.90
+	buffer[buf_idx++] = 0xC0;
+	buffer[buf_idx++] = 0xA8;
+	buffer[buf_idx++] = 0x01;
+	buffer[buf_idx++] = 0x5a;
+
+	// Target hardware address
+	for (int i = 0; i < 6; i++) {
+		buffer[buf_idx++] = 0x00;
+	}
+
+	// Target protocol address
+	// Android.local: 192.168.1.45
+	// Freebox: 192.168.1.254
+	buffer[buf_idx++] = 0xc0;
+	buffer[buf_idx++] = 0xa8;
+	buffer[buf_idx++] = 0x01;
+	buffer[buf_idx++] = 0xfe;
+
+	uint32_t arp_size = buf_idx - arp_begin;
+	printf("ARP size 0x%08x\n", arp_size);
+	for (int i = 0 ; i < 0x12; i++) {
+		buffer[buf_idx++] = 0;
+	}
+	uint32_t crc = 0;
+	printf("CRC Original 0x%08x\n", crc);
+	// Taken from Wireshark
+	crc = 0x3af42da9;
+	printf("CRC 0x%08x\n", crc);
+	buffer[buf_idx++] = crc >> 24;
+	buffer[buf_idx++] = crc >> 16;
+	buffer[buf_idx++] = crc >> 8;
+	buffer[buf_idx++] = crc >> 0;
+	printf("%02x %02x %02x %02x\n", buffer[buf_idx-4], buffer[buf_idx-3], buffer[buf_idx-2], buffer[buf_idx-1]);
+
+	// Second, fill in physical address of data, and length
+	uint8_t tx_buffer_port = nic_state->tx_buffer_register_ports[nic_state->tx_round_robin_counter];
+	uint8_t tx_status_command_port = nic_state->tx_status_command_register_ports[nic_state->tx_round_robin_counter];
+	nic_state->tx_round_robin_counter += 1;
+	if (nic_state->tx_round_robin_counter > sizeof(nic_state->tx_buffer_register_ports) / sizeof(nic_state->tx_buffer_register_ports[0])) {
+		nic_state->tx_round_robin_counter = 0;
+	}
+	outl(nic_state->io_base + tx_buffer_port, nic_state->transmit_buffer_phys); 
+	outl(nic_state->io_base + tx_status_command_port, buf_idx); 
+	// https://forum.osdev.org/viewtopic.php?f=1&t=26938
 }
 
-const uint8_t tx_buffer_register_ports[] = {0x20, 0x24, 0x28, 0x2C};
-const uint8_t tx_status_command_register_ports[] = {0x10, 0x14, 0x18, 0x1C};
-static uint8_t tx_round_robin_counter = 0;
+static void _read_mac_address(rtl8139_state_t* nic_state, char* buf, uint32_t bufsize) {
+    uint8_t mac_addr[6];
+	uint32_t mac_part1 = inl(nic_state->io_base + RTL_REG_ID_0);
+	mac_addr[0] = (uint8_t)(mac_part1 >> 0);
+	mac_addr[1] = (uint8_t)(mac_part1 >> 8);
+	mac_addr[2] = (uint8_t)(mac_part1 >> 16);
+	mac_addr[3] = (uint8_t)(mac_part1 >> 24);
+    uint16_t mac_part2 = inw(nic_state->io_base + RTL_REG_ID_4);
+	mac_addr[4] = (uint8_t)(mac_part2 >> 0);
+	mac_addr[5] = (uint8_t)(mac_part2 >> 8);
+	snprintf(buf, bufsize, "%02x:%02x:%02x:%02x:%02x:%02x\n", mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
+}
 
 int main(int argc, char** argv) {
 	// This process will handle interrupts from the Realtek 8159 NIC (IRQ11)
@@ -301,8 +713,10 @@ int main(int argc, char** argv) {
 	adi_register_driver("com.axle.realtek_8139_driver", INT_VECTOR_IRQ11);
 	amc_register_service("com.axle.realtek_8139_driver");
 
+	// TODO(PT): This should be read from the PCI bus
 	int io_base = 0xc000;
-	realtek_8139_init(0, 3, 0, io_base);
+	rtl8139_state_t nic_state = {0};
+	realtek_8139_init(0, 3, 0, io_base, &nic_state);
 
 	Size window_size = size_make(500, 300);
 	Rect window_frame = rect_make(point_zero(), window_size);
@@ -324,20 +738,11 @@ int main(int argc, char** argv) {
 
 	text_box_puts(text_box, "RealTek 8139 NIC driver\n", color_white());
 
-	uint32_t mac_part1 = inl(io_base + 0x00);
-    uint16_t mac_part2 = inw(io_base + 0x04);
-    uint8_t mac_addr[8];
-	mac_addr[0] = mac_part1 >> 0;
-	mac_addr[1] = mac_part1 >> 8;
-	mac_addr[2] = mac_part1 >> 16;
-	mac_addr[3] = mac_part1 >> 24;
-	mac_addr[4] = mac_part2 >> 0;
-	mac_addr[5] = mac_part2 >> 8;
+	char mac_buf[256];
+	int written_len = snprintf(mac_buf, sizeof(mac_buf), "MAC address: ");
+	_read_mac_address(&nic_state, mac_buf + written_len, sizeof(mac_buf) - written_len);
 
-	const char buf[256];
-	snprintf(buf, sizeof(buf), "MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n", mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5], mac_addr[6]);
-
-	text_box_puts(text_box, buf, color_white());
+	text_box_puts(text_box, mac_buf, color_blue());
 	text_box_puts(text_box, "Click here to send a packet!", color_white());
 
     // Blit the text box to the window layer
@@ -347,40 +752,36 @@ int main(int argc, char** argv) {
 
 	while (true) {
 		// Wake on interrupt or AMC message
-		// Even with 2 procs the issue is there: the driver proc would still need to listen for messages from the frontend
-		// We really do need a proc to be able to wait for both ADI or AMC, but think about it more
-		// TODO(PT): I might not have needed to remove the EOI from the adi_interrupt_await path -- 
-		// the reason interrupts weren't coming through might have been because I didn't switch to the next TX buffer in the card. NBD
-		// TODO(PT): A lot of the confusion here came from trying to to have this be both an amc and adi service
-		// The issue being that an interrupt could be raised within the same process that handles the interrupt
-		// Perhaps try this proc as an amc service that does respond to messages to construct packets, etc, but does not 
-		// Perhaps if the driver proc is running, increment a "pending int count" if an int comes through.
-		// adi_interrupt_await will decrement this count instead of blocking until it hits zero
 		bool awoke_for_interrupt = adi_event_await(INT_VECTOR_IRQ11);
-		//printf("ADI returned: %d\n", awoke_for_interrupt);
 		if (awoke_for_interrupt) {
 			// The NIC needs some attention
 			// Reading the ISR register clears all interrupts
-			uint16_t status = inw(0xc000 + ISR);
-			printf("NIC interrupt. Status %04x\n", status);
-
-			#define TOK     (1<<2)
-			#define ROK                 (1<<0)
-			if(status & TOK) {
+			uint16_t status = inw(nic_state.io_base + RTL_REG_INTERRUPT_STATUS);
+			if (status & RTL_ISR_FLAG_TOK) {
 				printf("Packet sent\n");
 			}
-			else if (status & ROK) {
-				printf("Received packet\n");
-				//receive_packet();
+			else if (status & RTL_ISR_FLAG_ROK) {
+				receive_packet(&nic_state);
+			}
+			else if (status & RTL_ISR_FLAG_TER) {
+				printf("Transmit error\n");
+			}
+			else if (status & RTL_ISR_FLAG_RER) {
+				printf("Receive error\n");
 			}
 			else {
 				printf("Unknown status 0x%04x\n", status);
 			}
 
+			// This is not mutually exclusive with the other flags
+			if (status & RTL_ISR_FLAG_RX_BUFFER_OVERFLOW) {
+				printf("RX buffer is full!\n");
+			}
+
 			// Set the OWN bit to zero
-			status &= ~(1 << 13);
+			//status &= ~(1 << 13);
 			//status &= ~(1 << 2);
-			outw(0xc000 + ISR, status);
+			outw(nic_state.io_base + RTL_REG_INTERRUPT_STATUS, status);
 			adi_send_eoi(INT_VECTOR_IRQ11);
 		}
 		else {
@@ -394,50 +795,7 @@ int main(int argc, char** argv) {
 					char ch = amc_command_ptr_msg__get_ptr(&msg);
 					if (ch == 'z') {
 						printf("Sending packet!\n");
-
-						uint32_t virt_memory_addr = 0;
-						uint32_t phys_memory_addr = 0;
-						amc_physical_memory_region_create((1024*8) + 16, &virt_memory_addr, &phys_memory_addr);
-						outl(0xc000 + 0x20, phys_memory_addr);
-						printf("Phys mem 0x%08x\n", phys_memory_addr);
-						printf("Virt mem 0x%08x\n", virt_memory_addr);
-
-						uint8_t* buffer = (uint32_t*)virt_memory_addr;
-						memset(buffer, 'A', (1024*8)+16);
-						//00 18 8b 75 1d e0 00 1f f3 d8 47 ab 08 0
-						// 192.168.1.5: MAC b8:27:eb:b2:ec:75
-						/*
-						buffer[0] = 0xb8;
-						buffer[1] = 0x27;
-						buffer[2] = 0xeb;
-						buffer[3] = 0xb2;
-						buffer[4] = 0xec;
-						buffer[5] = 0x75;
-
-						// We are MAC 52:54:00:12:34:56
-						buffer[6] = 0x52;
-						buffer[7] = 0x54;
-						buffer[8] = 0x00;
-						buffer[9] = 0x12;
-						buffer[10] = 0x34;
-						buffer[11] = 0x56;
-
-						// Protocol type 0x806: ARP
-						buffer[12] = 0x08;
-						buffer[13] = 0x06;
-						*/
-
-						// Second, fill in physical address of data, and length
-						uint8_t tx_buffer_port = tx_buffer_register_ports[tx_round_robin_counter];
-						uint8_t tx_status_command_port = tx_status_command_register_ports[tx_round_robin_counter];
-						tx_round_robin_counter += 1;
-						if (tx_round_robin_counter > sizeof(tx_buffer_register_ports) / sizeof(tx_buffer_register_ports[0])) {
-							tx_round_robin_counter = 0;
-						}
-						outl(io_base + tx_buffer_port, phys_memory_addr); 
-						outl(io_base + tx_status_command_port, (200)); 
-						// https://forum.osdev.org/viewtopic.php?f=1&t=26938
-						// TODO(PT): Give the tap device an IPv4 address on the host so we can ping it
+						send_packet(&nic_state);
 					}
 				}
 			} while (amc_has_message_from("com.axle.awm"));
