@@ -3,6 +3,7 @@
 
 #include "../lib/point.h"
 #include "../lib/color.h"
+#include "../lib/putpixel.h"
 #include "font8x8.h"
 #include "font.h"
 

@@ -1,6 +1,8 @@
 #include <memory.h>
+#include <stdlib.h>
 #include "text_box.h"
 #include "shapes.h"
+#include "../font/font.h"
 
 static void _newline(text_box_t* text_box) {
 	text_box->cursor_pos.x = 0;

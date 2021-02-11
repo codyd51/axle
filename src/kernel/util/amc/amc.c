@@ -173,14 +173,14 @@ bool amc_message_send(const char* destination_service, amc_message_t* msg) {
     }
     // Find the destination service
     amc_service_t* dest = _amc_service_with_name(destination_service);
+    if (dest == NULL) {
+        //printf("Dropping message because service doesn't exist: %s\n", destination_service);
+        return false;
+    }
+
     // Copy the name from the service to ensure the string is mapped in kernel memory
     // (and thus is available in all processes)
     msg->hdr.dest = dest->name;
-
-    if (dest == NULL) {
-        printf("Dropping message because service doesn't exist: %s\n", destination_service);
-        return false;
-    }
 
     // We're modifying some state of the destination service - hold a spinlock
     spinlock_acquire(&dest->spinlock);
@@ -188,12 +188,8 @@ bool amc_message_send(const char* destination_service, amc_message_t* msg) {
     // And add the message to its inbox
     array_m_insert(dest->message_queue, msg);
 
-    // Release our exclusive access
-    spinlock_release(&dest->spinlock);
-
     // And unblock the task if it was waiting for a message
     if ((dest->task->blocked_info.status & AMC_AWAIT_MESSAGE) != 0) {
-        //printf("AMC Unblocking [%d] %s %d\n", dest->task->id, dest->task->name, dest->task->blocked_info.status);
         tasking_unblock_task_with_reason(dest->task, false, AMC_AWAIT_MESSAGE);
 
         // Higher priority tasks that were waiting on a message should preempt a lower priority active task
@@ -202,6 +198,9 @@ bool amc_message_send(const char* destination_service, amc_message_t* msg) {
             tasking_goto_task(dest->task);
         }
     }
+
+    // Release our exclusive access
+    spinlock_release(&dest->spinlock);
     return true;
 }
 
@@ -247,7 +246,7 @@ void amc_message_await_from_services(int source_service_count, const char** sour
 
 // Block until a message has been received from the source service
 void amc_message_await(const char* source_service, amc_message_t* out) {
-    const char* services[] = {source_service};
+    const char* services[] = {source_service, NULL};
     amc_message_await_from_services(1, services, out);
 
     /*
@@ -388,12 +387,10 @@ void amc_physical_memory_region_create(uint32_t region_size, uint32_t* virtual_r
         region_size = (region_size + PAGE_SIZE) & PAGING_PAGE_MASK;
     }
 
-    // Map a buffer into the local address space
+    uint32_t phys_start = pmm_alloc_continuous_range(region_size);
     vmm_page_directory_t* local_pdir = vmm_active_pdir();
-    uint32_t virtual_region_start = vmm_alloc_continuous_range(local_pdir, region_size, true, 0xa0000000);
-
-    // Find the start of the physical memory region
-    uint32_t phys_start = vmm_get_phys_address_for_mapped_page(local_pdir, virtual_region_start);
+    // PT: Force this region to be placed at a higher address to prevent conflicts with sbrk
+    uint32_t virtual_region_start = vmm_map_phys_range__min_placement_addr(local_pdir, phys_start, region_size, 0xa0000000);
 
     printf("Made virtual mapping: 0x%08x - 0x%08x\n", virtual_region_start, virtual_region_start + region_size);
     printf("     Physicl mapping: 0x%08x - 0x%08x\n", phys_start, phys_start + region_size);

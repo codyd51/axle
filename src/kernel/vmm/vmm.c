@@ -960,9 +960,13 @@ void vmm_free_page(vmm_page_directory_t* vmm_dir, uint32_t page_addr) {
     NotImplemented();
 }
 
-uint32_t vmm_map_phys_range(vmm_page_directory_t* vmm_dir, uint32_t phys_start, uint32_t size) {
+uint32_t vmm_map_phys_range__min_placement_addr(
+    vmm_page_directory_t* vmm_dir, 
+    uint32_t phys_start, 
+    uint32_t size, 
+    uint32_t min_placement_addr) {
     //Deprecated();
-    //printf_info("map phys region of %d kb", size / 1024);
+    printf_info("map phys region of %d kb", size / 1024);
     if (phys_start & PAGE_FLAG_BITS_MASK) {
         panic("physstart must be page-aligned");
     }
@@ -970,14 +974,22 @@ uint32_t vmm_map_phys_range(vmm_page_directory_t* vmm_dir, uint32_t phys_start, 
         size = (size & PAGING_PAGE_MASK) + PAGING_PAGE_SIZE;
     }
 
-    uint32_t index = find_free_region(vmm_dir, size, _allocations_base_for_vmm(vmm_dir));
+    uint32_t index = find_free_region(vmm_dir, size, min_placement_addr);
     uint32_t first_page_address = index * PAGING_PAGE_SIZE;
+
+    printf("Map contiguous physical range 0x%08x - 0x%08x\n", phys_start, phys_start + size);
+    printf("                      to virt 0x%08x - 0x%08x\n", first_page_address, first_page_address + size);
+
     for (uint32_t i = 0; i < size; i += PAGING_PAGE_SIZE) {
         uint32_t page_address = first_page_address + i;
         uint32_t frame_address = phys_start + i;
         _vmm_set_page_table_entry(vmm_dir, page_address, frame_address, true, true, false);
     }
     return first_page_address;
+}
+
+uint32_t vmm_map_phys_range(vmm_page_directory_t* vmm_dir, uint32_t phys_start, uint32_t size) {
+    return vmm_map_phys_range__min_placement_addr(vmm_dir, phys_start, size, _allocations_base_for_vmm(vmm_dir));
 }
 
 uint32_t vmm_remote_map_phys_range(uint32_t phys_vmm_addr, uint32_t phys_start, uint32_t size, uint32_t min_address) {
