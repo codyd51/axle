@@ -25,4 +25,6 @@ void text_box_set_cursor(text_box_t* text_box, Point point);
 void text_box_set_cursor_x(text_box_t* text_box, uint32_t x);
 void text_box_set_cursor_y(text_box_t* text_box, uint32_t y);
 
+void text_box_clear(text_box_t* tb, Color background_color);
+
 #endif

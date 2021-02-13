@@ -131,6 +131,15 @@ static void pci_driver() {
     panic("noreturn");
 }
 
+static void net() {
+    const char* program_name = "net";
+    FILE* fp = initrd_fopen(program_name, "rb");
+    char* argv[] = {program_name, NULL};
+    elf_load_file(program_name, fp, argv);
+    panic("noreturn");
+}
+
+
 uint32_t initial_esp = 0;
 void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     initial_esp = initial_stack;
@@ -183,6 +192,7 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     //task_spawn(paintbrush, 2, "");
     //task_spawn(textpad, 3, "");
     task_spawn(pci_driver, 4, "");
+    task_spawn(net, 5, "");
 
     // Bootstrapping complete - kill this process
     printf("[t = %d] Bootstrap task [PID %d] will exit\n", time(), getpid());

@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define AMC_MESSAGE_STRUCT_SIZE     64
+#define AMC_MESSAGE_STRUCT_SIZE     512
 #define AMC_MESSAGE_PAYLOAD_SIZE    (AMC_MESSAGE_STRUCT_SIZE - sizeof(amc_msg_header_t))
 // This #define is modified from minix/minix/include/minix/ipcconst.h
 #define ASSERT_AMC_MSG_BODY_SIZE(msg_type) \
@@ -17,6 +17,7 @@ typedef struct amc_msg_header {
 
 typedef struct amc_msg_body_charlist {
     // 1 byte is safe because the buffer will contain < 256 bytes
+    // TODO(PT): Not true anymore!
     uint8_t len;
     // Subtract the size of the `len` field from the usable size
     char data[AMC_MESSAGE_PAYLOAD_SIZE-sizeof(uint8_t)];
@@ -43,6 +44,7 @@ typedef union amc_msg_body {
 } amc_msg_body_t;
 ASSERT_AMC_MSG_BODY_SIZE(amc_msg_body_t);
 
+// TODO(PT): Move the command ID into the header
 typedef struct amc_message {
     amc_msg_header_t hdr;
     amc_msg_body_t body;
