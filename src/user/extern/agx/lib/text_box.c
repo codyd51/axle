@@ -38,8 +38,8 @@ text_box_t* text_box_create(Size size, Color background_color) {
     text_box_t* tb = calloc(1, sizeof(text_box_t));
     tb->layer = create_layer(size);
     tb->size = size;
-	tb->font_size = size_make(12, 12);
-	tb->font_padding = size_make(2, 2);
+	tb->font_size = size_make(8, 12);
+	tb->font_padding = size_make(0, 4);
     tb->background_color = background_color;
     // Fill the background color to start off with
     draw_rect(tb->layer, rect_make(point_zero(), size), background_color, THICKNESS_FILLED);
