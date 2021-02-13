@@ -72,56 +72,6 @@ static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 	return dummy_layer;
 }
 
-uint16_t flip_short(uint16_t short_int) {
-    uint32_t first_byte = *((uint8_t*)(&short_int));
-    uint32_t second_byte = *((uint8_t*)(&short_int) + 1);
-    return (first_byte << 8) | (second_byte);
-}
-
-uint32_t flip_long(uint32_t long_int) {
-    uint32_t first_byte = *((uint8_t*)(&long_int));
-    uint32_t second_byte = *((uint8_t*)(&long_int) + 1);
-    uint32_t third_byte = *((uint8_t*)(&long_int)  + 2);
-    uint32_t fourth_byte = *((uint8_t*)(&long_int) + 3);
-    return (first_byte << 24) | (second_byte << 16) | (third_byte << 8) | (fourth_byte);
-}
-
-/*
- * Flip two parts within a byte
- * For example, 0b11110000 will be 0b00001111 instead
- * This is necessary because endiness is also relevant to byte, where there are two fields in one byte.
- * number_bits: number of bits of the less significant field
- * */
-uint8_t flip_byte(uint8_t byte, int num_bits) {
-    uint8_t t = byte << (8 - num_bits);
-    return t | (byte >> num_bits);
-}
-
-uint8_t htonb(uint8_t byte, int num_bits) {
-    return flip_byte(byte, num_bits);
-}
-
-uint8_t ntohb(uint8_t byte, int num_bits) {
-    return flip_byte(byte, 8 - num_bits);
-}
-
-
-uint16_t htons(uint16_t hostshort) {
-    return flip_short(hostshort);
-}
-
-uint32_t htonl(uint32_t hostlong) {
-    return flip_long(hostlong);
-}
-
-uint16_t ntohs(uint16_t netshort) {
-    return flip_short(netshort);
-}
-
-uint32_t ntohl(uint32_t netlong) {
-    return flip_long(netlong);
-}
-
 #define CMD 0x37
 #define IMR 0x3c // Interrupt Mask Register
 #define ISR 0x3e // Interrupt Status Register
@@ -165,153 +115,14 @@ typedef struct rtl8139_state {
 	uint32_t rx_curr_buf_off;
 } rtl8139_state_t;
 
-typedef struct ethernet_frame {
-	uint8_t dst_mac_addr[6];
-	uint8_t src_mac_addr[6];
-	uint16_t type;
-	uint8_t data[];
-} __attribute__((packed)) ethernet_frame_t;
-
-typedef struct arp_packet {
-	uint16_t hardware_type;
-	uint16_t protocol_type;
-	uint8_t hware_addr_len;
-	uint8_t proto_addr_len;
-	uint16_t opcode;
-	uint8_t sender_hware_addr[6];
-	uint8_t sender_proto_addr[4];
-	uint8_t target_hware_addr[6];
-	uint8_t target_proto_addr[4];
-} __attribute__((packed)) arp_packet_t;
-
-#define ETHTYPE_ARP		0x0806
-#define ETHTYPE_IPv4	0x0800
-#define ETHTYPE_IPv6	0x86dd
-
-static void _arp_handle_packet(arp_packet_t* arp_packet) {
-	printf("** ARP packet! **\n");
-
-	printf("HW type 		0x%04x\n", ntohs(arp_packet->hardware_type));
-	printf("Proto type 		0x%04x\n", ntohs(arp_packet->protocol_type));
-	printf("HW_addr len		%d\n", arp_packet->hware_addr_len);
-	printf("Proto addr len  %d\n", arp_packet->proto_addr_len);
-	printf("Opcode		    %d\n", ntohs(arp_packet->opcode));
-
-	char buf[64] = {0};
-	snprintf(
-		buf, 
-		sizeof(buf), 
-		"%02x:%02x:%02x:%02x:%02x:%02x", 
-		arp_packet->sender_hware_addr[0],
-		arp_packet->sender_hware_addr[1],
-		arp_packet->sender_hware_addr[2],
-		arp_packet->sender_hware_addr[3],
-		arp_packet->sender_hware_addr[4],
-		arp_packet->sender_hware_addr[5]
-	);
-	printf("Sender hware	%s\n", buf);
-	snprintf(
-		buf, 
-		sizeof(buf), 
-		"%d.%d.%d.%d", 
-		arp_packet->sender_proto_addr[0],
-		arp_packet->sender_proto_addr[1],
-		arp_packet->sender_proto_addr[2],
-		arp_packet->sender_proto_addr[3]
-	);
-	printf("Sender proto	%s\n", buf);
-	snprintf(
-		buf, 
-		sizeof(buf), 
-		"%02x:%02x:%02x:%02x:%02x:%02x", 
-		arp_packet->target_hware_addr[0],
-		arp_packet->target_hware_addr[1],
-		arp_packet->target_hware_addr[2],
-		arp_packet->target_hware_addr[3],
-		arp_packet->target_hware_addr[4],
-		arp_packet->target_hware_addr[5]
-	);
-	printf("Target hware	%s\n", buf);
-	snprintf(
-		buf, 
-		sizeof(buf), 
-		"%d.%d.%d.%d", 
-		arp_packet->target_proto_addr[0],
-		arp_packet->target_proto_addr[1],
-		arp_packet->target_proto_addr[2],
-		arp_packet->target_proto_addr[3]
-	);
-	printf("Target hware	%s\n", buf);
-
-	free(arp_packet);
-}
-
-static void _forward_packet(ethernet_frame_t* ethernet_frame, uint32_t size) {
-	// For now, try to interpret the packet here
-
-	uint16_t ethtype = ntohs(ethernet_frame->type);
-	const char* ethtype_name = "?";
-	switch (ethtype) {
-		case ETHTYPE_ARP:
-			ethtype_name = "ARP";
-			break;
-		case ETHTYPE_IPv4:
-			ethtype_name = "IPv4";
-			break;
-		case ETHTYPE_IPv6:
-			ethtype_name = "IPv6";
-			break;
-		default:
-			ethtype_name = "?";
-			break;
-	}
-	char dst_mac_buf[64] = {0};
-	snprintf(
-		dst_mac_buf, 
-		sizeof(dst_mac_buf), 
-		"%02x:%02x:%02x:%02x:%02x:%02x", 
-		ethernet_frame->dst_mac_addr[0],
-		ethernet_frame->dst_mac_addr[1],
-		ethernet_frame->dst_mac_addr[2],
-		ethernet_frame->dst_mac_addr[3],
-		ethernet_frame->dst_mac_addr[4],
-		ethernet_frame->dst_mac_addr[5]
-	);
-	char src_mac_buf[64] = {0};
-	snprintf(
-		src_mac_buf, 
-		sizeof(src_mac_buf), 
-		"%02x:%02x:%02x:%02x:%02x:%02x", 
-		ethernet_frame->src_mac_addr[0],
-		ethernet_frame->src_mac_addr[1],
-		ethernet_frame->src_mac_addr[2],
-		ethernet_frame->src_mac_addr[3],
-		ethernet_frame->src_mac_addr[4],
-		ethernet_frame->src_mac_addr[5]
-	);
-
-	printf("\tDestination MAC: %s\n", dst_mac_buf);
-	printf("\tSource MAC: %s\n", src_mac_buf);
-	printf("\tEthType: 0x%04x (%s)\n", ethtype, ethtype_name);
-
-	if (ethtype == ETHTYPE_ARP) {
-		// Strip off the Ethernet header and pass along the packet to ARP
-		arp_packet_t* packet_body = (arp_packet_t*)&ethernet_frame->data;
-		uint32_t arp_packet_size = size - offsetof(ethernet_frame_t, data);
-		arp_packet_t* copied_packet = malloc(arp_packet_size);
-		memcpy(copied_packet, packet_body, arp_packet_size);
-		_arp_handle_packet(copied_packet);
-	}
-
-	free(ethernet_frame);
-}
-
 static void receive_packet(rtl8139_state_t* state) {
     while ((inb(state->io_base + RTL_REG_COMMAND_REGISTER) & RTL_CMD_REG_IS_RX_BUFFER_EMPTY) == 0) {
 		uint16_t* packet = (uint16_t*)(state->receive_buffer_virt + state->rx_curr_buf_off);
 		// The RTL8139 stores the packet metadata in the first 4 bytes of the buffer
 		uint16_t packet_header = packet[0];
 		uint16_t packet_len = packet[1];
+
+		/*
 		printf("Packet info:\n");
 		printf("\tValid:   %s\n", (packet_header & RTL_RX_PACKET_STATUS_ROK) ? "yes" : "no");
 		printf("\tLength:  %d\n", packet_len);
@@ -340,14 +151,32 @@ static void receive_packet(rtl8139_state_t* state) {
 		if (packet_header & RTL_RX_PACKET_STATUS_INVALID_SYMBOL_ERROR) {
 			printf("\tInvalid symbol error!\n");
 		}
+		*/
 
 		// Get the main packet buffer, after the metadata
 		char* packet_data = (char*)&packet[2];
 		// Copy into a safe buffer, and trim off the 4-byte CRC at the end
 		uint32_t ethernet_frame_size = packet_len - 4;
+#define member_size(type, member) sizeof(((type *)0)->member)
+
+		if (ethernet_frame_size <= member_size(net_message_t, data)) {
+			const char a = 0;
+			net_message_t* packet_msg = amc_message_construct(&a, 1); 
+			packet_msg->event = NET_RX_ETHERNET_FRAME;
+			packet_msg->len = ethernet_frame_size;
+			memcpy(packet_msg->data, packet_data, ethernet_frame_size);
+			//printf("Sending packet to net of size %d\n",packet_msg->len);
+			amc_message_send(NET_SERVICE_NAME, packet_msg);
+		}
+		else {
+			//printf("Dropping packet because it's larger than allowed by an amc message %d\n", ethernet_frame_size);
+		}
+
+		/*
 		ethernet_frame_t* ethernet_frame = malloc(ethernet_frame_size);
 		memcpy(ethernet_frame, packet_data, ethernet_frame_size);
 		_forward_packet(ethernet_frame, ethernet_frame_size);
+		*/
 		//hexdump(packet_data, min(packet_len, 256));
 
 		// https://www.cs.usfca.edu/~cruse/cs326f04/RTL8139_ProgrammersGuide.pdf
@@ -363,7 +192,7 @@ static void receive_packet(rtl8139_state_t* state) {
 		state->rx_curr_buf_off = (state->rx_curr_buf_off + packet_len + 4 + 3) & ~3;
 
 		if (state->rx_curr_buf_off > 8192) {
-			printf("rollback\n");
+			//printf("rollback\n");
 			state->rx_curr_buf_off -= 8192;
 		}
 
@@ -443,6 +272,12 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
     // Software reset
 	_perform_command(out_state, RTL_CMD_REG_RESET, 0);
 
+	// According to http://www.jbox.dk/sanos/source/sys/dev/rtl8139.c.html,
+	// we must enable Tx/Rx before setting transfer thresholds
+	// Enable the receiver and transmitter
+	// It seems they must be sent in the same command 
+	_perform_command(out_state, RTL_CMD_REG_ENABLE_RECEIVE | RTL_CMD_REG_ENABLE_TRANSMIT, 1);
+
 	// Set up RX and TX buffers, and give them to the device
 	uint32_t virt_memory_rx_addr = 0;
 	uint32_t phys_memory_rx_addr = 0;
@@ -460,6 +295,9 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
 	out_state->transmit_buffer_phys = phys_memory_tx_addr;
 	printf("Set TX buffer phys: 0x%08x\n", phys_memory_tx_addr);
 	outl(io_base + RTL_REG_TX_0_PHYS_START, phys_memory_tx_addr);
+	outl(io_base + RTL_REG_TX_1_PHYS_START, phys_memory_tx_addr);
+	outl(io_base + RTL_REG_TX_2_PHYS_START, phys_memory_tx_addr);
+	outl(io_base + RTL_REG_TX_3_PHYS_START, phys_memory_tx_addr);
 	// TODO(PT): Do we need to set up TSAD1,2,3?
 
 	// Enable all interrupts
@@ -485,12 +323,6 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
 	receive_config |= RTL_RX_CONFIG_FLAG_ACCEPT_RUNT_PACKETS;
 	receive_config |= RTL_RX_CONFIG_FLAG_DO_NOT_WRAP;
 	outl(io_base + RTL_REG_RX_CONFIG, receive_config);
-
-	// According to http://www.jbox.dk/sanos/source/sys/dev/rtl8139.c.html,
-	// we must enable Tx/Rx before setting transfer thresholds
-	// Enable the receiver and transmitter
-	// It seems they must be sent in the same command 
-	_perform_command(out_state, RTL_CMD_REG_ENABLE_RECEIVE | RTL_CMD_REG_ENABLE_TRANSMIT, 1);
 
 	/*
 	// Set max DMA burst to "unlimited"
@@ -593,8 +425,16 @@ static void send_packet(rtl8139_state_t* nic_state) {
 	if (nic_state->tx_round_robin_counter > sizeof(nic_state->tx_buffer_register_ports) / sizeof(nic_state->tx_buffer_register_ports[0])) {
 		nic_state->tx_round_robin_counter = 0;
 	}
+	// TODO(PT): I don't know what the consequences are for using one buffer for all
+	// TSD's. Perhaps we actually need 4 buffers
 	outl(nic_state->io_base + tx_buffer_port, nic_state->transmit_buffer_phys); 
-	outl(nic_state->io_base + tx_status_command_port, buf_idx); 
+
+	uint32_t packet_len = buf_idx;
+	uint32_t transmit_status = (packet_len);
+	// Set bit 13 (OWN bit) to zero to start the transfer
+	transmit_status &= ~(1 << 13);
+	printf("Writing %d to status port %d\n", transmit_status, tx_status_command_port);
+	outl(nic_state->io_base + tx_status_command_port, transmit_status); 
 	// https://forum.osdev.org/viewtopic.php?f=1&t=26938
 }
 
@@ -615,15 +455,15 @@ int main(int argc, char** argv) {
 	// This process will handle interrupts from the Realtek 8159 NIC (IRQ11)
 	// TODO(PT): The interrupt number is read from the PCI bus
 	// It should be communicated to this process
-	adi_register_driver("com.axle.realtek_8139_driver", INT_VECTOR_IRQ11);
-	amc_register_service("com.axle.realtek_8139_driver");
+	adi_register_driver(RTL8139_SERVICE_NAME, INT_VECTOR_IRQ11);
+	amc_register_service(RTL8139_SERVICE_NAME);
 
 	// TODO(PT): This should be read from the PCI bus
 	int io_base = 0xc000;
 	rtl8139_state_t nic_state = {0};
 	realtek_8139_init(0, 3, 0, io_base, &nic_state);
 
-	Size window_size = size_make(500, 300);
+	Size window_size = size_make(300, 70);
 	Rect window_frame = rect_make(point_zero(), window_size);
 	ca_layer* window_layer = window_layer_get(window_size.width, window_size.height);
 
@@ -643,12 +483,10 @@ int main(int argc, char** argv) {
 
 	text_box_puts(text_box, "RealTek 8139 NIC driver\n", color_white());
 
+	text_box_puts(text_box, "MAC address: ", color_white());
 	char mac_buf[256];
-	int written_len = snprintf(mac_buf, sizeof(mac_buf), "MAC address: ");
-	_read_mac_address(&nic_state, mac_buf + written_len, sizeof(mac_buf) - written_len);
-
-	text_box_puts(text_box, mac_buf, color_blue());
-	text_box_puts(text_box, "Click here to send a packet!", color_white());
+	_read_mac_address(&nic_state, mac_buf, sizeof(mac_buf));
+	text_box_puts(text_box, mac_buf, color_purple());
 
     // Blit the text box to the window layer
     blit_layer(window_layer, text_box->layer, text_box_frame, rect_make(point_zero(), text_box_frame.size));

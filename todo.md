@@ -37,3 +37,8 @@ Don't map the null page
 amc should be able to send smaller or larger messages
     Network packets can be 300+ bytes,
     but I don't want to inflate amc message size for every message type
+
+    Instead of providing a fixed-size amc_message_t,
+    the amc_message_send API should take a buffer and a size.
+    AMC prepends a header, copies the buffer, and saves it.
+    Messages can thus be an arbitary size.
