@@ -42,8 +42,13 @@ text_box_t* text_box_create(Size size, Color background_color) {
 	tb->font_padding = size_make(0, 4);
     tb->background_color = background_color;
     // Fill the background color to start off with
-    draw_rect(tb->layer, rect_make(point_zero(), size), background_color, THICKNESS_FILLED);
+	text_box_clear(tb, background_color);
     return tb;
+}
+
+void text_box_clear(text_box_t* tb, Color background_color) {
+    draw_rect(tb->layer, rect_make(point_zero(), tb->size), background_color, THICKNESS_FILLED);
+
 }
 
 void text_box_destroy(text_box_t* text_box) {
