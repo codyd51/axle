@@ -8,18 +8,14 @@
 #include <kernel/amc.h>
 #include <kernel/idt.h>
 
+#include <libport/libport.h>
+
 #include "math.h"
 
 typedef struct ps2_mouse_state {
 	uint8_t idx;
 	uint8_t buffer[3];
 } ps2_mouse_state_t;
-
-uint8_t inb(uint16_t port) {
-	uint8_t _v;
-	__asm__ __volatile__ ("inb %w1,%0":"=a" (_v):"Nd" (port));
-	return _v;
-}
 
 int main(int argc, char** argv) {
 	// This process will handle PS/2 mouse IRQ's (IRQ 12)

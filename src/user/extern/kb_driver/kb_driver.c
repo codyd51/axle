@@ -8,14 +8,10 @@
 #include <kernel/adi.h>
 #include <kernel/idt.h>
 
+#include <libport/libport.h>
+
 #include "kb_driver.h"
 #include "kb_colemak.h"
-
-uint8_t inb(uint16_t port) {
-	uint8_t _v;
-	__asm__ __volatile__ ("inb %w1,%0":"=a" (_v):"Nd" (port));
-	return _v;
-}
 
 static int process_scancode(ps2_kbd_state_t* state, uint8_t scancode) {
 	// https://www.nutsvolts.com/magazine/article/get-ascii-data-from-ps-2-keyboards

@@ -15,6 +15,8 @@ cp -r axle-sysroot/usr/i686-axle/include/kernel ports/newlib/newlib-2.5.0.201712
 # Copy awm headers to the sysroot so other programs can use its message protocol
 cp src/user/extern/awm/awm.h axle-sysroot/usr/i686-axle/include/awm/awm.h
 cp src/user/extern/pci_driver/pci_messages.h axle-sysroot/usr/i686-axle/include/pci/pci_messages.h
+cp src/user/extern/net/net_messages.h axle-sysroot/usr/i686-axle/include/net/net_messages.h
+cp src/user/extern/realtek_8139_driver/rtl8139_messages.h axle-sysroot/usr/i686-axle/include/drivers/realtek_8139/rtl8139_messages.h
 
 python3 ./build-libs.py
 
@@ -43,18 +45,6 @@ make
 cd ../../../../
 
 
-cd initrd
-../fsgen ./
-mv initrd.img ../initrd.img
-cd ..
-mv initrd.img isodir/boot/initrd.img
-
-
-rm axle.iso
-make run
-
-exit
-
 cd ./src/user/extern/rainbow
 make
 cd ../../../../
@@ -66,6 +56,22 @@ cd ../../../../
 cd ./src/user/extern/textpad
 make
 cd ../../../../
+
+cd ./src/user/extern/net
+make
+cd ../../../../
+
+cd initrd
+../fsgen ./
+mv initrd.img ../initrd.img
+cd ..
+mv initrd.img isodir/boot/initrd.img
+
+
+sudo rm axle.iso
+sudo make run
+
+exit
 
 cd ./src/user/extern/print_and_exit
 make

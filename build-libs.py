@@ -11,6 +11,7 @@ def main():
     libdir_to_libname = {
         "agx": "libagx.a",
         "libamc": "libamc.a",
+        "libport": "libport.a"
     }
 
     for library_dirname, build_product_name in libdir_to_libname.items():
@@ -21,21 +22,19 @@ def main():
         if status.returncode != 0:
             raise RuntimeError(f"Make failed with exit code {status.returncode}: {status.stdout} {status.stderr}")
 
-        # Move the build product to /usr/lib
+        # Copy the build product to /usr/lib
         library_build_product = library_source_dir / build_product_name
         assert(library_build_product.exists())
         library_dest = sysroot / "usr" / "i686-axle" / "lib" / build_product_name
-        shutil.move(library_build_product.as_posix(), library_dest.as_posix())
+        shutil.copy(library_build_product.as_posix(), library_dest.as_posix())
         assert(library_dest.exists())
 
         # Copy the headers to /usr/include
         headers_dest_dir = sysroot / "usr" / "i686-axle" / "include" / library_dirname
         for absolute_source_header in library_source_dir.rglob('*.h'):
             relative_source = absolute_source_header.relative_to(library_source_dir)
-            print(f'found source header {absolute_source_header}')
-            print(f'relative {relative_source}')
             dest_header = headers_dest_dir / relative_source
-            print(f'copying to {dest_header}')
+            print(f'{build_product_name}:\tCopy header {relative_source}')
 
             shutil.copy(absolute_source_header, dest_header)
 

@@ -67,44 +67,6 @@ static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 // https://github.com/qemu/qemu/blob/master/docs/specs/pci-ids.txt
 // Device class and subclass http://my.execpc.com/~geezer/code/pci.c
 
-// TODO(PT): assert should be provided by a library
-static void assert(bool cond, const char* msg) {
-	if (!cond) {
-		printf("Assertion failed: %s\n", msg);
-		exit(1);
-	}
-}
-
-void outb(uint16_t port, uint8_t val) {
-	 asm volatile("outb %0, %1" : : "a"(val), "Nd"(port) );
-}
-
-void outw(uint16_t port, uint16_t val) {
-	asm volatile("outw %0, %1" : : "a"(val), "dN"(port));
-}
-
-void outl(uint16_t port, uint32_t val) {
-	asm volatile("outl %0, %1" : : "a"(val), "Nd"(port));
-}
-
-uint8_t inb(uint16_t port) {
-	uint8_t _v;
-	__asm__ __volatile__ ("inb %w1,%0":"=a" (_v):"Nd" (port));
-	return _v;
-}
-
-uint16_t inw(uint16_t port) {
-	uint16_t _v;
-	__asm__ __volatile__ ("inw %1, %0" : "=a" (_v) : "dN" (port));
-	return _v;
-}
-
-uint32_t inl(uint16_t port) {
-	uint32_t _v;
-	__asm __volatile__("inl %1, %0" : "=a" (_v) : "Nd" (port));
-	return _v;
-}
-
 uint16_t pci_config_read_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
     // https://wiki.osdev.org/Pci#Enumerating_PCI_Buses
     uint32_t lbus  = (uint32_t)bus;

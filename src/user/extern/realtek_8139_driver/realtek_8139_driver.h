@@ -8,6 +8,9 @@
 
 // 4 bytes, R/W. Physical start address of transmit descriptor 0
 #define RTL_REG_TX_0_PHYS_START     0x20
+#define RTL_REG_TX_1_PHYS_START     0x24
+#define RTL_REG_TX_2_PHYS_START     0x28
+#define RTL_REG_TX_3_PHYS_START     0x2c
 
 // 4 bytes, R/W. Physical start address of the receive buffer
 #define RTL_REG_RX_BUFFER_PHYS_START    0x30
@@ -62,7 +65,7 @@
 // Command bits that can be sent to the command register
 #define RTL_CMD_REG_RESET (1 << 4)
 #define RTL_CMD_REG_ENABLE_RECEIVE (1 << 3)
-#define RTL_CMD_REG_ENABLE_TRANSMIT (1 << 22)
+#define RTL_CMD_REG_ENABLE_TRANSMIT (1 << 2)
 #define RTL_CMD_REG_IS_RX_BUFFER_EMPTY (1 << 0)
 
 #endif

@@ -26,109 +26,14 @@
 // Communication with other processes
 #include <libamc/libamc.h>
 
+// Port IO
+#include <libport/libport.h>
+
+// Network stack communication
+#include <net/net_messages.h>
+
 #include "realtek_8139_driver.h"
-
-#define max(a,b) \
-   ({ __typeof__ (a) _a = (a); \
-       __typeof__ (b) _b = (b); \
-     _a > _b ? _a : _b; })
-
-#define min(a,b) \
-   ({ __typeof__ (a) _a = (a); \
-       __typeof__ (b) _b = (b); \
-     _a <= _b ? _a : _b; })
-
-void outb(uint16_t port, uint8_t val) {
-	 asm volatile("outb %0, %1" : : "a"(val), "Nd"(port) );
-}
-
-void outw(uint16_t port, uint16_t val) {
-	asm volatile("outw %0, %1" : : "a"(val), "dN"(port));
-}
-
-void outl(uint16_t port, uint32_t val) {
-	asm volatile("outl %0, %1" : : "a"(val), "Nd"(port));
-}
-
-uint8_t inb(uint16_t port) {
-	uint8_t _v;
-	__asm__ __volatile__ ("inb %w1,%0":"=a" (_v):"Nd" (port));
-	return _v;
-}
-
-uint16_t inw(uint16_t port) {
-	uint16_t _v;
-	__asm__ __volatile__ ("inw %1, %0" : "=a" (_v) : "dN" (port));
-	return _v;
-}
-
-uint32_t inl(uint16_t port) {
-	uint32_t _v;
-	__asm __volatile__("inl %1, %0" : "=a" (_v) : "Nd" (port));
-	return _v;
-}
-
-void hexdump (const void * addr, const int len) {
-    const char* desc = "";
-    int i;
-    unsigned char buff[17];
-    const unsigned char * pc = (const unsigned char *)addr;
-
-    // Output description if given.
-
-    if (desc != NULL)
-        printf ("%s:\n", desc);
-
-    // Length checks.
-
-    if (len == 0) {
-        printf("  ZERO LENGTH\n");
-        return;
-    }
-    else if (len < 0) {
-        printf("  NEGATIVE LENGTH: %d\n", len);
-        return;
-    }
-
-    // Process every byte in the data.
-
-    for (i = 0; i < len; i++) {
-        // Multiple of 16 means new line (with line offset).
-
-        if ((i % 16) == 0) {
-            // Don't print ASCII buffer for the "zeroth" line.
-
-            if (i != 0)
-                printf ("  %s\n", buff);
-
-            // Output the offset.
-
-            printf ("  %04x ", i);
-        }
-
-        // Now the hex code for the specific character.
-        printf (" %02x", pc[i]);
-
-        // And buffer a printable ASCII character for later.
-
-        if ((pc[i] < 0x20) || (pc[i] > 0x7e)) // isprint() may be better.
-            buff[i % 16] = '.';
-        else
-            buff[i % 16] = pc[i];
-        buff[(i % 16) + 1] = '\0';
-    }
-
-    // Pad out last line if not exactly 16 characters.
-
-    while ((i % 16) != 0) {
-        printf ("   ");
-        i++;
-    }
-
-    // And print the final ASCII buffer.
-
-    printf ("  %s\n", buff);
-}
+#include "rtl8139_messages.h"
 
 // Many graphics lib functions call gfx_screen() 
 Screen _screen = {0};
