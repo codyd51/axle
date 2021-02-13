@@ -12,5 +12,5 @@ LDFLAGS = -T ./linker.ld -L$(SYSROOT)/usr/i686-axle/lib -lc
 realtek_8139_driver: realtek_8139_driver.c
 	$(CC) $(CFLAGS) -o realtek_8139_driver.o -c realtek_8139_driver.c; \
 	# Place LDFlags after object files: https://stackoverflow.com/questions/34848192/assembler-gcc-undefined-reference-to-puts
-	$(LD) -o realtek_8139_driver realtek_8139_driver.o -lagx -lamc $(LDFLAGS)
-	mv realtek_8139_driver $(DIR)/initrd;
+	$(LD) -o realtek_8139_driver realtek_8139_driver.o -lagx -lamc -lport $(LDFLAGS)
+	cp realtek_8139_driver $(DIR)/initrd;

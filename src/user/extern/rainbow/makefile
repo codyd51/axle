@@ -12,4 +12,4 @@ rainbow: rainbow.c
 	$(CC) $(CFLAGS) -o rainbow.o -c rainbow.c; \
 	# Place LDFlags after object files: https://stackoverflow.com/questions/34848192/assembler-gcc-undefined-reference-to-puts
 	$(LD) -o rainbow rainbow.o -lagx -lamc $(LDFLAGS)
-	mv rainbow $(DIR)/initrd;
+	cp rainbow $(DIR)/initrd;

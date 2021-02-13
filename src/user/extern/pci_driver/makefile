@@ -12,5 +12,5 @@ LDFLAGS = -T ./linker.ld -L$(SYSROOT)/usr/i686-axle/lib -lc
 pci_driver: pci_driver.c
 	$(CC) $(CFLAGS) -o pci_driver.o -c pci_driver.c; \
 	# Place LDFlags after object files: https://stackoverflow.com/questions/34848192/assembler-gcc-undefined-reference-to-puts
-	$(LD) -o pci_driver pci_driver.o -lagx -lamc $(LDFLAGS)
-	mv pci_driver $(DIR)/initrd;
+	$(LD) -o pci_driver pci_driver.o -lagx -lamc -lport $(LDFLAGS)
+	cp pci_driver $(DIR)/initrd;

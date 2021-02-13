@@ -12,5 +12,5 @@ LDFLAGS = -T ./linker.ld -L$(SYSROOT)/usr/i686-axle/lib -lc
 kb_driver: kb_driver.c
 	$(CC) $(CFLAGS) -o kb_driver.o -c kb_driver.c; \
 	# Place LDFlags after object files: https://stackoverflow.com/questions/34848192/assembler-gcc-undefined-reference-to-puts
-	$(LD) -o kb_driver kb_driver.o $(LDFLAGS)
-	mv kb_driver $(DIR)/initrd;
+	$(LD) -o kb_driver kb_driver.o -lport $(LDFLAGS)
+	cp kb_driver $(DIR)/initrd;

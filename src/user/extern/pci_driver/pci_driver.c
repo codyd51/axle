@@ -362,7 +362,7 @@ static void launch_known_drivers(pci_dev_t* dev_head) {
 int main(int argc, char** argv) {
 	amc_register_service(PCI_SERVICE_NAME);
 
-	Size window_size = size_make(500, 460);
+	Size window_size = size_make(300, 520);
 	Rect window_frame = rect_make(point_zero(), window_size);
 	ca_layer* window_layer = window_layer_get(window_size.width, window_size.height);
 
@@ -412,7 +412,6 @@ int main(int argc, char** argv) {
 		do {
 			// Wait until we've unblocked with at least one message available
 			amc_message_await_any(&msg);
-			// TODO(PT): Process the message
             amc_command_message_t* cmd_msg = (amc_command_message_t*)&msg;
             const char* source_service = amc_message_source(cmd_msg);
             // If we're sent a message from someone other than a PCI device driver, ignore it

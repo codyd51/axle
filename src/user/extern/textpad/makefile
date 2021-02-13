@@ -12,4 +12,4 @@ textpad: textpad.c
 	$(CC) $(CFLAGS) -o textpad.o -c textpad.c; \
 	# Place LDFlags after object files: https://stackoverflow.com/questions/34848192/assembler-gcc-undefined-reference-to-puts
 	$(LD) -o textpad textpad.o -lagx -lamc $(LDFLAGS)
-	mv textpad $(DIR)/initrd;
+	cp textpad $(DIR)/initrd;

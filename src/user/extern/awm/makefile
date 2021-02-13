@@ -12,4 +12,4 @@ awm: awm.c $(SYSROOT)/usr/i686-axle/lib/libagx.a
 	$(CC) $(CFLAGS) -o awm.o -c awm.c; 
 	# Place LDFlags after object files: https://stackoverflow.com/questions/34848192/assembler-gcc-undefined-reference-to-puts
 	$(LD) -o awm awm.o -lagx -lamc $(LDFLAGS)
-	mv awm $(DIR)/initrd;
+	cp awm $(DIR)/initrd;

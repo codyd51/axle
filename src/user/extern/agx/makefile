@@ -9,9 +9,9 @@ RANLIB = $(TOOLCHAIN)/bin/i686-elf-ranlib
 LIBRARY_PATH=$(SYSROOT)/usr/i686-axle/lib:$(LIBRARY_PATH)
 CFLAGS = -I$(SYSROOT)/usr/i686-axle/include -g -L$(SYSROOT)/usr/i686-axle/lib -Wl,-Bstatic -lc -nostartfiles
 
-# The resulting static library will be moved into the sysroot by the 
+# The resulting static library will be copied into the sysroot by the 
 # build-libagx.py script.
-agx: font/font.c lib/point.c lib/color.c lib/putpixel.c lib/size.c lib/ca_layer.c lib/shapes.c lib/rect.c lib/text_box.c
+libagx.a: font/font.c lib/point.c lib/color.c lib/putpixel.c lib/size.c lib/ca_layer.c lib/shapes.c lib/rect.c lib/text_box.c
 	$(CC) $(CFLAGS) -o font.o -c font/font.c; 
 	$(CC) $(CFLAGS) -o point.o -c lib/point.c; 
 	$(CC) $(CFLAGS) -o color.o -c lib/color.c; 

@@ -12,4 +12,4 @@ paintbrush: paintbrush.c
 	$(CC) $(CFLAGS) -o paintbrush.o -c paintbrush.c; \
 	# Place LDFlags after object files: https://stackoverflow.com/questions/34848192/assembler-gcc-undefined-reference-to-puts
 	$(LD) -o paintbrush paintbrush.o -lagx -lamc $(LDFLAGS)
-	mv paintbrush $(DIR)/initrd;
+	cp paintbrush $(DIR)/initrd;
