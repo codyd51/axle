@@ -158,15 +158,13 @@ static void receive_packet(rtl8139_state_t* state) {
 		// Copy into a safe buffer, and trim off the 4-byte CRC at the end
 		uint32_t ethernet_frame_size = packet_len - 4;
 #define member_size(type, member) sizeof(((type *)0)->member)
-
-		if (ethernet_frame_size <= member_size(net_message_t, data)) {
+		if (ethernet_frame_size <= member_size(net_packet_t, data)) {
 			const char a = 0;
-			net_message_t* packet_msg = amc_message_construct(&a, 1); 
-			packet_msg->event = NET_RX_ETHERNET_FRAME;
+			net_packet_t* packet_msg = (net_packet_t*)amc_message_construct(&a, 1); 
+			packet_msg->common.event = NET_RX_ETHERNET_FRAME;
 			packet_msg->len = ethernet_frame_size;
 			memcpy(packet_msg->data, packet_data, ethernet_frame_size);
-			//printf("Sending packet to net of size %d\n",packet_msg->len);
-			amc_message_send(NET_SERVICE_NAME, packet_msg);
+			amc_message_send(NET_SERVICE_NAME, (amc_message_t*)packet_msg);
 		}
 		else {
 			//printf("Dropping packet because it's larger than allowed by an amc message %d\n", ethernet_frame_size);
@@ -539,6 +537,26 @@ int main(int argc, char** argv) {
 					if (ch == 'z') {
 						printf("Sending packet!\n");
 						send_packet(&nic_state);
+					}
+					else if (event == NET_REQUEST_NIC_CONFIG) {
+						printf("RTL8139 sending NIC config to net subsystem\n");
+						const char a = 0;
+						net_nic_config_info_t* config_msg = (net_nic_config_info_t*)amc_message_construct(&a, 1); 
+						config_msg->common.event = NET_RESPONSE_NIC_CONFIG;
+						uint32_t mac_part1 = inl(nic_state.io_base + 0x00);
+						uint16_t mac_part2 = inw(nic_state.io_base + 0x04);
+						uint8_t mac_addr[8];
+						mac_addr[0] = mac_part1 >> 0;
+						mac_addr[1] = mac_part1 >> 8;
+						mac_addr[2] = mac_part1 >> 16;
+						mac_addr[3] = mac_part1 >> 24;
+						mac_addr[4] = mac_part2 >> 0;
+						mac_addr[5] = mac_part2 >> 8;
+						memcpy(config_msg->mac_addr, mac_addr, 6);
+						amc_message_send(NET_SERVICE_NAME, config_msg);
+					}
+					else {
+						printf("Unknown event from net service: %d\n", event);
 					}
 				}
 			} while (amc_has_message_from("com.axle.awm"));

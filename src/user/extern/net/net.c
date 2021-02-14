@@ -74,6 +74,29 @@ static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 	return dummy_layer;
 }
 
+static nic_config_t _nic_config = {0};
+
+static void _read_nic_config(void) {
+    int a = 0;
+    net_nic_config_info_t* msg = (net_nic_config_info_t*)amc_message_construct((const char*)&a, 1);
+    msg->common.event = NET_REQUEST_NIC_CONFIG;
+    amc_message_send(RTL8139_SERVICE_NAME, (amc_message_t*)msg);
+	net_nic_config_info_t resp = {0};
+	while (true) {
+		amc_message_await(RTL8139_SERVICE_NAME, (amc_message_t*)&resp);
+		if (resp.common.event == NET_RESPONSE_NIC_CONFIG) {
+			// Save the NIC configuration
+			memcpy(_nic_config.nic_mac, resp.mac_addr, MAC_ADDR_SIZE);
+			break;
+		}
+		printf("Discarding message from NIC because it was the wrong type: %d\n", resp.common.event);
+	}
+}
+
+void copy_nic_mac(uint8_t dest[MAC_ADDR_SIZE]) {
+	memcpy(dest, _nic_config.nic_mac, MAC_ADDR_SIZE);
+}
+
 int main(int argc, char** argv) {
 	amc_register_service(NET_SERVICE_NAME);
 
@@ -102,20 +125,24 @@ int main(int argc, char** argv) {
     // And ask awm to draw our window
     amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 
+	// Ask the NIC for its configuration
+	_read_nic_config();
+
 	while (true) {
-		net_message_t msg;
+		net_packet_t packet_msg;
 		do {
 			// Wait until we've unblocked with at least one message available
-			amc_message_await_any((amc_message_t*)&msg);
-            const char* source_service = amc_message_source((amc_message_t*)&msg);
+			amc_message_await_any((amc_message_t*)&packet_msg);
+            const char* source_service = amc_message_source((amc_message_t*)&packet_msg);
 
 			if (!strcmp(source_service, RTL8139_SERVICE_NAME)) {
-				uint8_t event = msg.event;
+				uint8_t event = packet_msg.common.event;
 				if (event == NET_RX_ETHERNET_FRAME) {
-					uint8_t* packet_data = (uint8_t*)&msg.data;
-					ethernet_frame_t* eth_frame = malloc(msg.len);
-					memcpy(eth_frame, packet_data, msg.len);
-					ethernet_receive(eth_frame, msg.len);
+					uint8_t* packet_data = (uint8_t*)&packet_msg.data;
+					ethernet_frame_t* eth_frame = malloc(packet_msg.len);
+					memcpy(eth_frame, packet_data, packet_msg.len);
+					packet_info_t packet_info;
+					ethernet_receive(&packet_info, eth_frame, packet_msg.len);
 				}
 			}
 			else {
