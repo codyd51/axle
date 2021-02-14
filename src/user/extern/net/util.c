@@ -20,7 +20,7 @@ void format_ipv4_address__buf(char* out, ssize_t out_size, uint8_t ip_addr[4]) {
 	snprintf(
 		out, 
 		out_size, 
-		"%3d.%3d.%3d.%3d", 
+		"%d.%d.%d.%3d", 
 		ip_addr[0],
 		ip_addr[1],
 		ip_addr[2],

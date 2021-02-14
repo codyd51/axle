@@ -34,6 +34,7 @@
 
 // Displaying network stack state
 #include "arp.h"
+#include "dns.h"
 #include "util.h"
 
 // Many graphics lib functions call gfx_screen() 
@@ -76,7 +77,7 @@ static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 int main(int argc, char** argv) {
 	amc_register_service(NET_SERVICE_NAME);
 
-	Size window_size = size_make(640, 260);
+	Size window_size = size_make(700, 600);
 	Rect window_frame = rect_make(point_zero(), window_size);
 	ca_layer* window_layer = window_layer_get(window_size.width, window_size.height);
 
@@ -144,6 +145,27 @@ int main(int argc, char** argv) {
 				format_mac_address(buf, sizeof(buf), ent->mac_addr);
 				text_box_puts(text_box, buf, color_gray());
 				text_box_puts(text_box, "\n", c);
+			}
+		}
+
+		text_box_puts(text_box, "\nDNS Services Table\n", color_white());
+		dns_service_type_t* dns_service_type_ents = dns_service_type_table();
+		for (int i = 0; i < DNS_SERVICE_TYPE_TABLE_SIZE; i++) {
+			dns_service_type_t* type_ent = &dns_service_type_ents[i];
+			if (type_ent->allocated) {
+				text_box_puts(text_box, "Type ", color_white());
+				char buf[256];
+				snprintf(buf, sizeof(buf), "%s\n", type_ent->type_name.name);
+				text_box_puts(text_box, buf, color_gray());
+
+				for (int j = 0; j < DNS_SERVICE_INSTANCE_TABLE_SIZE; j++) {
+					dns_service_instance_t* inst_ent = &type_ent->instances[j];
+					if (inst_ent->allocated) {
+						text_box_puts(text_box, "\tInstance ", color_white());
+						snprintf(buf, sizeof(buf), "%s\n", inst_ent->service_name.name);
+						text_box_puts(text_box, buf, color_gray());
+					}
+				}
 			}
 		}
 
