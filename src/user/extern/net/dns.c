@@ -311,6 +311,53 @@ void dns_receive(packet_info_t* packet_info, dns_packet_t* packet, uint32_t pack
     }
 }
 
+void dns_send(void) {
+    dns_packet_t header = {0};
+    header.identifier = htons(0x4546);
+    /*
+    // TODO(PT): Might need to flip the order of this whole bitfield?
+    header.query_response_flag = 0;
+    header.opcode = 0;
+    header.recursion_desired_flag = 1;
+    */
+    uint16_t* h = (uint16_t*)&header;
+    h[1] = htons(0x0100);
+
+    header.question_count = htons(1);
+
+    dns_question_t question;
+
+    char buf[128];
+    char* buf_ptr = buf;
+    const char* labels[] = {"www", "google", "com", NULL};
+    for (int i = 0; i < 3; i++) {
+        const char* label = labels[i];
+        int len = strlen(label);
+        *(buf_ptr++) = len;
+        for (int j = 0; j < len; j++) {
+            *(buf_ptr++) = label[j];
+        }
+    }
+    *(buf_ptr++) = '\0';
+    // Type: A
+    *(buf_ptr++) = 0x0;
+    *(buf_ptr++) = 0x1;
+    // Class: IN
+    *(buf_ptr++) = 0x0;
+    *(buf_ptr++) = 0x1;
+    int buf_len = buf_ptr - buf;
+    printf("buf len %d\n", buf_len);
+
+    uint32_t dns_packet_size = sizeof(dns_packet_t) + buf_len;
+    char* dns_packet = malloc(dns_packet_size);
+    memcpy(dns_packet, &header, sizeof(dns_packet_t));
+    memcpy(dns_packet + sizeof(dns_packet_t), buf, buf_len);
+
+    uint8_t router_ip[IPv4_ADDR_SIZE];
+    net_copy_router_ipv4_addr(router_ip);
+    udp_send(dns_packet, dns_packet_size, 51303, 53, router_ip);
+}
+
 dns_service_type_t* dns_service_type_table(void) {
 	return _dns_service_type_table;
 }
