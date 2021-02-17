@@ -442,14 +442,17 @@ int main(int argc, char** argv) {
 			// We woke to service amc
 			amc_charlist_message_t msg = {0};
 			do {
-				amc_message_await("com.axle.awm", &msg);
-				// TODO(PT): Need a struct type selector
-				uint32_t event = amc_command_ptr_msg__get_command(&msg);
-				if (event == AWM_KEY_DOWN) {
-					char ch = amc_command_ptr_msg__get_ptr(&msg);
-					if (ch == 'z') {
-						printf("Sending packet!\n");
-						send_packet(&nic_state);
+				amc_message_await_any((amc_message_t*)&msg);
+				const char* source_service = amc_message_source((amc_message_t*)&msg);
+				if (!strcmp(source_service, NET_SERVICE_NAME)) {
+					net_message_t* net_msg = (net_message_t*)&msg;
+					uint8_t event = net_msg->packet.common.event;
+					printf("RTL8139 received message with event %d\n", event);
+					if (event == NET_TX_ETHERNET_FRAME) {
+						net_packet_t* packet = &net_msg->packet;
+						printf("RTL8139 transmitting frame %d\n", packet->len);
+						uint8_t* packet_data = (uint8_t*)packet->data;
+						send_packet(&nic_state, packet_data, packet->len);
 					}
 					else if (event == NET_REQUEST_NIC_CONFIG) {
 						printf("RTL8139 sending NIC config to net subsystem\n");
@@ -466,13 +469,20 @@ int main(int argc, char** argv) {
 						mac_addr[4] = mac_part2 >> 0;
 						mac_addr[5] = mac_part2 >> 8;
 						memcpy(config_msg->mac_addr, mac_addr, 6);
-						amc_message_send(NET_SERVICE_NAME, config_msg);
+						amc_message_send(NET_SERVICE_NAME, (amc_message_t*)config_msg);
 					}
 					else {
 						printf("Unknown event from net service: %d\n", event);
 					}
 				}
-			} while (amc_has_message_from("com.axle.awm"));
+				else if (!strcmp(source_service, "com.axle.awm")) {
+					// Ignore awm messages
+				}
+				else {
+					printf("RTL8139 driver got command from unknown service %s\n", source_service);
+				}
+
+			} while (amc_has_message());
 		}
 	}
 	
