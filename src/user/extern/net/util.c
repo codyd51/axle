@@ -31,9 +31,9 @@ void format_ipv4_address__buf(char* out, ssize_t out_size, uint8_t ip_addr[4]) {
 void format_ipv4_address__u32(char* out, ssize_t out_size, uint32_t ip) {
     uint8_t buf[4];
     buf[0] = (uint8_t)((ip >> 0) & 0xff);
-    buf[1] = (uint8_t)((ip >> 1) & 0xff);
-    buf[2] = (uint8_t)((ip >> 2) & 0xff);
-    buf[3] = (uint8_t)((ip >> 3) & 0xff);
+    buf[1] = (uint8_t)((ip >> 8) & 0xff);
+    buf[2] = (uint8_t)((ip >> 16) & 0xff);
+    buf[3] = (uint8_t)((ip >> 24) & 0xff);
     format_ipv4_address__buf(out, out_size, buf);
 }
 
@@ -97,4 +97,85 @@ void hexdump(const void* addr, const int len) {
     // And print the final ASCII buffer.
 
     printf ("  %s\n", buff);
+}
+
+static uint32_t _net_checksum_add(uint8_t* addr, int count) {
+    uint32_t sum = 0;
+    uint16_t* ptr = (uint16_t*)addr;
+
+	// Sum the uint16_t words in the buffer
+    while (count > 1)  {
+        sum += *ptr++;
+        count -= 2;
+    }
+
+	// Add the left over byte, if any
+    if (count > 0) {
+        sum += *(uint8_t*) ptr;
+	}
+    return sum;
+}
+
+static uint16_t _net_checksum_finish(uint32_t sum) {
+	// Fold 32-bit sum into 16-bits
+	while (sum >> 16) {
+		sum = (sum & 0xffff) + (sum >> 16);
+	}
+	// Finally, XOR the sum
+    return ~sum;
+}
+
+uint16_t net_checksum_tcp_udp(uint16_t proto, 
+                              uint16_t length, 
+                              uint8_t src_ip[IPv4_ADDR_SIZE], 
+                              uint8_t dst_ip[IPv4_ADDR_SIZE],
+                              void* addr, 
+                              int count) {
+	char b1[64];
+	char b2[64];
+	format_ipv4_address__buf(b1, 64, src_ip);
+	format_ipv4_address__buf(b2, 64, dst_ip);
+    printf("net_checksum_tcp_udp %d %d %d %s %s\n", proto, length, count, b1, b2);
+    // https://gist.github.com/fxlv/81209bbd150abfeaceb1f85ff076c9f3
+    uint32_t sum = 0;
+    sum += _net_checksum_add((uint8_t*)addr, count);
+    sum += _net_checksum_add(src_ip, IPv4_ADDR_SIZE);
+    sum += _net_checksum_add(dst_ip, IPv4_ADDR_SIZE);
+    sum += proto + length;
+    return _net_checksum_finish(sum);
+}
+
+uint16_t net_checksum_tcp_udp2(uint8_t src_ip[IPv4_ADDR_SIZE], 
+                              uint8_t dst_ip[IPv4_ADDR_SIZE],
+                              uint16_t proto,
+                              uint16_t len,
+                              uint16_t src_port,
+                              uint16_t dst_port,
+                              uint8_t* data,
+                              uint16_t data_size) {
+    // https://gist.github.com/fxlv/81209bbd150abfeaceb1f85ff076c9f3
+	char b1[64];
+	char b2[64];
+	format_ipv4_address__buf(b1, 64, src_ip);
+	format_ipv4_address__buf(b2, 64, dst_ip);
+    printf("net_checksum_tcp_udp %s %s\n", b1, b2);
+    printf("proto %d udp len %d portsrc %d portdst %d data_size %d\n", proto, len, src_port, dst_port, data_size);
+    uint32_t sum = 0;
+    sum += _net_checksum_add(src_ip, IPv4_ADDR_SIZE);
+    sum += _net_checksum_add(dst_ip, IPv4_ADDR_SIZE);
+    sum += proto;
+    sum += len;
+    sum += src_port;
+    sum += dst_port;
+    sum += len;
+    sum += _net_checksum_add((uint8_t*)data, data_size);
+    //sum += proto + length;
+    return _net_checksum_finish(sum);
+}
+
+uint16_t net_checksum_ipv4(void* addr, int count) {
+	// https://tools.ietf.org/html/rfc1071
+	// https://www.saminiir.com/lets-code-tcp-ip-stack-2-ipv4-icmpv4/
+    uint32_t sum = _net_checksum_add((uint8_t*)addr, count);
+    return _net_checksum_finish(sum);
 }
