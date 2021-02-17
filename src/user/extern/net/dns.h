@@ -9,6 +9,7 @@
 
 #define DNS_SERVICE_TYPE_TABLE_SIZE 32
 #define DNS_SERVICE_INSTANCE_TABLE_SIZE 32
+#define DNS_DOMAIN_RECORDS_TABLE_SIZE 32
 
 typedef struct dns_packet {
 	uint16_t identifier;
@@ -50,8 +51,16 @@ typedef struct dns_service_type {
     dns_service_instance_t instances[DNS_SERVICE_INSTANCE_TABLE_SIZE];
 } dns_service_type_t;
 
+typedef struct dns_domain {
+	bool allocated;
+	dns_name_parse_state_t name;
+	uint8_t a_record[IPv4_ADDR_SIZE];
+} dns_domain_t;
+
 void dns_receive(packet_info_t* packet_info, dns_packet_t* packet, uint32_t packet_size);
+void dns_send(void);
 
 dns_service_type_t* dns_service_type_table(void);
+dns_domain_t* dns_domain_records(void);
 
 #endif

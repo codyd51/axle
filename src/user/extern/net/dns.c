@@ -7,6 +7,10 @@
 
 #include "dns.h"
 #include "util.h" // For hexdump, can remove
+#include "udp.h"
+
+#define DNS_TYPE_POINTER    12
+#define DNS_TYPE_A_RECORD   1
 
 typedef struct dns_question {
     dns_name_parse_state_t parsed_name;
@@ -24,6 +28,7 @@ typedef struct dns_answer {
 } dns_answer_t;
 
 static dns_service_type_t _dns_service_type_table[DNS_SERVICE_TYPE_TABLE_SIZE] = {0};
+static dns_domain_t _dns_domain_records[DNS_DOMAIN_RECORDS_TABLE_SIZE] = {0};
 
 static uint8_t _dns_name_read_label_len(uint8_t** data_ptr_in) {
     uint8_t* data_ptr = *data_ptr_in;
@@ -151,8 +156,6 @@ static void _parse_dns_question(dns_packet_t* packet, dns_question_t* question, 
     *data_ptr_in = data_ptr;
 }
 
-#define DNS_TYPE_POINTER    12
-
 static dns_service_type_t* _find_or_create_dns_service_type(dns_answer_t* answer) {
     // Did the service type exist already?
     for (int i = 0; i < DNS_SERVICE_TYPE_TABLE_SIZE; i++) {
@@ -209,6 +212,37 @@ static void _update_dns_service_type_with_ptr_record(dns_answer_t* answer, dns_n
     assert(false, "Failed to find a free slot to add a new DNS service instance");
 }
 
+static void _update_domain_name_with_a_record(dns_answer_t* answer) {
+    assert(answer->data_length == IPv4_ADDR_SIZE, "A record data size wasn't right");
+    char ip_fmt[64] = {0};
+    format_ipv4_address__buf(ip_fmt, sizeof(ip_fmt), answer->data);
+    printf("DNS: Domain %s @ %s (A record)\n", answer->parsed_name.name, ip_fmt);
+
+    // Check if we already have a mapping for this domain
+    for (int i = 0; i < DNS_DOMAIN_RECORDS_TABLE_SIZE; i++) {
+        dns_domain_t* ent = &_dns_domain_records[i];
+        if (ent->allocated) {
+            if (!strcmp(ent->name.name, answer->parsed_name.name)) {
+                printf("DNS: Update existing A record for %s\n", ent->name.name);
+                memcpy(ent->a_record, answer->data, IPv4_ADDR_SIZE);
+                return;
+            }
+        }
+    }
+
+    // New DNS mapping
+    for (int i = 0; i < DNS_DOMAIN_RECORDS_TABLE_SIZE; i++) {
+        dns_domain_t* ent = &_dns_domain_records[i];
+        if (!ent->allocated) {
+            printf("DNS: Created new A record for %s\n", answer->parsed_name.name);
+            ent->allocated = true;
+            memcpy(&ent->name, &answer->parsed_name, sizeof(dns_name_parse_state_t));
+            memcpy(ent->a_record, answer->data, IPv4_ADDR_SIZE);
+            return;
+        }
+    }
+}
+
 static void _parse_dns_answer(dns_packet_t* packet, dns_answer_t* answer, uint8_t** data_ptr_in) {
     memset(answer, 0, sizeof(dns_answer_t));
 
@@ -220,20 +254,25 @@ static void _parse_dns_answer(dns_packet_t* packet, dns_answer_t* answer, uint8_
 
     answer->time_to_live = _read_u32(&data_ptr);
     answer->data_length = _read_u16(&data_ptr);
+
     answer->data = malloc(answer->data_length);
+    memcpy(answer->data, data_ptr, answer->data_length);
+    data_ptr += answer->data_length;
 
     printf("DNS answer: %s, type %04x class %04x ttl %d data_len %d\n", answer->parsed_name.name, answer->type, answer->class, answer->time_to_live, answer->data_length);
 
     if (answer->type == DNS_TYPE_POINTER) {
         dns_name_parse_state_t pointer_parse = {0};
-        _parse_dns_name(packet, &pointer_parse, &data_ptr);
+        uint8_t* ptr_start = answer->data;
+        _parse_dns_name(packet, &pointer_parse, &ptr_start);
         printf("\tPointer: %s\n", pointer_parse.name);
         _update_dns_service_type_with_ptr_record(answer, &pointer_parse);
     }
+    else if (answer->type == DNS_TYPE_A_RECORD) {
+        _update_domain_name_with_a_record(answer);
+    }
     else {
         printf("Unknown answer type %d, will hexdump contents\n");
-        memcpy(answer->data, data_ptr, answer->data_length);
-        data_ptr += answer->data_length;
         hexdump(answer->data, answer->data_length);
     }
 
@@ -274,4 +313,8 @@ void dns_receive(packet_info_t* packet_info, dns_packet_t* packet, uint32_t pack
 
 dns_service_type_t* dns_service_type_table(void) {
 	return _dns_service_type_table;
+}
+
+dns_domain_t* dns_domain_records(void) {
+	return _dns_domain_records;
 }
