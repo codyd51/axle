@@ -8,26 +8,32 @@
 #include "ipv4.h"
 #include "util.h"
 #include "udp.h"
+#include "ethernet.h"
+#include "arp.h"
 
-bool ip_equals__buf_u8(const uint8_t ip_buf[4], uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3) {
+bool ip_equals__buf_u8(const uint8_t ip_buf[IPv4_ADDR_SIZE], uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3) {
 	return ip_buf[0] == b0 &&
 		   ip_buf[1] == b1 &&
 		   ip_buf[2] == b2 &&
 		   ip_buf[3] == b3;
 }
 
-bool ip_equals__buf_buf(const uint8_t ip_buf[4], uint8_t ip_buf2[4]) {
-	return !memcmp(ip_buf, ip_buf2, 4);
+bool ip_equals__buf_buf(const uint8_t ip_buf[IPv4_ADDR_SIZE], uint8_t ip_buf2[IPv4_ADDR_SIZE]) {
+	return !memcmp(ip_buf, ip_buf2, IPv4_ADDR_SIZE);
 }
 
-bool ip_equals__buf_u32(const uint8_t ip_buf[4], uint32_t ip2) {
+bool ip_equals__buf_u32(const uint8_t ip_buf[IPv4_ADDR_SIZE], uint32_t ip2) {
 	return (uint8_t)(ip2 >> 24) == ip_buf[3] && 
 		   (uint8_t)(ip2 >> 16) == ip_buf[2] && 
 		   (uint8_t)(ip2 >> 8) == ip_buf[1] && 
 		   (uint8_t)(ip2 >> 0) == ip_buf[0];
 }
 
-void ipv4_receive(ipv4_packet_t* packet, uint32_t packet_size) {
+void ipv4_receive(packet_info_t* packet_info, ipv4_packet_t* packet, uint32_t packet_size) {
+    // Fill in the IPv4 specific packet info
+    memcpy(packet_info->src_ipv4, &packet->source_ip, IPv4_ADDR_SIZE);
+    memcpy(packet_info->dst_ipv4, &packet->dest_ip, IPv4_ADDR_SIZE);
+
 	// Version is stored in the high bits
 	//printf("Packet version %d IHL %d\n", packet->version, packet->ihl);
 	assert(packet->version == 4, "IPv4 packet version must be 4");
@@ -77,8 +83,42 @@ void ipv4_receive(ipv4_packet_t* packet, uint32_t packet_size) {
 		uint32_t udp_packet_size = packet_size - offsetof(ipv4_packet_t, data);
 		udp_packet_t* copied_packet = malloc(udp_packet_size);
 		memcpy(copied_packet, packet_body, udp_packet_size);
-		udp_receive(copied_packet, udp_packet_size, packet->source_ip, packet->dest_ip);
+		udp_receive(packet_info, copied_packet, udp_packet_size);
 	}
 
 	free(packet);
+}
+
+void ipv4_send(void* packet, uint32_t packet_size) {
+	uint32_t ipv4_packet_size = sizeof(ipv4_packet_t) + packet_size;
+	ipv4_packet_t* wrapper = malloc(ipv4_packet_size);
+	memset(wrapper, 0, sizeof(ipv4_packet_t));
+	wrapper->version = 4;
+	wrapper->ihl = 5;
+	wrapper->total_length = htons(ipv4_packet_size);
+	wrapper->identification = htons(0x2123);
+	wrapper->time_to_live = 64;
+	//wrapper->protocol = 17; // udp
+	wrapper->protocol = 6; // tcp 
+
+	printf("copy source ip\n");
+	wrapper->source_ip = net_copy_local_ipv4_addr__u32();
+	// TODO(PT): Pass in dest IP
+	//wrapper->dest_ip = 0xfe01a8c0;
+	wrapper->dest_ip = 0xc412d9ac;
+	printf("get checksum\n");
+	wrapper->header_checksum = net_checksum_ipv4(wrapper, offsetof(ipv4_packet_t, data));
+
+	printf("copy data\n");
+	memcpy(wrapper->data, packet, packet_size);
+
+	// Find the router's MAC
+	uint8_t router_ip[IPv4_ADDR_SIZE] = {0};
+	net_copy_router_ipv4_addr(router_ip);
+	uint8_t router_mac[MAC_ADDR_SIZE] = {0};
+	assert(arp_copy_mac(router_ip, router_mac), "ARP failed to map the router's MAC");
+
+	printf("send ether\n");
+	ethernet_send(router_mac, ETHTYPE_IPv4, wrapper, ipv4_packet_size);
+	free(wrapper);
 }
