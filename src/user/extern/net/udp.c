@@ -8,82 +8,70 @@
 #include "udp.h"
 #include "ipv4.h"
 #include "dns.h"
+#include "util.h"
 
 #define UDP_DNS_PORT    53
 #define UDP_MDNS_PORT   5353
 
 const uint8_t MDNS_DESTINATION_IP[4] = {224, 0, 0, 251};
 
-void udp_receive(udp_packet_t* packet, uint32_t packet_size, uint32_t source_ip, uint32_t dest_ip) {
+void udp_receive(packet_info_t* packet_info, udp_packet_t* packet, uint32_t packet_size) {
 	printf("UDP packet SrcPort[%d] DstPort[%d] Len[%d]\n", ntohs(packet->source_port), ntohs(packet->dest_port), ntohs(packet->length));
 
-	if (ip_equals__buf_u32(MDNS_DESTINATION_IP, dest_ip)) {
+	if (ip_equals__buf_buf(MDNS_DESTINATION_IP, packet_info->dst_ipv4)) {
 		//printf("MDNS!!!\n");
 	}
 
-	if (ntohs(packet->dest_port) == UDP_DNS_PORT || ntohs(packet->dest_port) == UDP_MDNS_PORT) {
-		dns_header_t* dns_header = (dns_header_t*)&packet->data;
-		uint8_t* dns_data = (uint8_t*)(dns_header + 1);
-		/*
-		printf("DNS ID 0x%04x\n resp %d op %d rcode %d qc %d ac %d authc %d addc %d\n", 
-			ntohs(dns_header->identifier), 
-			dns_header->query_response_flag, 
-			dns_header->opcode, 
-			dns_header->response_code, 
-			ntohs(dns_header->question_count), 
-			ntohs(dns_header->answer_count), 
-			ntohs(dns_header->authority_count), 
-			ntohs(dns_header->additional_record_count)
-		);
-		*/
-
-		uint32_t dns_data_size = ntohs(packet->length) - ((uint8_t*)dns_data - (uint8_t*)dns_header);
-		//printf("DNS len %d %d\n", dns_data_size, ((uint32_t)dns_data - (uint32_t)dns_header));
-		//hexdump(dns_data, dns_data_size);
-
-		if (dns_header->opcode == DNS_OP_QUERY) {
-			char buf[dns_data_size];
-			char* buf_head = buf;
-			for (int i = 0; i < ntohs(dns_header->question_count); i++) {
-				//printf("Process DNS question %d\n", i);
-				while (true) {
-					// First, get the number of bytes in the label
-					uint8_t label_len = *(dns_data++);
-					//printf("Read DNS label of len %d\n", label_len);
-					// Did we reach the end of the name field?
-					if (label_len == 0) {
-						// TODO(PT): Parse QTYPE after refactoring DNS
-						// uint16_t
-						*(dns_data++);
-						*(dns_data++);
-						// QCLASS uint16_t
-						*(dns_data++);
-						*(dns_data++);
-
-						*(buf_head++) = 0;
-						printf("Read DNS label %s\n", buf);
-						break;
-					}
-					if (label_len > dns_data_size) {
-						// DNS uses string interning - domain name ptr QTYPE
-						printf("Unhandled DNS format, will continue\n");
-						// memory leak, dnt return
-						return;
-						break;
-					}
-					//assert(label_len <= dns_data_size, "Malformed DNS question");
-
-					strncpy(buf_head, dns_data, label_len);
-					buf_head += label_len;
-					*(buf_head++) = '.';
-					dns_data += label_len;
-				}
-			}
-		}
-		else if (dns_header->opcode == DNS_OP_STATUS) {
-			//printf("DNS status!\n");
-		}
+	if (ntohs(packet->dest_port) == UDP_DNS_PORT || 
+		ntohs(packet->source_port) == UDP_DNS_PORT ||
+		ntohs(packet->dest_port) == UDP_MDNS_PORT ||
+		ntohs(packet->source_port) == UDP_MDNS_PORT) {
+		dns_packet_t* packet_body = (dns_packet_t*)&packet->data;
+		uint32_t dns_packet_size = packet_size - offsetof(udp_packet_t, data);
+		dns_packet_t* copied_packet = malloc(dns_packet_size);
+		memcpy(copied_packet, packet_body, dns_packet_size);
+		dns_receive(packet_info, copied_packet, dns_packet_size);
 	}
 
 	free(packet);
+}
+
+void udp_send(void* packet, 
+			  uint32_t packet_size, 
+			  uint16_t source_port, 
+			  uint16_t dest_port, 
+			  uint8_t dst_ip[IPv4_ADDR_SIZE]) {
+	uint32_t udp_packet_size = sizeof(udp_packet_t) + packet_size;
+	udp_packet_t* wrapper = malloc(udp_packet_size);
+	memset(wrapper, 0, udp_packet_size);
+
+	wrapper->source_port = htons(source_port);
+	wrapper->dest_port = htons(dest_port);
+	wrapper->length = htons(udp_packet_size);
+	memcpy(wrapper->data, packet, packet_size);
+
+	/*
+	uint8_t src_ip[IPv4_ADDR_SIZE] = {0};
+	net_copy_local_ipv4_addr(src_ip);
+	wrapper->checksum = htons(net_checksum_tcp_udp2(
+		src_ip,
+		dst_ip,
+		IPv4_PROTOCOL_UDP,
+		udp_packet_size,
+		source_port,
+		dest_port,
+		packet, packet_size
+	));
+	/*
+	wrapper->checksum = net_checksum_tcp_udp(IPv4_PROTOCOL_UDP,
+											 udp_packet_size,
+											 src_ip,
+											 dst_ip,
+											 wrapper,
+											 udp_packet_size);
+											 */
+	printf("Checksum: %04x\n", wrapper->checksum);
+
+	ipv4_send(wrapper, udp_packet_size);
+	free(wrapper);
 }
