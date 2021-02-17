@@ -19,6 +19,12 @@ void text_box_putchar(text_box_t* text_box, char ch, Color color) {
 		_newline(text_box);
 		return;
 	}
+	if (ch == '\t') {
+		for (int i = 0; i < 4; i++) {
+			text_box_putchar(text_box, ' ', color);
+		}
+		return;
+	}
 	draw_char(text_box->layer, ch, text_box->cursor_pos.x, text_box->cursor_pos.y, color, text_box->font_size);
 
 	text_box->cursor_pos.x += text_box->font_size.width + text_box->font_padding.width;
@@ -39,7 +45,7 @@ text_box_t* text_box_create(Size size, Color background_color) {
     tb->layer = create_layer(size);
     tb->size = size;
 	tb->font_size = size_make(8, 12);
-	tb->font_padding = size_make(0, 4);
+	tb->font_padding = size_make(0, 6);
     tb->background_color = background_color;
     // Fill the background color to start off with
 	text_box_clear(tb, background_color);
