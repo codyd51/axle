@@ -74,33 +74,65 @@ static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 	return dummy_layer;
 }
 
-static nic_config_t _nic_config = {0};
+static net_config_t _net_config = {0};
 
-static void _read_nic_config(void) {
+static void _send_nic_config_info_request(void) {
     int a = 0;
     net_nic_config_info_t* msg = (net_nic_config_info_t*)amc_message_construct((const char*)&a, 1);
     msg->common.event = NET_REQUEST_NIC_CONFIG;
+	printf("Requesting config from NIC\n");
     amc_message_send(RTL8139_SERVICE_NAME, (amc_message_t*)msg);
+}
+
+static void _read_nic_config(void) {
+	_send_nic_config_info_request();
 	net_nic_config_info_t resp = {0};
 	while (true) {
 		amc_message_await(RTL8139_SERVICE_NAME, (amc_message_t*)&resp);
 		if (resp.common.event == NET_RESPONSE_NIC_CONFIG) {
+			printf("NIC config received! Announcing ourselves on the network...\n");
 			// Save the NIC configuration
-			memcpy(_nic_config.nic_mac, resp.mac_addr, MAC_ADDR_SIZE);
+			memcpy(_net_config.nic_mac, resp.mac_addr, MAC_ADDR_SIZE);
+			// Set up a static IP for now
+			uint8_t static_ip[IPv4_ADDR_SIZE] = {192, 168, 1, 84};
+			memcpy(_net_config.ip_addr, static_ip, IPv4_ADDR_SIZE);
+			// Announce ourselves to the network
+			arp_announce();
+			// Request the MAC of the router (at a known static IP)
+			uint8_t router_ip[IPv4_ADDR_SIZE] = {192, 168, 1, 254};
+			memcpy(_net_config.router_ip_addr, router_ip, IPv4_ADDR_SIZE);
+			arp_request_mac(router_ip);
 			break;
 		}
 		printf("Discarding message from NIC because it was the wrong type: %d\n", resp.common.event);
+		// Send the request again in case the NIC wasn't alive when we messaged it originally
+		_send_nic_config_info_request();
 	}
 }
 
-void copy_nic_mac(uint8_t dest[MAC_ADDR_SIZE]) {
-	memcpy(dest, _nic_config.nic_mac, MAC_ADDR_SIZE);
+void net_copy_local_mac_addr(uint8_t dest[MAC_ADDR_SIZE]) {
+	memcpy(dest, _net_config.nic_mac, MAC_ADDR_SIZE);
+}
+
+void net_copy_local_ipv4_addr(uint8_t dest[IPv4_ADDR_SIZE]) {
+	memcpy(dest, _net_config.ip_addr, IPv4_ADDR_SIZE);
+}
+
+uint32_t net_copy_local_ipv4_addr__u32(void) {
+	return _net_config.ip_addr[3] << 24 |
+		   _net_config.ip_addr[2] << 16 |
+		   _net_config.ip_addr[1] << 8 |
+		   _net_config.ip_addr[0] << 0;
+}
+
+void net_copy_router_ipv4_addr(uint8_t dest[IPv4_ADDR_SIZE]) {
+	memcpy(dest, _net_config.router_ip_addr, IPv4_ADDR_SIZE);
 }
 
 int main(int argc, char** argv) {
 	amc_register_service(NET_SERVICE_NAME);
 
-	Size window_size = size_make(700, 600);
+	Size window_size = size_make(720, 640);
 	Rect window_frame = rect_make(point_zero(), window_size);
 	ca_layer* window_layer = window_layer_get(window_size.width, window_size.height);
 
