@@ -417,17 +417,14 @@ int main(int argc, char** argv) {
 			if (status & RTL_ISR_FLAG_TOK) {
 				printf("Packet sent\n");
 			}
-			else if (status & RTL_ISR_FLAG_ROK) {
+			if (status & RTL_ISR_FLAG_ROK) {
 				receive_packet(&nic_state);
 			}
-			else if (status & RTL_ISR_FLAG_TER) {
+			if (status & RTL_ISR_FLAG_TER) {
 				printf("Transmit error\n");
 			}
-			else if (status & RTL_ISR_FLAG_RER) {
+			if (status & RTL_ISR_FLAG_RER) {
 				printf("Receive error\n");
-			}
-			else {
-				printf("Unknown status 0x%04x\n", status);
 			}
 
 			// This is not mutually exclusive with the other flags
