@@ -10,8 +10,16 @@
 // Protocols
 #include "arp.h"
 #include "ipv4.h"
+#include "net_messages.h"
 
-void ethernet_receive(ethernet_frame_t* ethernet_frame, uint32_t size) {
+// Communication with NIC driver
+#include <drivers/realtek_8139/rtl8139_messages.h>
+
+void ethernet_receive(packet_info_t* packet_info, ethernet_frame_t* ethernet_frame, uint32_t size) {
+    // Fill in the Ethernet data of the packet info with what we see
+    memcpy(packet_info->src_mac, ethernet_frame->src_mac_addr, MAC_ADDR_SIZE);
+    memcpy(packet_info->dst_mac, ethernet_frame->dst_mac_addr, MAC_ADDR_SIZE);
+
 	uint16_t ethtype = ntohs(ethernet_frame->type);
 	const char* ethtype_name = "?";
 	switch (ethtype) {
@@ -28,36 +36,6 @@ void ethernet_receive(ethernet_frame_t* ethernet_frame, uint32_t size) {
 			ethtype_name = "?";
 			break;
 	}
-	char dst_mac_buf[64] = {0};
-	snprintf(
-		dst_mac_buf, 
-		sizeof(dst_mac_buf), 
-		"%02x:%02x:%02x:%02x:%02x:%02x", 
-		ethernet_frame->dst_mac_addr[0],
-		ethernet_frame->dst_mac_addr[1],
-		ethernet_frame->dst_mac_addr[2],
-		ethernet_frame->dst_mac_addr[3],
-		ethernet_frame->dst_mac_addr[4],
-		ethernet_frame->dst_mac_addr[5]
-	);
-	char src_mac_buf[64] = {0};
-	snprintf(
-		src_mac_buf, 
-		sizeof(src_mac_buf), 
-		"%02x:%02x:%02x:%02x:%02x:%02x", 
-		ethernet_frame->src_mac_addr[0],
-		ethernet_frame->src_mac_addr[1],
-		ethernet_frame->src_mac_addr[2],
-		ethernet_frame->src_mac_addr[3],
-		ethernet_frame->src_mac_addr[4],
-		ethernet_frame->src_mac_addr[5]
-	);
-
-	/*
-	printf("\tDestination MAC: %s\n", dst_mac_buf);
-	printf("\tSource MAC: %s\n", src_mac_buf);
-	printf("\tEthType: 0x%04x (%s)\n", ethtype, ethtype_name);
-	*/
 
 	if (ethtype == ETHTYPE_ARP) {
 		// Strip off the Ethernet header and pass along the packet to ARP
@@ -65,7 +43,7 @@ void ethernet_receive(ethernet_frame_t* ethernet_frame, uint32_t size) {
 		uint32_t arp_packet_size = size - offsetof(ethernet_frame_t, data);
 		arp_packet_t* copied_packet = malloc(arp_packet_size);
 		memcpy(copied_packet, packet_body, arp_packet_size);
-		arp_receive(copied_packet);
+		arp_receive(packet_info, copied_packet);
 	}
 	else if (ethtype == ETHTYPE_IPv4) {
 		// Strip off the Ethernet header and pass along the packet to IPv4
@@ -73,8 +51,32 @@ void ethernet_receive(ethernet_frame_t* ethernet_frame, uint32_t size) {
 		uint32_t ipv4_packet_size = size - offsetof(ethernet_frame_t, data);
 		ipv4_packet_t* copied_packet = malloc(ipv4_packet_size);
 		memcpy(copied_packet, packet_body, ipv4_packet_size);
-		ipv4_receive(copied_packet, ipv4_packet_size);
+		ipv4_receive(packet_info, copied_packet, ipv4_packet_size);
 	}
 
 	free(ethernet_frame);
+}
+
+void ethernet_send(uint8_t dst_mac_addr[MAC_ADDR_SIZE], ethtype_t ethtype, uint8_t* packet, uint32_t packet_size) {
+    // Wrap the provided in an Ethernet header
+    assert(sizeof(ethernet_frame_t) == 14, "size not as expected");
+    uint32_t ethernet_frame_size = sizeof(ethernet_frame_t) + packet_size;
+    ethernet_frame_t* wrapper = malloc(ethernet_frame_size);
+
+    memcpy(wrapper->dst_mac_addr, dst_mac_addr, MAC_ADDR_SIZE);
+
+    // Write the NIC's MAC address as the source
+    net_copy_local_mac_addr(wrapper->src_mac_addr);
+
+    // Copy in the data the above layer wants to send
+    wrapper->type = htons(ethtype);
+    memcpy(wrapper->data, packet, packet_size);
+
+    int a = 0;
+    net_packet_t* msg = (net_packet_t*)amc_message_construct((const char*)&a, 1);
+    msg->common.event = NET_TX_ETHERNET_FRAME;
+    msg->len = ethernet_frame_size;
+    memcpy(msg->data, wrapper, ethernet_frame_size);
+    amc_message_send(RTL8139_SERVICE_NAME, (amc_message_t*)msg);
+    free(wrapper);
 }

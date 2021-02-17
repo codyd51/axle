@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "net.h"
 
 #define IPv4_PROTOCOL_ICMP		0x01
 #define IPv4_PROTOCOL_IGMP		0x02
@@ -47,10 +48,11 @@ typedef struct ipv4_packet {
 	uint8_t data[];
 } __attribute((packed)) ipv4_packet_t;
 
-void ipv4_receive(ipv4_packet_t* packet, uint32_t packet_size);
+void ipv4_receive(packet_info_t* packet_info, ipv4_packet_t* packet, uint32_t packet_size);
+void ipv4_send(void* packet, uint32_t packet_size);
 
-bool ip_equals__buf_u8(const uint8_t ip_buf[4], uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3);
-bool ip_equals__buf_buf(const uint8_t ip_buf[4], uint8_t ip_buf2[4]);
-bool ip_equals__buf_u32(const uint8_t ip_buf[4], uint32_t ip2);
+bool ip_equals__buf_u8(const uint8_t ip_buf[IPv4_ADDR_SIZE], uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3);
+bool ip_equals__buf_buf(const uint8_t ip_buf[IPv4_ADDR_SIZE], uint8_t ip_buf2[IPv4_ADDR_SIZE]);
+bool ip_equals__buf_u32(const uint8_t ip_buf[IPv4_ADDR_SIZE], uint32_t ip2);
 
 #endif
