@@ -41,6 +41,7 @@ scancode_to_colemak = {
     0x49: '.',
     0x4a: '/',
     0x5a: '\n',
+    0x0d: '\t',
 }
 
 
