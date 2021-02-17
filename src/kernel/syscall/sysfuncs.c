@@ -150,8 +150,4 @@ void create_sysfuncs() {
 	syscall_add((void*)&adi_register_driver);
 	syscall_add((void*)&adi_event_await);
 	syscall_add((void*)&adi_send_eoi);
-
-	syscall_add((void*)&debug_awm);
-	syscall_add((void*)&vmm_kern_global_alloc);
-	syscall_add((void*)&vmm_kern_global_free);
 }
