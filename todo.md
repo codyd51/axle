@@ -42,3 +42,20 @@ amc should be able to send smaller or larger messages
     the amc_message_send API should take a buffer and a size.
     AMC prepends a header, copies the buffer, and saves it.
     Messages can thus be an arbitary size.
+
+text box uses a "resizable bytes container" that does auto-expand/realloc when
+its contents are too big. It stores the text contents there. It implements scrolling.
+
+There is a "net" backend that constructs packets of the various protocols,
+and there is a "libnet" frontend library that handles all the state transitions for
+DNS and TCP.
+    - ARP also has an asynchronous response
+    - Discovering the router's MAC should probably also be kicked off / waited for by libnet
+    - libnet will receive events from the net backend informing it about packets
+    - libnet may have a higher-level mechanism like "wait for a DNS answer about this domain"
+    - If the DNS answer is already in the cache, the call will return without blocking
+    - The net backend and kernel will know how to block and unblock processes using libnet
+    - The net backend may only unblock a process using libnet when the process has received
+        exactly the event it was awaiting
+        (Probably this will entail both a command and a command-specific structure indicating 
+            eg the DNS answer being waited for)

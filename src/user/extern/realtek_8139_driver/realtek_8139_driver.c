@@ -330,108 +330,24 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
 	*/
 }
 
-static void send_packet(rtl8139_state_t* nic_state) {
+static void send_packet(rtl8139_state_t* nic_state, uint8_t* packet_data, uint32_t packet_len) {
 	uint8_t* buffer = (uint8_t*)nic_state->transmit_buffer_virt;
-	// MAC destination - 6 bytes
-	uint32_t buf_idx = 0;
-	for (; buf_idx < 6; buf_idx++) {
-		buffer[buf_idx] = 0xff;
-	}
-	// MAC source - 6 bytes
-	uint32_t mac_part1 = inl(nic_state->io_base + 0x00);
-	uint16_t mac_part2 = inw(nic_state->io_base + 0x04);
-	uint8_t mac_addr[8];
-	mac_addr[0] = mac_part1 >> 0;
-	mac_addr[1] = mac_part1 >> 8;
-	mac_addr[2] = mac_part1 >> 16;
-	mac_addr[3] = mac_part1 >> 24;
-	mac_addr[4] = mac_part2 >> 0;
-	mac_addr[5] = mac_part2 >> 8;
-	for (int i = 0; i < 6; i++) {
-		buffer[buf_idx++] = mac_addr[i];
-	}
-
-	// EtherType (written in big endian)
-	buffer[buf_idx++] = 0x08;
-	buffer[buf_idx++] = 0x06;
-
-	// ARP packet follows
-	uint32_t arp_begin = buf_idx;
-	// https://en.wikipedia.org/wiki/Address_Resolution_Protocol
-	// Hardware type
-	buffer[buf_idx++] = 0;
-	buffer[buf_idx++] = 1;
-
-	// Protocol type
-	buffer[buf_idx++] = 0x08;
-	buffer[buf_idx++] = 0x00;
-
-	// Hardware address len
-	buffer[buf_idx++] = 0x06;
-	// Protocol address len
-	buffer[buf_idx++] = 0x04;
-
-	// Operation
-	buffer[buf_idx++] = 0x00;
-	buffer[buf_idx++] = 0x01;
-
-	// Sender hardware address
-	for (int i = 0; i < 6; i++) {
-		buffer[buf_idx++] = mac_addr[i];
-	}
-
-	// Sender protocol address
-	// 192.168.1.90
-	buffer[buf_idx++] = 0xC0;
-	buffer[buf_idx++] = 0xA8;
-	buffer[buf_idx++] = 0x01;
-	buffer[buf_idx++] = 0x5a;
-
-	// Target hardware address
-	for (int i = 0; i < 6; i++) {
-		buffer[buf_idx++] = 0x00;
-	}
-
-	// Target protocol address
-	// Android.local: 192.168.1.45
-	// Freebox: 192.168.1.254
-	buffer[buf_idx++] = 0xc0;
-	buffer[buf_idx++] = 0xa8;
-	buffer[buf_idx++] = 0x01;
-	buffer[buf_idx++] = 0xfe;
-
-	uint32_t arp_size = buf_idx - arp_begin;
-	printf("ARP size 0x%08x\n", arp_size);
-	for (int i = 0 ; i < 0x12; i++) {
-		buffer[buf_idx++] = 0;
-	}
-	uint32_t crc = 0;
-	printf("CRC Original 0x%08x\n", crc);
-	// Taken from Wireshark
-	crc = 0x3af42da9;
-	printf("CRC 0x%08x\n", crc);
-	buffer[buf_idx++] = crc >> 24;
-	buffer[buf_idx++] = crc >> 16;
-	buffer[buf_idx++] = crc >> 8;
-	buffer[buf_idx++] = crc >> 0;
-	printf("%02x %02x %02x %02x\n", buffer[buf_idx-4], buffer[buf_idx-3], buffer[buf_idx-2], buffer[buf_idx-1]);
+	memcpy(buffer, packet_data, packet_len);
 
 	// Second, fill in physical address of data, and length
 	uint8_t tx_buffer_port = nic_state->tx_buffer_register_ports[nic_state->tx_round_robin_counter];
 	uint8_t tx_status_command_port = nic_state->tx_status_command_register_ports[nic_state->tx_round_robin_counter];
 	nic_state->tx_round_robin_counter += 1;
-	if (nic_state->tx_round_robin_counter > sizeof(nic_state->tx_buffer_register_ports) / sizeof(nic_state->tx_buffer_register_ports[0])) {
+	if (nic_state->tx_round_robin_counter >= sizeof(nic_state->tx_buffer_register_ports) / sizeof(nic_state->tx_buffer_register_ports[0])) {
 		nic_state->tx_round_robin_counter = 0;
 	}
 	// TODO(PT): I don't know what the consequences are for using one buffer for all
 	// TSD's. Perhaps we actually need 4 buffers
 	outl(nic_state->io_base + tx_buffer_port, nic_state->transmit_buffer_phys); 
 
-	uint32_t packet_len = buf_idx;
 	uint32_t transmit_status = (packet_len);
 	// Set bit 13 (OWN bit) to zero to start the transfer
 	transmit_status &= ~(1 << 13);
-	printf("Writing %d to status port %d\n", transmit_status, tx_status_command_port);
 	outl(nic_state->io_base + tx_status_command_port, transmit_status); 
 	// https://forum.osdev.org/viewtopic.php?f=1&t=26938
 }
