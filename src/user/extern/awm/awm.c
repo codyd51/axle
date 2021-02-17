@@ -37,6 +37,8 @@ typedef struct user_window {
 user_window_t windows[32] = {0};
 int window_count = 0;
 
+static user_window_t* _window_move_to_top(user_window_t* window);
+
 Screen _screen = {0};
 
 Screen* gfx_screen() {
@@ -62,6 +64,11 @@ static void handle_keystroke(amc_charlist_message_t* keystroke_msg) {
 		for (int i = 0; i < window_count; i++) {
 			user_window_t* window = &windows[i];
 			amc_command_ptr_msg__send(window->owner_service, AWM_KEY_DOWN, ch);
+		}
+
+		// Hack: Tab switches windows
+		if (ch == '\t') {
+			_window_move_to_top(&windows[window_count-1]);
 		}
 	}
 }
