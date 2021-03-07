@@ -2,7 +2,6 @@
 #include <kernel/assert.h>
 #include <kernel/boot_info.h>
 #include <kernel/address_space_bitmap.h>
-#include <kernel/util/mutex/mutex.h>
 
 #include <std/common.h>
 
@@ -100,7 +99,6 @@ void pmm_dump(void) {
 }
 
 void pmm_init() {
-    // TODO(PT): Replace with spinlock
     pmm_state_t* pmm = pmm_get();
     memset(pmm, 0, sizeof(pmm_state_t));
     pmm->lock.name = "PMM global lock";
@@ -123,12 +121,17 @@ void pmm_init() {
 
     //for identity mapping purposes
     //reserve any allocatable memory from 0x0 to start of kernel image
+    printf("reserve kernel region\n");
     pmm_reserve_mem_region(pmm, 0x00000000, info->kernel_image_start);
     //map out kernel image region
+    printf("reserve kernel image\n");
     pmm_reserve_mem_region(pmm, info->kernel_image_start, info->kernel_image_size);
     //map out framebuffer
+    printf("reserve framebuffer\n");
     pmm_reserve_mem_region(pmm, info->framebuffer.address, info->framebuffer.size);
+    printf("reserve initrd\n");
     pmm_reserve_mem_region(pmm, info->initrd_start, info->initrd_size);
+    printf("done\n");
 
     multiboot_elf_section_header_table_t symbol_table_info = info->symbol_table_info;
 	elf_section_header_t* sh = (elf_section_header_t*)symbol_table_info.addr;
@@ -194,51 +197,51 @@ static void _pmm_free_unlocked(pmm_state_t* pmm, uint32_t frame_address) {
 }
 
 uint32_t find_free_region(pmm_state_t* pmm, uint32_t region_size) {
-    lock(&pmm->lock);
+    spinlock_acquire(&pmm->lock);
     uint32_t ret = _find_free_region_unlocked(pmm, region_size);
     unlock(&pmm->lock);
     return ret;
 }
 
 uint32_t first_usable_pmm_index(pmm_state_t* pmm) {
-    lock(&pmm->lock);
+    spinlock_acquire(&pmm->lock);
     uint32_t ret = _first_usable_pmm_index_unlocked(pmm);
     unlock(&pmm->lock);
     return ret;
 }
 
 void pmm_reserve_mem_region(pmm_state_t* pmm, uint32_t start, uint32_t size) {
-    lock(&pmm->lock);
+    spinlock_acquire(&pmm->lock);
     _pmm_reserve_mem_region_unlocked(pmm, start, size);
-    unlock(&pmm->lock);
+    spinlock_release(&pmm->lock);
 }
 
 void pmm_alloc_address(uint32_t address) {
     pmm_state_t* pmm = pmm_get();
-    lock(&pmm->lock);
+    spinlock_acquire(&pmm->lock);
     _pmm_alloc_address_unlocked(pmm, address);
-    unlock(&pmm->lock);
+    spinlock_release(&pmm->lock);
 }
 
 uint32_t pmm_alloc(void) {
     pmm_state_t* pmm = pmm_get();
-    lock(&pmm->lock);
+    spinlock_acquire(&pmm->lock);
     uint32_t ret = _pmm_alloc_unlocked(pmm);
-    unlock(&pmm->lock);
+    spinlock_release(&pmm->lock);
     return ret;
 }
 
 uint32_t pmm_alloc_continuous_range(uint32_t size) {
     pmm_state_t* pmm = pmm_get();
-    lock(&pmm->lock);
+    spinlock_acquire(&pmm->lock);
     uint32_t ret = _pmm_alloc_continuous_range_unlocked(pmm, size);
-    unlock(&pmm->lock);
+    spinlock_release(&pmm->lock);
     return ret;
 }
 
 void pmm_free(uint32_t frame_address) {
     pmm_state_t* pmm = pmm_get();
-    lock(&pmm->lock);
+    spinlock_acquire(&pmm->lock);
     _pmm_free_unlocked(pmm, frame_address);
-    unlock(&pmm->lock);
+    spinlock_release(&pmm->lock);
 }

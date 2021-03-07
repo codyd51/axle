@@ -125,32 +125,32 @@ void addr_space_bitmap_dump_set_ranges(address_space_frame_bitmap_t* bitmap) {
  */
 
 void addr_space_bitmap_set_address(address_space_frame_bitmap_t* bitmap, uint32_t address) {
-    lock(&bitmap->lock);
+    spinlock_acquire(&bitmap->lock);
     _addr_space_bitmap_set_address_unlocked(bitmap, address);
-    unlock(&bitmap->lock);
+    spinlock_release(&bitmap->lock);
 }
 
 void addr_space_bitmap_unset_address(address_space_frame_bitmap_t* bitmap, uint32_t address) {
-    lock(&bitmap->lock);
+    spinlock_acquire(&bitmap->lock);
     _addr_space_bitmap_unset_address_unlocked(bitmap, address);
-    unlock(&bitmap->lock);
+    spinlock_release(&bitmap->lock);
 }
 
 void addr_space_bitmap_set_range(address_space_frame_bitmap_t* bitmap, uint32_t start_address, uint32_t size) {
-    lock(&bitmap->lock);
+    spinlock_acquire(&bitmap->lock);
     _addr_space_bitmap_set_range_unlocked(bitmap, start_address, size);
-    unlock(&bitmap->lock);
+    spinlock_release(&bitmap->lock);
 }
 
 void addr_space_bitmap_unset_range(address_space_frame_bitmap_t* bitmap, uint32_t start_address, uint32_t size) {
-    lock(&bitmap->lock);
+    spinlock_acquire(&bitmap->lock);
     _addr_space_bitmap_unset_range_unlocked(bitmap, start_address, size);
-    unlock(&bitmap->lock);
+    spinlock_release(&bitmap->lock);
 }
 
 bool addr_space_bitmap_check_address(address_space_frame_bitmap_t* bitmap, uint32_t address) {
-    lock(&bitmap->lock);
+    spinlock_acquire(&bitmap->lock);
     bool ret = _addr_space_bitmap_check_address_unlocked(bitmap, address);
-    unlock(&bitmap->lock);
+    spinlock_release(&bitmap->lock);
     return ret;
 }

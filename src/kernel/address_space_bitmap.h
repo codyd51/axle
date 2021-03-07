@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <kernel/util/mutex/mutex.h>
+#include <kernel/util/spinlock/spinlock.h>
 
 //1048576 frames / 32-bit frame bitsets = 32,768 32-bit
 //frame bitsets needed to cover entire address space
@@ -26,7 +26,7 @@ struct address_space_frame_bitmap {
     // available_frames[0] & (1 << 0) == reference to the first frame in the address space, 0x0000 to 0x1000
     uint32_t set[ADDRESS_SPACE_BITMAP_SIZE];
     // Lock to ensure the bitset is always modified in an exclusive fashion
-    lock_t lock;
+    spinlock_t lock;
 } __attribute__((aligned(PAGE_SIZE)));
 
 typedef struct address_space_frame_bitmap address_space_frame_bitmap_t;

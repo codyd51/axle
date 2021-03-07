@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <kernel/address_space.h>
 #include <kernel/address_space_bitmap.h>
-#include <kernel/util/mutex/mutex.h>
+#include <kernel/util/spinlock/spinlock.h>
 
 struct pmm_state {
     //if a frame's bit is set, it is general-purpose RAM which can be allocated to the virtual memory manager
@@ -13,7 +13,7 @@ struct pmm_state {
     //if a frame's bit is set, it has been allocated by the PMM and is currently in use
     //else, it is not in use and may be allocated by the PMM
     address_space_frame_bitmap_t allocation_state;
-    lock_t lock;
+    spinlock_t lock;
 } __attribute__((aligned(PAGE_SIZE)));
 typedef struct pmm_state pmm_state_t;
 
