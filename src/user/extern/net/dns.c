@@ -309,6 +309,8 @@ void dns_receive(packet_info_t* packet_info, dns_packet_t* packet, uint32_t pack
     else if (packet->opcode == DNS_OP_STATUS) {
         //printf("DNS status!\n");
     }
+
+    free(packet);
 }
 
 void dns_send(void) {
@@ -346,7 +348,6 @@ void dns_send(void) {
     *(buf_ptr++) = 0x0;
     *(buf_ptr++) = 0x1;
     int buf_len = buf_ptr - buf;
-    printf("buf len %d\n", buf_len);
 
     uint32_t dns_packet_size = sizeof(dns_packet_t) + buf_len;
     char* dns_packet = malloc(dns_packet_size);

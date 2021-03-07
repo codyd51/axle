@@ -5,7 +5,7 @@ SYSROOT = $(DIR)/axle-sysroot
 CC = $(TOOLCHAIN)/bin/i686-elf-gcc
 LD = $(TOOLCHAIN)/bin/i686-elf-ld
 LIBRARY_PATH=$(SYSROOT)/usr/i686-axle/lib:$(LIBRARY_PATH)
-CFLAGS = -I$(SYSROOT)/usr/i686-axle/include -g -L$(SYSROOT)/usr/i686-axle/lib -Wl,-Bstatic -lc -nostartfiles
+CFLAGS = -I$(SYSROOT)/usr/i686-axle/include -g -L$(SYSROOT)/usr/i686-axle/lib -Wl,-Bstatic -lc -nostartfiles -fstack-protector-all
 LDFLAGS = -T ./linker.ld -L$(SYSROOT)/usr/i686-axle/lib -lc
 
 .ONESHELL:

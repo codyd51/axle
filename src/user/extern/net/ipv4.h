@@ -46,7 +46,7 @@ typedef struct ipv4_packet {
 	// Note: Options are not modelled here, and we ignore a packet if they're received 
 
 	uint8_t data[];
-} __attribute((packed)) ipv4_packet_t;
+} __attribute__((packed)) ipv4_packet_t;
 
 void ipv4_receive(packet_info_t* packet_info, ipv4_packet_t* packet, uint32_t packet_size);
 void ipv4_send(void* packet, uint32_t packet_size);

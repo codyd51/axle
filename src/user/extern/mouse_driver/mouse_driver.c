@@ -82,8 +82,7 @@ int main(int argc, char** argv) {
 			mouse_databuf[0] = status_byte;
 			mouse_databuf[1] = rel_x;
 			mouse_databuf[2] = rel_y;
-			amc_message_t* amc_msg = amc_message_construct(&mouse_databuf, sizeof(mouse_databuf));
-			amc_message_send("com.axle.awm", amc_msg);
+			amc_msg_i8_3__send("com.axle.awm", status_byte, rel_x, rel_y);
 		}
 	}
 	

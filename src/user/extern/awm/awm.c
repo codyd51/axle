@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <memory.h>
 
 #include <agx/font/font.h>
 #include <agx/lib/size.h>
@@ -36,6 +37,7 @@ typedef struct user_window {
 // Sorted by Z-index
 user_window_t windows[32] = {0};
 int window_count = 0;
+static Point mouse_pos = {0};
 
 static user_window_t* _window_move_to_top(user_window_t* window);
 
@@ -52,18 +54,15 @@ void write_screen(Screen* screen) {
     memcpy(screen->physbase, screen->vmem->raw, screen->resolution.width * screen->resolution.height * screen->bytes_per_pixel);
 }
 
-static void handle_keystroke(amc_charlist_message_t* keystroke_msg) {
+static void handle_keystroke(amc_message_t* keystroke_msg) {
 	Color keystroke_color = color_white();
 
-	uint8_t len = amc_charlist_msg__get_len(keystroke_msg);
-	char* data = amc_charlist_msg_data(keystroke_msg);
-	for (int i = 0; i < len; i++) {
-		char ch = data[i];
-		printf("awm received keystroke: 0x%02x %c\n", ch, ch);
-		// TODO(PT): This event is sent only to the foremost app
-		for (int i = 0; i < window_count; i++) {
-			user_window_t* window = &windows[i];
-			amc_command_ptr_msg__send(window->owner_service, AWM_KEY_DOWN, ch);
+	for (int i = 0; i < keystroke_msg->len; i++) {
+		char ch = keystroke_msg->body[i];
+		// Only send this keystroke to the foremost program
+		if (window_count) {
+			user_window_t* active_window = &windows[0];
+			amc_msg_u32_2__send(active_window->owner_service, AWM_KEY_DOWN, ch);
 		}
 
 		// Hack: Tab switches windows
@@ -72,9 +71,6 @@ static void handle_keystroke(amc_charlist_message_t* keystroke_msg) {
 		}
 	}
 }
-
-static Point mouse_pos = {0};
-#include <memory.h>
 
 static user_window_t* _window_move_to_top(user_window_t* window) {
 	user_window_t moved_window = *window;
@@ -120,7 +116,7 @@ static void mouse_dispatch_events(uint8_t mouse_state, Point mouse_point, int8_t
 	if (_prev_window_containing_mouse) {
 		if (!rect_contains_point(_prev_window_containing_mouse->frame, mouse_point)) {
 			printf("Mouse exited %s\n", _prev_window_containing_mouse->owner_service);
-			amc_command_msg__send(_prev_window_containing_mouse->owner_service, AWM_MOUSE_EXITED);
+			amc_msg_u32_1__send(_prev_window_containing_mouse->owner_service, AWM_MOUSE_EXITED);
 			// Reset the cursor state
 			_prev_window_containing_mouse = NULL;
 			// TODO(PT): Everything to do with "left click state" should be managed within delegate functions
@@ -135,7 +131,7 @@ static void mouse_dispatch_events(uint8_t mouse_state, Point mouse_point, int8_t
 				user_window_t* higher_window = &windows[i];
 				if (rect_contains_point(higher_window->frame, mouse_point)) {
 					printf("Mouse exited %s\n", _prev_window_containing_mouse->owner_service);
-					amc_command_msg__send(_prev_window_containing_mouse->owner_service, AWM_MOUSE_EXITED);
+					amc_msg_u32_1__send(_prev_window_containing_mouse->owner_service, AWM_MOUSE_EXITED);
 					// Reset the cursor state
 					_prev_window_containing_mouse = NULL;
 					// TODO(PT): Everything to do with "left click state" should be managed within delegate functions
@@ -144,7 +140,7 @@ static void mouse_dispatch_events(uint8_t mouse_state, Point mouse_point, int8_t
 
 					printf("Entered higher window %s\n", higher_window->owner_service);
 					// Inform the window the mouse has just entered it
-					amc_command_msg__send(higher_window->owner_service, AWM_MOUSE_ENTERED);
+					amc_msg_u32_1__send(higher_window->owner_service, AWM_MOUSE_ENTERED);
 					// Keep track that we're currently within this window
 					_prev_window_containing_mouse = higher_window;
 					break;
@@ -169,7 +165,7 @@ static void mouse_dispatch_events(uint8_t mouse_state, Point mouse_point, int8_t
 		user_window_t* window = &windows[i];
 		if (rect_contains_point(window->frame, mouse_point)) {
 			// Inform the window the mouse has just entered it
-			amc_command_msg__send(window->owner_service, AWM_MOUSE_ENTERED);
+			amc_msg_u32_1__send(window->owner_service, AWM_MOUSE_ENTERED);
 			// Keep track that we're currently within this window
 			_prev_window_containing_mouse = window;
 			printf("Mouse entered %s\n", window->owner_service);
@@ -178,12 +174,10 @@ static void mouse_dispatch_events(uint8_t mouse_state, Point mouse_point, int8_t
 	}
 }
 
-static void handle_mouse_event(amc_charlist_message_t* mouse_event) {
-	// TODO(PT): Add bytelist
-	uint8_t* mouse_data = (uint8_t*)amc_charlist_msg_data(mouse_event);
-	uint8_t state = mouse_data[0];
-	int8_t rel_x = mouse_data[1];
-	int8_t rel_y = mouse_data[2];
+static void handle_mouse_event(amc_message_t* mouse_event) {
+	int8_t state = mouse_event->body[0];
+	int8_t rel_x = mouse_event->body[1];
+	int8_t rel_y = mouse_event->body[2];
 	//printf("awm received mouse packet (state %d) (delta %d %d)\n", state, rel_x, rel_y);
 
 	mouse_pos.x += rel_x;
@@ -239,7 +233,7 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	printf("AWM made shared framebuffer for %s\n", owner_service);
 	printf("\tAWM    memory: 0x%08x - 0x%08x\n", local_buffer, local_buffer + buffer_size);
 	printf("\tRemote memory: 0x%08x - 0x%08x\n", remote_buffer, remote_buffer + buffer_size);
-	amc_command_ptr_msg__send(owner_service, AWM_CREATED_WINDOW_FRAMEBUFFER, remote_buffer);
+	amc_msg_u32_2__send(owner_service, AWM_CREATED_WINDOW_FRAMEBUFFER, remote_buffer);
 
 	user_window_t* window = &windows[window_idx];
 	// Place the window in the center of the screen
@@ -364,19 +358,19 @@ static void _update_window_framebuf(const char* owner_service) {
 static void handle_user_message(amc_command_message_t* user_message) {
 	const char* source_service = amc_message_source(user_message);
 	// User requesting a window to draw in to?
-	if (amc_command_msg__get_command(user_message) == AWM_REQUEST_WINDOW_FRAMEBUFFER) {
-		uint32_t* buf = (uint32_t*)amc_command_msg_data(user_message);
-		window_create(source_service, buf[0], buf[1]);
-		//_request_redraw(source_service);
+	uint32_t command = amc_msg_u32_get_word(user_message, 0);
+	if (command == AWM_REQUEST_WINDOW_FRAMEBUFFER) {
+		uint32_t width = amc_msg_u32_get_word(user_message, 1);
+		uint32_t height = amc_msg_u32_get_word(user_message, 2);
+		window_create(source_service, width, height);
 		return;
 	}
-	else if (amc_command_msg__get_command(user_message) == AWM_WINDOW_REDRAW_READY) {
+	else if (command == AWM_WINDOW_REDRAW_READY) {
 		_update_window_framebuf(source_service);
-		//_request_redraw(source_service);
 		return;
 	}
 	else {
-		printf("Unknown message from %s: %d\n", source_service, amc_command_msg__get_command(user_message));
+		printf("Unknown message from %s: %d\n", source_service, command);
 	}
 }
 
@@ -425,18 +419,18 @@ int main(int argc, char** argv) {
 
 	while (true) {
 		// Wait for a system event or window event
-		amc_message_t msg_struct = {0};
-		amc_message_t* msg = &msg_struct;
+		amc_message_t* msg;
 		do {
 			// Wait until we've unblocked with at least one message available
-			amc_message_await_any(msg);
+			amc_message_await_any(&msg);
 			const char* source_service = amc_message_source(msg);
 
 			// Process the message we just received
 			if (!strcmp(source_service, "com.axle.kb_driver")) {
 				handle_keystroke(msg);
-				//memcpy(_screen.physbase, _screen.vmem, _screen.resolution.width * 50 * _screen.bytes_per_pixel);
-				//continue;
+				// Skip redrawing for now - the above will send a KB call to the
+				// foremost program, which will later redraw its window with the new info
+				continue;
 			}
 			else if (!strcmp(source_service, "com.axle.mouse_driver")) {
 				// Update the mouse position based on the data packet

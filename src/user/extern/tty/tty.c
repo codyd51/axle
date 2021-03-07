@@ -29,16 +29,17 @@ Screen* gfx_screen() {
 static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 	// Ask awm to make a window for us
 	amc_msg_u32_3__send("com.axle.awm", AWM_REQUEST_WINDOW_FRAMEBUFFER, width, height);
+
 	// And get back info about the window it made
-	amc_command_ptr_message_t receive_framebuf = {0};
+	amc_message_t* receive_framebuf;
 	amc_message_await("com.axle.awm", &receive_framebuf);
-	// TODO(PT): Need a struct type selector
-	if (amc_command_ptr_msg__get_command(&receive_framebuf) != AWM_CREATED_WINDOW_FRAMEBUFFER) {
+	uint32_t event = amc_msg_u32_get_word(receive_framebuf, 0);
+	if (event != AWM_CREATED_WINDOW_FRAMEBUFFER) {
 		printf("Invalid state. Expected framebuffer command\n");
 	}
+	uint32_t framebuffer_addr = amc_msg_u32_get_word(receive_framebuf, 1);
 
-	printf("Received framebuffer from awm: %d 0x%08x\n", amc_command_ptr_msg__get_command(&receive_framebuf), amc_command_ptr_msg__get_ptr(&receive_framebuf));
-	uint32_t framebuffer_addr = receive_framebuf.body.cmd_ptr.ptr_val;
+	printf("Received framebuffer from awm: %d 0x%08x\n", event, framebuffer_addr);
 	uint8_t* buf = (uint8_t*)framebuffer_addr;
 
 	// TODO(PT): Use an awm command to get screen info
@@ -79,20 +80,22 @@ int main(int argc, char** argv) {
 	text_box_t* text_box = text_box_create(text_box_frame.size, color_white());
 
 	while (true) {
-		amc_charlist_message_t msg = {0};
-		// TODO(PT): Eat messages that aren't from core (like awm status messages)
+		amc_message_t* msg;
 		do {
 			// Wait until we've unblocked with at least one message available
-			amc_message_await("com.axle.core", &msg);
-			for (int i = 0; i < msg.body.charlist.len; i++) {
-				char ch = msg.body.charlist.data[i];
-				text_box_putchar(text_box, ch, color_make(135, 20, 20));
+			amc_message_await_any(&msg);
+			const char* source_service = amc_message_source(msg);
+			if (!strcmp(source_service, "com.axle.core")) {
+				char buf[msg->len+1];
+				strncpy(buf, msg->body, msg->len);
+				buf[msg->len] = '\0';
+				text_box_puts(text_box, buf, color_make(135, 20, 20));
 			}
 		} while (amc_has_message_from("com.axle.core"));
 		// Blit the text box to the window layer
 		blit_layer(window_layer, text_box->layer, text_box_frame, rect_make(point_zero(), text_box_frame.size));
 		// We're out of messages to process - ask awm to redraw the window with our updates
-		amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
+		amc_msg_u32_1__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 	}
 	
 	return 0;

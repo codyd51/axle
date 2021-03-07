@@ -44,16 +44,17 @@ Screen* gfx_screen() {
 static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 	// Ask awm to make a window for us
 	amc_msg_u32_3__send("com.axle.awm", AWM_REQUEST_WINDOW_FRAMEBUFFER, width, height);
+
 	// And get back info about the window it made
-	amc_command_ptr_message_t receive_framebuf = {0};
+	amc_message_t* receive_framebuf;
 	amc_message_await("com.axle.awm", &receive_framebuf);
-	// TODO(PT): Need a struct type selector
-	if (amc_command_ptr_msg__get_command(&receive_framebuf) != AWM_CREATED_WINDOW_FRAMEBUFFER) {
+	uint32_t event = amc_msg_u32_get_word(receive_framebuf, 0);
+	if (event != AWM_CREATED_WINDOW_FRAMEBUFFER) {
 		printf("Invalid state. Expected framebuffer command\n");
 	}
+	uint32_t framebuffer_addr = amc_msg_u32_get_word(receive_framebuf, 1);
 
-	printf("Received framebuffer from awm: %d 0x%08x\n", amc_command_ptr_msg__get_command(&receive_framebuf), amc_command_ptr_msg__get_ptr(&receive_framebuf));
-	uint32_t framebuffer_addr = receive_framebuf.body.cmd_ptr.ptr_val;
+	printf("Received framebuffer from awm: %d 0x%08x\n", event, framebuffer_addr);
 	uint8_t* buf = (uint8_t*)framebuffer_addr;
 
 	// TODO(PT): Use an awm command to get screen info
@@ -157,18 +158,13 @@ static void receive_packet(rtl8139_state_t* state) {
 		char* packet_data = (char*)&packet[2];
 		// Copy into a safe buffer, and trim off the 4-byte CRC at the end
 		uint32_t ethernet_frame_size = packet_len - 4;
-#define member_size(type, member) sizeof(((type *)0)->member)
-		if (ethernet_frame_size <= member_size(net_packet_t, data)) {
-			const char a = 0;
-			net_packet_t* packet_msg = (net_packet_t*)amc_message_construct(&a, 1); 
-			packet_msg->common.event = NET_RX_ETHERNET_FRAME;
-			packet_msg->len = ethernet_frame_size;
-			memcpy(packet_msg->data, packet_data, ethernet_frame_size);
-			amc_message_send(NET_SERVICE_NAME, (amc_message_t*)packet_msg);
-		}
-		else {
-			//printf("Dropping packet because it's larger than allowed by an amc message %d\n", ethernet_frame_size);
-		}
+		uint32_t packet_size = sizeof(net_packet_t) + ethernet_frame_size;
+		net_packet_t* packet_msg = malloc(packet_size);
+		packet_msg->common.event = NET_RX_ETHERNET_FRAME;
+		packet_msg->len = ethernet_frame_size;
+		memcpy(packet_msg->data, packet_data, ethernet_frame_size);
+		amc_message_construct_and_send(NET_SERVICE_NAME, packet_msg, packet_size);
+		free(packet_msg);
 
 		/*
 		ethernet_frame_t* ethernet_frame = malloc(ethernet_frame_size);
@@ -201,7 +197,7 @@ static void receive_packet(rtl8139_state_t* state) {
 
 static void _enable_device_bus_mastering(rtl8139_state_t* nic_state) {
 	// Read the current PCI config word
-	amc_message_t response;
+	amc_message_t* response;
 	amc_msg_u32_4__request_response_sync(
 		&response,
 		PCI_SERVICE_NAME,
@@ -212,7 +208,8 @@ static void _enable_device_bus_mastering(rtl8139_state_t* nic_state) {
 		nic_state->pci_function,
 		0x04
 	);
-	uint32_t command_register = amc_msg_u32_get_word(&response, 1);
+	uint32_t command_register = amc_msg_u32_get_word(response, 1);
+	printf("Command register 0x%08x\n", command_register);
 
 	// Enable IO port access (though it should already be set)
 	command_register |= (1 << 0);
@@ -405,7 +402,7 @@ int main(int argc, char** argv) {
     // Blit the text box to the window layer
     blit_layer(window_layer, text_box->layer, text_box_frame, rect_make(point_zero(), text_box_frame.size));
     // And ask awm to draw our window
-    amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
+	amc_msg_u32_1__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 
 	while (true) {
 		// Wake on interrupt or AMC message
@@ -440,25 +437,23 @@ int main(int argc, char** argv) {
 		}
 		else {
 			// We woke to service amc
-			amc_charlist_message_t msg = {0};
+			amc_message_t* msg;
 			do {
-				amc_message_await_any((amc_message_t*)&msg);
-				const char* source_service = amc_message_source((amc_message_t*)&msg);
+				amc_message_await_any(&msg);
+				const char* source_service = msg->source;
 				if (!strcmp(source_service, NET_SERVICE_NAME)) {
-					net_message_t* net_msg = (net_message_t*)&msg;
+					net_message_t* net_msg = (net_message_t*)msg->body;
 					uint8_t event = net_msg->packet.common.event;
-					printf("RTL8139 received message with event %d\n", event);
 					if (event == NET_TX_ETHERNET_FRAME) {
-						net_packet_t* packet = &net_msg->packet;
-						printf("RTL8139 transmitting frame %d\n", packet->len);
-						uint8_t* packet_data = (uint8_t*)packet->data;
-						send_packet(&nic_state, packet_data, packet->len);
+						uint8_t* packet_data = &net_msg->packet.data;
+						printf("tx ethernet frame len = %d data 0x%08x!\n", net_msg->packet.len, packet_data);
+						send_packet(&nic_state, packet_data, net_msg->packet.len);
 					}
 					else if (event == NET_REQUEST_NIC_CONFIG) {
-						printf("RTL8139 sending NIC config to net subsystem\n");
-						const char a = 0;
-						net_nic_config_info_t* config_msg = (net_nic_config_info_t*)amc_message_construct(&a, 1); 
-						config_msg->common.event = NET_RESPONSE_NIC_CONFIG;
+						printf("Net requested NIC config...\n");
+						net_nic_config_info_t config_msg;
+						config_msg.common.event = NET_RESPONSE_NIC_CONFIG;
+
 						uint32_t mac_part1 = inl(nic_state.io_base + 0x00);
 						uint16_t mac_part2 = inw(nic_state.io_base + 0x04);
 						uint8_t mac_addr[8];
@@ -468,8 +463,9 @@ int main(int argc, char** argv) {
 						mac_addr[3] = mac_part1 >> 24;
 						mac_addr[4] = mac_part2 >> 0;
 						mac_addr[5] = mac_part2 >> 8;
-						memcpy(config_msg->mac_addr, mac_addr, 6);
-						amc_message_send(NET_SERVICE_NAME, (amc_message_t*)config_msg);
+						memcpy(&config_msg.mac_addr, mac_addr, 6);
+
+						amc_message_construct_and_send(NET_SERVICE_NAME, &config_msg, sizeof(net_nic_config_info_t));
 					}
 					else {
 						printf("Unknown event from net service: %d\n", event);

@@ -59,3 +59,7 @@ DNS and TCP.
         exactly the event it was awaiting
         (Probably this will entail both a command and a command-specific structure indicating 
             eg the DNS answer being waited for)
+
+Symbolicate ELF stack traces
+
+Send a ping to every program periodically to ensure its liveliness

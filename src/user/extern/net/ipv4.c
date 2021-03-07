@@ -101,7 +101,6 @@ void ipv4_send(void* packet, uint32_t packet_size) {
 	//wrapper->protocol = 17; // udp
 	wrapper->protocol = 6; // tcp 
 
-	printf("copy source ip\n");
 	wrapper->source_ip = net_copy_local_ipv4_addr__u32();
 	// TODO(PT): Pass in dest IP
 	//wrapper->dest_ip = 0xfe01a8c0;
@@ -109,7 +108,6 @@ void ipv4_send(void* packet, uint32_t packet_size) {
 	printf("get checksum\n");
 	wrapper->header_checksum = net_checksum_ipv4(wrapper, offsetof(ipv4_packet_t, data));
 
-	printf("copy data\n");
 	memcpy(wrapper->data, packet, packet_size);
 
 	// Find the router's MAC
@@ -118,7 +116,6 @@ void ipv4_send(void* packet, uint32_t packet_size) {
 	uint8_t router_mac[MAC_ADDR_SIZE] = {0};
 	assert(arp_copy_mac(router_ip, router_mac), "ARP failed to map the router's MAC");
 
-	printf("send ether\n");
 	ethernet_send(router_mac, ETHTYPE_IPv4, wrapper, ipv4_packet_size);
 	free(wrapper);
 }

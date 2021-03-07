@@ -46,16 +46,17 @@ Screen* gfx_screen() {
 static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 	// Ask awm to make a window for us
 	amc_msg_u32_3__send("com.axle.awm", AWM_REQUEST_WINDOW_FRAMEBUFFER, width, height);
+
 	// And get back info about the window it made
-	amc_command_ptr_message_t receive_framebuf = {0};
+	amc_message_t* receive_framebuf;
 	amc_message_await("com.axle.awm", &receive_framebuf);
-	// TODO(PT): Need a struct type selector
-	if (amc_command_ptr_msg__get_command(&receive_framebuf) != AWM_CREATED_WINDOW_FRAMEBUFFER) {
+	uint32_t event = amc_msg_u32_get_word(receive_framebuf, 0);
+	if (event != AWM_CREATED_WINDOW_FRAMEBUFFER) {
 		printf("Invalid state. Expected framebuffer command\n");
 	}
+	uint32_t framebuffer_addr = amc_msg_u32_get_word(receive_framebuf, 1);
 
-	printf("Received framebuffer from awm: %d 0x%08x\n", amc_command_ptr_msg__get_command(&receive_framebuf), amc_command_ptr_msg__get_ptr(&receive_framebuf));
-	uint32_t framebuffer_addr = receive_framebuf.body.cmd_ptr.ptr_val;
+	printf("Received framebuffer from awm: %d 0x%08x\n", event, framebuffer_addr);
 	uint8_t* buf = (uint8_t*)framebuffer_addr;
 
 	// TODO(PT): Use an awm command to get screen info
@@ -76,23 +77,27 @@ static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 
 static net_config_t _net_config = {0};
 
-static void _send_nic_config_info_request(void) {
-    int a = 0;
-    net_nic_config_info_t* msg = (net_nic_config_info_t*)amc_message_construct((const char*)&a, 1);
-    msg->common.event = NET_REQUEST_NIC_CONFIG;
-	printf("Requesting config from NIC\n");
-    amc_message_send(RTL8139_SERVICE_NAME, (amc_message_t*)msg);
+static void _send_nic_config_info_request(int* transmission_count) {
+	if (!transmission_count) {
+		return;
+	}
+	net_nic_config_info_t config_msg;
+	config_msg.common.event = NET_REQUEST_NIC_CONFIG;
+	amc_message_construct_and_send(RTL8139_SERVICE_NAME, &config_msg, sizeof(net_nic_config_info_t));
+	(*transmission_count)--;
 }
 
 static void _read_nic_config(void) {
-	_send_nic_config_info_request();
-	net_nic_config_info_t resp = {0};
+	int transmission_count = 20;
+	_send_nic_config_info_request(&transmission_count);
+	amc_message_t* msg;
 	while (true) {
-		amc_message_await(RTL8139_SERVICE_NAME, (amc_message_t*)&resp);
-		if (resp.common.event == NET_RESPONSE_NIC_CONFIG) {
+		amc_message_await(RTL8139_SERVICE_NAME, &msg);
+		net_nic_config_info_t* resp = &msg->body;
+		if (resp->common.event == NET_RESPONSE_NIC_CONFIG) {
 			printf("NIC config received! Announcing ourselves on the network...\n");
 			// Save the NIC configuration
-			memcpy(_net_config.nic_mac, resp.mac_addr, MAC_ADDR_SIZE);
+			memcpy(_net_config.nic_mac, resp->mac_addr, MAC_ADDR_SIZE);
 			// Set up a static IP for now
 			uint8_t static_ip[IPv4_ADDR_SIZE] = {192, 168, 1, 84};
 			memcpy(_net_config.ip_addr, static_ip, IPv4_ADDR_SIZE);
@@ -104,9 +109,9 @@ static void _read_nic_config(void) {
 			arp_request_mac(router_ip);
 			break;
 		}
-		printf("Discarding message from NIC because it was the wrong type: %d\n", resp.common.event);
+		printf("Discarding message from NIC because it was the wrong type: %d\n", resp->common.event);
 		// Send the request again in case the NIC wasn't alive when we messaged it originally
-		_send_nic_config_info_request();
+		_send_nic_config_info_request(&transmission_count);
 	}
 }
 
@@ -155,26 +160,30 @@ int main(int argc, char** argv) {
     // Blit the text box to the window layer
     blit_layer(window_layer, text_box->layer, text_box_frame, rect_make(point_zero(), text_box_frame.size));
     // And ask awm to draw our window
-    amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
+	amc_msg_u32_1__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 
 	// Ask the NIC for its configuration
 	_read_nic_config();
 
+	amc_message_t* msg;
 	while (true) {
-		net_packet_t packet_msg;
 		do {
 			// Wait until we've unblocked with at least one message available
-			amc_message_await_any((amc_message_t*)&packet_msg);
-            const char* source_service = amc_message_source((amc_message_t*)&packet_msg);
+			amc_message_await_any(&msg);
+            const char* source_service = amc_message_source(msg);
 
 			if (!strcmp(source_service, RTL8139_SERVICE_NAME)) {
-				uint8_t event = packet_msg.common.event;
+				net_packet_t* packet_msg = (net_packet_t*)msg->body;
+				uint8_t event = packet_msg->common.event;
 				if (event == NET_RX_ETHERNET_FRAME) {
-					uint8_t* packet_data = (uint8_t*)&packet_msg.data;
-					ethernet_frame_t* eth_frame = malloc(packet_msg.len);
-					memcpy(eth_frame, packet_data, packet_msg.len);
+					uint8_t* packet_data = (uint8_t*)packet_msg->data;
+					ethernet_frame_t* eth_frame = malloc(packet_msg->len);
+					memcpy(eth_frame, packet_data, packet_msg->len);
 					packet_info_t packet_info;
-					ethernet_receive(&packet_info, eth_frame, packet_msg.len);
+					// ethernet_receive is responsible for freeing the packet
+					ethernet_receive(&packet_info, eth_frame, packet_msg->len);
+				}
+			}
 				}
 			}
 			else {
@@ -259,11 +268,14 @@ int main(int argc, char** argv) {
 					}
 				}
 			}
-		}
+		} while (amc_has_message());
+		// We're out of messages to process
+		// Wait for a new message to arrive on the next loop iteration
 
+		printf("Net finished run-loop\n");
 		blit_layer(window_layer, text_box->layer, text_box_frame, rect_make(point_zero(), text_box_frame.size));
 		// And ask awm to draw our window
-		amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
+		amc_msg_u32_1__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 	}
 	
 	return 0;

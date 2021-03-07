@@ -35,16 +35,17 @@ Screen* gfx_screen() {
 static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 	// Ask awm to make a window for us
 	amc_msg_u32_3__send("com.axle.awm", AWM_REQUEST_WINDOW_FRAMEBUFFER, width, height);
+
 	// And get back info about the window it made
-	amc_command_ptr_message_t receive_framebuf = {0};
+	amc_message_t* receive_framebuf;
 	amc_message_await("com.axle.awm", &receive_framebuf);
-	// TODO(PT): Need a struct type selector
-	if (amc_command_ptr_msg__get_command(&receive_framebuf) != AWM_CREATED_WINDOW_FRAMEBUFFER) {
+	uint32_t event = amc_msg_u32_get_word(receive_framebuf, 0);
+	if (event != AWM_CREATED_WINDOW_FRAMEBUFFER) {
 		printf("Invalid state. Expected framebuffer command\n");
 	}
+	uint32_t framebuffer_addr = amc_msg_u32_get_word(receive_framebuf, 1);
 
-	printf("Received framebuffer from awm: %d 0x%08x\n", amc_command_ptr_msg__get_command(&receive_framebuf), amc_command_ptr_msg__get_ptr(&receive_framebuf));
-	uint32_t framebuffer_addr = receive_framebuf.body.cmd_ptr.ptr_val;
+	printf("Received framebuffer from awm: %d 0x%08x\n", event, framebuffer_addr);
 	uint8_t* buf = (uint8_t*)framebuffer_addr;
 
 	// TODO(PT): Use an awm command to get screen info
@@ -324,7 +325,7 @@ static void launch_known_drivers(pci_dev_t* dev_head) {
 int main(int argc, char** argv) {
 	amc_register_service(PCI_SERVICE_NAME);
 
-	Size window_size = size_make(300, 520);
+	Size window_size = size_make(400, 620);
 	Rect window_frame = rect_make(point_zero(), window_size);
 	ca_layer* window_layer = window_layer_get(window_size.width, window_size.height);
 
@@ -364,40 +365,39 @@ int main(int argc, char** argv) {
     blit_layer(window_layer, text_box->layer, text_box_frame, rect_make(point_zero(), text_box_frame.size));
     // And ask awm to draw our window
     // TODO(PT): Define AWM_SERVICE_NAME like PCI_SERVICE_NAME
-    amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
+    amc_msg_u32_1__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 
     // Launch drivers for known devices
     launch_known_drivers(dev_head);
 
 	while (true) {
-		amc_charlist_message_t msg = {0};
+        amc_message_t* msg;
 		do {
 			// Wait until we've unblocked with at least one message available
 			amc_message_await_any(&msg);
-            amc_command_message_t* cmd_msg = (amc_command_message_t*)&msg;
-            const char* source_service = amc_message_source(cmd_msg);
+            const char* source_service = msg->source;
             // If we're sent a message from someone other than a PCI device driver, ignore it
             if (!is_service_pci_device_driver(source_service)) {
                 continue;
             }
             
             printf("PCI request from %s\n", source_service);
-            uint32_t message_id = amc_msg_u32_get_word(cmd_msg, 0);
+            uint32_t message_id = amc_msg_u32_get_word(msg, 0);
             if (message_id == PCI_REQUEST_READ_CONFIG_WORD) {
-                uint32_t bus = amc_msg_u32_get_word(cmd_msg, 1);
-                uint32_t device_slot = amc_msg_u32_get_word(cmd_msg, 2);
-                uint32_t function = amc_msg_u32_get_word(cmd_msg, 3);
-                uint32_t config_word_offset = amc_msg_u32_get_word(cmd_msg, 4);
+                uint32_t bus = amc_msg_u32_get_word(msg, 1);
+                uint32_t device_slot = amc_msg_u32_get_word(msg, 2);
+                uint32_t function = amc_msg_u32_get_word(msg, 3);
+                uint32_t config_word_offset = amc_msg_u32_get_word(msg, 4);
                 printf("Request to get config word [%d,%d,%d] @ %d\n", bus, device_slot, function, config_word_offset);
                 uint32_t config_word = pci_config_read_word(bus, device_slot, function, config_word_offset);
                 amc_msg_u32_2__send(source_service, PCI_RESPONSE_READ_CONFIG_WORD, config_word);
             }
             else if (message_id == PCI_REQUEST_WRITE_CONFIG_WORD) {
-                uint32_t bus = amc_msg_u32_get_word(cmd_msg, 1);
-                uint32_t device_slot = amc_msg_u32_get_word(cmd_msg, 2);
-                uint32_t function = amc_msg_u32_get_word(cmd_msg, 3);
-                uint32_t config_word_offset = amc_msg_u32_get_word(cmd_msg, 4);
-                uint32_t new_value = amc_msg_u32_get_word(cmd_msg, 5);
+                uint32_t bus = amc_msg_u32_get_word(msg, 1);
+                uint32_t device_slot = amc_msg_u32_get_word(msg, 2);
+                uint32_t function = amc_msg_u32_get_word(msg, 3);
+                uint32_t config_word_offset = amc_msg_u32_get_word(msg, 4);
+                uint32_t new_value = amc_msg_u32_get_word(msg, 5);
                 printf("Request to write config word [%d,%d,%d] @ %d to 0x%08x\n", bus, device_slot, function, config_word_offset, new_value);
                 pci_config_write_word(bus, device_slot, function, config_word_offset, new_value);
                 amc_msg_u32_1__send(source_service, PCI_RESPONSE_WRITE_CONFIG_WORD);

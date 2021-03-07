@@ -36,6 +36,8 @@ void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_si
 	float scale_x = font_size.width / (float)CHAR_WIDTH;
 	float scale_y = font_size.height / (float)CHAR_HEIGHT;
 
+	if (p.x + font_size.width >= layer->size.width || p.y + font_size.height >= layer->size.height) return;
+
 	Color bg_color = color_black();
 	int avg_red, avg_grn, avg_blu, sum_num;
 	avg_red = avg_grn = avg_blu = sum_num = 0;

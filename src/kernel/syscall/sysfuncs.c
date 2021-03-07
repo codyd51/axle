@@ -100,6 +100,7 @@ DEFN_SYSCALL(amc_has_message_from, 33, const char*);
 DEFN_SYSCALL(amc_has_message, 34);
 DEFN_SYSCALL(amc_launch_service, 35, const char*);
 DEFN_SYSCALL(amc_physical_memory_region_create, 36, uint32_t, uint32_t*, uint32_t*);
+DEFN_SYSCALL(amc_message_construct_and_send, 37, const char*, uint8_t*, uint32_t);
 
 // ADI syscalls
 DEFN_SYSCALL(adi_register_driver, 37, const char*, uint32_t);
@@ -146,6 +147,7 @@ void create_sysfuncs() {
 	syscall_add((void*)&amc_has_message);
 	syscall_add((void*)&amc_launch_service);
 	syscall_add((void*)&amc_physical_memory_region_create);
+	syscall_add((void*)&amc_message_construct_and_send);
 
 	syscall_add((void*)&adi_register_driver);
 	syscall_add((void*)&adi_event_await);

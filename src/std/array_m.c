@@ -24,6 +24,9 @@ void array_m_destroy(array_m* array) {
 
 static void _array_m_insert_unlocked(array_m* array, type_t item) {
 	// Make sure we can't go over the allocated size
+	if (array->size + 1 >= array->max_size) {
+		printf("Array overflow: %s %d\n", array->lock.name, array->max_size);
+	}
 	ASSERT(array->size + 1 <= array->max_size, "array would exceed max_size (%d)", array->max_size);
 
 	// Add item to array

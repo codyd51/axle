@@ -27,7 +27,6 @@ bool arp_copy_mac(uint8_t ip_addr[IPv4_ADDR_SIZE], uint8_t out_mac[MAC_ADDR_SIZE
 	char b2[64];
 	format_ipv4_address__buf(b1, 64, ip_addr);
 	format_mac_address(b2, 64, out_mac);
-	printf("arp_copy_mac %s %s\n", b1, b2);
 	// Search for the provided IP address in the ARP cache
 	for (int i = 0; i < ARP_TABLE_SIZE; i++) {
 		arp_entry_t* ent = &_arp_table[i];

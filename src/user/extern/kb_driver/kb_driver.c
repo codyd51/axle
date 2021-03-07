@@ -75,6 +75,9 @@ int main(int argc, char** argv) {
 		bool awoke_for_interrupt = adi_event_await(INT_VECTOR_IRQ1);
 		if (!awoke_for_interrupt) {
 			printf("com.axle.kb_driver woke for an amc message... why?\n");
+			// Eat the message
+			amc_message_t* t;
+			amc_message_await_any(&t);
 			continue;
 		}
 
@@ -88,11 +91,9 @@ int main(int argc, char** argv) {
 		// Were we able to map a scancode?
 		if (char_value > 0) {
 			// Send a message to the window server telling it about the keystroke
-			amc_message_t* keypress_msg = amc_message_construct(&char_value, 1);
-			//amc_message_broadcast(keypress_msg);
-			amc_message_send("com.axle.awm", keypress_msg);
+			uint8_t buf[1] = {char_value};
+			amc_message_construct_and_send("com.axle.awm", &buf, 1);
 		}
 	}
-	
 	return 0;
 }

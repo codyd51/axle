@@ -72,11 +72,13 @@ void ethernet_send(uint8_t dst_mac_addr[MAC_ADDR_SIZE], ethtype_t ethtype, uint8
     wrapper->type = htons(ethtype);
     memcpy(wrapper->data, packet, packet_size);
 
-    int a = 0;
-    net_packet_t* msg = (net_packet_t*)amc_message_construct((const char*)&a, 1);
-    msg->common.event = NET_TX_ETHERNET_FRAME;
-    msg->len = ethernet_frame_size;
-    memcpy(msg->data, wrapper, ethernet_frame_size);
-    amc_message_send(RTL8139_SERVICE_NAME, (amc_message_t*)msg);
+	uint32_t total_msg_size = sizeof(net_packet_t) + ethernet_frame_size;
+	net_packet_t* msg = malloc(total_msg_size);
+	msg->common.event = NET_TX_ETHERNET_FRAME;
+	msg->len = ethernet_frame_size;
+	memcpy(msg->data, wrapper, ethernet_frame_size);
+	amc_message_construct_and_send(RTL8139_SERVICE_NAME, msg, total_msg_size);
+	free(msg);
+
     free(wrapper);
 }
