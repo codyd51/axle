@@ -69,7 +69,7 @@ mv initrd.img isodir/boot/initrd.img
 
 
 sudo rm axle.iso
-sudo make run
+make run
 
 exit
 

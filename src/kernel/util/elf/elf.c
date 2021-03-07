@@ -70,33 +70,30 @@ bool elf_validate(FILE* file) {
 }
 
 bool elf_load_segment(unsigned char* src, elf_phdr* seg) {
-	//printf("***** elf_load_segment 0x%08x 0x%08x %d\n", src, seg, seg->type);
-	//loadable?
 	if (seg->type != PT_LOAD) {
-		printf_err("Tried to load non-loadable segment");
+		printf("Tried to load non-loadable segment\n");
 		return false; 
 	}
 
 	unsigned char* src_base = src + seg->offset;
-	//figure out range to map this binary to in virtual memory
+	// Check where to map the binary memory within the address space
 	uint32_t dest_base = seg->vaddr;
 	uint32_t dest_limit = dest_base + seg->memsz;
 
-	//alloc enough mem for new task
-
-	uint32_t remaining_bytes = seg->filesz;
-	for (uint32_t i = dest_base, page_counter = 0; /*i <= dest_limit || */remaining_bytes > 0; i += PAGE_SIZE, page_counter++) {
-		uint32_t src_off = src_base + (page_counter * PAGE_SIZE);
-		// uint32_t page = vmm_alloc_page_for_frame(new_dir, i, true);
-		uint32_t page_addr = i;
-		uint32_t frame_addr = vmm_alloc_page_address(vmm_active_pdir(), page_addr, true);
-		//printf("ELF seg map page %d, frame 0x%08x virt 0x%08x\n", page_counter, frame_addr, page_addr);
-		memset(page_addr, 0, PAGING_PAGE_SIZE);
-		uint32_t bytes_to_copy = MIN(remaining_bytes, PAGING_PAGE_SIZE);
-		remaining_bytes -= bytes_to_copy;
-		//printf("ELF copy 0x%08x bytes from 0x%08x to 0x%08x\n", bytes_to_copy, src_off, frame_addr);
-		memcpy(page_addr, src_off, bytes_to_copy);
+	// Map the segment memory
+	uint32_t mem_pages = (seg->memsz + (PAGE_SIZE-1)) & PAGING_PAGE_MASK;
+	uint32_t* mem_base = (uint32_t*)seg->vaddr;
+	printf("Page-aligned segment size: 0x%08x\n", mem_pages);
+	printf("Allocating at 0x%08x\n", seg->vaddr);
+	for (uint32_t i = 0; i < mem_pages; i += PAGE_SIZE) {
+		// TODO(PT): Add some kind of validation that the page isn't already mapped
+		uint32_t* mem_addr = (uint32_t*)(seg->vaddr + i);
+		uint32_t frame_addr = vmm_alloc_page_address_usermode(vmm_active_pdir(), mem_addr, true);
+		memset(mem_addr, 0, PAGE_SIZE);
 	}
+
+	// Copy the file data
+	memcpy(mem_base, src_base, seg->filesz);
 	
 	return true;
 }
@@ -108,8 +105,8 @@ uint32_t elf_load_small(unsigned char* src) {
 	int segcount = hdr->phnum; 
 	if (!segcount) return 0;
 
+	printf("[%d] Loading %d ELF segments\n", getpid(), segcount);
 	bool found_loadable_seg = false;
-	//load each segment
 	for (int i = 0; i < segcount; i++) {
 		elf_phdr* segment = (elf_phdr*)(phdr_table_addr + (i * hdr->phentsize));
 		if (elf_load_segment(src, segment)) {
@@ -141,28 +138,6 @@ char* elf_get_string_table(void* file, uint32_t binary_size) {
 		i++;
 	}
 	return NULL;
-}
-
-
-//map pages for bss segment pointed to by shdr
-//stores program break (end of .bss segment) in prog_break
-//stored start of .bss segment in bss_loc
-static void alloc_bss(elf_s_header* shdr, int* prog_break, int* bss_loc) {
-	//printf("ELF .bss mapped @ 0x%08x - 0x%08x\n", shdr->addr, shdr->addr + shdr->size);
-	for (uint32_t i = 0; i <= shdr->size + PAGE_SIZE; i += PAGE_SIZE) {
-		uint32_t virt_addr = shdr->addr + i;
-        uint32_t frame_addr = vmm_alloc_page_address(vmm_active_pdir(), virt_addr, true);
-		memset(virt_addr, 0, PAGING_PAGE_SIZE);
-	}
-	//set program break to .bss segment
-	*prog_break = shdr->addr + shdr->size;
-	*bss_loc = shdr->addr;
-}
-
-static void _elf_task_bootstrap(uint32_t entry_point_ptr, uint32_t arg2) {
-    int(*entry_point)(void) = (int(*)(void))entry_point_ptr;
-    int status = entry_point();
-    task_die(status);
 }
 
 void elf_load_file(char* name, FILE* elf, char** argv) {
@@ -197,7 +172,9 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 
 		//alloc memory for .bss segment
 		if (!strcmp(section_name, ".bss")) {
-			alloc_bss(shdr, (int*)&prog_break, (int*)&bss_loc);
+			//set program break to .bss segment
+			prog_break = shdr->addr + shdr->size;
+			bss_loc = shdr->addr;
 		}
 	}
 
@@ -206,17 +183,23 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 	kfree(filebuf);
 
 	// give user program a 32kb stack
-	uint32_t stack_size = PAGING_PAGE_SIZE * 8;
-	//uint32_t stack_bottom = vmm_alloc_continuous_range(vmm_active_pdir(), stack_size, true);
-	uint32_t stack_bottom = kmalloc(stack_size);
-	//printf("allocated ELF stack at 0x%08x\n", stack_bottom);
-    uint32_t *stack_top = (uint32_t *)(stack_bottom + stack_size - 0x4); // point to top of malloc'd stack
-    *(stack_top--) = entry_point;   //address of task's entry point
-    *(stack_top--) = 0;             //eax
-    *(stack_top--) = 0;             //ebx
-    *(stack_top--) = 0;             //esi
-    *(stack_top--) = 0;             //edi
-    *(stack_top)   = 0;             //ebp
+	// TODO(PT): We need to free the stack created by _thread_create
+	uint32_t stack_size = PAGING_PAGE_SIZE*2;
+	printf("ELF allocating stack with PDir 0x%08x\n", vmm_active_pdir());
+	uint32_t stack_bottom = vmm_alloc_continuous_range(vmm_active_pdir(), stack_size, true, 0xd0000000, true);
+	printf("[%d] allocated ELF stack at 0x%08x\n", getpid(), stack_bottom);
+    uint32_t *stack_top = (uint32_t *)(stack_bottom + stack_size); // point to top of malloc'd stack
+	uint32_t* stack_top_orig = stack_top;
+	printf("[%d] Set ESP to 0x%08x\n", getpid(), stack_top);
+    *(--stack_top)= 0xaa;   //address of task's entry point
+    *(--stack_top)= 0xbb;   //address of task's entry point
+    *(--stack_top)= 0x0;   // alignment
+    *(--stack_top)= entry_point;   //address of task's entry point
+    *(--stack_top)= 0x1;             //esi
+    *(--stack_top)= 0x2;             //edi
+    *(--stack_top)   = 0x3;             //ebp
+    *(--stack_top)   = 0x4;             //ebp
+    *(--stack_top)   = 0x5;             //ebp
 
 	//calculate argc count
 	int argc = 0;
@@ -226,30 +209,24 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 
 	if (entry_point) {
 		//vas_active_unmap_temp(sizeof(vmm_page_directory_t));
-
 		task_small_t* elf = tasking_get_task_with_pid(getpid());
-
-		// TODO(PT): Instead of disabling interrupts, make this task unschedulable
-		// But this leads to a race in between making the task schedulable again and elf_start:
-		// If this task is pre-empted in between these two events, then it may never be scheduled again
-		// Maybe we can instead have a switch to disable the scheduler, without disabling interrupts too
-		kernel_begin_critical();
-
+		// Ensure the task won't be scheduled while modifying ts critical state
+		//spinlock_acquire(&elf->priority_lock);
+		asm("cli");
 		// TODO(PT): We should store the kmalloc()'d stack in the task structure so that we can free() it once the task dies.
+		printf("Set elf->machine_state = 0x%08x\n", stack_top);
 		elf->machine_state = (task_context_t*)stack_top;
 		elf->sbrk_current_break = prog_break;
 		elf->bss_segment_addr = bss_loc;
 		elf->sbrk_current_page_head = (elf->sbrk_current_break + PAGE_SIZE) & PAGING_PAGE_MASK;
 		elf->name = strdup(name);
 
-		//printf("Jumping to entry point of ELF [%s (%d)] @ 0x%08x\n", elf->name, elf->id, entry_point);
+		printf("[%d] Jump to user-mode with ELF [%s] ip=0x%08x sp=0x%08x\n", elf->id, elf->name, entry_point, elf->machine_state);
+		//spinlock_release(&elf->priority_lock);
+		user_mode(stack_top, entry_point);
 
-		void tasking_goto_task(task_small_t* new_task);
-		void (*elf_start)(int, char**) = (void(*)(int, char**))entry_point;
-		elf_start(argc, argv);
-
-		//binary should have called _exit()
-		//if we got to this point, something went catastrophically wrong
+		// binary should have called _exit()
+		// if we got to this point, something went catastrophically wrong
 		ASSERT(0, "ELF binary returned execution to loader!");
 	}
 	else {

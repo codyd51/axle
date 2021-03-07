@@ -174,3 +174,38 @@ irq_common_stub:
     add esp, 8 	; cleans up pushed error code and pushed ISR number
     sti
     iretd		; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP
+
+[global user_mode]
+user_mode:
+    cli
+    ; Set segment selectors to the user-mode data selector
+    ; User-mode data segment is the 4th GDT selector (4 * 8 bytes = 0x20),
+    ; plus 0b11 flag bits (PT: check what the flag bits are!)
+    ; http://www.jamesmolloy.co.uk/tutorial_html/10.-User%20Mode.html
+    mov ax, 0x23
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    ; The stack pointer to load is passed as the first stack parameter
+    mov eax, [esp+4]
+    ; The pointer to jump to is passed as the second stack parameter
+    mov edx, [esp+8]
+
+    ; iret will pop CS, EIP, EFLAGS, ESP, and SS
+    ; Push onto the stack in this order
+    ; Load the provided stack
+    mov esp, eax
+    push 0x23
+    push eax
+    pushf
+    ; Re-enable interrupts in the pushed EFLAGS
+    pop eax
+    or eax, 0x200
+    push eax
+    ; User-mode CS selector is 3rd GDT selector (4 * 8 bytes = 0x18),
+    ; plus 0b11 flag bits
+    push 0x1b
+    push edx
+    iret
