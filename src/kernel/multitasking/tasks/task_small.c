@@ -174,6 +174,7 @@ task_small_t* _thread_create(void* entry_point) {
 
     uint32_t stack_size = 0x2000;
     char *stack = kmalloc(stack_size);
+    printf("_thread_create stack 0x%08x\n", stack);
     memset(stack, 0, stack_size);
 
     uint32_t* stack_top = (uint32_t *)(stack + stack_size - 0x4); // point to top of malloc'd stack
@@ -190,6 +191,7 @@ task_small_t* _thread_create(void* entry_point) {
     }
 
     new_task->machine_state = (task_context_t*)stack_top;
+    new_task->kernel_stack = stack_top;
 
     new_task->is_thread = true;
     new_task->vmm = (vmm_page_directory_t*)vmm_active_pdir();
@@ -253,6 +255,7 @@ void tasking_goto_task(task_small_t* new_task) {
 
     // this method will update _current_task_small
     // this method performs the actual context switch and also updates _current_task_small
+    tss_set_kernel_stack(new_task->kernel_stack);
     context_switch(new_task);
 }
 
@@ -306,19 +309,23 @@ static void tasking_timer_tick() {
 
 void tasking_unblock_task_with_reason(task_small_t* task, bool run_immediately, task_state_t reason) {
     // Is this a reason why we're blocked?
+    /*
     if (!(task->blocked_info.status & reason)) {
         printf("tasking_unblock_task_with_reason(%s, %d) called with reason the task is not blocked for (%d)\n", task->name, reason, task->blocked_info.status);
         assert(0, "invalid call to tasking_unblock_task_with_reason");
         return;
     }
+    */
     if (task == _current_task_small) {
-        printf("Current task unblocked while running with reason %d\n", reason);
-        assert(0, "current task unblocked while running??");
+        // One reason this code path gets hit is an interrupt is received
+        // while the driver is processing the previous interrupt
         return;
     }
     // Record why we unblocked
+    spinlock_acquire(&task->priority_lock);
     task->blocked_info.unblock_reason = reason;
     task->blocked_info.status = RUNNABLE;
+    spinlock_release(&task->priority_lock);
     if (run_immediately) {
         tasking_goto_task(task);
     }
@@ -448,7 +455,7 @@ void* sbrk(int increment) {
             printk("SBRK grew to cover an already-mapped page 0x%08x\n", next_page);
             continue;
         }
-        vmm_alloc_page_address(vmm_active_pdir(), next_page, true);
+        vmm_alloc_page_address_usermode(vmm_active_pdir(), next_page, true);
     }
 	current->sbrk_current_break += increment;
 

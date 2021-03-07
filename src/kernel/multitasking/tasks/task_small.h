@@ -75,6 +75,8 @@ typedef struct task_small {
 	// i.e. this task is currently interrupted and executing an interrupt handler,
 	// this field will contain the original priority to be reset when the ISR returns.
 	uint32_t priority_context;
+
+	uint32_t kernel_stack;
 } task_small_t;
 
 void tasking_init_small();
