@@ -18,7 +18,7 @@ static bool _vmm_debug = false;
 #define VAS_PRINTF(fmt, ...) if (DBG_PAGING) { printf(fmt, ##__VA_ARGS__); }
 
 static void page_fault(const register_state_t* regs);
-static uint32_t vmm_page_table_idx_for_virt_addr(uint32_t addr);
+uint32_t vmm_page_table_idx_for_virt_addr(uint32_t addr);
 static uint32_t vmm_page_idx_within_table_for_virt_addr(uint32_t addr);
 void vmm_unmap_range(vmm_page_directory_t* vmm_dir, uint32_t virt_start, uint32_t size);
 uint32_t vmm_map_phys_range(vmm_page_directory_t* vmm_dir, uint32_t phys_start, uint32_t size);
@@ -412,7 +412,7 @@ static vmm_page_directory_t* _alloc_page_directory(bool map_allocation_bitmap) {
  *  VMM access / manipulation
  */
 
-static uint32_t* _get_page_tables_head(vmm_page_directory_t* vmm_dir) {
+uint32_t* _get_page_tables_head(vmm_page_directory_t* vmm_dir) {
     vmm_page_table_t* table_pointers;
     if (vmm_dir == vmm_active_pdir()) {
         table_pointers = (vmm_page_table_t*)ACTIVE_PAGE_DIRECTORY_HEAD;
@@ -450,7 +450,7 @@ bool vmm_page_table_is_present(vmm_page_directory_t* vmm_dir, uint32_t page_tabl
     return _get_page_table_flags(vmm_dir, page_table_idx) & PAGE_PRESENT_FLAG;
 }
 
-static uint32_t vmm_page_table_idx_for_virt_addr(uint32_t addr) {
+uint32_t vmm_page_table_idx_for_virt_addr(uint32_t addr) {
     uint32_t page_idx = addr / PAGING_PAGE_SIZE;
     uint32_t table_idx = page_idx / PAGE_TABLES_IN_PAGE_DIR;
     return table_idx;
@@ -573,12 +573,10 @@ uint32_t vmm_alloc_global_kernel_memory(uint32_t size) {
     //if (active_vmm != boot_info_get()->vmm_kernel) panic("out of band global alloc");
 
     vmm_load_pdir(boot_info_get()->vmm_kernel, false);
-	uint32_t start = vmm_alloc_continuous_range(vmm_active_pdir(), size, true, 0);
-    printf("vmm_alloc_global_kernel_memory got 0x%08x - 0x%08x\n", start, start + size);
-    //vmm_dump(vmm_active_pdir());
+	uint32_t start = vmm_alloc_continuous_range(vmm_active_pdir(), size, true, 0, false);
+    printf("vmm_alloc_global_kernel_memory allocated 0x%08x - 0x%08x\n", start, start + size);
 
     vmm_load_pdir(active_vmm, false);
-    //vmm_dump(vmm_active_pdir());
 
     if (_first_page_outside_shared_kernel_tables > 0 && start + size >= _first_page_outside_shared_kernel_tables) {
         panic("Allocating shared kernel memory crossed over into an unshared page table");
@@ -644,7 +642,6 @@ void vmm_debug(bool on) {
 }
 
 void _vmm_set_page_table_entry(vmm_page_directory_t* vmm_dir, uint32_t page_addr, uint32_t frame_addr, bool present, bool readwrite, bool user_mode) {
-    //if (page_addr == 0x00c53000) panic("found it");
     if (page_addr & PAGE_FLAG_BITS_MASK) {
         printf("page_addr 0x%x\n", page_addr);
         panic("page_addr is not page aligned");
@@ -654,7 +651,6 @@ void _vmm_set_page_table_entry(vmm_page_directory_t* vmm_dir, uint32_t page_addr
     }
 
     vmm_page_table_t* table = vmm_table_for_page_addr(vmm_dir, page_addr, true);
-    //if (_vmm_debug) printf("got table for 0x%08x: 0x%08x\n", page_addr, table);
 
     if (!table) {
         panic("failed to get page table");
@@ -683,11 +679,104 @@ void _vmm_set_page_table_entry(vmm_page_directory_t* vmm_dir, uint32_t page_addr
     vmm_bitmap_set_addr(vmm_dir, page_addr);
 }
 
+void _vmm_set_page_flags(vmm_page_directory_t* vmm_dir, uint32_t page_addr, bool readwrite, bool user_mode) {
+    if (page_addr & PAGE_FLAG_BITS_MASK) {
+        printf("page_addr 0x%x\n", page_addr);
+        panic("page_addr is not page aligned");
+    }
+
+    vmm_page_table_t* table = vmm_table_for_page_addr(vmm_dir, page_addr, true);
+
+    if (!table) {
+        panic("failed to get page table");
+    }
+    if ((uint32_t)table & PAGE_TABLE_FLAG_BITS_MASK) {
+        panic("table was not page-aligned");
+    }
+
+    uint32_t page_idx = vmm_page_idx_within_table_for_virt_addr(page_addr);
+
+    table->pages[page_idx].writable = readwrite;
+    table->pages[page_idx].user_mode = user_mode;
+    invlpg(page_addr);
+}
+
 uint32_t vmm_alloc_page_address(vmm_page_directory_t* vmm_dir, uint32_t page_addr, bool readwrite) {
     uint32_t frame_addr = pmm_alloc();
     _vmm_set_page_table_entry(vmm_dir, page_addr, frame_addr, true, readwrite, false);
     return frame_addr;
 }
+
+void vmm_set_page_usermode(vmm_page_directory_t* vmm_dir, uint32_t page_addr) {
+    // This function calls _get_page_tables_head and interacts with the "physical" 
+    // address of a page table, and may be unsafe to call with anything other than
+    // the active page directory
+    //assert(vmm_dir == vmm_active_pdir(), "May only be called on the active PDir");
+
+    vmm_page_table_t* table = vmm_table_for_page_addr(vmm_dir, page_addr, true);
+    if (!table) {
+        panic("failed to get page table");
+    }
+    if ((uint32_t)table & PAGE_TABLE_FLAG_BITS_MASK) {
+        panic("table was not page-aligned");
+    }
+
+    // The page must be allocated already
+    if (!vmm_bitmap_check_address(vmm_dir, page_addr)) {
+        panic("This function requires that the page be allocated already\n");
+    }
+    _vmm_set_page_flags(vmm_dir, page_addr, true, true);
+
+    // The page table is now certainly allocated, and may be set to kernel-mode
+    // Ensure the page table is set up for user-mode access
+    // Enabling user-mode on a page requires the page table also have the user bit set
+    uint32_t* page_tables = _get_page_tables_head(vmm_dir);
+    uint32_t table_idx = vmm_page_table_idx_for_virt_addr(page_addr);
+    uint32_t phys_table = page_tables[table_idx];
+    if (!(phys_table & PAGE_USER_MODE_FLAG)) {
+        printf("Enabling user-mode flag on page table [%d] (phys|flags 0x%08x)\n", table_idx, phys_table);
+        page_tables[table_idx] = phys_table | PAGE_USER_MODE_FLAG;
+        invlpg(&page_tables[table_idx]);
+        invlpg(phys_table);
+    }
+}
+
+uint32_t vmm_alloc_page_address_usermode(vmm_page_directory_t* vmm_dir, uint32_t page_addr, bool readwrite) {
+    uint32_t frame_addr = pmm_alloc();
+
+    // This will allocate the page table if necessary
+    _vmm_set_page_table_entry(vmm_dir, page_addr, frame_addr, true, readwrite, false);
+    vmm_set_page_usermode(vmm_dir, page_addr);
+
+    return frame_addr;
+}
+
+/*
+uint32_t vmm_alloc_page_address_usermode(vmm_page_directory_t* vmm_dir, uint32_t page_addr, bool readwrite) {
+    // This function calls _get_page_tables_head and interacts with the "physical" 
+    // address of a page table, and may be unsafe to call with anything other than
+    // the active page directory
+    assert(vmm_dir == vmm_active_pdir(), "May only be called on the active PDir");
+
+    uint32_t frame_addr = pmm_alloc();
+    // This will allocate the page table if necessary
+    _vmm_set_page_table_entry(vmm_dir, page_addr, frame_addr, true, readwrite, true);
+
+    // The page table is now certainly allocated, and may be set to kernel-mode
+    // Ensure the page table is set up for user-mode access
+    // Enabling user-mode on a page requires the page table also have the user bit set
+    uint32_t* page_tables = _get_page_tables_head(vmm_dir);
+    uint32_t table_idx = vmm_page_table_idx_for_virt_addr(page_addr);
+    uint32_t phys_table = page_tables[table_idx];
+    if (!(phys_table & PAGE_USER_MODE_FLAG)) {
+        printf("Enabling user-mode flag on page table [%d] (phys|flags 0x%08x)\n", table_idx, phys_table);
+        page_tables[table_idx] = phys_table | PAGE_USER_MODE_FLAG;
+        invlpg(&page_tables[table_idx]);
+        invlpg(phys_table);
+    }
+    return frame_addr;
+}
+*/
 
 uint32_t vmm_alloc_page(vmm_page_directory_t* vmm_dir, bool readwrite) {
     uint32_t index = first_usable_vmm_index(vmm_dir);
@@ -868,16 +957,14 @@ uint32_t vmm_find_start_of_free_region(vmm_page_directory_t* vmm_dir, uint32_t s
     return first_page_address;
 }
 
-uint32_t vmm_alloc_continuous_range(vmm_page_directory_t* vmm_dir, uint32_t size, bool readwrite, uint32_t min_address) {
+uint32_t vmm_alloc_continuous_range(vmm_page_directory_t* vmm_dir, uint32_t size, bool readwrite, uint32_t min_address, bool usermode) {
     if (size & PAGE_FLAG_BITS_MASK) {
         size = (size & PAGING_PAGE_MASK) + PAGING_PAGE_SIZE;
     }
 
     min_address = max(_allocations_base_for_vmm(vmm_dir), min_address);
-    printf("MIN ADDRESS 0x%08x\n", min_address);
     uint32_t index = find_free_region(vmm_dir, size, min_address);
     uint32_t first_page_address = index * PAGING_PAGE_SIZE;
-    printf("vmm_alloc_continuous_range found region at 0x%08x\n", first_page_address);
     // Bug here if a user PDir allocates something in a shared table
     // The bitmap will be set as used in the user PDir but will not be marked as used in the kernel PDir
     // (Or any other PDir that shares the same table)
@@ -885,7 +972,12 @@ uint32_t vmm_alloc_continuous_range(vmm_page_directory_t* vmm_dir, uint32_t size
     // Any time that page table is updated, we update all the users of the page table's allocation state bitmaps
     for (uint32_t i = 0; i < size; i += PAGING_PAGE_SIZE) {
         uint32_t page_address = first_page_address + i;
-        vmm_alloc_page_address(vmm_dir, page_address, readwrite);
+        if (usermode) {
+            vmm_alloc_page_address_usermode(vmm_dir, page_address, readwrite);
+        }
+        else {
+            vmm_alloc_page_address(vmm_dir, page_address, readwrite);
+        }
     }
     return first_page_address;
 }
@@ -964,7 +1056,8 @@ uint32_t vmm_map_phys_range__min_placement_addr(
     vmm_page_directory_t* vmm_dir, 
     uint32_t phys_start, 
     uint32_t size, 
-    uint32_t min_placement_addr) {
+    uint32_t min_placement_addr,
+    bool user_mode) {
     //Deprecated();
     printf_info("map phys region of %d kb", size / 1024);
     if (phys_start & PAGE_FLAG_BITS_MASK) {
@@ -984,12 +1077,15 @@ uint32_t vmm_map_phys_range__min_placement_addr(
         uint32_t page_address = first_page_address + i;
         uint32_t frame_address = phys_start + i;
         _vmm_set_page_table_entry(vmm_dir, page_address, frame_address, true, true, false);
+        if (user_mode) {
+            vmm_set_page_usermode(vmm_dir, page_address);
+        }
     }
     return first_page_address;
 }
 
 uint32_t vmm_map_phys_range(vmm_page_directory_t* vmm_dir, uint32_t phys_start, uint32_t size) {
-    return vmm_map_phys_range__min_placement_addr(vmm_dir, phys_start, size, _allocations_base_for_vmm(vmm_dir));
+    return vmm_map_phys_range__min_placement_addr(vmm_dir, phys_start, size, _allocations_base_for_vmm(vmm_dir), false);
 }
 
 uint32_t vmm_remote_map_phys_range(uint32_t phys_vmm_addr, uint32_t phys_start, uint32_t size, uint32_t min_address) {
@@ -1170,29 +1266,33 @@ static void page_fault(const register_state_t* regs) {
 	asm volatile("mov %%cr2, %0" : "=r" (faulting_address));
 
 	//error code tells us what happened
-	int present = (regs->err_code & 0x1); //page not present
-	int rw = regs->err_code & 0x2; //write operation?
-	int us = regs->err_code & 0x4; //were we in user mode?
-	int reserved = regs->err_code & 0x8; //overwritten CPU-reserved bits of page entry?
-	int id = regs->err_code & 0x10; //caused by instruction fetch?
-
-	//if this page was present, attempt to recover by allocating the page
-	if (present) {
-        NotImplemented();
-	}
+	int page_present = (regs->err_code & 0x1); //page not present
+	int forbidden_write = regs->err_code & 0x2; //write operation?
+	int faulted_in_user_mode = regs->err_code & 0x4; //were we in user mode?
+	int overwrote_reserved_bits = regs->err_code & 0x8; //overwritten CPU-reserved bits of page entry?
+	int invalid_ip = regs->err_code & 0x10; //caused by instruction fetch?
 
 	//if execution reaches here, recovery failed or recovery wasn't possible
     printf("|----------------|\n");
     printf("|  Page Fault %d  |\n", getpid());
     printf("|-  0x%08x  -|\n", faulting_address);
 
-	if (reserved) printf_err("Overwrote CPU-resereved bits of page entry");
-	if (id) printf_err("Faulted during instruction fetch");
+	if (overwrote_reserved_bits) printf_err("Overwrote CPU-resereved bits of page entry");
+	if (invalid_ip) printf_err("Faulted during instruction fetch");
+    if (faulted_in_user_mode) {
+        // There may be other failure modes...
+        if (page_present) {
+            printf("User-mode code tried to access a kernel address\n");
+        }
+        else {
+            printf("User-mode code tried to access an unmapped address\n");
+        }
+    }
 
 	bool caused_by_execution = (regs->eip == faulting_address);
     const char* reason = "run";
     if (!caused_by_execution) {
-        reason = rw ? "write" : "read ";
+        reason = forbidden_write ? "write" : "read ";
     }
 	printf("| Unmapped %s |\n", reason);
     printf("|----------------|\n");
