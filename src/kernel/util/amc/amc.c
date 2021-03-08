@@ -473,6 +473,7 @@ void amc__awm_map_framebuffer() {
     spinlock_acquire(&current_service->spinlock);
     framebuffer_info_t framebuffer_info = boot_info_get()->framebuffer;
     // TODO(PT): Map framebuffer into proc's address space
+    // Currently it's identity-mapped in awm_init()
     spinlock_release(&current_service->spinlock);
 
     uint32_t framebuf_start_addr = framebuffer_info.address;

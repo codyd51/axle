@@ -70,8 +70,6 @@ void udp_send(void* packet,
 											 wrapper,
 											 udp_packet_size);
 											 */
-	printf("Checksum: %04x\n", wrapper->checksum);
-
-	ipv4_send(wrapper, udp_packet_size);
+	ipv4_send(dst_ip, IPv4_PROTOCOL_UDP, wrapper, udp_packet_size);
 	free(wrapper);
 }

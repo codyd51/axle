@@ -5,10 +5,12 @@
 #include <stdbool.h>
 #include "net.h"
 
-#define IPv4_PROTOCOL_ICMP		0x01
-#define IPv4_PROTOCOL_IGMP		0x02
-#define IPv4_PROTOCOL_TCP		0x06
-#define IPv4_PROTOCOL_UDP		0x11
+typedef enum ipv4_protocol {
+	IPv4_PROTOCOL_ICMP	= 0x01,
+	IPv4_PROTOCOL_IGMP	= 0x02,
+	IPv4_PROTOCOL_TCP	= 0x06,
+	IPv4_PROTOCOL_UDP	= 0x11
+} ipv4_protocol_t;
 
 typedef struct ipv4_packet {
 	// Low bits are defined first
@@ -49,7 +51,12 @@ typedef struct ipv4_packet {
 } __attribute__((packed)) ipv4_packet_t;
 
 void ipv4_receive(packet_info_t* packet_info, ipv4_packet_t* packet, uint32_t packet_size);
-void ipv4_send(void* packet, uint32_t packet_size);
+void ipv4_send(
+	const uint8_t dst_ipv4_addr[IPv4_ADDR_SIZE], 
+	ipv4_protocol_t protocol, 
+	void* packet, 
+	uint32_t packet_size
+);
 
 bool ip_equals__buf_u8(const uint8_t ip_buf[IPv4_ADDR_SIZE], uint8_t b0, uint8_t b1, uint8_t b2, uint8_t b3);
 bool ip_equals__buf_buf(const uint8_t ip_buf[IPv4_ADDR_SIZE], uint8_t ip_buf2[IPv4_ADDR_SIZE]);

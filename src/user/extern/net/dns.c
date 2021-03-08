@@ -9,8 +9,9 @@
 #include "util.h" // For hexdump, can remove
 #include "udp.h"
 
-#define DNS_TYPE_POINTER    12
-#define DNS_TYPE_A_RECORD   1
+#define DNS_TYPE_TEXT_STRINGS   16
+#define DNS_TYPE_POINTER        12
+#define DNS_TYPE_A_RECORD       1
 
 typedef struct dns_question {
     dns_name_parse_state_t parsed_name;
@@ -124,7 +125,7 @@ static void _parse_dns_name(dns_packet_t* packet, dns_name_parse_state_t* out_st
         }
         else {
             // Read a label literal
-            char buf[label_len+1];
+            char* buf = malloc(label_len+1);
             _dns_name_read_label(&data_ptr, label_len, buf);
             out_state->name_len += snprintf(
                 out_state->name + out_state->name_len, 
@@ -132,6 +133,7 @@ static void _parse_dns_name(dns_packet_t* packet, dns_name_parse_state_t* out_st
                 "%s.",
                 buf
             );
+            free(buf);
         }
     }
 
@@ -271,9 +273,20 @@ static void _parse_dns_answer(dns_packet_t* packet, dns_answer_t* answer, uint8_
     else if (answer->type == DNS_TYPE_A_RECORD) {
         _update_domain_name_with_a_record(answer);
     }
+    else if (answer->type == DNS_TYPE_TEXT_STRINGS) {
+        /*
+        uint8_t* txt_start = answer->data;
+        uint8_t* txt_head = txt_start;
+        while (txt_head < txt_start + answer->data_length) {
+            dns_name_parse_state_t txt_parse = {0};
+            _parse_dns_name(packet, &txt_parse, &txt_head);
+            printf("DNS TXT entry %s: %s\n", answer->parsed_name.name, txt_parse.name);
+        }
+        */
+    }
     else {
-        printf("Unknown answer type %d, will hexdump contents\n");
-        hexdump(answer->data, answer->data_length);
+        //printf("Unknown answer type %d, will hexdump contents\n", answer->type);
+        //hexdump(answer->data, answer->data_length);
     }
 
     // Write the new position of the pointer

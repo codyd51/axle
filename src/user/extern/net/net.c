@@ -154,8 +154,8 @@ int main(int argc, char** argv) {
 	);
 	draw_rect(window_layer, window_frame, color_orange(), THICKNESS_FILLED);
 
-	text_box_t* text_box = text_box_create(text_box_frame.size, color_gray());
-	text_box_puts(text_box, "Net stack\n", color_black());
+	text_box_t* text_box = text_box_create(text_box_frame.size, color_black());
+	text_box_puts(text_box, "Net backend initializing...\n", color_white());
 
     // Blit the text box to the window layer
     blit_layer(window_layer, text_box->layer, text_box_frame, rect_make(point_zero(), text_box_frame.size));

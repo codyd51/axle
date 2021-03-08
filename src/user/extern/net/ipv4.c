@@ -80,7 +80,7 @@ void ipv4_receive(packet_info_t* packet_info, ipv4_packet_t* packet, uint32_t pa
 	// Strip off the IPv4 header and pass along the packet to UDP
 	if (packet->protocol == IPv4_PROTOCOL_UDP) {
 		udp_packet_t* packet_body = (udp_packet_t*)&packet->data;
-		uint32_t udp_packet_size = packet_size - offsetof(ipv4_packet_t, data);
+		uint32_t udp_packet_size = ntohs(packet->total_length) - sizeof(ipv4_packet_t);
 		udp_packet_t* copied_packet = malloc(udp_packet_size);
 		memcpy(copied_packet, packet_body, udp_packet_size);
 		udp_receive(packet_info, copied_packet, udp_packet_size);
@@ -89,31 +89,35 @@ void ipv4_receive(packet_info_t* packet_info, ipv4_packet_t* packet, uint32_t pa
 	free(packet);
 }
 
-void ipv4_send(void* packet, uint32_t packet_size) {
+void ipv4_send(
+	const uint8_t dst_ipv4_addr[IPv4_ADDR_SIZE], 
+	ipv4_protocol_t protocol, 
+	void* packet, 
+	uint32_t packet_size
+) {
 	uint32_t ipv4_packet_size = sizeof(ipv4_packet_t) + packet_size;
-	ipv4_packet_t* wrapper = malloc(ipv4_packet_size);
-	memset(wrapper, 0, sizeof(ipv4_packet_t));
+	ipv4_packet_t* wrapper = calloc(1, ipv4_packet_size);
 	wrapper->version = 4;
 	wrapper->ihl = 5;
 	wrapper->total_length = htons(ipv4_packet_size);
-	wrapper->identification = htons(0x2123);
+	//wrapper->identification = htons(0x2123);
+	wrapper->identification = 4;
 	wrapper->time_to_live = 64;
-	//wrapper->protocol = 17; // udp
-	wrapper->protocol = 6; // tcp 
+	wrapper->protocol = protocol;
+
+	//wrapper->source_ip = 0xffffffff;
 
 	wrapper->source_ip = net_copy_local_ipv4_addr__u32();
-	// TODO(PT): Pass in dest IP
-	//wrapper->dest_ip = 0xfe01a8c0;
-	wrapper->dest_ip = 0xc412d9ac;
-	printf("get checksum\n");
+	memcpy(&wrapper->dest_ip, dst_ipv4_addr, IPv4_ADDR_SIZE);
 	wrapper->header_checksum = net_checksum_ipv4(wrapper, offsetof(ipv4_packet_t, data));
 
 	memcpy(wrapper->data, packet, packet_size);
 
 	// Find the router's MAC
-	uint8_t router_ip[IPv4_ADDR_SIZE] = {0};
+	uint8_t router_ip[IPv4_ADDR_SIZE];
 	net_copy_router_ipv4_addr(router_ip);
-	uint8_t router_mac[MAC_ADDR_SIZE] = {0};
+	//uint8_t router_mac[MAC_ADDR_SIZE] = {0x34, 0x27, 0x92, 0x36, 0x8c, 0x61};
+	uint8_t router_mac[MAC_ADDR_SIZE];
 	assert(arp_copy_mac(router_ip, router_mac), "ARP failed to map the router's MAC");
 
 	ethernet_send(router_mac, ETHTYPE_IPv4, wrapper, ipv4_packet_size);
