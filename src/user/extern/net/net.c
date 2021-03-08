@@ -191,80 +191,78 @@ int main(int argc, char** argv) {
 				printf("Net stack received unknown message from %s\n", source_service);
 				continue;
 			}
-		} while (amc_has_message());
-		// We're out of messages to process
-		// Wait for a new message to arrive on the next loop iteration
 
-		// Draw the new ARP table
-		text_box_clear(text_box, color_black());
-		text_box_set_cursor_y(text_box,  0);
+			// Draw the new ARP table
+			text_box_clear(text_box);
+			text_box_set_cursor_y(text_box,  0);
 
-		text_box_puts(text_box, "Local Link\n", color_white());
+			text_box_puts(text_box, "Local Link\n", color_white());
 
-		char text_buf[64];
-		char mac_buf[MAC_ADDR_SIZE];
-		net_copy_local_mac_addr(mac_buf);
-		format_mac_address(text_buf, sizeof(text_buf), mac_buf);
-		text_box_puts(text_box, "\tMAC  ", color_white());
-		text_box_puts(text_box, text_buf, color_gray());
-		text_box_puts(text_box, "\n", color_white());
+			char text_buf[64];
+			char mac_buf[MAC_ADDR_SIZE];
+			net_copy_local_mac_addr(mac_buf);
+			format_mac_address(text_buf, sizeof(text_buf), mac_buf);
+			text_box_puts(text_box, "\tMAC  ", color_white());
+			text_box_puts(text_box, text_buf, color_gray());
+			text_box_puts(text_box, "\n", color_white());
 
-		char ipv4_buf[IPv4_ADDR_SIZE];
-		net_copy_local_ipv4_addr(ipv4_buf);
-		format_ipv4_address__buf(text_buf, sizeof(text_buf), ipv4_buf);
-		text_box_puts(text_box, "\tIPv4 ", color_white());
-		text_box_puts(text_box, text_buf, color_gray());
-		text_box_puts(text_box, "\n\n", color_gray());
+			char ipv4_buf[IPv4_ADDR_SIZE];
+			net_copy_local_ipv4_addr(ipv4_buf);
+			format_ipv4_address__buf(text_buf, sizeof(text_buf), ipv4_buf);
+			text_box_puts(text_box, "\tIPv4 ", color_white());
+			text_box_puts(text_box, text_buf, color_gray());
+			text_box_puts(text_box, "\n\n", color_gray());
 
-		text_box_puts(text_box, "ARP Table\n", color_white());
-		arp_entry_t* arp_ents = arp_table();
-		for (int i = 0; i < ARP_TABLE_SIZE; i++) {
-			arp_entry_t* ent = &arp_ents[i];
-			if (ent->allocated) {
-				char buf[64];
-				Color c = color_white();
-				text_box_puts(text_box, "\tIP ", c);
-				format_ipv4_address__buf(buf, sizeof(buf), ent->ip_addr);
-				text_box_puts(text_box, buf, color_gray());
+			text_box_puts(text_box, "ARP Table\n", color_white());
+			arp_entry_t* arp_ents = arp_table();
+			for (int i = 0; i < ARP_TABLE_SIZE; i++) {
+				arp_entry_t* ent = &arp_ents[i];
+				if (ent->allocated) {
+					char buf[64];
+					Color c = color_white();
+					text_box_puts(text_box, "\tIP ", c);
+					format_ipv4_address__buf(buf, sizeof(buf), ent->ip_addr);
+					text_box_puts(text_box, buf, color_gray());
 
-				text_box_puts(text_box, " = MAC ", c);
-				format_mac_address(buf, sizeof(buf), ent->mac_addr);
-				text_box_puts(text_box, buf, color_gray());
-				text_box_puts(text_box, "\n", c);
+					text_box_puts(text_box, " = MAC ", c);
+					format_mac_address(buf, sizeof(buf), ent->mac_addr);
+					text_box_puts(text_box, buf, color_gray());
+					text_box_puts(text_box, "\n", c);
+				}
 			}
-		}
 
-		text_box_puts(text_box, "\nDNS Records\n", color_white());
-		dns_domain_t* dns_domain_ents = dns_domain_records();
-		for (int i = 0; i < DNS_DOMAIN_RECORDS_TABLE_SIZE; i++) {
-			dns_domain_t* domain_ent = &dns_domain_ents[i];
-			if (domain_ent->allocated) {
-				char buf[256];
-				snprintf(buf, sizeof(buf), "\t%s ", domain_ent->name.name);
-				text_box_puts(text_box, buf, color_white());
+			text_box_puts(text_box, "\nDNS Records\n", color_white());
+			dns_domain_t* dns_domain_ents = dns_domain_records();
+			for (int i = 0; i < DNS_DOMAIN_RECORDS_TABLE_SIZE; i++) {
+				dns_domain_t* domain_ent = &dns_domain_ents[i];
+				if (domain_ent->allocated) {
+					char buf[256];
+					snprintf(buf, sizeof(buf), "\t%s ", domain_ent->name.name);
+					text_box_puts(text_box, buf, color_white());
 
-				format_ipv4_address__buf(buf, sizeof(buf), domain_ent->a_record);
-				text_box_puts(text_box, buf, color_gray());
-				text_box_puts(text_box, "\n", color_white());
+					format_ipv4_address__buf(buf, sizeof(buf), domain_ent->a_record);
+					text_box_puts(text_box, buf, color_gray());
+					text_box_puts(text_box, "\n", color_white());
+				}
 			}
-		}
 
-		text_box_puts(text_box, "\nDNS Services\n", color_white());
-		dns_service_type_t* dns_service_type_ents = dns_service_type_table();
-		for (int i = 0; i < DNS_SERVICE_TYPE_TABLE_SIZE; i++) {
-			dns_service_type_t* type_ent = &dns_service_type_ents[i];
-			if (type_ent->allocated) {
-				text_box_puts(text_box, "\tType ", color_white());
-				char buf[256];
-				snprintf(buf, sizeof(buf), "%s\n", type_ent->type_name.name);
-				text_box_puts(text_box, buf, color_gray());
+			text_box_puts(text_box, "\nDNS Services\n", color_white());
+			dns_service_type_t* dns_service_type_ents = dns_service_type_table();
+			for (int i = 0; i < DNS_SERVICE_TYPE_TABLE_SIZE; i++) {
+				dns_service_type_t* type_ent = &dns_service_type_ents[i];
+				if (type_ent->allocated) {
+					text_box_puts(text_box, "\tType ", color_white());
+					char buf[256];
+					snprintf(buf, sizeof(buf), "%s\n", type_ent->type_name.name);
+					text_box_puts(text_box, buf, color_gray());
 
-				for (int j = 0; j < DNS_SERVICE_INSTANCE_TABLE_SIZE; j++) {
-					dns_service_instance_t* inst_ent = &type_ent->instances[j];
-					if (inst_ent->allocated) {
-						text_box_puts(text_box, "\t\tInstance ", color_white());
-						snprintf(buf, sizeof(buf), "%s\n", inst_ent->service_name.name);
-						text_box_puts(text_box, buf, color_gray());
+					for (int j = 0; j < DNS_SERVICE_INSTANCE_TABLE_SIZE; j++) {
+						dns_service_instance_t* inst_ent = &type_ent->instances[j];
+						if (inst_ent->allocated) {
+							text_box_puts(text_box, "\t\tInstance ", color_white());
+							snprintf(buf, sizeof(buf), "%s\n", inst_ent->service_name.name);
+							text_box_puts(text_box, buf, color_gray());
+						}
 					}
 				}
 			}

@@ -9,7 +9,7 @@ CFLAGS = -I$(SYSROOT)/usr/i686-axle/include -g -L$(SYSROOT)/usr/i686-axle/lib -W
 LDFLAGS = -T ./linker.ld -L$(SYSROOT)/usr/i686-axle/lib -lc
 
 .ONESHELL:
-net: net.c util.c ethernet.c arp.c ipv4.c udp.c dns.c
+net: net.c util.c ethernet.c arp.c ipv4.c udp.c dns.c tcp.c
 	$(CC) $(CFLAGS) -o net.o -c net.c; \
 	$(CC) $(CFLAGS) -o util.o -c util.c; \
 	$(CC) $(CFLAGS) -o ethernet.o -c ethernet.c; \
@@ -17,6 +17,7 @@ net: net.c util.c ethernet.c arp.c ipv4.c udp.c dns.c
 	$(CC) $(CFLAGS) -o ipv4.o -c ipv4.c; \
 	$(CC) $(CFLAGS) -o udp.o -c udp.c; \
 	$(CC) $(CFLAGS) -o dns.o -c dns.c; \
+	$(CC) $(CFLAGS) -o tcp.o -c tcp.c; \
 	# Place LDFlags after object files: https://stackoverflow.com/questions/34848192/assembler-gcc-undefined-reference-to-puts
-	$(LD) -o net net.o util.o ethernet.o arp.o ipv4.o udp.o dns.o -lagx -lamc -lport $(LDFLAGS)
+	$(LD) -o net net.o util.o ethernet.o arp.o ipv4.o udp.o dns.o tcp.o -lagx -lamc -lport $(LDFLAGS)
 	cp net $(DIR)/initrd;
