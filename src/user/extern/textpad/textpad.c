@@ -27,16 +27,17 @@ Screen* gfx_screen() {
 static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 	// Ask awm to make a window for us
 	amc_msg_u32_3__send("com.axle.awm", AWM_REQUEST_WINDOW_FRAMEBUFFER, width, height);
+
 	// And get back info about the window it made
-	amc_command_ptr_message_t receive_framebuf = {0};
+	amc_message_t* receive_framebuf;
 	amc_message_await("com.axle.awm", &receive_framebuf);
-	// TODO(PT): Need a struct type selector
-	if (amc_command_ptr_msg__get_command(&receive_framebuf) != AWM_CREATED_WINDOW_FRAMEBUFFER) {
+	uint32_t event = amc_msg_u32_get_word(receive_framebuf, 0);
+	if (event != AWM_CREATED_WINDOW_FRAMEBUFFER) {
 		printf("Invalid state. Expected framebuffer command\n");
 	}
+	uint32_t framebuffer_addr = amc_msg_u32_get_word(receive_framebuf, 1);
 
-	printf("Received framebuffer from awm: %d 0x%08x\n", amc_command_ptr_msg__get_command(&receive_framebuf), amc_command_ptr_msg__get_ptr(&receive_framebuf));
-	uint32_t framebuffer_addr = receive_framebuf.body.cmd_ptr.ptr_val;
+	printf("Received framebuffer from awm: %d 0x%08x\n", event, framebuffer_addr);
 	uint8_t* buf = (uint8_t*)framebuffer_addr;
 
 	// TODO(PT): Use an awm command to get screen info
@@ -69,26 +70,24 @@ int main(int argc, char** argv) {
 	Rect window_frame = rect_make(point_zero(), window_size);
 	blit_layer(window_layer, text_box->layer, window_frame, window_frame);
 
-	amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
+	amc_msg_u32_1__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 
 	int i = 0;
 	while (true) {
 		// TODO(PT): An "await for event matching" so we can wait for mouse entered / mouse exited
-		asm("sti");
-
-		amc_charlist_message_t msg = {0};
+		amc_message_t* msg;
 		do {
 			amc_message_await("com.axle.awm", &msg);
 			// TODO(PT): Need a struct type selector
-			uint32_t event = amc_command_ptr_msg__get_command(&msg);
+			uint32_t event = amc_msg_u32_get_word(msg, 0);
 			if (event == AWM_KEY_DOWN) {
-				text_box_putchar(text_box, amc_command_ptr_msg__get_ptr(&msg), color_green());
+				char ch = (char)amc_msg_u32_get_word(msg, 1);
 			}
 		} while (amc_has_message_from("com.axle.awm"));
 		// Blit the text box to the window layer
 		blit_layer(window_layer, text_box->layer, window_frame, window_frame);
 		// All messages have been processed - ask awm to redraw the window
-		amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
+		amc_msg_u32_1__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 	}
 
 	return 0;
