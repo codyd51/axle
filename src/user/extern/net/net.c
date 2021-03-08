@@ -184,8 +184,41 @@ int main(int argc, char** argv) {
 					ethernet_receive(&packet_info, eth_frame, packet_msg->len);
 				}
 			}
+			else if (!strcmp(source_service, "com.axle.awm")) {
+				uint32_t cmd = amc_msg_u32_get_word(msg, 0);
+				char ch = amc_msg_u32_get_word(msg, 1);
+
+				if (cmd == AWM_KEY_DOWN) {
+					if (ch == 'r') {
+						printf("scroll up\n");
+						text_box_scroll_up(text_box);
+					}
+					else if (ch == 's') {
+						printf("scroll down\n");
+						text_box_scroll_down(text_box);
+					}
+					else if (ch == 't') {
+						text_box_scroll_to_bottom(text_box);
+					}
+					else if (ch == 'q') {
+						// Holding the send key on dns_send crashes,
+						// But holding the send key on the simpler ethernet call
+						// does not crash.
+						dns_send();
+						/*
+						const uint8_t dst = {10, 0, 0, 1};
+						char wrapper[40];
+						ipv4_send(dst, 0x11, wrapper, 40);
+
+						/*
+						uint8_t router_mac[MAC_ADDR_SIZE] = {0x34, 0x27, 0x92, 0x36, 0x8c, 0x61};
+						char wrapper[40];
+						ethernet_send(router_mac, ETHTYPE_IPv4, wrapper, 40);
+						*/
+					}
 				}
 			}
+
 			else {
 				// Ignore messages from other services
 				printf("Net stack received unknown message from %s\n", source_service);

@@ -82,6 +82,21 @@ int main(int argc, char** argv) {
 			uint32_t event = amc_msg_u32_get_word(msg, 0);
 			if (event == AWM_KEY_DOWN) {
 				char ch = (char)amc_msg_u32_get_word(msg, 1);
+				if (ch == 'a') {
+					static int i = 0;
+					char buf[512];
+					snprintf(buf, 512, "line %d\n", i++);
+					text_box_puts(text_box, buf, color_black());
+				}
+				else if (ch == 'r') {
+					text_box_scroll_up(text_box);
+				}
+				else if (ch == 's') {
+					text_box_scroll_down(text_box);
+				}
+				else if (ch == 'z') {
+					sleep(5);
+				}
 			}
 		} while (amc_has_message_from("com.axle.awm"));
 		// Blit the text box to the window layer

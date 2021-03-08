@@ -91,7 +91,24 @@ int main(int argc, char** argv) {
 				buf[msg->len] = '\0';
 				text_box_puts(text_box, buf, color_make(135, 20, 20));
 			}
-		} while (amc_has_message_from("com.axle.core"));
+			else if (!strcmp(source_service, "com.axle.awm")) {
+				uint32_t cmd = amc_msg_u32_get_word(msg, 0);
+				char ch = (char)amc_msg_u32_get_word(msg, 1);
+
+				if (cmd == AWM_KEY_DOWN) {
+					if (ch == 'r') {
+						text_box_scroll_up(text_box);
+					}
+					else if (ch == 's') {
+						text_box_scroll_down(text_box);
+					}
+					else if (ch == 't') {
+						text_box_scroll_to_bottom(text_box);
+					}
+				}
+			}
+		} while (amc_has_message());
+
 		// Blit the text box to the window layer
 		blit_layer(window_layer, text_box->layer, text_box_frame, rect_make(point_zero(), text_box_frame.size));
 		// We're out of messages to process - ask awm to redraw the window with our updates

@@ -6,7 +6,10 @@
 #include "point.h"
 #include "color.h"
 
+typedef struct array array_t;
 typedef struct text_box {
+	array_t* lines;
+	uint32_t scroll_position;
     ca_layer* layer;
 	Size size;
 	Size font_size;
@@ -25,6 +28,10 @@ void text_box_set_cursor(text_box_t* text_box, Point point);
 void text_box_set_cursor_x(text_box_t* text_box, uint32_t x);
 void text_box_set_cursor_y(text_box_t* text_box, uint32_t y);
 
-void text_box_clear(text_box_t* tb, Color background_color);
+void text_box_clear(text_box_t* tb);
+
+void text_box_scroll_up(text_box_t* text_box);
+void text_box_scroll_down(text_box_t* text_box);
+void text_box_scroll_to_bottom(text_box_t* text_box);
 
 #endif
