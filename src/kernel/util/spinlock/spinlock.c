@@ -30,13 +30,17 @@ void spinlock_acquire(spinlock_t* lock) {
         // and since interrupts are disabled we will never context switch back to the 
         // other task)
         if (!interrupts_enabled()) { 
-            printf("Spinlock %s held by another consumer while interrupts are disabled\n", lock->name); 
+            if (lock->owner_pid != getpid()) {
+                printf("Spinlock %s held by another consumer while interrupts are disabled. Owner: [%d]\n", lock->name, lock->owner_pid); 
+                task_small_t* owner = tasking_get_task_with_pid(lock->owner_pid);
+                printf("Owner: %d %s\n", lock->owner_pid, owner->name);
+                assert(0, "Spinlock held by another process while interrupts are disabled\n");
+            }
         }
-        assert(interrupts_enabled(), "Spinlock held by another consumer while interrupts are disabled");
 
 		contention_start = time();
 
-		printf("Spinlock: [%d] found contended spinlock with flag %d at %d\n", getpid(), lock->flag, contention_start);
+		printf("Spinlock: [%d] found contended spinlock with flag %d at %d: %s\n", getpid(), lock->flag, contention_start, lock->name);
 	}
 
     // Spin until the lock is released
@@ -53,6 +57,7 @@ void spinlock_acquire(spinlock_t* lock) {
 
     // Ensure it's really ours
     assert(lock->flag == 1, "Lock was not properly acquired");
+    lock->owner_pid = getpid();
 
 	if (contention_start) {
 		printf("Spinlock: *** Proc %d received contended lock 0x%08x %s after %d ticks\n", getpid(), lock, lock->name, time() - contention_start);
@@ -64,6 +69,7 @@ void spinlock_acquire(spinlock_t* lock) {
 
 void spinlock_release(spinlock_t* lock) {
     if (!lock) return;
+    lock->owner_pid = -1;
     atomic_store(&lock->flag, 0);
     // Allow other contexts on this processor to interact with the spinlock
     if (lock->interrupts_enabled_before_acquire) {
