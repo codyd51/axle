@@ -450,40 +450,28 @@ int main(int argc, char** argv) {
 		// splits lower windows into visible regions, then blits those
 		for (int i = window_count-1; i >= 0; i--) {
 			user_window_t* window = &windows[i];
-			blit_layer(_screen.vmem, window->layer, window->frame, rect_make(point_zero(), window->frame.size));
+			// As an optimization until we have visible-region splitting, skip drawing 
+			// fully occluded windows
+			bool fully_occluded = false;
+			for (int j = i-1; j >= 0; j--) {
+				user_window_t* higher_window = &windows[j];
+				Rect higher_frame = higher_window->frame;
+				Rect lower_frame = window->frame;
+				if (rect_min_x(higher_frame) <= rect_min_x(lower_frame) &&
+					rect_min_y(higher_frame) <= rect_min_y(lower_frame) &&
+					rect_max_x(higher_frame) >= rect_max_x(lower_frame) &&
+					rect_max_y(higher_frame) >= rect_max_y(lower_frame)) {
+					fully_occluded = true;
+					break;
+				}
+			}
+			if (!fully_occluded) {
+				// TODO(PT): As per the above comment, we should only copy the window layer
+				// once if it's requested a redraw at least once on this pass through the event loop
+				_update_window_framebuf_idx(i);
+				blit_layer(_screen.vmem, window->layer, window->frame, rect_make(point_zero(), window->frame.size));
+			}
 		}
-		// Draw a VStack of currently active applications, so the user is aware
-		// TODO(PT): Move this to a `window_order_changed` delegate
-		Size vstack_row_size = size_make(260, 30);
-		uint32_t vstack_y = _screen.resolution.height - vstack_row_size.height;
-		for (int i = window_count-1; i >= 0; i--) {
-			user_window_t* window = &windows[i];
-			Rect box = rect_make(
-				point_make(0, vstack_y),
-				vstack_row_size
-			);
-
-			text_box_t* text_box = text_box_create(vstack_row_size, color_black());
-			text_box->font_size = size_make(10, 10);
-			text_box->font_padding = size_make(0, 2);
-			text_box_puts(text_box, window->owner_service, color_white());
-			blit_layer(
-				_screen.vmem, 
-				text_box->layer, 
-				rect_make(
-					point_make(box.origin.x, vstack_y + 2), 
-					vstack_row_size
-				),
-				rect_make(
-					point_zero(), 
-					vstack_row_size
-				)
-			);
-			text_box_destroy(text_box);
-
-			vstack_y -= vstack_row_size.height;
-		}
-
 		// And finally the cursor
 		_draw_cursor();
 
