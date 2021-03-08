@@ -14,7 +14,9 @@
 #include <kernel/util/amc/amc.h>
 
 void yield(task_state_t reason) {
-	if (!tasking_is_active()) return;
+	if (!tasking_is_active()) {
+		return;
+	}
 
 	//if a task is yielding not because it's waiting for i/o, but because it willingly gave up cpu,
 	//then it should not be blocked
@@ -57,6 +59,11 @@ Surface* surface_create(uint32_t width, uint32_t height) {
 
 int aipc_send(char* data, uint32_t size, uint32_t dest_pid, char** destination) {
 	return ipc_send(data, size, dest_pid, destination);
+}
+
+uint32_t ms_since_boot(void) {
+	// The multiplier should match our chosen ticks-per-second count
+	return tick_count() * 50;
 }
 
 DEFN_SYSCALL(kill, 0);
@@ -107,6 +114,7 @@ DEFN_SYSCALL(adi_register_driver, 37, const char*, uint32_t);
 DEFN_SYSCALL(adi_event_await, 38, uint32_t);
 DEFN_SYSCALL(adi_send_eoi, 39, uint32_t);
 
+DEFN_SYSCALL(ms_since_boot, 42);
 
 void create_sysfuncs() {
 	syscall_add((void*)&_kill);
@@ -148,8 +156,11 @@ void create_sysfuncs() {
 	syscall_add((void*)&amc_launch_service);
 	syscall_add((void*)&amc_physical_memory_region_create);
 	syscall_add((void*)&amc_message_construct_and_send);
+	syscall_add((void*)&amc__awm_map_framebuffer);
 
 	syscall_add((void*)&adi_register_driver);
 	syscall_add((void*)&adi_event_await);
 	syscall_add((void*)&adi_send_eoi);
+
+	syscall_add((void*)&ms_since_boot);
 }

@@ -63,3 +63,7 @@ DNS and TCP.
 Symbolicate ELF stack traces
 
 Send a ping to every program periodically to ensure its liveliness
+
+Timekeeping
+    - Net timeouts/retransmissions
+    - Liveliness pings

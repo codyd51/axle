@@ -51,7 +51,7 @@ CONFIG_CLEAN_VPATH_FILES =
 LIBRARIES = $(noinst_LIBRARIES)
 ARFLAGS = cru
 lib_a_AR = $(AR) $(ARFLAGS)
-@MAY_SUPPLY_SYSCALLS_TRUE@am__DEPENDENCIES_1 = syscalls.o
+@MAY_SUPPLY_SYSCALLS_TRUE@am__DEPENDENCIES_1 = syscalls.o array.o assert.o
 am_lib_a_OBJECTS =
 lib_a_OBJECTS = $(am_lib_a_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@
@@ -172,10 +172,10 @@ INCLUDES = $(NEWLIB_CFLAGS) $(CROSS_CFLAGS) $(TARGET_CFLAGS)
 AM_CCASFLAGS = $(INCLUDES)
 noinst_LIBRARIES = lib.a
 @MAY_SUPPLY_SYSCALLS_FALSE@extra_objs = 
-@MAY_SUPPLY_SYSCALLS_TRUE@extra_objs = syscalls.o # add more object files here if you split up
+@MAY_SUPPLY_SYSCALLS_TRUE@extra_objs = syscalls.o array.o assert.o sleep.o # add more object files here if you split up
 lib_a_SOURCES = 
 lib_a_LIBADD = $(extra_objs)
-EXTRA_lib_a_SOURCES = syscalls.c crt0.c # add more source files here if you split up
+EXTRA_lib_a_SOURCES = syscalls.c crt0.c array.c assert.c sleep.c # add more source files here if you split up
 lib_a_DEPENDENCIES = $(extra_objs)      # syscalls.c into multiple files
 lib_a_CCASFLAGS = $(AM_CCASFLAGS)
 lib_a_CFLAGS = $(AM_CFLAGS)
@@ -250,6 +250,24 @@ lib_a-crt0.o: crt0.c
 
 lib_a-crt0.obj: crt0.c
 	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-crt0.obj `if test -f 'crt0.c'; then $(CYGPATH_W) 'crt0.c'; else $(CYGPATH_W) '$(srcdir)/crt0.c'; fi`
+
+lib_a-array.o: array.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-array.o `test -f 'array.c' || echo '$(srcdir)/'`array.c
+
+lib_a-array.obj: array.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-array.obj `if test -f 'array.c'; then $(CYGPATH_W) 'array.c'; else $(CYGPATH_W) '$(srcdir)/array.c'; fi`
+
+lib_a-assert.o: assert.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-assert.o `test -f 'assert.c' || echo '$(srcdir)/'`assert.c
+
+lib_a-assert.obj: assert.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-assert.obj `if test -f 'assert.c'; then $(CYGPATH_W) 'assert.c'; else $(CYGPATH_W) '$(srcdir)/assert.c'; fi`
+
+lib_a-sleep.o: sleep.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-sleep.o `test -f 'sleep.c' || echo '$(srcdir)/'`sleep.c
+
+lib_a-sleep.obj: sleep.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lib_a_CFLAGS) $(CFLAGS) -c -o lib_a-sleep.obj `if test -f 'sleep.c'; then $(CYGPATH_W) 'sleep.c'; else $(CYGPATH_W) '$(srcdir)/sleep.c'; fi`
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \

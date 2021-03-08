@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 #include <kernel/amc.h>
+
 #include "syscalls.h"
 
 //DEFN_SYSCALL(kill, 0);
@@ -17,7 +18,7 @@
 //DEFN_SYSCALL(open, 2, const char*, int);
 //DEFN_SYSCALL(read, 3, int, char*, size_t);
 //DEFN_SYSCALL(output, 4, int, char*);
-//DEFN_SYSCALL(yield, 5, task_state);
+DEFN_SYSCALL(yield, 5, int);
 DEFN_SYSCALL(sbrk, 6, int);
 //DEFN_SYSCALL(brk, 7, void*);
 //DEFN_SYSCALL(mmap, 8, void*, int, int, int, int);
@@ -35,17 +36,19 @@ DEFN_SYSCALL(amc_message_send, 27, const char*, amc_message_t*);
 DEFN_SYSCALL(amc_message_broadcast, 28, amc_message_t*);
 DEFN_SYSCALL(amc_message_await, 29, const char*, amc_message_t*);
 DEFN_SYSCALL(amc_message_await_from_services, 30, int, const char**, amc_message_t*);
-DEFN_SYSCALL(amc_message_await_any, 31, amc_message_t*);
+DEFN_SYSCALL(amc_message_await_any, 31, amc_message_t**);
 DEFN_SYSCALL(amc_shared_memory_create, 32, const char*, uint32_t, uint32_t*, uint32_t*);
 DEFN_SYSCALL(amc_has_message_from, 33, const char*);
 DEFN_SYSCALL(amc_has_message, 34);
 DEFN_SYSCALL(amc_launch_service, 35, const char*);
 DEFN_SYSCALL(amc_physical_memory_region_create, 36, uint32_t, uint32_t*, uint32_t*);
+DEFN_SYSCALL(amc_message_construct_and_send, 37, const char*, uint8_t*, uint32_t);
 
 DEFN_SYSCALL(adi_register_driver, 37, const char*, uint32_t);
 DEFN_SYSCALL(adi_event_await, 38, uint32_t);
 DEFN_SYSCALL(adi_send_eoi, 39, uint32_t);
 
+DEFN_SYSCALL(ms_since_boot, 42);
 
 // According to the documentation, this is an acceptable minimal environ
 // https://sourceware.org/newlib/libc.html#Syscalls
@@ -56,8 +59,13 @@ char** environ = __env;
  * Implemented syscalls
  */
 
+void yield(void) {
+    // 1 maps to RUNNABLE
+    sys_yield(1);
+}
+
 caddr_t sbrk(int incr) {
-    return sys_sbrk(incr);
+    return (caddr_t)sys_sbrk(incr);
 }
  
 void _exit(int code) {
@@ -84,7 +92,7 @@ AMC syscalls
 
 // Construct an amc message
 amc_message_t* amc_message_construct(const char* data, int len) {
-    return sys_amc_message_construct(data, len);
+    return (amc_message_t*)sys_amc_message_construct(data, len);
 }
 
 // Asynchronously send the message to the provided destination service
@@ -98,18 +106,18 @@ void amc_message_broadcast(amc_message_t* msg) {
 }
 
 // Block until a message has been received from the source service
-void amc_message_await(const char* source_service, amc_message_t* out) {
+void amc_message_await(const char* source_service, amc_message_t** out) {
     sys_amc_message_await(source_service, out);
 }
 
 // Block until a message has been received from any of the source services
-void amc_message_await_from_services(int source_service_count, const char** source_services, amc_message_t* out) {
+void amc_message_await_from_services(int source_service_count, const char** source_services, amc_message_t** out) {
     sys_amc_message_await_from_services(source_service_count, source_services, out);
 }
 
 // Await a message from any service
 // Blocks until a message is received
-void amc_message_await_any(amc_message_t* out) {
+void amc_message_await_any(amc_message_t** out) {
     sys_amc_message_await_any(out);
 }
 
@@ -149,8 +157,12 @@ void adi_send_eoi(uint32_t irq) {
     sys_adi_send_eoi(irq);
 }
 
-}
+/*
+ * Misc syscalls
+ */
 
+uint32_t ms_since_boot(void) {
+    return sys_ms_since_boot();
 }
 
 /*

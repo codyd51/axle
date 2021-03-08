@@ -139,6 +139,13 @@ static void net() {
     panic("noreturn");
 }
 
+static void timed_launch() {
+    const char* program_name = "timed";
+    FILE* fp = initrd_fopen(program_name, "rb");
+    char* argv[] = {program_name, NULL};
+    elf_load_file(program_name, fp, argv);
+	panic("noreturn");
+}
 
 uint32_t initial_esp = 0;
 void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
@@ -193,6 +200,7 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     //task_spawn(textpad, 3, "");
     task_spawn(pci_driver, 4, "");
     task_spawn(net, 5, "");
+    task_spawn(timed_launch, 1, "");
 
     // Bootstrapping complete - kill this process
     printf("[t = %d] Bootstrap task [PID %d] will exit\n", time(), getpid());

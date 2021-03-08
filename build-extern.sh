@@ -61,6 +61,10 @@ cd ./src/user/extern/net
 make
 cd ../../../../
 
+cd ./src/user/extern/timed
+make
+cd ../../../../
+
 cd initrd
 ../fsgen ./
 mv initrd.img ../initrd.img
