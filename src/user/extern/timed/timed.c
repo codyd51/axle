@@ -65,11 +65,21 @@ int main(int argc, char** argv) {
 
 	array_t* asleep_procs = array_create(128);
 	while (true) {
-		wake_sleeping_procs(asleep_procs);
 		if (amc_has_message()) {
 			process_messages(asleep_procs);
 		}
-		yield();
+		// If no processes are waiting to be woken up, there's no reason to 
+		// execute this loop often, and we can instead wait for the next request
+		// process_messages() will implicitly block until the next message arrives
+		if (!asleep_procs->size) {
+			process_messages(asleep_procs);
+		}
+		else {
+			wake_sleeping_procs(asleep_procs);
+			// A process is waiting to be woken up, so yield but don't block so
+			// we can check in on it soon
+			yield();
+		}
 	}
 	array_destroy(asleep_procs);
 
