@@ -371,11 +371,13 @@ static void handle_user_message(amc_message_t* user_message) {
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.awm");
 
-	char* framebuffer_addr_str = argv[1];
-	uint32_t framebuffer_addr = (uint32_t)strtol(framebuffer_addr_str, NULL, 0);
-	printf("Got framebuffer addr %s 0x%08x\n", framebuffer_addr_str, framebuffer_addr);
+	// Ask the kernel to map in the framebuffer and send us info about it
+	amc__awm_map_framebuffer();
 
-	framebuffer_info_t* framebuffer_info = (framebuffer_info_t*)framebuffer_addr;
+	amc_message_t* framebuf_info;
+	amc_message_await("com.axle.core", &framebuf_info);
+	framebuffer_info_t* framebuffer_info = (framebuffer_info_t*)framebuf_info->body;
+	printf("Recv'd framebuf info!\n");
     printf("0x%08x 0x%08x (%d x %d x %d x %d)\n", framebuffer_info->address, framebuffer_info->size, framebuffer_info->width, framebuffer_info->height, framebuffer_info->bytes_per_pixel, framebuffer_info->bits_per_pixel);
 
     _screen.physbase = (uint32_t*)framebuffer_info->address;

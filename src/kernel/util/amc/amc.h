@@ -62,4 +62,6 @@ bool amc_message_construct_and_send(const char* destination_service, void* buf, 
 amc_message_t* amc_message_construct__from_core(const char* data, int len);
 bool amc_message_construct_and_send__from_core(const char* destination_service, void* buf, uint32_t buf_size);
 
+void amc__awm_map_framebuffer(void);
+
 #endif

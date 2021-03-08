@@ -462,3 +462,27 @@ void amc_physical_memory_region_create(uint32_t region_size, uint32_t* virtual_r
 
     spinlock_release(&current_service->spinlock);
 }
+
+#include <kernel/boot_info.h>
+void amc__awm_map_framebuffer() {
+    amc_service_t* current_service = _amc_service_of_task(tasking_get_current_task());
+
+    // Only awm is allowed to use this syscall!
+    assert(!strcmp(current_service->name, "com.axle.awm"), "Only AWM may use this syscall");
+
+    spinlock_acquire(&current_service->spinlock);
+    framebuffer_info_t framebuffer_info = boot_info_get()->framebuffer;
+    // TODO(PT): Map framebuffer into proc's address space
+    spinlock_release(&current_service->spinlock);
+
+    uint32_t framebuf_start_addr = framebuffer_info.address;
+    uint32_t framebuf_end_addr = framebuffer_info.address + framebuffer_info.size;
+    // Pad to page size
+    framebuf_end_addr = (framebuf_end_addr + (PAGE_SIZE - 1)) & PAGING_PAGE_MASK;
+    printf("Framebuffer: 0x%08x - 0x%08x (%d pages)\n", framebuf_start_addr, framebuf_end_addr, ((framebuf_end_addr - framebuf_start_addr) / PAGE_SIZE));
+    for (uint32_t addr = framebuf_start_addr; addr < framebuf_end_addr; addr += PAGE_SIZE) {
+        vmm_set_page_usermode(vmm_active_pdir(), addr);
+    }
+
+    amc_message_construct_and_send__from_core("com.axle.awm", &framebuffer_info, sizeof(framebuffer_info_t));
+}

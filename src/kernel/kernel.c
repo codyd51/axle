@@ -67,15 +67,7 @@ static void awm_init() {
     vmm_identity_map_region(vmm_active_pdir(), info->framebuffer.address, info->framebuffer.size);
 
     FILE* fp = initrd_fopen(program_name, "rb");
-    // Pass a pointer to the VESA linear framebuffer in argv
-    // Not great, but kind of funny :-)
-    // Later, framebuffer info can be communicated to awm via 
-    // an init amc message.
-    framebuffer_info_t framebuffer_info = boot_info_get()->framebuffer; 
-    char* ptr = kmalloc(32);
-    snprintf(ptr, 32, "0x%08x", &(boot_info_get()->framebuffer));
-    char* argv[] = {program_name, ptr, NULL};
-
+    char* argv[] = {program_name, NULL};
     elf_load_file(program_name, fp, argv);
     panic("noreturn");
 }
@@ -120,7 +112,6 @@ static void tty_init() {
     char* argv[] = {program_name, NULL};
     elf_load_file(program_name, fp, argv);
 	panic("noreturn");
-	uint8_t scancode = inb(0x60);
 }
 
 static void pci_driver() {
