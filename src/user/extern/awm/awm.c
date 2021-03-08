@@ -275,41 +275,41 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	window->title_text_box = text_box_create(title_bar_size, color_black());
 
 	// Draw top window bar
-	Color c1 = color_make(200, 160, 90);
+	Color c1 = color_make(70, 80, 130);
 	Color c2 = color_make(50, 50, 50);
-	Color active = c1;
-	Color inactive = c2;
+	Color* c = &c1;
 	int block_size = 4;
+	bool flip = false;
 	for (int y = 0; y < title_bar_size.height; y++) {
-		if (y % block_size == 0) {
-			Color tmp = active;
-			active = inactive;
-			inactive = tmp;
-		}
+		if (y % block_size == 0) flip = !flip;
+		c = flip ? &c1 : &c2;
 		for (int x = 0; x < title_bar_size.width; x++) {
 			if (x % block_size == 0) {
-				Color tmp = active;
-				active = inactive;
-				inactive = tmp;
+				c = (c == &c1) ? &c2 : &c1;
 			}
-			putpixel(window->layer, x, y, active);
+			putpixel(window->layer, x, y, *c);
 		}
 	}
+
+	// Draw a bordering rectangle around the title bar
+	draw_rect(window->layer,
+			  rect_make(point_zero(), title_bar_size), 
+			  color_black(), 
+			  1);
 
 	// Draw window title
 	uint32_t title_len = ((window->title_text_box->font_size.width + window->title_text_box->font_padding.width) * strlen(owner_service));
 	Point title_text_origin = point_make(border_margin, border_margin);
-	for (int i = 0; i < strlen(owner_service); i++) {
-		text_box_putchar(window->title_text_box, owner_service[i], color_white());
-	}
+	text_box_puts(window->title_text_box, owner_service, color_white());
+
 	Size visible_title_bar_size = size_make(title_len, 14);
 	blit_layer(
 		window->layer, 
 		window->title_text_box->layer, 
 		rect_make(
 			point_make(
-				title_text_origin.x - 2,
-				title_text_origin.y - 2
+				title_text_origin.x + 2,
+				title_text_origin.y + 1
 			),
 			visible_title_bar_size
 		),
@@ -320,19 +320,13 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	_window_move_to_top(window);
 }
 
-static void _request_redraw(const char* owner_service) {
-	char* redraw_cmdstr = "redraw";
-	amc_message_t* redraw_cmd = amc_message_construct(redraw_cmdstr, strlen(redraw_cmdstr));
-	//amc_message_send(owner_service, redraw_cmd);
-}
-
 static void _update_window_framebuf_idx(int idx) {
 	if (idx >= window_count) assert("invalid index");
 	user_window_t* window = &windows[idx];
 	//blit_layer(_screen.vmem, &window->shared_layer, window->frame, rect_make(point_zero(), window->frame.size));
 	//blit_layer(_screen.vmem, window->layer, window->frame, rect_make(point_zero(), window->frame.size));
 	blit_layer(window->layer, window->content_view->layer, window->content_view->frame, rect_make(point_zero(), window->content_view->frame.size));
-	blit_layer(_screen.vmem, window->layer, window->frame, rect_make(point_zero(), window->frame.size));
+	//blit_layer(_screen.vmem, window->layer, window->frame, rect_make(point_zero(), window->frame.size));
 }
 
 static void _update_window_framebuf(const char* owner_service) {
@@ -355,7 +349,7 @@ static void _update_window_framebuf(const char* owner_service) {
 	//blit_layer(_screen.physbase, window->content_view->layer, rect_make(point_zero(), _screen.resolution), rect_make(point_zero(), _screen.resolution));
 }
 
-static void handle_user_message(amc_command_message_t* user_message) {
+static void handle_user_message(amc_message_t* user_message) {
 	const char* source_service = amc_message_source(user_message);
 	// User requesting a window to draw in to?
 	uint32_t command = amc_msg_u32_get_word(user_message, 0);
@@ -439,6 +433,8 @@ int main(int argc, char** argv) {
 			else {
 				// TODO(PT): If a window sends REDRAW_READY, we can put it onto a "ready to redraw" list
 				// Items can be popped off the list based on their Z-index, or a periodic time-based update
+				// TODO(PT): If a window has requested multiple redraws within a single awm event loop
+				// pass, awm should redraw it only once
 				handle_user_message(msg);
 			}
 		} while (amc_has_message());
