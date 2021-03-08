@@ -31,13 +31,6 @@ uint32_t inl(uint16_t port) {
 	return _v;
 }
 
-void assert(bool cond, const char* msg) {
-	if (!cond) {
-		printf("Assertion failed: %s\n", msg);
-		exit(1);
-	}
-}
-
 static uint16_t flip_short(uint16_t short_int) {
     uint32_t first_byte = *((uint8_t*)(&short_int));
     uint32_t second_byte = *((uint8_t*)(&short_int) + 1);

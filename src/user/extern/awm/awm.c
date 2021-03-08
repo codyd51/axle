@@ -55,8 +55,6 @@ void write_screen(Screen* screen) {
 }
 
 static void handle_keystroke(amc_message_t* keystroke_msg) {
-	Color keystroke_color = color_white();
-
 	for (int i = 0; i < keystroke_msg->len; i++) {
 		char ch = keystroke_msg->body[i];
 		// Only send this keystroke to the foremost program
@@ -269,7 +267,9 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	content_view->layer->alpha = 1.0;
 	window->content_view = content_view;
 	printf("Content view window layer: 0x%08x\n", content_view->layer->raw);
-	window->owner_service = owner_service;
+	// Copy the owner service name as we don't own it
+	window->owner_service = strndup(owner_service, AMC_MAX_SERVICE_NAME_LEN);
+	printf("set window owner_service %s\n", owner_service);
 
 	// Configure the title text box
 	window->title_text_box = text_box_create(title_bar_size, color_black());
