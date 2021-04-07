@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include "libamc.h"
 
+#include <daemons/watchdogd/watchdogd_messages.h>
+
 // Valid for all message types
 const char* amc_message_source(amc_message_t* msg) {
     return (const char*)msg->source;
@@ -39,6 +41,11 @@ void amc_msg_u32_6__send(const char* destination, uint32_t w1, uint32_t w2, uint
 
 void amc_msg_i8_3__send(const char* destination, int8_t b1, int8_t b2, int8_t b3) {
     int8_t buf[3] = {b1, b2, b3};
+    amc_message_construct_and_send(destination, &buf, sizeof(buf));
+}
+
+void amc_msg_i8_4__send(const char* destination, int8_t b1, int8_t b2, int8_t b3, int8_t b4) {
+    int8_t buf[4] = {b1, b2, b3, b4};
     amc_message_construct_and_send(destination, &buf, sizeof(buf));
 }
 
@@ -84,4 +91,15 @@ void amc_msg_u32_5__request_response_sync(
 		printf("Invalid state. Expected response 0x%08x\n", response);
         // TODO(PT): Implement assert library and throw one here
 	}
+}
+
+bool libamc_handle_message(amc_message_t* msg) {
+    if (!strncmp(msg->source, WATCHDOGD_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
+        if (amc_msg_u32_get_word(msg, 0) == WATCHDOGD_LIVELINESS_PING) {
+            printf("libamc responding to liveliness check!\n");
+            amc_msg_u32_1__send(msg->source, WATCHDOGD_LIVELINESS_PING_RESPONSE);
+            return true;
+        }
+    }
+    return false;
 }

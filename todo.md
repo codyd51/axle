@@ -63,7 +63,31 @@ DNS and TCP.
 Symbolicate ELF stack traces
 
 Send a ping to every program periodically to ensure its liveliness
+    - In a separate monitor that uses the same flow control as the awm queue monitor
+    - Every 5 seconds sends a liveliness check to every amc service
+    - If no response in 3 seconds, send awm a "hang notice"
+    - If it begins responding, send awm a "hang resolved"
 
 Timekeeping
     - Net timeouts/retransmissions
     - Liveliness pings
+
+Implement an event loop API instead of apps needing to manage the event loop themselves
+    - Callbacks can be set up for:
+        - amc messages
+        - timers
+    - Apps can subscribe callbacks for amc messages
+
+Move ARP, etc into callback model
+
+Display number of pending amc messages on each window so we can watch the queue drain
+    - Perhaps this can be a window that queries amc debug info every 3 seconds and
+       draws the stats
+    - Roll into a task monitor?
+
+awm de-duplicates redraw messages from the same window (redraws only once) (check)
+
+DNS might need to wait for ARP
+    - We might need a more generic "do ARP with this callback function pointer"
+        - Where the function pointer might be, "unblock via an amc reply",
+            - Or, "send the DNS query to the router"

@@ -1,5 +1,5 @@
-#ifndef TIME_MESSAGES_H
-#define TIME_MESSAGES_H
+#ifndef TIMED_MESSAGES_H
+#define TIMED_MESSAGES_H
 
 #include <kernel/amc.h>
 
