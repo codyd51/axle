@@ -19,6 +19,8 @@
 
 #include <libnet/libnet.h>
 
+#include "html.h"
+
 // Many graphics lib functions call gfx_screen() 
 Screen _screen = {0};
 Screen* gfx_screen() {
@@ -99,327 +101,248 @@ text_view_t* text_view_create(Rect frame, Color background_color) {
 	text_view_t* text_view = calloc(1, sizeof(text_view_t));
 	text_box_t* text_box = text_box_create(frame.size, background_color);
 	text_view->text_box = text_box;
+	text_view->text_box->preserves_history = true;
+	text_view->text_box->cache_drawing = true;
 	text_view->frame = frame;
 	return text_view;
 }
 
-typedef struct tcp_lexer {
-	uint32_t tcp_conn_desc;
-	uint8_t current_chunk[1024];
-	uint32_t current_chunk_size;
-	uint32_t read_off;
+typedef struct draw_ctx {
+	Point cursor;
+	Size font_size;
+	Color text_color;
+	text_box_t* text_box;
+} draw_ctx_t;
 
-	char delimiters[64];
-	uint32_t delimiters_count;
-
-	// html info
-	// todo(pt): replace with a hash map of headers?
-	uint32_t content_length;
-} tcp_lexer_t;
-
-static char _peekchar(tcp_lexer_t* state) {
-	// have we yet to read our first chunk, or are out of data within this chunk?
-	if (state->current_chunk_size == 0 || state->read_off >= state->current_chunk_size) {
-		printf("lexer fetching more stream data\n");
-		state->current_chunk_size = net_tcp_conn_read(state->tcp_conn_desc, state->current_chunk, sizeof(state->current_chunk));
-		printf("lexer recv %d bytes from stream\n", state->current_chunk_size);
-		state->read_off = 0;
-	}
-	assert(state->current_chunk_size > 0, "expected stream data to be available");
-
-	return state->current_chunk[state->read_off];
+void _h1_enter(draw_ctx_t* ctx) {
+	ctx->font_size = size_make(24, 36);
+	ctx->text_box->font_size = ctx->font_size;
+	text_box_puts(ctx->text_box, "\n", ctx->text_color);
+	ctx->cursor = ctx->text_box->cursor_pos;
 }
 
-static char _getchar(tcp_lexer_t* state) {
-	char ret = _peekchar(state);
-	state->read_off += 1;
-	return ret;
+void _h1_exit(draw_ctx_t* ctx) {
+	text_box_puts(ctx->text_box, "\n", ctx->text_color);
+	ctx->font_size = size_make(8, 12);
+	ctx->text_box->font_size = ctx->font_size;
+	ctx->cursor = ctx->text_box->cursor_pos;
 }
 
-static bool _char_is_delimiter(tcp_lexer_t* state, char ch) {
-	for (uint32_t i = 0; i < state->delimiters_count; i++) {
-		if (ch == state->delimiters[i]) {
-			return true;
+void _h2_enter(draw_ctx_t* ctx) {
+	ctx->font_size = size_make(16, 24);
+	ctx->text_box->font_size = ctx->font_size;
+	text_box_puts(ctx->text_box, "\n", ctx->text_color);
+	ctx->cursor = ctx->text_box->cursor_pos;
+}
+
+void _h2_exit(draw_ctx_t* ctx) {
+	text_box_puts(ctx->text_box, "\n", ctx->text_color);
+	ctx->font_size = size_make(8, 12);
+	ctx->text_box->font_size = ctx->font_size;
+	ctx->cursor = ctx->text_box->cursor_pos;
+}
+
+void _p_enter(draw_ctx_t* ctx) {
+	text_box_puts(ctx->text_box, "\n", ctx->text_color);
+	ctx->cursor = ctx->text_box->cursor_pos;
+}
+
+void _p_exit(draw_ctx_t* ctx) {
+	text_box_puts(ctx->text_box, "\n", ctx->text_color);
+	ctx->cursor = ctx->text_box->cursor_pos;
+}
+
+void _a_enter(draw_ctx_t* ctx) {
+	ctx->text_color = color_blue();
+}
+
+void _a_exit(draw_ctx_t* ctx) {
+	// TODO(PT): Model a stack of attributes
+	// When entering a new, push the attr
+	// When exiting, pop
+	// Get the "effective style" by applying the stack from bottom to top
+	ctx->text_color = color_black();
+}
+
+void _draw_ast(html_dom_node_t* node, uint32_t depth, text_box_t* text_box) {
+	Color c = color_black();
+	if (depth > 0) {
+		text_box_puts(text_box, "\t", c);
+		for (uint32_t i = 0; i < depth-1; i++) {
+			text_box_puts(text_box, "|\t", c);
 		}
 	}
-	return false;
+	const char* node_type = "Unknown";
+	switch (node->type) {
+		case HTML_DOM_NODE_TYPE_DOCUMENT:
+			node_type = "Root";
+			break;
+		case HTML_DOM_NODE_TYPE_HTML_TAG:
+			node_type = "Tag";
+			break;
+		case HTML_DOM_NODE_TYPE_TEXT:
+		default:
+			node_type = "Text";
+			break;
+	}
+	char buf[256];
+	snprintf(buf, sizeof(buf), "<%s:%s", node_type, node->name);
+	text_box_puts(text_box, buf, c);
+	if (node->attrs) {
+		snprintf(buf, sizeof(buf), " (attrs: %s)", node->attrs);
+		text_box_puts(text_box, buf, c);
+	}
+	text_box_puts(text_box, ">\n", c);
+	for (uint32_t i = 0; i < node->child_count; i++) {
+		_draw_ast(node->children[i], depth + 1, text_box);
+	}
 }
 
-static char* _gettok(tcp_lexer_t* state, uint32_t* out_len) {
-	char buf[128];
-	uint32_t i = 0;
-	for (; i < sizeof(buf); i++) {
-		char peek = _peekchar(state);
-		bool is_delimiter = _char_is_delimiter(state, peek);
-		if (is_delimiter) {
-			if (i > 0) {
-				// if this is a multi-character token, break if we encounter a delimiter
+typedef struct html_tag_callback {
+	const char* tag_name;
+	void(*enter)(draw_ctx_t*);
+	void(*exit)(draw_ctx_t*);
+} html_tag_callback_t;
+
+html_tag_callback_t html_tags[] = {
+	{"h1", _h1_enter, _h1_exit},
+	{"H1", _h1_enter, _h1_exit},
+	{"h2", _h2_enter, _h2_exit},
+	{"H2", _h2_enter, _h2_exit},
+	{"p", _p_enter, _h2_exit},
+	{"P", _p_enter, _p_exit},
+	{"a", _a_enter, _a_exit},
+	{"A", _a_enter, _a_exit},
+};
+
+void _draw_node(html_dom_node_t* node, uint32_t depth, draw_ctx_t* ctx, text_box_t* text_box) {
+	// TODO(PT): Draw into a text box or ca_layer? Probably the latter
+	html_tag_callback_t* active_tag = NULL;
+	ctx->text_box = text_box;
+
+	for (uint32_t i = 0; i < depth; i++) {
+		printf("\t");
+	}
+
+	if (node->type == HTML_DOM_NODE_TYPE_TEXT) {
+		printf("Drawing text at (%d, %d): %s\n", ctx->cursor.x, ctx->cursor.y, node->name);
+		// Make sure the text box draws at the right place
+		text_box->cursor_pos = ctx->cursor;
+		text_box->font_size = ctx->font_size;
+		text_box_puts(text_box, node->name, ctx->text_color);
+		// And update our cursor to reflect what the text box drew
+		ctx->cursor = text_box->cursor_pos;
+	}
+	else if (node->type == HTML_DOM_NODE_TYPE_HTML_TAG) {
+		if (!strcmp(node->name, "style")) {
+			// Skip style tags and their contents
+			return;
+		}
+
+		for (uint32_t i = 0; i < sizeof(html_tags) / sizeof(html_tags[0]); i++) {
+			html_tag_callback_t* ent = &html_tags[i];
+			if (!strcmp(node->name, ent->tag_name)) {
+				// Add the attributes of this tag to the attributes stack
+				printf("Adding attributes of tag %s\n", node->name);
+				active_tag = ent;
+				ent->enter(ctx);
 				break;
 			}
-			else {
-				// 1-character delimiter token
-				// ensure `i` is incremented to reflect a token, even though we break
-				buf[i++] = _getchar(state);
-				break;
-			}
 		}
-
-		// normal token
-		buf[i] = _getchar(state);
-	}
-	*out_len = i;
-	return strndup(buf, i);
-}
-
-static bool _match(tcp_lexer_t* state, char* expected) {
-	char buf[256];
-	uint32_t buf_ptr = 0;
-	uint32_t expected_len = strlen(expected);
-	for (; buf_ptr < sizeof(buf);) {
-		uint32_t tok_len = 0;
-		char* next_tok = _gettok(state, &tok_len);
-		strncpy(buf + buf_ptr, next_tok, tok_len);
-		buf_ptr += tok_len;
-		free(next_tok);
-
-		if (buf_ptr >= expected_len) {
-			if (!strncmp(buf, expected, expected_len)) {
-				return true;
-			}
-			return false;
-		}
-	}
-	return false;
-}
-
-static bool _check_stream(tcp_lexer_t* state, char* expected) {
-	char buf[256];
-	uint32_t buf_ptr = 0;
-	uint32_t expected_len = strlen(expected);
-
-	if (state->read_off + expected_len > state->current_chunk_size) {
-		printf("state->read_off %d expected_len %d, current_chunk_size %d\n", state->read_off, expected_len, state->current_chunk_size);
-		assert(0, "cannot peek stream: need to fetch more data");
-		return false;
-	}
-
-	char* stream_ptr = state->current_chunk + state->read_off;
-	return !strncmp(stream_ptr, expected, expected_len);
-}
-
-static bool _check_newline(tcp_lexer_t* state) {
-	return _check_stream(state, "\r\n") || _check_stream(state, "\n");
-}
-
-static bool _match_newline(tcp_lexer_t* state, bool* out_is_crlf) {
-	*out_is_crlf = false;
-
-	if (_check_stream(state, "\r\n")) {
-		*out_is_crlf = true;
-		return _match(state, "\r\n");
-	}
-	else if (_check_stream(state, "\n")) {
-		return _match(state, "\n");
-	}
-	return false;
-}
-
-static bool _check_crlf(tcp_lexer_t* state) {
-	return _check_stream(state, "\r\n");
-}
-
-bool str_ends_with(const char *s, const char *t) {
-	// https://codereview.stackexchange.com/questions/54722/determine-if-one-string-occurs-at-the-end-of-another/54724
-    size_t ls = strlen(s);
-    size_t lt = strlen(t);
-	// Check if t can fit in s
-    if (ls >= lt) {
-        // point s to where t should start and compare the strings from there
-        return (0 == memcmp(t, s + (ls - lt), lt));
-    }
-	// t was longer than s
-    return 0;
-}
-
-static char* _get_token_sequence_delimited_by(tcp_lexer_t* state, char* delim, uint32_t* out_len, bool consume_delim) {
-	char buf[256];
-	uint32_t buf_ptr = 0;
-	for (; buf_ptr < sizeof(buf);) {
-		uint32_t tok_len = 0;
-		char* next_tok = _gettok(state, &tok_len);
-		if (!strncmp(next_tok, delim, strlen(delim))) {
-			free(next_tok);
-			break;
-		}
-		strncpy(buf + buf_ptr, next_tok, tok_len);
-		buf_ptr += tok_len;
-		free(next_tok);
-
-		// In case the delimiter was split up into multiple tokens,
-		// check the last bit of the string to see if it matches the delimiter
-		if (str_ends_with(buf, delim)) {
-			// Trim the delimiter from the string
-			buf_ptr -= strlen(delim);
-			break;
-		}
-	}
-
-	// If we should not consume the delimiter, rewind the stream
-	if (!consume_delim) {
-		state->read_off -= strlen(delim);
-	}
-
-	*out_len = buf_ptr;
-	return strndup(buf, buf_ptr);
-}
-
-tcp_lexer_t* _lexer_create(void) {
-	tcp_lexer_t* lexer = calloc(1, sizeof(tcp_lexer_t));
-	char delimiters[] = {' ', '<', '>', '\r', '\n'};
-	uint32_t delims_len = sizeof(delimiters) / sizeof(delimiters[0]);
-	memcpy(lexer->delimiters, delimiters, delims_len);
-	lexer->delimiters_count = delims_len;
-	return lexer;
-}
-
-void _lexer_free(tcp_lexer_t* lexer) {
-	free(lexer);
-}
-
-typedef struct html_tag {
-	char* name;
-	char* attrs;
-} html_tag_t;
-
-static html_tag_t* _parse_html_tag(tcp_lexer_t* state) {
-	html_tag_t* tag = calloc(1, sizeof(html_tag_t));
-	if (!_match(state, "<")) {
-		printf("Failed to match open tag %c\n", _peekchar(state));
-		return NULL;
-	}
-	uint32_t out_len = 0;
-	tag->name = _gettok(state, &out_len);
-	// Close tag or more attributes to follow?
-	if (_peekchar(state) == ' ') {
-		_match(state, " ");
-		tag->attrs = _get_token_sequence_delimited_by(state, ">",  &out_len, true);
-
 	}
 	else {
-		// No attributes - close the tag
-		if (!_match(state, ">")) {
-			printf("Failed to match close tag\n");
-			free(tag->name);
-			free(tag);
-			return NULL;
-		}
-	}
-	return tag;
-}
-
-static void html_tag_free(html_tag_t* t) {
-	if (t->name) {
-		free(t->name);
-	}
-	if (t->attrs) {
-		free(t->attrs);
-	}
-	free(t);
-}
-
-static void _read_html_response(uint32_t conn_desc) {
-	tcp_lexer_t* lexer = _lexer_create();
-
-	uint32_t out_len = 0;
-	char* http_version = _get_token_sequence_delimited_by(lexer, " ", &out_len, true);
-	printf("HTTP version: %.*s\n", out_len, http_version);
-	free(http_version);
-
-	char* status_code = _get_token_sequence_delimited_by(lexer, " ", &out_len, true);
-	printf("Status code: %.*s\n", out_len, status_code);
-	free(status_code);
-
-	char* reason_phrase = _get_token_sequence_delimited_by(lexer, "\r\n", &out_len, true);
-	printf("Reason phrase: %.*s\n", out_len, reason_phrase);
-	free(reason_phrase);
-
-	while (!_check_stream(lexer, "\r\n")) {
-		char* header_key = _get_token_sequence_delimited_by(lexer, ":", &out_len, true);
-		printf("%.*s: ", out_len, header_key);
-
-		char* header_value = _get_token_sequence_delimited_by(lexer, "\r\n", &out_len, true);
-		printf("%.*s\n", out_len, header_value);
-
-		if (!strncmp(header_key, "Content-Length", 64)) {
-			lexer->content_length = strtol(header_value, NULL, 10);
-			printf("\tFound Content-Length header: %.*s, %d\n", out_len, header_value, lexer->content_length);
-		}
-
-		free(header_key);
-		free(header_value);
+		printf("Doing no drawing for DOM node of type %d: %s\n", node->type, node->name);
 	}
 
-	if (!_match(lexer, "\r\n")) {
-		printf("Failed to match CRLF at end of headers\n");
-		return;
+	for (uint32_t i = 0; i < node->child_count; i++) {
+		_draw_node(node->children[i], depth + 1, ctx, text_box);
 	}
 
-	// Only parse an HTML body if Content-Length indicated one
-	if (lexer->content_length == 0) {
-		printf("Content-Length was zero, headers only!\n");
-		_lexer_free(lexer);
-		return;
-	}
-
-	uint32_t html_start_offset = lexer->read_off;
-	uint32_t html_end_offset = html_start_offset + lexer->content_length;
-	while (true) {
-		html_tag_t* tag = _parse_html_tag(lexer);
-		printf("Got tag: %s", tag->name);
-		if (tag->attrs) {
-			printf(" (attrs %s)\n", tag->attrs);
+	if (node->type == HTML_DOM_NODE_TYPE_HTML_TAG) {
+		if (active_tag) {
+			active_tag->exit(ctx);
 		}
 		else {
-			printf("\n");
+			printf("Warning: No active_tag set up for HTML tag name: %s\n", node->name);
 		}
+	}
+}
 
-		// Optional newline?
-		if (_check_newline(lexer)) {
-			bool is_crlf;
-			_match_newline(lexer, &is_crlf);
+static html_dom_node_t* _html_child_tag_with_name(html_dom_node_t* parent_node, char* tag_name) {
+	for (uint32_t i = 0; i < parent_node->child_count; i++) {
+		html_dom_node_t* child_node = parent_node->children[i];
+		if (child_node->type == HTML_DOM_NODE_TYPE_HTML_TAG) {
+			// https://stackoverflow.com/questions/2661766/how-do-i-lowercase-a-string-in-c
+			char* lower = strdup(child_node->name);
+			char* p = lower;
+			for ( ; *p; ++p) *p = tolower(*p);
 
-			// Does the HTML body end here?
-			if (lexer->read_off >= html_end_offset) {
-				printf("Content-Length exhausted, body parsed\n");
-				_lexer_free(lexer);
-				return;
+			if (!strcmp(lower, tag_name)) {
+				free(lower);
+				return child_node;
 			}
-
-			// End of response? (2 CRLF in a row)
-			if (is_crlf && _check_crlf(lexer)) {
-				printf("Found end of HTTP response\n");
-				html_tag_free(tag);
-				_lexer_free(lexer);
-				return;
-			}
+			free(lower);
 		}
+	}
+	return NULL;
+}
 
-		// Parse the tag content before the next tag
-		// TODO(PT): One option is to build a recursive descent parser that matches the tag and everything within
-		// Don't consume the opening of the next tag
-		char* tag_content = _get_token_sequence_delimited_by(lexer, "<", &out_len, false);
-		if (out_len) {
-			printf("\t%s content: %.*s\n", tag->name, out_len, tag_content);
+static char* _html_child_text(html_dom_node_t* parent_node) {
+	for (uint32_t i = 0; i < parent_node->child_count; i++) {
+		html_dom_node_t* child_node = parent_node->children[i];
+		if (child_node->type == HTML_DOM_NODE_TYPE_TEXT) {
+			return child_node->name;
 		}
+	}
+	return NULL;
+}
 
-		html_tag_free(tag);
+static void _render_html_dom(html_dom_node_t* root_node, text_box_t* text_box) {
+	draw_ctx_t ctx = {0};
+	// Default parameters
+	text_box_puts(text_box, "--- Rendered HTML --- \n", color_dark_gray());
+	ctx.cursor = text_box->cursor_pos;
+	ctx.font_size = text_box->font_size;
+	ctx.text_color = color_black();
+
+	// Find the page title
+	html_dom_node_t* html_node = _html_child_tag_with_name(root_node, "html");
+	if (!html_node) {
+		printf("No <html> tag!\n");
+		return;
+	}
+	html_dom_node_t* head_node = _html_child_tag_with_name(html_node, "head");
+	if (!head_node) {
+		printf("No <head> tag within <html>!\n");
+		return;
+	}
+	html_dom_node_t* title_node = _html_child_tag_with_name(head_node, "title");
+	char* title_str = NULL;
+	if (title_node) {
+		title_str = _html_child_text(title_node);
+	}
+	title_str = title_str ?: "No page title";
+
+	// And find the body
+	html_dom_node_t* body_node = _html_child_tag_with_name(html_node, "body");
+	if (!body_node) {
+		printf("No <body> tag within <html>!\n");
+		return;
 	}
 
-	// TODO(PT): _match should re-enqueue on failure
-	// TODO(PT): Match upper and lower case
+	// Draw the page title
+	text_box_puts(text_box, "Page title: ", color_dark_gray());
+	text_box_puts(text_box, title_str, color_light_gray());
+	text_box_puts(text_box, "\n", color_black());
+
+	// And the boxy
+	_draw_node(body_node, 0, &ctx, text_box);
 }
 
 static void _process_amc_messages(event_loop_state_t* state) {
+	bool got_resize_msg = false;
+	awm_window_resized_msg_t newest_resize_msg = {0};
+
 	do {
 		amc_message_t* msg;
 		amc_message_await_any(&msg);
@@ -450,16 +373,35 @@ static void _process_amc_messages(event_loop_state_t* state) {
 				uint32_t len = snprintf(http_buf, sizeof(http_buf), "GET / HTTP/1.1\nHost: %s\n\n", domain_name);
 				net_tcp_conn_send(conn, http_buf, len);
 
-				_read_html_response(conn);
+				printf("Calling html_parse_from_socket(%d)\n", conn);
+				html_dom_node_t* root = html_parse_from_socket(conn);
+
+				text_view_t* tv = array_lookup(state->text_views, 0);
+				_render_html_dom(root, tv->text_box);
+
+				text_box_puts(tv->text_box, "\n\n\n--- HTML AST-- \n", color_dark_gray());
+				_draw_ast(root, 0, tv->text_box);
 				/*
 				uint8_t recv[1024];
 				net_tcp_conn_read(conn, &recv, sizeof(recv)-1);
-				text_view_t* tv = array_lookup(state->text_views, 0);
 				text_box_clear(tv->text_box);
 				text_box_puts(tv->text_box, recv, color_black());
 
 				*/
 				text_input_clear(inp);
+				text_box_puts(inp->text_box, "Enter a URL: ", color_make(200, 200, 200));
+			}
+			else if (ch == '\b') {
+				// TODO(PT): text_box_delchar?
+				text_input_t* inp = array_lookup(state->text_inputs, 0);
+				if (inp->len > 0) {
+					inp->text[--inp->len] = '\0';
+					text_box_t* text_box = inp->text_box;
+
+					text_box->cursor_pos.x -= text_box->font_size.width + text_box->font_padding.width;
+					text_box_putchar(text_box, ' ', text_box->background_color);
+					text_box->cursor_pos.x -= text_box->font_size.width + text_box->font_padding.width;
+				}
 			}
 			else {
 				text_input_t* inp = array_lookup(state->text_inputs, 0);
@@ -470,97 +412,40 @@ static void _process_amc_messages(event_loop_state_t* state) {
 					inp->max_len = new_max_len;
 				}
 				inp->text[inp->len++] = ch;
-				text_box_putchar(inp->text_box, ch, color_blue());
+				text_box_putchar(inp->text_box, ch, color_white());
 			}
-			/*
-			if (ch == 'a') {
-				printf("Requesting local MAC...\n");
-				uint8_t dest[MAC_ADDR_SIZE];
-				net_copy_local_mac_addr(dest);
-				char buf[64];
-				format_mac_address(buf, sizeof(buf), dest);
-				printf("Got local MAC: %s\n", buf);
+		}
+		else if (event == AWM_MOUSE_SCROLLED) {
+			text_view_t* tv = array_lookup(state->text_views, 0);
+			awm_mouse_scrolled_msg_t* m = (awm_mouse_scrolled_msg_t*)msg->body;
+			bool scroll_up = m->delta_z > 0;
+			for (uint32_t i = 0; i < abs(m->delta_z); i++) {
+				if (scroll_up) text_box_scroll_up(tv->text_box);
+				else text_box_scroll_down(tv->text_box);
 			}
-			else if (ch == 'r') {
-				printf("Requesting local IPv4...\n");
-				uint8_t dest[IPv4_ADDR_SIZE];
-				net_copy_local_ipv4_addr(dest);
-				char buf[64];
-				format_ipv4_address__buf(buf, sizeof(buf), dest);
-				printf("Got local IPv4: %s\n", buf);
-			}
-			else if (ch == 's') {
-				printf("Requesting router IPv4...\n");
-				uint8_t dest[IPv4_ADDR_SIZE];
-				net_copy_router_ipv4_addr(dest);
-				char buf[64];
-				format_ipv4_address__buf(buf, sizeof(buf), dest);
-				printf("Got router IPv4: %s\n", buf);
-			}
-			else if (ch == 't') {
-				printf("Performing ARP resolution of something random (as a test)...\n");
-				uint8_t router_ip[IPv4_ADDR_SIZE] = {192, 168, 1, 159};
-				uint8_t router_mac[MAC_ADDR_SIZE];
-				net_get_mac_from_ipv4(router_ip, router_mac);
-				char buf[64];
-				format_mac_address(buf, sizeof(buf), router_mac);
-				printf("Got router IPv4 (via ARP resolution): %s\n", buf);
-			}
-			else if (ch == 'd') {
-				printf("Performing ARP resolution of something random (as a test)...\n");
-				uint8_t router_ip[IPv4_ADDR_SIZE] = {192, 168, 1, 222};
-				uint8_t router_mac[MAC_ADDR_SIZE];
-				net_get_mac_from_ipv4(router_ip, router_mac);
-				char buf[64];
-				format_mac_address(buf, sizeof(buf), router_mac);
-				printf("Got router IPv4 (via ARP resolution): %s\n", buf);
-			}
-			else if (ch == 'w') {
-				const char* domain_name = "google.com";
-				printf("Performing DNS lookup of %s\n", domain_name);
-				uint8_t out_ipv4[IPv4_ADDR_SIZE];
-				net_get_ipv4_of_domain_name(domain_name, strlen(domain_name), out_ipv4);
-				char buf[64];
-				format_ipv4_address__buf(buf, sizeof(buf), out_ipv4);
-				printf("IPv4 address of %s: %s\n", domain_name, buf);
-			}
-			else if (ch == 'q') {
-				const char* domain_name = "google.com";
-				text_view_t* inp = array_lookup(state->text_inputs, 0);
-				text_box_clear(inp->text_box);
-				text_box_puts(inp->text_box, domain_name, color_blue());
-
-				printf("TCP: Performing DNS lookup of %s\n", domain_name);
-				uint8_t out_ipv4[IPv4_ADDR_SIZE];
-				net_get_ipv4_of_domain_name(domain_name, strlen(domain_name), out_ipv4);
-				char buf[64];
-				format_ipv4_address__buf(buf, sizeof(buf), out_ipv4);
-				printf("TCP: IPv4 address of %s: %s\n", domain_name, buf);
-
-				uint32_t port = net_find_free_port();
-				uint32_t dest_port = 80;
-				uint32_t conn = net_tcp_conn_init(port, dest_port, out_ipv4);
-				printf("TCP: Conn descriptor %d\n", conn);
-
-				char http_buf[512];
-				uint32_t len = snprintf(http_buf, sizeof(http_buf), "GET / HTTP/1.1\nHost: %s\n\n", domain_name);
-				net_tcp_conn_send(conn, http_buf, len);
-
-				uint8_t recv[1024];
-				uint32_t read_len = net_tcp_conn_read(conn, &recv, sizeof(recv)-1);
-				printf("Read %d bytes: %s\n", read_len, recv);
-				recv[read_len] = '\0';
-				text_view_t* tv = array_lookup(state->text_views, 0);
-				text_box_clear(tv->text_box);
-				text_box_puts(tv->text_box, recv, color_black());
-			}
-			else if (ch == 'b') {
-				text_input_t* inp = array_lookup(state->text_inputs, 0);
-				text_box_puts(inp->text_box, "abcdefg", color_green());
-			}
-			*/
+		}
+		else if (event == AWM_WINDOW_RESIZED) {
+			got_resize_msg = true;
+			awm_window_resized_msg_t* m = (awm_window_resized_msg_t*)msg->body;
+			newest_resize_msg = *m;
 		}
 	} while (amc_has_message());
+
+	if (got_resize_msg) {
+		awm_window_resized_msg_t* m = (awm_window_resized_msg_t*)&newest_resize_msg;
+		state->window_frame.size = m->new_size;
+
+		Size search_bar_size = size_make(state->window_frame.size.width, 40);
+		//text_input_t* url_input = text_input_create(rect_make(point_zero(), search_bar_size), color_dark_gray());
+
+		Size display_box_size = size_make(state->window_frame.size.width, state->window_frame.size.height - search_bar_size.height);
+		text_view_t* tv = array_lookup(state->text_views, 0);
+		tv->frame = rect_make(
+			point_make(0, search_bar_size.height),
+			display_box_size
+		);
+		text_box_resize(tv->text_box, tv->frame.size);
+	}
 }
 
 void event_loop(event_loop_state_t* state) {
@@ -570,23 +455,23 @@ void event_loop(event_loop_state_t* state) {
 		// Blit each text input to the window layer
 		for (uint32_t i = 0; i < state->text_inputs->size; i++) {
 			text_input_t* ti = array_lookup(state->text_inputs, i);
-			blit_layer(
+			text_box_blit(ti->text_box, state->window_layer, ti->frame);
+			// Draw the input indicator
+			draw_rect(
 				state->window_layer, 
-				ti->text_box->layer, 
-				ti->frame, 
-				rect_make(point_zero(), ti->text_box->size)
+				rect_make(
+					ti->text_box->cursor_pos,
+					size_make(5, ti->text_box->font_size.height)
+				),
+				color_white(),
+				THICKNESS_FILLED
 			);
 		}
 
 		// Blit each text view to the window layer
 		for (uint32_t i = 0; i < state->text_views->size; i++) {
 			text_view_t* tv = array_lookup(state->text_views, i);
-			blit_layer(
-				state->window_layer, 
-				tv->text_box->layer, 
-				tv->frame, 
-				rect_make(point_zero(), tv->text_box->size)
-			);
+			text_box_blit(tv->text_box, state->window_layer, tv->frame);
 		}
 		amc_msg_u32_1__send(AWM_SERVICE_NAME, AWM_WINDOW_REDRAW_READY);
 
@@ -608,7 +493,9 @@ int main(int argc, char** argv) {
 	state->text_views = array_create(64);
 
 	Size search_bar_size = size_make(window_size.width, 40);
-	text_input_t* url_input = text_input_create(rect_make(point_zero(), search_bar_size), color_gray());
+	text_input_t* url_input = text_input_create(rect_make(point_zero(), search_bar_size), color_dark_gray());
+	url_input->text_box->font_size = size_make(16, 24);
+	text_box_puts(url_input->text_box, "Enter a URL: ", color_make(200, 200, 200));
 	array_insert(state->text_inputs, url_input);
 
 	Size display_box_size = size_make(window_size.width, window_size.height - search_bar_size.height);
