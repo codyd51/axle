@@ -12,6 +12,7 @@
 #include <kernel/util/shmem/shmem.h>
 #include <gfx/lib/surface.h>
 #include <kernel/util/amc/amc.h>
+#include <kernel/drivers/pit/pit.h>
 
 void yield(task_state_t reason) {
 	if (!tasking_is_active()) {
@@ -59,11 +60,6 @@ Surface* surface_create(uint32_t width, uint32_t height) {
 
 int aipc_send(char* data, uint32_t size, uint32_t dest_pid, char** destination) {
 	return ipc_send(data, size, dest_pid, destination);
-}
-
-uint32_t ms_since_boot(void) {
-	// The multiplier should match our chosen ticks-per-second count
-	return tick_count() * 50;
 }
 
 DEFN_SYSCALL(kill, 0);

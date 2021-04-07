@@ -563,7 +563,7 @@ vmm_page_table_t* vas_virt_table_for_page_addr(vmm_page_directory_t* vas_virt, u
 }
 
 uint32_t vmm_alloc_global_kernel_memory(uint32_t size) {
-    printf("vmm_alloc_global_kernel_memory 0x%08x\n", size);
+    printf("vmm_alloc_global_kernel_memory 0x%08x (ints %d)\n", size, interrupts_enabled());
 
     // Modifying structures shared across all processes
     spinlock_acquire(&_vmm_global_spinlock);
@@ -1295,6 +1295,8 @@ static void page_fault(const register_state_t* regs) {
         reason = forbidden_write ? "write" : "read ";
     }
 	printf("| Unmapped %s |\n", reason);
+    printf("|- EIP = 0x%08x -|\n", regs->eip);
+    printf("|- UserESP = 0x%08x -|\n", regs->useresp);
     printf("|----------------|\n");
     panic("page fault");
     while (1) {}

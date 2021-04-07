@@ -52,7 +52,6 @@ static void ps2_controller_set_config(uint8_t config_byte) {
 }
 
 static void ps2_test_device(uint8_t test_cmd) {
-    // Test device 1
     ps2_write(PS2_CMD_PORT, test_cmd);
     uint8_t device_status = ps2_read(PS2_DATA);
     assert(device_status == PS2_CMD_RESP_TEST_DEVICE_SUCCESS, "PS2 device self-test failed");

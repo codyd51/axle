@@ -194,11 +194,13 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     task_spawn(awm_init, PRIORITY_GUI, "");
     task_spawn(tty_init, PRIORITY_TTY, "");
     //task_spawn(rainbow, PRIORITY_NONE, "");
-    //task_spawn(paintbrush, 2, "");
-    //task_spawn(textpad, 3, "");
-    task_spawn(pci_driver, 4, "");
-    task_spawn(net, 5, "");
-    task_spawn(timed_launch, 1, "");
+    //task_spawn(paintbrush, PRIORITY_NONE, "");
+    //task_spawn(textpad, PRIORITY_NONE, "");
+    task_spawn(pci_driver, PRIORITY_NONE, "");
+    task_spawn(net, PRIORITY_NONE, "");
+    task_spawn(timed_launch, PRIORITY_NONE, "");
+    task_spawn(netclient_launch, PRIORITY_NONE, "");
+    //task_spawn(watchdogd_launch, PRIORITY_NONE, "");
 
     // Bootstrapping complete - kill this process
     printf("[t = %d] Bootstrap task [PID %d] will exit\n", time(), getpid());

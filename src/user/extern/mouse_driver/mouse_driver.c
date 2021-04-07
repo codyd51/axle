@@ -14,7 +14,7 @@
 
 typedef struct ps2_mouse_state {
 	uint8_t idx;
-	uint8_t buffer[3];
+	uint8_t buffer[4];
 } ps2_mouse_state_t;
 
 static _handle_amc_messages(void) {
@@ -74,12 +74,16 @@ int main(int argc, char** argv) {
 		else if (state.idx == 1) {
 			state.idx += 1;
 		}
+		else if (state.idx == 2) {
+			state.idx += 1;
+		}
 		else {
 			uint8_t status_byte = state.buffer[0];
 			// Invert the X and Y values if the status packet indicates they're negative
 			int8_t rel_x = state.buffer[1] - ((status_byte << 4) & 0x100);
 			// Always flip the Y axis as it arrives
 			int8_t rel_y = -(state.buffer[2]) - ((status_byte << 5) & 0x100);
+			int8_t rel_z = (state.buffer[3]);
 
 			if ((status_byte & 0x80) || (status_byte & 0x40)) {
 				printf("Skipping packet with overflow set\n");
@@ -91,11 +95,12 @@ int main(int argc, char** argv) {
 			state.idx = 0;
 			memset(&state.buffer, 0, sizeof(state.buffer));
 
-			int8_t mouse_databuf[3] = {0};
+			int8_t mouse_databuf[4] = {0};
 			mouse_databuf[0] = status_byte;
 			mouse_databuf[1] = rel_x;
 			mouse_databuf[2] = rel_y;
-			amc_msg_i8_3__send("com.axle.awm", status_byte, rel_x, rel_y);
+			mouse_databuf[3] = rel_z;
+			amc_msg_i8_4__send("com.axle.awm", status_byte, rel_x, rel_y, rel_z);
 		}
 	}
 	

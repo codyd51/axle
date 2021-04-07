@@ -4,6 +4,7 @@
 #include <std/math.h>
 #include <std/common.h>
 #include <std/printf.h>
+#include <kernel/boot_info.h>
 
 //channel 0 used for generating IRQ0
 #define PIT_PORT_CHANNEL0 0x40
