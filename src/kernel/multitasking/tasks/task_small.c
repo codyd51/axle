@@ -5,8 +5,9 @@
 #include <kernel/multitasking/std_stream.h>
 #include <kernel/util/mutex/mutex.h>
 #include <kernel/segmentation/gdt_structures.h>
+#include "mlfq.h"
 
-#define TASK_QUANTUM 20
+#define TASK_QUANTUM 50
 #define MAX_TASKS 1024
 
 static volatile int next_pid = 0;
@@ -15,67 +16,48 @@ task_small_t* _current_task_small = 0;
 static task_small_t* _current_first_responder = 0;
 static task_small_t* _iosentinel_task = 0;
 static task_small_t* _task_list_head = 0;
+static task_small_t* _idle_task = 0;
 
-static timer_callback_t* pit_callback = 0;
+static bool _multitasking_ready = false;
 const uint32_t _task_context_offset = offsetof(struct task_small, machine_state);
 
 // defined in process_small.s
 // performs the actual context switch
 void context_switch(uint32_t* new_task);
 
+static void _task_make_schedulable(task_small_t* task);
+
 void sleep(uint32_t ms) {
-    _current_task_small->blocked_info.status = PIT_WAIT;
-    _current_task_small->blocked_info.wake_timestamp = time() + ms;
-    task_switch();
+    Deprecated();
 }
 
 static task_small_t* _tasking_get_next_task(task_small_t* previous_task) {
-    //pick tasks in round-robin
-    task_small_t* next_task = previous_task->next;
-    //end of list?
-    if (next_task == NULL) {
-        next_task = _task_list_head;
-    }
-    return next_task;
+    Deprecated();
+    return NULL;
 }
 
 static task_small_t* _tasking_get_next_runnable_task(task_small_t* previous_task) {
-    task_small_t* iter = _tasking_get_next_task(previous_task);
-    for (int i = 0; i < MAX_TASKS; i++) {
-        if (iter->blocked_info.status != RUNNABLE) {
-            iter = _tasking_get_next_task(iter);
-            continue;
-        }
-        //printf("next_runnable_task = %d\n", iter->id);
-        return iter;
-    }
-    panic("couldn't find runnable task");
+    Deprecated();
     return NULL;
 }
 
 static task_small_t* _tasking_find_highest_priority_runnable_task(void) {
+    Deprecated();
+    return NULL;
+}
+
+static task_small_t* _tasking_find_unblocked_driver_task(void) {
     task_small_t* iter = _task_list_head;
-    int32_t highest_runnable_priority = -1;
-    task_small_t* highest_priority_runnable_task = NULL;
     while (true) {
-        //printf("Check task [%d] %s %d %d\n", iter->id, iter->name, iter->blocked_info.status, iter->priority);
-
-        if (iter->blocked_info.status == RUNNABLE) {
-            if ((int32_t)iter->priority > highest_runnable_priority) {
-                // Found a new highest priority runnable task
-                //printf("New best!\n");
-                highest_runnable_priority = iter->priority;
-                highest_priority_runnable_task = iter;
-            }
+        if (iter->blocked_info.status == RUNNABLE && iter->priority == PRIORITY_DRIVER) {
+            return iter;
         }
-
         if (iter->next == NULL) {
             break;
         }
         iter = iter->next;
     }
-    assert(highest_priority_runnable_task != NULL, "Failed to find a highest priority runnable task");
-    return highest_priority_runnable_task;
+    return NULL;
 }
 
 static task_small_t* _tasking_last_task_in_runlist() {
@@ -94,6 +76,11 @@ static task_small_t* _tasking_last_task_in_runlist() {
 }
 
 static void _tasking_add_task_to_runlist(task_small_t* task) {
+    Deprecated();
+    return NULL;
+}
+
+static void _tasking_add_task_to_task_list(task_small_t* task) {
     if (!_current_task_small) {
         _current_task_small = task;
         return;
@@ -128,7 +115,6 @@ void task_die(int exit_code) {
     tasking_get_current_task()->blocked_info.status = ZOMBIE;
     task_switch();
     panic("Should never be scheduled again\n");
-    //sys_yield(ZOMBIE);
 }
 
 static void _task_bootstrap(uint32_t entry_point_ptr, uint32_t arg2) {
@@ -197,17 +183,21 @@ task_small_t* _thread_create(void* entry_point) {
     new_task->vmm = (vmm_page_directory_t*)vmm_active_pdir();
     new_task->priority = PRIORITY_NONE;
     new_task->priority_lock.name = "[Task priority spinlock]";
+
+    // Retain a reference to this task in the linked list of all tasks
+    _tasking_add_task_to_task_list(new_task);
+
     return new_task;
 }
 
 task_small_t* thread_spawn(void* entry_point) {
     task_small_t* new_thread = _thread_create(entry_point);
     // Make the thread schedulable now
-    _tasking_add_task_to_runlist(new_thread);
+    _task_make_schedulable(new_thread);
     return new_thread;
 }
 
-task_small_t* task_spawn(void* entry_point, task_priority_t priority, const char* task_name) {
+static task_small_t* _task_spawn(void* entry_point, task_priority_t priority, const char* task_name) {
     // Use the internal thread-state constructor so that this task won't get
     // scheduled until we've had a chance to set all of its state
     task_small_t* new_task = _thread_create(entry_point);
@@ -222,26 +212,27 @@ task_small_t* task_spawn(void* entry_point, task_priority_t priority, const char
     new_task->priority = priority;
     new_task->name = strdup(task_name);
 
-    // Task is now ready to run - make it schedulable
-    _tasking_add_task_to_runlist(new_task);
-
     return new_task;
+}
+
+static void _task_make_schedulable(task_small_t* task) {
+    mlfq_add_task_to_queue(task, 0);
+}
+
+task_small_t* task_spawn(void* entry_point, task_priority_t priority, const char* task_name) {
+    task_small_t* task = _task_spawn(entry_point, priority, task_name);
+    // Task is now ready to run - make it schedulable
+    _task_make_schedulable(task);
+    return task;
 }
 
 /*
  * Immediately preempt the running task and begin running the provided one.
  */
-void tasking_goto_task(task_small_t* new_task) {
-    //assert(new_task != _current_task_small, "new_task == _current task");
-    uint32_t now = time();
+void tasking_goto_task(task_small_t* new_task, uint32_t quantum) {
+    uint32_t now = ms_since_boot();
     new_task->current_timeslice_start_date = now;
-    uint32_t task_quantum = TASK_QUANTUM;
-    // If we're scheduling the idle task, give it a smaller slice
-    // This gives more opportunity for useful work to appear
-    if (!strcmp(new_task->name, "idle")) {
-        task_quantum = 5;
-    }
-    new_task->current_timeslice_end_date = now + task_quantum;
+    new_task->current_timeslice_end_date = now + quantum;
 
     // Ensure that any shared page tables between the kernel and the preempted VMM have an in-sync allocation state
     // This check should no longer be needed, since allocations within the shared kernel pages are always
@@ -253,9 +244,9 @@ void tasking_goto_task(task_small_t* new_task) {
         vmm_load_pdir(new_task->vmm, false);
     }
 
+    tss_set_kernel_stack(new_task->kernel_stack);
     // this method will update _current_task_small
     // this method performs the actual context switch and also updates _current_task_small
-    tss_set_kernel_stack(new_task->kernel_stack);
     context_switch(new_task);
 }
 
@@ -272,14 +263,72 @@ void tasking_reenable_scheduling(void) {
 /*
  * Pick the next task to schedule, and preempt the currently running one.
  */
-void task_switch() {
+
+void task_switch(void) {
+    asm("cli");
     if (_task_schedule_disabled) {
         printf("[Schedule] Skipping task-switch because scheduler is disabled\n");
         return;
     }
 
-    task_small_t* next_task = _tasking_find_highest_priority_runnable_task();
-    tasking_goto_task(next_task);
+    // Tell the scheduler about the task switch
+    mlfq_prepare_for_switch_from_task(_current_task_small);
+    task_small_t* next_task = 0;
+    uint32_t quantum = 0;
+    mlfq_choose_task(&next_task, &quantum);
+    if (!next_task) {
+        // Fallback to the idle task if nothing else is ready to run
+        //printf("Fallback to idle task\n");
+        //mlfq_print();
+        next_task = _idle_task;
+        quantum = 5;
+    }
+
+    //if (next_task != _current_task_small) {
+        //printf("Schedule [%d %s] for %d\n", next_task->id, next_task->name, quantum);
+        tasking_goto_task(next_task, quantum);
+    //}
+}
+
+void task_switch_if_driver_ready(void) {
+    if (_task_schedule_disabled || !tasking_is_active()) {
+        printf("[Schedule] Skipping task-switch because scheduler is disabled\n");
+        return;
+    }
+
+    // Is any PRIORITY_DRIVER task ready?
+    task_small_t* unblocked_driver = _tasking_find_unblocked_driver_task();
+    if (unblocked_driver && _current_task_small != unblocked_driver) {
+        printk("[%d] Found unblocked driver [%d]\n", getpid(), unblocked_driver->id);
+        mlfq_goto_task(unblocked_driver);
+    }
+    // Continue with the currently running task
+}
+
+void mlfq_goto_task(task_small_t* task) {
+    if (_current_task_small == task) return;
+
+    mlfq_prepare_for_switch_from_task(_current_task_small);
+    uint32_t quantum = 0;
+    mlfq_next_quantum_for_task(task, &quantum);
+    tasking_goto_task(task, quantum);
+}
+
+void task_switch_if_quantum_expired(void) {
+    if (_task_schedule_disabled || !tasking_is_active()) {
+        return;
+    }
+
+    mlfq_priority_boost_if_necessary();
+
+    if (ms_since_boot() >= _current_task_small->current_timeslice_end_date) {
+        //asm("sti");
+        //printf("[%d] quantum expired at %d, %d\n", getpid(), ms_since_boot(), _current_task_small->current_timeslice_end_date);
+        task_switch();
+    }
+    //else {
+    //    printf("[%d] quantum not expired (%dms remaining)\n", _current_task_small->id, _current_task_small->current_timeslice_end_date - ms_since_boot());
+    //}
 }
 
 int getpid() {
@@ -297,12 +346,13 @@ task_priority_t get_current_task_priority() {
 }
 
 bool tasking_is_active() {
-    return _current_task_small != 0 && pit_callback != 0;
+    return _current_task_small != 0 && _multitasking_ready == true;
 }
 
 static void tasking_timer_tick() {
-    kernel_begin_critical();
-    if (time() > _current_task_small->current_timeslice_end_date) {
+    Deprecated();
+    //kernel_begin_critical();
+    if (ms_since_boot() > _current_task_small->current_timeslice_end_date) {
         task_switch();
     }
 }
@@ -327,7 +377,8 @@ void tasking_unblock_task_with_reason(task_small_t* task, bool run_immediately, 
     task->blocked_info.status = RUNNABLE;
     spinlock_release(&task->priority_lock);
     if (run_immediately) {
-        tasking_goto_task(task);
+        Deprecated();
+        //tasking_goto_task(task);
     }
 }
 
@@ -339,59 +390,24 @@ void tasking_block_task(task_small_t* task, task_state_t blocked_state) {
     task->blocked_info.status = blocked_state;
     // If the current task just became blocked, switch to another
     if (task == _current_task_small) {
+        //printf("Switch due to blocked task\n");
         task_switch();
     }
 }
 
 void update_blocked_tasks() {
-    while (1) {
-        // TODO(PT): Lock scheduler list now
-        task_small_t* task = _task_list_head;
-        while (task) {
-            if (task->blocked_info.status == RUNNABLE) {
-                task = task->next;
-                continue;
-            }
-            else if (task->blocked_info.status == PIT_WAIT) {
-                if (time() > task->blocked_info.wake_timestamp) {
-                    tasking_unblock_task_with_reason(task, false, PIT_WAIT);
-                }
-            }
-            else if (task->blocked_info.status == KB_WAIT) {
-                if (task->stdin_stream->buf->count > 0) {
-                    tasking_unblock_task_with_reason(task, false, KB_WAIT);
-                }
-            }
-            else if (task->blocked_info.status == MOUSE_WAIT) {
-
-            }
-            else if (task->blocked_info.status == AMC_AWAIT_MESSAGE) {
-                // Will be unblocked by AMC
-            }
-            else if (task->blocked_info.status == VMM_MODIFY) {
-                // Will be unblocked when the client is done modifying the VAS
-            }
-            else if (task->blocked_info.status == ZOMBIE) {
-                // We should start a job to clean up this task
-            }
-            else {
-                printf("PID [%d] is blocked with an unknown reason: %d\n", task->id, task->blocked_info.status);
-                panic("unknown block reason");
-            }
-            task = task->next;
-        }
-        sys_yield(RUNNABLE);
-    }
+    Deprecated();
 }
 
-void iosentinel_check_now() {
-    tasking_goto_task(_iosentinel_task);
+void iosentinel_check_now() { 
+    Deprecated();
 }
 
 void idle_task() {
     while (1) {
+        asm("sti");
         asm("hlt");
-        sys_yield(RUNNABLE);
+        //sys_yield(RUNNABLE);
     }
 }
 
@@ -400,6 +416,8 @@ void tasking_init() {
         panic("called tasking_init() after it was already active");
         return;
     }
+
+    mlfq_init();
 
     // create first task
     // for the first task, the entry point argument is thrown away. Here is why:
@@ -412,13 +430,16 @@ void tasking_init() {
     _current_task_small->name = "bootstrap";
     //strncpy(_current_task_small->name, "bootstrap", 10);
     _task_list_head = _current_task_small;
-    tasking_goto_task(_current_task_small);
+    //tasking_goto_task(_current_task_small, 20);
+    tasking_goto_task(_current_task_small, 100);
 
-    task_spawn(idle_task, PRIORITY_IDLE, "idle");
+    // _task_spawn will not add it to the scheduler
+    //_idle_task = _task_spawn(idle_task, PRIORITY_IDLE, "idle");
+    _idle_task = _task_spawn(idle_task, PRIORITY_IDLE, "idle");
     //_iosentinel_task = task_spawn(update_blocked_tasks, PRIORITY_NONE);
 
     printf_info("Multitasking initialized");
-    pit_callback = timer_callback_register((void*)tasking_timer_tick, 10, true, 0);
+    _multitasking_ready = true;
     asm("sti");
 }
 
@@ -433,14 +454,15 @@ void* unsbrk(int UNUSED(increment)) {
 }
 
 void* sbrk(int increment) {
-	printk("[%d] SBRK 0x%08x\n", getpid(), increment);
+	task_small_t* current = tasking_get_current_task();
+	printk("[%d] sbrk 0x%08x (%u) 0x%08x -> 0x%08x (current page head 0x%08x)\n", getpid(), increment, increment, current->sbrk_current_break, current->sbrk_current_break + increment, current->sbrk_current_page_head);
 
 	if (increment < 0) {
-		ASSERT(0, "sbrk w/ neg increment");
+        printf("Relinquish sbrk memory %d\n", increment);
+        current->sbrk_current_break -= increment;
 		return NULL;
 	}
 
-	task_small_t* current = tasking_get_current_task();
 	char* brk = (char*)current->sbrk_current_break;
 
 	if (increment == 0) {
@@ -475,32 +497,12 @@ int brk(void* addr) {
 }
 
 task_small_t* get_first_responder() {
-    return _current_first_responder;
+    Deprecated();
+    return NULL;
 }
 
 void become_first_responder_pid(int pid) {
-    task_small_t* task = tasking_get_task_with_pid(pid);
-    if (!task) {
-        printk("become_first_responder_pid(%d) failed\n", pid);
-        return;
-    }
-
-    _current_first_responder = task;
-
-    /*
-    //check if this task already exists in stack of responders
-    for (int i = 0; i < responder_stack->size; i++) {
-        task_t* tmp = array_m_lookup(responder_stack, i);
-        if (tmp == first_responder_task) {
-            //remove task so we can add it again
-            //this is to ensure responder stack only has unique tasks
-            array_m_remove(responder_stack, i);
-        }
-    }
-
-    //append this task to stack of responders
-    array_m_insert(responder_stack, first_responder_task);
-    */
+    Deprecated();
 }
 
 void become_first_responder() {
@@ -509,25 +511,6 @@ void become_first_responder() {
 
 void resign_first_responder() {
     Deprecated();
-    /*
-    if (!first_responder_task) return;
-    //if (current_task != first_responder_task) return;
-
-    //remove current first responder from stack of responders
-    int last_idx = responder_stack->size - 1;
-    task_t* removed = array_m_lookup(responder_stack, last_idx);
-    ASSERT(removed == first_responder_task, "top of responder stack wasn't first responder!");
-
-    array_m_remove(responder_stack, last_idx);
-
-    if (responder_stack->size) {
-        //set first responder to new head of stack
-        first_responder_task = array_m_lookup(responder_stack, responder_stack->size - 1);
-    }
-    else {
-        first_responder_task = NULL;
-    }
-    */
 }
 
 void tasking_print_processes(void) {
@@ -544,10 +527,10 @@ void tasking_print_processes(void) {
             }
 
             if (iter == _current_task_small) {
-                printk("(active for %d ms more) ", iter->current_timeslice_end_date - time());
+                printk("(active for %d ms more) ", iter->current_timeslice_end_date - ms_since_boot());
             }
             else {
-                printk("(inactive since %d ms ago)", time() - iter->current_timeslice_end_date);
+                printk("(inactive since %d ms ago)", ms_since_boot() - iter->current_timeslice_end_date);
             }
 
             switch (iter->blocked_info.status) {

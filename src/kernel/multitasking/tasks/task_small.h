@@ -83,7 +83,11 @@ void tasking_init_small();
 bool tasking_is_active();
 
 void task_switch();
-void tasking_goto_task(task_small_t* new_task);
+void tasking_goto_task(task_small_t* new_task, uint32_t quantum);
+// Task switch only if a high-priority driver is ready to run
+void task_switch_if_driver_ready(void);
+// Task switch only if the current task's quantum has expired
+void task_switch_if_quantum_expired(void);
 
 task_small_t* thread_spawn(void* entry_point);
 task_small_t* task_spawn(void* entry_point, task_priority_t priority, const char* task_name);
@@ -110,5 +114,7 @@ void tasking_print_processes(void);
 
 void tasking_disable_scheduling(void);
 void tasking_reenable_scheduling(void);
+
+void mlfq_goto_task(task_small_t* task);
 
 #endif
