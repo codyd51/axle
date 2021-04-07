@@ -84,6 +84,10 @@ int main(int argc, char** argv) {
 		do {
 			// Wait until we've unblocked with at least one message available
 			amc_message_await_any(&msg);
+			if (libamc_handle_message(msg)) {
+				continue;
+			}
+
 			const char* source_service = amc_message_source(msg);
 			if (!strcmp(source_service, "com.axle.core")) {
 				char buf[msg->len+1];

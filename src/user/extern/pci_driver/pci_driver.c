@@ -315,7 +315,7 @@ static void launch_known_drivers(pci_dev_t* dev_head) {
     pci_dev_t* dev = dev_head;
     while (dev != NULL) {
         if (dev->device_id == PCI_DEVICE_ID_REALTEK_8139) {
-            printf("[PCI] Launching driver for %s %s\n", dev->vendor_id, dev->device_name);
+            printf("[PCI] Launching driver for %s %s\n", dev->vendor_name, dev->device_name);
             amc_launch_service("com.axle.realtek_8139_driver");
         }
         dev = dev->next;
@@ -375,6 +375,10 @@ int main(int argc, char** argv) {
 		do {
 			// Wait until we've unblocked with at least one message available
 			amc_message_await_any(&msg);
+			if (libamc_handle_message(msg)) {
+				continue;
+			}
+
             const char* source_service = msg->source;
             // If we're sent a message from someone other than a PCI device driver, ignore it
             if (!is_service_pci_device_driver(source_service)) {

@@ -45,7 +45,13 @@ static void process_messages(array_t* asleep_procs) {
 	amc_message_t* msg;
 	do {
 		amc_message_await_any(&msg);
+		if (libamc_handle_message(msg)) {
+			printf("timed caught watchdogd liveliness check\n");
+			continue;
+		}
+
 		const char* source_service = amc_message_source(msg);
+		printf("timed got message from %s %d\n", source_service, amc_msg_u32_get_word(msg, 0));
 		time_msg_t* time_msg = (time_msg_t*)&msg->body;
 		if (time_msg->sleep.common.event == TIMED_REQ_SLEEP_FOR_MS) {
 			uint32_t duration = time_msg->sleep.ms;
@@ -56,6 +62,9 @@ static void process_messages(array_t* asleep_procs) {
 			proc->sleep_duration = duration;
 			array_insert(asleep_procs, proc);
 			printf("timed putting %s to sleep for %dms at %d\n", source_service, duration, proc->sleep_start);
+		}
+		else {
+			printf("Unknown message from %s\n", source_service);
 		}
 	} while (amc_has_message());
 }

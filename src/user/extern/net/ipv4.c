@@ -120,6 +120,6 @@ void ipv4_send(
 	uint8_t router_mac[MAC_ADDR_SIZE];
 	assert(arp_copy_mac(router_ip, router_mac), "ARP failed to map the router's MAC");
 
-	ethernet_send(router_mac, ETHTYPE_IPv4, wrapper, ipv4_packet_size);
+	ethernet_send(router_mac, ETHTYPE_IPv4, (uint8_t*)wrapper, ipv4_packet_size);
 	free(wrapper);
 }

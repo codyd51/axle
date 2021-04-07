@@ -17,6 +17,19 @@ typedef struct ps2_mouse_state {
 	uint8_t buffer[3];
 } ps2_mouse_state_t;
 
+static _handle_amc_messages(void) {
+	if (!amc_has_message()) {
+		return;
+	}
+	do {
+		amc_message_t* msg;
+		amc_message_await_any(&msg);
+		if (!libamc_handle_message(msg)) {
+			printf("com.axle.mouse_driver received unknown amc message from %s\n", msg->source);
+		}
+	} while (amc_has_message());
+}
+
 int main(int argc, char** argv) {
 	// This process will handle PS/2 mouse IRQ's (IRQ 12)
 	adi_register_driver("com.axle.mouse_driver", INT_VECTOR_IRQ12);
@@ -27,7 +40,7 @@ int main(int argc, char** argv) {
 		// Await an interrupt from the PS/2 mouse
 		bool awoke_for_interrupt = adi_event_await(INT_VECTOR_IRQ12);
 		if (!awoke_for_interrupt) {
-			printf("com.axle.mouse_driver woke for an amc message... why?\n");
+			_handle_amc_messages();
 			continue;
 		}
 

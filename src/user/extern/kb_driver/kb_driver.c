@@ -61,6 +61,19 @@ static int process_scancode(ps2_kbd_state_t* state, uint8_t scancode) {
 	}
 }
 
+static _handle_amc_messages(void) {
+	if (!amc_has_message()) {
+		return;
+	}
+	do {
+		amc_message_t* msg;
+		amc_message_await_any(&msg);
+		if (!libamc_handle_message(msg)) {
+			printf("com.axle.kb_driver received unknown amc message from %s\n", msg->source);
+		}
+	} while (amc_has_message());
+}
+
 int main(int argc, char** argv) {
 	// This process will handle PS/2 keyboard IRQ's (IRQ 1)
 	adi_register_driver("com.axle.kb_driver", INT_VECTOR_IRQ1);
@@ -74,10 +87,7 @@ int main(int argc, char** argv) {
 		// Await an interrupt from the PS/2 keyboard
 		bool awoke_for_interrupt = adi_event_await(INT_VECTOR_IRQ1);
 		if (!awoke_for_interrupt) {
-			printf("com.axle.kb_driver woke for an amc message... why?\n");
-			// Eat the message
-			amc_message_t* t;
-			amc_message_await_any(&t);
+			_handle_amc_messages();
 			continue;
 		}
 
