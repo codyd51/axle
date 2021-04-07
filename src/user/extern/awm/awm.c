@@ -2,7 +2,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <assert.h>
 #include <stdlib.h>
 #include <memory.h>
 
@@ -15,6 +14,8 @@
 #include <agx/lib/text_box.h>
 
 #include <libamc/libamc.h>
+
+#include <stdlibadd/assert.h>
 
 #include "awm.h"
 #include "gfx.h"
@@ -34,12 +35,19 @@ typedef struct user_window {
 	const char* owner_service;
 } user_window_t;
 
+#define WINDOW_BORDER_MARGIN 4
+#define WINDOW_TITLE_BAR_HEIGHT 28
+
 // Sorted by Z-index
-user_window_t windows[32] = {0};
+#define MAX_WINDOW_COUNT 64
+user_window_t windows[MAX_WINDOW_COUNT] = {0};
+bool _window_idx_to_should_redraw[MAX_WINDOW_COUNT] = {0};
 int window_count = 0;
+
 static Point mouse_pos = {0};
 
 static user_window_t* _window_move_to_top(user_window_t* window);
+static void _window_resize(user_window_t* window, Size new_size, bool inform_owner);
 
 Screen _screen = {0};
 
@@ -81,80 +89,124 @@ static user_window_t* _window_move_to_top(user_window_t* window) {
 	return &windows[0];
 }
 
-static void mouse_dispatch_events(uint8_t mouse_state, Point mouse_point, int8_t delta_x, int8_t delta_y) {
-	static user_window_t* _prev_window_containing_mouse = NULL;
-	static bool _in_left_click = false;
-	static user_window_t* _left_click_window = NULL;
+typedef struct mouse_interaction_state {
+	bool left_click_down;
+	user_window_t* active_window;
 
-	// Is the left button clicked?
-	if (mouse_state & (1 << 0)) {
-		if (!_in_left_click) {
-			printf("Begin left click\n");
-			// TODO(PT): Delegate dispatch for "mouse movements" and "window dragging" systems
-			_in_left_click = true;
-			if (_prev_window_containing_mouse) {
-				// Move this window to the top of the stack
-				_prev_window_containing_mouse = _window_move_to_top(_prev_window_containing_mouse);
-				_left_click_window = _prev_window_containing_mouse;
-			}
-		}
-		else {
-			//printf("Got packet within left click\n");
-		}
+	// Drag state
+	bool has_begun_drag;
+	bool is_resizing_top_window;
+	bool is_moving_top_window;
+
+	bool is_prospective_window_move;
+	bool is_prospective_window_resize;
+	Point mouse_pos;
+} mouse_interaction_state_t;
+
+static mouse_interaction_state_t g_mouse_state = {0};
+
+static void _begin_left_click(mouse_interaction_state_t* state, Point mouse_point) {
+	state->left_click_down = true;
+
+	if (!state->active_window) {
+		printf("Left click on background\n");
+		return;
+	}
+	// Left click within a window
+	// Set it to the topmost window if it wasn't already
+	if (state->active_window != &windows[0]) {
+		printf("Left click in background window %s. Move to top\n", state->active_window->owner_service);
+		state->active_window = _window_move_to_top(state->active_window);
 	}
 	else {
-		if (_in_left_click) {
-			printf("End left click\n");
-			_in_left_click = false;
-			_left_click_window = NULL;
-		}
+		printf("Left click on topmost window %s\n", state->active_window->owner_service);
 	}
 
-	// Check if we're still overlapping with the previous window
-	if (_prev_window_containing_mouse) {
-		if (!rect_contains_point(_prev_window_containing_mouse->frame, mouse_point)) {
-			printf("Mouse exited %s\n", _prev_window_containing_mouse->owner_service);
-			amc_msg_u32_1__send(_prev_window_containing_mouse->owner_service, AWM_MOUSE_EXITED);
-			// Reset the cursor state
-			_prev_window_containing_mouse = NULL;
-			// TODO(PT): Everything to do with "left click state" should be managed within delegate functions
-			// TODO(PT): As well as everything to do with "window events"
-			_left_click_window = NULL;
+	// Send the click event to the window
+	Point local_mouse = point_make(
+		mouse_point.x - state->active_window->frame.origin.x,
+		mouse_point.y - state->active_window->frame.origin.y
+	);
+	awm_mouse_left_click_msg msg = {0};
+	msg.event = AWM_MOUSE_LEFT_CLICK;
+	msg.click_point = local_mouse;
+	amc_message_construct_and_send(state->active_window->owner_service, &msg, sizeof(msg));
+}
+
+static void _end_left_click(mouse_interaction_state_t* state, Point mouse_point) {
+	printf("End left click\n");
+	state->left_click_down = false;
+}
+
+static void _exit_hover_window(mouse_interaction_state_t* state) {
+	printf("Mouse exited %s\n", state->active_window->owner_service);
+	amc_msg_u32_1__send(state->active_window->owner_service, AWM_MOUSE_EXITED);
+	state->active_window = NULL;
+}
+
+static void _enter_hover_window(mouse_interaction_state_t* state, user_window_t* window) {
+	// Inform the window the mouse has just entered it
+	amc_msg_u32_1__send(window->owner_service, AWM_MOUSE_ENTERED);
+	// Keep track that we're currently within this window
+	printf("Mouse entered %s\n", window->owner_service);
+	state->active_window = window;
+}
+
+static void _mouse_reset_prospective_action_flags(mouse_interaction_state_t* state) {
+	// Reset parameters about what actions the mouse may take based on its current position
+	state->is_prospective_window_move = false;
+	state->is_prospective_window_resize = false;
+	if (state->active_window != NULL) {
+		Point local_mouse = point_make(
+			state->mouse_pos.x - state->active_window->frame.origin.x,
+			state->mouse_pos.y - state->active_window->frame.origin.y
+		);
+		Rect content_view = state->active_window->content_view->frame;
+		int inset = 4;
+		Rect content_view_inset = rect_make(
+			point_make(
+				content_view.origin.x + inset,
+				content_view.origin.y + inset
+			),
+			size_make(
+				content_view.size.width - (inset * 2),
+				content_view.size.height - (inset * 2)
+			)
+		);
+
+		Rect title_text_box = rect_make(
+			point_zero(),
+			state->active_window->title_text_box->size
+		);
+		if (rect_contains_point(title_text_box, local_mouse)) {
+			state->is_prospective_window_move = true;
 		}
-		else {
-			// We've moved the mouse within a window
-			// Try to see if we've just entered a higher window
-			uint32_t current_window_pos = _prev_window_containing_mouse - windows;
-			for (int i = 0; i < current_window_pos; i++) {
-				user_window_t* higher_window = &windows[i];
-				if (rect_contains_point(higher_window->frame, mouse_point)) {
-					printf("Mouse exited %s\n", _prev_window_containing_mouse->owner_service);
-					amc_msg_u32_1__send(_prev_window_containing_mouse->owner_service, AWM_MOUSE_EXITED);
-					// Reset the cursor state
-					_prev_window_containing_mouse = NULL;
-					// TODO(PT): Everything to do with "left click state" should be managed within delegate functions
-					// TODO(PT): As well as everything to do with "window events"
-					_left_click_window = NULL;
-
-					printf("Entered higher window %s\n", higher_window->owner_service);
-					// Inform the window the mouse has just entered it
-					amc_msg_u32_1__send(higher_window->owner_service, AWM_MOUSE_ENTERED);
-					// Keep track that we're currently within this window
-					_prev_window_containing_mouse = higher_window;
-					break;
-				}
-			}
-
-			Point local_mouse = point_make(mouse_point.x - _prev_window_containing_mouse->frame.origin.x, mouse_point.y - _prev_window_containing_mouse->frame.origin.y);
-			amc_msg_u32_3__send(_prev_window_containing_mouse->owner_service, AWM_MOUSE_MOVED, local_mouse.x, local_mouse.y);
-
-			if (_left_click_window) {
-				//printf("Moving dragged window\n");
-				_prev_window_containing_mouse->frame.origin.x += delta_x;
-				_prev_window_containing_mouse->frame.origin.y += delta_y;
-			}
+		else if (!rect_contains_point(content_view_inset, local_mouse)) {
+			state->is_prospective_window_resize = true;
 		}
-		return;
+	}
+}
+
+static void _moved_in_hover_window(mouse_interaction_state_t* state, Point mouse_point) {
+	Point local_mouse = point_make(
+		mouse_point.x - state->active_window->frame.origin.x,
+		mouse_point.y - state->active_window->frame.origin.y
+	);
+
+	if (!state->is_prospective_window_move && !state->is_prospective_window_resize) {
+		// Mouse is hovered within the content view
+		local_mouse.x += state->active_window->content_view->frame.origin.x;
+		local_mouse.y += state->active_window->content_view->frame.origin.y;
+		amc_msg_u32_3__send(state->active_window->owner_service, AWM_MOUSE_MOVED, local_mouse.x, local_mouse.y);
+	}
+}
+
+static void _handle_mouse_moved(mouse_interaction_state_t* state, Point mouse_point, int8_t delta_x, int8_t delta_y, int8_t delta_z) {
+	// Check if we've moved outside the bounds of the hover window
+	if (state->active_window != NULL) {
+		if (!rect_contains_point(state->active_window->frame, mouse_point)) {
+			_exit_hover_window(state);
+		}
 	}
 
 	// Check each window and see if we've just entered it
@@ -162,14 +214,116 @@ static void mouse_dispatch_events(uint8_t mouse_state, Point mouse_point, int8_t
 	for (int i = 0; i < window_count; i++) {
 		user_window_t* window = &windows[i];
 		if (rect_contains_point(window->frame, mouse_point)) {
-			// Inform the window the mouse has just entered it
-			amc_msg_u32_1__send(window->owner_service, AWM_MOUSE_ENTERED);
-			// Keep track that we're currently within this window
-			_prev_window_containing_mouse = window;
-			printf("Mouse entered %s\n", window->owner_service);
+			// Is this a different window from the one we were previously hovered over?
+			if (state->active_window != window) {
+				// Inform the previous hover window that the mouse has exited it
+				if (state->active_window != NULL) {
+					_exit_hover_window(state);
+				}
+				_enter_hover_window(state, window);
+			}
+			break;
+		}
+	}
+
+	// If we're still within a hover window, inform it that the mouse has moved
+	if (state->active_window) {
+		_moved_in_hover_window(state, mouse_point);
+	}
+}
+
+static void _begin_mouse_drag(mouse_interaction_state_t* state, Point mouse_point) {
+	state->has_begun_drag = true;
+	if (state->active_window == NULL) {
+		printf("Start drag on desktop background\n");
+		return;
+	}
+
+	if (state->is_prospective_window_move) {
+		state->is_moving_top_window = true;
+	}
+	else if (state->is_prospective_window_resize) {
+		state->is_resizing_top_window = true;
+	}
+	else {
+		printf("Start drag within content view\n");
+	}
+}
+
+static void _end_mouse_drag(mouse_interaction_state_t* state, Point mouse_point) {
+	if (state->has_begun_drag) {
+		printf("End drag\n");
+		state->has_begun_drag = false;
+		state->is_moving_top_window = false;
+		state->is_resizing_top_window = false;
+	}
+}
+
+static void _handle_mouse_dragged(mouse_interaction_state_t* state, Point mouse_point, int8_t delta_x, int8_t delta_y, int8_t delta_z) {
+	// Nothing to do if we didn't start the drag with a hover window
+	if (!state->active_window) {
+		printf("Drag outside a hover window\n");
+		return;
+	}
+	
+	if (state->is_moving_top_window) {
+		state->active_window->frame.origin.x += delta_x;
+		state->active_window->frame.origin.y += delta_y;
+	}
+	else if (state->is_resizing_top_window) {
+		Size new_size = state->active_window->frame.size;
+		new_size.width += delta_x;
+		new_size.height += delta_y;
+
+		// Don't let the window get too small
+		new_size.width = max(new_size.width, WINDOW_TITLE_BAR_HEIGHT + 2);
+		new_size.height = max(new_size.height, WINDOW_TITLE_BAR_HEIGHT + 2);
+
+		_window_resize(state->active_window, new_size, true);
+	}
+}
+
+static void _handle_mouse_scroll(mouse_interaction_state_t* state, int8_t delta_z) {
+	if (state->active_window) {
+		// Scroll within a window
+		// Inform the window
+		amc_msg_u32_2__send(state->active_window->owner_service, AWM_MOUSE_SCROLLED, (uint32_t)delta_z);
+	}
+}
+
+static void mouse_dispatch_events(uint8_t status_byte, Point mouse_point, int8_t delta_x, int8_t delta_y, int8_t delta_z) {
+	mouse_interaction_state_t* mouse_state = &g_mouse_state;
+	mouse_state->mouse_pos = mouse_point;
+
+	// Is the left button clicked?
+	if (status_byte & (1 << 0)) {
+		// Were we already tracking a left-click?
+		if (!mouse_state->left_click_down) {
+			_begin_left_click(mouse_state, mouse_point);
+			_begin_mouse_drag(mouse_state, mouse_point);
+		}
+		else {
+			// The left mouse button is still held down - we're in a drag
+			_handle_mouse_dragged(mouse_state, mouse_point, delta_x, delta_y, delta_z);
 			return;
 		}
 	}
+	else {
+		// Did we just release a left click?
+		if (mouse_state->left_click_down) {
+			_end_left_click(mouse_state, mouse_point);
+			_end_mouse_drag(mouse_state, mouse_point);
+		}
+	}
+
+	// Did we scroll?
+	if (delta_z != 0) {
+		_handle_mouse_scroll(mouse_state, delta_z);
+	}
+
+	// Now that all other event types have been processed, check to see if we've just
+	// moved to a different window
+	_handle_mouse_moved(mouse_state, mouse_point, delta_x, delta_y, delta_z);
 }
 
 static void handle_mouse_event(amc_message_t* mouse_event) {
