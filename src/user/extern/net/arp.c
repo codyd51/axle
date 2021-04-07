@@ -8,11 +8,14 @@
 // Port IO
 #include <libport/libport.h>
 
+#include <stdlibadd/array.h>
+
 #include "net.h"
 #include "net_messages.h"
 #include "arp.h"
 #include "ethernet.h"
 #include "util.h"
+#include "callback.h"
 
 #define ARP_REQUEST	0x1
 #define ARP_REPLY 	0x2
@@ -21,6 +24,8 @@
 #define ARP_PROTO_TYPE_IPv4		0x0800
 
 static arp_entry_t _arp_table[ARP_TABLE_SIZE] = {0};
+
+static void* _arp_callbacks = 0;
 
 bool arp_copy_mac(uint8_t ip_addr[IPv4_ADDR_SIZE], uint8_t out_mac[MAC_ADDR_SIZE]) {
 	char b1[64];
@@ -34,6 +39,20 @@ bool arp_copy_mac(uint8_t ip_addr[IPv4_ADDR_SIZE], uint8_t out_mac[MAC_ADDR_SIZE
 			if (!memcmp(ip_addr, ent->ip_addr, IPv4_ADDR_SIZE)) {
 				// Copy the MAC to the output buffer
 				memcpy(out_mac, ent->mac_addr, MAC_ADDR_SIZE);
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+bool arp_cache_contains_ipv4(uint8_t ip_addr[IPv4_ADDR_SIZE]) {
+	char sender_ip[64];
+	format_ipv4_address__buf(sender_ip, sizeof(sender_ip), ip_addr);
+	for (int i = 0; i < ARP_TABLE_SIZE; i++) {
+		arp_entry_t* ent = &_arp_table[i];
+		if (ent->allocated) {
+			if (!memcmp(ip_addr, ent->ip_addr, IPv4_ADDR_SIZE)) {
 				return true;
 			}
 		}
@@ -89,6 +108,8 @@ void arp_receive(packet_info_t* packet_info, arp_packet_t* arp_packet) {
 						  arp_packet->sender_proto_addr);
 		_update_arp_table(arp_packet->target_hware_addr, 
 						  arp_packet->target_proto_addr);
+        // We may have unblocked a callback waiting on this ARP reply
+        callback_list_invoke_ready_callbacks(_arp_callbacks);
 	}
 	else if (opcode == ARP_REQUEST) {
 		_update_arp_table(arp_packet->sender_hware_addr, 
@@ -149,4 +170,53 @@ void arp_announce(void) {
 
 	uint8_t global_broadcast_mac[MAC_ADDR_SIZE] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 	ethernet_send(global_broadcast_mac, ETHTYPE_ARP, (uint8_t*)&announcement, sizeof(arp_packet_t));
+
+typedef struct arp_amc_rpc_info_t {
+	uint8_t ipv4[IPv4_ADDR_SIZE];
+	char* amc_service;
+} arp_amc_rpc_info_t;
+
+static bool _arp_is_amc_rpc_satisfied(arp_amc_rpc_info_t* rpc) {
+	// Is the request IPv4 address in the ARP cache?
+    printf("_arp_is_amc_rpc_satisfied\n");
+	return arp_cache_contains_ipv4(rpc->ipv4);
+}
+
+static void _arp_complete_amc_rpc(arp_amc_rpc_info_t* rpc) {
+	printf("arp_complete_amc_rpc for %s, ipv4 0x%08x 0x%08x\n", rpc->amc_service, rpc->ipv4, *rpc->ipv4);
+    printf("ARP RPC: MAC is in the ARP cache, responding to %s...\n", rpc->amc_service);
+	uint8_t mac[MAC_ADDR_SIZE];
+	assert(arp_copy_mac(rpc->ipv4, mac), "Failed to map IPv4 to MAC");
+	net_send_rpc_response(rpc->amc_service, NET_RPC_RESPONSE_ARP_GET_MAC, mac, MAC_ADDR_SIZE);
+
+    // Free the buffers we stored
+	free(rpc->amc_service);
+	free(rpc);
+}
+
+void arp_perform_amc_rpc__discover_mac(const char* source_service, uint8_t (*ipv4)[IPv4_ADDR_SIZE]) {
+    // Set up a callback for when we receive an ARP reply
+	arp_amc_rpc_info_t* cb_info = malloc(sizeof(arp_amc_rpc_info_t));
+	memcpy(cb_info->ipv4, ipv4, IPv4_ADDR_SIZE);
+    cb_info->amc_service = strndup(source_service, AMC_MAX_SERVICE_NAME_LEN);
+
+    callback_list_add_callback(
+        _arp_callbacks,
+        cb_info,
+        (cb_is_satisfied_func)_arp_is_amc_rpc_satisfied,
+        (cb_complete_func)_arp_complete_amc_rpc
+    );
+
+	// Check in on the callback immediately in case the mapping was already in the ARP cache
+    if (callback_list_invoke_callback_if_ready(_arp_callbacks, cb_info)) {
+        return;
+    }
+
+	// Send an ARP request for this IPv4 address
+	printf("ARP RPC: IPv4 was unknown, broadcasting ARP request...\n");
+	arp_request_mac(*ipv4);
+}
+
+void arp_init(void) {
+	_arp_callbacks = callback_list_init();
 }

@@ -8,10 +8,14 @@
 #include "dns.h"
 #include "util.h" // For hexdump, can remove
 #include "udp.h"
+#include "net_messages.h"
+#include "callback.h"
 
 #define DNS_TYPE_TEXT_STRINGS   16
 #define DNS_TYPE_POINTER        12
 #define DNS_TYPE_A_RECORD       1
+
+static void* _dns_callbacks = 0;
 
 typedef struct dns_question {
     dns_name_parse_state_t parsed_name;
@@ -126,6 +130,10 @@ static void _parse_dns_name(dns_packet_t* packet, dns_name_parse_state_t* out_st
         else {
             // Read a label literal
             char* buf = malloc(label_len+1);
+            //printf("\t*** DNS reading label literal, label_len=%d, data_ptr=0x%08x, out_state->name_len %d\n", label_len, data_ptr, out_state->name_len);
+            if (out_state->name_len + label_len >= sizeof(out_state->name)) {
+                assert(0, "Would exceed maximum size of out_state->name");
+            }
             _dns_name_read_label(&data_ptr, label_len, buf);
             out_state->name_len += snprintf(
                 out_state->name + out_state->name_len, 
@@ -272,6 +280,8 @@ static void _parse_dns_answer(dns_packet_t* packet, dns_answer_t* answer, uint8_
     }
     else if (answer->type == DNS_TYPE_A_RECORD) {
         _update_domain_name_with_a_record(answer);
+        // We may have unblocked a callback waiting on this DNS answer
+        callback_list_invoke_ready_callbacks(_dns_callbacks);
     }
     else if (answer->type == DNS_TYPE_TEXT_STRINGS) {
         /*
@@ -326,6 +336,88 @@ void dns_receive(packet_info_t* packet_info, dns_packet_t* packet, uint32_t pack
     free(packet);
 }
 
+void dns_query_domain_name(char* domain_name, uint32_t domain_name_len) {
+    dns_packet_t header = {0};
+    header.identifier = htons(0x4546);
+    /*
+    // TODO(PT): Might need to flip the order of this whole bitfield?
+    header.query_response_flag = 0;
+    header.opcode = 0;
+    header.recursion_desired_flag = 1;
+    */
+    uint16_t* h = (uint16_t*)&header;
+    h[1] = htons(0x0100);
+
+    header.question_count = htons(1);
+
+    dns_question_t question;
+
+    // DNS names are encoded as a `len` byte followed by a label
+    // A label is one component of the period-separated domain name components
+
+    // Save space for the null byte
+    uint32_t dns_name_len = domain_name_len + 1; 
+    // Save space for the `type` field
+    dns_name_len += 2;
+    // Save space for the `class` field
+    dns_name_len += 2;
+
+    char* dns_name = malloc(dns_name_len);
+    char* dns_name_ptr = dns_name;
+
+    // Copy for iteration
+    char* domain_name_copy = strndup(domain_name, domain_name_len);
+    char* copy_head = domain_name_copy;
+    char* token;
+    while ((token = strsep(&domain_name_copy, "."))) {
+        printf("Token %s\n", token);
+        uint32_t label_len = 0;
+        // Upper bound on the length of the label is the length of the token,
+        // but the actual length may be less if the buffer we were provided
+        // wasn't NULL-terminated
+        // TODO(PT): I Think this can be a min()?
+        for (int i = 0; i < strlen(token); i++) {
+            // If we've copied the maximum length of the domain name, stop here
+            // This can happend when "domain_name" is not a NULL-terminated buffer
+            // (For example, domain_name="example.comHost")
+            uint32_t read_len = (dns_name_ptr + label_len) - dns_name;
+            printf("read_len %d\n", read_len);
+            if (read_len + 1 >= domain_name_len) {
+                printf("Break token iteration due to exceeding domain_name_len\n");
+                break;
+            }
+            label_len += 1;
+        }
+
+        *(dns_name_ptr++) = label_len;
+        for (int i = 0; i < label_len; i++) {
+            *(dns_name_ptr++) = token[i];
+        }
+    }
+    free(copy_head);
+
+    *(dns_name_ptr++) = '\0';
+    // Type: A
+    *(dns_name_ptr++) = 0x0;
+    *(dns_name_ptr++) = 0x1;
+    // Class: IN
+    *(dns_name_ptr++) = 0x0;
+    *(dns_name_ptr++) = 0x1;
+
+    int real_dns_name_len = dns_name_ptr - dns_name;
+    printf("Prospective len %d actual len %d\n", dns_name_len, real_dns_name_len);
+
+    uint32_t dns_packet_size = sizeof(dns_packet_t) + real_dns_name_len;
+    char* dns_packet = malloc(dns_packet_size);
+    memcpy(dns_packet, &header, sizeof(dns_packet_t));
+    memcpy(dns_packet + sizeof(dns_packet_t), dns_name, real_dns_name_len);
+
+    uint8_t router_ip[IPv4_ADDR_SIZE];
+    net_copy_router_ipv4_addr(router_ip);
+    udp_send(dns_packet, dns_packet_size, 51303, 53, router_ip);
+    free(dns_packet);
+}
+
 void dns_send(void) {
     dns_packet_t header = {0};
     header.identifier = htons(0x4546);
@@ -370,6 +462,7 @@ void dns_send(void) {
     uint8_t router_ip[IPv4_ADDR_SIZE];
     net_copy_router_ipv4_addr(router_ip);
     udp_send(dns_packet, dns_packet_size, 51303, 53, router_ip);
+    free(dns_packet);
 }
 
 dns_service_type_t* dns_service_type_table(void) {
@@ -378,4 +471,82 @@ dns_service_type_t* dns_service_type_table(void) {
 
 dns_domain_t* dns_domain_records(void) {
 	return _dns_domain_records;
+} 
+
+void dns_init(void) {
+    _dns_callbacks = callback_list_init();
+}
+
+bool dns_cache_contains_domain(char* domain_name, uint32_t domain_name_len) {
+    for (int i = 0; i < DNS_DOMAIN_RECORDS_TABLE_SIZE; i++) {
+        dns_domain_t* ent = &_dns_domain_records[i];
+        if (ent->allocated) {
+            if (!strncmp(ent->name.name, domain_name, min(ent->name.name_len, domain_name_len))) {
+                printf("Found domain in cache: %s\n", domain_name);
+                return true;
+            }
+        }
+    }
+    printf("Did not find domain in cache: %.*s\n", domain_name_len, domain_name);
+    return false;
+}
+
+bool dns_copy_a_record(char* domain_name, uint32_t domain_name_len, uint8_t out_ipv4[IPv4_ADDR_SIZE]) {
+    for (int i = 0; i < DNS_DOMAIN_RECORDS_TABLE_SIZE; i++) {
+        dns_domain_t* ent = &_dns_domain_records[i];
+        if (ent->allocated) {
+            if (!strncmp(ent->name.name, domain_name, min(ent->name.name_len, domain_name_len))) {
+                memcpy(out_ipv4, ent->a_record, IPv4_ADDR_SIZE);
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+typedef struct dns_amc_rpc_info {
+    char* domain_name;
+    uint32_t domain_name_len;
+    char* amc_service;
+} dns_amc_rpc_info_t;
+
+static bool _dns_is_amc_rpc_satisfied(dns_amc_rpc_info_t* rpc) {
+    // Is the requested domain name in the DNS cache?
+    printf("_dns_is_amc_rpc_satisfied\n");
+    return dns_cache_contains_domain(rpc->domain_name, rpc->domain_name_len);
+}
+
+static void _dns_complete_amc_rpc(dns_amc_rpc_info_t* rpc) {
+    printf("DNS RPC: %s is in the DNS cache, responding to %s...\n", rpc->domain_name, rpc->amc_service);
+    uint8_t ipv4[IPv4_ADDR_SIZE];
+    assert(dns_copy_a_record(rpc->domain_name, rpc->domain_name_len, ipv4), "Failed to map domain name to A record");
+	net_send_rpc_response(rpc->amc_service, NET_RPC_RESPONSE_DNS_GET_IPv4, ipv4, IPv4_ADDR_SIZE);
+    // Free the buffers we stored
+    free(rpc->amc_service);
+    free(rpc->domain_name);
+    free(rpc);
+}
+
+void dns_perform_amc_rpc__discover_ipv4(const char* source_service, char* domain_name, uint32_t domain_name_len) {
+    // Set up a callback for when we receive a DNS answer
+    dns_amc_rpc_info_t* callback_info = malloc(sizeof(dns_amc_rpc_info_t));
+    callback_info->domain_name = strndup(domain_name, domain_name_len);
+    callback_info->domain_name_len = domain_name_len;
+    callback_info->amc_service = strndup(source_service, AMC_MAX_SERVICE_NAME_LEN);
+
+    callback_list_add_callback(
+        _dns_callbacks, 
+        callback_info,
+        (cb_is_satisfied_func)_dns_is_amc_rpc_satisfied,
+        (cb_complete_func)_dns_complete_amc_rpc
+    );
+
+    // Check in on the callback immediately in case the domain was already in the DNS cache
+    if (callback_list_invoke_callback_if_ready(_dns_callbacks, callback_info)) {
+        return;
+    }
+
+    // Send a DNS question for this domain name
+    printf("DNS RPC: %s was unknown, sending DNS query...\n", domain_name);
+    dns_query_domain_name(domain_name, domain_name_len);
 }
