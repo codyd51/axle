@@ -51,16 +51,15 @@ void _radial_gradiant(ca_layer* layer, Size gradient_size, Color c1, Color c2, i
 static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 	// Ask awm to make a window for us
 	amc_msg_u32_3__send("com.axle.awm", AWM_REQUEST_WINDOW_FRAMEBUFFER, width, height);
+
 	// And get back info about the window it made
-	amc_command_ptr_message_t receive_framebuf = {0};
+	amc_message_t* receive_framebuf;
 	amc_message_await("com.axle.awm", &receive_framebuf);
-	// TODO(PT): Need a struct type selector
-	if (amc_command_ptr_msg__get_command(&receive_framebuf) != AWM_CREATED_WINDOW_FRAMEBUFFER) {
+	uint32_t event = amc_msg_u32_get_word(receive_framebuf, 0);
+	if (event != AWM_CREATED_WINDOW_FRAMEBUFFER) {
 		printf("Invalid state. Expected framebuffer command\n");
 	}
-
-	printf("Received framebuffer from awm: %d 0x%08x\n", amc_command_ptr_msg__get_command(&receive_framebuf), amc_command_ptr_msg__get_ptr(&receive_framebuf));
-	uint32_t framebuffer_addr = receive_framebuf.body.cmd_ptr.ptr_val;
+	uint32_t framebuffer_addr = amc_msg_u32_get_word(receive_framebuf, 1);
 	uint8_t* buf = (uint8_t*)framebuffer_addr;
 
 	// TODO(PT): Use an awm command to get screen info
@@ -86,7 +85,7 @@ int main(int argc, char** argv) {
 	Size window_size = size_make(300, 300);
 	ca_layer* window_layer = window_layer_get(window_size.width, window_size.height);
 	draw_rect(window_layer, rect_make(point_zero(), window_size), color_red(), THICKNESS_FILLED);
-	amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
+	amc_msg_u32_1__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 
 	while (true) {
 		// TODO(PT): For some reason interrupts are disabled here - fix it
@@ -95,7 +94,7 @@ int main(int argc, char** argv) {
 		Color c2 = color_make(rand() % 255, rand() % 255, rand() % 255);
 		//_radial_gradiant(window_layer, window_size, c1, c2, window_size.width/2, window_size.height / 2, (float)window_size.height/4);
 		_radial_gradiant(window_layer, window_size, c1, c2, window_size.width/2, window_size.height/2, (float)window_size.height/4);
-		amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
+		amc_msg_u32_1__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 	}
 
 	return 0;
