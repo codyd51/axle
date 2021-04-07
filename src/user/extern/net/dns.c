@@ -100,12 +100,14 @@ static void _parse_dns_name(dns_packet_t* packet, dns_name_parse_state_t* out_st
         // If the high two bits of the label are set, 
         // this is a pointer to a prior string
         if ((label_len >> 6) == 0x3) {
+            printf("found dns label pointer label_len=0x%08x data_ptr=0x%08x *data_ptr 0x%08x ", label_len, data_ptr, *data_ptr);
             out_state->label_count++;
 
             // Mask off the high two bits
             uint8_t b1 = label_len & ~(3 << 6);
-            uint8_t b2 = *(data_ptr)++;
-            uint8_t string_offset = (b1 << 8) | b2;
+            uint8_t b2 = *(data_ptr++);
+            uint16_t string_offset = (b1 << 8) | b2;
+            printf("b1 %d b2 %d string_offset 0x%04x\n", b1, b2, string_offset);
 
             dns_name_parse_state_t pointer_parse = {0};
             uint8_t* label_offset = (uint8_t*)packet + string_offset;
