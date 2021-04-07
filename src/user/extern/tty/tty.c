@@ -61,9 +61,10 @@ static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.tty");
 
-	Size window_size = size_make(1100, 900);
+	Size window_size = size_make(900, 1000);
 	Rect window_frame = rect_make(point_zero(), window_size);
 	ca_layer* window_layer = window_layer_get(window_size.width, window_size.height);
+	draw_rect(window_layer, window_frame, color_light_gray(), THICKNESS_FILLED);
 
 	int text_box_padding = 6;
 	Rect text_box_frame = rect_make(
@@ -76,11 +77,14 @@ int main(int argc, char** argv) {
 			window_size.height - (text_box_padding * 2)
 		)
 	);
-	draw_rect(window_layer, window_frame, color_light_gray(), THICKNESS_FILLED);
+
 	text_box_t* text_box = text_box_create(text_box_frame.size, color_white());
+	text_box->preserves_history = true;
 
 	while (true) {
 		amc_message_t* msg;
+		bool got_resize_msg = false;
+		awm_window_resized_msg_t newest_resize_msg = {0};
 		do {
 			// Wait until we've unblocked with at least one message available
 			amc_message_await_any(&msg);
@@ -97,24 +101,41 @@ int main(int argc, char** argv) {
 			}
 			else if (!strcmp(source_service, "com.axle.awm")) {
 				uint32_t cmd = amc_msg_u32_get_word(msg, 0);
-				char ch = (char)amc_msg_u32_get_word(msg, 1);
-
-				if (cmd == AWM_KEY_DOWN) {
-					if (ch == 'r') {
-						text_box_scroll_up(text_box);
+				if (cmd == AWM_MOUSE_SCROLLED) {
+					awm_mouse_scrolled_msg_t* m = (awm_mouse_scrolled_msg_t*)msg->body;
+					bool scroll_up = m->delta_z > 0;
+					for (uint32_t i = 0; i < abs(m->delta_z); i++) {
+						if (scroll_up) text_box_scroll_up(text_box);
+						else text_box_scroll_down(text_box);
 					}
-					else if (ch == 's') {
-						text_box_scroll_down(text_box);
-					}
-					else if (ch == 't') {
-						text_box_scroll_to_bottom(text_box);
-					}
+				}
+				else if (cmd == AWM_WINDOW_RESIZED) {
+					got_resize_msg = true;
+					awm_window_resized_msg_t* m = (awm_window_resized_msg_t*)msg->body;
+					newest_resize_msg = *m;
 				}
 			}
 		} while (amc_has_message());
 
+		if (got_resize_msg) {
+			window_size = newest_resize_msg.new_size;
+			window_frame.size = window_size;
+			text_box_frame = rect_make(
+				point_make(
+					text_box_padding,
+					text_box_padding
+				),
+				size_make(
+					window_size.width - (text_box_padding * 2), 
+					window_size.height - (text_box_padding * 2)
+				)
+			);
+			draw_rect(window_layer, window_frame, color_light_gray(), text_box_padding);
+			text_box_resize(text_box, text_box_frame.size);
+		}
+
 		// Blit the text box to the window layer
-		blit_layer(window_layer, text_box->layer, text_box_frame, rect_make(point_zero(), text_box_frame.size));
+		text_box_blit(text_box, window_layer, text_box_frame);
 		// We're out of messages to process - ask awm to redraw the window with our updates
 		amc_msg_u32_1__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 	}

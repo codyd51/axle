@@ -91,3 +91,17 @@ DNS might need to wait for ARP
     - We might need a more generic "do ARP with this callback function pointer"
         - Where the function pointer might be, "unblock via an amc reply",
             - Or, "send the DNS query to the router"
+
+Settings application
+    - Shows gradient color options for desktop background
+        - Sends msg to awm
+    - Predefined list, or show color sliders?
+        - Good opportunity to build widgets
+            - But should wait for proper UI toolkit event loop
+
+UI toolkit event loop
+    - layout_subviews?
+
+Terminal emulator
+
+awm composites and does visible-rect-splitting
