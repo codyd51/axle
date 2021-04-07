@@ -42,13 +42,14 @@ scancode_to_colemak = {
     0x4a: '/',
     0x5a: '\n',
     0x0d: '\t',
+    0x66: '\b',
 }
 
 
 def main():
     print(max(scancode_to_colemak.keys()))
     output_list = []
-    for i in range(100):
+    for i in range(256):
         if i in scancode_to_colemak:
             output_list.append(ord(scancode_to_colemak[i]))
         else:
