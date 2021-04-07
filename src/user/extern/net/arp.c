@@ -91,6 +91,21 @@ arp_entry_t* arp_table(void) {
 	return _arp_table;
 }
 
+void arp_send_reply(uint8_t target_ipv4_addr[IPv4_ADDR_SIZE], uint8_t target_mac_addr[MAC_ADDR_SIZE]) {
+	printf("arp_send_reply 0x%08x 0x%08x\n", target_ipv4_addr, target_mac_addr);
+	arp_packet_t reply = {0};
+	reply.hardware_type = htons(ARP_HWARE_TYPE_ETHERNET);
+	reply.protocol_type = htons(ARP_PROTO_TYPE_IPv4);
+	reply.hware_addr_len = MAC_ADDR_SIZE;
+	reply.proto_addr_len = IPv4_ADDR_SIZE;
+	reply.opcode = htons(ARP_REPLY);
+	net_copy_local_mac_addr(reply.sender_hware_addr);
+	net_copy_local_ipv4_addr(reply.sender_proto_addr);
+
+	memcpy(reply.target_proto_addr, target_ipv4_addr, IPv4_ADDR_SIZE);
+	ethernet_send(target_mac_addr, ETHTYPE_ARP, (uint8_t*)&reply, sizeof(arp_packet_t));
+}
+
 void arp_receive(packet_info_t* packet_info, arp_packet_t* arp_packet) {
 	char sender_ip[64];
 	format_ipv4_address__buf(sender_ip, sizeof(sender_ip), arp_packet->sender_proto_addr);
@@ -114,6 +129,13 @@ void arp_receive(packet_info_t* packet_info, arp_packet_t* arp_packet) {
 	else if (opcode == ARP_REQUEST) {
 		_update_arp_table(arp_packet->sender_hware_addr, 
 						  arp_packet->sender_proto_addr);
+		// Are we being sent a request?
+		uint8_t local_ipv4[IPv4_ADDR_SIZE];
+		net_copy_local_ipv4_addr(local_ipv4);
+		if (!memcmp(arp_packet->target_proto_addr, local_ipv4, IPv4_ADDR_SIZE)) {
+			printf("Responding to ARP request...\n");
+			arp_send_reply((uint8_t*)&arp_packet->sender_proto_addr, (uint8_t*)&arp_packet->sender_hware_addr);
+		}
 	}
 	else {
 		printf("Unknown ARP opcode %d\n", opcode);
@@ -158,18 +180,11 @@ void arp_request_mac(uint8_t dst_ip_addr[IPv4_ADDR_SIZE]) {
 
 void arp_announce(void) {
 	// In an ARP announcement, the target MAC address can be left as zero
-	arp_packet_t announcement = {0};
-	announcement.hardware_type = htons(ARP_HWARE_TYPE_ETHERNET);
-	announcement.protocol_type = htons(ARP_PROTO_TYPE_IPv4);
-	announcement.hware_addr_len = MAC_ADDR_SIZE;
-	announcement.proto_addr_len = IPv4_ADDR_SIZE;
-	announcement.opcode = htons(ARP_REQUEST);
-	net_copy_local_mac_addr(announcement.sender_hware_addr);
-	net_copy_local_ipv4_addr(announcement.sender_proto_addr);
-	net_copy_local_ipv4_addr(announcement.target_proto_addr);
-
+	uint8_t target_ipv4[IPv4_ADDR_SIZE];
+	net_copy_local_ipv4_addr(target_ipv4);
 	uint8_t global_broadcast_mac[MAC_ADDR_SIZE] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-	ethernet_send(global_broadcast_mac, ETHTYPE_ARP, (uint8_t*)&announcement, sizeof(arp_packet_t));
+	arp_send_reply(target_ipv4, global_broadcast_mac);
+}
 
 typedef struct arp_amc_rpc_info_t {
 	uint8_t ipv4[IPv4_ADDR_SIZE];

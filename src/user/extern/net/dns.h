@@ -7,9 +7,9 @@
 #define DNS_OP_QUERY 0x0
 #define DNS_OP_STATUS 0x2
 
-#define DNS_SERVICE_TYPE_TABLE_SIZE 32
-#define DNS_SERVICE_INSTANCE_TABLE_SIZE 32
-#define DNS_DOMAIN_RECORDS_TABLE_SIZE 32
+#define DNS_SERVICE_TYPE_TABLE_SIZE 64
+#define DNS_SERVICE_INSTANCE_TABLE_SIZE 64
+#define DNS_DOMAIN_RECORDS_TABLE_SIZE 64
 
 typedef struct dns_packet {
 	uint16_t identifier;
@@ -57,10 +57,17 @@ typedef struct dns_domain {
 	uint8_t a_record[IPv4_ADDR_SIZE];
 } dns_domain_t;
 
+void dns_init(void);
+
 void dns_receive(packet_info_t* packet_info, dns_packet_t* packet, uint32_t packet_size);
 void dns_send(void);
 
 dns_service_type_t* dns_service_type_table(void);
 dns_domain_t* dns_domain_records(void);
+
+bool dns_cache_contains_domain(char* domain_name, uint32_t domain_name_len);
+bool dns_copy_a_record(char* domain_name, uint32_t domain_name_len, uint8_t out_ipv4[IPv4_ADDR_SIZE]);
+
+void dns_perform_amc_rpc__discover_ipv4(const char* source_service, char* domain_name, uint32_t domain_name_len);
 
 #endif
