@@ -587,6 +587,37 @@ static void handle_user_message(amc_message_t* user_message) {
 	}
 }
 
+Color transcolor(Color c1, Color c2, float d) {
+	if (d < 0) d = 0;
+	if (d > 1) d = 1;
+	return color_make(
+		(c1.val[0] * (1 - d)) + (c2.val[0] * d),
+		(c1.val[1] * (1 - d)) + (c2.val[1] * d),
+		(c1.val[2] * (1 - d)) + (c2.val[2] * d)
+	);
+}
+
+float pifdist(int x1, int y1, int x2, int y2) {
+	float x = x1 - x2;
+	float y = y1 - y2;
+	return sqrt(x * x + y * y);
+}
+
+void _radial_gradiant(ca_layer* layer, Size gradient_size, Color c1, Color c2, int x1, int y1, float r) {
+	int x_step = gradient_size.width / 200.0;
+	int y_step = gradient_size.height / 200.0;
+	for (uint32_t y = 0; y < gradient_size.height; y += y_step) {
+		for (uint32_t x = 0; x < gradient_size.width; x += x_step) {
+			Color c = transcolor(c1, c2, pifdist(x1, y1, x, y) / r);
+			for (int i = 0; i < x_step; i++) {
+				for (int j = 0; j < y_step; j++) {
+					putpixel(layer, x+i, y+j, c);
+				}
+			}
+		}
+	}
+}
+
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.awm");
 
@@ -612,7 +643,15 @@ int main(int argc, char** argv) {
 
 	Rect screen_frame = rect_make(point_zero(), _screen.resolution);
 	ca_layer* background = create_layer(screen_frame.size);
-	draw_rect(background, screen_frame, color_white(), THICKNESS_FILLED);
+	_radial_gradiant(
+		background, 
+		background->size, 
+		color_make(200, 150, 30), 
+		color_make(150, 0, 0), 
+		background->size.width/2.0, 
+		background->size.height/2.0, 
+		(float)background->size.height * 1.6
+	);
     _screen.vmem = create_layer(screen_frame.size);
 
     printf("awm graphics: %d x %d, %d BPP @ 0x%08x\n", _screen.resolution.width, _screen.resolution.height, _screen.bits_per_pixel, _screen.physbase);
