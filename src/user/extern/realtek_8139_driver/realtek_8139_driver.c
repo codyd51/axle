@@ -158,13 +158,28 @@ static void receive_packet(rtl8139_state_t* state) {
 		char* packet_data = (char*)&packet[2];
 		// Copy into a safe buffer, and trim off the 4-byte CRC at the end
 		uint32_t ethernet_frame_size = packet_len - 4;
-		uint32_t packet_size = sizeof(net_packet_t) + ethernet_frame_size;
-		net_packet_t* packet_msg = malloc(packet_size);
-		packet_msg->common.event = NET_RX_ETHERNET_FRAME;
-		packet_msg->len = ethernet_frame_size;
-		memcpy(packet_msg->data, packet_data, ethernet_frame_size);
-		amc_message_construct_and_send(NET_SERVICE_NAME, packet_msg, packet_size);
-		free(packet_msg);
+		if (ethernet_frame_size >= 4096) {
+			printf("*** NIC dropping nonsensically large packet: %d\n", ethernet_frame_size);
+			printf("NIC head 0x%08x + %d = 0x%08x\n", state->rx_curr_buf_off, ethernet_frame_size, state->rx_curr_buf_off + ethernet_frame_size);
+		}
+		else {
+			uint32_t amc_message_size = sizeof(net_message_t) + ethernet_frame_size;
+			net_message_t* packet_msg = malloc(amc_message_size);
+			packet_msg->event = NET_RX_ETHERNET_FRAME;
+			packet_msg->m.packet.len = ethernet_frame_size;
+			memcpy(packet_msg->m.packet.data, packet_data, ethernet_frame_size);
+			amc_message_construct_and_send(NET_SERVICE_NAME, packet_msg, amc_message_size);
+			free(packet_msg);
+
+			state->rx_curr_buf_off = (state->rx_curr_buf_off + packet_len + 4 + 3) & ~3;
+		}
+
+		if (state->rx_curr_buf_off >= 8192) {
+			//printf("rollback\n");
+			state->rx_curr_buf_off -= 8192;
+		}
+		// I don't know why 0x10 is subtracted here, but other drivers do it and it works.
+		outw(state->io_base + RTL_REG_RX_CURRENT_ADDR_PACKET_READ, state->rx_curr_buf_off - 0x10);
 
 		/*
 		ethernet_frame_t* ethernet_frame = malloc(ethernet_frame_size);
@@ -183,15 +198,6 @@ static void receive_packet(rtl8139_state_t* state) {
 		uint8_t w32_mask = sizeof(uint32_t) - 1;
 		state->rx_curr_buf_off = (state->rx_curr_buf_off + w32_mask) & ~w32_mask;
 		*/
-		state->rx_curr_buf_off = (state->rx_curr_buf_off + packet_len + 4 + 3) & ~3;
-
-		if (state->rx_curr_buf_off > 8192) {
-			//printf("rollback\n");
-			state->rx_curr_buf_off -= 8192;
-		}
-
-		// I don't know why 0x10 is subtracted here, but other drivers do it and it works.
-		outw(state->io_base + RTL_REG_RX_CURRENT_ADDR_PACKET_READ, state->rx_curr_buf_off - 0x10);
 	}
 }
 
