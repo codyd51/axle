@@ -8,6 +8,7 @@
 #include "ipv4.h"
 #include "util.h"
 #include "udp.h"
+#include "tcp.h"
 #include "ethernet.h"
 #include "arp.h"
 
@@ -84,6 +85,13 @@ void ipv4_receive(packet_info_t* packet_info, ipv4_packet_t* packet, uint32_t pa
 		udp_packet_t* copied_packet = malloc(udp_packet_size);
 		memcpy(copied_packet, packet_body, udp_packet_size);
 		udp_receive(packet_info, copied_packet, udp_packet_size);
+	}
+	else if (packet->protocol == IPv4_PROTOCOL_TCP) {
+		tcp_packet_t* packet_body = (tcp_packet_t*)&packet->data;
+		uint32_t tcp_packet_size = ntohs(packet->total_length) - sizeof(ipv4_packet_t);
+		tcp_packet_t* copied_packet = malloc(tcp_packet_size);
+		memcpy(copied_packet, packet_body, tcp_packet_size);
+		tcp_receive(packet_info, copied_packet, tcp_packet_size);
 	}
 
 	free(packet);
