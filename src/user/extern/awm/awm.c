@@ -329,7 +329,8 @@ static void handle_mouse_event(amc_message_t* mouse_event) {
 	int8_t state = mouse_event->body[0];
 	int8_t rel_x = mouse_event->body[1];
 	int8_t rel_y = mouse_event->body[2];
-	//printf("awm received mouse packet (state %d) (delta %d %d)\n", state, rel_x, rel_y);
+	int8_t rel_z = mouse_event->body[3];
+	//printf("awm received mouse packet (state %d) (delta %d %d %d)\n", state, rel_x, rel_y, rel_z);
 
 	mouse_pos.x += rel_x;
 	mouse_pos.y += rel_y;
@@ -339,10 +340,27 @@ static void handle_mouse_event(amc_message_t* mouse_event) {
 	mouse_pos.x = min(_screen.resolution.width - 20, mouse_pos.x);
 	mouse_pos.y = min(_screen.resolution.height - 20, mouse_pos.y);
 
-	mouse_dispatch_events(state, mouse_pos, rel_x, rel_y);
+	mouse_dispatch_events(state, mouse_pos, rel_x, rel_y, rel_z);
 }
 
 static void _draw_cursor(void) {
+	mouse_interaction_state_t* mouse_state = &g_mouse_state;
+	Color mouse_color = color_green();
+	if (mouse_state->is_resizing_top_window) {
+		//mouse_color = color_make(217, 107, 32);
+		mouse_color = color_make(207, 25, 185);
+	}
+	else if (mouse_state->is_moving_top_window) {
+		mouse_color = color_make(30, 65, 217);
+	}
+	else if (mouse_state->is_prospective_window_resize) {
+		//mouse_color = color_make(217, 148, 100);
+		mouse_color = color_make(212, 119, 201);
+	}
+	else if (mouse_state->is_prospective_window_move) {
+		mouse_color = color_make(121, 160, 217);
+	}
+
 	// Re-draw the background where the mouse has just left
 	Size cursor_size = size_make(14, 14);
 	//Rect old_mouse_rect = rect_make(old_mouse_pos, cursor_size);
@@ -351,7 +369,15 @@ static void _draw_cursor(void) {
 	// Draw the new cursor
 	Rect new_mouse_rect = rect_make(mouse_pos, cursor_size);
 	draw_rect(_screen.vmem, new_mouse_rect, color_black(), THICKNESS_FILLED);
-	draw_rect(_screen.vmem, rect_make(point_make(new_mouse_rect.origin.x + 2, new_mouse_rect.origin.y + 2), size_make(10, 10)), color_green(), THICKNESS_FILLED);
+	draw_rect(
+		_screen.vmem, 
+		rect_make(
+			point_make(new_mouse_rect.origin.x + 2, new_mouse_rect.origin.y + 2), 
+			size_make(10, 10)
+		), 
+		mouse_color, 
+		THICKNESS_FILLED
+	);
 
 	// TODO(PT): Determine dirty region and combine these two rects
 	//blit_layer(&dummy_layer, _screen.vmem, old_mouse_rect, old_mouse_rect);
