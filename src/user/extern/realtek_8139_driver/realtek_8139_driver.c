@@ -443,47 +443,50 @@ int main(int argc, char** argv) {
 		}
 		else {
 			// We woke to service amc
-			amc_message_t* msg;
+			printf("RTL servicing amc\n");
 			do {
+				amc_message_t* msg;
 				amc_message_await_any(&msg);
-				const char* source_service = msg->source;
-				if (!strcmp(source_service, NET_SERVICE_NAME)) {
-					net_message_t* net_msg = (net_message_t*)msg->body;
-					uint8_t event = net_msg->packet.common.event;
-					if (event == NET_TX_ETHERNET_FRAME) {
-						uint8_t* packet_data = &net_msg->packet.data;
-						printf("tx ethernet frame len = %d data 0x%08x!\n", net_msg->packet.len, packet_data);
-						send_packet(&nic_state, packet_data, net_msg->packet.len);
+				if (!libamc_handle_message(msg)) {
+					const char* source_service = msg->source;
+					if (!strcmp(source_service, NET_SERVICE_NAME)) {
+						net_message_t* net_msg = (net_message_t*)msg->body;
+						uint32_t event = net_msg->event;
+						if (event == NET_TX_ETHERNET_FRAME) {
+							uint8_t* packet_data = (uint8_t*)&net_msg->m.packet.data;
+							printf("tx ethernet frame len = %d data 0x%08x!\n", net_msg->m.packet.len, packet_data);
+							send_packet(&nic_state, packet_data, net_msg->m.packet.len);
+						}
+						else if (event == NET_REQUEST_NIC_CONFIG) {
+							printf("NIC servicing net's NIC config request\n");
+
+							uint32_t mac_part1 = inl(nic_state.io_base + 0x00);
+							uint16_t mac_part2 = inw(nic_state.io_base + 0x04);
+							uint8_t mac_addr[8];
+							mac_addr[0] = mac_part1 >> 0;
+							mac_addr[1] = mac_part1 >> 8;
+							mac_addr[2] = mac_part1 >> 16;
+							mac_addr[3] = mac_part1 >> 24;
+							mac_addr[4] = mac_part2 >> 0;
+							mac_addr[5] = mac_part2 >> 8;
+
+							net_message_t config_msg;
+							config_msg.event = NET_RESPONSE_NIC_CONFIG;
+							memcpy(&config_msg.m.config_info.mac_addr, mac_addr, 6);
+
+							amc_message_construct_and_send(NET_SERVICE_NAME, &config_msg, sizeof(net_nic_config_info_t));
+						}
+						else {
+							printf("Unknown event from net service: %d\n", event);
+						}
 					}
-					else if (event == NET_REQUEST_NIC_CONFIG) {
-						printf("Net requested NIC config...\n");
-						net_nic_config_info_t config_msg;
-						config_msg.common.event = NET_RESPONSE_NIC_CONFIG;
-
-						uint32_t mac_part1 = inl(nic_state.io_base + 0x00);
-						uint16_t mac_part2 = inw(nic_state.io_base + 0x04);
-						uint8_t mac_addr[8];
-						mac_addr[0] = mac_part1 >> 0;
-						mac_addr[1] = mac_part1 >> 8;
-						mac_addr[2] = mac_part1 >> 16;
-						mac_addr[3] = mac_part1 >> 24;
-						mac_addr[4] = mac_part2 >> 0;
-						mac_addr[5] = mac_part2 >> 8;
-						memcpy(&config_msg.mac_addr, mac_addr, 6);
-
-						amc_message_construct_and_send(NET_SERVICE_NAME, &config_msg, sizeof(net_nic_config_info_t));
+					else if (!strcmp(source_service, AWM_SERVICE_NAME)) {
+						// Ignore awm messages
 					}
 					else {
-						printf("Unknown event from net service: %d\n", event);
+						printf("RTL8139 driver got command from unknown service %s\n", source_service);
 					}
 				}
-				else if (!strcmp(source_service, "com.axle.awm")) {
-					// Ignore awm messages
-				}
-				else {
-					printf("RTL8139 driver got command from unknown service %s\n", source_service);
-				}
-
 			} while (amc_has_message());
 		}
 	}
