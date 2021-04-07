@@ -406,7 +406,7 @@ int main(int argc, char** argv) {
 	text_box_puts(text_box, mac_buf, color_purple());
 
     // Blit the text box to the window layer
-    blit_layer(window_layer, text_box->layer, text_box_frame, rect_make(point_zero(), text_box_frame.size));
+	text_box_blit(text_box, window_layer, text_box_frame);
     // And ask awm to draw our window
 	amc_msg_u32_1__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
 

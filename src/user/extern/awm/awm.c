@@ -671,6 +671,10 @@ int main(int argc, char** argv) {
 		do {
 			// Wait until we've unblocked with at least one message available
 			amc_message_await_any(&msg);
+			// Will automatically respond to watchdog pings
+			if (libamc_handle_message(msg)) {
+				continue;
+			}
 			const char* source_service = amc_message_source(msg);
 
 			// Always update the prospective mouse action flags when the event loop runs
