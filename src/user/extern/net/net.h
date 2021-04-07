@@ -31,4 +31,6 @@ void net_copy_local_ipv4_addr(uint8_t dest[IPv4_ADDR_SIZE]);
 uint32_t net_copy_local_ipv4_addr__u32(void);
 void net_copy_router_ipv4_addr(uint8_t dest[IPv4_ADDR_SIZE]);
 
+void net_send_rpc_response(const char* service, uint32_t event, void* buf, uint32_t buf_size);
+
 #endif
