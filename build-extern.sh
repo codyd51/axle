@@ -14,6 +14,7 @@ cp src/user/extern/pci_driver/pci_messages.h axle-sysroot/usr/i686-axle/include/
 cp src/user/extern/net/net_messages.h axle-sysroot/usr/i686-axle/include/net/net_messages.h
 cp src/user/extern/realtek_8139_driver/rtl8139_messages.h axle-sysroot/usr/i686-axle/include/drivers/realtek_8139/rtl8139_messages.h
 cp src/user/extern/timed/timed_messages.h axle-sysroot/usr/i686-axle/include/daemons/timed/timed_messages.h
+cp src/user/extern/watchdogd/watchdogd_messages.h axle-sysroot/usr/i686-axle/include/daemons/watchdogd/watchdogd_messages.h
 
 # Copy the kernel bits of the the sysroot's include/ to the newlib port
 # This is so syscalls get the right struct definitions
@@ -70,6 +71,14 @@ make
 cd ../../../../
 
 cd ./src/user/extern/timed
+make
+cd ../../../../
+
+cd ./src/user/extern/netclient
+make
+cd ../../../../
+
+cd ./src/user/extern/watchdogd
 make
 cd ../../../../
 

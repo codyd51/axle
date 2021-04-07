@@ -11,16 +11,21 @@ def main():
     libdir_to_libname = {
         "agx": "libagx.a",
         "libamc": "libamc.a",
-        "libport": "libport.a"
+        "libport": "libport.a",
+        "libnet": "libnet.a",
     }
 
     for library_dirname, build_product_name in libdir_to_libname.items():
         library_source_dir = pathlib.Path(__file__).parent / "src" / "user" / "extern" / library_dirname
         sysroot = pathlib.Path(__file__).parent / "axle-sysroot"
 
-        status = subprocess.run("make", cwd=library_source_dir.as_posix(), shell=True)
+        status = subprocess.run("make", cwd=library_source_dir.as_posix(), shell=True, stdout=subprocess.PIPE)
         if status.returncode != 0:
             raise RuntimeError(f"Make failed with exit code {status.returncode}: {status.stdout} {status.stderr}")
+        if "is up to date" in status.stdout.decode():
+            # No need to copy build products
+            print(f'Skip copying build products and headers, {build_product_name} is up to date')
+            continue
 
         # Copy the build product to /usr/lib
         library_build_product = library_source_dir / build_product_name
