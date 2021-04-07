@@ -31,6 +31,14 @@ bool ip_equals__buf_u32(const uint8_t ip_buf[IPv4_ADDR_SIZE], uint32_t ip2) {
 }
 
 void ipv4_receive(packet_info_t* packet_info, ipv4_packet_t* packet, uint32_t packet_size) {
+	// Ignore packets intended for other hosts
+	uint8_t ipv4[IPv4_ADDR_SIZE];
+	net_copy_local_ipv4_addr(ipv4);
+	if (memcmp(&packet->dest_ip, ipv4, IPv4_ADDR_SIZE)) {
+		free(packet);
+		return;
+	}
+
     // Fill in the IPv4 specific packet info
     memcpy(packet_info->src_ipv4, &packet->source_ip, IPv4_ADDR_SIZE);
     memcpy(packet_info->dst_ipv4, &packet->dest_ip, IPv4_ADDR_SIZE);
