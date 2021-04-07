@@ -45,12 +45,6 @@ void system_mem() {
     NotImplemented();
 }
 
-static void kernel_spinloop() {
-    printf("\nBoot complete, kernel spinlooping.\n");
-    asm("cli");
-    asm("hlt");
-}
-
 static void kernel_idle() {
     while (1) {
         //nothing to do!
@@ -138,6 +132,22 @@ static void timed_launch() {
 	panic("noreturn");
 }
 
+static void netclient_launch() {
+    const char* program_name = "netclient";
+    FILE* fp = initrd_fopen(program_name, "rb");
+    char* argv[] = {program_name, NULL};
+    elf_load_file(program_name, fp, argv);
+	panic("noreturn");
+}
+
+static void watchdogd_launch() {
+    const char* program_name = "watchdogd";
+    FILE* fp = initrd_fopen(program_name, "rb");
+    char* argv[] = {program_name, NULL};
+    elf_load_file(program_name, fp, argv);
+	panic("noreturn");
+}
+
 uint32_t initial_esp = 0;
 void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     initial_esp = initial_stack;
@@ -152,10 +162,7 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     interrupt_init();
 
     // PIT and serial drivers
-    // Set this to 1ms to cause issues with keystrokes being lost
-    // TODO(PT): Currently, a task-switch is a side-effect of a PIT ISR
-    // In the future, work like scheduling should be done outside the ISR
-    pit_timer_init(PIT_TICK_GRANULARITY_50MS);
+    pit_timer_init(PIT_TICK_GRANULARITY_1MS);
 
     serial_init();
 
