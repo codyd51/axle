@@ -36,6 +36,9 @@ static const uint32_t _amc_delivery_pool_size = 1024 * 1024 * 1;
 
 static array_m* _amc_services = 0;
 
+static const uint32_t _amc_messages_to_unknown_services_pool_size = 512;
+static array_m* _amc_messages_to_unknown_services_pool = 0;
+
 typedef struct amc_service {
     const char* name;
     task_small_t* task;
@@ -103,16 +106,52 @@ amc_service_t* _amc_service_with_name(const char* name) {
     return _amc_service_matching_data(name, NULL);
 }
 
-static amc_service_t* _amc_service_of_task(task_small_t* task) {
+amc_service_t* _amc_service_of_task(task_small_t* task) {
     return _amc_service_matching_data(NULL, task);
+}
+
+static void _amc_deliver_pending_messages_to_new_service(amc_service_t* new_service) {
+    // Track the messages we'll deliver to avoid modifying the array while iterating
+    int message_indexes_to_deliver[_amc_messages_to_unknown_services_pool_size];
+    int matching_msg_count = 0;
+
+    spinlock_acquire(&_amc_messages_to_unknown_services_pool->lock);
+
+    for (int i = 0; i < _amc_messages_to_unknown_services_pool->size; i++) {
+        amc_message_t* msg = _array_m_lookup_unlocked(_amc_messages_to_unknown_services_pool, i);
+        printf("New service %s, outstanding [%s -> %s]\n", new_service->name, msg->source, msg->dest);
+        if (!strncmp(msg->dest, new_service->name, AMC_MAX_SERVICE_NAME_LEN)) {
+            printf("Found outstanding msg from %s to new %s\n", msg->source, msg->dest);
+            message_indexes_to_deliver[matching_msg_count++] = i;
+        }
+    }
+
+    printf("[%d] Delivering %d outstanding messages to new service %s\n", getpid(), matching_msg_count, new_service->name);
+
+    // Invert the loop in case we're draining the queue to empty
+    // Maintain FIFO delivery but be cognisant of changing indexes
+    int idx_shift = 0;
+    for (int i = 0; i < matching_msg_count; i++) {
+        int idx = message_indexes_to_deliver[i];
+        idx -= idx_shift;
+        amc_message_t* msg = _array_m_lookup_unlocked(_amc_messages_to_unknown_services_pool, idx);
+        // Possible race due to _amc_messages_to_unknown_services_pool being unlocked?
+        assert(!strncmp(msg->dest, new_service->name, AMC_MAX_SERVICE_NAME_LEN), "Message wasn't intended for this service!");
+
+        _array_m_remove_unlocked(_amc_messages_to_unknown_services_pool, idx);
+        idx_shift += 1;
+        _amc_message_add_to_delivery_queue(new_service, msg);
+    }
+
+    spinlock_release(&_amc_messages_to_unknown_services_pool->lock);
 }
 
 void amc_register_service(const char* name) {
     assert(strlen(name) < AMC_MAX_SERVICE_NAME_LEN, "AMC service name exceeded max size!");
     if (!_amc_services) {
         // This could later be moved into a kernel-level amc_init()
-        //_amc_services = array_l_create();
         _amc_services = array_m_create(256);
+        _amc_messages_to_unknown_services_pool = array_m_create(_amc_messages_to_unknown_services_pool_size);
     }
 
     task_small_t* current_task = tasking_get_current_task();
@@ -136,7 +175,7 @@ void amc_register_service(const char* name) {
     service->name = strdup(name);
     service->task = current_task;
     assert(!interrupts_enabled(), "ints enabled during spinlock");
-    service->message_queue = array_m_create(512);
+    service->message_queue = array_m_create(2048);
 
     // Create the message delivery pool in the task's address space
 	service->delivery_pool = vmm_alloc_continuous_range(vmm_active_pdir(), 
@@ -149,6 +188,9 @@ void amc_register_service(const char* name) {
     array_m_insert(_amc_services, service);
 
     spinlock_release(&service->spinlock);
+
+    // Deliver any messages sent to this service before it loaded
+    _amc_deliver_pending_messages_to_new_service(service);
 }
 
 static amc_message_t* _amc_message_construct_from_service_name(const char* source_service_name, const char* data, uint32_t len) {
@@ -187,32 +229,11 @@ bool amc_message_send(const char* destination_service, amc_message_t* msg) {
     return false;
 }
 
-static bool _amc_message_construct_and_send_from_service_name(const char* source_service,
-                                                              const char* destination_service,
-                                                              void* buf,
-                                                              uint32_t buf_size) {
-    assert(buf_size < AMC_MAX_MESSAGE_SIZE, "Message exceeded max size");
-    assert(destination_service != NULL, "NULL destination service provided");
-
-    // Find the destination service
-    amc_service_t* dest_service = _amc_service_with_name(destination_service);
-    if (dest_service == NULL) {
-        printf("Dropping message because service doesn't exist: %s\n", destination_service);
-        return false;
-    }
-
-    uint32_t total_msg_size = buf_size + sizeof(amc_message_t);
-    uint8_t* queued_msg = calloc(1, total_msg_size);
-    amc_message_t* header = (amc_message_t*)queued_msg;
-    strncpy(header->source, source_service, sizeof(header->source));
-    strncpy(header->dest, dest_service->name, sizeof(header->dest));
-    header->len = buf_size;
-    memcpy(header->body, buf, buf_size);
-
+static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_message_t* message) {
     // We're modifying some state of the destination service - hold a spinlock
     spinlock_acquire(&dest_service->spinlock);
 
-    if (dest_service->message_queue->size > 400) {
+    if (dest_service->message_queue->size > 1800) {
         printf("Would exceed max size!\n");
         _amc_print_inbox(dest_service);
         printf("Task: 0x%08x machine state: 0x%08x\n", dest_service->task, dest_service->task->machine_state);
@@ -220,7 +241,7 @@ static bool _amc_message_construct_and_send_from_service_name(const char* source
     }
 
     // And add the message to its inbox
-    array_m_insert(dest_service->message_queue, queued_msg);
+    array_m_insert(dest_service->message_queue, message);
 
     // And unblock the task if it was waiting for a message
     if ((dest_service->task->blocked_info.status & AMC_AWAIT_MESSAGE) != 0) {
@@ -240,6 +261,37 @@ static bool _amc_message_construct_and_send_from_service_name(const char* source
 
     // Release our exclusive access
     spinlock_release(&dest_service->spinlock);
+}
+
+static bool _amc_message_construct_and_send_from_service_name(const char* source_service,
+                                                              const char* destination_service,
+                                                              void* buf,
+                                                              uint32_t buf_size) {
+    if (buf_size >= AMC_MAX_MESSAGE_SIZE) printf("Large message size: %d\n", buf_size);
+    assert(buf_size < AMC_MAX_MESSAGE_SIZE, "Message exceeded max size");
+    assert(destination_service != NULL, "NULL destination service provided");
+
+
+    uint32_t total_msg_size = buf_size + sizeof(amc_message_t);
+    uint8_t* queued_msg = calloc(1, total_msg_size);
+    amc_message_t* header = (amc_message_t*)queued_msg;
+    strncpy(header->source, source_service, sizeof(header->source));
+    strncpy(header->dest, destination_service, sizeof(header->dest));
+    header->len = buf_size;
+    memcpy(header->body, buf, buf_size);
+
+    // Find the destination service
+    amc_service_t* dest_service = _amc_service_with_name(destination_service);
+
+    if (dest_service == NULL) {
+        printf("Dest service %s is null, adding to queue (size = %d)\n", destination_service, _amc_messages_to_unknown_services_pool->size);
+        // The destination doesn't exist - store the message in a pool of
+        // messages to unknown services
+        array_m_insert(_amc_messages_to_unknown_services_pool, queued_msg);
+        return false;
+    }
+
+    _amc_message_add_to_delivery_queue(dest_service, queued_msg);
     return true;
 }
 
@@ -265,6 +317,9 @@ void amc_message_broadcast(amc_message_t* msg) {
 }
 
 static void _amc_message_deliver(amc_service_t* service, amc_message_t* message, amc_message_t** out) {
+    if (service->message_queue->size > 0 && service->message_queue->size % 10 == 0) {
+        printf("AMC: Info [%d %s] inbox: %d\n", service->task->id, service->name, service->message_queue->size);
+    }
     uint8_t* delivery_base = (uint8_t*)service->delivery_pool;
     uint32_t total_msg_size = message->len + sizeof(amc_message_t);
     memcpy(delivery_base, (uint8_t*)message, total_msg_size);
@@ -348,9 +403,13 @@ bool amc_has_message_from(const char* source_service) {
     return false;
 }
 
+bool amc_service_has_message(void* service) {
+    return ((amc_service_t*)service)->message_queue->size > 0;
+}
+
 bool amc_has_message(void) {
     amc_service_t* service = _amc_service_of_task(tasking_get_current_task());
-    return service->message_queue->size > 0;
+    return amc_service_has_message(service);
 }
 
 void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, uint32_t* local_buffer_ptr, uint32_t* remote_buffer_ptr) {
