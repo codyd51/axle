@@ -5,7 +5,7 @@
 #include "size.h"
 #include "rect.h"
 
-typedef struct ca_layer_t {
+typedef struct ca_layer {
 	Size size; //width/height in pixels
 	uint8_t* raw; //raw RGB values backing this layer
 	float alpha; //transparency value bounded to continuous range [0..1]
@@ -23,7 +23,7 @@ typedef struct clip_context {
  * @param size The maximum size the layer can render
  * @return The newly constructed graphical layer
  */
-struct ca_layer_t* create_layer(Size size);
+ca_layer* create_layer(Size size);
 
 /**
  * @brief free all resources associated with a layer
