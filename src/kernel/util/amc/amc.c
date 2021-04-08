@@ -104,11 +104,11 @@ static amc_service_t* _amc_service_matching_data(const char* name, task_small_t*
     //panic("Didn't find amc service matching provided data");
 }
 
-amc_service_t* _amc_service_with_name(const char* name) {
+static amc_service_t* _amc_service_with_name(const char* name) {
     return _amc_service_matching_data(name, NULL);
 }
 
-amc_service_t* _amc_service_of_task(task_small_t* task) {
+static amc_service_t* _amc_service_of_task(task_small_t* task) {
     return _amc_service_matching_data(NULL, task);
 }
 

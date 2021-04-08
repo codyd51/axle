@@ -45,6 +45,7 @@ static void _adi_interrupt_handler(registers_t* regs) {
 
     task_small_t* task = (task_small_t*)driver->task;
     tasking_unblock_task_with_reason(task, false, IRQ_WAIT);
+    mlfq_goto_task(task);
 }
 
 void adi_register_driver(const char* name, uint32_t irq) {
@@ -93,6 +94,7 @@ bool adi_event_await(uint32_t irq) {
         spinlock_release(&s);
         return true;
     }
+
     // The driver has re-entered its await-event loop
     // Await the next interrupt or amc message
     task_small_t* task = (task_small_t*)(driver->task);
