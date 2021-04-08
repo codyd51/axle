@@ -72,16 +72,12 @@ int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
 	}
 	*/
 
-	// This string is mapped in the process performing the syscall,
-	// but copy it to kernel memory so we can forward it to any other process
-	// Also, the buffer may not be null-terminated at `len`, so we need to null terminate it ourselves
-	char b[len+1];
-	strncpy(&b, buf, len);
-	b[len] = '\0';
-	printk("[%d] %s", getpid(), b);
-	if (b[len-1] != '\n') printk("\n");
+	char b[len+16];
+	int cnt = snprintf(b, sizeof(b), "[%d] %*", task->id, len, buf);
+	printk(b);
+	if (b[cnt-1] != '\n') printk("\n");
 
-	amc_message_construct_and_send__from_core("com.axle.tty", buf, len);
+	amc_message_construct_and_send__from_core("com.axle.tty", b, cnt);
 
 	return len;
 }
