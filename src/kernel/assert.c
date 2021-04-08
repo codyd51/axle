@@ -3,7 +3,7 @@
 
 #define _BACKTRACE_SIZE 12
 
-void print_stack_trace(int frame_count) {
+void print_stack_trace_old(int frame_count) {
     printf("Stack trace:\n");
     uint32_t stack_addrs[_BACKTRACE_SIZE] = {0};
     walk_stack(stack_addrs, frame_count);
@@ -12,22 +12,7 @@ void print_stack_trace(int frame_count) {
         if (!frame_addr) {
             break;
         }
-        const char* sym_name = elf_sym_lookup(&boot_info_get()->kernel_elf_symbol_table, frame_addr);
-        // Skip unprintable symbol names 
-        // This might be an address without a symbolicated entry point
-        if (!sym_name) {
-            continue;
-        }
-        bool is_ascii = true;
-        for (int i = 0; i < strlen(sym_name); i++) {
-            if (sym_name[i] < '?' || sym_name[i] > 'z') {
-                is_ascii = false;
-                break;
-            }
-        }
-        if (is_ascii) {
-            printf("[%d] %s (0x%08x)\n", i, sym_name, frame_addr);
-        }
+        printf("[%d] 0x%08x\n", i, frame_addr);
     }
 }
 

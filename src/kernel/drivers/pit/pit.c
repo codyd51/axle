@@ -54,4 +54,10 @@ void pit_timer_init(uint32_t frequency) {
 	//send frequency divisor
 	outb(PIT_PORT_CHANNEL0, l);
 	outb(PIT_PORT_CHANNEL0, h);
+	
+	boot_info_get()->ms_per_pit_tick = 1000 / frequency;
+}
+
+uint32_t ms_since_boot(void) {
+	return tick * boot_info_get()->ms_per_pit_tick;
 }
