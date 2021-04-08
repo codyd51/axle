@@ -160,6 +160,12 @@ static void _newline(text_box_t* text_box) {
 	}
 }
 
+typedef struct char_desc {
+	char ch;
+	Size font_size;
+	Color draw_color;
+} char_desc_t;
+
 void text_box_putchar(text_box_t* text_box, char ch, Color color) {
 	if (ch == '\n') {
 		_newline(text_box);
@@ -176,10 +182,41 @@ void text_box_putchar(text_box_t* text_box, char ch, Color color) {
 		}
 		return;
 	}
-	draw_char(text_box->layer, ch, text_box->cursor_pos.x, text_box->cursor_pos.y, color, text_box->font_size);
+	if (text_box->cache_drawing) {
+		char_desc_t desc = {
+			.ch = ch, 
+			.font_size = text_box->font_size, 
+			.draw_color = color
+		};
+		bool d = false;
+		ca_layer* cache_layer = hash_map_get(text_box->draw_cache, &desc, sizeof(char_desc_t), d);
+		if (cache_layer == NULL) {
+			cache_layer = create_layer(
+				size_make(
+					text_box->font_size.width * 2,
+					text_box->font_size.height * 2
+				)
+			);
+			draw_rect(cache_layer, rect_make(point_zero(), cache_layer->size), text_box->background_color, THICKNESS_FILLED);
+			draw_char(cache_layer, desc.ch, 0, 0, desc.draw_color, desc.font_size);
+			hash_map_put(text_box->draw_cache, &desc, sizeof(char_desc_t), cache_layer, d);
+		}
+		blit_layer(
+			text_box->scroll_layer->layer, 
+			cache_layer, 
+			rect_make(
+				text_box->cursor_pos,
+				text_box->font_size
+			),
+			rect_make(point_zero(), text_box->font_size)
+		);
+	}
+	else {
+		draw_char(text_box->scroll_layer->layer, ch, text_box->cursor_pos.x, text_box->cursor_pos.y, color, text_box->font_size);
+	}
 
 	text_box->cursor_pos.x += text_box->font_size.width + text_box->font_padding.width;
-	if (text_box->cursor_pos.x + text_box->font_size.width + text_box->font_padding.width >= text_box->size.width) {
+	if (text_box->cursor_pos.x + text_box->font_size.width + text_box->font_padding.width >= text_box->size.width - 40) {
 		_newline(text_box);
 	}
 }
@@ -249,6 +286,8 @@ text_box_t* text_box_create(Size size, Color background_color) {
 	tb->font_padding = size_make(0, 6);
 	tb->history = stack_create();
 
+	tb->cache_drawing = true;
+	tb->draw_cache = hash_map_create();
 
 	text_box_resize(tb, size);
 	draw_rect(tb->scroll_layer->layer, rect_make(point_zero(), scroll_layer_size), tb->background_color, THICKNESS_FILLED);

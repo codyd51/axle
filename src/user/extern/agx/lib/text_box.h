@@ -6,6 +6,7 @@
 #include "point.h"
 #include "color.h"
 #include "elem_stack.h"
+#include "hash_map.h"
 
 typedef struct array array_t;
 typedef struct ca_scrolling_layer {
@@ -27,6 +28,9 @@ typedef struct text_box {
 	uint32_t max_text_y;
 	elem_stack_t* history;
 	bool preserves_history;
+
+	bool cache_drawing;
+	hash_map_t* draw_cache;
 } text_box_t;
 
 text_box_t* text_box_create(Size size, Color background_color);
