@@ -5,17 +5,28 @@
 #include "size.h"
 #include "point.h"
 #include "color.h"
+#include "elem_stack.h"
 
 typedef struct array array_t;
+typedef struct ca_scrolling_layer {
+	ca_layer* layer;
+	Size full_size;
+	Size scroll_offset;
+} ca_scrolling_layer_t;
+
 typedef struct text_box {
-	array_t* lines;
 	uint32_t scroll_position;
-    ca_layer* layer;
+	ca_scrolling_layer_t* scroll_layer;
+	Rect scrollbar_frame;
+	ca_layer* scrollbar_layer;
 	Size size;
 	Size font_size;
 	Size font_padding;
 	Point cursor_pos;
 	Color background_color;
+	uint32_t max_text_y;
+	elem_stack_t* history;
+	bool preserves_history;
 } text_box_t;
 
 text_box_t* text_box_create(Size size, Color background_color);
@@ -33,5 +44,8 @@ void text_box_clear(text_box_t* tb);
 void text_box_scroll_up(text_box_t* text_box);
 void text_box_scroll_down(text_box_t* text_box);
 void text_box_scroll_to_bottom(text_box_t* text_box);
+
+void text_box_blit(text_box_t* text_box, ca_layer* dest, Rect dest_frame);
+void text_box_resize(text_box_t* text_box, Size new_size);
 
 #endif
