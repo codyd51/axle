@@ -13,6 +13,21 @@ typedef struct amc_message_t {
     uint8_t body[];
 } amc_message_t;
 
+typedef struct amc_service_description {
+	char service_name[AMC_MAX_SERVICE_NAME_LEN];
+	uint32_t unread_message_count;
+} amc_service_description_t;
+
+typedef struct amc_service_list {
+    uint32_t event;
+	uint32_t service_count;
+	amc_service_description_t service_descs[];
+} amc_service_list_t;
+
+#define AXLE_CORE_SERVICE_NAME "com.axle.core"
+#define AMC_COPY_SERVICES (1 << 0)
+#define AMC_COPY_SERVICES_RESPONSE (1 << 0)
+
 // Register the running process as the provided service name
 void amc_register_service(const char* name);
 
@@ -63,5 +78,7 @@ amc_message_t* amc_message_construct__from_core(const char* data, int len);
 bool amc_message_construct_and_send__from_core(const char* destination_service, void* buf, uint32_t buf_size);
 
 void amc__awm_map_framebuffer(void);
+
+bool amc_service_has_message(void* service);
 
 #endif

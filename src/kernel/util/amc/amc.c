@@ -53,6 +53,8 @@ typedef struct amc_service {
     uint32_t delivery_pool;
 } amc_service_t;
 
+static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_message_t* message);
+
 void amc_print_services(void) {
     if (!_amc_services) return;
     for (int i = 0; i < _amc_services->size; i++) {
@@ -271,6 +273,36 @@ static bool _amc_message_construct_and_send_from_service_name(const char* source
     assert(buf_size < AMC_MAX_MESSAGE_SIZE, "Message exceeded max size");
     assert(destination_service != NULL, "NULL destination service provided");
 
+    // If this is a message to com.axle.core, provide special handling
+    // TODO(PT): If this mechanism works well, replace the awm map framebuffer syscall with this
+    if (!strncmp(destination_service, AXLE_CORE_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
+        printf("Message to core from %s\n", source_service);
+        uint32_t* u32buf = (uint32_t*)buf;
+        if (u32buf[0] == AMC_COPY_SERVICES) {
+            printf("Request to copy services\n");
+
+            uint32_t response_size = sizeof(amc_service_list_t) + (sizeof(amc_service_description_t) * _amc_services->size);
+            amc_service_list_t* service_list = kmalloc(response_size);
+            service_list->event = AMC_COPY_SERVICES_RESPONSE;
+            service_list->service_count = _amc_services->size;
+
+            for (int i = 0; i < _amc_services->size; i++) {
+                amc_service_description_t* service_desc = &service_list->service_descs[i];
+                amc_service_t* service = array_m_lookup(_amc_services, i);
+                //printf("Service desc 0x%08x, amc service 0x%08x %s -> desc 0x%08x 0x%08x\n", service_desc, service->name, service->name, service_desc->service_name, &service_desc->service_name);
+                strncpy(&service_desc->service_name, service->name, AMC_MAX_SERVICE_NAME_LEN);
+                service_desc->unread_message_count = service->message_queue->size;
+            }
+            amc_message_construct_and_send__from_core(source_service, service_list, response_size);
+            kfree(service_list);
+            return true;
+        }
+        else {
+            assert(0, "Unknown message to core");
+            return;
+        }
+        return true;
+    }
 
     uint32_t total_msg_size = buf_size + sizeof(amc_message_t);
     uint8_t* queued_msg = calloc(1, total_msg_size);
