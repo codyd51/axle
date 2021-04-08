@@ -19,7 +19,8 @@ static volatile uint32_t tick = 0;
 
 static int tick_callback(registers_t* regs) {
 	tick++;
-	_timer_handle_pit_tick(regs);
+	pic_signal_end_of_interrupt(regs->int_no);
+	task_switch_if_quantum_expired();
 	return 0;
 }
 
