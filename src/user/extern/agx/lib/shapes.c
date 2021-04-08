@@ -63,8 +63,22 @@ void normalize_coordinate(ca_layer* layer, Point* p) {
 	p->y = MIN(p->y, layer->size.height);
 }
 
+static void _fill_layer(ca_layer* layer, Color color) {
+	uint32_t fill_color = (color.val[2] << 0 | color.val[1] << 8 | color.val[0] << 16);
+	memset(layer->raw, fill_color, layer->size.width * layer->size.height * gfx_bytes_per_pixel());
+}
+
 //functions to draw shape structures
 static void draw_rect_int_fast(ca_layer* layer, Rect rect, Color color) {
+	// Filling a layer is a special case that can be quickly handled by memset()
+	if (rect.origin.x == 0 &&
+		rect.origin.y == 0 &&
+		rect.size.width == layer->size.width &&
+		rect.size.height == layer->size.height) {
+		_fill_layer(layer, color);
+		return;
+	}
+
 	//make sure we don't try to write to an invalid location
 	if (rect.origin.x < 0) {
 		rect.size.width += rect.origin.x;
