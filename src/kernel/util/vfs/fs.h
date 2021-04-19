@@ -104,7 +104,7 @@ uint32_t read(int fd, void* buf, uint32_t count);
 
 
 uint32_t initrd_fread(void* buffer, uint32_t size, uint32_t count, FILE* stream);
-FILE* initrd_fopen(char* filename, char* mode);
+FILE* initrd_fopen(const char* filename, char* mode);
 uint8_t initrd_fgetc(FILE* stream);
 
 int getdents(unsigned int fd, struct dirent* dirp, unsigned int count);

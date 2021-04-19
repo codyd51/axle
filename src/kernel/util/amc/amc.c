@@ -6,6 +6,8 @@
 #include <kernel/util/spinlock/spinlock.h>
 #include <kernel/multitasking/tasks/task_small.h>
 
+#include <kernel/boot_info.h>
+
 /* 
  * 0x80000000: ELF code and data
  * 0xa0000000: AMC shared-memory base (framebuffers)
@@ -235,7 +237,7 @@ static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_
     // We're modifying some state of the destination service - hold a spinlock
     spinlock_acquire(&dest_service->spinlock);
 
-    if (dest_service->message_queue->size > 1800) {
+    if (dest_service->message_queue->size >= dest_service->message_queue->max_size - 16) {
         printf("Would exceed max size!\n");
         _amc_print_inbox(dest_service);
         printf("Task: 0x%08x machine state: 0x%08x\n", dest_service->task, dest_service->task->machine_state);
@@ -265,6 +267,52 @@ static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_
     spinlock_release(&dest_service->spinlock);
 }
 
+static void _amc_core_copy_amc_services(const char* source_service) {
+    printf("Request to copy services\n");
+   
+    uint32_t response_size = sizeof(amc_service_list_t) + (sizeof(amc_service_description_t) * _amc_services->size);
+    amc_service_list_t* service_list = kmalloc(response_size);
+    service_list->event = AMC_COPY_SERVICES_RESPONSE;
+    service_list->service_count = _amc_services->size;
+
+    for (int i = 0; i < _amc_services->size; i++) {
+        amc_service_description_t* service_desc = &service_list->service_descs[i];
+        amc_service_t* service = array_m_lookup(_amc_services, i);
+        //printf("Service desc 0x%08x, amc service 0x%08x %s -> desc 0x%08x 0x%08x\n", service_desc, service->name, service->name, service_desc->service_name, &service_desc->service_name);
+        strncpy(&service_desc->service_name, service->name, AMC_MAX_SERVICE_NAME_LEN);
+        service_desc->unread_message_count = service->message_queue->size;
+    }
+    amc_message_construct_and_send__from_core(source_service, service_list, response_size);
+    kfree(service_list);
+    return true;
+}
+
+static void _amc_core_awm_map_framebuffer(const char* source_service) {
+    // Only awm is allowed to invoke this code!
+    assert(!strncmp(source_service, "com.axle.awm", AMC_MAX_SERVICE_NAME_LEN), "Only AWM may use this syscall");
+
+    amc_service_t* current_service = _amc_service_with_name(source_service);
+    spinlock_acquire(&current_service->spinlock);
+    framebuffer_info_t* framebuffer_info = &boot_info_get()->framebuffer;
+    // TODO(PT): Map framebuffer into proc's address space
+    // Currently it's identity-mapped in awm_init()
+    spinlock_release(&current_service->spinlock);
+
+    uint32_t framebuf_start_addr = framebuffer_info->address;
+    uint32_t framebuf_end_addr = framebuffer_info->address + framebuffer_info->size;
+    // Pad to page size
+    framebuf_end_addr = (framebuf_end_addr + (PAGE_SIZE - 1)) & PAGING_PAGE_MASK;
+    printf("Framebuffer: 0x%08x - 0x%08x (%d pages)\n", framebuf_start_addr, framebuf_end_addr, ((framebuf_end_addr - framebuf_start_addr) / PAGE_SIZE));
+    for (uint32_t addr = framebuf_start_addr; addr < framebuf_end_addr; addr += PAGE_SIZE) {
+        vmm_set_page_usermode(vmm_active_pdir(), addr);
+    }
+
+    amc_framebuffer_info_t msg = {.event = AMC_AWM_MAP_FRAMEBUFFER_RESPONSE};
+    // Copy the framebuffer_info_t into the structure subfields that exactly match its layout
+    memcpy(&msg.type, framebuffer_info, sizeof(framebuffer_info_t));
+    amc_message_construct_and_send__from_core(source_service, &msg, sizeof(amc_framebuffer_info_t));
+}
+
 static bool _amc_message_construct_and_send_from_service_name(const char* source_service,
                                                               const char* destination_service,
                                                               void* buf,
@@ -274,27 +322,15 @@ static bool _amc_message_construct_and_send_from_service_name(const char* source
     assert(destination_service != NULL, "NULL destination service provided");
 
     // If this is a message to com.axle.core, provide special handling
-    // TODO(PT): If this mechanism works well, replace the awm map framebuffer syscall with this
     if (!strncmp(destination_service, AXLE_CORE_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
         printf("Message to core from %s\n", source_service);
         uint32_t* u32buf = (uint32_t*)buf;
         if (u32buf[0] == AMC_COPY_SERVICES) {
-            printf("Request to copy services\n");
-
-            uint32_t response_size = sizeof(amc_service_list_t) + (sizeof(amc_service_description_t) * _amc_services->size);
-            amc_service_list_t* service_list = kmalloc(response_size);
-            service_list->event = AMC_COPY_SERVICES_RESPONSE;
-            service_list->service_count = _amc_services->size;
-
-            for (int i = 0; i < _amc_services->size; i++) {
-                amc_service_description_t* service_desc = &service_list->service_descs[i];
-                amc_service_t* service = array_m_lookup(_amc_services, i);
-                //printf("Service desc 0x%08x, amc service 0x%08x %s -> desc 0x%08x 0x%08x\n", service_desc, service->name, service->name, service_desc->service_name, &service_desc->service_name);
-                strncpy(&service_desc->service_name, service->name, AMC_MAX_SERVICE_NAME_LEN);
-                service_desc->unread_message_count = service->message_queue->size;
-            }
-            amc_message_construct_and_send__from_core(source_service, service_list, response_size);
-            kfree(service_list);
+            _amc_core_copy_amc_services(source_service);
+            return true;
+        }
+        else if (u32buf[0] == AMC_AWM_MAP_FRAMEBUFFER) {
+            _amc_core_awm_map_framebuffer(source_service);
             return true;
         }
         else {
@@ -350,7 +386,7 @@ void amc_message_broadcast(amc_message_t* msg) {
 
 static void _amc_message_deliver(amc_service_t* service, amc_message_t* message, amc_message_t** out) {
     if (service->message_queue->size > 0 && service->message_queue->size % 10 == 0) {
-        printf("AMC: Info [%d %s] inbox: %d\n", service->task->id, service->name, service->message_queue->size);
+        printf("%d AMC: Info [%d %s] inbox: %d\n", ms_since_boot(), service->task->id, service->name, service->message_queue->size);
     }
     uint8_t* delivery_base = (uint8_t*)service->delivery_pool;
     uint32_t total_msg_size = message->len + sizeof(amc_message_t);
@@ -552,29 +588,4 @@ void amc_physical_memory_region_create(uint32_t region_size, uint32_t* virtual_r
     *physical_region_start_out = phys_start;
 
     spinlock_release(&current_service->spinlock);
-}
-
-#include <kernel/boot_info.h>
-void amc__awm_map_framebuffer() {
-    amc_service_t* current_service = _amc_service_of_task(tasking_get_current_task());
-
-    // Only awm is allowed to use this syscall!
-    assert(!strcmp(current_service->name, "com.axle.awm"), "Only AWM may use this syscall");
-
-    spinlock_acquire(&current_service->spinlock);
-    framebuffer_info_t framebuffer_info = boot_info_get()->framebuffer;
-    // TODO(PT): Map framebuffer into proc's address space
-    // Currently it's identity-mapped in awm_init()
-    spinlock_release(&current_service->spinlock);
-
-    uint32_t framebuf_start_addr = framebuffer_info.address;
-    uint32_t framebuf_end_addr = framebuffer_info.address + framebuffer_info.size;
-    // Pad to page size
-    framebuf_end_addr = (framebuf_end_addr + (PAGE_SIZE - 1)) & PAGING_PAGE_MASK;
-    printf("Framebuffer: 0x%08x - 0x%08x (%d pages)\n", framebuf_start_addr, framebuf_end_addr, ((framebuf_end_addr - framebuf_start_addr) / PAGE_SIZE));
-    for (uint32_t addr = framebuf_start_addr; addr < framebuf_end_addr; addr += PAGE_SIZE) {
-        vmm_set_page_usermode(vmm_active_pdir(), addr);
-    }
-
-    amc_message_construct_and_send__from_core("com.axle.awm", &framebuffer_info, sizeof(framebuffer_info_t));
 }

@@ -15,9 +15,10 @@
 #define PIT_TICK_GRANULARITY_1000MS 1
 
 void pit_timer_init(uint32_t frequency);
-uint32_t pit_clock();
 
-//explicitly deprecated
+uint32_t pit_clock();
 uint32_t tick_count();
+
+uint32_t ms_since_boot(void);
 
 #endif

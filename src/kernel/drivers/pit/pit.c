@@ -29,7 +29,6 @@ uint32_t pit_clock() {
 }
 
 uint32_t tick_count() {
-    //Deprecated();
     return pit_clock();
 }
 

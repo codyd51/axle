@@ -6,9 +6,9 @@
 #include <kernel/drivers/pit/pit.h>
 
 #define MLFQ_QUEUE_COUNT 4
-#define MLFQ_PRIO_HIGH_QUANTUM 5
+#define MLFQ_PRIO_HIGH_QUANTUM 10
 #define MLFQ_PRIO_LOW_QUANTUM 200
-#define MLFQ_BOOST_INTERVAL 2000
+#define MLFQ_BOOST_INTERVAL 1000
 
 typedef struct mlfq_ent {
     task_small_t* task;

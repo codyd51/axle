@@ -1,9 +1,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "../lib/point.h"
 #include "../lib/color.h"
 #include "../lib/putpixel.h"
+#include "../lib/shapes.h"
 #include "font8x8.h"
 #include "font.h"
 

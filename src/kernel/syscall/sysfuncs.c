@@ -104,14 +104,13 @@ DEFN_SYSCALL(amc_has_message, 34);
 DEFN_SYSCALL(amc_launch_service, 35, const char*);
 DEFN_SYSCALL(amc_physical_memory_region_create, 36, uint32_t, uint32_t*, uint32_t*);
 DEFN_SYSCALL(amc_message_construct_and_send, 37, const char*, uint8_t*, uint32_t);
-DEFN_SYSCALL(amc__awm_map_framebuffer, 38);
 
 // ADI syscalls
-DEFN_SYSCALL(adi_register_driver, 39, const char*, uint32_t);
-DEFN_SYSCALL(adi_event_await, 40, uint32_t);
-DEFN_SYSCALL(adi_send_eoi, 41, uint32_t);
+DEFN_SYSCALL(adi_register_driver, 38, const char*, uint32_t);
+DEFN_SYSCALL(adi_event_await, 39, uint32_t);
+DEFN_SYSCALL(adi_send_eoi, 40, uint32_t);
 
-DEFN_SYSCALL(ms_since_boot, 42);
+DEFN_SYSCALL(ms_since_boot, 41);
 
 void create_sysfuncs() {
 	syscall_add((void*)&_kill);
@@ -153,7 +152,6 @@ void create_sysfuncs() {
 	syscall_add((void*)&amc_launch_service);
 	syscall_add((void*)&amc_physical_memory_region_create);
 	syscall_add((void*)&amc_message_construct_and_send);
-	syscall_add((void*)&amc__awm_map_framebuffer);
 
 	syscall_add((void*)&adi_register_driver);
 	syscall_add((void*)&adi_event_await);

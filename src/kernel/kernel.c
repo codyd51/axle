@@ -58,10 +58,14 @@ static void awm_init() {
 
     // VESA Framebuffer,
     boot_info_t* info = boot_info_get();
-    vmm_identity_map_region(vmm_active_pdir(), info->framebuffer.address, info->framebuffer.size);
+    vmm_identity_map_region(
+        (vmm_page_directory_t*)vmm_active_pdir(), 
+        info->framebuffer.address, 
+        info->framebuffer.size
+    );
 
     FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
+    const char* argv[] = {program_name, NULL};
     elf_load_file(program_name, fp, argv);
     panic("noreturn");
 }
@@ -70,7 +74,7 @@ static void cat() {
     const char* program_name = "cat";
 
     FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, "test-file.txt", NULL};
+    const char* argv[] = {program_name, "test-file.txt", NULL};
     elf_load_file(program_name, fp, argv);
     panic("noreturn");
 }
@@ -79,7 +83,7 @@ static void rainbow() {
     const char* program_name = "rainbow";
 
     FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
+    const char* argv[] = {program_name, NULL};
     elf_load_file(program_name, fp, argv);
     panic("noreturn");
 }
@@ -95,7 +99,7 @@ static void paintbrush() {
 static void textpad() {
     const char* program_name = "textpad";
     FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
+    const char* argv[] = {program_name, NULL};
     elf_load_file(program_name, fp, argv);
     panic("noreturn");
 }
@@ -103,7 +107,7 @@ static void textpad() {
 static void tty_init() {
     const char* program_name = "tty";
     FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
+    const char* argv[] = {program_name, NULL};
     elf_load_file(program_name, fp, argv);
 	panic("noreturn");
 }
@@ -111,7 +115,7 @@ static void tty_init() {
 static void pci_driver() {
     const char* program_name = "pci_driver";
     FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
+    const char* argv[] = {program_name, NULL};
     elf_load_file(program_name, fp, argv);
     panic("noreturn");
 }
@@ -119,7 +123,7 @@ static void pci_driver() {
 static void net() {
     const char* program_name = "net";
     FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
+    const char* argv[] = {program_name, NULL};
     elf_load_file(program_name, fp, argv);
     panic("noreturn");
 }
@@ -127,7 +131,7 @@ static void net() {
 static void timed_launch() {
     const char* program_name = "timed";
     FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
+    const char* argv[] = {program_name, NULL};
     elf_load_file(program_name, fp, argv);
 	panic("noreturn");
 }
