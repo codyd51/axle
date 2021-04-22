@@ -161,6 +161,41 @@ void arp_receive(packet_info_t* packet_info, arp_packet_t* arp_packet) {
 	free(arp_packet);
 }
 
+typedef struct arp_active_request {
+	uint32_t request_count;
+	uint32_t max_request_count;
+	arp_packet_t request_packet;
+} arp_active_request_t;
+
+static void _arp_rerequest_mac(arp_active_request_t* request) {
+	// Has the ARP request been responded to?
+	if (arp_cache_contains_ipv4(&request->request_packet.target_proto_addr)) {
+		// Free the request
+		printf("ARP request sucessfully serviced\n");
+		free(request);
+		return;
+	}
+
+	// Have we run out of retries?
+	if (request->request_count >= request->max_request_count) {
+		printf("ARP request failed, remote target never responded\n");
+		free(request);
+		return;
+	}
+
+	// Send another ARP request
+	request->request_count += 1;
+	printf("ARP request hasn't received a reply, resending (try %d/%d)\n", request->request_count, request->max_request_count);
+	gui_timer_start(
+		net_main_window(), 
+		100,
+		(gui_timer_cb_t)_arp_rerequest_mac, 
+		request
+	);
+	uint8_t global_broadcast_mac[MAC_ADDR_SIZE] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+	ethernet_send(global_broadcast_mac, ETHTYPE_ARP, (uint8_t*)&request->request_packet, sizeof(arp_packet_t));
+}
+
 void arp_request_mac(uint8_t dst_ip_addr[IPv4_ADDR_SIZE]) {
 	arp_packet_t req = {0};
 	req.hardware_type = htons(ARP_HWARE_TYPE_ETHERNET);
@@ -172,6 +207,20 @@ void arp_request_mac(uint8_t dst_ip_addr[IPv4_ADDR_SIZE]) {
 	net_copy_local_ipv4_addr(req.sender_proto_addr);
 	memcpy(req.target_proto_addr, dst_ip_addr, IPv4_ADDR_SIZE);
 
+	// Set up a timer that will re-send the ARP request if we haven't received a response
+	arp_active_request_t* request = calloc(1, sizeof(arp_active_request_t));
+	request->request_count = 1;
+	request->max_request_count = 10;
+	memcpy(&request->request_packet, &req, sizeof(arp_packet_t));
+
+	gui_timer_start(
+		net_main_window(), 
+		100,
+		(gui_timer_cb_t)_arp_rerequest_mac, 
+		request
+	);
+
+	// And send the initial request packet
 	uint8_t global_broadcast_mac[MAC_ADDR_SIZE] = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 	ethernet_send(global_broadcast_mac, ETHTYPE_ARP, (uint8_t*)&req, sizeof(arp_packet_t));
 }
