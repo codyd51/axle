@@ -1,4 +1,6 @@
+#include <string.h>
 #include <agx/lib/shapes.h>
+#include <agx/font/font.h>
 
 #include "gui_button.h"
 #include "gui_view.h"
@@ -43,8 +45,9 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 	int outer_margin_size = 6;
 
 	Color outer_margin_color = color_make(60, 60, 60);
-	Color inner_margin_color = color_make(100, 100, 100);
-	Color diagonal_insets_color = color_make(120, 120, 120);
+	//Color inner_margin_color = color_make(100, 100, 100);
+	Color inner_margin_color = color_light_gray();
+	Color diagonal_insets_color = color_make(100, 100, 100);
 	Color text_color = color_black();
 	Color outline_color = is_active ? color_white() : color_make(50, 50, 50);
 	if (b->in_left_click) {
@@ -104,51 +107,54 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 	ca_layer* layer = b->superview->content_layer;
 	Line l = line_make(
 		point_make(
-			outer.origin.x + (t/2),
+			outer.origin.x + 1,
 			outer.origin.y
 		),
-		inner.origin
+		point_make(
+			inner.origin.x + 1,
+			inner.origin.y
+		)
 	);
-	draw_line(layer, l, c, t);
+	draw_line(layer, l, c, t/2);
 
 	// Bottom left corner
 	l = line_make(
 		point_make(
-			rect_min_x(outer) + (t/2),
+			rect_min_x(outer) + 2,
 			rect_max_y(outer) - 2
 		),
 		point_make(
-			rect_min_x(inner),
+			rect_min_x(inner) + 1,
 			rect_max_y(inner) - 1
 		)
 	);
-	draw_line(layer, l, c, t);
+	draw_line(layer, l, c, t/2);
 
 	// Top right corner
 	l = line_make(
 		point_make(
-			rect_max_x(outer) - (t/2),
+			rect_max_x(outer) - 2,
 			rect_min_y(outer)
 		),
 		point_make(
-			rect_max_x(inner),
+			rect_max_x(inner) - 2,
 			rect_min_y(inner)
 		)
 	);
-	draw_line(layer, l, c, t);
+	draw_line(layer, l, c, t/2);
 
 	// Bottom right corner
 	l = line_make(
 		point_make(
-			rect_max_x(outer) - (t/2),
+			rect_max_x(outer) - 2,
 			rect_max_y(outer) - 1
 		),
 		point_make(
-			rect_max_x(inner),
+			rect_max_x(inner) - 2,
 			rect_max_y(inner) - 1
 		)
 	);
-	draw_line(layer, l, c, t);
+	draw_line(layer, l, c, t/2);
 
 	uint32_t font_height = min(30, inner_margin.size.height / 4);
 	uint32_t font_width = max(6, font_height * 0.8);
@@ -178,6 +184,14 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 		b->superview->content_layer,
 		outer_margin,
 		outline_color,
+		1
+	);
+
+	// Outline above inner margin
+	draw_rect(
+		b->superview->content_layer,
+		inner,
+		color_make(140, 140, 140),
 		1
 	);
 }
