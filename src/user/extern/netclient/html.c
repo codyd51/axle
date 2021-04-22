@@ -140,8 +140,20 @@ static bool _check_stream(tcp_lexer_t* state, char* expected) {
 
 	if (state->read_off + expected_len > state->current_chunk_size) {
 		printf("state->read_off %d expected_len %d, current_chunk_size %d\n", state->read_off, expected_len, state->current_chunk_size);
-		assert(0, "cannot peek stream: need to fetch more data");
-		return false;
+		uint32_t readable_len = state->current_chunk_size - state->read_off;
+		printf("*** Reading %d chars\n", readable_len);
+		char* stream_ptr = (char*)(state->current_chunk + state->read_off);
+		if (strncmp(stream_ptr, expected, readable_len)) {
+			// Not a match
+			return false;
+		}
+		// Read more stream data
+		printf("*** _check_stream reading next stream chunk\n");
+		_fetch_next_stream_chunk(state);
+		stream_ptr = (char*)(state->current_chunk + state->read_off);
+		char* expected_remaining = expected + readable_len;
+		uint32_t remaining_len = expected_len - readable_len;
+		return !strncmp(stream_ptr, expected_remaining, remaining_len);
 	}
 
 	char* stream_ptr = (char*)(state->current_chunk + state->read_off);
@@ -330,9 +342,22 @@ static html_tag_t* _parse_html_tag(tcp_lexer_t* state) {
 	// Does this kind of tag require a matching closing tag?
 	// TODO(PT): Come up with a way to handle casing
 	tag->requires_close_tag = true;
+	// https://html.spec.whatwg.org/multipage/syntax.html#void-elements
 	char* tags_without_closing_tag[] = {
-		"meta",
+		"area",
+		"base",
+		"br",
+		"col",
+		"embed",
 		"hr",
+		"img",
+		"input",
+		"meta",
+		"link",
+		"param",
+		"source",
+		"track",
+		"wbr",
 		"?xml",
 		"!DOCTYPE",
 		"!doctype",
