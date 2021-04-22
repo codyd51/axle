@@ -78,6 +78,7 @@ gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t hei
 	window->text_inputs = array_create(32);
 	window->text_views = array_create(32);
 	window->views = array_create(32);
+	window->timers = array_create(32);
 	window->all_gui_elems = array_create(64);
 
 	// Ask awm to set the window title
@@ -182,11 +183,11 @@ static void _handle_mouse_moved(gui_window_t* window, awm_mouse_moved_msg_t* mov
 			else {
 				// Exit the previous hover element
 				if (window->hover_elem) {
-					printf("Mouse exited previous hover elem 0x%08x\n", window->hover_elem);
-					window->hover_elem->ti._priv_mouse_exited_cb(window->hover_elem);
+					//printf("Mouse exited previous hover elem 0x%08x\n", window->hover_elem);
+					window->hover_elem->base._priv_mouse_exited_cb(window->hover_elem);
 					window->hover_elem = NULL;
 				}
-				printf("Mouse entered new hover elem 0x%08x\n", elem);
+				//printf("Mouse entered new hover elem 0x%08x\n", elem);
 				window->hover_elem = elem;
 				elem->base._priv_mouse_entered_cb(elem);
 				return;
@@ -199,14 +200,14 @@ static void _handle_mouse_dragged(gui_window_t* window, awm_mouse_dragged_msg_t*
 	Point mouse_pos = point_make(moved_msg->x_pos, moved_msg->y_pos);
 	// Iterate backwards to respect z-order
 	if (window->hover_elem) {
-		window->hover_elem->ti._priv_mouse_dragged_cb(window->hover_elem, mouse_pos);
+		window->hover_elem->base._priv_mouse_dragged_cb(window->hover_elem, mouse_pos);
 	}
 }
 
 static void _handle_mouse_left_click(gui_window_t* window, Point click_point) {
 	if (window->hover_elem) {
 		printf("Left click on hover elem 0x%08x\n", window->hover_elem);
-		window->hover_elem->ti._priv_mouse_left_click_cb(window->hover_elem, click_point);
+		window->hover_elem->base._priv_mouse_left_click_cb(window->hover_elem, click_point);
 	}
 }
 
@@ -325,40 +326,7 @@ static void _process_amc_messages(gui_window_t* window) {
 	_handle_amc_messages(window);
 }
 
-static void _run_event_loop(gui_window_t* window) {
-	/*
-	// Blit views so that we draw everything once before blocking for amc
-	for (uint32_t i = 0; i < window->all_gui_elems->size; i++) {
-		gui_elem_t* elem = array_lookup(window->all_gui_elems, i);
-		bool is_active = window->hover_elem == elem;
-
-		if (!elem->base._priv_needs_display) {
-			continue;
-		}
-		elem->ti._priv_draw_cb(elem, is_active);
-
-		if (elem->base.type == GUI_TYPE_VIEW) {
-			// TODO(PT): Move this into the view implementation
-			if (!elem->v.controls_content_layer) {
-				draw_rect(elem->v.content_layer, rect_make(point_zero(), elem->v.content_layer_frame.size), color_black(), THICKNESS_FILLED);
-			}
-			for (uint32_t j = 0; j < elem->v.subviews->size; j++) {
-				gui_elem_t* subview = array_lookup(elem->v.subviews, j);
-
-				if (subview->base.type == GUI_TYPE_BUTTON) {
-					printf("Skipping draw of button\n");
-					continue;
-				}
-
-				is_active = window->hover_elem == subview;
-				subview->base._priv_draw_cb(subview, is_active);
-			}
-		}
-	}
-	*/
-	// Process any events sent to this service
-	_process_amc_messages(window);
-	
+static void _redraw_dirty_elems(gui_window_t* window) {
 	uint32_t start = ms_since_boot();
 	for (uint32_t i = 0; i < window->all_gui_elems->size; i++) {
 		gui_elem_t* elem = array_lookup(window->all_gui_elems, i);
@@ -368,24 +336,6 @@ static void _run_event_loop(gui_window_t* window) {
 			elem->base._priv_draw_cb(elem, is_active);
 			elem->base._priv_needs_display = false;
 		//}
-
-		if (elem->base.type == GUI_TYPE_VIEW) {
-			// TODO(PT): Move this into the view implementation
-			/*
-			if (!elem->v.controls_content_layer) {
-				draw_rect(elem->v.content_layer, rect_make(point_zero(), elem->v.content_layer_frame.size), color_green(), THICKNESS_FILLED);
-			}
-			*/
-			for (uint32_t j = 0; j < elem->v.subviews->size; j++) {
-				gui_elem_t* subview = array_lookup(elem->v.subviews, j);
-
-				if (subview->base._priv_needs_display) {
-					is_active = window->hover_elem == subview;
-					subview->base._priv_draw_cb(subview, is_active);
-					subview->base._priv_needs_display = false;
-				}
-			}
-		}
 	}
 	uint32_t end = ms_since_boot();
 	uint32_t t = end - start;
@@ -398,8 +348,16 @@ static void _run_event_loop(gui_window_t* window) {
 }
 
 void gui_enter_event_loop(gui_window_t* window) {
+	// Draw everything once so the window shows its contents before we start 
+	// processing messages
+	_redraw_dirty_elems(window);
 	while (true) {
-		_run_event_loop(window);
+		// Process any events sent to this service
+		_process_amc_messages(window);
+		// Dispatch any ready timers
+		gui_dispatch_ready_timers(window);
+		// Redraw any dirty elements
+		_redraw_dirty_elems(window);
 	}
 }
 
