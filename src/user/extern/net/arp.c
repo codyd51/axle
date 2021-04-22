@@ -61,7 +61,6 @@ bool arp_cache_contains_ipv4(uint8_t ip_addr[IPv4_ADDR_SIZE]) {
 }
 
 static void _update_arp_table(uint8_t mac_addr[6], uint8_t ip_addr[4]) {
-	printf("Inserting ARP entry\n");
 	// If this IP is already in the table, update the associated MAC
 	for (int i = 0; i < ARP_TABLE_SIZE; i++) {
 		arp_entry_t* ent = &_arp_table[i];
@@ -81,6 +80,9 @@ static void _update_arp_table(uint8_t mac_addr[6], uint8_t ip_addr[4]) {
 			ent->allocated = true;
 			memcpy(ent->mac_addr, mac_addr, 6);
 			memcpy(ent->ip_addr, ip_addr, 4);
+
+			// And update the UI to reflect a new mapping
+			net_ui_arp_table_draw();
 			return;
 		}
 	}
@@ -107,10 +109,6 @@ void arp_send_reply(uint8_t target_ipv4_addr[IPv4_ADDR_SIZE], uint8_t target_mac
 }
 
 void arp_receive(packet_info_t* packet_info, arp_packet_t* arp_packet) {
-	char sender_ip[64];
-	format_ipv4_address__buf(sender_ip, sizeof(sender_ip), arp_packet->sender_proto_addr);
-	printf("ARP received from %s\n", sender_ip);
-
 	assert(ntohs(arp_packet->hardware_type) == ARP_HWARE_TYPE_ETHERNET, "Unknown ARP hardware type");
 	assert(ntohs(arp_packet->protocol_type) == ARP_PROTO_TYPE_IPv4, "Unknown ARP protocol type");
 	assert(arp_packet->hware_addr_len == 6, "MAC address was not 6 bytes");

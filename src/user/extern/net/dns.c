@@ -4,6 +4,8 @@
 #include <stdbool.h>
 
 #include <libport/libport.h>
+// TODO(PT): Move hashmap to stdlibadd
+#include <agx/lib/hash_map.h>
 
 #include "dns.h"
 #include "util.h" // For hexdump, can remove
@@ -14,6 +16,7 @@
 #define DNS_TYPE_TEXT_STRINGS   16
 #define DNS_TYPE_POINTER        12
 #define DNS_TYPE_A_RECORD       1
+#define DNS_TYPE_CNAME          5
 
 static void* _dns_callbacks = 0;
 
@@ -100,14 +103,12 @@ static void _parse_dns_name(dns_packet_t* packet, dns_name_parse_state_t* out_st
         // If the high two bits of the label are set, 
         // this is a pointer to a prior string
         if ((label_len >> 6) == 0x3) {
-            printf("found dns label pointer label_len=0x%08x data_ptr=0x%08x *data_ptr 0x%08x ", label_len, data_ptr, *data_ptr);
             out_state->label_count++;
 
             // Mask off the high two bits
             uint8_t b1 = label_len & ~(3 << 6);
             uint8_t b2 = *(data_ptr++);
             uint16_t string_offset = (b1 << 8) | b2;
-            printf("b1 %d b2 %d string_offset 0x%04x\n", b1, b2, string_offset);
 
             dns_name_parse_state_t pointer_parse = {0};
             uint8_t* label_offset = (uint8_t*)packet + string_offset;
@@ -187,7 +188,7 @@ static dns_service_type_t* _find_or_create_dns_service_type(dns_answer_t* answer
             ent->allocated = true;
             memcpy(&ent->type_name, &answer->parsed_name, sizeof(dns_name_parse_state_t));
             memset(ent->instances, 0, sizeof(ent->instances));
-            printf("Created new DNS service type %s sz %d\n", answer->parsed_name.name, sizeof(ent->instances));
+            //printf("Created new DNS service type %s sz %d\n", answer->parsed_name.name, sizeof(ent->instances));
             return ent;
         }
     }
@@ -198,15 +199,15 @@ static dns_service_type_t* _find_or_create_dns_service_type(dns_answer_t* answer
 static void _update_dns_service_type_with_ptr_record(dns_answer_t* answer, dns_name_parse_state_t* ptr_record) {
     printf("Inserting DNS answer record\n");
     dns_service_type_t* service = _find_or_create_dns_service_type(answer);
-    printf("Found service type %s\n", service->type_name.name);
+    //printf("Found service type %s\n", service->type_name.name);
 
     // Did the service instance exist already?
     for (int i = 0; i < DNS_SERVICE_INSTANCE_TABLE_SIZE; i++) {
         dns_service_instance_t* ent = &service->instances[i];
         if (ent->allocated) {
-            printf("Existing record with name: %s, matching %s\n", ent->service_name.name, ptr_record->name);
+            //printf("Existing record with name: %s, matching %s\n", ent->service_name.name, ptr_record->name);
             if (!strcmp(ent->service_name.name, ptr_record->name)) {
-                printf("%s: Found existing INSTANCE with name %s\n", answer->parsed_name.name, ptr_record->name);
+                //printf("%s: Found existing INSTANCE with name %s\n", answer->parsed_name.name, ptr_record->name);
                 return;
             }
         }
@@ -217,7 +218,7 @@ static void _update_dns_service_type_with_ptr_record(dns_answer_t* answer, dns_n
         if (!ent->allocated) {
             ent->allocated = true;
             memcpy(&ent->service_name, ptr_record, sizeof(dns_name_parse_state_t));
-            printf("%s: Created new INSTANCE with name %s %s\n", answer->parsed_name.name, ptr_record->name, ent->service_name.name);
+            //printf("%s: Created new INSTANCE with name %s %s\n", answer->parsed_name.name, ptr_record->name, ent->service_name.name);
             return;
         }
     }
@@ -250,6 +251,9 @@ static void _update_domain_name_with_a_record(dns_answer_t* answer) {
             ent->allocated = true;
             memcpy(&ent->name, &answer->parsed_name, sizeof(dns_name_parse_state_t));
             memcpy(ent->a_record, answer->data, IPv4_ADDR_SIZE);
+
+            // And update the UI to reflect a new A record
+            net_ui_dns_records_table_draw();
             return;
         }
     }
@@ -271,7 +275,7 @@ static void _parse_dns_answer(dns_packet_t* packet, dns_answer_t* answer, uint8_
     memcpy(answer->data, data_ptr, answer->data_length);
     data_ptr += answer->data_length;
 
-    printf("DNS answer: %s, type %04x class %04x ttl %d data_len %d\n", answer->parsed_name.name, answer->type, answer->class, answer->time_to_live, answer->data_length);
+    //printf("DNS answer: %s, type %04x class %04x ttl %d data_len %d\n", answer->parsed_name.name, answer->type, answer->class, answer->time_to_live, answer->data_length);
 
     if (answer->type == DNS_TYPE_POINTER) {
         dns_name_parse_state_t pointer_parse = {0};
@@ -279,6 +283,7 @@ static void _parse_dns_answer(dns_packet_t* packet, dns_answer_t* answer, uint8_
         _parse_dns_name(packet, &pointer_parse, &ptr_start);
         printf("\tPointer: %s\n", pointer_parse.name);
         _update_dns_service_type_with_ptr_record(answer, &pointer_parse);
+        net_ui_dns_services_table_draw();
     }
     else if (answer->type == DNS_TYPE_A_RECORD) {
         _update_domain_name_with_a_record(answer);
