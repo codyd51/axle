@@ -1,5 +1,6 @@
 #include <string.h>
 #include <agx/lib/shapes.h>
+#include <agx/font/font.h>
 
 #include "gui_view.h"
 #include "libgui.h"
@@ -24,40 +25,59 @@ static void _view_handle_mouse_moved(gui_view_t* v, Point mouse_pos) {
 	}
 }
 
-#include <agx/font/font.h>
+void gui_view_set_title(gui_view_t* v, char* title) {
+	v->_title = title;
+	v->_title_inset = rect_make(v->frame.origin, size_zero());
+	v->title_bar_height = 0;
+
+	if (v->_title != NULL) {
+		v->title_bar_height = max(10, v->frame.size.height / 14);
+		// View title
+		v->_title_inset.size = size_make(
+			v->frame.size.width,
+			v->title_bar_height
+		);
+	}
+	// Shrink the content view to account for the view title, if necessary
+	v->content_layer_frame = rect_make(
+		point_make(
+			v->frame.origin.x + v->border_margin,
+			v->frame.origin.y + v->border_margin + v->title_bar_height
+		),
+		size_make(
+			v->frame.size.width - (v->border_margin * 2),
+			v->frame.size.height - (v->border_margin * 2) - v->title_bar_height
+		)
+	);
+}
 
 static void _gui_view_draw(gui_view_t* v, bool is_active) {
 	// Margin
 	uint32_t inner_margin_size = v->border_margin / 2;
 	uint32_t outer_margin_size = v->border_margin - inner_margin_size;
 
-	Rect title_inset = rect_make(v->frame.origin, size_zero());
-	if (v->title != NULL) {
+	if (v->_title != NULL) {
 		// View title
-		title_inset.size = size_make(
-			v->frame.size.width,
-			v->title_bar_height
-		);
 		draw_rect(
 			v->window->layer,
-			title_inset,
+			v->_title_inset,
 			color_light_gray(),
 			THICKNESS_FILLED
 		);
 
-		uint32_t font_inset = max(4, title_inset.size.height / 4);
+		uint32_t font_inset = max(4, v->_title_inset.size.height / 4);
 
 		Point cursor = point_make(
 			// Align the left edge with where the visual bevel begins
 			v->frame.origin.x + outer_margin_size,
 			v->frame.origin.y + font_inset
 		);
-		uint32_t font_height = min(30, title_inset.size.height - font_inset);
+		uint32_t font_height = min(30, v->_title_inset.size.height - font_inset);
 		uint32_t font_width = max(6, font_height * 0.8);
-		for (int i = 0; i < strlen(v->title); i++) {
+		for (int i = 0; i < strlen(v->_title); i++) {
 			draw_char(
 				v->window->layer,
-				v->title[i],
+				v->_title[i],
 				cursor.x,
 				cursor.y,
 				color_black(),
@@ -71,11 +91,11 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 	Rect outer_margin = rect_make(
 		point_make(
 			v->frame.origin.x,
-			rect_max_y(title_inset)
+			rect_max_y(v->_title_inset)
 		),
 		size_make(
 			v->frame.size.width,
-			v->frame.size.height - title_inset.size.height 
+			v->frame.size.height - v->_title_inset.size.height 
 		)
 	);
 
@@ -194,18 +214,32 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 			v->content_layer_frame.size
 		)
 	);
+
+	if (!v->controls_content_layer) {
+		draw_rect(
+			v->content_layer, 
+			rect_make(
+				point_zero(), 
+				v->content_layer_frame.size
+			), 
+			v->background_color, 
+			THICKNESS_FILLED
+		);
+		for (uint32_t j = 0; j < v->subviews->size; j++) {
+			gui_elem_t* subview = array_lookup(v->subviews, j);
+
+			//if (subview->base._priv_needs_display) {
+				is_active = v->window->hover_elem == subview;
+				subview->base._priv_draw_cb(subview, is_active);
+				subview->base._priv_needs_display = false;
+			//}
+		}
+	}
 }
 
 static void _view_window_resized(gui_view_t* v, Size new_window_size) {
 	Rect new_frame = v->sizer_cb((gui_elem_t*)v, new_window_size);
 	v->frame = new_frame;
-
-	if (v->title != NULL) {
-		v->title_bar_height = max(10, v->frame.size.height / 14);
-	}
-	else {
-		v->title_bar_height = 0;
-	}
 
 	v->content_layer_frame = rect_make(
 		point_make(
@@ -217,13 +251,10 @@ static void _view_window_resized(gui_view_t* v, Size new_window_size) {
 			new_frame.size.height - (v->border_margin * 2) - v->title_bar_height
 		)
 	);
+	v->_title_inset.origin = v->frame.origin;
+	v->_title_inset.size.width = v->frame.size.width;
 
 	v->_priv_needs_display = true;
-}
-
-const char* rect_print(Rect r) {
-	printf("{(%d, %d), (%d, %d)} - ", r.origin.x, r.origin.y, r.size.width, r.size.height);
-	return "";
 }
 
 gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_cb) {
@@ -249,6 +280,8 @@ gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_
 
 	view->frame = sizer_cb((gui_elem_t*)view, window->size);
 	view->content_layer_frame = rect_make(point_zero(), view->frame.size);
+	view->background_color = color_black();
+	gui_view_set_title(view, NULL);
 
 	printf("%s Initial view frame\n", rect_print(view->frame));
 
