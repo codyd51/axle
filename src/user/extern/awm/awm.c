@@ -65,15 +65,16 @@ void write_screen(Screen* screen) {
 static void handle_keystroke(amc_message_t* keystroke_msg) {
 	for (int i = 0; i < keystroke_msg->len; i++) {
 		char ch = keystroke_msg->body[i];
-		// Only send this keystroke to the foremost program
-		if (window_count) {
-			user_window_t* active_window = &windows[0];
-			amc_msg_u32_2__send(active_window->owner_service, AWM_KEY_DOWN, ch);
-		}
-
 		// Hack: Tab switches windows
 		if (ch == '\t') {
 			_window_move_to_top(&windows[window_count-1]);
+		}
+		else {
+			// Only send this keystroke to the foremost program
+			if (window_count) {
+				user_window_t* active_window = &windows[0];
+				amc_msg_u32_2__send(active_window->owner_service, AWM_KEY_DOWN, ch);
+			}
 		}
 	}
 }
