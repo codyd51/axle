@@ -13,12 +13,14 @@ def main():
         "libamc": "libamc.a",
         "libport": "libport.a",
         "libnet": "libnet.a",
+        "libgui": "libgui.a",
     }
 
     for library_dirname, build_product_name in libdir_to_libname.items():
         library_source_dir = pathlib.Path(__file__).parent / "src" / "user" / "extern" / library_dirname
         sysroot = pathlib.Path(__file__).parent / "axle-sysroot"
 
+        print(f"Build {build_product_name} in {library_source_dir}")
         status = subprocess.run("make", cwd=library_source_dir.as_posix(), shell=True, stdout=subprocess.PIPE)
         if status.returncode != 0:
             raise RuntimeError(f"Make failed with exit code {status.returncode}: {status.stdout} {status.stderr}")
@@ -33,6 +35,7 @@ def main():
         library_dest = sysroot / "usr" / "i686-axle" / "lib" / build_product_name
         shutil.copy(library_build_product.as_posix(), library_dest.as_posix())
         assert(library_dest.exists())
+        print(f'\t{library_dirname}: Copy build product {build_product_name} -> {library_dest}')
 
         # Copy the headers to /usr/include
         headers_dest_dir = sysroot / "usr" / "i686-axle" / "include" / library_dirname

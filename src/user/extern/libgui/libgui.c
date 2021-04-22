@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 
+#include <kernel/adi.h>
+
 #include <libamc/libamc.h>
 #include <stdlibadd/array.h>
 #include <stdlibadd/assert.h>
@@ -41,7 +43,7 @@ Screen* gfx_screen() {
 
 /* Windows */
 
-gui_window_t* gui_window_create(uint32_t width, uint32_t height) {
+gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t height) {
 	// Ask awm to make a window for us
 	amc_msg_u32_3__send(AWM_SERVICE_NAME, AWM_REQUEST_WINDOW_FRAMEBUFFER, width, height);
 

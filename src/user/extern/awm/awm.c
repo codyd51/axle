@@ -47,6 +47,7 @@ static Point mouse_pos = {0};
 
 static user_window_t* _window_move_to_top(user_window_t* window);
 static void _window_resize(user_window_t* window, Size new_size, bool inform_owner);
+static void _write_window_title(user_window_t* window, uint32_t len, const char* title);
 
 Screen _screen = {0};
 
@@ -126,7 +127,7 @@ static void _begin_left_click(mouse_interaction_state_t* state, Point mouse_poin
 		mouse_point.x - state->active_window->frame.origin.x,
 		mouse_point.y - state->active_window->frame.origin.y
 	);
-	awm_mouse_left_click_msg msg = {0};
+	awm_mouse_left_click_msg_t msg = {0};
 	msg.event = AWM_MOUSE_LEFT_CLICK;
 	msg.click_point = local_mouse;
 	amc_message_construct_and_send(state->active_window->owner_service, &msg, sizeof(msg));
@@ -194,8 +195,8 @@ static void _moved_in_hover_window(mouse_interaction_state_t* state, Point mouse
 
 	if (!state->is_prospective_window_move && !state->is_prospective_window_resize) {
 		// Mouse is hovered within the content view
-		local_mouse.x += state->active_window->content_view->frame.origin.x;
-		local_mouse.y += state->active_window->content_view->frame.origin.y;
+		local_mouse.x -= state->active_window->content_view->frame.origin.x;
+		local_mouse.y -= state->active_window->content_view->frame.origin.y;
 		amc_msg_u32_3__send(state->active_window->owner_service, AWM_MOUSE_MOVED, local_mouse.x, local_mouse.y);
 	}
 }
@@ -494,11 +495,6 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	uint32_t remote_buffer;
 	amc_shared_memory_create(owner_service, buffer_size, &local_buffer, &remote_buffer);
 
-	printf("AWM made shared framebuffer for %s\n", owner_service);
-	printf("\tAWM    memory: 0x%08x - 0x%08x\n", local_buffer, local_buffer + buffer_size);
-	printf("\tRemote memory: 0x%08x - 0x%08x\n", remote_buffer, remote_buffer + buffer_size);
-	amc_msg_u32_2__send(owner_service, AWM_CREATED_WINDOW_FRAMEBUFFER, remote_buffer);
-
 	user_window_t* window = &windows[window_idx];
 	// Place the window in the center of the screen
 	Point origin = point_make(
@@ -507,7 +503,6 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	);
 	window->frame = rect_make(origin, size_zero());
 	window->layer = create_layer(_screen.resolution);
-	printf("Raw window layer: 0x%08x 0x%08x\n", window->layer, window->layer->raw);
 
 	view_t* content_view = malloc(sizeof(view_t));
 	content_view->layer = malloc(sizeof(ca_layer));
@@ -518,14 +513,13 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 
 	// Copy the owner service name as we don't own it
 	window->owner_service = strndup(owner_service, AMC_MAX_SERVICE_NAME_LEN);
-	printf("set window owner_service %s\n", owner_service);
 
 	// Configure the title text box
 	// The size will be reset by window_size()
-	window->title_text_box = text_box_create(size_make(width, WINDOW_TITLE_BAR_HEIGHT), color_black());
-	text_box_puts(window->title_text_box, window->owner_service, color_white());
-
-	printf("Content view window layer: 0x%08x\n", content_view->layer->raw);
+	window->title_text_box = text_box_create__unscrollable(size_make(_screen.resolution.width, WINDOW_TITLE_BAR_HEIGHT*2), color_dark_gray());
+	window->title_text_box->preserves_history = false;
+	window->title_text_box->text_inset = point_make(0, 0);
+	_write_window_title(window, strlen(window->owner_service), window->owner_service);
 
 	// Make the window a bit bigger than the user requested to accomodate for decorations
 	int full_window_width = width + (WINDOW_BORDER_MARGIN * 2);
@@ -537,7 +531,15 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	_window_resize(window, full_window_size, false);
 
 	// Make the new window show up on top
-	_window_move_to_top(window);
+	window = _window_move_to_top(window);
+
+	// Now that we've configured the initial window state on our end, 
+	// provide the buffer to the client
+	printf("AWM made shared framebuffer for %s\n", owner_service);
+	printf("\tAWM    memory: 0x%08x - 0x%08x\n", local_buffer, local_buffer + buffer_size);
+	printf("\tRemote memory: 0x%08x - 0x%08x\n", remote_buffer, remote_buffer + buffer_size);
+	amc_msg_u32_2__send(owner_service, AWM_CREATED_WINDOW_FRAMEBUFFER, remote_buffer);
+	_window_resize(window, full_window_size, true);
 }
 
 static void _update_window_framebuf_idx(int idx) {
@@ -555,18 +557,29 @@ static void _update_window_framebuf(const char* owner_service) {
 		printf("Failed to find a window for %s\n", owner_service);
 		return;
 	}
+	blit_layer(
+		window->layer, 
+		window->content_view->layer, 
+		window->content_view->frame, 
+		rect_make(point_zero(), window->content_view->frame.size)
+	);
+}
 
-	//printf("Blitting layer for %s: 0x%08x -> 0x%08x\n", owner_service, window->layer->raw, _screen.vmem->raw);
-	//blit_layer(_screen.vmem, window->layer, window->frame, rect_make(point_zero(), window->frame.size));
+static void _write_window_title(user_window_t* window, uint32_t len, const char* title) {
+	text_box_clear_and_erase_history(window->title_text_box);
+	text_box_puts(window->title_text_box, title, color_white());
+	// Perform a 'fake' resize to force the title bar to be redrawn
+	_window_resize(window, window->frame.size, false);
+}
 
-	Rect title_bar_frame = rect_make(point_zero(), size_make(window->frame.size.width, 40));
-	//blit_layer(window->layer, window->content_view->layer, window->content_view->frame, rect_make(point_zero(), window->content_view->frame.size));
-	//blit_layer(window->layer, window->content_view->layer, rect_make(point_make(100, 60), size_make(200, 400)), rect_make(point_zero(), size_make(200, 400)));
-
-	//blit_layer(window->layer, window->content_view->layer, rect_make(point_zero(), size_make(200, 400)), rect_make(point_zero(), size_make(200, 400)));
-	blit_layer(window->layer, window->content_view->layer, window->content_view->frame, rect_make(point_zero(), window->content_view->frame.size));
-	//blit_layer(_screen.vmem, window->layer, window->frame, rect_make(point_zero(), window->frame.size));
-	//blit_layer(_screen.physbase, window->content_view->layer, rect_make(point_zero(), _screen.resolution), rect_make(point_zero(), _screen.resolution));
+static void _update_window_title(const char* owner_service, awm_window_title_msg_t* title_msg) {
+	printf("update_window_title %s %s\n", owner_service, title_msg->title);
+	user_window_t* window = _window_for_service(owner_service);
+	if (!window) {
+		printf("Failed to find a window for %s\n", owner_service);
+		return;
+	}
+	_write_window_title(window, title_msg->len, title_msg->title);
 }
 
 static void handle_user_message(amc_message_t* user_message) {
@@ -581,6 +594,10 @@ static void handle_user_message(amc_message_t* user_message) {
 	}
 	else if (command == AWM_WINDOW_REDRAW_READY) {
 		_update_window_framebuf(source_service);
+	}
+	else if (command == AWM_UPDATE_WINDOW_TITLE) {
+		awm_window_title_msg_t* title_msg =  (awm_window_title_msg_t*)user_message->body;
+		_update_window_title(source_service, title_msg);
 	}
 	else {
 		printf("Unknown message from %s: %d\n", source_service, command);
