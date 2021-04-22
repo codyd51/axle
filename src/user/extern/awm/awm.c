@@ -674,11 +674,13 @@ int main(int argc, char** argv) {
 	amc_register_service("com.axle.awm");
 
 	// Ask the kernel to map in the framebuffer and send us info about it
-	amc__awm_map_framebuffer();
+	amc_msg_u32_1__send(AXLE_CORE_SERVICE_NAME, AMC_AWM_MAP_FRAMEBUFFER);
 
-	amc_message_t* framebuf_info;
-	amc_message_await("com.axle.core", &framebuf_info);
-	framebuffer_info_t* framebuffer_info = (framebuffer_info_t*)framebuf_info->body;
+	amc_message_t* msg;
+	amc_message_await(AXLE_CORE_SERVICE_NAME, &msg);
+	uint32_t event = amc_msg_u32_get_word(msg, 0);
+	assert(event == AMC_AWM_MAP_FRAMEBUFFER_RESPONSE, "Expected awm framebuffer info");
+	amc_framebuffer_info_t* framebuffer_info = (amc_framebuffer_info_t*)msg->body;
 	printf("Recv'd framebuf info!\n");
     printf("0x%08x 0x%08x (%d x %d x %d x %d)\n", framebuffer_info->address, framebuffer_info->size, framebuffer_info->width, framebuffer_info->height, framebuffer_info->bytes_per_pixel, framebuffer_info->bits_per_pixel);
 
