@@ -12,10 +12,15 @@
 #include <agx/lib/ca_layer.h>
 #include <agx/lib/putpixel.h>
 #include <agx/lib/text_box.h>
+#include <agx/lib/point.h>
+#include <agx/lib/size.h>
+#include <agx/lib/rect.h>
 
 #include <libamc/libamc.h>
 
 #include <stdlibadd/assert.h>
+
+#include <preferences/preferences_messages.h>
 
 #include "awm.h"
 #include "gfx.h"
@@ -35,7 +40,7 @@ typedef struct user_window {
 	const char* owner_service;
 } user_window_t;
 
-#define WINDOW_BORDER_MARGIN 4
+#define WINDOW_BORDER_MARGIN 2
 #define WINDOW_TITLE_BAR_HEIGHT 28
 
 // Sorted by Z-index
@@ -50,6 +55,8 @@ static void _window_resize(user_window_t* window, Size new_size, bool inform_own
 static void _write_window_title(user_window_t* window, uint32_t len, const char* title);
 
 Screen _screen = {0};
+
+ca_layer* _g_background = NULL;
 
 Screen* gfx_screen() {
 	if (_screen.physbase > 0) return &_screen;
@@ -362,27 +369,25 @@ static void handle_mouse_event(amc_message_t* mouse_event) {
 static void _draw_cursor(void) {
 	mouse_interaction_state_t* mouse_state = &g_mouse_state;
 	Color mouse_color = color_green();
+	bool is_resize = false;
 	if (mouse_state->is_resizing_top_window) {
-		//mouse_color = color_make(217, 107, 32);
 		mouse_color = color_make(207, 25, 185);
+		is_resize = true;
 	}
 	else if (mouse_state->is_moving_top_window) {
 		mouse_color = color_make(30, 65, 217);
 	}
 	else if (mouse_state->is_prospective_window_resize) {
-		//mouse_color = color_make(217, 148, 100);
 		mouse_color = color_make(212, 119, 201);
+		is_resize = true;
 	}
 	else if (mouse_state->is_prospective_window_move) {
 		mouse_color = color_make(121, 160, 217);
 	}
 
-	// Re-draw the background where the mouse has just left
-	Size cursor_size = size_make(14, 14);
-	//Rect old_mouse_rect = rect_make(old_mouse_pos, cursor_size);
-	//blit_layer(_screen.vmem, background, old_mouse_rect, old_mouse_rect);
 
 	// Draw the new cursor
+	Size cursor_size = size_make(14, 14);
 	Rect new_mouse_rect = rect_make(mouse_pos, cursor_size);
 	draw_rect(_screen.vmem, new_mouse_rect, color_black(), THICKNESS_FILLED);
 	draw_rect(
@@ -426,17 +431,19 @@ static void _window_resize(user_window_t* window, Size new_size, bool inform_win
 
 	// Resize the text box
 	Size title_bar_size = size_make(new_size.width, WINDOW_TITLE_BAR_HEIGHT);
-	//text_box_resize(window->title_text_box, title_bar_size);
+	text_box_resize(window->title_text_box, title_bar_size);
 
 	// The content view is a bit smaller to accomodate decorations
 	window->content_view->frame = rect_make(
 		point_make(
 			WINDOW_BORDER_MARGIN, 
-			title_bar_size.height + WINDOW_BORDER_MARGIN
+			// The top edge does not have a margin
+			title_bar_size.height
 		), 
 		size_make(
 			new_size.width - (WINDOW_BORDER_MARGIN * 2),
-			new_size.height - (WINDOW_BORDER_MARGIN * 2) - title_bar_size.height
+			// No need to multiply margin by 2 since the top edge doesn't have a margin
+			new_size.height - WINDOW_BORDER_MARGIN - title_bar_size.height
 		)
 	);
 
@@ -532,9 +539,10 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	Size title_bar_size = size_make(full_window_width, WINDOW_TITLE_BAR_HEIGHT);
 	Size full_window_size = size_make(
 		full_window_width, 
-		height + title_bar_size.height + (WINDOW_BORDER_MARGIN * 2)
+		// We only need to add the border margin on the bottom edge
+		// The top edge does not have a border margin
+		height + title_bar_size.height + WINDOW_BORDER_MARGIN
 	);
-	_window_resize(window, full_window_size, false);
 
 	// Make the new window show up on top
 	window = _window_move_to_top(window);
@@ -588,10 +596,29 @@ static void _update_window_title(const char* owner_service, awm_window_title_msg
 	_write_window_title(window, title_msg->len, title_msg->title);
 }
 
+void _radial_gradiant(ca_layer* layer, Size gradient_size, Color c1, Color c2, int x1, int y1, float r);
+
 static void handle_user_message(amc_message_t* user_message) {
 	const char* source_service = amc_message_source(user_message);
-	// User requesting a window to draw in to?
 	uint32_t command = amc_msg_u32_get_word(user_message, 0);
+
+	if (!strncmp(source_service, PREFERENCES_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
+		if (command == AWM_PREFERENCES_UPDATED) {
+			prefs_updated_msg_t* msg = (prefs_updated_msg_t*)&user_message->body;
+			printf("AWM updating background gradient... %d %d %d, %d %d %d\n",msg->from.val[0], msg->from.val[1], msg->from.val[2], msg->to.val[0], msg->to.val[1], msg->to.val[2]);
+			_radial_gradiant(
+				_g_background, 
+				_g_background->size, 
+				msg->from,
+				msg->to,
+				_g_background->size.width/2.0, 
+				_g_background->size.height/2.0, 
+				(float)_g_background->size.height * 1.3
+			);
+			return;
+		}
+	}
+	// User requesting a window to draw in to?
 	if (command == AWM_REQUEST_WINDOW_FRAMEBUFFER) {
 		uint32_t width = amc_msg_u32_get_word(user_message, 1);
 		uint32_t height = amc_msg_u32_get_word(user_message, 2);
@@ -629,6 +656,8 @@ float pifdist(int x1, int y1, int x2, int y2) {
 void _radial_gradiant(ca_layer* layer, Size gradient_size, Color c1, Color c2, int x1, int y1, float r) {
 	int x_step = gradient_size.width / 200.0;
 	int y_step = gradient_size.height / 200.0;
+    if (x_step < 1) x_step = 1;
+    if (y_step < 1) y_step = 1;
 	for (uint32_t y = 0; y < gradient_size.height; y += y_step) {
 		for (uint32_t x = 0; x < gradient_size.width; x += x_step) {
 			Color c = transcolor(c1, c2, pifdist(x1, y1, x, y) / r);
@@ -665,15 +694,15 @@ int main(int argc, char** argv) {
     //_screen.default_font_size = size_make(16, 16);
 
 	Rect screen_frame = rect_make(point_zero(), _screen.resolution);
-	ca_layer* background = create_layer(screen_frame.size);
+	_g_background = create_layer(screen_frame.size);
 	_radial_gradiant(
-		background, 
-		background->size, 
-		color_make(200, 150, 30), 
-		color_make(150, 0, 0), 
-		background->size.width/2.0, 
-		background->size.height/2.0, 
-		(float)background->size.height * 1.6
+		_g_background, 
+		_g_background->size, 
+		color_make(39, 67, 255), 
+		color_make(2, 184, 255),
+		_g_background->size.width/2.0, 
+		_g_background->size.height/2.0, 
+		(float)_g_background->size.height * 1.3
 	);
     _screen.vmem = create_layer(screen_frame.size);
 
