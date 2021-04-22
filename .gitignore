@@ -7,5 +7,8 @@ isodir/
 *.o
 *.bin
 *.iso
+*.a
 .DS_Store
 i686-toolchain/
+initrd/
+

@@ -83,41 +83,19 @@ cd ./src/user/extern/watchdogd
 make
 cd ../../../../
 
+cd ./src/user/extern/tlsclient
+make
+cd ../../../../
+
+cd ./src/user/extern/preferences
+make
+cd ../../../../
+
 cd initrd
 ../fsgen ./
 mv initrd.img ../initrd.img
 cd ..
 mv initrd.img isodir/boot/initrd.img
-
 
 sudo rm axle.iso
 make run
-
-exit
-
-cd ./src/user/extern/print_and_exit
-make
-cd ../../../../
-
-cd ./src/user/extern/cat
-make
-cd ../../../../
-
-cd ./src/user/extern/postman
-make
-cd ../../../../
-
-cd ./src/user/extern/window
-make
-cd ../../../../
-
-
-cd initrd
-../fsgen ./
-mv initrd.img ../initrd.img
-cd ..
-mv initrd.img isodir/boot/initrd.img
-
-rm axle.iso
-make run
-
