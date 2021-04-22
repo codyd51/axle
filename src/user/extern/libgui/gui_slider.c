@@ -36,8 +36,12 @@ static void _gui_slider_handle_mouse_moved(gui_slider_t* s, Point mouse_pos) {
 static void _gui_slider_handle_mouse_dragged(gui_slider_t* s, Point mouse_pos) {
 	mouse_pos = point_make(mouse_pos.x - s->superview->frame.origin.x, mouse_pos.y - s->superview->frame.origin.y);
 	if (s->slider_percent_updated_cb && s->in_left_click) {
-		float percent = (mouse_pos.x - s->slider_origin_x) / (float)s->slidable_width;
+		float percent = 0.0;
+		if (mouse_pos.x >= (int32_t)s->slider_origin_x) {
+			percent = (max(mouse_pos.x, s->slider_origin_x) - s->slider_origin_x) / (float)s->slidable_width;
+		}
 		percent = max(min(percent, 1.0), 0.0);
+
 		s->slider_percent = percent;
 		s->slider_percent_updated_cb(s, percent);
 		_set_needs_display(s);
