@@ -15,9 +15,6 @@ typedef struct rect {
 	Size size;
 } Rect;
 
-Rect rect_make(Point origin, Size size);
-Rect rect_zero();
-
 bool rect_intersects(Rect A, Rect B);
 
 //find the intersecting rect of a and b

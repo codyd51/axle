@@ -12,6 +12,7 @@
 #include "gui_view.h"
 #include "gui_slider.h"
 #include "gui_button.h"
+#include "gui_timer.h"
 
 typedef struct gui_window gui_window_t;
 typedef void (*gui_interrupt_cb_t)(gui_window_t* window, uint32_t int_no);
@@ -26,6 +27,7 @@ typedef struct gui_window {
 	array_t* text_inputs;
 	array_t* text_views;
 	array_t* views;
+    array_t* timers;
 
     // The GUI element the mouse is currently hovered over
     gui_elem_t* hover_elem;

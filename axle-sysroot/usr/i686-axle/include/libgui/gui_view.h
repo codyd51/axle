@@ -28,7 +28,7 @@ typedef struct gui_view {
     ca_layer* content_layer;
     Rect content_layer_frame;
     bool controls_content_layer;
-    char* title;
+    Color background_color;
     
     // Callbacks
     gui_mouse_entered_cb_t mouse_entered_cb;
@@ -39,9 +39,12 @@ typedef struct gui_view {
     array_t* subviews;
     uint32_t border_margin;
     uint32_t title_bar_height;
+    char* _title;
+    Rect _title_inset;
 } gui_view_t;
 
 gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_cb);
+void gui_view_set_title(gui_view_t* view, char* title);
 void gui_view_destroy(gui_view_t* view);
 
 #endif

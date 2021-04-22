@@ -43,6 +43,8 @@ typedef struct text_view {
 
 text_view_t* gui_text_view_create(gui_window_t* window, Rect frame, Color background_color, gui_window_resized_cb_t sizer_cb);
 void gui_text_view_clear(text_view_t* text_view);
+void gui_text_view_clear_and_erase_history(text_view_t* text_view);
+void gui_text_view_puts(text_view_t* text_view, const char* str, Color color);
 void gui_text_view_destroy(text_view_t* text_view);
 
 #endif
