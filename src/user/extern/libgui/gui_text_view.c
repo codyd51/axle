@@ -333,6 +333,26 @@ text_view_t* gui_text_view_create(gui_window_t* window, Rect frame, Color backgr
 
 void gui_text_view_clear(text_view_t* text_view) {
 	text_box_clear(text_view->text_box);
+	text_view->_priv_needs_display = true;
+	text_view->scrollbar->_priv_needs_display = true;
+}
+
+void gui_text_view_clear_and_erase_history(text_view_t* text_view) {
+	text_box_clear_and_erase_history(text_view->text_box);
+	text_view->_priv_needs_display = true;
+	text_view->scrollbar->_priv_needs_display = true;
+}
+
+void gui_text_view_puts(text_view_t* text_view, const char* str, Color color) {
+	text_box_puts(text_view->text_box, str, color);
+	// Only redraw if the text is visible
+	uint32_t scroll_off = text_view->text_box->scroll_layer->scroll_offset.height + text_view->text_box->size.height;
+	uint32_t bottom_y = text_view->text_box->max_text_y;
+	if (bottom_y <= scroll_off) {
+		text_view->_priv_needs_display = true;
+	}
+
+	text_view->scrollbar->_priv_needs_display = true;
 }
 
 void gui_text_view_destroy(text_view_t* text_view) {
