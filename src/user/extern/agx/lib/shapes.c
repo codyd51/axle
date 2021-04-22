@@ -62,8 +62,24 @@ void normalize_coordinate(ca_layer* layer, Point* p) {
 }
 
 static void _fill_layer(ca_layer* layer, Color color) {
-	uint32_t fill_color = (color.val[2] << 0 | color.val[1] << 8 | color.val[0] << 16);
-	memset(layer->raw, fill_color, layer->size.width * layer->size.height * gfx_bytes_per_pixel());
+	// https://stackoverflow.com/questions/3345042/how-to-memset-memory-to-a-certain-pattern-instead-of-a-single-byte
+	uint32_t fill_color = (color.val[2] << 16 | color.val[1] << 8 | color.val[0] << 0);
+
+	uint32_t bytes_in_layer = layer->size.width * layer->size.height * gfx_bytes_per_pixel();
+	uint32_t block_size = sizeof(fill_color);
+	memmove(layer->raw, &fill_color, block_size);
+
+	char* start = layer->raw;
+	char* current = start + block_size;
+	char* end = start + bytes_in_layer;
+
+	while (current + block_size < end) {
+		memmove(current, start, block_size);
+		current += block_size;
+		block_size *= 2;
+	}
+	// Fill the final half
+	memmove(current, start, (int)end - (int)current);
 }
 
 //functions to draw shape structures
@@ -94,17 +110,15 @@ static void draw_rect_int_fast(ca_layer* layer, Rect rect, Color color) {
 	}
 
 	int bpp = gfx_bytes_per_pixel();
-	int offset = rect.origin.x * bpp + rect.origin.y * layer->size.width * bpp;
+	int offset = (rect.origin.x * bpp) + (rect.origin.y * layer->size.width * bpp);
 	// TODO(PT): This will need to change if our BPP isn't exactly 4
-	//uint32_t value = (color.val[2] << 0) | (color.val[1] << 8) | (color.val[0] << 16);
-	uint8_t* where = layer->raw + offset;
+	uint32_t fill_color = (color.val[2] << 16 | color.val[1] << 8 | color.val[0] << 0);
+	uint32_t* where = (uint32_t*)(layer->raw + offset);
 	for (int i = 0; i < rect.size.height; i++) {
 		for (int j = 0; j < rect.size.width; j++) {
-			where[(j*bpp) + 0] = color.val[0];
-			where[(j*bpp) + 1] = color.val[1];
-			where[(j*bpp) + 2] = color.val[2];
+			where[j] = fill_color;
 		}
-		where += layer->size.width * bpp;
+		where += layer->size.width;
 	}
 }
 
@@ -124,26 +138,74 @@ void draw_rect(ca_layer* layer, Rect r, Color color, int thickness) {
 		return;
 	}
 
-	Point origin = point_make(r.origin.x, r.origin.y);
-	Size size = size_make(r.size.width, r.size.height);
-	Rect rt = rect_make(origin, size);
+	//make sure we don't try to write to an invalid location
+	if (r.origin.x < 0) {
+		r.size.width += r.origin.x;
+		r.origin.x = 0;
+	}
+	if (r.origin.y < 0) {
+		r.size.height += r.origin.y;
+		r.origin.y = 0;
+	}
+	if (r.origin.x + r.size.width >= layer->size.width) {
+		r.size.width -= (r.origin.x + r.size.width - layer->size.width);
+	}
+	if (r.origin.y + r.size.height >= layer->size.height) {
+		r.size.height -= (r.origin.y + r.size.height - layer->size.height);
+	}
 
-	for (int i = 0; i <= thickness; i++) {
-		draw_rect_int(layer, rt, color);
+	int bpp = gfx_bytes_per_pixel();
+	int offset = (r.origin.x * bpp) + (r.origin.y * layer->size.width * bpp);
+	// TODO(PT): This will need to change if our BPP isn't exactly 4
+	uint32_t fill_color = (color.val[2] << 16 | color.val[1] << 8 | color.val[0] << 0);
+	uint32_t* where = (uint32_t*)(layer->raw + offset);
 
-		//decrement values for next shell
-		rt.origin.x++;
-		rt.origin.y++;
-		rt.size.width -= 2;
-		rt.size.height -= 2;
+	// Top edge
+	for (int i = 0; i < thickness; i++) {
+		for (int j = 0; j < r.size.width; j++) {
+			where[j] = fill_color;
+		}
+		where += layer->size.width;
+	}
+
+	// Left edge
+	where = (uint32_t*)(layer->raw + offset);
+	for (int i = 0; i < r.size.height; i++) {
+		for (int j = 0; j < thickness; j++) {
+			where[j] = fill_color;
+		}
+		where += layer->size.width;
+	}
+
+	// Right edge
+	offset = ((r.origin.x + r.size.width - thickness) * bpp) + (r.origin.y * layer->size.width * bpp);
+	where = (uint32_t*)(layer->raw + offset);
+	for (int i = 0; i < r.size.height; i++) {
+		for (int j = 0; j < thickness; j++) {
+			where[j] = fill_color;
+		}
+		where += layer->size.width;
+	}
+
+	// Bottom edge
+	offset = (r.origin.x * bpp) + ((r.origin.y + r.size.height - thickness) * layer->size.width * bpp);
+	where = (uint32_t*)(layer->raw + offset);
+	for (int i = 0; i < thickness; i++) {
+		for (int j = 0; j < r.size.width; j++) {
+			where[j] = fill_color;
+		}
+		where += layer->size.width;
 	}
 }
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 void draw_hline_fast(ca_layer* layer, Line line, Color color, int thickness) {
 	//don't try to write anywhere outside screen bounds
+	/*
 	normalize_coordinate(layer, &line.p1);
 	normalize_coordinate(layer, &line.p2);
+	*/
 
 	int bpp = gfx_bytes_per_pixel();
 
@@ -154,66 +216,81 @@ void draw_hline_fast(ca_layer* layer, Line line, Color color, int thickness) {
 	if (overhang > 0) {
 		length -= overhang;
 	}
+
+	// TODO(PT): This will need to change if our BPP isn't exactly 4
+	uint32_t fill_color = (color.val[2] << 16 | color.val[1] << 8 | color.val[0] << 0);
+	uint32_t* where = layer->raw + offset;
 	for (int i = 0; i < length; i++) {
-		if (bpp > 1) {
-			//we have to write the pixels in BGR, not RGB
-			layer->raw[offset++] = color.val[2];
-			layer->raw[offset++] = color.val[1];
-			layer->raw[offset++] = color.val[0];
-		}
-		else {
-			layer->raw[offset++] = color.val[0];
-		}
+		where[i] = fill_color;
 	}
 }
 
 void draw_vline_fast(ca_layer* layer, Line line, Color color, int thickness) {
 	//don't try to write anywhere outside screen bounds
+	/*
 	normalize_coordinate(layer, &line.p1);
 	normalize_coordinate(layer, &line.p2);
+	*/
 
 	int bpp = gfx_bytes_per_pixel();
-	bool rgb = (bpp >= 3);
 
 	//calculate starting point
 	int offset = (line.p1.x * bpp) + (line.p1.y * bpp * layer->size.width);
-	int row_start = offset;
-	for (int i = 0; i < line.p2.y - line.p1.y; i++) {
-		if (rgb) {
-			//we have to write the pixels in BGR, not RGB
-			layer->raw[offset++] = color.val[2];
-			layer->raw[offset++] = color.val[1];
-			layer->raw[offset] = color.val[0];
-		}
-		else {
-			layer->raw[offset] = color.val[0];
-		}
-		//go to next row
-		row_start += layer->size.width * bpp;
-		offset = row_start;
+
+	// TODO(PT): This will need to change if our BPP isn't exactly 4
+	uint32_t fill_color = (color.val[2] << 16 | color.val[1] << 8 | color.val[0] << 0);
+	uint32_t len = line.p2.y - line.p1.y;
+	uint32_t* where = layer->raw + offset;
+	for (int i = 0; i < len; i++) {
+		where[offset] = fill_color;
+		where += layer->size.width * bpp;
 	}
 }
 #pragma GCC diagnostic pop
 
-static void draw_rect_int(ca_layer* layer, Rect rect, Color color) {
-	/*
-	Line h1 = line_make(rect.origin, point_make(rect.origin.x + rect.size.width, rect.origin.y));
-	Line h2 = line_make(point_make(rect.origin.x, rect.origin.y + rect.size.height), point_make(rect.origin.x + rect.size.width, rect.origin.y + rect.size.height));
-	Line v1 = line_make(rect.origin, point_make(rect.origin.x, rect.origin.y + rect.size.height));
-	Line v2 = line_make(point_make(rect.origin.x + rect.size.width, rect.origin.y), point_make(rect.origin.x + rect.size.width, rect.origin.y + rect.size.height + 1));
+static void _draw_subline(ca_layer* layer, Line* line, Color color, int thickness) {
+	int t;
+	int distance;
+	int xerr = 0, yerr = 0, delta_x, delta_y;
+	int incx, incy;
 
-	draw_hline_fast(layer, h1, color, 1);
-	draw_hline_fast(layer, h2, color, 1);
-	draw_vline_fast(layer, v1, color, 1);
-	draw_vline_fast(layer, v2, color, 1);
-	*/
-	for (int x = rect_min_x(rect); x < rect_max_x(rect); x++) {
-		putpixel(layer, x, rect_min_y(rect), color);
-		putpixel(layer, x, rect_max_y(rect) - 1, color);
-	}
-	for (int y = rect_min_y(rect); y < rect_max_y(rect); y++) {
-		putpixel(layer, rect_min_x(rect), y, color);
-		putpixel(layer, rect_max_x(rect) - 1, y, color);
+	//get relative distances in both directions
+	delta_x = line->p2.x - line->p1.x;
+	delta_y = line->p2.y - line->p1.y;
+
+	//figure out direction of increment
+	//incrememnt of 0 indicates either vertical or
+	//horizontal line
+	if (delta_x > 0) incx = 1;
+	else if (delta_x == 0) incx = 0;
+	else incx = -1;
+
+	if (delta_y > 0) incy = 1;
+	else if (delta_y == 0) incy = 0;
+	else incy = -1;
+
+	//figure out which distance is greater
+	delta_x = abs(delta_x);
+	delta_y = abs(delta_y);
+
+	distance = MAX(delta_x, delta_y);
+
+	//draw line
+	int curr_x = line->p1.x;
+	int curr_y = line->p1.y;
+	for (t = 0; t < distance + 1; t++) {
+		putpixel(layer, curr_x, curr_y, color);
+
+		xerr += delta_x;
+		yerr += delta_y;
+		if (xerr > distance) {
+			xerr -= distance;
+			curr_x += incx;
+		}
+		if (yerr > distance) {
+			yerr -= distance;
+			curr_y += incy;
+		}
 	}
 }
 
@@ -237,48 +314,12 @@ void draw_line(ca_layer* layer, Line line, Color color, int thickness) {
 		return;
 	}
 
-	int t;
-	int distance;
-	int xerr = 0, yerr = 0, delta_x, delta_y;
-	int incx, incy;
-
-	//get relative distances in both directions
-	delta_x = line.p2.x - line.p1.x;
-	delta_y = line.p2.y - line.p1.y;
-
-	//figure out direction of increment
-	//incrememnt of 0 indicates either vertical or
-	//horizontal line
-	if (delta_x > 0) incx = 1;
-	else if (delta_x == 0) incx = 0;
-	else incx = -1;
-
-	if (delta_y > 0) incy = 1;
-	else if (delta_y == 0) incy = 0;
-	else incy = -1;
-
-	//figure out which distance is greater
-	delta_x = abs(delta_x);
-	delta_y = abs(delta_y);
-
-	distance = MAX(delta_x, delta_y);
-
-	//draw line
-	int curr_x = line.p1.x;
-	int curr_y = line.p1.y;
-	for (t = 0; t < distance + 1; t++) {
-		putpixel(layer, curr_x, curr_y, color);
-
-		xerr += delta_x;
-		yerr += delta_y;
-		if (xerr > distance) {
-			xerr -= distance;
-			curr_x += incx;
-		}
-		if (yerr > distance) {
-			yerr -= distance;
-			curr_y += incy;
-		}
+	int off = thickness / 2;
+	for (int i = 0; i < thickness; i++) {
+		Line subline = line;
+		subline.p1.x = subline.p1.x - off + i;
+		subline.p2.x = subline.p2.x - off + i;
+		_draw_subline(layer, &subline, color, thickness);
 	}
 }
 
@@ -291,9 +332,9 @@ void draw_triangle_int_fast(ca_layer* layer, Triangle triangle, Color color) {
 	min.y = MIN(triangle.p1.y, triangle.p2.y);
 	min.y = MIN(min.y, triangle.p3.y);
 	max.x = MAX(triangle.p1.x, triangle.p2.x);
-	max.x = MAX(min.x, triangle.p3.x);
+	max.x = MAX(max.x, triangle.p3.x);
 	max.y = MAX(triangle.p1.y, triangle.p2.y);
-	max.y = MAX(min.y, triangle.p3.y);
+	max.y = MAX(max.y, triangle.p3.y);
 
 	//scan bounding rectangle
 	for (int y = min.y; y < max.y; y++) {
@@ -316,41 +357,6 @@ void draw_triangle_int(ca_layer* layer, Triangle triangle, Color color) {
 	draw_line(layer, l1, color, 1);
 	draw_line(layer, l2, color, 1);
 	draw_line(layer, l3, color, 1);
-}
-
-Line shrink_line(Point p1, Point p2, float pixel_count) {
-	//return line_make(point_make(p1.x - 5, p1.y - 5), l.p2);
-	//if (p1.x == p2.x && p1.y == p2.y) return l;
-	double dx = p2.x - p1.x;
-	double dy = p2.y - p1.y;
-	if (!dx) {
-		//vertical line
-		if (p2.y < p1.y) {
-			p2.y -= pixel_count;
-		}
-		else {
-			p2.y += pixel_count;
-		}
-	}
-	else if (!dy) {
-		//horizontal line
-		if (p2.x < p1.x) {
-			p2.x -= pixel_count;
-		}
-		else {
-			p2.x += pixel_count;
-		}
-	}
-	else {
-		//diagonal line
-		double length = sqrt(dx * dx + dy * dy);
-		double scale = (length + pixel_count) / length;
-		dx *= scale;
-		dy *= scale;
-		p2.x = (int)(p1.x + (int)dx);
-		p2.y = (int)(p1.y + (int)dy);
-	}
-	return line_make(p1, p2);
 }
 
 void draw_triangle(ca_layer* layer, Triangle tri, Color color, int thickness) {
