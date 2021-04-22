@@ -152,6 +152,14 @@ static void watchdogd_launch() {
 	panic("noreturn");
 }
 
+static void tlsclient_launch() {
+    const char* program_name = "tlsclient";
+    FILE* fp = initrd_fopen(program_name, "rb");
+    char* argv[] = {program_name, NULL};
+    elf_load_file(program_name, fp, argv);
+	panic("noreturn");
+}
+
 static void preferences_launch() {
     const char* program_name = "preferences";
     FILE* fp = initrd_fopen(program_name, "rb");
@@ -212,6 +220,7 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     task_spawn(net, PRIORITY_NONE, "");
     task_spawn(timed_launch, PRIORITY_NONE, "");
     task_spawn(netclient_launch, PRIORITY_NONE, "");
+    //task_spawn(tlsclient_launch, PRIORITY_NONE, "");
     task_spawn(preferences_launch, PRIORITY_NONE, "");
     //task_spawn(watchdogd_launch, PRIORITY_NONE, "");
 
