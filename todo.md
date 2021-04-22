@@ -105,3 +105,17 @@ UI toolkit event loop
 Terminal emulator
 
 awm composites and does visible-rect-splitting
+
+Parse truetype fonts and render them
+
+Persistent storage
+
+AWM_FOCUS_EXITED
+
+TLS
+
+Notepad
+Window minimizing
+Shrink left X edge on scrollbar
+Fix scrollbar UI glitch
+Scroll bar stitching

@@ -4,6 +4,8 @@
 #define MAC_ADDR_SIZE   6
 #define IPv4_ADDR_SIZE  4
 
+#include <libgui/libgui.h>
+
 typedef struct net_config {
     // Local link
     uint8_t nic_mac[MAC_ADDR_SIZE];
@@ -32,5 +34,12 @@ uint32_t net_copy_local_ipv4_addr__u32(void);
 void net_copy_router_ipv4_addr(uint8_t dest[IPv4_ADDR_SIZE]);
 
 void net_send_rpc_response(const char* service, uint32_t event, void* buf, uint32_t buf_size);
+
+void net_ui_local_link_append_str(char* str, Color c);
+void net_ui_arp_table_draw(void);
+void net_ui_dns_records_table_draw(void);
+void net_ui_dns_services_table_draw(void);
+
+gui_window_t* net_main_window();
 
 #endif

@@ -16,6 +16,7 @@
 #include <agx/lib/ca_layer.h>
 #include <agx/lib/putpixel.h>
 #include <agx/lib/text_box.h>
+#include <libgui/libgui.h>
 
 // Window management
 #include <awm/awm.h>
@@ -34,44 +35,6 @@
 
 #include "realtek_8139_driver.h"
 #include "rtl8139_messages.h"
-
-// Many graphics lib functions call gfx_screen() 
-Screen _screen = {0};
-Screen* gfx_screen() {
-	return &_screen;
-}
-
-static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
-	// Ask awm to make a window for us
-	amc_msg_u32_3__send("com.axle.awm", AWM_REQUEST_WINDOW_FRAMEBUFFER, width, height);
-
-	// And get back info about the window it made
-	amc_message_t* receive_framebuf;
-	amc_message_await("com.axle.awm", &receive_framebuf);
-	uint32_t event = amc_msg_u32_get_word(receive_framebuf, 0);
-	if (event != AWM_CREATED_WINDOW_FRAMEBUFFER) {
-		printf("Invalid state. Expected framebuffer command\n");
-	}
-	uint32_t framebuffer_addr = amc_msg_u32_get_word(receive_framebuf, 1);
-
-	printf("Received framebuffer from awm: %d 0x%08x\n", event, framebuffer_addr);
-	uint8_t* buf = (uint8_t*)framebuffer_addr;
-
-	// TODO(PT): Use an awm command to get screen info
-	_screen.resolution = size_make(1920, 1080);
-	_screen.physbase = (uint32_t*)0;
-	_screen.bits_per_pixel = 32;
-	_screen.bytes_per_pixel = 4;
-
-	ca_layer* dummy_layer = malloc(sizeof(ca_layer));
-	memset(dummy_layer, 0, sizeof(dummy_layer));
-	dummy_layer->size = _screen.resolution;
-	dummy_layer->raw = (uint8_t*)framebuffer_addr;
-	dummy_layer->alpha = 1.0;
-    _screen.vmem = dummy_layer;
-
-	return dummy_layer;
-}
 
 #define CMD 0x37
 #define IMR 0x3c // Interrupt Mask Register
@@ -368,6 +331,79 @@ static void _read_mac_address(rtl8139_state_t* nic_state, char* buf, uint32_t bu
 	snprintf(buf, bufsize, "%02x:%02x:%02x:%02x:%02x:%02x\n", mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
 }
 
+static Rect _info_box_sizer(text_view_t* text_view, Size window_size) {
+	return rect_make(point_zero(), window_size);
+}
+
+static rtl8139_state_t nic_state = {0};
+
+static void _int_received(gui_window_t* window, uint32_t int_no) {
+	// The NIC needs some attention
+	// Reading the ISR register clears all interrupts
+	uint16_t status = inw(nic_state.io_base + RTL_REG_INTERRUPT_STATUS);
+	if (status & RTL_ISR_FLAG_TOK) {
+		printf("Packet sent\n");
+	}
+	if (status & RTL_ISR_FLAG_ROK) {
+		receive_packet(&nic_state);
+	}
+	if (status & RTL_ISR_FLAG_TER) {
+		printf("Transmit error\n");
+	}
+	if (status & RTL_ISR_FLAG_RER) {
+		printf("Receive error\n");
+	}
+
+	// This is not mutually exclusive with the other flags
+	if (status & RTL_ISR_FLAG_RX_BUFFER_OVERFLOW) {
+		printf("RX buffer is full!\n");
+	}
+
+	// Set the OWN bit to zero
+	//status &= ~(1 << 13);
+	//status &= ~(1 << 2);
+	outw(nic_state.io_base + RTL_REG_INTERRUPT_STATUS, status);
+	adi_send_eoi(INT_VECTOR_IRQ11);
+}
+
+static void _message_received(gui_window_t* window, amc_message_t* msg) {
+	const char* source_service = msg->source;
+	if (!strncmp(source_service, NET_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
+		net_message_t* net_msg = (net_message_t*)msg->body;
+		uint32_t event = net_msg->event;
+		if (event == NET_TX_ETHERNET_FRAME) {
+			uint8_t* packet_data = (uint8_t*)&net_msg->m.packet.data;
+			printf("NIC transmitting frame, len = %d data 0x%08x\n", net_msg->m.packet.len, packet_data);
+			send_packet(&nic_state, packet_data, net_msg->m.packet.len);
+		}
+		else if (event == NET_REQUEST_NIC_CONFIG) {
+			printf("NIC servicing net's NIC config request\n");
+
+			uint32_t mac_part1 = inl(nic_state.io_base + 0x00);
+			uint16_t mac_part2 = inw(nic_state.io_base + 0x04);
+			uint8_t mac_addr[8];
+			mac_addr[0] = mac_part1 >> 0;
+			mac_addr[1] = mac_part1 >> 8;
+			mac_addr[2] = mac_part1 >> 16;
+			mac_addr[3] = mac_part1 >> 24;
+			mac_addr[4] = mac_part2 >> 0;
+			mac_addr[5] = mac_part2 >> 8;
+
+			net_message_t config_msg;
+			config_msg.event = NET_RESPONSE_NIC_CONFIG;
+			memcpy(&config_msg.m.config_info.mac_addr, mac_addr, 6);
+
+			amc_message_construct_and_send(NET_SERVICE_NAME, &config_msg, sizeof(net_nic_config_info_t));
+		}
+		else {
+			printf("Unknown event from net service: %d\n", event);
+		}
+	}
+	else {
+		printf("RTL8139 driver got command from unknown service %s\n", source_service);
+	}
+}
+
 int main(int argc, char** argv) {
 	// This process will handle interrupts from the Realtek 8159 NIC (IRQ11)
 	// TODO(PT): The interrupt number is read from the PCI bus
@@ -377,119 +413,32 @@ int main(int argc, char** argv) {
 
 	// TODO(PT): This should be read from the PCI bus
 	int io_base = 0xc000;
-	rtl8139_state_t nic_state = {0};
 	realtek_8139_init(0, 3, 0, io_base, &nic_state);
 
-	Size window_size = size_make(300, 70);
-	Rect window_frame = rect_make(point_zero(), window_size);
-	ca_layer* window_layer = window_layer_get(window_size.width, window_size.height);
+	// Instantiate the GUI window
+	gui_window_t* window = gui_window_create("NIC Driver", 320, 80);
+	Size window_size = window->size;
 
-	int text_box_padding = 6;
-	Rect text_box_frame = rect_make(
-		point_make(
-			text_box_padding,
-			text_box_padding
-		),
-		size_make(
-			window_size.width - (text_box_padding * 2), 
-			window_size.height - (text_box_padding * 2)
-		)
+	Rect info_box_frame = rect_make(point_zero(), window_size);
+	text_view_t* info_box = gui_text_view_create(
+		window, 
+		info_box_frame,
+		color_white(),
+		(gui_window_resized_cb_t)_info_box_sizer
 	);
-	draw_rect(window_layer, window_frame, color_purple(), THICKNESS_FILLED);
-	text_box_t* text_box = text_box_create(text_box_frame.size, color_black());
 
-	text_box_puts(text_box, "RealTek 8139 NIC driver\n", color_white());
+	//draw_rect(window_layer, window_frame, color_purple(), THICKNESS_FILLED);
+	gui_text_view_puts(info_box, "RealTek 8139 NIC driver\n", color_black());
 
-	text_box_puts(text_box, "MAC address: ", color_white());
+	gui_text_view_puts(info_box, "MAC address: ", color_black());
 	char mac_buf[256];
 	_read_mac_address(&nic_state, mac_buf, sizeof(mac_buf));
-	text_box_puts(text_box, mac_buf, color_purple());
+	gui_text_view_puts(info_box, mac_buf, color_purple());
 
-    // Blit the text box to the window layer
-	text_box_blit(text_box, window_layer, text_box_frame);
-    // And ask awm to draw our window
-	amc_msg_u32_1__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
+	gui_add_interrupt_handler(window, INT_VECTOR_IRQ11, _int_received);
+	gui_add_message_handler(window, _message_received);
 
-	while (true) {
-		// Wake on interrupt or AMC message
-		bool awoke_for_interrupt = adi_event_await(INT_VECTOR_IRQ11);
-		if (awoke_for_interrupt) {
-			// The NIC needs some attention
-			// Reading the ISR register clears all interrupts
-			uint16_t status = inw(nic_state.io_base + RTL_REG_INTERRUPT_STATUS);
-			if (status & RTL_ISR_FLAG_TOK) {
-				printf("Packet sent\n");
-			}
-			if (status & RTL_ISR_FLAG_ROK) {
-				receive_packet(&nic_state);
-			}
-			if (status & RTL_ISR_FLAG_TER) {
-				printf("Transmit error\n");
-			}
-			if (status & RTL_ISR_FLAG_RER) {
-				printf("Receive error\n");
-			}
-
-			// This is not mutually exclusive with the other flags
-			if (status & RTL_ISR_FLAG_RX_BUFFER_OVERFLOW) {
-				printf("RX buffer is full!\n");
-			}
-
-			// Set the OWN bit to zero
-			//status &= ~(1 << 13);
-			//status &= ~(1 << 2);
-			outw(nic_state.io_base + RTL_REG_INTERRUPT_STATUS, status);
-			adi_send_eoi(INT_VECTOR_IRQ11);
-		}
-		else {
-			// We woke to service amc
-			printf("RTL servicing amc\n");
-			do {
-				amc_message_t* msg;
-				amc_message_await_any(&msg);
-				if (!libamc_handle_message(msg)) {
-					const char* source_service = msg->source;
-					if (!strcmp(source_service, NET_SERVICE_NAME)) {
-						net_message_t* net_msg = (net_message_t*)msg->body;
-						uint32_t event = net_msg->event;
-						if (event == NET_TX_ETHERNET_FRAME) {
-							uint8_t* packet_data = (uint8_t*)&net_msg->m.packet.data;
-							printf("tx ethernet frame len = %d data 0x%08x!\n", net_msg->m.packet.len, packet_data);
-							send_packet(&nic_state, packet_data, net_msg->m.packet.len);
-						}
-						else if (event == NET_REQUEST_NIC_CONFIG) {
-							printf("NIC servicing net's NIC config request\n");
-
-							uint32_t mac_part1 = inl(nic_state.io_base + 0x00);
-							uint16_t mac_part2 = inw(nic_state.io_base + 0x04);
-							uint8_t mac_addr[8];
-							mac_addr[0] = mac_part1 >> 0;
-							mac_addr[1] = mac_part1 >> 8;
-							mac_addr[2] = mac_part1 >> 16;
-							mac_addr[3] = mac_part1 >> 24;
-							mac_addr[4] = mac_part2 >> 0;
-							mac_addr[5] = mac_part2 >> 8;
-
-							net_message_t config_msg;
-							config_msg.event = NET_RESPONSE_NIC_CONFIG;
-							memcpy(&config_msg.m.config_info.mac_addr, mac_addr, 6);
-
-							amc_message_construct_and_send(NET_SERVICE_NAME, &config_msg, sizeof(net_nic_config_info_t));
-						}
-						else {
-							printf("Unknown event from net service: %d\n", event);
-						}
-					}
-					else if (!strcmp(source_service, AWM_SERVICE_NAME)) {
-						// Ignore awm messages
-					}
-					else {
-						printf("RTL8139 driver got command from unknown service %s\n", source_service);
-					}
-				}
-			} while (amc_has_message());
-		}
-	}
+	gui_enter_event_loop(window);
 	
 	return 0;
 }

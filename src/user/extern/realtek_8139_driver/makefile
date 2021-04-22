@@ -9,8 +9,8 @@ CFLAGS = -I$(SYSROOT)/usr/i686-axle/include -g -L$(SYSROOT)/usr/i686-axle/lib -W
 LDFLAGS = -T ./linker.ld -L$(SYSROOT)/usr/i686-axle/lib -lc
 
 .ONESHELL:
-realtek_8139_driver: realtek_8139_driver.c
+realtek_8139_driver: realtek_8139_driver.c $(SYSROOT)/usr/i686-axle/lib/libagx.a $(SYSROOT)/usr/i686-axle/lib/libgui.a
 	$(CC) $(CFLAGS) -o realtek_8139_driver.o -c realtek_8139_driver.c; \
 	# Place LDFlags after object files: https://stackoverflow.com/questions/34848192/assembler-gcc-undefined-reference-to-puts
-	$(LD) -o realtek_8139_driver realtek_8139_driver.o -lagx -lamc -lport $(LDFLAGS)
+	$(LD) -o realtek_8139_driver realtek_8139_driver.o -lgui -lagx -lamc -lport $(LDFLAGS)
 	cp realtek_8139_driver $(DIR)/initrd;

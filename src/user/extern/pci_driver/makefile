@@ -9,8 +9,8 @@ CFLAGS = -I$(SYSROOT)/usr/i686-axle/include -g -L$(SYSROOT)/usr/i686-axle/lib -W
 LDFLAGS = -T ./linker.ld -L$(SYSROOT)/usr/i686-axle/lib -lc
 
 .ONESHELL:
-pci_driver: pci_driver.c
+pci_driver: pci_driver.c $(SYSROOT)/usr/i686-axle/lib/libagx.a $(SYSROOT)/usr/i686-axle/lib/libgui.a
 	$(CC) $(CFLAGS) -o pci_driver.o -c pci_driver.c; \
 	# Place LDFlags after object files: https://stackoverflow.com/questions/34848192/assembler-gcc-undefined-reference-to-puts
-	$(LD) -o pci_driver pci_driver.o -lagx -lamc -lport $(LDFLAGS)
+	$(LD) -o pci_driver pci_driver.o -lgui -lagx -lamc -lport $(LDFLAGS)
 	cp pci_driver $(DIR)/initrd;

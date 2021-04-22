@@ -14,6 +14,7 @@
 #include <agx/lib/ca_layer.h>
 #include <agx/lib/putpixel.h>
 #include <agx/lib/text_box.h>
+#include <libgui/libgui.h>
 
 // Window management
 #include <awm/awm.h>
@@ -38,44 +39,6 @@
 #include "tcp.h"
 #include "util.h"
 
-// Many graphics lib functions call gfx_screen() 
-Screen _screen = {0};
-Screen* gfx_screen() {
-	return &_screen;
-}
-
-static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
-	// Ask awm to make a window for us
-	amc_msg_u32_3__send("com.axle.awm", AWM_REQUEST_WINDOW_FRAMEBUFFER, width, height);
-
-	// And get back info about the window it made
-	amc_message_t* receive_framebuf;
-	amc_message_await("com.axle.awm", &receive_framebuf);
-	uint32_t event = amc_msg_u32_get_word(receive_framebuf, 0);
-	if (event != AWM_CREATED_WINDOW_FRAMEBUFFER) {
-		printf("Invalid state. Expected framebuffer command\n");
-	}
-	uint32_t framebuffer_addr = amc_msg_u32_get_word(receive_framebuf, 1);
-
-	printf("Received framebuffer from awm: %d 0x%08x\n", event, framebuffer_addr);
-	uint8_t* buf = (uint8_t*)framebuffer_addr;
-
-	// TODO(PT): Use an awm command to get screen info
-	_screen.resolution = size_make(1920, 1080);
-	_screen.physbase = (uint32_t*)0;
-	_screen.bits_per_pixel = 32;
-	_screen.bytes_per_pixel = 4;
-
-	ca_layer* dummy_layer = malloc(sizeof(ca_layer));
-	memset(dummy_layer, 0, sizeof(dummy_layer));
-	dummy_layer->size = _screen.resolution;
-	dummy_layer->raw = (uint8_t*)framebuffer_addr;
-	dummy_layer->alpha = 1.0;
-    _screen.vmem = dummy_layer;
-
-	return dummy_layer;
-}
-
 static net_config_t _net_config = {0};
 
 static void _send_nic_config_info_request(void) {
@@ -95,9 +58,8 @@ static void _nic_config_received(net_nic_config_info_t* config) {
 	// Announce ourselves to the network
 	arp_announce();
 	// Request the MAC of the router (at a known static IP)
-	uint8_t router_ip[IPv4_ADDR_SIZE] = {192, 168, 1, 254};
+	uint8_t router_ip[IPv4_ADDR_SIZE] = {192, 168, 1, 1};
 	memcpy(_net_config.router_ip_addr, router_ip, IPv4_ADDR_SIZE);
-	// TODO(PT): The ARP request should be in a libnet that gets unblocked when the response is received
 	arp_request_mac(router_ip);
 }
 
@@ -158,235 +120,268 @@ void net_send_rpc_response(const char* service, uint32_t event, void* buf, uint3
 }
 
 typedef struct event_loop_state {
-	text_box_t* info_text_box;
+	text_view_t* local_link_view;
+	text_view_t* arp_view;
+	text_view_t* dns_view;
+	text_view_t* dns_services_view;
 } event_loop_state_t;
 
-static void _process_amc_messages(event_loop_state_t* state) {
-	do {
-		amc_message_t* msg;
-		// Wait until we've unblocked with at least one message available
-		amc_message_await_any(&msg);
-		if (libamc_handle_message(msg)) {
-			continue;
-		}
+static event_loop_state_t _g_state = {0};
 
-		const char* source_service = amc_message_source(msg);
+void net_ui_local_link_append_str(char* str, Color c) {
+	gui_text_view_puts(_g_state.local_link_view, str, c);
+}
 
-		if (!strcmp(source_service, RTL8139_SERVICE_NAME)) {
-			net_message_t* packet_msg = (net_message_t*)&msg->body;
-			uint8_t event = packet_msg->event;
-			if (event == NET_RX_ETHERNET_FRAME) {
-				uint8_t* packet_data = (uint8_t*)packet_msg->m.packet.data;
-				ethernet_frame_t* eth_frame = malloc(packet_msg->m.packet.len);
-				memcpy(eth_frame, packet_data, packet_msg->m.packet.len);
-				packet_info_t packet_info;
-				// ethernet_receive is responsible for freeing the packet
-				ethernet_receive(&packet_info, eth_frame, packet_msg->m.packet.len);
-			}
+void net_ui_arp_table_draw(void) {
+	text_view_t* text_view = _g_state.arp_view;
+	gui_text_view_clear_and_erase_history(text_view);
+
+	gui_text_view_puts(text_view, "ARP Table\n", color_purple());
+	arp_entry_t* arp_ents = arp_table();
+	for (int i = 0; i < ARP_TABLE_SIZE; i++) {
+		arp_entry_t* ent = &arp_ents[i];
+		if (ent->allocated) {
+			char buf[64];
+			Color c = color_white();
+			gui_text_view_puts(text_view, "\tIP ", c);
+			format_ipv4_address__buf(buf, sizeof(buf), ent->ip_addr);
+			gui_text_view_puts(text_view, buf, color_gray());
+
+			gui_text_view_puts(text_view, " = MAC ", c);
+			format_mac_address(buf, sizeof(buf), ent->mac_addr);
+			gui_text_view_puts(text_view, buf, color_gray());
+			gui_text_view_puts(text_view, "\n", c);
 		}
-		else if (!strncmp(source_service, AWM_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
-			uint32_t cmd = amc_msg_u32_get_word(msg, 0);
-			if (cmd == AWM_MOUSE_SCROLLED) {
-				awm_mouse_scrolled_msg_t* m = (awm_mouse_scrolled_msg_t*)msg->body;
-				bool scroll_up = m->delta_z > 0;
-				int interval = scroll_up ? 10 : -10;
-				for (uint32_t i = 0; i < abs(m->delta_z); i++) {
-					//scrolling_layer->scroll_offset.height += interval;
-					if (scroll_up) text_box_scroll_up(state->info_text_box);
-					else text_box_scroll_down(state->info_text_box);
+	}
+}
+
+void net_ui_dns_records_table_draw(void) {
+	text_view_t* text_view = _g_state.dns_view;
+	gui_text_view_clear_and_erase_history(text_view);
+
+	gui_text_view_puts(text_view, "\nDNS A Records\n", color_purple());
+	dns_domain_t* dns_domain_ents = dns_domain_records();
+	for (int i = 0; i < DNS_DOMAIN_RECORDS_TABLE_SIZE; i++) {
+		dns_domain_t* domain_ent = &dns_domain_ents[i];
+		if (domain_ent->allocated) {
+			char buf[256];
+			snprintf(buf, sizeof(buf), "\t%s ", domain_ent->name.name);
+			gui_text_view_puts(text_view, buf, color_white());
+
+			format_ipv4_address__buf(buf, sizeof(buf), domain_ent->a_record);
+			gui_text_view_puts(text_view, buf, color_gray());
+			gui_text_view_puts(text_view, "\n", color_white());
+		}
+	}
+}
+
+void net_ui_dns_services_table_draw(void) {
+	text_view_t* text_view = _g_state.dns_services_view;
+	gui_text_view_clear_and_erase_history(text_view);
+
+	gui_text_view_puts(text_view, "\nDNS Services\n", color_purple());
+	dns_service_type_t* dns_service_type_ents = dns_service_type_table();
+	for (int i = 0; i < DNS_SERVICE_TYPE_TABLE_SIZE; i++) {
+		dns_service_type_t* type_ent = &dns_service_type_ents[i];
+		if (type_ent->allocated) {
+			gui_text_view_puts(text_view, "\tType ", color_white());
+			char buf[256];
+			snprintf(buf, sizeof(buf), "%s\n", type_ent->type_name.name);
+			gui_text_view_puts(text_view, buf, color_gray());
+
+			for (int j = 0; j < DNS_SERVICE_INSTANCE_TABLE_SIZE; j++) {
+				dns_service_instance_t* inst_ent = &type_ent->instances[j];
+				if (inst_ent->allocated) {
+					gui_text_view_puts(text_view, "\t\tInstance ", color_white());
+					snprintf(buf, sizeof(buf), "%s\n", inst_ent->service_name.name);
+					gui_text_view_puts(text_view, buf, color_gray());
 				}
 			}
-
-			// Ignore awm events
-			continue;
 		}
+	}
+}
 
+
+static Rect _local_link_view_sizer(text_view_t* tv, Size window_size) {
+	return rect_make(
+		point_zero(), 
+		size_make(
+			window_size.width,
+			(window_size.height / 5)
+		)
+	);
+}
+
+static Rect _arp_view_sizer(text_view_t* tv, Size window_size) {
+	return rect_make(
+		point_make(
+			0,
+			rect_max_y(_g_state.local_link_view->frame)
+		),
+		size_make(
+			window_size.width / 2,
+			((window_size.height / 5) * 2)
+		)
+	);
+}
+
+static Rect _dns_view_sizer(text_view_t* tv, Size window_size) {
+	return rect_make(
+		point_make(
+			window_size.width / 2,
+			rect_max_y(_g_state.local_link_view->frame)
+		),
+		size_make(
+			window_size.width / 2,
+			((window_size.height / 5) * 2)
+		)
+	);
+}
+
+static Rect _dns_services_view_sizer(text_view_t* tv, Size window_size) {
+	uint32_t local_link_max_y = rect_max_y(_g_state.local_link_view->frame);
+	uint32_t arp_max_y = rect_max_y(_g_state.arp_view->frame);
+	uint32_t height = ((window_size.height / 5) * 2);
+	return rect_make(
+		point_make(
+			0,
+			arp_max_y
+		),
+		size_make(
+			window_size.width,
+			height
+		)
+	);
+}
+
+static void _amc_message_received(gui_window_t* window, amc_message_t* msg) {
+    const char* source_service = msg->source;
+	if (!strncmp(source_service, RTL8139_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
+		net_message_t* packet_msg = (net_message_t*)&msg->body;
+		uint8_t event = packet_msg->event;
+		if (event == NET_RX_ETHERNET_FRAME) {
+			uint8_t* packet_data = (uint8_t*)packet_msg->m.packet.data;
+			ethernet_frame_t* eth_frame = malloc(packet_msg->m.packet.len);
+			memcpy(eth_frame, packet_data, packet_msg->m.packet.len);
+			packet_info_t packet_info;
+			// ethernet_receive is responsible for freeing the packet
+			ethernet_receive(&packet_info, eth_frame, packet_msg->m.packet.len);
+		}
+	}
+	else {
+		printf("Net backend servicing RPC from %s\n", source_service);
+		net_message_t* packet_msg = (net_message_t*)&msg->body;
+		if (packet_msg->event == NET_RPC_COPY_LOCAL_MAC) {
+			uint8_t mac[MAC_ADDR_SIZE];
+			net_copy_local_mac_addr(mac);
+			net_send_rpc_response(source_service, NET_RPC_RESPONSE_COPY_LOCAL_MAC, mac, MAC_ADDR_SIZE);
+		}
+		else if (packet_msg->event == NET_RPC_COPY_LOCAL_IPv4) {
+			uint8_t ipv4[IPv4_ADDR_SIZE];
+			net_copy_local_ipv4_addr(ipv4);
+			net_send_rpc_response(source_service, NET_RPC_RESPONSE_COPY_LOCAL_IPv4, ipv4, IPv4_ADDR_SIZE);
+		}
+		else if (packet_msg->event == NET_RPC_COPY_ROUTER_IPv4) {
+			uint8_t ipv4[IPv4_ADDR_SIZE];
+			net_copy_router_ipv4_addr(ipv4);
+			net_send_rpc_response(source_service, NET_RPC_RESPONSE_COPY_ROUTER_IPv4, ipv4, IPv4_ADDR_SIZE);
+		}
+		else if (packet_msg->event == NET_RPC_ARP_GET_MAC) {
+			// COPY_ROUTER_MAC should do the same thing for the fixed router IP
+			assert(packet_msg->m.packet.len == IPv4_ADDR_SIZE, "Provided data wasn't the size of an IPv4 address");
+			arp_perform_amc_rpc__discover_mac(source_service, (uint8_t(*)[IPv4_ADDR_SIZE])packet_msg->m.packet.data);
+		}
+		else if (packet_msg->event == NET_RPC_DNS_GET_IPv4) {
+			uint32_t domain_name_len = packet_msg->m.packet.len;
+			dns_perform_amc_rpc__discover_ipv4(source_service, packet_msg->m.packet.data, domain_name_len+1);
+		}
+		else if (packet_msg->event == NET_RPC_TCP_OPEN) {
+			printf("net_rpc_tcp_open %d %d\n", packet_msg->m.tcp_open.src_port, packet_msg->m.tcp_open.dst_port);
+			tcp_perform_amc_rpc__conn_open(source_service, &packet_msg->m.tcp_open);
+		}
+		else if (packet_msg->event == NET_RPC_TCP_SEND) {
+			printf("net_rpc_tcp_send %d %d\n", packet_msg->m.tcp_send.tcp_conn_descriptor, packet_msg->m.tcp_send.len);
+			tcp_perform_amc_rpc__conn_send(source_service, &packet_msg->m.tcp_send);
+		}
+		else if (packet_msg->event == NET_RPC_TCP_READ) {
+			printf("net_rpc_tcp_read %d %d\n", packet_msg->m.tcp_read.tcp_conn_descriptor, packet_msg->m.tcp_read.len);
+			tcp_perform_amc_rpc__conn_read(source_service, &packet_msg->m.tcp_read);
+		}
 		else {
-			printf("Net backend servicing RPC from %s\n", source_service);
-			net_message_t* packet_msg = (net_message_t*)&msg->body;
-			if (packet_msg->event == NET_RPC_COPY_LOCAL_MAC) {
-				uint8_t mac[MAC_ADDR_SIZE];
-				net_copy_local_mac_addr(mac);
-				net_send_rpc_response(source_service, NET_RPC_RESPONSE_COPY_LOCAL_MAC, mac, MAC_ADDR_SIZE);
-			}
-			else if (packet_msg->event == NET_RPC_COPY_LOCAL_IPv4) {
-				uint8_t ipv4[IPv4_ADDR_SIZE];
-				net_copy_local_ipv4_addr(ipv4);
-				net_send_rpc_response(source_service, NET_RPC_RESPONSE_COPY_LOCAL_IPv4, ipv4, IPv4_ADDR_SIZE);
-			}
-			else if (packet_msg->event == NET_RPC_COPY_ROUTER_IPv4) {
-				uint8_t ipv4[IPv4_ADDR_SIZE];
-				net_copy_router_ipv4_addr(ipv4);
-				net_send_rpc_response(source_service, NET_RPC_RESPONSE_COPY_ROUTER_IPv4, ipv4, IPv4_ADDR_SIZE);
-			}
-			else if (packet_msg->event == NET_RPC_ARP_GET_MAC) {
-				// COPY_ROUTER_MAC should do the same thing for the fixed router IP
-				assert(packet_msg->m.packet.len == IPv4_ADDR_SIZE, "Provided data wasn't the size of an IPv4 address");
-				arp_perform_amc_rpc__discover_mac(source_service, (uint8_t(*)[IPv4_ADDR_SIZE])packet_msg->m.packet.data);
-			}
-			else if (packet_msg->event == NET_RPC_DNS_GET_IPv4) {
-				uint32_t domain_name_len = packet_msg->m.packet.len;
-				dns_perform_amc_rpc__discover_ipv4(source_service, packet_msg->m.packet.data, domain_name_len+1);
-			}
-			else if (packet_msg->event == NET_RPC_TCP_OPEN) {
-				printf("net_rpc_tcp_open %d %d\n", packet_msg->m.tcp_open.src_port, packet_msg->m.tcp_open.dst_port);
-				tcp_perform_amc_rpc__conn_open(source_service, &packet_msg->m.tcp_open);
-			}
-			else if (packet_msg->event == NET_RPC_TCP_SEND) {
-				printf("net_rpc_tcp_send %d %d\n", packet_msg->m.tcp_send.tcp_conn_descriptor, packet_msg->m.tcp_send.len);
-				tcp_perform_amc_rpc__conn_send(source_service, &packet_msg->m.tcp_send);
-			}
-			else if (packet_msg->event == NET_RPC_TCP_READ) {
-				printf("net_rpc_tcp_read %d %d\n", packet_msg->m.tcp_read.tcp_conn_descriptor, packet_msg->m.tcp_read.len);
-				tcp_perform_amc_rpc__conn_read(source_service, &packet_msg->m.tcp_read);
-			}
-			else {
-				printf("Unknown RPC %d\n", packet_msg->event);
-			}
-			continue;
+			printf("Unknown RPC %d\n", packet_msg->event);
 		}
-	} while (amc_has_message());
+	}
+}
+
+static gui_window_t* _g_window = NULL;
+
+gui_window_t* net_main_window(void) {
+	assert(_g_window != NULL, "Called net_main_window before window was initialized");
+	return _g_window;
 }
 
 int main(int argc, char** argv) {
 	amc_register_service(NET_SERVICE_NAME);
-
-	// TODO(PT): Come up with a better way of showing multiple columns
-	Size window_size = size_make(720, 640);
-	Rect window_frame = rect_make(point_zero(), window_size);
-	ca_layer* window_layer = window_layer_get(window_size.width, window_size.height);
-
-	int text_box_padding = 6;
-	Rect text_box_frame = rect_make(
-		point_make(
-			text_box_padding,
-			text_box_padding
-		),
-		size_make(
-			window_size.width - (text_box_padding * 2), 
-			window_size.height - (text_box_padding * 2)
-		)
-	);
-	draw_rect(window_layer, window_frame, color_orange(), text_box_padding);
-
-	event_loop_state_t state = {0};
-	text_box_t* text_box = text_box_create(text_box_frame.size, color_black());
-	state.info_text_box = text_box;
-	text_box_puts(text_box, "Net backend initializing...\n", color_white());
-
-    // Blit the text box to the window layer
-	ca_scrolling_layer_blit(
-		text_box->scroll_layer, 
-		rect_make(point_zero(), text_box_frame.size), 
-		window_layer, 
-		text_box_frame
-	);
-    // And ask awm to draw our window
-	amc_msg_u32_1__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
-
-	// Ask the NIC for its configuration
-	_read_nic_config(_nic_config_received);
 
 	// Allow protocol layers to perform their initialization
 	arp_init();
 	dns_init();
 	tcp_init();
 
-	amc_message_t* msg;
-	while (true) {
-		_process_amc_messages(&state);
-		// We're out of messages to process
-		// Wait for a new message to arrive on the next loop iteration
+	_g_window = gui_window_create("Network Backend", 860, 400);
+	Rect window_frame = rect_make(point_zero(), _g_window->size);
 
-		Size orig_scroll_position = text_box->scroll_layer->scroll_offset;
-		// Draw the new ARP table
-		text_box_clear(text_box);
-		text_box_set_cursor_y(text_box,  0);
+	_g_state.local_link_view = gui_text_view_create(
+		_g_window,
+		window_frame,
+		color_black(),
+		(gui_window_resized_cb_t)_local_link_view_sizer
+	);
+	_g_state.arp_view = gui_text_view_create(
+		_g_window,
+		window_frame,
+		color_black(),
+		(gui_window_resized_cb_t)_arp_view_sizer
+	);
+	_g_state.dns_view = gui_text_view_create(
+		_g_window,
+		window_frame,
+		color_black(),
+		(gui_window_resized_cb_t)_dns_view_sizer
+	);
+	_g_state.dns_services_view = gui_text_view_create(
+		_g_window,
+		window_frame,
+		color_black(),
+		(gui_window_resized_cb_t)_dns_services_view_sizer
+	);
 
-		text_box_puts(text_box, "Local Link\n", color_white());
+	// Ask the NIC for its configuration
+	_read_nic_config(_nic_config_received);
 
-		char text_buf[64];
-		char mac_buf[MAC_ADDR_SIZE];
-		net_copy_local_mac_addr(mac_buf);
-		format_mac_address(text_buf, sizeof(text_buf), mac_buf);
-		text_box_puts(text_box, "\tMAC  ", color_white());
-		text_box_puts(text_box, text_buf, color_gray());
-		text_box_puts(text_box, "\n", color_white());
+	net_ui_local_link_append_str("Local Link\n", color_purple());
+	char mac_buf[MAC_ADDR_SIZE];
+	net_copy_local_mac_addr(mac_buf);
+	net_ui_local_link_append_str("\tMAC   ", color_white());
 
-		char ipv4_buf[IPv4_ADDR_SIZE];
-		net_copy_local_ipv4_addr(ipv4_buf);
-		format_ipv4_address__buf(text_buf, sizeof(text_buf), ipv4_buf);
-		text_box_puts(text_box, "\tIPv4 ", color_white());
-		text_box_puts(text_box, text_buf, color_gray());
-		text_box_puts(text_box, "\n\n", color_gray());
+	char text_buf[64];
+	format_mac_address(text_buf, sizeof(text_buf), mac_buf);
+	net_ui_local_link_append_str(text_buf, color_gray());
+	net_ui_local_link_append_str("\n", color_white());
 
-		text_box_puts(text_box, "ARP Table\n", color_white());
-		arp_entry_t* arp_ents = arp_table();
-		for (int i = 0; i < ARP_TABLE_SIZE; i++) {
-			arp_entry_t* ent = &arp_ents[i];
-			if (ent->allocated) {
-				char buf[64];
-				Color c = color_white();
-				text_box_puts(text_box, "\tIP ", c);
-				format_ipv4_address__buf(buf, sizeof(buf), ent->ip_addr);
-				text_box_puts(text_box, buf, color_gray());
+	char ipv4_buf[IPv4_ADDR_SIZE];
+	net_copy_local_ipv4_addr(ipv4_buf);
+	format_ipv4_address__buf(text_buf, sizeof(text_buf), ipv4_buf);
+	net_ui_local_link_append_str("\tIPv4 ", color_white());
+	net_ui_local_link_append_str(text_buf, color_gray());
+	net_ui_local_link_append_str("\n", color_white());
 
-				text_box_puts(text_box, " = MAC ", c);
-				format_mac_address(buf, sizeof(buf), ent->mac_addr);
-				text_box_puts(text_box, buf, color_gray());
-				text_box_puts(text_box, "\n", c);
-			}
-		}
+	net_ui_arp_table_draw();
+	net_ui_dns_records_table_draw();
+	net_ui_dns_services_table_draw();
 
-		text_box_puts(text_box, "\nDNS Records\n", color_white());
-		dns_domain_t* dns_domain_ents = dns_domain_records();
-		for (int i = 0; i < DNS_DOMAIN_RECORDS_TABLE_SIZE; i++) {
-			dns_domain_t* domain_ent = &dns_domain_ents[i];
-			if (domain_ent->allocated) {
-				char buf[256];
-				snprintf(buf, sizeof(buf), "\t%s ", domain_ent->name.name);
-				text_box_puts(text_box, buf, color_white());
-
-				format_ipv4_address__buf(buf, sizeof(buf), domain_ent->a_record);
-				text_box_puts(text_box, buf, color_gray());
-				text_box_puts(text_box, "\n", color_white());
-			}
-		}
-
-		text_box_puts(text_box, "\nDNS Services\n", color_white());
-		dns_service_type_t* dns_service_type_ents = dns_service_type_table();
-		for (int i = 0; i < DNS_SERVICE_TYPE_TABLE_SIZE; i++) {
-			dns_service_type_t* type_ent = &dns_service_type_ents[i];
-			if (type_ent->allocated) {
-				text_box_puts(text_box, "\tType ", color_white());
-				char buf[256];
-				snprintf(buf, sizeof(buf), "%s\n", type_ent->type_name.name);
-				text_box_puts(text_box, buf, color_gray());
-
-				for (int j = 0; j < DNS_SERVICE_INSTANCE_TABLE_SIZE; j++) {
-					dns_service_instance_t* inst_ent = &type_ent->instances[j];
-					if (inst_ent->allocated) {
-						text_box_puts(text_box, "\t\tInstance ", color_white());
-						snprintf(buf, sizeof(buf), "%s\n", inst_ent->service_name.name);
-						text_box_puts(text_box, buf, color_gray());
-					}
-				}
-			}
-		}
-
-		// Keep the scroll position the same now that we've redrawn the text box contents
-		text_box->scroll_layer->scroll_offset = orig_scroll_position;
-		ca_scrolling_layer_blit(
-			text_box->scroll_layer, 
-			rect_make(point_zero(), text_box_frame.size), 
-			window_layer, 
-			text_box_frame
-		);
-		// And ask awm to draw our window
-		amc_msg_u32_1__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
-
-		printf("Net finished run-loop\n");
-	}
+	gui_add_message_handler(_g_window, _amc_message_received);
+	gui_enter_event_loop(_g_window);
 	
 	return 0;
 }
