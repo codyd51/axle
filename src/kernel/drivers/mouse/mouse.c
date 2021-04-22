@@ -36,6 +36,7 @@ void ps2_mouse_enable(void) {
 	mouse_id = ps2_read(PS2_DATA);
 	printf_info("[PS2] New mouse ID: 0x%02x", mouse_id);
 	assert(mouse_id == 0x03, "Failed to enable scroll wheel");
+	_ps2_set_sample_rate(80);
 
 	// Ask the PS/2 mouse to start sending events
 	ps2_write_device(1, PS2_MOUSE_CMD_ENABLE_DATA_REPORTING);

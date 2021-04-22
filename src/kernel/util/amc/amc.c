@@ -3,6 +3,7 @@
 #include <std/math.h>
 #include <std/array_l.h>
 #include <std/array_m.h>
+#include <std/hash_map.h>
 #include <kernel/util/spinlock/spinlock.h>
 #include <kernel/multitasking/tasks/task_small.h>
 
@@ -40,6 +41,9 @@ static array_m* _amc_services = 0;
 
 static const uint32_t _amc_messages_to_unknown_services_pool_size = 512;
 static array_m* _amc_messages_to_unknown_services_pool = 0;
+
+static hash_map_t* _amc_services_by_name = 0;
+static hash_map_t* _amc_services_by_task = 0;
 
 typedef struct amc_service {
     const char* name;
@@ -107,11 +111,15 @@ static amc_service_t* _amc_service_matching_data(const char* name, task_small_t*
 }
 
 static amc_service_t* _amc_service_with_name(const char* name) {
-    return _amc_service_matching_data(name, NULL);
+    //return _amc_service_matching_data(name, NULL);
+    //printf("_amc_service_with_name\n");
+    return hash_map_get(_amc_services_by_name, name, strlen(name));
 }
 
 static amc_service_t* _amc_service_of_task(task_small_t* task) {
-    return _amc_service_matching_data(NULL, task);
+    //printf("_amc_service_of_task\n");
+    //return _amc_service_matching_data(NULL, task);
+    return hash_map_get(_amc_services_by_task, task, sizeof(task));
 }
 
 static void _amc_deliver_pending_messages_to_new_service(amc_service_t* new_service) {
@@ -156,6 +164,8 @@ void amc_register_service(const char* name) {
         // This could later be moved into a kernel-level amc_init()
         _amc_services = array_m_create(256);
         _amc_messages_to_unknown_services_pool = array_m_create(_amc_messages_to_unknown_services_pool_size);
+        _amc_services_by_name = hash_map_create();
+        _amc_services_by_task = hash_map_create();
     }
 
     task_small_t* current_task = tasking_get_current_task();
@@ -189,6 +199,8 @@ void amc_register_service(const char* name) {
                                                         true);
     printf("AMC delivery pool for %s at 0x%08x\n", name, service->delivery_pool);
 
+    hash_map_put(_amc_services_by_name, service->name, strlen(service->name), service);
+    hash_map_put(_amc_services_by_task, service->task, sizeof(service->task), service);
     array_m_insert(_amc_services, service);
 
     spinlock_release(&service->spinlock);
