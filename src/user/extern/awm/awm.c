@@ -137,6 +137,9 @@ static void _begin_left_click(mouse_interaction_state_t* state, Point mouse_poin
 static void _end_left_click(mouse_interaction_state_t* state, Point mouse_point) {
 	printf("End left click\n");
 	state->left_click_down = false;
+	if (state->active_window) {
+		amc_msg_u32_3__send(state->active_window->owner_service, AWM_MOUSE_LEFT_CLICK_ENDED, mouse_point.x, mouse_point.y);
+	}
 }
 
 static void _exit_hover_window(mouse_interaction_state_t* state) {
@@ -202,7 +205,7 @@ static void _moved_in_hover_window(mouse_interaction_state_t* state, Point mouse
 	}
 }
 
-static void _handle_mouse_moved(mouse_interaction_state_t* state, Point mouse_point, int8_t delta_x, int8_t delta_y, int8_t delta_z) {
+static void _handle_mouse_moved(mouse_interaction_state_t* state, Point mouse_point, int32_t delta_x, int32_t delta_y, int32_t delta_z) {
 	// Check if we've moved outside the bounds of the hover window
 	if (state->active_window != NULL) {
 		if (!rect_contains_point(state->active_window->frame, mouse_point)) {
@@ -282,9 +285,20 @@ static void _handle_mouse_dragged(mouse_interaction_state_t* state, Point mouse_
 
 		_window_resize(state->active_window, new_size, true);
 	}
+	else {
+		// Drag within content view
+		// Mouse is hovered within the content view
+		Point local_mouse = point_make(
+			mouse_point.x - state->active_window->frame.origin.x,
+			mouse_point.y - state->active_window->frame.origin.y
+		);
+		local_mouse.x -= state->active_window->content_view->frame.origin.x;
+		local_mouse.y -= state->active_window->content_view->frame.origin.y;
+		amc_msg_u32_3__send(state->active_window->owner_service, AWM_MOUSE_DRAGGED, local_mouse.x, local_mouse.y);
+	}
 }
 
-static void _handle_mouse_scroll(mouse_interaction_state_t* state, int8_t delta_z) {
+static void _handle_mouse_scroll(mouse_interaction_state_t* state, int32_t delta_z) {
 	if (state->active_window) {
 		// Scroll within a window
 		// Inform the window
@@ -292,7 +306,7 @@ static void _handle_mouse_scroll(mouse_interaction_state_t* state, int8_t delta_
 	}
 }
 
-static void mouse_dispatch_events(uint8_t status_byte, Point mouse_point, int8_t delta_x, int8_t delta_y, int8_t delta_z) {
+static void mouse_dispatch_events(uint8_t status_byte, Point mouse_point, int32_t delta_x, int32_t delta_y, int32_t delta_z) {
 	mouse_interaction_state_t* mouse_state = &g_mouse_state;
 	mouse_state->mouse_pos = mouse_point;
 
@@ -450,37 +464,28 @@ static void _window_resize(user_window_t* window, Size new_size, bool inform_win
 			  1);
 
 	// Draw window title
-	uint32_t title_len = ((window->title_text_box->font_size.width + window->title_text_box->font_padding.width) * strlen(window->owner_service));
-	Point title_text_origin = point_make(WINDOW_BORDER_MARGIN, WINDOW_BORDER_MARGIN);
-
-	Size visible_title_bar_size = size_make(title_len, 14);
-	blit_layer(
-		window->layer, 
-		window->title_text_box->scroll_layer->layer, 
-		rect_make(
-			point_make(
-				title_text_origin.x + 2,
-				title_text_origin.y + 1
-			),
-			visible_title_bar_size
-		),
-		rect_make(point_zero(), visible_title_bar_size)
+	uint32_t title_len = window->title_text_box->cursor_pos.x;
+	Size visible_title_bar_size = size_make(title_len, (window->title_text_box->font_size.height));
+	Point title_text_origin = point_make(
+		(title_bar_size.width / 2) - (visible_title_bar_size.width / 2),
+		(title_bar_size.height / 2) - (visible_title_bar_size.height / 2)
 	);
 
-	draw_rect(
-		window->layer, 
+	text_box_blit(
+		window->title_text_box,
+		window->layer,
 		rect_make(
-			point_make(0, WINDOW_TITLE_BAR_HEIGHT), 
-			size_make(window->frame.size.width, window->frame.size.height - WINDOW_TITLE_BAR_HEIGHT)
-		), 
-		color_black(), 
-		WINDOW_BORDER_MARGIN
+			title_text_origin,
+			size_make(visible_title_bar_size.width, 4)
+		)
 	);
 
-	awm_window_resized_msg_t msg = {0};
-	msg.event = AWM_WINDOW_RESIZED;
-	msg.new_size = new_size;
-	amc_message_construct_and_send(window->owner_service, &msg, sizeof(msg));
+	if (inform_window) {
+		awm_window_resized_msg_t msg = {0};
+		msg.event = AWM_WINDOW_RESIZED;
+		msg.new_size = window->content_view->frame.size;
+		amc_message_construct_and_send(window->owner_service, &msg, sizeof(msg));
+	}
 }
 
 static void window_create(const char* owner_service, uint32_t width, uint32_t height) {
