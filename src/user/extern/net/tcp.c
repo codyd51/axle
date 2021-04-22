@@ -180,7 +180,7 @@ typedef enum tcp_conn_status {
 typedef struct tcp_segment {
 	char* buf;
 	uint32_t len;
-	uint32_t next_to_consume_off;
+	uint32_t sequence_start;
 } tcp_segment_t;
 
 typedef struct tcp_conn {
@@ -295,7 +295,8 @@ static void _tcp_handle_syn_response(tcp_conn_t* conn, tcp_packet_t* packet) {
 static void _tcp_conn_recv(tcp_conn_t* conn, tcp_packet_t* packet, uint32_t data_len) {
 	uint32_t recv_ack_num = ntohl(packet->header.acknowledgement_number);
 	uint32_t recv_seq_num = ntohl(packet->header.sequence_number);
-	printf("\tTCP: Conn recv, len=%u, recv syn=%u ack=%u\n", data_len, recv_seq_num - conn->recv_initial_seqnum, recv_ack_num - conn->send_initial_seqnum);
+	uint32_t relative_recv_seq_num = recv_seq_num - conn->recv_initial_seqnum;
+	printf("\tTCP: Conn recv, len=%u, recv syn=%u ack=%u\n", data_len, relative_recv_seq_num, recv_ack_num - conn->send_initial_seqnum);
 
 	// Did the other end acknowledge something from us?
 	if (packet->header.flags & TCP_FLAG_ACK) {
@@ -314,7 +315,7 @@ static void _tcp_conn_recv(tcp_conn_t* conn, tcp_packet_t* packet, uint32_t data
 		printf("\tTCP Recv data recv_next_seqnum %u recv_initial_seqnum %u recv_seq_num %u data_len %u\n", conn->recv_next_seqnum, conn->recv_initial_seqnum, recv_seq_num, data_len);
 		// Have we already ingested this data?
 		if (conn->recv_next_seqnum >= recv_seq_num + data_len) {
-			printf("\tTCP: Ignoring recv of already-ingested segment %u\n", recv_seq_num - conn->recv_initial_seqnum);
+			printf("\tTCP: Ignoring recv of already-ingested segment %u\n", relative_recv_seq_num);
 		}
 		else {
 			// Send an "ack" for this data
@@ -335,6 +336,7 @@ static void _tcp_conn_recv(tcp_conn_t* conn, tcp_packet_t* packet, uint32_t data
 			tcp_segment_t* seg = calloc(1, sizeof(seg));
 			seg->buf = calloc(1, data_len);
 			seg->len = data_len;
+			seg->sequence_start = relative_recv_seq_num;
 			memcpy(seg->buf, packet->data, data_len);
 			array_insert(conn->receive_buffer, seg);
 			hexdump(packet->data, data_len);
@@ -459,6 +461,7 @@ typedef struct tcp_amc_rpc__conn_read {
 	char* amc_service;
 	tcp_conn_t* conn;
 	uint32_t len;
+	uint32_t next_seqnum_to_deliver;
 } tcp_amc_rpc__conn_read_t;
 
 static bool _tcp_is_amc_rpc__conn_read_satisfied(tcp_amc_rpc__conn_read_t* rpc) {
@@ -466,8 +469,15 @@ static bool _tcp_is_amc_rpc__conn_read_satisfied(tcp_amc_rpc__conn_read_t* rpc) 
 	printf("_tcp_is_amc_rpc__conn_read_satisfied recv buffer size %d conn 0x%08x recv buf 0x%08x\n", rpc->conn->receive_buffer->size, rpc->conn, rpc->conn->receive_buffer);
 	for (uint32_t i = 0; i < rpc->conn->receive_buffer->size; i++) {
 		tcp_segment_t* seg = array_lookup(rpc->conn->receive_buffer, i);
-		printf("Seg->len %u rpc->len %u\n", seg->len, rpc->len);
-		assert(seg->len <= rpc->len, "Segment was smaller than RPC buffer");
+		printf("Seg->len %u rpc->len %u seg->sequence_start %u rpc->next_seqnum_to_deliver %u\n", seg->len, rpc->len, seg->sequence_start, rpc->next_seqnum_to_deliver);
+
+		// Enforce ordering of segments
+		if (seg->sequence_start > rpc->next_seqnum_to_deliver) {
+			printf("\tCheck RPC: Ignore seg because it's further along in stream. Looking for seq %u\n", rpc->next_seqnum_to_deliver);
+			continue;
+		}
+
+		assert(seg->len <= rpc->len, "Segment was larger than RPC buffer");
 		// Found a segment we can fulfill the read with!
 		printf("Found segment to fulfill TCP read\n");
 		return true;
@@ -479,8 +489,17 @@ static void _tcp_complete_amc_rpc__conn_read(tcp_amc_rpc__conn_read_t* rpc) {
 	printf("TCP RPC: Completed conn_read, responding to %s conn 0x%08x recv buf 0x%08x...\n", rpc->amc_service, rpc->conn, rpc->conn->receive_buffer);
 	for (uint32_t i = 0; i < rpc->conn->receive_buffer->size; i++) {
 		tcp_segment_t* seg = array_lookup(rpc->conn->receive_buffer, i);
-		printf("copy segment %d\n", i);
 
+		// Enforce ordering of segments
+		if (seg->sequence_start > rpc->next_seqnum_to_deliver) {
+			printf("\tComplete RPC: Ignore seg because it's further along in stream. Looking for seq %u\n", rpc->next_seqnum_to_deliver);
+			continue;
+		}
+
+		// Increment the next sequence number to deliver to reflect that data will be delivered
+		rpc->next_seqnum_to_deliver += seg->len;
+
+		printf("copy segment %d\n", i);
 		uint32_t msg_size = sizeof(net_message_t) + seg->len;
 		net_message_t* msg = calloc(1, msg_size);
 		msg->event = NET_RPC_RESPONSE_TCP_READ;
@@ -513,6 +532,7 @@ void tcp_perform_amc_rpc__conn_read(const char* amc_service, net_rpc_tcp_read_t*
 	cb_info->amc_service = strndup(amc_service, AMC_MAX_SERVICE_NAME_LEN);
 	cb_info->conn = conn;
 	cb_info->len = tcp_read_msg->len;
+	cb_info->next_seqnum_to_deliver = conn->recv_next_seqnum - conn->recv_initial_seqnum;
 	callback_list_add_callback(
 		_tcp_callbacks,
 		cb_info,
