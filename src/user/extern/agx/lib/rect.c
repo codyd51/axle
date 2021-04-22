@@ -5,6 +5,7 @@
 
 #include "../math.h"
 #include "../lib/putpixel.h"
+#include "../lib/shapes.h"
 #include "rect.h"
 
 static bool val_in_range(int value, int min, int max) { 
@@ -21,16 +22,6 @@ bool rect_intersects(Rect A, Rect B) {
     return x_overlap && y_overlap;
 }
 
-Rect rect_make(Point origin, Size size) {
-	Rect rect;
-	rect.origin = origin;
-	rect.size = size;
-	return rect;
-}
-
-Rect rect_zero() {
-	return rect_make(point_zero(), size_zero());
-}
 
 Rect* Rect_new(int top, int left, int bottom, int right) {
     //Attempt to allocate the object

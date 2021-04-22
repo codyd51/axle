@@ -9,8 +9,6 @@
 
 #include "shapes.h"
 
-// TODO(PT): Change all occurences of BGR to RGB
-
 static void draw_rect_int(ca_layer* layer, Rect rect, Color color);
 
 //convenience functions to make life easier

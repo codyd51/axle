@@ -6,7 +6,4 @@ typedef struct size {
 	int height;
 } Size;
 
-Size size_make(int w, int h);
-Size size_zero();
-
 #endif
