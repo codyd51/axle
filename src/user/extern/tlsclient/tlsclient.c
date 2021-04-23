@@ -41,6 +41,8 @@ typedef struct tls_handshake_header {
 } __attribute__((packed)) tls_handshake_header_t;
 
 #define TLS_HANDSHAKE_MESSAGE_TYPE_CLIENT_HELLO 0x01
+#define TLS_HANDSHAKE_MESSAGE_TYPE_SERVER_HELLO 0x02
+#define TLS_HANDSHAKE_MESSAGE_TYPE_SERVER_CERTIFICATE 0x0B
 
 typedef struct tls_random {
 	uint8_t data[32];
@@ -68,13 +70,18 @@ typedef struct tls_handshake_msg_client_hello {
 	tls_single_compression_method_t compression_methods;
 }  __attribute__((packed)) tls_handshake_msg_client_hello_t;
 
-typedef struct tls_handshake_msg_server_hello {
+typedef struct tls_handshake_msg_server_hello_start {
 	tls_protocol_version_t server_version;
 	tls_random_t server_random;
-	uint8_t session_id;
-	tls_single_cipher_suite_t cipher_suite;
-	tls_single_compression_method_t compression_method;
-}  __attribute__((packed)) tls_handshake_msg_server_hello_t;
+	uint8_t session_id_length;
+} __attribute__((packed)) tls_handshake_msg_server_hello_start_t;
+
+// session_id_length bytes follow
+
+typedef struct tls_handshake_msg_server_hello_end {
+	uint16_t cipher_suite;
+	uint8_t compression_method;
+}  __attribute__((packed)) tls_handshake_msg_server_hello_end_t;
 
 #define TLS_RSA_WITH_AES_128_GCM_SHA256 0x009c
 #define TLS_RSA_WITH_AES_128_CBC_SHA	0x002F
@@ -112,6 +119,14 @@ static void* _tls_read(tls_conn_t* state, uint32_t len) {
 	char* copy = calloc(1, len);
 	memcpy(copy, buf, i);
 	return copy;
+}
+
+static uint32_t _read_24bit_value(tls_conn_t* state) {
+	uint8_t* buf = _tls_read(state, 3 * sizeof(uint8_t));
+	uint8_t* buf_head = buf;
+	uint32_t val = (*buf++ << 16) | (*buf++ << 8) | (*buf);
+	free(buf_head);
+	return val;
 }
 
 static void _url_bar_received_input(text_input_t* text_input, char ch) {
@@ -174,19 +189,49 @@ static void _url_bar_received_input(text_input_t* text_input, char ch) {
 	printf("server hello data len %d\n", ntohs(server_hello_header->data_len));
 	free(server_hello_header);
 
-	tls_handshake_header_t* server_hello_handshake_header = _tls_read(state, sizeof(tls_handshake_header_t));
-	printf("sizeof handshake header = %d\n", sizeof(tls_handshake_header_t));
-	printf("server_hello handshake type: %d\n", server_hello_handshake_header->msg_type);
-	// TODO(PT): 24 bit field, need to twiddle manually
-	printf("server_hello handshake length: %d\n", ntohs(server_hello_handshake_header->length));
-	free(server_hello_handshake_header);
+	uint8_t* server_hello_handshake_header_msg_type = _tls_read(state, sizeof(uint8_t));
+	printf("server_hello handshake type: %d\n", *server_hello_handshake_header_msg_type);
+	assert(*server_hello_handshake_header_msg_type == TLS_HANDSHAKE_MESSAGE_TYPE_SERVER_HELLO, "Expected server hello");
+	printf("0x%08x\n", server_hello_handshake_header_msg_type);
+	free(server_hello_handshake_header_msg_type);
+	printf("after free\n");
 
-	tls_handshake_msg_server_hello_t* server_hello_msg = _tls_read(state, sizeof(tls_handshake_msg_server_hello_t));
-	printf("server hello proto_vers %d.%d\n", server_hello_msg->server_version.major, server_hello_msg->server_version.minor);
-	printf("server hello session id %d\n", server_hello_msg->session_id);
-	printf("server hello cipher_suite %02x\n", ntohs(server_hello_msg->cipher_suite.cipher_suite));
-	printf("server hello compression %02x\n", ntohs(server_hello_msg->compression_method.compression_method));
-	free(server_hello_msg);
+	uint32_t server_hello_len = _read_24bit_value(state);
+	printf("server_hello handshake length2: %d\n", server_hello_len);
+	uint32_t server_hello_start = state->read_off;
+
+	tls_handshake_msg_server_hello_start_t* server_hello_msg_start = _tls_read(state, sizeof(tls_handshake_msg_server_hello_start_t));
+	printf("server hello proto_vers %d.%d\n", server_hello_msg_start->server_version.major, server_hello_msg_start->server_version.minor);
+	printf("server hello session id length %d\n", server_hello_msg_start->session_id_length);
+	uint32_t session_id_length = server_hello_msg_start->session_id_length;
+	free(server_hello_msg_start);
+
+	uint8_t* session_id = _tls_read(state, session_id_length);
+	printf("session_id %02x %02x %02x %02x\n", session_id[0], session_id[1], session_id[2], session_id[3]);
+	free(session_id);
+
+	tls_handshake_msg_server_hello_end_t* server_hello_msg_end = _tls_read(state, sizeof(tls_handshake_msg_server_hello_end_t));
+	uint8_t* b = (uint8_t*)server_hello_msg_end;
+	printf("server hello cipher_suite %02x\n", ntohs(server_hello_msg_end->cipher_suite));
+	printf("server hello compression %02x\n", ntohs(server_hello_msg_end->compression_method));
+	free(server_hello_msg_start);
+
+	uint32_t server_hello_end = state->read_off;
+	printf("Leftover %d\n", server_hello_end - server_hello_start);
+
+	tls_plaintext_t* server_cert = _tls_read(state, sizeof(tls_plaintext_t));
+	printf("server cert content type %d\n", server_cert->content_type);
+	printf("server cert proto_vers %d.%d\n", server_cert->proto_version.major, server_cert->proto_version.minor);
+	printf("server cert data len %d\n", ntohs(server_cert->data_len));
+	free(server_cert);
+
+	uint8_t* server_cert_handshake_header_msg_type = _tls_read(state, sizeof(uint8_t));
+	printf("server_hello handshake type: %d\n", *server_hello_handshake_header_msg_type);
+	assert(*server_hello_handshake_header_msg_type == TLS_HANDSHAKE_MESSAGE_TYPE_SERVER_CERTIFICATE, "Expected server certificate");
+	free(server_hello_handshake_header_msg_type);
+
+	uint32_t server_cert_len = _read_24bit_value(state);
+	printf("server_cert handshake length: %d\n", server_cert_len);
 
 	while (1) {
 		char buf[2048];
