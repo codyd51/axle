@@ -7,30 +7,9 @@
 #include <unistd.h>
 #include <ctype.h>
 
-#include "elem_stack.h"
 #include "html.h"
-
-// XXX(PT): These declarations can be removed in axle
-void assert(bool cond, char* msg);
-uint32_t net_tcp_conn_read(uint32_t conn_desc, uint8_t* buf, uint32_t buf_size);
-
-/*
-	Utils
-*/
-
-bool str_is_whitespace(const char *s) {
-	while (*s != '\0') {
-		if (!isspace((unsigned char)*s)) {
-			return false;
-		}
-		s++;
-	}
-	return true;
-}
-
-/*
-	Stack
-*/
+#include "elem_stack.h"
+#include "utils.h"
 
 /*
 	Parser
@@ -40,7 +19,7 @@ typedef struct html_dom_node html_dom_node_t;
 
 typedef struct tcp_lexer {
 	uint32_t tcp_conn_desc;
-	uint8_t current_chunk[1024];
+	uint8_t current_chunk[2048];
 	uint32_t current_chunk_size;
 	uint32_t read_off;
 	uint32_t previously_read_byte_count;
@@ -57,16 +36,21 @@ typedef struct tcp_lexer {
 	html_dom_node_t* curr_deepest_tag;
 } tcp_lexer_t;
 
+static void _fetch_next_stream_chunk(tcp_lexer_t* state) {
+	assert(state->current_chunk_size == 0 || state->read_off >= state->current_chunk_size, "Fetched more stream data when there was buffered data to be read");
+	printf("lexer fetching more stream data, read_off %d curr_chunk_size %d\n", state->read_off, state->current_chunk_size);
+	state->previously_read_byte_count += state->current_chunk_size;
+	state->current_chunk_size = html_read_tcp_stream(state->tcp_conn_desc, state->current_chunk, sizeof(state->current_chunk));
+	printf("lexer recv %d bytes from stream\n", state->current_chunk_size);
+	state->read_off = 0;
+	assert(state->current_chunk_size > 0, "expected stream data to be available");
+}
+
 static char _peekchar(tcp_lexer_t* state) {
 	// have we yet to read our first chunk, or are out of data within this chunk?
 	if (state->current_chunk_size == 0 || state->read_off >= state->current_chunk_size) {
-		printf("lexer fetching more stream data, read_off %d curr_chunk_size %d\n", state->read_off, state->current_chunk_size);
-		state->previously_read_byte_count += state->current_chunk_size;
-		state->current_chunk_size = net_tcp_conn_read(state->tcp_conn_desc, state->current_chunk, sizeof(state->current_chunk));
-		printf("lexer recv %d bytes from stream\n", state->current_chunk_size);
-		state->read_off = 0;
+		_fetch_next_stream_chunk(state);
 	}
-	assert(state->current_chunk_size > 0, "expected stream data to be available");
 
 	return state->current_chunk[state->read_off];
 }
@@ -183,18 +167,6 @@ static bool _match_newline(tcp_lexer_t* state, bool* out_is_crlf) {
 
 static bool _check_crlf(tcp_lexer_t* state) {
 	return _check_stream(state, "\r\n");
-}
-
-bool str_ends_with(const char *s, uint32_t s_len, const char *t, uint32_t t_len) {
-	// Modified from:
-	// https://codereview.stackexchange.com/questions/54722/determine-if-one-string-occurs-at-the-end-of-another/54724
-	// Check if t can fit in s
-    if (s_len >= t_len) {
-        // point s to where t should start and compare the strings from there
-        return (0 == memcmp(t, s + (s_len - t_len), t_len));
-    }
-	// t was longer than s
-    return 0;
 }
 
 static char* _get_token_sequence_delimited_by(tcp_lexer_t* state, char* delim, uint32_t* out_len, bool consume_delim) {
@@ -481,13 +453,21 @@ static void _process_html_tag(tcp_lexer_t* state) {
 	}
 }
 
-static void _print_dom_node(html_dom_node_t* node, uint32_t depth) {
+void html_dom_tree_print(html_dom_node_t* node, uint32_t depth) {
 	if (depth > 0) {
 		printf("\t");
 		for (uint32_t i = 0; i < depth-1; i++) {
 			printf("|\t");
 		}
 	}
+	html_dom_node_print(node);
+	putchar('\n');
+	for (uint32_t i = 0; i < node->child_count; i++) {
+		html_dom_tree_print(node->children[i], depth + 1);
+	}
+}
+
+void html_dom_node_print(html_dom_node_t* node) {
 	const char* node_type = "Unknown";
 	switch (node->type) {
 		case HTML_DOM_NODE_TYPE_DOCUMENT:
@@ -505,10 +485,7 @@ static void _print_dom_node(html_dom_node_t* node, uint32_t depth) {
 	if (node->attrs) {
 		printf(" (attrs: %s)", node->attrs);
 	}
-	printf(">\n");
-	for (uint32_t i = 0; i < node->child_count; i++) {
-		_print_dom_node(node->children[i], depth + 1);
-	}
+	printf(">");
 }
 
 void squeezespaces(char* row, char separator) {
@@ -565,6 +542,7 @@ static void _whitespace_collapse(html_dom_node_t* node) {
 			remove_spaces(copied_name);
 			*/
 		}
+
 	}
 
 	for (uint32_t i = 0; i < node->child_count; i++) {
@@ -598,7 +576,7 @@ static void _parse_html_document(tcp_lexer_t* state, uint32_t html_end_offset) {
 	_whitespace_collapse(state->root_node);
 
 	// Iterate the DOM
-	_print_dom_node(state->root_node, 0);
+	html_dom_tree_print(state->root_node, 0);
 }
 
 html_dom_node_t* html_parse_from_socket(uint32_t conn_desc) {

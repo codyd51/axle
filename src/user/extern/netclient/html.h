@@ -2,6 +2,7 @@
 #define HTML_H
 
 #include <stdint.h>
+#include "shims.h"
 
 typedef enum html_dom_node_type {
 	HTML_DOM_NODE_TYPE_DOCUMENT = 0,
@@ -25,5 +26,6 @@ typedef struct html_dom {
 } html_dom_t;
 
 html_dom_node_t* html_parse_from_socket(uint32_t conn_desc);
+void html_dom_node_print(html_dom_node_t* node);
 
 #endif

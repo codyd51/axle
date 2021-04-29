@@ -21,6 +21,11 @@
 #include <libgui/libgui.h>
 
 #include "html.h"
+#include "layout.h"
+#include "render.h"
+
+// for draw_char
+#include <agx/font/font.h>
 
 typedef struct draw_ctx {
 	Point cursor;
@@ -254,6 +259,72 @@ static void _render_html_dom(html_dom_node_t* root_node, text_view_t* text_view)
 	_draw_node(body_node, 0, &ctx, text_view);
 }
 
+static void _render_html(gui_window_t* window, uint32_t tcp_conn_desc) {
+	html_dom_node_t* root = html_parse_from_socket(tcp_conn_desc);
+	gui_view_t* view = array_lookup(window->views, 0);
+
+	if (root) {
+		/*
+		_render_html_dom(root, tv);
+
+		gui_text_view_puts(tv, "\n\n\n--- HTML AST --- \n", color_dark_gray());
+		_draw_ast(root, 0, tv);
+		*/
+		draw_rect(
+			view->content_layer,
+			rect_make(point_zero(), view->content_layer->size),
+			color_white(),
+			THICKNESS_FILLED
+		);
+
+		// Find the style node
+		html_dom_node_t* html = _html_child_tag_with_name(root, "html");
+		assert(html, "no html");
+		html_dom_node_t* head = _html_child_tag_with_name(html, "head");
+		assert(head, "no head");
+		html_dom_node_t* style = _html_child_tag_with_name(head, "style");
+		assert(style, "no style");
+		assert(style->child_count == 1, "wrong child count");
+		html_dom_node_t* stylesheet = style->children[0];
+		assert(stylesheet->type == HTML_DOM_NODE_TYPE_TEXT, "expected stylesheet text");
+		array_t* css_nodes = css_parse(stylesheet->name);
+
+		layout_root_node_t* root_layout = layout_generate(root, css_nodes, view->content_layer_frame.size.width);
+		array_t* display_list = draw_commands_generate_from_layout(root_layout);
+		uint32_t rect_count = 0;
+		for (uint32_t i = 0; i < display_list->size; i++) {
+			draw_command_t* cmd = array_lookup(display_list, i);
+			if (cmd->base.cmd == DRAW_COMMAND_RECTANGLE) {
+				draw_rect(
+					view->content_layer,
+					cmd->rect.rect,
+					cmd->rect.color,
+					cmd->rect.thickness
+				);
+			}
+			else if (cmd->base.cmd == DRAW_COMMAND_TEXT) {
+				printf("DRAW TEXT %s %d %d\n", cmd->text.text, cmd->text.font_size.width, cmd->text.font_size.height);
+				Point cursor = cmd->text.rect.origin;
+				for (uint32_t j = 0; j < strlen(cmd->text.text); j++) {
+					char ch = cmd->text.text[j];
+					draw_char(
+						view->content_layer,
+						ch,
+						cursor.x,
+						cursor.y,
+						cmd->text.font_color,
+						cmd->text.font_size
+					);
+					cursor.x += cmd->text.font_size.width;
+				}
+			}
+		}
+	}
+	else {
+		//gui_text_view_puts(tv, "\n\n\n--- Headers-Only Response ---\n", color_dark_gray());
+	}
+}
+
 static void _url_bar_received_input(text_input_t* text_input, char ch) {
 	if (ch == '\n') {
 		char* domain_name = text_input->text;
@@ -261,37 +332,25 @@ static void _url_bar_received_input(text_input_t* text_input, char ch) {
 		uint32_t domain_name_len = text_input->len - 1;
 		printf("TCP: Performing DNS lookup of %.*s\n", domain_name_len, domain_name);
 		uint8_t out_ipv4[IPv4_ADDR_SIZE];
-		net_get_ipv4_of_domain_name(domain_name, domain_name_len, out_ipv4);
+		//net_get_ipv4_of_domain_name(domain_name, domain_name_len, out_ipv4);
 		char buf[64];
 		format_ipv4_address__buf(buf, sizeof(buf), out_ipv4);
 		printf("TCP: IPv4 address of %s: %s\n", domain_name, buf);
 
 		uint32_t port = net_find_free_port();
 		uint32_t dest_port = 80;
-		uint32_t conn = net_tcp_conn_init(port, dest_port, out_ipv4);
+		//uint32_t conn = net_tcp_conn_init(port, dest_port, out_ipv4);
+		uint32_t conn = 0;
 		printf("TCP: Conn descriptor %d\n", conn);
 
 		char http_buf[512];
-		uint32_t len = snprintf(http_buf, sizeof(http_buf), "GET / HTTP/1.1\nHost: %s\n\n", domain_name);
-		net_tcp_conn_send(conn, http_buf, len);
+		uint32_t len = snprintf(http_buf, sizeof(http_buf), "GET /test HTTP/1.1\nHost: %s\n\n", domain_name);
+		//net_tcp_conn_send(conn, http_buf, len);
 
 		// Reset the URL input field
 		gui_text_input_clear(text_input);
 
-		printf("Calling html_parse_from_socket(%d)\n", conn);
-
-		html_dom_node_t* root = html_parse_from_socket(conn);
-		text_view_t* tv = array_lookup(text_input->window->text_views, 0);
-
-		if (root) {
-			_render_html_dom(root, tv);
-
-			gui_text_view_puts(tv, "\n\n\n--- HTML AST --- \n", color_dark_gray());
-			_draw_ast(root, 0, tv);
-		}
-		else {
-			gui_text_view_puts(tv, "\n\n\n--- Headers-Only Response ---\n", color_dark_gray());
-		}
+		_render_html(text_input->window, conn);
 	}
 }
 
@@ -301,7 +360,7 @@ static Rect _url_bar_sizer(text_input_t* text_input, Size window_size) {
 	return rect_make(point_zero(), search_bar_size);
 }
 
-static Rect _render_box_sizer(text_view_t* text_view, Size window_size) {
+static Rect _render_box_sizer(gui_view_t* view, Size window_size) {
 	// TODO(PT): Pull in search bar height instead of hard-coding it
 	uint32_t search_bar_height = 60;
 	return rect_make(
@@ -313,12 +372,16 @@ static Rect _render_box_sizer(text_view_t* text_view, Size window_size) {
 	);
 }
 
+void _timer_fired(gui_window_t* w) {
+	_render_html(w, 0);
+}
+
 int main(int argc, char** argv) {
 	amc_register_service("com.user.netclient");
 	printf("Net-client running\n");
 
 	// Instantiate the GUI window
-	gui_window_t* window = gui_window_create("Browser", 800, 800);
+	gui_window_t* window = gui_window_create("Browser", 900, 800);
 	Size window_size = window->size;
 
 	// Set up the search bar and render box GUI elements
@@ -340,12 +403,13 @@ int main(int argc, char** argv) {
 			window_size.height - search_bar_size.height
 		)
 	);
-	text_view_t* render_box = gui_text_view_create(
-		window, 
-		render_box_frame,
-		color_white(),
+	gui_view_t* render_box = gui_view_create(
+		window,
 		(gui_window_resized_cb_t)_render_box_sizer
 	);
+	render_box->controls_content_layer = true;
+
+	gui_timer_start(window, 0, _timer_fired, window);
 
 	// Enter the event loop forever
 	gui_enter_event_loop(window);
