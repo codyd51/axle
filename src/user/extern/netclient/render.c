@@ -53,6 +53,11 @@ static void _draw_node__inline(layout_node_t* node, array_t* display_cmd_list) {
         draw_text->font_size = in->font_size;
         array_insert(display_cmd_list, draw_text);
     }
+    // Recursively draw the child nodes
+    for (uint32_t i = 0; i < in->child_count; i++) {
+        layout_node_t* child = (layout_node_t*)in->children[i];
+        _draw_node(child, display_cmd_list);
+    }
 }
 
 static void _draw_node(layout_node_t* node, array_t* display_cmd_list) {

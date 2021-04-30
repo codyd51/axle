@@ -11,9 +11,6 @@
 // Take HTML DOM
 // Spit out a tree of layout commands
 
-// TODO(PT): Quick hack, should be removed and replaced with a CSSOM + render tree
-#define FONT_HEIGHT 20
-
 #define HORIZONTAL_STEP 10
 #define VERTICAL_STEP 8
 
@@ -96,16 +93,6 @@ static void _layout_node_apply_css_styling(layout_node_base_t* node, array_t* cs
 			break;
 		}
 	}
-
-	// Our height is the font height
-	// TODO(PT): Create another layout node if we need to spill onto the next line
-	if (node->mode == INLINE_LAYOUT && node->dom_node && node->dom_node->type == HTML_DOM_NODE_TYPE_TEXT) {
-		layout_inline_node_t* inline_node = (layout_inline_node_t*)node;
-		uint32_t font_height = inline_node->font_size.height;
-		inline_node->content_frame.size.height = font_height;
-		inline_node->margin_frame.size.height = font_height + inline_node->margin_top + inline_node->margin_bottom;
-		inline_node->text = strdup(inline_node->dom_node->name);
-	}
 }
 
 static layout_root_node_t* layout_node_create__root_node(uint32_t window_width, array_t* css_nodes) {
@@ -142,24 +129,7 @@ static layout_block_node_t* layout_node_create__block_node(layout_node_base_t* p
 	node->parent = (layout_node_base_t*)parent;
 	node->dom_node = dom_node;
 	_layout_node_add_child(parent, (layout_node_t*)node);
-
-	node->margin_top = 0;
-	node->margin_bottom = 0;
-	node->margin_left = 0;
-	node->margin_right = 0;
-	//node->font_size = parent->base_node.font_size;
-
-	/*
-	if (!strcmp(node->dom_node->name, "h1")) {
-		printf("*** Found h1\n");
-		node->margin_top = FONT_HEIGHT * 0.67;
-		node->margin_bottom = FONT_HEIGHT * 0.67;
-		node->font_size = size_make(12, 24);
-	}
-	*/
-
 	_layout_node_apply_css_styling((layout_node_base_t*)node, css_nodes);
-
 	return node;
 }
 
@@ -169,17 +139,12 @@ static layout_inline_node_t* layout_node_create__inline_node(layout_node_base_t*
 	node->parent = (layout_node_base_t*)parent;
 	node->dom_node = dom_node;
 	_layout_node_add_child(parent, (layout_node_t*)node);
-
-	node->margin_top = 0;
-	node->margin_bottom = 0;
-	node->margin_left = 0;
-	node->margin_right = 0;
 	_layout_node_apply_css_styling((layout_node_base_t*)node, css_nodes);
-
 	return node;
 }
 
 static void _layout_node_add_child(layout_node_base_t* parent, layout_node_t* child) {
+	printf("Add child <%s> to parent\n", child->base_node.dom_node->name);
 	if (parent->child_count + 1 >= parent->max_children) {
 		uint32_t new_max = parent->max_children * 2;
 		printf("Resizing node's children from %d -> %d\n", parent->max_children, new_max);
@@ -239,17 +204,17 @@ static layout_node_t* _layout_inline_node_from_dom_node__inline(layout_node_base
 static layout_node_t* _layout_node_from_dom_node__block(layout_node_base_t* parent, html_dom_node_t* dom_node, array_t* css_nodes) {
 	layout_block_node_t* block = layout_node_create__block_node(parent, dom_node, css_nodes);
 
-	// Block nodes take up the parent's width
+	// Block box starts at its parent's left content edge
+	block->margin_frame.origin.x = rect_min_x(parent->content_frame);
+	// And include the left margin in our content frame
+	block->content_frame.origin.x = block->margin_frame.origin.x + block->margin_left;
+
+	// Block boxes take up the parent's width
 	uint32_t full_width = parent->content_frame.size.width;
 	block->margin_frame.size.width = full_width;
 	// Subtract the left and right margins of the block from its content width
 	uint32_t content_width = full_width - block->margin_left - block->margin_right;
 	block->content_frame.size.width = content_width;
-
-	// And starts at its parents left content edge
-	block->margin_frame.origin.x = rect_min_x(parent->content_frame);
-	// And include the left margin in our content frame
-	block->content_frame.origin.x = block->margin_frame.origin.x + block->margin_left;
 
 	// Vertically, we start at the top of the container or just below our previous sibling
 	layout_node_base_t* previous_sibling = (layout_node_base_t*)_layout_node_prev_sibling((layout_node_t*)block);
@@ -257,28 +222,21 @@ static layout_node_t* _layout_node_from_dom_node__block(layout_node_base_t* pare
 		// Start below the previous sibling
 		uint32_t prev_max_y = rect_max_y(previous_sibling->margin_frame);
 		block->margin_frame.origin.y = prev_max_y;
-
-		/*
-		// And add the previous sibling's bottom margin
-		//printf("Previous sibling %s mode %d bottom margin %d\n", previous_sibling->base_node.dom_node->name, previous_sibling->base_node.mode, previous_sibling->block_node.margin_bottom);
-		if (previous_sibling->mode == BLOCK_LAYOUT) {
-			printf("add bottom margin\n");
-			block->margin_frame.origin.y += previous_sibling->margin_bottom;
-		}
-		*/
 	}
 	else {
 		block->margin_frame.origin.y = rect_min_y(parent->content_frame);
 	}
-	// And add in the top margin
+
+	// And add in the top margin to the content frame
 	block->content_frame.origin.y = block->margin_frame.origin.y + block->margin_top;
 
+	// Lay out our children
     for (uint32_t i = 0; i < dom_node->child_count; i++) {
         html_dom_node_t* dom_child = dom_node->children[i];
 		layout_node_t* child = _layout_node_from_dom_node((layout_node_base_t*)block, dom_child, css_nodes);
     }
 
-	// Now set the height of a block
+	// Now that we know how much space our children take up, calculate our height
 	// A block should be tall enough to contain all its children
 	uint32_t height_sum = 0;
 	for (uint32_t i = 0; i < block->child_count; i++) {
@@ -295,37 +253,64 @@ static layout_node_t* _layout_node_from_dom_node__block(layout_node_base_t* pare
 static layout_node_t* _layout_node_from_dom_node__inline(layout_node_base_t* parent, html_dom_node_t* dom_node, array_t* css_nodes) {
 	layout_inline_node_t* inline_box = layout_node_create__inline_node(parent, dom_node, css_nodes);
 
-	// Inline nodes take up the parent's width
-	uint32_t full_width = parent->content_frame.size.width;
-	inline_box->margin_frame.size.width = full_width;
-	// Subtract the left and right margins of the block from its content width
-	uint32_t content_width = full_width - inline_box->margin_left - inline_box->margin_right;
-	inline_box->content_frame.size.width = content_width;
-
-	// And starts at its parents left content edge
-	inline_box->margin_frame.origin.x = rect_min_x(parent->content_frame);
-	// And include the left margin in our content frame
-	inline_box->content_frame.origin.x = inline_box->margin_frame.origin.x + inline_box->margin_left;
-
-	// Vertically, we start at the top of the container or just below our previous sibling
 	layout_node_base_t* previous_sibling = (layout_node_base_t*)_layout_node_prev_sibling((layout_node_t*)inline_box);
-	if (previous_sibling) {
-		// Start below the previous sibling
-		uint32_t prev_max_y = rect_max_y(previous_sibling->margin_frame);
-		inline_box->margin_frame.origin.y = prev_max_y;
-	}
-	else {
+	//printf("Previous_sibling of <%s>: <%s>\n", dom_node->name, previous_sibling && previous_sibling->dom_node ? previous_sibling->dom_node->name : "");
+	// Inline box starts at its previous sibling's right edge, or the parent's left origin
+	// And vertically, at its previous sibling's top edge, or the parent's top edge
+	if (!previous_sibling) {
+		inline_box->margin_frame.origin.x = rect_min_x(parent->content_frame);
 		inline_box->margin_frame.origin.y = rect_min_y(parent->content_frame);
 	}
-	// And add in the top margin
-	inline_box->content_frame.origin.y = inline_box->margin_frame.origin.y + inline_box->margin_top;
-
-	// Inline nodes have no children (for now?)
-	if (dom_node->child_count > 0) {
-		printf("Inline node with children: <%s %s>\n", dom_node->name, dom_node->attrs);
+	else {
+		inline_box->margin_frame.origin.x = rect_max_x(previous_sibling->margin_frame);
+		inline_box->margin_frame.origin.y = rect_min_y(previous_sibling->margin_frame);
 	}
-	assert(dom_node->child_count == 0, "Children of inline nodes are not supported");
+	// Add in the left and top margins
+	inline_box->content_frame.origin.x = rect_min_x(inline_box->margin_frame) + inline_box->margin_left;
+	inline_box->content_frame.origin.y = rect_min_y(inline_box->margin_frame) + inline_box->margin_top;
 
+	// Are we laying out raw text?
+	if (dom_node && dom_node->type == HTML_DOM_NODE_TYPE_TEXT) {
+		assert(dom_node->child_count == 0, "Inline text node had children?");
+
+		// Our height is the font height
+		// TODO(PT): Create another layout node if we need to spill onto the next line
+		uint32_t font_height = inline_box->font_size.height;
+		inline_box->content_frame.size.height = font_height;
+		inline_box->margin_frame.size.height = font_height + inline_box->margin_top + inline_box->margin_bottom;
+		inline_box->text = strdup(dom_node->name);
+
+		// Our width is the font width multiplied by the length of the string
+		uint32_t font_width = inline_box->font_size.width;
+		uint32_t text_width = font_width * strlen(inline_box->text);
+		inline_box->content_frame.size.width = text_width;
+		inline_box->margin_frame.size.width = inline_box->content_frame.size.width + inline_box->margin_left + inline_box->margin_right;
+	}
+	else {
+		// Our width is the combined width of our children
+		// Lay out our children
+		for (uint32_t i = 0; i < dom_node->child_count; i++) {
+			html_dom_node_t* dom_child = dom_node->children[i];
+			layout_node_t* child = _layout_node_from_dom_node((layout_node_base_t*)inline_box, dom_child, css_nodes);
+		}
+
+		// Now that we know how much space our children take up, calculate our height and width
+		// A box should be tall and wide enough to contain all its children
+		uint32_t width_sum = 0;
+		uint32_t height_sum = 0;
+		for (uint32_t i = 0; i < inline_box->child_count; i++) {
+			layout_node_base_t* child = inline_box->children[i];
+			width_sum += child->margin_frame.size.width;
+			height_sum += child->margin_frame.size.height;
+		}
+		inline_box->content_frame.size.width = width_sum;
+		// And add in the left and right margin to the full frame
+		inline_box->margin_frame.size.width = inline_box->content_frame.size.width + inline_box->margin_left + inline_box->margin_right;
+
+		inline_box->content_frame.size.height = height_sum;
+		// And add in the top and bottom margin to the full frame
+		inline_box->margin_frame.size.height = inline_box->content_frame.size.height + inline_box->margin_top + inline_box->margin_bottom;
+	}
 	return (layout_node_t*)inline_box;
 }
 
