@@ -12,7 +12,6 @@ static void _draw_node__block(layout_node_t* node, array_t* display_cmd_list);
 static void _draw_node__inline(layout_node_t* node, array_t* display_cmd_list);
 
 static void _draw_node__root(layout_node_t* node, array_t* display_cmd_list) {
-    // Add a "draw rect" command describing the background color
     // White rectangle over the whole document
     draw_command_rectangle_t* bg = calloc(1, sizeof(draw_command_rectangle_t));
     bg->cmd = DRAW_COMMAND_RECTANGLE;
@@ -20,13 +19,6 @@ static void _draw_node__root(layout_node_t* node, array_t* display_cmd_list) {
     bg->color = color_white();
     bg->thickness = THICKNESS_FILLED;
     array_insert(display_cmd_list, bg);
-
-    draw_command_rectangle_t* content_border = calloc(1, sizeof(draw_command_rectangle_t));
-    content_border->cmd = DRAW_COMMAND_RECTANGLE;
-    content_border->rect = node->base_node.margin_frame;
-    content_border->color = color_dark_gray();
-    content_border->thickness = 1;
-    array_insert(display_cmd_list, content_border);
 
     // Draw the root node's direct child
     _draw_node((layout_node_t*)node->base_node.children[0], display_cmd_list);
@@ -57,7 +49,7 @@ static void _draw_node__inline(layout_node_t* node, array_t* display_cmd_list) {
         draw_text->cmd = DRAW_COMMAND_TEXT;
         draw_text->rect = in->content_frame;
         draw_text->text = strdup(in->text);
-        draw_text->font_color = color_black();
+        draw_text->font_color = in->font_color;
         draw_text->font_size = in->font_size;
         array_insert(display_cmd_list, draw_text);
     }

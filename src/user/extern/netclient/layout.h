@@ -33,6 +33,7 @@ typedef struct layout_node_base {
     uint32_t margin_right;
 
     Size font_size;
+    Color font_color;
 
     bool sets_background_color;
     Color background_color;
@@ -59,6 +60,7 @@ typedef struct layout_block_node {
     uint32_t margin_right;
 
     Size font_size;
+    Color font_color;
 
     bool sets_background_color;
     Color background_color;
@@ -85,6 +87,7 @@ typedef struct layout_inline_node {
     uint32_t margin_right;
 
     Size font_size;
+    Color font_color;
 
     bool sets_background_color;
     Color background_color;
@@ -114,6 +117,7 @@ typedef struct layout_root_node {
     uint32_t margin_right;
 
     Size font_size;
+    Color font_color;
 
     bool sets_background_color;
     Color background_color;

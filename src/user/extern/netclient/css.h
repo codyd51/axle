@@ -25,6 +25,9 @@ typedef struct css_node {
 	bool sets_font_size_em;
 	uint32_t font_size_em;
 
+	bool sets_font_color;
+	Color font_color;
+
 	struct css_node* parent;
 	struct css_node** children;
 	uint32_t max_children;

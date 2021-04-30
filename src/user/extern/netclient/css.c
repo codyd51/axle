@@ -235,6 +235,12 @@ css_node_t* _css_parse_rule(css_lexer_t* state, bool* eof) {
 			node->sets_font_size_em = true;
 			node->font_size_em = font_size_em;
 		}
+		else if (!strncmp(property, "color", 32)) {
+			uint32_t r, g, b;
+			sscanf(value, "#%02x%02x%02x", &r, &g, &b);
+			node->sets_font_color = true;
+			node->font_color = color_make(r, g, b);
+		}
 		else {
 			printf("Unknown CSS property name: %s { %s: %s; }\n", selector, property, value);
 		}

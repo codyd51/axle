@@ -56,6 +56,7 @@ static void _layout_node_apply_css_styling(layout_node_base_t* node, array_t* cs
 			node->background_color = parent->background_color;
 		}
 		node->font_size = parent->font_size;
+		node->font_color = parent->font_color;
 	}
 
 	// Apply CSS styling
@@ -76,6 +77,9 @@ static void _layout_node_apply_css_styling(layout_node_base_t* node, array_t* cs
 			if (css_node->sets_font_size_em) {
 				uint32_t em_scale = css_node->font_size_em;
 				node->font_size = size_make(8 * em_scale, 12 * em_scale);
+			}
+			if (css_node->sets_font_color) {
+				node->font_color = css_node->font_color;
 			}
 			if (css_node->sets_margin_top) {
 				node->margin_top = css_node->margin_top;
@@ -113,6 +117,7 @@ static layout_root_node_t* layout_node_create__root_node(uint32_t window_width, 
 	node->margin_left = HORIZONTAL_STEP;
 	node->margin_right = HORIZONTAL_STEP;
 	node->font_size = size_make(8, 12);
+	node->font_color = color_black();
 
 	node->margin_frame = rect_make(point_zero(), size_make(window_width, 0));
 	node->content_frame = rect_make(
@@ -169,7 +174,6 @@ static layout_inline_node_t* layout_node_create__inline_node(layout_node_base_t*
 	node->margin_bottom = 0;
 	node->margin_left = 0;
 	node->margin_right = 0;
-	//node->font_size = parent->base_node.font_size;
 	_layout_node_apply_css_styling((layout_node_base_t*)node, css_nodes);
 
 	return node;
@@ -385,10 +389,15 @@ static void _print_layout_node(layout_node_t* node, uint32_t depth) {
 	_print_tabs(depth);
 	printf("Font: (%d, %d)\n", b->font_size.width, b->font_size.height);
 	_print_tabs(depth);
+
+	printf("Font-Color: (%d, %d, %d)\n", b->font_color.val[0], b->font_color.val[1], b->font_color.val[2]);
+	_print_tabs(depth);
+
 	if (b->sets_background_color) {
 		printf("BG-Color: (%d, %d, %d)\n", b->background_color.val[0], b->background_color.val[1], b->background_color.val[2]);
 		_print_tabs(depth);
 	}
+
 	printf("Margin: (T,B,L,R) %d, %d, %d, %d\n", b->margin_top, b->margin_bottom, b->margin_left, b->margin_right);
 	_print_tabs(depth);
 	Rect cr = node->base_node.content_frame;
