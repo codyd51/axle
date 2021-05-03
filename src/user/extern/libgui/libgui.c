@@ -78,7 +78,7 @@ gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t hei
 	window->text_inputs = array_create(32);
 	window->text_views = array_create(32);
 	window->views = array_create(32);
-	window->timers = array_create(32);
+	window->timers = array_create(64);
 	window->all_gui_elems = array_create(64);
 
 	// Ask awm to set the window title
@@ -97,15 +97,21 @@ Size _gui_screen_resolution(void) {
 /* Event Loop */
 
 static void _handle_key_down(gui_window_t* window, char ch) {
+	if (!window->hover_elem) {
+		return;
+	}
+
+	// Dispatch the key down event handler of the active element
+	window->hover_elem->base._priv_key_down_cb(window->hover_elem, ch);
+
+	// TODO(PT): Move the below implementation into text_input's key-down handler
 	// Decide which element to route the keypress to
 	// For now, always direct it to the first text input
 	// TODO(PT): Model cursor position and use it to display the active text box
 	if (window->text_inputs->size == 0) {
 		return;
 	}
-	if (!window->hover_elem) {
-		return;
-	}
+
 	if (window->hover_elem->base.type != GUI_TYPE_TEXT_INPUT) {
 		return;
 	}

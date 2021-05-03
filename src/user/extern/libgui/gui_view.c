@@ -25,6 +25,12 @@ static void _view_handle_mouse_moved(gui_view_t* v, Point mouse_pos) {
 	}
 }
 
+static void _view_handle_key_down(gui_view_t* v, char ch) {
+	if (v->key_down_cb) {
+		v->key_down_cb((gui_elem_t*)v, ch);
+	}
+}
+
 void gui_view_set_title(gui_view_t* v, char* title) {
 	v->_title = title;
 	v->_title_inset = rect_make(v->frame.origin, size_zero());
@@ -255,6 +261,10 @@ static void _view_window_resized(gui_view_t* v, Size new_window_size) {
 	v->_title_inset.size.width = v->frame.size.width;
 
 	v->_priv_needs_display = true;
+
+	if (v->window_resized_cb) {
+		v->window_resized_cb((gui_elem_t*)v, new_window_size);
+	}
 }
 
 gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_cb) {
@@ -271,6 +281,7 @@ gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_
 	view->_priv_mouse_left_click_cb = (gui_mouse_left_click_cb_t)_noop;
 	view->_priv_mouse_left_click_ended_cb = (gui_mouse_left_click_ended_cb_t)_noop;
 	view->_priv_mouse_scrolled_cb = (gui_mouse_scrolled_cb_t)_noop;
+	view->_priv_key_down_cb = (gui_key_down_cb_t)_view_handle_key_down;
 	view->_priv_draw_cb = (gui_draw_cb_t)_gui_view_draw;
 	view->_priv_window_resized_cb = (_priv_gui_window_resized_cb_t)_view_window_resized;
 	view->_priv_needs_display = true;

@@ -214,6 +214,7 @@ gui_button_t* gui_button_create(gui_view_t* superview, gui_window_resized_cb_t s
 	button->_priv_mouse_left_click_cb = (gui_mouse_left_click_cb_t)_gui_button_handle_mouse_left_click;
 	button->_priv_mouse_left_click_ended_cb = (gui_mouse_left_click_ended_cb_t)_gui_button_handle_mouse_left_click_ended;
 	button->_priv_mouse_scrolled_cb = (gui_mouse_scrolled_cb_t)_noop;
+	button->_priv_key_down_cb = (gui_key_down_cb_t)_noop;
 	button->_priv_draw_cb = (gui_draw_cb_t)_gui_button_draw;
 	button->_priv_window_resized_cb = (_priv_gui_window_resized_cb_t)_button_window_resized;
 	button->_priv_needs_display = true;

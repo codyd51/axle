@@ -15,6 +15,7 @@ typedef struct gui_scrollbar {
     gui_mouse_left_click_cb_t _priv_mouse_left_click_cb;
     gui_mouse_left_click_ended_cb_t _priv_mouse_left_click_ended_cb;
     gui_mouse_scrolled_cb_t _priv_mouse_scrolled_cb;
+    gui_key_down_cb_t _priv_key_down_cb;
     gui_draw_cb_t _priv_draw_cb;
     _priv_gui_window_resized_cb_t _priv_window_resized_cb;
     bool _priv_needs_display;

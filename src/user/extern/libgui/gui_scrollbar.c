@@ -281,6 +281,7 @@ gui_scrollbar_t* gui_scrollbar_create(gui_window_t* window, gui_elem_t* parent, 
 	sb->_priv_mouse_left_click_cb = (gui_mouse_left_click_cb_t)_gui_scrollbar_handle_mouse_left_click;
 	sb->_priv_mouse_left_click_ended_cb = (gui_mouse_left_click_ended_cb_t)_gui_scrollbar_handle_mouse_left_click_ended;
 	sb->_priv_mouse_scrolled_cb = (gui_mouse_scrolled_cb_t)_noop;
+	sb->_priv_key_down_cb = (gui_key_down_cb_t)_noop;
 	sb->_priv_draw_cb = (gui_draw_cb_t)_gui_scrollbar_draw;
 	sb->_priv_window_resized_cb = (_priv_gui_window_resized_cb_t)_gui_scrollbar_window_resized;
 	sb->_priv_needs_display = true;

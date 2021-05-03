@@ -27,7 +27,7 @@ static void wake_sleeping_procs(array_t* sleeping_procs) {
 	for (int i = 0; i < sleeping_procs->size; i++) {
 		asleep_proc_t* p = array_lookup(sleeping_procs, i);
 		if (now >= p->sleep_start + p->sleep_duration) {
-			printf("timed waking up %s at %d\n", p->service_name, now);
+			//printf("timed waking up %s at %d\n", p->service_name, now);
 			time_msg_sleep_t msg;
 			msg.common.event = TIMED_RESP_AWAKE;
 			msg.ms = now - p->sleep_start; 
@@ -51,7 +51,7 @@ static void process_messages(array_t* asleep_procs) {
 		}
 
 		const char* source_service = amc_message_source(msg);
-		printf("timed got message from %s %d\n", source_service, amc_msg_u32_get_word(msg, 0));
+		//printf("timed got message from %s\n", source_service);
 		time_msg_t* time_msg = (time_msg_t*)&msg->body;
 		if (time_msg->sleep.common.event == TIMED_REQ_SLEEP_FOR_MS) {
 			uint32_t duration = time_msg->sleep.ms;
@@ -61,7 +61,7 @@ static void process_messages(array_t* asleep_procs) {
 			proc->sleep_start = ms_since_boot();
 			proc->sleep_duration = duration;
 			array_insert(asleep_procs, proc);
-			printf("timed putting %s to sleep for %dms at %d\n", source_service, duration, proc->sleep_start);
+			//printf("timed putting %s to sleep for %dms at %d\n", source_service, duration, proc->sleep_start);
 		}
 		else {
 			printf("Unknown message from %s\n", source_service);

@@ -87,6 +87,8 @@ static void _text_view_handle_mouse_scrolled(text_view_t* tv, int8_t delta_z) {
 
 	// Now that we've adjusted the scroll position, update the scrollbar 
 	//_update_scrollbar(tv);
+	tv->_priv_needs_display = true;
+	tv->scrollbar->_priv_needs_display = true;
 }
 
 static void _text_view_draw(text_view_t* tv, bool is_active) {
@@ -296,6 +298,7 @@ text_view_t* gui_text_view_create(gui_window_t* window, Rect frame, Color backgr
 	text_view->_priv_mouse_left_click_cb = (gui_mouse_left_click_cb_t)_noop;
 	text_view->_priv_mouse_left_click_ended_cb = (gui_mouse_left_click_ended_cb_t)_noop;
 	text_view->_priv_mouse_scrolled_cb = (gui_mouse_scrolled_cb_t)_text_view_handle_mouse_scrolled;
+	text_view->_priv_key_down_cb = (gui_key_down_cb_t)_noop;
 	text_view->_priv_draw_cb = (gui_draw_cb_t)_text_view_draw;
 	text_view->_priv_window_resized_cb = (_priv_gui_window_resized_cb_t)_text_view_window_resized;
 	text_view->_priv_needs_display = true;
