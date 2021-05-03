@@ -91,6 +91,10 @@ cd ./src/user/extern/preferences
 make
 cd ../../../../
 
+cd ./src/user/extern/2048
+make
+cd ../../../../
+
 cd initrd
 ../fsgen ./
 mv initrd.img ../initrd.img
