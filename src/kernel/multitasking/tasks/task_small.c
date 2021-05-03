@@ -455,7 +455,7 @@ void* unsbrk(int UNUSED(increment)) {
 
 void* sbrk(int increment) {
 	task_small_t* current = tasking_get_current_task();
-	printk("[%d] sbrk 0x%08x (%u) 0x%08x -> 0x%08x (current page head 0x%08x)\n", getpid(), increment, increment, current->sbrk_current_break, current->sbrk_current_break + increment, current->sbrk_current_page_head);
+	//printk("[%d] sbrk 0x%08x (%u) 0x%08x -> 0x%08x (current page head 0x%08x)\n", getpid(), increment, increment, current->sbrk_current_break, current->sbrk_current_break + increment, current->sbrk_current_page_head);
 
 	if (increment < 0) {
         printf("Relinquish sbrk memory %d\n", increment);
