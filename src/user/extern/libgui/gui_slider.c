@@ -197,6 +197,7 @@ gui_slider_t* gui_slider_create(gui_view_t* superview, gui_window_resized_cb_t s
 	slider->_priv_mouse_left_click_ended_cb = (gui_mouse_left_click_ended_cb_t)_gui_slider_handle_mouse_left_click_ended;
 	slider->_priv_mouse_scrolled_cb = (gui_mouse_scrolled_cb_t)_noop;
 	slider->_priv_key_down_cb = (gui_key_down_cb_t)_noop;
+	slider->_priv_key_up_cb = (gui_key_up_cb_t)_noop;
 	slider->_priv_draw_cb = (gui_draw_cb_t)_gui_slider_draw;
 	slider->_priv_window_resized_cb = (_priv_gui_window_resized_cb_t)_slider_window_resized;
 	slider->_priv_needs_display = true;

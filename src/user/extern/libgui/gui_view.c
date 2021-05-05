@@ -25,9 +25,15 @@ static void _view_handle_mouse_moved(gui_view_t* v, Point mouse_pos) {
 	}
 }
 
-static void _view_handle_key_down(gui_view_t* v, char ch) {
+static void _view_handle_key_down(gui_view_t* v, uint32_t ch) {
 	if (v->key_down_cb) {
 		v->key_down_cb((gui_elem_t*)v, ch);
+	}
+}
+
+static void _view_handle_key_up(gui_view_t* v, uint32_t ch) {
+	if (v->key_up_cb) {
+		v->key_up_cb((gui_elem_t*)v, ch);
 	}
 }
 
@@ -282,6 +288,7 @@ gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_
 	view->_priv_mouse_left_click_ended_cb = (gui_mouse_left_click_ended_cb_t)_noop;
 	view->_priv_mouse_scrolled_cb = (gui_mouse_scrolled_cb_t)_noop;
 	view->_priv_key_down_cb = (gui_key_down_cb_t)_view_handle_key_down;
+	view->_priv_key_up_cb = (gui_key_up_cb_t)_view_handle_key_up;
 	view->_priv_draw_cb = (gui_draw_cb_t)_gui_view_draw;
 	view->_priv_window_resized_cb = (_priv_gui_window_resized_cb_t)_view_window_resized;
 	view->_priv_needs_display = true;

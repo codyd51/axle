@@ -268,6 +268,7 @@ text_input_t* gui_text_input_create(gui_window_t* window, Rect frame, Color back
 	text_input->_priv_mouse_left_click_ended_cb = (gui_mouse_left_click_ended_cb_t)_noop;
 	text_input->_priv_mouse_scrolled_cb = (gui_mouse_scrolled_cb_t)_noop;
 	text_input->_priv_key_down_cb = (gui_key_down_cb_t)_noop;
+	text_input->_priv_key_up_cb = (gui_key_up_cb_t)_noop;
 	text_input->_priv_draw_cb = (gui_draw_cb_t)_text_input_draw;
 	text_input->_priv_window_resized_cb = (_priv_gui_window_resized_cb_t)_text_input_window_resized;
 	text_input->_priv_needs_display = true;

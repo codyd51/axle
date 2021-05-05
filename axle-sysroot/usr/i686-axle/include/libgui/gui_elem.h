@@ -40,7 +40,8 @@ typedef void(*gui_mouse_dragged_cb_t)(gui_elem_t* gui_elem, Point mouse_pos);
 typedef void(*gui_mouse_left_click_cb_t)(gui_elem_t* gui_elem, Point mouse_pos);
 typedef void(*gui_mouse_left_click_ended_cb_t)(gui_elem_t* gui_elem, Point mouse_pos);
 typedef void(*gui_mouse_scrolled_cb_t)(gui_elem_t* gui_elem, int8_t delta_z);
-typedef void(*gui_key_down_cb_t)(gui_elem_t* gui_elem, char ch);
+typedef void(*gui_key_down_cb_t)(gui_elem_t* gui_elem, uint32_t ch);
+typedef void(*gui_key_up_cb_t)(gui_elem_t* gui_elem, uint32_t ch);
 
 typedef void(*gui_draw_cb_t)(gui_elem_t* gui_elem, bool is_active);
 typedef void(*_priv_gui_window_resized_cb_t)(gui_elem_t* gui_elem, Size new_size);
@@ -57,6 +58,7 @@ typedef struct gui_elem_base {
     gui_mouse_left_click_ended_cb_t _priv_mouse_left_click_ended_cb;
     gui_mouse_scrolled_cb_t _priv_mouse_scrolled_cb;
     gui_key_down_cb_t _priv_key_down_cb;
+    gui_key_up_cb_t _priv_key_up_cb;
     gui_draw_cb_t _priv_draw_cb;
     _priv_gui_window_resized_cb_t _priv_window_resized_cb;
     bool _priv_needs_display;

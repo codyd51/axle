@@ -4,6 +4,8 @@
 #include <stdlibadd/array.h>
 
 #include <kernel/amc.h>
+// For KEY_IDENT_UP_ARROW, etc
+#include <kb_driver/kb_driver_messages.h>
 
 #include "gui_elem.h"
 #include "gui_text_input.h"

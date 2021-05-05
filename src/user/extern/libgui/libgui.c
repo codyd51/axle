@@ -96,7 +96,16 @@ Size _gui_screen_resolution(void) {
 
 /* Event Loop */
 
-static void _handle_key_down(gui_window_t* window, char ch) {
+static void _handle_key_up(gui_window_t* window, uint32_t ch) {
+	if (!window->hover_elem) {
+		return;
+	}
+
+	// Dispatch the key down event handler of the active element
+	window->hover_elem->base._priv_key_up_cb(window->hover_elem, ch);
+}
+
+static void _handle_key_down(gui_window_t* window, uint32_t ch) {
 	if (!window->hover_elem) {
 		return;
 	}
@@ -261,8 +270,12 @@ static void _handle_amc_messages(gui_window_t* window) {
 		else if (!strncmp(msg->source, AWM_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
 			uint32_t event = amc_msg_u32_get_word(msg, 0);
 			if (event == AWM_KEY_DOWN) {
-				char ch = (char)amc_msg_u32_get_word(msg, 1);
+				uint32_t ch = amc_msg_u32_get_word(msg, 1);
 				_handle_key_down(window, ch);
+			}
+			else if (event == AWM_KEY_UP) {
+				uint32_t ch = amc_msg_u32_get_word(msg, 1);
+				_handle_key_up(window, ch);
 			}
 			else if (event == AWM_MOUSE_MOVED) {
 				awm_mouse_moved_msg_t* m = (awm_mouse_moved_msg_t*)msg->body;
