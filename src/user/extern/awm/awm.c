@@ -21,6 +21,7 @@
 #include <stdlibadd/assert.h>
 
 #include <preferences/preferences_messages.h>
+#include <kb_driver/kb_driver_messages.h>
 
 #include "awm.h"
 #include "gfx.h"
@@ -70,19 +71,20 @@ void write_screen(Screen* screen) {
 }
 
 static void handle_keystroke(amc_message_t* keystroke_msg) {
-	for (int i = 0; i < keystroke_msg->len; i++) {
-		char ch = keystroke_msg->body[i];
+	key_event_t* event = (key_event_t*)keystroke_msg->body;
+
+	if (event->type == KEY_PRESSED) {
 		// Hack: Tab switches windows
-		if (ch == '\t') {
+		if (event->key == '\t') {
 			_window_move_to_top(&windows[window_count-1]);
 		}
-		else {
-			// Only send this keystroke to the foremost program
-			if (window_count) {
-				user_window_t* active_window = &windows[0];
-				amc_msg_u32_2__send(active_window->owner_service, AWM_KEY_DOWN, ch);
-			}
-		}
+	}
+
+	// Only send this keystroke to the foremost program
+	if (window_count) {
+		user_window_t* active_window = &windows[0];
+		uint32_t awm_event = event->type == KEY_PRESSED ? AWM_KEY_DOWN : AWM_KEY_UP;
+		amc_msg_u32_2__send(active_window->owner_service, awm_event, event->key);
 	}
 }
 
@@ -735,7 +737,7 @@ int main(int argc, char** argv) {
 			_mouse_reset_prospective_action_flags(&g_mouse_state);
 
 			// Process the message we just received
-			if (!strcmp(source_service, "com.axle.kb_driver")) {
+			if (!strcmp(source_service, KB_DRIVER_SERVICE_NAME)) {
 				handle_keystroke(msg);
 				// Skip redrawing for now - the above will send a KB call to the
 				// foremost program, which will later redraw its window with the new info

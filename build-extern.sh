@@ -16,6 +16,7 @@ cp src/user/extern/realtek_8139_driver/rtl8139_messages.h axle-sysroot/usr/i686-
 cp src/user/extern/timed/timed_messages.h axle-sysroot/usr/i686-axle/include/daemons/timed/timed_messages.h
 cp src/user/extern/watchdogd/watchdogd_messages.h axle-sysroot/usr/i686-axle/include/daemons/watchdogd/watchdogd_messages.h
 cp src/user/extern/preferences/preferences_messages.h axle-sysroot/usr/i686-axle/include/preferences/preferences_messages.h
+cp src/user/extern/kb_driver/kb_driver_messages.h axle-sysroot/usr/i686-axle/include/kb_driver/kb_driver_messages.h
 
 # Copy the kernel bits of the the sysroot's include/ to the newlib port
 # This is so syscalls get the right struct definitions

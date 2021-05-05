@@ -58,6 +58,11 @@ def main():
     print("{", end='')
     print(", ".join([f'{hex(x)}' for x in output_list]), end='')
     print("}")
+    print()
+    print("#define ARROW_UP     0x75")
+    print("#define ARROW_DOWN   0x72")
+    print("#define ARROW_LEFT   0x6B")
+    print("#define ARROW_RIGHT  0x74")
 
 
 if __name__ == '__main__':
