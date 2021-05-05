@@ -704,7 +704,7 @@ static bool draw_in_progress_animations(game_state_t* state) {
 	return true;
 }
 
-static void _key_entered(gui_elem_t* elem, char ch) {
+static void _key_entered(gui_elem_t* elem, uint32_t ch) {
 	game_state_t* state = &state_s;
 
 	if (state->animation_state.animations_ongoing) {
@@ -716,16 +716,16 @@ static void _key_entered(gui_elem_t* elem, char ch) {
 	memset(state->animation_state.tile_being_animated, 0, sizeof(state->animation_state.tile_being_animated));
 
 	bool found_tile_to_move = false;
-	if (ch == 'a') {
+	if (ch == 'a' || ch == KEY_IDENT_LEFT_ARROW) {
 		found_tile_to_move = left_slide_all_tiles(state);
 	}
-	else if (ch == 's') {
+	else if (ch == 's' || ch == KEY_IDENT_RIGHT_ARROW) {
 		found_tile_to_move = right_slide_all_tiles(state);
 	}
-	else if (ch == 'w') {
+	else if (ch == 'w' || ch == KEY_IDENT_UP_ARROW) {
 		found_tile_to_move = up_slide_all_tiles(state);
 	}
-	else if (ch == 'r') {
+	else if (ch == 'r' || ch == KEY_IDENT_DOWN_ARROW) {
 		found_tile_to_move = down_slide_all_tiles(state);
 	}
 
