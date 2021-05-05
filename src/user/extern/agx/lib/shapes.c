@@ -412,6 +412,18 @@ void draw_circle(ca_layer* layer, Circle circ, Color color, int thickness) {
 	//make sure they don't set one too big
 	thickness = MIN(thickness, max_thickness);
 
+	// Filled circle?
+	if (thickness == max_thickness) {
+		for (int32_t y = -circ.radius; y <= circ.radius; y++) {
+			for (int32_t x = -circ.radius; x <= circ.radius; x++) {
+				if ((x*x) + (y*y) <= (circ.radius * circ.radius)) {
+					putpixel(layer, circ.center.x + x, circ.center.y + y, color);
+				}
+			}
+		}
+		return;
+	}
+
 	Circle c = circle_make(circ.center, circ.radius);
 
 	for (int i = 0; i <= thickness; i++) {
