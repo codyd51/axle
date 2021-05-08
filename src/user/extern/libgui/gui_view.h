@@ -36,6 +36,8 @@ typedef struct gui_view {
     gui_mouse_entered_cb_t mouse_entered_cb;
     gui_mouse_exited_cb_t mouse_exited_cb;
     gui_mouse_moved_cb_t mouse_moved_cb;
+    gui_mouse_dragged_cb_t mouse_dragged_cb;
+    gui_mouse_left_click_cb_t left_click_cb;
     gui_key_down_cb_t key_down_cb;
     gui_key_up_cb_t key_up_cb;
     gui_window_resized_cb_t window_resized_cb;

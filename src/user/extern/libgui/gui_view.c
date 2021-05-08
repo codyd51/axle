@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 #include <agx/lib/shapes.h>
 #include <agx/font/font.h>
@@ -22,6 +23,18 @@ static void _view_handle_mouse_exited(gui_view_t* v) {
 static void _view_handle_mouse_moved(gui_view_t* v, Point mouse_pos) {
 	if (v->mouse_moved_cb) {
 		v->mouse_moved_cb((gui_elem_t*)v, mouse_pos);
+	}
+}
+
+static void _view_handle_mouse_dragged(gui_view_t* v, Point mouse_pos) {
+	if (v->mouse_dragged_cb) {
+		v->mouse_dragged_cb((gui_elem_t*)v, mouse_pos);
+	}
+}
+
+static void _view_handle_left_click(gui_view_t* v, Point mouse_pos) {
+	if (v->left_click_cb) {
+		v->left_click_cb((gui_elem_t*)v, mouse_pos);
 	}
 }
 
@@ -283,8 +296,8 @@ gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_
 	view->_priv_mouse_entered_cb = (gui_mouse_entered_cb_t)_view_handle_mouse_entered;
 	view->_priv_mouse_exited_cb = (gui_mouse_exited_cb_t)_view_handle_mouse_exited;
 	view->_priv_mouse_moved_cb = (gui_mouse_moved_cb_t)_view_handle_mouse_moved;
-	view->_priv_mouse_dragged_cb = (gui_mouse_dragged_cb_t)_noop;
-	view->_priv_mouse_left_click_cb = (gui_mouse_left_click_cb_t)_noop;
+	view->_priv_mouse_dragged_cb = (gui_mouse_dragged_cb_t)_view_handle_mouse_dragged;
+	view->_priv_mouse_left_click_cb = (gui_mouse_left_click_cb_t)_view_handle_left_click;
 	view->_priv_mouse_left_click_ended_cb = (gui_mouse_left_click_ended_cb_t)_noop;
 	view->_priv_mouse_scrolled_cb = (gui_mouse_scrolled_cb_t)_noop;
 	view->_priv_key_down_cb = (gui_key_down_cb_t)_view_handle_key_down;
