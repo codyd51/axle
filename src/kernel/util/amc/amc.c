@@ -325,6 +325,18 @@ static void _amc_core_awm_map_framebuffer(const char* source_service) {
     amc_message_construct_and_send__from_core(source_service, &msg, sizeof(amc_framebuffer_info_t));
 }
 
+static void _amc_core_put_timed_to_sleep(const char* source_service, uint32_t ms) {
+    // Only timed is allowed to invoke this code!
+    assert(!strncmp(source_service, "com.axle.timed", AMC_MAX_SERVICE_NAME_LEN), "Only timed may use this syscall");
+    amc_service_t* service = _amc_service_with_name(source_service);
+
+    uint32_t now = ms_since_boot();
+    uint32_t wake = now + ms;
+    service->task->blocked_info.wake_timestamp = wake;
+    //printf("Core blocking timed at %d until %d or message arrives (%dms)\n", now, wake, ms);
+    tasking_block_task(service->task, AMC_AWAIT_MESSAGE | TIMED_AWAIT_TIMESTAMP);
+}
+
 static bool _amc_message_construct_and_send_from_service_name(const char* source_service,
                                                               const char* destination_service,
                                                               void* buf,
@@ -335,7 +347,7 @@ static bool _amc_message_construct_and_send_from_service_name(const char* source
 
     // If this is a message to com.axle.core, provide special handling
     if (!strncmp(destination_service, AXLE_CORE_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
-        printf("Message to core from %s\n", source_service);
+        //printf("Message to core from %s\n", source_service);
         uint32_t* u32buf = (uint32_t*)buf;
         if (u32buf[0] == AMC_COPY_SERVICES) {
             _amc_core_copy_amc_services(source_service);
@@ -344,6 +356,9 @@ static bool _amc_message_construct_and_send_from_service_name(const char* source
         else if (u32buf[0] == AMC_AWM_MAP_FRAMEBUFFER) {
             _amc_core_awm_map_framebuffer(source_service);
             return true;
+        }
+        else if (u32buf[0] == AMC_TIMED_AWAIT_TIMESTAMP_OR_MESSAGE) {
+            _amc_core_put_timed_to_sleep(source_service, u32buf[1]);
         }
         else {
             assert(0, "Unknown message to core");

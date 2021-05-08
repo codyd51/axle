@@ -671,6 +671,8 @@ static bool draw_in_progress_animations(game_state_t* state) {
 		}
 	}
 
+	_draw_separators(state);
+
 	for (uint32_t i = 0; i < pending_animations->size; i++) {
 		tile_animation_t* anim = array_lookup(pending_animations, i);
 
@@ -697,10 +699,8 @@ static bool draw_in_progress_animations(game_state_t* state) {
 		_draw_tile_with_params(state, anim->base.draw_info, r);
 	}
 
-	_draw_separators(state);
-
 	// And kick off a timer to continue the animation
-	gui_timer_start(state->view->window, 16, draw_in_progress_animations, state);
+	gui_timer_start(state->view->window, 16, (gui_timer_cb_t)draw_in_progress_animations, state);
 	return true;
 }
 

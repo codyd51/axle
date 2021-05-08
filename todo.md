@@ -3,7 +3,7 @@ TODO
 
 PCI enumeration lives in a "PCI manager" process
 This process has an awm window that displays PCI devices, 
-and launches the appropriate drivers
+and launches the appropriate drivers (check)
 
 Processes need a syscall to launch another process
 
@@ -19,13 +19,13 @@ in _start after registering the service a system-wide notification can be posted
 
 Implement synchronous messaging: send, block until recv "ack"
 
-Fix task starvation of same priority, runnable
+Fix task starvation of same priority, runnable (check)
 
 Come up with better way to pass args to programs on startup
 
 Driver library - provides in/out functions, assert, what else?
 
-awm library - helpers for constructing window, other communications? update title bar?
+awm library - helpers for constructing window, other communications? update title bar? (check)
 
 The mouse can't pre-empt the RTL driver because they're the same priority, so it loses data
 The RTL driver needs to be split into a GUI and message server...
@@ -34,7 +34,7 @@ Replace PMM mutex with spinlock
 
 Don't map the null page
 
-amc should be able to send smaller or larger messages
+amc should be able to send smaller or larger messages (check)
     Network packets can be 300+ bytes,
     but I don't want to inflate amc message size for every message type
 
@@ -72,7 +72,7 @@ Timekeeping
     - Net timeouts/retransmissions
     - Liveliness pings
 
-Implement an event loop API instead of apps needing to manage the event loop themselves
+Implement an event loop API instead of apps needing to manage the event loop themselves (check)
     - Callbacks can be set up for:
         - amc messages
         - timers
@@ -92,14 +92,14 @@ DNS might need to wait for ARP
         - Where the function pointer might be, "unblock via an amc reply",
             - Or, "send the DNS query to the router"
 
-Settings application
+Settings application (check)
     - Shows gradient color options for desktop background
         - Sends msg to awm
     - Predefined list, or show color sliders?
         - Good opportunity to build widgets
             - But should wait for proper UI toolkit event loop
 
-UI toolkit event loop
+UI toolkit event loop (check)
     - layout_subviews?
 
 Terminal emulator
@@ -124,6 +124,13 @@ Objective-C implementation?
 
 SMTP
 
-Arrow keys
-Key-up events in libgui
+Arrow keys (check)
+Key-up events in libgui (check)
 Velocity in breakout
+
+Fix mouse position within gui_view
+
+Process destruction
+GUI destruction
+Window closing
+gui_scroll_view_t

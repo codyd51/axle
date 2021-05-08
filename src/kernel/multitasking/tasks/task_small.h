@@ -20,7 +20,7 @@ typedef struct task_context {
 
 typedef struct task_block_state {
 	volatile task_state_t status;
-	uint32_t wake_timestamp; // used if process is in PIT_WAIT
+	uint32_t wake_timestamp; // used if process is in TIMED_AWAIT_TIMESTAMP
 	volatile task_state_t unblock_reason;
 } task_block_state_t;
 

@@ -43,6 +43,8 @@ typedef struct amc_framebuffer_info {
 #define AMC_AWM_MAP_FRAMEBUFFER (1 << 1)
 #define AMC_AWM_MAP_FRAMEBUFFER_RESPONSE (1 << 1)
 
+#define AMC_TIMED_AWAIT_TIMESTAMP_OR_MESSAGE (1 << 2)
+
 // Register the running process as the provided service name
 void amc_register_service(const char* name);
 
@@ -93,5 +95,7 @@ amc_message_t* amc_message_construct__from_core(const char* data, int len);
 bool amc_message_construct_and_send__from_core(const char* destination_service, void* buf, uint32_t buf_size);
 
 bool amc_service_has_message(void* service);
+
+void amc_wake_timed_if_timestamp_reached(void);
 
 #endif

@@ -13,6 +13,9 @@
 #include "timed.h"
 #include "timed_messages.h"
 
+#define max(a,b)            (((a) > (b)) ? (a) : (b))
+#define min(a,b)            (((a) < (b)) ? (a) : (b))
+
 typedef struct asleep_proc {
 	char* service_name;
 	uint32_t sleep_start;
@@ -39,6 +42,21 @@ static void wake_sleeping_procs(array_t* sleeping_procs) {
 			return;
 		}
 	}
+}
+
+static uint32_t _ms_to_soonest_wakeup(array_t* sleeping_procs) {
+	uint32_t now = ms_since_boot();
+	uint32_t soonest_wakeup = INT32_MAX;
+
+	for (int i = 0; i < sleeping_procs->size; i++) {
+		asleep_proc_t* p = array_lookup(sleeping_procs, i);
+		if (now >= p->sleep_start + p->sleep_duration) {
+			soonest_wakeup = 0;
+			break;
+		}
+		soonest_wakeup = min(soonest_wakeup, p->sleep_start + p->sleep_duration - now);
+	}
+	return soonest_wakeup;
 }
 
 static void process_messages(array_t* asleep_procs) {
@@ -73,8 +91,9 @@ int main(int argc, char** argv) {
 	amc_register_service("com.axle.timed");
 
 	array_t* asleep_procs = array_create(128);
+	bool should_block_until_next_message = false;
 	while (true) {
-		if (amc_has_message()) {
+		if (amc_has_message() || should_block_until_next_message) {
 			process_messages(asleep_procs);
 		}
 		// If no processes are waiting to be woken up, there's no reason to 
@@ -85,9 +104,15 @@ int main(int argc, char** argv) {
 		}
 		else {
 			wake_sleeping_procs(asleep_procs);
-			// A process is waiting to be woken up, so yield but don't block so
-			// we can check in on it soon
-			yield();
+
+			// If we have nothing to wake up, block until our next message
+			should_block_until_next_message = asleep_procs->size == 0;
+			if (!should_block_until_next_message) {
+				uint32_t ms_to_next_wakeup = _ms_to_soonest_wakeup(asleep_procs);
+				// Ask the kernel to not schedule us until the provided timestamp is hit,
+				// or another amc message arrives
+				amc_msg_u32_2__send(AXLE_CORE_SERVICE_NAME, AMC_TIMED_AWAIT_TIMESTAMP_OR_MESSAGE, ms_to_next_wakeup);
+			}
 		}
 	}
 	array_destroy(asleep_procs);
