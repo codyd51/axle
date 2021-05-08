@@ -5,6 +5,7 @@
 
 #include "gui_elem.h"
 
+typedef struct gui_view gui_view_t;
 typedef struct gui_view {
     // Private union members (must be first in the structure)
     gui_mouse_entered_cb_t _priv_mouse_entered_cb;
@@ -44,6 +45,7 @@ typedef struct gui_view {
 
     // Private fields
     array_t* subviews;
+    gui_view_t* superview;
     uint32_t border_margin;
     uint32_t title_bar_height;
     char* _title;

@@ -284,6 +284,12 @@ static void _view_window_resized(gui_view_t* v, Size new_window_size) {
 	if (v->window_resized_cb) {
 		v->window_resized_cb((gui_elem_t*)v, new_window_size);
 	}
+
+	// Inform subviews
+	for (uint32_t j = 0; j < v->subviews->size; j++) {
+		gui_elem_t* sub_elem = array_lookup(v->subviews, j);
+		sub_elem->base._priv_window_resized_cb(sub_elem, new_window_size);
+	}
 }
 
 gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_cb) {
