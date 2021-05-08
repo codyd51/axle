@@ -10,12 +10,19 @@
 #include <libgui/libgui.h>
 #include <stdlibadd/assert.h>
 
-#define MAGNITUDE_SCALE 200
+#define MAGNITUDE_SCALE 300
+#define BRICKS_PER_ROW 	12
+#define BRICK_ROWS		4
 
 typedef struct point_f {
 	float x;
 	float y;
 } point_f;
+
+typedef struct rect_f {
+	point_f origin;
+	Size size;
+} rect_f;
 
 typedef struct vector {
 	float theta;
@@ -33,7 +40,7 @@ typedef struct game_state {
 	vector_t ball_vec;
 	point_f ball_pos;
 	uint32_t ball_radius;
-	Rect paddle;
+	rect_f paddle;
 	uint32_t last_tick_time;
 
 	game_brick_t bricks[128];
@@ -43,13 +50,64 @@ typedef struct game_state {
 	
 	bool left_down;
 	bool right_down;
+
+	uint32_t lives_remaining;
 } game_state_t;
 
 static void draw_game_state(game_state_t* state);
 static void _start_new_game(game_state_t* state);
 static void _run_physics_tick(game_state_t* state);
+static void _draw_string(game_state_t* state, char* text, Point center, Size font_size);
 
 static game_state_t state_s = {0};
+
+static Rect _hud_content_frame(game_state_t* state) {
+	Size s = state->view->content_layer_frame.size;
+	uint32_t hud_height = s.height / 14.0;
+	hud_height = max(hud_height, 25);
+	return rect_make(
+		point_make(0, 0),
+		size_make(s.width, hud_height)
+	);
+}
+
+static Rect _game_content_frame(game_state_t* state) {
+	Size s = state->view->content_layer_frame.size;
+	uint32_t hud_height = s.height / 14.0;
+	hud_height = max(hud_height, 25);
+	return rect_make(
+		point_make(0, hud_height),
+		size_make(s.width, s.height - hud_height)
+	);
+}
+
+static Rect _frame_for_brick_idx(game_state_t* state, uint32_t brick_idx) {
+	Rect hud = _hud_content_frame(state);
+	Rect r = _game_content_frame(state);
+	Point bricks_origin = point_make(
+		state->ball_radius,
+		rect_max_y(hud) + state->ball_radius
+	);
+	Size bricks_frame = size_make(
+		r.size.width - (state->ball_radius * 2),
+		r.size.height / 3.0
+	);
+
+	Size brick_size = size_make(
+		bricks_frame.width / (float)BRICKS_PER_ROW,
+		bricks_frame.height / (float)BRICK_ROWS
+	);
+
+	uint32_t row = brick_idx / BRICKS_PER_ROW;
+	uint32_t col = brick_idx % BRICKS_PER_ROW;
+	return rect_make(
+		point_make(
+			bricks_origin.x + (brick_size.width * col),
+			bricks_origin.y + (brick_size.height * row)
+		),
+		brick_size
+	);
+}
 
 static void _resize_elements(game_state_t* state) {
 	Rect r = state->view->content_layer_frame;
@@ -58,17 +116,19 @@ static void _resize_elements(game_state_t* state) {
 		r.size.height / 14.0
 	);
 	s.height = min(s.height, 16);
-	state->paddle = rect_make(
-		point_make(
-			(r.size.width / 2.0) - (s.width / 2.0),
-			(r.size.height) - (s.height * 2)
-		), 
-		s
-	);
+	state->paddle = (rect_f){
+		.origin = (point_f){
+			.x = (r.size.width / 2.0) - (s.width / 2.0),
+			.y = (r.size.height) - (s.height * 2)
+		},
+		.size = s
+	};
 
 	state->ball_radius = 4;
 
-	// TODO(PT): Move the ball to be above the paddle?
+	for (uint32_t i = 0; i < state->orig_bricks_count; i++) {
+		state->bricks[i].frame = _frame_for_brick_idx(state, i);
+	}
 }
 
 static void _window_resized(gui_view_t* view, Size new_size) {
@@ -152,51 +212,41 @@ static Color _brick_color_for_row(uint32_t row_idx) {
 	}
 }
 
+float lerp(float a, float b, float f) {
+    return a + f * (b - a);
+}
+
+static void _set_initial_ball_vector(game_state_t* state) {
+	Rect r = _game_content_frame(state);
+
+	state->ball_pos = (point_f){
+		.x = rect_mid_x(state->paddle),
+		.y = rect_min_y(state->paddle) - (state->ball_radius)
+	};
+	state->ball_vec.theta = M_PI_4 * 7;
+	//state->ball_vec.theta = lerp(M_PI_4 * 5, M_PI_4 * 7, drand48());
+	state->ball_vec.mag = MAGNITUDE_SCALE;
+}
+
 static void _start_new_game(game_state_t* state) {
 	srand(ms_since_boot());
-	Rect r = rect_make(
-		point_zero(),
-		state->view->content_layer_frame.size
-	);
+
+	state->lives_remaining = 3;
+
+	// Place the bricks
+	// (Must be done before the frames are set up in _resize_elements)
+	state->orig_bricks_count = BRICKS_PER_ROW * BRICK_ROWS;
+	for (uint32_t i = 0; i < state->orig_bricks_count; i++) {
+		state->bricks[i].is_active = true;
+		uint32_t row = i / BRICKS_PER_ROW;
+		state->bricks[i].color = _brick_color_for_row(row);
+	}
 
 	// Ensure the paddle is set up
 	_resize_elements(state);
 
-	state->ball_pos = (point_f){
-		.x = (r.size.width / 2.0),
-		.y = rect_min_y(state->paddle) - (state->ball_radius)
-	};
-	state->ball_vec.theta = M_PI_4 * 7;
-	state->ball_vec.mag = MAGNITUDE_SCALE;
-	//state->physics_enabled = true;
-
-	Point brick_inset = point_make(state->ball_radius, state->ball_radius);
-	Size bricks_frame = size_make(
-		r.size.width - (brick_inset.x * 2),
-		r.size.height / 3.0
-	);
-	uint32_t bricks_per_row = 12;
-	uint32_t brick_rows = 4;
-
-	Point brick_loc = brick_inset;
-	Size brick_size = size_make(
-		bricks_frame.width / (float)bricks_per_row,
-		bricks_frame.height / (float)brick_rows
-	);
-	uint32_t brick_idx = 0;
-	for (uint32_t row = 0; row < brick_rows; row++) {
-		for (uint32_t brick_in_row = 0; brick_in_row < bricks_per_row; brick_in_row++) {
-			state->bricks[brick_idx].is_active = true;
-			state->bricks[brick_idx].color = _brick_color_for_row(row);
-			state->bricks[brick_idx].frame = rect_make(brick_loc, brick_size);
-
-			brick_loc.x += brick_size.width;
-			brick_idx += 1;
-		}
-		brick_loc.x = brick_inset.x;
-		brick_loc.y += brick_size.height;
-	}
-	state->orig_bricks_count = brick_idx + 1;
+	_set_initial_ball_vector(state);
+	state->physics_enabled = false;
 }
 
 static void _vector_to_x_y(vector_t* vec, float* out_x, float* out_y) {
@@ -214,8 +264,14 @@ static void _vector_from_x_y(vector_t* out_vec, float x, float y) {
 
 static bool rect_intersects_rect(Rect r1, Rect r2) {
 	// https://stackoverflow.com/questions/306316/determine-if-two-rectangles-overlap-each-other
-	//return rect_min_x(r1) <= rect_max_x(r2) && rect_max_x(r1) >= rect_min_x(r2) &&
-	//	rect_min_y(r1) >= rect_max_y(r2) && rect_max_y(r1) <= rect_min_y(r2);
+	return (rect_min_x(r1) < rect_max_x(r2) &&
+			rect_max_x(r1) > rect_min_x(r2) &&
+			rect_min_y(r1) < rect_max_y(r2) &&
+			rect_max_y(r1) > rect_min_y(r2));
+}
+
+static bool rect_f_intersects_rect(rect_f r1, Rect r2) {
+	// https://stackoverflow.com/questions/306316/determine-if-two-rectangles-overlap-each-other
 	return (rect_min_x(r1) < rect_max_x(r2) &&
 			rect_max_x(r1) > rect_min_x(r2) &&
 			rect_min_y(r1) < rect_max_y(r2) &&
@@ -230,8 +286,17 @@ static void _run_physics_tick(game_state_t* state) {
 	float dt = (elapsed / 1000.0);
 
 	if (!state->physics_enabled) {
-		// And kick off a timer to continue the physics
-		// TODO(PT): Support repeating timers
+		// Kick off a timer to continue the physics
+		gui_timer_start(state->view->window, render_interval, (gui_timer_cb_t)_run_physics_tick, state);
+		return;
+	}
+
+	// If it's been a long time since the last frame,
+	// for example if we paused physics,
+	// don't try and update the physics models this time, 
+	// because the dt will be wonky.
+	if (elapsed > 100) {
+		// Kick off a timer to continue the physics
 		gui_timer_start(state->view->window, render_interval, (gui_timer_cb_t)_run_physics_tick, state);
 		return;
 	}
@@ -246,10 +311,10 @@ static void _run_physics_tick(game_state_t* state) {
 
 	float paddle_delta = 0;
 	if (state->left_down) {
-		paddle_delta = -200.0 * dt;
+		paddle_delta = -(float)MAGNITUDE_SCALE * dt;
 	}
 	else if (state->right_down) {
-		paddle_delta = 200.0 * dt;
+		paddle_delta = (float)MAGNITUDE_SCALE * dt;
 	}
 	if (paddle_delta != 0) {
 		state->paddle.origin.x += paddle_delta;
@@ -262,14 +327,11 @@ static void _run_physics_tick(game_state_t* state) {
 
 	// Ball collision
 	// Hit the right edge of the screen?
-	Rect screen = rect_make(
-		point_zero(),
-		state->view->content_layer_frame.size
-	);
-	uint32_t min_x = state->ball_radius;
-	uint32_t min_y = state->ball_radius;
-	uint32_t max_x = screen.size.width - (state->ball_radius);
-	uint32_t max_y = screen.size.height - (state->ball_radius);
+	Rect screen = _game_content_frame(state);
+	uint32_t min_x = rect_min_x(screen) + state->ball_radius;
+	uint32_t min_y = rect_min_y(screen) + state->ball_radius;
+	uint32_t max_x = rect_max_x(screen) - (state->ball_radius);
+	uint32_t max_y = rect_max_y(screen) - (state->ball_radius);
 
 	if (state->ball_pos.x < min_x || state->ball_pos.x >= max_x) {
 		// Hit left or right screen edge
@@ -283,6 +345,41 @@ static void _run_physics_tick(game_state_t* state) {
 		_vector_from_x_y(&state->ball_vec, x, y);
 	}
 	else if (state->ball_pos.y < min_y || state->ball_pos.y >= max_y) {
+		if (state->ball_pos.y >= max_y) {
+			if (state->lives_remaining == 0) {
+				_start_new_game(state);
+				draw_game_state(state);
+
+				/*
+				_draw_string(
+					state, 
+					"You lose!", 
+					point_make(
+						rect_mid_x(screen), 
+						rect_mid_y(screen)
+					),
+					size_make(8, 12)
+				);
+				*/
+			}
+			else {
+				state->lives_remaining -= 1;
+				_set_initial_ball_vector(state);
+				draw_game_state(state);
+
+				_draw_string(
+					state, 
+					"Life lost!", 
+					point_make(
+						rect_mid_x(screen), 
+						rect_mid_y(screen)
+					),
+					size_make(8, 12)
+				);
+			}
+			gui_timer_start(state->view->window, 1000, (gui_timer_cb_t)_run_physics_tick, state);
+			return;
+		}
 		// Hit top or bottom screen edge
 		// TODO(PT): If off bottom edge, you lose!
 		state->ball_pos.y = max(min_y, state->ball_pos.y);
@@ -296,28 +393,29 @@ static void _run_physics_tick(game_state_t* state) {
 	}
 
 	// Hit the paddle?
-	Point ball_bottom = point_make(
-		state->ball_pos.x,
-		state->ball_pos.y + state->ball_radius
+	Rect ball_frame = rect_make(
+		point_make(state->ball_pos.x - state->ball_radius, state->ball_pos.y - state->ball_radius),
+		size_make(state->ball_radius*2, state->ball_radius*2)
 	);
-	if (rect_contains_point(state->paddle, ball_bottom)) {
+
+	if (rect_f_intersects_rect(state->paddle, ball_frame)) {
 		// Negate Y velocity
 		float x, y = 0;
 		_vector_to_x_y(&state->ball_vec, &x, &y);
 		y = -y;
 		_vector_from_x_y(&state->ball_vec, x, y);
+
+		// Make sure we always end up above the paddle instead of getting 'locked inside'
+		state->ball_pos.y = min(state->ball_pos.y, rect_min_y(state->paddle) - state->ball_radius);
 	}
 
-	Rect ball_frame = rect_make(
-		point_make(state->ball_pos.x, state->ball_pos.y),
-		size_make(state->ball_radius*2, state->ball_radius*2)
-	);
+	bool cleared_all_bricks = true;
 	for (uint32_t i = 0; i < state->orig_bricks_count; i++) {
 		if (!state->bricks[i].is_active) {
 			continue;
 		}
+		cleared_all_bricks = false;
 		if (rect_intersects_rect(state->bricks[i].frame, ball_frame)) {
-		//if (rect_contains_point(state->bricks[i].frame, point_make(state->ball_pos.x, state->ball_pos.y))) {
 			state->bricks[i].is_active = false;
 			// Negate Y velocity
 			float x, y = 0;
@@ -326,6 +424,14 @@ static void _run_physics_tick(game_state_t* state) {
 			_vector_from_x_y(&state->ball_vec, x, y);
 			break;
 		}
+	}
+
+	// Has the user won?
+	if (cleared_all_bricks) {
+		_start_new_game(state);
+		draw_game_state(state);
+		gui_timer_start(state->view->window, 1000, (gui_timer_cb_t)_run_physics_tick, state);
+		return;
 	}
 
 	draw_game_state(state);
@@ -355,18 +461,68 @@ static void _draw_string(game_state_t* state, char* text, Point center, Size fon
 	}
 }
 
-static void draw_game_state(game_state_t* state) {
+static void _draw_hud(game_state_t* state) {
 	ca_layer* l = state->view->content_layer;
-	Rect r = rect_make(
-		point_zero(),
-		state->view->content_layer_frame.size
+	Rect r = _hud_content_frame(state);
+
+	draw_rect(l, r, color_black(), THICKNESS_FILLED);
+
+	Rect interior = rect_make(
+		point_make(
+			rect_min_x(r) + state->ball_radius,
+			rect_min_y(r) + state->ball_radius
+		),
+		size_make(
+			rect_max_x(r) - (state->ball_radius * 2),
+			rect_max_y(r) - (state->ball_radius)
+		)
 	);
+	draw_rect(l, interior, color_light_gray(), 1);
+
+	uint32_t spacing = state->ball_radius * 3;
+	Point lives_cursor = point_make(
+		rect_min_x(interior) + spacing,
+		rect_mid_y(interior)
+	);
+	for (uint32_t i = 0; i < state->lives_remaining; i++) {
+		draw_circle(
+			l, 
+			circle_make(
+				lives_cursor,
+				state->ball_radius
+			),
+			color_white(),
+			THICKNESS_FILLED
+		);
+		draw_circle(
+			l, 
+			circle_make(
+				lives_cursor,
+				state->ball_radius
+			),
+			color_light_gray(),
+			1
+		);
+		lives_cursor.x += spacing;
+	}
+}
+
+static void draw_game_state(game_state_t* state) {
+	_draw_hud(state);
+
+	ca_layer* l = state->view->content_layer;
+	Rect r = _game_content_frame(state);
 
 	// Fill a black background
 	draw_rect(l, r, color_black(), THICKNESS_FILLED);
 
 	// Draw the paddle
-	draw_rect(l, state->paddle, color_white(), THICKNESS_FILLED);
+	Rect paddle_rect = rect_make(
+		point_make(rect_min_x(state->paddle), rect_min_y(state->paddle)),
+		state->paddle.size
+	);
+	draw_rect(l, paddle_rect, color_white(), THICKNESS_FILLED);
+	draw_rect(l, paddle_rect, color_light_gray(), 2);
 
 	for (uint32_t i = 0; i < state->orig_bricks_count; i++) {
 		if (!state->bricks[i].is_active) {
@@ -399,16 +555,9 @@ static void draw_game_state(game_state_t* state) {
 		color_red(),
 		THICKNESS_FILLED
 	);
-	//draw_rect(l, rect_make(point_make(state->ball_pos.x, state->ball_pos.y), size_make(state->ball_radius, state->ball_radius)), color_red(), THICKNESS_FILLED);
 
 	if (!state->physics_enabled) {
 		char* msg = "Press w to start!";
-	/*
-	Point cursor = point_make(
-		rect_mid_x(r) - (msg_width / 2.0),
-		rect_mid_y(r) - (font_size.height / 2.0)
-	);
-	*/
 		Size font_size = size_make(8, 12);
 		Point center = point_make(rect_mid_x(r), rect_mid_y(r));
 		_draw_string(state, "Press up to start!", center, font_size);
@@ -424,7 +573,7 @@ static void draw_game_state(game_state_t* state) {
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.breakout");
 
-	gui_window_t* window = gui_window_create("Breakout", 450, 180);
+	gui_window_t* window = gui_window_create("Breakout", 450, 200);
 	Size window_size = window->size;
 
 	gui_view_t* game_view = gui_view_create(
