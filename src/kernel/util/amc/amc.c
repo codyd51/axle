@@ -342,6 +342,21 @@ static void _amc_core_put_timed_to_sleep(const char* source_service, uint32_t ms
     tasking_block_task(service->task, AMC_AWAIT_MESSAGE | TIMED_AWAIT_TIMESTAMP);
 }
 
+void amc_wake_timed_if_timestamp_reached(void) {
+    if (!tasking_is_active() || !_amc_services || !_amc_services->size) {
+        return;
+    }
+
+    uint32_t now = ms_since_boot();
+    amc_service_t* service = _amc_service_with_name("com.axle.timed");
+    if ((service->task->blocked_info.status & TIMED_AWAIT_TIMESTAMP) != 0) {
+        if (now >= service->task->blocked_info.wake_timestamp) {
+            //printf("Core waking up timed at %d\n", now);
+            tasking_unblock_task_with_reason(service->task, false, TIMED_AWAIT_TIMESTAMP);
+        }
+    }
+}
+
 static bool _amc_message_construct_and_send_from_service_name(const char* source_service,
                                                               const char* destination_service,
                                                               void* buf,
