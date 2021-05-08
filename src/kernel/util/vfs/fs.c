@@ -60,14 +60,15 @@ fs_node_t* finddir_fs(fs_node_t* node, char* name) {
 fd_entry_t _tab[512];
 static int _fd_count = 0;
 FILE* initrd_fopen(const char* filename, char* mode) {
-	//printf("initrd_fopen(\"%s\")\n", filename);
+	printf("initrd_fopen(\"%s\")\n", filename);
 	//skip preceding ./
 	//TODO properly traverse file paths
-	while (!isalpha(*filename)) {
+	while (!isalnum(*filename)) {
 		filename++;
 	}
 
 	fs_node_t* file = finddir_fs(fs_root, (char*)filename);
+	printf("Found node 0x%08x: %s\n", file, file->name);
 	if (!file) {
 		return NULL;
 	}
