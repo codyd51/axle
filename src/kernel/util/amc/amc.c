@@ -357,6 +357,37 @@ void amc_wake_timed_if_timestamp_reached(void) {
     }
 }
 
+static void _amc_core_file_manager_map_initrd(const char* source_service) {
+    // Only file_manager is allowed to invoke this code!
+    assert(!strncmp(source_service, "com.axle.file_manager", AMC_MAX_SERVICE_NAME_LEN), "Only File Manager may use this syscall");
+
+    amc_service_t* current_service = _amc_service_with_name(source_service);
+    spinlock_acquire(&current_service->spinlock);
+
+    // Map the ramdisk into the proc's address space
+    boot_info_t* bi = boot_info_get();
+    vmm_identity_map_region(
+        (vmm_page_directory_t*)vmm_active_pdir(),
+        bi->initrd_start,
+        bi->initrd_size
+    );
+    spinlock_release(&current_service->spinlock);
+
+    // And mark the pages as accessible to usermode
+    printf("Ramdisk: 0x%08x - 0x%08x (%d pages)\n", bi->initrd_start, bi->initrd_end, bi->initrd_size / PAGE_SIZE);
+    for (uint32_t addr = bi->initrd_start; addr < bi->initrd_end; addr += PAGE_SIZE) {
+        vmm_set_page_usermode(vmm_active_pdir(), addr);
+    }
+
+    amc_initrd_info_t msg = {
+        .event = AMC_FILE_MANAGER_MAP_INITRD_RESPONSE,
+        .initrd_start = bi->initrd_start,
+        .initrd_end = bi->initrd_end,
+        .initrd_size = bi->initrd_size,
+    };
+    amc_message_construct_and_send__from_core(source_service, &msg, sizeof(amc_initrd_info_t));
+}
+
 static bool _amc_message_construct_and_send_from_service_name(const char* source_service,
                                                               const char* destination_service,
                                                               void* buf,
@@ -379,6 +410,9 @@ static bool _amc_message_construct_and_send_from_service_name(const char* source
         }
         else if (u32buf[0] == AMC_TIMED_AWAIT_TIMESTAMP_OR_MESSAGE) {
             _amc_core_put_timed_to_sleep(source_service, u32buf[1]);
+        }
+        else if (u32buf[0] == AMC_FILE_MANAGER_MAP_INITRD) {
+            _amc_core_file_manager_map_initrd(source_service);
         }
         else {
             assert(0, "Unknown message to core");

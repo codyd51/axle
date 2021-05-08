@@ -96,6 +96,14 @@ cd ./src/user/extern/2048
 make
 cd ../../../../
 
+cd ./src/user/extern/breakout
+make
+cd ../../../../
+
+cd ./src/user/extern/snake
+make
+cd ../../../../
+
 cd initrd
 ../fsgen ./
 mv initrd.img ../initrd.img

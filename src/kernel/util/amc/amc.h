@@ -36,6 +36,13 @@ typedef struct amc_framebuffer_info {
     uint32_t size;
 } amc_framebuffer_info_t;
 
+typedef struct amc_initrd_info {
+    uint32_t event;
+    uint32_t initrd_start;
+    uint32_t initrd_end;
+    uint32_t initrd_size;
+} amc_initrd_info_t;
+
 #define AXLE_CORE_SERVICE_NAME "com.axle.core"
 #define AMC_COPY_SERVICES (1 << 0)
 #define AMC_COPY_SERVICES_RESPONSE (1 << 0)
@@ -44,6 +51,9 @@ typedef struct amc_framebuffer_info {
 #define AMC_AWM_MAP_FRAMEBUFFER_RESPONSE (1 << 1)
 
 #define AMC_TIMED_AWAIT_TIMESTAMP_OR_MESSAGE (1 << 2)
+
+#define AMC_FILE_MANAGER_MAP_INITRD (1 << 3)
+#define AMC_FILE_MANAGER_MAP_INITRD_RESPONSE (1 << 3)
 
 // Register the running process as the provided service name
 void amc_register_service(const char* name);
