@@ -48,9 +48,11 @@ static bool elf_check_supported(elf_header* hdr) {
 
 bool elf_validate_header(elf_header* hdr) {
 	if (!elf_check_magic(hdr)) {
+		printf("Magic failed\n");
 		return false;
 	}
 	if (!elf_check_supported(hdr)) {
+		printf("supported failed\n");
 		return false;
 	}
 	return true;
@@ -140,34 +142,24 @@ char* elf_get_string_table(void* file, uint32_t binary_size) {
 	return NULL;
 }
 
-void elf_load_file(char* name, FILE* elf, char** argv) {
-	//find file size
-	fseek(elf, 0, SEEK_END);
-	uint32_t binary_size = ftell(elf);
-	fseek(elf, 0, SEEK_SET);
-
-	char* filebuf = kmalloc(binary_size);
-	for (uint32_t i = 0; i < binary_size; i++) {
-		filebuf[i] = fgetc(elf);
-	}
-
-	elf_header* hdr = (elf_header*)filebuf;
+void elf_load_buffer(char* program_name, uint8_t* buf, uint32_t buf_size, char** argv) {
+	elf_header* hdr = (elf_header*)buf;
 	if (!elf_validate_header(hdr)) {
 		printf("validation failed\n");
 		return;
 	}
 
-	char* string_table = elf_get_string_table(hdr, binary_size);
+	char* string_table = elf_get_string_table(hdr, buf_size);
 
 	uint32_t prog_break = 0;
 	uint32_t bss_loc = 0;
 	for (int x = 0; x < hdr->shentsize * hdr->shnum; x += hdr->shentsize) {
-		if (hdr->shoff + x > binary_size) {
+		if (hdr->shoff + x > buf_size) {
 			printf("Tried to read beyond the end of the file.\n");
 			return;
 		}
 
-		elf_s_header* shdr = (elf_s_header*)((uintptr_t)filebuf + (hdr->shoff + x));
+		elf_s_header* shdr = (elf_s_header*)((uintptr_t)buf + (hdr->shoff + x));
 		char* section_name = (char*)((uintptr_t)string_table + shdr->name);
 
 		//alloc memory for .bss segment
@@ -178,9 +170,10 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 		}
 	}
 
-	uint32_t entry_point = elf_load_small((unsigned char*)filebuf);
+	uint32_t entry_point = elf_load_small((unsigned char*)buf);
 	//printf("ELF prog_break 0x%08x bss_loc 0x%08x\n", prog_break, bss_loc);
-	kfree(filebuf);
+	// TODO(PT): Ensure the caller cleans this up?
+	//kfree(buf);
 
 	// give user program a 32kb stack
 	// TODO(PT): We need to free the stack created by _thread_create
@@ -219,7 +212,11 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 		elf->sbrk_current_break = prog_break;
 		elf->bss_segment_addr = bss_loc;
 		elf->sbrk_current_page_head = (elf->sbrk_current_break + PAGE_SIZE) & PAGING_PAGE_MASK;
-		elf->name = strdup(name);
+		//printf("strdup program name 0x%08x\n", program_name);
+		//printf("strlen %d\n", strlen(program_name));
+
+		//elf->name = strdup(program_name);
+		elf->name = "launched_elf";
 
 		printf("[%d] Jump to user-mode with ELF [%s] ip=0x%08x sp=0x%08x\n", elf->id, elf->name, entry_point, elf->machine_state);
 		//spinlock_release(&elf->priority_lock);
@@ -235,3 +232,17 @@ void elf_load_file(char* name, FILE* elf, char** argv) {
 	}
 }
 
+void elf_load_file(char* name, FILE* elf, char** argv) {
+	//find file size
+	fseek(elf, 0, SEEK_END);
+	uint32_t binary_size = ftell(elf);
+	fseek(elf, 0, SEEK_SET);
+
+	char* filebuf = kmalloc(binary_size);
+	for (uint32_t i = 0; i < binary_size; i++) {
+		filebuf[i] = fgetc(elf);
+	}
+	elf_load_buffer(name, filebuf, binary_size, argv);
+	// The above should never return
+	assert(false, "elf_load_buffer returned execution to loader!");
+}
