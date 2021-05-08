@@ -104,6 +104,10 @@ cd ./src/user/extern/snake
 make
 cd ../../../../
 
+cd ./src/user/extern/file_manager
+make
+cd ../../../../
+
 cd initrd
 ../fsgen ./
 mv initrd.img ../initrd.img
