@@ -252,10 +252,16 @@ typedef struct int_descriptor {
 	gui_interrupt_cb_t cb;
 } int_descriptor_t;
 
-static void _handle_amc_messages(gui_window_t* window) {
+static void _handle_amc_messages(gui_window_t* window, bool should_block) {
 	// Deduplicate multiple resize messages in one event-loop pass
 	bool got_resize_msg = false;
 	awm_window_resized_msg_t newest_resize_msg = {0};
+
+	if (!should_block) {
+		if (!amc_has_message()) {
+			return;
+		}
+	}
 
 	do {
 		amc_message_t* msg;
@@ -322,17 +328,11 @@ static void _handle_amc_messages(gui_window_t* window) {
 		for (uint32_t i = 0; i < window->all_gui_elems->size; i++) {
 			gui_elem_t* elem = array_lookup(window->all_gui_elems, i);
 			elem->ti._priv_window_resized_cb(elem, window->size);
-			if (elem->base.type == GUI_TYPE_VIEW) {
-				for (uint32_t j = 0; j < elem->v.subviews->size; j++) {
-					gui_elem_t* sub_elem = array_lookup(elem->v.subviews, j);
-					sub_elem->base._priv_window_resized_cb(sub_elem, window->size);
-				}
-			}
 		}
 	}
 }
 
-static void _process_amc_messages(gui_window_t* window) {
+static void _process_amc_messages(gui_window_t* window, bool should_block) {
 	if (window->_interrupt_cbs->size) {
 		assert(window->_interrupt_cbs->size == 1, "Only 1 interrupt supported");
 		int_descriptor_t* t = array_lookup(window->_interrupt_cbs, 0);
@@ -342,7 +342,7 @@ static void _process_amc_messages(gui_window_t* window) {
 			return;
 		}
 	}
-	_handle_amc_messages(window);
+	_handle_amc_messages(window, should_block);
 }
 
 static void _redraw_dirty_elems(gui_window_t* window) {
@@ -366,13 +366,42 @@ static void _redraw_dirty_elems(gui_window_t* window) {
 	amc_msg_u32_1__send(AWM_SERVICE_NAME, AWM_WINDOW_REDRAW_READY);
 }
 
+typedef enum timers_state {
+	TIMERS_LATE = 0,
+	SLEPT_FOR_TIMERS = 1,
+	NO_TIMERS = 2
+} timers_state_t;
+
+static timers_state_t _sleep_for_timers(gui_window_t* window) {
+	if (window->timers->size == 0) {
+		return NO_TIMERS;
+	}
+	uint32_t next_fire_date = 0;
+	for (uint32_t i = 0; i < window->timers->size; i++) {
+        gui_timer_t* t = array_lookup(window->timers, i);
+		if (!next_fire_date || t->fires_after < next_fire_date) {
+			next_fire_date = t->fires_after;
+		}
+    }
+	int32_t time_to_next_fire = next_fire_date - ms_since_boot();
+	//printf("time_to_next_fire %d\n", time_to_next_fire);
+	if (time_to_next_fire <= 0) {
+		return TIMERS_LATE;
+	}
+
+	//printf("libgui awaiting next timer that will fire in %d\n", time_to_next_fire);
+	usleep(time_to_next_fire);
+	return SLEPT_FOR_TIMERS;
+}
+
 void gui_enter_event_loop(gui_window_t* window) {
 	// Draw everything once so the window shows its contents before we start 
 	// processing messages
 	_redraw_dirty_elems(window);
 	while (true) {
-		// Process any events sent to this service
-		_process_amc_messages(window);
+		timers_state_t timers_state = _sleep_for_timers(window);
+		// Only allow blocking for a message if there are no timers queued up
+		_process_amc_messages(window, timers_state == NO_TIMERS);
 		// Dispatch any ready timers
 		gui_dispatch_ready_timers(window);
 		// Redraw any dirty elements
