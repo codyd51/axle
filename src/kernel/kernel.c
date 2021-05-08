@@ -53,123 +53,8 @@ static void kernel_idle() {
     }
 }
 
-static void awm_init() {
-    const char* program_name = "awm";
-
-    // VESA Framebuffer,
-    boot_info_t* info = boot_info_get();
-    vmm_identity_map_region(
-        (vmm_page_directory_t*)vmm_active_pdir(), 
-        info->framebuffer.address, 
-        info->framebuffer.size
-    );
-
-    FILE* fp = initrd_fopen(program_name, "rb");
-    const char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-    panic("noreturn");
-}
-
-static void cat() {
-    const char* program_name = "cat";
-
-    FILE* fp = initrd_fopen(program_name, "rb");
-    const char* argv[] = {program_name, "test-file.txt", NULL};
-    elf_load_file(program_name, fp, argv);
-    panic("noreturn");
-}
-
-static void rainbow() {
-    const char* program_name = "rainbow";
-
-    FILE* fp = initrd_fopen(program_name, "rb");
-    const char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-    panic("noreturn");
-}
-
-static void paintbrush() {
-    const char* program_name = "paintbrush";
-    FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-    panic("noreturn");
-}
-
-static void textpad() {
-    const char* program_name = "textpad";
-    FILE* fp = initrd_fopen(program_name, "rb");
-    const char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-    panic("noreturn");
-}
-
-static void tty_init() {
-    const char* program_name = "tty";
-    FILE* fp = initrd_fopen(program_name, "rb");
-    const char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-	panic("noreturn");
-}
-
-static void pci_driver() {
-    const char* program_name = "pci_driver";
-    FILE* fp = initrd_fopen(program_name, "rb");
-    const char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-    panic("noreturn");
-}
-
-static void net() {
-    const char* program_name = "net";
-    FILE* fp = initrd_fopen(program_name, "rb");
-    const char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-    panic("noreturn");
-}
-
-static void timed_launch() {
-    const char* program_name = "timed";
-    FILE* fp = initrd_fopen(program_name, "rb");
-    const char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-	panic("noreturn");
-}
-
-static void netclient_launch() {
-    const char* program_name = "netclient";
-    FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-	panic("noreturn");
-}
-
-static void watchdogd_launch() {
-    const char* program_name = "watchdogd";
-    FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-	panic("noreturn");
-}
-
-static void tlsclient_launch() {
-    const char* program_name = "tlsclient";
-    FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-	panic("noreturn");
-}
-
-static void preferences_launch() {
-    const char* program_name = "preferences";
-    FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-	panic("noreturn");
-}
-
-static void _2048_launch() {
-    const char* program_name = "2048";
+static void _launch_program(const char* program_name, uint32_t arg2, uint32_t arg3) {
+    printf("_launch_program(%s, 0x%08x 0x%08x)\n", program_name, arg2, arg3);
     FILE* fp = initrd_fopen(program_name, "rb");
     assert(fp, "Failed to open file");
     char* argv[] = {program_name, NULL};
@@ -218,21 +103,32 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     // Multitasking and program loading is now available
 
     // Launch some initial drivers and services
-    task_spawn(ps2_keyboard_driver_launch, PRIORITY_DRIVER, "");
-    task_spawn(ps2_mouse_driver_launch, PRIORITY_DRIVER, "");
-    task_spawn(awm_init, PRIORITY_GUI, "");
-    task_spawn(tty_init, PRIORITY_TTY, "");
-    //task_spawn(rainbow, PRIORITY_NONE, "");
-    //task_spawn(paintbrush, PRIORITY_NONE, "");
-    //task_spawn(textpad, PRIORITY_NONE, "");
-    task_spawn(pci_driver, PRIORITY_NONE, "");
-    task_spawn(net, PRIORITY_NONE, "");
-    task_spawn(timed_launch, PRIORITY_NONE, "");
-    //task_spawn(netclient_launch, PRIORITY_NONE, "");
-    task_spawn(_2048_launch, PRIORITY_NONE, "");
-    //task_spawn(tlsclient_launch, PRIORITY_NONE, "");
-    //task_spawn(preferences_launch, PRIORITY_NONE, "");
-    //task_spawn(watchdogd_launch, PRIORITY_NONE, "");
+    const char* launch_programs[] = {
+        // System services
+        "kb_driver",
+        "mouse_driver",
+        "awm",
+        "timed",
+        // Higher-level facilities
+        "tty",
+        /*
+        "pci_driver",
+        "net",
+        "netclient",
+        */
+        // User applications
+        "file_manager",
+        // Games
+        /*
+        "breakout",
+        "snake",
+        "2048"
+        */
+    };
+    for (uint32_t i = 0; i < sizeof(launch_programs) / sizeof(launch_programs[0]); i++) {
+        const char* program_name = launch_programs[i];
+        task_spawn__with_args(_launch_program, program_name, 0, 0, "");
+    }
 
     // Bootstrapping complete - kill this process
     printf("[t = %d] Bootstrap task [PID %d] will exit\n", time(), getpid());

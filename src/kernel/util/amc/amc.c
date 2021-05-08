@@ -306,10 +306,15 @@ static void _amc_core_awm_map_framebuffer(const char* source_service) {
     amc_service_t* current_service = _amc_service_with_name(source_service);
     spinlock_acquire(&current_service->spinlock);
     framebuffer_info_t* framebuffer_info = &boot_info_get()->framebuffer;
-    // TODO(PT): Map framebuffer into proc's address space
-    // Currently it's identity-mapped in awm_init()
+    //  Map VESA framebuffer into proc's address space
+    vmm_identity_map_region(
+        (vmm_page_directory_t*)vmm_active_pdir(), 
+        framebuffer_info->address,
+        framebuffer_info->size
+    );
     spinlock_release(&current_service->spinlock);
 
+    // And set the pages as accessible to user-mode
     uint32_t framebuf_start_addr = framebuffer_info->address;
     uint32_t framebuf_end_addr = framebuffer_info->address + framebuffer_info->size;
     // Pad to page size

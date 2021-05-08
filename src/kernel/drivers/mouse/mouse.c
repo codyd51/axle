@@ -43,15 +43,6 @@ void ps2_mouse_enable(void) {
     ps2_expect_ack();
 }
 
-void ps2_mouse_driver_launch(void) {
-	// TODO(PT): Refactored method to launch a driver
-    const char* program_name = "mouse_driver";
-    FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-	panic("noreturn");
-}
-
 void mouse_event_wait() {
 	Deprecated();
 }
