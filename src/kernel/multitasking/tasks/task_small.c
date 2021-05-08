@@ -117,9 +117,9 @@ void task_die(int exit_code) {
     panic("Should never be scheduled again\n");
 }
 
-static void _task_bootstrap(uint32_t entry_point_ptr, uint32_t arg2) {
-    int(*entry_point)(void) = (int(*)(void))entry_point_ptr;
-    int status = entry_point();
+static void _task_bootstrap(uint32_t entry_point_ptr, uint32_t entry_point_arg1, uint32_t entry_point_arg2, uint32_t entry_point_arg3) {
+    int(*entry_point)(uint32_t, uint32_t, uint32_t) = (int(*)(uint32_t, uint32_t, uint32_t))entry_point_ptr;
+    int status = entry_point(entry_point_arg1, entry_point_arg2, entry_point_arg3);
     task_die(status);
 }
 
@@ -151,7 +151,7 @@ static void _setup_fds(task_small_t* new_task) {
     array_l_insert(new_task->fd_table, stderr_entry);
 }
 
-task_small_t* _thread_create(void* entry_point) {
+task_small_t* _thread_create(void* entry_point, uint32_t arg1, uint32_t arg2, uint32_t arg3) {
     task_small_t* new_task = kmalloc(sizeof(task_small_t));
     memset(new_task, 0, sizeof(task_small_t));
     new_task->id = next_pid++;
@@ -165,9 +165,11 @@ task_small_t* _thread_create(void* entry_point) {
 
     uint32_t* stack_top = (uint32_t *)(stack + stack_size - 0x4); // point to top of malloc'd stack
     if (entry_point) {
-        // TODO(PT): We should be able to pass another argument here to the bootstrap function
+        *(stack_top--) = arg3;
+        *(stack_top--) = arg2;
+        *(stack_top--) = arg1;
         *(stack_top--) = (uint32_t)entry_point;   // Argument to bootstrap function (which we'll then jump to)
-        *(stack_top--) = 0;     // Alignment
+        *(stack_top--) = 0x0;   // Alignment
         *(stack_top--) = (uint32_t)_task_bootstrap;   // Entry point for new thread
         *(stack_top--) = 0;             //eax
         *(stack_top--) = 0;             //ebx
@@ -191,32 +193,41 @@ task_small_t* _thread_create(void* entry_point) {
 }
 
 task_small_t* thread_spawn(void* entry_point) {
-    task_small_t* new_thread = _thread_create(entry_point);
+    task_small_t* new_thread = _thread_create(entry_point, 0, 0, 0);
     // Make the thread schedulable now
     _task_make_schedulable(new_thread);
     return new_thread;
 }
 
-static task_small_t* _task_spawn(void* entry_point, task_priority_t priority, const char* task_name) {
+// TODO(PT): Remove task_priority_t
+static task_small_t* _task_spawn__entry_point_with_args(void* entry_point, uint32_t arg1, uint32_t arg2, uint32_t arg3, const char* task_name) {
     // Use the internal thread-state constructor so that this task won't get
     // scheduled until we've had a chance to set all of its state
-    task_small_t* new_task = _thread_create(entry_point);
+    task_small_t* new_task = _thread_create(entry_point, arg1, arg2, arg3);
     new_task->is_thread = false;
 
     // a task is simply a thread with its own virtual address space
     // the new task's address space is a clone of the task that spawned it
     vmm_page_directory_t* new_vmm = vmm_clone_active_pdir();
     new_task->vmm = new_vmm;
-
-    // Assign the provided attributes
-    new_task->priority = priority;
     new_task->name = strdup(task_name);
 
     return new_task;
 }
 
+static task_small_t* _task_spawn(void* entry_point, task_priority_t priority, const char* task_name) {
+    return _task_spawn__entry_point_with_args(entry_point, 0, 0, 0, task_name);
+}
+
 static void _task_make_schedulable(task_small_t* task) {
     mlfq_add_task_to_queue(task, 0);
+}
+
+task_small_t* task_spawn__with_args(void* entry_point, uint32_t arg1, uint32_t arg2, uint32_t arg3, const char* task_name) {
+    task_small_t* task = _task_spawn__entry_point_with_args(entry_point, arg1, arg2, arg3, task_name);
+    // Task is now ready to run - make it schedulable
+    _task_make_schedulable(task);
+    return task;
 }
 
 task_small_t* task_spawn(void* entry_point, task_priority_t priority, const char* task_name) {

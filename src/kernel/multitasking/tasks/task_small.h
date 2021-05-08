@@ -91,6 +91,7 @@ void task_switch_if_quantum_expired(void);
 
 task_small_t* thread_spawn(void* entry_point);
 task_small_t* task_spawn(void* entry_point, task_priority_t priority, const char* task_name);
+task_small_t* task_spawn__with_args(void* entry_point, uint32_t arg1, uint32_t arg2, uint32_t arg3, const char* task_name);
 
 task_small_t* tasking_get_task_with_pid(int pid);
 task_small_t* tasking_get_current_task();
