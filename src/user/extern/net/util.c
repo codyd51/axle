@@ -40,7 +40,7 @@ void format_ipv4_address__u32(char* out, ssize_t out_size, uint32_t ip) {
 void hexdump(const void* addr, const int len) {
     const char* desc = "";
     int i;
-    unsigned char buff[17];
+    unsigned char buff[65];
     const unsigned char * pc = (const unsigned char *)addr;
 
     // Output description if given.
@@ -64,7 +64,7 @@ void hexdump(const void* addr, const int len) {
     for (i = 0; i < len; i++) {
         // Multiple of 16 means new line (with line offset).
 
-        if ((i % 16) == 0) {
+        if ((i % 64) == 0) {
             // Don't print ASCII buffer for the "zeroth" line.
 
             if (i != 0)
@@ -76,20 +76,20 @@ void hexdump(const void* addr, const int len) {
         }
 
         // Now the hex code for the specific character.
-        printf (" %02x", pc[i]);
+        //printf ("%02x", pc[i]);
 
         // And buffer a printable ASCII character for later.
 
         if ((pc[i] < 0x20) || (pc[i] > 0x7e)) // isprint() may be better.
-            buff[i % 16] = '.';
+            buff[i % 64] = '.';
         else
-            buff[i % 16] = pc[i];
-        buff[(i % 16) + 1] = '\0';
+            buff[i % 64] = pc[i];
+        buff[(i % 64) + 1] = '\0';
     }
 
     // Pad out last line if not exactly 16 characters.
 
-    while ((i % 16) != 0) {
+    while ((i % 64) != 0) {
         printf ("   ");
         i++;
     }
