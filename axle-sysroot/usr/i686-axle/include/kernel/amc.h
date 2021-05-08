@@ -43,6 +43,13 @@ typedef struct amc_initrd_info {
     uint32_t initrd_size;
 } amc_initrd_info_t;
 
+typedef struct amc_exec_buffer_cmd {
+    uint32_t event;
+    const char* program_name;
+    void* buffer_addr;
+    uint32_t buffer_size;
+} amc_exec_buffer_cmd_t;
+
 #define AXLE_CORE_SERVICE_NAME "com.axle.core"
 #define AMC_COPY_SERVICES (1 << 0)
 #define AMC_COPY_SERVICES_RESPONSE (1 << 0)
@@ -54,6 +61,9 @@ typedef struct amc_initrd_info {
 
 #define AMC_FILE_MANAGER_MAP_INITRD (1 << 3)
 #define AMC_FILE_MANAGER_MAP_INITRD_RESPONSE (1 << 3)
+
+#define AMC_FILE_MANAGER_EXEC_BUFFER (1 << 4)
+#define AMC_FILE_MANAGER_EXEC_BUFFER_RESPONSE (1 << 4)
 
 // Register the running process as the provided service name
 void amc_register_service(const char* name);

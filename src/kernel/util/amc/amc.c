@@ -388,6 +388,30 @@ static void _amc_core_file_manager_map_initrd(const char* source_service) {
     amc_message_construct_and_send__from_core(source_service, &msg, sizeof(amc_initrd_info_t));
 }
 
+#include <kernel/util/elf/elf.h>
+
+static void _trampoline(const char* program_name, void* buf, uint32_t buf_size) {
+    char* argv[] = {program_name, NULL};
+    elf_load_buffer(program_name, buf, buf_size, argv);
+	panic("noreturn");
+}
+
+static void _amc_core_file_manager_exec_buffer(const char* source_service, void* buf, uint32_t buf_size) {
+    // Only file_manager is allowed to invoke this code!
+    assert(!strncmp(source_service, "com.axle.file_manager", AMC_MAX_SERVICE_NAME_LEN), "Only File Manager may use this syscall");
+
+    amc_exec_buffer_cmd_t* cmd = (amc_exec_buffer_cmd_t*)buf;
+    printf("program name %s\n", cmd->program_name);
+
+    task_spawn__with_args(
+        _trampoline, 
+        cmd->program_name, 
+        cmd->buffer_addr, 
+        cmd->buffer_size, 
+        cmd->program_name
+    );
+}
+
 static bool _amc_message_construct_and_send_from_service_name(const char* source_service,
                                                               const char* destination_service,
                                                               void* buf,
@@ -413,6 +437,9 @@ static bool _amc_message_construct_and_send_from_service_name(const char* source
         }
         else if (u32buf[0] == AMC_FILE_MANAGER_MAP_INITRD) {
             _amc_core_file_manager_map_initrd(source_service);
+        }
+        else if (u32buf[0] == AMC_FILE_MANAGER_EXEC_BUFFER) {
+            _amc_core_file_manager_exec_buffer(source_service, buf, buf_size);
         }
         else {
             assert(0, "Unknown message to core");
