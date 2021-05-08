@@ -292,9 +292,11 @@ static void _view_window_resized(gui_view_t* v, Size new_window_size) {
 	}
 }
 
-gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_cb) {
-	gui_view_t* view = calloc(1, sizeof(gui_view_t));
-	view->window = window;
+gui_view_t* gui_view_alloc(void) {
+	return (gui_view_t*)calloc(1, sizeof(gui_view_t));
+}
+
+void gui_view_init(gui_view_t* view, gui_window_t* window, gui_window_resized_cb_t sizer_cb) {
 	view->type = GUI_TYPE_VIEW;
 	view->border_margin = 12;
 	view->content_layer = create_layer(_gui_screen_resolution());
@@ -315,16 +317,35 @@ gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_
 
 	view->subviews = array_create(32);
 
-	view->frame = sizer_cb((gui_elem_t*)view, window->size);
-	view->content_layer_frame = rect_make(point_zero(), view->frame.size);
 	view->background_color = color_black();
 	gui_view_set_title(view, NULL);
+}
 
-	printf("%s Initial view frame\n", rect_print(view->frame));
+void gui_view_add_subview(gui_view_t* superview, gui_view_t* subview) {
+	subview->window = superview->window;
+	subview->superview = superview;
+	subview->frame = subview->sizer_cb((gui_elem_t*)subview, subview->window->size);
+	subview->content_layer_frame = rect_make(point_zero(), subview->frame.size);
+	printf("%s Initial view frame (subview)\n", rect_print(subview->frame));
+
+	array_insert(superview->subviews, subview);
+}
+
+void gui_view_add_to_window(gui_view_t* view, gui_window_t* window) {
+	view->window = window;
+	view->frame = view->sizer_cb((gui_elem_t*)view, window->size);
+	view->content_layer_frame = rect_make(point_zero(), view->frame.size);
+
+	printf("%s Initial view frame (root view)\n", rect_print(view->frame));
 
 	array_insert(window->views, view);
 	array_insert(window->all_gui_elems, view);
+}
 
+gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_cb) {
+	gui_view_t* view = gui_view_alloc();
+	gui_view_init(view, window, sizer_cb);
+	gui_view_add_to_window(view, window);
 	return view;
 }
 

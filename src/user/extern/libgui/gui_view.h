@@ -52,7 +52,14 @@ typedef struct gui_view {
     Rect _title_inset;
 } gui_view_t;
 
+gui_view_t* gui_view_alloc(void);
+void gui_view_init(gui_view_t* view, gui_window_t* window, gui_window_resized_cb_t sizer_cb);
+void gui_view_add_subview(gui_view_t* superview, gui_view_t* subview);
+void gui_view_add_to_window(gui_view_t* view, gui_window_t* window);
+
+// Combines -alloc, -init, and -add_to_window
 gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_cb);
+
 void gui_view_set_title(gui_view_t* view, char* title);
 void gui_view_destroy(gui_view_t* view);
 
