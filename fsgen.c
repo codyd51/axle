@@ -31,7 +31,8 @@ FILE* openfile(const char* dirname, struct dirent* dir, const char* mode) {
 void write_dir(const char* dirname) {
 	rd_header headers[HEADERS_MAX];
 	//initial file offset is size of initrd header * max headers + actual header count
-	unsigned int off = sizeof(rd_header) * HEADERS_MAX + sizeof(int);
+	uint32_t off = sizeof(rd_header) * HEADERS_MAX + sizeof(int);
+	printf("Offset past TOC: 0x%08x\n", off);
 	
 	DIR* dp = opendir(dirname);
 	if (!dp) {
@@ -53,15 +54,15 @@ void write_dir(const char* dirname) {
 
 		strcpy(headers[nheaders].name, pathname);
 		//add null byte to end of filename
+		// TODO(PT): This seems unnecessary?
 		headers[nheaders].name[strlen(pathname)] = 0;
 
 		//write offset into initrd
 		headers[nheaders].offset = off;
+		printf("Offset of %s: 0x%08x\n", pathname, off);
 
 		//open file so we can write binary data to initrd
 		FILE* stream = openfile(dirname, ep, "rb");
-		//support your fellow linux brothers
-		//FILE* stream = fopen(pathname, "rb");
 		if (!stream) {
 			printf("Error: file not found: %s\n", pathname);
 			exit(1);
