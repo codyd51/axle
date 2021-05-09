@@ -35,7 +35,7 @@ typedef struct file_view {
     gui_window_t* window;
 
     // Public fields
-    ca_layer* content_layer;
+    gui_layer_t* content_layer;
     Rect content_layer_frame;
     bool controls_content_layer;
     Color background_color;
@@ -52,11 +52,14 @@ typedef struct file_view {
 
     // Private fields
     array_t* subviews;
-	struct gui_view superview;
+    gui_view_t* superview;
     uint32_t border_margin;
     uint32_t title_bar_height;
     char* _title;
     Rect _title_inset;
+    gui_layer_t* parent_layer;
+    gui_view_elem_for_mouse_pos_cb_t elem_for_mouse_pos_cb;
+    gui_draw_cb_t _fill_background_cb;
 
 	// File-view-specific fields
 	fs_node_t* fs_node;
@@ -65,10 +68,10 @@ typedef struct file_view {
 	uint32_t dfs_index;
 } file_view_t;
 
-static void _draw_string(ca_layer* layer, char* text, Point origin, Size font_size, Color color) {
+static void _draw_string(gui_layer_t* layer, char* text, Point origin, Size font_size, Color color) {
 	Point cursor = origin;
 	for (uint32_t i = 0; i < strlen(text); i++) {
-		draw_char(
+		gui_layer_draw_char(
 			layer,
 			text[i],
 			cursor.x,
@@ -80,7 +83,7 @@ static void _draw_string(ca_layer* layer, char* text, Point origin, Size font_si
 	}
 }
 
-static void _draw_centered_string(ca_layer* layer, char* text, Point center, Size font_size, Color color) {
+static void _draw_centered_string(gui_layer_t* layer, char* text, Point center, Size font_size, Color color) {
 	uint32_t msg_len = strlen(text);
 	uint32_t msg_width = msg_len * font_size.width;
 	Point origin = point_make(
@@ -92,6 +95,7 @@ static void _draw_centered_string(ca_layer* layer, char* text, Point center, Siz
 
 static file_view_t* _file_view_alloc(const char* filename) {
 	file_view_t* f = calloc(1, sizeof(file_view_t));
+	gui_view_alloc_dynamic_fields(f);
 	return f;
 }
 
@@ -134,14 +138,12 @@ static fs_base_node_t* fs_node_create__file(fs_base_node_t* parent, char* name, 
 static void _parse_initrd(fs_base_node_t* initrd_root, amc_initrd_info_t* initrd_info) {
 	initrd_header_t* header = (initrd_header_t*)initrd_info->initrd_start;
 	uint32_t offset = initrd_info->initrd_start + sizeof(initrd_header_t);
-	printf("nfiles %d\n", header->nfiles);
 	for (uint32_t i = 0; i < header->nfiles; i++) {
 		initrd_file_header_t* file_header = (initrd_file_header_t*)offset;
 
 		assert(file_header->magic == HEADER_MAGIC, "Initrd file header magic was wrong");
 
 		initrd_fs_node_t* fs_node = (initrd_fs_node_t*)fs_node_create__file(initrd_root, file_header->name, strlen(file_header->name));
-		printf("created node %s\n", file_header->name);
 		fs_node->type = FS_NODE_TYPE_INITRD;
 		fs_node->initrd_offset = file_header->offset;
 		fs_node->size = file_header->length;
@@ -184,13 +186,11 @@ static void _print_fs_tree(fs_node_t* node, uint32_t depth) {
 static uint32_t _depth_first_search__idx(fs_base_node_t* parent, fs_base_node_t* find, uint32_t sum, bool* out_found) {
 	sum += 1;
 	if (parent == find) {
-		printf("(node %s find %s) found outer\n", parent->name, find->name);
 		*out_found = true;
 		return sum;
 	}
 
 	if (parent->children) {
-		printf("(node %s find %s) children\n", parent->name, find->name);
 		for (uint32_t i = 0; i < parent->children->size; i++) {
 			fs_base_node_t* child = array_lookup(parent->children, i);
 			sum = _depth_first_search__idx(child, find, sum, out_found);
@@ -200,7 +200,6 @@ static uint32_t _depth_first_search__idx(fs_base_node_t* parent, fs_base_node_t*
 			}
 		}
 	}
-	printf("(node %s find %s) return sum %d\n", parent->name, find->name, sum);
 	return sum;
 }
 
@@ -208,22 +207,9 @@ static Rect _file_view_sizer(file_view_t* view, Size window_size) {
 	Size icon_size = size_make(30, 30);
 	uint32_t padding_y = 10;
 
-	bool found = false;
-
-	if (view->fs_node->base.type != FS_NODE_TYPE_ROOT) {
-		fs_node_t* root = view->fs_node->base.parent;
-		while (root->base.type != FS_NODE_TYPE_ROOT) {
-			root = root->base.parent;
-		}
-		view->dfs_index = _depth_first_search__idx(root, view->fs_node, 0, &found);
-		printf("Depth of %s: %d\n", view->fs_node->base.name, view->dfs_index);
-	}
-
 	Point origin = view->parent_folder_start;
 	if (view->fs_node->base.type == FS_NODE_TYPE_ROOT) {
-		printf("superview 0x%08x %d %d\n", view->superview, view->superview.content_layer_frame.origin.x, view->superview.content_layer_frame.origin.y);
-		origin = point_make(24, 24);
-		//origin = view->superview.content_layer_frame.origin;
+		origin = view->superview->content_layer_frame.origin;
 	}
 	else {
 		// Indent from the parent
@@ -264,14 +250,14 @@ static void _file_view_draw(file_view_t* view, bool is_active) {
 		)
 	);
 	*/
-	draw_rect(
-		view->window->layer, 
+	gui_layer_draw_rect(
+		view->parent_layer,
 		icon_frame,
 		color_light_gray(),
 		THICKNESS_FILLED
 	);
 	_draw_centered_string(
-		view->window->layer, 
+		view->parent_layer,
 		"?",
 		point_make(
 			rect_mid_x(icon_frame),
@@ -280,11 +266,12 @@ static void _file_view_draw(file_view_t* view, bool is_active) {
 		font_size,
 		color_white()
 	);
-	draw_rect(
-		view->window->layer, 
+
+	gui_layer_draw_rect(
+		view->parent_layer,
 		icon_frame,
 		bg_color,
-		1
+		3
 	);
 
 	Rect label_frame = rect_make(
@@ -295,7 +282,7 @@ static void _file_view_draw(file_view_t* view, bool is_active) {
 		icon_frame.size
 	);
 	_draw_string(
-		view->window->layer, 
+		view->parent_layer, 
 		view->fs_node->base.name,
 		point_make(
 			rect_min_x(label_frame) + font_size.width,
@@ -307,8 +294,8 @@ static void _file_view_draw(file_view_t* view, bool is_active) {
 
 	// Connecting line to the tree structure
 	// Horizontal line
-	draw_line(
-		view->window->layer,
+	gui_layer_draw_line(
+		view->parent_layer,
 		line_make(
 			point_make(
 				view->parent_folder_start.x + (view->frame.size.width / 2),
@@ -323,23 +310,21 @@ static void _file_view_draw(file_view_t* view, bool is_active) {
 		2
 	);
 	// Vertical line
-	//if (view->idx_within_folder == 3) {
-		draw_line(
-			view->window->layer,
-			line_make(
-				point_make(
-					view->parent_folder_start.x + (view->frame.size.width / 2.0),
-					view->parent_folder_start.y + (view->frame.size.height)
-				),
-				point_make(
-					view->parent_folder_start.x + (view->frame.size.width / 2.0),
-					rect_mid_y(icon_frame)
-				)
+	gui_layer_draw_line(
+		view->parent_layer,
+		line_make(
+			point_make(
+				view->parent_folder_start.x + (view->frame.size.width / 2.0),
+				view->parent_folder_start.y + (view->frame.size.height)
 			),
-			color_light_gray(),
-			1
-		);
-	//}
+			point_make(
+				view->parent_folder_start.x + (view->frame.size.width / 2.0),
+				rect_mid_y(icon_frame)
+			)
+		),
+		color_light_gray(),
+		1
+	);
 }
 
 static void _file_view_left_click(file_view_t* view, Point mouse_point) {
@@ -365,8 +350,19 @@ static void _generate_ui_tree(gui_view_t* container_view, file_view_t* parent_vi
 
 	gui_view_init((gui_view_t*)file_view, container_view->window, (gui_window_resized_cb_t)_file_view_sizer);
 	gui_view_add_subview(container_view, (gui_view_t*)file_view);
+	file_view->parent_layer = container_view->content_layer;
 	file_view->_priv_draw_cb = (gui_draw_cb_t)_file_view_draw;
 	file_view->left_click_cb = (gui_mouse_left_click_cb_t)_file_view_left_click;
+
+	if (node->base.type != FS_NODE_TYPE_ROOT) {
+		fs_node_t* root = node->base.parent;
+		while (root->base.type != FS_NODE_TYPE_ROOT) {
+			root = root->base.parent;
+		}
+		bool found = false;
+		file_view->dfs_index = _depth_first_search__idx(root, node, 0, &found);
+		printf("Depth of %s: %d\n", node->base.name, file_view->dfs_index);
+	}
 
 	if (node->base.children) {
 		for (uint32_t i = 0; i < node->base.children->size; i++) {
@@ -382,7 +378,7 @@ int main(int argc, char** argv) {
 	gui_window_t* window = gui_window_create("File Manager", 300, 860);
 	Size window_size = window->size;
 
-	gui_view_t* content_view = gui_view_create(window, (gui_window_resized_cb_t)_content_view_sizer);
+	gui_scroll_view_t* content_view = gui_scroll_view_create(window, (gui_window_resized_cb_t)_content_view_sizer);
 	content_view->background_color = color_white();
 
 	// Ask the kernel to map in the ramdisk and send us info about it
