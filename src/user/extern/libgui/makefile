@@ -11,7 +11,7 @@ CFLAGS = -I$(SYSROOT)/usr/i686-axle/include -g -L$(SYSROOT)/usr/i686-axle/lib -W
 
 # The resulting static library will be moved into the sysroot by the 
 # build-libs.py script.
-libgui.a: libgui.c gui_scrollbar.c gui_text_input.c gui_text_view.c gui_view.c gui_slider.c utils.c gui_button.c gui_timer.c $(SYSROOT)/usr/i686-axle/lib/libagx.a $(SYSROOT)/usr/i686-axle/lib/libamc.a
+libgui.a: libgui.c gui_scrollbar.c gui_text_input.c gui_text_view.c gui_view.c gui_slider.c utils.c gui_button.c gui_timer.c gui_scroll_view.c gui_layer.c $(SYSROOT)/usr/i686-axle/lib/libagx.a $(SYSROOT)/usr/i686-axle/lib/libamc.a
 	$(CC) $(CFLAGS) -o libgui.o -c libgui.c; \
 	$(CC) $(CFLAGS) -o gui_scrollbar.o -c gui_scrollbar.c; \
 	$(CC) $(CFLAGS) -o gui_text_input.o -c gui_text_input.c; \
@@ -21,5 +21,7 @@ libgui.a: libgui.c gui_scrollbar.c gui_text_input.c gui_text_view.c gui_view.c g
 	$(CC) $(CFLAGS) -o utils.o -c utils.c; \
 	$(CC) $(CFLAGS) -o gui_button.o -c gui_button.c; \
 	$(CC) $(CFLAGS) -o gui_timer.o -c gui_timer.c; \
-	$(AR) rcs libgui.a libgui.o gui_scrollbar.o gui_text_input.o gui_text_view.o gui_view.o gui_slider.o utils.o gui_button.o gui_timer.o; \
+	$(CC) $(CFLAGS) -o gui_scroll_view.o -c gui_scroll_view.c; \
+	$(CC) $(CFLAGS) -o gui_layer.o -c gui_layer.c; \
+	$(AR) rcs libgui.a libgui.o gui_scrollbar.o gui_text_input.o gui_text_view.o gui_view.o gui_slider.o utils.o gui_button.o gui_timer.o gui_scroll_view.o gui_layer.o; \
 	$(RANLIB) libgui.a;

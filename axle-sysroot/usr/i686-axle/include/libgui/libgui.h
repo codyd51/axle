@@ -15,6 +15,7 @@
 #include "gui_slider.h"
 #include "gui_button.h"
 #include "gui_timer.h"
+#include "gui_scroll_view.h"
 
 typedef struct gui_window gui_window_t;
 typedef void (*gui_interrupt_cb_t)(gui_window_t* window, uint32_t int_no);
