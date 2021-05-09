@@ -172,21 +172,7 @@ static void _handle_mouse_moved(gui_window_t* window, awm_mouse_moved_msg_t* mov
 		gui_elem_t* elem = array_lookup(window->all_gui_elems, i);
 		if (rect_contains_point(elem->base.frame, mouse_pos)) {
 			if (elem->base.type == GUI_TYPE_VIEW) {
-				// Check if we should instead route to a subview
-				for (uint32_t j = 0; j < elem->v.subviews->size; j++) {
-					gui_elem_t* sub_elem = array_lookup(elem->v.subviews, j);
-					Rect r = sub_elem->base.frame;
-					Point local_mouse = point_make(
-						mouse_pos.x - rect_min_x(elem->v.content_layer_frame), 
-						mouse_pos.y - rect_min_y(elem->v.content_layer_frame)
-					);
-					if (rect_contains_point(sub_elem->base.frame, local_mouse)) {
-						// printf("Gave mouse event to subview <%d 0x%08x>\n", sub_elem->base.type, sub_elem);
-						elem = sub_elem;
-						break;
-					}
-				}
-				// TODO(PT): We should repeat the above step to handle recursively nested views
+				elem = elem->v.elem_for_mouse_pos_cb(elem, mouse_pos);
 			}
 			// Was the mouse already inside this element?
 			if (window->hover_elem == elem) {

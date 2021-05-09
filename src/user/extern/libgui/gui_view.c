@@ -76,6 +76,18 @@ void gui_view_set_title(gui_view_t* v, char* title) {
 	);
 }
 
+static void _gui_view_fill_background(gui_view_t* v, bool is_active) {
+	gui_layer_draw_rect(
+		v->content_layer, 
+		rect_make(
+			point_zero(), 
+			v->content_layer_frame.size
+		), 
+		v->background_color, 
+		THICKNESS_FILLED
+	);
+}
+
 static void _gui_view_draw(gui_view_t* v, bool is_active) {
 	// Margin
 	uint32_t inner_margin_size = v->border_margin / 2;
@@ -83,8 +95,8 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 
 	if (v->_title != NULL) {
 		// View title
-		draw_rect(
-			v->window->layer,
+		gui_layer_draw_rect(
+			v->parent_layer,
 			v->_title_inset,
 			color_light_gray(),
 			THICKNESS_FILLED
@@ -123,9 +135,8 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 			v->frame.size.height - v->_title_inset.size.height 
 		)
 	);
-
-	draw_rect(
-		v->window->layer, 
+	gui_layer_draw_rect(
+		v->parent_layer,
 		outer_margin,
 		color_light_gray(),
 		outer_margin_size
@@ -133,8 +144,8 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 
 	// Outline above outer margin
 	Color outline_color = is_active ? color_make(200, 200, 200) : color_dark_gray();
-	draw_rect(
-		v->window->layer, 
+	gui_layer_draw_rect(
+		v->parent_layer,
 		v->frame,
 		outline_color,
 		1
@@ -151,8 +162,8 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 			outer_margin.size.height - (outer_margin_before_inner * 2)
 		)
 	);
-	draw_rect(
-		v->window->layer, 
+	gui_layer_draw_rect(
+		v->parent_layer,
 		inner_margin,
 		color_dark_gray(),
 		inner_margin_size
@@ -162,8 +173,8 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 	Color inset_color = color_make(50, 50, 50);
 	int inset_adjustment_x = 3;
 	// Top left corner
-	draw_line(
-		v->window->layer,
+	gui_layer_draw_line(
+		v->parent_layer,
 		line_make(
 			point_make(
 				inner_margin.origin.x + inset_adjustment_x,
@@ -179,8 +190,8 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 	);
 
 	// Bottom left corner
-	draw_line(
-		v->window->layer,
+	gui_layer_draw_line(
+		v->parent_layer,
 		line_make(
 			point_make(
 				inner_margin.origin.x + inset_adjustment_x,
@@ -196,8 +207,8 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 	);
 
 	// Top left corner
-	draw_line(
-		v->window->layer,
+	gui_layer_draw_line(
+		v->parent_layer,
 		line_make(
 			point_make(
 				rect_max_x(inner_margin) - inset_adjustment_x,
@@ -213,8 +224,8 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 	);
 
 	// Bottom left corner
-	draw_line(
-		v->window->layer,
+	gui_layer_draw_line(
+		v->parent_layer,
 		line_make(
 			point_make(
 				rect_max_x(inner_margin) - inset_adjustment_x,
@@ -230,8 +241,8 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 	);
 
 	// Draw the inner content layer
-	blit_layer(
-		v->window->layer,
+	gui_layer_blit_layer(
+		v->parent_layer,
 		v->content_layer,
 		v->content_layer_frame,
 		rect_make(
@@ -241,24 +252,18 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 	);
 
 	if (!v->controls_content_layer) {
-		draw_rect(
-			v->content_layer, 
-			rect_make(
-				point_zero(), 
-				v->content_layer_frame.size
-			), 
-			v->background_color, 
-			THICKNESS_FILLED
-		);
-		for (uint32_t j = 0; j < v->subviews->size; j++) {
-			gui_elem_t* subview = array_lookup(v->subviews, j);
+		v->_fill_background_cb(v, is_active);
+	}
 
-			//if (subview->base._priv_needs_display) {
-				is_active = v->window->hover_elem == subview;
-				subview->base._priv_draw_cb(subview, is_active);
-				subview->base._priv_needs_display = false;
-			//}
-		}
+	// Draw subviews
+	for (uint32_t j = 0; j < v->subviews->size; j++) {
+		gui_elem_t* subview = array_lookup(v->subviews, j);
+
+		//if (subview->base._priv_needs_display) {
+			is_active = v->window->hover_elem == subview;
+			subview->base._priv_draw_cb(subview, is_active);
+			subview->base._priv_needs_display = false;
+		//}
 	}
 }
 
@@ -292,14 +297,35 @@ static void _view_window_resized(gui_view_t* v, Size new_window_size) {
 	}
 }
 
+void gui_view_alloc_dynamic_fields(gui_view_t* view) {
+	view->content_layer = calloc(1, sizeof(gui_layer_t));
+	view->content_layer->fixed_layer.type = GUI_FIXED_LAYER;
+	view->content_layer->fixed_layer.inner = create_layer(_gui_screen_resolution());
+	view->subviews = array_create(32);
+}
+
 gui_view_t* gui_view_alloc(void) {
-	return (gui_view_t*)calloc(1, sizeof(gui_view_t));
+	gui_view_t* v = calloc(1, sizeof(gui_view_t));
+	gui_view_alloc_dynamic_fields(v);
+	return v;
+}
+
+gui_elem_t* gui_view_elem_for_mouse_pos(gui_view_t* view, Point mouse_pos) {
+	// Check if we should instead route to a subview
+	for (uint32_t j = 0; j < view->subviews->size; j++) {
+		gui_elem_t* sub_elem = array_lookup(view->subviews, j);
+		Rect r = sub_elem->base.frame;
+		if (rect_contains_point(sub_elem->base.frame, mouse_pos)) {
+			return sub_elem;
+		}
+	}
+	// TODO(PT): We should repeat the above step to handle recursively nested views
+	return view;
 }
 
 void gui_view_init(gui_view_t* view, gui_window_t* window, gui_window_resized_cb_t sizer_cb) {
 	view->type = GUI_TYPE_VIEW;
 	view->border_margin = 12;
-	view->content_layer = create_layer(_gui_screen_resolution());
 
 	view->_priv_mouse_entered_cb = (gui_mouse_entered_cb_t)_view_handle_mouse_entered;
 	view->_priv_mouse_exited_cb = (gui_mouse_exited_cb_t)_view_handle_mouse_exited;
@@ -313,12 +339,12 @@ void gui_view_init(gui_view_t* view, gui_window_t* window, gui_window_resized_cb
 	view->_priv_draw_cb = (gui_draw_cb_t)_gui_view_draw;
 	view->_priv_window_resized_cb = (_priv_gui_window_resized_cb_t)_view_window_resized;
 	view->_priv_needs_display = true;
+    view->elem_for_mouse_pos_cb = (gui_view_elem_for_mouse_pos_cb_t)gui_view_elem_for_mouse_pos;
 	view->sizer_cb = sizer_cb;
-
-	view->subviews = array_create(32);
+	view->_fill_background_cb = (gui_draw_cb_t)_gui_view_fill_background;
 
 	view->background_color = color_black();
-	gui_view_set_title(view, NULL);
+	printf("%s Initial title inset %d %d\n", rect_print(view->_title_inset));
 }
 
 void gui_view_add_subview(gui_view_t* superview, gui_view_t* subview) {
@@ -326,7 +352,11 @@ void gui_view_add_subview(gui_view_t* superview, gui_view_t* subview) {
 	subview->superview = superview;
 	subview->frame = subview->sizer_cb((gui_elem_t*)subview, subview->window->size);
 	subview->content_layer_frame = rect_make(point_zero(), subview->frame.size);
+	subview->parent_layer = superview->content_layer;
+
 	printf("%s Initial view frame (subview)\n", rect_print(subview->frame));
+	// Set the title inset now that we have a frame
+	gui_view_set_title(subview, NULL);
 
 	array_insert(superview->subviews, subview);
 }
@@ -336,7 +366,16 @@ void gui_view_add_to_window(gui_view_t* view, gui_window_t* window) {
 	view->frame = view->sizer_cb((gui_elem_t*)view, window->size);
 	view->content_layer_frame = rect_make(point_zero(), view->frame.size);
 
+	// TODO(PT): Need to free this
+	// Or mabye we should replace all layers this way
+	gui_layer_t* wrapper = calloc(1, sizeof(gui_layer_t));
+	wrapper->fixed_layer.type = GUI_FIXED_LAYER;
+	wrapper->fixed_layer.inner = window->layer;
+	view->parent_layer = wrapper;
+
 	printf("%s Initial view frame (root view)\n", rect_print(view->frame));
+	// Set the title inset now that we have a frame
+	gui_view_set_title(view, NULL);
 
 	array_insert(window->views, view);
 	array_insert(window->all_gui_elems, view);
@@ -350,7 +389,10 @@ gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_
 }
 
 void gui_view_destroy(gui_view_t* view) {
-	layer_teardown(view->content_layer);
+	// TODO(PT): Dynamic dispatch for layer teardown?
+	assert(view->content_layer->base.type == GUI_FIXED_LAYER, "Expected fixed layer");
+	layer_teardown(view->content_layer->fixed_layer.inner);
+	free(view->content_layer);
 	array_destroy(view->subviews);
 	free(view);
 }
