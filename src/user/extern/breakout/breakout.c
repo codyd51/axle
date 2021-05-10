@@ -137,6 +137,7 @@ static void _resize_elements(game_state_t* state) {
 static void _window_resized(gui_view_t* view, Size new_size) {
 	game_state_t* state = &state_s;
 	_resize_elements(state);
+	_draw_hud(state);
 	draw_game_state(state);
 }
 
@@ -250,6 +251,8 @@ static void _start_new_game(game_state_t* state) {
 
 	_set_initial_ball_vector(state);
 	state->physics_enabled = false;
+
+	_draw_hud(state);
 }
 
 static void _vector_to_x_y(vector_t* vec, float* out_x, float* out_y) {
@@ -352,6 +355,7 @@ static void _run_physics_tick(game_state_t* state) {
 			if (state->lives_remaining == 0) {
 				_start_new_game(state);
 				draw_game_state(state);
+				_draw_hud(state);
 
 				/*
 				_draw_string(
