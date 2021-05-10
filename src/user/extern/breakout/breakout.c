@@ -52,12 +52,15 @@ typedef struct game_state {
 	bool right_down;
 
 	uint32_t lives_remaining;
+	uint32_t score;
 } game_state_t;
 
+static void _draw_hud(game_state_t* state);
 static void draw_game_state(game_state_t* state);
 static void _start_new_game(game_state_t* state);
 static void _run_physics_tick(game_state_t* state);
 static void _draw_string(game_state_t* state, char* text, Point center, Size font_size);
+static void _draw_centered_string(game_state_t* state, char* text, Point center, Size font_size);
 
 static game_state_t state_s = {0};
 
@@ -417,6 +420,10 @@ static void _run_physics_tick(game_state_t* state) {
 		}
 		cleared_all_bricks = false;
 		if (rect_intersects_rect(state->bricks[i].frame, ball_frame)) {
+			uint32_t row = i / BRICKS_PER_ROW;
+			state->score += 200 + (200 * (BRICK_ROWS - row));
+			// Draw the HUD now that we've updated the score
+			_draw_hud(state);
 			state->bricks[i].is_active = false;
 			// Negate Y velocity
 			float x, y = 0;
@@ -511,6 +518,16 @@ static void _draw_hud(game_state_t* state) {
 		);
 		lives_cursor.x += spacing;
 	}
+
+	char msg[128];
+	snprintf(msg, sizeof(msg), "Score: %d", state->score);
+	Size font_size = size_make(8, 12);
+	Point center = point_make(rect_mid_x(r), rect_mid_y(r));
+	Point origin = point_make(
+		rect_max_x(interior) - ((strlen(msg) + 1) * font_size.width),
+		rect_min_y(interior) + state->ball_radius
+	);
+	_draw_string(state, msg, origin, font_size);
 }
 
 static void draw_game_state(game_state_t* state) {
