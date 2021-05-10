@@ -64,7 +64,7 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 		//text_color = color_dark_gray();
 	}
 
-	draw_rect(
+	gui_layer_draw_rect(
 		b->superview->content_layer,
 		outer_margin,
 		outer_margin_color,
@@ -81,7 +81,7 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 			outer_margin.size.height - (outer_margin_size * 2)
 		)
 	);
-	draw_rect(
+	gui_layer_draw_rect(
 		b->superview->content_layer,
 		inner_margin,
 		inner_margin_color,
@@ -104,7 +104,7 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 	Rect outer = outer_margin;
 	Rect inner = inner_margin;
 	Color c = diagonal_insets_color;
-	ca_layer* layer = b->superview->content_layer;
+	gui_layer_t* layer = b->superview->content_layer;
 	Line l = line_make(
 		point_make(
 			outer.origin.x + 1,
@@ -115,7 +115,7 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 			inner.origin.y
 		)
 	);
-	draw_line(layer, l, c, t/2);
+	gui_layer_draw_line(layer, l, c, t/2);
 
 	// Bottom left corner
 	l = line_make(
@@ -128,7 +128,7 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 			rect_max_y(inner) - 1
 		)
 	);
-	draw_line(layer, l, c, t/2);
+	gui_layer_draw_line(layer, l, c, t/2);
 
 	// Top right corner
 	l = line_make(
@@ -141,7 +141,7 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 			rect_min_y(inner)
 		)
 	);
-	draw_line(layer, l, c, t/2);
+	gui_layer_draw_line(layer, l, c, t/2);
 
 	// Bottom right corner
 	l = line_make(
@@ -154,7 +154,7 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 			rect_max_y(inner) - 1
 		)
 	);
-	draw_line(layer, l, c, t/2);
+	gui_layer_draw_line(layer, l, c, t/2);
 
 	uint32_t font_height = min(30, inner_margin.size.height / 4);
 	uint32_t font_width = max(6, font_height * 0.8);
@@ -168,7 +168,7 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 		b->frame.origin.y + (b->frame.size.height / 2 ) - (font_height / 2)
 	);
 	for (int i = 0; i < len; i++) {
-		draw_char(
+		gui_layer_draw_char(
 			b->superview->content_layer,
 			b->title[i],
 			cursor.x,
@@ -180,7 +180,7 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 	}
 
 	// Outline above outer margin
-	draw_rect(
+	gui_layer_draw_rect(
 		b->superview->content_layer,
 		outer_margin,
 		outline_color,
@@ -188,7 +188,7 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 	);
 
 	// Outline above inner margin
-	draw_rect(
+	gui_layer_draw_rect(
 		b->superview->content_layer,
 		inner,
 		color_make(140, 140, 140),

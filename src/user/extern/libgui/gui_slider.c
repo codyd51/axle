@@ -83,7 +83,7 @@ static void _gui_slider_draw(gui_slider_t* s, bool is_active) {
 			bar_height
 		)
 	);
-	draw_rect(
+	gui_layer_draw_rect(
 		s->superview->content_layer,
 		bar_frame,
 		color_dark_gray(),
@@ -100,7 +100,7 @@ static void _gui_slider_draw(gui_slider_t* s, bool is_active) {
 			bar_frame.size.height - (bar_margin * 2)
 		)
 	);
-	draw_rect(
+	gui_layer_draw_rect(
 		s->superview->content_layer,
 		inner_bar_frame,
 		color_light_gray(),
@@ -134,7 +134,7 @@ static void _gui_slider_draw(gui_slider_t* s, bool is_active) {
 		)
 	);
 
-	draw_rect(
+	gui_layer_draw_rect(
 		s->superview->content_layer,
 		indicator_frame,
 		color_make(60, 60, 60),
@@ -142,7 +142,7 @@ static void _gui_slider_draw(gui_slider_t* s, bool is_active) {
 	);
 
 	if (is_active) {
-		draw_rect(
+		gui_layer_draw_rect(
 			s->superview->content_layer,
 			indicator_frame,
 			color_make(200, 200, 200),
@@ -160,7 +160,7 @@ static void _gui_slider_draw(gui_slider_t* s, bool is_active) {
 			indicator_frame.size.height - (indicator_margin * 2)
 		)
 	);
-	draw_rect(
+	gui_layer_draw_rect(
 		s->superview->content_layer,
 		inner_indicator,
 		color_make(100, 100, 100),

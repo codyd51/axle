@@ -68,6 +68,6 @@ gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_
 void gui_view_set_title(gui_view_t* view, char* title);
 void gui_view_destroy(gui_view_t* view);
 
-gui_elem_t* gui_elem_for_mouse_pos(gui_view_t* view, Point mouse_pos);
+gui_elem_t* gui_view_elem_for_mouse_pos(gui_view_t* view, Point mouse_pos);
 
 #endif

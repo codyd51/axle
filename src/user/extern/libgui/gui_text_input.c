@@ -40,7 +40,7 @@ static void _text_input_draw(text_input_t* ti, bool is_active) {
 		)
 	);
 
-	draw_rect(
+	gui_layer_draw_rect(
 		ti->window->layer, 
 		outer_margin,
 		color_light_gray(),
@@ -49,7 +49,7 @@ static void _text_input_draw(text_input_t* ti, bool is_active) {
 
 	// Outline above outer margin
 	Color outline_color = is_active ? color_make(200, 200, 200) : color_dark_gray();
-	draw_rect(
+	gui_layer_draw_rect(
 		ti->window->layer, 
 		ti->frame,
 		outline_color,
@@ -67,7 +67,7 @@ static void _text_input_draw(text_input_t* ti, bool is_active) {
 			outer_margin.size.height - (outer_margin_before_inner * 2)
 		)
 	);
-	draw_rect(
+	gui_layer_draw_rect(
 		ti->window->layer, 
 		inner_margin,
 		color_dark_gray(),
@@ -90,82 +90,12 @@ static void _text_input_draw(text_input_t* ti, bool is_active) {
 		inset_color,
 		inner_margin_size
 	);
-	/*
-	int inset_adjustment_x = 3;
-	// Top left corner
-	draw_line(
-		ti->window->layer,
-		line_make(
-			point_make(
-				inner_margin.origin.x + inset_adjustment_x,
-				inner_margin.origin.y
-			),
-			point_make(
-				inner_margin.origin.x + inner_margin_size,
-				inner_margin.origin.y + inner_margin_size
-			)
-		),
-		inset_color,
-		inner_margin_size
-	);
-
-	// Bottom left corner
-	draw_line(
-		ti->window->layer,
-		line_make(
-			point_make(
-				inner_margin.origin.x + inset_adjustment_x,
-				rect_max_y(inner_margin)
-			),
-			point_make(
-				inner_margin.origin.x + inner_margin_size + inset_adjustment_x,
-				rect_max_y(inner_margin) - inner_margin_size
-			)
-		),
-		inset_color,
-		inner_margin_size
-	);
-
-	// Top left corner
-	draw_line(
-		ti->window->layer,
-		line_make(
-			point_make(
-				rect_max_x(inner_margin) - inset_adjustment_x,
-				rect_min_y(inner_margin)
-			),
-			point_make(
-				rect_max_x(inner_margin) - inner_margin_size - inset_adjustment_x,
-				rect_min_y(inner_margin) + inner_margin_size
-			)
-		),
-		inset_color,
-		inner_margin_size
-	);
-
-	// Bottom left corner
-	draw_line(
-		ti->window->layer,
-		line_make(
-			point_make(
-				rect_max_x(inner_margin) - inset_adjustment_x,
-				rect_max_y(inner_margin) - 2
-			),
-			point_make(
-				rect_max_x(inner_margin) - inner_margin_size - inset_adjustment_x,
-				rect_max_y(inner_margin) - inner_margin_size - 2
-			)
-		),
-		inset_color,
-		inner_margin_size
-	);
-	*/
 
 	// Draw the inner text box
-	//printf("blit %d %d %d %d -> %d %d\n", text_box_frame.origin.x, text_box_frame.origin.y, text_box_frame.size.width, text_box_frame.size.height, ti->window->layer->size.width, ti->window->layer->size.height);
-	text_box_blit(ti->text_box, ti->window->layer, text_box_frame);
+	text_box_blit(ti->text_box, ti->window->layer->fixed_layer.inner, text_box_frame);
 
 	// Draw the input indicator
+	// TODO(PT): Replace this state machine with a timer
 	uint32_t now = ms_since_boot();
 	/*
 	if (now >= ti->next_indicator_flip_ms) {
@@ -187,13 +117,13 @@ static void _text_input_draw(text_input_t* ti, bool is_active) {
 			)
 		);
 
-		draw_rect(
+		gui_layer_draw_rect(
 			ti->window->layer,
 			input_indicator,
 			color_gray(),
 			THICKNESS_FILLED
 		);
-		draw_rect(
+		gui_layer_draw_rect(
 			ti->window->layer,
 			rect_make(
 				point_make(
@@ -208,7 +138,7 @@ static void _text_input_draw(text_input_t* ti, bool is_active) {
 			color_gray(),
 			THICKNESS_FILLED
 		);
-		draw_rect(
+		gui_layer_draw_rect(
 			ti->window->layer,
 			rect_make(
 				point_make(

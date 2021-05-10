@@ -5,6 +5,7 @@
 
 #include "gui_view.h"
 #include "libgui.h"
+#include "utils.h"
 
 static void _noop() {}
 
@@ -112,7 +113,7 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 		uint32_t font_height = min(30, v->_title_inset.size.height - font_inset);
 		uint32_t font_width = max(6, font_height * 0.8);
 		for (int i = 0; i < strlen(v->_title); i++) {
-			draw_char(
+			gui_layer_draw_char(
 				v->window->layer,
 				v->_title[i],
 				cursor.x,
@@ -252,7 +253,7 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 	);
 
 	if (!v->controls_content_layer) {
-		v->_fill_background_cb(v, is_active);
+		v->_fill_background_cb((gui_elem_t*)v, is_active);
 	}
 
 	// Draw subviews
@@ -320,7 +321,7 @@ gui_elem_t* gui_view_elem_for_mouse_pos(gui_view_t* view, Point mouse_pos) {
 		}
 	}
 	// TODO(PT): We should repeat the above step to handle recursively nested views
-	return view;
+	return (gui_elem_t*)view;
 }
 
 void gui_view_init(gui_view_t* view, gui_window_t* window, gui_window_resized_cb_t sizer_cb) {
@@ -365,13 +366,7 @@ void gui_view_add_to_window(gui_view_t* view, gui_window_t* window) {
 	view->window = window;
 	view->frame = view->sizer_cb((gui_elem_t*)view, window->size);
 	view->content_layer_frame = rect_make(point_zero(), view->frame.size);
-
-	// TODO(PT): Need to free this
-	// Or mabye we should replace all layers this way
-	gui_layer_t* wrapper = calloc(1, sizeof(gui_layer_t));
-	wrapper->fixed_layer.type = GUI_FIXED_LAYER;
-	wrapper->fixed_layer.inner = window->layer;
-	view->parent_layer = wrapper;
+	view->parent_layer = window->layer;
 
 	printf("%s Initial view frame (root view)\n", rect_print(view->frame));
 	// Set the title inset now that we have a frame
@@ -389,9 +384,7 @@ gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_
 }
 
 void gui_view_destroy(gui_view_t* view) {
-	// TODO(PT): Dynamic dispatch for layer teardown?
-	assert(view->content_layer->base.type == GUI_FIXED_LAYER, "Expected fixed layer");
-	layer_teardown(view->content_layer->fixed_layer.inner);
+	gui_layer_teardown(view->content_layer);
 	free(view->content_layer);
 	array_destroy(view->subviews);
 	free(view);

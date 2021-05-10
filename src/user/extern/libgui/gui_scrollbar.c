@@ -78,7 +78,7 @@ static void _gui_scrollbar_draw(gui_scrollbar_t* sb, bool is_active) {
 
 	// Outer margin
 	Rect outer_margin = local_frame;
-	draw_rect(
+	gui_layer_draw_rect(
 		sb->layer,
 		local_frame,
 		color_light_gray(),
@@ -107,7 +107,7 @@ static void _gui_scrollbar_draw(gui_scrollbar_t* sb, bool is_active) {
 			outer_margin.size.height - (outer_margin_before_inner * 2)
 		)
 	);
-	draw_rect(
+	gui_layer_draw_rect(
 		sb->layer, 
 		inner_margin,
 		color_dark_gray(),
@@ -132,79 +132,8 @@ static void _gui_scrollbar_draw(gui_scrollbar_t* sb, bool is_active) {
 		color_make(50, 50, 50),
 		2
 	);
-	/*
-	Color inset_color = color_make(50, 50, 50);
-	int inset_adjustment_x = 1;
-	// Top left corner
-	draw_line(
-		sb->layer,
-		line_make(
-			point_make(
-				inner_margin.origin.x,
-				inner_margin.origin.y
-			),
-			point_make(
-				inner_margin.origin.x + inner_margin_size + inset_adjustment_x,
-				inner_margin.origin.y + inner_margin_size + inset_adjustment_x
-			)
-		),
-		inset_color,
-		inset_width
-	);
 
-	// Bottom left corner
-	draw_line(
-		sb->layer,
-		line_make(
-			point_make(
-				inner_margin.origin.x + inset_adjustment_x + 1,
-				rect_max_y(inner_margin) - 1
-			),
-			point_make(
-				inner_margin.origin.x + inner_margin_size + inset_adjustment_x,
-				rect_max_y(inner_margin) - inner_margin_size - 1
-			)
-		),
-		inset_color,
-		inset_width
-	);
-
-	// Top left corner
-	draw_line(
-		sb->layer,
-		line_make(
-			point_make(
-				rect_max_x(inner_margin) - inset_adjustment_x,
-				rect_min_y(inner_margin)
-			),
-			point_make(
-				rect_max_x(inner_margin) - inner_margin_size - inset_adjustment_x,
-				rect_min_y(inner_margin) + inner_margin_size
-			)
-		),
-		inset_color,
-		inset_width
-	);
-
-	// Bottom left corner
-	draw_line(
-		sb->layer,
-		line_make(
-			point_make(
-				rect_max_x(inner_margin) - inset_adjustment_x,
-				rect_max_y(inner_margin) - 1
-			),
-			point_make(
-				rect_max_x(inner_margin) - inner_margin_size,
-				rect_max_y(inner_margin) - inner_margin_size - 1
-			)
-		),
-		inset_color,
-		inset_width
-	);
-	*/
-
-	draw_rect(
+	gui_layer_draw_rect(
 		sb->layer,
 		inner_frame,
 		color_black(),
@@ -236,21 +165,21 @@ static void _gui_scrollbar_draw(gui_scrollbar_t* sb, bool is_active) {
 		),
 		size_make(indicator_width, indicator_height)
 	);
-	draw_rect(
+	gui_layer_draw_rect(
 		sb->layer,
 		indicator_frame,
 		color_make(100, 100, 100),
 		THICKNESS_FILLED
 	);
 	Color indicator_outline_color = is_active ? color_make(200, 200, 200) : color_make(60, 60, 60);
-	draw_rect(
+	gui_layer_draw_rect(
 		sb->layer,
 		indicator_frame,
 		outline_color,
 		1
 	);
 
-	blit_layer(
+	gui_layer_blit_layer(
 		sb->window->layer, 
 		sb->layer,
 		sb_frame,
@@ -265,7 +194,8 @@ gui_scrollbar_t* gui_scrollbar_create(gui_window_t* window, gui_elem_t* parent, 
 	sb->frame = frame;
     sb->type = GUI_TYPE_SCROLLBAR;
 
-	sb->layer = create_layer(
+	sb->layer = gui_layer_create(
+		GUI_FIXED_LAYER, 
 		size_make(
 			// Max possible width of a scrollbar
 			50,

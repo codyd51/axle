@@ -18,6 +18,7 @@
 #include <awm/awm.h>
 
 #include "libgui.h"
+#include "utils.h"
 
 /* Shims */
 
@@ -71,10 +72,14 @@ gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t hei
 	dummy_layer->alpha = 1.0;
     _screen.vmem = dummy_layer;
 
+	gui_layer_t* dummy_gui_layer = calloc(1, sizeof(gui_layer_t));
+	dummy_gui_layer->fixed_layer.type = GUI_FIXED_LAYER;
+	dummy_gui_layer->fixed_layer.inner = dummy_layer;
+
 	gui_window_t* window = calloc(1, sizeof(gui_window_t));
 	window->_interrupt_cbs = array_create(64);
 	window->size = size_make(width, height);
-	window->layer = dummy_layer;
+	window->layer = dummy_gui_layer;
 	window->text_inputs = array_create(32);
 	window->text_views = array_create(32);
 	window->views = array_create(32);
@@ -172,7 +177,7 @@ static void _handle_mouse_moved(gui_window_t* window, awm_mouse_moved_msg_t* mov
 		gui_elem_t* elem = array_lookup(window->all_gui_elems, i);
 		if (rect_contains_point(elem->base.frame, mouse_pos)) {
 			if (elem->base.type == GUI_TYPE_VIEW) {
-				elem = elem->v.elem_for_mouse_pos_cb(elem, mouse_pos);
+				elem = elem->v.elem_for_mouse_pos_cb(&elem->v, mouse_pos);
 			}
 			// Was the mouse already inside this element?
 			if (window->hover_elem == elem) {

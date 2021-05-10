@@ -95,7 +95,7 @@ static void _draw_centered_string(gui_layer_t* layer, char* text, Point center, 
 
 static file_view_t* _file_view_alloc(const char* filename) {
 	file_view_t* f = calloc(1, sizeof(file_view_t));
-	gui_view_alloc_dynamic_fields(f);
+	gui_view_alloc_dynamic_fields((gui_view_t*)f);
 	return f;
 }
 
@@ -355,12 +355,12 @@ static void _generate_ui_tree(gui_view_t* container_view, file_view_t* parent_vi
 	file_view->left_click_cb = (gui_mouse_left_click_cb_t)_file_view_left_click;
 
 	if (node->base.type != FS_NODE_TYPE_ROOT) {
-		fs_node_t* root = node->base.parent;
+		fs_node_t* root = (fs_node_t*)node->base.parent;
 		while (root->base.type != FS_NODE_TYPE_ROOT) {
-			root = root->base.parent;
+			root = (fs_node_t*)root->base.parent;
 		}
 		bool found = false;
-		file_view->dfs_index = _depth_first_search__idx(root, node, 0, &found);
+		file_view->dfs_index = _depth_first_search__idx((fs_base_node_t*)root, (fs_base_node_t*)node, 0, &found);
 		printf("Depth of %s: %d\n", node->base.name, file_view->dfs_index);
 	}
 
@@ -375,7 +375,7 @@ static void _generate_ui_tree(gui_view_t* container_view, file_view_t* parent_vi
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.file_manager");
 
-	gui_window_t* window = gui_window_create("File Manager", 300, 860);
+	gui_window_t* window = gui_window_create("File Manager", 300, 400);
 	Size window_size = window->size;
 
 	gui_scroll_view_t* content_view = gui_scroll_view_create(window, (gui_window_resized_cb_t)_content_view_sizer);
@@ -400,7 +400,7 @@ int main(int argc, char** argv) {
 	_parse_initrd(initrd_root, initrd_info);
 
 	_print_fs_tree((fs_node_t*)root, 0);
-	_generate_ui_tree(content_view, NULL, 0, (fs_node_t*)root);
+	_generate_ui_tree((gui_view_t*)content_view, NULL, 0, (fs_node_t*)root);
 
 	gui_enter_event_loop(window);
 

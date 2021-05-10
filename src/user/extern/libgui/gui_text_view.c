@@ -102,7 +102,7 @@ static void _text_view_draw(text_view_t* tv, bool is_active) {
 
 	// Draw a left edge in which we display the scrollbar
 	if (!tv->scrollbar->hidden) {
-		draw_rect(
+		gui_layer_draw_rect(
 			tv->window->layer,
 			rect_make(
 				point_make(tv->right_scrollbar_inset_origin_x, tv->frame.origin.y),
@@ -122,7 +122,7 @@ static void _text_view_draw(text_view_t* tv, bool is_active) {
 		)
 	);
 
-	draw_rect(
+	gui_layer_draw_rect(
 		tv->window->layer, 
 		outer_margin,
 		color_light_gray(),
@@ -131,7 +131,7 @@ static void _text_view_draw(text_view_t* tv, bool is_active) {
 
 	// Outline above outer margin
 	Color outline_color = is_active ? color_make(200, 200, 200) : color_dark_gray();
-	draw_rect(
+	gui_layer_draw_rect(
 		tv->window->layer, 
 		tv->frame,
 		outline_color,
@@ -149,7 +149,7 @@ static void _text_view_draw(text_view_t* tv, bool is_active) {
 			outer_margin.size.height - (outer_margin_before_inner * 2)
 		)
 	);
-	draw_rect(
+	gui_layer_draw_rect(
 		tv->window->layer, 
 		inner_margin,
 		color_dark_gray(),
@@ -158,76 +158,6 @@ static void _text_view_draw(text_view_t* tv, bool is_active) {
 
 	// Draw diagonal lines indicating an inset
 	Color inset_color = color_make(50, 50, 50);
-	/*
-	int inset_adjustment_x = 3;
-	// Top left corner
-	draw_line(
-		tv->window->layer,
-		line_make(
-			point_make(
-				inner_margin.origin.x + inset_adjustment_x,
-				inner_margin.origin.y
-			),
-			point_make(
-				inner_margin.origin.x + inner_margin_size,
-				inner_margin.origin.y + inner_margin_size
-			)
-		),
-		inset_color,
-		inner_margin_size
-	);
-
-	// Bottom left corner
-	draw_line(
-		tv->window->layer,
-		line_make(
-			point_make(
-				inner_margin.origin.x + inset_adjustment_x,
-				rect_max_y(inner_margin)
-			),
-			point_make(
-				inner_margin.origin.x + inner_margin_size + inset_adjustment_x,
-				rect_max_y(inner_margin) - inner_margin_size
-			)
-		),
-		inset_color,
-		inner_margin_size
-	);
-
-	// Top left corner
-	draw_line(
-		tv->window->layer,
-		line_make(
-			point_make(
-				rect_max_x(inner_margin) - inset_adjustment_x,
-				rect_min_y(inner_margin)
-			),
-			point_make(
-				rect_max_x(inner_margin) - inner_margin_size - inset_adjustment_x,
-				rect_min_y(inner_margin) + inner_margin_size
-			)
-		),
-		inset_color,
-		inner_margin_size
-	);
-
-	// Bottom left corner
-	draw_line(
-		tv->window->layer,
-		line_make(
-			point_make(
-				rect_max_x(inner_margin) - inset_adjustment_x,
-				rect_max_y(inner_margin)
-			),
-			point_make(
-				rect_max_x(inner_margin) - inner_margin_size - inset_adjustment_x,
-				rect_max_y(inner_margin) - inner_margin_size
-			)
-		),
-		inset_color,
-		inner_margin_size
-	);
-	*/
 
 	// Draw the inner text box
 	Rect text_box_frame = rect_make(
@@ -244,7 +174,7 @@ static void _text_view_draw(text_view_t* tv, bool is_active) {
 		inset_color,
 		inner_margin_size
 	);
-	text_box_blit(tv->text_box, tv->window->layer, text_box_frame);
+	text_box_blit(tv->text_box, tv->window->layer->fixed_layer.inner, text_box_frame);
 }
 
 static void _text_view_window_resized(text_view_t* tv, Size new_window_size) {

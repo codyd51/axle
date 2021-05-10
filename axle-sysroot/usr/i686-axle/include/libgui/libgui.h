@@ -26,7 +26,7 @@ typedef struct gui_window {
     gui_amc_message_cb_t _amc_handler;
 
     Size size;
-    ca_layer* layer;
+    gui_layer_t* layer;
 	array_t* text_inputs;
 	array_t* text_views;
 	array_t* views;

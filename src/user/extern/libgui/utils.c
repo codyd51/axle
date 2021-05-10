@@ -1,9 +1,12 @@
 #include <string.h>
+#include <stdio.h>
+
 #include <agx/lib/shapes.h>
+
 #include "libgui.h"
 #include "utils.h"
 
-void draw_diagonal_insets(ca_layer* layer, Rect outer, Rect inner, Color c, uint32_t width) {
+void draw_diagonal_insets(gui_layer_t* layer, Rect outer, Rect inner, Color c, uint32_t width) {
 	// Draw diagonal lines indicating an outset
 	int t = width;
 
@@ -15,7 +18,7 @@ void draw_diagonal_insets(ca_layer* layer, Rect outer, Rect inner, Color c, uint
 		),
 		inner.origin
 	);
-	draw_line(layer, l, c, t);
+	gui_layer_draw_line(layer, l, c, t);
 
 	// Bottom left corner
 	l = line_make(
@@ -28,7 +31,7 @@ void draw_diagonal_insets(ca_layer* layer, Rect outer, Rect inner, Color c, uint
 			rect_max_y(inner) - (t/2)
 		)
 	);
-	draw_line(layer, l, c, t);
+	gui_layer_draw_line(layer, l, c, t);
 
 	// Top right corner
 	l = line_make(
@@ -41,7 +44,7 @@ void draw_diagonal_insets(ca_layer* layer, Rect outer, Rect inner, Color c, uint
 			rect_min_y(inner)
 		)
 	);
-	draw_line(layer, l, c, t);
+	gui_layer_draw_line(layer, l, c, t);
 
 	// Bottom right corner
 	l = line_make(
@@ -54,7 +57,7 @@ void draw_diagonal_insets(ca_layer* layer, Rect outer, Rect inner, Color c, uint
 			rect_max_y(inner)
 		)
 	);
-	draw_line(layer, l, c, t);
+	gui_layer_draw_line(layer, l, c, t);
 }
 
 const char* rect_print(Rect r) {

@@ -2,6 +2,7 @@
 
 #include "gui_timer.h"
 #include "libgui.h"
+#include "utils.h"
 
 void gui_timer_start(gui_window_t* window, uint32_t duration, gui_timer_cb_t timer_cb, void* invoke_ctx) {
     //printf("gui_timer_start %dms 0x%08x 0x%08x\n", duration, timer_cb, invoke_ctx);

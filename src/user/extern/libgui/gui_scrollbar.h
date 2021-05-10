@@ -2,6 +2,7 @@
 #define GUI_SCROLLBAR_H
 
 #include "gui_elem.h"
+#include "gui_layer.h"
 
 typedef struct gui_scrollbar gui_scrollbar_t;
 typedef void(*gui_scrollbar_updated_cb_t)(gui_scrollbar_t* sb, float new_scroll_percent);
@@ -36,7 +37,7 @@ typedef struct gui_scrollbar {
     gui_scrollbar_updated_cb_t scroll_position_updated_cb;
 
     // Private fields
-    ca_layer* layer;
+    gui_layer_t* layer;
     bool in_left_click;
 } gui_scrollbar_t;
 
