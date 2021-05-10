@@ -366,8 +366,9 @@ static void _run_physics_tick(game_state_t* state) {
 				state->lives_remaining -= 1;
 				_set_initial_ball_vector(state);
 				draw_game_state(state);
+				_draw_hud(state);
 
-				_draw_string(
+				_draw_centered_string(
 					state, 
 					"Life lost!", 
 					point_make(
@@ -441,15 +442,10 @@ static void _run_physics_tick(game_state_t* state) {
 	gui_timer_start(state->view->window, render_interval, (gui_timer_cb_t)_run_physics_tick, state);
 }
 
-static void _draw_string(game_state_t* state, char* text, Point center, Size font_size) {
-	uint32_t msg_len = strlen(text);
-	uint32_t msg_width = msg_len * font_size.width;
-	Point cursor = point_make(
-		center.x - (msg_width / 2.0),
-		center.y - (font_size.height / 2.0)
-	);
-	for (uint32_t i = 0; i < msg_len; i++) {
-		draw_char(
+static void _draw_string(game_state_t* state, char* text, Point origin, Size font_size) {
+	Point cursor = origin;
+	for (uint32_t i = 0; i < strlen(text); i++) {
+		gui_layer_draw_char(
 			state->view->content_layer,
 			text[i],
 			cursor.x,
@@ -461,11 +457,21 @@ static void _draw_string(game_state_t* state, char* text, Point center, Size fon
 	}
 }
 
+static void _draw_centered_string(game_state_t* state, char* text, Point center, Size font_size) {
+	uint32_t msg_len = strlen(text);
+	uint32_t msg_width = msg_len * font_size.width;
+	Point origin = point_make(
+		center.x - (msg_width / 2.0),
+		center.y - (font_size.height / 2.0)
+	);
+	_draw_string(state, text, origin, font_size);
+}
+
 static void _draw_hud(game_state_t* state) {
 	ca_layer* l = state->view->content_layer;
 	Rect r = _hud_content_frame(state);
 
-	draw_rect(l, r, color_black(), THICKNESS_FILLED);
+	gui_layer_draw_rect(l, r, color_black(), THICKNESS_FILLED);
 
 	Rect interior = rect_make(
 		point_make(
@@ -477,7 +483,7 @@ static void _draw_hud(game_state_t* state) {
 			rect_max_y(r) - (state->ball_radius)
 		)
 	);
-	draw_rect(l, interior, color_light_gray(), 1);
+	gui_layer_draw_rect(l, interior, color_light_gray(), 1);
 
 	uint32_t spacing = state->ball_radius * 3;
 	Point lives_cursor = point_make(
@@ -485,7 +491,7 @@ static void _draw_hud(game_state_t* state) {
 		rect_mid_y(interior)
 	);
 	for (uint32_t i = 0; i < state->lives_remaining; i++) {
-		draw_circle(
+		gui_layer_draw_circle(
 			l, 
 			circle_make(
 				lives_cursor,
@@ -494,7 +500,7 @@ static void _draw_hud(game_state_t* state) {
 			color_white(),
 			THICKNESS_FILLED
 		);
-		draw_circle(
+		gui_layer_draw_circle(
 			l, 
 			circle_make(
 				lives_cursor,
@@ -508,33 +514,31 @@ static void _draw_hud(game_state_t* state) {
 }
 
 static void draw_game_state(game_state_t* state) {
-	_draw_hud(state);
-
-	ca_layer* l = state->view->content_layer;
+	gui_layer_t* l = state->view->content_layer;
 	Rect r = _game_content_frame(state);
 
 	// Fill a black background
-	draw_rect(l, r, color_black(), THICKNESS_FILLED);
+	gui_layer_draw_rect(l, r, color_black(), THICKNESS_FILLED);
 
 	// Draw the paddle
 	Rect paddle_rect = rect_make(
 		point_make(rect_min_x(state->paddle), rect_min_y(state->paddle)),
 		state->paddle.size
 	);
-	draw_rect(l, paddle_rect, color_white(), THICKNESS_FILLED);
-	draw_rect(l, paddle_rect, color_light_gray(), 2);
+	gui_layer_draw_rect(l, paddle_rect, color_white(), THICKNESS_FILLED);
+	gui_layer_draw_rect(l, paddle_rect, color_light_gray(), 2);
 
 	for (uint32_t i = 0; i < state->orig_bricks_count; i++) {
 		if (!state->bricks[i].is_active) {
 			continue;
 		}
-		draw_rect(
+		gui_layer_draw_rect(
 			l,
 			state->bricks[i].frame,
 			state->bricks[i].color,
 			THICKNESS_FILLED
 		);
-		draw_rect(
+		gui_layer_draw_rect(
 			l,
 			state->bricks[i].frame,
 			color_light_gray(),
@@ -543,7 +547,7 @@ static void draw_game_state(game_state_t* state) {
 	}
 
 	// Draw the ball
-	draw_circle(
+	gui_layer_draw_circle(
 		l, 
 		circle_make(
 			point_make(
@@ -560,13 +564,13 @@ static void draw_game_state(game_state_t* state) {
 		char* msg = "Press w to start!";
 		Size font_size = size_make(8, 12);
 		Point center = point_make(rect_mid_x(r), rect_mid_y(r));
-		_draw_string(state, "Press up to start!", center, font_size);
+		_draw_centered_string(state, "Press up to start!", center, font_size);
 		center.y += font_size.height;
-		_draw_string(state, "Move left and right with arrow keys", center, font_size);
+		_draw_centered_string(state, "Move left and right with arrow keys", center, font_size);
 		center.y += font_size.height;
-		_draw_string(state, "Press space to pause", center, font_size);
+		_draw_centered_string(state, "Press space to pause", center, font_size);
 		center.y += font_size.height;
-		_draw_string(state, "Press down to start a new game", center, font_size);
+		_draw_centered_string(state, "Press down to start a new game", center, font_size);
 	}
 }
 
