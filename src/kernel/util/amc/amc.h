@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define AMC_MAX_MESSAGE_SIZE 2048
+#define AMC_MAX_MESSAGE_SIZE 1024 * 1024 * 16
 #define AMC_MAX_SERVICE_NAME_LEN 64
 typedef struct amc_message_t {
     const char source[AMC_MAX_SERVICE_NAME_LEN];

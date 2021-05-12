@@ -35,7 +35,7 @@
  *     * Does not need a way to release a message
  */
 static const uint32_t _amc_delivery_pool_base = 0xb0000000;
-static const uint32_t _amc_delivery_pool_size = 1024 * 1024 * 1;
+static const uint32_t _amc_delivery_pool_size = 1024 * 1024 * 32;
 
 static array_m* _amc_services = 0;
 
