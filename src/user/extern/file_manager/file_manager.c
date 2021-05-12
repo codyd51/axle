@@ -395,6 +395,47 @@ static void _generate_ui_tree(gui_view_t* container_view, file_view_t* parent_vi
 	}
 }
 
+static initrd_fs_node_t* _find_node_by_name(char* name) {
+	fs_base_node_t* initrd = array_lookup(root_fs_node->base.children, 0);
+	for (uint32_t i = 0; i < initrd->children->size; i++) {
+		initrd_fs_node_t* child = array_lookup(initrd->children, i);
+		if (!strcmp(child->name, name)) {
+			return child;
+		}
+	}
+	return NULL;
+}
+
+static void _amc_message_received(gui_window_t* window, amc_message_t* msg) {
+    const char* source_service = msg->source;
+
+	uint32_t event = amc_msg_u32_get_word(msg, 0);
+	if (event == FILE_MANAGER_READ_FILE) {
+		file_manager_read_file_request_t* req = (file_manager_read_file_request_t*)&msg->body;
+		initrd_fs_node_t* desired_file = _find_node_by_name(req->path);
+		assert(desired_file, "Failed to find requested file");
+
+		uint32_t response_size = sizeof(file_manager_read_file_response_t) + desired_file->size;
+		uint8_t* response_buffer = calloc(1, response_size);
+
+		file_manager_read_file_response_t* resp = (file_manager_read_file_response_t*)response_buffer;
+		resp->event = FILE_MANAGER_READ_FILE_RESPONSE;
+		resp->file_size = desired_file->size;
+		memcpy(&resp->file_data, desired_file->initrd_offset, resp->file_size);
+		printf("Returning file size 0x%08x buf 0x%08x\n", resp->file_size, resp->file_data);
+		amc_message_construct_and_send(source_service, resp, response_size);
+		free(response_buffer);
+	}
+	else {
+		assert(false, "Unknown message sent to file manager");
+	}
+}
+
+static image_bmp_t* _load_image(const char* name) {
+	initrd_fs_node_t* fs_node = _find_node_by_name(name);
+	return image_parse_bmp(fs_node->size, fs_node->initrd_offset);
+}
+
 int main(int argc, char** argv) {
 	amc_register_service(FILE_MANAGER_SERVICE_NAME);
 
