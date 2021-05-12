@@ -14,6 +14,7 @@ def main():
         "libport": "libport.a",
         "libnet": "libnet.a",
         "libgui": "libgui.a",
+        "libimg": "libimg.a",
     }
 
     for library_dirname, build_product_name in libdir_to_libname.items():

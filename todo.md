@@ -133,4 +133,15 @@ Fix mouse position within gui_view
 Process destruction
 GUI destruction
 Window closing
-gui_scroll_view_t
+gui_scroll_view_t (check)
+    Presents a scroll bar
+    Remove gui_text_field's scroll bar?
+
+Revamp gui_text_view and gui_text_input to subclass gui_view
+
+gui_text_input uses a timer to control its flashing cursor
+
+scroll view scrollbara
+scroll view layer stitching
+
+awm uses libgui (with a custom event loop)
