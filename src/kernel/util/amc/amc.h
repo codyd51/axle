@@ -68,13 +68,6 @@ typedef struct amc_exec_buffer_cmd {
 // Register the running process as the provided service name
 void amc_register_service(const char* name);
 
-// Construct an amc message
-amc_message_t* amc_message_construct(const char* data, int len);
-
-// Asynchronously send the message to the provided destination service
-// Returns whether the message was successfully routed to the service
-bool amc_message_send(const char* destination_service, amc_message_t* msg);
-
 // Asynchronously send the message to any service awaiting a message from this service
 void amc_message_broadcast(amc_message_t* msg);
 
@@ -103,6 +96,8 @@ bool amc_launch_service(const char* service_name);
 void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, uint32_t* local_buffer, uint32_t* remote_buffer);
 void amc_physical_memory_region_create(uint32_t region_size, uint32_t* virtual_region_start_out, uint32_t* physical_region_start_out);
 
+// Asynchronously construct and send the message to the provided destination service
+// Returns whether the message was successfully routed to the service
 bool amc_message_construct_and_send(const char* destination_service, void* buf, uint32_t buf_size);
 
 // #############
@@ -111,7 +106,6 @@ bool amc_message_construct_and_send(const char* destination_service, void* buf, 
 
 // Allows syscalls to send messages reported as originating from "com.axle.core" 
 // instead of the process that initiated the syscall
-amc_message_t* amc_message_construct__from_core(const char* data, int len);
 bool amc_message_construct_and_send__from_core(const char* destination_service, void* buf, uint32_t buf_size);
 
 bool amc_service_has_message(void* service);

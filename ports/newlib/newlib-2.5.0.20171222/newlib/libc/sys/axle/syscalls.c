@@ -90,16 +90,6 @@ void amc_register_service(const char* name) {
 AMC syscalls
 */
 
-// Construct an amc message
-amc_message_t* amc_message_construct(const char* data, int len) {
-    return (amc_message_t*)sys_amc_message_construct(data, len);
-}
-
-// Asynchronously send the message to the provided destination service
-bool amc_message_send(const char* destination_service, amc_message_t* msg) {
-    return sys_amc_message_send(destination_service, msg);
-}
-
 // Asynchronously send the message to any service awaiting a message from this service
 void amc_message_broadcast(amc_message_t* msg) {
     sys_amc_message_broadcast(msg);

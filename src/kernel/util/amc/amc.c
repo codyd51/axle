@@ -209,11 +209,6 @@ void amc_register_service(const char* name) {
     _amc_deliver_pending_messages_to_new_service(service);
 }
 
-static amc_message_t* _amc_message_construct_from_service_name(const char* source_service_name, const char* data, uint32_t len) {
-    Deprecated();
-    return NULL;
-}
-
 static void _amc_print_inbox(amc_service_t* inbox) {
     printf("--------AMC inbox of %s-------\n", inbox->name);
     for (int i = 0; i < inbox->message_queue->size; i++) {
@@ -225,24 +220,8 @@ static void _amc_print_inbox(amc_service_t* inbox) {
     printf("--------------------------------------\n");
 }
 
-amc_message_t* amc_message_construct(const char* data, int len) {
-    Deprecated();
-    return NULL;
-}
-
-amc_message_t* amc_message_construct__from_core(const char* data, int len) {
-    Deprecated();
-    return NULL;
-}
-
 static void _amc_message_free(amc_message_t* msg) {
     kfree(msg);
-}
-
-// Asynchronously send the message to the provided destination service
-bool amc_message_send(const char* destination_service, amc_message_t* msg) {
-    Deprecated();
-    return false;
 }
 
 static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_message_t* message) {

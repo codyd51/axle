@@ -140,8 +140,6 @@ void create_sysfuncs() {
 	syscall_add((void*)&aipc_send);
 
 	syscall_add((void*)&amc_register_service);
-	syscall_add((void*)&amc_message_construct);
-	syscall_add((void*)&amc_message_send);
 	syscall_add((void*)&amc_message_broadcast);
 	syscall_add((void*)&amc_message_await);
 	syscall_add((void*)&amc_message_await_from_services);
