@@ -333,15 +333,60 @@ static void _file_view_draw(file_view_t* view, bool is_active) {
 	);
 }
 
+bool str_ends_with(char* str, char* suffix) {
+	str = strchr(str, '.');
+	if (str) {
+		return !strcmp(str, suffix);
+	}
+	return false;
+}
+
+static void _launch_program_by_node(fs_node_t* node) {
+	assert(node->base.type == FS_NODE_TYPE_INITRD, "Can only launch initrd programs");
+	amc_exec_buffer_cmd_t cmd = {0};
+	cmd.event = AMC_FILE_MANAGER_EXEC_BUFFER;
+	cmd.program_name = node->initrd.name;
+	cmd.buffer_addr = (void*)node->initrd.initrd_offset;
+	cmd.buffer_size = node->initrd.size;
+	amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &cmd, sizeof(amc_exec_buffer_cmd_t));
+}
+
+static void _launch_amc_service_if_necessary(const char* service_name) {
+	if (amc_service_is_active(service_name)) {
+		printf("Will not launch %s because it's already active!\n");
+		return;
+	}
+
+	const char* program_name = NULL;
+	if (!strncmp(service_name, IMAGE_VIEWER_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
+		program_name = "image_viewer";
+	}
+	else {
+		assert(false, "Unknown service name");
+	}
+
+	initrd_fs_node_t* node = _find_node_by_name(program_name);
+	assert(node != NULL, "Failed to find FS node");
+	_launch_program_by_node(node);
+}
+
 static void _file_view_left_click(file_view_t* view, Point mouse_point) {
 	assert(view->fs_node->base.type == FS_NODE_TYPE_INITRD, "Can only launch initrd programs");
 
-	amc_exec_buffer_cmd_t cmd = {0};
-	cmd.event = AMC_FILE_MANAGER_EXEC_BUFFER;
-	cmd.program_name = view->fs_node->initrd.name;
-	cmd.buffer_addr = (void*)view->fs_node->initrd.initrd_offset;
-	cmd.buffer_size = view->fs_node->initrd.size;
-	amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &cmd, sizeof(amc_exec_buffer_cmd_t));
+	// For image files, ask the image viewer to open them
+	char* file_name = view->fs_node->initrd.name;
+	printf("File name %s\n", file_name);
+	if (str_ends_with(file_name, ".bmp")) {
+		_launch_amc_service_if_necessary(IMAGE_VIEWER_SERVICE_NAME);
+
+		image_viewer_load_image_request_t req = {0};
+		req.event = IMAGE_VIEWER_LOAD_IMAGE;
+		snprintf(&req.path, sizeof(req.path), "%s", file_name);
+		amc_message_construct_and_send(IMAGE_VIEWER_SERVICE_NAME, &req, sizeof(image_viewer_load_image_request_t));
+	}
+	else {
+		_launch_program_by_node(view->fs_node);
+	}
 }
 
 static void _generate_ui_tree(gui_view_t* container_view, file_view_t* parent_view, uint32_t idx_within_parent, fs_node_t* node) {
