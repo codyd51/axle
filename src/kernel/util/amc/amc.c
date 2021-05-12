@@ -676,3 +676,7 @@ void amc_physical_memory_region_create(uint32_t region_size, uint32_t* virtual_r
 
     spinlock_release(&current_service->spinlock);
 }
+
+bool amc_service_is_active(const char* service) {
+    return _amc_service_with_name(service) != NULL;
+}

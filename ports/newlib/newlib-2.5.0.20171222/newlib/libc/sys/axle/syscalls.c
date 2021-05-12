@@ -31,24 +31,23 @@ DEFN_SYSCALL(getpid, 14);
 //DEFN_SYSCALL(waitpid, 15, int, int*, int);
 //DEFN_SYSCALL(task_with_pid, 16, int);
 DEFN_SYSCALL(amc_register_service, 25, const char*);
-DEFN_SYSCALL(amc_message_construct, 26, const char*, int);
-DEFN_SYSCALL(amc_message_send, 27, const char*, amc_message_t*);
-DEFN_SYSCALL(amc_message_broadcast, 28, amc_message_t*);
-DEFN_SYSCALL(amc_message_await, 29, const char*, amc_message_t*);
-DEFN_SYSCALL(amc_message_await_from_services, 30, int, const char**, amc_message_t*);
-DEFN_SYSCALL(amc_message_await_any, 31, amc_message_t**);
-DEFN_SYSCALL(amc_shared_memory_create, 32, const char*, uint32_t, uint32_t*, uint32_t*);
-DEFN_SYSCALL(amc_has_message_from, 33, const char*);
-DEFN_SYSCALL(amc_has_message, 34);
-DEFN_SYSCALL(amc_launch_service, 35, const char*);
-DEFN_SYSCALL(amc_physical_memory_region_create, 36, uint32_t, uint32_t*, uint32_t*);
-DEFN_SYSCALL(amc_message_construct_and_send, 37, const char*, uint8_t*, uint32_t);
+DEFN_SYSCALL(amc_message_broadcast, 26, amc_message_t*);
+DEFN_SYSCALL(amc_message_await, 27, const char*, amc_message_t*);
+DEFN_SYSCALL(amc_message_await_from_services, 28, int, const char**, amc_message_t*);
+DEFN_SYSCALL(amc_message_await_any, 29, amc_message_t**);
+DEFN_SYSCALL(amc_shared_memory_create, 30, const char*, uint32_t, uint32_t*, uint32_t*);
+DEFN_SYSCALL(amc_has_message_from, 31, const char*);
+DEFN_SYSCALL(amc_has_message, 32);
+DEFN_SYSCALL(amc_launch_service, 33, const char*);
+DEFN_SYSCALL(amc_physical_memory_region_create, 34, uint32_t, uint32_t*, uint32_t*);
+DEFN_SYSCALL(amc_message_construct_and_send, 35, const char*, uint8_t*, uint32_t);
+DEFN_SYSCALL(amc_service_is_active, 36, const char*);
 
-DEFN_SYSCALL(adi_register_driver, 38, const char*, uint32_t);
-DEFN_SYSCALL(adi_event_await, 39, uint32_t);
-DEFN_SYSCALL(adi_send_eoi, 40, uint32_t);
+DEFN_SYSCALL(adi_register_driver, 37, const char*, uint32_t);
+DEFN_SYSCALL(adi_event_await, 38, uint32_t);
+DEFN_SYSCALL(adi_send_eoi, 39, uint32_t);
 
-DEFN_SYSCALL(ms_since_boot, 41);
+DEFN_SYSCALL(ms_since_boot, 40);
 
 // According to the documentation, this is an acceptable minimal environ
 // https://sourceware.org/newlib/libc.html#Syscalls
@@ -135,6 +134,10 @@ bool amc_message_construct_and_send(const char* destination_service,
                                     void* buf,
                                     uint32_t buf_size) {
     return sys_amc_message_construct_and_send(destination_service, buf, buf_size);
+}
+
+bool amc_service_is_active(const char* service) {
+    return sys_amc_service_is_active(service);
 }
 
 /*

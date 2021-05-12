@@ -100,6 +100,8 @@ void amc_physical_memory_region_create(uint32_t region_size, uint32_t* virtual_r
 // Returns whether the message was successfully routed to the service
 bool amc_message_construct_and_send(const char* destination_service, void* buf, uint32_t buf_size);
 
+bool amc_service_is_active(const char* service);
+
 // #############
 // Kernel use only
 // #############
