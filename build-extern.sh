@@ -17,6 +17,7 @@ cp src/user/extern/timed/timed_messages.h axle-sysroot/usr/i686-axle/include/dae
 cp src/user/extern/watchdogd/watchdogd_messages.h axle-sysroot/usr/i686-axle/include/daemons/watchdogd/watchdogd_messages.h
 cp src/user/extern/preferences/preferences_messages.h axle-sysroot/usr/i686-axle/include/preferences/preferences_messages.h
 cp src/user/extern/kb_driver/kb_driver_messages.h axle-sysroot/usr/i686-axle/include/kb_driver/kb_driver_messages.h
+cp src/user/extern/file_manager/file_manager_messages.h axle-sysroot/usr/i686-axle/include/file_manager/file_manager_messages.h
 cp src/user/extern/image_viewer/image_viewer_messages.h axle-sysroot/usr/i686-axle/include/image_viewer/image_viewer_messages.h
 
 # Copy the kernel bits of the the sysroot's include/ to the newlib port

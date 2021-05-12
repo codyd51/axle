@@ -11,7 +11,11 @@
 #include <libamc/libamc.h>
 #include <stdlibadd/assert.h>
 
+#include <image_viewer/image_viewer_messages.h>
+#include <libimg/libimg.h>
+
 #include "vfs.h"
+#include "file_manager_messages.h"
 
 typedef struct file_view {
     // Private union members (must be first in the structure)
@@ -66,7 +70,16 @@ typedef struct file_view {
 	Point parent_folder_start;
 	uint32_t idx_within_folder;
 	uint32_t dfs_index;
+	image_bmp_t* icon;
 } file_view_t;
+
+static fs_node_t* root_fs_node = NULL;
+static image_bmp_t* _g_folder_icon = NULL;
+static image_bmp_t* _g_image_icon = NULL;
+static image_bmp_t* _g_executable_icon = NULL;
+
+static initrd_fs_node_t* _find_node_by_name(char* name);
+bool str_ends_with(char* str, char* suffix);
 
 static void _draw_string(gui_layer_t* layer, char* text, Point origin, Size font_size, Color color) {
 	Point cursor = origin;
@@ -205,6 +218,9 @@ static uint32_t _depth_first_search__idx(fs_base_node_t* parent, fs_base_node_t*
 
 static Rect _file_view_sizer(file_view_t* view, Size window_size) {
 	Size icon_size = size_make(30, 30);
+	if (view->icon) {
+		icon_size = view->icon->size;
+	}
 	uint32_t padding_y = 10;
 
 	Point origin = view->parent_folder_start;
@@ -213,10 +229,10 @@ static Rect _file_view_sizer(file_view_t* view, Size window_size) {
 	}
 	else {
 		// Indent from the parent
-		origin.x += icon_size.width;
+		// Always indent by the same amount regardless of image dimensions
+		origin.x += 30;
 		// Indent from previous siblings within this directory
 		origin.y = (view->dfs_index) * (icon_size.height + padding_y);
-		//origin.y += ((view->idx_within_folder + 1) * (icon_size.height + padding_y));
 	}
 
 	return rect_make(
@@ -226,8 +242,9 @@ static Rect _file_view_sizer(file_view_t* view, Size window_size) {
 }
 
 static void _file_view_draw(file_view_t* view, bool is_active) {
-	Color bg_color = is_active ? color_blue() : color_black();
+	Color bg_color = is_active ? color_blue() : color_white();
 	Size font_size = size_make(8, 12);
+
 	Rect icon_frame = rect_make(
 		view->frame.origin,
 		size_make(
@@ -235,48 +252,35 @@ static void _file_view_draw(file_view_t* view, bool is_active) {
 			view->frame.size.height /*- (font_size.height * 1)*/
 		)
 	);
-	if (rect_min_y(icon_frame) >= view->window->layer->size.height) {
-		return;
-	}
-	/*
-	Rect label_frame = rect_make(
-		point_make(
-			view->frame.origin.x,
-			rect_max_y(icon_frame)
-		),
-		size_make(
-			view->frame.size.width,
-			view->frame.size.height - icon_frame.size.height
-		)
-	);
-	*/
-	gui_layer_draw_rect(
-		view->parent_layer,
-		icon_frame,
-		color_light_gray(),
-		THICKNESS_FILLED
-	);
-	_draw_centered_string(
-		view->parent_layer,
-		"?",
-		point_make(
-			rect_mid_x(icon_frame),
-			rect_mid_y(icon_frame)
-		),
-		font_size,
-		color_white()
-	);
 
+	// Render the appropriate icon for the file
+	if (view->icon) {
+		Rect icon_image_frame = rect_make(
+			point_make(
+				icon_frame.origin.x + 2,
+				icon_frame.origin.y + 2
+			),
+			size_make(
+				icon_frame.size.width - 4,
+				icon_frame.size.height - 4
+			)
+		);
+		image_render_to_layer(view->icon, view->parent_layer->scroll_layer.inner->layer, icon_image_frame);
+	}
+
+	// Draw an outline around the icon
 	gui_layer_draw_rect(
 		view->parent_layer,
 		icon_frame,
 		bg_color,
-		3
+		2
 	);
 
+	// Draw a label of the file name
+	uint32_t label_inset = max(icon_frame.size.width, 40);
 	Rect label_frame = rect_make(
 		point_make(
-			rect_max_x(icon_frame),
+			rect_min_x(icon_frame) + label_inset,
 			rect_min_y(icon_frame)
 		),
 		icon_frame.size
@@ -292,13 +296,15 @@ static void _file_view_draw(file_view_t* view, bool is_active) {
 		color_black()
 	);
 
+	uint32_t tree_indent = 10;
+
 	// Connecting line to the tree structure
 	// Horizontal line
 	gui_layer_draw_line(
 		view->parent_layer,
 		line_make(
 			point_make(
-				view->parent_folder_start.x + (view->frame.size.width / 2),
+				view->parent_folder_start.x + tree_indent,
 				rect_mid_y(icon_frame)
 			),
 			point_make(
@@ -314,11 +320,11 @@ static void _file_view_draw(file_view_t* view, bool is_active) {
 		view->parent_layer,
 		line_make(
 			point_make(
-				view->parent_folder_start.x + (view->frame.size.width / 2.0),
+				view->parent_folder_start.x + tree_indent,
 				view->parent_folder_start.y + (view->frame.size.height)
 			),
 			point_make(
-				view->parent_folder_start.x + (view->frame.size.width / 2.0),
+				view->parent_folder_start.x + tree_indent,
 				rect_mid_y(icon_frame)
 			)
 		),
@@ -349,11 +355,9 @@ static void _generate_ui_tree(gui_view_t* container_view, file_view_t* parent_vi
 	file_view->idx_within_folder = idx_within_parent;
 
 	gui_view_init((gui_view_t*)file_view, container_view->window, (gui_window_resized_cb_t)_file_view_sizer);
-	gui_view_add_subview(container_view, (gui_view_t*)file_view);
-	file_view->parent_layer = container_view->content_layer;
-	file_view->_priv_draw_cb = (gui_draw_cb_t)_file_view_draw;
-	file_view->left_click_cb = (gui_mouse_left_click_cb_t)_file_view_left_click;
 
+	// Set up the DFS index before adding it as a subview, 
+	// so that it will be positioned correctly on the first draw
 	if (node->base.type != FS_NODE_TYPE_ROOT) {
 		fs_node_t* root = (fs_node_t*)node->base.parent;
 		while (root->base.type != FS_NODE_TYPE_ROOT) {
@@ -364,6 +368,25 @@ static void _generate_ui_tree(gui_view_t* container_view, file_view_t* parent_vi
 		printf("Depth of %s: %d\n", node->base.name, file_view->dfs_index);
 	}
 
+	if (node->base.children && node->base.children->size) {
+		// Directory
+		file_view->icon = _g_folder_icon;
+	}
+	else if (str_ends_with(node->base.name, ".bmp")) {
+		// Image
+		file_view->icon = _g_image_icon;
+	}
+	else {
+		// Executable
+		file_view->icon = _g_executable_icon;
+	}
+
+	gui_view_add_subview(container_view, (gui_view_t*)file_view);
+
+	file_view->parent_layer = container_view->content_layer;
+	file_view->_priv_draw_cb = (gui_draw_cb_t)_file_view_draw;
+	file_view->left_click_cb = (gui_mouse_left_click_cb_t)_file_view_left_click;
+
 	if (node->base.children) {
 		for (uint32_t i = 0; i < node->base.children->size; i++) {
 			fs_node_t* child = array_lookup(node->base.children, i);
@@ -373,13 +396,13 @@ static void _generate_ui_tree(gui_view_t* container_view, file_view_t* parent_vi
 }
 
 int main(int argc, char** argv) {
-	amc_register_service("com.axle.file_manager");
+	amc_register_service(FILE_MANAGER_SERVICE_NAME);
 
-	gui_window_t* window = gui_window_create("File Manager", 300, 400);
+	gui_window_t* window = gui_window_create("File Manager", 400, 600);
 	Size window_size = window->size;
 
 	gui_scroll_view_t* content_view = gui_scroll_view_create(window, (gui_window_resized_cb_t)_content_view_sizer);
-	content_view->background_color = color_white();
+	content_view->background_color = color_make(200, 200, 200);
 
 	// Ask the kernel to map in the ramdisk and send us info about it
 	amc_msg_u32_1__send(AXLE_CORE_SERVICE_NAME, AMC_FILE_MANAGER_MAP_INITRD);
@@ -393,11 +416,18 @@ int main(int argc, char** argv) {
 
 	char* root_path = "/";
 	fs_base_node_t* root = fs_node_create__directory(NULL, root_path, strlen(root_path));
+	root_fs_node = root;
 	root->type = FS_NODE_TYPE_ROOT;
 
 	char* initrd_path = "initrd";
 	fs_base_node_t* initrd_root = fs_node_create__directory(root, initrd_path, strlen(initrd_path));
 	_parse_initrd(initrd_root, initrd_info);
+
+	_g_folder_icon = _load_image("folder_icon.bmp");
+	_g_image_icon = _load_image("image_icon.bmp");
+	_g_executable_icon = _load_image("executable_icon.bmp");
+
+	gui_add_message_handler(window, _amc_message_received);
 
 	_print_fs_tree((fs_node_t*)root, 0);
 	_generate_ui_tree((gui_view_t*)content_view, NULL, 0, (fs_node_t*)root);
