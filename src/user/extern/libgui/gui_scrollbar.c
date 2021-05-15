@@ -69,12 +69,20 @@ static void _gui_scrollbar_draw(gui_scrollbar_t* sb, bool is_active) {
 	if (sb->hidden) {
 		return;
 	}
-	Rect sb_frame = sb->frame;
-	Rect local_frame = rect_make(point_zero(), sb->frame.size);
 
 	// Margin
-	uint32_t margin_size = 4;
+	uint32_t margin_size = 10;
 	uint32_t inner_margin_size = 4;
+
+	// Fudge the frame so that we overlap with the border of the main content view we're attached to
+	// This way, we don't have a 'double border' of the main content's right edge and the
+	// scrollbar's left edge
+	// Note this adjustment should exactly match the border margin set up by the parent
+	// TODO(PT): Compute from the parent
+	Rect sb_frame = sb->frame;
+	sb_frame.origin.x -= 6;
+	sb_frame.size.width += 6;
+	Rect local_frame = rect_make(point_zero(), sb_frame.size);
 
 	// Outer margin
 	Rect outer_margin = local_frame;
@@ -188,7 +196,7 @@ static void _gui_scrollbar_draw(gui_scrollbar_t* sb, bool is_active) {
 }
 
 gui_scrollbar_t* gui_scrollbar_create(gui_window_t* window, gui_elem_t* parent, Rect frame, gui_window_resized_cb_t sizer_cb) {
-	gui_scrollbar_t* sb = calloc(1, sizeof(text_view_t));
+	gui_scrollbar_t* sb = calloc(1, sizeof(gui_scrollbar_t));
 	sb->parent = parent;
 	sb->window = window;
 	sb->frame = frame;
@@ -220,7 +228,7 @@ gui_scrollbar_t* gui_scrollbar_create(gui_window_t* window, gui_elem_t* parent, 
 
 	sb->frame = sizer_cb((gui_elem_t*)sb, window->size);
 
-	array_insert(window->all_gui_elems, sb);
+	//array_insert(window->all_gui_elems, sb);
 
 	return sb;
 }
