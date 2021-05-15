@@ -6,7 +6,13 @@
 #include "libgui.h"
 #include "utils.h"
 
-void draw_diagonal_insets(gui_layer_t* layer, Rect outer, Rect inner, Color c, uint32_t width) {
+void draw_diagonal_insets_with_adjustments(
+	gui_layer_t* layer, 
+	Rect outer, 
+	Rect inner, 
+	Color c, 
+	uint32_t width
+) {
 	// Draw diagonal lines indicating an outset
 	int t = width;
 
@@ -16,7 +22,10 @@ void draw_diagonal_insets(gui_layer_t* layer, Rect outer, Rect inner, Color c, u
 			outer.origin.x + (t/2),
 			outer.origin.y
 		),
-		inner.origin
+		point_make(
+			inner.origin.x + (t/2),
+			inner.origin.y
+		)
 	);
 	gui_layer_draw_line(layer, l, c, t);
 
@@ -27,7 +36,7 @@ void draw_diagonal_insets(gui_layer_t* layer, Rect outer, Rect inner, Color c, u
 			rect_max_y(outer) - (t/2)
 		),
 		point_make(
-			rect_min_x(inner),
+			rect_min_x(inner) + (t/2),
 			rect_max_y(inner) - (t/2)
 		)
 	);
@@ -40,7 +49,7 @@ void draw_diagonal_insets(gui_layer_t* layer, Rect outer, Rect inner, Color c, u
 			rect_min_y(outer)
 		),
 		point_make(
-			rect_max_x(inner),
+			rect_max_x(inner) - (t/2),
 			rect_min_y(inner)
 		)
 	);
@@ -54,10 +63,14 @@ void draw_diagonal_insets(gui_layer_t* layer, Rect outer, Rect inner, Color c, u
 		),
 		point_make(
 			rect_max_x(inner) - (t/2),
-			rect_max_y(inner)
+			rect_max_y(inner) - (t/2)
 		)
 	);
 	gui_layer_draw_line(layer, l, c, t);
+}
+
+void draw_diagonal_insets(gui_layer_t* layer, Rect outer, Rect inner, Color c, uint32_t width) {
+	draw_diagonal_insets_with_adjustments(layer, outer, inner, c, width);
 }
 
 const char* rect_print(Rect r) {
