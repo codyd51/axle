@@ -26,6 +26,7 @@ uint32_t color_hex(Color color);
 Gradient gradient_make(Color from, Color to);
 Color color_at_ratio(Gradient gradient, double percent);
 
+Color color_rand(void);
 Color color_red();
 Color color_orange();
 Color color_yellow();

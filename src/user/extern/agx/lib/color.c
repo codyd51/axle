@@ -10,6 +10,10 @@ Color color_make(uint8_t red, uint8_t green, uint8_t blue) {
 	return ret;
 }
 
+Color color_rand(void) {
+	return color_make(rand()%255, rand()%255, rand()%255);
+}
+
 uint32_t color_hex(Color color) {
 	uint32_t ret = (color.val[0] << 16) | (color.val[1] << 8) | (color.val[2]);
 	return ret;

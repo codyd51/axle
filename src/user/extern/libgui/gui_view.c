@@ -315,8 +315,11 @@ gui_elem_t* gui_view_elem_for_mouse_pos(gui_view_t* view, Point mouse_pos) {
 	// Check if we should instead route to a subview
 	for (uint32_t j = 0; j < view->subviews->size; j++) {
 		gui_elem_t* sub_elem = array_lookup(view->subviews, j);
+		Point offset = view->content_layer_frame.origin;
 		Rect r = sub_elem->base.frame;
-		if (rect_contains_point(sub_elem->base.frame, mouse_pos)) {
+		r.origin.x += offset.x;
+		r.origin.y += offset.y;
+		if (rect_contains_point(r, mouse_pos)) {
 			return sub_elem;
 		}
 	}

@@ -24,7 +24,7 @@ gui_scroll_view_t* gui_scroll_view_alloc(void) {
 }
 
 static void _handle_mouse_scrolled(gui_scroll_view_t* view, int8_t delta_z) {
-	view->content_layer->scroll_layer.inner->scroll_offset.height += delta_z * 10;
+	view->content_layer->scroll_layer.inner->scroll_offset.height += delta_z * 40;
 	view->content_layer->scroll_layer.inner->scroll_offset.height = max(0, view->content_layer->scroll_layer.inner->scroll_offset.height);
 }
 
