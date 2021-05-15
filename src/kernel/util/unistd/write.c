@@ -77,7 +77,10 @@ int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
 	printk(b);
 	if (b[cnt-1] != '\n') printk("\n");
 
-	amc_message_construct_and_send__from_core("com.axle.tty", b, cnt);
+	// Only forward to the tty if the tty is up
+	if (amc_service_is_active("com.axle.tty")) {
+		amc_message_construct_and_send__from_core("com.axle.tty", b, cnt);
+	}
 
 	return len;
 }
