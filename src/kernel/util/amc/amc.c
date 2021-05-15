@@ -183,6 +183,11 @@ void amc_register_service(const char* name) {
     service->spinlock.name = strdup((char*)&buf);
 
     spinlock_acquire(&service->spinlock);
+
+    // Rewrite the name of the task to match the amc service name
+    kfree(current_task->name);
+    current_task->name = strdup(name);
+
     // The provided string is mapped into the address space of the running process,
     // but isn't mapped into kernel-space.
     // Copy the string so we can access it in kernel-space
