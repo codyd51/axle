@@ -28,7 +28,6 @@ typedef struct gui_window {
     Size size;
     gui_layer_t* layer;
 	array_t* text_inputs;
-	array_t* text_views;
 	array_t* views;
     array_t* timers;
 
@@ -40,7 +39,6 @@ typedef struct gui_window {
 typedef union gui_elem {
     gui_elem_base_t base;
     text_input_t ti;
-    text_view_t tv;
     gui_scrollbar_t sb;
     gui_view_t v;
     gui_slider_t sl;

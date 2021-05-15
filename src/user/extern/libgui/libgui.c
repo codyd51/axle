@@ -81,7 +81,6 @@ gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t hei
 	window->size = size_make(width, height);
 	window->layer = dummy_gui_layer;
 	window->text_inputs = array_create(32);
-	window->text_views = array_create(32);
 	window->views = array_create(32);
 	window->timers = array_create(64);
 	window->all_gui_elems = array_create(64);
