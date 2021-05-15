@@ -287,7 +287,7 @@ static void launch_known_drivers(pci_dev_t* dev_head) {
     }
 }
 
-static Rect _info_text_view_sizer(text_view_t* tv, Size window_size) {
+static Rect _info_text_view_sizer(gui_text_view_t* tv, Size window_size) {
 	return rect_make(point_zero(), window_size);
 }
 
@@ -325,13 +325,8 @@ int main(int argc, char** argv) {
 	amc_register_service(PCI_SERVICE_NAME);
 
     gui_window_t* window = gui_window_create("Connected PCI Devices", 400, 620);
-	Rect window_frame = rect_make(point_zero(), window->size);
-
-    Rect info_text_view_frame = window_frame;
-    text_view_t* info_text_view = gui_text_view_create(
+    gui_text_view_t* info_text_view = gui_text_view_create(
         window,
-        info_text_view_frame,
-        color_black(),
         (gui_window_resized_cb_t)_info_text_view_sizer
     );
 

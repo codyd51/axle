@@ -31,11 +31,11 @@ float pifdist(int x1, int y1, int x2, int y2) {
 	return sqrt(x * x + y * y);
 }
 
-void _radial_gradiant(ca_layer* layer, Size gradient_size, Color c1, Color c2, int x1, int y1, float r) {
+void _radial_gradiant(gui_layer_t* layer, Size gradient_size, Color c1, Color c2, int x1, int y1, float r) {
 	for (uint32_t y = 0; y < gradient_size.height; y++) {
 		//printf("draw row %d\n", y);
 		for (uint32_t x = 0; x < gradient_size.width; x++) {
-			putpixel(layer, x, y, transcolor(c1, c2, pifdist(x1, y1, x, y) / r));
+			putpixel(layer->fixed_layer.inner, x, y, transcolor(c1, c2, pifdist(x1, y1, x, y) / r));
 		}
 	}
 }

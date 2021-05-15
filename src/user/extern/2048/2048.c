@@ -189,13 +189,14 @@ static game_tile_draw_info_t _tile_draw_info(game_tile_t* tile) {
 }
 
 static void _draw_tile_with_params(game_state_t* state, game_tile_draw_info_t draw_info, Rect r) {
-	ca_layer* l = state->view->content_layer;
+	gui_layer_t* l = state->view->content_layer;
 
-	draw_rect(l, r, draw_info.color, THICKNESS_FILLED);
+	gui_layer_draw_rect(l, r, draw_info.color, THICKNESS_FILLED);
 
 	if (draw_info.is_occupied) {
 		char buf[64];
 		snprintf(buf, sizeof(buf), "%d", draw_info.value);
+
 
 		Size font_size = size_make(8, 8);
 		font_size.width = max(font_size.width, r.size.width / 4.0);
@@ -211,7 +212,7 @@ static void _draw_tile_with_params(game_state_t* state, game_tile_draw_info_t dr
 		);
 		Point cursor = text_origin;
 		for (uint32_t j = 0; j < strlen(buf); j++) {
-			draw_char(l, buf[j], cursor.x, cursor.y, draw_info.font_color, font_size);
+			gui_layer_draw_char(l, buf[j], cursor.x, cursor.y, draw_info.font_color, font_size);
 			cursor.x += font_size.width;
 		}
 	}
@@ -226,7 +227,7 @@ static void _draw_tile(game_state_t* state, uint32_t tile_idx) {
 }
 
 static void _draw_separators(game_state_t* state) {
-	ca_layer* l = state->view->content_layer;
+	gui_layer_t* l = state->view->content_layer;
 
 	uint32_t col_separator, row_separator = 0;
 	_get_separator_size(state->view->content_layer_frame, &col_separator, &row_separator);
@@ -254,7 +255,7 @@ static void _draw_separators(game_state_t* state) {
 				frame.size.height
 			)
 		);
-		draw_rect(l, r, separator_color, THICKNESS_FILLED);
+		gui_layer_draw_rect(l, r, separator_color, THICKNESS_FILLED);
 	}
 	// Draw the horizontal column seperator lines
 	for (uint32_t i = 0; i < TILES_PER_COL + 1; i++) {
@@ -268,7 +269,7 @@ static void _draw_separators(game_state_t* state) {
 				row_separator
 			)
 		);
-		draw_rect(l, r, separator_color, THICKNESS_FILLED);
+		gui_layer_draw_rect(l, r, separator_color, THICKNESS_FILLED);
 	}
 }
 

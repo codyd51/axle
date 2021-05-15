@@ -19,7 +19,7 @@
 
 #include "gfx.h"
 
-static Rect _input_sizer(text_view_t* text_view, Size window_size) {
+static Rect _input_sizer(text_input_t* text_view, Size window_size) {
 	return rect_make(point_zero(), window_size);
 }
 

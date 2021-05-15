@@ -21,29 +21,26 @@
 
 #include "gfx.h"
 
-static Rect _logs_text_view_sizer(text_view_t* logs_text_view, Size window_size) {
+static gui_text_view_t* _g_text_view = NULL;
+
+static Rect _logs_text_view_sizer(gui_text_view_t* logs_text_view, Size window_size) {
 	return rect_make(point_zero(), window_size);
 }
 
 static void _amc_message_received(gui_window_t* window, amc_message_t* msg) {
-	text_view_t* text_view = array_lookup(window->text_views, 0);
 	char buf[msg->len+1];
 	strncpy(buf, msg->body, msg->len);
 	buf[msg->len] = '\0';
-	gui_text_view_puts(text_view, buf, color_make(135, 20, 20));
+	//gui_text_view_puts(_g_text_view, buf, color_make(135, 20, 20));
+	gui_text_view_puts(_g_text_view, buf, color_white());
 }
 
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.tty");
 
 	gui_window_t* window = gui_window_create("Logs Viewer", 700, 700);
-	Size window_size = window->size;
-
-	Rect logs_frame = rect_make(point_zero(), window_size);
-	text_view_t* logs_text_view = gui_text_view_create(
+	_g_text_view = gui_text_view_create(
 		window,
-		logs_frame,
-		color_white(),
 		(gui_window_resized_cb_t)_logs_text_view_sizer
 	);
 	//logs_text_view->text_box->preserves_history = false;

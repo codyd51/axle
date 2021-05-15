@@ -67,7 +67,7 @@ static void _draw_string(game_state_t* state, char* text, Point center, Size fon
 		center.y - (font_size.height / 2.0)
 	);
 	for (uint32_t i = 0; i < msg_len; i++) {
-		draw_char(
+		gui_layer_draw_char(
 			state->view->content_layer,
 			text[i],
 			cursor.x,
@@ -159,11 +159,11 @@ Color lerp_color(Color a, Color b, float f) {
 }
 
 static void draw_game_state(game_state_t* state) {
-	ca_layer* l = state->view->content_layer;
+	gui_layer_t* l = state->view->content_layer;
 	Rect r = _game_content_frame(state);
 
 	// Fill a black background
-	draw_rect(l, r, color_black(), THICKNESS_FILLED);
+	gui_layer_draw_rect(l, r, color_black(), THICKNESS_FILLED);
 
 	Size square_size = size_make(
 		r.size.width / (float)COLS,
@@ -181,16 +181,14 @@ static void draw_game_state(game_state_t* state) {
 			Rect sr = rect_make(origin, square_size);
 
 			if (square->contains_treat) {
-				//draw_rect(l, sr, color_red(), THICKNESS_FILLED);
 				Point center = point_make(rect_mid_x(sr), rect_mid_y(sr));
 				Circle c = circle_make(center, sr.size.width/2.5);
-				draw_circle(l, c, color_red(), THICKNESS_FILLED);
-				draw_circle(l, c, color_make(140, 70, 70), 2);
+				gui_layer_draw_circle(l, c, color_red(), THICKNESS_FILLED);
+				gui_layer_draw_circle(l, c, color_make(140, 70, 70), 2);
 			}
 			else if (square->contains_snake) {
 				if (square == state->head_square) {
-					draw_rect(l, sr, color_green(), THICKNESS_FILLED);
-					//draw_rect(l, inset, color_white(), 1);
+					gui_layer_draw_rect(l, sr, color_green(), THICKNESS_FILLED);
 				}
 				else {
 					float inset_x, inset_y = 0;
@@ -203,8 +201,8 @@ static void draw_game_state(game_state_t* state) {
 						size_make(sr.size.width - (inset_x * 2), sr.size.height - (inset_y * 2))
 					);
 					Color c = lerp_color(color_make(255, 100, 0), color_yellow(), (square->ttl + 1) / (float)(state->snake_length - 1));
-					draw_rect(l, inset, c, THICKNESS_FILLED);
-					//draw_rect(l, inset, color_light_gray(), 1);
+					gui_layer_draw_rect(l, inset, c, THICKNESS_FILLED);
+					//gui_layer_draw_rect(l, inset, color_light_gray(), 1);
 				}
 			}
 

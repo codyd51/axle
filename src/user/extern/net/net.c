@@ -120,10 +120,10 @@ void net_send_rpc_response(const char* service, uint32_t event, void* buf, uint3
 }
 
 typedef struct event_loop_state {
-	text_view_t* local_link_view;
-	text_view_t* arp_view;
-	text_view_t* dns_view;
-	text_view_t* dns_services_view;
+	gui_text_view_t* local_link_view;
+	gui_text_view_t* arp_view;
+	gui_text_view_t* dns_view;
+	gui_text_view_t* dns_services_view;
 } event_loop_state_t;
 
 static event_loop_state_t _g_state = {0};
@@ -133,8 +133,8 @@ void net_ui_local_link_append_str(char* str, Color c) {
 }
 
 void net_ui_arp_table_draw(void) {
-	text_view_t* text_view = _g_state.arp_view;
-	gui_text_view_clear_and_erase_history(text_view);
+	gui_text_view_t* text_view = _g_state.arp_view;
+	//gui_text_view_clear_and_erase_history(text_view);
 
 	gui_text_view_puts(text_view, "ARP Table\n", color_purple());
 	arp_entry_t* arp_ents = arp_table();
@@ -156,8 +156,8 @@ void net_ui_arp_table_draw(void) {
 }
 
 void net_ui_dns_records_table_draw(void) {
-	text_view_t* text_view = _g_state.dns_view;
-	gui_text_view_clear_and_erase_history(text_view);
+	gui_text_view_t* text_view = _g_state.dns_view;
+	//gui_text_view_clear_and_erase_history(text_view);
 
 	gui_text_view_puts(text_view, "\nDNS A Records\n", color_purple());
 	dns_domain_t* dns_domain_ents = dns_domain_records();
@@ -176,8 +176,8 @@ void net_ui_dns_records_table_draw(void) {
 }
 
 void net_ui_dns_services_table_draw(void) {
-	text_view_t* text_view = _g_state.dns_services_view;
-	gui_text_view_clear_and_erase_history(text_view);
+	gui_text_view_t* text_view = _g_state.dns_services_view;
+	//gui_text_view_clear_and_erase_history(text_view);
 
 	gui_text_view_puts(text_view, "\nDNS Services\n", color_purple());
 	dns_service_type_t* dns_service_type_ents = dns_service_type_table();
@@ -202,7 +202,7 @@ void net_ui_dns_services_table_draw(void) {
 }
 
 
-static Rect _local_link_view_sizer(text_view_t* tv, Size window_size) {
+static Rect _local_link_view_sizer(gui_text_view_t* tv, Size window_size) {
 	return rect_make(
 		point_zero(), 
 		size_make(
@@ -212,7 +212,7 @@ static Rect _local_link_view_sizer(text_view_t* tv, Size window_size) {
 	);
 }
 
-static Rect _arp_view_sizer(text_view_t* tv, Size window_size) {
+static Rect _arp_view_sizer(gui_text_view_t* tv, Size window_size) {
 	return rect_make(
 		point_make(
 			0,
@@ -225,7 +225,7 @@ static Rect _arp_view_sizer(text_view_t* tv, Size window_size) {
 	);
 }
 
-static Rect _dns_view_sizer(text_view_t* tv, Size window_size) {
+static Rect _dns_view_sizer(gui_text_view_t* tv, Size window_size) {
 	return rect_make(
 		point_make(
 			window_size.width / 2,
@@ -238,7 +238,7 @@ static Rect _dns_view_sizer(text_view_t* tv, Size window_size) {
 	);
 }
 
-static Rect _dns_services_view_sizer(text_view_t* tv, Size window_size) {
+static Rect _dns_services_view_sizer(gui_text_view_t* tv, Size window_size) {
 	uint32_t local_link_max_y = rect_max_y(_g_state.local_link_view->frame);
 	uint32_t arp_max_y = rect_max_y(_g_state.arp_view->frame);
 	uint32_t height = ((window_size.height / 5) * 2);
@@ -329,30 +329,21 @@ int main(int argc, char** argv) {
 	tcp_init();
 
 	_g_window = gui_window_create("Network Backend", 860, 400);
-	Rect window_frame = rect_make(point_zero(), _g_window->size);
 
 	_g_state.local_link_view = gui_text_view_create(
 		_g_window,
-		window_frame,
-		color_black(),
 		(gui_window_resized_cb_t)_local_link_view_sizer
 	);
 	_g_state.arp_view = gui_text_view_create(
 		_g_window,
-		window_frame,
-		color_black(),
 		(gui_window_resized_cb_t)_arp_view_sizer
 	);
 	_g_state.dns_view = gui_text_view_create(
 		_g_window,
-		window_frame,
-		color_black(),
 		(gui_window_resized_cb_t)_dns_view_sizer
 	);
 	_g_state.dns_services_view = gui_text_view_create(
 		_g_window,
-		window_frame,
-		color_black(),
 		(gui_window_resized_cb_t)_dns_services_view_sizer
 	);
 
