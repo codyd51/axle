@@ -5,6 +5,7 @@
 #include "gui_elem.h"
 #include "gui_view.h"
 #include "gui_layer.h"
+#include "gui_scrollbar.h"
 
 typedef struct gui_scroll_view {
     // Private union members (must be first in the structure)
@@ -43,7 +44,7 @@ typedef struct gui_scroll_view {
     gui_key_up_cb_t key_up_cb;
     gui_window_resized_cb_t window_resized_cb;
 
-    // Private fields
+    // Private gui_view_t fields
     array_t* subviews;
     gui_view_t* superview;
     uint32_t border_margin;
@@ -53,6 +54,10 @@ typedef struct gui_scroll_view {
     gui_layer_t* parent_layer;
     gui_view_elem_for_mouse_pos_cb_t elem_for_mouse_pos_cb;
     gui_draw_cb_t _fill_background_cb;
+
+    // Private gui_scroll_view_t fields
+    gui_scrollbar_t* scrollbar;
+    Size full_content_area_size;
 } gui_scroll_view_t;
 
 gui_scroll_view_t* gui_scroll_view_alloc(void);
