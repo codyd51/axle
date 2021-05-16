@@ -19,6 +19,7 @@ array_m* array_m_place(void* addr, int32_t max_size) {
 }
 
 void array_m_destroy(array_m* array) {
+	kfree(array->array);
 	kfree(array);
 }
 
@@ -39,7 +40,7 @@ type_t _array_m_lookup_unlocked(array_m* array, int32_t i) {
 	return array->array[i];
 }
 
-static int32_t _array_m_index_unlocked(array_m* array, type_t item) {
+int32_t _array_m_index_unlocked(array_m* array, type_t item) {
 	for (int32_t i = 0; i < array->size; i++) {
 		if (_array_m_lookup_unlocked(array, i) == item) return i;
 	}
