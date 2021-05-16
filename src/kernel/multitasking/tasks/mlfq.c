@@ -99,6 +99,24 @@ bool mlfq_next_quantum_for_task(task_small_t* task, uint32_t* out_quantum) {
     return false;
 }
 
+void mlfq_delete_task(task_small_t* task) {
+    uint32_t queue_idx = 0;
+    uint32_t entry_idx = 0;
+    if (!_find_task(task, &queue_idx, &entry_idx)) {
+        printf("mlfq_delete_task failed: didn't find provided task in any queue\n");
+        return;
+    }
+    mlfq_queue_t* q = array_m_lookup(_queues, queue_idx);
+    spinlock_acquire(&q->spinlock);
+
+    printf("Removing task [%d %s] from MLFQ scheduler pool. Found in Q%d idx %d\n", task->id, task->name, queue_idx, entry_idx);
+    mlfq_ent_t* ent = array_l_lookup(q->round_robin_tasks, entry_idx);
+    array_l_remove(q->round_robin_tasks, entry_idx);
+    kfree(ent);
+
+    spinlock_release(&q->spinlock);
+}
+
 bool mlfq_priority_boost_if_necessary(void) {
     if (ms_since_boot() % 1000 == 0) {
         mlfq_queue_t* high_prio = array_m_lookup(_queues, 0);
@@ -109,6 +127,8 @@ bool mlfq_priority_boost_if_necessary(void) {
         
         for (int i = 1; i < MLFQ_QUEUE_COUNT; i++) {
             mlfq_queue_t* q = array_m_lookup(_queues, i);
+            spinlock_acquire(&q->spinlock);
+
             while (q->round_robin_tasks->size > 0) {
                 //printf("remove from %d (size %d)\n", i, q->round_robin_tasks->size);
                 mlfq_ent_t* ent = array_l_lookup(q->round_robin_tasks, 0);
@@ -118,6 +138,8 @@ bool mlfq_priority_boost_if_necessary(void) {
                 if (ent->task->blocked_info.status == RUNNABLE) runnable_count++;
                 array_l_insert(high_prio->round_robin_tasks, ent);
             }
+
+            spinlock_release(&q->spinlock);
         }
 
         printf("MLFQ %d: Did priority-boost (high-prio %d -> %d, runnable-count: %d)\n", ms_since_boot(), orig_high_prio_size, high_prio->round_robin_tasks->size, runnable_count);

@@ -10,6 +10,7 @@ bool mlfq_choose_task(task_small_t** out_task, uint32_t* out_quantum);
 bool mlfq_prepare_for_switch_from_task(task_small_t* task);
 bool mlfq_priority_boost_if_necessary(void);
 bool mlfq_next_quantum_for_task(task_small_t* task, uint32_t* out_quantum);
+void mlfq_delete_task(task_small_t* task);
 void mlfq_print(void);
 
 #endif
