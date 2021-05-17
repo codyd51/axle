@@ -178,8 +178,7 @@ void amc_register_service(const char* name) {
         panic("A process can expose only one service name");
     }
 
-    amc_service_t* service = kmalloc(sizeof(amc_service_t));
-    memset(service, 0, sizeof(amc_service_t));
+    amc_service_t* service = calloc(1, sizeof(amc_service_t));
 
     printf("Registering service with name 0x%08x (%s)\n", name, name);
     char buf[256];
@@ -270,7 +269,7 @@ static void _amc_core_copy_amc_services(const char* source_service) {
     printf("Request to copy services\n");
    
     uint32_t response_size = sizeof(amc_service_list_t) + (sizeof(amc_service_description_t) * _amc_services->size);
-    amc_service_list_t* service_list = kmalloc(response_size);
+    amc_service_list_t* service_list = calloc(1, response_size);
     service_list->event = AMC_COPY_SERVICES_RESPONSE;
     service_list->service_count = _amc_services->size;
 
@@ -710,5 +709,6 @@ void amc_physical_memory_region_create(uint32_t region_size, uint32_t* virtual_r
 }
 
 bool amc_service_is_active(const char* service) {
+    if (!_amc_services) return false;
     return _amc_service_with_name(service) != NULL;
 }

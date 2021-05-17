@@ -29,6 +29,7 @@ void spinlock_acquire(spinlock_t* lock) {
         // (This means another task has acquired the spinlock, 
         // and since interrupts are disabled we will never context switch back to the 
         // other task)
+        /*
         if (!interrupts_enabled()) { 
             if (lock->owner_pid != getpid()) {
                 printf("Spinlock %s held by another consumer while interrupts are disabled. Owner: [%d]\n", lock->name, lock->owner_pid); 
@@ -37,6 +38,7 @@ void spinlock_acquire(spinlock_t* lock) {
                 assert(0, "Spinlock held by another process while interrupts are disabled\n");
             }
         }
+        */
 
 		contention_start = time();
 

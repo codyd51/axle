@@ -77,6 +77,7 @@ typedef struct task_small {
 	uint32_t priority_context;
 
 	uint32_t kernel_stack;
+	uint32_t kernel_stack_malloc_head;
 } task_small_t;
 
 void tasking_init_small();

@@ -112,6 +112,11 @@ bool amc_message_construct_and_send__from_core(const char* destination_service, 
 
 bool amc_service_has_message(void* service);
 
-void amc_wake_timed_if_timestamp_reached(void);
+void amc_wake_sleeping_services(void);
+
+typedef struct task_small task_small_t;
+typedef struct vmm_page_directory vmm_page_directory_t;
+void amc_teardown_service_for_task(task_small_t* task, vmm_page_directory_t* remote_virt_pdir);
+
 
 #endif

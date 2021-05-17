@@ -5,6 +5,8 @@
 #include <kernel/multitasking/std_stream.h>
 #include <kernel/util/mutex/mutex.h>
 #include <kernel/segmentation/gdt_structures.h>
+#include <kernel/pmm/pmm.h>
+
 #include "mlfq.h"
 
 #define TASK_QUANTUM 50
@@ -26,6 +28,7 @@ const uint32_t _task_context_offset = offsetof(struct task_small, machine_state)
 void context_switch(uint32_t* new_task);
 
 static void _task_make_schedulable(task_small_t* task);
+static void _task_remove_from_scheduler(task_small_t* task);
 
 void sleep(uint32_t ms) {
     Deprecated();
@@ -151,6 +154,74 @@ static void _setup_fds(task_small_t* new_task) {
     array_l_insert(new_task->fd_table, stderr_entry);
 }
 
+void _thread_destroy(task_small_t* thread) {
+    _task_remove_from_scheduler(thread);
+
+    // Free file descriptor table
+    while (thread->fd_table->size) {
+        fd_entry_t* fd_ent = array_l_lookup(thread->fd_table, 0);
+        array_l_remove(thread->fd_table, 0);
+        kfree(fd_ent);
+    }
+    array_l_destroy(thread->fd_table);
+
+    // Free standard IO streams
+    std_stream_destroy(thread->stdin_stream);
+    std_stream_destroy(thread->stdout_stream);
+    std_stream_destroy(thread->stderr_stream);
+    
+    // Free kernel stack
+    kfree(thread->kernel_stack_malloc_head);
+
+    if (!thread->is_thread) {
+        // Free virtual memory space
+        uint32_t page_dir_base = (uint32_t)thread->vmm;
+        vmm_page_directory_t* virt_page_dir = vas_active_map_phys_range(page_dir_base, sizeof(vmm_page_directory_t));
+
+        // Free AMC service if there is one
+        amc_teardown_service_for_task(thread, virt_page_dir);
+
+        // Free the special page table used to store an allocation bitmap
+        uint32_t allocation_state_table_with_flags = virt_page_dir->table_pointers[1022];
+        uint32_t allocation_state_table_phys = (allocation_state_table_with_flags) & PAGING_FRAME_MASK;
+        pmm_free(allocation_state_table_phys);
+
+        // Free page tables allocated to this program
+        // TODO(PT): Anything to think about with shared page tables..?
+        // Revisit me when tearing down shared framebuffers / other shared memory testing
+        // Iterate all the pages except for the recursive mapping, and the the allocation-state/temp-zone mapping
+        vmm_page_directory_t* kernel_vmm_pd = boot_info_get()->vmm_kernel;
+        uint32_t freed_page_table_count = 0;
+        for (uint32_t i = 0; i < 1024 - 2; i++) {
+            uint32_t kernel_page_table_with_flags = kernel_vmm_pd->table_pointers[i];
+            uint32_t* kernel_page_table_ptr = kernel_page_table_with_flags & PAGE_DIRECTORY_ENTRY_MASK;
+            uint32_t kernel_page_table_flags = (uint32_t)kernel_page_table_with_flags & PAGE_TABLE_FLAG_BITS_MASK;
+
+            uint32_t table_with_flags = virt_page_dir->table_pointers[i];
+            uint32_t table_phys = (table_with_flags) & PAGING_FRAME_MASK;
+            if (!(kernel_page_table_flags & PAGE_PRESENT_FLAG) && (table_with_flags & PAGING_FRAME_MASK)) {
+                freed_page_table_count += 1;
+                pmm_free(table_phys);
+            }
+        }
+
+        vmm_unmap_range(vmm_active_pdir(), virt_page_dir, sizeof(vmm_page_directory_t));
+
+        // Free every page constituting the page directory
+        for (uint32_t i = 0; i < sizeof(vmm_page_directory_t); i += PAGING_FRAME_SIZE) {
+            uint32_t frame_addr = page_dir_base + i;
+            pmm_free(page_dir_base + i);
+        }
+    }
+    else {
+        printf("\tWill not free VMM because this is a thread\n");
+    }
+
+    // Free control block
+    kfree(thread->name);
+    kfree(thread);
+}
+
 task_small_t* _thread_create(void* entry_point, uint32_t arg1, uint32_t arg2, uint32_t arg3) {
     task_small_t* new_task = kmalloc(sizeof(task_small_t));
     memset(new_task, 0, sizeof(task_small_t));
@@ -159,8 +230,8 @@ task_small_t* _thread_create(void* entry_point, uint32_t arg1, uint32_t arg2, ui
     _setup_fds(new_task);
 
     uint32_t stack_size = 0x2000;
-    char *stack = kmalloc(stack_size);
-    printf("_thread_create stack 0x%08x\n", stack);
+    char* stack = kmalloc(stack_size);
+    //printf("New task [%d]: Made kernel stack 0x%08x\n", new_task->id, stack);
     memset(stack, 0, stack_size);
 
     uint32_t* stack_top = (uint32_t *)(stack + stack_size - 0x4); // point to top of malloc'd stack
@@ -180,6 +251,7 @@ task_small_t* _thread_create(void* entry_point, uint32_t arg1, uint32_t arg2, ui
 
     new_task->machine_state = (task_context_t*)stack_top;
     new_task->kernel_stack = stack_top;
+    new_task->kernel_stack_malloc_head = stack;
 
     new_task->is_thread = true;
     new_task->vmm = (vmm_page_directory_t*)vmm_active_pdir();
@@ -221,6 +293,10 @@ static task_small_t* _task_spawn(void* entry_point, task_priority_t priority, co
 
 static void _task_make_schedulable(task_small_t* task) {
     mlfq_add_task_to_queue(task, 0);
+}
+
+static void _task_remove_from_scheduler(task_small_t* task) {
+    mlfq_delete_task(task);
 }
 
 task_small_t* task_spawn__with_args(void* entry_point, uint32_t arg1, uint32_t arg2, uint32_t arg3, const char* task_name) {
@@ -438,14 +514,12 @@ void tasking_init() {
     // so, anything we set to be restored in this first task's setup state will be overwritten when it's preempted for the first time.
     // thus, we can pass anything for the entry point of this first task, since it won't be used.
     _current_task_small = thread_spawn(NULL);
-    _current_task_small->name = "bootstrap";
-    //strncpy(_current_task_small->name, "bootstrap", 10);
+    _current_task_small->name = strdup("bootstrap");
     _task_list_head = _current_task_small;
-    //tasking_goto_task(_current_task_small, 20);
     tasking_goto_task(_current_task_small, 100);
 
-    // _task_spawn will not add it to the scheduler
-    //_idle_task = _task_spawn(idle_task, PRIORITY_IDLE, "idle");
+    // idle should not be in the scheduler pool as we schedule it specially
+    // _task_spawn will not add it to the scheduler pool
     _idle_task = _task_spawn(idle_task, PRIORITY_IDLE, "idle");
     //_iosentinel_task = task_spawn(update_blocked_tasks, PRIORITY_NONE);
 
