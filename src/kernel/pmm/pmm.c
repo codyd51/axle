@@ -96,6 +96,22 @@ void pmm_dump(void) {
     addr_space_bitmap_dump_set_ranges(&pmm->system_accessible_frames);
     printf("\tFrame allocation state (ranges are allocated):\n");
     addr_space_bitmap_dump_set_ranges(&pmm->allocation_state);
+    printf("Allocated: 0x%08x\n", pmm_allocated_memory());
+}
+
+uint32_t pmm_allocated_memory(void) {
+    pmm_state_t* pmm = pmm_get();
+    uint32_t allocated_frame_count = 0;
+    address_space_frame_bitmap_t* bitmap = &pmm->allocation_state;
+    for (int i = 0; i < ADDRESS_SPACE_BITMAP_SIZE; i++) {
+        uint32_t entry = bitmap->set[i];
+        for (int j = 0; j < BITS_PER_BITMAP_ENTRY; j++) {
+            if (entry & (1 << j)) {
+                allocated_frame_count += 1;
+            }
+        }
+    }
+    return allocated_frame_count * PAGING_FRAME_SIZE;
 }
 
 void pmm_init() {
