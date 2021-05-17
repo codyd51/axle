@@ -42,6 +42,8 @@ static array_m* _amc_services = 0;
 static const uint32_t _amc_messages_to_unknown_services_pool_size = 512;
 static array_m* _amc_messages_to_unknown_services_pool = 0;
 
+static array_m* _asleep_procs = 0;
+
 static hash_map_t* _amc_services_by_name = 0;
 static hash_map_t* _amc_services_by_task = 0;
 
@@ -60,6 +62,7 @@ typedef struct amc_service {
 } amc_service_t;
 
 static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_message_t* message);
+static void _amc_message_free(amc_message_t* msg);
 
 void amc_print_services(void) {
     if (!_amc_services) return;
@@ -166,6 +169,7 @@ void amc_register_service(const char* name) {
         _amc_messages_to_unknown_services_pool = array_m_create(_amc_messages_to_unknown_services_pool_size);
         _amc_services_by_name = hash_map_create();
         _amc_services_by_task = hash_map_create();
+        _asleep_procs = array_m_create(64);
     }
 
     task_small_t* current_task = tasking_get_current_task();
@@ -193,7 +197,6 @@ void amc_register_service(const char* name) {
     // Copy the string so we can access it in kernel-space
     service->name = strdup(name);
     service->task = current_task;
-    assert(!interrupts_enabled(), "ints enabled during spinlock");
     service->message_queue = array_m_create(2048);
 
     // Create the message delivery pool in the task's address space
@@ -314,31 +317,55 @@ static void _amc_core_awm_map_framebuffer(const char* source_service) {
     amc_message_construct_and_send__from_core(source_service, &msg, sizeof(amc_framebuffer_info_t));
 }
 
-static void _amc_core_put_timed_to_sleep(const char* source_service, uint32_t ms) {
-    // Only timed is allowed to invoke this code!
-    assert(!strncmp(source_service, "com.axle.timed", AMC_MAX_SERVICE_NAME_LEN), "Only timed may use this syscall");
+static void _amc_core_put_service_to_sleep(const char* source_service, uint32_t ms) {
     amc_service_t* service = _amc_service_with_name(source_service);
 
     uint32_t now = ms_since_boot();
     uint32_t wake = now + ms;
     service->task->blocked_info.wake_timestamp = wake;
-    //printf("Core blocking timed at %d until %d or message arrives (%dms)\n", now, wake, ms);
-    tasking_block_task(service->task, AMC_AWAIT_MESSAGE | TIMED_AWAIT_TIMESTAMP);
+    printf("Core blocking %s [%d %s] at %d until %d or message arrives (%dms)\n", source_service, service->task->id, service->task->name, now, wake, ms);
+
+    spinlock_acquire(&service->spinlock);
+    array_m_insert(_asleep_procs, service);
+    service->task->blocked_info.status = TIMED_AWAIT_TIMESTAMP;
+    spinlock_release(&service->spinlock);
+
+    task_switch();
 }
 
-void amc_wake_timed_if_timestamp_reached(void) {
+void amc_wake_sleeping_services(void) {
     if (!tasking_is_active() || !_amc_services || !_amc_services->size) {
         return;
     }
 
+    if (!_asleep_procs->size) {
+        return;
+    }
+
     uint32_t now = ms_since_boot();
-    amc_service_t* service = _amc_service_with_name("com.axle.timed");
-    if ((service->task->blocked_info.status & TIMED_AWAIT_TIMESTAMP) != 0) {
-        if (now >= service->task->blocked_info.wake_timestamp) {
-            //printf("Core waking up timed at %d\n", now);
-            tasking_unblock_task_with_reason(service->task, false, TIMED_AWAIT_TIMESTAMP);
+
+    spinlock_acquire(&_asleep_procs->lock);
+
+    int proc_indexes_to_awake[_asleep_procs->size];
+    int procs_to_awake_count = 0;
+    for (uint32_t i = 0; i < _asleep_procs->size; i++) {
+        amc_service_t* s = _array_m_lookup_unlocked(_asleep_procs, i);
+        assert(s->task->blocked_info.status == TIMED_AWAIT_TIMESTAMP, "Proc was in sleep list but wasn't asleep!");
+        if (now >= s->task->blocked_info.wake_timestamp) {
+            proc_indexes_to_awake[procs_to_awake_count++] = i;
         }
     }
+
+    int32_t idx_shift = 0;
+    for (uint32_t i = 0; i < procs_to_awake_count; i++) {
+        amc_service_t* s = _array_m_lookup_unlocked(_asleep_procs, i);
+        int idx = proc_indexes_to_awake[i];
+        idx -= idx_shift;
+        _array_m_remove_unlocked(_asleep_procs, idx);
+        idx_shift += 1;
+        tasking_unblock_task_with_reason(s->task, false, TIMED_AWAIT_TIMESTAMP);
+    }
+    spinlock_release(&_asleep_procs->lock);
 }
 
 static void _amc_core_file_manager_map_initrd(const char* source_service) {
@@ -416,8 +443,8 @@ static bool _amc_message_construct_and_send_from_service_name(const char* source
             _amc_core_awm_map_framebuffer(source_service);
             return true;
         }
-        else if (u32buf[0] == AMC_TIMED_AWAIT_TIMESTAMP_OR_MESSAGE) {
-            _amc_core_put_timed_to_sleep(source_service, u32buf[1]);
+        else if (u32buf[0] == AMC_SLEEP_UNTIL_TIMESTAMP) {
+            _amc_core_put_service_to_sleep(source_service, u32buf[1]);
         }
         else if (u32buf[0] == AMC_FILE_MANAGER_MAP_INITRD) {
             _amc_core_file_manager_map_initrd(source_service);

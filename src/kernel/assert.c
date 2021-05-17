@@ -1,7 +1,7 @@
 #include "assert.h"
 #include <kernel/boot_info.h>
 
-#define _BACKTRACE_SIZE 12
+#define _BACKTRACE_SIZE 16
 
 void print_stack_trace(int frame_count) {
     printf("Stack trace:\n");
@@ -22,7 +22,7 @@ void _panic(const char* msg, const char* file, int line) {
     printf("[%d] Assertion failed: %s\n", getpid(), msg);
     printf("%s:%d\n", file, line);
     if (true) {
-        print_stack_trace(16);
+        print_stack_trace(20);
     }
     asm("cli");
     asm("hlt");

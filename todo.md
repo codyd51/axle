@@ -145,3 +145,15 @@ scroll view scrollbara
 scroll view layer stitching
 
 awm uses libgui (with a custom event loop)
+
+awm exposes a primary/secondary tint color
+    Preferences reads this to set its initial slider values
+    Values are randomised on boot (or eventually perisisted to a config file)
+    Snake uses it for its tail
+
+
+ray tracer
+game of life
+sand sim
+amc delivery space is initiall small (1MB) and grows as large messages are sent
+    reduces overall memory footprint

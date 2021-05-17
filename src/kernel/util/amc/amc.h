@@ -57,7 +57,7 @@ typedef struct amc_exec_buffer_cmd {
 #define AMC_AWM_MAP_FRAMEBUFFER (1 << 1)
 #define AMC_AWM_MAP_FRAMEBUFFER_RESPONSE (1 << 1)
 
-#define AMC_TIMED_AWAIT_TIMESTAMP_OR_MESSAGE (1 << 2)
+#define AMC_SLEEP_UNTIL_TIMESTAMP (1 << 2)
 
 #define AMC_FILE_MANAGER_MAP_INITRD (1 << 3)
 #define AMC_FILE_MANAGER_MAP_INITRD_RESPONSE (1 << 3)

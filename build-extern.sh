@@ -13,7 +13,6 @@ cp src/user/extern/awm/awm.h axle-sysroot/usr/i686-axle/include/awm/awm.h
 cp src/user/extern/pci_driver/pci_messages.h axle-sysroot/usr/i686-axle/include/pci/pci_messages.h
 cp src/user/extern/net/net_messages.h axle-sysroot/usr/i686-axle/include/net/net_messages.h
 cp src/user/extern/realtek_8139_driver/rtl8139_messages.h axle-sysroot/usr/i686-axle/include/drivers/realtek_8139/rtl8139_messages.h
-cp src/user/extern/timed/timed_messages.h axle-sysroot/usr/i686-axle/include/daemons/timed/timed_messages.h
 cp src/user/extern/watchdogd/watchdogd_messages.h axle-sysroot/usr/i686-axle/include/daemons/watchdogd/watchdogd_messages.h
 cp src/user/extern/preferences/preferences_messages.h axle-sysroot/usr/i686-axle/include/preferences/preferences_messages.h
 cp src/user/extern/kb_driver/kb_driver_messages.h axle-sysroot/usr/i686-axle/include/kb_driver/kb_driver_messages.h
@@ -71,10 +70,6 @@ make
 cd ../../../../
 
 cd ./src/user/extern/net
-make
-cd ../../../../
-
-cd ./src/user/extern/timed
 make
 cd ../../../../
 
