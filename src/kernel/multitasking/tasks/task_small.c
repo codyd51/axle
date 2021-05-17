@@ -5,6 +5,8 @@
 #include <kernel/multitasking/std_stream.h>
 #include <kernel/util/mutex/mutex.h>
 #include <kernel/segmentation/gdt_structures.h>
+
+#include <kernel/util/amc/amc.h>    // For reaper
 #include <kernel/pmm/pmm.h>
 
 #include "mlfq.h"
@@ -115,6 +117,11 @@ void task_die(int exit_code) {
     printf("[%d] self-terminated with exit %d. Zombie\n", getpid(), exit_code);
     // TODO(PT): Clean up the resources associated with the task
     // VMM, stack, file pointers, etc
+    task_small_t* buf[1] = {tasking_get_current_task()};
+    amc_message_construct_and_send__from_core("com.axle.reaper", &buf, sizeof(buf));
+    // Set ourselves to zombie _after_ telling reaper about us
+    // Even if we're pre-empted in between switching to zombie and informing reaper,
+    // we'll still be cleaned up
     tasking_get_current_task()->blocked_info.status = ZOMBIE;
     task_switch();
     panic("Should never be scheduled again\n");
@@ -498,6 +505,55 @@ void idle_task() {
     }
 }
 
+void reaper_task() {
+    amc_register_service("com.axle.reaper");
+    spinlock_t reaper_lock = {0};
+    reaper_lock.name = "[reaper lock]";
+
+    while (1) {
+        amc_message_t* msg;
+        amc_message_await_any(&msg);
+        if (strncmp(msg->source, AXLE_CORE_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
+            printf("Reaper ignoring message from [%s]\n", msg->source);
+            continue;
+        }
+        task_small_t** buf = (task_small_t**)msg->body;
+        task_small_t* zombie_task = buf[0];
+        printf("Reaper received corpse [%d %s]\n", zombie_task->id, zombie_task->name);
+
+        spinlock_acquire(&reaper_lock);
+
+        task_small_t* iter = _task_list_head;
+        task_small_t* prev = NULL;
+        for (int i = 0; i < MAX_TASKS; i++) {
+            if (iter == NULL) {
+                assert(false, "Reaper failed to find provided task");
+                return;
+            }
+
+            task_small_t* next = iter->next;
+            if (iter == zombie_task) {
+                assert(iter->blocked_info.status == ZOMBIE, "Status was not zombie");
+                _thread_destroy(iter);
+
+                // Remove this node from the linked-list of tasks
+                if (prev != NULL) {
+                    prev->next = next;
+                }
+                else {
+                    _task_list_head = next;
+                }
+                iter = next;
+                break;
+            }
+            prev = iter;
+            iter = (iter)->next;
+        }
+
+        spinlock_release(&reaper_lock);
+    }
+}
+
 void tasking_init() {
     if (tasking_is_active()) {
         panic("called tasking_init() after it was already active");
@@ -521,11 +577,16 @@ void tasking_init() {
     // idle should not be in the scheduler pool as we schedule it specially
     // _task_spawn will not add it to the scheduler pool
     _idle_task = _task_spawn(idle_task, PRIORITY_IDLE, "idle");
-    //_iosentinel_task = task_spawn(update_blocked_tasks, PRIORITY_NONE);
+
+    // reaper cleans up and frees the resources of ZOMBIE tasks
+    task_spawn(reaper_task, PRIORITY_NONE, "reaper");
 
     printf_info("Multitasking initialized");
     _multitasking_ready = true;
     asm("sti");
+
+    // Wait until reaper wakes up so it can reliably kill every service
+    while (!amc_service_is_active("com.axle.reaper")) {}
 }
 
 int fork() {
