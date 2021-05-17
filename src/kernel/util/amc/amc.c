@@ -216,6 +216,76 @@ void amc_register_service(const char* name) {
     _amc_deliver_pending_messages_to_new_service(service);
 }
 
+vmm_page_table_t* vas_virt_table_for_page_addr(vmm_page_directory_t* vas_virt, uint32_t page_addr, bool alloc);
+uint32_t vmm_page_table_idx_for_virt_addr(uint32_t addr);
+uint32_t vmm_page_idx_within_table_for_virt_addr(uint32_t addr);
+
+void amc_teardown_service_for_task(task_small_t* task, vmm_page_directory_t* remote_pdir) {
+    amc_service_t* service = _amc_service_of_task(task);
+    if (!service) {
+        // No AMC service for the provided task
+        printf("AMC teardown: [%d %s] had no AMC service\n", task->id, task->name);
+        return;
+    }
+    printf("AMC teardown: [%d %s] has an AMC service: %s\n", task->id, task->name, service->name);
+
+    spinlock_acquire(&_amc_services->lock);
+
+    /*
+    // Remove from lookup tables
+    printf("\tRemove from lookup tables\n");
+    hash_map_delete(_amc_services_by_name, service->name, strlen(service->name));
+    hash_map_delete(_amc_services_by_task, service->task, sizeof(service->task));
+    */
+
+    // Remove from list of amc services
+    //printf("\tRemove from services list\n");
+    int32_t idx = _array_m_index_unlocked(_amc_services, service);
+    _array_m_remove_unlocked(_amc_services, idx);
+
+    //printf("\tTeardown metadata\n");
+    // Free service metadata
+    kfree(service->spinlock.name);
+    kfree(service->name);
+
+    // Free message queue
+    while (service->message_queue->size) {
+        amc_message_t* msg = array_m_lookup(service->message_queue, 0);
+        printf("\tFree undelivered message (%s -> %s)\n", msg->source, msg->dest);
+        array_m_remove(service->message_queue, 0);
+        _amc_message_free(msg);
+    }
+    array_m_destroy(service->message_queue);
+
+    // Free amc message delivery pool
+    //printf("\tTeardown delivery pool\n");
+    //printf("\tVMM 0x%08x Local 0x%08x\n", task->vmm, remote_pdir);
+    uint32_t virt_delivery_pool_base = service->delivery_pool;
+
+    for (uint32_t i = 0; i < _amc_delivery_pool_size; i += PAGING_PAGE_SIZE) {
+        uint32_t page_addr = virt_delivery_pool_base + i;
+
+        // Map in the page table for this delivery pool page
+        uint32_t phys_table = vas_virt_table_for_page_addr(remote_pdir, page_addr, false);
+        vmm_page_table_t* table = vas_active_map_temp(phys_table, PAGING_FRAME_SIZE);
+        //printf("Phys table 0x%08x\n", phys_table);
+        //printf("Remote table 0x%08x\n", table);
+
+        uint32_t page_idx = vmm_page_idx_within_table_for_virt_addr(page_addr);
+        uint32_t frame_addr = table->pages[page_idx].frame_idx * PAGING_FRAME_SIZE;
+        pmm_free(frame_addr);
+        //printf("\tFree AMC delivery pool page [P 0x%08x] [V 0x%08x]\n", frame_addr, page_addr);
+        //_vmm_unmap_page(vmm_active_pdir(), i);
+
+        vas_active_unmap_temp(sizeof(vmm_page_table_t));
+    }
+
+    // Finally free the service control block itself
+    kfree(service);
+    spinlock_release(&_amc_services->lock);
+    //printf("\tAMC teardown done\n");
+}
+
 static void _amc_print_inbox(amc_service_t* inbox) {
     printf("--------AMC inbox of %s-------\n", inbox->name);
     for (int i = 0; i < inbox->message_queue->size; i++) {
