@@ -176,7 +176,7 @@ float pifdist(int x1, int y1, int x2, int y2) {
 	return sqrt(x * x + y * y);
 }
 
-void _radial_gradient(ca_layer* layer, Size gradient_size, Color c1, Color c2, int x1, int y1, float r) {
+void _radial_gradient(gui_layer_t* layer, Size gradient_size, Color c1, Color c2, int x1, int y1, float r) {
 	int x_step = gradient_size.width / 200.0;
 	int y_step = gradient_size.height / 200.0;
     if (x_step < 1) x_step = 1;
@@ -186,7 +186,7 @@ void _radial_gradient(ca_layer* layer, Size gradient_size, Color c1, Color c2, i
 			Color c = transcolor(c1, c2, pifdist(x1, y1, x, y) / r);
 			for (int i = 0; i < x_step; i++) {
 				for (int j = 0; j < y_step; j++) {
-					putpixel(layer, x+i, y+j, c);
+					putpixel(layer->fixed_layer.inner, x+i, y+j, c);
 				}
 			}
 		}

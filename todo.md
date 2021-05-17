@@ -157,3 +157,5 @@ game of life
 sand sim
 amc delivery space is initiall small (1MB) and grows as large messages are sent
     reduces overall memory footprint
+
+stress-test hash map, it seems broken with linked list + delete
