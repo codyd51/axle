@@ -23,17 +23,23 @@ typedef struct text_box {
 	Size size;
 	Size font_size;
 	Size font_padding;
+	Point text_inset;
 	Point cursor_pos;
 	Color background_color;
 	uint32_t max_text_y;
+
+	bool scrollable;
+
 	elem_stack_t* history;
 	bool preserves_history;
 
 	bool cache_drawing;
 	hash_map_t* draw_cache;
+
 } text_box_t;
 
 text_box_t* text_box_create(Size size, Color background_color);
+text_box_t* text_box_create__unscrollable(Size size, Color background_color);
 void text_box_destroy(text_box_t* text_box);
 
 void text_box_putchar(text_box_t* text_box, char ch, Color color);
@@ -44,6 +50,7 @@ void text_box_set_cursor_x(text_box_t* text_box, uint32_t x);
 void text_box_set_cursor_y(text_box_t* text_box, uint32_t y);
 
 void text_box_clear(text_box_t* tb);
+void text_box_clear_and_erase_history(text_box_t* tb);
 
 void text_box_scroll_up(text_box_t* text_box);
 void text_box_scroll_down(text_box_t* text_box);

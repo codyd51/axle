@@ -22,6 +22,8 @@
        __typeof__ (b) _b = (b); \
      _a <= _b ? _a : _b; })
 
+static hash_map_t* _g_draw_cache = NULL;
+
 // Scrolling layer
 
 ca_scrolling_layer_t* ca_scrolling_layer_create(Size full_size) {
@@ -52,8 +54,24 @@ typedef struct text_box_line {
 } text_box_line_t;
 
 static void _draw_scrollbar_into_layer(text_box_t* text_box, ca_layer* dest, Rect dest_frame) {
+	// If the lowest text we've drawn is still within the visible window,
+	// there's no need to draw a scroll bar
+	if (text_box->max_text_y <= text_box->size.height) {
+		return;
+	}
+
 	ca_layer* sb_layer = text_box->scrollbar_layer;
 	Rect sb_frame = text_box->scrollbar_frame;
+
+	uint32_t max_visible_height = text_box->size.height + text_box->scroll_layer->scroll_offset.height;
+	uint32_t max_total_height = text_box->max_text_y + text_box->size.height;
+	float viewport_percent = (max_visible_height - (text_box->size.height / 2)) / (float)max_total_height;
+	if (text_box->scroll_layer->scroll_offset.height == 0) {
+		viewport_percent = 0.0;
+	}
+	if (max_visible_height >= max_total_height) {
+		viewport_percent = 1.0;
+	}
 
 	// Draw the scroll bar background
 	draw_rect(
@@ -77,16 +95,6 @@ static void _draw_scrollbar_into_layer(text_box_t* text_box, ca_layer* dest, Rec
 		sb_frame.size.height / 4
 	);
 
-	uint32_t max_visible_height = text_box->size.height + text_box->scroll_layer->scroll_offset.height;
-	uint32_t max_total_height = text_box->max_text_y;
-	float viewport_percent = max_visible_height / (float)max_total_height;
-	if (text_box->scroll_layer->scroll_offset.height == 0) {
-		viewport_percent = 0.0;
-	}
-	if (max_visible_height >= text_box->max_text_y) {
-		viewport_percent = 1.0;
-	}
-
 	float usable_height = sb_frame.size.height;
 	// Accomodate margins
 	usable_height -= indicator_y_margin * 2;
@@ -97,14 +105,12 @@ static void _draw_scrollbar_into_layer(text_box_t* text_box, ca_layer* dest, Rec
 		indicator_x_margin,
 		indicator_y_margin + (usable_height * viewport_percent)
 	);
-	// Move the indicator by half its height so it appears in the center
-	//indicator_origin.y -= indicator_size.height / 2.0;
 
 	// Draw the indicator
 	draw_rect(
 		sb_layer,
 		rect_make(
-			point_make(indicator_origin.x, indicator_origin.y), 
+			indicator_origin,
 			indicator_size
 		),
 		color_black(),
@@ -124,6 +130,15 @@ static void _draw_scrollbar_into_layer(text_box_t* text_box, ca_layer* dest, Rec
 }
 
 void text_box_scroll_up(text_box_t* text_box) {
+	/*
+	// Move the existing text "up" to reveal content off the bottom of the view
+	uint32_t max_visible_height = text_box->size.height + text_box->scroll_layer->scroll_offset.height;
+	if (max_visible_height >= text_box->max_text_y + text_box->size.height) {
+		// Can't scroll any further
+		return;
+	}
+	*/
+
 	text_box->scroll_layer->scroll_offset.height += SCROLL_INTERVAL;
 }
 
@@ -132,10 +147,16 @@ void text_box_blit(text_box_t* text_box, ca_layer* dest, Rect dest_frame) {
 	// Draw the visible region of the scrolling layer
 	ca_scrolling_layer_blit(text_box->scroll_layer, local_frame, dest, dest_frame);
 	// Draw the scroll bar indicator
-	_draw_scrollbar_into_layer(text_box, dest, dest_frame);
+	/*
+	if (text_box->scrollable && text_box->scrollbar_layer) {
+		if (getpid() != 9 && getpid() != 7)
+			_draw_scrollbar_into_layer(text_box, dest, dest_frame);
+	}
+	*/
 }
 
 void text_box_scroll_down(text_box_t* text_box) {
+	// Move the existing text "down" to reveal content off the top of the view
 	text_box->scroll_layer->scroll_offset.height -= SCROLL_INTERVAL;
 	text_box->scroll_layer->scroll_offset.height = max(text_box->scroll_layer->scroll_offset.height, 0);
 }
@@ -145,18 +166,13 @@ void text_box_scroll_to_bottom(text_box_t* text_box) {
 }
 
 static void _newline(text_box_t* text_box) {
-	text_box->cursor_pos.x = 0;
+	text_box->cursor_pos.x = text_box->text_inset.x;
 	text_box->cursor_pos.y += text_box->font_size.height + text_box->font_padding.height;
 	text_box->max_text_y = max(text_box->max_text_y, text_box->cursor_pos.y);
 
 	if (text_box->cursor_pos.y + text_box->font_size.height + text_box->font_padding.height >= text_box->scroll_layer->full_size.height) {
 		printf("Text box exceeded scrolling layer, reset to top... (%d)\n", text_box->history->count);
-		while (text_box->history->count) {
-			text_box_line_t* line = stack_pop(text_box->history);
-			free(line->str);
-			free(line);
-		}
-		text_box_clear(text_box);
+		text_box_clear_and_erase_history(text_box);
 	}
 }
 
@@ -188,8 +204,7 @@ void text_box_putchar(text_box_t* text_box, char ch, Color color) {
 			.font_size = text_box->font_size, 
 			.draw_color = color
 		};
-		bool d = false;
-		ca_layer* cache_layer = hash_map_get(text_box->draw_cache, &desc, sizeof(char_desc_t), d);
+		ca_layer* cache_layer = hash_map_get(_g_draw_cache, &desc, sizeof(char_desc_t));
 		if (cache_layer == NULL) {
 			cache_layer = create_layer(
 				size_make(
@@ -199,7 +214,7 @@ void text_box_putchar(text_box_t* text_box, char ch, Color color) {
 			);
 			draw_rect(cache_layer, rect_make(point_zero(), cache_layer->size), text_box->background_color, THICKNESS_FILLED);
 			draw_char(cache_layer, desc.ch, 0, 0, desc.draw_color, desc.font_size);
-			hash_map_put(text_box->draw_cache, &desc, sizeof(char_desc_t), cache_layer, d);
+			hash_map_put(_g_draw_cache, &desc, sizeof(char_desc_t), cache_layer);
 		}
 		blit_layer(
 			text_box->scroll_layer->layer, 
@@ -216,12 +231,13 @@ void text_box_putchar(text_box_t* text_box, char ch, Color color) {
 	}
 
 	text_box->cursor_pos.x += text_box->font_size.width + text_box->font_padding.width;
-	if (text_box->cursor_pos.x + text_box->font_size.width + text_box->font_padding.width >= text_box->size.width - 40) {
+	if (text_box->cursor_pos.x + text_box->font_size.width + text_box->font_padding.width >= text_box->size.width) {
 		_newline(text_box);
 	}
 }
 
 static void _text_box_puts_and_add_to_history(text_box_t* text_box, const char* str, Color color, bool add_to_history) {
+	assert(str != NULL, "_text_bux_puts_and_add_string_to_history passed NULL");
 	if (add_to_history && text_box->preserves_history) {
 		text_box_line_t* line = calloc(1, sizeof(text_box_line_t));
 		line->str = strdup(str);
@@ -240,27 +256,34 @@ void text_box_puts(text_box_t* text_box, const char* str, Color color) {
 
 void text_box_resize(text_box_t* text_box, Size size) {
     text_box->size = size;
-	// Determine the scrollbar size
-	float scrollbar_x_margin = size.width / 100.0;
-	float scrollbar_y_margin = size.height / 50.0;
-	scrollbar_y_margin = max(scrollbar_y_margin, 10);
-	int scrollbar_width = max(size.width / 40.0, 20);
-	Size scrollbar_size = size_make(
-		scrollbar_width, 
-		size.height - (scrollbar_y_margin * 4)
-	);
-	text_box->scrollbar_frame = rect_make(
-		point_make(
-			size.width - scrollbar_width - scrollbar_x_margin, 
-			scrollbar_y_margin
-		), 
-		scrollbar_size
-	);
 
-	if (text_box->scrollbar_layer) {
-		layer_teardown(text_box->scrollbar_layer);
+	if (text_box->scrollable) {
+		/*
+		// Determine the scrollbar size
+		float scrollbar_x_margin = size.width / 100.0;
+		float scrollbar_y_margin = size.height / 50.0;
+		scrollbar_y_margin = max(scrollbar_y_margin, 10);
+		int scrollbar_width = max(size.width / 40.0, 20);
+		scrollbar_width = min(scrollbar_width, 30);
+
+		Size scrollbar_size = size_make(
+			scrollbar_width, 
+			size.height - (scrollbar_y_margin * 4)
+		);
+		text_box->scrollbar_frame = rect_make(
+			point_make(
+				size.width - scrollbar_width - scrollbar_x_margin,
+				(size.height / 2) - (scrollbar_size.height / 2)
+			), 
+			scrollbar_size
+		);
+
+		if (text_box->scrollbar_layer) {
+			layer_teardown(text_box->scrollbar_layer);
+		}
+		text_box->scrollbar_layer = create_layer(scrollbar_size);
+		*/
 	}
-	text_box->scrollbar_layer = create_layer(scrollbar_size);
 
 	if (text_box->preserves_history) {
 		text_box_clear(text_box);
@@ -276,25 +299,54 @@ void text_box_resize(text_box_t* text_box, Size size) {
 	}
 }
 
+text_box_t* text_box_create__unscrollable(Size size, Color background_color) {
+	if (!_g_draw_cache) {
+		_g_draw_cache = hash_map_create(512);
+	}
+    text_box_t* tb = calloc(1, sizeof(text_box_t));
+	tb->scroll_layer = ca_scrolling_layer_create(size);
+    tb->background_color = background_color;
+	tb->font_size = size_make(8, 12);
+	tb->font_padding = size_make(0, 6);
+	tb->text_inset = point_make(2, 2);
+	tb->history = stack_create();
+
+	tb->preserves_history = false;
+
+	tb->cache_drawing = true;
+
+	tb->scrollable = false;
+
+	text_box_resize(tb, size);
+	draw_rect(tb->scroll_layer->layer, rect_make(point_zero(), size), tb->background_color, THICKNESS_FILLED);
+
+    return tb;
+}
+
 text_box_t* text_box_create(Size size, Color background_color) {
+	if (!_g_draw_cache) {
+		_g_draw_cache = hash_map_create(512);
+	}
     text_box_t* tb = calloc(1, sizeof(text_box_t));
 	Size scroll_layer_size = size_make(1920, 1080 * 4);
-	// TODO(PT): Drop second param?
 	tb->scroll_layer = ca_scrolling_layer_create(scroll_layer_size);
     tb->background_color = background_color;
 	tb->font_size = size_make(8, 12);
 	tb->font_padding = size_make(0, 6);
+	tb->text_inset = point_make(2, 2);
 	tb->history = stack_create();
 
-	tb->cache_drawing = true;
-	tb->draw_cache = hash_map_create();
+	tb->preserves_history = false;
+
+	tb->cache_drawing = false;
+
+	tb->scrollable = true;
 
 	text_box_resize(tb, size);
 	draw_rect(tb->scroll_layer->layer, rect_make(point_zero(), scroll_layer_size), tb->background_color, THICKNESS_FILLED);
 
     return tb;
 }
-
 
 void text_box_clear(text_box_t* tb) {
 	Size s = tb->scroll_layer->full_size;
@@ -305,8 +357,17 @@ void text_box_clear(text_box_t* tb) {
 		THICKNESS_FILLED
 	);
 	tb->scroll_layer->scroll_offset = size_zero();
-	tb->cursor_pos = point_zero();
-	tb->max_text_y = 0;
+	tb->cursor_pos = tb->text_inset;
+	tb->max_text_y = tb->text_inset.y;
+}
+
+void text_box_clear_and_erase_history(text_box_t* tb) {
+	while (tb->history->count) {
+		text_box_line_t* line = stack_pop(tb->history);
+		free(line->str);
+		free(line);
+	}
+	text_box_clear(tb);
 }
 
 void text_box_destroy(text_box_t* text_box) {
