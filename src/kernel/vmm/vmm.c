@@ -19,17 +19,18 @@ static bool _vmm_debug = false;
 
 static void page_fault(const register_state_t* regs);
 uint32_t vmm_page_table_idx_for_virt_addr(uint32_t addr);
-static uint32_t vmm_page_idx_within_table_for_virt_addr(uint32_t addr);
+uint32_t vmm_page_idx_within_table_for_virt_addr(uint32_t addr);
 void vmm_unmap_range(vmm_page_directory_t* vmm_dir, uint32_t virt_start, uint32_t size);
 uint32_t vmm_map_phys_range(vmm_page_directory_t* vmm_dir, uint32_t phys_start, uint32_t size);
 uint32_t vas_active_map_phys_range(uint32_t phys_start, uint32_t size);
-uint32_t vas_active_unmap_temp(uint32_t size);
+void vas_active_unmap_temp(uint32_t size);
 uint32_t vas_active_map_temp(uint32_t phys_start, uint32_t size);
 bool vmm_page_table_is_present(vmm_page_directory_t* vmm_dir, uint32_t page_table_idx);
 vmm_page_table_t* _get_page_table_from_table_idx(vmm_page_directory_t* vmm_dir, uint32_t page_table_idx);
 static vmm_page_directory_t* _alloc_page_directory(bool map_allocation_bitmap);
 uint32_t _get_phys_page_table_pointer_from_table_idx(vmm_page_directory_t* vmm_dir, int page_table_idx);
 vmm_page_table_t* vmm_table_for_page_addr(vmm_page_directory_t* vmm_dir, uint32_t page_addr, bool alloc);
+uint32_t vmm_get_phys_address_for_mapped_page(vmm_page_directory_t* vmm_dir, uint32_t page_addr);
 
 static volatile vmm_page_directory_t* _loaded_pdir = 0;
 static bool _has_set_up_initial_page_directory = false;
@@ -456,7 +457,8 @@ uint32_t vmm_page_table_idx_for_virt_addr(uint32_t addr) {
     return table_idx;
 }
 
-static uint32_t vmm_page_idx_within_table_for_virt_addr(uint32_t addr) {
+uint32_t vmm_page_idx_within_table_for_virt_addr(uint32_t addr) {
+
     uint32_t page_idx = addr / PAGING_PAGE_SIZE;
     return page_idx % PAGES_IN_PAGE_TABLE;
 }
@@ -559,11 +561,11 @@ vmm_page_table_t* vas_virt_table_for_page_addr(vmm_page_directory_t* vas_virt, u
         vas_virt_page_table_alloc(vas_virt, table_idx);
     }
 
-    return (uint32_t)vas_virt->table_pointers[table_idx] & PAGE_DIRECTORY_ENTRY_MASK;
+    return (vmm_page_table_t*)((uint32_t)vas_virt->table_pointers[table_idx] & PAGE_DIRECTORY_ENTRY_MASK);
 }
 
 uint32_t vmm_alloc_global_kernel_memory(uint32_t size) {
-    printf("vmm_alloc_global_kernel_memory 0x%08x (ints %d)\n", size, interrupts_enabled());
+    printf("vmm_alloc_global_kernel_memory 0x%08x\n", size);
 
     // Modifying structures shared across all processes
     spinlock_acquire(&_vmm_global_spinlock);
@@ -574,7 +576,8 @@ uint32_t vmm_alloc_global_kernel_memory(uint32_t size) {
 
     vmm_load_pdir(boot_info_get()->vmm_kernel, false);
 	uint32_t start = vmm_alloc_continuous_range(vmm_active_pdir(), size, true, 0, false);
-    printf("vmm_alloc_global_kernel_memory allocated 0x%08x - 0x%08x\n", start, start + size);
+    uint32_t start_phys = vmm_get_phys_address_for_mapped_page(vmm_active_pdir(), start);
+    printf("vmm_alloc_global_kernel_memory allocated 0x%08x - 0x%08x (phys start 0x%08x)\n", start, start + size, start_phys);
 
     vmm_load_pdir(active_vmm, false);
 
@@ -601,6 +604,8 @@ void vmm_free_global_kernel_memory(uint32_t addr, uint32_t size) {
     vmm_load_pdir(boot_info_get()->vmm_kernel, false);
 
     for (uint32_t i = addr; i < addr + size; i += PAGE_SIZE) {
+        uint32_t frame_addr = vmm_get_phys_address_for_mapped_page(vmm_active_pdir(), i);
+        pmm_free(frame_addr);
         _vmm_unmap_page(vmm_active_pdir(), i);
     }
 
@@ -734,7 +739,7 @@ void vmm_set_page_usermode(vmm_page_directory_t* vmm_dir, uint32_t page_addr) {
     uint32_t table_idx = vmm_page_table_idx_for_virt_addr(page_addr);
     uint32_t phys_table = page_tables[table_idx];
     if (!(phys_table & PAGE_USER_MODE_FLAG)) {
-        printf("Enabling user-mode flag on page table [%d] (phys|flags 0x%08x)\n", table_idx, phys_table);
+        //printf("Enabling user-mode flag on page table [%d] (phys|flags 0x%08x)\n", table_idx, phys_table);
         page_tables[table_idx] = phys_table | PAGE_USER_MODE_FLAG;
         invlpg(&page_tables[table_idx]);
         invlpg(phys_table);
@@ -1162,7 +1167,7 @@ uint32_t vas_active_map_temp(uint32_t phys_start, uint32_t size) {
     return first_page_address;
 }
 
-uint32_t vas_active_unmap_temp(uint32_t size) {
+void vas_active_unmap_temp(uint32_t size) {
     VAS_PRINTF("vas_active_unmap_temp 0x%08x 0x%08x\n", _last_tmp_alloc_end, size);
     uint32_t temp_mapping_zone_addr = 0xff800000;
     vmm_page_table_t* table = vmm_table_for_page_addr(vmm_active_pdir(), temp_mapping_zone_addr, false);
