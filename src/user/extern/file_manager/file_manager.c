@@ -77,6 +77,7 @@ static fs_node_t* root_fs_node = NULL;
 static image_bmp_t* _g_folder_icon = NULL;
 static image_bmp_t* _g_image_icon = NULL;
 static image_bmp_t* _g_executable_icon = NULL;
+static image_bmp_t* _g_text_icon = NULL;
 
 static initrd_fs_node_t* _find_node_by_name(char* name);
 bool str_ends_with(char* str, char* suffix);
@@ -217,9 +218,17 @@ static uint32_t _depth_first_search__idx(fs_base_node_t* parent, fs_base_node_t*
 }
 
 static Rect _file_view_sizer(file_view_t* view, Size window_size) {
-	Size icon_size = size_make(30, 30);
+	Size max_icon_size = size_make(32, 32);
+	Size icon_size = max_icon_size;
 	if (view->icon) {
 		icon_size = view->icon->size;
+		/*
+		if (icon_size.height > max_icon_size.height) {
+			float ratio = max_icon_size.height / (float)icon_size.height;
+			icon_size.height = max_icon_size.height;
+			icon_size.width *= ratio;
+		}
+		*/
 	}
 	uint32_t padding_y = 10;
 
@@ -232,7 +241,7 @@ static Rect _file_view_sizer(file_view_t* view, Size window_size) {
 		// Always indent by the same amount regardless of image dimensions
 		origin.x += 30;
 		// Indent from previous siblings within this directory
-		origin.y = (view->dfs_index) * (icon_size.height + padding_y);
+		origin.y = (view->dfs_index) * (max_icon_size.height + padding_y);
 	}
 
 	return rect_make(
@@ -255,6 +264,7 @@ static void _file_view_draw(file_view_t* view, bool is_active) {
 
 	// Render the appropriate icon for the file
 	if (view->icon) {
+		/*
 		Rect icon_image_frame = rect_make(
 			point_make(
 				icon_frame.origin.x + 2,
@@ -265,16 +275,19 @@ static void _file_view_draw(file_view_t* view, bool is_active) {
 				icon_frame.size.height - 4
 			)
 		);
-		image_render_to_layer(view->icon, view->parent_layer->scroll_layer.inner->layer, icon_image_frame);
+		*/
+		image_render_to_layer(view->icon, view->parent_layer->scroll_layer.inner, icon_frame);
 	}
 
 	// Draw an outline around the icon
-	gui_layer_draw_rect(
-		view->parent_layer,
-		icon_frame,
-		bg_color,
-		2
-	);
+	if (is_active) {
+		gui_layer_draw_rect(
+			view->parent_layer,
+			icon_frame,
+			bg_color,
+			2
+		);
+	}
 
 	// Draw a label of the file name
 	uint32_t label_inset = max(icon_frame.size.width, 40);
@@ -421,6 +434,10 @@ static void _generate_ui_tree(gui_view_t* container_view, file_view_t* parent_vi
 		// Image
 		file_view->icon = _g_image_icon;
 	}
+	else if (str_ends_with(node->base.name, ".txt")) {
+		// Text
+		file_view->icon = _g_text_icon;
+	}
 	else {
 		// Executable
 		file_view->icon = _g_executable_icon;
@@ -455,6 +472,7 @@ static void _amc_message_received(gui_window_t* window, amc_message_t* msg) {
     const char* source_service = msg->source;
 
 	uint32_t event = amc_msg_u32_get_word(msg, 0);
+	printf("File manager sent event %d\n", event);
 	if (event == FILE_MANAGER_READ_FILE) {
 		file_manager_read_file_request_t* req = (file_manager_read_file_request_t*)&msg->body;
 		initrd_fs_node_t* desired_file = _find_node_by_name(req->path);
@@ -488,7 +506,7 @@ int main(int argc, char** argv) {
 	Size window_size = window->size;
 
 	gui_scroll_view_t* content_view = gui_scroll_view_create(window, (gui_window_resized_cb_t)_content_view_sizer);
-	content_view->background_color = color_make(200, 200, 200);
+	content_view->background_color = color_white();
 
 	// Ask the kernel to map in the ramdisk and send us info about it
 	amc_msg_u32_1__send(AXLE_CORE_SERVICE_NAME, AMC_FILE_MANAGER_MAP_INITRD);
@@ -512,6 +530,7 @@ int main(int argc, char** argv) {
 	_g_folder_icon = _load_image("folder_icon.bmp");
 	_g_image_icon = _load_image("image_icon.bmp");
 	_g_executable_icon = _load_image("executable_icon.bmp");
+	_g_text_icon = _load_image("text_icon.bmp");
 
 	gui_add_message_handler(window, _amc_message_received);
 

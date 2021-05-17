@@ -8,8 +8,8 @@ LIBRARY_PATH=$(SYSROOT)/usr/i686-axle/lib:$(LIBRARY_PATH)
 CFLAGS = -I$(SYSROOT)/usr/i686-axle/include -g -L$(SYSROOT)/usr/i686-axle/lib -Wl,-Bstatic -lc -nostartfiles
 LDFLAGS = -T ./linker.ld -L$(SYSROOT)/usr/i686-axle/lib -lc
 
-awm: awm.c $(SYSROOT)/usr/i686-axle/lib/libagx.a
+awm: awm.c $(SYSROOT)/usr/i686-axle/lib/libagx.a $(SYSROOT)/usr/i686-axle/lib/libimg.a
 	$(CC) $(CFLAGS) -o awm.o -c awm.c; 
 	# Place LDFlags after object files: https://stackoverflow.com/questions/34848192/assembler-gcc-undefined-reference-to-puts
-	$(LD) -o awm awm.o -lagx -lamc $(LDFLAGS)
+	$(LD) -o awm awm.o -lagx -lamc -limg $(LDFLAGS)
 	cp awm $(DIR)/initrd;
