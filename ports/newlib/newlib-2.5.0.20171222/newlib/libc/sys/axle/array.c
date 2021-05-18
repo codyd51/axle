@@ -12,6 +12,7 @@ array_t* array_create(int32_t max_size) {
 }
 
 void array_destroy(array_t* array) {
+	free(array->array);
 	free(array);
 }
 
