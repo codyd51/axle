@@ -159,3 +159,15 @@ amc delivery space is initiall small (1MB) and grows as large messages are sent
     reduces overall memory footprint
 
 stress-test hash map, it seems broken with linked list + delete
+
+check mem usage of an amc task with framebuf that spawns another (copied page tables?) (check)
+
+free elf loader memory (check)
+free sbrk memory (check)
+
+amc delivery pool grows as necessary instead of fixed 32mb
+
+Rework shared memory concept
+    awm should be able to pool together framebufs
+    awm doesn't need to 'check' whether a region's still valid
+    Instead of having a pair on either end, they can have > 2 processes attach
