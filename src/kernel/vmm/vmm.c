@@ -151,7 +151,7 @@ static void vmm_bitmap_set_addr(vmm_page_directory_t* vmm_dir, uint32_t page_add
     addr_space_bitmap_set_address(_vmm_bitmap_for_addr(vmm_dir, page_addr), page_addr);
 }
 
-static void vmm_bitmap_unset_addr(vmm_page_directory_t* vmm_dir, uint32_t page_addr) {
+void vmm_bitmap_unset_addr(vmm_page_directory_t* vmm_dir, uint32_t page_addr) {
     addr_space_bitmap_unset_address(_vmm_bitmap_for_addr(vmm_dir, page_addr), page_addr);
 }
 
@@ -484,6 +484,7 @@ static void vmm_page_table_alloc(vmm_page_directory_t* vmm_dir, int page_table_i
 
     uint32_t new_table = pmm_alloc();
     VAS_PRINTF("Page table alloc @ 0x%08x (maps 0x%08x - 0x%08x)\n", new_table, (page_table_idx * 1024 * 1024 * 4), ((page_table_idx + 1) * 1024 * 1024 * 4));
+    printf("Page table alloc @ 0x%08x (maps 0x%08x - 0x%08x)\n", new_table, (page_table_idx * 1024 * 1024 * 4), ((page_table_idx + 1) * 1024 * 1024 * 4));
 
     uint32_t* page_tables = _get_page_tables_head(vmm_dir);
     page_tables[page_table_idx] = (uint32_t)new_table | PAGE_KERNEL_ONLY_FLAG | PAGE_READ_WRITE_FLAG | PAGE_PRESENT_FLAG;
@@ -622,7 +623,7 @@ void _vmm_unmap_page(vmm_page_directory_t* vmm_dir, uint32_t page_addr) {
         printf("page_addr 0x%x\n", page_addr);
         panic("page_addr is not page aligned");
     }
-    vmm_page_table_t* table = vmm_table_for_page_addr(vmm_dir, page_addr, true);
+    vmm_page_table_t* table = vmm_table_for_page_addr(vmm_dir, page_addr, false);
     if (!table) {
         panic("failed to get page table");
     }
