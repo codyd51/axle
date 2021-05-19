@@ -30,7 +30,7 @@ static inline bool bitset_check(uint32_t* bitset, int idx) {
 
 void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_size) {
 	Point p = point_make(x, y);
-	if (p.x < 0 || p.y < 0 || p.x >= layer->size.width || p.y >= layer->size.height) return;
+	//if (p.x < 0 || p.y < 0 || p.x >= layer->size.width || p.y >= layer->size.height) return;
 
 	//find scale factor of default font size to size requested
 	float scale_x = font_size.width / (float)CHAR_WIDTH;

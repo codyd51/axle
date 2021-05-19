@@ -107,8 +107,8 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 
 		Point cursor = point_make(
 			// Align the left edge with where the visual bevel begins
-			v->frame.origin.x + outer_margin_size,
-			v->frame.origin.y + font_inset
+			rect_min_x(r) + outer_margin_size,
+			rect_min_y(r) + font_inset
 		);
 		uint32_t font_height = min(30, v->_title_inset.size.height - font_inset);
 		uint32_t font_width = max(6, font_height * 0.8);
@@ -128,12 +128,12 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 	// Outer margin
 	Rect outer_margin = rect_make(
 		point_make(
-			v->frame.origin.x,
+			rect_min_x(r),
 			rect_max_y(v->_title_inset)
 		),
 		size_make(
-			v->frame.size.width,
-			v->frame.size.height - v->_title_inset.size.height 
+			r.size.width,
+			r.size.height - v->_title_inset.size.height 
 		)
 	);
 	gui_layer_draw_rect(
@@ -141,15 +141,6 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 		outer_margin,
 		color_light_gray(),
 		outer_margin_size
-	);
-
-	// Outline above outer margin
-	Color outline_color = is_active ? color_make(200, 200, 200) : color_dark_gray();
-	gui_layer_draw_rect(
-		v->parent_layer,
-		v->frame,
-		outline_color,
-		1
 	);
 
 	uint32_t outer_margin_before_inner = v->border_margin - inner_margin_size;
@@ -182,7 +173,7 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 				inner_margin.origin.y
 			),
 			point_make(
-				inner_margin.origin.x + inner_margin_size,
+				inner_margin.origin.x + inner_margin_size + inset_adjustment_x,
 				inner_margin.origin.y + inner_margin_size
 			)
 		),
@@ -196,18 +187,18 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 		line_make(
 			point_make(
 				inner_margin.origin.x + inset_adjustment_x,
-				rect_max_y(inner_margin)
+				rect_max_y(inner_margin) - 1
 			),
 			point_make(
 				inner_margin.origin.x + inner_margin_size + inset_adjustment_x,
-				rect_max_y(inner_margin) - inner_margin_size
+				rect_max_y(inner_margin) - 1 - inner_margin_size
 			)
 		),
 		inset_color,
 		inner_margin_size
 	);
 
-	// Top left corner
+	// Top right corner
 	gui_layer_draw_line(
 		v->parent_layer,
 		line_make(
@@ -224,32 +215,21 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 		inner_margin_size
 	);
 
-	// Bottom left corner
+	// Bottom right corner
 	gui_layer_draw_line(
 		v->parent_layer,
 		line_make(
 			point_make(
 				rect_max_x(inner_margin) - inset_adjustment_x,
-				rect_max_y(inner_margin)
+				rect_max_y(inner_margin) - 1
 			),
 			point_make(
 				rect_max_x(inner_margin) - inner_margin_size - inset_adjustment_x,
-				rect_max_y(inner_margin) - inner_margin_size
+				rect_max_y(inner_margin) - 1 - inner_margin_size
 			)
 		),
 		inset_color,
 		inner_margin_size
-	);
-
-	// Draw the inner content layer
-	gui_layer_blit_layer(
-		v->parent_layer,
-		v->content_layer,
-		v->content_layer_frame,
-		rect_make(
-			point_zero(),
-			v->content_layer_frame.size
-		)
 	);
 
 	if (!v->controls_content_layer) {
@@ -266,9 +246,37 @@ static void _gui_view_draw(gui_view_t* v, bool is_active) {
 			subview->base._priv_needs_display = false;
 		//}
 	}
+
+	// Draw the inner content layer
+	//printf("%s Content layer frame\n", rect_print(v->content_layer_frame));
+	gui_layer_blit_layer(
+		v->parent_layer,
+		v->content_layer,
+		v->content_layer_frame,
+		rect_make(
+			point_zero(),
+			v->content_layer_frame.size
+		)
+	);
 }
 
-static void _view_window_resized(gui_view_t* v, Size new_window_size) {
+void _gui_view_draw_active_indicator(gui_view_t* v, bool is_active) {
+	// Outline above outer margin
+	Color outline_color = is_active ? color_make(200, 200, 200) : color_dark_gray();
+	gui_layer_draw_rect(
+		v->parent_layer,
+		v->frame,
+		outline_color,
+		1
+	);
+}
+
+void _gui_view_draw(gui_view_t* v, bool is_active) {
+	_gui_view_draw_main_content_in_rect(v, is_active, v->frame);
+	_gui_view_draw_active_indicator(v, is_active);
+}
+
+void _gui_view_resize(gui_view_t* v, Size new_window_size) {
 	Rect new_frame = v->sizer_cb((gui_elem_t*)v, new_window_size);
 	v->frame = new_frame;
 
@@ -302,7 +310,7 @@ void gui_view_alloc_dynamic_fields(gui_view_t* view) {
 	view->content_layer = calloc(1, sizeof(gui_layer_t));
 	view->content_layer->fixed_layer.type = GUI_FIXED_LAYER;
 	view->content_layer->fixed_layer.inner = create_layer(_gui_screen_resolution());
-	view->subviews = array_create(32);
+	view->subviews = array_create(64);
 }
 
 gui_view_t* gui_view_alloc(void) {
@@ -387,8 +395,11 @@ gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_
 }
 
 void gui_view_destroy(gui_view_t* view) {
+	if (view->teardown_cb) {
+		view->teardown_cb((gui_elem_t*)view);
+	}
 	gui_layer_teardown(view->content_layer);
-	free(view->content_layer);
+	assert(view->subviews->size == 0, "subviews must be cleaned up");
 	array_destroy(view->subviews);
 	free(view);
 }

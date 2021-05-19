@@ -45,6 +45,7 @@ typedef struct gui_text_view {
     gui_key_down_cb_t key_down_cb;
     gui_key_up_cb_t key_up_cb;
     gui_window_resized_cb_t window_resized_cb;
+    gui_teardown_cb_t teardown_cb;
 
     // Private gui_view_t fields
     array_t* subviews;
