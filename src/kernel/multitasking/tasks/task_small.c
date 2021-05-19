@@ -204,7 +204,24 @@ void _thread_destroy(task_small_t* thread) {
 
             uint32_t table_with_flags = virt_page_dir->table_pointers[i];
             uint32_t table_phys = (table_with_flags) & PAGING_FRAME_MASK;
-            if (!(kernel_page_table_flags & PAGE_PRESENT_FLAG) && (table_with_flags & PAGING_FRAME_MASK)) {
+            if (!(kernel_page_table_flags & PAGE_PRESENT_FLAG) && (table_with_flags & PAGE_PRESENT_FLAG)) {
+                // Load in the page table so we can free each of its frames
+                vmm_page_table_t* table = vas_active_map_temp(table_phys, PAGING_FRAME_SIZE);
+                for (uint32_t j = 0; j < 1024; j++) {
+                    if (table->pages[j].present) {
+                        uint32_t frame_addr = table->pages[j].frame_idx * PAGING_FRAME_SIZE;
+
+                        // Don't free non-general-purpose memory that might've been mapped
+                        // into the dead process
+                        // (For example, awm has the memory-mapped framebuffer mapped into its VMM)
+                        if (pmm_is_frame_general_purpose(frame_addr)) {
+                            //printf("Free page %d within table %d (0x%08x)\n", j, i, frame_addr);
+                            pmm_free(frame_addr);
+                        }
+                    }
+                }
+                vas_active_unmap_temp(sizeof(vmm_page_table_t));
+
                 freed_page_table_count += 1;
                 pmm_free(table_phys);
             }
