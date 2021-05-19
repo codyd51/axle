@@ -1201,8 +1201,11 @@ vmm_page_directory_t* vmm_clone_active_pdir() {
     VAS_PRINTF("vmm_clone_active_pdir [P 0x%08x] [V 0x%08x]\n", phys_new_pd, virt_new_pd);
     uint32_t* new_page_tables = &virt_new_pd->table_pointers;
 
-    // Copy the allocation state of the parent directory
-    memcpy(_vmm_state_bitmap(virt_new_pd), _vmm_state_bitmap(active_pd), sizeof(address_space_page_bitmap_t));
+    // Copy the allocation state of the kernel directory
+    // TODO(PT): Why are we not copying the allocation state of the parent of this task?
+    // It looks as though this function currently always copies the kernel directory instead of the parent directory
+    memcpy(_vmm_state_bitmap(virt_new_pd), _vmm_state_bitmap(kernel_vmm_pd), sizeof(address_space_page_bitmap_t));
+
     // But clear the allocation state of fixed-mappings that we'll allocate now
     for (uint32_t page_addr = 0xff800000; page_addr < 0xff800000 + (0x1000*1024); page_addr += PAGING_PAGE_SIZE) {
         vmm_bitmap_unset_addr(virt_new_pd, page_addr);
@@ -1241,8 +1244,8 @@ vmm_page_directory_t* vmm_clone_active_pdir() {
             continue;
         }
 
-        printf("table %d is NOT present in kernel dir, will copy (table 0x%08x)\n", i, kernel_page_table_with_flags);
-        NotImplemented();
+        // TODO(PT): Revisit me and test with a parent and child that has some mappings set up
+        //printf("table %d is NOT present in kernel dir, will copy (table 0x%08x)\n", i, kernel_page_table_with_flags);
 
         /*
         uint32_t* source_page_table = _get_phys_page_table_pointer_from_table_idx(source_vmm_dir, i);
