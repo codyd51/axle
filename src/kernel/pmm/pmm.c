@@ -207,6 +207,7 @@ static uint32_t _pmm_alloc_continuous_range_unlocked(pmm_state_t* pmm, uint32_t 
 static void _pmm_free_unlocked(pmm_state_t* pmm, uint32_t frame_address) {
     //sanity check
     if (!addr_space_bitmap_check_address(&pmm->allocation_state, frame_address)) {
+        printf("Frame is not allocated: 0x%08x\n", frame_address);
         panic("attempted to free non-allocated frame");
     }
     addr_space_bitmap_unset_address(&pmm->allocation_state, frame_address);
@@ -260,4 +261,20 @@ void pmm_free(uint32_t frame_address) {
     spinlock_acquire(&pmm->lock);
     _pmm_free_unlocked(pmm, frame_address);
     spinlock_release(&pmm->lock);
+}
+
+bool pmm_is_address_allocated(uint32_t address) {
+    pmm_state_t* pmm = pmm_get();
+    spinlock_acquire(&pmm->lock);
+    bool ret = addr_space_bitmap_check_address(&pmm->allocation_state, address);
+    spinlock_release(&pmm->lock);
+    return ret;
+}
+
+bool pmm_is_frame_general_purpose(uint32_t address) {
+    pmm_state_t* pmm = pmm_get();
+    spinlock_acquire(&pmm->lock);
+    bool ret = addr_space_bitmap_check_address(&pmm->system_accessible_frames, address);
+    spinlock_release(&pmm->lock);
+    return ret;
 }

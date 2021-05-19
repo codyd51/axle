@@ -115,8 +115,6 @@ task_small_t* tasking_get_current_task() {
 
 void task_die(int exit_code) {
     printf("[%d] self-terminated with exit %d. Zombie\n", getpid(), exit_code);
-    // TODO(PT): Clean up the resources associated with the task
-    // VMM, stack, file pointers, etc
     task_small_t* buf[1] = {tasking_get_current_task()};
     amc_message_construct_and_send__from_core("com.axle.reaper", &buf, sizeof(buf));
     // Set ourselves to zombie _after_ telling reaper about us
@@ -217,7 +215,7 @@ void _thread_destroy(task_small_t* thread) {
         // Free every page constituting the page directory
         for (uint32_t i = 0; i < sizeof(vmm_page_directory_t); i += PAGING_FRAME_SIZE) {
             uint32_t frame_addr = page_dir_base + i;
-            pmm_free(page_dir_base + i);
+            pmm_free(frame_addr);
         }
     }
     else {

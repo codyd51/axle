@@ -29,4 +29,7 @@ void pmm_free(uint32_t frame_addr);
 void pmm_dump(void);
 uint32_t pmm_allocated_memory(void);
 
+bool pmm_is_address_allocated(uint32_t address);
+bool pmm_is_frame_general_purpose(uint32_t address);
+
 #endif
