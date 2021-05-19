@@ -160,7 +160,7 @@ static void _parse_initrd(fs_base_node_t* initrd_root, amc_initrd_info_t* initrd
 
 		initrd_fs_node_t* fs_node = (initrd_fs_node_t*)fs_node_create__file(initrd_root, file_header->name, strlen(file_header->name));
 		fs_node->type = FS_NODE_TYPE_INITRD;
-		fs_node->initrd_offset = file_header->offset;
+		fs_node->initrd_offset = file_header->offset + initrd_info->initrd_start;
 		fs_node->size = file_header->length;
 
 		offset += sizeof(initrd_file_header_t);
