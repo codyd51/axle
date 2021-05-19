@@ -349,6 +349,16 @@ static void _run_tick(game_state_t* state) {
 	gui_timer_start(state->view->window, tick_interval, (gui_timer_cb_t)_run_tick, state);
 }
 
+static void _game_state_teardown(gui_elem_t* e) {
+	printf("_game_state_teardown\n");
+	game_state_t* state = &state_s;
+	while (state->queued_moves->size) {
+		// There's no allocation to free for a queued move, so just remove it from the array
+		array_remove(state->queued_moves, 0);
+	}
+	array_destroy(state->queued_moves);
+}
+
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.snake");
 
@@ -366,6 +376,7 @@ int main(int argc, char** argv) {
 	game_state_t* state = &state_s;
 	state->view = game_view;
 	state->queued_moves = array_create(32);
+	game_view->teardown_cb = (gui_teardown_cb_t)_game_state_teardown;
 
 	_start_new_game(state);
 	_run_tick(state);
