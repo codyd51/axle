@@ -196,6 +196,7 @@ void elf_load_buffer(char* program_name, uint8_t* buf, uint32_t buf_size, char**
 
 	//calculate argc count
 	int argc = 0;
+	printf("Argv 0x%08x\n", argv);
 	while (argv[argc] != NULL) {
 		argc++;
 	}
@@ -232,16 +233,5 @@ void elf_load_buffer(char* program_name, uint8_t* buf, uint32_t buf_size, char**
 }
 
 void elf_load_file(char* name, FILE* elf, char** argv) {
-	//find file size
-	fseek(elf, 0, SEEK_END);
-	uint32_t binary_size = ftell(elf);
-	fseek(elf, 0, SEEK_SET);
-
-	char* filebuf = kmalloc(binary_size);
-	for (uint32_t i = 0; i < binary_size; i++) {
-		filebuf[i] = fgetc(elf);
-	}
-	elf_load_buffer(name, filebuf, binary_size, argv);
-	// The above should never return
-	assert(false, "elf_load_buffer returned execution to loader!");
+	Deprecated();
 }
