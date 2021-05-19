@@ -40,9 +40,15 @@ void spinlock_acquire(spinlock_t* lock) {
         }
         */
 
+        // If we're already holding the lock, increment the 'nested acquire' count
 		contention_start = time();
+        if (lock->owner_pid == getpid()) {
+            printf("Spinlock: [%d] did nested acquire of %s at %d\n", getpid(), lock->name, contention_start);
+            lock->nest_count += 1;
+            return;
+        }
 
-		printf("Spinlock: [%d] found contended spinlock with flag %d at %d: %s\n", getpid(), lock->flag, contention_start, lock->name);
+		printf("Spinlock: [%d] found contended spinlock with flag %d at %d: %s owned by %d\n", getpid(), lock->flag, contention_start, lock->name, lock->owner_pid);
 	}
 
     // Spin until the lock is released
@@ -71,6 +77,11 @@ void spinlock_acquire(spinlock_t* lock) {
 
 void spinlock_release(spinlock_t* lock) {
     if (!lock) return;
+    if (lock->nest_count) {
+        lock->nest_count -= 1;
+        printf("Spinlock: [%d] decrement nested acquire of %s to %d\n", getpid(), lock->name, lock->nest_count);
+        return;
+    }
     lock->owner_pid = -1;
     atomic_store(&lock->flag, 0);
     // Allow other contexts on this processor to interact with the spinlock
