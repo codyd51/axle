@@ -94,6 +94,72 @@ gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t hei
 	return window;
 }
 
+struct mallinfo_s {
+	int arena;    /* total space allocated from system */
+	int ordblks;  /* number of non-inuse chunks */
+	int smblks;   /* unused -- always zero */
+	int hblks;    /* number of mmapped regions */
+	int hblkhd;   /* total space in mmapped regions */
+	int usmblks;  /* unused -- always zero */
+	int fsmblks;  /* unused -- always zero */
+	int uordblks; /* total allocated space */
+	int fordblks; /* total non-inuse space */
+	int keepcost; /* top-most, releasable (via malloc_trim) space */
+};	
+struct mallinfo_s mallinfo();
+
+void print_memory(void) {
+	struct mallinfo_s p = mallinfo();
+	printf("Heap space: 		 0x%08x\n", p.arena);
+	printf("Total allocd space : 0x%08x\n", p.uordblks);
+	printf("Total free space   : 0x%08x\n", p.fordblks);
+}
+
+void gui_window_teardown(gui_window_t* window) {
+	uint32_t framebuffer_addr = _screen.vmem->raw;
+	printf("Framebuffer: 0x%08x\n", framebuffer_addr);
+
+	print_memory();
+
+	free(_screen.vmem);
+	_screen.vmem = NULL;
+	free(window->layer);
+
+	assert(window->_interrupt_cbs->size == 0, "not zero cbs");
+	array_destroy(window->_interrupt_cbs);
+
+	assert(window->text_inputs->size == 0, "not zero text inputs");
+	array_destroy(window->text_inputs);
+
+	while (window->views->size) {
+		gui_view_t* v = array_lookup(window->views, 0);
+		array_remove(window->views, 0);
+		assert(v->parent_layer == window->layer, "not root view");
+		uint32_t idx = array_index(window->all_gui_elems, v);
+		array_remove(window->all_gui_elems, idx);
+		gui_view_destroy(v);
+	}
+	array_destroy(window->views);
+
+	assert(window->all_gui_elems->size == 0, "not zero all");
+	array_destroy(window->all_gui_elems);
+
+	while (window->timers->size) {
+		gui_timer_t* t = array_lookup(window->timers, 0);
+		array_remove(window->timers, 0);
+		free(t);
+	}
+	array_destroy(window->timers);
+
+	free(window);
+
+	printf("** Frees done\n");
+	print_memory();
+
+	// Ask awm to update the window
+	amc_msg_u32_1__send(AWM_SERVICE_NAME, AWM_CLOSE_WINDOW);
+}
+
 Size _gui_screen_resolution(void) {
 	return _screen.resolution;
 }
@@ -242,7 +308,7 @@ typedef struct int_descriptor {
 	gui_interrupt_cb_t cb;
 } int_descriptor_t;
 
-static void _handle_amc_messages(gui_window_t* window, bool should_block) {
+static void _handle_amc_messages(gui_window_t* window, bool should_block, bool* did_exit) {
 	// Deduplicate multiple resize messages in one event-loop pass
 	bool got_resize_msg = false;
 	awm_window_resized_msg_t newest_resize_msg = {0};
@@ -267,48 +333,61 @@ static void _handle_amc_messages(gui_window_t* window, bool should_block) {
 			uint32_t event = amc_msg_u32_get_word(msg, 0);
 			if (event == AWM_KEY_DOWN) {
 				uint32_t ch = amc_msg_u32_get_word(msg, 1);
+				if (ch == 'x') {
+					printf("Pressed X, setting did_exit = true\n");
+					*did_exit = true;
+				}
 				_handle_key_down(window, ch);
+				continue;
 			}
 			else if (event == AWM_KEY_UP) {
 				uint32_t ch = amc_msg_u32_get_word(msg, 1);
 				_handle_key_up(window, ch);
+				continue;
 			}
 			else if (event == AWM_MOUSE_MOVED) {
 				awm_mouse_moved_msg_t* m = (awm_mouse_moved_msg_t*)msg->body;
 				_handle_mouse_moved(window, m);
+				continue;
 			}
 			else if (event == AWM_MOUSE_DRAGGED) {
 				awm_mouse_dragged_msg_t* m = (awm_mouse_dragged_msg_t*)msg->body;
 				_handle_mouse_dragged(window, m);
+				continue;
 			}
 			else if (event == AWM_MOUSE_LEFT_CLICK) {
 				awm_mouse_left_click_msg_t* m = (awm_mouse_left_click_msg_t*)msg->body;
 				_handle_mouse_left_click(window, m->click_point);
+				continue;
 			}
 			else if (event == AWM_MOUSE_LEFT_CLICK_ENDED) {
 				awm_mouse_left_click_ended_msg_t* m = (awm_mouse_left_click_ended_msg_t*)msg->body;
 				_handle_mouse_left_click_ended(window, m->click_end_point);
+				continue;
+			}
+			else if (event == AWM_MOUSE_ENTERED) {
+				continue;
 			}
 			else if (event == AWM_MOUSE_EXITED) {
 				_handle_mouse_exited(window);
+				continue;
 			}
 			else if (event == AWM_MOUSE_SCROLLED) {
 				awm_mouse_scrolled_msg_t* m = (awm_mouse_scrolled_msg_t*)msg->body;
 				_handle_mouse_scrolled(window, m);
+				continue;
 			}
 			else if (event == AWM_WINDOW_RESIZED) {
 				got_resize_msg = true;
 				awm_window_resized_msg_t* m = (awm_window_resized_msg_t*)msg->body;
 				newest_resize_msg = *m;
+				continue;
 			}
-			continue;
 		}
 
-		// Dispatch any other message
-		else {
-			if (window->_amc_handler != NULL) {
-				window->_amc_handler(window, msg);
-			}
+		// Dispatch any message that wasn't handled above
+		if (window->_amc_handler != NULL) {
+			window->_amc_handler(window, msg);
 		}
 	} while (amc_has_message());
 
@@ -322,7 +401,7 @@ static void _handle_amc_messages(gui_window_t* window, bool should_block) {
 	}
 }
 
-static void _process_amc_messages(gui_window_t* window, bool should_block) {
+static void _process_amc_messages(gui_window_t* window, bool should_block, bool* did_exit) {
 	if (window->_interrupt_cbs->size) {
 		assert(window->_interrupt_cbs->size == 1, "Only 1 interrupt supported");
 		int_descriptor_t* t = array_lookup(window->_interrupt_cbs, 0);
@@ -332,7 +411,7 @@ static void _process_amc_messages(gui_window_t* window, bool should_block) {
 			return;
 		}
 	}
-	_handle_amc_messages(window, should_block);
+	_handle_amc_messages(window, should_block, did_exit);
 }
 
 static void _redraw_dirty_elems(gui_window_t* window) {
@@ -374,29 +453,36 @@ static timers_state_t _sleep_for_timers(gui_window_t* window) {
 		}
     }
 	int32_t time_to_next_fire = next_fire_date - ms_since_boot();
-	//printf("time_to_next_fire %d\n", time_to_next_fire);
 	if (time_to_next_fire <= 0) {
 		return TIMERS_LATE;
 	}
 
 	//printf("libgui awaiting next timer that will fire in %d\n", time_to_next_fire);
+
 	usleep(time_to_next_fire);
 	return SLEPT_FOR_TIMERS;
 }
 
 void gui_enter_event_loop(gui_window_t* window) {
+	printf("Enter event loop\n");
+	print_memory();
 	// Draw everything once so the window shows its contents before we start 
 	// processing messages
 	_redraw_dirty_elems(window);
-	while (true) {
+
+	bool did_exit = false;
+	while (!did_exit) {
 		timers_state_t timers_state = _sleep_for_timers(window);
 		// Only allow blocking for a message if there are no timers queued up
-		_process_amc_messages(window, timers_state == NO_TIMERS);
+		_process_amc_messages(window, timers_state == NO_TIMERS, &did_exit);
 		// Dispatch any ready timers
 		gui_dispatch_ready_timers(window);
 		// Redraw any dirty elements
 		_redraw_dirty_elems(window);
 	}
+
+	printf("Exited from runloop!\n");
+	gui_window_teardown(window);
 }
 
 void gui_add_interrupt_handler(gui_window_t* window, uint32_t int_no, gui_interrupt_cb_t cb) {
