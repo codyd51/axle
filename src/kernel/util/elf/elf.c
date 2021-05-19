@@ -215,8 +215,7 @@ void elf_load_buffer(char* program_name, uint8_t* buf, uint32_t buf_size, char**
 		//printf("strdup program name 0x%08x\n", program_name);
 		//printf("strlen %d\n", strlen(program_name));
 
-		//elf->name = strdup(program_name);
-		elf->name = strdup("launched_elf");
+		task_set_name(elf, "launched_elf");
 
 		printf("[%d] Jump to user-mode with ELF [%s] ip=0x%08x sp=0x%08x\n", elf->id, elf->name, entry_point, elf->machine_state);
 		//spinlock_release(&elf->priority_lock);

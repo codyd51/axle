@@ -244,6 +244,13 @@ void _thread_destroy(task_small_t* thread) {
     kfree(thread);
 }
 
+void task_set_name(task_small_t* task, const char* new_name) {
+    if (task->name) {
+        kfree(task->name);
+    }
+    task->name = strdup(new_name);
+}
+
 task_small_t* _thread_create(void* entry_point, uint32_t arg1, uint32_t arg2, uint32_t arg3) {
     task_small_t* new_task = kmalloc(sizeof(task_small_t));
     memset(new_task, 0, sizeof(task_small_t));
@@ -304,7 +311,7 @@ static task_small_t* _task_spawn__entry_point_with_args(void* entry_point, uint3
     // the new task's address space is a clone of the task that spawned it
     vmm_page_directory_t* new_vmm = vmm_clone_active_pdir();
     new_task->vmm = new_vmm;
-    new_task->name = strdup(task_name);
+    task_set_name(new_task, task_name);
 
     return new_task;
 }
@@ -585,7 +592,7 @@ void tasking_init() {
     // so, anything we set to be restored in this first task's setup state will be overwritten when it's preempted for the first time.
     // thus, we can pass anything for the entry point of this first task, since it won't be used.
     _current_task_small = thread_spawn(NULL);
-    _current_task_small->name = strdup("bootstrap");
+    task_set_name(_current_task_small, "bootstrap");
     _task_list_head = _current_task_small;
     tasking_goto_task(_current_task_small, 100);
 
@@ -619,7 +626,7 @@ void* sbrk(int increment) {
 	//printk("[%d] sbrk 0x%08x (%u) 0x%08x -> 0x%08x (current page head 0x%08x)\n", getpid(), increment, increment, current->sbrk_current_break, current->sbrk_current_break + increment, current->sbrk_current_page_head);
 
 	if (increment < 0) {
-        printf("Relinquish sbrk memory %d\n", increment);
+        printf("Relinquish sbrk memory 0x%08x\n", -(uint32_t)increment);
         current->sbrk_current_break -= increment;
 		return NULL;
 	}
