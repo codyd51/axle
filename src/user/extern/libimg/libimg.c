@@ -55,8 +55,14 @@ void image_free(image_bmp_t* image) {
 }
 
 void image_render_to_layer(image_bmp_t* image, ca_layer* dest, Rect frame) {
-	float scale_x = image->size.width / (float)frame.size.width;
-	float scale_y = image->size.height / (float)frame.size.height;
+	// TODO(PT): Update image rendering to update a gui_scroll_layer's max_y
+	float scale_x = 1.0;
+	float scale_y = 1.0;
+	if (frame.size.width != image->size.width || frame.size.height != image->size.height) {
+		printf("Scaling image %d %d to %d %d\n", image->size.width, image->size.height, frame.size.width, frame.size.height);
+		scale_x = image->size.width / (float)frame.size.width;
+		scale_y = image->size.height / (float)frame.size.height;
+	}
 	int bpp = image->bit_count;
 	int bytes_per_pixel = bpp / 8;
 
