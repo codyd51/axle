@@ -114,15 +114,15 @@ static amc_service_t* _amc_service_matching_data(const char* name, task_small_t*
 }
 
 static amc_service_t* _amc_service_with_name(const char* name) {
-    //return _amc_service_matching_data(name, NULL);
+    return _amc_service_matching_data(name, NULL);
     //printf("_amc_service_with_name\n");
-    return hash_map_get(_amc_services_by_name, name, strlen(name));
+    //return hash_map_get(_amc_services_by_name, name, strlen(name));
 }
 
 static amc_service_t* _amc_service_of_task(task_small_t* task) {
     //printf("_amc_service_of_task\n");
-    //return _amc_service_matching_data(NULL, task);
-    return hash_map_get(_amc_services_by_task, task, sizeof(task));
+    return _amc_service_matching_data(NULL, task);
+    //return hash_map_get(_amc_services_by_task, task, sizeof(task));
 }
 
 static void _amc_deliver_pending_messages_to_new_service(amc_service_t* new_service) {
@@ -167,8 +167,8 @@ void amc_register_service(const char* name) {
         // This could later be moved into a kernel-level amc_init()
         _amc_services = array_m_create(256);
         _amc_messages_to_unknown_services_pool = array_m_create(_amc_messages_to_unknown_services_pool_size);
-        _amc_services_by_name = hash_map_create();
-        _amc_services_by_task = hash_map_create();
+        //_amc_services_by_name = hash_map_create();
+        //_amc_services_by_task = hash_map_create();
         _asleep_procs = array_m_create(64);
     }
 
@@ -188,8 +188,7 @@ void amc_register_service(const char* name) {
     spinlock_acquire(&service->spinlock);
 
     // Rewrite the name of the task to match the amc service name
-    kfree(current_task->name);
-    current_task->name = strdup(name);
+    task_set_name(current_task, name);
 
     // The provided string is mapped into the address space of the running process,
     // but isn't mapped into kernel-space.
@@ -199,15 +198,17 @@ void amc_register_service(const char* name) {
     service->message_queue = array_m_create(2048);
 
     // Create the message delivery pool in the task's address space
-	service->delivery_pool = vmm_alloc_continuous_range(vmm_active_pdir(), 
-                                                        _amc_delivery_pool_size, 
-                                                        true, 
-                                                        _amc_delivery_pool_base, 
-                                                        true);
+	service->delivery_pool = vmm_alloc_continuous_range(
+        vmm_active_pdir(), 
+        _amc_delivery_pool_size, 
+        true, 
+        _amc_delivery_pool_base, 
+        true
+    );
     printf("AMC delivery pool for %s at 0x%08x\n", name, service->delivery_pool);
 
-    hash_map_put(_amc_services_by_name, service->name, strlen(service->name), service);
-    hash_map_put(_amc_services_by_task, service->task, sizeof(service->task), service);
+    //hash_map_put(_amc_services_by_name, service->name, strlen(service->name), service);
+    //hash_map_put(_amc_services_by_task, service->task, sizeof(service->task), service);
     array_m_insert(_amc_services, service);
 
     spinlock_release(&service->spinlock);
@@ -392,7 +393,7 @@ static void _amc_core_put_service_to_sleep(const char* source_service, uint32_t 
     uint32_t now = ms_since_boot();
     uint32_t wake = now + ms;
     service->task->blocked_info.wake_timestamp = wake;
-    printf("Core blocking %s [%d %s] at %d until %d or message arrives (%dms)\n", source_service, service->task->id, service->task->name, now, wake, ms);
+    //printf("Core blocking %s [%d %s] at %d until %d or message arrives (%dms)\n", source_service, service->task->id, service->task->name, now, wake, ms);
 
     spinlock_acquire(&service->spinlock);
     array_m_insert(_asleep_procs, service);
