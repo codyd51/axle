@@ -47,6 +47,14 @@ typedef struct user_window {
 	bool has_done_first_draw;
 } user_window_t;
 
+typedef struct incremental_mouse_state {
+	int8_t state;
+	int32_t rel_x;
+	int32_t rel_y;
+	int32_t rel_z;
+	uint32_t combined_msg_count;
+} incremental_mouse_state_t;
+
 #define WINDOW_BORDER_MARGIN 0
 #define WINDOW_TITLE_BAR_HEIGHT 30
 #define WINDOW_TITLE_BAR_VISIBLE_HEIGHT (WINDOW_TITLE_BAR_HEIGHT - 2)
@@ -437,7 +445,7 @@ static void mouse_dispatch_events(uint8_t status_byte, Point mouse_point, int32_
 	_handle_mouse_moved(mouse_state, mouse_point, delta_x, delta_y, delta_z);
 }
 
-static void handle_mouse_event(amc_message_t* mouse_event) {
+static bool handle_mouse_event(amc_message_t* mouse_event, incremental_mouse_state_t* incremental_update) {
 	int8_t state = mouse_event->body[0];
 	int8_t rel_x = mouse_event->body[1];
 	int8_t rel_y = mouse_event->body[2];
@@ -452,7 +460,13 @@ static void handle_mouse_event(amc_message_t* mouse_event) {
 	mouse_pos.x = min(_screen.resolution.width - 20, mouse_pos.x);
 	mouse_pos.y = min(_screen.resolution.height - 20, mouse_pos.y);
 
-	mouse_dispatch_events(state, mouse_pos, rel_x, rel_y, rel_z);
+	bool updated_state_byte = state == incremental_update->state;
+	incremental_update->state = state;
+	incremental_update->rel_x += rel_x;
+	incremental_update->rel_y += rel_y;
+	incremental_update->rel_z += rel_z;
+	incremental_update->combined_msg_count += 1;
+	return !updated_state_byte;
 }
 
 static void _draw_cursor(void) {
@@ -889,6 +903,9 @@ int main(int argc, char** argv) {
 	while (true) {
 		// Wait for a system event or window event
 		amc_message_t* msg;
+		incremental_mouse_state_t incremental_mouse_update = {0};
+		memset(&incremental_mouse_update, 0, sizeof(incremental_mouse_state_t));
+		incremental_mouse_update.combined_msg_count = 0;
 		do {
 			// Wait until we've unblocked with at least one message available
 			amc_message_await_any(&msg);
@@ -910,7 +927,23 @@ int main(int argc, char** argv) {
 			}
 			else if (!strcmp(source_service, "com.axle.mouse_driver")) {
 				// Update the mouse position based on the data packet
-				handle_mouse_event(msg);
+				bool changed_state = handle_mouse_event(msg, &incremental_mouse_update);
+				if (changed_state) {
+					/*
+					if (incremental_mouse_update.combined_msg_count) {
+						printf("Dispatch mouse, deduplicated %d\n", incremental_mouse_update.combined_msg_count);
+					}
+					*/
+					mouse_dispatch_events(
+						incremental_mouse_update.state, 
+						mouse_pos, 
+						incremental_mouse_update.rel_x,
+						incremental_mouse_update.rel_y,
+						incremental_mouse_update.rel_z
+					);
+					memset(&incremental_mouse_update, 0, sizeof(incremental_mouse_state_t));
+					incremental_mouse_update.combined_msg_count = 0;
+				}
 			}
 			else {
 				// TODO(PT): If a window sends REDRAW_READY, we can put it onto a "ready to redraw" list
