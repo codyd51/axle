@@ -38,8 +38,8 @@ typedef enum task_state {
 	// Kernel code is modifying the
 	// task's virtual address space
 	VMM_MODIFY = 		(1 << 10),
-	// Timed is waiting until a timestamp has been reached
-	TIMED_AWAIT_TIMESTAMP = (1 << 11),
+	// AMC service sleeping until a timestamp has been reached
+	AMC_AWAIT_TIMESTAMP = (1 << 11),
 } task_state_t;
 
 typedef enum mlfq_option {

@@ -50,6 +50,32 @@ typedef struct amc_exec_buffer_cmd {
     uint32_t buffer_size;
 } amc_exec_buffer_cmd_t;
 
+typedef struct amc_shared_memory_destroy_cmd {
+    uint32_t event;
+	char remote_service[AMC_MAX_SERVICE_NAME_LEN];
+	uint32_t shmem_size;
+	uint32_t shmem_local;
+	uint32_t shmem_remote;
+} amc_shared_memory_destroy_cmd_t;
+
+typedef struct amc_shared_memory_check_cmd {
+    uint32_t event;
+	char remote_service[AMC_MAX_SERVICE_NAME_LEN];
+} amc_shared_memory_check_cmd_t;
+
+typedef struct amc_shared_memory_check_cmd_response {
+    uint32_t event;
+	char remote_service[AMC_MAX_SERVICE_NAME_LEN];
+    bool is_shmem_valid;
+} amc_shared_memory_check_cmd_response_t;
+
+typedef struct amc_system_profile_response {
+    uint32_t event;
+    uint32_t pmm_allocated;
+    uint32_t kheap_allocated;
+} amc_system_profile_response_t;
+
+
 #define AXLE_CORE_SERVICE_NAME "com.axle.core"
 #define AMC_COPY_SERVICES (1 << 0)
 #define AMC_COPY_SERVICES_RESPONSE (1 << 0)
@@ -64,6 +90,16 @@ typedef struct amc_exec_buffer_cmd {
 
 #define AMC_FILE_MANAGER_EXEC_BUFFER (1 << 4)
 #define AMC_FILE_MANAGER_EXEC_BUFFER_RESPONSE (1 << 4)
+
+#define AMC_SHARED_MEMORY_DESTROY (1 << 5)
+
+#define AMC_SHARED_MEMORY_CHECK (1 << 6)
+#define AMC_SHARED_MEMORY_CHECK_RESPONSE (1 << 6)
+
+#define AMC_SYSTEM_PROFILE_REQUEST (1 << 7)
+#define AMC_SYSTEM_PROFILE_RESPONSE (1 << 7)
+
+#define AMC_SLEEP_UNTIL_TIMESTAMP_OR_MESSAGE (1 << 8)
 
 // Register the running process as the provided service name
 void amc_register_service(const char* name);
@@ -116,7 +152,7 @@ void amc_wake_sleeping_services(void);
 
 typedef struct task_small task_small_t;
 typedef struct vmm_page_directory vmm_page_directory_t;
-void amc_teardown_service_for_task(task_small_t* task, vmm_page_directory_t* remote_virt_pdir);
+void amc_teardown_service_for_task(task_small_t* task);
 
 
 #endif
