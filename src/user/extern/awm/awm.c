@@ -149,6 +149,8 @@ static void _begin_left_click(mouse_interaction_state_t* state, Point mouse_poin
 		mouse_point.x - state->active_window->frame.origin.x,
 		mouse_point.y - state->active_window->frame.origin.y
 	);
+	local_mouse.x -= state->active_window->content_view->frame.origin.x;
+	local_mouse.y -= state->active_window->content_view->frame.origin.y;
 	awm_mouse_left_click_msg_t msg = {0};
 	msg.event = AWM_MOUSE_LEFT_CLICK;
 	msg.click_point = local_mouse;
