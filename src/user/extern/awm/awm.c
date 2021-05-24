@@ -685,7 +685,7 @@ static void _update_window_title(const char* owner_service, awm_window_title_msg
 
 void _radial_gradiant(ca_layer* layer, Size gradient_size, Color c1, Color c2, int x1, int y1, float r);
 
-static void handle_user_message(amc_message_t* user_message) {
+static void handle_user_message(amc_message_t* user_message, array_t* windows_to_update) {
 	const char* source_service = amc_message_source(user_message);
 	uint32_t command = amc_msg_u32_get_word(user_message, 0);
 
@@ -714,6 +714,10 @@ static void handle_user_message(amc_message_t* user_message) {
 	}
 	else if (command == AWM_WINDOW_REDRAW_READY) {
 		user_window_t* window = _window_for_service(source_service);
+		if (array_index(windows_to_update, window) == -1) {
+			printf("Ready for redraw: %s\n", source_service);
+			array_insert(windows_to_update, window);
+		}
 	}
 	else if (command == AWM_UPDATE_WINDOW_TITLE) {
 		awm_window_title_msg_t* title_msg =  (awm_window_title_msg_t*)user_message->body;
@@ -876,9 +880,15 @@ int main(int argc, char** argv) {
 				// Items can be popped off the list based on their Z-index, or a periodic time-based update
 				// TODO(PT): If a window has requested multiple redraws within a single awm event loop
 				// pass, awm should redraw it only once
-				handle_user_message(msg);
+				handle_user_message(msg, windows_to_update);
 			}
 		} while (amc_has_message());
+
+		while (windows_to_update->size) {
+			user_window_t* window_to_update = array_lookup(windows_to_update, 0);
+			_update_window_framebuf(window_to_update->owner_service);
+			array_remove(windows_to_update, 0);
+		}
 
 		// We're out of messages to process - composite everything together and redraw
 		// First draw the background
