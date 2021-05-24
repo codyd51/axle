@@ -50,8 +50,7 @@ typedef struct user_window {
 
 // Sorted by Z-index
 #define MAX_WINDOW_COUNT 64
-user_window_t windows[MAX_WINDOW_COUNT] = {0};
-int window_count = 0;
+array_t* windows = NULL;
 
 static Point mouse_pos = {0};
 
@@ -81,27 +80,30 @@ static void handle_keystroke(amc_message_t* keystroke_msg) {
 	if (event->type == KEY_PRESSED) {
 		// Hack: Tab switches windows
 		if (event->key == '\t') {
-			_window_move_to_top(&windows[window_count-1]);
+			_window_move_to_top(array_lookup(windows, windows->size - 1));
 		}
 	}
 
 	// Only send this keystroke to the foremost program
-	if (window_count) {
-		user_window_t* active_window = &windows[0];
+	if (windows->size) {
+		user_window_t* active_window = array_lookup(windows, 0);
 		uint32_t awm_event = event->type == KEY_PRESSED ? AWM_KEY_DOWN : AWM_KEY_UP;
 		amc_msg_u32_2__send(active_window->owner_service, awm_event, event->key);
 	}
 }
 
 static user_window_t* _window_move_to_top(user_window_t* window) {
-	user_window_t moved_window = *window;
-	int win_pos = window - windows;
-	// TODO(PT): replace with memmove
-	for (int i = win_pos; i > 0; i--) {
-		windows[i] = windows[i-1];
+	uint32_t idx = array_index(windows, window);
+	array_remove(windows, idx);
+
+	// TODO(PT): array_insert_at_index
+	array_t* a = windows;
+	for (int32_t i = a->size; i >= 0; i--) {
+		a->array[i] = a->array[i - 1];
 	}
-	windows[0] = moved_window;
-	return &windows[0];
+	a->array[0] = window;
+	a->size += 1;
+	return window;
 }
 
 typedef struct mouse_interaction_state {
@@ -129,7 +131,7 @@ static void _begin_left_click(mouse_interaction_state_t* state, Point mouse_poin
 	}
 	// Left click within a window
 	// Set it to the topmost window if it wasn't already
-	if (state->active_window != &windows[0]) {
+	if (state->active_window != array_lookup(windows, 0)) {
 		printf("Left click in background window %s. Move to top\n", state->active_window->owner_service);
 		state->active_window = _window_move_to_top(state->active_window);
 	}
@@ -228,8 +230,8 @@ static void _handle_mouse_moved(mouse_interaction_state_t* state, Point mouse_po
 
 	// Check each window and see if we've just entered it
 	// This array is sorted in Z-order so we encounter the topmost window first
-	for (int i = 0; i < window_count; i++) {
-		user_window_t* window = &windows[i];
+	for (int i = 0; i < windows->size; i++) {
+		user_window_t* window = array_lookup(windows, i);
 		if (rect_contains_point(window->frame, mouse_point)) {
 			// Is this a different window from the one we were previously hovered over?
 			if (state->active_window != window) {
@@ -412,9 +414,10 @@ static void _draw_cursor(void) {
 }
 
 static user_window_t* _window_for_service(const char* owner_service) {
-	for (int i = 0; i < window_count; i++) {
-		if (!strcmp(windows[i].owner_service, owner_service)) {
-			return &windows[i];
+	for (int i = 0; i < windows->size; i++) {
+		user_window_t* window = array_lookup(windows, i);
+		if (!strcmp(window->owner_service, owner_service)) {
+			return window;
 		}
 	}
 	printf("No window for service: %s\n", owner_service);
@@ -422,8 +425,8 @@ static user_window_t* _window_for_service(const char* owner_service) {
 }
 
 static int32_t _window_idx_for_service(const char* owner_service) {
-	for (int i = 0; i < window_count; i++) {
-		if (!strcmp(windows[i].owner_service, owner_service)) {
+	for (int i = 0; i < windows->size; i++) {
+		user_window_t* window = array_lookup(windows, i);
 			return i;
 		}
 	}
@@ -469,10 +472,13 @@ static void _window_resize(user_window_t* window, Size new_size, bool inform_win
 }
 
 static void window_create(const char* owner_service, uint32_t width, uint32_t height) {
-	int window_idx = window_count++;
-	if (window_count > sizeof(windows) / sizeof(windows[0])) {
-		assert(0, "too many windows");
-	}
+	user_window_t* window = calloc(1, sizeof(user_window_t));
+	array_insert(windows, window);
+
+	// Shared layer is size of the screen to allow window resizing
+	uint32_t shmem_size = _screen.resolution.width * _screen.resolution.height * _screen.bytes_per_pixel; 
+	uint32_t shmem_local = 0;
+	uint32_t shmem_remote = 0;
 
 	printf("Creating framebuffer for %s\n", owner_service);
 	uint32_t local_buffer;
@@ -484,7 +490,6 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 		&shmem_remote
 	);
 
-	user_window_t* window = &windows[window_idx];
 	// Place the window in the center of the screen
 	Point origin = point_make(
 		(_screen.resolution.width / 2) - (width / 2),
@@ -532,8 +537,7 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 }
 
 static void _update_window_framebuf_idx(int idx) {
-	if (idx >= window_count) assert(0, "invalid index");
-	user_window_t* window = &windows[idx];
+	user_window_t* window = array_lookup(windows, idx);
 	//blit_layer(_screen.vmem, &window->shared_layer, window->frame, rect_make(point_zero(), window->frame.size));
 	//blit_layer(_screen.vmem, window->layer, window->frame, rect_make(point_zero(), window->frame.size));
 	blit_layer(window->layer, window->content_view->layer, window->content_view->frame, rect_make(point_zero(), window->content_view->frame.size));
@@ -622,7 +626,7 @@ static void handle_user_message(amc_message_t* user_message) {
 		return;
 	}
 	else if (command == AWM_WINDOW_REDRAW_READY) {
-		_update_window_framebuf(source_service);
+		user_window_t* window = _window_for_service(source_service);
 	}
 	else if (command == AWM_UPDATE_WINDOW_TITLE) {
 		awm_window_title_msg_t* title_msg =  (awm_window_title_msg_t*)user_message->body;
@@ -668,6 +672,7 @@ void _radial_gradiant(ca_layer* layer, Size gradient_size, Color c1, Color c2, i
 
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.awm");
+	windows = array_create(MAX_WINDOW_COUNT);
 
 	// Ask the kernel to map in the framebuffer and send us info about it
 	amc_msg_u32_1__send(AXLE_CORE_SERVICE_NAME, AMC_AWM_MAP_FRAMEBUFFER);
@@ -712,7 +717,7 @@ int main(int argc, char** argv) {
 	dummy_layer.alpha = 1.0;
 
 	// Draw the background onto the screen buffer to start off
-	blit_layer(_screen.vmem, background, screen_frame, screen_frame);
+	blit_layer(_screen.vmem, _g_background, screen_frame, screen_frame);
 	blit_layer(&dummy_layer, _screen.vmem, screen_frame, screen_frame);
 
 	while (true) {
@@ -757,13 +762,17 @@ int main(int argc, char** argv) {
 		// Draw the bottom-most windows first
 		// TODO(PT): Replace with a loop that draws the topmost window and 
 		// splits lower windows into visible regions, then blits those
-		for (int i = window_count-1; i >= 0; i--) {
-			user_window_t* window = &windows[i];
+		for (int i = windows->size - 1; i >= 0; i--) {
+			user_window_t* window = array_lookup(windows, i);
 			// As an optimization until we have visible-region splitting, skip drawing 
 			// fully occluded windows
 			bool fully_occluded = false;
 			for (int j = i-1; j >= 0; j--) {
-				user_window_t* higher_window = &windows[j];
+				user_window_t* higher_window = array_lookup(windows, j);
+				if (higher_window->layer->alpha < 1.0) {
+					// This optimization doesn't apply with transparent windows
+					continue;
+				}
 				Rect higher_frame = higher_window->frame;
 				Rect lower_frame = window->frame;
 				if (rect_min_x(higher_frame) <= rect_min_x(lower_frame) &&
