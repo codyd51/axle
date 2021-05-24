@@ -43,6 +43,7 @@ typedef struct user_window {
 	view_t* content_view;
 	const char* owner_service;
 	const char* title;
+	Rect close_button_frame;
 	bool has_done_first_draw;
 } user_window_t;
 
@@ -211,6 +212,14 @@ static void _mouse_reset_prospective_action_flags(mouse_interaction_state_t* sta
 		else if (!rect_contains_point(content_view_inset, local_mouse)) {
 			state->is_prospective_window_resize = true;
 		}
+
+		if (rect_contains_point(title_text_box, local_mouse)) {
+			// TODO(PT): Keep track of what we last drew and only redraw if this is a state change
+			_redraw_window_title_bar(state->active_window, true);
+		}
+		else {
+			_redraw_window_title_bar(state->active_window, false);
+		}
 	}
 }
 
@@ -265,8 +274,15 @@ static void _begin_mouse_drag(mouse_interaction_state_t* state, Point mouse_poin
 		return;
 	}
 
+	Point local_mouse = point_make(
+		mouse_point.x - state->active_window->frame.origin.x,
+		mouse_point.y - state->active_window->frame.origin.y
+	);
 	if (state->is_prospective_window_move) {
 		state->is_moving_top_window = true;
+		if (rect_contains_point(state->active_window->close_button_frame, local_mouse)) {
+			amc_msg_u32_1__send(state->active_window->owner_service, AWM_CLOSE_WINDOW_REQUEST);
+		}
 	}
 	else if (state->is_prospective_window_resize) {
 		state->is_resizing_top_window = true;
@@ -285,7 +301,25 @@ static void _end_mouse_drag(mouse_interaction_state_t* state, Point mouse_point)
 	}
 }
 
-static void _handle_mouse_dragged(mouse_interaction_state_t* state, Point mouse_point, int8_t delta_x, int8_t delta_y, int8_t delta_z) {
+static void _adjust_window_position(user_window_t* window, int32_t delta_x, int32_t delta_y) {
+	window->frame.origin.x += delta_x;
+	window->frame.origin.y += delta_y;
+
+	// Don't let the window go off-screen
+	window->frame.origin.x = max(window->frame.origin.x, 0);
+	window->frame.origin.y = max(window->frame.origin.y, 0);
+
+	if (window->frame.origin.x + window->frame.size.width >= _screen.resolution.width) {
+		uint32_t overhang = window->frame.origin.x + window->frame.size.width - _screen.resolution.width;
+		window->frame.origin.x -= overhang;
+	}
+	if (window->frame.origin.y + window->frame.size.height >= _screen.resolution.height) {
+		uint32_t overhang = window->frame.origin.y + window->frame.size.height - _screen.resolution.height;
+		window->frame.origin.y -= overhang;
+	}
+}
+
+static void _handle_mouse_dragged(mouse_interaction_state_t* state, Point mouse_point, int32_t delta_x, int32_t delta_y, int32_t delta_z) {
 	// Nothing to do if we didn't start the drag with a hover window
 	if (!state->active_window) {
 		printf("Drag outside a hover window\n");
@@ -293,17 +327,20 @@ static void _handle_mouse_dragged(mouse_interaction_state_t* state, Point mouse_
 	}
 	
 	if (state->is_moving_top_window) {
-		state->active_window->frame.origin.x += delta_x;
-		state->active_window->frame.origin.y += delta_y;
+		_adjust_window_position(state->active_window, delta_x, delta_y);
 	}
 	else if (state->is_resizing_top_window) {
 		Size new_size = state->active_window->frame.size;
-		new_size.width += delta_x;
-		new_size.height += delta_y;
+
+			new_size.width += delta_x;
+			new_size.height += delta_y;
 
 		// Don't let the window get too small
-		new_size.width = max(new_size.width, WINDOW_TITLE_BAR_HEIGHT + 2);
-		new_size.height = max(new_size.height, WINDOW_TITLE_BAR_HEIGHT + 2);
+		new_size.width = max(new_size.width, (WINDOW_BORDER_MARGIN * 2) + 20);
+		new_size.height = max(new_size.height, WINDOW_TITLE_BAR_HEIGHT + (WINDOW_BORDER_MARGIN * 2) + 20);
+		// Or too big...
+		new_size.width = min(new_size.width, state->active_window->layer->size.width);
+		new_size.height = min(new_size.height, state->active_window->layer->size.height);
 
 		_window_resize(state->active_window, new_size, true);
 	}
@@ -571,6 +608,19 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	_window_resize(window, full_window_size, true);
 }
 
+static void _window_destroy(user_window_t* window) {
+	layer_teardown(window->layer);
+
+	// Special 'virtual' layer that doesn't need its internal buffer freed (because it's backed by shared memory)
+	free(window->content_view->layer);
+	free(window->content_view);
+
+	free(window->owner_service);
+	free(window->title);
+
+	free(window);
+}
+
 static void _update_window_framebuf_idx(int idx) {
 	user_window_t* window = array_lookup(windows, idx);
 	//blit_layer(_screen.vmem, &window->shared_layer, window->frame, rect_make(point_zero(), window->frame.size));
@@ -668,6 +718,16 @@ static void handle_user_message(amc_message_t* user_message) {
 	else if (command == AWM_UPDATE_WINDOW_TITLE) {
 		awm_window_title_msg_t* title_msg =  (awm_window_title_msg_t*)user_message->body;
 		_update_window_title(source_service, title_msg);
+	}
+	else if (command == AWM_CLOSE_WINDOW) {
+		user_window_t* window = _window_for_service(source_service);
+		uint32_t i = array_index(windows, window);
+		array_remove(windows, i);
+		_window_destroy(window);
+		if (g_mouse_state.active_window == window) {
+			printf("Clear active window 0x%08x\n", window);
+			g_mouse_state.active_window = NULL;
+		}
 	}
 	else {
 		printf("Unknown message from %s: %d\n", source_service, command);
@@ -784,6 +844,7 @@ int main(int argc, char** argv) {
 	blit_layer(_screen.vmem, _g_background, screen_frame, screen_frame);
 	blit_layer(&dummy_layer, _screen.vmem, screen_frame, screen_frame);
 
+	array_t* windows_to_update = array_create(MAX_WINDOW_COUNT);
 	while (true) {
 		// Wait for a system event or window event
 		amc_message_t* msg;
