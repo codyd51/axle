@@ -109,6 +109,10 @@ cd ./src/user/extern/image_viewer
 make
 cd ../../../../
 
+cd ./src/user/extern/activity_monitor
+make
+cd ../../../../
+
 cd initrd
 ../fsgen ./
 mv initrd.img ../initrd.img

@@ -48,6 +48,8 @@ typedef void(*_priv_gui_window_resized_cb_t)(gui_elem_t* gui_elem, Size new_size
 
 typedef Rect(*gui_window_resized_cb_t)(gui_elem_t* gui_elem, Size new_size);
 
+typedef void(*gui_teardown_cb_t)(gui_elem_t* gui_elem);
+
 typedef struct gui_elem_base {
     // Private union members (must be first in the structure)
     gui_mouse_entered_cb_t _priv_mouse_entered_cb;
