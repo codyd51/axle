@@ -43,6 +43,7 @@ typedef struct user_window {
 	view_t* content_view;
 	const char* owner_service;
 	const char* title;
+	bool has_done_first_draw;
 } user_window_t;
 
 #define WINDOW_BORDER_MARGIN 0
@@ -427,6 +428,7 @@ static user_window_t* _window_for_service(const char* owner_service) {
 static int32_t _window_idx_for_service(const char* owner_service) {
 	for (int i = 0; i < windows->size; i++) {
 		user_window_t* window = array_lookup(windows, i);
+		if (!strcmp(window->owner_service, owner_service)) {
 			return i;
 		}
 	}
@@ -550,6 +552,8 @@ static void _update_window_framebuf(const char* owner_service) {
 		printf("Failed to find a window for %s\n", owner_service);
 		return;
 	}
+	window->has_done_first_draw = true;
+
 	blit_layer(
 		window->layer, 
 		window->content_view->layer, 
@@ -764,6 +768,9 @@ int main(int argc, char** argv) {
 		// splits lower windows into visible regions, then blits those
 		for (int i = windows->size - 1; i >= 0; i--) {
 			user_window_t* window = array_lookup(windows, i);
+			if (!window->has_done_first_draw) {
+				continue;
+			}
 			// As an optimization until we have visible-region splitting, skip drawing 
 			// fully occluded windows
 			bool fully_occluded = false;
