@@ -333,10 +333,6 @@ static void _handle_amc_messages(gui_window_t* window, bool should_block, bool* 
 			uint32_t event = amc_msg_u32_get_word(msg, 0);
 			if (event == AWM_KEY_DOWN) {
 				uint32_t ch = amc_msg_u32_get_word(msg, 1);
-				if (ch == 'x') {
-					printf("Pressed X, setting did_exit = true\n");
-					*did_exit = true;
-				}
 				_handle_key_down(window, ch);
 				continue;
 			}
@@ -381,6 +377,10 @@ static void _handle_amc_messages(gui_window_t* window, bool should_block, bool* 
 				got_resize_msg = true;
 				awm_window_resized_msg_t* m = (awm_window_resized_msg_t*)msg->body;
 				newest_resize_msg = *m;
+				continue;
+			}
+			else if (event == AWM_CLOSE_WINDOW_REQUEST) {
+				*did_exit = true;
 				continue;
 			}
 		}
