@@ -64,6 +64,9 @@ static void _redraw_window_title_bar(user_window_t* window, bool prospective_clo
 Screen _screen = {0};
 
 ca_layer* _g_background = NULL;
+image_bmp_t* _g_title_bar_image = NULL;
+image_bmp_t* _g_title_bar_x_unfilled = NULL;
+image_bmp_t* _g_title_bar_x_filled = NULL;
 
 Screen* gfx_screen() {
 	if (_screen.physbase > 0) return &_screen;
@@ -437,7 +440,34 @@ static int32_t _window_idx_for_service(const char* owner_service) {
 }
 
 static void _redraw_window_title_bar(user_window_t* window, bool prospective_close_action) {
+	if (!_g_title_bar_image) {
+		printf("No images yet...\n");
+		return;
+	}
+
 	Size title_bar_size = size_make(window->frame.size.width, WINDOW_TITLE_BAR_HEIGHT);
+	image_render_to_layer(
+		_g_title_bar_image, 
+		window->layer, 
+		rect_make(
+			point_zero(), 
+			size_make(title_bar_size.width, WINDOW_TITLE_BAR_VISIBLE_HEIGHT)
+		)
+	);
+
+	//bool is_x_filled = g_mouse_state.active_window == window && (g_mouse_state.is_prospective_window_move || g_mouse_state.is_moving_top_window);
+	image_bmp_t* x_image = (prospective_close_action) ? _g_title_bar_x_filled : _g_title_bar_x_unfilled;
+	uint32_t icon_height = x_image->size.height;
+	window->close_button_frame = rect_make(
+		point_make(icon_height * 0.75, icon_height * 0.275), 
+		x_image->size
+	);
+	image_render_to_layer(
+		x_image, 
+		window->layer, 
+		window->close_button_frame
+	);
+
 	// Draw window title
 	_write_window_title(window);
 }
@@ -675,6 +705,33 @@ void _radial_gradiant(ca_layer* layer, Size gradient_size, Color c1, Color c2, i
 	}
 }
 
+static image_bmp_t* _load_image(const char* image_name) {
+	printf("AWM sending read file request for %s...\n", image_name);
+	file_manager_read_file_request_t req = {0};
+	req.event = FILE_MANAGER_READ_FILE;
+	snprintf(req.path, sizeof(req.path), "%s", image_name);
+	amc_message_construct_and_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_read_file_request_t));
+
+	printf("AWM awaiting file read response for %s...\n", image_name);
+	amc_message_t* file_data_msg;
+	bool received_file_data = false;
+	for (uint32_t i = 0; i < 32; i++) {
+		amc_message_await(FILE_MANAGER_SERVICE_NAME, &file_data_msg);
+		uint32_t event = amc_msg_u32_get_word(file_data_msg, 0);
+		if (event == FILE_MANAGER_READ_FILE_RESPONSE) {
+			received_file_data = true;
+			break;
+		}
+	}
+	assert(received_file_data, "Failed to recv file data");
+
+	printf("AWM got response for %s!\n", image_name);
+	file_manager_read_file_response_t* resp = (file_manager_read_file_response_t*)&file_data_msg->body;
+	uint8_t* b = &resp->file_data;
+
+	return image_parse_bmp(resp->file_size, resp->file_data);
+}
+
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.awm");
 	windows = array_create(MAX_WINDOW_COUNT);
@@ -838,6 +895,16 @@ int main(int argc, char** argv) {
 
 		// Copy our internal screen buffer to video memory
 		memcpy(_screen.physbase, _screen.vmem, _screen.resolution.width * _screen.resolution.height * _screen.bytes_per_pixel);
+			if (!_g_title_bar_image) {
+				_g_title_bar_image = _load_image("titlebar7.bmp");
+				_g_title_bar_x_filled = _load_image("titlebar_x_filled2.bmp");
+				_g_title_bar_x_unfilled = _load_image("titlebar_x_unfilled2.bmp");
+
+				for (uint32_t i = 0; i < windows->size; i++) {
+					user_window_t* w = array_lookup(windows, i);
+					_window_resize(w, w->frame.size, false);
+				}
+			}
 	}
 	return 0;
 }
