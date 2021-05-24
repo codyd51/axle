@@ -489,11 +489,13 @@ static void _amc_message_received(gui_window_t* window, amc_message_t* msg) {
 		uint32_t response_size = sizeof(file_manager_read_file_response_t) + desired_file->size;
 		uint8_t* response_buffer = calloc(1, response_size);
 
+		printf("Found file %s 0x%08x\n", desired_file->name, desired_file->initrd_offset);
+
 		file_manager_read_file_response_t* resp = (file_manager_read_file_response_t*)response_buffer;
 		resp->event = FILE_MANAGER_READ_FILE_RESPONSE;
 		resp->file_size = desired_file->size;
 		memcpy(&resp->file_data, desired_file->initrd_offset, resp->file_size);
-		printf("Returning file size 0x%08x buf 0x%08x\n", resp->file_size, resp->file_data);
+		printf("Returning file size 0x%08x buf 0x%08x to %s\n", resp->file_size, resp->file_data, source_service);
 		amc_message_construct_and_send(source_service, resp, response_size);
 		free(response_buffer);
 	}
