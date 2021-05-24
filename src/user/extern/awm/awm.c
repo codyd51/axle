@@ -112,6 +112,11 @@ static user_window_t* _window_move_to_top(user_window_t* window) {
 	return window;
 }
 
+typedef enum window_resize_edge {
+	WINDOW_RESIZE_EDGE_LEFT = 0,
+	WINDOW_RESIZE_EDGE_NOT_LEFT = 1
+} window_resize_edge_t;
+
 typedef struct mouse_interaction_state {
 	bool left_click_down;
 	user_window_t* active_window;
@@ -120,6 +125,7 @@ typedef struct mouse_interaction_state {
 	bool has_begun_drag;
 	bool is_resizing_top_window;
 	bool is_moving_top_window;
+	window_resize_edge_t resize_edge;
 
 	bool is_prospective_window_move;
 	bool is_prospective_window_resize;
@@ -286,6 +292,13 @@ static void _begin_mouse_drag(mouse_interaction_state_t* state, Point mouse_poin
 	}
 	else if (state->is_prospective_window_resize) {
 		state->is_resizing_top_window = true;
+		// Which side of the window are we dragging on?
+		if (local_mouse.x < 10) {
+			state->resize_edge = WINDOW_RESIZE_EDGE_LEFT;
+		}
+		else {
+			state->resize_edge = WINDOW_RESIZE_EDGE_NOT_LEFT;
+		}
 	}
 	else {
 		printf("Start drag within content view\n");
@@ -332,8 +345,32 @@ static void _handle_mouse_dragged(mouse_interaction_state_t* state, Point mouse_
 	else if (state->is_resizing_top_window) {
 		Size new_size = state->active_window->frame.size;
 
+		// Dragging left from the left edge?
+		if (state->resize_edge == WINDOW_RESIZE_EDGE_LEFT) {
+			if (delta_x > 0) {
+				new_size.width += delta_x;
+			}
+			else {
+				// If the window is dragged to the left from the left edge,
+				// move its origin and make it bigger
+				new_size.width += -delta_x;
+				_adjust_window_position(state->active_window, delta_x, 0);
+			}
+
+			if (delta_y > 0) {
+				new_size.height += delta_y;
+			}
+			else {
+				// If the window is dragged upwards from the left edge,
+				// move its origin and make it bigger
+				new_size.height += -delta_y;
+				_adjust_window_position(state->active_window, 0, delta_y);
+			}
+		}
+		else {
 			new_size.width += delta_x;
 			new_size.height += delta_y;
+		}
 
 		// Don't let the window get too small
 		new_size.width = max(new_size.width, (WINDOW_BORDER_MARGIN * 2) + 20);
