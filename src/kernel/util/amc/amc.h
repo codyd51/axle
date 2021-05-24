@@ -50,6 +50,14 @@ typedef struct amc_exec_buffer_cmd {
     uint32_t buffer_size;
 } amc_exec_buffer_cmd_t;
 
+typedef struct amc_shared_memory_destroy_cmd {
+    uint32_t event;
+	char remote_service[AMC_MAX_SERVICE_NAME_LEN];
+	uint32_t shmem_size;
+	uint32_t shmem_local;
+	uint32_t shmem_remote;
+} amc_shared_memory_destroy_cmd_t;
+
 #define AXLE_CORE_SERVICE_NAME "com.axle.core"
 #define AMC_COPY_SERVICES (1 << 0)
 #define AMC_COPY_SERVICES_RESPONSE (1 << 0)
@@ -64,6 +72,8 @@ typedef struct amc_exec_buffer_cmd {
 
 #define AMC_FILE_MANAGER_EXEC_BUFFER (1 << 4)
 #define AMC_FILE_MANAGER_EXEC_BUFFER_RESPONSE (1 << 4)
+
+#define AMC_SHARED_MEMORY_DESTROY (1 << 5)
 
 // Register the running process as the provided service name
 void amc_register_service(const char* name);

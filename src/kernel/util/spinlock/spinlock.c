@@ -82,8 +82,8 @@ void spinlock_release(spinlock_t* lock) {
         printf("Spinlock: [%d] decrement nested acquire of %s to %d\n", getpid(), lock->name, lock->nest_count);
         return;
     }
-    lock->owner_pid = -1;
     atomic_store(&lock->flag, 0);
+    lock->owner_pid = -1;
     // Allow other contexts on this processor to interact with the spinlock
     if (lock->interrupts_enabled_before_acquire) {
         asm("sti");

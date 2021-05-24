@@ -47,6 +47,13 @@ static array_m* _asleep_procs = 0;
 static hash_map_t* _amc_services_by_name = 0;
 static hash_map_t* _amc_services_by_task = 0;
 
+typedef struct amc_shared_memory_region {
+    char remote[AMC_MAX_SERVICE_NAME_LEN];
+    uint32_t remote_descriptor;
+    uint32_t start;
+    uint32_t size;
+} amc_shared_memory_region_t;
+
 typedef struct amc_service {
     const char* name;
     task_small_t* task;
@@ -59,10 +66,14 @@ typedef struct amc_service {
 
     // Base address of delivery pool
     uint32_t delivery_pool;
+
+    // Any shared memory regions that have been set up with another service
+    array_m* shmem_regions;
 } amc_service_t;
 
 static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_message_t* message);
 static void _amc_message_free(amc_message_t* msg);
+static void _amc_core_shared_memory_destroy(amc_service_t* local_service, uint32_t shmem_descriptor);
 
 void amc_print_services(void) {
     if (!_amc_services) return;
@@ -196,6 +207,7 @@ void amc_register_service(const char* name) {
     service->name = strdup(name);
     service->task = current_task;
     service->message_queue = array_m_create(2048);
+    service->shmem_regions = array_m_create(32);
 
     // Create the message delivery pool in the task's address space
 	service->delivery_pool = vmm_alloc_continuous_range(
@@ -258,6 +270,11 @@ void amc_teardown_service_for_task(task_small_t* task) {
     }
     array_m_destroy(service->message_queue);
 
+    // Free shared memory regions
+    printf("Shared memory region size: %d\n", service->shmem_regions->size);
+    while (service->shmem_regions->size) {
+        printf("Free shared memory region\n");
+        _amc_core_shared_memory_destroy(service, 0);
     }
 
     // The amc delivery pool will be cleaned up on the global page dir teardown
@@ -450,7 +467,6 @@ static void _amc_core_file_manager_map_initrd(const char* source_service) {
     amc_message_construct_and_send__from_core(source_service, &msg, sizeof(amc_initrd_info_t));
 }
 
-#include <kernel/util/elf/elf.h>
 
 static void _trampoline(const char* program_name, void* buf, uint32_t buf_size) {
     char* argv[] = {program_name, NULL};
@@ -472,6 +488,132 @@ static void _amc_core_file_manager_exec_buffer(const char* source_service, void*
         cmd->buffer_size, 
         cmd->program_name
     );
+}
+
+static void _amc_core_shared_memory_destroy(amc_service_t* local_service, uint32_t shmem_descriptor) {
+    // For now, only awm is allowed to invoke this code
+    // Later, extensive validations should be performed to ensure the shared memory region
+    // described is really one we've set up
+    // Otherwise, an attacker may be able to unmap memory from a victim at locations they control
+    //assert(!strncmp(source_service, "com.axle.awm", AMC_MAX_SERVICE_NAME_LEN), "Only awm may use this syscall");
+
+    //amc_shared_memory_destroy_cmd_t* cmd = (amc_shared_memory_destroy_cmd_t*)buf;
+    //uint32_t size = cmd->shmem_size;
+    //printf("Shared memory destroy. Local: %s [0x%08x - 0x%08x] Remote: %s [0x%08x - 0x%08x]\n", source_service, cmd->shmem_local, cmd->shmem_local + size, cmd->remote_service, cmd->shmem_remote, cmd->shmem_remote + size);
+    printf("Shared memory destroy. Local: %s\n", local_service->name);
+    pmm_dump();
+
+    // Find the shared memory region in the local and remote
+    if (local_service->shmem_regions->size <= shmem_descriptor) {
+        assert(false, "Failed to find shmem region with the provided descriptor");
+        return;
+    }
+    amc_shared_memory_region_t* local_shmem = array_m_lookup(local_service->shmem_regions, shmem_descriptor);
+    printf("\tFound local shmem [%d %s]: Remote %s RemDesc %d Start 0x%08x Size 0x%08x\n", local_service->task->id, local_service->name, local_shmem->remote, local_shmem->remote_descriptor, local_shmem->start, local_shmem->size);
+
+    amc_service_t* remote_service = _amc_service_with_name(local_shmem->remote);
+    assert(remote_service, "Failed to find remote service");
+
+    if (remote_service->shmem_regions->size <= local_shmem->remote_descriptor) {
+        assert(false, "Failed to find remote shmem region with the provided descriptor");
+        return;
+    }
+    amc_shared_memory_region_t* remote_shmem = array_m_lookup(remote_service->shmem_regions, local_shmem->remote_descriptor);
+    printf("\tFound remote shmem [%d %s]: Remote %s RemDesc %d Start 0x%08x Size 0x%08x\n", remote_service->task->id, remote_service->name, remote_shmem->remote, remote_shmem->remote_descriptor, remote_shmem->start, remote_shmem->size);
+
+    //amc_service_t* remote_service = _amc_service_with_name(cmd->remote_service);
+
+    vmm_page_directory_t* local_pdir = vas_active_map_phys_range(local_service->task->vmm, sizeof(vmm_page_directory_t));
+
+    for (uint32_t i = 0; i < local_shmem->size; i += PAGING_PAGE_SIZE) {
+        uint32_t local_page = local_shmem->start + i;
+
+        //uint32_t frame = vmm_get_phys_address_for_mapped_page(vmm_active_pdir(), local_page);
+        //printf("\tFree shared page 0x%08x frame 0x%08x\n", local_page, frame);
+        //pmm_free(frame);
+
+        // Map in the page table for this page
+        uint32_t phys_table = vas_virt_table_for_page_addr(local_pdir, local_page, false);
+        vmm_page_table_t* table = vas_active_map_temp(phys_table, PAGING_FRAME_SIZE);
+
+        uint32_t page_idx = vmm_page_idx_within_table_for_virt_addr(local_page);
+        uint32_t frame_addr = table->pages[page_idx].frame_idx * PAGING_FRAME_SIZE;
+
+        // Free the page!
+        // TODO(PT): Maybe should free it in the second loop to ensure no page 
+        // faults if the remote proc accesses it while we do this
+        pmm_free(frame_addr);
+
+        assert(table->pages[page_idx].present, "Expected present page");
+        memset(&table->pages[page_idx], 0, sizeof(vmm_page_t));
+        // Mark the page as freed in the state bitmap
+        vmm_bitmap_unset_addr(local_pdir, local_page);
+
+        vas_active_unmap_temp(sizeof(vmm_page_table_t));
+    }
+    vmm_unmap_range(vmm_active_pdir(), local_pdir, sizeof(vmm_page_directory_t));
+
+    // Unmap the region in the local VMM
+    /*
+    void vmm_unmap_range(vmm_page_directory_t* vmm_dir, uint32_t virt_start, uint32_t size);
+    printf("Unmap local\n");
+    vmm_unmap_range(vmm_active_pdir(), local_shmem->start, local_shmem->size);
+    */
+
+    printf("Load remote\n");
+    vmm_page_directory_t* remote_pdir = vas_active_map_phys_range(remote_service->task->vmm, sizeof(vmm_page_directory_t));
+
+    printf("Unmap remote\n");
+    //vmm_unmap_range(virt_page_dir, cmd->shmem_remote, cmd->shmem_size);
+
+    for (uint32_t i = 0; i < remote_shmem->size; i += PAGING_PAGE_SIZE) {
+        uint32_t page_addr = remote_shmem->start + i;
+
+        // Map in the page table for this page
+        uint32_t phys_table = vas_virt_table_for_page_addr(remote_pdir, page_addr, false);
+        vmm_page_table_t* table = vas_active_map_temp(phys_table, PAGING_FRAME_SIZE);
+
+        uint32_t page_idx = vmm_page_idx_within_table_for_virt_addr(page_addr);
+        uint32_t frame_addr = table->pages[page_idx].frame_idx * PAGING_FRAME_SIZE;
+        //printf("\tFree AMC delivery pool page [P 0x%08x] [V 0x%08x]\n", frame_addr, page_addr);
+        //_vmm_unmap_page(vmm_active_pdir(), i);
+        assert(table->pages[page_idx].present, "Expected present page");
+        memset(&table->pages[page_idx], 0, sizeof(vmm_page_t));
+        // Mark the page as freed in the state bitmap
+        vmm_bitmap_unset_addr(remote_pdir, page_addr);
+
+        vas_active_unmap_temp(sizeof(vmm_page_table_t));
+    }
+
+    vmm_unmap_range(vmm_active_pdir(), remote_pdir, sizeof(vmm_page_directory_t));
+
+    array_m_remove(remote_service->shmem_regions, local_shmem->remote_descriptor);
+    kfree(remote_shmem);
+    array_m_remove(local_service->shmem_regions, shmem_descriptor);
+    kfree(local_shmem);
+
+    /*
+    uint32_t table_with_flags = virt_page_dir->table_pointers[i];
+    uint32_t table_phys = (table_with_flags) & PAGING_FRAME_MASK;
+    if (!(kernel_page_table_flags & PAGE_PRESENT_FLAG) && (table_with_flags & PAGING_FRAME_MASK)) {
+        // Load in the page table so we can free each of its frames
+        vmm_page_table_t* table = vas_active_map_temp(table_phys, PAGING_FRAME_SIZE);
+        for (uint32_t j = 0; j < 1024; j++) {
+            if (table->pages[j].present) {
+                uint32_t frame_addr = table->pages[j].frame_idx * PAGING_FRAME_SIZE;
+                //printf("Free page %d within table %d (0x%08x)\n", j, i, frame_addr);
+                pmm_free(frame_addr);
+            }
+        }
+        vas_active_unmap_temp(sizeof(vmm_page_table_t));
+
+    vmm_unmap_range(vmm_active_pdir(), virt_page_dir, sizeof(vmm_page_directory_t));
+    printf("Done\n");
+    */
+
+    // TODO(PT): Unmap the range in remote and local
+    //void vmm_unmap_range(vmm_page_directory_t* vmm_dir, uint32_t virt_start, uint32_t size) {
+    //uint32_t local_buffer = vmm_alloc_continuous_range(local_pdir, buffer_size, true, 0xa0000000, true);
 }
 
 static bool _amc_message_construct_and_send_from_service_name(const char* source_service,
@@ -650,15 +792,21 @@ bool amc_has_message(void) {
     return amc_service_has_message(service);
 }
 
-void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, uint32_t* local_buffer_ptr, uint32_t* remote_buffer_ptr) {
-    amc_service_t* dest = _amc_service_with_name(remote_service);
-    if (dest == NULL) {
-        printf("Dropping shared memory request because service doesn't exist: %s\n", remote_service);
+void amc_shared_memory_create(const char* remote_service_name, uint32_t buffer_size, uint32_t* local_buffer_ptr, uint32_t* remote_buffer_ptr) {
+    amc_service_t* local_service = _amc_service_of_task(tasking_get_current_task());
+    amc_service_t* remote_service = _amc_service_with_name(remote_service_name);
+
+    assert(local_service, "Failed to find local service");
+    assert(remote_service, "Failed to find remote service");
+
+    if (!remote_service) {
+        //printf("Dropping shared memory request because service doesn't exist: %s\n", remote_service);
         // TODO(PT): Need some way to communicate failure to the caller
-        return;
+        //return;
     }
 
-    spinlock_acquire(&dest->spinlock);
+    spinlock_acquire(&local_service->spinlock);
+    spinlock_acquire(&remote_service->spinlock);
 
     // Pad buffer size to page size if necessary
     if (buffer_size & PAGE_FLAG_BITS_MASK) {
@@ -668,15 +816,18 @@ void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, 
     // Map a buffer into the local address space
     vmm_page_directory_t* local_pdir = vmm_active_pdir();
     uint32_t local_buffer = vmm_alloc_continuous_range(local_pdir, buffer_size, true, 0xa0000000, true);
+    memset((uint8_t*)local_buffer, 0, buffer_size);
 
     printf("Made local mapping: 0x%08x - 0x%08x\n", local_buffer, local_buffer+buffer_size);
+    amc_shared_memory_region_t* shmem_local = calloc(1, sizeof(amc_shared_memory_region_t));
+    snprintf(shmem_local->remote, sizeof(shmem_local->remote), "%s", remote_service_name);
+    shmem_local->size = buffer_size;
+    shmem_local->start = local_buffer;
+    array_m_insert(local_service->shmem_regions, shmem_local);
 
     // Map a region in the destination task that points to the same physical memory
-    // And don't allow the destination task to be scheduled while we're modifying its VAS
-    //tasking_block_task(dest->task, VMM_MODIFY);
-
     // Map the remote VAS state into the active VAS
-    vmm_page_directory_t* virt_remote_pdir = (vmm_page_directory_t*)vas_active_map_temp(dest->task->vmm, sizeof(vmm_page_directory_t));
+    vmm_page_directory_t* virt_remote_pdir = (vmm_page_directory_t*)vas_active_map_temp(remote_service->task->vmm, sizeof(vmm_page_directory_t));
 
     uint32_t remote_min_address = 0xa0000000;
     uint32_t remote_start = vmm_find_start_of_free_region(virt_remote_pdir, buffer_size, remote_min_address);
@@ -702,6 +853,15 @@ void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, 
 
     vas_active_unmap_temp(sizeof(vmm_page_directory_t));
 
+    amc_shared_memory_region_t* shmem_remote = calloc(1, sizeof(amc_shared_memory_region_t));
+    snprintf(shmem_remote->remote, sizeof(shmem_remote->remote), "%s", local_service->name);
+    shmem_remote->size = buffer_size;
+    shmem_remote->start = remote_start;
+    array_m_insert(remote_service->shmem_regions, shmem_remote);
+
+    shmem_local->remote_descriptor = remote_service->shmem_regions->size - 1;
+    shmem_remote->remote_descriptor = local_service->shmem_regions->size - 1;
+
     //tasking_unblock_task(dest->task, false);
 
     printf("remote buffer: 0x%08x\n", remote_start);
@@ -710,7 +870,8 @@ void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, 
     *local_buffer_ptr = local_buffer;
     *remote_buffer_ptr = remote_start;
 
-    spinlock_release(&dest->spinlock);
+    spinlock_release(&remote_service->spinlock);
+    spinlock_release(&local_service->spinlock);
 }
 
 static void _amc_launch_realtek_8139() {
