@@ -16,11 +16,15 @@
 #include <agx/lib/size.h>
 #include <agx/lib/rect.h>
 
+#include <libimg/libimg.h>
+
 #include <libamc/libamc.h>
 
 #include <stdlibadd/assert.h>
+#include <stdlibadd/array.h>
 
 #include <preferences/preferences_messages.h>
+#include <file_manager/file_manager_messages.h>
 #include <kb_driver/kb_driver_messages.h>
 
 #include "awm.h"

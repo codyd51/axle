@@ -221,7 +221,7 @@ vmm_page_table_t* vas_virt_table_for_page_addr(vmm_page_directory_t* vas_virt, u
 uint32_t vmm_page_table_idx_for_virt_addr(uint32_t addr);
 uint32_t vmm_page_idx_within_table_for_virt_addr(uint32_t addr);
 
-void amc_teardown_service_for_task(task_small_t* task, vmm_page_directory_t* remote_pdir) {
+void amc_teardown_service_for_task(task_small_t* task) {
     amc_service_t* service = _amc_service_of_task(task);
     if (!service) {
         // No AMC service for the provided task
@@ -258,28 +258,9 @@ void amc_teardown_service_for_task(task_small_t* task, vmm_page_directory_t* rem
     }
     array_m_destroy(service->message_queue);
 
-    // Free amc message delivery pool
-    //printf("\tTeardown delivery pool\n");
-    //printf("\tVMM 0x%08x Local 0x%08x\n", task->vmm, remote_pdir);
-    uint32_t virt_delivery_pool_base = service->delivery_pool;
-
-    for (uint32_t i = 0; i < _amc_delivery_pool_size; i += PAGING_PAGE_SIZE) {
-        uint32_t page_addr = virt_delivery_pool_base + i;
-
-        // Map in the page table for this delivery pool page
-        uint32_t phys_table = vas_virt_table_for_page_addr(remote_pdir, page_addr, false);
-        vmm_page_table_t* table = vas_active_map_temp(phys_table, PAGING_FRAME_SIZE);
-        //printf("Phys table 0x%08x\n", phys_table);
-        //printf("Remote table 0x%08x\n", table);
-
-        uint32_t page_idx = vmm_page_idx_within_table_for_virt_addr(page_addr);
-        uint32_t frame_addr = table->pages[page_idx].frame_idx * PAGING_FRAME_SIZE;
-        pmm_free(frame_addr);
-        //printf("\tFree AMC delivery pool page [P 0x%08x] [V 0x%08x]\n", frame_addr, page_addr);
-        //_vmm_unmap_page(vmm_active_pdir(), i);
-
-        vas_active_unmap_temp(sizeof(vmm_page_table_t));
     }
+
+    // The amc delivery pool will be cleaned up on the global page dir teardown
 
     // Finally free the service control block itself
     kfree(service);

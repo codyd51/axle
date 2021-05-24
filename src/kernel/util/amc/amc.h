@@ -116,7 +116,7 @@ void amc_wake_sleeping_services(void);
 
 typedef struct task_small task_small_t;
 typedef struct vmm_page_directory vmm_page_directory_t;
-void amc_teardown_service_for_task(task_small_t* task, vmm_page_directory_t* remote_virt_pdir);
+void amc_teardown_service_for_task(task_small_t* task);
 
 
 #endif

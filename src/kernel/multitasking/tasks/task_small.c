@@ -184,7 +184,7 @@ void _thread_destroy(task_small_t* thread) {
         vmm_page_directory_t* virt_page_dir = vas_active_map_phys_range(page_dir_base, sizeof(vmm_page_directory_t));
 
         // Free AMC service if there is one
-        amc_teardown_service_for_task(thread, virt_page_dir);
+        amc_teardown_service_for_task(thread);
 
         // Free the special page table used to store an allocation bitmap
         uint32_t allocation_state_table_with_flags = virt_page_dir->table_pointers[1022];
