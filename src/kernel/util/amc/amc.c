@@ -896,12 +896,15 @@ void amc_shared_memory_create(const char* remote_service_name, uint32_t buffer_s
     spinlock_release(&local_service->spinlock);
 }
 
+#include <kernel/util/vfs/vfs.h>
 static void _amc_launch_realtek_8139() {
     const char* program_name = "realtek_8139_driver";
-    void* fp = initrd_fopen(program_name, "rb");
     char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-    panic("noreturn");
+
+    initrd_fs_node_t* node = vfs_find_initrd_node_by_name(program_name);
+    uint32_t address = node->initrd_offset;
+	elf_load_buffer(program_name, address, node->size, argv);
+	panic("noreturn");
 }
 
 bool amc_launch_service(const char* service_name) {

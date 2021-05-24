@@ -24,15 +24,14 @@
 #include <kernel/drivers/text_mode/text_mode.h>
 
 //higher-level kernel features
+#include <std/kheap.h>
 #include <kernel/pmm/pmm.h>
 #include <kernel/vmm/vmm.h>
-#include <std/kheap.h>
 #include <kernel/syscall/syscall.h>
 
 //testing!
 #include <kernel/multitasking/tasks/task_small.h>
 #include <kernel/util/amc/amc.h>
-#include <kernel/util/vfs/fs.h>
 
 #define SPIN while (1) {sys_yield(RUNNABLE);}
 #define SPIN_NOMULTI do {} while (1);
@@ -53,12 +52,14 @@ static void kernel_idle() {
     }
 }
 
+#include <kernel/util/vfs/vfs.h>
 static void _launch_program(const char* program_name, uint32_t arg2, uint32_t arg3) {
     printf("_launch_program(%s, 0x%08x 0x%08x)\n", program_name, arg2, arg3);
-    FILE* fp = initrd_fopen(program_name, "rb");
-    assert(fp, "Failed to open file");
     char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
+
+    initrd_fs_node_t* node = vfs_find_initrd_node_by_name(program_name);
+    uint32_t address = node->initrd_offset;
+	elf_load_buffer(program_name, address, node->size, argv);
 	panic("noreturn");
 }
 
@@ -86,7 +87,7 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     vmm_init();
     vmm_notify_shared_kernel_memory_allocated();
     syscall_init();
-    initrd_init();
+    vfs_init();
 
     // We've now allocated all the kernel memory that'll be mapped into every process 
     // Inform the VMM so that it can begin allocating memory outside of shared page tables
