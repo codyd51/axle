@@ -316,18 +316,12 @@ static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_
 
     // And unblock the task if it was waiting for a message
     if ((dest_service->task->blocked_info.status & AMC_AWAIT_MESSAGE) != 0) {
-        tasking_unblock_task_with_reason(dest_service->task, false, AMC_AWAIT_MESSAGE);
-
-        // Higher priority tasks that were waiting on a message should preempt a lower priority active task
-        if (dest_service->task->priority > get_current_task_priority()) {
-            //printf("[AMC] Jump to higher-priority task [%d] %s from [%d]\n", dest->task->id, dest->task->name, getpid());
-            // Release our exclusive access
-            /*
-            spinlock_release(&dest->spinlock);
-            tasking_goto_task(dest->task);
-            return true;
-            */
+        // Remove the service from the sleep list if it was there
+        if ((dest_service->task->blocked_info.status & AMC_AWAIT_TIMESTAMP) != 0) {
+            //printf("*** Remove %s from sleep list due to message arrival\n", dest_service->name);
+            _amc_remove_service_from_sleep_list(dest_service);
         }
+        tasking_unblock_task_with_reason(dest_service->task, false, AMC_AWAIT_MESSAGE);
     }
 
     // Release our exclusive access
@@ -385,20 +379,28 @@ static void _amc_core_awm_map_framebuffer(const char* source_service) {
     amc_message_construct_and_send__from_core(source_service, &msg, sizeof(amc_framebuffer_info_t));
 }
 
-static void _amc_core_put_service_to_sleep(const char* source_service, uint32_t ms) {
+static void _amc_core_put_service_to_sleep(const char* source_service, uint32_t ms, bool awake_on_message) {
     amc_service_t* service = _amc_service_with_name(source_service);
 
     uint32_t now = ms_since_boot();
     uint32_t wake = now + ms;
     service->task->blocked_info.wake_timestamp = wake;
-    //printf("Core blocking %s [%d %s] at %d until %d or message arrives (%dms)\n", source_service, service->task->id, service->task->name, now, wake, ms);
+    char* extra_msg = (awake_on_message) ? "or message arrives" : "(time only)";
+    printf("Core blocking %s [%d %s] at %d until %d %s (%dms)\n", source_service, service->task->id, service->task->name, now, wake, extra_msg, ms);
 
-    spinlock_acquire(&service->spinlock);
     array_m_insert(_asleep_procs, service);
-    service->task->blocked_info.status = TIMED_AWAIT_TIMESTAMP;
-    spinlock_release(&service->spinlock);
+    uint32_t block_reason = (awake_on_message) ? (AMC_AWAIT_TIMESTAMP | AMC_AWAIT_MESSAGE) : AMC_AWAIT_TIMESTAMP;
+    tasking_block_task(service->task, block_reason);
+}
 
-    task_switch();
+void _amc_remove_service_from_sleep_list(amc_service_t* service) {
+    spinlock_acquire(&_asleep_procs->lock);
+
+    int32_t idx = _array_m_index_unlocked(_asleep_procs, service);
+    assert(idx >= 0, "Can't remove service from sleep list because it wasn't there");
+    _array_m_remove_unlocked(_asleep_procs, idx);
+
+    spinlock_release(&_asleep_procs->lock);
 }
 
 void amc_wake_sleeping_services(void) {
@@ -414,25 +416,30 @@ void amc_wake_sleeping_services(void) {
 
     spinlock_acquire(&_asleep_procs->lock);
 
-    int proc_indexes_to_awake[_asleep_procs->size];
-    int procs_to_awake_count = 0;
-    for (uint32_t i = 0; i < _asleep_procs->size; i++) {
-        amc_service_t* s = _array_m_lookup_unlocked(_asleep_procs, i);
-        assert(s->task->blocked_info.status == TIMED_AWAIT_TIMESTAMP, "Proc was in sleep list but wasn't asleep!");
-        if (now >= s->task->blocked_info.wake_timestamp) {
-            proc_indexes_to_awake[procs_to_awake_count++] = i;
+    while (true) {
+        bool did_modify_list = false;
+        for (uint32_t i = 0; i < _asleep_procs->size; i++) {
+            amc_service_t* s = _array_m_lookup_unlocked(_asleep_procs, i);
+            if (s->task->blocked_info.status & AMC_AWAIT_TIMESTAMP == 0) {
+                printf("Proc was in sleep list but wasn't asleep [%d %s]: %d\n", s->task->id, s->task->name, s->task->blocked_info.status);
+            }
+            if (now >= s->task->blocked_info.wake_timestamp) {
+                // Wake the process
+                _amc_remove_service_from_sleep_list(s);
+                //printf("Wake up %s at %d\n", s->name, ms_since_boot());
+                tasking_unblock_task_with_reason(s->task, false, AMC_AWAIT_TIMESTAMP);
+
+                // And signal that we need to re-iterate as the indexes have changed
+                // TODO(PT): We can store the start-index as an optimisation
+                did_modify_list = true;
+                break;
+            }
+        }
+        if (!did_modify_list) {
+            break;
         }
     }
 
-    int32_t idx_shift = 0;
-    for (uint32_t i = 0; i < procs_to_awake_count; i++) {
-        amc_service_t* s = _array_m_lookup_unlocked(_asleep_procs, i);
-        int idx = proc_indexes_to_awake[i];
-        idx -= idx_shift;
-        _array_m_remove_unlocked(_asleep_procs, idx);
-        idx_shift += 1;
-        tasking_unblock_task_with_reason(s->task, false, TIMED_AWAIT_TIMESTAMP);
-    }
     spinlock_release(&_asleep_procs->lock);
 }
 
@@ -637,7 +644,10 @@ static bool _amc_message_construct_and_send_from_service_name(const char* source
             return true;
         }
         else if (u32buf[0] == AMC_SLEEP_UNTIL_TIMESTAMP) {
-            _amc_core_put_service_to_sleep(source_service, u32buf[1]);
+            _amc_core_put_service_to_sleep(source_service, u32buf[1], false);
+        }
+        else if (u32buf[0] == AMC_SLEEP_UNTIL_TIMESTAMP_OR_MESSAGE) {
+            _amc_core_put_service_to_sleep(source_service, u32buf[1], true);
         }
         else if (u32buf[0] == AMC_FILE_MANAGER_MAP_INITRD) {
             _amc_core_file_manager_map_initrd(source_service);
