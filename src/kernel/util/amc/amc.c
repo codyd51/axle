@@ -645,7 +645,19 @@ static bool _amc_message_construct_and_send_from_service_name(const char* source
         else if (u32buf[0] == AMC_FILE_MANAGER_EXEC_BUFFER) {
             _amc_core_file_manager_exec_buffer(source_service, buf, buf_size);
         }
+        else if (u32buf[0] == AMC_SHARED_MEMORY_DESTROY) {
+            assert(false, "shmem destroy amccmd");
+            //_amc_core_shared_memory_destroy(source_service, buf, buf_size);
+        }
+        else if (u32buf[0] == AMC_SYSTEM_PROFILE_REQUEST) {
+            amc_system_profile_response_t resp = {0};
+            resp.event = AMC_SYSTEM_PROFILE_RESPONSE;
+            resp.pmm_allocated = pmm_allocated_memory();
+            resp.kheap_allocated = kheap_allocated_memory();
+            amc_message_construct_and_send__from_core(source_service, &resp, sizeof(resp));
+        }
         else {
+            printf("Unknown message: %d\n", u32buf[0]);
             assert(0, "Unknown message to core");
             return;
         }
