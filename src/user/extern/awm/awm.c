@@ -48,6 +48,7 @@ typedef struct user_window {
 
 #define WINDOW_BORDER_MARGIN 0
 #define WINDOW_TITLE_BAR_HEIGHT 30
+#define WINDOW_TITLE_BAR_VISIBLE_HEIGHT (WINDOW_TITLE_BAR_HEIGHT - 2)
 
 // Sorted by Z-index
 #define MAX_WINDOW_COUNT 64
@@ -761,7 +762,7 @@ int main(int argc, char** argv) {
 
 		// We're out of messages to process - composite everything together and redraw
 		// First draw the background
-		blit_layer(_screen.vmem, background, screen_frame, screen_frame);
+		blit_layer(_screen.vmem, _g_background, screen_frame, screen_frame);
 		// Then each window (without copying in the window's current shared framebuffer)
 		// Draw the bottom-most windows first
 		// TODO(PT): Replace with a loop that draws the topmost window and 
@@ -793,9 +794,45 @@ int main(int argc, char** argv) {
 			if (!fully_occluded) {
 				// TODO(PT): As per the above comment, we should only copy the window layer
 				// once if it's requested a redraw at least once on this pass through the event loop
-				blit_layer(_screen.vmem, window->layer, window->frame, rect_make(point_zero(), window->frame.size));
+				blit_layer(
+					_screen.vmem, 
+					window->layer, 
+					window->frame, 
+					rect_make(
+						point_zero(), 
+						size_make(
+							window->frame.size.width,
+							WINDOW_TITLE_BAR_VISIBLE_HEIGHT
+						)
+					)
+				);
+				blit_layer(
+					_screen.vmem, 
+					window->layer, 
+					rect_make(
+						point_make(
+							window->frame.origin.x,
+							window->frame.origin.y + WINDOW_TITLE_BAR_HEIGHT
+						),
+						size_make(
+							window->frame.size.width,
+							window->frame.size.height - WINDOW_TITLE_BAR_HEIGHT
+						)
+					),
+					rect_make(
+						point_make(
+							0,
+							WINDOW_TITLE_BAR_HEIGHT
+						), 
+						size_make(
+							window->frame.size.width,
+							window->frame.size.height - WINDOW_TITLE_BAR_HEIGHT
+						)
+					)
+				);
 			}
 		}
+
 		// And finally the cursor
 		_draw_cursor();
 
