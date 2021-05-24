@@ -68,4 +68,9 @@ typedef struct awm_window_title_msg {
     char title[64];
 } awm_window_title_msg_t;
 
+// Sent from a client to awm
+#define AWM_CLOSE_WINDOW (1 << 14)
+// Sent from awm to a client
+#define AWM_CLOSE_WINDOW_REQUEST (1 << 14)
+
 #endif

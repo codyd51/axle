@@ -38,15 +38,15 @@ typedef struct view {
 
 typedef struct user_window {
 	Rect frame;
-	text_box_t* title_text_box;
 	ca_layer* layer;
 	//view_t* title_view;
 	view_t* content_view;
 	const char* owner_service;
+	const char* title;
 } user_window_t;
 
-#define WINDOW_BORDER_MARGIN 2
-#define WINDOW_TITLE_BAR_HEIGHT 28
+#define WINDOW_BORDER_MARGIN 0
+#define WINDOW_TITLE_BAR_HEIGHT 30
 
 // Sorted by Z-index
 #define MAX_WINDOW_COUNT 64
@@ -57,7 +57,8 @@ static Point mouse_pos = {0};
 
 static user_window_t* _window_move_to_top(user_window_t* window);
 static void _window_resize(user_window_t* window, Size new_size, bool inform_owner);
-static void _write_window_title(user_window_t* window, uint32_t len, const char* title);
+static void _write_window_title(user_window_t* window);
+static void _redraw_window_title_bar(user_window_t* window, bool prospective_close_action);
 
 Screen _screen = {0};
 
@@ -179,7 +180,7 @@ static void _mouse_reset_prospective_action_flags(mouse_interaction_state_t* sta
 			state->mouse_pos.y - state->active_window->frame.origin.y
 		);
 		Rect content_view = state->active_window->content_view->frame;
-		int inset = 4;
+		int inset = 8;
 		Rect content_view_inset = rect_make(
 			point_make(
 				content_view.origin.x + inset,
@@ -193,7 +194,7 @@ static void _mouse_reset_prospective_action_flags(mouse_interaction_state_t* sta
 
 		Rect title_text_box = rect_make(
 			point_zero(),
-			state->active_window->title_text_box->size
+			size_make(state->active_window->frame.size.width, WINDOW_TITLE_BAR_HEIGHT)
 		);
 		if (rect_contains_point(title_text_box, local_mouse)) {
 			state->is_prospective_window_move = true;
@@ -205,12 +206,11 @@ static void _mouse_reset_prospective_action_flags(mouse_interaction_state_t* sta
 }
 
 static void _moved_in_hover_window(mouse_interaction_state_t* state, Point mouse_point) {
-	Point local_mouse = point_make(
-		mouse_point.x - state->active_window->frame.origin.x,
-		mouse_point.y - state->active_window->frame.origin.y
-	);
-
 	if (!state->is_prospective_window_move && !state->is_prospective_window_resize) {
+		Point local_mouse = point_make(
+			mouse_point.x - state->active_window->frame.origin.x,
+			mouse_point.y - state->active_window->frame.origin.y
+		);
 		// Mouse is hovered within the content view
 		local_mouse.x -= state->active_window->content_view->frame.origin.x;
 		local_mouse.y -= state->active_window->content_view->frame.origin.y;
@@ -430,6 +430,12 @@ static int32_t _window_idx_for_service(const char* owner_service) {
 	return -1;
 }
 
+static void _redraw_window_title_bar(user_window_t* window, bool prospective_close_action) {
+	Size title_bar_size = size_make(window->frame.size.width, WINDOW_TITLE_BAR_HEIGHT);
+	// Draw window title
+	_write_window_title(window);
+}
+
 static void _window_resize(user_window_t* window, Size new_size, bool inform_window) {
 	//printf("window_resize[%s] = (%d, %d)\n", window->owner_service, new_size.width, new_size.height);
 	window->frame.size = new_size;
@@ -437,7 +443,6 @@ static void _window_resize(user_window_t* window, Size new_size, bool inform_win
 
 	// Resize the text box
 	Size title_bar_size = size_make(new_size.width, WINDOW_TITLE_BAR_HEIGHT);
-	text_box_resize(window->title_text_box, title_bar_size);
 
 	// The content view is a bit smaller to accomodate decorations
 	window->content_view->frame = rect_make(
@@ -453,45 +458,7 @@ static void _window_resize(user_window_t* window, Size new_size, bool inform_win
 		)
 	);
 
-	// Draw top window bar
-	Color c1 = color_make(70, 80, 130);
-	Color c2 = color_make(50, 50, 50);
-	Color* c = &c1;
-	int block_size = 4;
-	bool flip = false;
-	for (int y = 0; y < title_bar_size.height; y++) {
-		if (y % block_size == 0) flip = !flip;
-		c = flip ? &c1 : &c2;
-		for (int x = 0; x < title_bar_size.width; x++) {
-			if (x % block_size == 0) {
-				c = (c == &c1) ? &c2 : &c1;
-			}
-			putpixel(window->layer, x, y, *c);
-		}
-	}
-
-	// Draw a bordering rectangle around the title bar
-	draw_rect(window->layer,
-			  rect_make(point_zero(), title_bar_size), 
-			  color_black(), 
-			  1);
-
-	// Draw window title
-	uint32_t title_len = window->title_text_box->cursor_pos.x;
-	Size visible_title_bar_size = size_make(title_len, (window->title_text_box->font_size.height));
-	Point title_text_origin = point_make(
-		(title_bar_size.width / 2) - (visible_title_bar_size.width / 2),
-		(title_bar_size.height / 2) - (visible_title_bar_size.height / 2)
-	);
-
-	text_box_blit(
-		window->title_text_box,
-		window->layer,
-		rect_make(
-			title_text_origin,
-			size_make(visible_title_bar_size.width, 4)
-		)
-	);
+	_redraw_window_title_bar(window, false);
 
 	if (inform_window) {
 		awm_window_resized_msg_t msg = {0};
@@ -507,12 +474,15 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 		assert(0, "too many windows");
 	}
 
-	printf("Creating framebuffer for %s (window idx %d)\n", owner_service, window_idx);
-	// TODO(PT): By always making the buffer the size of the screen, we allow for window resizing later
-	uint32_t buffer_size = _screen.resolution.width * _screen.resolution.height * _screen.bytes_per_pixel;
+	printf("Creating framebuffer for %s\n", owner_service);
 	uint32_t local_buffer;
 	uint32_t remote_buffer;
-	amc_shared_memory_create(owner_service, buffer_size, &local_buffer, &remote_buffer);
+	amc_shared_memory_create(
+		owner_service, 
+		shmem_size, 
+		&shmem_local, 
+		&shmem_remote
+	);
 
 	user_window_t* window = &windows[window_idx];
 	// Place the window in the center of the screen
@@ -523,10 +493,10 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	window->frame = rect_make(origin, size_zero());
 	window->layer = create_layer(_screen.resolution);
 
-	view_t* content_view = malloc(sizeof(view_t));
-	content_view->layer = malloc(sizeof(ca_layer));
+	view_t* content_view = calloc(1, sizeof(view_t));
+	content_view->layer = calloc(1, sizeof(ca_layer));
 	content_view->layer->size = _screen.resolution;
-	content_view->layer->raw = (uint8_t*)local_buffer;
+	content_view->layer->raw = (uint8_t*)shmem_local;
 	content_view->layer->alpha = 1.0;
 	window->content_view = content_view;
 
@@ -535,10 +505,8 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 
 	// Configure the title text box
 	// The size will be reset by window_size()
-	window->title_text_box = text_box_create__unscrollable(size_make(_screen.resolution.width, WINDOW_TITLE_BAR_HEIGHT*2), color_dark_gray());
-	window->title_text_box->preserves_history = false;
-	window->title_text_box->text_inset = point_make(0, 0);
-	_write_window_title(window, strlen(window->owner_service), window->owner_service);
+	window->title = strndup(window->owner_service, strlen(window->owner_service));
+	_write_window_title(window);
 
 	// Make the window a bit bigger than the user requested to accomodate for decorations
 	int full_window_width = width + (WINDOW_BORDER_MARGIN * 2);
@@ -556,9 +524,10 @@ static void window_create(const char* owner_service, uint32_t width, uint32_t he
 	// Now that we've configured the initial window state on our end, 
 	// provide the buffer to the client
 	printf("AWM made shared framebuffer for %s\n", owner_service);
-	printf("\tAWM    memory: 0x%08x - 0x%08x\n", local_buffer, local_buffer + buffer_size);
-	printf("\tRemote memory: 0x%08x - 0x%08x\n", remote_buffer, remote_buffer + buffer_size);
-	amc_msg_u32_2__send(owner_service, AWM_CREATED_WINDOW_FRAMEBUFFER, remote_buffer);
+	printf("\tAWM    memory: 0x%08x - 0x%08x\n", shmem_local, shmem_local + shmem_size);
+	printf("\tRemote memory: 0x%08x - 0x%08x\n", shmem_remote, shmem_remote + shmem_size);
+	amc_msg_u32_2__send(owner_service, AWM_CREATED_WINDOW_FRAMEBUFFER, shmem_remote);
+	// Inform the window of its initial size
 	_window_resize(window, full_window_size, true);
 }
 
@@ -585,11 +554,27 @@ static void _update_window_framebuf(const char* owner_service) {
 	);
 }
 
-static void _write_window_title(user_window_t* window, uint32_t len, const char* title) {
-	text_box_clear_and_erase_history(window->title_text_box);
-	text_box_puts(window->title_text_box, title, color_white());
-	// Perform a 'fake' resize to force the title bar to be redrawn
-	_window_resize(window, window->frame.size, false);
+static void _write_window_title(user_window_t* window) {
+	Point mid = point_make(
+		window->frame.size.width / 2.0, 
+		(WINDOW_TITLE_BAR_VISIBLE_HEIGHT) / 2.0
+	);
+	Size font_size = size_make(8, 12);
+	uint32_t len = strlen(window->title);
+	Point origin = point_make(
+		mid.x - ((font_size.width * len) / 2.0),
+		mid.y - (font_size.height / 2.0) - 1
+	);
+	for (uint32_t i = 0; i < len; i++) {
+		draw_char(
+			window->layer,
+			window->title[i],
+			origin.x + (font_size.width * i),
+			origin.y,
+			color_make(50, 50, 50),
+			font_size
+		);
+	}
 }
 
 static void _update_window_title(const char* owner_service, awm_window_title_msg_t* title_msg) {
@@ -599,7 +584,12 @@ static void _update_window_title(const char* owner_service, awm_window_title_msg
 		printf("Failed to find a window for %s\n", owner_service);
 		return;
 	}
-	_write_window_title(window, title_msg->len, title_msg->title);
+
+	if (window->title) {
+		free(window->title);
+	}
+	window->title = strndup(title_msg->title, title_msg->len);
+	_window_resize(window, window->frame.size, false);
 }
 
 void _radial_gradiant(ca_layer* layer, Size gradient_size, Color c1, Color c2, int x1, int y1, float r);
