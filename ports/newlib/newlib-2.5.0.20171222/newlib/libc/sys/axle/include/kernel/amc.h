@@ -58,23 +58,11 @@ typedef struct amc_shared_memory_destroy_cmd {
 	uint32_t shmem_remote;
 } amc_shared_memory_destroy_cmd_t;
 
-typedef struct amc_shared_memory_check_cmd {
-    uint32_t event;
-	char remote_service[AMC_MAX_SERVICE_NAME_LEN];
-} amc_shared_memory_check_cmd_t;
-
-typedef struct amc_shared_memory_check_cmd_response {
-    uint32_t event;
-	char remote_service[AMC_MAX_SERVICE_NAME_LEN];
-    bool is_shmem_valid;
-} amc_shared_memory_check_cmd_response_t;
-
 typedef struct amc_system_profile_response {
     uint32_t event;
     uint32_t pmm_allocated;
     uint32_t kheap_allocated;
 } amc_system_profile_response_t;
-
 
 #define AXLE_CORE_SERVICE_NAME "com.axle.core"
 #define AMC_COPY_SERVICES (1 << 0)
@@ -92,9 +80,6 @@ typedef struct amc_system_profile_response {
 #define AMC_FILE_MANAGER_EXEC_BUFFER_RESPONSE (1 << 4)
 
 #define AMC_SHARED_MEMORY_DESTROY (1 << 5)
-
-#define AMC_SHARED_MEMORY_CHECK (1 << 6)
-#define AMC_SHARED_MEMORY_CHECK_RESPONSE (1 << 6)
 
 #define AMC_SYSTEM_PROFILE_REQUEST (1 << 7)
 #define AMC_SYSTEM_PROFILE_RESPONSE (1 << 7)

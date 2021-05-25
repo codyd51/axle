@@ -459,7 +459,11 @@ static timers_state_t _sleep_for_timers(gui_window_t* window) {
 
 	//printf("libgui awaiting next timer that will fire in %d\n", time_to_next_fire);
 
-	usleep(time_to_next_fire);
+	uint32_t b[2];
+    b[0] = AMC_SLEEP_UNTIL_TIMESTAMP_OR_MESSAGE;
+    b[1] = time_to_next_fire;
+    amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &b, sizeof(b));
+
 	return SLEPT_FOR_TIMERS;
 }
 
