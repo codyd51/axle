@@ -306,8 +306,9 @@ void draw_line(ca_layer* layer, Line line, Color color, int thickness) {
 	//if the line is perfectly vertical or horizontal, this is a special case
 	//that can be drawn much faster
 	if (line.p1.x == line.p2.x) {
-		draw_vline_fast(layer, line, color, thickness);
-		return;
+		////printf("draw_v")
+		//draw_vline_fast(layer, line, color, thickness);
+		//return;
 	}
 	else if (line.p1.y == line.p2.y) {
 		draw_hline_fast(layer, line, color, thickness);
