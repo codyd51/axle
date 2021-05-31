@@ -6,15 +6,9 @@
 #include <memory.h>
 
 #include <agx/font/font.h>
-#include <agx/lib/size.h>
-#include <agx/lib/screen.h>
 #include <agx/lib/shapes.h>
 #include <agx/lib/ca_layer.h>
-#include <agx/lib/putpixel.h>
-#include <agx/lib/text_box.h>
-#include <agx/lib/point.h>
-#include <agx/lib/size.h>
-#include <agx/lib/rect.h>
+#include <agx/lib/screen.h>
 
 #include <libimg/libimg.h>
 
@@ -28,7 +22,6 @@
 #include <kb_driver/kb_driver_messages.h>
 
 #include "awm.h"
-#include "gfx.h"
 #include "math.h"
 
 typedef struct view {
