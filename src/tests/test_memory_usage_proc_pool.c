@@ -11,6 +11,29 @@ static void _exiting(const char* p, uint32_t arg2, uint32_t arg3) {
     task_die(0);
 }
 
+#include <kernel/util/vfs/vfs.h>
+#include <kernel/boot_info.h>
+static void _launch_program(const char* program_name, uint32_t arg2, uint32_t arg3) {
+    static int i = 0;
+    char buf[32] = {0};
+    snprintf(buf, sizeof(buf), "%d", i);
+    char* argv[] = {program_name, buf, NULL};
+    i += 1;
+    /*
+	fs_node_t* file = finddir_fs(fs_root, (char*)program_name);
+
+    FILE* fp = initrd_fopen(program_name, "rb");
+    assert(fp, "Failed to open file");
+    elf_load_file(program_name, fp, argv);
+    */
+
+    initrd_fs_node_t* node = vfs_find_initrd_node_by_name(program_name);
+    uint32_t address = node->initrd_offset;
+	elf_load_buffer(program_name, address, node->size, argv);
+	panic("noreturn");
+    //task_die(0);
+}
+
 static void run_test(uint32_t i) {
     uint32_t start = ms_since_boot();
     printf("TEST %d: Before tasks spawn\n", i);
@@ -19,12 +42,13 @@ static void run_test(uint32_t i) {
     liballoc_dump();
     */
 
-    for (uint32_t i = 0; i < 16; i++) {
-        task_spawn__with_args(_exiting, "abc", i, 0, "");
+    char* program_name = "empty";
+    for (uint32_t i = 0; i < 64; i++) {
+        task_spawn__with_args(_launch_program, program_name, 0, 0, "");
     }
     printf("TEST %d: Sleeping...\n", i);
-    //while (ms_since_boot() < start + 500) {
-    //}
+    while (ms_since_boot() < start + 1000) {
+    }
     printf("TEST %d: Woke from sleep! now = %d start = %d\n", i, ms_since_boot(), start);
     printf("TEST %d: After tasks spawn\n", i);
     /*
@@ -39,10 +63,10 @@ void test_memory_usage_proc_pool(void) {
 
     uint32_t pmm_start = pmm_allocated_memory();
     uint32_t heap_start = kheap_allocated_memory();
-    for (uint32_t i = 0; i < 512; i++) {
+    for (uint32_t i = 0; i < 8; i++) {
         run_test(i);
         uint32_t now = ms_since_boot();
-        while (ms_since_boot() < now + 1500) {
+        while (ms_since_boot() < now + 2000) {
         }
     }
     printf("Finished all tests!\n");
