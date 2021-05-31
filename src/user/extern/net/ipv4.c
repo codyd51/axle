@@ -34,7 +34,11 @@ void ipv4_receive(packet_info_t* packet_info, ipv4_packet_t* packet, uint32_t pa
 	// Ignore packets intended for other hosts
 	uint8_t ipv4[IPv4_ADDR_SIZE];
 	net_copy_local_ipv4_addr(ipv4);
-	if (memcmp(&packet->dest_ip, ipv4, IPv4_ADDR_SIZE)) {
+	// But keep IP multicast packets
+	// https://en.wikipedia.org/wiki/Multicast_address
+	uint8_t local_network_multicast_byte = 224;
+	if (memcmp(&packet->dest_ip, ipv4, IPv4_ADDR_SIZE) /*&&
+		((uint8_t*)&packet->dest_ip)[0] != local_network_multicast_byte*/) {
 		free(packet);
 		return;
 	}

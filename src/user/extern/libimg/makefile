@@ -11,7 +11,8 @@ CFLAGS = -I$(SYSROOT)/usr/i686-axle/include -g -L$(SYSROOT)/usr/i686-axle/lib -W
 
 # The resulting static library will be moved into the sysroot by the 
 # build-libs.py script.
-libimg.a: libimg.c
+libimg.a: libimg.c nanojpeg.c
 	$(CC) $(CFLAGS) -o libimg.o -c libimg.c;
-	$(AR) rcs libimg.a libimg.o
+	$(CC) $(CFLAGS) -o nanojpeg.o -c nanojpeg.c;
+	$(AR) rcs libimg.a libimg.o nanojpeg.o
 	$(RANLIB) libimg.a

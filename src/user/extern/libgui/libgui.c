@@ -211,6 +211,27 @@ static void _handle_key_down(gui_window_t* window, uint32_t ch) {
 
 			// Move the cursor back before the deleted character
 			text_box->cursor_pos.x -= delete_width;
+			if (text_box->cursor_pos.x <= 0) {
+				// Iterate the past text to find out where to put the previous line ends
+				uint32_t line_count = 0;
+				uint32_t chars_in_last_line = 0;
+				for (int i = 0; i < active_text_input->len; i++) {
+					char ch = active_text_input->text[i];
+					if (ch == '\n') {
+						chars_in_last_line = 0;
+						line_count += 1;
+					}
+					else {
+						chars_in_last_line += 1;
+					}
+				}
+				if (line_count == 0) {
+					text_box->cursor_pos = text_box->text_inset;
+				}
+				text_box->cursor_pos.x = max(text_box->text_inset.x, drawn_char_width * chars_in_last_line);
+				text_box->cursor_pos.y -= text_box->font_size.height + text_box->font_padding.height;
+				text_box->cursor_pos.y = max(text_box->text_inset.y, text_box->cursor_pos.y);
+			}
 			// Cover it up with a space
 			text_box_putchar(text_box, ' ', text_box->background_color);
 			// And move the cursor before the space
@@ -246,9 +267,14 @@ static void _handle_mouse_moved(gui_window_t* window, awm_mouse_moved_msg_t* mov
 			}
 			// Was the mouse already inside this element?
 			if (window->hover_elem == elem) {
-				Rect r = elem->ti.frame;
-				//printf("Move within hover elem 0x%08x %d %d in %d %d %d %d\n", elem, mouse_pos.x, mouse_pos.y, r.origin.x, r.origin.y, r.size.width, r.size.height);
-				elem->ti._priv_mouse_moved_cb(elem, mouse_pos);
+				Rect r = elem->base.frame;
+				if (window->hover_elem->base.type == GUI_TYPE_SLIDER) {
+					printf("Translate for slider\n");
+					mouse_pos.x -= rect_min_x(window->hover_elem->sl.superview->frame);
+					mouse_pos.y -= rect_min_y(window->hover_elem->sl.superview->frame);
+				}
+				//printf("%d %d - Move within hover_elem %d\n", mouse_pos.x, mouse_pos.y, elem->base.type);
+				elem->base._priv_mouse_moved_cb(elem, mouse_pos);
 				return;
 			}
 			else {
