@@ -89,7 +89,7 @@ static void _gui_view_fill_background(gui_view_t* v, bool is_active) {
 	);
 }
 
-static void _gui_view_draw(gui_view_t* v, bool is_active) {
+void _gui_view_draw_main_content_in_rect(gui_view_t* v, bool is_active, Rect r) {
 	// Margin
 	uint32_t inner_margin_size = v->border_margin / 2;
 	uint32_t outer_margin_size = v->border_margin - inner_margin_size;
@@ -294,7 +294,9 @@ void _gui_view_resize(gui_view_t* v, Size new_window_size) {
 	v->_title_inset.size.width = v->frame.size.width;
 
 	v->_priv_needs_display = true;
+}
 
+void _gui_view_resize_invoke_callbacks(gui_view_t* v, Size new_window_size) {
 	if (v->window_resized_cb) {
 		v->window_resized_cb((gui_elem_t*)v, new_window_size);
 	}
@@ -304,6 +306,11 @@ void _gui_view_resize(gui_view_t* v, Size new_window_size) {
 		gui_elem_t* sub_elem = array_lookup(v->subviews, j);
 		sub_elem->base._priv_window_resized_cb(sub_elem, new_window_size);
 	}
+}
+
+static void _view_window_resized(gui_view_t* v, Size new_window_size) {
+	_gui_view_resize(v, new_window_size);
+	_gui_view_resize_invoke_callbacks(v, new_window_size);
 }
 
 void gui_view_alloc_dynamic_fields(gui_view_t* view) {
@@ -399,7 +406,7 @@ void gui_view_destroy(gui_view_t* view) {
 		view->teardown_cb((gui_elem_t*)view);
 	}
 	gui_layer_teardown(view->content_layer);
-	assert(view->subviews->size == 0, "subviews must be cleaned up");
+	//assert(view->subviews->size == 0, "subviews must be cleaned up");
 	array_destroy(view->subviews);
 	free(view);
 }

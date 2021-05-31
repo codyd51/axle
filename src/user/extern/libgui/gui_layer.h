@@ -6,6 +6,7 @@
 #include <agx/lib/text_box.h>
 
 #include <agx/lib/shapes.h>
+#include "gui_elem.h"
 
 typedef enum gui_layer_type {
     GUI_FIXED_LAYER = 0,
@@ -23,7 +24,10 @@ typedef struct gui_fixed_layer {
 
 typedef struct gui_scroll_layer {
     gui_layer_type_t type;
-    ca_scrolling_layer_t* inner;
+    ca_layer* inner;
+    array_t* backing_layers;
+    Point scroll_offset;
+    uint32_t max_y;
 } gui_scroll_layer_t;
 
 typedef union gui_layer {
