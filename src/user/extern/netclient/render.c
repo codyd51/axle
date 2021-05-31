@@ -35,6 +35,28 @@ static void _draw_node__block(layout_node_t* node, array_t* display_cmd_list) {
         outline->thickness = THICKNESS_FILLED;
         array_insert(display_cmd_list, outline);
     }
+    for (uint32_t i = 0; i < bn->line_boxes->size; i++) {
+        line_box_t* lb = array_lookup(bn->line_boxes, i);
+        for (uint32_t j = 0; j < lb->fragments->size; j++) {
+            line_fragment_t* lf = array_lookup(lb->fragments, j);
+
+            draw_command_rectangle_t* outline = calloc(1, sizeof(draw_command_rectangle_t));
+            outline->cmd = DRAW_COMMAND_RECTANGLE;
+            outline->rect = lf->frame;
+            outline->color = color_black();
+            outline->thickness = 1;
+            array_insert(display_cmd_list, outline);
+
+            draw_command_text_t* draw_text = calloc(1, sizeof(draw_command_text_t));
+            draw_text->cmd = DRAW_COMMAND_TEXT;
+            draw_text->rect = lf->frame;
+            char* text = lf->node->dom_node->name + lf->start_idx;
+            draw_text->text = strndup(text, lf->length);
+            draw_text->font_color = bn->font_color;
+            draw_text->font_size = bn->font_size;
+            array_insert(display_cmd_list, draw_text);
+        }
+    }
     // Recursively draw the child nodes
     for (uint32_t i = 0; i < bn->child_count; i++) {
         layout_node_t* child = (layout_node_t*)bn->children[i];
@@ -43,6 +65,7 @@ static void _draw_node__block(layout_node_t* node, array_t* display_cmd_list) {
 }
 
 static void _draw_node__inline(layout_node_t* node, array_t* display_cmd_list) {
+    /*
     layout_inline_node_t* in = &node->inline_node;
     if (in->text != NULL) {
         draw_command_text_t* draw_text = calloc(1, sizeof(draw_command_text_t));
@@ -52,12 +75,20 @@ static void _draw_node__inline(layout_node_t* node, array_t* display_cmd_list) {
         draw_text->font_color = in->font_color;
         draw_text->font_size = in->font_size;
         array_insert(display_cmd_list, draw_text);
+
+        draw_command_rectangle_t* bg = calloc(1, sizeof(draw_command_rectangle_t));
+        bg->cmd = DRAW_COMMAND_RECTANGLE;
+        bg->rect = node->base_node.margin_frame;
+        bg->color = color_black();
+        bg->thickness = 1;
+        array_insert(display_cmd_list, bg);
     }
     // Recursively draw the child nodes
     for (uint32_t i = 0; i < in->child_count; i++) {
         layout_node_t* child = (layout_node_t*)in->children[i];
         _draw_node(child, display_cmd_list);
     }
+    */
 }
 
 static void _draw_node(layout_node_t* node, array_t* display_cmd_list) {
@@ -68,7 +99,10 @@ static void _draw_node(layout_node_t* node, array_t* display_cmd_list) {
         _draw_node__block(node, display_cmd_list);
     }
     else if (node->base_node.mode == INLINE_LAYOUT) {
-        _draw_node__inline(node, display_cmd_list);
+        //_draw_node__inline(node, display_cmd_list);
+    }
+    else if (node->base_node.mode == TEXT_LAYOUT) {
+        // Text nodes are drawn via line boxes on blocks
     }
     else {
         assert(false, "Unknown layout node type");
