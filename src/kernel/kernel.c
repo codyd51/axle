@@ -109,22 +109,18 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
         "kb_driver",
         "mouse_driver",
         "awm",
-        "timed",
         // Higher-level facilities
-        "tty",
-        /*
-        "pci_driver",
-        "net",
-        "netclient",
-        */
+        //"tty",
+        //"pci_driver",
+        //"net",
+        //"netclient",
         // User applications
         "file_manager",
+        //"image_viewer",
         // Games
-        /*
-        "breakout",
-        "snake",
-        "2048"
-        */
+        //"breakout",
+        //"snake",
+        //"2048",
     };
     for (uint32_t i = 0; i < sizeof(launch_programs) / sizeof(launch_programs[0]); i++) {
         const char* program_name = launch_programs[i];
