@@ -71,17 +71,20 @@ typedef struct file_view {
 	Point parent_folder_start;
 	uint32_t idx_within_folder;
 	uint32_t dfs_index;
-	image_bmp_t* icon;
+	image_t* icon;
 } file_view_t;
 
 static fs_node_t* root_fs_node = NULL;
-static image_bmp_t* _g_folder_icon = NULL;
-static image_bmp_t* _g_image_icon = NULL;
-static image_bmp_t* _g_executable_icon = NULL;
-static image_bmp_t* _g_text_icon = NULL;
+static image_t* _g_folder_icon = NULL;
+static image_t* _g_image_icon = NULL;
+static image_t* _g_executable_icon = NULL;
+static image_t* _g_text_icon = NULL;
+
+static const char* _g_image_extensions[] = {".bmp", ".jpg", ".jpeg", NULL};
 
 static initrd_fs_node_t* _find_node_by_name(char* name);
 bool str_ends_with(char* str, char* suffix);
+bool str_ends_with_any(char* str, char* suffixes[]);
 
 static void _draw_string(gui_layer_t* layer, char* text, Point origin, Size font_size, Color color) {
 	Point cursor = origin;
@@ -355,6 +358,18 @@ bool str_ends_with(char* str, char* suffix) {
 	return false;
 }
 
+bool str_ends_with_any(char* str, char* suffixes[]) {
+	for (uint32_t i = 0; i < 32; i++) {
+		if (suffixes[i] == NULL) {
+			return false;
+		}
+		if (str_ends_with(str, suffixes[i])) {
+			return true;
+		}
+	}
+	assert(false, "Failed to find NULL terminator");
+}
+
 static void _launch_program_by_node(fs_node_t* node) {
 	assert(node->base.type == FS_NODE_TYPE_INITRD, "Can only launch initrd programs");
 	amc_exec_buffer_cmd_t cmd = {0};
@@ -394,7 +409,7 @@ static void _file_view_left_click(file_view_t* view, Point mouse_point) {
 	// For image files, ask the image viewer to open them
 	char* file_name = view->fs_node->initrd.name;
 	printf("File name %s\n", file_name);
-	if (str_ends_with(file_name, ".bmp")) {
+	if (str_ends_with_any(file_name, _g_image_extensions)) {
 		_launch_amc_service_if_necessary(IMAGE_VIEWER_SERVICE_NAME);
 
 		image_viewer_load_image_request_t req = {0};
@@ -438,7 +453,7 @@ static void _generate_ui_tree(gui_view_t* container_view, file_view_t* parent_vi
 		// Directory
 		file_view->icon = _g_folder_icon;
 	}
-	else if (str_ends_with(node->base.name, ".bmp")) {
+	else if (str_ends_with_any(node->base.name, _g_image_extensions)) {
 		// Image
 		file_view->icon = _g_image_icon;
 	}
@@ -504,9 +519,9 @@ static void _amc_message_received(gui_window_t* window, amc_message_t* msg) {
 	}
 }
 
-static image_bmp_t* _load_image(const char* name) {
+static image_t* _load_image(const char* name) {
 	initrd_fs_node_t* fs_node = _find_node_by_name(name);
-	return image_parse_bmp(fs_node->size, fs_node->initrd_offset);
+	return image_parse(fs_node->size, fs_node->initrd_offset);
 }
 
 int main(int argc, char** argv) {
