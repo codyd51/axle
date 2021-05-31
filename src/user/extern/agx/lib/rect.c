@@ -5,32 +5,23 @@
 
 #include "../math.h"
 #include "../lib/putpixel.h"
+#include "../lib/shapes.h"
 #include "rect.h"
 
 static bool val_in_range(int value, int min, int max) { 
-	return (value >= min) && (value <= max); 
+	return (value >= min) && (value < max); 
 }
 
 bool rect_intersects(Rect A, Rect B) {
-    bool x_overlap = val_in_range(A.origin.x, B.origin.x, B.origin.x + B.size.width) ||
-                    val_in_range(B.origin.x, A.origin.x, A.origin.x + A.size.width);
+    bool x_overlap = val_in_range(rect_min_x(A), rect_min_x(B), rect_max_x(B)) ||
+                    val_in_range(rect_min_x(B), rect_min_x(A), rect_max_x(A));
 
-    bool y_overlap = val_in_range(A.origin.y, B.origin.y, B.origin.y + B.size.height) ||
-                    val_in_range(B.origin.y, A.origin.y, A.origin.y + A.size.height);
+    bool y_overlap = val_in_range(rect_min_y(A), rect_min_y(B), rect_max_y(B)) ||
+                    val_in_range(rect_min_y(B), rect_min_y(A), rect_max_y(A));
 
     return x_overlap && y_overlap;
 }
 
-Rect rect_make(Point origin, Size size) {
-	Rect rect;
-	rect.origin = origin;
-	rect.size = size;
-	return rect;
-}
-
-Rect rect_zero() {
-	return rect_make(point_zero(), size_zero());
-}
 
 Rect* Rect_new(int top, int left, int bottom, int right) {
     //Attempt to allocate the object
@@ -202,12 +193,16 @@ Rect rect_intersect(Rect a, Rect b) {
 	
 	//shrink to rightmost left edge
 	if (rect_min_x(b) >= rect_min_x(result) && rect_min_x(b) <= rect_max_x(result)) {
-		result.origin.x = b.origin.x;
+        int diff = rect_min_x(b) - rect_min_x(result);
+        result.origin.x += diff;
+        result.size.width -= diff;
 	}
 
 	//shrink to bottommost top edge
 	if (rect_min_y(b) >= rect_min_y(result) && rect_min_y(b) <= rect_max_y(result)) {
-		result.origin.y = b.origin.y;
+        int diff = rect_min_y(b) - rect_min_y(result);
+        result.origin.y += diff;
+        result.size.height -= diff;
 	}
 
 	//shrink to leftmost right edge

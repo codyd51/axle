@@ -11,33 +11,36 @@
 #define PS2_MOUSE_CMD_ENABLE_DATA_REPORTING 0xF4
 #define PS2_MOUSE_RESP_ACKNOWLEDGE 0xFA
 
-static void mouse_callback(registers_t* regs) {
-	adi_interrupt_dispatch(regs->int_no);
+static void _ps2_set_sample_rate(uint8_t samples_per_second) {
+	ps2_write_device(1, 0xF3);
+    ps2_expect_ack();
+	ps2_write_device(1, samples_per_second);
+	ps2_expect_ack();
 }
 
 void ps2_mouse_enable(void) {
 	printf_info("[PS2] Enabling mouse...");
-	// Setup an interrupt handler to receive IRQ12's
-	interrupt_setup_callback(INT_VECTOR_IRQ12, &mouse_callback);
 	uint8_t mouse_id = ps2_read(PS2_DATA);
-	printf_info("[PS2] Mouse ID: 0x%02x", mouse_id);
+	printf_info("[PS2] Initial mouse ID: 0x%02x", mouse_id);
 
 	// Ask the PS/2 mouse to use default settings
 	ps2_write_device(1, PS2_MOUSE_CMD_SET_DEFAULT_SETTINGS);
     ps2_expect_ack();
 
+	printf_info("[PS2] Enabling scroll wheel...");
+	_ps2_set_sample_rate(200);
+	_ps2_set_sample_rate(100);
+	_ps2_set_sample_rate(80);
+	ps2_write_device(1, 0xF2);
+	ps2_expect_ack();
+	mouse_id = ps2_read(PS2_DATA);
+	printf_info("[PS2] New mouse ID: 0x%02x", mouse_id);
+	assert(mouse_id == 0x03, "Failed to enable scroll wheel");
+	_ps2_set_sample_rate(20);
+
 	// Ask the PS/2 mouse to start sending events
 	ps2_write_device(1, PS2_MOUSE_CMD_ENABLE_DATA_REPORTING);
     ps2_expect_ack();
-}
-
-void ps2_mouse_driver_launch(void) {
-	// TODO(PT): Refactored method to launch a driver
-    const char* program_name = "mouse_driver";
-    FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-	panic("noreturn");
 }
 
 void mouse_event_wait() {

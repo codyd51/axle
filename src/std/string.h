@@ -23,6 +23,7 @@ STDAPI char* strccat(char* dest, char src);
 
 /// Compares input strings
 STDAPI int strcmp(const char *lhs, const char *rhs);
+STDAPI int strncmp(const char* s1, const char* s2, size_t n);
 
 /// Removes last character from string
 STDAPI char* delchar(char* str);

@@ -208,6 +208,13 @@ static int vsnprintf(char *buffer, unsigned int buffer_len, const char *fmt, va_
                 case 'c' :
                     buf_putc((char)(va_arg(va, int)), &b);
                     break;
+                
+                // Nonstandard extension to print a string-with-length
+                case '*':
+                    len = va_arg(va, uint32_t);
+                    ptr = va_arg(va, char*);
+                    buf_puts(ptr, len, &b);
+                    break;
 
                 case 's' :
                     ptr = va_arg(va, char*);

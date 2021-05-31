@@ -9,9 +9,9 @@ RANLIB = $(TOOLCHAIN)/bin/i686-elf-ranlib
 LIBRARY_PATH=$(SYSROOT)/usr/i686-axle/lib:$(LIBRARY_PATH)
 CFLAGS = -I$(SYSROOT)/usr/i686-axle/include -g -L$(SYSROOT)/usr/i686-axle/lib -Wl,-Bstatic -lc -nostartfiles
 
-# The resulting static library will be moved into the sysroot by the 
+# The resulting static library will be copied into the sysroot by the 
 # build-libagx.py script.
-agx: font/font.c lib/point.c lib/color.c lib/putpixel.c lib/size.c lib/ca_layer.c lib/shapes.c lib/rect.c lib/text_box.c
+libagx.a: font/font.c lib/point.c lib/color.c lib/putpixel.c lib/size.c lib/ca_layer.c lib/shapes.c lib/rect.c lib/text_box.c lib/elem_stack.c lib/hash_map.c
 	$(CC) $(CFLAGS) -o font.o -c font/font.c; 
 	$(CC) $(CFLAGS) -o point.o -c lib/point.c; 
 	$(CC) $(CFLAGS) -o color.o -c lib/color.c; 
@@ -21,5 +21,7 @@ agx: font/font.c lib/point.c lib/color.c lib/putpixel.c lib/size.c lib/ca_layer.
 	$(CC) $(CFLAGS) -o shapes.o -c lib/shapes.c; 
 	$(CC) $(CFLAGS) -o rect.o -c lib/rect.c; 
 	$(CC) $(CFLAGS) -o text_box.o -c lib/text_box.c; 
-	$(AR) rcs libagx.a font.o point.o color.o putpixel.o size.o ca_layer.o shapes.o rect.o text_box.o
+	$(CC) $(CFLAGS) -o elem_stack.o -c lib/elem_stack.c; 
+	$(CC) $(CFLAGS) -o hash_map.o -c lib/hash_map.c; 
+	$(AR) rcs libagx.a font.o point.o color.o putpixel.o size.o ca_layer.o shapes.o rect.o text_box.o elem_stack.o hash_map.o
 	$(RANLIB) libagx.a

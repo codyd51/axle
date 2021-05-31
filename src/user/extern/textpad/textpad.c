@@ -5,91 +5,28 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include <libamc/libamc.h>
+#include <libgui/libgui.h>
 
-#include <agx/lib/size.h>
-#include <agx/lib/screen.h>
-#include <agx/lib/shapes.h>
-#include <agx/lib/ca_layer.h>
-#include <agx/lib/putpixel.h>
-#include <agx/lib/text_box.h>
-
-#include <awm/awm.h>
-
-#include "gfx.h"
-
-// Many graphics lib functions call gfx_screen() 
-Screen _screen = {0};
-Screen* gfx_screen() {
-	return &_screen;
-}
-
-static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
-	// Ask awm to make a window for us
-	amc_msg_u32_3__send("com.axle.awm", AWM_REQUEST_WINDOW_FRAMEBUFFER, width, height);
-	// And get back info about the window it made
-	amc_command_ptr_message_t receive_framebuf = {0};
-	amc_message_await("com.axle.awm", &receive_framebuf);
-	// TODO(PT): Need a struct type selector
-	if (amc_command_ptr_msg__get_command(&receive_framebuf) != AWM_CREATED_WINDOW_FRAMEBUFFER) {
-		printf("Invalid state. Expected framebuffer command\n");
-	}
-
-	printf("Received framebuffer from awm: %d 0x%08x\n", amc_command_ptr_msg__get_command(&receive_framebuf), amc_command_ptr_msg__get_ptr(&receive_framebuf));
-	uint32_t framebuffer_addr = receive_framebuf.body.cmd_ptr.ptr_val;
-	uint8_t* buf = (uint8_t*)framebuffer_addr;
-
-	// TODO(PT): Use an awm command to get screen info
-	_screen.resolution = size_make(1920, 1080);
-	_screen.physbase = (uint32_t*)0;
-	_screen.bits_per_pixel = 32;
-	_screen.bytes_per_pixel = 4;
-
-	ca_layer* dummy_layer = malloc(sizeof(ca_layer));
-	memset(dummy_layer, 0, sizeof(dummy_layer));
-	dummy_layer->size = _screen.resolution;
-	dummy_layer->raw = (uint8_t*)framebuffer_addr;
-	dummy_layer->alpha = 1.0;
-    _screen.vmem = dummy_layer;
-
-	return dummy_layer;
+static Rect _input_sizer(text_input_t* text_view, Size window_size) {
+	return rect_make(point_zero(), window_size);
 }
 
 int main(int argc, char** argv) {
 	amc_register_service("com.user.textpad");
 
-	printf("Textpad (PID [%d]) running!\n", getpid());
-	Size window_size = size_make(400, 200);
-	ca_layer* window_layer = window_layer_get(window_size.width, window_size.height);
+	// Instantiate the GUI window
+	gui_window_t* window = gui_window_create("Notepad", 400, 300);
+	Size window_size = window->size;
 
-	text_box_t* text_box = text_box_create(window_size, color_dark_gray());
-	text_box->font_size = size_make(24, 24);
-	text_box->font_padding = size_make(0, 2);
-	// Blit the text box the first time to get everything set up before our first redraw
-	Rect window_frame = rect_make(point_zero(), window_size);
-	blit_layer(window_layer, text_box->layer, window_frame, window_frame);
+	Rect notepad_frame = rect_make(point_zero(), window_size);
+	text_input_t* input = gui_text_input_create(
+		window,
+		notepad_frame,
+		color_white(),
+		(gui_window_resized_cb_t)_input_sizer
+	);
 
-	amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
-
-	int i = 0;
-	while (true) {
-		// TODO(PT): An "await for event matching" so we can wait for mouse entered / mouse exited
-		asm("sti");
-
-		amc_charlist_message_t msg = {0};
-		do {
-			amc_message_await("com.axle.awm", &msg);
-			// TODO(PT): Need a struct type selector
-			uint32_t event = amc_command_ptr_msg__get_command(&msg);
-			if (event == AWM_KEY_DOWN) {
-				text_box_putchar(text_box, amc_command_ptr_msg__get_ptr(&msg), color_green());
-			}
-		} while (amc_has_message_from("com.axle.awm"));
-		// Blit the text box to the window layer
-		blit_layer(window_layer, text_box->layer, window_frame, window_frame);
-		// All messages have been processed - ask awm to redraw the window
-		amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
-	}
+	gui_enter_event_loop(window);
 
 	return 0;
 }

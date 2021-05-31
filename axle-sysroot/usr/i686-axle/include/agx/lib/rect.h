@@ -10,13 +10,13 @@
 #define rect_max_x(r) ((r).origin.x + (r).size.width)
 #define rect_max_y(r) ((r).origin.y + (r).size.height)
 
+#define rect_mid_x(r) ((r).origin.x + ((r).size.width / 2.0))
+#define rect_mid_y(r) ((r).origin.y + ((r).size.height / 2.0))
+
 typedef struct rect {
 	Point origin;
 	Size size;
 } Rect;
-
-Rect rect_make(Point origin, Size size);
-Rect rect_zero();
 
 bool rect_intersects(Rect A, Rect B);
 

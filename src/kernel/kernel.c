@@ -24,15 +24,14 @@
 #include <kernel/drivers/text_mode/text_mode.h>
 
 //higher-level kernel features
+#include <std/kheap.h>
 #include <kernel/pmm/pmm.h>
 #include <kernel/vmm/vmm.h>
-#include <std/kheap.h>
 #include <kernel/syscall/syscall.h>
 
 //testing!
 #include <kernel/multitasking/tasks/task_small.h>
 #include <kernel/util/amc/amc.h>
-#include <kernel/util/vfs/fs.h>
 
 #define SPIN while (1) {sys_yield(RUNNABLE);}
 #define SPIN_NOMULTI do {} while (1);
@@ -45,12 +44,6 @@ void system_mem() {
     NotImplemented();
 }
 
-static void kernel_spinloop() {
-    printf("\nBoot complete, kernel spinlooping.\n");
-    asm("cli");
-    asm("hlt");
-}
-
 static void kernel_idle() {
     while (1) {
         //nothing to do!
@@ -59,69 +52,15 @@ static void kernel_idle() {
     }
 }
 
-static void awm_init() {
-    const char* program_name = "awm";
-
-    // VESA Framebuffer,
-    boot_info_t* info = boot_info_get();
-    vmm_identity_map_region(vmm_active_pdir(), info->framebuffer.address, info->framebuffer.size);
-
-    FILE* fp = initrd_fopen(program_name, "rb");
-    // Pass a pointer to the VESA linear framebuffer in argv
-    // Not great, but kind of funny :-)
-    // Later, framebuffer info can be communicated to awm via 
-    // an init amc message.
-    framebuffer_info_t framebuffer_info = boot_info_get()->framebuffer; 
-    char* ptr = kmalloc(32);
-    snprintf(ptr, 32, "0x%08x", &(boot_info_get()->framebuffer));
-    char* argv[] = {program_name, ptr, NULL};
-
-    elf_load_file(program_name, fp, argv);
-    panic("noreturn");
-}
-
-static void cat() {
-    const char* program_name = "cat";
-
-    FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, "test-file.txt", NULL};
-    elf_load_file(program_name, fp, argv);
-    panic("noreturn");
-}
-
-static void rainbow() {
-    const char* program_name = "rainbow";
-
-    FILE* fp = initrd_fopen(program_name, "rb");
+#include <kernel/util/vfs/vfs.h>
+static void _launch_program(const char* program_name, uint32_t arg2, uint32_t arg3) {
+    printf("_launch_program(%s, 0x%08x 0x%08x)\n", program_name, arg2, arg3);
     char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-    panic("noreturn");
-}
 
-static void paintbrush() {
-    const char* program_name = "paintbrush";
-    FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-    panic("noreturn");
-}
-
-static void textpad() {
-    const char* program_name = "textpad";
-    FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
-    panic("noreturn");
-}
-
-
-static void tty_init() {
-    const char* program_name = "tty";
-    FILE* fp = initrd_fopen(program_name, "rb");
-    char* argv[] = {program_name, NULL};
-    elf_load_file(program_name, fp, argv);
+    initrd_fs_node_t* node = vfs_find_initrd_node_by_name(program_name);
+    uint32_t address = node->initrd_offset;
+	elf_load_buffer(program_name, address, node->size, argv);
 	panic("noreturn");
-	uint8_t scancode = inb(0x60);
 }
 
 uint32_t initial_esp = 0;
@@ -138,10 +77,7 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     interrupt_init();
 
     // PIT and serial drivers
-    // Set this to 1ms to cause issues with keystrokes being lost
-    // TODO(PT): Currently, a task-switch is a side-effect of a PIT ISR
-    // In the future, work like scheduling should be done outside the ISR
-    pit_timer_init(PIT_TICK_GRANULARITY_50MS);
+    pit_timer_init(PIT_TICK_GRANULARITY_1MS);
 
     serial_init();
 
@@ -151,7 +87,7 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     vmm_init();
     vmm_notify_shared_kernel_memory_allocated();
     syscall_init();
-    initrd_init();
+    vfs_init();
 
     // We've now allocated all the kernel memory that'll be mapped into every process 
     // Inform the VMM so that it can begin allocating memory outside of shared page tables
@@ -168,16 +104,28 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     // Multitasking and program loading is now available
 
     // Launch some initial drivers and services
-    task_spawn(ps2_keyboard_driver_launch, PRIORITY_DRIVER, "");
-    task_spawn(ps2_mouse_driver_launch, PRIORITY_DRIVER, "");
-    task_spawn(awm_init, PRIORITY_GUI, "");
-    task_spawn(tty_init, PRIORITY_TTY, "");
-    task_spawn(rainbow, PRIORITY_NONE, "");
-    task_spawn(paintbrush, 2, "");
-    task_spawn(textpad, 3, "");
-
-    //task_spawn(cat);
-    //task_spawn(rainbow);
+    const char* launch_programs[] = {
+        // System services
+        "kb_driver",
+        "mouse_driver",
+        "awm",
+        // Higher-level facilities
+        //"tty",
+        //"pci_driver",
+        //"net",
+        //"netclient",
+        // User applications
+        "file_manager",
+        //"image_viewer",
+        // Games
+        //"breakout",
+        //"snake",
+        //"2048",
+    };
+    for (uint32_t i = 0; i < sizeof(launch_programs) / sizeof(launch_programs[0]); i++) {
+        const char* program_name = launch_programs[i];
+        task_spawn__with_args(_launch_program, program_name, 0, 0, "");
+    }
 
     // Bootstrapping complete - kill this process
     printf("[t = %d] Bootstrap task [PID %d] will exit\n", time(), getpid());

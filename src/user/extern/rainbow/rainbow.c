@@ -4,23 +4,15 @@
 #include <unistd.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include <kernel/amc.h>
+#include <libgui/libgui.h>
 #include <agx/lib/size.h>
 #include <agx/lib/screen.h>
 #include <agx/lib/shapes.h>
 #include <agx/lib/ca_layer.h>
 #include <agx/lib/putpixel.h>
-
-#include <awm/awm.h>
-
-#include "gfx.h"
-
-// Many graphics lib functions call gfx_screen() 
-Screen _screen = {0};
-Screen* gfx_screen() {
-	return &_screen;
-}
 
 Color transcolor(Color c1, Color c2, float d) {
 	if (d < 0) d = 0;
@@ -39,64 +31,61 @@ float pifdist(int x1, int y1, int x2, int y2) {
 	return sqrt(x * x + y * y);
 }
 
-void _radial_gradiant(ca_layer* layer, Size gradient_size, Color c1, Color c2, int x1, int y1, float r) {
+void _radial_gradiant(gui_layer_t* layer, Size gradient_size, Color c1, Color c2, int x1, int y1, float r) {
 	for (uint32_t y = 0; y < gradient_size.height; y++) {
 		//printf("draw row %d\n", y);
 		for (uint32_t x = 0; x < gradient_size.width; x++) {
-			putpixel(layer, x, y, transcolor(c1, c2, pifdist(x1, y1, x, y) / r));
+			putpixel(layer->fixed_layer.inner, x, y, transcolor(c1, c2, pifdist(x1, y1, x, y) / r));
 		}
 	}
 }
 
-static ca_layer* window_layer_get(uint32_t width, uint32_t height) {
-	// Ask awm to make a window for us
-	amc_msg_u32_3__send("com.axle.awm", AWM_REQUEST_WINDOW_FRAMEBUFFER, width, height);
-	// And get back info about the window it made
-	amc_command_ptr_message_t receive_framebuf = {0};
-	amc_message_await("com.axle.awm", &receive_framebuf);
-	// TODO(PT): Need a struct type selector
-	if (amc_command_ptr_msg__get_command(&receive_framebuf) != AWM_CREATED_WINDOW_FRAMEBUFFER) {
-		printf("Invalid state. Expected framebuffer command\n");
+static Rect _content_view_sizer(gui_view_t* view, Size window_size) {
+	return rect_make(point_zero(), window_size);
+};
+
+static void _redraw_gradient(gui_view_t* view) {
+	static Color c1, c2;
+	if (!c1.val[0] && !c1.val[1] && !c1.val[2]) {
+		c1 = c2 = color_make(127, 127, 127);
 	}
+	int interval = 20;
 
-	printf("Received framebuffer from awm: %d 0x%08x\n", amc_command_ptr_msg__get_command(&receive_framebuf), amc_command_ptr_msg__get_ptr(&receive_framebuf));
-	uint32_t framebuffer_addr = receive_framebuf.body.cmd_ptr.ptr_val;
-	uint8_t* buf = (uint8_t*)framebuffer_addr;
+	c1.val[0] += (-(interval/2)) + rand() % interval;
+	c1.val[1] += (-(interval/2)) + rand() % interval;
+	c1.val[2] += (-(interval/2)) + rand() % interval;
 
-	// TODO(PT): Use an awm command to get screen info
-	_screen.resolution = size_make(1920, 1080);
-	_screen.physbase = (uint32_t*)0;
-	_screen.bits_per_pixel = 32;
-	_screen.bytes_per_pixel = 4;
+	c2.val[0] += (-(interval/2)) + rand() % interval;
+	c2.val[1] += (-(interval/2)) + rand() % interval;
+	c2.val[2] += (-(interval/2)) + rand() % interval;
 
-	ca_layer* dummy_layer = malloc(sizeof(ca_layer));
-	memset(dummy_layer, 0, sizeof(dummy_layer));
-	dummy_layer->size = _screen.resolution;
-	dummy_layer->raw = (uint8_t*)framebuffer_addr;
-	dummy_layer->alpha = 1.0;
-    _screen.vmem = dummy_layer;
+	Rect r = rect_make(point_zero(), view->content_layer_frame.size);
+	_radial_gradiant(
+		view->content_layer,
+		r.size,
+		c1,
+		c2, 
+		r.size.width / 2.0,
+		r.size.height / 2.0,
+		r.size.height / 3.0
+	);
 
-	return dummy_layer;
+	gui_timer_start(view->window, 50, (gui_timer_cb_t)_redraw_gradient, view);
 }
 
 int main(int argc, char** argv) {
 	amc_register_service("com.user.rainbow");
 
-	printf("Rainbow (PID [%d]) running!\n", getpid());
-	Size window_size = size_make(300, 300);
-	ca_layer* window_layer = window_layer_get(window_size.width, window_size.height);
-	draw_rect(window_layer, rect_make(point_zero(), window_size), color_red(), THICKNESS_FILLED);
-	amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
+	gui_window_t* window = gui_window_create("Rainbow", 300, 300);
+	gui_view_t* content_view = gui_view_create(
+		window,
+		(gui_window_resized_cb_t)_content_view_sizer
+	);
+	content_view->controls_content_layer = true;
 
-	while (true) {
-		// TODO(PT): For some reason interrupts are disabled here - fix it
-		asm("sti");
-		Color c1 = color_make(rand() % 255, rand() % 255, rand() % 255);
-		Color c2 = color_make(rand() % 255, rand() % 255, rand() % 255);
-		//_radial_gradiant(window_layer, window_size, c1, c2, window_size.width/2, window_size.height / 2, (float)window_size.height/4);
-		_radial_gradiant(window_layer, window_size, c1, c2, window_size.width/2, window_size.height/2, (float)window_size.height/4);
-		amc_command_msg__send("com.axle.awm", AWM_WINDOW_REDRAW_READY);
-	}
+	_redraw_gradient(content_view);
+
+	gui_enter_event_loop(window);
 
 	return 0;
 }

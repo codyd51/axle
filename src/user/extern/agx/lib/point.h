@@ -6,7 +6,4 @@ typedef struct coordinate {
 	int y;
 } Point;
 
-Point point_make(int x, int y);
-Point point_zero();
-
 #endif

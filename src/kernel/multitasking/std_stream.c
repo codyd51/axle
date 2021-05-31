@@ -59,6 +59,7 @@ char std_stream_popchar(std_stream_t* stream) {
 std_stream_t* std_stream_create() {
 	std_stream_t* st = kmalloc(sizeof(std_stream_t));
 	memset(st, 0, sizeof(std_stream_t));
+	st->buf = calloc(1, sizeof(circular_buffer));
 	cb_init(st->buf, 256, sizeof(char));
 	return st;
 }

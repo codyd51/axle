@@ -4,6 +4,8 @@
 #include <std/math.h>
 #include <std/common.h>
 #include <std/printf.h>
+#include <kernel/boot_info.h>
+#include <kernel/util/amc/amc.h>
 
 //channel 0 used for generating IRQ0
 #define PIT_PORT_CHANNEL0 0x40
@@ -18,7 +20,9 @@ static volatile uint32_t tick = 0;
 
 static int tick_callback(registers_t* regs) {
 	tick++;
-	_timer_handle_pit_tick(regs);
+	pic_signal_end_of_interrupt(regs->int_no);
+	task_switch_if_quantum_expired();
+	amc_wake_sleeping_services();
 	return 0;
 }
 
@@ -27,7 +31,6 @@ uint32_t pit_clock() {
 }
 
 uint32_t tick_count() {
-    //Deprecated();
     return pit_clock();
 }
 
@@ -52,4 +55,10 @@ void pit_timer_init(uint32_t frequency) {
 	//send frequency divisor
 	outb(PIT_PORT_CHANNEL0, l);
 	outb(PIT_PORT_CHANNEL0, h);
+	
+	boot_info_get()->ms_per_pit_tick = 1000 / frequency;
+}
+
+uint32_t ms_since_boot(void) {
+	return tick * boot_info_get()->ms_per_pit_tick;
 }

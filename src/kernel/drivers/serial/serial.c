@@ -67,7 +67,7 @@ void serial_puts(char* str) {
 		while (*ptr) {
 			serial_putchar(*(ptr++));
 		}
-        serial_flush();
+        //serial_flush();
 	//}
 }
 

@@ -63,6 +63,7 @@ void blit_layer_alpha_fast(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect 
 }
 
 void blit_layer_alpha(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) {
+	int bpp = gfx_bytes_per_pixel();
 	//for every pixel in dest, calculate what the pixel should be based on 
 	//dest's pixel, src's pixel, and the alpha
 	
@@ -72,10 +73,10 @@ void blit_layer_alpha(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_f
 	}
 
 	//offset into dest that we start writing
-	uint8_t* dest_row_start = dest->raw + (rect_min_y(dest_frame) * dest->size.width * gfx_bytes_per_pixel()) + (rect_min_x(dest_frame) * gfx_bytes_per_pixel());
+	uint8_t* dest_row_start = dest->raw + (rect_min_y(dest_frame) * dest->size.width * bpp) + (rect_min_x(dest_frame) * bpp);
 
 	//data from source to write to dest
-	uint8_t* row_start = src->raw + (rect_min_y(src_frame) * src->size.width * gfx_bytes_per_pixel()) + rect_min_x(src_frame) * gfx_bytes_per_pixel();
+	uint8_t* row_start = src->raw + (rect_min_y(src_frame) * src->size.width * bpp) + rect_min_x(src_frame) * bpp;
 	
 	int alpha = (1 - src->alpha) * 255;
 	for (int i = 0; i < src_frame.size.height; i++) {
@@ -92,24 +93,25 @@ void blit_layer_alpha(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_f
 			g += ((*wide_dest & 0x00FF00) - g) * alpha >> 8;
 			*wide_dest = (rb & 0xFF00FF) | (g & 0x00FF00) | (*wide_dest & 0xFF000000);
 
-			dest_px += 3;
-			row_px += 3;
+			dest_px += bpp;
+			row_px += bpp;
 		}
 
 		//next iteration, start at the next row
-		dest_row_start += (dest->size.width * gfx_bytes_per_pixel());
-		row_start += (src->size.width * gfx_bytes_per_pixel());
+		dest_row_start += (dest->size.width * bpp);
+		row_start += (src->size.width * bpp);
 	}
 }
 
 void blit_layer_filled(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) {
+	int bpp = gfx_bytes_per_pixel();
 	//copy row by row
 	
 	//offset into dest that we start writing
-	uint8_t* dest_row_start = dest->raw + (rect_min_y(dest_frame) * dest->size.width * gfx_bytes_per_pixel()) + (rect_min_x(dest_frame) * gfx_bytes_per_pixel());
+	uint8_t* dest_row_start = dest->raw + (rect_min_y(dest_frame) * dest->size.width * bpp) + (rect_min_x(dest_frame) * bpp);
 
 	//data from source to write to dest
-	uint8_t* row_start = src->raw + (rect_min_y(src_frame) * src->size.width * gfx_bytes_per_pixel()) + rect_min_x(src_frame) * gfx_bytes_per_pixel();
+	uint8_t* row_start = src->raw + (rect_min_y(src_frame) * src->size.width * bpp) + rect_min_x(src_frame) * bpp;
 
 	int transferabble_rows = src_frame.size.height;
 	int overhang = rect_max_y(src_frame) - src->size.height;
@@ -117,24 +119,25 @@ void blit_layer_filled(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_
 		transferabble_rows -= overhang;
 	}
 	//copy height - y origin rows
+	int total_px_in_layer = (uint32_t)(dest->size.width * dest->size.height * bpp);
+	int dest_max_y = rect_max_y(dest_frame);
 	for (int i = 0; i < transferabble_rows; i++) {
-		if (i >= rect_max_y(dest_frame)) break;
+		if (i >= dest_max_y) break;
 
 		//figure out how many px we can actually transfer over,
 		//in case src_frame exceeds dest
 		int offset = (uint32_t)dest_row_start - (uint32_t)dest->raw;
-		int total_px_in_layer = (uint32_t)(dest->size.width * dest->size.height * gfx_bytes_per_pixel());
 		if (offset >= total_px_in_layer) {
 			break;
 		}
 
 		// blit_layer should handle bounding the provided frames so we never write to memory outside the layers,
 		// regardless of the frames passed.
-		int transferabble_px = src_frame.size.width * gfx_bytes_per_pixel();
+		int transferabble_px = MIN(src_frame.size.width, dest_frame.size.width) * bpp;
 		memcpy(dest_row_start, row_start, transferabble_px);
 
-		dest_row_start += (dest->size.width * gfx_bytes_per_pixel());
-		row_start += (src->size.width * gfx_bytes_per_pixel());
+		dest_row_start += (dest->size.width * bpp);
+		row_start += (src->size.width * bpp);
 	}
 }
 

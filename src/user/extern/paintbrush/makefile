@@ -8,8 +8,9 @@ LIBRARY_PATH=$(SYSROOT)/usr/i686-axle/lib:$(LIBRARY_PATH)
 CFLAGS = -I$(SYSROOT)/usr/i686-axle/include -g -L$(SYSROOT)/usr/i686-axle/lib -Wl,-Bstatic -lc -nostartfiles
 LDFLAGS = -T ./linker.ld -L$(SYSROOT)/usr/i686-axle/lib -lc
 
-paintbrush: paintbrush.c
+.ONESHELL:
+paintbrush: paintbrush.c $(SYSROOT)/usr/i686-axle/lib/libagx.a $(SYSROOT)/usr/i686-axle/lib/libgui.a
 	$(CC) $(CFLAGS) -o paintbrush.o -c paintbrush.c; \
 	# Place LDFlags after object files: https://stackoverflow.com/questions/34848192/assembler-gcc-undefined-reference-to-puts
-	$(LD) -o paintbrush paintbrush.o -lagx -lamc $(LDFLAGS)
-	mv paintbrush $(DIR)/initrd;
+	$(LD) -o paintbrush paintbrush.o -lgui -lagx -lamc -lport $(LDFLAGS)
+	cp paintbrush $(DIR)/initrd;

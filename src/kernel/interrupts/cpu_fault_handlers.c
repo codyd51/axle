@@ -6,8 +6,7 @@
 #include <kernel/assert.h>
 
 static void common_halt(register_state_t* regs, bool recoverable) {
-    printf("Halt.\n");
-    panic("Common halt not implemented");
+	assert(0, "common_halt");
 }
 
 void interrupt_handle_divide_by_zero(register_state_t* regs) {

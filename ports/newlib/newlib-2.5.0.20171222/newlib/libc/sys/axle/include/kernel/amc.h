@@ -4,74 +4,101 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define AMC_MESSAGE_STRUCT_SIZE     64
-#define AMC_MESSAGE_PAYLOAD_SIZE    (AMC_MESSAGE_STRUCT_SIZE - sizeof(amc_msg_header_t))
-// This #define is modified from minix/minix/include/minix/ipcconst.h
-#define ASSERT_AMC_MSG_BODY_SIZE(msg_type) \
-    typedef int _ASSERT_##msg_type[sizeof(msg_type) == AMC_MESSAGE_PAYLOAD_SIZE ? 1 : -1]
-
-typedef struct amc_msg_header {
-    const char* source;
-    const char* dest; // May be null if the message is globally broadcast
-} amc_msg_header_t;
-
-typedef struct amc_msg_body_charlist {
-    // 1 byte is safe because the buffer will contain < 256 bytes
-    uint8_t len;
-    // Subtract the size of the `len` field from the usable size
-    char data[AMC_MESSAGE_PAYLOAD_SIZE-sizeof(uint8_t)];
-} amc_msg_body_charlist_t;
-ASSERT_AMC_MSG_BODY_SIZE(amc_msg_body_charlist_t);
-
-typedef struct amc_msg_body_command {
-    uint32_t command;
-    char data[AMC_MESSAGE_PAYLOAD_SIZE-sizeof(uint32_t)];
-} amc_msg_body_command_t;
-ASSERT_AMC_MSG_BODY_SIZE(amc_msg_body_command_t);
-
-typedef struct amc_msg_body_command_ptr {
-    uint32_t command;
-    uint32_t ptr_val;
-    char data[AMC_MESSAGE_PAYLOAD_SIZE-(sizeof(uint32_t) * 2)];
-} amc_msg_body_command_ptr_t;
-ASSERT_AMC_MSG_BODY_SIZE(amc_msg_body_command_ptr_t);
-
-typedef union amc_msg_body {
-    amc_msg_body_charlist_t charlist;
-    amc_msg_body_command_t cmd;
-    amc_msg_body_command_ptr_t cmd_ptr;
-} amc_msg_body_t;
-ASSERT_AMC_MSG_BODY_SIZE(amc_msg_body_t);
-
-typedef struct amc_message {
-    amc_msg_header_t hdr;
-    amc_msg_body_t body;
+#define AMC_MAX_MESSAGE_SIZE 1024 * 1024 * 16
+#define AMC_MAX_SERVICE_NAME_LEN 64
+typedef struct amc_message_t {
+    const char source[AMC_MAX_SERVICE_NAME_LEN];
+    const char dest[AMC_MAX_SERVICE_NAME_LEN]; // May be null if the message is globally broadcast
+    uint32_t len;
+    uint8_t body[];
 } amc_message_t;
 
-typedef amc_message_t amc_charlist_message_t;
-typedef amc_message_t amc_command_message_t;
-typedef amc_message_t amc_command_ptr_message_t;
+typedef struct amc_service_description {
+	char service_name[AMC_MAX_SERVICE_NAME_LEN];
+	uint32_t unread_message_count;
+} amc_service_description_t;
+
+typedef struct amc_service_list {
+    uint32_t event;
+	uint32_t service_count;
+	amc_service_description_t service_descs[];
+} amc_service_list_t;
+
+typedef struct amc_framebuffer_info {
+    uint32_t event;
+    // Must match layout of <kernel/boot_info.h>::framebuffer_info_t
+    uint32_t type;
+    uint32_t address;
+    uint32_t width;
+    uint32_t height;
+    uint32_t bits_per_pixel;
+    uint32_t bytes_per_pixel;
+    uint32_t size;
+} amc_framebuffer_info_t;
+
+typedef struct amc_initrd_info {
+    uint32_t event;
+    uint32_t initrd_start;
+    uint32_t initrd_end;
+    uint32_t initrd_size;
+} amc_initrd_info_t;
+
+typedef struct amc_exec_buffer_cmd {
+    uint32_t event;
+    const char* program_name;
+    void* buffer_addr;
+    uint32_t buffer_size;
+} amc_exec_buffer_cmd_t;
+
+typedef struct amc_shared_memory_destroy_cmd {
+    uint32_t event;
+	char remote_service[AMC_MAX_SERVICE_NAME_LEN];
+	uint32_t shmem_size;
+	uint32_t shmem_local;
+	uint32_t shmem_remote;
+} amc_shared_memory_destroy_cmd_t;
+
+typedef struct amc_system_profile_response {
+    uint32_t event;
+    uint32_t pmm_allocated;
+    uint32_t kheap_allocated;
+} amc_system_profile_response_t;
+
+#define AXLE_CORE_SERVICE_NAME "com.axle.core"
+#define AMC_COPY_SERVICES (1 << 0)
+#define AMC_COPY_SERVICES_RESPONSE (1 << 0)
+
+#define AMC_AWM_MAP_FRAMEBUFFER (1 << 1)
+#define AMC_AWM_MAP_FRAMEBUFFER_RESPONSE (1 << 1)
+
+#define AMC_SLEEP_UNTIL_TIMESTAMP (1 << 2)
+
+#define AMC_FILE_MANAGER_MAP_INITRD (1 << 3)
+#define AMC_FILE_MANAGER_MAP_INITRD_RESPONSE (1 << 3)
+
+#define AMC_FILE_MANAGER_EXEC_BUFFER (1 << 4)
+#define AMC_FILE_MANAGER_EXEC_BUFFER_RESPONSE (1 << 4)
+
+#define AMC_SHARED_MEMORY_DESTROY (1 << 5)
+
+#define AMC_SYSTEM_PROFILE_REQUEST (1 << 7)
+#define AMC_SYSTEM_PROFILE_RESPONSE (1 << 7)
+
+#define AMC_SLEEP_UNTIL_TIMESTAMP_OR_MESSAGE (1 << 8)
 
 // Register the running process as the provided service name
 void amc_register_service(const char* name);
-
-// Construct an amc message
-amc_message_t* amc_message_construct(const char* data, int len);
-
-// Asynchronously send the message to the provided destination service
-// Returns whether the message was successfully routed to the service
-bool amc_message_send(const char* destination_service, amc_message_t* msg);
 
 // Asynchronously send the message to any service awaiting a message from this service
 void amc_message_broadcast(amc_message_t* msg);
 
 // Block until a message has been received from the source service
-void amc_message_await(const char* source_service, amc_message_t* out);
+void amc_message_await(const char* source_service, amc_message_t** out);
 // Block until a message has been received from any of the provided source services
-void amc_message_await_from_services(int source_service_count, const char** source_services, amc_message_t* out);
+void amc_message_await_from_services(int source_service_count, const char** source_services, amc_message_t** out);
 // Await a message from any service
 // Blocks until a message is received
-void amc_message_await_any(amc_message_t* out);
+void amc_message_await_any(amc_message_t** out);
 
 // Returns whether the service has a message in its inbox from the provided service
 // The return value indicates whether a call to `amc_message_await` is currently non-blocking
@@ -80,17 +107,37 @@ bool amc_has_message_from(const char* source_service);
 // The return value indicates whether a call to `amc_message_await` is currently non-blocking
 bool amc_has_message(void);
 
+// Launch an amc service with a known name.
+// Returns whether the service was successfully found and launched.
+bool amc_launch_service(const char* service_name);
+
 // Create a shared memory region between the current service and a destination service
 // Writes the virtual addresses of the local and remote regions to the "out" parameters
 // Both virtual memory regions point to the same physical memory
 void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, uint32_t* local_buffer, uint32_t* remote_buffer);
+void amc_physical_memory_region_create(uint32_t region_size, uint32_t* virtual_region_start_out, uint32_t* physical_region_start_out);
+
+// Asynchronously construct and send the message to the provided destination service
+// Returns whether the message was successfully routed to the service
+bool amc_message_construct_and_send(const char* destination_service, void* buf, uint32_t buf_size);
+
+bool amc_service_is_active(const char* service);
 
 // #############
 // Kernel use only
 // #############
 
-// Allows syscalls to send messaages reported as originating from "com.axle.core" 
+// Allows syscalls to send messages reported as originating from "com.axle.core" 
 // instead of the process that initiated the syscall
-amc_message_t* amc_message_construct__from_core(const char* data, int len);
+bool amc_message_construct_and_send__from_core(const char* destination_service, void* buf, uint32_t buf_size);
+
+bool amc_service_has_message(void* service);
+
+void amc_wake_sleeping_services(void);
+
+typedef struct task_small task_small_t;
+typedef struct vmm_page_directory vmm_page_directory_t;
+void amc_teardown_service_for_task(task_small_t* task);
+
 
 #endif

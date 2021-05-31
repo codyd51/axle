@@ -63,15 +63,14 @@ void irq_receive(register_state_t* regs) {
 	}
 	else {
 		printf("Unhandled IRQ: %d\n", int_no);
-	}
-
-	// If there is an adi driver for this IRQ, the EOI will be sent by adi
-	if (!adi_services_interrupt(int_no)) {
 		pic_signal_end_of_interrupt(int_no);
 	}
 
-	// If a driver thread was just unblocked to service the interrupt, allow it to run
-	if (tasking_is_active()) task_switch();
+	// If there is an adi driver for this IRQ, the EOI will be sent by adi
+	// Also, the PIT EOI will be sent by the PIT driver
+	if (!adi_services_interrupt(int_no) && int_no != INT_VECOR_IRQ0) {
+		pic_signal_end_of_interrupt(int_no);
+	}
 
 	return ret;
 }

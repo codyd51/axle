@@ -12,5 +12,5 @@ LDFLAGS = -T ./linker.ld -L$(SYSROOT)/usr/i686-axle/lib -lc
 mouse_driver: mouse_driver.c
 	$(CC) $(CFLAGS) -o mouse_driver.o -c mouse_driver.c; \
 	# Place LDFlags after object files: https://stackoverflow.com/questions/34848192/assembler-gcc-undefined-reference-to-puts
-	$(LD) -o mouse_driver mouse_driver.o $(LDFLAGS)
-	mv mouse_driver $(DIR)/initrd;
+	$(LD) -o mouse_driver mouse_driver.o -lport -lamc $(LDFLAGS)
+	cp mouse_driver $(DIR)/initrd;

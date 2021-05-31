@@ -41,13 +41,15 @@ scancode_to_colemak = {
     0x49: '.',
     0x4a: '/',
     0x5a: '\n',
+    0x0d: '\t',
+    0x66: '\b',
 }
 
 
 def main():
     print(max(scancode_to_colemak.keys()))
     output_list = []
-    for i in range(100):
+    for i in range(256):
         if i in scancode_to_colemak:
             output_list.append(ord(scancode_to_colemak[i]))
         else:
@@ -56,6 +58,11 @@ def main():
     print("{", end='')
     print(", ".join([f'{hex(x)}' for x in output_list]), end='')
     print("}")
+    print()
+    print("#define ARROW_UP     0x75")
+    print("#define ARROW_DOWN   0x72")
+    print("#define ARROW_LEFT   0x6B")
+    print("#define ARROW_RIGHT  0x74")
 
 
 if __name__ == '__main__':

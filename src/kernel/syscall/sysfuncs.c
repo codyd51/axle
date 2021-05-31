@@ -12,9 +12,12 @@
 #include <kernel/util/shmem/shmem.h>
 #include <gfx/lib/surface.h>
 #include <kernel/util/amc/amc.h>
+#include <kernel/drivers/pit/pit.h>
 
-void yield(task_state reason) {
-	if (!tasking_is_active()) return;
+void yield(task_state_t reason) {
+	if (!tasking_is_active()) {
+		return;
+	}
 
 	//if a task is yielding not because it's waiting for i/o, but because it willingly gave up cpu,
 	//then it should not be blocked
@@ -36,11 +39,13 @@ int lseek(int UNUSED(fd), int UNUSED(offset), int UNUSED(whence)) {
 
 int exit(int code) {
 	task_die(code);
+	return -1;
 	//printf("[%s [%d]] EXIT status code %d\n", current->name, current->id, code);
 }
 
 int sysfork() {
 	Deprecated();
+	return -1;
 	//return fork(current_task->name);
 }
 
@@ -62,7 +67,7 @@ DEFN_SYSCALL(execve, 1, char*, char**, char**);
 DEFN_SYSCALL(open, 2, const char*, int);
 DEFN_SYSCALL(read, 3, int, char*, size_t);
 DEFN_SYSCALL(output, 4, int, char*);
-DEFN_SYSCALL(yield, 5, task_state);
+DEFN_SYSCALL(yield, 5, task_state_t);
 DEFN_SYSCALL(sbrk, 6, int);
 DEFN_SYSCALL(brk, 7, void*);
 DEFN_SYSCALL(mmap, 8, void*, int, int, int, int);
@@ -87,19 +92,24 @@ DEFN_SYSCALL(aipc_send, 24, char*, uint32_t, uint32_t, char**);
 
 // AMC syscalls
 DEFN_SYSCALL(amc_register_service, 25, const char*);
-DEFN_SYSCALL(amc_message_construct, 26, const char*, int);
-DEFN_SYSCALL(amc_message_send, 27, const char*, amc_message_t*);
-DEFN_SYSCALL(amc_message_broadcast, 28, amc_message_t*);
-DEFN_SYSCALL(amc_message_await, 29, const char*, amc_message_t**);
-DEFN_SYSCALL(amc_message_await_from_services, 30, int, const char**, amc_message_t**);
-DEFN_SYSCALL(amc_message_await_any, 31, amc_message_t**);
-DEFN_SYSCALL(amc_shared_memory_create, 32, const char*, uint32_t, uint32_t*, uint32_t*);
-DEFN_SYSCALL(amc_has_message_from, 33, const char*);
-DEFN_SYSCALL(amc_has_message, 34);
+DEFN_SYSCALL(amc_message_broadcast, 26, amc_message_t*);
+DEFN_SYSCALL(amc_message_await, 27, const char*, amc_message_t**);
+DEFN_SYSCALL(amc_message_await_from_services, 28, int, const char**, amc_message_t**);
+DEFN_SYSCALL(amc_message_await_any, 29, amc_message_t**);
+DEFN_SYSCALL(amc_shared_memory_create, 30, const char*, uint32_t, uint32_t*, uint32_t*);
+DEFN_SYSCALL(amc_has_message_from, 31, const char*);
+DEFN_SYSCALL(amc_has_message, 32);
+DEFN_SYSCALL(amc_launch_service, 33, const char*);
+DEFN_SYSCALL(amc_physical_memory_region_create, 34, uint32_t, uint32_t*, uint32_t*);
+DEFN_SYSCALL(amc_message_construct_and_send, 35, const char*, uint8_t*, uint32_t);
+DEFN_SYSCALL(amc_service_is_active, 36, const char*);
 
 // ADI syscalls
-DEFN_SYSCALL(adi_register_driver, 35, const char*, uint32_t);
-DEFN_SYSCALL(adi_interrupt_await, 36, uint32_t);
+DEFN_SYSCALL(adi_register_driver, 37, const char*, uint32_t);
+DEFN_SYSCALL(adi_event_await, 38, uint32_t);
+DEFN_SYSCALL(adi_send_eoi, 39, uint32_t);
+
+DEFN_SYSCALL(ms_since_boot, 40);
 
 void create_sysfuncs() {
 	syscall_add((void*)&_kill);
@@ -129,8 +139,6 @@ void create_sysfuncs() {
 	syscall_add((void*)&aipc_send);
 
 	syscall_add((void*)&amc_register_service);
-	syscall_add((void*)&amc_message_construct);
-	syscall_add((void*)&amc_message_send);
 	syscall_add((void*)&amc_message_broadcast);
 	syscall_add((void*)&amc_message_await);
 	syscall_add((void*)&amc_message_await_from_services);
@@ -138,11 +146,14 @@ void create_sysfuncs() {
 	syscall_add((void*)&amc_shared_memory_create);
 	syscall_add((void*)&amc_has_message_from);
 	syscall_add((void*)&amc_has_message);
+	syscall_add((void*)&amc_launch_service);
+	syscall_add((void*)&amc_physical_memory_region_create);
+	syscall_add((void*)&amc_message_construct_and_send);
+	syscall_add((void*)&amc_service_is_active);
 
 	syscall_add((void*)&adi_register_driver);
-	syscall_add((void*)&adi_interrupt_await);
+	syscall_add((void*)&adi_event_await);
+	syscall_add((void*)&adi_send_eoi);
 
-	syscall_add((void*)&debug_awm);
-	syscall_add((void*)&vmm_kern_global_alloc);
-	syscall_add((void*)&vmm_kern_global_free);
+	syscall_add((void*)&ms_since_boot);
 }

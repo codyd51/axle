@@ -21,7 +21,7 @@ LDFLAGS = -ffreestanding -nostdlib -lgcc -T $(RESOURCES)/linker.ld
 
 # Tools
 ISO_MAKER = $(TOOLCHAIN)/bin/grub-mkrescue
-EMULATOR = qemu-system-i386
+EMULATOR = qemu-system-x86_64
 FSGENERATOR = fsgen
 
 GDB = $(TOOLCHAIN)/bin/i686-elf-gdb
@@ -48,17 +48,14 @@ ifdef BMP
 CFLAGS += -DBMP
 endif
 
-EMFLAGS = -vga virtio -D qemu.log -serial file:syslog.log -monitor stdio -d cpu_reset -no-reboot -m 512m
+EMFLAGS = -D qemu.log -serial file:syslog.log -monitor stdio -d cpu_reset -no-reboot -m 2048m
 ifdef debug
 EMFLAGS += -s -S
 endif
-ifdef net
-EMFLAGS += -net nic,model=ne2k_pci
-endif
-
+EMFLAGS += -netdev vmnet-macos,id=vmnet,mode=bridged -device rtl8139,netdev=vmnet -object filter-dump,netdev=vmnet,id=dump,file=dump.dat -vga vmware -accel hvf -cpu host
 
 # Rules
-all: $(ISO_DIR)/boot/axle.bin
+all: $(ISO_DIR)/boot/axle.bin fsgen
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.s
 	@mkdir -p `dirname $@`

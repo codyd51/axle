@@ -57,6 +57,8 @@ typedef struct boot_info {
     framebuffer_info_t framebuffer;
 
     vmm_page_directory_t* vmm_kernel;
+
+    uint32_t ms_per_pit_tick;
 } boot_info_t;
 
 boot_info_t* boot_info_get(void);

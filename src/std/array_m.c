@@ -19,31 +19,35 @@ array_m* array_m_place(void* addr, int32_t max_size) {
 }
 
 void array_m_destroy(array_m* array) {
+	kfree(array->array);
 	kfree(array);
 }
 
 static void _array_m_insert_unlocked(array_m* array, type_t item) {
 	// Make sure we can't go over the allocated size
+	if (array->size >= array->max_size) {
+		printf("Array overflow: %s %d\n", array->lock.name, array->max_size);
+	}
 	ASSERT(array->size + 1 <= array->max_size, "array would exceed max_size (%d)", array->max_size);
 
 	// Add item to array
 	array->array[array->size++] = item;
 }
 
-static type_t _array_m_lookup_unlocked(array_m* array, int32_t i) {
+type_t _array_m_lookup_unlocked(array_m* array, int32_t i) {
 	ASSERT(i < array->size && i >= 0, "index (%d) was out of bounds (%d)", i, array->size - 1);
 
 	return array->array[i];
 }
 
-static int32_t _array_m_index_unlocked(array_m* array, type_t item) {
+int32_t _array_m_index_unlocked(array_m* array, type_t item) {
 	for (int32_t i = 0; i < array->size; i++) {
 		if (_array_m_lookup_unlocked(array, i) == item) return i;
 	}
 	return -1;
 }
 
-static void _array_m_remove_unlocked(array_m* array, int32_t i) {
+void _array_m_remove_unlocked(array_m* array, int32_t i) {
 	if (i >= array->size) {
 		printf("Removed index is out-of-bounds: %d larger than size %d\n", i, array->size);
 		panic("Array index is out-of-bounds");

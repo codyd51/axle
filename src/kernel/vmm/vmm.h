@@ -88,7 +88,7 @@ uint32_t vmm_get_phys_for_virt(uint32_t virtualaddr);
 vmm_page_directory_t* vmm_clone_pdir(vmm_page_directory_t* source_vmm_dir);
 
 uint32_t vmm_alloc_page(vmm_page_directory_t* vmm_dir, bool readwrite);
-uint32_t vmm_alloc_continuous_range(vmm_page_directory_t* vmm_dir, uint32_t size, bool readwrite, uint32_t min_address);
+uint32_t vmm_alloc_continuous_range(vmm_page_directory_t* vmm_dir, uint32_t size, bool readwrite, uint32_t min_address, bool usermode);
 void vmm_validate_shared_tables_in_sync(vmm_page_directory_t* vmm_with_potential_modifications, vmm_page_directory_t* vmm_without_new_modifications);
 
 // Map a physical region in a non-active VAS
@@ -96,12 +96,23 @@ void vmm_validate_shared_tables_in_sync(vmm_page_directory_t* vmm_with_potential
 // with VMM_MODIFY before making this call.
 uint32_t vmm_remote_map_phys_range(uint32_t phys_vmm_addr, uint32_t phys_start, uint32_t size, uint32_t min_address);
 
+uint32_t vmm_map_phys_range__min_placement_addr(vmm_page_directory_t* vmm_dir, 
+                                                uint32_t phys_start, 
+                                                uint32_t size, 
+                                                uint32_t min_placement_addr,
+                                                bool user_mode);
+
 // Map memory within the globally shared kernel page tables
 // that are mapped identically across all processes.
 // Useful for kernel heap accessible everywhere.
 uint32_t vmm_alloc_global_kernel_memory(uint32_t size);
 void vmm_free_global_kernel_memory(uint32_t addr, uint32_t size);
+
 uint32_t vmm_alloc_page_address(vmm_page_directory_t* vmm_dir, uint32_t page_addr, bool readwrite);
+uint32_t vmm_alloc_page_address_usermode(vmm_page_directory_t* vmm_dir, uint32_t page_addr, bool readwrite);
+
 uint32_t vmm_find_start_of_free_region(vmm_page_directory_t* vmm_dir, uint32_t size, uint32_t min_address);
+
+void vmm_set_page_usermode(vmm_page_directory_t* vmm_dir, uint32_t page_addr);
 
 #endif

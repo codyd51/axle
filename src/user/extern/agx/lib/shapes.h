@@ -22,11 +22,15 @@ typedef struct triangle {
 	Point p3;
 } Triangle;
 
+#define point_make(x, y) ((Point){x, y})
+#define point_zero() ((Point){0, 0})
+#define size_make(w, h) ((Size){w, h})
+#define size_zero() ((Size){0, 0})
+#define rect_make(o, s) ((Rect){o, s})
+#define rect_zero() ((Rect){point_zero(), size_zero()})
+
 void normalize_coordinate(ca_layer* layer, Point* p);
 
-Point point_make(int x, int y);
-Size size_make(int w, int h);
-Rect rect_make(Point origin, Size size);
 Line line_make(Point p1, Point p2);
 Circle circle_make(Point center, int radius);
 Triangle triangle_make(Point p1, Point p2, Point p3);

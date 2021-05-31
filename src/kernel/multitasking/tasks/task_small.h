@@ -19,8 +19,9 @@ typedef struct task_context {
 } task_context_t;
 
 typedef struct task_block_state {
-	task_state status;
-	uint32_t wake_timestamp; // used if process is in PIT_WAIT
+	volatile task_state_t status;
+	uint32_t wake_timestamp; // used if process is in TIMED_AWAIT_TIMESTAMP
+	volatile task_state_t unblock_reason;
 } task_block_state_t;
 
 typedef enum task_priority {
@@ -38,7 +39,7 @@ typedef struct task_small {
 	char* name; // user-printable process name
 	task_context_t* machine_state; // registers at the time of last preemption
 	task_block_state_t blocked_info; // runnable state
-	struct task_small_t* next; // next task in linked list of all tasks
+	struct task_small* next; // next task in linked list of all tasks
 
 	uint32_t current_timeslice_start_date;
 	uint32_t current_timeslice_end_date;
@@ -74,16 +75,24 @@ typedef struct task_small {
 	// i.e. this task is currently interrupted and executing an interrupt handler,
 	// this field will contain the original priority to be reset when the ISR returns.
 	uint32_t priority_context;
+
+	uint32_t kernel_stack;
+	uint32_t kernel_stack_malloc_head;
 } task_small_t;
 
 void tasking_init_small();
 bool tasking_is_active();
 
 void task_switch();
-void tasking_goto_task(task_small_t* new_task);
+void tasking_goto_task(task_small_t* new_task, uint32_t quantum);
+// Task switch only if a high-priority driver is ready to run
+void task_switch_if_driver_ready(void);
+// Task switch only if the current task's quantum has expired
+void task_switch_if_quantum_expired(void);
 
 task_small_t* thread_spawn(void* entry_point);
 task_small_t* task_spawn(void* entry_point, task_priority_t priority, const char* task_name);
+task_small_t* task_spawn__with_args(void* entry_point, uint32_t arg1, uint32_t arg2, uint32_t arg3, const char* task_name);
 
 task_small_t* tasking_get_task_with_pid(int pid);
 task_small_t* tasking_get_current_task();
@@ -94,8 +103,8 @@ task_small_t* tasking_get_current_task();
 // tasking_unblock_task() may be called either from another part of the system,
 // or from the iosentinel watchdog that notices that the block condition is 
 // satisfied.
-void tasking_block_task(task_small_t* task, task_state blocked_state);
-void tasking_unblock_task(task_small_t* task, bool run_immediately);
+void tasking_block_task(task_small_t* task, task_state_t blocked_state);
+void tasking_unblock_task_with_reason(task_small_t* task, bool run_immediately, task_state_t reason);
 
 void iosentinel_check_now();
 
@@ -107,5 +116,7 @@ void tasking_print_processes(void);
 
 void tasking_disable_scheduling(void);
 void tasking_reenable_scheduling(void);
+
+void mlfq_goto_task(task_small_t* task);
 
 #endif

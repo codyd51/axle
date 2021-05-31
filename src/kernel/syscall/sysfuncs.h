@@ -53,15 +53,16 @@ DECL_SYSCALL(surface_create, uint32_t, uint32_t);
 DECL_SYSCALL(aipc_send, char*, uint32_t, uint32_t, char**);
 
 DECL_SYSCALL(amc_register_service, const char*);
-DECL_SYSCALL(amc_message_construct, const char*, int);
-DECL_SYSCALL(amc_message_send, const char*, amc_message_t*);
 DECL_SYSCALL(amc_message_broadcast, amc_message_t*);
 DECL_SYSCALL(amc_message_await, const char*, amc_message_t**);
 DECL_SYSCALL(amc_message_await_from_services, int, const char**, amc_message_t**);
 DECL_SYSCALL(amc_message_await_any, amc_message_t**);
 DECL_SYSCALL(amc_shared_memory_create, const char*, uint32_t, uint32_t*, uint32_t*);
+DECL_SYSCALL(amc_launch_service, const char*);
+DECL_SYSCALL(amc_service_is_active, const char*);
 
 DECL_SYSCALL(adi_register_driver, const char*, uint32_t);
-DECL_SYSCALL(adi_interrupt_await, uint32_t);
+DECL_SYSCALL(adi_event_await, uint32_t);
+DECL_SYSCALL(adi_send_eoi, uint32_t);
 
 #endif

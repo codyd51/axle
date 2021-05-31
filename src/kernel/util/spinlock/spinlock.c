@@ -29,19 +29,31 @@ void spinlock_acquire(spinlock_t* lock) {
         // (This means another task has acquired the spinlock, 
         // and since interrupts are disabled we will never context switch back to the 
         // other task)
+        /*
         if (!interrupts_enabled()) { 
-            printf("Spinlock %s held by another consumer while interrupts are disabled\n", lock->name); 
+            if (lock->owner_pid != getpid()) {
+                printf("Spinlock %s held by another consumer while interrupts are disabled. Owner: [%d]\n", lock->name, lock->owner_pid); 
+                task_small_t* owner = tasking_get_task_with_pid(lock->owner_pid);
+                printf("Owner: %d %s\n", lock->owner_pid, owner->name);
+                assert(0, "Spinlock held by another process while interrupts are disabled\n");
+            }
         }
-        assert(interrupts_enabled(), "Spinlock held by another consumer while interrupts are disabled");
+        */
 
+        // If we're already holding the lock, increment the 'nested acquire' count
 		contention_start = time();
+        if (lock->owner_pid == getpid()) {
+            //printf("Spinlock: [%d] did nested acquire of %s at %d\n", getpid(), lock->name, contention_start);
+            lock->nest_count += 1;
+            return;
+        }
 
-		printf("Spinlock: [%d] found contended spinlock with flag %d at %d\n", getpid(), lock->flag, contention_start);
+		printf("Spinlock: [%d] found contended spinlock with flag %d at %d: %s owned by %d\n", getpid(), lock->flag, contention_start, lock->name, lock->owner_pid);
 	}
 
     // Spin until the lock is released
     while (!atomic_compare_exchange(&lock->flag, 0, 1)) {
-		asm("pause");
+        task_switch();
     }
 
     // Prevent another context on this processor from acquiring the spinlock
@@ -53,6 +65,7 @@ void spinlock_acquire(spinlock_t* lock) {
 
     // Ensure it's really ours
     assert(lock->flag == 1, "Lock was not properly acquired");
+    lock->owner_pid = getpid();
 
 	if (contention_start) {
 		printf("Spinlock: *** Proc %d received contended lock 0x%08x %s after %d ticks\n", getpid(), lock, lock->name, time() - contention_start);
@@ -64,7 +77,13 @@ void spinlock_acquire(spinlock_t* lock) {
 
 void spinlock_release(spinlock_t* lock) {
     if (!lock) return;
+    if (lock->nest_count) {
+        lock->nest_count -= 1;
+        //printf("Spinlock: [%d] decrement nested acquire of %s to %d\n", getpid(), lock->name, lock->nest_count);
+        return;
+    }
     atomic_store(&lock->flag, 0);
+    lock->owner_pid = -1;
     // Allow other contexts on this processor to interact with the spinlock
     if (lock->interrupts_enabled_before_acquire) {
         asm("sti");

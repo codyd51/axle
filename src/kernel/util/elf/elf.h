@@ -146,5 +146,6 @@ enum elf_rt_types {
 
 bool elf_validate(FILE* file);
 void elf_load_file(char* filename, FILE* file, char** argv);
+void elf_load_buffer(char* program_name, uint8_t* buf, uint32_t buf_size, char** argv);
 
 #endif

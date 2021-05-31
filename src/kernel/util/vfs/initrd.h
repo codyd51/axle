@@ -1,8 +1,9 @@
 #ifndef INITRD_H
 #define INITRD_H
 
-#include <std/common.h>
-#include "fs.h"
+#include <stdint.h>
+#include <std/array_m.h>
+#include "fs_node.h"
 
 #define HEADER_MAGIC 0xBF
 
@@ -12,16 +13,22 @@ typedef struct {
 
 typedef struct {
 	uint8_t magic;	//magic number
-	int8_t name[64]; //filename
+	char name[64]; //filename
 	uint32_t offset; //offset in initrd that file starts
 	uint32_t length; //length of file
 } initrd_file_header_t;
 
-//initializes initial ramdisk
-//gets passed address range of multiboot module,
-//sets up filesystem root,
-//and remaps initrd module to initrd_vmem
-//void initrd_install(int initrd_loc, int initrd_end, int initrd_vmem);
-void initrd_install(uint32_t initrd_loc, uint32_t initrd_end, uint32_t initrd_vmem);
+typedef struct initrd_fs_node {
+    // Common fields
+    fs_node_type_t type;
+    char name[64];
+    struct fs_base_node* parent;
+    bool is_directory;
+    array_m* children;
+    // Private fields
+    uint32_t initrd_offset;
+    uint32_t size;
+} initrd_fs_node_t;
+
 
 #endif
