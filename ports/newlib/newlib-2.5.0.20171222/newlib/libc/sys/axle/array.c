@@ -19,6 +19,11 @@ void array_destroy(array_t* array) {
 void array_insert(array_t* array, type_t item) {
 	// Make sure we can't go over the allocated size
 	if (array->size + 1 >= array->max_size) printf("*** array would exceed max size! %d\n", array->max_size);
+	if (array->size + 1 >= array->max_size) {
+		// Force a page fault so we get a stack trace
+		char* v = 0x0;
+		*v = 0xdeadbeef;
+	}
 	assert(array->size + 1 <= array->max_size, "array would exceed max_size");
 	// Add item to array
 	array->array[array->size++] = item;

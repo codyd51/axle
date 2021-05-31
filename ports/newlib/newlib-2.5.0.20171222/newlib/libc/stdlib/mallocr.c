@@ -381,6 +381,7 @@ extern void __malloc_unlock();
 
 */
 
+// #define DEBUG 1
 #if DEBUG 
 #include <assert.h>
 #else
