@@ -13,7 +13,7 @@
 
 typedef struct raw_image_info {
 	const char* image_name;
-	image_bmp_t* image;
+	image_t* image;
 } raw_image_info_t;
 
 static raw_image_info_t* _g_image = NULL;
@@ -71,7 +71,8 @@ static void _amc_message_received(gui_window_t* window, amc_message_t* msg) {
 
 	raw_image_info_t* raw_image = calloc(1, sizeof(raw_image_info_t));
 	raw_image->image_name = strdup(load_image_req->path);
-	raw_image->image = image_parse_bmp(resp->file_size, resp->file_data);
+
+	raw_image->image = image_parse(resp->file_size, resp->file_data);
 
 	_g_image = raw_image;
 	_render_image(array_lookup(window->views, 0));

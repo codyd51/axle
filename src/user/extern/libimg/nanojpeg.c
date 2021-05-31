@@ -187,6 +187,7 @@ int main(int argc, char* argv[]) {
 ///////////////////////////////////////////////////////////////////////////////
 
 #ifndef _NJ_INCLUDE_HEADER_ONLY
+#include "nanojpeg.h"
 
 #ifdef _MSC_VER
     #define NJ_INLINE static __inline
