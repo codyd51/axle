@@ -171,3 +171,33 @@ Rework shared memory concept
     awm should be able to pool together framebufs
     awm doesn't need to 'check' whether a region's still valid
     Instead of having a pair on either end, they can have > 2 processes attach
+
+Multi-stage compositing
+    First stage: find dirty rects
+        Mouse moved, window updated
+    
+    For mouse moved dirty rect:
+        Split the rect into every affected layer
+            (Could be two windows plus the background)
+        Create new list of dirty rect + source layer
+
+    Blit each dirty rect + source layer to the screen memory
+
+Goals:
+    Events that invalidate draw rects:
+        Window updated
+        Window moved (background rects updated)
+        Z-order changed
+
+    2 events:
+        - Need to recalculate split regions
+            Can do this background, then backmost window, next window
+                Background:
+                    Iterate all windows
+                Backmost window
+                    Iterate all windows above it
+            O(n^2)
+            Need to do minimally, when windows move etc
+
+        - Need to use split regions to draw something
+    

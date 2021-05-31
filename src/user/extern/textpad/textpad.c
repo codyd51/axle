@@ -5,19 +5,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include <libamc/libamc.h>
-
-#include <agx/lib/size.h>
-#include <agx/lib/screen.h>
-#include <agx/lib/shapes.h>
-#include <agx/lib/ca_layer.h>
-#include <agx/lib/putpixel.h>
-#include <agx/lib/text_box.h>
-
-#include <awm/awm.h>
 #include <libgui/libgui.h>
-
-#include "gfx.h"
 
 static Rect _input_sizer(text_input_t* text_view, Size window_size) {
 	return rect_make(point_zero(), window_size);

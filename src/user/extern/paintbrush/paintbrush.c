@@ -8,13 +8,6 @@
 #include <libamc/libamc.h>
 
 #include <libgui/libgui.h>
-#include <agx/lib/size.h>
-#include <agx/lib/screen.h>
-#include <agx/lib/shapes.h>
-#include <agx/lib/ca_layer.h>
-#include <agx/lib/putpixel.h>
-
-#include <awm/awm.h>
 
 static Rect _content_view_sizer(gui_view_t* view, Size window_size) {
 	return rect_make(point_zero(), window_size);

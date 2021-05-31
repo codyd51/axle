@@ -5,24 +5,9 @@
 #include <unistd.h>
 #include <math.h>
 
-// Layers and drawing
-#include <agx/lib/size.h>
-#include <agx/lib/screen.h>
-#include <agx/lib/shapes.h>
-#include <agx/lib/ca_layer.h>
-#include <agx/lib/putpixel.h>
-#include <agx/lib/text_box.h>
 #include <libgui/libgui.h>
-
-// Window management
-#include <awm/awm.h>
-
-// Communication with other processes
-#include <libamc/libamc.h>
-
-#include <libgui/gui_text_input.h>
-#include <libgui/gui_view.h>
-#include <libgui/gui_slider.h>
+// Communicating with awm
+#include <awm/awm_messages.h>
 
 #include "preferences_messages.h"
 
@@ -212,7 +197,7 @@ static void _render_slider_values(void) {
         color_make(b2, g2, r2),
         s.width/2.0, 
         s.height/2.0, 
-        s.height * 1.3
+        s.height * 0.65
     );
     _g_state.preview->_priv_needs_display = true;
 }
@@ -288,8 +273,8 @@ int main(int argc, char** argv) {
 
     // These match the values set up in awm
     // TODO(PT): How should these be read?
-    Color to_initial = color_make(2, 184, 255);
-    Color from_initial = color_make(39, 67, 255);
+    Color to_initial = color_make(39, 67, 255);
+    Color from_initial = color_make(2, 184, 255);
     _g_state.to_red->slider_percent = to_initial.val[0] / 255.0;
     _g_state.to_green->slider_percent = to_initial.val[1] / 255.0;
     _g_state.to_blue->slider_percent = to_initial.val[2] / 255.0;

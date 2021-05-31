@@ -7,17 +7,7 @@
 
 #include <kernel/amc.h>
 
-// Layers and drawing
-#include <agx/lib/size.h>
-#include <agx/lib/screen.h>
-#include <agx/lib/shapes.h>
-#include <agx/lib/ca_layer.h>
-#include <agx/lib/putpixel.h>
-#include <agx/lib/text_box.h>
 #include <libgui/libgui.h>
-
-// Window management
-#include <awm/awm.h>
 
 // Communication with other processes
 #include <libamc/libamc.h>
