@@ -53,7 +53,7 @@ void spinlock_acquire(spinlock_t* lock) {
 
     // Spin until the lock is released
     while (!atomic_compare_exchange(&lock->flag, 0, 1)) {
-		asm("pause");
+        task_switch();
     }
 
     // Prevent another context on this processor from acquiring the spinlock
