@@ -725,104 +725,162 @@ int main(int argc, char** argv) {
 				// Items can be popped off the list based on their Z-index, or a periodic time-based update
 				// TODO(PT): If a window has requested multiple redraws within a single awm event loop
 				// pass, awm should redraw it only once
-				handle_user_message(msg, windows_to_update);
+				handle_user_message(msg);
 			}
 		} while (amc_has_message());
 
-		while (windows_to_update->size) {
-			user_window_t* window_to_update = array_lookup(windows_to_update, 0);
-			_update_window_framebuf(window_to_update->owner_service);
-			array_remove(windows_to_update, 0);
+		// We're out of messages to process - composite everything together and redraw
+
+		// Fetch remote layers for windows that have asked for a redraw
+		windows_fetch_queued_windows();
+
+		array_t* windows = windows_all();
+
+		// Process rects that have been dirtied while processing other events
+		for (int32_t i = 0; i < _g_rects_to_update_this_cycle->size; i++) {
+			Rect* rp = array_lookup(_g_rects_to_update_this_cycle, i);
+			Rect r = *rp;
+
+			array_t* unobscured_region = array_create(32);
+			rect_add(unobscured_region, r);
+
+			// Handle the parts of the dirty region that are obscured by windows
+			for (int32_t j = 0; j < windows->size; j++) {
+				user_window_t* window = array_lookup(windows, j);
+				if (rect_intersects(window->frame, r)) {
+					// Note that this window should redraw its portion of this rect
+					rect_add(window->extra_draws_this_cycle, r);
+					// And subtract the area of this window from the region to update
+					unobscured_region = update_occlusions(unobscured_region, window->frame);
+					// And if all the area of the region to update has been handled, 
+					// stop iterating windows early
+					if (!unobscured_region->size) {
+						break;
+					}
+				}
+			}
+
+			// Blit the regions that are not covered by windows with the desktop background layer
+			for (int32_t j = unobscured_region->size - 1; j >= 0; j--) {
+				Rect* bg_rect = array_lookup(unobscured_region, j);
+				blit_layer(
+					_screen.vmem,
+					_g_background,
+					*bg_rect,
+					*bg_rect
+				);
+				//draw_rect(_screen.vmem, *bg_rect, color_rand(), 1);
+				array_remove(unobscured_region, j);
+				free(bg_rect);
+			}
+			array_destroy(unobscured_region);
 		}
 
-		// We're out of messages to process - composite everything together and redraw
-		// First draw the background
-		blit_layer(_screen.vmem, _g_background, screen_frame, screen_frame);
-		// Then each window (without copying in the window's current shared framebuffer)
-		// Draw the bottom-most windows first
-		// TODO(PT): Replace with a loop that draws the topmost window and 
-		// splits lower windows into visible regions, then blits those
-		for (int i = windows->size - 1; i >= 0; i--) {
-			user_window_t* window = array_lookup(windows, i);
-			if (!window->has_done_first_draw) {
-				continue;
+		array_t* windows_to_composite = windows_get_ready_to_composite_array();
+		for (int32_t i = 0; i < windows_to_composite->size; i++) {
+			user_window_t* window = array_lookup(windows_to_composite, i);
+			for (int32_t j = 0; j < window->drawable_rects->size; j++) {
+				Rect* r_ptr = array_lookup(window->drawable_rects, j);
+				Rect r = *r_ptr;
+				uint32_t offset_x = r.origin.x - rect_min_x(window->frame);
+				uint32_t offset_y = r.origin.y - rect_min_y(window->frame);
+				blit_layer(
+					_screen.vmem,
+					window->layer,
+					r,
+					rect_make(
+						point_make(offset_x, offset_y), 
+						r.size
+					)
+				);
+				//draw_rect(_screen.vmem, r, color_rand(), 1);
 			}
-			// As an optimization until we have visible-region splitting, skip drawing 
-			// fully occluded windows
-			bool fully_occluded = false;
-			for (int j = i-1; j >= 0; j--) {
-				user_window_t* higher_window = array_lookup(windows, j);
-				if (higher_window->layer->alpha < 1.0) {
-					// This optimization doesn't apply with transparent windows
+		}
+		for (int32_t i = 0; i < windows->size; i++) {
+			user_window_t* window = array_lookup(windows, i);
+			for (int32_t j = window->extra_draws_this_cycle->size - 1; j >= 0; j--) {
+				Rect* r_ptr = array_lookup(window->extra_draws_this_cycle, j);
+				Rect r = *r_ptr;
+				int32_t offset_x = r.origin.x - rect_min_x(window->frame);
+				int32_t offset_y = r.origin.y - rect_min_y(window->frame);
+				if (rect_max_x(r) < rect_min_x(window->frame) || rect_max_y(r) < rect_min_y(window->frame)) {
 					continue;
 				}
-				Rect higher_frame = higher_window->frame;
-				Rect lower_frame = window->frame;
-				if (rect_min_x(higher_frame) <= rect_min_x(lower_frame) &&
-					rect_min_y(higher_frame) <= rect_min_y(lower_frame) &&
-					rect_max_x(higher_frame) >= rect_max_x(lower_frame) &&
-					rect_max_y(higher_frame) >= rect_max_y(lower_frame)) {
-					fully_occluded = true;
-					break;
+
+				int x_origin = rect_min_x(window->frame) - rect_min_x(r);
+				if (x_origin > 0){ 
+					r.origin.x += x_origin;
 				}
-			}
-			if (!fully_occluded) {
-				// TODO(PT): As per the above comment, we should only copy the window layer
-				// once if it's requested a redraw at least once on this pass through the event loop
+				int y_origin = rect_min_y(window->frame) - rect_min_y(r);
+				if (y_origin > 0){ 
+					r.origin.y += y_origin;
+				}
+
+				int x_overhang = rect_max_x(r) - rect_max_x(window->frame);
+				if (x_overhang > 0) {
+					r.size.width -= x_overhang;
+				}
+				int y_overhang = rect_max_y(r) - rect_max_y(window->frame);
+				if (y_overhang > 0) {
+					r.size.height -= y_overhang;
+				}
+
 				blit_layer(
-					_screen.vmem, 
-					window->layer, 
-					window->frame, 
+					_screen.vmem,
+					window->layer,
+					r,
 					rect_make(
-						point_zero(), 
-						size_make(
-							window->frame.size.width,
-							WINDOW_TITLE_BAR_VISIBLE_HEIGHT
-						)
+						point_make(offset_x, offset_y), 
+						r.size
 					)
 				);
-				blit_layer(
-					_screen.vmem, 
-					window->layer, 
-					rect_make(
-						point_make(
-							window->frame.origin.x,
-							window->frame.origin.y + WINDOW_TITLE_BAR_HEIGHT
-						),
-						size_make(
-							window->frame.size.width,
-							window->frame.size.height - WINDOW_TITLE_BAR_HEIGHT
-						)
-					),
-					rect_make(
-						point_make(
-							0,
-							WINDOW_TITLE_BAR_HEIGHT
-						), 
-						size_make(
-							window->frame.size.width,
-							window->frame.size.height - WINDOW_TITLE_BAR_HEIGHT
-						)
-					)
-				);
+				//draw_rect(_screen.vmem, r, color_rand(), 1);
 			}
 		}
+		Rect mouse_rect = _draw_cursor(_screen.vmem);
 
-		// And finally the cursor
-		_draw_cursor();
+		for (int32_t i = _g_rects_to_update_this_cycle->size - 1; i >= 0; i--) {
+			Rect* r = array_lookup(_g_rects_to_update_this_cycle, i);
+			blit_layer(
+				&dummy_layer,
+				_screen.vmem,
+				*r,
+				*r
+			);
+			array_remove(_g_rects_to_update_this_cycle, i);
+			free(r);
+		}
 
-		// Copy our internal screen buffer to video memory
-		memcpy(_screen.physbase, _screen.vmem, _screen.resolution.width * _screen.resolution.height * _screen.bytes_per_pixel);
-			if (!_g_title_bar_image) {
-				_g_title_bar_image = _load_image("titlebar7.bmp");
-				_g_title_bar_x_filled = _load_image("titlebar_x_filled2.bmp");
-				_g_title_bar_x_unfilled = _load_image("titlebar_x_unfilled2.bmp");
-
-				for (uint32_t i = 0; i < windows->size; i++) {
-					user_window_t* w = array_lookup(windows, i);
-					_window_resize(w, w->frame.size, false);
-				}
+		for (int32_t i = 0; i < windows->size; i++) {
+			user_window_t* window = array_lookup(windows, i);
+			for (int32_t j = window->extra_draws_this_cycle->size - 1; j >= 0; j--) {
+				Rect* r_ptr = array_lookup(window->extra_draws_this_cycle, j);
+				Rect r = *r_ptr;
+				blit_layer(&dummy_layer, _screen.vmem, r, r);
+				array_remove(window->extra_draws_this_cycle, j);
+				free(r_ptr);
 			}
+		}
+		for (int32_t i = 0; i < windows_to_composite->size; i++) {
+			user_window_t* window = array_lookup(windows_to_composite, i);
+			for (int32_t j = 0; j < window->drawable_rects->size; j++) {
+				Rect* r_ptr = array_lookup(window->drawable_rects, j);
+				Rect r = *r_ptr;
+				uint32_t offset_x = r.origin.x - rect_min_x(window->frame);
+				uint32_t offset_y = r.origin.y - rect_min_y(window->frame);
+				blit_layer(&dummy_layer, _screen.vmem, r, r);
+			}
+		}
+		blit_layer(&dummy_layer, _screen.vmem, mouse_rect, mouse_rect);
+
+		windows_clear_queued_windows();
 	}
 	return 0;
+}
+
+void print_free_areas(array_t* unobstructed_area) {
+	for (int32_t i = 0; i < unobstructed_area->size; i++) {
+		Rect* r = array_lookup(unobstructed_area, i);
+		printf("\t\t\trect(%d, %d, %d, %d);\n", r->origin.x, r->origin.y, r->size.width, r->size.height);
+	}
 }
