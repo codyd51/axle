@@ -148,7 +148,6 @@ void tcp_send(
 
 	uint8_t src_ip[IPv4_ADDR_SIZE];
 	net_copy_local_ipv4_addr(src_ip);
-	//uint16_t chk3 = tcp_v4_checksum(packet, tcp_packet_size, inet_addr(src_ip), inet_addr(dest_ip));
 
 	uint8_t* checksum_buf = calloc(1, tcp_packet_size + sizeof(tcp_pseudo_header_t));
 	tcp_pseudo_header_t* pseudo_header = (tcp_pseudo_header_t*)checksum_buf;
@@ -158,7 +157,6 @@ void tcp_send(
 	pseudo_header->packet_len = htons((uint16_t)tcp_packet_size);
 	memcpy(checksum_buf + sizeof(tcp_pseudo_header_t), packet, tcp_packet_size);
 	uint16_t chk3 = checksum(checksum_buf, tcp_packet_size + sizeof(tcp_pseudo_header_t), 0);
-	hexdump(checksum_buf, tcp_packet_size + sizeof(tcp_pseudo_header_t));
 	free(checksum_buf);
 
 	printf("chk3 0x%04x\n", chk3);
@@ -318,31 +316,49 @@ static void _tcp_conn_recv(tcp_conn_t* conn, tcp_packet_t* packet, uint32_t data
 			printf("\tTCP: Ignoring recv of already-ingested segment %u\n", relative_recv_seq_num);
 		}
 		else {
-			// Send an "ack" for this data
-			printf("\tTCP: Sending ACK...\n");
-			conn->recv_next_seqnum += data_len;
-			tcp_send(
-				conn->src_port,
-				conn->dst_port,
-				conn->dest_ip,
-				conn->send_next_seqnum,
-				conn->recv_next_seqnum,
-				TCP_FLAG_ACK,
-				NULL,
-				0
-			);
+			// Is this a later segment than the one we're expecting?
+			// TODO(PT): Eventually, support SACK: https://packetlife.net/blog/2010/jun/17/tcp-selective-acknowledgments-sack/
+			// TODO(PT): We can also reassemble the packets in memory instead of re-requesting transmission
+			if (conn->recv_next_seqnum < recv_seq_num) {
+				printf("\tTCP: Lost/out-of-order segment detected, resending ACK for last in-order segment...\n");
+				tcp_send(
+					conn->src_port,
+					conn->dst_port,
+					conn->dest_ip,
+					conn->send_next_seqnum,
+					conn->recv_next_seqnum,
+					TCP_FLAG_ACK,
+					NULL,
+					0
+				);
+			}
+			else {
+				// Send an "ack" for this data
+				printf("\tTCP: Sending ACK...\n");
+				conn->recv_next_seqnum += data_len;
+				tcp_send(
+					conn->src_port,
+					conn->dst_port,
+					conn->dest_ip,
+					conn->send_next_seqnum,
+					conn->recv_next_seqnum,
+					TCP_FLAG_ACK,
+					NULL,
+					0
+				);
 
-			// Add it to the connection's receive buffer
-			tcp_segment_t* seg = calloc(1, sizeof(seg));
-			seg->buf = calloc(1, data_len);
-			seg->len = data_len;
-			seg->sequence_start = relative_recv_seq_num;
-			memcpy(seg->buf, packet->data, data_len);
-			array_insert(conn->receive_buffer, seg);
-			hexdump(packet->data, data_len);
-			printf("\tTCP: Added recv'd segment to receive buffer (new recv buffer size: %d, conn 0x%08x recv buf 0x%08x)\n", conn->receive_buffer->size, conn, conn->receive_buffer);
-			// And kick off any ready callback
-			callback_list_invoke_ready_callbacks(_tcp_callbacks);
+				// Add it to the connection's receive buffer
+				tcp_segment_t* seg = calloc(1, sizeof(seg));
+				seg->buf = calloc(1, data_len);
+				seg->len = data_len;
+				seg->sequence_start = relative_recv_seq_num;
+				memcpy(seg->buf, packet->data, data_len);
+				array_insert(conn->receive_buffer, seg);
+				hexdump(packet->data, data_len);
+				printf("\tTCP: Added recv'd segment to receive buffer (new recv buffer size: %d, conn 0x%08x recv buf 0x%08x)\n", conn->receive_buffer->size, conn, conn->receive_buffer);
+				// And kick off any ready callback
+				callback_list_invoke_ready_callbacks(_tcp_callbacks);
+			}
 		}
 	}
 }
