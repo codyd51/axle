@@ -10,6 +10,7 @@ cp src/kernel/interrupts/idt.h axle-sysroot/usr/i686-axle/include/kernel/idt.h
 
 # Copy awm headers to the sysroot so other programs can use its message protocol
 cp src/user/extern/awm/awm.h axle-sysroot/usr/i686-axle/include/awm/awm.h
+cp src/user/extern/awm/awm_messages.h axle-sysroot/usr/i686-axle/include/awm/awm_messages.h
 cp src/user/extern/pci_driver/pci_messages.h axle-sysroot/usr/i686-axle/include/pci/pci_messages.h
 cp src/user/extern/net/net_messages.h axle-sysroot/usr/i686-axle/include/net/net_messages.h
 cp src/user/extern/realtek_8139_driver/rtl8139_messages.h axle-sysroot/usr/i686-axle/include/drivers/realtek_8139/rtl8139_messages.h

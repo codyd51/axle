@@ -15,7 +15,7 @@
 #include <agx/lib/shapes.h>
 #include <agx/lib/putpixel.h>
 
-#include <awm/awm.h>
+#include <awm/awm_messages.h>
 
 #include "libgui.h"
 #include "utils.h"
