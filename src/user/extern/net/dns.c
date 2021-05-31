@@ -38,6 +38,16 @@ typedef struct dns_answer {
 static dns_service_type_t _dns_service_type_table[DNS_SERVICE_TYPE_TABLE_SIZE] = {0};
 static dns_domain_t _dns_domain_records[DNS_DOMAIN_RECORDS_TABLE_SIZE] = {0};
 
+typedef struct dns_record {
+    uint32_t record_type;
+} dns_record_t;
+
+typedef struct dns_a_record {
+    uint32_t record_type;
+	dns_name_parse_state_t name;
+	uint8_t a_record[IPv4_ADDR_SIZE];
+} dns_a_record_t;
+
 static uint8_t _dns_name_read_label_len(uint8_t** data_ptr_in) {
     uint8_t* data_ptr = *data_ptr_in;
     uint8_t label_len = *(data_ptr++);
@@ -259,6 +269,39 @@ static void _update_domain_name_with_a_record(dns_answer_t* answer) {
     }
 }
 
+static void _record_cname(dns_packet_t* packet, dns_answer_t* answer) {
+    uint8_t* data_ptr = answer->data;
+    dns_name_parse_state_t cname_parse = {0};
+    _parse_dns_name(packet, &cname_parse, &data_ptr);
+    printf("DNS: Domain %s CNAME %s\n", answer->parsed_name.name, cname_parse.name);
+
+    /*
+    // Check if we already have a mapping for this domain
+    for (int i = 0; i < DNS_DOMAIN_RECORDS_TABLE_SIZE; i++) {
+        dns_domain_t* ent = &_dns_domain_records[i];
+        if (ent->allocated) {
+            if (!strcmp(ent->name.name, answer->parsed_name.name)) {
+                printf("DNS: Update existing A record for %s\n", ent->name.name);
+                memcpy(ent->a_record, answer->data, IPv4_ADDR_SIZE);
+                return;
+            }
+        }
+    }
+
+    // New DNS mapping
+    for (int i = 0; i < DNS_DOMAIN_RECORDS_TABLE_SIZE; i++) {
+        dns_domain_t* ent = &_dns_domain_records[i];
+        if (!ent->allocated) {
+            printf("DNS: Created new A record for %s\n", answer->parsed_name.name);
+            ent->allocated = true;
+            memcpy(&ent->name, &answer->parsed_name, sizeof(dns_name_parse_state_t));
+            memcpy(ent->a_record, answer->data, IPv4_ADDR_SIZE);
+            return;
+        }
+    }
+    */
+}
+
 static void _parse_dns_answer(dns_packet_t* packet, dns_answer_t* answer, uint8_t** data_ptr_in) {
     memset(answer, 0, sizeof(dns_answer_t));
 
@@ -289,6 +332,11 @@ static void _parse_dns_answer(dns_packet_t* packet, dns_answer_t* answer, uint8_
         _update_domain_name_with_a_record(answer);
         // We may have unblocked a callback waiting on this DNS answer
         callback_list_invoke_ready_callbacks(_dns_callbacks);
+    }
+    else if (answer->type == DNS_TYPE_CNAME) {
+        _record_cname(packet, answer);
+        // We may have unblocked a callback waiting on this DNS answer
+        //callback_list_invoke_ready_callbacks(_dns_callbacks);
     }
     else if (answer->type == DNS_TYPE_TEXT_STRINGS) {
         /*
