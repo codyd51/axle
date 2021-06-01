@@ -65,6 +65,7 @@ typedef struct gui_text_view {
     // Public gui_text_view fields
     Point cursor_pos;
     Size font_size;
+    Size font_inset;
 } gui_text_view_t;
 
 gui_text_view_t* gui_text_view_alloc(void);

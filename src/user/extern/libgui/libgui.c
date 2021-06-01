@@ -52,9 +52,7 @@ gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t hei
 	amc_message_t* receive_framebuf;
 	amc_message_await(AWM_SERVICE_NAME, &receive_framebuf);
 	uint32_t event = amc_msg_u32_get_word(receive_framebuf, 0);
-	if (event != AWM_CREATED_WINDOW_FRAMEBUFFER) {
-		printf("Invalid state. Expected framebuffer command\n");
-	}
+	assert(event == AWM_CREATED_WINDOW_FRAMEBUFFER, "Invalid state. Expected framebuffer command\n");
 	uint32_t framebuffer_addr = amc_msg_u32_get_word(receive_framebuf, 1);
 
 	printf("Received framebuffer from awm: %d 0x%08x\n", event, framebuffer_addr);
