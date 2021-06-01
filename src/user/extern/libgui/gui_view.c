@@ -363,7 +363,6 @@ void gui_view_init(gui_view_t* view, gui_window_t* window, gui_window_resized_cb
 	view->_fill_background_cb = (gui_draw_cb_t)_gui_view_fill_background;
 
 	view->background_color = color_black();
-	printf("%s Initial title inset %d %d\n", rect_print(view->_title_inset));
 }
 
 void gui_view_add_subview(gui_view_t* superview, gui_view_t* subview) {
@@ -373,7 +372,6 @@ void gui_view_add_subview(gui_view_t* superview, gui_view_t* subview) {
 	subview->content_layer_frame = rect_make(point_zero(), subview->frame.size);
 	subview->parent_layer = superview->content_layer;
 
-	printf("%s Initial view frame (subview)\n", rect_print(subview->frame));
 	// Set the title inset now that we have a frame
 	gui_view_set_title(subview, NULL);
 
@@ -386,7 +384,6 @@ void gui_view_add_to_window(gui_view_t* view, gui_window_t* window) {
 	view->content_layer_frame = rect_make(point_zero(), view->frame.size);
 	view->parent_layer = window->layer;
 
-	printf("%s Initial view frame (root view)\n", rect_print(view->frame));
 	// Set the title inset now that we have a frame
 	gui_view_set_title(view, NULL);
 

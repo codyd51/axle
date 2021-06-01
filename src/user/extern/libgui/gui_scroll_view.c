@@ -195,8 +195,8 @@ void gui_scroll_view_add_subview(gui_view_t* superview, gui_scroll_view_t* subvi
 	subview->content_layer_frame = rect_make(point_zero(), subview->frame.size);
 	subview->parent_layer = superview->content_layer;
 
-	printf("%s Initial view frame (subview)\n", rect_print(subview->frame));
-	// Set the title inset now that we have a frame
+	// Fill the background color and set the title inset now that we have a frame
+	subview->_fill_background_cb(subview, false);
 	gui_view_set_title((gui_view_t*)subview, NULL);
 
 	array_insert(superview->subviews, subview);
@@ -209,8 +209,9 @@ void gui_scroll_view_add_to_window(gui_scroll_view_t* view, gui_window_t* window
 	view->content_layer_frame = rect_make(point_zero(), view->frame.size);
 	view->parent_layer = window->layer;
 
-	printf("%s Initial view frame (root view)\n", rect_print(view->frame));
 	// Set the title inset now that we have a frame
+	// Fill the background color and set the title inset now that we have a frame
+	view->_fill_background_cb(view, false);
 	gui_view_set_title((gui_view_t*)view, NULL);
 
 	array_insert(window->views, view);

@@ -48,7 +48,7 @@ static void _nic_config_received(net_nic_config_info_t* config) {
 	// Announce ourselves to the network
 	arp_announce();
 	// Request the MAC of the router (at a known static IP)
-	uint8_t router_ip[IPv4_ADDR_SIZE] = {192, 168, 1, 1};
+	uint8_t router_ip[IPv4_ADDR_SIZE] = {192, 168, 1, 254};
 	memcpy(_net_config.router_ip_addr, router_ip, IPv4_ADDR_SIZE);
 	arp_request_mac(router_ip);
 }
@@ -149,7 +149,7 @@ void net_ui_dns_records_table_draw(void) {
 	gui_text_view_t* text_view = _g_state.dns_view;
 	//gui_text_view_clear_and_erase_history(text_view);
 
-	gui_text_view_puts(text_view, "\nDNS A Records\n", color_purple());
+	gui_text_view_puts(text_view, "DNS A Records\n", color_purple());
 	dns_domain_t* dns_domain_ents = dns_domain_records();
 	for (int i = 0; i < DNS_DOMAIN_RECORDS_TABLE_SIZE; i++) {
 		dns_domain_t* domain_ent = &dns_domain_ents[i];
@@ -169,7 +169,7 @@ void net_ui_dns_services_table_draw(void) {
 	gui_text_view_t* text_view = _g_state.dns_services_view;
 	//gui_text_view_clear_and_erase_history(text_view);
 
-	gui_text_view_puts(text_view, "\nDNS Services\n", color_purple());
+	gui_text_view_puts(text_view, "DNS Services\n", color_purple());
 	dns_service_type_t* dns_service_type_ents = dns_service_type_table();
 	for (int i = 0; i < DNS_SERVICE_TYPE_TABLE_SIZE; i++) {
 		dns_service_type_t* type_ent = &dns_service_type_ents[i];
@@ -197,7 +197,7 @@ static Rect _local_link_view_sizer(gui_text_view_t* tv, Size window_size) {
 		point_zero(), 
 		size_make(
 			window_size.width,
-			(window_size.height / 5)
+			(window_size.height / 4.5)
 		)
 	);
 }
@@ -210,7 +210,7 @@ static Rect _arp_view_sizer(gui_text_view_t* tv, Size window_size) {
 		),
 		size_make(
 			window_size.width / 2,
-			((window_size.height / 5) * 2)
+			((window_size.height / 4.5) * 2)
 		)
 	);
 }
@@ -223,7 +223,7 @@ static Rect _dns_view_sizer(gui_text_view_t* tv, Size window_size) {
 		),
 		size_make(
 			window_size.width / 2,
-			((window_size.height / 5) * 2)
+			((window_size.height / 4.5) * 2)
 		)
 	);
 }
@@ -231,7 +231,8 @@ static Rect _dns_view_sizer(gui_text_view_t* tv, Size window_size) {
 static Rect _dns_services_view_sizer(gui_text_view_t* tv, Size window_size) {
 	uint32_t local_link_max_y = rect_max_y(_g_state.local_link_view->frame);
 	uint32_t arp_max_y = rect_max_y(_g_state.arp_view->frame);
-	uint32_t height = ((window_size.height / 5) * 2);
+	//uint32_t height = ((window_size.height / 4.5) * 2);
+	uint32_t height = window_size.height - arp_max_y;
 	return rect_make(
 		point_make(
 			0,
@@ -318,7 +319,7 @@ int main(int argc, char** argv) {
 	dns_init();
 	tcp_init();
 
-	_g_window = gui_window_create("Network Backend", 860, 400);
+	_g_window = gui_window_create("Network Backend", 860, 440);
 
 	_g_state.local_link_view = gui_text_view_create(
 		_g_window,

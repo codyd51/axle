@@ -201,3 +201,8 @@ Goals:
 
         - Need to use split regions to draw something
     
+libgui supports no windows 
+awm supports multiple windows for the same owner service
+libgui supports multiple windows 
+
+gui_view progressively grows memory as size changes
