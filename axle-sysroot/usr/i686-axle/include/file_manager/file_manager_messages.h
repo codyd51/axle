@@ -21,4 +21,10 @@ typedef struct file_manager_read_file_response {
     uint8_t file_data[];
 } file_manager_read_file_response_t;
 
+// Sent from file manager to awm to signal that it's ready to receive file requests
+// Prior to this, awm should not request image resources, or else the request may 
+// conflict with the file manager's attempts to create a window.
+// TODO(PT): Think about ways to prevent this. Perhaps amc messages can be popped with a predicate
+#define FILE_MANAGER_READY  102
+
 #endif

@@ -12,6 +12,7 @@
 #include <stdlibadd/assert.h>
 
 #include <image_viewer/image_viewer_messages.h>
+#include <awm/awm_messages.h>
 #include <libimg/libimg.h>
 
 #include "vfs.h"
@@ -527,12 +528,6 @@ static image_t* _load_image(const char* name) {
 int main(int argc, char** argv) {
 	amc_register_service(FILE_MANAGER_SERVICE_NAME);
 
-	gui_window_t* window = gui_window_create("File Manager", 400, 600);
-	Size window_size = window->size;
-
-	gui_scroll_view_t* content_view = gui_scroll_view_create(window, (gui_window_resized_cb_t)_content_view_sizer);
-	content_view->background_color = color_white();
-
 	// Ask the kernel to map in the ramdisk and send us info about it
 	amc_msg_u32_1__send(AXLE_CORE_SERVICE_NAME, AMC_FILE_MANAGER_MAP_INITRD);
 	amc_message_t* msg;
@@ -552,15 +547,26 @@ int main(int argc, char** argv) {
 	fs_base_node_t* initrd_root = fs_node_create__directory(root, initrd_path, strlen(initrd_path));
 	_parse_initrd(initrd_root, initrd_info);
 
+	_print_fs_tree((fs_node_t*)root, 0);
+
 	_g_folder_icon = _load_image("folder_icon.bmp");
 	_g_image_icon = _load_image("image_icon.bmp");
 	_g_executable_icon = _load_image("executable_icon.bmp");
 	_g_text_icon = _load_image("text_icon.bmp");
 
+	gui_window_t* window = gui_window_create("File Manager", 400, 600);
+	gui_scroll_view_t* content_view = gui_scroll_view_create(
+		window, 
+		(gui_window_resized_cb_t)_content_view_sizer
+	);
+	content_view->background_color = color_white();
+	// TODO(PT): Traverse the tree beforehand to build the depth-listing, 
+	// then generate the UI tree without having to traverse the node tree each time
+	_generate_ui_tree((gui_view_t*)content_view, NULL, 0, (fs_node_t*)root);
+
 	gui_add_message_handler(window, _amc_message_received);
 
-	_print_fs_tree((fs_node_t*)root, 0);
-	_generate_ui_tree((gui_view_t*)content_view, NULL, 0, (fs_node_t*)root);
+	amc_msg_u32_1__send(AWM_SERVICE_NAME, FILE_MANAGER_READY);
 
 	gui_enter_event_loop(window);
 
