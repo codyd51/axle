@@ -25,7 +25,7 @@ typedef struct user_window {
 
 #define WINDOW_BORDER_MARGIN 0
 #define WINDOW_TITLE_BAR_HEIGHT 30
-#define WINDOW_TITLE_BAR_VISIBLE_HEIGHT (WINDOW_TITLE_BAR_HEIGHT - 2)
+#define WINDOW_TITLE_BAR_VISIBLE_HEIGHT (WINDOW_TITLE_BAR_HEIGHT - 0)
 
 user_window_t* window_move_to_top(user_window_t* window);
 
@@ -61,5 +61,7 @@ void window_destroy(user_window_t* window);
 void windows_composite(ca_layer* dest, Rect updated_rect);
 
 void windows_invalidate_drawable_regions_in_rect(Rect r);
+
+void windows_fetch_resource_images(void);
 
 #endif

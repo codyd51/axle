@@ -11,6 +11,10 @@ array_t* windows = NULL;
 array_t* windows_to_fetch_this_cycle = NULL;
 array_t* windows_to_composite_this_cycle = NULL;
 
+image_t* _g_title_bar_image = NULL;
+image_t* _g_title_bar_x_unfilled = NULL;
+image_t* _g_title_bar_x_filled = NULL;
+
 user_window_t* window_move_to_top(user_window_t* window) {
 	uint32_t idx = array_index(windows, window);
 	array_remove(windows, idx);
@@ -190,7 +194,6 @@ static void _write_window_title(user_window_t* window) {
 }
 
 void window_redraw_title_bar(user_window_t* window, bool close_button_hovered) {
-    /*
 	if (!_g_title_bar_image) {
 		printf("No images yet...\n");
 		return;
@@ -207,7 +210,7 @@ void window_redraw_title_bar(user_window_t* window, bool close_button_hovered) {
 	);
 
 	//bool is_x_filled = g_mouse_state.active_window == window && (g_mouse_state.is_prospective_window_move || g_mouse_state.is_moving_top_window);
-	image_bmp_t* x_image = (prospective_close_action) ? _g_title_bar_x_filled : _g_title_bar_x_unfilled;
+	image_t* x_image = (close_button_hovered) ? _g_title_bar_x_filled : _g_title_bar_x_unfilled;
 	uint32_t icon_height = x_image->size.height;
 	window->close_button_frame = rect_make(
 		point_make(icon_height * 0.75, icon_height * 0.275), 
@@ -218,7 +221,6 @@ void window_redraw_title_bar(user_window_t* window, bool close_button_hovered) {
 		window->layer, 
 		window->close_button_frame
 	);
-    */
 
 	// Draw window title
 	_write_window_title(window);
@@ -245,6 +247,16 @@ void windows_init(void) {
     windows = array_create(MAX_WINDOW_COUNT);
     windows_to_fetch_this_cycle = array_create(MAX_WINDOW_COUNT);
     windows_to_composite_this_cycle = array_create(MAX_WINDOW_COUNT);
+}
+
+void windows_fetch_resource_images(void) {
+	_g_title_bar_image = load_image("titlebar7.bmp");
+	_g_title_bar_x_filled = load_image("titlebar_x_filled2.bmp");
+	_g_title_bar_x_unfilled = load_image("titlebar_x_unfilled2.bmp");
+    for (int32_t i = 0; i < windows->size; i++) {
+        user_window_t* w = array_lookup(windows, i);
+        window_redraw_title_bar(w, false);
+    }
 }
 
 user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t height) {
@@ -324,6 +336,15 @@ void window_destroy(user_window_t* window) {
     int32_t i = array_index(windows, window);
     assert(i >= 0, "Window not found");
     array_remove(windows, i);
+
+    i = array_index(windows_to_fetch_this_cycle, window);
+    if (i >= 0) {
+        array_remove(windows_to_fetch_this_cycle, i);
+    }
+    i = array_index(windows_to_composite_this_cycle, window);
+    if (i >= 0) {
+        array_remove(windows_to_composite_this_cycle, i);
+    }
 
 	layer_teardown(window->layer);
 

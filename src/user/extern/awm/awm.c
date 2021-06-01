@@ -10,15 +10,12 @@
 #include <agx/lib/ca_layer.h>
 #include <agx/lib/screen.h>
 
-#include <libimg/libimg.h>
-
 #include <libamc/libamc.h>
 
 #include <stdlibadd/assert.h>
 #include <stdlibadd/array.h>
 
 #include <preferences/preferences_messages.h>
-#include <file_manager/file_manager_messages.h>
 #include <kb_driver/kb_driver_messages.h>
 
 #include "awm.h"
@@ -44,10 +41,6 @@ void _write_window_title(user_window_t* window);
 Screen _screen = {0};
 
 ca_layer* _g_background = NULL;
-image_t* _g_title_bar_image = NULL;
-image_t* _g_title_bar_x_unfilled = NULL;
-image_t* _g_title_bar_x_filled = NULL;
-
 array_t* _g_rects_to_update_this_cycle = NULL;
 
 Screen* gfx_screen() {
@@ -550,6 +543,12 @@ static void handle_user_message(amc_message_t* user_message) {
 			return;
 		}
 	}
+	else if (!strncmp(source_service, FILE_MANAGER_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
+		if (command == FILE_MANAGER_READY) {
+			windows_fetch_resource_images();
+			return;
+		}
+	}
 	// User requesting a window to draw in to?
 	if (command == AWM_REQUEST_WINDOW_FRAMEBUFFER) {
 		uint32_t width = amc_msg_u32_get_word(user_message, 1);
@@ -567,11 +566,13 @@ static void handle_user_message(amc_message_t* user_message) {
 	}
 	else if (command == AWM_CLOSE_WINDOW) {
 		user_window_t* window = window_with_service_name(source_service);
+		Rect window_frame = window->frame;
 		window_destroy(window);
 		if (g_mouse_state.active_window == window) {
 			printf("Clear active window 0x%08x\n", window);
 			g_mouse_state.active_window = NULL;
 		}
+		windows_invalidate_drawable_regions_in_rect(window_frame);
 	}
 	else {
 		printf("Unknown message from %s: %d\n", source_service, command);
@@ -597,33 +598,6 @@ void print_memory(void) {
 	printf("Heap space: 		 0x%08x\n", p.arena);
 	printf("Total allocd space : 0x%08x\n", p.uordblks);
 	printf("Total free space   : 0x%08x\n", p.fordblks);
-}
-
-static image_t* _load_image(const char* image_name) {
-	printf("AWM sending read file request for %s...\n", image_name);
-	file_manager_read_file_request_t req = {0};
-	req.event = FILE_MANAGER_READ_FILE;
-	snprintf(req.path, sizeof(req.path), "%s", image_name);
-	amc_message_construct_and_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_read_file_request_t));
-
-	printf("AWM awaiting file read response for %s...\n", image_name);
-	amc_message_t* file_data_msg;
-	bool received_file_data = false;
-	for (uint32_t i = 0; i < 32; i++) {
-		amc_message_await(FILE_MANAGER_SERVICE_NAME, &file_data_msg);
-		uint32_t event = amc_msg_u32_get_word(file_data_msg, 0);
-		if (event == FILE_MANAGER_READ_FILE_RESPONSE) {
-			received_file_data = true;
-			break;
-		}
-	}
-	assert(received_file_data, "Failed to recv file data");
-
-	printf("AWM got response for %s!\n", image_name);
-	file_manager_read_file_response_t* resp = (file_manager_read_file_response_t*)&file_data_msg->body;
-	uint8_t* b = &resp->file_data;
-
-	return image_parse(resp->file_size, resp->file_data);
 }
 
 int main(int argc, char** argv) {

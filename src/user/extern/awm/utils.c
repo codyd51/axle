@@ -148,3 +148,30 @@ array_t* update_occlusions(array_t* free_areas, Rect exclude_rect) {
     array_destroy(free_areas);
     return new_free_areas;
 }
+
+image_t* load_image(const char* image_name) {
+	printf("AWM sending read file request for %s...\n", image_name);
+	file_manager_read_file_request_t req = {0};
+	req.event = FILE_MANAGER_READ_FILE;
+	snprintf(req.path, sizeof(req.path), "%s", image_name);
+	amc_message_construct_and_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_read_file_request_t));
+
+	printf("AWM awaiting file read response for %s...\n", image_name);
+	amc_message_t* file_data_msg;
+	bool received_file_data = false;
+	for (uint32_t i = 0; i < 32; i++) {
+		amc_message_await(FILE_MANAGER_SERVICE_NAME, &file_data_msg);
+		uint32_t event = amc_msg_u32_get_word(file_data_msg, 0);
+		if (event == FILE_MANAGER_READ_FILE_RESPONSE) {
+			received_file_data = true;
+			break;
+		}
+	}
+	assert(received_file_data, "Failed to recv file data");
+
+	printf("AWM got response for %s!\n", image_name);
+	file_manager_read_file_response_t* resp = (file_manager_read_file_response_t*)&file_data_msg->body;
+	uint8_t* b = &resp->file_data;
+
+	return image_parse(resp->file_size, resp->file_data);
+}
