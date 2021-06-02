@@ -26,4 +26,10 @@ typedef struct file_manager_read_file_response {
 // TODO(PT): Think about ways to prevent this. Perhaps amc messages can be popped with a predicate
 #define FILE_MANAGER_READY  102
 
+#define FILE_MANAGER_LAUNCH_FILE 103
+typedef struct file_manager_launch_file_request {
+    uint32_t event; // FILE_MANAGER_LAUNCH_FILE
+    char path[128];
+} file_manager_launch_file_request_t;
+
 #endif
