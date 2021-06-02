@@ -14,13 +14,24 @@ static Rect _content_view_sizer(gui_view_t* view, Size window_size) {
 };
 
 static void _place_circle(gui_view_t* view, Point mouse_pos) {
-	Rect r = view->frame;
-	printf("Content layer %d %d %d %d\n", r.origin.x, r.origin.y, r.size.width, r.size.height);
-	gui_layer_draw_circle(view->content_layer, circle_make(mouse_pos, 20), color_white(), THICKNESS_FILLED);
+	gui_layer_draw_circle(
+		view->content_layer, 
+		circle_make(mouse_pos, 30), 
+		color_white(), 
+		THICKNESS_FILLED
+	);
 }
 
 static void _clear_background(gui_view_t* view, Point mouse_pos) {
-	gui_layer_draw_rect(view->content_layer, rect_make(point_zero(), view->content_layer_frame.size), color_brown(), THICKNESS_FILLED);
+	gui_layer_draw_rect(
+		view->content_layer, 
+		rect_make(
+			point_zero(), 
+			view->content_layer_frame.size
+		), 
+		color_brown(), 
+		THICKNESS_FILLED
+	);
 }
 
 int main(int argc, char** argv) {
@@ -37,7 +48,7 @@ int main(int argc, char** argv) {
 	content_view->left_click_cb = (gui_mouse_left_click_cb_t)_place_circle;
 	content_view->mouse_exited_cb = (gui_mouse_exited_cb_t)_clear_background;
 
-	gui_enter_event_loop(window);
+	gui_enter_event_loop();
 
 	return 0;
 }

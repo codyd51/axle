@@ -30,6 +30,7 @@
 #include "util.h"
 
 static net_config_t _net_config = {0};
+static gui_window_t* _g_window = NULL;
 
 static void _send_nic_config_info_request(void) {
 	printf("Net sending NIC config info request...\n");
@@ -124,7 +125,7 @@ void net_ui_local_link_append_str(char* str, Color c) {
 
 void net_ui_arp_table_draw(void) {
 	gui_text_view_t* text_view = _g_state.arp_view;
-	//gui_text_view_clear_and_erase_history(text_view);
+	gui_text_view_clear(text_view);
 
 	gui_text_view_puts(text_view, "ARP Table\n", color_purple());
 	arp_entry_t* arp_ents = arp_table();
@@ -147,7 +148,7 @@ void net_ui_arp_table_draw(void) {
 
 void net_ui_dns_records_table_draw(void) {
 	gui_text_view_t* text_view = _g_state.dns_view;
-	//gui_text_view_clear_and_erase_history(text_view);
+	gui_text_view_clear(text_view);
 
 	gui_text_view_puts(text_view, "DNS A Records\n", color_purple());
 	dns_domain_t* dns_domain_ents = dns_domain_records();
@@ -167,7 +168,7 @@ void net_ui_dns_records_table_draw(void) {
 
 void net_ui_dns_services_table_draw(void) {
 	gui_text_view_t* text_view = _g_state.dns_services_view;
-	//gui_text_view_clear_and_erase_history(text_view);
+	gui_text_view_clear(text_view);
 
 	gui_text_view_puts(text_view, "DNS Services\n", color_purple());
 	dns_service_type_t* dns_service_type_ents = dns_service_type_table();
@@ -190,7 +191,6 @@ void net_ui_dns_services_table_draw(void) {
 		}
 	}
 }
-
 
 static Rect _local_link_view_sizer(gui_text_view_t* tv, Size window_size) {
 	return rect_make(
@@ -245,7 +245,7 @@ static Rect _dns_services_view_sizer(gui_text_view_t* tv, Size window_size) {
 	);
 }
 
-static void _amc_message_received(gui_window_t* window, amc_message_t* msg) {
+static void _amc_message_received(amc_message_t* msg) {
     const char* source_service = msg->source;
 	if (!strncmp(source_service, RTL8139_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
 		net_message_t* packet_msg = (net_message_t*)&msg->body;
@@ -304,8 +304,6 @@ static void _amc_message_received(gui_window_t* window, amc_message_t* msg) {
 	}
 }
 
-static gui_window_t* _g_window = NULL;
-
 gui_window_t* net_main_window(void) {
 	assert(_g_window != NULL, "Called net_main_window before window was initialized");
 	return _g_window;
@@ -362,8 +360,8 @@ int main(int argc, char** argv) {
 	net_ui_dns_records_table_draw();
 	net_ui_dns_services_table_draw();
 
-	gui_add_message_handler(_g_window, _amc_message_received);
-	gui_enter_event_loop(_g_window);
+	gui_add_message_handler(_amc_message_received);
+	gui_enter_event_loop();
 	
 	return 0;
 }

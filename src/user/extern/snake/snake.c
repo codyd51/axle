@@ -381,7 +381,7 @@ int main(int argc, char** argv) {
 	_start_new_game(state);
 	_run_tick(state);
 
-	gui_enter_event_loop(window);
+	gui_enter_event_loop();
 
 	return 0;
 }

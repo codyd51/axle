@@ -284,7 +284,7 @@ int main(int argc, char** argv) {
     _g_state.from_blue->slider_percent = from_initial.val[2] / 255.0;
     _render_slider_values();
 
-	gui_enter_event_loop(window);
+	gui_enter_event_loop();
 
 	return 0;
 }

@@ -775,7 +775,7 @@ int main(int argc, char** argv) {
 
 	draw_game_state(state);
 
-	gui_enter_event_loop(window);
+	gui_enter_event_loop();
 
 	return 0;
 }

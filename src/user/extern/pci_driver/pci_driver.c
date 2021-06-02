@@ -281,7 +281,7 @@ static Rect _info_text_view_sizer(gui_text_view_t* tv, Size window_size) {
 	return rect_make(point_zero(), window_size);
 }
 
-static void _handle_amc_message(gui_window_t* window, amc_message_t* msg) {
+static void _handle_amc_message(amc_message_t* msg) {
     const char* source_service = msg->source;
     // If we're sent a message from someone other than a PCI device driver, ignore it
     if (!is_service_pci_device_driver(source_service)) {
@@ -341,8 +341,8 @@ int main(int argc, char** argv) {
     // Launch drivers for known devices
     launch_known_drivers(dev_head);
 
-    gui_add_message_handler(window, _handle_amc_message);
-    gui_enter_event_loop(window);
+    gui_add_message_handler(_handle_amc_message);
+    gui_enter_event_loop();
 
 	return 0;
 }

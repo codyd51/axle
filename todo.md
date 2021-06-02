@@ -206,3 +206,8 @@ awm supports multiple windows for the same owner service
 libgui supports multiple windows 
 
 gui_view progressively grows memory as size changes
+
+Crash reporter app
+When exit signal happens, send backtrace 
+    How to get assertion message?
+    assert() itself can alert the crash reporter

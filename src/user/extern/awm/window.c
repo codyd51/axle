@@ -398,7 +398,7 @@ void windows_invalidate_drawable_regions_in_rect(Rect r) {
             window_queue_composite(window);
         }
         else {
-            printf("Will not composite %s because it's fully occluded\n", window->owner_service);
+            //printf("Will not composite %s because it's fully occluded\n", window->owner_service);
         }
     }
 }

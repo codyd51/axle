@@ -32,6 +32,7 @@
 
 typedef union gui_elem gui_elem_t;
 typedef struct gui_window gui_window_t;
+typedef struct gui_application gui_application_t;
 
 typedef void(*gui_mouse_entered_cb_t)(gui_elem_t* gui_elem);
 typedef void(*gui_mouse_exited_cb_t)(gui_elem_t* gui_elem);

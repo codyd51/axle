@@ -28,7 +28,7 @@ typedef struct draw_ctx {
 } draw_ctx_t;
 
 void _draw_ast(html_dom_node_t* node, uint32_t depth, gui_text_view_t* text_view) {
-	Color c = color_black();
+	Color c = color_white();
 	if (depth > 0) {
 		gui_text_view_puts(text_view, "\t", c);
 		for (uint32_t i = 0; i < depth-1; i++) {
@@ -92,7 +92,7 @@ static char* _html_child_text(html_dom_node_t* parent_node) {
 
 static void _render_html(gui_window_t* window, uint32_t tcp_conn_desc) {
 	html_dom_node_t* root = html_parse_from_socket(tcp_conn_desc);
-	gui_view_t* view = array_lookup(window->views, 0);
+	gui_text_view_t* view = array_lookup(window->views, 0);
 
 	if (root) {
 		/*
@@ -210,7 +210,6 @@ void _timer_fired(gui_window_t* w) {
 
 int main(int argc, char** argv) {
 	amc_register_service("com.user.netclient");
-	printf("Net-client running\n");
 
 	// Instantiate the GUI window
 	gui_window_t* window = gui_window_create("Browser", 900, 800);
@@ -244,7 +243,7 @@ int main(int argc, char** argv) {
 	gui_timer_start(window, 0, (gui_timer_cb_t)_timer_fired, window);
 
 	// Enter the event loop forever
-	gui_enter_event_loop(window);
+	gui_enter_event_loop();
 
 	return 0;
 }

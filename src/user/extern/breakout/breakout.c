@@ -618,7 +618,7 @@ int main(int argc, char** argv) {
 		// Start the physics runloop
 		_run_physics_tick(state);
 
-	gui_enter_event_loop(window);
+	gui_enter_event_loop();
 
 	return 0;
 }

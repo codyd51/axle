@@ -492,7 +492,7 @@ static initrd_fs_node_t* _find_node_by_name(char* name) {
 	return NULL;
 }
 
-static void _amc_message_received(gui_window_t* window, amc_message_t* msg) {
+static void _amc_message_received(amc_message_t* msg) {
     const char* source_service = msg->source;
 
 	uint32_t event = amc_msg_u32_get_word(msg, 0);
@@ -564,11 +564,9 @@ int main(int argc, char** argv) {
 	// then generate the UI tree without having to traverse the node tree each time
 	_generate_ui_tree((gui_view_t*)content_view, NULL, 0, (fs_node_t*)root);
 
-	gui_add_message_handler(window, _amc_message_received);
-
+	gui_add_message_handler(_amc_message_received);
 	amc_msg_u32_1__send(AWM_SERVICE_NAME, FILE_MANAGER_READY);
-
-	gui_enter_event_loop(window);
+	gui_enter_event_loop();
 
 	return 0;
 }

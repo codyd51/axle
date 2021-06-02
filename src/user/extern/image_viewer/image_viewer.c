@@ -17,6 +17,7 @@ typedef struct raw_image_info {
 } raw_image_info_t;
 
 static raw_image_info_t* _g_image = NULL;
+static gui_window_t* _g_window = NULL;
 
 static Rect _image_view_sizer(gui_view_t* view, Size window_size) {
 	return rect_make(point_zero(), window_size);
@@ -41,7 +42,7 @@ static Rect _window_resized(gui_view_t* view, Size window_size) {
 	return rect_zero();
 }
 
-static void _amc_message_received(gui_window_t* window, amc_message_t* msg) {
+static void _amc_message_received(amc_message_t* msg) {
     const char* source_service = msg->source;
 
 	image_viewer_load_image_request_t* load_image_req = (image_viewer_load_image_request_t*)&msg->body;
@@ -75,25 +76,24 @@ static void _amc_message_received(gui_window_t* window, amc_message_t* msg) {
 	raw_image->image = image_parse(resp->file_size, resp->file_data);
 
 	_g_image = raw_image;
-	_render_image(array_lookup(window->views, 0));
+	_render_image(array_lookup(_g_window->views, 0));
 }
 
 int main(int argc, char** argv) {
 	amc_register_service(IMAGE_VIEWER_SERVICE_NAME);
 
-	gui_window_t* window = gui_window_create("Image Viewer", 400, 400);
-	Size window_size = window->size;
+	_g_window = gui_window_create("Image Viewer", 400, 400);
+	Size window_size = _g_window->size;
 
 	gui_view_t* image_view = gui_view_create(
-		window,
+		_g_window,
 		(gui_window_resized_cb_t)_image_view_sizer
 	);
 	image_view->controls_content_layer = true;
 	image_view->window_resized_cb = (gui_window_resized_cb_t)_window_resized;
 
-	gui_add_message_handler(window, _amc_message_received);
-
-	gui_enter_event_loop(window);
+	gui_add_message_handler(_amc_message_received);
+	gui_enter_event_loop();
 
 	return 0;
 }

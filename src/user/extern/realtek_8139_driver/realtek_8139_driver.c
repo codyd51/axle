@@ -14,6 +14,9 @@
 // PCI
 #include <pci/pci_messages.h>
 
+// IPC communication
+#include <libamc/libamc.h>
+
 // Port IO
 #include <libport/libport.h>
 
@@ -324,7 +327,7 @@ static Rect _info_box_sizer(gui_text_view_t* text_view, Size window_size) {
 
 static rtl8139_state_t nic_state = {0};
 
-static void _int_received(gui_window_t* window, uint32_t int_no) {
+static void _int_received(uint32_t int_no) {
 	// The NIC needs some attention
 	// Reading the ISR register clears all interrupts
 	uint16_t status = inw(nic_state.io_base + RTL_REG_INTERRUPT_STATUS);
@@ -353,7 +356,7 @@ static void _int_received(gui_window_t* window, uint32_t int_no) {
 	adi_send_eoi(INT_VECTOR_IRQ11);
 }
 
-static void _message_received(gui_window_t* window, amc_message_t* msg) {
+static void _message_received(amc_message_t* msg) {
 	const char* source_service = msg->source;
 	if (!strncmp(source_service, NET_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
 		net_message_t* net_msg = (net_message_t*)msg->body;
@@ -418,10 +421,9 @@ int main(int argc, char** argv) {
 	_read_mac_address(&nic_state, mac_buf, sizeof(mac_buf));
 	gui_text_view_puts(info_box, mac_buf, color_purple());
 
-	gui_add_interrupt_handler(window, INT_VECTOR_IRQ11, _int_received);
-	gui_add_message_handler(window, _message_received);
-
-	gui_enter_event_loop(window);
+	gui_add_interrupt_handler(INT_VECTOR_IRQ11, _int_received);
+	gui_add_message_handler(_message_received);
+	gui_enter_event_loop();
 	
 	return 0;
 }

@@ -52,8 +52,7 @@ int main(int argc, char** argv) {
 	_g_text_view->font_size = size_make(16, 24);
 
 	gui_timer_start(window, 0, (gui_timer_cb_t)_refresh_stats, _g_text_view);
-
-	gui_enter_event_loop(window);
+	gui_enter_event_loop();
 
 	return 0;
 }

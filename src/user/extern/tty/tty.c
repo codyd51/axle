@@ -12,7 +12,7 @@ static Rect _logs_text_view_sizer(gui_text_view_t* logs_text_view, Size window_s
 	return rect_make(point_zero(), window_size);
 }
 
-static void _amc_message_received(gui_window_t* window, amc_message_t* msg) {
+static void _amc_message_received(amc_message_t* msg) {
 	char buf[msg->len+1];
 	strncpy(buf, msg->body, msg->len);
 	buf[msg->len] = '\0';
@@ -28,8 +28,8 @@ int main(int argc, char** argv) {
 		(gui_window_resized_cb_t)_logs_text_view_sizer
 	);
 
-	gui_add_message_handler(window, _amc_message_received);
-	gui_enter_event_loop(window);
+	gui_add_message_handler(_amc_message_received);
+	gui_enter_event_loop();
 
 	return 0;
 }

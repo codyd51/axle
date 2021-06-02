@@ -646,7 +646,7 @@ int main(int argc, char** argv) {
 	blit_layer(_screen.vmem, _g_background, screen_frame, screen_frame);
 	blit_layer(&dummy_layer, _screen.vmem, screen_frame, screen_frame);
 
-	_g_rects_to_update_this_cycle = array_create(32);
+	_g_rects_to_update_this_cycle = array_create(128);
 
 	while (true) {
 		// Wait for a system event or window event
@@ -715,7 +715,7 @@ int main(int argc, char** argv) {
 			Rect* rp = array_lookup(_g_rects_to_update_this_cycle, i);
 			Rect r = *rp;
 
-			array_t* unobscured_region = array_create(32);
+			array_t* unobscured_region = array_create(128);
 			rect_add(unobscured_region, r);
 
 			// Handle the parts of the dirty region that are obscured by windows

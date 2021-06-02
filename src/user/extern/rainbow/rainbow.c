@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
 
 	_redraw_gradient(content_view);
 
-	gui_enter_event_loop(window);
+	gui_enter_event_loop();
 
 	return 0;
 }

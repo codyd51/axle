@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
 		(gui_window_resized_cb_t)_input_sizer
 	);
 
-	gui_enter_event_loop(window);
+	gui_enter_event_loop();
 
 	return 0;
 }
