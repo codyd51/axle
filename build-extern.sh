@@ -113,6 +113,10 @@ cd ./src/user/extern/activity_monitor
 make
 cd ../../../../
 
+cd ./src/user/extern/crash_reporter
+make
+cd ../../../../
+
 cd initrd
 ../fsgen ./
 mv initrd.img ../initrd.img
