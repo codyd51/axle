@@ -321,10 +321,6 @@ static void _read_mac_address(rtl8139_state_t* nic_state, char* buf, uint32_t bu
 	snprintf(buf, bufsize, "%02x:%02x:%02x:%02x:%02x:%02x\n", mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
 }
 
-static Rect _info_box_sizer(gui_text_view_t* text_view, Size window_size) {
-	return rect_make(point_zero(), window_size);
-}
-
 static rtl8139_state_t nic_state = {0};
 
 static void _int_received(uint32_t int_no) {
@@ -405,22 +401,8 @@ int main(int argc, char** argv) {
 	int io_base = 0xc000;
 	realtek_8139_init(0, 3, 0, io_base, &nic_state);
 
-	// Instantiate the GUI window
-	gui_window_t* window = gui_window_create("NIC Driver", 320, 80);
-	gui_text_view_t* info_box = gui_text_view_create(
-		window, 
-		(gui_window_resized_cb_t)_info_box_sizer
-	);
-	info_box->background_color = color_white();
-
-	//draw_rect(window_layer, window_frame, color_purple(), THICKNESS_FILLED);
-	gui_text_view_puts(info_box, "RealTek 8139 NIC driver\n", color_black());
-
-	gui_text_view_puts(info_box, "MAC address: ", color_black());
-	char mac_buf[256];
-	_read_mac_address(&nic_state, mac_buf, sizeof(mac_buf));
-	gui_text_view_puts(info_box, mac_buf, color_purple());
-
+	// Set up the event loop with libgui
+	gui_application_create();
 	gui_add_interrupt_handler(INT_VECTOR_IRQ11, _int_received);
 	gui_add_message_handler(_message_received);
 	gui_enter_event_loop();
