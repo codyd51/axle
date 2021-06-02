@@ -201,9 +201,10 @@ Goals:
 
         - Need to use split regions to draw something
     
-libgui supports no windows 
+libgui supports no windows (check)
 awm supports multiple windows for the same owner service
 libgui supports multiple windows 
+libgui supports partial draw
 
 gui_view progressively grows memory as size changes
 
@@ -211,3 +212,8 @@ Crash reporter app
 When exit signal happens, send backtrace 
     How to get assertion message?
     assert() itself can alert the crash reporter
+
+awm subscribes to process-died notifications from amc
+    Cleans up window 
+    New amc syscall to flush pending messages from awm
+        Flushes either from deliver queue or unknown-services message queue

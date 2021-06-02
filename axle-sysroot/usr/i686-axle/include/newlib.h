@@ -54,10 +54,10 @@
 #define _ATEXIT_DYNAMIC_ALLOC 1
 
 /* True if long double supported.  */
-#define _HAVE_LONG_DOUBLE 1
+/* #undef _HAVE_LONG_DOUBLE */
 
 /* Define if compiler supports -fno-tree-loop-distribute-patterns. */
-#define _HAVE_CC_INHIBIT_LOOP_TO_LIBCALL 1
+/* #undef _HAVE_CC_INHIBIT_LOOP_TO_LIBCALL */
 
 /* True if long double supported and it is equal to double.  */
 /* #undef _LDBL_EQ_DBL */

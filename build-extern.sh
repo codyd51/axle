@@ -49,7 +49,7 @@ cd ./src/user/extern/realtek_8139_driver
 make
 cd ../../../../
 
-cd ./src/user/extern/tty
+cd ./src/user/extern/logs_viewer
 make
 cd ../../../../
 

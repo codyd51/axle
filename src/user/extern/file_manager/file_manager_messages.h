@@ -6,7 +6,6 @@
 #define FILE_MANAGER_SERVICE_NAME "com.axle.file_manager"
 
 // Sent from clients to the file manager
-// Value chosen to not conflict with awm event values
 #define FILE_MANAGER_READ_FILE 100
 typedef struct file_manager_read_file_request {
     uint32_t event; // FILE_MANAGER_READ_FILE 

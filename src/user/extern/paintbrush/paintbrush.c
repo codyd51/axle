@@ -2,11 +2,11 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <assert.h>
 #include <stdlib.h>
 
-#include <libamc/libamc.h>
+#include <stdlibadd/assert.h>
 
+#include <libamc/libamc.h>
 #include <libgui/libgui.h>
 
 static Rect _content_view_sizer(gui_view_t* view, Size window_size) {

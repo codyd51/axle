@@ -27,7 +27,6 @@ int main(int argc, char** argv) {
 		window,
 		(gui_window_resized_cb_t)_logs_text_view_sizer
 	);
-
 	gui_add_message_handler(_amc_message_received);
 	gui_enter_event_loop();
 
