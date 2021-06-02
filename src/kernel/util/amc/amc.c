@@ -386,7 +386,7 @@ static void _amc_core_put_service_to_sleep(const char* source_service, uint32_t 
     uint32_t wake = now + ms;
     service->task->blocked_info.wake_timestamp = wake;
     char* extra_msg = (awake_on_message) ? "or message arrives" : "(time only)";
-    printf("Core blocking %s [%d %s] at %d until %d %s (%dms)\n", source_service, service->task->id, service->task->name, now, wake, extra_msg, ms);
+    //printf("Core blocking %s [%d %s] at %d until %d %s (%dms)\n", source_service, service->task->id, service->task->name, now, wake, extra_msg, ms);
 
     array_m_insert(_asleep_procs, service);
     uint32_t block_reason = (awake_on_message) ? (AMC_AWAIT_TIMESTAMP | AMC_AWAIT_MESSAGE) : AMC_AWAIT_TIMESTAMP;

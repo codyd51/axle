@@ -39,6 +39,23 @@ gui_text_view_t* gui_text_view_create(gui_window_t* window, gui_window_resized_c
 	return view;
 }
 
+void gui_text_view_clear(gui_text_view_t* text_view) {
+	gui_layer_draw_rect(
+		text_view->content_layer,
+		rect_make(
+			point_zero(),
+			text_view->content_layer->scroll_layer.inner->size
+		),
+		text_view->background_color,
+		THICKNESS_FILLED
+	);
+	text_view->cursor_pos = point_make(
+		text_view->font_inset.width,
+		text_view->font_inset.height
+	);
+	text_view->content_layer->scroll_layer.max_y = text_view->font_inset.height;
+}
+
 static void _gui_text_view_newline(gui_text_view_t* text_view) {
 	text_view->cursor_pos.x = text_view->font_inset.width;
 	text_view->cursor_pos.y += text_view->font_size.height + (text_view->font_size.height / 2);
@@ -46,20 +63,7 @@ static void _gui_text_view_newline(gui_text_view_t* text_view) {
 	if (text_view->cursor_pos.y + text_view->font_size.height >= text_view->content_layer->scroll_layer.inner->size.height - (text_view->font_inset.width * 2)) {
 		//printf("Text box exceeded scrolling layer, reset to top... (%d)\n", text_box->history->count);
 		//text_box_clear_and_erase_history(text_box);
-		gui_layer_draw_rect(
-			text_view->content_layer,
-			rect_make(
-				point_zero(),
-				text_view->content_layer->scroll_layer.inner->size
-			),
-			text_view->background_color,
-			THICKNESS_FILLED
-		);
-		text_view->cursor_pos = point_make(
-			text_view->font_inset.width,
-			text_view->font_inset.height
-		);
-		text_view->content_layer->scroll_layer.max_y = text_view->font_inset.height;
+		gui_text_view_clear(text_view);
 	}
 }
 
