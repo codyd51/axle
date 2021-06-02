@@ -281,6 +281,12 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
 		&shmem_local, 
 		&shmem_remote
 	);
+    
+    // Ask the kernel to inform us when this process dies
+    amc_notify_when_service_dies_cmd_t req = {0};
+    req.event = AMC_REGISTER_NOTIFICATION_SERVICE_DIED;
+    snprintf(&req.remote_service, sizeof(req.remote_service), owner_service);
+    amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &req, sizeof(req));
 
 	// Place the window in the center of the screen
 	Point origin = point_make(

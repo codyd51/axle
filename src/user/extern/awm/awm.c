@@ -522,6 +522,22 @@ static void _update_window_title(const char* owner_service, awm_window_title_msg
 	_window_resize(window, window->frame.size, false);
 }
 
+static void _remove_and_teardown_window_for_service(const char* owner_service) {
+	user_window_t* window = window_with_service_name(owner_service);
+	if (window == NULL) {
+		return;
+	}
+
+	Rect window_frame = window->frame;
+	window_destroy(window);
+	if (g_mouse_state.active_window == window) {
+		printf("Clear active window 0x%08x\n", window);
+		g_mouse_state.active_window = NULL;
+	}
+	windows_invalidate_drawable_regions_in_rect(window_frame);
+	queue_rect_to_update_this_cycle(window_frame);
+}
+
 static void handle_user_message(amc_message_t* user_message) {
 	const char* source_service = amc_message_source(user_message);
 	uint32_t command = amc_msg_u32_get_word(user_message, 0);
@@ -565,15 +581,7 @@ static void handle_user_message(amc_message_t* user_message) {
 		_update_window_title(source_service, title_msg);
 	}
 	else if (command == AWM_CLOSE_WINDOW) {
-		user_window_t* window = window_with_service_name(source_service);
-		Rect window_frame = window->frame;
-		window_destroy(window);
-		if (g_mouse_state.active_window == window) {
-			printf("Clear active window 0x%08x\n", window);
-			g_mouse_state.active_window = NULL;
-		}
-		windows_invalidate_drawable_regions_in_rect(window_frame);
-		queue_rect_to_update_this_cycle(window_frame);
+		_remove_and_teardown_window_for_service(source_service);
 	}
 	else {
 		printf("Unknown message from %s: %d\n", source_service, command);
@@ -693,6 +701,17 @@ int main(int argc, char** argv) {
 					);
 					memset(&incremental_mouse_update, 0, sizeof(incremental_mouse_state_t));
 					incremental_mouse_update.combined_msg_count = 0;
+				}
+			}
+			else if (!strncmp(source_service, AXLE_CORE_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
+				uint32_t* u32buf = (uint32_t*)&msg->body;
+				if (u32buf[0] == AMC_SERVICE_DIED_NOTIFICATION) {
+					amc_service_died_notification_t* notif = (amc_service_died_notification_t*)&msg->body;
+					_remove_and_teardown_window_for_service(notif->dead_service);
+				}
+				else {
+					printf("Unknown message from core: %d\n", u32buf[0]);
+					assert(false, "Unknown message from core");
 				}
 			}
 			else {
