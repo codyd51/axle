@@ -192,6 +192,7 @@ void amc_register_service(const char* name) {
     service->task = current_task;
     service->message_queue = array_m_create(2048);
     service->shmem_regions = array_m_create(32);
+    service->services_to_notify_upon_death = array_m_create(32);
 
     // Create the message delivery pool in the task's address space
 	service->delivery_pool = vmm_alloc_continuous_range(
@@ -240,11 +241,6 @@ void amc_teardown_service_for_task(task_small_t* task) {
     int32_t idx = array_m_index(_amc_services, service);
     array_m_remove(_amc_services, idx);
 
-    //printf("\tTeardown metadata\n");
-    // Free service metadata
-    kfree(service->spinlock.name);
-    kfree(service->name);
-
     // Free message queue
     while (service->message_queue->size) {
         amc_message_t* msg = array_m_lookup(service->message_queue, 0);
@@ -260,6 +256,23 @@ void amc_teardown_service_for_task(task_small_t* task) {
         printf("Free shared memory region\n");
         _amc_core_shared_memory_destroy(service, 0);
     }
+    array_m_destroy(service->shmem_regions);
+
+    // Inform other services that this service is now dead
+    for (int32_t i = 0; i < service->services_to_notify_upon_death->size; i++) {
+        amc_service_t* listener = array_m_lookup(service->services_to_notify_upon_death, i);
+        printf("Informing %s of the death of %s\n", listener->name, service->name);
+        amc_service_died_notification_t notif = {0};
+        notif.event = AMC_SERVICE_DIED_NOTIFICATION;
+        snprintf(&notif.dead_service, sizeof(notif.dead_service), "%s", service->name);
+        amc_message_construct_and_send__from_core(listener->name, &notif, sizeof(notif));
+    }
+    array_m_destroy(service->services_to_notify_upon_death);
+
+    //printf("\tTeardown metadata\n");
+    // Free service metadata
+    kfree(service->spinlock.name);
+    kfree(service->name);
 
     // The amc delivery pool will be cleaned up on the global page dir teardown
 

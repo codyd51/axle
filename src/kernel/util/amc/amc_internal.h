@@ -31,6 +31,9 @@ typedef struct amc_service {
 
     // Any shared memory regions that have been set up with another service
     array_m* shmem_regions;
+
+    // Other amc services that have requested to receive a message when this service dies
+    array_m* services_to_notify_upon_death;
 } amc_service_t;
 
 array_m* amc_services(void);

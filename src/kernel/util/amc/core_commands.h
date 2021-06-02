@@ -6,8 +6,8 @@
 #define AXLE_CORE_SERVICE_NAME "com.axle.core"
 #define AMC_MAX_SERVICE_NAME_LEN 64
 
-#define AMC_COPY_SERVICES (1 << 0)
-#define AMC_COPY_SERVICES_RESPONSE (1 << 0)
+#define AMC_COPY_SERVICES 200
+#define AMC_COPY_SERVICES_RESPONSE 200
 
 typedef struct amc_service_description {
 	char service_name[AMC_MAX_SERVICE_NAME_LEN];
@@ -20,8 +20,8 @@ typedef struct amc_service_list {
 	amc_service_description_t service_descs[];
 } amc_service_list_t;
 
-#define AMC_AWM_MAP_FRAMEBUFFER (1 << 1)
-#define AMC_AWM_MAP_FRAMEBUFFER_RESPONSE (1 << 1)
+#define AMC_AWM_MAP_FRAMEBUFFER 201
+#define AMC_AWM_MAP_FRAMEBUFFER_RESPONSE 201
 
 typedef struct amc_framebuffer_info {
     uint32_t event;
@@ -35,11 +35,10 @@ typedef struct amc_framebuffer_info {
     uint32_t size;
 } amc_framebuffer_info_t;
 
+#define AMC_SLEEP_UNTIL_TIMESTAMP 202
 
-#define AMC_SLEEP_UNTIL_TIMESTAMP (1 << 2)
-
-#define AMC_FILE_MANAGER_MAP_INITRD (1 << 3)
-#define AMC_FILE_MANAGER_MAP_INITRD_RESPONSE (1 << 3)
+#define AMC_FILE_MANAGER_MAP_INITRD 203
+#define AMC_FILE_MANAGER_MAP_INITRD_RESPONSE 203
 
 typedef struct amc_initrd_info {
     uint32_t event;
@@ -48,8 +47,8 @@ typedef struct amc_initrd_info {
     uint32_t initrd_size;
 } amc_initrd_info_t;
 
-#define AMC_FILE_MANAGER_EXEC_BUFFER (1 << 4)
-#define AMC_FILE_MANAGER_EXEC_BUFFER_RESPONSE (1 << 4)
+#define AMC_FILE_MANAGER_EXEC_BUFFER 204
+#define AMC_FILE_MANAGER_EXEC_BUFFER_RESPONSE 204
 
 typedef struct amc_exec_buffer_cmd {
     uint32_t event;
@@ -58,7 +57,7 @@ typedef struct amc_exec_buffer_cmd {
     uint32_t buffer_size;
 } amc_exec_buffer_cmd_t;
 
-#define AMC_SHARED_MEMORY_DESTROY (1 << 5)
+#define AMC_SHARED_MEMORY_DESTROY 205
 
 typedef struct amc_shared_memory_destroy_cmd {
     uint32_t event;
@@ -68,8 +67,8 @@ typedef struct amc_shared_memory_destroy_cmd {
 	uint32_t shmem_remote;
 } amc_shared_memory_destroy_cmd_t;
 
-#define AMC_SYSTEM_PROFILE_REQUEST (1 << 7)
-#define AMC_SYSTEM_PROFILE_RESPONSE (1 << 7)
+#define AMC_SYSTEM_PROFILE_REQUEST 206
+#define AMC_SYSTEM_PROFILE_RESPONSE 206
 
 typedef struct amc_system_profile_response {
     uint32_t event;
@@ -77,7 +76,20 @@ typedef struct amc_system_profile_response {
     uint32_t kheap_allocated;
 } amc_system_profile_response_t;
 
-#define AMC_SLEEP_UNTIL_TIMESTAMP_OR_MESSAGE (1 << 8)
+#define AMC_SLEEP_UNTIL_TIMESTAMP_OR_MESSAGE 207
+
+#define AMC_REGISTER_NOTIFICATION_SERVICE_DIED 208
+#define AMC_SERVICE_DIED_NOTIFICATION 208
+
+typedef struct amc_notify_when_service_dies_cmd {
+    uint32_t event; // AMC_REGISTER_NOTIFICATION_SERVICE_DIED
+    char remote_service[AMC_MAX_SERVICE_NAME_LEN];
+} amc_notify_when_service_dies_cmd_t;
+
+typedef struct amc_service_died_notification {
+    uint32_t event; // AMC_SERVICE_DIED_NOTIFICATION
+    char dead_service[AMC_MAX_SERVICE_NAME_LEN];
+} amc_service_died_notification_t;
 
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size);
 

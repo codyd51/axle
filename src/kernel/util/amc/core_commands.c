@@ -127,6 +127,27 @@ static void _amc_core_file_manager_exec_buffer(const char* source_service, void*
     );
 }
 
+static void _amc_core_handle_profile_request(const char* source_service) {
+    amc_system_profile_response_t resp = {0};
+    resp.event = AMC_SYSTEM_PROFILE_RESPONSE;
+    resp.pmm_allocated = pmm_allocated_memory();
+    resp.kheap_allocated = kheap_allocated_memory();
+    amc_message_construct_and_send__from_core(source_service, &resp, sizeof(resp));
+}
+
+static void _amc_core_handle_notify_service_died(const char* source_service, void* buf, uint32_t buf_size) {
+    amc_service_t* source = amc_service_with_name(source_service);
+    assert(source != NULL, "Failed to find service that sent the message...");
+
+    amc_notify_when_service_dies_cmd_t* cmd = (amc_notify_when_service_dies_cmd_t*)buf;
+    amc_service_t* remote = amc_service_with_name(&cmd->remote_service);
+    if (!remote) {
+        printf("Dropping request to notify on %s's death because it doesn't exist\n", cmd->remote_service);
+        return;
+    }
+
+    array_m_insert(remote->services_to_notify_upon_death, source);
+}
 
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size) {
     //printf("Message to core from %s\n", source_service);
@@ -154,11 +175,10 @@ void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf
         //_amc_core_shared_memory_destroy(source_service, buf, buf_size);
     }
     else if (u32buf[0] == AMC_SYSTEM_PROFILE_REQUEST) {
-        amc_system_profile_response_t resp = {0};
-        resp.event = AMC_SYSTEM_PROFILE_RESPONSE;
-        resp.pmm_allocated = pmm_allocated_memory();
-        resp.kheap_allocated = kheap_allocated_memory();
-        amc_message_construct_and_send__from_core(source_service, &resp, sizeof(resp));
+        _amc_core_handle_profile_request(source_service);
+    }
+    else if (u32buf[0] == AMC_REGISTER_NOTIFICATION_SERVICE_DIED) {
+        _amc_core_handle_notify_service_died(source_service, buf, buf_size);
     }
     else {
         printf("Unknown message: %d\n", u32buf[0]);
