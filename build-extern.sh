@@ -5,6 +5,7 @@ set -e
 
 # Copy headers that are used externally to the sysroot
 cp src/kernel/util/amc/amc.h axle-sysroot/usr/i686-axle/include/kernel/amc.h
+cp src/kernel/util/amc/core_commands.h axle-sysroot/usr/i686-axle/include/kernel/core_commands.h
 cp src/kernel/util/adi/adi.h axle-sysroot/usr/i686-axle/include/kernel/adi.h
 cp src/kernel/interrupts/idt.h axle-sysroot/usr/i686-axle/include/kernel/idt.h
 

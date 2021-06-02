@@ -119,4 +119,6 @@ void tasking_reenable_scheduling(void);
 
 void mlfq_goto_task(task_small_t* task);
 
+void task_set_name(task_small_t* task, const char* new_name);
+
 #endif

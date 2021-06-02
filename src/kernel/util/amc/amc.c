@@ -1,13 +1,12 @@
-#include "amc.h"
 #include <std/kheap.h>
 #include <std/math.h>
 #include <std/array_l.h>
 #include <std/array_m.h>
 #include <std/hash_map.h>
 #include <kernel/util/spinlock/spinlock.h>
-#include <kernel/multitasking/tasks/task_small.h>
 
-#include <kernel/boot_info.h>
+#include "amc.h"
+#include "amc_internal.h"
 
 /* 
  * 0x80000000: ELF code and data
@@ -47,33 +46,18 @@ static array_m* _asleep_procs = 0;
 static hash_map_t* _amc_services_by_name = 0;
 static hash_map_t* _amc_services_by_task = 0;
 
-typedef struct amc_shared_memory_region {
-    char remote[AMC_MAX_SERVICE_NAME_LEN];
-    uint32_t remote_descriptor;
-    uint32_t start;
-    uint32_t size;
-} amc_shared_memory_region_t;
-
-typedef struct amc_service {
-    const char* name;
-    task_small_t* task;
-	// Inbox of IPC messages awaiting processing
-	//array_l* message_queue;
-	array_m* message_queue;
-    
-    // Spinlock around interacting with a service
-    spinlock_t spinlock;
-
-    // Base address of delivery pool
-    uint32_t delivery_pool;
-
-    // Any shared memory regions that have been set up with another service
-    array_m* shmem_regions;
-} amc_service_t;
-
 static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_message_t* message);
 static void _amc_message_free(amc_message_t* msg);
 static void _amc_core_shared_memory_destroy(amc_service_t* local_service, uint32_t shmem_descriptor);
+void _amc_remove_service_from_sleep_list(amc_service_t* service);
+
+array_m* amc_services(void) {
+    return _amc_services;
+}
+
+array_m* amc_sleeping_procs(void) {
+    return _asleep_procs;
+}
 
 void amc_print_services(void) {
     if (!_amc_services) return;
@@ -98,9 +82,9 @@ static amc_service_t* _amc_service_matching_data(const char* name, task_small_t*
     }
 
     if (!_amc_services) {
-        printf("_amc_service_with_name called before AMC had any registered services\n");
+        printf("amc_service_with_name called before AMC had any registered services\n");
         return NULL;
-        //panic("_amc_service_with_name called before AMC had any registered services");
+        //panic("amc_service_with_name called before AMC had any registered services");
     }
 
     // TODO(PT): We should be able to lock an array while iterating it
@@ -124,7 +108,7 @@ static amc_service_t* _amc_service_matching_data(const char* name, task_small_t*
     //panic("Didn't find amc service matching provided data");
 }
 
-static amc_service_t* _amc_service_with_name(const char* name) {
+amc_service_t* amc_service_with_name(const char* name) {
     return _amc_service_matching_data(name, NULL);
     //printf("_amc_service_with_name\n");
     //return hash_map_get(_amc_services_by_name, name, strlen(name));
@@ -144,7 +128,7 @@ static void _amc_deliver_pending_messages_to_new_service(amc_service_t* new_serv
     spinlock_acquire(&_amc_messages_to_unknown_services_pool->lock);
 
     for (int i = 0; i < _amc_messages_to_unknown_services_pool->size; i++) {
-        amc_message_t* msg = _array_m_lookup_unlocked(_amc_messages_to_unknown_services_pool, i);
+        amc_message_t* msg = array_m_lookup(_amc_messages_to_unknown_services_pool, i);
         printf("New service %s, outstanding [%s -> %s]\n", new_service->name, msg->source, msg->dest);
         if (!strncmp(msg->dest, new_service->name, AMC_MAX_SERVICE_NAME_LEN)) {
             printf("Found outstanding msg from %s to new %s\n", msg->source, msg->dest);
@@ -160,11 +144,11 @@ static void _amc_deliver_pending_messages_to_new_service(amc_service_t* new_serv
     for (int i = 0; i < matching_msg_count; i++) {
         int idx = message_indexes_to_deliver[i];
         idx -= idx_shift;
-        amc_message_t* msg = _array_m_lookup_unlocked(_amc_messages_to_unknown_services_pool, idx);
+        amc_message_t* msg = array_m_lookup(_amc_messages_to_unknown_services_pool, idx);
         // Possible race due to _amc_messages_to_unknown_services_pool being unlocked?
         assert(!strncmp(msg->dest, new_service->name, AMC_MAX_SERVICE_NAME_LEN), "Message wasn't intended for this service!");
 
-        _array_m_remove_unlocked(_amc_messages_to_unknown_services_pool, idx);
+        array_m_remove(_amc_messages_to_unknown_services_pool, idx);
         idx_shift += 1;
         _amc_message_add_to_delivery_queue(new_service, msg);
     }
@@ -211,7 +195,7 @@ void amc_register_service(const char* name) {
 
     // Create the message delivery pool in the task's address space
 	service->delivery_pool = vmm_alloc_continuous_range(
-        vmm_active_pdir(), 
+        (vmm_page_directory_t*)vmm_active_pdir(), 
         _amc_delivery_pool_size, 
         true, 
         _amc_delivery_pool_base, 
@@ -253,8 +237,8 @@ void amc_teardown_service_for_task(task_small_t* task) {
 
     // Remove from list of amc services
     //printf("\tRemove from services list\n");
-    int32_t idx = _array_m_index_unlocked(_amc_services, service);
-    _array_m_remove_unlocked(_amc_services, idx);
+    int32_t idx = array_m_index(_amc_services, service);
+    array_m_remove(_amc_services, idx);
 
     //printf("\tTeardown metadata\n");
     // Free service metadata
@@ -328,77 +312,12 @@ static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_
     spinlock_release(&dest_service->spinlock);
 }
 
-static void _amc_core_copy_amc_services(const char* source_service) {
-    printf("Request to copy services\n");
-   
-    uint32_t response_size = sizeof(amc_service_list_t) + (sizeof(amc_service_description_t) * _amc_services->size);
-    amc_service_list_t* service_list = calloc(1, response_size);
-    service_list->event = AMC_COPY_SERVICES_RESPONSE;
-    service_list->service_count = _amc_services->size;
-
-    for (int i = 0; i < _amc_services->size; i++) {
-        amc_service_description_t* service_desc = &service_list->service_descs[i];
-        amc_service_t* service = array_m_lookup(_amc_services, i);
-        //printf("Service desc 0x%08x, amc service 0x%08x %s -> desc 0x%08x 0x%08x\n", service_desc, service->name, service->name, service_desc->service_name, &service_desc->service_name);
-        strncpy(&service_desc->service_name, service->name, AMC_MAX_SERVICE_NAME_LEN);
-        service_desc->unread_message_count = service->message_queue->size;
-    }
-    amc_message_construct_and_send__from_core(source_service, service_list, response_size);
-    kfree(service_list);
-    return true;
-}
-
-static void _amc_core_awm_map_framebuffer(const char* source_service) {
-    // Only awm is allowed to invoke this code!
-    assert(!strncmp(source_service, "com.axle.awm", AMC_MAX_SERVICE_NAME_LEN), "Only AWM may use this syscall");
-
-    amc_service_t* current_service = _amc_service_with_name(source_service);
-    spinlock_acquire(&current_service->spinlock);
-    framebuffer_info_t* framebuffer_info = &boot_info_get()->framebuffer;
-    //  Map VESA framebuffer into proc's address space
-    vmm_identity_map_region(
-        (vmm_page_directory_t*)vmm_active_pdir(), 
-        framebuffer_info->address,
-        framebuffer_info->size
-    );
-    spinlock_release(&current_service->spinlock);
-
-    // And set the pages as accessible to user-mode
-    uint32_t framebuf_start_addr = framebuffer_info->address;
-    uint32_t framebuf_end_addr = framebuffer_info->address + framebuffer_info->size;
-    // Pad to page size
-    framebuf_end_addr = (framebuf_end_addr + (PAGE_SIZE - 1)) & PAGING_PAGE_MASK;
-    printf("Framebuffer: 0x%08x - 0x%08x (%d pages)\n", framebuf_start_addr, framebuf_end_addr, ((framebuf_end_addr - framebuf_start_addr) / PAGE_SIZE));
-    for (uint32_t addr = framebuf_start_addr; addr < framebuf_end_addr; addr += PAGE_SIZE) {
-        vmm_set_page_usermode(vmm_active_pdir(), addr);
-    }
-
-    amc_framebuffer_info_t msg = {.event = AMC_AWM_MAP_FRAMEBUFFER_RESPONSE};
-    // Copy the framebuffer_info_t into the structure subfields that exactly match its layout
-    memcpy(&msg.type, framebuffer_info, sizeof(framebuffer_info_t));
-    amc_message_construct_and_send__from_core(source_service, &msg, sizeof(amc_framebuffer_info_t));
-}
-
-static void _amc_core_put_service_to_sleep(const char* source_service, uint32_t ms, bool awake_on_message) {
-    amc_service_t* service = _amc_service_with_name(source_service);
-
-    uint32_t now = ms_since_boot();
-    uint32_t wake = now + ms;
-    service->task->blocked_info.wake_timestamp = wake;
-    char* extra_msg = (awake_on_message) ? "or message arrives" : "(time only)";
-    //printf("Core blocking %s [%d %s] at %d until %d %s (%dms)\n", source_service, service->task->id, service->task->name, now, wake, extra_msg, ms);
-
-    array_m_insert(_asleep_procs, service);
-    uint32_t block_reason = (awake_on_message) ? (AMC_AWAIT_TIMESTAMP | AMC_AWAIT_MESSAGE) : AMC_AWAIT_TIMESTAMP;
-    tasking_block_task(service->task, block_reason);
-}
-
 void _amc_remove_service_from_sleep_list(amc_service_t* service) {
     spinlock_acquire(&_asleep_procs->lock);
 
-    int32_t idx = _array_m_index_unlocked(_asleep_procs, service);
+    int32_t idx = array_m_index(_asleep_procs, service);
     assert(idx >= 0, "Can't remove service from sleep list because it wasn't there");
-    _array_m_remove_unlocked(_asleep_procs, idx);
+    array_m_remove(_asleep_procs, idx);
 
     spinlock_release(&_asleep_procs->lock);
 }
@@ -418,9 +337,9 @@ void amc_wake_sleeping_services(void) {
 
     while (true) {
         bool did_modify_list = false;
-        for (uint32_t i = 0; i < _asleep_procs->size; i++) {
-            amc_service_t* s = _array_m_lookup_unlocked(_asleep_procs, i);
-            if (s->task->blocked_info.status & AMC_AWAIT_TIMESTAMP == 0) {
+        for (int32_t i = 0; i < _asleep_procs->size; i++) {
+            amc_service_t* s = array_m_lookup(_asleep_procs, i);
+            if ((s->task->blocked_info.status & AMC_AWAIT_TIMESTAMP) == 0) {
                 printf("Proc was in sleep list but wasn't asleep [%d %s]: %d\n", s->task->id, s->task->name, s->task->blocked_info.status);
             }
             if (now >= s->task->blocked_info.wake_timestamp) {
@@ -441,60 +360,6 @@ void amc_wake_sleeping_services(void) {
     }
 
     spinlock_release(&_asleep_procs->lock);
-}
-
-static void _amc_core_file_manager_map_initrd(const char* source_service) {
-    // Only file_manager is allowed to invoke this code!
-    assert(!strncmp(source_service, "com.axle.file_manager", AMC_MAX_SERVICE_NAME_LEN), "Only File Manager may use this syscall");
-
-    amc_service_t* current_service = _amc_service_with_name(source_service);
-    spinlock_acquire(&current_service->spinlock);
-
-    // Map the ramdisk into the proc's address space
-    boot_info_t* bi = boot_info_get();
-    vmm_identity_map_region(
-        (vmm_page_directory_t*)vmm_active_pdir(),
-        bi->initrd_start,
-        bi->initrd_size
-    );
-    spinlock_release(&current_service->spinlock);
-
-    // And mark the pages as accessible to usermode
-    printf("Ramdisk: 0x%08x - 0x%08x (%d pages)\n", bi->initrd_start, bi->initrd_end, bi->initrd_size / PAGE_SIZE);
-    for (uint32_t addr = bi->initrd_start; addr < bi->initrd_end; addr += PAGE_SIZE) {
-        vmm_set_page_usermode(vmm_active_pdir(), addr);
-    }
-
-    amc_initrd_info_t msg = {
-        .event = AMC_FILE_MANAGER_MAP_INITRD_RESPONSE,
-        .initrd_start = bi->initrd_start,
-        .initrd_end = bi->initrd_end,
-        .initrd_size = bi->initrd_size,
-    };
-    amc_message_construct_and_send__from_core(source_service, &msg, sizeof(amc_initrd_info_t));
-}
-
-
-static void _trampoline(const char* program_name, void* buf, uint32_t buf_size) {
-    char* argv[] = {program_name, NULL};
-    elf_load_buffer(program_name, buf, buf_size, argv);
-	panic("noreturn");
-}
-
-static void _amc_core_file_manager_exec_buffer(const char* source_service, void* buf, uint32_t buf_size) {
-    // Only file_manager is allowed to invoke this code!
-    assert(!strncmp(source_service, "com.axle.file_manager", AMC_MAX_SERVICE_NAME_LEN), "Only File Manager may use this syscall");
-
-    amc_exec_buffer_cmd_t* cmd = (amc_exec_buffer_cmd_t*)buf;
-    printf("program name %s\n", cmd->program_name);
-
-    task_spawn__with_args(
-        _trampoline, 
-        cmd->program_name, 
-        cmd->buffer_addr, 
-        cmd->buffer_size, 
-        cmd->program_name
-    );
 }
 
 static void _amc_core_shared_memory_destroy(amc_service_t* local_service, uint32_t shmem_descriptor) {
@@ -518,7 +383,7 @@ static void _amc_core_shared_memory_destroy(amc_service_t* local_service, uint32
     amc_shared_memory_region_t* local_shmem = array_m_lookup(local_service->shmem_regions, shmem_descriptor);
     printf("\tFound local shmem [%d %s]: Remote %s RemDesc %d Start 0x%08x Size 0x%08x\n", local_service->task->id, local_service->name, local_shmem->remote, local_shmem->remote_descriptor, local_shmem->start, local_shmem->size);
 
-    amc_service_t* remote_service = _amc_service_with_name(local_shmem->remote);
+    amc_service_t* remote_service = amc_service_with_name(local_shmem->remote);
     assert(remote_service, "Failed to find remote service");
 
     if (remote_service->shmem_regions->size <= local_shmem->remote_descriptor) {
@@ -633,57 +498,20 @@ static bool _amc_message_construct_and_send_from_service_name(const char* source
 
     // If this is a message to com.axle.core, provide special handling
     if (!strncmp(destination_service, AXLE_CORE_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
-        //printf("Message to core from %s\n", source_service);
-        uint32_t* u32buf = (uint32_t*)buf;
-        if (u32buf[0] == AMC_COPY_SERVICES) {
-            _amc_core_copy_amc_services(source_service);
-            return true;
-        }
-        else if (u32buf[0] == AMC_AWM_MAP_FRAMEBUFFER) {
-            _amc_core_awm_map_framebuffer(source_service);
-            return true;
-        }
-        else if (u32buf[0] == AMC_SLEEP_UNTIL_TIMESTAMP) {
-            _amc_core_put_service_to_sleep(source_service, u32buf[1], false);
-        }
-        else if (u32buf[0] == AMC_SLEEP_UNTIL_TIMESTAMP_OR_MESSAGE) {
-            _amc_core_put_service_to_sleep(source_service, u32buf[1], true);
-        }
-        else if (u32buf[0] == AMC_FILE_MANAGER_MAP_INITRD) {
-            _amc_core_file_manager_map_initrd(source_service);
-        }
-        else if (u32buf[0] == AMC_FILE_MANAGER_EXEC_BUFFER) {
-            _amc_core_file_manager_exec_buffer(source_service, buf, buf_size);
-        }
-        else if (u32buf[0] == AMC_SHARED_MEMORY_DESTROY) {
-            assert(false, "shmem destroy amccmd");
-            //_amc_core_shared_memory_destroy(source_service, buf, buf_size);
-        }
-        else if (u32buf[0] == AMC_SYSTEM_PROFILE_REQUEST) {
-            amc_system_profile_response_t resp = {0};
-            resp.event = AMC_SYSTEM_PROFILE_RESPONSE;
-            resp.pmm_allocated = pmm_allocated_memory();
-            resp.kheap_allocated = kheap_allocated_memory();
-            amc_message_construct_and_send__from_core(source_service, &resp, sizeof(resp));
-        }
-        else {
-            printf("Unknown message: %d\n", u32buf[0]);
-            assert(0, "Unknown message to core");
-            return;
-        }
+        amc_core_handle_message(source_service, buf, buf_size);
         return true;
     }
 
     uint32_t total_msg_size = buf_size + sizeof(amc_message_t);
     uint8_t* queued_msg = calloc(1, total_msg_size);
     amc_message_t* header = (amc_message_t*)queued_msg;
-    strncpy(header->source, source_service, sizeof(header->source));
-    strncpy(header->dest, destination_service, sizeof(header->dest));
+    strncpy((char*)header->source, source_service, sizeof(header->source));
+    strncpy((char*)header->dest, destination_service, sizeof(header->dest));
     header->len = buf_size;
     memcpy(header->body, buf, buf_size);
 
     // Find the destination service
-    amc_service_t* dest_service = _amc_service_with_name(destination_service);
+    amc_service_t* dest_service = amc_service_with_name(destination_service);
 
     if (dest_service == NULL) {
         printf("Dest service %s is null, adding to queue (size = %d)\n", destination_service, _amc_messages_to_unknown_services_pool->size);
@@ -693,7 +521,7 @@ static bool _amc_message_construct_and_send_from_service_name(const char* source
         return false;
     }
 
-    _amc_message_add_to_delivery_queue(dest_service, queued_msg);
+    _amc_message_add_to_delivery_queue(dest_service, (amc_message_t*)queued_msg);
     return true;
 }
 
@@ -816,7 +644,7 @@ bool amc_has_message(void) {
 
 void amc_shared_memory_create(const char* remote_service_name, uint32_t buffer_size, uint32_t* local_buffer_ptr, uint32_t* remote_buffer_ptr) {
     amc_service_t* local_service = _amc_service_of_task(tasking_get_current_task());
-    amc_service_t* remote_service = _amc_service_with_name(remote_service_name);
+    amc_service_t* remote_service = amc_service_with_name(remote_service_name);
 
     assert(local_service, "Failed to find local service");
     assert(remote_service, "Failed to find remote service");
@@ -948,5 +776,5 @@ void amc_physical_memory_region_create(uint32_t region_size, uint32_t* virtual_r
 
 bool amc_service_is_active(const char* service) {
     if (!_amc_services) return false;
-    return _amc_service_with_name(service) != NULL;
+    return amc_service_with_name(service) != NULL;
 }

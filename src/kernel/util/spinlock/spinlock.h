@@ -6,7 +6,7 @@
 
 typedef struct spinlock_t {
 	int flag;
-	const char* name;
+	char* name;
 	bool interrupts_enabled_before_acquire;
 	int owner_pid;
 	int nest_count;
