@@ -14,9 +14,9 @@ typedef struct gui_timer {
     void* invoke_ctx;
 } gui_timer_t;
 
-void gui_timer_start(gui_window_t* window, uint32_t duration, gui_timer_cb_t timer_cb, void* invoke_ctx);
+void gui_timer_start(uint32_t duration, gui_timer_cb_t timer_cb, void* invoke_ctx);
 
 // Friend function for main event loop
-void gui_dispatch_ready_timers(gui_window_t* window);
+void gui_dispatch_ready_timers(gui_application_t* app);
 
 #endif

@@ -187,7 +187,6 @@ static void _arp_rerequest_mac(arp_active_request_t* request) {
 	request->request_count += 1;
 	printf("ARP request hasn't received a reply, resending (try %d/%d)\n", request->request_count, request->max_request_count);
 	gui_timer_start(
-		net_main_window(), 
 		100,
 		(gui_timer_cb_t)_arp_rerequest_mac, 
 		request
@@ -214,7 +213,6 @@ void arp_request_mac(uint8_t dst_ip_addr[IPv4_ADDR_SIZE]) {
 	memcpy(&request->request_packet, &req, sizeof(arp_packet_t));
 
 	gui_timer_start(
-		net_main_window(), 
 		100,
 		(gui_timer_cb_t)_arp_rerequest_mac, 
 		request

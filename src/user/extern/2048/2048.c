@@ -701,7 +701,7 @@ static bool draw_in_progress_animations(game_state_t* state) {
 	}
 
 	// And kick off a timer to continue the animation
-	gui_timer_start(state->view->window, 16, (gui_timer_cb_t)draw_in_progress_animations, state);
+	gui_timer_start(16, (gui_timer_cb_t)draw_in_progress_animations, state);
 	return true;
 }
 

@@ -219,39 +219,39 @@ static void _flash_lose_screen(game_state_t* state) {
 			draw_game_state(state);
 			_draw_string(state, "You lose!", center, font_size);
 			state->lose_screen_state += 1;
-			gui_timer_start(state->view->window, 500, (gui_timer_cb_t)_flash_lose_screen, state);
+			gui_timer_start(500, (gui_timer_cb_t)_flash_lose_screen, state);
 			return;
 			break;
 		case 1:
 			draw_game_state(state);
 			state->lose_screen_state += 1;
-			gui_timer_start(state->view->window, 500, (gui_timer_cb_t)_flash_lose_screen, state);
+			gui_timer_start(500, (gui_timer_cb_t)_flash_lose_screen, state);
 			return;
 			break;
 		case 2:
 			draw_game_state(state);
 			_draw_string(state, "You lose!", center, font_size);
 			state->lose_screen_state += 1;
-			gui_timer_start(state->view->window, 500, (gui_timer_cb_t)_flash_lose_screen, state);
+			gui_timer_start(500, (gui_timer_cb_t)_flash_lose_screen, state);
 			return;
 			break;
 		case 3:
 			draw_game_state(state);
 			state->lose_screen_state += 1;
-			gui_timer_start(state->view->window, 500, (gui_timer_cb_t)_flash_lose_screen, state);
+			gui_timer_start(500, (gui_timer_cb_t)_flash_lose_screen, state);
 			return;
 			break;
 		case 4:
 			draw_game_state(state);
 			_draw_string(state, "You lose!", center, font_size);
 			state->lose_screen_state += 1;
-			gui_timer_start(state->view->window, 500, (gui_timer_cb_t)_flash_lose_screen, state);
+			gui_timer_start(500, (gui_timer_cb_t)_flash_lose_screen, state);
 			return;
 			break;
 		case 5:
 			_start_new_game(state);
 			draw_game_state(state);
-			gui_timer_start(state->view->window, 500, (gui_timer_cb_t)_run_tick, state);
+			gui_timer_start(500, (gui_timer_cb_t)_run_tick, state);
 			return;
 			break;
 	}
@@ -346,7 +346,7 @@ static void _run_tick(game_state_t* state) {
 	}
 
 	// Kick off a timer to continue the physics
-	gui_timer_start(state->view->window, tick_interval, (gui_timer_cb_t)_run_tick, state);
+	gui_timer_start(tick_interval, (gui_timer_cb_t)_run_tick, state);
 }
 
 static void _game_state_teardown(gui_elem_t* e) {

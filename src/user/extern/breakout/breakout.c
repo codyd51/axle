@@ -293,7 +293,7 @@ static void _run_physics_tick(game_state_t* state) {
 
 	if (!state->physics_enabled) {
 		// Kick off a timer to continue the physics
-		gui_timer_start(state->view->window, render_interval, (gui_timer_cb_t)_run_physics_tick, state);
+		gui_timer_start(render_interval, (gui_timer_cb_t)_run_physics_tick, state);
 		return;
 	}
 
@@ -303,7 +303,7 @@ static void _run_physics_tick(game_state_t* state) {
 	// because the dt will be wonky.
 	if (elapsed > 100) {
 		// Kick off a timer to continue the physics
-		gui_timer_start(state->view->window, render_interval, (gui_timer_cb_t)_run_physics_tick, state);
+		gui_timer_start(render_interval, (gui_timer_cb_t)_run_physics_tick, state);
 		return;
 	}
 
@@ -385,7 +385,7 @@ static void _run_physics_tick(game_state_t* state) {
 					size_make(8, 12)
 				);
 			}
-			gui_timer_start(state->view->window, 1000, (gui_timer_cb_t)_run_physics_tick, state);
+			gui_timer_start(1000, (gui_timer_cb_t)_run_physics_tick, state);
 			return;
 		}
 		// Hit top or bottom screen edge
@@ -442,7 +442,7 @@ static void _run_physics_tick(game_state_t* state) {
 	if (cleared_all_bricks) {
 		_start_new_game(state);
 		draw_game_state(state);
-		gui_timer_start(state->view->window, 1000, (gui_timer_cb_t)_run_physics_tick, state);
+		gui_timer_start(1000, (gui_timer_cb_t)_run_physics_tick, state);
 		return;
 	}
 
@@ -450,7 +450,7 @@ static void _run_physics_tick(game_state_t* state) {
 
 	// And kick off a timer to continue the physics
 	// TODO(PT): Support repeating timers
-	gui_timer_start(state->view->window, render_interval, (gui_timer_cb_t)_run_physics_tick, state);
+	gui_timer_start(render_interval, (gui_timer_cb_t)_run_physics_tick, state);
 }
 
 static void _draw_string(game_state_t* state, char* text, Point origin, Size font_size) {
@@ -614,9 +614,8 @@ int main(int argc, char** argv) {
 	state->view = game_view;
 
 	_start_new_game(state);
-	//draw_game_state(state);
-		// Start the physics runloop
-		_run_physics_tick(state);
+	// Start the physics runloop
+	_run_physics_tick(state);
 
 	gui_enter_event_loop();
 

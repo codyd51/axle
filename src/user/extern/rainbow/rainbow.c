@@ -70,7 +70,7 @@ static void _redraw_gradient(gui_view_t* view) {
 		r.size.height / 3.0
 	);
 
-	gui_timer_start(view->window, 50, (gui_timer_cb_t)_redraw_gradient, view);
+	gui_timer_start(50, (gui_timer_cb_t)_redraw_gradient, view);
 }
 
 int main(int argc, char** argv) {

@@ -38,7 +38,7 @@ static void _refresh_stats(gui_text_view_t* view) {
 	snprintf(buf, sizeof(buf), "Kernel heap: %.2fmb\n\n", info->kheap_allocated / (float)(1024 * 1024));
 	gui_text_view_puts(view, buf, color_red());
 
-	gui_timer_start(view->window, 3000, (gui_timer_cb_t)_refresh_stats, view);
+	gui_timer_start(3000, (gui_timer_cb_t)_refresh_stats, view);
 }
 
 int main(int argc, char** argv) {
@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
 	);
 	_g_text_view->font_size = size_make(16, 24);
 
-	gui_timer_start(window, 0, (gui_timer_cb_t)_refresh_stats, _g_text_view);
+	gui_timer_start(0, (gui_timer_cb_t)_refresh_stats, _g_text_view);
 	gui_enter_event_loop();
 
 	return 0;
