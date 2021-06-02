@@ -20,7 +20,7 @@ static void _amc_message_received(amc_message_t* msg) {
 }
 
 int main(int argc, char** argv) {
-	amc_register_service("com.axle.tty");
+	amc_register_service("com.axle.logs_viewer");
 
 	gui_window_t* window = gui_window_create("Logs Viewer", 700, 700);
 	_g_text_view = gui_text_view_create(

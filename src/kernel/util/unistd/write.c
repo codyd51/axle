@@ -77,9 +77,9 @@ int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
 	printk(b);
 	if (b[cnt-1] != '\n') printk("\n");
 
-	// Only forward to the tty if the tty is up
-	if (amc_service_is_active("com.axle.tty")) {
-		amc_message_construct_and_send__from_core("com.axle.tty", b, cnt);
+	// Only forward to the logs viewer if it's active
+	if (amc_service_is_active("com.axle.logs_viewer")) {
+		amc_message_construct_and_send__from_core("com.axle.logs_viewer", b, cnt);
 	}
 
 	return len;
