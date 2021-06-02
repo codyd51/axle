@@ -573,6 +573,7 @@ static void handle_user_message(amc_message_t* user_message) {
 			g_mouse_state.active_window = NULL;
 		}
 		windows_invalidate_drawable_regions_in_rect(window_frame);
+		queue_rect_to_update_this_cycle(window_frame);
 	}
 	else {
 		printf("Unknown message from %s: %d\n", source_service, command);
