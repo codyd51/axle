@@ -55,4 +55,6 @@ array_m* amc_sleeping_procs(void);
 
 amc_service_t* amc_service_with_name(const char* name);
 
+bool amc_is_active(void);
+
 #endif

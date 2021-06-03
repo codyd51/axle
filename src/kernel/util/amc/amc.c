@@ -335,12 +335,12 @@ void _amc_remove_service_from_sleep_list(amc_service_t* service) {
     spinlock_release(&_asleep_procs->lock);
 }
 
-void amc_wake_sleeping_services(void) {
-    if (!tasking_is_active() || !_amc_services || !_amc_services->size) {
-        return;
-    }
+bool amc_is_active(void) {
+    return tasking_is_active() && _amc_services && _amc_services->size;
+}
 
-    if (!_asleep_procs->size) {
+void amc_wake_sleeping_services(void) {
+    if (!amc_is_active() || !_asleep_procs->size) {
         return;
     }
 
