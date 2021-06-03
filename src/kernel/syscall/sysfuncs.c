@@ -13,6 +13,7 @@
 #include <gfx/lib/surface.h>
 #include <kernel/util/amc/amc.h>
 #include <kernel/drivers/pit/pit.h>
+#include <kernel/assert.h>
 
 void yield(task_state_t reason) {
 	if (!tasking_is_active()) {
@@ -60,6 +61,10 @@ Surface* surface_create(uint32_t width, uint32_t height) {
 
 int aipc_send(char* data, uint32_t size, uint32_t dest_pid, char** destination) {
 	return ipc_send(data, size, dest_pid, destination);
+}
+
+static void task_assert_wrapper(const char* cmd) {
+	task_assert(false, cmd);
 }
 
 DEFN_SYSCALL(kill, 0);
@@ -111,6 +116,8 @@ DEFN_SYSCALL(adi_send_eoi, 39, uint32_t);
 
 DEFN_SYSCALL(ms_since_boot, 40);
 
+DEFN_SYSCALL(task_assert_wrapper, 41, const char*);
+
 void create_sysfuncs() {
 	syscall_add((void*)&_kill);
 	syscall_add((void*)&execve);
@@ -156,4 +163,5 @@ void create_sysfuncs() {
 	syscall_add((void*)&adi_send_eoi);
 
 	syscall_add((void*)&ms_since_boot);
+	syscall_add((void*)&task_assert_wrapper);
 }
