@@ -48,6 +48,7 @@ DEFN_SYSCALL(adi_event_await, 38, uint32_t);
 DEFN_SYSCALL(adi_send_eoi, 39, uint32_t);
 
 DEFN_SYSCALL(ms_since_boot, 40);
+DEFN_SYSCALL(task_assert, 41, const char*);
 
 // According to the documentation, this is an acceptable minimal environ
 // https://sourceware.org/newlib/libc.html#Syscalls
@@ -162,6 +163,13 @@ void adi_send_eoi(uint32_t irq) {
 
 uint32_t ms_since_boot(void) {
     return sys_ms_since_boot();
+}
+
+void task_assert(bool cond, const char* msg) {
+    if (cond) {
+        return;
+    }
+    sys_task_assert(msg);
 }
 
 /*
