@@ -217,3 +217,8 @@ awm subscribes to process-died notifications from amc
     Cleans up window 
     New amc syscall to flush pending messages from awm
         Flushes either from deliver queue or unknown-services message queue
+
+libgui can send a resize event
+    image_viewer resizes to native image dimensions when an image is opened
+
+Two-way mapping in process death notifying so we can remove the watcher when the watcher dies

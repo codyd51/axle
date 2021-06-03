@@ -31,9 +31,9 @@ static _handle_amc_messages(void) {
 }
 
 int main(int argc, char** argv) {
+	amc_register_service("com.axle.mouse_driver");
 	// This process will handle PS/2 mouse IRQ's (IRQ 12)
 	adi_register_driver("com.axle.mouse_driver", INT_VECTOR_IRQ12);
-	amc_register_service("com.axle.mouse_driver");
 
 	ps2_mouse_state_t state = {0, 0};
 	while (true) {

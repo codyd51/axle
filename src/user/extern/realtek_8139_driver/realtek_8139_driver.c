@@ -391,11 +391,11 @@ static void _message_received(amc_message_t* msg) {
 }
 
 int main(int argc, char** argv) {
+	amc_register_service(RTL8139_SERVICE_NAME);
 	// This process will handle interrupts from the Realtek 8159 NIC (IRQ11)
 	// TODO(PT): The interrupt number is read from the PCI bus
 	// It should be communicated to this process
 	adi_register_driver(RTL8139_SERVICE_NAME, INT_VECTOR_IRQ11);
-	amc_register_service(RTL8139_SERVICE_NAME);
 
 	// TODO(PT): This should be read from the PCI bus
 	int io_base = 0xc000;

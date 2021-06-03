@@ -89,9 +89,9 @@ static void _handle_amc_messages(void) {
 }
 
 int main(int argc, char** argv) {
+	amc_register_service(KB_DRIVER_SERVICE_NAME);
 	// This process will handle PS/2 keyboard IRQ's (IRQ 1)
 	adi_register_driver(KB_DRIVER_SERVICE_NAME, INT_VECTOR_IRQ1);
-	amc_register_service(KB_DRIVER_SERVICE_NAME);
 
 	ps2_kbd_state_t state = {0};
 	// TODO(PT): A knob that allows you to set the active layout to QWERTY
