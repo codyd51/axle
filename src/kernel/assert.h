@@ -2,6 +2,7 @@
 #define ASSERT_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define NotImplemented() do {_panic("Not implemented", __FILE__, __LINE__);} while(0);
 #define Deprecated() do {_panic("Explicitly deprecated", __FILE__, __LINE__);} while(0);
@@ -13,5 +14,7 @@
 #define ASSERT(cond, msg, ...) assert(cond, msg)
 
 void _panic(const char* msg, const char* file, int line);
+
+void task_assert(bool cond, const char* msg);
 
 #endif
