@@ -1307,6 +1307,6 @@ static void page_fault(const register_state_t* regs) {
     printf("|- EIP = 0x%08x -|\n", regs->eip);
     printf("|- UserESP = 0x%08x -|\n", regs->useresp);
     printf("|----------------|\n");
-    panic("page fault");
-    while (1) {}
+
+    task_assert(false, "Page fault");
 }
