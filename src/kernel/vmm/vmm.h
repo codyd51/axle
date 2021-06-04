@@ -115,4 +115,6 @@ uint32_t vmm_find_start_of_free_region(vmm_page_directory_t* vmm_dir, uint32_t s
 
 void vmm_set_page_usermode(vmm_page_directory_t* vmm_dir, uint32_t page_addr);
 
+bool vmm_address_is_mapped(vmm_page_directory_t* vmm_dir, uint32_t page_addr);
+
 #endif
