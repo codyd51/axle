@@ -101,7 +101,7 @@ bool symbolicate_and_append(int frame_idx, uint32_t* frame_addr, char** buf_head
     return true;
 }
 
-void task_build_and_send_crash_report_then_exit(const char* msg) {
+void task_build_and_send_crash_report_then_exit(const char* msg, const register_state_t* regs) {
     // Launch the crash reporter if it's not active
     if (!amc_service_is_active(CRASH_REPORTER_SERVICE_NAME)) {
         file_manager_launch_file_request_t req = {0};
@@ -116,7 +116,18 @@ void task_build_and_send_crash_report_then_exit(const char* msg) {
 
     // The unrolled loop is necessary as __builtin_return_address requires a literal argument
     // The goto is necessary to avoid deeply nested failure handling
-    if (!append(&crash_report_ptr, &buf_size, "Cause of death: %s\nStack trace:\n", msg)) goto finish_fmt;
+    if (!append(&crash_report_ptr, &buf_size, "Cause of death:\n%s\n", msg)) goto finish_fmt;
+
+    if (regs != NULL) {
+        task_small_t* current_task = tasking_get_current_task();
+        if (!append(&crash_report_ptr, &buf_size, "\nRegisters:\n")) goto finish_fmt;
+        if (!append(&crash_report_ptr, &buf_size, "eip: 0x%08x  useresp 0x%08x\n", regs->eip, regs->useresp)) goto finish_fmt;
+        if (!append(&crash_report_ptr, &buf_size, "eax: 0x%08x  ebx 0x%08x  ecx 0x%08x  edx 0x%08x\n", regs->eax, regs->ebx, regs->ecx, regs->edx)) goto finish_fmt;
+        if (!append(&crash_report_ptr, &buf_size, "edi: 0x%08x  esi 0x%08x  ebp 0x%08x  esp 0x%08x\n", regs->edi, regs->esi, regs->ebp, regs->esp)) goto finish_fmt;
+    }
+
+    if (!append(&crash_report_ptr, &buf_size, "\nStack trace:\n")) goto finish_fmt;
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wframe-address" 
     if (!symbolicate_and_append(0, __builtin_return_address(0), &crash_report_ptr, &buf_size)) goto finish_fmt;
@@ -158,7 +169,7 @@ static bool _can_send_crash_report(void) {
     return amc_is_active() && amc_service_is_active(FILE_MANAGER_SERVICE_NAME);
 }
 
-void task_assert(bool cond, const char* msg) {
+void task_assert(bool cond, const char* msg, const register_state_t* regs) {
     if (cond) {
         return;
     }
@@ -167,6 +178,6 @@ void task_assert(bool cond, const char* msg) {
         assert(cond, msg);
     }
     else {
-        task_build_and_send_crash_report_then_exit(msg);
+        task_build_and_send_crash_report_then_exit(msg, regs);
     }
 }
