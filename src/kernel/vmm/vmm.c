@@ -1299,7 +1299,7 @@ static void page_fault(const register_state_t* regs) {
     }
 
 	bool caused_by_execution = (regs->eip == faulting_address);
-    const char* reason = "run";
+    const char* reason = "execute";
     if (!caused_by_execution) {
         reason = forbidden_write ? "write" : "read ";
     }
@@ -1308,5 +1308,7 @@ static void page_fault(const register_state_t* regs) {
     printf("|- UserESP = 0x%08x -|\n", regs->useresp);
     printf("|----------------|\n");
 
-    task_assert(false, "Page fault");
+    char desc[512];
+    snprintf(desc, sizeof(desc), "Page fault: %s at 0x%08x", reason, faulting_address);
+    task_assert(false, desc, regs);
 }

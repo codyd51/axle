@@ -64,7 +64,7 @@ int aipc_send(char* data, uint32_t size, uint32_t dest_pid, char** destination) 
 }
 
 static void task_assert_wrapper(const char* cmd) {
-	task_assert(false, cmd);
+	task_assert(false, cmd, NULL);
 }
 
 DEFN_SYSCALL(kill, 0);

@@ -20,6 +20,7 @@ static void _amc_message_received(amc_message_t* msg) {
 	crash_reporter_inform_assert_t* assert_event = (crash_reporter_inform_assert_t*)&msg->body;
 	assert(assert_event->event == CRASH_REPORTER_INFORM_ASSERT, "Expected inform assert message");
 
+	// TODO(PT): Resize this window to contain the crash report in its bounds
 	printf("Received crash report from %s\n", msg->source);
 	char buf[512];
 	snprintf(buf, sizeof(buf), "Crash report for %s:\n", msg->source);
@@ -31,7 +32,7 @@ static void _amc_message_received(amc_message_t* msg) {
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.crash_reporter");
 
-	gui_window_t* window = gui_window_create("Crash Reporter", 500, 300);
+	gui_window_t* window = gui_window_create("Crash Reporter", 600, 450);
 	_g_text_view = gui_text_view_create(
 		window,
 		(gui_window_resized_cb_t)_text_view_sizer
