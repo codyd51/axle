@@ -74,6 +74,7 @@ void gui_text_view_add_subview(gui_view_t* superview, gui_text_view_t* subview);
 void gui_text_view_add_to_window(gui_text_view_t* view, gui_window_t* window);
 gui_text_view_t* gui_text_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_cb);
 
+void gui_text_view_nputs(gui_text_view_t* text_view, uint32_t str_len, const char* str, Color color);
 void gui_text_view_puts(gui_text_view_t* text_view, const char* str, Color color);
 void gui_text_view_clear(gui_text_view_t* text_view);
 

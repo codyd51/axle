@@ -105,3 +105,9 @@ void gui_text_view_puts(gui_text_view_t* text_view, const char* str, Color color
 		gui_text_view_putchar(text_view, str[i], color);
 	}
 }
+
+void gui_text_view_nputs(gui_text_view_t* text_view, uint32_t str_len, const char* str, Color color) {
+	for (int i = 0; i < str_len; i++) {
+		gui_text_view_putchar(text_view, str[i], color);
+	}
+}
