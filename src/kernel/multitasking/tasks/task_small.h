@@ -6,6 +6,7 @@
 #include <kernel/multitasking/std_stream.h>
 #include <kernel/vmm/vmm.h>
 #include <kernel/util/spinlock/spinlock.h>
+#include <kernel/elf.h>
 
 #define FD_MAX 64
 
@@ -78,6 +79,8 @@ typedef struct task_small {
 
 	uint32_t kernel_stack;
 	uint32_t kernel_stack_malloc_head;
+
+	elf_t elf_symbol_table;
 } task_small_t;
 
 void tasking_init_small();

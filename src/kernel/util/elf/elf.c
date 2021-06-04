@@ -142,14 +142,36 @@ char* elf_get_string_table(void* file, uint32_t binary_size) {
 	return NULL;
 }
 
+static void _record_elf_symbol_table(void* buf, elf_t* elf) {
+	elf_header* hdr = (elf_header*)buf;
+	elf_s_header* shstrtab = (uint8_t*)((uint8_t*)buf + hdr->shoff + (hdr->shstrndx * hdr->shentsize));
+	uint8_t* strtab = (uint8_t*)buf + shstrtab->offset;
+
+	for (int i = 0; i < hdr->shentsize * hdr->shnum; i += hdr->shentsize) {
+		elf_s_header* shdr = (elf_s_header*)(buf + (hdr->shoff + i));
+		if (shdr->type == 0) continue;
+		uint8_t* name = strtab + shdr->name;
+		if (!strcmp(name, ".strtab")) {
+			elf->strtab = (const char*)((uint8_t*)buf + shdr->offset);
+			elf->strtabsz = shdr->size;
+		}
+		if (!strcmp(name, ".symtab")) {
+			elf->symtab = (const char*)((uint8_t*)buf + shdr->offset);
+			elf->symtabsz = shdr->size;
+		}
+	}
+}
+
 void elf_load_buffer(char* program_name, uint8_t* buf, uint32_t buf_size, char** argv) {
 	elf_header* hdr = (elf_header*)buf;
 	if (!elf_validate_header(hdr)) {
 		printf("validation failed\n");
 		return;
 	}
+	task_small_t* current_task = tasking_get_task_with_pid(getpid());
 
 	char* string_table = elf_get_string_table(hdr, buf_size);
+	_record_elf_symbol_table(buf, &current_task->elf_symbol_table);
 
 	uint32_t prog_break = 0;
 	uint32_t bss_loc = 0;
@@ -203,22 +225,19 @@ void elf_load_buffer(char* program_name, uint8_t* buf, uint32_t buf_size, char**
 
 	if (entry_point) {
 		//vas_active_unmap_temp(sizeof(vmm_page_directory_t));
-		task_small_t* elf = tasking_get_task_with_pid(getpid());
-		// Ensure the task won't be scheduled while modifying ts critical state
+		// Ensure the task won't be scheduled while modifying its critical state
 		//spinlock_acquire(&elf->priority_lock);
 		asm("cli");
 		// TODO(PT): We should store the kmalloc()'d stack in the task structure so that we can free() it once the task dies.
 		printf("Set elf->machine_state = 0x%08x\n", stack_top);
-		elf->machine_state = (task_context_t*)stack_top;
-		elf->sbrk_current_break = prog_break;
-		elf->bss_segment_addr = bss_loc;
-		elf->sbrk_current_page_head = (elf->sbrk_current_break + PAGE_SIZE) & PAGING_PAGE_MASK;
-		//printf("strdup program name 0x%08x\n", program_name);
-		//printf("strlen %d\n", strlen(program_name));
+		current_task->machine_state = (task_context_t*)stack_top;
+		current_task->sbrk_current_break = prog_break;
+		current_task->bss_segment_addr = bss_loc;
+		current_task->sbrk_current_page_head = (current_task->sbrk_current_break + PAGE_SIZE) & PAGING_PAGE_MASK;
 
-		task_set_name(elf, "launched_elf");
+		task_set_name(current_task, "launched_elf");
 
-		printf("[%d] Jump to user-mode with ELF [%s] ip=0x%08x sp=0x%08x\n", elf->id, elf->name, entry_point, elf->machine_state);
+		printf("[%d] Jump to user-mode with ELF [%s] ip=0x%08x sp=0x%08x\n", current_task->id, current_task->name, entry_point, current_task->machine_state);
 		//spinlock_release(&elf->priority_lock);
 		user_mode(stack_top, entry_point);
 
