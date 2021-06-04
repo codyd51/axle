@@ -38,9 +38,7 @@ typedef struct {
   uint32_t      strtabsz;
 } elf_t;
 
-elf_t* kern_elf();
-
-//takes a multiboot struct and returns an elf struct containing relavent info
+//takes a multiboot struct and returns an elf struct containing relevant info
 void elf_from_multiboot(struct multiboot_info* mb, elf_t* elf);
 
 //looks up symbol at addr

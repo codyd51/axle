@@ -151,7 +151,7 @@ static int buf_puts(char *s, unsigned int len, struct mini_buff *b) {
     return len;
 }
 
-static int vsnprintf(char *buffer, unsigned int buffer_len, const char *fmt, va_list va) {
+int vsnprintf(char *buffer, unsigned int buffer_len, const char *fmt, va_list va) {
     struct mini_buff b;
     // buffer for storing format arguments
     // C standard expects float formats to be as long as 512 chars

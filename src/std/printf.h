@@ -22,6 +22,7 @@ int printf_err(const char* format, ...);
 int printk_err(const char* format, ...);
 
 int snprintf(char* buffer, unsigned int buffer_len, const char *fmt, ...);
+int vsnprintf(char *buffer, unsigned int buffer_len, const char *fmt, va_list va);
 
 //unimplemented functions
 //calling any of these will throw an NotImplemented() assertion

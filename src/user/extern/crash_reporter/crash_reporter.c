@@ -20,10 +20,12 @@ static void _amc_message_received(amc_message_t* msg) {
 	crash_reporter_inform_assert_t* assert_event = (crash_reporter_inform_assert_t*)&msg->body;
 	assert(assert_event->event == CRASH_REPORTER_INFORM_ASSERT, "Expected inform assert message");
 
-	printf("Received assertion from %s\n", msg->source);
+	printf("Received crash report from %s\n", msg->source);
 	char buf[512];
-	snprintf(buf, sizeof(buf), "Received assertion from %s:\n%s\n", msg->source, assert_event->assert_message);
-	gui_text_view_puts(_g_text_view, buf, color_green());
+	snprintf(buf, sizeof(buf), "Crash report for %s:\n", msg->source);
+	gui_text_view_puts(_g_text_view, buf, color_white());
+	gui_text_view_nputs(_g_text_view, assert_event->crash_report_length, assert_event->crash_report, color_green());
+	gui_text_view_puts(_g_text_view, "\n", color_white());
 }
 
 int main(int argc, char** argv) {

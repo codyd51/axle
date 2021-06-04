@@ -9,7 +9,8 @@
 #define CRASH_REPORTER_INFORM_ASSERT 100
 typedef struct crash_reporter_inform_assert {
     uint32_t event; // CRASH_REPORTER_INFORM_ASSERT
-    char assert_message[128];
+    uint32_t crash_report_length;
+    char crash_report[];
 } crash_reporter_inform_assert_t;
 
 #endif

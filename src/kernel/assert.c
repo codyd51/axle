@@ -29,12 +29,14 @@ void _panic(const char* msg, const char* file, int line) {
 }
 
 #include <kernel/util/amc/amc.h>
+#include <kernel/util/amc/amc_internal.h>
 // XXX(PT): Must match the definition in crash_reporter_messages.h
 #define CRASH_REPORTER_SERVICE_NAME "com.axle.crash_reporter"
 #define CRASH_REPORTER_INFORM_ASSERT 100
 typedef struct crash_reporter_inform_assert {
     uint32_t event; // CRASH_REPORTER_INFORM_ASSERT
-    char assert_message[128];
+    uint32_t crash_report_length;
+    char crash_report[];
 } crash_reporter_inform_assert_t;
 
 // XXX(PT): Must match the definition in file_manager_messages.h
