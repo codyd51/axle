@@ -89,12 +89,14 @@ typedef enum window_resize_edge {
 typedef struct mouse_interaction_state {
 	bool left_click_down;
 	user_window_t* active_window;
+	desktop_shortcut_t* hovered_shortcut;
 
 	// Drag state
 	bool has_begun_drag;
 	bool is_resizing_top_window;
 	bool is_moving_top_window;
 	window_resize_edge_t resize_edge;
+	bool is_dragging_shortcut;
 
 	bool is_prospective_window_move;
 	bool is_prospective_window_resize;
@@ -108,6 +110,23 @@ static void _begin_left_click(mouse_interaction_state_t* state, Point mouse_poin
 
 	if (!state->active_window) {
 		printf("Left click on background\n");
+		// Did the user click on a background icon?
+		if (state->hovered_shortcut) {
+			printf("Left click with hover shortcut %d\n", state->hovered_shortcut->in_soft_click);
+			if (state->hovered_shortcut->in_soft_click) {
+				state->hovered_shortcut->in_soft_click = false;
+				//if (!amc_service_is_active(CRASH_REPORTER_SERVICE_NAME)) {
+					file_manager_launch_file_request_t req = {0};
+					req.event = FILE_MANAGER_LAUNCH_FILE;
+					snprintf(req.path, sizeof(req.path), state->hovered_shortcut->program_path);
+					amc_message_construct_and_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_launch_file_request_t));
+				//}
+				return;
+			}
+			else {
+				desktop_shortcut_highlight(state->hovered_shortcut);
+			}
+		}
 		return;
 	}
 	// Left click within a window
@@ -147,6 +166,19 @@ static void _enter_hover_window(mouse_interaction_state_t* state, user_window_t*
 
 	// Keep track that we're currently within this window
 	state->active_window = window;
+}
+
+static void _exit_hovered_shortcut(mouse_interaction_state_t* state) {
+	printf("Mouse exited shortcut %s\n", state->hovered_shortcut->program_path);
+	desktop_shortcut_handle_mouse_exited(state->hovered_shortcut);
+	state->hovered_shortcut = NULL;
+}
+
+static void _enter_hovered_shortcut(mouse_interaction_state_t* state, desktop_shortcut_t* shortcut) {
+	printf("Mouse entered shortcut %s\n", shortcut->program_path);
+	desktop_shortcut_handle_mouse_entered(shortcut);
+	// Keep track that we're currently within this shortcut
+	state->hovered_shortcut = shortcut;
 }
 
 static void _mouse_reset_prospective_action_flags(mouse_interaction_state_t* state) {
@@ -206,6 +238,12 @@ static void _handle_mouse_moved(mouse_interaction_state_t* state, Point mouse_po
 			_exit_hover_window(state);
 		}
 	}
+	// Check if we've moved outside the bounds of the hovered icon
+	if (state->hovered_shortcut != NULL) {
+		if (!rect_contains_point(state->hovered_shortcut->view->frame, mouse_point)) {
+			_exit_hovered_shortcut(state);
+		}
+	}
 
 	// Check each window and see if we've just entered it
 	// This array is sorted in Z-order so we encounter the topmost window first
@@ -214,6 +252,9 @@ static void _handle_mouse_moved(mouse_interaction_state_t* state, Point mouse_po
 	if (state->active_window != window_under_mouse) {
 		if (state->active_window != NULL) {
 			_exit_hover_window(state);
+		}
+		if (state->hovered_shortcut) {
+			_exit_hovered_shortcut(state);
 		}
 
 		if (window_under_mouse) {
@@ -226,12 +267,31 @@ static void _handle_mouse_moved(mouse_interaction_state_t* state, Point mouse_po
 	if (state->active_window) {
 		_moved_in_hover_window(state, mouse_point);
 	}
+	else {
+		if (window_under_mouse == NULL) {
+			desktop_shortcut_t* shortcut = desktop_shortcut_containing_point(mouse_point);
+			if (state->hovered_shortcut != shortcut) {
+				if (state->hovered_shortcut != NULL) {
+					_exit_hovered_shortcut(state);
+				}
+				if (shortcut != NULL) {
+					_enter_hovered_shortcut(state, shortcut);
+				}
+			}
+		}
+	}
 }
 
 static void _begin_mouse_drag(mouse_interaction_state_t* state, Point mouse_point) {
 	state->has_begun_drag = true;
 	if (state->active_window == NULL) {
-		printf("Start drag on desktop background\n");
+		if (state->hovered_shortcut != NULL) {
+			printf("Start drag on hovered icon\n");
+			state->is_dragging_shortcut = true;
+		}
+		else {
+			printf("Start drag on desktop background\n");
+		}
 		return;
 	}
 
@@ -266,6 +326,7 @@ static void _end_mouse_drag(mouse_interaction_state_t* state, Point mouse_point)
 		state->has_begun_drag = false;
 		state->is_moving_top_window = false;
 		state->is_resizing_top_window = false;
+		state->is_dragging_shortcut = false;
 	}
 }
 
@@ -302,7 +363,31 @@ static void _adjust_window_position(user_window_t* window, int32_t delta_x, int3
 static void _handle_mouse_dragged(mouse_interaction_state_t* state, Point mouse_point, int32_t delta_x, int32_t delta_y, int32_t delta_z) {
 	// Nothing to do if we didn't start the drag with a hover window
 	if (!state->active_window) {
-		printf("Drag outside a hover window\n");
+		if (state->hovered_shortcut) {
+			//printf("Drag shortcut icon %s\n", state->hovered_shortcut->display_name);
+			Rect original_frame = state->hovered_shortcut->view->frame;
+			Rect new_frame = rect_make(
+				point_make(
+					rect_min_x(original_frame) + delta_x,
+					rect_min_y(original_frame) + delta_y
+				),
+				original_frame.size
+			);
+			state->hovered_shortcut->view->frame = new_frame;
+			array_t* delta = rect_diff(rect_union(original_frame, new_frame), new_frame);
+			for (int32_t i = delta->size - 1; i >= 0; i--) {
+				Rect* r = array_lookup(delta, i);
+				queue_rect_to_update_this_cycle(*r);
+				free(r);
+			}
+			array_destroy(delta);
+
+			//queue_rect_to_update_this_cycle(rect_union(original_frame, new_frame));
+			windows_invalidate_drawable_regions_in_rect(rect_union(original_frame, new_frame));
+		}
+		else {
+			printf("Drag on desktop background\n");
+		}
 		return;
 	}
 	
@@ -556,6 +641,12 @@ static void handle_user_message(amc_message_t* user_message) {
 				(float)_g_background->size.height * 0.65
 			);
 			queue_rect_to_update_this_cycle(rect_make(point_zero(), _g_background->size));
+			// Also re-render each desktop shortcut, as they use the background color in their rendering
+			array_t* shortcuts = desktop_shortcuts();
+			for (int32_t i = 0; i < shortcuts->size; i++) {
+				desktop_shortcut_t* shortcut = array_lookup(shortcuts, i);
+				desktop_shortcut_render(shortcut);
+			}
 			return;
 		}
 	}

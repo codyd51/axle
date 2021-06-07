@@ -24,6 +24,14 @@ typedef struct user_window {
 	bool has_done_first_draw;
 } user_window_t;
 
+typedef struct desktop_shortcut {
+    view_t* view;
+    const char* program_path;
+	const char* display_name;
+	bool in_soft_click;
+	bool in_mouse_hover;
+} desktop_shortcut_t;
+
 #define WINDOW_BORDER_MARGIN 0
 #define WINDOW_TITLE_BAR_HEIGHT 30
 #define WINDOW_TITLE_BAR_VISIBLE_HEIGHT (WINDOW_TITLE_BAR_HEIGHT - 0)
@@ -38,8 +46,11 @@ user_window_t* window_with_service_name(const char* service_name);
 void windows_fetch_queued_windows(void);
 void windows_clear_queued_windows(void);
 void window_queue_fetch(user_window_t* window);
-void window_queue_composite(user_window_t* window);
-void window_queue_extra_draw(user_window_t* window, Rect extra);
+
+void desktop_view_queue_composite(view_t* view);
+void desktop_view_queue_extra_draw(view_t* view, Rect extra);
+void desktop_views_flush_queues(void);
+array_t* desktop_views_ready_to_composite_array(void);
 
 void window_request_close(user_window_t* window);
 
@@ -64,5 +75,23 @@ void windows_composite(ca_layer* dest, Rect updated_rect);
 void windows_invalidate_drawable_regions_in_rect(Rect r);
 
 void windows_fetch_resource_images(void);
+
+view_t* view_create(Rect frame);
+
+void draw_queued_extra_draws(array_t* views, ca_layer* dest_layer);
+void complete_queued_extra_draws(array_t* views, ca_layer* source_layer, ca_layer* dest_layer);
+
+void draw_views_to_layer(array_t* views, ca_layer* dest_layer);
+
+void icons_add(view_t* icon);
+array_t* all_desktop_views(void);
+
+array_t* desktop_shortcuts(void);
+desktop_shortcut_t* desktop_shortcut_containing_point(Point point);
+void desktop_shortcut_handle_mouse_exited(desktop_shortcut_t* shortcut);
+void desktop_shortcut_handle_mouse_entered(desktop_shortcut_t* shortcut);
+void desktop_shortcut_highlight(desktop_shortcut_t* shortcut);
+void desktop_shortcut_unhighlight(desktop_shortcut_t* shortcut);
+void desktop_shortcut_render(desktop_shortcut_t* ds);
 
 #endif

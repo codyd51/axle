@@ -5,8 +5,14 @@
 #include "awm_messages.h"
 #include "utils.h"
 
+typedef struct desktop_shortcuts_state {
+    array_t* shortcuts;
+    Point last_shortcut_origin;
+} desktop_shortcuts_state_t;
+
 // Sorted by Z-index
 #define MAX_WINDOW_COUNT 64
+array_t* desktop_views = NULL;
 array_t* windows = NULL;
 array_t* windows_to_fetch_this_cycle = NULL;
 array_t* views_to_composite_this_cycle = NULL;
@@ -14,6 +20,9 @@ array_t* views_to_composite_this_cycle = NULL;
 image_t* _g_title_bar_image = NULL;
 image_t* _g_title_bar_x_unfilled = NULL;
 image_t* _g_title_bar_x_filled = NULL;
+image_t* _g_executable_image = NULL;
+
+static desktop_shortcuts_state_t _g_desktop_shortcuts_state = {0};
 
 user_window_t* window_move_to_top(user_window_t* window) {
 	uint32_t idx = array_index(windows, window);
@@ -49,6 +58,16 @@ user_window_t* window_containing_point(Point point) {
 		user_window_t* window = array_lookup(windows, i);
 		if (rect_contains_point(window->frame, point)) {
             return window;
+        }
+    }
+    return NULL;
+}
+
+desktop_shortcut_t* desktop_shortcut_containing_point(Point point) {
+	for (int i = 0; i < _g_desktop_shortcuts_state.shortcuts->size; i++) {
+        desktop_shortcut_t* shortcut = array_lookup(_g_desktop_shortcuts_state.shortcuts, i);
+        if (rect_contains_point(shortcut->view->frame, point)) {
+            return shortcut;
         }
     }
     return NULL;
@@ -248,6 +267,35 @@ void windows_init(void) {
     desktop_views = array_create(MAX_WINDOW_COUNT);
     windows_to_fetch_this_cycle = array_create(MAX_WINDOW_COUNT);
     views_to_composite_this_cycle = array_create(MAX_WINDOW_COUNT);
+    _g_desktop_shortcuts_state.shortcuts = array_create(32);
+}
+
+array_t* desktop_shortcuts(void) {
+    return _g_desktop_shortcuts_state.shortcuts;
+}
+
+void desktop_shortcut_handle_mouse_exited(desktop_shortcut_t* shortcut) {
+    shortcut->in_soft_click = false;
+    shortcut->in_mouse_hover = false;
+    desktop_shortcut_render(shortcut);
+}
+
+void desktop_shortcut_handle_mouse_entered(desktop_shortcut_t* shortcut) {
+    shortcut->in_soft_click = false;
+    shortcut->in_mouse_hover = true;
+    desktop_shortcut_render(shortcut);
+}
+
+void desktop_shortcut_highlight(desktop_shortcut_t* shortcut) {
+    shortcut->in_soft_click = true;
+    desktop_shortcut_render(shortcut);
+}
+
+void desktop_shortcut_unhighlight(desktop_shortcut_t* shortcut) {
+    shortcut->in_soft_click = false;
+    desktop_shortcut_render(shortcut);
+}
+
 void desktop_views_add(view_t* view) {
     array_insert(desktop_views, view);
     desktop_view_queue_composite(view);
@@ -266,6 +314,135 @@ array_t* all_desktop_views(void) {
     return out;
 }
 
+static Size _desktop_shortcut_size(void) {
+    return size_make(95, 65);
+}
+
+void desktop_shortcut_render(desktop_shortcut_t* ds) {
+    desktop_shortcuts_state_t* shortcuts_state = &_g_desktop_shortcuts_state;
+    Size shortcut_icon_size = _desktop_shortcut_size();
+    Size icon_image_size = size_make(
+        shortcut_icon_size.width - 16,
+        shortcut_icon_size.height - 16
+    );
+
+    uint32_t icon_x_margin = shortcut_icon_size.width - icon_image_size.width;
+    uint32_t icon_y_margin = 3;
+    uint32_t label_height = shortcut_icon_size.height - icon_image_size.height;
+
+    if (ds->in_soft_click) {
+        //Color background_color = ds->in_soft_click ? color_make(127, 127, 255) : color_white();
+        draw_rect(
+            ds->view->layer, 
+            rect_make(point_zero(), shortcut_icon_size), 
+            color_make(127, 127, 255), 
+            THICKNESS_FILLED
+        );
+    }
+    else {
+        blit_layer(
+            ds->view->layer,
+            desktop_background_layer(),
+            rect_make(point_zero(), ds->view->frame.size),
+            ds->view->frame
+        );
+    }
+    image_render_to_layer(
+        _g_executable_image,
+        ds->view->layer,
+        rect_make(
+            point_make(
+                icon_x_margin,
+                icon_y_margin
+            ),
+            size_make(
+                shortcut_icon_size.width - (icon_x_margin * 2),
+                icon_image_size.height - (icon_y_margin * 2)
+            )
+        )
+    );
+
+    Size view_size = ds->view->frame.size;
+	Point mid = point_make(
+        view_size.width / 2.0,
+        view_size.height - (label_height / 2.0)
+    );
+	Size font_size = size_make(8, 10);
+	uint32_t len = strlen(ds->display_name);
+	Point label_origin = point_make(
+		mid.x - ((font_size.width * len) / 2.0),
+		mid.y - (font_size.height / 2.0)
+	);
+    Color text_color = ds->in_soft_click ? color_white() : color_make(50, 50, 50);
+	for (uint32_t i = 0; i < len; i++) {
+		draw_char(
+			ds->view->layer,
+			ds->display_name[i],
+			label_origin.x + (font_size.width * i),
+			label_origin.y,
+			text_color,
+			font_size
+		);
+	}
+
+    if (ds->in_mouse_hover || ds->in_soft_click) {
+        Color outline_color = ds->in_mouse_hover ? color_dark_gray() : color_blue();
+        draw_rect(
+            ds->view->layer,
+            rect_make(
+                point_zero(),
+                ds->view->frame.size
+            ),
+            outline_color,
+            2
+        );
+    }
+
+    desktop_view_queue_composite(ds->view);
+}
+
+static void desktop_shortcuts_add(const char* display_name, const char* program_path) {
+    desktop_shortcuts_state_t* shortcuts_state = &_g_desktop_shortcuts_state;
+    desktop_shortcut_t* shortcut = calloc(1, sizeof(desktop_shortcut_t));
+
+    Size shortcut_icon_size = _desktop_shortcut_size();
+    Point origin = point_zero();
+    Point shortcut_spacing = point_make(110, 30);
+    Point first_shortcut_origin = point_make(
+        shortcut_icon_size.width  / 2.0,
+        shortcut_icon_size.height  / 2.0
+    );
+
+    if (shortcuts_state->shortcuts->size == 0) {
+        origin = first_shortcut_origin;
+    }
+    else {
+        origin = point_make(
+            shortcuts_state->last_shortcut_origin.x,
+            shortcuts_state->last_shortcut_origin.y + shortcut_icon_size.height + shortcut_spacing.y
+        );
+        if (origin.y > screen_resolution().height - shortcut_icon_size.height - shortcut_spacing.y) {
+            origin = point_make(
+                shortcuts_state->last_shortcut_origin.x + shortcut_spacing.x,
+                first_shortcut_origin.y
+            );
+        }
+    }
+
+    shortcut->view = view_create(
+        rect_make(
+            origin,
+            _desktop_shortcut_size()
+        )
+    );
+    shortcut->program_path = program_path;
+    shortcut->display_name = display_name;
+    array_insert(shortcuts_state->shortcuts, shortcut);
+    shortcuts_state->last_shortcut_origin = origin;
+
+    desktop_views_add(shortcut->view);
+
+    desktop_shortcut_render(shortcut);
 }
 
 void windows_fetch_resource_images(void) {
@@ -276,6 +453,12 @@ void windows_fetch_resource_images(void) {
         user_window_t* w = array_lookup(windows, i);
         window_redraw_title_bar(w, false);
     }
+
+    _g_executable_image = load_image("executable_icon.bmp");
+
+    desktop_shortcuts_add("Preferences", "preferences");
+    desktop_shortcuts_add("Logs Viewer", "logs_viewer");
+    desktop_shortcuts_add("Breakout", "breakout");
 }
 
 user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t height) {
