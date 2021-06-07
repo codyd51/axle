@@ -23,7 +23,7 @@ bool rect_contains_rect(Rect a, Rect b) {
 }
 
 array_t* rect_diff(Rect bg, Rect fg) {
-    array_t* out = array_create(6);
+    array_t* out = array_create(5);
 
     // Split by left edge if it's between the subject's left and right edges
     if (rect_min_x(fg) > rect_min_x(bg) && rect_min_x(fg) <= rect_max_x(bg)) {
@@ -68,7 +68,6 @@ array_t* rect_diff(Rect bg, Rect fg) {
         bg.origin.y += diff;
         bg.size.height -= diff;
     }
-
 
     // Split by right edge
     if (rect_max_x(fg) > rect_min_x(bg) && rect_max_x(fg) <= rect_max_x(bg)) {

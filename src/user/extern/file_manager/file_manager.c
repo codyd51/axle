@@ -518,9 +518,13 @@ static void _amc_message_received(amc_message_t* msg) {
 	else if (event == FILE_MANAGER_LAUNCH_FILE) {
 		file_manager_launch_file_request_t* req = (file_manager_launch_file_request_t*)&msg->body;
 		initrd_fs_node_t* desired_file = _find_node_by_name(req->path);
-		assert(desired_file, "Failed to find requested file");
-		printf("File Manager launching %s upon request\n", req->path);
-		_launch_program_by_node(desired_file);
+		if (desired_file) {
+			printf("File Manager launching %s upon request\n", req->path);
+			_launch_program_by_node(desired_file);
+		}
+		else {
+			printf("Failed to find requested file to launch for %s: %s\n", source_service, req->path);
+		}
 	}
 	else {
 		assert(false, "Unknown message sent to file manager");
