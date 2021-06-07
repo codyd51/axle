@@ -161,8 +161,10 @@ Rect rect_union(Rect a, Rect b) {
 	Rect ret;
 	ret.origin.x = MIN(rect_min_x(a), rect_min_x(b));
 	ret.origin.y = MIN(rect_min_y(a), rect_min_y(b));
-	ret.size.width = MAX(a.size.width, b.size.width);
-	ret.size.height = MAX(a.size.height, b.size.height);
+    uint32_t max_x = MAX(rect_max_x(a), rect_max_x(b));
+    uint32_t max_y = MAX(rect_max_y(a), rect_max_y(b));
+    ret.size.width = max_x - rect_min_x(ret);
+    ret.size.height = max_y - rect_min_y(ret);
 	return ret;
 }
 
