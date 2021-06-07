@@ -9,8 +9,12 @@ static void _noop() {}
 
 gui_text_view_t* gui_text_view_alloc(void) {
 	gui_text_view_t* v = calloc(1, sizeof(gui_text_view_t));
-	gui_scroll_view_alloc_dynamic_fields((gui_scroll_view_t*)v);
+	gui_text_view_alloc_dynamic_fields(v);
 	return v;
+}
+
+void gui_text_view_alloc_dynamic_fields(gui_text_view_t* view) {
+	gui_scroll_view_alloc_dynamic_fields((gui_scroll_view_t*)view);
 }
 
 void gui_text_view_init(gui_text_view_t* view, gui_window_t* window, gui_window_resized_cb_t sizer_cb) {

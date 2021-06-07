@@ -1,8 +1,6 @@
 #ifndef GUI_TEXT_VIEW_H
 #define GUI_TEXT_VIEW_H
 
-#include <agx/lib/text_box.h>
-
 #include "gui_elem.h"
 #include "gui_layer.h"
 #include "gui_scroll_view.h"
@@ -62,7 +60,7 @@ typedef struct gui_text_view {
     gui_scrollbar_t* scrollbar;
     Size full_content_area_size;
 
-    // Public gui_text_view fields
+    // Public gui_text_view_t fields
     Point cursor_pos;
     Size font_size;
     Size font_inset;
@@ -83,5 +81,8 @@ void gui_text_view_clear(text_view_t* text_view);
 void gui_text_view_clear_and_erase_history(text_view_t* text_view);
 void gui_text_view_destroy(text_view_t* text_view);
 */
+
+// For subclasses to invoke
+void gui_text_view_alloc_dynamic_fields(gui_text_view_t* view);
 
 #endif

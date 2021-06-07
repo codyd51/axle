@@ -141,7 +141,7 @@ static void _scroll_view_window_resized(gui_scroll_view_t* sv, Size new_window_s
 	_gui_view_resize_invoke_callbacks(sv, new_window_size);
 }
 
-static void _scroll_view_draw(gui_scroll_view_t* sv, bool is_active) {
+void _gui_scroll_view_draw(gui_scroll_view_t* sv, bool is_active) {
 	// Draw a left edge in which we display the scrollbar
 	Rect frame_excluding_scrollbar = rect_make(
 		sv->frame.origin,
@@ -175,7 +175,7 @@ void gui_scroll_view_init(gui_scroll_view_t* view, gui_window_t* window, gui_win
     view->elem_for_mouse_pos_cb = (gui_view_elem_for_mouse_pos_cb_t)_gui_scroll_view_elem_for_mouse_pos;
 	view->_fill_background_cb = (gui_draw_cb_t)_gui_scroll_view_fill_background;
 	view->_priv_window_resized_cb = (_priv_gui_window_resized_cb_t)_scroll_view_window_resized;
-	view->_priv_draw_cb = (gui_draw_cb_t)_scroll_view_draw;
+	view->_priv_draw_cb = (gui_draw_cb_t)_gui_scroll_view_draw;
 	// TODO(PT): Might need to set a new type here
 
 	// Must be called after text_view is added to all_gui_elems to set up the Z-order correctly

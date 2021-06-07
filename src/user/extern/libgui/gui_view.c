@@ -114,7 +114,7 @@ void _gui_view_draw_main_content_in_rect(gui_view_t* v, bool is_active, Rect r) 
 		uint32_t font_width = max(6, font_height * 0.8);
 		for (int i = 0; i < strlen(v->_title); i++) {
 			gui_layer_draw_char(
-				v->window->layer,
+				v->parent_layer,
 				v->_title[i],
 				cursor.x,
 				cursor.y,

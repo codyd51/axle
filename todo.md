@@ -141,7 +141,7 @@ Revamp gui_text_view and gui_text_input to subclass gui_view
 
 gui_text_input uses a timer to control its flashing cursor
 
-scroll view scrollbara
+scroll view scrollbar (check)
 scroll view layer stitching
 
 awm uses libgui (with a custom event loop)
@@ -150,7 +150,6 @@ awm exposes a primary/secondary tint color
     Preferences reads this to set its initial slider values
     Values are randomised on boot (or eventually perisisted to a config file)
     Snake uses it for its tail
-
 
 ray tracer
 game of life
@@ -208,13 +207,13 @@ libgui supports partial draw
 
 gui_view progressively grows memory as size changes
 
-Crash reporter app
-When exit signal happens, send backtrace 
-    How to get assertion message?
-    assert() itself can alert the crash reporter
+Crash reporter app (check)
+When exit signal happens, send backtrace (check)
+    How to get assertion message? (check)
+    assert() itself can alert the crash reporter (check)
 
-awm subscribes to process-died notifications from amc
-    Cleans up window 
+awm subscribes to process-died notifications from amc (check)
+    Cleans up window (check)
     New amc syscall to flush pending messages from awm
         Flushes either from deliver queue or unknown-services message queue
 
@@ -222,3 +221,5 @@ libgui can send a resize event
     image_viewer resizes to native image dimensions when an image is opened
 
 Two-way mapping in process death notifying so we can remove the watcher when the watcher dies
+
+Desktop icons

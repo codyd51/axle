@@ -8,14 +8,14 @@
 #include <kb_driver/kb_driver_messages.h>
 
 #include "gui_elem.h"
-#include "gui_text_input.h"
-#include "gui_text_view.h"
 #include "gui_scrollbar.h"
 #include "gui_view.h"
 #include "gui_slider.h"
 #include "gui_button.h"
 #include "gui_timer.h"
 #include "gui_scroll_view.h"
+#include "gui_text_view.h"
+#include "gui_text_input.h"
 
 typedef struct gui_application gui_application_t;
 typedef void (*gui_interrupt_cb_t)(uint32_t int_no);
@@ -24,7 +24,6 @@ typedef void (*gui_amc_message_cb_t)(amc_message_t* msg);
 typedef struct gui_window {
     Size size;
     gui_layer_t* layer;
-	array_t* text_inputs;
 	array_t* views;
 
     // The GUI element the mouse is currently hovered over
@@ -34,7 +33,6 @@ typedef struct gui_window {
 
 typedef union gui_elem {
     gui_elem_base_t base;
-    text_input_t ti;
     gui_scrollbar_t sb;
     gui_view_t v;
     gui_slider_t sl;

@@ -84,7 +84,6 @@ gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t hei
 	gui_window_t* window = calloc(1, sizeof(gui_window_t));
 	window->size = size_make(width, height);
 	window->layer = dummy_gui_layer;
-	window->text_inputs = array_create(32);
 	window->views = array_create(32);
 	window->all_gui_elems = array_create(64);
 
@@ -124,9 +123,6 @@ static void gui_window_teardown(gui_window_t* window) {
 	free(_screen.vmem);
 	_screen.vmem = NULL;
 	free(window->layer);
-
-	assert(window->text_inputs->size == 0, "not zero text inputs");
-	array_destroy(window->text_inputs);
 
 	while (window->views->size) {
 		gui_view_t* v = array_lookup(window->views, 0);
@@ -191,78 +187,6 @@ static void _handle_key_down(gui_window_t* window, uint32_t ch) {
 
 	// Dispatch the key down event handler of the active element
 	window->hover_elem->base._priv_key_down_cb(window->hover_elem, ch);
-
-	// TODO(PT): Move the below implementation into text_input's key-down handler
-	// Decide which element to route the keypress to
-	// For now, always direct it to the first text input
-	// TODO(PT): Model cursor position and use it to display the active text box
-	if (window->text_inputs->size == 0) {
-		return;
-	}
-
-	if (window->hover_elem->base.type != GUI_TYPE_TEXT_INPUT) {
-		return;
-	}
-	text_input_t* active_text_input = &window->hover_elem->ti;
-	if (ch == '\b') {
-		if (active_text_input->len > 0) {
-			char deleted_char = active_text_input->text[active_text_input->len - 1];
-			active_text_input->text[--active_text_input->len] = '\0';
-
-			text_box_t* text_box = active_text_input->text_box;
-
-			uint32_t drawn_char_width = text_box->font_size.width + text_box->font_padding.width;
-			uint32_t delete_width = drawn_char_width;
-			// If the last character was a tab character, we actually need to emplace 4 spaces
-			if (deleted_char == '\t') {
-				delete_width = drawn_char_width * 4;
-			}
-
-			// Move the cursor back before the deleted character
-			text_box->cursor_pos.x -= delete_width;
-			if (text_box->cursor_pos.x <= 0) {
-				// Iterate the past text to find out where to put the previous line ends
-				uint32_t line_count = 0;
-				uint32_t chars_in_last_line = 0;
-				for (int i = 0; i < active_text_input->len; i++) {
-					char ch = active_text_input->text[i];
-					if (ch == '\n') {
-						chars_in_last_line = 0;
-						line_count += 1;
-					}
-					else {
-						chars_in_last_line += 1;
-					}
-				}
-				if (line_count == 0) {
-					text_box->cursor_pos = text_box->text_inset;
-				}
-				text_box->cursor_pos.x = max(text_box->text_inset.x, drawn_char_width * chars_in_last_line);
-				text_box->cursor_pos.y -= text_box->font_size.height + text_box->font_padding.height;
-				text_box->cursor_pos.y = max(text_box->text_inset.y, text_box->cursor_pos.y);
-			}
-			// Cover it up with a space
-			text_box_putchar(text_box, ' ', text_box->background_color);
-			// And move the cursor before the space
-			text_box->cursor_pos.x -= drawn_char_width;
-		}
-	}
-	else {
-		// Draw the character into the text input
-		if (active_text_input->len + 1 >= active_text_input->max_len) {
-			uint32_t new_max_len = active_text_input->max_len * 2;
-			printf("Resizing text input %d -> %d\n", active_text_input->max_len, new_max_len);
-			active_text_input->text = realloc(active_text_input->text, new_max_len);
-			active_text_input->max_len = new_max_len;
-		}
-		active_text_input->text[active_text_input->len++] = ch;
-		text_box_putchar(active_text_input->text_box, ch, color_black());
-	}
-
-	// Inform the text input that it's received a character
-	if (active_text_input->text_entry_cb != NULL) {
-		active_text_input->text_entry_cb(active_text_input, ch);
-	}
 }
 
 static void _handle_mouse_moved(gui_window_t* window, awm_mouse_moved_msg_t* moved_msg) {
@@ -319,7 +243,7 @@ static void _handle_mouse_left_click(gui_window_t* window, Point click_point) {
 
 static void _handle_mouse_left_click_ended(gui_window_t* window, Point click_point) {
 	if (window->hover_elem) {
-		window->hover_elem->ti._priv_mouse_left_click_ended_cb(window->hover_elem, click_point);
+		window->hover_elem->base._priv_mouse_left_click_ended_cb(window->hover_elem, click_point);
 	}
 }
 
@@ -327,14 +251,14 @@ static void _handle_mouse_exited(gui_window_t* window) {
 	// Exit the previous hover element
 	if (window->hover_elem) {
 		printf("Mouse exited previous hover elem 0x%08x\n", window->hover_elem);
-		window->hover_elem->ti._priv_mouse_exited_cb(window->hover_elem);
+		window->hover_elem->base._priv_mouse_exited_cb(window->hover_elem);
 		window->hover_elem = NULL;
 	}
 }
 
 static void _handle_mouse_scrolled(gui_window_t* window, awm_mouse_scrolled_msg_t* msg) {
 	if (window->hover_elem) {
-		window->hover_elem->ti._priv_mouse_scrolled_cb(window->hover_elem, msg->delta_z);
+		window->hover_elem->base._priv_mouse_scrolled_cb(window->hover_elem, msg->delta_z);
 	}
 }
 
@@ -446,7 +370,7 @@ static void _handle_amc_messages(gui_application_t* app, bool should_block, bool
 		window->size = m->new_size;
 		for (uint32_t i = 0; i < window->all_gui_elems->size; i++) {
 			gui_elem_t* elem = array_lookup(window->all_gui_elems, i);
-			elem->ti._priv_window_resized_cb(elem, window->size);
+			elem->base._priv_window_resized_cb(elem, window->size);
 		}
 	}
 }
@@ -477,7 +401,7 @@ static void _redraw_dirty_elems(gui_window_t* window) {
 	}
 	uint32_t end = ms_since_boot();
 	uint32_t t = end - start;
-	if (t > 2) {
+	if (t > 3) {
 		printf("[%d] libgui draw took %dms\n", getpid(), t);
 	}
 

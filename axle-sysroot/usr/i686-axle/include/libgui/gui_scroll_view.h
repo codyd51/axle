@@ -70,4 +70,8 @@ void gui_scroll_view_add_to_window(gui_scroll_view_t* view, gui_window_t* window
 // Combines -alloc, -init, and -add_to_window
 gui_scroll_view_t* gui_scroll_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_cb);
 
+// Friend function for subclasses
+// TODO(PT): Store the callback chain in the structure so each subclass can invoke the parent?
+void _gui_scroll_view_draw(gui_scroll_view_t* sv, bool is_active);
+
 #endif
