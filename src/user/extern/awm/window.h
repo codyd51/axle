@@ -8,19 +8,20 @@
 typedef struct view {
 	Rect frame;
 	ca_layer* layer;
+	array_t* drawable_rects;
+	array_t* extra_draws_this_cycle;
 } view_t;
 
 typedef struct user_window {
 	Rect frame;
 	ca_layer* layer;
+	array_t* drawable_rects;
+	array_t* extra_draws_this_cycle;
 	view_t* content_view;
 	const char* owner_service;
 	const char* title;
 	Rect close_button_frame;
 	bool has_done_first_draw;
-
-	array_t* drawable_rects;
-	array_t* extra_draws_this_cycle;
 } user_window_t;
 
 #define WINDOW_BORDER_MARGIN 0

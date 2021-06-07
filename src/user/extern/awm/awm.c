@@ -212,7 +212,7 @@ static void _handle_mouse_moved(mouse_interaction_state_t* state, Point mouse_po
 	user_window_t* window_under_mouse = window_containing_point(mouse_point);
 	// Is this a different window from the one we were previously hovered over?
 	if (state->active_window != window_under_mouse) {
-		if (state->active_window) {
+		if (state->active_window != NULL) {
 			_exit_hover_window(state);
 		}
 
@@ -609,6 +609,10 @@ void print_memory(void) {
 	printf("Total free space   : 0x%08x\n", p.fordblks);
 }
 
+ca_layer* desktop_background_layer(void) {
+	return _g_background;
+}
+
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.awm");
 	windows_init();
@@ -728,7 +732,7 @@ int main(int argc, char** argv) {
 		// Fetch remote layers for windows that have asked for a redraw
 		windows_fetch_queued_windows();
 
-		array_t* windows = windows_all();
+		array_t* all_views = all_desktop_views();
 
 		// Process rects that have been dirtied while processing other events
 		for (int32_t i = 0; i < _g_rects_to_update_this_cycle->size; i++) {
@@ -738,14 +742,14 @@ int main(int argc, char** argv) {
 			array_t* unobscured_region = array_create(128);
 			rect_add(unobscured_region, r);
 
-			// Handle the parts of the dirty region that are obscured by windows
-			for (int32_t j = 0; j < windows->size; j++) {
-				user_window_t* window = array_lookup(windows, j);
-				if (rect_intersects(window->frame, r)) {
-					// Note that this window should redraw its portion of this rect
-					rect_add(window->extra_draws_this_cycle, r);
+			// Handle the parts of the dirty region that are obscured by desktop views
+			for (int32_t j = 0; j < all_views->size; j++) {
+				view_t* view = array_lookup(all_views, j);
+				if (rect_intersects(view->frame, r)) {
+					// Note that this view should redraw its portion of this rect
+					rect_add(view->extra_draws_this_cycle, r);
 					// And subtract the area of this window from the region to update
-					unobscured_region = update_occlusions(unobscured_region, window->frame);
+					unobscured_region = update_occlusions(unobscured_region, view->frame);
 					// And if all the area of the region to update has been handled, 
 					// stop iterating windows early
 					if (!unobscured_region->size) {
@@ -770,67 +774,10 @@ int main(int argc, char** argv) {
 			array_destroy(unobscured_region);
 		}
 
-		array_t* windows_to_composite = windows_get_ready_to_composite_array();
-		for (int32_t i = 0; i < windows_to_composite->size; i++) {
-			user_window_t* window = array_lookup(windows_to_composite, i);
-			for (int32_t j = 0; j < window->drawable_rects->size; j++) {
-				Rect* r_ptr = array_lookup(window->drawable_rects, j);
-				Rect r = *r_ptr;
-				uint32_t offset_x = r.origin.x - rect_min_x(window->frame);
-				uint32_t offset_y = r.origin.y - rect_min_y(window->frame);
-				blit_layer(
-					_screen.vmem,
-					window->layer,
-					r,
-					rect_make(
-						point_make(offset_x, offset_y), 
-						r.size
-					)
-				);
-				//draw_rect(_screen.vmem, r, color_rand(), 1);
-			}
-		}
-		for (int32_t i = 0; i < windows->size; i++) {
-			user_window_t* window = array_lookup(windows, i);
-			for (int32_t j = window->extra_draws_this_cycle->size - 1; j >= 0; j--) {
-				Rect* r_ptr = array_lookup(window->extra_draws_this_cycle, j);
-				Rect r = *r_ptr;
-				int32_t offset_x = r.origin.x - rect_min_x(window->frame);
-				int32_t offset_y = r.origin.y - rect_min_y(window->frame);
-				if (rect_max_x(r) < rect_min_x(window->frame) || rect_max_y(r) < rect_min_y(window->frame)) {
-					continue;
-				}
+		array_t* desktop_views_to_composite = windows_get_ready_to_composite_array();
+		draw_views_to_layer(desktop_views_to_composite, _screen.vmem);
+		draw_queued_extra_draws(all_views, _screen.vmem);
 
-				int x_origin = rect_min_x(window->frame) - rect_min_x(r);
-				if (x_origin > 0){ 
-					r.origin.x += x_origin;
-				}
-				int y_origin = rect_min_y(window->frame) - rect_min_y(r);
-				if (y_origin > 0){ 
-					r.origin.y += y_origin;
-				}
-
-				int x_overhang = rect_max_x(r) - rect_max_x(window->frame);
-				if (x_overhang > 0) {
-					r.size.width -= x_overhang;
-				}
-				int y_overhang = rect_max_y(r) - rect_max_y(window->frame);
-				if (y_overhang > 0) {
-					r.size.height -= y_overhang;
-				}
-
-				blit_layer(
-					_screen.vmem,
-					window->layer,
-					r,
-					rect_make(
-						point_make(offset_x, offset_y), 
-						r.size
-					)
-				);
-				//draw_rect(_screen.vmem, r, color_rand(), 1);
-			}
-		}
 		Rect mouse_rect = _draw_cursor(_screen.vmem);
 
 		for (int32_t i = _g_rects_to_update_this_cycle->size - 1; i >= 0; i--) {
@@ -845,29 +792,22 @@ int main(int argc, char** argv) {
 			free(r);
 		}
 
-		for (int32_t i = 0; i < windows->size; i++) {
-			user_window_t* window = array_lookup(windows, i);
-			for (int32_t j = window->extra_draws_this_cycle->size - 1; j >= 0; j--) {
-				Rect* r_ptr = array_lookup(window->extra_draws_this_cycle, j);
+		complete_queued_extra_draws(all_views, _screen.vmem, &dummy_layer);
+		array_destroy(all_views);
+		
+		for (int32_t i = 0; i < desktop_views_to_composite->size; i++) {
+			view_t* view = array_lookup(desktop_views_to_composite, i);
+			for (int32_t j = 0; j < view->drawable_rects->size; j++) {
+				Rect* r_ptr = array_lookup(view->drawable_rects, j);
 				Rect r = *r_ptr;
-				blit_layer(&dummy_layer, _screen.vmem, r, r);
-				array_remove(window->extra_draws_this_cycle, j);
-				free(r_ptr);
-			}
-		}
-		for (int32_t i = 0; i < windows_to_composite->size; i++) {
-			user_window_t* window = array_lookup(windows_to_composite, i);
-			for (int32_t j = 0; j < window->drawable_rects->size; j++) {
-				Rect* r_ptr = array_lookup(window->drawable_rects, j);
-				Rect r = *r_ptr;
-				uint32_t offset_x = r.origin.x - rect_min_x(window->frame);
-				uint32_t offset_y = r.origin.y - rect_min_y(window->frame);
+				uint32_t offset_x = r.origin.x - rect_min_x(view->frame);
+				uint32_t offset_y = r.origin.y - rect_min_y(view->frame);
 				blit_layer(&dummy_layer, _screen.vmem, r, r);
 			}
 		}
 		blit_layer(&dummy_layer, _screen.vmem, mouse_rect, mouse_rect);
 
-		windows_clear_queued_windows();
+		desktop_views_flush_queues();
 	}
 	return 0;
 }

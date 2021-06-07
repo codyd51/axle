@@ -9,7 +9,7 @@
 #define MAX_WINDOW_COUNT 64
 array_t* windows = NULL;
 array_t* windows_to_fetch_this_cycle = NULL;
-array_t* windows_to_composite_this_cycle = NULL;
+array_t* views_to_composite_this_cycle = NULL;
 
 image_t* _g_title_bar_image = NULL;
 image_t* _g_title_bar_x_unfilled = NULL;
@@ -153,17 +153,17 @@ void window_queue_fetch(user_window_t* window) {
         //printf("Ready for redraw: %s\n", window->owner_service);
         array_insert(windows_to_fetch_this_cycle, window);
     }
-    window_queue_composite(window);
+    desktop_view_queue_composite((view_t*)window);
 }
 
-void window_queue_composite(user_window_t* window) {
-    if (array_index(windows_to_composite_this_cycle, window) == -1) {
-        array_insert(windows_to_composite_this_cycle, window);
+void desktop_view_queue_composite(view_t* view) {
+    if (array_index(views_to_composite_this_cycle, view) == -1) {
+        array_insert(views_to_composite_this_cycle, view);
     }
 }
 
-void window_queue_extra_draw(user_window_t* window, Rect extra) {
-    rect_add(window->extra_draws_this_cycle, extra);
+void desktop_view_queue_extra_draw(view_t* view, Rect extra) {
+    rect_add(view->extra_draws_this_cycle, extra);
 }
 
 void window_request_close(user_window_t* window) {
@@ -234,19 +234,38 @@ void windows_fetch_queued_windows(void) {
     }
 }
 
-void windows_clear_queued_windows(void) {
+void desktop_views_flush_queues(void) {
     for (int32_t i = windows_to_fetch_this_cycle->size - 1; i >= 0; i--) {
         array_remove(windows_to_fetch_this_cycle, i);
     }
-    for (int32_t i = windows_to_composite_this_cycle->size - 1; i >= 0; i--) {
-        array_remove(windows_to_composite_this_cycle, i);
+    for (int32_t i = views_to_composite_this_cycle->size - 1; i >= 0; i--) {
+        array_remove(views_to_composite_this_cycle, i);
     }
 }
 
 void windows_init(void) {
     windows = array_create(MAX_WINDOW_COUNT);
+    desktop_views = array_create(MAX_WINDOW_COUNT);
     windows_to_fetch_this_cycle = array_create(MAX_WINDOW_COUNT);
-    windows_to_composite_this_cycle = array_create(MAX_WINDOW_COUNT);
+    views_to_composite_this_cycle = array_create(MAX_WINDOW_COUNT);
+void desktop_views_add(view_t* view) {
+    array_insert(desktop_views, view);
+    desktop_view_queue_composite(view);
+    windows_invalidate_drawable_regions_in_rect(view->frame);
+}
+
+array_t* all_desktop_views(void) {
+    array_t* out = array_create(windows->size + desktop_views->size + 1);
+    // Windows are always highest in the view hierarchy
+    for (int32_t i = 0; i < windows->size; i++) {
+        array_insert(out, array_lookup(windows, i));
+    }
+    for (int32_t i = 0; i < desktop_views->size; i++) {
+        array_insert(out, array_lookup(desktop_views, i));
+    }
+    return out;
+}
+
 }
 
 void windows_fetch_resource_images(void) {
@@ -260,11 +279,17 @@ void windows_fetch_resource_images(void) {
 }
 
 user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t height) {
+    // Ask the kernel to inform us when this process dies
+    amc_notify_when_service_dies_cmd_t req = {0};
+    req.event = AMC_REGISTER_NOTIFICATION_SERVICE_DIED;
+    snprintf(&req.remote_service, sizeof(req.remote_service), owner_service);
+    amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &req, sizeof(req));
+
 	user_window_t* window = calloc(1, sizeof(user_window_t));
 	array_insert(windows, window);
 
-	window->drawable_rects = array_create(32);
-	window->extra_draws_this_cycle = array_create(32);
+	window->drawable_rects = array_create(64);
+	window->extra_draws_this_cycle = array_create(64);
 
 	// Shared layer is size of the screen to allow window resizing
     Size res = screen_resolution();
@@ -282,12 +307,6 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
 		&shmem_remote
 	);
     
-    // Ask the kernel to inform us when this process dies
-    amc_notify_when_service_dies_cmd_t req = {0};
-    req.event = AMC_REGISTER_NOTIFICATION_SERVICE_DIED;
-    snprintf(&req.remote_service, sizeof(req.remote_service), owner_service);
-    amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &req, sizeof(req));
-
 	// Place the window in the center of the screen
 	Point origin = point_make(
 		(res.width / 2) - (width / 2),
@@ -347,9 +366,9 @@ void window_destroy(user_window_t* window) {
     if (i >= 0) {
         array_remove(windows_to_fetch_this_cycle, i);
     }
-    i = array_index(windows_to_composite_this_cycle, window);
+    i = array_index(views_to_composite_this_cycle, window);
     if (i >= 0) {
-        array_remove(windows_to_composite_this_cycle, i);
+        array_remove(views_to_composite_this_cycle, i);
     }
 
 	layer_teardown(window->layer);
@@ -372,36 +391,37 @@ array_t* windows_queued(void) {
     return windows_to_fetch_this_cycle;
 }
 
-array_t* windows_get_ready_to_composite_array(void) {
-    return windows_to_composite_this_cycle;
+array_t* desktop_views_ready_to_composite_array(void) {
+    return views_to_composite_this_cycle;
 }
 
 void windows_invalidate_drawable_regions_in_rect(Rect r) {
-    for (int32_t i = windows->size - 1; i >= 0; i--) {
-        user_window_t* window = array_lookup(windows, i);
-        if (!rect_intersects(window->frame, r)) {
+    array_t* all_views = all_desktop_views();
+    for (int32_t i = all_views->size - 1; i >= 0; i--) {
+        view_t* view = array_lookup(all_views, i);
+        if (!rect_intersects(view->frame, r)) {
             continue;
         }
 
-        for (int32_t i = window->drawable_rects->size - 1; i >= 0; i--) {
-            Rect* r = array_lookup(window->drawable_rects, i);
+        for (int32_t i = view->drawable_rects->size - 1; i >= 0; i--) {
+            Rect* r = array_lookup(view->drawable_rects, i);
             free(r);
-            array_remove(window->drawable_rects, i);
+            array_remove(view->drawable_rects, i);
         }
-        rect_add(window->drawable_rects, window->frame);
+        rect_add(view->drawable_rects, view->frame);
 
         for (int32_t j = i - 1; j >= 0; j--) {
-            user_window_t* occluding_window = array_lookup(windows, j);
-            if (!rect_intersects(occluding_window->frame, window->frame)) {
+            view_t* occluding_view = array_lookup(all_views, j);
+            if (!rect_intersects(occluding_view->frame, view->frame)) {
                 continue;
             }
-            window->drawable_rects = update_occlusions(window->drawable_rects, occluding_window->frame);
-            if (!window->drawable_rects->size) {
+            view->drawable_rects = update_occlusions(view->drawable_rects, occluding_view->frame);
+            if (!view->drawable_rects->size) {
                 break;
             }
         }
-        if (window->drawable_rects->size) {
-            window_queue_composite(window);
+        if (view->drawable_rects->size) {
+            desktop_view_queue_composite(view);
         }
         else {
             //printf("Will not composite %s because it's fully occluded\n", window->owner_service);
@@ -528,6 +548,95 @@ void windows_composite(ca_layer* dest, Rect updated_rect) {
             Rect* r = array_lookup(window->drawable_rects, j);
             free(r);
             array_remove(window->drawable_rects, j);
+        }
+    }
+}
+
+view_t* view_create(Rect frame) {
+    view_t* v = calloc(1, sizeof(view_t));
+    v->frame = frame;
+	v->layer = create_layer(frame.size);
+    v->drawable_rects = array_create(64);
+    v->extra_draws_this_cycle = array_create(64);
+    return v;
+}
+
+void draw_queued_extra_draws(array_t* views, ca_layer* dest_layer) {
+    for (int32_t i = 0; i < views->size; i++) {
+        //user_window_t* window = array_lookup(windows, i);
+        view_t* view = array_lookup(views, i);
+        for (int32_t j = view->extra_draws_this_cycle->size - 1; j >= 0; j--) {
+            Rect* r_ptr = array_lookup(view->extra_draws_this_cycle, j);
+            Rect r = *r_ptr;
+            int32_t offset_x = r.origin.x - rect_min_x(view->frame);
+            int32_t offset_y = r.origin.y - rect_min_y(view->frame);
+            if (rect_max_x(r) < rect_min_x(view->frame) || rect_max_y(r) < rect_min_y(view->frame)) {
+                continue;
+            }
+
+            int x_origin = rect_min_x(view->frame) - rect_min_x(r);
+            if (x_origin > 0){ 
+                r.origin.x += x_origin;
+            }
+            int y_origin = rect_min_y(view->frame) - rect_min_y(r);
+            if (y_origin > 0){ 
+                r.origin.y += y_origin;
+            }
+
+            int x_overhang = rect_max_x(r) - rect_max_x(view->frame);
+            if (x_overhang > 0) {
+                r.size.width -= x_overhang;
+            }
+            int y_overhang = rect_max_y(r) - rect_max_y(view->frame);
+            if (y_overhang > 0) {
+                r.size.height -= y_overhang;
+            }
+
+            blit_layer(
+                dest_layer,
+                view->layer,
+                r,
+                rect_make(
+                    point_make(offset_x, offset_y), 
+                    r.size
+                )
+            );
+            //draw_rect(_screen.vmem, r, color_rand(), 1);
+        }
+    }
+}
+
+void complete_queued_extra_draws(array_t* views, ca_layer* source_layer, ca_layer* dest_layer) {
+    for (int32_t i = 0; i < views->size; i++) {
+        view_t* view = array_lookup(views, i);
+        for (int32_t j = view->extra_draws_this_cycle->size - 1; j >= 0; j--) {
+            Rect* r_ptr = array_lookup(view->extra_draws_this_cycle, j);
+            Rect r = *r_ptr;
+            blit_layer(dest_layer, source_layer, r, r);
+            array_remove(view->extra_draws_this_cycle, j);
+            free(r_ptr);
+        }
+    }
+}
+
+void draw_views_to_layer(array_t* views, ca_layer* dest_layer) {
+    for (int32_t i = 0; i < views->size; i++) {
+        view_t* view = array_lookup(views, i);
+        for (int32_t j = 0; j < view->drawable_rects->size; j++) {
+            Rect* r_ptr = array_lookup(view->drawable_rects, j);
+            Rect r = *r_ptr;
+            uint32_t offset_x = r.origin.x - rect_min_x(view->frame);
+            uint32_t offset_y = r.origin.y - rect_min_y(view->frame);
+            blit_layer(
+                dest_layer,
+                view->layer,
+                r,
+                rect_make(
+                    point_make(offset_x, offset_y), 
+                    r.size
+                )
+            );
+            //draw_rect(_screen.vmem, r, color_rand(), 1);
         }
     }
 }
