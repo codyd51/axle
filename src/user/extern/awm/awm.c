@@ -331,6 +331,23 @@ static void _begin_mouse_drag(mouse_interaction_state_t* state, Point mouse_poin
 static void _end_mouse_drag(mouse_interaction_state_t* state, Point mouse_point) {
 	if (state->has_begun_drag) {
 		printf("End drag\n");
+		if (state->is_dragging_shortcut) {
+			Rect original_frame = state->hovered_shortcut->view->frame;
+			desktop_shortcut_grid_slot_t* slot = desktop_shortcut_grid_slot_for_rect(original_frame);
+			Rect new_frame = desktop_shortcut_place_in_grid_slot(state->hovered_shortcut, slot);
+
+			Rect total_update_frame = rect_union(original_frame, new_frame);
+			array_t* delta = rect_diff(total_update_frame, new_frame);
+			for (int32_t i = delta->size - 1; i >= 0; i--) {
+				Rect* r = array_lookup(delta, i);
+				queue_rect_to_update_this_cycle(*r);
+				free(r);
+			}
+			array_destroy(delta);
+
+			windows_invalidate_drawable_regions_in_rect(total_update_frame);
+		}
+
 		state->has_begun_drag = false;
 		state->is_moving_top_window = false;
 		state->is_resizing_top_window = false;
