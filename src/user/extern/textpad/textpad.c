@@ -7,7 +7,7 @@
 
 #include <libgui/libgui.h>
 
-static Rect _input_sizer(text_input_t* text_view, Size window_size) {
+static Rect _input_sizer(gui_text_input_t* text_input, Size window_size) {
 	return rect_make(point_zero(), window_size);
 }
 
@@ -19,10 +19,8 @@ int main(int argc, char** argv) {
 	Size window_size = window->size;
 
 	Rect notepad_frame = rect_make(point_zero(), window_size);
-	text_input_t* input = gui_text_input_create(
+	gui_text_input_t* input = gui_text_input_create(
 		window,
-		notepad_frame,
-		color_white(),
 		(gui_window_resized_cb_t)_input_sizer
 	);
 
