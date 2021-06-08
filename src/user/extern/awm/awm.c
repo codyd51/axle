@@ -114,13 +114,21 @@ static void _begin_left_click(mouse_interaction_state_t* state, Point mouse_poin
 		if (state->hovered_shortcut) {
 			printf("Left click with hover shortcut %d\n", state->hovered_shortcut->in_soft_click);
 			if (state->hovered_shortcut->in_soft_click) {
-				state->hovered_shortcut->in_soft_click = false;
-				//if (!amc_service_is_active(CRASH_REPORTER_SERVICE_NAME)) {
-					file_manager_launch_file_request_t req = {0};
-					req.event = FILE_MANAGER_LAUNCH_FILE;
-					snprintf(req.path, sizeof(req.path), state->hovered_shortcut->program_path);
-					amc_message_construct_and_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_launch_file_request_t));
-				//}
+				uint32_t now = ms_since_boot();
+				uint32_t elapsed_ms = now - state->hovered_shortcut->first_click_start_time;
+				if (elapsed_ms > 500) {
+					printf("Click after double-click timed out, considering as first-click %d %d %d\n", elapsed_ms, now, state->hovered_shortcut->first_click_start_time);
+					state->hovered_shortcut->first_click_start_time = now;
+				}
+				else {
+					state->hovered_shortcut->in_soft_click = false;
+					//if (!amc_service_is_active(CRASH_REPORTER_SERVICE_NAME)) {
+						file_manager_launch_file_request_t req = {0};
+						req.event = FILE_MANAGER_LAUNCH_FILE;
+						snprintf(req.path, sizeof(req.path), state->hovered_shortcut->program_path);
+						amc_message_construct_and_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_launch_file_request_t));
+					//}
+				}
 				return;
 			}
 			else {

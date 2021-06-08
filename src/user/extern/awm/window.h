@@ -35,6 +35,7 @@ typedef struct desktop_shortcut {
     view_t* view;
     const char* program_path;
 	const char* display_name;
+	uint32_t first_click_start_time;
 	bool in_soft_click;
 	bool in_mouse_hover;
 } desktop_shortcut_t;

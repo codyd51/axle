@@ -349,6 +349,7 @@ void desktop_shortcut_handle_mouse_entered(desktop_shortcut_t* shortcut) {
 
 void desktop_shortcut_highlight(desktop_shortcut_t* shortcut) {
     shortcut->in_soft_click = true;
+    shortcut->first_click_start_time = ms_since_boot();
     desktop_shortcut_render(shortcut);
 }
 
