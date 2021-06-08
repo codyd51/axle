@@ -355,6 +355,21 @@ static void _end_mouse_drag(mouse_interaction_state_t* state, Point mouse_point)
 	}
 }
 
+static Rect rect_bind_to_screen_frame(Rect inp) {
+	inp.origin.x = max(inp.origin.x, 0);
+	inp.origin.y = max(inp.origin.y, 0);
+
+	if (inp.origin.x + inp.size.width >= _screen.resolution.width) {
+		uint32_t overhang = inp.origin.x + inp.size.width - _screen.resolution.width;
+		inp.origin.x -= overhang;
+	}
+	if (inp.origin.y + inp.size.height >= _screen.resolution.height) {
+		uint32_t overhang = inp.origin.y + inp.size.height - _screen.resolution.height;
+		inp.origin.y -= overhang;
+	}
+	return inp;
+}
+
 static void _adjust_window_position(user_window_t* window, int32_t delta_x, int32_t delta_y) {
 	Rect original_frame = window->frame;
 
@@ -362,8 +377,7 @@ static void _adjust_window_position(user_window_t* window, int32_t delta_x, int3
 	window->frame.origin.y += delta_y;
 
 	// Don't let the window go off-screen
-	window->frame.origin.x = max(window->frame.origin.x, 0);
-	window->frame.origin.y = max(window->frame.origin.y, 0);
+	window->frame = rect_bind_to_screen_frame(window->frame);
 
 	if (window->frame.origin.x + window->frame.size.width >= _screen.resolution.width) {
 		uint32_t overhang = window->frame.origin.x + window->frame.size.width - _screen.resolution.width;
@@ -389,7 +403,6 @@ static void _handle_mouse_dragged(mouse_interaction_state_t* state, Point mouse_
 	// Nothing to do if we didn't start the drag with a hover window
 	if (!state->active_window) {
 		if (state->hovered_shortcut) {
-			//printf("Drag shortcut icon %s\n", state->hovered_shortcut->display_name);
 			Rect original_frame = state->hovered_shortcut->view->frame;
 			Rect new_frame = rect_make(
 				point_make(
@@ -398,8 +411,12 @@ static void _handle_mouse_dragged(mouse_interaction_state_t* state, Point mouse_
 				),
 				original_frame.size
 			);
+			// Don't let the shortcut go off-screen
+			new_frame = rect_bind_to_screen_frame(new_frame);
 			state->hovered_shortcut->view->frame = new_frame;
-			array_t* delta = rect_diff(rect_union(original_frame, new_frame), new_frame);
+
+			Rect total_update_frame = rect_union(original_frame, new_frame);
+			array_t* delta = rect_diff(total_update_frame, new_frame);
 			for (int32_t i = delta->size - 1; i >= 0; i--) {
 				Rect* r = array_lookup(delta, i);
 				queue_rect_to_update_this_cycle(*r);
@@ -407,8 +424,7 @@ static void _handle_mouse_dragged(mouse_interaction_state_t* state, Point mouse_
 			}
 			array_destroy(delta);
 
-			//queue_rect_to_update_this_cycle(rect_union(original_frame, new_frame));
-			windows_invalidate_drawable_regions_in_rect(rect_union(original_frame, new_frame));
+			windows_invalidate_drawable_regions_in_rect(total_update_frame);
 		}
 		else {
 			printf("Drag on desktop background\n");
