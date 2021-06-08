@@ -334,6 +334,11 @@ static void _end_mouse_drag(mouse_interaction_state_t* state, Point mouse_point)
 		if (state->is_dragging_shortcut) {
 			Rect original_frame = state->hovered_shortcut->view->frame;
 			desktop_shortcut_grid_slot_t* slot = desktop_shortcut_grid_slot_for_rect(original_frame);
+			// If we couldn't find a good place to put the icon, move it back to its original spot
+			if (!slot) {
+				printf("Failed to find a good place to put shortcut, returning to original slot\n");
+				slot = state->hovered_shortcut->grid_slot;
+			}
 			Rect new_frame = desktop_shortcut_place_in_grid_slot(state->hovered_shortcut, slot);
 
 			Rect total_update_frame = rect_union(original_frame, new_frame);
