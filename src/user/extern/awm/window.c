@@ -308,6 +308,10 @@ desktop_shortcut_grid_slot_t* desktop_shortcut_grid_slot_for_rect(Rect r) {
     desktop_shortcut_grid_slot_t* best_match = NULL;
     for (int32_t i = 0; i < _g_desktop_shortcuts_state.grid_slots->size; i++) {
         desktop_shortcut_grid_slot_t* slot = array_lookup(_g_desktop_shortcuts_state.grid_slots, i);
+        if (slot->occupant != NULL) {
+            continue;
+        }
+
         // If the right and bottom corners are in this grid slot, we know we can stop here
         // There's no way another slot further along could contain more of the shortcut.
         // Right edge bounded?
@@ -381,7 +385,7 @@ static Size _desktop_shortcut_size(void) {
 }
 
 Size desktop_shortcut_grid_slot_size(void) {
-    Size shortcut_size = desktop_shortcut_size();
+    Size shortcut_size = _desktop_shortcut_size();
     return size_make(
         shortcut_size.width + 16,
         shortcut_size.height + 30
@@ -477,7 +481,7 @@ Rect desktop_shortcut_place_in_grid_slot(desktop_shortcut_t* shortcut, desktop_s
         shortcut->grid_slot->occupant = NULL;
     }
 
-    Size shortcut_icon_size = desktop_shortcut_size();
+    Size shortcut_icon_size = _desktop_shortcut_size();
     shortcut->view->frame.origin = point_make(
         rect_mid_x(grid_slot->frame) - (shortcut_icon_size.width / 2.0),
         rect_mid_y(grid_slot->frame) - (shortcut_icon_size.height / 2.0)
@@ -491,7 +495,7 @@ static void desktop_shortcuts_add(const char* display_name, const char* program_
     desktop_shortcuts_state_t* shortcuts_state = &_g_desktop_shortcuts_state;
     desktop_shortcut_t* shortcut = calloc(1, sizeof(desktop_shortcut_t));
 
-    shortcut->view = view_create(rect_make(point_zero(), desktop_shortcut_size()));
+    shortcut->view = view_create(rect_make(point_zero(), _desktop_shortcut_size()));
     shortcut->program_path = program_path;
     shortcut->display_name = display_name;
     array_insert(shortcuts_state->shortcuts, shortcut);
