@@ -4,10 +4,12 @@
 #include "window.h"
 #include "awm_messages.h"
 #include "utils.h"
+#include "math.h"
 
 typedef struct desktop_shortcuts_state {
     array_t* shortcuts;
     Point last_shortcut_origin;
+    array_t* grid_slots;
 } desktop_shortcuts_state_t;
 
 // Sorted by Z-index
@@ -249,7 +251,6 @@ void windows_fetch_queued_windows(void) {
     for (int32_t i = 0; i < windows_to_fetch_this_cycle->size; i++) {
         user_window_t* window_to_update = array_lookup(windows_to_fetch_this_cycle, i);
         _window_fetch_framebuf(window_to_update);
-        //array_remove(windows_to_fetch_this_cycle, 0);
     }
 }
 
@@ -267,11 +268,71 @@ void windows_init(void) {
     desktop_views = array_create(MAX_WINDOW_COUNT);
     windows_to_fetch_this_cycle = array_create(MAX_WINDOW_COUNT);
     views_to_composite_this_cycle = array_create(MAX_WINDOW_COUNT);
-    _g_desktop_shortcuts_state.shortcuts = array_create(32);
+
+    // Set up the desktop shortcut grid
+    _g_desktop_shortcuts_state.grid_slots = array_create(256);
+
+    Size grid_slot_size = desktop_shortcut_grid_slot_size();
+    Size screen_size = screen_resolution();
+    // Iterate columnly so when searching for a free space linearly we fill in columns first
+    for (int32_t x = 0; x < (screen_size.width - grid_slot_size.width); x += grid_slot_size.width) {
+        for (int32_t y = 0; y < screen_size.height - grid_slot_size.height; y += grid_slot_size.height) {
+            desktop_shortcut_grid_slot_t* slot = calloc(1, sizeof(desktop_shortcut_grid_slot_t));
+            slot->frame = rect_make(
+                point_make(x, y),
+                grid_slot_size
+            );
+            array_insert(_g_desktop_shortcuts_state.grid_slots, slot);
+        }
+    }
+    // We now know the maximum possible number of desktop shortcuts,
+    // based on the current screen resolution
+    _g_desktop_shortcuts_state.shortcuts = array_create(_g_desktop_shortcuts_state.grid_slots->size);
 }
 
 array_t* desktop_shortcuts(void) {
     return _g_desktop_shortcuts_state.shortcuts;
+}
+
+uint32_t rect_shared_area(Rect a, Rect b) {
+    uint32_t dx = min(rect_max_x(a), rect_max_x(b)) - max(rect_min_x(a), rect_min_x(b));
+    uint32_t dy = min(rect_max_y(a), rect_max_y(b)) - max(rect_min_y(a), rect_min_y(b));
+    if (dx >= 0 && dy >= 0) {
+        return dx * dy;
+    }
+    return 0;
+}
+
+desktop_shortcut_grid_slot_t* desktop_shortcut_grid_slot_for_rect(Rect r) {
+    uint32_t greatest_shared_area = 0;
+    desktop_shortcut_grid_slot_t* best_match = NULL;
+    for (int32_t i = 0; i < _g_desktop_shortcuts_state.grid_slots->size; i++) {
+        desktop_shortcut_grid_slot_t* slot = array_lookup(_g_desktop_shortcuts_state.grid_slots, i);
+        // If the right and bottom corners are in this grid slot, we know we can stop here
+        // There's no way another slot further along could contain more of the shortcut.
+        // Right edge bounded?
+        bool can_stop_here = false;
+        if (rect_max_x(r) >= rect_min_x(slot->frame) && rect_max_x(r) < rect_max_x(slot->frame)) {
+            // Bottom edge bounded?
+            if (rect_max_y(r) >= rect_min_y(slot->frame) && rect_max_y(r) < rect_max_y(slot->frame)) {
+                can_stop_here = true;
+            }
+        }
+
+        if (!rect_intersects(r, slot->frame)) {
+            continue;
+        }
+        uint32_t shared_area = rect_shared_area(r, slot->frame);
+        if (shared_area > greatest_shared_area) {
+            greatest_shared_area = shared_area;
+            best_match = slot;
+        }
+
+        if (can_stop_here) {
+            break;
+        }
+    }
+    return best_match;
 }
 
 void desktop_shortcut_handle_mouse_exited(desktop_shortcut_t* shortcut) {
@@ -316,6 +377,14 @@ array_t* all_desktop_views(void) {
 
 static Size _desktop_shortcut_size(void) {
     return size_make(95, 65);
+}
+
+Size desktop_shortcut_grid_slot_size(void) {
+    Size shortcut_size = desktop_shortcut_size();
+    return size_make(
+        shortcut_size.width + 16,
+        shortcut_size.height + 30
+    );
 }
 
 void desktop_shortcut_render(desktop_shortcut_t* ds) {
@@ -401,44 +470,42 @@ void desktop_shortcut_render(desktop_shortcut_t* ds) {
     desktop_view_queue_composite(ds->view);
 }
 
+Rect desktop_shortcut_place_in_grid_slot(desktop_shortcut_t* shortcut, desktop_shortcut_grid_slot_t* grid_slot) {
+    // Clear the previous grid slot
+    if (shortcut->grid_slot != NULL) {
+        shortcut->grid_slot->occupant = NULL;
+    }
+
+    Size shortcut_icon_size = desktop_shortcut_size();
+    shortcut->view->frame.origin = point_make(
+        rect_mid_x(grid_slot->frame) - (shortcut_icon_size.width / 2.0),
+        rect_mid_y(grid_slot->frame) - (shortcut_icon_size.height / 2.0)
+    );
+    grid_slot->occupant = shortcut;
+    shortcut->grid_slot = grid_slot;
+    return shortcut->view->frame;
+}
+
 static void desktop_shortcuts_add(const char* display_name, const char* program_path) {
     desktop_shortcuts_state_t* shortcuts_state = &_g_desktop_shortcuts_state;
     desktop_shortcut_t* shortcut = calloc(1, sizeof(desktop_shortcut_t));
 
-    Size shortcut_icon_size = _desktop_shortcut_size();
-    Point origin = point_zero();
-    Point shortcut_spacing = point_make(110, 30);
-    Point first_shortcut_origin = point_make(
-        shortcut_icon_size.width  / 2.0,
-        shortcut_icon_size.height  / 2.0
-    );
-
-    if (shortcuts_state->shortcuts->size == 0) {
-        origin = first_shortcut_origin;
-    }
-    else {
-        origin = point_make(
-            shortcuts_state->last_shortcut_origin.x,
-            shortcuts_state->last_shortcut_origin.y + shortcut_icon_size.height + shortcut_spacing.y
-        );
-        if (origin.y > screen_resolution().height - shortcut_icon_size.height - shortcut_spacing.y) {
-            origin = point_make(
-                shortcuts_state->last_shortcut_origin.x + shortcut_spacing.x,
-                first_shortcut_origin.y
-            );
-        }
-    }
-
-    shortcut->view = view_create(
-        rect_make(
-            origin,
-            _desktop_shortcut_size()
-        )
-    );
+    shortcut->view = view_create(rect_make(point_zero(), desktop_shortcut_size()));
     shortcut->program_path = program_path;
     shortcut->display_name = display_name;
     array_insert(shortcuts_state->shortcuts, shortcut);
-    shortcuts_state->last_shortcut_origin = origin;
+
+    // Find the next empty grid slot
+    desktop_shortcut_grid_slot_t* found_slot = NULL;
+    for (int32_t i = 0; i < shortcuts_state->grid_slots->size; i++) {
+        desktop_shortcut_grid_slot_t* slot = array_lookup(shortcuts_state->grid_slots, i);
+        if (!slot->occupant) {
+            found_slot = slot;
+            break;
+        }
+    }
+    //assert(found_slot != NULL, "No more room to add another desktop shortcut");
+    desktop_shortcut_place_in_grid_slot(shortcut, found_slot);
 
     desktop_views_add(shortcut->view);
 

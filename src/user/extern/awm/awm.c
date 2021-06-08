@@ -865,7 +865,7 @@ int main(int argc, char** argv) {
 			array_destroy(unobscured_region);
 		}
 
-		array_t* desktop_views_to_composite = windows_get_ready_to_composite_array();
+		array_t* desktop_views_to_composite = desktop_views_ready_to_composite_array();
 		draw_views_to_layer(desktop_views_to_composite, _screen.vmem);
 		draw_queued_extra_draws(all_views, _screen.vmem);
 

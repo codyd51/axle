@@ -791,3 +791,7 @@ bool amc_service_is_active(const char* service) {
     if (!_amc_services) return false;
     return amc_service_with_name(service) != NULL;
 }
+
+amc_service_t* amc_service_of_active_task(void) {
+    return _amc_service_of_task(tasking_get_current_task());
+}

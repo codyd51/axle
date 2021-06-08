@@ -24,7 +24,14 @@ typedef struct user_window {
 	bool has_done_first_draw;
 } user_window_t;
 
+typedef struct desktop_shortcut desktop_shortcut_t;
+typedef struct desktop_shortcut_grid_slot {
+    Rect frame;
+    desktop_shortcut_t* occupant;
+} desktop_shortcut_grid_slot_t;
+
 typedef struct desktop_shortcut {
+	desktop_shortcut_grid_slot_t* grid_slot;
     view_t* view;
     const char* program_path;
 	const char* display_name;
@@ -93,5 +100,9 @@ void desktop_shortcut_handle_mouse_entered(desktop_shortcut_t* shortcut);
 void desktop_shortcut_highlight(desktop_shortcut_t* shortcut);
 void desktop_shortcut_unhighlight(desktop_shortcut_t* shortcut);
 void desktop_shortcut_render(desktop_shortcut_t* ds);
+
+Size desktop_shortcut_grid_slot_size(void);
+desktop_shortcut_grid_slot_t* desktop_shortcut_grid_slot_for_rect(Rect r);
+Rect desktop_shortcut_place_in_grid_slot(desktop_shortcut_t* shortcut, desktop_shortcut_grid_slot_t* grid_slot);
 
 #endif

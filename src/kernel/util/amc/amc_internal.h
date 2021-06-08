@@ -57,4 +57,6 @@ amc_service_t* amc_service_with_name(const char* name);
 
 bool amc_is_active(void);
 
+amc_service_t* amc_service_of_active_task(void);
+
 #endif
