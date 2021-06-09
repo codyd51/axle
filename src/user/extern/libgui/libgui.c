@@ -67,7 +67,6 @@ gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t hei
 
 	// TODO(PT): Use an awm command to get screen info
 	_screen.resolution = size_make(1920, 1080);
-	_screen.physbase = (uint32_t*)0;
 	_screen.bits_per_pixel = 32;
 	_screen.bytes_per_pixel = 4;
 

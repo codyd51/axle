@@ -7,23 +7,17 @@
 
 typedef struct window Window;
 
-// Root display structure to which all graphics are rendered
-// This may only be created via a call to gfx_init()
+// Wraps up some helpful info about the framebuffer
+// These days, awm is the only one to deal with this
 typedef struct screen_t {
-	uint32_t* physbase; //address of beginning of framebuffer
 	uint32_t video_memory_size;
 
 	Size resolution;
 	uint16_t bits_per_pixel;
 	uint8_t bytes_per_pixel;
 
-	Size default_font_size; //recommended font size for screen resolution
-
-	ca_layer* vmem; //raw framebuffer pushed to screen
-	/*
-	Window* window; //root window
-	array_m* surfaces;
-	*/
+	ca_layer* vmem; // Buffer we composite to
+	ca_layer* pmem; // Memory-mapped video memory
 } Screen;
 
 //fill double buffer with a given Color

@@ -44,14 +44,8 @@ ca_layer* _g_background = NULL;
 array_t* _g_rects_to_update_this_cycle = NULL;
 
 Screen* gfx_screen() {
-	if (_screen.physbase > 0) return &_screen;
+	if (_screen.pmem != NULL) return &_screen;
 	return NULL;
-}
-
-void write_screen(Screen* screen) {
-    //vsync();
-    uint8_t* raw_double_buf = screen->vmem->raw;
-    memcpy(screen->physbase, screen->vmem->raw, screen->resolution.width * screen->resolution.height * screen->bytes_per_pixel);
 }
 
 static void handle_keystroke(amc_message_t* keystroke_msg) {
@@ -751,7 +745,7 @@ ca_layer* desktop_background_layer(void) {
 }
 
 int main(int argc, char** argv) {
-	amc_register_service("com.axle.awm");
+	amc_register_service(AWM_SERVICE_NAME);
 	windows_init();
 
 	// Ask the kernel to map in the framebuffer and send us info about it
@@ -765,12 +759,15 @@ int main(int argc, char** argv) {
 	printf("Recv'd framebuf info!\n");
     printf("0x%08x 0x%08x (%d x %d x %d x %d)\n", framebuffer_info->address, framebuffer_info->size, framebuffer_info->width, framebuffer_info->height, framebuffer_info->bytes_per_pixel, framebuffer_info->bits_per_pixel);
 
-    _screen.physbase = (uint32_t*)framebuffer_info->address;
-    _screen.video_memory_size = framebuffer_info->size;
-
     _screen.resolution = size_make(framebuffer_info->width, framebuffer_info->height);
     _screen.bits_per_pixel = framebuffer_info->bits_per_pixel;
     _screen.bytes_per_pixel = framebuffer_info->bytes_per_pixel;
+
+    _screen.video_memory_size = framebuffer_info->size;
+	_screen.pmem = calloc(1, sizeof(ca_layer));
+	_screen.pmem->size = _screen.resolution;
+	_screen.pmem->raw = (uint8_t*)framebuffer_info->address;
+	_screen.pmem->alpha = 1.0;
 
 	Rect screen_frame = rect_make(point_zero(), _screen.resolution);
 	_g_background = create_layer(screen_frame.size);
@@ -785,16 +782,11 @@ int main(int argc, char** argv) {
 	);
     _screen.vmem = create_layer(screen_frame.size);
 
-    printf("awm graphics: %d x %d, %d BPP @ 0x%08x\n", _screen.resolution.width, _screen.resolution.height, _screen.bits_per_pixel, _screen.physbase);
-
-	ca_layer dummy_layer;
-	dummy_layer.size = _screen.resolution;
-	dummy_layer.raw = (uint8_t*)_screen.physbase;
-	dummy_layer.alpha = 1.0;
+    printf("awm graphics: %d x %d, %d BPP @ 0x%08x\n", _screen.resolution.width, _screen.resolution.height, _screen.bits_per_pixel, _screen.pmem->raw);
 
 	// Draw the background onto the screen buffer to start off
 	blit_layer(_screen.vmem, _g_background, screen_frame, screen_frame);
-	blit_layer(&dummy_layer, _screen.vmem, screen_frame, screen_frame);
+	blit_layer(_screen.pmem, _screen.vmem, screen_frame, screen_frame);
 
 	_g_rects_to_update_this_cycle = array_create(128);
 
@@ -920,7 +912,7 @@ int main(int argc, char** argv) {
 		for (int32_t i = _g_rects_to_update_this_cycle->size - 1; i >= 0; i--) {
 			Rect* r = array_lookup(_g_rects_to_update_this_cycle, i);
 			blit_layer(
-				&dummy_layer,
+				_screen.pmem,
 				_screen.vmem,
 				*r,
 				*r
@@ -929,7 +921,7 @@ int main(int argc, char** argv) {
 			free(r);
 		}
 
-		complete_queued_extra_draws(all_views, _screen.vmem, &dummy_layer);
+		complete_queued_extra_draws(all_views, _screen.vmem, _screen.pmem);
 		array_destroy(all_views);
 		
 		for (int32_t i = 0; i < desktop_views_to_composite->size; i++) {
@@ -939,10 +931,10 @@ int main(int argc, char** argv) {
 				Rect r = *r_ptr;
 				uint32_t offset_x = r.origin.x - rect_min_x(view->frame);
 				uint32_t offset_y = r.origin.y - rect_min_y(view->frame);
-				blit_layer(&dummy_layer, _screen.vmem, r, r);
+				blit_layer(_screen.pmem, _screen.vmem, r, r);
 			}
 		}
-		blit_layer(&dummy_layer, _screen.vmem, mouse_rect, mouse_rect);
+		blit_layer(_screen.pmem, _screen.vmem, mouse_rect, mouse_rect);
 
 		desktop_views_flush_queues();
 	}
