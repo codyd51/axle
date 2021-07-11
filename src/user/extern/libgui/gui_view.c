@@ -248,7 +248,6 @@ void _gui_view_draw_main_content_in_rect(gui_view_t* v, bool is_active, Rect r) 
 	}
 
 	// Draw the inner content layer
-	//printf("%s Content layer frame\n", rect_print(v->content_layer_frame));
 	gui_layer_blit_layer(
 		v->parent_layer,
 		v->content_layer,

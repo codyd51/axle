@@ -37,7 +37,7 @@ static void _clear_background(gui_view_t* view, Point mouse_pos) {
 int main(int argc, char** argv) {
 	amc_register_service("com.user.paintbrush");
 
-	gui_window_t* window = gui_window_create("Paintbrush", 600, 600);
+	gui_window_t* window = gui_window_create("Paintbrush", 400, 400);
 	gui_view_t* content_view = gui_view_create(
 		window,
 		(gui_window_resized_cb_t)_content_view_sizer

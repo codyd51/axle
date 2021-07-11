@@ -22,6 +22,7 @@ typedef struct user_window {
 	const char* title;
 	Rect close_button_frame;
 	bool has_done_first_draw;
+	bool remote_process_died;
 } user_window_t;
 
 typedef struct desktop_shortcut desktop_shortcut_t;
@@ -48,7 +49,7 @@ user_window_t* window_move_to_top(user_window_t* window);
 
 user_window_t* windows_get_top_window(void);
 user_window_t* windows_get_bottom_window(void);
-user_window_t* window_containing_point(Point point);
+user_window_t* window_containing_point(Point point, bool ignore_zombie_windows);
 user_window_t* window_with_service_name(const char* service_name);
 
 void windows_fetch_queued_windows(void);

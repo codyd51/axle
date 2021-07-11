@@ -55,9 +55,12 @@ user_window_t* windows_get_top_window(void) {
     return array_lookup(windows, 0);
 }
 
-user_window_t* window_containing_point(Point point) {
+user_window_t* window_containing_point(Point point, bool ignore_zombie_windows) {
 	for (int i = 0; i < windows->size; i++) {
 		user_window_t* window = array_lookup(windows, i);
+        if (ignore_zombie_windows && window->remote_process_died) {
+            continue;
+        }
 		if (rect_contains_point(window->frame, point)) {
             return window;
         }
@@ -159,6 +162,11 @@ void window_handle_keyboard_event(user_window_t* window, uint32_t event, uint32_
 
 static void _window_fetch_framebuf(user_window_t* window) {
     assert(window != NULL, "Expected non-NULL window");
+
+    if (window->remote_process_died) {
+        printf("Skipping framebuf fetch for window because the remote process is dead: %s\n", window->owner_service);
+        return;
+    }
 
 	window->has_done_first_draw = true;
 	blit_layer(

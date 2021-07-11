@@ -222,4 +222,4 @@ libgui can send a resize event
 
 Two-way mapping in process death notifying so we can remove the watcher when the watcher dies
 
-Desktop icons
+Desktop icons (check)

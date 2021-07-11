@@ -249,7 +249,7 @@ static void _handle_mouse_moved(mouse_interaction_state_t* state, Point mouse_po
 
 	// Check each window and see if we've just entered it
 	// This array is sorted in Z-order so we encounter the topmost window first
-	user_window_t* window_under_mouse = window_containing_point(mouse_point);
+	user_window_t* window_under_mouse = window_containing_point(mouse_point, true);
 	// Is this a different window from the one we were previously hovered over?
 	if (state->active_window != window_under_mouse) {
 		if (state->active_window != NULL) {
@@ -624,7 +624,7 @@ void _window_resize(user_window_t* window, Size new_size, bool inform_window) {
 	array_destroy(delta);
 	windows_invalidate_drawable_regions_in_rect(rect_union(original_frame, window->frame));
 
-	if (inform_window) {
+	if (inform_window && !window->remote_process_died) {
 		awm_window_resized_msg_t msg = {0};
 		msg.event = AWM_WINDOW_RESIZED;
 		msg.new_size = window->content_view->frame.size;
@@ -652,6 +652,8 @@ static void _remove_and_teardown_window_for_service(const char* owner_service) {
 	if (window == NULL) {
 		return;
 	}
+	// Make sure we don't try to fetch the remote layer anymore
+	window->remote_process_died = true;
 
 	Rect window_frame = window->frame;
 	window_destroy(window);
@@ -759,6 +761,7 @@ int main(int argc, char** argv) {
 	printf("Recv'd framebuf info!\n");
     printf("0x%08x 0x%08x (%d x %d x %d x %d)\n", framebuffer_info->address, framebuffer_info->size, framebuffer_info->width, framebuffer_info->height, framebuffer_info->bytes_per_pixel, framebuffer_info->bits_per_pixel);
 
+	// Set up the screen object
     _screen.resolution = size_make(framebuffer_info->width, framebuffer_info->height);
     _screen.bits_per_pixel = framebuffer_info->bits_per_pixel;
     _screen.bytes_per_pixel = framebuffer_info->bytes_per_pixel;
@@ -769,6 +772,10 @@ int main(int argc, char** argv) {
 	_screen.pmem->raw = (uint8_t*)framebuffer_info->address;
 	_screen.pmem->alpha = 1.0;
 
+	_screen.vmem = create_layer(screen_resolution());
+	printf("awm framebuffer: %d x %d, %d BPP @ 0x%08x\n", _screen.resolution.width, _screen.resolution.height, _screen.bits_per_pixel, _screen.pmem->raw);
+
+	// Set up the desktop background
 	Rect screen_frame = rect_make(point_zero(), _screen.resolution);
 	_g_background = create_layer(screen_frame.size);
 	radial_gradiant(
