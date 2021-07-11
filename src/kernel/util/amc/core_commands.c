@@ -149,6 +149,43 @@ static void _amc_core_handle_notify_service_died(const char* source_service, voi
     array_m_insert(remote->services_to_notify_upon_death, source);
 }
 
+static void _amc_core_flush_messages_from_service_to_service(source_service, buf, buf_size) {
+    amc_service_t* source = amc_service_with_name(source_service);
+    assert(source != NULL, "Failed to find service that sent the message...");
+
+    amc_flush_messages_to_service_cmd_t* cmd = (amc_flush_messages_to_service_cmd_t*)buf;
+    amc_service_t* remote = amc_service_with_name(&cmd->remote_service);
+    if (remote) {
+        printf("Flushing messages from %s to %s from %s's delivery queue\n", source_service, cmd->remote_service, cmd->remote_service);
+        // We're modifying some state of the destination service - hold a spinlock
+        spinlock_acquire(&remote->spinlock);
+        for (int32_t i = remote->message_queue->size - 1; i >= 0; i--) {
+            amc_message_t* msg = array_m_lookup(remote->message_queue, i);
+            if (!strncmp(msg->source, source_service, AMC_MAX_SERVICE_NAME_LEN)) {
+                amc_message_free(msg);
+                array_m_remove(remote->message_queue, i);
+            }
+        }
+        spinlock_release(&remote->spinlock);
+    }
+
+    printf("Flushing messages from %s to %s from the undelivered message pool\n", source_service, cmd->remote_service);
+    array_m* unknown_dest_service_message_pool = amc_messages_to_unknown_services_pool();
+    printf("Undelivered size: %d\n", unknown_dest_service_message_pool->size);
+    spinlock_acquire(&unknown_dest_service_message_pool->lock);
+    for (int32_t i = unknown_dest_service_message_pool->size - 1; i >= 0; i--) {
+        amc_message_t* msg = array_m_lookup(unknown_dest_service_message_pool, i);
+        printf("*** Undelivered: %s %s, check for %s %s\n", msg->source, msg->dest, source_service, cmd->remote_service);
+        if (!strncmp(msg->source, source_service, AMC_MAX_SERVICE_NAME_LEN)) {
+            if (!strncmp(msg->dest, cmd->remote_service, AMC_MAX_SERVICE_NAME_LEN)) {
+                amc_message_free(msg);
+                array_m_remove(unknown_dest_service_message_pool, i);
+            }
+        }
+    }
+    spinlock_release(&unknown_dest_service_message_pool->lock);
+}
+
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size) {
     //printf("Message to core from %s\n", source_service);
     uint32_t* u32buf = (uint32_t*)buf;
@@ -179,6 +216,9 @@ void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf
     }
     else if (u32buf[0] == AMC_REGISTER_NOTIFICATION_SERVICE_DIED) {
         _amc_core_handle_notify_service_died(source_service, buf, buf_size);
+    }
+    else if (u32buf[0] == AMC_FLUSH_MESSAGES_TO_SERVICE) {
+        _amc_core_flush_messages_from_service_to_service(source_service, buf, buf_size);
     }
     else {
         printf("Unknown message: %d\n", u32buf[0]);

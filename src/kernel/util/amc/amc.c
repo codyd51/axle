@@ -47,7 +47,6 @@ static hash_map_t* _amc_services_by_name = 0;
 static hash_map_t* _amc_services_by_task = 0;
 
 static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_message_t* message);
-static void _amc_message_free(amc_message_t* msg);
 static void _amc_core_shared_memory_destroy(amc_service_t* local_service, uint32_t shmem_descriptor);
 void _amc_remove_service_from_sleep_list(amc_service_t* service);
 
@@ -246,7 +245,7 @@ void amc_teardown_service_for_task(task_small_t* task) {
         amc_message_t* msg = array_m_lookup(service->message_queue, 0);
         printf("\tFree undelivered message (%s -> %s)\n", msg->source, msg->dest);
         array_m_remove(service->message_queue, 0);
-        _amc_message_free(msg);
+        amc_message_free(msg);
     }
     array_m_destroy(service->message_queue);
 
@@ -293,7 +292,7 @@ static void _amc_print_inbox(amc_service_t* inbox) {
     printf("--------------------------------------\n");
 }
 
-static void _amc_message_free(amc_message_t* msg) {
+void amc_message_free(amc_message_t* msg) {
     kfree(msg);
 }
 
@@ -566,7 +565,7 @@ static void _amc_message_deliver(amc_service_t* service, amc_message_t* message,
     uint8_t* delivery_base = (uint8_t*)service->delivery_pool;
     uint32_t total_msg_size = message->len + sizeof(amc_message_t);
     memcpy(delivery_base, (uint8_t*)message, total_msg_size);
-    _amc_message_free(message);
+    amc_message_free(message);
     *out = delivery_base;
 }
 
@@ -794,4 +793,8 @@ bool amc_service_is_active(const char* service) {
 
 amc_service_t* amc_service_of_active_task(void) {
     return _amc_service_of_task(tasking_get_current_task());
+}
+
+array_m* amc_messages_to_unknown_services_pool() {
+    return _amc_messages_to_unknown_services_pool;
 }

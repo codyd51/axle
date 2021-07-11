@@ -59,4 +59,7 @@ bool amc_is_active(void);
 
 amc_service_t* amc_service_of_active_task(void);
 
+void amc_message_free(amc_message_t* msg);
+array_m* amc_messages_to_unknown_services_pool();
+
 #endif

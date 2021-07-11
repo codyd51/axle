@@ -91,6 +91,13 @@ typedef struct amc_service_died_notification {
     char dead_service[AMC_MAX_SERVICE_NAME_LEN];
 } amc_service_died_notification_t;
 
+#define AMC_FLUSH_MESSAGES_TO_SERVICE 209
+
+typedef struct amc_flush_messages_to_service_cmd {
+    uint32_t event; // AMC_FLUSH_MESSAGES_TO_SERVICE
+    char remote_service[AMC_MAX_SERVICE_NAME_LEN];
+} amc_flush_messages_to_service_cmd_t;
+
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size);
 
 #endif

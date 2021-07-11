@@ -74,12 +74,12 @@ Unless your platform natively outputs 32-bit x86 binaries, you will need a cross
 axle uses QEMU as its standard emulator, though any other could be used, such as Bochs. To modify this and other build parameters, see the `Makefile`.
 To run and test axle on OS X, run `./install.sh` to attempt to build the toolchain, then `make run` to start the emulator.
 
-Roadmap
+Non-Exhaustive Feauter List / Roadmap
 ---------------------
 
 - [x] Keyboard driver
 - [x] Hardware interrupts
-- [ ] Snake!
+- [x] Snake!
 - [x] Software interrupts
 - [x] Paging
 - [x] Organize files
@@ -92,14 +92,18 @@ Roadmap
 - [x] Window manager
 - [x] Shutdown/reboot commands
 - [ ] Modifiable filesystem
-- [ ] Load external binaries
+- [x] Load external binaries
 - [x] Thread API
 - [ ] Polygon support 
-- [ ] UI toolkit
+- [x] UI toolkit
 - [x] MLFQ scheduling
 - [x] Variable scheduling modes
 - [x] PCI enumeration
-- [ ] E1000 network driver
+- [x] RTL8139 network driver
+- [x] DNS
+- [x] ARP
+- [x] UDP
+- [x] TCP
 
 License
 --------------

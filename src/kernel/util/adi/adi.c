@@ -53,6 +53,7 @@ void adi_register_driver(const char* name, uint32_t irq) {
     if (_adi_drivers[irq].task) {
         printf("invalid adi_register_driver() will kill %s. IRQ already mapped to a driver task\n", name);
         task_assert(false, "IRQ already mapped to a driver task", NULL);
+        return;
     }
 
     task_small_t* current_task = tasking_get_current_task();
