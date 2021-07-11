@@ -24,6 +24,8 @@
 #include "awm_messages.h"
 #include "utils.h"
 #include "effects.h"
+#include "awm_internal.h"
+#include "animations.h"
 
 typedef struct incremental_mouse_state {
 	int8_t state;
@@ -42,6 +44,7 @@ Screen _screen = {0};
 
 ca_layer* _g_background = NULL;
 array_t* _g_rects_to_update_this_cycle = NULL;
+array_t* _g_timers = NULL;
 
 Screen* gfx_screen() {
 	if (_screen.pmem != NULL) return &_screen;
@@ -66,7 +69,7 @@ static void handle_keystroke(amc_message_t* keystroke_msg) {
 	}
 }
 
-static void queue_rect_to_update_this_cycle(Rect update_rect) {
+void queue_rect_to_update_this_cycle(Rect update_rect) {
 	Rect* r = calloc(1, sizeof(Rect));
 	r->origin.x = update_rect.origin.x;
 	r->origin.y = update_rect.origin.y;
@@ -333,18 +336,8 @@ static void _end_mouse_drag(mouse_interaction_state_t* state, Point mouse_point)
 				printf("Failed to find a good place to put shortcut, returning to original slot\n");
 				slot = state->hovered_shortcut->grid_slot;
 			}
-			Rect new_frame = desktop_shortcut_place_in_grid_slot(state->hovered_shortcut, slot);
-
-			Rect total_update_frame = rect_union(original_frame, new_frame);
-			array_t* delta = rect_diff(total_update_frame, new_frame);
-			for (int32_t i = delta->size - 1; i >= 0; i--) {
-				Rect* r = array_lookup(delta, i);
-				queue_rect_to_update_this_cycle(*r);
-				free(r);
-			}
-			array_destroy(delta);
-
-			windows_invalidate_drawable_regions_in_rect(total_update_frame);
+			awm_animation_snap_shortcut_t* anim = awm_animation_snap_shortcut_init(32, state->hovered_shortcut, slot);
+			awm_animation_start(anim);
 		}
 
 		state->has_begun_drag = false;
@@ -415,7 +408,7 @@ static void _handle_mouse_dragged(mouse_interaction_state_t* state, Point mouse_
 			state->hovered_shortcut->view->frame = new_frame;
 
 			Rect total_update_frame = rect_union(original_frame, new_frame);
-			array_t* delta = rect_diff(total_update_frame, new_frame);
+			array_t* delta = rect_diff(original_frame, new_frame);
 			for (int32_t i = delta->size - 1; i >= 0; i--) {
 				Rect* r = array_lookup(delta, i);
 				queue_rect_to_update_this_cycle(*r);
@@ -655,14 +648,13 @@ static void _remove_and_teardown_window_for_service(const char* owner_service) {
 	// Make sure we don't try to fetch the remote layer anymore
 	window->remote_process_died = true;
 
-	Rect window_frame = window->frame;
-	window_destroy(window);
 	if (g_mouse_state.active_window == window) {
 		printf("Clear active window 0x%08x\n", window);
 		g_mouse_state.active_window = NULL;
 	}
-	windows_invalidate_drawable_regions_in_rect(window_frame);
-	queue_rect_to_update_this_cycle(window_frame);
+
+	awm_animation_close_window_t* anim = awm_animation_close_window_init(200, window);
+	awm_animation_start(anim);
 }
 
 static void handle_user_message(amc_message_t* user_message) {
@@ -714,7 +706,8 @@ static void handle_user_message(amc_message_t* user_message) {
 		_update_window_title(source_service, title_msg);
 	}
 	else if (command == AWM_CLOSE_WINDOW) {
-		_remove_and_teardown_window_for_service(source_service);
+		//_remove_and_teardown_window_for_service(source_service);
+		printf("Received AWM_CLOSE_WINDOW from %s\n", source_service);
 	}
 	else {
 		printf("Unknown message from %s: %d\n", source_service, command);

@@ -10,6 +10,7 @@ typedef struct view {
 	ca_layer* layer;
 	array_t* drawable_rects;
 	array_t* extra_draws_this_cycle;
+	bool should_scale_layer;
 } view_t;
 
 typedef struct user_window {
@@ -17,6 +18,8 @@ typedef struct user_window {
 	ca_layer* layer;
 	array_t* drawable_rects;
 	array_t* extra_draws_this_cycle;
+	bool should_scale_layer;
+
 	view_t* content_view;
 	const char* owner_service;
 	const char* title;
@@ -106,5 +109,6 @@ void desktop_shortcut_render(desktop_shortcut_t* ds);
 Size desktop_shortcut_grid_slot_size(void);
 desktop_shortcut_grid_slot_t* desktop_shortcut_grid_slot_for_rect(Rect r);
 Rect desktop_shortcut_place_in_grid_slot(desktop_shortcut_t* shortcut, desktop_shortcut_grid_slot_t* grid_slot);
+Rect desktop_shortcut_frame_within_grid_slot(desktop_shortcut_grid_slot_t* grid_slot);
 
 #endif
