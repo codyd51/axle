@@ -739,9 +739,14 @@ ca_layer* desktop_background_layer(void) {
 	return _g_background;
 }
 
-int main(int argc, char** argv) {
+static void _awm_init(void) {
 	amc_register_service(AWM_SERVICE_NAME);
+	
+	// Init state for the desktop
 	windows_init();
+	animations_init();
+	_g_rects_to_update_this_cycle = array_create(128);
+	_g_timers = array_create(32);
 
 	// Ask the kernel to map in the framebuffer and send us info about it
 	amc_msg_u32_1__send(AXLE_CORE_SERVICE_NAME, AMC_AWM_MAP_FRAMEBUFFER);
@@ -780,164 +785,263 @@ int main(int argc, char** argv) {
 		rect_mid_y(screen_frame),
 		(float)_g_background->size.height * 0.65
 	);
-    _screen.vmem = create_layer(screen_frame.size);
+}
 
-    printf("awm graphics: %d x %d, %d BPP @ 0x%08x\n", _screen.resolution.width, _screen.resolution.height, _screen.bits_per_pixel, _screen.pmem->raw);
+static void _awm_process_amc_messages(bool should_block) {
+	amc_message_t* msg;
+	incremental_mouse_state_t incremental_mouse_update = {0};
+	memset(&incremental_mouse_update, 0, sizeof(incremental_mouse_state_t));
+	incremental_mouse_update.combined_msg_count = 0;
 
-	// Draw the background onto the screen buffer to start off
-	blit_layer(_screen.vmem, _g_background, screen_frame, screen_frame);
-	blit_layer(_screen.pmem, _screen.vmem, screen_frame, screen_frame);
+	if (!should_block) {
+		if (!amc_has_message()) {
+			return;
+		}
+	}
 
-	_g_rects_to_update_this_cycle = array_create(128);
+	do {
+		// Wait until we've unblocked with at least one message available
+		amc_message_await_any(&msg);
 
-	while (true) {
-		// Wait for a system event or window event
-		amc_message_t* msg;
-		incremental_mouse_state_t incremental_mouse_update = {0};
-		memset(&incremental_mouse_update, 0, sizeof(incremental_mouse_state_t));
-		incremental_mouse_update.combined_msg_count = 0;
+		// Will automatically respond to watchdog pings
+		if (libamc_handle_message(msg)) {
+			continue;
+		}
+		const char* source_service = amc_message_source(msg);
 
-		do {
-			// Wait until we've unblocked with at least one message available
-			amc_message_await_any(&msg);
-			// Will automatically respond to watchdog pings
-			if (libamc_handle_message(msg)) {
-				continue;
+		// Always update the prospective mouse action flags when the event loop runs
+		_mouse_reset_prospective_action_flags(&g_mouse_state);
+
+		// Process the message we just received
+		if (!strcmp(source_service, KB_DRIVER_SERVICE_NAME)) {
+			handle_keystroke(msg);
+			continue;
+		}
+		else if (!strcmp(source_service, "com.axle.mouse_driver")) {
+			// Update the mouse position based on the data packet
+			bool changed_state = handle_mouse_event(msg, &incremental_mouse_update);
+			if (changed_state) {
+				// TODO(PT): Perhaaps we can drop the combined-mouse-update optimisation
+				mouse_dispatch_events(
+					incremental_mouse_update.state, 
+					mouse_pos, 
+					incremental_mouse_update.rel_x,
+					incremental_mouse_update.rel_y,
+					incremental_mouse_update.rel_z
+				);
+				memset(&incremental_mouse_update, 0, sizeof(incremental_mouse_state_t));
+				incremental_mouse_update.combined_msg_count = 0;
 			}
-			const char* source_service = amc_message_source(msg);
-
-			// Always update the prospective mouse action flags when the event loop runs
-			_mouse_reset_prospective_action_flags(&g_mouse_state);
-
-			// Process the message we just received
-			if (!strcmp(source_service, KB_DRIVER_SERVICE_NAME)) {
-				handle_keystroke(msg);
-				// Skip redrawing for now - the above will send a KB call to the
-				// foremost program, which will later redraw its window with the new info
-				continue;
-			}
-			else if (!strcmp(source_service, "com.axle.mouse_driver")) {
-				// Update the mouse position based on the data packet
-				bool changed_state = handle_mouse_event(msg, &incremental_mouse_update);
-				if (changed_state) {
-					/*
-					if (incremental_mouse_update.combined_msg_count) {
-						printf("Dispatch mouse, deduplicated %d\n", incremental_mouse_update.combined_msg_count);
-					}
-					*/
-					mouse_dispatch_events(
-						incremental_mouse_update.state, 
-						mouse_pos, 
-						incremental_mouse_update.rel_x,
-						incremental_mouse_update.rel_y,
-						incremental_mouse_update.rel_z
-					);
-					memset(&incremental_mouse_update, 0, sizeof(incremental_mouse_state_t));
-					incremental_mouse_update.combined_msg_count = 0;
-				}
-			}
-			else if (!strncmp(source_service, AXLE_CORE_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
-				uint32_t* u32buf = (uint32_t*)&msg->body;
-				if (u32buf[0] == AMC_SERVICE_DIED_NOTIFICATION) {
-					amc_service_died_notification_t* notif = (amc_service_died_notification_t*)&msg->body;
-					_remove_and_teardown_window_for_service(notif->dead_service);
-				}
-				else {
-					printf("Unknown message from core: %d\n", u32buf[0]);
-					assert(false, "Unknown message from core");
-				}
+		}
+		else if (!strncmp(source_service, AXLE_CORE_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
+			uint32_t* u32buf = (uint32_t*)&msg->body;
+			if (u32buf[0] == AMC_SERVICE_DIED_NOTIFICATION) {
+				amc_service_died_notification_t* notif = (amc_service_died_notification_t*)&msg->body;
+				_remove_and_teardown_window_for_service(notif->dead_service);
+				// Ask amc to delete any messages awm sent to this program
+				amc_flush_messages_to_service_cmd_t req = {0};
+				req.event = AMC_FLUSH_MESSAGES_TO_SERVICE;
+				snprintf(&req.remote_service, sizeof(req.remote_service), notif->dead_service);
+				amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &req, sizeof(req));
 			}
 			else {
-				// TODO(PT): If a window sends REDRAW_READY, we can put it onto a "ready to redraw" list
-				// Items can be popped off the list based on their Z-index, or a periodic time-based update
-				// TODO(PT): If a window has requested multiple redraws within a single awm event loop
-				// pass, awm should redraw it only once
-				handle_user_message(msg);
+				printf("Unknown message from core: %d\n", u32buf[0]);
+				assert(false, "Unknown message from core");
 			}
-		} while (amc_has_message());
+		}
+		else {
+			// TODO(PT): If a window sends REDRAW_READY, we can put it onto a "ready to redraw" list
+			// Items can be popped off the list based on their Z-index, or a periodic time-based update
+			// TODO(PT): If a window has requested multiple redraws within a single awm event loop
+			// pass, awm should redraw it only once
+			handle_user_message(msg);
+		}
+	} while (amc_has_message());
+}
 
-		// We're out of messages to process - composite everything together and redraw
+static void _render_frame(void) {
+	array_t* all_views = all_desktop_views();
 
-		// Fetch remote layers for windows that have asked for a redraw
-		windows_fetch_queued_windows();
+	// Fetch remote layers for windows that have asked for a redraw
+	windows_fetch_queued_windows();
 
-		array_t* all_views = all_desktop_views();
+	// Process rects that have been dirtied while processing other events
+	for (int32_t i = 0; i < _g_rects_to_update_this_cycle->size; i++) {
+		Rect* rp = array_lookup(_g_rects_to_update_this_cycle, i);
+		Rect r = *rp;
 
-		// Process rects that have been dirtied while processing other events
-		for (int32_t i = 0; i < _g_rects_to_update_this_cycle->size; i++) {
-			Rect* rp = array_lookup(_g_rects_to_update_this_cycle, i);
-			Rect r = *rp;
+		array_t* unobscured_region = array_create(128);
+		rect_add(unobscured_region, r);
 
-			array_t* unobscured_region = array_create(128);
-			rect_add(unobscured_region, r);
+		// Handle the parts of the dirty region that are obscured by desktop views
+		for (int32_t j = 0; j < all_views->size; j++) {
+			view_t* view = array_lookup(all_views, j);
+			// We can't occlude using a view if the view uses transparency 
+			if (view->layer->alpha < 1.0) {
+				continue;
+			}
+			for (int32_t k = 0; k < view->drawable_rects->size; k++) {
+				Rect* visible_region_ptr = array_lookup(view->drawable_rects, k);
+				Rect visible_region = *visible_region_ptr;
+				if (rect_intersects(visible_region, r)) {
+					if (rect_contains_rect(visible_region, r)) {
+						// The entire rect should be redrawn from this window
+						rect_add(view->extra_draws_this_cycle, r);
+						// And subtract the area of the rect from the region to update
+						unobscured_region = update_occlusions(unobscured_region, r);
+					}
+					else {
+						// This view needs to redraw the intersection of its visible rect and the update rect
+						array_t* delta = rect_diff(visible_region, r);
+						for (int32_t z = delta->size - 1; z >= 0; z--) {
+							Rect* intersection_ptr = array_lookup(delta, z);
+							Rect intersection = *intersection_ptr;
 
-			// Handle the parts of the dirty region that are obscured by desktop views
-			for (int32_t j = 0; j < all_views->size; j++) {
-				view_t* view = array_lookup(all_views, j);
-				if (rect_intersects(view->frame, r)) {
-					// Note that this view should redraw its portion of this rect
-					rect_add(view->extra_draws_this_cycle, r);
-					// And subtract the area of this window from the region to update
-					unobscured_region = update_occlusions(unobscured_region, view->frame);
-					// And if all the area of the region to update has been handled, 
+							rect_add(view->extra_draws_this_cycle, intersection);
+							unobscured_region = update_occlusions(unobscured_region, intersection);
+
+							free(intersection_ptr);
+						}
+						array_destroy(delta);
+					}
+
+					// If all the area of the region to update has been handled, 
 					// stop iterating windows early
 					if (!unobscured_region->size) {
 						break;
 					}
 				}
 			}
-
-			// Blit the regions that are not covered by windows with the desktop background layer
-			for (int32_t j = unobscured_region->size - 1; j >= 0; j--) {
-				Rect* bg_rect = array_lookup(unobscured_region, j);
-				blit_layer(
-					_screen.vmem,
-					_g_background,
-					*bg_rect,
-					*bg_rect
-				);
-				//draw_rect(_screen.vmem, *bg_rect, color_rand(), 1);
-				array_remove(unobscured_region, j);
-				free(bg_rect);
-			}
-			array_destroy(unobscured_region);
 		}
 
-		array_t* desktop_views_to_composite = desktop_views_ready_to_composite_array();
-		draw_views_to_layer(desktop_views_to_composite, _screen.vmem);
-		draw_queued_extra_draws(all_views, _screen.vmem);
-
-		Rect mouse_rect = _draw_cursor(_screen.vmem);
-
-		for (int32_t i = _g_rects_to_update_this_cycle->size - 1; i >= 0; i--) {
-			Rect* r = array_lookup(_g_rects_to_update_this_cycle, i);
+		// Blit the regions that are not covered by windows with the desktop background layer
+		for (int32_t j = unobscured_region->size - 1; j >= 0; j--) {
+			Rect* bg_rect = array_lookup(unobscured_region, j);
 			blit_layer(
-				_screen.pmem,
 				_screen.vmem,
-				*r,
-				*r
+				_g_background,
+				*bg_rect,
+				*bg_rect
 			);
-			array_remove(_g_rects_to_update_this_cycle, i);
-			free(r);
+			//draw_rect(_screen.vmem, *bg_rect, color_rand(), 1);
+			array_remove(unobscured_region, j);
+			free(bg_rect);
 		}
-
-		complete_queued_extra_draws(all_views, _screen.vmem, _screen.pmem);
-		array_destroy(all_views);
-		
-		for (int32_t i = 0; i < desktop_views_to_composite->size; i++) {
-			view_t* view = array_lookup(desktop_views_to_composite, i);
-			for (int32_t j = 0; j < view->drawable_rects->size; j++) {
-				Rect* r_ptr = array_lookup(view->drawable_rects, j);
-				Rect r = *r_ptr;
-				uint32_t offset_x = r.origin.x - rect_min_x(view->frame);
-				uint32_t offset_y = r.origin.y - rect_min_y(view->frame);
-				blit_layer(_screen.pmem, _screen.vmem, r, r);
-			}
-		}
-		blit_layer(_screen.pmem, _screen.vmem, mouse_rect, mouse_rect);
-
-		desktop_views_flush_queues();
+		array_destroy(unobscured_region);
 	}
+
+	array_t* desktop_views_to_composite = desktop_views_ready_to_composite_array();
+	draw_views_to_layer(desktop_views_to_composite, _screen.vmem);
+	draw_queued_extra_draws(all_views, _screen.vmem);
+
+	Rect mouse_rect = _draw_cursor(_screen.vmem);
+
+	// Blit everything we drew above to the memory-mapped framebuffer
+	for (int32_t i = _g_rects_to_update_this_cycle->size - 1; i >= 0; i--) {
+		Rect* r = array_lookup(_g_rects_to_update_this_cycle, i);
+		blit_layer(
+			_screen.pmem,
+			_screen.vmem,
+			*r,
+			*r
+		);
+		array_remove(_g_rects_to_update_this_cycle, i);
+		free(r);
+	}
+
+	complete_queued_extra_draws(all_views, _screen.vmem, _screen.pmem);
+	
+	for (int32_t i = 0; i < desktop_views_to_composite->size; i++) {
+		view_t* view = array_lookup(desktop_views_to_composite, i);
+		for (int32_t j = 0; j < view->drawable_rects->size; j++) {
+			Rect* r_ptr = array_lookup(view->drawable_rects, j);
+			Rect r = *r_ptr;
+			blit_layer(_screen.pmem, _screen.vmem, r, r);
+		}
+	}
+	blit_layer(_screen.pmem, _screen.vmem, mouse_rect, mouse_rect);
+
+	desktop_views_flush_queues();
+	array_destroy(all_views);
+}
+
+typedef enum timers_state {
+	TIMERS_LATE = 0,
+	SLEPT_FOR_TIMERS = 1,
+	NO_TIMERS = 2
+} timers_state_t;
+
+static timers_state_t _sleep_for_timers(void) {
+	if (_g_timers->size == 0) {
+		return NO_TIMERS;
+	}
+	uint32_t next_fire_date = 0;
+	for (uint32_t i = 0; i < _g_timers->size; i++) {
+        awm_timer_t* t = array_lookup(_g_timers, i);
+		if (!next_fire_date || t->fires_after < next_fire_date) {
+			next_fire_date = t->fires_after;
+		}
+    }
+	int32_t time_to_next_fire = next_fire_date - ms_since_boot();
+	if (time_to_next_fire <= 0) {
+		return TIMERS_LATE;
+	}
+
+	uint32_t b[2];
+    b[0] = AMC_SLEEP_UNTIL_TIMESTAMP_OR_MESSAGE;
+    b[1] = time_to_next_fire;
+    amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &b, sizeof(b));
+
+	return SLEPT_FOR_TIMERS;
+}
+
+void awm_timer_start(uint32_t duration, awm_timer_cb_t timer_cb, void* invoke_ctx) {
+    awm_timer_t* t = calloc(1, sizeof(awm_timer_t));
+    t->start_time = ms_since_boot();
+    t->duration = duration;
+    t->fires_after = t->start_time + duration;
+    t->invoke_cb = timer_cb;
+    t->invoke_ctx = invoke_ctx;
+    array_insert(_g_timers, t);
+}
+
+static void _dispatch_ready_timers(void) {
+    uint32_t now = ms_since_boot();
+    for (int32_t i = 0; i < _g_timers->size; i++) {
+        awm_timer_t* t = array_lookup(_g_timers, i);
+        if (t->fires_after <= now) {
+            uint32_t late_by = now - (t->start_time + t->duration);
+            t->invoke_cb(t->invoke_ctx);
+        }
+    }
+    if (_g_timers->size > 0) {
+        for (int32_t i = _g_timers->size - 1; i >= 0; i--) {
+            awm_timer_t* t = array_lookup(_g_timers, i);
+            if (t->fires_after <= now) {
+                array_remove(_g_timers, i);
+                free(t);
+            }
+        }
+    }
+}
+
+static void _awm_enter_event_loop(void) {
+	// Draw the background onto the screen buffer to start off
+	Rect screen_frame = rect_make(point_zero(), screen_resolution());
+	blit_layer(_screen.vmem, _g_background, screen_frame, screen_frame);
+	blit_layer(_screen.pmem, _screen.vmem, screen_frame, screen_frame);
+
+	while (true) {
+		timers_state_t timers_state = _sleep_for_timers();
+		_awm_process_amc_messages(timers_state == NO_TIMERS);
+		_dispatch_ready_timers();
+		_render_frame();
+	}
+}
+
+int main(int argc, char** argv) {
+	_awm_init();
+	_awm_enter_event_loop();
 	return 0;
 }
 
