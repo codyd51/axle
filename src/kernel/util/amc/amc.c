@@ -171,6 +171,14 @@ void amc_register_service(const char* name) {
         // The current process already has a registered service name
         panic("A process can expose only one service name");
     }
+    if (amc_service_with_name(name) != NULL) {
+        printf("invalid amc_register_service() will kill %s. AMC service name already registered\n", name);
+        char buf[AMC_MAX_SERVICE_NAME_LEN];
+        snprintf(buf, sizeof(buf), "com.axle.invalid-service-name-%d-%s", ms_since_boot(), name);
+        amc_register_service(buf);
+        task_assert(false, "AMC service name already registered", NULL);
+        return;
+    }
 
     amc_service_t* service = calloc(1, sizeof(amc_service_t));
 
