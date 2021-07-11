@@ -32,11 +32,15 @@ static void _refresh_stats(gui_text_view_t* view) {
 	amc_system_profile_response_t* info = (amc_system_profile_response_t*)msg->body;
 
 	char buf[128];
-	snprintf(buf, sizeof(buf), "Allocated RAM: %.2fmb\n", info->pmm_allocated / (float)(1024 * 1024));
-	gui_text_view_puts(view, buf, color_purple());
+	snprintf(buf, sizeof(buf), "- Snapshot at %dms -\n", ms_since_boot());
+	gui_text_view_puts(view, buf, color_white());
 
-	snprintf(buf, sizeof(buf), "Kernel heap: %.2fmb\n\n", info->kheap_allocated / (float)(1024 * 1024));
-	gui_text_view_puts(view, buf, color_red());
+	snprintf(buf, sizeof(buf), "Allocated RAM: %.2fmb\n", info->pmm_allocated / (float)(1024 * 1024));
+	gui_text_view_puts(view, buf, color_white());
+
+	snprintf(buf, sizeof(buf), "Kernel heap: %.2fmb\n", info->kheap_allocated / (float)(1024 * 1024));
+	gui_text_view_puts(view, buf, color_white());
+	gui_text_view_puts(view, "-                    -\n", color_white());
 
 	gui_timer_start(3000, (gui_timer_cb_t)_refresh_stats, view);
 }
@@ -44,7 +48,7 @@ static void _refresh_stats(gui_text_view_t* view) {
 int main(int argc, char** argv) {
 	amc_register_service("com.axle.activity_monitor");
 
-	gui_window_t* window = gui_window_create("Activity Monitor", 700, 700);
+	gui_window_t* window = gui_window_create("Activity Monitor", 500, 200);
 	_g_text_view = gui_text_view_create(
 		window,
 		(gui_window_resized_cb_t)_logs_text_view_sizer
