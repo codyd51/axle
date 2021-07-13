@@ -26,6 +26,7 @@
 #include "effects.h"
 #include "awm_internal.h"
 #include "animations.h"
+#include "composite.h"
 
 typedef struct incremental_mouse_state {
 	int8_t state;
@@ -43,7 +44,6 @@ void _write_window_title(user_window_t* window);
 Screen _screen = {0};
 
 ca_layer* _g_background = NULL;
-array_t* _g_rects_to_update_this_cycle = NULL;
 array_t* _g_timers = NULL;
 
 Screen* gfx_screen() {
@@ -67,15 +67,6 @@ static void handle_keystroke(amc_message_t* keystroke_msg) {
 		uint32_t awm_event = event->type == KEY_PRESSED ? AWM_KEY_DOWN : AWM_KEY_UP;
 		window_handle_keyboard_event(top_window, awm_event, event->key);
 	}
-}
-
-void queue_rect_to_update_this_cycle(Rect update_rect) {
-	Rect* r = calloc(1, sizeof(Rect));
-	r->origin.x = update_rect.origin.x;
-	r->origin.y = update_rect.origin.y;
-	r->size.width = update_rect.size.width;
-	r->size.height = update_rect.size.height;
-	array_insert(_g_rects_to_update_this_cycle, r);
 }
 
 typedef enum window_resize_edge {
@@ -337,7 +328,7 @@ static void _end_mouse_drag(mouse_interaction_state_t* state, Point mouse_point)
 				slot = state->hovered_shortcut->grid_slot;
 			}
 			awm_animation_snap_shortcut_t* anim = awm_animation_snap_shortcut_init(32, state->hovered_shortcut, slot);
-			awm_animation_start(anim);
+			awm_animation_start((awm_animation_t*)anim);
 		}
 
 		state->has_begun_drag = false;
@@ -380,14 +371,7 @@ static void _adjust_window_position(user_window_t* window, int32_t delta_x, int3
 		window->frame.origin.y -= overhang;
 	}
 
-	array_t* delta = rect_diff(original_frame, window->frame);
-	for (int32_t i = delta->size - 1; i >= 0; i--) {
-		Rect* r = array_lookup(delta, i);
-		queue_rect_to_update_this_cycle(*r);
-		free(r);
-	}
-	array_destroy(delta);
-
+	compositor_queue_rect_difference_to_redraw(original_frame, window->frame);
 	windows_invalidate_drawable_regions_in_rect(rect_union(original_frame, window->frame));
 }
 
@@ -408,14 +392,7 @@ static void _handle_mouse_dragged(mouse_interaction_state_t* state, Point mouse_
 			state->hovered_shortcut->view->frame = new_frame;
 
 			Rect total_update_frame = rect_union(original_frame, new_frame);
-			array_t* delta = rect_diff(original_frame, new_frame);
-			for (int32_t i = delta->size - 1; i >= 0; i--) {
-				Rect* r = array_lookup(delta, i);
-				queue_rect_to_update_this_cycle(*r);
-				free(r);
-			}
-			array_destroy(delta);
-
+			compositor_queue_rect_difference_to_redraw(original_frame, new_frame);
 			windows_invalidate_drawable_regions_in_rect(total_update_frame);
 		}
 		else {
@@ -491,7 +468,7 @@ static void mouse_dispatch_events(uint8_t status_byte, Point mouse_point, int32_
 	mouse_interaction_state_t* mouse_state = &g_mouse_state;
 
 	// Previous mouse position should be redrawn
-	queue_rect_to_update_this_cycle(rect_make(mouse_state->mouse_pos, size_make(14, 14)));
+	compositor_queue_rect_to_redraw(rect_make(mouse_state->mouse_pos, size_make(14, 14)));
 
 	mouse_state->mouse_pos = mouse_point;
 
@@ -549,7 +526,7 @@ static bool handle_mouse_event(amc_message_t* mouse_event, incremental_mouse_sta
 	return !updated_state_byte;
 }
 
-static Rect _draw_cursor(ca_layer* dest) {
+Rect _draw_cursor(ca_layer* dest) {
 	mouse_interaction_state_t* mouse_state = &g_mouse_state;
 	Color mouse_color = color_green();
 	bool is_resize = false;
@@ -608,13 +585,7 @@ void _window_resize(user_window_t* window, Size new_size, bool inform_window) {
 
 	window_redraw_title_bar(window, false);
 
-	array_t* delta = rect_diff(original_frame, window->frame);
-	for (int32_t i = delta->size - 1; i >= 0; i--) {
-		Rect* r = array_lookup(delta, i);
-		queue_rect_to_update_this_cycle(*r);
-		free(r);
-	}
-	array_destroy(delta);
+	compositor_queue_rect_difference_to_redraw(original_frame, window->frame);
 	windows_invalidate_drawable_regions_in_rect(rect_union(original_frame, window->frame));
 
 	if (inform_window && !window->remote_process_died) {
@@ -634,7 +605,7 @@ static void _update_window_title(const char* owner_service, awm_window_title_msg
 	}
 
 	if (window->title) {
-		free(window->title);
+		free((char*)window->title);
 	}
 	window->title = strndup(title_msg->title, title_msg->len);
 	_window_resize(window, window->frame.size, false);
@@ -654,7 +625,7 @@ static void _remove_and_teardown_window_for_service(const char* owner_service) {
 	}
 
 	awm_animation_close_window_t* anim = awm_animation_close_window_init(200, window);
-	awm_animation_start(anim);
+	awm_animation_start((awm_animation_t*)anim);
 }
 
 static void handle_user_message(amc_message_t* user_message) {
@@ -674,7 +645,7 @@ static void handle_user_message(amc_message_t* user_message) {
 				_g_background->size.height/2.0, 
 				(float)_g_background->size.height * 0.65
 			);
-			queue_rect_to_update_this_cycle(rect_make(point_zero(), _g_background->size));
+			compositor_queue_rect_to_redraw(rect_make(point_zero(), _g_background->size));
 			// Also re-render each desktop shortcut, as they use the background color in their rendering
 			array_t* shortcuts = desktop_shortcuts();
 			for (int32_t i = 0; i < shortcuts->size; i++) {
@@ -739,13 +710,21 @@ ca_layer* desktop_background_layer(void) {
 	return _g_background;
 }
 
+ca_layer* video_memory_layer(void) {
+	return _screen.vmem;
+}
+
+ca_layer* physical_video_memory_layer(void) {
+	return _screen.pmem;
+}
+
 static void _awm_init(void) {
 	amc_register_service(AWM_SERVICE_NAME);
 	
 	// Init state for the desktop
 	windows_init();
 	animations_init();
-	_g_rects_to_update_this_cycle = array_create(128);
+	compositor_init();
 	_g_timers = array_create(32);
 
 	// Ask the kernel to map in the framebuffer and send us info about it
@@ -841,7 +820,7 @@ static void _awm_process_amc_messages(bool should_block) {
 				// Ask amc to delete any messages awm sent to this program
 				amc_flush_messages_to_service_cmd_t req = {0};
 				req.event = AMC_FLUSH_MESSAGES_TO_SERVICE;
-				snprintf(&req.remote_service, sizeof(req.remote_service), notif->dead_service);
+				snprintf((char*)&req.remote_service, sizeof(req.remote_service), notif->dead_service);
 				amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &req, sizeof(req));
 			}
 			else {
@@ -857,112 +836,6 @@ static void _awm_process_amc_messages(bool should_block) {
 			handle_user_message(msg);
 		}
 	} while (amc_has_message());
-}
-
-static void _render_frame(void) {
-	array_t* all_views = all_desktop_views();
-
-	// Fetch remote layers for windows that have asked for a redraw
-	windows_fetch_queued_windows();
-
-	// Process rects that have been dirtied while processing other events
-	for (int32_t i = 0; i < _g_rects_to_update_this_cycle->size; i++) {
-		Rect* rp = array_lookup(_g_rects_to_update_this_cycle, i);
-		Rect r = *rp;
-
-		array_t* unobscured_region = array_create(128);
-		rect_add(unobscured_region, r);
-
-		// Handle the parts of the dirty region that are obscured by desktop views
-		for (int32_t j = 0; j < all_views->size; j++) {
-			view_t* view = array_lookup(all_views, j);
-			// We can't occlude using a view if the view uses transparency 
-			if (view->layer->alpha < 1.0) {
-				continue;
-			}
-			for (int32_t k = 0; k < view->drawable_rects->size; k++) {
-				Rect* visible_region_ptr = array_lookup(view->drawable_rects, k);
-				Rect visible_region = *visible_region_ptr;
-				if (rect_intersects(visible_region, r)) {
-					if (rect_contains_rect(visible_region, r)) {
-						// The entire rect should be redrawn from this window
-						rect_add(view->extra_draws_this_cycle, r);
-						// And subtract the area of the rect from the region to update
-						unobscured_region = update_occlusions(unobscured_region, r);
-					}
-					else {
-						// This view needs to redraw the intersection of its visible rect and the update rect
-						array_t* delta = rect_diff(visible_region, r);
-						for (int32_t z = delta->size - 1; z >= 0; z--) {
-							Rect* intersection_ptr = array_lookup(delta, z);
-							Rect intersection = *intersection_ptr;
-
-							rect_add(view->extra_draws_this_cycle, intersection);
-							unobscured_region = update_occlusions(unobscured_region, intersection);
-
-							free(intersection_ptr);
-						}
-						array_destroy(delta);
-					}
-
-					// If all the area of the region to update has been handled, 
-					// stop iterating windows early
-					if (!unobscured_region->size) {
-						break;
-					}
-				}
-			}
-		}
-
-		// Blit the regions that are not covered by windows with the desktop background layer
-		for (int32_t j = unobscured_region->size - 1; j >= 0; j--) {
-			Rect* bg_rect = array_lookup(unobscured_region, j);
-			blit_layer(
-				_screen.vmem,
-				_g_background,
-				*bg_rect,
-				*bg_rect
-			);
-			//draw_rect(_screen.vmem, *bg_rect, color_rand(), 1);
-			array_remove(unobscured_region, j);
-			free(bg_rect);
-		}
-		array_destroy(unobscured_region);
-	}
-
-	array_t* desktop_views_to_composite = desktop_views_ready_to_composite_array();
-	draw_views_to_layer(desktop_views_to_composite, _screen.vmem);
-	draw_queued_extra_draws(all_views, _screen.vmem);
-
-	Rect mouse_rect = _draw_cursor(_screen.vmem);
-
-	// Blit everything we drew above to the memory-mapped framebuffer
-	for (int32_t i = _g_rects_to_update_this_cycle->size - 1; i >= 0; i--) {
-		Rect* r = array_lookup(_g_rects_to_update_this_cycle, i);
-		blit_layer(
-			_screen.pmem,
-			_screen.vmem,
-			*r,
-			*r
-		);
-		array_remove(_g_rects_to_update_this_cycle, i);
-		free(r);
-	}
-
-	complete_queued_extra_draws(all_views, _screen.vmem, _screen.pmem);
-	
-	for (int32_t i = 0; i < desktop_views_to_composite->size; i++) {
-		view_t* view = array_lookup(desktop_views_to_composite, i);
-		for (int32_t j = 0; j < view->drawable_rects->size; j++) {
-			Rect* r_ptr = array_lookup(view->drawable_rects, j);
-			Rect r = *r_ptr;
-			blit_layer(_screen.pmem, _screen.vmem, r, r);
-		}
-	}
-	blit_layer(_screen.pmem, _screen.vmem, mouse_rect, mouse_rect);
-
-	desktop_views_flush_queues();
-	array_destroy(all_views);
 }
 
 typedef enum timers_state {
@@ -1035,7 +908,7 @@ static void _awm_enter_event_loop(void) {
 		timers_state_t timers_state = _sleep_for_timers();
 		_awm_process_amc_messages(timers_state == NO_TIMERS);
 		_dispatch_ready_timers();
-		_render_frame();
+		compositor_render_frame();
 	}
 }
 

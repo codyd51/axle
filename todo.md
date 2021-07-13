@@ -223,3 +223,6 @@ libgui can send a resize event
 Two-way mapping in process death notifying so we can remove the watcher when the watcher dies
 
 Desktop icons (check)
+
+blit_layer_scaled
+    For awm scaling windows during animations?

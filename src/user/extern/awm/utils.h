@@ -8,6 +8,8 @@
 #include <libimg/libimg.h>
 #include <file_manager/file_manager_messages.h>
 
+uint32_t ms_since_boot();
+
 Point point_translate(Point p, Rect r);
 Size screen_resolution(void);
 uint8_t screen_bytes_per_pixel(void);

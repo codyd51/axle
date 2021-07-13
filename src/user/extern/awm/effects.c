@@ -1,3 +1,4 @@
+#include <math.h>
 #include <agx/lib/putpixel.h>
 
 #include "effects.h"

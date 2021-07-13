@@ -15,4 +15,8 @@ typedef struct awm_timer {
 
 void awm_timer_start(uint32_t duration, awm_timer_cb_t timer_cb, void* invoke_ctx);
 
+ca_layer* video_memory_layer(void);
+ca_layer* physical_video_memory_layer(void);
+Rect _draw_cursor(ca_layer* dest);
+
 #endif

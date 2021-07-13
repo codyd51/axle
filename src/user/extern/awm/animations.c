@@ -1,7 +1,8 @@
 #include <stddef.h>
 
-#include "animations.h"
 #include "math.h"
+#include "composite.h"
+#include "animations.h"
 
 array_t* _g_pending_animations = NULL;
 
@@ -33,28 +34,11 @@ static void _awm_animation_close_window_step(awm_animation_close_window_t* anim,
 	_window_resize(window, window->frame.size, false);
 	//window_render_scaled_content_layer(window);
 
-	//desktop_view_queue_composite(window);
-	/*
 	Rect total_update_frame = rect_union(current_frame, new_frame);
-	queue_rect_to_update_this_cycle(total_update_frame);
-	windows_invalidate_drawable_regions_in_rect(total_update_frame);
-	*/
-
-	array_t* delta = rect_diff(current_frame, window->frame);
-	for (int32_t i = delta->size - 1; i >= 0; i--) {
-		Rect* r = array_lookup(delta, i);
-		queue_rect_to_update_this_cycle(*r);
-		free(r);
-	}
-	array_destroy(delta);
-
-	Rect total_update_frame = rect_union(current_frame, new_frame);
+	compositor_queue_rect_difference_to_redraw(current_frame, new_frame);
 	windows_invalidate_drawable_regions_in_rect(total_update_frame);
 
-	//Rect window_frame = window->frame;
 	// TODO(PT): Also need to update the windows in front of this one? How?
-	//windows_invalidate_drawable_regions_in_rect(window_frame);
-	queue_rect_to_update_this_cycle(new_frame);
 }
 
 static void _awm_animation_close_window_finish(awm_animation_close_window_t* anim) {
@@ -122,13 +106,7 @@ static void _awm_animation_open_window_step(awm_animation_open_window_t* anim, f
 	//window_render_scaled_content_layer(window);
 
 	Rect total_update_frame = rect_union(current_frame, new_frame);
-	array_t* delta = rect_diff(current_frame, window->frame);
-	for (int32_t i = delta->size - 1; i >= 0; i--) {
-		Rect* r = array_lookup(delta, i);
-		queue_rect_to_update_this_cycle(*r);
-		free(r);
-	}
-	array_destroy(delta);
+	compositor_queue_rect_difference_to_redraw(current_frame, new_frame);
 	windows_invalidate_drawable_regions_in_rect(total_update_frame);
 }
 
@@ -186,14 +164,7 @@ static void _awm_animation_snap_shortcut_step(awm_animation_snap_shortcut_t* ani
     anim->shortcut->view->frame = new_frame;
     
 	Rect total_update_frame = rect_union(current_frame, new_frame);
-	array_t* delta = rect_diff(total_update_frame, new_frame);
-	for (int32_t i = delta->size - 1; i >= 0; i--) {
-		Rect* r = array_lookup(delta, i);
-		queue_rect_to_update_this_cycle(*r);
-		free(r);
-	}
-	array_destroy(delta);
-
+	compositor_queue_rect_difference_to_redraw(current_frame, new_frame);
 	windows_invalidate_drawable_regions_in_rect(total_update_frame);
 }
 
