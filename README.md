@@ -4,11 +4,7 @@
 
 axle is a **UNIX-like** hobby operating system. Everything used within axle is **implemented from the ground up**, aside from the bootloader, for which we use GRUB. axle is a **multiboot compliant** kernel. axle runs C on 'bare metal' in freestanding mode, meaning even the C standard library is not included. A subset of the C standard library is implemented within axle's kernel, and a userspace is provided through a **Newlib port**. axle provides a **desktop environment** via an efficient compositor and a homegrown GUI toolkit library.
 
-<p align="center">
-    <iframe width="420" height="315" style="display:block;"
-        src="https://www.youtube.com/embed/Tg8nhEDbMOo">
-    </iframe>
-</p>
+[![2021 desktop environment](https://img.youtube.com/vi/Tg8nhEDbMOo/maxresdefault.jpg)](https://youtu.be/Tg8nhEDbMOo)
 
 <p align="center"><img src="screenshots/desktop1.png"></p>
 <p align="center"><img src="screenshots/desktop2.png"></p>
