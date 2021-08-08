@@ -2,36 +2,36 @@
 
 <p align="center"><img src="screenshots/boot.png"></p>
 
-axle is a small **UNIX-like** hobby operating system. Everything used within axle is **implemented from the ground up**, aside from the bootloader, for which we use GRUB. axle is a **multiboot compliant** kernel. axle runs C on 'bare metal' in freestanding mode, meaning even the C standard library is not included. A subset of the C standard library is implemented within axle's kernel, and a userspace is provided through a **Newlib port**. axle is mainly **interfaced through a shell**.
+axle is a **UNIX-like** hobby operating system. Everything used within axle is **implemented from the ground up**, aside from the bootloader, for which we use GRUB. axle is a **multiboot compliant** kernel. axle runs C on 'bare metal' in freestanding mode, meaning even the C standard library is not included. A subset of the C standard library is implemented within axle's kernel, and a userspace is provided through a **Newlib port**. axle provides a **desktop environment** via an efficient compositor and a homegrown GUI toolkit library.
 
-<p align="center"><img src="screenshots/startup.png"></p>
+<p align="center">
+    <iframe width="420" height="315" style="display:block;"
+        src="https://www.youtube.com/embed/Tg8nhEDbMOo">
+    </iframe>
+</p>
+
+<p align="center"><img src="screenshots/desktop1.png"></p>
+<p align="center"><img src="screenshots/desktop2.png"></p>
 
 The initial entry point must be done in ASM, as we have to do some special tasks such as setting up the GRUB header, pushing our stack, and calling our C entry point. This means that the first code run is in `boot.s`, but the 'real' entry point is in `kernel.c`.
 
-Features
+Features (2021)
 ------------
 
-[![Join the chat at https://gitter.im/axleOS/Lobby](https://badges.gitter.im/axleOS/Lobby.svg)](https://gitter.im/axleOS/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
-* Compositing window manager with clipping and alpha blending
-* Text renderer with SSAA antialiasing
-* Auto-boots in 1024x768 full RGB
-* FAT filesystem with IDE hard-drive driver, and an initrd.
+* Compositing window manager with animations, alpha blending, and window clipping
+* TCP/IP stack
+* HTML/CSS rendering engine
+* Userspace games like Snake, Breakout, and 2048
+* Userspace applications like a web browser supporting HTTP
+* MLFQ scheduler
+* GUI toolkit
+* Crash reporting
+* Driver interface
 * ELF loader
 * Newlib port
-* MLFQ scheduler
-* PS/2 keyboard/mouse drivers
-* PIT/RTC drivers
-* Various graphics modes/resolutions
-* Graphics library
-* Paging
-* Multicolored, scrolling shell with history
-* Kernel-space standard library
-* User mode (ring3)
-* Syscalls
-* PCI enumeration
+* Many supporting features (paging, ring3, syscalls, PCI, etc.)
 
-Overview
+Overview (2018)
 -------------
 axle is designed so everything is preemptible, including the kernel itself. Tasks are scheduled according to an MLFQ policy, although a round-robin implementation is also provided if the user requires low-latency between tasks. To prevent starvation in MLFQ mode, a priority booster is also included which drops every task into the highest priority queue at regular intervals. The scheduler quantum, boost quantum, queue counts and queue sizes are all configurable, as many constants within axle's kernel are.
 
@@ -43,7 +43,7 @@ Among axle's built-in demonstrations is rexle, a pseudo-3D renderer which utiliz
 
 axle also includes a JIT compiler which is capable of executing assembly as it is entered. (At the present moment it accepts opcodes directly, though the translation from assembly to opcodes is not a domain-specific problem, and you can feel free to use your favorite assembler to do so).
 
-Graphics
+Graphics (2018)
 -------------
 
 While axle is mainly used through a terminal, VGA and higher-resolution VESA drivers are available, along with a graphics library which can be used with both modes. A window manager and associated API is also provided. VGA mode supports 256 colors and VESA supports full RGB.
@@ -59,7 +59,7 @@ Julia set | Mandelbrot set
 :--------:|:-------------:
 ![Julia set](/screenshots/julia.png) | ![Mandelbrot set](/screenshots/mandelbrot.png)
 
-## Window manager
+## Window manager (2018)
 
 While in previous versions of axle the window manager refresh rate was implemented as a callback from the PIT, as axle is now capable of multitasking this is no longer necessary. The window manager spawns its own process and refreshes its contents whenever necessary. Upon a refresh, the window manager traverses its heirarchy and draws its contents from the bottom up, writes to a temporary buffer, and decides whether to transfer this buffer to real video memory. The window manager attempts to minimize modifying video memory, and only does so if there has been a change from the current frame. Additionally, the buffer itself is not modified if no UI elements have notified the manager that they need to be redrawn.
 
@@ -74,7 +74,7 @@ Unless your platform natively outputs 32-bit x86 binaries, you will need a cross
 axle uses QEMU as its standard emulator, though any other could be used, such as Bochs. To modify this and other build parameters, see the `Makefile`.
 To run and test axle on OS X, run `./install.sh` to attempt to build the toolchain, then `make run` to start the emulator.
 
-Non-Exhaustive Feauter List / Roadmap
+Non-Exhaustive Feature List / Roadmap
 ---------------------
 
 - [x] Keyboard driver
