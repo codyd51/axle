@@ -91,7 +91,8 @@ void net_get_ipv4_of_domain_name(const char* domain_name, uint32_t domain_name_l
 }
 
 uint16_t net_find_free_port(void) {
-    return 12344;
+    //return 12344;
+    return rand();
 }
 
 uint32_t net_tcp_conn_init(uint16_t src_port, uint16_t dst_port, uint8_t dest_ipv4[IPv4_ADDR_SIZE]) {

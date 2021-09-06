@@ -5,8 +5,9 @@
 #include <stdlibadd/array.h>
 
 #include <agx/font/font.h>
-#include "gui_layer.h"
+#include "utils.h"
 #include "gui_elem.h"
+#include "gui_layer.h"
 
 ca_layer* _get_raw_layer(gui_layer_t* layer) {
     if (layer->base.type == GUI_FIXED_LAYER) {
@@ -304,10 +305,11 @@ void gui_layer_draw_char(gui_layer_t* layer, char ch, int x, int y, Color color,
     );
 }
 
-void gui_layer_blit_layer(gui_layer_t* dest_wrapper, gui_layer_t* src_wrapper, Rect dest_frame, Rect src_frame) {
+Rect gui_layer_blit_layer(gui_layer_t* dest_wrapper, gui_layer_t* src_wrapper, Rect dest_frame, Rect src_frame) {
     ca_layer* dest = _get_raw_layer(dest_wrapper);
+    Rect blit_rect;
     if (src_wrapper->base.type == GUI_FIXED_LAYER) {
-        blit_layer(
+        blit_rect = blit_layer(
             dest,
             src_wrapper->fixed_layer.inner,
             dest_frame,
@@ -349,7 +351,7 @@ void gui_layer_blit_layer(gui_layer_t* dest_wrapper, gui_layer_t* src_wrapper, R
             );
         }
         */
-        blit_layer(
+        blit_rect = blit_layer(
             dest,
             src_wrapper->scroll_layer.inner,
             dest_frame,
@@ -361,6 +363,7 @@ void gui_layer_blit_layer(gui_layer_t* dest_wrapper, gui_layer_t* src_wrapper, R
     else {
         assert(false, "Unknown layer type");
     }
+    return blit_rect;
 }
 
 gui_layer_t* gui_layer_create(gui_layer_type_t type, Size max_size) {

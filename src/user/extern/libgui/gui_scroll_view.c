@@ -25,8 +25,9 @@ static void _unhide_scrollbar(gui_scroll_view_t* sv) {
 }
 
 static void _update_scrollbar(gui_scroll_view_t* sv) {
-	uint32_t bottom_y = sv->content_layer->scroll_layer.max_y;
-	if (bottom_y < sv->content_layer->scroll_layer.scroll_offset.y) {
+	gui_view_t* base = &(sv->base);
+	uint32_t bottom_y = base->content_layer->scroll_layer.max_y;
+	if (bottom_y < base->content_layer->scroll_layer.scroll_offset.y) {
 	//	_hide_scrollbar(sv);
 	}
 	else {
@@ -40,16 +41,17 @@ static void _update_layout(gui_scroll_view_t* sv) {
 	_update_scrollbar(sv);
 }
 
-void gui_scroll_view_alloc_dynamic_fields(gui_scroll_view_t* view) {
+void gui_scroll_view_alloc_dynamic_fields(gui_scroll_view_t* scroll_view) {
 	Size screen_res = _gui_screen_resolution();
-	view->content_layer = gui_layer_create(
+	gui_view_t* base = &(scroll_view->base);
+	base->content_layer = gui_layer_create(
 		GUI_SCROLL_LAYER, 
 		size_make(
 			screen_res.width,
 			screen_res.height * 2
 		)
 	);
-	view->subviews = array_create(64);
+	base->subviews = array_create(64);
 }
 
 gui_scroll_view_t* gui_scroll_view_alloc(void) {
@@ -58,12 +60,13 @@ gui_scroll_view_t* gui_scroll_view_alloc(void) {
 	return v;
 }
 
-static void _handle_mouse_scrolled(gui_scroll_view_t* view, int8_t delta_z) {
-	view->content_layer->scroll_layer.scroll_offset.y += delta_z * 40;
+static void _handle_mouse_scrolled(gui_scroll_view_t* sv, int8_t delta_z) {
+	gui_view_t* base = &(sv->base);
+	base->content_layer->scroll_layer.scroll_offset.y += delta_z * 40;
 
-	int32_t scroll_off = view->content_layer->scroll_layer.scroll_offset.y;
-	int32_t bottom_y = view->content_layer->scroll_layer.max_y;
-	view->content_layer->scroll_layer.scroll_offset.y = max(0, min(bottom_y, scroll_off));
+	int32_t scroll_off = base->content_layer->scroll_layer.scroll_offset.y;
+	int32_t bottom_y = base->content_layer->scroll_layer.max_y;
+	base->content_layer->scroll_layer.scroll_offset.y = max(0, min(bottom_y, scroll_off));
 
 	// If we've decided we can't scroll now, don't try to
 	/*
@@ -72,8 +75,8 @@ static void _handle_mouse_scrolled(gui_scroll_view_t* view, int8_t delta_z) {
 	}
 	*/
 
-	view->scrollbar->scroll_percent = max(0.0, min(1.0, scroll_off / (float)bottom_y));
-	_update_layout(view);
+	sv->scrollbar->scroll_percent = max(0.0, min(1.0, scroll_off / (float)bottom_y));
+	_update_layout(sv);
 }
 
 gui_elem_t* _gui_scroll_view_elem_for_mouse_pos(gui_scroll_view_t* sv, Point mouse_pos) {
@@ -81,29 +84,31 @@ gui_elem_t* _gui_scroll_view_elem_for_mouse_pos(gui_scroll_view_t* sv, Point mou
 		return (gui_elem_t*)sv->scrollbar;
 	}
 
-	mouse_pos.x += sv->content_layer->scroll_layer.scroll_offset.x;
-	mouse_pos.y += sv->content_layer->scroll_layer.scroll_offset.y;
+	gui_view_t* base = &(sv->base);
+	mouse_pos.x += base->content_layer->scroll_layer.scroll_offset.x;
+	mouse_pos.y += base->content_layer->scroll_layer.scroll_offset.y;
 	return gui_view_elem_for_mouse_pos((gui_view_t*)sv, mouse_pos);
 }
 
 static void _gui_scroll_view_fill_background(gui_scroll_view_t* sv, bool is_active) {
+	gui_view_t* base = &(sv->base);
 	gui_layer_draw_rect(
-		sv->content_layer, 
+		base->content_layer, 
 		rect_make(
 			point_make(
-				sv->content_layer->scroll_layer.scroll_offset.x,
-				sv->content_layer->scroll_layer.scroll_offset.y
+				base->content_layer->scroll_layer.scroll_offset.x,
+				base->content_layer->scroll_layer.scroll_offset.y
 			),
-			sv->content_layer_frame.size
+			base->content_layer_frame.size
 		), 
-		sv->background_color, 
+		base->background_color, 
 		THICKNESS_FILLED
 	);
 }
 
 static Rect _scrollbar_sizer(gui_scrollbar_t* sb, Size window_size) {
 	gui_scroll_view_t* parent = (gui_scroll_view_t*)sb->parent;
-	Rect frame = parent->frame;
+	Rect frame = parent->base.frame;
 	if (frame.size.width == 0 && frame.size.height == 0) {
 		return rect_zero();
 	}
@@ -133,10 +138,10 @@ static void _scroll_view_window_resized(gui_scroll_view_t* sv, Size new_window_s
 	// Subtract the scrollbar width
 	// Add in the right border, since that's now managed by the scrollbar
 	Size new_content_view_size = size_make(
-		sv->content_layer_frame.size.width - sv->scrollbar->frame.size.width,
-		sv->content_layer_frame.size.height
+		sv->base.content_layer_frame.size.width - sv->scrollbar->frame.size.width,
+		sv->base.content_layer_frame.size.height
 	);
-	sv->content_layer_frame.size = new_content_view_size;
+	sv->base.content_layer_frame.size = new_content_view_size;
 
 	_gui_view_resize_invoke_callbacks(sv, new_window_size);
 }
@@ -144,16 +149,19 @@ static void _scroll_view_window_resized(gui_scroll_view_t* sv, Size new_window_s
 void _gui_scroll_view_draw(gui_scroll_view_t* sv, bool is_active) {
 	// Draw a left edge in which we display the scrollbar
 	Rect frame_excluding_scrollbar = rect_make(
-		sv->frame.origin,
+		sv->base.frame.origin,
 		size_make(
-			sv->frame.size.width - sv->scrollbar->frame.size.width,
-			sv->frame.size.height
+			sv->base.frame.size.width - sv->scrollbar->frame.size.width,
+			sv->base.frame.size.height
 		)
 	);
+	if (frame_excluding_scrollbar.size.width <= 0 || frame_excluding_scrollbar.size.height <= 0) {
+		return;
+	}
 	_gui_view_draw_main_content_in_rect((gui_view_t*)sv, is_active, frame_excluding_scrollbar);
 
 	if (!sv->scrollbar->hidden || true) {
-		bool is_active = sv->window->hover_elem == sv->scrollbar;
+		bool is_active = sv->base.window->hover_elem == sv->scrollbar;
 		sv->scrollbar->_priv_draw_cb((gui_elem_t*)sv->scrollbar, is_active);
 	}
 
@@ -163,19 +171,20 @@ void _gui_scroll_view_draw(gui_scroll_view_t* sv, bool is_active) {
 static void _scrollbar_position_updated(gui_scrollbar_t* sb, float new_scroll_percent) {
 	// Parent is guaranteed to be a scroll view
 	gui_scroll_view_t* parent = (gui_scroll_view_t*)sb->parent;
-	uint32_t bottom_y = parent->content_layer->scroll_layer.max_y;
+	uint32_t bottom_y = parent->base.content_layer->scroll_layer.max_y;
 	uint32_t scroll_off = bottom_y * new_scroll_percent;
-	parent->content_layer->scroll_layer.scroll_offset.y = scroll_off;
+	parent->base.content_layer->scroll_layer.scroll_offset.y = scroll_off;
 }
 
 void gui_scroll_view_init(gui_scroll_view_t* view, gui_window_t* window, gui_window_resized_cb_t sizer_cb) {
 	gui_view_init((gui_view_t*)view, window, sizer_cb);
 
-	view->_priv_mouse_scrolled_cb = (gui_mouse_scrolled_cb_t)_handle_mouse_scrolled;
-    view->elem_for_mouse_pos_cb = (gui_view_elem_for_mouse_pos_cb_t)_gui_scroll_view_elem_for_mouse_pos;
-	view->_fill_background_cb = (gui_draw_cb_t)_gui_scroll_view_fill_background;
-	view->_priv_window_resized_cb = (_priv_gui_window_resized_cb_t)_scroll_view_window_resized;
-	view->_priv_draw_cb = (gui_draw_cb_t)_gui_scroll_view_draw;
+	gui_view_t* base = &(view->base);
+	base->_priv_mouse_scrolled_cb = (gui_mouse_scrolled_cb_t)_handle_mouse_scrolled;
+    base->elem_for_mouse_pos_cb = (gui_view_elem_for_mouse_pos_cb_t)_gui_scroll_view_elem_for_mouse_pos;
+	base->_fill_background_cb = (gui_draw_cb_t)_gui_scroll_view_fill_background;
+	base->_priv_window_resized_cb = (_priv_gui_window_resized_cb_t)_scroll_view_window_resized;
+	base->_priv_draw_cb = (gui_draw_cb_t)_gui_scroll_view_draw;
 	// TODO(PT): Might need to set a new type here
 
 	// Must be called after text_view is added to all_gui_elems to set up the Z-order correctly
@@ -189,29 +198,31 @@ void gui_scroll_view_init(gui_scroll_view_t* view, gui_window_t* window, gui_win
 }
 
 void gui_scroll_view_add_subview(gui_view_t* superview, gui_scroll_view_t* subview) {
-	subview->window = superview->window;
-	subview->superview = superview;
-	subview->frame = subview->sizer_cb((gui_elem_t*)subview, subview->window->size);
-	subview->content_layer_frame = rect_make(point_zero(), subview->frame.size);
-	subview->parent_layer = superview->content_layer;
+	gui_view_t* base = &(subview->base);
+	base->window = superview->window;
+	base->superview = superview;
+	base->frame = base->sizer_cb((gui_elem_t*)subview, base->window->size);
+	base->content_layer_frame = rect_make(point_zero(), base->frame.size);
+	base->parent_layer = superview->content_layer;
 
 	// Fill the background color and set the title inset now that we have a frame
-	subview->_fill_background_cb(subview, false);
-	gui_view_set_title((gui_view_t*)subview, NULL);
+	base->_fill_background_cb(subview, false);
+	gui_view_set_title(base, NULL);
 
 	array_insert(superview->subviews, subview);
 	_unhide_scrollbar(subview);
 }
 
 void gui_scroll_view_add_to_window(gui_scroll_view_t* view, gui_window_t* window) {
-	view->window = window;
-	view->frame = view->sizer_cb((gui_elem_t*)view, window->size);
-	view->content_layer_frame = rect_make(point_zero(), view->frame.size);
-	view->parent_layer = window->layer;
+	gui_view_t* view_base = &(view->base);
+	view_base->window = window;
+	view_base->frame = view_base->sizer_cb((gui_elem_t*)view, window->size);
+	view_base->content_layer_frame = rect_make(point_zero(), view_base->frame.size);
+	view_base->parent_layer = window->layer;
 
 	// Set the title inset now that we have a frame
 	// Fill the background color and set the title inset now that we have a frame
-	view->_fill_background_cb(view, false);
+	view_base->_fill_background_cb(view_base, false);
 	gui_view_set_title((gui_view_t*)view, NULL);
 
 	array_insert(window->views, view);
@@ -227,7 +238,7 @@ gui_scroll_view_t* gui_scroll_view_create(gui_window_t* window, gui_window_resiz
 }
 
 void gui_scroll_view_destroy(gui_scroll_view_t* view) {
-	gui_layer_teardown(view->content_layer);
-	array_destroy(view->subviews);
+	gui_layer_teardown(view->base.content_layer);
+	array_destroy(view->base.subviews);
 	free(view);
 }

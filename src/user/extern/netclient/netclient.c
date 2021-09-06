@@ -96,17 +96,16 @@ static void _render_html(gui_window_t* window, uint32_t tcp_conn_desc) {
 
 	if (root) {
 		/*
-		_render_html_dom(root, tv);
-
-		gui_text_view_puts(tv, "\n\n\n--- HTML AST --- \n", color_dark_gray());
-		_draw_ast(root, 0, tv);
-		*/
 		gui_layer_draw_rect(
 			view->content_layer,
 			rect_make(point_zero(), view->content_layer_frame.size),
 			color_white(),
 			THICKNESS_FILLED
 		);
+		*/
+		gui_text_view_puts(view, "\n--- HTML AST --- \n", color_dark_gray());
+		_draw_ast(root, 0, view);
+		return;
 
 		// Find the style node
 		html_dom_node_t* html = _html_child_tag_with_name(root, "html");
@@ -115,7 +114,7 @@ static void _render_html(gui_window_t* window, uint32_t tcp_conn_desc) {
 		assert(head, "no head");
 		html_dom_node_t* style = _html_child_tag_with_name(head, "style");
 		assert(style, "no style");
-		assert(style->child_count == 1, "wrong child count");
+		//assert(style->child_count == 1, "wrong child count");
 		html_dom_node_t* stylesheet = style->children[0];
 		assert(stylesheet->type == HTML_DOM_NODE_TYPE_TEXT, "expected stylesheet text");
 		array_t* css_nodes = css_parse(stylesheet->name);
@@ -157,38 +156,39 @@ static void _render_html(gui_window_t* window, uint32_t tcp_conn_desc) {
 	}
 }
 
-static void _url_bar_received_input(text_input_t* text_input, char ch) {
+static void _url_bar_received_input(gui_text_input_t* text_input, char ch) {
+	/*
 	if (ch == '\n') {
 		char* domain_name = text_input->text;
 		// Trim the newline character
 		uint32_t domain_name_len = text_input->len - 1;
 		printf("TCP: Performing DNS lookup of %.*s\n", domain_name_len, domain_name);
 		uint8_t out_ipv4[IPv4_ADDR_SIZE];
-		//net_get_ipv4_of_domain_name(domain_name, domain_name_len, out_ipv4);
+		net_get_ipv4_of_domain_name(domain_name, domain_name_len, out_ipv4);
 		char buf[64];
 		format_ipv4_address__buf(buf, sizeof(buf), out_ipv4);
 		printf("TCP: IPv4 address of %s: %s\n", domain_name, buf);
 
 		uint32_t port = net_find_free_port();
 		uint32_t dest_port = 80;
-		//uint32_t conn = net_tcp_conn_init(port, dest_port, out_ipv4);
-		uint32_t conn = 0;
+		uint32_t conn = net_tcp_conn_init(port, dest_port, out_ipv4);
+		//uint32_t conn = 0;
 		printf("TCP: Conn descriptor %d\n", conn);
 
 		char http_buf[512];
-		uint32_t len = snprintf(http_buf, sizeof(http_buf), "GET /test HTTP/1.1\nHost: %s\n\n", domain_name);
-		//net_tcp_conn_send(conn, http_buf, len);
+		uint32_t len = snprintf(http_buf, sizeof(http_buf), "GET / HTTP/1.1\nHost: %s\n\n", domain_name);
+		net_tcp_conn_send(conn, http_buf, len);
 
 		// Reset the URL input field
 		gui_text_input_clear(text_input);
 
 		_render_html(text_input->window, conn);
 	}
+	*/
 }
 
-static Rect _url_bar_sizer(text_input_t* text_input, Size window_size) {
+static Rect _url_bar_sizer(gui_text_input_t* text_input, Size window_size) {
 	Size search_bar_size = size_make(window_size.width, 60);
-	printf("_url_bar_sizer return %d %d\n", search_bar_size.width, search_bar_size.height);
 	return rect_make(point_zero(), search_bar_size);
 }
 
@@ -217,15 +217,13 @@ int main(int argc, char** argv) {
 
 	// Set up the search bar and render box GUI elements
 	Size search_bar_size = size_make(window_size.width, 60);
-	text_input_t* url_input = gui_text_input_create(
+	gui_text_input_t* url_input = gui_text_input_create(
 		window,
-		rect_make(point_zero(), search_bar_size), 
-		color_white(),
 		(gui_window_resized_cb_t)_url_bar_sizer
 	);
-	url_input->text_box->font_size = size_make(12, 20);
-	url_input->text_entry_cb = (text_input_text_entry_cb_t)_url_bar_received_input;
-	gui_text_input_set_prompt(url_input, "Enter a URL: ");
+	//url_input->text_box->font_size = size_make(12, 20);
+	//url_input->text_entry_cb = (text_input_text_entry_cb_t)_url_bar_received_input;
+	//gui_text_input_set_prompt(url_input, "Enter a URL: ");
 
 	Rect render_box_frame = rect_make(
 		point_make(0, search_bar_size.height),
@@ -234,13 +232,20 @@ int main(int argc, char** argv) {
 			window_size.height - search_bar_size.height
 		)
 	);
-	gui_view_t* render_box = gui_view_create(
+	// TODO(PT): set_background_color to avoid this
+	gui_text_view_t* render_box = gui_text_view_alloc();
+	gui_text_view_init(render_box, window, (gui_window_resized_cb_t)_render_box_sizer);
+	//render_box->background_color = color_white();
+	gui_text_view_add_to_window(render_box, window);
+	/*
+	gui_text_view_t* render_box = gui_text_view_create(
 		window,
 		(gui_window_resized_cb_t)_render_box_sizer
 	);
 	render_box->controls_content_layer = true;
+	*/
 
-	gui_timer_start(window, 0, (gui_timer_cb_t)_timer_fired, window);
+	//gui_timer_start(window, 0, (gui_timer_cb_t)_timer_fired, window);
 
 	// Enter the event loop forever
 	gui_enter_event_loop();

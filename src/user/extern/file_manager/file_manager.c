@@ -570,7 +570,7 @@ int main(int argc, char** argv) {
 		window, 
 		(gui_window_resized_cb_t)_content_view_sizer
 	);
-	content_view->background_color = color_white();
+	content_view->base.background_color = color_white();
 	// TODO(PT): Traverse the tree beforehand to build the depth-listing, 
 	// then generate the UI tree without having to traverse the node tree each time
 	_generate_ui_tree((gui_view_t*)content_view, NULL, 0, (fs_node_t*)root);

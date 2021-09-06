@@ -22,7 +22,6 @@ bool rect_intersects(Rect A, Rect B) {
     return x_overlap && y_overlap;
 }
 
-
 Rect* Rect_new(int top, int left, int bottom, int right) {
     //Attempt to allocate the object
     Rect* rect;

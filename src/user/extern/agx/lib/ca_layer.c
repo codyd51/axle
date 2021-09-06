@@ -141,7 +141,7 @@ void blit_layer_filled(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_
 	}
 }
 
-void blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) {
+Rect blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) {
 	//make sure we don't write outside dest's frame
 	rect_min_x(dest_frame) = MAX(0, rect_min_x(dest_frame));
 	rect_min_y(dest_frame) = MAX(0, rect_min_y(dest_frame));
@@ -174,6 +174,7 @@ void blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) 
 	else {
 		blit_layer_alpha(dest, src, dest_frame, src_frame);
 	}
+	return dest_frame;
 }
 
 ca_layer* layer_snapshot(ca_layer* src, Rect frame) {

@@ -39,7 +39,7 @@ typedef union gui_layer {
 gui_layer_t* gui_layer_create(gui_layer_type_t type, Size max_size);
 void gui_layer_teardown(gui_layer_t* layer);
 
-void gui_layer_blit_layer(gui_layer_t* dest, gui_layer_t* src, Rect dest_frame, Rect src_frame);
+Rect gui_layer_blit_layer(gui_layer_t* dest, gui_layer_t* src, Rect dest_frame, Rect src_frame);
 void gui_layer_draw_rect(gui_layer_t* layer, Rect r, Color color, int thickness);
 void gui_layer_draw_line(gui_layer_t* layer, Line line, Color color, int thickness);
 void gui_layer_draw_circle(gui_layer_t* layer, Circle circle, Color color, int thickness);

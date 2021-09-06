@@ -313,9 +313,7 @@ static void _view_window_resized(gui_view_t* v, Size new_window_size) {
 }
 
 void gui_view_alloc_dynamic_fields(gui_view_t* view) {
-	view->content_layer = calloc(1, sizeof(gui_layer_t));
-	view->content_layer->fixed_layer.type = GUI_FIXED_LAYER;
-	view->content_layer->fixed_layer.inner = create_layer(_gui_screen_resolution());
+	view->content_layer = gui_layer_create(GUI_FIXED_LAYER, _gui_screen_resolution());
 	view->subviews = array_create(64);
 }
 

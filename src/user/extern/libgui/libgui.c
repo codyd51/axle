@@ -10,7 +10,6 @@
 #include <stdlibadd/array.h>
 #include <stdlibadd/assert.h>
 
-#include <agx/lib/size.h>
 #include <agx/lib/screen.h>
 #include <agx/lib/shapes.h>
 #include <agx/lib/putpixel.h>

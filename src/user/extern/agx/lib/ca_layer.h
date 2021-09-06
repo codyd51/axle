@@ -42,7 +42,7 @@ void layer_teardown(ca_layer* layer);
  * @param dest_frame Rectangle inset of @p dest which pixels should be copied into
  * @param src_frame Rectangle inset of @p src which pixels should be copied from
  */
-void blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame);
+Rect blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame);
 
 //create a copy of layer pointed to by src
 //only copies pixels bounded by the rectangle 'frame'

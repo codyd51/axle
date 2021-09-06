@@ -77,3 +77,13 @@ const char* rect_print(Rect r) {
 	printf("{(%d, %d), (%d, %d)} - ", r.origin.x, r.origin.y, r.size.width, r.size.height);
 	return "";
 }
+
+void rect_add(array_t* arr, Rect r) {
+    Rect* rp = calloc(1, sizeof(Rect));
+	printf("rect_add 0x%08x (%d, %d), (%d, %d)\n", arr, r.origin.x, r.origin.y, r.size.width, r.size.height);
+    rp->origin.x = r.origin.x;
+    rp->origin.y = r.origin.y;
+    rp->size.width = r.size.width;
+    rp->size.height = r.size.height;
+	array_insert(arr, rp);
+}

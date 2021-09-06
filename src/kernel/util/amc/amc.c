@@ -479,7 +479,8 @@ static void _amc_core_shared_memory_destroy(amc_service_t* local_service, uint32
 
     vmm_unmap_range(vmm_active_pdir(), remote_pdir, sizeof(vmm_page_directory_t));
 
-    array_m_remove(remote_service->shmem_regions, local_shmem->remote_descriptor);
+    //array_m_remove(remote_service->shmem_regions, local_shmem->remote_descriptor);
+    remote_service->shmem_regions->array[local_shmem->remote_descriptor] = NULL;
     kfree(remote_shmem);
     array_m_remove(local_service->shmem_regions, shmem_descriptor);
     kfree(local_shmem);
