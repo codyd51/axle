@@ -79,6 +79,7 @@ gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t hei
 	gui_layer_t* dummy_gui_layer = calloc(1, sizeof(gui_layer_t));
 	dummy_gui_layer->fixed_layer.type = GUI_FIXED_LAYER;
 	dummy_gui_layer->fixed_layer.inner = dummy_layer;
+	dummy_gui_layer->fixed_layer.redrawn_regions_this_frame = array_create(256);
 
 	gui_window_t* window = calloc(1, sizeof(gui_window_t));
 	window->size = size_make(width, height);
@@ -206,19 +207,19 @@ static void _handle_mouse_moved(gui_window_t* window, awm_mouse_moved_msg_t* mov
 					mouse_pos.y -= rect_min_y(window->hover_elem->sl.superview->frame);
 				}
 				//printf("%d %d - Move within hover_elem %d\n", mouse_pos.x, mouse_pos.y, elem->base.type);
-				elem->base._priv_mouse_moved_cb(elem, mouse_pos);
+				//elem->base._priv_mouse_moved_cb(elem, mouse_pos);
 				return;
 			}
 			else {
 				// Exit the previous hover element
 				if (window->hover_elem) {
 					//printf("Mouse exited previous hover elem 0x%08x\n", window->hover_elem);
-					window->hover_elem->base._priv_mouse_exited_cb(window->hover_elem);
+					//window->hover_elem->base._priv_mouse_exited_cb(window->hover_elem);
 					window->hover_elem = NULL;
 				}
 				//printf("Mouse entered new hover elem 0x%08x\n", elem);
 				window->hover_elem = elem;
-				elem->base._priv_mouse_entered_cb(elem);
+				//elem->base._priv_mouse_entered_cb(elem);
 				return;
 			}
 		}
@@ -388,16 +389,92 @@ static void _process_amc_messages(gui_application_t* app, bool should_block, boo
 }
 
 static void _redraw_dirty_elems(gui_window_t* window) {
+	/*
+	uint32_t max_update_rects = 64;
+	uint32_t updates_size = sizeof(awm_window_update_partial_t) + (max_update_rects * (sizeof(awm_window_update_partial_rect_t)));
+	awm_window_update_partial_t* updates = calloc(1, updates_size);
+	updates->event = AWM_WINDOW_REDRAW_PARTIAL;
+	*/
+	awm_window_update_partial_t* updates = NULL;
+	uint32_t updates_size = 0;
+
 	uint32_t start = ms_since_boot();
 	for (uint32_t i = 0; i < window->all_gui_elems->size; i++) {
 		gui_elem_t* elem = array_lookup(window->all_gui_elems, i);
 		bool is_active = window->hover_elem == elem;
 
-		//if (elem->base._priv_needs_display) {
+		if (elem->base._priv_needs_display) {
+			printf("DrawView #%d\n", i);
 			elem->base._priv_draw_cb(elem, is_active);
 			elem->base._priv_needs_display = false;
-		//}
+		}
+		if (elem->base.type == GUI_TYPE_VIEW) {
+			gui_view_t* view = (gui_view_t*)elem;
+			array_t* redrawn_regions = view->content_layer->fixed_layer.redrawn_regions_this_frame;
+			if (redrawn_regions->size) {
+				if (updates == NULL) {
+					uint32_t max_update_rects = 64;
+					updates_size = sizeof(awm_window_update_partial_t) + (max_update_rects * (sizeof(awm_window_update_partial_rect_t)));
+					updates = calloc(1, updates_size);
+					updates->event = AWM_WINDOW_REDRAW_PARTIAL;
+				}
+
+				printf("\tTranslate from view CV (%d, %d) F (%d, %d)\n", view->content_layer_frame.origin.x, view->content_layer_frame.origin.y, view->frame.origin.x, view->frame.origin.y);
+				for (int32_t j = redrawn_regions->size - 1; j >= 0; j--) {
+					Rect* rp = array_lookup(redrawn_regions, j);
+					Rect r = *rp;
+					r.origin.x = max(r.origin.x, 0);
+					r.origin.y = max(r.origin.y, 0);
+					if (rect_max_x(r) > view->content_layer_frame.size.width) {
+						int32_t overhang = rect_max_x(r) - view->content_layer_frame.size.width;
+						r.size.width -= overhang;
+					}
+					if (rect_max_y(r) > view->content_layer_frame.size.height) {
+						int32_t overhang = rect_max_y(r) - view->content_layer_frame.size.height;
+						r.size.height -= overhang;
+					}
+					if (r.size.width <= 0 || r.size.height <= 0) {
+						continue;
+					}
+					Rect translated = rect_make(
+						point_make(view->content_layer_frame.origin.x + r.origin.x, view->content_layer_frame.origin.y + r.origin.y), 
+						r.size
+					);
+					Rect rx = gui_layer_blit_layer(
+						view->parent_layer,
+						view->content_layer,
+						translated,
+						*rp
+					);
+					printf("\t\tRx (%d, %d), (%d, %d)\n", rx.origin.x, rx.origin.y, rx.size.width, rx.size.height);
+
+					updates->rects[updates->rect_count++] = (awm_window_update_partial_rect_t){.r=rx};
+
+					array_remove(redrawn_regions, j);
+					free(rp);
+				}
+			}
+		}
 	}
+
+	array_t* window_redraw_regions = window->layer->fixed_layer.redrawn_regions_this_frame;
+	if (window_redraw_regions->size) {
+		if (updates == NULL) {
+			uint32_t max_update_rects = 256;
+			updates_size = sizeof(awm_window_update_partial_t) + (max_update_rects * (sizeof(awm_window_update_partial_rect_t)));
+			updates = calloc(1, updates_size);
+			updates->event = AWM_WINDOW_REDRAW_PARTIAL;
+		}
+
+		for (int32_t j = window_redraw_regions->size - 1; j >= 0; j--) {
+			Rect* rp = array_lookup(window_redraw_regions, j);
+			updates->rects[updates->rect_count++] = (awm_window_update_partial_rect_t){.r=*rp};
+
+			array_remove(window_redraw_regions, j);
+			free(rp);
+		}
+	}
+
 	uint32_t end = ms_since_boot();
 	uint32_t t = end - start;
 	if (t > 3) {
@@ -405,7 +482,11 @@ static void _redraw_dirty_elems(gui_window_t* window) {
 	}
 
 	// Ask awm to update the window
-	amc_msg_u32_1__send(AWM_SERVICE_NAME, AWM_WINDOW_REDRAW_READY);
+	//amc_msg_u32_1__send(AWM_SERVICE_NAME, AWM_WINDOW_REDRAW_READY);
+	if (updates != NULL) {
+		amc_message_construct_and_send(AWM_SERVICE_NAME, updates, updates_size);
+		free(updates);
+	}
 }
 
 typedef enum timers_state {

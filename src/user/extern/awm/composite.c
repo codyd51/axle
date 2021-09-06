@@ -39,7 +39,7 @@ void compositor_queue_rect_difference_to_redraw(Rect bg, Rect fg) {
 }
 
 void compositor_init(void) {
-	_g_screen_rects_to_update_this_cycle = array_create(128);
+	_g_screen_rects_to_update_this_cycle = array_create(512);
 }
 
 void compositor_render_frame(void) {

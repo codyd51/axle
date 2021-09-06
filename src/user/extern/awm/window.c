@@ -261,6 +261,58 @@ void window_queue_fetch(user_window_t* window) {
     desktop_view_queue_composite((view_t*)window);
 }
 
+void window_queue_partial_fetch(user_window_t* window, awm_window_update_partial_t* partial_updates) {
+    /*
+    if (array_index(windows_to_fetch_this_cycle, window) == -1) {
+        //printf("Ready for redraw: %s\n", window->owner_service);
+        array_insert(windows_to_fetch_this_cycle, window);
+    }
+    */
+    /*
+    _window_fetch_framebuf(window_to_update);
+    if (window->remote_process_died) {
+        printf("Skipping framebuf fetch for window because the remote process is dead: %s\n", window->owner_service);
+        return;
+    }
+    */
+
+	window->has_done_first_draw = true;
+    for (uint32_t i = 0; i < partial_updates->rect_count; i++) {
+        awm_window_update_partial_rect_t* update_rect = &(partial_updates->rects[i]);
+        Rect r = update_rect->r;
+        Point window_origin = point_make(rect_min_x(window->content_view->frame), rect_min_y(window->content_view->frame));
+        printf("Partial redraw #%d (%d, %d) (%d, %d)\n", i, r.origin.x, r.origin.y, r.size.width, r.size.height);
+        Rect rx = blit_layer(
+            window->layer,
+            window->content_view->layer,
+            rect_make(
+                point_make(window_origin.x + rect_min_x(r), window_origin.y + rect_min_y(r)),
+                r.size
+            ),
+            r
+        );
+        // TODO(PT): Need to now do a "partial composite" of the dirtied region
+        // This needs to respect the visible regions of the rect
+        // Kind of similar to the occlusions of a "draw everything" rect?
+
+        /*
+        draw_rect(
+            physical_video_memory_layer(),
+            rect_make(
+                //point_make(rect_min_x(window->frame) + window_origin.x + rect_min_x(r), rect_min_y(window->frame) + window_origin.y + rect_min_y(r)),
+                //r.size
+                point_make(rect_min_x(window->frame) + rx.origin.x, rect_min_y(window->frame) + rx.origin.y),
+                rx.size
+            ),
+            color_yellow(),
+            THICKNESS_FILLED
+        );
+        */
+    }
+
+    desktop_view_queue_composite((view_t*)window);
+}
+
 void desktop_view_queue_composite(view_t* view) {
     if (array_index(views_to_composite_this_cycle, view) == -1) {
         array_insert(views_to_composite_this_cycle, view);
@@ -964,6 +1016,7 @@ void complete_queued_extra_draws(array_t* views, ca_layer* source_layer, ca_laye
             Rect* r_ptr = array_lookup(view->extra_draws_this_cycle, j);
             Rect r = *r_ptr;
             blit_layer(dest_layer, source_layer, r, r);
+            draw_rect(dest_layer, r, color_blue(), 1);
             array_remove(view->extra_draws_this_cycle, j);
             free(r_ptr);
         }

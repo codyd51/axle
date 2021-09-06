@@ -15,15 +15,18 @@ typedef enum gui_layer_type {
 
 typedef struct gui_base_layer {
     gui_layer_type_t type;
+    array_t* redrawn_regions_this_frame;
 } gui_base_layer_t;
 
 typedef struct gui_fixed_layer {
     gui_layer_type_t type;
+    array_t* redrawn_regions_this_frame;
     ca_layer* inner;
 } gui_fixed_layer_t;
 
 typedef struct gui_scroll_layer {
     gui_layer_type_t type;
+    array_t* redrawn_regions_this_frame;
     ca_layer* inner;
     array_t* backing_layers;
     Point scroll_offset;

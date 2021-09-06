@@ -335,6 +335,9 @@ static void _end_mouse_drag(mouse_interaction_state_t* state, Point mouse_point)
 		state->is_moving_top_window = false;
 		state->is_resizing_top_window = false;
 		state->is_dragging_shortcut = false;
+
+		//compositor_queue_rect_difference_to_redraw(original_frame, window->frame);
+		//windows_invalidate_drawable_regions_in_rect(rect_union(original_frame, window->frame));
 	}
 }
 
@@ -671,6 +674,11 @@ static void handle_user_message(amc_message_t* user_message) {
 	else if (command == AWM_WINDOW_REDRAW_READY) {
 		user_window_t* window = window_with_service_name(source_service);
 		window_queue_fetch(window);
+	}
+	else if (command == AWM_WINDOW_REDRAW_PARTIAL) {
+		user_window_t* window = window_with_service_name(source_service);
+		awm_window_update_partial_t* partial_update = (awm_window_update_partial_t*)user_message->body;
+		window_queue_partial_fetch(window, partial_update);
 	}
 	else if (command == AWM_UPDATE_WINDOW_TITLE) {
 		awm_window_title_msg_t* title_msg =  (awm_window_title_msg_t*)user_message->body;

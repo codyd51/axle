@@ -76,4 +76,15 @@ typedef struct awm_window_title_msg {
 // Sent from awm to a client
 #define AWM_CLOSE_WINDOW_REQUEST 814
 
+#define AWM_WINDOW_REDRAW_PARTIAL 815
+typedef struct awm_window_update_partial_rect {
+    Rect r;
+} awm_window_update_partial_rect_t;
+
+typedef struct awm_window_update_partial {
+    uint32_t event; // AWM_WINDOW_REDRAW_PARTIAL
+    uint32_t rect_count;
+    awm_window_update_partial_rect_t rects[];
+} awm_window_update_partial_t;
+
 #endif

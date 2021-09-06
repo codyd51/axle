@@ -93,6 +93,8 @@ static void _gui_layer_draw_rect(gui_layer_t* layer, Rect r, Color c, int thickn
         c,
         thickness
     );
+    // Mark this region as dirty
+    rect_add(layer->base.redrawn_regions_this_frame, r);
 }
 
 static Rect _rect_intersect(Rect a, Rect b) {
@@ -254,6 +256,15 @@ void gui_layer_draw_circle(gui_layer_t* layer, Circle circle, Color color, int t
         color,
         thickness
     );
+
+    // Mark this region as dirty
+    rect_add(
+        layer->base.redrawn_regions_this_frame, 
+        rect_make(
+            point_make(circle.center.x - circle.radius, circle.center.y - circle.radius),
+            size_make(circle.radius * 2, circle.radius * 2)
+        )
+    );
 }
 
 void gui_layer_draw_char(gui_layer_t* layer, char ch, int x, int y, Color color, Size font_size) {
@@ -365,7 +376,9 @@ void gui_layer_blit_layer(gui_layer_t* dest_wrapper, gui_layer_t* src_wrapper, R
 
 gui_layer_t* gui_layer_create(gui_layer_type_t type, Size max_size) {
     gui_layer_t* l = calloc(1, sizeof(gui_layer_t));
+
     l->base.type = type;
+    l->base.redrawn_regions_this_frame = array_create(256);
 
     if (type == GUI_FIXED_LAYER) {
         l->fixed_layer.inner = create_layer(max_size);
@@ -394,5 +407,6 @@ void gui_layer_teardown(gui_layer_t* layer) {
     else if (layer->base.type == GUI_SCROLL_LAYER) {
         layer_teardown(layer->scroll_layer.inner);
     }
+    array_destroy(layer->base.redrawn_regions_this_frame);
     free(layer);
 }
