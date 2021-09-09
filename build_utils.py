@@ -12,8 +12,8 @@ def sysroot_copy_needs_update(source_path: Path, sysroot_path: Path) -> bool:
     return os.stat(source_path.as_posix()).st_mtime - os.stat(sysroot_path.as_posix()).st_mtime > 1
 
 
-def run_and_check(cmd_list: List[str], cwd: Path) -> None:
-    status = subprocess.run(cmd_list, cwd=cwd.as_posix())
+def run_and_check(cmd_list: List[str], cwd: Path = None) -> None:
+    status = subprocess.run(cmd_list, cwd=cwd.as_posix() if cwd else None)
     if status.returncode != 0:
         raise RuntimeError(f'Running "{" ".join(cmd_list)}" failed with exit code {status.returncode}')
 
