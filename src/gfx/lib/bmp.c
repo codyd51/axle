@@ -3,7 +3,6 @@
 #include <kernel/util/vfs/fs.h>
 #include "gfx.h"
 #include <std/math.h>
-#include <user/programs/jpeg.h>
 
 void bmp_teardown(Bmp* bmp) {
 	if (!bmp) return;
@@ -24,56 +23,7 @@ Bmp* create_bmp(Rect frame, ca_layer* layer) {
 
 Bmp* _load_jpg(Rect frame, FILE* file) {
 	NotImplemented();
-	njInit();
-
-	fseek(file, 0, SEEK_END);
-	int size = ftell(file);
-	fseek(file, 0, SEEK_SET);
-	printf("bg.jpg = %d bytes (%f kb)\n", size, size / 1024.0);
-
-	char* jpeg_buf = kmalloc(size);
-	for (int i = 0; i < size; i++) {
-		jpeg_buf[i] = fgetc(file);
-	}
-
-	nj_result_t r = njDecode(jpeg_buf, size);
-	if (r != NJ_OK) {
-		printf("Bad JPEG decode! Stat %d\n", r);
-		kfree(jpeg_buf);
-		return NULL;
-	}
-	printf("JPEG decode succeeded\n");
-	kfree(jpeg_buf);
-
-	uint8_t* stream = (uint8_t*)njGetImage();
-	int stream_size = njGetImageSize();
-
-	printf("JPEG NJ size: {%d, %d}\n", njGetWidth(), njGetHeight());
-	kfree(jpeg_buf);
-
-	ca_layer* layer = create_layer(size_make(frame.size.width, frame.size.height));
-	
-	int layer_size = layer->size.width * layer->size.height * gfx_bytes_per_pixel();
-	int draw_size = MIN(stream_size, layer_size);
-
-	//TODO scale like _load_bmp
-	for (int i = 0; i < draw_size;) {
-		layer->raw[i] = stream[i];
-		i++;
-		layer->raw[i] = stream[i];
-		i++;
-		layer->raw[i] = stream[i];
-		i++;
-
-		//flip R and B color channels
-		char tmp = layer->raw[i-1];
-		layer->raw[i-1] = layer->raw[i-3];
-		layer->raw[i-3] = tmp;
-	}
-
-	Bmp* bmp = create_bmp(frame, layer);
-	printk_dbg("load_jpeg() made bmp %x size {%d, %d}", bmp, layer->size.width, layer->size.height);
-	return bmp;
+	return NULL;
 }
 
 Bmp* _load_bmp(Rect frame, FILE* file) {

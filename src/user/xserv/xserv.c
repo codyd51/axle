@@ -11,10 +11,6 @@
 #include <tests/gfx_test.h>
 #include <kernel/drivers/kb/kb.h>
 #include "animator.h"
-#include <user/programs/launcher.h>
-#include <user/programs/calculator.h>
-#include <user/programs/usage_monitor.h>
-#include <user/programs/jpeg.h>
 #include <std/List.h>
 #include <gfx/lib/rect.h>
 #include <kernel/util/unistd/exec.h>
@@ -33,7 +29,7 @@ void xserv_quit(Screen* screen) {
 }
 void launcher_button_clicked(Button* UNUSED(b)) {
 	//launcher_invoke(point_make(20, rect_min_y(b->frame) - 200));
-	launcher_invoke(point_make(20, 20));
+	//launcher_invoke(point_make(20, 20));
 }
 
 void add_taskbar(Screen* screen) {
@@ -366,8 +362,8 @@ void desktop_setup(Screen* screen) {
 	add_status_bar(screen);
 	add_taskbar(screen);
 
-	display_sample_image(point_make(450, 100));
-	calculator_xserv(point_make(400, 300));
+	//display_sample_image(point_make(450, 100));
+	//calculator_xserv(point_make(400, 300));
 	//display_usage_monitor(point_make(350, 500));
 	//display_about_window(point_make(100, 200));
 	display_about_window(point_make(50, 100));
@@ -586,7 +582,7 @@ void process_kb_events(Screen* screen) {
 			}
 		}
 		else if (ch == 'c') {
-			calculator_xserv(point_make(100, 500));
+			//calculator_xserv(point_make(100, 500));
 		}
 	}
 }
@@ -673,7 +669,7 @@ static void process_mouse_events(Screen* screen) {
 	//did a right click just happen?
 	if (right && !(last_event & 0x2)) {
 		printk("invoking launcher for right click...\n");
-		launcher_invoke(p);
+		//launcher_invoke(p);
 	}
 
 	draw_mouse_shadow(screen, last_mouse_pos, p);
