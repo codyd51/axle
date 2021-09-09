@@ -1,10 +1,15 @@
 #!/usr/local/bin/python3
+import os
 import io
 import sys
 import selectors
 import subprocess
 from pathlib import Path
 from typing import List
+
+
+def sysroot_copy_needs_update(source_path: Path, sysroot_path: Path) -> bool:
+    return os.stat(source_path.as_posix()).st_mtime - os.stat(sysroot_path.as_posix()).st_mtime > 1
 
 
 def run_and_check(cmd_list: List[str], cwd: Path) -> None:
