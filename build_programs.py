@@ -1,4 +1,6 @@
 #!/usr/local/bin/python3
+import os
+import time
 import concurrent.futures
 from build_utils import run_and_check
 from pathlib import Path
@@ -14,7 +16,7 @@ def recompile_program(program_dir: Path) -> None:
     run_and_check(['meson', 'install', '-C', 'build', '--only-changed'], cwd=program_dir)
 
 
-def build_all_programs() -> None:
+def build_all_programs(only_recently_updated: bool = False) -> None:
     programs_root = Path(__file__).parent / "programs"
     cross_compile_config = programs_root / "cross_axle.ini"
 
@@ -24,6 +26,9 @@ def build_all_programs() -> None:
             continue
 
         if program_dir.name in SKIP_PROGRAMS:
+            continue
+
+        if only_recently_updated and not any([f.is_file() and os.stat(f.as_posix()).st_atime >= time.time() - 180 for f in program_dir.iterdir()]):
             continue
 
         meson_build_file = program_dir / 'meson.build'
