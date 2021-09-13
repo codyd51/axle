@@ -226,3 +226,7 @@ Desktop icons (check)
 
 blit_layer_scaled
     For awm scaling windows during animations?
+
+Do drivers (i.e. ATA or NIC) need to send EOI immediately and queue up reads after that?
+    What happens if another IRQ comes in from a different device during data delivery before EOI?
+    What happens if another IRQ comes in from the same device after EOI but before the queued read is performed?

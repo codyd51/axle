@@ -108,6 +108,7 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
         // System services
         "kb_driver",
         "mouse_driver",
+        "ata_driver",
         "awm",
         // Higher-level facilities
         //"tty",
