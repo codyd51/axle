@@ -1,6 +1,7 @@
 #include "adi.h"
 #include <std/math.h>
 #include <kernel/interrupts/pic.h>
+#include <kernel/util/amc/amc_internal.h>
 #include <kernel/util/spinlock/spinlock.h>
 #include <kernel/multitasking/tasks/task_small.h>
 
@@ -97,6 +98,12 @@ bool adi_event_await(uint32_t irq) {
     if (driver->pending_irq_count) {
         spinlock_release(&s);
         return true;
+    }
+    
+    // If the driver has at least one message to service now, don't block
+    if (amc_service_has_message(amc_service_of_active_task())) {
+        spinlock_release(&s);
+        return false;
     }
 
     // The driver has re-entered its await-event loop
