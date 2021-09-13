@@ -44,7 +44,10 @@ def build_all_programs(only_recently_updated: bool = False) -> None:
         # recompile_program(program_dir)
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=8) as executor:
-        [executor.submit(recompile_program, program_dir) for program_dir in meson_dirs]
+        futures = [executor.submit(recompile_program, program_dir) for program_dir in meson_dirs]
+    for f in futures:
+        # This will raise an exception if the future raised one
+        f.result()
 
 
 if __name__ == '__main__':
