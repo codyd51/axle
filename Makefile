@@ -48,7 +48,7 @@ ifdef BMP
 CFLAGS += -DBMP
 endif
 
-EMFLAGS = -D qemu.log -serial file:syslog.log -monitor stdio -d cpu_reset -no-reboot -m 2048m
+EMFLAGS = -D qemu.log -serial file:syslog.log -monitor stdio -d cpu_reset -no-reboot -m 2048m -hda axle-hdd.img
 ifdef debug
 EMFLAGS += -s -S
 endif

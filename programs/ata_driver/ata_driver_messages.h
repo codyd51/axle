@@ -10,6 +10,10 @@ typedef enum ata_drive {
 	ATA_DRIVE_SLAVE = 1
 } ata_drive_t;
 
+typedef struct ata_message_base {
+    uint32_t event;
+} ata_message_base_t;
+
 // Sent from clients to the ATA driver
 #define ATA_READ_REQUEST 100
 typedef struct ata_read_sector_request {
@@ -27,5 +31,20 @@ typedef struct ata_read_sector_response {
     uint32_t sector_size;
     uint8_t sector_data[];
 } ata_read_sector_response_t;
+
+// Sent from clients to the ATA driver
+#define ATA_WRITE_REQUEST 101
+typedef struct ata_write_sector_request {
+    uint32_t event; // ATA_WRITE_REQUEST
+    ata_drive_t drive_desc;
+    uint32_t sector;
+    uint8_t sector_data[];
+} ata_write_sector_request_t;
+
+typedef union ata_message {
+    ata_message_base_t base;
+    ata_read_sector_request_t read;
+    ata_write_sector_request_t write;
+} ata_message_t;
 
 #endif

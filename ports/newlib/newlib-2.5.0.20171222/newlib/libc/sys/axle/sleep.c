@@ -7,7 +7,7 @@
 #include "assert.h"
 
 #define AXLE_CORE_SERVICE_NAME "com.axle.core"
-#define AMC_SLEEP_UNTIL_TIMESTAMP (1 << 2)
+#define AMC_SLEEP_UNTIL_TIMESTAMP 202
 
 unsigned usleep(unsigned int ms) {
     uint32_t b[2];
