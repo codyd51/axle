@@ -29,5 +29,4 @@ typedef struct initrd_fs_node {
     uint32_t size;
 } initrd_fs_node_t;
 
-
 #endif

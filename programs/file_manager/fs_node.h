@@ -6,7 +6,8 @@
 typedef enum fs_node_type {
     FS_NODE_TYPE_BASE = 0,
     FS_NODE_TYPE_ROOT = 1,
-    FS_NODE_TYPE_INITRD = 2
+    FS_NODE_TYPE_INITRD = 2,
+    FS_NODE_TYPE_FAT = 3,
 } fs_node_type_t;
 
 typedef struct fs_base_node {

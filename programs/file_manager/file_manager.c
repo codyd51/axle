@@ -16,6 +16,8 @@
 #include <libimg/libimg.h>
 
 #include "vfs.h"
+#include "ata.h"
+#include "fat.h"
 #include "file_manager_messages.h"
 
 typedef struct file_view {
@@ -80,6 +82,8 @@ static image_t* _g_folder_icon = NULL;
 static image_t* _g_image_icon = NULL;
 static image_t* _g_executable_icon = NULL;
 static image_t* _g_text_icon = NULL;
+
+static fat_drive_info_t fat_drive_info = {0};
 
 static const char* _g_image_extensions[] = {".bmp", ".jpg", ".jpeg", NULL};
 
@@ -171,6 +175,30 @@ static void _parse_initrd(fs_base_node_t* initrd_root, amc_initrd_info_t* initrd
 	}
 }
 
+static void _parse_fat(fs_base_node_t* fat_root, fat_drive_info_t drive_info) {
+	ata_sector_t* root_directory_sector = ata_read_sector(drive_info.root_directory_head_sector);
+	fat_directory_entry_t* root_directory = &root_directory_sector->data;
+	hexdump(root_directory, 128);
+
+	for (uint32_t i = 0; i < drive_info.sector_size / sizeof(fat_directory_entry_t); i++) {
+		printf("Check root directory entry %ld\n", i);
+		printf("\tFirst fat entry idx %ld\n", root_directory[i].first_fat_entry_idx_in_file);
+		printf("\tIs directory %ld\n", root_directory[i].is_directory);
+		if (root_directory[i].first_fat_entry_idx_in_file != FAT_SECTOR_TYPE__EOF && root_directory[i].first_fat_entry_idx_in_file != 0) {
+			char full_filename[32];
+			snprintf(full_filename, sizeof(full_filename), "%s.%s", root_directory[i].filename, root_directory[i].ext);
+			fat_fs_node_t* fs_node = (fat_fs_node_t*)fs_node_create__file(fat_root, full_filename, strlen(full_filename));
+			fs_node->base.type = FS_NODE_TYPE_FAT;
+			fs_node->first_fat_entry_idx_in_file = root_directory[i].first_fat_entry_idx_in_file;
+		}
+		if (root_directory[i].is_directory) {
+			printf("Will recurse for directory %s...\n", root_directory[i].filename);
+		}
+	}
+
+	free(root_directory_sector);
+}
+
 static void _print_tabs(uint32_t count) {
 	for (uint32_t i = 0; i < count; i++) {
 		putchar('\t');
@@ -184,6 +212,9 @@ static void _print_fs_tree(fs_node_t* node, uint32_t depth) {
 	if (node->base.type == FS_NODE_TYPE_INITRD) {
 		printf(", Start = 0x%08x, Len = 0x%08x>\n", node->initrd.initrd_offset, node->initrd.size);
 	}
+	else if (node->base.type == FS_NODE_TYPE_FAT) {
+		printf(", FirstSector %ld>\n", node->fat.first_fat_entry_idx_in_file);
+	}
 	else if (node->base.type == FS_NODE_TYPE_ROOT) {
 		printf(" (Root)>\n");
 	}
@@ -191,6 +222,7 @@ static void _print_fs_tree(fs_node_t* node, uint32_t depth) {
 		printf(">\n");
 	}
 	else {
+		printf("Node type: %ld\n", node->base.type);
 		assert(false, "Unknown fs node type");
 	}
 
@@ -536,6 +568,97 @@ static image_t* _load_image(const char* name) {
 	return image_parse(fs_node->size, fs_node->initrd_offset);
 }
 
+void fat_format_drive(ata_drive_t drive, fat_drive_info_t* drive_info) {
+	// Validate size assumptions
+	assert(sizeof(fat_entry_t) == sizeof(uint32_t), "Expected a FAT entry to occupy exactly 4 bytes");
+	assert(sizeof(fat_directory_entry_t) == 32, "Expected a FAT directory entry to occupy exactly 32 bytes");
+
+	printf("[FAT] Formatting drive %d...\n", drive);
+
+	// TODO(PT): Pull disk size & sector size from ATA driver. For now, assume 4MB
+	drive_info->sector_size = 512;
+	drive_info->disk_size_in_bytes = 4 * 1024 * 1024;
+	drive_info->sectors_on_disk = drive_info->disk_size_in_bytes / drive_info->sector_size;
+	printf("[FAT] Sectors on disk: %ld\n", drive_info->sectors_on_disk);
+
+	// https://www.keil.com/pack/doc/mw/FileSystem/html/fat_fs.html
+	// Format the boot sector
+	// Once we boot from disk, this will contain the MBR / startup code
+	// For now, write some dummy data so it's clear what's going on
+	uint8_t* boot_sector_data = calloc(1, drive_info->sector_size);
+	memset(boot_sector_data, 'A', drive_info->sector_size);
+	ata_write_sector(FAT_SECTOR_INDEX__BOOT, boot_sector_data);
+	free(boot_sector_data);
+
+	// Format the FAT table
+	uint32_t fat_entries_per_sector = drive_info->sector_size / sizeof(fat_entry_t);
+
+	// How many sectors will we need to address the whole disk?
+	uint32_t bytes_tracked_per_fat_sector = drive_info->sector_size * fat_entries_per_sector;
+	drive_info->fat_sector_count = drive_info->disk_size_in_bytes / bytes_tracked_per_fat_sector;
+
+	printf("[FAT] Bytes tracked per FAT sector: %ld\n", bytes_tracked_per_fat_sector);
+	printf("[FAT] Sectors needed to address disk: %ld\n", drive_info->fat_sector_count);
+	printf("[FAT] Disk size: %ldMB\n", drive_info->disk_size_in_bytes / 1024 / 1024);
+
+	// Subtract the sectors we need to store the FAT itself, plus the boot sector
+	// Technically we might be able to reclaim some sectors that won't need to be tracked since they'll be 
+	// allocated to the FAT, but I didn't bother with this for now.
+	uint32_t sectors_tracked_by_fat = drive_info->sectors_on_disk - (drive_info->fat_sector_count + 1);
+	printf("[FAT] Sectors tracked by FAT: %ld (%.2f MB)\n", sectors_tracked_by_fat, (sectors_tracked_by_fat * drive_info->sector_size) / 1024.0 / 1024.0);
+
+	// Format the FAT sectors (starting at sector 1, after the boot sector)
+	drive_info->fat_head_sector = 1;
+	for (uint32_t i = 0; i < drive_info->fat_sector_count; i++) {
+		uint32_t sector_idx = drive_info->fat_head_sector + i;
+		fat_entry_t* fat_data = calloc(1, fat_entries_per_sector * sizeof(fat_entry_t));
+		for (uint32_t j = 0; j < fat_entries_per_sector; j++) {
+			fat_data[j].allocated = false;
+			fat_data[j].reserved = 0;
+			fat_data[j].next_fat_entry_idx_in_file = FAT_SECTOR_TYPE__EOF;
+		}
+		ata_write_sector(sector_idx, fat_data);
+	}
+	printf("[FAT] Finished writing %ld FAT tables\n", drive_info->fat_sector_count);
+
+	// Instantiate the root directory
+	drive_info->root_directory_head_sector = drive_info->fat_head_sector + drive_info->fat_sector_count;
+	printf("[FAT] Allocating root directory in sector %ld\n", drive_info->root_directory_head_sector);
+
+	uint32_t directory_entries_per_directory_sector = drive_info->sector_size / sizeof(fat_directory_entry_t);
+	fat_directory_entry_t* root_directory = calloc(1, directory_entries_per_directory_sector * sizeof(fat_directory_entry_t));
+	for (uint32_t i = 0; i < directory_entries_per_directory_sector; i++) {
+		root_directory[i].is_directory = false;
+		root_directory[i].first_fat_entry_idx_in_file = 0;
+	}
+	memcpy(root_directory[0].filename, "test", 5);
+	memcpy(root_directory[0].ext, "txt", 4);
+	root_directory[0].is_directory = false;
+	root_directory[0].first_fat_entry_idx_in_file = 1;
+
+	memcpy(root_directory[1].filename, "image", 6);
+	memcpy(root_directory[1].ext, "png", 4);
+	root_directory[1].is_directory = false;
+	root_directory[1].first_fat_entry_idx_in_file = 2;
+
+	memcpy(root_directory[2].filename, "home", 5);
+	root_directory[2].is_directory = true;
+	root_directory[2].first_fat_entry_idx_in_file = 3;
+
+	ata_write_sector(drive_info->root_directory_head_sector, root_directory);
+	free(root_directory);
+
+	// And place the root directory in the FAT
+	//fat_entry_t* fat_sector = ata_read_sector(drive_info->fat_head_sector);
+	ata_sector_t* fat_sector = ata_read_sector(drive_info->fat_head_sector);
+	fat_entry_t* fat_sector_data = fat_sector->data;
+	fat_sector_data[0].allocated = true;
+	fat_sector_data[0].next_fat_entry_idx_in_file = FAT_SECTOR_TYPE__EOF;
+	ata_write_sector(drive_info->fat_head_sector, fat_sector_data);
+	free(fat_sector);
+	printf("[FAT] Finished formatting disk\n");
+}
+
 int main(int argc, char** argv) {
 	amc_register_service(FILE_MANAGER_SERVICE_NAME);
 
@@ -558,6 +681,26 @@ int main(int argc, char** argv) {
 	fs_base_node_t* initrd_root = fs_node_create__directory(root, initrd_path, strlen(initrd_path));
 	_parse_initrd(initrd_root, initrd_info);
 
+	char* disk_path = "hdd";
+	fs_base_node_t* fat_root = fs_node_create__directory(root, disk_path, strlen(disk_path));
+
+	// TODO(PT): If we need to format the hard drive, do it now
+	// Otherwise, fat_drive_info should be populated by reading the necessary info from disk
+	if (true) {
+		fat_format_drive(ATA_DRIVE_MASTER, &fat_drive_info);
+	}
+	else {
+		// TODO(PT): Fragile magic numbers
+		fat_drive_info.sector_size = 512;
+		fat_drive_info.disk_size_in_bytes = 4 * 1024 * 1024;
+		fat_drive_info.sectors_on_disk = 8192;
+		fat_drive_info.fat_sector_count = 64;
+		fat_drive_info.fat_head_sector = 1;
+		fat_drive_info.root_directory_head_sector = 65;
+	}
+
+	_parse_fat(fat_root, fat_drive_info);
+
 	_print_fs_tree((fs_node_t*)root, 0);
 
 	_g_folder_icon = _load_image("folder_icon.bmp");
@@ -577,6 +720,7 @@ int main(int argc, char** argv) {
 
 	gui_add_message_handler(_amc_message_received);
 	amc_msg_u32_1__send(AWM_SERVICE_NAME, FILE_MANAGER_READY);
+
 	gui_enter_event_loop();
 
 	return 0;
