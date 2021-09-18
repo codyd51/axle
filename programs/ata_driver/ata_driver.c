@@ -131,7 +131,8 @@ static void ata_read_sectors(uint32_t lba, uint16_t sector_count) {
 		)
 	);
 	ata_delay();
-	printf("\tStatus register after write LBA descriptors: 0x%02x\n", ata_status());
+	//printf("\tStatus register after write LBA descriptors: 0x%02x\n", ata_status());
+	// TODO(PT): Saw status 0x41 when writing to nonexistant descriptors, what does it mean?
 
 	outb(ATA_REG_RW__SECTOR_COUNT, (uint8_t)sector_count);
 	outb(ATA_REG_RW__LBA_LOW, (uint8_t)lba);
@@ -150,8 +151,8 @@ static void ata_write_sector(uint32_t lba, uint8_t* sector_data) {
 		)
 	);
 	ata_delay();
-	printf("[ATA Write!]\n");
-	printf("\tStatus register after write LBA descriptors: 0x%02x\n", ata_status());
+	//printf("[ATA Write!]\n");
+	//printf("\tStatus register after write LBA descriptors: 0x%02x\n", ata_status());
 
 	outb(ATA_REG_RW__SECTOR_COUNT, (uint8_t)1);
 	outb(ATA_REG_RW__LBA_LOW, (uint8_t)lba);
@@ -161,39 +162,51 @@ static void ata_write_sector(uint32_t lba, uint8_t* sector_data) {
 
 	uint16_t* data_u16 = (uint16_t*)sector_data;
 	for (uint32_t i = 0; i < ATA_SECTOR_SIZE / sizeof(uint16_t); i++) {
-		printf("write %d\n", i);
+		//printf("write %d\n", i);
 		outw(IO_PORT_BASE, data_u16[i]);
 	}
 }
 
 static void _int_received(uint32_t int_no) {
-	printf("ATA received interrupt! %ld\n", int_no);
-	printf("Status: 0x%02x\n", ata_status());
+	uint8_t drive_status = ata_status();
+	printf("[ATA] Interrupt, %ld pending operations, drive status = 0x%02x\n", _state->queued_operations->size, drive_status);
 
-	ata_queued_operation_t* queued_operation = array_lookup(_state->queued_operations, 0);
-	array_remove(_state->queued_operations, 0);
+	// Is the drive ready to transfer data?
+	if (drive_status & (1 << 3)) {
+		assert(_state->queued_operations->size > 0, "Drive ready to transfer data but no operations queued");
+		ata_queued_operation_t* queued_operation = array_lookup(_state->queued_operations, 0);
+		array_remove(_state->queued_operations, 0);
 
-	uint32_t response_size = sizeof(ata_read_sector_response_t) + ATA_SECTOR_SIZE;
-	ata_read_sector_response_t* response = calloc(1, response_size);
-	response->event = ATA_READ_RESPONSE;
-	response->drive_desc = queued_operation->read.drive_desc;
-	response->sector = queued_operation->read.sector;
-	response->sector_size = ATA_SECTOR_SIZE;
+		if (queued_operation->read.is_read) {
+			printf("\tReading drive sector %ld...\n", queued_operation->read.sector);
+			uint32_t response_size = sizeof(ata_read_sector_response_t) + ATA_SECTOR_SIZE;
+			ata_read_sector_response_t* response = calloc(1, response_size);
+			response->event = ATA_READ_RESPONSE;
+			response->drive_desc = queued_operation->read.drive_desc;
+			response->sector = queued_operation->read.sector;
+			response->sector_size = ATA_SECTOR_SIZE;
 
-	if (queued_operation->read.is_read) {
-		uint16_t* data_u16 = (uint16_t*)response->sector_data;
-		for (uint32_t i = 0; i < ATA_SECTOR_SIZE / sizeof(uint16_t); i++) {
-			data_u16[i] = inw(IO_PORT_BASE);
+			uint16_t* data_u16 = (uint16_t*)response->sector_data;
+
+			uint32_t bytes_to_read = ATA_SECTOR_SIZE;
+			uint32_t words_to_read = bytes_to_read / sizeof(uint16_t);
+			for (uint32_t i = 0; i < words_to_read; i++) {
+				data_u16[i] = inw(IO_PORT_BASE);
+			}
+			amc_message_construct_and_send(queued_operation->read.source_service, response, response_size);
+			free(response);
 		}
-		amc_message_construct_and_send(queued_operation->read.source_service, response, response_size);
+		else {
+			//amc_message_construct_and_send(WRITE_COMPLETED)
+		}
+
+		free(queued_operation);
 	}
 	else {
-		//amc_message_construct_and_send(WRITE_COMPLETED)
+		printf("[ATA] Skip interrupt with status 0x%02x\n", drive_status);
 	}
-	adi_send_eoi(int_no);
 
-	free(queued_operation);
-	free(response);
+	adi_send_eoi(int_no);
 }
 
 static void _message_received(amc_message_t* msg) {
@@ -221,12 +234,14 @@ static void _message_received(amc_message_t* msg) {
 
 		printf("[ATA] %s requested write to sector %ld\n", msg->source, write_request->sector);
 
+		/*
 		ata_queued_write_t* queued_write = calloc(1, sizeof(ata_queued_write_t));
 		queued_write->is_read = false;
 		queued_write->drive_desc = write_request->drive_desc;
 		queued_write->sector = write_request->sector;
 		strncpy(queued_write->source_service, msg->source, AMC_MAX_SERVICE_NAME_LEN);
 		array_insert(_state->queued_operations, queued_write);
+		*/
 
 		ata_write_sector(write_request->sector, write_request->sector_data);
 	}
@@ -242,7 +257,7 @@ int main(int argc, char** argv) {
     printf("[ATA] init\n");
 
 	_state = calloc(1, sizeof(ata_driver_state_t));
-	_state->queued_operations = array_create(32);
+	_state->queued_operations = array_create(2048);
 
 	ata_select_drive(ATA_DRIVE_MASTER);
 	ata_delay();
