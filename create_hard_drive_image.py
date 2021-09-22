@@ -3,7 +3,7 @@ from build_utils import run_and_check
 
 
 def main() -> None:
-    run_and_check(['qemu-img', 'create', '-f', 'raw', 'axle-hdd.img', '64M'])
+    run_and_check(['qemu-img', 'create', '-f', 'raw', 'axle-hdd.img', '4M'])
 
 
 if __name__ == '__main__':

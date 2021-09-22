@@ -169,7 +169,7 @@ static void ata_write_sector(uint32_t lba, uint8_t* sector_data) {
 
 static void _int_received(uint32_t int_no) {
 	uint8_t drive_status = ata_status();
-	printf("[ATA] Interrupt, %ld pending operations, drive status = 0x%02x\n", _state->queued_operations->size, drive_status);
+	//printf("[ATA] Interrupt, %ld pending operations, drive status = 0x%02x\n", _state->queued_operations->size, drive_status);
 
 	// Is the drive ready to transfer data?
 	if (drive_status & (1 << 3)) {
@@ -178,7 +178,7 @@ static void _int_received(uint32_t int_no) {
 		array_remove(_state->queued_operations, 0);
 
 		if (queued_operation->read.is_read) {
-			printf("\tReading drive sector %ld...\n", queued_operation->read.sector);
+			//printf("\tReading drive sector %ld...\n", queued_operation->read.sector);
 			uint32_t response_size = sizeof(ata_read_sector_response_t) + ATA_SECTOR_SIZE;
 			ata_read_sector_response_t* response = calloc(1, response_size);
 			response->event = ATA_READ_RESPONSE;
@@ -210,7 +210,7 @@ static void _int_received(uint32_t int_no) {
 }
 
 static void _message_received(amc_message_t* msg) {
-	printf("[ATA] Received message from %s\n", msg->source);
+	//printf("[ATA] Received message from %s\n", msg->source);
 
 	ata_message_t* message = (ata_message_t*)&msg->body;
 
