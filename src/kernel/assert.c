@@ -106,7 +106,7 @@ void task_build_and_send_crash_report_then_exit(const char* msg, const register_
     if (!amc_service_is_active(CRASH_REPORTER_SERVICE_NAME)) {
         file_manager_launch_file_request_t req = {0};
         req.event = FILE_MANAGER_LAUNCH_FILE;
-        snprintf(req.path, sizeof(req.path), "crash_reporter");
+        snprintf(req.path, sizeof(req.path), "/initrd/crash_reporter");
         amc_message_construct_and_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_launch_file_request_t));
     }
 
@@ -193,6 +193,7 @@ static bool _can_send_crash_report(void) {
 }
 
 void task_assert(bool cond, const char* msg, const register_state_t* regs) {
+    printf("task_assert %s\n", msg);
     if (cond) {
         return;
     }

@@ -1268,6 +1268,8 @@ uint32_t vmm_get_phys_for_virt(uint32_t virtualaddr) {
  * Page fault handling
  */
 
+#include <kernel/util/amc/amc_internal.h>
+
 static void page_fault(const register_state_t* regs) {
 	//page fault has occured
 	//faulting address is stored in CR2 register
@@ -1283,7 +1285,11 @@ static void page_fault(const register_state_t* regs) {
 
 	//if execution reaches here, recovery failed or recovery wasn't possible
     printf("|----------------|\n");
-    printf("|  Page Fault %d  |\n", getpid());
+    printf("|  Page Fault %d (%s) |\n", getpid());
+    amc_service_t* active_service = amc_service_of_active_task();
+    if (active_service) {
+        printf("| AMC service: %s |\n", active_service->name);
+    }
     printf("|-  0x%08x  -|\n", faulting_address);
 
 	if (overwrote_reserved_bits) printf_err("Overwrote CPU-resereved bits of page entry");

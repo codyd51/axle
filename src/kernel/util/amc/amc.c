@@ -654,8 +654,8 @@ bool amc_has_message_from(const char* source_service) {
     return false;
 }
 
-bool amc_service_has_message(void* service) {
-    return ((amc_service_t*)service)->message_queue->size > 0;
+bool amc_service_has_message(amc_service_t* service) {
+    return service->message_queue->size > 0;
 }
 
 bool amc_has_message(void) {
