@@ -85,15 +85,19 @@ gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t hei
 	window->views = array_create(32);
 	window->all_gui_elems = array_create(64);
 
+	gui_set_window_title(window_title);
+
+	array_insert(_g_application->windows, window);
+
+	return window;
+}
+
+void gui_set_window_title(char* window_title) {
 	// Ask awm to set the window title
 	uint32_t len = strlen(window_title);
 	awm_window_title_msg_t update_title = {.event = AWM_UPDATE_WINDOW_TITLE, .len = len};
 	memcpy(update_title.title, window_title, len);
 	amc_message_construct_and_send(AWM_SERVICE_NAME, &update_title, sizeof(awm_window_title_msg_t));
-
-	array_insert(_g_application->windows, window);
-
-	return window;
 }
 
 struct mallinfo_s {
@@ -438,6 +442,19 @@ static timers_state_t _sleep_for_timers(gui_application_t* app) {
 	return SLEPT_FOR_TIMERS;
 }
 
+void gui_run_event_loop_pass(bool* did_exit) {
+	timers_state_t timers_state = _sleep_for_timers(_g_application);
+	// Only allow blocking for a message if there are no timers queued up
+	_process_amc_messages(_g_application, timers_state == NO_TIMERS, &did_exit);
+	// Dispatch any ready timers
+	gui_dispatch_ready_timers(_g_application);
+	// Redraw any dirty elements
+	for (int32_t i = 0; i < _g_application->windows->size; i++) {
+		gui_window_t* window = array_lookup(_g_application->windows, i);
+		_redraw_dirty_elems(window);
+	}
+}
+
 void gui_enter_event_loop(void) {
 	printf("Enter event loop\n");
 	print_memory();
@@ -450,16 +467,7 @@ void gui_enter_event_loop(void) {
 
 	bool did_exit = false;
 	while (!did_exit) {
-		timers_state_t timers_state = _sleep_for_timers(_g_application);
-		// Only allow blocking for a message if there are no timers queued up
-		_process_amc_messages(_g_application, timers_state == NO_TIMERS, &did_exit);
-		// Dispatch any ready timers
-		gui_dispatch_ready_timers(_g_application);
-		// Redraw any dirty elements
-		for (int32_t i = 0; i < _g_application->windows->size; i++) {
-			gui_window_t* window = array_lookup(_g_application->windows, i);
-			_redraw_dirty_elems(window);
-		}
+		gui_run_event_loop_pass(&did_exit);
 	}
 
 	printf("Exited from runloop!\n");
