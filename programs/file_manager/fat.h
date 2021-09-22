@@ -9,7 +9,7 @@
 #define FAT_SECTOR_INDEX__ROOT_DIR		2
 #define FAT_SECTOR_INDEX__DATA_START	3
 
-#define FAT_SECTOR_TYPE__EOF	(-1)
+#define FAT_SECTOR_TYPE__EOF	(0)
 
 // TODO(PT): This structure is currently unused
 typedef struct fat_boot_sector {
@@ -40,11 +40,15 @@ typedef struct fat_boot_sector {
 typedef struct fat_drive_info {
 	uint32_t sector_size;
 	uint32_t disk_size_in_bytes;
-	uint32_t sectors_on_disk;
 	// Size of table to address the rest of the disk
 	uint32_t fat_sector_count;
 	uint32_t fat_head_sector;
 	uint32_t root_directory_head_sector;
+	uint32_t fat_sector_slide;
+
+	// Computed data
+	uint32_t sectors_on_disk;
+	uint32_t fat_entries_per_sector;
 } fat_drive_info_t;
 
 typedef struct fat_entry {
@@ -53,13 +57,23 @@ typedef struct fat_entry {
 	uint16_t next_fat_entry_idx_in_file;
 } fat_entry_t;
 
+#define FAT_FILENAME_SIZE 8
+#define FAT_FILE_EXT_SIZE 3
+
 typedef struct fat_directory_entry {
 	bool is_directory;
-	char filename[8];
-	char ext[3];
+	char filename[FAT_FILENAME_SIZE];
+	char ext[FAT_FILE_EXT_SIZE];
 	uint16_t first_fat_entry_idx_in_file;
-	uint8_t reserved[18];
+	// Not valid for directories
+	uint32_t size;
+	uint8_t reserved[14];
 } __attribute__((packed)) fat_directory_entry_t;
+
+typedef struct fat_directory {
+	uint32_t slot_count;
+	fat_directory_entry_t* slots;
+} fat_directory_t;
 
 typedef struct fat_fs_node {
 	fs_base_node_t base;
