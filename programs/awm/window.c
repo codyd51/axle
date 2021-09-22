@@ -613,15 +613,15 @@ static void desktop_shortcuts_add(const char* display_name, const char* program_
 }
 
 void windows_fetch_resource_images(void) {
-	_g_title_bar_image = load_image("titlebar7.bmp");
-	_g_title_bar_x_filled = load_image("titlebar_x_filled2.bmp");
-	_g_title_bar_x_unfilled = load_image("titlebar_x_unfilled2.bmp");
+	_g_title_bar_image = load_image("/initrd/titlebar7.bmp");
+	_g_title_bar_x_filled = load_image("/initrd/titlebar_x_filled2.bmp");
+	_g_title_bar_x_unfilled = load_image("/initrd/titlebar_x_unfilled2.bmp");
     for (int32_t i = 0; i < windows->size; i++) {
         user_window_t* w = array_lookup(windows, i);
         window_redraw_title_bar(w, false);
     }
 
-    _g_executable_image = load_image("executable_icon.bmp");
+    _g_executable_image = load_image("/initrd/executable_icon.bmp");
 
     desktop_shortcuts_add("Preferences", "preferences");
     desktop_shortcuts_add("Logs Viewer", "logs_viewer");
