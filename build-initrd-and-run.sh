@@ -10,5 +10,7 @@ cd ..
 mv initrd.img isodir/boot/initrd.img
 
 # sudo rm axle.iso
-rm axle.iso
+if test -f "axle.iso"; then
+    rm "axle.iso"
+fi
 make run

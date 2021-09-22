@@ -16,7 +16,6 @@ ata_sector_t* ata_read_sector(uint32_t sector_lba) {
 	printf("[FS] Received response from ATA driver\n");
 	ata_read_sector_response_t* response = (ata_read_sector_response_t*)&response_msg->body;
     printf("[FS] Response %ld\n", response->sector_size);
-    hexdump(response->sector_data, 128);
 
 	ata_sector_t* sector = calloc(1, sizeof(ata_sector_t) + response->sector_size);
 	sector->size = response->sector_size;
@@ -40,13 +39,12 @@ ata_sector_t* ata_write_sector(uint32_t sector_lba, uint8_t* sector_data) {
 
 // TODO(PT): Copied from net/utils, refactor elsewhere?
 void hexdump(const void* addr, const int len) {
-    const char* desc = "";
+    const char* desc = NULL;
     int i;
     unsigned char buff[65];
     const unsigned char * pc = (const unsigned char *)addr;
 
     // Output description if given.
-
     if (desc != NULL)
         printf ("%s:\n", desc);
 
