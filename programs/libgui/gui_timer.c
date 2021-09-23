@@ -19,7 +19,7 @@ void gui_dispatch_ready_timers(gui_application_t* app) {
     for (int32_t i = 0; i < app->timers->size; i++) {
         gui_timer_t* t = array_lookup(app->timers, i);
         if (t->fires_after <= now) {
-            uint32_t late_by = now - (t->start_time + t->duration);
+            //uint32_t late_by = now - (t->start_time + t->duration);
             //printf("Dispatching %dms timer at %d, late by %dms\n", t->duration, now, late_by);
             t->invoke_cb(t->invoke_ctx);
         }

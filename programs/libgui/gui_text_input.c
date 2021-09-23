@@ -5,8 +5,6 @@
 #include "libgui.h"
 #include "utils.h"
 
-static void _noop() {}
-
 gui_text_input_t* gui_text_input_alloc(void) {
 	gui_text_input_t* v = calloc(1, sizeof(gui_text_input_t));
 	gui_text_view_alloc_dynamic_fields((gui_text_view_t*)v);
@@ -23,7 +21,7 @@ static void _gui_text_input_handle_key_down(gui_text_input_t* view, uint32_t ch)
 }
 
 static void _gui_text_input_draw(gui_text_input_t* ti, bool is_active) {
-	_gui_scroll_view_draw(ti, is_active);
+	_gui_scroll_view_draw((gui_scroll_view_t*)ti, is_active);
 
 	if (ti->_input_carat_visible) {
 		uint32_t input_indicator_body_width = max(2, ti->font_size.width / 4);

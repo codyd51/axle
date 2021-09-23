@@ -2,8 +2,12 @@ project('file_manager', 'c')
 add_project_link_arguments('-lport', '-lamc', '-lgui', '-lagx', '-limg', language: 'c')
 executable(
     'file_manager', 
-    'file_manager.c', 
     'ata.c', 
+    'fat.c', 
+    'file_manager.c', 
+    'ui.c', 
+    'util.c', 
+    'vfs.c', 
     install: true,
     install_dir: meson.get_cross_property('initrd_dir')
 )

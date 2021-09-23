@@ -1,4 +1,7 @@
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 #include <libamc/libamc.h>
 
 #include "ata.h"
@@ -9,7 +12,7 @@ ata_sector_t* ata_read_sector(uint32_t sector_lba) {
 	read.drive_desc = ATA_DRIVE_MASTER;
 	read.sector = sector_lba;
 	amc_message_construct_and_send(ATA_DRIVER_SERVICE_NAME, &read, sizeof(ata_read_sector_request_t));
-	printf("[FS] Reading sector %d from ATA driver...\n", sector_lba);
+	printf("[FS] Reading sector %ld from ATA driver...\n", sector_lba);
 
 	amc_message_t* response_msg;
 	amc_message_await(ATA_DRIVER_SERVICE_NAME, &response_msg);
@@ -23,7 +26,7 @@ ata_sector_t* ata_read_sector(uint32_t sector_lba) {
 	return sector;
 }
 
-ata_sector_t* ata_write_sector(uint32_t sector_lba, uint8_t* sector_data) {
+void ata_write_sector(uint32_t sector_lba, void* sector_data) {
 	// TODO(PT): Define/pull this?
 	uint32_t sector_size = 512;
 	uint32_t request_size = sizeof(ata_write_sector_request_t) + sector_size;
@@ -34,7 +37,7 @@ ata_sector_t* ata_write_sector(uint32_t sector_lba, uint8_t* sector_data) {
 	memcpy(write->sector_data, sector_data, sector_size);
 	amc_message_construct_and_send(ATA_DRIVER_SERVICE_NAME, write, request_size);
 	free(write);
-	printf("[FS] Writing sector %d to ATA driver...\n", sector_lba);
+	printf("[FS] Writing sector %ld to ATA driver...\n", sector_lba);
 }
 
 // TODO(PT): Copied from net/utils, refactor elsewhere?

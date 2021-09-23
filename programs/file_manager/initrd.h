@@ -2,6 +2,7 @@
 #define INITRD_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "fs_node.h"
 
 #define HEADER_MAGIC 0xBF

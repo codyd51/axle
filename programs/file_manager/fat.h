@@ -82,4 +82,7 @@ typedef struct fat_fs_node {
 	uint32_t size;
 } fat_fs_node_t;
 
+fat_fs_node_t* fat_parse_from_disk(fs_base_node_t* vfs_root);
+fat_drive_info_t fat_drive_info(void);
+
 #endif

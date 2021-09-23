@@ -5,8 +5,6 @@
 #include "libgui.h"
 #include "utils.h"
 
-static void _noop() {}
-
 gui_text_view_t* gui_text_view_alloc(void) {
 	gui_text_view_t* v = calloc(1, sizeof(gui_text_view_t));
 	gui_text_view_alloc_dynamic_fields(v);

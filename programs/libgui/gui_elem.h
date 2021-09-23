@@ -11,15 +11,19 @@
 
 // From libport
 
+#ifndef max
 #define max(a,b) \
    ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
      _a > _b ? _a : _b; })
+#endif
 
+#ifndef min
 #define min(a,b) \
    ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
      _a <= _b ? _a : _b; })
+#endif
 
 #define GUI_TYPE_BASE           0x00
 #define GUI_TYPE_SCROLLBAR      0x01
