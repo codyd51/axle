@@ -109,7 +109,13 @@ void fat_alloc_sector(fat_drive_info_t drive_info, uint32_t next_fat_entry_idx_i
 		for (uint32_t j = 0; j < drive_info.fat_entries_per_sector; j++) {
 			if (fat_sector_data[j].allocated == false) {
 				// Found a free FAT entry to allocate in
+
+				// Clear the data sector on disk so we don't leak data from deleted files
 				uint32_t disk_sector = ((i * drive_info.fat_entries_per_sector) + j) + drive_info.fat_sector_slide;
+				uint8_t* zeroes = calloc(1, drive_info.sector_size);
+				memset(zeroes, 0, drive_info.sector_size);
+				ata_write_sector(disk_sector, zeroes);
+
 				printf("[FAT] fat_alloc_sector allocating in FAT sector %ld (unslid %ld), index %ld (unslid %ld)\n", i, sector_index, j, disk_sector);
 				fat_sector_data[j].allocated = true;
 				fat_sector_data[j].next_fat_entry_idx_in_file = next_fat_entry_idx_in_file;
