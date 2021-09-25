@@ -18,6 +18,15 @@ array_t* _g_screen_rects_to_update_this_cycle = NULL;
 	These may include portions of windows, the desktop background, etc.
  */
 void compositor_queue_rect_to_redraw(Rect update_rect) {
+	if (update_rect.size.width == 0 || update_rect.size.height == 0) {
+		// TODO(PT): Investigate how this happens? Trigger by quickly resizing a window to flood events
+		//printf("Dropping update rect of zero height or width\n");
+		return;
+	}
+	if (_g_screen_rects_to_update_this_cycle->size + 1 >= _g_screen_rects_to_update_this_cycle->max_size) {
+		//printf("Dropping update rect because we've hit our max updates this cycle: (%d, %d), (%d, %d)\n", rect_min_x(update_rect), rect_min_y(update_rect), update_rect.size.width, update_rect.size.height);
+		return;
+	}
 	Rect* r = calloc(1, sizeof(Rect));
 	r->origin.x = update_rect.origin.x;
 	r->origin.y = update_rect.origin.y;
@@ -39,7 +48,7 @@ void compositor_queue_rect_difference_to_redraw(Rect bg, Rect fg) {
 }
 
 void compositor_init(void) {
-	_g_screen_rects_to_update_this_cycle = array_create(128);
+	_g_screen_rects_to_update_this_cycle = array_create(256);
 }
 
 void compositor_render_frame(void) {
@@ -56,7 +65,7 @@ void compositor_render_frame(void) {
 		Rect* rp = array_lookup(_g_screen_rects_to_update_this_cycle, i);
 		Rect r = *rp;
 
-		array_t* unobscured_region = array_create(128);
+		array_t* unobscured_region = array_create(256);
 		rect_add(unobscured_region, r);
 
 		// Handle the parts of the dirty region that are obscured by desktop views
