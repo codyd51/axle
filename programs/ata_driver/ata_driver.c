@@ -87,7 +87,16 @@ typedef struct ata_driver_state {
 	array_t* queued_operations;
 } ata_driver_state_t;
 
+typedef struct ata_cache_entry {
+	uint32_t valid;
+	uint32_t sector_lba;
+	uint8_t sector_data[ATA_SECTOR_SIZE];
+} ata_cache_entry_t;
+
+#define ATA_CACHE_MAX_SECTOR_LBA 512
+
 static ata_driver_state_t* _state = NULL;
+static ata_cache_entry_t _g_cache[ATA_CACHE_MAX_SECTOR_LBA] = {0};
 
 static uint8_t ata_status(void) {
 	return inb(ATA_REG_R__STATUS);
@@ -209,6 +218,14 @@ static void _int_received(uint32_t int_no) {
 			for (uint32_t i = 0; i < words_to_read; i++) {
 				data_u16[i] = inw(IO_PORT_BASE);
 			}
+
+			// Copy to cache
+			if (response->sector < ATA_CACHE_MAX_SECTOR_LBA) {
+				//printf("[ATA] Placing contents of sector LBA %ld in read cache...\n", response->sector);
+				_g_cache[response->sector].valid = true;
+				memcpy(_g_cache[response->sector].sector_data, response->sector_data, response_size);
+			}
+
 			amc_message_construct_and_send(queued_operation->read.source_service, response, response_size);
 			free(response);
 		}
@@ -234,7 +251,25 @@ static void _message_received(amc_message_t* msg) {
 		ata_read_sector_request_t* read_request = (ata_read_sector_request_t*)&msg->body;
 		assert(read_request->drive_desc == ATA_DRIVE_MASTER, "Only the master drive is currently supported");
 
-		printf("[ATA] %s requested read of sector %ld\n", msg->source, read_request->sector);
+		//printf("[ATA] %s requested read of sector %ld\n", msg->source, read_request->sector);
+		
+		// TODO(PT): Hash map a LRU cache here, invalidating on writes
+		// In cache?
+		if (read_request->sector < ATA_CACHE_MAX_SECTOR_LBA) {
+			if (_g_cache[read_request->sector].valid) {
+				//printf("\tATA responding from read cache!\n");
+				uint32_t response_size = sizeof(ata_read_sector_response_t) + ATA_SECTOR_SIZE;
+				ata_read_sector_response_t* response = calloc(1, response_size);
+				response->event = ATA_READ_RESPONSE;
+				response->drive_desc = read_request->drive_desc;
+				response->sector = read_request->sector;
+				response->sector_size = ATA_SECTOR_SIZE;
+				memcpy(response->sector_data, _g_cache[read_request->sector].sector_data, ATA_SECTOR_SIZE);
+				amc_message_construct_and_send(msg->source, response, response_size);
+				free(response);
+				return;
+			}
+		}
 
 		ata_queued_read_t* queued_read = calloc(1, sizeof(ata_queued_read_t));
 		queued_read->is_read = true;
@@ -250,14 +285,13 @@ static void _message_received(amc_message_t* msg) {
 
 		printf("[ATA] %s requested write to sector %ld\n", msg->source, write_request->sector);
 
-		/*
-		ata_queued_write_t* queued_write = calloc(1, sizeof(ata_queued_write_t));
-		queued_write->is_read = false;
-		queued_write->drive_desc = write_request->drive_desc;
-		queued_write->sector = write_request->sector;
-		strncpy(queued_write->source_service, msg->source, AMC_MAX_SERVICE_NAME_LEN);
-		array_insert(_state->queued_operations, queued_write);
-		*/
+		// Writes invalidate cache entries
+		if (write_request->sector < ATA_CACHE_MAX_SECTOR_LBA) {
+			if (_g_cache[write_request->sector].valid) {
+				_g_cache[write_request->sector].valid = false;
+				printf("[ATA] Invalidating read cache for sector %ld due to write\n", write_request->sector);
+			}
+		}
 
 		ata_write_sector(write_request->sector, write_request->sector_data);
 	}
