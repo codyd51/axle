@@ -7,7 +7,7 @@
 #include <stdlibadd/assert.h>
 
 #include "ata.h"
-
+#include "math.h"
 #include "fat.h"
 
 static fat_drive_info_t _g_fat_drive_info = {0};
@@ -16,7 +16,7 @@ fat_drive_info_t fat_drive_info(void) {
 	return _g_fat_drive_info;
 }
 
-void fat_format_drive(ata_drive_t drive, fat_drive_info_t* drive_info) {
+void fat_format_drive(ata_drive_t drive) {
 	// Validate size assumptions
 	assert(sizeof(fat_entry_t) == sizeof(uint32_t), "Expected a FAT entry to occupy exactly 4 bytes");
 	assert(sizeof(fat_directory_entry_t) == 32, "Expected a FAT directory entry to occupy exactly 32 bytes");
@@ -24,8 +24,9 @@ void fat_format_drive(ata_drive_t drive, fat_drive_info_t* drive_info) {
 	printf("[FAT] Formatting drive %d...\n", drive);
 
 	// TODO(PT): Pull disk size & sector size from ATA driver. For now, assume 4MB
+	fat_drive_info_t* drive_info = &_g_fat_drive_info;
 	drive_info->sector_size = 512;
-	drive_info->disk_size_in_bytes = 4 * 1024 * 1024;
+	drive_info->disk_size_in_bytes = 16 * 1024 * 1024;
 	drive_info->sectors_on_disk = drive_info->disk_size_in_bytes / drive_info->sector_size;
 	printf("[FAT] Sectors on disk: %ld\n", drive_info->sectors_on_disk);
 
@@ -40,6 +41,7 @@ void fat_format_drive(ata_drive_t drive, fat_drive_info_t* drive_info) {
 
 	// Format the FAT table
 	drive_info->fat_entries_per_sector = drive_info->sector_size / sizeof(fat_entry_t);
+	printf("[FAT] Entries per sector: %ld\n", drive_info->fat_entries_per_sector);
 
 	// How many sectors will we need to address the whole disk?
 	uint32_t bytes_tracked_per_fat_sector = drive_info->sector_size * drive_info->fat_entries_per_sector;
@@ -307,15 +309,18 @@ fat_fs_node_t* fat_parse_from_disk(fs_base_node_t* vfs_root) {
 	// TODO(PT): If the disk has been formatted, read these values from disk
 	// Otherwise, format the disk and store them
 	_g_fat_drive_info.sector_size = 512;
-	_g_fat_drive_info.disk_size_in_bytes = 4 * 1024 * 1024;
+	_g_fat_drive_info.disk_size_in_bytes = 16 * 1024 * 1024;
 
-	_g_fat_drive_info.fat_sector_count = 64;
+	_g_fat_drive_info.sectors_on_disk = _g_fat_drive_info.disk_size_in_bytes / _g_fat_drive_info.sector_size;
+	_g_fat_drive_info.fat_entries_per_sector = _g_fat_drive_info.sector_size / sizeof(fat_entry_t);
+
+	uint32_t bytes_tracked_per_fat_sector = _g_fat_drive_info.sector_size * _g_fat_drive_info.fat_entries_per_sector;
+	_g_fat_drive_info.fat_sector_count = _g_fat_drive_info.disk_size_in_bytes / bytes_tracked_per_fat_sector;
+
 	_g_fat_drive_info.fat_head_sector = 1;
-	_g_fat_drive_info.root_directory_head_sector = 65;
-	_g_fat_drive_info.fat_sector_slide = 65;
-
-	_g_fat_drive_info.sectors_on_disk = 8192;
-	_g_fat_drive_info.fat_entries_per_sector = 16;
+	// Sectors tracked by FAT are offset by the boot sector and FAT itself
+	_g_fat_drive_info.fat_sector_slide = _g_fat_drive_info.fat_head_sector + _g_fat_drive_info.fat_sector_count;
+	_g_fat_drive_info.root_directory_head_sector = _g_fat_drive_info.fat_sector_slide;
 
 	printf("[FAT] Parsing root directory...\n");
 	ata_sector_t* root_directory_sector = ata_read_sector(fat_drive_info().root_directory_head_sector);

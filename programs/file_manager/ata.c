@@ -12,13 +12,14 @@ ata_sector_t* ata_read_sector(uint32_t sector_lba) {
 	read.drive_desc = ATA_DRIVE_MASTER;
 	read.sector = sector_lba;
 	amc_message_construct_and_send(ATA_DRIVER_SERVICE_NAME, &read, sizeof(ata_read_sector_request_t));
-	printf("[FS] Reading sector %ld from ATA driver...\n", sector_lba);
+	//printf("[FS] Reading sector %ld from ATA driver...\n", sector_lba);
 
 	amc_message_t* response_msg;
 	amc_message_await(ATA_DRIVER_SERVICE_NAME, &response_msg);
-	printf("[FS] Received response from ATA driver\n");
+	//printf("[FS] Received response from ATA driver\n");
 	ata_read_sector_response_t* response = (ata_read_sector_response_t*)&response_msg->body;
-    printf("[FS] Response %ld\n", response->sector_size);
+    //printf("[FS] Response %ld\n", response->sector_size);
+    //print_memory();
 
 	ata_sector_t* sector = calloc(1, sizeof(ata_sector_t) + response->sector_size);
 	sector->size = response->sector_size;
