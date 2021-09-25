@@ -143,6 +143,9 @@ bool mlfq_priority_boost_if_necessary(void) {
         }
 
         printf("MLFQ %d: Did priority-boost (high prio %d -> %d, runnable count: %d)\n", ms_since_boot(), orig_high_prio_size, high_prio->round_robin_tasks->size, runnable_count);
+        if (ms_since_boot() % 30000 == 0) {
+            mlfq_print();
+        }
         spinlock_release(&high_prio->spinlock);
         return true;
     }
