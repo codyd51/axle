@@ -18,23 +18,6 @@
 #include "util.h"
 #include "file_manager_messages.h"
 
-static void _parse_initrd(fs_base_node_t* initrd_root, amc_initrd_info_t* initrd_info) {
-	initrd_header_t* header = (initrd_header_t*)initrd_info->initrd_start;
-	uint32_t offset = initrd_info->initrd_start + sizeof(initrd_header_t);
-	for (uint32_t i = 0; i < header->nfiles; i++) {
-		initrd_file_header_t* file_header = (initrd_file_header_t*)offset;
-
-		assert(file_header->magic == HEADER_MAGIC, "Initrd file header magic was wrong");
-
-		initrd_fs_node_t* fs_node = (initrd_fs_node_t*)fs_node_create__file(initrd_root, file_header->name, strlen(file_header->name));
-		fs_node->type = FS_NODE_TYPE_INITRD;
-		fs_node->initrd_offset = file_header->offset + initrd_info->initrd_start;
-		fs_node->size = file_header->length;
-
-		offset += sizeof(initrd_file_header_t);
-	}
-}
-
 static void _amc_message_received(amc_message_t* msg) {
 	// Copy the source service early
 	// If we talk to the ATA driver while handling a message (i.e. to read FAT data),
@@ -42,66 +25,20 @@ static void _amc_message_received(amc_message_t* msg) {
     char* source_service = strdup(msg->source);
 
 	uint32_t event = amc_msg_u32_get_word(msg, 0);
-	printf("File manager sent event %ld from %s\n", event, source_service);
+	//printf("File manager sent event %ld from %s\n", event, source_service);
 	if (event == FILE_MANAGER_READ_FILE) {
 		file_manager_read_file_request_t* req = (file_manager_read_file_request_t*)&msg->body;
-		fs_node_t* desired_file = vfs_find_node_by_name(req->path);
+		fs_node_t* desired_file = vfs_find_node_by_path(req->path);
 		assert(desired_file, "Failed to find requested file");
 
 		uint32_t file_size = 0;
-		uint32_t response_size = 0;
-		uint8_t* response_buffer = NULL;
-		file_manager_read_file_response_t* resp = NULL;
+		uint8_t* file_data = NULL;
 
 		if (desired_file->base.type == FS_NODE_TYPE_INITRD) {
-			initrd_fs_node_t* initrd_file = &desired_file->initrd;
-			printf("Found file %s, initrd offset: 0x%08lx\n", initrd_file->name, initrd_file->initrd_offset);
-
-			file_size = initrd_file->size;
-			response_size = sizeof(file_manager_read_file_response_t) + file_size;
-			response_buffer = calloc(1, response_size);
-			resp = (file_manager_read_file_response_t*)response_buffer;
-
-			memcpy(&resp->file_data, (uint8_t*)initrd_file->initrd_offset, file_size);
+			file_data = initrd_read_file(&desired_file->initrd, &file_size);
 		}
 		else if (desired_file->base.type == FS_NODE_TYPE_FAT) {
-			fat_fs_node_t* fat_file = &desired_file->fat;
-			printf("Found file %s, first fat entry idx %ld, size %ld\n", fat_file->base.name, fat_file->first_fat_entry_idx_in_file, fat_file->size);
-
-			file_size = fat_file->size;
-			response_size = sizeof(file_manager_read_file_response_t) + file_size;
-			response_buffer = calloc(1, response_size);
-			resp = (file_manager_read_file_response_t*)response_buffer;
-			
-			uint32_t file_bytes_remaining = file_size;
-			uint32_t fat_entry_index = fat_file->first_fat_entry_idx_in_file;
-			uint32_t file_offset = 0;
-			while (true) {
-				uint32_t fat_sector_index = fat_entry_index / fat_drive_info().fat_entries_per_sector;
-				ata_sector_t* fat_sector = ata_read_sector(fat_drive_info().fat_head_sector + fat_sector_index);
-				fat_entry_t* fat_sector_data = (fat_entry_t*)fat_sector->data;
-
-				uint32_t next_fat_entry_index = fat_sector_data[fat_entry_index % fat_drive_info().fat_entries_per_sector].next_fat_entry_idx_in_file;
-				printf("[FS] Followed link from FAT entry index %ld to %ld\n", fat_entry_index, next_fat_entry_index);
-
-				// Read the actual sector
-				uint32_t bytes_to_copy_from_sector = min(fat_drive_info().sector_size, file_bytes_remaining);
-				file_bytes_remaining -= bytes_to_copy_from_sector;
-				ata_sector_t* data_sector = ata_read_sector(fat_drive_info().fat_sector_slide + fat_entry_index);
-				printf("copying %ld bytes from 0x%08lx to 0x%08lx, offset %ld\n", bytes_to_copy_from_sector, &data_sector->data, response_buffer + file_offset, file_offset);
-				memcpy(response_buffer + file_offset, &data_sector->data, bytes_to_copy_from_sector);
-				file_offset += bytes_to_copy_from_sector;
-
-				free(data_sector);
-				free(fat_sector);
-
-				if (next_fat_entry_index == FAT_SECTOR_TYPE__EOF) {
-					printf("[FS] Found end of file!\n");
-					break;
-				}
-
-				fat_entry_index = next_fat_entry_index;
-			}
+			file_data = fat_read_file(&desired_file->fat, &file_size);
 		}
 		else {
 			assert(false, "Unknown file type");
@@ -150,12 +87,11 @@ int main(int argc, char** argv) {
 	root->type = FS_NODE_TYPE_ROOT;
 	vfs__set_root_node(root);
 
-	char* initrd_path = "initrd";
-	fs_base_node_t* initrd_root = fs_node_create__directory(root, initrd_path, strlen(initrd_path));
-	_parse_initrd(initrd_root, initrd_info);
+	fs_base_node_t* initrd_root = initrd_parse_from_amc(root, initrd_info);
 
-	//fat_format_drive(ATA_DRIVE_MASTER, &fat_drive_info);
-	fat_parse_from_disk(root);
+	//fat_format_drive(ATA_DRIVE_MASTER);
+
+	fat_fs_node_t* fat_root = fat_parse_from_disk(root);
 
 	print_fs_tree((fs_node_t*)root, 0);
 

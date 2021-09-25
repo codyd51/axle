@@ -87,15 +87,50 @@ void launch_amc_service_if_necessary(const char* service_name) {
 		return;
 	}
 
-	const char* program_name = NULL;
+	const char* program_path = NULL;
 	if (!strncmp(service_name, IMAGE_VIEWER_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
-		program_name = "image_viewer";
+		program_path = "/initrd/image_viewer";
 	}
 	else {
 		assert(false, "Unknown service name");
 	}
 
-	initrd_fs_node_t* node = vfs_find_node_by_name(program_name);
+	initrd_fs_node_t* node = vfs_find_node_by_path(program_path);
 	assert(node != NULL, "Failed to find FS node");
 	vfs_launch_program_by_node(node);
+}
+
+array_t* str_split(char* str, const char a_delim) {
+	char* a_str = strdup(str);
+	// Adapted from:
+	// https://stackoverflow.com/questions/9210528/split-string-with-delimiters-in-c
+    size_t count     = 0;
+    char* tmp        = a_str;
+    char* last_delim = 0;
+    char delim[2];
+    delim[0] = a_delim;
+    delim[1] = 0;
+
+    /* Count how many elements will be extracted. */
+    while (*tmp) {
+        if (a_delim == *tmp) {
+            count++;
+            last_delim = tmp;
+        }
+        tmp++;
+    }
+
+    /* Add space for trailing token. */
+    count += last_delim < (a_str + strlen(a_str) - 1);
+
+	array_t* out = array_create(count);
+
+	char* token = strtok(a_str, delim);
+	while (token) {
+		array_insert(out, strdup(token));
+		token = strtok(0, delim);
+	}
+
+	free(a_str);
+    return out;
 }

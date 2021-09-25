@@ -19,15 +19,13 @@ typedef struct {
 } initrd_file_header_t;
 
 typedef struct initrd_fs_node {
-    // Common fields
-    fs_node_type_t type;
-    char name[64];
-    struct fs_base_node* parent;
-    bool is_directory;
-    array_t* children;
+    fs_base_node_t base;
     // Private fields
     uint32_t initrd_offset;
     uint32_t size;
 } initrd_fs_node_t;
+
+fs_base_node_t* initrd_parse_from_amc(fs_base_node_t* initrd_root, amc_initrd_info_t* initrd_info);
+uint8_t* initrd_read_file(initrd_fs_node_t* fs_node, uint32_t* out_file_size);
 
 #endif

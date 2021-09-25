@@ -23,7 +23,7 @@ static image_t* _g_executable_icon = NULL;
 static image_t* _g_text_icon = NULL;
 
 static image_t* _load_image(const char* name) {
-	initrd_fs_node_t* fs_node = &(vfs_find_node_by_name(name)->initrd);
+	initrd_fs_node_t* fs_node = &(vfs_find_node_by_path(name)->initrd);
 	printf("_load_image got 0x%08x 0x%08x 0x%08x\n", fs_node, fs_node->size, fs_node->initrd_offset);
 	assert(fs_node, "Failed to find an image at the provided path");
 	return image_parse(fs_node->size, (uint8_t*)fs_node->initrd_offset);
@@ -255,22 +255,23 @@ static void _file_view_left_click(file_view_t* view, Point mouse_point) {
 	}
 
 	// For image files, ask the image viewer to open them
-	char* file_name = view->fs_node->initrd.name;
-	printf("File name %s\n", file_name);
-	if (str_ends_with_any(file_name, _g_image_extensions)) {
+	char* file_path = vfs_path_for_node(view->fs_node);
+	printf("File path %s\n", file_path);
+	if (str_ends_with_any(file_path, _g_image_extensions)) {
 		launch_amc_service_if_necessary(IMAGE_VIEWER_SERVICE_NAME);
 
 		image_viewer_load_image_request_t req = {0};
 		req.event = IMAGE_VIEWER_LOAD_IMAGE;
-		snprintf(req.path, sizeof(req.path), "%s", file_name);
+		snprintf(req.path, sizeof(req.path), "%s", file_path);
 		amc_message_construct_and_send(IMAGE_VIEWER_SERVICE_NAME, &req, sizeof(image_viewer_load_image_request_t));
 	}
-	else if (str_ends_with(file_name, ".txt")) {
-		printf("Ignoring click on text file until text viewer is available: %s\n", file_name);
+	else if (str_ends_with(file_path, ".txt")) {
+		printf("Ignoring click on text file until text viewer is available: %s\n", file_path);
 	}
 	else {
 		vfs_launch_program_by_node(view->fs_node);
 	}
+	free(file_path);
 }
 
 void ui_generate_tree(gui_view_t* container_view, file_view_t* parent_view, uint32_t idx_within_parent, fs_node_t* node) {
