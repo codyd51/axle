@@ -2,6 +2,7 @@
 #define FAT_H
 
 #include <stdint.h>
+#include "ata.h"
 #include "fs_node.h"
 
 #define FAT_SECTOR_INDEX__BOOT			0
@@ -82,7 +83,14 @@ typedef struct fat_fs_node {
 	uint32_t size;
 } fat_fs_node_t;
 
+void fat_format_drive(ata_drive_t drive);
 fat_fs_node_t* fat_parse_from_disk(fs_base_node_t* vfs_root);
 fat_drive_info_t fat_drive_info(void);
+
+uint8_t* fat_read_file(fat_fs_node_t* fs_node, uint32_t* out_file_size);
+uint8_t* fat_read_file_partial(fat_fs_node_t* fs_node, uint32_t offset, uint32_t length, uint32_t* out_length);
+
+fat_fs_node_t* fat_create_directory(fat_fs_node_t* parent_directory, const char* filename);
+fat_fs_node_t* fat_create_file(fat_fs_node_t* parent_directory, const char* filename, const char* ext, uint32_t file_len, const char* file_data);
 
 #endif

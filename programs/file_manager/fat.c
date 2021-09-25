@@ -349,3 +349,144 @@ fat_fs_node_t* fat_parse_from_disk(fs_base_node_t* vfs_root) {
 	free(root_directory_sector);
 	return fat_root;
 }
+
+uint8_t* fat_read_file(fat_fs_node_t* fs_node, uint32_t* out_file_size) {
+	printf("Reading FAT file %s, first fat entry idx %ld, size %ld\n", fs_node->base.name, fs_node->first_fat_entry_idx_in_file, fs_node->size);
+
+	uint32_t fat_entry_index = fs_node->first_fat_entry_idx_in_file;
+	uint32_t file_offset = 0;
+	uint8_t* out_file_data = calloc(1, fs_node->size);
+
+	while (true) {
+		uint32_t fat_sector_index = fat_entry_index / fat_drive_info().fat_entries_per_sector;
+		ata_sector_t* fat_sector = ata_read_sector(fat_drive_info().fat_head_sector + fat_sector_index);
+		fat_entry_t* fat_sector_data = (fat_entry_t*)fat_sector->data;
+
+		uint32_t next_fat_entry_index = fat_sector_data[fat_entry_index % fat_drive_info().fat_entries_per_sector].next_fat_entry_idx_in_file;
+		printf("[FS] Followed link from FAT entry index %ld to %ld\n", fat_entry_index, next_fat_entry_index);
+
+		// Read the actual sector
+		uint32_t bytes_remaining_in_file = fs_node->size - file_offset;
+		uint32_t bytes_to_copy_from_sector = min(fat_drive_info().sector_size, bytes_remaining_in_file);
+		ata_sector_t* data_sector = ata_read_sector(fat_drive_info().fat_sector_slide + fat_entry_index);
+
+		printf("\tCopy %ld bytes from file data 0x%08x to buffer 0x%08x\n", bytes_to_copy_from_sector, (uint32_t)data_sector->data, (uint32_t)out_file_data + file_offset);
+		memcpy(out_file_data + file_offset, &data_sector->data, bytes_to_copy_from_sector);
+
+		file_offset += bytes_to_copy_from_sector;
+		fat_entry_index = next_fat_entry_index;
+
+		free(data_sector);
+		free(fat_sector);
+
+		if (next_fat_entry_index == FAT_SECTOR_TYPE__EOF) {
+			printf("[FS] Found end of file!\n");
+			break;
+		}
+	}
+	return out_file_data;
+}
+
+void catch(void) {
+	printf("caught bad data point?\n");
+}
+
+uint8_t* fat_read_file_partial(fat_fs_node_t* fs_node, uint32_t offset, uint32_t length, uint32_t* out_length) {
+    if (offset == 3830948 || offset == 3492172) {
+		catch();
+		/*
+		char* data = calloc(1, length);
+		memset(data, 'A', length);
+		return data;
+		*/
+    }
+
+	//printf("[FS] fat_read_file_partial(%s, off=%ld, len=%ld)\n", fs_node->base.name, offset, length);
+	fat_drive_info_t drive_info = fat_drive_info();
+	uint32_t sector_size = drive_info.sector_size;
+
+	uint32_t fat_entry_index = fs_node->first_fat_entry_idx_in_file;
+	uint32_t fat_link_index_where_data_begins = offset / sector_size;
+	uint32_t curr_fat_link_index = 0;
+
+	// Traverse to the FAT entry where the start of the data to read lives
+	while (true) {
+		if (curr_fat_link_index == fat_link_index_where_data_begins) {
+			//printf("\t[FS] Traversed to FAT link index where data begins: link %ld\n", curr_fat_link_index);
+			break;
+		}
+
+		// Travel to the next FAT entry index
+		uint32_t fat_sector_index = fat_entry_index / drive_info.fat_entries_per_sector;
+		ata_sector_t* fat_sector = ata_read_sector(drive_info.fat_head_sector + fat_sector_index);
+		fat_entry_t* fat_sector_data = (fat_entry_t*)fat_sector->data;
+
+		uint32_t next_fat_entry_index = fat_sector_data[fat_entry_index % drive_info.fat_entries_per_sector].next_fat_entry_idx_in_file;
+		//printf("\t[FS] Followed link from FAT entry index %ld to %ld\n", fat_entry_index, next_fat_entry_index);
+		fat_entry_index = next_fat_entry_index;
+		curr_fat_link_index += 1;
+
+		free(fat_sector);
+
+		if (next_fat_entry_index == FAT_SECTOR_TYPE__EOF) {
+			printf("\t[FS] Found end of file before reaching region where data begins!\n");
+			*out_length = 0;
+			return NULL;
+		}
+	}
+
+	// We can now begin reading data!
+	// For the first sector we read from, we may need to do a partial read
+	uint32_t start_read_within_sector_off = offset % sector_size;
+	uint32_t start_reading_file_off = (curr_fat_link_index * sector_size) + start_read_within_sector_off;
+
+	uint32_t bytes_read_so_far = 0;
+	uint32_t bytes_remaining_to_read = min(fs_node->size - start_read_within_sector_off, length);
+	//printf("\t[FS] Will read %ld bytes, offset within sector %ld\n", bytes_remaining_to_read, start_read_within_sector_off);
+	uint8_t* out_file_data = calloc(1, bytes_remaining_to_read);
+
+	assert(bytes_remaining_to_read % sector_size == 0, "not implemented");
+	// TODO(PT): Handle edge cases here
+
+	while (true) {
+		// Read the actual sector
+		//uint32_t bytes_remaining_to_read = fs_node->size - file_offset;
+		//uint32_t bytes_to_copy_from_sector = min(fat_drive_info().sector_size, bytes_remaining_in_file);
+		uint32_t bytes_to_copy_from_sector = min(sector_size - start_read_within_sector_off, bytes_remaining_to_read);
+		//printf("*** copying %ld bytes from sector %ld\n", bytes_to_copy_from_sector, fat_drive_info().fat_sector_slide + fat_entry_index);
+
+		ata_sector_t* data_sector = ata_read_sector(drive_info.fat_sector_slide + fat_entry_index);
+		//printf("\tCopy %ld bytes from file data 0x%08x to buffer 0x%08x\n", bytes_to_copy_from_sector, (uint32_t)data_sector->data, (uint32_t)out_file_data + file_offset);
+		//printf("*** memcpy(0x%08lx, 0x%08lx, %ld)\n", out_file_data + bytes_read_so_far, &((uint8_t*)data_sector->data)[start_read_within_sector_off], bytes_to_copy_from_sector);
+		memcpy(out_file_data + bytes_read_so_far, &((uint8_t*)data_sector->data)[start_read_within_sector_off], bytes_to_copy_from_sector);
+		free(data_sector);
+
+		// start_read_within_sector_off only applies to the first sector
+		start_read_within_sector_off = 0;
+
+		bytes_read_so_far += bytes_to_copy_from_sector;
+		bytes_remaining_to_read -= bytes_to_copy_from_sector;
+		if (bytes_remaining_to_read == 0) {
+			//printf("*** read all the bytes, exit\n");
+			break;
+		}
+		//printf("*** traverse to next sector\n");
+
+		// Travel to the next FAT entry index
+		uint32_t fat_sector_index = fat_entry_index / drive_info.fat_entries_per_sector;
+		ata_sector_t* fat_sector = ata_read_sector(drive_info.fat_head_sector + fat_sector_index);
+		fat_entry_t* fat_sector_data = (fat_entry_t*)fat_sector->data;
+		uint32_t next_fat_entry_index = fat_sector_data[fat_entry_index % drive_info.fat_entries_per_sector].next_fat_entry_idx_in_file;
+		//printf("\t[FS] Followed link from FAT entry index %ld to %ld\n", fat_entry_index, next_fat_entry_index);
+		fat_entry_index = next_fat_entry_index;
+
+		free(fat_sector);
+
+		if (next_fat_entry_index == FAT_SECTOR_TYPE__EOF) {
+			assert(false, "How might this happen?");
+		}
+	}
+	//printf("*** finished read\n");
+	*out_length = bytes_read_so_far;
+	return out_file_data;
+}
