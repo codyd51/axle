@@ -638,7 +638,7 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
 	user_window_t* window = calloc(1, sizeof(user_window_t));
 	array_insert(windows, window);
 
-	window->drawable_rects = array_create(128);
+	window->drawable_rects = array_create(256);
 	window->extra_draws_this_cycle = array_create(512);
 
 	// Shared layer is size of the screen to allow window resizing
@@ -907,8 +907,8 @@ view_t* view_create(Rect frame) {
     view_t* v = calloc(1, sizeof(view_t));
     v->frame = frame;
 	v->layer = create_layer(frame.size);
-    v->drawable_rects = array_create(128);
-    v->extra_draws_this_cycle = array_create(128);
+    v->drawable_rects = array_create(256);
+    v->extra_draws_this_cycle = array_create(256);
     return v;
 }
 
