@@ -97,12 +97,26 @@ static void ata_write_command(uint8_t command) {
 	return outb(ATA_REG_W__COMMAND, command);
 }
 
+static uint8_t wait_until_drive_not_busy(void) {
+	uint8_t drive_status = ata_status();
+	while (drive_status & (1 << 7)) {
+		printf("Drive busy at %ld, spinloop...\n", ms_since_boot());
+		drive_status = ata_status();
+	}
+	return drive_status;
+}
+
 static void ata_delay(void) {
+	/*
 	// Sleep 1ms
 	uint32_t b[2];
     b[0] = AMC_SLEEP_UNTIL_TIMESTAMP;
     b[1] = 1;
     amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &b, sizeof(b));
+	*/
+
+	// Is the drive busy?
+	wait_until_drive_not_busy();
 }
 
 static void ata_select_drive(ata_drive_t drive) {
@@ -131,7 +145,7 @@ static void ata_read_sectors(uint32_t lba, uint16_t sector_count) {
 		)
 	);
 	ata_delay();
-	//printf("\tStatus register after write LBA descriptors: 0x%02x\n", ata_status());
+	//printf("[ATA read]: Status register after write LBA descriptors: 0x%02x\n", ata_status());
 	// TODO(PT): Saw status 0x41 when writing to nonexistant descriptors, what does it mean?
 
 	outb(ATA_REG_RW__SECTOR_COUNT, (uint8_t)sector_count);
@@ -170,6 +184,8 @@ static void ata_write_sector(uint32_t lba, uint8_t* sector_data) {
 static void _int_received(uint32_t int_no) {
 	uint8_t drive_status = ata_status();
 	//printf("[ATA] Interrupt, %ld pending operations, drive status = 0x%02x\n", _state->queued_operations->size, drive_status);
+
+	drive_status = wait_until_drive_not_busy();
 
 	// Is the drive ready to transfer data?
 	if (drive_status & (1 << 3)) {

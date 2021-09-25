@@ -5,6 +5,7 @@ executable(
     'ata.c', 
     'fat.c', 
     'file_manager.c', 
+    'initrd.c', 
     'ui.c', 
     'util.c', 
     'vfs.c', 

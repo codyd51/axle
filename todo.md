@@ -233,3 +233,6 @@ Do drivers (i.e. ATA or NIC) need to send EOI immediately and queue up reads aft
 
 GUI callbacks should be lists of function pointers instead of single pointers
     Ex. multiple callbacks can register key-down for the same view
+
+As an optimisation, FAT allocator remembers where it last found a free entry
+    Unset once we free a FAT entry
