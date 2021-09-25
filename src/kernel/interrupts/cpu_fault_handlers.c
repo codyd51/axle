@@ -6,7 +6,11 @@
 #include <kernel/assert.h>
 
 static void common_halt(register_state_t* regs, bool recoverable) {
-	assert(0, "common_halt");
+    printf("|- EIP = 0x%08x -|\n", regs->eip);
+    printf("|- UserESP = 0x%08x -|\n", regs->useresp);
+    printf("|- Error code = 0x%08x -|\n", regs->err_code);
+	//assert(0, "common_halt");
+	task_assert(false, "test", regs);
 }
 
 void interrupt_handle_divide_by_zero(register_state_t* regs) {
