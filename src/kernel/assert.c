@@ -53,7 +53,7 @@ typedef struct crash_reporter_inform_assert {
 
 // XXX(PT): Must match the definition in file_manager_messages.h
 #define FILE_MANAGER_SERVICE_NAME "com.axle.file_manager"
-#define FILE_MANAGER_LAUNCH_FILE 103
+#define FILE_MANAGER_LAUNCH_FILE 104
 typedef struct file_manager_launch_file_request {
     uint32_t event; // FILE_MANAGER_LAUNCH_FILE
     char path[128];

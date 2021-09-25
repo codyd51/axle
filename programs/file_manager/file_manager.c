@@ -44,16 +44,41 @@ static void _amc_message_received(amc_message_t* msg) {
 			assert(false, "Unknown file type");
 		}
 
+		uint32_t response_size = sizeof(file_manager_read_file_response_t) + file_size;
+		file_manager_read_file_response_t* resp = calloc(1, response_size);
 		resp->event = FILE_MANAGER_READ_FILE_RESPONSE;
 		resp->file_size = file_size;
-		printf("Returning file size 0x%08lx buf 0x%08lx to %s, %s\n", resp->file_size, resp->file_data, source_service, response_buffer);
+		memcpy(resp->file_data, file_data, file_size);
+		free(file_data);
+
+		printf("Returning file size 0x%08lx buf 0x%08lx to %s\n", resp->file_size, (uint32_t)resp->file_data, source_service);
 		amc_message_construct_and_send(source_service, resp, response_size);
-		free(response_buffer);
+		free(resp);
+	}
+	else if (event == FILE_MANAGER_READ_FILE__PARTIAL) {
+		file_manager_read_file_partial_request_t* req = (file_manager_read_file_partial_request_t*)&msg->body;
+		fs_node_t* desired_file = vfs_find_node_by_path(req->path);
+		assert(desired_file, "Failed to find requested file");
+		assert(desired_file->base.type == FS_NODE_TYPE_FAT, "Only supported for FAT at the moment");
+
+		uint32_t out_length = 0;
+		uint8_t* file_data = fat_read_file_partial(&desired_file->fat, req->offset, req->length, &out_length);
+
+		uint32_t response_size = sizeof(file_manager_read_file_partial_response_t) + out_length;
+		file_manager_read_file_partial_response_t* resp = calloc(1, response_size);
+		resp->event = FILE_MANAGER_READ_FILE__PARTIAL_RESPONSE;
+		resp->data_length = out_length;
+		memcpy(resp->file_data, file_data, out_length);
+		free(file_data);
+
+		//printf("Returning file size 0x%08lx buf 0x%08lx to %s\n", resp->data_length, (uint32_t)resp->file_data, source_service);
+		amc_message_construct_and_send(source_service, resp, response_size);
+		free(resp);
 	}
 	else if (event == FILE_MANAGER_LAUNCH_FILE) {
 		file_manager_launch_file_request_t* req = (file_manager_launch_file_request_t*)&msg->body;
-		initrd_fs_node_t* desired_file = (initrd_fs_node_t*)vfs_find_node_by_name(req->path);
-		assert(desired_file->type == FS_NODE_TYPE_INITRD, "Expected initrd but this is a soft assumption");
+		initrd_fs_node_t* desired_file = (initrd_fs_node_t*)vfs_find_node_by_path(req->path);
+		assert(desired_file->base.type == FS_NODE_TYPE_INITRD, "Expected initrd but this is a soft assumption");
 		if (desired_file) {
 			printf("File Manager launching %s upon request\n", req->path);
 			vfs_launch_program_by_node((fs_node_t*)desired_file);
@@ -61,6 +86,48 @@ static void _amc_message_received(amc_message_t* msg) {
 		else {
 			printf("Failed to find requested file to launch for %s: %s\n", source_service, req->path);
 		}
+	}
+	else if (event == FILE_MANAGER_CREATE_DIRECTORY) {
+		file_manager_create_directory_request_t* req = (file_manager_create_directory_request_t*)&msg->body;
+
+		bool success = vfs_create_directory((char*)req->path);
+
+		uint32_t response_size = sizeof(file_manager_create_directory_response_t);
+		file_manager_create_directory_response_t* resp = calloc(1, response_size);
+		resp->event = FILE_MANAGER_CREATE_DIRECTORY_RESPONSE;
+		resp->success = success;
+		printf("File manager responsing to %s\n", source_service);
+		amc_message_construct_and_send(source_service, resp, response_size);
+		free(resp);
+	}
+	else if (event == FILE_MANAGER_CHECK_FILE_EXISTS) {
+		file_manager_check_file_exists_request_t* req = (file_manager_check_file_exists_request_t*)&msg->body;
+		// Copy the path as we may send and receive other amc messages to read directory data
+		char* path = strdup(req->path);
+
+		fs_node_t* node = vfs_find_node_by_path(path);
+		bool file_exists = (node != NULL);
+
+		file_manager_check_file_exists_response_t resp = {0};
+		resp.event = FILE_MANAGER_CHECK_FILE_EXISTS_RESPONSE;
+		resp.file_exists = (node != NULL);
+		if (resp.file_exists) {
+			if (node->base.type == FS_NODE_TYPE_FAT) {
+				resp.file_size = node->fat.size;
+			}
+			else if (node->base.type == FS_NODE_TYPE_INITRD) {
+				resp.file_size = node->initrd.size;
+			}
+			else {
+				printf("[FS] Will not provide size for %s as it is a virtual node\n", path);
+			}
+		}
+
+		snprintf(resp.path, sizeof(resp.path), "%s", path);
+
+		printf("File manager responsing to %s\n", source_service);
+		amc_message_construct_and_send(source_service, &resp, sizeof(resp));
+		free(path);
 	}
 	else {
 		assert(false, "Unknown message sent to file manager");
