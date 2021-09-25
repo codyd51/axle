@@ -103,14 +103,19 @@ typedef struct fat_entry_descriptor {
 } fat_entry_descriptor_t;
 
 void fat_alloc_sector(fat_drive_info_t drive_info, uint32_t next_fat_entry_idx_in_file, fat_entry_descriptor_t* out_desc) {
+	static int last_sector_with_free_space = 1;
 	for (uint32_t i = 0; i < drive_info.fat_sector_count; i++) {
 		uint32_t sector_index = drive_info.fat_head_sector + i;
+		if (sector_index < last_sector_with_free_space) {
+			continue;
+		}
 		ata_sector_t* fat_sector = ata_read_sector(sector_index);
 		fat_entry_t* fat_sector_data = (fat_entry_t*)fat_sector->data;
 
 		for (uint32_t j = 0; j < drive_info.fat_entries_per_sector; j++) {
 			if (fat_sector_data[j].allocated == false) {
 				// Found a free FAT entry to allocate in
+				last_sector_with_free_space = sector_index;
 
 				// Clear the data sector on disk so we don't leak data from deleted files
 				uint32_t disk_sector = ((i * drive_info.fat_entries_per_sector) + j) + drive_info.fat_sector_slide;
