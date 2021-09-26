@@ -177,6 +177,35 @@ Rect blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) 
 	return dest_frame;
 }
 
+void blit_layer_scaled(ca_layer* dest, ca_layer* src, Size dest_size) {
+	float scale_x = 1.0;
+	float scale_y = 1.0;
+
+	Size src_size = src->size;
+	if (dest_size.width != src_size.width || dest_size.height != src_size.height) {
+		scale_x = src_size.width / (float)dest_size.width;
+		scale_y = src_size.height / (float)dest_size.height;
+	}
+
+	int bytes_per_pixel = gfx_bytes_per_pixel();
+
+	for (uint32_t draw_row = 0; draw_row < dest_size.height; draw_row++) {
+		int bmp_y = (draw_row * scale_y);
+		for (int32_t draw_col = 0; draw_col < dest_size.width; draw_col++) {
+			int bmp_x = draw_col * scale_x;
+
+			uint32_t bmp_off = (bmp_y * src_size.width * bytes_per_pixel) + (bmp_x * bytes_per_pixel);
+			// Read as a u32 so we can get the whole pixel in one memory access
+			uint32_t pixel = *((uint32_t*)(&src->raw[bmp_off]));
+
+			uint8_t r = (pixel >> 16) & 0xff;
+			uint8_t g = (pixel >> 8) & 0xff;
+			uint8_t b = (pixel >> 0) & 0xff;
+			putpixel(dest, draw_col, draw_row, color_make(r, g, b));
+		}
+	}
+}
+
 ca_layer* layer_snapshot(ca_layer* src, Rect frame) {
 	//clip frame
 	rect_min_x(frame) = MAX(0, rect_min_x(frame));

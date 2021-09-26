@@ -44,6 +44,13 @@ void layer_teardown(ca_layer* layer);
  */
 Rect blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame);
 
+/**
+ * @brief Scale the contents of the source layer onto the destination layer,
+ * 			filling the specified size.
+ * 			Note that the source layer's contents will be scaled to fit.
+ */
+void blit_layer_scaled(ca_layer* dest, ca_layer* src, Size dest_size);
+
 //create a copy of layer pointed to by src
 //only copies pixels bounded by the rectangle 'frame'
 /**
