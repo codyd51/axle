@@ -136,6 +136,38 @@ static void _amc_message_received(amc_message_t* msg) {
 	free(source_service);
 }
 
+static void flash_initrd_file_to_hdd(fat_fs_node_t* parent_directory, const char* initrd_name, const char* name, const char* ext) {
+	char filename[64];
+	snprintf(filename, sizeof(filename), "%s.%s", name, ext);
+
+	char* hdd_path = vfs_path_for_node(parent_directory);
+	printf("Flashing initrd/%s to %s/%s...\n", initrd_name, hdd_path, filename);
+
+	char initrd_filename[64];
+	snprintf(initrd_filename, sizeof(initrd_filename), "/initrd/%s", initrd_name);
+	initrd_fs_node_t* initrd_file = vfs_find_node_by_path(initrd_filename);
+
+	uint32_t file_len = 0;
+	uint8_t* file_data = initrd_read_file(initrd_file, &file_len);
+
+	fat_create_file(parent_directory, name, ext, file_len, file_data);
+
+	printf("Finished flashing initrd/%s to %s/%s...\n", initrd_name, hdd_path, filename);
+	free(hdd_path);
+}
+
+static void doom_install(void) {
+	vfs_create_directory("/hdd/doomdata");
+	fat_fs_node_t* dir = vfs_find_node_by_path("/hdd/doomdata");
+	// Why does doom1.wad parse as doom.wad before rebooting?
+	//flash_initrd_file_to_hdd(dir, "doom.wad", "doom", "wad");
+	flash_initrd_file_to_hdd(dir, "doom1.wad", "doom1", "wad");
+	//flash_initrd_file_to_hdd(dir, "nos4.wad", "nos4", "wad");
+	// TODO(PT): Do FAT files work without an extension?
+	//flash_initrd_file_to_hdd(dir, "doom", "doom", "run");
+	//flash_initrd_file_to_hdd(dir, "origwad.pwd", "origwad", "pwd");
+}
+
 int main(int argc, char** argv) {
 	amc_register_service(FILE_MANAGER_SERVICE_NAME);
 
@@ -159,6 +191,8 @@ int main(int argc, char** argv) {
 	//fat_format_drive(ATA_DRIVE_MASTER);
 
 	fat_fs_node_t* fat_root = fat_parse_from_disk(root);
+
+	//doom_install();
 
 	print_fs_tree((fs_node_t*)root, 0);
 
