@@ -132,7 +132,7 @@ bool mlfq_priority_boost_if_necessary(void) {
             while (q->round_robin_tasks->size > 0) {
                 //printf("remove from %d (size %d)\n", i, q->round_robin_tasks->size);
                 mlfq_ent_t* ent = array_l_lookup(q->round_robin_tasks, 0);
-                printf("\tMLFQ Q%d boost [%d %s]\n", i, ent->task->id, ent->task->name);
+                //printf("\tMLFQ Q%d boost [%d %s]\n", i, ent->task->id, ent->task->name);
                 array_l_remove(q->round_robin_tasks, 0);
                 ent->ttl_remaining = high_prio->quantum;
                 if (ent->task->blocked_info.status == RUNNABLE) runnable_count++;
@@ -142,7 +142,7 @@ bool mlfq_priority_boost_if_necessary(void) {
             spinlock_release(&q->spinlock);
         }
 
-        printf("MLFQ %d: Did priority-boost (high prio %d -> %d, runnable count: %d)\n", ms_since_boot(), orig_high_prio_size, high_prio->round_robin_tasks->size, runnable_count);
+        //printf("MLFQ %d: Did priority-boost (high prio %d -> %d, runnable count: %d)\n", ms_since_boot(), orig_high_prio_size, high_prio->round_robin_tasks->size, runnable_count);
         if (ms_since_boot() % 30000 == 0) {
             mlfq_print();
         }
@@ -199,7 +199,7 @@ bool mlfq_prepare_for_switch_from_task(task_small_t* task) {
 }
 
 void mlfq_print(void) {
-    printf("MLFQ state\n");
+    printf("MLFQ %d\n", ms_since_boot());
     for (int i = 0; i < MLFQ_QUEUE_COUNT; i++) {
         mlfq_queue_t* q = array_m_lookup(_queues, i);
         if (!q->round_robin_tasks->size) continue;
@@ -216,6 +216,9 @@ void mlfq_print(void) {
                     break;
                 case AMC_AWAIT_MESSAGE:
                     blocked_reason = "amc";
+                    break;
+                case (IRQ_WAIT | AMC_AWAIT_MESSAGE):
+                    blocked_reason = "adi";
                     break;
                 default:
                     blocked_reason = "unknown";

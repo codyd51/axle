@@ -51,7 +51,7 @@ void gui_scroll_view_alloc_dynamic_fields(gui_scroll_view_t* scroll_view) {
 			screen_res.height * 4
 		)
 	);
-	base->subviews = array_create(64);
+	base->subviews = array_create(128);
 }
 
 gui_scroll_view_t* gui_scroll_view_alloc(void) {

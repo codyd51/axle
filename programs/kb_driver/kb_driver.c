@@ -37,6 +37,24 @@ static int32_t _get_key_ident_for_scancode(ps2_kbd_state_t* state, uint8_t scanc
 	else if (scancode == ARROW_RIGHT) {
 		return KEY_IDENT_RIGHT_ARROW;
 	}
+	else if (scancode == SHIFT_LEFT) {
+		return KEY_IDENT_LEFT_SHIFT;
+	}
+	else if (scancode == SHIFT_RIGHT) {
+		return KEY_IDENT_RIGHT_SHIFT;
+	}
+	else if (scancode == ESCAPE) {
+		return KEY_IDENT_ESCAPE;
+	}
+	else if (scancode == LEFT_CONTROL) {
+		return KEY_IDENT_LEFT_CONTROL;
+	}
+	else if (scancode == LEFT_COMMAND) {
+		return KEY_IDENT_LEFT_COMMAND;
+	}
+	else if (scancode == LEFT_OPTION) {
+		return KEY_IDENT_LEFT_OPTION;
+	}
 
 	uint32_t scancode_map_size = sizeof(state->layout->scancode_idx_to_ord) / sizeof(state->layout->scancode_idx_to_ord[0]);
 	if (scancode < scancode_map_size) {

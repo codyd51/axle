@@ -568,7 +568,7 @@ void amc_message_broadcast(amc_message_t* msg) {
 }
 
 static void _amc_message_deliver(amc_service_t* service, amc_message_t* message, amc_message_t** out) {
-    if (service->message_queue->size > 0 && service->message_queue->size % 10 == 0) {
+    if (service->message_queue->size > 0 && service->message_queue->size % 50 == 0) {
         printf("%d AMC: Info [%d %s] inbox: %d\n", ms_since_boot(), service->task->id, service->name, service->message_queue->size);
     }
     uint8_t* delivery_base = (uint8_t*)service->delivery_pool;

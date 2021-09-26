@@ -6,6 +6,14 @@
 #define KEY_IDENT_LEFT_ARROW	0x997
 #define KEY_IDENT_RIGHT_ARROW	0x996
 
+#define KEY_IDENT_LEFT_SHIFT	0x995
+#define KEY_IDENT_RIGHT_SHIFT	0x994
+
+#define KEY_IDENT_ESCAPE		0x993
+#define KEY_IDENT_LEFT_CONTROL	0x992
+#define KEY_IDENT_LEFT_COMMAND	0x991
+#define KEY_IDENT_LEFT_OPTION	0x990
+
 #define KB_DRIVER_SERVICE_NAME	"com.axle.kb_driver"
 
 typedef enum key_event_type {
