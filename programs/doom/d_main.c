@@ -1315,9 +1315,8 @@ void D_DoomMain (void)
     else
 #endif
     {
-        // Auto-detect the configuration dir.
-
-        M_SetConfigDir(NULL);
+        // Use a configuration dir that's on-disk
+        M_SetConfigDir("/hdd/doomdata/");
     }
 
     //!
@@ -1569,9 +1568,11 @@ void D_DoomMain (void)
 	};
 	int i;
 	
+    /*
 	if ( gamemode == shareware)
 	    I_Error(DEH_String("\nYou cannot -file with the shareware "
 			       "version. Register!"));
+    */
 
 	// Check for fake IWAD with right name,
 	// but w/o all the lumps of the registered version. 

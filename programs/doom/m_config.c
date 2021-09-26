@@ -2115,7 +2115,8 @@ char *M_GetSaveGameDir(char *iwadname)
 
         free(topdir);
 #else
-        savegamedir = M_StringJoin(configdir, DIR_SEPARATOR_S, ".savegame/", NULL);
+        // Respect the FAT's 8-character maximum for filenames
+        savegamedir = M_StringJoin(configdir, DIR_SEPARATOR_S, "saves/", NULL);
 
         M_MakeDirectory(savegamedir);
 

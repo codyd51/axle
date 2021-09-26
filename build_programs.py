@@ -7,7 +7,7 @@ from typing import Optional, List
 from pathlib import Path
 
 
-SKIP_PROGRAMS = ['cat', 'tlsclient', 'doom', 'libagx']
+SKIP_PROGRAMS = ['cat', 'tlsclient', 'doomgeneric']
 
 
 def recompile_program(program_dir: Path) -> None:

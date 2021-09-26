@@ -36,13 +36,18 @@ void M_FindResponseFile(void);
 
 void dg_Create();
 
+// TODO(PT): Support argc/argv
+char* static_argv[4] = {"/initrd/doom", NULL};
 
-int main(int argc, char **argv)
-{
-    // save arguments
-
-    myargc = argc;
-    myargv = argv;
+int main(int argc, char **argv) {
+    myargv = (char**)&static_argv;
+    // Count argc
+    char** ptr = myargv;
+    myargc = 0;
+    while (*ptr) {
+        myargc++;
+        ptr++;
+    }
 
     M_FindResponseFile();
 
