@@ -38,7 +38,7 @@ void ata_write_sector(uint32_t sector_lba, void* sector_data) {
 	memcpy(write->sector_data, sector_data, sector_size);
 	amc_message_construct_and_send(ATA_DRIVER_SERVICE_NAME, write, request_size);
 	free(write);
-	printf("[FS] Writing sector %ld to ATA driver...\n", sector_lba);
+	//printf("[FS] Writing sector %ld to ATA driver...\n", sector_lba);
 }
 
 // TODO(PT): Copied from net/utils, refactor elsewhere?

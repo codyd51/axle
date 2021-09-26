@@ -25,7 +25,7 @@ fs_base_node_t* fs_node_create__directory(fs_base_node_t* parent, char* name, ui
 	fs_base_node_t* dir = calloc(1, sizeof(fs_node_t));
 	dir->type = FS_NODE_TYPE_BASE;
 	dir->is_directory = true;
-	dir->children = array_create(64);
+	dir->children = array_create(128);
 
 	dir->parent = parent;
 	if (parent) {
