@@ -176,15 +176,19 @@ void task_assert(bool cond, const char* msg) {
  * Unimplemented syscall stubs
  */
 
-int close(int file) {
-    return -1;
-}
-
 int execve(char *name, char **argv, char **env) {
     return -1;
 }
 
 int fork() {
+    return -1;
+}
+
+int kill(int pid, int sig) {
+    return -1;
+}
+
+int link(char *old, char *new) {
     return -1;
 }
 
@@ -197,36 +201,16 @@ int isatty(int file) {
     return 1;
 }
 
-int kill(int pid, int sig) {
-    return -1;
-}
-
-int link(char *old, char *new) {
-    return -1;
-}
-
-int lseek(int file, int ptr, int dir) {
-    return 0;
-}
-
-int open(const char *name, int flags, ...) {
-    return -1;
-}
-
-int read(int file, char *ptr, int len) {
-    return 0;
-}
-
 int stat(const char *file, struct stat *st) {
     st->st_mode = S_IFCHR;
     return 0;
 }
 
-clock_t times(struct tms *buf) {
+int unlink(char *name) {
     return -1;
 }
 
-int unlink(char *name) {
+clock_t times(struct tms *buf) {
     return -1;
 }
 
@@ -237,3 +221,14 @@ int wait(int *status) {
 int gettimeofday(struct timeval *__restrict p, void *__restrict z) {
     return 0;
 }
+
+/*
+ * Implemented in libfiles
+ */
+
+/*
+int close(int file);
+int lseek(int file, int ptr, int dir);
+int open(const char *name, int flags, ...);
+int read(int file, char *ptr, int len);
+*/
