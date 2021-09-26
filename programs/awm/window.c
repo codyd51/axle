@@ -623,9 +623,10 @@ void windows_fetch_resource_images(void) {
 
     _g_executable_image = load_image("/initrd/executable_icon.bmp");
 
-    desktop_shortcuts_add("Preferences", "preferences");
-    desktop_shortcuts_add("Logs Viewer", "logs_viewer");
-    desktop_shortcuts_add("Breakout", "breakout");
+    desktop_shortcuts_add("Preferences", "/initrd/preferences");
+    desktop_shortcuts_add("Logs Viewer", "/initrd/logs_viewer");
+    desktop_shortcuts_add("DOOM", "/initrd/doom");
+    desktop_shortcuts_add("Breakout", "/initrd/breakout");
 }
 
 user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t height) {
