@@ -5,7 +5,7 @@ ISO_DIR = isodir
 ISO_NAME = axle.iso
 
 OBJ_DIR = .objs
-SRC_DIR = src
+SRC_DIR = kernel
 
 TOOLCHAIN ?= ./i686-toolchain
 
@@ -16,7 +16,7 @@ LD = $(TOOLCHAIN)/bin/i686-elf-ld
 
 CC = $(TOOLCHAIN)/bin/i686-elf-gcc
 SYSROOT = $(dir $(realpath $(firstword $(MAKEFILE_LIST))))axle-sysroot/
-CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -I./src
+CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -I$(SRC_DIR)
 LDFLAGS = -ffreestanding -nostdlib -lgcc -T $(RESOURCES)/linker.ld
 
 # Tools
