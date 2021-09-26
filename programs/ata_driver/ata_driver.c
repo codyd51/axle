@@ -109,7 +109,7 @@ static void ata_write_command(uint8_t command) {
 static uint8_t wait_until_drive_not_busy(void) {
 	uint8_t drive_status = ata_status();
 	while (drive_status & (1 << 7)) {
-		printf("Drive busy at %ld, spinloop...\n", ms_since_boot());
+		//printf("Drive busy at %ld, spinloop...\n", ms_since_boot());
 		drive_status = ata_status();
 	}
 	return drive_status;
@@ -236,7 +236,7 @@ static void _int_received(uint32_t int_no) {
 		free(queued_operation);
 	}
 	else {
-		printf("[ATA] Skip interrupt with status 0x%02x\n", drive_status);
+		//printf("[ATA] Skip interrupt with status 0x%02x\n", drive_status);
 	}
 
 	adi_send_eoi(int_no);
@@ -255,9 +255,9 @@ static void _message_received(amc_message_t* msg) {
 		
 		// TODO(PT): Hash map a LRU cache here, invalidating on writes
 		// In cache?
-		if (read_request->sector < ATA_CACHE_MAX_SECTOR_LBA) {
+		if (false && read_request->sector < ATA_CACHE_MAX_SECTOR_LBA) {
 			if (_g_cache[read_request->sector].valid) {
-				//printf("\tATA responding from read cache!\n");
+				printf("\tATA responding from read cache!\n");
 				uint32_t response_size = sizeof(ata_read_sector_response_t) + ATA_SECTOR_SIZE;
 				ata_read_sector_response_t* response = calloc(1, response_size);
 				response->event = ATA_READ_RESPONSE;
@@ -283,13 +283,13 @@ static void _message_received(amc_message_t* msg) {
 		ata_write_sector_request_t* write_request = (ata_write_sector_request_t*)&msg->body;
 		assert(write_request->drive_desc == ATA_DRIVE_MASTER, "Only the master drive is currently supported");
 
-		printf("[ATA] %s requested write to sector %ld\n", msg->source, write_request->sector);
+		//printf("[ATA] %s requested write to sector %ld\n", msg->source, write_request->sector);
 
 		// Writes invalidate cache entries
 		if (write_request->sector < ATA_CACHE_MAX_SECTOR_LBA) {
 			if (_g_cache[write_request->sector].valid) {
 				_g_cache[write_request->sector].valid = false;
-				printf("[ATA] Invalidating read cache for sector %ld due to write\n", write_request->sector);
+				//printf("[ATA] Invalidating read cache for sector %ld due to write\n", write_request->sector);
 			}
 		}
 
