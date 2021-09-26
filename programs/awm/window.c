@@ -168,58 +168,6 @@ void window_handle_keyboard_event(user_window_t* window, uint32_t event, uint32_
     amc_msg_u32_2__send(window->owner_service, event, key);
 }
 
-void blit_layer_scaled(ca_layer* dest, ca_layer* src_unscaled) {
-    //printf("dest 0x%08x src 0x%08x\n", dest, src_unscaled);
-    Rect dest_frame = rect_make(point_zero(), dest->size);
-    Rect src_frame = rect_make(point_zero(), src_unscaled->size);
-
-	float scale_x = 1.0;
-	float scale_y = 1.0;
-	if (src_frame.size.width != dest_frame.size.width || src_frame.size.height != dest_frame.size.height) {
-		scale_x = dest_frame.size.width / (float)src_frame.size.width;
-		scale_y = dest_frame.size.height / (float)src_frame.size.height;
-	}
-    if (scale_x == 1.0) {
-        scale_x = scale_y = 0.9;
-    }
-    //printf("scale_x %.2f y %.2f\n", scale_x, scale_y);
-
-	int bpp = gfx_bytes_per_pixel();
-	//copy row by row
-	
-	//offset into dest that we start writing
-	uint8_t* dest_row_start = dest->raw;
-
-	//data from source to write to dest
-	uint8_t* row_start = src_unscaled->raw;
-
-	int transferabble_rows = dest_frame.size.height;
-	int total_px_in_layer = (uint32_t)(dest->size.width * dest->size.height * bpp);
-	int dest_max_y = rect_max_y(dest_frame);
-
-    uint32_t max = bpp * (src_frame.size.width * src_frame.size.height);
-	for (uint32_t draw_row = 0; draw_row < dest_frame.size.height; draw_row++) {
-		//int bmp_y = (image->size.height - 1) - (draw_row * scale_y);
-        //printf("draw_row 0x%08x max 0x%08x\n", draw_row, max);
-        int src_y = draw_row * scale_y;
-		for (int32_t draw_col = 0; draw_col < dest_frame.size.width; draw_col++) {
-			int src_x = draw_col * scale_x;
-
-            uint32_t src_off = (src_y * src_frame.size.width * bpp) + (src_x * bpp);
-            if (src_off >= max) {
-                break;
-            }
-			// Read as a u32 so we can get the whole pixel in one memory access
-			uint32_t pixel = *((uint32_t*)(&src_unscaled->raw[src_off]));
-			uint8_t r = (pixel >> 16) & 0xff;
-			uint8_t g = (pixel >> 8) & 0xff;
-			uint8_t b = (pixel >> 0) & 0xff;
-			putpixel(dest, draw_col, draw_row, color_make(r, g, b));
-        }
-    }
-}
-
-
 static void _window_fetch_framebuf(user_window_t* window) {
     assert(window != NULL, "Expected non-NULL window");
 
@@ -235,22 +183,6 @@ static void _window_fetch_framebuf(user_window_t* window) {
 		window->content_view->frame, 
 		rect_make(point_zero(), window->content_view->frame.size)
 	);
-}
-
-void window_render_scaled_content_layer(user_window_t* window) {
-    /*
-    if (!window->should_scale_layer) {
-        return;
-    }
-    if (!window->content_view || !window->content_view->layer) {
-        printf("No content view!\n");
-        return;
-    }
-    */
-    blit_layer_scaled(
-        window->layer,
-        window->content_view->layer
-    );
 }
 
 void window_queue_fetch(user_window_t* window) {

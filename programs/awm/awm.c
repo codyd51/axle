@@ -141,7 +141,7 @@ static void _begin_left_click(mouse_interaction_state_t* state, Point mouse_poin
 }
 
 static void _end_left_click(mouse_interaction_state_t* state, Point mouse_point) {
-	printf("End left click\n");
+	//printf("End left click\n");
 	state->left_click_down = false;
 	if (state->active_window) {
 		Point mouse_within_window = point_translate(mouse_point, state->active_window->frame);
@@ -150,14 +150,14 @@ static void _end_left_click(mouse_interaction_state_t* state, Point mouse_point)
 }
 
 static void _exit_hover_window(mouse_interaction_state_t* state) {
-	printf("Mouse exited %s\n", state->active_window->owner_service);
+	//printf("Mouse exited %s\n", state->active_window->owner_service);
 	window_handle_mouse_exited(state->active_window);
 
 	state->active_window = NULL;
 }
 
 static void _enter_hover_window(mouse_interaction_state_t* state, user_window_t* window) {
-	printf("Mouse entered %s\n", window->owner_service);
+	//printf("Mouse entered %s\n", window->owner_service);
 	window_handle_mouse_entered(window);
 
 	// Keep track that we're currently within this window
@@ -165,13 +165,13 @@ static void _enter_hover_window(mouse_interaction_state_t* state, user_window_t*
 }
 
 static void _exit_hovered_shortcut(mouse_interaction_state_t* state) {
-	printf("Mouse exited shortcut %s\n", state->hovered_shortcut->program_path);
+	//printf("Mouse exited shortcut %s\n", state->hovered_shortcut->program_path);
 	desktop_shortcut_handle_mouse_exited(state->hovered_shortcut);
 	state->hovered_shortcut = NULL;
 }
 
 static void _enter_hovered_shortcut(mouse_interaction_state_t* state, desktop_shortcut_t* shortcut) {
-	printf("Mouse entered shortcut %s\n", shortcut->program_path);
+	//printf("Mouse entered shortcut %s\n", shortcut->program_path);
 	desktop_shortcut_handle_mouse_entered(shortcut);
 	// Keep track that we're currently within this shortcut
 	state->hovered_shortcut = shortcut;
