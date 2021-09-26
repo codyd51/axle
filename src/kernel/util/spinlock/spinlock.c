@@ -49,6 +49,7 @@ void spinlock_acquire(spinlock_t* lock) {
         }
 
 		printf("Spinlock: [%d] found contended spinlock with flag %d at %d: %s owned by %d\n", getpid(), lock->flag, contention_start, lock->name, lock->owner_pid);
+        assert(false, "contended spinlock");
 	}
 
     // Spin until the lock is released
@@ -83,7 +84,6 @@ void spinlock_release(spinlock_t* lock) {
         return;
     }
     atomic_store(&lock->flag, 0);
-    lock->owner_pid = -1;
     // Allow other contexts on this processor to interact with the spinlock
     if (lock->interrupts_enabled_before_acquire) {
         asm("sti");
