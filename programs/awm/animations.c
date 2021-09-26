@@ -79,12 +79,7 @@ awm_animation_close_window_t* awm_animation_close_window_init(uint32_t duration,
 
 static void _awm_animation_open_window_step(awm_animation_open_window_t* anim, float percent) {
 	user_window_t* window = anim->window;
-	if (!window->has_done_first_draw) {
-		uint32_t duration = anim->base.end_time - anim->base.start_time;
-		anim->base.start_time = ms_since_boot();
-		anim->base.end_time = anim->base.start_time + duration;
-		return;
-	}
+
 	window->layer->alpha = percent;
 
     Rect current_frame = window->frame;
@@ -103,8 +98,6 @@ static void _awm_animation_open_window_step(awm_animation_open_window_t* anim, f
 	);
 	window->frame = new_frame;
 	_window_resize(window, window->frame.size, true);
-	//_window_resize(window, window->frame.size, false);
-	//window_render_scaled_content_layer(window);
 
 	Rect total_update_frame = rect_union(current_frame, new_frame);
 	compositor_queue_rect_difference_to_redraw(current_frame, new_frame);
