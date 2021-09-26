@@ -83,7 +83,7 @@ gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t hei
 	window->size = size_make(width, height);
 	window->layer = dummy_gui_layer;
 	window->views = array_create(32);
-	window->all_gui_elems = array_create(64);
+	window->all_gui_elems = array_create(128);
 
 	gui_set_window_title(window_title);
 
@@ -404,7 +404,7 @@ static void _redraw_dirty_elems(gui_window_t* window) {
 	uint32_t end = ms_since_boot();
 	uint32_t t = end - start;
 	if (t > 3) {
-		printf("[%d] libgui draw took %dms\n", getpid(), t);
+		//printf("[%d] libgui draw took %dms\n", getpid(), t);
 	}
 
 	// Ask awm to update the window
@@ -442,10 +442,15 @@ static timers_state_t _sleep_for_timers(gui_application_t* app) {
 	return SLEPT_FOR_TIMERS;
 }
 
-void gui_run_event_loop_pass(bool* did_exit) {
+void gui_run_event_loop_pass(bool prevent_blocking, bool* did_exit) {
 	timers_state_t timers_state = _sleep_for_timers(_g_application);
-	// Only allow blocking for a message if there are no timers queued up
-	_process_amc_messages(_g_application, timers_state == NO_TIMERS, &did_exit);
+
+	// Unless the caller specified otherwise, only allow blocking for a message if there are no timers queued up
+	bool should_block = timers_state == NO_TIMERS;
+	if (prevent_blocking) {
+		should_block = false;
+	}
+	_process_amc_messages(_g_application, should_block, &did_exit);
 	// Dispatch any ready timers
 	gui_dispatch_ready_timers(_g_application);
 	// Redraw any dirty elements
@@ -467,7 +472,7 @@ void gui_enter_event_loop(void) {
 
 	bool did_exit = false;
 	while (!did_exit) {
-		gui_run_event_loop_pass(&did_exit);
+		gui_run_event_loop_pass(false, &did_exit);
 	}
 
 	printf("Exited from runloop!\n");

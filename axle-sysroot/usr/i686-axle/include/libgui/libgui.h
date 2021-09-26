@@ -52,7 +52,7 @@ gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t hei
 void gui_set_window_title(char* window_title);
 
 void gui_enter_event_loop(void);
-void gui_run_event_loop_pass(bool* did_exit);
+void gui_run_event_loop_pass(bool prevent_blocking, bool* did_exit);
 
 void gui_add_interrupt_handler(uint32_t int_no, gui_interrupt_cb_t cb);
 void gui_add_message_handler(gui_amc_message_cb_t cb);
