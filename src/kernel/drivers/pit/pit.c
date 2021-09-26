@@ -20,9 +20,11 @@ static volatile uint32_t tick = 0;
 
 static int tick_callback(registers_t* regs) {
 	tick++;
+	// Wake sleeping services befores ending EOI, or else we 
+	// might get interrupted by another tick while the AMC spinlock is held
+	amc_wake_sleeping_services();
 	pic_signal_end_of_interrupt(regs->int_no);
 	task_switch_if_quantum_expired();
-	amc_wake_sleeping_services();
 	return 0;
 }
 
