@@ -236,3 +236,8 @@ GUI callbacks should be lists of function pointers instead of single pointers
 
 As an optimisation, FAT allocator remembers where it last found a free entry
     Unset once we free a FAT entry
+
+File manager has a 'format disk' button
+Implement file copy UI (from initrd to hdd)
+Implement finder that can enter and leave directories
+ATA drive does DMA transfers / read sectors

@@ -1,6 +1,6 @@
 <p align="center"><img width="285px" src="site/assets/axle.svg"/></p>
 
-<p align="center"><img src="screenshots/boot.png"></p>
+<p align="center"><img src="screenshots/doom.jpg"></p>
 
 axle is a **UNIX-like** hobby operating system. Everything used within axle is **implemented from the ground up**, aside from the bootloader, for which we use GRUB. axle is a **multiboot compliant** kernel. axle runs C on 'bare metal' in freestanding mode, meaning even the C standard library is not included. A subset of the C standard library is implemented within axle's kernel, and a userspace is provided through a **Newlib port**. axle provides a **desktop environment** via an efficient compositor and a homegrown GUI toolkit library.
 
@@ -17,11 +17,12 @@ Features (2021)
 * Compositing window manager with animations, alpha blending, and window clipping
 * TCP/IP stack
 * HTML/CSS rendering engine
-* Userspace games like Snake, Breakout, and 2048
+* Userspace games like Snake, Breakout, DOOM (ported), and 2048
 * Userspace applications like a web browser supporting HTTP
 * MLFQ scheduler
 * GUI toolkit
 * Crash reporting
+* Message-based IPC
 * Driver interface
 * ELF loader
 * Newlib port
