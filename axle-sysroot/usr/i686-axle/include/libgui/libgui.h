@@ -19,7 +19,9 @@
 
 typedef struct gui_application gui_application_t;
 typedef void (*gui_interrupt_cb_t)(uint32_t int_no);
+
 typedef void (*gui_amc_message_cb_t)(amc_message_t* msg);
+typedef void (*gui_amc_message_batch_cb_t)(array_t* messages);
 
 typedef struct gui_window {
     Size size;
@@ -44,7 +46,9 @@ typedef struct gui_application {
     array_t* timers;
 
     array_t* _interrupt_cbs;
+
     gui_amc_message_cb_t _amc_handler;
+    gui_amc_message_batch_cb_t _amc_batch_handler;
 } gui_application_t;
 
 gui_application_t* gui_application_create(void);
@@ -55,7 +59,9 @@ void gui_enter_event_loop(void);
 void gui_run_event_loop_pass(bool prevent_blocking, bool* did_exit);
 
 void gui_add_interrupt_handler(uint32_t int_no, gui_interrupt_cb_t cb);
+
 void gui_add_message_handler(gui_amc_message_cb_t cb);
+void gui_add_message_batch_handler(gui_amc_message_batch_cb_t cb);
 
 Size _gui_screen_resolution(void);
 

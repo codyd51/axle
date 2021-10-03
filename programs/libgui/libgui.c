@@ -286,6 +286,12 @@ static void _handle_amc_messages(gui_application_t* app, bool should_block, bool
 		window = array_lookup(app->windows, 0);
 	}
 
+	// If the application requested batch-delivery of amc messages, queue them now
+	array_t* amc_batched_messages = NULL;
+	if (app->_amc_batch_handler) {
+		amc_batched_messages = array_create(128);
+	}
+
 	do {
 		amc_message_t* msg;
 		amc_message_await_any(&msg);
@@ -365,7 +371,33 @@ static void _handle_amc_messages(gui_application_t* app, bool should_block, bool
 		if (app->_amc_handler != NULL) {
 			app->_amc_handler(msg);
 		}
+		else if (app->_amc_batch_handler != NULL) {
+			// Queue message 
+			amc_message_t* copy = calloc(1, sizeof(amc_message_t) + msg->len);
+			memcpy(copy, msg, sizeof(amc_message_t) + msg->len);
+			array_insert(amc_batched_messages, copy);
+
+			if (amc_batched_messages->size + 1 >= amc_batched_messages->max_size) {
+				// Deliver a subset of messages in a batch
+				app->_amc_batch_handler(amc_batched_messages);
+				for (int32_t i = amc_batched_messages->size - 1; i >= 0; i--) {
+					free(array_lookup(amc_batched_messages, i));;
+					array_remove(amc_batched_messages, i);
+				}
+			}
+		}
 	} while (amc_has_message());
+
+	// If we've batched up a set of amc messages now, deliver them
+	if (amc_batched_messages != NULL) {
+		if (amc_batched_messages->size) {
+			app->_amc_batch_handler(amc_batched_messages);
+			for (uint32_t i = 0; i < amc_batched_messages->size; i++) {
+				free(array_lookup(amc_batched_messages, i));;
+			}
+		}
+		array_destroy(amc_batched_messages);
+	}
 
 	if (got_resize_msg && window != NULL) {
 		awm_window_resized_msg_t* m = (awm_window_resized_msg_t*)&newest_resize_msg;
@@ -491,7 +523,20 @@ void gui_add_message_handler(gui_amc_message_cb_t cb) {
 	if (_g_application->_amc_handler != NULL) {
 		assert(0, "Only one amc handler is supported");
 	}
+	if (_g_application->_amc_batch_handler != NULL) {
+		assert(0, "Cannot mix batch and serial message processing");
+	}
 	_g_application->_amc_handler = cb;
+}
+
+void gui_add_message_batch_handler(gui_amc_message_batch_cb_t cb) {
+	if (_g_application->_amc_batch_handler != NULL) {
+		assert(0, "Only one amc batch handler is supported");
+	}
+	if (_g_application->_amc_handler != NULL) {
+		assert(0, "Cannot mix batch and serial message processing");
+	}
+	_g_application->_amc_batch_handler = cb;
 }
 
 gui_application_t* gui_application_create(void) {
