@@ -36,7 +36,7 @@ fs_base_node_t* fs_node_create__directory(fs_base_node_t* parent, const char* na
 	return dir;
 }
 
-fs_base_node_t* fs_node_create__file(fs_base_node_t* parent, char* name, uint32_t name_len) {
+fs_base_node_t* fs_node_create__file(fs_base_node_t* parent, const char* name, uint32_t name_len) {
 	// Intentionally use the size of the larger union instead of the base structure
 	fs_base_node_t* file = calloc(1, sizeof(fs_node_t));
 	file->type = FS_NODE_TYPE_BASE;
@@ -64,21 +64,21 @@ void vfs_launch_program_by_node(fs_node_t* node) {
 
 #define VFS_MAX_PATH_LENGTH 128
 
-fs_node_t* vfs_find_node_by_path_components_in_directory(fs_base_node_t* directory, array_t* path_components, uint32_t depth) {
-	for (uint32_t i = 0; i < directory->children->size; i++) {
-		fs_base_node_t* node = array_lookup(directory->children, i);
+fs_node_t* vfs_find_node_by_path_components_in_directory(fs_node_t* directory, array_t* path_components, uint32_t depth) {
+	for (uint32_t i = 0; i < directory->base.children->size; i++) {
+		fs_node_t* node = array_lookup(directory->base.children, i);
 
-		if (!strncmp(array_lookup(path_components, 0), node->name, VFS_MAX_PATH_LENGTH)) {
+		if (!strncmp(array_lookup(path_components, 0), node->base.name, VFS_MAX_PATH_LENGTH)) {
 			//print_tabs(depth);
 			//printf("Path component matches\n");
 
 			// Is this the end of the path?
 			if (path_components->size == 1) {
-				return node;
+				return (fs_node_t*)node;
 			}
 
 			// Can we search within a sub-directory?
-			if (node->is_directory) {
+			if (node->base.is_directory) {
 				//print_tabs(depth);
 				//printf("Recursing to directory %s\n", node->name);
 
@@ -102,9 +102,9 @@ fs_node_t* vfs_find_node_by_path_components_in_directory(fs_base_node_t* directo
 	return NULL;
 }
 
-fs_node_t* vfs_find_node_by_path(char* path) {
+fs_node_t* vfs_find_node_by_path(const char* path) {
 	//printf("[FS] Find node by path: %s\n", path);
-	fs_node_t* root_node = vfs_root_node();
+	fs_node_t* root_node = (fs_node_t*)vfs_root_node();
 
 	if (!strncmp(path, root_node->base.name, VFS_MAX_PATH_LENGTH)) {
 		printf("[FS] Returning root node\n");
@@ -168,7 +168,7 @@ bool vfs_create_directory(const char* path) {
 	printf("Parent path: %s\n", parent_path);
 
 	// Get a reference to the parent directory
-	fat_fs_node_t* parent_dir = vfs_find_node_by_path(parent_path);
+	fat_fs_node_t* parent_dir = vfs_find_node_by_path__fat(parent_path);
 	if (!parent_dir) {
 		printf("[FS] vfs_create_directory(%s) failed because the parent directory %s doesn't exist\n", path, parent_path);
 		return false;
@@ -180,7 +180,6 @@ bool vfs_create_directory(const char* path) {
 
 	// Free resources
 	for (int32_t i = 0; i < components->size; i++) {
-		char* component = array_lookup(components, i);
 		free(array_lookup(components, i));
 	}
 	free(components);
@@ -190,7 +189,7 @@ bool vfs_create_directory(const char* path) {
 
 char* vfs_path_for_node(fs_node_t* node) {
 	// Special handling for the filesystem root
-	if (node == vfs_root_node()) {
+	if (node == (fs_node_t*)vfs_root_node()) {
 		return strdup("/");
 	}
 

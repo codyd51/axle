@@ -24,7 +24,6 @@ static image_t* _g_text_icon = NULL;
 
 static image_t* _load_image(const char* name) {
 	initrd_fs_node_t* fs_node = &(vfs_find_node_by_path(name)->initrd);
-	printf("_load_image got 0x%08x 0x%08x 0x%08x\n", fs_node, fs_node->size, fs_node->initrd_offset);
 	assert(fs_node, "Failed to find an image at the provided path");
 	return image_parse(fs_node->size, (uint8_t*)fs_node->initrd_offset);
 }

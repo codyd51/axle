@@ -1,6 +1,11 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include <stdlibadd/assert.h>
 
 #include "file_manager_messages.h"
+#include "vfs.h"
 #include "initrd.h"
 
 fs_base_node_t* initrd_parse_from_amc(fs_base_node_t* vfs_root, amc_initrd_info_t* initrd_info) {

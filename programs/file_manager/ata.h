@@ -2,6 +2,7 @@
 #define ATA_CLIENT_H
 
 #include <stdint.h>
+#include <stdlibadd/array.h>
 #include <drivers/ata/ata_driver_messages.h>
 
 typedef struct ata_sector {

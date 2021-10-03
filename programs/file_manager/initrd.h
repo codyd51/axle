@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+
+#include <kernel/amc.h>
+
 #include "fs_node.h"
 
 #define HEADER_MAGIC 0xBF

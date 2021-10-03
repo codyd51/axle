@@ -91,6 +91,8 @@ uint8_t* fat_read_file(fat_fs_node_t* fs_node, uint32_t* out_file_size);
 uint8_t* fat_read_file_partial(fat_fs_node_t* fs_node, uint32_t offset, uint32_t length, uint32_t* out_length);
 
 fat_fs_node_t* fat_create_directory(fat_fs_node_t* parent_directory, const char* filename);
-fat_fs_node_t* fat_create_file(fat_fs_node_t* parent_directory, const char* filename, const char* ext, uint32_t file_len, const char* file_data);
+fat_fs_node_t* fat_create_file(fat_fs_node_t* parent_directory, const char* filename, const char* ext, uint32_t file_len, const uint8_t* file_data);
+
+fat_fs_node_t* fat_mount_point(void);
 
 #endif

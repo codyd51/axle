@@ -1,6 +1,10 @@
 #include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 #include <image_viewer/image_viewer_messages.h>
+#include <stdlibadd/assert.h>
 
 #include "util.h"
 
@@ -15,7 +19,7 @@ void print_fs_tree(fs_node_t* node, uint32_t depth) {
 	const char* type = node->base.is_directory ? "Dir" : "File";
 	printf("<%s %s", type, node->base.name);
 	if (node->base.type == FS_NODE_TYPE_INITRD) {
-		printf(", Start = 0x%08x, Len = 0x%08x>\n", node->initrd.initrd_offset, node->initrd.size);
+		printf(", Start = 0x%08lx, Len = 0x%08lx>\n", node->initrd.initrd_offset, node->initrd.size);
 	}
 	else if (node->base.type == FS_NODE_TYPE_FAT) {
 		printf(", FirstSector %ld>\n", node->fat.first_fat_entry_idx_in_file);
@@ -27,7 +31,7 @@ void print_fs_tree(fs_node_t* node, uint32_t depth) {
 		printf(">\n");
 	}
 	else {
-		printf("Node type: %ld\n", node->base.type);
+		printf("Node type: %d\n", node->base.type);
 		assert(false, "Unknown fs node type");
 	}
 
@@ -60,7 +64,7 @@ uint32_t depth_first_search__idx(fs_base_node_t* parent, fs_base_node_t* find, u
 	return sum;
 }
 
-bool str_ends_with(char* str, char* suffix) {
+bool str_ends_with(char* str, const char* suffix) {
 	str = strchr(str, '.');
 	if (str) {
 		return !strcmp(str, suffix);
@@ -68,7 +72,7 @@ bool str_ends_with(char* str, char* suffix) {
 	return false;
 }
 
-bool str_ends_with_any(char* str, char* suffixes[]) {
+bool str_ends_with_any(char* str, const char* suffixes[]) {
 	for (uint32_t i = 0; i < 32; i++) {
 		if (suffixes[i] == NULL) {
 			return false;
@@ -83,7 +87,7 @@ bool str_ends_with_any(char* str, char* suffixes[]) {
 
 void launch_amc_service_if_necessary(const char* service_name) {
 	if (amc_service_is_active(service_name)) {
-		printf("Will not launch %s because it's already active!\n");
+		printf("Will not launch %s because it's already active!\n", service_name);
 		return;
 	}
 
@@ -95,12 +99,13 @@ void launch_amc_service_if_necessary(const char* service_name) {
 		assert(false, "Unknown service name");
 	}
 
-	initrd_fs_node_t* node = vfs_find_node_by_path(program_path);
+	initrd_fs_node_t* node = vfs_find_node_by_path__initrd(program_path);
 	assert(node != NULL, "Failed to find FS node");
-	vfs_launch_program_by_node(node);
+	assert(node->base.type == FS_NODE_TYPE_INITRD, "Only initrd launch is supported for now");
+	vfs_launch_program_by_node((fs_node_t*)node);
 }
 
-array_t* str_split(char* str, const char a_delim) {
+array_t* str_split(const char* str, const char a_delim) {
 	char* a_str = strdup(str);
 	// Adapted from:
 	// https://stackoverflow.com/questions/9210528/split-string-with-delimiters-in-c

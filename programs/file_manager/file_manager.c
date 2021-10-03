@@ -77,7 +77,7 @@ static void _amc_message_received(amc_message_t* msg) {
 	}
 	else if (event == FILE_MANAGER_LAUNCH_FILE) {
 		file_manager_launch_file_request_t* req = (file_manager_launch_file_request_t*)&msg->body;
-		initrd_fs_node_t* desired_file = (initrd_fs_node_t*)vfs_find_node_by_path(req->path);
+		initrd_fs_node_t* desired_file = vfs_find_node_by_path__initrd(req->path);
 		assert(desired_file->base.type == FS_NODE_TYPE_INITRD, "Expected initrd but this is a soft assumption");
 		if (desired_file) {
 			printf("File Manager launching %s upon request\n", req->path);
@@ -106,7 +106,6 @@ static void _amc_message_received(amc_message_t* msg) {
 		char* path = strdup(req->path);
 
 		fs_node_t* node = vfs_find_node_by_path(path);
-		bool file_exists = (node != NULL);
 
 		file_manager_check_file_exists_response_t resp = {0};
 		resp.event = FILE_MANAGER_CHECK_FILE_EXISTS_RESPONSE;
@@ -140,12 +139,12 @@ static void flash_initrd_file_to_hdd(fat_fs_node_t* parent_directory, const char
 	char filename[64];
 	snprintf(filename, sizeof(filename), "%s.%s", name, ext);
 
-	char* hdd_path = vfs_path_for_node(parent_directory);
+	char* hdd_path = vfs_path_for_node((fs_node_t*)parent_directory);
 	printf("Flashing initrd/%s to %s/%s...\n", initrd_name, hdd_path, filename);
 
 	char initrd_filename[64];
 	snprintf(initrd_filename, sizeof(initrd_filename), "/initrd/%s", initrd_name);
-	initrd_fs_node_t* initrd_file = vfs_find_node_by_path(initrd_filename);
+	initrd_fs_node_t* initrd_file = vfs_find_node_by_path__initrd(initrd_filename);
 
 	uint32_t file_len = 0;
 	uint8_t* file_data = initrd_read_file(initrd_file, &file_len);
@@ -158,7 +157,7 @@ static void flash_initrd_file_to_hdd(fat_fs_node_t* parent_directory, const char
 
 static void doom_install(void) {
 	vfs_create_directory("/hdd/doomdata");
-	fat_fs_node_t* dir = vfs_find_node_by_path("/hdd/doomdata");
+	fat_fs_node_t* dir = vfs_find_node_by_path__fat("/hdd/doomdata");
 	// Why does doom1.wad parse as doom.wad before rebooting?
 	//flash_initrd_file_to_hdd(dir, "doom.wad", "doom", "wad");
 	flash_initrd_file_to_hdd(dir, "doom1.wad", "doom1", "wad");
@@ -186,15 +185,15 @@ int main(int argc, char** argv) {
 	root->type = FS_NODE_TYPE_ROOT;
 	vfs__set_root_node(root);
 
-	fs_base_node_t* initrd_root = initrd_parse_from_amc(root, initrd_info);
-
 	//fat_format_drive(ATA_DRIVE_MASTER);
 
-	fat_fs_node_t* fat_root = fat_parse_from_disk(root);
-
-	//doom_install();
+	// Initialise vfs from storage
+	initrd_parse_from_amc(root, initrd_info);
+	fat_parse_from_disk(root);
 
 	print_fs_tree((fs_node_t*)root, 0);
+
+	//doom_install();
 
 	file_manager_load_images();
 

@@ -5,10 +5,14 @@
 #include <stdio.h>
 
 #include <stdlibadd/assert.h>
+#include <stdlibadd/sleep.h>
 
 #include "ata.h"
+#include "vfs.h"
 #include "math.h"
 #include "fat.h"
+
+void fat_cache_invalidate_table_sector(uint32_t fat_table_sector_idx);
 
 static fat_drive_info_t _g_fat_drive_info = {0};
 
@@ -89,7 +93,7 @@ void fat_format_drive(ata_drive_t drive) {
 
 	// And place the root directory in the FAT
 	ata_sector_t* fat_sector = ata_read_sector(drive_info->fat_head_sector);
-	fat_entry_t* fat_sector_data = fat_sector->data;
+	fat_entry_t* fat_sector_data = (fat_entry_t*)fat_sector->data;
 	fat_sector_data[0].allocated = true;
 	fat_sector_data[0].next_fat_entry_idx_in_file = FAT_SECTOR_TYPE__EOF;
 	ata_write_sector(drive_info->fat_head_sector, fat_sector_data);
@@ -148,30 +152,22 @@ void fat_alloc_sector(fat_drive_info_t drive_info, uint32_t next_fat_entry_idx_i
 	assert(false, "FAT entirely full!");
 }
 
-
-uint32_t _fat_create_dir_or_file(fat_drive_info_t drive_info, uint32_t directory_fat_entry_index, bool is_directory, const char* filename, const char* ext, uint32_t file_len, const char* file_data) {
-	printf("[FAT] _fat_create_dir_or_file (is dir? %ld, directory fat entry idx %ld) %s.%s %ld\n", is_directory, directory_fat_entry_index, filename, ext, file_len);
+uint32_t _fat_create_dir_or_file(fat_drive_info_t drive_info, uint32_t directory_fat_entry_index, bool is_directory, const char* filename, const char* ext, uint32_t file_len, const uint8_t* file_data) {
+	printf("[FAT] _fat_create_dir_or_file (is dir? %d, directory fat entry idx %ld) %s.%s %ld\n", is_directory, directory_fat_entry_index, filename, ext, file_len);
 
 	// Find the disk sector containing the directory data
 	uint32_t directory_sector_index = directory_fat_entry_index + drive_info.fat_sector_slide;
 	printf("\tDirectory stored in sector %ld\n", directory_sector_index);
-	/*
-	uint32_t fat_sector_index = directory_fat_entry_index / fat_drive_info.fat_entries_per_sector;
-	ata_sector_t* fat_sector = ata_read_sector(fat_drive_info.fat_head_sector + fat_sector_index);
-	fat_entry_t* fat_sector_data = fat_sector->data;
-	uint32_t directory_sector_idx = fat_sector_data[directory_fat_entry_index % drive_info.fat_entries_per_sector];
-	free(fat_sector);
-	*/
 
 	ata_sector_t* directory_sector = ata_read_sector(directory_sector_index);
 	fat_directory_t directory = {
 		.slot_count = drive_info.sector_size / sizeof(fat_directory_entry_t),
-		.slots = directory_sector->data
+		.slots = (fat_directory_entry_t*)directory_sector->data
 	};
 
 	// Iterate the slots in the directory until we find a free one
 	for (uint32_t i = 0; i < directory.slot_count; i++) {
-		printf("\tDirectory slot %ld: first entry %ld\n", i, directory.slots[i].first_fat_entry_idx_in_file);
+		printf("\tDirectory slot %ld: first entry %d\n", i, directory.slots[i].first_fat_entry_idx_in_file);
 		if (directory.slots[i].first_fat_entry_idx_in_file == FAT_SECTOR_TYPE__EOF) {
 			printf("\tPlacing file in directory slot #%ld\n", i);
 
@@ -201,11 +197,10 @@ uint32_t _fat_create_dir_or_file(fat_drive_info_t drive_info, uint32_t directory
 			printf("\tWill need %ld sectors to store %ld bytes\n", needed_sectors, file_len);
 
 			uint32_t next_fat_entry_idx = FAT_SECTOR_TYPE__EOF;
-			uint32_t remaining_byte_count_to_write = file_len;
 
 			// Only the last sector may have less data to write than a full sector
 			uint32_t bytes_to_write_in_next_sector = file_bytes_in_terminating_sector;
-			uint8_t* file_ptr = (file_data + file_len) - bytes_to_write_in_next_sector;
+			const uint8_t* file_ptr = (file_data + file_len) - bytes_to_write_in_next_sector;
 
 			for (uint32_t j = 0; j < needed_sectors; j++) {
 				fat_entry_descriptor_t out_desc = {0};
@@ -251,7 +246,7 @@ fat_fs_node_t* fat_create_directory(fat_fs_node_t* parent_directory, const char*
 	char fat_filename[32];
 	snprintf(fat_filename, sizeof(fat_filename), "%.*s", FAT_FILENAME_SIZE, filename);
 
-	fat_fs_node_t* new_node = (fat_fs_node_t*)fs_node_create__directory(parent_directory, fat_filename, strlen(fat_filename));
+	fat_fs_node_t* new_node = (fat_fs_node_t*)fs_node_create__directory((fs_base_node_t*)parent_directory, fat_filename, strlen(fat_filename));
 	new_node->base.type = FS_NODE_TYPE_FAT;
 	new_node->first_fat_entry_idx_in_file = first_fat_entry_idx;
 	// TODO(PT): Change me when directories can be larger
@@ -259,14 +254,14 @@ fat_fs_node_t* fat_create_directory(fat_fs_node_t* parent_directory, const char*
 	return new_node;
 }
 
-fat_fs_node_t* fat_create_file(fat_fs_node_t* parent_directory, const char* filename, const char* ext, uint32_t file_len, const char* file_data) {
+fat_fs_node_t* fat_create_file(fat_fs_node_t* parent_directory, const char* filename, const char* ext, uint32_t file_len, const uint8_t* file_data) {
 	assert(parent_directory->base.type == FS_NODE_TYPE_FAT, "Can only create a FAT file within a FAT directory");
 	uint32_t first_fat_entry_idx = _fat_create_dir_or_file(fat_drive_info(), parent_directory->first_fat_entry_idx_in_file, false, filename, ext, file_len, file_data);
 
 	char fat_filename[32];
-	snprintf(fat_filename, sizeof(fat_filename), "%.*s.%.*s", sizeof(FAT_FILENAME_SIZE), filename, sizeof(FAT_FILE_EXT_SIZE), ext);
+	snprintf(fat_filename, sizeof(fat_filename), "%.*s.%.*s", (int)sizeof(FAT_FILENAME_SIZE), filename, (int)sizeof(FAT_FILE_EXT_SIZE), ext);
 
-	fat_fs_node_t* new_node = (fat_fs_node_t*)fs_node_create__file(parent_directory, fat_filename, strlen(fat_filename));
+	fat_fs_node_t* new_node = (fat_fs_node_t*)fs_node_create__file((fs_base_node_t*)parent_directory, fat_filename, strlen(fat_filename));
 	new_node->base.type = FS_NODE_TYPE_FAT;
 	new_node->first_fat_entry_idx_in_file = first_fat_entry_idx;
 	new_node->size = file_len;
@@ -299,12 +294,12 @@ static void _parse_fat_directory(fat_fs_node_t* directory) {
 	// TODO(PT): Update me when we support multi-sector directories
 	printf("[FAT] _parse_fat_directory finding directory sector for fat entry idx %ld\n", directory->first_fat_entry_idx_in_file);
 	ata_sector_t* directory_sector = ata_read_sector(fat_drive_info().fat_sector_slide + directory->first_fat_entry_idx_in_file);
-	fat_directory_entry_t* directory_entries = &directory_sector->data;
+	fat_directory_entry_t* directory_entries = (fat_directory_entry_t*)&directory_sector->data;
 
 	printf("[FAT] Directory size: %ld\n", directory->size);
 	for (uint32_t i = 0; i < directory->size / sizeof(fat_directory_entry_t); i++) {
 		if (directory_entries[i].first_fat_entry_idx_in_file != FAT_SECTOR_TYPE__EOF) {
-			fat_fs_node_t* fs_node = _parse_node_from_fat_entry(directory, &directory_entries[i]);
+			fat_fs_node_t* fs_node = _parse_node_from_fat_entry((fs_base_node_t*)directory, &directory_entries[i]);
 			if (directory_entries[i].is_directory) {
 				printf("Recursing for directory %s...\n", fs_node->base.name);
 				_parse_fat_directory(fs_node);
@@ -341,7 +336,7 @@ fat_fs_node_t* fat_parse_from_disk(fs_base_node_t* vfs_root) {
 
 	printf("[FAT] Parsing root directory...\n");
 	ata_sector_t* root_directory_sector = ata_read_sector(fat_drive_info().root_directory_head_sector);
-	fat_directory_entry_t* root_directory = &root_directory_sector->data;
+	fat_directory_entry_t* root_directory = (fat_directory_entry_t*)&root_directory_sector->data;
 	const char* fat_root_name = "hdd";
 	fat_fs_node_t* fat_root = (fat_fs_node_t*)fs_node_create__directory(vfs_root, fat_root_name, strlen(fat_root_name));
 	fat_root->base.type = FS_NODE_TYPE_FAT;
@@ -350,7 +345,7 @@ fat_fs_node_t* fat_parse_from_disk(fs_base_node_t* vfs_root) {
 
 	for (uint32_t i = 0; i < fat_drive_info().sector_size / sizeof(fat_directory_entry_t); i++) {
 		if (root_directory[i].first_fat_entry_idx_in_file != FAT_SECTOR_TYPE__EOF) {
-			fat_fs_node_t* fs_node = _parse_node_from_fat_entry(fat_root, &root_directory[i]);
+			fat_fs_node_t* fs_node = _parse_node_from_fat_entry((fs_base_node_t*)fat_root, &root_directory[i]);
 			if (root_directory[i].is_directory) {
 				printf("\tRecursing for directory %s...\n", fs_node->base.name);
 				_parse_fat_directory(fs_node);
@@ -390,7 +385,7 @@ uint8_t* fat_read_file(fat_fs_node_t* fs_node, uint32_t* out_file_size) {
 		uint32_t bytes_to_copy_from_sector = min(fat_drive_info().sector_size, bytes_remaining_in_file);
 		ata_sector_t* data_sector = ata_read_sector(fat_drive_info().fat_sector_slide + fat_entry_index);
 
-		printf("\tCopy %ld bytes from file data 0x%08x to buffer 0x%08x\n", bytes_to_copy_from_sector, (uint32_t)data_sector->data, (uint32_t)out_file_data + file_offset);
+		printf("\tCopy %ld bytes from file data 0x%08lx to buffer 0x%08lx\n", bytes_to_copy_from_sector, (uint32_t)data_sector->data, (uint32_t)out_file_data + file_offset);
 		memcpy(out_file_data + file_offset, &data_sector->data, bytes_to_copy_from_sector);
 
 		file_offset += bytes_to_copy_from_sector;
@@ -425,7 +420,7 @@ fat_entry_t* fat_read_table_sector(uint32_t fat_table_sector_idx) {
 	fat_cached_sector_t* cached_sector = array_lookup(_g_fat_sector_cache, fat_table_sector_idx);
 	if (cached_sector->valid) {
 		//printf("[FAT] Returning FAT sector index %ld from cache\n", fat_table_sector_idx);
-		return &cached_sector->data;
+		return (fat_entry_t*)&cached_sector->data;
 	}
 
 	fat_drive_info_t drive_info = fat_drive_info();
@@ -521,4 +516,8 @@ uint8_t* fat_read_file_partial(fat_fs_node_t* fs_node, uint32_t offset, uint32_t
 	//printf("*** finished read\n");
 	*out_length = bytes_read_so_far;
 	return out_file_data;
+}
+
+fat_fs_node_t* fat_mount_point(void) {
+	return vfs_find_node_by_path__fat("/hdd/");
 }

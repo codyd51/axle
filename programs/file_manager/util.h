@@ -6,9 +6,9 @@
 
 #include "vfs.h"
 
-bool str_ends_with(char* str, char* suffix);
-bool str_ends_with_any(char* str, char* suffixes[]);
-array_t* str_split(char* a_str, const char a_delim);
+bool str_ends_with(char* str, const char* suffix);
+bool str_ends_with_any(char* str, const char* suffixes[]);
+array_t* str_split(const char* a_str, const char a_delim);
 
 void print_tabs(uint32_t count);
 void print_fs_tree(fs_node_t* node, uint32_t depth);
