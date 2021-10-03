@@ -160,7 +160,9 @@ static void doom_install(void) {
 	fat_fs_node_t* dir = vfs_find_node_by_path__fat("/hdd/doomdata");
 	// Why does doom1.wad parse as doom.wad before rebooting?
 	//flash_initrd_file_to_hdd(dir, "doom.wad", "doom", "wad");
-	flash_initrd_file_to_hdd(dir, "doom1.wad", "doom1", "wad");
+	if (!vfs_find_node_by_path("/hdd/doomdata/doom1.wad")) {
+		flash_initrd_file_to_hdd(dir, "doom1.wad", "doom1", "wad");
+	}
 	//flash_initrd_file_to_hdd(dir, "nos4.wad", "nos4", "wad");
 	// TODO(PT): Do FAT files work without an extension?
 	//flash_initrd_file_to_hdd(dir, "doom", "doom", "run");
