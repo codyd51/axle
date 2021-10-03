@@ -16,6 +16,7 @@ array_t* array_create(int32_t max_size);
 void array_destroy(array_t* array);
 
 void array_insert(array_t* array, type_t item);
+void array_set(array_t* array, int32_t i, type_t item);
 void array_remove(array_t* array, int32_t i);
 
 type_t array_lookup(array_t* array, int32_t i);

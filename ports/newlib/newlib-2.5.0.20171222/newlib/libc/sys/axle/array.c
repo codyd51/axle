@@ -50,6 +50,13 @@ type_t array_lookup(array_t* array, int32_t i) {
 	return array->array[i];
 }
 
+void array_set(array_t* array, int32_t i, type_t item) {
+	if (i >= array->size || i < 0) printf("Bad index: %d\n", i);
+	assert(i < array->size && i >= 0, "index was out of bounds");
+	array->array[i] = item;
+	return array->array[i];
+}
+
 int32_t array_index(array_t* array, type_t item) {
 	for (int32_t i = 0; i < array->size; i++) {
 		if (array_lookup(array, i) == item) return i;
