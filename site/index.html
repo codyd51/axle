@@ -24,11 +24,13 @@
             axle OS's first incarnation was a multitasking monolithic kernel, with little support for IPC, user-mode or process loading.
             <br/>
             The current incarnation is a microkernel built around variable-length IPC messaging. It supports a userspace, efficient compositing window manager,
-            a C stdlib, etc. All applications, including the desktop environment and device drivers, are ELF executables. 
+            a C stdlib, etc. All applications, including the desktop environment and device drivers, are ELF executables running in userspace. 
             <br/>
-            There's a kernel driver interface that's used for RTL8139 (NIC), PS/2 mouse, and PS/2 keyboard drivers. 
+            There's a kernel driver interface that's used for userspace RTL8139 (NIC), PS/2 mouse, and PS/2 keyboard drivers. 
             <br/>
             There's also a GUI toolkit apps can use to implement interfaces and have their event loop managed.
+            <br/>
+            In September 2021, I ported DOOM.
 
             <br/>
             axle's features (2021) also include:
@@ -52,6 +54,7 @@
 
         <div class="image">
             <h2>axle desktop environment<br />awm (2021)</h2>
+            <img src="screenshots/doom.jpg" style="float: left; width: 100%; margin-right: 1%; margin-bottom: 0.5em;" alt="">
             <img src="screenshots/desktop1.png" style="float: left; width: 100%; margin-right: 1%; margin-bottom: 0.5em;" alt="">
             <img src="screenshots/desktop2.png" style="float: left; width: 100%; margin-right: 1%; margin-bottom: 0.5em;" alt="">
             <h2>monolithic window manager (2017)</h2>
