@@ -20,7 +20,7 @@ void vfs__set_root_node(fs_base_node_t* node) {
 	_g_root_fs_node = node;
 }
 
-fs_base_node_t* fs_node_create__directory(fs_base_node_t* parent, char* name, uint32_t name_len) {
+fs_base_node_t* fs_node_create__directory(fs_base_node_t* parent, const char* name, uint32_t name_len) {
 	// Intentionally use the size of the larger union instead of the base structure
 	fs_base_node_t* dir = calloc(1, sizeof(fs_node_t));
 	dir->type = FS_NODE_TYPE_BASE;
@@ -129,7 +129,19 @@ fs_node_t* vfs_find_node_by_path(char* path) {
 	return ret;
 }
 
-bool vfs_create_directory(char* path) {
+fat_fs_node_t* vfs_find_node_by_path__fat(const char* path) {
+	fs_node_t* node = vfs_find_node_by_path(path);
+	assert(node->base.type == FS_NODE_TYPE_FAT, "Expected FAT node!");
+	return (fat_fs_node_t*)node;
+}
+
+initrd_fs_node_t* vfs_find_node_by_path__initrd(const char* path) {
+	fs_node_t* node = vfs_find_node_by_path(path);
+	assert(node->base.type == FS_NODE_TYPE_INITRD, "Expected initrd node!");
+	return (initrd_fs_node_t*)node;
+}
+
+bool vfs_create_directory(const char* path) {
 	printf("[FS] vfs_create_directory(%s)\n", path);
 	
 	// Does the path already exist?
@@ -201,3 +213,13 @@ char* vfs_path_for_node(fs_node_t* node) {
 	return constructed_path;
 }
 
+// Unwrap a node, verifying its type
+fat_fs_node_t* vfs_fat_node(fs_node_t* node) {
+	assert(node->base.type == FS_NODE_TYPE_FAT, "Expected a FAT node");
+	return &node->fat;
+}
+
+initrd_fs_node_t* vfs_initrd_node(fs_node_t* node) {
+	assert(node->base.type == FS_NODE_TYPE_INITRD, "Expected an initrd node");
+	return &node->initrd;
+}
