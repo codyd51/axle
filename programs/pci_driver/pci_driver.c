@@ -20,16 +20,11 @@
 #include "pci_driver.h"
 #include "pci_messages.h"
 
-// Device IDs https://github.com/qemu/qemu/blob/master/include/hw/pci/pci_ids.h
-// https://github.com/qemu/qemu/blob/master/docs/specs/pci-ids.txt
-// Device class and subclass http://my.execpc.com/~geezer/code/pci.c
-
 uint16_t pci_config_read_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
     // https://wiki.osdev.org/Pci#Enumerating_PCI_Buses
     uint32_t lbus  = (uint32_t)bus;
     uint32_t lslot = (uint32_t)slot;
     uint32_t lfunc = (uint32_t)func;
-    uint16_t tmp = 0;
  
     // Construct an address as per the PCI "Configuration Space Access Mechanism #1"
     uint32_t address = (uint32_t)((lbus << 16) | 
@@ -51,7 +46,6 @@ void pci_config_write_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offs
     uint32_t lbus  = (uint32_t)bus;
     uint32_t lslot = (uint32_t)slot;
     uint32_t lfunc = (uint32_t)func;
-    uint16_t tmp = 0;
  
     // Construct an address as per the PCI "Configuration Space Access Mechanism #1"
     uint32_t address = (uint32_t)((lbus << 16) | 
@@ -65,97 +59,42 @@ void pci_config_write_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offs
     outl(0xCFC, value);
 }
 
-const char* pci_vendor_name_for_id(uint16_t vendor_id) {
-    switch (vendor_id) {
-        case PCI_VENDOR_INTEL:
-            return "Intel";
-        case PCI_VENDOR_QEMU:
-            return "Qemu";
-        case PCI_VENDOR_REALTEK:
-            return "RealTek";
-        case PCI_VENDOR_NONE:
-            return "No vendor/device";
-        default:
-            return "Unknown vendor";
+void pci_find_device_class_and_subclass_names(uint8_t device_class_id, uint8_t device_subclass_id, const char** out_device_class_name, const char** out_device_subclass_name) {
+    *out_device_class_name = "Unknown";
+    *out_device_subclass_name = "Unknown";
+    for (uint32_t i = 0; i < sizeof(pci_device_classes) / sizeof(pci_device_classes[0]); i++) {
+        pci_device_class_info_t* device_class = &pci_device_classes[i];
+        if (device_class->device_class_id == device_class_id) {
+            *out_device_class_name = device_class->name;
+            for (uint32_t j = 0; j < PCI_MAX_SUBCLASSES_PER_DEVICE_CLASS; j++) {
+                pci_device_subclass_info_t* subclass = &device_class->subclasses[j];
+                if (subclass->subclass_id == device_subclass_id) {
+                    *out_device_subclass_name = subclass->name;
+                    break;
+                }
+            }
+            return;
+        }
     }
 }
 
-const char* pci_device_name_for_id(uint16_t device_id) {
-    switch (device_id) {
-        case PCI_DEVICE_ID_INTEL_82441:
-            return "441FX Host Bridge";
-        case PCI_DEVICE_ID_INTEL_82371SB_0:
-            return "PIIX4 ISA Bridge";
-        case PCI_DEVICE_ID_INTEL_82371SB_1:
-            return "PIIX4 IDE Controller";
-        case PCI_DEVICE_ID_INTEL_82371AB_3:
-            // Taken from http://web.mit.edu/~linux/devel/redhat/Attic/6.0/src/pci-probing/foo
-            return "PIIX4 ACPI";
-        case PCI_DEVICE_ID_QEMU_VGA:
-            return "StdVGA";
-        case PCI_DEVICE_ID_REALTEK_8139:
-            return "RTL8139";
-        case PCI_DEVICE_ID_NONE:
-            return "No Device";
-        default:
-            return "Unknown device";
-    }
-}
-
-const char* pci_device_class_name(uint8_t device_class) {
-    switch (device_class) {
-        case PCI_DEVICE_CLASS_DISK_CONTROLLER:
-            return "Disk Controller";
-        case PCI_DEVICE_CLASS_NETWORK_CONTROLLER:
-            return "Network Controller";
-        case PCI_DEVICE_CLASS_DISPLAY_CONTROLLER:
-            return "Display Controller";
-        case PCI_DEVICE_CLASS_BRIDGE:
-            return "Bridge";
-        default:
-            return "Unknown device class";
-    }
-}
-
-const char* pci_device_subclass_name(uint8_t device_class, uint8_t device_subclass) {
-    if (device_class == PCI_DEVICE_CLASS_DISK_CONTROLLER) {
-        switch (device_subclass) {
-            case PCI_DEVICE_SUBCLASS_DISK_CONTROLLER_IDE:
-                return "IDE";
-            default:
-                break;
+void pci_find_vendor_and_device_names(uint16_t vendor_id, uint16_t device_id, const char** out_vendor_name, const char** out_device_name) {
+    *out_vendor_name = "Unknown";
+    *out_device_name = "Unknown";
+    for (uint32_t i = 0; i < sizeof(pci_vendors) / sizeof(pci_vendors[0]); i++) {
+        pci_vendor_info_t* vendor = &pci_vendors[i];
+        if (vendor->vendor_id == vendor_id) {
+            *out_vendor_name = vendor->name;
+            for (uint32_t j = 0; j < PCI_MAX_DEVICES_PER_VENDOR; j++) {
+                pci_device_info_t* device = &vendor->devices[j];
+                if (device->device_id == device_id) {
+                    *out_device_name = device->name;
+                    break;
+                }
+            }
+            return;
         }
     }
-    else if (device_class == PCI_DEVICE_CLASS_NETWORK_CONTROLLER) {
-        switch (device_subclass) {
-            case PCI_DEVICE_SUBCLASS_NETWORK_CONTROLLER_ETHERNET:
-                return "Ethernet";
-            default:
-                break;
-        }
-    }
-    else if (device_class == PCI_DEVICE_CLASS_DISPLAY_CONTROLLER) {
-        switch (device_subclass) {
-            case PCI_DEVICE_SUBCLASS_DISPLAY_CONTROLLER_VGA:
-                return "VGA";
-            default:
-                break;
-        }
-    }
-    else if (device_class == PCI_DEVICE_CLASS_BRIDGE) {
-        switch (device_subclass) {
-            case PCI_DEVICE_SUBCLASS_BRIDGE_CPU:
-                return "CPU";
-            case PCI_DEVICE_SUBCLASS_BRIDGE_ISA:
-                return "ISA";
-            case PCI_DEVICE_SUBCLASS_BRIDGE_OTHER:
-                return "Other";
-            default:
-                break;
-        }
-    }
-    assert(0, "Unknown PCI device class/subclass combo");
-    return NULL;
 }
 
 typedef struct pci_dev {
@@ -216,14 +155,16 @@ static pci_dev_t* pci_find_devices() {
                     // Skip this function
                     continue;
                 }
-                const char* vendor_name = pci_vendor_name_for_id(vendor_id);
-                const char* device_name = pci_device_name_for_id(device_id);
+                const char* vendor_name = NULL;
+                const char* device_name = NULL;
+                pci_find_vendor_and_device_names(vendor_id, device_id, &vendor_name, &device_name);
 
                 tmp = pci_config_read_word(bus, device_slot, function, 0x0a);
                 uint8_t device_class = (tmp >> 8) & 0xff;
                 uint8_t device_subclass = tmp & 0xff;
-                const char* device_class_name = pci_device_class_name(device_class);
-                const char* device_subclass_name = pci_device_subclass_name(device_class, device_subclass);
+                const char* device_class_name = NULL;
+                const char* device_subclass_name = NULL;
+                pci_find_device_class_and_subclass_names(device_class, device_subclass, &device_class_name, &device_subclass_name);
 
 				// We've collected all the information we need to construct the `pci_dev_t` structure
 				pci_dev_t* current_dev = calloc(1, sizeof(pci_dev_t));
@@ -269,7 +210,7 @@ bool is_service_pci_device_driver(const char* service_name) {
 static void launch_known_drivers(pci_dev_t* dev_head) {
     pci_dev_t* dev = dev_head;
     while (dev != NULL) {
-        if (dev->device_id == PCI_DEVICE_ID_REALTEK_8139) {
+        if (dev->device_id == PCI_DEVICE_ID__REALTEK__8139) {
             printf("[PCI] Launching driver for %s %s\n", dev->vendor_name, dev->device_name);
             amc_launch_service("com.axle.realtek_8139_driver");
         }
@@ -295,7 +236,7 @@ static void _handle_amc_message(amc_message_t* msg) {
         uint32_t device_slot = amc_msg_u32_get_word(msg, 2);
         uint32_t function = amc_msg_u32_get_word(msg, 3);
         uint32_t config_word_offset = amc_msg_u32_get_word(msg, 4);
-        printf("Request to get config word [%d,%d,%d] @ %d\n", bus, device_slot, function, config_word_offset);
+        printf("Request to get config word [%ld,%ld,%ld] @ %ld\n", bus, device_slot, function, config_word_offset);
         uint32_t config_word = pci_config_read_word(bus, device_slot, function, config_word_offset);
         amc_msg_u32_2__send(source_service, PCI_RESPONSE_READ_CONFIG_WORD, config_word);
     }
@@ -305,7 +246,7 @@ static void _handle_amc_message(amc_message_t* msg) {
         uint32_t function = amc_msg_u32_get_word(msg, 3);
         uint32_t config_word_offset = amc_msg_u32_get_word(msg, 4);
         uint32_t new_value = amc_msg_u32_get_word(msg, 5);
-        printf("Request to write config word [%d,%d,%d] @ %d to 0x%08x\n", bus, device_slot, function, config_word_offset, new_value);
+        printf("Request to write config word [%ld,%ld,%ld] @ %ld to 0x%08lx\n", bus, device_slot, function, config_word_offset, new_value);
         pci_config_write_word(bus, device_slot, function, config_word_offset, new_value);
         amc_msg_u32_1__send(source_service, PCI_RESPONSE_WRITE_CONFIG_WORD);
     }

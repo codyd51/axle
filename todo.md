@@ -241,3 +241,5 @@ File manager has a 'format disk' button
 Implement file copy UI (from initrd to hdd)
 Implement finder that can enter and leave directories
 ATA drive does DMA transfers / read sectors
+File partial writes
+Windows don't close when clicking 'X'
