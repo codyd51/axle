@@ -22,4 +22,7 @@ void array_remove(array_t* array, int32_t i);
 type_t array_lookup(array_t* array, int32_t i);
 int32_t array_index(array_t* array, type_t item);
 
+// Helper destructor for a common code pattern that frees each element, then calls destroy
+void array_free_each_element_and_destroy(array_t* array);
+
 #endif

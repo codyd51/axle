@@ -63,3 +63,10 @@ int32_t array_index(array_t* array, type_t item) {
 	}
 	return -1;
 }
+
+void array_free_each_element_and_destroy(array_t* array) {
+	for (uint32_t i = 0; i < array->size; i++) {
+		free(array_lookup(array, i));
+	}
+	array_destroy(array);
+}

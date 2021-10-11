@@ -13,7 +13,6 @@ pwd
 # you may have to run this command
 # You may see an error like the following while running this script:
 # /bin/sh: /Users/philliptennen/Documents/develop/axle/ports/newlib/newlib-2.5.0.20171222/etc/configure: No such file or directory
-
 # ../newlib-2.5.0.20171222/configure --prefix=/usr --target=i686-axle
 
 # Fail when newlib doesn't compile

@@ -9,7 +9,7 @@ from distutils.dir_util import copy_tree
 
 
 def copy_kernel_headers():
-    src_root = Path(__file__).parent / "src"
+    src_root = Path(__file__).parent / "kernel"
     sysroot = Path(__file__).parent / "axle-sysroot"
     include_dir = sysroot / "usr" / "i686-axle" / "include"
     newlib_axle_root = Path(__file__).parent / "ports" / "newlib" / "newlib-2.5.0.20171222" / "newlib" / "libc" / "sys" / "axle"

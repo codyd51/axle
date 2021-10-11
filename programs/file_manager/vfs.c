@@ -89,11 +89,7 @@ fs_node_t* vfs_find_node_by_path_components_in_directory(fs_node_t* directory, a
 
 				fs_node_t* ret = vfs_find_node_by_path_components_in_directory(node, recursed_path, depth + 1);
 
-				for (uint32_t j = 0; j < recursed_path->size; j++) {
-					free(array_lookup(recursed_path, j));
-				}
-				array_destroy(recursed_path);
-
+				array_free_each_element_and_destroy(recursed_path);
 				return ret;
 			}
 		}
@@ -112,13 +108,8 @@ fs_node_t* vfs_find_node_by_path(const char* path) {
 	}
 
 	array_t* components = str_split(path, '/');
-
 	fs_node_t* ret = vfs_find_node_by_path_components_in_directory(root_node, components, 1);
-
-	for (uint32_t i = 0; i < components->size; i++) {
-		free(array_lookup(components, i));
-	}
-	array_destroy(components);
+	array_free_each_element_and_destroy(components);
 
 	if (ret != NULL) {
 		//printf("[FS] Found node at %s!\n", path);
@@ -179,10 +170,7 @@ bool vfs_create_directory(const char* path) {
 	printf("[FS] vfs_create_directory(%s) success! New directory \"%s\" starts at FAT entry #%ld\n", path, new_directory->base.name, new_directory->first_fat_entry_idx_in_file);
 
 	// Free resources
-	for (int32_t i = 0; i < components->size; i++) {
-		free(array_lookup(components, i));
-	}
-	free(components);
+	array_free_each_element_and_destroy(components);
 	free(parent_path);
 	return true;
 }

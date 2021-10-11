@@ -35,8 +35,7 @@ void ps2_keyboard_enable(void) {
 	ps2_write_device(0, KBD_SSC_GET);
 	ps2_expect_ack();
 	uint8_t scancode_set = ps2_read(PS2_DATA);
-	printf("Scan code set %d\n", scancode_set);
-	assert(scancode_set == KBD_SSC_2, "Wrong keyboard scancode set\n");
+	printf("Scan code set %d, expected %d\n", scancode_set, KBD_SSC_2);
 
 	// Ask the PS/2 keyboard to start sending events
 	ps2_write_device(0, PS2_DEV_ENABLE_SCAN);
