@@ -58,6 +58,9 @@ static void _launch_program(const char* program_name, uint32_t arg2, uint32_t ar
     char* argv[] = {program_name, NULL};
 
     initrd_fs_node_t* node = vfs_find_initrd_node_by_name(program_name);
+    if (!node) {
+        panic("Program specified in boot list wasn't found in initrd");
+    }
     uint32_t address = node->initrd_offset;
 	elf_load_buffer(program_name, address, node->size, argv);
 	panic("noreturn");
@@ -104,24 +107,17 @@ void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
     // Multitasking and program loading is now available
 
     // Launch some initial drivers and services
+    // TODO(PT): Launching a not-present program here causes a page fault in elf_validate_header. Handle it gracefully...
     const char* launch_programs[] = {
-        // System services
+        // VFS / program launcher
+        "file_manager",
+        // HDD FS dependency
+        "ata_driver",
+        // Window manager
+        "awm",
+        // User input
         "kb_driver",
         "mouse_driver",
-        "ata_driver",
-        "awm",
-        // Higher-level facilities
-        //"tty",
-        //"pci_driver",
-        //"net",
-        //"netclient",
-        // User applications
-        "file_manager",
-        //"image_viewer",
-        // Games
-        //"breakout",
-        //"snake",
-        //"2048",
     };
     for (uint32_t i = 0; i < sizeof(launch_programs) / sizeof(launch_programs[0]); i++) {
         const char* program_name = launch_programs[i];

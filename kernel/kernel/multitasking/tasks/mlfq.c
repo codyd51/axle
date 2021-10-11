@@ -27,7 +27,7 @@ static array_m* _queues = 0;
 void mlfq_init(void) {
     _queues = array_m_create(MLFQ_QUEUE_COUNT);
     for (uint32_t i = 0; i < MLFQ_QUEUE_COUNT; i++) {
-        mlfq_queue_t* q = kmalloc(sizeof(mlfq_queue_t));
+        mlfq_queue_t* q = kcalloc(1, sizeof(mlfq_queue_t));
         q->round_robin_tasks = array_l_create();
         q->quantum = (int)lerp(MLFQ_PRIO_HIGH_QUANTUM, MLFQ_PRIO_LOW_QUANTUM, (i / (float)(MLFQ_QUEUE_COUNT-1)));
         q->spinlock.name = "MLFQ queue spinlock";
@@ -41,7 +41,7 @@ void mlfq_add_task_to_queue(task_small_t* task, uint32_t queue_idx) {
     // Tasks are always enqueued to the highest priority queue
     //printf("adding to queue %d (size: %d)\n", queue_idx, _queues->size);
     mlfq_queue_t* queue = array_m_lookup(_queues, queue_idx);
-    mlfq_ent_t* ent = kmalloc(sizeof(mlfq_ent_t));
+    mlfq_ent_t* ent = kcalloc(1, sizeof(mlfq_ent_t));
     ent->task = task;
     ent->ttl_remaining = queue->quantum;
     array_l_insert(queue->round_robin_tasks, ent);
