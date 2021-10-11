@@ -20,16 +20,14 @@ bool ps2_expect_ack() {
 }
 
 static void ps2_write(uint8_t port, uint8_t byte) {
-    int timer = 500;
-    while ((inb(PS2_CMD_PORT) & 2) && timer-- > 0) {
+    while ((inb(PS2_CMD_PORT) & 2)) {
         asm ("pause");
     }
     outb(port, byte);
 }
 
 uint8_t ps2_read(uint8_t port) {
-    int timer = 500;
-    while (!(inb(PS2_CMD_PORT) & 1) && timer-- >= 0) {
+    while (!(inb(PS2_CMD_PORT) & 1)) {
         asm ("pause");
     }
     return inb(port);
