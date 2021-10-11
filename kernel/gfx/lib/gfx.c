@@ -348,16 +348,16 @@ Screen* gfx_init(void) {
     _screen.bytes_per_pixel = framebuffer_info.bytes_per_pixel;
 
     // Font size is calculated as a fraction of screen size
-    _screen.default_font_size = font_size_for_resolution(_screen.resolution);
+    //_screen.default_font_size = font_size_for_resolution(_screen.resolution);
 
-    _screen.vmem = create_layer(_screen.resolution);
-    _screen.window = create_window_int(rect_make(point_make(0, 0), _screen.resolution), true);
-    _screen.window->superview = NULL;
-    _screen.surfaces = array_m_create(128);
+    //_screen.vmem = create_layer(_screen.resolution);
+    //_screen.window = create_window_int(rect_make(point_make(0, 0), _screen.resolution), true);
+    //_screen.window->superview = NULL;
+    //_screen.surfaces = array_m_create(128);
 
     _gfx_is_active = true;
 
-    printf_info("Graphics: %d x %d, %d BPP", _screen.resolution.width, _screen.resolution.height, _screen.bits_per_pixel);
+    //printf_info("Graphics: %d x %d, %d BPP", _screen.resolution.width, _screen.resolution.height, _screen.bits_per_pixel);
 }
 
 static Point cursor_pos = {0, 0};

@@ -608,7 +608,9 @@ void tasking_init() {
     asm("sti");
 
     // Wait until reaper wakes up so it can reliably kill every service
-    while (!amc_service_is_active("com.axle.reaper")) {}
+    while (!amc_service_is_active("com.axle.reaper")) {
+        asm("hlt");
+    }
 }
 
 int fork() {
