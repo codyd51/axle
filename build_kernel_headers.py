@@ -3,16 +3,19 @@
 These are functions available via syscalls to user-mode programs.
 """
 import shutil
-from pathlib import Path
-from build_utils import sysroot_copy_needs_update
 from distutils.dir_util import copy_tree
+from pathlib import Path
+
+from build_utils import sysroot_copy_needs_update
 
 
 def copy_kernel_headers():
     src_root = Path(__file__).parent / "kernel"
     sysroot = Path(__file__).parent / "axle-sysroot"
     include_dir = sysroot / "usr" / "i686-axle" / "include"
-    newlib_axle_root = Path(__file__).parent / "ports" / "newlib" / "newlib-2.5.0.20171222" / "newlib" / "libc" / "sys" / "axle"
+    newlib_axle_root = (
+        Path(__file__).parent / "ports" / "newlib" / "newlib-2.5.0.20171222" / "newlib" / "libc" / "sys" / "axle"
+    )
 
     headers_to_copy = [
         # Copy kernel headers to the sysroot
@@ -31,7 +34,7 @@ def copy_kernel_headers():
     for source_path, include_path in headers_to_copy:
         # If the files are identical, no need to copy
         if sysroot_copy_needs_update(source_path, include_path):
-            print(f'Copying kernel source tree {source_path} to sysroot path {include_path}')
+            print(f"Copying kernel source tree {source_path} to sysroot path {include_path}")
             include_path.parent.mkdir(exist_ok=True, parents=True)
             if source_path.is_dir():
                 copy_tree(source_path.as_posix(), include_path.as_posix())
@@ -39,5 +42,5 @@ def copy_kernel_headers():
                 shutil.copy(source_path.as_posix(), include_path.as_posix())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     copy_kernel_headers()

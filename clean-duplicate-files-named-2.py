@@ -4,9 +4,9 @@ It pollutes my working index and causes problems with the build system.
 This script finds and deletes them.
 """
 import os
-import sys
-import shutil
 import pathlib
+import shutil
+import sys
 
 
 def main():
@@ -16,5 +16,5 @@ def main():
             os.remove(f.as_posix())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
