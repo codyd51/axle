@@ -17,6 +17,7 @@ static void _amc_message_received(amc_message_t* msg) {
 	strncpy(buf, msg->body, msg->len);
 	buf[msg->len] = '\0';
 	gui_text_view_puts(_g_text_view, buf, color_white());
+	_g_text_view->content_layer->scroll_layer.scroll_offset.y = (_g_text_view->content_layer->scroll_layer.max_y - _g_text_view->content_layer_frame.size.height + _g_text_view->font_size.height);
 }
 
 int main(int argc, char** argv) {
