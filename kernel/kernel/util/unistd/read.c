@@ -7,8 +7,6 @@
 #include <kernel/multitasking/pipe.h>
 
 #include <gfx/lib/gfx.h>
-#include <gfx/lib/Window.h>
-#include <gfx/lib/Label.h>
 
 int stdin_read(task_small_t* task, int UNUSED(fd), void* buf, int count) {
 	char* chbuf = (char*)buf;

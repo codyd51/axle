@@ -5,7 +5,6 @@
 #include "size.h"
 #include <std/array_m.h>
 #include <stdbool.h>
-#include <std/List.h>
 
 #define rect_min_x(r) ((r).origin.x)
 #define rect_min_y(r) ((r).origin.y)
@@ -42,9 +41,5 @@ Rect rect_inset(Rect src, int dx, int dy);
 Rect convert_rect(Rect outer, Rect inner);
 
 Rect* Rect_new(int top, int left, int bottom, int right);
-
-//explode subject rect into array of contiguous rects which are
-//not occluded by cutting rect
-List* Rect_split(Rect subject_rect, Rect cutting_rect);
 
 #endif

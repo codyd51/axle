@@ -11,7 +11,6 @@
 #include <tests/gfx_test.h>
 #include <kernel/drivers/kb/kb.h>
 #include "animator.h"
-#include <std/List.h>
 #include <gfx/lib/rect.h>
 #include <kernel/util/unistd/exec.h>
 
@@ -235,72 +234,6 @@ void xserv_draw_desktop(Screen* screen) {
 		draw_window_backdrop(screen, win);
 	}
 
-	//printk("Drawing %d clip rects\n", screen->vmem->clip_rects->count);
-	for (uint32_t i = 0; i < screen->vmem->clip_rects->count; i++) {
-		clip_context_t* c = List_get_at(screen->vmem->clip_rects, i);
-		/*
-		printk("Drawing clip {%d,%d,%d,%d} (origin {%d,%d}) from layer %x\n", c->clip_rect.origin.x,
-																			  c->clip_rect.origin.y,
-																			  c->clip_rect.size.width,
-																			  c->clip_rect.size.height,
-																			  c->local_origin.x,
-																			  c->local_origin.y,
-																			  c->source_layer);
-																			  */
-		blit_layer(screen->vmem, c->source_layer, c->clip_rect, rect_make(c->local_origin, c->clip_rect.size));
-		//draw_rect(screen->vmem, c->clip_rect, color_green(), 1);
-	}
-
-	/*
-				//blit_layer(screen->vmem, win->layer, win->frame, rect_make(point_zero(), win->frame.size));
-
-			int count = 0;
-			bool occluded = false;
-			Rect* visible_rects = rect_clip(win->frame, highest->frame, &count, &occluded);
-			//if window is completely occluded, don't draw it!
-			if (occluded) {
-				continue;
-			}
-			//not occluded, but no intersection
-			//draw entire window
-			if (!count) {
-				blit_layer(screen->vmem, win->layer, win->frame, rect_make(point_zero(), win->frame.size));
-				draw_window_backdrop(screen, win);
-				continue;
-			}
-			//segment format
-			int segments = 0;
-			//composite clipped window frame
-			for (int j = 0; j < count; j++) {
-				Rect r = visible_rects[j];
-				if (r.size.width == 0 || r.size.height == 0) continue;
-
-				Point origin_offset;
-				origin_offset.x = rect_min_x(r) - rect_min_x(win->frame);
-				origin_offset.y = rect_min_y(r) - rect_min_y(win->frame);
-				Rect local_r;
-				local_r.origin = origin_offset;
-				local_r.size = r.size;
-
-				blit_layer(screen->vmem, win->layer, r, local_r);
-
-				//left edge?
-				if (rect_min_x(r) == rect_min_x(win->frame)) {
-					segments |= 0x1;
-				}
-				//right edge
-				if (rect_max_x(r) == rect_max_x(win->frame)) {
-					segments |= 0x2;
-				}
-				//bottom edge
-				if (rect_max_y(r) == rect_max_y(win->frame)) {
-					segments |= 0x4;
-				}
-			}
-			draw_window_backdrop_segments(screen, win, segments);
-		}
-	}
-	*/
 	if (grabbed_window) {
 		draw_window_shadow(screen, grabbed_window, grabbed_window->frame.origin);
 	}
