@@ -10,6 +10,11 @@ typedef union fs_node {
     fat_fs_node_t fat;
 } fs_node_t;
 
+typedef enum vfs_node_type {
+	VFS_NODE_TYPE_FILE = 0,
+	VFS_NODE_TYPE_DIRECTORY = 1,
+} vfs_node_type_t;
+
 fs_base_node_t* fs_node_create__directory(fs_base_node_t* parent, const char* name, uint32_t name_len);
 fs_base_node_t* fs_node_create__file(fs_base_node_t* parent, const char* name, uint32_t name_len);
 
@@ -20,7 +25,7 @@ fs_node_t* vfs_find_node_by_path(const char* path);
 initrd_fs_node_t* vfs_find_node_by_path__initrd(const char* path);
 fat_fs_node_t* vfs_find_node_by_path__fat(const char* path);
 
-bool vfs_create_directory(const char* path);
+bool vfs_create_node(const char* path, vfs_node_type_t type);
 
 fs_base_node_t* vfs_root_node(void);
 // Friend function for file_manager.c

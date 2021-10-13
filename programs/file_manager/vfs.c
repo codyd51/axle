@@ -122,22 +122,40 @@ fs_node_t* vfs_find_node_by_path(const char* path) {
 
 fat_fs_node_t* vfs_find_node_by_path__fat(const char* path) {
 	fs_node_t* node = vfs_find_node_by_path(path);
+	if (!node) {
+		return NULL;
+	}
 	assert(node->base.type == FS_NODE_TYPE_FAT, "Expected FAT node!");
 	return (fat_fs_node_t*)node;
 }
 
 initrd_fs_node_t* vfs_find_node_by_path__initrd(const char* path) {
 	fs_node_t* node = vfs_find_node_by_path(path);
+	if (!node) {
+		return NULL;
+	}
 	assert(node->base.type == FS_NODE_TYPE_INITRD, "Expected initrd node!");
 	return (initrd_fs_node_t*)node;
 }
 
-bool vfs_create_directory(const char* path) {
-	printf("[FS] vfs_create_directory(%s)\n", path);
+bool vfs_create_node(const char* path, vfs_node_type_t type) {
+	const char* type_desc = NULL;
+	switch (type) {
+		case VFS_NODE_TYPE_FILE:
+			type_desc = "file";
+			break;
+		case VFS_NODE_TYPE_DIRECTORY:
+			type_desc = "dir";
+			break;
+		default:
+			type_desc = "unknwn";
+			break;
+	}
+	printf("[FS] vfs_create_node(%s, [%s])\n", path, type_desc);
 	
 	// Does the path already exist?
 	if (vfs_find_node_by_path(path)) {
-		printf("[FS] vfs_create_directory(%s) failed because the specified path already exists\n", path);
+		printf("[FS] vfs_create_node(%s) failed because the specified path already exists\n", path);
 		return false;
 	}
 
@@ -146,7 +164,7 @@ bool vfs_create_directory(const char* path) {
 	// TODO(PT): Derive the mount point of the ATA drive
 	const char* fat_root = "hdd";
 	if (strncmp(array_lookup(components, 0), fat_root, strlen(fat_root))) {
-		printf("[FS] vfs_create_directory(%s) failed because the path is not within the disk hierarchy\n", path);
+		printf("[FS] vfs_create_node(%s) failed because the path is not within the disk hierarchy\n", path);
 		return false;
 	}
 
@@ -161,13 +179,28 @@ bool vfs_create_directory(const char* path) {
 	// Get a reference to the parent directory
 	fat_fs_node_t* parent_dir = vfs_find_node_by_path__fat(parent_path);
 	if (!parent_dir) {
-		printf("[FS] vfs_create_directory(%s) failed because the parent directory %s doesn't exist\n", path, parent_path);
+		printf("[FS] vfs_create_node(%s) failed because the parent directory %s doesn't exist\n", path, parent_path);
 		return false;
 	}
 
 	// Create the new directory within the parent directory
-	fat_fs_node_t* new_directory = fat_create_directory(parent_dir, array_lookup(components, components->size - 1));
-	printf("[FS] vfs_create_directory(%s) success! New directory \"%s\" starts at FAT entry #%ld\n", path, new_directory->base.name, new_directory->first_fat_entry_idx_in_file);
+	if (type == VFS_NODE_TYPE_DIRECTORY) {
+		fat_fs_node_t* new_directory = fat_create_directory(parent_dir, array_lookup(components, components->size - 1));
+		printf("[FS] vfs_create_node(%s) success! New directory \"%s\" starts at FAT entry #%ld\n", path, new_directory->base.name, new_directory->first_fat_entry_idx_in_file);
+	}
+	else if (type == VFS_NODE_TYPE_FILE) {
+		const char* filename_and_ext = array_lookup(components, components->size - 1);
+		array_t* name_components = str_split(filename_and_ext, '.');
+		assert(name_components->size == 2, "Malformed file name");
+		const char* filename = array_lookup(name_components, 0);
+		const char* ext = array_lookup(name_components, 1);
+		fat_fs_node_t* new_file = fat_create_file(parent_dir, filename, ext, 0, NULL);
+		array_free_each_element_and_destroy(name_components);
+		printf("[FS] vfs_create_node(%s) success! New file \"%s\" starts at FAT entry #%ld\n", path, new_file->base.name, new_file->first_fat_entry_idx_in_file);
+	}
+	else {
+		assert(false, "Unknown node type");
+	}
 
 	// Free resources
 	array_free_each_element_and_destroy(components);
