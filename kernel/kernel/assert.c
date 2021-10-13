@@ -9,13 +9,19 @@
 #include <kernel/vmm/vmm.h>
 #include <kernel/multitasking/tasks/task_small.h>
 
+#include <kernel/util/amc/amc.h>
+#include <kernel/util/amc/amc_internal.h>
+
+#include <crash_reporter/crash_reporter_messages.h>
+#include <file_manager/file_manager_messages.h>
+
 #include "assert.h"
 
 #define _BACKTRACE_SIZE 16
 
 void walk_stack(uint32_t out_stack_addrs[], int frame_count); 
 
-void print_stack_trace(int frame_count) {
+void print_stack_trace(ca_layer* screen_layer, Point cursor, Size font_size, int frame_count) {
     printf("Stack trace:\n");
     uint32_t stack_addrs[_BACKTRACE_SIZE] = {0};
     walk_stack(stack_addrs, frame_count);
@@ -24,7 +30,43 @@ void print_stack_trace(int frame_count) {
         if (!frame_addr) {
             break;
         }
-        printf("[%d] 0x%08x\n", i, frame_addr);
+        printf("[%d] 0x%08x     ", i, frame_addr);
+        if (vmm_address_is_mapped(boot_info_get()->vmm_kernel, frame_addr)) {
+            const char* kernel_symbol = elf_sym_lookup(&boot_info_get()->kernel_elf_symbol_table, (uint32_t)frame_addr);
+            printf("[Kernel] %s", kernel_symbol ?: "-");
+        }
+        else {
+            task_small_t* current_task = tasking_get_current_task();
+            const char* program_symbol = elf_sym_lookup(&current_task->elf_symbol_table, (uint32_t)frame_addr);
+            printf("[%s] %s", current_task->name, program_symbol);
+            if (!strncmp(program_symbol, "_start", 8)) {
+                break;
+            }
+        }
+        printf("\n");
+    }
+    for (int32_t i = 0; i < frame_count; i++) {
+        int frame_addr = stack_addrs[i];
+        if (!frame_addr) {
+            break;
+        }
+        char str[128];
+        snprintf(str, sizeof(str), "[%d] 0x%08x    ", i, frame_addr);
+        if (vmm_address_is_mapped(boot_info_get()->vmm_kernel, frame_addr)) {
+            const char* kernel_symbol = elf_sym_lookup(&boot_info_get()->kernel_elf_symbol_table, (uint32_t)frame_addr);
+            snprintf(str, sizeof(str), "%s[Kernel] %s", str, kernel_symbol ?: "-");
+        }
+        else {
+            task_small_t* current_task = tasking_get_current_task();
+            const char* program_symbol = elf_sym_lookup(&current_task->elf_symbol_table, (uint32_t)frame_addr);
+            snprintf(str, sizeof(str), "%s[%s] %s", str, current_task->name, program_symbol);
+            if (!strncmp(program_symbol, "_start", 8)) {
+                break;
+            }
+        }
+        draw_string(screen_layer, str, cursor, color_black(), font_size);
+        cursor.y += font_size.height;
+        //printf("\n");
     }
 }
 
@@ -33,31 +75,32 @@ void _panic(const char* msg, const char* file, int line) {
     asm("cli");
     printf("[%d] Assertion failed: %s\n", getpid(), msg);
     printf("%s:%d\n", file, line);
+
+    framebuffer_info_t* framebuffer_info = &boot_info_get()->framebuffer;
+    ca_layer layer = {0};
+    layer.alpha = 1.0;
+    layer.raw = framebuffer_info->address;
+    layer.size = size_make(framebuffer_info->width, framebuffer_info->height);
+    gfx_init();
+    vmm_identity_map_region(
+        (vmm_page_directory_t*)vmm_active_pdir(), 
+        framebuffer_info->address,
+        framebuffer_info->size
+    );
+    Point cursor = point_make(8, 8);
+    Size font_size = size_make(12, 18);
+    char str[128];
+    snprintf(str, sizeof(str), "[%d] Critical assert: %s\n", getpid(), msg);
+    draw_string(&layer, str, cursor, color_black(), font_size);
+
+    cursor.y += font_size.height * 2;
+
     if (true) {
-        print_stack_trace(20);
+        print_stack_trace(&layer, cursor, font_size, 20);
     }
     asm("cli");
     asm("hlt");
 }
-
-#include <kernel/util/amc/amc.h>
-#include <kernel/util/amc/amc_internal.h>
-// XXX(PT): Must match the definition in crash_reporter_messages.h
-#define CRASH_REPORTER_SERVICE_NAME "com.axle.crash_reporter"
-#define CRASH_REPORTER_INFORM_ASSERT 100
-typedef struct crash_reporter_inform_assert {
-    uint32_t event; // CRASH_REPORTER_INFORM_ASSERT
-    uint32_t crash_report_length;
-    char crash_report[];
-} crash_reporter_inform_assert_t;
-
-// XXX(PT): Must match the definition in file_manager_messages.h
-#define FILE_MANAGER_SERVICE_NAME "com.axle.file_manager"
-#define FILE_MANAGER_LAUNCH_FILE 104
-typedef struct file_manager_launch_file_request {
-    uint32_t event; // FILE_MANAGER_LAUNCH_FILE
-    char path[128];
-} file_manager_launch_file_request_t;
 
 bool append(char** buf_head, int32_t* buf_size, const char* format, ...) {
     va_list args;
