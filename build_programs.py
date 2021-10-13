@@ -21,7 +21,21 @@ def build_all_programs(
     only_recently_updated: bool = False, force_rebuild_programs: Optional[List[str]] = None, force_rebuild_all=False
 ) -> None:
     programs_root = Path(__file__).parent / "programs"
-    cross_compile_config = programs_root / "cross_axle.ini"
+
+    # https://github.com/mesonbuild/meson/issues/309
+    # Since Meson won't let us fill in the repo root with an environment variable, 
+    # we have to template the file ourselves...
+    cross_compile_config_path = programs_root / "cross_axle_generated.ini"
+    if not cross_compile_config_path.exists():
+        print(f'Generating cross_axle.ini...')
+        cross_compile_config_template = programs_root / "cross_axle_template.ini"
+        if not cross_compile_config_template.exists():
+            raise ValueError(f'Cross compile template file didn\'t exist!')
+        cross_compile_config = cross_compile_config_template.read_text()
+        cross_compile_config = f'[constants]\n' \
+                               f'axle_repo_root = \'{Path(__file__).parent.as_posix()}\'\n' \
+                               f'{cross_compile_config}'
+        cross_compile_config_path.write_text(cross_compile_config)
 
     meson_dirs = []
     for program_dir in programs_root.iterdir():
@@ -53,10 +67,10 @@ def build_all_programs(
 
         if not build_folder.exists():
             print(f"Running one-time Meson configuration in {program_dir}...")
-            run_and_check(["meson", "build", "--cross-file", cross_compile_config.as_posix()], cwd=program_dir)
+            run_and_check(["meson", "build", "--cross-file", cross_compile_config_path.as_posix()], cwd=program_dir)
 
-        # meson_dirs.append(program_dir)
-        recompile_program(program_dir)
+        meson_dirs.append(program_dir)
+        # recompile_program(program_dir)
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=8) as executor:
         futures = [executor.submit(recompile_program, program_dir) for program_dir in meson_dirs]

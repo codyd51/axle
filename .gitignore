@@ -17,3 +17,4 @@ __pycache__/
 
 i686-toolchain-attempt1/
 /axle-sysroot/usr/i686-axle/lib/
+programs/cross_axle_generated.ini
