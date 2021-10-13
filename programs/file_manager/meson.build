@@ -9,6 +9,7 @@ executable(
     'ui.c', 
     'util.c', 
     'vfs.c', 
+    'tests.c', 
     install: true,
     install_dir: meson.get_cross_property('initrd_dir')
 )

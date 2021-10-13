@@ -16,7 +16,129 @@
 #include "fat.h"
 #include "math.h"
 #include "util.h"
+#include "tests.h"
 #include "file_manager_messages.h"
+
+static void _rpc_create_file(amc_message_t* msg, const char* source_service) {
+	file_manager_create_file_request_t* req = (file_manager_create_file_request_t*)&msg->body;
+
+	bool success = vfs_create_node((char*)req->path, VFS_NODE_TYPE_FILE);
+
+	uint32_t response_size = sizeof(file_manager_create_file_response_t);
+	file_manager_create_file_response_t* resp = calloc(1, response_size);
+	resp->event = FILE_MANAGER_CREATE_FILE_RESPONSE;
+	resp->success = success;
+	printf("File manager responding to %s\n", source_service);
+	amc_message_construct_and_send(source_service, resp, response_size);
+	free(resp);
+}
+
+static void _rpc_create_directory(amc_message_t* msg, const char* source_service) {
+	file_manager_create_directory_request_t* req = (file_manager_create_directory_request_t*)&msg->body;
+
+	bool success = vfs_create_node((char*)req->path, VFS_NODE_TYPE_DIRECTORY);
+
+	uint32_t response_size = sizeof(file_manager_create_directory_response_t);
+	file_manager_create_directory_response_t* resp = calloc(1, response_size);
+	resp->event = FILE_MANAGER_CREATE_DIRECTORY_RESPONSE;
+	resp->success = success;
+	printf("File manager responding to %s\n", source_service);
+	amc_message_construct_and_send(source_service, resp, response_size);
+	free(resp);
+}
+
+static void _rpc_read_file(amc_message_t* msg, const char* source_service) {
+	file_manager_read_file_request_t* req = (file_manager_read_file_request_t*)&msg->body;
+	fs_node_t* desired_file = vfs_find_node_by_path(req->path);
+	assert(desired_file, "Failed to find requested file");
+
+	uint32_t file_size = 0;
+	uint8_t* file_data = NULL;
+
+	if (desired_file->base.type == FS_NODE_TYPE_INITRD) {
+		file_data = initrd_read_file(&desired_file->initrd, &file_size);
+	}
+	else if (desired_file->base.type == FS_NODE_TYPE_FAT) {
+		file_data = fat_read_file(&desired_file->fat, &file_size);
+	}
+	else {
+		assert(false, "Unknown file type");
+	}
+
+	uint32_t response_size = sizeof(file_manager_read_file_response_t) + file_size;
+	file_manager_read_file_response_t* resp = calloc(1, response_size);
+	resp->event = FILE_MANAGER_READ_FILE_RESPONSE;
+	resp->file_size = file_size;
+	memcpy(resp->file_data, file_data, file_size);
+	free(file_data);
+
+	printf("Returning file size 0x%08lx buf 0x%08lx to %s\n", resp->file_size, (uint32_t)resp->file_data, source_service);
+	amc_message_construct_and_send(source_service, resp, response_size);
+	free(resp);
+}
+
+static void _rpc_read_file_partial(amc_message_t* msg, const char* source_service) {
+	file_manager_read_file_partial_request_t* req = (file_manager_read_file_partial_request_t*)&msg->body;
+	fs_node_t* desired_file = vfs_find_node_by_path(req->path);
+	assert(desired_file, "Failed to find requested file");
+	assert(desired_file->base.type == FS_NODE_TYPE_FAT, "Only supported for FAT at the moment");
+
+	uint32_t out_length = 0;
+	uint8_t* file_data = fat_read_file_partial(&desired_file->fat, req->offset, req->length, &out_length);
+
+	uint32_t response_size = sizeof(file_manager_read_file_partial_response_t) + out_length;
+	file_manager_read_file_partial_response_t* resp = calloc(1, response_size);
+	resp->event = FILE_MANAGER_READ_FILE__PARTIAL_RESPONSE;
+	resp->data_length = out_length;
+	memcpy(resp->file_data, file_data, out_length);
+	free(file_data);
+
+	//printf("Returning file size 0x%08lx buf 0x%08lx to %s\n", resp->data_length, (uint32_t)resp->file_data, source_service);
+	amc_message_construct_and_send(source_service, resp, response_size);
+	free(resp);
+}
+
+static void _rpc_launch_file(amc_message_t* msg, const char* source_service) {
+	file_manager_launch_file_request_t* req = (file_manager_launch_file_request_t*)&msg->body;
+	initrd_fs_node_t* desired_file = vfs_find_node_by_path__initrd(req->path);
+	assert(desired_file->base.type == FS_NODE_TYPE_INITRD, "Expected initrd but this is a soft assumption");
+	if (desired_file) {
+		printf("File Manager launching %s upon request\n", req->path);
+		vfs_launch_program_by_node((fs_node_t*)desired_file);
+	}
+	else {
+		printf("Failed to find requested file to launch for %s: %s\n", source_service, req->path);
+	}
+}
+
+static void _rpc_check_file_exists(amc_message_t* msg, const char* source_service) {
+	file_manager_check_file_exists_request_t* req = (file_manager_check_file_exists_request_t*)&msg->body;
+	// Copy the path as we may send and receive other amc messages to read directory data
+	char* path = strdup(req->path);
+
+	fs_node_t* node = vfs_find_node_by_path(path);
+
+	file_manager_check_file_exists_response_t resp = {0};
+	resp.event = FILE_MANAGER_CHECK_FILE_EXISTS_RESPONSE;
+	resp.file_exists = (node != NULL);
+	if (resp.file_exists) {
+		if (node->base.type == FS_NODE_TYPE_FAT) {
+			resp.file_size = node->fat.size;
+		}
+		else if (node->base.type == FS_NODE_TYPE_INITRD) {
+			resp.file_size = node->initrd.size;
+		}
+		else {
+			printf("[FS] Will not provide size for %s as it is a virtual node\n", path);
+		}
+	}
+
+	snprintf(resp.path, sizeof(resp.path), "%s", path);
+
+	printf("File manager responsing to %s\n", source_service);
+	amc_message_construct_and_send(source_service, &resp, sizeof(resp));
+	free(path);
+}
 
 static void _amc_message_received(amc_message_t* msg) {
 	// Copy the source service early
@@ -26,112 +148,36 @@ static void _amc_message_received(amc_message_t* msg) {
 
 	uint32_t event = amc_msg_u32_get_word(msg, 0);
 	//printf("File manager sent event %ld from %s\n", event, source_service);
-	if (event == FILE_MANAGER_READ_FILE) {
-		file_manager_read_file_request_t* req = (file_manager_read_file_request_t*)&msg->body;
-		fs_node_t* desired_file = vfs_find_node_by_path(req->path);
-		assert(desired_file, "Failed to find requested file");
-
-		uint32_t file_size = 0;
-		uint8_t* file_data = NULL;
-
-		if (desired_file->base.type == FS_NODE_TYPE_INITRD) {
-			file_data = initrd_read_file(&desired_file->initrd, &file_size);
-		}
-		else if (desired_file->base.type == FS_NODE_TYPE_FAT) {
-			file_data = fat_read_file(&desired_file->fat, &file_size);
-		}
-		else {
-			assert(false, "Unknown file type");
-		}
-
-		uint32_t response_size = sizeof(file_manager_read_file_response_t) + file_size;
-		file_manager_read_file_response_t* resp = calloc(1, response_size);
-		resp->event = FILE_MANAGER_READ_FILE_RESPONSE;
-		resp->file_size = file_size;
-		memcpy(resp->file_data, file_data, file_size);
-		free(file_data);
-
-		printf("Returning file size 0x%08lx buf 0x%08lx to %s\n", resp->file_size, (uint32_t)resp->file_data, source_service);
-		amc_message_construct_and_send(source_service, resp, response_size);
-		free(resp);
+	switch (event) {
+		case FILE_MANAGER_CREATE_FILE:
+			_rpc_create_file(msg, source_service);
+			break;
+		case FILE_MANAGER_CREATE_DIRECTORY:
+			_rpc_create_directory(msg, source_service);
+			break;
+		case FILE_MANAGER_DELETE_FILE:
+			break;
+		case FILE_MANAGER_DELETE_DIRECTORY:
+			break;
+		case FILE_MANAGER_READ_FILE:
+			_rpc_read_file(msg, source_service);
+			break;
+		case FILE_MANAGER_READ_FILE__PARTIAL:
+			_rpc_read_file_partial(msg, source_service);
+			break;
+		case FILE_MANAGER_WRITE_FILE:
+			break;
+		case FILE_MANAGER_CHECK_FILE_EXISTS:
+			_rpc_check_file_exists(msg, source_service);
+			break;
+		case FILE_MANAGER_LAUNCH_FILE:
+			_rpc_launch_file(msg, source_service);
+			break;
+		default:
+			free(source_service);
+			assert(false, "Unknown message sent to file manager");
+			break;
 	}
-	else if (event == FILE_MANAGER_READ_FILE__PARTIAL) {
-		file_manager_read_file_partial_request_t* req = (file_manager_read_file_partial_request_t*)&msg->body;
-		fs_node_t* desired_file = vfs_find_node_by_path(req->path);
-		assert(desired_file, "Failed to find requested file");
-		assert(desired_file->base.type == FS_NODE_TYPE_FAT, "Only supported for FAT at the moment");
-
-		uint32_t out_length = 0;
-		uint8_t* file_data = fat_read_file_partial(&desired_file->fat, req->offset, req->length, &out_length);
-
-		uint32_t response_size = sizeof(file_manager_read_file_partial_response_t) + out_length;
-		file_manager_read_file_partial_response_t* resp = calloc(1, response_size);
-		resp->event = FILE_MANAGER_READ_FILE__PARTIAL_RESPONSE;
-		resp->data_length = out_length;
-		memcpy(resp->file_data, file_data, out_length);
-		free(file_data);
-
-		//printf("Returning file size 0x%08lx buf 0x%08lx to %s\n", resp->data_length, (uint32_t)resp->file_data, source_service);
-		amc_message_construct_and_send(source_service, resp, response_size);
-		free(resp);
-	}
-	else if (event == FILE_MANAGER_LAUNCH_FILE) {
-		file_manager_launch_file_request_t* req = (file_manager_launch_file_request_t*)&msg->body;
-		initrd_fs_node_t* desired_file = vfs_find_node_by_path__initrd(req->path);
-		assert(desired_file->base.type == FS_NODE_TYPE_INITRD, "Expected initrd but this is a soft assumption");
-		if (desired_file) {
-			printf("File Manager launching %s upon request\n", req->path);
-			vfs_launch_program_by_node((fs_node_t*)desired_file);
-		}
-		else {
-			printf("Failed to find requested file to launch for %s: %s\n", source_service, req->path);
-		}
-	}
-	else if (event == FILE_MANAGER_CREATE_DIRECTORY) {
-		file_manager_create_directory_request_t* req = (file_manager_create_directory_request_t*)&msg->body;
-
-		bool success = vfs_create_directory((char*)req->path);
-
-		uint32_t response_size = sizeof(file_manager_create_directory_response_t);
-		file_manager_create_directory_response_t* resp = calloc(1, response_size);
-		resp->event = FILE_MANAGER_CREATE_DIRECTORY_RESPONSE;
-		resp->success = success;
-		printf("File manager responsing to %s\n", source_service);
-		amc_message_construct_and_send(source_service, resp, response_size);
-		free(resp);
-	}
-	else if (event == FILE_MANAGER_CHECK_FILE_EXISTS) {
-		file_manager_check_file_exists_request_t* req = (file_manager_check_file_exists_request_t*)&msg->body;
-		// Copy the path as we may send and receive other amc messages to read directory data
-		char* path = strdup(req->path);
-
-		fs_node_t* node = vfs_find_node_by_path(path);
-
-		file_manager_check_file_exists_response_t resp = {0};
-		resp.event = FILE_MANAGER_CHECK_FILE_EXISTS_RESPONSE;
-		resp.file_exists = (node != NULL);
-		if (resp.file_exists) {
-			if (node->base.type == FS_NODE_TYPE_FAT) {
-				resp.file_size = node->fat.size;
-			}
-			else if (node->base.type == FS_NODE_TYPE_INITRD) {
-				resp.file_size = node->initrd.size;
-			}
-			else {
-				printf("[FS] Will not provide size for %s as it is a virtual node\n", path);
-			}
-		}
-
-		snprintf(resp.path, sizeof(resp.path), "%s", path);
-
-		printf("File manager responsing to %s\n", source_service);
-		amc_message_construct_and_send(source_service, &resp, sizeof(resp));
-		free(path);
-	}
-	else {
-		assert(false, "Unknown message sent to file manager");
-	}
-
 	free(source_service);
 }
 
@@ -156,12 +202,20 @@ static void flash_initrd_file_to_hdd(fat_fs_node_t* parent_directory, const char
 }
 
 static void doom_install(void) {
-	vfs_create_directory("/hdd/doomdata");
 	fat_fs_node_t* dir = vfs_find_node_by_path__fat("/hdd/doomdata");
+	if (!dir) {
+		vfs_create_node("/hdd/doomdata", VFS_NODE_TYPE_DIRECTORY);
+		dir = vfs_find_node_by_path__fat("/hdd/doomdata");
+		assert(dir != NULL, "Created directory but it was still NULL?");
+	}
 	// Why does doom1.wad parse as doom.wad before rebooting?
 	//flash_initrd_file_to_hdd(dir, "doom.wad", "doom", "wad");
 	if (!vfs_find_node_by_path("/hdd/doomdata/doom1.wad")) {
+		printf("Flashing DOOM1.WAD...\n");
 		flash_initrd_file_to_hdd(dir, "doom1.wad", "doom1", "wad");
+	}
+	else {
+		printf("Do not need to flash DOOM1.WAD");
 	}
 	//flash_initrd_file_to_hdd(dir, "nos4.wad", "nos4", "wad");
 	// TODO(PT): Do FAT files work without an extension?
@@ -172,6 +226,11 @@ static void doom_install(void) {
 int main(int argc, char** argv) {
 	amc_register_service(FILE_MANAGER_SERVICE_NAME);
 
+	char* root_path = "/";
+	fs_base_node_t* root = fs_node_create__directory(NULL, root_path, strlen(root_path));
+	root->type = FS_NODE_TYPE_ROOT;
+	vfs__set_root_node(root);
+
 	// Ask the kernel to map in the ramdisk and send us info about it
 	amc_msg_u32_1__send(AXLE_CORE_SERVICE_NAME, AMC_FILE_MANAGER_MAP_INITRD);
 	amc_message_t* msg;
@@ -181,19 +240,21 @@ int main(int argc, char** argv) {
 	amc_initrd_info_t* initrd_info = (amc_initrd_info_t*)msg->body;
 	printf("Recv'd initrd info!\n");
 	printf("0x%08lx 0x%08lx (0x%08lx bytes)\n", initrd_info->initrd_start, initrd_info->initrd_end, initrd_info->initrd_size);
-
-	char* root_path = "/";
-	fs_base_node_t* root = fs_node_create__directory(NULL, root_path, strlen(root_path));
-	root->type = FS_NODE_TYPE_ROOT;
-	vfs__set_root_node(root);
+	// Must do this before receiving more amc messages
+	initrd_parse_from_amc(root, initrd_info);
 
 	//fat_format_drive(ATA_DRIVE_MASTER);
 
 	// Initialise vfs from storage
-	initrd_parse_from_amc(root, initrd_info);
-	fat_parse_from_disk(root);
+	//fat_parse_from_disk(root);
 
 	print_fs_tree((fs_node_t*)root, 0);
+
+	/*
+	tests_init();
+	test_create_file();
+	test_file_read_partial();
+	*/
 
 	//doom_install();
 
