@@ -16,7 +16,7 @@ LD = $(TOOLCHAIN)/bin/i686-elf-ld
 
 CC = $(TOOLCHAIN)/bin/i686-elf-gcc
 SYSROOT = $(dir $(realpath $(firstword $(MAKEFILE_LIST))))axle-sysroot/
-CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -I$(SRC_DIR)
+CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -I$(SRC_DIR) -I$(SYSROOT)/usr/i686-axle/include
 LDFLAGS = -ffreestanding -nostdlib -lgcc -T $(RESOURCES)/linker.ld
 
 # Tools
