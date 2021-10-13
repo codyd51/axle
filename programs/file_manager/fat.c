@@ -16,6 +16,9 @@ void fat_cache_invalidate_table_sector(uint32_t fat_table_sector_idx);
 
 static fat_drive_info_t _g_fat_drive_info = {0};
 
+// TODO(PT): Read this from the ATA driver?
+static uint32_t _g_disk_size_in_bytes = 64 * 1024 * 1024;
+
 fat_drive_info_t fat_drive_info(void) {
 	return _g_fat_drive_info;
 }
@@ -30,7 +33,7 @@ void fat_format_drive(ata_drive_t drive) {
 	// TODO(PT): Pull disk size & sector size from ATA driver. For now, assume 4MB
 	fat_drive_info_t* drive_info = &_g_fat_drive_info;
 	drive_info->sector_size = 512;
-	drive_info->disk_size_in_bytes = 64 * 1024 * 1024;
+	drive_info->disk_size_in_bytes = _g_disk_size_in_bytes;
 	drive_info->sectors_on_disk = drive_info->disk_size_in_bytes / drive_info->sector_size;
 	printf("[FAT] Sectors on disk: %ld\n", drive_info->sectors_on_disk);
 
@@ -321,7 +324,7 @@ fat_fs_node_t* fat_parse_from_disk(fs_base_node_t* vfs_root) {
 	// TODO(PT): If the disk has been formatted, read these values from disk
 	// Otherwise, format the disk and store them
 	_g_fat_drive_info.sector_size = 512;
-	_g_fat_drive_info.disk_size_in_bytes = 64 * 1024 * 1024;
+	_g_fat_drive_info.disk_size_in_bytes = _g_disk_size_in_bytes;
 
 	_g_fat_drive_info.sectors_on_disk = _g_fat_drive_info.disk_size_in_bytes / _g_fat_drive_info.sector_size;
 	_g_fat_drive_info.fat_entries_per_sector = _g_fat_drive_info.sector_size / sizeof(fat_entry_t);
