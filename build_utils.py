@@ -1,26 +1,34 @@
 #!/usr/local/bin/python3
-import os
 import io
-import sys
+import os
 import selectors
+import shutil
 import subprocess
+import sys
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Optional
+
+import requests
 
 
 def sysroot_copy_needs_update(source_path: Path, sysroot_path: Path) -> bool:
     return os.stat(source_path.as_posix()).st_mtime - os.stat(sysroot_path.as_posix()).st_mtime > 1
 
 
-def run_and_check(cmd_list: List[str], cwd: Path = None) -> None:
-    status = subprocess.run(cmd_list, cwd=cwd.as_posix() if cwd else None)
+def run_and_check(cmd_list: List[str], cwd: Path = None, env_additions: Optional[Dict[str, str]] = None) -> None:
+    env = {}
+    if env_additions:
+        env = os.environ.copy()
+        for k, v in env_additions.items():
+            env[k] = v
+
+    status = subprocess.run(cmd_list, cwd=cwd.as_posix() if cwd else None, env=env if env_additions else None)
     if status.returncode != 0:
         raise RuntimeError(f'Running "{" ".join(cmd_list)}" failed with exit code {status.returncode}')
 
 
 def run_and_capture_output_and_check(cmd_list: List[str], cwd: Path) -> None:
-    """Beware this will strip ASCII escape codes, so you'll lose colors.
-    """
+    """Beware this will strip ASCII escape codes, so you'll lose colors."""
     # https://gist.github.com/nawatts/e2cdca610463200c12eac2a14efc0bfb
     # Start subprocess
     # bufsize = 1 means output is line buffered
@@ -36,6 +44,7 @@ def run_and_capture_output_and_check(cmd_list: List[str], cwd: Path) -> None:
 
     # Create callback function for process output
     buf = io.StringIO()
+
     def handle_output(stream, mask):
         # Because the process' output is line buffered, there's only ever one
         # line to read when this function is called
@@ -65,5 +74,36 @@ def run_and_capture_output_and_check(cmd_list: List[str], cwd: Path) -> None:
 
     if return_code != 0:
         raise RuntimeError(f'Running "{" ".join(cmd_list)}" failed with exit code {return_code}')
-    
+
     return output
+
+
+def download_file(directory: Path, url: str) -> Path:
+    local_filename = url.split("/")[-1]
+    download_path = directory / local_filename
+    print(f"Downloading {url} to {download_path}...")
+    # NOTE the stream=True parameter below
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(download_path.as_posix(), "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+    return download_path
+
+
+def download_and_unpack_archive(parent: Path, url: str) -> Path:
+    if not url.endswith(".tar.gz"):
+        raise ValueError(f"Expected URL pointing to a .tar.gz, got: {url}")
+
+    archive = download_file(parent, url)
+    folder_name = url.split("/")[-1].removesuffix(".tar.gz")
+    print(f"Got {folder_name} archive at {archive}")
+
+    shutil.unpack_archive(archive.as_posix(), parent.as_posix())
+    folder_path = parent / folder_name
+
+    if not folder_path.exists():
+        raise ValueError(f"Expected directory was not extracted: {folder_path}")
+
+    print(f"Extracted {folder_name} to {folder_path}")
+    return folder_path
