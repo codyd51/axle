@@ -4,20 +4,19 @@
 //Intel-defined GDT structure formats
 //this structure has a carefully defined format which we must preserve
 //see here for format: http://wiki.osdev.org/Global_Descriptor_Table
-struct gdt_entry {
+typedef struct gdt_entry {
     uint32_t low_word;
     uint32_t high_word;
-} __attribute__((packed));
-typedef struct gdt_entry gdt_entry_t;
+} __attribute__((packed)) gdt_entry_t;
 
-struct gdt_descriptor {
+typedef struct gdt_pointer {
     uint16_t table_size;
+    // TODO(PT): x86_64 (32 bit on 32)
     uint32_t table_base;
-} __attribute__((packed));
-typedef struct gdt_descriptor gdt_descriptor_t;
+} __attribute__((packed)) gdt_pointer_t;
 
 //defined in gdt.s
-extern void gdt_activate(uint32_t* gdt_pointer);
+extern void gdt_activate(gdt_pointer_t* gdt_pointer);
 
 //This implementation was modified from an excerpt on http://wiki.osdev.org/GDT_Tutorial
 // Each define here is for a specific flag in the descriptor.
@@ -63,11 +62,24 @@ extern void gdt_activate(uint32_t* gdt_pointer);
                      SEG_LONG(0)     | SEG_SIZE(1) | SEG_GRAN(1) | \
                      SEG_PRIV(3)     | SEG_DATA_RDWR
 
+// AMD64 Architecture Programmer's Manual Vol. 2
+// "If the processor is running in 64-bit mode (L=1), the only valid setting of the D bit is 0."
+#define GDT_CODE_R0_x64 SEG_DESCTYPE(0) | SEG_PRES(1)   | SEG_SAVL(0)   | \
+                        SEG_LONG(1)     | SEG_SIZE(1)   | SEG_GRAN(1)   | \
+                        SEG_PRIV(0)     | SEG_CODE_EXRD
+
+#define GDT_DATA_R0_x64 SEG_DESCTYPE(1) | SEG_PRES(1)   | SEG_SAVL(0)   | \
+                        SEG_LONG(1)     | SEG_SIZE(1)   | SEG_GRAN(1)   | \
+                        SEG_PRIV(0)     | SEG_DATA_RDWR
+
 //Offsets into GDT for each descriptor
 #define GDT_BYTE_INDEX_NULL_DESCRIPTOR 0x00
 #define GDT_BYTE_INDEX_KERNEL_CODE 0x08
 #define GDT_BYTE_INDEX_KERNEL_DATA 0x10
 #define GDT_BYTE_INDEX_USER_CODE 0x18
 #define GDT_BYTE_INDEX_USER_DATA 0x20
+
+#define SEGMENT_INDEX(seg) ((seg & 0x7) << 3)
+#define SEGMENT_RPL_KERNEL (0)
 
 #endif 
