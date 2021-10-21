@@ -10,9 +10,12 @@ from build_utils import sysroot_copy_needs_update
 
 
 def copy_kernel_headers():
+    arch = "x86_64"
+
     src_root = Path(__file__).parent / "kernel"
+    bootloader_root = Path(__file__).parent / "bootloader"
     sysroot = Path(__file__).parent / "axle-sysroot"
-    include_dir = sysroot / "usr" / "i686-axle" / "include"
+    include_dir = sysroot / "usr" / f"{arch}-axle" / "include"
     newlib_axle_root = (
         Path(__file__).parent / "ports" / "newlib" / "newlib-2.5.0.20171222" / "newlib" / "libc" / "sys" / "axle"
     )
@@ -34,10 +37,10 @@ def copy_kernel_headers():
     ]
 
     for source_path, include_path in headers_to_copy:
+        include_path.parent.mkdir(exist_ok=True, parents=True)
         # If the files are identical, no need to copy
-        if sysroot_copy_needs_update(source_path, include_path):
+        if not include_path.exists() or sysroot_copy_needs_update(source_path, include_path):
             print(f"Copying kernel source tree {source_path} to sysroot path {include_path}")
-            include_path.parent.mkdir(exist_ok=True, parents=True)
             if source_path.is_dir():
                 copy_tree(source_path.as_posix(), include_path.as_posix())
             else:
