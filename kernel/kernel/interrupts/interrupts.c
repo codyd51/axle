@@ -2,7 +2,6 @@
 #include "idt_structures.h"
 #include "idt.h"
 #include "cpu_fault_handlers.h"
-#include "int_notifier.h"
 
 #include <std/common.h>
 
@@ -37,7 +36,7 @@ void dump_stack(uint32_t* mem) {
 	NotImplemented();
 }
 
-//gets called from ASM interrupt handler stub
+// Called from ASM interrupt handler stub
 int isr_receive(register_state_t* regs) {
 	int ret = 0;
 	uint8_t int_no = regs->int_no;
@@ -48,15 +47,14 @@ int isr_receive(register_state_t* regs) {
 	else {
 		printf("Unhandled interrupt: %d\n", int_no);
 	}
-
 	return ret;
 }
 
 //gets called from ASM interrupt handler stub
 void irq_receive(register_state_t* regs) {
+	int ret = 0;
 	uint8_t int_no = regs->int_no;
 
-	int ret = 0;
 	if (interrupt_handlers[int_no] != 0) {
 		int_callback_t handler = interrupt_handlers[int_no];
 		ret = handler(regs);
@@ -71,11 +69,8 @@ void irq_receive(register_state_t* regs) {
 	if (!adi_services_interrupt(int_no) && int_no != INT_VECOR_IRQ0) {
 		pic_signal_end_of_interrupt(int_no);
 	}
-
 	return ret;
 }
-
-
 
 static void interrupt_setup_error_callbacks(void) {
     interrupt_setup_callback(0, &interrupt_handle_divide_by_zero);
