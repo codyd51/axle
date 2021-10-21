@@ -1,0 +1,6 @@
+[GLOBAL idt_activate]
+idt_activate:
+    ; https://aaronbloomfield.github.io/pdr/book/x86-64bit-ccc-chapter.pdf
+    ; IDT pointer is passed as the first paraameter 
+    lidt [rdi]
+    ret
