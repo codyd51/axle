@@ -10,6 +10,7 @@ isodir/
 *.a
 .DS_Store
 i686-toolchain/
+x86_64-toolchain/
 initrd/
 
 .vscode/
@@ -18,3 +19,11 @@ __pycache__/
 i686-toolchain-attempt1/
 /axle-sysroot/usr/i686-axle/lib/
 programs/cross_axle_generated.ini
+
+# Arch specific files that are staged based on the current architecture
+kernel/boot/boot.s
+kernel/kernel/util/walk_stack.s
+kernel/kernel/multitasking/tasks/process_small.s
+kernel/kernel/segmentation/gdt_activate.s
+kernel/kernel/interrupts/idt_activate.s
+kernel/kernel/interrupts/int_handler_stubs.s
