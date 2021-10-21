@@ -27,7 +27,7 @@ def run_and_check(cmd_list: List[str], cwd: Path = None, env_additions: Optional
         raise RuntimeError(f'Running "{" ".join(cmd_list)}" failed with exit code {status.returncode}')
 
 
-def run_and_capture_output_and_check(cmd_list: List[str], cwd: Path) -> None:
+def run_and_capture_output_and_check(cmd_list: List[str], cwd: Path = None) -> str:
     """Beware this will strip ASCII escape codes, so you'll lose colors."""
     # https://gist.github.com/nawatts/e2cdca610463200c12eac2a14efc0bfb
     # Start subprocess
@@ -35,7 +35,7 @@ def run_and_capture_output_and_check(cmd_list: List[str], cwd: Path) -> None:
     # universal_newlines = True is required for line buffering
     process = subprocess.Popen(
         cmd_list,
-        cwd=cwd.as_posix(),
+        cwd=cwd.as_posix() if cwd else None,
         bufsize=1,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
