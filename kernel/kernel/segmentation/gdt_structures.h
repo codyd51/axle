@@ -11,7 +11,6 @@ typedef struct gdt_entry {
 
 typedef struct gdt_pointer {
     uint16_t table_size;
-    // TODO(PT): x86_64 (32 bit on 32)
     uint32_t table_base;
 } __attribute__((packed)) gdt_pointer_t;
 

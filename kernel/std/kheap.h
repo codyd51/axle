@@ -2,8 +2,7 @@
 #define _LIBALLOC_H
 
 #include <stdint.h>
-
-#define size_t uint32_t
+#include <stddef.h>
 
 /** \defgroup ALLOCHOOKS liballoc hooks 
  *

@@ -14,7 +14,6 @@ __BEGIN_DECLS
 #define kernel_begin_critical() __asm__("cli");
 #define kernel_end_critical() __asm__("sti");
 
-typedef register_state_t registers_t;
 
 
 //write byte to port

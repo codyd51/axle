@@ -21,12 +21,6 @@
 #include <kernel/segmentation/gdt_structures.h>
 #include "task_small.h"
 
-//function defined in asm which returns the current instruction pointer
-uint32_t read_eip();
-//defined in asm
-//performs actual task switch
-void task_switch_real(uint32_t eip, uint32_t paging_dir, uint32_t ebp, uint32_t esp);
-
 //magic value placed in eax at end of task switch
 //we read eax when trying to catch current eip
 //if this value is in eax, we know we already caught eip and that the task switch is over, so it should return immediately

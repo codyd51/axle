@@ -35,7 +35,7 @@ static adi_driver_t* _adi_driver_matching_data(const char* name, task_small_t* t
     return NULL;
 }
 
-static void _adi_interrupt_handler(registers_t* regs) {
+static void _adi_interrupt_handler(register_state_t* regs) {
     // Wake up the driver thread that services this interrupt
     int irq = regs->int_no;
     assert(irq > 0 && irq < MAX_INT_VECTOR, "Invalid IRQ provided");

@@ -149,7 +149,7 @@ typedef union
 		representation of the floating-point number.
 	*/
 
-	#include <inttypes.h>
+	//#include <inttypes.h>
 
 	typedef uint64_t BoundKeyType;
 

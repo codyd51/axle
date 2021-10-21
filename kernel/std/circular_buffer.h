@@ -2,7 +2,7 @@
 #define CIRCULAR_BUF_H
 
 #include <stdint.h>
-#define size_t uint32_t
+#include <stddef.h>
 
 typedef struct circular_buffer {
     char *buffer;     // data buffer
