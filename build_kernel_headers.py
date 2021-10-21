@@ -29,6 +29,8 @@ def copy_kernel_headers():
         (newlib_axle_root / "array.h", include_dir / "stdlibadd" / "array.h"),
         (newlib_axle_root / "assert.h", include_dir / "stdlibadd" / "assert.h"),
         (newlib_axle_root / "sleep.h", include_dir / "stdlibadd" / "sleep.h"),
+        # Copy bootloader header to the sysroot
+        (bootloader_root / "axle_boot_info.h", include_dir / "bootloader" / "axle_boot_info.h"),
     ]
 
     for source_path, include_path in headers_to_copy:
