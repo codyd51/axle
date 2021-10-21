@@ -257,7 +257,11 @@ typedef enum {
 
 static int print_common(print_destination dest, const char* fmt, va_list va) {
     if (dest != PRINT_DESTINATION_TEXT_MODE && dest != PRINT_DESTINATION_SERIAL) {
-        ASSERT(0, "print_common called with bad args");
+        assert(0, "print_common called with bad args");
+        return -1;
+    }
+    if (dest == PRINT_DESTINATION_TEXT_MODE) {
+        assert(dest != PRINT_DESTINATION_TEXT_MODE, "Deprecated");
         return -1;
     }
 
@@ -265,20 +269,7 @@ static int print_common(print_destination dest, const char* fmt, va_list va) {
     char buf[512];
 
     ret = vsnprintf((char*)buf, sizeof(buf), fmt, va);
-    //TODO(PT): the buffered string should be sent to an stdout handle
     switch (dest) {
-        case PRINT_DESTINATION_TEXT_MODE:
-            /*
-            if (!gfx_screen()) {
-                text_mode_puts(buf);
-            }
-            else {
-                gfx_terminal_puts(buf);
-            }
-            */
-            // Always mirror text-mode output to the syslog
-            serial_puts(buf);
-            break;
         case PRINT_DESTINATION_SERIAL:
         default:
             serial_puts(buf);
@@ -291,7 +282,7 @@ static int print_common(print_destination dest, const char* fmt, va_list va) {
 int printf(const char* format, ...) {
     va_list arg_list;
     va_start(arg_list, format);
-    int ret = print_common(PRINT_DESTINATION_TEXT_MODE, format, arg_list);
+    int ret = print_common(PRINT_DESTINATION_SERIAL, format, arg_list);
     va_end(arg_list);
     return ret;
 }
@@ -315,10 +306,11 @@ static int print_annotated_common(print_destination dest, const char* prefix, co
     return total_len;
 }
 
+// TODO(PT): Drop printf() or printk() as the variants now do the same thing
 int printf_dbg(const char* format, ...) {
     va_list va;
     va_start(va, format);
-    int ret = print_annotated_common(PRINT_DESTINATION_TEXT_MODE, "[debug ", "]\n", format, va);
+    int ret = print_annotated_common(PRINT_DESTINATION_SERIAL, "[debug ", "]\n", format, va);
     va_end(va);
     return ret;
 }
@@ -334,7 +326,7 @@ int printk_dbg(const char* format, ...) {
 int printf_info(const char* format, ...) {
     va_list va;
     va_start(va, format);
-    int ret = print_annotated_common(PRINT_DESTINATION_TEXT_MODE, "[info ", "]\n", format, va);
+    int ret = print_annotated_common(PRINT_DESTINATION_SERIAL, "[info ", "]\n", format, va);
     va_end(va);
     return ret;
 }
@@ -350,7 +342,7 @@ int printk_info(const char* format, ...) {
 int printf_err(const char* format, ...) {
     va_list va;
     va_start(va, format);
-    int ret = print_annotated_common(PRINT_DESTINATION_TEXT_MODE, "[error ", "]\n", format, va);
+    int ret = print_annotated_common(PRINT_DESTINATION_SERIAL, "[error ", "]\n", format, va);
     va_end(va);
     return ret;
 }
