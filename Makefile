@@ -7,24 +7,29 @@ ISO_NAME = axle.iso
 OBJ_DIR = .objs
 SRC_DIR = kernel
 
-TOOLCHAIN ?= ./i686-toolchain
+ARCH = x86_64
+
+TOOLCHAIN ?= ./$(ARCH)-toolchain
 
 # Compilers and flags
 AS = nasm
-AFLAGS = -f elf
-LD = $(TOOLCHAIN)/bin/i686-elf-ld
+# AFLAGS = -f elf
+AFLAGS = -f elf64
+LD = $(TOOLCHAIN)/bin/$(ARCH)-elf-ld
 
-CC = $(TOOLCHAIN)/bin/i686-elf-gcc
+CC = $(TOOLCHAIN)/bin/$(ARCH)-elf-gcc
 SYSROOT = $(dir $(realpath $(firstword $(MAKEFILE_LIST))))axle-sysroot/
-CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -I$(SRC_DIR) -I$(SYSROOT)/usr/i686-axle/include
-LDFLAGS = -ffreestanding -nostdlib -lgcc -T $(RESOURCES)/linker.ld
+CFLAGS = -g -ffreestanding -std=gnu99 -Wall -Wextra -I$(SRC_DIR) -I$(SYSROOT)/usr/$(ARCH)-axle/include
+LDFLAGS = -ffreestanding -nostdlib  -nostdlib -z max-page-size=0x1000 -Ttext=0x01000000 -lgcc #-T $(RESOURCES)/linker.ld
 
 # Tools
 ISO_MAKER = $(TOOLCHAIN)/bin/grub-mkrescue
+# Always use x86_64 even when targeting i686, as doing so allows us to use the host CPU
+# i686 code will be run in compatibility mode by the host CPU
 EMULATOR = qemu-system-x86_64
 FSGENERATOR = fsgen
 
-GDB = $(TOOLCHAIN)/bin/i686-elf-gdb
+GDB = $(TOOLCHAIN)/bin/$(ARCH)-elf-gdb
 GDB_FLAGS = -x script.gdb
 
 # Functions
@@ -34,7 +39,6 @@ getobjs = $(foreach ext, c s, $(filter %.o,$(patsubst %.$(ext),%.o,$(1))))
 # Source files
 PATHS = $(shell find $(SRC_DIR) -type d -print)
 PATHS := $(foreach f,$(PATHS),$(if $(filter extern,$(subst /, ,$f)),,$f))
-#PATHS := $(filter-out, , $(PATHS))
 
 AXLE_FILES = $(foreach path, $(PATHS), $(call findfiles, $(path)))
 
@@ -80,7 +84,7 @@ $(ISO_DIR)/boot/initrd.img: $(FSGENERATOR)
 	@./$(FSGENERATOR) $(INITRD); mv $(INITRD).img $@
 
 $(ISO_NAME): $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg 
-	$(ISO_MAKER) -d ./i686-toolchain/lib/grub/i386-pc -o $@ $(ISO_DIR)
+	$(ISO_MAKER) -d ./$(ARCH)-toolchain/lib/grub/i386-pc -o $@ $(ISO_DIR)
 
 run: $(ISO_NAME)
 	echo 'Run starting' > syslog.log

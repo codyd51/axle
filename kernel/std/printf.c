@@ -2,7 +2,6 @@
 #include <stdarg.h>
 #include <limits.h>
 
-#include <kernel/drivers/text_mode/text_mode.h>
 #include <std/string.h>
 #include <kernel/assert.h>
 
