@@ -1,13 +1,13 @@
-//freestanding headers
+// Freestanding headers
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-//kernel stdlib headers
+// Kernel stdlib headers
 #include <std/printf.h>
 #include <std/string.h>
 
-//kernel headers
+// Kernel headers
 #include <kernel/multiboot.h>
 #include <kernel/boot.h>
 #include <kernel/elf.h>
@@ -16,20 +16,17 @@
 #include <kernel/segmentation/gdt.h>
 #include <kernel/interrupts/interrupts.h>
 
-//kernel drivers
+// Kernel drivers
 #include <kernel/drivers/kb/kb.h>
 #include <kernel/drivers/mouse/mouse.h>
 #include <kernel/drivers/pit/pit.h>
 #include <kernel/drivers/serial/serial.h>
-#include <kernel/drivers/text_mode/text_mode.h>
 
-//higher-level kernel features
+// Higher-level kernel features
 #include <std/kheap.h>
 #include <kernel/pmm/pmm.h>
 #include <kernel/vmm/vmm.h>
 #include <kernel/syscall/syscall.h>
-
-//testing!
 #include <kernel/multitasking/tasks/task_small.h>
 #include <kernel/util/amc/amc.h>
 
