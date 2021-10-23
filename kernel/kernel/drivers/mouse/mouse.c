@@ -1,11 +1,6 @@
 #include "mouse.h"
-#include <std/math.h>
 #include <std/std.h>
-#include <kernel/util/vfs/fs.h>
-#include <kernel/util/adi/adi.h>
 #include <kernel/drivers/ps2/ps2.h>
-#include <kernel/interrupts/idt.h>
-#include <kernel/interrupts/interrupts.h>
 
 #define PS2_MOUSE_CMD_SET_DEFAULT_SETTINGS 0xF6
 #define PS2_MOUSE_CMD_ENABLE_DATA_REPORTING 0xF4
@@ -45,16 +40,6 @@ void ps2_mouse_enable(void) {
 
 void mouse_event_wait() {
 	Deprecated();
-}
-
-static inline Size screen_dimensions() {
-	Deprecated();
-	return size_make(0, 0);
-}
-
-Point mouse_point() {
-	Deprecated();
-	return point_make(0, 0);
 }
 
 uint8_t mouse_events() {

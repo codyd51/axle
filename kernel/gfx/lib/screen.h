@@ -20,11 +20,8 @@ typedef struct screen_t {
 
 	ca_layer* vmem; //raw framebuffer pushed to screen
 	Window* window; //root window
-	array_m* surfaces;
 } Screen;
 
-//fill double buffer with a given Color
-void fill_screen(Screen* screen, Color color);
 //copy all double buffer data to real screen
 void write_screen(Screen* screen);
 //copy 'region' from double buffer to real screen

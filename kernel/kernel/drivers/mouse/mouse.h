@@ -1,8 +1,8 @@
 #ifndef MOUSE_H
 #define MOUSE_H
 
-#include <gfx/lib/shapes.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 // TODO(PT): use this!
 typedef struct mouse_button_state {
@@ -15,9 +15,6 @@ typedef struct mouse_button_state {
 void ps2_mouse_enable(void);
 // Kernel calls this to launch the mouse driver
 void ps2_mouse_driver_launch(void);
-
-//return current mouse coordinates, bounded by VESA 0x118 resolution
-Point mouse_point();
 
 //returns current button states in bitmask
 //0th bit is left button state

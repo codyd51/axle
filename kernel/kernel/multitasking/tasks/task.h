@@ -8,9 +8,7 @@
 //#include <kernel/multitasking//std_stream.h>
 #include <gfx/lib/gfx.h>
 #include <gfx/lib/rect.h>
-#include <gfx/lib/window.h>
 #include <kernel/util/ipc/ipc.h>
-#include <gfx/lib/surface.h>
 
 #define KERNEL_STACK_SIZE 4096 //use 4kb kernel stack
 #define FD_MAX 64
@@ -201,8 +199,6 @@ task_t* task_list();
 //create window with frame 'frame',
 //and add to current task's list of registered windows
 Window* task_register_window(Rect frame);
-
-void task_register_surface(Surface* s, char* kernel_base);
 
 void move_stack(void* new_stack_start, uint32_t size);
 

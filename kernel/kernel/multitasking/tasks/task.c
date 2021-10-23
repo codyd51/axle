@@ -12,7 +12,6 @@
 #include <kernel/util/mutex/mutex.h>
 #include "record.h"
 #include <gfx/lib/gfx.h>
-#include <user/xserv/xserv.h>
 #include <kernel/multitasking//pipe.h>
 #include <kernel/multitasking//std_stream.h>
 #include <kernel/multitasking//fd.h>

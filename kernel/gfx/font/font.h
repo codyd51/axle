@@ -3,7 +3,7 @@
 
 #include <std/common.h>
 #include <gfx/lib/color.h>
-#include <gfx/lib/view.h>
+#include <gfx/lib/ca_layer.h>
 
 #define CHAR_WIDTH 8
 #define CHAR_HEIGHT 8

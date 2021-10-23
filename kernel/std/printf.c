@@ -220,6 +220,8 @@ int vsnprintf(char *buffer, unsigned int buffer_len, const char *fmt, va_list va
                     buf_puts(ptr, strlen(ptr), &b);
                     break;
 
+                // PT: x86_64 floating point in kernel disabled
+                /*
                 case 'f' :
                     //no-op because we can't have a declaration directly after a label
                     do {} while (0);
@@ -228,6 +230,7 @@ int vsnprintf(char *buffer, unsigned int buffer_len, const char *fmt, va_list va
                     ftoa_fixed(bf, float_val);
                     buf_puts(bf, strlen(bf), &b);
                     break;
+                */
 
                 default:
                     buf_putc(ch, &b);

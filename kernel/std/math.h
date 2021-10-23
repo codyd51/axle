@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 #include "std_base.h"
-#include "sincostan.h"
 
 __BEGIN_DECLS
 

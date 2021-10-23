@@ -1,8 +1,9 @@
 #include <std/std.h>
 #include <gfx/lib/gfx.h>
-#include <gfx/lib/view.h>
-#include "font8x8.h"
 #include <std/math.h>
+
+#include "font8x8.h"
+#include "font.h"
 
 //TODO configurable SSAA factor?
 //#define SSAA_FACTOR 4

@@ -4,13 +4,9 @@
 #include <kernel/util/paging/paging.h>
 #include <kernel/util/elf/elf.h>
 #include <kernel/util/unistd/unistd.h>
-#include <user/xserv/api.h>
 #include <gfx/lib/gfx.h>
-#include <gfx/lib/window.h>
 #include <gfx/lib/rect.h>
-#include <user/xserv/xserv.h>
 #include <kernel/util/shmem/shmem.h>
-#include <gfx/lib/surface.h>
 #include <kernel/util/amc/amc.h>
 #include <kernel/drivers/pit/pit.h>
 #include <kernel/assert.h>
@@ -50,19 +46,6 @@ int sysfork() {
 	//return fork(current_task->name);
 }
 
-char* shmem_create(uint32_t size) {
-	task_t* current = task_with_pid(getpid());
-	return shmem_get_region_and_map(current->page_dir, size, 0x0, NULL, true);
-}
-
-Surface* surface_create(uint32_t width, uint32_t height) {
-	return surface_make(width, height, getpid());
-}
-
-int aipc_send(char* data, uint32_t size, uint32_t dest_pid, char** destination) {
-	return ipc_send(data, size, dest_pid, destination);
-}
-
 static void task_assert_wrapper(const char* cmd) {
 	task_assert(false, cmd, NULL);
 }
@@ -85,38 +68,28 @@ DEFN_SYSCALL(getpid, 14);
 DEFN_SYSCALL(waitpid, 15, int, int*, int);
 DEFN_SYSCALL(task_with_pid, 16, int);
 
-DEFN_SYSCALL(xserv_win_create, 17, Window*, Rect*);
-DEFN_SYSCALL(xserv_win_present, 18, Window*);
-DEFN_SYSCALL(xserv_win_destroy, 19, Window*);
-DEFN_SYSCALL(xserv_init, 20);
-
-DEFN_SYSCALL(getdents, 21, unsigned int, struct dirent*, unsigned int);
-DEFN_SYSCALL(shmem_create, 22, uint32_t);
-DEFN_SYSCALL(surface_create, 23, uint32_t, uint32_t);
-DEFN_SYSCALL(aipc_send, 24, char*, uint32_t, uint32_t, char**);
-
 // AMC syscalls
-DEFN_SYSCALL(amc_register_service, 25, const char*);
-DEFN_SYSCALL(amc_message_broadcast, 26, amc_message_t*);
-DEFN_SYSCALL(amc_message_await, 27, const char*, amc_message_t**);
-DEFN_SYSCALL(amc_message_await_from_services, 28, int, const char**, amc_message_t**);
-DEFN_SYSCALL(amc_message_await_any, 29, amc_message_t**);
-DEFN_SYSCALL(amc_shared_memory_create, 30, const char*, uint32_t, uint32_t*, uint32_t*);
-DEFN_SYSCALL(amc_has_message_from, 31, const char*);
-DEFN_SYSCALL(amc_has_message, 32);
-DEFN_SYSCALL(amc_launch_service, 33, const char*);
-DEFN_SYSCALL(amc_physical_memory_region_create, 34, uint32_t, uint32_t*, uint32_t*);
-DEFN_SYSCALL(amc_message_construct_and_send, 35, const char*, uint8_t*, uint32_t);
-DEFN_SYSCALL(amc_service_is_active, 36, const char*);
+DEFN_SYSCALL(amc_register_service, 17, const char*);
+DEFN_SYSCALL(amc_message_broadcast, 18, amc_message_t*);
+DEFN_SYSCALL(amc_message_await, 19, const char*, amc_message_t**);
+DEFN_SYSCALL(amc_message_await_from_services, 20, int, const char**, amc_message_t**);
+DEFN_SYSCALL(amc_message_await_any, 21, amc_message_t**);
+DEFN_SYSCALL(amc_shared_memory_create, 22, const char*, uint32_t, uint32_t*, uint32_t*);
+DEFN_SYSCALL(amc_has_message_from, 23, const char*);
+DEFN_SYSCALL(amc_has_message, 24);
+DEFN_SYSCALL(amc_launch_service, 25, const char*);
+DEFN_SYSCALL(amc_physical_memory_region_create, 26, uint32_t, uint32_t*, uint32_t*);
+DEFN_SYSCALL(amc_message_construct_and_send, 27, const char*, uint8_t*, uint32_t);
+DEFN_SYSCALL(amc_service_is_active, 28, const char*);
 
 // ADI syscalls
-DEFN_SYSCALL(adi_register_driver, 37, const char*, uint32_t);
-DEFN_SYSCALL(adi_event_await, 38, uint32_t);
-DEFN_SYSCALL(adi_send_eoi, 39, uint32_t);
+DEFN_SYSCALL(adi_register_driver, 29, const char*, uint32_t);
+DEFN_SYSCALL(adi_event_await, 30, uint32_t);
+DEFN_SYSCALL(adi_send_eoi, 31, uint32_t);
 
-DEFN_SYSCALL(ms_since_boot, 40);
+DEFN_SYSCALL(ms_since_boot, 32);
 
-DEFN_SYSCALL(task_assert_wrapper, 41, const char*);
+DEFN_SYSCALL(task_assert_wrapper, 33, const char*);
 
 void create_sysfuncs() {
 	syscall_add((void*)&_kill);
@@ -136,14 +109,6 @@ void create_sysfuncs() {
 	syscall_add((void*)&getpid);
 	syscall_add((void*)&waitpid);
 	syscall_add((void*)&task_with_pid_auth);
-	syscall_add((void*)&xserv_win_create);
-	syscall_add((void*)&xserv_win_present);
-	syscall_add((void*)&xserv_win_destroy);
-	syscall_add((void*)&xserv_init);
-	syscall_add((void*)&getdents);
-	syscall_add((void*)&shmem_create);
-	syscall_add((void*)&surface_create);
-	syscall_add((void*)&aipc_send);
 
 	syscall_add((void*)&amc_register_service);
 	syscall_add((void*)&amc_message_broadcast);

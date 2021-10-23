@@ -2,6 +2,7 @@
 #include "math.h"
 #include "rand.h"
 
+/*
 double pow(double x, double pow) {
 	double ret = x;
 	for (int i = 0; i < pow; i++) {
@@ -9,6 +10,7 @@ double pow(double x, double pow) {
 	}
 	return ret;
 }
+*/
 
 unsigned long factorial(unsigned long x) {
 	if (x == 0) return 1;
@@ -22,6 +24,7 @@ unsigned long factorial(unsigned long x) {
 	*/
 }
 
+/*
 double cot(double x) {
 		return cos(x)/sin(x);
 }
@@ -141,6 +144,7 @@ int round(double x) {
 	if (x < 0.0) return (int)(x - 0.5);
 	return (int)(x + 0.5);
 }
+*/
 
 static unsigned long int next = 1;
 uint32_t rand() {
@@ -178,6 +182,7 @@ void srand(unsigned int seed) {
 	next = seed;
 }
 
+/*
 inline float lerp(float a, float b, float t) {
     return a + (b - a) * t;
 }
@@ -222,3 +227,4 @@ float modf(float arg, float* iptr) {
 	}
 	return fractional;
 }
+*/

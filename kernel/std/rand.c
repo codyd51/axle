@@ -95,6 +95,7 @@ unsigned long mtwist_rand(mtwist* mt) {
 	return r;
 }
 
+/*
 double mtwist_drange(mtwist* mt) {
 	unsigned long r;
 	double d;
@@ -107,3 +108,4 @@ double mtwist_drange(mtwist* mt) {
 
 	return d;
 }
+*/

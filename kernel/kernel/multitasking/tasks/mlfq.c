@@ -24,12 +24,16 @@ typedef struct mlfq_queue {
 
 static array_m* _queues = 0;
 
+int int_lerp(int a, int b, int f) {
+    return a + f * (b - a);
+}
+
 void mlfq_init(void) {
     _queues = array_m_create(MLFQ_QUEUE_COUNT);
     for (uint32_t i = 0; i < MLFQ_QUEUE_COUNT; i++) {
         mlfq_queue_t* q = kcalloc(1, sizeof(mlfq_queue_t));
         q->round_robin_tasks = array_l_create();
-        q->quantum = (int)lerp(MLFQ_PRIO_HIGH_QUANTUM, MLFQ_PRIO_LOW_QUANTUM, (i / (float)(MLFQ_QUEUE_COUNT-1)));
+        q->quantum = int_lerp(MLFQ_PRIO_HIGH_QUANTUM, MLFQ_PRIO_LOW_QUANTUM, (i / (MLFQ_QUEUE_COUNT-1)));
         q->spinlock.name = "MLFQ queue spinlock";
         printf("MLFQ queue %d quantum = %dms\n", i, q->quantum);
         array_m_insert(_queues, q);

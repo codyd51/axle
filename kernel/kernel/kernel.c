@@ -62,9 +62,7 @@ int _start(axle_boot_info_t* boot_info) {
 
     // PIT and serial drivers
     pit_timer_init(PIT_TICK_GRANULARITY_1MS);
-
     serial_init();
-
     // Kernel features
     pmm_init();
     pmm_dump();
