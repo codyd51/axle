@@ -29,27 +29,9 @@
 #include <kernel/syscall/syscall.h>
 #include <kernel/multitasking/tasks/task_small.h>
 #include <kernel/util/amc/amc.h>
-
-#define SPIN while (1) {sys_yield(RUNNABLE);}
-#define SPIN_NOMULTI do {} while (1);
-
-void print_os_name() {
-    NotImplemented();
-}
-
-void system_mem() {
-    NotImplemented();
-}
-
-static void kernel_idle() {
-    while (1) {
-        //nothing to do!
-        //put the CPU to sleep until the next interrupt
-        asm volatile("hlt");
-    }
-}
-
 #include <kernel/util/vfs/vfs.h>
+#include <bootloader/axle_boot_info.h>
+
 static void _launch_program(const char* program_name, uint32_t arg2, uint32_t arg3) {
     printf("_launch_program(%s, 0x%08x 0x%08x)\n", program_name, arg2, arg3);
     char* argv[] = {program_name, NULL};
@@ -64,12 +46,14 @@ static void _launch_program(const char* program_name, uint32_t arg2, uint32_t ar
 }
 
 uint32_t initial_esp = 0;
-void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
-    initial_esp = initial_stack;
-    text_mode_init();
+// TODO(PT): x86_64
+//void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
+int _start(axle_boot_info_t* boot_info) {
+    asm("cli");
+    //initial_esp = initial_stack;
 
     // Environment info
-    boot_info_read(mboot_ptr);
+    boot_info_read(boot_info);
     boot_info_dump();
 
     // Descriptor tables
