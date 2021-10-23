@@ -120,10 +120,17 @@ void task_build_and_send_crash_report_then_exit(const char* msg, const register_
 
     if (regs != NULL) {
         task_small_t* current_task = tasking_get_current_task();
+
+#if defined __i386__
         if (!append(&crash_report_ptr, &buf_size, "\nRegisters:\n")) goto finish_fmt;
         if (!append(&crash_report_ptr, &buf_size, "eip: 0x%08x  useresp 0x%08x\n", regs->eip, regs->useresp)) goto finish_fmt;
         if (!append(&crash_report_ptr, &buf_size, "eax: 0x%08x  ebx 0x%08x  ecx 0x%08x  edx 0x%08x\n", regs->eax, regs->ebx, regs->ecx, regs->edx)) goto finish_fmt;
         if (!append(&crash_report_ptr, &buf_size, "edi: 0x%08x  esi 0x%08x  ebp 0x%08x  esp 0x%08x\n", regs->edi, regs->esi, regs->ebp, regs->esp)) goto finish_fmt;
+#elif defined __x86_64__
+        if (!append(&crash_report_ptr, &buf_size, "\nNeeds updating for x86_64\n")) goto finish_fmt;
+#else 
+        FAIL_TO_COMPILE();
+#endif
     }
 
     if (!append(&crash_report_ptr, &buf_size, "\nStack trace:\n")) goto finish_fmt;

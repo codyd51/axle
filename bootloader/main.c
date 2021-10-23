@@ -9,6 +9,7 @@
 // https://fantashit.com/undefined-symbol-fltused-when-compiling-to-x86-64-unknown-uefi/
 int _fltused = 0;
 
+// TODO(PT): Expose the kernel ELF sections in the boot info, so the PMM can reserve them and we can store the symbol table
 uint64_t kernel_map_elf(const char* kernel_filename) {
 	FILE* kernel_file = fopen("\\EFI\\AXLE\\KERNEL.ELF", "r");
 	if (!kernel_file) {
@@ -209,7 +210,13 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 
-	boot_info->memory_descriptors = memory_descriptors;
+	// Note that the memory layout must be identical between 
+	// efi_memory_descriptor_t and axle_efi_memory_descriptor_t, since we cast it here
+	if (sizeof(efi_memory_descriptor_t) != sizeof(axle_efi_memory_descriptor_t)) {
+		printf("efi_memory_descriptor_t and axle_efi_memory_descriptor_t were different sizes!\n");
+		return 0;
+	}
+	boot_info->memory_descriptors = (axle_efi_memory_descriptor_t*)memory_descriptors;
 	boot_info->memory_descriptor_size = memory_descriptor_size;
 	boot_info->memory_map_size = memory_map_size;
 
