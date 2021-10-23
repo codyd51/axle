@@ -125,7 +125,7 @@ void pmm_init() {
     //mark usable sections of the address space
     for (int i = 0; i < info->mem_region_count; i++) {
         physical_memory_region_t region = info->mem_regions[i];
-        if (region.type != REGION_USABLE) {
+        if (region.type != PHYS_MEM_REGION_USABLE) {
             continue;
         }
         //mask to frame size
@@ -149,6 +149,7 @@ void pmm_init() {
     pmm_reserve_mem_region(pmm, info->initrd_start, info->initrd_size);
     printf("done\n");
 
+    /*
     multiboot_elf_section_header_table_t symbol_table_info = info->symbol_table_info;
 	elf_section_header_t* sh = (elf_section_header_t*)symbol_table_info.addr;
 	uint32_t shstrtab = sh[symbol_table_info.shndx].addr;
@@ -160,6 +161,7 @@ void pmm_init() {
     // map out kernel symbol table and string table from ELF image
     pmm_reserve_mem_region(pmm, info->kernel_elf_symbol_table.strtab, info->kernel_elf_symbol_table.strtabsz);
     pmm_reserve_mem_region(pmm, info->kernel_elf_symbol_table.symtab, info->kernel_elf_symbol_table.symtabsz);
+    */
 }
 
 //marks a block of physical memory as unallocatable

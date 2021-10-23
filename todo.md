@@ -243,3 +243,5 @@ Implement finder that can enter and leave directories
 ATA drive does DMA transfers / read sectors
 File partial writes
 Windows don't close when clicking 'X'
+
+Use cpuid to get CPU model/vendor string, and display it in the UI along with other system info
