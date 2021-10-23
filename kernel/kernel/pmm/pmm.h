@@ -9,6 +9,7 @@
 struct pmm_state {
     //if a frame's bit is set, it is general-purpose RAM which can be allocated to the virtual memory manager
     //else, the frame is reserved by the system and should not be touched by PMM
+    // TODO(PT): x86_64 make this larger than 4GB
     address_space_frame_bitmap_t system_accessible_frames;
     //if a frame's bit is set, it has been allocated by the PMM and is currently in use
     //else, it is not in use and may be allocated by the PMM

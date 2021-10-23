@@ -1,7 +1,8 @@
 #include "gdt.h"
 #include "gdt_structures.h"
-#include <std/memory.h>
 #include <stdbool.h>
+#include <std/memory.h>
+#include <std/printf.h>
 #include <kernel/assert.h>
 
 void gdt_activate(gdt_pointer_t* table);
@@ -114,7 +115,7 @@ void gdt_init() {
     static gdt_entry_t gdt_entries[16] = {0};
     static gdt_pointer_t table = {0};
 
-    table.table_base = (uint32_t)&gdt_entries;
+    table.table_base = (uintptr_t)&gdt_entries;
     table.table_size = sizeof(gdt_entries) - 1;
 
     gdt_descriptor_t null_descriptor = {0};

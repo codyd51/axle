@@ -33,6 +33,7 @@ void syscall_add(void* syscall) {
 	array_m_insert(syscalls, syscall);
 }
 
+#if defined __i386__
 static int syscall_handler(register_state_t* regs) {
 	//check requested syscall number
 	//stored in eax
@@ -62,6 +63,14 @@ static int syscall_handler(register_state_t* regs) {
 		pop %%ebx;	\
 		pop %%ebx;	\
 	" : "=a" (ret) : "r" (regs->edi), "r" (regs->esi), "r" (regs->edx), "r" (regs->ecx), "r" (regs->ebx), "r" (location));
+
 	regs->eax = ret;
 	return ret;
 }
+#elif defined __x86_64__
+static int syscall_handler(register_state_x86_64_t* regs) {
+	NotImplemented();
+}
+#else 
+    FAIL_TO_COMPILE();
+#endif

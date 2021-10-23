@@ -24,7 +24,7 @@ typedef struct idt_pointer {
     //size (in bytes) of the entire IDT
     uint16_t table_size;
     //address of the first element in idt_entry_t array
-    uint32_t table_base;
+    uintptr_t table_base;
 } __attribute__((packed)) idt_pointer_t;
 
 typedef struct register_state_i686 {

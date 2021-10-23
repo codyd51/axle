@@ -41,25 +41,43 @@ static spinlock_t _vmm_global_spinlock = {0};
  * Control-register utility functions
  */
 
-static uint32_t _get_cr0() {
-	uint32_t cr0;
+static uintptr_t _get_cr0() {
+	uintptr_t cr0;
+#if defined __i386__
 	asm volatile("mov %%cr0, %0" : "=r"(cr0));
+#elif defined __x86_64__
+    asm volatile("movq %%cr0, %0" : "=r"(cr0));
+#else 
+    FAIL_TO_COMPILE();
+#endif
 	return cr0;
 }
 
-static void _set_cr0(uint32_t cr0) {
+static void _set_cr0(uintptr_t cr0) {
 	asm volatile("mov %0, %%cr0" : : "r"(cr0));
 }
 
-uint32_t get_cr3() {
-	uint32_t cr3;
+uintptr_t get_cr3() {
+	uintptr_t cr3;
+#if defined __i386__
 	asm volatile("mov %%cr3, %0" : "=r"(cr3));
+#elif defined __x86_64__
+	asm volatile("movq %%cr3, %0" : "=r"(cr3));
+#else 
+    FAIL_TO_COMPILE();
+#endif
 	return cr3;
 }
 
-static void _set_cr3(uint32_t addr) {
+static void _set_cr3(uintptr_t addr) {
+#if defined __i386__
 	asm volatile("mov %0, %%cr3" : : "r"(addr));
-	int cr0 = _get_cr0();
+#elif defined __x86_64__
+	asm volatile("movq %0, %%cr3" : : "r"(addr));
+#else 
+    FAIL_TO_COMPILE();
+#endif
+	uintptr_t cr0 = _get_cr0();
 	cr0 |= 0x80000000; //enable paging bit
 	_set_cr0(cr0);
 }
@@ -300,6 +318,8 @@ void vmm_init(void) {
     vmm_identity_map_region(kernel_vmm_pd, 0x0, info->kernel_image_start);
     printf("kernel image start 0x%08x\n", info->kernel_image_start);
     // Each kernel ELF section,
+    // TODO(PT): x86_64
+    /*
     multiboot_elf_section_header_table_t symbol_table_info = info->symbol_table_info;
 	elf_section_header_t* sh = (elf_section_header_t*)symbol_table_info.addr;
 	uint32_t shstrtab = sh[symbol_table_info.shndx].addr;
@@ -311,6 +331,7 @@ void vmm_init(void) {
     // Kernel symbol table and string table,
     vmm_identity_map_region(kernel_vmm_pd, info->kernel_elf_symbol_table.strtab, info->kernel_elf_symbol_table.strtabsz);
     vmm_identity_map_region(kernel_vmm_pd, info->kernel_elf_symbol_table.symtab, info->kernel_elf_symbol_table.symtabsz);
+    */
     // Kernel code+data,
     vmm_identity_map_region(kernel_vmm_pd, info->kernel_image_start, info->kernel_image_size);
     // Ramdisk,
@@ -1273,9 +1294,11 @@ uint32_t vmm_get_phys_for_virt(uint32_t virtualaddr) {
 static void page_fault(const register_state_t* regs) {
 	//page fault has occured
 	//faulting address is stored in CR2 register
-	uint32_t faulting_address;
+	uintptr_t faulting_address;
 	asm volatile("mov %%cr2, %0" : "=r" (faulting_address));
 
+    // TODO(PT): x86_64
+    /*
 	//error code tells us what happened
 	int page_present = (regs->err_code & 0x1); //page not present
 	int forbidden_write = regs->err_code & 0x2; //write operation?
@@ -1313,6 +1336,9 @@ static void page_fault(const register_state_t* regs) {
     printf("|- EIP = 0x%08x -|\n", regs->eip);
     printf("|- UserESP = 0x%08x -|\n", regs->useresp);
     printf("|----------------|\n");
+    */
+    NotImplemented();
+    const char* reason = "page fault";
 
     char desc[512];
     snprintf(desc, sizeof(desc), "Page fault: %s at 0x%08x", reason, faulting_address);

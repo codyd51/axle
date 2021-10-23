@@ -5,9 +5,10 @@
 #include <stdbool.h>
 #include <kernel/util/spinlock/spinlock.h>
 
-//1048576 frames / 32-bit frame bitsets = 32,768 32-bit
-//frame bitsets needed to cover entire address space
-//32 frames total
+// 1048576 frames / 32-bit frame bitsets = 32,768 32-bit
+// frame bitsets needed to cover the 4GB address space
+// This works out to 8kb, or 2 frames, to store a bitmap large enough to cover 4GB
+// TODO(PT): x86_64
 #define ADDRESS_SPACE_BITMAP_SIZE 0x8000
 #define PAGE_SIZE 0x1000
 

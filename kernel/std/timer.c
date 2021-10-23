@@ -5,7 +5,6 @@
 #include <kernel/drivers/pit/pit.h>
 #include <kernel/drivers/rtc/clock.h>
 #include <kernel/syscall/sysfuncs.h>
-#include <kernel/interrupts/int_notifier.h>
 
 static int callback_num = 0;
 static timer_callback_t callback_table[MAX_CALLBACKS] = {0};
@@ -66,7 +65,7 @@ void timer_callback_remove(timer_callback_t* callback) {
 	memset(callback, 0, sizeof(timer_callback_t));
 }
 
-void _timer_handle_pit_tick(registers_t* regs) {
+void _timer_handle_pit_tick(register_state_t* regs) {
 	//look through every callback and see if we should fire
 	for (int i = 0; i < callback_num; i++) {
 		//decrement time left
