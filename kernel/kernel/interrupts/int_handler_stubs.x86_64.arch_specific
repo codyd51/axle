@@ -1,100 +1,113 @@
-%macro ISR_NOERRCODE 1 		; define a macro, taking one parameter
-    [global isr%1] 			; %1 accesses the first parameteer
-    isr%1:
-        cli
-        push byte 0				; push dummy error code, so the stack frame is the same as if coming from ISR_ERRCODE
-        push %1 			; push interrupt number
-        jmp isr_common_stub 	; go to common handler
-%endmacro
+[extern interrupt_handle]
+[global interrupt_trampoline]
 
-%macro ISR_ERRCODE 1
-    [GLOBAL isr%1]
-    isr%1:
-        cli
-        ; error code is implicitly pushed by CPU
+; Internal interrupt vector that doesn't push an error code
+%macro InternalInterrupt 1
+    [global internal_interrupt%1]
+    internal_interrupt%1:
+        ; Internal interrupt
+        push 0
+        ; Dummy error code to maintain a consistent stack frame with InternalInterruptWithErrorCode
+        push 0
+        ; Interrupt number
         push %1
-        jmp isr_common_stub
+        ; State save, handle interrupt, state restoration
+        jmp interrupt_trampoline
 %endmacro
 
-; Intel manual states that interrupts 8, 10, 11, 12, 13, 14 pass error codes
-; Use ISR_ERRCODE macro for those, and ISR_NOERRCODE for every other ISR
-ISR_NOERRCODE 0
-ISR_NOERRCODE 1
-ISR_NOERRCODE 2
-ISR_NOERRCODE 3
-ISR_NOERRCODE 4
-ISR_NOERRCODE 5
-ISR_NOERRCODE 6
-ISR_NOERRCODE 7
-ISR_ERRCODE 8
-ISR_NOERRCODE 9
-ISR_ERRCODE 10
-ISR_ERRCODE 11
-ISR_ERRCODE 12
-ISR_ERRCODE 13
-ISR_ERRCODE 14
-ISR_NOERRCODE 15
-ISR_NOERRCODE 16
-ISR_NOERRCODE 17
-ISR_NOERRCODE 18
-ISR_NOERRCODE 19
-ISR_NOERRCODE 20
-ISR_NOERRCODE 21
-ISR_NOERRCODE 22
-ISR_NOERRCODE 23
-ISR_NOERRCODE 24
-ISR_NOERRCODE 25
-ISR_NOERRCODE 26
-ISR_NOERRCODE 27
-ISR_NOERRCODE 28
-ISR_NOERRCODE 29
-ISR_NOERRCODE 30
-ISR_NOERRCODE 31
-ISR_NOERRCODE 128
+; Internal interrupt vector that pushes an error code
+%macro InternalInterruptWithErrorCode 1
+    [GLOBAL internal_interrupt%1]
+    internal_interrupt%1:
+        ; Internal interrupt
+        push 0
+        ; Error code is implicitly pushed by CPU
+        ;
+        ; Interrupt number
+        push %1
+        ; State save, handle interrupt, state restoration
+        jmp interrupt_trampoline
+%endmacro
 
 ; this macro creates a stub for an IRQ - the first parameter is
 ; the IRQ number, the second is the ISR number it's remapped to
-%macro IRQ 2
-    [GLOBAL irq%1]
-    irq%1:
-        cli
-        push byte 0x00 ; push dummy error code
-        push byte %2
-        jmp irq_common_stub
+%macro RemappedExternalInterrupt 2
+    [GLOBAL external_interrupt%1]
+    external_interrupt%1:
+        ; External interrupt
+        push 1
+        ; Dummy error code to maintain a consistent stack frame with InternalInterruptWithErrorCode
+        push 0
+        ; Interrupt number
+        push %2
+        ; State save, handle interrupt, state restoration
+        jmp interrupt_trampoline
 %endmacro
 
-IRQ	 0,		32
-IRQ	 1,		33
-IRQ  2, 	34
-IRQ	 3, 	35
-IRQ  4, 	36
-IRQ	 5, 	37
-IRQ	 6, 	38
-IRQ  7, 	39
-IRQ	 8, 	40
-IRQ	 9, 	41
-IRQ	10, 	42
-IRQ	11, 	43
-IRQ 12, 	44
-IRQ	13, 	45
-IRQ 14,		46
-IRQ 15, 	47
+; These interrupt vectors are defined by the CPU spec to push error codes
+InternalInterruptWithErrorCode 8
+InternalInterruptWithErrorCode 10
+InternalInterruptWithErrorCode 11
+InternalInterruptWithErrorCode 12
+InternalInterruptWithErrorCode 13
+InternalInterruptWithErrorCode 14
+InternalInterruptWithErrorCode 17
+InternalInterruptWithErrorCode 21
 
-[extern isr_receive]
+; Internal interrupt vectors that don't push an error code
+InternalInterrupt 0
+InternalInterrupt 1
+InternalInterrupt 2
+InternalInterrupt 3
+InternalInterrupt 4
+InternalInterrupt 5
+InternalInterrupt 6
+InternalInterrupt 7
+InternalInterrupt 9
+InternalInterrupt 15
+InternalInterrupt 16
+InternalInterrupt 18
+InternalInterrupt 19
+InternalInterrupt 20
+InternalInterrupt 22
+InternalInterrupt 23
+InternalInterrupt 24
+InternalInterrupt 25
+InternalInterrupt 26
+InternalInterrupt 27
+InternalInterrupt 28
+InternalInterrupt 29
+InternalInterrupt 30
+InternalInterrupt 31
 
-; common ISR stub. Saves processor state, sets
-; up kernel mode segments, calls C-level fault handler,
-; and finally restores stack frame
-[global isr_common_stub]
-isr_common_stub:
-    ;push xmm15
-    ;push xmm14
-    ;push xmm13
-    ;push xmm12
-    ;push xmm11
-    ;push xmm10
-    ;push xmm9
-    ;push xmm8
+; Syscall vector
+InternalInterrupt 128
+
+RemappedExternalInterrupt 0,  32
+RemappedExternalInterrupt 1,  33
+RemappedExternalInterrupt 2,  34
+RemappedExternalInterrupt 3,  35
+RemappedExternalInterrupt 4,  36
+RemappedExternalInterrupt 5,  37
+RemappedExternalInterrupt 6,  38
+RemappedExternalInterrupt 7,  39
+RemappedExternalInterrupt 8,  40
+RemappedExternalInterrupt 9,  41
+RemappedExternalInterrupt 10, 42
+RemappedExternalInterrupt 11, 43
+RemappedExternalInterrupt 12, 44
+RemappedExternalInterrupt 13, 45
+RemappedExternalInterrupt 14, 46
+RemappedExternalInterrupt 15, 47
+
+; Common interrupt trampoline. 
+; (1) Saves running program state
+; (2) Set up kernel mode segment selectors
+; (3) Call interrupt_handle
+; (4) Restore running program state
+; (5) Return from interrupt
+interrupt_trampoline:
+    ; (1) Save running program state
     push r15
     push r14
     push r13
@@ -112,28 +125,32 @@ isr_common_stub:
     push rcx
     push rax
 
-    ; move current data segment into ax
-    ; push to stack so we can restore it later
+    ; Retain current data segment
     mov ax, ds
     push rax
 
-    ; loads kernel data segment argument
-    ; this constant is defined in <kernel/gdt/gdt_structures.h>
+    ; (2) Set up kernel mode segment selectors
+    ; (Segment selector constant defined in <kernel/gdt/gdt_structures.h>)
     mov ax, 0x10
-    ; Only FS and GS are supported on x64_64
+    mov ds, ax
+    mov es, ax
     mov fs, ax
     mov gs, ax
 
+    ; (3) Call interrupt_handle
     ; Provide the registers state as a parameter that the interrupt can modify
     mov rdi, rsp
+    ; Clear DF as SysV requires it to be clear on function entry
+    ; It'll be restored for the caller when the iretq restores RFLAGS
+    cld
+    call interrupt_handle
 
-    ; call general isr handler
-    call isr_receive
-
-    ; restore data segment selector
+    ; (4) Restore running program state
     pop rax
     mov gs, ax
     mov fs, ax
+    mov es, ax
+    mov ds, ax
 
     pop rax
     pop rcx
@@ -150,98 +167,10 @@ isr_common_stub:
     pop r13
     pop r14
     pop r15
-    ;pop xmm8
-    ;pop xmm9
-    ;pop xmm10
-    ;pop xmm11
-    ;pop xmm12
-    ;pop xmm13
-    ;pop xmm14
-    ;pop xmm15
-    add rsp, 16 	; cleans up pushed error code and pushed ISR number
-    sti
-    iretq
+    ; Clean up external interrupt flag, error code, and interrupt number
+    add rsp, 24
 
-[EXTERN irq_receive]
-
-; common IRQ stub. Saves processor state, sets
-; up for kernel mode arguments, calls C-level fault handler,
-; and finally restores stack frame
-[global irq_common_stub]
-irq_common_stub:
-    ;push xmm15
-    ;push xmm14
-    ;push xmm13
-    ;push xmm12
-    ;push xmm11
-    ;push xmm10
-    ;push xmm9
-    ;push xmm8
-    push r15
-    push r14
-    push r13
-    push r12
-    push r11
-    push r10
-    push r9
-    push r8
-    push rdi
-    push rsi 
-    push rbp 
-    ; No need to save rsp as the processor's done it automatically
-    push rbx 
-    push rdx
-    push rcx
-    push rax
-
-    ; move current data segment into ax
-    ; push to stack so we can restore it later
-    mov ax, ds
-    push rax
-
-    ; loads kernel data segment argument
-    ; this constant is defined in <kernel/gdt/gdt_structures.h>
-    mov ax, 0x10
-    ; Only FS and GS are supported on x64_64
-    mov fs, ax
-    mov gs, ax
-
-    ; Provide the registers state as a parameter that the interrupt can modify
-    mov rdi, rsp
-
-    ; call general isr handler
-    call irq_receive
-
-    ; restore data segment selector
-    pop rax
-    mov gs, ax
-    mov fs, ax
-
-    pop rax
-    pop rcx
-    pop rdx
-    pop rbx
-    pop rbp
-    pop rsi
-    pop rdi
-    pop r8
-    pop r9
-    pop r10
-    pop r11
-    pop r12
-    pop r13
-    pop r14
-    pop r15
-    ;pop xmm8
-    ;pop xmm9
-    ;pop xmm10
-    ;pop xmm11
-    ;pop xmm12
-    ;pop xmm13
-    ;pop xmm14
-    ;pop xmm15
-    add rsp, 16 	; cleans up pushed error code and pushed ISR number
-    sti
+    ; (5) Return from interrupt
     iretq
 
 [global user_mode]

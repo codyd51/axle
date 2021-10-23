@@ -36,41 +36,31 @@ void dump_stack(uint32_t* mem) {
 	NotImplemented();
 }
 
-// Called from ASM interrupt handler stub
-int isr_receive(register_state_t* regs) {
-	int ret = 0;
+// Called from asm interrupt_trampoline
+void interrupt_handle(register_state_t* regs) {
 	uint8_t int_no = regs->int_no;
-	if (interrupt_handlers[int_no] != 0) {
-		int_callback_t handler = interrupt_handlers[int_no];
-		ret = handler(regs);
-	}
-	else {
-		printf("Unhandled interrupt: %d\n", int_no);
-	}
-	return ret;
-}
-
-//gets called from ASM interrupt handler stub
-void irq_receive(register_state_t* regs) {
-	int ret = 0;
-	uint8_t int_no = regs->int_no;
+	bool is_external = (bool)regs->is_external_interrupt;
+	//printf("interrupt_handle(%d, is_external %d err_code %d)\n", regs->int_no, regs->is_external_interrupt, regs->err_code);
 
 	if (interrupt_handlers[int_no] != 0) {
 		int_callback_t handler = interrupt_handlers[int_no];
-		ret = handler(regs);
+		handler(regs);
 	}
 	else {
 		printf("Unhandled IRQ: %d\n", int_no);
-		pic_signal_end_of_interrupt(int_no);
+		if (is_external) {
+			pic_signal_end_of_interrupt(int_no);
+		}
 	}
 
 	// If there is an adi driver for this IRQ, the EOI will be sent by adi
 	// Also, the PIT EOI will be sent by the PIT driver
-	if (!adi_services_interrupt(int_no) && int_no != INT_VECOR_IRQ0) {
+	// TODO(PT): Is this needed or is the unhandled interrupt check above enough?
+	if (is_external && !adi_services_interrupt(int_no) && int_no != INT_VECOR_IRQ0) {
 		pic_signal_end_of_interrupt(int_no);
 	}
-	return ret;
 }
+
 
 static void interrupt_setup_error_callbacks(void) {
     interrupt_setup_callback(0, &interrupt_handle_divide_by_zero);
