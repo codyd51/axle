@@ -76,11 +76,11 @@ static void ftoa_fixed(char *buffer, double value) {
     *buffer = '\0';
 }
 
-static unsigned int itoa_advanced(int value, unsigned int radix, unsigned int uppercase, unsigned int unsig,
+static unsigned int itoa_advanced(unsigned long value, unsigned int radix, unsigned int uppercase, unsigned int unsig,
      char *buffer, unsigned int zero_pad) {
     char    *pbuffer = buffer;
     int negative = 0;
-    unsigned int    i, len;
+    unsigned long    i, len;
 
     /* No support for unusual radixes. */
     if (radix > 16) {
@@ -184,6 +184,17 @@ int vsnprintf(char *buffer, unsigned int buffer_len, const char *fmt, va_list va
                 }
                 if (ch >= '0' && ch <= '9') {
                     zero_pad = ch - '0';
+                }
+                ch=*(fmt++);
+            }
+            // Pad a number greater than 10...
+            else if (ch == '1') {
+                ch = *(fmt++);
+                if (ch == '\0') {
+                    goto end;
+                }
+                if (ch >= '0' && ch <= '9') {
+                    zero_pad = 10 + (ch - '0');
                 }
                 ch=*(fmt++);
             }
