@@ -200,7 +200,13 @@ int vsnprintf(char *buffer, unsigned int buffer_len, const char *fmt, va_list va
 
                 case 'x':
                 case 'X':
-                    len = itoa_advanced(va_arg(va, unsigned int), 16, (ch=='X'), 1, bf, zero_pad);
+                    len = itoa_advanced(va_arg(va, unsigned long), 16, (ch=='X'), 1, bf, zero_pad);
+                    buf_puts(bf, len, &b);
+                    break;
+
+                case 'p':
+                    // Pad %p to 16 unless specified
+                    len = itoa_advanced(va_arg(va, unsigned long), 16, (ch=='X'), 1, bf, zero_pad ?: 16);
                     buf_puts(bf, len, &b);
                     break;
 
