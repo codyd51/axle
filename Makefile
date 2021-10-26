@@ -19,8 +19,8 @@ LD = $(TOOLCHAIN)/bin/$(ARCH)-elf-ld
 
 CC = $(TOOLCHAIN)/bin/$(ARCH)-elf-gcc
 SYSROOT = $(dir $(realpath $(firstword $(MAKEFILE_LIST))))axle-sysroot/
-CFLAGS = -mno-red-zone -mcmodel=large -mno-mmx -mno-sse -mno-sse2 -g -ffreestanding -std=gnu99 -Wall -Wextra -I$(SRC_DIR) -I$(SYSROOT)/usr/$(ARCH)-axle/include
-LDFLAGS = -ffreestanding -nostdlib -mno-red-zone -nostdlib -z max-page-size=0x1000 -Ttext=0x01000000 -lgcc #-T $(RESOURCES)/linker.ld
+CFLAGS = -mno-red-zone -mcmodel=kernel -mno-mmx -mno-sse -mno-sse2 -g -ffreestanding -std=gnu99 -Wall -Wextra -I$(SRC_DIR) -I$(SYSROOT)/usr/$(ARCH)-axle/include
+LDFLAGS = -ffreestanding -nostdlib -mcmodel=kernel -mno-red-zone -nostdlib -z max-page-size=0x1000 -lgcc -T $(RESOURCES)/linker.ld
 
 # Tools
 ISO_MAKER = $(TOOLCHAIN)/bin/grub-mkrescue

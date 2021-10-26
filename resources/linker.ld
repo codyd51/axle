@@ -1,15 +1,15 @@
-/* entry point of the kernel */
+/* Kernel entry point */
 ENTRY(_start)
 
+/* Kernel is loaded at the top of the 64-bit address space minus 2G */
+KERNEL_VMA = 0xFFFFFFFF80000000;
+
 SECTIONS {
-    /* start placing sections at 1mb */
-    . = 1M;
+    . = KERNEL_VMA;
 
     _kernel_image_start = .;
 
     .text BLOCK(4K) : ALIGN(4K) {
-        /* as per the standard, multiboot header must be within first 8kb */
-        *(.multiboot_header)
 		*(.text)
     }
 
