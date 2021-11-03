@@ -37,6 +37,8 @@ install_headers(
         'lib/text_box.h',
         'lib/elem_stack.h',
         'lib/hash_map.h',
+        'lib/screen.h',
+        'lib/gfx.h',
     ],
     install_dir: join_paths(meson.get_cross_property('include_root'), 'agx', 'lib')
 )
