@@ -5,10 +5,10 @@
 #include <kernel/kernel.h>
 #include <std/printf.h>
 #include <gfx/lib/gfx.h>
-#include <kernel/multitasking//tasks/task.h>
+#include <kernel/multitasking/tasks/task.h>
 #include <kernel/boot_info.h>
 #include <kernel/address_space.h>
-#include <kernel/util/spinlock/spinlock.h>
+#include "vmm_internal.h"
 
 #define PAGES_IN_PAGE_TABLE 1024
 #define PAGE_TABLES_IN_PAGE_DIR 1024
@@ -35,7 +35,6 @@ uint32_t vmm_get_phys_address_for_mapped_page(vmm_page_directory_t* vmm_dir, uin
 static volatile vmm_page_directory_t* _loaded_pdir = 0;
 static bool _has_set_up_initial_page_directory = false;
 static uint32_t _first_page_outside_shared_kernel_tables = 0;
-static spinlock_t _vmm_global_spinlock = {0};
 
 /*
  * Control-register utility functions
@@ -43,13 +42,7 @@ static spinlock_t _vmm_global_spinlock = {0};
 
 static uintptr_t _get_cr0() {
 	uintptr_t cr0;
-#if defined __i386__
 	asm volatile("mov %%cr0, %0" : "=r"(cr0));
-#elif defined __x86_64__
-    asm volatile("movq %%cr0, %0" : "=r"(cr0));
-#else 
-    FAIL_TO_COMPILE();
-#endif
 	return cr0;
 }
 
@@ -59,24 +52,12 @@ static void _set_cr0(uintptr_t cr0) {
 
 uintptr_t get_cr3() {
 	uintptr_t cr3;
-#if defined __i386__
 	asm volatile("mov %%cr3, %0" : "=r"(cr3));
-#elif defined __x86_64__
-	asm volatile("movq %%cr3, %0" : "=r"(cr3));
-#else 
-    FAIL_TO_COMPILE();
-#endif
 	return cr3;
 }
 
 static void _set_cr3(uintptr_t addr) {
-#if defined __i386__
 	asm volatile("mov %0, %%cr3" : : "r"(addr));
-#elif defined __x86_64__
-	asm volatile("movq %0, %%cr3" : : "r"(addr));
-#else 
-    FAIL_TO_COMPILE();
-#endif
 	uintptr_t cr0 = _get_cr0();
 	cr0 |= 0x80000000; //enable paging bit
 	_set_cr0(cr0);
@@ -607,7 +588,7 @@ uint32_t vmm_alloc_global_kernel_memory(uint32_t size) {
         panic("Allocating shared kernel memory crossed over into an unshared page table");
     }
 
-    spinlock_release(&_vmm_global_spinlock);
+    spinlock_release(_vmm_get_global_spinlock());
     return start;
 }
 
@@ -619,7 +600,7 @@ void vmm_free_global_kernel_memory(uint32_t addr, uint32_t size) {
     }
 
     // Modifying structures shared across all processes
-    spinlock_acquire(&_vmm_global_spinlock);
+    spinlock_acquire(_vmm_get_global_spinlock());
 
     vmm_page_directory_t* active_vmm = vmm_active_pdir();
 
@@ -636,7 +617,7 @@ void vmm_free_global_kernel_memory(uint32_t addr, uint32_t size) {
     vmm_load_pdir(active_vmm, false);
     //vmm_dump(vmm_active_pdir());
 
-    spinlock_release(&_vmm_global_spinlock);
+    spinlock_release(_vmm_get_global_spinlock());
 }
 
 void _vmm_unmap_page(vmm_page_directory_t* vmm_dir, uint32_t page_addr) {
@@ -1297,8 +1278,6 @@ static void page_fault(const register_state_t* regs) {
 	uintptr_t faulting_address;
 	asm volatile("mov %%cr2, %0" : "=r" (faulting_address));
 
-    // TODO(PT): x86_64
-    /*
 	//error code tells us what happened
 	int page_present = (regs->err_code & 0x1); //page not present
 	int forbidden_write = regs->err_code & 0x2; //write operation?
@@ -1336,9 +1315,6 @@ static void page_fault(const register_state_t* regs) {
     printf("|- EIP = 0x%08x -|\n", regs->eip);
     printf("|- UserESP = 0x%08x -|\n", regs->useresp);
     printf("|----------------|\n");
-    */
-    NotImplemented();
-    const char* reason = "page fault";
 
     char desc[512];
     snprintf(desc, sizeof(desc), "Page fault: %s at 0x%08x", reason, faulting_address);

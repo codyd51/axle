@@ -20,6 +20,9 @@ typedef enum {
     EFI_MEMORY_MAPPED_IO_PORT_SPACE,
     EFI_PAL_CODE,
     EFI_MAX_MEMORY_TYPE,
+	EFI_MEMORY_TYPE_AXLE_KERNEL_IMAGE = 0x80000000,
+	EFI_MEMORY_TYPE_AXLE_INITRD = 0x80000001,
+	EFI_MEMORY_TYPE_AXLE_PAGING_STRUCTURE = 0x80000002,
 } axle_efi_memory_type_t;
 
 // PT: Note that this must have the same memory layout as efi_memory_descriptor_t,
@@ -49,6 +52,8 @@ typedef struct axle_boot_info {
 	// initrd info
 	uint64_t initrd_base;
 	uint64_t initrd_size;
+
+	uint64_t boot_pml4;
 } axle_boot_info_t;
 
 #endif
