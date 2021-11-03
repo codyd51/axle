@@ -11,8 +11,8 @@ from typing import Dict, List, Optional
 import requests
 
 
-def sysroot_copy_needs_update(source_path: Path, sysroot_path: Path) -> bool:
-    return os.stat(source_path.as_posix()).st_mtime - os.stat(sysroot_path.as_posix()).st_mtime > 1
+def copied_file_is_outdated(source_path: Path, copied_path: Path) -> bool:
+    return os.stat(source_path.as_posix()).st_mtime - os.stat(copied_path.as_posix()).st_mtime > 1
 
 
 def run_and_check(cmd_list: List[str], cwd: Path = None, env_additions: Optional[Dict[str, str]] = None) -> None:

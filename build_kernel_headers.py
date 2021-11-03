@@ -6,7 +6,7 @@ import shutil
 from distutils.dir_util import copy_tree
 from pathlib import Path
 
-from build_utils import sysroot_copy_needs_update
+from build_utils import copied_file_is_outdated
 
 
 def copy_kernel_headers():
