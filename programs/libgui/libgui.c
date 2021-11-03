@@ -57,15 +57,15 @@ gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t hei
 	// And get back info about the window it made
 	amc_message_t* receive_framebuf;
 	amc_message_await(AWM_SERVICE_NAME, &receive_framebuf);
-	uint32_t event = amc_msg_u32_get_word(receive_framebuf, 0);
+	uintptr_t event = amc_msg_uptr_get(receive_framebuf, 0);
 	assert(event == AWM_CREATED_WINDOW_FRAMEBUFFER, "Invalid state. Expected framebuffer command\n");
-	uint32_t framebuffer_addr = amc_msg_u32_get_word(receive_framebuf, 1);
+	uintptr_t framebuffer_addr = amc_msg_uptr_get(receive_framebuf, 1);
 
-	printf("Received framebuffer from awm: %d 0x%08x\n", event, framebuffer_addr);
+	printf("Received framebuffer from awm: %d %p\n", event, framebuffer_addr);
 	uint8_t* buf = (uint8_t*)framebuffer_addr;
 
 	// TODO(PT): Use an awm command to get screen info
-	_screen.resolution = size_make(1920, 1080);
+	_screen.resolution = size_make(1280, 720);
 	_screen.bits_per_pixel = 32;
 	_screen.bytes_per_pixel = 4;
 
