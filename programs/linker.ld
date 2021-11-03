@@ -1,4 +1,4 @@
-SEARCH_DIR(/Users/philliptennen/Documents/develop/axle/axle-sysroot/usr/i686-axle/lib)
+SEARCH_DIR(/Users/philliptennen/Documents/develop/axle/axle-sysroot/usr/x86_64-axle/lib)
 STARTUP(crt0.o)
 ENTRY(_start)
 GROUP(
@@ -9,7 +9,7 @@ GROUP(
  )
 
 SECTIONS {
-    . = 128M;
+    . = 4M;
 
     .text BLOCK(4K) : ALIGN(4K) {
 		*(.text)

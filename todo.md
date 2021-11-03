@@ -245,3 +245,5 @@ File partial writes
 Windows don't close when clicking 'X'
 
 Use cpuid to get CPU model/vendor string, and display it in the UI along with other system info
+Use x86_64 interrupt stack table (IST)
+Use x86_64 Process Context Identifier (PCI) to reduce TLB misses with multitasking
