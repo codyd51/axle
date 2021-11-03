@@ -418,6 +418,9 @@ case "${host}" in
   i[3-7]86-*-axle*)
     sys_dir=axle
     ;;
+  x86_64-*-axle*)
+    sys_dir=axle
+    ;;
   bfin-*-*)
 	sys_dir=
 	;;
