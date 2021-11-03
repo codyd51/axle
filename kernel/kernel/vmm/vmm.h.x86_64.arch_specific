@@ -1,0 +1,208 @@
+#ifndef VMM_H
+#define VMM_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <std/common.h>
+#include <std/common.h>
+
+#include <kernel/address_space.h>
+#include <kernel/address_space_bitmap.h>
+
+#include <kernel/interrupts/interrupts.h>
+
+#define PMA_TO_VMA(addr) ((uintptr_t)addr + 0xFFFF800000000000LL)
+
+#define VAS_KERNEL_HEAP_BASE 0xFFFF900000000000LL
+
+#define PAGE_DIRECTORIES_IN_PAGE_DIRECTORY_POINTER_TABLE (PAGE_SIZE / sizeof(pdpe_t))
+#define PAGE_TABLES_IN_PAGE_DIRECTORY (PAGE_SIZE / sizeof(pde_t))
+#define PAGES_IN_PAGE_TABLE (PAGE_SIZE / sizeof(pte_t))
+
+// PML4E index starts at bit 39 and takes up 9 bits
+#define VMA_PML4E_IDX(addr) ((addr >> 39) & 0x1ff)
+// PDPE index starts at bit 30 and takes up 9 bits
+#define VMA_PDPE_IDX(addr) ((addr >> 30) & 0x1ff)
+// PDE index starts at bit 21 and takes up 9 bits
+#define VMA_PDE_IDX(addr) ((addr >> 21) & 0x1ff)
+// PTE index starts at bit 12 and takes up 9 bits
+#define VMA_PTE_IDX(addr) ((addr >> 12) & 0x1ff)
+
+#define VMEM_IN_PTE (PAGE_SIZE)
+#define VMEM_IN_PDE (VMEM_IN_PTE * PAGES_IN_PAGE_TABLE)
+#define VMEM_IN_PDPE (VMEM_IN_PDE * PAGE_TABLES_IN_PAGE_DIRECTORY)
+
+typedef struct pml4e {
+    uint64_t present:1;
+    uint64_t writable:1;
+    uint64_t user_mode:1;
+    uint64_t write_through:1;
+    uint64_t cache_disabled:1;
+    uint64_t accessed:1;
+    uint64_t ignored:1;
+    uint64_t must_be_zero:2;
+    uint64_t available:3;
+    uint64_t page_dir_pointer_base:40;
+    uint64_t available_high:11;
+    uint64_t no_execute:1;
+} pml4e_t;
+
+typedef struct pdpe {
+    uint64_t present:1;
+    uint64_t writable:1;
+    uint64_t user_mode:1;
+    uint64_t write_through:1;
+    uint64_t cache_disabled:1;
+    uint64_t accessed:1;
+    uint64_t ignored:1;
+    uint64_t must_be_zero:1;
+    uint64_t ignored2:1;
+    uint64_t available:3;
+    uint64_t page_dir_base:40;
+    uint64_t available_high:11;
+    uint64_t no_execute:1;
+} pdpe_t;
+
+typedef struct pdpe_1gb {
+    uint64_t present:1;
+    uint64_t writable:1;
+    uint64_t user_mode:1;
+    uint64_t write_through:1;
+    uint64_t cache_disabled:1;
+    uint64_t accessed:1;
+    uint64_t dirty:1;
+    uint64_t must_be_one:1;
+    uint64_t global:1;
+    uint64_t available:3;
+    uint64_t pat:1;
+    uint64_t reserved_must_be_zero:17;
+    uint64_t page_base:22;
+    uint64_t available_high:7;
+    uint64_t contextual:4;
+    uint64_t no_execute:1;
+} pdpe_1gb_t;
+
+typedef struct pde {
+    uint64_t present:1;
+    uint64_t writable:1;
+    uint64_t user_mode:1;
+    uint64_t write_through:1;
+    uint64_t cache_disabled:1;
+    uint64_t accessed:1;
+    uint64_t ignored:1;
+    uint64_t must_be_zero:1;
+    uint64_t ignored2:1;
+    uint64_t available:3;
+    uint64_t page_table_base:40;
+    uint64_t available_high:11;
+    uint64_t no_execute:1;
+} pde_t;
+
+typedef struct pte {
+    uint64_t present:1;
+    uint64_t writable:1;
+    uint64_t user_mode:1;
+    uint64_t write_through:1;
+    uint64_t cache_disabled:1;
+    uint64_t accessed:1;
+    uint64_t dirty:1;
+    uint64_t use_page_attribute_table:1;
+    uint64_t global_page:1;
+    uint64_t available:3;
+    uint64_t page_base:40;
+    uint64_t available_high:7;
+    // Available if PKE=0, otherwise memory protection key
+    uint64_t contextual:4;
+    uint64_t no_execute:1;
+} pte_t;
+
+typedef struct vas_range {
+	uint64_t start;
+	uint64_t size;
+} vas_range_t;
+
+typedef struct vas_state {
+	// Address within high-remapped physical memory
+	pml4e_t* pml4_phys;
+	uint32_t range_count;
+	uint32_t max_range_count;
+	vas_range_t ranges[];
+} vas_state_t;
+
+typedef enum vas_range_access_type {
+	VAS_RANGE_ACCESS_LEVEL_READ_ONLY = 0,
+	VAS_RANGE_ACCESS_LEVEL_READ_WRITE = 1,
+} vas_range_access_type_t;
+
+typedef enum vas_range_privilege_level {
+	VAS_RANGE_PRIVILEGE_LEVEL_KERNEL = 0,
+	VAS_RANGE_PRIVILEGE_LEVEL_USER = 1
+} vas_range_privilege_level_t;
+
+void vmm_init(uint64_t bootloader_pml4);
+
+// TODO(PT): Fix this API
+uint64_t vas_map_range(vas_state_t* vas_state, uint64_t min_address, uint64_t size, uint64_t phys_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level);
+
+uint64_t vas_alloc_range(vas_state_t* vas_state, uint64_t min_address, uint64_t size, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level);
+void vas_free_range(vas_state_t* vas_state, uint64_t region_base, uint64_t size);
+
+uint64_t vas_copy_phys_mapping(vas_state_t* vas_state, vas_state_t* vas_to_copy, uint64_t min_address, uint64_t size, uint64_t vas_to_copy_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level);
+
+// Mark range as unallocated without touching the paging structures
+void vas_add_range(vas_state_t* vas_state, uint64_t region_base, uint64_t size);
+void vas_delete_range(vas_state_t* vas_state, uint64_t region_base, uint64_t size);
+
+void vas_kernel_lock_acquire(void);
+void vas_kernel_lock_release(void);
+
+void vas_load_state(vas_state_t* vas_state);
+vas_state_t* vas_get_active_state(void);
+
+vas_state_t* vas_clone(vas_state_t* parent);
+void vas_state_dump(vas_state_t* vas_state);
+
+/*
+void vmm_kernel_heap_alloc(uint64_t block_size);
+void vmm_kernel_heap_free(void* ptr, uint64_t block_size);
+*/
+
+// TODO(PT): The below is only needed for compiling older code
+typedef struct vmm_page {
+    uint32_t present    :  1; //page present in memory
+    uint32_t writable   :  1; //read-only if clear, readwrite if set
+    uint32_t user_mode  :  1; //kernel level only if clear
+    uint32_t accessed   :  1; //has page been accessed since last refresh?
+    uint32_t dirty      :  1; //has page been written to since last refresh?
+    uint32_t unused     :  7; //unused/reserved bits
+    uint32_t frame_idx  : 20; //frame index, shifted right 12 bits. The actual frame address is this value * PAGING_FRAME_SIZE
+} vmm_page_t;
+
+typedef struct vmm_page_table {
+    vmm_page_t pages[1024];
+} vmm_page_table_t;
+
+typedef struct vmm_page_directory {
+    vmm_page_table_t* table_pointers[1024];
+	address_space_page_bitmap_t allocated_pages;
+} vmm_page_directory_t;
+
+typedef struct vmm_state {
+    address_space_page_bitmap_t allocated_pages;
+} vmm_state_t;
+
+typedef struct page_directory {
+	//array of pointers to pagetables
+	vmm_page_t* tables[1024];
+
+	//array of pointers to pagetables above, but give their *physical*
+	//location, for loading into CR3 reg
+	uint32_t tablesPhysical[1024];
+
+	//physical addr of tablesPhysical.
+	//needed once kernel heap is allocated and
+	//directory may be in a different location in virtual memory
+	uint32_t physicalAddr;
+} page_directory_t;
+
+#endif
