@@ -17,14 +17,14 @@ void walk_stack(uint32_t out_stack_addrs[], int frame_count);
 
 void print_stack_trace(int frame_count) {
     printf("Stack trace:\n");
-    uint32_t stack_addrs[_BACKTRACE_SIZE] = {0};
+    uintptr_t stack_addrs[_BACKTRACE_SIZE] = {0};
     walk_stack(stack_addrs, frame_count);
     for (int32_t i = 0; i < frame_count; i++) {
-        int frame_addr = stack_addrs[i];
+        uintptr_t frame_addr = stack_addrs[i];
         if (!frame_addr) {
             break;
         }
-        printf("[%d] 0x%08x\n", i, frame_addr);
+        printf("[%d] 0x%p\n", i, frame_addr);
     }
 }
 
@@ -34,7 +34,7 @@ void _panic(const char* msg, const char* file, int line) {
     printf("[%d] Assertion failed: %s\n", getpid(), msg);
     printf("%s:%d\n", file, line);
     if (true) {
-        print_stack_trace(20);
+        print_stack_trace(8);
     }
     asm("cli");
     asm("hlt");
@@ -42,22 +42,8 @@ void _panic(const char* msg, const char* file, int line) {
 
 #include <kernel/util/amc/amc.h>
 #include <kernel/util/amc/amc_internal.h>
-// XXX(PT): Must match the definition in crash_reporter_messages.h
-#define CRASH_REPORTER_SERVICE_NAME "com.axle.crash_reporter"
-#define CRASH_REPORTER_INFORM_ASSERT 100
-typedef struct crash_reporter_inform_assert {
-    uint32_t event; // CRASH_REPORTER_INFORM_ASSERT
-    uint32_t crash_report_length;
-    char crash_report[];
-} crash_reporter_inform_assert_t;
-
-// XXX(PT): Must match the definition in file_manager_messages.h
-#define FILE_MANAGER_SERVICE_NAME "com.axle.file_manager"
-#define FILE_MANAGER_LAUNCH_FILE 104
-typedef struct file_manager_launch_file_request {
-    uint32_t event; // FILE_MANAGER_LAUNCH_FILE
-    char path[128];
-} file_manager_launch_file_request_t;
+#include <file_manager/file_manager_messages.h>
+#include <crash_reporter/crash_reporter_messages.h>
 
 bool append(char** buf_head, int32_t* buf_size, const char* format, ...) {
     va_list args;
@@ -127,7 +113,12 @@ void task_build_and_send_crash_report_then_exit(const char* msg, const register_
         if (!append(&crash_report_ptr, &buf_size, "eax: 0x%08x  ebx 0x%08x  ecx 0x%08x  edx 0x%08x\n", regs->eax, regs->ebx, regs->ecx, regs->edx)) goto finish_fmt;
         if (!append(&crash_report_ptr, &buf_size, "edi: 0x%08x  esi 0x%08x  ebp 0x%08x  esp 0x%08x\n", regs->edi, regs->esi, regs->ebp, regs->esp)) goto finish_fmt;
 #elif defined __x86_64__
-        if (!append(&crash_report_ptr, &buf_size, "\nNeeds updating for x86_64\n")) goto finish_fmt;
+        if (!append(&crash_report_ptr, &buf_size, "\nRegisters:\n")) goto finish_fmt;
+        if (!append(&crash_report_ptr, &buf_size, "rip 0x%p  rsp 0x%p\n", regs->return_rip, regs->return_rsp)) goto finish_fmt;
+        if (!append(&crash_report_ptr, &buf_size, "rax 0x%p  rbx 0x%p  rcx 0x%p  rdx 0x%p\n", regs->rax, regs->rbx, regs->rcx, regs->rdx)) goto finish_fmt;
+        if (!append(&crash_report_ptr, &buf_size, "rdi 0x%p  rsi 0x%p  rbp 0x%p\n", regs->rdi, regs->rsi, regs->rbp)) goto finish_fmt;
+        if (!append(&crash_report_ptr, &buf_size, "r8  0x%p  r9  0x%p  r10 0x%p r11 0x%p\n", regs->r8, regs->r9, regs->r10, regs->r11)) goto finish_fmt;
+        if (!append(&crash_report_ptr, &buf_size, "r12 0x%p  r13 0x%p  r14 0x%p r15 0x%p\n", regs->r12, regs->r13, regs->r14, regs->r15)) goto finish_fmt;
 #else 
         FAIL_TO_COMPILE();
 #endif
@@ -200,11 +191,11 @@ static bool _can_send_crash_report(void) {
 }
 
 void task_assert(bool cond, const char* msg, const register_state_t* regs) {
-    printf("task_assert %s\n", msg);
     if (cond) {
         return;
     }
 
+    printf("task_assert %s\n", msg);
     if (!_can_send_crash_report()) {
         assert(cond, msg);
     }
