@@ -27,3 +27,7 @@ kernel/kernel/multitasking/tasks/process_small.s
 kernel/kernel/segmentation/gdt_activate.s
 kernel/kernel/interrupts/idt_activate.s
 kernel/kernel/interrupts/int_handler_stubs.s
+kernel/kernel/pmm/pmm_int.h
+kernel/kernel/pmm/pmm.c
+kernel/kernel/vmm/vmm.h
+kernel/kernel/vmm/vmm.c
