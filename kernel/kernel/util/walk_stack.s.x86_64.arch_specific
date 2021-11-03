@@ -1,0 +1,43 @@
+; Walks backwards through the call stack and builds a list of return addresses.
+; Source: https://wiki.osdev.org/Stack_Trace
+[global walk_stack]
+walk_stack:
+    ; RDI: Destination array pointer
+    ; RSI: Maximum number of frames to traverse
+
+    ; Set up local registers.
+    ; RAX: Return value (number of stack frames found)
+    xor rax, rax 
+    ; RDX: old RBP
+    mov rdx, rbp
+
+.walk:
+    ; Walk backwards through EBP linked list, storing return addresses in EDI array.
+    ; Did we reach the "root" base pointer?
+    ; (The root base pointer is set up by the kernel bootstrap, and is
+    ;  valid only for kernel stack frames, not user-mode stack frames)
+    test rbx, rbx
+    jz .done
+    ; Did we hit the maximum stack frame length?
+    test rsi, rsi 
+    jz .done
+    ; Record that we walked one more frame
+    dec rsi
+
+    ; RCX = previous stack frame's IP
+    mov rcx, [rdx + 8]
+    ; RBX = previous stack frame's BP
+    mov rdx, [rdx + 0]
+    ; Copy IP
+    mov [rdi], rcx
+    add rdi, 8
+    inc rax
+    loop .walk
+
+.done:
+    ;ret
+    ; Restore caller's EDI and EBX, leave stack frame & return EAX.
+    ;mov  edi,       [ebp - 4]
+    ;mov  ebx,       [ebp - 8]
+    ;leave
+    ret

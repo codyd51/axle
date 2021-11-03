@@ -1,5 +1,0 @@
-; Walks backwards through the call stack and builds a list of return addresses.
-; Source: https://wiki.osdev.org/Stack_Trace
-[global walk_stack]
-walk_stack:
-    ret
