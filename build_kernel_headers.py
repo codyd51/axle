@@ -39,7 +39,7 @@ def copy_kernel_headers():
     for source_path, include_path in headers_to_copy:
         include_path.parent.mkdir(exist_ok=True, parents=True)
         # If the files are identical, no need to copy
-        if not include_path.exists() or sysroot_copy_needs_update(source_path, include_path):
+        if not include_path.exists() or copied_file_is_outdated(source_path, include_path):
             print(f"Copying kernel source tree {source_path} to sysroot path {include_path}")
             if source_path.is_dir():
                 copy_tree(source_path.as_posix(), include_path.as_posix())
