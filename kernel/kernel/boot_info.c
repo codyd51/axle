@@ -65,6 +65,9 @@ static void boot_info_dump_memory_map(boot_info_t* info) {
             case PHYS_MEM_REGION_RESERVED_ACPI_NVM:
                 type = "ACPI NVM";
                 break;
+            case PHYS_MEM_REGION_RESERVED_AXLE_KERNEL_CODE_AND_DATA:
+                type = "Kernel  ";
+                break;
             default:
                 type = "Unknown ";
                 break;
@@ -150,7 +153,7 @@ static void boot_info_dump_framebuffer(boot_info_t* info) {
         fb_info.width,
         fb_info.height,
         fb_info.bits_per_pixel);
-    printf("Framebuffer  at [0x%08x to 0x%08x]. Size: 0x%x\n", fb_info.address, fb_info.address+fb_info.size, fb_info.size);
+    printf("Framebuffer  at [0x%p to 0x%p]. Size: 0x%p\n", fb_info.address, fb_info.address+fb_info.size, fb_info.size);
 }
 
 static void multiboot_interpret(struct multiboot_info* mboot_data, boot_info_t* out_info) {
@@ -213,6 +216,12 @@ static const char* _name_for_mem_region_type(axle_efi_memory_type_t type) {
             return "Memory-mapped IO port space";
         case EFI_PAL_CODE:
             return "PAL code";
+        case EFI_MEMORY_TYPE_AXLE_KERNEL_IMAGE:
+            return "axle kernel";
+        case EFI_MEMORY_TYPE_AXLE_INITRD:
+            return "axle initrd";
+        case EFI_MEMORY_TYPE_AXLE_PAGING_STRUCTURE:
+            return "axle paging struct";
         case EFI_MAX_MEMORY_TYPE:
         default:
             return "Max/unknown memory type";
@@ -249,16 +258,23 @@ void boot_info_read(axle_boot_info_t* bootloader_info) {
             region->type = PHYS_MEM_REGION_USABLE;
         }
         else if (mem_desc->type == EFI_RUNTIME_SERVICES_CODE || 
-            mem_desc->type == EFI_RUNTIME_SERVICES_DATA || 
-            mem_desc->type == EFI_MEMORY_RESERVED) {
+                 mem_desc->type == EFI_RUNTIME_SERVICES_DATA || 
+                 mem_desc->type == EFI_MEMORY_RESERVED) {
             region->type = PHYS_MEM_REGION_RESERVED;
         }
         else if (mem_desc->type == EFI_ACPI_MEMORY_NVS ||
-            mem_desc->type == EFI_ACPI_RECLAIM_MEMORY) {
+                 mem_desc->type == EFI_ACPI_RECLAIM_MEMORY) {
             region->type = PHYS_MEM_REGION_RESERVED_ACPI_NVM;
         }
+        else if (mem_desc->type == EFI_MEMORY_TYPE_AXLE_KERNEL_IMAGE ||
+                 mem_desc->type == EFI_MEMORY_TYPE_AXLE_INITRD ||
+                 mem_desc->type == EFI_MEMORY_TYPE_AXLE_PAGING_STRUCTURE) {
+            region->type = PHYS_MEM_REGION_RESERVED_AXLE_KERNEL_CODE_AND_DATA;
+        }
         else {
-            assert(false, "Unrecognized memory region type");
+            printf("Unrecognized memory region type %d\n", region->type);
+            //assert(false, "Unrecognized memory region type");
+            region->type = PHYS_MEM_REGION_RESERVED;
         }
     }
 }
@@ -271,6 +287,6 @@ void boot_info_dump() {
     printf("inirtd image at [0x%08x to 0x%08x]. Size: 0x%x\n", info->initrd_start, info->initrd_end, info->initrd_size);
     //printf("Kernel stack at [0x%08x to 0x%08x]. Size: 0x%x\n", info->boot_stack_bottom_phys, info->boot_stack_top_phys, info->boot_stack_size);
 
-    boot_info_dump_memory_map(info);
+    //boot_info_dump_memory_map(info);
     //boot_info_dump_symbol_table(info);
 }
