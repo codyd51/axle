@@ -24,7 +24,7 @@ typedef struct {
 typedef struct initrd_fs_node {
     fs_base_node_t base;
     // Private fields
-    uint32_t initrd_offset;
+    uintptr_t initrd_offset;
     uint32_t size;
 } initrd_fs_node_t;
 

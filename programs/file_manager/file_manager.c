@@ -178,9 +178,10 @@ int main(int argc, char** argv) {
 	amc_message_await(AXLE_CORE_SERVICE_NAME, &msg);
 	uint32_t event = amc_msg_u32_get_word(msg, 0);
 	assert(event == AMC_FILE_MANAGER_MAP_INITRD_RESPONSE, "Expected initrd info");
-	amc_initrd_info_t* initrd_info = (amc_initrd_info_t*)msg->body;
-	printf("Recv'd initrd info!\n");
-	printf("0x%08lx 0x%08lx (0x%08lx bytes)\n", initrd_info->initrd_start, initrd_info->initrd_end, initrd_info->initrd_size);
+	amc_initrd_info_t* initrd_info = (amc_initrd_info_t*)&msg->body;
+	printf("Recv'd initrd info at %p\n", initrd_info);
+	printf("sizeof initrd start %d\n", sizeof(initrd_info->initrd_start));
+	printf("%p %p (%p bytes)\n", initrd_info->initrd_start, initrd_info->initrd_end, initrd_info->initrd_size);
 
 	char* root_path = "/";
 	fs_base_node_t* root = fs_node_create__directory(NULL, root_path, strlen(root_path));

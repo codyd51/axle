@@ -13,7 +13,7 @@ fs_base_node_t* initrd_parse_from_amc(fs_base_node_t* vfs_root, amc_initrd_info_
 	fs_base_node_t* initrd_root = fs_node_create__directory(vfs_root, initrd_path, strlen(initrd_path));
 
 	initrd_header_t* header = (initrd_header_t*)initrd_info->initrd_start;
-	uint32_t offset = initrd_info->initrd_start + sizeof(initrd_header_t);
+	uintptr_t offset = initrd_info->initrd_start + sizeof(initrd_header_t);
 	for (uint32_t i = 0; i < header->nfiles; i++) {
 		initrd_file_header_t* file_header = (initrd_file_header_t*)offset;
 
