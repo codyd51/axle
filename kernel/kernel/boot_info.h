@@ -12,6 +12,7 @@ typedef enum physical_memory_region_type {
     PHYS_MEM_REGION_USABLE,
     PHYS_MEM_REGION_RESERVED,
     PHYS_MEM_REGION_RESERVED_ACPI_NVM,
+    PHYS_MEM_REGION_RESERVED_AXLE_KERNEL_CODE_AND_DATA,
 } physical_memory_region_type;
 
 typedef struct physical_memory_region {
@@ -21,12 +22,12 @@ typedef struct physical_memory_region {
 } physical_memory_region_t;
 
 typedef struct framebuffer_info {
-    uint32_t address;
-    uint32_t width;
-    uint32_t height;
-    uint32_t bits_per_pixel;
-    uint32_t bytes_per_pixel;
-    uint32_t size;
+    uintptr_t address;
+    uintptr_t width;
+    uintptr_t height;
+    uint8_t bits_per_pixel;
+    uint8_t bytes_per_pixel;
+    uintptr_t size;
 } framebuffer_info_t;
 
 typedef struct boot_info {
@@ -52,7 +53,7 @@ typedef struct boot_info {
     elf_t kernel_elf_symbol_table;
     framebuffer_info_t framebuffer;
 
-    vmm_page_directory_t* vmm_kernel;
+    vas_state_t* vas_kernel;
 
     uint32_t ms_per_pit_tick;
 } boot_info_t;

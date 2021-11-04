@@ -6,14 +6,10 @@
 #include <kernel/assert.h>
 
 static void common_halt(register_state_t* regs, bool recoverable) {
-	/*
-    printf("|- EIP = 0x%08x -|\n", regs->eip);
-    printf("|- UserESP = 0x%08x -|\n", regs->useresp);
+    printf("|- RIP = 0x%08x -|\n", regs->return_rip);
+    printf("|- RSP = 0x%08x -|\n", regs->return_rsp);
     printf("|- Error code = 0x%08x -|\n", regs->err_code);
-	*/
-	// TODO(PT): Update for x86_64
-	NotImplemented();
-	//assert(0, "common_halt");
+	assert(0, "CPU exception");
 	task_assert(false, "test", regs);
 }
 

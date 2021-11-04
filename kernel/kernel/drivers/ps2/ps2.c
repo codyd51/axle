@@ -12,7 +12,7 @@ bool ps2_expect_ack() {
     uint8_t ret = ps2_read(PS2_DATA);
 
     if (ret != PS2_DEV_ACK) {
-        printf("[PS2] Device failed to acknowledge command\n");
+        printf("[PS2] Device failed to acknowledge command: 0x%02x\n", ret);
         return false;
     }
 

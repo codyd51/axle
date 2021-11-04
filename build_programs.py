@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from build_utils import run_and_check
 
-SKIP_PROGRAMS = ["cat", "tlsclient", "doomgeneric"]
+SKIP_PROGRAMS = ["cat", "tlsclient", "doomgeneric", "vim", "bash", "ncurses"]
 
 
 def recompile_program(program_dir: Path) -> None:

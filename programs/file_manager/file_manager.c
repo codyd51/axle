@@ -192,7 +192,7 @@ int main(int argc, char** argv) {
 
 	// Initialise vfs from storage
 	initrd_parse_from_amc(root, initrd_info);
-	fat_parse_from_disk(root);
+	//fat_parse_from_disk(root);
 
 	print_fs_tree((fs_node_t*)root, 0);
 

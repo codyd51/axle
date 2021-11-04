@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
 	// the memory map.
 	axle_boot_info_t* boot_info = calloc(1, sizeof(axle_boot_info_t));
 	pml4e_t* page_mapping_level4 = map2();
-	boot_info->debug_pml4 = page_mapping_level4;
+	boot_info->boot_pml4 = page_mapping_level4;
 
 	// Step 2: Map the kernel ELF into memory
 	uint64_t kernel_entry_point = kernel_map_elf("\\EFI\\AXLE\\KERNEL.ELF", page_mapping_level4);
