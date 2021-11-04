@@ -66,15 +66,8 @@ def build() -> None:
             cwd=newlib_build_dir,
             env_additions=env,
         )
-        try:
-            run_and_check(["make", "all"], cwd=newlib_build_dir, env_additions=env)
-        except:
-            print(newlib_build_dir)
-            import time
-            while True:
-                time.sleep(1)
+        run_and_check(["make", "all"], cwd=newlib_build_dir, env_additions=env)
         run_and_check(["make", f"DESTDIR={sysroot_dir.as_posix()}", "install"], cwd=newlib_build_dir, env_additions=env)
-        print(newlib_build_dir)
 
 
 # If you make some kind of config change to the axle target, such as adding new files within the newlib port,

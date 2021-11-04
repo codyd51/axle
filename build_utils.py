@@ -16,6 +16,7 @@ def copied_file_is_outdated(source_path: Path, copied_path: Path) -> bool:
 
 
 def run_and_check(cmd_list: List[str], cwd: Path = None, env_additions: Optional[Dict[str, str]] = None) -> None:
+    print(" ".join(cmd_list))
     env = {}
     if env_additions:
         env = os.environ.copy()

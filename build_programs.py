@@ -69,8 +69,8 @@ def build_all_programs(
             print(f"Running one-time Meson configuration in {program_dir}...")
             run_and_check(["meson", "build", "--cross-file", cross_compile_config_path.as_posix()], cwd=program_dir)
 
-        meson_dirs.append(program_dir)
-        # recompile_program(program_dir)
+        # meson_dirs.append(program_dir)
+        recompile_program(program_dir)
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=8) as executor:
         futures = [executor.submit(recompile_program, program_dir) for program_dir in meson_dirs]
