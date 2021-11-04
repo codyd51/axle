@@ -13,41 +13,30 @@
 
 #include "syscalls.h"
 
-//DEFN_SYSCALL(kill, 0);
-//DEFN_SYSCALL(execve, 1, char*, char**, char**);
-//DEFN_SYSCALL(open, 2, const char*, int);
-//DEFN_SYSCALL(read, 3, int, char*, size_t);
-//DEFN_SYSCALL(output, 4, int, char*);
-DEFN_SYSCALL(yield, 5, int);
-DEFN_SYSCALL(sbrk, 6, int);
-//DEFN_SYSCALL(brk, 7, void*);
-//DEFN_SYSCALL(mmap, 8, void*, int, int, int, int);
-//DEFN_SYSCALL(munmap, 9, void*, int);
-//DEFN_SYSCALL(lseek, 10, int, int, int);
+// amc syscalls
+DEFN_SYSCALL(amc_register_service, 0, const char*);
+DEFN_SYSCALL(amc_message_send, 1, const char*, uint8_t*, uint32_t);
+DEFN_SYSCALL(amc_message_await, 2, const char*, amc_message_t*);
+DEFN_SYSCALL(amc_message_await_from_services, 3, int, const char**, amc_message_t*);
+DEFN_SYSCALL(amc_message_await_any, 4, amc_message_t**);
+DEFN_SYSCALL(amc_has_message_from, 5, const char*);
+DEFN_SYSCALL(amc_has_message, 6);
+
+// TODO(PT): Perhaps amc_has_message and amc_message_await_any can be special usages of 
+// their extended variants wrapped by libamc
+
+// adi syscalls
+DEFN_SYSCALL(adi_register_driver, 7, const char*, uint32_t);
+DEFN_SYSCALL(adi_event_await, 8, uint32_t);
+DEFN_SYSCALL(adi_send_eoi, 9, uint32_t);
+
+// Processs management syscalls
+DEFN_SYSCALL(sbrk, 10, int);
 DEFN_SYSCALL(write, 11, int, char*, int);
 DEFN_SYSCALL(_exit, 12, int);
-//DEFN_SYSCALL(fork, 13);
-DEFN_SYSCALL(getpid, 14);
-//DEFN_SYSCALL(waitpid, 15, int, int*, int);
-//DEFN_SYSCALL(task_with_pid, 16, int);
-DEFN_SYSCALL(amc_register_service, 17, const char*);
-DEFN_SYSCALL(amc_message_broadcast, 18, amc_message_t*);
-DEFN_SYSCALL(amc_message_await, 19, const char*, amc_message_t*);
-DEFN_SYSCALL(amc_message_await_from_services, 20, int, const char**, amc_message_t*);
-DEFN_SYSCALL(amc_message_await_any, 21, amc_message_t**);
-DEFN_SYSCALL(amc_has_message_from, 22, const char*);
-DEFN_SYSCALL(amc_has_message, 23);
-DEFN_SYSCALL(amc_launch_service, 24, const char*);
-DEFN_SYSCALL(amc_physical_memory_region_create, 25, uint32_t, uintptr_t*, uintptr_t*);
-DEFN_SYSCALL(amc_message_construct_and_send, 26, const char*, uint8_t*, uint32_t);
-DEFN_SYSCALL(amc_service_is_active, 27, const char*);
-
-DEFN_SYSCALL(adi_register_driver, 28, const char*, uint32_t);
-DEFN_SYSCALL(adi_event_await, 29, uint32_t);
-DEFN_SYSCALL(adi_send_eoi, 30, uint32_t);
-
-DEFN_SYSCALL(ms_since_boot, 31);
-DEFN_SYSCALL(task_assert, 32, const char*);
+DEFN_SYSCALL(getpid, 13);
+DEFN_SYSCALL(ms_since_boot, 14);
+DEFN_SYSCALL(task_assert, 15, const char*);
 
 // According to the documentation, this is an acceptable minimal environ
 // https://sourceware.org/newlib/libc.html#Syscalls
@@ -55,43 +44,18 @@ char* __env[1] = { 0 };
 char** environ = __env;
 
 /*
- * Implemented syscalls
- */
-
-void yield(void) {
-    // 1 maps to RUNNABLE
-    sys_yield(1);
-}
-
-caddr_t sbrk(int incr) {
-    return (caddr_t)sys_sbrk(incr);
-}
- 
-void _exit(int code) {
-    sys__exit(code);
-}
-
-int getpid() {
-    return sys_getpid();
-}
-
-int write(int file, char *ptr, int len) {
-    // If sys_write returns an incorrect number of bytes written, 
-    // newlib will loop to try and write more bytes
-    return sys_write(file, ptr, len);
-}
+amc syscalls
+*/
 
 void amc_register_service(const char* name) {
     sys_amc_register_service(name);
 }
 
-/*
-AMC syscalls
-*/
-
-// Asynchronously send the message to any service awaiting a message from this service
-void amc_message_broadcast(amc_message_t* msg) {
-    sys_amc_message_broadcast(msg);
+bool amc_message_send(
+    const char* destination_service,
+    void* buf,
+    uint32_t buf_size) {
+    return sys_amc_message_send(destination_service, buf, buf_size);
 }
 
 // Block until a message has been received from the source service
@@ -110,30 +74,12 @@ void amc_message_await_any(amc_message_t** out) {
     sys_amc_message_await_any(out);
 }
 
-void amc_physical_memory_region_create(uint32_t region_size, uintptr_t* virtual_region_start_out, uintptr_t* physical_region_start_out) {
-    sys_amc_physical_memory_region_create(region_size, virtual_region_start_out, physical_region_start_out);
-}
-
 bool amc_has_message_from(const char* source_service) {
     return sys_amc_has_message_from(source_service);
 }
 
 bool amc_has_message(void) {
     return sys_amc_has_message();
-}
-
-bool amc_launch_service(const char* service_name) {
-    return sys_amc_launch_service(service_name);
-}
-
-bool amc_message_construct_and_send(const char* destination_service,
-                                    void* buf,
-                                    uint32_t buf_size) {
-    return sys_amc_message_construct_and_send(destination_service, buf, buf_size);
-}
-
-bool amc_service_is_active(const char* service) {
-    return sys_amc_service_is_active(service);
 }
 
 /*
@@ -156,7 +102,25 @@ void adi_send_eoi(uint32_t irq) {
  * Misc syscalls
  */
 
-uint32_t ms_since_boot(void) {
+caddr_t sbrk(int incr) {
+    return (caddr_t)sys_sbrk(incr);
+}
+
+int write(int file, char *ptr, int len) {
+    // If sys_write returns an incorrect number of bytes written, 
+    // newlib will loop to try and write more bytes
+    return sys_write(file, ptr, len);
+}
+ 
+void _exit(int code) {
+    sys__exit(code);
+}
+
+int getpid() {
+    return sys_getpid();
+}
+
+int ms_since_boot(void) {
     return sys_ms_since_boot();
 }
 
