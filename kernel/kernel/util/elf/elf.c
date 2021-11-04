@@ -26,13 +26,14 @@ static bool elf_check_magic(elf_header* hdr) {
 }
 
 static bool elf_check_supported(elf_header* hdr) {
-	if (hdr->ident[EI_CLASS] != ELFCLASS32) {
+	//__x86_64
+	if (hdr->ident[EI_CLASS] != ELFCLASS64) {
 		return false;
 	}
 	if (hdr->ident[EI_DATA] != ELFDATA2LSB) {
 		return false;
 	}
-	if (hdr->machine != EM_386) {
+	if (hdr->machine != EM_x86_64) {
 		return false;
 	}
 	if (hdr->ident[EI_VERSION] != EV_CURRENT) {
@@ -77,30 +78,37 @@ bool elf_load_segment(unsigned char* src, elf_phdr* seg) {
 
 	unsigned char* src_base = src + seg->offset;
 	// Check where to map the binary memory within the address space
-	uint32_t dest_base = seg->vaddr;
-	uint32_t dest_limit = dest_base + seg->memsz;
+	uintptr_t dest_base = seg->vaddr;
+	uintptr_t dest_limit = dest_base + seg->memsz;
 
 	// Map the segment memory
-	uint32_t mem_pages = (seg->memsz + (PAGE_SIZE-1)) & PAGING_PAGE_MASK;
-	uint32_t* mem_base = (uint32_t*)seg->vaddr;
-	printf("Page-aligned segment size: 0x%08x\n", mem_pages);
-	printf("Allocating at 0x%08x\n", seg->vaddr);
-	for (uint32_t i = 0; i < mem_pages; i += PAGE_SIZE) {
+	uintptr_t page_aligned_size = (seg->memsz + (PAGE_SIZE-1)) & PAGING_PAGE_MASK;
+	printf("Page-aligned segment size: 0x%p\n", page_aligned_size);
+	printf("Allocating at 0x%p\n", seg->vaddr);
+	/*
+	for (uint32_t i = 0; i < page_aligned_size; i += PAGE_SIZE) {
 		// TODO(PT): Add some kind of validation that the page isn't already mapped
-		uint32_t* mem_addr = (uint32_t*)(seg->vaddr + i);
-		uint32_t frame_addr = vmm_alloc_page_address_usermode(vmm_active_pdir(), mem_addr, true);
+		uintptr_t* mem_addr = (uintptr_t*)(seg->vaddr + i);
+		//uintptr_t frame_addr = vmm_alloc_page_address_usermode(vmm_active_pdir(), mem_addr, true);
+		vas_alloc
+		uintptr_t frame_addr =
+		NotImplemented();
+
 		memset(mem_addr, 0, PAGE_SIZE);
 	}
+	*/
+	uintptr_t* base = vas_alloc_range(vas_get_active_state(), seg->vaddr, page_aligned_size, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
+	assert(base == seg->vaddr, "Failed to map program at its requested address");
 
 	// Copy the file data
-	memcpy(mem_base, src_base, seg->filesz);
+	memcpy(base, src_base, seg->filesz);
 	
 	return true;
 }
 
-uint32_t elf_load_small(unsigned char* src) {
+uintptr_t elf_load_small(unsigned char* src) {
 	elf_header* hdr = (elf_header*)src;
-	uintptr_t phdr_table_addr = (uint32_t)hdr + hdr->phoff;
+	uintptr_t phdr_table_addr = (uintptr_t)hdr + hdr->phoff;
 
 	int segcount = hdr->phnum; 
 	if (!segcount) return 0;
@@ -171,8 +179,8 @@ void elf_load_buffer(char* program_name, uint8_t* buf, uint32_t buf_size, char**
 	char* string_table = elf_get_string_table(hdr, buf_size);
 	_record_elf_symbol_table(buf, &current_task->elf_symbol_table);
 
-	uint32_t prog_break = 0;
-	uint32_t bss_loc = 0;
+	uintptr_t prog_break = 0;
+	uintptr_t bss_loc = 0;
 	for (int x = 0; x < hdr->shentsize * hdr->shnum; x += hdr->shentsize) {
 		if (hdr->shoff + x > buf_size) {
 			printf("Tried to read beyond the end of the file.\n");
@@ -190,19 +198,23 @@ void elf_load_buffer(char* program_name, uint8_t* buf, uint32_t buf_size, char**
 		}
 	}
 
-	uint32_t entry_point = elf_load_small((unsigned char*)buf);
+	uintptr_t entry_point = elf_load_small((unsigned char*)buf);
+	if (!entry_point) {
+		printf("ELF wasn't loadable!\n");
+		return;
+	}
 	//printf("ELF prog_break 0x%08x bss_loc 0x%08x\n", prog_break, bss_loc);
 	// TODO(PT): Ensure the caller cleans this up?
 	//kfree(buf);
 
-	// give user program a 32kb stack
+	// Give userspace a 128kb stack
 	// TODO(PT): We need to free the stack created by _thread_create
-	uint32_t stack_size = PAGING_PAGE_SIZE*2;
-	printf("ELF allocating stack with PDir 0x%08x\n", vmm_active_pdir());
-	uint32_t stack_bottom = vmm_alloc_continuous_range(vmm_active_pdir(), stack_size, true, 0xd0000000, true);
+	uint32_t stack_size = PAGE_SIZE * 32;
+	printf("ELF allocating stack with PDir 0x%p\n", vas_get_active_state());
+	uintptr_t stack_bottom = vas_alloc_range(vas_get_active_state(), 0x7e0000000000, stack_size, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
 	printf("[%d] allocated ELF stack at 0x%08x\n", getpid(), stack_bottom);
-    uint32_t *stack_top = (uint32_t *)(stack_bottom + stack_size); // point to top of malloc'd stack
-	uint32_t* stack_top_orig = stack_top;
+    uintptr_t *stack_top = (uintptr_t *)(stack_bottom + stack_size); // point to top of malloc'd stack
+	uintptr_t* stack_top_orig = stack_top;
 	printf("[%d] Set ESP to 0x%08x\n", getpid(), stack_top);
     *(--stack_top)= 0xaa;   //address of task's entry point
     *(--stack_top)= 0xbb;   //address of task's entry point

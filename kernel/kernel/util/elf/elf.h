@@ -13,9 +13,9 @@ typedef struct {
 	uint16_t	type;
 	uint16_t 	machine;
 	uint32_t 	version;
-	uint32_t 	entry;
-	uint32_t 	phoff;
-	uint32_t 	shoff;
+	uintptr_t 	entry;
+	uintptr_t 	phoff;
+	uintptr_t 	shoff;
 	uint32_t 	flags;
 	uint16_t 	ehsize;
 	uint16_t 	phentsize;
@@ -34,19 +34,30 @@ typedef struct {
 	uint32_t	memsz;		/* Segment size in memory */
 	uint32_t	flags;		/* Segment flags */
 	uint32_t	align;		/* Segment alignment */
+} elf_phdr_32;
+
+typedef struct {
+	uint32_t	type;			/* Segment type */
+	uint32_t 	flags;		/* Segment-dependent flags */
+	uintptr_t	offset;		/* Segment file offset */
+	uintptr_t	vaddr;		/* Segment virtual address */
+	uintptr_t	paddr;		/* Segment physical address */
+	uintptr_t	filesz;		/* Segment size in file */
+	uintptr_t	memsz;		/* Segment size in memory */
+	uintptr_t	align;		/* Segment alignment */
 } elf_phdr;
 
 typedef struct {
 	uint32_t 	name;
 	uint32_t 	type;
-	uint32_t 	flags;
-	uint32_t 	addr;
-	uint32_t 	offset;
-	uint32_t 	size;
+	uintptr_t 	flags;
+	uintptr_t 	addr;
+	uintptr_t 	offset;
+	uintptr_t 	size;
 	uint32_t 	link;
 	uint32_t 	info;
-	uint32_t 	addralign;
-	uint32_t 	entsize;
+	uintptr_t 	addralign;
+	uintptr_t 	entsize;
 } elf_s_header;
 
 typedef struct {
@@ -56,6 +67,15 @@ typedef struct {
 	uint8_t 	info;
 	uint8_t 	other;
 	uint16_t 	shndx;
+} elf_sym_tab32;
+
+typedef struct {
+	uintptr_t name;
+	uint8_t info;
+	uint8_t other;
+	uintptr_t shndx;
+	uintptr_t value;
+	uintptr_t size;
 } elf_sym_tab;
 
 #define ELF32_ST_BIND(INFO)	((INFO) >> 4)
@@ -108,7 +128,8 @@ enum elf_ident {
 #define ELFMAG2		'L'  //ident[EL_MAG2]
 #define ELFMAG3		'F'  //ident[EL_MAG3]
 #define ELFDATA2LSB	(1)  //little endian
-#define ELFCLASS32	(1)  //32-bit arch
+#define ELFCLASS32	(1)  // 32-bit arch
+#define ELFCLASS64	(2)  // 64-bit arch
 
 enum elf_type {
 	ET_NONE		= 0, //unknown type
@@ -116,7 +137,8 @@ enum elf_type {
 	ET_EXEC		= 2, //executable file
 };
 
-#define EM_386		(3)  //x86 type
+#define EM_i686		(0x03)  // i686
+#define EM_x86_64	(0x3E)  // x86_64
 #define EV_CURRENT	(1)  //ELF current version
 
 typedef struct {
