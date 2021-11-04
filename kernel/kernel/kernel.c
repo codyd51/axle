@@ -32,6 +32,8 @@
 #include <kernel/util/vfs/vfs.h>
 #include <bootloader/axle_boot_info.h>
 
+static void _kernel_bootstrap_part2(void);
+
 static void _launch_program(const char* program_name, uint32_t arg2, uint32_t arg3) {
     printf("_launch_program(%s, 0x%08x 0x%08x)\n", program_name, arg2, arg3);
     char* argv[] = {program_name, NULL};
@@ -40,16 +42,15 @@ static void _launch_program(const char* program_name, uint32_t arg2, uint32_t ar
     if (!node) {
         panic("Program specified in boot list wasn't found in initrd");
     }
-    uint32_t address = node->initrd_offset;
+    uintptr_t address = PMA_TO_VMA(node->initrd_offset);
 	elf_load_buffer(program_name, address, node->size, argv);
 	panic("noreturn");
 }
 
-uint32_t initial_esp = 0;
-// TODO(PT): x86_64
+uintptr_t initial_esp = 0;
 //void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
 int _start(axle_boot_info_t* boot_info) {
-    asm("cli");
+    //debug_paging(boot_info);
     //initial_esp = initial_stack;
 
     // Environment info
@@ -63,20 +64,46 @@ int _start(axle_boot_info_t* boot_info) {
     // PIT and serial drivers
     pit_timer_init(PIT_TICK_GRANULARITY_1MS);
     serial_init();
+
     // Kernel features
     pmm_init();
     pmm_dump();
-    vmm_init();
-    vmm_notify_shared_kernel_memory_allocated();
-    syscall_init();
-    vfs_init();
+    //debug_paging(boot_info);
+
+    vmm_init(boot_info->boot_pml4);
+    /*
+    char* a = kmalloc(512);
+    printf("a 0x%p\n", a);
+    kfree(a);
+    */
+
+    //vmm_init();
+    //vmm_notify_shared_kernel_memory_allocated();
+
+    /*
+    Low code, low data
+    Data - high CR3
+    Memcpy code and data to high address
+    Load high cr3
+    Jump to high address
+    */
 
     // We've now allocated all the kernel memory that'll be mapped into every process 
     // Inform the VMM so that it can begin allocating memory outside of shared page tables
-    vmm_dump(boot_info_get()->vmm_kernel);
+    //vmm_dump(boot_info_get()->vmm_kernel);
 
     // Higher-level features like multitasking
-    tasking_init();
+    tasking_init(&_kernel_bootstrap_part2);
+    // The above call should never return
+    assert(false, "Control should have been transferred to a new stack");
+}
+
+static void _kernel_bootstrap_part2(void) {
+    // We're now fully set up in high memory
+    printf("After tasking_init...\n");
+
+    syscall_init();
+    vfs_init();
 
     // Initialize PS/2 controller
     // (and sub-drivers, such as a PS/2 keyboard and mouse)
@@ -91,7 +118,7 @@ int _start(axle_boot_info_t* boot_info) {
         // VFS / program launcher
         "file_manager",
         // HDD FS dependency
-        "ata_driver",
+        //"ata_driver",
         // Window manager
         "awm",
         // User input
