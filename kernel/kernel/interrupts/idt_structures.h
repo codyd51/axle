@@ -50,4 +50,6 @@ typedef register_state_x86_64_t register_state_t;
 FAIL_TO_COMPILE();
 #endif
 
+void registers_print(register_state_t* regs);
+
 #endif
