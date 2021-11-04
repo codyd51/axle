@@ -25,9 +25,8 @@ typedef struct amc_service_list {
 
 typedef struct amc_framebuffer_info {
     uint32_t event;
-    // Must match layout of <kernel/boot_info.h>::framebuffer_info_t
     uint32_t type;
-    uint32_t address;
+    uintptr_t address;
     uint32_t width;
     uint32_t height;
     uint32_t bits_per_pixel;
@@ -42,9 +41,9 @@ typedef struct amc_framebuffer_info {
 
 typedef struct amc_initrd_info {
     uint32_t event;
-    uint32_t initrd_start;
-    uint32_t initrd_end;
-    uint32_t initrd_size;
+    uint64_t initrd_start;
+    uint64_t initrd_end;
+    uint64_t initrd_size;
 } amc_initrd_info_t;
 
 #define AMC_FILE_MANAGER_EXEC_BUFFER 204
@@ -97,6 +96,21 @@ typedef struct amc_flush_messages_to_service_cmd {
     uint32_t event; // AMC_FLUSH_MESSAGES_TO_SERVICE
     char remote_service[AMC_MAX_SERVICE_NAME_LEN];
 } amc_flush_messages_to_service_cmd_t;
+
+#define AMC_SHARED_MEMORY_CREATE_REQUEST 210
+#define AMC_SHARED_MEMORY_CREATE_RESPONSE 210
+
+typedef struct amc_shared_memory_create_cmd {
+    uint32_t event;
+    char remote_service_name[AMC_MAX_SERVICE_NAME_LEN];
+    uint32_t buffer_size;
+} amc_shared_memory_create_cmd_t;
+
+typedef struct amc_shared_memory_create_response {
+    uint32_t event;
+    uintptr_t local_buffer_start;
+    uintptr_t remote_buffer_start;
+} amc_shared_memory_create_response_t;
 
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size);
 

@@ -7,6 +7,8 @@
 #include "amc_internal.h"
 #include "core_commands.h"
 
+const uint64_t _AMC_SHARED_MEMORY_BASE = 0x7f0000000000;
+
 static void _amc_core_copy_amc_services(const char* source_service) {
     printf("Request to copy services\n");
    
@@ -186,6 +188,42 @@ static void _amc_core_flush_messages_from_service_to_service(source_service, buf
     spinlock_release(&unknown_dest_service_message_pool->lock);
 }
 
+static void _amc_shared_memory_create(const char* source_service, void* buf, uint32_t buf_size) {
+    amc_service_t* source = amc_service_with_name(source_service);
+    assert(source != NULL, "Failed to find service that sent the message...");
+
+    amc_shared_memory_create_cmd_t* cmd = (amc_shared_memory_create_cmd_t*)buf;
+    amc_service_t* remote = amc_service_with_name(&cmd->remote_service_name);
+    assert(remote != NULL, "Failed to find the requested remote service...");
+
+    printf("[AMC] Creating shared memory [%s <-> %s] of size 0x%p\n", source->name, remote->name, cmd->buffer_size);
+
+    uint64_t local_vas_base = vas_alloc_range(
+        source->task->vas_state, 
+        _AMC_SHARED_MEMORY_BASE, 
+        cmd->buffer_size, 
+        VAS_RANGE_ACCESS_LEVEL_READ_WRITE, 
+        VAS_RANGE_PRIVILEGE_LEVEL_USER
+    );
+    uint64_t remote_vas_base = vas_copy_phys_mapping(
+        remote->task->vas_state,
+        source->task->vas_state, 
+        _AMC_SHARED_MEMORY_BASE,
+        cmd->buffer_size,
+        local_vas_base,
+        VAS_RANGE_ACCESS_LEVEL_READ_WRITE,
+        VAS_RANGE_PRIVILEGE_LEVEL_USER
+    );
+    printf("[AMC] local VAS 0x%p remote VAS 0x%p\n", local_vas_base, remote_vas_base);
+
+    amc_shared_memory_create_response_t msg = {
+        .event = AMC_SHARED_MEMORY_CREATE_RESPONSE,
+        .local_buffer_start = local_vas_base,
+        .remote_buffer_start = remote_vas_base
+    };
+    amc_message_construct_and_send__from_core(source_service, &msg, sizeof(amc_shared_memory_create_response_t));
+}
+
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size) {
     //printf("Message to core from %s\n", source_service);
     uint32_t* u32buf = (uint32_t*)buf;
@@ -219,6 +257,9 @@ void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf
     }
     else if (u32buf[0] == AMC_FLUSH_MESSAGES_TO_SERVICE) {
         _amc_core_flush_messages_from_service_to_service(source_service, buf, buf_size);
+    }
+    else if (u32buf[0] == AMC_SHARED_MEMORY_CREATE_REQUEST) {
+        _amc_shared_memory_create(source_service, buf, buf_size);
     }
     else {
         printf("Unknown message: %d\n", u32buf[0]);

@@ -39,11 +39,7 @@ bool amc_has_message(void);
 // Returns whether the service was successfully found and launched.
 bool amc_launch_service(const char* service_name);
 
-// Create a shared memory region between the current service and a destination service
-// Writes the virtual addresses of the local and remote regions to the "out" parameters
-// Both virtual memory regions point to the same physical memory
-void amc_shared_memory_create(const char* remote_service, uint32_t buffer_size, uint32_t* local_buffer, uint32_t* remote_buffer);
-void amc_physical_memory_region_create(uint32_t region_size, uint32_t* virtual_region_start_out, uint32_t* physical_region_start_out);
+void amc_physical_memory_region_create(uint32_t region_size, uintptr_t* virtual_region_start_out, uintptr_t* physical_region_start_out);
 
 // Asynchronously construct and send the message to the provided destination service
 // Returns whether the message was successfully routed to the service

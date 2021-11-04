@@ -98,6 +98,24 @@ typedef struct amc_flush_messages_to_service_cmd {
     char remote_service[AMC_MAX_SERVICE_NAME_LEN];
 } amc_flush_messages_to_service_cmd_t;
 
+// Create a shared memory region between the current service and a destination service
+// Writes the virtual addresses of the local and remote regions to the "out" parameters
+// Both virtual memory regions point to the same physical memory
+#define AMC_SHARED_MEMORY_CREATE_REQUEST 210
+#define AMC_SHARED_MEMORY_CREATE_RESPONSE 210
+
+typedef struct amc_shared_memory_create_cmd {
+    uint32_t event;
+    char remote_service_name[AMC_MAX_SERVICE_NAME_LEN];
+    uint32_t buffer_size;
+} amc_shared_memory_create_cmd_t;
+
+typedef struct amc_shared_memory_create_response {
+    uint32_t event;
+    uintptr_t local_buffer_start;
+    uintptr_t remote_buffer_start;
+} amc_shared_memory_create_response_t;
+
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size);
 
 #endif
