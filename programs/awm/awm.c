@@ -736,7 +736,7 @@ static void _awm_init(void) {
 	assert(event == AMC_AWM_MAP_FRAMEBUFFER_RESPONSE, "Expected awm framebuffer info");
 	amc_framebuffer_info_t* framebuffer_info = (amc_framebuffer_info_t*)msg->body;
 	printf("Recv'd framebuf info!\n");
-    printf("0x%08x 0x%08x (%d x %d x %d x %d)\n", framebuffer_info->address, framebuffer_info->size, framebuffer_info->width, framebuffer_info->height, framebuffer_info->bytes_per_pixel, framebuffer_info->bits_per_pixel);
+    printf("0x%16p 0x%16p (%d x %d x %d x %d)\n", framebuffer_info->address, framebuffer_info->size, framebuffer_info->width, framebuffer_info->height, framebuffer_info->bytes_per_pixel, framebuffer_info->bits_per_pixel);
 
 	// Set up the screen object
     _screen.resolution = size_make(framebuffer_info->width, framebuffer_info->height);

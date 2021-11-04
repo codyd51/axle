@@ -15,5 +15,5 @@ executable(
 )
 install_headers(
     ['awm.h', 'awm_messages.h'],
-    install_dir: join_paths(meson.get_cross_property('include_root', 'awm'))
+    install_dir: join_paths(meson.get_cross_property('include_root'), 'awm')
 )
