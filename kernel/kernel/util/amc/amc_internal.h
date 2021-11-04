@@ -11,8 +11,8 @@
 
 typedef struct amc_shared_memory_region {
     char remote[AMC_MAX_SERVICE_NAME_LEN];
-    uint32_t remote_descriptor;
-    uint32_t start;
+    uintptr_t remote_descriptor;
+    uintptr_t start;
     uint32_t size;
 } amc_shared_memory_region_t;
 
@@ -27,7 +27,7 @@ typedef struct amc_service {
     spinlock_t spinlock;
 
     // Base address of delivery pool
-    uint32_t delivery_pool;
+    uintptr_t delivery_pool;
 
     // Any shared memory regions that have been set up with another service
     array_m* shmem_regions;

@@ -51,13 +51,24 @@ static void _amc_core_awm_map_framebuffer(const char* source_service) {
     // Pad to page size
     framebuf_end_addr = (framebuf_end_addr + (PAGE_SIZE - 1)) & PAGING_PAGE_MASK;
     printf("Framebuffer: 0x%08x - 0x%08x (%d pages)\n", framebuf_start_addr, framebuf_end_addr, ((framebuf_end_addr - framebuf_start_addr) / PAGE_SIZE));
+    /*
     for (uint32_t addr = framebuf_start_addr; addr < framebuf_end_addr; addr += PAGE_SIZE) {
         vmm_set_page_usermode(vmm_active_pdir(), addr);
     }
+    */
+    uint64_t framebuf_size = framebuf_end_addr - framebuf_start_addr;
+    uint64_t mapped_framebuffer = vas_map_range(vas_get_active_state(), 0x7d0000000000, framebuf_size, framebuf_start_addr, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
+    printf("Mapped framebuffer to 0x%p\n", mapped_framebuffer);
 
-    amc_framebuffer_info_t msg = {.event = AMC_AWM_MAP_FRAMEBUFFER_RESPONSE};
-    // Copy the framebuffer_info_t into the structure subfields that exactly match its layout
-    memcpy(&msg.type, framebuffer_info, sizeof(framebuffer_info_t));
+    amc_framebuffer_info_t msg = {
+        .event = AMC_AWM_MAP_FRAMEBUFFER_RESPONSE,
+        .address = mapped_framebuffer,
+        .bits_per_pixel = 32,
+        .bytes_per_pixel = 4,
+        .width = framebuffer_info->width,
+        .height = framebuffer_info->height,
+        .size = framebuf_size,
+    };
     amc_message_construct_and_send__from_core(source_service, &msg, sizeof(amc_framebuffer_info_t));
 }
 
@@ -84,28 +95,28 @@ static void _amc_core_file_manager_map_initrd(const char* source_service) {
 
     // Map the ramdisk into the proc's address space
     boot_info_t* bi = boot_info_get();
+    /*
     vmm_identity_map_region(
         (vmm_page_directory_t*)vmm_active_pdir(),
         bi->initrd_start,
         bi->initrd_size
     );
+    */
+    uint32_t page_padded_size = (bi->initrd_size + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1);
+    uintptr_t mapped_initrd = vas_map_range(vas_get_active_state(), 0x7d0000000000, page_padded_size, bi->initrd_start, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
     spinlock_release(&current_service->spinlock);
 
     // And mark the pages as accessible to usermode
-    printf("Ramdisk: 0x%08x - 0x%08x (%d pages)\n", bi->initrd_start, bi->initrd_end, bi->initrd_size / PAGE_SIZE);
-    for (uint32_t addr = bi->initrd_start; addr < bi->initrd_end; addr += PAGE_SIZE) {
-        vmm_set_page_usermode(vmm_active_pdir(), addr);
-    }
+    printf("Ramdisk: 0x%p - 0x%p (%d pages)\n", mapped_initrd, mapped_initrd + bi->initrd_size, bi->initrd_size / PAGE_SIZE);
 
     amc_initrd_info_t msg = {
         .event = AMC_FILE_MANAGER_MAP_INITRD_RESPONSE,
-        .initrd_start = bi->initrd_start,
-        .initrd_end = bi->initrd_end,
+        .initrd_start = mapped_initrd,
+        .initrd_end = mapped_initrd + bi->initrd_size,
         .initrd_size = bi->initrd_size,
     };
     amc_message_construct_and_send__from_core(source_service, &msg, sizeof(amc_initrd_info_t));
 }
-
 
 static void _trampoline(const char* program_name, void* buf, uint32_t buf_size) {
     char* argv[] = {program_name, NULL};
@@ -118,7 +129,7 @@ static void _amc_core_file_manager_exec_buffer(const char* source_service, void*
     assert(!strncmp(source_service, "com.axle.file_manager", AMC_MAX_SERVICE_NAME_LEN), "Only File Manager may use this syscall");
 
     amc_exec_buffer_cmd_t* cmd = (amc_exec_buffer_cmd_t*)buf;
-    printf("program name %s\n", cmd->program_name);
+    printf("exec buffer(program_name: %s, buffer_addr: 0x%p)\n", cmd->program_name, cmd->buffer_addr);
 
     task_spawn__with_args(
         _trampoline, 

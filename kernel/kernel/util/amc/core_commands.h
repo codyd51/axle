@@ -25,9 +25,8 @@ typedef struct amc_service_list {
 
 typedef struct amc_framebuffer_info {
     uint32_t event;
-    // Must match layout of <kernel/boot_info.h>::framebuffer_info_t
     uint32_t type;
-    uint32_t address;
+    uintptr_t address;
     uint32_t width;
     uint32_t height;
     uint32_t bits_per_pixel;
@@ -42,9 +41,9 @@ typedef struct amc_framebuffer_info {
 
 typedef struct amc_initrd_info {
     uint32_t event;
-    uint32_t initrd_start;
-    uint32_t initrd_end;
-    uint32_t initrd_size;
+    uintptr_t initrd_start;
+    uintptr_t initrd_end;
+    uintptr_t initrd_size;
 } amc_initrd_info_t;
 
 #define AMC_FILE_MANAGER_EXEC_BUFFER 204

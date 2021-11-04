@@ -692,7 +692,9 @@ bool amc_launch_service(const char* service_name) {
     return false;
 }
 
-void amc_physical_memory_region_create(uint32_t region_size, uint32_t* virtual_region_start_out, uint32_t* physical_region_start_out) {
+void amc_physical_memory_region_create(uint32_t region_size, uintptr_t* virtual_region_start_out, uintptr_t* physical_region_start_out) {
+    // TODO(PT): Who uses this? 
+    Deprecated();
     amc_service_t* current_service = _amc_service_of_task(tasking_get_current_task());
     spinlock_acquire(&current_service->spinlock);
 
