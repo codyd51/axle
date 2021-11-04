@@ -1,0 +1,248 @@
+#include <stdbool.h>
+#include <kernel/assert.h>
+#include <kernel/vmm/vmm.h>
+#include <kernel/boot_info.h>
+#include <kernel/address_space_bitmap.h>
+
+#include <std/common.h>
+
+#include "pmm.h"
+
+void pmm_reserve_mem_region(pmm_state_t* pmm, uintptr_t start, uintptr_t size);
+
+static uint64_t _pmm_stack[PMM_MAX_MEMORY_SIZE / PAGE_SIZE] = {0};
+
+pmm_state_t* pmm_get(void) {
+    static pmm_state_t state = {0};
+    return &state;
+}
+
+void pmm_dump(void) {
+    /*
+    pmm_state_t* pmm = pmm_get();
+    printf("Physical memory manager state:\n");
+    printf("\tSystem accessible frames (ranges are allocatable):\n");
+    addr_space_bitmap_dump_set_ranges(&pmm->system_accessible_frames);
+    printf("\tFrame allocation state (ranges are allocated):\n");
+    addr_space_bitmap_dump_set_ranges(&pmm->allocation_state);
+    printf("Allocated: 0x%08x\n", pmm_allocated_memory());
+    */
+}
+
+uintptr_t pmm_allocated_memory(void) {
+    /*
+    pmm_state_t* pmm = pmm_get();
+    uintptr_t allocated_frame_count = 0;
+    address_space_frame_bitmap_t* bitmap = &pmm->allocation_state;
+    for (int i = 0; i < ADDRESS_SPACE_BITMAP_SIZE; i++) {
+        uintptr_t entry = bitmap->set[i];
+        for (int j = 0; j < BITS_PER_BITMAP_ENTRY; j++) {
+            if (entry & (1 << j)) {
+                allocated_frame_count += 1;
+            }
+        }
+    }
+    return allocated_frame_count * PAGING_FRAME_SIZE;
+    */
+}
+
+void pmm_push_allocatable_frame(uint64_t frame_addr) {
+    pmm_state_t* pmm = pmm_get();
+    assert(pmm->stack_head + 1 < pmm->stack_top, "Exceeded physical RAM limit");
+    *pmm->stack_head = frame_addr;
+    pmm->stack_head += 1;
+}
+
+uint64_t _pmm_pop_allocatable_frame(pmm_state_t* pmm) {
+    assert(pmm->stack_head > pmm->stack_bottom, "No more free memory!");
+    pmm->stack_head -= 1;
+    uint64_t frame = *pmm->stack_head;
+    return frame;
+}
+
+void pmm_init(void) {
+    pmm_state_t* pmm = pmm_get();
+    pmm->lock.name = "[PMM global lock]";
+
+    pmm->stack_bottom = &_pmm_stack;
+    pmm->stack_top = pmm->stack_bottom + sizeof(_pmm_stack);
+    pmm->stack_head = pmm->stack_bottom;
+    printf("PMM stack: 0x%p - 0x%p\n", pmm->stack_bottom, pmm->stack_top);
+    printf("PHYS PMM stack: 0x%p - 0x%p\n", &_pmm_stack, &_pmm_stack + sizeof(_pmm_stack));
+
+    // TODO(PT): Will there be any bug with PMM allocating the frame used for the init kernel stack?
+    boot_info_t* info = boot_info_get();
+    //mark usable sections of the address space
+    // Push memory regions on to the free stack backwards so memory starts getting allocated from low-memory up
+    for (int i = info->mem_region_count - 1; i >= 0; i--) {
+        physical_memory_region_t region = info->mem_regions[i];
+        if (region.type != PHYS_MEM_REGION_USABLE) {
+            continue;
+        }
+        //mask to frame size
+        //this cuts off a bit of usable memory but we'll only lose a few frames at most
+        uintptr_t addr = addr_space_frame_ceil(region.addr);
+        uintptr_t len = addr_space_frame_floor(region.len);
+        uint64_t page_count = (len + (PAGE_SIZE - 1)) / PAGE_SIZE;
+        for (int j = page_count - 1; j >= 0; j--) {
+            pmm_push_allocatable_frame(addr + (j * PAGE_SIZE));
+        }
+    }
+
+    pmm_test();
+
+    /*
+    //for identity mapping purposes
+    //reserve any allocatable memory from 0x0 to start of kernel image
+    printf("reserve kernel region\n");
+    pmm_reserve_mem_region(pmm, 0x00000000, info->kernel_image_start);
+    //map out kernel image region
+    printf("reserve kernel image\n");
+    pmm_reserve_mem_region(pmm, info->kernel_image_start, info->kernel_image_size);
+    //map out framebuffer
+    printf("reserve framebuffer\n");
+    pmm_reserve_mem_region(pmm, info->framebuffer.address, info->framebuffer.size);
+    printf("reserve initrd\n");
+    pmm_reserve_mem_region(pmm, info->initrd_start, info->initrd_size);
+    printf("done\n");
+
+    /*
+    multiboot_elf_section_header_table_t symbol_table_info = info->symbol_table_info;
+	elf_section_header_t* sh = (elf_section_header_t*)symbol_table_info.addr;
+	uintptr_t shstrtab = sh[symbol_table_info.shndx].addr;
+	for (uintptr_t i = 0; i < symbol_table_info.num; i++) {
+		const char* name = (const char*)(shstrtab + sh[i].name);
+        printf_info("PMM reserving kernel ELF section %s", name);
+        pmm_reserve_mem_region(pmm, sh[i].addr, sh[i].size);
+    }
+    // map out kernel symbol table and string table from ELF image
+    pmm_reserve_mem_region(pmm, info->kernel_elf_symbol_table.strtab, info->kernel_elf_symbol_table.strtabsz);
+    pmm_reserve_mem_region(pmm, info->kernel_elf_symbol_table.symtab, info->kernel_elf_symbol_table.symtabsz);
+    */
+}
+
+uintptr_t find_free_region(pmm_state_t* pmm, uintptr_t region_size) {
+    /*
+    spinlock_acquire(&pmm->lock);
+    uintptr_t ret = _find_free_region_unlocked(pmm, region_size);
+    unlock(&pmm->lock);
+    return ret;
+    */
+    NotImplemented();
+    return 0;
+}
+
+uintptr_t first_usable_pmm_index(pmm_state_t* pmm) {
+    /*
+    spinlock_acquire(&pmm->lock);
+    uintptr_t ret = _first_usable_pmm_index_unlocked(pmm);
+    unlock(&pmm->lock);
+    return ret;
+    */
+    NotImplemented();
+    return 0;
+}
+
+void pmm_reserve_mem_region(pmm_state_t* pmm, uintptr_t start, uintptr_t size) {
+    /*
+    spinlock_acquire(&pmm->lock);
+    _pmm_reserve_mem_region_unlocked(pmm, start, size);
+    spinlock_release(&pmm->lock);
+    */
+    NotImplemented();
+}
+
+void pmm_alloc_address(uintptr_t address) {
+    /*
+    pmm_state_t* pmm = pmm_get();
+    spinlock_acquire(&pmm->lock);
+    _pmm_alloc_address_unlocked(pmm, address);
+    spinlock_release(&pmm->lock);
+    */
+    NotImplemented();
+    return 0;
+}
+
+// TODO(PT): Rename to pmm_calloc?
+uintptr_t pmm_alloc(void) {
+    pmm_state_t* pmm = pmm_get();
+    spinlock_acquire(&pmm->lock);
+    uint64_t frame = _pmm_pop_allocatable_frame(pmm);
+    memset(PMA_TO_VMA(frame), 0, PAGE_SIZE);
+    spinlock_release(&pmm->lock);
+    return frame;
+}
+
+uintptr_t pmm_alloc_continuous_range(uintptr_t size) {
+    /*
+    pmm_state_t* pmm = pmm_get();
+    spinlock_acquire(&pmm->lock);
+    uintptr_t ret = _pmm_alloc_continuous_range_unlocked(pmm, size);
+    spinlock_release(&pmm->lock);
+    return ret;
+    */
+    NotImplemented();
+    return 0;
+}
+
+void pmm_free(uintptr_t frame_address) {
+    pmm_state_t* pmm = pmm_get();
+    spinlock_acquire(&pmm->lock);
+    _pmm_push_allocatable_frame(pmm, frame_address);
+    spinlock_release(&pmm->lock);
+}
+
+bool pmm_is_address_allocated(uintptr_t address) {
+    /*
+    pmm_state_t* pmm = pmm_get();
+    spinlock_acquire(&pmm->lock);
+    bool ret = addr_space_bitmap_check_address(&pmm->allocation_state, address);
+    spinlock_release(&pmm->lock);
+    return ret;
+    */
+    NotImplemented();
+    return false;
+}
+
+bool pmm_is_frame_general_purpose(uintptr_t address) {
+    /*
+    pmm_state_t* pmm = pmm_get();
+    spinlock_acquire(&pmm->lock);
+    bool ret = addr_space_bitmap_check_address(&pmm->system_accessible_frames, address);
+    spinlock_release(&pmm->lock);
+    return ret;
+    */
+    NotImplemented();
+    return false;
+}
+
+void pmm_test(void) {
+    // Given a fresh PMM state
+    // When I allocate 2 frames 
+    uint64_t f1 = pmm_alloc();
+    uint64_t f2 = pmm_alloc();
+    // Then they're exactly one frame apart
+    assert(f2 > f1, "Expected the second frame to be higher than the first");
+    assert(f2 - f1 == PAGE_SIZE, "Expected the frames to be next to each other");
+
+    // When I free one frame and re-allocate it
+    uint64_t orig_f2 = f2;
+    pmm_free(f2);
+    f2 = pmm_alloc();
+    // Then I receive the same frame again
+    assert(f2 == orig_f2, "Expected to allocate the same frame after free");
+
+    // When I free frame2 and allocate frame3
+    // When I allocate frame3, free frame2, then allocate a frame
+    uint64_t f3 = pmm_alloc();
+    // Then f3 is higher than the other frames
+    assert(f3 > f2 && f3 > f1, "Expected third frame to be the highest");
+    pmm_free(f2);
+    uint64_t f4 = pmm_alloc();
+    // And the old frame is re-used
+    assert(f4 == orig_f2, "Expected f2 to be re-used");
+
+    pmm_free(f4);
+    pmm_free(f3);
+    pmm_free(f1);
+}

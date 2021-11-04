@@ -1,0 +1,19 @@
+#ifndef PMM_INT_H
+#define PMM_INT_H
+
+#include <stdint.h>
+#include <kernel/address_space.h>
+#include <kernel/address_space_bitmap.h>
+#include <kernel/util/spinlock/spinlock.h>
+
+// 16GB max frame stack size
+#define PMM_MAX_MEMORY_SIZE (1024LL * 1024LL * 1024LL * 16LL)
+
+typedef struct pmm_state {
+    uint64_t* stack_head;
+    uint64_t* stack_bottom;
+    uint64_t* stack_top;
+    spinlock_t lock;
+} pmm_state_t;
+
+#endif
