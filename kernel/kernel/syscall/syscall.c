@@ -3,7 +3,6 @@
 #include <kernel/interrupts/interrupts.h>
 #include <kernel/drivers/terminal/terminal.h>
 #include <kernel/drivers/pit/pit.h>
-#include <kernel/multitasking//tasks/task.h>
 #include <std/array_m.h>
 
 #define MAX_SYSCALLS 128

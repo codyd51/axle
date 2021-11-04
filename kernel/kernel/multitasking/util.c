@@ -1,7 +1,6 @@
 #include "util.h"
 #include <std/std.h>
 #include <std/memory.h>
-#include <kernel/util/paging/paging.h>
 #include <kernel/vmm/vmm.h>
 #include <kernel/boot_info.h>
 

@@ -2,13 +2,33 @@
 #define TASK_SMALL_H
 
 #include <stdint.h>
-#include <kernel/multitasking/tasks/task.h>
-#include <kernel/multitasking/std_stream.h>
 #include <kernel/vmm/vmm.h>
 #include <kernel/util/spinlock/spinlock.h>
 #include <kernel/elf.h>
+#include <std/array_l.h>
 
 #define FD_MAX 64
+
+typedef enum task_state {
+	UNKNOWN = 			(0 << 0),
+    RUNNABLE = 			(1 << 0),
+	// Intermediate state after task finishes executing before being flushed from system
+	ZOMBIE = 			(1 << 1),
+    KB_WAIT = 			(1 << 2),
+    PIT_WAIT = 			(1 << 3),
+	MOUSE_WAIT = 		(1 << 4),
+	CHILD_WAIT = 		(1 << 5),
+	PIPE_FULL = 		(1 << 6),
+	PIPE_EMPTY = 		(1 << 7),
+	IRQ_WAIT = 			(1 << 8),
+	// The process has blocked until it receives an IPC message
+	AMC_AWAIT_MESSAGE = (1 << 9),
+	// Kernel code is modifying the
+	// task's virtual address space
+	VMM_MODIFY = 		(1 << 10),
+	// AMC service sleeping until a timestamp has been reached
+	AMC_AWAIT_TIMESTAMP = (1 << 11),
+} task_state_t;
 
 typedef struct task_context {
 	uint32_t ebp;
@@ -49,12 +69,7 @@ typedef struct task_small {
 	uint32_t lifespan;
 
 	bool is_thread;
-	vmm_page_directory_t* vmm;
-
-	array_l* fd_table;
-	std_stream_t* stdin_stream;
-	std_stream_t* stdout_stream;
-	std_stream_t* stderr_stream;
+	vas_state_t* vas_state;
 
 	/*
 	 * The following attributes are set only 

@@ -21,7 +21,6 @@ typedef struct {
 
 //create mutable array
 STDAPI array_m* array_m_create(int32_t max_size);
-STDAPI array_m* array_m_place(void* addr, int32_t max_size);
 
 //destroy mutable array
 STDAPI void array_m_destroy(array_m* array);

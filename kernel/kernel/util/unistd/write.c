@@ -1,16 +1,8 @@
 #include "write.h"
-#include <kernel/multitasking/fd.h>
-#include <kernel/multitasking/tasks/task_small.h>
-#include <kernel/multitasking/pipe.h>
-#include <kernel/multitasking/std_stream.h>
 #include <kernel/util/amc/amc.h>
+#include <kernel/multitasking/tasks/task_small.h>
 
 #include <gfx/lib/gfx.h>
-
-int xserv_write(task_t* task, int UNUSED(fd), const void* buf, int len) {
-	Deprecated();
-	return -1;
-}
 
 int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
 	char b[len+16];
@@ -31,13 +23,8 @@ int write(int fd, char* buf, int len) {
 	if (!len) return 0;
 
 	task_small_t* current = tasking_get_task_with_pid(getpid());
-	// Find the stream associated with the file descriptor
-	fd_entry_t* fd_ent = array_l_lookup(current->fd_table, fd);
-
-	if (fd_ent->type == STD_TYPE) {
-		return stdout_write(current, fd, buf, len);
-	}
-
-	Deprecated();
-	return -1;
+	if (fd != 0) 
+	// The old kernel-mode file descriptor mechanism was removed
+	assert(fd == 1, "Only FD 1 is supported via this mechanism");
+	return stdout_write(current, fd, buf, len);
 }

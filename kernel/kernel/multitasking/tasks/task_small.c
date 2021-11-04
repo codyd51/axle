@@ -2,7 +2,6 @@
 
 #include <std/timer.h>
 #include <kernel/boot_info.h>
-#include <kernel/multitasking/std_stream.h>
 #include <kernel/util/mutex/mutex.h>
 #include <kernel/segmentation/gdt_structures.h>
 
@@ -131,50 +130,9 @@ static void _task_bootstrap(uint32_t entry_point_ptr, uint32_t entry_point_arg1,
     task_die(status);
 }
 
-static void _setup_fds(task_small_t* new_task) {
-    new_task->fd_table = array_l_create();
-    
-    // Standard input stream
-    new_task->stdin_stream = std_stream_create();
-    fd_entry_t* stdin_entry = kmalloc(sizeof(fd_entry_t));
-    memset(stdin_entry, 0, sizeof(fd_entry_t));
-    stdin_entry->type = STD_TYPE;
-    stdin_entry->payload = new_task->stdin_stream;
-    array_l_insert(new_task->fd_table, stdin_entry);
-
-    // Standard output stream
-    new_task->stdout_stream = std_stream_create();
-    fd_entry_t* stdout_entry = kmalloc(sizeof(fd_entry_t));
-    memset(stdout_entry, 0, sizeof(fd_entry_t));
-    stdout_entry->type = STD_TYPE;
-    stdout_entry->payload = new_task->stdout_stream;
-    array_l_insert(new_task->fd_table, stdout_entry);
-
-    // Standard error stream
-    new_task->stderr_stream = std_stream_create();
-    fd_entry_t* stderr_entry = kmalloc(sizeof(fd_entry_t));
-    memset(stderr_entry, 0, sizeof(fd_entry_t));
-    stderr_entry->type = STD_TYPE;
-    stderr_entry->payload = new_task->stderr_stream;
-    array_l_insert(new_task->fd_table, stderr_entry);
-}
-
 void _thread_destroy(task_small_t* thread) {
     _task_remove_from_scheduler(thread);
 
-    // Free file descriptor table
-    while (thread->fd_table->size) {
-        fd_entry_t* fd_ent = array_l_lookup(thread->fd_table, 0);
-        array_l_remove(thread->fd_table, 0);
-        kfree(fd_ent);
-    }
-    array_l_destroy(thread->fd_table);
-
-    // Free standard IO streams
-    std_stream_destroy(thread->stdin_stream);
-    std_stream_destroy(thread->stdout_stream);
-    std_stream_destroy(thread->stderr_stream);
-    
     // Free kernel stack
     kfree(thread->kernel_stack_malloc_head);
 

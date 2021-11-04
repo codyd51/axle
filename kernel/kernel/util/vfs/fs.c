@@ -1,8 +1,6 @@
 #include "fs.h"
 #include <std/std.h>
 #include <std/math.h>
-#include <kernel/multitasking/fd.h>
-#include <kernel/util/fat/fat.h>
 
 fs_node_t* fs_root = 0; //filesystem root
 

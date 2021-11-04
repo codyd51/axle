@@ -17,11 +17,11 @@ void syscall_add(void* syscall);
 #define _ASM_SYSCALL_ARGS_5(P1, P2, P3, P4, P5) _ASM_SYSCALL_ARGS_4(P1, P2, P3, P4), P5 p5
 
 #define _ASM_SYSCALL_BODY_0(num) "int $0x80" : "=a" (a) : "0" (num)
-#define _ASM_SYSCALL_BODY_1(num) _ASM_SYSCALL_BODY_0(num), "b" ((int)p1)
-#define _ASM_SYSCALL_BODY_2(num) _ASM_SYSCALL_BODY_1(num), "c" ((int)p2)
-#define _ASM_SYSCALL_BODY_3(num) _ASM_SYSCALL_BODY_2(num), "d" ((int)p3)
-#define _ASM_SYSCALL_BODY_4(num) _ASM_SYSCALL_BODY_3(num), "S" ((int)p4)
-#define _ASM_SYSCALL_BODY_5(num) _ASM_SYSCALL_BODY_4(num), "D" ((int)p5)
+#define _ASM_SYSCALL_BODY_1(num) _ASM_SYSCALL_BODY_0(num), "b" ((uintptr_t)p1)
+#define _ASM_SYSCALL_BODY_2(num) _ASM_SYSCALL_BODY_1(num), "c" ((uintptr_t)p2)
+#define _ASM_SYSCALL_BODY_3(num) _ASM_SYSCALL_BODY_2(num), "d" ((uintptr_t)p3)
+#define _ASM_SYSCALL_BODY_4(num) _ASM_SYSCALL_BODY_3(num), "S" ((uintptr_t)p4)
+#define _ASM_SYSCALL_BODY_5(num) _ASM_SYSCALL_BODY_4(num), "D" ((uintptr_t)p5)
 
 #define _ARG_COUNT(z, a, b, c, d, e, f, N, ...) N
 #define ARG_COUNT(...) _ARG_COUNT(,##__VA_ARGS__, 6, 5, 4, 3, 2, 1, 0)

@@ -4,10 +4,8 @@
 #include <std/std.h>
 #include <std/printf.h>
 #include <std/kheap.h>
-#include <kernel/util/paging/paging.h>
-#include <kernel/multitasking//tasks/task.h>
+#include <kernel/vmm/vmm.h>
 #include <kernel/multitasking/tasks/task_small.h>
-#include <kernel/util/paging/paging.h>
 
 static bool elf_check_magic(elf_header* hdr) {
 	if (!hdr) return false;

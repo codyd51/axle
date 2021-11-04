@@ -3,7 +3,7 @@
 #include <std/std.h>
 #include <kernel/kernel.h>
 #include <kernel/drivers/pit/pit.h>
-#include <kernel/multitasking/tasks/task.h>
+#include <kernel/multitasking/tasks/task_small.h>
 
 time_t current_time;
 
@@ -55,8 +55,8 @@ static void handle_rtc_update() {
 
 	static int flip = 0;
 	printk("heartbeat\n");
-	if (tasking_installed() && flip == 3) {
-		proc();
+	if (tasking_is_active() && flip == 3) {
+		//proc();
 		flip = 0;
 	}
 	else {

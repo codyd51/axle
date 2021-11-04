@@ -4,7 +4,6 @@
 #include <std/std.h>
 #include <std/ctype.h>
 #include <std/math.h>
-#include <kernel/util/kbman/kbman.h>
 
 /// Shared lock to keep all terminal operations atomic
 static lock_t* mutex;

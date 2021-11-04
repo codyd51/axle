@@ -2,6 +2,8 @@
 #include <stddef.h>
 
 #include <kernel/boot_info.h>
+#include <kernel/vmm/vmm.h>
+#include <std/memory.h>
 
 #include "vfs.h"
 #include "initrd.h"

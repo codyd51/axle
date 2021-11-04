@@ -7,7 +7,6 @@
 
 #include <kernel/kernel.h>
 #include <kernel/assert.h>
-#include <kernel/multitasking/tasks/task.h>
 
 static int_callback_t interrupt_handlers[256] = {0};
 

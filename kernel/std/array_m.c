@@ -13,11 +13,6 @@ array_m* array_m_create(int32_t max_size) {
 	return ret;
 }
 
-array_m* array_m_place(void* addr, int32_t max_size) {
-	Deprecated();
-	return NULL;
-}
-
 void array_m_destroy(array_m* array) {
 	kfree(array->array);
 	kfree(array);
