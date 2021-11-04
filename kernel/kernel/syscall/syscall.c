@@ -68,7 +68,17 @@ static int syscall_handler(register_state_t* regs) {
 }
 #elif defined __x86_64__
 static int syscall_handler(register_state_x86_64_t* regs) {
-	NotImplemented();
+	// Requested syscall number stored in rax
+	if (!syscalls || regs->rax >= MAX_SYSCALLS) {
+		printf_err("Syscall %d called but not defined", regs->rax);
+		return -1;
+	}
+
+	// We don't know here how many arguments the syscall handler accepts, so just provide them all.
+	uint64_t(*syscall)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t) = (void(*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t))array_m_lookup(syscalls, regs->rax);
+	// Match the register order that the newlib syscall support passes arguments
+	regs->rax = syscall(regs->rbx, regs->rcx, regs->rdx, regs->rsi, regs->rdi);
+	return regs->rax;
 }
 #else 
     FAIL_TO_COMPILE();
