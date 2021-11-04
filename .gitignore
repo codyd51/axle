@@ -31,3 +31,6 @@ kernel/kernel/pmm/pmm_int.h
 kernel/kernel/pmm/pmm.c
 kernel/kernel/vmm/vmm.h
 kernel/kernel/vmm/vmm.c
+
+# Sysroot generated as part of OS build
+axle-sysroot
