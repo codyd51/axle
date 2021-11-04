@@ -33,7 +33,12 @@
  *     * Feels risky as the client has to guess message size
  *     * Does not need a way to release a message
  */
+
+/*
 static const uint32_t _amc_delivery_pool_base = 0xb0000000;
+static const uint32_t _amc_delivery_pool_size = 1024 * 1024 * 32;
+*/
+static const uintptr_t _amc_delivery_pool_base = 0x7f8000000000LL;
 static const uint32_t _amc_delivery_pool_size = 1024 * 1024 * 32;
 
 static array_m* _amc_services = 0;
@@ -202,6 +207,7 @@ void amc_register_service(const char* name) {
     service->services_to_notify_upon_death = array_m_create(32);
 
     // Create the message delivery pool in the task's address space
+    /*
 	service->delivery_pool = vmm_alloc_continuous_range(
         (vmm_page_directory_t*)vmm_active_pdir(), 
         _amc_delivery_pool_size, 
@@ -209,6 +215,8 @@ void amc_register_service(const char* name) {
         _amc_delivery_pool_base, 
         true
     );
+    */
+    service->delivery_pool = vas_alloc_range(vas_get_active_state(), _amc_delivery_pool_base, _amc_delivery_pool_size, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
     printf("AMC delivery pool for %s at 0x%08x\n", name, service->delivery_pool);
 
     //hash_map_put(_amc_services_by_name, service->name, strlen(service->name), service);
