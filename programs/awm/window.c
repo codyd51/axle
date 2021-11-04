@@ -7,6 +7,7 @@
 
 #include <libamc/libamc.h>
 #include <agx/lib/gfx.h>
+#include <kernel/core_commands.h>
 
 #include "window.h"
 #include "awm_messages.h"
@@ -577,19 +578,30 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
 	// Shared layer is size of the screen to allow window resizing
     Size res = screen_resolution();
 	uint32_t shmem_size = res.width * res.height * screen_bytes_per_pixel(); 
-	uint32_t shmem_local = 0;
-	uint32_t shmem_remote = 0;
 
-	printf("Creating framebuffer for %s\n", owner_service);
-	uint32_t local_buffer;
-	uint32_t remote_buffer;
-	amc_shared_memory_create(
-		owner_service, 
-		shmem_size, 
-		&shmem_local, 
-		&shmem_remote
-	);
+    amc_shared_memory_create_cmd_t cmd = {
+        .event = AMC_SHARED_MEMORY_CREATE_REQUEST,
+        .buffer_size = shmem_size
+    };
+    snprintf(cmd.remote_service_name, sizeof(cmd.remote_service_name), "%s", owner_service);
     
+    // Ask the kernel to map in the ramdisk and send us info about it
+    amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME,  &cmd, sizeof(cmd));
+
+	amc_message_t* msg;
+	amc_message_await(AXLE_CORE_SERVICE_NAME, &msg);
+	uint32_t event = amc_msg_u32_get_word(msg, 0);
+	assert(event == AMC_SHARED_MEMORY_CREATE_RESPONSE, "Expected shared memory response");
+
+    amc_shared_memory_create_response_t* shmem_info = (amc_shared_memory_create_response_t*)&msg->body;
+    uintptr_t shmem_local = shmem_info->local_buffer_start;
+    uintptr_t shmem_remote = shmem_info->remote_buffer_start;
+
+    // Another message has been delivered, so the owner_service pointer is no longer valid
+    // Re-set it to a copy we made so it can be safely used down below
+    owner_service = &cmd.remote_service_name;
+    printf("owner_service 0x%p cmd.remote_service_name 0x%p\n", owner_service, cmd.remote_service_name);
+
 	// Place the window in the center of the screen
 	Point origin = point_make(
 		(res.width / 2) - (width / 2),
@@ -629,9 +641,9 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
 	// Now that we've configured the initial window state on our end, 
 	// provide the buffer to the client
 	printf("AWM made shared framebuffer for %s\n", owner_service);
-	printf("\tAWM    memory: 0x%08x - 0x%08x\n", shmem_local, shmem_local + shmem_size);
-	printf("\tRemote memory: 0x%08x - 0x%08x\n", shmem_remote, shmem_remote + shmem_size);
-	amc_msg_u32_2__send(owner_service, AWM_CREATED_WINDOW_FRAMEBUFFER, shmem_remote);
+	printf("\tAWM    memory: %p - %p\n", shmem_local, shmem_local + shmem_size);
+	printf("\tRemote memory: %p - %p\n", shmem_remote, shmem_remote + shmem_size);
+	amc_msg_uptr_2__send(owner_service, AWM_CREATED_WINDOW_FRAMEBUFFER, shmem_remote);
 
     awm_animation_open_window_t* anim = awm_animation_open_window_init(200, window, rect_make(origin, full_window_size));
     awm_animation_start(anim);
