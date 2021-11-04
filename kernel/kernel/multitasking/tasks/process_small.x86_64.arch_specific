@@ -1,6 +1,0 @@
-[EXTERN _current_task_small]
-[EXTERN _task_context_offset]
-
-[GLOBAL context_switch]
-context_switch:
-    ret

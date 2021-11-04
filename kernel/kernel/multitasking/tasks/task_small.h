@@ -31,12 +31,12 @@ typedef enum task_state {
 } task_state_t;
 
 typedef struct task_context {
-	uint32_t ebp;
-	uint32_t edi;
-	uint32_t esi;
-	uint32_t ebx;
-	uint32_t eax;
-	uint32_t eip;
+	uint32_t rbp;
+	uint32_t rdi;
+	uint32_t rsi;
+	uint32_t rbx;
+	uint32_t rax;
+	uint32_t rip;
 } task_context_t;
 
 typedef struct task_block_state {
@@ -62,8 +62,8 @@ typedef struct task_small {
 	task_block_state_t blocked_info; // runnable state
 	struct task_small* next; // next task in linked list of all tasks
 
-	uint32_t current_timeslice_start_date;
-	uint32_t current_timeslice_end_date;
+	uint64_t current_timeslice_start_date;
+	uint64_t current_timeslice_end_date;
 
 	uint32_t queue; //scheduler ring this task is slotted in
 	uint32_t lifespan;
@@ -78,10 +78,10 @@ typedef struct task_small {
 	 */
 
 	// End of allocated "program break" data (for sbrk)
-	uint32_t sbrk_current_break;
+	uintptr_t sbrk_current_break;
 	// Virtual address of the start of the .bss segmen
-	uint32_t bss_segment_addr;
-	uint32_t sbrk_current_page_head;
+	uintptr_t bss_segment_addr;
+	uintptr_t sbrk_current_page_head;
 
 	task_priority_t priority;
 	// Lock around modifying a task's priority
@@ -92,8 +92,8 @@ typedef struct task_small {
 	// this field will contain the original priority to be reset when the ISR returns.
 	uint32_t priority_context;
 
-	uint32_t kernel_stack;
-	uint32_t kernel_stack_malloc_head;
+	uintptr_t kernel_stack;
+	uintptr_t kernel_stack_malloc_head;
 
 	elf_t elf_symbol_table;
 } task_small_t;
@@ -108,9 +108,9 @@ void task_switch_if_driver_ready(void);
 // Task switch only if the current task's quantum has expired
 void task_switch_if_quantum_expired(void);
 
-task_small_t* thread_spawn(void* entry_point);
+task_small_t* thread_spawn(void* entry_point, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3);
 task_small_t* task_spawn(void* entry_point, task_priority_t priority, const char* task_name);
-task_small_t* task_spawn__with_args(void* entry_point, uint32_t arg1, uint32_t arg2, uint32_t arg3, const char* task_name);
+task_small_t* task_spawn__with_args(void* entry_point, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, const char* task_name);
 
 task_small_t* tasking_get_task_with_pid(int pid);
 task_small_t* tasking_get_current_task();

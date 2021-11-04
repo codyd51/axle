@@ -1,0 +1,75 @@
+[EXTERN _current_task_small]
+[EXTERN _task_context_offset]
+[EXTERN task_die]
+
+[GLOBAL context_switch]
+[GLOBAL _task_bootstrap]
+[GLOBAL _first_context_switch]
+
+_first_context_switch:
+    ; Save arg to function containing task to switch to in ecx
+    mov rcx, rdi
+    jmp _context_switch_restore_state
+
+
+context_switch:
+    ; Save arg to function containing task to switch to in ecx
+    mov rcx, rdi
+
+;Save the old task's state
+    ; Save registers that are supposed to be callee-saved
+    push rax
+    push rbx
+    push rsi
+    push rdi
+    push rbp
+
+    ; Save preempted task's esp as _current_task->machine_state
+    mov rax, [_current_task_small]
+    mov rbx, [_task_context_offset]
+    add rax, rbx
+    mov [rax], rsp
+
+;Load the new task's state
+_context_switch_restore_state:
+    ; Set the provided argument to _current_task_small
+    mov [_current_task_small], rcx
+
+    ; Load rsp with _current_task->machine_state
+    mov rbx, [_task_context_offset]
+    add rcx, rbx
+    mov rsp,[rcx]
+
+    ; Restore registers that were callee-saved
+    pop rbp
+    pop rdi
+    pop rsi
+    pop rbx
+    pop rax
+
+    ; Return to the new task's EIP (that was stored on its stack)
+    sti
+    ret
+
+
+_task_bootstrap:
+    ; rsp+8: entry point pointer
+    ; rsp+16: entry point arg1
+    ; rsp+24: entry point arg2
+    ; rsp+32: entry point arg3
+    ; Entry point arg1
+    mov rdi, [rsp+16]
+    ; Entry point arg2
+    mov rsi, [rsp+24]
+    ; Entry point arg3
+    mov rdx, [rsp+32]
+    ; Entry point
+    call [rsp+8]
+
+    mov rdx, rax
+    call task_die
+    ; Should never execute...
+    ; Try to force a page fault
+    mov rax, 0x0
+    call rax
+    ret

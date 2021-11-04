@@ -26,7 +26,11 @@ const uint32_t _task_context_offset = offsetof(struct task_small, machine_state)
 
 // defined in process_small.s
 // performs the actual context switch
-void context_switch(uint32_t* new_task);
+void context_switch(uintptr_t* new_task);
+void _first_context_switch(uintptr_t* new_task);
+// Defined in process_small.s
+// Entry point for a new process
+void _task_bootstrap(uintptr_t entry_point_ptr, uintptr_t entry_point_arg1, uintptr_t entry_point_arg2, uintptr_t entry_point_arg3);
 
 static void _task_make_schedulable(task_small_t* task);
 static void _task_remove_from_scheduler(task_small_t* task);
@@ -124,11 +128,13 @@ void task_die(int exit_code) {
     panic("Should never be scheduled again\n");
 }
 
-static void _task_bootstrap(uint32_t entry_point_ptr, uint32_t entry_point_arg1, uint32_t entry_point_arg2, uint32_t entry_point_arg3) {
-    int(*entry_point)(uint32_t, uint32_t, uint32_t) = (int(*)(uint32_t, uint32_t, uint32_t))entry_point_ptr;
+/*
+static void _task_bootstrap(uintptr_t entry_point_ptr, uintptr_t entry_point_arg1, uintptr_t entry_point_arg2, uintptr_t entry_point_arg3) {
+    int(*entry_point)(uintptr_t, uintptr_t, uintptr_t) = (int(*)(uintptr_t, uintptr_t, uintptr_t))entry_point_ptr;
     int status = entry_point(entry_point_arg1, entry_point_arg2, entry_point_arg3);
     task_die(status);
 }
+*/
 
 void _thread_destroy(task_small_t* thread) {
     _task_remove_from_scheduler(thread);
@@ -137,6 +143,63 @@ void _thread_destroy(task_small_t* thread) {
     kfree(thread->kernel_stack_malloc_head);
 
     if (!thread->is_thread) {
+        // Free AMC service if there is one
+        amc_teardown_service_for_task(thread);
+
+        // Free virtual memory space
+        vas_state_t* vas_state = thread->vas_state;
+        if (vas_state->max_range_count > 255) {
+            // TODO(PT): Multi-page VAS
+            NotImplemented();
+        }
+        pml4e_t* pml4 = (pml4e_t*)(PMA_TO_VMA(vas_state->pml4_phys));
+        // High memory PDPTs are shared between every process, so no need to touch those
+        for (int pml4_iter = 0; pml4_iter < 256; pml4_iter++) {
+            if (pml4[pml4_iter].present) {
+                uintptr_t pdpt_addr = pml4[pml4_iter].page_dir_pointer_base * PAGE_SIZE;
+                printf("Free PDPT 0x%p\n", pdpt_addr);
+                pdpe_t* pdpt = (pdpe_t*)(PMA_TO_VMA(pdpt_addr));
+
+                for (int pdpt_iter = 0; pdpt_iter < 512; pdpt_iter++) {
+                    if (pdpt[pdpt_iter].present) {
+                        uintptr_t page_dir_addr = pdpt[pdpt_iter].page_dir_base * PAGE_SIZE;
+                        printf("Free page directory 0x%p\n", page_dir_addr);
+                        pde_t* page_dir = (pde_t*)(PMA_TO_VMA(page_dir_addr));
+
+                        for (int page_dir_iter = 0; page_dir_iter < 512; page_dir_iter++) {
+                            if (page_dir[page_dir_iter].present) {
+                                uintptr_t page_table_addr = page_dir[page_dir_iter].page_table_base * PAGE_SIZE;
+                                printf("Free page table 0x%p\n", page_table_addr);
+                                pte_t* page_table = (pte_t*)(PMA_TO_VMA(page_table_addr));
+
+                                int freed_page_count = 0;
+                                for (int page_table_iter = 0; page_table_iter < 512; page_table_iter++) {
+                                    if (page_table[page_table_iter].present) {
+                                        uintptr_t page_addr = page_table[page_table_iter].page_base * PAGE_SIZE;
+                                        //printf("Free page 0x%p\n", page_addr);
+                                        freed_page_count += 1;
+                                        pmm_free(page_addr);
+                                    }
+                                }
+                                uintptr_t page_table_mem = 1024*1024*2;
+                                uintptr_t page_dir_mem=page_table_mem*512;
+                                uintptr_t pdpt_mem = page_dir_mem*512;
+                                uintptr_t addr = (page_dir_iter * page_table_mem) + (pdpt_iter * page_dir_mem) + (pml4_iter * pdpt_mem);
+                                printf("Freed %d pages at 0x%p\n", freed_page_count, addr);
+
+                                pmm_free(page_table_addr);
+                            }
+                        }
+
+                        pmm_free(page_dir_addr);
+                    }
+                }
+
+                pmm_free(pdpt_addr);
+            }
+        }
+        kfree(vas_state);
+        /*
         // Free virtual memory space
         uint32_t page_dir_base = (uint32_t)thread->vmm;
         vmm_page_directory_t* virt_page_dir = vas_active_map_phys_range(page_dir_base, sizeof(vmm_page_directory_t));
@@ -162,7 +225,9 @@ void _thread_destroy(task_small_t* thread) {
 
             uint32_t table_with_flags = virt_page_dir->table_pointers[i];
             uint32_t table_phys = (table_with_flags) & PAGING_FRAME_MASK;
-            if (!(kernel_page_table_flags & PAGE_PRESENT_FLAG) && (table_with_flags & PAGE_PRESENT_FLAG)) {
+            // x86_64
+            //if (!(kernel_page_table_flags & PAGE_PRESENT_FLAG) && (table_with_flags & PAGE_PRESENT_FLAG)) {
+            if (false) {
                 // Load in the page table so we can free each of its frames
                 vmm_page_table_t* table = vas_active_map_temp(table_phys, PAGING_FRAME_SIZE);
                 for (uint32_t j = 0; j < 1024; j++) {
@@ -192,6 +257,7 @@ void _thread_destroy(task_small_t* thread) {
             uint32_t frame_addr = page_dir_base + i;
             pmm_free(frame_addr);
         }
+        */
     }
     else {
         printf("\tWill not free VMM because this is a thread\n");
@@ -209,26 +275,25 @@ void task_set_name(task_small_t* task, const char* new_name) {
     task->name = strdup(new_name);
 }
 
-task_small_t* _thread_create(void* entry_point, uint32_t arg1, uint32_t arg2, uint32_t arg3) {
+task_small_t* _thread_create(void* entry_point, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3) {
     task_small_t* new_task = kmalloc(sizeof(task_small_t));
     memset(new_task, 0, sizeof(task_small_t));
     new_task->id = next_pid++;
     new_task->blocked_info.status = RUNNABLE;
-    _setup_fds(new_task);
 
     uint32_t stack_size = 0x2000;
     char* stack = kmalloc(stack_size);
-    //printf("New task [%d]: Made kernel stack 0x%08x\n", new_task->id, stack);
+    printf("New thread [%d]: Made kernel stack 0x%08x\n", new_task->id, stack);
     memset(stack, 0, stack_size);
 
-    uint32_t* stack_top = (uint32_t *)(stack + stack_size - 0x4); // point to top of malloc'd stack
+    uintptr_t* stack_top = (uintptr_t*)(stack + stack_size - sizeof(uintptr_t)); // point to top of malloc'd stack
     if (entry_point) {
         *(stack_top--) = arg3;
         *(stack_top--) = arg2;
         *(stack_top--) = arg1;
-        *(stack_top--) = (uint32_t)entry_point;   // Argument to bootstrap function (which we'll then jump to)
+        *(stack_top--) = (uintptr_t)entry_point;   // Argument to bootstrap function (which we'll then jump to)
         *(stack_top--) = 0x0;   // Alignment
-        *(stack_top--) = (uint32_t)_task_bootstrap;   // Entry point for new thread
+        *(stack_top--) = (uintptr_t)_task_bootstrap;   // Entry point for new thread
         *(stack_top--) = 0;             //eax
         *(stack_top--) = 0;             //ebx
         *(stack_top--) = 0;             //esi
@@ -241,7 +306,8 @@ task_small_t* _thread_create(void* entry_point, uint32_t arg1, uint32_t arg2, ui
     new_task->kernel_stack_malloc_head = stack;
 
     new_task->is_thread = true;
-    new_task->vmm = (vmm_page_directory_t*)vmm_active_pdir();
+    new_task->vas_state = vas_get_active_state();
+    printf("\tSet new task's VAS state to 0x%p\n", new_task->vas_state);
     new_task->priority = PRIORITY_NONE;
     new_task->priority_lock.name = "[Task priority spinlock]";
 
@@ -251,24 +317,24 @@ task_small_t* _thread_create(void* entry_point, uint32_t arg1, uint32_t arg2, ui
     return new_task;
 }
 
-task_small_t* thread_spawn(void* entry_point) {
-    task_small_t* new_thread = _thread_create(entry_point, 0, 0, 0);
+task_small_t* thread_spawn(void* entry_point, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3) {
+    task_small_t* new_thread = _thread_create(entry_point, arg1, arg2, arg3);
     // Make the thread schedulable now
     _task_make_schedulable(new_thread);
     return new_thread;
 }
 
-// TODO(PT): Remove task_priority_t
-static task_small_t* _task_spawn__entry_point_with_args(void* entry_point, uint32_t arg1, uint32_t arg2, uint32_t arg3, const char* task_name) {
+static task_small_t* _task_spawn__entry_point_with_args(void* entry_point, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, const char* task_name) {
     // Use the internal thread-state constructor so that this task won't get
     // scheduled until we've had a chance to set all of its state
     task_small_t* new_task = _thread_create(entry_point, arg1, arg2, arg3);
     new_task->is_thread = false;
 
-    // a task is simply a thread with its own virtual address space
-    // the new task's address space is a clone of the task that spawned it
-    vmm_page_directory_t* new_vmm = vmm_clone_active_pdir();
-    new_task->vmm = new_vmm;
+    // By definition, a task is identical to a thread except it has its own VAS
+    // The new task's address space is a clone of the task that spawned it
+    vas_state_t* new_vas = vas_clone(vas_get_active_state());
+    printf("task_spawn set vmm to 0x%p\n", new_vas);
+    new_task->vas_state = new_vas;
     task_set_name(new_task, task_name);
 
     return new_task;
@@ -286,7 +352,7 @@ static void _task_remove_from_scheduler(task_small_t* task) {
     mlfq_delete_task(task);
 }
 
-task_small_t* task_spawn__with_args(void* entry_point, uint32_t arg1, uint32_t arg2, uint32_t arg3, const char* task_name) {
+task_small_t* task_spawn__with_args(void* entry_point, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, const char* task_name) {
     task_small_t* task = _task_spawn__entry_point_with_args(entry_point, arg1, arg2, arg3, task_name);
     // Task is now ready to run - make it schedulable
     _task_make_schedulable(task);
@@ -308,20 +374,33 @@ void tasking_goto_task(task_small_t* new_task, uint32_t quantum) {
     new_task->current_timeslice_start_date = now;
     new_task->current_timeslice_end_date = now + quantum;
 
-    // Ensure that any shared page tables between the kernel and the preempted VMM have an in-sync allocation state
-    // This check should no longer be needed, since allocations within the shared kernel pages are always
-    // marked within the shared kernel bitmap. 
-    // However, keep the check in to ensure this never regresses.
-    // vmm_validate_shared_tables_in_sync(vmm_active_pdir(), boot_info_get()->vmm_kernel);
-
-    if (new_task->vmm != vmm_active_pdir()) {
-        vmm_load_pdir(new_task->vmm, false);
+    //printf("tasking_goto_task new vmm 0x%p current vmm 0x%p\n", new_task->vas_state, vas_get_active_state());
+    //printf("tasking_goto_task [%s] from [%s]\n", new_task->name, _current_task_small->name);
+    if (new_task->vas_state != vas_get_active_state()) {
+        //printf("\tLoad new VAS state 0x%p\n", new_task->vas_state);
+        vas_load_state(new_task->vas_state);
     }
 
+    //printf("\tSet kernel stack to 0x%p\n", new_task->kernel_stack);
     tss_set_kernel_stack(new_task->kernel_stack);
     // this method will update _current_task_small
     // this method performs the actual context switch and also updates _current_task_small
     context_switch(new_task);
+}
+
+void tasking_first_context_switch(task_small_t* new_task, uint32_t quantum) {
+    uint32_t now = ms_since_boot();
+    new_task->current_timeslice_start_date = now;
+    new_task->current_timeslice_end_date = now + quantum;
+
+    // TODO(PT): Needed?
+    printf("tasking_first_context_switch 0x%p 0x%p\n", new_task->vas_state, vas_get_active_state());
+    if (new_task->vas_state != vas_get_active_state()) {
+        vas_load_state(new_task->vas_state);
+    }
+
+    //tss_set_kernel_stack(new_task->kernel_stack);
+    _first_context_switch(new_task);
 }
 
 static bool _task_schedule_disabled = false;
@@ -389,6 +468,7 @@ void mlfq_goto_task(task_small_t* task) {
 }
 
 void task_switch_if_quantum_expired(void) {
+    //printf("_current_task_small->current_timeslice_end_date %p %d\n", _current_task_small, _current_task_small->current_timeslice_end_date);
     if (_task_schedule_disabled || !tasking_is_active()) {
         return;
     }
@@ -489,10 +569,14 @@ void reaper_task() {
     amc_register_service("com.axle.reaper");
     spinlock_t reaper_lock = {0};
     reaper_lock.name = "[reaper lock]";
+    printf("Reaper running!\n");
+    vas_state_dump(vas_get_active_state());
 
     while (1) {
         amc_message_t* msg;
         amc_message_await_any(&msg);
+        printf("Reaper received message!\n");
+        vas_state_dump(vas_get_active_state());
         if (strncmp(msg->source, AXLE_CORE_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
             printf("Reaper ignoring message from [%s]\n", msg->source);
             continue;
@@ -534,26 +618,34 @@ void reaper_task() {
     }
 }
 
-void tasking_init() {
-    if (tasking_is_active()) {
-        panic("called tasking_init() after it was already active");
-        return;
+void tasking_init_part2(void* continue_func_ptr) {
+    // We're now fully established in high memory and using a high kernel stack
+    // It's now safe to free the low-memory identity map
+    vas_state_t* kernel_vas = boot_info_get()->vas_kernel;
+    vas_range_t* low_identity_map_range = NULL;
+    for (int i = 0; i < kernel_vas->range_count; i++) {
+        vas_range_t* range = &kernel_vas->ranges[i];
+        if (range->start == 0x0) {
+            low_identity_map_range = range;
+            break;
+        }
     }
+    assert(low_identity_map_range, "Failed to find low-memory identity map");
+    vas_delete_range(kernel_vas, low_identity_map_range->start, low_identity_map_range->size);
+    // Free the low PML4 entries
+    // These all use 1GB pages, so we only need to free the PML4E's themselves,
+    // and not any lower-level paging structures
+    pml4e_t* kernel_pml4 = (pml4e_t*)PMA_TO_VMA(kernel_vas->pml4_phys);
+	for (int i = 0; i < 256; i++) {
+		if (kernel_pml4[i].present) {
+			uint64_t pml4e_phys = kernel_pml4[i].page_dir_pointer_base * PAGE_SIZE;
+			printf("Free bootloader PML4E 0x%p\n", pml4e_phys);
+			pmm_free(pml4e_phys);
+            kernel_pml4[i].present = false;
+		}
+	}
 
-    mlfq_init();
-
-    // create first task
-    // for the first task, the entry point argument is thrown away. Here is why:
-    // on a context_switch, context_switch saves the current runtime state and stores it in the preempted task's context field.
-    // when the first context switch happens and the first process is preempted, 
-    // the runtime state will be whatever we were doing after tasking_init returns.
-    // so, anything we set to be restored in this first task's setup state will be overwritten when it's preempted for the first time.
-    // thus, we can pass anything for the entry point of this first task, since it won't be used.
-    _current_task_small = thread_spawn(NULL);
-    task_set_name(_current_task_small, "bootstrap");
-    _task_list_head = _current_task_small;
-    tasking_goto_task(_current_task_small, 100);
-
+    printf("tasking_init_part2 continue_func 0x%p\n", continue_func_ptr);
     // idle should not be in the scheduler pool as we schedule it specially
     // _task_spawn will not add it to the scheduler pool
     _idle_task = _task_spawn(idle_task, PRIORITY_IDLE, "idle");
@@ -569,6 +661,30 @@ void tasking_init() {
     while (!amc_service_is_active("com.axle.reaper")) {
         asm("hlt");
     }
+
+    void(*continue_func)(void) = (void(*)(void))continue_func_ptr;
+    continue_func();
+}
+
+void tasking_init(void* continue_func) {
+    if (tasking_is_active()) {
+        panic("called tasking_init() after it was already active");
+        return;
+    }
+
+    mlfq_init();
+
+    // create first task
+    // for the first task, the entry point argument is thrown away. Here is why:
+    // on a context_switch, context_switch saves the current runtime state and stores it in the preempted task's context field.
+    // when the first context switch happens and the first process is preempted, 
+    // the runtime state will be whatever we were doing after tasking_init returns.
+    // so, anything we set to be restored in this first task's setup state will be overwritten when it's preempted for the first time.
+    // thus, we can pass anything for the entry point of this first task, since it won't be used.
+    _current_task_small = thread_spawn(tasking_init_part2, continue_func, 0, 0);
+    task_set_name(_current_task_small, "bootstrap");
+    _task_list_head = _current_task_small;
+    tasking_first_context_switch(_current_task_small, 100);
 }
 
 int fork() {
@@ -583,7 +699,7 @@ void* unsbrk(int UNUSED(increment)) {
 
 void* sbrk(int increment) {
 	task_small_t* current = tasking_get_current_task();
-	//printk("[%d] sbrk 0x%08x (%u) 0x%08x -> 0x%08x (current page head 0x%08x)\n", getpid(), increment, increment, current->sbrk_current_break, current->sbrk_current_break + increment, current->sbrk_current_page_head);
+	printf("[%d] sbrk 0x%p (%u) 0x%p -> 0x%p (current page head 0x%p)\n", getpid(), increment, increment, current->sbrk_current_break, current->sbrk_current_break + increment, current->sbrk_current_page_head);
 
 	if (increment < 0) {
         printf("Relinquish sbrk memory 0x%08x\n", -(uint32_t)increment);
@@ -597,17 +713,29 @@ void* sbrk(int increment) {
 		return brk;
 	}
 
+    /*
     while (current->sbrk_current_break + increment >= current->sbrk_current_page_head) {
         uint32_t next_page = current->sbrk_current_page_head;
         current->sbrk_current_page_head += PAGE_SIZE;
-        if (vmm_address_is_mapped(vmm_active_pdir(), next_page)) {
-            // TODO(PT): Is it an error if growing the sbrk region encounters an already-mapped page?
-            printk("SBRK grew to cover an already-mapped page 0x%08x\n", next_page);
-            continue;
+        printf("calling vas_alloc_range()\n");
+        uint64_t addr = vas_alloc_range(vas_get_active_state(), next_page, PAGE_SIZE, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
+        printf("\tgot 0x%p\n", addr);
+        if (addr != next_page) {
+            printf("sbrk failed to allocate requested page 0x%p\n", addr);
         }
-        vmm_alloc_page_address_usermode(vmm_active_pdir(), next_page, true);
     }
-	current->sbrk_current_break += increment;
+    */
+    int64_t needed_pages = ((int64_t)(current->sbrk_current_break + increment) - (int64_t)current->sbrk_current_page_head) / PAGE_SIZE;
+    if (needed_pages > 0) {
+        printf("\tNeed %d pages (%p - %p = %p)\n", needed_pages, current->sbrk_current_break + increment, current->sbrk_current_page_head,  (current->sbrk_current_break + increment) - current->sbrk_current_page_head);
+        //uint64_t page_padded_increment = (increment + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+        uint64_t addr = vas_alloc_range(vas_get_active_state(), current->sbrk_current_page_head, needed_pages * PAGE_SIZE, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
+        if (addr != current->sbrk_current_page_head) {
+            printf("sbrk failed to allocate requested page 0x%p\n", addr);
+        }
+        current->sbrk_current_page_head += needed_pages * PAGE_SIZE;
+    }
+    current->sbrk_current_break += increment;
 
     // TODO(PT): Just solved a bug where create_shared_memory_region()
     // was allocating pages that otherwise would've been handed out by sbrk
