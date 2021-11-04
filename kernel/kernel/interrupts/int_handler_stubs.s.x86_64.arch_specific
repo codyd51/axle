@@ -175,5 +175,37 @@ interrupt_trampoline:
 
 [global user_mode]
 user_mode:
-    ; TODO implement me
-    iret
+    cli
+    ; Set segment selectors to the user-mode data selector
+    ; User-mode data segment is the 4th GDT selector (4 * 8 bytes = 0x20),
+    ; The first 2 bits represent the RPL, so set those to ring3
+    mov ax, 0x23
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    ; The stack pointer to load is passed as the first parameter
+    mov rax, rdi
+    ; The pointer to jump to is passed as the second parameter
+    mov rdx, rsi
+
+    ; iretq will pop CS, RIP, RFLAGS, RSP, and SS
+    ; Push onto the stack in this order
+    ; Load the provided stack
+    mov rsp, rax
+    ; SS:RSP
+    push 0x23
+    push rax
+    ; RFLAGS
+    pushf
+    ; Re-enable interrupts in the pushed RFLAGS
+    pop rax
+    or rax, 0x200
+    push rax
+    ; CS:RIP
+    ; User-mode CS selector is 3rd GDT selector (4 * 8 bytes = 0x18),
+    ; The first 2 bits represent the RPL, so set those to ring3
+    push 0x1b
+    push rdx
+    iretq
