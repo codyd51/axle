@@ -114,7 +114,7 @@ static void _begin_left_click(mouse_interaction_state_t* state, Point mouse_poin
 						file_manager_launch_file_request_t req = {0};
 						req.event = FILE_MANAGER_LAUNCH_FILE;
 						snprintf(req.path, sizeof(req.path), state->hovered_shortcut->program_path);
-						amc_message_construct_and_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_launch_file_request_t));
+						amc_message_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_launch_file_request_t));
 					//}
 				}
 				return;
@@ -592,7 +592,7 @@ void _window_resize(user_window_t* window, Size new_size, bool inform_window) {
 		awm_window_resized_msg_t msg = {0};
 		msg.event = AWM_WINDOW_RESIZED;
 		msg.new_size = window->content_view->frame.size;
-		amc_message_construct_and_send(window->owner_service, &msg, sizeof(msg));
+		amc_message_send(window->owner_service, &msg, sizeof(msg));
 	}
 }
 
@@ -821,7 +821,7 @@ static void _awm_process_amc_messages(bool should_block) {
 				amc_flush_messages_to_service_cmd_t req = {0};
 				req.event = AMC_FLUSH_MESSAGES_TO_SERVICE;
 				snprintf((char*)&req.remote_service, sizeof(req.remote_service), notif->dead_service);
-				amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &req, sizeof(req));
+				amc_message_send(AXLE_CORE_SERVICE_NAME, &req, sizeof(req));
 			}
 			else {
 				printf("Unknown message from core: %d\n", u32buf[0]);
@@ -863,7 +863,7 @@ static timers_state_t _sleep_for_timers(void) {
 	uint32_t b[2];
     b[0] = AMC_SLEEP_UNTIL_TIMESTAMP_OR_MESSAGE;
     b[1] = time_to_next_fire;
-    amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &b, sizeof(b));
+    amc_message_send(AXLE_CORE_SERVICE_NAME, &b, sizeof(b));
 
 	return SLEPT_FOR_TIMERS;
 }

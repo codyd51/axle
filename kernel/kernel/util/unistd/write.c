@@ -12,7 +12,7 @@ int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
 
 	// Only forward to the logs viewer if it's active
 	if (amc_service_is_active("com.axle.logs_viewer")) {
-		amc_message_construct_and_send__from_core("com.axle.logs_viewer", b, cnt);
+		amc_message_send__from_core("com.axle.logs_viewer", b, cnt);
 	}
 
 	return len;

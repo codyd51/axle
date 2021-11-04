@@ -62,6 +62,9 @@ bool append(char** buf_head, int32_t* buf_size, const char* format, ...) {
 }
 
 bool symbolicate_and_append(int frame_idx, uint32_t* frame_addr, char** buf_head, int32_t* buf_size) {
+    // x86_64
+    NotImplemented();
+    /*
     char symbol[128] = {0};
 
     bool found_program_start = false;
@@ -85,6 +88,7 @@ bool symbolicate_and_append(int frame_idx, uint32_t* frame_addr, char** buf_head
         return false;
     }
     return true;
+    */
 }
 
 void task_build_and_send_crash_report_then_exit(const char* msg, const register_state_t* regs) {
@@ -93,7 +97,7 @@ void task_build_and_send_crash_report_then_exit(const char* msg, const register_
         file_manager_launch_file_request_t req = {0};
         req.event = FILE_MANAGER_LAUNCH_FILE;
         snprintf(req.path, sizeof(req.path), "/initrd/crash_reporter");
-        amc_message_construct_and_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_launch_file_request_t));
+        amc_message_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_launch_file_request_t));
     }
 
     int32_t buf_size = 1024;
@@ -157,7 +161,7 @@ finish_fmt:
     inform->crash_report_length = crash_report_len;
     memcpy(&inform->crash_report, crash_report_buf, crash_report_len);
     kfree(crash_report_buf);
-    amc_message_construct_and_send(CRASH_REPORTER_SERVICE_NAME, inform, crash_report_msg_len);
+    amc_message_send(CRASH_REPORTER_SERVICE_NAME, inform, crash_report_msg_len);
     kfree(inform);
 
     exit(1);

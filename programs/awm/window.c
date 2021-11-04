@@ -109,7 +109,7 @@ void window_handle_left_click(user_window_t* window,  Point mouse_within_window)
         awm_mouse_left_click_msg_t msg = {0};
         msg.event = AWM_MOUSE_LEFT_CLICK;
         msg.click_point = mouse_within_content_view;
-        amc_message_construct_and_send(window->owner_service, &msg, sizeof(msg));
+        amc_message_send(window->owner_service, &msg, sizeof(msg));
     }
 }
 
@@ -567,7 +567,7 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
     amc_notify_when_service_dies_cmd_t req = {0};
     req.event = AMC_REGISTER_NOTIFICATION_SERVICE_DIED;
     snprintf(&req.remote_service, sizeof(req.remote_service), owner_service);
-    amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &req, sizeof(req));
+    amc_message_send(AXLE_CORE_SERVICE_NAME, &req, sizeof(req));
 
 	user_window_t* window = calloc(1, sizeof(user_window_t));
 	array_insert(windows, window);
@@ -586,7 +586,7 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
     snprintf(cmd.remote_service_name, sizeof(cmd.remote_service_name), "%s", owner_service);
     
     // Ask the kernel to map in the ramdisk and send us info about it
-    amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME,  &cmd, sizeof(cmd));
+    amc_message_send(AXLE_CORE_SERVICE_NAME,  &cmd, sizeof(cmd));
 
 	amc_message_t* msg;
 	amc_message_await(AXLE_CORE_SERVICE_NAME, &msg);

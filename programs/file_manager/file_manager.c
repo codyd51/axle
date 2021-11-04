@@ -52,7 +52,7 @@ static void _amc_message_received(amc_message_t* msg) {
 		free(file_data);
 
 		printf("Returning file size 0x%08lx buf 0x%08lx to %s\n", resp->file_size, (uint32_t)resp->file_data, source_service);
-		amc_message_construct_and_send(source_service, resp, response_size);
+		amc_message_send(source_service, resp, response_size);
 		free(resp);
 	}
 	else if (event == FILE_MANAGER_READ_FILE__PARTIAL) {
@@ -72,7 +72,7 @@ static void _amc_message_received(amc_message_t* msg) {
 		free(file_data);
 
 		//printf("Returning file size 0x%08lx buf 0x%08lx to %s\n", resp->data_length, (uint32_t)resp->file_data, source_service);
-		amc_message_construct_and_send(source_service, resp, response_size);
+		amc_message_send(source_service, resp, response_size);
 		free(resp);
 	}
 	else if (event == FILE_MANAGER_LAUNCH_FILE) {
@@ -97,7 +97,7 @@ static void _amc_message_received(amc_message_t* msg) {
 		resp->event = FILE_MANAGER_CREATE_DIRECTORY_RESPONSE;
 		resp->success = success;
 		printf("File manager responsing to %s\n", source_service);
-		amc_message_construct_and_send(source_service, resp, response_size);
+		amc_message_send(source_service, resp, response_size);
 		free(resp);
 	}
 	else if (event == FILE_MANAGER_CHECK_FILE_EXISTS) {
@@ -125,7 +125,7 @@ static void _amc_message_received(amc_message_t* msg) {
 		snprintf(resp.path, sizeof(resp.path), "%s", path);
 
 		printf("File manager responsing to %s\n", source_service);
-		amc_message_construct_and_send(source_service, &resp, sizeof(resp));
+		amc_message_send(source_service, &resp, sizeof(resp));
 		free(path);
 	}
 	else {

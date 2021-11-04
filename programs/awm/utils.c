@@ -153,7 +153,7 @@ image_t* load_image(const char* image_name) {
 	file_manager_read_file_request_t req = {0};
 	req.event = FILE_MANAGER_READ_FILE;
 	snprintf(req.path, sizeof(req.path), "%s", image_name);
-	amc_message_construct_and_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_read_file_request_t));
+	amc_message_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_read_file_request_t));
 
 	printf("AWM awaiting file read response for %s...\n", image_name);
 	amc_message_t* file_data_msg;

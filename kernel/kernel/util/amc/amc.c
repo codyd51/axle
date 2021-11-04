@@ -280,7 +280,7 @@ void amc_teardown_service_for_task(task_small_t* task) {
         amc_service_died_notification_t notif = {0};
         notif.event = AMC_SERVICE_DIED_NOTIFICATION;
         snprintf(&notif.dead_service, sizeof(notif.dead_service), "%s", service->name);
-        amc_message_construct_and_send__from_core(listener->name, &notif, sizeof(notif));
+        amc_message_send__from_core(listener->name, &notif, sizeof(notif));
     }
     array_m_destroy(service->services_to_notify_upon_death);
 
@@ -520,10 +520,12 @@ static void _amc_core_shared_memory_destroy(amc_service_t* local_service, uint32
     */
 }
 
-static bool _amc_message_construct_and_send_from_service_name(const char* source_service,
-                                                              const char* destination_service,
-                                                              void* buf,
-                                                              uint32_t buf_size) {
+static bool _amc_message_send_from_service_name(
+    const char* source_service,
+    const char* destination_service,
+    void* buf,
+    uint32_t buf_size
+) {
     if (buf_size >= AMC_MAX_MESSAGE_SIZE) printf("Large message size: %d\n", buf_size);
     assert(buf_size < AMC_MAX_MESSAGE_SIZE, "Message exceeded max size");
     assert(destination_service != NULL, "NULL destination service provided");
@@ -557,20 +559,24 @@ static bool _amc_message_construct_and_send_from_service_name(const char* source
     return true;
 }
 
-bool amc_message_construct_and_send(const char* destination_service, void* buf, uint32_t buf_size) {
+bool amc_message_send(const char* destination_service, void* buf, uint32_t buf_size) {
     amc_service_t* current_service = _amc_service_of_task(tasking_get_current_task());
     assert(current_service != NULL, "Current task is not a registered amc service");
-    return _amc_message_construct_and_send_from_service_name(current_service->name,
-                                                             destination_service,
-                                                             buf,
-                                                             buf_size);
+    return _amc_message_send_from_service_name(
+        current_service->name,
+        destination_service,
+        buf,
+        buf_size
+    );
 }
 
-bool amc_message_construct_and_send__from_core(const char* destination_service, void* buf, uint32_t buf_size) {
-    return _amc_message_construct_and_send_from_service_name("com.axle.core",
-                                                             destination_service,
-                                                             buf,
-                                                             buf_size);
+bool amc_message_send__from_core(const char* destination_service, void* buf, uint32_t buf_size) {
+    return _amc_message_send_from_service_name(
+        AXLE_CORE_SERVICE_NAME,
+        destination_service,
+        buf,
+        buf_size
+    );
 }
 
 // Asynchronously send the message to any service awaiting a message from this service
@@ -686,6 +692,7 @@ static void _amc_launch_realtek_8139() {
 }
 
 bool amc_launch_service(const char* service_name) {
+    Deprecated();
     // TODO(PT): Eventually, this should iterate filesystem listings to 
     // find all the available AMC services, and launch the provided one
     // For now, hard-code known AMC services launched via this interface 

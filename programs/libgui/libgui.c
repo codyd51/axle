@@ -97,7 +97,7 @@ void gui_set_window_title(char* window_title) {
 	uint32_t len = strlen(window_title);
 	awm_window_title_msg_t update_title = {.event = AWM_UPDATE_WINDOW_TITLE, .len = len};
 	memcpy(update_title.title, window_title, len);
-	amc_message_construct_and_send(AWM_SERVICE_NAME, &update_title, sizeof(awm_window_title_msg_t));
+	amc_message_send(AWM_SERVICE_NAME, &update_title, sizeof(awm_window_title_msg_t));
 }
 
 struct mallinfo_s {
@@ -469,7 +469,7 @@ static timers_state_t _sleep_for_timers(gui_application_t* app) {
 	uint32_t b[2];
     b[0] = AMC_SLEEP_UNTIL_TIMESTAMP_OR_MESSAGE;
     b[1] = time_to_next_fire;
-    amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &b, sizeof(b));
+    amc_message_send(AXLE_CORE_SERVICE_NAME, &b, sizeof(b));
 
 	return SLEPT_FOR_TIMERS;
 }

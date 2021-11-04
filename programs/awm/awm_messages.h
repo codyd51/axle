@@ -2,6 +2,8 @@
 #define AWM_MESSAGES_H
 
 #include <kernel/amc.h>
+#include <agx/lib/size.h>
+#include <agx/lib/point.h>
 
 #define AWM_SERVICE_NAME "com.axle.awm"
 

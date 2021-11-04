@@ -86,10 +86,13 @@ bool str_ends_with_any(char* str, const char* suffixes[]) {
 }
 
 void launch_amc_service_if_necessary(const char* service_name) {
+	/*
 	if (amc_service_is_active(service_name)) {
 		printf("Will not launch %s because it's already active!\n", service_name);
 		return;
 	}
+	*/
+	assert(false, "need to reimplement amc_service_is_active");
 
 	const char* program_path = NULL;
 	if (!strncmp(service_name, IMAGE_VIEWER_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {

@@ -12,6 +12,8 @@
 #include <libamc/libamc.h>
 #include <stdlibadd/array.h>
 
+#include <awm/awm_messages.h>
+
 #include "kb_driver.h"
 #include "kb_colemak.h"
 #include "kb_driver_messages.h"
@@ -135,7 +137,7 @@ int main(int argc, char** argv) {
 		if (state.key_event_stream->size) {
 			for (uint32_t i = 0; i < state.key_event_stream->size; i++) {
 				key_event_t* e = array_lookup(state.key_event_stream, i);
-				amc_message_construct_and_send("com.axle.awm", e, sizeof(key_event_t));
+				amc_message_send(AWM_SERVICE_NAME, e, sizeof(key_event_t));
 			}
 			for (uint32_t i = 0; i < state.key_event_stream->size; i++) {
 				key_event_t* e = array_lookup(state.key_event_stream, i);

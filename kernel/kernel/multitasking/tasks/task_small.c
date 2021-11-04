@@ -119,7 +119,7 @@ task_small_t* tasking_get_current_task() {
 void task_die(int exit_code) {
     printf("[%d] self-terminated with exit %d. Zombie\n", getpid(), exit_code);
     task_small_t* buf[1] = {tasking_get_current_task()};
-    amc_message_construct_and_send__from_core("com.axle.reaper", &buf, sizeof(buf));
+    amc_message_send__from_core("com.axle.reaper", &buf, sizeof(buf));
     // Set ourselves to zombie _after_ telling reaper about us
     // Even if we're pre-empted in between switching to zombie and informing reaper,
     // we'll still be cleaned up

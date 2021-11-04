@@ -262,7 +262,7 @@ static void _file_view_left_click(file_view_t* view, Point mouse_point) {
 		image_viewer_load_image_request_t req = {0};
 		req.event = IMAGE_VIEWER_LOAD_IMAGE;
 		snprintf(req.path, sizeof(req.path), "%s", file_path);
-		amc_message_construct_and_send(IMAGE_VIEWER_SERVICE_NAME, &req, sizeof(image_viewer_load_image_request_t));
+		amc_message_send(IMAGE_VIEWER_SERVICE_NAME, &req, sizeof(image_viewer_load_image_request_t));
 	}
 	else if (str_ends_with(file_path, ".txt")) {
 		printf("Ignoring click on text file until text viewer is available: %s\n", file_path);

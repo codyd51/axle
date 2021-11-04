@@ -37,13 +37,13 @@ bool amc_has_message(void);
 
 // Launch an amc service with a known name.
 // Returns whether the service was successfully found and launched.
-bool amc_launch_service(const char* service_name);
+//bool amc_launch_service(const char* service_name);
 
-void amc_physical_memory_region_create(uint32_t region_size, uintptr_t* virtual_region_start_out, uintptr_t* physical_region_start_out);
+//void amc_physical_memory_region_create(uint32_t region_size, uintptr_t* virtual_region_start_out, uintptr_t* physical_region_start_out);
 
 // Asynchronously construct and send the message to the provided destination service
 // Returns whether the message was successfully routed to the service
-bool amc_message_construct_and_send(const char* destination_service, void* buf, uint32_t buf_size);
+bool amc_message_send(const char* destination_service, void* buf, uint32_t buf_size);
 
 bool amc_service_is_active(const char* service);
 

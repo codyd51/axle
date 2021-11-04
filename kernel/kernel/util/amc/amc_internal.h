@@ -40,7 +40,7 @@ array_m* amc_services(void);
 
 // Allows syscalls to send messages reported as originating from "com.axle.core" 
 // instead of the process that initiated the syscall
-bool amc_message_construct_and_send__from_core(const char* destination_service, void* buf, uint32_t buf_size);
+bool amc_message_send__from_core(const char* destination_service, void* buf, uint32_t buf_size);
 
 bool amc_service_has_message(amc_service_t* service);
 

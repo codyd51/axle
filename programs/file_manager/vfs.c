@@ -59,7 +59,7 @@ void vfs_launch_program_by_node(fs_node_t* node) {
 	cmd.program_name = node->initrd.base.name;
 	cmd.buffer_addr = (void*)node->initrd.initrd_offset;
 	cmd.buffer_size = node->initrd.size;
-	amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &cmd, sizeof(amc_exec_buffer_cmd_t));
+	amc_message_send(AXLE_CORE_SERVICE_NAME, &cmd, sizeof(amc_exec_buffer_cmd_t));
 }
 
 #define VFS_MAX_PATH_LENGTH 128

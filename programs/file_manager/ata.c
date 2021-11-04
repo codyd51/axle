@@ -12,7 +12,7 @@ ata_sector_t* ata_read_sector(uint32_t sector_lba) {
 	read.event = ATA_READ_REQUEST;
 	read.drive_desc = ATA_DRIVE_MASTER;
 	read.sector = sector_lba;
-	amc_message_construct_and_send(ATA_DRIVER_SERVICE_NAME, &read, sizeof(ata_read_sector_request_t));
+	amc_message_send(ATA_DRIVER_SERVICE_NAME, &read, sizeof(ata_read_sector_request_t));
 	//printf("[FS] Reading sector %ld from ATA driver...\n", sector_lba);
 
 	amc_message_t* response_msg;
@@ -37,7 +37,7 @@ void ata_write_sector(uint32_t sector_lba, void* sector_data) {
 	write->drive_desc = ATA_DRIVE_MASTER;
 	write->sector = sector_lba;
 	memcpy(write->sector_data, sector_data, sector_size);
-	amc_message_construct_and_send(ATA_DRIVER_SERVICE_NAME, write, request_size);
+	amc_message_send(ATA_DRIVER_SERVICE_NAME, write, request_size);
 	free(write);
 	//printf("[FS] Writing sector %ld to ATA driver...\n", sector_lba);
 }

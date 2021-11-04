@@ -25,7 +25,7 @@ static void _amc_core_copy_amc_services(const char* source_service) {
         strncpy(&service_desc->service_name, service->name, AMC_MAX_SERVICE_NAME_LEN);
         service_desc->unread_message_count = service->message_queue->size;
     }
-    amc_message_construct_and_send__from_core(source_service, service_list, response_size);
+    amc_message_send__from_core(source_service, service_list, response_size);
     kfree(service_list);
     return true;
 }
@@ -69,7 +69,7 @@ static void _amc_core_awm_map_framebuffer(const char* source_service) {
         .height = framebuffer_info->height,
         .size = framebuf_size,
     };
-    amc_message_construct_and_send__from_core(source_service, &msg, sizeof(amc_framebuffer_info_t));
+    amc_message_send__from_core(source_service, &msg, sizeof(amc_framebuffer_info_t));
 }
 
 static void _amc_core_put_service_to_sleep(const char* source_service, uint32_t ms, bool awake_on_message) {
@@ -115,7 +115,7 @@ static void _amc_core_file_manager_map_initrd(const char* source_service) {
         .initrd_end = mapped_initrd + bi->initrd_size,
         .initrd_size = bi->initrd_size,
     };
-    amc_message_construct_and_send__from_core(source_service, &msg, sizeof(amc_initrd_info_t));
+    amc_message_send__from_core(source_service, &msg, sizeof(amc_initrd_info_t));
 }
 
 static void _trampoline(const char* program_name, void* buf, uint32_t buf_size) {
@@ -145,7 +145,7 @@ static void _amc_core_handle_profile_request(const char* source_service) {
     resp.event = AMC_SYSTEM_PROFILE_RESPONSE;
     resp.pmm_allocated = pmm_allocated_memory();
     resp.kheap_allocated = kheap_allocated_memory();
-    amc_message_construct_and_send__from_core(source_service, &resp, sizeof(resp));
+    amc_message_send__from_core(source_service, &resp, sizeof(resp));
 }
 
 static void _amc_core_handle_notify_service_died(const char* source_service, void* buf, uint32_t buf_size) {
@@ -232,7 +232,7 @@ static void _amc_shared_memory_create(const char* source_service, void* buf, uin
         .local_buffer_start = local_vas_base,
         .remote_buffer_start = remote_vas_base
     };
-    amc_message_construct_and_send__from_core(source_service, &msg, sizeof(amc_shared_memory_create_response_t));
+    amc_message_send__from_core(source_service, &msg, sizeof(amc_shared_memory_create_response_t));
 }
 
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size) {
