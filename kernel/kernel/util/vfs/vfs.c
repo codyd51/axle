@@ -46,8 +46,10 @@ static void _parse_initrd(fs_base_node_t* initrd_root) {
 	boot_info_t* boot_info = boot_info_get();
 	assert(boot_info->initrd_start && boot_info->initrd_end && boot_info->initrd_size, "Initrd memory-map not found.");
 
-	initrd_header_t* header = (initrd_header_t*)boot_info->initrd_start;
-	uint32_t offset = boot_info->initrd_start + sizeof(initrd_header_t);
+	uintptr_t initrd_start = PMA_TO_VMA(boot_info->initrd_start);
+	initrd_header_t* header = (initrd_header_t*)initrd_start;
+	printf("header at 0x%p, nfiles %d\n", header, header->nfiles);
+	uintptr_t offset = initrd_start + sizeof(initrd_header_t);
 	for (uint32_t i = 0; i < header->nfiles; i++) {
 		initrd_file_header_t* file_header = (initrd_file_header_t*)offset;
 
@@ -55,7 +57,7 @@ static void _parse_initrd(fs_base_node_t* initrd_root) {
 
 		initrd_fs_node_t* fs_node = (initrd_fs_node_t*)fs_node_create__file(initrd_root, file_header->name, strlen(file_header->name));
 		fs_node->type = FS_NODE_TYPE_INITRD;
-		fs_node->initrd_offset = file_header->offset + boot_info->initrd_start;
+		fs_node->initrd_offset = initrd_start + file_header->offset;
 		fs_node->size = file_header->length;
 
 		offset += sizeof(initrd_file_header_t);

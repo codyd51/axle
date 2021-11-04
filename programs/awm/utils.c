@@ -8,7 +8,7 @@ Point point_translate(Point p, Rect r) {
 }
 
 Size screen_resolution(void) {
-    return size_make(1920, 1080);
+    return size_make(1280, 720);
 }
 
 uint8_t screen_bytes_per_pixel(void) {
