@@ -133,11 +133,40 @@ int liballoc_unlock() {
  * \return A pointer to the allocated memory.
  */
 
+uint64_t vmm_alloc_global_kernel_memory() { return 0;}
+void vmm_free_global_kernel_memory() {}
+bool vmm_address_is_mapped() { return false; }
+void vmm_dump() {}
+void* vmm_active_pdir() { return NULL; }
+uint64_t vmm_alloc_continuous_range() { return 0; }
+uint64_t vas_active_map_phys_range() { return 0; }
+uint64_t vas_virt_table_for_page_addr() { return 0; }
+uint64_t vmm_bitmap_unset_addr() { return 0; }
+uint64_t vmm_page_idx_within_table_for_virt_addr() { return 0; }
+uint64_t vmm_get_phys_address_for_mapped_page() { return 0; }
+uint64_t vmm_find_start_of_free_region() { return 0; }
+uint64_t _vas_virt_set_page_table_entry() { return 0; }
+uint64_t _get_page_tables_head() { return 0; }
+uint64_t vmm_page_table_idx_for_virt_addr() { return 0; }
+uint64_t vmm_map_phys_range__min_placement_addr() { return 0; }
+uint64_t vmm_identity_map_region() { return 0; }
+uint64_t vmm_set_page_usermode() { return 0; }
+uint64_t vmm_clone_active_pdir() { return 0; }
+uint64_t vmm_alloc_page_address_usermode() { return 0; }
+void vas_active_unmap_temp() { }
+void vas_active_map_temp() { }
+void vas_unmap_range() { }
+void vmm_unmap_range() { }
+
 void* liballoc_alloc(size_t page_count) {
-	uint32_t block_size = page_count * PAGE_SIZE;
 	printk("Expand kernel heap by %dkb\n", page_count * 4);
-	uint32_t new_heap_memory_start = vmm_alloc_global_kernel_memory(block_size);
-	printf("New globally shared kernel memory 0x%08x - 0x%08x\n", new_heap_memory_start, new_heap_memory_start + block_size);
+
+	// Lock the kernel VAS as this part of the address space is shared across all processes
+	vas_kernel_lock_acquire();
+	uintptr_t new_heap_memory_start = vas_alloc_range(boot_info_get()->vas_kernel, VAS_KERNEL_HEAP_BASE, page_count * PAGE_SIZE, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
+	vas_kernel_lock_release();
+
+	printf("New globally shared kernel memory 0x%08x - 0x%08x\n", new_heap_memory_start, new_heap_memory_start + (page_count * PAGE_SIZE));
 	return (void*)new_heap_memory_start;
 }
 
@@ -150,14 +179,14 @@ void* liballoc_alloc(size_t page_count) {
  * \return 0 if the memory was successfully freed.
  */
 int liballoc_free(void* ptr,size_t page_count) {
-	printf("liballoc_free 0x%08x %d\n", ptr, page_count);
-	/*
-	vmm_page_directory_t* vmm = boot_info_get()->vmm_kernel;
-	for (uint32_t i = (uint32_t)ptr; i < ((uint32_t)ptr + (page_count * 0x1000)); i += 0x1000) {
-		_vmm_unmap_page(vmm, i);
-	}
-	*/
-	vmm_free_global_kernel_memory(ptr, page_count * PAGE_SIZE);
+	printf("liballoc_free 0x%08x %dkb\n", ptr, page_count * 4);
+
+	// Lock the kernel VAS as this part of the address space is shared across all processes
+	vas_kernel_lock_acquire();
+	vas_free_range(boot_info_get()->vas_kernel, ptr, page_count * PAGE_SIZE);
+
+	vas_kernel_lock_release();
+
 	return 0;
 }
 
