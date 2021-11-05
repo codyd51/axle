@@ -8,6 +8,7 @@
 
 #include "pmm.h"
 
+volatile uint64_t _alloced_frames = 0;
 void pmm_reserve_mem_region(pmm_state_t* pmm, uintptr_t start, uintptr_t size);
 
 static uint64_t _pmm_stack[PMM_MAX_MEMORY_SIZE / PAGE_SIZE] = {0};
@@ -18,6 +19,7 @@ pmm_state_t* pmm_get(void) {
 }
 
 void pmm_dump(void) {
+    printf("PMM allocated %dkb\n", (_alloced_frames * PAGE_SIZE) / 1024);
     /*
     pmm_state_t* pmm = pmm_get();
     printf("Physical memory manager state:\n");
@@ -165,6 +167,7 @@ void pmm_alloc_address(uintptr_t address) {
 
 // TODO(PT): Rename to pmm_calloc?
 uintptr_t pmm_alloc(void) {
+    _alloced_frames += 1;
     pmm_state_t* pmm = pmm_get();
     spinlock_acquire(&pmm->lock);
     uint64_t frame = _pmm_pop_allocatable_frame(pmm);
@@ -186,9 +189,10 @@ uintptr_t pmm_alloc_continuous_range(uintptr_t size) {
 }
 
 void pmm_free(uintptr_t frame_address) {
+    _alloced_frames -= 1;
     pmm_state_t* pmm = pmm_get();
     spinlock_acquire(&pmm->lock);
-    _pmm_push_allocatable_frame(pmm, frame_address);
+    pmm_push_allocatable_frame(frame_address);
     spinlock_release(&pmm->lock);
 }
 
