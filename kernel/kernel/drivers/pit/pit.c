@@ -16,7 +16,7 @@
 //command port for controlling PIT
 #define PIT_PORT_COMMAND  0x43
 
-static volatile uint32_t tick = 0;
+static volatile uintptr_t tick = 0;
 
 static int tick_callback(register_state_t* regs) {
 	tick++;
@@ -64,6 +64,6 @@ void pit_timer_init(uint32_t frequency) {
 	boot_info_get()->ms_per_pit_tick = 1000 / frequency;
 }
 
-uint32_t ms_since_boot(void) {
+uintptr_t ms_since_boot(void) {
 	return tick * boot_info_get()->ms_per_pit_tick;
 }
