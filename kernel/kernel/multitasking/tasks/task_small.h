@@ -7,8 +7,6 @@
 #include <kernel/elf.h>
 #include <std/array_l.h>
 
-#define FD_MAX 64
-
 typedef enum task_state {
 	UNKNOWN = 			(0 << 0),
     RUNNABLE = 			(1 << 0),
@@ -45,16 +43,6 @@ typedef struct task_block_state {
 	volatile task_state_t unblock_reason;
 } task_block_state_t;
 
-typedef enum task_priority {
-	// Idle task has the lowest possible priority
-	PRIORITY_IDLE = 0,
-	PRIORITY_NONE = 1,
-	PRIORITY_TTY = 997,
-	PRIORITY_GUI = 998,
-	PRIORITY_DRIVER = 999,
-	PRIORITY_TASK_RUNNING_ISR = 1000
-} task_priority_t;
-
 typedef struct task_small {
 	uint32_t id;  // PID
 	char* name; // user-printable process name
@@ -83,15 +71,6 @@ typedef struct task_small {
 	uintptr_t bss_segment_addr;
 	uintptr_t sbrk_current_page_head;
 
-	task_priority_t priority;
-	// Lock around modifying a task's priority
-	spinlock_t priority_lock;
-	// Meaning of this field is up to whatever sets the priority
-	// Ex: If the task priority is PRIORITY_TASK_RUNNING_ISR,
-	// i.e. this task is currently interrupted and executing an interrupt handler,
-	// this field will contain the original priority to be reset when the ISR returns.
-	uint32_t priority_context;
-
 	uintptr_t kernel_stack;
 	uintptr_t kernel_stack_malloc_head;
 
@@ -103,14 +82,12 @@ bool tasking_is_active();
 
 void task_switch();
 void tasking_goto_task(task_small_t* new_task, uint32_t quantum);
-// Task switch only if a high-priority driver is ready to run
-void task_switch_if_driver_ready(void);
 // Task switch only if the current task's quantum has expired
 void task_switch_if_quantum_expired(void);
 
 task_small_t* thread_spawn(void* entry_point, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3);
-task_small_t* task_spawn(void* entry_point, task_priority_t priority, const char* task_name);
-task_small_t* task_spawn__with_args(void* entry_point, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3, const char* task_name);
+task_small_t* task_spawn(const char* task_name, void* entry_point);
+task_small_t* task_spawn__with_args(const char* task_name, void* entry_point, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3);
 
 task_small_t* tasking_get_task_with_pid(int pid);
 task_small_t* tasking_get_current_task();
@@ -122,13 +99,12 @@ task_small_t* tasking_get_current_task();
 // or from the iosentinel watchdog that notices that the block condition is 
 // satisfied.
 void tasking_block_task(task_small_t* task, task_state_t blocked_state);
-void tasking_unblock_task_with_reason(task_small_t* task, bool run_immediately, task_state_t reason);
+void tasking_unblock_task_with_reason(task_small_t* task, task_state_t reason);
 
 void iosentinel_check_now();
 
 // Query the active task
 int getpid();
-task_priority_t get_current_task_priority();
 
 void tasking_print_processes(void);
 

@@ -229,9 +229,6 @@ void amc_register_service(const char* name) {
     _amc_deliver_pending_messages_to_new_service(service);
 }
 
-vmm_page_table_t* vas_virt_table_for_page_addr(vmm_page_directory_t* vas_virt, uint32_t page_addr, bool alloc);
-uint32_t vmm_page_table_idx_for_virt_addr(uint32_t addr);
-uint32_t vmm_page_idx_within_table_for_virt_addr(uint32_t addr);
 
 void amc_teardown_service_for_task(task_small_t* task) {
     amc_service_t* service = _amc_service_of_task(task);
@@ -333,7 +330,7 @@ static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_
             //printf("*** Remove %s from sleep list due to message arrival\n", dest_service->name);
             _amc_remove_service_from_sleep_list(dest_service);
         }
-        tasking_unblock_task_with_reason(dest_service->task, false, AMC_AWAIT_MESSAGE);
+        tasking_unblock_task_with_reason(dest_service->task, AMC_AWAIT_MESSAGE);
     }
 
     // Release our exclusive access
@@ -374,7 +371,7 @@ void amc_wake_sleeping_services(void) {
                 // Wake the process
                 _amc_remove_service_from_sleep_list(s);
                 //printf("Wake up %s at %d\n", s->name, ms_since_boot());
-                tasking_unblock_task_with_reason(s->task, false, AMC_AWAIT_TIMESTAMP);
+                tasking_unblock_task_with_reason(s->task, AMC_AWAIT_TIMESTAMP);
 
                 // And signal that we need to re-iterate as the indexes have changed
                 // TODO(PT): We can store the start-index as an optimisation
@@ -698,7 +695,7 @@ bool amc_launch_service(const char* service_name) {
     // For now, hard-code known AMC services launched via this interface 
     // to process names
     if (!strcmp(service_name, "com.axle.realtek_8139_driver")) {
-        task_spawn(_amc_launch_realtek_8139, PRIORITY_DRIVER, "");
+        task_spawn("", _amc_launch_realtek_8139);
         return true;
     }
     // TODO(PT): In the future, we could just return false when the name doesn't match any known service

@@ -100,7 +100,6 @@ int _start(axle_boot_info_t* boot_info) {
 
 static void _kernel_bootstrap_part2(void) {
     // We're now fully set up in high memory
-    printf("After tasking_init...\n");
 
     syscall_init();
     vfs_init();
@@ -127,7 +126,7 @@ static void _kernel_bootstrap_part2(void) {
     };
     for (uint32_t i = 0; i < sizeof(launch_programs) / sizeof(launch_programs[0]); i++) {
         const char* program_name = launch_programs[i];
-        task_spawn__with_args(_launch_program, program_name, 0, 0, "");
+        task_spawn__with_args(program_name, _launch_program, program_name, 0, 0);
     }
 
     // Bootstrapping complete - kill this process

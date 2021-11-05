@@ -45,7 +45,7 @@ static void _adi_interrupt_handler(register_state_t* regs) {
     driver->pending_irq_count += 1;
 
     task_small_t* task = (task_small_t*)driver->task;
-    tasking_unblock_task_with_reason(task, false, IRQ_WAIT);
+    tasking_unblock_task_with_reason(task, IRQ_WAIT);
     mlfq_goto_task(task);
 }
 
@@ -63,11 +63,6 @@ void adi_register_driver(const char* name, uint32_t irq) {
     static spinlock_t int_spinlock = {0};
     if (!int_spinlock.name) int_spinlock.name = "adi_register_driver interrupt clear";
     spinlock_acquire(&int_spinlock);
-
-    // Elevate the task's priority since it's a device driver
-    spinlock_acquire(&current_task->priority_lock);
-    current_task->priority = PRIORITY_DRIVER;
-    spinlock_release(&current_task->priority_lock);
 
     _adi_drivers[irq].task = current_task;
     // The provided string is mapped into the address space of the running process,

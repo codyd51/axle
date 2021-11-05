@@ -44,7 +44,7 @@ static void run_test(uint32_t i) {
 
     char* program_name = "empty";
     for (uint32_t i = 0; i < 64; i++) {
-        task_spawn__with_args(_launch_program, program_name, 0, 0, "");
+        task_spawn__with_args(program_name, _launch_program, program_name, 0, 0);
     }
     printf("TEST %d: Sleeping...\n", i);
     while (ms_since_boot() < start + 1000) {

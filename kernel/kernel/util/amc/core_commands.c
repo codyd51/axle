@@ -132,11 +132,11 @@ static void _amc_core_file_manager_exec_buffer(const char* source_service, void*
     printf("exec buffer(program_name: %s, buffer_addr: 0x%p)\n", cmd->program_name, cmd->buffer_addr);
 
     task_spawn__with_args(
+        cmd->program_name,
         _trampoline, 
         cmd->program_name, 
         cmd->buffer_addr, 
-        cmd->buffer_size, 
-        cmd->program_name
+        cmd->buffer_size 
     );
 }
 
