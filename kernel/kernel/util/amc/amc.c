@@ -234,7 +234,7 @@ void amc_teardown_service_for_task(task_small_t* task) {
     amc_service_t* service = _amc_service_of_task(task);
     if (!service) {
         // No AMC service for the provided task
-        printf("AMC teardown: [%d %s] had no AMC service\n", task->id, task->name);
+        //printf("AMC teardown: [%d %s] had no AMC service\n", task->id, task->name);
         return;
     }
     printf("AMC teardown: [%d %s] has an AMC service: %s\n", task->id, task->name, service->name);

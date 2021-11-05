@@ -221,7 +221,7 @@ static uint64_t _map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem
 static void _free_region_4k_pages(vas_state_t* vas, uint64_t base, uint64_t size) {
 	pml4e_t* page_mapping_level4 = (pml4e_t*)PMA_TO_VMA(vas->pml4_phys);
 	//printf("map_region in 0x%p: [phys 0x%p - 0x%p] to [virt 0x%p - 0x%p]\n", page_mapping_level4, phys_start, phys_start + vmem_size - 1, vmem_start, vmem_start + vmem_size - 1);
-	printf("_free_region_4k_pages 0x%p 0x%p 0x%p\n", page_mapping_level4, base, size);
+	//printf("_free_region_4k_pages 0x%p 0x%p 0x%p\n", page_mapping_level4, base, size);
 	uint64_t remaining_size = size;
 	uint64_t current_page = base;
 
@@ -231,11 +231,11 @@ static void _free_region_4k_pages(vas_state_t* vas, uint64_t base, uint64_t size
 	uint64_t page_directories_needed = (remaining_size + (VMEM_IN_PDPE - 1)) / VMEM_IN_PDPE;
 	page_directories_needed = min(page_directories_needed, PAGE_DIRECTORIES_IN_PAGE_DIRECTORY_POINTER_TABLE);
 	uint64_t first_page_directory = VMA_PDPE_IDX(base);
-	printf("\tvmem_size 0x%p page_dirs_needed %d\n", base, page_directories_needed);
+	//printf("\tvmem_size 0x%p page_dirs_needed %d\n", base, page_directories_needed);
 
 	for (int page_directory_iter_idx = 0; page_directory_iter_idx < page_directories_needed; page_directory_iter_idx++) {
 		int page_directory_idx = page_directory_iter_idx + first_page_directory;
-		printf("\tpage_directory_idx %d\n", page_directory_idx);
+		//printf("\tpage_directory_idx %d\n", page_directory_idx);
 		assert(page_directory_pointer_table[page_directory_idx].present, "Expected page directory to be present!");
 		pde_t* page_directory = (pde_t*)(page_directory_pointer_table[page_directory_idx].page_dir_base * PAGE_SIZE);
 
@@ -252,7 +252,7 @@ static void _free_region_4k_pages(vas_state_t* vas, uint64_t base, uint64_t size
 			uint64_t pages_needed = (remaining_size + (VMEM_IN_PTE - 1)) / VMEM_IN_PTE;
 			uint64_t first_page = VMA_PTE_IDX(current_page);
 			pages_needed = min(pages_needed, PAGES_IN_PAGE_TABLE - first_page);
-			printf("pages needed: %d, first_page %d\n", pages_needed, first_page);
+			//printf("pages needed: %d, first_page %d\n", pages_needed, first_page);
 
 			for (int page_iter_idx = 0; page_iter_idx < pages_needed; page_iter_idx++) {
 				int page_idx = page_iter_idx + first_page;
@@ -260,7 +260,7 @@ static void _free_region_4k_pages(vas_state_t* vas, uint64_t base, uint64_t size
 
 				assert(page_table[page_idx].present == true, "Expected page to be present!");
 				uint64_t frame_addr = page_table[page_idx].page_base * PAGE_SIZE;
-				printf("\tFreeing page 0x%p frame 0x%p\n", current_page, frame_addr);
+				//printf("\tFreeing page 0x%p frame 0x%p\n", current_page, frame_addr);
 				page_table[page_idx].present = false;
 				pmm_free(frame_addr);
 
@@ -272,7 +272,7 @@ static void _free_region_4k_pages(vas_state_t* vas, uint64_t base, uint64_t size
 }
 
 void vas_add_range(vas_state_t* vas_state, uint64_t start, uint64_t size) {
-	printf("vas_add_range(state: 0x%p, start: 0x%p, size: 0x%p)\n", vas_state, start, size);
+	//printf("vas_add_range(state: 0x%p, start: 0x%p, size: 0x%p)\n", vas_state, start, size);
 	assert(vas_state->range_count + 1 <= vas_state->max_range_count, "VAS will exceed max tracked ranges!");
 
 	vas_state->ranges[vas_state->range_count++] = (vas_range_t){
@@ -329,19 +329,17 @@ vas_state_t* vas_clone(vas_state_t* parent) {
 	uint64_t vas_size = sizeof(vas_state_t) + (max_range_count * sizeof(vas_range_t));
 	vas_state_t* new_vas = kcalloc(1, vas_size);
 	new_vas->max_range_count = max_range_count;
-	printf("\tAllocated new VAS of size 0x%p at 0x%p, PML4 at 0x%p, max_range_count %d range count %d\n", vas_size, new_vas, new_pml4_phys, new_vas->max_range_count, new_vas->range_count);
+	//printf("\tAllocated new VAS of size 0x%p at 0x%p, PML4 at 0x%p, max_range_count %d range count %d\n", vas_size, new_vas, new_pml4_phys, new_vas->max_range_count, new_vas->range_count);
 	new_vas->pml4_phys = new_pml4_phys;
 
 	// Max that can fit into 1 page
 	uint64_t range_array_size = PAGE_SIZE - offsetof(vas_state_t, ranges);
-	printf("range_array_size %d\n", range_array_size);
 	// Kernel PDPT's are linked into every VAS
 	vas_state_t* kernel_vas = boot_info_get()->vas_kernel;
 	pml4e_t* kernel_pml4 = (pml4e_t*)PMA_TO_VMA(kernel_vas->pml4_phys);
 	for (int i = 256; i < 512; i++) {
 		new_pml4_virt[i] = kernel_pml4[i];
 	}
-	printf("kernel_vas->range_count %d\n", kernel_vas->range_count);
 	/*
 	for (int i = 0; i < kernel_vas->range_count; i++) {
 		vas_range_t* range = &kernel_vas->ranges[i];
@@ -360,7 +358,7 @@ vas_state_t* vas_clone(vas_state_t* parent) {
 	pml4e_t* new_pml4 = (pml4e_t*)PMA_TO_VMA(new_vas->pml4_phys);
 	for (int i = 0; i < 256; i++) {
 		if (parent_pml4[i].present) {
-			printf("\tCopying PML4E idx %d: 0x%p\n", i, parent_pml4[i].page_dir_pointer_base * PAGE_SIZE);
+			//printf("\tCopying PML4E idx %d: 0x%p\n", i, parent_pml4[i].page_dir_pointer_base * PAGE_SIZE);
 			new_pml4[i].present = true;
 			new_pml4[i].page_dir_pointer_base = parent_pml4[i].page_dir_pointer_base;
 			new_pml4[i].user_mode = parent_pml4[i].user_mode;
@@ -369,6 +367,61 @@ vas_state_t* vas_clone(vas_state_t* parent) {
 	}
 
 	return new_vas;
+}
+
+void vas_teardown(vas_state_t* vas_state) {
+	if (vas_state->max_range_count > 255) {
+		// TODO(PT): Multi-page VAS
+		NotImplemented();
+	}
+	pml4e_t* pml4 = (pml4e_t*)(PMA_TO_VMA(vas_state->pml4_phys));
+	// High memory PDPTs are shared between every process, so no need to touch those
+	for (int pml4_iter = 0; pml4_iter < 256; pml4_iter++) {
+		if (pml4[pml4_iter].present) {
+			uintptr_t pdpt_addr = pml4[pml4_iter].page_dir_pointer_base * PAGE_SIZE;
+			//printf("Free PDPT 0x%p\n", pdpt_addr);
+			pdpe_t* pdpt = (pdpe_t*)(PMA_TO_VMA(pdpt_addr));
+
+			for (int pdpt_iter = 0; pdpt_iter < 512; pdpt_iter++) {
+				if (pdpt[pdpt_iter].present) {
+					uintptr_t page_dir_addr = pdpt[pdpt_iter].page_dir_base * PAGE_SIZE;
+					//printf("Free page directory 0x%p\n", page_dir_addr);
+					pde_t* page_dir = (pde_t*)(PMA_TO_VMA(page_dir_addr));
+
+					for (int page_dir_iter = 0; page_dir_iter < 512; page_dir_iter++) {
+						if (page_dir[page_dir_iter].present) {
+							uintptr_t page_table_addr = page_dir[page_dir_iter].page_table_base * PAGE_SIZE;
+							//printf("Free page table 0x%p\n", page_table_addr);
+							pte_t* page_table = (pte_t*)(PMA_TO_VMA(page_table_addr));
+
+							int freed_page_count = 0;
+							for (int page_table_iter = 0; page_table_iter < 512; page_table_iter++) {
+								if (page_table[page_table_iter].present) {
+									uintptr_t page_addr = page_table[page_table_iter].page_base * PAGE_SIZE;
+									//printf("Free page 0x%p\n", page_addr);
+									freed_page_count += 1;
+									pmm_free(page_addr);
+								}
+							}
+							uintptr_t page_table_mem = 1024*1024*2;
+							uintptr_t page_dir_mem=page_table_mem*512;
+							uintptr_t pdpt_mem = page_dir_mem*512;
+							uintptr_t addr = (page_dir_iter * page_table_mem) + (pdpt_iter * page_dir_mem) + (pml4_iter * pdpt_mem);
+							//printf("Freed %d pages at 0x%p\n", freed_page_count, addr);
+
+							pmm_free(page_table_addr);
+						}
+					}
+
+					pmm_free(page_dir_addr);
+				}
+			}
+
+			pmm_free(pdpt_addr);
+		}
+	}
+	pmm_free(vas_state->pml4_phys);
+	kfree(vas_state);
 }
 
 void vmm_init(uint64_t bootloader_pml4_addr) {
@@ -384,7 +437,7 @@ void vmm_init(uint64_t bootloader_pml4_addr) {
     pml4e_t* kernel_pml4 = (pml4e_t*)PMA_TO_VMA(kernel_pml4_addr);
     pml4e_t* bootloader_pml4 = (pml4e_t*)PMA_TO_VMA(bootloader_pml4_addr);
 
-    printf("kernel_pml4_addr 0x%p 0x%p 0x%p 0x%p\n", kernel_pml4_addr, kernel_pml4, bootloader_pml4_addr, bootloader_pml4);
+    //printf("kernel_pml4_addr 0x%p 0x%p 0x%p 0x%p\n", kernel_pml4_addr, kernel_pml4, bootloader_pml4_addr, bootloader_pml4);
     // Copy in the high-memory mappings
 	// TODO(PT): Add comment about how low-memory mappings are deleted later
     for (int i = 0; i < 512; i++) {
@@ -430,7 +483,7 @@ void vmm_init(uint64_t bootloader_pml4_addr) {
 
 	// We've copied all the PML4 entries from the bootloader's PML4, 
 	// so it's now safe to free the bootloader's PML4 frame
-	printf("Free bootloader PML4 0x%p\n", bootloader_pml4_addr);
+	//printf("Free bootloader PML4 0x%p\n", bootloader_pml4_addr);
 	pmm_free(bootloader_pml4_addr);
 }
 
@@ -474,7 +527,7 @@ static uint64_t _select_virtual_address(vas_state_t* vas_state, uint64_t min_add
 			uint64_t range_end = range->start + range->size;
 			// https://stackoverflow.com/questions/3269434/whats-the-most-efficient-way-to-test-two-integer-ranges-for-overlap
 			if (range_start <= chosen_start + size && chosen_start < range_end) {
-				printf("\tRelocating chosen start to 0x%p\n", range_end);
+				//printf("\tRelocating chosen start to 0x%p\n", range_end);
 				chosen_start = range_end;
 				collision = true;
 			}
@@ -487,7 +540,7 @@ static uint64_t _select_virtual_address(vas_state_t* vas_state, uint64_t min_add
 }
 
 uint64_t vas_map_range(vas_state_t* vas_state, uint64_t min_address, uint64_t size, uint64_t phys_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level) {
-	printf("vas_map_range(state: 0x%p, start: 0x%p, size: 0x%p)\n", vas_state, min_address, size);
+	//printf("vas_map_range(state: 0x%p, start: 0x%p, size: 0x%p)\n", vas_state, min_address, size);
 
 	// TODO(PT): Add a max start param here, and limit kernel heap to one PML4E
 	uint64_t chosen_start = _select_virtual_address(vas_state, min_address, size);
@@ -507,7 +560,7 @@ uint64_t vas_alloc_range(vas_state_t* vas_state, uint64_t min_address, uint64_t 
 	// Page-align the provided size
 	size = (size + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1);
 
-	printf("vas_alloc_range(state: 0x%p, start: 0x%p, size: 0x%p)\n", vas_state, min_address, size);
+	//printf("vas_alloc_range(state: 0x%p, start: 0x%p, size: 0x%p)\n", vas_state, min_address, size);
 
 	// TODO(PT): Add a max start param here, and limit kernel heap to one PML4E
 	uint64_t chosen_start = _select_virtual_address(vas_state, min_address, size);
@@ -546,7 +599,7 @@ uint64_t vas_copy_phys_mapping(vas_state_t* vas_state, vas_state_t* vas_to_copy,
 	// Page-align the provided size
 	size = (size + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1);
 
-	printf("vas_copy_phys_mapping(vas: 0x%p, to_copy: 0x%p, start: 0x%p, size: 0x%p)\n");
+	//printf("vas_copy_phys_mapping(vas: 0x%p, to_copy: 0x%p, start: 0x%p, size: 0x%p)\n");
 
 	uint64_t chosen_start = _select_virtual_address(vas_state, min_address, size);
 	// Mark as allocated in the VAS

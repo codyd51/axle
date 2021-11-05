@@ -48,7 +48,6 @@ static void _parse_initrd(fs_base_node_t* initrd_root) {
 
 	uintptr_t initrd_start = PMA_TO_VMA(boot_info->initrd_start);
 	initrd_header_t* header = (initrd_header_t*)initrd_start;
-	printf("header at 0x%p, nfiles %d\n", header, header->nfiles);
 	uintptr_t offset = initrd_start + sizeof(initrd_header_t);
 	for (uint32_t i = 0; i < header->nfiles; i++) {
 		initrd_file_header_t* file_header = (initrd_file_header_t*)offset;
@@ -104,7 +103,7 @@ void vfs_init(void) {
 	char* initrd_path = "initrd";
 	fs_base_node_t* initrd_root = fs_node_create__directory(root, initrd_path, strlen(initrd_path));
 	_parse_initrd(initrd_root);
-	_print_fs_tree((fs_node_t*)root, 0);
+	//_print_fs_tree((fs_node_t*)root, 0);
 }
 
 initrd_fs_node_t* vfs_find_initrd_node_by_name(char* name) {

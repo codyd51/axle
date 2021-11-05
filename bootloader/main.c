@@ -56,21 +56,20 @@ uint64_t kernel_map_elf(const char* kernel_filename, pml4e_t* vas_state) {
 		printf("No program headers\n");
 		return 0;
 	}
-	printf("Valid ELF!\n");
 
 	// Load ELF segments
 	for (uint64_t i = 0; i < elf->e_phnum; i++) {
 		Elf64_Phdr* phdr = (Elf64_Phdr*)(kernel_buf + elf->e_phoff + (i * elf->e_phentsize));
-		printf("PH at 0x%p\n", phdr);
+		//printf("PH at 0x%p\n", phdr);
 		if (phdr->p_type == PT_LOAD) {
 			uint64_t bss_size = phdr->p_memsz - phdr->p_filesz;
-			printf("ELF segment %p %d bytes (bss %d bytes)\n", phdr->p_vaddr, phdr->p_filesz, bss_size);
+			//printf("ELF segment %p %d bytes (bss %d bytes)\n", phdr->p_vaddr, phdr->p_filesz, bss_size);
 
 			efi_physical_address_t segment_phys_base = 0;
 			int segment_size = phdr->p_memsz;
 			int segment_size_page_padded = ROUND_TO_NEXT_PAGE(phdr->p_memsz);
 			int page_count = segment_size_page_padded / PAGE_SIZE;
-			printf("\tAllocating %ld pages for ELF segment %ld\n", page_count, i);
+			//printf("\tAllocating %ld pages for ELF segment %ld\n", page_count, i);
 			efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_MEMORY_TYPE_AXLE_KERNEL_IMAGE, page_count, &segment_phys_base);
 			if (EFI_ERROR(status)) {
 				printf("Failed to map kernel segment at requested address\n");
@@ -164,19 +163,25 @@ int main(int argc, char** argv) {
 	uint64_t gop_mode_info_size = 0;
 	efi_gop_mode_info_t* gop_mode_info = NULL;
 	uint64_t best_mode = gop->Mode->Mode;
+	uint64_t best_mode_res_x = 0;
+	uint64_t max_res_x = 1280;
 	// Desired aspect ratio is 16:9
 	double desired_aspect_ratio = 16.0 / 9.0;
 	double min_distance = 1000000.0;
-	printf("Desired aspect ratio: %p\n", desired_aspect_ratio);
+	printf("Desired aspect ratio: %f\n", desired_aspect_ratio);
 	
 	for (uint64_t i = gop->Mode->Mode; i < gop->Mode->MaxMode; i++) {
 		gop->QueryMode(gop, i,  &gop_mode_info_size,  &gop_mode_info);
-		printf("Mode %ld: %ldx%ld, %ld bpp\n", i, gop_mode_info->HorizontalResolution, gop_mode_info->VerticalResolution, gop_mode_info->PixelFormat);
 		double aspect_ratio = gop_mode_info->HorizontalResolution / (double)gop_mode_info->VerticalResolution;
-		if (abs(desired_aspect_ratio - aspect_ratio) < min_distance) {
-			printf("\tFound new best aspect ratio match!\n");
-			best_mode = i;
-			min_distance = abs(desired_aspect_ratio - aspect_ratio);
+		// Found a more precise fit for our desired aspect ratio?
+		if (abs(desired_aspect_ratio - aspect_ratio) <= min_distance) {
+			// Higher resolution than our previous best?
+			if (gop_mode_info->HorizontalResolution > best_mode_res_x && gop_mode_info->HorizontalResolution <= max_res_x) {
+				printf("\tFound new preferred resolution: mode #%ld @ %ldx%ld\n", i, gop_mode_info->HorizontalResolution, gop_mode_info->VerticalResolution);
+				best_mode = i;
+				best_mode_res_x = gop_mode_info->HorizontalResolution;
+				min_distance = abs(desired_aspect_ratio - aspect_ratio);
+			}
 		}
 	}
 	gop->QueryMode(gop, best_mode,  &gop_mode_info_size,  &gop_mode_info);
@@ -209,17 +214,19 @@ int main(int argc, char** argv) {
 	}
 
 	// Now we know how big the memory map needs to be.
+	/*
 	printf("Set memory map size to: %p\n", memory_map_size);
 	printf("Memory descriptors: %p\n", memory_descriptors);
 	printf("Memory map key: %p\n", memory_map_key);
 	printf("Memory descriptor size: %p\n", memory_descriptor_size);
 	printf("Memory descriptor version: %p\n", memory_descriptor_version);
+	*/
 
 	// Allocate the buffer for the memory descriptors, 
 	// but this will change the memory map and may increase its size!
 	// Reserve some extra space just in case
 	memory_map_size += (memory_descriptor_size * 4);
-	printf("Reserved extra memory map space, buffer size is now %p\n", memory_map_size);
+	printf("Reserved extra memory map space, memory map buffer size: %p\n", memory_map_size);
 	// https://uefi.org/sites/default/files/resources/UEFI_Spec_2_8_final.pdf
 	memory_descriptors = malloc(memory_map_size);
 

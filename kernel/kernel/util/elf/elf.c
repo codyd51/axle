@@ -83,20 +83,8 @@ bool elf_load_segment(unsigned char* src, elf_phdr* seg) {
 
 	// Map the segment memory
 	uintptr_t page_aligned_size = (seg->memsz + (PAGE_SIZE-1)) & PAGING_PAGE_MASK;
-	printf("Page-aligned segment size: 0x%p\n", page_aligned_size);
-	printf("Allocating at 0x%p\n", seg->vaddr);
-	/*
-	for (uint32_t i = 0; i < page_aligned_size; i += PAGE_SIZE) {
-		// TODO(PT): Add some kind of validation that the page isn't already mapped
-		uintptr_t* mem_addr = (uintptr_t*)(seg->vaddr + i);
-		//uintptr_t frame_addr = vmm_alloc_page_address_usermode(vmm_active_pdir(), mem_addr, true);
-		vas_alloc
-		uintptr_t frame_addr =
-		NotImplemented();
-
-		memset(mem_addr, 0, PAGE_SIZE);
-	}
-	*/
+	//printf("Page-aligned segment size: 0x%p\n", page_aligned_size);
+	//printf("Allocating at 0x%p\n", seg->vaddr);
 	uintptr_t* base = vas_alloc_range(vas_get_active_state(), seg->vaddr, page_aligned_size, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
 	assert(base == seg->vaddr, "Failed to map program at its requested address");
 
@@ -113,7 +101,7 @@ uintptr_t elf_load_small(unsigned char* src) {
 	int segcount = hdr->phnum; 
 	if (!segcount) return 0;
 
-	printf("[%d] Loading %d ELF segments\n", getpid(), segcount);
+	//printf("[%d] Loading %d ELF segments\n", getpid(), segcount);
 	bool found_loadable_seg = false;
 	for (int i = 0; i < segcount; i++) {
 		elf_phdr* segment = (elf_phdr*)(phdr_table_addr + (i * hdr->phentsize));
@@ -210,12 +198,12 @@ void elf_load_buffer(char* program_name, uint8_t* buf, uint32_t buf_size, char**
 	// Give userspace a 128kb stack
 	// TODO(PT): We need to free the stack created by _thread_create
 	uint32_t stack_size = PAGE_SIZE * 32;
-	printf("ELF allocating stack with PDir 0x%p\n", vas_get_active_state());
+	//printf("ELF allocating stack with PDir 0x%p\n", vas_get_active_state());
 	uintptr_t stack_bottom = vas_alloc_range(vas_get_active_state(), 0x7e0000000000, stack_size, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
-	printf("[%d] allocated ELF stack at 0x%08x\n", getpid(), stack_bottom);
+	//printf("[%d] allocated ELF stack at 0x%08x\n", getpid(), stack_bottom);
     uintptr_t *stack_top = (uintptr_t *)(stack_bottom + stack_size); // point to top of malloc'd stack
 	uintptr_t* stack_top_orig = stack_top;
-	printf("[%d] Set ESP to 0x%08x\n", getpid(), stack_top);
+	//printf("[%d] Set ESP to 0x%08x\n", getpid(), stack_top);
     *(--stack_top)= 0xaa;   //address of task's entry point
     *(--stack_top)= 0xbb;   //address of task's entry point
     *(--stack_top)= 0x0;   // alignment
@@ -228,7 +216,7 @@ void elf_load_buffer(char* program_name, uint8_t* buf, uint32_t buf_size, char**
 
 	//calculate argc count
 	int argc = 0;
-	printf("Argv 0x%08x\n", argv);
+	//printf("Argv 0x%08x\n", argv);
 	while (argv[argc] != NULL) {
 		argc++;
 	}
@@ -239,7 +227,7 @@ void elf_load_buffer(char* program_name, uint8_t* buf, uint32_t buf_size, char**
 		//spinlock_acquire(&elf->priority_lock);
 		asm("cli");
 		// TODO(PT): We should store the kmalloc()'d stack in the task structure so that we can free() it once the task dies.
-		printf("Set elf->machine_state = 0x%08x\n", stack_top);
+		//printf("Set elf->machine_state = 0x%08x\n", stack_top);
 		current_task->machine_state = (task_context_t*)stack_top;
 		current_task->sbrk_current_break = prog_break;
 		current_task->bss_segment_addr = bss_loc;

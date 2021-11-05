@@ -98,6 +98,12 @@ int _start(axle_boot_info_t* boot_info) {
     assert(false, "Control should have been transferred to a new stack");
 }
 
+static void _nop() {
+    printf("Task running\n");
+    amc_register_service("com.axle.nop");
+    task_die(0);
+}
+
 static void _kernel_bootstrap_part2(void) {
     // We're now fully set up in high memory
 
@@ -110,6 +116,18 @@ static void _kernel_bootstrap_part2(void) {
 
     // Early boot is finished
     // Multitasking and program loading is now available
+
+    for (uint32_t i = 0; i < 1024; i++) {
+        uint64_t start = ms_since_boot();
+        task_spawn__with_args("empty", _launch_program, "empty", 0, 0);
+        while (ms_since_boot() < start + 2000) {
+            //task_switch();
+        }
+        pmm_dump();
+        //sleep(1);
+        //printf("Slept, PMM: \n");
+    }
+    task_die(0);
 
     // Launch some initial drivers and services
     // TODO(PT): Launching a not-present program here causes a page fault in elf_validate_header. Handle it gracefully...
