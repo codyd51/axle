@@ -632,6 +632,7 @@ static void handle_user_message(amc_message_t* user_message) {
 	const char* source_service = amc_message_source(user_message);
 	uint32_t command = amc_msg_u32_get_word(user_message, 0);
 
+	// Handle special messages
 	if (!strncmp(source_service, PREFERENCES_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
 		if (command == AWM_PREFERENCES_UPDATED) {
 			prefs_updated_msg_t* msg = (prefs_updated_msg_t*)&user_message->body;
@@ -661,12 +662,11 @@ static void handle_user_message(amc_message_t* user_message) {
 			return;
 		}
 	}
-	// User requesting a window to draw in to?
-	if (command == AWM_REQUEST_WINDOW_FRAMEBUFFER) {
-		uint32_t width = amc_msg_u32_get_word(user_message, 1);
-		uint32_t height = amc_msg_u32_get_word(user_message, 2);
-		window_create(source_service, width, height);
-		return;
+
+	// Handle standard messages
+	if (command == AWM_CREATE_WINDOW_REQUEST) {
+		awm_create_window_request_t* req = (awm_create_window_request_t*)user_message->body;
+		window_create(source_service, req->window_size.width, req->window_size.height);
 	}
 	else if (command == AWM_WINDOW_REDRAW_READY) {
 		user_window_t* window = window_with_service_name(source_service);

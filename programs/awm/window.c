@@ -233,7 +233,7 @@ static void _write_window_title(user_window_t* window) {
 
 void window_redraw_title_bar(user_window_t* window, bool close_button_hovered) {
 	if (!_g_title_bar_image) {
-		printf("No images yet...\n");
+		//printf("No images yet...\n");
 		return;
 	}
 
@@ -438,20 +438,23 @@ void desktop_shortcut_render(desktop_shortcut_t* ds) {
             ds->view->frame
         );
     }
-    image_render_to_layer(
-        _g_executable_image,
-        ds->view->layer,
-        rect_make(
-            point_make(
-                icon_x_margin,
-                icon_y_margin
-            ),
-            size_make(
-                shortcut_icon_size.width - (icon_x_margin * 2),
-                icon_image_size.height - (icon_y_margin * 2)
+
+    if (_g_executable_image) {
+        image_render_to_layer(
+            _g_executable_image,
+            ds->view->layer,
+            rect_make(
+                point_make(
+                    icon_x_margin,
+                    icon_y_margin
+                ),
+                size_make(
+                    shortcut_icon_size.width - (icon_x_margin * 2),
+                    icon_image_size.height - (icon_y_margin * 2)
+                )
             )
-        )
-    );
+        );
+    }
 
     Size view_size = ds->view->frame.size;
 	Point mid = point_make(
@@ -643,7 +646,14 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
 	printf("AWM made shared framebuffer for %s\n", owner_service);
 	printf("\tAWM    memory: %p - %p\n", shmem_local, shmem_local + shmem_size);
 	printf("\tRemote memory: %p - %p\n", shmem_remote, shmem_remote + shmem_size);
-	amc_msg_uptr_2__send(owner_service, AWM_CREATED_WINDOW_FRAMEBUFFER, shmem_remote);
+
+    awm_create_window_response_t resp = {
+        .event = AWM_CREATE_WINDOW_RESPONSE,
+        .screen_resolution = screen_resolution(),
+        .bytes_per_pixel = screen_bytes_per_pixel(),
+        .framebuffer = shmem_remote
+    };
+    amc_message_send(owner_service, &resp, sizeof(resp));
 
     awm_animation_open_window_t* anim = awm_animation_open_window_init(200, window, rect_make(origin, full_window_size));
     awm_animation_start(anim);

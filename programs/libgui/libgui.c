@@ -52,22 +52,26 @@ gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t hei
 	}
 
 	// Ask awm to make a window for us
-	amc_msg_u32_3__send(AWM_SERVICE_NAME, AWM_REQUEST_WINDOW_FRAMEBUFFER, width, height);
+	awm_create_window_request_t req = {
+		.event = AWM_CREATE_WINDOW_REQUEST,
+		.window_size = size_make(width, height)
+	};
+	amc_message_send(AWM_SERVICE_NAME, &req, sizeof(req));
 
 	// And get back info about the window it made
-	amc_message_t* receive_framebuf;
-	amc_message_await(AWM_SERVICE_NAME, &receive_framebuf);
-	uintptr_t event = amc_msg_uptr_get(receive_framebuf, 0);
-	assert(event == AWM_CREATED_WINDOW_FRAMEBUFFER, "Invalid state. Expected framebuffer command\n");
-	uintptr_t framebuffer_addr = amc_msg_uptr_get(receive_framebuf, 1);
+	amc_message_t* msg;
+	amc_message_await(AWM_SERVICE_NAME, &msg);
+	awm_create_window_response_t* resp = &msg->body;
+	assert(resp->event == AWM_CREATE_WINDOW_RESPONSE, "Expected create window response");
+	uintptr_t framebuffer_addr = resp->framebuffer;
 
-	printf("Received framebuffer from awm: %d %p\n", event, framebuffer_addr);
+	printf("Received framebuffer from awm: %p\n", framebuffer_addr);
 	uint8_t* buf = (uint8_t*)framebuffer_addr;
 
 	// TODO(PT): Use an awm command to get screen info
-	_screen.resolution = size_make(1280, 720);
-	_screen.bits_per_pixel = 32;
-	_screen.bytes_per_pixel = 4;
+	_screen.resolution = resp->screen_resolution;
+	_screen.bits_per_pixel = resp->bytes_per_pixel * 8;
+	_screen.bytes_per_pixel = resp->bytes_per_pixel;
 
 	ca_layer* dummy_layer = calloc(1, sizeof(ca_layer));
 	dummy_layer->size = _screen.resolution;
