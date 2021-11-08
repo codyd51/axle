@@ -338,7 +338,21 @@ void vas_add_range(vas_state_t* vas_state, uint64_t start, uint64_t size) {
 void vas_state_dump(vas_state_t* vas_state) {
 	printf("[VAS PML4 0x%p]\n", vas_state->pml4_phys);
 	for (uint32_t i = 0; i < vas_state->range_count; i++) {
-		printf("\t[0x%p - 0x%p]\n", vas_state->ranges[i].start, vas_state->ranges[i].start + vas_state->ranges[i].size - 1);
+		const char* unit = "bytes";
+		uint64_t fmt = vas_state->ranges[i].size;
+		if (fmt > 1024) {
+			unit = "kb";
+			fmt /= 1024;
+		}
+		if (fmt > 1024) {
+			unit = "mb";
+			fmt /= 1024;
+		}
+		if (fmt > 1024) {
+			unit = "gb";
+			fmt /= 1024;
+		}
+		printf("\t[0x%p - 0x%p] (%d%s)\n", vas_state->ranges[i].start, vas_state->ranges[i].start + vas_state->ranges[i].size - 1, fmt, unit);
 	}
 }
 
