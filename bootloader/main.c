@@ -11,7 +11,7 @@
 int _fltused = 0;
 
 // TODO(PT): Expose the kernel ELF sections in the boot info, so the PMM can reserve them and we can store the symbol table
-uint64_t kernel_map_elf(const char* kernel_filename, pml4e_t* vas_state) {
+uint64_t kernel_map_elf(const char* kernel_filename, pml4e_t* vas_state, axle_boot_info_t* out_boot_info) {
 	FILE* kernel_file = fopen("\\EFI\\AXLE\\KERNEL.ELF", "r");
 	if (!kernel_file) {
 		printf("Unable to open KERNEL.ELF!\n");
@@ -58,6 +58,35 @@ uint64_t kernel_map_elf(const char* kernel_filename, pml4e_t* vas_state) {
 	}
 
 	// Load ELF segments
+	uint8_t* section_headers_base = (uint8_t*)(kernel_buf + elf->e_shoff);
+	Elf64_Shdr* string_table_section_header = (Elf64_Shdr*)(section_headers_base + (elf->e_shstrndx * elf->e_shentsize));
+	Elf64_Shdr* s = string_table_section_header;
+	uint8_t* string_table = kernel_buf + string_table_section_header->offset;
+	for (uint64_t i = 0; i < elf->e_shnum; i++) {
+		Elf64_Shdr* section_header = (Elf64_Shdr*)(section_headers_base + (i * elf->e_shentsize));
+		//printf("Section header at 0x%p, off 0x%p size 0x%p, name 0x%p %s\n", section_header->addr, section_header->offset, section_header->size, section_header->name, &string_table[section_header->name]);
+		const char* section_name = &string_table[section_header->name];
+
+		if (!strncmp(section_name, ".strtab", 8) || !strncmp(section_name, ".symtab", 8)) {
+			int page_count = ROUND_TO_NEXT_PAGE(section_header->size) / PAGE_SIZE;
+			efi_physical_address_t section_data_buf = 0;
+			efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_MEMORY_TYPE_AXLE_KERNEL_IMAGE, page_count, &section_data_buf);
+			if (EFI_ERROR(status)) {
+				printf("Failed to allocate memory for kernel section data! %ld\n", status);
+				return false;
+			}
+			memcpy(section_data_buf, (kernel_buf + section_header->offset), section_header->size);
+
+			if (!strncmp(section_name, ".strtab", 8)) {
+				out_boot_info->kernel_string_table_base = section_data_buf;
+				out_boot_info->kernel_string_table_size = section_header->size;
+			}
+			else {
+				out_boot_info->kernel_symbol_table_base = section_data_buf;
+				out_boot_info->kernel_symbol_table_size = section_header->size;
+			}
+		}
+	}
 	for (uint64_t i = 0; i < elf->e_phnum; i++) {
 		Elf64_Phdr* phdr = (Elf64_Phdr*)(kernel_buf + elf->e_phoff + (i * elf->e_phentsize));
 		//printf("PH at 0x%p\n", phdr);
@@ -139,7 +168,7 @@ int main(int argc, char** argv) {
 	boot_info->boot_pml4 = page_mapping_level4;
 
 	// Step 2: Map the kernel ELF into memory
-	uint64_t kernel_entry_point = kernel_map_elf("\\EFI\\AXLE\\KERNEL.ELF", page_mapping_level4);
+	uint64_t kernel_entry_point = kernel_map_elf("\\EFI\\AXLE\\KERNEL.ELF", page_mapping_level4, boot_info);
 	if (!kernel_entry_point) {
 		printf("Failed to map kernel\n");
 		return 0;

@@ -4,7 +4,7 @@
 #include <uefi.h>
 
 #define PAGE_SIZE 0x1000
-#define ROUND_TO_NEXT_PAGE(val) ((segment_size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
+#define ROUND_TO_NEXT_PAGE(val) ((val + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1))
 
 typedef union pml4e pml4e_t;
 

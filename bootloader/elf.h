@@ -45,4 +45,17 @@ typedef struct {
     uint64_t p_align;       /* Segment alignment */
 } Elf64_Phdr;
 
+typedef struct {
+	uint32_t 	name;
+	uint32_t 	type;
+	uintptr_t 	flags;
+	uintptr_t 	addr;
+	uintptr_t 	offset;
+	uintptr_t 	size;
+	uint32_t 	link;
+	uint32_t 	info;
+	uintptr_t 	addralign;
+	uintptr_t 	entsize;
+} Elf64_Shdr;
+
 #endif

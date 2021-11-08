@@ -49,6 +49,12 @@ typedef struct axle_boot_info {
 	uint64_t memory_descriptor_size;
 	axle_efi_memory_descriptor_t* memory_descriptors;
 
+	// Kernel info
+	uint64_t kernel_string_table_base;
+	uint64_t kernel_string_table_size;
+	uint64_t kernel_symbol_table_base;
+	uint64_t kernel_symbol_table_size;
+
 	// initrd info
 	uint64_t initrd_base;
 	uint64_t initrd_size;
