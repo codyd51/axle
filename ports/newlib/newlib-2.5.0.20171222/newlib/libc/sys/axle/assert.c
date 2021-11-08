@@ -7,5 +7,7 @@
 void task_assert(bool cond, const char* msg);
 
 void assert(bool cond, const char* msg) {
-	task_assert(cond, msg);
+	if (!cond) {
+		task_assert(cond, msg);
+	}
 }
