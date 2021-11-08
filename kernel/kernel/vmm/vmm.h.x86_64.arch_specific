@@ -11,7 +11,8 @@
 
 #include <kernel/interrupts/interrupts.h>
 
-#define PMA_TO_VMA(addr) ((uintptr_t)addr + 0xFFFF800000000000LL)
+#define KERNEL_MEMORY_BASE 0xFFFF800000000000LL
+#define PMA_TO_VMA(addr) ((uintptr_t)addr + KERNEL_MEMORY_BASE)
 
 #define VAS_KERNEL_HEAP_BASE 0xFFFF900000000000LL
 
