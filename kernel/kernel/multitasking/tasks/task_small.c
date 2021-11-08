@@ -447,7 +447,7 @@ void tasking_init(void* continue_func) {
 
 void* sbrk(int increment) {
 	task_small_t* current = tasking_get_current_task();
-	printf("[%d] sbrk 0x%p (%u) 0x%p -> 0x%p (current page head 0x%p)\n", getpid(), increment, increment, current->sbrk_current_break, current->sbrk_current_break + increment, current->sbrk_current_page_head);
+	//printf("[%d] sbrk 0x%p (%u) 0x%p -> 0x%p (current page head 0x%p)\n", getpid(), increment, increment, current->sbrk_current_break, current->sbrk_current_break + increment, current->sbrk_current_page_head);
 
 	if (increment < 0) {
         printf("Relinquish sbrk memory 0x%08x\n", -(uint32_t)increment);
@@ -463,8 +463,7 @@ void* sbrk(int increment) {
 
     int64_t needed_pages = ((int64_t)(current->sbrk_current_break + increment) - (int64_t)current->sbrk_current_page_head) / PAGE_SIZE;
     if (needed_pages > 0) {
-        printf("\tNeed %d pages (%p - %p = %p)\n", needed_pages, current->sbrk_current_break + increment, current->sbrk_current_page_head,  (current->sbrk_current_break + increment) - current->sbrk_current_page_head);
-        //uint64_t page_padded_increment = (increment + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+        printf("[%d] sbrk reserve %dkb\n", getpid(), needed_pages * (PAGE_SIZE / 1024));
         uint64_t addr = vas_alloc_range(vas_get_active_state(), current->sbrk_current_page_head, needed_pages * PAGE_SIZE, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
         if (addr != current->sbrk_current_page_head) {
             printf("sbrk failed to allocate requested page 0x%p\n", addr);

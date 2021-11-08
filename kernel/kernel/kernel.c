@@ -28,6 +28,7 @@
 #include <kernel/vmm/vmm.h>
 #include <kernel/syscall/syscall.h>
 #include <kernel/multitasking/tasks/task_small.h>
+#include <kernel/util/elf/elf.h>
 #include <kernel/util/amc/amc.h>
 #include <kernel/util/vfs/vfs.h>
 #include <bootloader/axle_boot_info.h>
@@ -116,18 +117,6 @@ static void _kernel_bootstrap_part2(void) {
 
     // Early boot is finished
     // Multitasking and program loading is now available
-
-    for (uint32_t i = 0; i < 1024; i++) {
-        uint64_t start = ms_since_boot();
-        task_spawn__with_args("empty", _launch_program, "empty", 0, 0);
-        while (ms_since_boot() < start + 2000) {
-            //task_switch();
-        }
-        pmm_dump();
-        //sleep(1);
-        //printf("Slept, PMM: \n");
-    }
-    task_die(0);
 
     // Launch some initial drivers and services
     // TODO(PT): Launching a not-present program here causes a page fault in elf_validate_header. Handle it gracefully...

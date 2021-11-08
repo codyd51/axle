@@ -24,7 +24,12 @@ void print_stack_trace(int frame_count) {
         if (!frame_addr) {
             break;
         }
-        printf("[%d] 0x%p\n", i, frame_addr);
+        printf("[%d] 0x%p ", i, frame_addr);
+        if (frame_addr >= KERNEL_MEMORY_BASE) {
+            const char* kernel_symbol = elf_sym_lookup(&boot_info_get()->kernel_elf_symbol_table, (uintptr_t)frame_addr);
+            printf("[Kernel] %s", kernel_symbol ?: "-");
+        }
+        printf("\n");
     }
 }
 
@@ -62,15 +67,12 @@ bool append(char** buf_head, int32_t* buf_size, const char* format, ...) {
 }
 
 bool symbolicate_and_append(int frame_idx, uintptr_t* frame_addr, char** buf_head, int32_t* buf_size) {
-    // x86_64
-    NotImplemented();
-    /*
     char symbol[128] = {0};
 
     bool found_program_start = false;
 
     // Is the frame mapped within the kernel address space?
-    if (vmm_address_is_mapped(boot_info_get()->vmm_kernel, frame_addr)) {
+    if (frame_addr >= KERNEL_MEMORY_BASE) {
         const char* kernel_symbol = elf_sym_lookup(&boot_info_get()->kernel_elf_symbol_table, (uint32_t)frame_addr);
         snprintf(symbol, sizeof(symbol), "[Kernel] %s", kernel_symbol ?: "-");
     }
@@ -88,7 +90,6 @@ bool symbolicate_and_append(int frame_idx, uintptr_t* frame_addr, char** buf_hea
         return false;
     }
     return true;
-    */
 }
 
 void task_build_and_send_crash_report_then_exit(const char* msg, const register_state_t* regs) {

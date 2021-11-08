@@ -22,6 +22,7 @@ typedef struct {
   uint32_t entsize;
 } __attribute__((packed)) elf_section_header_t;
   
+/*
 typedef struct {
   uint32_t name;
   uint32_t value;
@@ -29,6 +30,15 @@ typedef struct {
   uint8_t  info;
   uint8_t  other;
   uint16_t shndx;
+} __attribute__((packed)) elf_symbol_t;
+*/
+typedef struct {
+    uint32_t name;
+    uint8_t info;
+    uint8_t other;
+    uint16_t shndx;
+    uint64_t value;
+    uint64_t size;
 } __attribute__((packed)) elf_symbol_t;
 
 typedef struct {

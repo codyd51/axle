@@ -3,6 +3,7 @@
 #include <std/array_l.h>
 #include <std/array_m.h>
 #include <std/hash_map.h>
+#include <kernel/util/elf/elf.h>
 #include <kernel/util/spinlock/spinlock.h>
 
 #include "amc.h"

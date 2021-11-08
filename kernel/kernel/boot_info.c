@@ -242,6 +242,11 @@ void boot_info_read(axle_boot_info_t* bootloader_info) {
     boot_info->initrd_size = bootloader_info->initrd_size;
     boot_info->initrd_end = bootloader_info->initrd_base + bootloader_info->initrd_size;
 
+    boot_info->kernel_elf_symbol_table.strtab = PMA_TO_VMA(bootloader_info->kernel_string_table_base);
+    boot_info->kernel_elf_symbol_table.strtabsz = bootloader_info->kernel_string_table_size;
+    boot_info->kernel_elf_symbol_table.symtab = PMA_TO_VMA(bootloader_info->kernel_symbol_table_base);
+    boot_info->kernel_elf_symbol_table.symtabsz = bootloader_info->kernel_symbol_table_size;
+
     boot_info->mem_region_count = bootloader_info->memory_map_size / bootloader_info->memory_descriptor_size;
     for (uint32_t i = 0; i < boot_info->mem_region_count; i++) {
         axle_efi_memory_descriptor_t* mem_desc = (axle_efi_memory_descriptor_t*)((uint8_t*)(bootloader_info->memory_descriptors) + (i * bootloader_info->memory_descriptor_size));
@@ -286,6 +291,9 @@ void boot_info_dump() {
     printf("Kernel image at [0x%08x to 0x%08x]. Size: 0x%x\n", info->kernel_image_start, info->kernel_image_end, info->kernel_image_size);
     printf("inirtd image at [0x%08x to 0x%08x]. Size: 0x%x\n", info->initrd_start, info->initrd_end, info->initrd_size);
     //printf("Kernel stack at [0x%08x to 0x%08x]. Size: 0x%x\n", info->boot_stack_bottom_phys, info->boot_stack_top_phys, info->boot_stack_size);
+
+    printf("Kernel string table: [0x%p - 0x%p]\n", info->kernel_elf_symbol_table.strtab, info->kernel_elf_symbol_table.strtab + info->kernel_elf_symbol_table.strtabsz);
+    printf("Kernel symbol table: [0x%p - 0x%p]\n", info->kernel_elf_symbol_table.symtab, info->kernel_elf_symbol_table.symtab + info->kernel_elf_symbol_table.symtabsz);
 
     //boot_info_dump_memory_map(info);
     //boot_info_dump_symbol_table(info);
