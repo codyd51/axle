@@ -247,3 +247,13 @@ Windows don't close when clicking 'X'
 Use cpuid to get CPU model/vendor string, and display it in the UI along with other system info
 Use x86_64 interrupt stack table (IST)
 Use x86_64 Process Context Identifier (PCI) to reduce TLB misses with multitasking
+
+Update build_quick to run when the build product is older than the source
+
+Real-time clock (for wall clock datetime)
+(urgent) On special events (Christmas, Halloween, New Year's Eve, summer equinox, Easter, Daisy BDay, etc.), have a novelty cursor that shows up s a holiday-appropriate icon (ex. little Christmas tree that looks like an arrow and functions as one as appropriate, a pumpkin as a loading icon)
+
+Loading icon - program startup
+    Could be a rotating (diamond) version of the square cursor
+
+Crash in awm when preferences exits without calling gui_enter_event_loop()

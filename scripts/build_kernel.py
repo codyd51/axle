@@ -11,16 +11,16 @@ ARCH = "x86_64"
 
 
 def build_iso() -> Path:
-    image_name = Path(__file__).parent / "axle.iso"
-    bootloader_binary_path = Path(__file__).parent / "bootloader" / "BOOTX64.EFI"
+    image_name = Path(__file__).parents[1] / "axle.iso"
+    bootloader_binary_path = Path(__file__).parents[1] / "bootloader" / "BOOTX64.EFI"
     if not bootloader_binary_path.exists():
         raise ValueError(f'Bootloader binary missing: {bootloader_binary_path}')
 
-    kernel_binary_path = Path(__file__).parent / "isodir" / "boot" / "axle.bin"
+    kernel_binary_path = Path(__file__).parents[1] / "isodir" / "boot" / "axle.bin"
     if not kernel_binary_path.exists():
         raise ValueError(f'Kernel binary missing: {kernel_binary_path}')
     
-    initrd_path = Path(__file__).parent / "isodir" / "boot" / "initrd.img"
+    initrd_path = Path(__file__).parents[1] / "isodir" / "boot" / "initrd.img"
     if not initrd_path.exists():
         raise ValueError(f'initrd missing: {initrd_path}')
 
@@ -41,15 +41,16 @@ def build_iso() -> Path:
 
 def run_iso(image_path: Path) -> None:
     # Run disk image
-    run_and_check(['qemu-system-x86_64', '-bios', '/Users/philliptennen/Downloads/RELEASEX64_OVMF.fd', '-cdrom', image_path.as_posix(), '-monitor', 'stdio', '-m', '2G', '-serial', 'file:syslog.log'])
+    run_and_check(['qemu-system-x86_64', '-pflash', '/Users/philliptennen/Downloads/RELEASEX64_OVMF.fd', '-cdrom', image_path.as_posix(), '-monitor', 'stdio', '-m', '2G', '-serial', 'file:syslog.log', '-accel', 'hvf', '-cpu', 'host'])
+    # run_and_check(['qemu-system-x86_64', '-pflash', '/Users/philliptennen/Downloads/RELEASEX64_OVMF.fd', '-usb', '-drive', f'if=none,id=stick,format=raw,file={image_path.as_posix()}', '-device qemu-xhci,drive=stick', '-monitor', 'stdio', '-m', '2G', '-serial', 'file:syslog.log', '-accel', 'hvf', '-cpu', 'host'])
 
 
 def build_initrd() -> None:
-    fsgen_path = Path(__file__).parent / "fsgen"
+    fsgen_path = Path(__file__).parents[1] / "fsgen"
     if not fsgen_path.exists():
         raise RuntimeError(f'fsgen binary missing, expected at {fsgen_path}')
 
-    initrd_dir = Path(__file__).parent / "initrd"
+    initrd_dir = Path(__file__).parents[1] / "initrd"
     if not initrd_dir.exists():
         raise RuntimeError(f'initrd dir missing, expected at {initrd_dir}')
 
@@ -58,7 +59,7 @@ def build_initrd() -> None:
     if not generated_initrd.exists():
         raise RuntimeError(f'fsgen did not generate initrd at {generated_initrd}')
     
-    staged_initrd = Path(__file__).parent / 'isodir' / 'boot' / 'initrd.img'
+    staged_initrd = Path(__file__).parents[1] / 'isodir' / 'boot' / 'initrd.img'
     shutil.move(generated_initrd.as_posix(), staged_initrd.as_posix())
 
 
@@ -67,7 +68,7 @@ def main():
     copy_kernel_headers()
 
     # Stage architecture-specific source files
-    kernel_root = Path(__file__).parent / "kernel"
+    kernel_root = Path(__file__).parents[1] / "kernel"
     arch_specific_assembly = [
         kernel_root / "boot" / "boot.s",
         kernel_root / "kernel" / "util" / "walk_stack.s",
@@ -92,8 +93,8 @@ def main():
             shutil.copy(arch_specific_file.as_posix(), file.as_posix())
 
     # Build bootloader
-    run_and_check(['make'], cwd=Path(__file__).parent / "bootloader" / "uefi")
-    run_and_check(['make'], cwd=Path(__file__).parent / "bootloader")
+    run_and_check(['make'], cwd=Path(__file__).parents[1] / "bootloader" / "uefi")
+    run_and_check(['make'], cwd=Path(__file__).parents[1] / "bootloader")
 
     # Build kernel image
     run_and_check(['make'])

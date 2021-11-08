@@ -20,7 +20,10 @@ def recompile_program(program_dir: Path) -> None:
 def build_all_programs(
     only_recently_updated: bool = False, force_rebuild_programs: Optional[List[str]] = None, force_rebuild_all=False
 ) -> None:
-    programs_root = Path(__file__).parent / "programs"
+    programs_root = Path(__file__).parents[1] / "programs"
+    force_rebuild_paths = []
+    if force_rebuild_programs:
+        force_rebuild_paths = [(programs_root / x) for x in force_rebuild_programs]
 
     # https://github.com/mesonbuild/meson/issues/309
     # Since Meson won't let us fill in the repo root with an environment variable, 
@@ -38,7 +41,7 @@ def build_all_programs(
         cross_compile_config_path.write_text(cross_compile_config)
 
     meson_dirs = []
-    for program_dir in programs_root.iterdir():
+    for program_dir in (force_rebuild_paths or programs_root.iterdir()):
         if not program_dir.is_dir():
             continue
 
@@ -49,10 +52,7 @@ def build_all_programs(
             if not any(
                 [f.is_file() and os.stat(f.as_posix()).st_atime >= time.time() - 180 for f in program_dir.iterdir()]
             ):
-                # Only exclude not-recently-updated programs if not specified in programs that should be force rebuilt
-                if not force_rebuild_programs:
-                    continue
-                if program_dir.name not in force_rebuild_programs:
+                if program_dir.name not in (force_rebuild_programs or []):
                     continue
 
         meson_build_file = program_dir / "meson.build"

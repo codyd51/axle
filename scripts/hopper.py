@@ -5,7 +5,7 @@ import sys
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--program', action="store")
+    parser.add_argument('--program', '-p', action="store")
     parser.add_argument("--kernel", action="store_true")
     parser.set_defaults(kernel=False)
     args = parser.parse_args()

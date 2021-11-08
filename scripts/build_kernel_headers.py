@@ -12,12 +12,12 @@ from build_utils import copied_file_is_outdated
 def copy_kernel_headers():
     arch = "x86_64"
 
-    src_root = Path(__file__).parent / "kernel"
-    bootloader_root = Path(__file__).parent / "bootloader"
-    sysroot = Path(__file__).parent / "axle-sysroot"
+    src_root = Path(__file__).parents[1] / "kernel"
+    bootloader_root = Path(__file__).parents[1] / "bootloader"
+    sysroot = Path(__file__).parents[1] / "axle-sysroot"
     include_dir = sysroot / "usr" / f"{arch}-axle" / "include"
     newlib_axle_root = (
-        Path(__file__).parent / "ports" / "newlib" / "newlib-2.5.0.20171222" / "newlib" / "libc" / "sys" / "axle"
+        Path(__file__).parents[1] / "ports" / "newlib" / "newlib-2.5.0.20171222" / "newlib" / "libc" / "sys" / "axle"
     )
 
     headers_to_copy = [
