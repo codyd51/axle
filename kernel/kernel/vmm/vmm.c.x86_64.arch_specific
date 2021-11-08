@@ -305,6 +305,34 @@ void vas_add_range(vas_state_t* vas_state, uint64_t start, uint64_t size) {
 			break;
 		}
 	}
+
+	// Merge contiguous ranges
+	while (true) {
+		bool did_merge = false;
+		for (int i = 0; i < vas_state->range_count - 1; i++) {
+			for (int j = i + 1; j < vas_state->range_count; j++) {
+				if (vas_state->ranges[i].start + vas_state->ranges[i].size == vas_state->ranges[j].start) {
+					printf("Merging ranges [0x%p - 0x%p], [0x%p - 0x%p]\n", vas_state->ranges[i].start, vas_state->ranges[i].start + vas_state->ranges[i].size, vas_state->ranges[j].start, vas_state->ranges[j].start + vas_state->ranges[j].size);
+					vas_state->ranges[i].size += vas_state->ranges[j].size;
+
+					for (int k = j; k < vas_state->range_count - 1; k++) {
+						vas_state->ranges[k] = vas_state->ranges[k + 1];
+					}
+
+					vas_state->range_count -= 1;
+					did_merge = true;
+					break;
+				}
+			}
+			if (did_merge) {
+				break;
+			}
+		}
+		if (!did_merge) {
+			break;
+		}
+	}
+	//vas_state_dump(vas_state);
 }
 
 void vas_state_dump(vas_state_t* vas_state) {
