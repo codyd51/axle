@@ -523,7 +523,7 @@ void vas_teardown(vas_state_t* vas_state) {
 void vmm_init(uint64_t bootloader_pml4_addr) {
     printf("[VMM] init\n");
 
-    interrupt_setup_callback(INT_VECTOR_INT14, (int_callback_t)_debug_page_fault);
+    interrupt_setup_callback(INT_VECTOR_INT14, (int_callback_t)_handle_page_fault);
 
     _vmm_global_spinlock.name = "[VMM global spinlock]";
 
@@ -595,8 +595,31 @@ void vas_delete_range(vas_state_t* vas_state, uint64_t region_base, uint64_t siz
 			vas_state->range_count -= 1;
 			return;
 		}
+		else if (range1->start <= region_base && range1->start + range1->size >= region_base + size) {
+			printf("\tSplit range [0x%p - 0x%p]\n", range1->start, range1->start + range1->size);
+			uintptr_t orig_size = range1->size;
+			range1->size = region_base - range1->start;
+
+			uintptr_t right_end_size = orig_size - range1->size - size;
+			printf("right_end_size 0x%p\n", right_end_size);
+			if (right_end_size > 0) {
+				vas_state_dump(vas_state);
+
+				// Shift forward each element to make room for a new one
+				for (int j = vas_state->range_count; j > i; j--) {
+					vas_state->ranges[j+1] = vas_state->ranges[j];
+				}
+				vas_state->ranges[i + 1].start = region_base + size;
+				vas_state->ranges[i + 1].size = right_end_size;
+				vas_state->range_count += 1;
+			}
+			//assert(right_end_size == 0, "need to add right end");
+			return;
+		}
+		// TODO(PT): Handle when it spills over into 2 ranges
 	}
 
+	vas_state_dump(vas_state);
 	assert(false, "Failed to find provided region");
 }
 
