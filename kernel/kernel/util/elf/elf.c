@@ -188,6 +188,10 @@ void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf
 	}
 
 	uintptr_t entry_point = elf_load_small((unsigned char*)buf);
+	if (free_buffer) {
+		printf("[ELF] Freeing buffer 0x%p\n", buf);
+		kfree(buf);
+	}
 	if (!entry_point) {
 		printf("ELF wasn't loadable!\n");
 		return;

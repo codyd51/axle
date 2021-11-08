@@ -133,13 +133,18 @@ static void _amc_core_file_manager_exec_buffer(const char* source_service, void*
     amc_exec_buffer_cmd_t* cmd = (amc_exec_buffer_cmd_t*)buf;
     printf("exec buffer(program_name: %s, buffer_addr: 0x%p)\n", cmd->program_name, cmd->buffer_addr);
 
+    // Copy the buffer to kernel space
+    char* copy = kmalloc(cmd->buffer_size);
+    memcpy(copy, cmd->buffer_addr, cmd->buffer_size);
+
     task_spawn__with_args(
         cmd->program_name,
         _trampoline, 
         cmd->program_name, 
-        cmd->buffer_addr, 
-        cmd->buffer_size 
+        copy, 
+        cmd->buffer_size
     );
+    printf("[%d] Continuing from task_spawn\n", getpid());
 }
 
 static void _amc_core_handle_profile_request(const char* source_service) {
