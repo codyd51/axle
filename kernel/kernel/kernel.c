@@ -44,7 +44,7 @@ static void _launch_program(const char* program_name, uint32_t arg2, uint32_t ar
         panic("Program specified in boot list wasn't found in initrd");
     }
     uintptr_t address = PMA_TO_VMA(node->initrd_offset);
-	elf_load_buffer(program_name, address, node->size, argv);
+	elf_load_buffer(program_name, argv, address, node->size, false);
 	panic("noreturn");
 }
 

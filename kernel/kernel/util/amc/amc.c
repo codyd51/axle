@@ -39,8 +39,9 @@
 static const uint32_t _amc_delivery_pool_base = 0xb0000000;
 static const uint32_t _amc_delivery_pool_size = 1024 * 1024 * 32;
 */
+// TODO(PT): Set amc delivery pool to use a 1GB page
 static const uintptr_t _amc_delivery_pool_base = 0x7f8000000000LL;
-static const uint32_t _amc_delivery_pool_size = 1024 * 1024 * 32;
+static const uint32_t _amc_delivery_pool_size = 1024 * 1024 * 64;
 
 static array_m* _amc_services = 0;
 
@@ -685,7 +686,7 @@ static void _amc_launch_realtek_8139() {
 
     initrd_fs_node_t* node = vfs_find_initrd_node_by_name(program_name);
     uint32_t address = node->initrd_offset;
-	elf_load_buffer(program_name, address, node->size, argv);
+	elf_load_buffer(program_name, argv, address, node->size, false);
 	panic("noreturn");
 }
 

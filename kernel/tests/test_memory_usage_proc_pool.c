@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <kernel/pmm/pmm.h>
 #include <kernel/multitasking/tasks/task_small.h>
+#include <kernel/util/elf/elf.h>
 
 static int cnt = 0;
 static void _exiting(const char* p, uint32_t arg2, uint32_t arg3) {
@@ -29,7 +30,7 @@ static void _launch_program(const char* program_name, uint32_t arg2, uint32_t ar
 
     initrd_fs_node_t* node = vfs_find_initrd_node_by_name(program_name);
     uint32_t address = node->initrd_offset;
-	elf_load_buffer(program_name, address, node->size, argv);
+	elf_load_buffer(program_name, argv, address, node->size, false);
 	panic("noreturn");
     //task_die(0);
 }

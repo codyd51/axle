@@ -5,6 +5,7 @@
 #include <std/printf.h>
 #include <std/kheap.h>
 #include <kernel/vmm/vmm.h>
+#include <kernel/util/vfs/fs.h>
 #include <kernel/multitasking/tasks/task_small.h>
 
 static bool elf_check_magic(elf_header* hdr) {
@@ -156,7 +157,7 @@ static void _record_elf_symbol_table(void* buf, elf_t* elf) {
 	}
 }
 
-void elf_load_buffer(char* program_name, uint8_t* buf, uint32_t buf_size, char** argv) {
+void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf_size, bool free_buffer) {
 	elf_header* hdr = (elf_header*)buf;
 	if (!elf_validate_header(hdr)) {
 		printf("validation failed\n");

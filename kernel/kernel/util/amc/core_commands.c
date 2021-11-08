@@ -3,6 +3,7 @@
 #include <std/array_m.h>
 
 #include <kernel/boot_info.h>
+#include <kernel/util/elf/elf.h>
 
 #include "amc_internal.h"
 #include "core_commands.h"
@@ -27,7 +28,6 @@ static void _amc_core_copy_amc_services(const char* source_service) {
     }
     amc_message_send__from_core(source_service, service_list, response_size);
     kfree(service_list);
-    return true;
 }
 
 static void _amc_core_awm_map_framebuffer(const char* source_service) {
@@ -35,15 +35,17 @@ static void _amc_core_awm_map_framebuffer(const char* source_service) {
     assert(!strncmp(source_service, "com.axle.awm", AMC_MAX_SERVICE_NAME_LEN), "Only AWM may use this syscall");
 
     amc_service_t* current_service = amc_service_with_name(source_service);
-    spinlock_acquire(&current_service->spinlock);
+    //spinlock_acquire(&current_service->spinlock);
     framebuffer_info_t* framebuffer_info = &boot_info_get()->framebuffer;
     //  Map VESA framebuffer into proc's address space
+    /*
     vmm_identity_map_region(
         (vmm_page_directory_t*)vmm_active_pdir(), 
         framebuffer_info->address,
         framebuffer_info->size
     );
-    spinlock_release(&current_service->spinlock);
+    */
+    //spinlock_release(&current_service->spinlock);
 
     // And set the pages as accessible to user-mode
     uint32_t framebuf_start_addr = framebuffer_info->address;
@@ -78,7 +80,7 @@ static void _amc_core_put_service_to_sleep(const char* source_service, uint32_t 
     uint32_t now = ms_since_boot();
     uint32_t wake = now + ms;
     service->task->blocked_info.wake_timestamp = wake;
-    char* extra_msg = (awake_on_message) ? "or message arrives" : "(time only)";
+    //char* extra_msg = (awake_on_message) ? "or message arrives" : "(time only)";
     //printf("Core blocking %s [%d %s] at %d until %d %s (%dms)\n", source_service, service->task->id, service->task->name, now, wake, extra_msg, ms);
 
     array_m_insert(amc_sleeping_procs(), service);
@@ -120,7 +122,7 @@ static void _amc_core_file_manager_map_initrd(const char* source_service) {
 
 static void _trampoline(const char* program_name, void* buf, uint32_t buf_size) {
     char* argv[] = {program_name, NULL};
-    elf_load_buffer(program_name, buf, buf_size, argv);
+    elf_load_buffer(program_name, argv, buf, buf_size, true);
 	panic("noreturn");
 }
 

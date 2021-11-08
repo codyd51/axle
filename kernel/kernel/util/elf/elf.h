@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <kernel/util/vfs/fs.h>
 
 #define ELF_RELOC_ERR -1
 
@@ -165,9 +164,6 @@ enum elf_rt_types {
 #define PT_DYNAMIC	2
 #define PT_INTERP	3
 
-
-bool elf_validate(FILE* file);
-void elf_load_file(char* filename, FILE* file, char** argv);
-void elf_load_buffer(char* program_name, uint8_t* buf, uint32_t buf_size, char** argv);
+void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf_size, bool free_buffer);
 
 #endif
