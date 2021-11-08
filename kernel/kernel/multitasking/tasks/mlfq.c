@@ -6,9 +6,9 @@
 #include <kernel/drivers/pit/pit.h>
 
 #define MLFQ_QUEUE_COUNT 4
-#define MLFQ_PRIO_HIGH_QUANTUM 10
-#define MLFQ_PRIO_LOW_QUANTUM 200
 #define MLFQ_BOOST_INTERVAL 1000
+
+const int _mlfq_quantums[MLFQ_QUEUE_COUNT] = {10, 60, 130, 200};
 
 typedef struct mlfq_ent {
     task_small_t* task;
@@ -24,16 +24,12 @@ typedef struct mlfq_queue {
 
 static array_m* _queues = 0;
 
-int int_lerp(int a, int b, int f) {
-    return a + f * (b - a);
-}
-
 void mlfq_init(void) {
     _queues = array_m_create(MLFQ_QUEUE_COUNT);
     for (uint32_t i = 0; i < MLFQ_QUEUE_COUNT; i++) {
         mlfq_queue_t* q = kcalloc(1, sizeof(mlfq_queue_t));
         q->round_robin_tasks = array_l_create();
-        q->quantum = int_lerp(MLFQ_PRIO_HIGH_QUANTUM, MLFQ_PRIO_LOW_QUANTUM, (i / (MLFQ_QUEUE_COUNT-1)));
+        q->quantum = _mlfq_quantums[i];
         q->spinlock.name = "MLFQ queue spinlock";
         printf("MLFQ queue %d quantum = %dms\n", i, q->quantum);
         array_m_insert(_queues, q);
