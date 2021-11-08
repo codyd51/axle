@@ -40,13 +40,14 @@ static void _set_cr3(uintptr_t addr) {
 
 #include <kernel/util/amc/amc_internal.h>
 
-static void _debug_page_fault(const register_state_t* regs) {
+void _handle_page_fault(const register_state_t* regs) {
 	//page fault has occured
 	//faulting address is stored in CR2 register
 	uintptr_t faulting_address;
 	asm volatile("mov %%cr2, %0" : "=r" (faulting_address));
     printf("[%d] Page fault at 0x%p\n", getpid(), faulting_address);
 	registers_print(regs);
+	vas_state_dump(vas_get_active_state());
 
 	//error code tells us what happened
 	int page_present = (regs->err_code & 0x1); //page not present
@@ -221,11 +222,11 @@ static uint64_t _map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem
 static void _free_region_4k_pages(vas_state_t* vas, uint64_t base, uint64_t size) {
 	pml4e_t* page_mapping_level4 = (pml4e_t*)PMA_TO_VMA(vas->pml4_phys);
 	//printf("map_region in 0x%p: [phys 0x%p - 0x%p] to [virt 0x%p - 0x%p]\n", page_mapping_level4, phys_start, phys_start + vmem_size - 1, vmem_start, vmem_start + vmem_size - 1);
-	//printf("_free_region_4k_pages 0x%p 0x%p 0x%p\n", page_mapping_level4, base, size);
+	printf("_free_region_4k_pages 0x%p 0x%p 0x%p\n", page_mapping_level4, base, size);
 	uint64_t remaining_size = size;
 	uint64_t current_page = base;
 
-    pdpe_t* page_directory_pointer_table = _pdpt_get(page_mapping_level4, base);
+    pdpe_t* page_directory_pointer_table = PMA_TO_VMA(_pdpt_get(page_mapping_level4, base));
 	// TODO(PT): Does not work for crossing PDPT (512GB) boundaries
 
 	uint64_t page_directories_needed = (remaining_size + (VMEM_IN_PDPE - 1)) / VMEM_IN_PDPE;
@@ -235,9 +236,10 @@ static void _free_region_4k_pages(vas_state_t* vas, uint64_t base, uint64_t size
 
 	for (int page_directory_iter_idx = 0; page_directory_iter_idx < page_directories_needed; page_directory_iter_idx++) {
 		int page_directory_idx = page_directory_iter_idx + first_page_directory;
-		//printf("\tpage_directory_idx %d\n", page_directory_idx);
+		printf("\tpage_directory_idx %d, pdpt 0x%p\n", page_directory_idx, page_directory_pointer_table);
 		assert(page_directory_pointer_table[page_directory_idx].present, "Expected page directory to be present!");
-		pde_t* page_directory = (pde_t*)(page_directory_pointer_table[page_directory_idx].page_dir_base * PAGE_SIZE);
+		pde_t* page_directory = (pde_t*)PMA_TO_VMA(page_directory_pointer_table[page_directory_idx].page_dir_base * PAGE_SIZE);
+		printf("\tpage_directory 0x%p\n", page_directory);
 
 		uint64_t page_tables_needed = (remaining_size + (VMEM_IN_PDE - 1)) / VMEM_IN_PDE;
 		page_tables_needed = min(page_tables_needed, PAGE_TABLES_IN_PAGE_DIRECTORY);
@@ -247,7 +249,7 @@ static void _free_region_4k_pages(vas_state_t* vas, uint64_t base, uint64_t size
 			int page_table_idx = page_table_iter_idx + first_page_table;
 			//printf("\tpage_table_idx %d\n", page_table_idx);
 			assert(page_directory[page_directory_idx].present, "Expected page table to be present!");
-			pte_t* page_table = (pte_t*)(page_directory[page_table_idx].page_table_base * PAGE_SIZE);
+			pte_t* page_table = (pte_t*)PMA_TO_VMA(page_directory[page_table_idx].page_table_base * PAGE_SIZE);
 
 			uint64_t pages_needed = (remaining_size + (VMEM_IN_PTE - 1)) / VMEM_IN_PTE;
 			uint64_t first_page = VMA_PTE_IDX(current_page);
@@ -272,7 +274,7 @@ static void _free_region_4k_pages(vas_state_t* vas, uint64_t base, uint64_t size
 }
 
 void vas_add_range(vas_state_t* vas_state, uint64_t start, uint64_t size) {
-	//printf("vas_add_range(state: 0x%p, start: 0x%p, size: 0x%p)\n", vas_state, start, size);
+	printf("vas_add_range(state: 0x%p, start: 0x%p, size: 0x%p)\n", vas_state, start, size);
 	assert(vas_state->range_count + 1 <= vas_state->max_range_count, "VAS will exceed max tracked ranges!");
 
 	vas_state->ranges[vas_state->range_count++] = (vas_range_t){
@@ -450,13 +452,6 @@ void vmm_init(uint64_t bootloader_pml4_addr) {
 	uint64_t range_array_size = PAGE_SIZE - offsetof(vas_state_t, ranges);
 	_kernel_vas_state->max_range_count = range_array_size / sizeof(vas_range_t);
 
-    /* Kernel memory map
-    0xFFFF800000000000: Physical RAM mapping
-    (16TB hole)
-    0xFFFF900000000000: Kernel heap base
-    0xFFFF900000000000: Kernel heap base
-    0xFFFFFFFF80000000: Kernel image
-    */
     // Allocate the PML4E for the kernel heap
     // This way, when the kernel VAS is cloned, the PML4E containing kernel heap pointers
     // will be copied. All processes will see updates made to the kernel heap for free.
