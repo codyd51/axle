@@ -61,7 +61,7 @@ bool append(char** buf_head, int32_t* buf_size, const char* format, ...) {
     return true;
 }
 
-bool symbolicate_and_append(int frame_idx, uint32_t* frame_addr, char** buf_head, int32_t* buf_size) {
+bool symbolicate_and_append(int frame_idx, uintptr_t* frame_addr, char** buf_head, int32_t* buf_size) {
     // x86_64
     NotImplemented();
     /*

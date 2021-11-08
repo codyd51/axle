@@ -20,9 +20,6 @@ static volatile uintptr_t tick = 0;
 
 static int tick_callback(register_state_t* regs) {
 	tick++;
-	if (tick % 1000 == 0) {
-		printf("tick %d\n", tick);
-	}
 	// Wake sleeping services befores ending EOI, or else we 
 	// might get interrupted by another tick while the AMC spinlock is held
 	amc_wake_sleeping_services();

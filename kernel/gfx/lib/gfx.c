@@ -79,7 +79,7 @@ Size font_size_for_resolution(Size resolution) {
 Screen* gfx_init(void) {
     framebuffer_info_t framebuffer_info = boot_info_get()->framebuffer; 
 
-    _screen.physbase = (uint32_t*)framebuffer_info.address;
+    _screen.physbase = (uintptr_t*)framebuffer_info.address;
     _screen.video_memory_size = framebuffer_info.size;
 
     _screen.resolution = size_make(framebuffer_info.width, framebuffer_info.height);

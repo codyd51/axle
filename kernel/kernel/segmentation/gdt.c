@@ -160,32 +160,8 @@ static void gdt_set_gate(void* gdt_entries_ptr, int32_t num, uint32_t base, uint
 
 //static void tss_init(void* gdt_base, uint16_t gdt_offset, uint16_t ss0, uint32_t esp0) {
 static void tss_init(gdt_descriptor_t* gdt) {
-    /*
-    // Compute offset into GDT
-    // Compute addresses to fill in the GDT
-    uint32_t base = (uint32_t)&tss_singleton;
-    uint32_t limit = base + sizeof(tss_entry_t);
-
-    // Write it into the GDT
-    // Now, add our TSS descriptor's address to the GDT.
-    // TODO(PT): Decode these bits and possibly right-shift? (access vs flags)
-    gdt_set_gate(gdt_base, gdt_offset, base, limit, 0xE9, 0x00);
-
-    tss_singleton.ss0 = ss0;
-    tss_singleton.esp0 = esp0;
-
-    // Here we set the cs, ss, ds, es, fs and gs entries in the TSS. These specify what
-    // segments should be loaded when the processor switches to kernel mode. Therefore
-    // they are just our normal kernel code/data segments - 0x08 and 0x10 respectively,
-    // but with the last two bits set, making 0x0b and 0x13. The setting of these bits
-    // sets the RPL (requested privilege level) to 3, meaning that this TSS can be used
-    // to switch to kernel mode from ring 3.
-    tss_singleton.cs   = 0x0b;
-    tss_singleton.ss = tss_singleton.ds = tss_singleton.es = tss_singleton.fs = tss_singleton.gs = 0x13;
-    */
     assert(sizeof(tss_descriptor_t) == 16, "TSS descriptor must be exactly 16 bytes!");
 
-    printf("sizeof tss = %d\n", sizeof(tss_t));
     assert(sizeof(tss_t) == 104, "TSS must be exactly 104 bytes!");
 
     memset(&tss_singleton, 0, sizeof(tss_singleton));
@@ -315,14 +291,10 @@ void gdt_init() {
         .base_high = 0
     };
     memcpy(&gdt_entries[4], &user_data_long, sizeof(user_data_long));
-    printf("TSS\n");
-    //tss_init(&gdt_entries);
-    //tss_init(gdt_entries, 5, 0x10, 0x00);
 
     gdt_activate(&table);
     gdt_load_cs(0x08);
     gdt_load_ds(0x10);
-    printf("Done!\n");
     tss_init(&gdt_entries);
     tss_activate();
 }

@@ -423,7 +423,7 @@ static void _process_amc_messages(gui_application_t* app, bool should_block, boo
 }
 
 static void _redraw_dirty_elems(gui_window_t* window) {
-	uint32_t start = ms_since_boot();
+	uintptr_t start = ms_since_boot();
 	for (uint32_t i = 0; i < window->all_gui_elems->size; i++) {
 		gui_elem_t* elem = array_lookup(window->all_gui_elems, i);
 		bool is_active = window->hover_elem == elem;

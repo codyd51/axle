@@ -15,7 +15,7 @@ void gui_timer_start(uint32_t duration, gui_timer_cb_t timer_cb, void* invoke_ct
 }
 
 void gui_dispatch_ready_timers(gui_application_t* app) {
-    uint32_t now = ms_since_boot();
+    uintptr_t now = ms_since_boot();
     for (int32_t i = 0; i < app->timers->size; i++) {
         gui_timer_t* t = array_lookup(app->timers, i);
         if (t->fires_after <= now) {

@@ -7,7 +7,7 @@
 typedef void(*gui_timer_cb_t)(void* ctx);
 
 typedef struct gui_timer {
-    uint32_t start_time;
+    uintptr_t start_time;
     uint32_t duration;
     uint32_t fires_after;
     gui_timer_cb_t invoke_cb;

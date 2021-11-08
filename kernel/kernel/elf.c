@@ -27,10 +27,12 @@ void elf_from_multiboot(struct multiboot_info* mb, elf_t* elf) {
 	}
 }
 
-const char* elf_sym_lookup(elf_t* elf, uint32_t addr) {
+const char* elf_sym_lookup(elf_t* elf, uintptr_t addr) {
 	for (uint32_t i = 0; i < (elf->symtabsz / sizeof(elf_symbol_t)); i++) {
 		elf_symbol_t sym = elf->symtab[i];
+
 		const char* name = elf->strtab + sym.name;
+
 		// Function type is 0x2
 		if (ELF32_ST_TYPE(sym.info) != 0x2) {
 			continue;

@@ -9,7 +9,7 @@ typedef struct window Window;
 // Root display structure to which all graphics are rendered
 // This may only be created via a call to gfx_init()
 typedef struct screen_t {
-	uint32_t* physbase; //address of beginning of framebuffer
+	uintptr_t* physbase; //address of beginning of framebuffer
 	uint32_t video_memory_size;
 
 	Size resolution;

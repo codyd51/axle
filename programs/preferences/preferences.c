@@ -219,7 +219,7 @@ static void _apply_button_clicked(gui_view_t* view) {
     int b2 = _g_state.to_blue->slider_percent * 255;
     msg.to = color_make(b2, g2, r2);
 
-    amc_message_construct_and_send(AWM_SERVICE_NAME, &msg, sizeof(msg));
+    amc_message_send(AWM_SERVICE_NAME, &msg, sizeof(msg));
 }
 
 static void cb(void* ctx) {

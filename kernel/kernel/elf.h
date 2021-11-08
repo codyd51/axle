@@ -42,6 +42,6 @@ typedef struct {
 void elf_from_multiboot(struct multiboot_info* mb, elf_t* elf);
 
 //looks up symbol at addr
-const char* elf_sym_lookup(elf_t* elf, uint32_t addr);
+const char* elf_sym_lookup(elf_t* elf, uintptr_t addr);
 
 #endif
