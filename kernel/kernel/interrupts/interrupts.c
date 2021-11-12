@@ -46,9 +46,17 @@ void interrupt_handle(register_state_t* regs) {
 		handler(regs);
 	}
 	else {
-		printf("Unhandled IRQ: %d\n", int_no);
-		if (is_external) {
-			pic_signal_end_of_interrupt(int_no);
+		// Spurious IRQ?
+		if (int_no == INT_VECTOR_IRQ7) {
+			// Just ignore it
+			// TODO(PT): Query the PIC to see if IRQ 7 is, in fact, in use
+			// Ref: https://www.reddit.com/r/osdev/comments/5qqnkq/are_spurious_interrupts_irq_7_a_bad_sign_and_how/
+		}
+		else {
+			printf("Unhandled IRQ: %d\n", int_no);
+			if (is_external) {
+				pic_signal_end_of_interrupt(int_no);
+			}
 		}
 	}
 
