@@ -46,8 +46,6 @@ void _handle_page_fault(const register_state_t* regs) {
 	uintptr_t faulting_address;
 	asm volatile("mov %%cr2, %0" : "=r" (faulting_address));
     printf("[%d] Page fault at 0x%p\n", getpid(), faulting_address);
-	registers_print(regs);
-	vas_state_dump(vas_get_active_state());
 
 	//error code tells us what happened
 	int page_present = (regs->err_code & 0x1); //page not present
@@ -63,7 +61,6 @@ void _handle_page_fault(const register_state_t* regs) {
     if (active_service) {
 		printf("|        AMC service: %s |\n", active_service->name);
     }
-    printf("|        0x%p        |\n", faulting_address);
 
 	if (overwrote_reserved_bits) printf_err("Overwrote CPU-resereved bits of page entry");
 	if (invalid_ip) printf_err("Faulted during instruction fetch");
@@ -82,13 +79,16 @@ void _handle_page_fault(const register_state_t* regs) {
     if (!caused_by_execution) {
         reason = forbidden_write ? "write" : "read ";
     }
-	printf("|        Unmapped %s            |\n", reason);
+    printf("| Unmapped %s of 0x%p |\n", reason, faulting_address);
     printf("|        RIP = 0x%p  |\n", regs->return_rip);
     printf("|        RSP = 0x%p  |\n", regs->return_rsp);
     printf("|----------------------------------|\n");
 
+	registers_print(regs);
+	vas_state_dump(vas_get_active_state());
+
     char desc[512];
-    snprintf(desc, sizeof(desc), "Page fault: %s at 0x%08x", reason, faulting_address);
+    snprintf(desc, sizeof(desc), "Page fault: %s at 0x%p", reason, faulting_address);
     task_assert(false, desc, regs);
 }
 
@@ -274,7 +274,7 @@ static void _free_region_4k_pages(vas_state_t* vas, uint64_t base, uint64_t size
 }
 
 void vas_add_range(vas_state_t* vas_state, uint64_t start, uint64_t size) {
-	printf("vas_add_range(state: 0x%p, start: 0x%p, size: 0x%p)\n", vas_state, start, size);
+	//printf("vas_add_range(state: 0x%p, start: 0x%p, size: 0x%p)\n", vas_state, start, size);
 	assert(vas_state->range_count + 1 <= vas_state->max_range_count, "VAS will exceed max tracked ranges!");
 
 	vas_state->ranges[vas_state->range_count++] = (vas_range_t){
@@ -312,7 +312,7 @@ void vas_add_range(vas_state_t* vas_state, uint64_t start, uint64_t size) {
 		for (int i = 0; i < vas_state->range_count - 1; i++) {
 			for (int j = i + 1; j < vas_state->range_count; j++) {
 				if (vas_state->ranges[i].start + vas_state->ranges[i].size == vas_state->ranges[j].start) {
-					printf("Merging ranges [0x%p - 0x%p], [0x%p - 0x%p]\n", vas_state->ranges[i].start, vas_state->ranges[i].start + vas_state->ranges[i].size, vas_state->ranges[j].start, vas_state->ranges[j].start + vas_state->ranges[j].size);
+					//printf("Merging ranges [0x%p - 0x%p], [0x%p - 0x%p]\n", vas_state->ranges[i].start, vas_state->ranges[i].start + vas_state->ranges[i].size, vas_state->ranges[j].start, vas_state->ranges[j].start + vas_state->ranges[j].size);
 					vas_state->ranges[i].size += vas_state->ranges[j].size;
 
 					for (int k = j; k < vas_state->range_count - 1; k++) {
@@ -385,12 +385,6 @@ vas_state_t* vas_clone(vas_state_t* parent) {
 		new_pml4_virt[i] = kernel_pml4[i];
 	}
 
-	/*
-	for (int i = 0; i < kernel_vas->range_count; i++) {
-		vas_add_range(new_vas, kernel_vas->ranges[i].start, kernel_vas->ranges[i].size);
-	}
-	*/
-
 	// Copy 
 	pml4e_t* parent_pml4 = (pml4e_t*)PMA_TO_VMA(parent->pml4_phys);
 	pml4e_t* new_pml4 = (pml4e_t*)PMA_TO_VMA(new_vas->pml4_phys);
@@ -400,7 +394,7 @@ vas_state_t* vas_clone(vas_state_t* parent) {
 		}
 
 		pdpe_t* parent_page_directory_pointer_table = (pdpe_t*)(PMA_TO_VMA(parent_pml4[page_directory_pointer_table_idx].page_dir_pointer_base * PAGE_SIZE));
-		printf("\tCloning parent PDPT 0x%p\n", parent_page_directory_pointer_table);
+		//printf("\tCloning parent PDPT 0x%p\n", parent_page_directory_pointer_table);
 
 		uintptr_t cloned_page_directory_pointer_table_frame = pmm_alloc();
 		pdpe_t* cloned_page_directory_pointer_table = (pdpe_t*)(PMA_TO_VMA(cloned_page_directory_pointer_table_frame));
@@ -416,7 +410,7 @@ vas_state_t* vas_clone(vas_state_t* parent) {
 			}
 
 			pde_t* parent_page_directory = (pde_t*)(PMA_TO_VMA(parent_page_directory_pointer_table[page_directory_idx].page_dir_base * PAGE_SIZE));
-			printf("\t\tCloning parent page directory 0x%p\n", parent_page_directory);
+			//printf("\t\tCloning parent page directory 0x%p\n", parent_page_directory);
 
 			uintptr_t cloned_page_directory_frame = pmm_alloc();
 			pde_t* cloned_page_directory = (pde_t*)(PMA_TO_VMA(cloned_page_directory_frame));
@@ -432,7 +426,7 @@ vas_state_t* vas_clone(vas_state_t* parent) {
 				}
 
 				pte_t* parent_page_table = (pte_t*)(PMA_TO_VMA(parent_page_directory[page_table_idx].page_table_base * PAGE_SIZE));
-				printf("\t\t\tCloning parent page table 0x%p\n", parent_page_table);
+				//printf("\t\t\tCloning parent page table 0x%p\n", parent_page_table);
 
 				uintptr_t cloned_page_table_frame = pmm_alloc();
 				pte_t* cloned_page_table = (pte_t*)(PMA_TO_VMA(cloned_page_table_frame));
@@ -599,6 +593,9 @@ void vas_delete_range(vas_state_t* vas_state, uint64_t region_base, uint64_t siz
 			printf("\tSplit range [0x%p - 0x%p]\n", range1->start, range1->start + range1->size);
 			uintptr_t orig_size = range1->size;
 			range1->size = region_base - range1->start;
+			if (range1->size == 0) {
+				printf("\tTODO: Delete empty range\n");
+			}
 
 			uintptr_t right_end_size = orig_size - range1->size - size;
 			printf("right_end_size 0x%p\n", right_end_size);
