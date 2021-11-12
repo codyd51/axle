@@ -1,5 +1,13 @@
 #include "utils.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdlibadd/assert.h>
+
+static Size _screen_resolution = {0};
+static int _screen_bytes_per_pixel = 0;
+static uint32_t _screen_pixels_per_scanline = 0;
+
 Point point_translate(Point p, Rect r) {
     return point_make(
         p.x - rect_min_x(r),
@@ -7,12 +15,28 @@ Point point_translate(Point p, Rect r) {
     );
 }
 
+void _set_screen_resolution(Size s) {
+    _screen_resolution = s;
+}
+
 Size screen_resolution(void) {
-    return size_make(1280, 720);
+    return _screen_resolution;
 }
 
 uint8_t screen_bytes_per_pixel(void) {
-    return 4;
+    return _screen_bytes_per_pixel;
+}
+
+void _set_screen_bytes_per_pixel(uint8_t screen_bpp) {
+    _screen_bytes_per_pixel = screen_bpp;
+}
+
+uint32_t screen_pixels_per_scanline(void) {
+    return _screen_pixels_per_scanline;
+}
+
+void _set_screen_pixels_per_scanline(uint32_t px_per_scanline) {
+    _screen_pixels_per_scanline = px_per_scanline;
 }
 
 bool rect_contains_rect(Rect a, Rect b) {

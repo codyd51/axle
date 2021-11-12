@@ -291,6 +291,7 @@ void windows_init(void) {
 
     Size grid_slot_size = desktop_shortcut_grid_slot_size();
     Size screen_size = screen_resolution();
+    printf("Screen resolution: %d %d\n", screen_size.width, screen_size.height);
     // Iterate columnly so when searching for a free space linearly we fill in columns first
     for (int32_t x = 0; x < (screen_size.width - grid_slot_size.width); x += grid_slot_size.width) {
         for (int32_t y = 0; y < screen_size.height - grid_slot_size.height; y += grid_slot_size.height) {

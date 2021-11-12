@@ -51,7 +51,7 @@ static void _amc_message_received(amc_message_t* msg) {
 	file_manager_read_file_request_t req = {0};
 	req.event = FILE_MANAGER_READ_FILE;
 	snprintf(req.path, sizeof(req.path), "%s", load_image_req->path);
-	amc_message_construct_and_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_read_file_request_t));
+	amc_message_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_read_file_request_t));
 
 	printf("Requested file %s\n", req.path);
 	amc_message_t* file_data_msg;

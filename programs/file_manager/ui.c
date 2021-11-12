@@ -294,7 +294,7 @@ void ui_generate_tree(gui_view_t* container_view, file_view_t* parent_view, uint
 		}
 		bool found = false;
 		file_view->dfs_index = depth_first_search__idx((fs_base_node_t*)root, (fs_base_node_t*)node, 0, &found);
-		printf("Depth of %s: %ld\n", node->base.name, file_view->dfs_index);
+		//printf("Depth of %s: %ld\n", node->base.name, file_view->dfs_index);
 	}
 
 	if (node->base.children && node->base.children->size) {
