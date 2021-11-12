@@ -125,6 +125,28 @@ void print_time(void) {
 	printf("%02d/%02d/%04d %02d:%02d:%02d.%04d", time.Day, time.Month, time.Year, time.Hour, time.Minute, time.Second, time.Nanosecond);
 }
 
+void wait(void) {
+	efi_time_t start = {0};
+	RT->GetTime(&start, NULL);
+	while (true) {
+		efi_time_t now = {0};
+		RT->GetTime(&now, NULL);
+		if (now.Minute != start.Minute || now.Second >= start.Second + 3) {
+			break;
+		}
+	}
+}
+
+void draw(axle_boot_info_t* bi, int color) {
+	uint32_t* base = (uint32_t*)bi->framebuffer_base;
+	for (uint32_t y = 0; y < bi->framebuffer_height; y++) {
+		for (uint32_t x = 0; x < bi->framebuffer_width; x++) {
+			base[y * bi->framebuffer_width + x] = color;
+		}
+	}
+	//wait();
+}
+
 bool initrd_map(const char* initrd_path, uint64_t* out_base, uint64_t* out_size) {
 	FILE* initrd_file = fopen(initrd_path, "r");
 	if (!initrd_file) {
@@ -158,27 +180,11 @@ bool initrd_map(const char* initrd_path, uint64_t* out_base, uint64_t* out_size)
 
 int main(int argc, char** argv) {
 	ST->ConOut->ClearScreen(ST->ConOut);
-	printf("axle OS bootloader init...\n");
 
 	// Step 1: Allocate the buffer we'll use to pass all the info to the kernel
 	// We've got to do this before reading the memory map, as allocations modify
 	// the memory map.
 	axle_boot_info_t* boot_info = calloc(1, sizeof(axle_boot_info_t));
-	pml4e_t* page_mapping_level4 = map2();
-	boot_info->boot_pml4 = page_mapping_level4;
-
-	// Step 2: Map the kernel ELF into memory
-	uint64_t kernel_entry_point = kernel_map_elf("\\EFI\\AXLE\\KERNEL.ELF", page_mapping_level4, boot_info);
-	if (!kernel_entry_point) {
-		printf("Failed to map kernel\n");
-		return 0;
-	}
-
-	// Step 3: Map the initrd into memory
-	if (!initrd_map("\\EFI\\AXLE\\INITRD.IMG", &boot_info->initrd_base, &boot_info->initrd_size)) {
-		printf("Failed to map initrd!\n");
-		return 0;
-	}
 
 	// Step 3: Select a graphics mode
 	efi_gop_t* gop = NULL;
@@ -219,7 +225,7 @@ int main(int argc, char** argv) {
 		if (abs(desired_aspect_ratio - aspect_ratio) <= min_distance) {
 			// Higher resolution than our previous best?
 			if (gop_mode_info->HorizontalResolution > best_mode_res_x && gop_mode_info->HorizontalResolution <= max_res_x) {
-				printf("\tFound new preferred resolution: mode #%ld @ %ldx%ld\n", i, gop_mode_info->HorizontalResolution, gop_mode_info->VerticalResolution);
+				//printf("\tFound new preferred resolution: mode #%ld @ %ldx%ld\n", i, gop_mode_info->HorizontalResolution, gop_mode_info->VerticalResolution);
 				best_mode = i;
 				best_mode_res_x = gop_mode_info->HorizontalResolution;
 				min_distance = abs(desired_aspect_ratio - aspect_ratio);
@@ -228,13 +234,36 @@ int main(int argc, char** argv) {
 	}
 	gop->QueryMode(gop, best_mode,  &gop_mode_info_size,  &gop_mode_info);
 	gop->SetMode(gop, best_mode);
-	printf("Selected Mode %ld: %ldx%ld, %ld bpp\n", best_mode, gop_mode_info->HorizontalResolution, gop_mode_info->VerticalResolution, gop_mode_info->PixelFormat);
 	boot_info->framebuffer_base = gop->Mode->FrameBufferBase;
 	boot_info->framebuffer_width = gop->Mode->Information->HorizontalResolution;
 	boot_info->framebuffer_height = gop->Mode->Information->VerticalResolution;
 	// TODO(PT): Update me
 	boot_info->framebuffer_bytes_per_pixel = 4;
 	boot_info->framebuffer_pixels_per_scanline = gop->Mode->Information->PixelsPerScanLine;
+
+	ST->ConOut->ClearScreen(ST->ConOut);
+	//draw(boot_info, 0x00ED93D4);
+	draw(boot_info,   0x00e3a3d4);
+
+	printf("axle OS bootloader init...\n");
+	printf("Desired aspect ratio: %f\n", desired_aspect_ratio);
+	printf("Selected Mode %ld: %ldx%ld, %ld bpp\n", best_mode, gop_mode_info->HorizontalResolution, gop_mode_info->VerticalResolution, gop_mode_info->PixelFormat);
+
+	pml4e_t* page_mapping_level4 = map2();
+	boot_info->boot_pml4 = page_mapping_level4;
+
+	// Step 2: Map the kernel ELF into memory
+	uint64_t kernel_entry_point = kernel_map_elf("\\EFI\\AXLE\\KERNEL.ELF", page_mapping_level4, boot_info);
+	if (!kernel_entry_point) {
+		printf("Failed to map kernel\n");
+		return 0;
+	}
+
+	// Step 3: Map the initrd into memory
+	if (!initrd_map("\\EFI\\AXLE\\INITRD.IMG", &boot_info->initrd_base, &boot_info->initrd_size)) {
+		printf("Failed to map initrd!\n");
+		return 0;
+	}
 
 	// Step 5: Read the memory map
 	// Calling GetMemoryMap with an invalid buffer allows us to read info on 
@@ -299,11 +328,15 @@ int main(int argc, char** argv) {
 
 	// Finally, exit UEFI-land and jump to the kernel
 	printf("Jumping to kernel entry point at %p\n", kernel_entry_point);
+
 	if (exit_bs()) {
+		// Red
+		draw(boot_info, 0x00ff0000);
 		printf("Failed to exit boot services!\n");
 		while (1) {}
 		return 0;
 	}
+
 	asm volatile("movq %0, %%cr3" : : "r"(page_mapping_level4));
 
 	// This should never return...
