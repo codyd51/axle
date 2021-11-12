@@ -11,6 +11,8 @@
 
 #include "preferences_messages.h"
 
+static void _render_slider_values(void);
+
 typedef struct state {
     gui_slider_t* from_red;
     gui_slider_t* from_green;
@@ -29,12 +31,16 @@ static state_t _g_state = {0};
 
 static Rect _preview_sizer(gui_view_t* v, Size window_size) {
     uint32_t t = window_size.width * 0.25;
-    return rect_make(
+    Rect r = rect_make(
         point_make(
             window_size.width - t, 0
         ),
         size_make(t, window_size.height / 2)
     );
+
+    _render_slider_values();
+
+    return r;
 }
 
 static Rect _apply_view_sizer(gui_view_t* v, Size window_size) {
@@ -164,8 +170,8 @@ float pifdist(int x1, int y1, int x2, int y2) {
 void _radial_gradient(gui_layer_t* layer, Size gradient_size, Color c1, Color c2, int x1, int y1, float r) {
 	int x_step = gradient_size.width / 200.0;
 	int y_step = gradient_size.height / 200.0;
-    if (x_step < 1) x_step = 1;
-    if (y_step < 1) y_step = 1;
+    if (x_step < 1) x_step = 4;
+    if (y_step < 1) y_step = 4;
 	for (uint32_t y = 0; y < gradient_size.height; y += y_step) {
 		for (uint32_t x = 0; x < gradient_size.width; x += x_step) {
 			Color c = transcolor(c1, c2, pifdist(x1, y1, x, y) / r);
@@ -180,6 +186,9 @@ void _radial_gradient(gui_layer_t* layer, Size gradient_size, Color c1, Color c2
 
 static void _render_slider_values(void) {
     gui_view_t* v = _g_state.preview;
+    if (!v) {
+        return;
+    }
 
     int r = _g_state.from_red->slider_percent * 255;
     int g = _g_state.from_green->slider_percent * 255;
