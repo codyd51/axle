@@ -193,14 +193,27 @@ int main(int argc, char** argv) {
 	efi_gop_mode_info_t* gop_mode_info = NULL;
 	uint64_t best_mode = gop->Mode->Mode;
 	uint64_t best_mode_res_x = 0;
-	uint64_t max_res_x = 1280;
+	uint64_t max_res_x = 1920;
 	// Desired aspect ratio is 16:9
 	double desired_aspect_ratio = 16.0 / 9.0;
 	double min_distance = 1000000.0;
-	printf("Desired aspect ratio: %f\n", desired_aspect_ratio);
 	
 	for (uint64_t i = gop->Mode->Mode; i < gop->Mode->MaxMode; i++) {
 		gop->QueryMode(gop, i,  &gop_mode_info_size,  &gop_mode_info);
+		printf(
+			"\tMode %ld: %ldx%ld, %ld bpp, %d px/scanline, %p info, (%p, %p, %p, %p), %p version\n", 
+			i, 
+			gop_mode_info->HorizontalResolution, 
+			gop_mode_info->VerticalResolution, 
+			gop_mode_info->PixelFormat, 
+			gop_mode_info->PixelsPerScanLine,
+			gop_mode_info->PixelInformation,
+			gop_mode_info->PixelInformation.RedMask,
+			gop_mode_info->PixelInformation.GreenMask,
+			gop_mode_info->PixelInformation.BlueMask,
+			gop_mode_info->PixelInformation.ReservedMask,
+			gop_mode_info->Version
+		);
 		double aspect_ratio = gop_mode_info->HorizontalResolution / (double)gop_mode_info->VerticalResolution;
 		// Found a more precise fit for our desired aspect ratio?
 		if (abs(desired_aspect_ratio - aspect_ratio) <= min_distance) {
@@ -219,7 +232,9 @@ int main(int argc, char** argv) {
 	boot_info->framebuffer_base = gop->Mode->FrameBufferBase;
 	boot_info->framebuffer_width = gop->Mode->Information->HorizontalResolution;
 	boot_info->framebuffer_height = gop->Mode->Information->VerticalResolution;
+	// TODO(PT): Update me
 	boot_info->framebuffer_bytes_per_pixel = 4;
+	boot_info->framebuffer_pixels_per_scanline = gop->Mode->Information->PixelsPerScanLine;
 
 	// Step 5: Read the memory map
 	// Calling GetMemoryMap with an invalid buffer allows us to read info on 

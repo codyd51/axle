@@ -13,7 +13,7 @@
 
 #define _BACKTRACE_SIZE 16
 
-void walk_stack(uint32_t out_stack_addrs[], int frame_count); 
+void walk_stack(uintptr_t out_stack_addrs[], int frame_count); 
 
 void print_stack_trace(int frame_count) {
     printf("Stack trace:\n");
@@ -25,7 +25,7 @@ void print_stack_trace(int frame_count) {
             break;
         }
         printf("[%d] 0x%p ", i, frame_addr);
-        if (frame_addr >= KERNEL_MEMORY_BASE) {
+        if (frame_addr >= VAS_KERNEL_CODE_BASE) {
             const char* kernel_symbol = elf_sym_lookup(&boot_info_get()->kernel_elf_symbol_table, (uintptr_t)frame_addr);
             printf("[Kernel] %s", kernel_symbol ?: "-");
         }
@@ -72,20 +72,22 @@ bool symbolicate_and_append(int frame_idx, uintptr_t* frame_addr, char** buf_hea
     bool found_program_start = false;
 
     // Is the frame mapped within the kernel address space?
-    if (frame_addr >= KERNEL_MEMORY_BASE) {
-        const char* kernel_symbol = elf_sym_lookup(&boot_info_get()->kernel_elf_symbol_table, (uint32_t)frame_addr);
+    if (frame_addr >= VAS_KERNEL_CODE_BASE) {
+        const char* kernel_symbol = elf_sym_lookup(&boot_info_get()->kernel_elf_symbol_table, (uintptr_t)frame_addr);
         snprintf(symbol, sizeof(symbol), "[Kernel] %s", kernel_symbol ?: "-");
     }
     else {
+        /*
         task_small_t* current_task = tasking_get_current_task();
-        const char* program_symbol = elf_sym_lookup(&current_task->elf_symbol_table, (uint32_t)frame_addr);
+        const char* program_symbol = elf_sym_lookup(&current_task->elf_symbol_table, (uintptr_t)frame_addr);
         snprintf(symbol, sizeof(symbol), "[%s] %s", current_task->name, program_symbol);
         if (!strncmp(program_symbol, "_start", 8)) {
             found_program_start = true;
         }
+        */
     }
 
-    bool can_append_more = append(buf_head, buf_size, "[%02d] 0x%08x %s\n", frame_idx, (uint32_t)frame_addr, symbol);
+    bool can_append_more = append(buf_head, buf_size, "[%02d] 0x%p %s\n", frame_idx, (uintptr_t)frame_addr, symbol);
     if (!can_append_more || found_program_start) {
         return false;
     }

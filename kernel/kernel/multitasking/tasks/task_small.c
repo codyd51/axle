@@ -138,9 +138,8 @@ task_small_t* _thread_create(void* entry_point, uintptr_t arg1, uintptr_t arg2, 
     new_task->blocked_info.status = RUNNABLE;
 
     uint32_t stack_size = 0x2000;
-    char* stack = kmalloc(stack_size);
+    char* stack = kcalloc(1, stack_size);
     //printf("New thread [%d]: Made kernel stack 0x%08x\n", new_task->id, stack);
-    memset(stack, 0, stack_size);
 
     uintptr_t* stack_top = (uintptr_t*)(stack + stack_size - sizeof(uintptr_t)); // point to top of malloc'd stack
     if (entry_point) {
@@ -463,7 +462,7 @@ void* sbrk(int increment) {
 
     int64_t needed_pages = ((int64_t)(current->sbrk_current_break + increment) - (int64_t)current->sbrk_current_page_head) / PAGE_SIZE;
     if (needed_pages > 0) {
-        printf("[%d] sbrk reserve %dkb\n", getpid(), needed_pages * (PAGE_SIZE / 1024));
+        //printf("[%d] sbrk reserve %dkb\n", getpid(), needed_pages * (PAGE_SIZE / 1024));
         uint64_t addr = vas_alloc_range(vas_get_active_state(), current->sbrk_current_page_head, needed_pages * PAGE_SIZE, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
         if (addr != current->sbrk_current_page_head) {
             printf("sbrk failed to allocate requested page 0x%p\n", addr);

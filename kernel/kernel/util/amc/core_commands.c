@@ -65,10 +65,11 @@ static void _amc_core_awm_map_framebuffer(const char* source_service) {
     amc_framebuffer_info_t msg = {
         .event = AMC_AWM_MAP_FRAMEBUFFER_RESPONSE,
         .address = mapped_framebuffer,
-        .bits_per_pixel = 32,
-        .bytes_per_pixel = 4,
+        .bits_per_pixel = framebuffer_info->bits_per_pixel,
+        .bytes_per_pixel = framebuffer_info->bytes_per_pixel,
         .width = framebuffer_info->width,
         .height = framebuffer_info->height,
+        .pixels_per_scanline = framebuffer_info->pixels_per_scanline,
         .size = framebuf_size,
     };
     amc_message_send__from_core(source_service, &msg, sizeof(amc_framebuffer_info_t));
@@ -169,7 +170,7 @@ static void _amc_core_handle_notify_service_died(const char* source_service, voi
     array_m_insert(remote->services_to_notify_upon_death, source);
 }
 
-static void _amc_core_flush_messages_from_service_to_service(source_service, buf, buf_size) {
+static void _amc_core_flush_messages_from_service_to_service(const char* source_service, void* buf, uint32_t buf_size) {
     amc_service_t* source = amc_service_with_name(source_service);
     assert(source != NULL, "Failed to find service that sent the message...");
 

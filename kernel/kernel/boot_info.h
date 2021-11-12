@@ -27,6 +27,7 @@ typedef struct framebuffer_info {
     uintptr_t height;
     uint8_t bits_per_pixel;
     uint8_t bytes_per_pixel;
+    uint32_t pixels_per_scanline;
     uintptr_t size;
 } framebuffer_info_t;
 

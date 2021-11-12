@@ -31,6 +31,7 @@ typedef struct amc_framebuffer_info {
     uint32_t height;
     uint32_t bits_per_pixel;
     uint32_t bytes_per_pixel;
+    uint32_t pixels_per_scanline;
     uint32_t size;
 } amc_framebuffer_info_t;
 

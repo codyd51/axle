@@ -149,10 +149,13 @@ static void multiboot_interpret_framebuffer(struct multiboot_info* mboot_data, b
 static void boot_info_dump_framebuffer(boot_info_t* info) {
     framebuffer_info_t fb_info = info->framebuffer;
 
-    printf("framebuffer resolution: %d x %d @ %d bpp\n", 
+    printf(
+        "framebuffer resolution: %d x %d @ %d bpp, %d px/scanline\n", 
         fb_info.width,
         fb_info.height,
-        fb_info.bits_per_pixel);
+        fb_info.bits_per_pixel,
+        fb_info.pixels_per_scanline
+    );
     printf("Framebuffer  at [0x%p to 0x%p]. Size: 0x%p\n", fb_info.address, fb_info.address+fb_info.size, fb_info.size);
 }
 
@@ -236,7 +239,8 @@ void boot_info_read(axle_boot_info_t* bootloader_info) {
     boot_info->framebuffer.height = bootloader_info->framebuffer_height;
     boot_info->framebuffer.bytes_per_pixel = bootloader_info->framebuffer_bytes_per_pixel;
     boot_info->framebuffer.bits_per_pixel = bootloader_info->framebuffer_bytes_per_pixel * 8;
-    boot_info->framebuffer.size = (bootloader_info->framebuffer_width * bootloader_info->framebuffer_height * bootloader_info->framebuffer_bytes_per_pixel);
+    boot_info->framebuffer.size = (bootloader_info->framebuffer_pixels_per_scanline * bootloader_info->framebuffer_height * bootloader_info->framebuffer_bytes_per_pixel);
+    boot_info->framebuffer.pixels_per_scanline = bootloader_info->framebuffer_pixels_per_scanline;
 
     boot_info->initrd_start = bootloader_info->initrd_base;
     boot_info->initrd_size = bootloader_info->initrd_size;

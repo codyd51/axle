@@ -97,7 +97,7 @@ static amc_service_t* _amc_service_matching_data(const char* name, task_small_t*
     for (int i = 0; i < _amc_services->size; i++) {
         //amc_service_t* service = array_l_lookup(_amc_services, i);
         amc_service_t* service = array_m_lookup(_amc_services, i);
-        if (name != NULL && !strcmp(service->name, name)) {
+        if (name != NULL && !strncmp(service->name, name, AMC_MAX_SERVICE_NAME_LEN)) {
             return service;
         }
         if (task != NULL && service->task == task) {
