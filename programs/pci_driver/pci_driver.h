@@ -207,6 +207,10 @@ pci_vendor_info_t pci_vendors[] = {
                 .device_id = 0x7113,
                 .name = "PIIX4 ACPI"
             },
+            {
+                .device_id = 0x2922,
+                .name = "82801IR/IO/IH (ICH9R/DO/DH) 6 port SATA Controller [AHCI mode]"
+            },
         }
     },
     {
@@ -356,6 +360,16 @@ pci_vendor_info_t pci_vendors[] = {
             {
                 .device_id = 0x0405,
                 .name = "SVGA II Adapter"
+            },
+        }
+    },
+    {
+        .name = "Red Hat",
+        .vendor_id = 0x1B36,
+        .devices = {
+            {
+                .device_id = 0x000D,
+                .name = "QEMU XHCI Host Controller"
             },
         }
     },
