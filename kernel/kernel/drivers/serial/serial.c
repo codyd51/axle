@@ -22,6 +22,7 @@ bool is_transmitting() {
 
 void __serial_putchar(char c) {
 	while (is_transmitting() == 0);
+	if (c == '\n') outb(PORT, '\r');
 	outb(PORT, c);
 }
 
