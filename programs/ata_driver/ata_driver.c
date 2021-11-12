@@ -121,7 +121,7 @@ static void ata_delay(void) {
 	uint32_t b[2];
     b[0] = AMC_SLEEP_UNTIL_TIMESTAMP;
     b[1] = 1;
-    amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &b, sizeof(b));
+    amc_message_send(AXLE_CORE_SERVICE_NAME, &b, sizeof(b));
 	*/
 
 	// Is the drive busy?
@@ -226,11 +226,11 @@ static void _int_received(uint32_t int_no) {
 				memcpy(_g_cache[response->sector].sector_data, response->sector_data, response_size);
 			}
 
-			amc_message_construct_and_send(queued_operation->read.source_service, response, response_size);
+			amc_message_send(queued_operation->read.source_service, response, response_size);
 			free(response);
 		}
 		else {
-			//amc_message_construct_and_send(WRITE_COMPLETED)
+			//amc_message_send(WRITE_COMPLETED)
 		}
 
 		free(queued_operation);
@@ -265,7 +265,7 @@ static void _message_received(amc_message_t* msg) {
 				response->sector = read_request->sector;
 				response->sector_size = ATA_SECTOR_SIZE;
 				memcpy(response->sector_data, _g_cache[read_request->sector].sector_data, ATA_SECTOR_SIZE);
-				amc_message_construct_and_send(msg->source, response, response_size);
+				amc_message_send(msg->source, response, response_size);
 				free(response);
 				return;
 			}

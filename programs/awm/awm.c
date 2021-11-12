@@ -721,12 +721,6 @@ ca_layer* physical_video_memory_layer(void) {
 static void _awm_init(void) {
 	amc_register_service(AWM_SERVICE_NAME);
 	
-	// Init state for the desktop
-	windows_init();
-	animations_init();
-	compositor_init();
-	_g_timers = array_create(32);
-
 	// Ask the kernel to map in the framebuffer and send us info about it
 	amc_msg_u32_1__send(AXLE_CORE_SERVICE_NAME, AMC_AWM_MAP_FRAMEBUFFER);
 
@@ -735,13 +729,16 @@ static void _awm_init(void) {
 	uint32_t event = amc_msg_u32_get_word(msg, 0);
 	assert(event == AMC_AWM_MAP_FRAMEBUFFER_RESPONSE, "Expected awm framebuffer info");
 	amc_framebuffer_info_t* framebuffer_info = (amc_framebuffer_info_t*)msg->body;
+	/*
 	printf("Recv'd framebuf info!\n");
-    printf("0x%16p 0x%16p (%d x %d x %d x %d)\n", framebuffer_info->address, framebuffer_info->size, framebuffer_info->width, framebuffer_info->height, framebuffer_info->bytes_per_pixel, framebuffer_info->bits_per_pixel);
+    printf("%p %p (%d x %d x %d x %d)\n", framebuffer_info->address, framebuffer_info->size, framebuffer_info->width, framebuffer_info->height, framebuffer_info->bytes_per_pixel, framebuffer_info->bits_per_pixel);
+	*/
 
 	// Set up the screen object
     _screen.resolution = size_make(framebuffer_info->width, framebuffer_info->height);
     _screen.bits_per_pixel = framebuffer_info->bits_per_pixel;
     _screen.bytes_per_pixel = framebuffer_info->bytes_per_pixel;
+	_screen.pixels_per_scanline = framebuffer_info->pixels_per_scanline;
 
     _screen.video_memory_size = framebuffer_info->size;
 	_screen.pmem = calloc(1, sizeof(ca_layer));
@@ -749,8 +746,18 @@ static void _awm_init(void) {
 	_screen.pmem->raw = (uint8_t*)framebuffer_info->address;
 	_screen.pmem->alpha = 1.0;
 
+	_set_screen_resolution(_screen.resolution);
+	_set_screen_bytes_per_pixel(_screen.bytes_per_pixel);
+	_set_screen_pixels_per_scanline(_screen.pixels_per_scanline);
+
 	_screen.vmem = create_layer(screen_resolution());
-	printf("awm framebuffer: %d x %d, %d BPP @ 0x%08x\n", _screen.resolution.width, _screen.resolution.height, _screen.bits_per_pixel, _screen.pmem->raw);
+	printf("awm framebuffer: %d x %d, %d BPP @ %p\n", _screen.resolution.width, _screen.resolution.height, _screen.bits_per_pixel, _screen.pmem->raw);
+
+	// Init state for the desktop
+	windows_init();
+	animations_init();
+	compositor_init();
+	_g_timers = array_create(32);
 
 	// Set up the desktop background
 	Rect screen_frame = rect_make(point_zero(), _screen.resolution);
@@ -902,7 +909,8 @@ static void _awm_enter_event_loop(void) {
 	// Draw the background onto the screen buffer to start off
 	Rect screen_frame = rect_make(point_zero(), screen_resolution());
 	blit_layer(_screen.vmem, _g_background, screen_frame, screen_frame);
-	blit_layer(_screen.pmem, _screen.vmem, screen_frame, screen_frame);
+	//blit_layer__scanline(_screen.pmem, _screen.vmem, screen_frame, screen_frame, screen_pixels_per_scanline());
+	try(_screen.pmem, _screen.vmem, screen_pixels_per_scanline());
 
 	while (true) {
 		timers_state_t timers_state = _sleep_for_timers();
