@@ -148,9 +148,11 @@ void task_build_and_send_crash_report_then_exit(const char* msg, const register_
     if (!symbolicate_and_append(10, __builtin_return_address(10), &crash_report_ptr, &buf_size)) goto finish_fmt;
     if (!symbolicate_and_append(11, __builtin_return_address(11), &crash_report_ptr, &buf_size)) goto finish_fmt;
     if (!symbolicate_and_append(12, __builtin_return_address(12), &crash_report_ptr, &buf_size)) goto finish_fmt;
+    /*
     if (!symbolicate_and_append(13, __builtin_return_address(13), &crash_report_ptr, &buf_size)) goto finish_fmt;
     if (!symbolicate_and_append(14, __builtin_return_address(14), &crash_report_ptr, &buf_size)) goto finish_fmt;
     if (!symbolicate_and_append(15, __builtin_return_address(15), &crash_report_ptr, &buf_size)) goto finish_fmt;
+    */
 #pragma GCC diagnostic pop
 
 finish_fmt:

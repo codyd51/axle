@@ -70,7 +70,7 @@ uint64_t kernel_map_elf(const char* kernel_filename, pml4e_t* vas_state, axle_bo
 		if (!strncmp(section_name, ".strtab", 8) || !strncmp(section_name, ".symtab", 8)) {
 			int page_count = ROUND_TO_NEXT_PAGE(section_header->size) / PAGE_SIZE;
 			efi_physical_address_t section_data_buf = 0;
-			efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_MEMORY_TYPE_AXLE_KERNEL_IMAGE, page_count, &section_data_buf);
+			efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_PAL_CODE, page_count, &section_data_buf);
 			if (EFI_ERROR(status)) {
 				printf("Failed to allocate memory for kernel section data! %ld\n", status);
 				return false;
@@ -99,7 +99,7 @@ uint64_t kernel_map_elf(const char* kernel_filename, pml4e_t* vas_state, axle_bo
 			int segment_size_page_padded = ROUND_TO_NEXT_PAGE(phdr->p_memsz);
 			int page_count = segment_size_page_padded / PAGE_SIZE;
 			//printf("\tAllocating %ld pages for ELF segment %ld\n", page_count, i);
-			efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_MEMORY_TYPE_AXLE_KERNEL_IMAGE, page_count, &segment_phys_base);
+			efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_PAL_CODE, page_count, &segment_phys_base);
 			if (EFI_ERROR(status)) {
 				printf("Failed to map kernel segment at requested address\n");
 				printf("Status: %ld\n", status);
@@ -137,7 +137,7 @@ bool initrd_map(const char* initrd_path, uint64_t* out_base, uint64_t* out_size)
 	uint64_t initrd_page_count = (initrd_size / PAGE_SIZE) + 1;
 	printf("Initrd size 0x%p, page count %ld\n", initrd_size, initrd_page_count);
 	efi_physical_address_t initrd_buf = 0;
-	efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_MEMORY_TYPE_AXLE_INITRD, initrd_page_count, &initrd_buf);
+	efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_PAL_CODE, initrd_page_count, &initrd_buf);
 	if (EFI_ERROR(status)) {
 		printf("Failed to allocate memory for initrd! %ld\n", status);
 		return false;

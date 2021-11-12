@@ -20,6 +20,10 @@ typedef enum {
     EFI_MEMORY_MAPPED_IO_PORT_SPACE,
     EFI_PAL_CODE,
     EFI_MAX_MEMORY_TYPE,
+	// PT: Although the UEFI spec claims the OS can define memory types above 0x80000000,
+	// my motherboard's firmware crashes if I try. We'll use EFI_PAL_CODE for all the 
+	// axle-specific memory regions. 
+	// Ref: https://forum.osdev.org/viewtopic.php?f=1&t=55980&sid=c44c69b84bdf42a2dc92a878ca00abbc
 	EFI_MEMORY_TYPE_AXLE_KERNEL_IMAGE = 0x80000000,
 	EFI_MEMORY_TYPE_AXLE_INITRD = 0x80000001,
 	EFI_MEMORY_TYPE_AXLE_PAGING_STRUCTURE = 0x80000002,
@@ -43,6 +47,7 @@ typedef struct axle_boot_info {
 	uint32_t framebuffer_width;
 	uint32_t framebuffer_height;
 	uint8_t framebuffer_bytes_per_pixel;
+	uint32_t framebuffer_pixels_per_scanline;
 
 	// Memory map info
 	uint64_t memory_map_size;

@@ -268,6 +268,7 @@ void boot_info_read(axle_boot_info_t* bootloader_info) {
         }
         else if (mem_desc->type == EFI_RUNTIME_SERVICES_CODE || 
                  mem_desc->type == EFI_RUNTIME_SERVICES_DATA || 
+                 mem_desc->type == EFI_MEMORY_MAPPED_IO || 
                  mem_desc->type == EFI_MEMORY_RESERVED) {
             region->type = PHYS_MEM_REGION_RESERVED;
         }
@@ -275,13 +276,12 @@ void boot_info_read(axle_boot_info_t* bootloader_info) {
                  mem_desc->type == EFI_ACPI_RECLAIM_MEMORY) {
             region->type = PHYS_MEM_REGION_RESERVED_ACPI_NVM;
         }
-        else if (mem_desc->type == EFI_MEMORY_TYPE_AXLE_KERNEL_IMAGE ||
-                 mem_desc->type == EFI_MEMORY_TYPE_AXLE_INITRD ||
-                 mem_desc->type == EFI_MEMORY_TYPE_AXLE_PAGING_STRUCTURE) {
+        else if (mem_desc->type == EFI_PAL_CODE) {
+            // Ref: https://forum.osdev.org/viewtopic.php?f=1&t=55980&sid=c44c69b84bdf42a2dc92a878ca00abbc
             region->type = PHYS_MEM_REGION_RESERVED_AXLE_KERNEL_CODE_AND_DATA;
         }
         else {
-            printf("Unrecognized memory region type %d\n", region->type);
+            printf("Unrecognized memory region type %p\n", mem_desc->type);
             //assert(false, "Unrecognized memory region type");
             region->type = PHYS_MEM_REGION_RESERVED;
         }

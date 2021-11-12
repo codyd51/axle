@@ -138,7 +138,7 @@ uint64_t map_region_1gb_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start,
 	}
 	else {
 		efi_physical_address_t page_directory_pointer_table_addr = 0;
-		efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_MEMORY_TYPE_AXLE_PAGING_STRUCTURE, 1, &page_directory_pointer_table_addr);
+		efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_PAL_CODE, 1, &page_directory_pointer_table_addr);
 		if (EFI_ERROR(status)) {
 			printf("\tFailed to allocate page directory pointer table! %ld\n", status);
 			return 0;
@@ -202,7 +202,7 @@ uint64_t map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start, 
 	}
 	else {
 		efi_physical_address_t page_directory_pointer_table_addr = 0;
-		efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_MEMORY_TYPE_AXLE_PAGING_STRUCTURE, 1, &page_directory_pointer_table_addr);
+		efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_PAL_CODE, 1, &page_directory_pointer_table_addr);
 		if (EFI_ERROR(status)) {
 			printf("\tFailed to allocate page directory pointer table! %ld\n", status);
 			return 0;
@@ -234,7 +234,7 @@ uint64_t map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start, 
 		}
 		else {
 			efi_physical_address_t page_directory_addr = 0;
-			efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_MEMORY_TYPE_AXLE_PAGING_STRUCTURE, 1, &page_directory_addr);
+			efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_PAL_CODE, 1, &page_directory_addr);
 			if (EFI_ERROR(status)) {
 				printf("Failed to allocate page directory! %ld\n", status);
 				return 0;
@@ -264,7 +264,7 @@ uint64_t map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start, 
 			}
 			else {
 				efi_physical_address_t page_table_addr = 0;
-				efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_MEMORY_TYPE_AXLE_PAGING_STRUCTURE, 1, &page_table_addr);
+				efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_PAL_CODE, 1, &page_table_addr);
 				if (EFI_ERROR(status)) {
 					printf("Failed to allocate page table! %ld\n", status);
 					return 0;
@@ -315,7 +315,7 @@ Remove
 
 pml4e_t* map2(void) {
 	efi_physical_address_t page_mapping_level4_addr = 0;
-	efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_MEMORY_TYPE_AXLE_PAGING_STRUCTURE, 1, &page_mapping_level4_addr);
+	efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_PAL_CODE, 1, &page_mapping_level4_addr);
 	if (EFI_ERROR(status)) {
 		printf("Failed to allocate PML4! %ld\n", status);
 		return 0;
