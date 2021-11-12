@@ -43,6 +43,7 @@ void layer_teardown(ca_layer* layer);
  * @param src_frame Rectangle inset of @p src which pixels should be copied from
  */
 Rect blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame);
+Rect blit_layer__scanline(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame, uint32_t dest_pixels_per_scanline);
 
 /**
  * @brief Scale the contents of the source layer onto the destination layer,

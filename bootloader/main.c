@@ -137,6 +137,7 @@ void wait(void) {
 	}
 }
 
+
 void draw(axle_boot_info_t* bi, int color) {
 	uint32_t* base = (uint32_t*)bi->framebuffer_base;
 	for (uint32_t y = 0; y < bi->framebuffer_height; y++) {
@@ -222,7 +223,7 @@ int main(int argc, char** argv) {
 		);
 		double aspect_ratio = gop_mode_info->HorizontalResolution / (double)gop_mode_info->VerticalResolution;
 		// Found a more precise fit for our desired aspect ratio?
-		if (abs(desired_aspect_ratio - aspect_ratio) <= min_distance) {
+		if (true || abs(desired_aspect_ratio - aspect_ratio) <= min_distance) {
 			// Higher resolution than our previous best?
 			if (gop_mode_info->HorizontalResolution > best_mode_res_x && gop_mode_info->HorizontalResolution <= max_res_x) {
 				//printf("\tFound new preferred resolution: mode #%ld @ %ldx%ld\n", i, gop_mode_info->HorizontalResolution, gop_mode_info->VerticalResolution);

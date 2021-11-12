@@ -44,12 +44,15 @@ static void _launch_program(const char* program_name, uint32_t arg2, uint32_t ar
         panic("Program specified in boot list wasn't found in initrd");
     }
     uintptr_t address = PMA_TO_VMA(node->initrd_offset);
+    printf("Launching with VAS:\n");
+    vas_state_dump(vas_get_active_state());
 	elf_load_buffer(program_name, argv, address, node->size, false);
 	panic("noreturn");
 }
 
 uintptr_t initial_esp = 0;
 //void kernel_main(struct multiboot_info* mboot_ptr, uint32_t initial_stack) {
+#include <kernel/drivers/serial/serial.h>
 int _start(axle_boot_info_t* boot_info) {
     //debug_paging(boot_info);
     //initial_esp = initial_stack;
@@ -130,6 +133,7 @@ static void _kernel_bootstrap_part2(void) {
         // User input
         "kb_driver",
         "mouse_driver",
+        //"preferences",
     };
     for (uint32_t i = 0; i < sizeof(launch_programs) / sizeof(launch_programs[0]); i++) {
         const char* program_name = launch_programs[i];

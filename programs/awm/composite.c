@@ -130,12 +130,15 @@ void compositor_render_frame(void) {
 	// Blit everything we drew above to the memory-mapped framebuffer
 	for (int32_t i = _g_screen_rects_to_update_this_cycle->size - 1; i >= 0; i--) {
 		Rect* r = array_lookup(_g_screen_rects_to_update_this_cycle, i);
-		blit_layer(
+		/*
+		blit_layer__scanline(
 			physical_video_memory,
 			video_memory,
 			*r,
-			*r
+			*r,
+			screen_pixels_per_scanline()
 		);
+		*/
 		array_remove(_g_screen_rects_to_update_this_cycle, i);
 		free(r);
 	}
@@ -147,11 +150,64 @@ void compositor_render_frame(void) {
 		for (int32_t j = 0; j < view->drawable_rects->size; j++) {
 			Rect* r_ptr = array_lookup(view->drawable_rects, j);
 			Rect r = *r_ptr;
-			blit_layer(physical_video_memory, video_memory, r, r);
+			//blit_layer__scanline(physical_video_memory, video_memory, r, r, screen_pixels_per_scanline());
 		}
 	}
-	blit_layer(physical_video_memory, video_memory, mouse_rect, mouse_rect);
+	//blit_layer__scanline(physical_video_memory, video_memory, mouse_rect, mouse_rect, screen_pixels_per_scanline());
 
 	desktop_views_flush_queues();
 	array_destroy(all_views);
+
+	try(physical_video_memory, video_memory, screen_pixels_per_scanline());
+}
+
+void try(ca_layer* dest, ca_layer* src, uint32_t dest_pixels_per_scanline) {
+	int bytes_per_pixel = screen_bytes_per_pixel();
+	printf("try bpp %d px/scanline %d dest (%d, %d) src (%d, %d)\n", bytes_per_pixel, dest_pixels_per_scanline, dest->size.width, dest->size.height, src->size.width, src->size.height);
+
+	/*
+	for (uint32_t y = 0; y < dest->size.height; y++) {
+		uint8_t* dest_row = dest->raw + (y * bytes_per_pixel * dest_pixels_per_scanline);
+		uint8_t* src_row = src->raw + (y * bytes_per_pixel * src->size.width);
+		memcpy(dest_row, src_row, dest->size.width * bytes_per_pixel);
+		//memcpy(dest_row + (dest->size.width * bytes_per_pixel), src_row, dest->size.width * bytes_per_pixel);
+		int leftover = (dest_pixels_per_scanline * bytes_per_pixel) - (dest->size.width * bytes_per_pixel);
+		memset(dest_row + leftover, 0, leftover);
+	}
+	*/
+
+	int color = 0x00ff00cc;
+	uint32_t* base = (uint32_t*)0x7d0000000000;
+	for (uint32_t y = 0; y < dest->size.height; y++) {
+		//uint8_t* dest_row = dest->raw + (y * bytes_per_pixel * dest_pixels_per_scanline);
+		//uint32_t* dest_row = base + (dest->size.width * y);
+		uint32_t* dest_row = base + (dest_pixels_per_scanline * 1 * y);
+		uint32_t* src_row = ((uint32_t*)src->raw) + (src->size.width * 1 * y);
+		int c = rand();
+		for (uint32_t x = 0; x < dest_pixels_per_scanline; x++){ 
+			//dest_row[x] = c;
+			if (x >= src->size.width) {
+				dest_row[x] = color;
+			}
+			else {
+				dest_row[x] = src_row[x];
+			}
+		}
+		/*
+		for (uint32_t x = 0; x < dest->size.width/4; x++) {
+			//dest_row[x] = color;
+			dest_row[x] = src_row[x];
+		}
+		*/
+		//uint8_t* src_row = src->raw + (y * bytes_per_pixel * src->size.width);
+		//memcpy(dest_row, src_row, dest->size.width * bytes_per_pixel);
+		//uint8_t* src_row = src->raw + (y * bytes_per_pixel * src->size.width);
+		/*
+		for (uint32_t x = 0; x < dest->size.width; x++) {
+			base[y * dest->size.width + x] = color;
+		}
+		*/
+
+	}
+
 }

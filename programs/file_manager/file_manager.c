@@ -56,6 +56,8 @@ static void _amc_message_received(amc_message_t* msg) {
 		free(resp);
 	}
 	else if (event == FILE_MANAGER_READ_FILE__PARTIAL) {
+		assert(false, "test");
+		/*
 		file_manager_read_file_partial_request_t* req = (file_manager_read_file_partial_request_t*)&msg->body;
 		fs_node_t* desired_file = vfs_find_node_by_path(req->path);
 		assert(desired_file, "Failed to find requested file");
@@ -74,10 +76,12 @@ static void _amc_message_received(amc_message_t* msg) {
 		//printf("Returning file size 0x%08lx buf 0x%08lx to %s\n", resp->data_length, (uint32_t)resp->file_data, source_service);
 		amc_message_send(source_service, resp, response_size);
 		free(resp);
+		*/
 	}
 	else if (event == FILE_MANAGER_LAUNCH_FILE) {
 		file_manager_launch_file_request_t* req = (file_manager_launch_file_request_t*)&msg->body;
 		initrd_fs_node_t* desired_file = vfs_find_node_by_path__initrd(req->path);
+		printf("Found desired file to launch at %p\n", desired_file);
 		assert(desired_file->base.type == FS_NODE_TYPE_INITRD, "Expected initrd but this is a soft assumption");
 		if (desired_file) {
 			printf("File Manager launching %s upon request\n", req->path);
@@ -88,6 +92,7 @@ static void _amc_message_received(amc_message_t* msg) {
 		}
 	}
 	else if (event == FILE_MANAGER_CREATE_DIRECTORY) {
+		/*
 		file_manager_create_directory_request_t* req = (file_manager_create_directory_request_t*)&msg->body;
 
 		bool success = vfs_create_directory((char*)req->path);
@@ -99,8 +104,11 @@ static void _amc_message_received(amc_message_t* msg) {
 		printf("File manager responsing to %s\n", source_service);
 		amc_message_send(source_service, resp, response_size);
 		free(resp);
+		*/
+		assert(false, "test");
 	}
 	else if (event == FILE_MANAGER_CHECK_FILE_EXISTS) {
+		/*
 		file_manager_check_file_exists_request_t* req = (file_manager_check_file_exists_request_t*)&msg->body;
 		// Copy the path as we may send and receive other amc messages to read directory data
 		char* path = strdup(req->path);
@@ -127,6 +135,8 @@ static void _amc_message_received(amc_message_t* msg) {
 		printf("File manager responsing to %s\n", source_service);
 		amc_message_send(source_service, &resp, sizeof(resp));
 		free(path);
+		*/
+		assert(false, "test");
 	}
 	else {
 		assert(false, "Unknown message sent to file manager");
@@ -206,10 +216,17 @@ int main(int argc, char** argv) {
 	content_view->base.background_color = color_white();
 	// TODO(PT): Traverse the tree beforehand to build the depth listing, 
 	// then generate the UI tree without having to traverse the node tree each time
+	uintptr_t start = ms_since_boot();
 	ui_generate_tree((gui_view_t*)content_view, NULL, 0, (fs_node_t*)root);
+	uintptr_t end = ms_since_boot();
+	printf("FM UI took %dms\n", end - start);
 
 	gui_add_message_handler(_amc_message_received);
 	amc_msg_u32_1__send(AWM_SERVICE_NAME, FILE_MANAGER_READY);
+
+	//ata_sector_t* s = ata_read_sector(0);
+	//printf("Read sector 0: %s\n", s->data);
+	//free(s);
 
 	gui_enter_event_loop();
 

@@ -388,6 +388,7 @@ vas_state_t* vas_clone(vas_state_t* parent) {
 	// Copy 
 	pml4e_t* parent_pml4 = (pml4e_t*)PMA_TO_VMA(parent->pml4_phys);
 	pml4e_t* new_pml4 = (pml4e_t*)PMA_TO_VMA(new_vas->pml4_phys);
+	//return new_vas;
 	for (int page_directory_pointer_table_idx = 0; page_directory_pointer_table_idx < 256; page_directory_pointer_table_idx++) {
 		if (!parent_pml4[page_directory_pointer_table_idx].present) {
 			continue;

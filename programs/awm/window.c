@@ -919,7 +919,7 @@ void complete_queued_extra_draws(array_t* views, ca_layer* source_layer, ca_laye
         for (int32_t j = view->extra_draws_this_cycle->size - 1; j >= 0; j--) {
             Rect* r_ptr = array_lookup(view->extra_draws_this_cycle, j);
             Rect r = *r_ptr;
-            blit_layer(dest_layer, source_layer, r, r);
+            //blit_layer(dest_layer, source_layer, r, r);
             array_remove(view->extra_draws_this_cycle, j);
             free(r_ptr);
         }

@@ -142,6 +142,8 @@ static void ata_select_drive(ata_drive_t drive) {
 }
 
 static void ata_read_sectors(uint32_t lba, uint16_t sector_count) {
+	printf("ata_read_sectors(lba: %d, count: %d)\n", lba, sector_count);
+
 	if (sector_count >= 256) {
 		sector_count = 0;
 	}
@@ -154,7 +156,7 @@ static void ata_read_sectors(uint32_t lba, uint16_t sector_count) {
 		)
 	);
 	ata_delay();
-	//printf("[ATA read]: Status register after write LBA descriptors: 0x%02x\n", ata_status());
+	printf("[ATA read]: Status register after write LBA descriptors: 0x%02x\n", ata_status());
 	// TODO(PT): Saw status 0x41 when writing to nonexistant descriptors, what does it mean?
 
 	outb(ATA_REG_RW__SECTOR_COUNT, (uint8_t)sector_count);
@@ -251,7 +253,7 @@ static void _message_received(amc_message_t* msg) {
 		ata_read_sector_request_t* read_request = (ata_read_sector_request_t*)&msg->body;
 		assert(read_request->drive_desc == ATA_DRIVE_MASTER, "Only the master drive is currently supported");
 
-		//printf("[ATA] %s requested read of sector %ld\n", msg->source, read_request->sector);
+		printf("[ATA] %s requested read of sector %ld\n", msg->source, read_request->sector);
 		
 		// TODO(PT): Hash map a LRU cache here, invalidating on writes
 		// In cache?
@@ -283,7 +285,7 @@ static void _message_received(amc_message_t* msg) {
 		ata_write_sector_request_t* write_request = (ata_write_sector_request_t*)&msg->body;
 		assert(write_request->drive_desc == ATA_DRIVE_MASTER, "Only the master drive is currently supported");
 
-		//printf("[ATA] %s requested write to sector %ld\n", msg->source, write_request->sector);
+		printf("[ATA] %s requested write to sector %ld\n", msg->source, write_request->sector);
 
 		// Writes invalidate cache entries
 		if (write_request->sector < ATA_CACHE_MAX_SECTOR_LBA) {

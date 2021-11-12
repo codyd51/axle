@@ -8,6 +8,8 @@
 #include "../lib/putpixel.h"
 #include "../lib/gfx.h"
 
+static void blit_layer_filled__scanline(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame, uint32_t dest_pixels_per_scanline);
+
 void layer_teardown(ca_layer* layer) {
 	if (!layer) return;
 
@@ -103,12 +105,12 @@ void blit_layer_alpha(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_f
 	}
 }
 
-void blit_layer_filled(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) {
+static void blit_layer_filled__scanline(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame, uint32_t dest_pixels_per_scanline) {
 	int bpp = gfx_bytes_per_pixel();
 	//copy row by row
 	
 	//offset into dest that we start writing
-	uint8_t* dest_row_start = dest->raw + (rect_min_y(dest_frame) * dest->size.width * bpp) + (rect_min_x(dest_frame) * bpp);
+	uint8_t* dest_row_start = dest->raw + (rect_min_y(dest_frame) * dest_pixels_per_scanline * bpp) + (rect_min_x(dest_frame) * bpp);
 
 	//data from source to write to dest
 	uint8_t* row_start = src->raw + (rect_min_y(src_frame) * src->size.width * bpp) + rect_min_x(src_frame) * bpp;
@@ -119,14 +121,14 @@ void blit_layer_filled(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_
 		transferabble_rows -= overhang;
 	}
 	//copy height - y origin rows
-	int total_px_in_layer = (uint32_t)(dest->size.width * dest->size.height * bpp);
+	int total_px_in_layer = (uint32_t)(dest_pixels_per_scanline * dest->size.height * bpp);
 	int dest_max_y = rect_max_y(dest_frame);
 	for (int i = 0; i < transferabble_rows; i++) {
 		if (i >= dest_max_y) break;
 
 		//figure out how many px we can actually transfer over,
 		//in case src_frame exceeds dest
-		int offset = (uint32_t)dest_row_start - (uint32_t)dest->raw;
+		int offset = (uintptr_t)dest_row_start - (uintptr_t)dest->raw;
 		if (offset >= total_px_in_layer) {
 			break;
 		}
@@ -136,12 +138,14 @@ void blit_layer_filled(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_
 		int transferabble_px = MIN(src_frame.size.width, dest_frame.size.width) * bpp;
 		memcpy(dest_row_start, row_start, transferabble_px);
 
-		dest_row_start += (dest->size.width * bpp);
+		dest_row_start += (dest_pixels_per_scanline * bpp);
 		row_start += (src->size.width * bpp);
 	}
 }
 
-Rect blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) {
+Rect blit_layer__scanline(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame, uint32_t dest_pixels_per_scanline) {
+	// TODO(PT): It'd be useful to have inheritence for the physical framebuffer, as that's the only layer needing px/scanline
+
 	//make sure we don't write outside dest's frame
 	rect_min_x(dest_frame) = MAX(0, rect_min_x(dest_frame));
 	rect_min_y(dest_frame) = MAX(0, rect_min_y(dest_frame));
@@ -165,16 +169,21 @@ Rect blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) 
 
 	if (src->alpha >= 1.0) {
 		//best case, we can just copy rows directly from src to dest
-		blit_layer_filled(dest, src, dest_frame, src_frame);
+		blit_layer_filled__scanline(dest, src, dest_frame, src_frame, dest_pixels_per_scanline);
 	}
 	else if (src->alpha <= 0) {
 		//do nothing
 		//return;
 	}
 	else {
+		assert(dest_pixels_per_scanline == dest->size.width, "Alpha blending is not supported with px/scanline math");
 		blit_layer_alpha(dest, src, dest_frame, src_frame);
 	}
 	return dest_frame;
+}
+
+Rect blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) {
+	return blit_layer__scanline(dest, src, dest_frame, src_frame, dest->size.width);
 }
 
 void blit_layer_scaled(ca_layer* dest, ca_layer* src, Size dest_size) {

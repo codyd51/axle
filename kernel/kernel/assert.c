@@ -67,6 +67,7 @@ bool append(char** buf_head, int32_t* buf_size, const char* format, ...) {
 }
 
 bool symbolicate_and_append(int frame_idx, uintptr_t* frame_addr, char** buf_head, int32_t* buf_size) {
+    printf("symbolicate_and_append 0x%p\n", frame_addr);
     char symbol[128] = {0};
 
     bool found_program_start = false;
@@ -96,7 +97,9 @@ bool symbolicate_and_append(int frame_idx, uintptr_t* frame_addr, char** buf_hea
 
 void task_build_and_send_crash_report_then_exit(const char* msg, const register_state_t* regs) {
     // Launch the crash reporter if it's not active
+    asm("cli");
     if (!amc_service_is_active(CRASH_REPORTER_SERVICE_NAME)) {
+        printf("launching crash reporter...\n");
         file_manager_launch_file_request_t req = {0};
         req.event = FILE_MANAGER_LAUNCH_FILE;
         snprintf(req.path, sizeof(req.path), "/initrd/crash_reporter");
@@ -107,6 +110,7 @@ void task_build_and_send_crash_report_then_exit(const char* msg, const register_
     char* crash_report_buf = kmalloc(buf_size);
     char* crash_report_ptr = crash_report_buf;
 
+    printf("appending...\n");
     // The unrolled loop is necessary as __builtin_return_address requires a literal argument
     // The goto is necessary to avoid deeply nested failure handling
     if (!append(&crash_report_ptr, &buf_size, "Cause of death:\n%s\n", msg)) goto finish_fmt;
