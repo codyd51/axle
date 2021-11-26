@@ -20,14 +20,14 @@ def install() -> None:
     ]
     # run_and_check(["sudo", "apt", "install", *dependencies])
 
-    axle_dir = Path(__file__).parent
-    arch_target = "i686-elf"
-    toolchain_dir = axle_dir / "i686-toolchain"
+    axle_dir = Path(__file__).parents[1]
+    arch_target = "x86_64-elf"
+    toolchain_dir = axle_dir / "x86_64-toolchain"
 
     with tempfile.TemporaryDirectory() as build_dir_raw:
         build_dir = Path(build_dir_raw)
 
-        if False:
+        if True:
             binutils_url = "https://ftp.gnu.org/gnu/binutils/binutils-2.37.tar.gz"
             binutils_dir = download_and_unpack_archive(build_dir, binutils_url)
             binutils_build_dir = build_dir / "build-binutils"
@@ -59,13 +59,21 @@ def install() -> None:
                     f"--target={arch_target}",
                     f"--prefix={toolchain_dir.as_posix()}",
                     "--disable-nls",
-                    "--enable-languages=c",
+                    "--enable-languages=c,c++,objc",
                     "--without-headers",
                 ],
                 cwd=gcc_build_dir,
             )
             run_and_check(["make", "all-gcc"], cwd=gcc_build_dir)
-            run_and_check(["make", "all-target-libgcc"], cwd=gcc_build_dir)
+            try:
+                run_and_check(["make", "all-target-libgcc"], cwd=gcc_build_dir)
+            except Exception as e:
+                print(e)
+                print(gcc_build_dir)
+                import time
+                while True:
+                    time.sleep(1)
+
             run_and_check(["make", "install-gcc"], cwd=gcc_build_dir)
             run_and_check(["make", "install-target-libgcc"], cwd=gcc_build_dir)
 
