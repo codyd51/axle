@@ -78,7 +78,7 @@ $(ISO_DIR)/boot/grub/grub.cfg: $(RESOURCES)/grub.cfg
 	cp $^ $@
 
 $(FSGENERATOR): $(FSGENERATOR).c
-	@clang -o $@ $<
+	@gcc -o $@ $<
 
 $(ISO_DIR)/boot/initrd.img: $(FSGENERATOR)
 	@./$(FSGENERATOR) $(INITRD); mv $(INITRD).img $@
