@@ -121,7 +121,7 @@ static void receive_packet(rtl8139_state_t* state) {
 			packet_msg->event = NET_RX_ETHERNET_FRAME;
 			packet_msg->m.packet.len = ethernet_frame_size;
 			memcpy(packet_msg->m.packet.data, packet_data, ethernet_frame_size);
-			amc_message_construct_and_send(NET_SERVICE_NAME, packet_msg, amc_message_size);
+			amc_message_send(NET_SERVICE_NAME, packet_msg, amc_message_size);
 			free(packet_msg);
 
 			state->rx_curr_buf_off = (state->rx_curr_buf_off + packet_len + 4 + 3) & ~3;
@@ -236,7 +236,8 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
 	uint32_t virt_memory_rx_addr = 0;
 	uint32_t phys_memory_rx_addr = 0;
 	uint32_t rx_buffer_size = 8192 + 16 + 1500;
-	amc_physical_memory_region_create(rx_buffer_size, &virt_memory_rx_addr, &phys_memory_rx_addr);
+	assert(false, "revisit");
+	//amc_physical_memory_region_create(rx_buffer_size, &virt_memory_rx_addr, &phys_memory_rx_addr);
 	out_state->receive_buffer_virt = virt_memory_rx_addr;
 	out_state->receive_buffer_phys = phys_memory_rx_addr;
 	printf("Set RX buffer phys: 0x%08x\n", phys_memory_rx_addr);
@@ -244,7 +245,7 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
 
 	uint32_t virt_memory_tx_addr = 0;
 	uint32_t phys_memory_tx_addr = 0;
-	amc_physical_memory_region_create((1024*8) + 16, &virt_memory_tx_addr, &phys_memory_tx_addr);
+	//amc_physical_memory_region_create((1024*8) + 16, &virt_memory_tx_addr, &phys_memory_tx_addr);
 	out_state->transmit_buffer_virt = virt_memory_tx_addr;
 	out_state->transmit_buffer_phys = phys_memory_tx_addr;
 	printf("Set TX buffer phys: 0x%08x\n", phys_memory_tx_addr);
@@ -379,7 +380,7 @@ static void _message_received(amc_message_t* msg) {
 			config_msg.event = NET_RESPONSE_NIC_CONFIG;
 			memcpy(&config_msg.m.config_info.mac_addr, mac_addr, 6);
 
-			amc_message_construct_and_send(NET_SERVICE_NAME, &config_msg, sizeof(net_nic_config_info_t));
+			amc_message_send(NET_SERVICE_NAME, &config_msg, sizeof(net_nic_config_info_t));
 		}
 		else {
 			printf("Unknown event from net service: %d\n", event);

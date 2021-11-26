@@ -13,7 +13,7 @@ unsigned usleep(unsigned int ms) {
     uint32_t b[2];
     b[0] = AMC_SLEEP_UNTIL_TIMESTAMP;
     b[1] = ms;
-    amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &b, sizeof(b));
+    amc_message_send(AXLE_CORE_SERVICE_NAME, &b, sizeof(b));
     return 0;
 }
 

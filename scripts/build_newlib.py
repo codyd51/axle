@@ -16,12 +16,13 @@ def clone_tool_and_prepare_build_dir(build_dir: Path, url: str) -> Tuple[Path, P
 
 
 def build() -> None:
-    axle_dir = Path(__file__).parent
+    axle_dir = Path(__file__).parents[1]
     sysroot_dir = axle_dir / "axle-sysroot"
     arch = "x86_64"
     arch_target = f"{arch}-elf"
     toolchain_dir = axle_dir / f"{arch}-toolchain"
-    binaries_dir = toolchain_dir / "bin"
+    # binaries_dir = toolchain_dir / "bin"
+    binaries_dir = Path(__file__).parent / "toolchain-build-products" / "bin"
 
     with tempfile.TemporaryDirectory() as build_dir_raw:
         build_dir = Path(build_dir_raw)
@@ -52,17 +53,18 @@ def build() -> None:
         newlib_build_dir = build_dir / "build-newlib"
         newlib_build_dir.mkdir()
 
-        os.symlink((binaries_dir / f"{arch}-elf-ar").as_posix(), (newlib_build_dir / f"{arch}-axle-ar").as_posix())
-        os.symlink((binaries_dir / f"{arch}-elf-as").as_posix(), (newlib_build_dir / f"{arch}-axle-as").as_posix())
-        os.symlink((binaries_dir / f"{arch}-elf-gcc").as_posix(), (newlib_build_dir / f"{arch}-axle-gcc").as_posix())
-        os.symlink((binaries_dir / f"{arch}-elf-cc").as_posix(), (newlib_build_dir / f"{arch}-axle-cc").as_posix())
-        os.symlink((binaries_dir / f"{arch}-elf-ranlib").as_posix(), (newlib_build_dir / f"{arch}-axle-ranlib").as_posix())
+        os.symlink((binaries_dir / f"{arch}-elf-axle-ar").as_posix(), (newlib_build_dir / f"{arch}-axle-ar").as_posix())
+        os.symlink((binaries_dir / f"{arch}-elf-axle-as").as_posix(), (newlib_build_dir / f"{arch}-axle-as").as_posix())
+        os.symlink((binaries_dir / f"{arch}-elf-axle-gcc").as_posix(), (newlib_build_dir / f"{arch}-axle-gcc").as_posix())
+        os.symlink((binaries_dir / f"{arch}-elf-axle-cc").as_posix(), (newlib_build_dir / f"{arch}-axle-cc").as_posix())
+        os.symlink((binaries_dir / f"{arch}-elf-axle-ranlib").as_posix(), (newlib_build_dir / f"{arch}-axle-ranlib").as_posix())
 
         env = {"PATH": f'{newlib_build_dir}:{os.environ["PATH"]}'}
+        # env = {"PATH": f'{binaries_dir}:{os.environ["PATH"]}'}
 
         newlib_configure_path = newlib_src_dir / "configure"
         run_and_check(
-            [newlib_configure_path.as_posix(), "--prefix=/usr", f"--target={arch}-axle"],
+            [newlib_configure_path.as_posix(), "--prefix=/usr", f"--host={arch}-axle"],
             cwd=newlib_build_dir,
             env_additions=env,
         )

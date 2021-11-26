@@ -185,9 +185,22 @@ int gettimeofday(struct timeval *__restrict p, void *__restrict z) {
  * Implemented in libfiles
  */
 
-/*
-int close(int file);
-int lseek(int file, int ptr, int dir);
-int open(const char *name, int flags, ...);
-int read(int file, char *ptr, int len);
-*/
+int close(int file) {
+    assert(false, "Link against libfiles for file operations");
+    return -1;
+}
+
+int lseek(int file, int ptr, int dir) {
+    assert(false, "Link against libfiles for file operations");
+    return -1;
+}
+
+int open(const char *name, int flags, ...) {
+    assert(false, "Link against libfiles for file operations");
+    return -1;
+}
+
+int read(int file, char *ptr, int len) {
+    assert(false, "Link against libfiles for file operations");
+    return -1;
+}

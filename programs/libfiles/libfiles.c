@@ -70,7 +70,7 @@ int mkdir(const char* pathname, mode_t mode) {
     file_manager_create_directory_request_t req = {0};
     req.event = FILE_MANAGER_CREATE_DIRECTORY;
     snprintf(req.path, sizeof(req.path), "%s", pathname);
-    amc_message_construct_and_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(req));
+    amc_message_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(req));
 
     amc_message_t* response_msg = file_manager_get_response(FILE_MANAGER_CREATE_DIRECTORY_RESPONSE);
     file_manager_create_directory_response_t* resp = (file_manager_create_directory_response_t*)&response_msg->body;
@@ -113,7 +113,7 @@ int open(const char* name, int flags, ...) {
     file_manager_check_file_exists_request_t req = {0};
     req.event = FILE_MANAGER_CHECK_FILE_EXISTS;
     snprintf(req.path, sizeof(req.path), "%s", name);
-    amc_message_construct_and_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(req));
+    amc_message_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(req));
 
     amc_message_t* response_msg = file_manager_get_response(FILE_MANAGER_CHECK_FILE_EXISTS_RESPONSE);
     file_manager_check_file_exists_response_t* resp = (file_manager_check_file_exists_response_t*)&response_msg->body;
@@ -205,7 +205,7 @@ ssize_t read(int fildes, void* buf, size_t nbyte) {
     req.length = nbyte;
     req.offset = entry->offset;
     snprintf(req.path, sizeof(req.path), "%s", entry->path);
-    amc_message_construct_and_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(req));
+    amc_message_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(req));
 
     amc_message_t* response_msg = file_manager_get_response(FILE_MANAGER_READ_FILE__PARTIAL_RESPONSE);
     file_manager_read_file_partial_response_t* resp = (file_manager_read_file_partial_response_t*)&response_msg->body;
