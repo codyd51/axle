@@ -23,7 +23,7 @@ static void _refresh_stats(gui_text_view_t* view) {
 	printf("Refreshing stats\n");
 
 	uint32_t req = AMC_SYSTEM_PROFILE_REQUEST;
-	amc_message_construct_and_send(AXLE_CORE_SERVICE_NAME, &req, sizeof(req));
+	amc_message_send(AXLE_CORE_SERVICE_NAME, &req, sizeof(req));
 
 	amc_message_t* msg;
 	amc_message_await(AXLE_CORE_SERVICE_NAME, &msg);

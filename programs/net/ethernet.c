@@ -77,7 +77,7 @@ void ethernet_send(uint8_t dst_mac_addr[MAC_ADDR_SIZE], ethtype_t ethtype, uint8
 	msg->event = NET_TX_ETHERNET_FRAME;
 	msg->m.packet.len = ethernet_frame_size;
 	memcpy(&msg->m.packet.data, wrapper, ethernet_frame_size);
-	amc_message_construct_and_send(RTL8139_SERVICE_NAME, msg, total_msg_size);
+	amc_message_send(RTL8139_SERVICE_NAME, msg, total_msg_size);
 	free(msg);
 
     free(wrapper);
