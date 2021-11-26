@@ -1,0 +1,109 @@
+diff --git a/bfd/config.bfd b/bfd/config.bfd
+index 5f97ecca..33fd8bfd 100644
+--- a/bfd/config.bfd
++++ b/bfd/config.bfd
+@@ -571,6 +571,18 @@ case "${targ}" in
+     targ_selvecs="x86_64_elf64_sol2_vec l1om_elf64_vec k1om_elf64_vec iamcu_elf32_vec i386_coff_vec i386_pei_vec x86_64_pe_vec x86_64_pei_vec"
+     want64=true
+     ;;
++#endif
++  i[3-7]86-*-axle*)
++    targ_defvec=i386_elf32_vec
++    targ_selvecs=
++    targ64_selvecs=x86_64_elf64_vec
++    ;;
++#ifdef BFD64
++  x86_64-*-axle*)
++    targ_defvec=x86_64_elf64_vec
++    targ_selvecs=i386_elf32_vec
++    want64=true
++    ;;
+ #endif
+   i[3-7]86-*-nto*)
+     targ_defvec=i386_elf32_vec
+diff --git a/config.sub b/config.sub
+index 7384e919..0b792b5c 100755
+--- a/config.sub
++++ b/config.sub
+@@ -1699,7 +1699,7 @@ case $os in
+ 	# Now accept the basic system types.
+ 	# The portable systems comes first.
+ 	# Each alternative MUST end in a * to match a version number.
+-	gnu* | android* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
++	gnu* | android* | axle* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
+ 	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]* \
+ 	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
+ 	     | sym* |  plan9* | psp* | sim* | xray* | os68k* | v88r* \
+diff --git a/gas/configure.tgt b/gas/configure.tgt
+index 338892ad..41092919 100644
+--- a/gas/configure.tgt
++++ b/gas/configure.tgt
+@@ -217,6 +217,7 @@ case ${generic_target} in
+   h8300-*-elf)				fmt=elf ;;
+   h8300-*-linux*)			fmt=elf em=linux ;;
+ 
++  i386-*-axle*)       fmt=elf ;;
+   i386-*-beospe*)			fmt=coff em=pe ;;
+   i386-*-beos*)				fmt=elf ;;
+   i386-*-elfiamcu)			fmt=elf arch=iamcu ;;
+diff --git a/ld/Makefile.am b/ld/Makefile.am
+index f8e99325..f693e93f 100644
+--- a/ld/Makefile.am
++++ b/ld/Makefile.am
+@@ -277,6 +277,7 @@ ALL_EMULATION_SOURCES = \
+ 	eelf32xtensa.c \
+ 	eelf32z80.c \
+ 	eelf_i386.c \
++	eelf_i386_axle.c \
+ 	eelf_i386_be.c \
+ 	eelf_i386_fbsd.c \
+ 	eelf_i386_ldso.c \
+@@ -453,6 +454,7 @@ ALL_64_EMULATION_SOURCES = \
+ 	eelf_k1om.c \
+ 	eelf_k1om_fbsd.c \
+ 	eelf_x86_64.c \
++	eelf_x86_64_axle.c \
+ 	eelf_x86_64_cloudabi.c \
+ 	eelf_x86_64_fbsd.c \
+ 	eelf_x86_64_sol2.c \
+diff --git a/ld/configure.tgt b/ld/configure.tgt
+index 6205d7c9..605ba19d 100644
+--- a/ld/configure.tgt
++++ b/ld/configure.tgt
+@@ -293,6 +293,10 @@ hppa*-*-netbsd*)	targ_emul=hppanbsd
+ 			;;
+ hppa*-*-openbsd*)	targ_emul=hppaobsd
+ 			;;
++i[3-7]86-*-axle*)		targ_emul=elf_i386_axle
++			targ_extra_emuls=elf_i386
++			targ64_extra_emuls="elf_x86_64_axle elf_x86_64"
++			;;
+ i[3-7]86-*-nto-qnx*)	targ_emul=i386nto
+ 			;;
+ i[3-7]86-*-go32)	targ_emul=i386go32
+@@ -927,6 +931,9 @@ vax-*-linux-*)		targ_emul=elf32vax
+ 			;;
+ visium-*-elf)		targ_emul=elf32visium
+ 			;;
++x86_64-*-axle*)		targ_emul=elf_x86_64_axle
++			targ_extra_emuls="elf_i386_axle elf_x86_64 elf_i386"
++			;;
+ x86_64-*-rdos*)		targ_emul=elf64rdos
+ 			;;
+ x86_64-*-cloudabi*)	targ_emul=elf_x86_64_cloudabi
+diff --git a/ld/emulparams/elf_i386_axle.sh b/ld/emulparams/elf_i386_axle.sh
+new file mode 100644
+index 0000000..342d529
+--- /dev/null
++++ b/ld/emulparams/elf_i386_axle.sh
+@@ -0,0 +1,3 @@
++. ${srcdir}/emulparams/elf_i386.sh
++GENERATE_SHLIB_SCRIPT=yes
++GENERATE_PIE_SCRIPT=yes
+diff --git a/ld/emulparams/elf_x86_64_axle.sh b/ld/emulparams/elf_x86_64_axle.sh
+new file mode 100644
+index 0000000..a2af90a
+--- /dev/null
++++ b/ld/emulparams/elf_x86_64_axle.sh
+@@ -0,0 +1 @@
++. ${srcdir}/emulparams/elf_x86_64.sh

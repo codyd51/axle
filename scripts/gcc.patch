@@ -1,0 +1,120 @@
+diff --git a/config.sub b/config.sub
+index 63c1f1c8b..c148ef839 100755
+--- a/config.sub
++++ b/config.sub
+@@ -1695,7 +1695,7 @@ case $os in
+ 	# Now accept the basic system types.
+ 	# The portable systems comes first.
+ 	# Each alternative MUST end in a * to match a version number.
+-	gnu* | android* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
++	gnu* | android* | axle* | bsd* | mach* | minix* | genix* | ultrix* | irix* \
+ 	     | *vms* | esix* | aix* | cnk* | sunos | sunos[34]* \
+ 	     | hpux* | unos* | osf* | luna* | dgux* | auroraux* | solaris* \
+ 	     | sym* |  plan9* | psp* | sim* | xray* | os68k* | v88r* \
+diff --git a/fixincludes/mkfixinc.sh b/fixincludes/mkfixinc.sh
+index df90720b7..ca243594a 100755
+--- a/fixincludes/mkfixinc.sh
++++ b/fixincludes/mkfixinc.sh
+@@ -11,6 +11,7 @@ target=fixinc.sh
+ 
+ # Check for special fix rules for particular targets
+ case $machine in
++    *-axle* | \
+     i?86-*-cygwin* | \
+     i?86-*-mingw32* | \
+     x86_64-*-mingw32* | \
+diff --git a/gcc/config.gcc b/gcc/config.gcc
+index 357b0bed0..6507fd559 100644
+--- a/gcc/config.gcc
++++ b/gcc/config.gcc
+@@ -686,6 +686,12 @@ x86_cpus="generic intel"
+ 
+ # Common parts for widely ported systems.
+ case ${target} in
++*-*-axle*)
++  gas=yes
++  gnu_ld=yes
++  default_use_cxa_atexit=yes
++  use_gcc_stdint=wrap
++  ;;
+ *-*-darwin*)
+   tmake_file="t-darwin "
+   tm_file="${tm_file} darwin.h"
+@@ -1870,6 +1876,12 @@ hppa[12]*-*-hpux11*)
+ 		dwarf2=no
+ 	fi
+ 	;;
++i[34567]86-*-axle*)
++	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h glibc-stdint.h i386/i386elf.h axle.h"
++	;;
++x86_64-*-axle*)
++	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h glibc-stdint.h i386/i386elf.h i386/x86-64.h axle.h"
++	;;
+ i[34567]86-*-darwin1[89]*)
+ 	echo "Error: 32bit target is not supported after Darwin17" 1>&2
+ 	;;
+diff --git a/gcc/config/axle.h b/gcc/config/axle.h
+new file mode 100644
+index 000000000..46f4010c1
+--- /dev/null
++++ b/gcc/config/axle.h
+@@ -0,0 +1,22 @@
++#undef TARGET_AXLE
++#define TARGET_AXLE 1
++
++#undef LIB_SPEC
++#define LIB_SPEC "-lc"
++
++#undef STARTFILE_SPEC
++#define STARTFILE_SPEC "crt0.o%s crti.o%s crtbegin.o%s"
++
++#undef ENDFILE_SPEC
++#define ENDFILE_SPEC "crtend.o%s crtn.o%s"
++
++#undef TARGET_OS_CPP_BUILTINS
++#define TARGET_OS_CPP_BUILTINS()        \
++    do                                  \
++    {                                   \
++        builtin_define("__axle__");     \
++        builtin_define("__unix__");     \
++        builtin_assert("system=axle");  \
++        builtin_assert("system=unix");  \
++        builtin_assert("system=posix"); \
++    } while (0);
+diff --git a/libgcc/config.host b/libgcc/config.host
+index 50f000622..c46e7b4ee 100644
+--- a/libgcc/config.host
++++ b/libgcc/config.host
+@@ -676,6 +676,14 @@ hppa*-*-openbsd*)
+ hppa*-*-netbsd*)
+ 	tmake_file="$tmake_file pa/t-netbsd"
+ 	;;
++i[34567]86-*-axle*)
++	extra_parts="$extra_parts crti.o crtbegin.o crtend.o crtn.o"
++	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
++	;;
++x86_64-*-axle*)
++	extra_parts="$extra_parts crti.o crtbegin.o crtend.o crtn.o"
++	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
++	;;
+ i[34567]86-*-darwin*)
+ 	tmake_file="$tmake_file i386/t-crtpc t-crtfm i386/t-msabi"
+ 	tm_file="$tm_file i386/darwin-lib.h"
+diff --git a/libstdc++-v3/crossconfig.m4 b/libstdc++-v3/crossconfig.m4
+index ff44d5ae0..9e24902f1 100644
+--- a/libstdc++-v3/crossconfig.m4
++++ b/libstdc++-v3/crossconfig.m4
+@@ -9,6 +9,13 @@ case "${host}" in
+     # This is a freestanding configuration; there is nothing to do here.
+     ;;
+ 
++  *-axle*)
++    GLIBCXX_CHECK_COMPILER_FEATURES
++    GLIBCXX_CHECK_LINKER_FEATURES
++    GLIBCXX_CHECK_MATH_SUPPORT
++    GLIBCXX_CHECK_STDLIB_SUPPORT
++    ;;
++
+   avr*-*-*)
+     AC_DEFINE(HAVE_ACOSF)
+     AC_DEFINE(HAVE_ASINF)
