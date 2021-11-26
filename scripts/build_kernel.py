@@ -1,8 +1,11 @@
 #!/usr/local/bin/python3
 import argparse
+import tempfile
 import string
 import shutil
 from pathlib import Path
+from typing import Generator, Any
+from contextlib import contextmanager
 
 from build_kernel_headers import copy_kernel_headers
 from build_utils import run_and_check, run_and_capture_output_and_check, copied_file_is_outdated
@@ -10,6 +13,29 @@ from build_programs import build_all_programs
 
 
 ARCH = "x86_64"
+
+
+def _is_macos() -> bool:
+    return False
+
+
+@contextmanager
+def _get_mounted_iso(image_name: Path) -> Generator[Path, Any, Any]:
+    if _is_macos():
+        mounted_disk_name = run_and_capture_output_and_check(
+            ["hdiutil", "attach", "-imagekey", "diskimage-class=CRawDiskImage", "-nomount", image_name.as_posix()]
+        ).strip(f"{string.whitespace}\n")
+        print(f"Mounted disk name: {mounted_disk_name}")
+        run_and_check(["newfs_msdos", "-F", "32", "-S", "512", "-s", "131072", mounted_disk_name])
+        yield Path(mounted_disk_name)
+    else:
+        run_and_check(['mkfs.vfat', image_name.as_posix()])
+        with tempfile.TemporaryDirectory() as temp_dir:
+            mount_point = Path(temp_dir) / "mnt"
+            mount_point.mkdir()
+            run_and_check(['sudo', 'mount', '-o', 'loop', image_name.as_posix(), mount_point.as_posix()])
+            yield mount_point
+            run_and_check(['sudo', 'umount', image_name.as_posix()])
 
 
 def build_iso() -> Path:
@@ -26,19 +52,16 @@ def build_iso() -> Path:
     if not initrd_path.exists():
         raise ValueError(f"initrd missing: {initrd_path}")
 
-    run_and_check(["dd", "if=/dev/zero", f"of={image_name.as_posix()}", "bs=512", "count=131072"])
-    mounted_disk_name = run_and_capture_output_and_check(
-        ["hdiutil", "attach", "-imagekey", "diskimage-class=CRawDiskImage", "-nomount", image_name.as_posix()]
-    ).strip(f"{string.whitespace}\n")
-    print(f"Mounted disk name: {mounted_disk_name}")
-    run_and_check(["newfs_msdos", "-F", "32", "-S", "512", "-s", "131072", mounted_disk_name])
-    run_and_check(["mmd", "-i", image_name.as_posix(), "::/EFI"])
-    run_and_check(["mmd", "-i", image_name.as_posix(), "::/EFI/BOOT"])
-    run_and_check(["mcopy", "-i", image_name.as_posix(), bootloader_binary_path.as_posix(), "::/EFI/BOOT"])
+    run_and_check(["dd", "if=/dev/zero", f"of={image_name.as_posix()}", "bs=512", "count=262144"])
 
-    run_and_check(["mmd", "-i", image_name.as_posix(), "::/EFI/AXLE"])
-    run_and_check(["mcopy", "-i", image_name.as_posix(), kernel_binary_path.as_posix(), "::/EFI/AXLE/KERNEL.ELF"])
-    run_and_check(["mcopy", "-i", image_name.as_posix(), initrd_path.as_posix(), "::/EFI/AXLE/INITRD.IMG"])
+    with _get_mounted_iso(image_name) as mount_point:
+        run_and_check(["mmd", "-i", image_name.as_posix(), "::/EFI"])
+        run_and_check(["mmd", "-i", image_name.as_posix(), "::/EFI/BOOT"])
+        run_and_check(["mcopy", "-i", image_name.as_posix(), bootloader_binary_path.as_posix(), "::/EFI/BOOT"])
+
+        run_and_check(["mmd", "-i", image_name.as_posix(), "::/EFI/AXLE"])
+        run_and_check(["mcopy", "-i", image_name.as_posix(), kernel_binary_path.as_posix(), "::/EFI/AXLE/KERNEL.ELF"])
+        run_and_check(["mcopy", "-i", image_name.as_posix(), initrd_path.as_posix(), "::/EFI/AXLE/INITRD.IMG"])
 
     return image_name
 
