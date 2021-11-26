@@ -212,7 +212,7 @@ static void launch_known_drivers(pci_dev_t* dev_head) {
     while (dev != NULL) {
         if (dev->device_id == PCI_DEVICE_ID__REALTEK__8139) {
             printf("[PCI] Launching driver for %s %s\n", dev->vendor_name, dev->device_name);
-            amc_launch_service("com.axle.realtek_8139_driver");
+            //amc_launch_service("com.axle.realtek_8139_driver");
         }
         dev = dev->next;
     }

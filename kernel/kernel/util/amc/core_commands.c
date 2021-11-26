@@ -243,6 +243,20 @@ static void _amc_shared_memory_create(const char* source_service, void* buf, uin
     amc_message_send__from_core(source_service, &msg, sizeof(amc_shared_memory_create_response_t));
 }
 
+static void _amc_query_service(const char* source_service, void* buf, uint32_t buf_size) {
+    amc_service_t* source = amc_service_with_name(source_service);
+    assert(source != NULL, "Failed to find service that sent the message...");
+
+    amc_query_service_request_t* req = (amc_query_service_request_t*)buf;
+    amc_service_t* remote = amc_service_with_name((const char*)req->remote_service_name);
+
+    amc_query_service_response_t resp = {0};
+    resp.event = AMC_QUERY_SERVICE_RESPONSE;
+    strncpy(&resp.remote_service_name, &req->remote_service_name, AMC_MAX_SERVICE_NAME_LEN);
+    resp.service_exists = remote != NULL;
+    amc_message_send__from_core(source_service, &resp, sizeof(amc_query_service_response_t));
+}
+
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size) {
     //printf("Message to core from %s\n", source_service);
     uint32_t* u32buf = (uint32_t*)buf;
@@ -279,6 +293,9 @@ void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf
     }
     else if (u32buf[0] == AMC_SHARED_MEMORY_CREATE_REQUEST) {
         _amc_shared_memory_create(source_service, buf, buf_size);
+    }
+    else if (u32buf[0] == AMC_QUERY_SERVICE_REQUEST) {
+        _amc_query_service(source_service, buf, buf_size);
     }
     else {
         printf("Unknown message: %d\n", u32buf[0]);

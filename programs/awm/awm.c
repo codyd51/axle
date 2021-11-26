@@ -469,6 +469,7 @@ static void mouse_dispatch_events(uint8_t status_byte, Point mouse_point, int32_
 
 	// Previous mouse position should be redrawn
 	compositor_queue_rect_to_redraw(rect_make(mouse_state->mouse_pos, size_make(14, 14)));
+	// TODO(PT): This should fetch the mouse size!
 
 	mouse_state->mouse_pos = mouse_point;
 
@@ -909,8 +910,8 @@ static void _awm_enter_event_loop(void) {
 	// Draw the background onto the screen buffer to start off
 	Rect screen_frame = rect_make(point_zero(), screen_resolution());
 	blit_layer(_screen.vmem, _g_background, screen_frame, screen_frame);
+	blit_layer(_screen.pmem, _g_background, screen_frame, screen_frame);
 	//blit_layer__scanline(_screen.pmem, _screen.vmem, screen_frame, screen_frame, screen_pixels_per_scanline());
-	try(_screen.pmem, _screen.vmem, screen_pixels_per_scanline());
 
 	while (true) {
 		timers_state_t timers_state = _sleep_for_timers();

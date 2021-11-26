@@ -86,13 +86,19 @@ bool str_ends_with_any(char* str, const char* suffixes[]) {
 }
 
 void launch_amc_service_if_necessary(const char* service_name) {
-	/*
-	if (amc_service_is_active(service_name)) {
-		printf("Will not launch %s because it's already active!\n", service_name);
+	amc_query_service_request_t query = {0};
+	query.event = AMC_QUERY_SERVICE_REQUEST;
+	strncpy(&query.remote_service_name, service_name, AMC_MAX_SERVICE_NAME_LEN);
+	amc_message_send(AXLE_CORE_SERVICE_NAME, &query, sizeof(query));
+
+	amc_message_t* response_msg;
+	amc_message_await(AXLE_CORE_SERVICE_NAME, &response_msg);
+	amc_query_service_response_t* response = (amc_query_service_response_t*)&response_msg->body;
+	assert(response->event == AMC_QUERY_SERVICE_RESPONSE, "Wrong core message received");
+	if (response->service_exists) {
+		printf("Will not launch image viewer because it's already active\n");
 		return;
 	}
-	*/
-	assert(false, "need to reimplement amc_service_is_active");
 
 	const char* program_path = NULL;
 	if (!strncmp(service_name, IMAGE_VIEWER_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {

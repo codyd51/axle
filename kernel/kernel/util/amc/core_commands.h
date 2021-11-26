@@ -116,6 +116,20 @@ typedef struct amc_shared_memory_create_response {
     uintptr_t remote_buffer_start;
 } amc_shared_memory_create_response_t;
 
+#define AMC_QUERY_SERVICE_REQUEST 211
+#define AMC_QUERY_SERVICE_RESPONSE 211
+
+typedef struct amc_query_service_request {
+    uint32_t event;
+    char remote_service_name[AMC_MAX_SERVICE_NAME_LEN];
+} amc_query_service_request_t;
+
+typedef struct amc_query_service_response {
+    uint32_t event;
+    char remote_service_name[AMC_MAX_SERVICE_NAME_LEN];
+    bool service_exists;
+} amc_query_service_response_t;
+
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size);
 
 #endif
