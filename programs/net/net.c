@@ -36,7 +36,7 @@ static void _send_nic_config_info_request(void) {
 	printf("Net sending NIC config info request...\n");
 	net_message_t config_msg;
 	config_msg.event = NET_REQUEST_NIC_CONFIG;
-	amc_message_construct_and_send(RTL8139_SERVICE_NAME, &config_msg, sizeof(net_nic_config_info_t));
+	amc_message_send(RTL8139_SERVICE_NAME, &config_msg, sizeof(net_nic_config_info_t));
 }
 
 static void _nic_config_received(net_nic_config_info_t* config) {
@@ -106,7 +106,7 @@ void net_send_rpc_response(const char* service, uint32_t event, void* buf, uint3
 	if (buf && buf_size) {
 		memcpy(response->m.rpc.data, buf, buf_size);
 	}
-	amc_message_construct_and_send(service, response, response_size);
+	amc_message_send(service, response, response_size);
 	free(response);
 }
 

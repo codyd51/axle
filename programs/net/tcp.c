@@ -422,7 +422,7 @@ static void _tcp_complete_amc_rpc__conn_open(tcp_amc_rpc__conn_open_t* rpc) {
 	net_message_t msg;
 	msg.event = NET_RPC_RESPONSE_TCP_OPEN;
 	msg.m.tcp_open_response.tcp_conn_descriptor = array_index(_tcp_conns, rpc->conn);
-	amc_message_construct_and_send(rpc->amc_service, &msg, sizeof(msg));
+	amc_message_send(rpc->amc_service, &msg, sizeof(msg));
 
     // Free the buffers we stored
 	// Don't touch the tcp_conn_t as it's still alive
@@ -524,7 +524,7 @@ static void _tcp_complete_amc_rpc__conn_read(tcp_amc_rpc__conn_read_t* rpc) {
 		printf("msg tcp_conn_desc %d len %u data 0x%08x\n", msg->m.tcp_read_response.tcp_conn_descriptor, msg->m.tcp_read_response.len, msg->m.tcp_read_response.data);
 		memcpy(&msg->m.tcp_read_response.data, seg->buf, seg->len);
 		printf("msg buf 0x%08x\n", &msg->m.tcp_read_response.data);
-		amc_message_construct_and_send(rpc->amc_service, msg, msg_size);
+		amc_message_send(rpc->amc_service, msg, msg_size);
 		free(msg);
 
 		// Free the buffers we stored

@@ -13,7 +13,7 @@ void net_copy_local_mac_addr(uint8_t dest[MAC_ADDR_SIZE]) {
     net_message_t msg;
     msg.event = NET_RPC_COPY_LOCAL_MAC;
     msg.m.rpc.len = 0;
-    amc_message_construct_and_send(NET_SERVICE_NAME, &msg, sizeof(net_message_t));
+    amc_message_send(NET_SERVICE_NAME, &msg, sizeof(net_message_t));
 
     // Wait for the response
     amc_message_t* resp;
@@ -28,7 +28,7 @@ void net_copy_local_ipv4_addr(uint8_t dest[IPv4_ADDR_SIZE]) {
     net_message_t msg;
     msg.event = NET_RPC_COPY_LOCAL_IPv4;
     msg.m.rpc.len = 0;
-    amc_message_construct_and_send(NET_SERVICE_NAME, &msg, sizeof(net_message_t));
+    amc_message_send(NET_SERVICE_NAME, &msg, sizeof(net_message_t));
 
     // Wait for the response
     amc_message_t* resp;
@@ -43,7 +43,7 @@ void net_copy_router_ipv4_addr(uint8_t dest[IPv4_ADDR_SIZE]) {
     net_message_t msg;
     msg.event = NET_RPC_COPY_ROUTER_IPv4;
     msg.m.rpc.len = 0;
-    amc_message_construct_and_send(NET_SERVICE_NAME, &msg, sizeof(net_message_t));
+    amc_message_send(NET_SERVICE_NAME, &msg, sizeof(net_message_t));
 
     // Wait for the response
     amc_message_t* resp;
@@ -60,7 +60,7 @@ void net_get_mac_from_ipv4(uint8_t ipv4_addr[IPv4_ADDR_SIZE], uint8_t out_mac_ad
     msg->event = NET_RPC_ARP_GET_MAC;
     msg->m.rpc.len = IPv4_ADDR_SIZE;
     memcpy(msg->m.rpc.data, ipv4_addr, IPv4_ADDR_SIZE);
-    amc_message_construct_and_send(NET_SERVICE_NAME, msg, message_size);
+    amc_message_send(NET_SERVICE_NAME, msg, message_size);
     free(msg);
 
     // Wait for the response
@@ -78,7 +78,7 @@ void net_get_ipv4_of_domain_name(const char* domain_name, uint32_t domain_name_l
     msg->event = NET_RPC_DNS_GET_IPv4;
     msg->m.rpc.len = domain_name_len;
     memcpy(msg->m.rpc.data, domain_name, domain_name_len);
-    amc_message_construct_and_send(NET_SERVICE_NAME, msg, message_size);
+    amc_message_send(NET_SERVICE_NAME, msg, message_size);
     free(msg);
 
     // Wait for the response
@@ -103,7 +103,7 @@ uint32_t net_tcp_conn_init(uint16_t src_port, uint16_t dst_port, uint8_t dest_ip
     msg->m.tcp_open.src_port = src_port;
     msg->m.tcp_open.dst_port = dst_port;
     memcpy(msg->m.tcp_open.dst_ipv4, dest_ipv4, IPv4_ADDR_SIZE);
-    amc_message_construct_and_send(NET_SERVICE_NAME, msg, message_size);
+    amc_message_send(NET_SERVICE_NAME, msg, message_size);
     free(msg);
 
     // Wait for the response
@@ -124,7 +124,7 @@ void net_tcp_conn_send(uint32_t conn_descriptor, uint8_t* data, uint32_t len) {
     msg->m.tcp_send.tcp_conn_descriptor = conn_descriptor;
     msg->m.tcp_send.len = len;
     memcpy(msg->m.tcp_send.data, data, len);
-    amc_message_construct_and_send(NET_SERVICE_NAME, msg, message_size);
+    amc_message_send(NET_SERVICE_NAME, msg, message_size);
     free(msg);
 }
 
@@ -135,7 +135,7 @@ uint32_t net_tcp_conn_read(uint32_t conn_descriptor, uint8_t* buf, uint32_t len)
     msg->event = NET_RPC_TCP_READ;
     msg->m.tcp_read.tcp_conn_descriptor = conn_descriptor;
     msg->m.tcp_read.len = len;
-    amc_message_construct_and_send(NET_SERVICE_NAME, msg, message_size);
+    amc_message_send(NET_SERVICE_NAME, msg, message_size);
     free(msg);
 
     // Wait for the response
