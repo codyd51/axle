@@ -11,8 +11,12 @@ from typing import Dict, List, Optional
 import requests
 
 
+def second_file_is_older(file1: Path, file2: Path) -> bool:
+    return os.stat(file1.as_posix()).st_mtime - os.stat(file2.as_posix()).st_mtime > 1
+
+
 def copied_file_is_outdated(source_path: Path, copied_path: Path) -> bool:
-    return os.stat(source_path.as_posix()).st_mtime - os.stat(copied_path.as_posix()).st_mtime > 1
+    return second_file_is_older(source_path, copied_path)
 
 
 def run_and_check(cmd_list: List[str], cwd: Path = None, env_additions: Optional[Dict[str, str]] = None) -> None:
@@ -79,6 +83,14 @@ def run_and_capture_output_and_check(cmd_list: List[str], cwd: Path = None) -> s
     return output
 
 
+def sizeof_fmt(num, suffix="B"):
+    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
+        if abs(num) < 1024.0:
+            return f"{num:3.1f}{unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.1f}Yi{suffix}"
+
+
 def download_file(directory: Path, url: str) -> Path:
     local_filename = url.split("/")[-1]
     download_path = directory / local_filename
@@ -89,6 +101,7 @@ def download_file(directory: Path, url: str) -> Path:
         with open(download_path.as_posix(), "wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
+    print(f'File size: {sizeof_fmt(download_path.stat().st_size)}')
     return download_path
 
 

@@ -460,8 +460,10 @@ void* sbrk(int increment) {
 		return brk;
 	}
 
-    int64_t needed_pages = ((int64_t)(current->sbrk_current_break + increment) - (int64_t)current->sbrk_current_page_head) / PAGE_SIZE;
-    if (needed_pages > 0) {
+    int64_t new_high = current->sbrk_current_break + increment;
+    if (new_high > current->sbrk_current_page_head) {
+        int64_t needed_pages = (new_high - current->sbrk_current_page_head + (PAGE_SIZE - 1)) / PAGE_SIZE;
+        //printf("need %d pages, current break %p, incr %p, current head %p, new_hih %d\n", needed_pages, current->sbrk_current_break, increment, current->sbrk_current_page_head, new_high);
         //printf("[%d] sbrk reserve %dkb\n", getpid(), needed_pages * (PAGE_SIZE / 1024));
         uint64_t addr = vas_alloc_range(vas_get_active_state(), current->sbrk_current_page_head, needed_pages * PAGE_SIZE, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
         if (addr != current->sbrk_current_page_head) {
