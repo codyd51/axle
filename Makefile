@@ -15,9 +15,9 @@ TOOLCHAIN ?= ./$(ARCH)-toolchain
 AS = nasm
 # AFLAGS = -f elf
 AFLAGS = -f elf64
-LD = $(TOOLCHAIN)/bin/$(ARCH)-elf-ld
+LD = $(TOOLCHAIN)/bin/$(ARCH)-elf-axle-ld
 
-CC = $(TOOLCHAIN)/bin/$(ARCH)-elf-gcc
+CC = $(TOOLCHAIN)/bin/$(ARCH)-elf-axle-gcc
 SYSROOT = $(dir $(realpath $(firstword $(MAKEFILE_LIST))))axle-sysroot/
 CFLAGS = -mno-red-zone -mcmodel=kernel -mno-mmx -mno-sse -mno-sse2 -g -ffreestanding -std=gnu99 -Wall -Wextra -I$(SRC_DIR) -I$(SYSROOT)/usr/$(ARCH)-axle/include
 LDFLAGS = -ffreestanding -nostdlib -mcmodel=kernel -mno-red-zone -nostdlib -z max-page-size=0x1000 -lgcc -T $(RESOURCES)/linker.ld
