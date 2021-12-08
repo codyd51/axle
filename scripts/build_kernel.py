@@ -1,4 +1,5 @@
 #!/usr/local/bin/python3
+import os
 import argparse
 import tempfile
 import string
@@ -16,7 +17,7 @@ ARCH = "x86_64"
 
 
 def _is_macos() -> bool:
-    return False
+    return os.uname().sysname == 'Darwin'
 
 
 @contextmanager
