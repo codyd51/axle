@@ -1,5 +1,5 @@
 project('pci_driver', 'c')
-add_project_link_arguments('-lagx', '-lgui', '-lamc', '-lport', language: 'c')
+add_project_link_arguments('-lagx', '-lgui', '-lamc', '-lport', '-lutils', language: 'c')
 executable(
     'pci_driver', 
     'pci_driver.c',

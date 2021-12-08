@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include <stdlibadd/assert.h>
+#include <libutils/assert.h>
 
 #include <libamc/libamc.h>
 #include <libgui/libgui.h>

@@ -12,8 +12,8 @@
 
 #include <libamc/libamc.h>
 
-#include <stdlibadd/assert.h>
-#include <stdlibadd/array.h>
+#include <libutils/assert.h>
+#include <libutils/array.h>
 
 #include <preferences/preferences_messages.h>
 #include <drivers/kb/kb_driver_messages.h>
@@ -739,7 +739,7 @@ static void _awm_init(void) {
     _screen.resolution = size_make(framebuffer_info->width, framebuffer_info->height);
     _screen.bits_per_pixel = framebuffer_info->bits_per_pixel;
     _screen.bytes_per_pixel = framebuffer_info->bytes_per_pixel;
-	_screen.pixels_per_scanline = framebuffer_info->pixels_per_scanline;
+	//_screen.pixels_per_scanline = framebuffer_info->pixels_per_scanline;
 
     _screen.video_memory_size = framebuffer_info->size;
 	_screen.pmem = calloc(1, sizeof(ca_layer));
@@ -749,7 +749,7 @@ static void _awm_init(void) {
 
 	_set_screen_resolution(_screen.resolution);
 	_set_screen_bytes_per_pixel(_screen.bytes_per_pixel);
-	_set_screen_pixels_per_scanline(_screen.pixels_per_scanline);
+	//_set_screen_pixels_per_scanline(_screen.pixels_per_scanline);
 
 	_screen.vmem = create_layer(screen_resolution());
 	printf("awm framebuffer: %d x %d, %d BPP @ %p\n", _screen.resolution.width, _screen.resolution.height, _screen.bits_per_pixel, _screen.pmem->raw);

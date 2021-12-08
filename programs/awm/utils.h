@@ -1,7 +1,7 @@
 #ifndef AWM_UTILS_H
 #define AWM_UTILS_H
 
-#include <stdlibadd/array.h>
+#include <libutils/array.h>
 
 #include <agx/lib/shapes.h>
 

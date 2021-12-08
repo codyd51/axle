@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#include <stdlibadd/assert.h>
+#include <libutils/assert.h>
 #include <libamc/libamc.h>
 #include <libgui/libgui.h>
 #include <awm/awm_messages.h>

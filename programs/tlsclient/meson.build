@@ -1,5 +1,5 @@
 project('tlsclient', 'c')
-add_project_link_arguments('-lnet', '-lport', '-lgui', '-lagx', '-lamc', language: 'c')
+add_project_link_arguments('-lnet', '-lport', '-lgui', '-lagx', '-lamc', '-lutils', language: 'c')
 executable(
     'tlsclient', 
     [

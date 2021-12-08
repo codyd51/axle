@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 #include <libamc/libamc.h>
-#include <stdlibadd/assert.h>
+#include <libutils/assert.h>
 
 #include <libnet/libnet.h>
 #include <libport/libport.h>

@@ -1,5 +1,5 @@
 project('file_manager', 'c')
-add_project_link_arguments('-lport', '-lamc', '-lgui', '-lagx', '-limg', language: 'c')
+add_project_link_arguments('-lport', '-lamc', '-lgui', '-lagx', '-limg', '-lutils', language: 'c')
 executable(
     'file_manager', 
     'ata.c', 

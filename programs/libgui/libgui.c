@@ -7,8 +7,8 @@
 #include <kernel/adi.h>
 
 #include <libamc/libamc.h>
-#include <stdlibadd/array.h>
-#include <stdlibadd/assert.h>
+#include <libutils/array.h>
+#include <libutils/assert.h>
 
 #include <agx/lib/screen.h>
 #include <agx/lib/shapes.h>

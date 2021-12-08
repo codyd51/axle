@@ -1,4 +1,5 @@
 project('libfiles', 'c')
+add_project_link_arguments('-lutils', language: 'c')
 static_library(
     'files', 
     'libfiles.c',

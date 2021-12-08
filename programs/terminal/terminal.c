@@ -11,7 +11,7 @@
 #include <libamc/libamc.h>
 
 #include <libport/libport.h>
-#include <stdlibadd/assert.h>
+#include <libutils/assert.h>
 
 #include "terminal.h"
 

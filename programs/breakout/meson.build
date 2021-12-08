@@ -1,5 +1,5 @@
 project('breakout', 'c')
-add_project_link_arguments('-lagx', '-lgui', '-lamc', language: 'c')
+add_project_link_arguments('-lagx', '-lgui', '-lamc', '-lutils', language: 'c')
 executable(
     'breakout', 
     'breakout.c', 

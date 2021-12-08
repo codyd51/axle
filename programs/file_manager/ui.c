@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <stdlibadd/assert.h>
+#include <libutils/assert.h>
 #include <agx/font/font.h>
 #include <libamc/libamc.h>
 #include <libimg/libimg.h>

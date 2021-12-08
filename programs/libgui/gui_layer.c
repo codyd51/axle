@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include <stdlibadd/assert.h>
-#include <stdlibadd/array.h>
+#include <libutils/assert.h>
+#include <libutils/array.h>
 
 #include <agx/font/font.h>
 #include "utils.h"

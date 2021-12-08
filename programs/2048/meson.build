@@ -1,5 +1,5 @@
 project('2048', 'c')
-add_project_link_arguments('-lagx', '-lgui', '-lamc', language: 'c')
+add_project_link_arguments('-lagx', '-lgui', '-lamc', '-lutils', language: 'c')
 executable(
     '2048', 
     '2048.c', 

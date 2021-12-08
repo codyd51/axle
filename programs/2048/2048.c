@@ -7,7 +7,7 @@
 #include <agx/lib/shapes.h>
 #include <agx/lib/rect.h>
 #include <libgui/libgui.h>
-#include <stdlibadd/assert.h>
+#include <libutils/assert.h>
 
 #define TILE_COUNT	16
 #define TILES_PER_ROW	4

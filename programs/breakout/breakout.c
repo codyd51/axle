@@ -8,7 +8,7 @@
 #include <agx/lib/shapes.h>
 #include <agx/lib/rect.h>
 #include <libgui/libgui.h>
-#include <stdlibadd/assert.h>
+#include <libutils/assert.h>
 
 #define MAGNITUDE_SCALE 300
 #define BRICKS_PER_ROW 	12

@@ -1,5 +1,5 @@
 project('awm', 'c')
-add_project_link_arguments('-lagx', '-lamc', '-limg', language: 'c')
+add_project_link_arguments('-lagx', '-lamc', '-limg', '-lutils', '-lm', language: 'c')
 executable(
     'awm', 
     [

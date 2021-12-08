@@ -10,7 +10,7 @@
 
 #include <libport/libport.h>
 #include <libamc/libamc.h>
-#include <stdlibadd/array.h>
+#include <libutils/array.h>
 
 #include <awm/awm_messages.h>
 

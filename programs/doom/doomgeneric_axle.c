@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 #include <libgui/libgui.h>
-#include <stdlibadd/array.h>
+#include <libutils/array.h>
 #include <drivers/kb/kb_driver_messages.h>
 
 uint32_t ms_since_boot();

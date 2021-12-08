@@ -1,7 +1,7 @@
 #ifndef FS_NODE_H
 #define FS_NODE_H
 
-#include <stdlibadd/array.h>
+#include <libutils/array.h>
 
 typedef enum fs_node_type {
     FS_NODE_TYPE_BASE = 0,

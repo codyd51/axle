@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdlibadd/assert.h>
+#include <libutils/assert.h>
 
 static Size _screen_resolution = {0};
 static int _screen_bytes_per_pixel = 0;

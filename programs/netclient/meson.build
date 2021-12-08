@@ -1,5 +1,5 @@
 project('netclient', 'c')
-add_project_link_arguments('-lgui', '-lnet', '-lagx', '-lamc', language: 'c')
+add_project_link_arguments('-lgui', '-lnet', '-lagx', '-lamc', '-lutils', language: 'c')
 executable(
     'netclient', 
     [

@@ -2,7 +2,7 @@
 #define KB_DRIVER_H
 
 #include <stdint.h>
-#include <stdlibadd/array.h>
+#include <libutils/array.h>
 
 #define SCANCODE_KEY_RELEASED		0xF0
 #define SCANCODE_SHIFT_L_PRESSED	0x12

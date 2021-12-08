@@ -1,5 +1,5 @@
 project('image_viewer', 'c')
-add_project_link_arguments('-lamc', '-lgui', '-lagx', '-limg', language: 'c')
+add_project_link_arguments('-lamc', '-lgui', '-lagx', '-limg', '-lutils', language: 'c')
 executable(
     'image_viewer', 
     'image_viewer.c', 

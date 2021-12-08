@@ -1,5 +1,5 @@
 project('doom', 'c')
-add_project_link_arguments('-lgui', '-lagx', '-lamc', '-lfiles', language: 'c')
+add_project_link_arguments('-lgui', '-lagx', '-lamc', '-lfiles', '-lutils', language: 'c')
 executable(
     'doom', 
     'i_main.c',

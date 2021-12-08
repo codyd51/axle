@@ -6,7 +6,7 @@
 #include <ctype.h>
 
 #include <libamc/libamc.h>
-#include <stdlibadd/assert.h>
+#include <libutils/assert.h>
 
 #include <awm/awm.h>
 

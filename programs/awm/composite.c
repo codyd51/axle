@@ -1,8 +1,8 @@
 #include <unistd.h>
 #include <stdint.h>
 
-#include <stdlibadd/assert.h>
-#include <stdlibadd/array.h>
+#include <libutils/assert.h>
+#include <libutils/array.h>
 
 #include <agx/lib/shapes.h>
 

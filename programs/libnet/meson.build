@@ -1,4 +1,5 @@
 project('libnet', 'c')
+add_project_link_arguments('-lutils', language: 'c')
 static_library(
     'net', 
     ['libnet.c'],

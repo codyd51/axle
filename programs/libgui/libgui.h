@@ -1,7 +1,7 @@
 #ifndef LIBGUI_H
 #define LIBGUI_H
 
-#include <stdlibadd/array.h>
+#include <libutils/array.h>
 
 #include <kernel/amc.h>
 // For KEY_IDENT_UP_ARROW, etc

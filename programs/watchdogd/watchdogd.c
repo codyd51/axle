@@ -6,7 +6,7 @@
 #include <memory.h>
 
 #include <kernel/amc.h>
-#include <stdlibadd/array.h>
+#include <libutils/array.h>
 
 #include <libamc/libamc.h>
 

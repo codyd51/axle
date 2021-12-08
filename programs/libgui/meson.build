@@ -1,5 +1,5 @@
 project('libgui', 'c')
-add_project_link_arguments('-lagx', language: 'c')
+add_project_link_arguments('-lagx', '-lutils', language: 'c')
 static_library(
     'gui', 
     [

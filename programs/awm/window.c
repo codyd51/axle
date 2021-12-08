@@ -2,8 +2,8 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <stdlibadd/assert.h>
-#include <stdlibadd/array.h>
+#include <libutils/assert.h>
+#include <libutils/array.h>
 
 #include <libamc/libamc.h>
 #include <agx/lib/gfx.h>

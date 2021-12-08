@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 #include <libport/libport.h>
-// TODO(PT): Move hashmap to stdlibadd
+// TODO(PT): Move hashmap to libutils
 #include <agx/lib/hash_map.h>
 
 #include "dns.h"

@@ -2,7 +2,7 @@
 #define UTIL_H
 
 #include <stdint.h>
-#include <stdlibadd/array.h>
+#include <libutils/array.h>
 
 #include "vfs.h"
 

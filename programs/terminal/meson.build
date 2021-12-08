@@ -1,5 +1,5 @@
 project('terminal', 'c')
-add_project_link_arguments('-lagx', '-lgui', '-lamc', '-lport', language: 'c')
+add_project_link_arguments('-lagx', '-lgui', '-lamc', '-lport', '-lutils', language: 'c')
 executable(
     'terminal', 
     'terminal.c',

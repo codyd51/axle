@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <memory.h>
 
-#include <stdlibadd/assert.h>
+#include <libutils/assert.h>
 #include <agx/lib/putpixel.h>
 
 #include "libimg.h"

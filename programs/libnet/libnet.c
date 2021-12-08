@@ -5,7 +5,7 @@
 
 #include <kernel/amc.h>
 #include <net/net_messages.h>
-#include <stdlibadd/assert.h>
+#include <libutils/assert.h>
 
 #include "libnet.h"
 

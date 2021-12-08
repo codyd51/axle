@@ -1,5 +1,5 @@
 project('paintbrush', 'c')
-add_project_link_arguments('-lgui', '-lagx', '-lamc', language: 'c')
+add_project_link_arguments('-lgui', '-lagx', '-lamc', '-lutils', language: 'c')
 executable(
     'paintbrush', 
     'paintbrush.c',

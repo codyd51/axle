@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <stdlibadd/assert.h>
+#include <libutils/assert.h>
 #include <agx/lib/shapes.h>
 #include <libgui/libgui.h>
 #include <libimg/libimg.h>

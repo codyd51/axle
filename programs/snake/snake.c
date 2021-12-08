@@ -8,7 +8,7 @@
 #include <agx/lib/shapes.h>
 #include <agx/lib/rect.h>
 #include <libgui/libgui.h>
-#include <stdlibadd/assert.h>
+#include <libutils/assert.h>
 
 #define ROWS 16
 #define COLS 16

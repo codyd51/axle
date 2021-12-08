@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 #include <image_viewer/image_viewer_messages.h>
-#include <stdlibadd/assert.h>
+#include <libutils/assert.h>
 
 #include "util.h"
 

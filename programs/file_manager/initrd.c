@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <stdlibadd/assert.h>
+#include <libutils/assert.h>
 
 #include "file_manager_messages.h"
 #include "vfs.h"

@@ -1,5 +1,5 @@
 project('ata_driver', 'c')
-add_project_link_arguments('-lport', '-lamc', '-lgui', '-lagx', language: 'c')
+add_project_link_arguments('-lport', '-lamc', '-lgui', '-lagx', '-lutils', language: 'c')
 executable(
     'ata_driver', 
     'ata_driver.c', 

@@ -1,5 +1,5 @@
 project('watchdogd', 'c')
-add_project_link_arguments('-lamc', language: 'c')
+add_project_link_arguments('-lamc', '-lutils', language: 'c')
 executable(
     'watchdogd', 
     'watchdogd.c', 

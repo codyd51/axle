@@ -1,5 +1,5 @@
 project('kb_driver', 'c')
-add_project_link_arguments('-lport', '-lamc', language: 'c')
+add_project_link_arguments('-lport', '-lamc', '-lutils', language: 'c')
 executable(
     'kb_driver', 
     'kb_driver.c', 
