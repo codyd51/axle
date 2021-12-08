@@ -4,11 +4,12 @@ import os
 import selectors
 import shutil
 import subprocess
+import urllib
+import requests
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
-import requests
 
 
 def second_file_is_older(file1: Path, file2: Path) -> bool:
@@ -20,7 +21,7 @@ def copied_file_is_outdated(source_path: Path, copied_path: Path) -> bool:
 
 
 def run_and_check(cmd_list: List[str], cwd: Path = None, env_additions: Optional[Dict[str, str]] = None) -> None:
-    print(" ".join(cmd_list))
+    print(" ".join(cmd_list), cwd)
     env = {}
     if env_additions:
         env = os.environ.copy()
@@ -92,16 +93,34 @@ def sizeof_fmt(num, suffix="B"):
 
 
 def download_file(directory: Path, url: str) -> Path:
+    cache_dir = Path(__file__).parent / "caches"
+    cache_dir.mkdir(exist_ok=True)
+
     local_filename = url.split("/")[-1]
     download_path = directory / local_filename
+    cache_file = cache_dir / local_filename
+
+    if cache_file.exists():
+        print(f'Providing {local_filename} from cache...')
+        shutil.copy(cache_file, download_path)
+        return download_path
+
     print(f"Downloading {url} to {download_path}...")
-    # NOTE the stream=True parameter below
-    with requests.get(url, stream=True) as r:
-        r.raise_for_status()
-        with open(download_path.as_posix(), "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
+
+    with open(download_path.as_posix(), "wb") as f:
+        if url.startswith('ftp://'):
+            urllib.request.urlretrieve(url, download_path.as_posix())
+        else:
+            # NOTE the stream=True parameter below
+            with requests.get(url, stream=True) as r:
+                r.raise_for_status()
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
     print(f'File size: {sizeof_fmt(download_path.stat().st_size)}')
+
+    # Copy downloaded file to our cache
+    shutil.copy(download_path, cache_file)
+
     return download_path
 
 
