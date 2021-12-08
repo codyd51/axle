@@ -1,0 +1,364 @@
+diff --git a/.gitignore b/.gitignore
+index 13a554a..ea4ca54 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -22,7 +22,6 @@
+ 
+ autom4te.cache
+ config.cache
+-config.h
+ config.intl
+ config.log
+ config.status
+diff --git a/config.sub b/config.sub
+index 6d86a1e..fa73821 100755
+--- a/config.sub
++++ b/config.sub
+@@ -1373,7 +1373,7 @@ case $os in
+ 	# The portable systems comes first.
+ 	# Each alternative MUST END IN A *, to match a version number.
+ 	# -sysv* is not here because it comes later, after sysvr4.
+-	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* \
++	-gnu* | -bsd* | -mach* | -minix* | -genix* | -ultrix* | -irix* | -axle* \
+ 	      | -*vms* | -sco* | -esix* | -isc* | -aix* | -cnk* | -sunos | -sunos[34]*\
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+ 	      | -sym* | -kopensolaris* | -plan9* \
+diff --git a/newlib/configure.host b/newlib/configure.host
+index 3e950d8..935d9aa 100644
+--- a/newlib/configure.host
++++ b/newlib/configure.host
+@@ -415,6 +415,12 @@ case "${host}" in
+ 	  have_crt0="no"
+ 	fi
+ 	;;
++  i[3-7]86-*-axle*)
++    sys_dir=axle
++    ;;
++  x86_64-*-axle*)
++    sys_dir=axle
++    ;;
+   bfin-*-*)
+ 	sys_dir=
+ 	;;
+diff --git a/newlib/libc/sys/axle/Makefile.am b/newlib/libc/sys/axle/Makefile.am
+new file mode 100644
+index 0000000..cabcf6a
+--- /dev/null
++++ b/newlib/libc/sys/axle/Makefile.am
+@@ -0,0 +1,25 @@
++AUTOMAKE_OPTIONS = cygnus
++INCLUDES = -I$(srcdir)/include $(NEWLIB_CFLAGS) $(CROSS_CFLAGS) $(TARGET_CFLAGS)
++AM_CCASFLAGS = $(INCLUDES)
++
++noinst_LIBRARIES = lib.a
++
++if MAY_SUPPLY_SYSCALLS
++extra_objs = syscalls.o
++else
++extra_objs =
++endif
++
++lib_a_SOURCES =
++lib_a_LIBADD = $(extra_objs)
++EXTRA_lib_a_SOURCES = syscalls.c crt0.c
++lib_a_DEPENDENCIES = $(extra_objs)
++lib_a_CCASFLAGS = $(AM_CCASFLAGS)
++lib_a_CFLAGS = $(AM_CFLAGS)
++
++if MAY_SUPPLY_SYSCALLS
++all: crt0.o
++endif
++
++ACLOCAL_AMFLAGS = -I ../../..
++CONFIG_STATUS_DEPENDENCIES = $(newlib_basedir)/configure.host
+diff --git a/newlib/libc/sys/axle/configure.in b/newlib/libc/sys/axle/configure.in
+new file mode 100644
+index 0000000..9e15348
+--- /dev/null
++++ b/newlib/libc/sys/axle/configure.in
+@@ -0,0 +1,7 @@
++AC_PREREQ(2.59)
++AC_INIT([newlib], [NEWLIB_VERSION])
++AC_CONFIG_SRCDIR([crt0.c])
++AC_CONFIG_AUX_DIR(../../../..)
++NEWLIB_CONFIGURE(../../..)
++AC_CONFIG_FILES([Makefile])
++AC_OUTPUT
+diff --git a/newlib/libc/sys/axle/crt0.c b/newlib/libc/sys/axle/crt0.c
+new file mode 100644
+index 0000000..850252a
+--- /dev/null
++++ b/newlib/libc/sys/axle/crt0.c
+@@ -0,0 +1,10 @@
++#include <fcntl.h>
++
++extern void exit(int code);
++extern int main(int argc, char** argv);
++
++void _start(int argc, char** argv) {
++    _init_signal();
++    int exit_code = main(argc, argv);
++    exit(exit_code);
++}
+diff --git a/newlib/libc/sys/axle/syscalls.c b/newlib/libc/sys/axle/syscalls.c
+new file mode 100644
+index 0000000..c2926ca
+--- /dev/null
++++ b/newlib/libc/sys/axle/syscalls.c
+@@ -0,0 +1,209 @@
++/* note these headers are all provided by newlib - you don't need to provide them */
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <sys/fcntl.h>
++#include <sys/times.h>
++#include <sys/errno.h>
++#include <sys/time.h>
++#include <stdio.h>
++#include <stdbool.h>
++#include <stdint.h>
++
++#include "syscalls.h"
++
++// amc syscalls
++typedef struct amc_message amc_message_t;
++DEFN_SYSCALL(amc_register_service, 0, const char*);
++DEFN_SYSCALL(amc_message_send, 1, const char*, uint8_t*, uint32_t);
++DEFN_SYSCALL(amc_message_await, 2, const char*, amc_message_t*);
++DEFN_SYSCALL(amc_message_await_from_services, 3, int, const char**, amc_message_t*);
++DEFN_SYSCALL(amc_message_await_any, 4, amc_message_t**);
++DEFN_SYSCALL(amc_has_message_from, 5, const char*);
++DEFN_SYSCALL(amc_has_message, 6);
++
++// TODO(PT): Perhaps amc_has_message and amc_message_await_any can be special usages of
++// their extended variants wrapped by libamc
++
++// adi syscalls
++DEFN_SYSCALL(adi_register_driver, 7, const char*, uint32_t);
++DEFN_SYSCALL(adi_event_await, 8, uint32_t);
++DEFN_SYSCALL(adi_send_eoi, 9, uint32_t);
++
++// Processs management syscalls
++DEFN_SYSCALL(sbrk, 10, int);
++DEFN_SYSCALL(write, 11, int, char*, int);
++DEFN_SYSCALL(_exit, 12, int);
++DEFN_SYSCALL(getpid, 13);
++DEFN_SYSCALL(ms_since_boot, 14);
++DEFN_SYSCALL(task_assert, 15, const char*);
++
++// According to the documentation, this is an acceptable minimal environ
++// https://sourceware.org/newlib/libc.html#Syscalls
++char* __env[1] = { 0 };
++char** environ = __env;
++
++/*
++amc syscalls
++*/
++
++void amc_register_service(const char* name) {
++    sys_amc_register_service(name);
++}
++
++bool amc_message_send(
++    const char* destination_service,
++    void* buf,
++    uint32_t buf_size) {
++    return sys_amc_message_send(destination_service, buf, buf_size);
++}
++
++// Block until a message has been received from the source service
++void amc_message_await(const char* source_service, amc_message_t** out) {
++    sys_amc_message_await(source_service, out);
++}
++
++// Block until a message has been received from any of the source services
++void amc_message_await_from_services(int source_service_count, const char** source_services, amc_message_t** out) {
++    sys_amc_message_await_from_services(source_service_count, source_services, out);
++}
++
++// Await a message from any service
++// Blocks until a message is received
++void amc_message_await_any(amc_message_t** out) {
++    sys_amc_message_await_any(out);
++}
++
++bool amc_has_message_from(const char* source_service) {
++    return sys_amc_has_message_from(source_service);
++}
++
++bool amc_has_message(void) {
++    return sys_amc_has_message();
++}
++
++/*
++ * ADI syscalls
++ */
++
++void adi_register_driver(const char* name, uint32_t irq) {
++    sys_adi_register_driver(name, irq);
++}
++
++bool adi_event_await(uint32_t irq) {
++    return sys_adi_event_await(irq);
++}
++
++void adi_send_eoi(uint32_t irq) {
++    sys_adi_send_eoi(irq);
++}
++
++/*
++ * Misc syscalls
++ */
++
++caddr_t sbrk(int incr) {
++    return (caddr_t)sys_sbrk(incr);
++}
++
++int write(int file, char *ptr, int len) {
++    // If sys_write returns an incorrect number of bytes written,
++    // newlib will loop to try and write more bytes
++    return sys_write(file, ptr, len);
++}
++
++void _exit(int code) {
++    sys__exit(code);
++}
++
++int getpid() {
++    return sys_getpid();
++}
++
++int ms_since_boot(void) {
++    return sys_ms_since_boot();
++}
++
++void task_assert(bool cond, const char* msg) {
++    if (cond) {
++        return;
++    }
++    sys_task_assert(msg);
++}
++
++/*
++ * Unimplemented syscall stubs
++ */
++
++int execve(char *name, char **argv, char **env) {
++    return -1;
++}
++
++int fork() {
++    return -1;
++}
++
++int kill(int pid, int sig) {
++    return -1;
++}
++
++int link(char *old, char *new) {
++    return -1;
++}
++
++int fstat(int file, struct stat *st) {
++    st->st_mode = S_IFCHR;
++    return 0;
++}
++
++int isatty(int file) {
++    return 1;
++}
++
++int stat(const char *file, struct stat *st) {
++    st->st_mode = S_IFCHR;
++    return 0;
++}
++
++int unlink(char *name) {
++    return -1;
++}
++
++clock_t times(struct tms *buf) {
++    return -1;
++}
++
++int wait(int *status) {
++    return -1;
++}
++
++int gettimeofday(struct timeval *__restrict p, void *__restrict z) {
++    return 0;
++}
++
++/*
++ * Implemented in libfiles
++ */
++
++int close(int file) {
++    assert(false, "Link against libfiles for file operations");
++    return -1;
++}
++
++int lseek(int file, int ptr, int dir) {
++    assert(false, "Link against libfiles for file operations");
++    return -1;
++}
++
++int open(const char *name, int flags, ...) {
++    assert(false, "Link against libfiles for file operations");
++    return -1;
++}
++
++int read(int file, char *ptr, int len) {
++    assert(false, "Link against libfiles for file operations");
++    return -1;
++}
++
++void assert(bool cond, const char* msg) {
++	printf("assert called, but assert() is implemented in libutil, please link against it!\n"); 
++}
+diff --git a/newlib/libc/sys/axle/syscalls.h b/newlib/libc/sys/axle/syscalls.h
+new file mode 100644
+index 0000000..0c7a910
+--- /dev/null
++++ b/newlib/libc/sys/axle/syscalls.h
+@@ -0,0 +1,28 @@
++#ifndef SYSCALL_H
++#define SYSCALL_H
++
++#define _ASM_SYSCALL_ARGS_0()
++#define _ASM_SYSCALL_ARGS_1(P1) P1 p1
++#define _ASM_SYSCALL_ARGS_2(P1, P2) _ASM_SYSCALL_ARGS_1(P1), P2 p2
++#define _ASM_SYSCALL_ARGS_3(P1, P2, P3) _ASM_SYSCALL_ARGS_2(P1, P2), P3 p3
++#define _ASM_SYSCALL_ARGS_4(P1, P2, P3, P4) _ASM_SYSCALL_ARGS_3(P1, P2, P3), P4 p4
++#define _ASM_SYSCALL_ARGS_5(P1, P2, P3, P4, P5) _ASM_SYSCALL_ARGS_4(P1, P2, P3, P4), P5 p5
++
++#define _ASM_SYSCALL_BODY_0(num) "int $0x80" : "=a" (a) : "0" (num)
++#define _ASM_SYSCALL_BODY_1(num) _ASM_SYSCALL_BODY_0(num), "b" ((uintptr_t)p1)
++#define _ASM_SYSCALL_BODY_2(num) _ASM_SYSCALL_BODY_1(num), "c" ((uintptr_t)p2)
++#define _ASM_SYSCALL_BODY_3(num) _ASM_SYSCALL_BODY_2(num), "d" ((uintptr_t)p3)
++#define _ASM_SYSCALL_BODY_4(num) _ASM_SYSCALL_BODY_3(num), "S" ((uintptr_t)p4)
++#define _ASM_SYSCALL_BODY_5(num) _ASM_SYSCALL_BODY_4(num), "D" ((uintptr_t)p5)
++
++#define _ARG_COUNT(z, a, b, c, d, e, f, N, ...) N
++#define ARG_COUNT(...) _ARG_COUNT(,##__VA_ARGS__, 6, 5, 4, 3, 2, 1, 0)
++
++#define __DEFN_SYSCALL(N, fn, num, ...) \
++int sys_##fn(_ASM_SYSCALL_ARGS_##N(__VA_ARGS__)) { \
++	int a; asm volatile(_ASM_SYSCALL_BODY_##N(num)); return a; \
++}
++#define _DEFN_SYSCALL(N, fn, num, ...) __DEFN_SYSCALL(N, fn, num, ##__VA_ARGS__)
++#define DEFN_SYSCALL(fn, num, ...) _DEFN_SYSCALL(ARG_COUNT(__VA_ARGS__), fn, num, ##__VA_ARGS__)
++
++#endif
+\ No newline at end of file
+diff --git a/newlib/libc/sys/configure.in b/newlib/libc/sys/configure.in
+index bc6cb88..1fb922a 100644
+--- a/newlib/libc/sys/configure.in
++++ b/newlib/libc/sys/configure.in
+@@ -24,6 +24,7 @@ if test -n "${sys_dir}"; then
+   case ${sys_dir} in
+ 	a29khif) AC_CONFIG_SUBDIRS(a29khif) ;;
+ 	arm) AC_CONFIG_SUBDIRS(arm) ;;
++	axle) AC_CONFIG_SUBDIRS(axle) ;;
+ 	d10v) AC_CONFIG_SUBDIRS(d10v) ;;
+ 	decstation) AC_CONFIG_SUBDIRS(decstation) ;;
+ 	epiphany) AC_CONFIG_SUBDIRS(epiphany) ;;
