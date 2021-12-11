@@ -19,8 +19,8 @@ def install_dependencies():
     ]
     run_and_check(["sudo", "apt", "install", "-y", *dependencies])
 
-    requirements_file = Path(__file__).parents[1] / "python-dependencies.txt"
-    run_and_check(["pip3", "install",  "-r", requirements_file.as_posix()])
+    # requirements_file = Path(__file__).parents[1] / "python-dependencies.txt"
+    # run_and_check(["pip3", "install",  "-r", requirements_file.as_posix()])
 
 
 def main() -> None:
