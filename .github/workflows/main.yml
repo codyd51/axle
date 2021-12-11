@@ -23,13 +23,14 @@ jobs:
         with:
           # Requires Python >= 3.9 for str.removesuffix()
           python-version: '3.9'
+          # https://github.com/actions/setup-python#caching-packages-dependencies
+          cache: 'pip'
+          cache-dependency-path: 'python-dependencies.txt'
+      - run: pip install -r python-dependencies.txt
 
-      # Runs a set of commands using the runners shell
       - name: Build axle toolchain
         shell: bash
         run: |
-          set -x
-          pip3 install -r python-dependencies.txt
           python3 scripts/install_dependencies.py
           python3 scripts/build_os_toolchain.py
           echo "Toolchain built successfully"
@@ -53,12 +54,10 @@ jobs:
         with:
           # Requires Python >= 3.9 for str.removesuffix()
           python-version: '3.9'
-
-      - name: Install dependencies
-        shell: bash
-        run: |
-          set -x
-          pip3 install -r python-dependencies.txt
+          # https://github.com/actions/setup-python#caching-packages-dependencies
+          cache: 'pip'
+          cache-dependency-path: 'python-dependencies.txt'
+      - run: pip install -r python-dependencies.txt
         
       - uses: actions/download-artifact@v2
         with:
