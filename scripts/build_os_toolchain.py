@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import os
 import shutil
+import argparse
 import tempfile
 from pathlib import Path
 from typing import Tuple
@@ -36,6 +37,9 @@ def install_dependencies():
         "xorriso",
     ]
     run_and_check(["sudo", "apt", "install", "-y", *dependencies])
+
+    requirements_file = Path(__file__).parents[1] / "python-dependencies.txt"
+    run_and_check(["pip3", "install",  "-r", requirements_file.as_posix()])
 
 
 def build() -> None:
@@ -181,6 +185,23 @@ def build() -> None:
         run_and_check(['make', 'install-target-libstdc++-v3'], cwd=gcc_build_dir)
 
 
-if __name__ == "__main__":
-    install_dependencies()
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--install_dependencies_only", action="store_true")
+    parser.add_argument("--install_dependencies", action="store_true")
+    parser.set_defaults(install_dependencies_only=False)
+    parser.set_defaults(install_dependencies=False)
+    args = parser.parse_args()
+
+    if args.install_dependencies_only:
+        install_dependencies()
+        return
+    
+    if args.install_dependencies:
+        install_dependencies()
+
     build()
+
+
+if __name__ == "__main__":
+    main()
