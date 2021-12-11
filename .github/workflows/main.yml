@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-sysroot-and-toolchain:
     runs-on: ubuntu-latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
@@ -29,8 +29,7 @@ jobs:
         shell: bash
         run: |
           set -x
-          pip3 install -r python-dependencies.txt
-          python3 scripts/build_os_toolchain.py
+          python3 scripts/build_os_toolchain.py --install_dependencies
           echo "Toolchain built successfully"
         
       - uses: actions/upload-artifact@v2
@@ -39,3 +38,34 @@ jobs:
           path: |
             x86_64-toolchain
             axle-sysroot
+
+  build-sysroot-and-toolchain:
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks out repo at $GITHUB_WORKSPACE
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          # Requires Python >= 3.9 for str.removesuffix()
+          python-version: '3.9'
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -x
+          # Install dependencies
+          python3 scripts/build_os_toolchain.py --install_dependencies_only
+        
+      - uses: actions/download-artifact@v2
+        with:
+          name: sysroot-and-toolchain
+
+      - name: Build kernel
+        shell: bash
+        run: |
+          python3 scripts/build_kernel_headers.py
+          python3 scripts/build_kernel.py
+      
+      # TODO(PT): Upload an iso image as an artifact?
