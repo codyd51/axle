@@ -39,7 +39,7 @@ jobs:
             x86_64-toolchain
             axle-sysroot
 
-  build-sysroot-and-toolchain:
+  build-kernel:
     runs-on: ubuntu-latest
 
     # Steps represent a sequence of tasks that will be executed as part of the job
