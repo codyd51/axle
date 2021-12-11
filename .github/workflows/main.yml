@@ -32,3 +32,10 @@ jobs:
           pip3 install -r python-dependencies.txt
           python3 scripts/build_os_toolchain.py
           echo "Toolchain built successfully"
+        
+      - uses: actions/upload-artifact@v2
+        with:
+          name: sysroot-and-toolchain
+          path: |
+            x86_64-toolchain
+            axle-sysroot
