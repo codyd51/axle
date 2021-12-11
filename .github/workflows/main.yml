@@ -29,7 +29,8 @@ jobs:
         shell: bash
         run: |
           set -x
-          python3 scripts/build_os_toolchain.py --install_dependencies
+          python3 scripts/install_dependencies.py
+          python3 scripts/build_os_toolchain.py
           echo "Toolchain built successfully"
         
       - uses: actions/upload-artifact@v2
@@ -55,8 +56,7 @@ jobs:
         shell: bash
         run: |
           set -x
-          # Install dependencies
-          python3 scripts/build_os_toolchain.py --install_dependencies_only
+          python3 scripts/install_dependencies.py
         
       - uses: actions/download-artifact@v2
         with:

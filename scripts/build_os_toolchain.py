@@ -23,25 +23,6 @@ def sleep():
         time.sleep(1)
 
 
-def install_dependencies():
-    print(f"Installing dependencies...")
-    run_and_check(["sudo", "apt", "update"])
-    dependencies = [
-        "build-essential",
-        "bison",
-        "flex",
-        "libgmp3-dev",
-        "libmpc-dev",
-        "libmpfr-dev",
-        "texinfo",
-        "xorriso",
-    ]
-    run_and_check(["sudo", "apt", "install", "-y", *dependencies])
-
-    requirements_file = Path(__file__).parents[1] / "python-dependencies.txt"
-    run_and_check(["pip3", "install",  "-r", requirements_file.as_posix()])
-
-
 def build() -> None:
     axle_dir = Path(__file__).parents[1]
     sysroot_dir = axle_dir / "axle-sysroot"
@@ -186,20 +167,6 @@ def build() -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--install_dependencies_only", action="store_true")
-    parser.add_argument("--install_dependencies", action="store_true")
-    parser.set_defaults(install_dependencies_only=False)
-    parser.set_defaults(install_dependencies=False)
-    args = parser.parse_args()
-
-    if args.install_dependencies_only:
-        install_dependencies()
-        return
-    
-    if args.install_dependencies:
-        install_dependencies()
-
     build()
 
 
