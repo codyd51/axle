@@ -26,7 +26,9 @@ jobs:
 
       # Runs a set of commands using the runners shell
       - name: Build axle toolchain
+        shell: bash
         run: |
+          set -x
           pip3 install -r python-dependencies.txt
           python3 scripts/build_os_toolchain.py
           echo "Toolchain built successfully"
