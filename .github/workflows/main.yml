@@ -19,6 +19,10 @@ jobs:
     steps:
       # Checks out repo at $GITHUB_WORKSPACE
       - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          # Requires Python >= 3.9 for str.removesuffix()
+          python-version: '3.9'
 
       # Runs a set of commands using the runners shell
       - name: Build axle toolchain
