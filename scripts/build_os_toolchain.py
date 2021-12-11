@@ -22,6 +22,22 @@ def sleep():
         time.sleep(1)
 
 
+def install_dependencies():
+    print(f"Installing dependencies...")
+    run_and_check(["sudo", "apt", "update"])
+    dependencies = [
+        "build-essential",
+        "bison",
+        "flex",
+        "libgmp3-dev",
+        "libmpc-dev",
+        "libmpfr-dev",
+        "texinfo",
+        "xorriso",
+    ]
+    run_and_check(["sudo", "apt", "install", "-y", *dependencies])
+
+
 def build() -> None:
     axle_dir = Path(__file__).parents[1]
     sysroot_dir = axle_dir / "axle-sysroot"
@@ -166,4 +182,5 @@ def build() -> None:
 
 
 if __name__ == "__main__":
+    install_dependencies()
     build()

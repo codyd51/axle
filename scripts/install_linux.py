@@ -18,7 +18,7 @@ def install() -> None:
         "texinfo",
         "xorriso",
     ]
-    # run_and_check(["sudo", "apt", "install", *dependencies])
+    run_and_check(["sudo", "apt", "install", *dependencies])
 
     axle_dir = Path(__file__).parents[1]
     arch_target = "x86_64-elf"
