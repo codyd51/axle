@@ -24,8 +24,8 @@ jobs:
           # Requires Python >= 3.9 for str.removesuffix()
           python-version: '3.9'
           # https://github.com/actions/setup-python#caching-packages-dependencies
-          cache: 'pip'
-          cache-dependency-path: 'python-dependencies.txt'
+          # cache: 'pip'
+          # cache-dependency-path: 'python-dependencies.txt'
       - run: pip install -r python-dependencies.txt
 
       - name: Build axle toolchain
@@ -55,8 +55,8 @@ jobs:
           # Requires Python >= 3.9 for str.removesuffix()
           python-version: '3.9'
           # https://github.com/actions/setup-python#caching-packages-dependencies
-          cache: 'pip'
-          cache-dependency-path: 'python-dependencies.txt'
+          # cache: 'pip'
+          # cache-dependency-path: 'python-dependencies.txt'
       - run: pip install -r python-dependencies.txt
         
       - uses: actions/download-artifact@v2
@@ -66,6 +66,7 @@ jobs:
       - name: Build kernel
         shell: bash
         run: |
+          git submodule update --init --recursive
           python3 scripts/build_kernel_headers.py
           python3 scripts/build_kernel.py
       
