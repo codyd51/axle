@@ -161,7 +161,7 @@ def main():
             shutil.copy(arch_specific_file.as_posix(), file.as_posix())
 
     # Build bootloader
-    env = {"USE_GCC": 1, "SHELL": "sh -xv"}
+    env = {"USE_GCC": "1", "SHELL": "sh -xv"}
     run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader" / "uefi", env_additions=env)
     run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader")
 
