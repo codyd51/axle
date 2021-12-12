@@ -12,13 +12,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-sysroot-and-toolchain:
+  build:
     runs-on: ubuntu-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks out repo at $GITHUB_WORKSPACE
       - uses: actions/checkout@v2
+
       - uses: actions/setup-python@v2
         with:
           # Requires Python >= 3.9 for str.removesuffix()
@@ -28,46 +28,25 @@ jobs:
           # cache-dependency-path: 'python-dependencies.txt'
       - run: pip install -r python-dependencies.txt
 
-      - name: Build axle toolchain
-        shell: bash
-        run: |
-          python3 scripts/install_dependencies.py
-          python3 scripts/build_os_toolchain.py
-          echo "Toolchain built successfully"
-        
-      - uses: actions/upload-artifact@v2
+      - name: Cache libc and toolchain
+        id: build-libc-and-toolchain
+        uses: actions/cache@v2
         with:
-          name: sysroot-and-toolchain
           path: |
             x86_64-toolchain
             axle-sysroot
 
-  build-kernel:
-    runs-on: ubuntu-latest
-    needs: build-sysroot-and-toolchain
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-      # Checks out repo at $GITHUB_WORKSPACE
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          # Requires Python >= 3.9 for str.removesuffix()
-          python-version: '3.9'
-          # https://github.com/actions/setup-python#caching-packages-dependencies
-          # cache: 'pip'
-          # cache-dependency-path: 'python-dependencies.txt'
-      - run: pip install -r python-dependencies.txt
-        
-      - uses: actions/download-artifact@v2
-        with:
-          name: sysroot-and-toolchain
-
-      - name: Build kernel
+      - name: Build libc and toolchain
+        shell: bash
+        if: steps.build-libc-and-toolchain.outputs.cache-hit != 'true'
+        run: |
+          python3 scripts/install_dependencies.py
+          python3 scripts/build_os_toolchain.py
+          echo "Toolchain built successfully"
+      
+      - name: Build OS image
         shell: bash
         run: |
           git submodule update --init --recursive
           python3 scripts/build_kernel_headers.py
           python3 scripts/build_kernel.py
-      
-      # TODO(PT): Upload an iso image as an artifact?
