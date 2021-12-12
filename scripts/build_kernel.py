@@ -161,7 +161,7 @@ def main():
             shutil.copy(arch_specific_file.as_posix(), file.as_posix())
 
     # Build bootloader
-    run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader" / "uefi")
+    run_and_check(["make", "SHELL='sh -xv'", "USE_GCC=1"], cwd=Path(__file__).parents[1] / "bootloader" / "uefi")
     run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader")
 
     # Build kernel image
