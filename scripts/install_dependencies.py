@@ -8,6 +8,7 @@ def install_dependencies():
     print(f"Installing dependencies...")
     run_and_check(["sudo", "apt", "update"])
     dependencies = [
+        # Toolchain
         "build-essential",
         "bison",
         "flex",
@@ -16,6 +17,8 @@ def install_dependencies():
         "libmpfr-dev",
         "texinfo",
         "xorriso",
+        # OS build
+        "nasm",
     ]
     run_and_check(["sudo", "apt", "install", "-y", *dependencies])
 
