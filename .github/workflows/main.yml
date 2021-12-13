@@ -47,8 +47,8 @@ jobs:
           python3 scripts/build_os_toolchain.py
           echo "Toolchain built successfully"
       
-      #- name: Build OS image
-      #  shell: bash
-      #  run: |
-      #    git submodule update --init --recursive
-      #    python3 scripts/build_kernel.py
+      - name: Build OS image
+        shell: bash
+        run: |
+          git submodule update --init --recursive
+          python3 scripts/build_kernel.py
