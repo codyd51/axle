@@ -35,8 +35,8 @@ jobs:
         uses: actions/cache@v2
         with:
           path: |
-            x86_64-toolchain
-            axle-sysroot
+            ./x86_64-toolchain
+            ./axle-sysroot
           key: libc-and-toolchain
 
       - name: Build libc and toolchain

@@ -163,7 +163,7 @@ def main():
     # Build bootloader
     env = {"USE_GCC": "1", "SHELL": "sh -xv"}
     run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader" / "uefi", env_additions=env)
-    run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader")
+    run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader", env_additions=env)
 
     # Build kernel image
     run_and_check(["make"])
