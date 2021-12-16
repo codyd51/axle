@@ -133,7 +133,7 @@ def main():
     args = parser.parse_args()
 
     # Stage kernel headers
-    copy_kernel_headers()
+    # copy_kernel_headers()
 
     # Stage architecture-specific source files
     kernel_root = Path(__file__).parents[1] / "kernel"
@@ -169,11 +169,12 @@ def main():
     run_and_check(["make"])
 
     # Build user programs
-    build_all_programs(
-        only_recently_updated=True,
-        force_rebuild_programs=args.force_rebuild_programs,
-        force_rebuild_all=args.force_rebuild_everything,
-    )
+    if False:
+        build_all_programs(
+            only_recently_updated=True,
+            force_rebuild_programs=args.force_rebuild_programs,
+            force_rebuild_all=args.force_rebuild_everything,
+        )
 
     # Build ramdisk
     build_initrd()
