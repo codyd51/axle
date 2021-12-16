@@ -13,7 +13,7 @@ from tempfile import TemporaryDirectory
 
 from dataclasses import dataclass
 
-from scripts.build_utils import second_file_is_older
+from build_utils import second_file_is_older
 
 
 @dataclass

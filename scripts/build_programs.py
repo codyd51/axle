@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from build_utils import run_and_check, second_file_is_older
-from scripts.build_userspace_headers import generate_meson_cross_file_if_necessary
+from build_userspace_headers import generate_meson_cross_file_if_necessary
 
 SKIP_PROGRAMS = ["cat", "tlsclient", "doomgeneric", "vim", "bash", "ncurses"]
 
