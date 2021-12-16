@@ -13,11 +13,31 @@ from tempfile import TemporaryDirectory
 
 from dataclasses import dataclass
 
+from scripts.build_utils import second_file_is_older
+
 
 @dataclass
 class MoveHeaderToSysrootOperation:
     input_file: Path
     sysroot_file: Path
+
+
+def generate_meson_cross_file_if_necessary() -> None:
+    # https://github.com/mesonbuild/meson/issues/309
+    # Since Meson won't let us fill in the repo root with an environment variable, 
+    # we have to template the file ourselves...
+    programs_root = Path(__file__).parents[1] / "programs"
+    cross_compile_config_path = programs_root / "cross_axle_generated.ini"
+    cross_compile_config_template = programs_root / "cross_axle_template.ini"
+    if not cross_compile_config_path.exists() or second_file_is_older(cross_compile_config_template, cross_compile_config_path):
+        print(f'Generating cross_axle.ini...')
+        if not cross_compile_config_template.exists():
+            raise ValueError(f'Cross compile template file didn\'t exist!')
+        cross_compile_config = cross_compile_config_template.read_text()
+        cross_compile_config = f'[constants]\n' \
+                               f'axle_repo_root = \'{Path(__file__).parents[1].as_posix()}\'\n' \
+                               f'{cross_compile_config}'
+        cross_compile_config_path.write_text(cross_compile_config)
 
 
 def build_headers_from_meson_build_file2(meson_file: Path) -> List[MoveHeaderToSysrootOperation]:
@@ -102,6 +122,7 @@ def build_headers_from_meson_build_file(meson_file: Path) -> List[MoveHeaderToSy
 
 
 def copy_userspace_headers() -> None:
+    generate_meson_cross_file_if_necessary()
     programs_root = Path(__file__).parents[1] / "programs"
     # Read the top-level meson.build file
     root_build_path = programs_root / "meson.build"
