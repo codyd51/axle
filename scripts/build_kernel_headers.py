@@ -26,7 +26,8 @@ def copy_kernel_headers():
         (src_root / "kernel" / "interrupts" / "idt.h", include_dir / "kernel" / "idt.h"),
         # Copy bootloader header to the sysroot
         (bootloader_root / "axle_boot_info.h", include_dir / "bootloader" / "axle_boot_info.h"),
-
+    ]
+    [
         # Copy user services headers to the sysroot
         # PT: Note that these paths are duplicated from the install_headers() rule in each Meson subproject.
         # They're included here because on the first sysroot build, there are cyclic dependencies between various programs'

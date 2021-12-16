@@ -133,7 +133,7 @@ def main():
     args = parser.parse_args()
 
     # Stage kernel headers
-    # copy_kernel_headers()
+    copy_kernel_headers()
 
     # Stage architecture-specific source files
     kernel_root = Path(__file__).parents[1] / "kernel"
