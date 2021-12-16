@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from build_kernel_headers import copy_kernel_headers
 from build_utils import run_and_check, run_and_capture_output_and_check, copied_file_is_outdated
 from build_programs import build_all_programs
+from build_userspace_headers import copy_userspace_headers
 
 
 ARCH = "x86_64"
@@ -134,6 +135,9 @@ def main():
 
     # Stage kernel headers
     copy_kernel_headers()
+
+    # Stage userspace headers
+    copy_userspace_headers()
 
     # Stage architecture-specific source files
     kernel_root = Path(__file__).parents[1] / "kernel"
