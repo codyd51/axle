@@ -53,14 +53,14 @@ index 0000000..cabcf6a
 +noinst_LIBRARIES = lib.a
 +
 +if MAY_SUPPLY_SYSCALLS
-+extra_objs = syscalls.o
++extra_objs = syscalls.o syscalls_libfiles.o
 +else
 +extra_objs =
 +endif
 +
 +lib_a_SOURCES =
 +lib_a_LIBADD = $(extra_objs)
-+EXTRA_lib_a_SOURCES = syscalls.c crt0.c
++EXTRA_lib_a_SOURCES = syscalls.c crt0.c syscalls_libfiles.c
 +lib_a_DEPENDENCIES = $(extra_objs)
 +lib_a_CCASFLAGS = $(AM_CCASFLAGS)
 +lib_a_CFLAGS = $(AM_CFLAGS)
@@ -89,7 +89,7 @@ new file mode 100644
 index 0000000..850252a
 --- /dev/null
 +++ b/newlib/libc/sys/axle/crt0.c
-@@ -0,0 +1,10 @@
+@@ -0,0 +1,12 @@
 +#include <fcntl.h>
 +
 +extern void exit(int code);
@@ -97,6 +97,8 @@ index 0000000..850252a
 +
 +void _start(int argc, char** argv) {
 +    _init_signal();
++	 // Run constructors/initializers
++	 __libc_init_array();
 +    int exit_code = main(argc, argv);
 +    exit(exit_code);
 +}
@@ -105,7 +107,7 @@ new file mode 100644
 index 0000000..c2926ca
 --- /dev/null
 +++ b/newlib/libc/sys/axle/syscalls.c
-@@ -0,0 +1,209 @@
+@@ -0,0 +1,181 @@
 +/* note these headers are all provided by newlib - you don't need to provide them */
 +#include <sys/stat.h>
 +#include <sys/types.h>
@@ -231,11 +233,10 @@ index 0000000..c2926ca
 +    return sys_ms_since_boot();
 +}
 +
-+void task_assert(bool cond, const char* msg) {
-+    if (cond) {
-+        return;
-+    }
-+    sys_task_assert(msg);
++void assert(bool cond, const char* msg) {
++	if (!cond) {
++		sys_task_assert(msg);
++	}
 +}
 +
 +/*
@@ -288,33 +289,36 @@ index 0000000..c2926ca
 +    return 0;
 +}
 +
+diff --git a/newlib/libc/sys/axle/syscalls_libfiles.c b/newlib/libc/sys/axle/syscalls_libfiles.c
+new file mode 100644
+index 0000000..850252a
+--- /dev/null
++++ b/newlib/libc/sys/axle/syscalls_libfiles.c
+@@ -0,0 +1,24 @@
 +/*
-+ * Implemented in libfiles
++ * Implemented in libfiles. 
++ * This is in its own object file so these symbols can be overridden when libfiles is linked.
++ * If they were in the same object file as the rest of the syscall functions, they would be included in the 
++ * link and we'd get duplicate symbol errors.
++ * See: https://eli.thegreenplace.net/2013/07/09/library-order-in-static-linking
 + */
 +
 +int close(int file) {
-+    assert(false, "Link against libfiles for file operations");
 +    return -1;
 +}
 +
 +int lseek(int file, int ptr, int dir) {
-+    assert(false, "Link against libfiles for file operations");
 +    return -1;
 +}
 +
 +int open(const char *name, int flags, ...) {
-+    assert(false, "Link against libfiles for file operations");
 +    return -1;
 +}
 +
 +int read(int file, char *ptr, int len) {
-+    assert(false, "Link against libfiles for file operations");
 +    return -1;
 +}
 +
-+void assert(bool cond, const char* msg) {
-+	printf("assert called, but assert() is implemented in libutil, please link against it!\n"); 
-+}
 diff --git a/newlib/libc/sys/axle/syscalls.h b/newlib/libc/sys/axle/syscalls.h
 new file mode 100644
 index 0000000..0c7a910
