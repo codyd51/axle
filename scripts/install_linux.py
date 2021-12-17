@@ -17,6 +17,7 @@ def install() -> None:
         "libmpfr-dev",
         "texinfo",
         "xorriso",
+        "mtools",
     ]
     run_and_check(["sudo", "apt", "install", *dependencies])
 
