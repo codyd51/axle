@@ -60,9 +60,9 @@ jobs:
         uses: meeDamian/github-release@2.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: nightly
+          tag: nightly-${{ github.sha }}
           files: axle.iso
           allow_override: true
-          prerelease: true
+          prerelease: false
           commitish: ${{ github.sha }}
           gzip: false
