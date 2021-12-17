@@ -87,10 +87,10 @@ def build_headers_from_meson_build_file2(meson_file: Path) -> List[MoveHeaderToS
     return move_operations
 
 
-def build_headers_from_meson_build_file(meson_file: Path) -> List[MoveHeaderToSysrootOperation]:
+def build_headers_from_meson_build_file(cross_file: Path, meson_file: Path) -> List[MoveHeaderToSysrootOperation]:
     move_operations = []
     with TemporaryDirectory() as dummy_build_directory:
-        namespace = argparse.Namespace(cross_file=[Path("/Users/philliptennen/Documents/develop/axle.nosync/programs/cross_axle_generated.ini")], native_file=None, cmd_line_options=[], backend='ninja')
+        namespace = argparse.Namespace(cross_file=[cross_file], native_file=None, cmd_line_options=[], backend='ninja')
         env = Environment(source_dir=meson_file.parent.as_posix(), build_dir=dummy_build_directory, options=namespace)
         b = Build(env)
         int = Interpreter(b, user_defined_options=argparse.Namespace(vsenv=None))
@@ -145,7 +145,7 @@ def copy_userspace_headers() -> None:
                 print(f'Entering subproject {subproject_name}')
                 subproject_path = programs_root / "subprojects" / subproject_name
                 build_file = subproject_path / 'meson.build'
-                move_operations = build_headers_from_meson_build_file(build_file)
+                move_operations = build_headers_from_meson_build_file(cross_file, build_file)
                 subproject_to_move_operations[subproject_name] = move_operations
     
     print()
