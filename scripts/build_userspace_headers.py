@@ -22,7 +22,7 @@ class MoveHeaderToSysrootOperation:
     sysroot_file: Path
 
 
-def generate_meson_cross_file_if_necessary() -> None:
+def generate_meson_cross_file_if_necessary() -> Path:
     # https://github.com/mesonbuild/meson/issues/309
     # Since Meson won't let us fill in the repo root with an environment variable, 
     # we have to template the file ourselves...
@@ -38,6 +38,7 @@ def generate_meson_cross_file_if_necessary() -> None:
                                f'axle_repo_root = \'{Path(__file__).parents[1].as_posix()}\'\n' \
                                f'{cross_compile_config}'
         cross_compile_config_path.write_text(cross_compile_config)
+    return cross_compile_config_path
 
 
 def build_headers_from_meson_build_file2(meson_file: Path) -> List[MoveHeaderToSysrootOperation]:
