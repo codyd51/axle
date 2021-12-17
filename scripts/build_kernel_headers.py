@@ -10,8 +10,6 @@ from build_utils import copied_file_is_outdated
 
 
 def copy_kernel_headers():
-    arch = "x86_64"
-
     src_root = Path(__file__).parents[1] / "kernel"
     bootloader_root = Path(__file__).parents[1] / "bootloader"
     sysroot = Path(__file__).parents[1] / "axle-sysroot"
