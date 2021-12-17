@@ -34,8 +34,6 @@ def copy_kernel_headers():
                 copy_tree(source_path.as_posix(), include_path.as_posix())
             else:
                 shutil.copy(source_path.as_posix(), include_path.as_posix())
-    
-    programs_root = Path(__file__).parents[1] / "programs"
 
 
 if __name__ == "__main__":
