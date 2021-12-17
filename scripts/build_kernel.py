@@ -12,6 +12,7 @@ from build_kernel_headers import copy_kernel_headers
 from build_utils import run_and_check, run_and_capture_output_and_check, copied_file_is_outdated
 from build_programs import build_all_programs
 from build_userspace_headers import copy_userspace_headers
+from build_meson_projects import build_meson_projects
 
 
 ARCH = "x86_64"
@@ -173,12 +174,7 @@ def main():
     run_and_check(["make"])
 
     # Build user programs
-    if False:
-        build_all_programs(
-            only_recently_updated=True,
-            force_rebuild_programs=args.force_rebuild_programs,
-            force_rebuild_all=args.force_rebuild_everything,
-        )
+    build_meson_projects()
 
     # Build ramdisk
     build_initrd()
