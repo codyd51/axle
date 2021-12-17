@@ -5,9 +5,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include <agx/lib/ca_layer.h>
-#include <agx/lib/hash_map.h>
-#include <agx/lib/shapes.h>
+#include <libagx/lib/ca_layer.h>
+#include <libagx/lib/hash_map.h>
+#include <libagx/lib/shapes.h>
 
 // From libport
 

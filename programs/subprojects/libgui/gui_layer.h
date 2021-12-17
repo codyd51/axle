@@ -1,11 +1,11 @@
 #ifndef GUI_LAYER_H
 #define GUI_LAYER_H
 
-#include <agx/lib/ca_layer.h>
+#include <libagx/lib/ca_layer.h>
 // For ca_scrolling_layer, can remove once refactored
-#include <agx/lib/text_box.h>
+#include <libagx/lib/text_box.h>
 
-#include <agx/lib/shapes.h>
+#include <libagx/lib/shapes.h>
 #include "gui_elem.h"
 
 typedef enum gui_layer_type {

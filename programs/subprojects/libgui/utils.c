@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include <agx/lib/shapes.h>
+#include <libagx/lib/shapes.h>
 
 #include "libgui.h"
 #include "utils.h"

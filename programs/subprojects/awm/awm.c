@@ -5,10 +5,10 @@
 #include <stdlib.h>
 #include <memory.h>
 
-#include <agx/font/font.h>
-#include <agx/lib/shapes.h>
-#include <agx/lib/ca_layer.h>
-#include <agx/lib/screen.h>
+#include <libagx/font/font.h>
+#include <libagx/lib/shapes.h>
+#include <libagx/lib/ca_layer.h>
+#include <libagx/lib/screen.h>
 
 #include <libamc/libamc.h>
 

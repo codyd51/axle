@@ -4,9 +4,9 @@
 #include <stdio.h>
 #include <math.h>
 
-#include <agx/font/font.h>
-#include <agx/lib/shapes.h>
-#include <agx/lib/rect.h>
+#include <libagx/font/font.h>
+#include <libagx/lib/shapes.h>
+#include <libagx/lib/rect.h>
 #include <libgui/libgui.h>
 #include <libutils/assert.h>
 

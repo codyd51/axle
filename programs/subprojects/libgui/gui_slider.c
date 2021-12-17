@@ -1,4 +1,4 @@
-#include <agx/lib/shapes.h>
+#include <libagx/lib/shapes.h>
 
 #include "gui_slider.h"
 #include "gui_view.h"

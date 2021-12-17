@@ -6,7 +6,7 @@
 #include <libutils/array.h>
 
 #include <libamc/libamc.h>
-#include <agx/lib/gfx.h>
+#include <libagx/lib/gfx.h>
 #include <kernel/core_commands.h>
 
 #include "window.h"

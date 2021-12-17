@@ -4,7 +4,7 @@
 #include <memory.h>
 
 #include <libutils/assert.h>
-#include <agx/lib/putpixel.h>
+#include <libagx/lib/putpixel.h>
 
 #include "libimg.h"
 #include "nanojpeg.h"

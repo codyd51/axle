@@ -3,8 +3,8 @@
 
 #include <libutils/assert.h>
 
-#include <agx/lib/shapes.h>
-#include <agx/font/font.h>
+#include <libagx/lib/shapes.h>
+#include <libagx/font/font.h>
 
 #include "gui_scroll_view.h"
 #include "libgui.h"

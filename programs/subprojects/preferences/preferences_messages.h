@@ -2,7 +2,7 @@
 #define PREFERENCES_MESSAGES_H
 
 #include <kernel/amc.h>
-#include <agx/lib/color.h>
+#include <libagx/lib/color.h>
 
 #define PREFERENCES_SERVICE_NAME "com.axle.preferences"
 

@@ -3,7 +3,7 @@
 
 #include <libutils/array.h>
 
-#include <agx/lib/shapes.h>
+#include <libagx/lib/shapes.h>
 
 #include <libimg/libimg.h>
 #include <file_manager/file_manager_messages.h>

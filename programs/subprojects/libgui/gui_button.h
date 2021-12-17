@@ -1,7 +1,7 @@
 #ifndef GUI_BUTTON_H
 #define GUI_BUTTON_H
 
-#include <agx/lib/ca_layer.h>
+#include <libagx/lib/ca_layer.h>
 
 #include "gui_elem.h"
 

@@ -4,7 +4,7 @@
 #include <libutils/assert.h>
 #include <libutils/array.h>
 
-#include <agx/font/font.h>
+#include <libagx/font/font.h>
 #include "utils.h"
 #include "gui_elem.h"
 #include "gui_layer.h"

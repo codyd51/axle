@@ -1,7 +1,7 @@
 #ifndef GUI_SLIDER_H
 #define GUI_SLIDER_H
 
-#include <agx/lib/ca_layer.h>
+#include <libagx/lib/ca_layer.h>
 
 #include "gui_elem.h"
 

@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include <libutils/assert.h>
-#include <agx/font/font.h>
+#include <libagx/font/font.h>
 #include <libamc/libamc.h>
 #include <libimg/libimg.h>
 #include <libgui/libgui.h>

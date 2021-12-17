@@ -1,5 +1,5 @@
 #include <math.h>
-#include <agx/lib/putpixel.h>
+#include <libagx/lib/putpixel.h>
 
 #include "effects.h"
 
@@ -35,8 +35,8 @@ void radial_gradiant(ca_layer* layer, Size gradient_size, Color c1, Color c2, in
 		}
 	}
 }
-#include <agx/lib/shapes.h>
-#include <agx/lib/rect.h>
+#include <libagx/lib/shapes.h>
+#include <libagx/lib/rect.h>
 
 void draw_window_backdrop_segments(ca_layer* dest, user_window_t* window, int segments) {
 #define LEFT_EDGE 0x1

@@ -1,7 +1,7 @@
 #ifndef LIBIMG_H
 #define LIBIMG_H
 
-#include <agx/lib/shapes.h>
+#include <libagx/lib/shapes.h>
 
 typedef enum image_type {
     IMAGE_BITMAP = 0,

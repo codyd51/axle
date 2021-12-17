@@ -8,11 +8,11 @@
 
 #include <kernel/amc.h>
 #include <libgui/libgui.h>
-#include <agx/lib/size.h>
-#include <agx/lib/screen.h>
-#include <agx/lib/shapes.h>
-#include <agx/lib/ca_layer.h>
-#include <agx/lib/putpixel.h>
+#include <libagx/lib/size.h>
+#include <libagx/lib/screen.h>
+#include <libagx/lib/shapes.h>
+#include <libagx/lib/ca_layer.h>
+#include <libagx/lib/putpixel.h>
 
 Color transcolor(Color c1, Color c2, float d) {
 	if (d < 0) d = 0;

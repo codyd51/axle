@@ -1,8 +1,8 @@
 #ifndef UI_H
 #define UI_H
 
-#include <agx/lib/shapes.h>
-#include <agx/lib/rect.h>
+#include <libagx/lib/shapes.h>
+#include <libagx/lib/rect.h>
 #include <libgui/libgui.h>
 
 #include "vfs.h"

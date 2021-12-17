@@ -10,9 +10,9 @@
 #include <libutils/array.h>
 #include <libutils/assert.h>
 
-#include <agx/lib/screen.h>
-#include <agx/lib/shapes.h>
-#include <agx/lib/putpixel.h>
+#include <libagx/lib/screen.h>
+#include <libagx/lib/shapes.h>
+#include <libagx/lib/putpixel.h>
 
 #include <awm/awm_messages.h>
 

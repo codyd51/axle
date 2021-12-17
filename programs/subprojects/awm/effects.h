@@ -1,8 +1,8 @@
 #ifndef AWM_EFFECTS_H
 #define AWM_EFFECTS_H
 
-#include <agx/lib/shapes.h>
-#include <agx/lib/ca_layer.h>
+#include <libagx/lib/shapes.h>
+#include <libagx/lib/ca_layer.h>
 
 #include "window.h"
 

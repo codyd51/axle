@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include <libutils/assert.h>
-#include <agx/lib/shapes.h>
+#include <libagx/lib/shapes.h>
 #include <awm/awm_messages.h>
 
 #include "util.h"

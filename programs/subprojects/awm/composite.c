@@ -4,7 +4,7 @@
 #include <libutils/assert.h>
 #include <libutils/array.h>
 
-#include <agx/lib/shapes.h>
+#include <libagx/lib/shapes.h>
 
 #include "window.h"
 #include "awm_internal.h"

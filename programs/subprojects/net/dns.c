@@ -5,7 +5,7 @@
 
 #include <libport/libport.h>
 // TODO(PT): Move hashmap to libutils
-#include <agx/lib/hash_map.h>
+#include <libagx/lib/hash_map.h>
 
 #include "dns.h"
 #include "util.h" // For hexdump, can remove

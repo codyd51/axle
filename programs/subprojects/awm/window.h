@@ -1,8 +1,8 @@
 #ifndef AWM_WINDOW_H
 #define AWM_WINDOW_H
 
-#include <agx/lib/shapes.h>
-#include <agx/lib/ca_layer.h>
+#include <libagx/lib/shapes.h>
+#include <libagx/lib/ca_layer.h>
 #include "utils.h"
 
 typedef struct view {

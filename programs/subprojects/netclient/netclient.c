@@ -18,7 +18,7 @@
 #include "render.h"
 
 // for draw_char
-#include <agx/font/font.h>
+#include <libagx/font/font.h>
 
 typedef struct draw_ctx {
 	Point cursor;
