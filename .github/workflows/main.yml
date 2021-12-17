@@ -48,10 +48,10 @@ jobs:
           python3 scripts/build_os_toolchain.py
           echo "Toolchain built successfully"
       
-      #- name: Build OS image
-      #  shell: bash
-      #  run: |
-      #    git submodule update --init --recursive
-      #    # TODO(PT): For nasm - Install deps can be removed once toolchain cache is rebuilt
-      #    python3 scripts/install_dependencies.py
-      #    python3 scripts/build_kernel.py
+      - name: Build OS image
+        shell: bash
+        run: |
+          git submodule update --init --recursive
+          # TODO(PT): For nasm - Install deps can be removed once toolchain cache is rebuilt
+          python3 scripts/install_dependencies.py
+          python3 scripts/build_kernel.py
