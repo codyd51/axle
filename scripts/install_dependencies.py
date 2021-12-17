@@ -19,7 +19,7 @@ def install_dependencies():
         "xorriso",
         # OS build
         "nasm",
-        "mtools",
+        "mtools"
     ]
     run_and_check(["sudo", "apt", "install", "-y", *dependencies])
 
