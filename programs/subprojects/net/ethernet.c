@@ -13,7 +13,7 @@
 #include "net_messages.h"
 
 // Communication with NIC driver
-#include <drivers/realtek_8139/realtek_8139_messages.h>
+#include <drivers/realtek_8139/rtl8139_messages.h>
 
 void ethernet_receive(packet_info_t* packet_info, ethernet_frame_t* ethernet_frame, uint32_t size) {
     // Fill in the Ethernet data of the packet info with what we see
