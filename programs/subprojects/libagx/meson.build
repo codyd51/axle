@@ -26,7 +26,7 @@ install_headers(
         'font/font.h',
         'font/font8x8.h',
     ],
-    install_dir: join_paths(headers_dir, 'font')
+    install_dir: headers_dir
 )
 install_headers(
     [
@@ -43,6 +43,6 @@ install_headers(
         'lib/screen.h',
         'lib/gfx.h',
     ],
-    install_dir: join_paths(headers_dir, 'lib')
+    install_dir: headers_dir
 )
 libagx_dep = declare_dependency(include_directories: headers_dir, link_with: libagx)
