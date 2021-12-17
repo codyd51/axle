@@ -131,7 +131,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--force_rebuild_programs", nargs="*", action="store")
     parser.add_argument("--force_rebuild_everything", action="store_true")
+    parser.add_argument("--no_run", action="store_true")
     parser.set_defaults(force_rebuild_everything=False)
+    parser.set_defaults(no_run=False)
     args = parser.parse_args()
 
     # Stage kernel headers
@@ -182,7 +184,8 @@ def main():
     # Build disk image
     image_name = build_iso()
 
-    run_iso(image_name)
+    if not args.no_run:
+        run_iso(image_name)
 
 
 if __name__ == "__main__":
