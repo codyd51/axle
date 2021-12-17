@@ -62,5 +62,5 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: nightly
           files: axle.iso
-          # allow_override: true
+          allow_override: true
           prerelease: true
