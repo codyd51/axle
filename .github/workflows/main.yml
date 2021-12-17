@@ -60,6 +60,6 @@ jobs:
         uses: eine/tip@master
         with:
           tag: nightly
-          rm: true
+          rm: false
           token: ${{ secrets.GITHUB_TOKEN }}
           files: ./axle.iso
