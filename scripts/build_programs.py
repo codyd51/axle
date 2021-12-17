@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from build_utils import run_and_check, second_file_is_older
+from build_userspace_headers import generate_meson_cross_file_if_necessary
 
 SKIP_PROGRAMS = ["cat", "tlsclient", "doomgeneric", "vim", "bash", "ncurses"]
 
@@ -25,20 +26,7 @@ def build_all_programs(
     if force_rebuild_programs:
         force_rebuild_paths = [(programs_root / x) for x in force_rebuild_programs]
 
-    # https://github.com/mesonbuild/meson/issues/309
-    # Since Meson won't let us fill in the repo root with an environment variable, 
-    # we have to template the file ourselves...
-    cross_compile_config_path = programs_root / "cross_axle_generated.ini"
-    cross_compile_config_template = programs_root / "cross_axle_template.ini"
-    if not cross_compile_config_path.exists() or second_file_is_older(cross_compile_config_template, cross_compile_config_path):
-        print(f'Generating cross_axle.ini...')
-        if not cross_compile_config_template.exists():
-            raise ValueError(f'Cross compile template file didn\'t exist!')
-        cross_compile_config = cross_compile_config_template.read_text()
-        cross_compile_config = f'[constants]\n' \
-                               f'axle_repo_root = \'{Path(__file__).parents[1].as_posix()}\'\n' \
-                               f'{cross_compile_config}'
-        cross_compile_config_path.write_text(cross_compile_config)
+    generate_meson_cross_file_if_necessary()
 
     meson_dirs = []
     for program_dir in (force_rebuild_paths or programs_root.iterdir()):

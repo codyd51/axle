@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import os
 import shutil
+import argparse
 import tempfile
 from pathlib import Path
 from typing import Tuple
@@ -165,5 +166,9 @@ def build() -> None:
         run_and_check(['make', 'install-target-libstdc++-v3'], cwd=gcc_build_dir)
 
 
-if __name__ == "__main__":
+def main() -> None:
     build()
+
+
+if __name__ == "__main__":
+    main()

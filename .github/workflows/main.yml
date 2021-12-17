@@ -1,0 +1,68 @@
+name: axle CI
+
+# Configure when the workflow runs
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: [ master, uefi-bootloader, build-in-ci ]
+  pull_request:
+    branches: [ master, uefi-bootloader, build-in-ci ]
+
+  # Allows running the workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checks out repo at $GITHUB_WORKSPACE
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v2
+        with:
+          # Requires Python >= 3.9 for str.removesuffix()
+          python-version: '3.9'
+          # https://github.com/actions/setup-python#caching-packages-dependencies
+          # cache: 'pip'
+          # cache-dependency-path: 'python-dependencies.txt'
+      - run: pip install -r python-dependencies.txt
+
+      - name: Cache libc and toolchain
+        # https://github.com/nektos/act/issues/285
+        if: ${{ !env.ACT }}
+        id: build-libc-and-toolchain
+        uses: actions/cache@v2
+        with:
+          path: |
+            x86_64-toolchain
+            axle-sysroot
+          # TODO(PT): Change the cache key once the old cache is evicted
+          key: libc-and-toolchain-2
+
+      - name: Build libc and toolchain
+        shell: bash
+        if: steps.build-libc-and-toolchain.outputs.cache-hit != 'true'
+        run: |
+          python3 scripts/install_dependencies.py
+          python3 scripts/build_os_toolchain.py
+          echo "Toolchain built successfully"
+      
+      - name: Build OS image
+        shell: bash
+        run: |
+          git submodule update --init --recursive
+          # PT: For nasm in CI
+          python3 scripts/install_dependencies.py
+          python3 scripts/build_kernel.py --no_run
+
+      - name: Update nightly release
+        uses: meeDamian/github-release@2.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: nightly-${{ github.sha }}
+          files: axle.iso
+          allow_override: true
+          prerelease: false
+          commitish: ${{ github.sha }}
+          gzip: false

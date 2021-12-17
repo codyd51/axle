@@ -11,6 +11,8 @@ from contextlib import contextmanager
 from build_kernel_headers import copy_kernel_headers
 from build_utils import run_and_check, run_and_capture_output_and_check, copied_file_is_outdated
 from build_programs import build_all_programs
+from build_userspace_headers import copy_userspace_headers
+from build_meson_projects import build_meson_projects
 
 
 ARCH = "x86_64"
@@ -129,11 +131,16 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--force_rebuild_programs", nargs="*", action="store")
     parser.add_argument("--force_rebuild_everything", action="store_true")
+    parser.add_argument("--no_run", action="store_true")
     parser.set_defaults(force_rebuild_everything=False)
+    parser.set_defaults(no_run=False)
     args = parser.parse_args()
 
     # Stage kernel headers
     copy_kernel_headers()
+
+    # Stage userspace headers
+    copy_userspace_headers()
 
     # Stage architecture-specific source files
     kernel_root = Path(__file__).parents[1] / "kernel"
@@ -161,18 +168,15 @@ def main():
             shutil.copy(arch_specific_file.as_posix(), file.as_posix())
 
     # Build bootloader
-    run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader" / "uefi")
-    run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader")
+    env = {"USE_GCC": "1", "SHELL": "sh -xv"}
+    run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader" / "uefi", env_additions=env)
+    run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader", env_additions=env)
 
     # Build kernel image
     run_and_check(["make"])
 
     # Build user programs
-    build_all_programs(
-        only_recently_updated=True,
-        force_rebuild_programs=args.force_rebuild_programs,
-        force_rebuild_all=args.force_rebuild_everything,
-    )
+    build_meson_projects()
 
     # Build ramdisk
     build_initrd()
@@ -180,7 +184,8 @@ def main():
     # Build disk image
     image_name = build_iso()
 
-    run_iso(image_name)
+    if not args.no_run:
+        run_iso(image_name)
 
 
 if __name__ == "__main__":
