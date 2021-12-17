@@ -57,9 +57,9 @@ jobs:
           python3 scripts/build_kernel.py --no_run
 
       - name: Update nightly release
-        uses: eine/tip@master
+        uses: meeDamian/github-release@2.0
         with:
-          tag: nightly
-          rm: false
           token: ${{ secrets.GITHUB_TOKEN }}
-          files: ./axle.iso
+          tag: nightly
+          files: axle.iso
+          allow_override: true
