@@ -64,3 +64,4 @@ jobs:
           files: axle.iso
           allow_override: true
           prerelease: true
+          commitish: ${{ github.sha }}
