@@ -15,7 +15,7 @@
 #include <libport/libport.h>
 
 // Communication with NIC driver
-#include <drivers/realtek_8139/realtek_8139_messages.h>
+#include <drivers/realtek_8139/rtl8139_messages.h>
 
 #include "net.h"
 #include "net_messages.h"
