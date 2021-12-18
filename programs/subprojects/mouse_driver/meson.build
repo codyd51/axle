@@ -9,3 +9,7 @@ executable(
         subproject('libamc').get_variable('libamc_dep')
     ]
 )
+install_headers(
+    ['mouse_driver_messages.h'],
+    install_dir: join_paths(meson.get_cross_property('include_root'), 'drivers', 'mouse')
+)

@@ -9,8 +9,10 @@
 #include <kernel/idt.h>
 
 #include <libport/libport.h>
+#include <awm/awm_messages.h>
 
 #include "math.h"
+#include "mouse_driver_messages.h"
 
 typedef struct ps2_mouse_state {
 	uint8_t idx;
@@ -31,9 +33,9 @@ static _handle_amc_messages(void) {
 }
 
 int main(int argc, char** argv) {
-	amc_register_service("com.axle.mouse_driver");
+	amc_register_service(MOUSE_DRIVER_SERVICE_NAME);
 	// This process will handle PS/2 mouse IRQ's (IRQ 12)
-	adi_register_driver("com.axle.mouse_driver", INT_VECTOR_IRQ12);
+	adi_register_driver(MOUSE_DRIVER_SERVICE_NAME, INT_VECTOR_IRQ12);
 
 	ps2_mouse_state_t state = {0, 0};
 	while (true) {
@@ -95,12 +97,14 @@ int main(int argc, char** argv) {
 			state.idx = 0;
 			memset(&state.buffer, 0, sizeof(state.buffer));
 
-			int8_t mouse_databuf[4] = {0};
-			mouse_databuf[0] = status_byte;
-			mouse_databuf[1] = rel_x;
-			mouse_databuf[2] = rel_y;
-			mouse_databuf[3] = rel_z;
-			amc_msg_i8_4__send("com.axle.awm", status_byte, rel_x, rel_y, rel_z);
+			mouse_packet_msg_t msg = {
+				.event = MOUSE_PACKET,
+				.status = status_byte,
+				.rel_x = rel_x,
+				.rel_y = rel_y,
+				.rel_z = rel_z
+			};
+			amc_message_send(AWM_SERVICE_NAME, &msg, sizeof(msg));
 		}
 	}
 	

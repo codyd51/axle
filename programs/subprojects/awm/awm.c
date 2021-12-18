@@ -17,6 +17,7 @@
 
 #include <preferences/preferences_messages.h>
 #include <drivers/kb/kb_driver_messages.h>
+#include <drivers/mouse/mouse_driver_messages.h>
 
 #include "awm.h"
 #include "math.h"
@@ -507,24 +508,20 @@ static void mouse_dispatch_events(uint8_t status_byte, Point mouse_point, int32_
 }
 
 static bool handle_mouse_event(amc_message_t* mouse_event, incremental_mouse_state_t* incremental_update) {
-	int8_t state = mouse_event->body[0];
-	int8_t rel_x = mouse_event->body[1];
-	int8_t rel_y = mouse_event->body[2];
-	int8_t rel_z = mouse_event->body[3];
-
-	mouse_pos.x += rel_x;
-	mouse_pos.y += rel_y;
+	mouse_packet_msg_t* packet = (mouse_packet_msg_t*)&mouse_event->body;
+	mouse_pos.x += packet->rel_x;
+	mouse_pos.y += packet->rel_y;
 	// Bind mouse to screen dimensions
 	mouse_pos.x = max(0, mouse_pos.x);
 	mouse_pos.y = max(0, mouse_pos.y);
 	mouse_pos.x = min(_screen.resolution.width - 20, mouse_pos.x);
 	mouse_pos.y = min(_screen.resolution.height - 20, mouse_pos.y);
 
-	bool updated_state_byte = state == incremental_update->state;
-	incremental_update->state = state;
-	incremental_update->rel_x += rel_x;
-	incremental_update->rel_y += rel_y;
-	incremental_update->rel_z += rel_z;
+	bool updated_state_byte = packet->status == incremental_update->state;
+	incremental_update->state = packet->status;
+	incremental_update->rel_x += packet->rel_x;
+	incremental_update->rel_y += packet->rel_y;
+	incremental_update->rel_z += packet->rel_z;
 	incremental_update->combined_msg_count += 1;
 	return !updated_state_byte;
 }
@@ -818,7 +815,7 @@ static void _awm_process_amc_messages(bool should_block) {
 			handle_keystroke(msg);
 			continue;
 		}
-		else if (!strcmp(source_service, "com.axle.mouse_driver")) {
+		else if (!strcmp(source_service, MOUSE_DRIVER_SERVICE_NAME)) {
 			// Update the mouse position based on the data packet
 			bool changed_state = handle_mouse_event(msg, &incremental_mouse_update);
 			if (changed_state) {
