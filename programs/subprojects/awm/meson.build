@@ -18,7 +18,9 @@ executable(
         subproject('libutils').get_variable('libutils_dep'),
     ]
 )
+headers_dir = join_paths(meson.get_cross_property('include_root'), 'awm')
 install_headers(
     ['awm.h', 'awm_messages.h'],
-    install_dir: join_paths(meson.get_cross_property('include_root'), 'awm')
+    install_dir: headers_dir
 )
+awm_dep = declare_dependency(include_directories: headers_dir)

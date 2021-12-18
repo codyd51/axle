@@ -44,6 +44,8 @@ void _write_window_title(user_window_t* window);
 Screen _screen = {0};
 
 ca_layer* _g_background = NULL;
+Color _g_background_gradient_inner = {0};
+Color _g_background_gradient_outer = {0};
 array_t* _g_timers = NULL;
 
 Screen* gfx_screen() {
@@ -656,6 +658,15 @@ static void handle_user_message(amc_message_t* user_message) {
 			}
 			return;
 		}
+		else if (command == AWM_DESKTOP_TRAITS_REQUEST) {
+			awm_desktop_traits_response_t resp = {
+				.event = AWM_DESKTOP_TRAITS_RESPONSE,
+				.desktop_gradient_inner_color = _g_background_gradient_inner,
+				.desktop_gradient_outer_color = _g_background_gradient_outer
+			};
+			amc_message_send(source_service, &resp, sizeof(resp));
+			return;
+		}
 	}
 	else if (!strncmp(source_service, FILE_MANAGER_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
 		if (command == FILE_MANAGER_READY) {
@@ -763,11 +774,14 @@ static void _awm_init(void) {
 	// Set up the desktop background
 	Rect screen_frame = rect_make(point_zero(), _screen.resolution);
 	_g_background = create_layer(screen_frame.size);
+	srand(ms_since_boot());
+	_g_background_gradient_inner = color_make(rand() % 255, rand() % 255, rand() % 255);
+	_g_background_gradient_outer = color_make(rand() % 255, rand() % 255, rand() % 255);
 	radial_gradiant(
 		_g_background, 
 		screen_frame.size, 
-		color_make(2, 184, 255),
-		color_make(39, 67, 255), 
+		_g_background_gradient_inner,
+		_g_background_gradient_outer,
 		rect_mid_x(screen_frame),
 		rect_mid_y(screen_frame),
 		(float)_g_background->size.height * 0.65

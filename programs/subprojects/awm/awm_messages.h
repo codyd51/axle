@@ -4,6 +4,7 @@
 #include <kernel/amc.h>
 #include <libagx/lib/size.h>
 #include <libagx/lib/point.h>
+#include <libagx/lib/color.h>
 
 #define AWM_SERVICE_NAME "com.axle.awm"
 
@@ -88,5 +89,14 @@ typedef struct awm_window_title_msg {
 #define AWM_CLOSE_WINDOW 814
 // Sent from awm to a client
 #define AWM_CLOSE_WINDOW_REQUEST 814
+
+// Sent from preferences to awm
+#define AWM_DESKTOP_TRAITS_REQUEST 815
+#define AWM_DESKTOP_TRAITS_RESPONSE 815
+typedef struct awm_desktop_traits_response {
+    uint32_t event;
+    Color desktop_gradient_inner_color;
+    Color desktop_gradient_outer_color;
+} awm_desktop_traits_response_t;
 
 #endif
