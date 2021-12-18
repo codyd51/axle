@@ -26,6 +26,7 @@ typedef struct state {
     gui_view_t* preview;
     gui_view_t* apply_view;
     gui_button_t* apply_button;
+    gui_button_t* randomize_button;
 } state_t;
 
 static state_t _g_state = {0};
@@ -140,13 +141,25 @@ static Rect _blue_slider_sizer(gui_slider_t* s, Size window_size) {
 
 static Rect _apply_button_sizer(gui_button_t* b, Size window_size) {
     Rect parent_frame = b->superview->content_layer_frame;
-    uint32_t t = window_size.width * 0.25;
     uint32_t w = parent_frame.size.width * 0.6;
     uint32_t h = parent_frame.size.height * 0.3;
     return rect_make(
         point_make(
             (parent_frame.size.width / 2) - (w / 2),
-            (parent_frame.size.height / 2) - (h / 2)
+            (parent_frame.size.height * 0.25) - (h / 2)
+        ),
+        size_make(w, h)
+    );
+}
+
+static Rect _randomize_button_sizer(gui_button_t* b, Size window_size) {
+    Rect parent_frame = b->superview->content_layer_frame;
+    uint32_t w = parent_frame.size.width * 0.6;
+    uint32_t h = parent_frame.size.height * 0.3;
+    return rect_make(
+        point_make(
+            (parent_frame.size.width / 2) - (w / 2),
+            (parent_frame.size.height * 0.75) - (h / 2)
         ),
         size_make(w, h)
     );
@@ -216,7 +229,7 @@ void _slider_updated(gui_slider_t* sl, float new_percent) {
     _render_slider_values();
 }
 
-static void _apply_button_clicked(gui_view_t* view) {
+static void _send_update_to_awm(void) {
     prefs_updated_msg_t msg = {0};
     msg.event = AWM_PREFERENCES_UPDATED;
     int r = _g_state.from_red->slider_percent * 255;
@@ -232,12 +245,28 @@ static void _apply_button_clicked(gui_view_t* view) {
     amc_message_send(AWM_SERVICE_NAME, &msg, sizeof(msg));
 }
 
+static void _apply_button_clicked(gui_view_t* view) {
+    _send_update_to_awm();
+}
+
+static void _randomize_button_clicked(gui_view_t* view) {
+    _g_state.to_red->slider_percent = (rand() % 255) / 255.0;
+    _g_state.to_green->slider_percent = (rand() % 255) / 255.0;
+    _g_state.to_blue->slider_percent = (rand() % 255) / 255.0;
+    _g_state.from_red->slider_percent = (rand() % 255) / 255.0;
+    _g_state.from_green->slider_percent = (rand() % 255) / 255.0;
+    _g_state.from_blue->slider_percent = (rand() % 255) / 255.0;
+    _render_slider_values();
+    _send_update_to_awm();
+}
+
 static void cb(void* ctx) {
     printf("CB Running at %d! 0x%08x\n", ms_since_boot(), ctx);
 }
 
 int main(int argc, char** argv) {
 	amc_register_service(PREFERENCES_SERVICE_NAME);
+    srand(ms_since_boot());
 
     // Read the gradient colors from awm
     amc_msg_u32_1__send(AWM_SERVICE_NAME, AWM_DESKTOP_TRAITS_REQUEST);
@@ -292,6 +321,8 @@ int main(int argc, char** argv) {
     _g_state.apply_view->background_color = color_make(160, 160, 160);
     _g_state.apply_button = gui_button_create(_g_state.apply_view, (gui_window_resized_cb_t)_apply_button_sizer, "Apply");
     _g_state.apply_button->button_clicked_cb = (gui_button_clicked_cb_t)_apply_button_clicked;
+    _g_state.randomize_button = gui_button_create(_g_state.apply_view, (gui_window_resized_cb_t)_randomize_button_sizer, "Random");
+    _g_state.randomize_button->button_clicked_cb = (gui_button_clicked_cb_t)_randomize_button_clicked;
 
     _g_state.to_red->slider_percent = to_initial.val[0] / 255.0;
     _g_state.to_green->slider_percent = to_initial.val[1] / 255.0;
