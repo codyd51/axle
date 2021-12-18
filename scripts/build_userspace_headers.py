@@ -1,5 +1,7 @@
 import argparse
 from pathlib import Path
+import datetime
+from typing import Dict
 import shutil
 from mesonbuild.build import Build
 from mesonbuild.environment import Environment
@@ -10,6 +12,7 @@ from mesonbuild.mparser import FunctionNode, ArrayNode, StringNode, IdNode, Assi
 from mesonbuild.interpreterbase.exceptions import InvalidCode
 from typing import List
 from tempfile import TemporaryDirectory
+import pickle
 
 from dataclasses import dataclass
 
@@ -39,53 +42,6 @@ def generate_meson_cross_file_if_necessary() -> Path:
                                f'{cross_compile_config}'
         cross_compile_config_path.write_text(cross_compile_config)
     return cross_compile_config_path
-
-
-def build_headers_from_meson_build_file2(meson_file: Path) -> List[MoveHeaderToSysrootOperation]:
-    print(meson_file)
-    move_operations = []
-    with TemporaryDirectory() as dummy_build_directory:
-        namespace = argparse.Namespace(cross_file=[Path("/Users/philliptennen/Documents/develop/axle.nosync/programs/cross_axle_generated.ini")], native_file=None, cmd_line_options=[], backend='ninja')
-        env = Environment(source_dir=meson_file.parent.as_posix(), build_dir=dummy_build_directory, options=namespace)
-        b = Build(env)
-        int = Interpreter(b, user_defined_options=argparse.Namespace(vsenv=None))
-
-        headers = []
-        install_location_id = None
-        for line in int.ast.lines:
-            if isinstance(line, FunctionNode) and line.func_name == 'install_headers':
-                args = line.args
-                assert len(args.arguments) == 1
-                assert isinstance(args.arguments[0], ArrayNode)
-                header_list: ArrayNode = args.arguments[0]
-                assert all(isinstance(s, StringNode) for s in header_list.args.arguments)
-                strings: List[StringNode] = header_list.args.arguments
-                headers = [s.value for s in strings]
-                print(headers)
-                print(f'Found headers list: {headers}')
-
-                assert len(args.kwargs) == 1
-                kwarg_values = list(args.kwargs.values())
-                assert isinstance(kwarg_values[0], IdNode)
-                install_location_node: IdNode = kwarg_values[0]
-                install_location_id = install_location_node.value
-                print(f'Install location ID: {install_location_id}')
-
-        if not install_location_id:
-            print(f'No install_headers() found')
-            return []
-
-        for line in int.ast.lines:
-            if isinstance(line, AssignmentNode) and line.var_name == install_location_id:
-                int.evaluate_statement(line)
-                install_headers_dir_holder: StringHolder = int.variables[install_location_id]
-                assert isinstance(install_headers_dir_holder, StringHolder)
-                install_headers_dir = install_headers_dir_holder.held_object
-                print(f'Installing headers to {install_headers_dir}')
-                for relative_header in headers:
-                    absolute_header = meson_file.parent / relative_header
-                    move_operations.append(MoveHeaderToSysrootOperation(input_file=absolute_header, sysroot_file=Path(install_headers_dir) / relative_header))
-    return move_operations
 
 
 def build_headers_from_meson_build_file(cross_file: Path, meson_file: Path) -> List[MoveHeaderToSysrootOperation]:
@@ -132,23 +88,45 @@ def copy_userspace_headers() -> None:
 
     print('Parsing meson build files...')
 
+    cache_file = Path(__file__).parent / "caches" / "header_rebuild_cache.dat"
+    rebuild_dates: Dict[Path, datetime.datetime] = {}
+    if cache_file.exists():
+        rebuild_dates = pickle.loads(cache_file.read_bytes())
+
     subproject_to_move_operations = {}
     with TemporaryDirectory() as dummy_build_dir:
         env = Environment(source_dir=root_build_path.parent.as_posix(), build_dir=dummy_build_dir, options=namespace)
         b = Build(env)
-        int = Interpreter(b, user_defined_options=argparse.Namespace(vsenv=None))
+        meson_interp = Interpreter(b, user_defined_options=argparse.Namespace(vsenv=None))
 
-        for line in int.ast.lines:
+        for line in meson_interp.ast.lines:
             if isinstance(line, FunctionNode) and line.func_name == 'subproject':
                 arg0 = line.args.arguments[0]
                 assert isinstance(arg0, StringNode)
                 subproject_name = arg0.value
-                print(f'Entering subproject {subproject_name}')
                 subproject_path = programs_root / "subprojects" / subproject_name
-                build_file = subproject_path / 'meson.build'
-                move_operations = build_headers_from_meson_build_file(cross_file, build_file)
-                subproject_to_move_operations[subproject_name] = move_operations
+
+                should_rebuild = False
+                if subproject_path not in rebuild_dates:
+                    should_rebuild = True
+                else:
+                    # Check if any files have been updated since the last time we rebuilt its headers
+                    last_rebuild_date = rebuild_dates[subproject_path]
+                    for subfile in subproject_path.iterdir():
+                        modify_date = datetime.datetime.fromtimestamp(subfile.lstat().st_mtime)
+                        if modify_date > last_rebuild_date:
+                            should_rebuild = True
+                            break
+                
+                if should_rebuild:
+                    print(f'Rebuilding subproject {subproject_name}')
+                    rebuild_dates[subproject_path] = datetime.datetime.now()
+                    build_file = subproject_path / 'meson.build'
+                    move_operations = build_headers_from_meson_build_file(cross_file, build_file)
+                    subproject_to_move_operations[subproject_name] = move_operations
     
+    cache_file.write_bytes(pickle.dumps(rebuild_dates))
+
     print()
     print()
     print('Executing parsed move operations...')

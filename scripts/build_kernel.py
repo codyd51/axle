@@ -139,9 +139,6 @@ def main():
     # Stage kernel headers
     copy_kernel_headers()
 
-    # Stage userspace headers
-    copy_userspace_headers()
-
     # Stage architecture-specific source files
     kernel_root = Path(__file__).parents[1] / "kernel"
     arch_specific_assembly = [

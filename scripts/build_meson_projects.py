@@ -2,10 +2,12 @@
 from pathlib import Path
 
 from build_utils import run_and_check
-from build_userspace_headers import generate_meson_cross_file_if_necessary
+from build_userspace_headers import generate_meson_cross_file_if_necessary, copy_userspace_headers
 
 
 def build_meson_projects() -> None:
+    copy_userspace_headers()
+
     programs_root = Path(__file__).parents[1] / "programs"
 
     build_folder = programs_root / "build"
