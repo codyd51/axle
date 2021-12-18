@@ -4,7 +4,10 @@ executable(
     'preferences.c', 
     install: true,
     install_dir: meson.get_cross_property('initrd_dir'),
-    dependencies: subproject('libgui').get_variable('libgui_dep')
+    dependencies: [
+        subproject('libgui').get_variable('libgui_dep'),
+        subproject('awm').get_variable('awm_dep'),
+    ]
 )
 install_headers(
     ['preferences_messages.h'],

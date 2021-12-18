@@ -6,6 +6,7 @@
 #include <math.h>
 
 #include <libgui/libgui.h>
+#include <libamc/libamc.h>
 // Communicating with awm
 #include <awm/awm_messages.h>
 
@@ -238,6 +239,18 @@ static void cb(void* ctx) {
 int main(int argc, char** argv) {
 	amc_register_service(PREFERENCES_SERVICE_NAME);
 
+    // Read the gradient colors from awm
+    amc_msg_u32_1__send(AWM_SERVICE_NAME, AWM_DESKTOP_TRAITS_REQUEST);
+    amc_message_t* resp;
+    amc_message_await(AWM_SERVICE_NAME, &resp);
+    awm_desktop_traits_response_t* traits = (awm_desktop_traits_response_t*)&resp->body;
+    printf("Event is %d\n", traits->event);
+    assert(traits->event == AWM_DESKTOP_TRAITS_RESPONSE, "Expected desktop traits response");
+    Color to_initial = traits->desktop_gradient_outer_color;
+    Color from_initial = traits->desktop_gradient_inner_color;
+    printf("To %d %d %d\n", to_initial.val[0], to_initial.val[1], to_initial.val[2]);
+    printf("From %d %d %d\n", from_initial.val[0], from_initial.val[1], from_initial.val[2]);
+
 	gui_window_t* window = gui_window_create("Preferences", 800, 360);
 	Size window_size = window->size;
 
@@ -280,10 +293,6 @@ int main(int argc, char** argv) {
     _g_state.apply_button = gui_button_create(_g_state.apply_view, (gui_window_resized_cb_t)_apply_button_sizer, "Apply");
     _g_state.apply_button->button_clicked_cb = (gui_button_clicked_cb_t)_apply_button_clicked;
 
-    // These match the values set up in awm
-    // TODO(PT): How should these be read?
-    Color to_initial = color_make(39, 67, 255);
-    Color from_initial = color_make(2, 184, 255);
     _g_state.to_red->slider_percent = to_initial.val[0] / 255.0;
     _g_state.to_green->slider_percent = to_initial.val[1] / 255.0;
     _g_state.to_blue->slider_percent = to_initial.val[2] / 255.0;
