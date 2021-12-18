@@ -33,6 +33,7 @@ void reaper_task(void) {
             task_small_t* next = iter->next;
             if (iter == zombie_task) {
                 assert(iter->blocked_info.status == ZOMBIE, "Status was not zombie");
+                printf("Reaper freeing corpse [%d %s]\n", zombie_task->id, zombie_task->name);
                 _thread_destroy(iter);
 
                 // Remove this node from the linked-list of tasks
@@ -42,7 +43,6 @@ void reaper_task(void) {
                 else {
                     _tasking_set_linked_list_head(next);
                 }
-                printf("Reaper freed corpse [%d %s]\n", zombie_task->id, zombie_task->name);
                 break;
             }
             prev = iter;

@@ -206,6 +206,7 @@ int main(int argc, char** argv) {
 	
 	for (uint64_t i = gop->Mode->Mode; i < gop->Mode->MaxMode; i++) {
 		gop->QueryMode(gop, i,  &gop_mode_info_size,  &gop_mode_info);
+		/*
 		printf(
 			"\tMode %ld: %ldx%ld, %ld bpp, %d px/scanline, %p info, (%p, %p, %p, %p), %p version\n", 
 			i, 
@@ -220,6 +221,7 @@ int main(int argc, char** argv) {
 			gop_mode_info->PixelInformation.ReservedMask,
 			gop_mode_info->Version
 		);
+		*/
 		double aspect_ratio = gop_mode_info->HorizontalResolution / (double)gop_mode_info->VerticalResolution;
 		// Found a more precise fit for our desired aspect ratio?
 		if (abs(desired_aspect_ratio - aspect_ratio) <= min_distance) {

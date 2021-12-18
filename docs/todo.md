@@ -260,3 +260,5 @@ Crash in awm when preferences exits without calling gui_enter_event_loop()
 
 Wrapper around C that inserts calls to performance monitoring/logging helpers
     Example: Increment a depth counter on function entry, decrement on exit. Depth is used for indentation in logs, or subservice name
+
+A key combination turns on 'debug mode' - enables extra logging ad-hoc in the kernel
