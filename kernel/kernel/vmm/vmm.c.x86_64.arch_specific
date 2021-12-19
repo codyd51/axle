@@ -57,10 +57,12 @@ void _handle_page_fault(const register_state_t* regs) {
 	//if execution reaches here, recovery failed or recovery wasn't possible
     printf("|----------------------------------|\n");
     printf("|        Page Fault in [%d]         |\n", getpid());
-    amc_service_t* active_service = amc_service_of_active_task();
-    if (active_service) {
-		printf("|        AMC service: %s |\n", active_service->name);
-    }
+	if (amc_is_active()) {
+		amc_service_t* active_service = amc_service_of_active_task();
+		if (active_service) {
+			printf("|        AMC service: %s |\n", active_service->name);
+		}
+	}
 
 	if (overwrote_reserved_bits) printf_err("Overwrote CPU-resereved bits of page entry");
 	if (invalid_ip) printf_err("Faulted during instruction fetch");
@@ -668,6 +670,7 @@ uint64_t vas_map_range(vas_state_t* vas_state, uint64_t min_address, uint64_t si
 uint64_t vas_alloc_range(vas_state_t* vas_state, uint64_t min_address, uint64_t size, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level) {
 	// Page-align the provided size
 	size = (size + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1);
+	assert(!(min_address & (PAGE_SIZE-1)), "min_address not page-aligned");
 
 	//printf("vas_alloc_range(state: 0x%p, start: 0x%p, size: 0x%p)\n", vas_state, min_address, size);
 
