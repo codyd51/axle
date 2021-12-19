@@ -86,8 +86,8 @@ void pmm_init(void) {
         uintptr_t addr = addr_space_frame_ceil(region.addr);
         uintptr_t len = addr_space_frame_floor(region.len);
         uint64_t page_count = (len + (PAGE_SIZE - 1)) / PAGE_SIZE;
-        for (int j = page_count - 1; j >= 0; j--) {
-            pmm_push_allocatable_frame(addr + (j * PAGE_SIZE));
+        for (uint64_t j = page_count; j > 0; j--) {
+            pmm_push_allocatable_frame(addr + ((j-1) * PAGE_SIZE));
         }
     }
 
