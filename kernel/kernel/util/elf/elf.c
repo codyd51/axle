@@ -82,16 +82,25 @@ bool elf_load_segment(unsigned char* src, elf_phdr* seg) {
 	uintptr_t dest_base = seg->vaddr;
 	uintptr_t dest_limit = dest_base + seg->memsz;
 
-	// Map the segment memory
-	uintptr_t page_aligned_size = (seg->memsz + (PAGE_SIZE-1)) & PAGING_PAGE_MASK;
 	//printf("Page-aligned segment size: 0x%p\n", page_aligned_size);
-	//printf("Allocating at 0x%p\n", seg->vaddr);
-	uintptr_t* base = vas_alloc_range(vas_get_active_state(), seg->vaddr, page_aligned_size, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
-	assert(base == seg->vaddr, "Failed to map program at its requested address");
+	printf("pid %d Allocating at 0x%p\n", getpid(), seg->vaddr);
+	// Floor the vmaddr to a page boundary
+	uintptr_t vm_page_base = seg->vaddr & PAGING_PAGE_MASK;
+	// Account for the extra bytes we may have just added via the flooring above
+	uintptr_t page_aligned_size = (seg->memsz + (seg->vaddr - vm_page_base));
+	page_aligned_size = (page_aligned_size + (PAGE_SIZE - 1)) & PAGING_PAGE_MASK;
 
-	// Copy the file data
-	memcpy(base, src_base, seg->filesz);
-	
+	// Map the segment memory
+	//pmm_debug_on();
+	uintptr_t* base = vas_alloc_range(vas_get_active_state(), vm_page_base, page_aligned_size, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
+	//pmm_debug_off();
+	assert(base == vm_page_base, "Failed to map program at its requested address");
+
+	// Zero-out any unused bits...
+	memset(base, 0, page_aligned_size);
+	// Copy the file data, and ignore our floor() from earlier
+	memcpy(seg->vaddr, src_base, seg->filesz);
+
 	return true;
 }
 
@@ -102,7 +111,7 @@ uintptr_t elf_load_small(unsigned char* src) {
 	int segcount = hdr->phnum; 
 	if (!segcount) return 0;
 
-	//printf("[%d] Loading %d ELF segments\n", getpid(), segcount);
+	printf("[%d] Loading %d ELF segments\n", getpid(), segcount);
 	bool found_loadable_seg = false;
 	for (int i = 0; i < segcount; i++) {
 		elf_phdr* segment = (elf_phdr*)(phdr_table_addr + (i * hdr->phentsize));
@@ -197,8 +206,6 @@ void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf
 		return;
 	}
 	//printf("ELF prog_break 0x%08x bss_loc 0x%08x\n", prog_break, bss_loc);
-	// TODO(PT): Ensure the caller cleans this up?
-	//kfree(buf);
 
 	// Give userspace a 128kb stack
 	// TODO(PT): We need to free the stack created by _thread_create
