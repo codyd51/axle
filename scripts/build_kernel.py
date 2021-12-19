@@ -10,9 +10,8 @@ from contextlib import contextmanager
 
 from build_kernel_headers import copy_kernel_headers
 from build_utils import run_and_check, run_and_capture_output_and_check, copied_file_is_outdated
-from build_programs import build_all_programs
-from build_userspace_headers import copy_userspace_headers
 from build_meson_projects import build_meson_projects
+from run_axle import run_iso
 
 
 ARCH = "x86_64"
@@ -67,46 +66,6 @@ def build_iso() -> Path:
         run_and_check(["mcopy", "-i", image_name.as_posix(), initrd_path.as_posix(), "::/EFI/AXLE/INITRD.IMG"])
 
     return image_name
-
-
-def run_iso(image_path: Path) -> None:
-    # Run disk image
-    run_and_check(
-        [
-            "qemu-system-x86_64",
-            # UEFI OVMF firmware
-            "-pflash",
-            "/Users/philliptennen/Downloads/RELEASEX64_OVMF.fd",
-            # USB containing axle disk image
-            "-drive",
-            f"if=none,id=usb,format=raw,file={image_path.as_posix()}",
-            "-usb",
-            "-device",
-            "qemu-xhci,id=xhci",
-            "-device",
-            "usb-storage,bus=xhci.0,drive=usb",
-            # Use host CPU
-            "-accel",
-            "hvf",
-            "-cpu",
-            "host",
-            # Capture data sent to  serial port
-            "-serial",
-            "file:syslog.log",
-            # SATA drive
-            "-drive",
-            "id=disk,file=axle-hdd.img,if=none",
-            "-device",
-            "ahci,id=ahci",
-            "-device",
-            "ide-hd,drive=disk,bus=ahci.0",
-            # System configuration
-            "-monitor",
-            "stdio",
-            "-m",
-            "4G",
-        ]
-    )
 
 
 def build_initrd() -> None:
