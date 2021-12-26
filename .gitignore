@@ -34,3 +34,6 @@ kernel/kernel/vmm/vmm.c
 
 # Sysroot generated as part of OS build
 axle-sysroot
+
+rust_programs/*/target
+mkinitrd/target
