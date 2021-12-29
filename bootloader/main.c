@@ -266,6 +266,11 @@ int main(int argc, char** argv) {
 		printf("Failed to map initrd!\n");
 		return 0;
 	}
+	if (!initrd_map("\\EFI\\AXLE\\INITRD2.IMG", &boot_info->initrd2_base, &boot_info->initrd2_size)) {
+		printf("Failed to map initrd!\n");
+		return 0;
+	}
+
 
 	// Step 5: Read the memory map
 	// Calling GetMemoryMap with an invalid buffer allows us to read info on 

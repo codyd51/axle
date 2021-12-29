@@ -32,9 +32,9 @@ typedef struct framebuffer_info {
 } framebuffer_info_t;
 
 typedef struct boot_info {
-    uint32_t kernel_image_start;
-    uint32_t kernel_image_end;
-    uint32_t kernel_image_size;
+    uintptr_t kernel_image_start;
+    uintptr_t kernel_image_end;
+    uintptr_t kernel_image_size;
 
     /*
     uint32_t boot_stack_top_phys;
@@ -42,9 +42,13 @@ typedef struct boot_info {
     uint32_t boot_stack_size;
     */
 
-    uint32_t initrd_start;
-    uint32_t initrd_end;
-    uint32_t initrd_size;
+    uintptr_t initrd_start;
+    uintptr_t initrd_end;
+    uintptr_t initrd_size;
+
+    uintptr_t initrd2_start;
+    uintptr_t initrd2_end;
+    uintptr_t initrd2_size;
 
     uint32_t mem_region_count;
     physical_memory_region_t mem_regions[256];

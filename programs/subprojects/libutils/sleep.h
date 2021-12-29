@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 unsigned sleep(unsigned int seconds);
-unsigned usleep(unsigned int ms);
+int usleep(long unsigned int ms);
 
 uint32_t ms_since_boot();
 

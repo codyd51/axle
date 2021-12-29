@@ -90,35 +90,54 @@ static void _amc_core_put_service_to_sleep(const char* source_service, uint32_t 
 }
 
 static void _amc_core_file_manager_map_initrd(const char* source_service) {
-    // Only file_manager is allowed to invoke this code!
-    assert(!strncmp(source_service, "com.axle.file_manager", AMC_MAX_SERVICE_NAME_LEN), "Only File Manager may use this syscall");
+    if (!strncmp(source_service, "com.axle.file_manager", AMC_MAX_SERVICE_NAME_LEN)) {
+        // Only file_manager is allowed to invoke this code!
+        assert(!strncmp(source_service, "com.axle.file_manager", AMC_MAX_SERVICE_NAME_LEN), "Only File Manager may use this syscall");
 
-    amc_service_t* current_service = amc_service_with_name(source_service);
-    spinlock_acquire(&current_service->spinlock);
+        amc_service_t* current_service = amc_service_with_name(source_service);
+        spinlock_acquire(&current_service->spinlock);
 
-    // Map the ramdisk into the proc's address space
-    boot_info_t* bi = boot_info_get();
-    /*
-    vmm_identity_map_region(
-        (vmm_page_directory_t*)vmm_active_pdir(),
-        bi->initrd_start,
-        bi->initrd_size
-    );
-    */
-    uint32_t page_padded_size = (bi->initrd_size + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1);
-    uintptr_t mapped_initrd = vas_map_range(vas_get_active_state(), 0x7d0000000000, page_padded_size, bi->initrd_start, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
-    spinlock_release(&current_service->spinlock);
+        // Map the ramdisk into the proc's address space
+        boot_info_t* bi = boot_info_get();
+        uint32_t page_padded_size = (bi->initrd_size + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1);
+        uintptr_t mapped_initrd = vas_map_range(vas_get_active_state(), 0x7d0000000000, page_padded_size, bi->initrd_start, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
+        spinlock_release(&current_service->spinlock);
 
-    // And mark the pages as accessible to usermode
-    printf("Ramdisk: 0x%p - 0x%p (%d pages)\n", mapped_initrd, mapped_initrd + bi->initrd_size, bi->initrd_size / PAGE_SIZE);
+        // And mark the pages as accessible to usermode
+        printf("Ramdisk: 0x%p - 0x%p (%d pages)\n", mapped_initrd, mapped_initrd + bi->initrd_size, bi->initrd_size / PAGE_SIZE);
 
-    amc_initrd_info_t msg = {
-        .event = AMC_FILE_MANAGER_MAP_INITRD_RESPONSE,
-        .initrd_start = mapped_initrd,
-        .initrd_end = mapped_initrd + bi->initrd_size,
-        .initrd_size = bi->initrd_size,
-    };
-    amc_message_send__from_core(source_service, &msg, sizeof(amc_initrd_info_t));
+        amc_initrd_info_t msg = {
+            .event = AMC_FILE_MANAGER_MAP_INITRD_RESPONSE,
+            .initrd_start = mapped_initrd,
+            .initrd_end = mapped_initrd + bi->initrd_size,
+            .initrd_size = bi->initrd_size,
+        };
+        amc_message_send__from_core(source_service, &msg, sizeof(amc_initrd_info_t));
+    }
+    else {
+        // Only file_manager is allowed to invoke this code!
+        assert(!strncmp(source_service, "com.axle.file_manager2", AMC_MAX_SERVICE_NAME_LEN), "Only File Manager may use this syscall");
+
+        amc_service_t* current_service = amc_service_with_name(source_service);
+        spinlock_acquire(&current_service->spinlock);
+
+        // Map the ramdisk into the proc's address space
+        boot_info_t* bi = boot_info_get();
+        uint32_t page_padded_size = (bi->initrd2_size + (PAGE_SIZE - 1)) & ~(PAGE_SIZE - 1);
+        uintptr_t mapped_initrd = vas_map_range(vas_get_active_state(), 0x7d0000000000, page_padded_size, bi->initrd2_start, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
+        spinlock_release(&current_service->spinlock);
+
+        // And mark the pages as accessible to usermode
+        printf("Ramdisk: 0x%p - 0x%p (%d pages)\n", mapped_initrd, mapped_initrd + bi->initrd2_size, bi->initrd2_size / PAGE_SIZE);
+
+        amc_initrd_info_t msg = {
+            .event = AMC_FILE_MANAGER_MAP_INITRD_RESPONSE,
+            .initrd_start = mapped_initrd,
+            .initrd_end = mapped_initrd + bi->initrd2_size,
+            .initrd_size = bi->initrd2_size,
+        };
+        amc_message_send__from_core(source_service, &msg, sizeof(amc_initrd_info_t));
+    }
 }
 
 static void _trampoline(const char* program_name, void* buf, uint32_t buf_size) {
@@ -132,16 +151,20 @@ static void _amc_core_file_manager_exec_buffer(const char* source_service, void*
     assert(!strncmp(source_service, "com.axle.file_manager", AMC_MAX_SERVICE_NAME_LEN), "Only File Manager may use this syscall");
 
     amc_exec_buffer_cmd_t* cmd = (amc_exec_buffer_cmd_t*)buf;
-    printf("exec buffer(program_name: %s, buffer_addr: 0x%p)\n", cmd->program_name, cmd->buffer_addr);
+    printf("exec buffer(program_name: %s, buffer_addr: 0x%p, buffer_size: %p)\n", cmd->program_name, cmd->buffer_addr, cmd->buffer_size);
+	printf("[%d ms] exec_buffer\n", ms_since_boot());
 
     // Copy the buffer to kernel space
     char* copy = kmalloc(cmd->buffer_size);
     memcpy(copy, cmd->buffer_addr, cmd->buffer_size);
+    // Copy program name to kernel space
+    // TODO(PT): Where should this be freed?
+    char* name_copy = strdup(cmd->program_name);
 
     task_spawn__with_args(
-        cmd->program_name,
+        name_copy,
         _trampoline, 
-        cmd->program_name, 
+        name_copy, 
         copy, 
         cmd->buffer_size
     );

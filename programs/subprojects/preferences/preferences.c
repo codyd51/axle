@@ -273,12 +273,9 @@ int main(int argc, char** argv) {
     amc_message_t* resp;
     amc_message_await(AWM_SERVICE_NAME, &resp);
     awm_desktop_traits_response_t* traits = (awm_desktop_traits_response_t*)&resp->body;
-    printf("Event is %d\n", traits->event);
     assert(traits->event == AWM_DESKTOP_TRAITS_RESPONSE, "Expected desktop traits response");
     Color to_initial = traits->desktop_gradient_outer_color;
     Color from_initial = traits->desktop_gradient_inner_color;
-    printf("To %d %d %d\n", to_initial.val[0], to_initial.val[1], to_initial.val[2]);
-    printf("From %d %d %d\n", from_initial.val[0], from_initial.val[1], from_initial.val[2]);
 
 	gui_window_t* window = gui_window_create("Preferences", 800, 360);
 	Size window_size = window->size;

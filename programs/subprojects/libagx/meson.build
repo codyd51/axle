@@ -1,6 +1,6 @@
 project('libagx', 'c')
 libagx = static_library(
-    'agx', 
+    'libagx', 
     [
         'font/font.c',
         'lib/point.c',

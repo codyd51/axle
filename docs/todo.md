@@ -255,6 +255,7 @@ Real-time clock (for wall clock datetime)
 
 Loading icon - program startup
     Could be a rotating (diamond) version of the square cursor
+    awm should use libgui with an abstraction layer for its differences
 
 Crash in awm when preferences exits without calling gui_enter_event_loop()
 

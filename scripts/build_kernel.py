@@ -23,12 +23,15 @@ def _is_macos() -> bool:
 
 @contextmanager
 def _get_mounted_iso(image_name: Path) -> Generator[Path, Any, Any]:
+    disk_size_in_mb = 128
+    sector_size = 512
+    sector_count = (disk_size_in_mb * 1024 * 1024) / sector_size;
     if _is_macos():
         mounted_disk_name = run_and_capture_output_and_check(
             ["hdiutil", "attach", "-imagekey", "diskimage-class=CRawDiskImage", "-nomount", image_name.as_posix()]
         ).strip(f"{string.whitespace}\n")
         print(f"Mounted disk name: {mounted_disk_name}")
-        run_and_check(["newfs_msdos", "-F", "32", "-S", "512", "-s", "131072", mounted_disk_name])
+        run_and_check(["newfs_msdos", "-F", "32", "-S", str(sector_size), "-s", str(int(sector_count)), mounted_disk_name])
         yield Path(mounted_disk_name)
     else:
         run_and_check(['mkfs.vfat', image_name.as_posix()])
@@ -54,6 +57,10 @@ def build_iso() -> Path:
     if not initrd_path.exists():
         raise ValueError(f"initrd missing: {initrd_path}")
 
+    initrd2_path = Path(__file__).parents[1] / "isodir" / "boot" / "initrd2.img"
+    if not initrd_path.exists():
+        raise ValueError(f"initrd missing: {initrd_path}")
+
     run_and_check(["dd", "if=/dev/zero", f"of={image_name.as_posix()}", "bs=512", "count=262144"])
 
     with _get_mounted_iso(image_name) as mount_point:
@@ -64,6 +71,7 @@ def build_iso() -> Path:
         run_and_check(["mmd", "-i", image_name.as_posix(), "::/EFI/AXLE"])
         run_and_check(["mcopy", "-i", image_name.as_posix(), kernel_binary_path.as_posix(), "::/EFI/AXLE/KERNEL.ELF"])
         run_and_check(["mcopy", "-i", image_name.as_posix(), initrd_path.as_posix(), "::/EFI/AXLE/INITRD.IMG"])
+        run_and_check(["mcopy", "-i", image_name.as_posix(), initrd2_path.as_posix(), "::/EFI/AXLE/INITRD2.IMG"])
 
     return image_name
 
@@ -84,6 +92,25 @@ def build_initrd() -> None:
 
     staged_initrd = Path(__file__).parents[1] / "isodir" / "boot" / "initrd.img"
     shutil.move(generated_initrd.as_posix(), staged_initrd.as_posix())
+
+    sysroot_dir = Path(__file__).parents[1] / "axle-sysroot"
+    applications_dir = sysroot_dir / "usr" / "applications"
+    applications_dir.mkdir(exist_ok=True)
+    for file in initrd_dir.iterdir():
+        shutil.copy(file.as_posix(), applications_dir.as_posix())
+
+
+def build_initrd2() -> None:
+    mkinitrd_path = Path(__file__).parents[1] / "mkinitrd"
+    if not mkinitrd_path.exists():
+        raise RuntimeError(f"mkinitrd directory missing, expected at {mkinitrd_path}")
+
+    generated_initrd = mkinitrd_path / "output.img"
+    if not generated_initrd.exists():
+        raise RuntimeError(f"mkinitrd did not generate initrd at {generated_initrd}")
+
+    staged_initrd2 = Path(__file__).parents[1] / "isodir" / "boot" / "initrd2.img"
+    shutil.copy(generated_initrd.as_posix(), staged_initrd2.as_posix())
 
 
 def main():
@@ -136,6 +163,9 @@ def main():
 
     # Build ramdisk
     build_initrd()
+    
+    # Copy Rust ramdisk
+    build_initrd2()
 
     # Build disk image
     image_name = build_iso()
