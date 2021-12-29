@@ -17,7 +17,7 @@ new file mode 100644
 index 000000000..3426fe0e6
 --- /dev/null
 +++ b/src/axle/mod.rs
-@@ -0,0 +1,72 @@
+@@ -0,0 +1,86 @@
 +// libc port for axle
 +//
 +
@@ -77,14 +77,28 @@ index 000000000..3426fe0e6
 +        }
 +    }
 +}
++ 
++ const AMC_MAX_SERVICE_NAME_LEN: usize = 64;
++ #[repr(C)]
++ #[derive(Debug)]
++ #[allow(missing_copy_implementations)]
++ pub struct AmcMessage {
++     pub source: [u8; AMC_MAX_SERVICE_NAME_LEN],
++     pub dest: [u8; AMC_MAX_SERVICE_NAME_LEN],
++     pub len: u32,
++     pub body: [u8; 0]
++ }
 +
 +extern "C" {
-+    pub fn amc_register_service(service_name: *const ::c_char) -> ();
-+    pub fn amc_message_send(destination_service: *const ::c_char, buf: *mut ::c_void, buf_size: u32) -> bool;
-+    pub fn assert(condition: bool, message: *const ::c_char) -> ();
 +    pub fn malloc(size: usize) -> *mut ::c_void;
 +    pub fn free(ptr: *mut ::c_char) -> ();
-+    pub fn printf(fmt: *const ::c_char, ...) -> i32;
++
++    pub fn printf(fmt: *const u8, ...) -> i32;
++    pub fn assert(condition: bool, message: *const u8) -> ();
++
++    pub fn amc_register_service(service_name: *const u8) -> ();
++    pub fn amc_message_send(destination_service: *const u8, buf: *const ::c_void, buf_size: u32) -> bool;
++    pub fn amc_message_await(from_service: *const u8, out_message: *mut *mut ::AmcMessage) -> ();
 +}
 +
 +#[link(name = "c")]
