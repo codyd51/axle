@@ -6,3 +6,5 @@ edition = "2021"
 [dependencies]
 cstr_core = "*"
 
+[features]
+testing = []

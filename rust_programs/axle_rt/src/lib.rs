@@ -51,6 +51,7 @@ pub trait HasEventField {
     fn event(&self) -> u32;
 }
 
+#[cfg(not(feature = "testing"))]
 unsafe fn amc_message_await_unchecked<T>(
     from_service: Option<&str>,
 ) -> Result<AmcMessage<T>, core::str::Utf8Error> {
@@ -86,7 +87,8 @@ unsafe fn amc_message_await_unchecked<T>(
     })
 }
 
-pub fn amc_message_await<T>(from_service: &str, expected_event: u32) -> AmcMessage<T>
+#[cfg(not(feature = "testing"))]
+pub fn amc_message_await<T>(from_service: Option<&str>, expected_event: u32) -> AmcMessage<T>
 where
     T: HasEventField,
 {
@@ -102,12 +104,14 @@ where
     msg
 }
 
+#[cfg(not(feature = "testing"))]
 pub fn amc_register_service(this_service: &str) {
     unsafe {
         ::libc::amc_register_service(CString::new(this_service).unwrap().as_ptr() as *const u8);
     }
 }
 
+#[cfg(not(feature = "testing"))]
 pub fn amc_message_send<T>(to_service: &str, message: T) {
     let to_service_c_str = CString::new(to_service).unwrap();
     let msg_ptr = &message as *const _ as *const libc::c_void;
@@ -120,6 +124,7 @@ pub fn amc_message_send<T>(to_service: &str, message: T) {
     }
 }
 
+#[cfg(not(feature = "testing"))]
 #[panic_handler]
 fn panic(panic_info: &PanicInfo<'_>) -> ! {
     let msg = match panic_info.message() {
@@ -136,6 +141,7 @@ fn panic(panic_info: &PanicInfo<'_>) -> ! {
 
 pub struct Dummy;
 
+#[cfg(not(feature = "testing"))]
 unsafe impl GlobalAlloc for Dummy {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         /*
@@ -158,5 +164,6 @@ unsafe impl GlobalAlloc for Dummy {
     }
 }
 
+#[cfg(not(feature = "testing"))]
 #[global_allocator]
 static ALLOCATOR: Dummy = Dummy;
