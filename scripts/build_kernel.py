@@ -101,7 +101,7 @@ def build_initrd() -> None:
 
 
 def build_initrd2() -> None:
-    mkinitrd_path = Path(__file__).parents[1] / "mkinitrd"
+    mkinitrd_path = Path(__file__) / "mkinitrd"
     if not mkinitrd_path.exists():
         raise RuntimeError(f"mkinitrd directory missing, expected at {mkinitrd_path}")
 

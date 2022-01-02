@@ -85,10 +85,20 @@ def setup_rust_toolchain():
 def build_rust_programs() -> None:
     programs = [
         'axle_rt',
+        'file_manager_messages',
+        'libfs',
         'initrd_fs',
+        'fs_client',
     ]
     for program_dir_name in programs:
         program_dir = _RUST_PROGRAMS_DIR / program_dir_name
+        run_and_check(
+            [
+                'cargo',
+                'fmt',
+            ],
+            cwd=program_dir
+        )
         run_and_check(
             [
                 'cargo',
