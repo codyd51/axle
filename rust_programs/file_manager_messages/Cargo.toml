@@ -1,0 +1,11 @@
+[package]
+name = "file_manager_messages"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axle_rt = {path = "../axle_rt" }
+cstr_core = "*"
+
+[features]
+testing = []
