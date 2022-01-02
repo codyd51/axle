@@ -45,6 +45,28 @@ def setup_rust_toolchain():
     # Build libc (C stdlib / axle syscall FFI bindings to Rust)
     with TemporaryDirectory() as temp_dir_raw:
         temp_dir = Path(temp_dir_raw)
+
+        # Install Rust nightly via rustup
+        rustup_install_script = temp_dir / 'rustup.sh'
+        run_and_check(
+            [
+                "curl",
+                "--proto",
+                "'=https'",
+                "--tlsv1.2",
+                "-sSf",
+                "https://sh.rustup.rs",
+                "-o",
+                rustup_install_script.as_posix()
+            ]
+        )
+        run_and_check([rustup_install_script.as_posix()])
+        run_and_check(["rustup", "install", "nightly-2021-12-05"])
+        run_and_check(["rustup", "default", "nightly-2021-12-05"])
+        run_and_check(["rustup", "component", "add", "rust-src"])
+        run_and_check(["rustup", "component", "add", "clippy-preview"])
+        run_and_check(["rustup", "component", "add", "rustfmt"])
+
         libc_dir = temp_dir / "libc"
 
         clone_git_repo(temp_dir, 'https://github.com/rust-lang/libc')
