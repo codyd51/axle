@@ -4,9 +4,9 @@ name: axle CI
 on:
   # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [ master, uefi-bootloader, build-in-ci ]
+    branches: [ master, uefi-bootloader, build-in-ci, rust-support ]
   pull_request:
-    branches: [ master, uefi-bootloader, build-in-ci ]
+    branches: [ master, uefi-bootloader, build-in-ci, rust-support ]
 
   # Allows running the workflow manually from the Actions tab
   workflow_dispatch:
@@ -14,7 +14,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
+  
     steps:
       # Checks out repo at $GITHUB_WORKSPACE
       - uses: actions/checkout@v2
@@ -37,8 +37,7 @@ jobs:
           path: |
             x86_64-toolchain
             axle-sysroot
-          # TODO(PT): Change the cache key once the old cache is evicted
-          key: libc-and-toolchain-2
+          key: libc-and-toolchain
 
       - name: Build libc and toolchain
         shell: bash
