@@ -50,8 +50,6 @@ jobs:
       - name: Build Rust toolchain
         shell: bash
         run: |
-          # curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain none -y
-          # rustup toolchain install nightly --allow-downgrade --profile minimal --component clippy --component rustfmt
           python3 scripts/build_rust_toolchain.py --rebuild_libc
 
       - name: Build OS image
