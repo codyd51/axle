@@ -3,8 +3,11 @@
 #![feature(default_alloc_error_handler)]
 #![feature(slice_ptr_get)]
 #![feature(panic_info_message)]
+#![feature(stmt_expr_attributes)]
 
 extern crate alloc;
+
+#[cfg(not(feature = "testing"))]
 pub extern crate libc;
 use alloc::alloc::{GlobalAlloc, Layout};
 use alloc::format;
@@ -17,9 +20,10 @@ use cstr_core::CString;
 macro_rules! printf {
     ($($arg:tt)*) => ({
         let s = alloc::fmt::format(core::format_args!($($arg)*));
-        let c_str = ::cstr_core::CString::new(s).unwrap();
-        #[allow(unused_unsafe)]
-        unsafe { ::libc::printf(c_str.as_ptr() as *const u8); }
+        for x in s.split('\0') {
+            let log = ::cstr_core::CString::new(x).unwrap();
+            unsafe { ::libc::printf(log.as_ptr() as *const u8); }
+        }
     })
 }
 
