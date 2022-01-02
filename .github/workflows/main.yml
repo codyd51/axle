@@ -37,7 +37,7 @@ jobs:
           path: |
             x86_64-toolchain
             axle-sysroot
-          key: libc-and-toolchain
+          key: libc-and-toolchain-2
 
       - name: Build libc and toolchain
         shell: bash
