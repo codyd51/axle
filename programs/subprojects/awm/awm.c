@@ -783,6 +783,9 @@ static void _awm_init(void) {
 		rect_mid_y(screen_frame),
 		(float)_g_background->size.height * 0.65
 	);
+
+	// Move the cursor to the middle of the screen
+	mouse_pos = (Point){.x = screen_frame.size.width / 2, .y = screen_frame.size.height / 2};
 }
 
 static void _awm_process_amc_messages(bool should_block) {
