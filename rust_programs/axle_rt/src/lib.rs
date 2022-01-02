@@ -52,11 +52,26 @@ pub trait HasEventField {
 }
 
 unsafe fn amc_message_await_unchecked<T>(
-    from_service: &str,
+    from_service: Option<&str>,
 ) -> Result<AmcMessage<T>, core::str::Utf8Error> {
-    let from_service_c_str = CString::new(from_service).unwrap();
     let mut msg_ptr = core::ptr::null_mut();
-    libc::amc_message_await(from_service_c_str.as_ptr() as *const u8, &mut msg_ptr);
+
+    // Does the caller want to await any message or just messages from a specific caller?
+    if let Some(from_service) = from_service {
+        let from_service_c_str = CString::new(from_service).unwrap();
+        libc::amc_message_await(from_service_c_str.as_ptr() as *const u8, &mut msg_ptr);
+    } else {
+        libc::amc_message_await_any(&mut msg_ptr);
+    }
+
+    // The source and destination buffers that come through will have null bytes at the end of the string
+    // Trim the containers here or else we'll store excess null bytes, which causes
+    // problems when creating CStrings out of them later
+    let source_with_null_bytes = core::str::from_utf8(&(*msg_ptr).source)?;
+    let source_without_null_bytes = source_with_null_bytes.trim_matches(char::from(0));
+
+    let dest_with_null_bytes = core::str::from_utf8(&(*msg_ptr).dest)?;
+    let dest_without_null_bytes = dest_with_null_bytes.trim_matches(char::from(0));
 
     let msg_body_slice = core::ptr::slice_from_raw_parts(
         core::ptr::addr_of!((*msg_ptr).body),
@@ -65,8 +80,8 @@ unsafe fn amc_message_await_unchecked<T>(
     let msg_body_as_ref_t: &T = &*(msg_body_slice.as_ptr() as *const T);
 
     Ok(AmcMessage {
-        source: core::str::from_utf8(&(*msg_ptr).source)?,
-        dest: core::str::from_utf8(&(*msg_ptr).dest)?,
+        source: source_without_null_bytes,
+        dest: dest_without_null_bytes,
         body: msg_body_as_ref_t,
     })
 }
