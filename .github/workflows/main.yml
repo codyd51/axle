@@ -46,3 +46,29 @@ jobs:
           python3 scripts/install_dependencies.py
           python3 scripts/build_os_toolchain.py
           echo "Toolchain built successfully"
+      
+      - name: Build Rust toolchain
+        shell: bash
+        run: |
+          # curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain none -y
+          # rustup toolchain install nightly --allow-downgrade --profile minimal --component clippy --component rustfmt
+          python3 scripts/build_rust_toolchain.py --rebuild_libc
+
+      - name: Build OS image
+        shell: bash
+        run: |
+          git submodule update --init --recursive
+          # PT: For nasm in CI
+          python3 scripts/install_dependencies.py
+          python3 scripts/build_kernel.py --no_run
+
+      - name: Update nightly release
+        uses: meeDamian/github-release@2.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: nightly-${{ github.sha }}
+          files: axle.iso
+          allow_override: true
+          prerelease: false
+          commitish: ${{ github.sha }}
+          gzip: false
