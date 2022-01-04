@@ -37,6 +37,7 @@ jobs:
           path: |
             x86_64-toolchain
             axle-sysroot
+            scripts/mkinitrd/target
           key: libc-and-toolchain
 
       - name: Build libc and toolchain
