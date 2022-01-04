@@ -142,5 +142,4 @@ def copy_userspace_headers() -> None:
 
 
 if __name__ == "__main__":
-    # build_sysroot_userspace_headers()
     copy_userspace_headers()

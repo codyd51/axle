@@ -58,6 +58,8 @@ jobs:
           git submodule update --init --recursive
           # PT: For nasm in CI
           python3 scripts/install_dependencies.py
+          # Build userspace headers as the kernel depends on file_manager definitions
+          python3 scripts/build_userspace_headers.py
           python3 scripts/build_kernel.py --no_run
           # Run Rust tests
           python3 scripts/build_rust_toolchain.py --test
