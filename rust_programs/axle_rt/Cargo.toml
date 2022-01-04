@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-cstr_core = "*"
+cstr_core = "0.2.4"
 
 [features]
 testing = []

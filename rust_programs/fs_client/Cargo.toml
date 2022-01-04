@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cstr_core = "0.2.4"
 axle_rt = {path = "../axle_rt" }
-cstr_core = "*"
 file_manager_messages = {path = "../file_manager_messages" }

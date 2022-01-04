@@ -7,7 +7,7 @@ edition = "2021"
 axle_rt = {path = "../axle_rt" }
 file_manager_messages = {path = "../file_manager_messages" }
 libfs = {path = "../libfs" }
-cstr_core = "*"
+cstr_core = "0.2.4"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_bytes = { version = "0.11", default-features = false }
 postcard = { version = "0.7.2", features = ["alloc"] }

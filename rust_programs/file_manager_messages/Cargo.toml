@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 axle_rt = {path = "../axle_rt" }
-cstr_core = "*"
+cstr_core = "0.2.4"
 
 [features]
 testing = []
