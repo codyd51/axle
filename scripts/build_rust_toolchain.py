@@ -171,9 +171,11 @@ def main() -> None:
 
     if args.rebuild_libc:
         setup_rust_toolchain()
+        return
 
     if args.test:
         test_rust_programs()
+        return
 
     build_rust_programs()
 
