@@ -1,0 +1,12 @@
+[package]
+name = "awm_messages"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axle_rt = {path = "../axle_rt" }
+agx_definitions = {path = "../agx_definitions" }
+cstr_core = "0.2.4"
+
+[features]
+testing = []
