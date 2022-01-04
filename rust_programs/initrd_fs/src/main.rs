@@ -136,7 +136,7 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
         )
     };
     let root_dir: DirectoryImage = postcard::from_bytes(rust_reference).expect("Dealloc failed");
-    traverse_dir(0, &root_dir);
+    //traverse_dir(0, &root_dir);
 
     loop {
         printf!("Awaiting next message...\n");
@@ -148,7 +148,6 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
         printf!("Dir: {:?}\n", requested_dir);
 
         // Find the directory within
-        //let dir = find_directory(&root_dir, &requested_dir);
         if let Some(entry) = fs_entry_find(&root_dir, &requested_dir) {
             printf!("Found FS entry: {}\n", entry.path);
             if entry.is_dir {
@@ -160,12 +159,6 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
         } else {
             printf!("Failed to find directory {:?}\n", requested_dir);
         }
-        /*
-        core::str::from_utf8(msg.body().dir)
-            .unwrap()
-            .trim_matches(char::from(0))
-            */
-        //cstr_core::CStr::from_bytes_with_nul(bytes)
     }
     0
 }

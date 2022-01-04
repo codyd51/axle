@@ -6,36 +6,8 @@ extern crate std;
 use alloc::borrow::ToOwned;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
-use alloc::string::ToString;
-use alloc::format;
 use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug)]
-pub struct PathNotFoundError {
-    path: String,
-}
-
-impl PathNotFoundError {
-    fn new(path: &str) -> Self {
-        PathNotFoundError {
-            path: path.to_string(),
-        }
-    }
-}
-
-impl alloc::fmt::Display for PathNotFoundError {
-    fn fmt(&self, f: &mut alloc::fmt::Formatter) -> alloc::fmt::Result {
-        write!(f, "{}", self.path)
-    }
-}
-
-#[cfg(test)]
-impl std::error::Error for PathNotFoundError {
-    fn description(&self) -> &str {
-        &self.path
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DirectoryImage {
@@ -183,31 +155,6 @@ fn test_find_second_level_dir() {
     assert_eq!(found_dir as *const _, include as *const _);
 }
 
-/*
-fn get_subdir_by_name<'a>(
-    dir: &'a DirectoryImage,
-    subdir_name: &str,
-) -> Result<&'a DirectoryImage, PathNotFoundError> {
-    dir.subdirectories
-        .get(subdir_name)
-        .ok_or(PathNotFoundError::new(subdir_name))
-}
-    let root = get_root_directory_from_image();
-    let mouse = get_subdir_by_name(&root, "usr").and_then(|x| {
-        get_subdir_by_name(x, "include").and_then(|x| {
-            get_subdir_by_name(x, "drivers").and_then(|x| get_subdir_by_name(x, "mouse"))
-        })
-    });
-    let root = get_root_directory_from_image();
-    let get_target_dir = || -> Result<&DirectoryImage, PathNotFoundError> {
-        let usr = get_subdir_by_name(&root, "usr")?;
-        let include = get_subdir_by_name(&usr, "include")?;
-        let drivers = get_subdir_by_name(&include, "drivers")?;
-        Ok(get_subdir_by_name(drivers, "mouse")?)
-    };
-    let target_dir = get_target_dir().unwrap();
-*/
-
 #[test]
 fn test_find_directory_deeply_nested() {
     // Given a deeply nested directory
@@ -305,7 +252,7 @@ fn test_find_file_with_extension() {
     assert_eq!(found_file_data, dirent_h);
 }
 
-//#[test]
+#[test]
 fn test_traverse_past_file() {
     // Should not match abc.txt
     "/usr/include/abc.txt/more";
