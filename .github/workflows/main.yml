@@ -59,6 +59,8 @@ jobs:
           # PT: For nasm in CI
           python3 scripts/install_dependencies.py
           python3 scripts/build_kernel.py --no_run
+          # Run Rust tests
+          python3 scripts/build_rust_toolchain.py --test
 
       - name: Update nightly release
         uses: meeDamian/github-release@2.0
