@@ -4,8 +4,7 @@ extern crate alloc;
 extern crate libc;
 
 use agx_definitions::{Size, SizeU32};
-
-pub const AWM_CREATE_WINDOW_REQUEST: u32 = 800;
+use axle_rt::{ContainsEventField, ExpectsEventField};
 
 #[repr(C)]
 #[derive(Debug)]
@@ -17,14 +16,17 @@ pub struct AwmCreateWindow {
 impl AwmCreateWindow {
     pub fn new(size: &Size) -> Self {
         AwmCreateWindow {
-            event: AWM_CREATE_WINDOW_REQUEST,
-            //size: SizeU32::(size.width, size.height),
+            event: Self::EXPECTED_EVENT,
             size: SizeU32::from(size),
         }
     }
 }
 
-impl axle_rt::HasEventField for AwmCreateWindow {
+impl ExpectsEventField for AwmCreateWindow {
+    const EXPECTED_EVENT: u32 = 800;
+}
+
+impl ContainsEventField for AwmCreateWindow {
     fn event(&self) -> u32 {
         self.event
     }
@@ -39,14 +41,13 @@ pub struct AwmCreateWindowResponse {
     pub framebuffer_ptr: *mut libc::c_void,
 }
 
+}
+
 // TODO(PT): Add derive
-impl axle_rt::HasEventField for AwmCreateWindowResponse {
     fn event(&self) -> u32 {
         self.event
     }
 }
-
-pub const AWM_WINDOW_REDRAW_READY: u32 = 801;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -57,12 +58,16 @@ pub struct AwmWindowRedrawReady {
 impl AwmWindowRedrawReady {
     pub fn new() -> Self {
         AwmWindowRedrawReady {
-            event: AWM_WINDOW_REDRAW_READY,
+            event: Self::EXPECTED_EVENT,
         }
     }
 }
 
-impl axle_rt::HasEventField for AwmWindowRedrawReady {
+impl ExpectsEventField for AwmWindowRedrawReady {
+    const EXPECTED_EVENT: u32 = 801;
+}
+
+impl ContainsEventField for AwmWindowRedrawReady {
     fn event(&self) -> u32 {
         self.event
     }

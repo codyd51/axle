@@ -47,10 +47,15 @@ impl<T> AmcMessage<'_, T> {
     }
 }
 
-pub trait HasEventField {
+pub trait ExpectsEventField {
+    const EXPECTED_EVENT: u32;
+}
+
+pub trait ContainsEventField {
     fn event(&self) -> u32;
 }
 
+// This allows receiving messages that might not specify an event field
 #[cfg(target_os = "axle")]
 unsafe fn amc_message_await_unchecked<T>(
     from_service: Option<&str>,
@@ -88,16 +93,16 @@ unsafe fn amc_message_await_unchecked<T>(
 }
 
 #[cfg(target_os = "axle")]
-pub fn amc_message_await<T>(from_service: Option<&str>, expected_event: u32) -> AmcMessage<T>
+pub fn amc_message_await<T>(from_service: Option<&str>) -> AmcMessage<T>
 where
-    T: HasEventField,
+    T: ExpectsEventField + ContainsEventField,
 {
     let msg: AmcMessage<T> = unsafe { amc_message_await_unchecked(from_service).unwrap() };
     assert_eq!(
         msg.body.event(),
-        expected_event,
+        T::EXPECTED_EVENT,
         "Expected event {}, but {} sent {} instead",
-        expected_event,
+        T::EXPECTED_EVENT,
         msg.source,
         msg.body.event()
     );

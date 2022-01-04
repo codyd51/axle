@@ -12,19 +12,15 @@ use axle_rt::amc_register_service;
 use axle_rt::printf;
 use axle_rt::AmcMessage;
 
-use file_manager_messages::FileManagerDirectoryEntry;
 use file_manager_messages::FileManagerReadDirectory;
-use file_manager_messages::FILE_MANAGER_READ_DIRECTORY;
 use file_manager_messages::{str_from_u8_nul_utf8_unchecked, FileManagerDirectoryContents};
 
+use awm_messages::{AwmCreateWindow, AwmCreateWindowResponse};
 fn print_tree(dir_name: &str) {
     let fs_server = "com.axle.file_manager2";
     amc_message_send(fs_server, FileManagerReadDirectory::new(dir_name));
 
-    let dir_contents: AmcMessage<FileManagerDirectoryContents> =
-        amc_message_await(Some(fs_server), FILE_MANAGER_READ_DIRECTORY);
-
-    //printf!("Received response!\n");
+    let dir_contents: AmcMessage<FileManagerDirectoryContents> = amc_message_await(Some(fs_server));
 
     for entry in dir_contents
         .body()

@@ -7,17 +7,16 @@ extern crate alloc;
 extern crate libc;
 use serde::Serialize;
 
-use axle_rt::amc_message_await;
 use axle_rt::amc_message_send;
 use axle_rt::amc_register_service;
 use axle_rt::printf;
 use axle_rt::AmcMessage;
+use axle_rt::{amc_message_await, ContainsEventField, ExpectsEventField};
 
 use file_manager_messages::str_from_u8_nul_utf8_unchecked;
 use file_manager_messages::FileManagerDirectoryContents;
 use file_manager_messages::FileManagerDirectoryEntry;
 use file_manager_messages::FileManagerReadDirectory;
-use file_manager_messages::FILE_MANAGER_READ_DIRECTORY;
 
 use libfs::{fs_entry_find, DirectoryImage};
 
@@ -28,7 +27,7 @@ trait FromDirectoryImage {
 impl FromDirectoryImage for FileManagerDirectoryContents {
     fn from_dir_image(dir: &DirectoryImage) -> Self {
         let mut contents = FileManagerDirectoryContents {
-            event: FILE_MANAGER_READ_DIRECTORY,
+            event: FileManagerReadDirectory::EXPECTED_EVENT,
             entries: [None; 64],
         };
         let files = &dir.files;
@@ -56,9 +55,32 @@ impl FromDirectoryImage for FileManagerDirectoryContents {
     }
 }
 
+#[repr(C)]
+#[derive(Debug)]
+struct AmcInitrdRequest {
+    event: u32,
+}
+
+impl AmcInitrdRequest {
+    fn new() -> Self {
+        AmcInitrdRequest {
+            event: Self::EXPECTED_EVENT,
+        }
+    }
+}
+
+impl ExpectsEventField for AmcInitrdRequest {
+    const EXPECTED_EVENT: u32 = 203;
+}
+
+impl ContainsEventField for AmcInitrdRequest {
+    fn event(&self) -> u32 {
+        self.event
+    }
+}
+
 // Defineed in core_commands.h
 // TODO(PT): Define this in libc
-
 #[repr(C)]
 #[derive(Debug)]
 struct AmcInitrdInfo {
@@ -69,35 +91,15 @@ struct AmcInitrdInfo {
     initrd_size: u64,
 }
 
-impl axle_rt::HasEventField for AmcInitrdInfo {
+impl ExpectsEventField for AmcInitrdInfo {
+    const EXPECTED_EVENT: u32 = AmcInitrdRequest::EXPECTED_EVENT;
+}
+
+impl ContainsEventField for AmcInitrdInfo {
     fn event(&self) -> u32 {
         self.event
     }
 }
-
-#[repr(C)]
-#[derive(Debug, Serialize)]
-struct AmcInitrdRequest {
-    event: u32,
-}
-
-const AMC_FILE_MANAGER_MAP_INITRD: u32 = 203;
-impl AmcInitrdRequest {
-    fn new() -> Self {
-        AmcInitrdRequest {
-            event: AMC_FILE_MANAGER_MAP_INITRD,
-        }
-    }
-}
-
-/*
-#[derive(Serialize, Deserialize, Debug)]
-struct DirectoryImage {
-    name: String,
-    files: BTreeMap<String, Vec<u8>>,
-    subdirectories: BTreeMap<String, DirectoryImage>,
-}
-*/
 
 fn traverse_dir(depth: usize, dir: &DirectoryImage) {
     let tabs = "\t".repeat(depth);
@@ -117,8 +119,7 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
 
     amc_message_send("com.axle.core", AmcInitrdRequest::new());
 
-    let initrd_info_msg: AmcMessage<AmcInitrdInfo> =
-        amc_message_await(Some("com.axle.core"), AMC_FILE_MANAGER_MAP_INITRD);
+    let initrd_info_msg: AmcMessage<AmcInitrdInfo> = amc_message_await(Some("com.axle.core"));
     let initrd_info = initrd_info_msg.body();
 
     printf!(
@@ -140,8 +141,7 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
 
     loop {
         printf!("Awaiting next message...\n");
-        let msg: AmcMessage<FileManagerReadDirectory> =
-            amc_message_await(None, FILE_MANAGER_READ_DIRECTORY);
+        let msg: AmcMessage<FileManagerReadDirectory> = amc_message_await(None);
 
         printf!("Received msg from {:?}: {:?}\n", msg.source(), msg);
         let requested_dir = str_from_u8_nul_utf8_unchecked(&msg.body().dir);

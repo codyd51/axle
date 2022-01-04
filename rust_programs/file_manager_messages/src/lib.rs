@@ -1,7 +1,7 @@
 #![no_std]
 
 extern crate alloc;
-use axle_rt::HasEventField;
+use axle_rt::{ContainsEventField, ExpectsEventField};
 use cstr_core::CString;
 
 pub fn copy_str_into_sized_slice(slice: &mut [u8], s: &str) -> () {
@@ -18,8 +18,6 @@ pub fn str_from_u8_nul_utf8_unchecked(utf8_src: &[u8]) -> &str {
     unsafe { core::str::from_utf8_unchecked(&utf8_src[0..nul_range_end]) }
 }
 
-pub const FILE_MANAGER_READ_DIRECTORY: u32 = 100;
-
 #[repr(C)]
 #[derive(Debug)]
 pub struct FileManagerReadDirectory {
@@ -30,7 +28,7 @@ pub struct FileManagerReadDirectory {
 impl FileManagerReadDirectory {
     pub fn new(dir: &str) -> Self {
         let mut s = FileManagerReadDirectory {
-            event: FILE_MANAGER_READ_DIRECTORY,
+            event: Self::EXPECTED_EVENT,
             dir: [0; 64],
         };
         copy_str_into_sized_slice(&mut s.dir, dir);
@@ -38,7 +36,11 @@ impl FileManagerReadDirectory {
     }
 }
 
-impl axle_rt::HasEventField for FileManagerReadDirectory {
+impl ExpectsEventField for FileManagerReadDirectory {
+    const EXPECTED_EVENT: u32 = 100;
+}
+
+impl ContainsEventField for FileManagerReadDirectory {
     fn event(&self) -> u32 {
         self.event
     }
@@ -69,7 +71,11 @@ pub struct FileManagerDirectoryContents {
     pub entries: [Option<FileManagerDirectoryEntry>; 64],
 }
 
-impl HasEventField for FileManagerDirectoryContents {
+impl ExpectsEventField for FileManagerDirectoryContents {
+    const EXPECTED_EVENT: u32 = 101;
+}
+
+impl ContainsEventField for FileManagerDirectoryContents {
     fn event(&self) -> u32 {
         self.event
     }
