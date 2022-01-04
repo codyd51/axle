@@ -41,9 +41,12 @@ pub struct AwmCreateWindowResponse {
     pub framebuffer_ptr: *mut libc::c_void,
 }
 
+impl ExpectsEventField for AwmCreateWindowResponse {
+    const EXPECTED_EVENT: u32 = AwmCreateWindow::EXPECTED_EVENT;
 }
 
 // TODO(PT): Add derive
+impl ContainsEventField for AwmCreateWindowResponse {
     fn event(&self) -> u32 {
         self.event
     }
