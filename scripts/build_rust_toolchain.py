@@ -102,36 +102,43 @@ def setup_rust_toolchain():
         for file in (build_dir / "deps").iterdir():
             if file.suffix == '.rlib':
                 shutil.copy(file.as_posix(), rust_target_dir.as_posix())
-    
 
-def build_rust_programs() -> None:
-    programs = [
-        'axle_rt',
-        'file_manager_messages',
-        'libfs',
-        'initrd_fs',
-        'fs_client',
     ]
-    for program_dir_name in programs:
         program_dir = _RUST_PROGRAMS_DIR / program_dir_name
         run_and_check(
             [
                 'cargo',
-                'fmt',
-            ],
-            cwd=program_dir
-        )
-        run_and_check(
-            [
-                'cargo',
-                'build',
                 '--release',
-                f'--target={_TARGET_SPEC_FILE.as_posix()}',
             ],
             cwd=program_dir
         )
+    
+
+def build_rust_programs() -> None:
+    cargo_workspace_dir = _RUST_PROGRAMS_DIR
+    run_and_check(['cargo', 'fmt'], cwd=cargo_workspace_dir)
+    run_and_check(
+        [
+            'cargo',
+            'build',
+            '--release',
+            f'--target={_TARGET_SPEC_FILE.as_posix()}',
+            # Ref: https://users.rust-lang.org/t/cargo-features-for-host-vs-target-no-std/16911
+            # https://github.com/rust-lang/cargo/issues/2589
+            # https://github.com/rust-lang/cargo/issues/7915
+            '-Z',
+            'features=host_dep'
+        ],
+        cwd=cargo_workspace_dir
+    )
+    for entry in cargo_workspace_dir.iterdir():
+        if not entry.is_dir():
+            continue
+
         # If this project outputs a binary, move it to /initrd/
-        binary = program_dir / 'target' / 'x86_64-unknown-axle' / 'release' / program_dir_name
+        # Note that we look in the workspace target directory
+        # binary = entry / 'target' / 'x86_64-unknown-axle' / 'release' / entry.name
+        binary = cargo_workspace_dir / 'target' / 'x86_64-unknown-axle' / 'release' / entry.name
         if binary.exists():
             print(f'Moving build result to initrd: {binary}')
             initrd_dir = _REPO_ROOT / 'initrd'

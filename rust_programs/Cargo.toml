@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "awm_messages",
+    "agx_definitions",
+    "axle_rt",
+    "file_manager_messages",
+    "fs_client",
+    "initrd_fs",
+    "libfs",
+]
