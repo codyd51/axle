@@ -1,4 +1,6 @@
 #!/usr/local/bin/python3
+import os
+import stat
 import shutil
 import argparse
 from pathlib import Path
@@ -41,67 +43,75 @@ def clone_git_repo(directory: Path, url: str) -> Path:
     return repo_path
 
 
-def setup_rust_toolchain():
+def _install_rustc(temp_dir: Path) -> None:
+    # Install Rust nightly via rustup
+    rustup_install_script = temp_dir / 'rustup.sh'
+    run_and_check(
+        [
+            "curl",
+            "https://sh.rustup.rs",
+            "-o",
+            rustup_install_script.as_posix()
+        ]
+    )
+    # Mark the rustup installation script as executable
+    st = os.stat(rustup_install_script.as_posix())
+    os.chmod(rustup_install_script.as_posix(), st.st_mode | stat.S_IEXEC)
+    # Run the install script with -y to skip prompts
+    run_and_check([rustup_install_script.as_posix(), "-y"])
+
+    # Install our toolchail and required components
+    run_and_check(["rustup", "install", "nightly-2021-12-05"])
+    run_and_check(["rustup", "default", "nightly-2021-12-05"])
+    run_and_check(["rustup", "component", "add", "rust-src"])
+    run_and_check(["rustup", "component", "add", "clippy-preview"])
+    run_and_check(["rustup", "component", "add", "rustfmt"])
+
+
+def _build_rust_libc_port(temp_dir: Path) -> None:
+    libc_dir = temp_dir / "libc"
+
+    clone_git_repo(temp_dir, 'https://github.com/rust-lang/libc')
+    run_and_check(['git', 'checkout', '4b8841a38337'], cwd=libc_dir)
+
+    libc_patch_file = Path(__file__).parent / "rust_libc.patch"
+    run_and_check(['git', 'apply', '--check', libc_patch_file.as_posix()], cwd=libc_dir)
+    run_and_check(['git', 'apply', libc_patch_file.as_posix()], cwd=libc_dir)
+
+    toolchain_dir = _REPO_ROOT / 'x86_64-toolchain'
+    env = {'CC': toolchain_dir / 'bin' / 'x86_64-elf-axle-gcc'}
+    run_and_check(
+        [
+            'cargo', 
+            'build', 
+            '--no-default-features', 
+            '-Zbuild-std=core,alloc', 
+            f'--target={_TARGET_SPEC_FILE.as_posix()}'
+        ], 
+        cwd=libc_dir, 
+        env_additions=env
+    )
+
+    # Copy the intermediate build products to the Rust 'sysroot' so they don't need to be rebuilt
+    # for other projects
+    # Ref: https://rustrepo.com/repo/japaric-rust-cross-rust-embedded
+    rust_sysroot = Path(run_and_capture_output_and_check(['rustc', '--print', 'sysroot']).strip())
+    rust_target_dir = rust_sysroot / "lib" / "rustlib" / "x86_64-unknown-axle" / "lib"
+    rust_target_dir.mkdir(exist_ok=True, parents=True)
+    build_dir = libc_dir / "target" / "x86_64-unknown-axle" / "debug"
+    libc_build_product = build_dir / "liblibc.rlib"
+    shutil.copy(libc_build_product.as_posix(), rust_target_dir.as_posix())
+    for file in (build_dir / "deps").iterdir():
+        if file.suffix == '.rlib':
+            shutil.copy(file.as_posix(), rust_target_dir.as_posix())
+
+
+def setup_rust_toolchain() -> None:
     # Build libc (C stdlib / axle syscall FFI bindings to Rust)
     with TemporaryDirectory() as temp_dir_raw:
         temp_dir = Path(temp_dir_raw)
-
-        # Install Rust nightly via rustup
-        rustup_install_script = temp_dir / 'rustup.sh'
-        run_and_check(
-            [
-                "curl",
-                "--proto",
-                "'=https'",
-                "--tlsv1.2",
-                "-sSf",
-                "https://sh.rustup.rs",
-                "-o",
-                rustup_install_script.as_posix()
-            ]
-        )
-        run_and_check([rustup_install_script.as_posix()])
-        run_and_check(["rustup", "install", "nightly-2021-12-05"])
-        run_and_check(["rustup", "default", "nightly-2021-12-05"])
-        run_and_check(["rustup", "component", "add", "rust-src"])
-        run_and_check(["rustup", "component", "add", "clippy-preview"])
-        run_and_check(["rustup", "component", "add", "rustfmt"])
-
-        libc_dir = temp_dir / "libc"
-
-        clone_git_repo(temp_dir, 'https://github.com/rust-lang/libc')
-        run_and_check(['git', 'checkout', '4b8841a38337'], cwd=libc_dir)
-
-        libc_patch_file = Path(__file__).parent / "rust_libc.patch"
-        run_and_check(['git', 'apply', '--check', libc_patch_file.as_posix()], cwd=libc_dir)
-        run_and_check(['git', 'apply', libc_patch_file.as_posix()], cwd=libc_dir)
-
-        toolchain_dir = _REPO_ROOT / 'x86_64-toolchain'
-        env = {'CC': toolchain_dir / 'bin' / 'x86_64-elf-axle-gcc'}
-        run_and_check(
-            [
-                'cargo', 
-                'build', 
-                '--no-default-features', 
-                '-Zbuild-std=core,alloc', 
-                f'--target={_TARGET_SPEC_FILE.as_posix()}'
-            ], 
-            cwd=libc_dir, 
-            env_additions=env
-        )
-
-        # Copy the intermediate build products to the Rust 'sysroot' so they don't need to be rebuilt
-        # for other projects
-        # Ref: https://rustrepo.com/repo/japaric-rust-cross-rust-embedded
-        rust_sysroot = Path(run_and_capture_output_and_check(['rustc', '--print', 'sysroot']).strip())
-        rust_target_dir = rust_sysroot / "lib" / "rustlib" / "x86_64-unknown-axle" / "lib"
-        rust_target_dir.mkdir(exist_ok=True, parents=True)
-        build_dir = libc_dir / "target" / "x86_64-unknown-axle" / "debug"
-        libc_build_product = build_dir / "liblibc.rlib"
-        shutil.copy(libc_build_product.as_posix(), rust_target_dir.as_posix())
-        for file in (build_dir / "deps").iterdir():
-            if file.suffix == '.rlib':
-                shutil.copy(file.as_posix(), rust_target_dir.as_posix())
+        _install_rustc(temp_dir)
+        _build_rust_libc_port(temp_dir)
 
 
 def test_rust_programs() -> None:
