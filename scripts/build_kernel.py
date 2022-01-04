@@ -11,6 +11,7 @@ from contextlib import contextmanager
 from build_kernel_headers import copy_kernel_headers
 from build_utils import run_and_check, run_and_capture_output_and_check, copied_file_is_outdated
 from build_meson_projects import build_meson_projects
+from build_rust_toolchain import build_rust_programs
 from run_axle import run_iso
 
 
@@ -101,7 +102,7 @@ def build_initrd() -> None:
 
 
 def build_initrd2() -> None:
-    mkinitrd_path = Path(__file__) / "mkinitrd"
+    mkinitrd_path = Path(__file__).parent / "mkinitrd"
     if not mkinitrd_path.exists():
         raise RuntimeError(f"mkinitrd directory missing, expected at {mkinitrd_path}")
 
@@ -160,6 +161,7 @@ def main():
 
     # Build user programs
     build_meson_projects()
+    build_rust_programs()
 
     # Build ramdisk
     build_initrd()
