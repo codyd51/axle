@@ -105,6 +105,9 @@ def build_initrd2() -> None:
     mkinitrd_path = Path(__file__).parent / "mkinitrd"
     if not mkinitrd_path.exists():
         raise RuntimeError(f"mkinitrd directory missing, expected at {mkinitrd_path}")
+    
+    # This will also build mkinitrd, if necessary
+    run_and_check(['cargo', 'run', '--release'], cwd=mkinitrd_path)
 
     generated_initrd = mkinitrd_path / "output.img"
     if not generated_initrd.exists():
