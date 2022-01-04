@@ -15,5 +15,5 @@
   "max-atomic-width": 64,
   "linker-flavor": "gcc",
   "linker-is-gnu": true,
-  "linker": "../../x86_64-toolchain/bin/x86_64-elf-axle-gcc"
+  "linker": "../x86_64-toolchain/bin/x86_64-elf-axle-gcc"
 }
