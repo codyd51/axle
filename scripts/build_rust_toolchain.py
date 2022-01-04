@@ -103,11 +103,18 @@ def setup_rust_toolchain():
             if file.suffix == '.rlib':
                 shutil.copy(file.as_posix(), rust_target_dir.as_posix())
 
+
+def test_rust_programs() -> None:
+    programs_with_tests = [
+        "libfs",
     ]
+
+    for program_dir_name in programs_with_tests:
         program_dir = _RUST_PROGRAMS_DIR / program_dir_name
         run_and_check(
             [
                 'cargo',
+                'test',
                 '--release',
             ],
             cwd=program_dir
@@ -148,11 +155,15 @@ def build_rust_programs() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--rebuild_libc", action="store_true")
+    parser.add_argument("--test", action="store_true")
     parser.set_defaults(rebuild_libc=False)
     args = parser.parse_args()
 
     if args.rebuild_libc:
         setup_rust_toolchain()
+
+    if args.test:
+        test_rust_programs()
 
     build_rust_programs()
 
