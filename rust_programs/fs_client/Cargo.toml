@@ -5,10 +5,11 @@ edition = "2021"
 
 [dependencies]
 cstr_core = "0.2.4"
-rand_core = {version = "0.5.1", default-features = false}
-rand= {version = "0.5.1", default-features = false}
+rand_core = { version = "0.5.1", default-features = false }
+rand = { version = "0.5.1", default-features = false }
 
 axle_rt = {path = "../axle_rt" }
+axle_rt_derive = {path = "../axle_rt_derive" }
 awm_messages = {path = "../awm_messages" }
 agx_definitions = {path = "../agx_definitions" }
 file_manager_messages = {path = "../file_manager_messages" }

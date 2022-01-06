@@ -156,7 +156,6 @@ dependencies = [
  "awm_messages",
  "axle_rt",
  "axle_rt_derive",
- "byteorder",
  "cstr_core",
  "file_manager_messages",
  "rand",
