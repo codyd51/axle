@@ -55,16 +55,17 @@ pub trait ContainsEventField {
     fn event(&self) -> u32;
 }
 
-// This allows receiving messages that might not specify an event field
+// This allows receiving messages for which the format of the body is not yet known
+// It is the caller's responsibility to parse the body into the correct type
 #[cfg(target_os = "axle")]
-unsafe fn amc_message_await_unchecked<T>(
+pub unsafe fn amc_message_await_untyped(
     from_service: Option<&str>,
-) -> Result<AmcMessage<T>, core::str::Utf8Error> {
+) -> Result<AmcMessage<[u8]>, core::str::Utf8Error> {
     let mut msg_ptr = core::ptr::null_mut();
 
     // Does the caller want to await any message or just messages from a specific caller?
     if let Some(from_service) = from_service {
-        let from_service_c_str = CString::new(from_service).unwrap();
+        let from_service_c_str = CString::new(from_service).expect("cstr new failed");
         libc::amc_message_await(from_service_c_str.as_ptr() as *const u8, &mut msg_ptr);
     } else {
         libc::amc_message_await_any(&mut msg_ptr);
@@ -83,11 +84,27 @@ unsafe fn amc_message_await_unchecked<T>(
         core::ptr::addr_of!((*msg_ptr).body),
         (*msg_ptr).len as usize,
     );
-    let msg_body_as_ref_t: &T = &*(msg_body_slice.as_ptr() as *const T);
+    let msg_body_as_ref = &*(msg_body_slice as *const [u8]);
 
     Ok(AmcMessage {
         source: source_without_null_bytes,
         dest: dest_without_null_bytes,
+        body: msg_body_as_ref,
+    })
+}
+
+// This allows receiving messages that might not specify an event field
+// The caller _must_ be certain that the type they've parsed
+// is indeed the type that was provided in the message
+#[cfg(target_os = "axle")]
+pub unsafe fn amc_message_await_unchecked<T>(
+    from_service: Option<&str>,
+) -> Result<AmcMessage<T>, core::str::Utf8Error> {
+    let msg = amc_message_await_untyped(from_service)?;
+    let msg_body_as_ref_t: &T = &*(msg.body.as_ptr() as *const T);
+    Ok(AmcMessage {
+        source: msg.source,
+        dest: msg.dest,
         body: msg_body_as_ref_t,
     })
 }
@@ -97,7 +114,9 @@ pub fn amc_message_await<T>(from_service: Option<&str>) -> AmcMessage<T>
 where
     T: ExpectsEventField + ContainsEventField,
 {
-    let msg: AmcMessage<T> = unsafe { amc_message_await_unchecked(from_service).unwrap() };
+    let msg: AmcMessage<T> = unsafe {
+        amc_message_await_unchecked(from_service).expect("await_unchecked failed in await")
+    };
     assert_eq!(
         msg.body.event(),
         T::EXPECTED_EVENT,
@@ -112,7 +131,12 @@ where
 #[cfg(target_os = "axle")]
 pub fn amc_register_service(this_service: &str) {
     unsafe {
-        ::libc::amc_register_service(CString::new(this_service).unwrap().as_ptr() as *const u8);
+        ::libc::amc_register_service(
+            CString::new(this_service)
+                .expect("register_service failed")
+                .as_ptr() as *const u8,
+            //this_service.as_ptr() as *const u8,
+        );
     }
 }
 
