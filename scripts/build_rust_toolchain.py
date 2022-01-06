@@ -131,7 +131,7 @@ def test_rust_programs() -> None:
         )
     
 
-def build_rust_programs(check_only: bool) -> None:
+def build_rust_programs(check_only: bool = False) -> None:
     cargo_workspace_dir = _RUST_PROGRAMS_DIR
     run_and_check(['cargo', 'fmt'], cwd=cargo_workspace_dir)
     run_and_check(

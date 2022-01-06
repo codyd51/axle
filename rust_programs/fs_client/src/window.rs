@@ -1,5 +1,5 @@
+use alloc::boxed::Box;
 use alloc::vec::Vec;
-use alloc::{boxed::Box, collections::BTreeMap};
 
 use axle_rt::printf;
 use axle_rt::AmcMessage;
@@ -10,7 +10,6 @@ use axle_rt::{amc_message_await, amc_message_await_untyped, amc_message_send};
 use agx_definitions::{Color, Layer, Point, Rect, Size, UnownedLayer};
 use awm_messages::{AwmCreateWindow, AwmCreateWindowResponse, AwmWindowRedrawReady};
 
-use crate::alloc::string::ToString;
 use crate::ui_elements::*;
 use crate::window_events::*;
 
@@ -18,7 +17,7 @@ pub struct AwmWindow {
     pub layer: UnownedLayer<'static>,
     pub current_size: Size,
 
-    damaged_rects: Vec<Rect>,
+    _damaged_rects: Vec<Rect>,
     ui_elements: Vec<Box<dyn UIElement>>,
 }
 
@@ -51,7 +50,7 @@ impl AwmWindow {
         AwmWindow {
             layer,
             current_size: size,
-            damaged_rects: Vec::new(),
+            _damaged_rects: Vec::new(),
             ui_elements: Vec::new(),
         }
     }
@@ -88,7 +87,7 @@ impl AwmWindow {
         printf!("Key up: {:?}\n", event);
     }
 
-    fn mouse_moved(&self, event: &MouseMoved) {
+    fn mouse_moved(&self, _event: &MouseMoved) {
         //printf!("Mouse moved: {:?}\n", event);
     }
 
@@ -100,7 +99,7 @@ impl AwmWindow {
         printf!("Mouse left click started: {:?}\n", event);
         let len = self.ui_elements.len();
 
-        for i in 0..len {
+        for _i in 0..len {
             //let mut elem = self.ui_elements.swap_remove(i);
             //for (elem, left_click_cb) in &self.ui_elements {
             //if elem.frame().contains(Point::from(&event.mouse_pos)) {
@@ -125,7 +124,7 @@ impl AwmWindow {
         printf!("Mouse scrolled: {:?}\n", event);
     }
 
-    fn window_resized(&self, event: &WindowResized) {
+    fn window_resized(&self, _event: &WindowResized) {
         // Don't commit the window here as we'll receive tons of resize events
         // In the future, we can present a 'blur UI' while the window resizes
     }

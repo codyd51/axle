@@ -1,10 +1,7 @@
-use core::any::Any;
-
 use agx_definitions::{Color, Layer, OwnedLayer, Point, Rect, Size};
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
-use alloc::vec::Vec;
-use alloc::{fmt::Debug, vec};
+use alloc::vec;
 
 use axle_rt::printf;
 

@@ -100,6 +100,7 @@ impl ContainsEventField for AmcInitrdInfo {
     }
 }
 
+/*
 fn traverse_dir(depth: usize, dir: &DirectoryImage) {
     let tabs = "\t".repeat(depth);
     printf!("{}{}\n", tabs, dir.name);
@@ -110,6 +111,7 @@ fn traverse_dir(depth: usize, dir: &DirectoryImage) {
         traverse_dir(depth + 1, subdir.1);
     }
 }
+*/
 
 #[start]
 #[allow(unreachable_code)]
