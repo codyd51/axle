@@ -131,13 +131,13 @@ def test_rust_programs() -> None:
         )
     
 
-def build_rust_programs() -> None:
+def build_rust_programs(check_only: bool) -> None:
     cargo_workspace_dir = _RUST_PROGRAMS_DIR
     run_and_check(['cargo', 'fmt'], cwd=cargo_workspace_dir)
     run_and_check(
         [
             'cargo',
-            'build',
+            'check' if check_only else 'build',
             '--release',
             f'--target={_TARGET_SPEC_FILE.as_posix()}',
             # Ref: https://users.rust-lang.org/t/cargo-features-for-host-vs-target-no-std/16911
@@ -166,7 +166,10 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--rebuild_libc", action="store_true")
     parser.add_argument("--test", action="store_true")
+    parser.add_argument("--check_only", action="store_true")
     parser.set_defaults(rebuild_libc=False)
+    parser.set_defaults(test=False)
+    parser.set_defaults(check_only=False)
     args = parser.parse_args()
 
     if args.rebuild_libc:
@@ -177,7 +180,7 @@ def main() -> None:
         test_rust_programs()
         return
 
-    build_rust_programs()
+    build_rust_programs(args.check_only)
 
 
 if __name__ == "__main__":
