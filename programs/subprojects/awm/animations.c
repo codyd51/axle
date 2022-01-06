@@ -3,6 +3,7 @@
 #include "math.h"
 #include "composite.h"
 #include "animations.h"
+#include "awm_messages.h"
 
 array_t* _g_pending_animations = NULL;
 
@@ -107,6 +108,9 @@ static void _awm_animation_open_window_step(awm_animation_open_window_t* anim, f
 static void _awm_animation_open_window_finish(awm_animation_open_window_t* anim) {
 	// Inform the window of its initial size
 	//_window_resize(anim->window, anim->window->frame.size, true);
+
+	// Inform the window that the resize has ended
+	amc_msg_u32_1__send(anim->window->owner_service, AWM_WINDOW_RESIZE_ENDED);
 }
 
 awm_animation_open_window_t* awm_animation_open_window_init(uint32_t duration, user_window_t* window, Rect dest_frame) {

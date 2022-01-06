@@ -99,4 +99,6 @@ typedef struct awm_desktop_traits_response {
     Color desktop_gradient_outer_color;
 } awm_desktop_traits_response_t;
 
+#define AWM_WINDOW_RESIZE_ENDED 816
+
 #endif

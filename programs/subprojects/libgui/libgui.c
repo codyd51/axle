@@ -364,6 +364,9 @@ static void _handle_amc_messages(gui_application_t* app, bool should_block, bool
 					newest_resize_msg = *m;
 					continue;
 				}
+				else if (event == AWM_WINDOW_RESIZE_ENDED) {
+					continue;
+				}
 				else if (event == AWM_CLOSE_WINDOW_REQUEST) {
 					*did_exit = true;
 					continue;

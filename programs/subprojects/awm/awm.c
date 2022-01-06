@@ -333,6 +333,10 @@ static void _end_mouse_drag(mouse_interaction_state_t* state, Point mouse_point)
 			awm_animation_snap_shortcut_t* anim = awm_animation_snap_shortcut_init(32, state->hovered_shortcut, slot);
 			awm_animation_start((awm_animation_t*)anim);
 		}
+		if (state->is_resizing_top_window) {
+			// Inform the window that the resize has ended
+			amc_msg_u32_1__send(state->active_window->owner_service, AWM_WINDOW_RESIZE_ENDED);
+		}
 
 		state->has_begun_drag = false;
 		state->is_moving_top_window = false;
