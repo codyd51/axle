@@ -3,6 +3,7 @@ members = [
     "awm_messages",
     "agx_definitions",
     "axle_rt",
+    "axle_rt_derive",
     "file_manager_messages",
     "fs_client",
     "initrd_fs",

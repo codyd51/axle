@@ -21,7 +21,7 @@ macro_rules! printf {
     ($($arg:tt)*) => ({
         let s = alloc::fmt::format(core::format_args!($($arg)*));
         for x in s.split('\0') {
-            let log = ::cstr_core::CString::new(x).unwrap();
+            let log = ::cstr_core::CString::new(x).expect("printf format failed");
             unsafe { ::libc::printf(log.as_ptr() as *const u8); }
         }
     })
@@ -29,13 +29,13 @@ macro_rules! printf {
 
 #[allow(dead_code)]
 #[derive(Debug)]
-pub struct AmcMessage<'a, T> {
+pub struct AmcMessage<'a, T: ?Sized> {
     source: &'a str,
     dest: &'a str,
     body: &'a T,
 }
 
-impl<T> AmcMessage<'_, T> {
+impl<T: ?Sized> AmcMessage<'_, T> {
     pub fn source(&self) -> &str {
         self.source
     }

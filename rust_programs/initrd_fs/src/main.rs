@@ -5,7 +5,6 @@
 
 extern crate alloc;
 extern crate libc;
-use serde::Serialize;
 
 use axle_rt::amc_message_send;
 use axle_rt::amc_register_service;

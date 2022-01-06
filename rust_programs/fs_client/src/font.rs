@@ -1,6 +1,9 @@
 use agx_definitions::{putpixel, Color, Layer, Point, Size};
 
-static FONT8X8: [[u8; 8]; 128] = [
+const CHAR_WIDTH: usize = 8;
+const CHAR_HEIGHT: usize = 8;
+
+static FONT8X8: [[u8; CHAR_HEIGHT]; 128] = [
     [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // U+0000 (nul)
     [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // U+0001
     [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // U+0002
@@ -131,11 +134,8 @@ static FONT8X8: [[u8; 8]; 128] = [
     [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // U+007F
 ];
 
-const CHAR_WIDTH: usize = 8;
-const CHAR_HEIGHT: usize = 8;
-
 pub fn draw_char(
-    layer: &mut Layer,
+    layer: &mut dyn Layer,
     ch: char,
     draw_loc: &Point,
     draw_color: &Color,

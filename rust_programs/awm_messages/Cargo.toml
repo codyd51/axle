@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 axle_rt = {path = "../axle_rt" }
+axle_rt_derive = {path = "../axle_rt_derive" }
 agx_definitions = {path = "../agx_definitions" }
 cstr_core = "0.2.4"
 

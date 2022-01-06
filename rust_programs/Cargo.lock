@@ -31,6 +31,7 @@ version = "0.1.0"
 dependencies = [
  "agx_definitions",
  "axle_rt",
+ "axle_rt_derive",
  "cstr_core",
 ]
 
@@ -39,6 +40,14 @@ name = "axle_rt"
 version = "0.1.0"
 dependencies = [
  "cstr_core",
+]
+
+[[package]]
+name = "axle_rt_derive"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -135,6 +144,7 @@ name = "file_manager_messages"
 version = "0.1.0"
 dependencies = [
  "axle_rt",
+ "axle_rt_derive",
  "cstr_core",
 ]
 
@@ -145,6 +155,8 @@ dependencies = [
  "agx_definitions",
  "awm_messages",
  "axle_rt",
+ "axle_rt_derive",
+ "byteorder",
  "cstr_core",
  "file_manager_messages",
  "rand",
