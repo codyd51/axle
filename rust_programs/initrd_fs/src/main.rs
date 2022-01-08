@@ -27,7 +27,7 @@ impl FromDirectoryImage for FileManagerDirectoryContents {
     fn from_dir_image(dir: &DirectoryImage) -> Self {
         let mut contents = FileManagerDirectoryContents {
             event: FileManagerReadDirectory::EXPECTED_EVENT,
-            entries: [None; 64],
+            entries: [None; 128],
         };
         let files = &dir.files;
         printf!("Found {:?} files\n", files.len());

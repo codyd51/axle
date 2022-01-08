@@ -63,7 +63,7 @@ impl FileManagerDirectoryEntry {
 #[derive(Debug, ContainsEventField)]
 pub struct FileManagerDirectoryContents {
     pub event: u32,
-    pub entries: [Option<FileManagerDirectoryEntry>; 64],
+    pub entries: [Option<FileManagerDirectoryEntry>; 128],
 }
 
 impl ExpectsEventField for FileManagerDirectoryContents {
