@@ -1,5 +1,7 @@
-use alloc::boxed::Box;
+use alloc::rc::Rc;
 use alloc::vec::Vec;
+
+use core::cell::RefCell;
 
 use axle_rt::printf;
 use axle_rt::AmcMessage;
@@ -14,11 +16,11 @@ use crate::ui_elements::*;
 use crate::window_events::*;
 
 pub struct AwmWindow {
-    pub layer: UnownedLayer<'static>,
+    pub layer: RefCell<UnownedLayer<'static>>,
     pub current_size: Size,
 
     _damaged_rects: Vec<Rect>,
-    ui_elements: Vec<Box<dyn UIElement>>,
+    ui_elements: RefCell<Vec<Rc<dyn UIElement>>>,
 }
 
 impl AwmWindow {
@@ -45,33 +47,35 @@ impl AwmWindow {
             &framebuffer.as_ptr(),
             window_info.body().framebuffer_ptr,
         );
-        let layer = UnownedLayer::new(framebuffer, bpp, screen_resolution);
+        let layer = RefCell::new(UnownedLayer::new(framebuffer, bpp, screen_resolution));
 
         AwmWindow {
             layer,
             current_size: size,
             _damaged_rects: Vec::new(),
-            ui_elements: Vec::new(),
+            ui_elements: RefCell::new(Vec::new()),
         }
     }
 
-    pub fn add_component(&mut self, elem: Box<dyn UIElement>) {
-        self.ui_elements.push(elem);
+    pub fn add_component(&self, elem: Rc<dyn UIElement>) {
+        self.ui_elements.borrow_mut().push(elem);
     }
 
-    pub fn drop_all_ui_elements(&mut self) {
-        self.ui_elements.clear();
+    pub fn drop_all_ui_elements(&self) {
+        self.ui_elements.borrow_mut().clear();
     }
 
-    pub fn draw(&mut self) {
+    pub fn draw(&self) {
         // Start off with a colored background
-        self.layer.fill_rect(
+        let layer = &mut *self.layer.borrow_mut();
+        layer.fill_rect(
             &Rect::new(Point::zero(), self.current_size),
             &Color::new(128, 4, 56),
         );
 
-        for elem in &self.ui_elements {
-            elem.draw(&mut self.layer);
+        let elems = &*self.ui_elements.borrow();
+        for elem in elems {
+            elem.draw(layer);
         }
     }
 
@@ -95,16 +99,24 @@ impl AwmWindow {
         printf!("Mouse dragged: {:?}\n", event);
     }
 
-    fn mouse_left_click_down(&mut self, event: &MouseLeftClickStarted) {
+    fn mouse_left_click_down(&self, event: &MouseLeftClickStarted) {
         printf!("Mouse left click started: {:?}\n", event);
-        let len = self.ui_elements.len();
 
-        for _i in 0..len {
-            //let mut elem = self.ui_elements.swap_remove(i);
-            //for (elem, left_click_cb) in &self.ui_elements {
-            //if elem.frame().contains(Point::from(&event.mouse_pos)) {
-            //elem.handle_left_click(&mut *handler);
-            //}
+        let mut clicked_elem = None;
+        {
+            let elems = &*self.ui_elements.borrow();
+            for elem in elems {
+                printf!("Checking if elem contains point...\n");
+                if elem.frame().contains(Point::from(&event.mouse_pos)) {
+                    printf!("Found UI element that bounds click point, dispatching\n");
+                    clicked_elem = Some(Rc::clone(&elem));
+                    break;
+                }
+            }
+        }
+
+        if let Some(c) = clicked_elem {
+            c.handle_left_click();
         }
     }
 
@@ -142,7 +154,7 @@ impl AwmWindow {
         &*(body.as_ptr() as *const T)
     }
 
-    pub fn await_next_event(&mut self) {
+    pub fn await_next_event(&self) {
         let msg_unparsed: AmcMessage<[u8]> =
             unsafe { amc_message_await_untyped(Some(AwmWindow::AWM_SERVICE_NAME)).unwrap() };
 
@@ -203,6 +215,16 @@ impl AwmWindow {
                 }
                 _ => printf!("Unknown event: {}\n", event),
             }
+        }
+    }
+
+    pub fn enter_event_loop(&self) {
+        // Commit once so the window shows its initial contents before we start processing messages
+        self.draw();
+        self.commit();
+
+        loop {
+            self.await_next_event();
         }
     }
 }
