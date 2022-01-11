@@ -6,7 +6,7 @@
 extern crate alloc;
 extern crate libc;
 
-use alloc::format;
+use alloc::{fmt::format, format};
 use alloc::{
     rc::Rc,
     string::{String, ToString},
@@ -15,18 +15,19 @@ use core::cell::RefCell;
 
 use axle_rt::{amc_message_await, amc_message_send, amc_register_service, printf, AmcMessage};
 
-use agx_definitions::{Color, Point, Rect, Size};
+use agx_definitions::{Color, Drawable, Layer, Point, Rect, Size};
 
 use file_manager_messages::{
     str_from_u8_nul_utf8_unchecked, FileManagerDirectoryContents, FileManagerReadDirectory,
 };
 
+mod bordered;
 mod font;
 mod ui_elements;
 mod window;
 mod window_events;
 
-use ui_elements::{Button, Label, UIElement};
+use ui_elements::{Button, Label, UIElement, View};
 use window::AwmWindow;
 
 struct FileBrowser {
@@ -58,7 +59,7 @@ impl FileBrowser {
         window.drop_all_ui_elements();
 
         let current_path_label = Rc::new(Label::new(
-            Rect::new(Point::new(10, 10), Size::new(100, 20)),
+            Rect::new(10, 10, 100, 20),
             &format!("Current directory: {}", current_path).to_string(),
             Color::white(),
         ));
@@ -66,12 +67,8 @@ impl FileBrowser {
         window.add_component(label_clone);
 
         let back_button = Rc::new(Button::new(
-            Rect::new(
-                Point::new(10, current_path_label.frame().max_y()),
-                Size::new(100, 24),
-            ),
+            Rect::new(10, current_path_label.frame().max_y(), 100, 24),
             "<-- Go Back",
-            Color::new(100, 200, 100),
         ));
         let back_button_clone = Rc::clone(&back_button);
         let controller_clone_for_back_button = Rc::clone(&controller_rc);
@@ -107,12 +104,16 @@ impl FileBrowser {
         {
             let entry_name = str_from_u8_nul_utf8_unchecked(&entry.name);
             let char_width = 8;
-            let button_width = (entry_name.len() * char_width) + (2 * char_width);
+            let button_width = ((entry_name.len() * char_width) + (2 * char_width)) as isize;
 
             let button = Rc::new(Button::new(
-                Rect::new(draw_position, Size::new(button_width, button_height)),
+                Rect::new(
+                    draw_position.x,
+                    draw_position.y,
+                    button_width,
+                    button_height,
+                ),
                 entry_name,
-                Color::white(),
             ));
             let button_clone = Rc::clone(&button);
 
@@ -150,6 +151,32 @@ impl FileBrowser {
         window.draw();
         window.commit();
     }
+
+    fn layout2(controller_rc: Rc<RefCell<FileBrowser>>) {
+        let window = &controller_rc.borrow().window;
+
+        let view = Rc::new(View::new(
+            Rect::from_parts(Point::zero(), *window.current_size.borrow()),
+            //Rect::from_parts(Point::new(20, 20), Size::new(100, 100)),
+            Color::red(),
+            |v, superview_size| Rect::from_parts(Point::zero(), superview_size), /*Rect::new(20, 20, 100, 100)*/
+        ));
+        let view_clone = Rc::clone(&view);
+
+        let mut cursor = Point::new(10, 10);
+        for i in 0..3 {
+            let button = Rc::new(Button::new(
+                Rect::from_parts(cursor, Size::new(100, 40)),
+                &format!("Button {}", i),
+            ));
+            view.add_component(button);
+            cursor.y += 50;
+        }
+
+        window.add_component(view_clone);
+        window.draw();
+        window.commit();
+    }
 }
 
 #[start]
@@ -167,9 +194,21 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
 
     let window = AwmWindow::new(Size::new(500, 800));
     let file_browser = Rc::new(RefCell::new(FileBrowser::new(window)));
-    FileBrowser::layout(Rc::clone(&file_browser));
+    FileBrowser::layout2(Rc::clone(&file_browser));
 
     let window = &file_browser.borrow().window;
+
+    {
+        /*
+        let mut layer = &mut window.layer.borrow_mut();
+
+        let slice = layer.get_slice(Rect::new(100, 100, 200, 200));
+        slice.fill(Color::white());
+        slice.fill_rect(Rect::new(10, 10, 20, 400), Color::red());
+        */
+    }
+    window.draw();
+    window.commit();
     window.enter_event_loop();
     0
 }
