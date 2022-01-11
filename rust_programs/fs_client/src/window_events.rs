@@ -34,7 +34,7 @@ impl AwmWindowEvent for KeyUp {}
 #[derive(Debug, Clone, Copy, ContainsEventField)]
 pub struct MouseMoved {
     event: u32,
-    mouse_pos: PointU32,
+    pub mouse_pos: PointU32,
 }
 
 impl ExpectsEventField for MouseMoved {
@@ -123,7 +123,7 @@ impl AwmWindowEvent for MouseScrolled {}
 #[derive(Debug, Clone, Copy, ContainsEventField)]
 pub struct WindowResized {
     event: u32,
-    new_size: SizeU32,
+    pub new_size: SizeU32,
 }
 
 impl ExpectsEventField for WindowResized {

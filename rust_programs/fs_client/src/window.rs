@@ -1,5 +1,5 @@
-use alloc::rc::Rc;
 use alloc::vec::Vec;
+use alloc::{boxed::Box, rc::Rc};
 
 use core::cell::RefCell;
 
@@ -9,15 +9,15 @@ use axle_rt::AmcMessage;
 use axle_rt::ExpectsEventField;
 use axle_rt::{amc_message_await, amc_message_await_untyped, amc_message_send};
 
-use agx_definitions::{Color, Layer, Point, Rect, Size, UnownedLayer};
+use agx_definitions::{Color, Layer, Point, Rect, SingleFramebufferLayer, Size};
 use awm_messages::{AwmCreateWindow, AwmCreateWindowResponse, AwmWindowRedrawReady};
 
 use crate::ui_elements::*;
 use crate::window_events::*;
 
 pub struct AwmWindow {
-    pub layer: RefCell<UnownedLayer<'static>>,
-    pub current_size: Size,
+    pub layer: RefCell<SingleFramebufferLayer>,
+    pub current_size: RefCell<Size>,
 
     _damaged_rects: Vec<Rect>,
     ui_elements: RefCell<Vec<Rc<dyn UIElement>>>,
@@ -33,12 +33,14 @@ impl AwmWindow {
         let window_info: AmcMessage<AwmCreateWindowResponse> =
             amc_message_await(Some(AwmWindow::AWM_SERVICE_NAME));
 
-        let bpp = window_info.body().bytes_per_pixel as usize;
+        let bpp = window_info.body().bytes_per_pixel as isize;
         let screen_resolution = Size::from(&window_info.body().screen_resolution);
 
         let framebuffer_slice = core::ptr::slice_from_raw_parts_mut(
             window_info.body().framebuffer_ptr,
-            bpp * screen_resolution.width * screen_resolution.height,
+            (bpp * screen_resolution.width * screen_resolution.height)
+                .try_into()
+                .unwrap(),
         );
         let framebuffer: &mut [u8] = unsafe { &mut *(framebuffer_slice as *mut [u8]) };
         printf!(
@@ -47,11 +49,15 @@ impl AwmWindow {
             &framebuffer.as_ptr(),
             window_info.body().framebuffer_ptr,
         );
-        let layer = RefCell::new(UnownedLayer::new(framebuffer, bpp, screen_resolution));
+        let layer = RefCell::new(SingleFramebufferLayer::from_framebuffer(
+            unsafe { Box::from_raw(framebuffer) },
+            bpp,
+            screen_resolution,
+        ));
 
         AwmWindow {
             layer,
-            current_size: size,
+            current_size: RefCell::new(size),
             _damaged_rects: Vec::new(),
             ui_elements: RefCell::new(Vec::new()),
         }
@@ -68,10 +74,12 @@ impl AwmWindow {
     pub fn draw(&self) {
         // Start off with a colored background
         let layer = &mut *self.layer.borrow_mut();
+        /*
         layer.fill_rect(
-            &Rect::new(Point::zero(), self.current_size),
-            &Color::new(128, 4, 56),
+            &Rect::from_parts(Point::zero(), *self.current_size.borrow()),
+            Color::new(255, 255, 255),
         );
+        */
 
         let elems = &*self.ui_elements.borrow();
         for elem in elems {
