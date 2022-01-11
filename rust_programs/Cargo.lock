@@ -5,6 +5,9 @@ version = 3
 [[package]]
 name = "agx_definitions"
 version = "0.1.0"
+dependencies = [
+ "axle_rt",
+]
 
 [[package]]
 name = "aho-corasick"

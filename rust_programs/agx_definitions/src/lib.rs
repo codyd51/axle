@@ -1,7 +1,26 @@
 #![no_std]
+#![feature(core_intrinsics)]
 
 extern crate alloc;
+use alloc::vec;
+use alloc::{boxed::Box, rc::Rc, vec::Vec};
+use core::{
+    borrow::BorrowMut,
+    cell::RefCell,
+    cmp::max,
+    intrinsics::sqrtf32,
+    ops::{Add, Mul, Sub},
+};
 
+pub mod layer;
+pub use layer::*;
+
+pub trait Drawable {
+    fn frame(&self) -> Rect;
+    fn draw(&self, onto: &mut LayerSlice);
+}
+
+#[derive(Debug, Copy, Clone)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
@@ -15,14 +34,29 @@ impl Color {
     pub fn from(vals: [u8; 3]) -> Self {
         Color::new(vals[0], vals[1], vals[2])
     }
+    pub fn black() -> Self {
+        Color::from([0, 0, 0])
+    }
     pub fn white() -> Self {
         Color::from([255, 255, 255])
     }
     pub fn gray() -> Self {
         Color::from([127, 127, 127])
     }
-    pub fn black() -> Self {
-        Color::from([0, 0, 0])
+    pub fn dark_gray() -> Self {
+        Color::from([80, 80, 80])
+    }
+    pub fn light_gray() -> Self {
+        Color::from([120, 120, 120])
+    }
+    pub fn red() -> Self {
+        Color::from([255, 0, 0])
+    }
+    pub fn green() -> Self {
+        Color::from([0, 255, 0])
+    }
+    pub fn blue() -> Self {
+        Color::from([0, 0, 255])
     }
 }
 
@@ -47,15 +81,21 @@ impl SizeU32 {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Size {
-    pub width: usize,
-    pub height: usize,
+    pub width: isize,
+    pub height: isize,
 }
 
 impl Size {
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn new(width: isize, height: isize) -> Self {
         Size { width, height }
+    }
+    pub fn zero() -> Self {
+        Size {
+            width: 0,
+            height: 0,
+        }
     }
 }
 
@@ -109,14 +149,14 @@ impl PointU32 {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Point {
-    pub x: usize,
-    pub y: usize,
+    pub x: isize,
+    pub y: isize,
 }
 
 impl Point {
-    pub fn new(x: usize, y: usize) -> Self {
+    pub fn new(x: isize, y: isize) -> Self {
         Point { x, y }
     }
     pub fn zero() -> Self {
@@ -150,47 +190,85 @@ impl Sub for Point {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+impl Mul<Point> for Point {
+    type Output = Point;
+    fn mul(self, rhs: Self) -> Self::Output {
+        Point {
+            x: self.x * rhs.x,
+            y: self.y * rhs.y,
+        }
+    }
+}
+
+impl Mul<isize> for Point {
+    type Output = Point;
+    fn mul(self, rhs: isize) -> Self::Output {
+        Point {
+            x: self.x * rhs,
+            y: self.y * rhs,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Rect {
     pub origin: Point,
     pub size: Size,
 }
 
 impl Rect {
-    pub fn new(origin: Point, size: Size) -> Self {
+    pub fn new(x: isize, y: isize, width: isize, height: isize) -> Self {
+        Rect {
+            origin: Point::new(x, y),
+            size: Size::new(width, height),
+        }
+    }
+
+    pub fn from_parts(origin: Point, size: Size) -> Self {
         Rect { origin, size }
     }
 
-    pub fn inset_by(&self, bottom: usize, left: usize, right: usize, top: usize) -> Self {
-        // TODO(PT): Handle underflow by making Size signed? or handle explicitly here?
-        Rect::new(
+    pub fn zero() -> Self {
+        Rect::from_parts(Point::zero(), Size::zero())
+    }
+
+    pub fn inset_by(&self, bottom: isize, left: isize, right: isize, top: isize) -> Self {
+        Rect::from_parts(
             self.origin + Point::new(left, top),
             self.size - Size::new(right * 2, bottom * 2),
         )
     }
 
-    pub fn min_x(&self) -> usize {
+    pub fn min_x(&self) -> isize {
         self.origin.x
     }
 
-    pub fn min_y(&self) -> usize {
+    pub fn min_y(&self) -> isize {
         self.origin.y
     }
 
-    pub fn max_x(&self) -> usize {
+    pub fn max_x(&self) -> isize {
         self.min_x() + self.size.width
     }
 
-    pub fn max_y(&self) -> usize {
+    pub fn max_y(&self) -> isize {
         self.min_y() + self.size.height
     }
 
-    pub fn mid_x(&self) -> usize {
-        self.min_x() + ((self.size.width as f64 / 2f64) as usize)
+    pub fn mid_x(&self) -> isize {
+        self.min_x() + ((self.size.width as f64 / 2f64) as isize)
     }
 
-    pub fn mid_y(&self) -> usize {
-        self.min_y() + ((self.size.height as f64 / 2f64) as usize)
+    pub fn mid_y(&self) -> isize {
+        self.min_y() + ((self.size.height as f64 / 2f64) as isize)
+    }
+
+    pub fn width(&self) -> isize {
+        self.size.width
+    }
+
+    pub fn height(&self) -> isize {
+        self.size.height
     }
 
     pub fn center(&self) -> Point {
@@ -200,17 +278,23 @@ impl Rect {
     pub fn contains(&self, p: Point) -> bool {
         p.x >= self.min_x() && p.y >= self.min_y() && p.x < self.max_x() && p.y < self.max_y()
     }
-}
 
-
-    }
-
-    }
-
+    pub fn constrain(&self, rhs: Self) -> Self {
+        if rhs.min_x() >= self.max_x() || rhs.min_y() >= self.max_y() {
+            return Rect::zero();
         }
 
-
+        let mut width = rhs.width();
+        if rhs.max_x() > self.width() {
+            width -= rhs.max_x() - self.width();
         }
+
+        let mut height = rhs.height();
+        if rhs.max_y() > self.height() {
+            height -= rhs.max_y() - self.height();
+        }
+
+        Rect::from_parts(rhs.origin, Size::new(width, height))
     }
 }
 
