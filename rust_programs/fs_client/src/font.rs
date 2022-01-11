@@ -1,4 +1,4 @@
-use agx_definitions::{putpixel, Color, Layer, Point, Size};
+use agx_definitions::{Color, Layer, LayerSlice, Point, Size};
 
 const CHAR_WIDTH: usize = 8;
 const CHAR_HEIGHT: usize = 8;
@@ -135,10 +135,10 @@ static FONT8X8: [[u8; CHAR_HEIGHT]; 128] = [
 ];
 
 pub fn draw_char(
-    layer: &mut dyn Layer,
+    layer: &mut LayerSlice,
     ch: char,
     draw_loc: &Point,
-    draw_color: &Color,
+    draw_color: Color,
     font_size: &Size,
 ) {
     // Scale font to the requested size
@@ -154,7 +154,7 @@ pub fn draw_char(
         for draw_x in 0..font_size.width {
             let font_x = (draw_x as f64 / scale_x) as usize;
             if row >> font_x & 0b1 != 0 {
-                putpixel(layer, &(*draw_loc + Point::new(draw_x, draw_y)), draw_color);
+                layer.putpixel((*draw_loc + Point::new(draw_x, draw_y)), draw_color);
             }
         }
     }

@@ -85,7 +85,8 @@ impl AwmWindow {
 
         let elems = &*self.ui_elements.borrow();
         for elem in elems {
-            elem.draw(layer);
+            let mut slice = layer.get_slice(elem.frame());
+            elem.draw(&mut slice);
         }
     }
 
