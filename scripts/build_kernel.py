@@ -122,9 +122,15 @@ def main():
     parser.add_argument("--force_rebuild_programs", nargs="*", action="store")
     parser.add_argument("--force_rebuild_everything", action="store_true")
     parser.add_argument("--no_run", action="store_true")
+    parser.add_argument("--run_only", action="store_true")
     parser.set_defaults(force_rebuild_everything=False)
     parser.set_defaults(no_run=False)
     args = parser.parse_args()
+
+    if args.run_only:
+        image_name = Path(__file__).parents[1] / "axle.iso"
+        run_iso(image_name)
+        return
 
     # Stage kernel headers
     copy_kernel_headers()
