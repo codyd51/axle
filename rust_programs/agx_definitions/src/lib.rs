@@ -1,8 +1,6 @@
 #![no_std]
 
 extern crate alloc;
-use alloc::vec::Vec;
-use core::ops::{Add, Sub};
 
 pub struct Color {
     pub r: u8,
@@ -204,98 +202,25 @@ impl Rect {
     }
 }
 
-pub trait Layer {
-    fn size(&self) -> Size;
-    fn bytes_per_pixel(&self) -> usize;
-    fn framebuffer(&mut self) -> &mut [u8];
 
-    fn width(&self) -> usize {
-        (self.size().width as usize).try_into().unwrap()
     }
 
-    fn height(&self) -> usize {
-        (self.size().height as usize).try_into().unwrap()
     }
 
-    fn fill_rect(&mut self, rect: &Rect, color: &Color) {
-        if ![3usize, 4].contains(&self.bytes_per_pixel()) {
-            unimplemented!();
         }
-        let start = (rect.min_y() * self.width() * self.bytes_per_pixel())
-            + (rect.min_x() * self.bytes_per_pixel());
-        for y in 0..rect.size.height {
-            let row_off = y * self.width() * self.bytes_per_pixel();
-            for x in 0..rect.size.width {
-                let px_off = start + row_off + (x * self.bytes_per_pixel());
-                self.framebuffer()[px_off + 0] = color.r;
-                self.framebuffer()[px_off + 1] = color.g;
-                self.framebuffer()[px_off + 2] = color.b;
-            }
+
+
         }
     }
 }
 
-#[derive(Debug)]
-pub struct UnownedLayer<'a> {
-    framebuffer: &'a mut [u8],
-    bytes_per_pixel: usize,
-    size: Size,
+    }
 }
 
-impl<'a> UnownedLayer<'a> {
-    pub fn new(framebuffer: &'a mut [u8], bytes_per_pixel: usize, size: Size) -> Self {
-        UnownedLayer {
-            framebuffer,
-            bytes_per_pixel,
-            size,
+}
+
         }
     }
-}
 
-impl Layer for UnownedLayer<'_> {
-    fn bytes_per_pixel(&self) -> usize {
-        self.bytes_per_pixel
     }
-    fn size(&self) -> Size {
-        self.size
-    }
-    fn framebuffer(&mut self) -> &mut [u8] {
-        &mut self.framebuffer
-    }
-}
-
-#[derive(Debug)]
-pub struct OwnedLayer {
-    framebuffer: Vec<u8>,
-    bytes_per_pixel: usize,
-    size: Size,
-}
-
-impl OwnedLayer {
-    pub fn new(framebuffer: Vec<u8>, bytes_per_pixel: usize, size: Size) -> Self {
-        OwnedLayer {
-            framebuffer,
-            bytes_per_pixel,
-            size,
-        }
-    }
-}
-
-impl Layer for OwnedLayer {
-    fn bytes_per_pixel(&self) -> usize {
-        self.bytes_per_pixel
-    }
-    fn size(&self) -> Size {
-        self.size
-    }
-    fn framebuffer(&mut self) -> &mut [u8] {
-        &mut self.framebuffer
-    }
-}
-
-pub fn putpixel(layer: &mut dyn Layer, loc: &Point, color: &Color) {
-    let off = (loc.y * layer.width() * layer.bytes_per_pixel()) + (loc.x * layer.bytes_per_pixel());
-    layer.framebuffer()[off + 0] = color.r;
-    layer.framebuffer()[off + 1] = color.g;
-    layer.framebuffer()[off + 2] = color.b;
 }

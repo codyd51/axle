@@ -21,8 +21,8 @@ macro_rules! printf {
     ($($arg:tt)*) => ({
         let s = alloc::fmt::format(core::format_args!($($arg)*));
         for x in s.split('\0') {
-            let log = ::cstr_core::CString::new(x).expect("printf format failed");
-            unsafe { ::libc::printf(log.as_ptr() as *const u8); }
+            let log = axle_rt::cstr_core::CString::new(x).expect("printf format failed");
+            unsafe { axle_rt::libc::printf(log.as_ptr() as *const u8); }
         }
     })
 }
