@@ -298,13 +298,79 @@ impl Rect {
     }
 }
 
+/*
+impl Add for Rect {
+    type Output = Rect;
+    fn add(self, rhs: Self) -> Self::Output {
+        Rect::from_parts(self.origin + rhs.origin, self.size + rhs.size)
     }
 }
+*/
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Line {
+    p1: Point,
+    p2: Point,
 }
 
+impl Line {
+    pub fn new(p1: Point, p2: Point) -> Self {
+        Line { p1, p2 }
+    }
+
+    fn draw_strip(&self, onto: &mut LayerSlice, color: Color) {
+        // Relative distances in both directions
+        let mut delta_x = self.p2.x - self.p1.x;
+        let mut delta_y = self.p2.y - self.p1.y;
+
+        // Increment of 0 would imply either vertical or horizontal line
+        let inc_x = match delta_x {
+            _ if delta_x > 0 => 1,
+            _ if delta_x == 0 => 0,
+            _ => -1,
+        };
+        let inc_y = match delta_y {
+            _ if delta_y > 0 => 1,
+            _ if delta_y == 0 => 0,
+            _ => -1,
+        };
+
+        //let distance = max(delta_x.abs(), delta_y.abs());
+        delta_x = delta_x.abs();
+        delta_y = delta_y.abs();
+        let distance = max(delta_x, delta_y);
+
+        let mut cursor = Point::new(self.p1.x, self.p1.y);
+        let mut x_err = 0;
+        let mut y_err = 0;
+        for t in 0..distance {
+            onto.putpixel(cursor, color);
+
+            x_err += delta_x;
+            y_err += delta_y;
+
+            if x_err > distance {
+                x_err -= distance;
+                cursor.x += inc_x;
+            }
+            if y_err > distance {
+                y_err -= distance;
+                cursor.y += inc_y;
+            }
         }
     }
 
+    pub fn draw(&self, onto: &mut LayerSlice, color: Color, thickness: DrawThickness) {
+        if let DrawThickness::PartialFill(thickness) = thickness {
+            let off = (thickness / 2) as isize;
+            for i in 0..thickness {
+                let mut subline = self.clone();
+                subline.p1.x += i - off;
+                subline.p2.x += i - off;
+                subline.draw_strip(onto, color);
+            }
+        } else {
+            self.draw_strip(onto, color);
+        }
     }
 }
