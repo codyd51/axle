@@ -187,13 +187,29 @@ impl AwmWindow {
         printf!("Mouse scrolled: {:?}\n", event);
     }
 
-    fn window_resized(&self, _event: &WindowResized) {
+    fn window_resized(&self, event: &WindowResized) {
         // Don't commit the window here as we'll receive tons of resize events
         // In the future, we can present a 'blur UI' while the window resizes
+        {
+            let mut size = self.current_size.borrow_mut();
+            *size = Size::from(&event.new_size);
+        }
+
+        let elems = &*self.ui_elements.borrow();
+        for elem in elems {
+            elem.handle_superview_resize(*self.current_size.borrow());
+        }
+        self.draw();
+        self.commit();
     }
 
     fn window_resize_ended(&self, event: &WindowResizeEnded) {
         printf!("Window resize ended: {:?}\n", event);
+        let elems = &*self.ui_elements.borrow();
+        for elem in elems {
+            elem.handle_superview_resize(*self.current_size.borrow());
+        }
+        self.draw();
         self.commit();
     }
 
