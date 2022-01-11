@@ -117,6 +117,7 @@ def setup_rust_toolchain() -> None:
 def test_rust_programs() -> None:
     programs_with_tests = [
         "libfs",
+        "agx_definitions",
     ]
 
     for program_dir_name in programs_with_tests:
