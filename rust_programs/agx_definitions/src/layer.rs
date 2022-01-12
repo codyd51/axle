@@ -22,6 +22,7 @@ pub struct LayerSlice {
     parent_framebuffer_size: Size,
     bytes_per_pixel: isize,
     pub frame: Rect,
+    pub damaged_rects: RefCell<Vec<Rect>>,
 }
 
 impl LayerSlice {
@@ -36,10 +37,20 @@ impl LayerSlice {
             parent_framebuffer_size: framebuffer_size,
             bytes_per_pixel,
             frame,
+            damaged_rects: RefCell::new(Vec::new()),
         }
     }
+
+    fn record_damaged_rect(&self, rect: Rect) {
+        let mut damaged_rects = self.damaged_rects.borrow_mut();
+        damaged_rects.push(rect);
+    }
+
     pub fn fill_rect(&self, raw_rect: Rect, color: Color, thickness: StrokeThickness) {
         let rect = self.frame.constrain(raw_rect);
+
+        // Note that this rect has been damaged
+        self.record_damaged_rect(rect);
 
         let bpp = self.bytes_per_pixel;
         let parent_bytes_per_row = self.parent_framebuffer_size.width * bpp;
