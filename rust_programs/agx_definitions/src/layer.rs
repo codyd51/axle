@@ -123,10 +123,11 @@ impl LayerSlice {
     pub fn get_slice(&self, rect: Rect) -> LayerSlice {
         // The provided rect is in our coordinate system
         // Translate it to the global coordinate system, then translate
+        let constrained = Rect::from_parts(Point::zero(), self.frame.size).constrain(rect);
         let to_current_coordinate_system =
-            Rect::from_parts(self.frame.origin + rect.origin, rect.size);
-        let constrained = Rect::from_parts(Point::zero(), self.inner_size)
-            .constrain(to_current_coordinate_system);
+            Rect::from_parts(self.frame.origin + rect.origin, constrained.size);
+        //let constrained = Rect::from_parts(Point::zero(), self.frame.size)
+        //    .constrain(to_current_coordinate_system);
 
         LayerSlice::new(
             Rc::clone(&self.parent_framebuffer),
