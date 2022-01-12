@@ -91,6 +91,7 @@ impl Size {
     pub fn new(width: isize, height: isize) -> Self {
         Size { width, height }
     }
+
     pub fn zero() -> Self {
         Size {
             width: 0,
@@ -360,8 +361,8 @@ impl Line {
         }
     }
 
-    pub fn draw(&self, onto: &mut LayerSlice, color: Color, thickness: DrawThickness) {
-        if let DrawThickness::PartialFill(thickness) = thickness {
+    pub fn draw(&self, onto: &mut LayerSlice, color: Color, thickness: StrokeThickness) {
+        if let StrokeThickness::Width(thickness) = thickness {
             let off = (thickness / 2) as isize;
             for i in 0..thickness {
                 let mut subline = self.clone();

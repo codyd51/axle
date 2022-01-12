@@ -1,8 +1,8 @@
 use core::cell::RefCell;
 
 use agx_definitions::{
-    Color, DrawThickness, Drawable, Layer, LayerSlice, Line, Point, Rect, SingleFramebufferLayer,
-    Size,
+    Color, Drawable, Layer, LayerSlice, Line, Point, Rect, SingleFramebufferLayer, Size,
+    StrokeThickness,
 };
 use alloc::string::{Drain, String, ToString};
 use alloc::vec;
@@ -27,7 +27,7 @@ pub trait Bordered: Drawable + UIElement {
             true => Color::new(200, 200, 200),
             false => Color::dark_gray(),
         };
-        onto.fill_rect(outer_border, border_color, DrawThickness::PartialFill(1));
+        onto.fill_rect(outer_border, border_color, StrokeThickness::Width(1));
 
         let outer_margin = outer_border.inset_by(1, 1, 1, 1);
         let inner_margin = outer_margin.inset_by(
@@ -40,12 +40,12 @@ pub trait Bordered: Drawable + UIElement {
         onto.fill_rect(
             outer_margin,
             Color::light_gray(),
-            DrawThickness::PartialFill(outer_margin_size),
+            StrokeThickness::Width(outer_margin_size),
         );
         onto.fill_rect(
             inner_margin,
             Color::dark_gray(),
-            DrawThickness::PartialFill(inner_margin_size),
+            StrokeThickness::Width(inner_margin_size),
         );
 
         // Draw diagonal lines indicating an inset
@@ -62,11 +62,7 @@ pub trait Bordered: Drawable + UIElement {
             top_left_inset_start + x_adjustment,
             top_left_inset_start + inner_margin_as_point + x_adjustment + fine_x + fine_y,
         );
-        top_left_inset.draw(
-            onto,
-            inset_color,
-            DrawThickness::PartialFill(inner_margin_size),
-        );
+        top_left_inset.draw(onto, inset_color, StrokeThickness::Width(inner_margin_size));
 
         let top_right_inset_start = Point::new(inner_margin.max_x(), inner_margin.min_y());
         let top_right_inset = Line::new(
@@ -78,11 +74,7 @@ pub trait Bordered: Drawable + UIElement {
                 - fine_x
                 + fine_y,
         );
-        top_right_inset.draw(
-            onto,
-            inset_color,
-            DrawThickness::PartialFill(inner_margin_size),
-        );
+        top_right_inset.draw(onto, inset_color, StrokeThickness::Width(inner_margin_size));
 
         let bottom_left_inset_start = Point::new(inner_margin.min_x(), inner_margin.max_y());
         let bottom_left_inset = Line::new(
@@ -93,22 +85,14 @@ pub trait Bordered: Drawable + UIElement {
             ) + x_adjustment
                 - (fine_y * 2),
         );
-        bottom_left_inset.draw(
-            onto,
-            inset_color,
-            DrawThickness::PartialFill(inner_margin_size),
-        );
+        bottom_left_inset.draw(onto, inset_color, StrokeThickness::Width(inner_margin_size));
 
         let bottom_right_inset_start = Point::new(inner_margin.max_x(), inner_margin.max_y());
         let bottom_right_inset = Line::new(
             bottom_right_inset_start - x_adjustment - fine_y,
             bottom_right_inset_start - inner_margin_as_point - x_adjustment - (fine_y * 2),
         );
-        bottom_right_inset.draw(
-            onto,
-            inset_color,
-            DrawThickness::PartialFill(inner_margin_size),
-        );
+        bottom_right_inset.draw(onto, inset_color, StrokeThickness::Width(inner_margin_size));
         let inner_content = inner_margin.inset_by(
             inner_margin_size,
             inner_margin_size,

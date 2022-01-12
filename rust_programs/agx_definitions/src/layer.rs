@@ -10,43 +10,56 @@ use core::{
 use crate::{Color, Point, Rect, Size};
 use axle_rt::printf;
 
+pub enum StrokeThickness {
+    Filled,
+    // TODO(PT): Support per-side thickness?
+    Width(isize),
+}
+
 #[derive(Debug)]
 pub struct LayerSlice {
-    inner: Rc<RefCell<Box<[u8]>>>,
-    inner_size: Size,
+    parent_framebuffer: Rc<RefCell<Box<[u8]>>>,
+    parent_framebuffer_size: Size,
     bytes_per_pixel: isize,
     pub frame: Rect,
 }
 
-pub enum DrawThickness {
-    Filled,
-    // TODO(PT): Support per-side thickness?
-    PartialFill(isize),
-}
-
 impl LayerSlice {
-    pub fn fill_rect(&self, raw_rect: Rect, color: Color, thickness: DrawThickness) {
+    pub fn new(
+        framebuffer: Rc<RefCell<Box<[u8]>>>,
+        framebuffer_size: Size,
+        frame: Rect,
+        bytes_per_pixel: isize,
+    ) -> Self {
+        LayerSlice {
+            parent_framebuffer: framebuffer,
+            parent_framebuffer_size: framebuffer_size,
+            bytes_per_pixel,
+            frame,
+        }
+    }
+    pub fn fill_rect(&self, raw_rect: Rect, color: Color, thickness: StrokeThickness) {
         let rect = self.frame.constrain(raw_rect);
 
         let bpp = self.bytes_per_pixel;
-        let parent_bytes_per_row = self.inner_size.width * bpp;
+        let parent_bytes_per_row = self.parent_framebuffer_size.width * bpp;
         let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
         let slice_origin_offset = self.frame.origin * bpp_multiple;
         let rect_origin_offset = slice_origin_offset + (rect.origin * bpp_multiple);
 
-        if let DrawThickness::PartialFill(px_count) = thickness {
+        if let StrokeThickness::Width(px_count) = thickness {
             let top = Rect::from_parts(rect.origin, Size::new(rect.width(), px_count));
-            self.fill_rect(top, color, DrawThickness::Filled);
+            self.fill_rect(top, color, StrokeThickness::Filled);
 
             let left = Rect::from_parts(rect.origin, Size::new(px_count, rect.height()));
-            self.fill_rect(left, color, DrawThickness::Filled);
+            self.fill_rect(left, color, StrokeThickness::Filled);
 
             // The leftmost `px_count` pixels of the bottom rect are drawn by the left rect
             let bottom = Rect::from_parts(
                 Point::new(rect.origin.x + px_count, rect.max_y() - px_count),
                 Size::new(rect.width() - px_count, px_count),
             );
-            self.fill_rect(bottom, color, DrawThickness::Filled);
+            self.fill_rect(bottom, color, StrokeThickness::Filled);
 
             // The topmost `px_count` pixels of the right rect are drawn by the top rect
             // The bottommost `px_count` pixels of the right rect are drawn by the bottom rect
@@ -54,9 +67,9 @@ impl LayerSlice {
                 Point::new(rect.max_x() - px_count, rect.origin.y + px_count),
                 Size::new(px_count, rect.height() - (px_count * 2)),
             );
-            self.fill_rect(right, color, DrawThickness::Filled);
+            self.fill_rect(right, color, StrokeThickness::Filled);
         } else {
-            let mut fb = (*self.inner).borrow_mut();
+            let mut fb = (*self.parent_framebuffer).borrow_mut();
             for y in 0..rect.height() {
                 let row_start = rect_origin_offset.y + (y * parent_bytes_per_row);
                 for x in 0..rect.width() {
@@ -73,15 +86,15 @@ impl LayerSlice {
         self.fill_rect(
             Rect::from_parts(Point::zero(), self.frame.size),
             color,
-            DrawThickness::Filled,
+            StrokeThickness::Filled,
         )
     }
 
     pub fn putpixel(&self, loc: Point, color: Color) {
         let bpp = self.bytes_per_pixel;
-        let parent_bytes_per_row = self.inner_size.width * bpp;
+        let parent_bytes_per_row = self.parent_framebuffer_size.width * bpp;
         let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
-        let mut fb = (*self.inner).borrow_mut();
+        let mut fb = (*self.parent_framebuffer).borrow_mut();
         let slice_origin_offset = self.frame.origin * bpp_multiple;
         //let off = slice_origin_offset + (loc.y * parent_bytes_per_row) + (loc.x * bpp);
         let point_offset = slice_origin_offset + (loc * bpp_multiple);
@@ -100,12 +113,12 @@ impl LayerSlice {
         let constrained = Rect::from_parts(Point::zero(), self.inner_size)
             .constrain(to_current_coordinate_system);
 
-        LayerSlice {
-            inner: Rc::clone(&self.inner),
-            inner_size: self.inner_size,
-            frame: constrained,
-            bytes_per_pixel: self.bytes_per_pixel,
-        }
+        LayerSlice::new(
+            Rc::clone(&self.parent_framebuffer),
+            self.parent_framebuffer_size,
+            to_current_coordinate_system,
+            self.bytes_per_pixel,
+        )
     }
 }
 
@@ -193,12 +206,12 @@ impl Layer for SingleFramebufferLayer {
 
     fn get_slice(&mut self, rect: Rect) -> LayerSlice {
         let constrained = Rect::from_parts(Point::zero(), self.size).constrain(rect);
-        LayerSlice {
-            inner: Rc::clone(&self.framebuffer),
-            inner_size: self.size(),
-            frame: constrained,
-            bytes_per_pixel: self.bytes_per_pixel,
-        }
+        LayerSlice::new(
+            Rc::clone(&self.framebuffer),
+            self.size(),
+            constrained,
+            self.bytes_per_pixel,
+        )
     }
 }
 
