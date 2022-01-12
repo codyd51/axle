@@ -102,6 +102,10 @@ impl LayerSlice {
     }
 
     pub fn putpixel(&self, loc: Point, color: Color) {
+        if !self.frame.contains(loc + self.frame.origin) {
+            return;
+        }
+
         let bpp = self.bytes_per_pixel;
         let parent_bytes_per_row = self.parent_framebuffer_size.width * bpp;
         let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
