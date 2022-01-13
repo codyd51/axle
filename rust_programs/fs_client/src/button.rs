@@ -41,15 +41,16 @@ impl Bordered for Button {
         let outer_border = Rect::from_parts(Point::zero(), self.frame().size);
 
         let border_color = match self.currently_contains_mouse() {
-            true => Color::new(200, 200, 200),
+            true => Color::new(160, 160, 160),
             false => Color::new(50, 50, 50),
         };
         onto.fill_rect(outer_border, border_color, StrokeThickness::Width(1));
 
         let outer_margin = outer_border.inset_by(1, 1, 1, 1);
+        let outer_margin_color = Color::new(60, 60, 60);
         onto.fill_rect(
             outer_margin,
-            Color::new(60, 60, 60),
+            outer_margin_color,
             StrokeThickness::Width(outer_margin_size),
         );
 
@@ -61,13 +62,17 @@ impl Bordered for Button {
         );
 
         let inner_border_color = match self.currently_contains_mouse() {
-            true => Color::white(),
+            true => Color::new(200, 200, 200),
             false => Color::new(140, 140, 140),
         };
         onto.fill_rect(inner_border, inner_border_color, StrokeThickness::Width(1));
 
         // Draw diagonal lines indicating an inset
-        let inset_color = Color::new(100, 100, 100);
+        //let inset_color = Color::new(100, 100, 100);
+        let inset_color = match self.currently_contains_mouse() {
+            true => Color::new(180, 180, 180),
+            false => Color::new(100, 100, 100),
+        };
         let inset_width = outer_margin_size / 2;
         let outer_margin_as_point = Point::new(outer_margin_size, outer_margin_size);
 
@@ -126,10 +131,13 @@ impl Bordered for Button {
             font_size.height,
         );
 
-        let midpoint = Point::new(
-            onto.frame.size.width / 2.0 as isize,
-            onto.frame.size.height / 2.0 as isize,
+        let button_frame_midpoint = Point::new(
+            (self.frame.size.width / 2.0 as isize),
+            (self.frame.size.height / 2.0 as isize),
         );
+        // Translate the midpoint to the slice's coordinate system
+        let midpoint = button_frame_midpoint - (onto.frame.origin - outer_frame.origin);
+
         let label_origin = midpoint
             - Point::new(
                 (label_size.width as f64 / 2f64) as isize,
