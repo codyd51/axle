@@ -28,13 +28,9 @@ pub struct View {
 }
 
 impl View {
-    pub fn new<F: 'static + Fn(&Self, Size) -> Rect>(
-        frame: Rect,
-        background_color: Color,
-        sizer: F,
-    ) -> Self {
+    pub fn new<F: 'static + Fn(&Self, Size) -> Rect>(background_color: Color, sizer: F) -> Self {
         View {
-            frame: RefCell::new(frame),
+            frame: RefCell::new(Rect::zero()),
             current_inner_content_frame: RefCell::new(Rect::zero()),
             left_click_cb: RefCell::new(None),
             background_color,
