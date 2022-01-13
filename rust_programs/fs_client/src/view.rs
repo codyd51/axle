@@ -114,11 +114,18 @@ impl UIElement for View {
         printf!("Mouse exited view!\n");
         *self.currently_contains_mouse_int.borrow_mut() = false;
 
+        let inner_content_origin = (*self.current_inner_content_frame.borrow()).origin;
+
         let mut elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();
         for elem in elems_containing_mouse.drain(..) {
-            let mut slice = onto.get_slice(elem.frame());
+
+            let mut slice = onto.get_slice(Rect::from_parts(
+                elem.frame().origin + inner_content_origin,
+                elem.frame().size,
+            ));
             elem.handle_mouse_exited(&mut slice);
         }
+        Bordered::draw_border(self, onto);
     }
 
     fn handle_mouse_moved(&self, mouse_point: Point, onto: &mut LayerSlice) {
@@ -127,14 +134,16 @@ impl UIElement for View {
         let mut elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();
 
         let inner_content_origin = (*self.current_inner_content_frame.borrow()).origin;
+        let mouse_to_inner_coordinate_system = mouse_point - inner_content_origin;
 
         for elem in elems {
             let mut slice = onto.get_slice(Rect::from_parts(
                 elem.frame().origin + inner_content_origin,
                 elem.frame().size,
             ));
-            //let mut slice = onto.get_slice(elem.frame());
-            let elem_contains_mouse = elem.frame().contains(mouse_point);
+            let elem_contains_mouse =
+                Rect::from_parts(elem.frame().origin - self.frame().origin, elem.frame().size)
+                    .contains(mouse_to_inner_coordinate_system);
 
             // Did this element previously bound the mouse?
             if let Some(index) = elems_containing_mouse
@@ -158,7 +167,8 @@ impl UIElement for View {
         }
 
         for elem in elems_containing_mouse {
-            elem.handle_mouse_moved(mouse_point, onto);
+            let elem_local_point = mouse_point - elem.frame().origin;
+            elem.handle_mouse_moved(elem_local_point, onto);
         }
     }
 
