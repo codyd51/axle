@@ -90,6 +90,11 @@ impl UIElement for View {
         if let Some(cb) = maybe_cb {
             (cb)(self);
         }
+
+        let mut elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();
+        for elem in elems_containing_mouse {
+            elem.handle_left_click();
+        }
     }
 
     fn handle_superview_resize(&self, superview_size: Size) {
