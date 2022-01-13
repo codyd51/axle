@@ -73,6 +73,24 @@ impl AwmWindow {
         self.ui_elements.borrow_mut().clear();
     }
 
+    pub fn remove_element(&self, elem: Rc<dyn UIElement>) {
+        let mut elems_containing_mouse = &mut *self.elements_containing_mouse.borrow_mut();
+        if let Some(index) = elems_containing_mouse
+            .iter()
+            .position(|e| Rc::ptr_eq(e, &elem))
+        {
+            // We don't need to preserve ordering, so swap_remove is OK
+            elems_containing_mouse.swap_remove(index);
+        }
+
+        let mut ui_elements = &mut *self.ui_elements.borrow_mut();
+        if let Some(index) = ui_elements.iter().position(|e| Rc::ptr_eq(e, &elem)) {
+            // We don't need to preserve ordering, so swap_remove is OK
+            ui_elements.swap_remove(index);
+        }
+
+    }
+
     pub fn draw(&self) {
         // Start off with a colored background
         let layer = &mut *self.layer.borrow_mut();
@@ -132,11 +150,13 @@ impl AwmWindow {
 
         for elem in elems_containing_mouse {
             let mut slice = layer.get_slice(elem.frame());
-            elem.handle_mouse_moved(mouse_point, &mut slice);
+            // Translate the mouse position to the element's coordinate system
+            let elem_pos = mouse_point - elem.frame().origin;
+            elem.handle_mouse_moved(elem_pos, &mut slice);
         }
 
         //self.draw();
-        self.commit();
+        //self.commit();
     }
 
     fn mouse_dragged(&self, event: &MouseDragged) {
