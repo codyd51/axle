@@ -14,7 +14,7 @@ pub trait Bordered: Drawable + UIElement {
     fn draw(&self, onto: &mut LayerSlice) {
         let inner_content_frame = self.draw_border(onto);
         let mut content_slice = onto.get_slice(inner_content_frame);
-        self.draw_inner_content(&mut content_slice);
+        self.draw_inner_content(onto.frame, &mut content_slice);
     }
 
     fn draw_border(&self, onto: &mut LayerSlice) -> Rect {
@@ -102,5 +102,5 @@ pub trait Bordered: Drawable + UIElement {
         inner_content
     }
 
-    fn draw_inner_content(&self, onto: &mut LayerSlice);
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice);
 }

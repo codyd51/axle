@@ -116,7 +116,7 @@ impl Bordered for Button {
         content_frame
     }
 
-    fn draw_inner_content(&self, onto: &mut LayerSlice) {
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice) {
         onto.fill(Color::light_gray());
 
         let draw_color = Color::black();

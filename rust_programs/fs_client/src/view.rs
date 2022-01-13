@@ -55,7 +55,7 @@ impl View {
 }
 
 impl Bordered for View {
-    fn draw_inner_content(&self, onto: &mut LayerSlice) {
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice) {
         let mut inner_content_rect_ref = self.current_inner_content_frame.borrow_mut();
         *inner_content_rect_ref = onto.frame;
 
