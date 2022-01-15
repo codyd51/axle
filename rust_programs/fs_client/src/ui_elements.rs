@@ -1,8 +1,8 @@
 use core::cell::RefCell;
 
 use agx_definitions::{
-    Color, Drawable, Layer, LayerSlice, Line, Point, Rect, SingleFramebufferLayer, Size,
-    StrokeThickness,
+    Color, Drawable, Layer, LayerSlice, Line, NestedLayerSlice, Point, Rect,
+    SingleFramebufferLayer, Size, StrokeThickness,
 };
 use alloc::vec;
 use alloc::{boxed::Box, vec::Vec};
@@ -14,7 +14,7 @@ use alloc::{
 use crate::{bordered::Bordered, font::draw_char, window::AwmWindow};
 use axle_rt::printf;
 
-pub trait UIElement: Drawable {
+pub trait UIElement: Drawable + NestedLayerSlice {
     fn handle_mouse_entered(&self, onto: &mut LayerSlice) {}
     fn handle_mouse_exited(&self, onto: &mut LayerSlice) {}
     fn handle_mouse_moved(&self, mouse_point: Point, onto: &mut LayerSlice) {}
