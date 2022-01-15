@@ -1,4 +1,4 @@
-use agx_definitions::{Color, Layer, LayerSlice, Point, Size};
+use agx_definitions::{Color, LayerSlice, Point, Size};
 
 const CHAR_WIDTH: usize = 8;
 const CHAR_HEIGHT: usize = 8;
@@ -154,7 +154,7 @@ pub fn draw_char(
         for draw_x in 0..font_size.width {
             let font_x = (draw_x as f64 / scale_x) as usize;
             if row >> font_x & 0b1 != 0 {
-                layer.putpixel((*draw_loc + Point::new(draw_x, draw_y)), draw_color);
+                layer.putpixel(*draw_loc + Point::new(draw_x, draw_y), draw_color);
             }
         }
     }

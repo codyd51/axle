@@ -2,13 +2,9 @@
 #![feature(core_intrinsics)]
 
 extern crate alloc;
-use alloc::{boxed::Box, rc::Rc, vec::Vec};
-use alloc::{rc::Weak, vec};
+use alloc::rc::Weak;
 use core::{
-    borrow::BorrowMut,
-    cell::RefCell,
     cmp::max,
-    intrinsics::sqrtf32,
     ops::{Add, Mul, Sub},
 };
 
@@ -20,7 +16,6 @@ pub trait NestedLayerSlice: Drawable {
     fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>);
 
     fn get_slice(&self) -> LayerSlice {
-        let parent_weak = self.get_parent().unwrap();
         let parent = self.get_parent().unwrap().upgrade().unwrap();
         let parent_slice = parent.get_slice();
 
@@ -360,7 +355,7 @@ impl Line {
         let mut cursor = Point::new(self.p1.x, self.p1.y);
         let mut x_err = 0;
         let mut y_err = 0;
-        for t in 0..distance {
+        for _ in 0..distance {
             onto.putpixel(cursor, color);
 
             x_err += delta_x;

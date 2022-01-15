@@ -12,10 +12,7 @@ pub extern crate libc;
 use alloc::alloc::{GlobalAlloc, Layout};
 use alloc::format;
 use alloc::string::ToString;
-use core::{
-    cmp::{max, min},
-    panic::PanicInfo,
-};
+use core::{cmp::min, panic::PanicInfo};
 pub use cstr_core;
 use cstr_core::CString;
 

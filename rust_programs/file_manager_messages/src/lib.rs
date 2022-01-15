@@ -3,7 +3,6 @@
 extern crate alloc;
 use axle_rt::{copy_str_into_sized_slice, ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
-use cstr_core::CString;
 
 pub fn str_from_u8_nul_utf8_unchecked(utf8_src: &[u8]) -> &str {
     let nul_range_end = utf8_src

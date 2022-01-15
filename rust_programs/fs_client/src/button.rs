@@ -1,18 +1,13 @@
 use core::cell::RefCell;
 
 use agx_definitions::{
-    Color, Drawable, Layer, LayerSlice, Line, NestedLayerSlice, Point, Rect,
-    SingleFramebufferLayer, Size, StrokeThickness,
+    Color, Drawable, LayerSlice, Line, NestedLayerSlice, Point, Rect, Size, StrokeThickness,
 };
-use alloc::{boxed::Box, vec::Vec};
-use alloc::{
-    rc::Rc,
-    string::{Drain, String, ToString},
-};
-use alloc::{rc::Weak, vec};
+use alloc::boxed::Box;
+use alloc::rc::Weak;
+use alloc::string::{String, ToString};
 
-use crate::{bordered::Bordered, font::draw_char, ui_elements::UIElement, window::AwmWindow};
-use axle_rt::printf;
+use crate::{bordered::Bordered, font::draw_char, ui_elements::UIElement};
 
 pub struct Button {
     container: Option<Weak<dyn NestedLayerSlice>>,
@@ -134,8 +129,8 @@ impl Bordered for Button {
         );
 
         let button_frame_midpoint = Point::new(
-            (self.frame.size.width / 2.0 as isize),
-            (self.frame.size.height / 2.0 as isize),
+            self.frame.size.width / 2.0 as isize,
+            self.frame.size.height / 2.0 as isize,
         );
         // Translate the midpoint to the slice's coordinate system
         let midpoint = button_frame_midpoint - (onto.frame.origin - outer_frame.origin);
@@ -187,7 +182,7 @@ impl UIElement for Button {
         Bordered::draw_border(self, onto);
     }
 
-    fn handle_mouse_moved(&self, mouse_point: Point, onto: &mut LayerSlice) {}
+    fn handle_mouse_moved(&self, _mouse_point: Point, _onto: &mut LayerSlice) {}
 
     fn currently_contains_mouse(&self) -> bool {
         *self.currently_contains_mouse_int.borrow()
@@ -199,7 +194,7 @@ impl NestedLayerSlice for Button {
         Some(Weak::clone(self.container.as_ref().unwrap()))
     }
 
-    fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>) {
+    fn set_parent(&self, _parent: Weak<dyn NestedLayerSlice>) {
         todo!();
     }
 }

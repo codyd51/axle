@@ -1,14 +1,6 @@
-use core::cell::RefCell;
+use agx_definitions::{Color, Drawable, LayerSlice, Line, Point, Rect, StrokeThickness};
 
-use agx_definitions::{
-    Color, Drawable, Layer, LayerSlice, Line, Point, Rect, SingleFramebufferLayer, Size,
-    StrokeThickness,
-};
-use alloc::string::{Drain, String, ToString};
-use alloc::vec;
-use alloc::{boxed::Box, vec::Vec};
-
-use crate::{font::draw_char, window::AwmWindow, UIElement};
+use crate::UIElement;
 
 pub trait Bordered: Drawable + UIElement {
     fn draw(&self, onto: &mut LayerSlice) {

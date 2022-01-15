@@ -1,17 +1,11 @@
 use core::cell::RefCell;
 
-use agx_definitions::{
-    Color, Drawable, Layer, LayerSlice, Line, NestedLayerSlice, Point, Rect,
-    SingleFramebufferLayer, Size, StrokeThickness,
-};
+use agx_definitions::{Color, Drawable, LayerSlice, NestedLayerSlice, Point, Rect, Size};
+use alloc::rc::Rc;
+use alloc::rc::Weak;
 use alloc::{boxed::Box, vec::Vec};
-use alloc::{
-    rc::Rc,
-    string::{Drain, String, ToString},
-};
-use alloc::{rc::Weak, vec};
 
-use crate::{bordered::Bordered, font::draw_char, ui_elements::UIElement, window::AwmWindow};
+use crate::{bordered::Bordered, ui_elements::UIElement};
 use axle_rt::printf;
 
 pub struct View {
@@ -68,7 +62,7 @@ impl NestedLayerSlice for View {
 }
 
 impl Bordered for View {
-    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice) {
+    fn draw_inner_content(&self, _outer_frame: Rect, onto: &mut LayerSlice) {
         let mut inner_content_rect_ref = self.current_inner_content_frame.borrow_mut();
         *inner_content_rect_ref = onto.frame;
 
@@ -108,7 +102,7 @@ impl UIElement for View {
             (cb)(self);
         }
 
-        let mut elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();
+        let elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();
         for elem in elems_containing_mouse {
             elem.handle_left_click();
         }
@@ -121,7 +115,7 @@ impl UIElement for View {
         *frame_mut = frame;
     }
 
-    fn handle_mouse_entered(&self, onto: &mut LayerSlice) {
+    fn handle_mouse_entered(&self, _onto: &mut LayerSlice) {
         printf!("Mouse entered view!\n");
         *self.currently_contains_mouse_int.borrow_mut() = true;
         // Queue partial redraw
@@ -135,7 +129,7 @@ impl UIElement for View {
 
         let inner_content_origin = (*self.current_inner_content_frame.borrow()).origin;
 
-        let mut elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();
+        let elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();
         for elem in elems_containing_mouse.drain(..) {
             let mut slice = onto.get_slice(Rect::from_parts(
                 elem.frame().origin + inner_content_origin,
@@ -149,7 +143,7 @@ impl UIElement for View {
     fn handle_mouse_moved(&self, mouse_point: Point, onto: &mut LayerSlice) {
         //printf!("Mouse moved in view! {:?}\n", mouse_point);
         let elems = &*self.sub_elements.borrow();
-        let mut elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();
+        let elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();
 
         let inner_content_origin = (*self.current_inner_content_frame.borrow()).origin;
         let mouse_to_inner_coordinate_system = mouse_point - inner_content_origin;

@@ -10,7 +10,7 @@ use axle_rt::ExpectsEventField;
 use axle_rt::{amc_message_await, amc_message_await_untyped, amc_message_send};
 
 use agx_definitions::{
-    Color, Drawable, Layer, LayerSlice, NestedLayerSlice, Point, Rect, SingleFramebufferLayer, Size,
+    Drawable, Layer, LayerSlice, NestedLayerSlice, Point, Rect, SingleFramebufferLayer, Size,
 };
 use awm_messages::{
     AwmCreateWindow, AwmCreateWindowResponse, AwmWindowRedrawReady, AwmWindowUpdateTitle,
@@ -33,7 +33,7 @@ impl NestedLayerSlice for AwmWindow {
         None
     }
 
-    fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>) {
+    fn set_parent(&self, _parent: Weak<dyn NestedLayerSlice>) {
         panic!("Not supported for AwmWindow");
     }
 
@@ -102,7 +102,7 @@ impl AwmWindow {
     }
 
     pub fn remove_element(&self, elem: Rc<dyn UIElement>) {
-        let mut elems_containing_mouse = &mut *self.elements_containing_mouse.borrow_mut();
+        let elems_containing_mouse = &mut *self.elements_containing_mouse.borrow_mut();
         if let Some(index) = elems_containing_mouse
             .iter()
             .position(|e| Rc::ptr_eq(e, &elem))
@@ -111,7 +111,7 @@ impl AwmWindow {
             elems_containing_mouse.swap_remove(index);
         }
 
-        let mut ui_elements = &mut *self.ui_elements.borrow_mut();
+        let ui_elements = &mut *self.ui_elements.borrow_mut();
         if let Some(index) = ui_elements.iter().position(|e| Rc::ptr_eq(e, &elem)) {
             // We don't need to preserve ordering, so swap_remove is OK
             ui_elements.swap_remove(index);
@@ -157,7 +157,7 @@ impl AwmWindow {
     fn mouse_moved(&self, event: &MouseMoved) {
         let mouse_point = Point::from(event.mouse_pos);
         let elems = &*self.ui_elements.borrow();
-        let mut elems_containing_mouse = &mut *self.elements_containing_mouse.borrow_mut();
+        let elems_containing_mouse = &mut *self.elements_containing_mouse.borrow_mut();
 
         let layer = &mut *self.layer.borrow_mut();
 
@@ -230,7 +230,7 @@ impl AwmWindow {
     fn mouse_exited(&self, event: &MouseExited) {
         printf!("Mouse exited: {:?}\n", event);
         let layer = &mut *self.layer.borrow_mut();
-        let mut elems_containing_mouse = &mut *self.elements_containing_mouse.borrow_mut();
+        let elems_containing_mouse = &mut *self.elements_containing_mouse.borrow_mut();
         for elem in elems_containing_mouse.drain(..) {
             let mut slice = layer.get_slice(elem.frame());
             elem.handle_mouse_exited(&mut slice);
@@ -356,7 +356,7 @@ impl Drawable for AwmWindow {
         Rect::from_parts(Point::zero(), *self.current_size.borrow())
     }
 
-    fn draw(&self, onto: &mut LayerSlice) {
+    fn draw(&self, _onto: &mut LayerSlice) {
         panic!("Not available for AwmWindow");
     }
 }

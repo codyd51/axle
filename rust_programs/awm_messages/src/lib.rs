@@ -6,7 +6,6 @@ extern crate libc;
 use agx_definitions::{Size, SizeU32};
 use axle_rt::{copy_str_into_sized_slice, ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
-use cstr_core::{CStr, CString};
 
 #[repr(C)]
 #[derive(Debug, ContainsEventField)]

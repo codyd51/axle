@@ -2,7 +2,7 @@ use core::cell::RefCell;
 
 use agx_definitions::{Color, Drawable, LayerSlice, NestedLayerSlice, Point, Rect, Size};
 use alloc::{
-    rc::{Rc, Weak},
+    rc::Weak,
     string::{String, ToString},
 };
 
@@ -36,7 +36,7 @@ impl NestedLayerSlice for Label {
         Some(Weak::clone(self.container.as_ref().unwrap()))
     }
 
-    fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>) {
+    fn set_parent(&self, _parent: Weak<dyn NestedLayerSlice>) {
         todo!();
     }
 }

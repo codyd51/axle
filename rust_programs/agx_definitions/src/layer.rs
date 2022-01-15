@@ -1,14 +1,8 @@
 extern crate alloc;
+use crate::{Color, Point, Rect, Size};
 use alloc::vec;
 use alloc::{boxed::Box, rc::Rc, vec::Vec};
-use core::{
-    borrow::BorrowMut,
-    cell::RefCell,
-    ops::{Add, Index, Sub},
-};
-
-use crate::{Color, Point, Rect, Size};
-use axle_rt::printf;
+use core::cell::RefCell;
 
 pub enum StrokeThickness {
     Filled,

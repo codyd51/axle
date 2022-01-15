@@ -6,7 +6,7 @@
 extern crate alloc;
 extern crate libc;
 
-use alloc::{collections::BTreeMap, fmt::format, format, rc::Weak};
+use alloc::{collections::BTreeMap, format, rc::Weak};
 use alloc::{
     rc::Rc,
     string::{String, ToString},
@@ -19,9 +19,7 @@ use view::View;
 
 use axle_rt::{amc_message_await, amc_message_send, amc_register_service, printf, AmcMessage};
 
-use agx_definitions::{
-    Color, Drawable, Layer, LayerSlice, NestedLayerSlice, Point, Rect, Size, StrokeThickness,
-};
+use agx_definitions::{Color, Drawable, LayerSlice, NestedLayerSlice, Point, Rect, Size};
 
 use file_manager_messages::{
     str_from_u8_nul_utf8_unchecked, FileManagerDirectoryContents, FileManagerReadDirectory,
@@ -262,9 +260,8 @@ struct FileBrowser2 {
 
 impl FileBrowser2 {
     fn new(window: Rc<AwmWindow>) -> Rc<Self> {
-        let window_clone = Rc::clone(&window);
         let current_path_view =
-            RefCell::new(Rc::new(CurrentPathView::new(move |v, superview_size| {
+            RefCell::new(Rc::new(CurrentPathView::new(move |_v, superview_size| {
                 Rect::from_parts(
                     Point::zero(),
                     Size::new(
@@ -298,7 +295,7 @@ impl FileBrowser2 {
     fn create_directory_contents_view(browser: Rc<FileBrowser2>) -> Rc<DirectoryContentsView> {
         let directory_contents_view = Rc::new(DirectoryContentsView::new(
             &browser.current_path_view.borrow().current_path.borrow(),
-            move |v, superview_size| {
+            move |_v, superview_size| {
                 let current_path_view_height = select_current_path_view_height(superview_size);
                 Rect::from_parts(
                     Point::new(0, current_path_view_height),
@@ -315,7 +312,7 @@ impl FileBrowser2 {
             let browser_clone = Rc::clone(&browser);
 
             let window_clone = Rc::clone(&browser.window);
-            button.on_left_click(move |b| {
+            button.on_left_click(move |_b| {
                 printf!("Button with path {:?} clicked!\n", path_copy);
 
                 let browser_clone = Rc::clone(&browser_clone);
@@ -340,9 +337,9 @@ impl FileBrowser2 {
         }
 
         let directory_contents_view_clone = Rc::clone(&directory_contents_view);
-        let old_directory_contents_view = browser
+        browser
             .directory_contents_view
-            .replace_with(|old| Some(directory_contents_view_clone));
+            .replace_with(|_old| Some(directory_contents_view_clone));
 
         directory_contents_view
     }
@@ -386,7 +383,7 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
 
     // TODO(PT): Add a main content view to Window?
     let window = Rc::new(AwmWindow::new("Rust File Manager", Size::new(500, 800)));
-    let file_browser = Rc::new(RefCell::new(FileBrowser2::new(Rc::clone(&window))));
+    let _file_browser = Rc::new(RefCell::new(FileBrowser2::new(Rc::clone(&window))));
 
     window.enter_event_loop();
     0
