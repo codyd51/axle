@@ -339,3 +339,13 @@ impl AwmWindow {
         }
     }
 }
+
+impl Drawable for AwmWindow {
+    fn frame(&self) -> Rect {
+        Rect::from_parts(Point::zero(), *self.current_size.borrow())
+    }
+
+    fn draw(&self, onto: &mut LayerSlice) {
+        panic!("Not available for AwmWindow");
+    }
+}
