@@ -2,8 +2,8 @@
 #![feature(core_intrinsics)]
 
 extern crate alloc;
-use alloc::vec;
 use alloc::{boxed::Box, rc::Rc, vec::Vec};
+use alloc::{rc::Weak, vec};
 use core::{
     borrow::BorrowMut,
     cell::RefCell,
@@ -14,6 +14,22 @@ use core::{
 
 pub mod layer;
 pub use layer::*;
+
+pub trait NestedLayerSlice: Drawable {
+    fn get_parent(&self) -> Option<Weak<dyn NestedLayerSlice>>;
+    fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>);
+
+    fn get_slice(&self) -> LayerSlice {
+        let parent_weak = self.get_parent().unwrap();
+        let parent = self.get_parent().unwrap().upgrade().unwrap();
+        let parent_slice = parent.get_slice();
+
+        parent_slice.get_slice(Rect::from_parts(
+            parent.frame().origin + self.frame().origin,
+            self.frame().size,
+        ))
+    }
+}
 
 pub trait Drawable {
     fn frame(&self) -> Rect;
@@ -142,7 +158,7 @@ impl PointU32 {
         PointU32 { x, y }
     }
 
-    pub fn from(point: &Point) -> Self {
+    pub fn from(point: Point) -> Self {
         PointU32 {
             x: point.x as u32,
             y: point.y as u32,
@@ -163,7 +179,7 @@ impl Point {
     pub fn zero() -> Self {
         Point { x: 0, y: 0 }
     }
-    pub fn from(point: &PointU32) -> Self {
+    pub fn from(point: PointU32) -> Self {
         Point {
             x: point.x.try_into().unwrap(),
             y: point.y.try_into().unwrap(),
