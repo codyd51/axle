@@ -84,6 +84,8 @@ impl AwmWindow {
     }
 
     pub fn add_component(&self, elem: Rc<dyn UIElement>) {
+        // Ensure the component has a frame by running its sizer
+        elem.handle_superview_resize(*self.current_size.borrow());
         self.ui_elements.borrow_mut().push(elem);
     }
 
