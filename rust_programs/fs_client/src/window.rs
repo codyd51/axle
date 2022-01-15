@@ -1,5 +1,5 @@
-use alloc::vec::Vec;
 use alloc::{boxed::Box, rc::Rc};
+use alloc::{rc::Weak, vec::Vec};
 
 use core::cell::RefCell;
 
@@ -9,7 +9,9 @@ use axle_rt::AmcMessage;
 use axle_rt::ExpectsEventField;
 use axle_rt::{amc_message_await, amc_message_await_untyped, amc_message_send};
 
-use agx_definitions::{Color, Layer, Point, Rect, SingleFramebufferLayer, Size};
+use agx_definitions::{
+    Color, Drawable, Layer, LayerSlice, NestedLayerSlice, Point, Rect, SingleFramebufferLayer, Size,
+};
 use awm_messages::{AwmCreateWindow, AwmCreateWindowResponse, AwmWindowRedrawReady};
 
 use crate::ui_elements::*;
@@ -22,6 +24,22 @@ pub struct AwmWindow {
     _damaged_rects: Vec<Rect>,
     ui_elements: RefCell<Vec<Rc<dyn UIElement>>>,
     elements_containing_mouse: RefCell<Vec<Rc<dyn UIElement>>>,
+}
+
+impl NestedLayerSlice for AwmWindow {
+    fn get_parent(&self) -> Option<Weak<dyn NestedLayerSlice>> {
+        None
+    }
+
+    fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>) {
+        panic!("Not supported for AwmWindow");
+    }
+
+    fn get_slice(&self) -> LayerSlice {
+        self.layer
+            .borrow_mut()
+            .get_slice(Rect::from_parts(Point::zero(), *self.current_size.borrow()))
+    }
 }
 
 impl AwmWindow {
@@ -88,7 +106,6 @@ impl AwmWindow {
             // We don't need to preserve ordering, so swap_remove is OK
             ui_elements.swap_remove(index);
         }
-
     }
 
     pub fn draw(&self) {
@@ -121,7 +138,7 @@ impl AwmWindow {
     }
 
     fn mouse_moved(&self, event: &MouseMoved) {
-        let mouse_point = Point::from(&event.mouse_pos);
+        let mouse_point = Point::from(event.mouse_pos);
         let elems = &*self.ui_elements.borrow();
         let mut elems_containing_mouse = &mut *self.elements_containing_mouse.borrow_mut();
 
@@ -129,6 +146,7 @@ impl AwmWindow {
 
         for elem in elems {
             let elem_contains_mouse = elem.frame().contains(mouse_point);
+            // TODO(PT): Does this need updating like the one in mouse_moved?
             let mut slice = layer.get_slice(elem.frame());
 
             // Did this element previously bound the mouse?
@@ -171,7 +189,7 @@ impl AwmWindow {
             let elems = &*self.ui_elements.borrow();
             for elem in elems {
                 printf!("Checking if elem contains point...\n");
-                if elem.frame().contains(Point::from(&event.mouse_pos)) {
+                if elem.frame().contains(Point::from(event.mouse_pos)) {
                     printf!("Found UI element that bounds click point, dispatching\n");
                     clicked_elem = Some(Rc::clone(&elem));
                     break;

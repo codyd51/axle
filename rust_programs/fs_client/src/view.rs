@@ -1,20 +1,21 @@
 use core::cell::RefCell;
 
 use agx_definitions::{
-    Color, Drawable, Layer, LayerSlice, Line, Point, Rect, SingleFramebufferLayer, Size,
-    StrokeThickness,
+    Color, Drawable, Layer, LayerSlice, Line, NestedLayerSlice, Point, Rect,
+    SingleFramebufferLayer, Size, StrokeThickness,
 };
-use alloc::vec;
 use alloc::{boxed::Box, vec::Vec};
 use alloc::{
     rc::Rc,
     string::{Drain, String, ToString},
 };
+use alloc::{rc::Weak, vec};
 
 use crate::{bordered::Bordered, font::draw_char, ui_elements::UIElement, window::AwmWindow};
 use axle_rt::printf;
 
 pub struct View {
+    container: RefCell<Option<RefCell<Weak<dyn NestedLayerSlice>>>>,
     frame: RefCell<Rect>,
     left_click_cb: RefCell<Option<Box<dyn Fn(&Self)>>>,
     background_color: Color,
@@ -30,6 +31,7 @@ pub struct View {
 impl View {
     pub fn new<F: 'static + Fn(&Self, Size) -> Rect>(background_color: Color, sizer: F) -> Self {
         View {
+            container: RefCell::new(None),
             frame: RefCell::new(Rect::zero()),
             current_inner_content_frame: RefCell::new(Rect::zero()),
             left_click_cb: RefCell::new(None),
@@ -47,6 +49,21 @@ impl View {
 
     pub fn add_component(&self, elem: Rc<dyn UIElement>) {
         self.sub_elements.borrow_mut().push(elem);
+    }
+}
+
+impl NestedLayerSlice for View {
+    fn get_parent(&self) -> Option<Weak<dyn NestedLayerSlice>> {
+        //Some(Weak::clone(&self.container.as_ref().unwrap().borrow()))
+        Some(Weak::clone(
+            &self.container.borrow().as_ref().unwrap().borrow(),
+        ))
+    }
+
+    fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>) {
+        printf!("*** Setting parent\n");
+        let mut container = self.container.borrow_mut();
+        *container = Some(RefCell::new(parent));
     }
 }
 
@@ -107,7 +124,9 @@ impl UIElement for View {
     fn handle_mouse_entered(&self, onto: &mut LayerSlice) {
         printf!("Mouse entered view!\n");
         *self.currently_contains_mouse_int.borrow_mut() = true;
-        Bordered::draw_border(self, onto);
+        // Queue partial redraw
+        // Remove onto from this and the other callbacks
+        // Bordered::draw_border(self, onto);
     }
 
     fn handle_mouse_exited(&self, onto: &mut LayerSlice) {
@@ -118,7 +137,6 @@ impl UIElement for View {
 
         let mut elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();
         for elem in elems_containing_mouse.drain(..) {
-
             let mut slice = onto.get_slice(Rect::from_parts(
                 elem.frame().origin + inner_content_origin,
                 elem.frame().size,

@@ -1,11 +1,15 @@
 use core::cell::RefCell;
 
-use agx_definitions::{Color, Drawable, LayerSlice, Point, Rect, Size};
-use alloc::string::{String, ToString};
+use agx_definitions::{Color, Drawable, LayerSlice, NestedLayerSlice, Point, Rect, Size};
+use alloc::{
+    rc::{Rc, Weak},
+    string::{String, ToString},
+};
 
 use crate::{font::draw_char, ui_elements::UIElement};
 
 pub struct Label {
+    container: Option<Weak<dyn NestedLayerSlice>>,
     frame: Rect,
     text: RefCell<String>,
     color: Color,
@@ -14,6 +18,7 @@ pub struct Label {
 impl Label {
     pub fn new(frame: Rect, text: &str, color: Color) -> Self {
         Label {
+            container: None,
             frame,
             text: RefCell::new(text.to_string()),
             color,
@@ -25,6 +30,16 @@ impl Label {
 }
 
 impl UIElement for Label {}
+
+impl NestedLayerSlice for Label {
+    fn get_parent(&self) -> Option<Weak<dyn NestedLayerSlice>> {
+        Some(Weak::clone(self.container.as_ref().unwrap()))
+    }
+
+    fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>) {
+        todo!();
+    }
+}
 
 impl Drawable for Label {
     fn frame(&self) -> Rect {

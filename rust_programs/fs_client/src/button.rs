@@ -1,20 +1,21 @@
 use core::cell::RefCell;
 
 use agx_definitions::{
-    Color, Drawable, Layer, LayerSlice, Line, Point, Rect, SingleFramebufferLayer, Size,
-    StrokeThickness,
+    Color, Drawable, Layer, LayerSlice, Line, NestedLayerSlice, Point, Rect,
+    SingleFramebufferLayer, Size, StrokeThickness,
 };
-use alloc::vec;
 use alloc::{boxed::Box, vec::Vec};
 use alloc::{
     rc::Rc,
     string::{Drain, String, ToString},
 };
+use alloc::{rc::Weak, vec};
 
 use crate::{bordered::Bordered, font::draw_char, ui_elements::UIElement, window::AwmWindow};
 use axle_rt::printf;
 
 pub struct Button {
+    container: Option<Weak<dyn NestedLayerSlice>>,
     frame: Rect,
     pub label: String,
     left_click_cb: RefCell<Option<Box<dyn Fn(&Self)>>>,
@@ -24,6 +25,7 @@ pub struct Button {
 impl Button {
     pub fn new(frame: Rect, label: &str) -> Self {
         Button {
+            container: None,
             frame,
             label: label.to_string(),
             left_click_cb: RefCell::new(None),
@@ -173,8 +175,8 @@ impl UIElement for Button {
     fn handle_mouse_entered(&self, onto: &mut LayerSlice) {
         *self.currently_contains_mouse_int.borrow_mut() = true;
         /*
-        self.queue_partial_redraw(|onto: LayerSlice| {
-            Bordered::draw_border(Rc::clone(&self), onto);
+        self.queue_partial_redraw(|elem, onto: LayerSlice| {
+            //Bordered::draw_border(&elem, &mut onto);
         });
         */
         Bordered::draw_border(self, onto);
@@ -189,5 +191,15 @@ impl UIElement for Button {
 
     fn currently_contains_mouse(&self) -> bool {
         *self.currently_contains_mouse_int.borrow()
+    }
+}
+
+impl NestedLayerSlice for Button {
+    fn get_parent(&self) -> Option<Weak<dyn NestedLayerSlice>> {
+        Some(Weak::clone(self.container.as_ref().unwrap()))
+    }
+
+    fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>) {
+        todo!();
     }
 }
