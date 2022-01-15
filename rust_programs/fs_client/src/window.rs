@@ -12,7 +12,9 @@ use axle_rt::{amc_message_await, amc_message_await_untyped, amc_message_send};
 use agx_definitions::{
     Color, Drawable, Layer, LayerSlice, NestedLayerSlice, Point, Rect, SingleFramebufferLayer, Size,
 };
-use awm_messages::{AwmCreateWindow, AwmCreateWindowResponse, AwmWindowRedrawReady};
+use awm_messages::{
+    AwmCreateWindow, AwmCreateWindowResponse, AwmWindowRedrawReady, AwmWindowUpdateTitle,
+};
 
 use crate::ui_elements::*;
 use crate::window_events::*;
@@ -45,7 +47,7 @@ impl NestedLayerSlice for AwmWindow {
 impl AwmWindow {
     const AWM_SERVICE_NAME: &'static str = "com.axle.awm";
 
-    pub fn new(size: Size) -> Self {
+    pub fn new(title: &str, size: Size) -> Self {
         // Start off by getting a window from awm
         amc_message_send(AwmWindow::AWM_SERVICE_NAME, AwmCreateWindow::new(&size));
         // awm should send back info about the window that was created
@@ -73,6 +75,8 @@ impl AwmWindow {
             bpp,
             screen_resolution,
         ));
+
+        AwmWindow::set_title(title);
 
         AwmWindow {
             layer,
@@ -133,6 +137,13 @@ impl AwmWindow {
 
     pub fn commit(&self) {
         amc_message_send(AwmWindow::AWM_SERVICE_NAME, AwmWindowRedrawReady::new());
+    }
+
+    pub fn set_title(title: &str) {
+        amc_message_send(
+            AwmWindow::AWM_SERVICE_NAME,
+            AwmWindowUpdateTitle::new(title),
+        );
     }
 
     fn key_down(&self, event: &KeyDown) {

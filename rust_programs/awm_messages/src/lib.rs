@@ -4,8 +4,9 @@ extern crate alloc;
 extern crate libc;
 
 use agx_definitions::{Size, SizeU32};
-use axle_rt::{ContainsEventField, ExpectsEventField};
+use axle_rt::{copy_str_into_sized_slice, ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
+use cstr_core::{CStr, CString};
 
 #[repr(C)]
 #[derive(Debug, ContainsEventField)]
@@ -56,4 +57,28 @@ impl AwmWindowRedrawReady {
 
 impl ExpectsEventField for AwmWindowRedrawReady {
     const EXPECTED_EVENT: u32 = 801;
+}
+
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AwmWindowUpdateTitle {
+    event: u32,
+    title_len: u32,
+    title: [u8; 64],
+}
+
+impl ExpectsEventField for AwmWindowUpdateTitle {
+    const EXPECTED_EVENT: u32 = 813;
+}
+
+impl AwmWindowUpdateTitle {
+    pub fn new(title: &str) -> Self {
+        let mut title_buf = [0; 64];
+        let title_len = copy_str_into_sized_slice(&mut title_buf, title);
+        AwmWindowUpdateTitle {
+            event: Self::EXPECTED_EVENT,
+            title_len: title_len.try_into().unwrap(),
+            title: title_buf,
+        }
+    }
 }

@@ -1,15 +1,9 @@
 #![no_std]
 
 extern crate alloc;
-use axle_rt::{ContainsEventField, ExpectsEventField};
+use axle_rt::{copy_str_into_sized_slice, ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
 use cstr_core::CString;
-
-pub fn copy_str_into_sized_slice(slice: &mut [u8], s: &str) -> () {
-    let c_str = CString::new(s).unwrap();
-    let c_str_bytes = c_str.as_bytes_with_nul();
-    slice[..c_str_bytes.len()].copy_from_slice(c_str_bytes);
-}
 
 pub fn str_from_u8_nul_utf8_unchecked(utf8_src: &[u8]) -> &str {
     let nul_range_end = utf8_src

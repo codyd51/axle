@@ -12,7 +12,10 @@ pub extern crate libc;
 use alloc::alloc::{GlobalAlloc, Layout};
 use alloc::format;
 use alloc::string::ToString;
-use core::panic::PanicInfo;
+use core::{
+    cmp::{max, min},
+    panic::PanicInfo,
+};
 pub use cstr_core;
 use cstr_core::CString;
 
@@ -25,6 +28,16 @@ macro_rules! printf {
             unsafe { axle_rt::libc::printf(log.as_ptr() as *const u8); }
         }
     })
+}
+
+pub fn copy_str_into_sized_slice(slice: &mut [u8], s: &str) -> usize {
+    // Leave one byte in the slice for the NULL terminator
+    let trimmed_str_len = min(s.len(), slice.len() - 1);
+    let c_str = CString::new(&s[..trimmed_str_len]).unwrap();
+    let c_str_bytes = c_str.as_bytes_with_nul();
+    let len = c_str_bytes.len();
+    slice[..len].copy_from_slice(c_str_bytes);
+    len
 }
 
 #[allow(dead_code)]

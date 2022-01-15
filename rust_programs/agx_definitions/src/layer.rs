@@ -291,7 +291,7 @@ fn fill_rect() {
     let slice = layer.get_slice(Rect::new(0, 0, 100, 100));
     // When I fill the slice with a given color
     let color = Color::new(0, 100, 123);
-    slice.fill_rect(Rect::new(0, 0, 100, 100), color);
+    slice.fill_rect(Rect::new(0, 0, 100, 100), color, StrokeThickness::Filled);
     // Then then entire framebuffer is filled with this sequence
     let fb = (*layer.framebuffer).borrow();
     let bytes_per_row = layer.bytes_per_pixel * layer.size.width;
@@ -314,7 +314,7 @@ fn fill_rect_constrains_rect() {
 
     // When I fill the slice with a given color
     let color = Color::new(50, 100, 123);
-    slice.fill_rect(Rect::new(10, 20, 400, 800), color);
+    slice.fill_rect(Rect::new(10, 20, 400, 800), color, StrokeThickness::Filled);
 
     let expected_rect = Rect::new(60, 70, 20, 10);
 
