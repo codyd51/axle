@@ -52,6 +52,10 @@ impl View {
         printf!("Adding component to view: {:?}\n", elem.frame());
         // Ensure the component has a frame by running its sizer
         elem.handle_superview_resize(self.current_inner_content_frame.borrow().size);
+
+        // Set up a link to the parent
+        elem.set_parent(Rc::downgrade(&(Rc::clone(&self) as _)));
+
         self.sub_elements.borrow_mut().push(elem);
     }
 }
