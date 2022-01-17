@@ -48,7 +48,10 @@ impl View {
         *self.left_click_cb.borrow_mut() = Some(Box::new(f));
     }
 
-    pub fn add_component(&self, elem: Rc<dyn UIElement>) {
+    pub fn add_component(self: Rc<Self>, elem: Rc<dyn UIElement>) {
+        printf!("Adding component to view: {:?}\n", elem.frame());
+        // Ensure the component has a frame by running its sizer
+        elem.handle_superview_resize(self.current_inner_content_frame.borrow().size);
         self.sub_elements.borrow_mut().push(elem);
     }
 }
