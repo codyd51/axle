@@ -5,27 +5,29 @@ use alloc::{
     rc::Weak,
     string::{String, ToString},
 };
+use axle_rt::printf;
 
 use crate::{font::draw_char, ui_elements::UIElement};
 
 pub struct Label {
-    container: Option<Weak<dyn NestedLayerSlice>>,
+    // TODO(PT): Remove the nested RefCell?
+    container: RefCell<Option<RefCell<Weak<dyn NestedLayerSlice>>>>,
     frame: Rect,
-    text: RefCell<String>,
+    pub text: RefCell<String>,
     color: Color,
 }
 
 impl Label {
     pub fn new(frame: Rect, text: &str, color: Color) -> Self {
         Label {
-            container: None,
+            container: RefCell::new(None),
             frame,
             text: RefCell::new(text.to_string()),
             color,
         }
     }
     pub fn set_text(&self, text: &str) {
-        self.text.replace_with(|_| text.to_string());
+        self.text.replace(text.to_string());
     }
 }
 
@@ -33,11 +35,13 @@ impl UIElement for Label {}
 
 impl NestedLayerSlice for Label {
     fn get_parent(&self) -> Option<Weak<dyn NestedLayerSlice>> {
-        Some(Weak::clone(self.container.as_ref().unwrap()))
+        Some(Weak::clone(
+            &self.container.borrow().as_ref().unwrap().borrow(),
+        ))
     }
 
-    fn set_parent(&self, _parent: Weak<dyn NestedLayerSlice>) {
-        todo!();
+    fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>) {
+        self.container.replace(Some(RefCell::new(parent)));
     }
 }
 
