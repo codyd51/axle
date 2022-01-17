@@ -32,18 +32,20 @@ impl FromDirectoryImage for FileManagerDirectoryContents {
         let files = &dir.files;
         printf!("Found {:?} files\n", files.len());
         let mut count = 0;
-        for entry in files
+
+        let subdirectories = &dir.subdirectories;
+        for entry in subdirectories
             .into_iter()
-            .map(|kv| FileManagerDirectoryEntry::new(&kv.0, false))
+            .map(|kv| FileManagerDirectoryEntry::new(&kv.0, true))
         {
             printf!("Transformed dir entry: {:?}\n", entry);
             contents.entries[count] = Some(entry.clone());
             count += 1;
         }
-        let subdirectories = &dir.subdirectories;
-        for entry in subdirectories
+
+        for entry in files
             .into_iter()
-            .map(|kv| FileManagerDirectoryEntry::new(&kv.0, true))
+            .map(|kv| FileManagerDirectoryEntry::new(&kv.0, false))
         {
             printf!("Transformed dir entry: {:?}\n", entry);
             contents.entries[count] = Some(entry.clone());
