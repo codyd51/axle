@@ -20,6 +20,8 @@ pub struct View {
 
     sub_elements: RefCell<Vec<Rc<dyn UIElement>>>,
     sub_elements_containing_mouse: RefCell<Vec<Rc<dyn UIElement>>>,
+
+    border_enabled: RefCell<bool>,
 }
 
 impl View {
@@ -34,7 +36,12 @@ impl View {
             currently_contains_mouse_int: RefCell::new(false),
             sub_elements: RefCell::new(Vec::new()),
             sub_elements_containing_mouse: RefCell::new(Vec::new()),
+            border_enabled: RefCell::new(true),
         }
+    }
+
+    pub fn set_border_enabled(&self, enabled: bool) {
+        self.border_enabled.replace(enabled);
     }
 
     pub fn on_left_click<F: 'static + Fn(&Self)>(&self, f: F) {
@@ -75,6 +82,10 @@ impl Bordered for View {
 
     fn get_interior_content_frame(&self) -> Rect {
         *self.current_inner_content_frame.borrow()
+    }
+
+    fn border_enabled(&self) -> bool {
+        *self.border_enabled.borrow()
     }
 }
 
