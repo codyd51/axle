@@ -120,7 +120,6 @@ impl AwmWindow {
 
     pub fn draw(&self) {
         // Start off with a colored background
-        let layer = &mut *self.layer.borrow_mut();
         /*
         layer.fill_rect(
             &Rect::from_parts(Point::zero(), *self.current_size.borrow()),
@@ -128,11 +127,12 @@ impl AwmWindow {
         );
         */
 
+        //printf!("Window drawing all contents...\n");
         let elems = &*self.ui_elements.borrow();
         for elem in elems {
-            let mut slice = layer.get_slice(elem.frame());
-            elem.draw(&mut slice);
+            elem.draw();
         }
+        //printf!("Window drawing all contents finished\n");
     }
 
     pub fn commit(&self) {
@@ -159,12 +159,8 @@ impl AwmWindow {
         let elems = &*self.ui_elements.borrow();
         let elems_containing_mouse = &mut *self.elements_containing_mouse.borrow_mut();
 
-        let layer = &mut *self.layer.borrow_mut();
-
         for elem in elems {
             let elem_contains_mouse = elem.frame().contains(mouse_point);
-            // TODO(PT): Does this need updating like the one in mouse_moved?
-            let mut slice = layer.get_slice(elem.frame());
 
             // Did this element previously bound the mouse?
             if let Some(index) = elems_containing_mouse
@@ -173,25 +169,37 @@ impl AwmWindow {
             {
                 // Did the mouse just exit this element?
                 if !elem_contains_mouse {
-                    elem.handle_mouse_exited(&mut slice);
+                    elem.handle_mouse_exited();
                     // We don't need to preserve ordering, so swap_remove is OK
                     elems_containing_mouse.swap_remove(index);
+                    // TODO(PT): Remove
+                    self.commit();
                 }
             } else if elem_contains_mouse {
-                elem.handle_mouse_entered(&mut slice);
+                elem.handle_mouse_entered();
                 elems_containing_mouse.push(Rc::clone(elem));
+                // TODO(PT): Remove
+                self.commit();
             }
         }
 
         for elem in elems_containing_mouse {
-            let mut slice = layer.get_slice(elem.frame());
             // Translate the mouse position to the element's coordinate system
             let elem_pos = mouse_point - elem.frame().origin;
-            elem.handle_mouse_moved(elem_pos, &mut slice);
+            /*
+            printf!(
+                "Window.mouse_moved({mouse_point:?}, elem.frame.origin {:?}\n",
+                elem.frame().origin
+            );
+            */
+            elem.handle_mouse_moved(elem_pos);
+            // TODO(PT): Remove
+            //self.commit();
         }
 
         //self.draw();
-        //self.commit();
+        // TODO(PT): Remove
+        self.commit();
     }
 
     fn mouse_dragged(&self, event: &MouseDragged) {
@@ -229,11 +237,9 @@ impl AwmWindow {
 
     fn mouse_exited(&self, event: &MouseExited) {
         printf!("Mouse exited: {:?}\n", event);
-        let layer = &mut *self.layer.borrow_mut();
         let elems_containing_mouse = &mut *self.elements_containing_mouse.borrow_mut();
         for elem in elems_containing_mouse.drain(..) {
-            let mut slice = layer.get_slice(elem.frame());
-            elem.handle_mouse_exited(&mut slice);
+            elem.handle_mouse_exited();
         }
         self.commit();
     }

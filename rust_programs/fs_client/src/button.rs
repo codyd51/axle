@@ -167,22 +167,24 @@ impl UIElement for Button {
         }
     }
 
-    fn handle_mouse_entered(&self, onto: &mut LayerSlice) {
+    fn handle_mouse_entered(&self) {
+        printf!("Mouse eneterd button!\n");
         *self.currently_contains_mouse_int.borrow_mut() = true;
         /*
         self.queue_partial_redraw(|elem, onto: LayerSlice| {
             //Bordered::draw_border(&elem, &mut onto);
         });
         */
-        Bordered::draw_border(self, onto);
+        Bordered::draw_border(self);
     }
 
-    fn handle_mouse_exited(&self, onto: &mut LayerSlice) {
+    fn handle_mouse_exited(&self) {
+        printf!("Mouse exited button!\n");
         *self.currently_contains_mouse_int.borrow_mut() = false;
-        Bordered::draw_border(self, onto);
+        Bordered::draw_border(self);
     }
 
-    fn handle_mouse_moved(&self, _mouse_point: Point, _onto: &mut LayerSlice) {}
+    fn handle_mouse_moved(&self, _mouse_point: Point) {}
 
     fn currently_contains_mouse(&self) -> bool {
         *self.currently_contains_mouse_int.borrow()

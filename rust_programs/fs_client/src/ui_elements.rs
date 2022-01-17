@@ -1,9 +1,9 @@
 use agx_definitions::{Drawable, LayerSlice, NestedLayerSlice, Point, Size};
 
 pub trait UIElement: Drawable + NestedLayerSlice {
-    fn handle_mouse_entered(&self, _onto: &mut LayerSlice) {}
-    fn handle_mouse_exited(&self, _onto: &mut LayerSlice) {}
-    fn handle_mouse_moved(&self, _mouse_point: Point, _onto: &mut LayerSlice) {}
+    fn handle_mouse_entered(&self) {}
+    fn handle_mouse_exited(&self) {}
+    fn handle_mouse_moved(&self, _mouse_point: Point) {}
 
     fn handle_left_click(&self) {}
 

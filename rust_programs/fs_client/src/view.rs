@@ -48,16 +48,13 @@ impl View {
 
 impl NestedLayerSlice for View {
     fn get_parent(&self) -> Option<Weak<dyn NestedLayerSlice>> {
-        //Some(Weak::clone(&self.container.as_ref().unwrap().borrow()))
         Some(Weak::clone(
             &self.container.borrow().as_ref().unwrap().borrow(),
         ))
     }
 
     fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>) {
-        printf!("*** Setting parent\n");
-        let mut container = self.container.borrow_mut();
-        *container = Some(RefCell::new(parent));
+        self.container.replace(Some(RefCell::new(parent)));
     }
 }
 
@@ -115,33 +112,25 @@ impl UIElement for View {
         *frame_mut = frame;
     }
 
-    fn handle_mouse_entered(&self, _onto: &mut LayerSlice) {
-        printf!("Mouse entered view!\n");
+    fn handle_mouse_entered(&self) {
         *self.currently_contains_mouse_int.borrow_mut() = true;
-        // Queue partial redraw
-        // Remove onto from this and the other callbacks
-        // Bordered::draw_border(self, onto);
+        self.draw_border();
     }
 
-    fn handle_mouse_exited(&self, onto: &mut LayerSlice) {
-        printf!("Mouse exited view!\n");
+    fn handle_mouse_exited(&self) {
         *self.currently_contains_mouse_int.borrow_mut() = false;
 
         let inner_content_origin = (*self.current_inner_content_frame.borrow()).origin;
 
         let elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();
         for elem in elems_containing_mouse.drain(..) {
-            let mut slice = onto.get_slice(Rect::from_parts(
-                elem.frame().origin + inner_content_origin,
-                elem.frame().size,
-            ));
-            elem.handle_mouse_exited(&mut slice);
+            elem.handle_mouse_exited();
         }
-        Bordered::draw_border(self, onto);
+
+        self.draw_border();
     }
 
-    fn handle_mouse_moved(&self, mouse_point: Point, onto: &mut LayerSlice) {
-        //printf!("Mouse moved in view! {:?}\n", mouse_point);
+    fn handle_mouse_moved(&self, mouse_point: Point) {
         let elems = &*self.sub_elements.borrow();
         let elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();
 
@@ -149,13 +138,7 @@ impl UIElement for View {
         let mouse_to_inner_coordinate_system = mouse_point - inner_content_origin;
 
         for elem in elems {
-            let mut slice = onto.get_slice(Rect::from_parts(
-                elem.frame().origin + inner_content_origin,
-                elem.frame().size,
-            ));
-            let elem_contains_mouse =
-                Rect::from_parts(elem.frame().origin - self.frame().origin, elem.frame().size)
-                    .contains(mouse_to_inner_coordinate_system);
+            let elem_contains_mouse = elem.frame().contains(mouse_to_inner_coordinate_system);
 
             // Did this element previously bound the mouse?
             if let Some(index) = elems_containing_mouse
@@ -164,23 +147,19 @@ impl UIElement for View {
             {
                 // Did the mouse just exit this element?
                 if !elem_contains_mouse {
-                    elem.handle_mouse_exited(&mut slice);
+                    elem.handle_mouse_exited();
                     // We don't need to preserve ordering, so swap_remove is OK
                     elems_containing_mouse.swap_remove(index);
                 }
             } else if elem_contains_mouse {
-                let mut slice = onto.get_slice(Rect::from_parts(
-                    elem.frame().origin + inner_content_origin,
-                    elem.frame().size,
-                ));
-                elem.handle_mouse_entered(&mut slice);
+                elem.handle_mouse_entered();
                 elems_containing_mouse.push(Rc::clone(elem));
             }
         }
 
         for elem in elems_containing_mouse {
             let elem_local_point = mouse_point - elem.frame().origin;
-            elem.handle_mouse_moved(elem_local_point, onto);
+            elem.handle_mouse_moved(elem_local_point);
         }
     }
 
