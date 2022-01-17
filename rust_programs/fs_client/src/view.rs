@@ -118,10 +118,16 @@ impl UIElement for View {
     }
 
     fn handle_superview_resize(&self, superview_size: Size) {
-        let mut frame_mut = self.frame.borrow_mut();
+        //let mut frame_mut = self.frame.borrow_mut();
         let sizer = &*self.sizer.borrow();
         let frame = sizer(self, superview_size);
-        *frame_mut = frame;
+        //*frame_mut = frame;
+        self.frame.replace(frame);
+
+        let elems = &*self.sub_elements.borrow();
+        for elem in elems {
+            elem.handle_superview_resize(frame.size);
+        }
     }
 
     fn handle_mouse_entered(&self) {
