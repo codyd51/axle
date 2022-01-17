@@ -50,7 +50,12 @@ impl Drawable for Label {
         self.frame
     }
 
-    fn draw(&self, onto: &mut LayerSlice) {
+    fn content_frame(&self) -> Rect {
+        Rect::from_parts(Point::zero(), self.frame().size)
+    }
+
+    fn draw(&self) {
+        let onto = &mut self.get_slice();
         let font_size = Size::new(8, 10);
         let mut cursor = Point::zero();
         for ch in self.text.borrow().chars() {

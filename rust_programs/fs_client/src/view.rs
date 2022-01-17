@@ -60,25 +60,21 @@ impl NestedLayerSlice for View {
 
 impl Bordered for View {
     fn draw_inner_content(&self, _outer_frame: Rect, onto: &mut LayerSlice) {
-        let mut inner_content_rect_ref = self.current_inner_content_frame.borrow_mut();
-        *inner_content_rect_ref = onto.frame;
-
         onto.fill(self.background_color);
 
         let sub_elements = &self.sub_elements.borrow();
-        /*
-        printf!(
-            "DrawInnerContent for view {:?}, layer slice {:?}\n",
-            self.frame(),
-            onto.frame
-        );
-        */
         for elem in sub_elements.iter() {
-            //printf!("Getting slice for elem {:?}\n", elem.frame());
-            let mut slice = onto.get_slice(elem.frame());
-            //printf!("Got slice with frame {:?}\n", slice.frame);
-            elem.draw(&mut slice);
+            //printf!("View.draw_inner_content drawing {:?}\n", elem.frame());
+            elem.draw();
         }
+    }
+
+    fn set_interior_content_frame(&self, inner_content_frame: Rect) {
+        self.current_inner_content_frame.replace(inner_content_frame);
+    }
+
+    fn get_interior_content_frame(&self) -> Rect {
+        *self.current_inner_content_frame.borrow()
     }
 }
 
@@ -87,8 +83,13 @@ impl Drawable for View {
         *self.frame.borrow()
     }
 
-    fn draw(&self, onto: &mut LayerSlice) {
-        Bordered::draw(self, onto);
+    fn content_frame(&self) -> Rect {
+        Bordered::content_frame(self)
+    }
+
+    fn draw(&self) {
+        panic!("PT: Why does this never get called");
+        Bordered::draw(self);
     }
 }
 

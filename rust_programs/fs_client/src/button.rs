@@ -6,25 +6,28 @@ use agx_definitions::{
 use alloc::boxed::Box;
 use alloc::rc::Weak;
 use alloc::string::{String, ToString};
+use axle_rt::printf;
 
 use crate::{bordered::Bordered, font::draw_char, ui_elements::UIElement};
 
 pub struct Button {
-    container: Option<Weak<dyn NestedLayerSlice>>,
+    container: RefCell<Option<RefCell<Weak<dyn NestedLayerSlice>>>>,
     frame: Rect,
     pub label: String,
     left_click_cb: RefCell<Option<Box<dyn Fn(&Self)>>>,
     currently_contains_mouse_int: RefCell<bool>,
+    current_inner_content_frame: RefCell<Rect>,
 }
 
 impl Button {
     pub fn new(frame: Rect, label: &str) -> Self {
         Button {
-            container: None,
+            container: RefCell::new(None),
             frame,
             label: label.to_string(),
             left_click_cb: RefCell::new(None),
             currently_contains_mouse_int: RefCell::new(false),
+            current_inner_content_frame: RefCell::new(Rect::zero()),
         }
     }
     pub fn on_left_click<F: 'static + Fn(&Self)>(&self, f: F) {
@@ -33,7 +36,9 @@ impl Button {
 }
 
 impl Bordered for Button {
-    fn draw_border(&self, onto: &mut LayerSlice) -> Rect {
+    fn draw_border(&self) -> Rect {
+        let onto = &mut self.get_slice();
+        //printf!("Bordered.Button draw_border {:?}\n", onto.frame);
         let outer_margin_size = 4;
         let outer_border = Rect::from_parts(Point::zero(), self.frame().size);
 
@@ -147,6 +152,14 @@ impl Bordered for Button {
             cursor.x += font_size.width;
         }
     }
+
+    fn set_interior_content_frame(&self, inner_content_frame: Rect) {
+        self.current_inner_content_frame.replace(inner_content_frame);
+    }
+
+    fn get_interior_content_frame(&self) -> Rect {
+        *self.current_inner_content_frame.borrow()
+    }
 }
 
 impl Drawable for Button {
@@ -154,8 +167,12 @@ impl Drawable for Button {
         self.frame
     }
 
-    fn draw(&self, onto: &mut LayerSlice) {
-        Bordered::draw(self, onto);
+    fn content_frame(&self) -> Rect {
+        Bordered::content_frame(self)
+    }
+
+    fn draw(&self) {
+        Bordered::draw(self);
     }
 }
 
@@ -193,10 +210,12 @@ impl UIElement for Button {
 
 impl NestedLayerSlice for Button {
     fn get_parent(&self) -> Option<Weak<dyn NestedLayerSlice>> {
-        Some(Weak::clone(self.container.as_ref().unwrap()))
+        Some(Weak::clone(
+            &self.container.borrow().as_ref().unwrap().borrow(),
+        ))
     }
 
-    fn set_parent(&self, _parent: Weak<dyn NestedLayerSlice>) {
-        todo!();
+    fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>) {
+        self.container.replace(Some(RefCell::new(parent)));
     }
 }

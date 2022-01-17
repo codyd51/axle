@@ -3,13 +3,23 @@ use agx_definitions::{Color, Drawable, LayerSlice, Line, Point, Rect, StrokeThic
 use crate::UIElement;
 
 pub trait Bordered: Drawable + UIElement {
-    fn draw(&self, onto: &mut LayerSlice) {
         let inner_content_frame = self.draw_border(onto);
         let mut content_slice = onto.get_slice(inner_content_frame);
         self.draw_inner_content(onto.frame, &mut content_slice);
+    fn draw(&self) {
+        let mut slice = self.get_slice();
     }
 
-    fn draw_border(&self, onto: &mut LayerSlice) -> Rect {
+    fn set_interior_content_frame(&self, inner_content_frame: Rect);
+    fn get_interior_content_frame(&self) -> Rect;
+
+    fn content_frame(&self) -> Rect {
+        self.get_interior_content_frame()
+    }
+
+    fn draw_border(&self) -> Rect {
+
+        let onto = &mut self.get_slice();
         let outer_margin_size = 6;
         let inner_margin_size = 6;
 
