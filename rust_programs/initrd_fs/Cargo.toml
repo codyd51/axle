@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 axle_rt = {path = "../axle_rt" }
+axle_rt_derive = {path = "../axle_rt_derive" }
 file_manager_messages = {path = "../file_manager_messages" }
 libfs = {path = "../libfs" }
 cstr_core = "0.2.4"

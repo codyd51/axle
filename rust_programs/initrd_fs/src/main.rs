@@ -6,18 +6,20 @@
 extern crate alloc;
 extern crate libc;
 
-use axle_rt::amc_message_send;
 use axle_rt::amc_register_service;
 use axle_rt::printf;
 use axle_rt::AmcMessage;
 use axle_rt::{amc_message_await, ContainsEventField, ExpectsEventField};
+use axle_rt::{amc_message_await_untyped, amc_message_send};
+use axle_rt_derive::ContainsEventField;
 
-use file_manager_messages::str_from_u8_nul_utf8_unchecked;
+use cstr_core::CString;
 use file_manager_messages::FileManagerDirectoryContents;
 use file_manager_messages::FileManagerDirectoryEntry;
 use file_manager_messages::FileManagerReadDirectory;
+use file_manager_messages::{str_from_u8_nul_utf8_unchecked, LaunchProgram};
 
-use libfs::{fs_entry_find, DirectoryImage};
+use libfs::{fs_entry_find, DirectoryImage, FsEntry};
 
 trait FromDirectoryImage {
     fn from_dir_image(dir: &DirectoryImage) -> Self;
@@ -56,8 +58,12 @@ impl FromDirectoryImage for FileManagerDirectoryContents {
     }
 }
 
+unsafe fn body_as_type_unchecked<T>(body: &[u8]) -> &T {
+    &*(body.as_ptr() as *const T)
+}
+
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, ContainsEventField)]
 struct AmcInitrdRequest {
     event: u32,
 }
@@ -74,16 +80,10 @@ impl ExpectsEventField for AmcInitrdRequest {
     const EXPECTED_EVENT: u32 = 203;
 }
 
-impl ContainsEventField for AmcInitrdRequest {
-    fn event(&self) -> u32 {
-        self.event
-    }
-}
-
 // Defineed in core_commands.h
 // TODO(PT): Define this in libc
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, ContainsEventField)]
 struct AmcInitrdInfo {
     event: u32,
     // actually uptr
@@ -96,10 +96,30 @@ impl ExpectsEventField for AmcInitrdInfo {
     const EXPECTED_EVENT: u32 = AmcInitrdRequest::EXPECTED_EVENT;
 }
 
-impl ContainsEventField for AmcInitrdInfo {
-    fn event(&self) -> u32 {
-        self.event
+// Defined in core_commands.h
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+struct AmcExecBuffer {
+    event: u32,
+    program_name: *const u8,
+    buffer_addr: *const u8,
+    buffer_size: u32,
+}
+
+impl AmcExecBuffer {
+    fn from(program_name: *const u8, entry: &FsEntry) -> Self {
+        let buffer_addr = entry.file_data.unwrap().as_ptr();
+        AmcExecBuffer {
+            event: Self::EXPECTED_EVENT,
+            program_name,
+            buffer_addr,
+            buffer_size: entry.file_data.unwrap().len().try_into().unwrap(),
+        }
     }
+}
+
+impl ExpectsEventField for AmcExecBuffer {
+    const EXPECTED_EVENT: u32 = 204;
 }
 
 /*
@@ -114,6 +134,46 @@ fn traverse_dir(depth: usize, dir: &DirectoryImage) {
     }
 }
 */
+
+fn read_directory(root_dir: &DirectoryImage, sender: &str, request: &FileManagerReadDirectory) {
+    let requested_dir = str_from_u8_nul_utf8_unchecked(&request.dir);
+    printf!("Dir: {:?}\n", requested_dir);
+
+    // Find the directory within
+    if let Some(entry) = fs_entry_find(&root_dir, &requested_dir) {
+        printf!("Found FS entry: {}\n", entry.path);
+        if entry.is_dir {
+            let response = FileManagerDirectoryContents::from_dir_image(&entry.dir_image.unwrap());
+            printf!("Sending response...\n");
+            amc_message_send(sender, response);
+        }
+    } else {
+        printf!("Failed to find directory {:?}\n", requested_dir);
+    }
+}
+
+fn launch_program(root_dir: &DirectoryImage, sender: &str, request: &LaunchProgram) {
+    let requested_path = str_from_u8_nul_utf8_unchecked(&request.path);
+    if let Some(entry) = fs_entry_find(&root_dir, &requested_path) {
+        //printf!("Found FS entry: {}\n", entry.path);
+        if entry.is_dir {
+            printf!("Can't launch directories\n");
+        } else {
+            // TODO(PT): Verify that this is indeed a file?
+            // TODO(PT): Replace the Vec<u8> with a structured entry, describing if executable
+            let file_name = entry.path.split("/").last().unwrap();
+            let c_str = CString::new(file_name).unwrap();
+            // TODO(PT): Change the C API to accept a char array instead of char pointer
+            let program_name_ptr = c_str.as_ptr() as *const u8;
+            amc_message_send(
+                "com.axle.core",
+                AmcExecBuffer::from(program_name_ptr, &entry),
+            );
+        }
+    } else {
+        printf!("Couldn't find path {}\n", requested_path);
+    }
+}
 
 #[start]
 #[allow(unreachable_code)]
@@ -144,23 +204,38 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
 
     loop {
         printf!("Awaiting next message...\n");
-        let msg: AmcMessage<FileManagerReadDirectory> = amc_message_await(None);
+        // TODO(PT): This pattern is copied from the AwmWindow event loop
+        let msg_unparsed: AmcMessage<[u8]> = unsafe { amc_message_await_untyped(None).unwrap() };
 
-        printf!("Received msg from {:?}: {:?}\n", msg.source(), msg);
-        let requested_dir = str_from_u8_nul_utf8_unchecked(&msg.body().dir);
-        printf!("Dir: {:?}\n", requested_dir);
+        // Parse the first bytes of the message as a u32 event field
+        let raw_body = msg_unparsed.body();
+        let event = u32::from_ne_bytes(
+            // We must slice the array to the exact size of a u32 for the conversion to succeed
+            raw_body[..core::mem::size_of::<u32>()]
+                .try_into()
+                .expect("Failed to get 4-length array from message body"),
+        );
 
-        // Find the directory within
-        if let Some(entry) = fs_entry_find(&root_dir, &requested_dir) {
-            printf!("Found FS entry: {}\n", entry.path);
-            if entry.is_dir {
-                let response =
-                    FileManagerDirectoryContents::from_dir_image(&entry.dir_image.unwrap());
-                printf!("Sending response...\n");
-                amc_message_send(msg.source(), response);
+        // Each inner call to body_as_type_unchecked is unsafe because we must be
+        // sure we're casting to the right type.
+        // Since we verify the type on the LHS, each usage is safe.
+        //
+        // Wrap the whole thing in an unsafe block to reduce
+        // boilerplate in each match arm.
+        unsafe {
+            match event {
+                FileManagerReadDirectory::EXPECTED_EVENT => read_directory(
+                    &root_dir,
+                    msg_unparsed.source(),
+                    body_as_type_unchecked(raw_body),
+                ),
+                LaunchProgram::EXPECTED_EVENT => launch_program(
+                    &root_dir,
+                    msg_unparsed.source(),
+                    body_as_type_unchecked(raw_body),
+                ),
+                _ => printf!("Unknown event: {}\n", event),
             }
-        } else {
-            printf!("Failed to find directory {:?}\n", requested_dir);
         }
     }
     0

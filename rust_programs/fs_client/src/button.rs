@@ -77,7 +77,6 @@ impl Bordered for Button {
         onto.fill_rect(inner_border, inner_border_color, StrokeThickness::Width(1));
 
         // Draw diagonal lines indicating an inset
-        //let inset_color = Color::new(100, 100, 100);
         let inset_color = match self.currently_contains_mouse() {
             true => Color::new(180, 180, 180),
             false => Color::new(100, 100, 100),
