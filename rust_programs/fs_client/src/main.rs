@@ -266,7 +266,20 @@ impl Drawable for DirectoryEntryView {
     }
 
     fn draw(&self) {
-        Bordered::draw(self)
+        Bordered::draw(self);
+        let button_origin_x = self.button.frame().min_x();
+        let divider_origin_x = button_origin_x - 20;
+        let gap = 8;
+
+        let divider = Line::new(
+            Point::new(divider_origin_x, gap - 1),
+            Point::new(divider_origin_x, self.frame().size.height - gap),
+        );
+        divider.draw(
+            &mut self.get_slice(),
+            Color::new(80, 80, 80),
+            StrokeThickness::Width(1),
+        );
     }
 }
 
