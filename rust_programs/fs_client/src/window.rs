@@ -203,7 +203,7 @@ impl AwmWindow {
     }
 
     fn mouse_dragged(&self, event: &MouseDragged) {
-        printf!("Mouse dragged: {:?}\n", event);
+        //printf!("Mouse dragged: {:?}\n", event);
     }
 
     fn mouse_left_click_down(&self, event: &MouseLeftClickStarted) {

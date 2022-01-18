@@ -38,7 +38,7 @@ impl FromDirectoryImage for FileManagerDirectoryContents {
             .into_iter()
             .map(|kv| FileManagerDirectoryEntry::new(&kv.0, true))
         {
-            printf!("Transformed dir entry: {:?}\n", entry);
+            //printf!("Transformed dir entry: {:?}\n", entry);
             contents.entries[count] = Some(entry.clone());
             count += 1;
         }
@@ -47,7 +47,7 @@ impl FromDirectoryImage for FileManagerDirectoryContents {
             .into_iter()
             .map(|kv| FileManagerDirectoryEntry::new(&kv.0, false))
         {
-            printf!("Transformed dir entry: {:?}\n", entry);
+            //printf!("Transformed dir entry: {:?}\n", entry);
             contents.entries[count] = Some(entry.clone());
             count += 1;
         }
