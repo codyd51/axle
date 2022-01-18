@@ -12,20 +12,22 @@ use axle_rt::printf;
 use crate::{bordered::Bordered, font::draw_char, ui_elements::UIElement};
 
 pub struct Button {
-    container: RefCell<Option<RefCell<Weak<dyn NestedLayerSlice>>>>,
-    frame: Rect,
     pub label: String,
+    frame: RefCell<Rect>,
+    sizer: RefCell<Box<dyn Fn(&Self, Size) -> Rect>>,
+    container: RefCell<Option<RefCell<Weak<dyn NestedLayerSlice>>>>,
     left_click_cb: RefCell<Option<Box<dyn Fn(&Self)>>>,
     currently_contains_mouse_int: RefCell<bool>,
     current_inner_content_frame: RefCell<Rect>,
 }
 
 impl Button {
-    pub fn new(frame: Rect, label: &str) -> Self {
+    pub fn new<F: 'static + Fn(&Self, Size) -> Rect>(label: &str, sizer: F) -> Self {
         Button {
-            container: RefCell::new(None),
-            frame,
             label: label.to_string(),
+            frame: RefCell::new(Rect::zero()),
+            sizer: RefCell::new(Box::new(sizer)),
+            container: RefCell::new(None),
             left_click_cb: RefCell::new(None),
             currently_contains_mouse_int: RefCell::new(false),
             current_inner_content_frame: RefCell::new(Rect::zero()),
@@ -170,7 +172,7 @@ impl Bordered for Button {
 
 impl Drawable for Button {
     fn frame(&self) -> Rect {
-        self.frame
+        *self.frame.borrow()
     }
 
     fn content_frame(&self) -> Rect {
@@ -201,6 +203,11 @@ impl UIElement for Button {
     }
 
     fn handle_mouse_moved(&self, _mouse_point: Point) {}
+
+    fn handle_superview_resize(&self, superview_size: Size) {
+        let sizer = &*self.sizer.borrow();
+        self.frame.replace(sizer(self, superview_size));
+    }
 
     fn currently_contains_mouse(&self) -> bool {
         *self.currently_contains_mouse_int.borrow()

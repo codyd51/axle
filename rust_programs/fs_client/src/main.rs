@@ -72,13 +72,13 @@ impl CurrentPathView {
         let current_path_label_clone = Rc::clone(&current_path_label);
         Rc::clone(&view).add_component(current_path_label_clone);
 
-        let back_button = Rc::new(Button::new(
+        let back_button = Rc::new(Button::new("Go Back", |_b, superview_size| {
+            let size = Size::new(80, 30);
             Rect::from_parts(
-                Point::new(10, current_path_label.frame().max_y()),
-                Size::new(90, 34),
-            ),
-            "Go Back",
-        ));
+                Point::new(10, superview_size.height - size.height - 10),
+                size,
+            )
+        }));
         let back_button_clone = Rc::clone(&back_button);
         Rc::clone(&view).add_component(back_button_clone);
 
@@ -225,10 +225,11 @@ impl DirectoryEntryView {
             true => "Browse",
             false => "Open",
         };
-        let button = Rc::new(Button::new(
-            Rect::from_parts(Point::new(400, 1), Size::new(button_width, height - 4)),
-            button_text,
-        ));
+        let button = Rc::new(Button::new(button_text, move |_b, superview_size| {
+            //printf!("Button sizer, Superview size {:?}\n", superview_size);
+            let size = Size::new(button_width, height - 4);
+            Rect::from_parts(Point::new(superview_size.width - size.width - 10, 1), size)
+        }));
         let button_clone = Rc::clone(&button);
         Rc::clone(&view).add_component(button_clone);
 
