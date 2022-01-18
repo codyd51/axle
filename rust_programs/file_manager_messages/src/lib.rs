@@ -12,6 +12,8 @@ pub fn str_from_u8_nul_utf8_unchecked(utf8_src: &[u8]) -> &str {
     unsafe { core::str::from_utf8_unchecked(&utf8_src[0..nul_range_end]) }
 }
 
+// Reading directories
+
 #[repr(C)]
 #[derive(Debug, ContainsEventField)]
 pub struct FileManagerReadDirectory {
@@ -52,6 +54,7 @@ impl FileManagerDirectoryEntry {
     }
 }
 
+// TODO(PT): Variable-length array at the end of this structure
 #[repr(C)]
 #[derive(Debug, ContainsEventField)]
 pub struct FileManagerDirectoryContents {
@@ -61,4 +64,28 @@ pub struct FileManagerDirectoryContents {
 
 impl ExpectsEventField for FileManagerDirectoryContents {
     const EXPECTED_EVENT: u32 = 100;
+}
+
+// Launching files
+
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct LaunchProgram {
+    pub event: u32,
+    pub path: [u8; 64],
+}
+
+impl LaunchProgram {
+    pub fn new(path: &str) -> Self {
+        let mut s = Self {
+            event: Self::EXPECTED_EVENT,
+            path: [0; 64],
+        };
+        copy_str_into_sized_slice(&mut s.path, path);
+        s
+    }
+}
+
+impl ExpectsEventField for LaunchProgram {
+    const EXPECTED_EVENT: u32 = 101;
 }
