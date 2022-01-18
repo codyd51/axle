@@ -6,7 +6,12 @@
 extern crate alloc;
 extern crate libc;
 
-use alloc::{collections::BTreeMap, format, rc::Weak};
+use alloc::{
+    collections::{BTreeMap, VecDeque},
+    format,
+    rc::Weak,
+    vec::Vec,
+};
 use alloc::{
     rc::Rc,
     string::{String, ToString},
@@ -50,13 +55,14 @@ struct CurrentPathView {
     view: Rc<View>,
     current_path_label: RefCell<Rc<Label>>,
     pub current_path: RefCell<String>,
+    pub back_button: Rc<Button>,
 }
 
 impl CurrentPathView {
     pub fn new<F: 'static + Fn(&View, Size) -> Rect>(sizer: F) -> Self {
         let view = Rc::new(View::new(Color::light_gray(), sizer));
 
-        let initial_path = "/usr/";
+        let initial_path = "/";
         let current_path_label = Rc::new(Label::new(
             Rect::new(10, 10, 400, 16),
             &format!("Current path: {}", initial_path),
@@ -79,6 +85,7 @@ impl CurrentPathView {
             view: view,
             current_path_label: RefCell::new(Rc::clone(&current_path_label)),
             current_path: RefCell::new(initial_path.to_string()),
+            back_button,
         }
     }
 
@@ -87,6 +94,12 @@ impl CurrentPathView {
             old.push_str(&format!("/{}", path));
             old.to_string()
         });
+        let current_path_label = self.current_path_label.borrow();
+        current_path_label.set_text(&format!("Current path: {}", self.current_path.borrow()));
+    }
+
+    pub fn set_path(&self, path: &str) {
+        self.current_path.replace(path.to_string());
         let current_path_label = self.current_path_label.borrow();
         current_path_label.set_text(&format!("Current path: {}", self.current_path.borrow()));
     }
@@ -400,7 +413,6 @@ impl Drawable for DirectoryContentsView {
     }
 
     fn content_frame(&self) -> Rect {
-        //self.view.content_frame()
         Bordered::content_frame(self)
     }
 
@@ -467,6 +479,7 @@ struct FileBrowser2 {
     pub window: Rc<AwmWindow>,
     pub current_path_view: RefCell<Rc<CurrentPathView>>,
     pub directory_contents_view: RefCell<Option<Rc<DirectoryContentsView>>>,
+    pub history: RefCell<Vec<String>>,
 }
 
 impl FileBrowser2 {
@@ -482,6 +495,7 @@ impl FileBrowser2 {
                 )
             })));
         let current_path_view_clone = Rc::clone(&current_path_view.borrow());
+        let current_path_view_clone2 = Rc::clone(&current_path_view.borrow());
         let window_clone = Rc::clone(&window);
         let window_clone2 = Rc::clone(&window);
 
@@ -491,7 +505,16 @@ impl FileBrowser2 {
             window: window,
             current_path_view: current_path_view,
             directory_contents_view: RefCell::new(None),
+            history: RefCell::new(Vec::new()),
         });
+
+        let browser_clone_for_back_button_closure = Rc::clone(&browser);
+        current_path_view_clone2
+            .back_button
+            .on_left_click(move |b| {
+                printf!("Go back button clicked!\n");
+                Rc::clone(&browser_clone_for_back_button_closure).browse_back();
+            });
 
         let browser_clone = Rc::clone(&browser);
         let dir_contents_view = FileBrowser2::create_directory_contents_view(browser_clone);
@@ -501,11 +524,9 @@ impl FileBrowser2 {
         browser
     }
 
-    //fn create_directory_contents_view(&self) -> Rc<DirectoryContentsView> {
-    // TODO(PT): Change to self: Rc
-    fn create_directory_contents_view(browser: Rc<FileBrowser2>) -> Rc<DirectoryContentsView> {
+    fn create_directory_contents_view(self: Rc<FileBrowser2>) -> Rc<DirectoryContentsView> {
         let directory_contents_view = Rc::new(DirectoryContentsView::new(
-            &browser.current_path_view.borrow().current_path.borrow(),
+            &self.current_path_view.borrow().current_path.borrow(),
             move |_v, superview_size| {
                 let current_path_view_height = select_current_path_view_height(superview_size);
                 Rect::from_parts(
@@ -518,70 +539,116 @@ impl FileBrowser2 {
             },
         ));
 
-        for (path, button) in &directory_contents_view.path_to_button_map {
-            let path_copy = path.to_string();
-            let browser_clone = Rc::clone(&browser);
+        for (entry, entry_view) in &directory_contents_view.entry_to_view_map {
+            let path = str_from_u8_nul_utf8_unchecked(&entry.name).to_string();
+            let browser_clone = Rc::clone(&self);
 
-            let window_clone = Rc::clone(&browser.window);
-            button.on_left_click(move |_b| {
-                printf!("Button with path {:?} clicked!\n", path_copy);
+            let window_clone = Rc::clone(&self.window);
 
-                let browser_clone = Rc::clone(&browser_clone);
-                let browser_clone2 = Rc::clone(&browser_clone);
-
-                // Fetch the contents of the new directory and add it to the view hierarchy
-                FileBrowser2::browse_by_appending_path_component(browser_clone, &path_copy);
-
-                // Redraw the status bar since the current path has updated
-                let path_view = &**browser_clone2.current_path_view.borrow();
-                Bordered::draw(path_view);
-
-                // Redraw the contents view as we've got new directory contents to display
-                let contents_view_container = browser_clone2.directory_contents_view.borrow();
-                let contents_view = &**contents_view_container.as_ref().unwrap();
-                Bordered::draw(contents_view);
-
-                window_clone.commit();
-            });
+            if entry.is_directory {
+                entry_view.button.on_left_click(move |_b| {
+                    printf!("Button with path {:?} clicked!\n", path);
+                    let browser_clone = Rc::clone(&browser_clone);
+                    // Fetch the contents of the new directory and add it to the view hierarchy
+                    browser_clone.browse_by_appending_path_component(&path);
+                });
+            } else {
+                // Don't set up any callback for file click
+            }
         }
 
         let directory_contents_view_clone = Rc::clone(&directory_contents_view);
-        browser
-            .directory_contents_view
-            .replace_with(|_old| Some(directory_contents_view_clone));
+        self.directory_contents_view
+            .replace(Some(directory_contents_view_clone));
 
         directory_contents_view
     }
 
-    fn browse_by_appending_path_component(browser: Rc<FileBrowser2>, path: &str) {
+    fn browse_to_path_without_appending_to_history(self: Rc<FileBrowser2>, path: &str) {
         // Remove the old view
         {
-            let browser_clone = Rc::clone(&browser);
+            let browser_clone = Rc::clone(&self);
             let directory_contents_field_attr = &*browser_clone.directory_contents_view.borrow();
             if let Some(old_directory_contents_field) = directory_contents_field_attr {
                 let old_directory_contents_field_clone = Rc::clone(&old_directory_contents_field);
-                browser
-                    .window
+                self.window
                     .remove_element(old_directory_contents_field_clone);
             }
         }
 
-        let browser_clone = Rc::clone(&browser);
+        let browser_clone = Rc::clone(&self);
 
         // Append the path component in the status bar
         let current_path_view = browser_clone.current_path_view.borrow();
-        current_path_view.append_path_component(path);
+        //current_path_view.append_path_component(path);
+
+        current_path_view.set_path(path);
         // TODO(PT): How to only mark the label as needing redraw?
         //current_path_view.current_path_label.nee
 
         // Read the directory and create a new directory contents view
-        let directory_contents_view = FileBrowser2::create_directory_contents_view(browser);
+        let directory_contents_view = self.create_directory_contents_view();
         let directory_contents_view_clone = Rc::clone(&directory_contents_view);
         let directory_contents_view_clone2 = Rc::clone(&directory_contents_view);
         *browser_clone.directory_contents_view.borrow_mut() = Some(directory_contents_view_clone);
 
         let window = Rc::clone(&browser_clone.window);
+        let window_clone = Rc::clone(&window);
         window.add_component(directory_contents_view_clone2);
+
+        // Redraw the status bar since the current path has updated
+        //let path_view = &**browser_clone2.current_path_view.borrow();
+        Bordered::draw(&**current_path_view);
+
+        // Redraw the contents view as we've got new directory contents to display
+        //let contents_view_container = browser_clone2.directory_contents_view.borrow();
+        //let contents_view = &**contents_view_container.as_ref().unwrap();
+        Bordered::draw(&*directory_contents_view);
+
+        // TODO(PT): Remove
+        window_clone.commit();
+    }
+
+    fn browse_to_path(self: Rc<FileBrowser2>, path: &str) {
+        {
+            // TODO(PT): Might need its own scope
+            // Store the path we're browsing away from in the history
+            let mut history = self.history.borrow_mut();
+            history.push((self.current_path_view.borrow().current_path.borrow()).clone());
+        }
+
+        self.browse_to_path_without_appending_to_history(path);
+    }
+
+    fn browse_by_appending_path_component(self: Rc<FileBrowser2>, path_component: &str) {
+        let path = self
+            .current_path_view
+            .borrow()
+            .current_path
+            .borrow()
+            .clone();
+        let new_path = match path.as_str() {
+            "/" => format!("/{path_component}"),
+            _ => format!("{path}/{path_component}"),
+        };
+        self.browse_to_path(&new_path);
+    }
+
+    fn pop_from_history(self: Rc<FileBrowser2>) -> Option<String> {
+        let mut history = self.history.borrow_mut();
+        history.pop()
+    }
+
+    fn browse_back(self: Rc<FileBrowser2>) {
+        match Rc::clone(&self).pop_from_history() {
+            None => {
+                printf!("Will not browse back because history is empty\n");
+            }
+            Some(last_path) => {
+                printf!("Browsing back to {last_path}\n");
+                self.browse_to_path_without_appending_to_history(&last_path);
+            }
+        };
     }
 }
 

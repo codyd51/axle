@@ -154,7 +154,8 @@ impl Bordered for Button {
     }
 
     fn set_interior_content_frame(&self, inner_content_frame: Rect) {
-        self.current_inner_content_frame.replace(inner_content_frame);
+        self.current_inner_content_frame
+            .replace(inner_content_frame);
     }
 
     fn get_interior_content_frame(&self) -> Rect {

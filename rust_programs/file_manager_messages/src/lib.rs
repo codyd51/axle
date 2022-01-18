@@ -35,7 +35,7 @@ impl ExpectsEventField for FileManagerReadDirectory {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FileManagerDirectoryEntry {
     pub name: [u8; 64],
     pub is_directory: bool,
