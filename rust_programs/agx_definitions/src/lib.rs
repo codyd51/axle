@@ -227,6 +227,34 @@ impl Mul<isize> for Point {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct RectInsets {
+    pub left: isize,
+    pub top: isize,
+    pub right: isize,
+    pub bottom: isize,
+}
+
+impl RectInsets {
+    pub fn new(left: isize, top: isize, right: isize, bottom: isize) -> Self {
+        RectInsets {
+            left,
+            top,
+            right,
+            bottom,
+        }
+    }
+
+    pub fn zero() -> Self {
+        RectInsets {
+            left: 0,
+            top: 0,
+            right: 0,
+            bottom: 0,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Rect {
     pub origin: Point,
@@ -312,6 +340,15 @@ impl Rect {
         }
 
         Rect::from_parts(rhs.origin, Size::new(width, height))
+    }
+
+    pub fn apply_insets(&self, insets: RectInsets) -> Self {
+        Rect::new(
+            self.origin.x + insets.left,
+            self.origin.y + insets.top,
+            self.size.width - (insets.left + insets.right),
+            self.size.height - (insets.top + insets.bottom),
+        )
     }
 }
 
