@@ -148,7 +148,12 @@ static void _trampoline(const char* program_name, void* buf, uint32_t buf_size) 
 
 static void _amc_core_file_manager_exec_buffer(const char* source_service, void* buf, uint32_t buf_size) {
     // Only file_manager is allowed to invoke this code!
-    assert(!strncmp(source_service, "com.axle.file_manager", AMC_MAX_SERVICE_NAME_LEN), "Only File Manager may use this syscall");
+    printf("Sourec service %s\n", source_service);
+    assert(
+        !strncmp(source_service, "com.axle.file_manager", AMC_MAX_SERVICE_NAME_LEN) 
+        || !strncmp(source_service, "com.axle.file_manager2", AMC_MAX_SERVICE_NAME_LEN), 
+        "Only File Manager may use this syscall"
+    );
 
     amc_exec_buffer_cmd_t* cmd = (amc_exec_buffer_cmd_t*)buf;
     printf("exec buffer(program_name: %s, buffer_addr: 0x%p, buffer_size: %p)\n", cmd->program_name, cmd->buffer_addr, cmd->buffer_size);
