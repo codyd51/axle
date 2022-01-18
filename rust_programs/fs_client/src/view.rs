@@ -49,7 +49,6 @@ impl View {
     }
 
     pub fn add_component(self: Rc<Self>, elem: Rc<dyn UIElement>) {
-        printf!("Adding component to view: {:?}\n", elem.frame());
         // Ensure the component has a frame by running its sizer
         elem.handle_superview_resize(self.current_inner_content_frame.borrow().size);
 
@@ -84,7 +83,8 @@ impl Bordered for View {
     }
 
     fn set_interior_content_frame(&self, inner_content_frame: Rect) {
-        self.current_inner_content_frame.replace(inner_content_frame);
+        self.current_inner_content_frame
+            .replace(inner_content_frame);
     }
 
     fn get_interior_content_frame(&self) -> Rect {

@@ -178,6 +178,7 @@ struct DirectoryEntryView {
     view: Rc<View>,
     entry: FileManagerDirectoryEntry,
     background_color: Color,
+    button: Rc<Button>,
 }
 
 impl DirectoryEntryView {
@@ -228,6 +229,7 @@ impl DirectoryEntryView {
             view,
             entry,
             background_color,
+            button,
         }
     }
 }
@@ -328,7 +330,7 @@ impl UIElement for DirectoryEntryView {
 
 struct DirectoryContentsView {
     view: Rc<View>,
-    path_to_button_map: BTreeMap<String, Rc<Button>>,
+    entry_to_view_map: BTreeMap<FileManagerDirectoryEntry, Rc<DirectoryEntryView>>,
 }
 
 impl DirectoryContentsView {
@@ -344,7 +346,7 @@ impl DirectoryContentsView {
         let mut cursor = Point::new(10, 10);
         let entry_height = 30;
 
-        let mut path_to_button_map = BTreeMap::new();
+        let mut entry_to_view_map = BTreeMap::new();
 
         for (i, entry) in dir_contents
             .body()
@@ -353,7 +355,6 @@ impl DirectoryContentsView {
             .filter_map(|e| e.as_ref())
             .enumerate()
         {
-            let entry_name = str_from_u8_nul_utf8_unchecked(&entry.name);
             let entry_view = Rc::new(DirectoryEntryView::new(
                 i,
                 *entry,
@@ -364,45 +365,13 @@ impl DirectoryContentsView {
                     )
                 },
             ));
-            printf!("Adding DirectoryEntryView...\n");
+            entry_to_view_map.insert(*entry, Rc::clone(&entry_view));
             Rc::clone(&view).add_component(entry_view);
-            printf!("Added DirectoryEntryView\n");
-
-            /*
-            let label_width = 200;
-            let button_width = 60;
-            let name_label = Rc::new(Label::new(
-                Rect::from_parts(cursor, Size::new(label_width, entry_height)),
-                entry_name,
-                Color::black(),
-            ));
-            Rc::clone(&view).add_component(name_label);
-            */
-
-            /*
-            if entry.is_directory {
-                let button = Rc::new(Button::new(
-                    Rect::from_parts(
-                        Point::new(cursor.x + label_width, cursor.y),
-                        Size::new(button_width, entry_height),
-                    ),
-                    "Browse",
-                ));
-                let button_clone = Rc::clone(&button);
-                Rc::clone(&view).add_component(button_clone);
-                path_to_button_map.insert(entry_name.to_string(), button);
-            }
-
-            cursor.y += entry_height + 20;
-            if cursor.y > 500 {
-                break;
-            }
-            */
         }
 
         DirectoryContentsView {
             view: view,
-            path_to_button_map,
+            entry_to_view_map,
         }
     }
 }
