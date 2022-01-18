@@ -1,4 +1,6 @@
-use agx_definitions::{Color, Drawable, LayerSlice, Line, Point, Rect, StrokeThickness};
+use agx_definitions::{
+    Color, Drawable, LayerSlice, Line, Point, Rect, RectInsets, StrokeThickness,
+};
 
 use crate::UIElement;
 
@@ -22,6 +24,9 @@ pub trait Bordered: Drawable + UIElement {
         true
     }
 
+    fn border_insets(&self) -> RectInsets;
+
+    // TODO(PT): Can we remove the need for this by using border_insets()?
     fn set_interior_content_frame(&self, inner_content_frame: Rect);
     fn get_interior_content_frame(&self) -> Rect;
 
@@ -35,8 +40,20 @@ pub trait Bordered: Drawable + UIElement {
         }
 
         let onto = &mut self.get_slice();
-        let outer_margin_size = 6;
-        let inner_margin_size = 6;
+        let insets = self.border_insets();
+
+        // TODO(PT): This currently assumes an even inset across all sides
+        // Verify this assumption first
+        assert!(
+            insets.left == insets.top
+                && insets.left == insets.right
+                && insets.left == insets.bottom
+        );
+
+        let highlight_border_width = 1;
+        let border_effect_size = insets.top / 2;
+        let outer_margin_size = border_effect_size;
+        let inner_margin_size = border_effect_size;
 
         let outer_border = Rect::from_parts(Point::zero(), self.frame().size);
 
@@ -44,9 +61,18 @@ pub trait Bordered: Drawable + UIElement {
             true => Color::new(200, 200, 200),
             false => Color::dark_gray(),
         };
-        onto.fill_rect(outer_border, border_color, StrokeThickness::Width(1));
+        onto.fill_rect(
+            outer_border,
+            border_color,
+            StrokeThickness::Width(highlight_border_width),
+        );
 
-        let outer_margin = outer_border.inset_by(1, 1, 1, 1);
+        let outer_margin = outer_border.inset_by(
+            highlight_border_width,
+            highlight_border_width,
+            highlight_border_width,
+            highlight_border_width,
+        );
         let inner_margin = outer_margin.inset_by(
             outer_margin_size,
             outer_margin_size,
@@ -81,7 +107,7 @@ pub trait Bordered: Drawable + UIElement {
         );
         top_left_inset.draw(onto, inset_color, StrokeThickness::Width(inner_margin_size));
 
-        let top_right_inset_start = Point::new(inner_margin.max_x(), inner_margin.min_y());
+        let top_right_inset_start = Point::new(inner_margin.max_x() - 1, inner_margin.min_y());
         let top_right_inset = Line::new(
             top_right_inset_start - x_adjustment,
             Point::new(
@@ -104,7 +130,7 @@ pub trait Bordered: Drawable + UIElement {
         );
         bottom_left_inset.draw(onto, inset_color, StrokeThickness::Width(inner_margin_size));
 
-        let bottom_right_inset_start = Point::new(inner_margin.max_x(), inner_margin.max_y());
+        let bottom_right_inset_start = Point::new(inner_margin.max_x() - 1, inner_margin.max_y());
         let bottom_right_inset = Line::new(
             bottom_right_inset_start - x_adjustment - fine_y,
             bottom_right_inset_start - inner_margin_as_point - x_adjustment - (fine_y * 2),

@@ -25,7 +25,8 @@ use view::View;
 use axle_rt::{amc_message_await, amc_message_send, amc_register_service, printf, AmcMessage};
 
 use agx_definitions::{
-    Color, Drawable, LayerSlice, NestedLayerSlice, Point, Rect, Size, StrokeThickness,
+    Color, Drawable, LayerSlice, Line, NestedLayerSlice, Point, Rect, RectInsets, Size,
+    StrokeThickness,
 };
 
 use file_manager_messages::{
@@ -80,6 +81,8 @@ impl CurrentPathView {
         ));
         let back_button_clone = Rc::clone(&back_button);
         Rc::clone(&view).add_component(back_button_clone);
+
+        // TODO(PT): Read shortcuts from /config/file_browser/shortcuts.txt
 
         CurrentPathView {
             view: view,
@@ -145,6 +148,10 @@ impl Bordered for CurrentPathView {
 
     fn get_interior_content_frame(&self) -> Rect {
         self.view.get_interior_content_frame()
+    }
+
+    fn border_insets(&self) -> RectInsets {
+        self.view.border_insets()
     }
 }
 
@@ -262,6 +269,7 @@ impl Drawable for DirectoryEntryView {
     }
 }
 
+// TODO(PT): Implement UnborderedView (Or View vs BorderedView)
 impl Bordered for DirectoryEntryView {
     fn draw_border(&self) -> Rect {
         let onto = self.get_slice();
@@ -285,6 +293,10 @@ impl Bordered for DirectoryEntryView {
             border_thickness,
         );
         inner_content_rect
+    }
+
+    fn border_insets(&self) -> RectInsets {
+        RectInsets::new(0, 0, 0, 0)
     }
 
     fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice) {
@@ -401,6 +413,10 @@ impl Bordered for DirectoryContentsView {
 
     fn get_interior_content_frame(&self) -> Rect {
         self.view.get_interior_content_frame()
+    }
+
+    fn border_insets(&self) -> RectInsets {
+        self.view.border_insets()
     }
 }
 
@@ -549,11 +565,7 @@ impl FileBrowser2 {
 
         // Append the path component in the status bar
         let current_path_view = browser_clone.current_path_view.borrow();
-        //current_path_view.append_path_component(path);
-
         current_path_view.set_path(path);
-        // TODO(PT): How to only mark the label as needing redraw?
-        //current_path_view.current_path_label.nee
 
         // Read the directory and create a new directory contents view
         let directory_contents_view = self.create_directory_contents_view();
@@ -566,12 +578,9 @@ impl FileBrowser2 {
         window.add_component(directory_contents_view_clone2);
 
         // Redraw the status bar since the current path has updated
-        //let path_view = &**browser_clone2.current_path_view.borrow();
         Bordered::draw(&**current_path_view);
 
         // Redraw the contents view as we've got new directory contents to display
-        //let contents_view_container = browser_clone2.directory_contents_view.borrow();
-        //let contents_view = &**contents_view_container.as_ref().unwrap();
         Bordered::draw(&*directory_contents_view);
 
         // TODO(PT): Remove

@@ -1,6 +1,8 @@
 use core::cell::RefCell;
 
-use agx_definitions::{Color, Drawable, LayerSlice, NestedLayerSlice, Point, Rect, Size};
+use agx_definitions::{
+    Color, Drawable, LayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
+};
 use alloc::rc::Rc;
 use alloc::rc::Weak;
 use alloc::{boxed::Box, vec::Vec};
@@ -77,7 +79,6 @@ impl Bordered for View {
 
         let sub_elements = &self.sub_elements.borrow();
         for elem in sub_elements.iter() {
-            //printf!("View.draw_inner_content drawing {:?}\n", elem.frame());
             elem.draw();
         }
     }
@@ -94,6 +95,13 @@ impl Bordered for View {
     fn border_enabled(&self) -> bool {
         *self.border_enabled.borrow()
     }
+
+    fn border_insets(&self) -> RectInsets {
+        match *self.border_enabled.borrow() {
+            true => RectInsets::new(11, 11, 11, 11),
+            false => RectInsets::zero(),
+        }
+    }
 }
 
 impl Drawable for View {
@@ -106,7 +114,7 @@ impl Drawable for View {
     }
 
     fn draw(&self) {
-        panic!("PT: Why does this never get called");
+        //panic!("View is drawn via Bordered::draw()");
         Bordered::draw(self);
     }
 }

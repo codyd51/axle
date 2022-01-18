@@ -1,7 +1,8 @@
 use core::cell::RefCell;
 
 use agx_definitions::{
-    Color, Drawable, LayerSlice, Line, NestedLayerSlice, Point, Rect, Size, StrokeThickness,
+    Color, Drawable, LayerSlice, Line, NestedLayerSlice, Point, Rect, RectInsets, Size,
+    StrokeThickness,
 };
 use alloc::boxed::Box;
 use alloc::rc::Weak;
@@ -36,9 +37,13 @@ impl Button {
 }
 
 impl Bordered for Button {
+    fn border_insets(&self) -> RectInsets {
+        RectInsets::new(10, 10, 10, 10)
+    }
+
     fn draw_border(&self) -> Rect {
         let onto = &mut self.get_slice();
-        //printf!("Bordered.Button draw_border {:?}\n", onto.frame);
+        // TODO(PT): Update me to be computed via border_insets()
         let outer_margin_size = 4;
         let outer_border = Rect::from_parts(Point::zero(), self.frame().size);
 
@@ -134,8 +139,8 @@ impl Bordered for Button {
         );
 
         let button_frame_midpoint = Point::new(
-            self.frame.size.width / 2.0 as isize,
-            self.frame.size.height / 2.0 as isize,
+            self.frame().size.width / 2.0 as isize,
+            self.frame().size.height / 2.0 as isize,
         );
         // Translate the midpoint to the slice's coordinate system
         let midpoint = button_frame_midpoint - (onto.frame.origin - outer_frame.origin);
@@ -186,18 +191,11 @@ impl UIElement for Button {
     }
 
     fn handle_mouse_entered(&self) {
-        printf!("Mouse eneterd button!\n");
         *self.currently_contains_mouse_int.borrow_mut() = true;
-        /*
-        self.queue_partial_redraw(|elem, onto: LayerSlice| {
-            //Bordered::draw_border(&elem, &mut onto);
-        });
-        */
         Bordered::draw_border(self);
     }
 
     fn handle_mouse_exited(&self) {
-        printf!("Mouse exited button!\n");
         *self.currently_contains_mouse_int.borrow_mut() = false;
         Bordered::draw_border(self);
     }
