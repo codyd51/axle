@@ -291,10 +291,10 @@ fn fill_rect() {
     let bytes_per_row = layer.bytes_per_pixel * layer.size.width;
     for y in 0..100 {
         for x in 0..100 {
-            let off = (y * bytes_per_row) + (x * layer.bytes_per_pixel);
-            assert_eq!(fb[off + 0], color.r);
+            let off = ((y * bytes_per_row) + (x * layer.bytes_per_pixel)) as usize;
+            assert_eq!(fb[off + 0], color.b);
             assert_eq!(fb[off + 1], color.g);
-            assert_eq!(fb[off + 2], color.b);
+            assert_eq!(fb[off + 2], color.r);
         }
     }
 }
@@ -317,11 +317,11 @@ fn fill_rect_constrains_rect() {
     for y in 0..100 {
         for x in 0..100 {
             let p = Point::new(x, y);
-            let off = (y * bytes_per_row) + (x * layer.bytes_per_pixel);
+            let off = ((y * bytes_per_row) + (x * layer.bytes_per_pixel)) as usize;
             if expected_rect.contains(p) {
-                assert_eq!(fb[off + 0], color.r);
+                assert_eq!(fb[off + 0], color.b);
                 assert_eq!(fb[off + 1], color.g);
-                assert_eq!(fb[off + 2], color.b);
+                assert_eq!(fb[off + 2], color.r);
             } else {
                 assert_eq!(fb[off + 0], 0);
                 assert_eq!(fb[off + 1], 0);
