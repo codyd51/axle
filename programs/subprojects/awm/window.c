@@ -550,20 +550,21 @@ static void desktop_shortcuts_add(const char* display_name, const char* program_
 }
 
 void windows_fetch_resource_images(void) {
-	_g_title_bar_image = load_image("/initrd/titlebar7.bmp");
-	_g_title_bar_x_filled = load_image("/initrd/titlebar_x_filled2.bmp");
-	_g_title_bar_x_unfilled = load_image("/initrd/titlebar_x_unfilled2.bmp");
+	_g_title_bar_image = load_image("/images/titlebar7.bmp");
+	_g_title_bar_x_filled = load_image("/images/titlebar_x_filled2.bmp");
+	_g_title_bar_x_unfilled = load_image("/images/titlebar_x_unfilled2.bmp");
     for (int32_t i = 0; i < windows->size; i++) {
         user_window_t* w = array_lookup(windows, i);
         window_redraw_title_bar(w, false);
     }
 
-    _g_executable_image = load_image("/initrd/executable_icon.bmp");
+    _g_executable_image = load_image("/images/executable_icon.bmp");
 
-    desktop_shortcuts_add("Preferences", "/initrd/preferences");
-    desktop_shortcuts_add("Logs Viewer", "/initrd/logs_viewer");
-    desktop_shortcuts_add("DOOM", "/initrd/doom");
-    desktop_shortcuts_add("Breakout", "/initrd/breakout");
+    desktop_shortcuts_add("Preferences", "/usr/applications/preferences");
+    desktop_shortcuts_add("Logs Viewer", "/usr/applications/logs_viewer");
+    desktop_shortcuts_add("DOOM", "/usr/applications/doom");
+    desktop_shortcuts_add("Breakout", "/usr/applications/breakout");
+    desktop_shortcuts_add("fs_client", "/usr/applications/fs_client");
 }
 
 user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t height) {

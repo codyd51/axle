@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <libutils/assert.h>
+#include <file_server/file_server_messages.h>
 
 static Size _screen_resolution = {0};
 static int _screen_bytes_per_pixel = 0;
@@ -174,18 +175,18 @@ array_t* update_occlusions(array_t* free_areas, Rect exclude_rect) {
 
 image_t* load_image(const char* image_name) {
 	printf("AWM sending read file request for %s...\n", image_name);
-	file_manager_read_file_request_t req = {0};
-	req.event = FILE_MANAGER_READ_FILE;
-	snprintf(req.path, sizeof(req.path), "%s", image_name);
-	amc_message_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_read_file_request_t));
+    file_server_read_t read = {0};
+    read.event = FILE_SERVER_READ_FILE_EVENT;
+	snprintf(read.path, sizeof(read.path), "%s", image_name);
+	amc_message_send(FILE_SERVER_SERVICE_NAME, &read, sizeof(file_server_read_t));
 
 	printf("AWM awaiting file read response for %s...\n", image_name);
 	amc_message_t* file_data_msg;
 	bool received_file_data = false;
 	for (uint32_t i = 0; i < 32; i++) {
-		amc_message_await(FILE_MANAGER_SERVICE_NAME, &file_data_msg);
+		amc_message_await(FILE_SERVER_SERVICE_NAME, &file_data_msg);
 		uint32_t event = amc_msg_u32_get_word(file_data_msg, 0);
-		if (event == FILE_MANAGER_READ_FILE_RESPONSE) {
+		if (event == FILE_SERVER_READ_FILE_EVENT) {
 			received_file_data = true;
 			break;
 		}
@@ -193,8 +194,6 @@ image_t* load_image(const char* image_name) {
 	assert(received_file_data, "Failed to recv file data");
 
 	printf("AWM got response for %s!\n", image_name);
-	file_manager_read_file_response_t* resp = (file_manager_read_file_response_t*)&file_data_msg->body;
-	uint8_t* b = &resp->file_data;
-
-	return image_parse(resp->file_size, resp->file_data);
+	file_server_read_response_t* resp = (file_server_read_response_t*)&file_data_msg->body;
+	return image_parse(resp->len, resp->data);
 }

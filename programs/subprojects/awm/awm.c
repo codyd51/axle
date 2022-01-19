@@ -19,6 +19,8 @@
 #include <drivers/kb/kb_driver_messages.h>
 #include <drivers/mouse/mouse_driver_messages.h>
 
+#include <file_server/file_server_messages.h>
+
 #include "awm.h"
 #include "math.h"
 #include "window.h"
@@ -113,12 +115,11 @@ static void _begin_left_click(mouse_interaction_state_t* state, Point mouse_poin
 				}
 				else {
 					state->hovered_shortcut->in_soft_click = false;
-					//if (!amc_service_is_active(CRASH_REPORTER_SERVICE_NAME)) {
-						file_manager_launch_file_request_t req = {0};
-						req.event = FILE_MANAGER_LAUNCH_FILE;
-						snprintf(req.path, sizeof(req.path), state->hovered_shortcut->program_path);
-						amc_message_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_launch_file_request_t));
-					//}
+					printf("[%d ms] launch from awm\n", ms_since_boot());
+					file_server_launch_program_t launch = {0};
+					launch.event = 102;
+					snprintf(launch.path, sizeof(launch.path), state->hovered_shortcut->program_path);
+					amc_message_send(FILE_SERVER_SERVICE_NAME, &launch, sizeof(file_server_launch_program_t));
 				}
 				return;
 			}
@@ -669,12 +670,6 @@ static void handle_user_message(amc_message_t* user_message) {
 			return;
 		}
 	}
-	else if (!strncmp(source_service, FILE_MANAGER_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
-		if (command == FILE_MANAGER_READY) {
-			windows_fetch_resource_images();
-			return;
-		}
-	}
 
 	// Handle standard messages
 	if (command == AWM_CREATE_WINDOW_REQUEST) {
@@ -733,7 +728,7 @@ ca_layer* physical_video_memory_layer(void) {
 
 static void _awm_init(void) {
 	amc_register_service(AWM_SERVICE_NAME);
-	
+
 	// Ask the kernel to map in the framebuffer and send us info about it
 	amc_msg_u32_1__send(AXLE_CORE_SERVICE_NAME, AMC_AWM_MAP_FRAMEBUFFER);
 
@@ -743,6 +738,7 @@ static void _awm_init(void) {
 	assert(event == AMC_AWM_MAP_FRAMEBUFFER_RESPONSE, "Expected awm framebuffer info");
 	amc_framebuffer_info_t* framebuffer_info = (amc_framebuffer_info_t*)msg->body;
 	/*
+
 	printf("Recv'd framebuf info!\n");
     printf("%p %p (%d x %d x %d x %d)\n", framebuffer_info->address, framebuffer_info->size, framebuffer_info->width, framebuffer_info->height, framebuffer_info->bytes_per_pixel, framebuffer_info->bits_per_pixel);
 	*/
@@ -787,6 +783,9 @@ static void _awm_init(void) {
 		rect_mid_y(screen_frame),
 		(float)_g_background->size.height * 0.65
 	);
+
+	// Fetch images from the FS
+	windows_fetch_resource_images();
 
 	// Move the cursor to the middle of the screen
 	mouse_pos = (Point){.x = screen_frame.size.width / 2, .y = screen_frame.size.height / 2};

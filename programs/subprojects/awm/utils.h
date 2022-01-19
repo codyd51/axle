@@ -6,7 +6,8 @@
 #include <libagx/lib/shapes.h>
 
 #include <libimg/libimg.h>
-#include <file_manager/file_manager_messages.h>
+
+#include <kernel/amc.h>
 
 uint32_t ms_since_boot();
 
