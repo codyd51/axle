@@ -180,6 +180,20 @@ fn launch_program(root_dir: &DirectoryImage, sender: &str, request: &LaunchProgr
     launch_program_by_path(root_dir, requested_path)
 }
 
+fn launch_startup_programs(root_dir: &DirectoryImage) {
+    let run_on_startup_path = "/config/run_on_startup.txt";
+    let run_on_startup_config =
+        fs_entry_find(root_dir, run_on_startup_path).expect("{run_on_startup_path} is missing!");
+    let run_on_startup_contents = match str::from_utf8(run_on_startup_config.file_data.unwrap()) {
+        Ok(v) => v,
+        Err(e) => panic!("Failed to read {run_on_startup_path}, invalid UTF-8: {e}"),
+    };
+
+    for line in run_on_startup_contents.split("\n") {
+        launch_program_by_path(root_dir, line);
+    }
+}
+
 fn read_file(root_dir: &DirectoryImage, sender: &str, request: &ReadFile) {
     let requested_path = str_from_u8_nul_utf8_unchecked(&request.path);
     printf!("Reading {} for {}\n", requested_path, sender);
@@ -226,6 +240,8 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
     };
     let root_dir: DirectoryImage = postcard::from_bytes(rust_reference).expect("Dealloc failed");
     //traverse_dir(0, &root_dir);
+
+    launch_startup_programs(&root_dir);
 
     loop {
         printf!("Awaiting next message...\n");
