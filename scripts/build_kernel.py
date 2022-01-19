@@ -54,7 +54,7 @@ def build_iso() -> Path:
     if not kernel_binary_path.exists():
         raise ValueError(f"Kernel binary missing: {kernel_binary_path}")
 
-    fs_server_path = Path(__file__).parents[1] / "initrd" / "initrd_fs"
+    fs_server_path = Path(__file__).parents[1] / "axle-sysroot" / "usr" / "applications" / "initrd_fs"
     if not fs_server_path.exists():
         raise ValueError(f"fs_server missing: {fs_server_path}")
 
