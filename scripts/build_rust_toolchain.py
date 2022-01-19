@@ -158,9 +158,9 @@ def build_rust_programs(check_only: bool = False) -> None:
         # binary = entry / 'target' / 'x86_64-unknown-axle' / 'release' / entry.name
         binary = cargo_workspace_dir / 'target' / 'x86_64-unknown-axle' / 'release' / entry.name
         if binary.exists():
-            print(f'Moving build result to initrd: {binary}')
-            initrd_dir = _REPO_ROOT / 'initrd'
-            shutil.copy(binary.as_posix(), initrd_dir)
+            print(f'Moving build result to sysroot: {binary}')
+            sysroot_applications_dir = _REPO_ROOT / "axle-sysroot" / "usr" / "applications"
+            shutil.copy(binary.as_posix(), sysroot_applications_dir)
 
 
 def main() -> None:
