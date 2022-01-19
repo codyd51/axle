@@ -1,0 +1,5 @@
+/usr/applications/awm
+/usr/applications/kb_driver
+/usr/applications/mouse_driver
+/usr/applications/file_browser
+
