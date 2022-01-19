@@ -3,7 +3,6 @@
 #include <kernel/interrupts/interrupts.h>
 #include <kernel/util/amc/amc.h>
 #include <kernel/util/adi/adi.h>
-#include <kernel/util/vfs/fs.h>
 #include <kernel/drivers/ps2/ps2.h>
 #include <kernel/multitasking/tasks/task_small.h>
 

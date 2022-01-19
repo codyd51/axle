@@ -679,8 +679,9 @@ bool amc_has_message(void) {
     return amc_service_has_message(service);
 }
 
-#include <kernel/util/vfs/vfs.h>
 static void _amc_launch_realtek_8139() {
+    Deprecated();
+    /*
     const char* program_name = "realtek_8139_driver";
     char* argv[] = {program_name, NULL};
 
@@ -688,6 +689,7 @@ static void _amc_launch_realtek_8139() {
     uint32_t address = node->initrd_offset;
 	elf_load_buffer(program_name, argv, address, node->size, false);
 	panic("noreturn");
+    */
 }
 
 bool amc_launch_service(const char* service_name) {

@@ -5,7 +5,6 @@
 #include <std/printf.h>
 #include <std/kheap.h>
 #include <kernel/vmm/vmm.h>
-#include <kernel/util/vfs/fs.h>
 #include <kernel/multitasking/tasks/task_small.h>
 
 static bool elf_check_magic(elf_header* hdr) {
@@ -56,19 +55,6 @@ bool elf_validate_header(elf_header* hdr) {
 		return false;
 	}
 	return true;
-}
-
-bool elf_validate(FILE* file) {
-	char buf[sizeof(elf_header)];
-	fseek(file, 0, SEEK_SET);
-	///fread(&buf, sizeof(elf_header), 1, file);
-	for (uint32_t i = 0; i < sizeof(elf_header); i++) {
-		buf[i] = fgetc(file);
-	}
-	elf_header* hdr = (elf_header*)(&buf);
-
-	fseek(file, 0, SEEK_SET);
-	return elf_validate_header(hdr);
 }
 
 bool elf_load_segment(unsigned char* src, elf_phdr* seg) {
@@ -210,12 +196,12 @@ void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf
 	// Give userspace a 128kb stack
 	// TODO(PT): We need to free the stack created by _thread_create
 	uint32_t stack_size = PAGE_SIZE * 32;
-	//printf("ELF allocating stack with PDir 0x%p\n", vas_get_active_state());
+	printf("ELF allocating stack with PDir 0x%p\n", vas_get_active_state());
 	uintptr_t stack_bottom = vas_alloc_range(vas_get_active_state(), 0x7e0000000000, stack_size, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
-	//printf("[%d] allocated ELF stack at 0x%08x\n", getpid(), stack_bottom);
+	printf("[%d] allocated ELF stack at 0x%08x\n", getpid(), stack_bottom);
     uintptr_t *stack_top = (uintptr_t *)(stack_bottom + stack_size); // point to top of malloc'd stack
 	uintptr_t* stack_top_orig = stack_top;
-	//printf("[%d] Set ESP to 0x%08x\n", getpid(), stack_top);
+	printf("[%d] Set ESP to 0x%08x\n", getpid(), stack_top);
     *(--stack_top)= 0xaa;   //address of task's entry point
     *(--stack_top)= 0xbb;   //address of task's entry point
     *(--stack_top)= 0x0;   // alignment
@@ -228,7 +214,6 @@ void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf
 
 	//calculate argc count
 	int argc = 0;
-	//printf("Argv 0x%08x\n", argv);
 	while (argv[argc] != NULL) {
 		argc++;
 	}
@@ -259,8 +244,4 @@ void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf
 		printf_err("ELF wasn't loadable!");
 		return;
 	}
-}
-
-void elf_load_file(char* name, FILE* elf, char** argv) {
-	Deprecated();
 }

@@ -2,7 +2,6 @@
 #define SYSFUNCS_H
 
 #include "syscall.h"
-#include <kernel/util/vfs/fs.h>
 #include <kernel/util/amc/amc.h>
 #include <kernel/util/adi/adi.h>
 

@@ -12,9 +12,9 @@ static void _exiting(const char* p, uint32_t arg2, uint32_t arg3) {
     task_die(0);
 }
 
-#include <kernel/util/vfs/vfs.h>
 #include <kernel/boot_info.h>
 static void _launch_program(const char* program_name, uint32_t arg2, uint32_t arg3) {
+    Deprecated();
     static int i = 0;
     char buf[32] = {0};
     snprintf(buf, sizeof(buf), "%d", i);
@@ -28,11 +28,13 @@ static void _launch_program(const char* program_name, uint32_t arg2, uint32_t ar
     elf_load_file(program_name, fp, argv);
     */
 
+    /*
     initrd_fs_node_t* node = vfs_find_initrd_node_by_name(program_name);
     uint32_t address = node->initrd_offset;
 	elf_load_buffer(program_name, argv, address, node->size, false);
 	panic("noreturn");
     //task_die(0);
+    */
 }
 
 static void run_test(uint32_t i) {

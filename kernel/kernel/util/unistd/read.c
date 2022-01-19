@@ -1,6 +1,5 @@
 #include "read.h"
 #include <kernel/drivers/kb/kb.h>
-#include <kernel/util/vfs/fs.h>
 
 #include <gfx/lib/gfx.h>
 
