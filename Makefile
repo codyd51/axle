@@ -59,7 +59,7 @@ endif
 EMFLAGS += -netdev vmnet-macos,id=vmnet,mode=bridged -device rtl8139,netdev=vmnet -object filter-dump,netdev=vmnet,id=dump,file=dump.dat -vga vmware -accel hvf -cpu host
 
 # Rules
-all: $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg fsgen
+all: $(ISO_DIR)/boot/axle.bin $(ISO_DIR)/boot/grub/grub.cfg 
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.s
 	@mkdir -p `dirname $@`
@@ -76,9 +76,6 @@ $(ISO_DIR)/boot/axle.bin: $(OBJECTS)
 $(ISO_DIR)/boot/grub/grub.cfg: $(RESOURCES)/grub.cfg
 	@mkdir -p `dirname $@`
 	cp $^ $@
-
-$(FSGENERATOR): $(FSGENERATOR).c
-	@gcc -o $@ $<
 
 $(ISO_DIR)/boot/initrd.img: $(FSGENERATOR)
 	@./$(FSGENERATOR) $(INITRD); mv $(INITRD).img $@
