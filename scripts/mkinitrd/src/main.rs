@@ -99,7 +99,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let v = postcard::to_allocvec(&fs_image).expect("Failed to encode");
     file.write(&v).expect("Failed to write to file");
 
-    print_tree(0, &fs_image);
+    //print_tree(0, &fs_image);
 
     Ok(())
 }

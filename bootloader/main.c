@@ -147,33 +147,33 @@ void draw(axle_boot_info_t* bi, int color) {
 	//wait();
 }
 
-bool initrd_map(const char* initrd_path, uint64_t* out_base, uint64_t* out_size) {
-	FILE* initrd_file = fopen(initrd_path, "r");
-	if (!initrd_file) {
-		printf("Failed to open initrd!\n");
+bool map_file(const char* file_path, uint64_t* out_base, uint64_t* out_size) {
+	FILE* file = fopen(file_path, "r");
+	if (!file) {
+		printf("Failed to open %s!\n", file_path);
 		return false;
 	}
-	fseek(initrd_file, 0, SEEK_END);
-	uint64_t initrd_size = ftell(initrd_file);
-	fseek(initrd_file, 0, SEEK_SET);
-	uint64_t initrd_page_count = (initrd_size / PAGE_SIZE) + 1;
-	printf("Initrd size 0x%p, page count %ld\n", initrd_size, initrd_page_count);
-	efi_physical_address_t initrd_buf = 0;
-	efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_PAL_CODE, initrd_page_count, &initrd_buf);
+	fseek(file, 0, SEEK_END);
+	uint64_t file_size = ftell(file);
+	fseek(file, 0, SEEK_SET);
+	uint64_t file_page_count = (file_size / PAGE_SIZE) + 1;
+	printf("%s size 0x%p, page count %ld\n", file_path, file_size, file_page_count);
+	efi_physical_address_t file_buf = 0;
+	efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_PAL_CODE, file_page_count, &file_buf);
 	if (EFI_ERROR(status)) {
-		printf("Failed to allocate memory for initrd! %ld\n", status);
+		printf("Failed to allocate memory for %s! %ld\n", file_path, status);
 		return false;
 	}
-	printf("Allocated buffer for initrd: 0x%p\n", initrd_buf);
+	printf("Allocated buffer for %s: 0x%p\n", file_path, file_buf);
 	print_time();
-	printf(": Reading initrd buffer...\n");
-	fread(initrd_buf, initrd_size, 1, initrd_file);
+	printf(": Reading %s buffer...\n", file_path);
+	fread(file_buf, file_size, 1, file);
 	print_time();
 	printf(": Mapped initrd\n");
-	fclose(initrd_file);
+	fclose(file);
 
-	*out_base = initrd_buf;
-	*out_size = initrd_size;
+	*out_base = file_buf;
+	*out_size = file_size;
 
 	return true;
 }
@@ -261,12 +261,12 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 
-	// Step 3: Map the initrd into memory
-	if (!initrd_map("\\EFI\\AXLE\\INITRD.IMG", &boot_info->initrd_base, &boot_info->initrd_size)) {
-		printf("Failed to map initrd!\n");
+	// Step 3: Map the filesystem server and its ramdisk into memory
+	if (!map_file("\\EFI\\AXLE\\FS_SERVER.ELF", &boot_info->file_server_elf_base, &boot_info->file_server_elf_size)) {
+		printf("Failed to map FS server!\n");
 		return 0;
 	}
-	if (!initrd_map("\\EFI\\AXLE\\INITRD2.IMG", &boot_info->initrd2_base, &boot_info->initrd2_size)) {
+	if (!map_file("\\EFI\\AXLE\\INITRD.IMG", &boot_info->initrd_base, &boot_info->initrd_size)) {
 		printf("Failed to map initrd!\n");
 		return 0;
 	}

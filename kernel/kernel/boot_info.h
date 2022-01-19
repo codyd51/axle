@@ -42,13 +42,13 @@ typedef struct boot_info {
     uint32_t boot_stack_size;
     */
 
+    uintptr_t file_server_elf_start;
+    uintptr_t file_server_elf_end;
+    uintptr_t file_server_elf_size;
+
     uintptr_t initrd_start;
     uintptr_t initrd_end;
     uintptr_t initrd_size;
-
-    uintptr_t initrd2_start;
-    uintptr_t initrd2_end;
-    uintptr_t initrd2_size;
 
     uint32_t mem_region_count;
     physical_memory_region_t mem_regions[256];

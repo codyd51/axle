@@ -60,11 +60,13 @@ typedef struct axle_boot_info {
 	uint64_t kernel_symbol_table_base;
 	uint64_t kernel_symbol_table_size;
 
+	// File server info
+	uint64_t file_server_elf_base;
+	uint64_t file_server_elf_size;
+
 	// initrd info
 	uint64_t initrd_base;
 	uint64_t initrd_size;
-	uint64_t initrd2_base;
-	uint64_t initrd2_size;
 
 	uint64_t boot_pml4;
 } axle_boot_info_t;
