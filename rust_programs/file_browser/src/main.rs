@@ -22,7 +22,10 @@ use core::{cell::RefCell, cmp};
 use label::Label;
 use view::View;
 
-use axle_rt::{amc_message_await, amc_message_send, amc_register_service, printf, AmcMessage};
+use axle_rt::{
+    amc_message_await, amc_message_send, amc_register_service, printf, AmcMessage,
+    ExpectsEventField,
+};
 
 use agx_definitions::{
     Color, Drawable, LayerSlice, Line, NestedLayerSlice, Point, Rect, RectInsets, Size,
@@ -668,10 +671,10 @@ impl FileBrowser2 {
 #[start]
 #[allow(unreachable_code)]
 fn start(_argc: isize, _argv: *const *const u8) -> isize {
-    amc_register_service("com.axle.fs2_client");
+    amc_register_service("com.axle.file_browser");
 
     // TODO(PT): Add a main content view to Window?
-    let window = Rc::new(AwmWindow::new("Rust File Manager", Size::new(500, 600)));
+    let window = Rc::new(AwmWindow::new("File Browser", Size::new(500, 600)));
     let _file_browser = Rc::new(RefCell::new(FileBrowser2::new(Rc::clone(&window))));
 
     window.enter_event_loop();

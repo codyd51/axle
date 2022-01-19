@@ -143,16 +143,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "file_manager_messages"
-version = "0.1.0"
-dependencies = [
- "axle_rt",
- "axle_rt_derive",
- "cstr_core",
-]
-
-[[package]]
-name = "fs_client"
+name = "file_browser"
 version = "0.1.0"
 dependencies = [
  "agx_definitions",
@@ -163,6 +154,15 @@ dependencies = [
  "file_manager_messages",
  "rand",
  "rand_core 0.5.1",
+]
+
+[[package]]
+name = "file_manager_messages"
+version = "0.1.0"
+dependencies = [
+ "axle_rt",
+ "axle_rt_derive",
+ "cstr_core",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 [package]
-name = "fs_client"
+name = "file_browser"
 version = "0.1.0"
 edition = "2021"
 

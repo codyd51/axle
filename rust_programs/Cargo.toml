@@ -5,7 +5,7 @@ members = [
     "axle_rt",
     "axle_rt_derive",
     "file_manager_messages",
-    "fs_client",
+    "file_browser",
     "initrd_fs",
     "libfs",
 ]
