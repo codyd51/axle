@@ -164,6 +164,20 @@ pub fn amc_message_send<T>(to_service: &str, message: T) {
 }
 
 #[cfg(target_os = "axle")]
+pub unsafe fn amc_message_send_untyped(
+    to_service: &str,
+    message: *const u8,
+    size: usize,
+) {
+    let to_service_c_str = CString::new(to_service).unwrap();
+    ::libc::amc_message_send(
+        to_service_c_str.as_ptr() as *const u8,
+        message as *const libc::c_void,
+        size as u32,
+    );
+}
+
+#[cfg(target_os = "axle")]
 #[panic_handler]
 fn panic(panic_info: &PanicInfo<'_>) -> ! {
     let msg = match panic_info.message() {
