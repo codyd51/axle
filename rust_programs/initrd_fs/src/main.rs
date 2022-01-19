@@ -6,6 +6,8 @@
 extern crate alloc;
 extern crate libc;
 
+use alloc::str::{self, from_utf8};
+
 use axle_rt::amc_register_service;
 use axle_rt::printf;
 use axle_rt::AmcMessage;
@@ -14,10 +16,10 @@ use axle_rt::{amc_message_await_untyped, amc_message_send};
 use axle_rt_derive::ContainsEventField;
 
 use cstr_core::CString;
-use file_manager_messages::FileManagerDirectoryContents;
 use file_manager_messages::FileManagerDirectoryEntry;
 use file_manager_messages::FileManagerReadDirectory;
 use file_manager_messages::{str_from_u8_nul_utf8_unchecked, LaunchProgram};
+use file_manager_messages::{FileManagerDirectoryContents, ReadFile, ReadFileResponse};
 
 use libfs::{fs_entry_find, DirectoryImage, FsEntry};
 
@@ -152,10 +154,8 @@ fn read_directory(root_dir: &DirectoryImage, sender: &str, request: &FileManager
     }
 }
 
-fn launch_program(root_dir: &DirectoryImage, sender: &str, request: &LaunchProgram) {
-    let requested_path = str_from_u8_nul_utf8_unchecked(&request.path);
-    if let Some(entry) = fs_entry_find(&root_dir, &requested_path) {
-        //printf!("Found FS entry: {}\n", entry.path);
+fn launch_program_by_path(root_dir: &DirectoryImage, path: &str) {
+    if let Some(entry) = fs_entry_find(&root_dir, &path) {
         if entry.is_dir {
             printf!("Can't launch directories\n");
         } else {
@@ -169,6 +169,31 @@ fn launch_program(root_dir: &DirectoryImage, sender: &str, request: &LaunchProgr
                 "com.axle.core",
                 AmcExecBuffer::from(program_name_ptr, &entry),
             );
+        }
+    } else {
+        printf!("Couldn't find path {}\n", path);
+    }
+}
+
+fn launch_program(root_dir: &DirectoryImage, sender: &str, request: &LaunchProgram) {
+    let requested_path = str_from_u8_nul_utf8_unchecked(&request.path);
+    launch_program_by_path(root_dir, requested_path)
+}
+
+fn read_file(root_dir: &DirectoryImage, sender: &str, request: &ReadFile) {
+    let requested_path = str_from_u8_nul_utf8_unchecked(&request.path);
+    printf!("Reading {} for {}\n", requested_path, sender);
+    if let Some(entry) = fs_entry_find(&root_dir, &requested_path) {
+        if entry.is_dir {
+            printf!("Can't read directories\n");
+        } else {
+            /*
+            amc_message_send(
+                sender,
+                ReadFileResponse::new(&entry.path, entry.file_data.unwrap()),
+            );
+            */
+            ReadFileResponse::send(sender, &entry.path, entry.file_data.unwrap());
         }
     } else {
         printf!("Couldn't find path {}\n", requested_path);
@@ -230,6 +255,11 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
                     body_as_type_unchecked(raw_body),
                 ),
                 LaunchProgram::EXPECTED_EVENT => launch_program(
+                    &root_dir,
+                    msg_unparsed.source(),
+                    body_as_type_unchecked(raw_body),
+                ),
+                ReadFile::EXPECTED_EVENT => read_file(
                     &root_dir,
                     msg_unparsed.source(),
                     body_as_type_unchecked(raw_body),
