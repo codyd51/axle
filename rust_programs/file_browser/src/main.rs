@@ -34,7 +34,7 @@ use agx_definitions::{
 
 use file_manager_messages::{
     str_from_u8_nul_utf8_unchecked, FileManagerDirectoryContents, FileManagerDirectoryEntry,
-    FileManagerReadDirectory, LaunchProgram,
+    FileManagerReadDirectory, LaunchProgram, FILE_SERVER_SERVICE_NAME,
 };
 
 mod bordered;
@@ -363,18 +363,16 @@ struct DirectoryContentsView {
 }
 
 impl DirectoryContentsView {
-    const FILE_SERVER_SERVICE_NAME: &'static str = "com.axle.file_manager2";
-
     pub fn new<F: 'static + Fn(&View, Size) -> Rect>(path: &str, sizer: F) -> Self {
         let view = Rc::new(View::new(Color::new(170, 170, 170), sizer));
 
         // TODO(PT): Should return the normalized path (ie strip extra slashes and normalize ../)
         amc_message_send(
-            DirectoryContentsView::FILE_SERVER_SERVICE_NAME,
+            FILE_SERVER_SERVICE_NAME,
             FileManagerReadDirectory::new(path),
         );
         let dir_contents: AmcMessage<FileManagerDirectoryContents> =
-            amc_message_await(Some(DirectoryContentsView::FILE_SERVER_SERVICE_NAME));
+            amc_message_await(Some(FILE_SERVER_SERVICE_NAME));
 
         let mut cursor = Point::new(10, 10);
         let entry_height = 30;
@@ -572,10 +570,7 @@ impl FileBrowser2 {
                             .borrow(),
                         path
                     );
-                    amc_message_send(
-                        DirectoryContentsView::FILE_SERVER_SERVICE_NAME,
-                        LaunchProgram::new(&full_path),
-                    );
+                    amc_message_send(FILE_SERVER_SERVICE_NAME, LaunchProgram::new(&full_path));
                 });
             }
         }

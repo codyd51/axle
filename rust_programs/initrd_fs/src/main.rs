@@ -16,10 +16,10 @@ use axle_rt::{amc_message_await_untyped, amc_message_send};
 use axle_rt_derive::ContainsEventField;
 
 use cstr_core::CString;
-use file_manager_messages::FileManagerDirectoryEntry;
 use file_manager_messages::FileManagerReadDirectory;
 use file_manager_messages::{str_from_u8_nul_utf8_unchecked, LaunchProgram};
 use file_manager_messages::{FileManagerDirectoryContents, ReadFile, ReadFileResponse};
+use file_manager_messages::{FileManagerDirectoryEntry, FILE_SERVER_SERVICE_NAME};
 
 use libfs::{fs_entry_find, DirectoryImage, FsEntry};
 
@@ -217,7 +217,7 @@ fn read_file(root_dir: &DirectoryImage, sender: &str, request: &ReadFile) {
 #[start]
 #[allow(unreachable_code)]
 fn start(_argc: isize, _argv: *const *const u8) -> isize {
-    amc_register_service("com.axle.file_manager2");
+    amc_register_service(FILE_SERVER_SERVICE_NAME);
 
     amc_message_send("com.axle.core", AmcInitrdRequest::new());
 

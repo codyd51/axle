@@ -14,6 +14,8 @@ use axle_rt::{amc_message_send, amc_message_send_untyped};
 use axle_rt::{copy_str_into_sized_slice, printf, ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
 
+pub const FILE_SERVER_SERVICE_NAME: &'static str = "com.axle.file_server";
+
 pub fn str_from_u8_nul_utf8_unchecked(utf8_src: &[u8]) -> &str {
     let nul_range_end = utf8_src
         .iter()
@@ -50,7 +52,6 @@ pub struct ReadFileResponse {
     pub event: u32,
     pub path: [u8; 64],
     pub len: usize,
-    //pub data: *mut u8,
     pub data: [u8; 0],
 }
 
