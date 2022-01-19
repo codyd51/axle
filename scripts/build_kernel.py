@@ -93,6 +93,25 @@ def build_initrd() -> None:
     shutil.copy(generated_initrd.as_posix(), staged_initrd.as_posix())
 
 
+def build_dist_tree() -> None:
+    dist_folder = Path(__file__).parents[1] / "os_dist"
+    sysroot = Path(__file__).parents[1] / "axle-sysroot"
+    for path in dist_folder.rglob("*"):
+        if path.name == '.DS_Store':
+            continue
+
+        relative_to_root = path.relative_to(dist_folder)
+        sysroot_path = sysroot / relative_to_root
+
+        if path.is_dir():
+            sysroot_path.mkdir(exist_ok=True)
+            continue
+
+        if not sysroot_path.exists() or copied_file_is_outdated(path, sysroot_path):
+            print(f'Copying {path} to {sysroot_path}')
+            shutil.copy(path.as_posix(), sysroot_path.as_posix())
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--force_rebuild_programs", nargs="*", action="store")
@@ -147,6 +166,8 @@ def main():
     # Build user programs
     build_meson_projects()
     build_rust_programs()
+
+    build_dist_tree()
 
     # Build ramdisk
     build_initrd()
