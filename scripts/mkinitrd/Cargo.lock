@@ -29,6 +29,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "axle_rt_derive"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "bare-metal"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -122,6 +130,7 @@ name = "file_manager_messages"
 version = "0.1.0"
 dependencies = [
  "axle_rt",
+ "axle_rt_derive",
  "cstr_core",
 ]
 

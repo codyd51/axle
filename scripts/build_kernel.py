@@ -54,11 +54,11 @@ def build_iso() -> Path:
     if not kernel_binary_path.exists():
         raise ValueError(f"Kernel binary missing: {kernel_binary_path}")
 
-    initrd_path = Path(__file__).parents[1] / "isodir" / "boot" / "initrd.img"
-    if not initrd_path.exists():
-        raise ValueError(f"initrd missing: {initrd_path}")
+    fs_server_path = Path(__file__).parents[1] / "initrd" / "initrd_fs"
+    if not fs_server_path.exists():
+        raise ValueError(f"fs_server missing: {fs_server_path}")
 
-    initrd2_path = Path(__file__).parents[1] / "isodir" / "boot" / "initrd2.img"
+    initrd_path = Path(__file__).parents[1] / "isodir" / "boot" / "initrd.img"
     if not initrd_path.exists():
         raise ValueError(f"initrd missing: {initrd_path}")
 
@@ -71,37 +71,13 @@ def build_iso() -> Path:
 
         run_and_check(["mmd", "-i", image_name.as_posix(), "::/EFI/AXLE"])
         run_and_check(["mcopy", "-i", image_name.as_posix(), kernel_binary_path.as_posix(), "::/EFI/AXLE/KERNEL.ELF"])
+        run_and_check(["mcopy", "-i", image_name.as_posix(), fs_server_path.as_posix(), "::/EFI/AXLE/FS_SERVER.ELF"])
         run_and_check(["mcopy", "-i", image_name.as_posix(), initrd_path.as_posix(), "::/EFI/AXLE/INITRD.IMG"])
-        run_and_check(["mcopy", "-i", image_name.as_posix(), initrd2_path.as_posix(), "::/EFI/AXLE/INITRD2.IMG"])
 
     return image_name
 
 
 def build_initrd() -> None:
-    fsgen_path = Path(__file__).parents[1] / "fsgen"
-    if not fsgen_path.exists():
-        raise RuntimeError(f"fsgen binary missing, expected at {fsgen_path}")
-
-    initrd_dir = Path(__file__).parents[1] / "initrd"
-    if not initrd_dir.exists():
-        raise RuntimeError(f"initrd dir missing, expected at {initrd_dir}")
-
-    run_and_check([fsgen_path.as_posix(), "./"], cwd=initrd_dir)
-    generated_initrd = initrd_dir / "initrd.img"
-    if not generated_initrd.exists():
-        raise RuntimeError(f"fsgen did not generate initrd at {generated_initrd}")
-
-    staged_initrd = Path(__file__).parents[1] / "isodir" / "boot" / "initrd.img"
-    shutil.move(generated_initrd.as_posix(), staged_initrd.as_posix())
-
-    sysroot_dir = Path(__file__).parents[1] / "axle-sysroot"
-    applications_dir = sysroot_dir / "usr" / "applications"
-    applications_dir.mkdir(exist_ok=True)
-    for file in initrd_dir.iterdir():
-        shutil.copy(file.as_posix(), applications_dir.as_posix())
-
-
-def build_initrd2() -> None:
     mkinitrd_path = Path(__file__).parent / "mkinitrd"
     if not mkinitrd_path.exists():
         raise RuntimeError(f"mkinitrd directory missing, expected at {mkinitrd_path}")
@@ -113,8 +89,8 @@ def build_initrd2() -> None:
     if not generated_initrd.exists():
         raise RuntimeError(f"mkinitrd did not generate initrd at {generated_initrd}")
 
-    staged_initrd2 = Path(__file__).parents[1] / "isodir" / "boot" / "initrd2.img"
-    shutil.copy(generated_initrd.as_posix(), staged_initrd2.as_posix())
+    staged_initrd = Path(__file__).parents[1] / "isodir" / "boot" / "initrd.img"
+    shutil.copy(generated_initrd.as_posix(), staged_initrd.as_posix())
 
 
 def main():
@@ -174,9 +150,6 @@ def main():
 
     # Build ramdisk
     build_initrd()
-    
-    # Copy Rust ramdisk
-    build_initrd2()
 
     # Build disk image
     image_name = build_iso()
