@@ -33,8 +33,8 @@ use agx_definitions::{
 };
 
 use file_manager_messages::{
-    str_from_u8_nul_utf8_unchecked, FileManagerDirectoryContents, FileManagerDirectoryEntry,
-    FileManagerReadDirectory, LaunchProgram, FILE_SERVER_SERVICE_NAME,
+    str_from_u8_nul_utf8_unchecked, DirectoryContents, DirectoryEntry, LaunchProgram,
+    ReadDirectory, FILE_SERVER_SERVICE_NAME,
 };
 
 mod bordered;
@@ -186,7 +186,7 @@ impl UIElement for CurrentPathView {
 
 struct DirectoryEntryView {
     view: Rc<View>,
-    entry: FileManagerDirectoryEntry,
+    entry: DirectoryEntry,
     background_color: Color,
     button: Rc<Button>,
 }
@@ -194,7 +194,7 @@ struct DirectoryEntryView {
 impl DirectoryEntryView {
     pub fn new<F: 'static + Fn(&View, Size) -> Rect>(
         entry_index: usize,
-        entry: FileManagerDirectoryEntry,
+        entry: DirectoryEntry,
         sizer: F,
     ) -> Self {
         let background_color = match entry_index % 2 {
@@ -359,7 +359,7 @@ impl UIElement for DirectoryEntryView {
 
 struct DirectoryContentsView {
     view: Rc<View>,
-    entry_to_view_map: BTreeMap<FileManagerDirectoryEntry, Rc<DirectoryEntryView>>,
+    entry_to_view_map: BTreeMap<DirectoryEntry, Rc<DirectoryEntryView>>,
 }
 
 impl DirectoryContentsView {
@@ -367,11 +367,8 @@ impl DirectoryContentsView {
         let view = Rc::new(View::new(Color::new(170, 170, 170), sizer));
 
         // TODO(PT): Should return the normalized path (ie strip extra slashes and normalize ../)
-        amc_message_send(
-            FILE_SERVER_SERVICE_NAME,
-            FileManagerReadDirectory::new(path),
-        );
-        let dir_contents: AmcMessage<FileManagerDirectoryContents> =
+        amc_message_send(FILE_SERVER_SERVICE_NAME, ReadDirectory::new(path));
+        let dir_contents: AmcMessage<DirectoryContents> =
             amc_message_await(Some(FILE_SERVER_SERVICE_NAME));
 
         let mut cursor = Point::new(10, 10);

@@ -16,10 +16,10 @@ use axle_rt::{amc_message_await_untyped, amc_message_send};
 use axle_rt_derive::ContainsEventField;
 
 use cstr_core::CString;
-use file_manager_messages::FileManagerReadDirectory;
+use file_manager_messages::ReadDirectory;
 use file_manager_messages::{str_from_u8_nul_utf8_unchecked, LaunchProgram};
-use file_manager_messages::{FileManagerDirectoryContents, ReadFile, ReadFileResponse};
-use file_manager_messages::{FileManagerDirectoryEntry, FILE_SERVER_SERVICE_NAME};
+use file_manager_messages::{DirectoryContents, ReadFile, ReadFileResponse};
+use file_manager_messages::{DirectoryEntry, FILE_SERVER_SERVICE_NAME};
 
 use libfs::{fs_entry_find, DirectoryImage, FsEntry};
 
@@ -27,10 +27,10 @@ trait FromDirectoryImage {
     fn from_dir_image(dir: &DirectoryImage) -> Self;
 }
 
-impl FromDirectoryImage for FileManagerDirectoryContents {
+impl FromDirectoryImage for DirectoryContents {
     fn from_dir_image(dir: &DirectoryImage) -> Self {
-        let mut contents = FileManagerDirectoryContents {
-            event: FileManagerReadDirectory::EXPECTED_EVENT,
+        let mut contents = DirectoryContents {
+            event: ReadDirectory::EXPECTED_EVENT,
             entries: [None; 128],
         };
         let files = &dir.files;
@@ -40,7 +40,7 @@ impl FromDirectoryImage for FileManagerDirectoryContents {
         let subdirectories = &dir.subdirectories;
         for entry in subdirectories
             .into_iter()
-            .map(|kv| FileManagerDirectoryEntry::new(&kv.0, true))
+            .map(|kv| DirectoryEntry::new(&kv.0, true))
         {
             //printf!("Transformed dir entry: {:?}\n", entry);
             contents.entries[count] = Some(entry.clone());
@@ -49,7 +49,7 @@ impl FromDirectoryImage for FileManagerDirectoryContents {
 
         for entry in files
             .into_iter()
-            .map(|kv| FileManagerDirectoryEntry::new(&kv.0, false))
+            .map(|kv| DirectoryEntry::new(&kv.0, false))
         {
             //printf!("Transformed dir entry: {:?}\n", entry);
             contents.entries[count] = Some(entry.clone());
@@ -137,7 +137,7 @@ fn traverse_dir(depth: usize, dir: &DirectoryImage) {
 }
 */
 
-fn read_directory(root_dir: &DirectoryImage, sender: &str, request: &FileManagerReadDirectory) {
+fn read_directory(root_dir: &DirectoryImage, sender: &str, request: &ReadDirectory) {
     let requested_dir = str_from_u8_nul_utf8_unchecked(&request.dir);
     printf!("Dir: {:?}\n", requested_dir);
 
@@ -145,7 +145,7 @@ fn read_directory(root_dir: &DirectoryImage, sender: &str, request: &FileManager
     if let Some(entry) = fs_entry_find(&root_dir, &requested_dir) {
         printf!("Found FS entry: {}\n", entry.path);
         if entry.is_dir {
-            let response = FileManagerDirectoryContents::from_dir_image(&entry.dir_image.unwrap());
+            let response = DirectoryContents::from_dir_image(&entry.dir_image.unwrap());
             printf!("Sending response...\n");
             amc_message_send(sender, response);
         }
@@ -265,7 +265,7 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
         // boilerplate in each match arm.
         unsafe {
             match event {
-                FileManagerReadDirectory::EXPECTED_EVENT => read_directory(
+                ReadDirectory::EXPECTED_EVENT => read_directory(
                     &root_dir,
                     msg_unparsed.source(),
                     body_as_type_unchecked(raw_body),

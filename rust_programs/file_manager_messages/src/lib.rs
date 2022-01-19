@@ -79,14 +79,14 @@ impl ExpectsEventField for ReadFileResponse {
 
 #[repr(C)]
 #[derive(Debug, ContainsEventField)]
-pub struct FileManagerReadDirectory {
+pub struct ReadDirectory {
     pub event: u32,
     pub dir: [u8; 64],
 }
 
-impl FileManagerReadDirectory {
+impl ReadDirectory {
     pub fn new(dir: &str) -> Self {
-        let mut s = FileManagerReadDirectory {
+        let mut s = ReadDirectory {
             event: Self::EXPECTED_EVENT,
             dir: [0; 64],
         };
@@ -95,20 +95,20 @@ impl FileManagerReadDirectory {
     }
 }
 
-impl ExpectsEventField for FileManagerReadDirectory {
+impl ExpectsEventField for ReadDirectory {
     const EXPECTED_EVENT: u32 = 101;
 }
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct FileManagerDirectoryEntry {
+pub struct DirectoryEntry {
     pub name: [u8; 64],
     pub is_directory: bool,
 }
 
-impl FileManagerDirectoryEntry {
+impl DirectoryEntry {
     pub fn new(name: &str, is_directory: bool) -> Self {
-        let mut ret = FileManagerDirectoryEntry {
+        let mut ret = DirectoryEntry {
             name: [0; 64],
             is_directory,
         };
@@ -120,12 +120,12 @@ impl FileManagerDirectoryEntry {
 // TODO(PT): Variable-length array at the end of this structure
 #[repr(C)]
 #[derive(Debug, ContainsEventField)]
-pub struct FileManagerDirectoryContents {
+pub struct DirectoryContents {
     pub event: u32,
-    pub entries: [Option<FileManagerDirectoryEntry>; 128],
+    pub entries: [Option<DirectoryEntry>; 128],
 }
 
-impl ExpectsEventField for FileManagerDirectoryContents {
+impl ExpectsEventField for DirectoryContents {
     const EXPECTED_EVENT: u32 = 101;
 }
 
