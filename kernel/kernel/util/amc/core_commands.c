@@ -89,9 +89,9 @@ static void _amc_core_put_service_to_sleep(const char* source_service, uint32_t 
     tasking_block_task(service->task, block_reason);
 }
 
-static void _amc_core_file_manager_map_initrd(const char* source_service) {
-    // Only file_manager is allowed to invoke this code!
-    assert(!strncmp(source_service, "com.axle.file_manager2", AMC_MAX_SERVICE_NAME_LEN), "Only File Manager may use this syscall");
+static void _amc_core_file_server_map_initrd(const char* source_service) {
+    // Only file_server is allowed to invoke this code!
+    assert(!strncmp(source_service, "com.axle.file_server", AMC_MAX_SERVICE_NAME_LEN), "Only File Server may use this syscall");
 
     amc_service_t* current_service = amc_service_with_name(source_service);
     spinlock_acquire(&current_service->spinlock);
@@ -120,10 +120,9 @@ static void _trampoline(const char* program_name, void* buf, uint32_t buf_size) 
 	panic("noreturn");
 }
 
-static void _amc_core_file_manager_exec_buffer(const char* source_service, void* buf, uint32_t buf_size) {
-    // Only file_manager is allowed to invoke this code!
-    printf("Sourec service %s\n", source_service);
-    assert(!strncmp(source_service, "com.axle.file_manager2", AMC_MAX_SERVICE_NAME_LEN), "Only File Manager may use this syscall");
+static void _amc_core_file_server_exec_buffer(const char* source_service, void* buf, uint32_t buf_size) {
+    // Only file_server is allowed to invoke this code!
+    assert(!strncmp(source_service, "com.axle.file_server", AMC_MAX_SERVICE_NAME_LEN), "Only File Server may use this syscall");
 
     amc_exec_buffer_cmd_t* cmd = (amc_exec_buffer_cmd_t*)buf;
     printf("exec buffer(program_name: %s, buffer_addr: 0x%p, buffer_size: %p)\n", cmd->program_name, cmd->buffer_addr, cmd->buffer_size);
@@ -271,10 +270,10 @@ void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf
         _amc_core_put_service_to_sleep(source_service, u32buf[1], true);
     }
     else if (u32buf[0] == AMC_FILE_MANAGER_MAP_INITRD) {
-        _amc_core_file_manager_map_initrd(source_service);
+        _amc_core_file_server_map_initrd(source_service);
     }
     else if (u32buf[0] == AMC_FILE_MANAGER_EXEC_BUFFER) {
-        _amc_core_file_manager_exec_buffer(source_service, buf, buf_size);
+        _amc_core_file_server_exec_buffer(source_service, buf, buf_size);
     }
     else if (u32buf[0] == AMC_SHARED_MEMORY_DESTROY) {
         assert(false, "shmem destroy amccmd");
