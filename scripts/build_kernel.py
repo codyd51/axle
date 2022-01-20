@@ -163,9 +163,12 @@ def main():
     # Build kernel image
     run_and_check(["make"])
 
+    # Build Rust programs before C programs as the C programs might 
+    # need headers installed by Rust build scripts
+    build_rust_programs()
+
     # Build user programs
     build_meson_projects()
-    build_rust_programs()
 
     build_dist_tree()
 
