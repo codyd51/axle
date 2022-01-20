@@ -19,7 +19,7 @@ pub trait NestedLayerSlice: Drawable {
         let parent = self.get_parent().unwrap().upgrade().unwrap();
         let parent_slice = parent.get_slice();
 
-        let mut content_frame = parent.content_frame();
+        let content_frame = parent.content_frame();
         let constrained_to_content_frame = content_frame.constrain(self.frame());
         parent_slice.get_slice(Rect::from_parts(
             content_frame.origin + self.frame().origin,

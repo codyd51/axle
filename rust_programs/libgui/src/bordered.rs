@@ -2,7 +2,7 @@ use agx_definitions::{
     Color, Drawable, LayerSlice, Line, Point, Rect, RectInsets, StrokeThickness,
 };
 
-use crate::UIElement;
+use crate::ui_elements::UIElement;
 
 pub trait Bordered: Drawable + UIElement {
     fn draw(&self) {

@@ -3,15 +3,15 @@
 extern crate alloc;
 use core::{
     alloc::Layout,
-    intrinsics::{copy, copy_nonoverlapping},
-    mem::{self, align_of, size_of},
+    intrinsics::copy_nonoverlapping,
+    mem::{align_of, size_of},
 };
 
 use alloc::alloc::alloc;
 use alloc::vec::Vec;
 #[cfg(target_os = "axle")]
-use axle_rt::{amc_message_send, amc_message_send_untyped};
-use axle_rt::{copy_str_into_sized_slice, printf, ContainsEventField, ExpectsEventField};
+use axle_rt::amc_message_send_untyped;
+use axle_rt::{copy_str_into_sized_slice, ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
 
 pub const FILE_SERVER_SERVICE_NAME: &'static str = "com.axle.file_server";
@@ -118,6 +118,7 @@ impl DirectoryEntry {
 }
 
 // TODO(PT): Variable-length array at the end of this structure
+// Ref: https://www.reddit.com/r/rust/comments/75pnn2/ffi_and_variable_size_data_structure/
 #[repr(C)]
 #[derive(Debug, ContainsEventField)]
 pub struct DirectoryContents {

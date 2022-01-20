@@ -1,6 +1,4 @@
-use std::collections::BTreeMap;
-use std::io::Write;
-use std::{env, error, fs, io, path};
+use std::{env, fs, io, path};
 
 fn main() {
     let current_dir = env::current_dir().unwrap();

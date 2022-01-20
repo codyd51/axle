@@ -147,13 +147,10 @@ name = "file_browser"
 version = "0.1.0"
 dependencies = [
  "agx_definitions",
- "awm_messages",
  "axle_rt",
  "axle_rt_derive",
- "cstr_core",
  "file_manager_messages",
- "rand",
- "rand_core 0.5.1",
+ "libgui",
 ]
 
 [[package]]
@@ -216,6 +213,19 @@ dependencies = [
  "postcard",
  "serde",
  "serde_bytes",
+]
+
+[[package]]
+name = "libgui"
+version = "0.1.0"
+dependencies = [
+ "agx_definitions",
+ "awm_messages",
+ "axle_rt",
+ "axle_rt_derive",
+ "cstr_core",
+ "rand",
+ "rand_core 0.5.1",
 ]
 
 [[package]]

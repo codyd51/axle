@@ -8,4 +8,5 @@ members = [
     "file_browser",
     "initrd_fs",
     "libfs",
+    "libgui",
 ]

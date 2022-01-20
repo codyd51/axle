@@ -16,11 +16,14 @@ use alloc::{
     rc::Rc,
     string::{String, ToString},
 };
-use bordered::Bordered;
-use button::Button;
 use core::{cell::RefCell, cmp};
-use label::Label;
-use view::View;
+
+use libgui::bordered::Bordered;
+use libgui::button::Button;
+use libgui::label::Label;
+use libgui::ui_elements::UIElement;
+use libgui::view::View;
+use libgui::window::AwmWindow;
 
 use axle_rt::{
     amc_message_await, amc_message_send, amc_register_service, printf, AmcMessage,
@@ -36,18 +39,6 @@ use file_manager_messages::{
     str_from_u8_nul_utf8_unchecked, DirectoryContents, DirectoryEntry, LaunchProgram,
     ReadDirectory, FILE_SERVER_SERVICE_NAME,
 };
-
-mod bordered;
-mod button;
-mod font;
-mod label;
-mod ui_elements;
-mod view;
-mod window;
-mod window_events;
-
-use ui_elements::UIElement;
-use window::AwmWindow;
 
 fn select_current_path_view_height(superview_size: Size) -> isize {
     let min_height = 100;

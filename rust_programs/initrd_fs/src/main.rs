@@ -6,7 +6,7 @@
 extern crate alloc;
 extern crate libc;
 
-use alloc::str::{self, from_utf8};
+use alloc::str;
 
 use axle_rt::amc_register_service;
 use axle_rt::printf;
@@ -175,7 +175,7 @@ fn launch_program_by_path(root_dir: &DirectoryImage, path: &str) {
     }
 }
 
-fn launch_program(root_dir: &DirectoryImage, sender: &str, request: &LaunchProgram) {
+fn launch_program(root_dir: &DirectoryImage, _sender: &str, request: &LaunchProgram) {
     let requested_path = str_from_u8_nul_utf8_unchecked(&request.path);
     launch_program_by_path(root_dir, requested_path)
 }
