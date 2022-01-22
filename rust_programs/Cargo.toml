@@ -1,11 +1,12 @@
 [workspace]
 members = [
-    "awm_messages",
     "agx_definitions",
+    "awm_messages",
     "axle_rt",
     "axle_rt_derive",
-    "file_manager_messages",
     "file_browser",
+    "file_manager_messages",
+    "gb_emu",
     "initrd_fs",
     "libfs",
     "libgui",
