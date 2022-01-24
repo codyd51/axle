@@ -1,8 +1,12 @@
 use core::mem;
-use std::{collections::BTreeMap, fmt::{Debug, Display}, cell::RefCell, env::VarError};
+use std::{
+    cell::RefCell,
+    collections::BTreeMap,
+    env::VarError,
+    fmt::{Debug, Display},
+};
 
 use alloc::vec::Vec;
-
 
 struct RegisterState {
     a: u8,
@@ -18,14 +22,14 @@ struct RegisterState {
 impl RegisterState {
     fn new() -> Self {
         Self {
-            a:  0,
-            f:  0,
-            b:  0,
-            c:  0,
-            d:  0,
-            e:  0,
-            h:  0,
-            l:  0,
+            a: 0,
+            f: 0,
+            b: 0,
+            c: 0,
+            d: 0,
+            e: 0,
+            h: 0,
+            l: 0,
         }
     }
 }
@@ -122,7 +126,7 @@ struct InstrInfo {
     instruction_size: u16,
     cycle_count: usize,
     pc_increment: Option<u16>,
-    jumped: bool
+    jumped: bool,
 }
 
 impl InstrInfo {
@@ -140,7 +144,7 @@ impl InstrInfo {
             cycle_count,
             // Don't increment pc because the instruction will modify pc directly
             pc_increment: None,
-            jumped: true
+            jumped: true,
         }
     }
 }
@@ -214,7 +218,7 @@ impl Register {
             4 => Register::H,
             5 => Register::L,
             7 => Register::A,
-            _ => panic!("Not a register")
+            _ => panic!("Not a register"),
         }
     }
 
@@ -261,7 +265,7 @@ impl CpuRegister {
     fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
-            contents: RefCell::new(0)
+            contents: RefCell::new(0),
         }
     }
 }
@@ -291,8 +295,7 @@ struct DerefHL {}
 
 impl DerefHL {
     fn new() -> Self {
-        Self {
-        }
+        Self {}
     }
 
     fn mem_address(&self, cpu: &CpuState) -> u16 {
@@ -377,10 +380,22 @@ impl CpuState {
         println!();
         println!("--- CPU State ---");
         println!("\tPC = 0x{:04x}\tSP = 0x{:04x}", self.pc, self.sp);
-        println!("\tA = 0x{:02x}\tF = 0x{:02x}", self.registers.a, self.registers.f);
-        println!("\tB = 0x{:02x}\tC = 0x{:02x}", self.registers.b, self.registers.c);
-        println!("\tD = 0x{:02x}\tE = 0x{:02x}", self.registers.d, self.registers.e);
-        println!("\tH = 0x{:02x}\tL = 0x{:02x}", self.registers.h, self.registers.l);
+        println!(
+            "\tA = 0x{:02x}\tF = 0x{:02x}",
+            self.registers.a, self.registers.f
+        );
+        println!(
+            "\tB = 0x{:02x}\tC = 0x{:02x}",
+            self.registers.b, self.registers.c
+        );
+        println!(
+            "\tD = 0x{:02x}\tE = 0x{:02x}",
+            self.registers.d, self.registers.e
+        );
+        println!(
+            "\tH = 0x{:02x}\tL = 0x{:02x}",
+            self.registers.h, self.registers.l
+        );
     }
 
     fn get_register_ref(&mut self, reg: Register) -> &mut u8 {
@@ -395,7 +410,7 @@ impl CpuState {
         }
     }
 
-    pub fn get_register(&mut self, register: Register) -> u8{
+    pub fn get_register(&mut self, register: Register) -> u8 {
         *self.get_register_ref(register)
     }
 
@@ -437,8 +452,7 @@ impl CpuState {
         if flag_setting_and_bit_index.0 {
             // Enable flag
             self.registers.f |= 1 << bit_index;
-        }
-        else {
+        } else {
             // Disable flag
             self.registers.f &= !(1 << bit_index);
         }
@@ -455,11 +469,29 @@ impl CpuState {
     }
 
     pub fn format_flags(&self) -> String {
-        format!("{}{}{}{}", 
-        if self.is_flag_set(Flag::Zero) {"Z"} else {"-"},
-        if self.is_flag_set(Flag::Subtract) {"N"} else {"-"},
-        if self.is_flag_set(Flag::HalfCarry) {"H"} else {"-"},
-        if self.is_flag_set(Flag::Carry) {"C"} else {"-"})
+        format!(
+            "{}{}{}{}",
+            if self.is_flag_set(Flag::Zero) {
+                "Z"
+            } else {
+                "-"
+            },
+            if self.is_flag_set(Flag::Subtract) {
+                "N"
+            } else {
+                "-"
+            },
+            if self.is_flag_set(Flag::HalfCarry) {
+                "H"
+            } else {
+                "-"
+            },
+            if self.is_flag_set(Flag::Carry) {
+                "C"
+            } else {
+                "-"
+            }
+        )
     }
 
     pub fn operand_name_from_lookup_index(&self, index: u8) -> OperandName {
@@ -487,7 +519,7 @@ impl CpuState {
     pub fn operand_with_name(&self, name: OperandName) -> &dyn VariableStorage {
         match name {
             OperandName::MemHL => &*self.mem_hl as _,
-            _ => &*self.registers2[&name]
+            _ => &*self.registers2[&name],
         }
     }
 
@@ -500,9 +532,12 @@ impl CpuState {
         let opcode_digit3 = (instruction_byte >> 0) & 0b111;
 
         let debug = self.debug_enabled;
-        if debug { 
+        if debug {
             print!("0x{:04x}\t{:02x}\t", self.pc, instruction_byte);
-            print!("{:02x} {:02x} {:02x}\t", opcode_digit1, opcode_digit2, opcode_digit3);
+            print!(
+                "{:02x} {:02x} {:02x}\t",
+                opcode_digit1, opcode_digit2, opcode_digit3
+            );
         }
 
         // Some classes of instructions can be handled as a group
@@ -543,13 +578,14 @@ impl CpuState {
             if debug {
                 let reg_name = reg.name();
                 println!(
-                    "{reg_name} -= 1;\t{reg_name} = 0x{:02x}\t{}", new_value, self.format_flags()
+                    "{reg_name} -= 1;\t{reg_name} = 0x{:02x}\t{}",
+                    new_value,
+                    self.format_flags()
                 );
             }
-            
+
             InstrInfo::seq(1, 1)
-        }
-        else if opcode_digit1 == 0b01 {
+        } else if opcode_digit1 == 0b01 {
             // Opcode is 0x40 to 0x7f
             // 0x76 is HALT
             if instruction_byte == 0x76 {
@@ -576,82 +612,103 @@ impl CpuState {
             }
 
             // TODO(PT): The cycle count should be 2 if the source or dest is (HL)
-            let cycle_count = if self.operand_name_from_lookup_index(from_lookup) == OperandName::MemHL || self.operand_name_from_lookup_index(to_lookup) == OperandName::MemHL { 2 }
-            else { 1 };
+            let cycle_count = if self.operand_name_from_lookup_index(from_lookup)
+                == OperandName::MemHL
+                || self.operand_name_from_lookup_index(to_lookup) == OperandName::MemHL
+            {
+                2
+            } else {
+                1
+            };
             InstrInfo::seq(1, cycle_count)
-        }
-        else if opcode_digit1 == 0b00 && opcode_digit3 == 0b110 {
+        } else if opcode_digit1 == 0b00 && opcode_digit3 == 0b110 {
             // LD [Reg], [u8]
             let reg = Register::from_op_encoded_index(opcode_digit2);
             let new_value = self.memory.read(self.pc + 1);
             let reg_ref = reg.get_cpu_ref(self);
             *reg_ref = new_value;
-            if debug { 
-                println!("{} = 0x{:02x}", reg.name(), reg_ref); 
+            if debug {
+                println!("{} = 0x{:02x}", reg.name(), reg_ref);
             }
             InstrInfo::seq(2, 2)
-        }
-        else {
+        } else {
             match instruction_byte {
                 0x00 => {
-                    if debug { println!("NOP"); }
+                    if debug {
+                        println!("NOP");
+                    }
                     InstrInfo::seq(1, 1)
-                },
+                }
                 0x02 => {
                     let bc = self.get_bc();
                     let mem = self.memory.read(bc);
                     self.registers.a = mem;
-                    if debug { println!("A = [BC] ({bc:04x}: {mem:02x})"); }
+                    if debug {
+                        println!("A = [BC] ({bc:04x}: {mem:02x})");
+                    }
                     InstrInfo::seq(1, 2)
-                },
+                }
                 0x0c => {
                     self.registers.c += 1;
-                    if debug { println!("C += 1"); }
+                    if debug {
+                        println!("C += 1");
+                    }
                     InstrInfo::seq(1, 1)
-                },
+                }
                 0x20 => {
                     if !self.is_flag_set(Flag::Zero) {
                         let rel_target: i8 = self.memory.read(self.pc + 1);
-                        if debug { println!("JR NZ +{:02x};\t(taken)", rel_target); }
-                        // Add 2 to pc before doing the relative target, as 
+                        if debug {
+                            println!("JR NZ +{:02x};\t(taken)", rel_target);
+                        }
+                        // Add 2 to pc before doing the relative target, as
                         // this instruction is 2 bytes wide
                         self.pc += 2;
                         self.pc += rel_target as u16;
                         InstrInfo::jump(2, 3)
-                    }
-                    else {
-                        if debug { println!("JR NZ +off;\t(not taken)"); }
+                    } else {
+                        if debug {
+                            println!("JR NZ +off;\t(not taken)");
+                        }
                         InstrInfo::seq(2, 2)
                     }
                 }
                 0x21 => {
                     self.set_hl(self.memory.read(self.pc + 1));
-                    if debug { println!("HL = 0x{:04x}", self.get_hl()); }
+                    if debug {
+                        println!("HL = 0x{:04x}", self.get_hl());
+                    }
                     InstrInfo::seq(3, 3)
-                },
+                }
                 0x32 => {
                     let hl = self.get_hl();
                     self.memory.write_u8(hl, self.get_a());
                     self.set_hl(hl - 1);
-                    if debug { println!("LD (HL-) = A;\t*0x{:04x} = 0x{:02x}", hl, self.get_a()); }
+                    if debug {
+                        println!("LD (HL-) = A;\t*0x{:04x} = 0x{:02x}", hl, self.get_a());
+                    }
                     InstrInfo::seq(1, 2)
-                },
+                }
                 0xaf => {
                     self.registers.a ^= self.registers.a;
-                    if debug { println!("A ^= A"); }
+                    if debug {
+                        println!("A ^= A");
+                    }
                     self.set_flags(true, false, false, false);
                     InstrInfo::seq(1, 1)
-                },
+                }
                 0xc3 => {
                     let target = self.memory.read(self.pc + 1);
-                    if debug { println!("JMP 0x{target:04x}"); }
+                    if debug {
+                        println!("JMP 0x{target:04x}");
+                    }
                     self.pc = target;
                     InstrInfo::jump(3, 4)
-                },
+                }
                 _ => {
                     println!("<Unsupported>");
                     panic!("Unsupported opcode 0x{:02x}", instruction_byte)
-                },
+                }
             }
         }
     }
@@ -659,7 +716,10 @@ impl CpuState {
     pub fn step(&mut self) {
         let info = self.decode(self.pc);
         if let Some(pc_increment) = info.pc_increment {
-            assert_eq!(info.jumped, false, "Only expect to increment PC here when a jump was not taken");
+            assert_eq!(
+                info.jumped, false,
+                "Only expect to increment PC here when a jump was not taken"
+            );
             self.pc += pc_increment;
         }
     }
@@ -699,23 +759,34 @@ fn test_read_mem_hl() {
     cpu.enable_debug();
 
     cpu.memory.write_u8(0xffcc, 0xab);
-    cpu.operand_with_name(OperandName::RegH).write_u8(&cpu, 0xff);
-    cpu.operand_with_name(OperandName::RegL).write_u8(&cpu, 0xcc);
-    assert_eq!(cpu.operand_with_name(OperandName::MemHL).read_u8(&cpu), 0xab);
+    cpu.operand_with_name(OperandName::RegH)
+        .write_u8(&cpu, 0xff);
+    cpu.operand_with_name(OperandName::RegL)
+        .write_u8(&cpu, 0xcc);
+    assert_eq!(
+        cpu.operand_with_name(OperandName::MemHL).read_u8(&cpu),
+        0xab
+    );
 }
 
 #[test]
 fn test_write_mem_hl() {
     let mut cpu = CpuState::new();
-    cpu.operand_with_name(OperandName::RegH).write_u8(&cpu, 0xff);
-    cpu.operand_with_name(OperandName::RegL).write_u8(&cpu, 0xcc);
+    cpu.operand_with_name(OperandName::RegH)
+        .write_u8(&cpu, 0xff);
+    cpu.operand_with_name(OperandName::RegL)
+        .write_u8(&cpu, 0xcc);
 
     let marker = 0x12;
-    cpu.operand_with_name(OperandName::MemHL).write_u8(&cpu, marker);
+    cpu.operand_with_name(OperandName::MemHL)
+        .write_u8(&cpu, marker);
     // Then the write shows up directly in memory
     assert_eq!(cpu.memory.read::<u8>(0xffcc), marker);
     // And it shows up in the API for reading (HL)
-    assert_eq!(cpu.operand_with_name(OperandName::MemHL).read_u8(&cpu), marker);
+    assert_eq!(
+        cpu.operand_with_name(OperandName::MemHL).read_u8(&cpu),
+        marker
+    );
 }
 
 /* Instructions tests */
@@ -817,12 +888,17 @@ fn test_ld_b_c() {
     let mut cpu = CpuState::new();
     cpu.enable_debug();
     let marker = 0xca;
-    cpu.operand_with_name(OperandName::RegC).write_u8(&cpu, marker);
-    cpu.operand_with_name(OperandName::RegB).write_u8(&cpu, 0x00);
+    cpu.operand_with_name(OperandName::RegC)
+        .write_u8(&cpu, marker);
+    cpu.operand_with_name(OperandName::RegB)
+        .write_u8(&cpu, 0x00);
     cpu.memory.write_u8(0, 0x41);
     cpu.step();
     // Then the register has been loaded
-    assert_eq!(cpu.operand_with_name(OperandName::RegB).read_u8(&cpu), marker);
+    assert_eq!(
+        cpu.operand_with_name(OperandName::RegB).read_u8(&cpu),
+        marker
+    );
 }
 
 #[test]
@@ -830,10 +906,14 @@ fn test_ld_l_l() {
     // Given a LD L, L no-op instruction
     let mut cpu = CpuState::new();
     let marker = 0xfd;
-    cpu.operand_with_name(OperandName::RegL).write_u8(&cpu, marker);
+    cpu.operand_with_name(OperandName::RegL)
+        .write_u8(&cpu, marker);
     cpu.memory.write_u8(0, 0x6d);
     cpu.step();
-    assert_eq!(cpu.operand_with_name(OperandName::RegL).read_u8(&cpu), marker);
+    assert_eq!(
+        cpu.operand_with_name(OperandName::RegL).read_u8(&cpu),
+        marker
+    );
 }
 
 #[test]
@@ -841,14 +921,19 @@ fn test_ld_c_hl() {
     // Given an LD C, (HL) instruction
     let mut cpu = CpuState::new();
     cpu.enable_debug();
-    cpu.operand_with_name(OperandName::RegH).write_u8(&cpu, 0xff);
-    cpu.operand_with_name(OperandName::RegL).write_u8(&cpu, 0xcc);
+    cpu.operand_with_name(OperandName::RegH)
+        .write_u8(&cpu, 0xff);
+    cpu.operand_with_name(OperandName::RegL)
+        .write_u8(&cpu, 0xcc);
     //cpu.operand_with_name(OperandName::MemHL).write_u8(val)
     let marker = 0xdd;
     cpu.memory.write_u8(0xffcc, marker);
     cpu.memory.write_u8(0, 0x4e);
     cpu.step();
-    assert_eq!(cpu.operand_with_name(OperandName::RegC).read_u8(&cpu), marker);
+    assert_eq!(
+        cpu.operand_with_name(OperandName::RegC).read_u8(&cpu),
+        marker
+    );
 }
 
 #[test]
@@ -857,9 +942,12 @@ fn test_ld_hl_a() {
     let mut cpu = CpuState::new();
     cpu.enable_debug();
     let marker = 0xaf;
-    cpu.operand_with_name(OperandName::RegA).write_u8(&cpu, marker);
-    cpu.operand_with_name(OperandName::RegH).write_u8(&cpu, 0x11);
-    cpu.operand_with_name(OperandName::RegL).write_u8(&cpu, 0x22);
+    cpu.operand_with_name(OperandName::RegA)
+        .write_u8(&cpu, marker);
+    cpu.operand_with_name(OperandName::RegH)
+        .write_u8(&cpu, 0x11);
+    cpu.operand_with_name(OperandName::RegL)
+        .write_u8(&cpu, 0x22);
     cpu.memory.write_u8(0, 0x77);
     cpu.step();
     assert_eq!(cpu.memory.read::<u8>(0x1122), marker);
@@ -873,8 +961,10 @@ fn test_ld_h_hl() {
     // TODO(PT): Replace markers with a random u8?
     cpu.memory.write_u8(0xbb22, 0x33);
 
-    cpu.operand_with_name(OperandName::RegH).write_u8(&cpu, 0x11);
-    cpu.operand_with_name(OperandName::RegL).write_u8(&cpu, 0x22);
+    cpu.operand_with_name(OperandName::RegH)
+        .write_u8(&cpu, 0x11);
+    cpu.operand_with_name(OperandName::RegL)
+        .write_u8(&cpu, 0x22);
     cpu.memory.write_u8(0x1122, 0xbb);
     cpu.memory.write_u8(0, 0x66);
     cpu.step();
