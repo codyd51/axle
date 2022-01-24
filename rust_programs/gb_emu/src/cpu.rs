@@ -166,6 +166,7 @@ enum FlagUpdate {
 pub struct CpuState {
     sp: u16,
     pc: u16,
+    flags: RefCell<u8>,
     registers: RegisterState,
     registers2: BTreeMap<OperandName, Box<CpuRegister>>,
     mem_hl: Box<DerefHL>,
@@ -345,6 +346,7 @@ impl CpuState {
         Self {
             sp: 0,
             pc: 0,
+            flags: RefCell::new(0),
             registers: RegisterState::new(),
             registers2: registers,
             mem_hl: Box::new(DerefHL::new()),
@@ -440,7 +442,7 @@ impl CpuState {
         self.registers.f = high_nibble << 4;
     }
 
-    fn update_flag(&mut self, flag: FlagUpdate) {
+    fn update_flag(&self, flag: FlagUpdate) {
         let mut flag_setting_and_bit_index = match flag {
             FlagUpdate::Zero(on) => (on, 3),
             FlagUpdate::Subtract(on) => (on, 2),
@@ -449,12 +451,14 @@ impl CpuState {
         };
         // Flags are always in the high nibble
         let bit_index = 4 + flag_setting_and_bit_index.1;
+
+        let mut flags = self.flags.borrow_mut();
         if flag_setting_and_bit_index.0 {
             // Enable flag
-            self.registers.f |= 1 << bit_index;
+            *flags |= 1 << bit_index;
         } else {
             // Disable flag
-            self.registers.f &= !(1 << bit_index);
+            *flags &= !(1 << bit_index);
         }
     }
 
@@ -465,7 +469,9 @@ impl CpuState {
             Flag::HalfCarry => 1,
             Flag::Carry => 0,
         };
-        (self.registers.f & (1 << (4 + flag_bit_index))) != 0
+        //(self.registers.f & (1 << (4 + flag_bit_index))) != 0
+        let flags = *self.flags.borrow();
+        (flags & (1 << (4 + flag_bit_index))) != 0
     }
 
     pub fn format_flags(&self) -> String {
@@ -544,47 +550,28 @@ impl CpuState {
         // PT: Manually derived by inspecting the opcode table
         // Opcode table ref: https://meganesulli.com/generate-gb-opcodes/
         if opcode_digit1 == 0b00 && opcode_digit3 == 0b101 {
-            // DEC [reg]
-            let reg = Register::from_op_encoded_index(opcode_digit2);
-            /*
-            // TODO(PT): What happens when we get [HL], an unsupported pattern for DEC [reg]?
-            if operand == Operand::MemHL {
-                todo!();
+            // DEC [Reg]
+            let op = self.storage_from_lookup_index(opcode_digit2);
+            if debug {
+                print!("DEC {op}\t");
             }
-            */
-            // PT: Enter a new scope to modify the register value
-            let zero_flag;
-            let half_carry_flag;
-            let new_value;
-            {
-                let mut register_ref = reg.get_cpu_ref(self);
-
-                // Update the register value
-                let prev = *register_ref;
-                new_value = prev - 1;
-                *register_ref = new_value;
-
-                zero_flag = new_value == 0;
-                // TODO(PT): The commented expression is for half-carry addition
-                //half_carry_flag = (((prev & 0xf) + (new_value & 0xf)) & 0x10) == 0x10;
-
-                // Underflow into the high nibble?
-                half_carry_flag = (prev & 0xf) < (new_value & 0xf);
-            }
-            self.update_flag(FlagUpdate::Zero(zero_flag));
+            let prev = op.read_u8(&self);
+            let new = prev - 1;
+            op.write_u8(&self, new);
+            self.update_flag(FlagUpdate::Zero(new == 0));
             self.update_flag(FlagUpdate::Subtract(true));
-            self.update_flag(FlagUpdate::HalfCarry(half_carry_flag));
+            // Underflow into the high nibble?
+            self.update_flag(FlagUpdate::HalfCarry((prev & 0xf) < (new & 0xf)));
 
             if debug {
-                let reg_name = reg.name();
                 println!(
-                    "{reg_name} -= 1;\t{reg_name} = 0x{:02x}\t{}",
-                    new_value,
-                    self.format_flags()
-                );
+                    "Result: {op}"
+                )
             }
-
             InstrInfo::seq(1, 1)
+
+            // TODO(PT): The commented expression is for half-carry addition
+            //half_carry_flag = (((prev & 0xf) + (new_value & 0xf)) & 0x10) == 0x10;
         } else if opcode_digit1 == 0b01 {
             // Opcode is 0x40 to 0x7f
             // 0x76 is HALT
@@ -611,11 +598,13 @@ impl CpuState {
                 println!("{}", from_op);
             }
 
-            // TODO(PT): The cycle count should be 2 if the source or dest is (HL)
-            let cycle_count = if self.operand_name_from_lookup_index(from_lookup)
-                == OperandName::MemHL
-                || self.operand_name_from_lookup_index(to_lookup) == OperandName::MemHL
-            {
+            // If either operand is (HL), the cycle-count doubles
+            // TODO(PT): Unit-test cycle counts
+            let operand_names = [
+                self.operand_name_from_lookup_index(from_lookup),
+                self.operand_name_from_lookup_index(to_lookup),
+            ];
+            let cycle_count = if operand_names.contains(&OperandName::MemHL) {
                 2
             } else {
                 1
@@ -791,57 +780,82 @@ fn test_write_mem_hl() {
 
 /* Instructions tests */
 
+/* DEC instruction tests */
+
 #[test]
 fn test_dec_reg() {
     let mut cpu = CpuState::new();
+    cpu.enable_debug();
     let opcode_to_registers = [
-        (0x05, Register::B),
-        (0x0d, Register::C),
-        (0x15, Register::D),
-        (0x1d, Register::E),
-        (0x25, Register::H),
-        (0x2d, Register::L),
-        (0x3d, Register::A),
+        (0x05, OperandName::RegB),
+        (0x0d, OperandName::RegC),
+        (0x15, OperandName::RegD),
+        (0x1d, OperandName::RegE),
+        (0x25, OperandName::RegH),
+        (0x2d, OperandName::RegL),
+        (0x3d, OperandName::RegA),
     ];
     for (opcode, register) in opcode_to_registers {
         cpu.memory.write_u8(0, opcode);
 
-        // Given B contains 5
+        // Given the register contains 5
         cpu.pc = 0;
-        cpu.set_register(register, 5);
+        cpu.operand_with_name(register).write_u8(&cpu, 5);
         cpu.step();
-        assert_eq!(cpu.get_register(register), 4);
+        assert_eq!(cpu.operand_with_name(register).read_u8(&cpu), 4);
         assert_eq!(cpu.is_flag_set(Flag::Zero), false);
         assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
         assert_eq!(cpu.is_flag_set(Flag::HalfCarry), false);
 
-        // Given B contains 0 (underflow)
+        // Given the register contains 0 (underflow)
         cpu.pc = 0;
-        cpu.set_register(register, 0);
+        cpu.operand_with_name(register).write_u8(&cpu, 0);
         cpu.step();
-        assert_eq!(cpu.get_register(register), 0xff);
+        assert_eq!(cpu.operand_with_name(register).read_u8(&cpu), 0xff);
         assert_eq!(cpu.is_flag_set(Flag::Zero), false);
         assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
         assert_eq!(cpu.is_flag_set(Flag::HalfCarry), true);
 
-        // Given B contains 1 (zero)
+        // Given the register contains 1 (zero)
         cpu.pc = 0;
-        cpu.set_register(register, 1);
+        cpu.operand_with_name(register).write_u8(&cpu, 1);
         cpu.step();
-        assert_eq!(cpu.get_register(register), 0);
+        assert_eq!(cpu.operand_with_name(register).read_u8(&cpu), 0);
         assert_eq!(cpu.is_flag_set(Flag::Zero), true);
         assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
         assert_eq!(cpu.is_flag_set(Flag::HalfCarry), false);
 
-        // Given B contains 0xf0 (half carry)
+        // Given the register contains 0xf0 (half carry)
         cpu.pc = 0;
-        cpu.set_register(register, 0xf0);
+        cpu.operand_with_name(register).write_u8(&cpu, 0xf0);
         cpu.step();
-        assert_eq!(cpu.get_register(register), 0xef);
+        assert_eq!(cpu.operand_with_name(register).read_u8(&cpu), 0xef);
         assert_eq!(cpu.is_flag_set(Flag::Zero), false);
         assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
         assert_eq!(cpu.is_flag_set(Flag::HalfCarry), true);
     }
+}
+
+#[test]
+fn test_dec_mem_hl() {
+    let mut cpu = CpuState::new();
+    // Given the memory pointed to by HL contains 0x0f
+    cpu.operand_with_name(OperandName::RegH)
+        .write_u8(&cpu, 0xff);
+    cpu.operand_with_name(OperandName::RegL)
+        .write_u8(&cpu, 0xcc);
+    cpu.operand_with_name(OperandName::MemHL)
+        .write_u8(&cpu, 0xf0);
+    // When the CPU runs a DEC (HL) instruction
+    // TODO(PT): Check cycle count here
+    cpu.memory.write_u8(0, 0x35);
+    cpu.step();
+    // Then the memory has been decremented
+    assert_eq!(cpu.operand_with_name(OperandName::MemHL).read_u8(&cpu), 0xef);
+    // And the flags are set correctly
+    assert_eq!(cpu.is_flag_set(Flag::Zero), false);
+    assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
+    assert_eq!(cpu.is_flag_set(Flag::HalfCarry), true);
 }
 
 #[test]
@@ -925,9 +939,8 @@ fn test_ld_c_hl() {
         .write_u8(&cpu, 0xff);
     cpu.operand_with_name(OperandName::RegL)
         .write_u8(&cpu, 0xcc);
-    //cpu.operand_with_name(OperandName::MemHL).write_u8(val)
     let marker = 0xdd;
-    cpu.memory.write_u8(0xffcc, marker);
+    cpu.operand_with_name(OperandName::MemHL).write_u8(&cpu, marker);
     cpu.memory.write_u8(0, 0x4e);
     cpu.step();
     assert_eq!(
