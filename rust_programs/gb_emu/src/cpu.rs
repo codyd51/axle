@@ -1,5 +1,4 @@
 use core::mem;
-use std::ops::Shr;
 
 use alloc::vec::Vec;
 
@@ -164,11 +163,61 @@ pub struct CpuState {
     debug_enabled: bool,
 }
 
+#[derive(Debug, Copy, Clone)]
+enum Register {
+    B,
+    C,
+    D,
+    E,
+    H,
+    L,
+    A,
+}
+
+impl Register {
+    fn name(&self) -> &'static str {
+        match self {
+            Register::B => "B",
+            Register::C => "C",
+            Register::D => "D",
+            Register::E => "E",
+            Register::H => "H",
+            Register::L => "L",
+            Register::A => "A",
+        }
+    }
+
+    fn from_op_encoded_index(index: u8) -> Self {
+        match index {
+            0 => Register::B,
+            1 => Register::C,
+            2 => Register::D,
+            3 => Register::E,
+            4 => Register::H,
+            5 => Register::L,
+            7 => Register::A,
+            _ => panic!("Not a register")
+        }
+    }
+
+    fn get_cpu_ref<'a>(&self, cpu: &'a mut CpuState) -> &'a mut u8 {
+        match self {
+            Register::B => &mut cpu.registers.b,
+            Register::C => &mut cpu.registers.c,
+            Register::D => &mut cpu.registers.d,
+            Register::E => &mut cpu.registers.e,
+            Register::H => &mut cpu.registers.h,
+            Register::L => &mut cpu.registers.l,
+            Register::A => &mut cpu.registers.a,
+        }
+    }
+}
+
 impl CpuState {
     pub fn new() -> Self {
         Self {
             sp: 0,
-            pc: 0x100,
+            pc: 0,
             registers: RegisterState::new(),
             memory: Memory::new(),
             debug_enabled: false,
@@ -177,6 +226,7 @@ impl CpuState {
 
     pub fn load_rom_data(&mut self, rom_data: Vec<u8>) {
         // Set initial state
+        self.pc = 0x100;
         self.registers.a = 0x01;
         self.set_flags(true, false, true, true);
         self.registers.c = 0x13;
@@ -204,6 +254,26 @@ impl CpuState {
         println!("\tB = 0x{:02x}\tC = 0x{:02x}", self.registers.b, self.registers.c);
         println!("\tD = 0x{:02x}\tE = 0x{:02x}", self.registers.d, self.registers.e);
         println!("\tH = 0x{:02x}\tL = 0x{:02x}", self.registers.h, self.registers.l);
+    }
+
+    fn get_register_ref(&mut self, reg: Register) -> &mut u8 {
+        match reg {
+            Register::B => &mut self.registers.b,
+            Register::C => &mut self.registers.c,
+            Register::D => &mut self.registers.d,
+            Register::E => &mut self.registers.e,
+            Register::H => &mut self.registers.h,
+            Register::L => &mut self.registers.l,
+            Register::A => &mut self.registers.a,
+        }
+    }
+
+    pub fn get_register(&mut self, register: Register) -> u8{
+        *self.get_register_ref(register)
+    }
+
+    pub fn set_register(&mut self, register: Register, val: u8) {
+        *self.get_register_ref(register) = val;
     }
 
     fn get_a(&self) -> u8 {
@@ -268,106 +338,134 @@ impl CpuState {
     pub fn decode(&mut self, pc: u16) -> InstrInfo {
         // Fetch the next opcode
         let instruction_byte: u8 = self.memory.read(pc);
+        // Decode using the strategy described by https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
+        let opcode_digit1 = (instruction_byte >> 6) & 0b11;
+        let opcode_digit2 = (instruction_byte >> 3) & 0b111;
+        let opcode_digit3 = (instruction_byte >> 0) & 0b111;
 
         let debug = self.debug_enabled;
-        if (debug) { print!("0x{:04x}\t{:02x}\t", self.pc, instruction_byte); }
-        match instruction_byte {
-            0x00 => {
-                if (debug) { println!("NOP"); }
-                InstrInfo::seq(1, 1)
-            },
-            0x02 => {
-                let bc = self.get_bc();
-                let mem = self.memory.read(bc);
-                self.registers.a = mem;
-                if (debug) { println!("A = [BC] ({bc:04x}: {mem:02x})"); }
-                InstrInfo::seq(1, 2)
-            },
-            0x0c => {
-                self.registers.c += 1;
-                if (debug) { println!("C += 1"); }
-                InstrInfo::seq(1, 1)
-            },
-            0x05 => {
-                let prev = self.registers.b;
-                let now = prev - 1;
-                self.registers.b = now;
-                self.update_flag(FlagUpdate::Zero(now == 0));
-                self.update_flag(FlagUpdate::Subtract(true));
-                self.update_flag(FlagUpdate::HalfCarry((((prev & 0xf) + (now & 0xf)) & 0x10) == 0x10));
+        if debug { 
+            print!("0x{:04x}\t{:02x}\t", self.pc, instruction_byte);
+            print!("{:02x} {:02x} {:02x}\t", opcode_digit1, opcode_digit2, opcode_digit3);
+        }
 
-                if (debug) {
-                    //println!("\t Prev {:?} New {:?} Ref {:?}", prev, now, self.registers.b);
-                    println!(
-                        "B -= 1;\tB = 0x{:02x}\t{}", self.registers.b, self.format_flags()
-                    );
-                }
-                
-                // Did we carry into the high bit?
-                InstrInfo::seq(1, 1)
-            },
-            0x06 => {
-                self.registers.b = self.memory.read(self.pc + 1);
-                if (debug) { println!("B = 0x{:02x}", self.registers.b); }
-                InstrInfo::seq(2, 2)
-            },
-            0x0e => {
-                self.registers.c = self.memory.read(self.pc + 1);
-                if (debug) { println!("C = 0x{:02x}", self.registers.c); }
-                InstrInfo::seq(2, 2)
-            },
-            0x20 => {
-                if !self.is_flag_set(Flag::Zero) {
-                    let rel_target: i8 = self.memory.read(self.pc + 1);
-                    /*
-                    if rel_target == 0 {
-                        self.print_regs();
-                        let x: u8 = self.memory.read(self.pc);
-                        let x2: u8 = self.memory.read(self.pc+1);
-                        println!("{:02x} {:02x}", x, x2);
-                        panic!("Rel_target is 0?");
-                    }
-                    */
-                    if (debug) { println!("JR NZ +{:02x};\t(taken)", rel_target); }
-                    // Add 2 to pc before doing the relative target, as 
-                    // this instruction is 2 bytes wide
-                    self.pc += 2;
-                    self.pc += rel_target as u16;
-                    InstrInfo::jump(2, 3)
-                }
-                else {
-                    if (debug) { println!("JR NZ +off;\t(not taken)"); }
-                    InstrInfo::seq(2, 2)
-                }
+        // Some classes of instructions can be handled as a group
+        // PT: Manually derived by inspecting the opcode table
+        // Opcode table ref: https://meganesulli.com/generate-gb-opcodes/
+        if opcode_digit1 == 0b00 && opcode_digit3 == 0b101 {
+            // DEC [reg]
+            let reg = Register::from_op_encoded_index(opcode_digit2);
+            /*
+            // TODO(PT): What happens when we get [HL], an unsupported pattern for DEC [reg]?
+            if operand == Operand::MemHL {
+                todo!();
             }
-            0x21 => {
-                self.set_hl(self.memory.read(self.pc + 1));
-                if (debug) { println!("HL = 0x{:04x}", self.get_hl()); }
-                InstrInfo::seq(3, 3)
-            },
-            0x32 => {
-                let hl = self.get_hl();
-                self.memory.write_u8(hl, self.get_a());
-                self.set_hl(hl - 1);
-                if (debug) { println!("LD (HL-) = A;\t*0x{:04x} = 0x{:02x}", hl, self.get_a()); }
-                InstrInfo::seq(1, 2)
-            },
-            0xaf => {
-                self.registers.a ^= self.registers.a;
-                if (debug) { println!("A ^= A"); }
-                self.set_flags(true, false, false, false);
-                InstrInfo::seq(1, 1)
-            },
-            0xc3 => {
-                let target = self.memory.read(self.pc + 1);
-                if (debug) { println!("JMP 0x{target:04x}"); }
-                self.pc = target;
-                InstrInfo::jump(3, 4)
-            },
-            _ => {
-                println!("<Unsupported>");
-                panic!("Unsupported opcode 0x{:02x}", instruction_byte)
-            },
+            */
+            // PT: Enter a new scope to modify the register value
+            let zero_flag;
+            let half_carry_flag;
+            let new_value;
+            {
+                let mut register_ref = reg.get_cpu_ref(self);
+
+                // Update the register value
+                let prev = *register_ref;
+                new_value = prev - 1;
+                *register_ref = new_value;
+
+                zero_flag = new_value == 0;
+                // TODO(PT): The commented expression is for half-carry addition
+                //half_carry_flag = (((prev & 0xf) + (new_value & 0xf)) & 0x10) == 0x10;
+
+                // Underflow into the high nibble?
+                half_carry_flag = (prev & 0xf) < (new_value & 0xf);
+            }
+            self.update_flag(FlagUpdate::Zero(zero_flag));
+            self.update_flag(FlagUpdate::Subtract(true));
+            self.update_flag(FlagUpdate::HalfCarry(half_carry_flag));
+
+            if debug {
+                let reg_name = reg.name();
+                println!(
+                    "{reg_name} -= 1;\t{reg_name} = 0x{:02x}\t{}", new_value, self.format_flags()
+                );
+            }
+            
+            InstrInfo::seq(1, 1)
+        }
+        else if opcode_digit1 == 0b00 && opcode_digit3 == 0b110 {
+            // LD [Reg], [u8]
+            let reg = Register::from_op_encoded_index(opcode_digit2);
+            let new_value = self.memory.read(self.pc + 1);
+            let reg_ref = reg.get_cpu_ref(self);
+            *reg_ref = new_value;
+            if debug { 
+                println!("{} = 0x{:02x}", reg.name(), reg_ref); 
+            }
+            InstrInfo::seq(2, 2)
+        }
+        else {
+            match instruction_byte {
+                0x00 => {
+                    if debug { println!("NOP"); }
+                    InstrInfo::seq(1, 1)
+                },
+                0x02 => {
+                    let bc = self.get_bc();
+                    let mem = self.memory.read(bc);
+                    self.registers.a = mem;
+                    if debug { println!("A = [BC] ({bc:04x}: {mem:02x})"); }
+                    InstrInfo::seq(1, 2)
+                },
+                0x0c => {
+                    self.registers.c += 1;
+                    if debug { println!("C += 1"); }
+                    InstrInfo::seq(1, 1)
+                },
+                0x20 => {
+                    if !self.is_flag_set(Flag::Zero) {
+                        let rel_target: i8 = self.memory.read(self.pc + 1);
+                        if debug { println!("JR NZ +{:02x};\t(taken)", rel_target); }
+                        // Add 2 to pc before doing the relative target, as 
+                        // this instruction is 2 bytes wide
+                        self.pc += 2;
+                        self.pc += rel_target as u16;
+                        InstrInfo::jump(2, 3)
+                    }
+                    else {
+                        if debug { println!("JR NZ +off;\t(not taken)"); }
+                        InstrInfo::seq(2, 2)
+                    }
+                }
+                0x21 => {
+                    self.set_hl(self.memory.read(self.pc + 1));
+                    if debug { println!("HL = 0x{:04x}", self.get_hl()); }
+                    InstrInfo::seq(3, 3)
+                },
+                0x32 => {
+                    let hl = self.get_hl();
+                    self.memory.write_u8(hl, self.get_a());
+                    self.set_hl(hl - 1);
+                    if debug { println!("LD (HL-) = A;\t*0x{:04x} = 0x{:02x}", hl, self.get_a()); }
+                    InstrInfo::seq(1, 2)
+                },
+                0xaf => {
+                    self.registers.a ^= self.registers.a;
+                    if debug { println!("A ^= A"); }
+                    self.set_flags(true, false, false, false);
+                    InstrInfo::seq(1, 1)
+                },
+                0xc3 => {
+                    let target = self.memory.read(self.pc + 1);
+                    if debug { println!("JMP 0x{target:04x}"); }
+                    self.pc = target;
+                    InstrInfo::jump(3, 4)
+                },
+                _ => {
+                    println!("<Unsupported>");
+                    panic!("Unsupported opcode 0x{:02x}", instruction_byte)
+                },
+            }
         }
     }
 
@@ -404,4 +502,93 @@ fn test_read_u16() {
     // And offset memory accesses look correct
     assert_eq!(mem.read::<u16>(19), 0x0d00);
     assert_eq!(mem.read::<u16>(21), 0x000c);
+}
+
+#[test]
+fn test_dec_reg() {
+    let mut cpu = CpuState::new();
+    let opcode_to_registers = [
+        (0x05, Register::B),
+        (0x0d, Register::C),
+        (0x15, Register::D),
+        (0x1d, Register::E),
+        (0x25, Register::H),
+        (0x2d, Register::L),
+        (0x3d, Register::A),
+    ];
+    for (opcode, register) in opcode_to_registers {
+        cpu.memory.rom[0] = opcode;
+
+        // Given B contains 5
+        cpu.pc = 0;
+        cpu.set_register(register, 5);
+        cpu.step();
+        assert_eq!(cpu.get_register(register), 4);
+        assert_eq!(cpu.is_flag_set(Flag::Zero), false);
+        assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
+        assert_eq!(cpu.is_flag_set(Flag::HalfCarry), false);
+
+        // Given B contains 0 (underflow)
+        cpu.pc = 0;
+        cpu.set_register(register, 0);
+        cpu.step();
+        assert_eq!(cpu.get_register(register), 0xff);
+        assert_eq!(cpu.is_flag_set(Flag::Zero), false);
+        assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
+        assert_eq!(cpu.is_flag_set(Flag::HalfCarry), true);
+
+        // Given B contains 1 (zero)
+        cpu.pc = 0;
+        cpu.set_register(register, 1);
+        cpu.step();
+        assert_eq!(cpu.get_register(register), 0);
+        assert_eq!(cpu.is_flag_set(Flag::Zero), true);
+        assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
+        assert_eq!(cpu.is_flag_set(Flag::HalfCarry), false);
+
+        // Given B contains 0xf0 (half carry)
+        cpu.pc = 0;
+        cpu.set_register(register, 0xf0);
+        cpu.step();
+        assert_eq!(cpu.get_register(register), 0xef);
+        assert_eq!(cpu.is_flag_set(Flag::Zero), false);
+        assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
+        assert_eq!(cpu.is_flag_set(Flag::HalfCarry), true);
+    }
+}
+
+#[test]
+fn test_ld_reg_u8() {
+    let mut cpu = CpuState::new();
+    let opcode_to_registers = [
+        (0x06, Register::B),
+        (0x0e, Register::C),
+        (0x16, Register::D),
+        (0x1e, Register::E),
+        (0x26, Register::H),
+        (0x2e, Register::L),
+        (0x3e, Register::A),
+    ];
+    for (opcode, register) in opcode_to_registers {
+        cpu.pc = 0;
+        let marker = 0xab;
+        cpu.memory.rom[0] = opcode;
+        cpu.memory.rom[1] = marker;
+
+        // Given the register contains data other than the marker
+        cpu.set_register(register, 0xff);
+        cpu.step();
+        assert_eq!(cpu.get_register(register), marker);
+    }
+}
+
+#[test]
+fn test_jmp() {
+    let mut cpu = CpuState::new();
+    cpu.memory.rom[0] = 0xc3;
+    // Little endian branch target
+    cpu.memory.rom[1] = 0xfe;
+    cpu.memory.rom[2] = 0xca;
+    cpu.step();
+    assert_eq!(cpu.pc, 0xcafe);
 }
