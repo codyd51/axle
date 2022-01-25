@@ -8,6 +8,8 @@ use std::{
 
 use alloc::vec::Vec;
 
+use bitmatch::bitmatch;
+
 struct RegisterState {
     a: u8,
     f: u8,
@@ -529,6 +531,7 @@ impl CpuState {
         }
     }
 
+    #[bitmatch]
     pub fn decode(&mut self, pc: u16) -> InstrInfo {
         // Fetch the next opcode
         let instruction_byte: u8 = self.memory.read(pc);
@@ -546,86 +549,110 @@ impl CpuState {
             );
         }
 
-        // Some classes of instructions can be handled as a group
-        // PT: Manually derived by inspecting the opcode table
+        // Some instructions have dedicated handling 
+        let maybe_instr_info = match instruction_byte {
+            0x00 => {
+                if debug {
+                    println!("NOP");
+                }
+                Some(InstrInfo::seq(1, 1))
+            },
+            0x76 => {
+                panic!("HALT not implemented")
+            },
+            0xc3 => {
+                let target = self.memory.read(self.pc + 1);
+                if debug {
+                    println!("JMP 0x{target:04x}");
+                }
+                self.pc = target;
+                Some(InstrInfo::jump(3, 4))
+            },
+            // Handled down below
+            _ => None
+        };
+        if let Some(instr_info) = maybe_instr_info {
+            // Instruction interpreted by direct opcode match
+            return instr_info;
+        }
+
+        // Classes of instructions are handled as a group
+        // PT: Manually derived these groups by inspecting the opcode table
         // Opcode table ref: https://meganesulli.com/generate-gb-opcodes/
-        if opcode_digit1 == 0b00 && opcode_digit3 == 0b101 {
-            // DEC [Reg]
-            let op = self.storage_from_lookup_index(opcode_digit2);
-            if debug {
-                print!("DEC {op}\t");
+        #[bitmatch]
+        match instruction_byte {
+            "00iii101" => {
+                // DEC [Reg]
+                let op = self.storage_from_lookup_index(i);
+                if debug {
+                    print!("DEC {op}\t");
+                }
+                let prev = op.read_u8(&self);
+                let new = prev - 1;
+                op.write_u8(&self, new);
+                self.update_flag(FlagUpdate::Zero(new == 0));
+                self.update_flag(FlagUpdate::Subtract(true));
+                // Underflow into the high nibble?
+                self.update_flag(FlagUpdate::HalfCarry((prev & 0xf) < (new & 0xf)));
+
+                if debug {
+                    println!(
+                        "Result: {op}"
+                    )
+                }
+                InstrInfo::seq(1, 1)
+                // TODO(PT): The commented expression is for half-carry addition
+                //half_carry_flag = (((prev & 0xf) + (new_value & 0xf)) & 0x10) == 0x10;
+            },
+            "01tttfff" => {
+                // Opcode is 0x40 to 0x7f
+                // LD [Reg], [Reg]
+                let from_op = self.storage_from_lookup_index(f);
+                let from_val = from_op.read_u8(self);
+                let to_op = self.storage_from_lookup_index(t);
+
+                // Print before writing so we can see the old value
+                if debug {
+                    print!("LOAD {} with ", to_op);
+                }
+
+                to_op.write_u8(self, from_val);
+
+                if debug {
+                    println!("{}", from_op);
+                }
+
+                // If either operand is (HL), the cycle-count doubles
+                // TODO(PT): Unit-test cycle counts
+                let operand_names = [
+                    self.operand_name_from_lookup_index(f),
+                    self.operand_name_from_lookup_index(f),
+                ];
+                let cycle_count = if operand_names.contains(&OperandName::MemHL) {
+                    2
+                } else {
+                    1
+                };
+                InstrInfo::seq(1, cycle_count)
+            },
+            "00iii110" => {
+                // LD [Reg], [u8]
+                let dest = self.storage_from_lookup_index(opcode_digit2);
+                let val = self.memory.read(self.pc + 1);
+                dest.write_u8(&self, val);
+                if debug {
+                    println!("LD {dest} with 0x{val:02x}");
+                }
+                // TODO(PT): Update me when the operand is (HL)
+                InstrInfo::seq(2, 2)
             }
-            let prev = op.read_u8(&self);
-            let new = prev - 1;
-            op.write_u8(&self, new);
-            self.update_flag(FlagUpdate::Zero(new == 0));
-            self.update_flag(FlagUpdate::Subtract(true));
-            // Underflow into the high nibble?
-            self.update_flag(FlagUpdate::HalfCarry((prev & 0xf) < (new & 0xf)));
+            _ => panic!("Unsupported")
+        }
 
-            if debug {
-                println!(
-                    "Result: {op}"
-                )
-            }
-            InstrInfo::seq(1, 1)
-            // TODO(PT): The commented expression is for half-carry addition
-            //half_carry_flag = (((prev & 0xf) + (new_value & 0xf)) & 0x10) == 0x10;
-        } else if opcode_digit1 == 0b01 {
-            // Opcode is 0x40 to 0x7f
-            // 0x76 is HALT
-            if instruction_byte == 0x76 {
-                panic!("HALT not implemented");
-            }
-
-            // LD [Reg], [Reg]
-            let from_lookup = opcode_digit3;
-            let to_lookup = opcode_digit2;
-            let from_op = self.storage_from_lookup_index(from_lookup);
-            let from_val = from_op.read_u8(self);
-
-            let to_op = self.storage_from_lookup_index(to_lookup);
-
-            // Print before writing so we can see the old value
-            if debug {
-                print!("LOAD {} with ", to_op);
-            }
-
-            to_op.write_u8(self, from_val);
-
-            if debug {
-                println!("{}", from_op);
-            }
-
-            // If either operand is (HL), the cycle-count doubles
-            // TODO(PT): Unit-test cycle counts
-            let operand_names = [
-                self.operand_name_from_lookup_index(from_lookup),
-                self.operand_name_from_lookup_index(to_lookup),
-            ];
-            let cycle_count = if operand_names.contains(&OperandName::MemHL) {
-                2
-            } else {
-                1
-            };
-            InstrInfo::seq(1, cycle_count)
+        /*
         } else if opcode_digit1 == 0b00 && opcode_digit3 == 0b110 {
-            // LD [Reg], [u8]
-            let dest = self.storage_from_lookup_index(opcode_digit2);
-            let val = self.memory.read(self.pc + 1);
-            dest.write_u8(&self, val);
-            if debug {
-                println!("LD {dest} with 0x{val:02x}");
-            }
-            // TODO(PT): Update me when the operand is (HL)
-            InstrInfo::seq(2, 2)
         } else {
             match instruction_byte {
-                0x00 => {
-                    if debug {
-                        println!("NOP");
-                    }
-                    InstrInfo::seq(1, 1)
                 }
                 0x02 => {
                     let bc = self.get_bc();
@@ -699,6 +726,7 @@ impl CpuState {
                 }
             }
         }
+        */
     }
 
     pub fn step(&mut self) {
