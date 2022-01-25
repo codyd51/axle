@@ -131,10 +131,7 @@ pub struct CpuState {
     sp: u16,
     pc: u16,
     flags: RefCell<u8>,
-    // TODO(PT): Replace with a single table to &dyn VariableStorage?
-    registers: BTreeMap<OperandName, Box<CpuRegister>>,
-    wide_registers: BTreeMap<OperandName, Box<CpuWideRegister>>,
-    mem_hl: Box<DerefHL>,
+    operands: BTreeMap<OperandName, Box<dyn VariableStorage>>,
     memory: Memory,
     debug_enabled: bool,
 }
@@ -328,25 +325,28 @@ impl Display for DerefHL {
 
 impl CpuState {
     pub fn new() -> Self {
-        let mut registers = BTreeMap::new();
-        registers.insert(OperandName::RegB, Box::new(CpuRegister::new("B")));
-        registers.insert(OperandName::RegC, Box::new(CpuRegister::new("C")));
-        registers.insert(OperandName::RegD, Box::new(CpuRegister::new("D")));
-        registers.insert(OperandName::RegE, Box::new(CpuRegister::new("E")));
-        registers.insert(OperandName::RegH, Box::new(CpuRegister::new("H")));
-        registers.insert(OperandName::RegL, Box::new(CpuRegister::new("L")));
-        registers.insert(OperandName::RegA, Box::new(CpuRegister::new("A")));
+        let mut operands: BTreeMap<OperandName, Box<dyn VariableStorage>> = BTreeMap::new();
 
-        let mut wide_registers = BTreeMap::new();
-        wide_registers.insert(
+        // 8-bit operands
+        operands.insert(OperandName::RegB, Box::new(CpuRegister::new("B")));
+        operands.insert(OperandName::RegC, Box::new(CpuRegister::new("C")));
+        operands.insert(OperandName::RegD, Box::new(CpuRegister::new("D")));
+        operands.insert(OperandName::RegE, Box::new(CpuRegister::new("E")));
+        operands.insert(OperandName::RegH, Box::new(CpuRegister::new("H")));
+        operands.insert(OperandName::RegL, Box::new(CpuRegister::new("L")));
+        operands.insert(OperandName::RegA, Box::new(CpuRegister::new("A")));
+        operands.insert(OperandName::MemHL, Box::new(DerefHL::new()));
+
+        // 16-bit operands
+        operands.insert(
             OperandName::RegsBC,
             Box::new(CpuWideRegister::new(OperandName::RegB, OperandName::RegC)),
         );
-        wide_registers.insert(
+        operands.insert(
             OperandName::RegsDE,
             Box::new(CpuWideRegister::new(OperandName::RegD, OperandName::RegE)),
         );
-        wide_registers.insert(
+        operands.insert(
             OperandName::RegsHL,
             Box::new(CpuWideRegister::new(OperandName::RegH, OperandName::RegL)),
         );
@@ -355,9 +355,7 @@ impl CpuState {
             sp: 0,
             pc: 0,
             flags: RefCell::new(0),
-            registers,
-            wide_registers,
-            mem_hl: Box::new(DerefHL::new()),
+            operands,
             memory: Memory::new(),
             debug_enabled: false,
         }
@@ -394,11 +392,8 @@ impl CpuState {
         let flags = self.format_flags();
         println!("\tFlags: {flags}");
 
-        for (name, register) in &self.registers {
-            println!("\t{name}: {register}");
-        }
-        for (name, wreg) in &self.wide_registers {
-            println!("\t{name}: {wreg}");
+        for (name, operand) in &self.operands {
+            println!("\t{name}: {operand}");
         }
     }
 
@@ -500,14 +495,7 @@ impl CpuState {
     }
 
     pub fn get_op(&self, name: OperandName) -> &dyn VariableStorage {
-        match name {
-            OperandName::MemHL => &*self.mem_hl as _,
-            OperandName::RegsBC => &*self.wide_registers[&OperandName::RegsBC],
-            OperandName::RegsDE => &*self.wide_registers[&OperandName::RegsDE],
-            OperandName::RegsHL => &*self.wide_registers[&OperandName::RegsHL],
-            OperandName::RegSP => panic!("SP not available yet"),
-            _ => &*self.registers[&name],
-        }
+        &*self.operands[&name]
     }
 
     #[bitmatch]
