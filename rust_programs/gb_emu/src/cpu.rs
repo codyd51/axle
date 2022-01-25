@@ -281,8 +281,10 @@ impl VariableStorage for CpuRegisterPair {
         ((upper.read_u8(cpu) as u16) << 8) | (lower.read_u8(cpu) as u16)
     }
 
-    fn write_u8(&self, _cpu: &CpuState, val: u8) {
-        panic!("Wide register cannot write u8")
+    fn write_u8(&self, cpu: &CpuState, val: u8) {
+        // Implicitly dereference the memory pointed to by the register pair
+        let address = self.read_u16(cpu);
+        cpu.memory.write_u8(address, val)
     }
 
     fn write_u16(&self, cpu: &CpuState, val: u16) {
@@ -960,6 +962,19 @@ fn test_wide_reg_addressing_mode_deref_decrement() {
     );
     // And the contents of the register are decremented
     assert_eq!(cpu.get_op(OperandName::RegsHL).read_u16(&cpu), 0xaaba);
+}
+
+#[test]
+fn test_wide_reg_write_u8() {
+    let mut cpu = CpuState::new();
+    // Given BC contains a pointer
+    cpu.get_op(OperandName::RegsBC).write_u16(&cpu, 0xaabb);
+    // And this pointer contains some data
+    cpu.memory.write_u16(0xaabb, 0x23);
+    // When we request an unadorned write
+    cpu.get_op(OperandName::RegsBC).write_u8(&cpu, 0x14);
+    // Then the data the pointer points to has been overwritten
+    assert_eq!(cpu.get_op(OperandName::RegsBC).read_u8(&cpu), 0x14);
 }
 
 /* Instructions tests */
