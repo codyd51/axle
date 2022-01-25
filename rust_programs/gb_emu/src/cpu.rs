@@ -550,17 +550,17 @@ impl CpuState {
             );
         }
 
-        // Some instructions have dedicated handling 
+        // Some instructions have dedicated handling
         let maybe_instr_info = match instruction_byte {
             0x00 => {
                 if debug {
                     println!("NOP");
                 }
                 Some(InstrInfo::seq(1, 1))
-            },
+            }
             0x76 => {
                 todo!("HALT")
-            },
+            }
             0xc3 => {
                 let target = self.memory.read(self.pc + 1);
                 if debug {
@@ -568,9 +568,9 @@ impl CpuState {
                 }
                 self.pc = target;
                 Some(InstrInfo::jump(3, 4))
-            },
+            }
             // Handled down below
-            _ => None
+            _ => None,
         };
         if let Some(instr_info) = maybe_instr_info {
             // Instruction interpreted by direct opcode match
@@ -597,14 +597,12 @@ impl CpuState {
                 self.update_flag(FlagUpdate::HalfCarry((prev & 0xf) < (new & 0xf)));
 
                 if debug {
-                    println!(
-                        "Result: {op}"
-                    )
+                    println!("Result: {op}")
                 }
                 InstrInfo::seq(1, 1)
                 // TODO(PT): The commented expression is for half-carry addition
                 //half_carry_flag = (((prev & 0xf) + (new_value & 0xf)) & 0x10) == 0x10;
-            },
+            }
             "01tttfff" => {
                 // Opcode is 0x40 to 0x7f
                 // LD [Reg], [Reg]
@@ -635,7 +633,7 @@ impl CpuState {
                     1
                 };
                 InstrInfo::seq(1, cycle_count)
-            },
+            }
             "00iii110" => {
                 // LD [Reg], [u8]
                 let dest = self.storage_from_lookup_index(i);
@@ -662,12 +660,12 @@ impl CpuState {
                 if debug {
                     println!("Result: {reg_a}");
                 }
-                
+
                 self.set_flags(true, false, false, false);
                 // TODO(PT): Update me with the cycle count for (HL)
                 InstrInfo::seq(1, 1)
             }
-            _ => panic!("Unsupported")
+            _ => panic!("Unsupported"),
         }
 
         /*
@@ -900,7 +898,10 @@ fn test_dec_mem_hl() {
     cpu.memory.write_u8(0, 0x35);
     cpu.step();
     // Then the memory has been decremented
-    assert_eq!(cpu.operand_with_name(OperandName::MemHL).read_u8(&cpu), 0xef);
+    assert_eq!(
+        cpu.operand_with_name(OperandName::MemHL).read_u8(&cpu),
+        0xef
+    );
     // And the flags are set correctly
     assert_eq!(cpu.is_flag_set(Flag::Zero), false);
     assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
@@ -967,7 +968,10 @@ fn test_ld_mem_hl_u8() {
     cpu.memory.write_u8(1, 0xaa);
     cpu.step();
     // Then the memory has been assigned
-    assert_eq!(cpu.operand_with_name(OperandName::MemHL).read_u8(&cpu), 0xaa);
+    assert_eq!(
+        cpu.operand_with_name(OperandName::MemHL).read_u8(&cpu),
+        0xaa
+    );
 }
 
 /* Load instruction tests */
@@ -1016,7 +1020,8 @@ fn test_ld_c_hl() {
     cpu.operand_with_name(OperandName::RegL)
         .write_u8(&cpu, 0xcc);
     let marker = 0xdd;
-    cpu.operand_with_name(OperandName::MemHL).write_u8(&cpu, marker);
+    cpu.operand_with_name(OperandName::MemHL)
+        .write_u8(&cpu, marker);
     cpu.memory.write_u8(0, 0x4e);
     cpu.step();
     assert_eq!(
@@ -1060,7 +1065,10 @@ fn test_ld_h_hl() {
     // Then the memory load has been applied
     assert_eq!(cpu.operand_with_name(OperandName::RegH).read_u8(&cpu), 0xbb);
     // And dereferencing (HL) now accesses 0xbb22
-    assert_eq!(cpu.operand_with_name(OperandName::MemHL).read_u8(&cpu), 0x33);
+    assert_eq!(
+        cpu.operand_with_name(OperandName::MemHL).read_u8(&cpu),
+        0x33
+    );
 }
 
 /* XOR [Reg] */
@@ -1078,7 +1086,10 @@ fn test_xor_b() {
     cpu.step();
 
     // Then the XOR has been applied and stored in A
-    assert_eq!(cpu.operand_with_name(OperandName::RegA).read_u8(&cpu), 0b1001);
+    assert_eq!(
+        cpu.operand_with_name(OperandName::RegA).read_u8(&cpu),
+        0b1001
+    );
 }
 
 #[test]
@@ -1099,5 +1110,8 @@ fn test_xor_mem_hl() {
     cpu.step();
 
     // Then the XOR has been applied and stored in A
-    assert_eq!(cpu.operand_with_name(OperandName::RegA).read_u8(&cpu), 0b1001);
+    assert_eq!(
+        cpu.operand_with_name(OperandName::RegA).read_u8(&cpu),
+        0b1001
+    );
 }
