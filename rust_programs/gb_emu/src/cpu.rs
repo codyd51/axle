@@ -128,6 +128,26 @@ enum FlagUpdate {
     HalfCarry(bool),
 }
 
+#[derive(Copy, Clone)]
+enum FlagCondition {
+    NotZero,
+    Zero,
+    NotCarry,
+    Carry,
+}
+
+impl Display for FlagCondition {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let name = match self {
+            FlagCondition::NotZero => "NZ",
+            FlagCondition::Zero => "Z",
+            FlagCondition::NotCarry => "NC",
+            FlagCondition::Carry => "C",
+        };
+        write!(f, "{}", name)
+    }
+}
+
 pub struct CpuState {
     flags: RefCell<u8>,
     operands: BTreeMap<RegisterName, Box<dyn VariableStorage>>,
@@ -536,6 +556,15 @@ impl CpuState {
         (flags & (1 << (4 + flag_bit_index))) != 0
     }
 
+    fn is_flag_condition_met(&self, cond: FlagCondition) -> bool {
+        match cond {
+            FlagCondition::NotZero => !self.is_flag_set(Flag::Zero),
+            FlagCondition::Zero => self.is_flag_set(Flag::Zero),
+            FlagCondition::NotCarry => !self.is_flag_set(Flag::Carry),
+            FlagCondition::Carry => self.is_flag_set(Flag::Carry),
+        }
+    }
+
     pub fn format_flags(&self) -> String {
         format!(
             "{}{}{}{}",
@@ -814,81 +843,40 @@ impl CpuState {
 
                 InstrInfo::seq(1, 2)
             }
+            "001ii000" => {
+                // JR N{Flag}, s8
+                let cond = match i {
+                    0 => FlagCondition::NotZero,
+                    1 => FlagCondition::Zero,
+                    2 => FlagCondition::NotCarry,
+                    3 => FlagCondition::Carry,
+                    _ => panic!("Invalid index"),
+                };
+                if self.is_flag_condition_met(cond) {
+                    let rel_target: i8 = self.memory.read(self.get_pc() + 1);
+                    if debug {
+                        println!("JR {cond} +{:02x};\t(taken)", rel_target);
+                    }
+                    // Add 2 to PC before doing the relative target, as
+                    // this instruction is 2 bytes wide
+                    let mut pc = self.get_pc();
+                    pc += 2;
+                    pc += rel_target as u16;
+                    self.set_pc(pc);
+                    InstrInfo::jump(2, 3)
+                } else {
+                    if debug {
+                        println!("JR {cond}\t(not taken)");
+                    }
+                    InstrInfo::seq(2, 2)
+                }
+            }
             _ => {
                 println!("<0x{:02x} is unimplemented>", instruction_byte);
+                self.print_regs();
                 panic!("Unimplemented opcode")
             }
         }
-
-        /*
-        } else {
-            match instruction_byte {
-                /*
-                0x0c => {
-                    self.registers.c += 1;
-                    if debug {
-                        println!("C += 1");
-                    }
-                    InstrInfo::seq(1, 1)
-                }
-                0x20 => {
-                    if !self.is_flag_set(Flag::Zero) {
-                        let rel_target: i8 = self.memory.read(self.pc + 1);
-                        if debug {
-                            println!("JR NZ +{:02x};\t(taken)", rel_target);
-                        }
-                        // Add 2 to pc before doing the relative target, as
-                        // this instruction is 2 bytes wide
-                        self.pc += 2;
-                        self.pc += rel_target as u16;
-                        InstrInfo::jump(2, 3)
-                    } else {
-                        if debug {
-                            println!("JR NZ +off;\t(not taken)");
-                        }
-                        InstrInfo::seq(2, 2)
-                    }
-                }
-                0x21 => {
-                    self.set_hl(self.memory.read(self.pc + 1));
-                    if debug {
-                        println!("HL = 0x{:04x}", self.get_hl());
-                    }
-                    InstrInfo::seq(3, 3)
-                }
-                0x32 => {
-                    let hl = self.get_hl();
-                    self.memory.write_u8(hl, self.get_a());
-                    self.set_hl(hl - 1);
-                    if debug {
-                        println!("LD (HL-) = A;\t*0x{:04x} = 0x{:02x}", hl, self.get_a());
-                    }
-                    InstrInfo::seq(1, 2)
-                }
-                0xaf => {
-                    self.registers.a ^= self.registers.a;
-                    if debug {
-                        println!("A ^= A");
-                    }
-                    self.set_flags(true, false, false, false);
-                    InstrInfo::seq(1, 1)
-                }
-                0xc3 => {
-                    let target = self.memory.read(self.pc + 1);
-                    if debug {
-                        println!("JMP 0x{target:04x}");
-                    }
-                    self.pc = target;
-                    InstrInfo::jump(3, 4)
-                }
-                */
-                _ => {
-                    println!("<Unsupported>");
-                    panic!("Unsupported opcode 0x{:02x}", instruction_byte)
-                }
-            }
-        }
-        */
     }
 
     pub fn step(&mut self) {
@@ -1462,6 +1450,73 @@ fn test_inc_reg8() {
             let expects_flag = expected_flags.contains(&flag);
             println!("Checking {flag:?}... for value {val}");
             assert_eq!(cpu.is_flag_set(flag), expects_flag);
+        }
+    }
+}
+
+/* JR N{FlagCond}, s8 */
+
+#[test]
+fn test_jr_nz_taken() {
+    let mut cpu = CpuState::new();
+    cpu.enable_debug();
+
+    let params = [
+        // NotZero jump taken
+        (
+            0x20,
+            FlagCondition::NotZero,
+            FlagUpdate::Zero(false),
+            Some(16),
+        ),
+        // NotZero jump not taken
+        (0x20, FlagCondition::NotZero, FlagUpdate::Zero(true), None),
+        // Zero jump taken
+        (0x28, FlagCondition::Zero, FlagUpdate::Zero(true), Some(-8)),
+        // Zero jump not taken
+        (0x28, FlagCondition::Zero, FlagUpdate::Zero(false), None),
+        // NotCarry jump taken
+        (
+            0x30,
+            FlagCondition::NotCarry,
+            FlagUpdate::Carry(false),
+            Some(100),
+        ),
+        // NotCarry jump not taken
+        (0x30, FlagCondition::NotCarry, FlagUpdate::Carry(true), None),
+        // Carry jump taken
+        (
+            0x38,
+            FlagCondition::Carry,
+            FlagUpdate::Carry(true),
+            Some(-100),
+        ),
+        // Carry jump not taken
+        (0x38, FlagCondition::Carry, FlagUpdate::Carry(false), None),
+    ];
+    for (opcode, taken_cond, tested_flag, maybe_expected_jump_off) in params {
+        // Clear PC and flags from the last run
+        let pc_base = 0x200;
+        cpu.set_pc(pc_base);
+        cpu.set_flags(false, false, false, false);
+        cpu.update_flag(tested_flag);
+
+        cpu.memory.write_u8(pc_base, opcode);
+        if let Some(expected_jump_off) = maybe_expected_jump_off {
+            cpu.memory.write_u8(pc_base + 1, expected_jump_off as u8);
+        }
+
+        cpu.step();
+
+        if let Some(expected_jump_off) = maybe_expected_jump_off {
+            // Should have jumped, PC should be adjusted based on the relative target
+            assert_eq!(
+                cpu.get_pc() as i16,
+                (pc_base as i16) + expected_jump_off + 2
+            );
+        } else {
+            // Should not have jumped, PC should be just after the JR instruction
+            assert_eq!(cpu.get_pc(), pc_base + 2);
         }
     }
 }
