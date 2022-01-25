@@ -184,6 +184,7 @@ trait VariableStorage: Debug + Display {
     fn read_u16(&self, _cpu: &CpuState) -> u16;
 
     fn write_u8(&self, cpu: &CpuState, val: u8);
+    fn write_u8_with_mode(&self, cpu: &CpuState, addressing_mode: AddressingMode, val: u8);
     fn write_u16(&self, cpu: &CpuState, val: u16);
 }
 
@@ -222,8 +223,15 @@ impl VariableStorage for CpuRegister {
         panic!("Cannot read u16 from 8bit register")
     }
 
-    fn write_u8(&self, _cpu: &CpuState, val: u8) {
-        *self.contents.borrow_mut() = val
+    fn write_u8(&self, cpu: &CpuState, val: u8) {
+        self.write_u8_with_mode(cpu, AddressingMode::Read, val)
+    }
+
+    fn write_u8_with_mode(&self, cpu: &CpuState, addressing_mode: AddressingMode, val: u8) {
+        match addressing_mode {
+            AddressingMode::Read => *self.contents.borrow_mut() = val,
+            other => panic!("Addressing mode not available for CpuRegister: {other}"),
+        }
     }
 
     fn write_u16(&self, _cpu: &CpuState, val: u16) {
@@ -283,8 +291,25 @@ impl VariableStorage for CpuRegisterPair {
 
     fn write_u8(&self, cpu: &CpuState, val: u8) {
         // Implicitly dereference the memory pointed to by the register pair
+        self.write_u8_with_mode(cpu, AddressingMode::Deref, val)
+    }
+
+    fn write_u8_with_mode(&self, cpu: &CpuState, addressing_mode: AddressingMode, val: u8) {
         let address = self.read_u16(cpu);
-        cpu.memory.write_u8(address, val)
+        match addressing_mode {
+            AddressingMode::Read => {
+                panic!("'Read' is not a valid addressing mode when writing a u8")
+            }
+            AddressingMode::Deref => cpu.memory.write_u8(address, val),
+            AddressingMode::DerefThenIncrement => {
+                self.write_u16(cpu, address + 1);
+                cpu.memory.write_u8(address, val)
+            }
+            AddressingMode::DerefThenDecrement => {
+                self.write_u16(cpu, address - 1);
+                cpu.memory.write_u8(address, val)
+            }
+        }
     }
 
     fn write_u16(&self, cpu: &CpuState, val: u16) {
@@ -339,6 +364,10 @@ impl VariableStorage for CpuWideRegister {
 
     fn write_u8(&self, _cpu: &CpuState, val: u8) {
         panic!("Wide register cannot write u8")
+    }
+
+    fn write_u8_with_mode(&self, cpu: &CpuState, addressing_mode: AddressingMode, val: u8) {
+        todo!()
     }
 
     fn write_u16(&self, cpu: &CpuState, val: u16) {
