@@ -723,7 +723,31 @@ impl CpuState {
                 dest.write_u16(&self, val);
                 InstrInfo::seq(3, 3)
             }
-            _ => panic!("Unsupported"),
+            "00ii1010" => {
+                // LD A, [MemOp]
+                let (src_name, src_addressing_mode) = match i {
+                    0 => (OperandName::RegsBC, AddressingMode::Deref),
+                    1 => (OperandName::RegsDE, AddressingMode::Deref),
+                    2 => (OperandName::RegsHL, AddressingMode::DerefThenIncrement),
+                    3 => (OperandName::RegsHL, AddressingMode::DerefThenDecrement),
+                    _ => panic!("Invalid index"),
+                };
+
+                let dest = self.get_op(OperandName::RegA);
+                let src = self.get_op(src_name);
+
+                if debug {
+                    println!("LOAD {dest} with {src} {src_addressing_mode}");
+                }
+
+                dest.write_u8(&self, src.read_u8_with_mode(&self, src_addressing_mode));
+
+                InstrInfo::seq(1, 2)
+            }
+            _ => {
+                println!("<0x{:02x} is unimplemented>", instruction_byte);
+                panic!("Unimplemented opcode")
+            }
         }
 
         /*
@@ -1260,4 +1284,53 @@ fn test_ld_dst16_u16_sp() {
 
     // Then the write has been applied to the stack pointer
     assert_eq!(cpu.get_op(OperandName::RegSP).read_u16(&cpu), 0xcafe);
+}
+
+/* LD A, [Op16] */
+
+#[test]
+fn test_ld_a_op16() {
+    // Given an LD A, (BC) instruction
+    let mut cpu = CpuState::new();
+
+    // And B and C contain some data
+    cpu.get_op(OperandName::RegB).write_u8(&cpu, 0x33);
+    cpu.get_op(OperandName::RegC).write_u8(&cpu, 0x44);
+
+    // And the address pointed to by BC contains some data
+    cpu.memory.write_u8(0x3344, 0xfa);
+
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0x0a);
+    cpu.step();
+
+    // Then the contents of BC have not been modified
+    assert_eq!(cpu.get_op(OperandName::RegsBC).read_u16(&cpu), 0x3344);
+    // And the data has been copied to A
+    assert_eq!(cpu.get_op(OperandName::RegA).read_u8(&cpu), 0xfa);
+    // And the memory has not been touched
+    assert_eq!(cpu.memory.read::<u8>(0x3344), 0xfa);
+}
+
+#[test]
+fn test_ld_a_hl_plus() {
+    // Given an LD A, (HL+) instruction
+    let mut cpu = CpuState::new();
+
+    // And (HL) contains some data
+    cpu.get_op(OperandName::RegsHL).write_u16(&cpu, 0x01ff);
+
+    // And the address pointed to by HL contains some data
+    cpu.memory.write_u8(0x01ff, 0x56);
+
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0x2a);
+    cpu.step();
+
+    // Then the pointee has been copied to A
+    assert_eq!(cpu.get_op(OperandName::RegA).read_u8(&cpu), 0x56);
+    // And HL has been incremented
+    assert_eq!(cpu.get_op(OperandName::RegsHL).read_u16(&cpu), 0x0200);
+    // And the memory has not been touched
+    assert_eq!(cpu.memory.read::<u8>(0x01ff), 0x56);
 }
