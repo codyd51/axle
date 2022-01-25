@@ -128,8 +128,6 @@ enum FlagUpdate {
 }
 
 pub struct CpuState {
-    sp: u16,
-    pc: u16,
     flags: RefCell<u8>,
     operands: BTreeMap<OperandName, Box<dyn VariableStorage>>,
     memory: Memory,
@@ -152,7 +150,9 @@ enum OperandName {
     RegsBC,
     RegsDE,
     RegsHL,
+
     RegSP,
+    RegPC,
 }
 
 impl Display for OperandName {
@@ -173,6 +173,7 @@ impl Display for OperandName {
             OperandName::RegsHL => "HL",
 
             OperandName::RegSP => "SP",
+            OperandName::RegPC => "PC",
         };
         write!(f, "{}", name)
     }
@@ -232,24 +233,24 @@ impl Display for CpuRegister {
 }
 
 #[derive(Debug)]
-struct CpuWideRegister {
+struct CpuRegisterPair {
     upper: OperandName,
     lower: OperandName,
 }
 
-impl CpuWideRegister {
+impl CpuRegisterPair {
     fn new(upper: OperandName, lower: OperandName) -> Self {
         Self { upper, lower }
     }
 }
 
-impl VariableStorage for CpuWideRegister {
+impl VariableStorage for CpuRegisterPair {
     fn display_name(&self) -> &str {
-        "WideReg"
+        "RegPair"
     }
 
     fn read_u8(&self, cpu: &CpuState) -> u8 {
-        panic!("Wide register cannot read u8")
+        panic!("register cannot read u8")
     }
 
     fn read_u16(&self, cpu: &CpuState) -> u16 {
@@ -271,9 +272,59 @@ impl VariableStorage for CpuWideRegister {
     }
 }
 
+impl Display for CpuRegisterPair {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "[RegPair {}{}]", self.upper, self.lower)
+    }
+}
+
+#[derive(Debug)]
+struct CpuWideRegister {
+    display_name: String,
+    name: OperandName,
+    contents: RefCell<u16>,
+}
+
+impl CpuWideRegister {
+    fn new(name: OperandName) -> Self {
+        Self {
+            display_name: format!("{}", name),
+            name,
+            contents: RefCell::new(0),
+        }
+    }
+}
+
+impl VariableStorage for CpuWideRegister {
+    fn display_name(&self) -> &str {
+        &self.display_name
+    }
+
+    fn read_u8(&self, cpu: &CpuState) -> u8 {
+        panic!("Wide register cannot read u8")
+    }
+
+    fn read_u16(&self, cpu: &CpuState) -> u16 {
+        (*self.contents.borrow()).into()
+    }
+
+    fn write_u8(&self, _cpu: &CpuState, val: u8) {
+        panic!("Wide register cannot write u8")
+    }
+
+    fn write_u16(&self, cpu: &CpuState, val: u16) {
+        *self.contents.borrow_mut() = val
+    }
+}
+
 impl Display for CpuWideRegister {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "[WideReg {}{}]", self.upper, self.lower,)
+        write!(
+            f,
+            "[{} 0x{:04x}]",
+            self.display_name,
+            *self.contents.borrow()
+        )
     }
 }
 
@@ -340,20 +391,28 @@ impl CpuState {
         // 16-bit operands
         operands.insert(
             OperandName::RegsBC,
-            Box::new(CpuWideRegister::new(OperandName::RegB, OperandName::RegC)),
+            Box::new(CpuRegisterPair::new(OperandName::RegB, OperandName::RegC)),
         );
         operands.insert(
             OperandName::RegsDE,
-            Box::new(CpuWideRegister::new(OperandName::RegD, OperandName::RegE)),
+            Box::new(CpuRegisterPair::new(OperandName::RegD, OperandName::RegE)),
         );
         operands.insert(
             OperandName::RegsHL,
-            Box::new(CpuWideRegister::new(OperandName::RegH, OperandName::RegL)),
+            Box::new(CpuRegisterPair::new(OperandName::RegH, OperandName::RegL)),
+        );
+        // Stack pointer
+        operands.insert(
+            OperandName::RegSP,
+            Box::new(CpuWideRegister::new(OperandName::RegSP)),
+        );
+        // Program counter
+        operands.insert(
+            OperandName::RegPC,
+            Box::new(CpuWideRegister::new(OperandName::RegPC)),
         );
 
         Self {
-            sp: 0,
-            pc: 0,
             flags: RefCell::new(0),
             operands,
             memory: Memory::new(),
@@ -364,8 +423,8 @@ impl CpuState {
     pub fn load_rom_data(&mut self, rom_data: Vec<u8>) {
         // Set initial state
         self.set_flags(true, false, true, true);
-        self.pc = 0x0100;
-        self.sp = 0xfffe;
+        self.get_op(OperandName::RegPC).write_u16(self, 0x0100);
+        self.get_op(OperandName::RegSP).write_u16(self, 0xfffe);
 
         self.get_op(OperandName::RegA).write_u8(self, 0x01);
         self.get_op(OperandName::RegC).write_u8(self, 0x13);
@@ -378,7 +437,12 @@ impl CpuState {
     }
 
     pub fn get_pc(&self) -> u16 {
-        self.pc
+        // TODO(PT): Rename Operand to Register?
+        self.get_op(OperandName::RegPC).read_u16(self)
+    }
+
+    pub fn set_pc(&self, val: u16) {
+        self.get_op(OperandName::RegPC).write_u16(self, val)
     }
 
     pub fn enable_debug(&mut self) {
@@ -388,12 +452,21 @@ impl CpuState {
     pub fn print_regs(&self) {
         println!();
         println!("--- CPU State ---");
-        println!("\tPC = 0x{:04x}\tSP = 0x{:04x}", self.pc, self.sp);
+        //println!("\tPC = 0x{:04x}\tSP = 0x{:04x}", self.pc, self.sp);
+        //println!("\tPC = 0x{:04x}\tSP = 0x{:04x}", self.pc, self.sp);
         let flags = self.format_flags();
+        println!(
+            "\t{}\t{}",
+            self.get_op(OperandName::RegPC),
+            self.get_op(OperandName::RegSP)
+        );
         println!("\tFlags: {flags}");
 
         for (name, operand) in &self.operands {
-            println!("\t{name}: {operand}");
+            // Some registers are handled above
+            if ![OperandName::RegPC, OperandName::RegSP].contains(name) {
+                println!("\t{name}: {operand}");
+            }
         }
     }
 
@@ -509,7 +582,7 @@ impl CpuState {
 
         let debug = self.debug_enabled;
         if debug {
-            print!("0x{:04x}\t{:02x}\t", self.pc, instruction_byte);
+            print!("0x{:04x}\t{:02x}\t", self.get_pc(), instruction_byte);
             print!(
                 "{:02x} {:02x} {:02x}\t",
                 opcode_digit1, opcode_digit2, opcode_digit3
@@ -528,11 +601,11 @@ impl CpuState {
                 todo!("HALT")
             }
             0xc3 => {
-                let target = self.memory.read(self.pc + 1);
+                let target = self.memory.read(self.get_pc() + 1);
                 if debug {
                     println!("JMP 0x{target:04x}");
                 }
-                self.pc = target;
+                self.get_op(OperandName::RegPC).write_u16(self, target);
                 Some(InstrInfo::jump(3, 4))
             }
             // Handled down below
@@ -603,7 +676,7 @@ impl CpuState {
             "00iii110" => {
                 // LD [Reg], [u8]
                 let dest = self.get_op_from_lookup_tab1(i);
-                let val = self.memory.read(self.pc + 1);
+                let val = self.memory.read(self.get_pc() + 1);
                 dest.write_u8(&self, val);
                 if debug {
                     println!("LD {dest} with 0x{val:02x}");
@@ -634,7 +707,7 @@ impl CpuState {
             "00ii0001" => {
                 // LD Reg16, u16
                 let dest = self.get_op_from_lookup_tab2(i);
-                let val = self.memory.read(self.pc + 1);
+                let val = self.memory.read(self.get_pc() + 1);
 
                 if debug {
                     println!("LD {dest} with 0x{val:02x}");
@@ -728,13 +801,15 @@ impl CpuState {
     }
 
     pub fn step(&mut self) {
-        let info = self.decode(self.pc);
+        let pc = self.get_pc();
+        let info = self.decode(pc);
         if let Some(pc_increment) = info.pc_increment {
             assert_eq!(
                 info.jumped, false,
                 "Only expect to increment PC here when a jump was not taken"
             );
-            self.pc += pc_increment;
+            let pc_reg = self.get_op(OperandName::RegPC);
+            pc_reg.write_u16(self, pc + pc_increment);
         }
     }
 }
@@ -834,7 +909,7 @@ fn test_dec_reg() {
         cpu.memory.write_u8(0, opcode);
 
         // Given the register contains 5
-        cpu.pc = 0;
+        cpu.set_pc(0);
         cpu.get_op(register).write_u8(&cpu, 5);
         cpu.step();
         assert_eq!(cpu.get_op(register).read_u8(&cpu), 4);
@@ -843,7 +918,7 @@ fn test_dec_reg() {
         assert_eq!(cpu.is_flag_set(Flag::HalfCarry), false);
 
         // Given the register contains 0 (underflow)
-        cpu.pc = 0;
+        cpu.set_pc(0);
         cpu.get_op(register).write_u8(&cpu, 0);
         cpu.step();
         assert_eq!(cpu.get_op(register).read_u8(&cpu), 0xff);
@@ -852,7 +927,7 @@ fn test_dec_reg() {
         assert_eq!(cpu.is_flag_set(Flag::HalfCarry), true);
 
         // Given the register contains 1 (zero)
-        cpu.pc = 0;
+        cpu.set_pc(0);
         cpu.get_op(register).write_u8(&cpu, 1);
         cpu.step();
         assert_eq!(cpu.get_op(register).read_u8(&cpu), 0);
@@ -861,7 +936,7 @@ fn test_dec_reg() {
         assert_eq!(cpu.is_flag_set(Flag::HalfCarry), false);
 
         // Given the register contains 0xf0 (half carry)
-        cpu.pc = 0;
+        cpu.set_pc(0);
         cpu.get_op(register).write_u8(&cpu, 0xf0);
         cpu.step();
         assert_eq!(cpu.get_op(register).read_u8(&cpu), 0xef);
@@ -900,7 +975,7 @@ fn test_jmp() {
     cpu.memory.write_u8(1, 0xfe);
     cpu.memory.write_u8(2, 0xca);
     cpu.step();
-    assert_eq!(cpu.pc, 0xcafe);
+    assert_eq!(cpu.get_pc(), 0xcafe);
 }
 
 /* LD DstType1, U8 */
@@ -919,7 +994,7 @@ fn test_ld_reg_u8() {
         (0x3e, OperandName::RegA),
     ];
     for (opcode, register) in opcode_to_registers {
-        cpu.pc = 0;
+        cpu.set_pc(0);
         let marker = 0xab;
         cpu.memory.write_u8(0, opcode);
         cpu.memory.write_u8(1, marker);
@@ -1078,4 +1153,22 @@ fn test_ld_dst16_u16_bc() {
     assert_eq!(cpu.get_op(OperandName::RegC).read_u8(&cpu), 0xfe);
     // And the write shows up in the wide register
     assert_eq!(cpu.get_op(OperandName::RegsBC).read_u16(&cpu), 0xcafe);
+}
+
+#[test]
+fn test_ld_dst16_u16_sp() {
+    // Given an LD SP, u16 instruction
+    let mut cpu = CpuState::new();
+
+    // And B and C contain some data
+    // And SP contains some data
+    cpu.get_op(OperandName::RegSP).write_u16(&cpu, 0xffaa);
+
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0x31);
+    cpu.memory.write_u16(1, 0xcafe);
+    cpu.step();
+
+    // Then the write has been applied to the stack pointer
+    assert_eq!(cpu.get_op(OperandName::RegSP).read_u16(&cpu), 0xcafe);
 }
