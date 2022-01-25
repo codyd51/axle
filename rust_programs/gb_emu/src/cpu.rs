@@ -171,6 +171,7 @@ pub struct CpuState {
     flags: RefCell<u8>,
     registers: RegisterState,
     registers2: BTreeMap<OperandName, Box<CpuRegister>>,
+    wide_registers: BTreeMap<OperandName, Box<CpuWideRegister>>,
     mem_hl: Box<DerefHL>,
     memory: Memory,
     debug_enabled: bool,
@@ -178,6 +179,7 @@ pub struct CpuState {
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 enum OperandName {
+    // 8-bit operands
     RegB,
     RegC,
     RegD,
@@ -186,6 +188,35 @@ enum OperandName {
     RegL,
     MemHL,
     RegA,
+
+    // 16-bit operands
+    RegsBC,
+    RegsDE,
+    RegsHL,
+    RegSP,
+}
+
+impl Display for OperandName {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let name = match self {
+            OperandName::MemHL => "(HL)",
+
+            OperandName::RegB => "B",
+            OperandName::RegC => "C",
+            OperandName::RegD => "D",
+            OperandName::RegE => "E",
+            OperandName::RegH => "H",
+            OperandName::RegL => "L",
+            OperandName::RegA => "A",
+
+            OperandName::RegsBC => "BC",
+            OperandName::RegsDE => "DE",
+            OperandName::RegsHL => "HL",
+
+            OperandName::RegSP => "SP",
+        };
+        write!(f, "{}", name)
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -253,9 +284,13 @@ impl InstrOperand for CpuRegister {
 //impl VariableStorage for Cp
 */
 trait VariableStorage: Debug + Display {
-    fn name(&self) -> &str;
+    fn display_name(&self) -> &str;
+
     fn read_u8(&self, cpu: &CpuState) -> u8;
+    fn read_u16(&self, _cpu: &CpuState) -> u16;
+
     fn write_u8(&self, cpu: &CpuState, val: u8);
+    fn write_u16(&self, cpu: &CpuState, val: u16);
 }
 
 #[derive(Debug)]
@@ -274,7 +309,7 @@ impl CpuRegister {
 }
 
 impl VariableStorage for CpuRegister {
-    fn name(&self) -> &str {
+    fn display_name(&self) -> &str {
         &self.name
     }
 
@@ -282,14 +317,73 @@ impl VariableStorage for CpuRegister {
         *self.contents.borrow()
     }
 
+    fn read_u16(&self, _cpu: &CpuState) -> u16 {
+        panic!("Cannot read u16 from 8bit register")
+    }
+
     fn write_u8(&self, _cpu: &CpuState, val: u8) {
         *self.contents.borrow_mut() = val
+    }
+
+    fn write_u16(&self, _cpu: &CpuState, val: u16) {
+        panic!("Cannot write u16 to 8bit register")
     }
 }
 
 impl Display for CpuRegister {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "[Reg {} (0x{:02x})]", self.name, *self.contents.borrow())
+    }
+}
+
+#[derive(Debug)]
+struct CpuWideRegister {
+    upper: OperandName,
+    lower: OperandName,
+}
+
+impl CpuWideRegister {
+    fn new(upper: OperandName, lower: OperandName) -> Self {
+        Self { upper, lower }
+    }
+}
+
+impl VariableStorage for CpuWideRegister {
+    fn display_name(&self) -> &str {
+        "WideReg"
+    }
+
+    fn read_u8(&self, cpu: &CpuState) -> u8 {
+        panic!("Wide register cannot read u8")
+    }
+
+    fn read_u16(&self, cpu: &CpuState) -> u16 {
+        let upper = cpu.operand_with_name(self.upper);
+        let lower = cpu.operand_with_name(self.lower);
+        ((upper.read_u8(cpu) as u16) << 8) | (lower.read_u8(cpu) as u16)
+    }
+
+    fn write_u8(&self, _cpu: &CpuState, val: u8) {
+        panic!("Wide register cannot write u8")
+    }
+
+    fn write_u16(&self, cpu: &CpuState, val: u16) {
+        let upper = cpu.operand_with_name(self.upper);
+        let lower = cpu.operand_with_name(self.lower);
+
+        upper.write_u8(cpu, ((val >> 8) & 0xff).try_into().unwrap());
+        lower.write_u8(cpu, (val & 0xff).try_into().unwrap());
+    }
+}
+
+impl Display for CpuWideRegister {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            //"[WideReg {} (0x{:02x})]",
+            "[WideReg {}{}]",
+            self.upper, self.lower,
+        )
     }
 }
 
@@ -310,7 +404,7 @@ impl DerefHL {
 }
 
 impl VariableStorage for DerefHL {
-    fn name(&self) -> &str {
+    fn display_name(&self) -> &str {
         "(HL)"
     }
 
@@ -319,18 +413,24 @@ impl VariableStorage for DerefHL {
         cpu.memory.read(address)
     }
 
+    fn read_u16(&self, cpu: &CpuState) -> u16 {
+        todo!("16-bit deref of (HL)")
+    }
+
     fn write_u8(&self, cpu: &CpuState, val: u8) {
-        //*self.contents.borrow_mut() = val
-        //todo!()
         let address = self.mem_address(cpu);
         cpu.memory.write_u8(address, val);
+    }
+
+    fn write_u16(&self, cpu: &CpuState, val: u16) {
+        todo!("16-bit write to (HL)")
     }
 }
 
 impl Display for DerefHL {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         //write!(f, "[Reg {} (0x{:02x})]", self.name, *self.contents.borrow())
-        write!(f, "[Mem {}]", self.name())
+        write!(f, "[Mem {}]", self.display_name())
     }
 }
 
@@ -345,12 +445,27 @@ impl CpuState {
         registers.insert(OperandName::RegL, Box::new(CpuRegister::new("L")));
         registers.insert(OperandName::RegA, Box::new(CpuRegister::new("A")));
 
+        let mut wide_registers = BTreeMap::new();
+        wide_registers.insert(
+            OperandName::RegsBC,
+            Box::new(CpuWideRegister::new(OperandName::RegB, OperandName::RegC)),
+        );
+        wide_registers.insert(
+            OperandName::RegsDE,
+            Box::new(CpuWideRegister::new(OperandName::RegD, OperandName::RegE)),
+        );
+        wide_registers.insert(
+            OperandName::RegsHL,
+            Box::new(CpuWideRegister::new(OperandName::RegH, OperandName::RegL)),
+        );
+
         Self {
             sp: 0,
             pc: 0,
             flags: RefCell::new(0),
             registers: RegisterState::new(),
             registers2: registers,
+            wide_registers,
             mem_hl: Box::new(DerefHL::new()),
             memory: Memory::new(),
             debug_enabled: false,
@@ -525,9 +640,33 @@ impl CpuState {
         }
     }
 
+    pub fn op_name_from_lookup_tab2(&self, index: u8) -> OperandName {
+        match index {
+            0 => OperandName::RegsBC,
+            1 => OperandName::RegsDE,
+            2 => OperandName::RegsHL,
+            3 => OperandName::RegSP,
+            _ => panic!("Invalid index"),
+        }
+    }
+
+    pub fn op_from_lookup_tab2(&self, index: u8) -> &dyn VariableStorage {
+        let name = self.op_name_from_lookup_tab2(index);
+        match name {
+            OperandName::RegSP => panic!("SP not available yet"),
+            _ => &*self.wide_registers[&name] as _,
+        }
+    }
+
+    // TODO(PT): Rename to op_name_from_lookup_tab1
+    // same for storage_from_
     pub fn operand_with_name(&self, name: OperandName) -> &dyn VariableStorage {
         match name {
             OperandName::MemHL => &*self.mem_hl as _,
+            OperandName::RegsBC => &*self.wide_registers[&OperandName::RegsBC],
+            OperandName::RegsDE => &*self.wide_registers[&OperandName::RegsDE],
+            OperandName::RegsHL => &*self.wide_registers[&OperandName::RegsHL],
+            //OperandName::RegsSP => self.wide_registers[OperandName::RegsBC],
             _ => &*self.registers2[&name],
         }
     }
@@ -664,6 +803,18 @@ impl CpuState {
                 self.set_flags(true, false, false, false);
                 // TODO(PT): Update me with the cycle count for (HL)
                 InstrInfo::seq(1, 1)
+            }
+            "00ii0001" => {
+                // LD Reg16, u16
+                let dest = self.op_from_lookup_tab2(i);
+                let val = self.memory.read(self.pc + 1);
+
+                if debug {
+                    println!("LD {dest} with 0x{val:02x}");
+                }
+
+                dest.write_u16(&self, val);
+                InstrInfo::seq(3, 3)
             }
             _ => panic!("Unsupported"),
         }
@@ -823,6 +974,38 @@ fn test_write_mem_hl() {
         cpu.operand_with_name(OperandName::MemHL).read_u8(&cpu),
         marker
     );
+}
+
+#[test]
+fn test_wide_reg_read() {
+    let mut cpu = CpuState::new();
+    cpu.operand_with_name(OperandName::RegB)
+        .write_u8(&cpu, 0xff);
+    cpu.operand_with_name(OperandName::RegC)
+        .write_u8(&cpu, 0xcc);
+    assert_eq!(
+        cpu.operand_with_name(OperandName::RegsBC).read_u16(&cpu),
+        0xffcc
+    );
+}
+
+#[test]
+fn test_wide_reg_write() {
+    let mut cpu = CpuState::new();
+    cpu.operand_with_name(OperandName::RegB)
+        .write_u8(&cpu, 0xff);
+    cpu.operand_with_name(OperandName::RegC)
+        .write_u8(&cpu, 0xcc);
+
+    cpu.operand_with_name(OperandName::RegsBC)
+        .write_u16(&cpu, 0xaabb);
+    // Then the write shows up in both the individual registers and the wide register
+    assert_eq!(
+        cpu.operand_with_name(OperandName::RegsBC).read_u16(&cpu),
+        0xaabb
+    );
+    assert_eq!(cpu.operand_with_name(OperandName::RegB).read_u8(&cpu), 0xaa);
+    assert_eq!(cpu.operand_with_name(OperandName::RegC).read_u8(&cpu), 0xbb);
 }
 
 /* Instructions tests */
@@ -1113,5 +1296,33 @@ fn test_xor_mem_hl() {
     assert_eq!(
         cpu.operand_with_name(OperandName::RegA).read_u8(&cpu),
         0b1001
+    );
+}
+
+/* LD Dst16, u16 */
+
+#[test]
+fn test_ld_dst16_u16_bc() {
+    // Given an LD BC, u16 instruction
+    let mut cpu = CpuState::new();
+
+    // And B and C contain some data
+    cpu.operand_with_name(OperandName::RegB)
+        .write_u8(&cpu, 0x33);
+    cpu.operand_with_name(OperandName::RegC)
+        .write_u8(&cpu, 0x44);
+
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0x01);
+    cpu.memory.write_u16(1, 0xcafe);
+    cpu.step();
+
+    // Then the write has been applied to the registers
+    assert_eq!(cpu.operand_with_name(OperandName::RegB).read_u8(&cpu), 0xca);
+    assert_eq!(cpu.operand_with_name(OperandName::RegC).read_u8(&cpu), 0xfe);
+    // And the write shows up in the wide register
+    assert_eq!(
+        cpu.operand_with_name(OperandName::RegsBC).read_u16(&cpu),
+        0xcafe
     );
 }
