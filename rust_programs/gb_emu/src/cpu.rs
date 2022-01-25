@@ -593,6 +593,19 @@ impl CpuState {
         }
     }
 
+    fn get_op_name_and_addressing_mode_from_lookup_tab3(
+        &self,
+        index: u8,
+    ) -> (OperandName, AddressingMode) {
+        match index {
+            0 => (OperandName::RegsBC, AddressingMode::Deref),
+            1 => (OperandName::RegsDE, AddressingMode::Deref),
+            2 => (OperandName::RegsHL, AddressingMode::DerefThenIncrement),
+            3 => (OperandName::RegsHL, AddressingMode::DerefThenDecrement),
+            _ => panic!("Invalid index"),
+        }
+    }
+
     fn get_op_from_lookup_tab1(&self, index: u8) -> (&dyn VariableStorage, AddressingMode) {
         let (name, mode) = self.get_op_name_and_addressing_mode_from_lookup_tab1(index);
         (self.get_op(name), mode)
@@ -600,6 +613,11 @@ impl CpuState {
 
     fn get_op_from_lookup_tab2(&self, index: u8) -> (&dyn VariableStorage, AddressingMode) {
         let (name, mode) = self.get_op_name_and_addressing_mode_from_lookup_tab2(index);
+        (self.get_op(name), mode)
+    }
+
+    fn get_op_from_lookup_tab3(&self, index: u8) -> (&dyn VariableStorage, AddressingMode) {
+        let (name, mode) = self.get_op_name_and_addressing_mode_from_lookup_tab3(index);
         (self.get_op(name), mode)
     }
 
@@ -752,18 +770,23 @@ impl CpuState {
                 dest.write_u16(&self, val);
                 InstrInfo::seq(3, 3)
             }
+            "00ii0010" => {
+                // LD (Reg16), A
+                let src = self.get_op(OperandName::RegA);
+                let (dest, dest_addressing_mode) = self.get_op_from_lookup_tab3(i);
+
+                if debug {
+                    println!("LOAD {dest} {dest_addressing_mode} with {src}");
+                }
+
+                dest.write_u8_with_mode(&self, dest_addressing_mode, src.read_u8(&self));
+
+                InstrInfo::seq(1, 2)
+            }
             "00ii1010" => {
                 // LD A, [MemOp]
-                let (src_name, src_addressing_mode) = match i {
-                    0 => (OperandName::RegsBC, AddressingMode::Deref),
-                    1 => (OperandName::RegsDE, AddressingMode::Deref),
-                    2 => (OperandName::RegsHL, AddressingMode::DerefThenIncrement),
-                    3 => (OperandName::RegsHL, AddressingMode::DerefThenDecrement),
-                    _ => panic!("Invalid index"),
-                };
-
                 let dest = self.get_op(OperandName::RegA);
-                let src = self.get_op(src_name);
+                let (src, src_addressing_mode) = self.get_op_from_lookup_tab3(i);
 
                 if debug {
                     println!("LOAD {dest} with {src} {src_addressing_mode}");
@@ -1362,4 +1385,47 @@ fn test_ld_a_hl_plus() {
     assert_eq!(cpu.get_op(OperandName::RegsHL).read_u16(&cpu), 0x0200);
     // And the memory has not been touched
     assert_eq!(cpu.memory.read::<u8>(0x01ff), 0x56);
+}
+
+/* LD (Reg16), A */
+
+#[test]
+fn test_ld_bc_deref_a() {
+    // Given an LD (BC), A instruction
+    let mut cpu = CpuState::new();
+
+    // And (BC) contains a pointer
+    cpu.get_op(OperandName::RegsBC).write_u16(&cpu, 0xabcd);
+    // And A contains some data
+    cpu.get_op(OperandName::RegA).write_u8(&cpu, 0x11);
+
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0x02);
+    cpu.step();
+
+    // Then the data in A has been copied to the pointee
+    assert_eq!(cpu.memory.read::<u8>(0xabcd), 0x11);
+    // And the data shows up when dereferencing the register
+    assert_eq!(cpu.get_op(OperandName::RegsBC).read_u8(&cpu), 0x11);
+    // And the contents of A have been left untouched
+    assert_eq!(cpu.get_op(OperandName::RegA).read_u8(&cpu), 0x11);
+}
+
+#[test]
+fn test_ld_hl_minus_a() {
+    // Given an LD (HL-), A instruction
+    let mut cpu = CpuState::new();
+    // And HL contains a pointer
+    cpu.get_op(OperandName::RegsHL).write_u16(&cpu, 0xabcd);
+    // And A contains some data
+    cpu.get_op(OperandName::RegA).write_u8(&cpu, 0x11);
+
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0x32);
+    cpu.step();
+
+    // Then the data in A has been copied to the pointer
+    assert_eq!(cpu.memory.read::<u8>(0xabcd), 0x11);
+    // And HL has been decremented
+    assert_eq!(cpu.get_op(OperandName::RegsHL).read_u16(&cpu), 0xabcc);
 }
