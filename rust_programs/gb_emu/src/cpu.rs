@@ -441,7 +441,8 @@ impl CpuState {
 
     fn set_flags(&mut self, z: bool, n: bool, h: bool, c: bool) {
         let high_nibble = c as u8 | ((h as u8) << 1) | ((n as u8) << 2) | ((z as u8) << 3);
-        self.registers.f = high_nibble << 4;
+        let mut flags = self.flags.borrow_mut();
+        *flags = high_nibble << 4;
     }
 
     fn update_flag(&self, flag: FlagUpdate) {
@@ -558,7 +559,7 @@ impl CpuState {
                 Some(InstrInfo::seq(1, 1))
             },
             0x76 => {
-                panic!("HALT not implemented")
+                todo!("HALT")
             },
             0xc3 => {
                 let target = self.memory.read(self.pc + 1);
@@ -637,7 +638,7 @@ impl CpuState {
             },
             "00iii110" => {
                 // LD [Reg], [u8]
-                let dest = self.storage_from_lookup_index(opcode_digit2);
+                let dest = self.storage_from_lookup_index(i);
                 let val = self.memory.read(self.pc + 1);
                 dest.write_u8(&self, val);
                 if debug {
@@ -646,13 +647,33 @@ impl CpuState {
                 // TODO(PT): Update me when the operand is (HL)
                 InstrInfo::seq(2, 2)
             }
+            "10101iii" => {
+                // XOR [Reg]
+                let operand = self.storage_from_lookup_index(i);
+                let reg_a = self.operand_with_name(OperandName::RegA);
+
+                if debug {
+                    print!("{reg_a} ^= {operand}\t");
+                }
+
+                let val = reg_a.read_u8(&self) ^ operand.read_u8(&self);
+                reg_a.write_u8(&self, val);
+
+                if debug {
+                    println!("Result: {reg_a}");
+                }
+                
+                self.set_flags(true, false, false, false);
+                // TODO(PT): Update me with the cycle count for (HL)
+                InstrInfo::seq(1, 1)
+            }
             _ => panic!("Unsupported")
         }
 
         /*
-        } else if opcode_digit1 == 0b00 && opcode_digit3 == 0b110 {
         } else {
             match instruction_byte {
+                /*
                 }
                 0x02 => {
                     let bc = self.get_bc();
@@ -720,6 +741,7 @@ impl CpuState {
                     self.pc = target;
                     InstrInfo::jump(3, 4)
                 }
+                */
                 _ => {
                     println!("<Unsupported>");
                     panic!("Unsupported opcode 0x{:02x}", instruction_byte)
@@ -885,6 +907,19 @@ fn test_dec_mem_hl() {
     assert_eq!(cpu.is_flag_set(Flag::HalfCarry), true);
 }
 
+/* Jump instructions */
+
+#[test]
+fn test_jmp() {
+    let mut cpu = CpuState::new();
+    cpu.memory.write_u8(0, 0xc3);
+    // Little endian branch target
+    cpu.memory.write_u8(1, 0xfe);
+    cpu.memory.write_u8(2, 0xca);
+    cpu.step();
+    assert_eq!(cpu.pc, 0xcafe);
+}
+
 /* LD DstType1, U8 */
 
 #[test]
@@ -933,17 +968,6 @@ fn test_ld_mem_hl_u8() {
     cpu.step();
     // Then the memory has been assigned
     assert_eq!(cpu.operand_with_name(OperandName::MemHL).read_u8(&cpu), 0xaa);
-}
-
-#[test]
-fn test_jmp() {
-    let mut cpu = CpuState::new();
-    cpu.memory.write_u8(0, 0xc3);
-    // Little endian branch target
-    cpu.memory.write_u8(1, 0xfe);
-    cpu.memory.write_u8(2, 0xca);
-    cpu.step();
-    assert_eq!(cpu.pc, 0xcafe);
 }
 
 /* Load instruction tests */
@@ -1036,5 +1060,44 @@ fn test_ld_h_hl() {
     // Then the memory load has been applied
     assert_eq!(cpu.operand_with_name(OperandName::RegH).read_u8(&cpu), 0xbb);
     // And dereferencing (HL) now accesses 0xbb22
-    //assert_eq!(cpu.operand_with_name(OperandName::RegL).read_u8(&cpu), marker);
+    assert_eq!(cpu.operand_with_name(OperandName::MemHL).read_u8(&cpu), 0x33);
+}
+
+/* XOR [Reg] */
+
+#[test]
+fn test_xor_b() {
+    // Given a XOR B instruction
+    let mut cpu = CpuState::new();
+    cpu.operand_with_name(OperandName::RegA)
+        .write_u8(&cpu, 0b1110);
+    cpu.operand_with_name(OperandName::RegB)
+        .write_u8(&cpu, 0b0111);
+
+    cpu.memory.write_u8(0, 0xa8);
+    cpu.step();
+
+    // Then the XOR has been applied and stored in A
+    assert_eq!(cpu.operand_with_name(OperandName::RegA).read_u8(&cpu), 0b1001);
+}
+
+#[test]
+fn test_xor_mem_hl() {
+    // Given a XOR (HL) instruction
+    let mut cpu = CpuState::new();
+    cpu.operand_with_name(OperandName::RegA)
+        .write_u8(&cpu, 0b1110);
+
+    cpu.operand_with_name(OperandName::RegH)
+        .write_u8(&cpu, 0x11);
+    cpu.operand_with_name(OperandName::RegL)
+        .write_u8(&cpu, 0x22);
+    cpu.operand_with_name(OperandName::MemHL)
+        .write_u8(&cpu, 0b0111);
+
+    cpu.memory.write_u8(0, 0xae);
+    cpu.step();
+
+    // Then the XOR has been applied and stored in A
+    assert_eq!(cpu.operand_with_name(OperandName::RegA).read_u8(&cpu), 0b1001);
 }
