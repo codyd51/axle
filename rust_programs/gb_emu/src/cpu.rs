@@ -569,7 +569,6 @@ impl CpuState {
                 )
             }
             InstrInfo::seq(1, 1)
-
             // TODO(PT): The commented expression is for half-carry addition
             //half_carry_flag = (((prev & 0xf) + (new_value & 0xf)) & 0x10) == 0x10;
         } else if opcode_digit1 == 0b01 {
@@ -612,13 +611,13 @@ impl CpuState {
             InstrInfo::seq(1, cycle_count)
         } else if opcode_digit1 == 0b00 && opcode_digit3 == 0b110 {
             // LD [Reg], [u8]
-            let reg = Register::from_op_encoded_index(opcode_digit2);
-            let new_value = self.memory.read(self.pc + 1);
-            let reg_ref = reg.get_cpu_ref(self);
-            *reg_ref = new_value;
+            let dest = self.storage_from_lookup_index(opcode_digit2);
+            let val = self.memory.read(self.pc + 1);
+            dest.write_u8(&self, val);
             if debug {
-                println!("{} = 0x{:02x}", reg.name(), reg_ref);
+                println!("LD {dest} with 0x{val:02x}");
             }
+            // TODO(PT): Update me when the operand is (HL)
             InstrInfo::seq(2, 2)
         } else {
             match instruction_byte {
@@ -839,7 +838,7 @@ fn test_dec_reg() {
 #[test]
 fn test_dec_mem_hl() {
     let mut cpu = CpuState::new();
-    // Given the memory pointed to by HL contains 0x0f
+    // Given the memory pointed to by HL contains 0xf0
     cpu.operand_with_name(OperandName::RegH)
         .write_u8(&cpu, 0xff);
     cpu.operand_with_name(OperandName::RegL)
@@ -858,17 +857,20 @@ fn test_dec_mem_hl() {
     assert_eq!(cpu.is_flag_set(Flag::HalfCarry), true);
 }
 
+/* LD DstType1, U8 */
+
 #[test]
 fn test_ld_reg_u8() {
     let mut cpu = CpuState::new();
+    cpu.enable_debug();
     let opcode_to_registers = [
-        (0x06, Register::B),
-        (0x0e, Register::C),
-        (0x16, Register::D),
-        (0x1e, Register::E),
-        (0x26, Register::H),
-        (0x2e, Register::L),
-        (0x3e, Register::A),
+        (0x06, OperandName::RegB),
+        (0x0e, OperandName::RegC),
+        (0x16, OperandName::RegD),
+        (0x1e, OperandName::RegE),
+        (0x26, OperandName::RegH),
+        (0x2e, OperandName::RegL),
+        (0x3e, OperandName::RegA),
     ];
     for (opcode, register) in opcode_to_registers {
         cpu.pc = 0;
@@ -877,10 +879,32 @@ fn test_ld_reg_u8() {
         cpu.memory.write_u8(1, marker);
 
         // Given the register contains data other than the marker
-        cpu.set_register(register, 0xff);
+        cpu.operand_with_name(register).write_u8(&cpu, 0xff);
         cpu.step();
-        assert_eq!(cpu.get_register(register), marker);
+        assert_eq!(cpu.operand_with_name(register).read_u8(&cpu), marker);
     }
+}
+
+#[test]
+fn test_ld_mem_hl_u8() {
+    let mut cpu = CpuState::new();
+    cpu.enable_debug();
+
+    // Given the memory pointed to by HL contains 0xf0
+    cpu.operand_with_name(OperandName::RegH)
+        .write_u8(&cpu, 0xff);
+    cpu.operand_with_name(OperandName::RegL)
+        .write_u8(&cpu, 0xcc);
+    cpu.operand_with_name(OperandName::MemHL)
+        .write_u8(&cpu, 0xf0);
+
+    // When the CPU runs a LD (HL), u8 instruction
+    // TODO(PT): Check cycle count here
+    cpu.memory.write_u8(0, 0x36);
+    cpu.memory.write_u8(1, 0xaa);
+    cpu.step();
+    // Then the memory has been assigned
+    assert_eq!(cpu.operand_with_name(OperandName::MemHL).read_u8(&cpu), 0xaa);
 }
 
 #[test]
