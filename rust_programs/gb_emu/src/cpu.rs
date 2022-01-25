@@ -113,6 +113,7 @@ impl InstrInfo {
     }
 }
 
+#[derive(Debug, PartialEq)]
 enum Flag {
     Zero,
     Subtract,
@@ -675,6 +676,24 @@ impl CpuState {
         // Opcode table ref: https://meganesulli.com/generate-gb-opcodes/
         #[bitmatch]
         match instruction_byte {
+            "00iii100" => {
+                // INC Reg8
+                let (op, read_mode) = self.get_reg_from_lookup_tab1(i);
+                if debug {
+                    println!("INC {op}");
+                }
+                let prev = op.read_u8_with_mode(&self, read_mode);
+                let increment = 1;
+                let new = prev + increment;
+                op.write_u8(&self, new);
+                self.update_flag(FlagUpdate::Zero(new == 0));
+                self.update_flag(FlagUpdate::Subtract(false));
+                let half_carry_flag =
+                    ((((prev as u16) & 0xf) + ((increment as u16) & 0xf)) & 0x10) == 0x10;
+                self.update_flag(FlagUpdate::HalfCarry(half_carry_flag));
+                // TODO(PT): Cycle count should be 3 for (HL)
+                InstrInfo::seq(1, 1)
+            }
             "00iii101" => {
                 // DEC [Reg]
                 let (op, read_mode) = self.get_reg_from_lookup_tab1(i);
@@ -692,9 +711,8 @@ impl CpuState {
                 if debug {
                     println!("Result: {op}")
                 }
+                // TODO(PT): Should be 3 for (HL)
                 InstrInfo::seq(1, 1)
-                // TODO(PT): The commented expression is for half-carry addition
-                //half_carry_flag = (((prev & 0xf) + (new_value & 0xf)) & 0x10) == 0x10;
             }
             "01tttfff" => {
                 // Opcode is 0x40 to 0x7f
@@ -806,16 +824,6 @@ impl CpuState {
         } else {
             match instruction_byte {
                 /*
-                }
-                0x02 => {
-                    let bc = self.get_bc();
-                    let mem = self.memory.read(bc);
-                    self.registers.a = mem;
-                    if debug {
-                        println!("A = [BC] ({bc:04x}: {mem:02x})");
-                    }
-                    InstrInfo::seq(1, 2)
-                }
                 0x0c => {
                     self.registers.c += 1;
                     if debug {
@@ -1428,4 +1436,32 @@ fn test_ld_hl_minus_a() {
     assert_eq!(cpu.memory.read::<u8>(0xabcd), 0x11);
     // And HL has been decremented
     assert_eq!(cpu.reg(RegisterName::HL).read_u16(&cpu), 0xabcc);
+}
+
+/* INC Reg8 */
+
+#[test]
+fn test_inc_reg8() {
+    // Given an INC A instruction
+    let mut cpu = CpuState::new();
+    let params = [
+        (0x05, 0x06, vec![]),
+        (0xff, 0x00, vec![Flag::Zero, Flag::HalfCarry]),
+    ];
+    for (val, expected_incr, expected_flags) in params {
+        // And A contains some value
+        cpu.reg(RegisterName::A).write_u8(&cpu, val);
+        // When the CPU runs the instruction
+        cpu.reg(RegisterName::PC).write_u16(&cpu, 0x00);
+        cpu.memory.write_u8(0, 0x3c);
+        cpu.step();
+        // Then the contents of A have been incremented
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), expected_incr);
+        // And the flags are set correctly
+        for flag in [Flag::Zero, Flag::Subtract, Flag::HalfCarry, Flag::Carry] {
+            let expects_flag = expected_flags.contains(&flag);
+            println!("Checking {flag:?}... for value {val}");
+            assert_eq!(cpu.is_flag_set(flag), expects_flag);
+        }
+    }
 }
