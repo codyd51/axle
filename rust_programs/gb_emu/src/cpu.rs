@@ -183,6 +183,7 @@ trait VariableStorage: Debug + Display {
     fn display_name(&self) -> &str;
 
     fn read_u8(&self, cpu: &CpuState) -> u8;
+    fn read_u8_with_mode(&self, cpu: &CpuState, addressing_mode: AddressingMode) -> u8;
     fn read_u16(&self, _cpu: &CpuState) -> u16;
 
     fn write_u8(&self, cpu: &CpuState, val: u8);
@@ -209,8 +210,15 @@ impl VariableStorage for CpuRegister {
         &self.name
     }
 
-    fn read_u8(&self, _cpu: &CpuState) -> u8 {
-        *self.contents.borrow()
+    fn read_u8(&self, cpu: &CpuState) -> u8 {
+        self.read_u8_with_mode(cpu, AddressingMode::Read)
+    }
+
+    fn read_u8_with_mode(&self, cpu: &CpuState, addressing_mode: AddressingMode) -> u8 {
+        match addressing_mode {
+            AddressingMode::Read => *self.contents.borrow(),
+            other => panic!("Addressing mode not available for CpuRegister: {other}"),
+        }
     }
 
     fn read_u16(&self, _cpu: &CpuState) -> u16 {
@@ -250,7 +258,23 @@ impl VariableStorage for CpuRegisterPair {
     }
 
     fn read_u8(&self, cpu: &CpuState) -> u8 {
-        panic!("register cannot read u8")
+        self.read_u8_with_mode(cpu, AddressingMode::Read)
+    }
+
+    fn read_u8_with_mode(&self, cpu: &CpuState, addressing_mode: AddressingMode) -> u8 {
+        let address = self.read_u16(cpu);
+        match addressing_mode {
+            AddressingMode::Read => panic!("Register pair cannot directly be read as u8"),
+            AddressingMode::Deref => cpu.memory.read(address),
+            AddressingMode::DerefThenIncrement => {
+                self.write_u16(cpu, address + 1);
+                cpu.memory.read(address)
+            }
+            AddressingMode::DerefThenDecrement => {
+                self.write_u16(cpu, address - 1);
+                cpu.memory.read(address)
+            }
+        }
     }
 
     fn read_u16(&self, cpu: &CpuState) -> u16 {
@@ -301,7 +325,12 @@ impl VariableStorage for CpuWideRegister {
     }
 
     fn read_u8(&self, cpu: &CpuState) -> u8 {
+        // TODO(PT): Move this error into the read_u8_with_mode() impl
         panic!("Wide register cannot read u8")
+    }
+
+    fn read_u8_with_mode(&self, cpu: &CpuState, addressing_mode: AddressingMode) -> u8 {
+        todo!()
     }
 
     fn read_u16(&self, cpu: &CpuState) -> u16 {
@@ -345,6 +374,7 @@ impl DerefHL {
 }
 
 impl VariableStorage for DerefHL {
+    // TODO(PT): Drop DerefHL
     fn display_name(&self) -> &str {
         "(HL)"
     }
@@ -352,6 +382,10 @@ impl VariableStorage for DerefHL {
     fn read_u8(&self, cpu: &CpuState) -> u8 {
         let address = self.mem_address(cpu);
         cpu.memory.read(address)
+    }
+
+    fn read_u8_with_mode(&self, cpu: &CpuState, addressing_mode: AddressingMode) -> u8 {
+        todo!()
     }
 
     fn read_u16(&self, cpu: &CpuState) -> u16 {
@@ -373,6 +407,28 @@ impl Display for DerefHL {
         write!(f, "[Mem {}]", self.display_name())
     }
 }
+
+#[derive(Debug, Copy, Clone)]
+enum AddressingMode {
+    Read,
+    Deref,
+    DerefThenIncrement,
+    DerefThenDecrement,
+}
+
+impl Display for AddressingMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let name = match self {
+            AddressingMode::Read => "Read",
+            AddressingMode::Deref => "Deref",
+            AddressingMode::DerefThenIncrement => "Deref+",
+            AddressingMode::DerefThenDecrement => "Deref-",
+        };
+        write!(f, "{}", name)
+    }
+}
+
+// OpInfo { OpName, Op, DerefMode }
 
 impl CpuState {
     pub fn new() -> Self {
@@ -886,6 +942,76 @@ fn test_wide_reg_write() {
     assert_eq!(cpu.get_op(OperandName::RegsBC).read_u16(&cpu), 0xaabb);
     assert_eq!(cpu.get_op(OperandName::RegB).read_u8(&cpu), 0xaa);
     assert_eq!(cpu.get_op(OperandName::RegC).read_u8(&cpu), 0xbb);
+}
+
+#[test]
+#[should_panic]
+fn test_wide_reg_addressing_mode_read() {
+    let mut cpu = CpuState::new();
+    // Given BC contains a pointer
+    cpu.get_op(OperandName::RegsBC).write_u16(&cpu, 0xaabb);
+    // And this pointer contains some data
+    cpu.memory.write_u16(0xaabb, 0x23);
+    // When we request an unadorned read
+    // Then reading a u8 from a register pair isn't allowed
+    cpu.get_op(OperandName::RegsBC).read_u8(&cpu);
+}
+
+#[test]
+fn test_wide_reg_addressing_mode_deref() {
+    let mut cpu = CpuState::new();
+    // Given BC contains a pointer
+    cpu.get_op(OperandName::RegsBC).write_u16(&cpu, 0xaabb);
+    // And this pointer contains some data
+    cpu.memory.write_u16(0xaabb, 0x23);
+
+    // When we request a dereferenced read
+    // Then we get the dereferenced data
+    assert_eq!(
+        cpu.get_op(OperandName::RegsBC)
+            .read_u8_with_mode(&cpu, AddressingMode::Deref),
+        0x23
+    );
+    // And the contents of the registers are untouched
+    assert_eq!(cpu.get_op(OperandName::RegsBC).read_u16(&cpu), 0xaabb);
+}
+
+#[test]
+fn test_wide_reg_addressing_mode_deref_increment() {
+    let mut cpu = CpuState::new();
+    // Given HL contains a pointer
+    cpu.get_op(OperandName::RegsHL).write_u16(&cpu, 0xaabb);
+    // And this pointer contains some data
+    cpu.memory.write_u16(0xaabb, 0x23);
+
+    // When we request a dereferenced read and pointer increment
+    // Then we get the dereferenced data
+    assert_eq!(
+        cpu.get_op(OperandName::RegsHL)
+            .read_u8_with_mode(&cpu, AddressingMode::DerefThenIncrement),
+        0x23
+    );
+    // And the contents of the register are incremented
+    assert_eq!(cpu.get_op(OperandName::RegsHL).read_u16(&cpu), 0xaabc);
+}
+
+#[test]
+fn test_wide_reg_addressing_mode_deref_decrement() {
+    let mut cpu = CpuState::new();
+    // Given HL contains a pointer
+    cpu.get_op(OperandName::RegsHL).write_u16(&cpu, 0xaabb);
+    // And this pointer contains some data
+    cpu.memory.write_u16(0xaabb, 0x23);
+
+    // When we request a dereferenced read and pointer decrement
+    // Then we get the dereferenced data
+    assert_eq!(
+        cpu.get_op(OperandName::RegsHL)
+            .read_u8_with_mode(&cpu, AddressingMode::DerefThenDecrement),
+        0x23
+    );
+    // And the contents of the register are decremented
+    assert_eq!(cpu.get_op(OperandName::RegsHL).read_u16(&cpu), 0xaaba);
 }
 
 /* Instructions tests */
