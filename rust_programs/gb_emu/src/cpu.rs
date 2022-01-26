@@ -149,7 +149,6 @@ impl Display for FlagCondition {
 }
 
 pub struct CpuState {
-    flags: RefCell<u8>,
     operands: BTreeMap<RegisterName, Box<dyn VariableStorage>>,
     memory: Memory,
     debug_enabled: bool,
@@ -165,11 +164,13 @@ enum RegisterName {
     H,
     L,
     A,
+    F,
 
     // 16-bit operands
     BC,
     DE,
     HL,
+    AF,
 
     SP,
     PC,
@@ -185,10 +186,12 @@ impl Display for RegisterName {
             RegisterName::H => "H",
             RegisterName::L => "L",
             RegisterName::A => "A",
+            RegisterName::F => "F",
 
             RegisterName::BC => "BC",
             RegisterName::DE => "DE",
             RegisterName::HL => "HL",
+            RegisterName::AF => "AF",
 
             RegisterName::SP => "SP",
             RegisterName::PC => "PC",
@@ -436,6 +439,7 @@ impl CpuState {
         operands.insert(RegisterName::H, Box::new(CpuRegister::new("H")));
         operands.insert(RegisterName::L, Box::new(CpuRegister::new("L")));
         operands.insert(RegisterName::A, Box::new(CpuRegister::new("A")));
+        operands.insert(RegisterName::F, Box::new(CpuRegister::new("F")));
 
         // 16-bit operands
         operands.insert(
@@ -450,6 +454,10 @@ impl CpuState {
             RegisterName::HL,
             Box::new(CpuRegisterPair::new(RegisterName::H, RegisterName::L)),
         );
+        operands.insert(
+            RegisterName::AF,
+            Box::new(CpuRegisterPair::new(RegisterName::A, RegisterName::F)),
+        );
         // Stack pointer
         operands.insert(
             RegisterName::SP,
@@ -462,7 +470,6 @@ impl CpuState {
         );
 
         Self {
-            flags: RefCell::new(0),
             operands,
             memory: Memory::new(),
             debug_enabled: false,
@@ -525,8 +532,7 @@ impl CpuState {
 
     fn set_flags(&mut self, z: bool, n: bool, h: bool, c: bool) {
         let high_nibble = c as u8 | ((h as u8) << 1) | ((n as u8) << 2) | ((z as u8) << 3);
-        let mut flags = self.flags.borrow_mut();
-        *flags = high_nibble << 4;
+        self.reg(RegisterName::F).write_u8(self, high_nibble << 4);
     }
 
     fn update_flag(&self, flag: FlagUpdate) {
@@ -539,14 +545,16 @@ impl CpuState {
         // Flags are always in the high nibble
         let bit_index = 4 + flag_setting_and_bit_index.1;
 
-        let mut flags = self.flags.borrow_mut();
+        let flags_reg = self.reg(RegisterName::F);
+        let mut flags = flags_reg.read_u8(self);
         if flag_setting_and_bit_index.0 {
             // Enable flag
-            *flags |= 1 << bit_index;
+            flags |= 1 << bit_index;
         } else {
             // Disable flag
-            *flags &= !(1 << bit_index);
+            flags &= !(1 << bit_index);
         }
+        flags_reg.write_u8(self, flags);
     }
 
     fn is_flag_set(&self, flag: Flag) -> bool {
@@ -556,7 +564,7 @@ impl CpuState {
             Flag::HalfCarry => 1,
             Flag::Carry => 0,
         };
-        let flags = *self.flags.borrow();
+        let flags = self.reg(RegisterName::F).read_u8(self);
         (flags & (1 << (4 + flag_bit_index))) != 0
     }
 
