@@ -656,9 +656,52 @@ impl CpuState {
     }
 
     #[bitmatch]
+    fn decode_cb_prefixed_instr(&mut self, instruction_byte: u8) -> usize {
+        let debug = self.debug_enabled;
+        if debug {
+            print!("0x{:04x}\tcb {:02x}\t", self.get_pc(), instruction_byte);
+        }
+
+        // Classes of instructions are handled as a group
+        // PT: Manually derived these groups by inspecting the opcode table
+        // Opcode table ref: https://meganesulli.com/generate-gb-opcodes/
+        #[bitmatch]
+        match instruction_byte {
+            "01bbbiii" => {
+                // Bit B, Reg8
+                let bit_to_test = b;
+                let (reg, read_mode) = self.get_reg_from_lookup_tab1(i);
+                if debug {
+                    println!("BIT {bit_to_test}, {reg}");
+                }
+                let contents = reg.read_u8_with_mode(&self, read_mode);
+                let bit_not_set = contents & (1 << bit_to_test) == 0;
+                self.update_flag(FlagUpdate::Zero(bit_not_set));
+                self.update_flag(FlagUpdate::Subtract(false));
+                self.update_flag(FlagUpdate::HalfCarry(true));
+                // TODO(PT): Should be three cycles when (HL)
+                2
+            }
+            _ => {
+                println!("<cb {:02x} is unimplemented>", instruction_byte);
+                self.print_regs();
+                panic!("Unimplemented CB opcode")
+            }
+        }
+    }
+
+    #[bitmatch]
     fn decode(&mut self, pc: u16) -> InstrInfo {
         // Fetch the next opcode
         let instruction_byte: u8 = self.memory.read(pc);
+
+        // Handle CB-prefixed instructions
+        if instruction_byte == 0xcb {
+            let instruction_byte2: u8 = self.memory.read(pc + 1);
+            let cycle_count = self.decode_cb_prefixed_instr(instruction_byte2);
+            return InstrInfo::seq(2, cycle_count);
+        }
+
         // Decode using the strategy described by https://gb-archive.github.io/salvage/decoding_gbz80_opcodes/Decoding%20Gamboy%20Z80%20Opcodes.html
         let opcode_digit1 = (instruction_byte >> 6) & 0b11;
         let opcode_digit2 = (instruction_byte >> 3) & 0b111;
@@ -667,10 +710,6 @@ impl CpuState {
         let debug = self.debug_enabled;
         if debug {
             print!("0x{:04x}\t{:02x}\t", self.get_pc(), instruction_byte);
-            print!(
-                "{:02x} {:02x} {:02x}\t",
-                opcode_digit1, opcode_digit2, opcode_digit3
-            );
         }
 
         // Some instructions have dedicated handling
@@ -1519,4 +1558,70 @@ fn test_jr_nz_taken() {
             assert_eq!(cpu.get_pc(), pc_base + 2);
         }
     }
+}
+
+/* Bit B, Reg8 */
+
+#[test]
+fn test_bit_b_reg8() {
+    // Given a BIT B, Reg8 instruction
+    let mut cpu = CpuState::new();
+    let params = [
+        (0x40, RegisterName::B, 0, FlagCondition::Zero),
+        (0x40, RegisterName::B, 1, FlagCondition::NotZero),
+        (0x5b, RegisterName::E, 0b10111, FlagCondition::Zero),
+        (0x5b, RegisterName::E, 0b01000, FlagCondition::NotZero),
+        (0x7f, RegisterName::A, 0b01111111, FlagCondition::Zero),
+        (0x7f, RegisterName::A, 0b10000000, FlagCondition::NotZero),
+    ];
+    for (opcode, register, value, expected_flag) in params {
+        // Clear PC and flags from the last run
+        cpu.set_pc(0x0);
+        cpu.update_flag(FlagUpdate::Zero(false));
+
+        cpu.memory.write_u8(0, 0xcb);
+        cpu.memory.write_u8(1, opcode);
+
+        // Given the register contains the provided value
+        cpu.reg(register).write_u8(&cpu, value);
+        // When the CPU runs the instruction
+        cpu.step();
+        // Then the PC has been incremented past the wide instruction
+        assert_eq!(cpu.get_pc(), 2);
+        // And the zero flag is set correctly based on the input data
+        assert!(cpu.is_flag_condition_met(expected_flag));
+    }
+}
+
+#[test]
+fn test_bit_b_hl_deref() {
+    // Given a BIT B, (HL) instruction
+    let mut cpu = CpuState::new();
+    // And HL containes a pointer
+    // And the pointer itself does not have its MSB set
+    cpu.reg(RegisterName::HL).write_u16(&cpu, 0xfcfc);
+    // And the pointee contains a value with its LSB set
+    cpu.reg(RegisterName::HL)
+        .write_u8_with_mode(&cpu, AddressingMode::Deref, 0x01);
+
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0xcb);
+    cpu.memory.write_u8(1, 0x46);
+    cpu.step();
+
+    // Then the Z flag is cleared
+    assert!(cpu.is_flag_condition_met(FlagCondition::NotZero));
+
+    // And when the pointee contains a value with its LSB unset
+    cpu.reg(RegisterName::HL)
+        .write_u8_with_mode(&cpu, AddressingMode::Deref, 0x00);
+
+    // When the CPU runs the instruction
+    cpu.set_pc(0);
+    cpu.memory.write_u8(0, 0xcb);
+    cpu.memory.write_u8(1, 0x46);
+    cpu.step();
+
+    // Then the Z flag is set
+    assert!(cpu.is_flag_condition_met(FlagCondition::Zero));
 }
