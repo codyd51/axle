@@ -758,7 +758,7 @@ impl CpuState {
                 }
                 let prev = op.read_u8_with_mode(&self, read_mode);
                 let increment = 1;
-                let new = prev + increment;
+                let new = prev.overflowing_add(increment).0;
                 op.write_u8(&self, new);
                 self.update_flag(FlagUpdate::Zero(new == 0));
                 self.update_flag(FlagUpdate::Subtract(false));
@@ -775,7 +775,7 @@ impl CpuState {
                     print!("DEC {op}\t");
                 }
                 let prev = op.read_u8_with_mode(&self, read_mode);
-                let new = prev - 1;
+                let new = prev.overflowing_sub(1).0;
                 op.write_u8(&self, new);
                 self.update_flag(FlagUpdate::Zero(new == 0));
                 self.update_flag(FlagUpdate::Subtract(true));
@@ -906,7 +906,7 @@ impl CpuState {
                     // this instruction is 2 bytes wide
                     let mut pc = self.get_pc();
                     pc += 2;
-                    pc += rel_target as u16;
+                    pc = ((pc as i16) + rel_target as i16) as u16;
                     self.set_pc(pc);
                     InstrInfo::jump(2, 3)
                 } else {
