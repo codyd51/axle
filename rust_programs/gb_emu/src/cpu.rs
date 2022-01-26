@@ -507,8 +507,6 @@ impl CpuState {
     pub fn print_regs(&self) {
         println!();
         println!("--- CPU State ---");
-        //println!("\tPC = 0x{:04x}\tSP = 0x{:04x}", self.pc, self.sp);
-        //println!("\tPC = 0x{:04x}\tSP = 0x{:04x}", self.pc, self.sp);
         let flags = self.format_flags();
         println!(
             "\t{}\t{}",
@@ -730,12 +728,35 @@ impl CpuState {
                 todo!("HALT")
             }
             0xc3 => {
+                // JP u16
                 let target = self.memory.read(self.get_pc() + 1);
                 if debug {
                     println!("JMP 0x{target:04x}");
                 }
-                self.reg(RegisterName::PC).write_u16(self, target);
+                self.set_pc(target);
                 Some(InstrInfo::jump(3, 4))
+            }
+            0xcd => {
+                // CALL u16
+                let current_pc = self.get_pc();
+                let current_sp = self.reg(RegisterName::SP).read_u16(&self);
+                let target = self.memory.read(current_pc + 1);
+                if debug {
+                    println!("CALL 0x{target:04x}");
+                }
+                // After the call completes,
+                // return to the address after 1-byte opcode and 2-byte jump target
+                let return_pc = current_pc + 3;
+                // Store the return address on the stack
+                let return_addr_stack_storage = current_sp - (mem::size_of::<u16>() as u16);
+                self.memory.write_u16(return_addr_stack_storage, return_pc);
+                // Decrement SP to account for a push...
+                // TODO(PT): Refactor stack push?
+                self.reg(RegisterName::SP).write_u16(&self, current_sp - 2);
+
+                // Assign PC to the jump target
+                self.set_pc(target);
+                Some(InstrInfo::jump(3, 6))
             }
             // Handled down below
             _ => None,
@@ -1763,4 +1784,30 @@ fn test_ld_a_with_deref_u8() {
     assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x66);
     // And the pointee is untouched
     assert_eq!(cpu.memory.read::<u8>(0xffcc), 0x66);
+}
+
+/* CALL u16 */
+
+#[test]
+fn test_call_u16() {
+    // Given a CALL u16 instruction
+    // And there is a stack set up
+    let mut cpu = CpuState::new();
+    cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffe);
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0xcd);
+    cpu.memory.write_u16(1, 0x5566);
+    cpu.step();
+
+    // Then PC has been redirected to the jump target
+    assert_eq!(cpu.get_pc(), 0x5566);
+
+    // And the stack pointer has been decremented due to the return address
+    // being stored on the stack
+    let sp = cpu.reg(RegisterName::SP).read_u16(&cpu);
+    assert_eq!(sp, 0xfffc);
+
+    // And the return address is stored on the stack
+    let return_pc = 3;
+    assert_eq!(cpu.memory.read::<u16>(sp), return_pc);
 }
