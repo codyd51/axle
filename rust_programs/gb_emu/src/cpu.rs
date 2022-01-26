@@ -680,7 +680,7 @@ impl CpuState {
         #[bitmatch]
         match instruction_byte {
             "01bbbiii" => {
-                // Bit B, Reg8
+                // BIT B, Reg8
                 let bit_to_test = b;
                 let (reg, read_mode) = self.get_reg_from_lookup_tab1(i);
                 if debug {
@@ -692,6 +692,45 @@ impl CpuState {
                 self.update_flag(FlagUpdate::Subtract(false));
                 self.update_flag(FlagUpdate::HalfCarry(true));
                 // TODO(PT): Should be three cycles when (HL)
+                2
+            }
+            "000c0iii" => {
+                // RLC Reg8 | RL Reg8
+                let (reg, addressing_mode) = self.get_reg_from_lookup_tab1(i);
+
+                let is_rlc = c == 0;
+
+                if debug {
+                    if is_rlc {
+                        println!("RLC {reg}");
+                    } else {
+                        println!("RL {reg}");
+                    }
+                }
+
+                let contents = reg.read_u8_with_mode(&self, addressing_mode);
+                let high_bit = contents >> 7;
+
+                // Left shift
+                let mut rotated = (contents << 1);
+                if is_rlc {
+                    // Copy the high bit back into bit 0
+                    rotated |= high_bit;
+                } else {
+                    // Shift and set the LSB to the contents of the C flag
+                    let carry = match self.is_flag_set(Flag::Carry) {
+                        true => 1,
+                        false => 0,
+                    };
+                    rotated |= carry;
+                }
+                reg.write_u8_with_mode(self, addressing_mode, rotated);
+                // Copy the high bit into the C flag
+                self.update_flag(FlagUpdate::Carry(high_bit == 1));
+                self.update_flag(FlagUpdate::Zero(rotated == 0));
+                self.update_flag(FlagUpdate::HalfCarry(false));
+                self.update_flag(FlagUpdate::Subtract(false));
+                // TODO(PT): Should be 4 cycles when (HL)
                 2
             }
             _ => {
@@ -1965,4 +2004,40 @@ fn test_pop_af() {
     assert!(!cpu.is_flag_set(Flag::Subtract));
     assert!(!cpu.is_flag_set(Flag::HalfCarry));
     assert!(cpu.is_flag_set(Flag::Carry));
+}
+
+#[test]
+fn test_rlc() {
+    // Given an RLC A instruction
+    let mut cpu = CpuState::new();
+    cpu.reg(RegisterName::A).write_u8(&cpu, 0x85);
+    cpu.set_flags(true, true, true, false);
+
+    cpu.memory.write_u8(0, 0xcb);
+    cpu.memory.write_u8(1, 0x07);
+    cpu.step();
+
+    assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x0b);
+    assert!(cpu.is_flag_set(Flag::Carry));
+    assert!(!cpu.is_flag_set(Flag::HalfCarry));
+    assert!(!cpu.is_flag_set(Flag::Subtract));
+    assert!(!cpu.is_flag_set(Flag::Zero));
+}
+
+#[test]
+fn test_rl() {
+    // Given an RL A instruction
+    let mut cpu = CpuState::new();
+    cpu.reg(RegisterName::A).write_u8(&cpu, 0x95);
+    cpu.set_flags(true, true, true, true);
+
+    cpu.memory.write_u8(0, 0xcb);
+    cpu.memory.write_u8(1, 0x17);
+    cpu.step();
+
+    assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x2b);
+    assert!(cpu.is_flag_set(Flag::Carry));
+    assert!(!cpu.is_flag_set(Flag::HalfCarry));
+    assert!(!cpu.is_flag_set(Flag::Subtract));
+    assert!(!cpu.is_flag_set(Flag::Zero));
 }
