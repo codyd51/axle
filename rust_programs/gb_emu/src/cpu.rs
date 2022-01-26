@@ -262,7 +262,7 @@ impl VariableStorage for CpuRegister {
 
 impl Display for CpuRegister {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "[Reg {} ({:02x})]", self.name, *self.contents.borrow())
+        write!(f, "{}({:02x})", self.name, *self.contents.borrow())
     }
 }
 
@@ -344,7 +344,7 @@ impl VariableStorage for CpuRegisterPair {
 
 impl Display for CpuRegisterPair {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "[RegPair {}{}]", self.upper, self.lower)
+        write!(f, "{}{}", self.upper, self.lower)
     }
 }
 
@@ -413,10 +413,10 @@ enum AddressingMode {
 impl Display for AddressingMode {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let name = match self {
-            AddressingMode::Read => "Read",
-            AddressingMode::Deref => "Deref",
-            AddressingMode::DerefThenIncrement => "Deref+",
-            AddressingMode::DerefThenDecrement => "Deref-",
+            AddressingMode::Read => "",
+            AddressingMode::Deref => "[]",
+            AddressingMode::DerefThenIncrement => "[+]",
+            AddressingMode::DerefThenDecrement => "[-]",
         };
         write!(f, "{}", name)
     }
@@ -868,7 +868,7 @@ impl CpuState {
                 let (dest, dest_addressing_mode) = self.get_reg_from_lookup_tab3(i);
 
                 if debug {
-                    println!("LOAD {dest} {dest_addressing_mode} with {src}");
+                    println!("LOAD {dest}{dest_addressing_mode} with {src}");
                 }
 
                 dest.write_u8_with_mode(&self, dest_addressing_mode, src.read_u8(&self));
@@ -881,7 +881,7 @@ impl CpuState {
                 let (src, src_addressing_mode) = self.get_reg_from_lookup_tab3(i);
 
                 if debug {
-                    println!("LOAD {dest} with {src} {src_addressing_mode}");
+                    println!("LOAD {dest} with {src}{src_addressing_mode}");
                 }
 
                 dest.write_u8(&self, src.read_u8_with_mode(&self, src_addressing_mode));
