@@ -667,6 +667,47 @@ impl CpuState {
         &*self.operands[&name]
     }
 
+    fn rlc_or_rl(
+        &self,
+        reg: &dyn VariableStorage,
+        addressing_mode: AddressingMode,
+        is_rlc: bool,
+    ) -> InstrInfo {
+        // Extracted because this is used in both the normal and CB tables
+        if self.debug_enabled {
+            if is_rlc {
+                println!("RLC {reg}");
+            } else {
+                println!("RL {reg}");
+            }
+        }
+
+        let contents = reg.read_u8_with_mode(&self, addressing_mode);
+        let high_bit = contents >> 7;
+
+        // Left shift
+        let mut rotated = (contents << 1);
+        if is_rlc {
+            // Copy the high bit back into bit 0
+            rotated |= high_bit;
+        } else {
+            // Shift and set the LSB to the contents of the C flag
+            let carry = match self.is_flag_set(Flag::Carry) {
+                true => 1,
+                false => 0,
+            };
+            rotated |= carry;
+        }
+        reg.write_u8_with_mode(self, addressing_mode, rotated);
+        // Copy the high bit into the C flag
+        self.update_flag(FlagUpdate::Carry(high_bit == 1));
+        self.update_flag(FlagUpdate::Zero(rotated == 0));
+        self.update_flag(FlagUpdate::HalfCarry(false));
+        self.update_flag(FlagUpdate::Subtract(false));
+        // TODO(PT): Should be 4 cycles when (HL)
+        InstrInfo::seq(2, 2)
+    }
+
     #[bitmatch]
     fn decode_cb_prefixed_instr(&mut self, instruction_byte: u8) -> usize {
         let debug = self.debug_enabled;
@@ -697,41 +738,8 @@ impl CpuState {
             "000c0iii" => {
                 // RLC Reg8 | RL Reg8
                 let (reg, addressing_mode) = self.get_reg_from_lookup_tab1(i);
-
                 let is_rlc = c == 0;
-
-                if debug {
-                    if is_rlc {
-                        println!("RLC {reg}");
-                    } else {
-                        println!("RL {reg}");
-                    }
-                }
-
-                let contents = reg.read_u8_with_mode(&self, addressing_mode);
-                let high_bit = contents >> 7;
-
-                // Left shift
-                let mut rotated = (contents << 1);
-                if is_rlc {
-                    // Copy the high bit back into bit 0
-                    rotated |= high_bit;
-                } else {
-                    // Shift and set the LSB to the contents of the C flag
-                    let carry = match self.is_flag_set(Flag::Carry) {
-                        true => 1,
-                        false => 0,
-                    };
-                    rotated |= carry;
-                }
-                reg.write_u8_with_mode(self, addressing_mode, rotated);
-                // Copy the high bit into the C flag
-                self.update_flag(FlagUpdate::Carry(high_bit == 1));
-                self.update_flag(FlagUpdate::Zero(rotated == 0));
-                self.update_flag(FlagUpdate::HalfCarry(false));
-                self.update_flag(FlagUpdate::Subtract(false));
-                // TODO(PT): Should be 4 cycles when (HL)
-                2
+                self.rlc_or_rl(reg, addressing_mode, is_rlc).cycle_count
             }
             _ => {
                 println!("<cb {:02x} is unimplemented>", instruction_byte);
@@ -760,7 +768,7 @@ impl CpuState {
 
         let debug = self.debug_enabled;
         if debug {
-            print!("0x{:04x}\t{:02x}\t", self.get_pc(), instruction_byte);
+            print!("0x{:04x}\t{:02x}\t\t", self.get_pc(), instruction_byte);
         }
 
         // Some instructions have dedicated handling
@@ -1046,6 +1054,15 @@ impl CpuState {
                     reg.write_u16(&self, self.pop_u16());
                     InstrInfo::seq(1, 3)
                 }
+            }
+            "000c0111" => {
+                // RLC A | RL A
+                let is_rlc = c == 0;
+                let instr_info =
+                    self.rlc_or_rl(self.reg(RegisterName::A), AddressingMode::Read, is_rlc);
+                // The Z flag may have been set above, but this variant always clear it
+                self.update_flag(FlagUpdate::Zero(false));
+                instr_info
             }
             _ => {
                 println!("<0x{:02x} is unimplemented>", instruction_byte);
@@ -2025,6 +2042,23 @@ fn test_rlc() {
 }
 
 #[test]
+fn test_rlc_z_flag() {
+    // Given an RLC A instruction
+    let mut cpu = CpuState::new();
+    // And the result is zero
+    cpu.reg(RegisterName::A).write_u8(&cpu, 0x00);
+    // And the Z flag is previously unset
+    cpu.update_flag(FlagUpdate::Zero(false));
+
+    cpu.memory.write_u8(0, 0xcb);
+    cpu.memory.write_u8(1, 0x07);
+    cpu.step();
+
+    // Then the Z flag has been set
+    assert!(cpu.is_flag_set(Flag::Zero));
+}
+
+#[test]
 fn test_rl() {
     // Given an RL A instruction
     let mut cpu = CpuState::new();
@@ -2039,5 +2073,40 @@ fn test_rl() {
     assert!(cpu.is_flag_set(Flag::Carry));
     assert!(!cpu.is_flag_set(Flag::HalfCarry));
     assert!(!cpu.is_flag_set(Flag::Subtract));
+    assert!(!cpu.is_flag_set(Flag::Zero));
+}
+
+#[test]
+fn test_rlc_a() {
+    // Given an RLC A instruction (in the main opcode table)
+    let mut cpu = CpuState::new();
+    // And the result is zero
+    cpu.reg(RegisterName::A).write_u8(&cpu, 0x85);
+    // And the Z flag is previously unset
+    cpu.update_flag(FlagUpdate::Zero(false));
+
+    cpu.memory.write_u8(0, 0x07);
+    cpu.step();
+
+    assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x0b);
+    assert!(cpu.is_flag_set(Flag::Carry));
+    assert!(!cpu.is_flag_set(Flag::HalfCarry));
+    assert!(!cpu.is_flag_set(Flag::Subtract));
+    assert!(!cpu.is_flag_set(Flag::Zero));
+}
+
+#[test]
+fn test_rlc_a_z_flag() {
+    // Given an RLC A instruction (in the main opcode table)
+    let mut cpu = CpuState::new();
+    // And the result is zero
+    cpu.reg(RegisterName::A).write_u8(&cpu, 0x00);
+    // And the Z flag is previously unset
+    cpu.update_flag(FlagUpdate::Zero(false));
+
+    cpu.memory.write_u8(0, 0x07);
+    cpu.step();
+
+    // Then the Z flag remains unset, even though the result was zero
     assert!(!cpu.is_flag_set(Flag::Zero));
 }
