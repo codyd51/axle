@@ -916,6 +916,28 @@ impl CpuState {
                     InstrInfo::seq(2, 2)
                 }
             }
+            "111w0000" => {
+                // LD (0xff00 + u8), A | LD A, (0xff00 + u8)
+                let write_to_a = w == 1;
+                let a = self.reg(RegisterName::A);
+                let off_u8 = self.memory.read::<u8>(pc + 1);
+                let address = 0xff00u16 + (off_u8 as u16);
+
+                if debug {
+                    if write_to_a {
+                        println!("LD {a} with 0xff00 + {off_u8:02x}");
+                    } else {
+                        println!("LD (0xff00 + {off_u8:02x}) with {a}");
+                    }
+                }
+
+                if write_to_a {
+                    a.write_u8(&self, self.memory.read(address));
+                } else {
+                    self.memory.write_u8(address, a.read_u8(&self));
+                }
+                InstrInfo::seq(2, 3)
+            }
             "111w0010" => {
                 // LD (0xff00 + C), A | LD A, (0xf00 + C)
                 let write_to_a = w == 1;
@@ -925,7 +947,6 @@ impl CpuState {
 
                 if debug {
                     if write_to_a {
-                        //println!("LD {a} with 0xff00 + {off_u8:02x}");
                         println!("LD {a} with (0xff00 + {c})");
                     } else {
                         println!("LD (0xff00 + {c}) with {a}");
@@ -1658,7 +1679,7 @@ fn test_bit_b_hl_deref() {
 
 #[test]
 fn test_ld_deref_c_with_a() {
-    // Given an LD (0xff00 + C) A, instruction
+    // Given an LD (0xff00 + C), A instruction
     let mut cpu = CpuState::new();
     // And A contains some data
     cpu.reg(RegisterName::A).write_u8(&cpu, 0xaa);
@@ -1698,4 +1719,48 @@ fn test_ld_a_with_deref_c() {
     assert_eq!(cpu.reg(RegisterName::C).read_u8(&cpu), 0x11);
     // And the memory is untouched
     assert_eq!(cpu.memory.read::<u8>(0xff11), 0xbb);
+}
+
+/* LD (0xff00 + u8), A */
+
+#[test]
+fn test_ld_deref_u8_with_a() {
+    // Given an LD (0xff00 + u8), A, instruction
+    let mut cpu = CpuState::new();
+    // And A contains some data
+    cpu.reg(RegisterName::A).write_u8(&cpu, 0xaa);
+    // And the pointee contains some data
+    cpu.memory.write_u8(0xffcc, 0x66);
+
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0xe0);
+    cpu.memory.write_u8(1, 0xcc);
+    cpu.step();
+
+    // Then the pointee has been updated with the contents of A
+    assert_eq!(cpu.memory.read::<u8>(0xffcc), 0xaa);
+    // And A is untouched
+    assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0xaa);
+}
+
+/* LD A, (0xff00 + u8) */
+
+#[test]
+fn test_ld_a_with_deref_u8() {
+    // Given an LD A, (0xff00 + u8) instruction
+    let mut cpu = CpuState::new();
+    // And A contains some data
+    cpu.reg(RegisterName::A).write_u8(&cpu, 0xaa);
+    // And the pointee contains some data
+    cpu.memory.write_u8(0xffcc, 0x66);
+
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0xf0);
+    cpu.memory.write_u8(1, 0xcc);
+    cpu.step();
+
+    // Then A has been updated with the pointee
+    assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x66);
+    // And the pointee is untouched
+    assert_eq!(cpu.memory.read::<u8>(0xffcc), 0x66);
 }
