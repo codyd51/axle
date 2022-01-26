@@ -747,24 +747,18 @@ impl CpuState {
             0xcd => {
                 // CALL u16
                 let current_pc = self.get_pc();
-                let current_sp = self.reg(RegisterName::SP).read_u16(&self);
                 let target = self.memory.read(current_pc + 1);
                 if debug {
                     println!("CALL 0x{target:04x}");
                 }
+                // Store the return address on the stack
                 // After the call completes,
                 // return to the address after 1-byte opcode and 2-byte jump target
-                let return_pc = current_pc + 3;
-                // Store the return address on the stack
-                let return_addr_stack_storage = current_sp - (mem::size_of::<u16>() as u16);
-                self.memory.write_u16(return_addr_stack_storage, return_pc);
-                // Decrement SP to account for a push...
-                // TODO(PT): Refactor stack push?
-                self.reg(RegisterName::SP).write_u16(&self, current_sp - 2);
-
+                let instr_size = 3;
+                self.push_u16(current_pc + instr_size);
                 // Assign PC to the jump target
                 self.set_pc(target);
-                Some(InstrInfo::jump(3, 6))
+                Some(InstrInfo::jump(instr_size, 6))
             }
             // Handled down below
             _ => None,
@@ -988,12 +982,61 @@ impl CpuState {
                 }
                 InstrInfo::seq(1, 2)
             }
+            "11ii0p01" => {
+                // PUSH RegPair | POP RegPair
+                let is_push = p == 1;
+
+                let reg_name = match i {
+                    0 => RegisterName::BC,
+                    1 => RegisterName::DE,
+                    2 => RegisterName::HL,
+                    3 => RegisterName::AF,
+                    _ => panic!("Invalid index"),
+                };
+                let reg = self.reg(reg_name);
+                if is_push {
+                    if debug {
+                        println!("PUSH from {reg}");
+                    }
+                    self.push_u16(reg.read_u16(&self));
+                    InstrInfo::seq(1, 4)
+                } else {
+                    if debug {
+                        println!("POP into {reg}");
+                    }
+                    reg.write_u16(&self, self.pop_u16());
+                    InstrInfo::seq(1, 3)
+                }
+            }
             _ => {
                 println!("<0x{:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
                 panic!("Unimplemented opcode")
             }
         }
+    }
+
+    fn push_u16(&self, val: u16) {
+        let current_sp = self.reg(RegisterName::SP).read_u16(&self);
+        let byte_count = mem::size_of::<u16>();
+        // Decrement SP to account for push
+        let new_stack_pointer = current_sp - (byte_count as u16);
+        self.reg(RegisterName::SP)
+            .write_u16(&self, new_stack_pointer);
+
+        // Write the data where we just reserved space above the new SP
+        let stack_storage = new_stack_pointer;
+        self.memory.write_u16(stack_storage, val);
+    }
+
+    fn pop_u16(&self) -> u16 {
+        let sp = self.reg(RegisterName::SP);
+        let byte_count = mem::size_of::<u16>() as u16;
+        let current_sp = sp.read_u16(&self);
+        let val = self.memory.read(current_sp);
+        // Increment SP past the data that was just popped
+        sp.write_u16(&self, current_sp + byte_count);
+        val
     }
 
     pub fn step(&mut self) {
@@ -1818,4 +1861,108 @@ fn test_call_u16() {
     // And the return address is stored on the stack
     let return_pc = 3;
     assert_eq!(cpu.memory.read::<u16>(sp), return_pc);
+}
+
+/* PUSH Reg16 */
+
+#[test]
+fn test_push_bc() {
+    // Given a PUSH BC instruction
+    // And there is a stack set up
+    let mut cpu = CpuState::new();
+    cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffe);
+    // And BC contains some data
+    cpu.reg(RegisterName::BC).write_u16(&cpu, 0x5566);
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0xc5);
+    cpu.step();
+
+    // Then the stack pointer has been decremented
+    let sp = cpu.reg(RegisterName::SP).read_u16(&cpu);
+    assert_eq!(sp, 0xfffc);
+
+    // And the value is stored on the stack
+    assert_eq!(cpu.memory.read::<u16>(sp), 0x5566);
+}
+
+#[test]
+fn test_push_af() {
+    // Given a PUSH AF instruction
+    // And there is a stack set up
+    let mut cpu = CpuState::new();
+    cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffe);
+    // And AF contains some data
+    cpu.reg(RegisterName::AF).write_u16(&cpu, 0x55b0);
+    // And the individual A and F registers have been updated correctly
+    assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x55);
+    assert_eq!(cpu.reg(RegisterName::F).read_u8(&cpu), 0xb0);
+    // And the F register change shows up in the flags APIs
+    assert!(cpu.is_flag_set(Flag::Zero));
+    assert!(!cpu.is_flag_set(Flag::Subtract));
+    assert!(cpu.is_flag_set(Flag::HalfCarry));
+    assert!(cpu.is_flag_set(Flag::Carry));
+
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0xf5);
+    cpu.step();
+
+    // Then the stack pointer has been decremented
+    let sp = cpu.reg(RegisterName::SP).read_u16(&cpu);
+    assert_eq!(sp, 0xfffc);
+
+    // And the value is stored on the stack
+    assert_eq!(cpu.memory.read::<u16>(sp), 0x55b0);
+}
+
+/* POP Reg16 */
+
+#[test]
+fn test_pop_bc() {
+    // Given a POP BC instruction
+    // And there is a stack set up
+    let mut cpu = CpuState::new();
+    cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffe);
+
+    // And the stack contains some data
+    cpu.push_u16(0x5566);
+    assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0xfffc);
+
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0xc1);
+    cpu.step();
+
+    // Then the stack pointer has been incremented
+    let sp = cpu.reg(RegisterName::SP).read_u16(&cpu);
+    assert_eq!(sp, 0xfffe);
+
+    // And the value has been read into BC
+    assert_eq!(cpu.reg(RegisterName::BC).read_u16(&cpu), 0x5566);
+}
+
+#[test]
+fn test_pop_af() {
+    // Given a POP AF instruction
+    // And there is a stack set up
+    let mut cpu = CpuState::new();
+    cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffe);
+
+    // And the stack contains some data
+    cpu.push_u16(0x5510);
+    assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0xfffc);
+
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0xf1);
+    cpu.step();
+
+    // Then the stack pointer has been incremented
+    let sp = cpu.reg(RegisterName::SP).read_u16(&cpu);
+    assert_eq!(sp, 0xfffe);
+
+    // And the value has been read into AF
+    assert_eq!(cpu.reg(RegisterName::AF).read_u16(&cpu), 0x5510);
+    // And the value in F shows up in the flags APIs
+    assert!(!cpu.is_flag_set(Flag::Zero));
+    assert!(!cpu.is_flag_set(Flag::Subtract));
+    assert!(!cpu.is_flag_set(Flag::HalfCarry));
+    assert!(cpu.is_flag_set(Flag::Carry));
 }
