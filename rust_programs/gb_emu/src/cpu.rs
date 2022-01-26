@@ -469,6 +469,12 @@ impl CpuState {
         }
     }
 
+    pub fn load_bootrom(&mut self, bootrom_data: Vec<u8>) {
+        // Don't set up any initial state as it's the boot ROM's responsibility
+        let mut rom = self.memory.rom.borrow_mut();
+        rom[..bootrom_data.len()].copy_from_slice(&bootrom_data)
+    }
+
     pub fn load_rom_data(&mut self, rom_data: Vec<u8>) {
         // Set initial state
         self.set_flags(true, false, true, true);
@@ -482,7 +488,7 @@ impl CpuState {
         self.reg(RegisterName::L).write_u8(self, 0x4d);
 
         let mut rom = self.memory.rom.borrow_mut();
-        rom[..rom_data.len()].copy_from_slice(&rom_data);
+        rom[..rom_data.len()].copy_from_slice(&rom_data)
     }
 
     pub fn get_pc(&self) -> u16 {
