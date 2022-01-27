@@ -807,6 +807,14 @@ impl CpuState {
                 self.set_pc(target);
                 Some(InstrInfo::jump(instr_size, 6))
             }
+            0xc9 => {
+                // RET
+                self.set_pc(self.pop_u16());
+                if debug {
+                    println!("RET {:04x}", self.get_pc());
+                }
+                Some(InstrInfo::jump(1, 4))
+            }
             // Handled down below
             _ => None,
         };
@@ -2154,4 +2162,34 @@ fn test_inc_bc() {
 
     // And the BC register has been incremented
     assert_eq!(cpu.reg(RegisterName::BC).read_u16(&cpu), 0xfb);
+}
+
+/* RET */
+#[test]
+fn test_ret() {
+    // Given a RET instruction
+    // And there is a stack set up
+    let mut cpu = CpuState::new();
+    cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffe);
+
+    // And the stack contains some data
+    cpu.push_u16(0x5566);
+    assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0xfffc);
+
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0xc9);
+    let instr_info = cpu.step();
+    // Then the instruction size and timings are correct
+    assert_eq!(instr_info.instruction_size, 1);
+    assert_eq!(instr_info.cycle_count, 4);
+
+    // And the stack pointer has been incremented
+    let sp = cpu.reg(RegisterName::SP).read_u16(&cpu);
+    assert_eq!(sp, 0xfffe);
+
+    // And the value has been read into PC
+    assert_eq!(cpu.reg(RegisterName::PC).read_u16(&cpu), 0x5566);
+    // And it's indicated that a jump occurred
+    assert_eq!(instr_info.pc_increment, None);
+    assert!(instr_info.jumped);
 }
