@@ -86,7 +86,7 @@ impl Memory {
     }
 }
 
-struct InstrInfo {
+pub struct InstrInfo {
     instruction_size: u16,
     cycle_count: usize,
     pc_increment: Option<u16>,
@@ -712,7 +712,7 @@ impl CpuState {
     fn decode_cb_prefixed_instr(&mut self, instruction_byte: u8) -> usize {
         let debug = self.debug_enabled;
         if debug {
-            print!("0x{:04x}\tcb {:02x}\t", self.get_pc(), instruction_byte);
+            print!("0x{:04x}\tcb {:02x}\t\t", self.get_pc(), instruction_byte);
         }
 
         // Classes of instructions are handled as a group
@@ -1058,11 +1058,11 @@ impl CpuState {
             "000c0111" => {
                 // RLC A | RL A
                 let is_rlc = c == 0;
-                let instr_info =
-                    self.rlc_or_rl(self.reg(RegisterName::A), AddressingMode::Read, is_rlc);
+                // Throw away the instruction info since this opcode has its own timings
+                self.rlc_or_rl(self.reg(RegisterName::A), AddressingMode::Read, is_rlc);
                 // The Z flag may have been set above, but this variant always clear it
                 self.update_flag(FlagUpdate::Zero(false));
-                instr_info
+                InstrInfo::seq(1, 1)
             }
             _ => {
                 println!("<0x{:02x} is unimplemented>", instruction_byte);
@@ -1095,7 +1095,7 @@ impl CpuState {
         val
     }
 
-    pub fn step(&mut self) {
+    pub fn step(&mut self) -> InstrInfo {
         let pc = self.get_pc();
         let info = self.decode(pc);
         if let Some(pc_increment) = info.pc_increment {
@@ -1106,6 +1106,7 @@ impl CpuState {
             let pc_reg = self.reg(RegisterName::PC);
             pc_reg.write_u16(self, pc + pc_increment);
         }
+        info
     }
 }
 
@@ -2032,7 +2033,10 @@ fn test_rlc() {
 
     cpu.memory.write_u8(0, 0xcb);
     cpu.memory.write_u8(1, 0x07);
-    cpu.step();
+    let instr_info = cpu.step();
+    // Then the instruction size and timings are correct
+    assert_eq!(instr_info.cycle_count, 1);
+    assert_eq!(instr_info.instruction_size, 1);
 
     assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x0b);
     assert!(cpu.is_flag_set(Flag::Carry));
@@ -2052,7 +2056,10 @@ fn test_rlc_z_flag() {
 
     cpu.memory.write_u8(0, 0xcb);
     cpu.memory.write_u8(1, 0x07);
-    cpu.step();
+    let instr_info = cpu.step();
+    // Then the instruction size and timings are correct
+    assert_eq!(instr_info.cycle_count, 1);
+    assert_eq!(instr_info.instruction_size, 1);
 
     // Then the Z flag has been set
     assert!(cpu.is_flag_set(Flag::Zero));
@@ -2067,7 +2074,10 @@ fn test_rl() {
 
     cpu.memory.write_u8(0, 0xcb);
     cpu.memory.write_u8(1, 0x17);
-    cpu.step();
+    let instr_info = cpu.step();
+    // Then the instruction size and timings are correct
+    assert_eq!(instr_info.cycle_count, 1);
+    assert_eq!(instr_info.instruction_size, 1);
 
     assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x2b);
     assert!(cpu.is_flag_set(Flag::Carry));
@@ -2086,7 +2096,10 @@ fn test_rlc_a() {
     cpu.update_flag(FlagUpdate::Zero(false));
 
     cpu.memory.write_u8(0, 0x07);
-    cpu.step();
+    let instr_info = cpu.step();
+    // Then the instruction size and timings are correct
+    assert_eq!(instr_info.cycle_count, 1);
+    assert_eq!(instr_info.instruction_size, 1);
 
     assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x0b);
     assert!(cpu.is_flag_set(Flag::Carry));
@@ -2105,7 +2118,10 @@ fn test_rlc_a_z_flag() {
     cpu.update_flag(FlagUpdate::Zero(false));
 
     cpu.memory.write_u8(0, 0x07);
-    cpu.step();
+    let instr_info = cpu.step();
+    // Then the instruction size and timings are correct
+    assert_eq!(instr_info.cycle_count, 1);
+    assert_eq!(instr_info.instruction_size, 1);
 
     // Then the Z flag remains unset, even though the result was zero
     assert!(!cpu.is_flag_set(Flag::Zero));
