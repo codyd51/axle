@@ -1064,6 +1064,17 @@ impl CpuState {
                 self.update_flag(FlagUpdate::Zero(false));
                 InstrInfo::seq(1, 1)
             }
+            "00ii0011" => {
+                // INC Reg16
+                let dest = self.get_reg_from_lookup_tab2(i).0;
+
+                if debug {
+                    println!("INC {dest}");
+                }
+
+                dest.write_u16(&self, dest.read_u16(&self) + 1);
+                InstrInfo::seq(1, 2)
+            }
             _ => {
                 println!("<0x{:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
@@ -2035,8 +2046,8 @@ fn test_rlc() {
     cpu.memory.write_u8(1, 0x07);
     let instr_info = cpu.step();
     // Then the instruction size and timings are correct
-    assert_eq!(instr_info.cycle_count, 1);
-    assert_eq!(instr_info.instruction_size, 1);
+    assert_eq!(instr_info.cycle_count, 2);
+    assert_eq!(instr_info.instruction_size, 2);
 
     assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x0b);
     assert!(cpu.is_flag_set(Flag::Carry));
@@ -2058,8 +2069,8 @@ fn test_rlc_z_flag() {
     cpu.memory.write_u8(1, 0x07);
     let instr_info = cpu.step();
     // Then the instruction size and timings are correct
-    assert_eq!(instr_info.cycle_count, 1);
-    assert_eq!(instr_info.instruction_size, 1);
+    assert_eq!(instr_info.cycle_count, 2);
+    assert_eq!(instr_info.instruction_size, 2);
 
     // Then the Z flag has been set
     assert!(cpu.is_flag_set(Flag::Zero));
@@ -2076,8 +2087,8 @@ fn test_rl() {
     cpu.memory.write_u8(1, 0x17);
     let instr_info = cpu.step();
     // Then the instruction size and timings are correct
-    assert_eq!(instr_info.cycle_count, 1);
-    assert_eq!(instr_info.instruction_size, 1);
+    assert_eq!(instr_info.cycle_count, 2);
+    assert_eq!(instr_info.instruction_size, 2);
 
     assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x2b);
     assert!(cpu.is_flag_set(Flag::Carry));
@@ -2125,4 +2136,22 @@ fn test_rlc_a_z_flag() {
 
     // Then the Z flag remains unset, even though the result was zero
     assert!(!cpu.is_flag_set(Flag::Zero));
+}
+
+/* INC Reg16 */
+
+#[test]
+fn test_inc_bc() {
+    // Given an INC BC instruction
+    let mut cpu = CpuState::new();
+    cpu.reg(RegisterName::BC).write_u16(&cpu, 0xfa);
+
+    cpu.memory.write_u8(0, 0x03);
+    let instr_info = cpu.step();
+    // Then the instruction size and timings are correct
+    assert_eq!(instr_info.instruction_size, 1);
+    assert_eq!(instr_info.cycle_count, 2);
+
+    // And the BC register has been incremented
+    assert_eq!(cpu.reg(RegisterName::BC).read_u16(&cpu), 0xfb);
 }
