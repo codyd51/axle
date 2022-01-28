@@ -13,9 +13,15 @@ use cpu::CpuState;
 extern crate alloc;
 
 mod cpu;
-use std::{io::Write, time::Duration};
+mod mmu;
+use std::{
+    io::Write,
+    rc::{Rc, Weak},
+    time::Duration,
+};
 
 use cpu::CpuState;
+use mmu::{Addressable, BootRom, GameRom, Mmu};
 use pixels::{Error, Pixels, SurfaceTexture};
 use winit::dpi::LogicalSize;
 use winit::event::{Event, VirtualKeyCode};
@@ -57,6 +63,7 @@ fn draw_tile(
 
     let tile_base = vram_base + (tile_idx * tile_size);
 
+    /*
     for row in 0..TILE_HEIGHT {
         let row_byte1 = cpu
             .memory
@@ -94,6 +101,7 @@ fn draw_tile(
             frame[(frame_idx + 3) as usize] = 0xff;
         }
     }
+    */
 }
 
 fn draw(frame: &mut [u8], cpu: &mut CpuState) {
@@ -146,6 +154,7 @@ fn draw(frame: &mut [u8], cpu: &mut CpuState) {
     */
 
     //$9800-$9BFF
+    /*
     let tile_map_row_size = 32;
     //for tile_map_byte_addr in 0x9800..0x9c00 {
     for tile_map_byte_idx in 0..0x400 {
@@ -165,9 +174,10 @@ fn draw(frame: &mut [u8], cpu: &mut CpuState) {
             draw_tile(frame, cpu, tile_map_byte as usize, x as usize, y as usize);
         }
     }
+    */
 }
 
-fn main() {
+fn main2() {
     let event_loop = EventLoop::new();
     let mut input = WinitInputHelper::new();
     let window = {
@@ -196,6 +206,7 @@ fn main() {
         .unwrap()
     };
 
+    /*
     let mut cpu = CpuState::new();
     let bootrom = std::fs::read("/Users/philliptennen/Downloads/DMG_ROM.bin").unwrap();
     cpu.load_bootrom(bootrom);
@@ -326,4 +337,14 @@ fn main() {
             _ => {}
         }
     });
+    */
+}
+
+fn main() {
+    /*
+    let bootrom = BootRom::new("/Users/philliptennen/Downloads/DMG_ROM.bin");
+    let game_rom = GameRom::new("/Users/philliptennen/Downloads/Tetris (World).gb");
+    let mmu = Mmu::new(vec![&bootrom, &game_rom]);
+    let cpu = CpuState::new(&mmu);
+    */
 }
