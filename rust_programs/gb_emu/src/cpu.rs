@@ -828,6 +828,24 @@ impl CpuState {
                 }
                 Some(InstrInfo::jump(1, 4))
             }
+            0xfe => {
+                // CP u8
+                let a = self.reg(RegisterName::A).read_u8(&self);
+                let val = self.memory.read(self.get_pc() + 1);
+                let (result, did_overflow) = a.overflowing_sub(val);
+                self.update_flag(FlagUpdate::Zero(a == val));
+                self.update_flag(FlagUpdate::Subtract(true));
+                // Underflow into the high nibble?
+                self.update_flag(FlagUpdate::HalfCarry((a & 0xf) < (result & 0xf)));
+                // Underflow into the next byte?
+                self.update_flag(FlagUpdate::Carry(did_overflow));
+
+                if debug {
+                    println!("CP {:02x} with {a}", val);
+                }
+
+                Some(InstrInfo::seq(2, 2))
+            }
             // Handled down below
             _ => None,
         };
@@ -2225,4 +2243,21 @@ fn test_jr_i8() {
     assert_eq!(instr_info.pc_increment, None);
     assert!(instr_info.jumped);
     assert_eq!(instr_info.instruction_size, 2);
+}
+
+/* CP u8 */
+#[test]
+fn test_cp_u8() {
+    // Given a CP u8 instruction
+    let mut cpu = CpuState::new();
+    cpu.reg(RegisterName::A).write_u8(&cpu, 0x3c);
+    cpu.memory.write_u8(0, 0xfe);
+    cpu.memory.write_u8(1, 0x3c);
+    let instr_info = cpu.step();
+    assert_eq!(instr_info.instruction_size, 2);
+    assert_eq!(instr_info.cycle_count, 2);
+    assert!(cpu.is_flag_set(Flag::Zero));
+    assert!(cpu.is_flag_set(Flag::Subtract));
+    assert!(!cpu.is_flag_set(Flag::HalfCarry));
+    assert!(!cpu.is_flag_set(Flag::Carry));
 }
