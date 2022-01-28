@@ -1115,6 +1115,25 @@ impl CpuState {
                 dest.write_u16(&self, dest.read_u16(&self) + 1);
                 InstrInfo::seq(1, 2)
             }
+            "111c1010" => {
+                let load_into_a = c == 1;
+                let a = self.reg(RegisterName::A);
+                let address = self.memory.read(self.get_pc() + 1);
+                let deref_value = self.memory.read(address);
+
+                if load_into_a {
+                    if debug {
+                        println!("LD {a}, ({:04x})[{:04x}]", address, deref_value);
+                    }
+                    a.write_u8(&self, deref_value);
+                } else {
+                    if debug {
+                        println!("LD ({:04x})[{:04x}], {a}", address, deref_value);
+                    }
+                    self.memory.write_u8(address, a.read_u8(&self));
+                }
+                InstrInfo::seq(3, 4)
+            }
             _ => {
                 println!("<0x{:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
@@ -2243,6 +2262,7 @@ fn test_jr_i8() {
     assert_eq!(instr_info.pc_increment, None);
     assert!(instr_info.jumped);
     assert_eq!(instr_info.instruction_size, 2);
+    assert_eq!(instr_info.cycle_count, 3);
 }
 
 /* CP u8 */
@@ -2260,4 +2280,54 @@ fn test_cp_u8() {
     assert!(cpu.is_flag_set(Flag::Subtract));
     assert!(!cpu.is_flag_set(Flag::HalfCarry));
     assert!(!cpu.is_flag_set(Flag::Carry));
+}
+
+/* LD (u16), A */
+
+#[test]
+fn test_ld_deref_u16_with_a() {
+    // Given an LD (u16), A instruction
+    let mut cpu = CpuState::new();
+    // And A contains some data
+    cpu.reg(RegisterName::A).write_u8(&cpu, 0xaa);
+    // And the pointee contains some data
+    let address = 0xffee;
+    cpu.memory.write_u8(address, 0xbb);
+
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0xea);
+    cpu.memory.write_u16(1, address);
+    let instr_info = cpu.step();
+    assert_eq!(instr_info.instruction_size, 3);
+    assert_eq!(instr_info.cycle_count, 4);
+
+    // Then the pointee has been updated with the contents of A
+    assert_eq!(cpu.memory.read::<u8>(address), 0xaa);
+    // And A is untouched
+    assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0xaa);
+}
+
+/* LD A, (u16) */
+
+#[test]
+fn test_ld_a_with_deref_u16() {
+    // Given an LD A, (u16) instruction
+    let mut cpu = CpuState::new();
+    // And A contains some data
+    cpu.reg(RegisterName::A).write_u8(&cpu, 0xaa);
+    // And the pointee contains some data
+    let address = 0xffee;
+    cpu.memory.write_u8(address, 0xbb);
+
+    // When the CPU runs the instruction
+    cpu.memory.write_u8(0, 0xfa);
+    cpu.memory.write_u16(1, address);
+    let instr_info = cpu.step();
+    assert_eq!(instr_info.instruction_size, 3);
+    assert_eq!(instr_info.cycle_count, 4);
+
+    // Then A has been updated with the contents of the pointee
+    assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0xbb);
+    // And the pointee is untouched
+    assert_eq!(cpu.memory.read::<u8>(address), 0xbb);
 }
