@@ -779,6 +779,19 @@ impl CpuState {
                 }
                 Some(InstrInfo::seq(1, 1))
             }
+            0x18 => {
+                let rel_target: i8 = self.memory.read(self.get_pc() + 1);
+                if debug {
+                    println!("JR +{:02x};\t", rel_target);
+                }
+                // Add 2 to PC before doing the relative target, as
+                // this instruction is 2 bytes wide
+                let mut pc = self.get_pc();
+                pc += 2;
+                pc = ((pc as i16) + rel_target as i16) as u16;
+                self.set_pc(pc);
+                Some(InstrInfo::jump(2, 3))
+            }
             0x76 => {
                 todo!("HALT")
             }
@@ -976,6 +989,7 @@ impl CpuState {
                     _ => panic!("Invalid index"),
                 };
                 if self.is_flag_condition_met(cond) {
+                    // TODO(PT): Refactor with JR s8?
                     let rel_target: i8 = self.memory.read(self.get_pc() + 1);
                     if debug {
                         println!("JR {cond} +{:02x};\t(taken)", rel_target);
@@ -2192,4 +2206,23 @@ fn test_ret() {
     // And it's indicated that a jump occurred
     assert_eq!(instr_info.pc_increment, None);
     assert!(instr_info.jumped);
+}
+
+/* JR i8 */
+
+#[test]
+fn test_jr_i8() {
+    // Given a JR -6 instruction
+    let mut cpu = CpuState::new();
+
+    cpu.memory.write_u8(0x20, 0x18);
+    cpu.memory.write_u8(0x21, (-6i8 as u8));
+    cpu.set_pc(0x20);
+
+    let instr_info = cpu.step();
+    assert_eq!(cpu.get_pc(), 0x1c);
+    // And it's indicated that a jump occurred
+    assert_eq!(instr_info.pc_increment, None);
+    assert!(instr_info.jumped);
+    assert_eq!(instr_info.instruction_size, 2);
 }
