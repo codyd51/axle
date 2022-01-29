@@ -613,6 +613,19 @@ impl CpuState {
         InstrInfo::seq(2, 2)
     }
 
+    fn instr_cp(&self, val: u8) -> InstrInfo {
+        let a = self.reg(RegisterName::A);
+        let a_val = a.read_u8(&self);
+        let (result, did_overflow) = a_val.overflowing_sub(val);
+        self.update_flag(FlagUpdate::Zero(a_val == val));
+        self.update_flag(FlagUpdate::Subtract(true));
+        // Underflow into the high nibble?
+        self.update_flag(FlagUpdate::HalfCarry((a_val & 0xf) < (result & 0xf)));
+        // Underflow into the next byte?
+        self.update_flag(FlagUpdate::Carry(did_overflow));
+        InstrInfo::seq(2, 2)
+    }
+
     #[bitmatch]
     fn decode_cb_prefixed_instr(&mut self, instruction_byte: u8) -> usize {
         let debug = self.debug_enabled;
@@ -735,22 +748,27 @@ impl CpuState {
             }
             0xfe => {
                 // CP u8
-                let a = self.reg(RegisterName::A);
-                let a_val = a.read_u8(&self);
                 let val = self.mmu.read(self.get_pc() + 1);
-                let (result, did_overflow) = a_val.overflowing_sub(val);
-                self.update_flag(FlagUpdate::Zero(a_val == val));
-                self.update_flag(FlagUpdate::Subtract(true));
-                // Underflow into the high nibble?
-                self.update_flag(FlagUpdate::HalfCarry((a_val & 0xf) < (result & 0xf)));
-                // Underflow into the next byte?
-                self.update_flag(FlagUpdate::Carry(did_overflow));
-
+                let a = self.reg(RegisterName::A);
                 if debug {
                     println!("CP {val:02x} with {a}");
                 }
-
+                self.instr_cp(val);
                 Some(InstrInfo::seq(2, 2))
+            }
+            0xbe => {
+                // CP (HL)
+                let val = self
+                    .reg(RegisterName::HL)
+                    .read_u8_with_mode(&self, AddressingMode::Deref);
+                let a = self.reg(RegisterName::A);
+
+                if debug {
+                    println!("CP {}{val:02x} with {a}", self.reg(RegisterName::HL));
+                }
+
+                self.instr_cp(val);
+                Some(InstrInfo::seq(1, 2))
             }
             // Handled down below
             _ => None,
@@ -1114,7 +1132,7 @@ impl CpuState {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
+    use std::{cell::RefCell, rc::Rc};
 
     use crate::{
         cpu::{AddressingMode, Flag, FlagCondition, FlagUpdate, RegisterName},
@@ -2283,6 +2301,25 @@ mod tests {
         cpu.mmu.write(1, 0x3c);
         let instr_info = cpu.step();
         assert_eq!(instr_info.instruction_size, 2);
+        assert_eq!(instr_info.cycle_count, 2);
+        assert!(cpu.is_flag_set(Flag::Zero));
+        assert!(cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Carry));
+    }
+
+    /* CP (HL) */
+    #[test]
+    fn test_cp_hl_deref() {
+        // Given a CP (HL) instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x3c);
+        cpu.mmu.write(0, 0xbe);
+        cpu.reg(RegisterName::HL).write_u16(&cpu, 0xffaa);
+        cpu.mmu.write(0xffaa, 0x3c);
+        let instr_info = cpu.step();
+        assert_eq!(instr_info.instruction_size, 1);
         assert_eq!(instr_info.cycle_count, 2);
         assert!(cpu.is_flag_set(Flag::Zero));
         assert!(cpu.is_flag_set(Flag::Subtract));
