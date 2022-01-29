@@ -266,13 +266,13 @@ fn main() {
     cpu.enable_debug();
     let gameboy = GameBoy::new(Rc::clone(&mmu), cpu, ppu_clone);
 
-    let mut i = 0;
+    // Ref: https://users.rust-lang.org/t/winit-0-20-the-state-of-window/29485/28
+    // Ref: https://github.com/rust-windowing/winit/blob/master/examples/window_run_return.rs
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
 
         match event {
             Event::MainEventsCleared => {
-                i += 1;
                 gameboy.step();
             }
             _ => {}
