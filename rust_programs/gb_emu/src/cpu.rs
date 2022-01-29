@@ -14,8 +14,8 @@ use bitmatch::bitmatch;
 use crate::mmu::Mmu;
 
 pub struct InstrInfo {
-    instruction_size: u16,
-    cycle_count: usize,
+    pub instruction_size: u16,
+    pub cycle_count: usize,
     pc_increment: Option<u16>,
     jumped: bool,
 }
@@ -735,18 +735,19 @@ impl CpuState {
             }
             0xfe => {
                 // CP u8
-                let a = self.reg(RegisterName::A).read_u8(&self);
+                let a = self.reg(RegisterName::A);
+                let a_val = a.read_u8(&self);
                 let val = self.mmu.read(self.get_pc() + 1);
-                let (result, did_overflow) = a.overflowing_sub(val);
-                self.update_flag(FlagUpdate::Zero(a == val));
+                let (result, did_overflow) = a_val.overflowing_sub(val);
+                self.update_flag(FlagUpdate::Zero(a_val == val));
                 self.update_flag(FlagUpdate::Subtract(true));
                 // Underflow into the high nibble?
-                self.update_flag(FlagUpdate::HalfCarry((a & 0xf) < (result & 0xf)));
+                self.update_flag(FlagUpdate::HalfCarry((a_val & 0xf) < (result & 0xf)));
                 // Underflow into the next byte?
                 self.update_flag(FlagUpdate::Carry(did_overflow));
 
                 if debug {
-                    println!("CP {:02x} with {a}", val);
+                    println!("CP {val:02x} with {a}");
                 }
 
                 Some(InstrInfo::seq(2, 2))
@@ -1042,7 +1043,8 @@ impl CpuState {
             _ => {
                 println!("<0x{:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
-                panic!("Unimplemented opcode")
+                //panic!("Unimplemented opcode")
+                InstrInfo::seq(0, 0)
             }
         }
     }
@@ -1085,28 +1087,24 @@ impl CpuState {
     }
 }
 
-struct GameBoy {
-    mmu: Rc<Mmu>,
-    cpu: CpuState,
-}
-
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
 
     use crate::{
         cpu::{AddressingMode, Flag, FlagCondition, FlagUpdate, RegisterName},
+        gameboy::GameBoy,
         mmu::{Mmu, Ram},
     };
 
-    use super::{CpuState, GameBoy};
+    use super::CpuState;
 
     fn get_system() -> GameBoy {
         let ram = Rc::new(Ram::new(0, 0xffff));
         let mmu = Rc::new(Mmu::new(vec![ram]));
         let mut cpu = CpuState::new(Rc::clone(&mmu));
         cpu.enable_debug();
-        GameBoy { mmu, cpu }
+        GameBoy::new(mmu, cpu)
     }
 
     /* Machinery tests */
@@ -1142,7 +1140,7 @@ mod tests {
     #[test]
     fn test_read_mem_hl() {
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.mmu.write(0xffcc, 0xab);
         cpu.reg(RegisterName::H).write_u8(&cpu, 0xff);
         cpu.reg(RegisterName::L).write_u8(&cpu, 0xcc);
@@ -1152,7 +1150,7 @@ mod tests {
     #[test]
     fn test_write_mem_hl() {
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::H).write_u8(&cpu, 0xff);
         cpu.reg(RegisterName::L).write_u8(&cpu, 0xcc);
 
@@ -1167,7 +1165,7 @@ mod tests {
     #[test]
     fn test_wide_reg_read() {
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::B).write_u8(&cpu, 0xff);
         cpu.reg(RegisterName::C).write_u8(&cpu, 0xcc);
         assert_eq!(cpu.reg(RegisterName::BC).read_u16(&cpu), 0xffcc);
@@ -1176,7 +1174,7 @@ mod tests {
     #[test]
     fn test_wide_reg_write() {
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::B).write_u8(&cpu, 0xff);
         cpu.reg(RegisterName::C).write_u8(&cpu, 0xcc);
 
@@ -1190,7 +1188,7 @@ mod tests {
     #[test]
     fn test_wide_reg_addressing_mode_read() {
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // Given BC contains a pointer
         cpu.reg(RegisterName::BC).write_u16(&cpu, 0xaabb);
         // And this pointer contains some data
@@ -1203,7 +1201,7 @@ mod tests {
     #[test]
     fn test_wide_reg_addressing_mode_deref() {
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // Given BC contains a pointer
         cpu.reg(RegisterName::BC).write_u16(&cpu, 0xaabb);
         // And this pointer contains some data
@@ -1223,7 +1221,7 @@ mod tests {
     #[test]
     fn test_wide_reg_addressing_mode_deref_increment() {
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // Given HL contains a pointer
         cpu.reg(RegisterName::HL).write_u16(&cpu, 0xaabb);
         // And this pointer contains some data
@@ -1243,7 +1241,7 @@ mod tests {
     #[test]
     fn test_wide_reg_addressing_mode_deref_decrement() {
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // Given HL contains a pointer
         cpu.reg(RegisterName::HL).write_u16(&cpu, 0xaabb);
         // And this pointer contains some data
@@ -1263,7 +1261,7 @@ mod tests {
     #[test]
     fn test_wide_reg_write_u8() {
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // Given BC contains a pointer
         cpu.reg(RegisterName::BC).write_u16(&cpu, 0xaabb);
         // And this pointer contains some data
@@ -1281,7 +1279,7 @@ mod tests {
     #[test]
     fn test_dec_reg() {
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         let opcode_to_registers = [
             (0x05, RegisterName::B),
             (0x0d, RegisterName::C),
@@ -1335,7 +1333,7 @@ mod tests {
     #[test]
     fn test_dec_mem_hl() {
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // Given the memory pointed to by HL contains 0xf0
         cpu.reg(RegisterName::H).write_u8(&cpu, 0xff);
         cpu.reg(RegisterName::L).write_u8(&cpu, 0xcc);
@@ -1357,7 +1355,7 @@ mod tests {
     #[test]
     fn test_jmp() {
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.mmu.write(0, 0xc3);
         // Little endian branch target
         cpu.mmu.write(1, 0xfe);
@@ -1371,7 +1369,7 @@ mod tests {
     #[test]
     fn test_ld_reg_u8() {
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         let opcode_to_registers = [
             (0x06, RegisterName::B),
             (0x0e, RegisterName::C),
@@ -1397,7 +1395,7 @@ mod tests {
     #[test]
     fn test_ld_mem_hl_u8() {
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
 
         // Given the memory pointed to by HL contains 0xf0
         cpu.reg(RegisterName::H).write_u8(&cpu, 0xff);
@@ -1419,7 +1417,7 @@ mod tests {
     fn test_ld_b_c() {
         // Given a LD B, C instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         let marker = 0xca;
         cpu.reg(RegisterName::C).write_u8(&cpu, marker);
         cpu.reg(RegisterName::B).write_u8(&cpu, 0x00);
@@ -1433,7 +1431,7 @@ mod tests {
     fn test_ld_l_l() {
         // Given a LD L, L no-op instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         let marker = 0xfd;
         cpu.reg(RegisterName::L).write_u8(&cpu, marker);
         cpu.mmu.write(0, 0x6d);
@@ -1445,7 +1443,7 @@ mod tests {
     fn test_ld_c_hl() {
         // Given an LD C, (HL) instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::H).write_u8(&cpu, 0xff);
         cpu.reg(RegisterName::L).write_u8(&cpu, 0xcc);
         let marker = 0xdd;
@@ -1459,7 +1457,7 @@ mod tests {
     fn test_ld_hl_a() {
         // Given an LD (HL), A instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         let marker = 0xaf;
         cpu.reg(RegisterName::A).write_u8(&cpu, marker);
         cpu.reg(RegisterName::H).write_u8(&cpu, 0x11);
@@ -1473,7 +1471,7 @@ mod tests {
     fn test_ld_h_hl() {
         // Given a LD H, (HL) no-op instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // Set up some sentinel data at the address HL will point to after the instruction
         // TODO(PT): Replace markers with a random u8?
         cpu.mmu.write(0xbb22, 0x33);
@@ -1495,7 +1493,7 @@ mod tests {
     fn test_xor_b() {
         // Given a XOR B instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::A).write_u8(&cpu, 0b1110);
         cpu.reg(RegisterName::B).write_u8(&cpu, 0b0111);
 
@@ -1510,7 +1508,7 @@ mod tests {
     fn test_xor_mem_hl() {
         // Given a XOR (HL) instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::A).write_u8(&cpu, 0b1110);
 
         cpu.reg(RegisterName::H).write_u8(&cpu, 0x11);
@@ -1530,7 +1528,7 @@ mod tests {
     fn test_ld_dst16_u16_bc() {
         // Given an LD BC, u16 instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
 
         // And B and C contain some data
         cpu.reg(RegisterName::B).write_u8(&cpu, 0x33);
@@ -1552,7 +1550,7 @@ mod tests {
     fn test_ld_dst16_u16_sp() {
         // Given an LD SP, u16 instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
 
         // And B and C contain some data
         // And SP contains some data
@@ -1573,7 +1571,7 @@ mod tests {
     fn test_ld_a_op16() {
         // Given an LD A, (BC) instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
 
         // And B and C contain some data
         cpu.reg(RegisterName::B).write_u8(&cpu, 0x33);
@@ -1598,7 +1596,7 @@ mod tests {
     fn test_ld_a_hl_plus() {
         // Given an LD A, (HL+) instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
 
         // And (HL) contains some data
         cpu.reg(RegisterName::HL).write_u16(&cpu, 0x01ff);
@@ -1624,7 +1622,7 @@ mod tests {
     fn test_ld_bc_deref_a() {
         // Given an LD (BC), A instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
 
         // And (BC) contains a pointer
         cpu.reg(RegisterName::BC).write_u16(&cpu, 0xabcd);
@@ -1647,7 +1645,7 @@ mod tests {
     fn test_ld_hl_minus_a() {
         // Given an LD (HL-), A instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // And HL contains a pointer
         cpu.reg(RegisterName::HL).write_u16(&cpu, 0xabcd);
         // And A contains some data
@@ -1669,7 +1667,7 @@ mod tests {
     fn test_inc_reg8() {
         // Given an INC A instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         let params = [
             (0x05, 0x06, vec![]),
             (0xff, 0x00, vec![Flag::Zero, Flag::HalfCarry]),
@@ -1697,7 +1695,7 @@ mod tests {
     #[test]
     fn test_jr_nz_taken() {
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
 
         let params = [
             // NotZero jump taken
@@ -1765,7 +1763,7 @@ mod tests {
     fn test_bit_b_reg8() {
         // Given a BIT B, Reg8 instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         let params = [
             (0x40, RegisterName::B, 0, FlagCondition::Zero),
             (0x40, RegisterName::B, 1, FlagCondition::NotZero),
@@ -1797,7 +1795,7 @@ mod tests {
     fn test_bit_b_hl_deref() {
         // Given a BIT B, (HL) instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // And HL containes a pointer
         // And the pointer itself does not have its MSB set
         cpu.reg(RegisterName::HL).write_u16(&cpu, 0xfcfc);
@@ -1833,7 +1831,7 @@ mod tests {
     fn test_ld_deref_c_with_a() {
         // Given an LD (0xff00 + C), A instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // And A contains some data
         cpu.reg(RegisterName::A).write_u8(&cpu, 0xaa);
         // And C contains a pointee offset
@@ -1857,7 +1855,7 @@ mod tests {
     fn test_ld_a_with_deref_c() {
         // Given an LD A, (0xff00 + C) instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // And 0xff11 contains some data
         cpu.mmu.write(0xff11, 0xbb);
         // And C contains 0x11
@@ -1881,7 +1879,7 @@ mod tests {
     fn test_ld_deref_u8_with_a() {
         // Given an LD (0xff00 + u8), A, instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // And A contains some data
         cpu.reg(RegisterName::A).write_u8(&cpu, 0xaa);
         // And the pointee contains some data
@@ -1904,7 +1902,7 @@ mod tests {
     fn test_ld_a_with_deref_u8() {
         // Given an LD A, (0xff00 + u8) instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // And A contains some data
         cpu.reg(RegisterName::A).write_u8(&cpu, 0xaa);
         // And the pointee contains some data
@@ -1928,7 +1926,7 @@ mod tests {
         // Given a CALL u16 instruction
         // And there is a stack set up
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffe);
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0xcd);
@@ -1955,7 +1953,7 @@ mod tests {
         // Given a PUSH BC instruction
         // And there is a stack set up
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffe);
         // And BC contains some data
         cpu.reg(RegisterName::BC).write_u16(&cpu, 0x5566);
@@ -1976,7 +1974,7 @@ mod tests {
         // Given a PUSH AF instruction
         // And there is a stack set up
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffe);
         // And AF contains some data
         cpu.reg(RegisterName::AF).write_u16(&cpu, 0x55b0);
@@ -2008,7 +2006,7 @@ mod tests {
         // Given a POP BC instruction
         // And there is a stack set up
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffe);
 
         // And the stack contains some data
@@ -2032,7 +2030,7 @@ mod tests {
         // Given a POP AF instruction
         // And there is a stack set up
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffe);
 
         // And the stack contains some data
@@ -2060,7 +2058,7 @@ mod tests {
     fn test_rlc() {
         // Given an RLC A instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::A).write_u8(&cpu, 0x85);
         cpu.set_flags(true, true, true, false);
 
@@ -2082,7 +2080,7 @@ mod tests {
     fn test_rlc_z_flag() {
         // Given an RLC A instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // And the result is zero
         cpu.reg(RegisterName::A).write_u8(&cpu, 0x00);
         // And the Z flag is previously unset
@@ -2103,7 +2101,7 @@ mod tests {
     fn test_rl() {
         // Given an RL A instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::A).write_u8(&cpu, 0x95);
         cpu.set_flags(true, true, true, true);
 
@@ -2125,7 +2123,7 @@ mod tests {
     fn test_rlc_a() {
         // Given an RLC A instruction (in the main opcode table)
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // And the result is zero
         cpu.reg(RegisterName::A).write_u8(&cpu, 0x85);
         // And the Z flag is previously unset
@@ -2148,7 +2146,7 @@ mod tests {
     fn test_rlc_a_z_flag() {
         // Given an RLC A instruction (in the main opcode table)
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // And the result is zero
         cpu.reg(RegisterName::A).write_u8(&cpu, 0x00);
         // And the Z flag is previously unset
@@ -2170,7 +2168,7 @@ mod tests {
     fn test_inc_bc() {
         // Given an INC BC instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::BC).write_u16(&cpu, 0xfa);
 
         cpu.mmu.write(0, 0x03);
@@ -2189,7 +2187,7 @@ mod tests {
         // Given a RET instruction
         // And there is a stack set up
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffe);
 
         // And the stack contains some data
@@ -2220,7 +2218,7 @@ mod tests {
     fn test_jr_i8() {
         // Given a JR -6 instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
 
         cpu.mmu.write(0x20, 0x18);
         cpu.mmu.write(0x21, (-6i8 as u8));
@@ -2240,7 +2238,7 @@ mod tests {
     fn test_cp_u8() {
         // Given a CP u8 instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::A).write_u8(&cpu, 0x3c);
         cpu.mmu.write(0, 0xfe);
         cpu.mmu.write(1, 0x3c);
@@ -2259,7 +2257,7 @@ mod tests {
     fn test_ld_deref_u16_with_a() {
         // Given an LD (u16), A instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // And A contains some data
         cpu.reg(RegisterName::A).write_u8(&cpu, 0xaa);
         // And the pointee contains some data
@@ -2285,7 +2283,7 @@ mod tests {
     fn test_ld_a_with_deref_u16() {
         // Given an LD A, (u16) instruction
         let gb = get_system();
-        let mut cpu = gb.cpu;
+        let mut cpu = gb.cpu.borrow_mut();
         // And A contains some data
         cpu.reg(RegisterName::A).write_u8(&cpu, 0xaa);
         // And the pointee contains some data

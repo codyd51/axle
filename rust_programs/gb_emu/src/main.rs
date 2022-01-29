@@ -13,16 +13,21 @@ use cpu::CpuState;
 extern crate alloc;
 
 mod cpu;
+mod gameboy;
 mod mmu;
+mod ppu;
 use std::{
+    cell::RefCell,
     io::Write,
     rc::{Rc, Weak},
     time::Duration,
 };
 
 use cpu::CpuState;
-use mmu::{Addressable, BootRom, GameRom, Mmu};
+use gameboy::GameBoy;
+use mmu::{Addressable, BootRom, GameRom, Mmu, Ram};
 use pixels::{Error, Pixels, SurfaceTexture};
+use ppu::Ppu;
 use winit::dpi::LogicalSize;
 use winit::event::{Event, VirtualKeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -46,135 +51,6 @@ impl Breakpoint {
             is_temporary,
         }
     }
-}
-
-const TILE_WIDTH: usize = 8;
-const TILE_HEIGHT: usize = 8;
-
-fn draw_tile(
-    frame: &mut [u8],
-    cpu: &mut CpuState,
-    tile_idx: usize,
-    origin_x: usize,
-    origin_y: usize,
-) {
-    let tile_size = 16;
-    let vram_base = 0x8000;
-
-    let tile_base = vram_base + (tile_idx * tile_size);
-
-    /*
-    for row in 0..TILE_HEIGHT {
-        let row_byte1 = cpu
-            .memory
-            .read::<u8>((tile_base + (2 * row) + 0).try_into().unwrap());
-        let row_byte2 = cpu
-            .memory
-            .read::<u8>((tile_base + (2 * row) + 1).try_into().unwrap());
-        /*
-        println!("Row bytes {:02x} {:02x}", row_byte1, row_byte2);
-        println!(
-            "tile_base + (2 * row) + 0: {:04x}",
-            tile_base + (2 * row) + 0
-        );
-        println!(
-            "tile_base + (2 * row) + 1: {:04x}",
-            tile_base + (2 * row) + 1
-        );
-        */
-        for px in 0..TILE_WIDTH {
-            let px_color_id = ((row_byte1 >> (TILE_WIDTH - px - 1)) & 0b1) << 1
-                | ((row_byte2 >> (TILE_WIDTH - px - 1)) & 0b1);
-            let color = match px_color_id {
-                0b00 => (255, 255, 255),
-                0b01 => (255, 0, 0),
-                0b10 => (0, 0, 0),
-                0b11 => (0, 0, 255),
-                _ => panic!("Invalid index"),
-            };
-            let point = (origin_x + px, origin_y + row);
-            //let frame_idx = (origin.1 * (WINDOW_WIDTH as u16) * 4) + (origin.0 * 4);
-            let frame_idx = (point.1 * WINDOW_WIDTH * 4) + (point.0 * 4);
-            frame[(frame_idx + 0) as usize] = color.0;
-            frame[(frame_idx + 1) as usize] = color.1;
-            frame[(frame_idx + 2) as usize] = color.2;
-            frame[(frame_idx + 3) as usize] = 0xff;
-        }
-    }
-    */
-}
-
-fn draw(frame: &mut [u8], cpu: &mut CpuState) {
-    //println!("Redrawing...");
-    for x in 0..WINDOW_WIDTH {
-        for y in 0..WINDOW_HEIGHT {
-            let frame_idx = (y * WINDOW_WIDTH * 4) + (x * 4);
-            frame[(frame_idx + 0) as usize] = 255;
-            frame[(frame_idx + 1) as usize] = 255;
-            frame[(frame_idx + 2) as usize] = 255;
-            frame[(frame_idx + 3) as usize] = 0xff;
-        }
-    }
-
-    /*
-    for tile in 0..255 {
-        let tiles_per_row = WINDOW_WIDTH / TILE_WIDTH;
-        let col = tile % tiles_per_row;
-        let row = tile / tiles_per_row;
-        let origin = (col * TILE_WIDTH, row * TILE_HEIGHT);
-        draw_tile(frame, cpu, tile, origin.0, origin.1);
-    }
-    */
-
-    /*
-    // Draw vertical lines
-    //for column in 0..tiles_per_row {
-    for column in 0..(WINDOW_WIDTH / TILE_WIDTH) {
-        let x = column * TILE_WIDTH;
-        for y in 0..WINDOW_HEIGHT {
-            let frame_idx = (y * WINDOW_WIDTH * 4) + (x * 4);
-            frame[(frame_idx + 0) as usize] = 200;
-            frame[(frame_idx + 1) as usize] = 200;
-            frame[(frame_idx + 2) as usize] = 100;
-            frame[(frame_idx + 3) as usize] = 0xff;
-        }
-    }
-
-    // Draw horizontal lines
-    for row in 0..(WINDOW_HEIGHT / TILE_HEIGHT) {
-        let y = row * 8;
-        for x in 0..WINDOW_WIDTH {
-            let frame_idx = (y * WINDOW_WIDTH * 4) + (x * 4);
-            frame[(frame_idx + 0) as usize] = 200;
-            frame[(frame_idx + 1) as usize] = 200;
-            frame[(frame_idx + 2) as usize] = 100;
-            frame[(frame_idx + 3) as usize] = 0xff;
-        }
-    }
-    */
-
-    //$9800-$9BFF
-    /*
-    let tile_map_row_size = 32;
-    //for tile_map_byte_addr in 0x9800..0x9c00 {
-    for tile_map_byte_idx in 0..0x400 {
-        let tile_map_byte_addr = tile_map_byte_idx + 0x9800;
-        let col = tile_map_byte_idx % tile_map_row_size;
-        let row = tile_map_byte_idx / tile_map_row_size;
-        let tile_map_byte: u8 = cpu.memory.read(tile_map_byte_addr);
-        if tile_map_byte != 0 && tile_map_byte != 0x22 {
-            /*
-            println!(
-                "Tile map byte @ {tile_map_byte_addr:04x}: {:02x} at ({}, {})",
-                tile_map_byte, col, row
-            );
-            */
-            let x = col * 8;
-            let y = row * 8;
-            draw_tile(frame, cpu, tile_map_byte as usize, x as usize, y as usize);
-        }
-    }
-    */
 }
 
 fn main2() {
@@ -341,10 +217,65 @@ fn main2() {
 }
 
 fn main() {
-    /*
-    let bootrom = BootRom::new("/Users/philliptennen/Downloads/DMG_ROM.bin");
-    let game_rom = GameRom::new("/Users/philliptennen/Downloads/Tetris (World).gb");
-    let mmu = Mmu::new(vec![&bootrom, &game_rom]);
-    let cpu = CpuState::new(&mmu);
-    */
+    let event_loop = EventLoop::new();
+    let mut input = WinitInputHelper::new();
+    let window = {
+        let size = LogicalSize::new(WINDOW_WIDTH as f64, WINDOW_HEIGHT as f64);
+        let scaled_size = LogicalSize::new(WINDOW_WIDTH as f64 * 3.0, WINDOW_HEIGHT as f64 * 3.0);
+        WindowBuilder::new()
+            .with_title("GameBoy")
+            //.with_inner_size(size)
+            .with_inner_size(scaled_size)
+            .with_min_inner_size(scaled_size)
+            .with_visible(true)
+            .with_resizable(true)
+            .build(&event_loop)
+            .unwrap()
+    };
+
+    let mut pixels = {
+        let window_size = window.inner_size();
+        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
+        Pixels::new(
+            WINDOW_WIDTH.try_into().unwrap(),
+            WINDOW_HEIGHT.try_into().unwrap(),
+            surface_texture,
+        )
+        .unwrap()
+    };
+    pixels.render().unwrap();
+
+    let bootrom = Rc::new(BootRom::new("/Users/philliptennen/Downloads/DMG_ROM.bin"));
+    let ppu = Rc::new(Ppu::new(pixels));
+    let ppu_clone = Rc::clone(&ppu);
+    let game_rom = Rc::new(GameRom::new(
+        "/Users/philliptennen/Downloads/Tetris (World).gb",
+    ));
+    let tile_ram = Rc::new(Ram::new(0x8000, 0x1800));
+    let background_map = Rc::new(Ram::new(0x9800, 0x800));
+    let high_ram = Rc::new(Ram::new(0xFF80, 0x7f));
+    let mmu = Rc::new(Mmu::new(vec![
+        bootrom, //Rc::clone(&ppu as &dyn Addressable),
+        ppu,
+        game_rom,
+        tile_ram,
+        background_map,
+        high_ram,
+    ]));
+    let mut cpu = CpuState::new(Rc::clone(&mmu));
+    cpu.enable_debug();
+    let gameboy = GameBoy::new(Rc::clone(&mmu), cpu, ppu_clone);
+
+    let mut i = 0;
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Poll;
+
+        match event {
+            Event::MainEventsCleared => {
+                i += 1;
+                gameboy.step();
+            }
+            _ => {}
+        }
+    });
 }

@@ -137,7 +137,8 @@ impl Addressable for Ram {
     }
 
     fn write(&self, addr: u16, val: u8) {
-        self.data.borrow_mut()[(self.start_addr + addr) as usize] = val
+        //println!("RAM write 0x{addr:04x}: {val:02x}");
+        self.data.borrow_mut()[(addr - self.start_addr) as usize] = val
     }
 }
 
