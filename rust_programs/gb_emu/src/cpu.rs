@@ -799,6 +799,7 @@ impl CpuState {
                     ((((prev as u16) & 0xf) + ((increment as u16) & 0xf)) & 0x10) == 0x10;
                 self.update_flag(FlagUpdate::HalfCarry(half_carry_flag));
                 // TODO(PT): Cycle count should be 3 for (HL)
+                // TODO(PT): Should set Carry flag? CPU chart says no, why?
                 InstrInfo::seq(1, 1)
             }
             "00iii101" => {
@@ -1081,6 +1082,30 @@ impl CpuState {
                 self.update_flag(FlagUpdate::Carry(did_underflow));
 
                 // TODO(PT): Should be 2 for (HL)
+                InstrInfo::seq(1, 1)
+            }
+            "10000iii" => {
+                // ADD A, Reg8
+                let a = self.reg(RegisterName::A);
+                let (op, read_mode) = self.get_reg_from_lookup_tab1(i);
+
+                if debug {
+                    println!("ADD {a}, {op}");
+                }
+
+                let prev_a_val = a.read_u8(&self);
+                let op_val = op.read_u8_with_mode(&self, read_mode);
+                let (new_val, did_overflow) = prev_a_val.overflowing_add(op_val);
+
+                a.write_u8(&self, new_val);
+                self.update_flag(FlagUpdate::Zero(new_val == 0));
+                self.update_flag(FlagUpdate::Subtract(false));
+                let half_carry_flag =
+                    ((((prev_a_val as u16) & 0xf) + ((op_val as u16) & 0xf)) & 0x10) == 0x10;
+                self.update_flag(FlagUpdate::HalfCarry(half_carry_flag));
+                self.update_flag(FlagUpdate::Carry(did_overflow));
+
+                // TODO(PT): Cycle count should be 2 for (HL)
                 InstrInfo::seq(1, 1)
             }
             _ => {
@@ -2428,5 +2453,31 @@ mod tests {
         assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
         assert_eq!(cpu.is_flag_set(Flag::HalfCarry), true);
         assert_eq!(cpu.is_flag_set(Flag::Carry), false);
+    }
+
+    /* ADD A, Reg8 */
+
+    #[test]
+    fn test_add_a_reg8() {
+        // Given an ADD A, Reg8 instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        // And A contains a value
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x3a);
+        // And B contains a value
+        cpu.reg(RegisterName::B).write_u8(&cpu, 0xc6);
+
+        // When the CPU runs the instruction
+        cpu.mmu.write(0, 0x80);
+        cpu.step();
+
+        // Then the result is stored in A
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);
+        // And the flags are set correctly
+        assert!(cpu.is_flag_set(Flag::Zero));
+        assert!(cpu.is_flag_set(Flag::HalfCarry));
+        assert!(cpu.is_flag_set(Flag::Carry));
+        assert!(!cpu.is_flag_set(Flag::Subtract));
     }
 }
