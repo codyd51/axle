@@ -1040,6 +1040,31 @@ impl CpuState {
                 }
                 InstrInfo::seq(3, 4)
             }
+            "10010iii" => {
+                // SUB Reg8
+                let (op, read_mode) = self.get_reg_from_lookup_tab1(i);
+                let a = self.reg(RegisterName::A);
+                let prev_a_val = a.read_u8(&self);
+
+                if debug {
+                    println!("SUB {op} from {a}\t");
+                }
+
+                let op_val = op.read_u8_with_mode(&self, read_mode);
+                let prev = op.read_u8_with_mode(&self, read_mode);
+                let (result, did_underflow) = a.read_u8(&self).overflowing_sub(op_val);
+
+                a.write_u8(&self, result);
+                self.update_flag(FlagUpdate::Zero(result == 0));
+                self.update_flag(FlagUpdate::Subtract(true));
+                // Underflow into the high nibble?
+                self.update_flag(FlagUpdate::HalfCarry((prev_a_val & 0xf) < (result & 0xf)));
+                // Underflow into next byte?
+                self.update_flag(FlagUpdate::Carry(did_underflow));
+
+                // TODO(PT): Should be 2 for (HL)
+                InstrInfo::seq(1, 1)
+            }
             _ => {
                 println!("<0x{:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
@@ -1093,18 +1118,32 @@ mod tests {
 
     use crate::{
         cpu::{AddressingMode, Flag, FlagCondition, FlagUpdate, RegisterName},
-        gameboy::GameBoy,
         mmu::{Mmu, Ram},
     };
 
     use super::CpuState;
 
-    fn get_system() -> GameBoy {
+    // Notably, this is missing a PPU
+    struct CpuTestSystem {
+        pub mmu: Rc<Mmu>,
+        pub cpu: RefCell<CpuState>,
+    }
+
+    impl CpuTestSystem {
+        pub fn new(mmu: Rc<Mmu>, cpu: CpuState) -> Self {
+            Self {
+                mmu,
+                cpu: RefCell::new(cpu),
+            }
+        }
+    }
+
+    fn get_system() -> CpuTestSystem {
         let ram = Rc::new(Ram::new(0, 0xffff));
         let mmu = Rc::new(Mmu::new(vec![ram]));
         let mut cpu = CpuState::new(Rc::clone(&mmu));
         cpu.enable_debug();
-        GameBoy::new(mmu, cpu)
+        CpuTestSystem::new(mmu, cpu)
     }
 
     /* Machinery tests */
@@ -2301,5 +2340,56 @@ mod tests {
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0xbb);
         // And the pointee is untouched
         assert_eq!(cpu.mmu.read(address), 0xbb);
+    }
+
+    /* SUB Reg8 */
+
+    #[test]
+    fn test_sub_reg8() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+        cpu.mmu.write(0, 0x90);
+
+        // Given B contains 1
+        cpu.reg(RegisterName::B).write_u8(&cpu, 1);
+
+        // Given A contains 5
+        cpu.reg(RegisterName::A).write_u8(&cpu, 5);
+        cpu.step();
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 4);
+        assert_eq!(cpu.is_flag_set(Flag::Zero), false);
+        assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
+        assert_eq!(cpu.is_flag_set(Flag::HalfCarry), false);
+        assert_eq!(cpu.is_flag_set(Flag::Carry), false);
+
+        // Given the register contains 0 (underflow)
+        cpu.set_pc(0);
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0);
+        cpu.step();
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0xff);
+        assert_eq!(cpu.is_flag_set(Flag::Zero), false);
+        assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
+        assert_eq!(cpu.is_flag_set(Flag::HalfCarry), true);
+        assert_eq!(cpu.is_flag_set(Flag::Carry), true);
+
+        // Given the register contains 1 (zero)
+        cpu.set_pc(0);
+        cpu.reg(RegisterName::A).write_u8(&cpu, 1);
+        cpu.step();
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0);
+        assert_eq!(cpu.is_flag_set(Flag::Zero), true);
+        assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
+        assert_eq!(cpu.is_flag_set(Flag::HalfCarry), false);
+        assert_eq!(cpu.is_flag_set(Flag::Carry), false);
+
+        // Given the register contains 0xf0 (half carry)
+        cpu.set_pc(0);
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0xf0);
+        cpu.step();
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0xef);
+        assert_eq!(cpu.is_flag_set(Flag::Zero), false);
+        assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
+        assert_eq!(cpu.is_flag_set(Flag::HalfCarry), true);
+        assert_eq!(cpu.is_flag_set(Flag::Carry), false);
     }
 }
