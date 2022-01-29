@@ -3,10 +3,10 @@ use std::{cell::RefCell, rc::Rc};
 use crate::{cpu::CpuState, mmu::Mmu, ppu::Ppu};
 
 pub struct GameBoy {
-    mmu: Rc<Mmu>,
-    cpu: RefCell<CpuState>,
-    ppu: Rc<Ppu>,
-    cpu_disabled: RefCell<bool>,
+    pub mmu: Rc<Mmu>,
+    pub cpu: RefCell<CpuState>,
+    pub ppu: Rc<Ppu>,
+    pub cpu_disabled: RefCell<bool>,
 }
 
 impl GameBoy {
