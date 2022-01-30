@@ -675,6 +675,23 @@ impl CpuState {
                 // TODO(PT): Should be 4 cycles for (HL)
                 2
             }
+            "00111iii" => {
+                // SRL Reg8
+                let (reg, addressing_mode) = self.get_reg_from_lookup_tab1(i);
+                let val = reg.read_u8_with_mode(&self, addressing_mode);
+                if debug {
+                    println!("SRL {reg}");
+                }
+
+                // TODO(PT): Should be 4 cycles for (HL)
+                let lsb = val & 0b1;
+                let new_val = val >> 1;
+
+                reg.write_u8_with_mode(&self, addressing_mode, new_val);
+                self.update_flag(FlagUpdate::Zero(new_val == 0));
+                self.update_flag(FlagUpdate::Carry(lsb == 1));
+                2
+            }
             _ => {
                 println!("<cb {:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
@@ -3013,5 +3030,24 @@ mod tests {
                 assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0xfffe);
             }
         }
+    }
+
+    /* SRL Reg8 */
+
+    #[test]
+    fn test_srl() {
+        // Given a SRL A instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0b10011001);
+        gb.mmu.write(0, 0xcb);
+        gb.mmu.write(1, 0x3f);
+        // TODO(PT): Should be 4 cycles for (HL)
+        let instr_info = cpu.step(&gb);
+
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0b01001100);
+        assert!(!cpu.is_flag_set(Flag::Zero));
+        assert!(cpu.is_flag_set(Flag::Carry));
     }
 }
