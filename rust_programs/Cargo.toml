@@ -1,4 +1,5 @@
 [workspace]
+resolver = "2"
 members = [
     "agx_definitions",
     "awm_messages",
@@ -6,8 +7,13 @@ members = [
     "axle_rt_derive",
     "file_browser",
     "file_manager_messages",
-    "gb_emu",
     "initrd_fs",
     "libfs",
     "libgui",
+]
+
+exclude = [
+    # PT: Disabled in axle target until stable with a PAL
+    # Currently only runs on std host
+    "gb_emu",
 ]

@@ -2,6 +2,10 @@
 name = "gb_emu"
 version = "0.1.0"
 edition = "2021"
+resolver = "2"
 
 [dependencies]
 bitmatch = "0.1.1"
+# TODO(PT): Only when not targeting axle
+pixels = "0.9.0"
+winit = "*"
