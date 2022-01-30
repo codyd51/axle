@@ -669,7 +669,7 @@ impl CpuState {
     }
 
     #[bitmatch]
-    fn decode(&mut self, pc: u16) -> InstrInfo {
+    fn decode(&mut self, pc: u16, system: &dyn GameBoyHardwareProvider) -> InstrInfo {
         // Fetch the next opcode
         let instruction_byte: u8 = self.mmu.read(pc);
 
@@ -1141,9 +1141,9 @@ impl CpuState {
         val
     }
 
-    pub fn step(&mut self) -> InstrInfo {
+    pub fn step(&mut self, system: &dyn GameBoyHardwareProvider) -> InstrInfo {
         let pc = self.get_pc();
-        let info = self.decode(pc);
+        let info = self.decode(pc, system);
         if let Some(pc_increment) = info.pc_increment {
             assert_eq!(
                 info.jumped, false,
@@ -1162,6 +1162,7 @@ mod tests {
 
     use crate::{
         cpu::{AddressingMode, Flag, FlagCondition, FlagUpdate, RegisterName},
+        gameboy::GameBoyHardwareProvider,
         mmu::{Mmu, Ram},
     };
 
@@ -1179,6 +1180,20 @@ mod tests {
                 mmu,
                 cpu: RefCell::new(cpu),
             }
+        }
+    }
+
+    impl GameBoyHardwareProvider for CpuTestSystem {
+        fn get_mmu(&self) -> Rc<Mmu> {
+            Rc::clone(&self.mmu)
+        }
+
+        fn get_ppu(&self) -> Rc<crate::ppu::Ppu> {
+            panic!("PPU not supported in this test harness")
+        }
+
+        fn get_interrupt_controller(&self) -> Rc<crate::interrupts::InterruptController> {
+            panic!("Interrupt controller not supported in this test harness")
         }
     }
 
@@ -1378,7 +1393,7 @@ mod tests {
             // Given the register contains 5
             cpu.set_pc(0);
             cpu.reg(register).write_u8(&cpu, 5);
-            cpu.step();
+            cpu.step(&gb);
             assert_eq!(cpu.reg(register).read_u8(&cpu), 4);
             assert_eq!(cpu.is_flag_set(Flag::Zero), false);
             assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
@@ -1387,7 +1402,7 @@ mod tests {
             // Given the register contains 0 (underflow)
             cpu.set_pc(0);
             cpu.reg(register).write_u8(&cpu, 0);
-            cpu.step();
+            cpu.step(&gb);
             assert_eq!(cpu.reg(register).read_u8(&cpu), 0xff);
             assert_eq!(cpu.is_flag_set(Flag::Zero), false);
             assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
@@ -1396,7 +1411,7 @@ mod tests {
             // Given the register contains 1 (zero)
             cpu.set_pc(0);
             cpu.reg(register).write_u8(&cpu, 1);
-            cpu.step();
+            cpu.step(&gb);
             assert_eq!(cpu.reg(register).read_u8(&cpu), 0);
             assert_eq!(cpu.is_flag_set(Flag::Zero), true);
             assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
@@ -1405,7 +1420,7 @@ mod tests {
             // Given the register contains 0xf0 (half carry)
             cpu.set_pc(0);
             cpu.reg(register).write_u8(&cpu, 0xf0);
-            cpu.step();
+            cpu.step(&gb);
             assert_eq!(cpu.reg(register).read_u8(&cpu), 0xef);
             assert_eq!(cpu.is_flag_set(Flag::Zero), false);
             assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
@@ -1424,7 +1439,7 @@ mod tests {
         // When the CPU runs a DEC (HL) instruction
         // TODO(PT): Check cycle count here
         cpu.mmu.write(0, 0x35);
-        cpu.step();
+        cpu.step(&gb);
         // Then the memory has been decremented
         assert_eq!(cpu.reg(RegisterName::HL).read_u8(&cpu), 0xef);
         // And the flags are set correctly
@@ -1443,7 +1458,7 @@ mod tests {
         // Little endian branch target
         cpu.mmu.write(1, 0xfe);
         cpu.mmu.write(2, 0xca);
-        cpu.step();
+        cpu.step(&gb);
         assert_eq!(cpu.get_pc(), 0xcafe);
     }
 
@@ -1470,7 +1485,7 @@ mod tests {
 
             // Given the register contains data other than the marker
             cpu.reg(register).write_u8(&cpu, 0xff);
-            cpu.step();
+            cpu.step(&gb);
             assert_eq!(cpu.reg(register).read_u8(&cpu), marker);
         }
     }
@@ -1489,7 +1504,7 @@ mod tests {
         // TODO(PT): Check cycle count here
         cpu.mmu.write(0, 0x36);
         cpu.mmu.write(1, 0xaa);
-        cpu.step();
+        cpu.step(&gb);
         // Then the memory has been assigned
         assert_eq!(cpu.reg(RegisterName::HL).read_u8(&cpu), 0xaa);
     }
@@ -1505,7 +1520,7 @@ mod tests {
         cpu.reg(RegisterName::C).write_u8(&cpu, marker);
         cpu.reg(RegisterName::B).write_u8(&cpu, 0x00);
         cpu.mmu.write(0, 0x41);
-        cpu.step();
+        cpu.step(&gb);
         // Then the register has been loaded
         assert_eq!(cpu.reg(RegisterName::B).read_u8(&cpu), marker);
     }
@@ -1518,7 +1533,7 @@ mod tests {
         let marker = 0xfd;
         cpu.reg(RegisterName::L).write_u8(&cpu, marker);
         cpu.mmu.write(0, 0x6d);
-        cpu.step();
+        cpu.step(&gb);
         assert_eq!(cpu.reg(RegisterName::L).read_u8(&cpu), marker);
     }
 
@@ -1532,7 +1547,7 @@ mod tests {
         let marker = 0xdd;
         cpu.reg(RegisterName::HL).write_u8(&cpu, marker);
         cpu.mmu.write(0, 0x4e);
-        cpu.step();
+        cpu.step(&gb);
         assert_eq!(cpu.reg(RegisterName::C).read_u8(&cpu), marker);
     }
 
@@ -1546,7 +1561,7 @@ mod tests {
         cpu.reg(RegisterName::H).write_u8(&cpu, 0x11);
         cpu.reg(RegisterName::L).write_u8(&cpu, 0x22);
         cpu.mmu.write(0, 0x77);
-        cpu.step();
+        cpu.step(&gb);
         assert_eq!(cpu.mmu.read(0x1122), marker);
     }
 
@@ -1563,7 +1578,7 @@ mod tests {
         cpu.reg(RegisterName::L).write_u8(&cpu, 0x22);
         cpu.mmu.write(0x1122, 0xbb);
         cpu.mmu.write(0, 0x66);
-        cpu.step();
+        cpu.step(&gb);
         // Then the memory load has been applied
         assert_eq!(cpu.reg(RegisterName::H).read_u8(&cpu), 0xbb);
         // And dereferencing (HL) now accesses 0xbb22
@@ -1581,7 +1596,7 @@ mod tests {
         cpu.reg(RegisterName::B).write_u8(&cpu, 0b0111);
 
         cpu.mmu.write(0, 0xa8);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the XOR has been applied and stored in A
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0b1001);
@@ -1599,7 +1614,7 @@ mod tests {
         cpu.reg(RegisterName::HL).write_u8(&cpu, 0b0111);
 
         cpu.mmu.write(0, 0xae);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the XOR has been applied and stored in A
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0b1001);
@@ -1620,7 +1635,7 @@ mod tests {
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0x01);
         cpu.mmu.write_u16(1, 0xcafe);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the write has been applied to the registers
         assert_eq!(cpu.reg(RegisterName::B).read_u8(&cpu), 0xca);
@@ -1642,7 +1657,7 @@ mod tests {
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0x31);
         cpu.mmu.write_u16(1, 0xcafe);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the write has been applied to the stack pointer
         assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0xcafe);
@@ -1665,7 +1680,7 @@ mod tests {
 
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0x0a);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the contents of BC have not been modified
         assert_eq!(cpu.reg(RegisterName::BC).read_u16(&cpu), 0x3344);
@@ -1689,7 +1704,7 @@ mod tests {
 
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0x2a);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the pointee has been copied to A
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x56);
@@ -1714,7 +1729,7 @@ mod tests {
 
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0x02);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the data in A has been copied to the pointee
         assert_eq!(cpu.mmu.read(0xabcd), 0x11);
@@ -1736,7 +1751,7 @@ mod tests {
 
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0x32);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the data in A has been copied to the pointer
         assert_eq!(cpu.mmu.read(0xabcd), 0x11);
@@ -1761,7 +1776,7 @@ mod tests {
             // When the CPU runs the instruction
             cpu.reg(RegisterName::PC).write_u16(&cpu, 0x00);
             cpu.mmu.write(0, 0x3c);
-            cpu.step();
+            cpu.step(&gb);
             // Then the contents of A have been incremented
             assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), expected_incr);
             // And the flags are set correctly
@@ -1825,7 +1840,7 @@ mod tests {
                 cpu.mmu.write(pc_base + 1, expected_jump_off as u8);
             }
 
-            cpu.step();
+            cpu.step(&gb);
 
             if let Some(expected_jump_off) = maybe_expected_jump_off {
                 // Should have jumped, PC should be adjusted based on the relative target
@@ -1866,7 +1881,7 @@ mod tests {
             // Given the register contains the provided value
             cpu.reg(register).write_u8(&cpu, value);
             // When the CPU runs the instruction
-            cpu.step();
+            cpu.step(&gb);
             // Then the PC has been incremented past the wide instruction
             assert_eq!(cpu.get_pc(), 2);
             // And the zero flag is set correctly based on the input data
@@ -1889,7 +1904,7 @@ mod tests {
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0xcb);
         cpu.mmu.write(1, 0x46);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the Z flag is cleared
         assert!(cpu.is_flag_condition_met(FlagCondition::NotZero));
@@ -1902,7 +1917,7 @@ mod tests {
         cpu.set_pc(0);
         cpu.mmu.write(0, 0xcb);
         cpu.mmu.write(1, 0x46);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the Z flag is set
         assert!(cpu.is_flag_condition_met(FlagCondition::Zero));
@@ -1922,7 +1937,7 @@ mod tests {
 
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0xe2);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the pointee has been updated with the contents of A
         assert_eq!(cpu.mmu.read(0xff55), 0xaa);
@@ -1946,7 +1961,7 @@ mod tests {
 
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0xf2);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then A has been updated with the contents of the memory
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0xbb);
@@ -1971,7 +1986,7 @@ mod tests {
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0xe0);
         cpu.mmu.write(1, 0xcc);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the pointee has been updated with the contents of A
         assert_eq!(cpu.mmu.read(0xffcc), 0xaa);
@@ -1994,7 +2009,7 @@ mod tests {
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0xf0);
         cpu.mmu.write(1, 0xcc);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then A has been updated with the pointee
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x66);
@@ -2014,7 +2029,7 @@ mod tests {
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0xcd);
         cpu.mmu.write_u16(1, 0x5566);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then PC has been redirected to the jump target
         assert_eq!(cpu.get_pc(), 0x5566);
@@ -2042,7 +2057,7 @@ mod tests {
         cpu.reg(RegisterName::BC).write_u16(&cpu, 0x5566);
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0xc5);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the stack pointer has been decremented
         let sp = cpu.reg(RegisterName::SP).read_u16(&cpu);
@@ -2072,7 +2087,7 @@ mod tests {
 
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0xf5);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the stack pointer has been decremented
         let sp = cpu.reg(RegisterName::SP).read_u16(&cpu);
@@ -2098,7 +2113,7 @@ mod tests {
 
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0xc1);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the stack pointer has been incremented
         let sp = cpu.reg(RegisterName::SP).read_u16(&cpu);
@@ -2122,7 +2137,7 @@ mod tests {
 
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0xf1);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the stack pointer has been incremented
         let sp = cpu.reg(RegisterName::SP).read_u16(&cpu);
@@ -2147,7 +2162,7 @@ mod tests {
 
         cpu.mmu.write(0, 0xcb);
         cpu.mmu.write(1, 0x07);
-        let instr_info = cpu.step();
+        let instr_info = cpu.step(&gb);
         // Then the instruction size and timings are correct
         assert_eq!(instr_info.cycle_count, 2);
         assert_eq!(instr_info.instruction_size, 2);
@@ -2171,7 +2186,7 @@ mod tests {
 
         cpu.mmu.write(0, 0xcb);
         cpu.mmu.write(1, 0x07);
-        let instr_info = cpu.step();
+        let instr_info = cpu.step(&gb);
         // Then the instruction size and timings are correct
         assert_eq!(instr_info.cycle_count, 2);
         assert_eq!(instr_info.instruction_size, 2);
@@ -2190,7 +2205,7 @@ mod tests {
 
         cpu.mmu.write(0, 0xcb);
         cpu.mmu.write(1, 0x17);
-        let instr_info = cpu.step();
+        let instr_info = cpu.step(&gb);
         // Then the instruction size and timings are correct
         assert_eq!(instr_info.cycle_count, 2);
         assert_eq!(instr_info.instruction_size, 2);
@@ -2213,7 +2228,7 @@ mod tests {
         cpu.update_flag(FlagUpdate::Zero(false));
 
         cpu.mmu.write(0, 0x07);
-        let instr_info = cpu.step();
+        let instr_info = cpu.step(&gb);
         // Then the instruction size and timings are correct
         assert_eq!(instr_info.cycle_count, 1);
         assert_eq!(instr_info.instruction_size, 1);
@@ -2236,7 +2251,7 @@ mod tests {
         cpu.update_flag(FlagUpdate::Zero(false));
 
         cpu.mmu.write(0, 0x07);
-        let instr_info = cpu.step();
+        let instr_info = cpu.step(&gb);
         // Then the instruction size and timings are correct
         assert_eq!(instr_info.cycle_count, 1);
         assert_eq!(instr_info.instruction_size, 1);
@@ -2255,7 +2270,7 @@ mod tests {
         cpu.reg(RegisterName::BC).write_u16(&cpu, 0xfa);
 
         cpu.mmu.write(0, 0x03);
-        let instr_info = cpu.step();
+        let instr_info = cpu.step(&gb);
         // Then the instruction size and timings are correct
         assert_eq!(instr_info.instruction_size, 1);
         assert_eq!(instr_info.cycle_count, 2);
@@ -2279,7 +2294,7 @@ mod tests {
 
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0xc9);
-        let instr_info = cpu.step();
+        let instr_info = cpu.step(&gb);
         // Then the instruction size and timings are correct
         assert_eq!(instr_info.instruction_size, 1);
         assert_eq!(instr_info.cycle_count, 4);
@@ -2307,7 +2322,7 @@ mod tests {
         cpu.mmu.write(0x21, (-6i8 as u8));
         cpu.set_pc(0x20);
 
-        let instr_info = cpu.step();
+        let instr_info = cpu.step(&gb);
         assert_eq!(cpu.get_pc(), 0x1c);
         // And it's indicated that a jump occurred
         assert_eq!(instr_info.pc_increment, None);
@@ -2325,7 +2340,7 @@ mod tests {
         cpu.reg(RegisterName::A).write_u8(&cpu, 0x3c);
         cpu.mmu.write(0, 0xfe);
         cpu.mmu.write(1, 0x3c);
-        let instr_info = cpu.step();
+        let instr_info = cpu.step(&gb);
         assert_eq!(instr_info.instruction_size, 2);
         assert_eq!(instr_info.cycle_count, 2);
         assert!(cpu.is_flag_set(Flag::Zero));
@@ -2344,7 +2359,7 @@ mod tests {
         cpu.mmu.write(0, 0xbe);
         cpu.reg(RegisterName::HL).write_u16(&cpu, 0xffaa);
         cpu.mmu.write(0xffaa, 0x3c);
-        let instr_info = cpu.step();
+        let instr_info = cpu.step(&gb);
         assert_eq!(instr_info.instruction_size, 1);
         assert_eq!(instr_info.cycle_count, 2);
         assert!(cpu.is_flag_set(Flag::Zero));
@@ -2369,7 +2384,7 @@ mod tests {
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0xea);
         cpu.mmu.write_u16(1, address);
-        let instr_info = cpu.step();
+        let instr_info = cpu.step(&gb);
         assert_eq!(instr_info.instruction_size, 3);
         assert_eq!(instr_info.cycle_count, 4);
 
@@ -2395,7 +2410,7 @@ mod tests {
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0xfa);
         cpu.mmu.write_u16(1, address);
-        let instr_info = cpu.step();
+        let instr_info = cpu.step(&gb);
         assert_eq!(instr_info.instruction_size, 3);
         assert_eq!(instr_info.cycle_count, 4);
 
@@ -2418,7 +2433,7 @@ mod tests {
 
         // Given A contains 5
         cpu.reg(RegisterName::A).write_u8(&cpu, 5);
-        cpu.step();
+        cpu.step(&gb);
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 4);
         assert_eq!(cpu.is_flag_set(Flag::Zero), false);
         assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
@@ -2428,7 +2443,7 @@ mod tests {
         // Given the register contains 0 (underflow)
         cpu.set_pc(0);
         cpu.reg(RegisterName::A).write_u8(&cpu, 0);
-        cpu.step();
+        cpu.step(&gb);
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0xff);
         assert_eq!(cpu.is_flag_set(Flag::Zero), false);
         assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
@@ -2438,7 +2453,7 @@ mod tests {
         // Given the register contains 1 (zero)
         cpu.set_pc(0);
         cpu.reg(RegisterName::A).write_u8(&cpu, 1);
-        cpu.step();
+        cpu.step(&gb);
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0);
         assert_eq!(cpu.is_flag_set(Flag::Zero), true);
         assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
@@ -2448,7 +2463,7 @@ mod tests {
         // Given the register contains 0xf0 (half carry)
         cpu.set_pc(0);
         cpu.reg(RegisterName::A).write_u8(&cpu, 0xf0);
-        cpu.step();
+        cpu.step(&gb);
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0xef);
         assert_eq!(cpu.is_flag_set(Flag::Zero), false);
         assert_eq!(cpu.is_flag_set(Flag::Subtract), true);
@@ -2471,7 +2486,7 @@ mod tests {
 
         // When the CPU runs the instruction
         cpu.mmu.write(0, 0x80);
-        cpu.step();
+        cpu.step(&gb);
 
         // Then the result is stored in A
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);

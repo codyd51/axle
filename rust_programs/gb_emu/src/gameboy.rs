@@ -35,7 +35,7 @@ impl GameBoy {
     pub fn step(&self) {
         let mut d = self.cpu_disabled.borrow_mut();
         if !*d {
-            let instr_info = self.cpu.borrow_mut().step();
+            let instr_info = self.cpu.borrow_mut().step(self);
             if instr_info.cycle_count == 0 {
                 *d = true;
             }
