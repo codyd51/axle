@@ -15,6 +15,7 @@ extern crate alloc;
 mod cpu;
 mod gameboy;
 mod interrupts;
+mod joypad;
 mod mmu;
 mod ppu;
 use std::{
@@ -27,6 +28,7 @@ use std::{
 use cpu::CpuState;
 use gameboy::GameBoy;
 use interrupts::InterruptController;
+use joypad::Joypad;
 use mmu::{Addressable, BootRom, EchoRam, GameRom, Mmu, Ram};
 use pixels::{Error, Pixels, SurfaceTexture};
 use ppu::Ppu;
@@ -256,9 +258,12 @@ fn main() {
     let interrupt_controller = Rc::new(InterruptController::new());
     let interrupt_controller_clone = Rc::clone(&interrupt_controller);
 
+    let joypad = Rc::new(Joypad::new());
+
     let mmu = Rc::new(Mmu::new(vec![
         bootrom,
         interrupt_controller,
+        joypad,
         ppu,
         game_rom,
         tile_ram,

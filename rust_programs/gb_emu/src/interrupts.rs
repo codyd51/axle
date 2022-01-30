@@ -23,6 +23,10 @@ impl InterruptController {
     pub fn set_interrupts_globally_enabled(&self) {
         *(self.interrupt_master_enable_flag.borrow_mut()) = true
     }
+
+    pub fn are_interrupts_globally_enabled(&self) -> bool {
+        *(self.interrupt_master_enable_flag.borrow())
+    }
 }
 
 impl Addressable for InterruptController {
