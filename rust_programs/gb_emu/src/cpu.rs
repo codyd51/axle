@@ -786,6 +786,24 @@ impl CpuState {
                 self.instr_cp(val);
                 Some(InstrInfo::seq(1, 2))
             }
+            0xf3 => {
+                // DI
+                let interrupt_controller = system.get_interrupt_controller();
+                if debug {
+                    println!("DI");
+                }
+                interrupt_controller.set_interrupts_globally_disabled();
+                Some(InstrInfo::seq(1, 1))
+            }
+            0xfb => {
+                // EI
+                let interrupt_controller = system.get_interrupt_controller();
+                if debug {
+                    println!("EI");
+                }
+                interrupt_controller.set_interrupts_globally_enabled();
+                Some(InstrInfo::seq(1, 1))
+            }
             // Handled down below
             _ => None,
         };
@@ -1188,6 +1206,7 @@ mod tests {
     use crate::{
         cpu::{AddressingMode, Flag, FlagCondition, FlagUpdate, RegisterName},
         gameboy::GameBoyHardwareProvider,
+        interrupts::InterruptController,
         mmu::{Mmu, Ram},
     };
 
@@ -1197,14 +1216,33 @@ mod tests {
     struct CpuTestSystem {
         pub mmu: Rc<Mmu>,
         pub cpu: RefCell<CpuState>,
+        interrupt_controller: Rc<InterruptController>,
     }
 
     impl CpuTestSystem {
-        pub fn new(mmu: Rc<Mmu>, cpu: CpuState) -> Self {
+        pub fn new(
+            mmu: Rc<Mmu>,
+            cpu: CpuState,
+            interrupt_controller: Rc<InterruptController>,
+        ) -> Self {
             Self {
                 mmu,
                 cpu: RefCell::new(cpu),
+                interrupt_controller,
             }
+        }
+
+        pub fn run_opcode_with_expected_attrs(
+            &self,
+            opcode: u8,
+            expected_instruction_size: u16,
+            expected_cycle_count: usize,
+        ) {
+            self.mmu.write(0, opcode);
+            let mut cpu = self.cpu.borrow_mut();
+            let instr_info = cpu.step(self);
+            assert_eq!(instr_info.instruction_size, expected_instruction_size);
+            assert_eq!(instr_info.cycle_count, expected_cycle_count);
         }
     }
 
@@ -1218,16 +1256,17 @@ mod tests {
         }
 
         fn get_interrupt_controller(&self) -> Rc<crate::interrupts::InterruptController> {
-            panic!("Interrupt controller not supported in this test harness")
+            Rc::clone(&self.interrupt_controller)
         }
     }
 
     fn get_system() -> CpuTestSystem {
         let ram = Rc::new(Ram::new(0, 0xffff));
         let mmu = Rc::new(Mmu::new(vec![ram]));
+        let interrupt_controller = Rc::new(InterruptController::new());
         let mut cpu = CpuState::new(Rc::clone(&mmu));
         cpu.enable_debug();
-        CpuTestSystem::new(mmu, cpu)
+        CpuTestSystem::new(mmu, cpu, interrupt_controller)
     }
 
     /* Machinery tests */
@@ -2597,5 +2636,44 @@ mod tests {
         assert!(!cpu.is_flag_set(Flag::Subtract));
         assert!(!cpu.is_flag_set(Flag::HalfCarry));
         assert!(!cpu.is_flag_set(Flag::Carry));
+    }
+
+    /* DI */
+
+    #[test]
+    fn test_di() {
+        // Given a DI instruction
+        let gb = get_system();
+        // And interrupts are enabled
+        assert!(gb
+            .get_interrupt_controller()
+            .are_interrupts_globally_enabled());
+
+        // When the CPU runs a DI instruction
+        gb.run_opcode_with_expected_attrs(0xf3, 1, 1);
+
+        // Then interrupts are disabled
+        assert!(!gb
+            .get_interrupt_controller()
+            .are_interrupts_globally_enabled());
+    }
+
+    /* EI */
+
+    #[test]
+    fn test_ei() {
+        // Given a EI instruction
+        let gb = get_system();
+        // And interrupts are disabled
+        gb.get_interrupt_controller()
+            .set_interrupts_globally_disabled();
+
+        // When the CPU runs a EI instruction
+        gb.run_opcode_with_expected_attrs(0xfb, 1, 1);
+
+        // Then interrupts are enabled
+        assert!(gb
+            .get_interrupt_controller()
+            .are_interrupts_globally_enabled());
     }
 }
