@@ -660,6 +660,21 @@ impl CpuState {
                 let is_rlc = c == 0;
                 self.rlc_or_rl(reg, addressing_mode, is_rlc).cycle_count
             }
+            "00110iii" => {
+                // SWAP Reg8
+                let (reg, addressing_mode) = self.get_reg_from_lookup_tab1(i);
+                let val = reg.read_u8_with_mode(&self, addressing_mode);
+                if debug {
+                    println!("SWAP {reg}");
+                }
+                let low_nibble = (val & 0x0f);
+                let high_nibble = (val & 0xf0) >> 4;
+                let result = (low_nibble << 4) | high_nibble;
+                reg.write_u8(&self, result);
+                self.update_flag(FlagUpdate::Zero(result == 0));
+                // TODO(PT): Should be 4 cycles for (HL)
+                2
+            }
             _ => {
                 println!("<cb {:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
@@ -2524,5 +2539,63 @@ mod tests {
 
         // Then SP has been decremented
         assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0xfffe);
+    }
+
+    /* SWAP Reg8 */
+
+    #[test]
+    fn test_swap_reg8_deref_hl() {
+        // Given a SWAP (HL) instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        // And (HL) contains a pointer
+        cpu.reg(RegisterName::HL).write_u16(&cpu, 0x1234);
+        // And the pointee contains a value
+        cpu.reg(RegisterName::HL)
+            .write_u8_with_mode(&cpu, AddressingMode::Deref, 0xf0);
+
+        // When the CPU runs the instruction
+        gb.get_mmu().write(0, 0xcb);
+        gb.get_mmu().write(1, 0x36);
+        let instr_info = cpu.step(&gb);
+        // TODO(PT): (HL) should take 4 cycles
+        assert_eq!(instr_info.instruction_size, 2);
+        assert_eq!(instr_info.cycle_count, 2);
+
+        // Then the contents of (HL) have been swapped
+        assert_eq!(gb.get_mmu().read(0x1234), 0x0f);
+
+        // And the flags have been correctly updated
+        assert!(!cpu.is_flag_set(Flag::Zero));
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Carry));
+    }
+
+    #[test]
+    fn test_swap_reg8_a() {
+        // Given a SWAP A instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        // And A contains a value
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x00);
+
+        // When the CPU runs the instruction
+        gb.get_mmu().write(0, 0xcb);
+        gb.get_mmu().write(1, 0x37);
+        let instr_info = cpu.step(&gb);
+        assert_eq!(instr_info.instruction_size, 2);
+        assert_eq!(instr_info.cycle_count, 2);
+
+        // Then the contents of A have been swapped
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);
+
+        // And the flags have been correctly updated
+        assert!(cpu.is_flag_set(Flag::Zero));
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Carry));
     }
 }
