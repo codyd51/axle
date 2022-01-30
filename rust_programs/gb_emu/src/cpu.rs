@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 
 use bitmatch::bitmatch;
 
-use crate::mmu::Mmu;
+use crate::{gameboy::GameBoyHardwareProvider, interrupts::InterruptController, mmu::Mmu};
 
 pub struct InstrInfo {
     pub instruction_size: u16,
@@ -77,6 +77,7 @@ impl Display for FlagCondition {
 
 pub struct CpuState {
     operands: BTreeMap<RegisterName, Box<dyn VariableStorage>>,
+    // TODO(PT): Remove stored reference to MMU and use GameBoyHardwareProvider instead
     mmu: Rc<Mmu>,
     debug_enabled: bool,
 }
