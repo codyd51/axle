@@ -3,6 +3,7 @@ use std::cell::RefCell;
 use pixels::Pixels;
 
 use crate::{
+    gameboy::GameBoyHardwareProvider,
     mmu::{Addressable, Mmu},
     WINDOW_HEIGHT, WINDOW_WIDTH,
 };
@@ -17,6 +18,7 @@ enum PpuState {
 pub struct Ppu {
     pixels: RefCell<Pixels>,
     ly: RefCell<u8>,
+    scy: RefCell<u8>,
     current_state: RefCell<PpuState>,
     ticks: RefCell<usize>,
     scanline_x: usize,
@@ -26,12 +28,14 @@ const TILE_WIDTH: usize = 8;
 const TILE_HEIGHT: usize = 8;
 
 impl Ppu {
+    const SCY_ADDR: u16 = 0xff42;
     const LY_ADDR: u16 = 0xff44;
 
     pub fn new(pixels: Pixels) -> Self {
         Ppu {
             pixels: RefCell::new(pixels),
             ly: RefCell::new(0),
+            scy: RefCell::new(0),
             current_state: RefCell::new(PpuState::OamSearch),
             ticks: RefCell::new(0),
             scanline_x: 0,
@@ -85,7 +89,8 @@ impl Ppu {
         }
     }
 
-    pub fn step(&self, mmu: &Mmu) {
+    pub fn step(&self, system: &dyn GameBoyHardwareProvider) {
+        let mmu = system.get_mmu();
         let mut state = self.current_state.borrow_mut();
         let mut ticks = self.ticks.borrow_mut();
         let mut ly = self.ly.borrow_mut();
@@ -115,7 +120,8 @@ impl Ppu {
                 if *ticks == 64 {
                     let mut pixels = self.pixels.borrow_mut();
                     let mut frame = pixels.get_frame();
-                    let y = *ly;
+                    let screen_y = *ly;
+                    let vram_y = screen_y + *(self.scy.borrow());
                     // Start off with a Y, which might be in the middle of a tile!
                     // Then iterate through all the X's in the scanline,
                     // but we only need to iterate with an 8-step, because we'll be drawing
@@ -132,8 +138,8 @@ impl Ppu {
                         // anywhere within the tile.
                         // Let's re-adjust the Y so it sits at a tile boundary, for purposes of finding
                         // the tile to place.
-                        let tile_base_y = y & !(8 - 1);
-                        //println!("X {x}, Y {y}, TileBaseY {tile_base_y}");
+                        let tile_base_y = vram_y & !(8 - 1);
+                        //println!("X {x}, Y {vram_y}, TileBaseY {tile_base_y}");
                         // We've now got a tile base coordinate in the screen coordinate system,
                         // a 256x256 grid.
                         // Now, convert this to the 32x32 lookup grid coordinates.
@@ -167,7 +173,7 @@ impl Ppu {
                             tile_ram_base + (tile_idx as u16 * tile_size_in_bytes as u16);
 
                         // We're really interested in the start of the row we're going to draw
-                        let y_within_tile = y - tile_base_y;
+                        let y_within_tile = vram_y - tile_base_y;
                         let row_base_address = tile_base_address
                             + (y_within_tile as u16 * tile_row_size_in_bytes as u16);
                         /*
@@ -191,7 +197,7 @@ impl Ppu {
                                 0b11 => (0, 0, 255),
                                 _ => panic!("Invalid index"),
                             };
-                            let point = ((x + tile_x as u8) as usize, y as usize);
+                            let point = ((x + tile_x as u8) as usize, screen_y as usize);
                             let frame_idx = (point.1 * WINDOW_WIDTH * 4) + (point.0 * 4);
                             /*
                             println!(
@@ -274,19 +280,27 @@ impl Ppu {
 
 impl Addressable for Ppu {
     fn contains(&self, addr: u16) -> bool {
-        addr == Ppu::LY_ADDR
+        match addr {
+            Ppu::LY_ADDR => true,
+            Ppu::SCY_ADDR => true,
+            _ => false,
+        }
     }
 
     fn read(&self, addr: u16) -> u8 {
         match addr {
             Ppu::LY_ADDR => *self.ly.borrow(),
+            Ppu::SCY_ADDR => *self.scy.borrow(),
             _ => panic!("Unrecognised address"),
         }
     }
 
     fn write(&self, addr: u16, val: u8) {
         match addr {
-            Ppu::LY_ADDR => *(self.ly.borrow_mut()) = val,
+            Ppu::LY_ADDR => {
+                panic!("Writes to LY are not allowed")
+            }
+            Ppu::SCY_ADDR => *(self.scy.borrow_mut()) = val,
             _ => panic!("Unrecognised address"),
         }
     }
