@@ -815,6 +815,20 @@ impl CpuState {
                 self.update_flag(FlagUpdate::HalfCarry(true));
                 Some(InstrInfo::seq(1, 1))
             }
+            0xe6 => {
+                // AND d8
+                let a = self.reg(RegisterName::A);
+                let val = self.mmu.read(self.get_pc() + 1);
+                if debug {
+                    println!("AND {a}, {val:02x}");
+                }
+
+                let result = a.read_u8(&self) & val;
+                a.write_u8(&self, result);
+                self.update_flag(FlagUpdate::Zero(result == 0));
+                self.update_flag(FlagUpdate::HalfCarry(true));
+                Some(InstrInfo::seq(2, 2))
+            }
             // Handled down below
             _ => None,
         };
@@ -2749,7 +2763,7 @@ mod tests {
     /* AND A, Reg8 */
 
     #[test]
-    fn test_and() {
+    fn test_and_reg() {
         // Given an AND instruction
         let gb = get_system();
         let mut cpu = gb.cpu.borrow_mut();
@@ -2776,6 +2790,26 @@ mod tests {
         gb.run_opcode_with_expected_attrs(&mut cpu, 0xa6, 1, 1);
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);
         assert!(cpu.is_flag_set(Flag::Zero));
+        assert!(cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::Carry));
+    }
+
+    /* AND A, u8 */
+
+    #[test]
+    fn test_and_u8() {
+        // Given an AND A, u8 instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x5a);
+        // And an offset just after the instruction pointer
+        gb.mmu.write(1, 0x38);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xe6, 2, 2);
+
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x18);
+        assert!(!cpu.is_flag_set(Flag::Zero));
         assert!(cpu.is_flag_set(Flag::HalfCarry));
         assert!(!cpu.is_flag_set(Flag::Subtract));
         assert!(!cpu.is_flag_set(Flag::Carry));
