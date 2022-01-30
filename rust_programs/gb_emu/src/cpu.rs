@@ -690,6 +690,32 @@ impl CpuState {
                 reg.write_u8_with_mode(&self, addressing_mode, new_val);
                 self.update_flag(FlagUpdate::Zero(new_val == 0));
                 self.update_flag(FlagUpdate::Carry(lsb == 1));
+                self.update_flag(FlagUpdate::HalfCarry(false));
+                self.update_flag(FlagUpdate::Subtract(false));
+                2
+            }
+            "00011iii" => {
+                // RR Reg8
+                let (reg, addressing_mode) = self.get_reg_from_lookup_tab1(i);
+                let val = reg.read_u8_with_mode(&self, addressing_mode);
+                if debug {
+                    println!("RR {reg}");
+                }
+
+                let lsb = val & 0b1;
+                // Copy the carry flag to the high bit
+                let carry_copy = match self.is_flag_set(Flag::Carry) {
+                    true => 1,
+                    false => 0,
+                };
+                let new_val = (val >> 1) | (carry_copy << 7);
+
+                reg.write_u8_with_mode(&self, addressing_mode, new_val);
+                self.update_flag(FlagUpdate::Zero(new_val == 0));
+                self.update_flag(FlagUpdate::Carry(lsb == 1));
+                self.update_flag(FlagUpdate::HalfCarry(false));
+                self.update_flag(FlagUpdate::Subtract(false));
+                // TODO(PT): Should be 4 cycles for (HL)
                 2
             }
             _ => {
@@ -3039,6 +3065,7 @@ mod tests {
         // Given a SRL A instruction
         let gb = get_system();
         let mut cpu = gb.cpu.borrow_mut();
+        cpu.set_flags(true, true, true, false);
 
         cpu.reg(RegisterName::A).write_u8(&cpu, 0b10011001);
         gb.mmu.write(0, 0xcb);
@@ -3048,6 +3075,35 @@ mod tests {
 
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0b01001100);
         assert!(!cpu.is_flag_set(Flag::Zero));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Subtract));
         assert!(cpu.is_flag_set(Flag::Carry));
+    }
+
+    /* RR Reg8 */
+
+    #[test]
+    fn test_rr() {
+        // Given a RR B instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+        cpu.set_flags(false, false, false, false);
+
+        // And the Carry flag is set
+        cpu.update_flag(FlagUpdate::Carry(true));
+        cpu.reg(RegisterName::B).write_u8(&cpu, 0b10011000);
+
+        // When the CPU runs the instruction
+        gb.mmu.write(0, 0xcb);
+        gb.mmu.write(1, 0x18);
+        // TODO(PT): Should be 4 cycles for (HL)
+        let instr_info = cpu.step(&gb);
+
+        assert_eq!(cpu.reg(RegisterName::B).read_u8(&cpu), 0b11001100);
+        // And the LSB has been copied to the Carry flag
+        assert!(!cpu.is_flag_set(Flag::Zero));
+        assert!(!cpu.is_flag_set(Flag::Carry));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Subtract));
     }
 }
