@@ -58,16 +58,22 @@ impl Mmu {
 
 pub struct BootRom {
     data: Vec<u8>,
+    is_disabled: RefCell<bool>,
 }
 
 impl BootRom {
+    const BANK_REGISTER_ADDR: u16 = 0xff50;
+
     pub fn new(bootrom_path: &str) -> Self {
         Self {
+            is_disabled: RefCell::new(false),
             data: std::fs::read(bootrom_path).unwrap(),
         }
     }
+
     fn from_bytes(bytes: &[u8]) -> Self {
         Self {
+            is_disabled: RefCell::new(false),
             data: bytes.to_vec(),
         }
     }
@@ -75,14 +81,29 @@ impl BootRom {
 
 impl Addressable for BootRom {
     fn contains(&self, addr: u16) -> bool {
-        (addr as usize) < self.data.len()
+        if *self.is_disabled.borrow() {
+            return false;
+        }
+        match addr {
+            BootRom::BANK_REGISTER_ADDR => true,
+            addr => (addr as usize) < self.data.len(),
+        }
     }
     fn read(&self, addr: u16) -> u8 {
-        self.data[addr as usize]
+        match addr {
+            BootRom::BANK_REGISTER_ADDR => panic!("Reads are not supported on the bank register"),
+            _ => self.data[addr as usize],
+        }
     }
 
     fn write(&self, addr: u16, val: u8) {
-        panic!("Cannot write to boot ROM")
+        match addr {
+            BootRom::BANK_REGISTER_ADDR => match val {
+                0 => panic!("0 is not a valid value to write to the BANK register"),
+                _ => *self.is_disabled.borrow_mut() = true,
+            },
+            _ => panic!("Cannot write to boot ROM"),
+        }
     }
 }
 
@@ -137,18 +158,53 @@ impl Addressable for Ram {
     }
 
     fn write(&self, addr: u16, val: u8) {
-        //println!("RAM write 0x{addr:04x}: {val:02x}");
         self.data.borrow_mut()[(addr - self.start_addr) as usize] = val
     }
 }
 
-#[test]
-fn test_bootrom_reads() {
-    //let bootrom = BootRom::new("/Users/philliptennen/Downloads/DMG_ROM.bin");
-    let bootrom = Rc::new(BootRom::from_bytes(&[0x11, 0x22]));
-    let mmu = Mmu::new(vec![bootrom]);
-    assert_eq!(mmu.read(0x00), 0x11);
-    assert_eq!(mmu.read(0x01), 0x22);
-    assert_eq!(mmu.read(0x02), 0xff);
-    assert_eq!(mmu.read(0x5566), 0xff);
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+
+    use crate::mmu::{Addressable, BootRom, Mmu};
+
+    use super::Ram;
+
+    #[test]
+    fn test_bootrom_reads() {
+        let bootrom = Rc::new(BootRom::from_bytes(&[0x11, 0x22]));
+        let mmu = Mmu::new(vec![bootrom]);
+        assert_eq!(mmu.read(0x00), 0x11);
+        assert_eq!(mmu.read(0x01), 0x22);
+        assert_eq!(mmu.read(0x02), 0xff);
+        assert_eq!(mmu.read(0x5566), 0xff);
+    }
+
+    #[test]
+    fn test_bank_register() {
+        // Given an MMU containing a boot ROM
+        let bootrom = Rc::new(BootRom::from_bytes(&[0x11, 0x22]));
+        // And some more RAM that overlaps the boot ROM region
+        let ram = Rc::new(Ram::new(0, 32));
+        let ram_clone = Rc::clone(&ram);
+        // And the boot rom has precedence
+        let mmu = Mmu::new(vec![bootrom, ram_clone]);
+        // And the RAM is filled with a value
+        for i in 0..32 {
+            ram.write(i, 0xcc);
+        }
+
+        // Then when I read from the MMU an address that is within the boot ROM
+        assert_eq!(mmu.read(0), 0x11);
+        // And when I read from the MMU an address that is outside the boot ROM
+        assert_eq!(mmu.read(2), 0xcc);
+
+        // When I write to the BANK register to disable the boot ROM
+        mmu.write(0xff50, 1);
+
+        // Then reading from the region previously mapped to the boot ROM
+        // reads from the overlapping RAM instead
+        assert_eq!(mmu.read(0), 0xcc);
+    }
 }
