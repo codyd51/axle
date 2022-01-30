@@ -1109,6 +1109,16 @@ impl CpuState {
                 // TODO(PT): Cycle count should be 2 for (HL)
                 InstrInfo::seq(1, 1)
             }
+            "00ii1011" => {
+                // DEC Reg16
+                let dest = self.get_reg_from_lookup_tab2(i).0;
+                if debug {
+                    println!("DEC {dest}");
+                }
+
+                dest.write_u16(&self, dest.read_u16(&self) - 1);
+                InstrInfo::seq(1, 2)
+            }
             _ => {
                 println!("<0x{:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
@@ -2495,5 +2505,24 @@ mod tests {
         assert!(cpu.is_flag_set(Flag::HalfCarry));
         assert!(cpu.is_flag_set(Flag::Carry));
         assert!(!cpu.is_flag_set(Flag::Subtract));
+    }
+
+    /* DEC Reg16 */
+
+    #[test]
+    fn test_dec_reg16() {
+        // Given a DEC SP instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        // And SP contains a value
+        cpu.reg(RegisterName::SP).write_u16(&cpu, 0xffff);
+
+        // When the CPU runs the instruction
+        cpu.mmu.write(0, 0x3b);
+        cpu.step(&gb);
+
+        // Then SP has been decremented
+        assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0xfffe);
     }
 }
