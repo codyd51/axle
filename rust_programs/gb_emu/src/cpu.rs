@@ -829,6 +829,30 @@ impl CpuState {
                 self.update_flag(FlagUpdate::HalfCarry(true));
                 Some(InstrInfo::seq(2, 2))
             }
+            0xc6 => {
+                // ADD A, u8
+                // TODO(PT): Refactor with ADD A, Reg8?
+                let a = self.reg(RegisterName::A);
+                let val = self.mmu.read(self.get_pc() + 1);
+
+                if debug {
+                    println!("ADD {a}, {val:02x}");
+                }
+
+                let prev_a_val = a.read_u8(&self);
+                let (new_val, did_overflow) = prev_a_val.overflowing_add(val);
+
+                a.write_u8(&self, new_val);
+                self.update_flag(FlagUpdate::Zero(new_val == 0));
+                self.update_flag(FlagUpdate::Subtract(false));
+                let half_carry_flag =
+                    ((((prev_a_val as u16) & 0xf) + ((val as u16) & 0xf)) & 0x10) == 0x10;
+                self.update_flag(FlagUpdate::HalfCarry(half_carry_flag));
+                self.update_flag(FlagUpdate::Carry(did_overflow));
+
+                // TODO(PT): Cycle count should be 2 for (HL)
+                Some(InstrInfo::seq(2, 2))
+            }
             // Handled down below
             _ => None,
         };
@@ -2829,5 +2853,25 @@ mod tests {
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0xca);
         assert!(cpu.is_flag_set(Flag::Subtract));
         assert!(cpu.is_flag_set(Flag::HalfCarry));
+    }
+
+    /* ADD A, u8 */
+
+    #[test]
+    fn test_add_u8() {
+        // Given an ADD A, u8 instruction instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        // And a value just after the instruction pointer
+        gb.mmu.write(1, 0xff);
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x3c);
+
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xc6, 2, 2);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x3b);
+        assert!(!cpu.is_flag_set(Flag::Zero));
+        assert!(cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(cpu.is_flag_set(Flag::Carry));
     }
 }
