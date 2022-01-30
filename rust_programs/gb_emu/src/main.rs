@@ -288,7 +288,9 @@ fn main() {
 
         match event {
             Event::MainEventsCleared => {
-                gameboy.step();
+                for i in 0..128 {
+                    gameboy.step();
+                }
             }
             _ => {}
         }
