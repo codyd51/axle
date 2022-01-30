@@ -1152,6 +1152,19 @@ impl CpuState {
                 dest.write_u16(&self, dest.read_u16(&self) - 1);
                 InstrInfo::seq(1, 2)
             }
+            "10110iii" => {
+                // OR Reg8
+                let a = self.reg(RegisterName::A);
+                let (op, read_mode) = self.get_reg_from_lookup_tab1(i);
+                if debug {
+                    println!("OR A, {op}");
+                }
+                let result = a.read_u8(&self) | op.read_u8_with_mode(&self, read_mode);
+                a.write_u8(&self, result);
+                self.update_flag(FlagUpdate::Zero(result == 0));
+                // TODO(PT): Should be 2 for HL
+                InstrInfo::seq(1, 1)
+            }
             _ => {
                 println!("<0x{:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
@@ -1234,12 +1247,12 @@ mod tests {
 
         pub fn run_opcode_with_expected_attrs(
             &self,
+            cpu: &mut CpuState,
             opcode: u8,
             expected_instruction_size: u16,
             expected_cycle_count: usize,
         ) {
             self.mmu.write(0, opcode);
-            let mut cpu = self.cpu.borrow_mut();
             let instr_info = cpu.step(self);
             assert_eq!(instr_info.instruction_size, expected_instruction_size);
             assert_eq!(instr_info.cycle_count, expected_cycle_count);
@@ -2644,13 +2657,14 @@ mod tests {
     fn test_di() {
         // Given a DI instruction
         let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
         // And interrupts are enabled
         assert!(gb
             .get_interrupt_controller()
             .are_interrupts_globally_enabled());
 
         // When the CPU runs a DI instruction
-        gb.run_opcode_with_expected_attrs(0xf3, 1, 1);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xf3, 1, 1);
 
         // Then interrupts are disabled
         assert!(!gb
@@ -2664,16 +2678,45 @@ mod tests {
     fn test_ei() {
         // Given a EI instruction
         let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
         // And interrupts are disabled
         gb.get_interrupt_controller()
             .set_interrupts_globally_disabled();
 
         // When the CPU runs a EI instruction
-        gb.run_opcode_with_expected_attrs(0xfb, 1, 1);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xfb, 1, 1);
 
         // Then interrupts are enabled
         assert!(gb
             .get_interrupt_controller()
             .are_interrupts_globally_enabled());
+    }
+
+    /* OR A, Reg8 */
+
+    #[test]
+    fn test_or() {
+        // Given an OR instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x5a);
+        // And the Z flag is set
+        cpu.update_flag(FlagUpdate::Zero(true));
+
+        // When I run OR A, A
+        // Then I get the expected result
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xb7, 1, 1);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x5a);
+        assert!(!cpu.is_flag_set(Flag::Zero));
+
+        // And when I run OR A, (HL)
+        // TODO(PT): This variant should take 2 cycles
+        cpu.set_pc(0);
+        cpu.reg(RegisterName::HL).write_u16(&cpu, 0xffaa);
+        cpu.reg(RegisterName::HL)
+            .write_u8_with_mode(&cpu, AddressingMode::Deref, 0x0f);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xb6, 1, 1);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x5f);
+        assert!(!cpu.is_flag_set(Flag::Zero));
     }
 }
