@@ -804,6 +804,17 @@ impl CpuState {
                 interrupt_controller.set_interrupts_globally_enabled();
                 Some(InstrInfo::seq(1, 1))
             }
+            0x2f => {
+                // CPL A
+                let a = self.reg(RegisterName::A);
+                if debug {
+                    println!("CPL {a}");
+                }
+                a.write_u8(&self, !a.read_u8(&self));
+                self.update_flag(FlagUpdate::Subtract(true));
+                self.update_flag(FlagUpdate::HalfCarry(true));
+                Some(InstrInfo::seq(1, 1))
+            }
             // Handled down below
             _ => None,
         };
@@ -2768,5 +2779,21 @@ mod tests {
         assert!(cpu.is_flag_set(Flag::HalfCarry));
         assert!(!cpu.is_flag_set(Flag::Subtract));
         assert!(!cpu.is_flag_set(Flag::Carry));
+    }
+
+    /* CPL A */
+
+    #[test]
+    fn test_cpl() {
+        // Given a CPL instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x35);
+        // Then the complement of A is computed
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x2f, 1, 1);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0xca);
+        assert!(cpu.is_flag_set(Flag::Subtract));
+        assert!(cpu.is_flag_set(Flag::HalfCarry));
     }
 }
