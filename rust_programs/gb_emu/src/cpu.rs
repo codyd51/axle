@@ -1165,6 +1165,21 @@ impl CpuState {
                 // TODO(PT): Should be 2 for HL
                 InstrInfo::seq(1, 1)
             }
+            "10100iii" => {
+                // AND A, Reg8
+                // TODO(PT): Refactor with AND u8?
+                let a = self.reg(RegisterName::A);
+                let (op, read_mode) = self.get_reg_from_lookup_tab1(i);
+                if debug {
+                    println!("AND A, {op}");
+                }
+                let result = a.read_u8(&self) & op.read_u8_with_mode(&self, read_mode);
+                a.write_u8(&self, result);
+                self.update_flag(FlagUpdate::Zero(result == 0));
+                self.update_flag(FlagUpdate::HalfCarry(true));
+                // TODO(PT): Should be 2 for HL
+                InstrInfo::seq(1, 1)
+            }
             _ => {
                 println!("<0x{:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
@@ -2718,5 +2733,40 @@ mod tests {
         gb.run_opcode_with_expected_attrs(&mut cpu, 0xb6, 1, 1);
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x5f);
         assert!(!cpu.is_flag_set(Flag::Zero));
+    }
+
+    /* AND A, Reg8 */
+
+    #[test]
+    fn test_and() {
+        // Given an AND instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x5a);
+        cpu.reg(RegisterName::L).write_u8(&cpu, 0x3f);
+
+        // When I run AND A, L
+        // Then I get the expected result
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xa5, 1, 1);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x1a);
+        assert!(!cpu.is_flag_set(Flag::Zero));
+        assert!(cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::Carry));
+
+        // And when I run AND A, (HL)
+        cpu.set_pc(0);
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x5a);
+        cpu.reg(RegisterName::H).write_u8(&cpu, 0xff);
+        cpu.reg(RegisterName::HL)
+            .write_u8_with_mode(&cpu, AddressingMode::Deref, 0x00);
+        // TODO(PT): This variant should take 2 cycles
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xa6, 1, 1);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);
+        assert!(cpu.is_flag_set(Flag::Zero));
+        assert!(cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::Carry));
     }
 }
