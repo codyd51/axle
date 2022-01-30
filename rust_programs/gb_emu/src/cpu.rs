@@ -1254,6 +1254,46 @@ impl CpuState {
                 // TODO(PT): Should be 2 for HL
                 InstrInfo::seq(1, 1)
             }
+            "110cf100" => {
+                // CALL FlagCondition, u16
+                let target = self.mmu.read_u16(self.get_pc() + 1);
+                let flag_cond = match c {
+                    // N/Z
+                    0 => match f {
+                        0 => FlagCondition::NotZero,
+                        1 => FlagCondition::Zero,
+                        _ => panic!("Invalid value"),
+                    },
+                    // N/C
+                    1 => match f {
+                        0 => FlagCondition::NotCarry,
+                        1 => FlagCondition::Carry,
+                        _ => panic!("Invalid value"),
+                    },
+                    _ => panic!("Invalid value"),
+                };
+                let should_jump = self.is_flag_condition_met(flag_cond);
+                if debug {
+                    print!("CALL {target:04x} if {flag_cond} ");
+                    match should_jump {
+                        true => println!("(taken)"),
+                        false => println!("(not taken)"),
+                    }
+                }
+                let instr_size = 3;
+                if should_jump {
+                    // TODO(PT): Refactor with CALL?
+                    // Store the return address on the stack
+                    // After the call completes,
+                    // return to the address after 1-byte opcode and 2-byte jump target
+                    self.push_u16(self.get_pc() + instr_size);
+                    // Assign PC to the jump target
+                    self.set_pc(target);
+                    InstrInfo::jump(instr_size, 6)
+                } else {
+                    InstrInfo::seq(instr_size, 3)
+                }
+            }
             _ => {
                 println!("<0x{:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
@@ -2918,5 +2958,60 @@ mod tests {
         assert!(cpu.is_flag_set(Flag::HalfCarry));
         assert!(cpu.is_flag_set(Flag::Subtract));
         assert!(!cpu.is_flag_set(Flag::Carry));
+    }
+
+    /* CALL FlagCondition, u16 */
+
+    #[test]
+    fn test_call_flag_cond_u16() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+        let params = [
+            // NZ Branch not taken
+            (0xc4, FlagUpdate::Zero(true), false),
+            // NZ Branch taken
+            (0xc4, FlagUpdate::Zero(false), true),
+            // Z Branch not taken
+            (0xcc, FlagUpdate::Zero(false), false),
+            // Z Branch taken
+            (0xcc, FlagUpdate::Zero(true), true),
+            // NC Branch not taken
+            (0xd4, FlagUpdate::Carry(true), false),
+            // NC Branch taken
+            (0xd4, FlagUpdate::Carry(false), true),
+            // C Branch not taken
+            (0xdc, FlagUpdate::Carry(false), false),
+            // C Branch taken
+            (0xdc, FlagUpdate::Carry(true), true),
+        ];
+        for (opcode, given_flag, expected_jump) in params {
+            cpu.set_pc(0);
+            // And there is a stack set up
+            cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffe);
+            // And there is a jump target just after the opcode
+            gb.mmu.write_u16(1, 0x4455);
+
+            let expected_cycles = if expected_jump { 6 } else { 3 };
+            cpu.set_flags(false, false, false, false);
+            cpu.update_flag(given_flag);
+            gb.run_opcode_with_expected_attrs(&mut cpu, opcode, 3, expected_cycles);
+
+            if expected_jump {
+                // Then PC has been redirected to the jump target
+                assert_eq!(cpu.get_pc(), 0x4455);
+
+                // And the stack pointer has been decremented due to the return address
+                // stored on the stack
+                assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0xfffc);
+
+                // And the return address is stored on the stack
+                assert_eq!(gb.mmu.read_u16(cpu.reg(RegisterName::SP).read_u16(&cpu)), 3);
+            } else {
+                // Then PC has not been redirected
+                assert_eq!(cpu.get_pc(), 3);
+                // And the stack is left untouched
+                assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0xfffe);
+            }
+        }
     }
 }
