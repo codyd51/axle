@@ -853,6 +853,31 @@ impl CpuState {
                 // TODO(PT): Cycle count should be 2 for (HL)
                 Some(InstrInfo::seq(2, 2))
             }
+            0xd6 => {
+                // SUB A, u8
+                // TODO(PT): Refactor with SUB Reg8
+                let a = self.reg(RegisterName::A);
+                let val = self.mmu.read(self.get_pc() + 1);
+                let prev_a_val = a.read_u8(&self);
+
+                if debug {
+                    println!("SUB {val:02x} from {a}");
+                }
+
+                let prev_a_val = a.read_u8(&self);
+                let (new_val, did_underflow) = prev_a_val.overflowing_sub(val);
+
+                a.write_u8(&self, new_val);
+                self.update_flag(FlagUpdate::Zero(new_val == 0));
+                self.update_flag(FlagUpdate::Subtract(true));
+                // Underflow into the high nibble?
+                self.update_flag(FlagUpdate::HalfCarry((prev_a_val & 0xf) < (new_val & 0xf)));
+                // Underflow into next byte?
+                self.update_flag(FlagUpdate::Carry(did_underflow));
+
+                // TODO(PT): Should be 2 for (HL)
+                Some(InstrInfo::seq(2, 2))
+            }
             // Handled down below
             _ => None,
         };
@@ -2828,7 +2853,7 @@ mod tests {
         let mut cpu = gb.cpu.borrow_mut();
 
         cpu.reg(RegisterName::A).write_u8(&cpu, 0x5a);
-        // And an offset just after the instruction pointer
+        // And a value just after the instruction pointer
         gb.mmu.write(1, 0x38);
         gb.run_opcode_with_expected_attrs(&mut cpu, 0xe6, 2, 2);
 
@@ -2859,7 +2884,7 @@ mod tests {
 
     #[test]
     fn test_add_u8() {
-        // Given an ADD A, u8 instruction instruction
+        // Given an ADD A, u8 instruction
         let gb = get_system();
         let mut cpu = gb.cpu.borrow_mut();
 
@@ -2873,5 +2898,25 @@ mod tests {
         assert!(cpu.is_flag_set(Flag::HalfCarry));
         assert!(!cpu.is_flag_set(Flag::Subtract));
         assert!(cpu.is_flag_set(Flag::Carry));
+    }
+
+    /* SUB A, u8 */
+
+    #[test]
+    fn test_sub_u8() {
+        // Given a SUB A, u8 instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        // And a value just after the instruction pointer
+        gb.mmu.write(1, 0x0f);
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x3e);
+
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xd6, 2, 2);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x2f);
+        assert!(!cpu.is_flag_set(Flag::Zero));
+        assert!(cpu.is_flag_set(Flag::HalfCarry));
+        assert!(cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::Carry));
     }
 }
