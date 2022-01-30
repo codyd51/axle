@@ -254,7 +254,12 @@ fn main() {
     ));
     let tile_ram = Rc::new(Ram::new(0x8000, 0x1800));
     let background_map = Rc::new(Ram::new(0x9800, 0x800));
-    let high_ram = Rc::new(Ram::new(0xFF80, 0x7f));
+
+    let working_ram = Rc::new(Ram::new(0xc000, 0x2000));
+    let working_ram_clone = Rc::clone(&working_ram);
+    let echo_ram = Rc::new(EchoRam::new(working_ram_clone, 0xe000, 0x1e00));
+    let high_ram = Rc::new(Ram::new(0xff80, 0x7f));
+
     let interrupt_controller = Rc::new(InterruptController::new());
     let interrupt_controller_clone = Rc::clone(&interrupt_controller);
 
@@ -265,10 +270,12 @@ fn main() {
         interrupt_controller,
         joypad,
         ppu,
-        game_rom,
         tile_ram,
         background_map,
+        working_ram,
         high_ram,
+        echo_ram,
+        game_rom,
     ]));
     let mut cpu = CpuState::new(Rc::clone(&mmu));
     cpu.enable_debug();

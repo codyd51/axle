@@ -108,23 +108,25 @@ impl Addressable for BootRom {
 }
 
 pub struct GameRom {
-    data: Vec<u8>,
+    data: RefCell<Vec<u8>>,
 }
 
 impl GameRom {
     pub fn new(rom_path: &str) -> Self {
         let data = std::fs::read(rom_path).unwrap();
         assert!(data.len() <= 0x8000, "Cannot load ROMs larger than 32k yet");
-        Self { data }
+        Self {
+            data: RefCell::new(data),
+        }
     }
 }
 
 impl Addressable for GameRom {
     fn contains(&self, addr: u16) -> bool {
-        (addr as usize) < self.data.len()
+        (addr as usize) < self.data.borrow().len()
     }
     fn read(&self, addr: u16) -> u8 {
-        self.data[addr as usize]
+        self.data.borrow()[addr as usize]
     }
 
     fn write(&self, addr: u16, val: u8) {
@@ -162,6 +164,36 @@ impl Addressable for Ram {
     }
 }
 
+pub struct EchoRam {
+    backing_ram: Rc<Ram>,
+    start_addr: u16,
+    end_addr: u16,
+}
+
+impl EchoRam {
+    pub fn new(backing_ram: Rc<Ram>, start_addr: u16, size: u16) -> Self {
+        Self {
+            backing_ram,
+            start_addr,
+            end_addr: start_addr + size,
+        }
+    }
+}
+
+impl Addressable for EchoRam {
+    fn contains(&self, addr: u16) -> bool {
+        addr >= self.start_addr && addr < self.end_addr
+    }
+    fn read(&self, addr: u16) -> u8 {
+        let offset = addr - self.start_addr;
+        self.backing_ram.read(self.backing_ram.start_addr + offset)
+    }
+
+    fn write(&self, addr: u16, val: u8) {
+        let offset = addr - self.start_addr;
+        self.backing_ram.write(self.backing_ram.start_addr + offset, val)
+    }
+}
 
 #[cfg(test)]
 mod tests {
