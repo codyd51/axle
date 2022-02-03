@@ -1407,6 +1407,22 @@ impl CpuState {
                     InstrInfo::seq(instr_size, 3)
                 }
             }
+            "00ii1001" => {
+                // ADD HL, Reg16
+                let hl = self.reg(RegisterName::HL);
+                let op = self.get_reg_from_lookup_tab2(i).0;
+
+                if debug {
+                    println!("ADD {hl}, {op}");
+                }
+
+                let hl_val = hl.read_u16(&self);
+                let op_val = op.read_u16(&self);
+                let result = self.add16_update_flags(hl_val, op_val, &[Flag::Zero]);
+                hl.write_u16(&self, result);
+
+                InstrInfo::seq(1, 2)
+            }
             _ => {
                 println!("<0x{:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
@@ -3186,4 +3202,36 @@ mod tests {
         assert!(!cpu.is_flag_set(Flag::HalfCarry));
         assert!(!cpu.is_flag_set(Flag::Subtract));
     }
+
+    /* ADD HL, Reg16 */
+
+    #[test]
+    fn test_add_hl_reg16() {
+        // Given an ADD HL, SP instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+        cpu.set_flags(false, false, false, false);
+
+        cpu.reg(RegisterName::HL).write_u16(&cpu, 0x8a23);
+        cpu.reg(RegisterName::SP).write_u16(&cpu, 0x0605);
+
+        // When the CPU runs the instruction
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x39, 1, 2);
+
+        assert_eq!(cpu.reg(RegisterName::HL).read_u16(&cpu), 0x9028);
+        assert!(cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::Carry));
+
+        // When the CPU runs the instruction
+        cpu.reg(RegisterName::HL).write_u16(&cpu, 0x8a23);
+        cpu.reg(RegisterName::SP).write_u16(&cpu, 0x8a23);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x39, 1, 2);
+
+        assert_eq!(cpu.reg(RegisterName::HL).read_u16(&cpu), 0x1446);
+        assert!(cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(cpu.is_flag_set(Flag::Carry));
+    }
+
 }
