@@ -1008,6 +1008,27 @@ impl CpuState {
                 // TODO(PT): Should be 2 for (HL)
                 Some(InstrInfo::seq(2, 2))
             }
+            0xe8 => {
+                // ADD SP, i8
+                let sp = self.reg(RegisterName::SP).read_u16(&self);
+                let offset = self.mmu.read(self.get_pc() + 1);
+                let signed_offset = offset as i8;
+
+                let sp_low_byte = (sp & 0xff) as u8;
+                self.add8_update_flags(sp_low_byte, offset, &[]);
+
+                let new_sp = match signed_offset > 0 {
+                    true => sp + (offset as u16),
+                    false => sp - (signed_offset.abs() as u16),
+                };
+                self.reg(RegisterName::SP).write_u16(&self, new_sp);
+
+                // This instruction always unsets Z and N
+                self.update_flag(FlagUpdate::Zero(false));
+                self.update_flag(FlagUpdate::Subtract(false));
+
+                Some(InstrInfo::seq(2, 4))
+            }
             // Handled down below
             _ => None,
         };
@@ -3231,4 +3252,33 @@ mod tests {
         assert!(cpu.is_flag_set(Flag::Carry));
     }
 
+    /* ADD SP, i8 */
+
+    #[test]
+    fn test_add_sp_i8() {
+        // Given an ADD SP, i8 instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+        cpu.set_flags(false, false, false, false);
+
+        cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfff8);
+
+        // When the CPU runs the instruction
+        gb.mmu.write(1, 0x02);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xe8, 2, 4);
+        assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0xfffa);
+        assert!(!cpu.is_flag_set(Flag::Zero));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::Carry));
+
+        cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfff8);
+        gb.mmu.write(1, -2_i8 as u8);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xe8, 2, 4);
+        assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0xfff6);
+        assert!(!cpu.is_flag_set(Flag::Zero));
+        assert!(cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(cpu.is_flag_set(Flag::Carry));
+    }
 }
