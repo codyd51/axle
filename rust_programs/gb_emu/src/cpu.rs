@@ -724,6 +724,15 @@ impl CpuState {
         InstrInfo::seq(1, 1)
     }
 
+    fn call_addr(&self, instruction_size: u16, target: u16) {
+        // Store the return address on the stack.
+        // After the call completes,
+        // return to the address after 1-byte opcode and 2-byte jump target
+        self.push_u16(self.get_pc() + instruction_size);
+        // Assign PC to the jump target
+        self.set_pc(target);
+    }
+
     }
 
     #[bitmatch]
@@ -882,18 +891,12 @@ impl CpuState {
             }
             0xcd => {
                 // CALL u16
-                let current_pc = self.get_pc();
-                let target = self.mmu.read_u16(current_pc + 1);
+                let target = self.mmu.read_u16(self.get_pc() + 1);
                 if debug {
                     println!("CALL 0x{target:04x}");
                 }
-                // Store the return address on the stack
-                // After the call completes,
-                // return to the address after 1-byte opcode and 2-byte jump target
                 let instr_size = 3;
-                self.push_u16(current_pc + instr_size);
-                // Assign PC to the jump target
-                self.set_pc(target);
+                self.call_addr(instr_size, target);
                 Some(InstrInfo::jump(instr_size, 6))
             }
             0xc9 => {
@@ -1395,13 +1398,7 @@ impl CpuState {
                 }
                 let instr_size = 3;
                 if should_jump {
-                    // TODO(PT): Refactor with CALL?
-                    // Store the return address on the stack
-                    // After the call completes,
-                    // return to the address after 1-byte opcode and 2-byte jump target
-                    self.push_u16(self.get_pc() + instr_size);
-                    // Assign PC to the jump target
-                    self.set_pc(target);
+                    self.call_addr(instr_size, target);
                     InstrInfo::jump(instr_size, 6)
                 } else {
                     InstrInfo::seq(instr_size, 3)
