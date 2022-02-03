@@ -1001,20 +1001,6 @@ impl CpuState {
                 self.instr_cp(val);
                 Some(InstrInfo::seq(2, 2))
             }
-            0xbe => {
-                // CP (HL)
-                let val = self
-                    .reg(RegisterName::HL)
-                    .read_u8_with_mode(&self, AddressingMode::Deref);
-                let a = self.reg(RegisterName::A);
-
-                if debug {
-                    println!("CP {}{val:02x} with {a}", self.reg(RegisterName::HL));
-                }
-
-                self.instr_cp(val);
-                Some(InstrInfo::seq(1, 2))
-            }
             0xf3 => {
                 // DI
                 let interrupt_controller = system.get_interrupt_controller();
@@ -1551,6 +1537,20 @@ impl CpuState {
                 self.adc_a_u8(val);
 
                 // TODO(PT): Should be 2 for HL
+                InstrInfo::seq(1, 1)
+            }
+            "10111iii" => {
+                // CP Reg8
+                let (op, read_mode) = self.get_reg_from_lookup_tab1(i);
+                let val = op.read_u8_with_mode(&self, read_mode);
+                let a = self.reg(RegisterName::A);
+
+                if debug {
+                    println!("CP {op} with {a}");
+                }
+
+                self.instr_cp(val);
+                // TODO(PT): Should be 2 for (HL)
                 InstrInfo::seq(1, 1)
             }
             _ => {
