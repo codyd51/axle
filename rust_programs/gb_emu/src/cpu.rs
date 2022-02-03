@@ -427,20 +427,29 @@ impl CpuState {
     pub fn print_regs(&self) {
         println!();
         println!("--- CPU State ---");
-        let flags = self.format_flags();
         println!(
-            "\t{}\t{}",
-            self.reg(RegisterName::PC),
-            self.reg(RegisterName::SP)
+            "AF\t= ${:02x}{:02x} ({})",
+            self.reg(RegisterName::A).read_u8(&self),
+            self.reg(RegisterName::F).read_u8(&self),
+            self.format_flags()
         );
-        println!("\tFlags: {flags}");
-
-        for (name, operand) in &self.operands {
-            // Some registers are handled above
-            if ![RegisterName::PC, RegisterName::SP].contains(name) {
-                println!("\t{name}: {operand}");
-            }
-        }
+        println!(
+            "BC\t= ${:02x}{:02x}",
+            self.reg(RegisterName::B).read_u8(&self),
+            self.reg(RegisterName::C).read_u8(&self)
+        );
+        println!(
+            "DE\t= ${:02x}{:02x}",
+            self.reg(RegisterName::D).read_u8(&self),
+            self.reg(RegisterName::E).read_u8(&self)
+        );
+        println!(
+            "HL\t= ${:02x}{:02x}",
+            self.reg(RegisterName::H).read_u8(&self),
+            self.reg(RegisterName::L).read_u8(&self)
+        );
+        println!("SP\t= ${:04x}", self.reg(RegisterName::SP).read_u16(&self));
+        println!("PC\t= ${:04x}", self.reg(RegisterName::PC).read_u16(&self));
     }
 
     fn set_flags(&mut self, z: bool, n: bool, h: bool, c: bool) {
@@ -580,6 +589,93 @@ impl CpuState {
         &*self.operands[&name]
     }
 
+    fn sub8_update_flags(&self, a: u8, b: u8, ignored_flags: &[Flag]) -> u8 {
+        if !ignored_flags.contains(&Flag::HalfCarry) {
+            // HalfCarry if the second number's low nibble is larger than the first number's
+            let half_carry_set = ((a & 0x0f).overflowing_sub((b & 0x0f)).0) & 0x10;
+            self.update_flag(FlagUpdate::HalfCarry(half_carry_set != 0));
+        }
+
+        if !ignored_flags.contains(&Flag::Subtract) {
+            self.update_flag(FlagUpdate::Subtract(true));
+        }
+
+        let (result, did_underflow) = a.overflowing_sub(b);
+
+        if !ignored_flags.contains(&Flag::Carry) {
+            // Carry if we're subtracting a larger number from a smaller one
+            //self.update_flag(FlagUpdate::Carry(b > a));
+            self.update_flag(FlagUpdate::Carry(did_underflow));
+        }
+
+        if !ignored_flags.contains(&Flag::Zero) {
+            self.update_flag(FlagUpdate::Zero(result == 0));
+        }
+
+        result
+    }
+
+    fn add8_update_flags(&self, a: u8, b: u8, ignored_flags: &[Flag]) -> u8 {
+        // HalfCarry if the second number's low nibble is larger than the first number's
+        if !ignored_flags.contains(&Flag::HalfCarry) {
+            let half_carry_flag =
+                ((((a as u16) & 0xf).overflowing_add(((b as u16) & 0xf)).0) & 0x10) == 0x10;
+            self.update_flag(FlagUpdate::HalfCarry(half_carry_flag));
+        }
+
+        if !ignored_flags.contains(&Flag::Subtract) {
+            self.update_flag(FlagUpdate::Subtract(false));
+        }
+
+        let (result, did_overflow) = a.overflowing_add(b);
+
+        if !ignored_flags.contains(&Flag::Carry) {
+            self.update_flag(FlagUpdate::Carry(did_overflow));
+        }
+
+        if !ignored_flags.contains(&Flag::Zero) {
+            self.update_flag(FlagUpdate::Zero(result == 0));
+        }
+
+        result
+    }
+
+    fn sub16_skip_flags(&self, a: u16, b: u16) -> u16 {
+        a.overflowing_sub(b).0
+    }
+
+    fn sub16_update_flags(&self, a: u16, b: u16) -> u16 {
+        todo!()
+    }
+
+    fn add16_skip_flags(&self, a: u16, b: u16) -> u16 {
+        a.overflowing_add(b).0
+    }
+
+    fn add16_update_flags(&self, a: u16, b: u16, ignored_flags: &[Flag]) -> u16 {
+        // HalfCarry if the second number's low nibble is larger than the first number's
+        if !ignored_flags.contains(&Flag::HalfCarry) {
+            let hc = (a & 0xfff).overflowing_add(b & 0xfff).0 & 0x1000 == 0x1000;
+            self.update_flag(FlagUpdate::HalfCarry(hc));
+        }
+
+        if !ignored_flags.contains(&Flag::Subtract) {
+            self.update_flag(FlagUpdate::Subtract(false));
+        }
+
+        let (result, did_overflow) = a.overflowing_add(b);
+
+        if !ignored_flags.contains(&Flag::Carry) {
+            self.update_flag(FlagUpdate::Carry(did_overflow));
+        }
+
+        if !ignored_flags.contains(&Flag::Zero) {
+            self.update_flag(FlagUpdate::Zero(result == 0));
+        }
+
+        result
+    }
+
     fn rlc_or_rl(
         &self,
         reg: &dyn VariableStorage,
@@ -624,14 +720,10 @@ impl CpuState {
     fn instr_cp(&self, val: u8) -> InstrInfo {
         let a = self.reg(RegisterName::A);
         let a_val = a.read_u8(&self);
-        let (result, did_overflow) = a_val.overflowing_sub(val);
-        self.update_flag(FlagUpdate::Zero(a_val == val));
-        self.update_flag(FlagUpdate::Subtract(true));
-        // Underflow into the high nibble?
-        self.update_flag(FlagUpdate::HalfCarry((a_val & 0xf) < (result & 0xf)));
-        // Underflow into the next byte?
-        self.update_flag(FlagUpdate::Carry(did_overflow));
-        InstrInfo::seq(2, 2)
+        self.sub8_update_flags(a_val, val, &[]);
+        InstrInfo::seq(1, 1)
+    }
+
     }
 
     #[bitmatch]
@@ -890,15 +982,8 @@ impl CpuState {
                 }
 
                 let prev_a_val = a.read_u8(&self);
-                let (new_val, did_overflow) = prev_a_val.overflowing_add(val);
-
-                a.write_u8(&self, new_val);
-                self.update_flag(FlagUpdate::Zero(new_val == 0));
-                self.update_flag(FlagUpdate::Subtract(false));
-                let half_carry_flag =
-                    ((((prev_a_val as u16) & 0xf) + ((val as u16) & 0xf)) & 0x10) == 0x10;
-                self.update_flag(FlagUpdate::HalfCarry(half_carry_flag));
-                self.update_flag(FlagUpdate::Carry(did_overflow));
+                let result = self.add8_update_flags(prev_a_val, val, &[]);
+                a.write_u8(&self, result);
 
                 // TODO(PT): Cycle count should be 2 for (HL)
                 Some(InstrInfo::seq(2, 2))
@@ -914,16 +999,8 @@ impl CpuState {
                     println!("SUB {val:02x} from {a}");
                 }
 
-                let prev_a_val = a.read_u8(&self);
-                let (new_val, did_underflow) = prev_a_val.overflowing_sub(val);
-
-                a.write_u8(&self, new_val);
-                self.update_flag(FlagUpdate::Zero(new_val == 0));
-                self.update_flag(FlagUpdate::Subtract(true));
-                // Underflow into the high nibble?
-                self.update_flag(FlagUpdate::HalfCarry((prev_a_val & 0xf) < (new_val & 0xf)));
-                // Underflow into next byte?
-                self.update_flag(FlagUpdate::Carry(did_underflow));
+                let result = self.sub8_update_flags(prev_a_val, val, &[]);
+                a.write_u8(&self, result);
 
                 // TODO(PT): Should be 2 for (HL)
                 Some(InstrInfo::seq(2, 2))
@@ -948,31 +1025,27 @@ impl CpuState {
                     println!("INC {op}");
                 }
                 let prev = op.read_u8_with_mode(&self, read_mode);
-                let increment = 1;
-                let new = prev.overflowing_add(increment).0;
-                op.write_u8(&self, new);
-                self.update_flag(FlagUpdate::Zero(new == 0));
-                self.update_flag(FlagUpdate::Subtract(false));
-                let half_carry_flag =
-                    ((((prev as u16) & 0xf) + ((increment as u16) & 0xf)) & 0x10) == 0x10;
-                self.update_flag(FlagUpdate::HalfCarry(half_carry_flag));
+                op.write_u8_with_mode(
+                    &self,
+                    read_mode,
+                    self.add8_update_flags(prev, 1, &[Flag::Carry]),
+                );
                 // TODO(PT): Cycle count should be 3 for (HL)
                 // TODO(PT): Should set Carry flag? CPU chart says no, why?
                 InstrInfo::seq(1, 1)
             }
             "00iii101" => {
-                // DEC [Reg]
+                // DEC Reg8
                 let (op, read_mode) = self.get_reg_from_lookup_tab1(i);
                 if debug {
                     print!("DEC {op}\t");
                 }
                 let prev = op.read_u8_with_mode(&self, read_mode);
-                let new = prev.overflowing_sub(1).0;
-                op.write_u8(&self, new);
-                self.update_flag(FlagUpdate::Zero(new == 0));
-                self.update_flag(FlagUpdate::Subtract(true));
-                // Underflow into the high nibble?
-                self.update_flag(FlagUpdate::HalfCarry((prev & 0xf) < (new & 0xf)));
+                op.write_u8_with_mode(
+                    &self,
+                    read_mode,
+                    self.sub8_update_flags(prev, 1, &[Flag::Carry]),
+                );
 
                 if debug {
                     println!("Result: {op}")
@@ -1195,10 +1268,14 @@ impl CpuState {
                     println!("INC {dest}");
                 }
 
-                dest.write_u16(&self, dest.read_u16(&self) + 1);
+                let prev = dest.read_u16(&self);
+                let new = prev.overflowing_add(1).0;
+                dest.write_u16(&self, new);
+
                 InstrInfo::seq(1, 2)
             }
             "111c1010" => {
+                // LD A, (u16) | LD (u16), A
                 let load_into_a = c == 1;
                 let a = self.reg(RegisterName::A);
                 let address = self.mmu.read_u16(self.get_pc() + 1);
@@ -1221,23 +1298,14 @@ impl CpuState {
                 // SUB Reg8
                 let (op, read_mode) = self.get_reg_from_lookup_tab1(i);
                 let a = self.reg(RegisterName::A);
-                let prev_a_val = a.read_u8(&self);
 
                 if debug {
                     println!("SUB {op} from {a}\t");
                 }
 
                 let op_val = op.read_u8_with_mode(&self, read_mode);
-                let prev = op.read_u8_with_mode(&self, read_mode);
-                let (result, did_underflow) = a.read_u8(&self).overflowing_sub(op_val);
-
+                let result = self.sub8_update_flags(a.read_u8(&self), op_val, &[]);
                 a.write_u8(&self, result);
-                self.update_flag(FlagUpdate::Zero(result == 0));
-                self.update_flag(FlagUpdate::Subtract(true));
-                // Underflow into the high nibble?
-                self.update_flag(FlagUpdate::HalfCarry((prev_a_val & 0xf) < (result & 0xf)));
-                // Underflow into next byte?
-                self.update_flag(FlagUpdate::Carry(did_underflow));
 
                 // TODO(PT): Should be 2 for (HL)
                 InstrInfo::seq(1, 1)
@@ -1251,17 +1319,9 @@ impl CpuState {
                     println!("ADD {a}, {op}");
                 }
 
-                let prev_a_val = a.read_u8(&self);
                 let op_val = op.read_u8_with_mode(&self, read_mode);
-                let (new_val, did_overflow) = prev_a_val.overflowing_add(op_val);
-
-                a.write_u8(&self, new_val);
-                self.update_flag(FlagUpdate::Zero(new_val == 0));
-                self.update_flag(FlagUpdate::Subtract(false));
-                let half_carry_flag =
-                    ((((prev_a_val as u16) & 0xf) + ((op_val as u16) & 0xf)) & 0x10) == 0x10;
-                self.update_flag(FlagUpdate::HalfCarry(half_carry_flag));
-                self.update_flag(FlagUpdate::Carry(did_overflow));
+                let result = self.add8_update_flags(a.read_u8(&self), op_val, &[]);
+                a.write_u8(&self, result);
 
                 // TODO(PT): Cycle count should be 2 for (HL)
                 InstrInfo::seq(1, 1)
@@ -1273,7 +1333,10 @@ impl CpuState {
                     println!("DEC {dest}");
                 }
 
-                dest.write_u16(&self, dest.read_u16(&self) - 1);
+                let prev = dest.read_u16(&self);
+                let new = prev.overflowing_sub(1).0;
+
+                dest.write_u16(&self, new);
                 InstrInfo::seq(1, 2)
             }
             "10110iii" => {
