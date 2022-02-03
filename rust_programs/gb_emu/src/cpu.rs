@@ -902,6 +902,22 @@ impl CpuState {
                 let msb = contents >> 7;
                 self.update_flag(FlagUpdate::Carry(lsb == 1));
                 let new_contents = (contents >> 1) | (msb << 7);
+                self.update_flag(FlagUpdate::Zero(new_contents == 0));
+                reg.write_u8_with_mode(&self, addressing_mode, new_contents);
+                // TODO(PT): Should be four cycles when (HL)
+                2
+            }
+            "00001iii" => {
+                // RRC Reg8
+                let (reg, addressing_mode) = self.get_reg_from_lookup_tab1(i);
+                if debug {
+                    println!("RRC {reg}");
+                }
+                let contents = reg.read_u8_with_mode(&self, addressing_mode);
+                let lsb = contents & 0b1;
+                self.update_flag(FlagUpdate::Carry(lsb == 1));
+                let new_contents = (contents >> 1) | (lsb << 7);
+                self.update_flag(FlagUpdate::Zero(new_contents == 0));
                 reg.write_u8_with_mode(&self, addressing_mode, new_contents);
                 // TODO(PT): Should be four cycles when (HL)
                 2
@@ -3573,5 +3589,30 @@ mod tests {
         gb.run_cb_opcode_with_expected_attrs(&mut cpu, 0x2f, 2);
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);
         assert!(cpu.is_flag_set(Flag::Carry));
+
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x00);
+        gb.run_cb_opcode_with_expected_attrs(&mut cpu, 0x2f, 2);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);
+        assert!(cpu.is_flag_set(Flag::Zero));
+    }
+
+    /* RRC Reg8 */
+
+    #[test]
+    fn test_rrc_reg8() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x01);
+        gb.run_cb_opcode_with_expected_attrs(&mut cpu, 0x0f, 2);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x80);
+        assert!(cpu.is_flag_set(Flag::Carry));
+
+        // Reset flags
+        cpu.set_flags(false, false, false, false);
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x00);
+        gb.run_cb_opcode_with_expected_attrs(&mut cpu, 0x2f, 2);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);
+        assert!(cpu.is_flag_set(Flag::Zero));
     }
 }
