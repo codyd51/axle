@@ -755,11 +755,24 @@ impl CpuState {
                     println!("BIT {bit_to_test}, {reg}");
                 }
                 let contents = reg.read_u8_with_mode(&self, read_mode);
-                let bit_not_set = contents & (1 << bit_to_test) == 0;
-                self.update_flag(FlagUpdate::Zero(bit_not_set));
+                let bit = (contents & (1 << bit_to_test)) != 0;
+                self.update_flag(FlagUpdate::Zero(!bit));
                 self.update_flag(FlagUpdate::Subtract(false));
                 self.update_flag(FlagUpdate::HalfCarry(true));
                 // TODO(PT): Should be three cycles when (HL)
+                2
+            }
+            "10bbbiii" => {
+                // RES B, Reg8
+                let bit_to_reset = b;
+                let (reg, read_mode) = self.get_reg_from_lookup_tab1(i);
+                if debug {
+                    println!("RES {bit_to_reset}, {reg}");
+                }
+                let mut contents = reg.read_u8_with_mode(&self, read_mode);
+                contents &= !(1 << bit_to_reset);
+                reg.write_u8_with_mode(&self, read_mode, contents);
+                // TODO(PT): Should be 4 cycles when (HL)
                 2
             }
             "000c0iii" => {
@@ -1521,6 +1534,16 @@ mod tests {
             }
         }
 
+        fn verify_instr_info(
+            &self,
+            instr_info: &InstrInfo,
+            expected_instruction_size: u16,
+            expected_cycle_count: usize,
+        ) {
+            assert_eq!(instr_info.instruction_size, expected_instruction_size);
+            assert_eq!(instr_info.cycle_count, expected_cycle_count);
+        }
+
         pub fn run_opcode_with_expected_attrs(
             &self,
             cpu: &mut CpuState,
@@ -1528,10 +1551,24 @@ mod tests {
             expected_instruction_size: u16,
             expected_cycle_count: usize,
         ) {
+            cpu.set_pc(0);
             self.mmu.write(0, opcode);
             let instr_info = cpu.step(self);
-            assert_eq!(instr_info.instruction_size, expected_instruction_size);
-            assert_eq!(instr_info.cycle_count, expected_cycle_count);
+            self.verify_instr_info(&instr_info, expected_instruction_size, expected_cycle_count);
+        }
+
+        pub fn run_cb_opcode_with_expected_attrs(
+            &self,
+            cpu: &mut CpuState,
+            opcode: u8,
+            expected_instruction_size: u16,
+            expected_cycle_count: usize,
+        ) {
+            cpu.set_pc(0);
+            self.mmu.write(0, 0xcb);
+            self.mmu.write(1, opcode);
+            let instr_info = cpu.step(self);
+            self.verify_instr_info(&instr_info, expected_instruction_size, expected_cycle_count);
         }
     }
 
@@ -3280,5 +3317,19 @@ mod tests {
         assert!(cpu.is_flag_set(Flag::HalfCarry));
         assert!(!cpu.is_flag_set(Flag::Subtract));
         assert!(cpu.is_flag_set(Flag::Carry));
+    }
+
+    /* RES Bit, Reg8 */
+
+    #[test]
+    fn test_res_bit_reg8() {
+        // Given a RES 5, B instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+        cpu.reg(RegisterName::B).write_u8(&cpu, 0b10100001);
+        // When the CPU runs the instruction
+        gb.run_cb_opcode_with_expected_attrs(&mut cpu, 0xa8, 2, 2);
+        // Then the 5th bit has been reset
+        assert_eq!(cpu.reg(RegisterName::B).read_u8(&cpu), 0b10000001);
     }
 }
