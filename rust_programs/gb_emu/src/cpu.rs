@@ -878,6 +878,19 @@ impl CpuState {
                 // TODO(PT): Should be 4 cycles for (HL)
                 2
             }
+            "11bbbiii" => {
+                // SET B, Reg8
+                let bit_to_set = b;
+                let (reg, addressing_mode) = self.get_reg_from_lookup_tab1(i);
+                if debug {
+                    println!("SET {bit_to_set}, {reg}");
+                }
+                let contents = reg.read_u8_with_mode(&self, addressing_mode);
+                let new_val = contents | (1 << bit_to_set);
+                reg.write_u8_with_mode(&self, addressing_mode, new_val);
+                // TODO(PT): Should be four cycles when (HL)
+                2
+            }
             _ => {
                 println!("<cb {:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
@@ -3445,12 +3458,6 @@ mod tests {
 
     #[test]
     fn test_adc_a() {
-        /*
-        A=E1h,E=0Fh,(HL)=1Eh,andCY=1,
-        ADC A, E ; A←F1h,Z←0,H←1,CY←0
-        ADC A, 3Bh ; A←1Dh,Z←0,H←0,CY←-1
-        ADC A, (HL) ; A←00h,Z←1,H←1,CY←1
-        */
         let gb = get_system();
         let mut cpu = gb.cpu.borrow_mut();
 
@@ -3483,5 +3490,19 @@ mod tests {
         gb.run_opcode_with_expected_attrs(&mut cpu, 0x8e, 1, 1);
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);
         gb.assert_flags(&cpu, true, false, true, true);
+    }
+
+    /* SET Bit, Reg8 */
+
+    #[test]
+    fn test_set_bit_reg8() {
+        // Given a SET 5, L instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+        cpu.reg(RegisterName::L).write_u8(&cpu, 0b10000001);
+        // When the CPU runs the instruction
+        gb.run_cb_opcode_with_expected_attrs(&mut cpu, 0xed, 2);
+        // Then the 5th bit has been set
+        assert_eq!(cpu.reg(RegisterName::L).read_u8(&cpu), 0b10100001);
     }
 }
