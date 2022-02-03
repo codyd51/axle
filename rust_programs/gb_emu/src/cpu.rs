@@ -891,6 +891,21 @@ impl CpuState {
                 // TODO(PT): Should be four cycles when (HL)
                 2
             }
+            "00101iii" => {
+                // SRA Reg8
+                let (reg, addressing_mode) = self.get_reg_from_lookup_tab1(i);
+                if debug {
+                    println!("SRA {reg}");
+                }
+                let contents = reg.read_u8_with_mode(&self, addressing_mode);
+                let lsb = contents & 0b1;
+                let msb = contents >> 7;
+                self.update_flag(FlagUpdate::Carry(lsb == 1));
+                let new_contents = (contents >> 1) | (msb << 7);
+                reg.write_u8_with_mode(&self, addressing_mode, new_contents);
+                // TODO(PT): Should be four cycles when (HL)
+                2
+            }
             _ => {
                 println!("<cb {:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
@@ -3541,5 +3556,22 @@ mod tests {
         cpu.reg(RegisterName::SP).write_u16(&cpu, 0xff02);
         // And interrupts are re-enabled
         assert!(int_controller.are_interrupts_globally_enabled());
+    }
+
+    /* SRA Reg8 */
+
+    #[test]
+    fn test_sra_reg8() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x8a);
+        gb.run_cb_opcode_with_expected_attrs(&mut cpu, 0x2f, 2);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0xc5);
+
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x01);
+        gb.run_cb_opcode_with_expected_attrs(&mut cpu, 0x2f, 2);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);
+        assert!(cpu.is_flag_set(Flag::Carry));
     }
 }
