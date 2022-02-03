@@ -3,7 +3,7 @@ use std::{
     cell::RefCell,
     collections::BTreeMap,
     env::VarError,
-    fmt::{Debug, Display},
+    fmt::{self, Debug, Display},
     rc::Rc,
 };
 
@@ -40,7 +40,7 @@ impl InstrInfo {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 enum Flag {
     Zero,
     Subtract,
@@ -64,7 +64,7 @@ enum FlagCondition {
 }
 
 impl Display for FlagCondition {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match self {
             FlagCondition::NotZero => "NZ",
             FlagCondition::Zero => "Z",
@@ -105,7 +105,7 @@ enum RegisterName {
 }
 
 impl Display for RegisterName {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match self {
             RegisterName::B => "B",
             RegisterName::C => "C",
@@ -142,14 +142,16 @@ trait VariableStorage: Debug + Display {
 
 #[derive(Debug)]
 struct CpuRegister {
-    name: String,
+    name: RegisterName,
+    display_name: String,
     contents: RefCell<u8>,
 }
 
 impl CpuRegister {
-    fn new(name: &str) -> Self {
+    fn new(name: RegisterName) -> Self {
         Self {
-            name: name.to_string(),
+            name,
+            display_name: format!("{name}"),
             contents: RefCell::new(0),
         }
     }
@@ -157,7 +159,7 @@ impl CpuRegister {
 
 impl VariableStorage for CpuRegister {
     fn display_name(&self) -> &str {
-        &self.name
+        &self.display_name
     }
 
     fn read_u8(&self, cpu: &CpuState) -> u8 {
@@ -180,6 +182,11 @@ impl VariableStorage for CpuRegister {
     }
 
     fn write_u8_with_mode(&self, cpu: &CpuState, addressing_mode: AddressingMode, val: u8) {
+        let val = match self.name {
+            // The flags register only supports the high nibble
+            RegisterName::F => val & 0xf0,
+            _ => val,
+        };
         match addressing_mode {
             AddressingMode::Read => *self.contents.borrow_mut() = val,
             other => panic!("Addressing mode not available for CpuRegister: {other}"),
@@ -192,8 +199,8 @@ impl VariableStorage for CpuRegister {
 }
 
 impl Display for CpuRegister {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}({:02x})", self.name, *self.contents.borrow())
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}({:02x})", self.display_name, *self.contents.borrow())
     }
 }
 
@@ -274,7 +281,7 @@ impl VariableStorage for CpuRegisterPair {
 }
 
 impl Display for CpuRegisterPair {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}{}", self.upper, self.lower)
     }
 }
@@ -328,7 +335,7 @@ impl VariableStorage for CpuWideRegister {
 }
 
 impl Display for CpuWideRegister {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "[{} {:04x}]", self.display_name, *self.contents.borrow())
     }
 }
@@ -342,7 +349,7 @@ enum AddressingMode {
 }
 
 impl Display for AddressingMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match self {
             AddressingMode::Read => "",
             AddressingMode::Deref => "[]",
@@ -360,14 +367,14 @@ impl CpuState {
         let mut operands: BTreeMap<RegisterName, Box<dyn VariableStorage>> = BTreeMap::new();
 
         // 8-bit operands
-        operands.insert(RegisterName::B, Box::new(CpuRegister::new("B")));
-        operands.insert(RegisterName::C, Box::new(CpuRegister::new("C")));
-        operands.insert(RegisterName::D, Box::new(CpuRegister::new("D")));
-        operands.insert(RegisterName::E, Box::new(CpuRegister::new("E")));
-        operands.insert(RegisterName::H, Box::new(CpuRegister::new("H")));
-        operands.insert(RegisterName::L, Box::new(CpuRegister::new("L")));
-        operands.insert(RegisterName::A, Box::new(CpuRegister::new("A")));
-        operands.insert(RegisterName::F, Box::new(CpuRegister::new("F")));
+        operands.insert(RegisterName::B, Box::new(CpuRegister::new(RegisterName::B)));
+        operands.insert(RegisterName::C, Box::new(CpuRegister::new(RegisterName::C)));
+        operands.insert(RegisterName::D, Box::new(CpuRegister::new(RegisterName::D)));
+        operands.insert(RegisterName::E, Box::new(CpuRegister::new(RegisterName::E)));
+        operands.insert(RegisterName::H, Box::new(CpuRegister::new(RegisterName::H)));
+        operands.insert(RegisterName::L, Box::new(CpuRegister::new(RegisterName::L)));
+        operands.insert(RegisterName::A, Box::new(CpuRegister::new(RegisterName::A)));
+        operands.insert(RegisterName::F, Box::new(CpuRegister::new(RegisterName::F)));
 
         // 16-bit operands
         operands.insert(
@@ -1016,7 +1023,7 @@ impl CpuState {
                 InstrInfo::seq(2, 2)
             }
             "10101iii" => {
-                // XOR [Reg]
+                // XOR Reg8
                 let (operand, read_mode) = self.get_reg_from_lookup_tab1(i);
                 let reg_a = self.reg(RegisterName::A);
 
@@ -1617,6 +1624,16 @@ mod tests {
         cpu.reg(RegisterName::BC).write_u8(&cpu, 0x14);
         // Then the data the pointer points to has been overwritten
         assert_eq!(cpu.reg(RegisterName::BC).read_u8(&cpu), 0x14);
+    }
+
+    #[test]
+    fn test_flags_register_only_supports_high_bits() {
+        // Given I write 0xff to the flags register
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+        cpu.reg(RegisterName::F).write_u8(&cpu, 0b11111111);
+        // Then only the high bits are written
+        assert_eq!(cpu.reg(RegisterName::F).read_u8(&cpu), 0b11110000);
     }
 
     /* Instructions tests */
