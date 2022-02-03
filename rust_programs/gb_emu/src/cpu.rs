@@ -839,6 +839,28 @@ impl CpuState {
                 // TODO(PT): Should be 4 cycles for (HL)
                 2
             }
+            "00100iii" => {
+                // SLA Reg8
+                let (reg, addressing_mode) = self.get_reg_from_lookup_tab1(i);
+
+                if debug {
+                    println!("SLA {reg}");
+                }
+
+                let val = reg.read_u8_with_mode(&self, addressing_mode);
+                let msb = (val >> 7) & 0b1;
+                let new_val = val << 1;
+
+                reg.write_u8_with_mode(&self, addressing_mode, new_val);
+
+                self.update_flag(FlagUpdate::Zero(new_val == 0));
+                self.update_flag(FlagUpdate::Carry(msb == 1));
+                self.update_flag(FlagUpdate::HalfCarry(false));
+                self.update_flag(FlagUpdate::Subtract(false));
+
+                // TODO(PT): Should be 4 cycles for (HL)
+                2
+            }
             _ => {
                 println!("<cb {:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
@@ -1561,14 +1583,14 @@ mod tests {
             &self,
             cpu: &mut CpuState,
             opcode: u8,
-            expected_instruction_size: u16,
             expected_cycle_count: usize,
         ) {
             cpu.set_pc(0);
             self.mmu.write(0, 0xcb);
             self.mmu.write(1, opcode);
             let instr_info = cpu.step(self);
-            self.verify_instr_info(&instr_info, expected_instruction_size, expected_cycle_count);
+            // All CB opcodes are 2 bytes in size
+            self.verify_instr_info(&instr_info, 2, expected_cycle_count);
         }
     }
 
@@ -3328,8 +3350,26 @@ mod tests {
         let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::B).write_u8(&cpu, 0b10100001);
         // When the CPU runs the instruction
-        gb.run_cb_opcode_with_expected_attrs(&mut cpu, 0xa8, 2, 2);
+        gb.run_cb_opcode_with_expected_attrs(&mut cpu, 0xa8, 2);
         // Then the 5th bit has been reset
         assert_eq!(cpu.reg(RegisterName::B).read_u8(&cpu), 0b10000001);
+    }
+
+    /* SLA Reg8 */
+
+    #[test]
+    fn test_sla_reg8() {
+        // Given a SLA L instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        cpu.reg(RegisterName::L).write_u8(&cpu, 0b10010011);
+        // When the CPU runs the instruction
+        gb.run_cb_opcode_with_expected_attrs(&mut cpu, 0x25, 2);
+
+        // Then the high bit has been copied to the CY flag
+        assert!(cpu.is_flag_set(Flag::Carry));
+        // And the register has been left-shifted
+        assert_eq!(cpu.reg(RegisterName::L).read_u8(&cpu), 0b00100110);
     }
 }
