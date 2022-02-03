@@ -901,10 +901,9 @@ impl CpuState {
 
     fn adc_a_u8(&self, val: u8) {
         let a = self.reg(RegisterName::A);
-        let carry = if self.is_flag_set(Flag::Carry) { 1 } else { 0 };
-        let val2 = val + carry;
         let prev = a.read_u8(&self);
-        a.write_u8(&self, self.add8_update_flags(prev, val2, &[]));
+        let carry = if self.is_flag_set(Flag::Carry) { 1 } else { 0 };
+        a.write_u8(&self, self.add8_with_carry_and_update_flags(prev, val));
     }
 
     #[bitmatch]
@@ -977,6 +976,18 @@ impl CpuState {
                 self.set_pc(self.pop_u16());
                 if debug {
                     println!("RET {:04x}", self.get_pc());
+                }
+                Some(InstrInfo::jump(1, 4))
+            }
+            0xd9 => {
+                // RETI
+                // TODO(PT): This should be restored to its previous state?
+                system
+                    .get_interrupt_controller()
+                    .set_interrupts_globally_enabled();
+                self.set_pc(self.pop_u16());
+                if debug {
+                    println!("RETI {:04x}", self.get_pc());
                 }
                 Some(InstrInfo::jump(1, 4))
             }
@@ -3504,5 +3515,31 @@ mod tests {
         gb.run_cb_opcode_with_expected_attrs(&mut cpu, 0xed, 2);
         // Then the 5th bit has been set
         assert_eq!(cpu.reg(RegisterName::L).read_u8(&cpu), 0b10100001);
+    }
+
+    /* RETI */
+
+    #[test]
+    fn test_reti() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        // Given interrupts are disabled, because we're in an interrupt handler
+        let int_controller = gb.get_interrupt_controller();
+        int_controller.set_interrupts_globally_disabled();
+
+        // And there is a stack containing a return address
+        cpu.reg(RegisterName::SP).write_u16(&cpu, 0xff00);
+        gb.get_mmu().write_u16(0xff00, 0x1234);
+
+        // When the CPU runs a RETI instruction
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xd9, 1, 4);
+
+        // Then PC has been set to the address stored on the stack
+        assert_eq!(cpu.get_pc(), 0x1234);
+        // And the stack pointer has been incremented
+        cpu.reg(RegisterName::SP).write_u16(&cpu, 0xff02);
+        // And interrupts are re-enabled
+        assert!(int_controller.are_interrupts_globally_enabled());
     }
 }
