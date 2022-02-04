@@ -750,6 +750,26 @@ impl CpuState {
         self.set_pc(target);
     }
 
+    fn rr_reg8(&self, reg: &dyn VariableStorage, addressing_mode: AddressingMode) {
+        if self.debug_enabled {
+            println!("RR {reg}");
+        }
+
+        let val = reg.read_u8_with_mode(&self, addressing_mode);
+
+        let lsb = val & 0b1;
+        // Copy the carry flag to the high bit
+        let carry_copy = match self.is_flag_set(Flag::Carry) {
+            true => 1,
+            false => 0,
+        };
+        let new_val = (val >> 1) | (carry_copy << 7);
+
+        reg.write_u8_with_mode(&self, addressing_mode, new_val);
+        self.update_flag(FlagUpdate::Zero(new_val == 0));
+        self.update_flag(FlagUpdate::Carry(lsb == 1));
+        self.update_flag(FlagUpdate::HalfCarry(false));
+        self.update_flag(FlagUpdate::Subtract(false));
     }
 
     #[bitmatch]
@@ -835,25 +855,8 @@ impl CpuState {
             "00011iii" => {
                 // RR Reg8
                 let (reg, addressing_mode) = self.get_reg_from_lookup_tab1(i);
-                let val = reg.read_u8_with_mode(&self, addressing_mode);
-                if debug {
-                    println!("RR {reg}");
-                }
-
-                let lsb = val & 0b1;
-                // Copy the carry flag to the high bit
-                let carry_copy = match self.is_flag_set(Flag::Carry) {
-                    true => 1,
-                    false => 0,
-                };
-                let new_val = (val >> 1) | (carry_copy << 7);
-
-                reg.write_u8_with_mode(&self, addressing_mode, new_val);
-                self.update_flag(FlagUpdate::Zero(new_val == 0));
-                self.update_flag(FlagUpdate::Carry(lsb == 1));
-                self.update_flag(FlagUpdate::HalfCarry(false));
-                self.update_flag(FlagUpdate::Subtract(false));
                 // TODO(PT): Should be 4 cycles for (HL)
+                self.rr_reg8(reg, addressing_mode);
                 2
             }
             "00100iii" => {
@@ -1118,6 +1121,11 @@ impl CpuState {
                     println!("JP {hl}");
                 }
                 Some(InstrInfo::jump(1, 1))
+            }
+            0x1f => {
+                // RRA
+                self.rr_reg8(self.reg(RegisterName::A), AddressingMode::Read);
+                Some(InstrInfo::seq(1, 1))
             }
             0xce => {
                 // ADC A, u8
@@ -3409,6 +3417,27 @@ mod tests {
         // And the LSB has been copied to the Carry flag
         assert!(!cpu.is_flag_set(Flag::Zero));
         assert!(!cpu.is_flag_set(Flag::Carry));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+    }
+
+    #[test]
+    fn test_rra() {
+        // Given a RRA instruction (in the single-byte-opcode variant)
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+        // And the Carry flag is not set
+        cpu.set_flags(false, false, false, false);
+
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0b10011001);
+
+        // When the CPU runs the instruction
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x1f, 1, 1);
+
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0b01001100);
+        // And the LSB has been copied to the Carry flag
+        assert!(cpu.is_flag_set(Flag::Carry));
+        assert!(!cpu.is_flag_set(Flag::Zero));
         assert!(!cpu.is_flag_set(Flag::HalfCarry));
         assert!(!cpu.is_flag_set(Flag::Subtract));
     }
