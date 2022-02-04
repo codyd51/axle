@@ -1155,6 +1155,19 @@ impl CpuState {
 
                 Some(InstrInfo::seq(2, 2))
             }
+            0x08 => {
+                // LD (u16), SP
+                let pointer_addr = self.mmu.read_u16(self.get_pc() + 1);
+                let sp = self.reg(RegisterName::SP);
+
+                if debug {
+                    println!("LD ({pointer_addr:04x}) with {sp}");
+                }
+
+                self.mmu.write_u16(pointer_addr, sp.read_u16(&self));
+
+                Some(InstrInfo::seq(3, 5))
+            }
             0xe8 => {
                 // ADD SP, i8
                 let sp = self.reg(RegisterName::SP).read_u16(&self);
@@ -3713,5 +3726,21 @@ mod tests {
         gb.run_opcode_with_expected_attrs(&mut cpu, 0xee, 2, 2);
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0xf0);
         assert!(!cpu.is_flag_set(Flag::Zero));
+    }
+
+    /* LD (u16), SP */
+
+    #[test]
+    fn test_load_u16_sp() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        // Given the stack pointer contains an address
+        cpu.reg(RegisterName::SP).write_u16(&cpu, 0x1234);
+        gb.get_mmu().write_u16(1, 0x1000);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x08, 3, 5);
+
+        // Then the stack pointer has been stored at the pointee
+        assert_eq!(gb.get_mmu().read_u16(0x1000), 0x1234);
     }
 }
