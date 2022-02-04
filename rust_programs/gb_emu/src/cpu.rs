@@ -1109,6 +1109,16 @@ impl CpuState {
                 // TODO(PT): Should be 2 for (HL)
                 Some(InstrInfo::seq(2, 2))
             }
+            0xe9 => {
+                // JP HL
+                let hl = self.reg(RegisterName::HL);
+                let hl_val = hl.read_u16(&self);
+                self.set_pc(hl_val);
+                if debug {
+                    println!("JP {hl}");
+                }
+                Some(InstrInfo::jump(1, 1))
+            }
             0xce => {
                 // ADC A, u8
                 let a = self.reg(RegisterName::A);
@@ -3614,5 +3624,17 @@ mod tests {
         gb.run_cb_opcode_with_expected_attrs(&mut cpu, 0x2f, 2);
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);
         assert!(cpu.is_flag_set(Flag::Zero));
+    }
+
+    /* JP HL */
+
+    #[test]
+    fn test_jp_hl() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        cpu.reg(RegisterName::HL).write_u16(&cpu, 0x1234);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xe9, 1, 1);
+        assert_eq!(cpu.get_pc(), 0x1234);
     }
 }
