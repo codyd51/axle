@@ -1181,6 +1181,16 @@ impl CpuState {
 
                 Some(InstrInfo::seq(1, 2))
             }
+            0x37 => {
+                // SCF
+                if debug {
+                    println!("SCF");
+                }
+                self.update_flag(FlagUpdate::Subtract(false));
+                self.update_flag(FlagUpdate::HalfCarry(false));
+                self.update_flag(FlagUpdate::Carry(true));
+                Some(InstrInfo::seq(1, 1))
+            }
             0xe8 => {
                 // ADD SP, i8
                 let sp = self.reg(RegisterName::SP).read_u16(&self);
@@ -3771,5 +3781,19 @@ mod tests {
 
         // Then the value of HL is stored in SP
         assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0x1234);
+    }
+
+    /* SCF */
+
+    #[test]
+    fn test_scf() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        cpu.set_flags(false, true, true, false);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x37, 1, 1);
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+        assert!(cpu.is_flag_set(Flag::Carry));
     }
 }
