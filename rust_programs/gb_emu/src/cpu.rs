@@ -1168,6 +1168,19 @@ impl CpuState {
 
                 Some(InstrInfo::seq(3, 5))
             }
+            0xf9 => {
+                // LD SP, HL
+                let hl = self.reg(RegisterName::HL);
+                let sp = self.reg(RegisterName::SP);
+
+                if debug {
+                    println!("LD {sp} with {hl}");
+                }
+
+                sp.write_u16(&self, hl.read_u16(&self));
+
+                Some(InstrInfo::seq(1, 2))
+            }
             0xe8 => {
                 // ADD SP, i8
                 let sp = self.reg(RegisterName::SP).read_u16(&self);
@@ -3742,5 +3755,21 @@ mod tests {
 
         // Then the stack pointer has been stored at the pointee
         assert_eq!(gb.get_mmu().read_u16(0x1000), 0x1234);
+    }
+
+    /* LD SP, HL */
+
+    #[test]
+    fn test_load_sp_with_hl() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        // Given HL and SP contain addresses
+        cpu.reg(RegisterName::HL).write_u16(&cpu, 0x1234);
+        cpu.reg(RegisterName::SP).write_u16(&cpu, 0x5555);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xf9, 1, 2);
+
+        // Then the value of HL is stored in SP
+        assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0x1234);
     }
 }
