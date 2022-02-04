@@ -1127,6 +1127,21 @@ impl CpuState {
                 self.rr_reg8(self.reg(RegisterName::A), AddressingMode::Read);
                 Some(InstrInfo::seq(1, 1))
             }
+            0xee => {
+                // XOR A, u8
+                let prev = self.reg(RegisterName::A).read_u8(&self);
+                let val = self.mmu.read(self.get_pc() + 1);
+                let new = prev ^ val;
+
+                if debug {
+                    println!("XOR {}, {val:02x}", self.reg(RegisterName::A));
+                }
+
+                self.reg(RegisterName::A).write_u8(&self, new);
+
+                self.set_flags(new == 0, false, false, false);
+                Some(InstrInfo::seq(2, 2))
+            }
             0xce => {
                 // ADC A, u8
                 let a = self.reg(RegisterName::A);
@@ -1267,7 +1282,7 @@ impl CpuState {
                     println!("Result: {reg_a}");
                 }
 
-                self.set_flags(true, false, false, false);
+                self.set_flags(val == 0, false, false, false);
                 // TODO(PT): Update me with the cycle count for (HL)
                 InstrInfo::seq(1, 1)
             }
@@ -3665,5 +3680,38 @@ mod tests {
         cpu.reg(RegisterName::HL).write_u16(&cpu, 0x1234);
         gb.run_opcode_with_expected_attrs(&mut cpu, 0xe9, 1, 1);
         assert_eq!(cpu.get_pc(), 0x1234);
+    }
+
+    /* XOR Reg8 */
+
+    #[test]
+    fn test_xor_reg8() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        // When I XOR A with itself
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0xff);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xaf, 1, 1);
+        // Then A is set to zero
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);
+        // And the Z flag is set
+        assert!(cpu.is_flag_set(Flag::Zero));
+
+        // When I XOR A with (HL)
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0xff);
+        // Make sure HL points somewhere valid
+        cpu.reg(RegisterName::HL).write_u16(&cpu, 0x1234);
+        cpu.reg(RegisterName::HL).write_u8(&cpu, 0x8a);
+        // TODO(PT): Should take 2 cycles
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xae, 1, 1);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x75);
+        assert!(!cpu.is_flag_set(Flag::Zero));
+
+        // When I XOR A with 0x0f
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0xff);
+        gb.get_mmu().write(1, 0x0f);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xee, 2, 2);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0xf0);
+        assert!(!cpu.is_flag_set(Flag::Zero));
     }
 }
