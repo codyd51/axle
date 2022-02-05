@@ -657,6 +657,23 @@ impl CpuState {
         result_as_byte
     }
 
+    fn sub8_with_carry_and_update_flags(&self, a: u8, b: u8) -> u8 {
+        // Check for carry using 32bit arithmetic
+        let a = a as u32;
+        let b = b as u32;
+        let carry = if self.is_flag_set(Flag::Carry) { 1 } else { 0 };
+
+        let result = a.wrapping_sub(b).wrapping_sub(carry);
+        let result_as_byte = result as u8;
+
+        self.update_flag(FlagUpdate::Zero(result_as_byte == 0));
+        self.update_flag(FlagUpdate::HalfCarry((a ^ b ^ result) & 0x10 != 0));
+        self.update_flag(FlagUpdate::Carry(result & 0x100 != 0));
+        self.update_flag(FlagUpdate::Subtract(true));
+
+        result_as_byte
+    }
+
     fn sub16_skip_flags(&self, a: u16, b: u16) -> u16 {
         a.overflowing_sub(b).0
     }
@@ -1232,6 +1249,21 @@ impl CpuState {
 
                 Some(InstrInfo::seq(2, 4))
             }
+            0xde => {
+                // SBC A, u8
+                let a = self.reg(RegisterName::A);
+                let val = system.get_mmu().read(self.get_pc() + 1);
+
+                if debug {
+                    println!("SBC {val:02x} from {a}");
+                }
+
+                let result = self.sub8_with_carry_and_update_flags(a.read_u8(&self), val);
+                a.write_u8(&self, result);
+
+                Some(InstrInfo::seq(2, 2))
+            }
+
             // Handled down below
             _ => None,
         };
@@ -1670,6 +1702,22 @@ impl CpuState {
                 }
 
                 self.instr_cp(val);
+                // TODO(PT): Should be 2 for (HL)
+                InstrInfo::seq(1, 1)
+            }
+            "10011iii" => {
+                // SBC A, Reg8
+                let a = self.reg(RegisterName::A);
+                let (op, read_mode) = self.get_reg_from_lookup_tab1(i);
+                let val = op.read_u8_with_mode(&self, read_mode);
+
+                if debug {
+                    println!("SBC {op} from {a}");
+                }
+
+                let result = self.sub8_with_carry_and_update_flags(a.read_u8(&self), val);
+                a.write_u8(&self, result);
+
                 // TODO(PT): Should be 2 for (HL)
                 InstrInfo::seq(1, 1)
             }
@@ -3850,5 +3898,48 @@ mod tests {
         gb.run_opcode_with_expected_attrs(&mut cpu, 0x3f, 1, 1);
         // Then the flag is flipped to false
         assert!(!cpu.is_flag_set(Flag::Carry));
+    }
+
+    /* SBC A, Reg8 | SBC A, u8 */
+
+    #[test]
+    fn test_sbc_reg8() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        // SBC A, H
+        cpu.set_flags(false, false, false, true);
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x3b);
+        cpu.reg(RegisterName::H).write_u8(&cpu, 0x2a);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x9c, 1, 1);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x10);
+        assert!(!cpu.is_flag_set(Flag::Zero));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+        assert!(cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::Carry));
+
+        // SBC A, 0x3a
+        cpu.set_flags(false, false, false, true);
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x3b);
+        gb.get_mmu().write(1, 0x3a);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xde, 2, 2);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);
+        assert!(cpu.is_flag_set(Flag::Zero));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+        assert!(cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::Carry));
+
+        // SBC A, (HL)
+        cpu.set_flags(false, false, false, true);
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x3b);
+        cpu.reg(RegisterName::HL).write_u16(&cpu, 0x1234);
+        cpu.reg(RegisterName::HL).write_u8(&cpu, 0x4f);
+        // TODO(PT): Should be 2 cycles for (HL)
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x9e, 1, 1);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0xeb);
+        assert!(!cpu.is_flag_set(Flag::Zero));
+        assert!(cpu.is_flag_set(Flag::HalfCarry));
+        assert!(cpu.is_flag_set(Flag::Subtract));
+        assert!(cpu.is_flag_set(Flag::Carry));
     }
 }
