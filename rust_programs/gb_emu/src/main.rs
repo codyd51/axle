@@ -193,6 +193,32 @@ fn main_gfx() {
                 for i in 0..256 {
                     gameboy.step();
                 }
+            }
+            Event::WindowEvent { window_id, event } => match event {
+                WindowEvent::KeyboardInput {
+                    device_id,
+                    input,
+                    is_synthetic,
+                } => {
+                    if !is_synthetic {
+                        if let Some(keycode) = input.virtual_keycode {
+                            let joypad_button = match keycode {
+                                VirtualKeyCode::Left => Some(Button::Left),
+                                VirtualKeyCode::Right => Some(Button::Right),
+                                VirtualKeyCode::Up => Some(Button::Up),
+                                VirtualKeyCode::Down => Some(Button::Down),
+                                VirtualKeyCode::Z => Some(Button::A),
+                                VirtualKeyCode::X => Some(Button::B),
+                                VirtualKeyCode::Return => Some(Button::Start),
+                                VirtualKeyCode::Back => Some(Button::Select),
+                                _ => None,
+                            };
+                            if let Some(joypad_button) = joypad_button {
+                                if input.state == ElementState::Pressed {
+                                    gameboy.get_joypad().set_button_pressed(joypad_button);
+                                } else if input.state == ElementState::Released {
+                                    gameboy.get_joypad().set_button_released(joypad_button);
+                                }
                             }
                         }
                     }
