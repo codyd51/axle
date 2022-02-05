@@ -66,6 +66,34 @@ impl Breakpoint {
 
 fn main_gfx() {
     let event_loop = EventLoop::new();
+
+    let vram_debug_window = {
+        let size = LogicalSize::new(256 as f64, 256 as f64);
+        let scaled_size = LogicalSize::new(256 as f64 * 1.5, 256 as f64 * 1.5);
+        WindowBuilder::new()
+            .with_title("VRAM Viewer")
+            .with_inner_size(scaled_size)
+            .with_min_inner_size(scaled_size)
+            .with_visible(true)
+            .with_resizable(false)
+            .with_position(LogicalPosition::new(100, 100))
+            .build(&event_loop)
+            .unwrap()
+    };
+
+    let mut vram_debug_pixels = {
+        let window_size = vram_debug_window.inner_size();
+        let surface_texture =
+            SurfaceTexture::new(window_size.width, window_size.height, &vram_debug_window);
+        Pixels::new(
+            256.try_into().unwrap(),
+            256.try_into().unwrap(),
+            surface_texture,
+        )
+        .unwrap()
+    };
+    vram_debug_pixels.render().unwrap();
+
     let window = {
         let size = LogicalSize::new(WINDOW_WIDTH as f64, WINDOW_HEIGHT as f64);
         let scaled_size = LogicalSize::new(WINDOW_WIDTH as f64 * 3.0, WINDOW_HEIGHT as f64 * 3.0);
