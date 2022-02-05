@@ -1679,6 +1679,39 @@ impl CpuState {
                 // TODO(PT): Should be 2 for HL
                 InstrInfo::seq(1, 1)
             }
+            "110cf000" => {
+                // RET FlagCondition
+                // TODO(PT): Refactor this flag condition selection
+                let flag_cond = match c {
+                    // N/Z
+                    0 => match f {
+                        0 => FlagCondition::NotZero,
+                        1 => FlagCondition::Zero,
+                        _ => panic!("Invalid value"),
+                    },
+                    // N/C
+                    1 => match f {
+                        0 => FlagCondition::NotCarry,
+                        1 => FlagCondition::Carry,
+                        _ => panic!("Invalid value"),
+                    },
+                    _ => panic!("Invalid value"),
+                };
+                let should_return = self.is_flag_condition_met(flag_cond);
+                if debug {
+                    print!("RET if {flag_cond} ");
+                    match should_return {
+                        true => println!("(taken)"),
+                        false => println!("(not taken)"),
+                    }
+                }
+                if should_return {
+                    self.set_pc(self.pop_u16());
+                    InstrInfo::jump(1, 5)
+                } else {
+                    InstrInfo::seq(1, 2)
+                }
+            }
             "110cf100" => {
                 // CALL FlagCondition, u16
                 let target = self.mmu.read_u16(self.get_pc() + 1);
@@ -4127,6 +4160,58 @@ mod tests {
                 cpu.reg(RegisterName::PC).read_u16(&cpu),
                 reset_vector_address
             );
+        }
+    }
+
+    /* RET FlagCond */
+
+    #[test]
+    fn test_ret_flag_cond() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+        let params = [
+            // NZ Branch not taken
+            (0xc0, FlagUpdate::Zero(true), false),
+            // NZ Branch taken
+            (0xc0, FlagUpdate::Zero(false), true),
+            // Z Branch not taken
+            (0xc8, FlagUpdate::Zero(false), false),
+            // Z Branch taken
+            (0xc8, FlagUpdate::Zero(true), true),
+            // NC Branch not taken
+            (0xd0, FlagUpdate::Carry(true), false),
+            // NC Branch taken
+            (0xd0, FlagUpdate::Carry(false), true),
+            // C Branch not taken
+            (0xd8, FlagUpdate::Carry(false), false),
+            // C Branch taken
+            (0xd8, FlagUpdate::Carry(true), true),
+        ];
+        for (opcode, given_flag, expected_jump) in params {
+            cpu.set_pc(0);
+            // And there is a stack set up
+            cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffa);
+            // And the stack contains a return address
+            gb.get_mmu().write_u16(0xfffa, 0x1234);
+
+            let expected_cycles = if expected_jump { 5 } else { 2 };
+            cpu.set_flags(false, false, false, false);
+            cpu.update_flag(given_flag);
+            gb.run_opcode_with_expected_attrs(&mut cpu, opcode, 1, expected_cycles);
+
+            if expected_jump {
+                // Then PC has been redirected to the return address stored on the stack
+                assert_eq!(cpu.get_pc(), 0x1234);
+
+                // And the stack pointer has been incremented due to the return address
+                // popped off the stack
+                assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0xfffc);
+            } else {
+                // Then PC has not been redirected
+                assert_eq!(cpu.get_pc(), 1);
+                // And the stack is left untouched
+                assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0xfffa);
+            }
         }
     }
 }
