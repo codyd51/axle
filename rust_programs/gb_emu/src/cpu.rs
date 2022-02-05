@@ -452,7 +452,7 @@ impl CpuState {
         println!("PC\t= ${:04x}", self.reg(RegisterName::PC).read_u16(&self));
     }
 
-    fn set_flags(&mut self, z: bool, n: bool, h: bool, c: bool) {
+    fn set_flags(&self, z: bool, n: bool, h: bool, c: bool) {
         let high_nibble = c as u8 | ((h as u8) << 1) | ((n as u8) << 2) | ((z as u8) << 3);
         self.reg(RegisterName::F).write_u8(self, high_nibble << 4);
     }
@@ -913,15 +913,7 @@ impl CpuState {
             "00001iii" => {
                 // RRC Reg8
                 let (reg, addressing_mode) = self.get_reg_from_lookup_tab1(i);
-                if debug {
-                    println!("RRC {reg}");
-                }
-                let contents = reg.read_u8_with_mode(&self, addressing_mode);
-                let lsb = contents & 0b1;
-                self.update_flag(FlagUpdate::Carry(lsb == 1));
-                let new_contents = (contents >> 1) | (lsb << 7);
-                self.update_flag(FlagUpdate::Zero(new_contents == 0));
-                reg.write_u8_with_mode(&self, addressing_mode, new_contents);
+                self.rrc_reg8(reg, addressing_mode);
                 // TODO(PT): Should be four cycles when (HL)
                 2
             }
@@ -931,6 +923,17 @@ impl CpuState {
                 panic!("Unimplemented CB opcode")
             }
         }
+    }
+
+    fn rrc_reg8(&self, reg: &dyn VariableStorage, addressing_mode: AddressingMode) {
+        if self.debug_enabled {
+            println!("RRC {reg}");
+        }
+        let contents = reg.read_u8_with_mode(&self, addressing_mode);
+        let lsb = contents & 0b1;
+        let new_contents = (contents >> 1) | (lsb << 7);
+        self.set_flags(new_contents == 0, false, false, lsb == 1);
+        reg.write_u8_with_mode(&self, addressing_mode, new_contents);
     }
 
     fn adc_a_u8(&self, val: u8) {
@@ -1200,6 +1203,12 @@ impl CpuState {
                 self.update_flag(FlagUpdate::HalfCarry(false));
                 let prev_carry = self.is_flag_set(Flag::Carry);
                 self.update_flag(FlagUpdate::Carry(!prev_carry));
+                Some(InstrInfo::seq(1, 1))
+            }
+            0x0f => {
+                // RRC A
+                let a = self.reg(RegisterName::A);
+                self.rrc_reg8(a, AddressingMode::Read);
                 Some(InstrInfo::seq(1, 1))
             }
             0xe8 => {
@@ -3715,6 +3724,16 @@ mod tests {
         gb.run_cb_opcode_with_expected_attrs(&mut cpu, 0x2f, 2);
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);
         assert!(cpu.is_flag_set(Flag::Zero));
+
+        // Try the non-cb variant
+        cpu.set_flags(false, false, false, false);
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0b01110001);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x0f, 1, 1);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0b10111000);
+        assert!(cpu.is_flag_set(Flag::Carry));
+        assert!(!cpu.is_flag_set(Flag::Zero));
+        assert!(!cpu.is_flag_set(Flag::Zero));
+        assert!(!cpu.is_flag_set(Flag::Zero));
     }
 
     /* JP HL */
