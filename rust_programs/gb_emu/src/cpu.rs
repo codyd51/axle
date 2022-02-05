@@ -84,6 +84,7 @@ pub struct CpuState {
     // TODO(PT): Remove stored reference to MMU and use GameBoyHardwareProvider instead
     mmu: Rc<Mmu>,
     debug_enabled: bool,
+    pub is_halted: bool,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -414,6 +415,7 @@ impl CpuState {
             operands,
             mmu,
             debug_enabled: false,
+            is_halted: false,
         }
     }
 
@@ -1021,7 +1023,8 @@ impl CpuState {
                 Some(InstrInfo::jump(2, 3))
             }
             0x76 => {
-                todo!("HALT")
+                self.set_halted(true);
+                Some(InstrInfo::seq(1, 4))
             }
             0xc3 => {
                 // JP u16
@@ -1909,6 +1912,10 @@ impl CpuState {
             pc_reg.write_u16(self, pc + pc_increment);
         }
         info
+    }
+
+    pub fn set_halted(&mut self, halted: bool) {
+        self.is_halted = halted
     }
 }
 
@@ -4315,5 +4322,19 @@ mod tests {
                 assert_eq!(cpu.get_pc(), 3);
             }
         }
+    }
+
+    /* HALT */
+
+    #[test]
+    fn test_halt() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        // When the CPU runs a HALT instruction
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x76, 1, 4);
+
+        // Then the CPU is now halted
+        assert!(cpu.is_halted);
     }
 }
