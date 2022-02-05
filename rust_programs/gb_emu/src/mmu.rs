@@ -65,7 +65,7 @@ pub struct BootRom {
 }
 
 impl BootRom {
-    const BANK_REGISTER_ADDR: u16 = 0xff50;
+    pub const BANK_REGISTER_ADDR: u16 = 0xff50;
 
     pub fn new(bootrom_path: &str) -> Self {
         Self {
