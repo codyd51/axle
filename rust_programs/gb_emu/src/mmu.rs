@@ -107,30 +107,83 @@ impl Addressable for BootRom {
     }
 }
 
+enum MbcType {
+    NoMbc,
+    Mbc1,
+    Mbc3,
+}
+
+impl Display for MbcType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            MbcType::NoMbc => "No MBC",
+            MbcType::Mbc1 => "MBC1",
+            MbcType::Mbc3 => "MBC3",
+        };
+        write!(f, "{name}")
+    }
+}
+
 pub struct GameRom {
+    mbc_type: MbcType,
     data: RefCell<Vec<u8>>,
+    current_bank: RefCell<u8>,
 }
 
 impl GameRom {
     pub fn new(rom_path: &str) -> Self {
         let data = std::fs::read(rom_path).unwrap();
-        assert!(data.len() <= 0x8000, "Cannot load ROMs larger than 32k yet");
+        //assert!(data.len() <= 0x8000, "Cannot load ROMs larger than 32k yet");
+
+        // MBC Ref: https://retrocomputing.stackexchange.com/questions/11732
+        let mbc_type_discriminator = data[0x0147];
+        let mbc_type = match mbc_type_discriminator {
+            0b00 => MbcType::NoMbc,
+            0b01 => MbcType::Mbc1,
+            3 | 19 => MbcType::Mbc3,
+            _ => panic!("Unknown MBC type {mbc_type_discriminator}"),
+        };
+
         Self {
+            mbc_type,
             data: RefCell::new(data),
+            current_bank: RefCell::new(1),
         }
     }
 }
 
 impl Addressable for GameRom {
     fn contains(&self, addr: u16) -> bool {
-        (addr as usize) < self.data.borrow().len()
+        addr < 0x8000
     }
     fn read(&self, addr: u16) -> u8 {
-        self.data.borrow()[addr as usize]
+        let addr = addr as usize;
+        let mut translated_addr = addr;
+        if addr >= 0x4000 && addr < 0x8000 {
+            let current_bank = *self.current_bank.borrow();
+            translated_addr = (addr + (0x4000_usize * ((current_bank - 1) as usize)));
+            //println!("Translated addr {addr:04x} to bank {current_bank}: {translated_addr:04x}");
+        }
+        self.data.borrow()[translated_addr as usize]
     }
 
     fn write(&self, addr: u16, val: u8) {
-        panic!("Cannot write to game ROM")
+        // Writes to any region below MBC1 are go control regs
+        //0000-1FFF - RAM Enable (Write Only)
+        if addr < 0x2000 {
+            // Enable RAM
+            println!("Enabling MBC RAM");
+        } else if addr >= 0x2000 && addr < 0x4000 {
+            //println!("Switching ROM bank to {val:02x}");
+            *self.current_bank.borrow_mut() = val;
+        } else if addr >= 0x4000 && addr < 0x6000 {
+            println!("Bank number");
+        } else if addr >= 0x6000 && addr < 0x8000 {
+            println!("ROM/RAM mode select {val:02x}");
+        } else {
+            println!("Dropping write to ROM address {addr:04x}: {val:02x}");
+        }
+        //panic!("Cannot write to game ROM. Attempted write @ {addr:04x}")
     }
 }
 
@@ -191,7 +244,10 @@ impl Addressable for EchoRam {
 
     fn write(&self, addr: u16, val: u8) {
         let offset = addr - self.start_addr;
-        self.backing_ram.write(self.backing_ram.start_addr + offset, val)
+        self.backing_ram
+            .write(self.backing_ram.start_addr + offset, val)
+    }
+}
 
 pub struct DmaController {
     dma_transfer_start_address_factor: RefCell<u8>,
