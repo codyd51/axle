@@ -1712,6 +1712,40 @@ impl CpuState {
                     InstrInfo::seq(1, 2)
                 }
             }
+            "110cf010" => {
+                // JP FlagCondition, u16
+                let target = self.mmu.read_u16(self.get_pc() + 1);
+                let flag_cond = match c {
+                    // N/Z
+                    0 => match f {
+                        0 => FlagCondition::NotZero,
+                        1 => FlagCondition::Zero,
+                        _ => panic!("Invalid value"),
+                    },
+                    // N/C
+                    1 => match f {
+                        0 => FlagCondition::NotCarry,
+                        1 => FlagCondition::Carry,
+                        _ => panic!("Invalid value"),
+                    },
+                    _ => panic!("Invalid value"),
+                };
+                let should_jump = self.is_flag_condition_met(flag_cond);
+                if debug {
+                    print!("JP {target:04x} if {flag_cond} ");
+                    match should_jump {
+                        true => println!("(taken)"),
+                        false => println!("(not taken)"),
+                    }
+                }
+                let instr_size = 3;
+                if should_jump {
+                    self.set_pc(target);
+                    InstrInfo::jump(instr_size, 4)
+                } else {
+                    InstrInfo::seq(instr_size, 3)
+                }
+            }
             "110cf100" => {
                 // CALL FlagCondition, u16
                 let target = self.mmu.read_u16(self.get_pc() + 1);
@@ -4211,6 +4245,50 @@ mod tests {
                 assert_eq!(cpu.get_pc(), 1);
                 // And the stack is left untouched
                 assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0xfffa);
+            }
+        }
+    }
+
+    /* JP FlagCond, u16 */
+
+    #[test]
+    fn test_jp_flag_cond_u16() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+        let params = [
+            // NZ Branch not taken
+            (0xc2, FlagUpdate::Zero(true), false),
+            // NZ Branch taken
+            (0xc2, FlagUpdate::Zero(false), true),
+            // Z Branch not taken
+            (0xca, FlagUpdate::Zero(false), false),
+            // Z Branch taken
+            (0xca, FlagUpdate::Zero(true), true),
+            // NC Branch not taken
+            (0xd2, FlagUpdate::Carry(true), false),
+            // NC Branch taken
+            (0xd2, FlagUpdate::Carry(false), true),
+            // C Branch not taken
+            (0xda, FlagUpdate::Carry(false), false),
+            // C Branch taken
+            (0xda, FlagUpdate::Carry(true), true),
+        ];
+        for (opcode, given_flag, expected_jump) in params {
+            cpu.set_pc(0);
+            // Given there is a jump target just after the opcode
+            gb.get_mmu().write_u16(1, 0x1234);
+
+            let expected_cycles = if expected_jump { 4 } else { 3 };
+            cpu.set_flags(false, false, false, false);
+            cpu.update_flag(given_flag);
+            gb.run_opcode_with_expected_attrs(&mut cpu, opcode, 3, expected_cycles);
+
+            if expected_jump {
+                // Then PC has been redirected to the immediate jump target
+                assert_eq!(cpu.get_pc(), 0x1234);
+            } else {
+                // Then PC has not been redirected
+                assert_eq!(cpu.get_pc(), 3);
             }
         }
     }
