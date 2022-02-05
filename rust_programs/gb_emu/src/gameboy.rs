@@ -1,18 +1,32 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::{cpu::CpuState, interrupts::InterruptController, mmu::Mmu, ppu::Ppu};
+use crate::{
+    cpu::CpuState,
+    interrupts::InterruptController,
+    joypad::Joypad,
+    mmu::{BootRom, DmaController, Mmu},
+    ppu::Ppu,
+    timer::Timer,
+    SerialDebugPort,
+};
 
 pub trait GameBoyHardwareProvider {
+    fn get_cpu(&self) -> Rc<RefCell<CpuState>>;
     fn get_mmu(&self) -> Rc<Mmu>;
     fn get_ppu(&self) -> Rc<Ppu>;
     fn get_interrupt_controller(&self) -> Rc<InterruptController>;
+    fn get_joypad(&self) -> Rc<Joypad>;
 }
 
 pub struct GameBoy {
     pub mmu: Rc<Mmu>,
-    pub cpu: RefCell<CpuState>,
+    pub cpu: Rc<RefCell<CpuState>>,
     pub ppu: Rc<Ppu>,
     pub interrupt_controller: Rc<InterruptController>,
+    pub serial_debug_port: Rc<SerialDebugPort>,
+    pub timer: Rc<Timer>,
+    pub joypad: Rc<Joypad>,
+    pub dma_controller: Rc<DmaController>,
     pub cpu_disabled: RefCell<bool>,
 }
 
@@ -22,25 +36,35 @@ impl GameBoy {
         cpu: CpuState,
         ppu: Rc<Ppu>,
         interrupt_controller: Rc<InterruptController>,
+        serial_debug_port: Rc<SerialDebugPort>,
+        timer: Rc<Timer>,
+        joypad: Rc<Joypad>,
+        dma_controller: Rc<DmaController>,
     ) -> Self {
         Self {
             mmu,
-            cpu: RefCell::new(cpu),
-            ppu: ppu,
+            cpu: Rc::new(RefCell::new(cpu)),
+            ppu,
             interrupt_controller,
+            serial_debug_port,
+            timer,
+            joypad,
+            dma_controller,
             cpu_disabled: RefCell::new(false),
         }
     }
 
     pub fn step(&self) {
-        let mut d = self.cpu_disabled.borrow_mut();
-        if !*d {
-            let instr_info = self.cpu.borrow_mut().step(self);
-            if instr_info.cycle_count == 0 {
-                *d = true;
-            }
+        self.interrupt_controller.step(self);
+        // TODO(PT): Handle when CPU is halted?
+        let instr_info = self.cpu.borrow_mut().step(self);
+        for i in 0..instr_info.cycle_count {
+            self.ppu.step(self);
+            self.joypad.step(self);
+            self.dma_controller.step(self);
+            self.timer.step(self);
         }
-        self.ppu.step(&self.mmu);
+        //self.serial_debug_port.step(self);
     }
 }
 
@@ -53,7 +77,15 @@ impl GameBoyHardwareProvider for GameBoy {
         Rc::clone(&self.ppu)
     }
 
+    fn get_cpu(&self) -> Rc<RefCell<CpuState>> {
+        Rc::clone(&self.cpu)
+    }
+
     fn get_interrupt_controller(&self) -> Rc<InterruptController> {
         Rc::clone(&self.interrupt_controller)
+    }
+
+    fn get_joypad(&self) -> Rc<Joypad> {
+        Rc::clone(&self.joypad)
     }
 }

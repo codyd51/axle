@@ -1,8 +1,11 @@
 use std::{
     cell::RefCell,
+    fmt::Display,
     mem,
     rc::{Rc, Weak},
 };
+
+use crate::gameboy::GameBoyHardwareProvider;
 
 // Ref for the concept of an Addressable interface:
 // https://blog.tigris.fr/2019/07/28/writing-an-emulator-memory-management/

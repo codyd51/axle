@@ -11,7 +11,11 @@ use alloc::vec::Vec;
 
 use bitmatch::bitmatch;
 
-use crate::{gameboy::GameBoyHardwareProvider, interrupts::InterruptController, mmu::Mmu};
+use crate::{
+    gameboy::GameBoyHardwareProvider,
+    interrupts::{InterruptController, InterruptType},
+    mmu::Mmu,
+};
 
 pub struct InstrInfo {
     pub instruction_size: u16,
@@ -1905,6 +1909,7 @@ mod tests {
         cpu::{AddressingMode, Flag, FlagCondition, FlagUpdate, RegisterName},
         gameboy::GameBoyHardwareProvider,
         interrupts::InterruptController,
+        joypad::Joypad,
         mmu::{Mmu, Ram},
         ppu::Ppu,
     };
@@ -1914,7 +1919,7 @@ mod tests {
     // Notably, this is missing a PPU
     struct CpuTestSystem {
         pub mmu: Rc<Mmu>,
-        pub cpu: RefCell<CpuState>,
+        pub cpu: Rc<RefCell<CpuState>>,
         interrupt_controller: Rc<InterruptController>,
     }
 
@@ -1926,7 +1931,7 @@ mod tests {
         ) -> Self {
             Self {
                 mmu,
-                cpu: RefCell::new(cpu),
+                cpu: Rc::new(RefCell::new(cpu)),
                 interrupt_controller,
             }
         }
@@ -1992,8 +1997,16 @@ mod tests {
             panic!("PPU not supported in this test harness")
         }
 
+        fn get_cpu(&self) -> Rc<RefCell<CpuState>> {
+            Rc::clone(&self.cpu)
+        }
+
         fn get_interrupt_controller(&self) -> Rc<crate::interrupts::InterruptController> {
             Rc::clone(&self.interrupt_controller)
+        }
+
+        fn get_joypad(&self) -> Rc<Joypad> {
+            panic!("Joypad not supported in this test harness")
         }
     }
 
