@@ -786,6 +786,21 @@ impl CpuState {
         self.set_pc(target);
     }
 
+    pub fn call_interrupt_vector(&mut self, interrupt_type: InterruptType) {
+        // TODO(PT): Unit test this
+        let interrupt_vector = match interrupt_type {
+            InterruptType::VBlank => 0x40,
+            InterruptType::LCDStat => 0x48,
+            InterruptType::Timer => 0x50,
+            InterruptType::Serial => 0x58,
+            InterruptType::Joypad => 0x60,
+        };
+
+        self.push_u16(self.get_pc());
+        self.set_pc(interrupt_vector);
+        self.set_halted(false);
+    }
+
     fn rr_reg8(&self, reg: &dyn VariableStorage, addressing_mode: AddressingMode) {
         if self.debug_enabled {
             println!("RR {reg}");
