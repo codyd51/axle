@@ -1713,6 +1713,15 @@ impl CpuState {
                     InstrInfo::seq(instr_size, 3)
                 }
             }
+            "11iii111" => {
+                // RST Vector
+                let target = (i as u16) * 8;
+                if debug {
+                    println!("RST 0x{target:04x}");
+                }
+                self.call_addr(1, target);
+                InstrInfo::jump(1, 4)
+            }
             "00ii1001" => {
                 // ADD HL, Reg16
                 let hl = self.reg(RegisterName::HL);
@@ -4082,5 +4091,42 @@ mod tests {
         // Run DAA
         gb.run_opcode_with_expected_attrs(&mut cpu, 0x27, 1, 1);
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x45);
+    }
+
+    /* RST Vector */
+
+    #[test]
+    fn test_rst() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x45);
+        cpu.reg(RegisterName::B).write_u8(&cpu, 0x38);
+
+        for reset_vector in 0..8 {
+            let reset_vector_address = reset_vector * 8;
+
+            // Set up a stack pointer
+            cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffc);
+            // Set up a current PC
+            cpu.reg(RegisterName::PC).write_u16(&cpu, 0x1234);
+
+            let opcode = 0b11000111 | ((reset_vector as u8) << 3);
+            gb.get_mmu().write(0x1234, opcode);
+            // When the CPU runs a RST instruction
+            let instr_info = cpu.step(&gb);
+            assert_eq!(instr_info.instruction_size, 1);
+            assert_eq!(instr_info.cycle_count, 4);
+
+            // Then the address of the next instruction after the RST
+            // has been pushed to the stack
+            assert_eq!(cpu.reg(RegisterName::SP).read_u16(&cpu), 0xfffa);
+            assert_eq!(gb.get_mmu().read_u16(0xfffa), 0x1235);
+            // And the PC has been redirected to the reset vector
+            assert_eq!(
+                cpu.reg(RegisterName::PC).read_u16(&cpu),
+                reset_vector_address
+            );
+        }
     }
 }
