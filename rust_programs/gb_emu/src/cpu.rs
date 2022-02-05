@@ -360,10 +360,12 @@ impl Display for AddressingMode {
     }
 }
 
-// OpInfo { OpName, Op, DerefMode }
-
 impl CpuState {
     pub fn new(mmu: Rc<Mmu>) -> Self {
+        // TODO(PT): Provide an 'operation' flag to instruction decoding
+        // If the operation is 'decode', print the decoded instruction without running it
+        // If the operation is 'execute', run the instruction
+        // This allows us to keep just a single decoding layer
         let mut operands: BTreeMap<RegisterName, Box<dyn VariableStorage>> = BTreeMap::new();
 
         // 8-bit operands
@@ -1250,6 +1252,16 @@ impl CpuState {
                 self.update_flag(FlagUpdate::Subtract(false));
 
                 Some(InstrInfo::seq(2, 4))
+            }
+            0xf8 => {
+                // LD HL, SP+i8
+                let hl = self.reg(RegisterName::HL);
+                let sp = self.reg(RegisterName::SP);
+                let offset = self.mmu.read(self.get_pc() + 1) as i8;
+                let val = self.add16_update_flags(sp.read_u16(&self), offset as u16, &[]);
+                hl.write_u16(&self, val);
+                Some(InstrInfo::seq(2, 3))
+                // TODO(PT): For this and above do debug
             }
             0xde => {
                 // SBC A, u8
@@ -3945,5 +3957,23 @@ mod tests {
         assert!(cpu.is_flag_set(Flag::HalfCarry));
         assert!(cpu.is_flag_set(Flag::Subtract));
         assert!(cpu.is_flag_set(Flag::Carry));
+    }
+
+    /* LD HL, SP+i8 */
+
+    #[test]
+    fn test_ld_hl_sp_i8() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        cpu.set_flags(true, true, true, true);
+        cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfff8);
+        gb.get_mmu().write(1, 0x02);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xf8, 2, 3);
+        assert_eq!(cpu.reg(RegisterName::HL).read_u16(&cpu), 0xfffa);
+        assert!(!cpu.is_flag_set(Flag::Zero));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::Carry));
     }
 }
