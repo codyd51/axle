@@ -1273,6 +1273,36 @@ impl CpuState {
                 self.set_flags(result == 0, false, false, false);
                 Some(InstrInfo::seq(2, 2))
             }
+            0x27 => {
+                // DAA
+                // Ref: https://www.reddit.com/r/EmuDev/comments/4ycoix/a_guide_to_the_gameboys_halfcarry_flag/
+                if debug {
+                    println!("DAA");
+                }
+
+                let mut u = 0;
+                let mut ra = self.reg(RegisterName::A).read_u8(&self);
+                if self.is_flag_set(Flag::HalfCarry)
+                    || (!self.is_flag_set(Flag::Subtract) && (ra & 0x0f) > 9)
+                {
+                    u = 6;
+                }
+                if self.is_flag_set(Flag::Carry) || (!self.is_flag_set(Flag::Subtract) && ra > 0x99)
+                {
+                    u |= 0x60;
+                    self.update_flag(FlagUpdate::Carry(true));
+                }
+
+                let add_val = match self.is_flag_set(Flag::Subtract) {
+                    true => (-(u as i8)) as u8,
+                    false => u,
+                };
+                ra = ra.wrapping_add(add_val);
+                self.update_flag(FlagUpdate::Zero(ra == 0));
+                self.update_flag(FlagUpdate::HalfCarry(false));
+                self.reg(RegisterName::A).write_u8(&self, ra);
+                Some(InstrInfo::seq(1, 1))
+            }
             0xde => {
                 // SBC A, u8
                 let a = self.reg(RegisterName::A);
@@ -4025,5 +4055,32 @@ mod tests {
         assert!(!cpu.is_flag_set(Flag::HalfCarry));
         assert!(!cpu.is_flag_set(Flag::Subtract));
         assert!(!cpu.is_flag_set(Flag::Carry));
+    }
+
+    /* DAA */
+
+    #[test]
+    fn test_daa() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x45);
+        cpu.reg(RegisterName::B).write_u8(&cpu, 0x38);
+        // Add A and B
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x80, 1, 1);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x7d);
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        // Run DAA
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x27, 1, 1);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x83);
+        assert!(!cpu.is_flag_set(Flag::Carry));
+
+        // Sub A and B
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x90, 1, 1);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x4b);
+        assert!(cpu.is_flag_set(Flag::Subtract));
+        // Run DAA
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x27, 1, 1);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x45);
     }
 }
