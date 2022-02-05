@@ -1263,6 +1263,16 @@ impl CpuState {
                 Some(InstrInfo::seq(2, 3))
                 // TODO(PT): For this and above do debug
             }
+            0xf6 => {
+                // OR A, u8
+                let a = self.reg(RegisterName::A);
+                let val = self.mmu.read(self.get_pc() + 1);
+                let a_val = a.read_u8(&self);
+                let result = a_val | val;
+                a.write_u8(&self, result);
+                self.set_flags(result == 0, false, false, false);
+                Some(InstrInfo::seq(2, 2))
+            }
             0xde => {
                 // SBC A, u8
                 let a = self.reg(RegisterName::A);
@@ -1621,7 +1631,7 @@ impl CpuState {
                 }
                 let result = a.read_u8(&self) | op.read_u8_with_mode(&self, read_mode);
                 a.write_u8(&self, result);
-                self.update_flag(FlagUpdate::Zero(result == 0));
+                self.set_flags(result == 0, false, false, false);
                 // TODO(PT): Should be 2 for HL
                 InstrInfo::seq(1, 1)
             }
@@ -3313,22 +3323,27 @@ mod tests {
     /* OR A, Reg8 */
 
     #[test]
-    fn test_or() {
+    fn test_or_reg8() {
         // Given an OR instruction
         let gb = get_system();
         let mut cpu = gb.cpu.borrow_mut();
         cpu.reg(RegisterName::A).write_u8(&cpu, 0x5a);
         // And the Z flag is set
-        cpu.update_flag(FlagUpdate::Zero(true));
+        cpu.set_flags(true, true, true, true);
 
         // When I run OR A, A
         // Then I get the expected result
         gb.run_opcode_with_expected_attrs(&mut cpu, 0xb7, 1, 1);
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x5a);
         assert!(!cpu.is_flag_set(Flag::Zero));
+        // And the other flags are reset
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Carry));
 
         // And when I run OR A, (HL)
         // TODO(PT): This variant should take 2 cycles
+        cpu.set_flags(true, true, true, true);
         cpu.set_pc(0);
         cpu.reg(RegisterName::HL).write_u16(&cpu, 0xffaa);
         cpu.reg(RegisterName::HL)
@@ -3336,6 +3351,41 @@ mod tests {
         gb.run_opcode_with_expected_attrs(&mut cpu, 0xb6, 1, 1);
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x5f);
         assert!(!cpu.is_flag_set(Flag::Zero));
+        // And the other flags are reset
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Carry));
+    }
+
+    /* OR A, u8 */
+
+    #[test]
+    fn test_or_u8() {
+        // Given an OR instruction
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x5a);
+        cpu.set_flags(true, true, true, true);
+
+        gb.get_mmu().write(1, 0x35);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xf6, 2, 2);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x7f);
+        assert!(!cpu.is_flag_set(Flag::Zero));
+        // And the other flags are reset
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Carry));
+
+        cpu.set_flags(true, true, true, true);
+        cpu.reg(RegisterName::A).write_u8(&cpu, 0x00);
+        gb.get_mmu().write(1, 0x00);
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0xf6, 2, 2);
+        assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);
+        assert!(cpu.is_flag_set(Flag::Zero));
+        // And the other flags are reset
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+        assert!(!cpu.is_flag_set(Flag::Carry));
     }
 
     /* AND A, Reg8 */
