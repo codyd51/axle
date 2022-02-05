@@ -1191,6 +1191,17 @@ impl CpuState {
                 self.update_flag(FlagUpdate::Carry(true));
                 Some(InstrInfo::seq(1, 1))
             }
+            0x3f => {
+                // CCF
+                if debug {
+                    println!("CCF");
+                }
+                self.update_flag(FlagUpdate::Subtract(false));
+                self.update_flag(FlagUpdate::HalfCarry(false));
+                let prev_carry = self.is_flag_set(Flag::Carry);
+                self.update_flag(FlagUpdate::Carry(!prev_carry));
+                Some(InstrInfo::seq(1, 1))
+            }
             0xe8 => {
                 // ADD SP, i8
                 let sp = self.reg(RegisterName::SP).read_u16(&self);
@@ -3795,5 +3806,30 @@ mod tests {
         assert!(!cpu.is_flag_set(Flag::Subtract));
         assert!(!cpu.is_flag_set(Flag::HalfCarry));
         assert!(cpu.is_flag_set(Flag::Carry));
+    }
+
+    /* CCF */
+
+    #[test]
+    fn test_ccf() {
+        let gb = get_system();
+        let mut cpu = gb.cpu.borrow_mut();
+
+        cpu.set_flags(true, true, true, true);
+
+        // Given the carry flag is false
+        cpu.update_flag(FlagUpdate::Carry(false));
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x3f, 1, 1);
+        // Then the flag is flipped to true
+        assert!(cpu.is_flag_set(Flag::Carry));
+        // And the N and H flags are unset
+        assert!(!cpu.is_flag_set(Flag::Subtract));
+        assert!(!cpu.is_flag_set(Flag::HalfCarry));
+
+        // Given the carry flag is true
+        cpu.update_flag(FlagUpdate::Carry(true));
+        gb.run_opcode_with_expected_attrs(&mut cpu, 0x3f, 1, 1);
+        // Then the flag is flipped to false
+        assert!(!cpu.is_flag_set(Flag::Carry));
     }
 }
