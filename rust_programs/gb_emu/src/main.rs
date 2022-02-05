@@ -237,11 +237,10 @@ fn main_debug() {
         let scaled_size = LogicalSize::new(WINDOW_WIDTH as f64 * 3.0, WINDOW_HEIGHT as f64 * 3.0);
         WindowBuilder::new()
             .with_title("GameBoy")
-            //.with_inner_size(size)
             .with_inner_size(scaled_size)
             .with_min_inner_size(scaled_size)
             .with_visible(true)
-            .with_resizable(true)
+            .with_resizable(false)
             .build(&event_loop)
             .unwrap()
     };
@@ -256,15 +255,24 @@ fn main_debug() {
         )
         .unwrap()
     };
-    pixels.render().unwrap();
+    let mut pixels2 = {
+        let window_size = window.inner_size();
+        let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, &window);
+        Pixels::new(
+            WINDOW_WIDTH.try_into().unwrap(),
+            WINDOW_HEIGHT.try_into().unwrap(),
+            surface_texture,
+        )
+        .unwrap()
+    };
 
     let bootrom = Rc::new(BootRom::new("/Users/philliptennen/Downloads/DMG_ROM.bin"));
-    let ppu = Rc::new(Ppu::new(pixels));
+    let ppu = Rc::new(Ppu::new(pixels, pixels2));
     let ppu_clone = Rc::clone(&ppu);
-    let game_rom = Rc::new(GameRom::new(
-        "/Users/philliptennen/Downloads/Tetris (World).gb",
-    ));
+    let rom_path = &std::env::args().collect::<Vec<String>>()[1];
+    let game_rom = Rc::new(GameRom::new(&rom_path));
     let tile_ram = Rc::new(Ram::new(0x8000, 0x1800));
+    let oam_ram = Rc::new(Ram::new(0xfe00, 0x00a0));
     let background_map = Rc::new(Ram::new(0x9800, 0x800));
 
     let working_ram = Rc::new(Ram::new(0xc000, 0x2000));
@@ -272,39 +280,181 @@ fn main_debug() {
     let echo_ram = Rc::new(EchoRam::new(working_ram_clone, 0xe000, 0x1e00));
     let high_ram = Rc::new(Ram::new(0xff80, 0x7f));
 
+    let serial_debug_port = Rc::new(SerialDebugPort::new());
+    let serial_debug_port_clone = Rc::clone(&serial_debug_port);
+
     let interrupt_controller = Rc::new(InterruptController::new());
     let interrupt_controller_clone = Rc::clone(&interrupt_controller);
 
+    let timer = Rc::new(Timer::new());
+    let timer_clone = Rc::clone(&timer);
+
     let joypad = Rc::new(Joypad::new());
+    let joypad_clone = Rc::clone(&joypad);
+
+    let dma_controller = Rc::new(DmaController::new());
+    let dma_controller_clone = Rc::clone(&dma_controller);
 
     let mmu = Rc::new(Mmu::new(vec![
         bootrom,
         interrupt_controller,
+        serial_debug_port,
         joypad,
+        timer,
         ppu,
         tile_ram,
+        oam_ram,
         background_map,
         working_ram,
         high_ram,
         echo_ram,
         game_rom,
+        dma_controller,
     ]));
+
     let mut cpu = CpuState::new(Rc::clone(&mmu));
     cpu.enable_debug();
-    let gameboy = GameBoy::new(Rc::clone(&mmu), cpu, ppu_clone, interrupt_controller_clone);
 
-    // Ref: https://users.rust-lang.org/t/winit-0-20-the-state-of-window/29485/28
-    // Ref: https://github.com/rust-windowing/winit/blob/master/examples/window_run_return.rs
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
+    let gameboy = GameBoy::new(
+        Rc::clone(&mmu),
+        cpu,
+        ppu_clone,
+        interrupt_controller_clone,
+        serial_debug_port_clone,
+        timer_clone,
+        joypad_clone,
+        dma_controller_clone,
+    );
+    //gameboy.mock_bootrom();
 
-        match event {
-            Event::MainEventsCleared => {
-                for i in 0..128 {
-                    gameboy.step();
+    let debugger = Debugger::new(gameboy);
+    debugger.run();
+}
+
+#[derive(Copy, Clone, PartialEq)]
+enum RunMode {
+    NoRun,
+    RunOneInstruction,
+    RunToNextBreakpoint,
+}
+
+struct Debugger {
+    gameboy: GameBoy,
+    breakpoints: RefCell<Vec<Breakpoint>>,
+    run_mode: RefCell<RunMode>,
+}
+
+impl Debugger {
+    fn new(gameboy: GameBoy) -> Self {
+        Self {
+            gameboy,
+            breakpoints: RefCell::new(Vec::new()),
+            run_mode: RefCell::new(RunMode::NoRun),
+        }
+    }
+
+    fn run(&self) {
+        loop {
+            self.debug_loop();
+            let run_mode = *self.run_mode.borrow();
+            match run_mode {
+                RunMode::NoRun => {}
+                RunMode::RunOneInstruction => {
+                    self.gameboy.step();
+                    self.set_run_mode(RunMode::NoRun);
+                }
+                RunMode::RunToNextBreakpoint => {
+                    let mut i = 0;
+                    loop {
+                        let mut hit_breakpoint = false;
+                        for breakpoint in &*self.breakpoints.borrow() {
+                            if breakpoint.address == self.gameboy.get_cpu().borrow().get_pc() {
+                                println!("Hit breakpoint at {:04x}", breakpoint.address);
+                                hit_breakpoint = true;
+                                break;
+                            }
+                            // TODO(PT): Remove the breakpoint?
+                        }
+                        if hit_breakpoint {
+                            self.set_run_mode(RunMode::NoRun);
+                            break;
+                        }
+                        self.gameboy.get_cpu().borrow_mut().step(&self.gameboy);
+                    }
                 }
             }
-            _ => {}
+            if run_mode == RunMode::RunOneInstruction {
+                self.gameboy.get_cpu().borrow().print_regs();
+            }
         }
-    });
+    }
+
+    fn add_breakpoint(&self, breakpoint: Breakpoint) {
+        println!("Setting breakpoint at {:04x}", breakpoint.address);
+        self.breakpoints.borrow_mut().push(breakpoint)
+    }
+
+    fn set_run_mode(&self, run_mode: RunMode) {
+        *self.run_mode.borrow_mut() = run_mode;
+    }
+
+    fn debug_loop(&self) {
+        print!("Enter a command: ");
+        std::io::stdout().flush();
+
+        let mut stdin = std::io::stdin();
+        let input = &mut String::new();
+        stdin.read_line(input);
+
+        let mut toks = input.split(' ').fuse();
+        //let mut toks = input.split_whitespace().fuse();
+        let cmd = toks.next();
+
+        let mut cpu = self.gameboy.cpu.borrow_mut();
+        match cmd {
+            Some("b") => {
+                let mut breakpoint_address_str = toks.next().unwrap();
+                breakpoint_address_str = breakpoint_address_str.trim_end_matches('\n');
+                //println!("{breakpoint_address_str}");
+                let breakpoint_address = u16::from_str_radix(breakpoint_address_str, 16);
+                let breakpoint_address = match breakpoint_address {
+                    Ok(v) => v,
+                    Err(ParseIntError) => {
+                        println!("Malformed address: {breakpoint_address_str}");
+                        return;
+                    }
+                };
+                self.add_breakpoint(Breakpoint::new(breakpoint_address, false));
+                return;
+            }
+            Some("d\n") => {
+                println!("Deleting all breakpoints...");
+                self.breakpoints.borrow_mut().clear();
+                return;
+            }
+            Some("s\n") => {
+                self.set_run_mode(RunMode::RunOneInstruction);
+                return;
+            }
+            Some("c\n") => {
+                self.set_run_mode(RunMode::RunToNextBreakpoint);
+                return;
+            }
+            Some("regs\n") | Some("r\n") => {
+                cpu.print_regs();
+                return;
+            }
+            Some("\n") => {
+                return;
+            }
+            _ => {
+                println!("Unknown command {}", cmd.unwrap());
+                std::io::stdout().flush().unwrap();
+            }
+        }
+    }
+}
+
+fn main() {
+    main_gfx()
 }
