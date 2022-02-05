@@ -1085,7 +1085,7 @@ impl CpuState {
                 Some(InstrInfo::seq(1, 1))
             }
             0xe6 => {
-                // AND d8
+                // AND u8
                 let a = self.reg(RegisterName::A);
                 let val = self.mmu.read(self.get_pc() + 1);
                 if debug {
@@ -1096,6 +1096,8 @@ impl CpuState {
                 a.write_u8(&self, result);
                 self.update_flag(FlagUpdate::Zero(result == 0));
                 self.update_flag(FlagUpdate::HalfCarry(true));
+                self.update_flag(FlagUpdate::Carry(false));
+                self.update_flag(FlagUpdate::Subtract(false));
                 Some(InstrInfo::seq(2, 2))
             }
             0xc6 => {
@@ -1621,8 +1623,7 @@ impl CpuState {
                 }
                 let result = a.read_u8(&self) & op.read_u8_with_mode(&self, read_mode);
                 a.write_u8(&self, result);
-                self.update_flag(FlagUpdate::Zero(result == 0));
-                self.update_flag(FlagUpdate::HalfCarry(true));
+                self.set_flags(result == 0, false, true, false);
                 // TODO(PT): Should be 2 for HL
                 InstrInfo::seq(1, 1)
             }
@@ -3335,6 +3336,7 @@ mod tests {
 
         cpu.reg(RegisterName::A).write_u8(&cpu, 0x5a);
         cpu.reg(RegisterName::L).write_u8(&cpu, 0x3f);
+        cpu.set_flags(true, true, true, true);
 
         // When I run AND A, L
         // Then I get the expected result
@@ -3351,6 +3353,7 @@ mod tests {
         cpu.reg(RegisterName::H).write_u8(&cpu, 0xff);
         cpu.reg(RegisterName::HL)
             .write_u8_with_mode(&cpu, AddressingMode::Deref, 0x00);
+        cpu.set_flags(false, false, false, false);
         // TODO(PT): This variant should take 2 cycles
         gb.run_opcode_with_expected_attrs(&mut cpu, 0xa6, 1, 1);
         assert_eq!(cpu.reg(RegisterName::A).read_u8(&cpu), 0x00);
@@ -3368,6 +3371,7 @@ mod tests {
         let gb = get_system();
         let mut cpu = gb.cpu.borrow_mut();
 
+        cpu.set_flags(true, true, true, true);
         cpu.reg(RegisterName::A).write_u8(&cpu, 0x5a);
         // And a value just after the instruction pointer
         gb.mmu.write(1, 0x38);
