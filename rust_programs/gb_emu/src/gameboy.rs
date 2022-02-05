@@ -54,6 +54,18 @@ impl GameBoy {
         }
     }
 
+    pub fn mock_bootrom(&self) {
+        // Disable the boot ROM
+        self.mmu.write(BootRom::BANK_REGISTER_ADDR, 0x01);
+        // TODO(PT): This should belong to the timer?
+        // Ref: https://www.reddit.com/r/EmuDev/comments/h8x0pj/gameboy_initi
+        //self.mmu.write(0xFF04, 0xab);
+        // Set PC where the boot ROM passes control
+        let mut cpu = self.cpu.borrow_mut();
+        cpu.set_mock_bootrom_state();
+        //cpu.enable_debug();
+    }
+
     pub fn step(&self) {
         self.interrupt_controller.step(self);
         // TODO(PT): Handle when CPU is halted?

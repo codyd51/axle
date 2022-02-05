@@ -417,6 +417,17 @@ impl CpuState {
         }
     }
 
+    pub fn set_mock_bootrom_state(&mut self) {
+        self.set_pc(0x0100);
+        self.reg(RegisterName::SP).write_u16(&self, 0xfffe);
+        self.reg(RegisterName::A).write_u8(&self, 0x01);
+        self.reg(RegisterName::C).write_u8(&self, 0x13);
+        self.reg(RegisterName::E).write_u8(&self, 0xd8);
+        self.reg(RegisterName::H).write_u8(&self, 0x01);
+        self.reg(RegisterName::L).write_u8(&self, 0x4d);
+        self.set_flags(true, false, true, true);
+    }
+
     pub fn get_pc(&self) -> u16 {
         // TODO(PT): Rename Operand to Register?
         self.reg(RegisterName::PC).read_u16(self)
