@@ -192,6 +192,82 @@ impl Addressable for EchoRam {
     fn write(&self, addr: u16, val: u8) {
         let offset = addr - self.start_addr;
         self.backing_ram.write(self.backing_ram.start_addr + offset, val)
+
+pub struct DmaController {
+    dma_transfer_start_address_factor: RefCell<u8>,
+    dma_in_progress: RefCell<bool>,
+    dma_cycle_count: RefCell<usize>,
+}
+
+impl DmaController {
+    const DMA_ADDR: u16 = 0xff46;
+
+    pub fn new() -> Self {
+        Self {
+            dma_transfer_start_address_factor: RefCell::new(0),
+            dma_in_progress: RefCell::new(false),
+            dma_cycle_count: RefCell::new(0),
+        }
+    }
+
+    pub fn step(&self, system: &dyn GameBoyHardwareProvider) {
+        let mmu = system.get_mmu();
+        if *self.dma_in_progress.borrow() {
+            if *self.dma_cycle_count.borrow() == 0 {
+                //println!("Executing the DMA transfer...");
+                // Execute the DMA transfer
+                let source_address =
+                    (*self.dma_transfer_start_address_factor.borrow() as u16) * 0x100;
+                let oam_base = 0xfe00;
+                for i in 0..40 {
+                    let a = mmu.read(source_address + i + 0);
+                    let b = mmu.read(source_address + i + 1);
+                    let c = mmu.read(source_address + i + 2);
+                    let d = mmu.read(source_address + i + 3);
+                    //mmu.write(oam_base + i, mmu.read(source_address + i));
+                    mmu.write(oam_base + i + 0, a);
+                    mmu.write(oam_base + i + 1, b);
+                    mmu.write(oam_base + i + 2, c);
+                    mmu.write(oam_base + i + 3, d);
+                }
+            } else if *self.dma_cycle_count.borrow() == 160 {
+                //println!("Finishing the DMA");
+                *self.dma_in_progress.borrow_mut() = false;
+            }
+            *self.dma_cycle_count.borrow_mut() += 1;
+        }
+    }
+}
+
+impl Addressable for DmaController {
+    fn contains(&self, addr: u16) -> bool {
+        match addr {
+            DmaController::DMA_ADDR => true,
+            _ => false,
+        }
+    }
+
+    fn read(&self, addr: u16) -> u8 {
+        match addr {
+            DmaController::DMA_ADDR => *self.dma_transfer_start_address_factor.borrow(),
+            _ => panic!("Invalid address"),
+        }
+    }
+
+    fn write(&self, addr: u16, val: u8) {
+        match addr {
+            DmaController::DMA_ADDR => {
+                if *self.dma_in_progress.borrow() {
+                    println!("Ignoring DMA write because DMA is already in progress");
+                } else {
+                    //println!("Enqueue DMA");
+                    *self.dma_in_progress.borrow_mut() = true;
+                    *self.dma_cycle_count.borrow_mut() = 0;
+                    *self.dma_transfer_start_address_factor.borrow_mut() = val;
+                }
+            }
+            _ => panic!("Invalid address"),
+        }
     }
 }
 
