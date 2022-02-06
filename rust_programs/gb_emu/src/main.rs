@@ -23,6 +23,7 @@ mod timer;
 use std::{
     cell::RefCell,
     io::Write,
+    mem,
     num::ParseIntError,
     rc::{Rc, Weak},
     time::Duration,
@@ -34,7 +35,7 @@ use interrupts::InterruptController;
 use joypad::{Button, Joypad};
 use mmu::{Addressable, BootRom, DmaController, EchoRam, GameRom, Mmu, Ram};
 use pixels::{Error, Pixels, SurfaceTexture};
-use ppu::Ppu;
+use ppu::{GraphicsLayer, Ppu};
 use serial::SerialDebugPort;
 use timer::Timer;
 use winit::event::{ElementState, Event, VirtualKeyCode};
@@ -121,7 +122,7 @@ fn main_gfx() {
     pixels.render().unwrap();
 
     let bootrom = Rc::new(BootRom::new("/Users/philliptennen/Downloads/DMG_ROM.bin"));
-    let ppu = Rc::new(Ppu::new(pixels, vram_debug_pixels));
+    let ppu = Rc::new(Ppu::new(Box::new(pixels), Box::new(vram_debug_pixels)));
     let ppu_clone = Rc::clone(&ppu);
     let rom_path = &std::env::args().collect::<Vec<String>>()[1];
     let game_rom = Rc::new(GameRom::new(&rom_path));
@@ -267,7 +268,7 @@ fn main_debug() {
     };
 
     let bootrom = Rc::new(BootRom::new("/Users/philliptennen/Downloads/DMG_ROM.bin"));
-    let ppu = Rc::new(Ppu::new(pixels, pixels2));
+    let ppu = Rc::new(Ppu::new(Box::new(pixels), Box::new(pixels2)));
     let ppu_clone = Rc::clone(&ppu);
     let rom_path = &std::env::args().collect::<Vec<String>>()[1];
     let game_rom = Rc::new(GameRom::new(&rom_path));

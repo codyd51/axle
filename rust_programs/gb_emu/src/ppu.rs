@@ -10,6 +10,21 @@ use crate::{
     WINDOW_HEIGHT, WINDOW_WIDTH,
 };
 
+pub trait GraphicsLayer {
+    fn get_pixel_buffer(&mut self) -> &mut [u8];
+    fn render_to_screen(&self);
+}
+
+impl GraphicsLayer for Pixels {
+    fn get_pixel_buffer(&mut self) -> &mut [u8] {
+        self.get_frame()
+    }
+
+    fn render_to_screen(&self) {
+        self.render().unwrap();
+    }
+}
+
 #[derive(Copy, Clone, PartialEq)]
 enum PpuMode {
     OamSearch,
@@ -19,8 +34,8 @@ enum PpuMode {
 }
 
 pub struct Ppu {
-    pixels: RefCell<Pixels>,
-    vram_debug_pixels: RefCell<Pixels>,
+    main_window_layer: RefCell<Box<dyn GraphicsLayer>>,
+    vram_debug_layer: RefCell<Box<dyn GraphicsLayer>>,
     lcd_control: RefCell<u8>,
     ly: RefCell<u8>,
     lyc: RefCell<u8>,
@@ -48,10 +63,13 @@ impl Ppu {
     const LY_ADDR: u16 = 0xff44;
     const LYC_ADDR: u16 = 0xff45;
 
-    pub fn new(pixels: Pixels, vram_debug_pixels: Pixels) -> Self {
+    pub fn new(
+        main_window_layer: Box<dyn GraphicsLayer>,
+        vram_debug_layer: Box<dyn GraphicsLayer>,
+    ) -> Self {
         Ppu {
-            pixels: RefCell::new(pixels),
-            vram_debug_pixels: RefCell::new(vram_debug_pixels),
+            main_window_layer: RefCell::new(main_window_layer),
+            vram_debug_layer: RefCell::new(vram_debug_layer),
             lcd_control: RefCell::new(0b10000000),
             ly: RefCell::new(0),
             lyc: RefCell::new(0),
@@ -65,8 +83,8 @@ impl Ppu {
     }
 
     fn draw_tile(&self, mmu: &Mmu, tile_idx: usize, origin_x: usize, origin_y: usize) {
-        let mut pixels = self.vram_debug_pixels.borrow_mut();
-        let mut frame = pixels.get_frame();
+        let mut vram_debug_layer = self.vram_debug_layer.borrow_mut();
+        let mut frame = vram_debug_layer.get_pixel_buffer();
         let tile_size = 16;
         let vram_base = self.tile_data_base_address() as usize;
 
@@ -115,9 +133,8 @@ impl Ppu {
     }
 
     fn draw_sprite(&self, mmu: &Mmu, tile_idx: usize, origin_x: usize, origin_y: usize) {
-        //let mut pixels = self.vram_debug_pixels.borrow_mut();
-        let mut pixels = self.pixels.borrow_mut();
-        let mut frame = pixels.get_frame();
+        let mut main_window_layer = self.main_window_layer.borrow_mut();
+        let mut frame = main_window_layer.get_pixel_buffer();
         let tile_size = 16;
         let vram_base = 0x8000;
 
@@ -233,7 +250,7 @@ impl Ppu {
     }
 
     pub fn blit_to_os_window(&self) {
-        self.pixels.borrow().render().unwrap();
+        self.main_window_layer.borrow().render_to_screen();
     }
 
     pub fn step(&self, system: &dyn GameBoyHardwareProvider) {
@@ -275,8 +292,8 @@ impl Ppu {
             PpuMode::HBlank => {
                 // As a simple hack, draw the full scanline when we enter HBlank
                 if *ticks == 64 {
-                    let mut pixels = self.pixels.borrow_mut();
-                    let mut frame = pixels.get_frame();
+                    let mut main_window_layer = self.main_window_layer.borrow_mut();
+                    let mut frame = main_window_layer.get_pixel_buffer();
                     let screen_y = *ly;
                     let vram_y =
                         ((screen_y as u16 + *(self.scy.borrow()) as u16) % 256 as u16) as u8;
@@ -525,7 +542,7 @@ impl Ppu {
                             let origin = (col * TILE_WIDTH, row * TILE_HEIGHT);
                             self.draw_tile(&mmu, tile, origin.0, origin.1);
                         }
-                        self.vram_debug_pixels.borrow().render().unwrap();
+                        self.vram_debug_layer.borrow().render_to_screen();
 
                         /*
                         // Draw the sprites
