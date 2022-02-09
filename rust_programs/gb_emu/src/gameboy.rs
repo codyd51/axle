@@ -69,8 +69,15 @@ impl GameBoy {
     pub fn step(&self) {
         self.interrupt_controller.step(self);
         // TODO(PT): Handle when CPU is halted?
-        let instr_info = self.cpu.borrow_mut().step(self);
-        for i in 0..instr_info.cycle_count {
+        let clocks_to_step = {
+            if self.cpu.borrow().is_halted {
+                1
+            } else {
+                self.cpu.borrow_mut().step(self).cycle_count
+            }
+        };
+
+        for i in 0..clocks_to_step {
             self.ppu.step(self);
             self.joypad.step(self);
             self.dma_controller.step(self);
