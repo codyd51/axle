@@ -60,9 +60,8 @@ impl InterruptController {
     }
 
     pub fn step(&self, system: &dyn GameBoyHardwareProvider) {
-        // If interrupt are globally disabled, do nothing
-        if !self.are_interrupts_globally_enabled() {
-            //println!("Doing nothing because interrupts are disabled");
+        // If interrupts are disabled and the CPU isn't halted, we have nothing to do
+        if !self.are_interrupts_globally_enabled() && !system.get_cpu().borrow().is_halted {
             return;
         }
 
