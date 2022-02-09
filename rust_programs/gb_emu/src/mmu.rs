@@ -279,15 +279,16 @@ impl DmaController {
                     (*self.dma_transfer_start_address_factor.borrow() as u16) * 0x100;
                 let oam_base = 0xfe00;
                 for i in 0..40 {
-                    let a = mmu.read(source_address + i + 0);
-                    let b = mmu.read(source_address + i + 1);
-                    let c = mmu.read(source_address + i + 2);
-                    let d = mmu.read(source_address + i + 3);
+                    let entry_offset = i * 4;
+                    let a = mmu.read(source_address + entry_offset + 0);
+                    let b = mmu.read(source_address + entry_offset + 1);
+                    let c = mmu.read(source_address + entry_offset + 2);
+                    let d = mmu.read(source_address + entry_offset + 3);
                     //mmu.write(oam_base + i, mmu.read(source_address + i));
-                    mmu.write(oam_base + i + 0, a);
-                    mmu.write(oam_base + i + 1, b);
-                    mmu.write(oam_base + i + 2, c);
-                    mmu.write(oam_base + i + 3, d);
+                    mmu.write(oam_base + entry_offset + 0, a);
+                    mmu.write(oam_base + entry_offset + 1, b);
+                    mmu.write(oam_base + entry_offset + 2, c);
+                    mmu.write(oam_base + entry_offset + 3, d);
                 }
             } else if *self.dma_cycle_count.borrow() == 160 {
                 //println!("Finishing the DMA");
