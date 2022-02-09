@@ -95,21 +95,25 @@ impl InterruptController {
                         *flags_register
                     );
                     */
+
+                    // If the CPU is in HALT-mode and has the IME flag disabled,
+                    // just un-halt the CPU.
+                    let cpu_ref = system.get_cpu();
+                    if !self.are_interrupts_globally_enabled() && cpu_ref.borrow().is_halted {
+                        //println!("Un-halting CPU without dispatching interrupt");
+                        cpu_ref.borrow_mut().set_halted(false);
+                        return;
+                    }
+
                     // Reset this IF bit
                     *flags_register &= !(1 << bit_index);
+
                     //println!("\tFlags after reset: {:08b}", *flags_register);
                     // Reset the IME flag during the interrupt handler
                     self.set_interrupts_globally_disabled();
 
                     // Push PC to the stack
-                    //system.get_cpu()
-                    let cpu = system.get_cpu();
-                    cpu.borrow_mut().call_interrupt_vector(interrupt_type);
-                    /*
-                    cpu.push_u16(cpu.get_pc());
-                    //cpu.jump_to_int_vector();
-                    cpu.set_pc(self.interrupt_vector_for_type(interrupt_type));
-                    */
+                    cpu_ref.borrow_mut().call_interrupt_vector(interrupt_type);
                 } else {
                     //println!("Holding on to requested interrupt {interrupt_type} because the interrupt is disabled");
                 }
