@@ -46,12 +46,10 @@ impl InterruptController {
     }
 
     pub fn set_interrupts_globally_disabled(&self) {
-        //println!("Globally disabling interrupts");
         *(self.interrupt_master_enable_flag.borrow_mut()) = false
     }
 
     pub fn set_interrupts_globally_enabled(&self) {
-        //println!("Globally enabling interrupts");
         *(self.interrupt_master_enable_flag.borrow_mut()) = true
     }
 
@@ -68,38 +66,16 @@ impl InterruptController {
         // Check whether we should trigger any interrupts
         let mut flags_register = self.interrupt_flag_register.borrow_mut();
         let enabled_mask_register = *(self.interrupt_enable_register.borrow());
-        for bit_index in 0..4 {
+        for bit_index in 0..=4 {
             let interrupt_type = self.interrupt_type_for_bit_index(bit_index);
             // Has an interrupt been requested in the flags register?
-            if *flags_register != 0 || enabled_mask_register != 0 {
-                /*
-                println!(
-                    "Flags & Bit = val, {:02x} & {bit_index} = {}, Enabled bit {}",
-                    *flags_register,
-                    *flags_register & (1 << bit_index),
-                    enabled_mask_register & (1 << bit_index),
-                );
-                println!(
-                    "Flags {:04x} Enabled {:04x}",
-                    *flags_register, enabled_mask_register
-                );
-                */
-            }
             if *flags_register & (1 << bit_index) != 0 {
                 // Is this interrupt enabled in the bitmask?
                 if enabled_mask_register & (1 << bit_index) != 0 {
-                    /*
-                    println!(
-                        "Dispatching interrupt {interrupt_type}! Flags before: {:08b}",
-                        *flags_register
-                    );
-                    */
-
                     // If the CPU is in HALT-mode and has the IME flag disabled,
                     // just un-halt the CPU.
                     let cpu_ref = system.get_cpu();
                     if !self.are_interrupts_globally_enabled() && cpu_ref.borrow().is_halted {
-                        //println!("Un-halting CPU without dispatching interrupt");
                         cpu_ref.borrow_mut().set_halted(false);
                         return;
                     }
@@ -107,14 +83,11 @@ impl InterruptController {
                     // Reset this IF bit
                     *flags_register &= !(1 << bit_index);
 
-                    //println!("\tFlags after reset: {:08b}", *flags_register);
                     // Reset the IME flag during the interrupt handler
                     self.set_interrupts_globally_disabled();
 
                     // Push PC to the stack
                     cpu_ref.borrow_mut().call_interrupt_vector(interrupt_type);
-                } else {
-                    //println!("Holding on to requested interrupt {interrupt_type} because the interrupt is disabled");
                 }
             }
         }
@@ -122,7 +95,6 @@ impl InterruptController {
 
     pub fn trigger_interrupt(&self, int_type: InterruptType) {
         let bit_index = self.bit_index_for_interrupt_type(int_type);
-        //println!("Requesting interrupt {int_type}, bit index {bit_index}");
         *(self.interrupt_flag_register.borrow_mut()) |= (1 << bit_index);
     }
 
@@ -172,14 +144,189 @@ impl Addressable for InterruptController {
     fn write(&self, addr: u16, val: u8) {
         match addr {
             InterruptController::INTERRUPT_ENABLE_REGISTER_ADDR => {
-                //println!("Write to interrupt enable register: {val:02x}");
                 *(self.interrupt_enable_register.borrow_mut()) = val
             }
             InterruptController::INTERRUPT_FLAG_REGISTER_ADDR => {
-                //println!("Write to interrupt flag register: {val:02x}");
                 *(self.interrupt_flag_register.borrow_mut()) = val
             }
             _ => panic!("Unrecognised address"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{cell::RefCell, rc::Rc};
+
+    use crate::{
+        cpu::{CpuState, RegisterName},
+        gameboy::GameBoyHardwareProvider,
+        interrupts::InterruptController,
+        joypad::Joypad,
+        mmu::{Mmu, Ram},
+        ppu::Ppu,
+    };
+
+    use super::InterruptType;
+
+    struct InterruptControllerTestSystem {
+        pub mmu: Rc<Mmu>,
+        pub cpu: Rc<RefCell<CpuState>>,
+        interrupt_controller: Rc<InterruptController>,
+    }
+
+    impl InterruptControllerTestSystem {
+        pub fn new() -> Self {
+            let ram = Rc::new(Ram::new(0, 0xffff));
+            let interrupt_controller = Rc::new(InterruptController::new());
+            let interrupt_controller_clone = Rc::clone(&interrupt_controller);
+            let mmu = Rc::new(Mmu::new(vec![interrupt_controller_clone, ram]));
+
+            let mut cpu = CpuState::new(Rc::clone(&mmu));
+            // Set up a stack for the CPU
+            cpu.reg(RegisterName::SP).write_u16(&cpu, 0xfffa);
+            cpu.enable_debug();
+
+            Self {
+                mmu,
+                cpu: Rc::new(RefCell::new(cpu)),
+                interrupt_controller,
+            }
+        }
+    }
+
+    impl GameBoyHardwareProvider for InterruptControllerTestSystem {
+        fn get_mmu(&self) -> Rc<Mmu> {
+            Rc::clone(&self.mmu)
+        }
+
+        fn get_ppu(&self) -> Rc<Ppu> {
+            panic!("PPU not supported in this test harness")
+        }
+
+        fn get_cpu(&self) -> Rc<RefCell<CpuState>> {
+            Rc::clone(&self.cpu)
+        }
+
+        fn get_interrupt_controller(&self) -> Rc<crate::interrupts::InterruptController> {
+            Rc::clone(&self.interrupt_controller)
+        }
+
+        fn get_joypad(&self) -> Rc<Joypad> {
+            panic!("Joypad not supported in this test harness")
+        }
+    }
+
+    #[test]
+    fn test_request_interrupts() {
+        let gb = InterruptControllerTestSystem::new();
+
+        let interrupt_to_expected_bit = vec![
+            (InterruptType::VBlank, 0),
+            (InterruptType::LCDStat, 1),
+            (InterruptType::Timer, 2),
+            (InterruptType::Serial, 3),
+            (InterruptType::Joypad, 4),
+        ];
+        for (interrupt_type, bit_index) in interrupt_to_expected_bit {
+            // When an interrupt is requested
+            gb.get_interrupt_controller()
+                .trigger_interrupt(interrupt_type);
+            // Then the corresponding flag is set in the flags register
+            dbg!(gb.get_mmu().read(0xff0f));
+            dbg!(gb.get_mmu().read(0xff0f) & (1 << bit_index));
+            assert!(gb.get_mmu().read(0xff0f) & (1 << bit_index) != 0);
+        }
+    }
+
+    #[test]
+    fn test_dispatch_interrupt() {
+        let gb = InterruptControllerTestSystem::new();
+
+        // Given the IME flag is enabled
+        let int_controller = gb.get_interrupt_controller();
+        int_controller.set_interrupts_globally_enabled();
+
+        let mmu = gb.get_mmu();
+        // And an interrupt is enabled in the mask register
+        mmu.write(0xffff, 0b10000);
+
+        // When the interrupt is requested in the flags register
+        mmu.write(0xff0f, 0b10000);
+
+        // And the interrupt controller is stepped
+        int_controller.step(&gb);
+
+        // Then the interrupt has been disabled in the flags register
+        assert_eq!(mmu.read(0xff0f), 0x0);
+        // And the IME flag has been disabled
+        assert!(!int_controller.are_interrupts_globally_enabled());
+        // And the CPU has jumped to the interrupt vector
+        assert_eq!(gb.get_cpu().borrow().get_pc(), 0x60);
+    }
+
+    #[test]
+    fn test_ignore_interrupt_due_to_disabled_ime() {
+        let gb = InterruptControllerTestSystem::new();
+
+        // Given the IME flag is disabled
+        let int_controller = gb.get_interrupt_controller();
+        int_controller.set_interrupts_globally_disabled();
+
+        let mmu = gb.get_mmu();
+        // And an interrupt is enabled in the mask register
+        mmu.write(0xffff, 0b10000);
+
+        // When the interrupt is requested in the flags register
+        mmu.write(0xff0f, 0b10000);
+
+        // And the interrupt controller is stepped
+        int_controller.step(&gb);
+
+        // Then the interrupt flags register is untouched
+        assert_eq!(mmu.read(0xff0f), 0b10000);
+        // And the IME flag has not been touched
+        assert!(!int_controller.are_interrupts_globally_enabled());
+        // And the CPU's PC has not been touched
+        assert_eq!(gb.get_cpu().borrow().get_pc(), 0x0);
+    }
+
+    #[test]
+    fn test_unhalt_cpu() {
+        /*
+        // If the CPU is in HALT-mode and has the IME flag disabled,
+        // just un-halt the CPU.
+        let cpu_ref = system.get_cpu();
+        if !self.are_interrupts_globally_enabled() && cpu_ref.borrow().is_halted {
+            cpu_ref.borrow_mut().set_halted(false);
+            return;
+        }
+        */
+        let gb = InterruptControllerTestSystem::new();
+
+        // Given the CPU is in HALT-mode
+        let cpu = gb.get_cpu();
+        cpu.borrow_mut().set_halted(true);
+
+        // Given the IME flag is disabled
+        let int_controller = gb.get_interrupt_controller();
+        int_controller.set_interrupts_globally_disabled();
+
+        let mmu = gb.get_mmu();
+        // And an interrupt is enabled in the mask register
+        mmu.write(0xffff, 0b10000);
+
+        // When the interrupt is requested in the flags register
+        mmu.write(0xff0f, 0b10000);
+
+        // And the interrupt controller is stepped
+        int_controller.step(&gb);
+
+        // Then the interrupt flags register is untouched
+        assert_eq!(mmu.read(0xff0f), 0b10000);
+        // And the IME flag has not been touched
+        assert!(!int_controller.are_interrupts_globally_enabled());
+        // And the CPU has been un-halted
+        assert!(!gb.get_cpu().borrow().is_halted);
     }
 }

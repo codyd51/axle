@@ -88,7 +88,7 @@ pub struct CpuState {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
-enum RegisterName {
+pub enum RegisterName {
     // 8-bit operands
     B,
     C,
@@ -133,7 +133,7 @@ impl Display for RegisterName {
     }
 }
 
-trait VariableStorage: Debug + Display {
+pub trait VariableStorage: Debug + Display {
     fn display_name(&self) -> &str;
 
     fn read_u8(&self, cpu: &CpuState) -> u8;
@@ -1038,6 +1038,9 @@ impl CpuState {
                 Some(InstrInfo::jump(2, 3))
             }
             0x76 => {
+                if debug {
+                    println!("HALT");
+                }
                 self.set_halted(true);
                 Some(InstrInfo::seq(1, 4))
             }
@@ -1270,6 +1273,10 @@ impl CpuState {
                 let sp = self.reg(RegisterName::SP).read_u16(&self);
                 let offset = self.mmu.read(self.get_pc() + 1);
                 let signed_offset = offset as i8;
+
+                if debug {
+                    println!("ADD SP, {signed_offset}");
+                }
 
                 let sp_low_byte = (sp & 0xff) as u8;
                 self.add8_update_flags(sp_low_byte, offset, &[]);
