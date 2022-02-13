@@ -130,7 +130,9 @@ impl Display for MbcType {
 pub struct GameRom {
     mbc_type: MbcType,
     data: RefCell<Vec<u8>>,
-    current_bank: RefCell<u8>,
+    current_rom_bank: RefCell<u8>,
+    current_ram_bank: RefCell<u8>,
+    ram_banks: RefCell<Vec<Vec<u8>>>,
 }
 
 impl GameRom {
@@ -140,32 +142,54 @@ impl GameRom {
 
         // MBC Ref: https://retrocomputing.stackexchange.com/questions/11732
         let mbc_type_discriminator = data[0x0147];
+        dbg!(mbc_type_discriminator);
         let mbc_type = match mbc_type_discriminator {
             0b00 => MbcType::NoMbc,
             0b01 => MbcType::Mbc1,
             3 | 19 => MbcType::Mbc3,
+            // TODO(PT): Fake, check me!
+            27 => MbcType::Mbc3,
             _ => panic!("Unknown MBC type {mbc_type_discriminator}"),
         };
 
         Self {
             mbc_type,
             data: RefCell::new(data),
-            current_bank: RefCell::new(1),
+            current_rom_bank: RefCell::new(1),
+            current_ram_bank: RefCell::new(0),
+            ram_banks: RefCell::new(vec![
+                vec![0; 32 * 1024],
+                vec![0; 32 * 1024],
+                vec![0; 32 * 1024],
+                vec![0; 32 * 1024],
+            ]),
         }
     }
 }
 
 impl Addressable for GameRom {
     fn contains(&self, addr: u16) -> bool {
-        addr < 0x8000
+        addr < 0x8000 || (addr >= 0xa000 && addr < 0xc000)
     }
     fn read(&self, addr: u16) -> u8 {
         let addr = addr as usize;
+
+        // Is the address in cartridge RAM?
+        if addr >= 0xa000 && addr < 0xc000 {
+            let current_ram_bank = *self.current_ram_bank.borrow() as usize;
+            let translated_addr = addr - 0xa000;
+            //println!("Read from RAM bank {current_ram_bank} @ off {translated_addr:04x} (addr {addr:04x})");
+            return self.ram_banks.borrow()[current_ram_bank][translated_addr];
+        }
+
         let mut translated_addr = addr;
         if addr >= 0x4000 && addr < 0x8000 {
-            let current_bank = *self.current_bank.borrow();
-            translated_addr = (addr + (0x4000_usize * ((current_bank - 1) as usize)));
-            //println!("Translated addr {addr:04x} to bank {current_bank}: {translated_addr:04x}");
+            let mut current_rom_bank = *self.current_rom_bank.borrow();
+            if current_rom_bank == 0 {
+                current_rom_bank = 1;
+            }
+            translated_addr = (addr + (0x4000_usize * ((current_rom_bank - 1) as usize)));
+            //println!("translated to {current_rom_bank}");
         }
         self.data.borrow()[translated_addr as usize]
     }
@@ -175,14 +199,21 @@ impl Addressable for GameRom {
         //0000-1FFF - RAM Enable (Write Only)
         if addr < 0x2000 {
             // Enable RAM
-            println!("Enabling MBC RAM");
+            //println!("Enabling MBC RAM");
         } else if addr >= 0x2000 && addr < 0x4000 {
             //println!("Switching ROM bank to {val:02x}");
-            *self.current_bank.borrow_mut() = val;
+            *self.current_rom_bank.borrow_mut() = val;
         } else if addr >= 0x4000 && addr < 0x6000 {
-            println!("Bank number");
+            // Switch RAM bank
+            //println!("Switch RAM bank to {val}");
+            *self.current_ram_bank.borrow_mut() = val;
         } else if addr >= 0x6000 && addr < 0x8000 {
             println!("ROM/RAM mode select {val:02x}");
+        } else if addr >= 0xa000 && addr < 0xc000 {
+            let current_ram_bank = *self.current_ram_bank.borrow() as usize;
+            let translated_addr = (addr as usize) - 0xa000;
+            self.ram_banks.borrow_mut()[current_ram_bank][translated_addr] = val;
+            //println!("Write {val:02x} to RAM bank {current_ram_bank} @ off {translated_addr:04x} (addr {addr:04x})");
         } else {
             println!("Dropping write to ROM address {addr:04x}: {val:02x}");
         }
