@@ -154,7 +154,7 @@ impl Addressable for DummySoundController {
     let game_rom = Rc::new(GameRom::new(&rom_path));
     let tile_ram = Rc::new(Ram::new(0x8000, 0x1800));
     let background_map = Rc::new(Ram::new(0x9800, 0x800));
-    let oam_ram = Rc::new(Ram::new(0xfe00, 0x9f));
+    let oam_ram = Rc::new(Ram::new(0xfe00, 0xa0));
 
     let working_ram = Rc::new(Ram::new(0xc000, 0x2000));
     let working_ram_clone = Rc::clone(&working_ram);
