@@ -66,6 +66,32 @@ impl Breakpoint {
 }
 
 fn main_gfx() {
+struct DummySoundController {}
+
+impl DummySoundController {
+    fn new() -> Self {
+        Self {}
+    }
+    fn is_sound_register(addr: u16) -> bool {
+        (addr >= 0xff10 && addr <= 0xff26) || (addr >= 0xff30 && addr <= 0xff3f)
+    }
+}
+
+impl Addressable for DummySoundController {
+    fn contains(&self, addr: u16) -> bool {
+        DummySoundController::is_sound_register(addr)
+    }
+
+    fn read(&self, addr: u16) -> u8 {
+        // Uninitialised reads return 0xff
+        0xff
+    }
+
+    fn write(&self, addr: u16, val: u8) {
+        // Ignore writes
+    }
+}
+
     let event_loop = EventLoop::new();
 
     let vram_debug_window = {
@@ -167,6 +193,8 @@ fn main_gfx() {
         echo_ram,
         dma_controller,
         oam_ram,
+        // Hook up a dummy sound controller so writes to the sound registers succeed
+        Rc::new(DummySoundController::new()),
     ]));
 
     let mut cpu = CpuState::new(Rc::clone(&mmu));
@@ -311,6 +339,8 @@ fn main_debug() {
         echo_ram,
         game_rom,
         dma_controller,
+        // Hook up a dummy sound controller so writes to the sound registers succeed
+        Rc::new(DummySoundController::new()),
     ]));
 
     let mut cpu = CpuState::new(Rc::clone(&mmu));
