@@ -263,3 +263,27 @@ Wrapper around C that inserts calls to performance monitoring/logging helpers
     Example: Increment a depth counter on function entry, decrement on exit. Depth is used for indentation in logs, or subservice name
 
 A key combination turns on 'debug mode' - enables extra logging ad-hoc in the kernel
+
+- 1
+    - 2 (Parent = 1)
+    - 3 (Parent = 1)
+    - 4 (Parent = 1)
+    - 5 (Parent = 1)
+
+PF in 1
+    Copy, set writable
+    Ref--
+    Ref==0? Free backing page
+
+Loading ferris for Rust
+Resize ended?
+
+- Boot
+- Service sends PCI request
+- PCI sets up awm window, drains message queue during event loop
+- PCI installs message handler
+- Service's PCI request is lost
+
+Use write-combining for framebuffer
+
+Include a UUID in every request/response pair, and have a helper that verifies the UUID

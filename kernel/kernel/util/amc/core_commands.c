@@ -254,6 +254,24 @@ static void _amc_query_service(const char* source_service, void* buf, uint32_t b
     amc_message_send__from_core(source_service, &resp, sizeof(amc_query_service_response_t));
 }
 
+static void _amc_core_map_physical_range(const char* source_service, void* buf, uint32_t buf_size) {
+    amc_service_t* source = amc_service_with_name(source_service);
+    assert(source != NULL, "Failed to find service that sent the message...");
+
+    amc_map_physical_range_request_t* req = (amc_map_physical_range_request_t*)buf;
+
+    printf("[AMC] %s mapping physical range [0x%p - 0x%p]\n", source->name, req->phys_base, req->phys_base + req->size);
+
+    uintptr_t virt_base = vas_map_range(vas_get_active_state(), 0x7d0000000000, req->size, req->phys_base, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
+    printf("\tMapped physical range to virt [0x%p - 0x%p]\n", virt_base, virt_base + req->size);
+
+    amc_map_physical_range_response_t resp = {0};
+    resp.event = AMC_MAP_PHYSICAL_RANGE_RESPONSE;
+    resp.virt_base = virt_base;
+    amc_message_send__from_core(source_service, &resp, sizeof(resp));
+}
+
+
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size) {
     //printf("Message to core from %s\n", source_service);
     uint32_t* u32buf = (uint32_t*)buf;
@@ -293,6 +311,9 @@ void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf
     }
     else if (u32buf[0] == AMC_QUERY_SERVICE_REQUEST) {
         _amc_query_service(source_service, buf, buf_size);
+    }
+    else if (u32buf[0] == AMC_MAP_PHYSICAL_RANGE_REQUEST) {
+        _amc_core_map_physical_range(source_service, buf, buf_size);
     }
     else {
         printf("Unknown message: %d\n", u32buf[0]);

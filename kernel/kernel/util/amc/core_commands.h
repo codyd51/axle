@@ -130,6 +130,27 @@ typedef struct amc_query_service_response {
     bool service_exists;
 } amc_query_service_response_t;
 
+/*
+Drivers which need to map a specific PMA range.
+Examples:
+    Framebuffer (TODO(PT): This currently uses a different mechanism)
+    AHCI memory range
+*/
+
+#define AMC_MAP_PHYSICAL_RANGE_REQUEST 212
+#define AMC_MAP_PHYSICAL_RANGE_RESPONSE 212
+
+typedef struct amc_map_physical_range_request {
+    uint32_t event;
+    uintptr_t phys_base;
+    uintptr_t size;
+} amc_map_physical_range_request_t;
+
+typedef struct amc_map_physical_range_response {
+    uint32_t event;
+    uintptr_t virt_base;
+} amc_map_physical_range_response_t;
+
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size);
 
 #endif

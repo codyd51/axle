@@ -18,6 +18,9 @@
 
 `0x7d0000000000`: initrd
 
+#### Any user of `AMC_MAP_PHYSICAL_RANGE_REQUEST`
+`0x7d0000000000`: Virtual base of mapped physical memory
+
 ## Kernel space (shared across every process)
 
 `0xFFFF800000000000`: Physical RAM remapping
