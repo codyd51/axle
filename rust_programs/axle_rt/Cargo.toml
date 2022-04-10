@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 cstr_core = "0.2.4"
+axle_rt_derive = {path = "../axle_rt_derive" }
 
 [features]
 testing = []

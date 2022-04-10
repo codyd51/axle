@@ -25,6 +25,7 @@ dependencies = [
 name = "axle_rt"
 version = "0.1.0"
 dependencies = [
+ "axle_rt_derive",
  "cstr_core",
 ]
 

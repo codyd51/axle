@@ -5,6 +5,8 @@
 #![feature(panic_info_message)]
 #![feature(stmt_expr_attributes)]
 
+pub mod core_commands;
+
 extern crate alloc;
 
 #[cfg(target_os = "axle")]
