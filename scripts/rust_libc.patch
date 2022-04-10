@@ -17,7 +17,7 @@ new file mode 100644
 index 000000000..3426fe0e6
 --- /dev/null
 +++ b/src/axle/mod.rs
-@@ -0,0 +1,89 @@
+@@ -0,0 +1,91 @@
 +// libc port for axle
 +//
 +
@@ -100,6 +100,8 @@ index 000000000..3426fe0e6
 +    pub fn amc_message_send(destination_service: *const u8, buf: *const ::c_void, buf_size: u32) -> bool;
 +    pub fn amc_message_await_any(out_message: *mut *mut ::AmcMessage) -> ();
 +    pub fn amc_message_await(from_service: *const u8, out_message: *mut *mut ::AmcMessage) -> ();
++    pub fn amc_has_message() -> bool;
++    pub fn amc_has_message_from(from_service: *const u8) -> bool;
 +    pub fn usleep(ms: u64) -> ();
 +}
 +

@@ -141,6 +141,16 @@ where
 }
 
 #[cfg(target_os = "axle")]
+pub fn amc_has_message(from_service: Option<&str>) -> bool {
+    if let Some(from_service) = from_service {
+        let from_service_c_str = CString::new(from_service).expect("cstr new failed");
+        unsafe { libc::amc_has_message_from(from_service_c_str.as_ptr() as *const u8) }
+    } else {
+        unsafe { libc::amc_has_message() }
+    }
+}
+
+#[cfg(target_os = "axle")]
 pub fn amc_register_service(this_service: &str) {
     unsafe {
         ::libc::amc_register_service(
