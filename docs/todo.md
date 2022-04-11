@@ -287,3 +287,5 @@ Resize ended?
 Use write-combining for framebuffer
 
 Include a UUID in every request/response pair, and have a helper that verifies the UUID
+
+Some kind of trace/logging library that automatically indents log entries belonging to a parent trace
