@@ -5,6 +5,7 @@
 #![feature(default_alloc_error_handler)]
 
 mod pci_messages;
+mod sata2;
 mod sata_definitions;
 
 extern crate alloc;
@@ -19,13 +20,14 @@ use alloc::{
 use bitvec::prelude::*;
 
 use axle_rt::{
+    adi_event_await, adi_register_driver, adi_send_eoi, amc_has_message, amc_message_await_untyped,
     core_commands::{
         amc_alloc_physical_range, amc_map_physical_range, AmcMapPhysicalRangeRequest, PhysVirtPair,
     },
     ContainsEventField, ExpectsEventField,
 };
 use axle_rt_derive::ContainsEventField;
-use core::{cell::RefCell, cmp};
+use core::{cell::RefCell, cmp, mem};
 use sata_definitions::{AhciCommandHeader, AhciPortBlock};
 
 use axle_rt::{
@@ -33,8 +35,11 @@ use axle_rt::{
 };
 
 use crate::{
-    pci_messages::{pci_config_word_read, pci_config_word_write},
-    sata_definitions::{AhciGenericHostControlBlock, HostToDeviceFIS},
+    pci_messages::{pci_config_word_read, pci_config_word_write, AHCI_INTERRUPT_VECTOR},
+    sata_definitions::{
+        AhciCommandHeaderWord0, AhciCommandHeaderWord0Bits2, AhciGenericHostControlBlock,
+        HostToDeviceFIS,
+    },
 };
 
 struct AhciPortDescription {
@@ -90,10 +95,6 @@ impl AhciPortDescription {
             unsafe { &mut *slice }
         };
 
-        /*
-        let mut generic_host_control_block: &mut AhciGenericHostControlBlock =
-            unsafe { &mut *(ahci_base_address as *mut AhciGenericHostControlBlock) };
-            */
         let mut this = Self {
             port_index,
             port_block,
@@ -105,11 +106,11 @@ impl AhciPortDescription {
         // Now, initialize the command-list and FIS-receive buffers
         // First, request the HBA stop processing the command-list, since we're going to modify it
         this.stop_processing_command_list();
-        // Wait for any ongoing access to the command list to complete
-        this.wait_until_command_list_use_completes();
-
         // Also, request the HBA stops delivering FIS
         this.stop_receiving_frame_info_structs();
+
+        // Wait for any ongoing access to the command list to complete
+        this.wait_until_command_list_use_completes();
         // From the spec on FIS Receive enable bit:
         // > If software wishes to move the base, this bit must first be cleared,
         // > and software must wait for the FR bit in this register to be cleared.
@@ -120,33 +121,41 @@ impl AhciPortDescription {
         this.port_block.frame_info_struct_base = this.frame_info_struct_recv_region.phys as u32;
         this.port_block.frame_info_struct_base_upper = 0;
 
-        // Ready to receive FIS
-        this.start_receiving_frame_info_structs();
-
-        /*
-        for command_header in this.command_list {
-            let word0 = command_header.word0.view_bits_mut::<Lsb0>();
-            // Set Command FIS length (in u32 increments)
-            [0..4].copy_from_slice(4);
-            //
-        }
-        */
-
-        this.start_processing_command_list();
-
         println!(
             "FIS at virt 0x{:16x}",
             this.frame_info_struct_recv_region.virt
         );
 
-        let command_header0 = &mut this.command_list[0];
-        command_header0.word0 = 0;
-        let word0 = command_header0.word0.view_bits_mut::<Lsb0>();
-        // Set W bit
-        word0.set(6, true);
-        // Set Command FIS length (in sizeof(u32) increments)
-        let command_fis_len = 5;
-        word0[0..4].copy_from_slice(&command_fis_len.view_bits::<Lsb0>()[0..4]);
+        println!(
+            "Port interrupt status: {}",
+            this.port_block.interrupt_status
+        );
+
+        // Clear pending interrupts with a write-clear
+        this.port_block.interrupt_status = 0xffffffff;
+
+        // Wait for any ongoing access to the command list to complete
+        this.wait_until_command_list_use_completes();
+
+        // Ready to receive FIS
+        // 10.3.2: FIS enable must be before CL enable
+        this.start_receiving_frame_info_structs();
+        this.start_processing_command_list();
+
+        println!(
+            "End of port init interrupt status: {}",
+            this.port_block.interrupt_status
+        );
+
+        this
+    }
+
+    fn send_command(&mut self) {
+        let command_header0 = &mut self.command_list[0];
+        let mut word0 = &mut command_header0.word0;
+        // Command FIS length (in sizeof(u32) increments)
+        word0.set_command_fis_len(5);
+        //word0.set_write(true);
 
         println!(
             "Bytecount {} before sleep",
@@ -170,7 +179,7 @@ impl AhciPortDescription {
         command_fis_as_u8[1] = 0b10000000;
         command_fis_as_u8[2] = 0xec;
 
-        unsafe { libc::usleep(1000) };
+        //unsafe { libc::usleep(1000) };
 
         println!(
             "Bytecount {} after sleep",
@@ -179,25 +188,25 @@ impl AhciPortDescription {
 
         // Issue the command
         println!("Issuing command...");
-        this.port_block
+        /*
+        self.port_block
             .command_issue
             .view_bits_mut::<Lsb0>()
             .set(0, true);
+            */
+        println!(
+            "Before issue, interrupt status: {}",
+            self.port_block.interrupt_status
+        );
+        self.port_block.command_issue |= 1;
         println!("Set command issue bit!");
 
-        loop {
-            /*
-            println!(
-                "Bytecount {} after sleep",
-                command_header0.phys_region_desc_byte_count
-            );
-            unsafe { libc::usleep(1) };
-            */
-        }
+        //unsafe { libc::usleep(1000) };
 
-        loop {}
-
-        this
+        println!(
+            "After sleep, interrupt status: {}",
+            self.port_block.interrupt_status
+        );
     }
 
     fn _set_command_and_status_bit(&mut self, bit_idx: usize, enabled: bool) {
@@ -246,6 +255,7 @@ impl AhciPortDescription {
 #[allow(unreachable_code)]
 fn start(_argc: isize, _argv: *const *const u8) -> isize {
     amc_register_service("com.axle.sata_driver");
+    adi_register_driver("com.axle.sata_driver", AHCI_INTERRUPT_VECTOR);
 
     println!("SATA driver running!");
     unsafe {
@@ -296,6 +306,13 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
         unsafe { &mut *(ahci_base_address as *mut AhciGenericHostControlBlock) };
     println!("Got generic host control block: {generic_host_control_block:?}");
 
+    println!(
+        "Interrupt status: 0x{:08x}",
+        generic_host_control_block.interrupt_status
+    );
+
+    generic_host_control_block.global_host_control.set(31, true);
+
     // Detect in-use AHCI ports. From the spec:
     // > Port Implemented (PI): This register is bit significant.
     // If a bit is set to '1', the corresponding port is available for software to use.
@@ -320,11 +337,10 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
             // Check whether there is a device connected to this port
             // Bits 0..3 are the Device Detection indicator
             if port_block.sata_status & 0b111 == 0x03 {
-                //if port_block.sata_status.view_bits::<Lsb0>()[0..3] == [1, 0, 1] {
                 println!("AHCI port {bit_idx} has a device connected to it");
 
                 // Check whether the device is active
-                // Bits 8-9 are the Interface Power Managemennt state
+                // Bits 8-9 are the Interface Power Management state
                 if (port_block.sata_status >> 8) & 0b11 == 0x01 {
                     println!("AHCI port {bit_idx}'s device is in an active state");
 
@@ -340,9 +356,54 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
         }
     }
 
-    println!("Active AHCI ports:");
-    for port_desc in active_ports {
-        let block = port_desc.port_block;
+    // Clear pending interrupts for in the top-level port status
+    generic_host_control_block.interrupt_status = 0xffffffff;
+
+    // Enable interrupts in each port
+    for port in &mut active_ports {
+        port.port_block.interrupt_enable = 0xffffffff;
+    }
+
+    // Set global Interrupt Enable bit
+    // The spec says this must be done after clearing the IS field in each port
+    // 10.1.2: System software must always ensure that the PxIS (clear this first)
+    //  and IS.IPS (clear this second) registers are cleared to '0' before programming
+    //  the PxIE and GHC.IE registers. This will prevent any residual bits set in these
+    //  registers from causing an interrupt to be asserted.
+    generic_host_control_block.global_host_control.set(1, true);
+
+    //active_ports[0].send_command();
+    //loop {}
+    println!("entering");
+
+    loop {
+        println!("calling adi_event_await");
+        let awoke_for_interrupt = adi_event_await(AHCI_INTERRUPT_VECTOR);
+        println!("awoke_for_interrupt {awoke_for_interrupt}");
+        if (awoke_for_interrupt) {
+            println!("************ AHCI interrupt!");
+
+            for port_desc in &active_ports {
+                let block = &port_desc.port_block;
+                println!(
+                    "Device interrupt status: {:32b} {:08x}",
+                    block.interrupt_status, block.interrupt_status
+                );
+            }
+
+            adi_send_eoi(AHCI_INTERRUPT_VECTOR);
+        } else {
+            //let amc_message_await(None);
+            while amc_has_message(None) {
+                println!("Consuming message...");
+                unsafe {
+                    amc_message_await_untyped(None);
+                }
+            }
+            println!("Sending AHCI command FIS...");
+            let port_desc = &mut active_ports[0];
+            port_desc.send_command();
+        }
     }
 
     loop {}

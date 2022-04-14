@@ -8,6 +8,7 @@ const PCI_SERVICE_NAME: &str = "com.axle.pci_driver";
 const _SATA_CONTROLLER_BUS: u32 = 0;
 const _SATA_CONTROLLER_DEVICE: u32 = 5;
 const _SATA_CONTROLLER_FUNCTION: u32 = 0;
+pub const AHCI_INTERRUPT_VECTOR: u32 = 42;
 
 #[repr(C)]
 #[derive(Debug, ContainsEventField)]
