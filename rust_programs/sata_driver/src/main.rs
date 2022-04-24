@@ -5,7 +5,6 @@
 #![feature(default_alloc_error_handler)]
 
 mod pci_messages;
-mod sata2;
 mod sata_definitions;
 
 extern crate alloc;
@@ -38,7 +37,7 @@ use crate::{
     pci_messages::{pci_config_word_read, pci_config_word_write, AHCI_INTERRUPT_VECTOR},
     sata_definitions::{
         AhciCommandHeaderWord0, AhciCommandHeaderWord0Bits2, AhciGenericHostControlBlock,
-        HostToDeviceFIS,
+        CommandOpcode, CommandTable, HostToDeviceFIS, PhysRegionDescriptor,
     },
 };
 
@@ -152,61 +151,36 @@ impl AhciPortDescription {
 
     fn send_command(&mut self) {
         let command_header0 = &mut self.command_list[0];
+        let command_table_base = amc_alloc_physical_range(0x1000);
+        command_header0.set_command_table_desc_base(command_table_base.phys as u64);
+
         let mut word0 = &mut command_header0.word0;
         // Command FIS length (in sizeof(u32) increments)
-        word0.set_command_fis_len(5);
-        //word0.set_write(true);
-
-        println!(
-            "Bytecount {} before sleep",
-            command_header0.phys_region_desc_byte_count
+        assert_eq!(mem::size_of::<HostToDeviceFIS>() / mem::size_of::<u32>(), 5);
+        word0.set_command_fis_len(
+            (mem::size_of::<HostToDeviceFIS>() / mem::size_of::<u32>()) as u32,
         );
+        word0.set_phys_region_desc_table_len(1);
+        word0.set_clear_busy_upon_r_ok(true);
 
-        let command_table_base = amc_alloc_physical_range(0x1000);
-        command_header0.command_table_desc_base = command_table_base.phys as u32;
-        command_header0.command_table_desc_base_upper = 0;
-
-        let command_fis = {
-            let ptr = command_table_base.virt as *mut HostToDeviceFIS;
+        let phys_region_descriptor0 = {
+            let ptr = (command_table_base.virt + 0x80) as *mut PhysRegionDescriptor;
             unsafe { &mut *ptr }
         };
-        let command_fis_as_u8 = {
-            let ptr = command_table_base.virt as *mut u8;
-            let slice = core::ptr::slice_from_raw_parts_mut(ptr, 5 * 4);
-            unsafe { &mut *slice }
-        };
-        command_fis_as_u8[0] = 0x27;
-        command_fis_as_u8[1] = 0b10000000;
-        command_fis_as_u8[2] = 0xec;
+        phys_region_descriptor0.set_interrupt_on_completion(true);
+        phys_region_descriptor0.set_byte_count(0x1ff);
+        let data_base_address = amc_alloc_physical_range(0x1000);
+        phys_region_descriptor0.set_data_base_address(data_base_address.phys as u64);
 
-        //unsafe { libc::usleep(1000) };
+        println!("Data base: 0x{:08x}", data_base_address.phys);
 
-        println!(
-            "Bytecount {} after sleep",
-            command_header0.phys_region_desc_byte_count
-        );
+        let h2d_fis = HostToDeviceFIS::from_virt_addr(command_table_base.virt);
+        h2d_fis.set_command(CommandOpcode::IdentifyDevice);
+        h2d_fis.set_is_command(true);
 
         // Issue the command
         println!("Issuing command...");
-        /*
-        self.port_block
-            .command_issue
-            .view_bits_mut::<Lsb0>()
-            .set(0, true);
-            */
-        println!(
-            "Before issue, interrupt status: {}",
-            self.port_block.interrupt_status
-        );
         self.port_block.command_issue |= 1;
-        println!("Set command issue bit!");
-
-        //unsafe { libc::usleep(1000) };
-
-        println!(
-            "After sleep, interrupt status: {}",
-            self.port_block.interrupt_status
-        );
     }
 
     fn _set_command_and_status_bit(&mut self, bit_idx: usize, enabled: bool) {
