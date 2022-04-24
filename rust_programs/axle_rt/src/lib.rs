@@ -2,6 +2,7 @@
 #![feature(start)]
 #![feature(default_alloc_error_handler)]
 #![feature(slice_ptr_get)]
+#![feature(format_args_nl)]
 #![feature(panic_info_message)]
 #![feature(stmt_expr_attributes)]
 
@@ -25,6 +26,40 @@ macro_rules! printf {
         for x in s.split('\0') {
             let log = axle_rt::cstr_core::CString::new(x).expect("printf format failed");
             unsafe { axle_rt::libc::printf(log.as_ptr() as *const u8); }
+        }
+    })
+}
+
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ({
+        let s = alloc::fmt::format(core::format_args!($($arg)*));
+        for x in s.split('\0') {
+            let log = axle_rt::cstr_core::CString::new(x).expect("printf format failed");
+            unsafe { axle_rt::libc::printf(log.as_ptr() as *const u8); }
+        }
+    })
+}
+
+#[macro_export]
+macro_rules! println {
+    () => ($crate::printf!("\n"));
+    ($($arg:tt)*) => ({
+        let s = alloc::fmt::format(core::format_args_nl!($($arg)*));
+        for x in s.split('\0') {
+            let log = axle_rt::cstr_core::CString::new(x).expect("printf format failed");
+            unsafe { axle_rt::libc::printf(log.as_ptr() as *const u8); }
+        }
+    })
+}
+
+macro_rules! internal_println {
+    () => ($crate::printf!("\n"));
+    ($($arg:tt)*) => ({
+        let s = alloc::fmt::format(core::format_args_nl!($($arg)*));
+        for x in s.split('\0') {
+            let log = ::cstr_core::CString::new(x).expect("printf format failed");
+            unsafe { ::libc::printf(log.as_ptr() as *const u8); }
         }
     })
 }
@@ -186,12 +221,42 @@ pub unsafe fn amc_message_send_untyped(to_service: &str, message: *const u8, siz
 }
 
 #[cfg(target_os = "axle")]
+pub fn adi_register_driver(this_service: &str, irq: u32) {
+    unsafe {
+        ::libc::adi_register_driver(
+            CString::new(this_service)
+                .expect("adi_register_driver failed")
+                .as_ptr() as *const u8,
+            irq,
+        );
+    }
+}
+
+#[cfg(target_os = "axle")]
+pub fn adi_event_await(irq: u32) -> bool {
+    unsafe { ::libc::adi_event_await(irq) }
+}
+
+#[cfg(target_os = "axle")]
+pub fn adi_send_eoi(irq: u32) {
+    unsafe { ::libc::adi_send_eoi(irq) }
+}
+
+#[cfg(target_os = "axle")]
 #[panic_handler]
 fn panic(panic_info: &PanicInfo<'_>) -> ! {
     let msg = match panic_info.message() {
         Some(s) => format!("{}", s),
         None => "Box<Any>".to_string(),
     };
+
+    if let Some(location) = panic_info.location() {
+        internal_println!(
+            "panic occurred in file '{}' at line {}",
+            location.file(),
+            location.line(),
+        );
+    }
 
     let c_to_print = CString::new(msg).expect("CString::new failed");
     unsafe {
