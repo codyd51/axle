@@ -271,6 +271,27 @@ static void _amc_core_map_physical_range(const char* source_service, void* buf, 
     amc_message_send__from_core(source_service, &resp, sizeof(resp));
 }
 
+static void _amc_core_alloc_physical_range(const char* source_service, void* buf, uint32_t buf_size) {
+    amc_service_t* source = amc_service_with_name(source_service);
+    assert(source != NULL, "Failed to find service that sent the message...");
+
+    amc_alloc_physical_range_request_t* req = (amc_alloc_physical_range_request_t*)buf;
+
+    printf("[AMC] %s allocating memory mapping of size 0x%p\n", source->name, req->size);
+
+    // TODO(PT): If we need more than a page, modify this such that we ensure we get a contiguous region
+    // from the PMM
+    assert(req->size == PAGE_SIZE, "Allocating a virt/phys mapping larger than a page is unsupported, need to modify to get contiguous PMM regions");
+    uintptr_t virt_base = vas_alloc_range(vas_get_active_state(), 0x7d0000000000, req->size, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
+    uintptr_t phys_base = vas_get_phys_frame(vas_get_active_state(), virt_base);
+    printf("\tAllocated physical [0x%p - 0x%p], virtual [0x%p - 0x%p]\n", phys_base, phys_base + req->size, virt_base, virt_base + req->size);
+
+    amc_alloc_physical_range_response_t resp = {0};
+    resp.event = AMC_ALLOC_PHYSICAL_RANGE_RESPONSE;
+    resp.phys_base = phys_base;
+    resp.virt_base = virt_base;
+    amc_message_send__from_core(source_service, &resp, sizeof(resp));
+}
 
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size) {
     //printf("Message to core from %s\n", source_service);
@@ -314,6 +335,9 @@ void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf
     }
     else if (u32buf[0] == AMC_MAP_PHYSICAL_RANGE_REQUEST) {
         _amc_core_map_physical_range(source_service, buf, buf_size);
+    }
+    else if (u32buf[0] == AMC_ALLOC_PHYSICAL_RANGE_REQUEST) {
+        _amc_core_alloc_physical_range(source_service, buf, buf_size);
     }
     else {
         printf("Unknown message: %d\n", u32buf[0]);

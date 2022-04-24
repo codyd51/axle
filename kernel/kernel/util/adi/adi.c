@@ -120,6 +120,7 @@ bool adi_event_await(uint32_t irq) {
 
 void adi_send_eoi(uint32_t irq) {
     adi_driver_t* driver = _adi_drivers + irq;
+    assert(driver->pending_irq_count > 0, "adi_send_eoi without any interrupt to ack");
     driver->pending_irq_count -= 1;
     pic_signal_end_of_interrupt(irq);
 }
