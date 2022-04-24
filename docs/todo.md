@@ -289,3 +289,13 @@ Use write-combining for framebuffer
 Include a UUID in every request/response pair, and have a helper that verifies the UUID
 
 Some kind of trace/logging library that automatically indents log entries belonging to a parent trace
+
+Switch to pyinvoke for build tooling
+
+Userspace amc message send application 
+    Type a service name, type u32 field values, send button
+    Todo: to trigger test behavior, now I need to add a quick hack to awm like 'send this message on key X down'
+
+Desired boot resolution should be in a config file
+    Maybe not, because it would need to be read by the bootloader?
+    Perhaps the boot loader could depend on the fs lib?

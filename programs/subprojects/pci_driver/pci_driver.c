@@ -20,7 +20,7 @@
 #include "pci_driver.h"
 #include "pci_messages.h"
 
-uint16_t pci_config_read_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
+uint32_t pci_config_read_u32(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
     // https://wiki.osdev.org/Pci#Enumerating_PCI_Buses
     uint32_t lbus  = (uint32_t)bus;
     uint32_t lslot = (uint32_t)slot;
@@ -37,10 +37,16 @@ uint16_t pci_config_read_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t o
     outl(PCI_CONFIG_ADDRESS_PORT, address);
 	// Read in the data
     // (offset & 2) * 8) = 0 will choose the first word of the 32 bits register
-    return (uint16_t)((inl(0xCFC) >> ((offset & 2) * 8)) & 0xffff);
+    return inl(0xCFC);
 }
 
-void pci_config_write_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint32_t value) {
+uint16_t pci_config_read_u16(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
+    uint32_t response = pci_config_read_u32(bus, slot, func, offset);
+    // (offset & 2) * 8) = 0 will choose the first word of the 32 bits register
+    return (uint16_t)((response >> ((offset & 2) * 8)) & 0xffff);
+}
+
+void pci_config_write_u32(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint32_t value) {
     // https://wiki.osdev.org/Pci#Enumerating_PCI_Buses
     // http://www.jbox.dk/sanos/source/sys/krnl/pci.c.html
     uint32_t lbus  = (uint32_t)bus;
@@ -129,12 +135,12 @@ static pci_dev_t* pci_find_devices() {
     for (int bus = 0; bus < 256; bus++) {
         for (int device_slot = 0; device_slot < 32; device_slot++) {
             // Is there a device plugged into this slot?
-            uint16_t vendor_id = pci_config_read_word(bus, device_slot, 0, 0);
+            uint16_t vendor_id = pci_config_read_u16(bus, device_slot, 0, 0);
             if (vendor_id == PCI_VENDOR_NONE) {
                 continue;
             }
 
-            uint16_t tmp = pci_config_read_word(bus, device_slot, 0, 0x0e);
+            uint16_t tmp = pci_config_read_u16(bus, device_slot, 0, 0x0e);
             uint8_t header_type = tmp & 0xff;
 
             // Every PCI device is required to at least provide function "0"
@@ -147,7 +153,7 @@ static pci_dev_t* pci_find_devices() {
             }
 
             for (int function = 0; function < function_count_to_poll; function++) {
-                uint16_t device_id = pci_config_read_word(bus, device_slot, function, 2);
+                uint16_t device_id = pci_config_read_u16(bus, device_slot, function, 2);
                 // Did we find a device?
                 if (device_id == PCI_DEVICE_ID_NONE) {
                     // Function 0 should always work
@@ -159,7 +165,7 @@ static pci_dev_t* pci_find_devices() {
                 const char* device_name = NULL;
                 pci_find_vendor_and_device_names(vendor_id, device_id, &vendor_name, &device_name);
 
-                tmp = pci_config_read_word(bus, device_slot, function, 0x0a);
+                tmp = pci_config_read_u16(bus, device_slot, function, 0x0a);
                 uint8_t device_class = (tmp >> 8) & 0xff;
                 uint8_t device_subclass = tmp & 0xff;
                 const char* device_class_name = NULL;
@@ -226,19 +232,21 @@ static Rect _info_text_view_sizer(gui_text_view_t* tv, Size window_size) {
 static void _handle_amc_message(amc_message_t* msg) {
     const char* source_service = msg->source;
     // If we're sent a message from someone other than a PCI device driver, ignore it
+    /*
     if (!is_service_pci_device_driver(source_service)) {
         return;
     }
+    */
     
-    printf("PCI request from %s\n", source_service);
     uint32_t message_id = amc_msg_u32_get_word(msg, 0);
+    printf("PCI request from %s: %d\n", source_service, message_id);
     if (message_id == PCI_REQUEST_READ_CONFIG_WORD) {
         uint32_t bus = amc_msg_u32_get_word(msg, 1);
         uint32_t device_slot = amc_msg_u32_get_word(msg, 2);
         uint32_t function = amc_msg_u32_get_word(msg, 3);
         uint32_t config_word_offset = amc_msg_u32_get_word(msg, 4);
         printf("Request to get config word [%ld,%ld,%ld] @ %ld\n", bus, device_slot, function, config_word_offset);
-        uint32_t config_word = pci_config_read_word(bus, device_slot, function, config_word_offset);
+        uint32_t config_word = (uint32_t)pci_config_read_u32(bus, device_slot, function, config_word_offset);
         amc_msg_u32_2__send(source_service, PCI_RESPONSE_READ_CONFIG_WORD, config_word);
     }
     else if (message_id == PCI_REQUEST_WRITE_CONFIG_WORD) {
@@ -248,7 +256,7 @@ static void _handle_amc_message(amc_message_t* msg) {
         uint32_t config_word_offset = amc_msg_u32_get_word(msg, 4);
         uint32_t new_value = amc_msg_u32_get_word(msg, 5);
         printf("Request to write config word [%ld,%ld,%ld] @ %ld to 0x%08lx\n", bus, device_slot, function, config_word_offset, new_value);
-        pci_config_write_word(bus, device_slot, function, config_word_offset, new_value);
+        pci_config_write_u32(bus, device_slot, function, config_word_offset, new_value);
         amc_msg_u32_1__send(source_service, PCI_RESPONSE_WRITE_CONFIG_WORD);
     }
 }
