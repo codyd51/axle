@@ -196,6 +196,39 @@ static pci_dev_t* pci_find_devices() {
 				current_dev->vendor_name  = vendor_name;
 				current_dev->device_name  = device_name;
 
+                printf("PCI device (%02d,%02d,%02d): %s %s, header type %d\n", bus, device_slot, function, vendor_name, device_name, header_type);
+                for (int bar = 0; bar < 7; bar++) {
+                    uint16_t bar_off = (0x10 + (bar * 4));
+                    uint32_t bar_value = pci_config_read_u32(bus, device_slot, function, bar_off);
+
+                    if (bar_value) {
+                        // We've got the start of the BAR. To get the size of the range, write all 1's, 
+                        // then read back the bits which the device reserved for internal use
+                        pci_config_write_u32(bus, device_slot, function, bar_off, 0xffffffff);
+                        uint32_t response = pci_config_read_u32(bus, device_slot, function, bar_off);
+                        // Restore the original BAR value
+                        pci_config_write_u32(bus, device_slot, function, bar_off, bar_value);
+
+                        // Decode the response
+                        uint32_t mem_size = (~response) + 1;
+                        //printf("Response %08x, mem_size %08x\n", response, mem_size);
+
+                        // If the LSB of the BAR is set, this BAR is for IO ports
+                        // Ref: https://stackoverflow.com/questions/68077700
+                        if (bar_value & 0b1) {
+                            // Bit 1 is also reserved
+                            uint16_t bar_addr = bar_value & ~(0b11);
+                            printf("\tBAR %d: I/O @ 0x%04x - 0x%04x\n", bar, bar_addr, bar_addr + mem_size);
+                        }
+                        else {
+                            // TODO(PT): Interpret bits 1-2 as a type field, and bit 3 as prefetchable
+                            // Ref: https://wiki.osdev.org/PCI
+                            uint32_t bar_addr = bar_value;
+                            printf("\tBAR %d: Memory @ 0x%08x - 0x%08x\n", bar, bar_addr, bar_addr + mem_size);
+                        }
+                    }
+                }
+
 				prev_dev = current_dev;
             }
         }
