@@ -17,7 +17,7 @@ new file mode 100644
 index 000000000..3426fe0e6
 --- /dev/null
 +++ b/src/axle/mod.rs
-@@ -0,0 +1,91 @@
+@@ -0,0 +1,94 @@
 +// libc port for axle
 +//
 +
@@ -103,6 +103,9 @@ index 000000000..3426fe0e6
 +    pub fn amc_has_message() -> bool;
 +    pub fn amc_has_message_from(from_service: *const u8) -> bool;
 +    pub fn usleep(ms: u64) -> ();
++    pub fn adi_register_driver(driver_name: *const u8, irq: u32) -> ();
++    pub fn adi_event_await(irq: u32) -> bool;
++    pub fn adi_send_eoi(irq: u32) -> ();
 +}
 +
 +#[link(name = "c")]
