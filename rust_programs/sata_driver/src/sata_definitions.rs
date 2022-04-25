@@ -1,4 +1,10 @@
+use core::ptr::write_volatile;
+
 use alloc::format;
+use axle_rt::{
+    core_commands::{amc_alloc_physical_range, PhysRangeMapping},
+    println,
+};
 use bitvec::prelude::*;
 
 type AhciGlobalHostControlBits = BitArray<u32, Lsb0>;
@@ -17,6 +23,15 @@ pub struct AhciGenericHostControlBlock {
     pub enclosure_management_control: u32,
     pub host_capabilities_extended: u32,
     pub bios_os_handoff_control_and_status: u32,
+}
+
+impl AhciGenericHostControlBlock {
+    pub fn clear_interrupt_status_mask(&mut self) {
+        // Clear the top level ports-with-interrupts-to-service mask
+        unsafe {
+            write_volatile(&raw mut (*self).interrupt_status, self.interrupt_status);
+        }
+    }
 }
 
 #[repr(C)]
@@ -41,6 +56,15 @@ pub struct AhciPortBlock {
     pub switching_control: u32,
     pub deice_sleep: u32,
     // Reserved & vendor specific fields here
+}
+
+impl AhciPortBlock {
+    pub fn clear_interrupt_status_mask(&mut self) {
+        // Clear the port's interrupts-to-service mask
+        unsafe {
+            write_volatile(&raw mut (*self).interrupt_status, self.interrupt_status);
+        }
+    }
 }
 
 pub type AhciCommandHeaderWord0Bits2 = BitArray<u32, Lsb0>;
@@ -149,6 +173,7 @@ impl AhciCommandHeader {
 }
 
 #[repr(u8)]
+#[derive(Debug)]
 pub enum CommandOpcode {
     IdentifyDevice = 0xEC,
 }
@@ -185,81 +210,16 @@ impl HostToDeviceFIS {
     }
 }
 
-/*
 #[repr(C)]
 #[derive(Debug)]
-pub struct HostToDeviceFIS {
-    // TODO(PT): Use the bitfield crate to encode the packed attributes in this field?
-    pub word0: u32,
-    pub word1: u32,
-    pub word2: u32,
-    pub word3: u32,
-    pub word4: u32,
-}
-
-impl HostToDeviceFIS {}
-*/
-
-/*
-pub struct AmcMessage<'a, T: ?Sized> {
-    source: &'a str,
-    dest: &'a str,
-    body: &'a T,
-}
-
-impl<T: ?Sized> AmcMessage<'_, T> {
-    pub fn source(&self) -> &str {
-        self.source
-    }
-    pub fn dest(&self) -> &str {
-        self.source
-    }
-    pub fn body(&self) -> &T {
-        self.body
-    }
-}
-    /*
-    let msg_body_slice = core::ptr::slice_from_raw_parts(
-        core::ptr::addr_of!((*msg_ptr).body),
-        (*msg_ptr).len as usize,
-    );
-    let msg_body_as_ref = &*(msg_body_slice as *const [u8]);
-
-    Ok(AmcMessage {
-        source: source_without_null_bytes,
-        dest: dest_without_null_bytes,
-        body: msg_body_as_ref,
-    })
-    */
-*/
-
-#[repr(C)]
-#[derive(Debug)]
-pub struct CommandFIS {
-    // TODO(PT): Use the bitfield crate to encode the packed attributes in this field?
-    pub word0: u32,
-    pub word1: u32,
-    pub word2: u32,
-    pub word3: u32,
-    pub word4: u32,
-}
-
-#[repr(C)]
-#[derive(Debug)]
-pub struct CommandTable {
-    pub command_frame_info_struct: CommandFIS,
-}
-
-#[repr(C)]
-#[derive(Debug)]
-pub struct PhysRegionDescriptor {
+pub struct RawPhysRegionDescriptor {
     data_base_address: u32,
     data_base_address_upper: u32,
     reserved: u32,
     pub word3: BitArray<u32, Lsb0>,
 }
 
-impl PhysRegionDescriptor {
+impl RawPhysRegionDescriptor {
     pub fn set_data_base_address(&mut self, addr: u64) {
         assert!(addr & 0b1 == 0, "Data base address must be byte-aligned");
 
@@ -284,11 +244,12 @@ impl PhysRegionDescriptor {
     }
 
     pub fn set_byte_count(&mut self, value: u32) {
+        // LSB of stored byte count must always be 1 to indicate an even byte count
+        // Therefore, ensure the input is even and more than 1, then subtract one from it
         assert!(
-            value & 0b1 == 1,
-            "LSB of byte count must always be 1 to indicate even byte count"
+            value % 2 == 0 && value >= 2,
+            "Value must be at least 2 and even",
         );
-
-        self.word3[0..21].store::<u32>(value)
+        self.word3[0..21].store::<u32>(value - 1)
     }
 }

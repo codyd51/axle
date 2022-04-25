@@ -1,5 +1,6 @@
 #![no_std]
 #![feature(start)]
+#![feature(raw_ref_op)]
 #![feature(slice_ptr_get)]
 #![feature(format_args_nl)]
 #![feature(default_alloc_error_handler)]
@@ -21,13 +22,14 @@ use bitvec::prelude::*;
 use axle_rt::{
     adi_event_await, adi_register_driver, adi_send_eoi, amc_has_message, amc_message_await_untyped,
     core_commands::{
-        amc_alloc_physical_range, amc_map_physical_range, AmcMapPhysicalRangeRequest, PhysVirtPair,
+        amc_alloc_physical_range, amc_map_physical_range, AmcMapPhysicalRangeRequest,
+        PhysRangeMapping, PhysVirtPair,
     },
     ContainsEventField, ExpectsEventField,
 };
 use axle_rt_derive::ContainsEventField;
 use core::{cell::RefCell, cmp, mem};
-use sata_definitions::{AhciCommandHeader, AhciPortBlock};
+use sata_definitions::{AhciCommandHeader, AhciPortBlock, RawPhysRegionDescriptor};
 
 use axle_rt::{
     amc_message_await, amc_message_send, amc_register_service, printf, println, AmcMessage,
@@ -37,16 +39,94 @@ use crate::{
     pci_messages::{pci_config_word_read, pci_config_word_write, AHCI_INTERRUPT_VECTOR},
     sata_definitions::{
         AhciCommandHeaderWord0, AhciCommandHeaderWord0Bits2, AhciGenericHostControlBlock,
-        CommandOpcode, CommandTable, HostToDeviceFIS, PhysRegionDescriptor,
+        CommandOpcode, HostToDeviceFIS,
     },
 };
+
+#[derive(Debug)]
+struct ActiveCommand {
+    command_slot: usize,
+    command_type: CommandOpcode,
+    command_table_buf: PhysRangeMapping,
+    phys_region_descriptors: Vec<PhysRegionDescriptor>,
+}
+
+impl ActiveCommand {
+    fn new(command_slot: usize, command_type: CommandOpcode) -> Self {
+        let command_table_buf = amc_alloc_physical_range(0x1000);
+        Self {
+            command_slot,
+            command_type,
+            command_table_buf,
+            phys_region_descriptors: vec![],
+        }
+    }
+
+    fn complete(&self) {
+        match self.command_type {
+            CommandOpcode::IdentifyDevice => {
+                println!("Interpreting results of IDENTIFY DEVICE...");
+                let identify_device_block_as_u8 = {
+                    let region = &self.phys_region_descriptors[0].phys_region_buf;
+                    let slice =
+                        core::ptr::slice_from_raw_parts(region.addr.virt as *const u8, region.size);
+                    unsafe { &*(slice as *const [u8]) }
+                };
+                /*
+                let identify_device_block_buf =
+                    &active_cmd.phys_region_descriptors[0].phys_region_buf;
+                let identify_device_block_slice = core::ptr::slice_from_raw_parts(
+                    identify_device_block_buf.addr.virt as *const u8,
+                    identify_device_block_buf.size,
+                );
+                let identify_device_block =
+                    unsafe { &*(identify_device_block_slice as *const [u8]) };
+                    */
+                println!(
+                    "IDENTIFY serial number: {:?}",
+                    &identify_device_block_as_u8[20..29]
+                );
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct PhysRegionDescriptor {
+    raw_descriptor: &'static mut RawPhysRegionDescriptor,
+    phys_region_buf: PhysRangeMapping,
+}
+
+impl PhysRegionDescriptor {
+    pub fn from_virt_addr(addr: usize) -> Self {
+        let ptr = addr as *mut RawPhysRegionDescriptor;
+        let raw_desc = unsafe { &mut *ptr };
+
+        raw_desc.set_interrupt_on_completion(true);
+
+        let phys_region_buf_size = 0x1000;
+        println!("Allocating PhysRegionDescriptor buf");
+        let phys_region_buf = amc_alloc_physical_range(phys_region_buf_size);
+
+        raw_desc.set_byte_count(phys_region_buf_size as u32);
+        raw_desc.set_data_base_address(phys_region_buf.addr.phys as u64);
+        println!("Phys region data base: {:016x}", phys_region_buf.addr.phys);
+
+        PhysRegionDescriptor {
+            raw_descriptor: raw_desc,
+            phys_region_buf,
+        }
+    }
+}
 
 struct AhciPortDescription {
     port_index: u8,
     port_block: &'static mut AhciPortBlock,
-    command_list_region: PhysVirtPair,
+    command_list_region: PhysRangeMapping,
     command_list: &'static mut [AhciCommandHeader],
-    frame_info_struct_recv_region: PhysVirtPair,
+    frame_info_struct_recv_region: PhysRangeMapping,
+
+    active_commands: Vec<ActiveCommand>,
 }
 
 impl AhciPortDescription {
@@ -80,16 +160,16 @@ impl AhciPortDescription {
         // And detect if the HW supports 64 bit addressing too
         // For now, error out if axle gives us a too-high phys addr
         assert!(
-            command_list_region.phys < (u32::MAX as usize),
+            command_list_region.addr.phys < (u32::MAX as usize),
             "Kernel handed out a too-big address",
         );
         assert!(
-            frame_info_struct_recv_region.phys < (u32::MAX as usize),
+            frame_info_struct_recv_region.addr.phys < (u32::MAX as usize),
             "Kernel handed out a too-big address",
         );
 
         let command_list = {
-            let ptr = command_list_region.virt as *mut AhciCommandHeader;
+            let ptr = command_list_region.addr.virt as *mut AhciCommandHeader;
             let slice = core::ptr::slice_from_raw_parts_mut(ptr, 32);
             unsafe { &mut *slice }
         };
@@ -100,6 +180,7 @@ impl AhciPortDescription {
             command_list_region,
             command_list,
             frame_info_struct_recv_region,
+            active_commands: vec![],
         };
 
         // Now, initialize the command-list and FIS-receive buffers
@@ -115,14 +196,15 @@ impl AhciPortDescription {
         // > and software must wait for the FR bit in this register to be cleared.
         this.wait_until_fis_receive_completes();
 
-        this.port_block.command_list_base = this.command_list_region.phys as u32;
+        this.port_block.command_list_base = this.command_list_region.addr.phys as u32;
         this.port_block.command_list_base_upper = 0;
-        this.port_block.frame_info_struct_base = this.frame_info_struct_recv_region.phys as u32;
+        this.port_block.frame_info_struct_base =
+            this.frame_info_struct_recv_region.addr.phys as u32;
         this.port_block.frame_info_struct_base_upper = 0;
 
         println!(
             "FIS at virt 0x{:16x}",
-            this.frame_info_struct_recv_region.virt
+            this.frame_info_struct_recv_region.addr.virt
         );
 
         println!(
@@ -151,8 +233,10 @@ impl AhciPortDescription {
 
     fn send_command(&mut self) {
         let command_header0 = &mut self.command_list[0];
-        let command_table_base = amc_alloc_physical_range(0x1000);
-        command_header0.set_command_table_desc_base(command_table_base.phys as u64);
+        let mut active_command = ActiveCommand::new(0, CommandOpcode::IdentifyDevice);
+        println!("Got active command");
+        command_header0
+            .set_command_table_desc_base(active_command.command_table_buf.addr.phys as u64);
 
         let mut word0 = &mut command_header0.word0;
         // Command FIS length (in sizeof(u32) increments)
@@ -160,23 +244,27 @@ impl AhciPortDescription {
         word0.set_command_fis_len(
             (mem::size_of::<HostToDeviceFIS>() / mem::size_of::<u32>()) as u32,
         );
-        word0.set_phys_region_desc_table_len(1);
         word0.set_clear_busy_upon_r_ok(true);
 
-        let phys_region_descriptor0 = {
-            let ptr = (command_table_base.virt + 0x80) as *mut PhysRegionDescriptor;
-            unsafe { &mut *ptr }
-        };
-        phys_region_descriptor0.set_interrupt_on_completion(true);
-        phys_region_descriptor0.set_byte_count(0x1ff);
-        let data_base_address = amc_alloc_physical_range(0x1000);
-        phys_region_descriptor0.set_data_base_address(data_base_address.phys as u64);
+        let phys_region_count = 1;
+        word0.set_phys_region_desc_table_len(phys_region_count as u32);
 
-        println!("Data base: 0x{:08x}", data_base_address.phys);
+        for region_idx in 0..phys_region_count {
+            let phys_region_descriptor = PhysRegionDescriptor::from_virt_addr(
+                active_command.command_table_buf.addr.virt
+                    + 0x80
+                    + (mem::size_of::<PhysRegionDescriptor>() * region_idx),
+            );
+            active_command
+                .phys_region_descriptors
+                .push(phys_region_descriptor);
+        }
 
-        let h2d_fis = HostToDeviceFIS::from_virt_addr(command_table_base.virt);
+        let h2d_fis = HostToDeviceFIS::from_virt_addr(active_command.command_table_buf.addr.virt);
         h2d_fis.set_command(CommandOpcode::IdentifyDevice);
         h2d_fis.set_is_command(true);
+
+        self.active_commands.push(active_command);
 
         // Issue the command
         println!("Issuing command...");
@@ -223,6 +311,68 @@ impl AhciPortDescription {
             unsafe { libc::usleep(1) };
         }
     }
+
+    fn handle_interrupt(&mut self) {
+        let block = &mut self.port_block;
+        let port_interrupt_status = block.interrupt_status;
+        block.clear_interrupt_status_mask();
+        println!("Device interrupt status: {:032b}", port_interrupt_status);
+
+        // Any error bits set?
+        let error_bits = [04, 23, 24, 26, 27, 28, 29, 30];
+        for error_bit in error_bits {
+            if *port_interrupt_status
+                .view_bits::<Lsb0>()
+                .get(error_bit)
+                .unwrap()
+            {
+                todo!("Handle port error");
+            }
+        }
+
+        // Check which command has just completed
+        self.active_commands.retain(|active_cmd| {
+            // Is the associated 'command running' bit now unset?
+            let active_command_completed = block
+                .command_issue
+                .view_bits::<Lsb0>()
+                .get(active_cmd.command_slot)
+                .unwrap()
+                == false;
+
+            if active_command_completed {
+                println!("Detected completed command! {}", active_cmd.command_slot);
+                active_cmd.complete();
+            }
+
+            !active_command_completed
+        });
+    }
+}
+
+fn handle_interrupt(
+    generic_host_control_block: &mut AhciGenericHostControlBlock,
+    active_ports: &mut BTreeMap<usize, AhciPortDescription>,
+) {
+    println!("AHCI interrupt");
+
+    // Ports with an interrupt to service will have a corresponding bit set in the IS register
+    let port_indexes_with_interrupt: Vec<usize> = generic_host_control_block
+        .interrupt_status
+        .view_bits::<Lsb0>()
+        .iter_ones()
+        .collect();
+
+    // Now that we've stored the ports with interrupts to service,
+    // clear the top-level interrupts-to-service mask.
+    generic_host_control_block.clear_interrupt_status_mask();
+
+    for port_idx_with_interrupt in &port_indexes_with_interrupt {
+        let port_desc_with_interrupt = active_ports.get_mut(&port_idx_with_interrupt).unwrap();
+        port_desc_with_interrupt.handle_interrupt();
+    }
+
+    adi_send_eoi(AHCI_INTERRUPT_VECTOR);
 }
 
 #[start]
@@ -232,10 +382,6 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
     adi_register_driver("com.axle.sata_driver", AHCI_INTERRUPT_VECTOR);
 
     println!("SATA driver running!");
-    unsafe {
-        libc::usleep(1000);
-    }
-    println!("SATA driver slept!");
 
     println!("Enabling bus mastering bit...");
     let command_register_off = 0x04;
@@ -285,12 +431,13 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
         generic_host_control_block.interrupt_status
     );
 
+    // AHCI enable bit (as opposed to legacy communication)
     generic_host_control_block.global_host_control.set(31, true);
 
     // Detect in-use AHCI ports. From the spec:
     // > Port Implemented (PI): This register is bit significant.
     // If a bit is set to '1', the corresponding port is available for software to use.
-    let mut active_ports: Vec<AhciPortDescription> = vec![];
+    let mut active_ports: BTreeMap<usize, AhciPortDescription> = BTreeMap::new();
     for bit_idx in 0..32 {
         if generic_host_control_block
             .ports_implemented
@@ -322,8 +469,15 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
                     // Ref: https://forum.osdev.org/viewtopic.php?t=37474&p=311133
                     if port_block.signature == 0x00000101 {
                         println!("AHCI port {bit_idx} has a SATA drive connected to it!");
+                        //port_block.interrupt_status = 1;
+                        println!(
+                            "Device interrupt status: {:032b} {:08x}",
+                            port_block.interrupt_status, port_block.interrupt_status
+                        );
+                        // Write-clear active interrupts
                         // Construct a description of this port
-                        active_ports.push(AhciPortDescription::new(bit_idx as u8, port_block));
+                        active_ports
+                            .insert(bit_idx, AhciPortDescription::new(bit_idx as u8, port_block));
                     }
                 }
             }
@@ -334,7 +488,7 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
     generic_host_control_block.interrupt_status = 0xffffffff;
 
     // Enable interrupts in each port
-    for port in &mut active_ports {
+    for (_, port) in &mut active_ports {
         port.port_block.interrupt_enable = 0xffffffff;
     }
 
@@ -346,28 +500,11 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
     //  registers from causing an interrupt to be asserted.
     generic_host_control_block.global_host_control.set(1, true);
 
-    //active_ports[0].send_command();
-    //loop {}
-    println!("entering");
-
     loop {
-        println!("calling adi_event_await");
         let awoke_for_interrupt = adi_event_await(AHCI_INTERRUPT_VECTOR);
-        println!("awoke_for_interrupt {awoke_for_interrupt}");
-        if (awoke_for_interrupt) {
-            println!("************ AHCI interrupt!");
-
-            for port_desc in &active_ports {
-                let block = &port_desc.port_block;
-                println!(
-                    "Device interrupt status: {:32b} {:08x}",
-                    block.interrupt_status, block.interrupt_status
-                );
-            }
-
-            adi_send_eoi(AHCI_INTERRUPT_VECTOR);
+        if awoke_for_interrupt {
+            handle_interrupt(generic_host_control_block, &mut active_ports);
         } else {
-            //let amc_message_await(None);
             while amc_has_message(None) {
                 println!("Consuming message...");
                 unsafe {
@@ -375,7 +512,7 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
                 }
             }
             println!("Sending AHCI command FIS...");
-            let port_desc = &mut active_ports[0];
+            let port_desc = active_ports.get_mut(&0).unwrap();
             port_desc.send_command();
         }
     }
