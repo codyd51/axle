@@ -171,6 +171,23 @@ typedef struct amc_alloc_physical_range_response {
     uintptr_t virt_base;
 } amc_alloc_physical_range_response_t;
 
+/*
+Free a range allocated by AMC_ALLOC_PHYSICAL_RANGE_REQUEST
+*/
+
+#define AMC_FREE_PHYSICAL_RANGE_REQUEST 214
+#define AMC_FREE_PHYSICAL_RANGE_RESPONSE 214
+
+typedef struct amc_free_physical_range_request {
+    uint32_t event;
+    uintptr_t vaddr;
+    uintptr_t size;
+} amc_free_physical_range_request_t;
+
+typedef struct amc_free_physical_range_response {
+    uint32_t event;
+} amc_free_physical_range_response_t;
+
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size);
 
 #endif

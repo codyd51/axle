@@ -293,6 +293,20 @@ static void _amc_core_alloc_physical_range(const char* source_service, void* buf
     amc_message_send__from_core(source_service, &resp, sizeof(resp));
 }
 
+static void _amc_core_free_physical_range(const char* source_service, void* buf, uint32_t buf_size) {
+    amc_service_t* source = amc_service_with_name(source_service);
+    assert(source != NULL, "Failed to find service that sent the message...");
+
+    amc_free_physical_range_request_t* req = (amc_free_physical_range_request_t*)buf;
+
+    printf("[AMC] %s freeing memory mapping: 0x%p - 0x%p\n", source->name, req->vaddr, req->vaddr + req->size);
+    vas_free_range(vas_get_active_state(), req->vaddr, req->size);
+
+    amc_free_physical_range_response_t resp = {0};
+    resp.event = AMC_FREE_PHYSICAL_RANGE_RESPONSE;
+    amc_message_send__from_core(source_service, &resp, sizeof(resp));
+}
+
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size) {
     //printf("Message to core from %s\n", source_service);
     uint32_t* u32buf = (uint32_t*)buf;
@@ -338,6 +352,9 @@ void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf
     }
     else if (u32buf[0] == AMC_ALLOC_PHYSICAL_RANGE_REQUEST) {
         _amc_core_alloc_physical_range(source_service, buf, buf_size);
+    }
+    else if (u32buf[0] == AMC_FREE_PHYSICAL_RANGE_REQUEST) {
+        _amc_core_free_physical_range(source_service, buf, buf_size);
     }
     else {
         printf("Unknown message: %d\n", u32buf[0]);
