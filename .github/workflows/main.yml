@@ -63,6 +63,8 @@ jobs:
           python3 scripts/install_dependencies.py
           # Build userspace headers as the kernel depends on file_manager definitions
           python3 scripts/build_userspace_headers.py
+          # Build kernel headers as userspace programs depend on these
+          python3 scripts/build_kernel_headers.py
           # Rust libc depends on libutils, so ensure that's built first
           python3 scripts/build_meson_projects.py
           # Now we can build the Rust toolchain
