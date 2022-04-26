@@ -19,6 +19,7 @@ def build_meson_projects(only_build: Optional[List[str]] = None) -> None:
         run_and_check(["rm", "-rf", build_folder.as_posix()])
 
     if only_build:
+        cross_compile_config_path = generate_meson_cross_file_if_necessary()
         for subdir_name in only_build:
             subdir = programs_root / "subprojects" / subdir_name
             run_and_check(["meson", "build", "--cross-file", cross_compile_config_path.as_posix()], cwd=subdir)
