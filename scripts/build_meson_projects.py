@@ -1,11 +1,13 @@
 #!/usr/local/bin/python3
+import argparse
 from pathlib import Path
+from typing import List
 
 from build_utils import run_and_check
 from build_userspace_headers import generate_meson_cross_file_if_necessary, copy_userspace_headers
 
 
-def build_meson_projects() -> None:
+def build_meson_projects(only_build: List[str]) -> None:
     copy_userspace_headers()
 
     programs_root = Path(__file__).parents[1] / "programs"
@@ -21,9 +23,19 @@ def build_meson_projects() -> None:
         cross_compile_config_path = generate_meson_cross_file_if_necessary()
         run_and_check(["meson", "build", "--cross-file", cross_compile_config_path.as_posix()], cwd=programs_root)
 
-    run_and_check(["meson", "compile", "-C", "build"], cwd=programs_root)
-    run_and_check(["meson", "install", "-C", "build", "--only-changed"], cwd=programs_root)
+    if only_build:
+        for subdir_name in only_build:
+            subdir = programs_root / "subprojects" / subdir_name
+            run_and_check(["meson", "compile", "-C", "build"], cwd=subdir)
+            run_and_check(["meson", "install", "-C", "build", "--only-changed"], cwd=programs_root)
+    else:
+        run_and_check(["meson", "compile", "-C", "build"], cwd=programs_root)
+        run_and_check(["meson", "install", "-C", "build", "--only-changed"], cwd=programs_root)
 
 
 if __name__ == "__main__":
-    build_meson_projects()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--only_build", nargs="*", action="store")
+    args = parser.parse_args()
+
+    build_meson_projects(args.only_build)

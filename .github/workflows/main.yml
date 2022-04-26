@@ -51,6 +51,8 @@ jobs:
       - name: Build Rust toolchain
         shell: bash
         run: |
+          # We need to build libutils, since the rust libc links against it
+          python3 scripts/build_meson_projects.py --only_build libutils
           python3 scripts/build_rust_toolchain.py --rebuild_libc
 
       - name: Build OS image
