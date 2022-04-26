@@ -1,13 +1,13 @@
 #!/usr/local/bin/python3
 import argparse
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from build_utils import run_and_check
 from build_userspace_headers import generate_meson_cross_file_if_necessary, copy_userspace_headers
 
 
-def build_meson_projects(only_build: List[str]) -> None:
+def build_meson_projects(only_build: Optional[List[str]] = None) -> None:
     copy_userspace_headers()
 
     programs_root = Path(__file__).parents[1] / "programs"
