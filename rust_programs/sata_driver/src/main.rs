@@ -39,7 +39,7 @@ use crate::{
     pci_messages::{pci_config_word_read, pci_config_word_write, AHCI_INTERRUPT_VECTOR},
     sata_definitions::{
         AhciCommandHeaderWord0, AhciCommandHeaderWord0Bits2, AhciGenericHostControlBlock,
-        CommandOpcode, HostToDeviceFIS,
+        CommandOpcode, HostToDeviceFIS, IdentifyDeviceData,
     },
 };
 
@@ -72,6 +72,11 @@ impl ActiveCommand {
                         core::ptr::slice_from_raw_parts(region.addr.virt as *const u8, region.size);
                     unsafe { &*(slice as *const [u8]) }
                 };
+                let identify_block = {
+                    let region = &self.phys_region_descriptors[0].phys_region_buf;
+                    let ptr = region.addr.virt;
+                    unsafe { &*(ptr as *const IdentifyDeviceData) }
+                };
                 /*
                 let identify_device_block_buf =
                     &active_cmd.phys_region_descriptors[0].phys_region_buf;
@@ -86,6 +91,7 @@ impl ActiveCommand {
                     "IDENTIFY serial number: {:?}",
                     &identify_device_block_as_u8[20..29]
                 );
+                println!("IDENTIFY serial 2: {:?}", &identify_block.serial_number());
             }
         }
     }
@@ -516,8 +522,6 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
             port_desc.send_command();
         }
     }
-
-    loop {}
 
     0
 }

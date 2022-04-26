@@ -1,6 +1,7 @@
 use core::ptr::write_volatile;
 
-use alloc::format;
+use alloc::vec;
+use alloc::{format, string::String, vec::Vec};
 use axle_rt::{
     core_commands::{amc_alloc_physical_range, PhysRangeMapping},
     println,
@@ -251,5 +252,27 @@ impl RawPhysRegionDescriptor {
             "Value must be at least 2 and even",
         );
         self.word3[0..21].store::<u32>(value - 1)
+    }
+}
+
+// See ATA8-ACS, §7.16.7, Table 22 – IDENTIFY DEVICE data
+#[derive(Debug)]
+pub struct IdentifyDeviceData(BitArray<[u16; 256], Lsb0>);
+
+impl IdentifyDeviceData {
+    pub fn serial_number(&self) -> String {
+        // Words 10-19, LSB
+        let mut out = vec![];
+        'outer: for word in self.0.data[10..19].iter() {
+            let bytes = word.to_be_bytes();
+            for byte in bytes {
+                // Stop parsing once we hit a space character
+                if byte == 0x20 {
+                    break 'outer;
+                }
+                out.push(byte as char);
+            }
+        }
+        out.into_iter().collect()
     }
 }
