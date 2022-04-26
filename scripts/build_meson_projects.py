@@ -26,8 +26,9 @@ def build_meson_projects(only_build: List[str]) -> None:
     if only_build:
         for subdir_name in only_build:
             subdir = programs_root / "subprojects" / subdir_name
-            run_and_check(["meson", "compile"], cwd=subdir)
-            run_and_check(["meson", "install"], cwd=programs_root)
+            run_and_check(["meson", "build", "--cross-file", cross_compile_config_path.as_posix()], cwd=subdir)
+            run_and_check(["meson", "compile", "-C", "build"], cwd=subdir)
+            run_and_check(["meson", "install", "-C", "build"], cwd=subdir)
     else:
         run_and_check(["meson", "compile", "-C", "build"], cwd=programs_root)
         run_and_check(["meson", "install", "-C", "build", "--only-changed"], cwd=programs_root)

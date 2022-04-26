@@ -48,12 +48,14 @@ jobs:
           python3 scripts/build_os_toolchain.py
           echo "Toolchain built successfully"
       
-      # - name: Build Rust toolchain
-      #   shell: bash
-      #   run: |
-      #     # We need to build libutils, since the rust libc links against it
-      #    # python3 scripts/build_meson_projects.py --only_build libutils
-      #    python3 scripts/build_rust_toolchain.py --rebuild_libc
+      - name: Build Rust toolchain
+        shell: bash
+        run: |
+          # Build kernel headers as libutils depends on these
+          python3 scripts/build_kernel_headers.py
+          # We need to build libutils, since the rust libc links against it
+          python3 scripts/build_meson_projects.py --only_build libutils
+          python3 scripts/build_rust_toolchain.py --rebuild_libc
 
       - name: Build OS image
         shell: bash
@@ -63,12 +65,6 @@ jobs:
           python3 scripts/install_dependencies.py
           # Build userspace headers as the kernel depends on file_manager definitions
           python3 scripts/build_userspace_headers.py
-          # Build kernel headers as userspace programs depend on these
-          python3 scripts/build_kernel_headers.py
-          # Rust libc depends on libutils, so ensure that's built first
-          python3 scripts/build_meson_projects.py
-          # Now we can build the Rust toolchain
-          python3 scripts/build_rust_toolchain.py --rebuild_libc
           # Finally, compile the kernel and build the OS image
           python3 scripts/build_kernel.py --no_run
           # Run Rust tests
