@@ -52,9 +52,9 @@ jobs:
         shell: bash
         run: |
           # Build kernel headers as libutils depends on these
-          python3 scripts/build_kernel_headers.py
+          # python3 scripts/build_kernel_headers.py
           # We need to build libutils, since the rust libc links against it
-          python3 scripts/build_meson_projects.py --only_build libutils
+          # python3 scripts/build_meson_projects.py --only_build libutils
           python3 scripts/build_rust_toolchain.py --rebuild_libc
 
       - name: Build OS image

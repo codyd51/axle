@@ -110,7 +110,7 @@ index 000000000..3426fe0e6
 +
 +#[link(name = "c")]
 +#[link(name = "m")]
-+#[link(name = "utils")]
++//#[link(name = "utils")]
 +extern {}
 diff --git a/src/axle/x86_64.rs b/src/axle/x86_64.rs
 new file mode 100644
