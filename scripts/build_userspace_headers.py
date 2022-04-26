@@ -125,7 +125,7 @@ def copy_userspace_headers() -> None:
                     move_operations = build_headers_from_meson_build_file(cross_file, build_file)
                     subproject_to_move_operations[subproject_name] = move_operations
     
-    cache_file.mkdir(parents=True, exist_ok=True)
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
     cache_file.write_bytes(pickle.dumps(rebuild_dates))
 
     print()
