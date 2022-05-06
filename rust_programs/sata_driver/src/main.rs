@@ -559,6 +559,11 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
     //  registers from causing an interrupt to be asserted.
     generic_host_control_block.global_host_control.set(1, true);
 
+    // To start off, send an IDENTIFY for each connected drive
+    for (port_idx, port_desc) in active_ports.iter_mut() {
+        port_desc.send_command_req(&CommandRequest::new_identify_command());
+    }
+
     loop {
         let awoke_for_interrupt = adi_event_await(AHCI_INTERRUPT_VECTOR);
         if awoke_for_interrupt {
