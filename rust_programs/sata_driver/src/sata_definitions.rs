@@ -174,8 +174,10 @@ impl AhciCommandHeader {
 }
 
 #[repr(u8)]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum CommandOpcode {
+    ReadDmaExt = 0x25,
+    WriteDmaExt = 0x35,
     IdentifyDevice = 0xEC,
 }
 
@@ -191,6 +193,7 @@ impl HostToDeviceFIS {
             unsafe { &mut *ptr }
         };
         command_fis.set_command_fis_type();
+        command_fis.set_addressing_mode();
         command_fis
     }
 
@@ -202,12 +205,23 @@ impl HostToDeviceFIS {
         self.0[0..8].store::<u8>(0x27)
     }
 
+    fn set_addressing_mode(&mut self) {
+        // Ref: https://wiki.osdev.org/ATA_PIO_Mode
+        // Always use LBA addressing
+        self.0[56..64].store::<u8>(1 << 6)
+    }
+
     pub fn set_command(&mut self, command: CommandOpcode) {
         self.0[16..24].store::<u8>(command as u8);
     }
 
     pub fn set_is_command(&mut self, is_command: bool) {
         self.0.set(15, is_command)
+    }
+
+    pub fn set_sector_count(&mut self, sector_count: u16) {
+        self.0[96..104].store::<u8>((sector_count & 0xff) as u8);
+        self.0[104..112].store::<u8>(((sector_count >> 8) & 0xff) as u8);
     }
 }
 

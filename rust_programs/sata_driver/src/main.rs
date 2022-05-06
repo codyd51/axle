@@ -25,7 +25,7 @@ use axle_rt::{
         amc_alloc_physical_range, amc_map_physical_range, AmcMapPhysicalRangeRequest,
         PhysRangeMapping, PhysVirtPair,
     },
-    ContainsEventField, ExpectsEventField,
+    print, ContainsEventField, ExpectsEventField,
 };
 use axle_rt_derive::ContainsEventField;
 use core::{cell::RefCell, cmp, mem};
@@ -42,6 +42,39 @@ use crate::{
         CommandOpcode, HostToDeviceFIS, IdentifyDeviceData,
     },
 };
+
+#[derive(Debug)]
+struct CommandRequest {
+    opcode: CommandOpcode,
+    is_write: bool,
+    sector_count: u32,
+}
+
+impl CommandRequest {
+    fn new_read_command() -> Self {
+        Self {
+            opcode: CommandOpcode::ReadDmaExt,
+            is_write: false,
+            sector_count: 1,
+        }
+    }
+
+    fn new_write_command() -> Self {
+        Self {
+            opcode: CommandOpcode::WriteDmaExt,
+            is_write: true,
+            sector_count: 1,
+        }
+    }
+
+    fn new_identify_command() -> Self {
+        Self {
+            opcode: CommandOpcode::IdentifyDevice,
+            is_write: false,
+            sector_count: 1,
+        }
+    }
+}
 
 #[derive(Debug)]
 struct ActiveCommand {
@@ -64,34 +97,39 @@ impl ActiveCommand {
 
     fn complete(&self) {
         match self.command_type {
-            CommandOpcode::IdentifyDevice => {
-                println!("Interpreting results of IDENTIFY DEVICE...");
-                let identify_device_block_as_u8 = {
-                    let region = &self.phys_region_descriptors[0].phys_region_buf;
+            CommandOpcode::ReadDmaExt => {
+                println!("Read DMA ext completed from drive");
+                let sector_data = {
+                    let phys_region = &self.phys_region_descriptors[0].phys_region_buf;
+                    let region_base = phys_region.addr.virt;
                     let slice =
-                        core::ptr::slice_from_raw_parts(region.addr.virt as *const u8, region.size);
+                        core::ptr::slice_from_raw_parts(region_base as *const u8, phys_region.size);
                     unsafe { &*(slice as *const [u8]) }
                 };
+                let chunk_size = 64;
+                for (offset, line) in sector_data.chunks(chunk_size).enumerate() {
+                    print!("{:04x}: ", offset * chunk_size);
+                    // TODO(PT): Fixup endianness?
+                    for word in line.chunks(4) {
+                        for byte in word {
+                            print!("{}", *byte as char);
+                        }
+                        print!(" ");
+                    }
+                    println!();
+                }
+            }
+            CommandOpcode::WriteDmaExt => {
+                println!("Write DMA ext completed from drive");
+            }
+            CommandOpcode::IdentifyDevice => {
+                println!("Interpreting results of IDENTIFY DEVICE...");
                 let identify_block = {
                     let region = &self.phys_region_descriptors[0].phys_region_buf;
                     let ptr = region.addr.virt;
                     unsafe { &*(ptr as *const IdentifyDeviceData) }
                 };
-                /*
-                let identify_device_block_buf =
-                    &active_cmd.phys_region_descriptors[0].phys_region_buf;
-                let identify_device_block_slice = core::ptr::slice_from_raw_parts(
-                    identify_device_block_buf.addr.virt as *const u8,
-                    identify_device_block_buf.size,
-                );
-                let identify_device_block =
-                    unsafe { &*(identify_device_block_slice as *const [u8]) };
-                    */
-                println!(
-                    "IDENTIFY serial number: {:?}",
-                    &identify_device_block_as_u8[20..29]
-                );
-                println!("IDENTIFY serial 2: {:?}", &identify_block.serial_number());
+                println!("Drive serial number: {:?}", &identify_block.serial_number());
             }
         }
     }
@@ -100,7 +138,7 @@ impl ActiveCommand {
 #[derive(Debug)]
 pub struct PhysRegionDescriptor {
     raw_descriptor: &'static mut RawPhysRegionDescriptor,
-    phys_region_buf: PhysRangeMapping,
+    pub phys_region_buf: PhysRangeMapping,
 }
 
 impl PhysRegionDescriptor {
@@ -242,14 +280,20 @@ impl AhciPortDescription {
         let mut active_command = ActiveCommand::new(0, CommandOpcode::IdentifyDevice);
         println!("Got active command");
         command_header0
+    fn send_command_req(&mut self, cmd_request: &CommandRequest) {
+        let free_command_slot_idx = self.find_free_command_slot();
+        let command_header = &mut self.command_list[free_command_slot_idx];
+        let mut active_command = ActiveCommand::new(free_command_slot_idx, cmd_request.opcode);
+        command_header
             .set_command_table_desc_base(active_command.command_table_buf.addr.phys as u64);
 
-        let mut word0 = &mut command_header0.word0;
+        let mut word0 = &mut command_header.word0;
         // Command FIS length (in sizeof(u32) increments)
         assert_eq!(mem::size_of::<HostToDeviceFIS>() / mem::size_of::<u32>(), 5);
         word0.set_command_fis_len(
             (mem::size_of::<HostToDeviceFIS>() / mem::size_of::<u32>()) as u32,
         );
+        word0.set_write(cmd_request.is_write);
         word0.set_clear_busy_upon_r_ok(true);
 
         let phys_region_count = 1;
@@ -267,8 +311,9 @@ impl AhciPortDescription {
         }
 
         let h2d_fis = HostToDeviceFIS::from_virt_addr(active_command.command_table_buf.addr.virt);
-        h2d_fis.set_command(CommandOpcode::IdentifyDevice);
+        h2d_fis.set_command(active_command.command_type);
         h2d_fis.set_is_command(true);
+        h2d_fis.set_sector_count(1);
 
         self.active_commands.push(active_command);
 
@@ -319,10 +364,9 @@ impl AhciPortDescription {
     }
 
     fn handle_interrupt(&mut self) {
-        let block = &mut self.port_block;
-        let port_interrupt_status = block.interrupt_status;
-        block.clear_interrupt_status_mask();
+        let port_interrupt_status = self.port_block.interrupt_status;
         println!("Device interrupt status: {:032b}", port_interrupt_status);
+        self.port_block.clear_interrupt_status_mask();
 
         // Any error bits set?
         let error_bits = [04, 23, 24, 26, 27, 28, 29, 30];
@@ -336,20 +380,17 @@ impl AhciPortDescription {
             }
         }
 
-        // Check which command has just completed
         self.active_commands.retain(|active_cmd| {
             // Is the associated 'command running' bit now unset?
-            let active_command_completed = block
+            let active_command_completed = self
+                .port_block
                 .command_issue
                 .view_bits::<Lsb0>()
                 .get(active_cmd.command_slot)
                 .unwrap()
                 == false;
 
-            if active_command_completed {
-                println!("Detected completed command! {}", active_cmd.command_slot);
-                active_cmd.complete();
-            }
+            active_cmd.complete();
 
             !active_command_completed
         });
