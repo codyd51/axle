@@ -275,11 +275,23 @@ impl AhciPortDescription {
         this
     }
 
-    fn send_command(&mut self) {
-        let command_header0 = &mut self.command_list[0];
-        let mut active_command = ActiveCommand::new(0, CommandOpcode::IdentifyDevice);
-        println!("Got active command");
-        command_header0
+    fn find_free_command_slot(&self) -> usize {
+        for (bit_idx, bit) in self
+            .port_block
+            .command_issue
+            .view_bits::<Lsb0>()
+            .iter()
+            .enumerate()
+        {
+            if *bit == false {
+                // Found a free command slot!
+                return bit_idx;
+            }
+        }
+        // TODO(PT): Option<CommandSlot> instead of panic on failure?
+        panic!("Failed to find a free command slot!");
+    }
+
     fn send_command_req(&mut self, cmd_request: &CommandRequest) {
         let free_command_slot_idx = self.find_free_command_slot();
         let command_header = &mut self.command_list[free_command_slot_idx];
@@ -319,7 +331,7 @@ impl AhciPortDescription {
 
         // Issue the command
         println!("Issuing command...");
-        self.port_block.command_issue |= 1;
+        self.port_block.command_issue |= (1 << free_command_slot_idx);
     }
 
     fn _set_command_and_status_bit(&mut self, bit_idx: usize, enabled: bool) {
@@ -560,7 +572,7 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
             }
             println!("Sending AHCI command FIS...");
             let port_desc = active_ports.get_mut(&0).unwrap();
-            port_desc.send_command();
+            port_desc.send_command_req(&CommandRequest::new_read_command());
         }
     }
 
