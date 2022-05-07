@@ -90,7 +90,7 @@ impl AhciCommandHeaderWord0 {
         self.0.set(5, value)
     }
 
-    pub fn write(&self) -> bool {
+    pub fn is_write(&self) -> bool {
         *self.0.get(6).unwrap()
     }
 
@@ -222,6 +222,13 @@ impl HostToDeviceFIS {
     pub fn set_sector_count(&mut self, sector_count: u16) {
         self.0[96..104].store::<u8>((sector_count & 0xff) as u8);
         self.0[104..112].store::<u8>(((sector_count >> 8) & 0xff) as u8);
+    }
+
+    pub fn set_start_sector(&mut self, start_sector: usize) {
+        // Low 24 bits
+        self.0[32..54].store::<u32>(start_sector as u32);
+        // High 24 bits
+        self.0[64..88].store::<u32>((start_sector >> 24) as u32);
     }
 }
 

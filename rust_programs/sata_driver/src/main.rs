@@ -165,8 +165,12 @@ impl ActiveCommand {
                     unsafe { &*(slice as *const [u8]) }
                 };
                 let chunk_size = 64;
+                let base_address = match &self.command_data {
+                    CommandData::ReadDmaExt { sector_range } => sector_range.base_address(),
+                    _ => panic!("Expected ReadDmaExt command data"),
+                };
                 for (offset, line) in sector_data.chunks(chunk_size).enumerate() {
-                    print!("{:04x}: ", offset * chunk_size);
+                    print!("{:016x}: ", base_address + (offset * chunk_size));
                     // TODO(PT): Fixup endianness?
                     for word in line.chunks(4) {
                         for byte in word {
