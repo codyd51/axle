@@ -4,6 +4,7 @@
 #![feature(slice_ptr_get)]
 #![feature(format_args_nl)]
 #![feature(default_alloc_error_handler)]
+#![feature(core_intrinsics)]
 
 mod pci_messages;
 mod sata_definitions;
@@ -28,7 +29,7 @@ use axle_rt::{
     print, ContainsEventField, ExpectsEventField,
 };
 use axle_rt_derive::ContainsEventField;
-use core::{cell::RefCell, cmp, mem};
+use core::{cell::RefCell, cmp, intrinsics::ceilf64, mem};
 use sata_definitions::{AhciCommandHeader, AhciPortBlock, RawPhysRegionDescriptor};
 
 use axle_rt::{
@@ -43,35 +44,90 @@ use crate::{
     },
 };
 
-#[derive(Debug)]
-struct CommandRequest {
-    opcode: CommandOpcode,
-    is_write: bool,
-    sector_count: u32,
+#[derive(Debug, Clone)]
+struct DiskSectorRange {
+    start_sector: usize,
+    sector_count: usize,
 }
 
-impl CommandRequest {
-    fn new_read_command() -> Self {
+impl DiskSectorRange {
+    const SECTOR_SIZE: usize = 512;
+
+    fn new(start_sector: usize, sector_count: usize) -> Self {
+        println!("new {start_sector} {sector_count}");
         Self {
-            opcode: CommandOpcode::ReadDmaExt,
-            is_write: false,
-            sector_count: 1,
+            start_sector,
+            sector_count,
         }
     }
 
-    fn new_write_command() -> Self {
+    fn from_addr_range(start_address: usize, size: usize) -> Self {
+        println!("start_address {start_address} size {size}");
+        // Start address and size must be sector-aligned
+        assert!(
+            start_address % Self::SECTOR_SIZE == 0,
+            "Start address is not sector-aligned"
+        );
+        assert!(size % Self::SECTOR_SIZE == 0, "Size is not sector-aligned");
+        Self::new(start_address / Self::SECTOR_SIZE, size / Self::SECTOR_SIZE)
+    }
+
+    fn zero() -> Self {
+        Self {
+            start_sector: 0,
+            sector_count: 0,
+        }
+    }
+
+    fn size(&self) -> usize {
+        DiskSectorRange::SECTOR_SIZE * self.sector_count
+    }
+
+    fn base_address(&self) -> usize {
+        DiskSectorRange::SECTOR_SIZE * self.start_sector
+    }
+}
+
+#[derive(Debug)]
+struct CommandRequest {
+    opcode: CommandOpcode,
+    cmd_data: CommandData,
+}
+
+#[derive(Debug, Clone)]
+enum CommandData {
+    IdentifyDevice,
+    WriteDmaExt {
+        sector_range: DiskSectorRange,
+        data: Vec<u8>,
+    },
+    ReadDmaExt {
+        sector_range: DiskSectorRange,
+    },
+}
+
+impl CommandRequest {
+    fn new_read_command(sector_range: DiskSectorRange) -> Self {
+        Self {
+            opcode: CommandOpcode::ReadDmaExt,
+            cmd_data: CommandData::ReadDmaExt { sector_range },
+        }
+    }
+
+    fn new_write_command(sector_range: DiskSectorRange, data: &[u8]) -> Self {
         Self {
             opcode: CommandOpcode::WriteDmaExt,
-            is_write: true,
-            sector_count: 1,
+            cmd_data: CommandData::WriteDmaExt {
+                sector_range,
+                data: data.to_vec(),
+            },
         }
     }
 
     fn new_identify_command() -> Self {
         Self {
             opcode: CommandOpcode::IdentifyDevice,
-            is_write: false,
-            sector_count: 1,
+            cmd_data: CommandData::IdentifyDevice,
         }
     }
 }
@@ -79,16 +135,18 @@ impl CommandRequest {
 #[derive(Debug)]
 struct ActiveCommand {
     command_slot: usize,
+    command_data: CommandData,
     command_type: CommandOpcode,
     command_table_buf: PhysRangeMapping,
     phys_region_descriptors: Vec<PhysRegionDescriptor>,
 }
 
 impl ActiveCommand {
-    fn new(command_slot: usize, command_type: CommandOpcode) -> Self {
+    fn new(command_slot: usize, command_type: CommandOpcode, command_data: CommandData) -> Self {
         let command_table_buf = amc_alloc_physical_range(0x1000);
         Self {
             command_slot,
+            command_data,
             command_type,
             command_table_buf,
             phys_region_descriptors: vec![],
@@ -142,17 +200,16 @@ pub struct PhysRegionDescriptor {
 }
 
 impl PhysRegionDescriptor {
-    pub fn from_virt_addr(addr: usize) -> Self {
+    pub fn from_virt_addr(addr: usize, underlying_buffer_size: usize) -> Self {
         let ptr = addr as *mut RawPhysRegionDescriptor;
         let raw_desc = unsafe { &mut *ptr };
 
         raw_desc.set_interrupt_on_completion(true);
 
-        let phys_region_buf_size = 0x1000;
         println!("Allocating PhysRegionDescriptor buf");
-        let phys_region_buf = amc_alloc_physical_range(phys_region_buf_size);
+        let phys_region_buf = amc_alloc_physical_range(underlying_buffer_size);
 
-        raw_desc.set_byte_count(phys_region_buf_size as u32);
+        raw_desc.set_byte_count(underlying_buffer_size as u32);
         raw_desc.set_data_base_address(phys_region_buf.addr.phys as u64);
         println!("Phys region data base: {:016x}", phys_region_buf.addr.phys);
 
@@ -295,37 +352,98 @@ impl AhciPortDescription {
     fn send_command_req(&mut self, cmd_request: &CommandRequest) {
         let free_command_slot_idx = self.find_free_command_slot();
         let command_header = &mut self.command_list[free_command_slot_idx];
-        let mut active_command = ActiveCommand::new(free_command_slot_idx, cmd_request.opcode);
+        let mut active_command = ActiveCommand::new(
+            free_command_slot_idx,
+            cmd_request.opcode,
+            cmd_request.cmd_data.clone(),
+        );
         command_header
             .set_command_table_desc_base(active_command.command_table_buf.addr.phys as u64);
 
+        // Configure the command header
         let mut word0 = &mut command_header.word0;
+
         // Command FIS length (in sizeof(u32) increments)
         assert_eq!(mem::size_of::<HostToDeviceFIS>() / mem::size_of::<u32>(), 5);
         word0.set_command_fis_len(
             (mem::size_of::<HostToDeviceFIS>() / mem::size_of::<u32>()) as u32,
         );
-        word0.set_write(cmd_request.is_write);
+
+        match cmd_request.opcode {
+            CommandOpcode::WriteDmaExt => word0.set_write(true),
+            _ => word0.set_write(false),
+        }
+
         word0.set_clear_busy_upon_r_ok(true);
 
-        let phys_region_count = 1;
+        // Set up the DMA regions that will send or receive the data via the HBA
+        let required_data_buffer_size = match &cmd_request.cmd_data {
+            CommandData::IdentifyDevice => 0x1000,
+            CommandData::ReadDmaExt { sector_range } => sector_range.size(),
+            CommandData::WriteDmaExt { sector_range, data } => sector_range.size(),
+        };
+
+        let phys_region_size = 0x1000;
+        // Round up so we always get at least 1 region
+        let phys_region_count =
+            unsafe { ceilf64(required_data_buffer_size as f64 / phys_region_size as f64) as usize };
+        println!("Phys region count {phys_region_count}");
         word0.set_phys_region_desc_table_len(phys_region_count as u32);
 
+        // Allocate each DMA region
+        // The struct describing each of these is placed a fixed location after the command header,
+        // and is initialised in-place
         for region_idx in 0..phys_region_count {
             let phys_region_descriptor = PhysRegionDescriptor::from_virt_addr(
                 active_command.command_table_buf.addr.virt
                     + 0x80
                     + (mem::size_of::<PhysRegionDescriptor>() * region_idx),
+                phys_region_size,
             );
+
+            // If this is a write command, fill the region with the data we've been asked to write to disk
+            if let CommandData::WriteDmaExt {
+                sector_range: _,
+                data: write_data,
+            } = &cmd_request.cmd_data
+            {
+                let prd_data_buf = {
+                    let region_size = phys_region_descriptor.phys_region_buf.size;
+                    let region_base = phys_region_descriptor.phys_region_buf.addr.virt;
+                    let slice =
+                        core::ptr::slice_from_raw_parts(region_base as *mut u8, region_size);
+                    unsafe { &mut *(slice as *mut [u8]) }
+                };
+                println!("Filling PRD {region_idx}");
+                let offset_into_write_data = phys_region_size * region_idx;
+                for (place, data) in prd_data_buf.iter_mut().zip(write_data.iter()) {
+                    *place = *data
+                }
+            }
+
             active_command
                 .phys_region_descriptors
                 .push(phys_region_descriptor);
         }
 
+        // Set up the FIS containing the command for the drive
         let h2d_fis = HostToDeviceFIS::from_virt_addr(active_command.command_table_buf.addr.virt);
         h2d_fis.set_command(active_command.command_type);
         h2d_fis.set_is_command(true);
-        h2d_fis.set_sector_count(1);
+
+        match &cmd_request.cmd_data {
+            CommandData::ReadDmaExt { sector_range } => {
+                h2d_fis.set_start_sector(sector_range.start_sector);
+                h2d_fis.set_sector_count(sector_range.sector_count.try_into().unwrap());
+                println!("sector range {sector_range:?}");
+            }
+            CommandData::WriteDmaExt { sector_range, data } => {
+                h2d_fis.set_start_sector(sector_range.start_sector);
+                h2d_fis.set_sector_count(sector_range.sector_count.try_into().unwrap());
+                println!("sector range {sector_range:?}");
+            }
+            _ => (),
+        }
 
         self.active_commands.push(active_command);
 
@@ -577,7 +695,9 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
             }
             println!("Sending AHCI command FIS...");
             let port_desc = active_ports.get_mut(&0).unwrap();
-            port_desc.send_command_req(&CommandRequest::new_read_command());
+            port_desc.send_command_req(&CommandRequest::new_read_command(
+                DiskSectorRange::from_addr_range(0xe00, 1024),
+            ));
         }
     }
 
