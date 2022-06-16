@@ -4,7 +4,7 @@
 extern crate alloc;
 use alloc::rc::Weak;
 use core::{
-    cmp::max,
+    cmp::{max, min},
     ops::{Add, Mul, Sub},
 };
 
@@ -21,10 +21,31 @@ pub trait NestedLayerSlice: Drawable {
 
         let content_frame = parent.content_frame();
         let constrained_to_content_frame = content_frame.constrain(self.frame());
+
+        /*
         parent_slice.get_slice(Rect::from_parts(
             content_frame.origin + self.frame().origin,
             constrained_to_content_frame.size,
         ))
+        */
+
+        let mut origin = content_frame.origin + self.frame().origin;
+        /*
+        origin.x = max(origin.x, 0);
+        origin.y = max(origin.y, 0);
+        */
+        let mut size = constrained_to_content_frame.size;
+        if origin.x < 0 {
+            let overhang = -origin.x;
+            size.width -= overhang;
+            origin.x = 0;
+        }
+        if origin.y < 0 {
+            let overhang = -origin.y;
+            size.height -= overhang;
+            origin.y = 0;
+        }
+        parent_slice.get_slice(Rect::from_parts(origin, size))
     }
 }
 
@@ -280,8 +301,12 @@ impl Rect {
     pub fn inset_by(&self, bottom: isize, left: isize, right: isize, top: isize) -> Self {
         Rect::from_parts(
             self.origin + Point::new(left, top),
-            self.size - Size::new(right * 2, bottom * 2),
+            self.size - Size::new(left + right, top + bottom),
         )
+    }
+
+    pub fn inset_by_insets(&self, insets: RectInsets) -> Self {
+        self.inset_by(insets.bottom, insets.left, insets.right, insets.top)
     }
 
     pub fn min_x(&self) -> isize {

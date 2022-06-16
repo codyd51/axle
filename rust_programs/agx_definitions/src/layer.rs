@@ -151,7 +151,7 @@ pub trait Layer {
 }
 
 pub struct SingleFramebufferLayer {
-    framebuffer: Rc<RefCell<Box<[u8]>>>,
+    pub framebuffer: Rc<RefCell<Box<[u8]>>>,
     bytes_per_pixel: isize,
     size: Size,
 }
