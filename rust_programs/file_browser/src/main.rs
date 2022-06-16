@@ -6,12 +6,7 @@
 extern crate alloc;
 extern crate libc;
 
-use alloc::{
-    collections::{BTreeMap, VecDeque},
-    format,
-    rc::Weak,
-    vec::Vec,
-};
+use alloc::{collections::BTreeMap, format, rc::Weak, vec::Vec};
 use alloc::{
     rc::Rc,
     string::{String, ToString},
@@ -25,10 +20,7 @@ use libgui::ui_elements::UIElement;
 use libgui::view::View;
 use libgui::window::AwmWindow;
 
-use axle_rt::{
-    amc_message_await, amc_message_send, amc_register_service, printf, AmcMessage,
-    ExpectsEventField,
-};
+use axle_rt::{amc_message_await, amc_message_send, amc_register_service, printf, AmcMessage};
 
 use agx_definitions::{
     Color, Drawable, LayerSlice, Line, NestedLayerSlice, Point, Rect, RectInsets, Size,
@@ -86,15 +78,6 @@ impl CurrentPathView {
         }
     }
 
-    pub fn append_path_component(&self, path: &str) {
-        self.current_path.replace_with(|old| {
-            old.push_str(&format!("/{}", path));
-            old.to_string()
-        });
-        let current_path_label = self.current_path_label.borrow();
-        current_path_label.set_text(&format!("Current path: {}", self.current_path.borrow()));
-    }
-
     pub fn set_path(&self, path: &str) {
         self.current_path.replace(path.to_string());
         let current_path_label = self.current_path_label.borrow();
@@ -136,14 +119,6 @@ impl Bordered for CurrentPathView {
         self.view.draw_inner_content(outer_frame, onto);
     }
 
-    fn set_interior_content_frame(&self, inner_content_frame: Rect) {
-        self.view.set_interior_content_frame(inner_content_frame)
-    }
-
-    fn get_interior_content_frame(&self) -> Rect {
-        self.view.get_interior_content_frame()
-    }
-
     fn border_insets(&self) -> RectInsets {
         self.view.border_insets()
     }
@@ -177,7 +152,7 @@ impl UIElement for CurrentPathView {
 
 struct DirectoryEntryView {
     view: Rc<View>,
-    entry: DirectoryEntry,
+    pub entry: DirectoryEntry,
     background_color: Color,
     button: Rc<Button>,
 }
@@ -196,7 +171,6 @@ impl DirectoryEntryView {
         let view = Rc::new(View::new(background_color, sizer));
         view.set_border_enabled(false);
 
-        let label_width = 200;
         let button_width = 60;
         let height = 30;
 
@@ -212,7 +186,6 @@ impl DirectoryEntryView {
             Color::new(30, 30, 30),
         ));
         // TODO(PT): Set font size as attribute?
-        let label_width = 8 * name_label.text.borrow().len() as isize;
         Rc::clone(&view).add_component(name_label);
 
         let button_text = match entry.is_directory {
@@ -310,14 +283,6 @@ impl Bordered for DirectoryEntryView {
     fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice) {
         self.view.draw_inner_content(outer_frame, onto);
     }
-
-    fn set_interior_content_frame(&self, inner_content_frame: Rect) {
-        self.view.set_interior_content_frame(inner_content_frame)
-    }
-
-    fn get_interior_content_frame(&self) -> Rect {
-        self.view.get_interior_content_frame()
-    }
 }
 
 impl UIElement for DirectoryEntryView {
@@ -350,7 +315,7 @@ impl UIElement for DirectoryEntryView {
 
 struct DirectoryContentsView {
     view: Rc<View>,
-    entry_to_view_map: BTreeMap<DirectoryEntry, Rc<DirectoryEntryView>>,
+    dir_entry_views: Vec<Rc<DirectoryEntryView>>,
 }
 
 impl DirectoryContentsView {
@@ -362,10 +327,9 @@ impl DirectoryContentsView {
         let dir_contents: AmcMessage<DirectoryContents> =
             amc_message_await(Some(FILE_SERVER_SERVICE_NAME));
 
-        let mut cursor = Point::new(10, 10);
         let entry_height = 30;
 
-        let mut entry_to_view_map = BTreeMap::new();
+        let mut dir_entry_views = Vec::new();
 
         for (i, entry) in dir_contents
             .body()
@@ -384,13 +348,13 @@ impl DirectoryContentsView {
                     )
                 },
             ));
-            entry_to_view_map.insert(*entry, Rc::clone(&entry_view));
+            dir_entry_views.push(Rc::clone(&entry_view));
             Rc::clone(&view).add_component(entry_view);
         }
 
         DirectoryContentsView {
-            view: view,
-            entry_to_view_map,
+            view,
+            dir_entry_views,
         }
     }
 }
@@ -412,14 +376,6 @@ impl Drawable for DirectoryContentsView {
 impl Bordered for DirectoryContentsView {
     fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice) {
         self.view.draw_inner_content(outer_frame, onto);
-    }
-
-    fn set_interior_content_frame(&self, inner_content_frame: Rect) {
-        self.view.set_interior_content_frame(inner_content_frame)
-    }
-
-    fn get_interior_content_frame(&self) -> Rect {
-        self.view.get_interior_content_frame()
     }
 
     fn border_insets(&self) -> RectInsets {
@@ -503,7 +459,7 @@ impl FileBrowser2 {
         let browser_clone_for_back_button_closure = Rc::clone(&browser);
         current_path_view_clone2
             .back_button
-            .on_left_click(move |b| {
+            .on_left_click(move |_b| {
                 printf!("Go back button clicked!\n");
                 Rc::clone(&browser_clone_for_back_button_closure).browse_back();
             });
@@ -531,13 +487,14 @@ impl FileBrowser2 {
             },
         ));
 
-        for (entry, entry_view) in &directory_contents_view.entry_to_view_map {
+        for entry_view in &directory_contents_view.dir_entry_views {
+            let entry = entry_view.entry;
             let path = str_from_u8_nul_utf8_unchecked(&entry.name).to_string();
             let browser_clone = Rc::clone(&self);
 
-            let window_clone = Rc::clone(&self.window);
-
             if entry.is_directory {
+                let c = Rc::clone(&directory_contents_view);
+                let w = Rc::clone(&self.window);
                 entry_view.button.on_left_click(move |_b| {
                     printf!("Button with path {:?} clicked!\n", path);
                     let browser_clone = Rc::clone(&browser_clone);
@@ -548,17 +505,24 @@ impl FileBrowser2 {
                 // Don't set up any callback for file click
                 entry_view.button.on_left_click(move |_b| {
                     printf!("Button with path {:?} clicked! Launching...\n", path);
-                    let browser_clone = Rc::clone(&browser_clone);
-                    let full_path = format!(
-                        "{}/{}",
-                        browser_clone
-                            .current_path_view
-                            .borrow()
-                            .current_path
-                            .borrow(),
-                        path
-                    );
-                    amc_message_send(FILE_SERVER_SERVICE_NAME, LaunchProgram::new(&full_path));
+                    if path == "click_me!.txt" {
+                        amc_message_send(
+                            FILE_SERVER_SERVICE_NAME,
+                            LaunchProgram::new("/usr/applications/valentine"),
+                        );
+                    } else {
+                        let browser_clone = Rc::clone(&browser_clone);
+                        let full_path = format!(
+                            "{}/{}",
+                            browser_clone
+                                .current_path_view
+                                .borrow()
+                                .current_path
+                                .borrow(),
+                            path
+                        );
+                        amc_message_send(FILE_SERVER_SERVICE_NAME, LaunchProgram::new(&full_path));
+                    }
                 });
             }
         }
