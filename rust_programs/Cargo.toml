@@ -10,10 +10,8 @@ members = [
     "initrd_fs",
     "libfs",
     "libgui",
-]
-
-exclude = [
-    # PT: Disabled in axle target until stable with a PAL
-    # Currently only runs on std host
     "gb_emu",
+    "sata_driver",
+    "sata_driver_messages",
+    "gpt_helper",
 ]
