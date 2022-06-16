@@ -202,7 +202,7 @@ impl AwmWindow {
         self.commit();
     }
 
-    fn mouse_dragged(&self, event: &MouseDragged) {
+    fn mouse_dragged(&self, _event: &MouseDragged) {
         //printf!("Mouse dragged: {:?}\n", event);
     }
 

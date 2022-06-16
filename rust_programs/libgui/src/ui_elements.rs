@@ -1,4 +1,4 @@
-use agx_definitions::{Drawable, LayerSlice, NestedLayerSlice, Point, Size};
+use agx_definitions::{Drawable, NestedLayerSlice, Point, Size};
 
 pub trait UIElement: Drawable + NestedLayerSlice {
     fn handle_mouse_entered(&self) {}

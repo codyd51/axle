@@ -1,11 +1,10 @@
 use core::cell::RefCell;
 
-use agx_definitions::{Color, Drawable, LayerSlice, NestedLayerSlice, Point, Rect, Size};
+use agx_definitions::{Color, Drawable, NestedLayerSlice, Point, Rect, Size};
 use alloc::{
     rc::Weak,
     string::{String, ToString},
 };
-use axle_rt::printf;
 
 use crate::{font::draw_char, ui_elements::UIElement};
 

@@ -8,17 +8,14 @@ use alloc::rc::Weak;
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::{bordered::Bordered, ui_elements::UIElement};
-use axle_rt::printf;
 
 pub struct View {
     container: RefCell<Option<RefCell<Weak<dyn NestedLayerSlice>>>>,
-    frame: RefCell<Rect>,
+    pub frame: RefCell<Rect>,
     left_click_cb: RefCell<Option<Box<dyn Fn(&Self)>>>,
     background_color: Color,
     sizer: RefCell<Box<dyn Fn(&Self, Size) -> Rect>>,
     currently_contains_mouse_int: RefCell<bool>,
-
-    current_inner_content_frame: RefCell<Rect>,
 
     sub_elements: RefCell<Vec<Rc<dyn UIElement>>>,
     sub_elements_containing_mouse: RefCell<Vec<Rc<dyn UIElement>>>,
@@ -31,7 +28,6 @@ impl View {
         View {
             container: RefCell::new(None),
             frame: RefCell::new(Rect::zero()),
-            current_inner_content_frame: RefCell::new(Rect::zero()),
             left_click_cb: RefCell::new(None),
             background_color,
             sizer: RefCell::new(Box::new(sizer)),
@@ -52,7 +48,7 @@ impl View {
 
     pub fn add_component(self: Rc<Self>, elem: Rc<dyn UIElement>) {
         // Ensure the component has a frame by running its sizer
-        elem.handle_superview_resize(self.current_inner_content_frame.borrow().size);
+        elem.handle_superview_resize(Bordered::content_frame(&*self).size);
 
         // Set up a link to the parent
         elem.set_parent(Rc::downgrade(&(Rc::clone(&self) as _)));
@@ -81,15 +77,6 @@ impl Bordered for View {
         for elem in sub_elements.iter() {
             elem.draw();
         }
-    }
-
-    fn set_interior_content_frame(&self, inner_content_frame: Rect) {
-        self.current_inner_content_frame
-            .replace(inner_content_frame);
-    }
-
-    fn get_interior_content_frame(&self) -> Rect {
-        *self.current_inner_content_frame.borrow()
     }
 
     fn border_enabled(&self) -> bool {
@@ -153,8 +140,6 @@ impl UIElement for View {
     fn handle_mouse_exited(&self) {
         *self.currently_contains_mouse_int.borrow_mut() = false;
 
-        let inner_content_origin = (*self.current_inner_content_frame.borrow()).origin;
-
         let elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();
         for elem in elems_containing_mouse.drain(..) {
             elem.handle_mouse_exited();
@@ -167,7 +152,7 @@ impl UIElement for View {
         let elems = &*self.sub_elements.borrow();
         let elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();
 
-        let inner_content_origin = (*self.current_inner_content_frame.borrow()).origin;
+        let inner_content_origin = Bordered::content_frame(&*self).origin;
         let mouse_to_inner_coordinate_system = mouse_point - inner_content_origin;
 
         for elem in elems {

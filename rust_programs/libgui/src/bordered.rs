@@ -9,13 +9,9 @@ pub trait Bordered: Drawable + UIElement {
         let mut slice = self.get_slice();
 
         if !self.border_enabled() {
-            self.set_interior_content_frame(Rect::from_parts(Point::zero(), slice.frame.size));
             self.draw_inner_content(slice.frame, &mut slice);
         } else {
-            let inner_content_frame = self.draw_border();
-            self.set_interior_content_frame(inner_content_frame);
-
-            let mut content_slice = slice.get_slice(inner_content_frame);
+            let mut content_slice = slice.get_slice(self.draw_border());
             self.draw_inner_content(slice.frame, &mut content_slice);
         }
     }
@@ -26,12 +22,10 @@ pub trait Bordered: Drawable + UIElement {
 
     fn border_insets(&self) -> RectInsets;
 
-    // TODO(PT): Can we remove the need for this by using border_insets()?
-    fn set_interior_content_frame(&self, inner_content_frame: Rect);
-    fn get_interior_content_frame(&self) -> Rect;
-
     fn content_frame(&self) -> Rect {
-        self.get_interior_content_frame()
+        let f = Rect::from_parts(Point::zero(), self.frame().size);
+        let insets = self.border_insets();
+        f.inset_by_insets(self.border_insets())
     }
 
     fn draw_border(&self) -> Rect {
@@ -44,16 +38,20 @@ pub trait Bordered: Drawable + UIElement {
 
         // TODO(PT): This currently assumes an even inset across all sides
         // Verify this assumption first
+        /*
         assert!(
             insets.left == insets.top
                 && insets.left == insets.right
                 && insets.left == insets.bottom
         );
+        */
 
         let highlight_border_width = 1;
         let border_effect_size = insets.top / 2;
+        /*
         let outer_margin_size = border_effect_size;
         let inner_margin_size = border_effect_size;
+        */
 
         let outer_border = Rect::from_parts(Point::zero(), self.frame().size);
 
@@ -74,22 +72,25 @@ pub trait Bordered: Drawable + UIElement {
             highlight_border_width,
         );
         let inner_margin = outer_margin.inset_by(
-            outer_margin_size,
-            outer_margin_size,
-            outer_margin_size,
-            outer_margin_size,
+            insets.bottom / 2,
+            insets.left / 2,
+            insets.right / 2,
+            insets.top / 2,
         );
 
         onto.fill_rect(
             outer_margin,
             Color::light_gray(),
-            StrokeThickness::Width(outer_margin_size),
+            StrokeThickness::Width(insets.bottom / 2),
         );
         onto.fill_rect(
             inner_margin,
             Color::dark_gray(),
-            StrokeThickness::Width(inner_margin_size),
+            StrokeThickness::Width(insets.bottom / 2),
         );
+
+        // TODO(PT): Hack
+        let inner_margin_size = insets.bottom / 2;
 
         // Draw diagonal lines indicating an inset
         let inset_color = Color::new(50, 50, 50);

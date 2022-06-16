@@ -431,6 +431,7 @@ impl AhciPortDescription {
         }
 
         // Set up the FIS containing the command for the drive
+        // TODO(PT) Can this use BitArray::new() instead of unsafe?
         let h2d_fis = HostToDeviceFIS::from_virt_addr(active_command.command_table_buf.addr.virt);
         h2d_fis.set_command(active_command.command_type);
         h2d_fis.set_is_command(true);

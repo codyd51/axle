@@ -1,7 +1,7 @@
+use libfs::DirectoryImage;
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::{env, error, fs, io, path};
-use libfs::DirectoryImage;
 
 fn path_relative_to(path: &path::Path, pivot: &path::Path) -> String {
     if path == pivot {

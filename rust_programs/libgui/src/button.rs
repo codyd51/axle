@@ -7,7 +7,6 @@ use agx_definitions::{
 use alloc::boxed::Box;
 use alloc::rc::Weak;
 use alloc::string::{String, ToString};
-use axle_rt::printf;
 
 use crate::{bordered::Bordered, font::draw_char, ui_elements::UIElement};
 
@@ -18,7 +17,6 @@ pub struct Button {
     container: RefCell<Option<RefCell<Weak<dyn NestedLayerSlice>>>>,
     left_click_cb: RefCell<Option<Box<dyn Fn(&Self)>>>,
     currently_contains_mouse_int: RefCell<bool>,
-    current_inner_content_frame: RefCell<Rect>,
 }
 
 impl Button {
@@ -30,7 +28,6 @@ impl Button {
             container: RefCell::new(None),
             left_click_cb: RefCell::new(None),
             currently_contains_mouse_int: RefCell::new(false),
-            current_inner_content_frame: RefCell::new(Rect::zero()),
         }
     }
     pub fn on_left_click<F: 'static + Fn(&Self)>(&self, f: F) {
@@ -157,15 +154,6 @@ impl Bordered for Button {
             draw_char(onto, ch, &cursor, draw_color, &font_size);
             cursor.x += font_size.width;
         }
-    }
-
-    fn set_interior_content_frame(&self, inner_content_frame: Rect) {
-        self.current_inner_content_frame
-            .replace(inner_content_frame);
-    }
-
-    fn get_interior_content_frame(&self) -> Rect {
-        *self.current_inner_content_frame.borrow()
     }
 }
 

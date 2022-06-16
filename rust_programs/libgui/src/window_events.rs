@@ -8,7 +8,7 @@ pub trait AwmWindowEvent: ExpectsEventField + ContainsEventField {}
 #[derive(Debug, Clone, Copy, ContainsEventField)]
 pub struct KeyDown {
     event: u32,
-    key: char,
+    pub key: u32,
 }
 
 impl ExpectsEventField for KeyDown {
@@ -21,7 +21,7 @@ impl AwmWindowEvent for KeyDown {}
 #[derive(Debug, Clone, Copy, ContainsEventField)]
 pub struct KeyUp {
     event: u32,
-    key: char,
+    pub key: u32,
 }
 
 impl ExpectsEventField for KeyUp {
