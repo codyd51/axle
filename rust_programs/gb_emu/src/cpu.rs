@@ -1,13 +1,12 @@
-use core::mem;
-use std::{
+use alloc::{boxed::Box, collections::BTreeMap, format, rc::Rc, string::String, vec::Vec};
+use core::{
     cell::RefCell,
-    collections::BTreeMap,
-    env::VarError,
     fmt::{self, Debug, Display},
-    rc::Rc,
+    mem,
 };
 
-use alloc::vec::Vec;
+#[cfg(not(feature = "use_std"))]
+use axle_rt::{print, println};
 
 use bitmatch::bitmatch;
 
@@ -880,7 +879,7 @@ impl CpuState {
                 let high_nibble = (val & 0xf0) >> 4;
                 let result = (low_nibble << 4) | high_nibble;
                 reg.write_u8(&self, result);
-                self.update_flag(FlagUpdate::Zero(result == 0));
+                self.set_flags(result == 0, false, false, false);
                 // TODO(PT): Should be 4 cycles for (HL)
                 2
             }
@@ -954,9 +953,8 @@ impl CpuState {
                 let contents = reg.read_u8_with_mode(&self, addressing_mode);
                 let lsb = contents & 0b1;
                 let msb = contents >> 7;
-                self.update_flag(FlagUpdate::Carry(lsb == 1));
                 let new_contents = (contents >> 1) | (msb << 7);
-                self.update_flag(FlagUpdate::Zero(new_contents == 0));
+                self.set_flags(new_contents == 0, false, false, lsb == 1);
                 reg.write_u8_with_mode(&self, addressing_mode, new_contents);
                 // TODO(PT): Should be four cycles when (HL)
                 2
@@ -971,7 +969,8 @@ impl CpuState {
             _ => {
                 println!("<cb {:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
-                panic!("Unimplemented CB opcode")
+                //panic!("Unimplemented CB opcode")
+                0
             }
         }
     }
@@ -1185,6 +1184,8 @@ impl CpuState {
             0x1f => {
                 // RRA
                 self.rr_reg8(self.reg(RegisterName::A), AddressingMode::Read);
+                // This variant always unsets the Z flag
+                self.update_flag(FlagUpdate::Zero(false));
                 Some(InstrInfo::seq(1, 1))
             }
             0xee => {
@@ -1266,6 +1267,8 @@ impl CpuState {
                 // RRC A
                 let a = self.reg(RegisterName::A);
                 self.rrc_reg8(a, AddressingMode::Read);
+                // This variant always unsets the Z flag
+                self.update_flag(FlagUpdate::Zero(false));
                 Some(InstrInfo::seq(1, 1))
             }
             0xe8 => {
@@ -1297,11 +1300,28 @@ impl CpuState {
                 // LD HL, SP+i8
                 let hl = self.reg(RegisterName::HL);
                 let sp = self.reg(RegisterName::SP);
-                let offset = self.mmu.read(self.get_pc() + 1) as i8;
-                let val = self.add16_update_flags(sp.read_u16(&self), offset as u16, &[]);
-                hl.write_u16(&self, val);
+                let sp_val = sp.read_u16(&self);
+                let offset = self.mmu.read(self.get_pc() + 1);
+                let signed_offset = offset as i8;
+
+                if debug {
+                    println!("ADD {hl}, {sp} + {signed_offset}");
+                }
+
+                let sp_low_byte = (sp_val & 0xff) as u8;
+                self.add8_update_flags(sp_low_byte, offset, &[]);
+
+                let result = match signed_offset > 0 {
+                    true => sp_val + (offset as u16),
+                    false => sp_val - (signed_offset.abs() as u16),
+                };
+                hl.write_u16(&self, result);
+
+                // This instruction always unsets Z and N
+                self.update_flag(FlagUpdate::Zero(false));
+                self.update_flag(FlagUpdate::Subtract(false));
+
                 Some(InstrInfo::seq(2, 3))
-                // TODO(PT): For this and above do debug
             }
             0xf6 => {
                 // OR A, u8
@@ -1693,7 +1713,7 @@ impl CpuState {
                 InstrInfo::seq(1, 2)
             }
             "10110iii" => {
-                // OR Reg8
+                // OR A, Reg8
                 let a = self.reg(RegisterName::A);
                 let (op, read_mode) = self.get_reg_from_lookup_tab1(i);
                 if debug {
@@ -1893,7 +1913,7 @@ impl CpuState {
             _ => {
                 println!("<0x{:02x} is unimplemented>", instruction_byte);
                 self.print_regs();
-                //panic!("Unimplemented opcode")
+                //panic!("Unimplemented opcode");
                 InstrInfo::seq(0, 0)
             }
         }

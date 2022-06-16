@@ -1,8 +1,15 @@
-use std::{
+use alloc::vec;
+use alloc::{rc::Rc, vec::Vec};
+use core::{
     cell::RefCell,
-    fmt::Display,
+    fmt::{self, Display},
     mem,
-    rc::{Rc, Weak},
+};
+
+#[cfg(not(feature = "use_std"))]
+use {
+    axle_rt::{amc_message_await, amc_message_send, println, AmcMessage},
+    file_manager_messages::{ReadFile, ReadFileResponse, FILE_SERVER_SERVICE_NAME},
 };
 
 use crate::gameboy::GameBoyHardwareProvider;
@@ -68,9 +75,34 @@ impl BootRom {
     pub const BANK_REGISTER_ADDR: u16 = 0xff50;
 
     pub fn new(bootrom_path: &str) -> Self {
+        #[cfg(feature = "use_std")]
+        let data = std::fs::read(bootrom_path).unwrap();
+        #[cfg(not(feature = "use_std"))]
+        let data = {
+            amc_message_send(FILE_SERVER_SERVICE_NAME, ReadFile::new(bootrom_path));
+            let rom_data_msg: AmcMessage<ReadFileResponse> =
+                amc_message_await(Some(FILE_SERVER_SERVICE_NAME));
+            unsafe {
+                let rom_data_slice = core::ptr::slice_from_raw_parts(
+                    (&rom_data_msg.body().data) as *const u8,
+                    rom_data_msg.body().len,
+                );
+                let rom_data: &mut [u8] = &mut *(rom_data_slice as *mut [u8]);
+                rom_data.to_vec()
+            }
+        };
+
+        /*
+        let data = if cfg!(feature = "use_std") {
+            extern crate std;
+            std::fs::read(bootrom_path).unwrap()
+        } else {
+            panic!("Cannot read bootROM on axle")
+        };
+        */
         Self {
             is_disabled: RefCell::new(false),
-            data: std::fs::read(bootrom_path).unwrap(),
+            data,
         }
     }
 
@@ -117,7 +149,7 @@ enum MbcType {
 }
 
 impl Display for MbcType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match self {
             MbcType::NoMbc => "No MBC",
             MbcType::Mbc1 => "MBC1",
@@ -137,18 +169,37 @@ pub struct GameRom {
 
 impl GameRom {
     pub fn new(rom_path: &str) -> Self {
+        #[cfg(feature = "use_std")]
         let data = std::fs::read(rom_path).unwrap();
+
+        #[cfg(not(feature = "use_std"))]
+        //let data = [0xff; 1024 * 32].to_vec();
+        let data = {
+            amc_message_send(FILE_SERVER_SERVICE_NAME, ReadFile::new(rom_path));
+            let rom_data_msg: AmcMessage<ReadFileResponse> =
+                amc_message_await(Some(FILE_SERVER_SERVICE_NAME));
+            unsafe {
+                let rom_data_slice = core::ptr::slice_from_raw_parts(
+                    (&rom_data_msg.body().data) as *const u8,
+                    rom_data_msg.body().len,
+                );
+                let rom_data: &mut [u8] = &mut *(rom_data_slice as *mut [u8]);
+                rom_data.to_vec()
+            }
+        };
+
         //assert!(data.len() <= 0x8000, "Cannot load ROMs larger than 32k yet");
+        println!("Got ROM data with len {}", data.len());
 
         // MBC Ref: https://retrocomputing.stackexchange.com/questions/11732
         let mbc_type_discriminator = data[0x0147];
-        dbg!(mbc_type_discriminator);
         let mbc_type = match mbc_type_discriminator {
             0b00 => MbcType::NoMbc,
             0b01 => MbcType::Mbc1,
             3 | 19 => MbcType::Mbc3,
             // TODO(PT): Fake, check me!
             27 => MbcType::Mbc3,
+            0xff => MbcType::NoMbc,
             _ => panic!("Unknown MBC type {mbc_type_discriminator}"),
         };
 

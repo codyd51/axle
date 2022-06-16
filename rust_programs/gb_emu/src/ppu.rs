@@ -1,20 +1,28 @@
-use std::cell::RefCell;
+use core::cell::RefCell;
 
+use alloc::{boxed::Box, vec::Vec};
 use bitmatch::bitmatch;
+#[cfg(feature = "use_std")]
 use pixels::Pixels;
+
+#[cfg(not(feature = "use_std"))]
+use axle_rt::println;
 
 use crate::{
     gameboy::{GameBoy, GameBoyHardwareProvider},
     interrupts::InterruptType,
     mmu::{Addressable, Mmu},
-    WINDOW_HEIGHT, WINDOW_WIDTH,
 };
+
+const WINDOW_WIDTH: usize = 160;
+const WINDOW_HEIGHT: usize = 144;
 
 pub trait GraphicsLayer {
     fn get_pixel_buffer(&mut self) -> &mut [u8];
     fn render_to_screen(&self);
 }
 
+#[cfg(feature = "use_std")]
 impl GraphicsLayer for Pixels {
     fn get_pixel_buffer(&mut self) -> &mut [u8] {
         self.get_frame()
@@ -35,7 +43,7 @@ pub enum PpuMode {
 
 pub struct Ppu {
     main_window_layer: RefCell<Box<dyn GraphicsLayer>>,
-    vram_debug_layer: RefCell<Box<dyn GraphicsLayer>>,
+    //vram_debug_layer: RefCell<Box<dyn GraphicsLayer>>,
     lcd_control: RefCell<u8>,
     ly: RefCell<u8>,
     lyc: RefCell<u8>,
@@ -84,11 +92,11 @@ impl Ppu {
 
     pub fn new(
         main_window_layer: Box<dyn GraphicsLayer>,
-        vram_debug_layer: Box<dyn GraphicsLayer>,
+        //vram_debug_layer: Box<dyn GraphicsLayer>,
     ) -> Self {
         Ppu {
             main_window_layer: RefCell::new(main_window_layer),
-            vram_debug_layer: RefCell::new(vram_debug_layer),
+            //vram_debug_layer: RefCell::new(vram_debug_layer),
             lcd_control: RefCell::new(0b10000000),
             ly: RefCell::new(0),
             lyc: RefCell::new(0),
@@ -126,6 +134,7 @@ impl Ppu {
     }
 
     fn draw_tile(&self, mmu: &Mmu, tile_idx: usize, origin_x: usize, origin_y: usize) {
+        /*
         let mut vram_debug_layer = self.vram_debug_layer.borrow_mut();
         let mut frame = vram_debug_layer.get_pixel_buffer();
         let tile_size = 16;
@@ -173,9 +182,11 @@ impl Ppu {
                 frame[(frame_idx + 3) as usize] = 0xff;
             }
         }
+        */
     }
 
     fn draw_sprite(&self, mmu: &Mmu, tile_idx: usize, origin_x: usize, origin_y: usize) {
+        /*
         let mut main_window_layer = self.main_window_layer.borrow_mut();
         let mut frame = main_window_layer.get_pixel_buffer();
         let tile_size = 16;
@@ -225,9 +236,10 @@ impl Ppu {
                 frame[(frame_idx + 3) as usize] = 0xff;
             }
         }
+        */
     }
 
-    pub fn update_status(&self, status: StatusUpdate) {
+    pub fn update_status(&self, system: &dyn GameBoyHardwareProvider, status: StatusUpdate) {
         let mut stat = self.stat.borrow_mut();
         match status {
             StatusUpdate::LycEqualsLy(equals) => {
@@ -238,6 +250,24 @@ impl Ppu {
                 } else {
                     // Disable the bit
                     *stat &= !(1 << bit_index);
+                }
+                /*
+                println!(
+                    "update_status LycEqualsLy? {equals}, lyc = {}, ly = {}",
+                    *self.lyc.borrow(),
+                    *self.ly.borrow()
+                );
+                */
+                //println!("update_status LycEqualsLy? {equals}",);
+
+                if equals {
+                    // Trigger an interrupt if this source is enabled
+                    if (*stat >> 6) & 0b1 == 0b1 {
+                        //println!("Trigger LYC=LY");
+                        system
+                            .get_interrupt_controller()
+                            .trigger_interrupt(InterruptType::LCDStat);
+                    }
                 }
             }
             StatusUpdate::Mode(mode) => {
@@ -251,12 +281,27 @@ impl Ppu {
                 *stat &= !(0b11);
                 // Now update it with the mode we're setting
                 *stat |= value;
+
+                // Trigger an interrupt for this mode switch?
+                let interrupt_source_bit_index = match mode {
+                    PpuMode::HBlank => Some(3),
+                    PpuMode::VBlank => Some(4),
+                    PpuMode::OamSearch => Some(5),
+                    _ => None,
+                };
+                if let Some(interrupt_source_bit_index) = interrupt_source_bit_index {
+                    if (*stat >> interrupt_source_bit_index) & 0b1 == 0b1 {
+                        system
+                            .get_interrupt_controller()
+                            .trigger_interrupt(InterruptType::LCDStat);
+                    }
+                }
             }
         }
     }
 
     fn set_mode(&self, system: &dyn GameBoyHardwareProvider, state: PpuMode) {
-        self.update_status(StatusUpdate::Mode(state));
+        self.update_status(system, StatusUpdate::Mode(state));
         *self.current_mode.borrow_mut() = state;
 
         if state == PpuMode::VBlank {
@@ -339,8 +384,9 @@ impl Ppu {
         let row_byte2 = mmu.read((row_base_address + 1) as u16);
         let mut pixels = Vec::new();
         for px_idx in 0..8 {
-            let px_color_id = ((row_byte1 >> (TILE_WIDTH - px_idx - 1)) & 0b1) << 1
-                | ((row_byte2 >> (TILE_WIDTH - px_idx - 1)) & 0b1);
+            let px_color_id = ((row_byte2 >> (TILE_WIDTH - px_idx - 1)) & 0b1) << 1
+                | ((row_byte1 >> (TILE_WIDTH - px_idx - 1)) & 0b1);
+            //let px_color_id = (((row_byte1 >> px_idx) & 0b1) << 1) | ((row_byte2 >> px_idx) & 0b1);
             let color = color_id_to_color(px_color_id);
             pixels.push(color);
         }
@@ -561,20 +607,44 @@ impl Ppu {
         let oam_entry_size_in_bytes = 4;
         let oam_entry_count = 40;
         let mmu = system.get_mmu();
+        let double_height_sprites = ((*self.lcd_control.borrow()) >> 2) & 0b1 == 0b1;
         for i in 0..oam_entry_count {
             let oam_entry_base_addr = oam_base + (i * oam_entry_size_in_bytes);
+
+            let sprite_oam_coordinates_start_y = mmu.read(oam_entry_base_addr + 0) as usize;
+            let sprite_oam_coordinates_start_x = mmu.read(oam_entry_base_addr + 1) as usize;
+            let mut tile_map_index_of_sprite = mmu.read(oam_entry_base_addr + 2);
+            let sprite_attributes = mmu.read(oam_entry_base_addr + 3);
+
             // Check whether the scanline we're drawing is within this tile
             // Note that the coordinate system of OAM entries is translated (-8, -16) relative
             // to the screen coordinate system.
-            let sprite_oam_coordinates_start_y = mmu.read(oam_entry_base_addr + 0) as usize;
-            let sprite_oam_coordinates_start_x = mmu.read(oam_entry_base_addr + 1) as usize;
-            let sprite_screen_coordinates = (
+            //println!("OAM ({sprite_oam_coordinates_start_x}, {sprite_oam_coordinates_start_y}), TileMap {tile_map_index_of_sprite}, Attrs {sprite_attributes:08b}");
+            /*
+            if tile_map_index_of_sprite == 0 {
+                continue;
+            }
+            */
+            let mut sprite_screen_coordinates = (
                 sprite_oam_coordinates_start_x - 8,
+                //sprite_oam_coordinates_start_x.wrapping_sub(8),
                 sprite_oam_coordinates_start_y - 16,
+                //sprite_oam_coordinates_start_y.wrapping_sub(16),
             );
 
             let sprite_width = 8;
-            let sprite_height = 8;
+            let sprite_height = match double_height_sprites {
+                true => 16,
+                false => 8,
+            };
+
+            //let is_sprite_flipped_along_x_axis = sprite_attributes & (1 << 6) != 0;
+            let is_sprite_flipped_along_x_axis = (sprite_attributes >> 6) & 0b1 == 0b1;
+            /*
+            if is_sprite_flipped_along_x_axis {
+                sprite_screen_coordinates.1 += sprite_height * 2;
+            }
+            */
 
             if (screen_y as usize) < sprite_screen_coordinates.1
                 || (screen_y as usize) >= sprite_screen_coordinates.1 + sprite_height
@@ -582,11 +652,41 @@ impl Ppu {
                 // Skip this sprite as the current scanline is not within it
                 continue;
             }
+
+            /*
+            if is_sprite_flipped_along_x_axis {
+                println!("Inverted sprite x {sprite_oam_coordinates_start_x} y {sprite_oam_coordinates_start_y} tile_map_index {tile_map_index_of_sprite} attrs {sprite_attributes:08b}");
+            }
+            */
+
             //
             // This scanline contains a row from this sprite!
             // Read the tile data
-            let tile_map_index_of_sprite = mmu.read(oam_entry_base_addr + 2);
-            let row_within_tile = (screen_y as usize) - sprite_screen_coordinates.1;
+            let mut row_within_tile = match is_sprite_flipped_along_x_axis {
+                true => (sprite_height - 1) - ((screen_y as usize) - sprite_screen_coordinates.1),
+                false => (screen_y as usize) - sprite_screen_coordinates.1,
+            };
+            /*
+            if is_sprite_flipped_along_x_axis {
+                println!(
+                    "Row within tile {row_within_tile} un-inverted {}",
+                    (screen_y as usize) - sprite_screen_coordinates.1
+                );
+            }
+            */
+            // If this is a tall sprite, handle drawing the second 8-line sprite
+            if double_height_sprites && row_within_tile >= 8 {
+                row_within_tile -= 8;
+                tile_map_index_of_sprite += 1;
+            }
+
+            /*
+            if is_sprite_flipped_along_x_axis {
+                tile_map_index_of_sprite -= 1;
+            }
+            */
+
+            //println!("Sprite ({}, {}), Tile {tile_map_index_of_sprite:02x}, Attrs {sprite_attributes:08b}", sprite_screen_coordinates.0, sprite_screen_coordinates.1);
             // Sprites are always placed at 0x8000
             let sprite_vram_base_address = 0x8000;
             // TODO(PT): Size of tile to constant?
@@ -594,7 +694,6 @@ impl Ppu {
             let tile_base_address = sprite_vram_base_address
                 + ((tile_map_index_of_sprite as usize) * tile_size_in_bytes);
 
-            let sprite_attributes = mmu.read(oam_entry_base_addr + 3);
             let palette = if (sprite_attributes >> 4) & 0b1 == 0b0 {
                 *self.obp0.borrow()
             } else {
@@ -662,13 +761,17 @@ impl Ppu {
         let mut ticks = self.ticks.borrow_mut();
         let mut ly = self.ly.borrow_mut();
 
+        /*
         // Reached LYC?
         if *ly == *self.lyc.borrow_mut() {
-            // TODO(PT): Only do this if this INT is enabled
-            system
-                .get_interrupt_controller()
-                .trigger_interrupt(InterruptType::LCDStat);
+            // Trigger LYC interrupt if the LYC=LY interrupt source bit is set
+            if (*self.stat.borrow() >> 6) & 0b1 == 0b1 {
+                system
+                    .get_interrupt_controller()
+                    .trigger_interrupt(InterruptType::LCDStat);
+            }
         }
+        */
 
         *ticks += 1;
         match self.current_mode() {
@@ -676,7 +779,6 @@ impl Ppu {
                 // TODO(PT): Collect sprite data
                 if *ticks == 20 {
                     //println!("OAMSearch -> PixelTransfer");
-                    //*state = PpuMode::PixelTransfer;
                     self.set_mode(system, PpuMode::PixelTransfer);
                 } else {
                     //println!("Do OAM search");
@@ -686,7 +788,6 @@ impl Ppu {
                 // TODO(PT): Push pixel data
                 if *ticks == 63 {
                     //println!("PixelTransfer -> HBlank");
-                    //*state = PpuMode::HBlank;
                     self.set_mode(system, PpuMode::HBlank);
                 }
             }
@@ -695,6 +796,18 @@ impl Ppu {
                 if *ticks == 64 {
                     self.render_scanline(system, *ly);
                     self.render_sprites_on_scanline(system, *ly);
+
+                    /*
+                    println!(
+                        "calling update_status, lyc = {}, ly = {}",
+                        *self.lyc.borrow(),
+                        *ly
+                    );
+                    */
+                    self.update_status(
+                        system,
+                        StatusUpdate::LycEqualsLy(*ly == *self.lyc.borrow()),
+                    );
                 }
                 // Have we reached the bottom of the screen?
                 // TODO(PT): Wait, then go back to sprite search for the next line, or vblank
@@ -713,7 +826,7 @@ impl Ppu {
                             let origin = (col * TILE_WIDTH, row * TILE_HEIGHT);
                             self.draw_tile(&mmu, tile, origin.0, origin.1);
                         }
-                        self.vram_debug_layer.borrow().render_to_screen();
+                        //self.vram_debug_layer.borrow().render_to_screen();
                     } else {
                         self.set_mode(system, PpuMode::OamSearch);
                     }
@@ -788,9 +901,8 @@ impl Addressable for Ppu {
                 // Preserve the current bottom 3 bits
                 let mut stat = self.stat.borrow_mut();
                 let masked_current_value = *stat & 0b111;
-                let new_value = masked_write | masked_current_value;
+                *stat = masked_write | masked_current_value
                 //println!("Wrote to LCD STAT register: {val:08b} {new_value:08b}");
-                *stat = new_value
             }
             Ppu::BGP_ADDR => *(self.bgp.borrow_mut()) = val,
             Ppu::OBP0_ADDR => *(self.obp0.borrow_mut()) = val,

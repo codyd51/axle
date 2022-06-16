@@ -1,4 +1,7 @@
-use std::{cell::RefCell, fmt::Display};
+use core::{
+    cell::RefCell,
+    fmt::{self, Display},
+};
 
 use crate::{
     gameboy::GameBoyHardwareProvider,
@@ -15,7 +18,7 @@ pub enum InterruptType {
 }
 
 impl Display for InterruptType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let name = match self {
             InterruptType::VBlank => "VBlank",
             InterruptType::LCDStat => "LCDStat",
@@ -88,6 +91,10 @@ impl InterruptController {
 
                     // Push PC to the stack
                     cpu_ref.borrow_mut().call_interrupt_vector(interrupt_type);
+
+                    // We've handled one interrupt - don't try to handle more interrupts now
+                    // TODO(PT): Unit test?
+                    break;
                 }
             }
         }

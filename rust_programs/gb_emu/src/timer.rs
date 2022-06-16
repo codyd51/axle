@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use core::cell::RefCell;
 
 use crate::{
     gameboy::GameBoyHardwareProvider,

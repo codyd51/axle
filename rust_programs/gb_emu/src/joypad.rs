@@ -1,5 +1,8 @@
-use core::fmt;
-use std::{cell::RefCell, collections::BTreeMap, fmt::Display};
+use alloc::collections::BTreeMap;
+use core::{
+    cell::RefCell,
+    fmt::{self, Display},
+};
 
 use crate::{
     gameboy::GameBoyHardwareProvider,
@@ -77,19 +80,6 @@ impl Joypad {
     pub fn is_button_pressed(&self, button: Button) -> bool {
         let states = self.button_states.borrow_mut();
         states[&button]
-    }
-
-    pub fn step(&self, system: &dyn GameBoyHardwareProvider) {
-        /*
-        if self.is_left_arrow_pressed() {
-            //println!("Triggering joypad interrupt...");
-            /*
-            system
-                .get_interrupt_controller()
-                .trigger_interrupt(InterruptType::Joypad);
-                */
-        }
-        */
     }
 }
 

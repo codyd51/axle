@@ -4,10 +4,21 @@ version = "0.1.0"
 edition = "2021"
 resolver = "2"
 
-[dependencies]
-bitmatch = "0.1.1"
-# TODO(PT): Only when not targeting axle
-pixels = "0.9.0"
-winit = "*"
-image = "0.24.0"
+[features]
+default = ["run_in_axle"]
+use_std = ["pixels", "winit", "image"]
+run_in_axle = ["libgui"]
 
+[dependencies]
+axle_rt = {path = "../axle_rt" }
+agx_definitions = { path = "../agx_definitions" }
+awm_messages = { path = "../awm_messages" }
+file_manager_messages = { path = "../file_manager_messages" }
+bitmatch = "0.1.1"
+# These dependencies are only enabled in use_std mode
+pixels = { version = "0.9.0", optional = true }
+winit = { version = "*", optional = true }
+image = { version = "0.24.0", optional = true }
+
+# [target.'cfg(feature = "run_in_axle")'.dependencies]
+libgui = { path = "../libgui", optional = true }

@@ -1,4 +1,7 @@
-use std::cell::RefCell;
+use core::cell::RefCell;
+
+#[cfg(not(feature = "use_std"))]
+use axle_rt::print;
 
 use crate::{gameboy::GameBoyHardwareProvider, mmu::Addressable};
 
