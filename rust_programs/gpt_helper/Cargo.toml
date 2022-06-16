@@ -1,0 +1,16 @@
+[package]
+name = "gpt_helper"
+version = "0.1.0"
+edition = "2021"
+workspace = "../"
+
+[features]
+use_std = []
+
+[dependencies]
+binread = { version = "2.2.0", default-features = false, features = [] }
+
+[dependencies.bitvec]
+version = "1"
+default-features = false
+features = ["alloc"]
