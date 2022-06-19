@@ -64,6 +64,9 @@ typedef struct gui_text_view {
     Point cursor_pos;
     Size font_size;
     Size font_inset;
+    // PT: Just for Summercon demo, keep the contents in-memory
+    char* contents;
+    uint64_t contents_len;
 } gui_text_view_t;
 
 gui_text_view_t* gui_text_view_alloc(void);

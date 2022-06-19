@@ -13,6 +13,8 @@ gui_text_view_t* gui_text_view_alloc(void) {
 
 void gui_text_view_alloc_dynamic_fields(gui_text_view_t* view) {
 	gui_scroll_view_alloc_dynamic_fields((gui_scroll_view_t*)view);
+	view->contents = calloc(512, 1);
+	view->contents_len = 0;
 }
 
 void gui_text_view_init(gui_text_view_t* view, gui_window_t* window, gui_window_resized_cb_t sizer_cb) {
@@ -75,6 +77,9 @@ void gui_text_view_putchar(gui_text_view_t* text_view, char ch, Color color) {
 		return;
 	}
 	*/
+	if (text_view->contents_len <= 511) {
+		text_view->contents[text_view->contents_len++] = ch;
+	}
 
 	if (ch == '\n') {
 		_gui_text_view_newline(text_view);
