@@ -315,7 +315,7 @@ fn main() -> io::Result<()> {
             }
             //println!("\t\t{partition_entry:?}");
             println!("\t\tPartition #{partition_idx}:");
-            28732ac1-1ff8-d211-ba4b-0a0c93ec93b
+            //28732ac1-1ff8-d211-ba4b-0a0c93ec93b
 
             println!(
                 "\t\t\tType GUID: {:x?}",
