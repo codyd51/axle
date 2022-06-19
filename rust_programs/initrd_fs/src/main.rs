@@ -190,6 +190,9 @@ fn launch_startup_programs(root_dir: &DirectoryImage) {
     };
 
     for line in run_on_startup_contents.split("\n") {
+        if line.starts_with("#") {
+            // Skip comments
+        }
         launch_program_by_path(root_dir, line);
     }
 }
