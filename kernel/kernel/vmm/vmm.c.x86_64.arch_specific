@@ -134,7 +134,7 @@ static pdpe_t* _pdpt_get(pml4e_t* page_mapping_level4_virt, uint64_t vmem_base) 
 	return page_directory_pointer_table;
 }
 
-static uint64_t _map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start, uint64_t vmem_size, uint64_t phys_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level) {
+static void _map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start, uint64_t vmem_size, uint64_t phys_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level) {
 	//printf("map_region in 0x%p: [phys 0x%p - 0x%p] to [virt 0x%p - 0x%p]\n", page_mapping_level4, phys_start, phys_start + vmem_size - 1, vmem_start, vmem_start + vmem_size - 1);
 	uint64_t remaining_size = vmem_size;
 	uint64_t current_frame = phys_start;
@@ -221,19 +221,19 @@ static uint64_t _map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem
 	}
 }
 
-static void _free_region_4k_pages(vas_state_t* vas, uint64_t base, uint64_t size) {
+static void _free_region_4k_pages(vas_state_t* vas, uint64_t vmem_base, uint64_t size) {
 	pml4e_t* page_mapping_level4 = (pml4e_t*)PMA_TO_VMA(vas->pml4_phys);
 	//printf("map_region in 0x%p: [phys 0x%p - 0x%p] to [virt 0x%p - 0x%p]\n", page_mapping_level4, phys_start, phys_start + vmem_size - 1, vmem_start, vmem_start + vmem_size - 1);
-	printf("_free_region_4k_pages 0x%p 0x%p 0x%p\n", page_mapping_level4, base, size);
+	printf("_free_region_4k_pages 0x%p 0x%p 0x%p\n", page_mapping_level4, vmem_base, size);
 	uint64_t remaining_size = size;
-	uint64_t current_page = base;
+	uint64_t current_page = vmem_base;
 
-    pdpe_t* page_directory_pointer_table = PMA_TO_VMA(_pdpt_get(page_mapping_level4, base));
+    pdpe_t* page_directory_pointer_table = PMA_TO_VMA(_pdpt_get(page_mapping_level4, vmem_base));
 	// TODO(PT): Does not work for crossing PDPT (512GB) boundaries
 
 	uint64_t page_directories_needed = (remaining_size + (VMEM_IN_PDPE - 1)) / VMEM_IN_PDPE;
 	page_directories_needed = min(page_directories_needed, PAGE_DIRECTORIES_IN_PAGE_DIRECTORY_POINTER_TABLE);
-	uint64_t first_page_directory = VMA_PDPE_IDX(base);
+	uint64_t first_page_directory = VMA_PDPE_IDX(vmem_base);
 	//printf("\tvmem_size 0x%p page_dirs_needed %d\n", base, page_directories_needed);
 
 	for (int page_directory_iter_idx = 0; page_directory_iter_idx < page_directories_needed; page_directory_iter_idx++) {
@@ -726,4 +726,52 @@ uint64_t vas_copy_phys_mapping(vas_state_t* vas_state, vas_state_t* vas_to_copy,
 	//vas_state_dump(vas_state);
 
 	return chosen_start;
+}
+
+typedef struct pt_mapping {
+    uint64_t pt_virt_base;
+	uint64_t pt_phys_base;
+	uint64_t mapped_memory_virt_base;
+	uint64_t uninteresting_page_phys;
+} pt_mapping_t;
+
+void dangerous_map_pml1_entry(vas_state_t* vas_state, pt_mapping_t* out) {
+	// Map a random range to get a PTE set up
+	uint64_t uninteresting_range_start = _select_virtual_address(vas_state, 0x666000000000, PAGE_SIZE);
+	// Mark as allocated in the VAS
+	vas_add_range(vas_state, uninteresting_range_start, PAGE_SIZE);
+
+	// Allocate a random page
+	uint64_t uninteresting_page = pmm_alloc();
+	printf("Uninteresting page allocated: 0x%p\n", uninteresting_page);
+	_map_region_4k_pages(PMA_TO_VMA(vas_state->pml4_phys), uninteresting_range_start, PAGE_SIZE, uninteresting_page, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
+
+	pml4e_t* page_mapping_level4 = (pml4e_t*)PMA_TO_VMA(vas_state->pml4_phys);
+    pdpe_t* page_directory_pointer_table = _pdpt_get_or_create(page_mapping_level4, uninteresting_range_start, VAS_RANGE_PRIVILEGE_LEVEL_USER);
+	// Set the page dir to allow user pages
+	page_directory_pointer_table[VMA_PDPE_IDX(uninteresting_range_start)].user_mode = true;
+	pde_t* page_directory = (pde_t*)PMA_TO_VMA(page_directory_pointer_table[VMA_PDPE_IDX(uninteresting_range_start)].page_dir_base * PAGE_SIZE);
+	pte_t* page_table = (pte_t*)PMA_TO_VMA(page_directory[VMA_PDE_IDX(uninteresting_range_start)].page_table_base * PAGE_SIZE);
+
+	printf("Uninteresting range start: 0x%p\n", uninteresting_range_start);
+	printf("PML4 0x%p\n", page_mapping_level4);
+	printf("PDPT 0x%p\n", page_directory_pointer_table);
+	printf("PD  0x%p\n", page_directory);
+	printf("PT 0x%p\n", page_table);
+	uint64_t mapped_pt = _select_virtual_address(vas_state, 0x555000000000, PAGE_SIZE);
+	uint64_t pt_phys = (uint64_t)page_table - (uint64_t)KERNEL_MEMORY_BASE;
+	printf("Mapped PT virt 0x%p, phys PT 0x%p\n", mapped_pt, pt_phys);
+	_map_region_4k_pages(PMA_TO_VMA(vas_state->pml4_phys), mapped_pt, PAGE_SIZE, pt_phys, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
+	printf("Returning 0x%p to userspace...\n", mapped_pt);
+
+	out->pt_virt_base = mapped_pt;
+	out->pt_phys_base = pt_phys;
+	out->mapped_memory_virt_base = uninteresting_range_start;
+	out->uninteresting_page_phys = uninteresting_page;
+
+	/*
+	uint64_t page_directories_needed = (remaining_size + (VMEM_IN_PDPE - 1)) / VMEM_IN_PDPE;
+	page_directories_needed = min(page_directories_needed, PAGE_DIRECTORIES_IN_PAGE_DIRECTORY_POINTER_TABLE);
+	uint64_t first_page_directory = VMA_PDPE_IDX(vmem_start);
+	*/
 }

@@ -307,11 +307,51 @@ static void _amc_core_free_physical_range(const char* source_service, void* buf,
     amc_message_send__from_core(source_service, &resp, sizeof(resp));
 }
 
+#define MEMWALKER_REQUEST_PML1_ENTRY 666
+typedef struct memwalker_request_pml1 {
+    uint32_t event; // MEMWALKER_REQUEST_PML1_ENTRY
+} memwalker_request_pml1_t;
+
+typedef struct pt_mapping {
+    uint64_t pt_virt_base;
+	uint64_t pt_phys_base;
+    uint64_t mapped_memory_virt_base;
+    uint64_t uninteresting_page_phys;
+} pt_mapping_t;
+
+typedef struct memwalker_request_pml1_response {
+    uint32_t event; // MEMWALKER_REQUEST_PML1_ENTRY
+    uint64_t pt_virt_base;
+    uint64_t pt_phys_base;
+    uint64_t mapped_memory_virt_base;
+    uint64_t uninteresting_page_phys;
+} memwalker_request_pml1_response_t;
+
+uint64_t dangerous_map_pml1_entry(vas_state_t* vas_state, pt_mapping_t* out);
+
+static void _amc_core_grant_pml1_entry(const char* source_service) {
+    amc_service_t* source = amc_service_with_name(source_service);
+    pt_mapping_t mapping = {0};
+    dangerous_map_pml1_entry(vas_get_active_state(), &mapping);
+    printf("Got virt 0x%p\n", mapping.pt_virt_base);
+    memwalker_request_pml1_response_t resp = {
+        .event = MEMWALKER_REQUEST_PML1_ENTRY,
+        .pt_virt_base = mapping.pt_virt_base,
+        .pt_phys_base = mapping.pt_phys_base,
+        .mapped_memory_virt_base = mapping.mapped_memory_virt_base,
+        .uninteresting_page_phys = mapping.uninteresting_page_phys,
+    };
+    amc_message_send__from_core(source_service, &resp, sizeof(resp));
+}
+
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size) {
     //printf("Message to core from %s\n", source_service);
     uint32_t* u32buf = (uint32_t*)buf;
     if (u32buf[0] == AMC_COPY_SERVICES) {
         _amc_core_copy_amc_services(source_service);
+    }
+    else if (u32buf[0] == MEMWALKER_REQUEST_PML1_ENTRY) {
+        _amc_core_grant_pml1_entry(source_service);
     }
     else if (u32buf[0] == AMC_AWM_MAP_FRAMEBUFFER) {
         _amc_core_awm_map_framebuffer(source_service);

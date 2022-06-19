@@ -311,11 +311,33 @@ void amc_message_free(amc_message_t* msg) {
     kfree(msg);
 }
 
+#define AMC_FLOW_CONTROL_QUEUE_FULL 777
+#define AMC_FLOW_CONTROL_QUEUE_READY 778
+
+typedef struct amc_flow_control_msg_t {
+	uint32_t event;
+} amc_flow_control_msg_t;
+
+bool _memory_scanner_is_waiting = false;
+
 static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_message_t* message) {
     // We're modifying some state of the destination service - hold a spinlock
     spinlock_acquire(&dest_service->spinlock);
 
+    if (dest_service->message_queue->size >= dest_service->message_queue->max_size - 32) {
+        if (!strncmp(message->source, "com.dangerous.memory_walker", AMC_MAX_SERVICE_NAME_LEN)) {
+            printf("Asking memory scanner to slow down...\n");
+            amc_flow_control_msg_t flow_control = {
+                .event = AMC_FLOW_CONTROL_QUEUE_FULL,
+            };
+            amc_message_send__from_core("com.dangerous.memory_walker", &flow_control, sizeof(amc_flow_control_msg_t));
+            _memory_scanner_is_waiting = true;
+        }
+    }
+
     if (dest_service->message_queue->size >= dest_service->message_queue->max_size - 16) {
+        //spinlock_release(&dest_service->spinlock);
+        //return;
         printf("Would exceed max size!\n");
         _amc_print_inbox(dest_service);
         printf("Task: 0x%08x machine state: 0x%08x\n", dest_service->task, dest_service->task->machine_state);
@@ -584,6 +606,14 @@ void amc_message_broadcast(amc_message_t* msg) {
 }
 
 static void _amc_message_deliver(amc_service_t* service, amc_message_t* message, amc_message_t** out) {
+    if (service->message_queue->size == 0 && !strncmp(service->name, "com.dangerous.memory_scan_viewer", AMC_MAX_SERVICE_NAME_LEN) && _memory_scanner_is_waiting) {
+        printf("Telling memory scanner it can speed up again...\n");
+        amc_flow_control_msg_t flow_control = {
+            .event = AMC_FLOW_CONTROL_QUEUE_READY,
+        };
+        amc_message_send__from_core("com.dangerous.memory_walker", &flow_control, sizeof(amc_flow_control_msg_t));
+    }
+
     if (service->message_queue->size > 0 && service->message_queue->size % 50 == 0) {
         //printf("%d AMC: Info [%d %s] inbox: %d\n", ms_since_boot(), service->task->id, service->name, service->message_queue->size);
     }
