@@ -13,5 +13,8 @@ members = [
     "gb_emu",
     "sata_driver",
     "sata_driver_messages",
+]
+
+exclude = [
     "gpt_helper",
 ]
