@@ -536,7 +536,11 @@ Rect desktop_shortcut_place_in_grid_slot(desktop_shortcut_t* shortcut, desktop_s
     return shortcut->view->frame;
 }
 
-static void desktop_shortcuts_add(const char* display_name, const char* program_path) {
+static void desktop_shortcuts_add_and_place_in_slot(
+    const char* display_name, 
+    const char* program_path, 
+    desktop_shortcut_grid_slot_t* grid_slot
+) {
     desktop_shortcuts_state_t* shortcuts_state = &_g_desktop_shortcuts_state;
     desktop_shortcut_t* shortcut = calloc(1, sizeof(desktop_shortcut_t));
 
@@ -545,7 +549,16 @@ static void desktop_shortcuts_add(const char* display_name, const char* program_
     shortcut->display_name = display_name;
     array_insert(shortcuts_state->shortcuts, shortcut);
 
+    desktop_shortcut_place_in_grid_slot(shortcut, grid_slot);
+
+    desktop_views_add(shortcut->view);
+
+    desktop_shortcut_render(shortcut);
+}
+
+static void desktop_shortcuts_add(const char* display_name, const char* program_path) {
     // Find the next empty grid slot
+    desktop_shortcuts_state_t* shortcuts_state = &_g_desktop_shortcuts_state;
     desktop_shortcut_grid_slot_t* found_slot = NULL;
     for (int32_t i = 0; i < shortcuts_state->grid_slots->size; i++) {
         desktop_shortcut_grid_slot_t* slot = array_lookup(shortcuts_state->grid_slots, i);
@@ -555,11 +568,29 @@ static void desktop_shortcuts_add(const char* display_name, const char* program_
         }
     }
     //assert(found_slot != NULL, "No more room to add another desktop shortcut");
-    desktop_shortcut_place_in_grid_slot(shortcut, found_slot);
+    desktop_shortcuts_add_and_place_in_slot(display_name, program_path, found_slot);
+}
 
-    desktop_views_add(shortcut->view);
+static void desktop_shortcuts_add_and_place_in_slot_by_coordinate(
+    const char* display_name, 
+    const char* program_path, 
+    int x, 
+    int y
+) {
+    desktop_shortcuts_state_t* shortcuts_state = &_g_desktop_shortcuts_state;
 
-    desktop_shortcut_render(shortcut);
+    Size grid_slot_size = desktop_shortcut_grid_slot_size();
+    Size screen_size = screen_resolution();
+
+    int rows = screen_size.height / grid_slot_size.height;
+    int cols = screen_size.width / grid_slot_size.width;
+    assert(x < cols, "X is more than the number of possible columns");
+    assert(y < rows, "Y is more than the number of possible rows");
+    // By definition
+    int shortcut_slots_per_col = rows;
+    int idx = (x * shortcut_slots_per_col) + y;
+    desktop_shortcut_grid_slot_t* slot = array_lookup(shortcuts_state->grid_slots, idx);
+    desktop_shortcuts_add_and_place_in_slot(display_name, program_path, slot);
 }
 
 void windows_fetch_resource_images(void) {
@@ -577,7 +608,9 @@ void windows_fetch_resource_images(void) {
     desktop_shortcuts_add("Logs Viewer", "/usr/applications/logs_viewer");
     desktop_shortcuts_add("DOOM", "/usr/applications/doom");
     desktop_shortcuts_add("Breakout", "/usr/applications/breakout");
-    desktop_shortcuts_add("fs_client", "/usr/applications/fs_client");
+    desktop_shortcuts_add("2048", "/usr/applications/2048");
+    desktop_shortcuts_add_and_place_in_slot_by_coordinate("Notepad", "/usr/applications/textpad", 1, 0);
+    desktop_shortcuts_add_and_place_in_slot_by_coordinate("VAS Viz", "/usr/applications/task_viewer", 1, 2);
 }
 
 user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t height) {
