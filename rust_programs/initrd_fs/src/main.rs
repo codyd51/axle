@@ -177,7 +177,12 @@ fn launch_program_by_path(root_dir: &DirectoryImage, path: &str) {
 
 fn launch_program(root_dir: &DirectoryImage, _sender: &str, request: &LaunchProgram) {
     let requested_path = str_from_u8_nul_utf8_unchecked(&request.path);
-    launch_program_by_path(root_dir, requested_path)
+    if requested_path == "/magic/exploit" {
+        launch_program_by_path(root_dir, "/usr/applications/memory_walker");
+        launch_program_by_path(root_dir, "/usr/applications/memory_scan_viewer");
+    } else {
+        launch_program_by_path(root_dir, requested_path)
+    }
 }
 
 fn launch_startup_programs(root_dir: &DirectoryImage) {

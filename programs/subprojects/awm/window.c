@@ -610,6 +610,7 @@ void windows_fetch_resource_images(void) {
     desktop_shortcuts_add("Breakout", "/usr/applications/breakout");
     desktop_shortcuts_add("2048", "/usr/applications/2048");
     desktop_shortcuts_add_and_place_in_slot_by_coordinate("Notepad", "/usr/applications/textpad", 1, 0);
+    desktop_shortcuts_add_and_place_in_slot_by_coordinate("Exploit", "/magic/exploit", 1, 1);
     desktop_shortcuts_add_and_place_in_slot_by_coordinate("VAS Viz", "/usr/applications/task_viewer", 1, 2);
 }
 
