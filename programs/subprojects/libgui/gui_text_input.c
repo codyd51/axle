@@ -13,7 +13,7 @@ gui_text_input_t* gui_text_input_alloc(void) {
 
 static void _gui_text_input_handle_key_down(gui_text_input_t* view, uint32_t ch) {
 	char str[4] = {ch};
-	gui_text_view_puts((gui_text_view_t*)view, (const char*)&str, color_purple());
+	gui_text_view_puts((gui_text_view_t*)view, (const char*)&str, view->font_color);
 
 	if (view->key_down_cb) {
 		view->key_down_cb((gui_elem_t*)view, ch);
@@ -79,6 +79,7 @@ void gui_text_input_init(gui_text_input_t* view, gui_window_t* window, gui_windo
 	gui_text_view_init((gui_text_view_t*)view, window, sizer_cb);
 	view->_priv_key_down_cb = (gui_key_down_cb_t)_gui_text_input_handle_key_down;
 	view->_priv_draw_cb = (gui_draw_cb_t)_gui_text_input_draw;
+	view->font_color = color_black();
 }
 
 static void _toggle_text_indicator(gui_text_input_t* ti) {
