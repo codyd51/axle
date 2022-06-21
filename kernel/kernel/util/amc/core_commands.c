@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <std/array_m.h>
+#include <std/math.h>
 
 #include <kernel/boot_info.h>
 #include <kernel/util/elf/elf.h>
@@ -327,6 +328,29 @@ typedef struct memwalker_request_pml1_response {
     uint64_t uninteresting_page_phys;
 } memwalker_request_pml1_response_t;
 
+#define TASK_VIEWER_GET_TASK_INFO 777
+typedef struct task_viewer_get_task_info {
+	uint32_t event;	// TASK_VIEWER_GET_TASK_INFO
+} task_viewer_get_task_info_t;
+
+typedef struct task_info {
+    char name[64];
+    uint32_t pid;
+    uint64_t rip;
+    uint64_t vas_range_count;
+    // Don't send more than 16 ranges
+    vas_range_t vas_ranges[16];
+    uint64_t user_mode_rip;
+    bool has_amc_service;
+    uint64_t pending_amc_messages;
+} task_info_t;
+
+typedef struct task_viewer_get_task_info_response {
+	uint32_t event; // TASK_VIEWER_GET_TASK_INFO
+    uint32_t task_info_count;
+    task_info_t tasks[];
+} task_viewer_get_task_info_response_t;
+
 uint64_t dangerous_map_pml1_entry(vas_state_t* vas_state, pt_mapping_t* out);
 
 static void _amc_core_grant_pml1_entry(const char* source_service) {
@@ -344,14 +368,95 @@ static void _amc_core_grant_pml1_entry(const char* source_service) {
     amc_message_send__from_core(source_service, &resp, sizeof(resp));
 }
 
+#include <kernel/multitasking/tasks/task_small_int.h>
+#include <kernel/util/amc/amc_internal.h>
+
+static void _amc_core_send_task_info(const char* source_service) {
+    // Don't let the process list change while we compute this
+    kernel_begin_critical();
+
+    task_small_t* task_head = _tasking_get_linked_list_head();
+
+    // First, count up all the tasks so we know how much memory we'll need
+    int task_count = 1;
+    task_small_t* node = task_head;
+    while (node->next != NULL) {
+        node = node->next;
+        task_count += 1;
+    }
+
+    uint64_t response_size = sizeof(task_viewer_get_task_info_response_t) + (sizeof(task_info_t) * task_count);
+    task_viewer_get_task_info_response_t* response = calloc(1, response_size);
+    response->event = TASK_VIEWER_GET_TASK_INFO;
+    response->task_info_count = task_count;
+
+    vas_state_t* current_vas = vas_get_active_state();
+
+    node = task_head;
+    for (int i = 0; i < task_count; i++) {
+        vas_load_state(node->vas_state);
+        strncpy(response->tasks[i].name, node->name, sizeof(response->tasks[i].name));
+        response->tasks[i].pid = node->id;
+        response->tasks[i].rip = node->machine_state->rip;
+        
+        // Don't try to compute things via machine_state for the active process, 
+        // because machine_state is computed on context switches away
+        if (node != tasking_get_current_task()) {
+            uint64_t* rbp = node->machine_state->rbp;
+            uint64_t user_mode_rip = 0;
+            for (int j = 0; j < 10; j++) {
+                //printf("%s 0x%x\n", node->name, rbp);
+                if (rbp < PAGE_SIZE) {
+                    break;
+                }
+                //printf("\tTask %s Return address %d: 0x%x\n", node->name, j, rbp[1]);
+                uint64_t rip = rbp[1];
+
+                // Is the RIP in the canonical lower-half? If so, it's probably a user-mode return address
+                if ((rip & (1LL << 63LL)) == 0) {
+                    user_mode_rip = rip;
+                    break;
+                }
+
+                rbp = rbp[0];
+            }
+
+            response->tasks[i].user_mode_rip = user_mode_rip;
+        }
+
+        int vas_ranges_to_copy = MIN(
+            sizeof(response->tasks[i].vas_ranges) / sizeof(response->tasks[i].vas_ranges[0]), 
+            node->vas_state->range_count
+        );
+        response->tasks[i].vas_range_count = vas_ranges_to_copy;
+        for (int j = 0; j < vas_ranges_to_copy; j++) {
+            memcpy(&response->tasks[i].vas_ranges[j], &node->vas_state->ranges[j], sizeof(vas_range_t));
+        }
+
+        // Copy AMC service info
+        amc_service_t* service = amc_service_of_task(node);
+        printf("service 0x%x\n", service);
+        response->tasks[i].has_amc_service = service != NULL;
+        if (service != NULL) {
+            response->tasks[i].pending_amc_messages = service->message_queue->size;
+        }
+
+        node = node->next;
+    }
+
+    //printf("Finished, will reload current VAS\n");
+    vas_load_state(current_vas);
+
+    kernel_end_critical();
+    amc_message_send__from_core(source_service, response, response_size);
+    kfree(response);
+}
+
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size) {
     //printf("Message to core from %s\n", source_service);
     uint32_t* u32buf = (uint32_t*)buf;
     if (u32buf[0] == AMC_COPY_SERVICES) {
         _amc_core_copy_amc_services(source_service);
-    }
-    else if (u32buf[0] == MEMWALKER_REQUEST_PML1_ENTRY) {
-        _amc_core_grant_pml1_entry(source_service);
     }
     else if (u32buf[0] == AMC_AWM_MAP_FRAMEBUFFER) {
         _amc_core_awm_map_framebuffer(source_service);
@@ -395,6 +500,12 @@ void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf
     }
     else if (u32buf[0] == AMC_FREE_PHYSICAL_RANGE_REQUEST) {
         _amc_core_free_physical_range(source_service, buf, buf_size);
+    }
+    else if (u32buf[0] == MEMWALKER_REQUEST_PML1_ENTRY) {
+        _amc_core_grant_pml1_entry(source_service);
+    }
+    else if (u32buf[0] == TASK_VIEWER_GET_TASK_INFO) {
+        _amc_core_send_task_info(source_service);
     }
     else {
         printf("Unknown message: %d\n", u32buf[0]);
