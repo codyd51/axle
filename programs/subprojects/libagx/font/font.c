@@ -29,7 +29,7 @@ static inline bool bitset_check(uint32_t* bitset, int idx) {
 }
 
 void draw_char(ca_layer* layer, char ch, int x, int y, Color color, Size font_size) {
-	if (!isprint(ch) || !isascii(ch)) {
+	if (!isprint(ch) || !isascii(ch) || ch >= 128) {
 		return;
 	}
 
