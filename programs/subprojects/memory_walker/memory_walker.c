@@ -48,8 +48,102 @@ typedef struct amc_flow_control_msg_t {
 	uint32_t event;
 } amc_flow_control_msg_t;
 
+const double _g_control_panel_height_fraction = 0.225;
+
+typedef struct state {
+	gui_button_t* control_scan_button;
+	gui_button_t* upload_dump_button;
+} state_t;
+
+state_t _g_state = {0};
+
+char* _g_memory_window = NULL;
+pte_t* _g_page_table = NULL;
+gui_text_view_t* _g_text_view = NULL;
+
 static Rect _text_view_sizer(gui_text_view_t* text_view, Size window_size) {
-	return rect_make(point_zero(), window_size);
+	/*
+	return rect_make(
+		point_zero(), 
+		size_make(
+			window_size.width,
+			(double)window_size.height * (1.0 - _g_control_panel_height_fraction)
+		)
+	);
+	*/
+	return rect_make(
+		point_make(
+			0,
+			(double)window_size.height * _g_control_panel_height_fraction
+		), 
+		size_make(
+			window_size.width,
+			(double)window_size.height * (1.0 - _g_control_panel_height_fraction)
+		)
+	);
+}
+
+static Rect _control_panel_sizer(gui_view_t* v, Size window_size) {
+	/*
+	return rect_make(
+		point_make(
+			0,
+			(double)window_size.height * (1.0 - _g_control_panel_height_fraction)
+		),
+		size_make(
+			window_size.width,
+			(double)window_size.height * _g_control_panel_height_fraction
+		)
+	);
+	*/
+	return rect_make(
+		point_zero(),
+		size_make(
+			window_size.width,
+			(double)window_size.height * _g_control_panel_height_fraction
+		)
+	);
+}
+
+static Rect _control_scan_button_sizer(gui_button_t* b, Size window_size) {
+    Rect parent_frame = b->superview->content_layer_frame;
+    uint32_t w = parent_frame.size.width * 0.3;
+    uint32_t h = parent_frame.size.height * 0.5;
+    return rect_make(
+        point_make(
+            (w / 4.0),
+			(parent_frame.size.height * 0.5) - (h / 2.0)
+        ),
+        size_make(w, h)
+    );
+}
+
+static Rect _upload_dump_button_sizer(gui_button_t* b, Size window_size) {
+    Rect parent_frame = b->superview->content_layer_frame;
+    uint32_t w = parent_frame.size.width * 0.3;
+    uint32_t h = parent_frame.size.height * 0.5;
+    return rect_make(
+        point_make(
+            parent_frame.size.width - w - (w / 4.0),
+			(parent_frame.size.height * 0.5) - (h / 2.0)
+        ),
+        size_make(w, h)
+    );
+}
+
+static void _control_scan_button_clicked(gui_view_t* view) {
+	_timer_fired(_g_text_view);
+}
+
+static void _upload_dump_button_timer_fired(void) {
+	gui_text_view_puts(_g_text_view, "[+] Done", color_green());
+	_g_text_view->content_layer->scroll_layer.scroll_offset.y = (_g_text_view->content_layer->scroll_layer.max_y - _g_text_view->content_layer_frame.size.height + (_g_text_view->font_size.height * 2));
+}
+
+static void _upload_dump_button_clicked(gui_view_t* view) {
+	gui_text_view_puts(_g_text_view, "[+] Uploading strings...\n", color_red());
+	_g_text_view->content_layer->scroll_layer.scroll_offset.y = (_g_text_view->content_layer->scroll_layer.max_y - _g_text_view->content_layer_frame.size.height + (_g_text_view->font_size.height * 2));
+	gui_timer_start(2000, _upload_dump_button_timer_fired, NULL);
 }
 
 uint64_t scan_memory(char* memory_window, pte_t* page_table, uint64_t chunk_base, uint64_t memory_chunk_size) {
@@ -64,6 +158,17 @@ uint64_t scan_memory(char* memory_window, pte_t* page_table, uint64_t chunk_base
 			gui_run_event_loop_pass(true, &did_exit);
 		}
 
+		// Display some progress
+		if (string_count > 0 && string_count % 10000 == 0) {
+			printf("Displaying progress update...\n");
+			char buf[512];
+			gui_text_view_puts(_g_text_view, "[+]\t(Found ", color_green());
+			snprintf(&buf, sizeof(buf), "%ld", string_count);
+			gui_text_view_puts(_g_text_view, buf, color_white());
+			gui_text_view_puts(_g_text_view, " strings)\n", color_green());
+			_g_text_view->content_layer->scroll_layer.scroll_offset.y = (_g_text_view->content_layer->scroll_layer.max_y - _g_text_view->content_layer_frame.size.height + (_g_text_view->font_size.height * 2));
+		}
+
 		page_table[0].page_base = frame_base / PAGE_SIZE;
 
 		// Scan this frame for secrets
@@ -72,8 +177,8 @@ uint64_t scan_memory(char* memory_window, pte_t* page_table, uint64_t chunk_base
 		bool is_in_string = false;
 		//char* string_start = NULL;
 		uint64_t string_start_idx = 0;
-		for (uint64_t j = 0; j < PAGE_SIZE - 1; j++) {
-			if (isprint(memory_window[j]) && isascii(memory_window[j])) {
+		for (uint64_t j = 0; j < PAGE_SIZE; j++) {
+			if (isprint(memory_window[j]) && isascii(memory_window[j]) && (memory_window[j] < 128 && memory_window[j] != '\0')) {
 				if (!is_in_string) {
 					// We've entered a string
 					is_in_string = true;
@@ -93,43 +198,48 @@ uint64_t scan_memory(char* memory_window, pte_t* page_table, uint64_t chunk_base
 						if (!filter || (filter && (!strncmp("MyS3", start, 4) || !strncmp("This", start, 4)))) {
 							string_count += 1;
 							if (string_count % 1000 == 0) {
-								usleep(100);
+								usleep(80);
 							}
-							//if (string_count % 600 == 0) {
-								// 1 extra byte for NULL terminator
-								char* string = calloc(string_len + 1, sizeof(char));
-								strncpy(string, memory_window + string_start_idx, string_len);
-								uint64_t addr = frame_base + j;
-								printf("0x%016lx: %s\n", addr, string);
-								// Add 1 so the NULL terminator gets sent too
-								//amc_message_send("com.dangerous.memory_scan_viewer", memory_window + string_start_idx, min(string_len, 20));
-								amc_message_send("com.dangerous.memory_scan_viewer", string, string_len+1);
-								//usleep(10);
 
-								// Wait if necessary
-								bool waiting = false;
-								if (amc_has_message_from(AXLE_CORE_SERVICE_NAME)) {
-									amc_message_t* msg;
-									amc_message_await(AXLE_CORE_SERVICE_NAME, &msg);
-									amc_flow_control_msg_t* flow_control = (amc_flow_control_msg_t*)msg->body;
-									if (flow_control->event = AMC_FLOW_CONTROL_QUEUE_FULL) {
-										printf("Pausing for full queue...\n");
-										waiting = true;
-										while (waiting) {
-											amc_message_await(AXLE_CORE_SERVICE_NAME, &msg);
-											flow_control = (amc_flow_control_msg_t*)msg->body;
-											if (flow_control->event = AMC_FLOW_CONTROL_QUEUE_READY) {
-												printf("Queue ready!\n");
-												waiting = false;
-											}
+							// 1 extra byte for NULL terminator
+							char* string = calloc(string_len + 1, sizeof(char));
+							strncpy(string, memory_window + string_start_idx, string_len);
+							// Don't allow random strings to turn into format specifiers in the kernel
+							for (int ch_idx = 0; ch_idx < string_len; ch_idx++) {
+								if (string[ch_idx] == '%') {
+									string[ch_idx] = '!';
+								}
+							}
+							uint64_t addr = frame_base + j;
+							//printf("0x%016lx: %s\n", addr, string);
+							printf("%s\n", string);
+							// Add 1 so the NULL terminator gets sent too
+							//amc_message_send("com.dangerous.memory_scan_viewer", memory_window + string_start_idx, min(string_len, 20));
+							amc_message_send("com.dangerous.memory_scan_viewer", string, string_len+1);
+
+							// Wait if necessary
+							bool waiting = false;
+							if (amc_has_message_from(AXLE_CORE_SERVICE_NAME)) {
+								amc_message_t* msg;
+								amc_message_await(AXLE_CORE_SERVICE_NAME, &msg);
+								amc_flow_control_msg_t* flow_control = (amc_flow_control_msg_t*)msg->body;
+								if (flow_control->event = AMC_FLOW_CONTROL_QUEUE_FULL) {
+									printf("Pausing for full queue...\n");
+									waiting = true;
+									while (waiting) {
+										amc_message_await(AXLE_CORE_SERVICE_NAME, &msg);
+										flow_control = (amc_flow_control_msg_t*)msg->body;
+										if (flow_control->event = AMC_FLOW_CONTROL_QUEUE_READY) {
+											printf("Queue ready!\n");
+											waiting = false;
 										}
 									}
-									else {
-										printf("Unexpected message from core %d\n", flow_control->event);
-									}
 								}
-								free(string);
-							//}
+								else {
+									printf("Unexpected message from core %d\n", flow_control->event);
+								}
+							}
+							free(string);
 						}
 					}
 
@@ -147,11 +257,12 @@ uint64_t scan_memory(char* memory_window, pte_t* page_table, uint64_t chunk_base
 	return string_count;
 }
 
-char* _g_memory_window = NULL;
-pte_t* _g_page_table = NULL;
-gui_text_view_t* _g_text_view = NULL;
-
 void _timer_fired(gui_text_view_t* ctx) {
+	gui_button_set_disabled(_g_state.control_scan_button, true);
+	gui_button_set_title(_g_state.control_scan_button, "Scan ongoing...");
+
+	gui_text_view_puts(_g_text_view, "[+] In-memory strings dump started...\n", color_red());
+
 	printf("timer fired!\n");
 	char buf[512];
 	// Scan 4GB, 512MB at a time
@@ -159,45 +270,37 @@ void _timer_fired(gui_text_view_t* ctx) {
 	uint64_t total_memory_to_scan = 4LL * 1024LL * 1024LL * 1024LL;
 	uint64_t total_string_count = 0;
 	for (uint64_t chunk_base = 0; chunk_base < total_memory_to_scan; chunk_base += memory_chunk_size) {
-		snprintf(&buf, sizeof(buf), "[+] Scanning Phys [0x%016lx - 0x%016lx]\n", chunk_base, chunk_base + memory_chunk_size - 1);
-		gui_text_view_puts(_g_text_view, buf, color_make(0, 255, 0));
+		gui_text_view_puts(_g_text_view, "[+] Scanning Phys [", color_green());
+		snprintf(&buf, sizeof(buf), "0x%016lx - 0x%016lx", chunk_base, chunk_base + memory_chunk_size - 1);
+		gui_text_view_puts(_g_text_view, buf, color_white());
+		gui_text_view_puts(_g_text_view, "]\n", color_green());
 
 		uint64_t string_count = scan_memory(_g_memory_window, _g_page_table, chunk_base, memory_chunk_size);
 		total_string_count += string_count;
 
-		snprintf(&buf, sizeof(buf), "[+]\tFound %ld strings\n", string_count);
-		gui_text_view_puts(_g_text_view, buf, color_make(0, 255, 0));
+		gui_text_view_puts(_g_text_view, "[+]\tFound ", color_green());
+		snprintf(&buf, sizeof(buf), "%ld", string_count);
+		gui_text_view_puts(_g_text_view, buf, color_white());
+		gui_text_view_puts(_g_text_view, " strings\n", color_green());
 		_g_text_view->content_layer->scroll_layer.scroll_offset.y = (_g_text_view->content_layer->scroll_layer.max_y - _g_text_view->content_layer_frame.size.height + (_g_text_view->font_size.height * 2));
 	}
-	snprintf(&buf, sizeof(buf), "[+]\tAll done, uploading %ld strings.\n", total_string_count);
-	gui_text_view_puts(_g_text_view, buf, color_make(0, 255, 0));
+	gui_text_view_puts(_g_text_view, "[+] All done, will upload ", color_green());
+	snprintf(&buf, sizeof(buf), "%ld", total_string_count);
+	gui_text_view_puts(_g_text_view, buf, color_white());
+	gui_text_view_puts(_g_text_view, " strings.\n", color_green());
 	printf("*** FINISHED MEMORY SCAN at %ld ***\n", ms_since_boot());
+
+	gui_button_set_disabled(_g_state.upload_dump_button, false);
 }
 
 int main(int argc, char** argv) {
 	amc_register_service("com.dangerous.memory_walker");
 
-	// Instantiate the GUI window
-	gui_window_t* window = gui_window_create("Memory Scanner", 860, 680);
-	Size window_size = window->size;
-
-	Rect notepad_frame = rect_make(point_zero(), window_size);
-	/*
-	gui_text_view_t* t = gui_text_view_create(
-		window,
-		(gui_window_resized_cb_t)_text_view_sizer
-	);
-	*/
-	_g_text_view = gui_text_view_alloc();
-	gui_text_view_init(_g_text_view, window, (gui_window_resized_cb_t)_text_view_sizer);
-	_g_text_view->font_size = size_make(12, 18);
-	gui_text_view_add_to_window(_g_text_view, window);
-
-	gui_text_view_puts(_g_text_view, "[+] Requesting PML1 entry from kernel...\n", color_make(0, 255, 0));
+	// Request this before invoking libgui to avoid conflicts with message order
 	memwalker_request_pml1_t request = {
 		.event = MEMWALKER_REQUEST_PML1_ENTRY,
 	};
-	amc_message_send("com.axle.core", &request, sizeof(memwalker_request_pml1_t));
+	amc_message_send(AXLE_CORE_SERVICE_NAME, &request, sizeof(memwalker_request_pml1_t));
 	amc_message_t* response_msg;
 	amc_message_await(AXLE_CORE_SERVICE_NAME, &response_msg);
 	memwalker_request_pml1_response_t* response = (memwalker_request_pml1_response_t*)response_msg->body;
@@ -211,17 +314,57 @@ int main(int argc, char** argv) {
 
 	// Re-use what will become our window as a place to put some data, for testing
 	uint64_t secret_data_phys = response->uninteresting_page_phys;
+	/*
 	char* secret_data_virt = (char*)mapped_memory_virt_base;
 	strcpy(secret_data_virt, "This is a test string!");
+	*/
 
-	gui_text_view_puts(_g_text_view, "[+] Received PML1 from kernel!\n", color_make(0, 255, 0));
+	// Instantiate the GUI window
+	gui_window_t* window = gui_window_create("Memory Scanner", 860, 700);
+	Size window_size = window->size;
+
+	Rect notepad_frame = rect_make(point_zero(), window_size);
+	/*
+	gui_text_view_t* t = gui_text_view_create(
+		window,
+		(gui_window_resized_cb_t)_text_view_sizer
+	);
+	*/
+
+	// Scanner output view
+	_g_text_view = gui_text_view_alloc();
+	gui_text_view_init(_g_text_view, window, (gui_window_resized_cb_t)_text_view_sizer);
+	_g_text_view->font_size = size_make(12, 18);
+	gui_text_view_add_to_window(_g_text_view, window);
+	gui_view_set_title(_g_text_view, "Status");
+
+    // Control panel
+	// Start scan - stop scan
+	// Rescan?
+	gui_view_t* control_panel_view = gui_view_create(window, (gui_window_resized_cb_t)_control_panel_sizer);
+	gui_view_set_title(control_panel_view, "Control Panel");
+    control_panel_view->background_color = color_make(160, 160, 160);
+	_g_state.control_scan_button = gui_button_create(control_panel_view, (gui_window_resized_cb_t)_control_scan_button_sizer, "Scan Memory");
+	_g_state.control_scan_button->button_clicked_cb = (gui_button_clicked_cb_t)_control_scan_button_clicked;
+
+	_g_state.upload_dump_button = gui_button_create(control_panel_view, (gui_window_resized_cb_t)_upload_dump_button_sizer, "Upload Dump");
+	gui_button_set_disabled(_g_state.upload_dump_button, true);
+	_g_state.upload_dump_button->button_clicked_cb = (gui_button_clicked_cb_t)_upload_dump_button_clicked;
+
+	gui_text_view_puts(_g_text_view, "[+] Requesting PML1 entry from kernel...\n", color_green());
+	gui_text_view_puts(_g_text_view, "[+] Received PML1 entry from kernel!\n", color_green());
 	char buf[512];
-	snprintf(&buf, sizeof(buf), "[+] PML1 VirtAddr 0x%016lx\n", response->pt_virt_base);
-	gui_text_view_puts(_g_text_view, buf, color_make(0, 255, 0));
-	snprintf(&buf, sizeof(buf), "[+] PML1 PhysAddr 0x%016lx\n", response->pt_phys_base);
-	gui_text_view_puts(_g_text_view, buf, color_make(0, 255, 0));
-	snprintf(&buf, sizeof(buf), "[+] Virt window   0x%016lx\n", response->mapped_memory_virt_base);
-	gui_text_view_puts(_g_text_view, buf, color_make(0, 255, 0));
+	gui_text_view_puts(_g_text_view, "[+] PML1 entry VirtAddr ", color_green());
+	snprintf(&buf, sizeof(buf), "0x%016lx\n", pt_virt);
+	gui_text_view_puts(_g_text_view, buf, color_white());
+
+	gui_text_view_puts(_g_text_view, "[+] PML1 entry PhysAddr ", color_green());
+	snprintf(&buf, sizeof(buf), "0x%016lx\n", pt_phys);
+	gui_text_view_puts(_g_text_view, buf, color_white());
+
+	gui_text_view_puts(_g_text_view, "[+] Virt window         ", color_green());
+	snprintf(&buf, sizeof(buf), "0x%016lx\n", mapped_memory_virt_base);
+	gui_text_view_puts(_g_text_view, buf, color_white());
 
 	uint64_t* memory_window = (uint64_t*)mapped_memory_virt_base;
 
@@ -232,8 +375,7 @@ int main(int argc, char** argv) {
 	_g_page_table = page_table;
 	
 	//gui_timer_start(2000, _timer_fired, _g_text_view);
-	_timer_fired(_g_text_view);
-
+	//_timer_fired(_g_text_view);
 
 /*
 	// Scan 4GB of physical memory

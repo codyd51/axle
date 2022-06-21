@@ -20,8 +20,9 @@ void _message_handler(amc_message_t* message) {
 	}
 
 	char* string = (char*)message->body;
-	gui_text_view_puts(_g_text_view, string, color_white());
-	gui_text_view_putchar(_g_text_view, '\n', color_white());
+	Color text_color = color_make(40, 40, 40);
+	gui_text_view_puts(_g_text_view, string, text_color);
+	gui_text_view_putchar(_g_text_view, '\n', text_color);
 
 	// TODO(PT): printf in the kernel is interpreting extra %i in %s as formats! 
 
@@ -44,6 +45,10 @@ int main(int argc, char** argv) {
 	_g_text_view = gui_text_view_alloc();
 	gui_text_view_init(_g_text_view, window, (gui_window_resized_cb_t)_text_view_sizer);
 	_g_text_view->font_size = size_make(10, 14);
+	_g_text_view->background_color = color_make(180, 180, 180);
+	// Necessary to render new background color
+	gui_text_view_clear(_g_text_view);
+
 	gui_text_view_add_to_window(_g_text_view, window);
 
 	gui_add_message_handler(_message_handler);
