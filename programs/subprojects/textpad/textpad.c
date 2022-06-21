@@ -23,6 +23,9 @@ int main(int argc, char** argv) {
 		window,
 		(gui_window_resized_cb_t)_input_sizer
 	);
+	input->background_color = color_white();
+	// Necessary to display the updated background color
+	gui_text_view_clear(input);
 
 	gui_enter_event_loop();
 
