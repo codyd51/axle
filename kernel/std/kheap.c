@@ -166,8 +166,8 @@ void* liballoc_alloc(size_t page_count) {
 	uintptr_t new_heap_memory_start = vas_alloc_range(boot_info_get()->vas_kernel, VAS_KERNEL_HEAP_BASE, page_count * PAGE_SIZE, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
 	vas_kernel_lock_release();
 
-	printf("New globally shared kernel memory 0x%08x - 0x%08x\n", new_heap_memory_start, new_heap_memory_start + (page_count * PAGE_SIZE));
-	vas_state_dump(boot_info_get()->vas_kernel);
+	//printf("New globally shared kernel memory 0x%08x - 0x%08x\n", new_heap_memory_start, new_heap_memory_start + (page_count * PAGE_SIZE));
+	//vas_state_dump(boot_info_get()->vas_kernel);
 	return (void*)new_heap_memory_start;
 }
 
