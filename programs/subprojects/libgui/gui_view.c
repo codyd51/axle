@@ -58,6 +58,7 @@ void gui_view_set_title(gui_view_t* v, char* title) {
 
 	if (v->_title != NULL) {
 		v->title_bar_height = max(10, v->frame.size.height / 14);
+		v->_title = strdup(title);
 		// View title
 		v->_title_inset.size = size_make(
 			v->frame.size.width,
