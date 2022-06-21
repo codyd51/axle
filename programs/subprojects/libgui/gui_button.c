@@ -50,6 +50,12 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 	Color diagonal_insets_color = color_make(100, 100, 100);
 	Color text_color = color_black();
 	Color outline_color = is_active ? color_white() : color_make(50, 50, 50);
+	if (b->is_disabled) {
+		outline_color = color_black();
+		text_color = color_dark_gray();
+		inner_margin_color = color_make(160, 160, 160);
+	}
+
 	if (b->in_left_click) {
 		/*
 		outline_color = color_make(200, 200, 200);
@@ -128,6 +134,7 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 			rect_max_y(inner) - 1
 		)
 	);
+	Line bottom_left_inset_line = l;
 	gui_layer_draw_line(layer, l, c, t/2);
 
 	// Top right corner
@@ -141,6 +148,7 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 			rect_min_y(inner)
 		)
 	);
+	Line top_right_inset_line = l;
 	gui_layer_draw_line(layer, l, c, t/2);
 
 	// Bottom right corner
@@ -158,9 +166,10 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 
 	uint32_t font_height = min(30, inner_margin.size.height / 4);
 	uint32_t font_width = max(6, font_height * 0.8);
+	uint32_t character_width_with_kerning = font_width + 2;
 
 	uint32_t len = strlen(b->title);
-	uint32_t drawn_width = len * font_width;
+	uint32_t drawn_width = len * character_width_with_kerning;
 
 	Point cursor = point_make(
 		// Align the left edge with where the visual bevel begins
@@ -176,8 +185,9 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 			text_color,
 			size_make(font_height, font_height)
 		);
-		cursor.x += font_width;
+		cursor.x += character_width_with_kerning;
 	}
+
 
 	// Outline above outer margin
 	gui_layer_draw_rect(
@@ -194,6 +204,15 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 		color_make(140, 140, 140),
 		1
 	);
+
+	// Disabled line
+	if (b->is_disabled) {
+		Line disabled_line = line_make(
+			bottom_left_inset_line.p2, 
+			top_right_inset_line.p2
+		);
+		gui_layer_draw_line(layer, disabled_line, color_dark_gray(), outer_margin_size);
+	}
 }
 
 static void _button_window_resized(gui_button_t* b, Size new_window_size) {
@@ -221,7 +240,7 @@ gui_button_t* gui_button_create(gui_view_t* superview, gui_window_resized_cb_t s
 	button->_priv_needs_display = true;
 	button->sizer_cb = sizer_cb;
 
-	button->title = strdup(title);
+	button->title = strndup(title, 128);
 
 	button->frame = sizer_cb((gui_elem_t*)button, button->window->size);
 
@@ -234,4 +253,13 @@ void gui_button_destroy(gui_button_t* button) {
 	// TODO(PT): Does the slider need to be removed from superview->subviews?
 	free(button->title);
 	free(button);
+}
+
+void gui_button_set_disabled(gui_button_t* button, bool is_disabled) {
+	button->is_disabled = is_disabled;
+}
+
+void gui_button_set_title(gui_button_t* b, const char* new_title) {
+	free(b->title);
+	b->title = strndup(new_title, 128);
 }

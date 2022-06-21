@@ -39,9 +39,12 @@ typedef struct gui_button {
     uint32_t border_margin;
     bool in_left_click;
     char* title;
+    bool is_disabled;
 } gui_button_t;
 
 gui_button_t* gui_button_create(gui_view_t* superview, gui_window_resized_cb_t sizer_cb, char* title);
 void gui_button_destroy(gui_button_t* b);
+void gui_button_set_disabled(gui_button_t* b, bool is_disabled);
+void gui_button_set_title(gui_button_t* b, const char* new_title);
 
 #endif
