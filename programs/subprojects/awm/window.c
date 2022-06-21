@@ -251,7 +251,7 @@ void window_redraw_title_bar(user_window_t* window, bool close_button_hovered) {
 	image_t* x_image = (close_button_hovered) ? _g_title_bar_x_filled : _g_title_bar_x_unfilled;
 	uint32_t icon_height = x_image->size.height;
 	window->close_button_frame = rect_make(
-		point_make(icon_height * 0.75, icon_height * 0.275), 
+		point_make(icon_height * 1.5, icon_height * 0.275), 
 		x_image->size
 	);
 	image_render_to_layer(
@@ -468,7 +468,20 @@ void desktop_shortcut_render(desktop_shortcut_t* ds) {
 		mid.x - ((font_size.width * len) / 2.0),
 		mid.y - (font_size.height / 2.0)
 	);
-    Color text_color = ds->in_soft_click ? color_white() : color_make(50, 50, 50);
+
+    Color text_color = color_make(50, 50, 50);
+    // If the background gradient is too dark, set the shortcuts text color to white so it's always visible.
+    // Per ITU-R BT.709
+    Color outer_bg = background_gradient_outer_color();
+    double luma = (0.2126 * outer_bg.val[0]) + (0.7152 * outer_bg.val[1]) + (0.0722 * outer_bg.val[2]);
+    printf("Luma: %.2f\n", luma);
+    if (luma < 64) {
+        text_color = color_make(205, 205, 205);
+    }
+    if (ds->in_soft_click) {
+        text_color = color_white();
+    }
+
 	for (uint32_t i = 0; i < len; i++) {
 		draw_char(
 			ds->view->layer,
