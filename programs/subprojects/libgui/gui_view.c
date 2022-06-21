@@ -52,18 +52,25 @@ static void _view_handle_key_up(gui_view_t* v, uint32_t ch) {
 }
 
 void gui_view_set_title(gui_view_t* v, char* title) {
-	v->_title = title;
+	if (v->_title != NULL) {
+		// Free the previous ttile
+		free(v->_title);
+		v->_title = NULL;
+	}
+
 	v->_title_inset = rect_make(v->frame.origin, size_zero());
 	v->title_bar_height = 0;
 
-	if (v->_title != NULL) {
-		v->title_bar_height = max(10, v->frame.size.height / 14);
+	if (title != NULL) {
 		v->_title = strdup(title);
 		// View title
 		v->_title_inset.size = size_make(
 			v->frame.size.width,
 			v->title_bar_height
 		);
+	}
+	else {
+		v->_title = NULL;
 	}
 	// Shrink the content view to account for the view title, if necessary
 	v->content_layer_frame = rect_make(
@@ -403,5 +410,6 @@ void gui_view_destroy(gui_view_t* view) {
 	gui_layer_teardown(view->content_layer);
 	//assert(view->subviews->size == 0, "subviews must be cleaned up");
 	array_destroy(view->subviews);
+	free(view->_title);
 	free(view);
 }
