@@ -505,24 +505,17 @@ impl FileBrowser2 {
                 // Don't set up any callback for file click
                 entry_view.button.on_left_click(move |_b| {
                     printf!("Button with path {:?} clicked! Launching...\n", path);
-                    if path == "click_me!.txt" {
-                        amc_message_send(
-                            FILE_SERVER_SERVICE_NAME,
-                            LaunchProgram::new("/usr/applications/valentine"),
-                        );
-                    } else {
-                        let browser_clone = Rc::clone(&browser_clone);
-                        let full_path = format!(
-                            "{}/{}",
-                            browser_clone
-                                .current_path_view
-                                .borrow()
-                                .current_path
-                                .borrow(),
-                            path
-                        );
-                        amc_message_send(FILE_SERVER_SERVICE_NAME, LaunchProgram::new(&full_path));
-                    }
+                    let browser_clone = Rc::clone(&browser_clone);
+                    let full_path = format!(
+                        "{}/{}",
+                        browser_clone
+                            .current_path_view
+                            .borrow()
+                            .current_path
+                            .borrow(),
+                        path
+                    );
+                    amc_message_send(FILE_SERVER_SERVICE_NAME, LaunchProgram::new(&full_path));
                 });
             }
         }
