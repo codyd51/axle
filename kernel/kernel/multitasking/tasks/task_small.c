@@ -412,7 +412,7 @@ void tasking_init_part2(void* continue_func_ptr) {
     //printf("tasking_init_part2 continue_func 0x%p\n", continue_func_ptr);
     // idle should not be in the scheduler pool as we schedule it specially
     // _task_spawn will not add it to the scheduler pool
-    _idle_task = _task_spawn("idle", idle_task);
+    _idle_task = _task_spawn("com.axle.idle", idle_task);
 
     // reaper cleans up and frees the resources of ZOMBIE tasks
     task_spawn("reaper", reaper_task);

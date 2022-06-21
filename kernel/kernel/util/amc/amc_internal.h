@@ -54,6 +54,7 @@ array_m* amc_services(void);
 array_m* amc_sleeping_procs(void);
 
 amc_service_t* amc_service_with_name(const char* name);
+amc_service_t* amc_service_of_task(task_small_t* task);
 
 bool amc_is_active(void);
 

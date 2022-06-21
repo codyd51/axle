@@ -29,12 +29,12 @@ typedef enum task_state {
 } task_state_t;
 
 typedef struct task_context {
-	uint32_t rbp;
-	uint32_t rdi;
-	uint32_t rsi;
-	uint32_t rbx;
-	uint32_t rax;
-	uint32_t rip;
+	uint64_t rbp;
+	uint64_t rdi;
+	uint64_t rsi;
+	uint64_t rbx;
+	uint64_t rax;
+	uint64_t rip;
 } task_context_t;
 
 typedef struct task_block_state {

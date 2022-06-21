@@ -120,7 +120,7 @@ amc_service_t* amc_service_with_name(const char* name) {
     //return hash_map_get(_amc_services_by_name, name, strlen(name));
 }
 
-static amc_service_t* _amc_service_of_task(task_small_t* task) {
+amc_service_t* amc_service_of_task(task_small_t* task) {
     //printf("_amc_service_of_task\n");
     return _amc_service_matching_data(NULL, task);
     //return hash_map_get(_amc_services_by_task, task, sizeof(task));
@@ -233,7 +233,7 @@ void amc_register_service(const char* name) {
 
 
 void amc_teardown_service_for_task(task_small_t* task) {
-    amc_service_t* service = _amc_service_of_task(task);
+    amc_service_t* service = amc_service_of_task(task);
     if (!service) {
         // No AMC service for the provided task
         //printf("AMC teardown: [%d %s] had no AMC service\n", task->id, task->name);
@@ -581,7 +581,7 @@ static bool _amc_message_send_from_service_name(
 }
 
 bool amc_message_send(const char* destination_service, void* buf, uint32_t buf_size) {
-    amc_service_t* current_service = _amc_service_of_task(tasking_get_current_task());
+    amc_service_t* current_service = amc_service_of_active_task();
     assert(current_service != NULL, "Current task is not a registered amc service");
     return _amc_message_send_from_service_name(
         current_service->name,
@@ -625,7 +625,7 @@ static void _amc_message_deliver(amc_service_t* service, amc_message_t* message,
 }
 
 void amc_message_await_from_services(int source_service_count, const char** source_services, amc_message_t** out) {
-    amc_service_t* service = _amc_service_of_task(tasking_get_current_task());
+    amc_service_t* service = amc_service_of_active_task();
     while (true) {
         // Hold a spinlock while iterating the service's messages
         // TODO(PT): Can we replace this with a "weaker" spinlock that 
@@ -686,7 +686,7 @@ void amc_message_await_any(amc_message_t** out) {
 }
 
 bool amc_has_message_from(const char* source_service) {
-    amc_service_t* service = _amc_service_of_task(tasking_get_current_task());
+    amc_service_t* service = amc_service_of_active_task();
     spinlock_acquire(&service->spinlock);
 
     for (int i = 0; i < service->message_queue->size; i++) {
@@ -705,7 +705,7 @@ bool amc_service_has_message(amc_service_t* service) {
 }
 
 bool amc_has_message(void) {
-    amc_service_t* service = _amc_service_of_task(tasking_get_current_task());
+    amc_service_t* service = amc_service_of_active_task();
     return amc_service_has_message(service);
 }
 
@@ -741,7 +741,7 @@ bool amc_launch_service(const char* service_name) {
 void amc_physical_memory_region_create(uint32_t region_size, uintptr_t* virtual_region_start_out, uintptr_t* physical_region_start_out) {
     // TODO(PT): Who uses this? 
     Deprecated();
-    amc_service_t* current_service = _amc_service_of_task(tasking_get_current_task());
+    amc_service_t* current_service = amc_service_of_active_task();
     spinlock_acquire(&current_service->spinlock);
 
     // Pad region size to page size
@@ -770,7 +770,7 @@ bool amc_service_is_active(const char* service) {
 }
 
 amc_service_t* amc_service_of_active_task(void) {
-    return _amc_service_of_task(tasking_get_current_task());
+    return amc_service_of_task(tasking_get_current_task());
 }
 
 array_m* amc_messages_to_unknown_services_pool() {

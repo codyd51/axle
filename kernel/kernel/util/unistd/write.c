@@ -23,8 +23,13 @@ int write(int fd, char* buf, int len) {
 	if (!len) return 0;
 
 	task_small_t* current = tasking_get_task_with_pid(getpid());
-	if (fd != 0) 
+	/*
+	if (fd != 0) {
+		printf("*** write: Unexpected fd %d, msg %s\n", fd, buf);
+	}
+	*/
+	//if (fd != 0) 
 	// The old kernel-mode file descriptor mechanism was removed
-	assert(fd == 1, "Only FD 1 is supported via this mechanism");
+	//assert(fd == 1, "Only FD 1 is supported via this mechanism");
 	return stdout_write(current, fd, buf, len);
 }
