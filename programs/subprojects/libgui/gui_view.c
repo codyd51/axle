@@ -403,6 +403,30 @@ gui_view_t* gui_view_create(gui_window_t* window, gui_window_resized_cb_t sizer_
 	return view;
 }
 
+void gui_view_remove_from_superview_and_destroy(gui_view_t** view_ref) {
+	// Window-based
+	/*
+	gui_view_t* view = *view_ref;
+	gui_window_t* window = view->window;
+	int window_subview_idx = array_index(window->views, view);
+	array_remove(window->views, window_subview_idx);
+	int all_elems_idx = array_index(window->all_gui_elems, view);
+	array_remove(window->all_gui_elems, all_elems_idx);
+	gui_view_destroy(view);
+	// Prevent UAF
+	*view_ref = NULL;
+	*/
+
+	// Superview-based
+	gui_view_t* subview = *view_ref;
+	gui_view_t* superview = subview->superview;
+	int subview_idx = array_index(superview->subviews, subview);
+	array_remove(superview->subviews, subview_idx);
+	gui_view_destroy(subview);
+	// Prevent UAF
+	*view_ref = NULL;
+}
+
 void gui_view_destroy(gui_view_t* view) {
 	if (view->teardown_cb) {
 		view->teardown_cb((gui_elem_t*)view);
