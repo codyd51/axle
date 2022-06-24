@@ -80,7 +80,7 @@ Implement an event loop API instead of apps needing to manage the event loop the
 
 Move ARP, etc into callback model
 
-Display number of pending amc messages on each window so we can watch the queue drain
+Display number of pending amc messages on each window so we can watch the queue drain (check)
     - Perhaps this can be a window that queries amc debug info every 3 seconds and
        draws the stats
     - Roll into a task monitor?
@@ -251,7 +251,7 @@ Use x86_64 Process Context Identifier (PCI) to reduce TLB misses with multitaski
 Update build_quick to run when the build product is older than the source
 
 Real-time clock (for wall clock datetime)
-(urgent) On special events (Christmas, Halloween, New Year's Eve, summer equinox, Easter, Daisy BDay, etc.), have a novelty cursor that shows up s a holiday-appropriate icon (ex. little Christmas tree that looks like an arrow and functions as one as appropriate, a pumpkin as a loading icon)
+(urgent) On special events (Christmas, Halloween, New Year's Eve, summer equinox, Easter, Daisy BDay, etc.), have a novelty cursor that shows up as a holiday-appropriate icon (ex. little Christmas tree that looks like an arrow and functions as one as appropriate, a pumpkin as a loading icon)
 
 Loading icon - program startup
     Could be a rotating (diamond) version of the square cursor

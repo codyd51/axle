@@ -14,22 +14,22 @@ static void _ps2_set_sample_rate(uint8_t samples_per_second) {
 }
 
 void ps2_mouse_enable(void) {
-	printf_info("[PS2] Enabling mouse...");
+	printf("[PS2] Enabling mouse...\n");
 	uint8_t mouse_id = ps2_read(PS2_DATA);
-	printf_info("[PS2] Initial mouse ID: 0x%02x", mouse_id);
+	printf("[PS2] Initial mouse ID: 0x%02x\n", mouse_id);
 
 	// Ask the PS/2 mouse to use default settings
 	ps2_write_device(1, PS2_MOUSE_CMD_SET_DEFAULT_SETTINGS);
     ps2_expect_ack();
 
-	printf_info("[PS2] Enabling scroll wheel...");
+	printf("[PS2] Enabling scroll wheel...\n");
 	_ps2_set_sample_rate(200);
 	_ps2_set_sample_rate(100);
 	_ps2_set_sample_rate(80);
 	ps2_write_device(1, 0xF2);
 	ps2_expect_ack();
 	mouse_id = ps2_read(PS2_DATA);
-	printf_info("[PS2] New mouse ID: 0x%02x", mouse_id);
+	printf("[PS2] New mouse ID: 0x%02x\n", mouse_id);
 	assert(mouse_id == 0x03, "Failed to enable scroll wheel");
 	_ps2_set_sample_rate(60);
 

@@ -40,7 +40,7 @@ void pit_timer_init(uint32_t frequency) {
 	printf_info("Initializing PIT timer...");
 
 	//firstly, register our timer callback
-	interrupt_setup_callback(INT_VECOR_IRQ0, &tick_callback);
+	interrupt_setup_callback(INT_VECTOR_IRQ0, &tick_callback);
 
 	//value we need to send to PIC is value to divide it's input clock
 	//(1193180 Hz) by, to get desired frequency

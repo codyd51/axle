@@ -1,3 +1,7 @@
+#include <stdbool.h>
+#include <std/common.h>
+#include <kernel/assert.h>
+#include "idt.h"
 #include "pic.h"
 
 //Some chip-specific PIC defines borrowed from http://wiki.osdev.org/8259_PIC
@@ -43,10 +47,12 @@ void pic_remap(int offset1, int offset2) {
     outb(PIC1_DATA, ICW4_8086);
     outb(PIC2_DATA, ICW4_8086);
 
-    //set interrupt masks here
-    //we don't want to mask anything, so the mask is 0x00
-    outb(PIC1_DATA, 0x00);
-    outb(PIC2_DATA, 0x00);
+    // Mask all interrupts by default
+    // They'll be unmasked one-by-one as we register interrupt handlers
+    // But be sure to allow IRQ2 as it's how the slave PIC will talk to the master
+    outb(PIC1_DATA, 0xff);
+    outb(PIC2_DATA, 0xff);
+    pic_set_interrupt_enabled(INT_VECTOR_IRQ2, true);
 }
 
 void pic_signal_end_of_interrupt(uint8_t irq_no) {
@@ -55,4 +61,32 @@ void pic_signal_end_of_interrupt(uint8_t irq_no) {
         outb(PIC2_COMMAND, PIC_EOI);
     }
     outb(PIC1_COMMAND, PIC_EOI);
+}
+
+void pic_set_interrupt_enabled(int interrupt, bool enabled) {
+    assert(is_interrupt_vector_delivered_by_pic(interrupt), "Invalid interrupt vector");
+
+    int irq_no = interrupt - INT_VECTOR_IRQ0;
+    int bit = irq_no;
+    int desired_pic = PIC1_DATA;
+
+    if (irq_no >= 8) {
+        bit = irq_no - 8;
+        desired_pic = PIC2_DATA;
+    }
+
+    // Read the current interrupt mask, then set our desired bit
+    int current_int_mask = inb(desired_pic);
+    if (enabled) {
+        current_int_mask &= ~(1 << bit);
+    }
+    else {
+        current_int_mask |= (1 << bit);
+    }
+    // Write it back
+    outb(desired_pic, current_int_mask);
+}
+
+bool is_interrupt_vector_delivered_by_pic(int interrupt) {
+    return interrupt >= INT_VECTOR_IRQ0 && interrupt <= INT_VECTOR_IRQ15;
 }

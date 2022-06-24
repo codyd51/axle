@@ -2,6 +2,7 @@
 #include "idt_structures.h"
 #include "idt.h"
 #include "cpu_fault_handlers.h"
+#include "pic.h"
 
 #include <std/common.h>
 
@@ -63,7 +64,7 @@ void interrupt_handle(register_state_t* regs) {
 	// If there is an adi driver for this IRQ, the EOI will be sent by adi
 	// Also, the PIT EOI will be sent by the PIT driver
 	// TODO(PT): Is this needed or is the unhandled interrupt check above enough?
-	if (is_external && !adi_services_interrupt(int_no) && int_no != INT_VECOR_IRQ0) {
+	if (is_external && !adi_services_interrupt(int_no) && int_no != INT_VECTOR_IRQ0) {
 		pic_signal_end_of_interrupt(int_no);
 	}
 }
@@ -98,4 +99,9 @@ void interrupt_setup_callback(uint8_t interrupt_num, int_callback_t callback) {
         assert("Tried to overwrite handler for interrupt %d", interrupt_num);
     }
     interrupt_handlers[interrupt_num] = callback;
+
+	if (is_interrupt_vector_delivered_by_pic(interrupt_num)) {
+		// Unmask this interrupt since we're now able to handle it
+		pic_set_interrupt_enabled(interrupt_num, true);
+	}
 }

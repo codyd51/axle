@@ -18,7 +18,7 @@
 #define INT_VECTOR_INT14 14
 
 // IDT vectors axle maps IRQs to
-#define INT_VECOR_IRQ0   32
+#define INT_VECTOR_IRQ0   32
 #define INT_VECTOR_IRQ1  33
 #define INT_VECTOR_IRQ2  34
 #define INT_VECTOR_IRQ3  35
