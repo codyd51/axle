@@ -34,7 +34,21 @@ uintptr_t get_cr3() {
 static void _set_cr3(uintptr_t addr) {
 	asm volatile("movq %0, %%cr3" : : "r"(addr));
 	uintptr_t cr0 = _get_cr0();
-	cr0 |= 0x80000000; //enable paging bit
+	cr0 |= 0x80000000; // Enable paging bit
+	_set_cr0(cr0);
+}
+
+static void _set_cpu_caching_enabled(bool enabled) {
+	uintptr_t cr0 = _get_cr0();
+	uintptr_t orig = cr0;
+	if (enabled) {
+		cr0 &= ~(1 << 30); // Ensure cache disable bit isn't set
+		//cr0 |= (1 << 29); // Enable not-write-through
+	}
+	else {
+		cr0 |= (1 << 30); // Enable cache disable bit
+		//cr0 &= ~(1 << 29); // Disable not-write-through
+	}
 	_set_cr0(cr0);
 }
 
@@ -525,6 +539,9 @@ void vmm_init(uint64_t bootloader_pml4_addr) {
 
     boot_info_t* boot_info = boot_info_get();
 
+	// First, ensure CPU caching is enabled
+	_set_cpu_caching_enabled(true);
+
     uint64_t kernel_pml4_addr = pmm_alloc();
     pml4e_t* kernel_pml4 = (pml4e_t*)PMA_TO_VMA(kernel_pml4_addr);
     pml4e_t* bootloader_pml4 = (pml4e_t*)PMA_TO_VMA(bootloader_pml4_addr);
@@ -683,7 +700,6 @@ uint64_t vas_alloc_range(vas_state_t* vas_state, uint64_t min_address, uint64_t 
 	for (uint32_t i = 0; i < size / PAGE_SIZE; i++) {
 		_map_region_4k_pages(PMA_TO_VMA(vas_state->pml4_phys), chosen_start + (i * PAGE_SIZE), PAGE_SIZE, pmm_alloc(), access_type, privilege_level);
 	}
-	//vas_state_dump(vas_state);
 
 	return chosen_start;
 }
