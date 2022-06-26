@@ -24,6 +24,7 @@ void create_sysfuncs() {
 	syscall_add((void*)&amc_register_service);
 	syscall_add((void*)&amc_message_send);
 	syscall_add((void*)&amc_message_await);
+	syscall_add((void*)&amc_message_await__u32_event);
 	syscall_add((void*)&amc_message_await_from_services);
 	syscall_add((void*)&amc_message_await_any);
 	syscall_add((void*)&amc_has_message_from);

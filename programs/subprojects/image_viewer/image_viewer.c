@@ -56,10 +56,8 @@ static void _amc_message_received(amc_message_t* msg) {
 	printf("Requested file %s\n", req.path);
 	amc_message_t* file_data_msg;
 	printf("Awaiting response...\n");
-	amc_message_await(FILE_MANAGER_SERVICE_NAME, &file_data_msg);
+	amc_message_await__u32_event(FILE_MANAGER_SERVICE_NAME, FILE_MANAGER_READ_FILE_RESPONSE, &file_data_msg);
 	printf("Got response...\n");
-	uint32_t event = amc_msg_u32_get_word(file_data_msg, 0);
-	assert(event == FILE_MANAGER_READ_FILE_RESPONSE, "Expected read file data");
 	file_manager_read_file_response_t* resp = (file_manager_read_file_response_t*)&file_data_msg->body;
 	uint8_t* b = &resp->file_data;
 

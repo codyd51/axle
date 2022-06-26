@@ -26,9 +26,7 @@ static void _refresh_stats(gui_text_view_t* view) {
 	amc_message_send(AXLE_CORE_SERVICE_NAME, &req, sizeof(req));
 
 	amc_message_t* msg;
-	amc_message_await(AXLE_CORE_SERVICE_NAME, &msg);
-	uint32_t event = amc_msg_u32_get_word(msg, 0);
-	assert(event == AMC_SYSTEM_PROFILE_RESPONSE, "blah");
+	amc_message_await__u32_event(AXLE_CORE_SERVICE_NAME, AMC_SYSTEM_PROFILE_RESPONSE, &msg);
 	amc_system_profile_response_t* info = (amc_system_profile_response_t*)msg->body;
 
 	char buf[128];

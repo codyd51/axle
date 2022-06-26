@@ -175,9 +175,7 @@ int main(int argc, char** argv) {
 	// Ask the kernel to map in the ramdisk and send us info about it
 	amc_msg_u32_1__send(AXLE_CORE_SERVICE_NAME, AMC_FILE_MANAGER_MAP_INITRD);
 	amc_message_t* msg;
-	amc_message_await(AXLE_CORE_SERVICE_NAME, &msg);
-	uint32_t event = amc_msg_u32_get_word(msg, 0);
-	assert(event == AMC_FILE_MANAGER_MAP_INITRD_RESPONSE, "Expected initrd info");
+	amc_message_await__u32_event(AXLE_CORE_SERVICE_NAME, AMC_FILE_MANAGER_MAP_INITRD_RESPONSE, &msg);
 	amc_initrd_info_t* initrd_info = (amc_initrd_info_t*)&msg->body;
 	printf("Recv'd initrd info at %p\n", initrd_info);
 

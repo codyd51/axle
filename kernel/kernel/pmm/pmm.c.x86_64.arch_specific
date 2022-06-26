@@ -74,7 +74,7 @@ void pmm_init(void) {
 
     // TODO(PT): Will there be any bug with PMM allocating the frame used for the init kernel stack?
     boot_info_t* info = boot_info_get();
-    //mark usable sections of the address space
+    // Mark usable sections of the address space
     // Push memory regions on to the free stack backwards so memory starts getting allocated from low-memory up
     for (int i = info->mem_region_count - 1; i >= 0; i--) {
         physical_memory_region_t region = info->mem_regions[i];

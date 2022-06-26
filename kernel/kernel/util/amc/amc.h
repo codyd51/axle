@@ -22,6 +22,9 @@ void amc_message_broadcast(amc_message_t* msg);
 
 // Block until a message has been received from the source service
 void amc_message_await(const char* source_service, amc_message_t** out);
+// Block until a message with the specified event has been received from the source service
+// The first u32 of any message will be interpreted as an event field, and compared
+void amc_message_await__u32_event(const char* source_service, uint32_t event, amc_message_t** out);
 // Block until a message has been received from any of the provided source services
 void amc_message_await_from_services(int source_service_count, const char** source_services, amc_message_t** out);
 // Await a message from any service

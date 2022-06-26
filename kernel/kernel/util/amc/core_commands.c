@@ -404,7 +404,7 @@ static void _amc_core_send_task_info(const char* source_service) {
         if (node != tasking_get_current_task()) {
             uint64_t* rbp = node->machine_state->rbp;
             uint64_t user_mode_rip = 0;
-            for (int j = 0; j < 10; j++) {
+            for (int j = 0; j < 16; j++) {
                 //printf("%s 0x%x\n", node->name, rbp);
                 if (rbp < PAGE_SIZE) {
                     break;

@@ -733,9 +733,7 @@ static void _awm_init(void) {
 	amc_msg_u32_1__send(AXLE_CORE_SERVICE_NAME, AMC_AWM_MAP_FRAMEBUFFER);
 
 	amc_message_t* msg;
-	amc_message_await(AXLE_CORE_SERVICE_NAME, &msg);
-	uint32_t event = amc_msg_u32_get_word(msg, 0);
-	assert(event == AMC_AWM_MAP_FRAMEBUFFER_RESPONSE, "Expected awm framebuffer info");
+	amc_message_await__u32_event(AXLE_CORE_SERVICE_NAME, AMC_AWM_MAP_FRAMEBUFFER_RESPONSE, &msg);
 	amc_framebuffer_info_t* framebuffer_info = (amc_framebuffer_info_t*)msg->body;
 	/*
 

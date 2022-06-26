@@ -60,9 +60,8 @@ gui_window_t* gui_window_create(char* window_title, uint32_t width, uint32_t hei
 
 	// And get back info about the window it made
 	amc_message_t* msg;
-	amc_message_await(AWM_SERVICE_NAME, &msg);
+	amc_message_await__u32_event(AWM_SERVICE_NAME, AWM_CREATE_WINDOW_RESPONSE, &msg);
 	awm_create_window_response_t* resp = &msg->body;
-	assert(resp->event == AWM_CREATE_WINDOW_RESPONSE, "Expected create window response");
 	uintptr_t framebuffer_addr = resp->framebuffer;
 
 	printf("Received framebuffer from awm: %p\n", framebuffer_addr);

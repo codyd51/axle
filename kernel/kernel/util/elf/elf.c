@@ -153,6 +153,7 @@ static void _record_elf_symbol_table(void* buf, elf_t* elf) {
 }
 
 void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf_size, bool free_buffer) {
+	printf("ELF loading %s for PID %d\n", program_name, getpid());
 	elf_header* hdr = (elf_header*)buf;
 	if (!elf_validate_header(hdr)) {
 		printf("validation failed\n");

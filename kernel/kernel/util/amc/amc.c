@@ -624,7 +624,7 @@ static void _amc_message_deliver(amc_service_t* service, amc_message_t* message,
     *out = delivery_base;
 }
 
-void amc_message_await_from_services(int source_service_count, const char** source_services, amc_message_t** out) {
+void _amc_message_await_from_services_ex(int source_service_count, const char** source_services, amc_message_t** out, uint32_t* filter_to_u32_event) {
     amc_service_t* service = amc_service_of_active_task();
     while (true) {
         // Hold a spinlock while iterating the service's messages
@@ -639,27 +639,41 @@ void amc_message_await_from_services(int source_service_count, const char** sour
         // Read messages in FIFO, from the array head to the tail
         for (int i = 0; i < service->message_queue->size; i++) {
             amc_message_t* queued_msg = array_m_lookup(service->message_queue, i);
-            // A NULL array of source services means "any service"
-            if (!source_services) {
-                // Copy the message into the receiver's storage, and free the internal storage
-                array_m_remove(service->message_queue, i);
-                _amc_message_deliver(service, queued_msg, out);
-                spinlock_release(&service->spinlock);
-                return;
-            }
-            else {
+
+            bool source_service_satisfies_constraints = false;
+            if (source_services) {
                 for (int service_name_idx = 0; service_name_idx < source_service_count; service_name_idx++) {
                     const char* source_service = source_services[service_name_idx];
                     if (!strcmp(source_service, queued_msg->source)) {
-                        // Found a message that we're currently blocked for
-                        // Copy the message into the receiver's storage, and free the internal storage
-                        array_m_remove(service->message_queue, i);
-                        _amc_message_deliver(service, queued_msg, out);
-                        spinlock_release(&service->spinlock);
-                        return;
+                        source_service_satisfies_constraints = true;
+                        break;
                     }
                 }
             }
+            else {
+                // // A NULL array of source services means "any service"
+                source_service_satisfies_constraints = true;
+            }
+
+            if (!source_service_satisfies_constraints) {
+                continue;
+            }
+
+            if (filter_to_u32_event != NULL) {
+                uint32_t filter_event = *filter_to_u32_event;
+                uint32_t* u32_buf = (uint32_t*)queued_msg->body;
+                if (u32_buf[0] != filter_event) {
+                    // Doesn't match event filter, continue
+                    continue;
+                }
+            }
+
+            // Found a message that we're currently blocked for
+            // Copy the message into the receiver's storage, and free the internal storage
+            array_m_remove(service->message_queue, i);
+            _amc_message_deliver(service, queued_msg, out);
+            spinlock_release(&service->spinlock);
+            return;
         }
         // No message from a desired service is available
         // Block until we receive another message (from any service)
@@ -673,10 +687,19 @@ void amc_message_await_from_services(int source_service_count, const char** sour
     assert(0, "Should never be reached");
 }
 
+void amc_message_await_from_services(int source_service_count, const char** source_services, amc_message_t** out) {
+    return _amc_message_await_from_services_ex(source_service_count, source_services, out, NULL);
+}
+
 // Block until a message has been received from the source service
 void amc_message_await(const char* source_service, amc_message_t** out) {
     const char* services[] = {source_service, NULL};
     amc_message_await_from_services(1, services, out);
+}
+
+void amc_message_await__u32_event(const char* source_service, uint32_t event, amc_message_t** out) {
+    const char* services[] = {source_service, NULL};
+    _amc_message_await_from_services_ex(1, services, out, &event);
 }
 
 // Await a message from any service

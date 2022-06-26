@@ -641,9 +641,7 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
     amc_message_send(AXLE_CORE_SERVICE_NAME,  &cmd, sizeof(cmd));
 
 	amc_message_t* msg;
-	amc_message_await(AXLE_CORE_SERVICE_NAME, &msg);
-	uint32_t event = amc_msg_u32_get_word(msg, 0);
-	assert(event == AMC_SHARED_MEMORY_CREATE_RESPONSE, "Expected shared memory response");
+    amc_message_await__u32_event(AXLE_CORE_SERVICE_NAME, AMC_SHARED_MEMORY_CREATE_RESPONSE, &msg);
 
     amc_shared_memory_create_response_t* shmem_info = (amc_shared_memory_create_response_t*)&msg->body;
     uintptr_t shmem_local = shmem_info->local_buffer_start;
