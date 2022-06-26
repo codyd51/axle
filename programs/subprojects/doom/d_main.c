@@ -1316,7 +1316,7 @@ void D_DoomMain (void)
 #endif
     {
         // Use a configuration dir that's on-disk
-        M_SetConfigDir("/hdd/doomdata/");
+        M_SetConfigDir("/usr/doomdata/");
     }
 
     //!
