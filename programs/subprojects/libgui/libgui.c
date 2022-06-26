@@ -488,7 +488,7 @@ void gui_run_event_loop_pass(bool prevent_blocking, bool* did_exit) {
 	if (prevent_blocking) {
 		should_block = false;
 	}
-	_process_amc_messages(_g_application, should_block, &did_exit);
+	_process_amc_messages(_g_application, should_block, did_exit);
 	// Dispatch any ready timers
 	gui_dispatch_ready_timers(_g_application);
 	// Redraw any dirty elements
