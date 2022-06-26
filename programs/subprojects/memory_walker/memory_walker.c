@@ -266,7 +266,7 @@ void _timer_fired(gui_text_view_t* ctx) {
 	printf("timer fired!\n");
 	char buf[512];
 	// Scan 4GB, 512MB at a time
-	uint64_t memory_chunk_size = 256LL * 1024LL * 1024LL;
+	uint64_t memory_chunk_size = 4LL * 1024LL * 1024LL;
 	uint64_t total_memory_to_scan = 4LL * 1024LL * 1024LL * 1024LL;
 	uint64_t total_string_count = 0;
 	for (uint64_t chunk_base = 0; chunk_base < total_memory_to_scan; chunk_base += memory_chunk_size) {
@@ -302,9 +302,8 @@ int main(int argc, char** argv) {
 	};
 	amc_message_send(AXLE_CORE_SERVICE_NAME, &request, sizeof(memwalker_request_pml1_t));
 	amc_message_t* response_msg;
-	amc_message_await(AXLE_CORE_SERVICE_NAME, &response_msg);
+	amc_message_await__u32_event(AXLE_CORE_SERVICE_NAME, MEMWALKER_REQUEST_PML1_ENTRY, &response_msg);
 	memwalker_request_pml1_response_t* response = (memwalker_request_pml1_response_t*)response_msg->body;
-	assert(response->event == MEMWALKER_REQUEST_PML1_ENTRY);
 	uint64_t pt_virt = response->pt_virt_base;
 	uint64_t pt_phys = response->pt_phys_base;
 	uint64_t mapped_memory_virt_base = response->mapped_memory_virt_base;
