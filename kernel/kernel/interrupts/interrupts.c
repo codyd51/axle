@@ -91,7 +91,7 @@ void interrupt_init(void) {
     idt_init();
     interrupt_setup_error_callbacks();
     //now that we've set everything up, enable interrupts
-    asm("sti");
+    //asm("sti");
 }
 
 void interrupt_setup_callback(uint8_t interrupt_num, int_callback_t callback) {
