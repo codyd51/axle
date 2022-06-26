@@ -289,7 +289,7 @@ void boot_info_read(axle_boot_info_t* bootloader_info) {
             region->type = PHYS_MEM_REGION_RESERVED_AXLE_KERNEL_CODE_AND_DATA;
         }
         else {
-            printf("Unrecognized memory region type %p\n", mem_desc->type);
+            //printf("Unrecognized memory region type %p\n", mem_desc->type);
             //assert(false, "Unrecognized memory region type");
             region->type = PHYS_MEM_REGION_RESERVED;
         }

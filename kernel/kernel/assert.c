@@ -22,7 +22,8 @@ void print_stack_trace(int frame_count) {
     for (int32_t i = 0; i < frame_count; i++) {
         uintptr_t frame_addr = stack_addrs[i];
         if (!frame_addr) {
-            break;
+            printf("No frame address for frame %d\n", i);
+            continue;
         }
         printf("[%d] 0x%p ", i, frame_addr);
         if (frame_addr >= VAS_KERNEL_CODE_BASE) {
@@ -39,7 +40,7 @@ void _panic(const char* msg, const char* file, int line) {
     printf("[%d] Assertion failed: %s\n", getpid(), msg);
     printf("%s:%d\n", file, line);
     if (true) {
-        print_stack_trace(8);
+        print_stack_trace(9);
     }
     asm("cli");
     asm("hlt");
@@ -176,8 +177,6 @@ finish_fmt:
 }
 
 static bool _can_send_crash_report(void) {
-    if (!amc_is_active() || !amc_service_is_active(FILE_MANAGER_SERVICE_NAME)) {
-        printf("Cannot generate crash report because the file manager service wasn't active\n");
     if (!amc_is_active() || !amc_service_is_active(FILE_SERVER_SERVICE_NAME)) {
         printf("Cannot generate crash report because the file server service wasn't active\n");
         return false;
