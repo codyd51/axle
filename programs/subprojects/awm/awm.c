@@ -434,13 +434,19 @@ static void _handle_mouse_dragged(mouse_interaction_state_t* state, Point mouse_
 		}
 
 		// Don't let the window get too small
-		new_size.width = max(new_size.width, (WINDOW_BORDER_MARGIN * 2) + 20);
-		new_size.height = max(new_size.height, WINDOW_TITLE_BAR_HEIGHT + (WINDOW_BORDER_MARGIN * 2) + 20);
+		new_size.width = max(new_size.width, 200);
+		new_size.height = max(new_size.height, 200);
 		// Or too big...
 		new_size.width = min(new_size.width, state->active_window->layer->size.width);
 		new_size.height = min(new_size.height, state->active_window->layer->size.height);
 
-		_window_resize(state->active_window, new_size, true);
+		// Don't let the window go off-screen
+		Rect new_frame = rect_make(state->active_window->frame.origin, new_size);
+		new_frame = rect_bind_to_screen_frame(new_frame);
+		// We might've shifted the window back to stay on-screen - make sure this is reflected
+		state->active_window->frame.origin = new_frame.origin;
+
+		_window_resize(state->active_window, new_frame.size, true);
 	}
 	else {
 		// Drag within content view
