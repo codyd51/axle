@@ -119,6 +119,33 @@ typedef union {
 	efi_physical_address_t phys_addr;
 } pte_t;
 
+/*
+ * Control-register utility functions
+ */
+
+static uintptr_t _get_cr0() {
+	uintptr_t cr0;
+    asm volatile("movq %%cr0, %0" : "=r"(cr0));
+	return cr0;
+}
+
+static void _set_cr0(uintptr_t cr0) {
+	asm volatile("mov %0, %%cr0" : : "r"(cr0));
+}
+
+static void _set_cpu_caching_enabled(bool enabled) {
+	uintptr_t cr0 = _get_cr0();
+	if (enabled) {
+		cr0 &= ~(1 << 30); // Ensure cache disable bit isn't set
+		cr0 |= (1 << 29); // Enable not-write-through
+	}
+	else {
+		cr0 |= (1 << 30); // Enable cache disable bit
+		cr0 &= ~(1 << 29); // Disable not-write-through
+	}
+	_set_cr0(cr0);
+}
+
 uint64_t map_region_1gb_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start, uint64_t vmem_size, uint64_t phys_start) {
 	//printf("map_region_1gb_pages [phys 0x%p - 0x%p] to [virt 0x%p - 0x%p]\n", phys_start, phys_start + vmem_size - 1, vmem_start, vmem_start + vmem_size - 1);
 	// TODO(PT): Should remaining size be padded to the nearest GB?
@@ -314,6 +341,9 @@ Remove
 */
 
 pml4e_t* map2(void) {
+	// First, ensure CPU caching is enabled
+	_set_cpu_caching_enabled(true);
+
 	efi_physical_address_t page_mapping_level4_addr = 0;
 	efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_PAL_CODE, 1, &page_mapping_level4_addr);
 	if (EFI_ERROR(status)) {
