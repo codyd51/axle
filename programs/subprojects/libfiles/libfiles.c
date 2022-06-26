@@ -3,12 +3,15 @@
 #include <sys/fcntl.h>
 
 #include <file_manager/file_manager_messages.h>
+#include <file_server/file_server_messages.h>
 #include <libutils/assert.h>
 #include <libutils/array.h>
 
 #include <libamc/libamc.h>
 
 #include "libfiles.h"
+
+#define MAX_PATH_LEN 64
 
 typedef enum file_mode {
     FILE_MODE_READ_ONLY = 0,
@@ -19,7 +22,7 @@ typedef enum file_mode {
 typedef struct file_entry {
     bool allocated;
     file_mode_t mode;
-    char path[FILE_MANAGER_MAX_PATH_LENGTH];
+    char path[MAX_PATH_LEN];
     uint32_t file_size;
     int offset;
 } file_entry_t;
@@ -50,23 +53,10 @@ static file_entry_t* file_entry_alloc(int* out_descriptor) {
     return -1;
 }
 
-amc_message_t* file_manager_get_response(uint32_t expected_event) {
-	amc_message_t* response_msg = NULL;
-    bool received_response = false;
-	for (uint32_t i = 0; i < 32; i++) {
-		amc_message_await(FILE_MANAGER_SERVICE_NAME, &response_msg);
-		uint32_t event = amc_msg_u32_get_word(response_msg, 0);
-		if (event == expected_event) {
-			received_response = true;
-			break;
-		}
-	}
-    assert(received_response, "Failed to receive response from file_manager");
-    return response_msg;
-}
-
 int mkdir(const char* pathname, mode_t mode) {
     printf("mkdir(%s, %ld)\n", pathname, mode);
+    return -1;
+    /*
     file_manager_create_directory_request_t req = {0};
     req.event = FILE_MANAGER_CREATE_DIRECTORY;
     snprintf(req.path, sizeof(req.path), "%s", pathname);
@@ -79,6 +69,7 @@ int mkdir(const char* pathname, mode_t mode) {
     }
     // TODO(PT): Set errno?
     return -1;
+    */
 }
 
 int open(const char* name, int flags, ...) {
@@ -110,15 +101,16 @@ int open(const char* name, int flags, ...) {
     }
 
     // Does the file exist?
-    file_manager_check_file_exists_request_t req = {0};
-    req.event = FILE_MANAGER_CHECK_FILE_EXISTS;
+    file_server_check_file_exists_t req = {0};
+    req.event = FILE_SERVER_CHECK_FILE_EXISTS;
     snprintf(req.path, sizeof(req.path), "%s", name);
-    amc_message_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(req));
+    amc_message_send(FILE_SERVER_SERVICE_NAME, &req, sizeof(req));
 
-    amc_message_t* response_msg = file_manager_get_response(FILE_MANAGER_CHECK_FILE_EXISTS_RESPONSE);
-    file_manager_check_file_exists_response_t* resp = (file_manager_check_file_exists_response_t*)&response_msg->body;
-    assert(!strncmp(req.path, resp->path, FILE_MANAGER_MAX_PATH_LENGTH), "File manager responded about a different file?");
-    if (!resp->file_exists) {
+    amc_message_t* response_msg;
+    amc_message_await__u32_event(FILE_SERVER_SERVICE_NAME, FILE_SERVER_CHECK_FILE_EXISTS, &response_msg);
+    file_server_check_file_exists_response_t* resp = (file_server_check_file_exists_response_t*)&response_msg->body;
+    assert(!strncmp(req.path, resp->path, MAX_PATH_LEN), "File server responded about a different file?");
+    if (!resp->exists) {
         errno = ENOENT;
         return -1;
     }
@@ -200,15 +192,16 @@ ssize_t read(int fildes, void* buf, size_t nbyte) {
         return -1;
     }
 
-    file_manager_read_file_partial_request_t req = {0};
-    req.event = FILE_MANAGER_READ_FILE__PARTIAL;
+    file_server_read_file_partial_request_t req = {0};
+    req.event = FILE_SERVER_READ_FILE__PARTIAL;
     req.length = nbyte;
     req.offset = entry->offset;
     snprintf(req.path, sizeof(req.path), "%s", entry->path);
-    amc_message_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(req));
+    amc_message_send(FILE_SERVER_SERVICE_NAME, &req, sizeof(req));
 
-    amc_message_t* response_msg = file_manager_get_response(FILE_MANAGER_READ_FILE__PARTIAL_RESPONSE);
-    file_manager_read_file_partial_response_t* resp = (file_manager_read_file_partial_response_t*)&response_msg->body;
+    amc_message_t* response_msg;
+    amc_message_await__u32_event(FILE_SERVER_SERVICE_NAME, FILE_SERVER_READ_FILE__PARTIAL_RESPONSE, &response_msg);
+    file_server_read_file_partial_response_t* resp = (file_server_read_file_partial_response_t*)&response_msg->body;
 
     //printf("Read got response! Length: %ld\n", resp->data_length);
     entry->offset += resp->data_length;
