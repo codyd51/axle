@@ -47,7 +47,7 @@ void _panic(const char* msg, const char* file, int line) {
 
 #include <kernel/util/amc/amc.h>
 #include <kernel/util/amc/amc_internal.h>
-#include <file_manager/file_manager_messages.h>
+#include <file_server/file_server_messages.h>
 #include <crash_reporter/crash_reporter_messages.h>
 
 bool append(char** buf_head, int32_t* buf_size, const char* format, ...) {
@@ -97,13 +97,16 @@ bool symbolicate_and_append(int frame_idx, uintptr_t* frame_addr, char** buf_hea
 void task_build_and_send_crash_report_then_exit(const char* msg, const register_state_t* regs) {
     // Launch the crash reporter if it's not active
     if (!amc_service_is_active(CRASH_REPORTER_SERVICE_NAME)) {
-        file_manager_launch_file_request_t req = {0};
-        req.event = FILE_MANAGER_LAUNCH_FILE;
-        snprintf(req.path, sizeof(req.path), "/initrd/crash_reporter");
-        amc_message_send(FILE_MANAGER_SERVICE_NAME, &req, sizeof(file_manager_launch_file_request_t));
+        printf("Launching crash reporter...\n");
+
+        file_server_launch_program_t req = {0};
+        req.event = FILE_SERVER_LAUNCH_PROGRAM;
+        snprintf(req.path, sizeof(req.path), "/usr/applications/crash_reporter");
+
+        amc_message_send(FILE_SERVER_SERVICE_NAME, &req, sizeof(file_server_launch_program_t));
     }
 
-    int32_t buf_size = 1024;
+    int32_t buf_size = 2048;
     char* crash_report_buf = kmalloc(buf_size);
     char* crash_report_ptr = crash_report_buf;
 
@@ -175,12 +178,14 @@ finish_fmt:
 static bool _can_send_crash_report(void) {
     if (!amc_is_active() || !amc_service_is_active(FILE_MANAGER_SERVICE_NAME)) {
         printf("Cannot generate crash report because the file manager service wasn't active\n");
+    if (!amc_is_active() || !amc_service_is_active(FILE_SERVER_SERVICE_NAME)) {
+        printf("Cannot generate crash report because the file server service wasn't active\n");
         return false;
     }
 
     // We can only send a crash report if the process that died isn't 
     // - com.axle.awm
-    // - com.axle.file_manager
+    // - com.axle.file_server
     // - com.axle.crash_reporter
     // All three are necessary for user-visible crash reports
     amc_service_t* s = amc_service_of_active_task();
@@ -189,7 +194,7 @@ static bool _can_send_crash_report(void) {
         return false;
     }
 
-    if (!strncmp(s->name, FILE_MANAGER_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN) ||
+    if (!strncmp(s->name, FILE_SERVER_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN) ||
         !strncmp(s->name, CRASH_REPORTER_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN) ||
         !strncmp(s->name, "com.axle.awm", AMC_MAX_SERVICE_NAME_LEN)) {
         printf("Cannot generate crash report because the died process is critical to crash-reporting: %s\n", s->name);
@@ -206,7 +211,7 @@ void task_assert(bool cond, const char* msg, const register_state_t* regs) {
 
     printf("task_assert %s\n", msg);
     if (!_can_send_crash_report()) {
-        assert(cond, msg);
+        exit(1);
     }
     else {
         task_build_and_send_crash_report_then_exit(msg, regs);
