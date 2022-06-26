@@ -19,4 +19,7 @@ ca_layer* video_memory_layer(void);
 ca_layer* physical_video_memory_layer(void);
 Rect _draw_cursor(ca_layer* dest);
 
+Color background_gradient_outer_color(void);
+Color background_gradient_inner_color(void);
+
 #endif

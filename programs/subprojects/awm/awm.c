@@ -370,15 +370,6 @@ static void _adjust_window_position(user_window_t* window, int32_t delta_x, int3
 	// Don't let the window go off-screen
 	window->frame = rect_bind_to_screen_frame(window->frame);
 
-	if (window->frame.origin.x + window->frame.size.width >= _screen.resolution.width) {
-		uint32_t overhang = window->frame.origin.x + window->frame.size.width - _screen.resolution.width;
-		window->frame.origin.x -= overhang;
-	}
-	if (window->frame.origin.y + window->frame.size.height >= _screen.resolution.height) {
-		uint32_t overhang = window->frame.origin.y + window->frame.size.height - _screen.resolution.height;
-		window->frame.origin.y -= overhang;
-	}
-
 	compositor_queue_rect_difference_to_redraw(original_frame, window->frame);
 	windows_invalidate_drawable_regions_in_rect(rect_union(original_frame, window->frame));
 }
@@ -642,11 +633,13 @@ static void handle_user_message(amc_message_t* user_message) {
 		if (command == AWM_PREFERENCES_UPDATED) {
 			prefs_updated_msg_t* msg = (prefs_updated_msg_t*)&user_message->body;
 			printf("AWM updating background gradient... %d %d %d, %d %d %d\n",msg->from.val[0], msg->from.val[1], msg->from.val[2], msg->to.val[0], msg->to.val[1], msg->to.val[2]);
+			_g_background_gradient_outer = msg->to;
+			_g_background_gradient_inner = msg->from;
 			radial_gradiant(
 				_g_background, 
 				_g_background->size, 
-				msg->from,
-				msg->to,
+				_g_background_gradient_inner,
+				_g_background_gradient_outer,
 				_g_background->size.width/2.0, 
 				_g_background->size.height/2.0, 
 				(float)_g_background->size.height * 0.65
@@ -685,7 +678,7 @@ static void handle_user_message(amc_message_t* user_message) {
 		_update_window_title(source_service, title_msg);
 	}
 	else if (command == AWM_CLOSE_WINDOW) {
-		//_remove_and_teardown_window_for_service(source_service);
+		_remove_and_teardown_window_for_service(source_service);
 		printf("Received AWM_CLOSE_WINDOW from %s\n", source_service);
 	}
 	else {
@@ -787,6 +780,14 @@ static void _awm_init(void) {
 
 	// Move the cursor to the middle of the screen
 	mouse_pos = (Point){.x = screen_frame.size.width / 2, .y = screen_frame.size.height / 2};
+}
+
+Color background_gradient_outer_color(void) {
+	return _g_background_gradient_outer;
+}
+
+Color background_gradient_inner_color(void) {
+	return _g_background_gradient_inner;
 }
 
 static void _awm_process_amc_messages(bool should_block) {

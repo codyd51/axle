@@ -612,6 +612,7 @@ void windows_fetch_resource_images(void) {
     desktop_shortcuts_add_and_place_in_slot_by_coordinate("Notepad", "/usr/applications/textpad", 1, 0);
     desktop_shortcuts_add_and_place_in_slot_by_coordinate("Exploit", "/magic/exploit", 1, 1);
     desktop_shortcuts_add_and_place_in_slot_by_coordinate("VAS Viz", "/usr/applications/task_viewer", 1, 2);
+    desktop_shortcuts_add_and_place_in_slot_by_coordinate("GameBoy", "/usr/applications/gb_emu", 1, 3);
 }
 
 user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t height) {
