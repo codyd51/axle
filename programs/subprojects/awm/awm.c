@@ -618,6 +618,11 @@ static void _remove_and_teardown_window_for_service(const char* owner_service) {
 	if (window == NULL) {
 		return;
 	}
+	// If we're already in the process of killing this window, do nothing
+	if (window->remote_process_died) {
+		return;
+	}
+
 	// Make sure we don't try to fetch the remote layer anymore
 	window->remote_process_died = true;
 
