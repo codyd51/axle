@@ -26,4 +26,16 @@ typedef struct file_server_launch_program {
     char path[64];
 } file_server_launch_program_t;
 
+#define FILE_SERVER_CHECK_FILE_EXISTS 103
+typedef struct file_server_check_file_exists {
+    uint32_t event;
+    char path[64];
+} file_server_check_file_exists_t;
+
+typedef struct file_server_check_file_exists_response {
+    uint32_t event;
+    char path[64];
+    bool exists;
+    uintptr_t file_size;
+} file_server_check_file_exists_response_t;
 #endif

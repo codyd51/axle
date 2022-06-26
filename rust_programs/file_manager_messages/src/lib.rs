@@ -10,7 +10,7 @@ use core::{
 use alloc::alloc::alloc;
 use alloc::vec::Vec;
 #[cfg(target_os = "axle")]
-use axle_rt::amc_message_send_untyped;
+use axle_rt::{amc_message_send, amc_message_send_untyped};
 use axle_rt::{copy_str_into_sized_slice, ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
 
@@ -153,3 +153,55 @@ impl LaunchProgram {
 impl ExpectsEventField for LaunchProgram {
     const EXPECTED_EVENT: u32 = 102;
 }
+
+// File metadata
+
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct CheckFileExists {
+    pub event: u32,
+    pub path: [u8; 64],
+}
+
+impl CheckFileExists {
+    pub fn new(path: &str) -> Self {
+        let mut s = Self {
+            event: Self::EXPECTED_EVENT,
+            path: [0; 64],
+        };
+        copy_str_into_sized_slice(&mut s.path, path);
+        s
+    }
+}
+
+impl ExpectsEventField for CheckFileExists {
+    const EXPECTED_EVENT: u32 = 103;
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, ContainsEventField)]
+pub struct CheckFileExistsResponse {
+    pub event: u32,
+    pub path: [u8; 64],
+    pub exists: bool,
+    pub file_size: usize,
+}
+
+#[cfg(target_os = "axle")]
+impl CheckFileExistsResponse {
+    pub fn send(service: &str, path: &str, exists: bool, file_size: usize) {
+        let mut response = CheckFileExistsResponse {
+            event: CheckFileExistsResponse::EXPECTED_EVENT,
+            path: [0; 64],
+            exists,
+            file_size,
+        };
+        copy_str_into_sized_slice(&mut response.path, path);
+        amc_message_send(service, response);
+    }
+}
+
+impl ExpectsEventField for CheckFileExistsResponse {
+    const EXPECTED_EVENT: u32 = 103;
+}
+
