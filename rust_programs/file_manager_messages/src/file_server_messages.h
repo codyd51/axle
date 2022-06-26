@@ -38,4 +38,23 @@ typedef struct file_server_check_file_exists_response {
     bool exists;
     uintptr_t file_size;
 } file_server_check_file_exists_response_t;
+
+// Sent from clients to the file server
+#define FILE_SERVER_READ_FILE__PARTIAL 104
+typedef struct file_SERVER_read_file_partial_request {
+    uint32_t event;
+    char path[64];
+    uintptr_t offset;
+    uintptr_t length;
+} file_server_read_file_partial_request_t;
+
+// Sent from the file server to clients
+#define FILE_SERVER_READ_FILE__PARTIAL_RESPONSE 104
+typedef struct file_server_read_file_partial_response {
+    uint32_t event;
+    char path[64];
+    uintptr_t data_length;
+    uint8_t file_data[];
+} file_server_read_file_partial_response_t;
+
 #endif
