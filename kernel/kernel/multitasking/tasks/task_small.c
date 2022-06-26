@@ -184,8 +184,8 @@ static task_small_t* _task_spawn__entry_point_with_args(const char* task_name, v
     new_task->is_thread = false;
 
     // By definition, a task is identical to a thread except it has its own VAS
-    // The new task's address space is a clone of the task that spawned it
-    vas_state_t* new_vas = vas_clone(vas_get_active_state());
+    // The new task's address space is 'fresh', i.e. only contains kernel mappings
+    vas_state_t* new_vas = vas_clone(boot_info_get()->vas_kernel);
     new_task->vas_state = new_vas;
     task_set_name(new_task, task_name);
 
@@ -468,6 +468,8 @@ void* sbrk(int increment) {
         uint64_t addr = vas_alloc_range(vas_get_active_state(), current->sbrk_current_page_head, needed_pages * PAGE_SIZE, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
         if (addr != current->sbrk_current_page_head) {
             printf("sbrk failed to allocate requested page 0x%p, current sbrk head 0x%p\n", addr, current->sbrk_current_page_head);
+            vas_state_dump(vas_get_active_state());
+            assert(false, "sbrk fail");
         }
         current->sbrk_current_page_head += needed_pages * PAGE_SIZE;
     }
@@ -489,7 +491,7 @@ void tasking_print_processes(void) {
     if (!_task_list_head) {
         return;
     }
-    task_small_t* iter = _task_list_head;
+    task_small_t* iter = _tasking_get_linked_list_head();
     for (int i = 0; i < MAX_TASKS; i++) {
         printk("[%d] %s ", iter->id, iter->name);
             if (iter == _current_task_small) {
