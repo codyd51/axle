@@ -16,8 +16,11 @@ use axle_rt::{amc_message_await_untyped, amc_message_send};
 use axle_rt_derive::ContainsEventField;
 
 use cstr_core::CString;
-use file_manager_messages::ReadDirectory;
-use file_manager_messages::{str_from_u8_nul_utf8_unchecked, LaunchProgram};
+use file_manager_messages::{
+    str_from_u8_nul_utf8_unchecked, CheckFileExists, LaunchProgram, ReadFilePart,
+    ReadFilePartResponse,
+};
+use file_manager_messages::{CheckFileExistsResponse, ReadDirectory};
 use file_manager_messages::{DirectoryContents, ReadFile, ReadFileResponse};
 use file_manager_messages::{DirectoryEntry, FILE_SERVER_SERVICE_NAME};
 
@@ -197,6 +200,7 @@ fn launch_startup_programs(root_dir: &DirectoryImage) {
     for line in run_on_startup_contents.split("\n") {
         if line.starts_with("#") {
             // Skip comments
+            continue;
         }
         launch_program_by_path(root_dir, line);
     }
@@ -220,6 +224,35 @@ fn read_file(root_dir: &DirectoryImage, sender: &str, request: &ReadFile) {
     } else {
         printf!("Couldn't find path {}\n", requested_path);
     }
+}
+
+fn read_file_part(root_dir: &DirectoryImage, sender: &str, request: &ReadFilePart) {
+    let requested_path = str_from_u8_nul_utf8_unchecked(&request.path);
+    //printf!("Reading part of {} for {}\n", requested_path, sender);
+    if let Some(entry) = fs_entry_find(&root_dir, &requested_path) {
+        if entry.is_dir {
+            printf!("Can't read directories\n");
+        } else {
+            let file_data = entry.file_data.unwrap();
+            let mut end_idx = request.offset + request.len;
+            end_idx = core::cmp::min(end_idx, file_data.len());
+            ReadFilePartResponse::send(sender, &entry.path, &file_data[request.offset..end_idx]);
+        }
+    } else {
+        printf!("Couldn't find path {}\n", requested_path);
+    }
+}
+
+fn check_file_exists(root_dir: &DirectoryImage, sender: &str, request: &ReadFile) {
+    let requested_path = str_from_u8_nul_utf8_unchecked(&request.path);
+    let maybe_fs_entry = fs_entry_find(&root_dir, &requested_path);
+    let exists = maybe_fs_entry.is_some();
+    let file_size = match maybe_fs_entry {
+        None => 0,
+        Some(fs_entry) => fs_entry.file_data.unwrap().len(),
+    };
+    printf!("Checking if file exists: {requested_path}, {exists}, len {file_size}\n");
+    CheckFileExistsResponse::send(sender, requested_path, exists, file_size);
 }
 
 #[start]
@@ -246,13 +279,15 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
             initrd_info.initrd_size as usize,
         )
     };
+    printf!("Parsing DirectoryImage...\n");
     let root_dir: DirectoryImage = postcard::from_bytes(rust_reference).expect("Dealloc failed");
+    printf!("Parsed!\n");
     //traverse_dir(0, &root_dir);
 
     launch_startup_programs(&root_dir);
 
     loop {
-        printf!("Awaiting next message...\n");
+        //printf!("Awaiting next message...\n");
         // TODO(PT): This pattern is copied from the AwmWindow event loop
         let msg_unparsed: AmcMessage<[u8]> = unsafe { amc_message_await_untyped(None).unwrap() };
 
@@ -284,6 +319,16 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
                     body_as_type_unchecked(raw_body),
                 ),
                 ReadFile::EXPECTED_EVENT => read_file(
+                    &root_dir,
+                    msg_unparsed.source(),
+                    body_as_type_unchecked(raw_body),
+                ),
+                ReadFilePart::EXPECTED_EVENT => read_file_part(
+                    &root_dir,
+                    msg_unparsed.source(),
+                    body_as_type_unchecked(raw_body),
+                ),
+                CheckFileExists::EXPECTED_EVENT => check_file_exists(
                     &root_dir,
                     msg_unparsed.source(),
                     body_as_type_unchecked(raw_body),
