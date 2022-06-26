@@ -362,8 +362,11 @@ pml4e_t* map2(void) {
 	// TODO(PT): Move into the kernel?
 	//map_region_1gb_pages(page_mapping_level4, 0xFFFF800000000000, (1024LL * 1024LL * 1024LL * 64LL), 0x0);
 	uint64_t max_ram_in_gb = 64LL;
-	map_region_1gb_pages(page_mapping_level4, 0x0, (1024LL * 1024LL * 1024LL * max_ram_in_gb), 0x0);
-	map_region_1gb_pages(page_mapping_level4, 0xFFFF800000000000LL, (1024LL * 1024LL * 1024LL * max_ram_in_gb), 0x0);
+
+	//map_region_1gb_pages(page_mapping_level4, 0x0, (1024LL * 1024LL * 1024LL * max_ram_in_gb), 0x0);
+	//map_region_1gb_pages(page_mapping_level4, 0xFFFF800000000000LL, (1024LL * 1024LL * 1024LL * max_ram_in_gb), 0x0);
+	map_region_4k_pages(page_mapping_level4, 0x0, (1024LL * 1024LL * 1024LL * max_ram_in_gb), 0x0);
+	map_region_4k_pages(page_mapping_level4, 0xFFFF800000000000LL, (1024LL * 1024LL * 1024LL * max_ram_in_gb), 0x0);
 
 	// No need to trash the low identity map on kernel entry
 	// Instead let the kernel init thread exit after spawning some new threads
