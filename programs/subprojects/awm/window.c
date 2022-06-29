@@ -232,6 +232,11 @@ static void _write_window_title(user_window_t* window) {
 }
 
 void window_redraw_title_bar(user_window_t* window, bool close_button_hovered) {
+    if (!window->has_title_bar) {
+        // No work to do 
+        return;
+    }
+
 	if (!_g_title_bar_image) {
 		//printf("No images yet...\n");
 		return;
@@ -678,16 +683,6 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
 	window->title = strndup(window->owner_service, strlen(window->owner_service));
 	//window_redraw_title_bar(window, false);
 
-	// Make the window a bit bigger than the user requested to accomodate for decorations
-	int full_window_width = width + (WINDOW_BORDER_MARGIN * 2);
-	Size title_bar_size = size_make(full_window_width, WINDOW_TITLE_BAR_HEIGHT);
-	Size full_window_size = size_make(
-		full_window_width, 
-		// We only need to add the border margin on the bottom edge
-		// The top edge does not have a border margin
-		height + title_bar_size.height + WINDOW_BORDER_MARGIN
-	);
-
 	// Make the new window show up on top
 	window_move_to_top(window);
 
@@ -697,13 +692,14 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
 	printf("\tAWM    memory: %p - %p\n", shmem_local, shmem_local + shmem_size);
 	printf("\tRemote memory: %p - %p\n", shmem_remote, shmem_remote + shmem_size);
 
-    awm_create_window_response_t resp = {
+    Size screen_size = screen_resolution();
+    awm_create_window_response_t req2 = {
         .event = AWM_CREATE_WINDOW_RESPONSE,
-        .screen_resolution = screen_resolution(),
+        .screen_resolution = screen_size,
         .bytes_per_pixel = screen_bytes_per_pixel(),
         .framebuffer = shmem_remote
     };
-    amc_message_send(owner_service, &resp, sizeof(resp));
+    amc_message_send(owner_service, &req2, sizeof(req2));
 
     awm_animation_open_window_t* anim = awm_animation_open_window_init(200, window, rect_make(origin, full_window_size));
     awm_animation_start(anim);
@@ -848,42 +844,56 @@ void windows_composite(ca_layer* dest, Rect updated_rect) {
             }
         }
 
-        blit_layer(
-            dest, 
-            window->layer, 
-            window->frame, 
-            rect_make(
-                point_zero(), 
-                size_make(
-                    window->frame.size.width,
-                    WINDOW_TITLE_BAR_VISIBLE_HEIGHT
+        if (window->has_title_bar) {
+            // TODO(PT): Can these calls be combined?
+            blit_layer(
+                dest, 
+                window->layer, 
+                window->frame, 
+                rect_make(
+                    point_zero(), 
+                    size_make(
+                        window->frame.size.width,
+                        WINDOW_TITLE_BAR_VISIBLE_HEIGHT
+                    )
                 )
-            )
-        );
-        blit_layer(
-            dest, 
-            window->layer, 
-            rect_make(
-                point_make(
-                    window->frame.origin.x,
-                    window->frame.origin.y + WINDOW_TITLE_BAR_HEIGHT
+            );
+            blit_layer(
+                dest, 
+                window->layer, 
+                rect_make(
+                    point_make(
+                        window->frame.origin.x,
+                        window->frame.origin.y + WINDOW_TITLE_BAR_HEIGHT
+                    ),
+                    size_make(
+                        window->frame.size.width,
+                        window->frame.size.height - WINDOW_TITLE_BAR_HEIGHT
+                    )
                 ),
-                size_make(
-                    window->frame.size.width,
-                    window->frame.size.height - WINDOW_TITLE_BAR_HEIGHT
+                rect_make(
+                    point_make(
+                        0,
+                        WINDOW_TITLE_BAR_HEIGHT
+                    ), 
+                    size_make(
+                        window->frame.size.width,
+                        window->frame.size.height - WINDOW_TITLE_BAR_HEIGHT
+                    )
                 )
-            ),
-            rect_make(
-                point_make(
-                    0,
-                    WINDOW_TITLE_BAR_HEIGHT
-                ), 
-                size_make(
-                    window->frame.size.width,
-                    window->frame.size.height - WINDOW_TITLE_BAR_HEIGHT
+            );
+        }
+        else {
+            blit_layer(
+                dest, 
+                window->layer, 
+                window->frame, 
+                rect_make(
+                    point_zero(), 
+                    window->frame.size
                 )
-            )
-        );
+            );
+        }
     }
     /*
     draw_rect(dest, updated_rect, color_red(), 1);

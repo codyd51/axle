@@ -26,6 +26,9 @@ typedef struct user_window {
 	Rect close_button_frame;
 	bool has_done_first_draw;
 	bool remote_process_died;
+	bool has_title_bar;
+	bool is_movable;
+	bool is_resizable;
 	uint32_t window_id;
 } user_window_t;
 

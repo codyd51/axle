@@ -204,19 +204,21 @@ static void _mouse_reset_prospective_action_flags(mouse_interaction_state_t* sta
 			point_zero(),
 			size_make(state->active_window->frame.size.width, WINDOW_TITLE_BAR_HEIGHT)
 		);
-		if (rect_contains_point(title_bar_frame, mouse_within_window)) {
+		if (rect_contains_point(title_bar_frame, mouse_within_window) && state->active_window->is_movable) {
 			state->is_prospective_window_move = true;
 		}
-		else if (!rect_contains_point(content_view_inset, mouse_within_window)) {
+		else if (!rect_contains_point(content_view_inset, mouse_within_window) && state->active_window->is_resizable) {
 			state->is_prospective_window_resize = true;
 		}
 
-		if (rect_contains_point(title_bar_frame, mouse_within_window)) {
-			// TODO(PT): Keep track of what we last drew and only redraw if this is a state change
-			window_redraw_title_bar(state->active_window, true);
-		}
-		else {
-			window_redraw_title_bar(state->active_window, false);
+		if (state->active_window->has_title_bar) {
+			if (rect_contains_point(title_bar_frame, mouse_within_window)) {
+				// TODO(PT): Keep track of what we last drew and only redraw if this is a state change
+				window_redraw_title_bar(state->active_window, true);
+			}
+			else {
+				window_redraw_title_bar(state->active_window, false);
+			}
 		}
 	}
 }
@@ -568,24 +570,35 @@ void _window_resize(user_window_t* window, Size new_size, bool inform_window) {
 	Rect original_frame = window->frame;
 	window->frame.size = new_size;
 
-	// Resize the text box
-	Size title_bar_size = size_make(new_size.width, WINDOW_TITLE_BAR_HEIGHT);
+	if (window->has_title_bar) {
+		// Resize the text box
+		Size title_bar_size = size_make(new_size.width, WINDOW_TITLE_BAR_HEIGHT);
 
-	// The content view is a bit smaller to accomodate decorations
-	window->content_view->frame = rect_make(
-		point_make(
-			WINDOW_BORDER_MARGIN, 
-			// The top edge does not have a margin
-			title_bar_size.height
-		), 
-		size_make(
-			new_size.width - (WINDOW_BORDER_MARGIN * 2),
-			// No need to multiply margin by 2 since the top edge doesn't have a margin
-			new_size.height - WINDOW_BORDER_MARGIN - title_bar_size.height
-		)
-	);
-
-	window_redraw_title_bar(window, false);
+		// The content view is a bit smaller to accomodate decorations
+		window->content_view->frame = rect_make(
+			point_make(
+				WINDOW_BORDER_MARGIN, 
+				// The top edge does not have a margin
+				title_bar_size.height
+			), 
+			size_make(
+				new_size.width - (WINDOW_BORDER_MARGIN * 2),
+				// No need to multiply margin by 2 since the top edge doesn't have a margin
+				new_size.height - WINDOW_BORDER_MARGIN - title_bar_size.height
+			)
+		);
+		window_redraw_title_bar(window, false);
+	}
+	else {
+		window->content_view->frame = rect_make(
+			point_make(WINDOW_BORDER_MARGIN, 0), 
+			size_make(
+				new_size.width - (WINDOW_BORDER_MARGIN * 2),
+				// No need to multiply margin by 2 since the top edge doesn't have a margin
+				new_size.height - WINDOW_BORDER_MARGIN
+			)
+		);
+	}
 
 	compositor_queue_rect_difference_to_redraw(original_frame, window->frame);
 	windows_invalidate_drawable_regions_in_rect(rect_union(original_frame, window->frame));
