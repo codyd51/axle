@@ -38,6 +38,10 @@ impl View {
         }
     }
 
+    pub fn set_sizer<F: 'static + Fn(&Self, Size) -> Rect>(&self, sizer: F) {
+        *self.sizer.borrow_mut() = Box::new(sizer)
+    }
+
     pub fn set_border_enabled(&self, enabled: bool) {
         self.border_enabled.replace(enabled);
     }
