@@ -22,4 +22,6 @@ Rect _draw_cursor(ca_layer* dest);
 Color background_gradient_outer_color(void);
 Color background_gradient_inner_color(void);
 
+bool amc_service_is_awm_dock(const char* service_name);
+
 #endif

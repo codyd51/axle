@@ -399,7 +399,7 @@ array_t* all_desktop_views(void) {
 }
 
 static Size _desktop_shortcut_size(void) {
-    return size_make(95, 65);
+    return size_make(100, 65);
 }
 
 Size desktop_shortcut_grid_slot_size(void) {
@@ -613,7 +613,10 @@ void windows_fetch_resource_images(void) {
     desktop_shortcuts_add_and_place_in_slot_by_coordinate("Exploit", "/magic/exploit", 1, 1);
     desktop_shortcuts_add_and_place_in_slot_by_coordinate("VAS Viz", "/usr/applications/task_viewer", 1, 2);
     desktop_shortcuts_add_and_place_in_slot_by_coordinate("GameBoy", "/usr/applications/gb_emu", 1, 3);
+    desktop_shortcuts_add_and_place_in_slot_by_coordinate("File Browser", "/usr/applications/file_browser", 1, 4);
 }
+
+static int _g_next_window_id = 0;
 
 user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t height) {
     // Ask the kernel to inform us when this process dies
@@ -638,9 +641,8 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
     };
     snprintf(cmd.remote_service_name, sizeof(cmd.remote_service_name), "%s", owner_service);
     
-    // Ask the kernel to map in the ramdisk and send us info about it
+    // Ask the kernel to set up a shared memory mapping we'll use for the framebuffer
     amc_message_send(AXLE_CORE_SERVICE_NAME,  &cmd, sizeof(cmd));
-
 	amc_message_t* msg;
     amc_message_await__u32_event(AXLE_CORE_SERVICE_NAME, AMC_SHARED_MEMORY_CREATE_RESPONSE, &msg);
 
@@ -705,6 +707,21 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
 
     awm_animation_open_window_t* anim = awm_animation_open_window_init(200, window, rect_make(origin, full_window_size));
     awm_animation_start(anim);
+    // Window IDs increase monotonically
+    window->window_id = _g_next_window_id;
+    _g_next_window_id += 1;
+
+    // If this is a window other than the dock, inform the dock
+    if (!amc_service_is_awm_dock(owner_service)) {
+        awm_dock_window_created_event_t msg = {
+            .event = AWM_DOCK_WINDOW_CREATED,
+            .window_id = window->window_id,
+            .title_len = strlen(window->title),
+            .title = 0,
+        };
+        snprintf(msg.title, sizeof(msg.title), "%s", window->title);
+        amc_message_send("com.axle.awm_dock", &msg, sizeof(msg));
+    }
 
     return window;
 }

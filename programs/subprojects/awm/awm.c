@@ -516,8 +516,8 @@ static bool handle_mouse_event(amc_message_t* mouse_event, incremental_mouse_sta
 	// Bind mouse to screen dimensions
 	mouse_pos.x = max(0, mouse_pos.x);
 	mouse_pos.y = max(0, mouse_pos.y);
-	mouse_pos.x = min(_screen.resolution.width - 20, mouse_pos.x);
-	mouse_pos.y = min(_screen.resolution.height - 20, mouse_pos.y);
+	mouse_pos.x = min(_screen.resolution.width - 4, mouse_pos.x);
+	mouse_pos.y = min(_screen.resolution.height - 4, mouse_pos.y);
 
 	bool updated_state_byte = packet->status == incremental_update->state;
 	incremental_update->state = packet->status;
@@ -611,6 +611,16 @@ static void _update_window_title(const char* owner_service, awm_window_title_msg
 	}
 	window->title = strndup(title_msg->title, title_msg->len);
 	_window_resize(window, window->frame.size, false);
+
+	// Inform the dock
+	awm_dock_window_title_updated_event_t msg = {
+		.event = AWM_DOCK_WINDOW_TITLE_UPDATED,
+		.window_id = window->window_id,
+		.title_len = strlen(window->title),
+		.title = 0,
+	};
+	snprintf(msg.title, sizeof(msg.title), "%s", window->title);
+	amc_message_send("com.axle.awm_dock", &msg, sizeof(msg));
 }
 
 static void _remove_and_teardown_window_for_service(const char* owner_service) {
@@ -946,6 +956,10 @@ static void _awm_enter_event_loop(void) {
 		_dispatch_ready_timers();
 		compositor_render_frame();
 	}
+}
+
+bool amc_service_is_awm_dock(const char* service_name) {
+    return !strncmp(service_name, "com.axle.awm_dock", AMC_MAX_SERVICE_NAME_LEN);
 }
 
 int main(int argc, char** argv) {

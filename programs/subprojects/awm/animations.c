@@ -114,7 +114,7 @@ static void _awm_animation_open_window_finish(awm_animation_open_window_t* anim)
 	amc_msg_u32_1__send(anim->window->owner_service, AWM_WINDOW_RESIZE_ENDED);
 }
 
-awm_animation_open_window_t* awm_animation_open_window_init(uint32_t duration, user_window_t* window, Rect dest_frame) {
+awm_animation_open_window_t* awm_animation_open_window_init_ex(uint32_t duration, user_window_t* window, Rect dest_frame, Rect original_frame) {
 	awm_animation_open_window_t* anim = calloc(1, sizeof(awm_animation_open_window_t));
 	uint32_t now = ms_since_boot();
 	anim->base.start_time = now;
@@ -123,24 +123,26 @@ awm_animation_open_window_t* awm_animation_open_window_init(uint32_t duration, u
 	anim->base.finish_cb = (awm_animation_finish_cb)_awm_animation_open_window_finish;
 	anim->window = window;
 	anim->destination_frame = dest_frame;
+	anim->original_frame = original_frame;
+	window->frame = anim->original_frame;
 
+	return anim;
+}
+
+awm_animation_open_window_t* awm_animation_open_window_init(uint32_t duration, user_window_t* window, Rect dest_frame) {
 	Size screen_size = screen_resolution();
 	Size original_size = size_make(
 		screen_size.height / 10.0,
 		screen_size.width / 10.0
 	);
-	anim->original_frame = rect_make(
+	Rect original_frame = rect_make(
 		point_make(
 			(screen_size.width / 2.0) - (original_size.width / 2.0),
 			screen_size.height - original_size.height
 		),
 		original_size
 	);
-
-	//_window_resize(anim->window, anim->destination_frame.size, true);
-	window->frame = anim->original_frame;
-
-	return anim;
+	return awm_animation_open_window_init_ex(duration, window, dest_frame, original_frame);
 }
 
 // Snap shortcut animation

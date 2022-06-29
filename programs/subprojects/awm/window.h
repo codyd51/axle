@@ -26,6 +26,7 @@ typedef struct user_window {
 	Rect close_button_frame;
 	bool has_done_first_draw;
 	bool remote_process_died;
+	uint32_t window_id;
 } user_window_t;
 
 typedef struct desktop_shortcut desktop_shortcut_t;

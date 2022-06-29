@@ -101,4 +101,21 @@ typedef struct awm_desktop_traits_response {
 
 #define AWM_WINDOW_RESIZE_ENDED 816
 
+// Sent from awm to the dock
+#define AWM_DOCK_WINDOW_CREATED 817
+typedef struct awm_dock_window_created_event {
+    uint32_t event;
+    uint32_t window_id;
+    uint32_t title_len;
+    const char title[64];
+} awm_dock_window_created_event_t;
+
+#define AWM_DOCK_WINDOW_TITLE_UPDATED 818
+typedef struct awm_dock_window_title_updated_event {
+    uint32_t event;
+    uint32_t window_id;
+    uint32_t title_len;
+    const char title[64];
+} awm_dock_window_title_updated_event_t;
+
 #endif
