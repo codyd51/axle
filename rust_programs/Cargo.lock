@@ -537,6 +537,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "dock"
+version = "0.1.0"
+dependencies = [
+ "agx_definitions",
+ "awm_messages",
+ "axle_rt",
+ "axle_rt_derive",
+ "libgui",
+]
+
+[[package]]
 name = "downcast-rs"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
