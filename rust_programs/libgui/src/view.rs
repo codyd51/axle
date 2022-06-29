@@ -59,6 +59,23 @@ impl View {
 
         self.sub_elements.borrow_mut().push(elem);
     }
+
+    pub fn resize_subviews(&self) {
+        let frame = *self.frame.borrow();
+        let inner_content_frame = frame.apply_insets(self.border_insets());
+
+        let elems = &*self.sub_elements.borrow();
+        for elem in elems {
+            elem.handle_superview_resize(inner_content_frame.size);
+        }
+    }
+
+    pub fn draw_subviews(&self) {
+        let sub_elements = &self.sub_elements.borrow();
+        for elem in sub_elements.iter() {
+            elem.draw();
+        }
+    }
 }
 
 impl NestedLayerSlice for View {
@@ -76,11 +93,7 @@ impl NestedLayerSlice for View {
 impl Bordered for View {
     fn draw_inner_content(&self, _outer_frame: Rect, onto: &mut LayerSlice) {
         onto.fill(self.background_color);
-
-        let sub_elements = &self.sub_elements.borrow();
-        for elem in sub_elements.iter() {
-            elem.draw();
-        }
+        self.draw_subviews();
     }
 
     fn border_enabled(&self) -> bool {
@@ -127,13 +140,7 @@ impl UIElement for View {
         let sizer = &*self.sizer.borrow();
         let frame = sizer(self, superview_size);
         self.frame.replace(frame);
-
-        let inner_content_frame = frame.apply_insets(self.border_insets());
-
-        let elems = &*self.sub_elements.borrow();
-        for elem in elems {
-            elem.handle_superview_resize(inner_content_frame.size);
-        }
+        self.resize_subviews();
     }
 
     fn handle_mouse_entered(&self) {
