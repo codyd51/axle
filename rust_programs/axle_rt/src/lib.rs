@@ -175,6 +175,82 @@ where
     msg
 }
 
+// This allows receiving messages for which the format of the body is not yet known
+// It is the caller's responsibility to parse the body into the correct type
+#[cfg(target_os = "axle")]
+pub unsafe fn amc_message_await__u32_event_untyped(
+    from_service: &str,
+    expected_event: u32,
+) -> Result<AmcMessage<[u8]>, core::str::Utf8Error> {
+    let mut msg_ptr = core::ptr::null_mut();
+
+    // Does the caller want to await any message or just messages from a specific caller?
+    let from_service_c_str = CString::new(from_service).expect("cstr new failed");
+    libc::amc_message_await__u32_event(
+        from_service_c_str.as_ptr() as *const u8,
+        expected_event,
+        &mut msg_ptr,
+    );
+
+    // The source and destination buffers that come through will have null bytes at the end of the string
+    // Trim the containers here or else we'll store excess null bytes, which causes
+    // problems when creating CStrings out of them later
+    let source_with_null_bytes = core::str::from_utf8(&(*msg_ptr).source)?;
+    let source_without_null_bytes = source_with_null_bytes.trim_matches(char::from(0));
+
+    let dest_with_null_bytes = core::str::from_utf8(&(*msg_ptr).dest)?;
+    let dest_without_null_bytes = dest_with_null_bytes.trim_matches(char::from(0));
+
+    let msg_body_slice = core::ptr::slice_from_raw_parts(
+        core::ptr::addr_of!((*msg_ptr).body),
+        (*msg_ptr).len as usize,
+    );
+    let msg_body_as_ref = &*(msg_body_slice as *const [u8]);
+
+    Ok(AmcMessage {
+        source: source_without_null_bytes,
+        dest: dest_without_null_bytes,
+        body: msg_body_as_ref,
+    })
+}
+
+// This allows receiving messages that might not specify an event field
+// The caller _must_ be certain that the type they've parsed
+// is indeed the type that was provided in the message
+#[cfg(target_os = "axle")]
+pub unsafe fn amc_message_await__u32_event_unchecked<T>(
+    from_service: &str,
+    expected_event: u32,
+) -> Result<AmcMessage<T>, core::str::Utf8Error> {
+    let msg = amc_message_await__u32_event_untyped(from_service, expected_event)?;
+    let msg_body_as_ref_t: &T = &*(msg.body.as_ptr() as *const T);
+    Ok(AmcMessage {
+        source: msg.source,
+        dest: msg.dest,
+        body: msg_body_as_ref_t,
+    })
+}
+
+#[cfg(target_os = "axle")]
+pub fn amc_message_await__u32_event<T>(from_service: &str, expected_event: u32) -> AmcMessage<T>
+where
+    T: ExpectsEventField + ContainsEventField,
+{
+    let msg: AmcMessage<T> = unsafe {
+        amc_message_await__u32_event_unchecked(from_service, expected_event)
+            .expect("await_unchecked failed in await")
+    };
+    assert_eq!(
+        msg.body.event(),
+        T::EXPECTED_EVENT,
+        "Expected event {}, but {} sent {} instead",
+        T::EXPECTED_EVENT,
+        msg.source,
+        msg.body.event()
+    );
+    msg
+}
+
 #[cfg(target_os = "axle")]
 pub fn amc_has_message(from_service: Option<&str>) -> bool {
     if let Some(from_service) = from_service {
