@@ -20,7 +20,6 @@ use libgui::ui_elements::UIElement;
 use libgui::view::View;
 use libgui::window::AwmWindow;
 
-use awm_messages::{AwmDockWindowCreatedEvent, AwmDockWindowTitleUpdatedEvent};
 use axle_rt::{amc_message_await, amc_message_send, amc_register_service, printf, AmcMessage};
 use axle_rt::{ContainsEventField, ExpectsEventField};
 
@@ -28,6 +27,9 @@ use agx_definitions::{
     Color, Drawable, LayerSlice, Line, NestedLayerSlice, Point, Rect, RectInsets, Size,
     StrokeThickness,
 };
+
+mod dock_messages;
+use dock_messages::{AwmDockWindowCreatedEvent, AwmDockWindowTitleUpdatedEvent};
 
 struct TaskView {
     entry_index: usize,
