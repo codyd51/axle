@@ -1,11 +1,23 @@
 use agx_definitions::{
     Color, Drawable, LayerSlice, Line, Point, Rect, RectInsets, StrokeThickness,
 };
+use alloc::rc::Rc;
 
 use crate::ui_elements::UIElement;
 
 pub trait Bordered: Drawable + UIElement {
     fn draw(&self) {
+        let mut slice = self.get_slice();
+
+        if !self.border_enabled() {
+            self.draw_inner_content(slice.frame, &mut slice);
+        } else {
+            let mut content_slice = slice.get_slice(self.draw_border());
+            self.draw_inner_content(slice.frame, &mut content_slice);
+        }
+    }
+
+    fn draw_rc(self: Rc<Self>) {
         let mut slice = self.get_slice();
 
         if !self.border_enabled() {
@@ -32,10 +44,12 @@ pub trait Bordered: Drawable + UIElement {
         if !self.border_enabled() {
             return Rect::from_parts(Point::zero(), self.frame().size);
         }
-
         let onto = &mut self.get_slice();
         let insets = self.border_insets();
+        self.draw_border_with_insets(onto, insets)
+    }
 
+    fn draw_border_with_insets(&self, onto: &mut LayerSlice, insets: RectInsets) -> Rect {
         // TODO(PT): This currently assumes an even inset across all sides
         // Verify this assumption first
         /*
