@@ -441,12 +441,34 @@ impl Line {
 
     pub fn draw(&self, onto: &mut LayerSlice, color: Color, thickness: StrokeThickness) {
         if let StrokeThickness::Width(thickness) = thickness {
-            let off = (thickness / 2) as isize;
-            for i in 0..thickness {
-                let mut subline = self.clone();
-                subline.p1.x += i - off;
-                subline.p2.x += i - off;
-                subline.draw_strip(onto, color);
+            // Special casing for straight lines
+            // Horizontal line?
+            if self.p1.x == self.p2.x {
+                for i in 0..thickness {
+                    let mut subline = self.clone();
+                    subline.p1.x += i;
+                    subline.p2.x += i;
+                    subline.draw_strip(onto, color);
+                }
+            }
+            // Vertical line?
+            else if self.p1.y == self.p2.y {
+                for i in 0..thickness {
+                    let mut subline = self.clone();
+                    subline.p1.y += i;
+                    subline.p2.y += i;
+                    subline.draw_strip(onto, color);
+                }
+            } else {
+                let off = (thickness / 2) as isize;
+                for i in 0..thickness {
+                    let mut subline = self.clone();
+                    subline.p1.x += off - i;
+                    subline.p2.x += off - i;
+                    subline.p1.y += off - i;
+                    subline.p2.y += off - i;
+                    subline.draw_strip(onto, color);
+                }
             }
         } else {
             self.draw_strip(onto, color);
