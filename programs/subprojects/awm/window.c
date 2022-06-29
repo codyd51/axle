@@ -701,8 +701,43 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
     };
     amc_message_send(owner_service, &req2, sizeof(req2));
 
-    awm_animation_open_window_t* anim = awm_animation_open_window_init(200, window, rect_make(origin, full_window_size));
-    awm_animation_start(anim);
+    awm_animation_open_window_t* open_window_animation = NULL;
+    if (amc_service_is_awm_dock(owner_service)) {
+        // TODO(PT): Should be the exact height of the dock?
+        int dock_height = 32;
+        Rect initial_frame = rect_make(
+            point_make(0, screen_size.height),
+            size_make(screen_size.width, dock_height)
+        );
+        Rect final_frame = rect_make(
+            point_make(0, screen_size.height - dock_height),
+            size_make(screen_size.width, dock_height)
+        );
+
+        open_window_animation = awm_animation_open_window_init_ex(200, window, final_frame, initial_frame);
+        window->has_title_bar = false;
+        window->is_movable = false;
+        window->is_resizable = false;
+    }
+    else {
+        // Make the window a bit bigger than the user requested to accomodate for decorations
+        int full_window_width = width + (WINDOW_BORDER_MARGIN * 2);
+        Size title_bar_size = size_make(full_window_width, WINDOW_TITLE_BAR_HEIGHT);
+        Size full_window_size = size_make(
+            full_window_width, 
+            // We only need to add the border margin on the bottom edge
+            // The top edge does not have a border margin
+            height + title_bar_size.height + WINDOW_BORDER_MARGIN
+        );
+
+        open_window_animation = awm_animation_open_window_init(200, window, rect_make(origin, full_window_size));
+        window->has_title_bar = true;
+        window->is_movable = true;
+        window->is_resizable = true;
+    }
+
+    awm_animation_start(open_window_animation);
+
     // Window IDs increase monotonically
     window->window_id = _g_next_window_id;
     _g_next_window_id += 1;
