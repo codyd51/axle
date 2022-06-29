@@ -3,8 +3,8 @@ use alloc::{rc::Weak, vec::Vec};
 
 use core::cell::RefCell;
 
-use axle_rt::printf;
 use axle_rt::AmcMessage;
+use axle_rt::{amc_message_await__u32_event, printf};
 
 use axle_rt::ExpectsEventField;
 use axle_rt::{amc_message_await, amc_message_await_untyped, amc_message_send};
@@ -26,6 +26,7 @@ pub struct AwmWindow {
     _damaged_rects: Vec<Rect>,
     ui_elements: RefCell<Vec<Rc<dyn UIElement>>>,
     elements_containing_mouse: RefCell<Vec<Rc<dyn UIElement>>>,
+    amc_message_cb: RefCell<Option<Box<dyn Fn(&Self, AmcMessage<[u8]>)>>>,
 }
 
 impl NestedLayerSlice for AwmWindow {
@@ -45,14 +46,16 @@ impl NestedLayerSlice for AwmWindow {
 }
 
 impl AwmWindow {
-    const AWM_SERVICE_NAME: &'static str = "com.axle.awm";
+    pub const AWM_SERVICE_NAME: &'static str = "com.axle.awm";
 
     pub fn new(title: &str, size: Size) -> Self {
         // Start off by getting a window from awm
         amc_message_send(AwmWindow::AWM_SERVICE_NAME, AwmCreateWindow::new(&size));
         // awm should send back info about the window that was created
-        let window_info: AmcMessage<AwmCreateWindowResponse> =
-            amc_message_await(Some(AwmWindow::AWM_SERVICE_NAME));
+        let window_info: AmcMessage<AwmCreateWindowResponse> = amc_message_await__u32_event(
+            AwmWindow::AWM_SERVICE_NAME,
+            AwmCreateWindowResponse::EXPECTED_EVENT,
+        );
 
         let bpp = window_info.body().bytes_per_pixel as isize;
         let screen_resolution = Size::from(&window_info.body().screen_resolution);
@@ -84,6 +87,7 @@ impl AwmWindow {
             _damaged_rects: Vec::new(),
             ui_elements: RefCell::new(Vec::new()),
             elements_containing_mouse: RefCell::new(Vec::new()),
+            amc_message_cb: RefCell::new(None),
         }
     }
 
@@ -119,14 +123,6 @@ impl AwmWindow {
     }
 
     pub fn draw(&self) {
-        // Start off with a colored background
-        /*
-        layer.fill_rect(
-            &Rect::from_parts(Point::zero(), *self.current_size.borrow()),
-            Color::new(255, 255, 255),
-        );
-        */
-
         //printf!("Window drawing all contents...\n");
         let elems = &*self.ui_elements.borrow();
         for elem in elems {
@@ -193,8 +189,6 @@ impl AwmWindow {
             );
             */
             elem.handle_mouse_moved(elem_pos);
-            // TODO(PT): Remove
-            //self.commit();
         }
 
         //self.draw();
@@ -249,6 +243,7 @@ impl AwmWindow {
     }
 
     fn window_resized(&self, event: &WindowResized) {
+        // TODO(PT): The below comment seems untrue?
         // Don't commit the window here as we'll receive tons of resize events
         // In the future, we can present a 'blur UI' while the window resizes
         {
@@ -256,16 +251,15 @@ impl AwmWindow {
             *size = Size::from(&event.new_size);
         }
 
-        let elems = &*self.ui_elements.borrow();
-        for elem in elems {
-            elem.handle_superview_resize(*self.current_size.borrow());
-        }
-        self.draw();
-        self.commit();
+        self.resize_subviews();
     }
 
     fn window_resize_ended(&self, event: &WindowResizeEnded) {
         printf!("Window resize ended: {:?}\n", event);
+        self.resize_subviews();
+    }
+
+    pub fn resize_subviews(&self) {
         let elems = &*self.ui_elements.borrow();
         for elem in elems {
             elem.handle_superview_resize(*self.current_size.borrow());
@@ -283,66 +277,96 @@ impl AwmWindow {
     }
 
     pub fn await_next_event(&self) {
-        let msg_unparsed: AmcMessage<[u8]> =
-            unsafe { amc_message_await_untyped(Some(AwmWindow::AWM_SERVICE_NAME)).unwrap() };
+        let msg_unparsed: AmcMessage<[u8]> = unsafe { amc_message_await_untyped(None).unwrap() };
 
-        // Parse the first bytes of the message as a u32 event field
-        let raw_body = msg_unparsed.body();
-        let event = u32::from_ne_bytes(
-            // We must slice the array to the exact size of a u32 for the conversion to succeed
-            raw_body[..core::mem::size_of::<u32>()]
-                .try_into()
-                .expect("Failed to get 4-length array from message body"),
-        );
+        if (msg_unparsed.source() == AwmWindow::AWM_SERVICE_NAME) {
+            // Parse the first bytes of the message as a u32 event field
+            let raw_body = msg_unparsed.body();
+            let event = u32::from_ne_bytes(
+                // We must slice the array to the exact size of a u32 for the conversion to succeed
+                raw_body[..core::mem::size_of::<u32>()]
+                    .try_into()
+                    .expect("Failed to get 4-length array from message body"),
+            );
 
-        // Each inner call to body_as_type_unchecked is unsafe because we must be
-        // sure we're casting to the right type.
-        // Since we verify the type on the LHS, each usage is safe.
-        //
-        // Wrap the whole thing in an unsafe block to reduce
-        // boilerplate in each match arm.
-        unsafe {
-            match event {
-                // Keyboard events
-                KeyDown::EXPECTED_EVENT => {
-                    self.key_down(AwmWindow::body_as_type_unchecked(raw_body))
+            // Each inner call to body_as_type_unchecked is unsafe because we must be
+            // sure we're casting to the right type.
+            // Since we verify the type on the LHS, each usage is safe.
+            //
+            // Wrap the whole thing in an unsafe block to reduce
+            // boilerplate in each match arm.
+            let consumed = unsafe {
+                match event {
+                    // Keyboard events
+                    KeyDown::EXPECTED_EVENT => {
+                        self.key_down(AwmWindow::body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    KeyUp::EXPECTED_EVENT => {
+                        self.key_up(AwmWindow::body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    // Mouse events
+                    MouseMoved::EXPECTED_EVENT => {
+                        self.mouse_moved(AwmWindow::body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    MouseDragged::EXPECTED_EVENT => {
+                        self.mouse_dragged(AwmWindow::body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    MouseScrolled::EXPECTED_EVENT => {
+                        self.mouse_scrolled(AwmWindow::body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    MouseLeftClickStarted::EXPECTED_EVENT => {
+                        self.mouse_left_click_down(AwmWindow::body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    MouseLeftClickEnded::EXPECTED_EVENT => {
+                        self.mouse_left_click_up(AwmWindow::body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    // Mouse focus events
+                    MouseEntered::EXPECTED_EVENT => {
+                        self.mouse_entered(AwmWindow::body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    MouseExited::EXPECTED_EVENT => {
+                        self.mouse_exited(AwmWindow::body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    // Window events
+                    WindowResized::EXPECTED_EVENT => {
+                        self.window_resized(AwmWindow::body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    WindowResizeEnded::EXPECTED_EVENT => {
+                        self.window_resize_ended(AwmWindow::body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    WindowCloseRequested::EXPECTED_EVENT => {
+                        self.window_close_requested(AwmWindow::body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    _ => {
+                        // Forwarded to generic message handler down below
+                        false
+                    }
                 }
-                KeyUp::EXPECTED_EVENT => self.key_up(AwmWindow::body_as_type_unchecked(raw_body)),
-                // Mouse events
-                MouseMoved::EXPECTED_EVENT => {
-                    self.mouse_moved(AwmWindow::body_as_type_unchecked(raw_body))
-                }
-                MouseDragged::EXPECTED_EVENT => {
-                    self.mouse_dragged(AwmWindow::body_as_type_unchecked(raw_body))
-                }
-                MouseScrolled::EXPECTED_EVENT => {
-                    self.mouse_scrolled(AwmWindow::body_as_type_unchecked(raw_body))
-                }
-                MouseLeftClickStarted::EXPECTED_EVENT => {
-                    self.mouse_left_click_down(AwmWindow::body_as_type_unchecked(raw_body))
-                }
-                MouseLeftClickEnded::EXPECTED_EVENT => {
-                    self.mouse_left_click_up(AwmWindow::body_as_type_unchecked(raw_body))
-                }
-                // Mouse focus events
-                MouseEntered::EXPECTED_EVENT => {
-                    self.mouse_entered(AwmWindow::body_as_type_unchecked(raw_body))
-                }
-                MouseExited::EXPECTED_EVENT => {
-                    self.mouse_exited(AwmWindow::body_as_type_unchecked(raw_body))
-                }
-                // Window events
-                WindowResized::EXPECTED_EVENT => {
-                    self.window_resized(AwmWindow::body_as_type_unchecked(raw_body))
-                }
-                WindowResizeEnded::EXPECTED_EVENT => {
-                    self.window_resize_ended(AwmWindow::body_as_type_unchecked(raw_body))
-                }
-                WindowCloseRequested::EXPECTED_EVENT => {
-                    self.window_close_requested(AwmWindow::body_as_type_unchecked(raw_body))
-                }
-                _ => printf!("Unknown event: {}\n", event),
+            };
+            if consumed {
+                return;
             }
+        }
+
+        // Has the app set up a generic message handler?
+        let cb = &*self.amc_message_cb.borrow_mut();
+        if let Some(cb) = cb {
+            printf!("Dispatching message to custom message handler!\n");
+            cb(self, msg_unparsed);
+        } else {
+            printf!("Dropping unknown message because no custom message handler is set up\n");
         }
     }
 
@@ -354,6 +378,13 @@ impl AwmWindow {
         loop {
             self.await_next_event();
         }
+    }
+
+    pub fn add_message_handler<F: 'static + Fn(&Self, AmcMessage<[u8]>)>(
+        &self,
+        message_handler: F,
+    ) {
+        *self.amc_message_cb.borrow_mut() = Some(Box::new(message_handler));
     }
 }
 
