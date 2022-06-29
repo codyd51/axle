@@ -6,6 +6,11 @@ extern crate libc;
 use axle_rt::{ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
 
+// PT: Must match the definitions in the corresponding C header
+
+pub const AWM_DOCK_HEIGHT: isize = 32;
+pub const AWM_DOCK_SERVICE_NAME: &str = "com.axle.awm_dock";
+
 /*
  * Sent from awm to the dock
  */

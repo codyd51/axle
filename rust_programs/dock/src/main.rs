@@ -29,7 +29,10 @@ use agx_definitions::{
 };
 
 mod dock_messages;
-use dock_messages::{AwmDockWindowCreatedEvent, AwmDockWindowTitleUpdatedEvent};
+use dock_messages::{
+    AwmDockWindowCreatedEvent, AwmDockWindowTitleUpdatedEvent, AWM_DOCK_HEIGHT,
+    AWM_DOCK_SERVICE_NAME,
+};
 
 struct TaskView {
     entry_index: usize,
@@ -527,9 +530,9 @@ impl Dock {
 #[start]
 #[allow(unreachable_code)]
 fn start(_argc: isize, _argv: *const *const u8) -> isize {
-    amc_register_service("com.axle.awm_dock");
+    amc_register_service(AWM_DOCK_SERVICE_NAME);
 
-    let dock_size = Size::new(1920, 32);
+    let dock_size = Size::new(1920, AWM_DOCK_HEIGHT);
     let window = Rc::new(AwmWindow::new("Dock", dock_size));
     let dock = Rc::new(RefCell::new(Dock::new(Rc::clone(&window), dock_size)));
 

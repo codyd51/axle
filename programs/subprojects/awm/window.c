@@ -703,8 +703,7 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
 
     awm_animation_open_window_t* open_window_animation = NULL;
     if (amc_service_is_awm_dock(owner_service)) {
-        // TODO(PT): Should be the exact height of the dock?
-        int dock_height = 32;
+        int dock_height = AWM_DOCK_HEIGHT;
         Rect initial_frame = rect_make(
             point_make(0, screen_size.height),
             size_make(screen_size.width, dock_height)

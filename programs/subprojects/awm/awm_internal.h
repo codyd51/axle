@@ -2,6 +2,7 @@
 #define AWM_INTERNAL_H
 
 #include <stdint.h>
+#include <dock/dock_messages.h>
 
 typedef void(*awm_timer_cb_t)(void* ctx);
 

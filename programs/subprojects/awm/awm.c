@@ -633,7 +633,7 @@ static void _update_window_title(const char* owner_service, awm_window_title_msg
 		.title = 0,
 	};
 	snprintf(msg.title, sizeof(msg.title), "%s", window->title);
-	amc_message_send("com.axle.awm_dock", &msg, sizeof(msg));
+	amc_message_send(AWM_DOCK_SERVICE_NAME, &msg, sizeof(msg));
 }
 
 static void _remove_and_teardown_window_for_service(const char* owner_service) {
@@ -972,7 +972,7 @@ static void _awm_enter_event_loop(void) {
 }
 
 bool amc_service_is_awm_dock(const char* service_name) {
-    return !strncmp(service_name, "com.axle.awm_dock", AMC_MAX_SERVICE_NAME_LEN);
+    return !strncmp(service_name, AWM_DOCK_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN);
 }
 
 int main(int argc, char** argv) {
