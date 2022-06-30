@@ -11,12 +11,51 @@ float lerp(float a, float b, float f) {
     return a + f * (b - a);
 }
 
+static void _interpolate_window_frame(user_window_t* window, Rect from, Rect to, float percent, bool should_inform_window_of_new_size) {
+	/*
+	Rect new_frame = rect_make(
+		point_make(
+			lerp(rect_min_x(from), rect_min_x(to), percent),
+			lerp(rect_min_y(from), rect_min_y(to), percent)
+		),
+		size_make(
+			lerp(from.size.width, to.size.width, percent),
+			lerp(from.size.height, to.size.height, percent)
+		)
+	);
+	window->frame = new_frame;
+	_window_resize(window, window->frame.size, true);
+
+	Rect total_update_frame = rect_union(from, to);
+	compositor_queue_rect_difference_to_redraw(from, to);
+	windows_invalidate_drawable_regions_in_rect(total_update_frame);
+	*/
+
+    Rect current_frame = window->frame;
+	Rect new_frame = rect_make(
+		point_make(
+			lerp(rect_min_x(from), rect_min_x(to), percent),
+			lerp(rect_min_y(from), rect_min_y(to), percent)
+		),
+		size_make(
+			lerp(from.size.width, to.size.width, percent),
+			lerp(from.size.height, to.size.height, percent)
+		)
+	);
+	window->frame = new_frame;
+	_window_resize(window, window->frame.size, should_inform_window_of_new_size);
+
+	Rect total_update_frame = rect_union(current_frame, new_frame);
+	compositor_queue_rect_difference_to_redraw(current_frame, new_frame);
+	//compositor_queue_rect_difference_to_redraw(new_frame, current_frame);
+	windows_invalidate_drawable_regions_in_rect(total_update_frame);
+}
 
 // Close window animation
 
 static void _awm_animation_close_window_step(awm_animation_close_window_t* anim, float percent) {
 	user_window_t* window = anim->window;
-	window->layer->alpha = 1.0 - percent;
+	//window->layer->alpha = 1.0 - percent;
 
     Rect current_frame = window->frame;
 
@@ -81,29 +120,14 @@ awm_animation_close_window_t* awm_animation_close_window_init(uint32_t duration,
 
 static void _awm_animation_open_window_step(awm_animation_open_window_t* anim, float percent) {
 	user_window_t* window = anim->window;
-
-	window->layer->alpha = percent;
-
-    Rect current_frame = window->frame;
-
-	Rect from = anim->original_frame;
-	Rect to = anim->destination_frame;
-	Rect new_frame = rect_make(
-		point_make(
-			lerp(rect_min_x(from), rect_min_x(to), percent),
-			lerp(rect_min_y(from), rect_min_y(to), percent)
-		),
-		size_make(
-			lerp(from.size.width, to.size.width, percent),
-			lerp(from.size.height, to.size.height, percent)
-		)
+	//window->layer->alpha = percent;
+	_interpolate_window_frame(
+		window, 
+		anim->original_frame,
+		anim->destination_frame,
+		percent,
+		true
 	);
-	window->frame = new_frame;
-	_window_resize(window, window->frame.size, true);
-
-	Rect total_update_frame = rect_union(current_frame, new_frame);
-	compositor_queue_rect_difference_to_redraw(current_frame, new_frame);
-	windows_invalidate_drawable_regions_in_rect(total_update_frame);
 }
 
 static void _awm_animation_open_window_finish(awm_animation_open_window_t* anim) {
@@ -143,6 +167,37 @@ awm_animation_open_window_t* awm_animation_open_window_init(uint32_t duration, u
 		original_size
 	);
 	return awm_animation_open_window_init_ex(duration, window, dest_frame, original_frame);
+}
+
+// Minimize window animation
+
+static void _awm_animation_minimize_window_step(awm_animation_minimize_window_t* anim, float percent) {
+	user_window_t* window = anim->window;
+	//window->layer->alpha = 1.0 - percent;
+	_interpolate_window_frame(
+		window, 
+		anim->original_frame,
+		anim->destination_frame,
+		percent,
+		false
+	);
+}
+
+static void _awm_animation_minimize_window_finish(awm_animation_minimize_window_t* anim) {}
+
+awm_animation_minimize_window_t* awm_animation_minimize_window_init(uint32_t duration, user_window_t* window, Rect dest_frame, Rect original_frame) {
+	awm_animation_minimize_window_t* anim = calloc(1, sizeof(awm_animation_minimize_window_t));
+	uint32_t now = ms_since_boot();
+	anim->base.start_time = now;
+	anim->base.end_time = now + duration;
+	anim->base.step_cb = (awm_animation_step_cb)_awm_animation_minimize_window_step;
+	anim->base.finish_cb = (awm_animation_finish_cb)_awm_animation_minimize_window_finish;
+	anim->window = window;
+	anim->destination_frame = dest_frame;
+	anim->original_frame = original_frame;
+	window->frame = anim->original_frame;
+
+	return anim;
 }
 
 // Snap shortcut animation

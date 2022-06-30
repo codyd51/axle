@@ -50,7 +50,7 @@ impl AwmWindow {
 
     pub fn new(title: &str, size: Size) -> Self {
         // Start off by getting a window from awm
-        amc_message_send(AwmWindow::AWM_SERVICE_NAME, AwmCreateWindow::new(&size));
+        amc_message_send(AwmWindow::AWM_SERVICE_NAME, AwmCreateWindow::new(size));
         // awm should send back info about the window that was created
         let window_info: AmcMessage<AwmCreateWindowResponse> = amc_message_await__u32_event(
             AwmWindow::AWM_SERVICE_NAME,

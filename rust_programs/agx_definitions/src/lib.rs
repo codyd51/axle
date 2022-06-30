@@ -110,7 +110,7 @@ impl SizeU32 {
         SizeU32 { width, height }
     }
 
-    pub fn from(size: &Size) -> Self {
+    pub fn from(size: Size) -> Self {
         SizeU32 {
             width: size.width as u32,
             height: size.height as u32,
@@ -374,6 +374,23 @@ impl Rect {
             self.size.width - (insets.left + insets.right),
             self.size.height - (insets.top + insets.bottom),
         )
+    }
+}
+
+// For FFI
+
+#[derive(Debug, Clone, Copy)]
+pub struct RectU32 {
+    pub origin: PointU32,
+    pub size: SizeU32,
+}
+
+impl RectU32 {
+    pub fn from(rect: Rect) -> Self {
+        Self {
+            origin: PointU32::from(rect.origin),
+            size: SizeU32::from(rect.size),
+        }
     }
 }
 

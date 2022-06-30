@@ -3,6 +3,7 @@
 
 #include <libagx/lib/shapes.h>
 #include <libagx/lib/ca_layer.h>
+#include "awm_internal.h"
 #include "utils.h"
 
 typedef struct view {
@@ -14,22 +15,28 @@ typedef struct view {
 } view_t;
 
 typedef struct user_window {
+	// TODO(PT): Why can't these fields be reordered?
 	Rect frame;
 	ca_layer* layer;
 	array_t* drawable_rects;
 	array_t* extra_draws_this_cycle;
 	bool should_scale_layer;
 
-	view_t* content_view;
+	uint32_t window_id;
 	const char* owner_service;
 	const char* title;
+
+	view_t* content_view;
+
 	Rect close_button_frame;
+	Rect minimize_button_frame;
+
 	bool has_done_first_draw;
 	bool remote_process_died;
 	bool has_title_bar;
 	bool is_movable;
 	bool is_resizable;
-	uint32_t window_id;
+	bool is_minimized;
 } user_window_t;
 
 typedef struct desktop_shortcut desktop_shortcut_t;
@@ -68,9 +75,7 @@ void desktop_view_queue_extra_draw(view_t* view, Rect extra);
 void desktop_views_flush_queues(void);
 array_t* desktop_views_ready_to_composite_array(void);
 
-void window_request_close(user_window_t* window);
-
-void window_redraw_title_bar(user_window_t* window, bool close_button_hovered);
+void window_redraw_title_bar(user_window_t* window, bool close_button_hovered, bool minimize_button_hovered);
 
 void window_handle_left_click(user_window_t* window,  Point mouse_within_window);
 void window_handle_left_click_ended(user_window_t* window,  Point mouse_within_window);
@@ -85,6 +90,9 @@ void window_handle_keyboard_event(user_window_t* window, uint32_t event, uint32_
 void windows_init(void);
 user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t height);
 void window_destroy(user_window_t* window);
+
+void window_initiate_minimize(user_window_t* window);
+void window_minimize_from_message(awm_dock_window_minimize_with_info_event_t* event);
 
 void windows_composite(ca_layer* dest, Rect updated_rect);
 

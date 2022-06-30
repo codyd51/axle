@@ -214,10 +214,10 @@ static void _mouse_reset_prospective_action_flags(mouse_interaction_state_t* sta
 		if (state->active_window->has_title_bar) {
 			if (rect_contains_point(title_bar_frame, mouse_within_window)) {
 				// TODO(PT): Keep track of what we last drew and only redraw if this is a state change
-				window_redraw_title_bar(state->active_window, true);
+				window_redraw_title_bar(state->active_window, true, true);
 			}
 			else {
-				window_redraw_title_bar(state->active_window, false);
+				window_redraw_title_bar(state->active_window, false, false);
 			}
 		}
 	}
@@ -305,6 +305,9 @@ static void _begin_mouse_drag(mouse_interaction_state_t* state, Point mouse_poin
 		state->is_moving_top_window = true;
 		if (rect_contains_point(state->active_window->close_button_frame, local_mouse)) {
 			amc_msg_u32_1__send(state->active_window->owner_service, AWM_CLOSE_WINDOW_REQUEST);
+		}
+		else if (rect_contains_point(state->active_window->minimize_button_frame, local_mouse)) {
+			window_initiate_minimize(state->active_window);
 		}
 	}
 	else if (state->is_prospective_window_resize) {
@@ -587,7 +590,7 @@ void _window_resize(user_window_t* window, Size new_size, bool inform_window) {
 				new_size.height - WINDOW_BORDER_MARGIN - title_bar_size.height
 			)
 		);
-		window_redraw_title_bar(window, false);
+		window_redraw_title_bar(window, false, false);
 	}
 	else {
 		window->content_view->frame = rect_make(

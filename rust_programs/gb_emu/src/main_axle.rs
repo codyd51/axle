@@ -88,7 +88,7 @@ impl Window {
     fn new(title: &str, size: Size) -> Self {
         // Start off by getting a window from awm
         let awm_service_name = "com.axle.awm";
-        amc_message_send(awm_service_name, AwmCreateWindow::new(&size));
+        amc_message_send(awm_service_name, AwmCreateWindow::new(size));
         // awm should send back info about the window that was created
         let window_info: AmcMessage<AwmCreateWindowResponse> =
             amc_message_await(Some(awm_service_name));

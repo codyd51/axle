@@ -19,7 +19,7 @@ pub struct AwmCreateWindow {
 }
 
 impl AwmCreateWindow {
-    pub fn new(size: &Size) -> Self {
+    pub fn new(size: Size) -> Self {
         AwmCreateWindow {
             event: Self::EXPECTED_EVENT,
             size: SizeU32::from(size),

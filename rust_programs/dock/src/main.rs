@@ -30,9 +30,11 @@ use agx_definitions::{
 
 mod dock_messages;
 use dock_messages::{
-    AwmDockWindowCreatedEvent, AwmDockWindowTitleUpdatedEvent, AWM_DOCK_HEIGHT,
-    AWM_DOCK_SERVICE_NAME,
+    AwmDockEvent, AwmDockWindowCreatedEvent, AwmDockWindowMinimizeRequestedEvent,
+    AwmDockWindowTitleUpdatedEvent, AWM_DOCK_HEIGHT, AWM_DOCK_SERVICE_NAME,
 };
+
+use crate::dock_messages::AwmDockWindowMinimizeWithInfo;
 
 struct TaskView {
     entry_index: usize,
@@ -385,10 +387,6 @@ impl Drawable for GradientView {
     }
 }
 
-pub trait AwmDockEvent: ExpectsEventField + ContainsEventField {}
-impl AwmDockEvent for AwmDockWindowCreatedEvent {}
-impl AwmDockEvent for AwmDockWindowTitleUpdatedEvent {}
-
 struct Dock {
     pub window: Rc<AwmWindow>,
     container_view: Rc<GradientView>,
@@ -514,6 +512,34 @@ impl Dock {
         // TODO(PT): Run sizers for everything
     }
 
+    pub fn handle_window_minimize_request(
+        self: Rc<Self>,
+        event: &AwmDockWindowMinimizeRequestedEvent,
+    ) {
+        printf!(
+            "Got request to minimize a window! Window ID {}\n",
+            event.window_id
+        );
+        // Update the title of the affected task view
+        let task_views = self.task_views.borrow();
+        let task_view = task_views
+            .iter()
+            .filter(|tv| tv.window_id == event.window_id)
+            .next();
+
+        if let None = task_view {
+            printf!("No task view for the provided window ID, skipping it...");
+            return;
+        }
+        let task_view = task_view.unwrap();
+
+        // Send back info to awm informing it where to minimize the window to
+        amc_message_send(
+            AwmWindow::AWM_SERVICE_NAME,
+            AwmDockWindowMinimizeWithInfo::new(task_view.window_id, task_view.frame()),
+        );
+    }
+
     pub fn redraw(self: Rc<Self>) {
         let window = Rc::clone(&self.window);
 
@@ -558,6 +584,12 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
                         printf!("Received dock window event!\n");
                         Rc::clone(&dock.borrow())
                             .handle_window_title_updated(Dock::body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    AwmDockWindowMinimizeRequestedEvent::EXPECTED_EVENT => {
+                        printf!("Received window minimize request!\n");
+                        Rc::clone(&dock.borrow())
+                            .handle_window_minimize_request(Dock::body_as_type_unchecked(raw_body));
                         true
                     }
                     _ => false,

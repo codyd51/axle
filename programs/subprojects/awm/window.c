@@ -97,6 +97,48 @@ user_window_t* window_with_service_name(const char* service_name) {
 	return NULL;
 }
 
+void window_initiate_minimize(user_window_t* window) {
+    awm_dock_window_minimize_requested_event_t minimize_event = {
+        .event = AWM_DOCK_WINDOW_MINIMIZE_REQUESTED,
+        .window_id = window->window_id
+    };
+    amc_message_send(AWM_DOCK_SERVICE_NAME, &minimize_event, sizeof(minimize_event));
+}
+
+void window_minimize_from_message(awm_dock_window_minimize_with_info_event_t* event) {
+    Rect r = event->task_view_frame;
+    printf("Continuing minimize! Got info about window, ID %d, frame %d %d %d %d\n", event->window_id, r.origin.x, r.origin.y, r.size.width, r.size.height);
+
+    // Find the window with the specified ID
+    user_window_t* window = NULL;
+    for (uint32_t i = 0; i < windows->size; i++) {
+        user_window_t* w = array_lookup(windows, i);
+        if (event->window_id == w->window_id) {
+            window = w;
+            break;
+        }
+    }
+    if (!window) {
+        printf("No window found with the specified ID\n");
+        return;
+    }
+
+    Rect task_view_frame = event->task_view_frame;
+	Size screen_size = screen_resolution();
+    Rect dest_frame = rect_make(
+        point_make(
+            rect_min_x(task_view_frame),
+            screen_size.height
+        ),
+        task_view_frame.size
+    );
+    awm_animation_minimize_window_t* anim = awm_animation_minimize_window_init(300, window, dest_frame, window->frame);
+    awm_animation_start(anim);
+
+    // Immediately stop doing extra work for the window
+    window->is_minimized = true;
+}
+
 void window_handle_left_click(user_window_t* window,  Point mouse_within_window) {
     assert(window != NULL, "Expected non-NULL window");
 
@@ -176,6 +218,10 @@ static void _window_fetch_framebuf(user_window_t* window) {
         printf("Skipping framebuf fetch for window because the remote process is dead: %s\n", window->owner_service);
         return;
     }
+    if (window->is_minimized) {
+        printf("Skipping framebuf fetch for window because it is minimized: %s\n", window->owner_service);
+        return;
+    }
 
 	window->has_done_first_draw = true;
 	blit_layer(
@@ -204,10 +250,6 @@ void desktop_view_queue_extra_draw(view_t* view, Rect extra) {
     rect_add(view->extra_draws_this_cycle, extra);
 }
 
-void window_request_close(user_window_t* window) {
-
-}
-
 static void _write_window_title(user_window_t* window) {
 	Point mid = point_make(
 		window->frame.size.width / 2.0, 
@@ -231,7 +273,7 @@ static void _write_window_title(user_window_t* window) {
 	}
 }
 
-void window_redraw_title_bar(user_window_t* window, bool close_button_hovered) {
+void window_redraw_title_bar(user_window_t* window, bool close_button_hovered, bool minimize_button_hovered) {
     if (!window->has_title_bar) {
         // No work to do 
         return;
@@ -264,6 +306,23 @@ void window_redraw_title_bar(user_window_t* window, bool close_button_hovered) {
 		window->layer, 
 		window->close_button_frame
 	);
+
+	window->minimize_button_frame = rect_make(
+		point_make(icon_height * 2.5, icon_height * 0.275), 
+		x_image->size
+	);
+    draw_rect(
+        window->layer,
+        window->minimize_button_frame,
+        color_make(0x89, 0xcf, 0xf0),
+        THICKNESS_FILLED
+    );
+    draw_rect(
+        window->layer,
+        window->minimize_button_frame,
+        color_make(120, 120, 120),
+        2
+    );
 
 	// Draw window title
 	_write_window_title(window);
@@ -604,7 +663,7 @@ void windows_fetch_resource_images(void) {
 	_g_title_bar_x_unfilled = load_image("/images/titlebar_x_unfilled2.bmp");
     for (int32_t i = 0; i < windows->size; i++) {
         user_window_t* w = array_lookup(windows, i);
-        window_redraw_title_bar(w, false);
+        window_redraw_title_bar(w, false, false);
     }
 
     _g_executable_image = load_image("/images/executable_icon.bmp");
@@ -681,7 +740,7 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
 	// Configure the title text box
 	// The size will be reset by window_size()
 	window->title = strndup(window->owner_service, strlen(window->owner_service));
-	//window_redraw_title_bar(window, false);
+	//window_redraw_title_bar(window, false, false);
 
 	// Make the new window show up on top
 	window_move_to_top(window);
