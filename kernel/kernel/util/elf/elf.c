@@ -6,6 +6,7 @@
 #include <std/kheap.h>
 #include <kernel/vmm/vmm.h>
 #include <kernel/multitasking/tasks/task_small.h>
+#include <kernel/assert.h>
 
 static bool elf_check_magic(elf_header* hdr) {
 	if (!hdr) return false;
@@ -95,7 +96,7 @@ uintptr_t elf_load_small(unsigned char* src) {
 	uintptr_t phdr_table_addr = (uintptr_t)hdr + hdr->phoff;
 
 	int segcount = hdr->phnum; 
-	if (!segcount) return 0;
+	task_assert(segcount > 0, "No loadable segments in ELF", NULL);
 
 	printf("[%d] Loading %d ELF segments\n", getpid(), segcount);
 	bool found_loadable_seg = false;
@@ -110,6 +111,8 @@ uintptr_t elf_load_small(unsigned char* src) {
 	if (found_loadable_seg) {
 		return hdr->entry;
 	}
+
+	task_assert(segcount > 0, "Failed to find an entry point", NULL);
 	return 0;
 }
 
@@ -118,10 +121,8 @@ char* elf_get_string_table(void* file, uint32_t binary_size) {
 	char* string_table;
 	uint32_t i = 0;
 	for (int x = 0; x < hdr->shentsize * hdr->shnum; x += hdr->shentsize) {
-		if (hdr->shoff + x > binary_size) {
-			printf("ELF: Tried to read beyond the end of the file.\n");
-			return NULL;
-		}
+		task_assert(hdr->shoff + x<= binary_size, "Tried to read beyond the end of an ELF", NULL);
+
 		elf_s_header* shdr = (elf_s_header*)(file + (hdr->shoff + x));
 		if (i == hdr->shstrndx) {
 			string_table = (char *)(file + shdr->offset);
@@ -155,10 +156,7 @@ static void _record_elf_symbol_table(void* buf, elf_t* elf) {
 void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf_size, bool free_buffer) {
 	printf("ELF loading %s for PID %d\n", program_name, getpid());
 	elf_header* hdr = (elf_header*)buf;
-	if (!elf_validate_header(hdr)) {
-		printf("validation failed\n");
-		return;
-	}
+	task_assert(elf_validate_header(hdr), "ELF header validation failed", NULL);
 	task_small_t* current_task = tasking_get_task_with_pid(getpid());
 
 	char* string_table = elf_get_string_table(hdr, buf_size);
@@ -167,10 +165,7 @@ void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf
 	uintptr_t prog_break = 0;
 	uintptr_t bss_loc = 0;
 	for (int x = 0; x < hdr->shentsize * hdr->shnum; x += hdr->shentsize) {
-		if (hdr->shoff + x > buf_size) {
-			printf("Tried to read beyond the end of the file.\n");
-			return;
-		}
+		task_assert(hdr->shoff + x<= buf_size, "Tried to read beyond the end of an ELF", NULL);
 
 		elf_s_header* shdr = (elf_s_header*)((uintptr_t)buf + (hdr->shoff + x));
 		char* section_name = (char*)((uintptr_t)string_table + shdr->name);
@@ -188,14 +183,17 @@ void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf
 		printf("[ELF] Freeing buffer 0x%p\n", buf);
 		kfree(buf);
 	}
-	if (!entry_point) {
-		printf("ELF wasn't loadable!\n");
-		return;
-	}
+
+	task_assert(entry_point != 0, "Failed to find an ELF entry point", NULL);
+
 	//printf("ELF prog_break 0x%08x bss_loc 0x%08x\n", prog_break, bss_loc);
 
 	// Give userspace a 128kb stack
 	// TODO(PT): We need to free the stack created by _thread_create
+	char msg_buf[512];
+	snprintf(msg_buf, 512, "ELF alloc stack for %s\n", program_name);
+	draw_string_oneshot(msg_buf);
+
 	uint32_t stack_size = PAGE_SIZE * 32;
 	printf("ELF allocating stack with PDir 0x%p\n", vas_get_active_state());
 	uintptr_t stack_bottom = vas_alloc_range(vas_get_active_state(), 0x7e0000000000, stack_size, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
@@ -219,30 +217,25 @@ void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf
 		argc++;
 	}
 
-	if (entry_point) {
-		//vas_active_unmap_temp(sizeof(vmm_page_directory_t));
-		// Ensure the task won't be scheduled while modifying its critical state
-		//spinlock_acquire(&elf->priority_lock);
-		asm("cli");
-		// TODO(PT): We should store the kmalloc()'d stack in the task structure so that we can free() it once the task dies.
-		//printf("Set elf->machine_state = 0x%08x\n", stack_top);
-		current_task->machine_state = (task_context_t*)stack_top;
-		current_task->sbrk_current_break = prog_break;
-		current_task->bss_segment_addr = bss_loc;
-		current_task->sbrk_current_page_head = (current_task->sbrk_current_break + PAGE_SIZE) & PAGING_PAGE_MASK;
+	//vas_active_unmap_temp(sizeof(vmm_page_directory_t));
+	// Ensure the task won't be scheduled while modifying its critical state
+	//spinlock_acquire(&elf->priority_lock);
+	asm("cli");
+	// TODO(PT): We should store the kmalloc()'d stack in the task structure so that we can free() it once the task dies.
+	//printf("Set elf->machine_state = 0x%08x\n", stack_top);
+	current_task->machine_state = (task_context_t*)stack_top;
+	current_task->sbrk_current_break = prog_break;
+	current_task->bss_segment_addr = bss_loc;
+	current_task->sbrk_current_page_head = (current_task->sbrk_current_break + PAGE_SIZE) & PAGING_PAGE_MASK;
 
-		task_set_name(current_task, "launched_elf");
+	task_set_name(current_task, "launched_elf");
 
-		printf("[%d] Jump to user-mode with ELF [%s] ip=0x%08x sp=0x%08x\n", current_task->id, current_task->name, entry_point, current_task->machine_state);
-		//spinlock_release(&elf->priority_lock);
-		user_mode(stack_top, entry_point);
+	printf("[%d] Jump to user-mode with ELF [%s] ip=0x%08x sp=0x%08x\n", current_task->id, current_task->name, entry_point, current_task->machine_state);
+	snprintf(msg_buf, 512, "Jump to user mode for %s\n", program_name);
+	draw_string_oneshot(msg_buf);
+	//spinlock_release(&elf->priority_lock);
+	user_mode(stack_top, entry_point);
 
-		// binary should have called _exit()
-		// if we got to this point, something went catastrophically wrong
-		ASSERT(0, "ELF binary returned execution to loader!");
-	}
-	else {
-		printf_err("ELF wasn't loadable!");
-		return;
-	}
+	// Binary should terminate via _exit()
+	task_assert(false, "ELF returned execution to loader", NULL);
 }

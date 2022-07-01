@@ -115,7 +115,7 @@ static void _amc_core_file_server_map_initrd(const char* source_service) {
     amc_message_send__from_core(source_service, &msg, sizeof(amc_initrd_info_t));
 }
 
-static void _trampoline(const char* program_name, void* buf, uint32_t buf_size) {
+static void AMC_EXEC_TRAMPOLINE_NAME(const char* program_name, void* buf, uint32_t buf_size) {
     char* argv[] = {program_name, NULL};
     elf_load_buffer(program_name, argv, buf, buf_size, true);
 	panic("noreturn");
@@ -138,7 +138,7 @@ static void _amc_core_file_server_exec_buffer(const char* source_service, void* 
 
     task_spawn__with_args(
         name_copy,
-        _trampoline, 
+        AMC_EXEC_TRAMPOLINE_NAME, 
         name_copy, 
         copy, 
         cmd->buffer_size
