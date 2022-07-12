@@ -1,11 +1,12 @@
 use alloc::vec;
 use alloc::{slice, vec::Vec};
 use bitflags::bitflags;
-use core::mem;
+use core::{mem, ops::Index};
 
 use crate::records::{
     any_as_u8_slice, ElfHeader64, ElfHeader64Record, ElfSection64, ElfSection64Record,
-    ElfSegment64, ElfSegment64Record, ElfSegmentFlag, ElfSegmentType, Packable, VecRecord,
+    ElfSectionAttrFlag, ElfSectionType, ElfSegment64, ElfSegment64Record, ElfSegmentFlag,
+    ElfSegmentType, Packable, SectionHeaderNamesHelper, VecRecord,
 };
 
 fn copy_struct_to_vec<T: Sized>(st: &T, len: usize, vec: &mut Vec<u8>, start_idx: usize) {
@@ -128,7 +129,7 @@ pub fn pack_elf() -> Vec<u8> {
     loadable_segment_record.inner.mem_size = packer.end_addr_of(code_record.id) as _;
 
     // Place the section headers
-    let null_section = ElfSection64 {
+    let mut null_section_record = ElfSection64Record::new(ElfSection64 {
         name: 0,
         segment_type: 0,
         flags: 0,
@@ -139,12 +140,68 @@ pub fn pack_elf() -> Vec<u8> {
         info: 0,
         addr_align: 0,
         ent_size: 0,
-    };
-    let null_section_record = ElfSection64Record::new(null_section);
-    packer.append(&null_section_record);
+    });
+
+    let mut text_section_record = ElfSection64Record::new(ElfSection64 {
+        // TODO(PT): How to represent something that must be filled in?
+        name: 0,
+        segment_type: ElfSectionType::PROG_BITS.bits(),
+        flags: (ElfSectionAttrFlag::ALLOCATE.bits() | ElfSectionAttrFlag::EXEC_INSTR.bits()) as _,
+        addr: file_header_record.inner.entry_point,
+        offset: packer.start_addr_of(code_record.id) as u64,
+        size: code_record.len() as _,
+        link: 0,
+        info: 0,
+        addr_align: 1,
+        ent_size: 0,
+    });
+
+    let mut section_header_string_table_section_record = ElfSection64Record::new(ElfSection64 {
+        name: 0,
+        segment_type: ElfSectionType::STRING_TABLE.bits(),
+        flags: 0,
+        addr: 0,
+        offset: 0,
+        size: 0,
+        link: 0,
+        info: 0,
+        addr_align: 1,
+        ent_size: 0,
+    });
+
+    let mut section_header_names_helper = SectionHeaderNamesHelper::new();
+    section_header_names_helper.add_section_name(null_section_record.id(), "");
+    section_header_names_helper.add_section_name(text_section_record.id(), ".text");
+    section_header_names_helper
+        .add_section_name(section_header_string_table_section_record.id(), ".shstrtab");
+    let section_header_string_table = section_header_names_helper.render();
+    packer.append(&section_header_string_table);
+
+    null_section_record.inner.name =
+        section_header_names_helper.offset_for_section_id(null_section_record.id()) as _;
+    text_section_record.inner.name =
+        section_header_names_helper.offset_for_section_id(text_section_record.id()) as _;
+    section_header_string_table_section_record.inner.name = section_header_names_helper
+        .offset_for_section_id(section_header_string_table_section_record.id())
+        as _;
+
+    let sections = vec![
+        &null_section_record,
+        &text_section_record,
+        &section_header_string_table_section_record,
+    ];
+    for section in &sections {
+        packer.append(*section);
+    }
+
+    file_header_record.inner.section_names_section_header_index = sections
+        .iter()
+        .position(|s| s.id() == section_header_string_table_section_record.id())
+        .unwrap() as _;
+
     file_header_record.inner.section_header_table_start =
         packer.start_addr_of(null_section_record.id) as _;
-    file_header_record.inner.section_header_table_entry_count = 1;
+    file_header_record.inner.section_header_table_entry_count = sections.len() as _;
 
     let mut elf = Vec::new();
     let file_size = packer.end_addr();
@@ -152,8 +209,15 @@ pub fn pack_elf() -> Vec<u8> {
         elf.push(0);
     }
 
-    let records: Vec<&dyn Packable> =
-        vec![&file_header_record, &loadable_segment_record, &code_record];
+    let records: Vec<&dyn Packable> = vec![
+        &file_header_record,
+        &loadable_segment_record,
+        &code_record,
+        &section_header_string_table,
+        &null_section_record,
+        &text_section_record,
+        &section_header_string_table_section_record,
+    ];
     for record in &records {
         let start_addr = packer.start_addr_of(record.id());
         let elf_slice = &mut elf[start_addr..start_addr + record.len()];

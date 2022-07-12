@@ -1,6 +1,17 @@
-use alloc::{slice, vec::Vec};
+use alloc::{collections::BTreeMap, slice, vec::Vec};
 use bitflags::bitflags;
 use core::mem;
+use cstr_core::CString;
+use std::println;
+
+static mut _NEXT_STRUCT_ID: usize = 0;
+
+pub fn next_struct_id() -> usize {
+    unsafe {
+        _NEXT_STRUCT_ID += 1;
+        _NEXT_STRUCT_ID
+    }
+}
 
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     slice::from_raw_parts((p as *const T) as *const u8, mem::size_of::<T>())
@@ -77,7 +88,10 @@ pub struct ElfHeader64Record {
 
 impl ElfHeader64Record {
     pub fn new(inner: ElfHeader64) -> Self {
-        Self { id: 1, inner }
+        Self {
+            id: next_struct_id(),
+            inner,
+        }
     }
 }
 
@@ -101,15 +115,6 @@ pub enum ElfSegmentType {
     Loadable = 1,
 }
 
-/*
-#[repr(C)]
-#[derive(Debug)]
-enum ElfSegmentFlag {
-    EXECUTABLE = 0x1,
-    Writable = 0x2,
-    Readable = 0x4,
-}
-*/
 bitflags! {
     pub struct ElfSegmentFlag: u32 {
         const EXECUTABLE = 0x1;
@@ -138,7 +143,10 @@ pub struct ElfSegment64Record {
 
 impl ElfSegment64Record {
     pub fn new(inner: ElfSegment64) -> Self {
-        Self { id: 2, inner }
+        Self {
+            id: next_struct_id(),
+            inner,
+        }
     }
 }
 
@@ -153,6 +161,18 @@ impl Packable for ElfSegment64Record {
 
     fn write_to_slice(&self, out: &mut [u8]) {
         copy_struct_to_slice(&self.inner, out)
+    }
+}
+
+bitflags! {
+    pub struct ElfSectionType: u32 {
+        const PROG_BITS = 1;
+        const STRING_TABLE = 3;
+    }
+    pub struct ElfSectionAttrFlag: u32 {
+        const WRITE = 0x1;
+        const ALLOCATE = 0x2;
+        const EXEC_INSTR = 0x4;
     }
 }
 
@@ -178,7 +198,10 @@ pub struct ElfSection64Record {
 
 impl ElfSection64Record {
     pub fn new(inner: ElfSection64) -> Self {
-        Self { id: 4, inner }
+        Self {
+            id: next_struct_id(),
+            inner,
+        }
     }
 }
 
@@ -203,7 +226,10 @@ pub struct VecRecord {
 
 impl VecRecord {
     pub fn new(inner: Vec<u8>) -> Self {
-        Self { id: 3, inner }
+        Self {
+            id: next_struct_id(),
+            inner,
+        }
     }
 }
 
@@ -218,5 +244,53 @@ impl Packable for VecRecord {
 
     fn write_to_slice(&self, out: &mut [u8]) {
         out.copy_from_slice(&self.inner[..])
+    }
+}
+
+pub struct SectionHeaderNamesHelper {
+    names: BTreeMap<usize, CString>,
+    section_id_to_offsets: BTreeMap<usize, usize>,
+}
+
+impl SectionHeaderNamesHelper {
+    pub fn new() -> Self {
+        Self {
+            names: BTreeMap::new(),
+            section_id_to_offsets: BTreeMap::new(),
+        }
+    }
+
+    pub fn add_section_name(&mut self, struct_id: usize, section_name: &str) {
+        self.names
+            .insert(struct_id, CString::new(section_name).unwrap());
+    }
+
+    pub fn offset_for_section_id(&self, struct_id: usize) -> usize {
+        *self.section_id_to_offsets.get(&struct_id).unwrap()
+    }
+
+    pub fn render(&mut self) -> VecRecord {
+        let required_space: usize = (&self.names)
+            .values()
+            .map(|s| s.as_bytes_with_nul().len())
+            .sum();
+        println!("Required space {required_space}");
+
+        let mut out = Vec::new();
+        for _ in 0..required_space {
+            out.push(0);
+        }
+
+        let mut cursor = 0;
+        for (struct_id, section_name) in &self.names {
+            let name = section_name.as_bytes_with_nul();
+            println!("Rendering {:?}", section_name);
+            self.section_id_to_offsets.insert(*struct_id, cursor);
+            out[cursor..cursor + name.len()].copy_from_slice(name);
+            cursor += name.len();
+        }
+        println!("Rendered {:?}", out);
+
+        VecRecord::new(out)
     }
 }
