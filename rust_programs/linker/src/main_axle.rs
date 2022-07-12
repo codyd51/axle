@@ -41,8 +41,5 @@ pub fn main() {
     printf!("Running without std!\n");
     amc_register_service("com.axle.linker");
     let elf = pack_elf();
-    amc_message_send(
-        "com.axle.core",
-        AmcExecBuffer::from("com.axle.runtime_generated", &elf),
-    );
+    amc_message_send("com.axle.core", AmcExecBuffer::from("com.axle.runtime_generated", &elf));
 }

@@ -88,10 +88,7 @@ pub struct ElfHeader64Record {
 
 impl ElfHeader64Record {
     pub fn new(inner: ElfHeader64) -> Self {
-        Self {
-            id: next_struct_id(),
-            inner,
-        }
+        Self { id: next_struct_id(), inner }
     }
 }
 
@@ -143,10 +140,7 @@ pub struct ElfSegment64Record {
 
 impl ElfSegment64Record {
     pub fn new(inner: ElfSegment64) -> Self {
-        Self {
-            id: next_struct_id(),
-            inner,
-        }
+        Self { id: next_struct_id(), inner }
     }
 }
 
@@ -198,10 +192,7 @@ pub struct ElfSection64Record {
 
 impl ElfSection64Record {
     pub fn new(inner: ElfSection64) -> Self {
-        Self {
-            id: next_struct_id(),
-            inner,
-        }
+        Self { id: next_struct_id(), inner }
     }
 }
 
@@ -226,10 +217,7 @@ pub struct VecRecord {
 
 impl VecRecord {
     pub fn new(inner: Vec<u8>) -> Self {
-        Self {
-            id: next_struct_id(),
-            inner,
-        }
+        Self { id: next_struct_id(), inner }
     }
 }
 
@@ -261,8 +249,7 @@ impl SectionHeaderNamesHelper {
     }
 
     pub fn add_section_name(&mut self, struct_id: usize, section_name: &str) {
-        self.names
-            .insert(struct_id, CString::new(section_name).unwrap());
+        self.names.insert(struct_id, CString::new(section_name).unwrap());
     }
 
     pub fn offset_for_section_id(&self, struct_id: usize) -> usize {
@@ -270,10 +257,7 @@ impl SectionHeaderNamesHelper {
     }
 
     pub fn render(&mut self) -> VecRecord {
-        let required_space: usize = (&self.names)
-            .values()
-            .map(|s| s.as_bytes_with_nul().len())
-            .sum();
+        let required_space: usize = (&self.names).values().map(|s| s.as_bytes_with_nul().len()).sum();
         println!("Required space {required_space}");
 
         let mut out = Vec::new();

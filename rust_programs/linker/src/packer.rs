@@ -4,9 +4,8 @@ use bitflags::bitflags;
 use core::{mem, ops::Index};
 
 use crate::records::{
-    any_as_u8_slice, ElfHeader64, ElfHeader64Record, ElfSection64, ElfSection64Record,
-    ElfSectionAttrFlag, ElfSectionType, ElfSegment64, ElfSegment64Record, ElfSegmentFlag,
-    ElfSegmentType, Packable, SectionHeaderNamesHelper, VecRecord,
+    any_as_u8_slice, ElfHeader64, ElfHeader64Record, ElfSection64, ElfSection64Record, ElfSectionAttrFlag, ElfSectionType, ElfSegment64, ElfSegment64Record,
+    ElfSegmentFlag, ElfSegmentType, Packable, SectionHeaderNamesHelper, VecRecord,
 };
 
 fn copy_struct_to_vec<T: Sized>(st: &T, len: usize, vec: &mut Vec<u8>, start_idx: usize) {
@@ -36,9 +35,7 @@ struct PackPlanner {
 
 impl PackPlanner {
     fn new() -> Self {
-        Self {
-            contents: Vec::new(),
-        }
+        Self { contents: Vec::new() }
     }
 
     fn append(&mut self, packable: &dyn Packable) {
@@ -119,11 +116,9 @@ pub fn pack_elf() -> Vec<u8> {
 
     let segment_addr = packer.start_addr_of(loadable_segment_record.id);
 
-    file_header_record.inner.program_header_table_start =
-        packer.start_addr_of(loadable_segment_record.id) as _;
+    file_header_record.inner.program_header_table_start = packer.start_addr_of(loadable_segment_record.id) as _;
     file_header_record.inner.program_header_table_entry_count = 1;
-    file_header_record.inner.entry_point =
-        loadable_segment_record.inner.vaddr + packer.start_addr_of(code_record.id) as u64;
+    file_header_record.inner.entry_point = loadable_segment_record.inner.vaddr + packer.start_addr_of(code_record.id) as u64;
 
     loadable_segment_record.inner.file_size = packer.end_addr_of(code_record.id) as _;
     loadable_segment_record.inner.mem_size = packer.end_addr_of(code_record.id) as _;
@@ -172,35 +167,24 @@ pub fn pack_elf() -> Vec<u8> {
     let mut section_header_names_helper = SectionHeaderNamesHelper::new();
     section_header_names_helper.add_section_name(null_section_record.id(), "");
     section_header_names_helper.add_section_name(text_section_record.id(), ".text");
-    section_header_names_helper
-        .add_section_name(section_header_string_table_section_record.id(), ".shstrtab");
+    section_header_names_helper.add_section_name(section_header_string_table_section_record.id(), ".shstrtab");
     let section_header_string_table = section_header_names_helper.render();
     packer.append(&section_header_string_table);
 
-    null_section_record.inner.name =
-        section_header_names_helper.offset_for_section_id(null_section_record.id()) as _;
-    text_section_record.inner.name =
-        section_header_names_helper.offset_for_section_id(text_section_record.id()) as _;
-    section_header_string_table_section_record.inner.name = section_header_names_helper
-        .offset_for_section_id(section_header_string_table_section_record.id())
-        as _;
+    null_section_record.inner.name = section_header_names_helper.offset_for_section_id(null_section_record.id()) as _;
+    text_section_record.inner.name = section_header_names_helper.offset_for_section_id(text_section_record.id()) as _;
+    section_header_string_table_section_record.inner.name =
+        section_header_names_helper.offset_for_section_id(section_header_string_table_section_record.id()) as _;
 
-    let sections = vec![
-        &null_section_record,
-        &text_section_record,
-        &section_header_string_table_section_record,
-    ];
+    let sections = vec![&null_section_record, &text_section_record, &section_header_string_table_section_record];
     for section in &sections {
         packer.append(*section);
     }
 
-    file_header_record.inner.section_names_section_header_index = sections
-        .iter()
-        .position(|s| s.id() == section_header_string_table_section_record.id())
-        .unwrap() as _;
+    file_header_record.inner.section_names_section_header_index =
+        sections.iter().position(|s| s.id() == section_header_string_table_section_record.id()).unwrap() as _;
 
-    file_header_record.inner.section_header_table_start =
-        packer.start_addr_of(null_section_record.id) as _;
+    file_header_record.inner.section_header_table_start = packer.start_addr_of(null_section_record.id) as _;
     file_header_record.inner.section_header_table_entry_count = sections.len() as _;
 
     let mut elf = Vec::new();

@@ -9,10 +9,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     let sysroot = current_dir
         .ancestors()
         .nth(2)
-        .ok_or(io::Error::new(
-            io::ErrorKind::NotFound,
-            "Failed to find parent",
-        ))?
+        .ok_or(io::Error::new(io::ErrorKind::NotFound, "Failed to find parent"))?
         .join("axle-sysroot");
     println!("Sysroot: {:?}", sysroot);
     let output_file = sysroot.join("usr").join("applications").join("output_elf");
