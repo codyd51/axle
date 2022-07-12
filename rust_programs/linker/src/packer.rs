@@ -1,24 +1,15 @@
-use alloc::{
-    slice,
-    vec::{self, Vec},
-};
+use alloc::vec;
+use alloc::{slice, vec::Vec};
 use bitflags::bitflags;
 use core::mem;
-use std::println;
 
 use crate::records::{
-    any_as_u8_slice, ElfHeader64, ElfHeader64Record, ElfSegment64, ElfSegment64Record,
-    ElfSegmentFlag, ElfSegmentType, Packable, VecRecord,
+    any_as_u8_slice, ElfHeader64, ElfHeader64Record, ElfSection64, ElfSection64Record,
+    ElfSegment64, ElfSegment64Record, ElfSegmentFlag, ElfSegmentType, Packable, VecRecord,
 };
 
-/*
-uu8] {
-    slice::from_raw_parts((p as *const T) as *const u8, len)
-}
-*/
-
 fn copy_struct_to_vec<T: Sized>(st: &T, len: usize, vec: &mut Vec<u8>, start_idx: usize) {
-    println!("Copying struct of {len} bytes to off {start_idx}");
+    //println!("Copying struct of {len} bytes to off {start_idx}");
     let struct_bytes = unsafe { any_as_u8_slice(st) };
     vec[start_idx..start_idx + len].copy_from_slice(&struct_bytes);
 }
@@ -90,25 +81,6 @@ impl PackPlanner {
         let last_record = self.contents.last().unwrap();
         self.end_addr_of(last_record.id)
     }
-
-    /*
-    fn pack_elf(&self) -> Vec<u8> {
-        /*
-        copy_struct_to_vec(
-            &file_header_record.inner,
-            64,
-            &mut elf,
-            packer.start_addr_of(file_header_record.id),
-        );
-        copy_struct_to_vec(
-            &loadable_segment_record.inner,
-            mem::size_of::<ElfSegment64>(),
-            &mut elf,
-            packer.start_addr_of(loadable_segment_record.id),
-        );
-        */
-    }
-    */
 }
 
 pub fn pack_elf() -> Vec<u8> {
@@ -149,10 +121,30 @@ pub fn pack_elf() -> Vec<u8> {
     file_header_record.inner.program_header_table_start =
         packer.start_addr_of(loadable_segment_record.id) as _;
     file_header_record.inner.program_header_table_entry_count = 1;
-    file_header_record.inner.entry_point = packer.start_addr_of(code_record.id) as _;
+    file_header_record.inner.entry_point =
+        loadable_segment_record.inner.vaddr + packer.start_addr_of(code_record.id) as u64;
 
     loadable_segment_record.inner.file_size = packer.end_addr_of(code_record.id) as _;
     loadable_segment_record.inner.mem_size = packer.end_addr_of(code_record.id) as _;
+
+    // Place the section headers
+    let null_section = ElfSection64 {
+        name: 0,
+        segment_type: 0,
+        flags: 0,
+        addr: 0,
+        offset: 0,
+        size: 0,
+        link: 0,
+        info: 0,
+        addr_align: 0,
+        ent_size: 0,
+    };
+    let null_section_record = ElfSection64Record::new(null_section);
+    packer.append(&null_section_record);
+    file_header_record.inner.section_header_table_start =
+        packer.start_addr_of(null_section_record.id) as _;
+    file_header_record.inner.section_header_table_entry_count = 1;
 
     let mut elf = Vec::new();
     let file_size = packer.end_addr();
@@ -169,40 +161,4 @@ pub fn pack_elf() -> Vec<u8> {
     }
 
     elf
-
-    //packer.pack_elf()
-
-    /*
-    let mut elf = Vec::new();
-    let file_size = packer.end_addr_of(code_record.id);
-    for i in 0..file_size {
-        elf.push(0);
-    }
-
-    copy_struct_to_vec(
-        &file_header_record.inner,
-        64,
-        &mut elf,
-        packer.start_addr_of(file_header_record.id),
-    );
-    copy_struct_to_vec(
-        &loadable_segment_record.inner,
-        mem::size_of::<ElfSegment64>(),
-        &mut elf,
-        packer.start_addr_of(loadable_segment_record.id),
-    );
-    /*
-    copy_struct_to_vec(
-        &code_record.inner,
-        code_record.inner.len(),
-        &mut elf,
-        packer.start_addr_of(code_record.id),
-    );
-    */
-    let code_start = packer.start_addr_of(code_record.id);
-    let code_end = packer.end_addr_of(code_record.id);
-    elf[code_start..code_end].copy_from_slice(&code_record.inner);
-
-    elf
-    */
 }

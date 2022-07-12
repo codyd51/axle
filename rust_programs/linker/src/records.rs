@@ -1,7 +1,4 @@
-use alloc::{
-    slice,
-    vec::{self, Vec},
-};
+use alloc::{slice, vec::Vec};
 use bitflags::bitflags;
 use core::mem;
 
@@ -59,14 +56,14 @@ impl ElfHeader64 {
             isa_type: 0x3e,
             elf_version2: 1,
             // PT: The bottom fields should be filled in by the caller
-            entry_point: 0xabababab,
-            program_header_table_start: 0xfeedface,
-            section_header_table_start: 0xcafefeed,
+            entry_point: 0,
+            program_header_table_start: 0,
+            section_header_table_start: 0,
             flags: 0,
             header_size: mem::size_of::<Self>() as _,
             program_header_table_entry_size: mem::size_of::<ElfSegment64>() as _,
             program_header_table_entry_count: 0,
-            section_header_table_entry_size: 0,
+            section_header_table_entry_size: mem::size_of::<ElfSection64>() as _,
             section_header_table_entry_count: 0,
             section_names_section_header_index: 0,
         }
@@ -152,6 +149,46 @@ impl Packable for ElfSegment64Record {
 
     fn len(&self) -> usize {
         mem::size_of::<ElfSegment64>()
+    }
+
+    fn write_to_slice(&self, out: &mut [u8]) {
+        copy_struct_to_slice(&self.inner, out)
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct ElfSection64 {
+    pub name: u32,
+    pub segment_type: u32,
+    pub flags: u64,
+    pub addr: u64,
+    pub offset: u64,
+    pub size: u64,
+    pub link: u32,
+    pub info: u32,
+    pub addr_align: u64,
+    pub ent_size: u64,
+}
+
+pub struct ElfSection64Record {
+    pub id: usize,
+    pub inner: ElfSection64,
+}
+
+impl ElfSection64Record {
+    pub fn new(inner: ElfSection64) -> Self {
+        Self { id: 4, inner }
+    }
+}
+
+impl Packable for ElfSection64Record {
+    fn id(&self) -> usize {
+        self.id
+    }
+
+    fn len(&self) -> usize {
+        mem::size_of::<ElfSection64>()
     }
 
     fn write_to_slice(&self, out: &mut [u8]) {
