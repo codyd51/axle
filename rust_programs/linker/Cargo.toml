@@ -1,0 +1,18 @@
+[package]
+name = "linker"
+version = "0.1.0"
+edition = "2021"
+resolver = "2"
+
+[features]
+default = ["run_in_axle"]
+run_in_axle = []
+
+[dependencies]
+axle_rt = {path = "../axle_rt" }
+axle_rt_derive = {path = "../axle_rt_derive" }
+cstr_core = "0.2.4"
+serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde_bytes = { version = "0.11", default-features = false }
+postcard = { version = "0.7.2", features = ["alloc"] }
+bitflags = "1.3"
