@@ -5,7 +5,7 @@ use core::{mem, ops::Index};
 
 use crate::records::{
     any_as_u8_slice, ElfHeader64, ElfHeader64Record, ElfSection64, ElfSection64Record, ElfSectionAttrFlag, ElfSectionType, ElfSegment64, ElfSegment64Record,
-    ElfSegmentFlag, ElfSegmentType, Packable, SectionHeaderNamesHelper, VecRecord,
+    ElfSegmentFlag, ElfSegmentType, ElfSymbol64, ElfSymbol64Record, Packable, StringTableHelper, SymbolTable, VecRecord,
 };
 
 fn copy_struct_to_vec<T: Sized>(st: &T, len: usize, vec: &mut Vec<u8>, start_idx: usize) {
@@ -151,6 +151,78 @@ pub fn pack_elf() -> Vec<u8> {
         ent_size: 0,
     });
 
+    let mut string_table_section_record = ElfSection64Record::new(ElfSection64 {
+        name: 0,
+        segment_type: ElfSectionType::STRING_TABLE.bits(),
+        flags: 0,
+        addr: 0,
+        offset: 0x000,
+        size: 0x000,
+        link: 0,
+        info: 0,
+        addr_align: 1,
+        ent_size: 0,
+    });
+
+    let mut symbol_table_section_record = ElfSection64Record::new(ElfSection64 {
+        name: 0,
+        segment_type: ElfSectionType::SYMBOL_TABLE.bits(),
+        flags: 0,
+        addr: 0,
+        offset: 0x000,
+        size: 0x000,
+        link: 3,
+        info: 1,
+        addr_align: 8,
+        ent_size: mem::size_of::<ElfSymbol64>() as _,
+    });
+
+    // Populate symbol table
+    let mut undef_symbol_record = ElfSymbol64Record::new(ElfSymbol64 {
+        name: 0,
+        value: 0,
+        size: 0,
+        info: 0,
+        other: 0,
+        owner_section_index: 0,
+    });
+    let mut start_symbol_record = ElfSymbol64Record::new(ElfSymbol64 {
+        name: 0,
+        value: 0,
+        size: 0,
+        info: 0,
+        other: 0,
+        owner_section_index: 0,
+    });
+
+    let mut symbol_table_helper = StringTableHelper::new();
+    symbol_table_helper.add_string(undef_symbol_record.id(), "");
+    symbol_table_helper.add_string(start_symbol_record.id(), "_start");
+    let symbol_table_string_table = symbol_table_helper.render();
+    packer.append(&symbol_table_string_table);
+
+    // Fix up the string table section header
+    string_table_section_record.inner.offset = packer.start_addr_of(symbol_table_string_table.id()) as _;
+    string_table_section_record.inner.size = symbol_table_string_table.len() as _;
+
+    // Fix up the symbols
+    undef_symbol_record.inner.name = symbol_table_helper.offset_for_section_id(undef_symbol_record.id()) as _;
+    start_symbol_record.inner.name = symbol_table_helper.offset_for_section_id(start_symbol_record.id()) as _;
+    //println!("Set start symbol inner name to {}", start_symbol_record.inner.name);
+    start_symbol_record.inner.info = 0x10;
+    start_symbol_record.inner.owner_section_index = 0x1;
+    start_symbol_record.inner.value = file_header_record.inner.entry_point;
+
+    // Generate the final symbol table
+    let symbol_table = SymbolTable::new(vec![undef_symbol_record, start_symbol_record]);
+    packer.append(&symbol_table);
+
+    // Fix up the symbol table section header
+    symbol_table_section_record.inner.offset = packer.start_addr_of(symbol_table.id()) as _;
+    symbol_table_section_record.inner.size = symbol_table.len() as _;
+    //println!("Set symbol table to {}", symbol_table_section_record.inner.offset);
+
+    // Generate the table of section header names
     let mut section_header_string_table_section_record = ElfSection64Record::new(ElfSection64 {
         name: 0,
         segment_type: ElfSectionType::STRING_TABLE.bits(),
@@ -164,26 +236,45 @@ pub fn pack_elf() -> Vec<u8> {
         ent_size: 0,
     });
 
-    let mut section_header_names_helper = SectionHeaderNamesHelper::new();
-    section_header_names_helper.add_section_name(null_section_record.id(), "");
-    section_header_names_helper.add_section_name(text_section_record.id(), ".text");
-    section_header_names_helper.add_section_name(section_header_string_table_section_record.id(), ".shstrtab");
+    // Populate section names
+    let mut section_header_names_helper = StringTableHelper::new();
+    // The first byte is defined to be the null byte
+    section_header_names_helper.add_string(null_section_record.id(), "");
+    section_header_names_helper.add_string(text_section_record.id(), ".text");
+    section_header_names_helper.add_string(section_header_string_table_section_record.id(), ".shstrtab");
+    section_header_names_helper.add_string(symbol_table_section_record.id(), ".symtab");
+    section_header_names_helper.add_string(string_table_section_record.id(), ".strtab");
     let section_header_string_table = section_header_names_helper.render();
     packer.append(&section_header_string_table);
 
+    // Fix up the section names section header
+    section_header_string_table_section_record.inner.offset = packer.start_addr_of(section_header_string_table.id()) as _;
+    section_header_string_table_section_record.inner.size = section_header_string_table.len() as _;
+
+    // Fix up the name pointers of every section header
     null_section_record.inner.name = section_header_names_helper.offset_for_section_id(null_section_record.id()) as _;
     text_section_record.inner.name = section_header_names_helper.offset_for_section_id(text_section_record.id()) as _;
     section_header_string_table_section_record.inner.name =
         section_header_names_helper.offset_for_section_id(section_header_string_table_section_record.id()) as _;
+    string_table_section_record.inner.name = section_header_names_helper.offset_for_section_id(string_table_section_record.id()) as _;
+    symbol_table_section_record.inner.name = section_header_names_helper.offset_for_section_id(symbol_table_section_record.id()) as _;
 
-    let sections = vec![&null_section_record, &text_section_record, &section_header_string_table_section_record];
+    let sections = vec![
+        &null_section_record,
+        &text_section_record,
+        &symbol_table_section_record,
+        &string_table_section_record,
+        &section_header_string_table_section_record,
+    ];
     for section in &sections {
         packer.append(*section);
     }
 
+    // Record the section names section header in the ELF header
     file_header_record.inner.section_names_section_header_index =
         sections.iter().position(|s| s.id() == section_header_string_table_section_record.id()).unwrap() as _;
 
+    // Record the overall section header data in the ELF header
     file_header_record.inner.section_header_table_start = packer.start_addr_of(null_section_record.id) as _;
     file_header_record.inner.section_header_table_entry_count = sections.len() as _;
 
@@ -197,13 +288,18 @@ pub fn pack_elf() -> Vec<u8> {
         &file_header_record,
         &loadable_segment_record,
         &code_record,
+        &symbol_table_string_table,
+        &symbol_table,
         &section_header_string_table,
         &null_section_record,
         &text_section_record,
+        &symbol_table_section_record,
+        &string_table_section_record,
         &section_header_string_table_section_record,
     ];
     for record in &records {
         let start_addr = packer.start_addr_of(record.id());
+        //println!("writing to {start_addr}, {}", start_addr + record.len());
         let elf_slice = &mut elf[start_addr..start_addr + record.len()];
         record.write_to_slice(elf_slice);
     }
