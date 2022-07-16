@@ -1,5 +1,6 @@
 use std::{env, error, fs, io};
 
+use crate::new_try::pack_elf2;
 use crate::packer::pack_elf;
 
 pub fn main() -> Result<(), Box<dyn error::Error>> {
@@ -14,7 +15,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     println!("Sysroot: {:?}", sysroot);
     let output_file = sysroot.join("usr").join("applications").join("output_elf");
 
-    let elf = pack_elf();
+    let elf = pack_elf2();
     println!("Got elf of len {}\n", elf.len());
 
     fs::write(output_file, elf).unwrap();

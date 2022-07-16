@@ -2,8 +2,12 @@
 #![cfg_attr(feature = "run_in_axle", feature(start))]
 #![cfg_attr(feature = "run_in_axle", feature(format_args_nl))]
 #![cfg_attr(feature = "run_in_axle", feature(default_alloc_error_handler))]
+#![feature(trait_upcasting)]
+#![feature(extend_one)]
+
 extern crate alloc;
 
+mod new_try;
 mod packer;
 mod records;
 

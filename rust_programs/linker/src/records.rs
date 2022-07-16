@@ -107,7 +107,7 @@ impl Packable for ElfHeader64Record {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum ElfSegmentType {
     Loadable = 1,
 }
@@ -158,6 +158,15 @@ impl Packable for ElfSegment64Record {
     }
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub enum ElfSectionType2 {
+    Null = 0,
+    ProgBits = 1,
+    SymbolTable = 2,
+    StringTable = 3,
+}
+
 bitflags! {
     pub struct ElfSectionType: u32 {
         const PROG_BITS = 1;
@@ -175,6 +184,7 @@ bitflags! {
 #[derive(Debug, Copy, Clone)]
 pub struct ElfSection64 {
     pub name: u32,
+    // TODO(PT): Rename to section_type
     pub segment_type: u32,
     pub flags: u64,
     pub addr: u64,
