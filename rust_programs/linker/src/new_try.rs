@@ -950,32 +950,7 @@ impl MagicPackable for MagicStringTable {
 }
 
 pub fn pack_elf2() -> Vec<u8> {
-    let mut data = BTreeMap::new();
-
-    let sym1 = Rc::new(DataSymbol::new("word1", CString::new("Hello ").unwrap().into_bytes_with_nul()));
-    data.insert(sym1.name.clone(), Rc::clone(&sym1));
-    let sym2 = Rc::new(DataSymbol::new("word2", CString::new(" world!\n").unwrap().into_bytes_with_nul()));
-    data.insert(sym2.name.clone(), Rc::clone(&sym2));
-
-    let instructions = [
-        Rc::new(MoveDataSymbolToRegister::new("rcx", data.get(&sym1.name).unwrap())),
-        Rc::new(MoveDataSymbolToRegister::new("rax", data.get(&sym2.name).unwrap())),
-    ];
-
     let layout = Rc::new(FileLayout::new(0x400000));
-
-    // Render the data symbols
-    let mut data_packer = Rc::new(RefCell::new(DataPacker::new(&layout)));
-    for data_sym in data.values() {
-        DataPacker::pack(&data_packer, &data_sym);
-    }
-
-    // Render the instructions
-    let mut instruction_packer = Rc::new(InstructionPacker::new(&layout, &data_packer));
-    for instr in instructions.iter() {
-        instruction_packer.pack(instr);
-    }
-
     // File header
     layout.append(&(Rc::new(MagicElfHeader64::new()) as Rc<dyn MagicPackable>));
 
@@ -991,73 +966,45 @@ pub fn pack_elf2() -> Vec<u8> {
     layout.append_section_header(Rc::new(MagicElfSection64::read_only_data_section_header()) as Rc<dyn MagicSectionHeader>);
     layout.set_section_header_names_string_table(&Rc::new(MagicSectionHeaderNamesStringsTable::new()));
 
-    // Symbols
-    //layout.append_symbol_table(&Rc::new(MagicSymbolTable::new(&data_packer, &instruction_packer)));
-    layout.set_symbol_table(&Rc::new(MagicSymbolTable::new(&data_packer, &instruction_packer)));
-    //layout.append(&(Rc::new(MagicStringTable::new()) as Rc<dyn MagicPackable>));
-    layout.set_string_table(&Rc::new(MagicStringTable::new()));
-    //layout.append(
+    // Generate code and data
+    // TODO(PT): Eventually, this will be an assembler stage
+    let mut data = BTreeMap::new();
+    let sym1 = Rc::new(DataSymbol::new("word1", CString::new("Hello ").unwrap().into_bytes_with_nul()));
+    data.insert(sym1.name.clone(), Rc::clone(&sym1));
+    let sym2 = Rc::new(DataSymbol::new("word2", CString::new(" world!\n").unwrap().into_bytes_with_nul()));
+    data.insert(sym2.name.clone(), Rc::clone(&sym2));
 
-    // Read-only data
-    layout.append(&(Rc::new(ReadOnlyData::new(&data_packer)) as Rc<dyn MagicPackable>));
+    let instructions = [
+        Rc::new(MoveDataSymbolToRegister::new("rcx", data.get(&sym1.name).unwrap())),
+        Rc::new(MoveDataSymbolToRegister::new("rax", data.get(&sym2.name).unwrap())),
+    ];
+
+    // Render the data symbols
+    let mut data_packer = Rc::new(RefCell::new(DataPacker::new(&layout)));
+    for data_sym in data.values() {
+        DataPacker::pack(&data_packer, &data_sym);
+    }
+
+    // Render the instructions
+    let mut instruction_packer = Rc::new(InstructionPacker::new(&layout, &data_packer));
+    for instr in instructions.iter() {
+        instruction_packer.pack(instr);
+    }
+
+    // Symbols
+    layout.set_symbol_table(&Rc::new(MagicSymbolTable::new(&data_packer, &instruction_packer)));
+    // TODO(PT): prerender() might not be the right API:
+    // it doesn't solve that the string table needs to be appended after the symbol table.
+    // Otherwise, StringTable.prerender() will be called before SymbolTable.prerender(), and the string table
+    // will render no strings.
+    // Maybe we could have a Packable.requires_rendered(Vec<RebaseTarget>) API that then does the solving to figure
+    // out the render order.
+    layout.set_string_table(&Rc::new(MagicStringTable::new()));
 
     // Instructions
     layout.append(&(instruction_packer as Rc<dyn MagicPackable>));
+    // Read-only data
+    layout.append(&(Rc::new(ReadOnlyData::new(&data_packer)) as Rc<dyn MagicPackable>));
 
     layout.render()
-
-    // Onion packing:
-    // First, lay out the constant data
-    // Then, lay out the string table
-    // Then, lay out the symbol table
-    // Then, lay out the string table header
-    // Then, lay out the symbol table header
-    // ...
-    // But, the code genuinely needs to know the final location of the data, to be assembled
-    // Do layout, then do rendering - requires that encoded code size won't change
-    //  Maybe we *can* make this guarantee?
-
-    // First things first, we'll need to
-
-    /*
-    // Executable code
-    let code = vec![
-        //  mov rax, 0xc
-        0x48, 0xC7, 0xC0, 0x0C, 0x00, 0x00, 0x00, // mov rbx, 0x1
-        0x48, 0xC7, 0xC3, 0x01, 0x00, 0x00, 0x00, // mov rcx, 0x4000a2
-        0x48, 0xC7, 0xC1, 0xA2, 0x00, 0x40, 0x00, // mov rdx, 0xd
-        0x48, 0xC7, 0xC2, 0x0D, 0x00, 0x00, 0x00, // int 0x80
-        0xCD, 0x80, // mov rbx, rax
-        0x48, 0x89, 0xC3, // mov rax, 0xd
-        0x48, 0xC7, 0xC0, 0x0D, 0x00, 0x00, 0x00, // int 0x80
-        0xCD, 0x80,
-    ];
-    let string = DataSymbol::new("msg", vec!['H' as u8, 'e' as u8, 'l' as u8, 'l' as u8, 'o' as u8, 0]);
-    */
-
-    /*
-    let _start = Function("\xab");
-
-    let symtab = Symtab(
-        Symbol(
-            "_start",
-            _start,
-        )
-    );
-
-    elf.set_symtab(symtab)
-
-    render {
-        // Create string table
-        let strtab = Strtab()
-        for symbol in symbols {
-            strtab.append(symbol.name)
-            symbol.name = strtab.offset(symbol)
-        }
-
-        let rendered_strtab = strtab.render();
-        let rendered_symtab = symtab.render();
-    }
-    */
-    //Vec::new()
 }
