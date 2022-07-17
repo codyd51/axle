@@ -114,6 +114,43 @@ impl DataPacker {
     */
 }
 
+struct ReadOnlyData {
+    data_packer: Rc<RefCell<DataPacker>>,
+    rendered_data: RefCell<Vec<u8>>,
+}
+
+impl ReadOnlyData {
+    fn new(data_packer: &Rc<RefCell<DataPacker>>) -> Self {
+        Self {
+            data_packer: Rc::clone(data_packer),
+            rendered_data: RefCell::new(Vec::new()),
+        }
+    }
+}
+
+impl MagicPackable for ReadOnlyData {
+    fn len(&self) -> usize {
+        self.rendered_data.borrow().len()
+    }
+
+    fn struct_type(&self) -> RebaseTarget {
+        RebaseTarget::ReadOnlyDataSection
+    }
+
+    fn prerender(&self, layout: &FileLayout) {
+        let mut rendered_data = self.rendered_data.borrow_mut();
+        let data_packer = self.data_packer.borrow();
+        for (_, symbol) in data_packer.symbols.iter() {
+            let mut symbol_bytes = symbol.inner.to_owned();
+            rendered_data.append(&mut symbol_bytes);
+        }
+    }
+
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        self.rendered_data.borrow().to_owned()
+    }
+}
+
 struct InstructionPacker {
     file_layout: Rc<FileLayout>,
     data_packer: Rc<RefCell<DataPacker>>,
@@ -131,18 +168,10 @@ impl InstructionPacker {
 
     fn pack(&self, instr: &Rc<MoveDataSymbolToRegister>) {
         let symbol_offset = DataPacker::offset_of(&self.data_packer, &instr.symbol);
-        let rel_ptr = RebasedValue::OffsetWithin(RebaseTarget::DataSection, symbol_offset);
+        let rel_ptr = RebasedValue::OffsetWithin(RebaseTarget::ReadOnlyDataSection, symbol_offset);
         let mut instructions = self.instructions.borrow_mut();
         instructions.push((Rc::clone(instr), rel_ptr));
     }
-
-    /*
-    fn render(&self) -> Vec<(MoveDataSymbolToRegister, RebaseTarget)> {
-        let mut out = Vec::new();
-        /////for instr in self
-        out
-    }
-    */
 }
 
 impl MagicPackable for InstructionPacker {
@@ -180,6 +209,8 @@ pub struct FileLayout {
     segment_headers: RefCell<Vec<Rc<dyn MagicPackable>>>,
     section_headers: RefCell<Vec<Rc<dyn MagicSectionHeader>>>,
     section_header_names_string_table: RefCell<Option<Rc<MagicSectionHeaderNamesStringsTable>>>,
+    symbol_table: RefCell<Option<Rc<MagicSymbolTable>>>,
+    string_table: RefCell<Option<Rc<MagicStringTable>>>,
 }
 
 impl FileLayout {
@@ -190,14 +221,30 @@ impl FileLayout {
             segment_headers: RefCell::new(Vec::new()),
             section_headers: RefCell::new(Vec::new()),
             section_header_names_string_table: RefCell::new(None),
+            symbol_table: RefCell::new(None),
+            string_table: RefCell::new(None),
         }
     }
 
     fn set_section_header_names_string_table(&self, section_header_names_string_table: &Rc<MagicSectionHeaderNamesStringsTable>) {
         let mut strtab = self.section_header_names_string_table.borrow_mut();
-        assert!(strtab.is_none(), "Cannot set string table twice");
+        assert!(strtab.is_none(), "Cannot set section header names string table twice");
         *strtab = Some(Rc::clone(section_header_names_string_table));
         self.append(&(Rc::clone(section_header_names_string_table) as Rc<dyn MagicPackable>));
+    }
+
+    fn set_string_table(&self, string_table: &Rc<MagicStringTable>) {
+        let mut strtab = self.string_table.borrow_mut();
+        assert!(strtab.is_none(), "Cannot set string table twice");
+        *strtab = Some(Rc::clone(string_table));
+        self.append(&(Rc::clone(string_table) as Rc<dyn MagicPackable>));
+    }
+
+    fn set_symbol_table(&self, symbol_table: &Rc<MagicSymbolTable>) {
+        let mut symtab = self.symbol_table.borrow_mut();
+        assert!(symtab.is_none(), "Cannot set symbol table twice");
+        *symtab = Some(Rc::clone(symbol_table));
+        self.append(&(Rc::clone(symbol_table) as Rc<dyn MagicPackable>));
     }
 
     fn render(&self) -> Vec<u8> {
@@ -299,6 +346,22 @@ impl FileLayout {
         }
     }
 
+    fn get_rebased_symbol_name_offset(&self, symbol: &MagicElfSymbol64) -> usize {
+        let maybe_strtab = self.string_table.borrow();
+        match &*maybe_strtab {
+            Some(strtab) => strtab.offset_of_name(&symbol.name),
+            None => panic!("Expected a string table to be set up"),
+        }
+    }
+
+    fn get_rebased_symbol_owner_section_index(&self, symbol: &MagicElfSymbol64) -> usize {
+        match symbol.symbol_type {
+            SymbolType::NullSymbol => 0,
+            SymbolType::DataSymbol => self.section_header_index(SectionHeaderType::ReadOnlyDataSection),
+            SymbolType::CodeSymbol => self.section_header_index(SectionHeaderType::TextSection),
+        }
+    }
+
     fn section_header_index(&self, section_header_type: SectionHeaderType) -> usize {
         let section_headers = self.section_headers.borrow();
         let section_header_indexes_matching_type: Vec<usize> = section_headers
@@ -311,7 +374,9 @@ impl FileLayout {
             .collect();
         assert!(
             section_header_indexes_matching_type.len() == 1,
-            "Expected exactly one section header with the provided type"
+            "Expected exactly one section header with type {:?}, found {}",
+            section_header_type,
+            section_header_indexes_matching_type.len()
         );
         section_header_indexes_matching_type[0]
     }
@@ -349,14 +414,19 @@ pub enum RebaseTarget {
     ElfSegmentHeader,
     ElfSectionHeader,
     TextSection,
-    DataSection,
+    ReadOnlyDataSection,
+    SymbolTableSection,
+    StringsTable,
     SectionHeadersStringsTable,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum SectionHeaderType {
     NullSection,
+    ReadOnlyDataSection,
     TextSection,
+    SymbolTableSection,
+    StringTableSection,
     SectionHeaderNamesSectionHeader,
 }
 
@@ -451,6 +521,19 @@ pub struct MagicSegmentHeader64 {
 }
 
 impl MagicSegmentHeader64 {
+    pub fn text_segment_header() -> Self {
+        Self::new(
+            ElfSegmentType::Loadable,
+            vec![ElfSegmentFlag::EXECUTABLE | ElfSegmentFlag::READABLE],
+            RebasedValue::Literal(0),
+            RebasedValue::VirtualBase,
+            RebasedValue::VirtualBase,
+            RebasedValue::StaticEndOf(RebaseTarget::TextSection),
+            RebasedValue::StaticEndOf(RebaseTarget::TextSection),
+            RebasedValue::Literal(0x200000),
+        )
+    }
+
     pub fn new(
         segment_type: ElfSegmentType,
         flags: Vec<ElfSegmentFlag>,
@@ -509,8 +592,8 @@ pub struct MagicElfSection64 {
     addr: RebasedValue,
     offset: RebasedValue,
     size: RebasedValue,
-    link: u32,
-    info: u32,
+    link: RebasedValue,
+    info: RebasedValue,
     addr_align: u64,
     ent_size: u64,
 }
@@ -525,8 +608,8 @@ impl MagicElfSection64 {
             RebasedValue::Literal(0),
             RebasedValue::Literal(0),
             RebasedValue::Literal(0),
-            0,
-            0,
+            RebasedValue::Literal(0),
+            RebasedValue::Literal(0),
             0,
             0,
         )
@@ -541,8 +624,8 @@ impl MagicElfSection64 {
             RebasedValue::VirtStartOf(RebaseTarget::TextSection),
             RebasedValue::StaticStartOf(RebaseTarget::TextSection),
             RebasedValue::SizeOf(RebaseTarget::TextSection),
-            0,
-            0,
+            RebasedValue::Literal(0),
+            RebasedValue::Literal(0),
             1,
             0,
         )
@@ -557,8 +640,59 @@ impl MagicElfSection64 {
             RebasedValue::Literal(0),
             RebasedValue::StaticStartOf(RebaseTarget::SectionHeadersStringsTable),
             RebasedValue::SizeOf(RebaseTarget::SectionHeadersStringsTable),
+            RebasedValue::Literal(0),
+            RebasedValue::Literal(0),
+            1,
             0,
+        )
+    }
+
+    fn symbol_table_section_header() -> Self {
+        Self::new(
+            SectionHeaderType::SymbolTableSection,
+            ".symtab",
+            ElfSectionType2::SymbolTable,
+            vec![],
+            RebasedValue::Literal(0),
+            RebasedValue::StaticStartOf(RebaseTarget::SymbolTableSection),
+            RebasedValue::SizeOf(RebaseTarget::SymbolTableSection),
+            // The names of these symbols will be found in the strings table
+            // See ELF spec §Figure 1-13, sh_link and sh_info interpretation
+            RebasedValue::SectionHeaderIndex(SectionHeaderType::StringTableSection),
+            // "One greater than the symbol table index of the last local symbol (binding STB_LOCAL)"
+            RebasedValue::Literal(1),
+            8,
+            mem::size_of::<ElfSymbol64>() as _,
+        )
+    }
+
+    fn string_table_section_header() -> Self {
+        Self::new(
+            SectionHeaderType::StringTableSection,
+            ".strtab",
+            ElfSectionType2::StringTable,
+            vec![],
+            RebasedValue::Literal(0),
+            RebasedValue::StaticStartOf(RebaseTarget::StringsTable),
+            RebasedValue::SizeOf(RebaseTarget::StringsTable),
+            RebasedValue::Literal(0),
+            RebasedValue::Literal(0),
+            1,
             0,
+        )
+    }
+
+    fn read_only_data_section_header() -> Self {
+        Self::new(
+            SectionHeaderType::ReadOnlyDataSection,
+            ".rodata",
+            ElfSectionType2::ProgBits,
+            vec![ElfSectionAttrFlag::ALLOCATE],
+            RebasedValue::VirtStartOf(RebaseTarget::ReadOnlyDataSection),
+            RebasedValue::StaticStartOf(RebaseTarget::ReadOnlyDataSection),
+            RebasedValue::SizeOf(RebaseTarget::ReadOnlyDataSection),
+            RebasedValue::Literal(0),
+            RebasedValue::Literal(0),
             1,
             0,
         )
@@ -572,8 +706,8 @@ impl MagicElfSection64 {
         addr: RebasedValue,
         offset: RebasedValue,
         size: RebasedValue,
-        link: u32,
-        info: u32,
+        link: RebasedValue,
+        info: RebasedValue,
         addr_align: u64,
         ent_size: u64,
     ) -> Self {
@@ -610,8 +744,8 @@ impl MagicPackable for MagicElfSection64 {
             addr: layout.get_rebased_value(self.addr) as _,
             offset: layout.get_rebased_value(self.offset) as _,
             size: layout.get_rebased_value(self.size) as _,
-            link: self.link,
-            info: self.info,
+            link: layout.get_rebased_value(self.link) as _,
+            info: layout.get_rebased_value(self.info) as _,
             addr_align: self.addr_align,
             ent_size: self.ent_size,
         };
@@ -682,6 +816,139 @@ impl MagicPackable for MagicSectionHeaderNamesStringsTable {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum SymbolType {
+    NullSymbol,
+    DataSymbol,
+    CodeSymbol,
+}
+
+struct MagicElfSymbol64 {
+    pub symbol_type: SymbolType,
+    pub name: String,
+}
+
+impl MagicElfSymbol64 {
+    fn new(symbol_type: SymbolType, name: &str) -> Self {
+        Self {
+            symbol_type,
+            name: name.to_string(),
+        }
+    }
+}
+
+struct MagicSymbolTable {
+    data_packer: Rc<RefCell<DataPacker>>,
+    instruction_packer: Rc<InstructionPacker>,
+    symbols: RefCell<Vec<MagicElfSymbol64>>,
+}
+
+impl MagicSymbolTable {
+    fn new(data_packer: &Rc<RefCell<DataPacker>>, instruction_packer: &Rc<InstructionPacker>) -> Self {
+        Self {
+            data_packer: Rc::clone(data_packer),
+            instruction_packer: Rc::clone(instruction_packer),
+            symbols: RefCell::new(Vec::new()),
+        }
+    }
+}
+
+impl MagicPackable for MagicSymbolTable {
+    fn len(&self) -> usize {
+        self.symbols.borrow().len() * mem::size_of::<ElfSymbol64>()
+    }
+
+    fn struct_type(&self) -> RebaseTarget {
+        RebaseTarget::SymbolTableSection
+    }
+
+    fn prerender(&self, layout: &FileLayout) {
+        println!("Pre-rendering symbol table!");
+        let data_packer = self.data_packer.borrow();
+        let mut symbols = self.symbols.borrow_mut();
+
+        // Write the null symbol
+        symbols.push(MagicElfSymbol64::new(SymbolType::NullSymbol, ""));
+
+        for (_, data_symbol) in data_packer.symbols.iter() {
+            symbols.push(MagicElfSymbol64::new(SymbolType::DataSymbol, &data_symbol.name));
+        }
+    }
+
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        println!("Rendering symbol table");
+        let mut out = vec![];
+        let symbols = self.symbols.borrow();
+        for (i, symbol) in symbols.iter().enumerate() {
+            let rendered_symbol = ElfSymbol64 {
+                name: layout.get_rebased_symbol_name_offset(symbol) as _,
+                info: 0 as _,
+                other: 0 as _,
+                owner_section_index: layout.get_rebased_symbol_owner_section_index(symbol) as _,
+                value: 0 as _,
+                size: 0 as _,
+                //value: i as _,
+                //size: i as _,
+            };
+            let mut rendered_symbol_bytes = unsafe { any_as_u8_slice(&rendered_symbol) }.to_owned();
+            out.append(&mut rendered_symbol_bytes);
+        }
+        out
+    }
+}
+
+pub struct MagicStringTable {
+    names_lookup: RefCell<BTreeMap<String, usize>>,
+    rendered_strings: RefCell<Vec<u8>>,
+}
+
+impl MagicStringTable {
+    pub fn new() -> Self {
+        Self {
+            names_lookup: RefCell::new(BTreeMap::new()),
+            rendered_strings: RefCell::new(Vec::new()),
+        }
+    }
+
+    pub fn offset_of_name(&self, name: &str) -> usize {
+        *self.names_lookup.borrow().get(name).unwrap()
+    }
+}
+
+impl MagicPackable for MagicStringTable {
+    fn len(&self) -> usize {
+        println!("Len of string table {}", self.rendered_strings.borrow().len());
+        self.rendered_strings.borrow().len()
+    }
+
+    fn prerender(&self, layout: &FileLayout) {
+        println!("Inside prerender for string table");
+        let mut rendered_strings = self.rendered_strings.borrow_mut();
+        //let symbol_table = &layout.symbol_table.borrow().unwrap();
+        let maybe_symbol_table = layout.symbol_table.borrow();
+        let symbol_table = maybe_symbol_table.as_ref().unwrap();
+        let symbols = symbol_table.symbols.borrow();
+        for symbol in symbols.iter() {
+            let symbol_name = symbol.name.to_string();
+            let symbol_name_copy = symbol_name.to_string();
+            let symbol_name_start = rendered_strings.len();
+            println!("\t{symbol_name} in strtab @ {symbol_name_start:x}");
+            let symbol_name_c_str = CString::new(symbol_name).unwrap();
+            let mut symbol_name_bytes = symbol_name_c_str.into_bytes_with_nul();
+            self.names_lookup.borrow_mut().insert(symbol_name_copy, symbol_name_start);
+            rendered_strings.append(&mut symbol_name_bytes);
+        }
+    }
+
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        self.rendered_strings.borrow().clone()
+    }
+
+    fn struct_type(&self) -> RebaseTarget {
+        RebaseTarget::StringsTable
+    }
+}
+
 pub fn pack_elf2() -> Vec<u8> {
     let mut data = BTreeMap::new();
 
@@ -713,23 +980,26 @@ pub fn pack_elf2() -> Vec<u8> {
     layout.append(&(Rc::new(MagicElfHeader64::new()) as Rc<dyn MagicPackable>));
 
     // Segments
-    // Text segment header
-    layout.append_segment_header(Rc::new(MagicSegmentHeader64::new(
-        ElfSegmentType::Loadable,
-        vec![ElfSegmentFlag::EXECUTABLE | ElfSegmentFlag::READABLE],
-        RebasedValue::Literal(0),
-        RebasedValue::VirtualBase,
-        RebasedValue::VirtualBase,
-        RebasedValue::StaticEndOf(RebaseTarget::TextSection),
-        RebasedValue::StaticEndOf(RebaseTarget::TextSection),
-        RebasedValue::Literal(0x200000),
-    )) as Rc<dyn MagicPackable>);
+    layout.append_segment_header(Rc::new(MagicSegmentHeader64::text_segment_header()) as Rc<dyn MagicPackable>);
 
     // Sections
     layout.append_section_header(Rc::new(MagicElfSection64::null_section_header()) as Rc<dyn MagicSectionHeader>);
     layout.append_section_header(Rc::new(MagicElfSection64::text_section_header()) as Rc<dyn MagicSectionHeader>);
     layout.append_section_header(Rc::new(MagicElfSection64::section_header_names_section_header()) as Rc<dyn MagicSectionHeader>);
+    layout.append_section_header(Rc::new(MagicElfSection64::symbol_table_section_header()) as Rc<dyn MagicSectionHeader>);
+    layout.append_section_header(Rc::new(MagicElfSection64::string_table_section_header()) as Rc<dyn MagicSectionHeader>);
+    layout.append_section_header(Rc::new(MagicElfSection64::read_only_data_section_header()) as Rc<dyn MagicSectionHeader>);
     layout.set_section_header_names_string_table(&Rc::new(MagicSectionHeaderNamesStringsTable::new()));
+
+    // Symbols
+    //layout.append_symbol_table(&Rc::new(MagicSymbolTable::new(&data_packer, &instruction_packer)));
+    layout.set_symbol_table(&Rc::new(MagicSymbolTable::new(&data_packer, &instruction_packer)));
+    //layout.append(&(Rc::new(MagicStringTable::new()) as Rc<dyn MagicPackable>));
+    layout.set_string_table(&Rc::new(MagicStringTable::new()));
+    //layout.append(
+
+    // Read-only data
+    layout.append(&(Rc::new(ReadOnlyData::new(&data_packer)) as Rc<dyn MagicPackable>));
 
     // Instructions
     layout.append(&(instruction_packer as Rc<dyn MagicPackable>));
