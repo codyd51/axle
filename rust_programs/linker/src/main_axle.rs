@@ -4,7 +4,7 @@ use axle_rt::printf;
 use axle_rt::{amc_message_send, amc_register_service, ContainsEventField, ExpectsEventField};
 use cstr_core::CString;
 
-use crate::packer::pack_elf;
+use crate::{new_try::pack_elf2, packer::pack_elf};
 use axle_rt_derive::ContainsEventField;
 
 // TODO(PT): Copied from initrd_fs, move to axle_rt?
@@ -40,6 +40,6 @@ impl ExpectsEventField for AmcExecBuffer {
 pub fn main() {
     printf!("Running without std!\n");
     amc_register_service("com.axle.linker");
-    let elf = pack_elf();
+    let elf = pack_elf2();
     amc_message_send("com.axle.core", AmcExecBuffer::from("com.axle.runtime_generated", &elf));
 }
