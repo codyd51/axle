@@ -7,6 +7,8 @@
 
 extern crate alloc;
 
+mod assembly_lexer;
+mod assembly_parser;
 mod assembly_packer;
 mod new_try;
 mod packer;

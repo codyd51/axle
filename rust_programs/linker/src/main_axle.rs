@@ -4,7 +4,7 @@ use axle_rt::printf;
 use axle_rt::{amc_message_send, amc_register_service, ContainsEventField, ExpectsEventField};
 use cstr_core::CString;
 
-use crate::{new_try::pack_elf2, packer::pack_elf};
+use crate::{assembly_packer, new_try::render_elf, packer::pack_elf};
 use axle_rt_derive::ContainsEventField;
 
 // TODO(PT): Copied from initrd_fs, move to axle_rt?
@@ -40,6 +40,34 @@ impl ExpectsEventField for AmcExecBuffer {
 pub fn main() {
     printf!("Running without std!\n");
     amc_register_service("com.axle.linker");
-    let elf = pack_elf2();
+
+    let layout = Rc::new(FileLayout::new(0x400000));
+    let source = "
+    .global _start
+
+.section .text
+
+_start:
+	mov $0xc, %rax		# _write syscall vector
+	mov $0x1, %rbx		# File descriptor (ignored in axle, typically stdout)
+	mov $msg, %rcx		# Buffer to write
+	mov $msg_len, %rdx	# Length to write
+	int $0x80			# invoke syscall
+
+	mov %rax, %rbx		# _exit status code is the write() retval (# bytes written)
+	mov $0xd, %rax		# _exit syscall vector
+	int $0x80			# invoke syscall
+
+.section .rodata
+
+msg:
+    .ascii \"Hello world!\n\"
+
+.equ msg_len, . - msg
+
+    ";
+    let (data_packer, instruction_packer) = assembly_packer::parse(&layout, &source);
+    let elf = render_elf(&layout, &data_packer, &instruction_packer);
+
     amc_message_send("com.axle.core", AmcExecBuffer::from("com.axle.runtime_generated", &elf));
 }
