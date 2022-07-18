@@ -7,9 +7,11 @@
 
 extern crate alloc;
 
+mod assembly_packer;
 mod new_try;
 mod packer;
 mod records;
+mod symbols;
 
 #[cfg(feature = "run_in_axle")]
 mod main_axle;
