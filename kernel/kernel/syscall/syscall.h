@@ -5,7 +5,7 @@
 
 void syscall_init();
 bool syscall_is_setup();
-void syscall_add(void* syscall);
+void syscall_add(void* syscall, bool wants_register_state);
 
 #define DECL_SYSCALL(fn, ...) int sys_##fn(__VA_ARGS__)
 
