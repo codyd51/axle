@@ -555,9 +555,9 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
 name = "either"
-version = "1.6.1"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
+checksum = "3f107b87b6afc2a64fd13cac55fe06d6c8859f12d4b14cbcdd2c67d0976781be"
 
 [[package]]
 name = "embedded-hal"
@@ -593,6 +593,7 @@ dependencies = [
  "axle_rt",
  "axle_rt_derive",
  "file_manager_messages",
+ "image_viewer_messages",
  "libgui",
 ]
 
@@ -820,6 +821,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 
 [[package]]
+name = "ide"
+version = "0.1.0"
+dependencies = [
+ "agx_definitions",
+ "awm_messages",
+ "axle_rt",
+ "axle_rt_derive",
+ "file_manager_messages",
+ "libgui",
+ "linker_messages",
+]
+
+[[package]]
 name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -843,6 +857,15 @@ dependencies = [
  "png",
  "scoped_threadpool",
  "tiff",
+]
+
+[[package]]
+name = "image_viewer_messages"
+version = "0.1.0"
+dependencies = [
+ "axle_rt",
+ "axle_rt_derive",
+ "cstr_core",
 ]
 
 [[package]]
@@ -995,6 +1018,29 @@ checksum = "efbc0f03f9a775e9f6aed295c6a1ba2253c5757a9e03d55c6caa46a681abcddd"
 dependencies = [
  "cfg-if 1.0.0",
  "winapi",
+]
+
+[[package]]
+name = "linker"
+version = "0.1.0"
+dependencies = [
+ "axle_rt",
+ "axle_rt_derive",
+ "bitflags",
+ "cstr_core",
+ "linker_messages",
+ "postcard",
+ "serde",
+ "serde_bytes",
+]
+
+[[package]]
+name = "linker_messages"
+version = "0.1.0"
+dependencies = [
+ "axle_rt",
+ "axle_rt_derive",
+ "cstr_core",
 ]
 
 [[package]]

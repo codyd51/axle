@@ -14,8 +14,13 @@ members = [
     "sata_driver",
     "sata_driver_messages",
     "dock",
+    "image_viewer_messages",
+    "linker",
+    "linker_messages",
+    "ide",
 ]
 
 exclude = [
-    "gpt_helper"
+    "gpt_helper",
+    "scroll_view_test",
 ]
