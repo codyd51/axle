@@ -124,7 +124,7 @@ impl Drawable for View {
 }
 
 impl UIElement for View {
-    fn handle_left_click(&self) {
+    fn handle_left_click(&self, mouse_point: Point) {
         let maybe_cb = &*self.left_click_cb.borrow();
         if let Some(cb) = maybe_cb {
             (cb)(self);
@@ -132,7 +132,7 @@ impl UIElement for View {
 
         let elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();
         for elem in elems_containing_mouse {
-            elem.handle_left_click();
+            elem.handle_left_click(mouse_point);
         }
     }
 

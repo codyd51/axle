@@ -172,7 +172,7 @@ impl Drawable for Button {
 }
 
 impl UIElement for Button {
-    fn handle_left_click(&self) {
+    fn handle_left_click(&self, _mouse_point: Point) {
         let maybe_cb = &*self.left_click_cb.borrow();
         if let Some(cb) = maybe_cb {
             (cb)(self);

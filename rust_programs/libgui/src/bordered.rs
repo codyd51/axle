@@ -6,6 +6,10 @@ use alloc::rc::Rc;
 use crate::ui_elements::UIElement;
 
 pub trait Bordered: Drawable + UIElement {
+    fn border_insets(&self) -> RectInsets;
+
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice);
+
     fn draw(&self) {
         let mut slice = self.get_slice();
 
@@ -32,11 +36,8 @@ pub trait Bordered: Drawable + UIElement {
         true
     }
 
-    fn border_insets(&self) -> RectInsets;
-
     fn content_frame(&self) -> Rect {
         let f = Rect::from_parts(Point::zero(), self.frame().size);
-        let insets = self.border_insets();
         f.inset_by_insets(self.border_insets())
     }
 
@@ -159,6 +160,4 @@ pub trait Bordered: Drawable + UIElement {
         );
         inner_content
     }
-
-    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice);
 }

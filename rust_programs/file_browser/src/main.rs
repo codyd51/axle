@@ -20,7 +20,10 @@ use libgui::ui_elements::UIElement;
 use libgui::view::View;
 use libgui::window::AwmWindow;
 
-use axle_rt::{amc_message_await, amc_message_send, amc_register_service, printf, AmcMessage};
+use axle_rt::{
+    amc_message_await, amc_message_send, amc_register_service,
+    core_commands::AmcQueryServiceRequest, printf, AmcMessage,
+};
 
 use agx_definitions::{
     Color, Drawable, LayerSlice, Line, NestedLayerSlice, Point, Rect, RectInsets, Size,
@@ -137,8 +140,8 @@ impl UIElement for CurrentPathView {
         self.view.handle_mouse_moved(mouse_point)
     }
 
-    fn handle_left_click(&self) {
-        self.view.handle_left_click()
+    fn handle_left_click(&self, mouse_point: Point) {
+        self.view.handle_left_click(mouse_point)
     }
 
     fn handle_superview_resize(&self, superview_size: Size) {
@@ -300,8 +303,8 @@ impl UIElement for DirectoryEntryView {
         self.view.handle_mouse_moved(mouse_point)
     }
 
-    fn handle_left_click(&self) {
-        self.view.handle_left_click()
+    fn handle_left_click(&self, mouse_point: Point) {
+        self.view.handle_left_click(mouse_point)
     }
 
     fn handle_superview_resize(&self, superview_size: Size) {
@@ -396,8 +399,8 @@ impl UIElement for DirectoryContentsView {
         self.view.handle_mouse_moved(mouse_point)
     }
 
-    fn handle_left_click(&self) {
-        self.view.handle_left_click()
+    fn handle_left_click(&self, mouse_point: Point) {
+        self.view.handle_left_click(mouse_point)
     }
 
     fn handle_superview_resize(&self, superview_size: Size) {
@@ -502,9 +505,8 @@ impl FileBrowser2 {
                     browser_clone.browse_by_appending_path_component(&path);
                 });
             } else {
-                // Don't set up any callback for file click
                 entry_view.button.on_left_click(move |_b| {
-                    printf!("Button with path {:?} clicked! Launching...\n", path);
+                    printf!("Button with path {:?} clicked!\n", path);
                     let browser_clone = Rc::clone(&browser_clone);
                     let full_path = format!(
                         "{}/{}",

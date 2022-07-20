@@ -232,7 +232,10 @@ impl AwmWindow {
         }
 
         if let Some(c) = clicked_elem {
-            c.handle_left_click();
+            // Translate the mouse position to the element's coordinate system
+            let mouse_point = Point::from(event.mouse_pos);
+            let elem_pos = mouse_point - c.frame().origin;
+            c.handle_left_click(elem_pos);
         }
     }
 
@@ -294,7 +297,7 @@ impl AwmWindow {
     pub fn await_next_event(&self) {
         let msg_unparsed: AmcMessage<[u8]> = unsafe { amc_message_await_untyped(None).unwrap() };
 
-        if (msg_unparsed.source() == AwmWindow::AWM_SERVICE_NAME) {
+        if msg_unparsed.source() == AwmWindow::AWM_SERVICE_NAME {
             // Parse the first bytes of the message as a u32 event field
             let raw_body = msg_unparsed.body();
             let event = u32::from_ne_bytes(

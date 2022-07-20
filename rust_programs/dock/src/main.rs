@@ -239,8 +239,8 @@ impl UIElement for TaskView {
         self.view.handle_mouse_moved(mouse_point)
     }
 
-    fn handle_left_click(&self) {
-        self.view.handle_left_click()
+    fn handle_left_click(&self, mouse_point: Point) {
+        self.view.handle_left_click(mouse_point);
     }
 
     fn handle_superview_resize(&self, superview_size: Size) {
@@ -346,8 +346,8 @@ impl UIElement for GradientView {
         self.view.handle_mouse_moved(mouse_point)
     }
 
-    fn handle_left_click(&self) {
-        self.view.handle_left_click()
+    fn handle_left_click(&self, mouse_point: Point) {
+        self.view.handle_left_click(mouse_point)
     }
 
     fn handle_superview_resize(&self, superview_size: Size) {
