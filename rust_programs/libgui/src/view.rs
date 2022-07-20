@@ -60,6 +60,21 @@ impl View {
         self.sub_elements.borrow_mut().push(elem);
     }
 
+    pub fn remove_component(self: Rc<Self>, elem: &Rc<dyn UIElement>) {
+        // No need to remove its link to the parent as it's a weak reference
+        // TODO(PT): Or do we need to remove it?
+        /*
+        Since a Weak reference does not count towards ownership,
+        it will not prevent the value stored in the allocation from being dropped,
+        and Weak itself makes no guarantees about the value still being present.
+        Thus it may return None when upgraded. Note however that a Weak reference does prevent
+        the allocation itself (the backing store) from being deallocated.
+        */
+        self.sub_elements
+            .borrow_mut()
+            .retain(|e| !Rc::ptr_eq(e, elem));
+    }
+
     pub fn resize_subviews(&self) {
         let frame = *self.frame.borrow();
         let inner_content_frame = frame.apply_insets(self.border_insets());
