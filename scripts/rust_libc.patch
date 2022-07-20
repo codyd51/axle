@@ -17,7 +17,7 @@ new file mode 100644
 index 000000000..3426fe0e6
 --- /dev/null
 +++ b/src/axle/mod.rs
-@@ -0,0 +1,95 @@
+@@ -0,0 +1,97 @@
 +// libc port for axle
 +//
 +
@@ -107,6 +107,8 @@ index 000000000..3426fe0e6
 +    pub fn adi_register_driver(driver_name: *const u8, irq: u32) -> ();
 +    pub fn adi_event_await(irq: u32) -> bool;
 +    pub fn adi_send_eoi(irq: u32) -> ();
++    pub fn exit(status_code: isize) -> ();
++    pub fn ms_since_boot() -> usize;
 +}
 +
 +#[link(name = "c")]
