@@ -2,10 +2,7 @@ use agx_definitions::{
     Color, Drawable, LayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
 };
 use alloc::rc::{Rc, Weak};
-use axle_rt::println;
-use libgui::{
-    bordered::Bordered, button::Button, label::Label, ui_elements::UIElement, view::View,
-};
+use libgui::{bordered::Bordered, ui_elements::UIElement, view::View};
 
 pub struct OutputView {
     view: Rc<View>,

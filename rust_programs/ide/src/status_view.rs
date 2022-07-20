@@ -15,7 +15,7 @@ use crate::MessageHandler;
 pub struct StatusView {
     message_handler: Rc<MessageHandler>,
     view: Rc<View>,
-    run_button: Rc<Button>,
+    _run_button: Rc<Button>,
     status_label: Rc<Label>,
 }
 
@@ -37,21 +37,22 @@ impl StatusView {
 
         let status_label = Rc::new(Label::new(
             Rect::new(10, 10, 400, 16),
-            "Status: Idle",
-            Color::new(30, 30, 30),
+            "",
+            Color::new(230, 230, 230),
         ));
         Rc::clone(&view).add_component(Rc::clone(&status_label) as Rc<dyn UIElement>);
 
         let ret = Rc::new(Self {
             message_handler: Rc::clone(message_handler),
             view,
-            run_button: Rc::clone(&run_button),
+            _run_button: Rc::clone(&run_button),
             status_label,
         });
 
+        ret.set_status("Idle");
+
         let self_clone_for_button = Rc::clone(&ret);
         Rc::clone(&run_button).on_left_click(move |_b| {
-            println!("Run button clicked!\n");
             self_clone_for_button.set_status("Compiling...");
             self_clone_for_button
                 .message_handler

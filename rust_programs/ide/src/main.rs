@@ -8,24 +8,17 @@
 extern crate alloc;
 extern crate libc;
 
-use alloc::{collections::BTreeMap, format, rc::Weak, vec::Vec};
-use alloc::{
-    rc::Rc,
-    string::{String, ToString},
-};
-use core::{cell::RefCell, cmp};
+use alloc::rc::Rc;
+use core::cell::RefCell;
 use linker_messages::{AssembleSource, AssembledElf, LINKER_SERVICE_NAME};
 use output_view::OutputView;
 use source_code_view::SourceCodeView;
 use status_view::StatusView;
 
-use libgui::bordered::Bordered;
-use libgui::button::Button;
-use libgui::label::Label;
 use libgui::ui_elements::UIElement;
-use libgui::view::View;
 use libgui::window::AwmWindow;
 
+use axle_rt::ExpectsEventField;
 use axle_rt::{
     amc_message_await, amc_message_send, amc_register_service,
     core_commands::{
@@ -33,12 +26,8 @@ use axle_rt::{
     },
     printf, println, AmcMessage,
 };
-use axle_rt::{ContainsEventField, ExpectsEventField};
 
-use agx_definitions::{
-    Color, Drawable, LayerSlice, Line, NestedLayerSlice, Point, Rect, RectInsets, Size,
-    StrokeThickness,
-};
+use agx_definitions::{Point, Rect, Size};
 
 use file_manager_messages::{LaunchProgram, FILE_SERVER_SERVICE_NAME};
 
@@ -46,6 +35,7 @@ mod ide_messages;
 mod output_view;
 mod source_code_view;
 mod status_view;
+mod text_input_view;
 use ide_messages::IDE_SERVICE_NAME;
 
 #[derive(Debug)]
@@ -74,15 +64,15 @@ impl MessageHandler {
 }
 
 struct IdeMainView {
-    window: Rc<AwmWindow>,
+    _window: Rc<AwmWindow>,
     status_view: Rc<StatusView>,
     source_code_view: Rc<SourceCodeView>,
-    output_view: Rc<OutputView>,
-    message_handler: Rc<MessageHandler>,
+    _output_view: Rc<OutputView>,
+    _message_handler: Rc<MessageHandler>,
 }
 
 impl IdeMainView {
-    fn new(window: Rc<AwmWindow>, window_size: Size) -> Rc<Self> {
+    fn new(window: Rc<AwmWindow>, _window_size: Size) -> Rc<Self> {
         let status_view_sizer = |superview_size: Size| {
             Rect::from_parts(Point::zero(), Size::new(superview_size.width, 100))
         };
@@ -125,12 +115,12 @@ impl IdeMainView {
             OutputView::new(move |_v, superview_size| output_view_sizer(superview_size));
         Rc::clone(&window).add_component(Rc::clone(&output_view) as Rc<dyn UIElement>);
 
-        let mut out = Rc::new(Self {
-            window,
+        let out = Rc::new(Self {
+            _window: window,
             status_view,
             source_code_view,
-            output_view,
-            message_handler: Rc::clone(&message_handler),
+            _output_view: output_view,
+            _message_handler: Rc::clone(&message_handler),
         });
 
         message_handler.set_ide(&out);
@@ -189,7 +179,7 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
 
     let window_size = Size::new(600, 800);
     let window = Rc::new(AwmWindow::new("IDE", window_size));
-    let ide_view = Rc::new(RefCell::new(IdeMainView::new(
+    let _ide_view = Rc::new(RefCell::new(IdeMainView::new(
         Rc::clone(&window),
         window_size,
     )));
