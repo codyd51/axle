@@ -299,3 +299,8 @@ Userspace amc message send application
 Desired boot resolution should be in a config file
     Maybe not, because it would need to be read by the bootloader?
     Perhaps the boot loader could depend on the fs lib?
+
+# amc wait_for_event_from_service
+    avoids race conditions where a program is waiting for a response and gets a diff event off the Q 
+    (example: awm waiting for framebuffer but gets 2048 service died notif)
+Closing windows

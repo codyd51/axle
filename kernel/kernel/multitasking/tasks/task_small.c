@@ -4,6 +4,9 @@
 #include <kernel/boot_info.h>
 #include <kernel/util/mutex/mutex.h>
 #include <kernel/segmentation/gdt_structures.h>
+#include <kernel/util/amc/amc_internal.h>
+#include <kernel/util/amc/core_commands.h>
+#include <kernel/assert.h>
 
 #include <kernel/pmm/pmm.h>
 
@@ -89,8 +92,24 @@ task_small_t* tasking_get_current_task() {
     return tasking_get_task_with_pid(getpid());
 }
 
-void task_die(int exit_code) {
-    printf("[%d] self-terminated with exit %d. Zombie\n", getpid(), exit_code);
+void task_die(uintptr_t exit_code) {
+    printf("[%d] self-terminated with exit %d (0x%x). Zombie\n", getpid(), exit_code, exit_code);
+
+    // Inform our supervisor, if any
+    task_small_t* current_task = tasking_get_current_task();
+    if (current_task->is_managed_by_parent) {
+        amc_supervised_process_event_t process_exit_msg = {
+            .event = AMC_SUPERVISED_PROCESS_EVENT,
+            .payload = {
+                .discriminant = ProcessExited,
+                .fields = (amc_supervised_process_event_payload__process_exited_t){
+                    .status_code = exit_code,
+                }
+            }
+        };
+        amc_message_send__from_core(current_task->managing_parent_service_name, &process_exit_msg, sizeof(process_exit_msg));
+    }
+
     task_small_t* buf[1] = {tasking_get_current_task()};
     amc_message_send__from_core("com.axle.reaper", &buf, sizeof(buf));
     // Set ourselves to zombie _after_ telling reaper about us
@@ -121,6 +140,9 @@ void _thread_destroy(task_small_t* thread) {
 
     // Free control block
     kfree(thread->name);
+    if (thread->is_managed_by_parent) {
+        kfree(thread->managing_parent_service_name);
+    }
     kfree(thread);
 }
 
@@ -182,6 +204,8 @@ static task_small_t* _task_spawn__entry_point_with_args(const char* task_name, v
     // scheduled until we've had a chance to set all of its state
     task_small_t* new_task = _thread_create(entry_point, arg1, arg2, arg3);
     new_task->is_thread = false;
+    new_task->is_managed_by_parent = false;
+    new_task->managing_parent_service_name = NULL;
 
     // By definition, a task is identical to a thread except it has its own VAS
     // The new task's address space is 'fresh', i.e. only contains kernel mappings
@@ -206,6 +230,17 @@ static void _task_remove_from_scheduler(task_small_t* task) {
 
 task_small_t* task_spawn__with_args(const char* task_name, void* entry_point, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3) {
     task_small_t* task = _task_spawn__entry_point_with_args(task_name, entry_point, arg1, arg2, arg3);
+    // Task is now ready to run - make it schedulable
+    _task_make_schedulable(task);
+    return task;
+}
+
+task_small_t* task_spawn__managed__with_args(const char* task_name, void* entry_point, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3) {
+    task_small_t* task = _task_spawn__entry_point_with_args(task_name, entry_point, arg1, arg2, arg3);
+    task->is_managed_by_parent = true;
+    amc_service_t* parent = amc_service_of_active_task();
+    task_assert(parent != NULL, "task_spawn__managed__with_args called without an AMC service", NULL);
+    task->managing_parent_service_name = strdup(parent->name);
     // Task is now ready to run - make it schedulable
     _task_make_schedulable(task);
     return task;

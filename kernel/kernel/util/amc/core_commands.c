@@ -122,8 +122,14 @@ static void AMC_EXEC_TRAMPOLINE_NAME(const char* program_name, void* buf, uint32
 }
 
 static void _amc_core_file_server_exec_buffer(const char* source_service, void* buf, uint32_t buf_size) {
-    // Only file_server is allowed to invoke this code!
-    assert(!strncmp(source_service, "com.axle.file_server", AMC_MAX_SERVICE_NAME_LEN), "Only File Server may use this syscall");
+    //assert(!strncmp(source_service, "com.axle.file_server", AMC_MAX_SERVICE_NAME_LEN), "Only File Server may use this syscall");
+    // This syscall is heavily restricted
+    bool is_allowed_service = (
+        !strncmp(source_service, "com.axle.file_server", AMC_MAX_SERVICE_NAME_LEN) || 
+        !strncmp(source_service, "com.axle.linker", AMC_MAX_SERVICE_NAME_LEN) ||
+        !strncmp(source_service, "com.axle.ide", AMC_MAX_SERVICE_NAME_LEN)
+    );
+    assert(is_allowed_service, "Only certain services may use this syscall");
 
     amc_exec_buffer_cmd_t* cmd = (amc_exec_buffer_cmd_t*)buf;
     printf("exec buffer(program_name: %s, buffer_addr: 0x%p, buffer_size: %p)\n", cmd->program_name, cmd->buffer_addr, cmd->buffer_size);
@@ -136,13 +142,24 @@ static void _amc_core_file_server_exec_buffer(const char* source_service, void* 
     // TODO(PT): Where should this be freed?
     char* name_copy = strdup(cmd->program_name);
 
-    task_spawn__with_args(
-        name_copy,
-        AMC_EXEC_TRAMPOLINE_NAME, 
-        name_copy, 
-        copy, 
-        cmd->buffer_size
-    );
+    if (cmd->with_supervisor) {
+        task_spawn__managed__with_args(
+            name_copy,
+            AMC_EXEC_TRAMPOLINE_NAME, 
+            name_copy, 
+            copy, 
+            cmd->buffer_size
+        );
+    }
+    else {
+        task_spawn__with_args(
+            name_copy,
+            AMC_EXEC_TRAMPOLINE_NAME, 
+            name_copy, 
+            copy, 
+            cmd->buffer_size
+        );
+    }
     printf("[%d] Continuing from task_spawn\n", getpid());
 }
 

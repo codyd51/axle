@@ -53,6 +53,8 @@ typedef struct amc_initrd_info {
 typedef struct amc_exec_buffer_cmd {
     uint32_t event;
     const char* program_name;
+    // Whether the spawning process can observe/control the spawned process
+    bool with_supervisor;
     void* buffer_addr;
     uint32_t buffer_size;
 } amc_exec_buffer_cmd_t;
@@ -187,6 +189,41 @@ typedef struct amc_free_physical_range_request {
 typedef struct amc_free_physical_range_response {
     uint32_t event;
 } amc_free_physical_range_response_t;
+
+// Sent from the kernel to a supervisor parent
+
+#define AMC_SUPERVISED_PROCESS_EVENT 215
+
+// PT: Layout according to https://doc.rust-lang.org/reference/type-layout.html#reprc-enums-with-fields
+
+typedef enum amc_supervised_process_event_payload_discriminant {
+    ProcessExited = 0,
+    ProcessWrite = 1,
+} amc_supervised_process_event_payload_discriminant_t;
+
+typedef struct amc_supervised_process_event_payload__process_exited {
+    uint64_t status_code;
+} amc_supervised_process_event_payload__process_exited_t;
+
+typedef struct amc_supervised_process_event_payload__process_write {
+    uint64_t len;
+    uint8_t msg[128];
+} amc_supervised_process_event_payload__process_write_t;
+
+typedef union amc_supervised_process_event_payload_fields {
+    amc_supervised_process_event_payload__process_exited_t process_exited_fields;
+    amc_supervised_process_event_payload__process_write_t process_write_fields;
+} amc_supervised_process_event_payload_fields_t;
+
+typedef struct amc_supervised_process_event_payload {
+    amc_supervised_process_event_payload_discriminant_t discriminant;
+    amc_supervised_process_event_payload_fields_t fields;
+} amc_supervised_process_event_payload_t;
+
+typedef struct amc_supervised_process_event {
+    uint32_t event;
+    amc_supervised_process_event_payload_t payload;
+} amc_supervised_process_event_t;
 
 void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf_size);
 

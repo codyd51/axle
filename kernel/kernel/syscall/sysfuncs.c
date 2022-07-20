@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include "sysfuncs.h"
 #include <kernel/multitasking/tasks/task_small.h>
 #include <std/printf.h>
@@ -11,7 +12,7 @@
 
 void* sbrk(int increment);
 
-int exit(int code) {
+int exit(uintptr_t code) {
 	task_die(code);
 	return -1;
 }

@@ -8,11 +8,11 @@ extern crate libc;
 
 use alloc::str;
 
-use axle_rt::amc_register_service;
 use axle_rt::printf;
 use axle_rt::AmcMessage;
 use axle_rt::{amc_message_await, ContainsEventField, ExpectsEventField};
 use axle_rt::{amc_message_await_untyped, amc_message_send};
+use axle_rt::{amc_register_service, core_commands::AmcExecBuffer};
 use axle_rt_derive::ContainsEventField;
 
 use cstr_core::CString;
@@ -101,32 +101,6 @@ impl ExpectsEventField for AmcInitrdInfo {
     const EXPECTED_EVENT: u32 = AmcInitrdRequest::EXPECTED_EVENT;
 }
 
-// Defined in core_commands.h
-#[repr(C)]
-#[derive(Debug, ContainsEventField)]
-struct AmcExecBuffer {
-    event: u32,
-    program_name: *const u8,
-    buffer_addr: *const u8,
-    buffer_size: u32,
-}
-
-impl AmcExecBuffer {
-    fn from(program_name: *const u8, entry: &FsEntry) -> Self {
-        let buffer_addr = entry.file_data.unwrap().as_ptr();
-        AmcExecBuffer {
-            event: Self::EXPECTED_EVENT,
-            program_name,
-            buffer_addr,
-            buffer_size: entry.file_data.unwrap().len().try_into().unwrap(),
-        }
-    }
-}
-
-impl ExpectsEventField for AmcExecBuffer {
-    const EXPECTED_EVENT: u32 = 204;
-}
-
 /*
 fn traverse_dir(depth: usize, dir: &DirectoryImage) {
     let tabs = "\t".repeat(depth);
@@ -170,7 +144,7 @@ fn launch_program_by_path(root_dir: &DirectoryImage, path: &str) {
             let program_name_ptr = c_str.as_ptr() as *const u8;
             amc_message_send(
                 "com.axle.core",
-                AmcExecBuffer::from(program_name_ptr, &entry),
+                AmcExecBuffer::from(file_name, entry.file_data.as_ref().unwrap(), false),
             );
         }
     } else {

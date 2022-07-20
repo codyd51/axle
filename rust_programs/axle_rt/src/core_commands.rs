@@ -1,10 +1,13 @@
 #[cfg(target_os = "axle")]
 use crate::{amc_message_await, amc_message_send};
 
-use crate::{AmcMessage, ContainsEventField, ExpectsEventField};
+use crate::{copy_str_into_sized_slice, AmcMessage, ContainsEventField, ExpectsEventField};
+use alloc::vec::Vec;
 use axle_rt_derive::ContainsEventField;
+use cstr_core::CString;
 
-const AMC_CORE_SERVICE_NAME: &str = "com.axle.core";
+pub const AMC_CORE_SERVICE_NAME: &str = "com.axle.core";
+const AMC_MAX_SERVICE_NAME_LEN: usize = 64;
 
 #[derive(Debug)]
 pub struct PhysVirtPair {
@@ -173,6 +176,55 @@ pub fn amc_free_physical_range(vaddr: usize, size: usize) {
     amc_message_send(AMC_CORE_SERVICE_NAME, req);
     let resp: AmcMessage<AmcFreePhysicalRangeResponse> =
         amc_message_await(Some(AMC_CORE_SERVICE_NAME));
+}
+
+// Start/control processes
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AmcExecBuffer {
+    event: u32,
+    program_name: *const u8,
+    with_supervisor: bool,
+    buffer_addr: *const u8,
+    buffer_size: u32,
+}
+
+impl AmcExecBuffer {
+    pub fn from(program_name: &str, buf: &Vec<u8>, with_supervisor: bool) -> Self {
+        let buffer_addr = buf.as_ptr();
+        // TODO(PT): Change the C API to accept a char array instead of char pointer
+        let c_str = CString::new(program_name).unwrap();
+        let program_name_ptr = c_str.as_ptr() as *const u8;
+        AmcExecBuffer {
+            event: Self::EXPECTED_EVENT,
+            program_name: program_name_ptr,
+            with_supervisor,
+            buffer_addr,
+            buffer_size: buf.len() as _,
+        }
+    }
+}
+
+impl ExpectsEventField for AmcExecBuffer {
+    const EXPECTED_EVENT: u32 = 204;
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub enum SupervisedProcessEvent {
+    ProcessExit(u64),
+    ProcessWrite(u64, [char; 128]),
+}
+
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AmcSupervisedProcessEventMsg {
+    event: u32,
+    pub supervised_process_event: SupervisedProcessEvent,
+}
+
+impl ExpectsEventField for AmcSupervisedProcessEventMsg {
+    const EXPECTED_EVENT: u32 = 215;
 }
 
 /* End of event modeling */
