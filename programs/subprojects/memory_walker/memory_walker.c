@@ -151,11 +151,14 @@ uint64_t scan_memory(char* memory_window, pte_t* page_table, uint64_t chunk_base
 	for (int frame_base = chunk_base; frame_base < chunk_base + memory_chunk_size; frame_base += PAGE_SIZE) {
 
 		// Allow the UI to refresh every few MB scanned
-		if (frame_base % (1024 * 1024 * 4) == 0) {
+		if (frame_base % (1024 * 1024 * 1) == 0) {
 			// TODO(PT): This is unsafe to call from a timer callback
 			bool did_exit;
 			//printf("Running event-loop pass...\n");
 			gui_run_event_loop_pass(true, &did_exit);
+			if (did_exit) {
+				exit(0);
+			}
 		}
 
 		// Display some progress
@@ -266,7 +269,7 @@ void _timer_fired(gui_text_view_t* ctx) {
 	printf("timer fired!\n");
 	char buf[512];
 	// Scan 4GB, 512MB at a time
-	uint64_t memory_chunk_size = 4LL * 1024LL * 1024LL;
+	uint64_t memory_chunk_size = 2LL * 1024LL * 1024LL;
 	uint64_t total_memory_to_scan = 4LL * 1024LL * 1024LL * 1024LL;
 	uint64_t total_string_count = 0;
 	for (uint64_t chunk_base = 0; chunk_base < total_memory_to_scan; chunk_base += memory_chunk_size) {
