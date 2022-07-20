@@ -1,0 +1,13 @@
+[package]
+name = "ide"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axle_rt = { path = "../axle_rt" }
+axle_rt_derive = {path = "../axle_rt_derive" }
+agx_definitions = {path = "../agx_definitions" }
+awm_messages = {path = "../awm_messages" }
+libgui = { path = "../libgui" }
+linker_messages = {path = "../linker_messages" }
+file_manager_messages = {path = "../file_manager_messages" }
