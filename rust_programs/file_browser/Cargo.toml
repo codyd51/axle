@@ -9,3 +9,4 @@ axle_rt_derive = {path = "../axle_rt_derive" }
 agx_definitions = {path = "../agx_definitions" }
 libgui = { path = "../libgui" }
 file_manager_messages = {path = "../file_manager_messages" }
+image_viewer_messages = {path = "../image_viewer_messages" }
