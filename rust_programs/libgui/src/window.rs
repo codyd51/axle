@@ -288,6 +288,7 @@ impl AwmWindow {
 
     fn window_close_requested(&self, event: &WindowCloseRequested) {
         printf!("Window close requested: {:?}\n", event);
+        unsafe { axle_rt::libc::exit(0) }
     }
 
     unsafe fn body_as_type_unchecked<T: AwmWindowEvent>(body: &[u8]) -> &T {
