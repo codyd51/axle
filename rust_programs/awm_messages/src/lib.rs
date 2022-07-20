@@ -94,3 +94,14 @@ impl AwmWindowUpdateTitle {
         }
     }
 }
+
+// Close window request
+
+#[derive(Debug, ContainsEventField)]
+pub struct AwmCloseWindow {
+    event: u32,
+}
+
+impl ExpectsEventField for AwmCloseWindow {
+    const EXPECTED_EVENT: u32 = 814;
+}

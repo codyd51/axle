@@ -482,8 +482,10 @@ impl Line {
                     let mut subline = self.clone();
                     subline.p1.x += off - i;
                     subline.p2.x += off - i;
-                    subline.p1.y += off - i;
-                    subline.p2.y += off - i;
+                    // PT: This would be more intuitive behavior, but I've disabled it to keep
+                    // compatibility with the view-border-inset drawing code.
+                    //subline.p1.y += off - i;
+                    //subline.p2.y += off - i;
                     subline.draw_strip(onto, color);
                 }
             }
