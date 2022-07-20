@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 
 from build_programs import build_all_programs
-from build_kernel import build_iso, build_initrd, run_iso
+from build_os_image import build_iso, build_initrd, run_iso
 
 
 def main():

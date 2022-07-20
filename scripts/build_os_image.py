@@ -154,7 +154,7 @@ def main():
         if not file.exists() or copied_file_is_outdated(arch_specific_file, file):
             print(f"\tCopying arch-specific code {arch_specific_file} to {file}...")
             shutil.copy(arch_specific_file.as_posix(), file.as_posix())
-
+    
     # Build bootloader
     env = {"USE_GCC": "1", "SHELL": "sh -xv"}
     run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader" / "uefi", env_additions=env)
@@ -180,7 +180,7 @@ def main():
 
     if not args.no_run:
         run_iso(image_name)
-
+    
 
 if __name__ == "__main__":
     main()
