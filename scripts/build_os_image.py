@@ -177,6 +177,26 @@ def main():
 
     # Build disk image
     image_name = build_iso()
+    
+    # Copy kernel to USB
+    # USB available?
+    usb_root = Path("/Volumes/NO NAME")
+    if usb_root.exists():
+        kernel_path = usb_root / "EFI" / "AXLE" / "KERNEL.ELF"
+        fs_server_path = usb_root / "EFI" / "AXLE" / "FS_SERVER.ELF"
+        initrd_path = usb_root / "EFI" / "AXLE" / "INITRD.IMG"
+        if kernel_path.exists() and fs_server_path.exists():
+            kernel_src = Path(__file__).parents[1] / "isodir" / "boot" / "axle.bin"
+            fs_server_src = Path(__file__).parents[1] / "axle-sysroot" / "usr" / "applications" / "initrd_fs"
+            initrd_src = Path(__file__).parents[1] / "isodir" / "boot" / "initrd.img"
+            print("\n\n\nCopying kernel to USB\n\n\n")
+            shutil.copy(kernel_src.as_posix(), kernel_path.as_posix())
+            shutil.copy(fs_server_src.as_posix(), fs_server_path.as_posix())
+            shutil.copy(initrd_src.as_posix(), initrd_path.as_posix())
+        else:
+            print("\n\n\nUnexpected USB tree, will not update image\n\n\n")
+    else:
+        print("\n\n\nNo USB detected, will not update image\n\n\n")
 
     if not args.no_run:
         run_iso(image_name)
