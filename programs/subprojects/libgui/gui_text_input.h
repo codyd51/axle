@@ -68,6 +68,7 @@ typedef struct gui_text_input {
     // gui_text_input_t fields
     bool _input_carat_visible;
     Color font_color;
+    bool _is_shift_held;
 } gui_text_input_t;
 
 gui_text_input_t* gui_text_input_alloc(void);

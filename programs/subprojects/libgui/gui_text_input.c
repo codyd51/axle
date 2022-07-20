@@ -1,4 +1,5 @@
 #include <string.h>
+#include <ctype.h>
 
 #include "gui_text_input.h"
 #include "gui_scrollbar.h"
@@ -11,12 +12,32 @@ gui_text_input_t* gui_text_input_alloc(void) {
 	return v;
 }
 
+static bool _is_key_shift(uint32_t ch) {
+	return ch == KEY_IDENT_LEFT_SHIFT || ch == KEY_IDENT_RIGHT_SHIFT;
+}
+
 static void _gui_text_input_handle_key_down(gui_text_input_t* view, uint32_t ch) {
+	if (_is_key_shift(ch)) {
+		view->_is_shift_held = true;
+		return;
+	}
+
+	if (view->_is_shift_held) {
+		ch = toupper(ch);
+	}
+
 	char str[4] = {ch};
 	gui_text_view_puts((gui_text_view_t*)view, (const char*)&str, view->font_color);
 
 	if (view->key_down_cb) {
 		view->key_down_cb((gui_elem_t*)view, ch);
+	}
+}
+
+static void _gui_text_input_handle_key_up(gui_text_input_t* view, uint32_t ch) {
+	if (_is_key_shift(ch)) {
+		view->_is_shift_held = false;
+		return;
 	}
 }
 
@@ -78,6 +99,7 @@ static void _gui_text_input_draw(gui_text_input_t* ti, bool is_active) {
 void gui_text_input_init(gui_text_input_t* view, gui_window_t* window, gui_window_resized_cb_t sizer_cb) {
 	gui_text_view_init((gui_text_view_t*)view, window, sizer_cb);
 	view->_priv_key_down_cb = (gui_key_down_cb_t)_gui_text_input_handle_key_down;
+	view->_priv_key_up_cb = (gui_key_up_cb_t)_gui_text_input_handle_key_up;
 	view->_priv_draw_cb = (gui_draw_cb_t)_gui_text_input_draw;
 	view->font_color = color_black();
 }
