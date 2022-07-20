@@ -178,6 +178,48 @@ pub fn amc_free_physical_range(vaddr: usize, size: usize) {
         amc_message_await(Some(AMC_CORE_SERVICE_NAME));
 }
 
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AmcQueryServiceRequest {
+    pub event: u32,
+    pub remote_service_name: [u8; AMC_MAX_SERVICE_NAME_LEN],
+}
+
+impl ExpectsEventField for AmcQueryServiceRequest {
+    const EXPECTED_EVENT: u32 = 211;
+}
+
+impl AmcQueryServiceRequest {
+    #[cfg(target_os = "axle")]
+    pub fn send(remote_service_name: &str) -> AmcQueryServiceResponse {
+        let mut name_buf = [0; AMC_MAX_SERVICE_NAME_LEN];
+        let _name_len = copy_str_into_sized_slice(&mut name_buf, remote_service_name);
+        let msg = Self {
+            event: Self::EXPECTED_EVENT,
+            remote_service_name: name_buf,
+        };
+        amc_message_send(AMC_CORE_SERVICE_NAME, msg);
+        // Await the response
+        let resp: AmcMessage<AmcQueryServiceResponse> = crate::amc_message_await__u32_event(
+            AMC_CORE_SERVICE_NAME,
+            AmcQueryServiceResponse::EXPECTED_EVENT,
+        );
+        *resp.body
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, ContainsEventField)]
+pub struct AmcQueryServiceResponse {
+    pub event: u32,
+    pub remote_service_name: [u8; AMC_MAX_SERVICE_NAME_LEN],
+    pub service_exists: bool,
+}
+
+impl ExpectsEventField for AmcQueryServiceResponse {
+    const EXPECTED_EVENT: u32 = 211;
+}
+
 // Start/control processes
 #[repr(C)]
 #[derive(Debug, ContainsEventField)]
