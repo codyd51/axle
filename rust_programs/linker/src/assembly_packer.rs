@@ -51,7 +51,7 @@ impl RexPrefix {
 }
 
 #[derive(Debug, Copy, Clone)]
-enum Register {
+pub enum Register {
     Rax,
     Rcx,
     Rdx,
@@ -128,7 +128,7 @@ impl MoveDataSymbolToRegister {
 }
 
 #[derive(Debug, Clone)]
-enum DataSource {
+pub enum DataSource {
     Literal(usize),
     NamedDataSymbol(String),
     RegisterContents(Register),
@@ -136,13 +136,13 @@ enum DataSource {
     Subtraction(Box<DataSource>, Box<DataSource>),
 }
 
-struct MoveValueToRegister {
+pub struct MoveValueToRegister {
     dest_register: Register,
     source: DataSource,
 }
 
 impl MoveValueToRegister {
-    fn new(dest_register: Register, source: DataSource) -> Self {
+    pub fn new(dest_register: Register, source: DataSource) -> Self {
         Self { dest_register, source }
     }
 }
@@ -190,12 +190,12 @@ impl Display for MoveValueToRegister {
     }
 }
 
-struct Interrupt {
+pub struct Interrupt {
     vector: u8,
 }
 
 impl Interrupt {
-    fn new(vector: u8) -> Self {
+    pub fn new(vector: u8) -> Self {
         Self { vector }
     }
 }
@@ -217,7 +217,7 @@ impl Display for Interrupt {
     }
 }
 
-trait Instruction: Display {
+pub trait Instruction: Display {
     fn render(&self, layout: &FileLayout) -> Vec<u8>;
 }
 
@@ -351,34 +351,11 @@ impl MagicPackable for InstructionPacker {
 }
 
 pub fn parse(layout: &Rc<FileLayout>, source: &str) -> (Rc<RefCell<DataPacker>>, Rc<InstructionPacker>) {
+    // Generate code and data from source
     let lexer = AssemblyLexer::new(source);
     let mut parser = AssemblyParser::new(lexer);
-    parser.parse();
-    /*
-    loop {
-        let token = lexer.next_token();
-        match token {
-            Some(_) => println!("{:?}", token.unwrap()),
-            None => break,
-        }
-    }
-    */
-    panic!("done");
-
-    // Generate code and data
-    // TODO(PT): Eventually, this will be an assembler stage
-    let mut data_symbols = BTreeMap::new();
-
-    let string = Rc::new(DataSymbol::new(
-        "msg",
-        SymbolData::LiteralData(CString::new("Hello world!\n").unwrap().into_bytes_with_nul()),
-    ));
-    let string_len = Rc::new(DataSymbol::new(
-        "msg_len",
-        SymbolData::Subtract((SymbolExpressionOperand::OutputCursor, SymbolExpressionOperand::StartOfSymbol("msg".to_string()))),
-    ));
-    data_symbols.insert(string.name.clone(), Rc::clone(&string));
-    data_symbols.insert(string_len.name.clone(), Rc::clone(&string_len));
+    let (data_symbols, instructions) = parser.parse();
+    println!("[### Assembly + ELF rendering ###]");
 
     // Render the data symbols
     let mut data_packer = Rc::new(RefCell::new(DataPacker::new(layout)));
@@ -386,24 +363,7 @@ pub fn parse(layout: &Rc<FileLayout>, source: &str) -> (Rc<RefCell<DataPacker>>,
         DataPacker::pack(&data_packer, &data_symbol);
     }
 
-    let instructions = vec![
-        // Syscall vector (_write)
-        Rc::new(MoveValueToRegister::new(Register::Rax, DataSource::Literal(0xc))) as Rc<dyn Instruction>,
-        // File descriptor (stdout)
-        Rc::new(MoveValueToRegister::new(Register::Rbx, DataSource::Literal(0x1))) as Rc<dyn Instruction>,
-        // String pointer
-        Rc::new(MoveValueToRegister::new(Register::Rcx, DataSource::NamedDataSymbol(string.name.clone()))) as Rc<dyn Instruction>,
-        // String length
-        Rc::new(MoveValueToRegister::new(Register::Rdx, DataSource::NamedDataSymbol(string_len.name.clone()))) as Rc<dyn Instruction>,
-        // Syscall
-        Rc::new(Interrupt::new(0x80)) as Rc<dyn Instruction>,
-        // _exit status code is the write() retval (# bytes written)
-        Rc::new(MoveValueToRegister::new(Register::Rbx, DataSource::RegisterContents(Register::Rax))) as Rc<dyn Instruction>,
-        // _exit syscall vector
-        Rc::new(MoveValueToRegister::new(Register::Rax, DataSource::Literal(0xd))) as Rc<dyn Instruction>,
-        // Syscall
-        Rc::new(Interrupt::new(0x80)) as Rc<dyn Instruction>,
-    ];
+    // TODO(PT): We'll need a kind of Symbol that can be attached to a given instruction's address
 
     // Render the instructions
     let mut instruction_packer = Rc::new(InstructionPacker::new(&layout, &data_packer));

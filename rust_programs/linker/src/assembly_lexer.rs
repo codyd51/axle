@@ -1,3 +1,6 @@
+use alloc::vec;
+use alloc::{string::String, vec::Vec};
+
 #[derive(Debug, PartialEq)]
 pub enum Token {
     Colon,
@@ -6,7 +9,9 @@ pub enum Token {
     Dot,
     Hash,
     LeftParen,
+    Minus,
     Percent,
+    Quote,
     RightParen,
     Identifier(String),
 }
@@ -19,9 +24,13 @@ pub struct AssemblyLexer {
 impl AssemblyLexer {
     pub fn new(raw_text: &str) -> Self {
         Self {
-            raw_text: raw_text.chars().collect(),
+            raw_text: raw_text.chars().collect::<Vec<char>>(),
             cursor: 0,
         }
+    }
+
+    pub fn reset(&mut self) {
+        self.cursor = 0;
     }
 
     fn next_char(&mut self) -> Option<char> {
@@ -35,6 +44,39 @@ impl AssemblyLexer {
             return Some(self.raw_text[self.cursor]);
         }
         None
+    }
+
+    pub fn read_to(&mut self, delimiter: char) -> String {
+        let mut out = vec![];
+
+        loop {
+            if self.peek_char().unwrap() == delimiter {
+                break;
+            }
+            out.push(self.next_char().unwrap());
+        }
+
+        out.into_iter().collect()
+    }
+
+    pub fn peek_token(&mut self) -> Option<Token> {
+        let token = self.next_token()?;
+        // Rewind the cursor to just prior to this token
+        let token_len = match token {
+            Token::Colon => 1,
+            Token::Comma => 1,
+            Token::Dollar => 1,
+            Token::Dot => 1,
+            Token::Hash => 1,
+            Token::LeftParen => 1,
+            Token::Minus => 1,
+            Token::Percent => 1,
+            Token::Quote => 1,
+            Token::RightParen => 1,
+            Token::Identifier(ref name) => name.len(),
+        };
+        self.cursor -= token_len;
+        Some(token)
     }
 
     pub fn next_token(&mut self) -> Option<Token> {
@@ -61,6 +103,8 @@ impl AssemblyLexer {
                 '(' => Some(Token::LeftParen),
                 ')' => Some(Token::RightParen),
                 ':' => Some(Token::Colon),
+                '"' => Some(Token::Quote),
+                '-' => Some(Token::Minus),
                 _ => None,
             };
             if let Some(token) = maybe_single_character_token {
