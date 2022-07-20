@@ -7,7 +7,7 @@ use axle_rt::AmcMessage;
 use axle_rt::{amc_message_await__u32_event, printf};
 
 use axle_rt::ExpectsEventField;
-use axle_rt::{amc_message_await, amc_message_await_untyped, amc_message_send};
+use axle_rt::{amc_message_await_untyped, amc_message_send};
 
 use agx_definitions::{
     Drawable, Layer, LayerSlice, NestedLayerSlice, Point, Rect, SingleFramebufferLayer, Size,
@@ -18,6 +18,9 @@ use awm_messages::{
 
 use crate::ui_elements::*;
 use crate::window_events::*;
+
+#[derive(Debug, Copy, Clone)]
+pub struct KeyCode(pub u32);
 
 pub struct AwmWindow {
     pub layer: RefCell<SingleFramebufferLayer>,
@@ -144,10 +147,22 @@ impl AwmWindow {
 
     fn key_down(&self, event: &KeyDown) {
         printf!("Key down: {:?}\n", event);
+        // TODO(PT): One element should have keyboard focus at a time. How to select?
+        let elems = self.ui_elements.borrow();
+        for elem in elems.iter() {
+            elem.handle_key_pressed(KeyCode(event.key));
+        }
+        // TODO(PT): Hack
+        self.commit();
     }
 
     fn key_up(&self, event: &KeyUp) {
         printf!("Key up: {:?}\n", event);
+        // TODO(PT): One element should have keyboard focus at a time. How to select?
+        let elems = self.ui_elements.borrow();
+        for elem in elems.iter() {
+            elem.handle_key_released(KeyCode(event.key));
+        }
     }
 
     fn mouse_moved(&self, event: &MouseMoved) {
