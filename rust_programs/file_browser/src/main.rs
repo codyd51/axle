@@ -517,7 +517,18 @@ impl FileBrowser2 {
                             .borrow(),
                         path
                     );
-                    amc_message_send(FILE_SERVER_SERVICE_NAME, LaunchProgram::new(&full_path));
+
+                    if [".bmp", ".jpg", ".jpeg"]
+                        .iter()
+                        .any(|&ext| full_path.ends_with(ext))
+                    {
+                        printf!("\tSeems to be an image file, launching image viewer...\n");
+                        FileBrowser2::launch_image_viewer_if_necessary();
+                        image_viewer_messages::LoadImage::send(&full_path);
+                    } else {
+                        printf!("\tSeems to be a program, launching...\n");
+                        amc_message_send(FILE_SERVER_SERVICE_NAME, LaunchProgram::new(&full_path));
+                    }
                 });
             }
         }
@@ -527,6 +538,18 @@ impl FileBrowser2 {
             .replace(Some(directory_contents_view_clone));
 
         directory_contents_view
+    }
+
+    fn launch_image_viewer_if_necessary() {
+        let exists_msg = AmcQueryServiceRequest::send("com.axle.image_viewer");
+        printf!("Got response from query service: {exists_msg:?}\n");
+        if exists_msg.service_exists {
+            printf!("Will not launch image viewer because it's already active\n");
+            return;
+        }
+
+        let path = "/usr/applications/image_viewer";
+        amc_message_send(FILE_SERVER_SERVICE_NAME, LaunchProgram::new(&path));
     }
 
     fn browse_to_path_without_appending_to_history(self: Rc<FileBrowser2>, path: &str) {
