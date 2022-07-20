@@ -830,6 +830,7 @@ dependencies = [
  "axle_rt_derive",
  "file_manager_messages",
  "libgui",
+ "libgui_derive",
  "linker_messages",
 ]
 
@@ -1008,6 +1009,15 @@ dependencies = [
  "cstr_core",
  "rand",
  "rand_core 0.5.1",
+]
+
+[[package]]
+name = "libgui_derive"
+version = "0.1.0"
+dependencies = [
+ "agx_definitions",
+ "quote",
+ "syn",
 ]
 
 [[package]]

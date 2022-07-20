@@ -18,6 +18,7 @@ members = [
     "linker",
     "linker_messages",
     "ide",
+    "libgui_derive",
 ]
 
 exclude = [
