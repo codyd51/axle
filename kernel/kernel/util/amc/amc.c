@@ -135,9 +135,9 @@ static void _amc_deliver_pending_messages_to_new_service(amc_service_t* new_serv
 
     for (int i = 0; i < _amc_messages_to_unknown_services_pool->size; i++) {
         amc_message_t* msg = array_m_lookup(_amc_messages_to_unknown_services_pool, i);
-        printf("New service %s, outstanding [%s -> %s]\n", new_service->name, msg->source, msg->dest);
+        //printf("New service %s, outstanding [%s -> %s]\n", new_service->name, msg->source, msg->dest);
         if (!strncmp(msg->dest, new_service->name, AMC_MAX_SERVICE_NAME_LEN)) {
-            printf("Found outstanding msg from %s to new %s\n", msg->source, msg->dest);
+            //printf("Found outstanding msg from %s to new %s\n", msg->source, msg->dest);
             message_indexes_to_deliver[matching_msg_count++] = i;
         }
     }

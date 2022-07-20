@@ -9,14 +9,6 @@
 
 #include "amc.h"
 
-// https://stackoverflow.com/questions/195975/how-to-make-a-char-string-from-a-c-macros-value
-#define _STR_VALUE(arg)      #arg
-#define _FUNCTION_NAME(name) _STR_VALUE(name)
-
-// NOTE: This function name is special-cased in the kernel crash handler. 
-#define AMC_EXEC_TRAMPOLINE_NAME _amc_exec_trampoline
-#define AMC_EXEC_TRAMPOLINE_NAME_STR _FUNCTION_NAME(AMC_EXEC_TRAMPOLINE_NAME)
-
 typedef struct amc_shared_memory_region {
     char remote[AMC_MAX_SERVICE_NAME_LEN];
     uintptr_t remote_descriptor;

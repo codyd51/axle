@@ -133,7 +133,7 @@ static void _amc_core_file_server_exec_buffer(const char* source_service, void* 
 
     amc_exec_buffer_cmd_t* cmd = (amc_exec_buffer_cmd_t*)buf;
     printf("exec buffer(program_name: %s, buffer_addr: 0x%p, buffer_size: %p)\n", cmd->program_name, cmd->buffer_addr, cmd->buffer_size);
-	printf("[%d ms] exec_buffer\n", ms_since_boot());
+	printf("[%d ms] exec_buffer (buffer size %d)\n", ms_since_boot(), cmd->buffer_size);
 
     // Copy the buffer to kernel space
     char* copy = kmalloc(cmd->buffer_size);
@@ -211,7 +211,7 @@ static void _amc_core_flush_messages_from_service_to_service(const char* source_
     spinlock_acquire(&unknown_dest_service_message_pool->lock);
     for (int32_t i = unknown_dest_service_message_pool->size - 1; i >= 0; i--) {
         amc_message_t* msg = array_m_lookup(unknown_dest_service_message_pool, i);
-        printf("*** Undelivered: %s %s, check for %s %s\n", msg->source, msg->dest, source_service, cmd->remote_service);
+        //printf("*** Undelivered: %s %s, check for %s %s\n", msg->source, msg->dest, source_service, cmd->remote_service);
         if (!strncmp(msg->source, source_service, AMC_MAX_SERVICE_NAME_LEN)) {
             if (!strncmp(msg->dest, cmd->remote_service, AMC_MAX_SERVICE_NAME_LEN)) {
                 amc_message_free(msg);
@@ -435,7 +435,7 @@ static void _amc_core_send_task_info(const char* source_service) {
                     break;
                 }
 
-                rbp = rbp[0];
+                rbp = (uint64_t*)rbp[0];
             }
 
             response->tasks[i].user_mode_rip = user_mode_rip;

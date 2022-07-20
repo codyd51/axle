@@ -21,9 +21,11 @@
 #include <kernel/util/elf/elf.h>
 #include <kernel/multitasking/tasks/task_small.h>
 
+#include "kernel.h"
+
 static void _kernel_bootstrap_part2(void);
 
-static void launch_fs_server(uint32_t arg1, uint32_t arg2, uint32_t arg3) {
+void FS_SERVER_EXEC_TRAMPOLINE_NAME(uint32_t arg1, uint32_t arg2, uint32_t arg3) {
     boot_info_t* boot_info = boot_info_get();
     const char* program_name = "fs_server";
     char* argv[] = {program_name, NULL};

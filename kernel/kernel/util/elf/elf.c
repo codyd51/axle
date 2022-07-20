@@ -29,18 +29,24 @@ static bool elf_check_magic(elf_header* hdr) {
 static bool elf_check_supported(elf_header* hdr) {
 	//__x86_64
 	if (hdr->ident[EI_CLASS] != ELFCLASS64) {
+		printf("Not 64 bit\n");
 		return false;
 	}
 	if (hdr->ident[EI_DATA] != ELFDATA2LSB) {
+		printf("Not littend\n");
 		return false;
 	}
 	if (hdr->machine != EM_x86_64) {
+		printf("Not x86_64\n");
 		return false;
 	}
 	if (hdr->ident[EI_VERSION] != EV_CURRENT) {
+		printf("Not current version\n");
 		return false;
 	}
 	if (hdr->type != ET_REL && hdr->type != ET_EXEC) {
+		// TODO(PT): Only executable is supported now?
+		printf("Not relocatable/executable\n");
 		return false;
 	}
 	return true;
@@ -153,10 +159,16 @@ static void _record_elf_symbol_table(void* buf, elf_t* elf) {
 	}
 }
 
+// TODO(PT): Ensure this is in the sysroot
+//#include <sys/axle/syscalls.h>
+
 void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf_size, bool free_buffer) {
 	printf("ELF loading %s for PID %d\n", program_name, getpid());
 	elf_header* hdr = (elf_header*)buf;
+
+	// Note that since we don't call this through a syscall, we have no register state available
 	task_assert(elf_validate_header(hdr), "ELF header validation failed", NULL);
+
 	task_small_t* current_task = tasking_get_task_with_pid(getpid());
 
 	char* string_table = elf_get_string_table(hdr, buf_size);
@@ -192,11 +204,16 @@ void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf
 	// TODO(PT): We need to free the stack created by _thread_create
 	char msg_buf[512];
 	snprintf(msg_buf, 512, "ELF alloc stack for %s\n", program_name);
-	draw_string_oneshot(msg_buf);
+	//draw_string_oneshot(msg_buf);
 
-	uint32_t stack_size = PAGE_SIZE * 32;
 	printf("ELF allocating stack with PDir 0x%p\n", vas_get_active_state());
-	uintptr_t stack_bottom = vas_alloc_range(vas_get_active_state(), 0x7e0000000000, stack_size, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
+	uint32_t stack_size = USER_MODE_STACK_SIZE;
+	uintptr_t stack_bottom = vas_alloc_range(
+		vas_get_active_state(), 
+		USER_MODE_STACK_BOTTOM, 
+		stack_size, 
+		VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER
+	);
 	printf("[%d] allocated ELF stack at 0x%08x\n", getpid(), stack_bottom);
     uintptr_t *stack_top = (uintptr_t *)(stack_bottom + stack_size); // point to top of malloc'd stack
 	uintptr_t* stack_top_orig = stack_top;
@@ -232,7 +249,7 @@ void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf
 
 	printf("[%d] Jump to user-mode with ELF [%s] ip=0x%08x sp=0x%08x\n", current_task->id, current_task->name, entry_point, current_task->machine_state);
 	snprintf(msg_buf, 512, "Jump to user mode for %s\n", program_name);
-	draw_string_oneshot(msg_buf);
+	//draw_string_oneshot(msg_buf);
 	//spinlock_release(&elf->priority_lock);
 	user_mode(stack_top, entry_point);
 
