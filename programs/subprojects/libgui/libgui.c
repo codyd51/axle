@@ -200,7 +200,7 @@ static void _handle_mouse_moved(gui_window_t* window, awm_mouse_moved_msg_t* mov
 	for (int32_t i = window->all_gui_elems->size - 1; i >= 0; i--) {
 		gui_elem_t* elem = array_lookup(window->all_gui_elems, i);
 		if (rect_contains_point(elem->base.frame, mouse_pos)) {
-			if (elem->base.type == GUI_TYPE_VIEW) {
+			if (elem->base.type == GUI_TYPE_VIEW || elem->base.type == GUI_TYPE_SCROLL_VIEW) {
 				elem = elem->v.elem_for_mouse_pos_cb(&elem->v, mouse_pos);
 			}
 			// Was the mouse already inside this element?
@@ -262,8 +262,16 @@ static void _handle_mouse_exited(gui_window_t* window) {
 }
 
 static void _handle_mouse_scrolled(gui_window_t* window, awm_mouse_scrolled_msg_t* msg) {
-	if (window->hover_elem) {
-		window->hover_elem->base._priv_mouse_scrolled_cb(window->hover_elem, msg->delta_z);
+	// Try and find a scroll view to deliver the scroll to
+	for (int32_t i = window->all_gui_elems->size - 1; i >= 0; i--) {
+		gui_elem_t* elem = array_lookup(window->all_gui_elems, i);
+		if (
+			elem->base.type == GUI_TYPE_SCROLL_VIEW &&
+			rect_contains_point(elem->base.frame, msg->mouse_pos)
+		) {
+			elem->base._priv_mouse_scrolled_cb(elem, msg->delta_z);
+			return;
+		}
 	}
 }
 

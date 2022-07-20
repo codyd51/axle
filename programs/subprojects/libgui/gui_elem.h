@@ -32,6 +32,7 @@
 #define GUI_TYPE_VIEW           0x04
 #define GUI_TYPE_SLIDER         0x05
 #define GUI_TYPE_BUTTON         0x06
+#define GUI_TYPE_SCROLL_VIEW    0x07
 
 typedef union gui_elem gui_elem_t;
 typedef struct gui_window gui_window_t;

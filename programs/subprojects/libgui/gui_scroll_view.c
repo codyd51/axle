@@ -180,6 +180,7 @@ void gui_scroll_view_init(gui_scroll_view_t* view, gui_window_t* window, gui_win
 	gui_view_init((gui_view_t*)view, window, sizer_cb);
 
 	gui_view_t* base = &(view->base);
+	base->type = GUI_TYPE_SCROLL_VIEW;
 	base->_priv_mouse_scrolled_cb = (gui_mouse_scrolled_cb_t)_handle_mouse_scrolled;
     base->elem_for_mouse_pos_cb = (gui_view_elem_for_mouse_pos_cb_t)_gui_scroll_view_elem_for_mouse_pos;
 	base->_fill_background_cb = (gui_draw_cb_t)_gui_scroll_view_fill_background;

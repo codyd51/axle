@@ -78,7 +78,7 @@ void gui_text_view_putchar(gui_text_view_t* text_view, char ch, Color color) {
 	}
 	*/
 	if (text_view->contents_len <= 511) {
-		text_view->contents[text_view->contents_len++] = ch;
+		//text_view->contents[text_view->contents_len++] = ch;
 	}
 
 	if (ch == '\n') {
