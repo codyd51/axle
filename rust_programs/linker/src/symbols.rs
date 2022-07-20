@@ -1,6 +1,12 @@
+use alloc::{
+    borrow::ToOwned,
+    string::{String, ToString},
+    vec::Vec,
+};
 use core::{cell::RefCell, fmt::Display};
 
 use crate::new_try::{FileLayout, RebaseTarget, RebasedValue};
+use crate::println;
 
 #[derive(Debug, Copy, Clone)]
 pub struct SymbolId(pub SymbolType, pub usize);
@@ -46,7 +52,7 @@ impl SymbolData {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct DataSymbol {
     pub name: String,
     pub inner: SymbolData,

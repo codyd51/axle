@@ -7,9 +7,14 @@
 
 extern crate alloc;
 
+#[cfg(feature = "run_in_axle")]
+pub use axle_rt::{print, println};
+#[cfg(not(feature = "run_in_axle"))]
+pub use std::{print, println};
+
 mod assembly_lexer;
-mod assembly_parser;
 mod assembly_packer;
+mod assembly_parser;
 mod new_try;
 mod packer;
 mod records;

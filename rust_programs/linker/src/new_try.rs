@@ -1,3 +1,4 @@
+use crate::{print, println};
 use alloc::{
     borrow::ToOwned,
     boxed::Box,
@@ -10,11 +11,6 @@ use alloc::{slice, vec::Vec};
 use bitflags::bitflags;
 use core::{cell::RefCell, fmt::Display, mem, ops::Index};
 use cstr_core::CString;
-
-#[cfg(feature = "run_in_axle")]
-use axle_rt::println;
-#[cfg(not(feature = "run_in_axle"))]
-use std::println;
 
 use crate::{
     assembly_packer::{DataPacker, InstructionPacker, SymbolOffset, SymbolSize},
