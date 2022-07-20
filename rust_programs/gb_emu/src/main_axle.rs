@@ -25,7 +25,8 @@ use {
 
 use agx_definitions::Size;
 use awm_messages::{
-    AwmCreateWindow, AwmCreateWindowResponse, AwmWindowRedrawReady, AwmWindowUpdateTitle,
+    AwmCloseWindow, AwmCreateWindow, AwmCreateWindowResponse, AwmWindowRedrawReady,
+    AwmWindowUpdateTitle,
 };
 use axle_rt::{
     amc_has_message, amc_message_await, amc_message_await_untyped, amc_message_send,
@@ -230,6 +231,7 @@ pub fn main() {
     );
     //gameboy.mock_bootrom();
 
+    // TODO(PT): libgui should be able to handle this...
     loop {
         //while amc_has_message(Some("com.axle.awm")) {
         while amc_has_message(None) {
@@ -265,6 +267,10 @@ pub fn main() {
                     KeyUp::EXPECTED_EVENT => {
                         handle_key_up(&gameboy, body_as_type_unchecked(raw_body))
                     }
+                    AwmCloseWindow::EXPECTED_EVENT => {
+                        println!("Gameboy got close window request");
+                        axle_rt::libc::exit(0);
+                    }
                     // Ignore unknown events
                     _ => (),
                 }
@@ -281,6 +287,7 @@ pub trait AwmWindowEvent: ExpectsEventField + ContainsEventField {}
 
 impl AwmWindowEvent for KeyDown {}
 impl AwmWindowEvent for KeyUp {}
+impl AwmWindowEvent for AwmCloseWindow {}
 
 const KEY_IDENT_UP_ARROW: u32 = 0x999;
 const KEY_IDENT_DOWN_ARROW: u32 = 0x998;
