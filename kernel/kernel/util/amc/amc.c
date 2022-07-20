@@ -207,6 +207,7 @@ void amc_register_service(const char* name) {
     service->message_queue = array_m_create(2048);
     service->shmem_regions = array_m_create(32);
     service->services_to_notify_upon_death = array_m_create(32);
+    service->delivery_enabled = true;
 
     // Create the message delivery pool in the task's address space
     /*
@@ -568,8 +569,13 @@ static bool _amc_message_send_from_service_name(
     // Find the destination service
     amc_service_t* dest_service = amc_service_with_name(destination_service);
 
-    if (dest_service == NULL) {
-        printf("Dest service %s is null, adding to queue (size = %d)\n", destination_service, _amc_messages_to_unknown_services_pool->size);
+    if (dest_service == NULL || !dest_service->delivery_enabled) {
+        if (dest_service == NULL) {
+            printf("Dest service %s is null, adding to queue (size = %d)\n", destination_service, _amc_messages_to_unknown_services_pool->size);
+        }
+        else {
+            printf("Dest service %s has delivery disabled, adding to queue (size = %d)\n", destination_service, _amc_messages_to_unknown_services_pool->size);
+        }
         // The destination doesn't exist - store the message in a pool of
         // messages to unknown services
         array_m_insert(_amc_messages_to_unknown_services_pool, queued_msg);
@@ -578,6 +584,15 @@ static bool _amc_message_send_from_service_name(
 
     _amc_message_add_to_delivery_queue(dest_service, (amc_message_t*)queued_msg);
     return true;
+}
+
+void amc_disable_delivery(amc_service_t* service) {
+    if (!service) {
+        return;
+    }
+
+    printf("Disabling delivery to %s\n", service->name);
+    service->delivery_enabled = false;
 }
 
 bool amc_message_send(const char* destination_service, void* buf, uint32_t buf_size) {

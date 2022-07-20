@@ -42,6 +42,9 @@ typedef struct amc_service {
 
     // Other amc services that have requested to receive a message when this service dies
     array_m* services_to_notify_upon_death;
+
+    // Whether the service is able to receive messages. This is unset when a service crashes.
+    bool delivery_enabled;
 } amc_service_t;
 
 array_m* amc_services(void);
@@ -70,5 +73,7 @@ amc_service_t* amc_service_of_active_task(void);
 
 void amc_message_free(amc_message_t* msg);
 array_m* amc_messages_to_unknown_services_pool();
+
+void amc_disable_delivery(amc_service_t* service);
 
 #endif
