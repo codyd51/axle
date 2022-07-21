@@ -12,15 +12,15 @@ use crate::println;
 pub struct SymbolId(pub SymbolType, pub usize);
 impl SymbolId {
     pub fn null_id() -> Self {
-        Self(SymbolType::NullSymbol, 0)
+        Self(SymbolType::Null, 0)
     }
 }
 
 #[derive(Debug, Copy, Clone)]
 pub enum SymbolType {
-    NullSymbol,
-    DataSymbol,
-    CodeSymbol,
+    Null,
+    Data,
+    _Code,
 }
 
 #[derive(Debug, PartialEq)]
@@ -108,7 +108,7 @@ impl DataSymbol {
 
 impl Display for DataSymbol {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_fmt(format_args!("<DataSymbol \"{}\"", self.name));
+        f.write_fmt(format_args!("<DataSymbol \"{}\"", self.name))?;
         match &self.inner {
             SymbolData::LiteralData(data) => f.write_fmt(format_args!(" (literal, {} bytes)>", data.len())),
             SymbolData::Subtract((op1, op2)) => f.write_fmt(format_args!(" (subtraction, {:?} - {:?})>", op1, op2)),

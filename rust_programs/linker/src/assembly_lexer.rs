@@ -131,9 +131,7 @@ impl AssemblyLexer {
         // Non-single-character token
         let token_name = self.raw_text[start_cursor..self.cursor].to_vec();
 
-        match token_name.iter().collect::<String>().as_str() {
-            _ => Some(Token::Identifier(token_name.into_iter().collect())),
-        }
+        Some(Token::Identifier(token_name.into_iter().collect()))
     }
 }
 

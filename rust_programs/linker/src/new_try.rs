@@ -1,23 +1,18 @@
-use crate::{print, println};
+use crate::println;
+use alloc::vec::Vec;
 use alloc::{
     borrow::ToOwned,
-    boxed::Box,
     collections::BTreeMap,
     rc::Rc,
     string::{String, ToString},
     vec,
 };
-use alloc::{slice, vec::Vec};
-use bitflags::bitflags;
-use core::{cell::RefCell, fmt::Display, mem, ops::Index};
+use core::{cell::RefCell, mem};
 use cstr_core::CString;
 
 use crate::{
     assembly_packer::{DataPacker, InstructionPacker, SymbolOffset, SymbolSize},
-    records::{
-        any_as_u8_slice, ElfHeader64, ElfHeader64Record, ElfSection64, ElfSection64Record, ElfSectionAttrFlag, ElfSectionType, ElfSectionType2, ElfSegment64,
-        ElfSegment64Record, ElfSegmentFlag, ElfSegmentType, ElfSymbol64, ElfSymbol64Record, Packable, StringTableHelper, SymbolTable, VecRecord,
-    },
+    records::{any_as_u8_slice, ElfHeader64, ElfSection64, ElfSectionAttrFlag, ElfSectionType2, ElfSegment64, ElfSegmentFlag, ElfSegmentType, ElfSymbol64},
     symbols::{DataSymbol, SymbolId, SymbolType},
 };
 
@@ -48,7 +43,7 @@ impl MagicPackable for ReadOnlyData {
         let mut rendered_data = self.rendered_data.borrow_mut();
         let data_packer = self.data_packer.borrow();
         for (_, _, symbol) in data_packer.symbols.iter() {
-            let mut symbol_bytes = symbol.render(layout, rendered_data.len());
+            let symbol_bytes = symbol.render(layout, rendered_data.len());
             // Some symbols may be rendered to immediate values in the symbol table
             if let Some(mut symbol_bytes) = symbol_bytes {
                 rendered_data.append(&mut symbol_bytes);
@@ -56,7 +51,7 @@ impl MagicPackable for ReadOnlyData {
         }
     }
 
-    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
         self.rendered_data.borrow().to_owned()
     }
 }
@@ -112,11 +107,10 @@ impl FileLayout {
         let contents = self.contents.borrow();
 
         for packable in contents.iter() {
-            packable.prerender(&self);
+            packable.prerender(self);
         }
 
         let mut out = vec![0; 0];
-        let mut cursor = 0;
         for packable in contents.iter() {
             // Render the packable to bytes
             let mut rendered_packable = packable.render(self);
@@ -180,7 +174,7 @@ impl FileLayout {
     }
 
     fn virt_start_of(&self, target: RebaseTarget) -> usize {
-        return self.static_start_of(target) + (self.virtual_base as usize);
+        self.static_start_of(target) + (self.virtual_base as usize)
     }
 
     fn get_target(&self, target: RebaseTarget) -> Rc<dyn MagicPackable> {
@@ -192,7 +186,6 @@ impl FileLayout {
     }
 
     fn size_of(&self, target: RebaseTarget) -> usize {
-        let contents = self.contents.borrow();
         let target_packable = self.get_target(target);
         target_packable.len()
     }
@@ -215,9 +208,9 @@ impl FileLayout {
 
     fn get_rebased_symbol_owner_section_index(&self, symbol: &MagicElfSymbol64) -> usize {
         match symbol.symbol_type {
-            SymbolType::NullSymbol => 0,
-            SymbolType::DataSymbol => self.section_header_index(SectionHeaderType::ReadOnlyDataSection),
-            SymbolType::CodeSymbol => self.section_header_index(SectionHeaderType::TextSection),
+            SymbolType::Null => 0,
+            SymbolType::Data => self.section_header_index(SectionHeaderType::ReadOnlyDataSection),
+            SymbolType::_Code => self.section_header_index(SectionHeaderType::TextSection),
         }
     }
 
@@ -227,9 +220,9 @@ impl FileLayout {
             .iter()
             .enumerate()
             // Filter to the desired section type
-            .filter(|(i, sh)| sh.section_header_type() == section_header_type)
+            .filter(|(_i, sh)| sh.section_header_type() == section_header_type)
             // Only retain the index
-            .map(|(i, sh)| i)
+            .map(|(i, _sh)| i)
             .collect();
         assert!(
             section_header_indexes_matching_type.len() == 1,
@@ -250,11 +243,11 @@ impl FileLayout {
             RebasedValue::VirtStartOf(target) => self.virt_start_of(target),
             RebasedValue::StaticStartOf(target) => self.static_start_of(target),
             RebasedValue::StaticEndOf(target) => self.static_end_of(target),
-            RebasedValue::VirtOffsetWithin(target, offset) => self.virt_offset_within(target, offset),
+            RebasedValue::_VirtOffsetWithin(target, offset) => self.virt_offset_within(target, offset),
             RebasedValue::SectionHeaderIndex(section_header_type) => self.section_header_index(section_header_type),
             RebasedValue::SectionHeaderCount => self.section_headers.borrow().len(),
             RebasedValue::SizeOf(target) => self.size_of(target),
-            RebasedValue::SectionHeaderName => panic!("Use get_rebased_section_header_name_offset"),
+            RebasedValue::_SectionHeaderName => panic!("Use get_rebased_section_header_name_offset"),
             RebasedValue::Literal(value) => value,
             RebasedValue::VirtualBase => self.virtual_base.try_into().unwrap(),
             RebasedValue::SectionHeadersHead => {
@@ -269,7 +262,7 @@ impl FileLayout {
             }
             RebasedValue::SegmentHeaderCount => self.segment_headers.borrow().len(),
             RebasedValue::ReadOnlyDataSymbolVirtAddr(symbol_id) => self.read_only_data_symbol_virt_addr(symbol_id),
-            RebasedValue::ReadOnlyDataSymbolVirtEnd(symbol_id) => self.read_only_data_symbol_virt_end(symbol_id),
+            RebasedValue::_ReadOnlyDataSymbolVirtEnd(symbol_id) => self.read_only_data_symbol_virt_end(symbol_id),
             RebasedValue::ReadOnlyDataSymbolValue(symbol_id) => self.read_only_data_symbol_value(symbol_id),
         }
     }
@@ -291,7 +284,7 @@ impl FileLayout {
     fn read_only_data_symbol_virt_addr(&self, symbol_id: SymbolId) -> usize {
         let maybe_symbol_table = self.symbol_table.borrow();
         let symbol_table = maybe_symbol_table.as_ref().unwrap();
-        let (offset, size, symbol) = symbol_table.symbol_with_id(symbol_id);
+        let (offset, size, _symbol) = symbol_table.symbol_with_id(symbol_id);
         //println!("size {size}");
         assert!(size > 0, "Zero-sized symbols should not use this API");
         self.virt_offset_within(RebaseTarget::ReadOnlyDataSection, offset)
@@ -300,7 +293,7 @@ impl FileLayout {
     fn read_only_data_symbol_virt_end(&self, symbol_id: SymbolId) -> usize {
         let maybe_symbol_table = self.symbol_table.borrow();
         let symbol_table = maybe_symbol_table.as_ref().unwrap();
-        let (offset, size, symbol) = symbol_table.symbol_with_id(symbol_id);
+        let (offset, size, _symbol) = symbol_table.symbol_with_id(symbol_id);
         assert!(size > 0, "Zero-sized symbols should not use this API");
         self.virt_offset_within(RebaseTarget::ReadOnlyDataSection, offset) + size
     }
@@ -308,7 +301,7 @@ impl FileLayout {
     fn read_only_data_symbol_value(&self, symbol_id: SymbolId) -> usize {
         let maybe_symbol_table = self.symbol_table.borrow();
         let symbol_table = maybe_symbol_table.as_ref().unwrap();
-        let (offset, size, symbol) = symbol_table.symbol_with_id(symbol_id);
+        let (_offset, _size, symbol) = symbol_table.symbol_with_id(symbol_id);
         let immediate_value = symbol.immediate_value.borrow();
         immediate_value.unwrap() as _
     }
@@ -341,7 +334,7 @@ pub enum RebasedValue {
     VirtStartOf(RebaseTarget),
     StaticStartOf(RebaseTarget),
     StaticEndOf(RebaseTarget),
-    VirtOffsetWithin(RebaseTarget, usize),
+    _VirtOffsetWithin(RebaseTarget, usize),
     SectionHeaderIndex(SectionHeaderType),
     SizeOf(RebaseTarget),
     Literal(usize),
@@ -351,10 +344,10 @@ pub enum RebasedValue {
     SectionHeadersHead,
     SectionHeaderCount,
     ReadOnlyDataSymbolVirtAddr(SymbolId),
-    ReadOnlyDataSymbolVirtEnd(SymbolId),
+    _ReadOnlyDataSymbolVirtEnd(SymbolId),
     ReadOnlyDataSymbolValue(SymbolId),
     // Only for MagicSectionHeader
-    SectionHeaderName,
+    _SectionHeaderName,
 }
 
 pub trait MagicPackable {
@@ -362,7 +355,7 @@ pub trait MagicPackable {
     // PT: To remove?
     fn struct_type(&self) -> RebaseTarget;
     fn render(&self, layout: &FileLayout) -> Vec<u8>;
-    fn prerender(&self, layout: &FileLayout) {}
+    fn prerender(&self, _layout: &FileLayout) {}
 }
 
 trait MagicSectionHeader: MagicPackable {
@@ -470,7 +463,7 @@ impl MagicPackable for MagicSegmentHeader64 {
     }
 
     fn render(&self, layout: &FileLayout) -> Vec<u8> {
-        let mut out = ElfSegment64 {
+        let out = ElfSegment64 {
             segment_type: self.segment_type as _,
             flags: self.flags.iter().fold(0, |acc, f| acc | (f.bits())) as _,
             offset: layout.get_rebased_value(self.offset) as _,
@@ -709,7 +702,7 @@ impl MagicPackable for MagicSectionHeaderNamesStringsTable {
         }
     }
 
-    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
         self.rendered_strings.borrow().clone()
     }
 
@@ -745,7 +738,7 @@ pub enum SymbolEntryType {
 
 struct MagicSymbolTable {
     data_packer: Rc<RefCell<DataPacker>>,
-    instruction_packer: Rc<InstructionPacker>,
+    _instruction_packer: Rc<InstructionPacker>,
     symbols: RefCell<Vec<MagicElfSymbol64>>,
 }
 
@@ -753,7 +746,7 @@ impl MagicSymbolTable {
     fn new(data_packer: &Rc<RefCell<DataPacker>>, instruction_packer: &Rc<InstructionPacker>) -> Self {
         Self {
             data_packer: Rc::clone(data_packer),
-            instruction_packer: Rc::clone(instruction_packer),
+            _instruction_packer: Rc::clone(instruction_packer),
             symbols: RefCell::new(Vec::new()),
         }
     }
@@ -762,7 +755,7 @@ impl MagicSymbolTable {
         let data_packer = self.data_packer.borrow();
         for (i, (_, _, symbol)) in data_packer.symbols.iter().enumerate() {
             if symbol.name == symbol_name {
-                return SymbolId(SymbolType::DataSymbol, i);
+                return SymbolId(SymbolType::Data, i);
             }
         }
         panic!("Failed to find symbol with name {symbol_name}");
@@ -772,17 +765,17 @@ impl MagicSymbolTable {
         // TODO(PT): Perhaps, in the future, the SymbolId can carry the source section of the symbol
         let data_packer = self.data_packer.borrow();
         match symbol_id.0 {
-            SymbolType::NullSymbol => panic!("null symbol {symbol_id:?}"),
-            SymbolType::DataSymbol => {
+            SymbolType::Null => panic!("null symbol {symbol_id:?}"),
+            SymbolType::Data => {
                 let (offset, size, sym) = &data_packer.symbols[symbol_id.1];
                 (*offset, *size, Rc::clone(sym))
             }
-            SymbolType::CodeSymbol => todo!(),
+            SymbolType::_Code => todo!(),
         }
     }
 
     fn type_of_symbol(&self, symbol_name: &str) -> SymbolEntryType {
-        let (_, size, symbol) = self.symbol_with_id(self.id_of_symbol(symbol_name));
+        let (_, size, _symbol) = self.symbol_with_id(self.id_of_symbol(symbol_name));
         match size {
             0 => SymbolEntryType::SymbolWithInlinedValue,
             _ => SymbolEntryType::SymbolWithBackingData,
@@ -806,7 +799,7 @@ impl MagicPackable for MagicSymbolTable {
 
         // Write the null symbol
         symbols.push(MagicElfSymbol64::new(
-            SymbolType::NullSymbol,
+            SymbolType::Null,
             "",
             SymbolEntryType::SymbolWithBackingData,
             SymbolId::null_id(),
@@ -815,7 +808,7 @@ impl MagicPackable for MagicSymbolTable {
         for (_, _, data_symbol) in data_packer.symbols.iter() {
             let symbol_entry_type = layout.get_symbol_entry_type_for_symbol_name(&data_symbol.name);
             let symbol_id = layout.get_symbol_id_for_symbol_name(&data_symbol.name);
-            symbols.push(MagicElfSymbol64::new(SymbolType::DataSymbol, &data_symbol.name, symbol_entry_type, symbol_id));
+            symbols.push(MagicElfSymbol64::new(SymbolType::Data, &data_symbol.name, symbol_entry_type, symbol_id));
         }
     }
 
@@ -823,22 +816,22 @@ impl MagicPackable for MagicSymbolTable {
         //println!("Rendering symbol table");
         let mut out = vec![];
         let symbols = self.symbols.borrow();
-        for (i, symbol) in symbols.iter().enumerate() {
+        for symbol in symbols.iter() {
             let rendered_symbol = ElfSymbol64 {
                 name: layout.get_rebased_symbol_name_offset(symbol) as _,
-                info: 0 as _,
-                other: 0 as _,
+                info: 0,
+                other: 0,
                 owner_section_index: match symbol.symbol_entry_type {
                     SymbolEntryType::SymbolWithBackingData => layout.get_rebased_symbol_owner_section_index(symbol) as _,
                     // Defined by the ELF spec
                     SymbolEntryType::SymbolWithInlinedValue => 0xfff1,
                 },
                 value: match symbol.symbol_type {
-                    SymbolType::DataSymbol => layout.read_only_data_symbol_value(symbol.symbol_id) as _,
-                    SymbolType::NullSymbol => 0 as _,
+                    SymbolType::Data => layout.read_only_data_symbol_value(symbol.symbol_id) as _,
+                    SymbolType::Null => 0,
                     _ => todo!(),
                 },
-                size: 0 as _,
+                size: 0,
             };
             let mut rendered_symbol_bytes = unsafe { any_as_u8_slice(&rendered_symbol) }.to_owned();
             out.append(&mut rendered_symbol_bytes);
@@ -889,7 +882,7 @@ impl MagicPackable for MagicStringTable {
         }
     }
 
-    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
         self.rendered_strings.borrow().clone()
     }
 
@@ -915,7 +908,7 @@ pub fn render_elf(layout: &FileLayout, data_packer: &Rc<RefCell<DataPacker>>, in
     layout.set_section_header_names_string_table(&Rc::new(MagicSectionHeaderNamesStringsTable::new()));
 
     // Symbols
-    layout.set_symbol_table(&Rc::new(MagicSymbolTable::new(&data_packer, &instruction_packer)));
+    layout.set_symbol_table(&Rc::new(MagicSymbolTable::new(data_packer, instruction_packer)));
     // TODO(PT): prerender() might not be the right API:
     // it doesn't solve that the string table needs to be appended after the symbol table.
     // Otherwise, StringTable.prerender() will be called before SymbolTable.prerender(), and the string table
@@ -928,7 +921,7 @@ pub fn render_elf(layout: &FileLayout, data_packer: &Rc<RefCell<DataPacker>>, in
     // TODO(PT): Similarly, instructions reference things in read-only data, which can cause a call to instructions.len()
     // during instruction rendering (crash due to borrowing im/mutable access to instructions at the same time).
     // Placing ROData prior to instructions means that when resolving pointers to ROData, we won't call instructions.len()
-    layout.append(&(Rc::new(ReadOnlyData::new(&data_packer)) as Rc<dyn MagicPackable>));
+    layout.append(&(Rc::new(ReadOnlyData::new(data_packer)) as Rc<dyn MagicPackable>));
     // Instructions
     layout.append(&(Rc::clone(instruction_packer) as Rc<dyn MagicPackable>));
 

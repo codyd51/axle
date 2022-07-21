@@ -16,7 +16,6 @@ mod assembly_lexer;
 mod assembly_packer;
 mod assembly_parser;
 mod new_try;
-mod packer;
 mod records;
 mod symbols;
 

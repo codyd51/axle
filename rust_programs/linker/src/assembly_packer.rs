@@ -1,15 +1,6 @@
-use alloc::{
-    borrow::ToOwned,
-    boxed::Box,
-    collections::BTreeMap,
-    rc::Rc,
-    string::{String, ToString},
-    vec,
-};
-use alloc::{slice, vec::Vec};
-use bitflags::bitflags;
-use core::{cell::RefCell, fmt::Display, mem, ops::Index};
-use cstr_core::CString;
+use alloc::vec::Vec;
+use alloc::{borrow::ToOwned, boxed::Box, rc::Rc, string::String, vec};
+use core::{cell::RefCell, fmt::Display};
 
 #[cfg(feature = "run_in_axle")]
 use axle_rt::{print, println};
@@ -20,33 +11,33 @@ use crate::{
     assembly_lexer::AssemblyLexer,
     assembly_parser::AssemblyParser,
     new_try::{FileLayout, MagicPackable, RebaseTarget, RebasedValue, SymbolEntryType},
-    symbols::{DataSymbol, SymbolData, SymbolExpressionOperand},
+    symbols::DataSymbol,
 };
 
 enum RexPrefixOption {
     Use64BitOperandSize,
-    UseRegisterFieldExtension,
-    UseIndexFieldExtension,
-    UseBaseFieldExtension,
+    _UseRegisterFieldExtension,
+    _UseIndexFieldExtension,
+    _UseBaseFieldExtension,
 }
 
 struct RexPrefix;
 impl RexPrefix {
-    fn new(options: Vec<RexPrefixOption>) -> u8 {
-        let mut out = (0b0100 << 4);
+    fn from_options(options: Vec<RexPrefixOption>) -> u8 {
+        let mut out = 0b0100 << 4;
         for option in options.iter() {
             match option {
-                RexPrefixOption::Use64BitOperandSize => out |= (1 << 3),
-                RexPrefixOption::UseRegisterFieldExtension => out |= (1 << 2),
-                RexPrefixOption::UseIndexFieldExtension => out |= (1 << 1),
-                RexPrefixOption::UseBaseFieldExtension => out |= (1 << 0),
+                RexPrefixOption::Use64BitOperandSize => out |= 1 << 3,
+                RexPrefixOption::_UseRegisterFieldExtension => out |= 1 << 2,
+                RexPrefixOption::_UseIndexFieldExtension => out |= 1 << 1,
+                RexPrefixOption::_UseBaseFieldExtension => out |= 1 << 0,
             }
         }
         out
     }
 
     fn for_64bit_operand() -> u8 {
-        Self::new(vec![RexPrefixOption::Use64BitOperandSize])
+        Self::from_options(vec![RexPrefixOption::Use64BitOperandSize])
     }
 }
 
@@ -80,11 +71,11 @@ impl ModRmByte {
             Register::Rdi => 0b111,
         }
     }
-    fn new(addressing_mode: ModRmAddressingMode, register: Register, register2: Option<Register>) -> u8 {
+    fn from(addressing_mode: ModRmAddressingMode, register: Register, register2: Option<Register>) -> u8 {
         let mut out = 0;
 
         match addressing_mode {
-            ModRmAddressingMode::RegisterDirect => out |= (0b11 << 6),
+            ModRmAddressingMode::RegisterDirect => out |= 0b11 << 6,
         }
 
         out |= Self::register_index(register);
@@ -94,36 +85,6 @@ impl ModRmByte {
         }
 
         out as _
-    }
-}
-
-struct MoveDataSymbolToRegister {
-    dest_register: Register,
-    symbol: Rc<DataSymbol>,
-}
-
-impl MoveDataSymbolToRegister {
-    fn new(dest_register: Register, symbol: &Rc<DataSymbol>) -> Self {
-        Self {
-            dest_register,
-            symbol: Rc::clone(symbol),
-        }
-    }
-
-    fn render(&self, layout: &FileLayout, rebased_value: &RebasedValue) -> Vec<u8> {
-        let mut out = vec![];
-        // REX prefix
-        out.push(RexPrefix::for_64bit_operand());
-        // MOV opcode
-        out.push(0xc7);
-        // Destination register
-        out.push(ModRmByte::new(ModRmAddressingMode::RegisterDirect, self.dest_register, None));
-        // Source memory operand
-        let address = layout.get_rebased_value(*rebased_value) as u32;
-        let mut address_bytes = address.to_le_bytes().to_owned().to_vec();
-        out.append(&mut address_bytes);
-
-        out
     }
 }
 
@@ -149,21 +110,20 @@ impl MoveValueToRegister {
 
 impl Instruction for MoveValueToRegister {
     fn render(&self, layout: &FileLayout) -> Vec<u8> {
-        let mut out = vec![];
         // REX prefix
-        out.push(RexPrefix::for_64bit_operand());
+        let mut out = vec![RexPrefix::for_64bit_operand()];
 
         if let DataSource::RegisterContents(register_name) = self.source {
             // MOV <reg>, <reg> opcode
             out.push(0x89);
-            out.push(ModRmByte::new(ModRmAddressingMode::RegisterDirect, self.dest_register, Some(register_name)));
+            out.push(ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.dest_register, Some(register_name)));
         } else {
             let value: u32 = match &self.source {
                 DataSource::Literal(value) => *value as _,
                 DataSource::NamedDataSymbol(symbol_name) => {
                     //println!("handling named symbol {symbol_name}");
-                    let symbol_id = layout.get_symbol_id_for_symbol_name(&symbol_name);
-                    let symbol_type = layout.get_symbol_entry_type_for_symbol_name(&symbol_name);
+                    let symbol_id = layout.get_symbol_id_for_symbol_name(symbol_name);
+                    let symbol_type = layout.get_symbol_entry_type_for_symbol_name(symbol_name);
                     match symbol_type {
                         SymbolEntryType::SymbolWithBackingData => layout.get_rebased_value(RebasedValue::ReadOnlyDataSymbolVirtAddr(symbol_id)) as _,
                         SymbolEntryType::SymbolWithInlinedValue => layout.get_rebased_value(RebasedValue::ReadOnlyDataSymbolValue(symbol_id)) as _,
@@ -174,7 +134,7 @@ impl Instruction for MoveValueToRegister {
             // MOV <reg>, <mem> opcode
             out.push(0xc7);
             // Destination register
-            out.push(ModRmByte::new(ModRmAddressingMode::RegisterDirect, self.dest_register, None));
+            out.push(ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.dest_register, None));
             // Source value
             let mut value_bytes = value.to_le_bytes().to_owned().to_vec();
             out.append(&mut value_bytes);
@@ -201,7 +161,7 @@ impl Interrupt {
 }
 
 impl Instruction for Interrupt {
-    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
         vec![
             // INT opcode
             0xcd,
@@ -221,32 +181,18 @@ pub trait Instruction: Display {
     fn render(&self, layout: &FileLayout) -> Vec<u8>;
 }
 
-struct Function {
-    name: String,
-    instructions: Vec<MoveDataSymbolToRegister>,
-}
-
-impl Function {
-    fn new(name: &str, instructions: Vec<MoveDataSymbolToRegister>) -> Self {
-        Self {
-            name: name.to_string(),
-            instructions,
-        }
-    }
-}
-
 pub type SymbolOffset = usize;
 pub type SymbolSize = usize;
 
 pub struct DataPacker {
-    file_layout: Rc<FileLayout>,
+    _file_layout: Rc<FileLayout>,
     pub symbols: Vec<(SymbolOffset, SymbolSize, Rc<DataSymbol>)>,
 }
 
 impl DataPacker {
     fn new(file_layout: &Rc<FileLayout>) -> Self {
         Self {
-            file_layout: Rc::clone(file_layout),
+            _file_layout: Rc::clone(file_layout),
             symbols: Vec::new(),
         }
     }
@@ -273,7 +219,7 @@ impl DataPacker {
         this.symbols.push((total_size, sym.inner.len(), Rc::clone(sym)));
     }
 
-    pub fn offset_of(self_: &Rc<RefCell<Self>>, sym: &Rc<DataSymbol>) -> usize {
+    pub fn _offset_of(self_: &Rc<RefCell<Self>>, sym: &Rc<DataSymbol>) -> usize {
         let this = self_.borrow();
         for (offset, _size, s) in this.symbols.iter() {
             if *s == *sym {
@@ -282,23 +228,11 @@ impl DataPacker {
         }
         panic!("Failed to find symbol {sym}")
     }
-
-    /*
-    pub fn render(self: &Rc<Self>) -> Vec<u8> {
-        let len = self.total_size();
-        let mut out = vec![0; len];
-        let mut cursor = 0;
-        for sym in self.symbols.iter() {
-            out[cursor..cursor + sym.inner.len()].copy_from_slice(&sym.inner);
-        }
-        out
-    }
-    */
 }
 
 pub struct InstructionPacker {
-    file_layout: Rc<FileLayout>,
-    data_packer: Rc<RefCell<DataPacker>>,
+    _file_layout: Rc<FileLayout>,
+    _data_packer: Rc<RefCell<DataPacker>>,
     instructions: RefCell<Vec<Rc<dyn Instruction>>>,
     rendered_instructions: RefCell<Vec<u8>>,
 }
@@ -306,8 +240,8 @@ pub struct InstructionPacker {
 impl InstructionPacker {
     fn new(file_layout: &Rc<FileLayout>, data_packer: &Rc<RefCell<DataPacker>>) -> Self {
         Self {
-            file_layout: Rc::clone(file_layout),
-            data_packer: Rc::clone(data_packer),
+            _file_layout: Rc::clone(file_layout),
+            _data_packer: Rc::clone(data_packer),
             instructions: RefCell::new(Vec::new()),
             rendered_instructions: RefCell::new(Vec::new()),
         }
@@ -341,7 +275,7 @@ impl MagicPackable for InstructionPacker {
         }
     }
 
-    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
         self.rendered_instructions.borrow().to_owned()
     }
 
@@ -358,15 +292,15 @@ pub fn parse(layout: &Rc<FileLayout>, source: &str) -> (Rc<RefCell<DataPacker>>,
     println!("[### Assembly + ELF rendering ###]");
 
     // Render the data symbols
-    let mut data_packer = Rc::new(RefCell::new(DataPacker::new(layout)));
+    let data_packer = Rc::new(RefCell::new(DataPacker::new(layout)));
     for data_symbol in data_symbols.values() {
-        DataPacker::pack(&data_packer, &data_symbol);
+        DataPacker::pack(&data_packer, data_symbol);
     }
 
     // TODO(PT): We'll need a kind of Symbol that can be attached to a given instruction's address
 
     // Render the instructions
-    let mut instruction_packer = Rc::new(InstructionPacker::new(&layout, &data_packer));
+    let instruction_packer = Rc::new(InstructionPacker::new(layout, &data_packer));
     for instr in instructions.iter() {
         instruction_packer.pack(instr);
     }

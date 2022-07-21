@@ -89,11 +89,11 @@ fn impl_ui_element_derive(ast: &syn::DeriveInput) -> TokenStream {
     let gen = quote! {
         impl UIElement for #name {
             fn handle_mouse_entered(&self) {
-                self.view.handle_mouse_entered();
+                self.view.handle_mouse_entered()
             }
 
             fn handle_mouse_exited(&self) {
-                self.view.handle_mouse_exited();
+                self.view.handle_mouse_exited()
             }
 
             fn handle_mouse_moved(&self, mouse_point: Point) {

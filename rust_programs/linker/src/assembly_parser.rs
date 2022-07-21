@@ -15,12 +15,12 @@ enum BinarySection {
 }
 
 #[derive(Debug)]
-enum Expression {
+pub enum Expression {
     Subtract(SymbolExpressionOperand, SymbolExpressionOperand),
 }
 
 #[derive(Debug)]
-enum AssemblyStatement {
+pub enum AssemblyStatement {
     // Directives
     SetCurrentSection(String),
     Label(String),
@@ -91,20 +91,20 @@ impl AssemblyParser {
                     "section" => {
                         self.match_token(Token::Dot);
                         let section_name = self.match_identifier();
-                        return Some(AssemblyStatement::SetCurrentSection(section_name));
+                        Some(AssemblyStatement::SetCurrentSection(section_name))
                     }
                     "global" => {
                         // Next is the symbol name
                         let _symbol_name = self.match_identifier();
                         //println!("Ignoring .global {_symbol_name}");
                         // Ignore it
-                        return self.parse_statement();
+                        self.parse_statement()
                     }
                     "ascii" => {
                         self.match_token(Token::Quote);
                         let literal_string_data = self.lexer.read_to('"');
                         self.match_token(Token::Quote);
-                        return Some(AssemblyStatement::Ascii(literal_string_data));
+                        Some(AssemblyStatement::Ascii(literal_string_data))
                     }
                     "equ" => {
                         let label_name = self.match_identifier();
@@ -113,20 +113,18 @@ impl AssemblyParser {
                         self.match_token(Token::Dot);
                         self.match_token(Token::Minus);
                         let op2_name = self.match_identifier();
-                        return Some(AssemblyStatement::Equ(
+                        Some(AssemblyStatement::Equ(
                             label_name,
                             Expression::Subtract(SymbolExpressionOperand::OutputCursor, SymbolExpressionOperand::StartOfSymbol(op2_name)),
-                        ));
+                        ))
                     }
                     _ => panic!("Unhandled {directive_name}"),
                 }
             }
             Token::Identifier(name) => {
                 // Is this a label declaration?
-                if let Some(next_token) = self.lexer.peek_token() {
-                    if let Token::Colon = next_token {
-                        return Some(AssemblyStatement::Label(name));
-                    }
+                if let Some(Token::Colon) = self.lexer.peek_token() {
+                    return Some(AssemblyStatement::Label(name));
                 }
                 match name.as_ref() {
                     "mov" => {
@@ -142,16 +140,16 @@ impl AssemblyParser {
                                 if source.starts_with("0x") {
                                     // Hexadecimal immediate
                                     let immediate = self.int_from_hex_string(&source);
-                                    return Some(AssemblyStatement::MoveImmediateIntoRegister(immediate, dest_register));
+                                    Some(AssemblyStatement::MoveImmediateIntoRegister(immediate, dest_register))
                                 } else {
                                     // Named symbol
-                                    return Some(AssemblyStatement::MoveSymbolIntoRegister(source, dest_register));
+                                    Some(AssemblyStatement::MoveSymbolIntoRegister(source, dest_register))
                                 }
                             }
                             Token::Percent => {
                                 // Register
                                 let source_register = self.register_from_str(&source);
-                                return Some(AssemblyStatement::MoveRegisterIntoRegister(source_register, dest_register));
+                                Some(AssemblyStatement::MoveRegisterIntoRegister(source_register, dest_register))
                             }
                             _ => panic!("Unexpected leading symbol"),
                         }
@@ -160,67 +158,58 @@ impl AssemblyParser {
                         self.match_token(Token::Dollar);
                         let interrupt_vector_str = self.match_identifier();
                         let interrupt_vector = self.int_from_hex_string(&interrupt_vector_str);
-                        return Some(AssemblyStatement::Interrupt(interrupt_vector as u8));
+                        Some(AssemblyStatement::Interrupt(interrupt_vector as u8))
                     }
                     _ => panic!("Unimplemented mnemonic {name}"),
                 }
             }
-            _ => {
-                //println!("Ignoring");
-                return self.parse_statement();
-            }
+            _ => self.parse_statement(),
         }
-        None
     }
 
     pub fn debug_parse(&mut self) {
-        let mut current_section = BinarySection::Text;
-        loop {
-            if let Some(statement) = self.parse_statement() {
-                match statement {
-                    AssemblyStatement::SetCurrentSection(name) => {
-                        match name.as_str() {
-                            "text" => current_section = BinarySection::Text,
-                            "rodata" => current_section = BinarySection::ReadOnlyData,
-                            _ => panic!("Unknown name {name}"),
-                        };
-                        println!("[OutputSection = {current_section:?}]");
-                    }
-                    AssemblyStatement::Label(name) => {
-                        println!("[Label {name}]");
-                    }
-                    AssemblyStatement::MoveImmediateIntoRegister(immediate, register) => {
-                        println!("[Move {immediate:016x} => {register:?}]");
-                    }
-                    AssemblyStatement::MoveSymbolIntoRegister(symbol_name, register) => {
-                        println!("[Move ${symbol_name} => {register:?}]");
-                    }
-                    AssemblyStatement::MoveRegisterIntoRegister(source_register, register) => {
-                        println!("[Move {source_register:?} => {register:?}]");
-                    }
-                    AssemblyStatement::Interrupt(vector) => {
-                        println!("[Int 0x{vector:02x}]");
-                    }
-                    AssemblyStatement::Ascii(text) => {
-                        let escaped_text = text.replace('\n', "\\n");
-                        println!("[LiteralAscii \"{escaped_text}\"]");
-                    }
-                    AssemblyStatement::Equ(label_name, expression) => {
-                        let format_operand = |op| match op {
-                            SymbolExpressionOperand::OutputCursor => ".".to_string(),
-                            SymbolExpressionOperand::StartOfSymbol(sym) => sym.to_string(),
-                        };
-                        print!("[Equ {label_name} = ");
-                        match expression {
-                            Expression::Subtract(op1, op2) => {
-                                println!("{} - {}]", format_operand(op1), format_operand(op2));
-                            }
-                        };
-                    }
-                    _ => panic!("Unhandled statement type {statement:?}"),
+        let mut current_section;
+        while let Some(statement) = self.parse_statement() {
+            match statement {
+                AssemblyStatement::SetCurrentSection(name) => {
+                    match name.as_str() {
+                        "text" => current_section = BinarySection::Text,
+                        "rodata" => current_section = BinarySection::ReadOnlyData,
+                        _ => panic!("Unknown name {name}"),
+                    };
+                    println!("[OutputSection = {current_section:?}]");
                 }
-            } else {
-                break;
+                AssemblyStatement::Label(name) => {
+                    println!("[Label {name}]");
+                }
+                AssemblyStatement::MoveImmediateIntoRegister(immediate, register) => {
+                    println!("[Move {immediate:016x} => {register:?}]");
+                }
+                AssemblyStatement::MoveSymbolIntoRegister(symbol_name, register) => {
+                    println!("[Move ${symbol_name} => {register:?}]");
+                }
+                AssemblyStatement::MoveRegisterIntoRegister(source_register, register) => {
+                    println!("[Move {source_register:?} => {register:?}]");
+                }
+                AssemblyStatement::Interrupt(vector) => {
+                    println!("[Int 0x{vector:02x}]");
+                }
+                AssemblyStatement::Ascii(text) => {
+                    let escaped_text = text.replace('\n', "\\n");
+                    println!("[LiteralAscii \"{escaped_text}\"]");
+                }
+                AssemblyStatement::Equ(label_name, expression) => {
+                    let format_operand = |op| match op {
+                        SymbolExpressionOperand::OutputCursor => ".".to_string(),
+                        SymbolExpressionOperand::StartOfSymbol(sym) => sym,
+                    };
+                    print!("[Equ {label_name} = ");
+                    match expression {
+                        Expression::Subtract(op1, op2) => {
+                            println!("{} - {}]", format_operand(op1), format_operand(op2));
+                        }
+                    };
+                }
             }
         }
     }
@@ -278,7 +267,7 @@ impl AssemblyParser {
                         data_symbols.insert(
                             label_name.clone(),
                             Rc::new(DataSymbol::new(
-                                &label_name,
+                                label_name,
                                 SymbolData::LiteralData(CString::new(text.clone()).unwrap().into_bytes_with_nul()),
                             )),
                         );
@@ -291,7 +280,6 @@ impl AssemblyParser {
                             }
                         };
                     }
-                    _ => panic!("Unhandled statement type {statement:?}"),
                 }
 
                 // Erase the 'current label' as it should only apply to the statement directly after a label

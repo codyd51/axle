@@ -2,7 +2,7 @@ use std::rc::Rc;
 use std::{env, error, fs, io};
 
 use crate::new_try::FileLayout;
-use crate::{assembly_packer, new_try::render_elf, packer::pack_elf};
+use crate::{assembly_packer, new_try::render_elf};
 
 pub fn main() -> Result<(), Box<dyn error::Error>> {
     println!("Running with std");
