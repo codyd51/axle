@@ -8,7 +8,7 @@
 extern crate alloc;
 extern crate libc;
 
-use alloc::rc::Rc;
+use alloc::{format, rc::Rc, string::String};
 use core::cell::RefCell;
 use linker_messages::{AssembleSource, AssembledElf, LINKER_SERVICE_NAME};
 use output_view::OutputView;
@@ -18,7 +18,6 @@ use status_view::StatusView;
 use libgui::ui_elements::UIElement;
 use libgui::window::AwmWindow;
 
-use axle_rt::ExpectsEventField;
 use axle_rt::{
     amc_message_await, amc_message_send, amc_register_service,
     core_commands::{
@@ -26,6 +25,7 @@ use axle_rt::{
     },
     printf, println, AmcMessage,
 };
+use axle_rt::{core_commands::SupervisedProcessEvent, ExpectsEventField};
 
 use agx_definitions::{Point, Rect, Size};
 
@@ -36,6 +36,7 @@ mod output_view;
 mod source_code_view;
 mod status_view;
 mod text_input_view;
+mod text_view;
 use ide_messages::IDE_SERVICE_NAME;
 
 #[derive(Debug)]
@@ -67,7 +68,7 @@ struct IdeMainView {
     _window: Rc<AwmWindow>,
     status_view: Rc<StatusView>,
     source_code_view: Rc<SourceCodeView>,
-    _output_view: Rc<OutputView>,
+    pub output_view: Rc<OutputView>,
     _message_handler: Rc<MessageHandler>,
 }
 
@@ -104,6 +105,7 @@ impl IdeMainView {
                 status_view_sizer(superview_size)
             });
         Rc::clone(&window).add_component(Rc::clone(&status_view) as Rc<dyn UIElement>);
+        status_view.set_status("Idle");
 
         let source_code_view: Rc<SourceCodeView> =
             SourceCodeView::new(&message_handler, move |_v, superview_size| {
@@ -119,7 +121,7 @@ impl IdeMainView {
             _window: window,
             status_view,
             source_code_view,
-            _output_view: output_view,
+            output_view,
             _message_handler: Rc::clone(&message_handler),
         });
 
@@ -137,8 +139,7 @@ impl IdeMainView {
                 AssembleSource::send(&source_code);
                 let elf_msg: AmcMessage<AssembledElf> =
                     amc_message_await(Some(LINKER_SERVICE_NAME));
-                self.status_view
-                    .set_status("Compilation succeeded, starting program...");
+                self.status_view.set_status("Compilation succeeded");
 
                 let elf_data = unsafe {
                     let elf_data_slice = core::ptr::slice_from_raw_parts(
@@ -164,10 +165,46 @@ impl IdeMainView {
             return;
         }
         let path = "/usr/applications/linker";
-        amc_message_send(FILE_SERVER_SERVICE_NAME, LaunchProgram::new(&path));
+        amc_message_send(FILE_SERVER_SERVICE_NAME, LaunchProgram::new(path));
+    }
+
+    fn handle_supervised_process_event(&self, msg: &AmcSupervisedProcessEventMsg) {
+        //println!("Got supervisor event {:?}", msg);
+        match msg.supervised_process_event {
+            SupervisedProcessEvent::ProcessStart(entry_point) => {
+                self.handle_process_start(entry_point)
+            }
+            SupervisedProcessEvent::ProcessExit(status_code) => {
+                self.handle_process_exit(status_code)
+            }
+            axle_rt::core_commands::SupervisedProcessEvent::ProcessWrite(len, buf) => {
+                self.handle_process_write(&buf[..(len as usize)]);
+            }
+        }
+    }
+
+    fn handle_process_start(&self, entry_point: u64) {
+        /*
+        self.output_view
+            .write(&format!("Process started, entry point: {entry_point:x}\n"));
+        */
+        self.status_view.set_status("Running...");
+    }
+
+    fn handle_process_write(&self, text: &[u8]) {
+        let text_as_str = String::from_utf8_lossy(text);
+        self.output_view.write(&format!("{text_as_str}\n"));
+    }
+
+    fn handle_process_exit(&self, status_code: u64) {
+        self.output_view
+            .write(&format!("Process exited with status code: {status_code}\n"));
+        self.status_view.set_status("Program exited");
     }
 }
 
+/// # Safety
+/// You must have previously checked that the payload is of the provided type
 pub unsafe fn body_as_type_unchecked<T>(body: &[u8]) -> &T {
     &*(body.as_ptr() as *const T)
 }
@@ -177,15 +214,14 @@ pub unsafe fn body_as_type_unchecked<T>(body: &[u8]) -> &T {
 fn start(_argc: isize, _argv: *const *const u8) -> isize {
     amc_register_service(IDE_SERVICE_NAME);
 
-    let window_size = Size::new(600, 800);
+    let window_size = Size::new(680, 800);
     let window = Rc::new(AwmWindow::new("IDE", window_size));
-    let _ide_view = Rc::new(RefCell::new(IdeMainView::new(
+    let ide_view = Rc::new(RefCell::new(IdeMainView::new(
         Rc::clone(&window),
         window_size,
     )));
 
     window.add_message_handler(move |_window, msg_unparsed: AmcMessage<[u8]>| {
-        println!("IDE got message from {}", msg_unparsed.source());
         match msg_unparsed.source() {
             AMC_CORE_SERVICE_NAME => {
                 // Is it an event from our supervised process?
@@ -197,29 +233,15 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
                         .expect("Failed to get 4-length array from message body"),
                 );
 
-                let consumed = unsafe {
+                unsafe {
+                    // TODO(PT): Process started event
                     match event {
                         AmcSupervisedProcessEventMsg::EXPECTED_EVENT => {
-                            let msg: &AmcSupervisedProcessEventMsg =
-                                body_as_type_unchecked(raw_body);
-                            match msg.supervised_process_event {
-                                axle_rt::core_commands::SupervisedProcessEvent::ProcessExit(
-                                    status_code,
-                                ) => println!(
-                                    "***** Process existed with status code 0x{status_code:x}!!!!"
-                                ),
-                                axle_rt::core_commands::SupervisedProcessEvent::ProcessWrite(
-                                    _,
-                                    _,
-                                ) => todo!(),
-                            }
-                            true
+                            Rc::clone(&ide_view.borrow())
+                                .handle_supervised_process_event(body_as_type_unchecked(raw_body));
                         }
-                        _ => false,
+                        _ => (),
                     }
-                };
-                if consumed {
-                    return;
                 }
             }
             _ => println!("Dropping unhandled message from {}", msg_unparsed.source()),
