@@ -1,6 +1,8 @@
+use core::mem;
+
 use crate::{
     assembly_lexer::{AssemblyLexer, Token},
-    assembly_packer::{DataSource, Instruction, Interrupt, MoveValueToRegister, Register},
+    assembly_packer::{DataSource, Instruction, Interrupt, Jump, JumpTarget, MoveValueToRegister, Register},
     print, println,
     symbols::{DataSymbol, SymbolData, SymbolExpressionOperand},
 };
@@ -31,6 +33,7 @@ pub enum AssemblyStatement {
     MoveSymbolIntoRegister(String, Register),
     MoveRegisterIntoRegister(Register, Register),
     Interrupt(u8),
+    Jump(String),
 }
 
 pub struct AssemblyParser {
@@ -118,6 +121,17 @@ impl AssemblyParser {
                             Expression::Subtract(SymbolExpressionOperand::OutputCursor, SymbolExpressionOperand::StartOfSymbol(op2_name)),
                         ))
                     }
+                    "word" => {
+                        let value = self.match_identifier();
+                        let immediate = if value.starts_with("0x") {
+                            // Hexadecimal immediate
+                            self.int_from_hex_string(&value)
+                        } else {
+                            // Decimal immediate
+                            value.parse().unwrap()
+                        };
+                        Some(AssemblyStatement::LiteralWord(immediate as _))
+                    }
                     _ => panic!("Unhandled {directive_name}"),
                 }
             }
@@ -160,6 +174,13 @@ impl AssemblyParser {
                         let interrupt_vector = self.int_from_hex_string(&interrupt_vector_str);
                         Some(AssemblyStatement::Interrupt(interrupt_vector as u8))
                     }
+                    "jmp" => {
+                        // TODO(PT): The leading dollar here is non-standard syntax
+                        self.match_token(Token::Dollar);
+                        let source = self.match_identifier();
+                        // TODO(PT): For now, we only support named symbols as jump targets
+                        Some(AssemblyStatement::Jump(source))
+                    }
                     _ => panic!("Unimplemented mnemonic {name}"),
                 }
             }
@@ -181,18 +202,6 @@ impl AssemblyParser {
                 }
                 AssemblyStatement::Label(name) => {
                     println!("[Label {name}]");
-                }
-                AssemblyStatement::MoveImmediateIntoRegister(immediate, register) => {
-                    println!("[Move {immediate:016x} => {register:?}]");
-                }
-                AssemblyStatement::MoveSymbolIntoRegister(symbol_name, register) => {
-                    println!("[Move ${symbol_name} => {register:?}]");
-                }
-                AssemblyStatement::MoveRegisterIntoRegister(source_register, register) => {
-                    println!("[Move {source_register:?} => {register:?}]");
-                }
-                AssemblyStatement::Interrupt(vector) => {
-                    println!("[Int 0x{vector:02x}]");
                 }
                 AssemblyStatement::Ascii(text) => {
                     let escaped_text = text.replace('\n', "\\n");
@@ -241,6 +250,25 @@ impl AssemblyParser {
                         // Don't clear the label until after the next statement
                         should_clear_current_label = false;
                     }
+                    AssemblyStatement::Ascii(text) => {
+                        assert_eq!(current_section, BinarySection::ReadOnlyData);
+                        // TODO(PT): It should be possible to define .ascii without a directly preceding label
+                        // TODO(PT): Should *every* statement type check for a current_label: and assign it? Perhaps!
+                        assert!(current_label.is_some());
+                        let label_name = current_label.as_ref().unwrap();
+                        data_symbols.push(Rc::new(DataSymbol::new(
+                            label_name,
+                            SymbolData::LiteralData(CString::new(text.clone()).unwrap().into_bytes_with_nul()),
+                        )));
+                    }
+                    AssemblyStatement::Equ(label_name, expression) => {
+                        assert_eq!(current_section, BinarySection::ReadOnlyData);
+                        match expression {
+                            Expression::Subtract(op1, op2) => {
+                                data_symbols.push(Rc::new(DataSymbol::new(&label_name, SymbolData::Subtract((op1, op2)))));
+                            }
+                        };
+                    }
                     AssemblyStatement::MoveImmediateIntoRegister(immediate, register) => {
                         // TODO(PT): Consider lifting this restriction
                         // (Placing ascii data in .text is perfectly allowed by GAS, for example)
@@ -259,26 +287,17 @@ impl AssemblyParser {
                         assert_eq!(current_section, BinarySection::Text);
                         instructions.push(Rc::new(Interrupt::new(vector)));
                     }
-                    AssemblyStatement::Ascii(text) => {
-                        assert_eq!(current_section, BinarySection::ReadOnlyData);
-                        // TODO(PT): It should be possible to define .ascii without a directly preceding label
-                        assert!(current_label.is_some());
-                        let label_name = current_label.as_ref().unwrap();
-                        data_symbols.insert(
-                            label_name.clone(),
-                            Rc::new(DataSymbol::new(
+                    AssemblyStatement::Jump(label_name) => {
+                        let instruction = Rc::new(Jump::new(JumpTarget::Label(label_name)));
+                        instructions.push(Rc::clone(&instruction) as Rc<dyn Instruction>);
+                        if let Some(label_name) = &current_label {
+                            data_symbols.push(Rc::new(DataSymbol::new(
                                 label_name,
-                                SymbolData::LiteralData(CString::new(text.clone()).unwrap().into_bytes_with_nul()),
-                            )),
-                        );
-                    }
-                    AssemblyStatement::Equ(label_name, expression) => {
-                        assert_eq!(current_section, BinarySection::ReadOnlyData);
-                        match expression {
-                            Expression::Subtract(op1, op2) => {
-                                data_symbols.insert(label_name.clone(), Rc::new(DataSymbol::new(&label_name, SymbolData::Subtract((op1, op2)))));
-                            }
-                        };
+                                //SymbolData::LiteralData(CString::new(text.clone()).unwrap().into_bytes_with_nul()),
+                                //SymbolData::InstructionAddress(Rc::clone(&instruction)),
+                                SymbolData::InstructionAddress(instruction.id()),
+                            )));
+                        }
                     }
                 }
 

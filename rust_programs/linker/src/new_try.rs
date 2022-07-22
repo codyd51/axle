@@ -1,4 +1,4 @@
-use crate::println;
+use crate::{println, symbols::InstructionId};
 use alloc::vec::Vec;
 use alloc::{
     borrow::ToOwned,

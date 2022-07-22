@@ -204,6 +204,61 @@ impl Display for Interrupt {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum JumpTarget {
+    Label(String),
+}
+
+pub struct Jump {
+    id: InstructionId,
+    target: JumpTarget,
+}
+
+impl Jump {
+    pub fn new(target: JumpTarget) -> Self {
+        Self {
+            id: next_instruction_id(),
+            target,
+        }
+    }
+}
+
+impl Instruction for Jump {
+    fn id(&self) -> InstructionId {
+        self.id
+    }
+
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        let mut out = vec![];
+        if let JumpTarget::Label(label_name) = &self.target {
+            /*
+            // JMP mem64
+            // TODO(PT): Look for opportunities to use a JMP variant with a smaller encoded size
+            // (i.e. if the named symbols is close by, use the JMP reloff8 variant)
+            out.push(0xff);
+            let symbol_id = layout.get_symbol_id_for_symbol_name(&label_name);
+            let symbol_type = layout.get_symbol_entry_type_for_symbol_name(&label_name);
+            let jump_target = if let SymbolEntryType::SymbolWithInlinedValue = symbol_type {
+                layout.get_rebased_value(RebasedValue::ReadOnlyDataSymbolValue(symbol_id))
+            } else {
+                panic!("Unhandled symbol type {symbol_type:?}");
+            };
+            let mut jump_target_bytes = jump_target.to_le_bytes().to_owned().to_vec();
+            out.append(&mut jump_target_bytes);
+            */
+            out.push(0xeb);
+            out.push(0xfe);
+        }
+        out
+    }
+}
+
+impl Display for Jump {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("jmp {:?}", self.target))
+    }
+}
+
 pub trait Instruction: Display {
     fn render(&self, layout: &FileLayout) -> Vec<u8>;
     fn id(&self) -> InstructionId;
