@@ -376,7 +376,7 @@ pub fn parse(layout: &Rc<FileLayout>, source: &str) -> (Rc<RefCell<DataPacker>>,
 
     // Render the data symbols
     let data_packer = Rc::new(RefCell::new(DataPacker::new(layout)));
-    for data_symbol in data_symbols.values() {
+    for data_symbol in data_symbols.iter() {
         DataPacker::pack(&data_packer, data_symbol);
     }
 

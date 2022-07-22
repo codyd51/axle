@@ -1,12 +1,16 @@
 use alloc::{
     borrow::ToOwned,
+    rc::Rc,
     string::{String, ToString},
     vec::Vec,
 };
 use core::{cell::RefCell, fmt::Display};
 
-use crate::new_try::{FileLayout, RebaseTarget, RebasedValue};
 use crate::println;
+use crate::{
+    assembly_packer::Instruction,
+    new_try::{FileLayout, RebaseTarget, RebasedValue},
+};
 
 #[derive(Debug, Copy, Clone)]
 pub struct SymbolId(pub SymbolType, pub usize);

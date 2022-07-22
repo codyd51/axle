@@ -219,18 +219,33 @@ impl AssemblyParser {
                         }
                     };
                 }
+                AssemblyStatement::MoveImmediateIntoRegister(immediate, register) => {
+                    println!("[Move {immediate:016x} => {register:?}]");
+                }
+                AssemblyStatement::MoveSymbolIntoRegister(symbol_name, register) => {
+                    println!("[Move ${symbol_name} => {register:?}]");
+                }
+                AssemblyStatement::MoveRegisterIntoRegister(source_register, register) => {
+                    println!("[Move {source_register:?} => {register:?}]");
+                }
+                AssemblyStatement::Interrupt(vector) => {
+                    println!("[Int 0x{vector:02x}]");
+                }
+                AssemblyStatement::Jump(label_name) => {
+                    println!("[Jump {label_name}]");
+                }
             }
         }
     }
 
-    pub fn parse(&mut self) -> (BTreeMap<String, Rc<DataSymbol>>, Vec<Rc<dyn Instruction>>) {
+    pub fn parse(&mut self) -> (Vec<Rc<DataSymbol>>, Vec<Rc<dyn Instruction>>) {
         println!("[### Parsing ###]");
         self.debug_parse();
         // Now, reset state and do the real parse
         self.lexer.reset();
 
         let mut instructions = vec![];
-        let mut data_symbols = BTreeMap::new();
+        let mut data_symbols = vec![];
 
         let mut current_section = BinarySection::Text;
         let mut current_label = None;
