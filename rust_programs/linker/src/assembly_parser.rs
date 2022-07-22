@@ -27,6 +27,7 @@ pub enum AssemblyStatement {
     SetCurrentSection(String),
     Label(String),
     Ascii(String),
+    LiteralWord(u32),
     Equ(String, Expression),
     // Instructions
     MoveImmediateIntoRegister(usize, Register),
@@ -219,6 +220,9 @@ impl AssemblyParser {
                         }
                     };
                 }
+                AssemblyStatement::LiteralWord(immediate) => {
+                    println!("[LiteralWord {immediate}]");
+                }
                 AssemblyStatement::MoveImmediateIntoRegister(immediate, register) => {
                     println!("[Move {immediate:016x} => {register:?}]");
                 }
@@ -283,6 +287,17 @@ impl AssemblyParser {
                                 data_symbols.push(Rc::new(DataSymbol::new(&label_name, SymbolData::Subtract((op1, op2)))));
                             }
                         };
+                    }
+                    AssemblyStatement::LiteralWord(immediate) => {
+                        assert_eq!(current_section, BinarySection::ReadOnlyData);
+                        // TODO(PT): It should be possible to define .word without a directly preceding label
+                        // TODO(PT): It looks like the order of data symbols gets messed up?!
+                        assert!(current_label.is_some());
+                        let label_name = current_label.as_ref().unwrap();
+                        // Make sure this is exactly 4 bytes
+                        let mut word_bytes = immediate.to_le_bytes().to_vec();
+                        word_bytes.resize(mem::size_of::<u32>(), 0);
+                        data_symbols.push(Rc::new(DataSymbol::new(label_name, SymbolData::LiteralData(word_bytes))));
                     }
                     AssemblyStatement::MoveImmediateIntoRegister(immediate, register) => {
                         // TODO(PT): Consider lifting this restriction
