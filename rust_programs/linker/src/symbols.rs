@@ -29,10 +29,20 @@ pub enum SymbolExpressionOperand {
     StartOfSymbol(String),
 }
 
+#[derive(Debug, PartialEq, Copy, Clone, Eq, PartialOrd, Ord)]
+pub struct InstructionId(pub usize);
+
+impl Display for InstructionId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("InstrId({})", self.0))
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum SymbolData {
     LiteralData(Vec<u8>),
     Subtract((SymbolExpressionOperand, SymbolExpressionOperand)),
+    InstructionAddress(InstructionId),
 }
 
 impl SymbolData {

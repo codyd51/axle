@@ -1,5 +1,5 @@
-use alloc::vec::Vec;
 use alloc::{borrow::ToOwned, boxed::Box, rc::Rc, string::String, vec};
+use alloc::{collections::BTreeMap, vec::Vec};
 use core::{cell::RefCell, fmt::Display};
 
 #[cfg(feature = "run_in_axle")]
@@ -11,7 +11,7 @@ use crate::{
     assembly_lexer::AssemblyLexer,
     assembly_parser::AssemblyParser,
     new_try::{FileLayout, MagicPackable, RebaseTarget, RebasedValue, SymbolEntryType},
-    symbols::DataSymbol,
+    symbols::{DataSymbol, InstructionId},
 };
 
 enum RexPrefixOption {
@@ -97,18 +97,37 @@ pub enum DataSource {
     Subtraction(Box<DataSource>, Box<DataSource>),
 }
 
+static mut NEXT_INSTRUCTION_ID: usize = 0;
+
+fn next_instruction_id() -> InstructionId {
+    unsafe {
+        let ret = NEXT_INSTRUCTION_ID;
+        NEXT_INSTRUCTION_ID += 1;
+        InstructionId(ret)
+    }
+}
+
 pub struct MoveValueToRegister {
+    id: InstructionId,
     dest_register: Register,
     source: DataSource,
 }
 
 impl MoveValueToRegister {
     pub fn new(dest_register: Register, source: DataSource) -> Self {
-        Self { dest_register, source }
+        Self {
+            id: next_instruction_id(),
+            dest_register,
+            source,
+        }
     }
 }
 
 impl Instruction for MoveValueToRegister {
+    fn id(&self) -> InstructionId {
+        self.id
+    }
+
     fn render(&self, layout: &FileLayout) -> Vec<u8> {
         // REX prefix
         let mut out = vec![RexPrefix::for_64bit_operand()];
@@ -151,16 +170,24 @@ impl Display for MoveValueToRegister {
 }
 
 pub struct Interrupt {
+    id: InstructionId,
     vector: u8,
 }
 
 impl Interrupt {
     pub fn new(vector: u8) -> Self {
-        Self { vector }
+        Self {
+            id: next_instruction_id(),
+            vector,
+        }
     }
 }
 
 impl Instruction for Interrupt {
+    fn id(&self) -> InstructionId {
+        self.id
+    }
+
     fn render(&self, _layout: &FileLayout) -> Vec<u8> {
         vec![
             // INT opcode
@@ -179,6 +206,7 @@ impl Display for Interrupt {
 
 pub trait Instruction: Display {
     fn render(&self, layout: &FileLayout) -> Vec<u8>;
+    fn id(&self) -> InstructionId;
 }
 
 pub type SymbolOffset = usize;
