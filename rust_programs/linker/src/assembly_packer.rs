@@ -318,6 +318,7 @@ pub struct InstructionPacker {
     _data_packer: Rc<RefCell<DataPacker>>,
     instructions: RefCell<Vec<Rc<dyn Instruction>>>,
     rendered_instructions: RefCell<Vec<u8>>,
+    rendered_instruction_id_to_offset: RefCell<BTreeMap<InstructionId, usize>>,
 }
 
 impl InstructionPacker {
@@ -327,12 +328,21 @@ impl InstructionPacker {
             _data_packer: Rc::clone(data_packer),
             instructions: RefCell::new(Vec::new()),
             rendered_instructions: RefCell::new(Vec::new()),
+            rendered_instruction_id_to_offset: RefCell::new(BTreeMap::new()),
         }
     }
 
     fn pack(&self, instr: &Rc<dyn Instruction>) {
         let mut instructions = self.instructions.borrow_mut();
         instructions.push(Rc::clone(instr));
+    }
+
+    pub fn offset_of_instruction(&self, id: InstructionId) -> usize {
+        return 0;
+        /*
+        let rendered_instructions_map = self.rendered_instruction_id_to_offset.borrow();
+        *rendered_instructions_map.get(&id).unwrap()
+        */
     }
 }
 
@@ -343,7 +353,7 @@ impl MagicPackable for InstructionPacker {
 
     fn prerender(&self, layout: &FileLayout) {
         println!("Assembling code...");
-        let mut rendered_instructions = self.rendered_instructions.borrow_mut();
+        let mut rendered_instructions_map = self.rendered_instruction_id_to_offset.borrow_mut();
         let instructions = self.instructions.borrow();
         for instr in instructions.iter() {
             let mut instruction_bytes = instr.render(layout);
@@ -354,7 +364,9 @@ impl MagicPackable for InstructionPacker {
             }
             println!();
 
+            let mut rendered_instructions = self.rendered_instructions.borrow_mut();
             rendered_instructions.append(&mut instruction_bytes);
+            rendered_instructions_map.insert(instr.id(), rendered_instructions.len());
         }
     }
 

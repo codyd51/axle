@@ -66,6 +66,7 @@ pub struct FileLayout {
     section_header_names_string_table: RefCell<Option<Rc<MagicSectionHeaderNamesStringsTable>>>,
     symbol_table: RefCell<Option<Rc<MagicSymbolTable>>>,
     string_table: RefCell<Option<Rc<MagicStringTable>>>,
+    instructions: RefCell<Option<Rc<InstructionPacker>>>,
 }
 
 impl FileLayout {
@@ -78,6 +79,7 @@ impl FileLayout {
             section_header_names_string_table: RefCell::new(None),
             symbol_table: RefCell::new(None),
             string_table: RefCell::new(None),
+            instructions: RefCell::new(None),
         }
     }
 
@@ -100,6 +102,13 @@ impl FileLayout {
         assert!(symtab.is_none(), "Cannot set symbol table twice");
         *symtab = Some(Rc::clone(symbol_table));
         self.append(&(Rc::clone(symbol_table) as Rc<dyn MagicPackable>));
+    }
+
+    fn set_instructions(&self, instructions: &Rc<InstructionPacker>) {
+        let mut saved_instructions = self.instructions.borrow_mut();
+        assert!(saved_instructions.is_none(), "Cannot set instructions twice");
+        *saved_instructions = Some(Rc::clone(instructions));
+        self.append(&(Rc::clone(instructions) as Rc<dyn MagicPackable>));
     }
 
     fn render(&self) -> Vec<u8> {
@@ -238,6 +247,21 @@ impl FileLayout {
         self.virt_start_of(target) + offset
     }
 
+    fn instruction_address(&self, instruction_id: InstructionId) -> usize {
+        let maybe_instructions = self.instructions.borrow();
+        match &*maybe_instructions {
+            Some(instructions) => {
+                /*
+                let instruction_offset = instructions.offset_of_instruction(instruction_id);
+                let text_base = self.get_rebased_value(RebasedValue::VirtStartOf(RebaseTarget::TextSection));
+                text_base + instruction_offset
+                */
+                123
+            }
+            None => panic!("Expected instructions to be set up"),
+        }
+    }
+
     pub fn get_rebased_value(&self, rebased_value: RebasedValue) -> usize {
         match rebased_value {
             RebasedValue::VirtStartOf(target) => self.virt_start_of(target),
@@ -264,6 +288,7 @@ impl FileLayout {
             RebasedValue::ReadOnlyDataSymbolVirtAddr(symbol_id) => self.read_only_data_symbol_virt_addr(symbol_id),
             RebasedValue::_ReadOnlyDataSymbolVirtEnd(symbol_id) => self.read_only_data_symbol_virt_end(symbol_id),
             RebasedValue::ReadOnlyDataSymbolValue(symbol_id) => self.read_only_data_symbol_value(symbol_id),
+            RebasedValue::InstructionAddress(instruction_id) => self.instruction_address(instruction_id),
         }
     }
 
@@ -346,6 +371,7 @@ pub enum RebasedValue {
     ReadOnlyDataSymbolVirtAddr(SymbolId),
     _ReadOnlyDataSymbolVirtEnd(SymbolId),
     ReadOnlyDataSymbolValue(SymbolId),
+    InstructionAddress(InstructionId),
     // Only for MagicSectionHeader
     _SectionHeaderName,
 }
@@ -923,7 +949,21 @@ pub fn render_elf(layout: &FileLayout, data_packer: &Rc<RefCell<DataPacker>>, in
     // Placing ROData prior to instructions means that when resolving pointers to ROData, we won't call instructions.len()
     layout.append(&(Rc::new(ReadOnlyData::new(data_packer)) as Rc<dyn MagicPackable>));
     // Instructions
-    layout.append(&(Rc::clone(instruction_packer) as Rc<dyn MagicPackable>));
+    //layout.append(&(Rc::clone(instruction_packer) as Rc<dyn MagicPackable>));
+    layout.set_instructions(&Rc::clone(instruction_packer));
+
+    /*
+    Instructions
+    Label1:
+    Mov
+    Label2:
+    Jmp Label2
+
+    Data:
+
+    // Can't render instructions until we have all the symbol addresses resolved
+    // But maybe we *can* resolve instructions that only need .rodata symbols?
+    */
 
     layout.render()
 }

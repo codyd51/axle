@@ -55,6 +55,8 @@ impl SymbolData {
             SymbolData::LiteralData(data) => data.len(),
             // Takes up no size in .rodata as this symbol is represented only as a symbol table literal
             SymbolData::Subtract((op1, op2)) => 0,
+            // Takes up no size in .rodata
+            SymbolData::InstructionAddress(_) => 0,
         }
     }
 
@@ -62,6 +64,7 @@ impl SymbolData {
         match self {
             SymbolData::LiteralData(data) => data.to_owned(),
             SymbolData::Subtract(_) => panic!("Unexpected"),
+            SymbolData::InstructionAddress(_) => panic!("Unexpected"),
         }
     }
 }
@@ -116,6 +119,11 @@ impl DataSymbol {
 
                 None
             }
+            SymbolData::InstructionAddress(instruction_id) => {
+                let instruction_address = layout.get_rebased_value(RebasedValue::InstructionAddress(*instruction_id));
+                self.set_immediate_value(instruction_address as _);
+                None
+            }
         }
     }
 }
@@ -126,6 +134,7 @@ impl Display for DataSymbol {
         match &self.inner {
             SymbolData::LiteralData(data) => f.write_fmt(format_args!(" (literal, {} bytes)>", data.len())),
             SymbolData::Subtract((op1, op2)) => f.write_fmt(format_args!(" (subtraction, {:?} - {:?})>", op1, op2)),
+            SymbolData::InstructionAddress(instruction_id) => f.write_fmt(format_args!(" (instruction #{instruction_id}")),
         }
     }
 }
