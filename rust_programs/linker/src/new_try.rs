@@ -1,4 +1,9 @@
-use crate::{println, symbols::InstructionId};
+use crate::{
+    assembly_packer::PotentialLabelTargetId,
+    assembly_parser::{BinarySection, EquExpression, EquExpressions, Expression, Label, Labels, PotentialLabelTargets},
+    println,
+    symbols::SymbolExpressionOperand,
+};
 use alloc::vec::Vec;
 use alloc::{
     borrow::ToOwned,
@@ -10,53 +15,9 @@ use alloc::{
 use core::{cell::RefCell, mem};
 use cstr_core::CString;
 
-use crate::{
-    assembly_packer::{DataPacker, InstructionPacker, SymbolOffset, SymbolSize},
-    records::{any_as_u8_slice, ElfHeader64, ElfSection64, ElfSectionAttrFlag, ElfSectionType2, ElfSegment64, ElfSegmentFlag, ElfSegmentType, ElfSymbol64},
-    symbols::{DataSymbol, SymbolId, SymbolType},
+use crate::records::{
+    any_as_u8_slice, ElfHeader64, ElfSection64, ElfSectionAttrFlag, ElfSectionType2, ElfSegment64, ElfSegmentFlag, ElfSegmentType, ElfSymbol64,
 };
-
-struct ReadOnlyData {
-    data_packer: Rc<RefCell<DataPacker>>,
-    rendered_data: RefCell<Vec<u8>>,
-}
-
-impl ReadOnlyData {
-    fn new(data_packer: &Rc<RefCell<DataPacker>>) -> Self {
-        Self {
-            data_packer: Rc::clone(data_packer),
-            rendered_data: RefCell::new(Vec::new()),
-        }
-    }
-}
-
-impl MagicPackable for ReadOnlyData {
-    fn len(&self) -> usize {
-        self.rendered_data.borrow().len()
-    }
-
-    fn struct_type(&self) -> RebaseTarget {
-        RebaseTarget::ReadOnlyDataSection
-    }
-
-    fn prerender(&self, layout: &FileLayout) {
-        let mut rendered_data = self.rendered_data.borrow_mut();
-        let data_packer = self.data_packer.borrow();
-        for (_, _, symbol) in data_packer.symbols.iter() {
-            let symbol_bytes = symbol.render(layout, rendered_data.len());
-            // Some symbols may be rendered to immediate values in the symbol table
-            if let Some(mut symbol_bytes) = symbol_bytes {
-                rendered_data.append(&mut symbol_bytes);
-            }
-        }
-    }
-
-    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
-        self.rendered_data.borrow().to_owned()
-    }
-}
-
-//impl<T: MagicPackable + ?Sized> MagicSectionHeader for T {}
 
 pub struct FileLayout {
     virtual_base: u64,
@@ -64,9 +25,9 @@ pub struct FileLayout {
     segment_headers: RefCell<Vec<Rc<dyn MagicPackable>>>,
     section_headers: RefCell<Vec<Rc<dyn MagicSectionHeader>>>,
     section_header_names_string_table: RefCell<Option<Rc<MagicSectionHeaderNamesStringsTable>>>,
-    symbol_table: RefCell<Option<Rc<MagicSymbolTable>>>,
-    string_table: RefCell<Option<Rc<MagicStringTable>>>,
-    instructions: RefCell<Option<Rc<InstructionPacker>>>,
+    symbol_table: RefCell<Option<Rc<NewSymbolTable>>>,
+    string_table: RefCell<Option<Rc<NewStringTable>>>,
+    main_contents_packer: RefCell<Option<Rc<MainContentsPacker>>>,
 }
 
 impl FileLayout {
@@ -79,7 +40,7 @@ impl FileLayout {
             section_header_names_string_table: RefCell::new(None),
             symbol_table: RefCell::new(None),
             string_table: RefCell::new(None),
-            instructions: RefCell::new(None),
+            main_contents_packer: RefCell::new(None),
         }
     }
 
@@ -90,25 +51,31 @@ impl FileLayout {
         self.append(&(Rc::clone(section_header_names_string_table) as Rc<dyn MagicPackable>));
     }
 
-    fn set_string_table(&self, string_table: &Rc<MagicStringTable>) {
+    fn set_string_table(&self, string_table: &Rc<NewStringTable>) {
         let mut strtab = self.string_table.borrow_mut();
         assert!(strtab.is_none(), "Cannot set string table twice");
         *strtab = Some(Rc::clone(string_table));
         self.append(&(Rc::clone(string_table) as Rc<dyn MagicPackable>));
     }
 
-    fn set_symbol_table(&self, symbol_table: &Rc<MagicSymbolTable>) {
+    fn set_symbol_table(&self, symbol_table: &Rc<NewSymbolTable>) {
         let mut symtab = self.symbol_table.borrow_mut();
         assert!(symtab.is_none(), "Cannot set symbol table twice");
         *symtab = Some(Rc::clone(symbol_table));
         self.append(&(Rc::clone(symbol_table) as Rc<dyn MagicPackable>));
     }
 
-    fn set_instructions(&self, instructions: &Rc<InstructionPacker>) {
-        let mut saved_instructions = self.instructions.borrow_mut();
-        assert!(saved_instructions.is_none(), "Cannot set instructions twice");
-        *saved_instructions = Some(Rc::clone(instructions));
-        self.append(&(Rc::clone(instructions) as Rc<dyn MagicPackable>));
+    fn set_main_contents_packer(&self, main_contents_packer: &Rc<MainContentsPacker>) {
+        let mut maybe_main_contents_packer = self.main_contents_packer.borrow_mut();
+        assert!(maybe_main_contents_packer.is_none(), "Cannot set main contents packer twice");
+        *maybe_main_contents_packer = Some(Rc::clone(main_contents_packer));
+    }
+
+    fn main_section_index(&self, section: BinarySection) -> usize {
+        match section {
+            BinarySection::Text => self.section_header_index(SectionHeaderType::TextSection),
+            BinarySection::ReadOnlyData => self.section_header_index(SectionHeaderType::ReadOnlyDataSection),
+        }
     }
 
     fn render(&self) -> Vec<u8> {
@@ -130,7 +97,33 @@ impl FileLayout {
 
             println!("Rendered {start:016x}..{end:016x}");
         }
+
+        let main_contents_ref = self.main_contents_packer.borrow();
+        let main_contents = main_contents_ref.as_ref().unwrap();
+        let mut rendered_main_contents = main_contents.render(self);
+        out.append(&mut rendered_main_contents);
+
         out
+    }
+
+    pub fn address_of_label(&self, label: &Label) -> usize {
+        let main_contents_ref = self.main_contents_packer.borrow();
+        let main_contents = main_contents_ref.as_ref().unwrap();
+        let end_of_packables = {
+            let contents = self.contents.borrow();
+            contents.iter().fold(0, |acc, p| acc + p.len())
+        };
+        (self.virtual_base as usize) + end_of_packables + main_contents.offset_of_label(label)
+    }
+
+    pub fn address_of_label_name(&self, label_name: &str) -> usize {
+        let main_contents_ref = self.main_contents_packer.borrow();
+        let main_contents = main_contents_ref.as_ref().unwrap();
+        let end_of_packables = {
+            let contents = self.contents.borrow();
+            contents.iter().fold(0, |acc, p| acc + p.len())
+        };
+        (self.virtual_base as usize) + end_of_packables + main_contents.offset_of_label_name(label_name)
     }
 
     fn append(&self, packable: &Rc<dyn MagicPackable>) {
@@ -154,15 +147,42 @@ impl FileLayout {
     // aren't called until everything is set up.
     // The string section won't know how big it is until we've registered all the section headers and data symbols
     fn static_start_of(&self, target: RebaseTarget) -> usize {
-        let mut cursor = 0;
-        let contents = self.contents.borrow();
-        for packable in contents.iter() {
-            if packable.struct_type() == target {
-                return cursor;
+        match target {
+            RebaseTarget::TextSegment | RebaseTarget::TextSection | RebaseTarget::ReadOnlyDataSection => {
+                // Add up the total header size
+                let contents = self.contents.borrow();
+                let total_header_len = contents.iter().fold(0, |acc, packable| acc + packable.len());
+                if target == RebaseTarget::TextSegment {
+                    total_header_len
+                } else {
+                    // Find the offset of the specified section
+                    let main_contents_ref = self.main_contents_packer.borrow();
+                    let main_contents = main_contents_ref.as_ref().unwrap();
+                    let translated_target = match target {
+                        RebaseTarget::TextSection => BinarySection::Text,
+                        RebaseTarget::ReadOnlyDataSection => BinarySection::ReadOnlyData,
+                        _ => panic!("Shouldn't happen"),
+                    };
+                    total_header_len + main_contents.offset_of_section_start(translated_target)
+                }
             }
-            cursor += packable.len();
+            RebaseTarget::ElfHeader
+            | RebaseTarget::ElfSegmentHeader
+            | RebaseTarget::ElfSectionHeader
+            | RebaseTarget::SymbolTableSection
+            | RebaseTarget::StringsTable
+            | RebaseTarget::SectionHeadersStringsTable => {
+                let mut cursor = 0;
+                let contents = self.contents.borrow();
+                for packable in contents.iter() {
+                    if packable.struct_type() == target {
+                        return cursor;
+                    }
+                    cursor += packable.len();
+                }
+                panic!("Failed to find a struct with the provided type {target:?}");
+            }
         }
-        panic!("Failed to find a struct with the provided type {target:?}");
     }
 
     fn static_start_of_packable(&self, target_packable: Rc<dyn MagicPackable>) -> usize {
@@ -177,9 +197,36 @@ impl FileLayout {
         panic!("Failed to find the provided packable");
     }
 
+    fn target_len(&self, target: RebaseTarget) -> usize {
+        match target {
+            RebaseTarget::TextSegment => {
+                // TODO(PT): This will need to change when we also have a .data segment
+                self.target_len(RebaseTarget::TextSection) + self.target_len(RebaseTarget::ReadOnlyDataSection)
+            }
+            RebaseTarget::TextSection | RebaseTarget::ReadOnlyDataSection => {
+                let main_contents_ref = self.main_contents_packer.borrow();
+                let main_contents = main_contents_ref.as_ref().unwrap();
+                let translated_target = match target {
+                    RebaseTarget::TextSection => BinarySection::Text,
+                    RebaseTarget::ReadOnlyDataSection => BinarySection::ReadOnlyData,
+                    _ => panic!("Shouldn't happen"),
+                };
+                main_contents.section_len(translated_target)
+            }
+            RebaseTarget::ElfHeader
+            | RebaseTarget::ElfSegmentHeader
+            | RebaseTarget::ElfSectionHeader
+            | RebaseTarget::SymbolTableSection
+            | RebaseTarget::StringsTable
+            | RebaseTarget::SectionHeadersStringsTable => {
+                let target_packable = self.get_target(target);
+                target_packable.len()
+            }
+        }
+    }
+
     fn static_end_of(&self, target: RebaseTarget) -> usize {
-        let target_packable = self.get_target(target);
-        self.static_start_of(target) + target_packable.len()
+        self.static_start_of(target) + self.target_len(target)
     }
 
     fn virt_start_of(&self, target: RebaseTarget) -> usize {
@@ -189,14 +236,13 @@ impl FileLayout {
     fn get_target(&self, target: RebaseTarget) -> Rc<dyn MagicPackable> {
         let contents = self.contents.borrow();
         let target_packables: Vec<&Rc<dyn MagicPackable>> = contents.iter().filter(|p| p.struct_type() == target).collect();
-        assert!(target_packables.len() == 1, "Expected exactly one struct with the provided type");
+        assert!(
+            target_packables.len() == 1,
+            "Expected exactly one struct with the provided type {target:?}, got {}",
+            target_packables.len()
+        );
         let target_packable = target_packables[0];
         Rc::clone(target_packable)
-    }
-
-    fn size_of(&self, target: RebaseTarget) -> usize {
-        let target_packable = self.get_target(target);
-        target_packable.len()
     }
 
     fn get_rebased_section_header_name_offset(&self, section_header: &dyn MagicSectionHeader) -> usize {
@@ -207,19 +253,11 @@ impl FileLayout {
         }
     }
 
-    fn get_rebased_symbol_name_offset(&self, symbol: &MagicElfSymbol64) -> usize {
+    fn get_rebased_string_offset_in_strtab(&self, symbol_name: &str) -> usize {
         let maybe_strtab = self.string_table.borrow();
         match &*maybe_strtab {
-            Some(strtab) => strtab.offset_of_name(&symbol.name),
+            Some(strtab) => strtab.offset_of_string(symbol_name),
             None => panic!("Expected a string table to be set up"),
-        }
-    }
-
-    fn get_rebased_symbol_owner_section_index(&self, symbol: &MagicElfSymbol64) -> usize {
-        match symbol.symbol_type {
-            SymbolType::Null => 0,
-            SymbolType::Data => self.section_header_index(SectionHeaderType::ReadOnlyDataSection),
-            SymbolType::_Code => self.section_header_index(SectionHeaderType::TextSection),
         }
     }
 
@@ -243,23 +281,7 @@ impl FileLayout {
     }
 
     fn virt_offset_within(&self, target: RebaseTarget, offset: usize) -> usize {
-        //println!("offset within {target:?} of {offset}");
         self.virt_start_of(target) + offset
-    }
-
-    fn instruction_address(&self, instruction_id: InstructionId) -> usize {
-        let maybe_instructions = self.instructions.borrow();
-        match &*maybe_instructions {
-            Some(instructions) => {
-                /*
-                let instruction_offset = instructions.offset_of_instruction(instruction_id);
-                let text_base = self.get_rebased_value(RebasedValue::VirtStartOf(RebaseTarget::TextSection));
-                text_base + instruction_offset
-                */
-                123
-            }
-            None => panic!("Expected instructions to be set up"),
-        }
     }
 
     pub fn get_rebased_value(&self, rebased_value: RebasedValue) -> usize {
@@ -270,7 +292,7 @@ impl FileLayout {
             RebasedValue::_VirtOffsetWithin(target, offset) => self.virt_offset_within(target, offset),
             RebasedValue::SectionHeaderIndex(section_header_type) => self.section_header_index(section_header_type),
             RebasedValue::SectionHeaderCount => self.section_headers.borrow().len(),
-            RebasedValue::SizeOf(target) => self.size_of(target),
+            RebasedValue::SizeOf(target) => self.target_len(target),
             RebasedValue::_SectionHeaderName => panic!("Use get_rebased_section_header_name_offset"),
             RebasedValue::Literal(value) => value,
             RebasedValue::VirtualBase => self.virtual_base.try_into().unwrap(),
@@ -285,50 +307,25 @@ impl FileLayout {
                 self.static_start_of_packable(first_segment_header)
             }
             RebasedValue::SegmentHeaderCount => self.segment_headers.borrow().len(),
-            RebasedValue::ReadOnlyDataSymbolVirtAddr(symbol_id) => self.read_only_data_symbol_virt_addr(symbol_id),
-            RebasedValue::_ReadOnlyDataSymbolVirtEnd(symbol_id) => self.read_only_data_symbol_virt_end(symbol_id),
-            RebasedValue::ReadOnlyDataSymbolValue(symbol_id) => self.read_only_data_symbol_value(symbol_id),
-            RebasedValue::InstructionAddress(instruction_id) => self.instruction_address(instruction_id),
         }
     }
 
-    pub fn get_symbol_id_for_symbol_name(&self, symbol_name: &str) -> SymbolId {
-        // PT: This abstraction only exists because keeping the symbol name as a String in RebasedValue
-        // would mean that RebasedValue can no longer be Copy.
-        let maybe_symbol_table = self.symbol_table.borrow();
-        let symbol_table = maybe_symbol_table.as_ref().unwrap();
-        symbol_table.id_of_symbol(symbol_name)
+    pub fn distance_between_atom_id_and_label_name(&self, atom_id: PotentialLabelTargetId, label_name: &str) -> isize {
+        let maybe_main_contents = self.main_contents_packer.borrow();
+        let main_contents = maybe_main_contents.as_ref().unwrap();
+        main_contents.distance_between_atom_id_and_label_name(atom_id, label_name)
     }
 
-    pub fn get_symbol_entry_type_for_symbol_name(&self, symbol_name: &str) -> SymbolEntryType {
-        let maybe_symbol_table = self.symbol_table.borrow();
-        let symbol_table = maybe_symbol_table.as_ref().unwrap();
-        symbol_table.type_of_symbol(symbol_name)
+    pub fn symbol_type(&self, symbol_name: &str) -> SymbolEntryType {
+        let maybe_main_contents = self.main_contents_packer.borrow();
+        let main_contents = maybe_main_contents.as_ref().unwrap();
+        main_contents.symbol_type(symbol_name)
     }
 
-    fn read_only_data_symbol_virt_addr(&self, symbol_id: SymbolId) -> usize {
-        let maybe_symbol_table = self.symbol_table.borrow();
-        let symbol_table = maybe_symbol_table.as_ref().unwrap();
-        let (offset, size, _symbol) = symbol_table.symbol_with_id(symbol_id);
-        //println!("size {size}");
-        assert!(size > 0, "Zero-sized symbols should not use this API");
-        self.virt_offset_within(RebaseTarget::ReadOnlyDataSection, offset)
-    }
-
-    fn read_only_data_symbol_virt_end(&self, symbol_id: SymbolId) -> usize {
-        let maybe_symbol_table = self.symbol_table.borrow();
-        let symbol_table = maybe_symbol_table.as_ref().unwrap();
-        let (offset, size, _symbol) = symbol_table.symbol_with_id(symbol_id);
-        assert!(size > 0, "Zero-sized symbols should not use this API");
-        self.virt_offset_within(RebaseTarget::ReadOnlyDataSection, offset) + size
-    }
-
-    fn read_only_data_symbol_value(&self, symbol_id: SymbolId) -> usize {
-        let maybe_symbol_table = self.symbol_table.borrow();
-        let symbol_table = maybe_symbol_table.as_ref().unwrap();
-        let (_offset, _size, symbol) = symbol_table.symbol_with_id(symbol_id);
-        let immediate_value = symbol.immediate_value.borrow();
-        immediate_value.unwrap() as _
+    pub fn value_of_symbol(&self, symbol_name: &str) -> usize {
+        let maybe_main_contents = self.main_contents_packer.borrow();
+        let main_contents = maybe_main_contents.as_ref().unwrap();
+        main_contents.value_of_symbol(symbol_name)
     }
 }
 
@@ -337,6 +334,7 @@ pub enum RebaseTarget {
     ElfHeader,
     ElfSegmentHeader,
     ElfSectionHeader,
+    TextSegment,
     TextSection,
     ReadOnlyDataSection,
     SymbolTableSection,
@@ -368,10 +366,6 @@ pub enum RebasedValue {
     SegmentHeaderCount,
     SectionHeadersHead,
     SectionHeaderCount,
-    ReadOnlyDataSymbolVirtAddr(SymbolId),
-    _ReadOnlyDataSymbolVirtEnd(SymbolId),
-    ReadOnlyDataSymbolValue(SymbolId),
-    InstructionAddress(InstructionId),
     // Only for MagicSectionHeader
     _SectionHeaderName,
 }
@@ -450,8 +444,8 @@ impl MagicSegmentHeader64 {
             RebasedValue::Literal(0),
             RebasedValue::VirtualBase,
             RebasedValue::VirtualBase,
-            RebasedValue::StaticEndOf(RebaseTarget::TextSection),
-            RebasedValue::StaticEndOf(RebaseTarget::TextSection),
+            RebasedValue::StaticEndOf(RebaseTarget::TextSegment),
+            RebasedValue::StaticEndOf(RebaseTarget::TextSegment),
             RebasedValue::Literal(0x200000),
         )
     }
@@ -706,15 +700,10 @@ impl MagicSectionHeaderNamesStringsTable {
 
 impl MagicPackable for MagicSectionHeaderNamesStringsTable {
     fn len(&self) -> usize {
-        //println!("Len {}", self.rendered_strings.borrow().len());
         self.rendered_strings.borrow().len()
     }
 
     fn prerender(&self, layout: &FileLayout) {
-        // Perhaps we need a .strings()
-        // For section headers it'd just be 1 string at index 0
-        // For symbols it'd be more
-        //println!("Inside prerender");
         let mut rendered_strings = self.rendered_strings.borrow_mut();
         let section_headers = layout.section_headers.borrow();
         for section_header in section_headers.iter() {
@@ -738,186 +727,305 @@ impl MagicPackable for MagicSectionHeaderNamesStringsTable {
 }
 
 #[derive(Debug)]
-struct MagicElfSymbol64 {
-    pub symbol_type: SymbolType,
-    pub name: String,
-    symbol_entry_type: SymbolEntryType,
-    symbol_id: SymbolId,
-}
-
-impl MagicElfSymbol64 {
-    fn new(symbol_type: SymbolType, name: &str, symbol_entry_type: SymbolEntryType, symbol_id: SymbolId) -> Self {
-        Self {
-            symbol_type,
-            name: name.to_string(),
-            symbol_entry_type,
-            symbol_id,
-        }
-    }
-}
-
-#[derive(Debug)]
 pub enum SymbolEntryType {
     SymbolWithBackingData,
     SymbolWithInlinedValue,
 }
 
-struct MagicSymbolTable {
-    data_packer: Rc<RefCell<DataPacker>>,
-    _instruction_packer: Rc<InstructionPacker>,
-    symbols: RefCell<Vec<MagicElfSymbol64>>,
+struct MainContentsPacker {
+    main_contents: MainContentsDescription,
 }
 
-impl MagicSymbolTable {
-    fn new(data_packer: &Rc<RefCell<DataPacker>>, instruction_packer: &Rc<InstructionPacker>) -> Self {
-        Self {
-            data_packer: Rc::clone(data_packer),
-            _instruction_packer: Rc::clone(instruction_packer),
-            symbols: RefCell::new(Vec::new()),
-        }
+impl MainContentsPacker {
+    fn new(main_contents: MainContentsDescription) -> Rc<Self> {
+        Rc::new(Self { main_contents })
     }
 
-    fn id_of_symbol(&self, symbol_name: &str) -> SymbolId {
-        let data_packer = self.data_packer.borrow();
-        for (i, (_, _, symbol)) in data_packer.symbols.iter().enumerate() {
-            if symbol.name == symbol_name {
-                return SymbolId(SymbolType::Data, i);
+    fn distance_between_atom_id_and_label_name(&self, atom_id: PotentialLabelTargetId, label_name: &str) -> isize {
+        self.main_contents.distance_between_atom_id_and_label_name(atom_id, label_name)
+    }
+
+    fn offset_of_label_name(&self, label_name: &str) -> usize {
+        self.main_contents.offset_of_label_name(label_name)
+    }
+
+    fn offset_of_label(&self, label: &Label) -> usize {
+        self.main_contents.offset_of_label(label)
+    }
+
+    fn offset_of_section_start(&self, section: BinarySection) -> usize {
+        let mut offset = 0;
+        for atom in self.main_contents.atoms.0.iter() {
+            if atom.container_section() == section {
+                return offset;
             }
+            offset += atom.len();
         }
-        panic!("Failed to find symbol with name {symbol_name}");
+        panic!("Failed to find section {section}")
     }
 
-    fn symbol_with_id(&self, symbol_id: SymbolId) -> (SymbolOffset, SymbolSize, Rc<DataSymbol>) {
-        // TODO(PT): Perhaps, in the future, the SymbolId can carry the source section of the symbol
-        let data_packer = self.data_packer.borrow();
-        match symbol_id.0 {
-            SymbolType::Null => panic!("null symbol {symbol_id:?}"),
-            SymbolType::Data => {
-                let (offset, size, sym) = &data_packer.symbols[symbol_id.1];
-                (*offset, *size, Rc::clone(sym))
+    fn section_len(&self, section: BinarySection) -> usize {
+        let mut len = 0;
+        for atom in self.main_contents.atoms.0.iter() {
+            // Traverse to the first atom of the section
+            if atom.container_section() != section {
+                continue;
             }
-            SymbolType::_Code => todo!(),
+            len += atom.len();
         }
+        len
     }
 
-    fn type_of_symbol(&self, symbol_name: &str) -> SymbolEntryType {
-        let (_, size, _symbol) = self.symbol_with_id(self.id_of_symbol(symbol_name));
-        match size {
-            0 => SymbolEntryType::SymbolWithInlinedValue,
-            _ => SymbolEntryType::SymbolWithBackingData,
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        let mut out = vec![];
+        for atom in self.main_contents.atoms.0.iter() {
+            let mut rendered_atom = atom.render(layout);
+            // Sanity check
+            assert_eq!(rendered_atom.len(), atom.len(), "Rendered atom was a different length from what it claimed");
+            out.append(&mut rendered_atom)
         }
+        out
+    }
+
+    fn symbol_type(&self, symbol_name: &str) -> SymbolEntryType {
+        self.main_contents.symbol_type(symbol_name)
+    }
+
+    fn value_of_symbol(&self, symbol_name: &str) -> usize {
+        self.main_contents.value_of_symbol_name(symbol_name)
     }
 }
 
-impl MagicPackable for MagicSymbolTable {
+struct NewSymbolTable {
+    main_contents: MainContentsDescription,
+}
+
+impl NewSymbolTable {
+    fn new(main_contents: MainContentsDescription) -> Self {
+        Self { main_contents }
+    }
+}
+
+impl MagicPackable for NewSymbolTable {
     fn len(&self) -> usize {
-        self.symbols.borrow().len() * mem::size_of::<ElfSymbol64>()
+        // Add one for the null symbol
+        let symbol_count = 1 + (self.main_contents.labels.0.len() + self.main_contents.equ_expressions.0.len());
+        symbol_count * mem::size_of::<ElfSymbol64>()
     }
 
     fn struct_type(&self) -> RebaseTarget {
         RebaseTarget::SymbolTableSection
     }
 
-    fn prerender(&self, layout: &FileLayout) {
-        //println!("Pre-rendering symbol table!");
-        let data_packer = self.data_packer.borrow();
-        let mut symbols = self.symbols.borrow_mut();
-
-        // Write the null symbol
-        symbols.push(MagicElfSymbol64::new(
-            SymbolType::Null,
-            "",
-            SymbolEntryType::SymbolWithBackingData,
-            SymbolId::null_id(),
-        ));
-
-        for (_, _, data_symbol) in data_packer.symbols.iter() {
-            let symbol_entry_type = layout.get_symbol_entry_type_for_symbol_name(&data_symbol.name);
-            let symbol_id = layout.get_symbol_id_for_symbol_name(&data_symbol.name);
-            symbols.push(MagicElfSymbol64::new(SymbolType::Data, &data_symbol.name, symbol_entry_type, symbol_id));
-        }
-    }
+    fn prerender(&self, _layout: &FileLayout) {}
 
     fn render(&self, layout: &FileLayout) -> Vec<u8> {
-        //println!("Rendering symbol table");
         let mut out = vec![];
-        let symbols = self.symbols.borrow();
-        for symbol in symbols.iter() {
+
+        // Render the null symbol
+        let null_symbol = ElfSymbol64 {
+            // The NULL symbol will always take the first byte of the string table,
+            // so it's fine to hard-code this
+            name: 0,
+            info: 0,
+            other: 0,
+            owner_section_index: 0,
+            value: 0,
+            size: 0,
+        };
+        let mut null_symbol_bytes = unsafe { any_as_u8_slice(&null_symbol) }.to_owned();
+        out.append(&mut null_symbol_bytes);
+
+        for label in self.main_contents.labels.0.iter() {
+            let maybe_data_unit = label.data_unit.borrow();
+            let data_unit = maybe_data_unit.as_ref().unwrap();
+            let container_section = data_unit.container_section();
+            let container_section_idx = layout.main_section_index(container_section);
+
             let rendered_symbol = ElfSymbol64 {
-                name: layout.get_rebased_symbol_name_offset(symbol) as _,
+                name: layout.get_rebased_string_offset_in_strtab(&label.name) as _,
                 info: 0,
                 other: 0,
-                owner_section_index: match symbol.symbol_entry_type {
-                    SymbolEntryType::SymbolWithBackingData => layout.get_rebased_symbol_owner_section_index(symbol) as _,
-                    // Defined by the ELF spec
-                    SymbolEntryType::SymbolWithInlinedValue => 0xfff1,
-                },
-                value: match symbol.symbol_type {
-                    SymbolType::Data => layout.read_only_data_symbol_value(symbol.symbol_id) as _,
-                    SymbolType::Null => 0,
-                    _ => todo!(),
-                },
+                owner_section_index: container_section_idx as _,
+                value: layout.address_of_label(label) as _,
                 size: 0,
             };
             let mut rendered_symbol_bytes = unsafe { any_as_u8_slice(&rendered_symbol) }.to_owned();
             out.append(&mut rendered_symbol_bytes);
         }
+
+        for equ_expr in self.main_contents.equ_expressions.0.iter() {
+            // We need the previous atom to compute the current offset
+            let rendered_symbol = ElfSymbol64 {
+                name: layout.get_rebased_string_offset_in_strtab(&equ_expr.name) as _,
+                info: 0,
+                other: 0,
+                // Special section for 'absolute' symbols defined by the ELF spec
+                owner_section_index: 0xfff1,
+                value: self.main_contents.evaluate_equ(equ_expr) as _,
+                size: 0,
+            };
+            let mut rendered_symbol_bytes = unsafe { any_as_u8_slice(&rendered_symbol) }.to_owned();
+            out.append(&mut rendered_symbol_bytes);
+        }
+
         out
     }
 }
 
-pub struct MagicStringTable {
-    names_lookup: RefCell<BTreeMap<String, usize>>,
-    rendered_strings: RefCell<Vec<u8>>,
+pub struct NewStringTable {
+    rendered_strings: Vec<u8>,
+    name_to_offset_lookup: BTreeMap<String, usize>,
 }
 
-impl MagicStringTable {
-    pub fn new() -> Self {
-        Self {
-            names_lookup: RefCell::new(BTreeMap::new()),
-            rendered_strings: RefCell::new(Vec::new()),
-        }
-    }
+impl NewStringTable {
+    pub fn new(main_contents: MainContentsDescription) -> Rc<Self> {
+        let mut rendered_strings = vec![];
+        let mut name_to_offset_lookup = BTreeMap::new();
 
-    pub fn offset_of_name(&self, name: &str) -> usize {
-        *self.names_lookup.borrow().get(name).unwrap()
-    }
-}
+        // Render the null string
+        rendered_strings.push(0x00);
 
-impl MagicPackable for MagicStringTable {
-    fn len(&self) -> usize {
-        //println!("Len of string table {}", self.rendered_strings.borrow().len());
-        self.rendered_strings.borrow().len()
-    }
-
-    fn prerender(&self, layout: &FileLayout) {
-        //println!("Inside prerender for string table");
-        let mut rendered_strings = self.rendered_strings.borrow_mut();
-        let maybe_symbol_table = layout.symbol_table.borrow();
-        let symbol_table = maybe_symbol_table.as_ref().unwrap();
-        let symbols = symbol_table.symbols.borrow();
-        for symbol in symbols.iter() {
-            let symbol_name = symbol.name.to_string();
-            let symbol_name_copy = symbol_name.to_string();
-            let symbol_name_start = rendered_strings.len();
-            println!("\t{symbol_name} in strtab @ {symbol_name_start:x}");
-            let symbol_name_c_str = CString::new(symbol_name).unwrap();
+        for label in main_contents.labels.0.iter() {
+            let symbol_name = label.name.to_string();
+            let symbol_name_c_str = CString::new(symbol_name.clone()).unwrap();
             let mut symbol_name_bytes = symbol_name_c_str.into_bytes_with_nul();
-            self.names_lookup.borrow_mut().insert(symbol_name_copy, symbol_name_start);
+            name_to_offset_lookup.insert(symbol_name, rendered_strings.len());
             rendered_strings.append(&mut symbol_name_bytes);
         }
+        for equ_expr in main_contents.equ_expressions.0.iter() {
+            let equ_name = equ_expr.name.to_string();
+            let equ_name_c_str = CString::new(equ_name.clone()).unwrap();
+            let mut equ_name_bytes = equ_name_c_str.into_bytes_with_nul();
+            name_to_offset_lookup.insert(equ_name, rendered_strings.len());
+            rendered_strings.append(&mut equ_name_bytes);
+        }
+        Rc::new(Self {
+            rendered_strings,
+            name_to_offset_lookup,
+        })
     }
 
-    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
-        self.rendered_strings.borrow().clone()
+    fn offset_of_string(&self, string: &str) -> usize {
+        *self.name_to_offset_lookup.get(string).unwrap()
+    }
+}
+
+impl MagicPackable for NewStringTable {
+    fn len(&self) -> usize {
+        self.rendered_strings.len()
     }
 
     fn struct_type(&self) -> RebaseTarget {
         RebaseTarget::StringsTable
     }
+
+    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
+        self.rendered_strings.clone()
+    }
 }
 
-pub fn render_elf(layout: &FileLayout, data_packer: &Rc<RefCell<DataPacker>>, instruction_packer: &Rc<InstructionPacker>) -> Vec<u8> {
+#[derive(Clone)]
+pub struct MainContentsDescription {
+    labels: Labels,
+    equ_expressions: EquExpressions,
+    atoms: PotentialLabelTargets,
+}
+
+impl MainContentsDescription {
+    fn new(labels: Labels, equ_expressions: EquExpressions, atoms: PotentialLabelTargets) -> Self {
+        Self {
+            labels,
+            equ_expressions,
+            atoms,
+        }
+    }
+
+    pub fn symbol_type(&self, symbol_name: &str) -> SymbolEntryType {
+        for label in self.labels.0.iter() {
+            if label.name == symbol_name {
+                return SymbolEntryType::SymbolWithBackingData;
+            }
+        }
+        for equ_expr in self.equ_expressions.0.iter() {
+            if equ_expr.name == symbol_name {
+                return SymbolEntryType::SymbolWithInlinedValue;
+            }
+        }
+        panic!("Failed to find symbol named {symbol_name}");
+    }
+
+    pub fn offset_of_atom_id(&self, atom_id: PotentialLabelTargetId) -> usize {
+        let mut offset = 0;
+        for a in self.atoms.0.iter() {
+            if a.id() == atom_id {
+                return offset;
+            }
+            offset += a.len();
+        }
+        panic!("Failed to find atom with ID {atom_id}");
+    }
+
+    fn distance_between_atom_id_and_label_name(&self, atom_id: PotentialLabelTargetId, label_name: &str) -> isize {
+        // TODO(PT): Disallow this for .equ? Check whether jmp can target an .equ label (probably not!)
+        let offset_of_label = self.offset_of_label_name(label_name);
+        let offset_of_atom = self.offset_of_atom_id(atom_id);
+        (offset_of_label as isize) - (offset_of_atom as isize)
+    }
+
+    fn offset_of_label(&self, label: &Label) -> usize {
+        // There is a label with this name
+        let maybe_label_atom = label.data_unit.borrow();
+        let label_atom = maybe_label_atom.as_ref().unwrap();
+        let mut offset = 0;
+        for atom in self.atoms.0.iter() {
+            if Rc::ptr_eq(atom, label_atom) {
+                return offset;
+            }
+            offset += atom.len();
+        }
+        panic!("Failed to find atom attached to label");
+    }
+
+    fn offset_of_label_name(&self, label_name: &str) -> usize {
+        let label = self.labels.0.iter().find(|label| label.name == label_name);
+        if let Some(label) = label {
+            return self.offset_of_label(label);
+        }
+        panic!("Failed to find a label named {label_name}");
+    }
+
+    pub fn evaluate_equ(&self, equ_expression: &EquExpression) -> usize {
+        let maybe_previous_atom = equ_expression.previous_data_unit.borrow();
+        let previous_atom = maybe_previous_atom.as_ref().unwrap();
+        let get_op_value = move |op: &SymbolExpressionOperand| match op {
+            SymbolExpressionOperand::OutputCursor => self.offset_of_atom_id(previous_atom.id()) + previous_atom.len(),
+            SymbolExpressionOperand::StartOfSymbol(label_name) => self.offset_of_label_name(label_name),
+        };
+
+        let value = match &equ_expression.expression {
+            Expression::Subtract(op1, op2) => get_op_value(op1) - get_op_value(op2),
+        };
+        value
+    }
+
+    pub fn value_of_symbol_name(&self, label_name: &str) -> usize {
+        let label = self.labels.0.iter().find(|label| label.name == label_name);
+        if let Some(label) = label {
+            return self.offset_of_label(label);
+        } else {
+            // Search for an .equ statement with this name
+            let equ_expression = self.equ_expressions.0.iter().find(|equ| equ.name == label_name).unwrap();
+            return self.evaluate_equ(&equ_expression);
+        }
+    }
+}
+
+pub fn render_elf(layout: &FileLayout, labels: Labels, equ_expressions: EquExpressions, atoms: PotentialLabelTargets) -> Vec<u8> {
+    let main_contents_desc = MainContentsDescription::new(labels.clone(), equ_expressions.clone(), atoms.clone());
+    let main_contents = MainContentsPacker::new(main_contents_desc.clone());
+    layout.set_main_contents_packer(&main_contents);
+
     // File header
     layout.append(&(Rc::new(MagicElfHeader64::new()) as Rc<dyn MagicPackable>));
 
@@ -930,40 +1038,29 @@ pub fn render_elf(layout: &FileLayout, data_packer: &Rc<RefCell<DataPacker>>, in
     layout.append_section_header(Rc::new(MagicElfSection64::section_header_names_section_header()) as Rc<dyn MagicSectionHeader>);
     layout.append_section_header(Rc::new(MagicElfSection64::symbol_table_section_header()) as Rc<dyn MagicSectionHeader>);
     layout.append_section_header(Rc::new(MagicElfSection64::string_table_section_header()) as Rc<dyn MagicSectionHeader>);
-    layout.append_section_header(Rc::new(MagicElfSection64::read_only_data_section_header()) as Rc<dyn MagicSectionHeader>);
+
+    // Only add a section header for .rodata if the assembled code requires one
+    let needs_rodata = {
+        let mut contains_rodata = false;
+        for atom in atoms.0.iter() {
+            if atom.container_section() == BinarySection::ReadOnlyData {
+                contains_rodata = true;
+                break;
+            }
+        }
+        contains_rodata
+    };
+    if needs_rodata {
+        layout.append_section_header(Rc::new(MagicElfSection64::read_only_data_section_header()) as Rc<dyn MagicSectionHeader>);
+    }
     layout.set_section_header_names_string_table(&Rc::new(MagicSectionHeaderNamesStringsTable::new()));
 
     // Symbols
-    layout.set_symbol_table(&Rc::new(MagicSymbolTable::new(data_packer, instruction_packer)));
-    // TODO(PT): prerender() might not be the right API:
-    // it doesn't solve that the string table needs to be appended after the symbol table.
-    // Otherwise, StringTable.prerender() will be called before SymbolTable.prerender(), and the string table
-    // will render no strings.
-    // Maybe we could have a Packable.requires_rendered(Vec<RebaseTarget>) API that then does the solving to figure
-    // out the render order.
-    layout.set_string_table(&Rc::new(MagicStringTable::new()));
+    layout.set_symbol_table(&Rc::new(NewSymbolTable::new(main_contents_desc.clone())));
+    layout.set_string_table(&NewStringTable::new(main_contents_desc.clone()));
 
-    // Read-only data
-    // TODO(PT): Similarly, instructions reference things in read-only data, which can cause a call to instructions.len()
-    // during instruction rendering (crash due to borrowing im/mutable access to instructions at the same time).
-    // Placing ROData prior to instructions means that when resolving pointers to ROData, we won't call instructions.len()
-    layout.append(&(Rc::new(ReadOnlyData::new(data_packer)) as Rc<dyn MagicPackable>));
-    // Instructions
-    //layout.append(&(Rc::clone(instruction_packer) as Rc<dyn MagicPackable>));
-    layout.set_instructions(&Rc::clone(instruction_packer));
-
-    /*
-    Instructions
-    Label1:
-    Mov
-    Label2:
-    Jmp Label2
-
-    Data:
-
-    // Can't render instructions until we have all the symbol addresses resolved
-    // But maybe we *can* resolve instructions that only need .rodata symbols?
-    */
+    // TODO(PT): Might need an OwnerSegment for each section
+    // This will allow us to construct the proper load commands/proper sizes
 
     layout.render()
 }

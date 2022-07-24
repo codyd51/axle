@@ -2,10 +2,9 @@ use core::{cell::RefCell, fmt::Display, mem};
 
 use crate::{
     assembly_lexer::{AssemblyLexer, Token},
-    assembly_packer::{DataSource, Instruction, Interrupt, Jump, JumpTarget, MoveValueToRegister, PotentialLabelTarget, Register},
-    new_try::SectionHeaderType,
+    assembly_packer::{DataSource, Interrupt, Jump, JumpTarget, MoveValueToRegister, PotentialLabelTarget, Register},
     print, println,
-    symbols::{ConstantData, DataSymbol, SymbolData, SymbolExpressionOperand},
+    symbols::{ConstantData, SymbolData, SymbolExpressionOperand},
 };
 use alloc::{fmt::Debug, rc::Rc, string::ToString, vec::Vec};
 use alloc::{string::String, vec};
@@ -327,109 +326,9 @@ impl AssemblyParser {
         }
     }
 
-    pub fn parse_old(&mut self) -> (Vec<Rc<DataSymbol>>, Vec<Rc<dyn Instruction>>) {
-        //println!("[### Parsing ###]");
-        //self.debug_parse();
-        // Now, reset state and do the real parse
-        self.lexer.reset();
-
-        let mut instructions = vec![];
-        let mut data_symbols = vec![];
-
-        let mut current_section = BinarySection::Text;
-        let mut current_label = None;
-        loop {
-            let mut should_clear_current_label = true;
-            if let Some(statement) = self.parse_statement() {
-                match statement {
-                    AssemblyStatement::SetCurrentSection(name) => {
-                        match name.as_str() {
-                            "text" => current_section = BinarySection::Text,
-                            "rodata" => current_section = BinarySection::ReadOnlyData,
-                            _ => panic!("Unknown name {name}"),
-                        };
-                    }
-                    AssemblyStatement::Label(name) => {
-                        current_label = Some(name.clone());
-                        // Don't clear the label until after the next statement
-                        should_clear_current_label = false;
-                    }
-                    AssemblyStatement::Ascii(text) => {
-                        assert_eq!(current_section, BinarySection::ReadOnlyData);
-                        // TODO(PT): It should be possible to define .ascii without a directly preceding label
-                        // TODO(PT): Should *every* statement type check for a current_label: and assign it? Perhaps!
-                        assert!(current_label.is_some());
-                        let label_name = current_label.as_ref().unwrap();
-                        data_symbols.push(Rc::new(DataSymbol::new(
-                            label_name,
-                            SymbolData::LiteralData(CString::new(text.clone()).unwrap().into_bytes_with_nul()),
-                        )));
-                    }
-                    AssemblyStatement::Equ(label_name, expression) => {
-                        assert_eq!(current_section, BinarySection::ReadOnlyData);
-                        match expression {
-                            Expression::Subtract(op1, op2) => {
-                                data_symbols.push(Rc::new(DataSymbol::new(&label_name, SymbolData::Subtract((op1, op2)))));
-                            }
-                        };
-                    }
-                    AssemblyStatement::LiteralWord(immediate) => {
-                        //assert_eq!(current_section, BinarySection::ReadOnlyData);
-                        // TODO(PT): It should be possible to define .word without a directly preceding label
-                        //assert!(current_label.is_some());
-                        let label_name = current_label.as_ref().unwrap();
-                        // Make sure this is exactly 4 bytes
-                        let mut word_bytes = immediate.to_le_bytes().to_vec();
-                        word_bytes.resize(mem::size_of::<u32>(), 0);
-                        //data_symbols.push(Rc::new(DataSymbol::new(label_name, SymbolData::LiteralData(word_bytes))));
-                    }
-                    AssemblyStatement::MoveImmediateIntoRegister(immediate, register) => {
-                        // TODO(PT): Consider lifting this restriction
-                        // (Placing ascii data in .text is perfectly allowed by GAS, for example)
-                        assert_eq!(current_section, BinarySection::Text);
-                        instructions.push(Rc::new(MoveValueToRegister::new(register, DataSource::Literal(immediate))) as Rc<dyn Instruction>);
-                    }
-                    AssemblyStatement::MoveSymbolIntoRegister(symbol_name, register) => {
-                        assert_eq!(current_section, BinarySection::Text);
-                        instructions.push(Rc::new(MoveValueToRegister::new(register, DataSource::NamedDataSymbol(symbol_name.clone()))) as Rc<dyn Instruction>);
-                    }
-                    AssemblyStatement::MoveRegisterIntoRegister(source_register, register) => {
-                        assert_eq!(current_section, BinarySection::Text);
-                        instructions.push(Rc::new(MoveValueToRegister::new(register, DataSource::RegisterContents(source_register))) as Rc<dyn Instruction>);
-                    }
-                    AssemblyStatement::Interrupt(vector) => {
-                        assert_eq!(current_section, BinarySection::Text);
-                        instructions.push(Rc::new(Interrupt::new(vector)));
-                    }
-                    AssemblyStatement::Jump(label_name) => {
-                        let instruction = Rc::new(Jump::new(JumpTarget::Label(label_name)));
-                        instructions.push(Rc::clone(&instruction) as Rc<dyn Instruction>);
-                        if let Some(label_name) = &current_label {
-                            data_symbols.push(Rc::new(DataSymbol::new(
-                                label_name,
-                                //SymbolData::LiteralData(CString::new(text.clone()).unwrap().into_bytes_with_nul()),
-                                //SymbolData::InstructionAddress(Rc::clone(&instruction)),
-                                //SymbolData::InstructionAddress(instruction.id()),
-                                SymbolData::InstructionAddress(instruction.id()),
-                            )));
-                        }
-                    }
-                }
-
-                // Erase the 'current label' as it should only apply to the statement directly after a label
-                if should_clear_current_label {
-                    current_label = None;
-                }
-            } else {
-                break;
-            }
-        }
-        (data_symbols, instructions)
-    }
-
     pub fn parse(&mut self) -> (Labels, EquExpressions, PotentialLabelTargets) {
         println!("[### Parsing ###]");
-        //self.debug_parse();
+        self.debug_parse();
         // Now, reset state and do the real parse
         self.lexer.reset();
 
@@ -438,8 +337,8 @@ impl AssemblyParser {
         let mut equ_expressions = vec![];
 
         let mut current_section = BinarySection::Text;
-        let mut maybe_current_label: RefCell<Option<Label>> = RefCell::new(None);
-        let mut previous_atom: RefCell<Option<Rc<dyn PotentialLabelTarget>>> = RefCell::new(None);
+        let maybe_current_label: RefCell<Option<Label>> = RefCell::new(None);
+        let previous_atom: RefCell<Option<Rc<dyn PotentialLabelTarget>>> = RefCell::new(None);
 
         let mut append_data_unit = |data_unit| {
             let mut maybe_current_label = maybe_current_label.borrow_mut();
