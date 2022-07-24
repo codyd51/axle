@@ -1,14 +1,16 @@
 use alloc::{
     borrow::ToOwned,
-    rc::Rc,
     string::{String, ToString},
     vec::Vec,
 };
 use core::{cell::RefCell, fmt::Display};
 
-use crate::println;
 use crate::{
-    assembly_packer::Instruction,
+    assembly_packer::{next_atom_id, PotentialLabelTarget, PotentialLabelTargetId},
+    println,
+};
+use crate::{
+    assembly_parser::BinarySection,
     new_try::{FileLayout, RebaseTarget, RebasedValue},
 };
 
@@ -27,10 +29,19 @@ pub enum SymbolType {
     _Code,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum SymbolExpressionOperand {
     OutputCursor,
     StartOfSymbol(String),
+}
+
+impl Display for SymbolExpressionOperand {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            SymbolExpressionOperand::OutputCursor => write!(f, "Op(.)"),
+            SymbolExpressionOperand::StartOfSymbol(sym_name) => write!(f, "Op(SymStart(\"{}\"))", sym_name),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Copy, Clone, Eq, PartialOrd, Ord)]
@@ -46,7 +57,7 @@ impl Display for InstructionId {
 pub enum SymbolData {
     LiteralData(Vec<u8>),
     Subtract((SymbolExpressionOperand, SymbolExpressionOperand)),
-    InstructionAddress(InstructionId),
+    InstructionAddress(PotentialLabelTargetId),
 }
 
 impl SymbolData {
@@ -66,6 +77,60 @@ impl SymbolData {
             SymbolData::Subtract(_) => panic!("Unexpected"),
             SymbolData::InstructionAddress(_) => panic!("Unexpected"),
         }
+    }
+}
+
+// TODO(PT): Delete DataSymbol in favor of ConstantData
+#[derive(Debug, PartialEq)]
+pub struct ConstantData {
+    id: PotentialLabelTargetId,
+    container_section: BinarySection,
+    pub inner: SymbolData,
+    pub immediate_value: RefCell<Option<u64>>,
+}
+
+impl ConstantData {
+    pub fn new(container_section: BinarySection, inner: SymbolData) -> Self {
+        Self {
+            id: next_atom_id(),
+            container_section,
+            inner,
+            immediate_value: RefCell::new(None),
+        }
+    }
+
+    fn set_immediate_value(&self, value: u64) {
+        let mut immediate_value = self.immediate_value.borrow_mut();
+        *immediate_value = Some(value);
+    }
+}
+
+impl Display for ConstantData {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("<ConstantData "))?;
+        match &self.inner {
+            SymbolData::LiteralData(data) => f.write_fmt(format_args!(" (literal, {} bytes)>", data.len())),
+            SymbolData::Subtract((op1, op2)) => f.write_fmt(format_args!(" (subtraction, {:?} - {:?})>", op1, op2)),
+            SymbolData::InstructionAddress(instruction_id) => f.write_fmt(format_args!(" (instruction #{instruction_id}")),
+        }
+    }
+}
+
+impl PotentialLabelTarget for ConstantData {
+    fn container_section(&self) -> crate::assembly_parser::BinarySection {
+        self.container_section
+    }
+
+    fn len(&self) -> usize {
+        self.inner.len()
+    }
+
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        self.inner.to_bytes()
+    }
+
+    fn id(&self) -> crate::assembly_packer::PotentialLabelTargetId {
+        self.id
     }
 }
 
