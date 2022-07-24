@@ -1,6 +1,10 @@
 use alloc::{borrow::ToOwned, boxed::Box, rc::Rc, string::String, vec};
 use alloc::{collections::BTreeMap, vec::Vec};
-use core::{cell::RefCell, fmt::Display};
+use core::{
+    cell::RefCell,
+    fmt::{Debug, Display},
+    mem,
+};
 
 #[cfg(feature = "run_in_axle")]
 use axle_rt::{print, println};
@@ -9,9 +13,9 @@ use std::{print, println};
 
 use crate::{
     assembly_lexer::AssemblyLexer,
-    assembly_parser::AssemblyParser,
+    assembly_parser::{AssemblyParser, BinarySection, EquExpressions, Labels, PotentialLabelTargets},
     new_try::{FileLayout, MagicPackable, RebaseTarget, RebasedValue, SymbolEntryType},
-    symbols::{DataSymbol, InstructionId},
+    symbols::DataSymbol,
 };
 
 enum RexPrefixOption {
@@ -97,18 +101,18 @@ pub enum DataSource {
     Subtraction(Box<DataSource>, Box<DataSource>),
 }
 
-static mut NEXT_INSTRUCTION_ID: usize = 0;
+static mut NEXT_ATOM_ID: usize = 0;
 
-fn next_instruction_id() -> InstructionId {
+pub fn next_atom_id() -> PotentialLabelTargetId {
     unsafe {
-        let ret = NEXT_INSTRUCTION_ID;
-        NEXT_INSTRUCTION_ID += 1;
-        InstructionId(ret)
+        let ret = NEXT_ATOM_ID;
+        NEXT_ATOM_ID += 1;
+        PotentialLabelTargetId(ret)
     }
 }
 
 pub struct MoveValueToRegister {
-    id: InstructionId,
+    id: PotentialLabelTargetId,
     dest_register: Register,
     source: DataSource,
 }
@@ -116,7 +120,7 @@ pub struct MoveValueToRegister {
 impl MoveValueToRegister {
     pub fn new(dest_register: Register, source: DataSource) -> Self {
         Self {
-            id: next_instruction_id(),
+            id: next_atom_id(),
             dest_register,
             source,
         }
@@ -124,10 +128,6 @@ impl MoveValueToRegister {
 }
 
 impl Instruction for MoveValueToRegister {
-    fn id(&self) -> InstructionId {
-        self.id
-    }
-
     fn render(&self, layout: &FileLayout) -> Vec<u8> {
         // REX prefix
         let mut out = vec![RexPrefix::for_64bit_operand()];
@@ -140,13 +140,10 @@ impl Instruction for MoveValueToRegister {
             let value: u32 = match &self.source {
                 DataSource::Literal(value) => *value as _,
                 DataSource::NamedDataSymbol(symbol_name) => {
-                    //println!("handling named symbol {symbol_name}");
-                    let symbol_id = layout.get_symbol_id_for_symbol_name(symbol_name);
-                    let symbol_type = layout.get_symbol_entry_type_for_symbol_name(symbol_name);
-                    match symbol_type {
-                        SymbolEntryType::SymbolWithBackingData => layout.get_rebased_value(RebasedValue::ReadOnlyDataSymbolVirtAddr(symbol_id)) as _,
-                        SymbolEntryType::SymbolWithInlinedValue => layout.get_rebased_value(RebasedValue::ReadOnlyDataSymbolValue(symbol_id)) as _,
-                    }
+                    (match layout.symbol_type(symbol_name) {
+                        SymbolEntryType::SymbolWithBackingData => layout.address_of_label_name(symbol_name),
+                        SymbolEntryType::SymbolWithInlinedValue => layout.value_of_symbol(symbol_name),
+                    }) as _
                 }
                 _ => panic!("Unexpected"),
             };
@@ -163,6 +160,29 @@ impl Instruction for MoveValueToRegister {
     }
 }
 
+impl PotentialLabelTarget for MoveValueToRegister {
+    fn container_section(&self) -> BinarySection {
+        BinarySection::Text
+    }
+
+    fn len(&self) -> usize {
+        match self.source {
+            DataSource::RegisterContents(_) => 3,
+            DataSource::Literal(_) | DataSource::NamedDataSymbol(_) | DataSource::OutputCursor | DataSource::Subtraction(_, _) => 7,
+        }
+        // We might have an intermediate stage that selects a more specific variant, if for example
+        // we can see the jump target is only 4 atoms away
+    }
+
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        Instruction::render(self, layout)
+    }
+
+    fn id(&self) -> PotentialLabelTargetId {
+        self.id
+    }
+}
+
 impl Display for MoveValueToRegister {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_fmt(format_args!("mov {:?}, {:?}", self.dest_register, self.source))
@@ -170,24 +190,17 @@ impl Display for MoveValueToRegister {
 }
 
 pub struct Interrupt {
-    id: InstructionId,
+    id: PotentialLabelTargetId,
     vector: u8,
 }
 
 impl Interrupt {
     pub fn new(vector: u8) -> Self {
-        Self {
-            id: next_instruction_id(),
-            vector,
-        }
+        Self { id: next_atom_id(), vector }
     }
 }
 
 impl Instruction for Interrupt {
-    fn id(&self) -> InstructionId {
-        self.id
-    }
-
     fn render(&self, _layout: &FileLayout) -> Vec<u8> {
         vec![
             // INT opcode
@@ -195,6 +208,24 @@ impl Instruction for Interrupt {
             // INT vector
             self.vector,
         ]
+    }
+}
+
+impl PotentialLabelTarget for Interrupt {
+    fn container_section(&self) -> BinarySection {
+        BinarySection::Text
+    }
+
+    fn len(&self) -> usize {
+        2
+    }
+
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        Instruction::render(self, layout)
+    }
+
+    fn id(&self) -> PotentialLabelTargetId {
+        self.id
     }
 }
 
@@ -210,46 +241,52 @@ pub enum JumpTarget {
 }
 
 pub struct Jump {
-    id: InstructionId,
+    id: PotentialLabelTargetId,
     target: JumpTarget,
 }
 
 impl Jump {
     pub fn new(target: JumpTarget) -> Self {
-        Self {
-            id: next_instruction_id(),
-            target,
-        }
+        Self { id: next_atom_id(), target }
     }
 }
 
 impl Instruction for Jump {
-    fn id(&self) -> InstructionId {
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        let mut out: Vec<u8> = vec![];
+        if let JumpTarget::Label(label_name) = &self.target {
+            // TODO(PT): Look for opportunities to use a JMP variant with a smaller encoded size
+            // (i.e. if the named symbols is close by, use the JMP reloff8 variant)
+            // This would require us to vary self.len()
+            println!("Assembling {self}");
+            // JMP rel32off
+            let distance_to_target = layout.distance_between_atom_id_and_label_name(PotentialLabelTarget::id(self), label_name) - (self.len() as isize);
+            let distance_to_target: i32 = distance_to_target.try_into().unwrap();
+            out.push(0xe9);
+            let mut distance_as_bytes = distance_to_target.to_le_bytes().to_vec();
+            assert!(distance_as_bytes.len() <= mem::size_of::<u32>(), "Must fit in a u32");
+            distance_as_bytes.resize(mem::size_of::<u32>(), 0);
+            out.append(&mut distance_as_bytes);
+        }
+        out
+    }
+}
+
+impl PotentialLabelTarget for Jump {
+    fn container_section(&self) -> BinarySection {
+        BinarySection::Text
+    }
+
+    fn id(&self) -> PotentialLabelTargetId {
         self.id
     }
 
+    fn len(&self) -> usize {
+        5
+    }
+
     fn render(&self, layout: &FileLayout) -> Vec<u8> {
-        let mut out = vec![];
-        if let JumpTarget::Label(label_name) = &self.target {
-            /*
-            // JMP mem64
-            // TODO(PT): Look for opportunities to use a JMP variant with a smaller encoded size
-            // (i.e. if the named symbols is close by, use the JMP reloff8 variant)
-            out.push(0xff);
-            let symbol_id = layout.get_symbol_id_for_symbol_name(&label_name);
-            let symbol_type = layout.get_symbol_entry_type_for_symbol_name(&label_name);
-            let jump_target = if let SymbolEntryType::SymbolWithInlinedValue = symbol_type {
-                layout.get_rebased_value(RebasedValue::ReadOnlyDataSymbolValue(symbol_id))
-            } else {
-                panic!("Unhandled symbol type {symbol_type:?}");
-            };
-            let mut jump_target_bytes = jump_target.to_le_bytes().to_owned().to_vec();
-            out.append(&mut jump_target_bytes);
-            */
-            out.push(0xeb);
-            out.push(0xfe);
-        }
-        out
+        Instruction::render(self, layout)
     }
 }
 
@@ -259,14 +296,38 @@ impl Display for Jump {
     }
 }
 
-pub trait Instruction: Display {
-    fn render(&self, layout: &FileLayout) -> Vec<u8>;
-    fn id(&self) -> InstructionId;
+#[derive(Debug, PartialEq, Copy, Clone, Eq, PartialOrd, Ord)]
+pub struct PotentialLabelTargetId(pub usize);
+
+impl Display for PotentialLabelTargetId {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("AtomId({})", self.0))
+    }
 }
+
+// An instruction, piece of constant data, or expression
+pub trait PotentialLabelTarget: Display {
+    fn container_section(&self) -> BinarySection;
+    fn len(&self) -> usize;
+    fn id(&self) -> PotentialLabelTargetId;
+    fn render(&self, layout: &FileLayout) -> Vec<u8>;
+}
+
+pub trait Instruction: Display + PotentialLabelTarget {
+    fn render(&self, layout: &FileLayout) -> Vec<u8>;
+}
+
+/*
+impl PotentialLabelTarget for dyn Instruction {
+    fn container_section(&self) -> BinarySection {
+        // Instructions may only be within .text
+        BinarySection::Text
+    }
+}
+*/
 
 pub type SymbolOffset = usize;
 pub type SymbolSize = usize;
-
 pub struct DataPacker {
     _file_layout: Rc<FileLayout>,
     pub symbols: Vec<(SymbolOffset, SymbolSize, Rc<DataSymbol>)>,
@@ -318,7 +379,7 @@ pub struct InstructionPacker {
     _data_packer: Rc<RefCell<DataPacker>>,
     instructions: RefCell<Vec<Rc<dyn Instruction>>>,
     rendered_instructions: RefCell<Vec<u8>>,
-    rendered_instruction_id_to_offset: RefCell<BTreeMap<InstructionId, usize>>,
+    rendered_instruction_id_to_offset: RefCell<BTreeMap<PotentialLabelTargetId, usize>>,
 }
 
 impl InstructionPacker {
@@ -337,7 +398,7 @@ impl InstructionPacker {
         instructions.push(Rc::clone(instr));
     }
 
-    pub fn offset_of_instruction(&self, id: InstructionId) -> usize {
+    pub fn offset_of_instruction(&self, id: PotentialLabelTargetId) -> usize {
         return 0;
         /*
         let rendered_instructions_map = self.rendered_instruction_id_to_offset.borrow();
@@ -356,7 +417,8 @@ impl MagicPackable for InstructionPacker {
         let mut rendered_instructions_map = self.rendered_instruction_id_to_offset.borrow_mut();
         let instructions = self.instructions.borrow();
         for instr in instructions.iter() {
-            let mut instruction_bytes = instr.render(layout);
+            //let mut instruction_bytes = Instruction::render(instr, layout);
+            let mut instruction_bytes = PotentialLabelTarget::render(&**instr, layout);
 
             print!("\tAssembled \"{instr}\" to ");
             for byte in instruction_bytes.iter() {
@@ -379,13 +441,40 @@ impl MagicPackable for InstructionPacker {
     }
 }
 
-pub fn parse(layout: &Rc<FileLayout>, source: &str) -> (Rc<RefCell<DataPacker>>, Rc<InstructionPacker>) {
+pub fn parse(layout: &Rc<FileLayout>, source: &str) -> (Labels, EquExpressions, PotentialLabelTargets) {
     // Generate code and data from source
     let lexer = AssemblyLexer::new(source);
     let mut parser = AssemblyParser::new(lexer);
-    let (data_symbols, instructions) = parser.parse();
+    //let (data_symbols, instructions) = parser.parse();
+    //let (data_symbols, instructions) = parser.parse();
+    let (labels, equ_expressions, data_units) = parser.parse();
     println!("[### Assembly + ELF rendering ###]");
+    println!("Labels:\n{labels}");
+    println!("Equ expressions:\n{equ_expressions}");
+    println!("Data units:\n{data_units}");
+    (labels, equ_expressions, data_units)
 
+    /*
+        Instructions can refer to labels in .text
+        Data can be rendered directly within .text!!
+        Maybe don't try to split them up
+        Instead, .section .rodata is just like a Label that points to the first
+
+        mov needs the Absolute address of a symbol in .rodata
+        But we won't know absolute addresses until everything else is laid out
+        Can we enforce:
+        - Lay out everything except .rodata and .text
+        - Lay out .rodata
+        - Lay out .text
+        But this doesn't help with how the user is allowed to specify that .rodata can come before .text!
+
+        I think we need to guarantee how big the instructions are going to be...
+
+
+    */
+    // Find out which instructions refer to labels within .text
+    // Render the instructions
+    /*
     // Render the data symbols
     let data_packer = Rc::new(RefCell::new(DataPacker::new(layout)));
     for data_symbol in data_symbols.iter() {
@@ -399,6 +488,7 @@ pub fn parse(layout: &Rc<FileLayout>, source: &str) -> (Rc<RefCell<DataPacker>>,
     for instr in instructions.iter() {
         instruction_packer.pack(instr);
     }
+    */
 
-    (data_packer, instruction_packer)
+    //(data_packer, instruction_packer)
 }

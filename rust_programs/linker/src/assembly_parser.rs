@@ -1,24 +1,108 @@
-use core::mem;
+use core::{cell::RefCell, fmt::Display, mem};
 
 use crate::{
     assembly_lexer::{AssemblyLexer, Token},
-    assembly_packer::{DataSource, Instruction, Interrupt, Jump, JumpTarget, MoveValueToRegister, Register},
+    assembly_packer::{DataSource, Instruction, Interrupt, Jump, JumpTarget, MoveValueToRegister, PotentialLabelTarget, Register},
+    new_try::SectionHeaderType,
     print, println,
-    symbols::{DataSymbol, SymbolData, SymbolExpressionOperand},
+    symbols::{ConstantData, DataSymbol, SymbolData, SymbolExpressionOperand},
 };
-use alloc::{collections::BTreeMap, fmt::Debug, rc::Rc, string::ToString, vec::Vec};
+use alloc::{fmt::Debug, rc::Rc, string::ToString, vec::Vec};
 use alloc::{string::String, vec};
 use cstr_core::CString;
 
-#[derive(Debug, PartialEq)]
-enum BinarySection {
+#[derive(Clone)]
+pub struct Label {
+    container_section: BinarySection,
+    pub name: String,
+    pub data_unit: RefCell<Option<Rc<dyn PotentialLabelTarget>>>,
+}
+
+impl Label {
+    fn new(container_section: BinarySection, name: &str) -> Self {
+        Self {
+            container_section,
+            name: name.to_string(),
+            data_unit: RefCell::new(None),
+        }
+    }
+
+    fn set_data_unit(&self, data_unit: &Rc<dyn PotentialLabelTarget>) {
+        let mut maybe_data_unit = self.data_unit.borrow_mut();
+        assert!(maybe_data_unit.is_none());
+        *maybe_data_unit = Some(Rc::clone(data_unit))
+    }
+}
+
+impl Display for Label {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "<Label in {}: {}", self.container_section, self.name)?;
+        let data_unit = self.data_unit.borrow();
+        if let Some(data_unit) = &*data_unit {
+            write!(f, " => {data_unit}")?;
+        }
+        write!(f, ">")
+    }
+}
+
+#[derive(Clone)]
+pub struct EquExpression {
+    container_section: BinarySection,
+    pub name: String,
+    pub expression: Expression,
+    pub previous_data_unit: RefCell<Option<Rc<dyn PotentialLabelTarget>>>,
+}
+
+impl EquExpression {
+    fn new(container_section: BinarySection, name: &str, expression: Expression, previous_atom: &Option<Rc<dyn PotentialLabelTarget>>) -> Self {
+        Self {
+            container_section,
+            name: name.to_string(),
+            expression,
+            previous_data_unit: RefCell::new(match previous_atom {
+                Some(x) => Some(x.clone()),
+                None => None,
+            }),
+        }
+    }
+}
+
+impl Display for EquExpression {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "<Equ in {}: {} => {}>", self.container_section, self.name, self.expression)
+    }
+}
+
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum BinarySection {
     Text,
     ReadOnlyData,
 }
 
-#[derive(Debug)]
+impl Display for BinarySection {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                BinarySection::Text => "Text",
+                BinarySection::ReadOnlyData => "ReadOnlyData",
+            }
+        )
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Expression {
     Subtract(SymbolExpressionOperand, SymbolExpressionOperand),
+}
+
+impl Display for Expression {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Expression::Subtract(op1, op2) => write!(f, "{op1} - {op2}"),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -123,6 +207,7 @@ impl AssemblyParser {
                         ))
                     }
                     "word" => {
+                        self.match_token(Token::Dollar);
                         let value = self.match_identifier();
                         let immediate = if value.starts_with("0x") {
                             // Hexadecimal immediate
@@ -242,9 +327,9 @@ impl AssemblyParser {
         }
     }
 
-    pub fn parse(&mut self) -> (Vec<Rc<DataSymbol>>, Vec<Rc<dyn Instruction>>) {
-        println!("[### Parsing ###]");
-        self.debug_parse();
+    pub fn parse_old(&mut self) -> (Vec<Rc<DataSymbol>>, Vec<Rc<dyn Instruction>>) {
+        //println!("[### Parsing ###]");
+        //self.debug_parse();
         // Now, reset state and do the real parse
         self.lexer.reset();
 
@@ -289,15 +374,14 @@ impl AssemblyParser {
                         };
                     }
                     AssemblyStatement::LiteralWord(immediate) => {
-                        assert_eq!(current_section, BinarySection::ReadOnlyData);
+                        //assert_eq!(current_section, BinarySection::ReadOnlyData);
                         // TODO(PT): It should be possible to define .word without a directly preceding label
-                        // TODO(PT): It looks like the order of data symbols gets messed up?!
-                        assert!(current_label.is_some());
+                        //assert!(current_label.is_some());
                         let label_name = current_label.as_ref().unwrap();
                         // Make sure this is exactly 4 bytes
                         let mut word_bytes = immediate.to_le_bytes().to_vec();
                         word_bytes.resize(mem::size_of::<u32>(), 0);
-                        data_symbols.push(Rc::new(DataSymbol::new(label_name, SymbolData::LiteralData(word_bytes))));
+                        //data_symbols.push(Rc::new(DataSymbol::new(label_name, SymbolData::LiteralData(word_bytes))));
                     }
                     AssemblyStatement::MoveImmediateIntoRegister(immediate, register) => {
                         // TODO(PT): Consider lifting this restriction
@@ -325,6 +409,7 @@ impl AssemblyParser {
                                 label_name,
                                 //SymbolData::LiteralData(CString::new(text.clone()).unwrap().into_bytes_with_nul()),
                                 //SymbolData::InstructionAddress(Rc::clone(&instruction)),
+                                //SymbolData::InstructionAddress(instruction.id()),
                                 SymbolData::InstructionAddress(instruction.id()),
                             )));
                         }
@@ -340,5 +425,113 @@ impl AssemblyParser {
             }
         }
         (data_symbols, instructions)
+    }
+
+    pub fn parse(&mut self) -> (Labels, EquExpressions, PotentialLabelTargets) {
+        println!("[### Parsing ###]");
+        //self.debug_parse();
+        // Now, reset state and do the real parse
+        self.lexer.reset();
+
+        let mut labels = vec![];
+        let mut data_units: Vec<Rc<dyn PotentialLabelTarget>> = vec![];
+        let mut equ_expressions = vec![];
+
+        let mut current_section = BinarySection::Text;
+        let mut maybe_current_label: RefCell<Option<Label>> = RefCell::new(None);
+        let mut previous_atom: RefCell<Option<Rc<dyn PotentialLabelTarget>>> = RefCell::new(None);
+
+        let mut append_data_unit = |data_unit| {
+            let mut maybe_current_label = maybe_current_label.borrow_mut();
+            if let Some(current_label) = &*maybe_current_label {
+                current_label.set_data_unit(&data_unit);
+                labels.push(current_label.clone());
+                *maybe_current_label = None;
+            }
+            let mut maybe_previous_atom = previous_atom.borrow_mut();
+            *maybe_previous_atom = Some(Rc::clone(&data_unit));
+            data_units.push(data_unit);
+        };
+        loop {
+            if let Some(statement) = self.parse_statement() {
+                match statement {
+                    AssemblyStatement::SetCurrentSection(name) => {
+                        match name.as_str() {
+                            "text" => current_section = BinarySection::Text,
+                            "rodata" => current_section = BinarySection::ReadOnlyData,
+                            _ => panic!("Unknown name {name}"),
+                        };
+                    }
+                    AssemblyStatement::Label(name) => {
+                        *maybe_current_label.borrow_mut() = Some(Label::new(current_section, &name));
+                    }
+                    AssemblyStatement::Ascii(text) => {
+                        append_data_unit(Rc::new(ConstantData::new(
+                            current_section,
+                            SymbolData::LiteralData(CString::new(text.clone()).unwrap().into_bytes_with_nul()),
+                        )));
+                    }
+                    AssemblyStatement::Equ(label_name, expression) => {
+                        equ_expressions.push(Rc::new(EquExpression::new(current_section, &label_name, expression, &previous_atom.borrow())));
+                    }
+                    AssemblyStatement::LiteralWord(immediate) => {
+                        // Make sure this is exactly 4 bytes
+                        let mut word_bytes = immediate.to_le_bytes().to_vec();
+                        word_bytes.resize(mem::size_of::<u32>(), 0);
+                        append_data_unit(Rc::new(ConstantData::new(current_section, SymbolData::LiteralData(word_bytes))));
+                    }
+                    AssemblyStatement::MoveImmediateIntoRegister(immediate, register) => {
+                        // TODO(PT): Rename to Atom?
+                        append_data_unit(Rc::new(MoveValueToRegister::new(register, DataSource::Literal(immediate))) as Rc<dyn PotentialLabelTarget>);
+                    }
+                    AssemblyStatement::MoveSymbolIntoRegister(symbol_name, register) => {
+                        append_data_unit(
+                            Rc::new(MoveValueToRegister::new(register, DataSource::NamedDataSymbol(symbol_name.clone()))) as Rc<dyn PotentialLabelTarget>
+                        );
+                    }
+                    AssemblyStatement::MoveRegisterIntoRegister(source_register, register) => {
+                        append_data_unit(
+                            Rc::new(MoveValueToRegister::new(register, DataSource::RegisterContents(source_register))) as Rc<dyn PotentialLabelTarget>
+                        );
+                    }
+                    AssemblyStatement::Interrupt(vector) => {
+                        append_data_unit(Rc::new(Interrupt::new(vector)));
+                    }
+                    AssemblyStatement::Jump(label_name) => {
+                        append_data_unit(Rc::new(Jump::new(JumpTarget::Label(label_name))));
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+        (Labels(labels), EquExpressions(equ_expressions), PotentialLabelTargets(data_units))
+    }
+}
+
+#[derive(Clone)]
+pub struct Labels(pub Vec<Label>);
+
+impl Display for Labels {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        self.0.iter().fold(Ok(()), |result, label| result.and_then(|_| writeln!(f, "{}", label)))
+    }
+}
+
+#[derive(Clone)]
+pub struct EquExpressions(pub Vec<Rc<EquExpression>>);
+
+impl Display for EquExpressions {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        self.0.iter().fold(Ok(()), |result, equ_expr| result.and_then(|_| writeln!(f, "{}", equ_expr)))
+    }
+}
+
+#[derive(Clone)]
+pub struct PotentialLabelTargets(pub Vec<Rc<dyn PotentialLabelTarget>>);
+
+impl Display for PotentialLabelTargets {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        self.0.iter().fold(Ok(()), |result, atom| result.and_then(|_| writeln!(f, "{}", atom)))
     }
 }

@@ -3,6 +3,7 @@
 #![cfg_attr(feature = "run_in_axle", feature(format_args_nl))]
 #![cfg_attr(feature = "run_in_axle", feature(default_alloc_error_handler))]
 #![feature(trait_upcasting)]
+#![feature(label_break_value)]
 #![feature(extend_one)]
 
 extern crate alloc;

@@ -41,9 +41,11 @@ msg:
 .equ msg_len, . - msg
 
     ";
-    let (data_packer, instruction_packer) = assembly_packer::parse(&layout, &source);
-    let elf = render_elf(&layout, &data_packer, &instruction_packer);
-    println!("Got elf of len {}\n", elf.len());
+    let (labels, equ_expressions, atoms) = assembly_packer::parse(&layout, &source);
+    //let (data_packer, instruction_packer) = assembly_packer::parse(&layout, &source);
+    //let (data_packer, instruction_packer) = assembly_packer::parse(&layout, &source);
+    let elf = render_elf(&layout, labels, equ_expressions, atoms);
+    println!("Finshed ELF generation. Size: {}\n", elf.len());
 
     fs::write(output_file, elf).unwrap();
 
