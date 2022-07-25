@@ -2,14 +2,13 @@
 
 <p align="center"><img src="screenshots/doom.jpg"></p>
 
-axle is a **UNIX-like** hobby operating system. Everything used within axle is **implemented from the ground up**, aside from the bootloader, for which we use GRUB. axle is a **multiboot compliant** kernel. axle runs C on 'bare metal' in freestanding mode, meaning even the C standard library is not included. A subset of the C standard library is implemented within axle's kernel, and a userspace is provided through a **Newlib port**. axle provides a **desktop environment** via an efficient compositor and a homegrown GUI toolkit library.
+axle is a **UNIX-like** hobby operating system. Everything used within axle is **implemented from the ground up**, from the bootloader, to the window manager, to the assembler. axle runs on bare metal. axle provides a **desktop environment** via an efficient compositor and a homegrown GUI toolkit library.
 
 [![2021 desktop environment](https://img.youtube.com/vi/Tg8nhEDbMOo/maxresdefault.jpg)](https://youtu.be/Tg8nhEDbMOo)
+[![Assembler demo](https://img.youtube.com/vi/HhWE8ZvW4-g/maxresdefault.jpg)](https://youtu.be/HhWE8ZvW4-g)
 
 <p align="center"><img src="screenshots/desktop1.png"></p>
 <p align="center"><img src="screenshots/desktop2.png"></p>
-
-The initial entry point must be done in ASM, as we have to do some special tasks such as setting up the GRUB header, pushing our stack, and calling our C entry point. This means that the first code run is in `boot.s`, but the 'real' entry point is in `kernel.c`.
 
 Features (2021)
 ------------
