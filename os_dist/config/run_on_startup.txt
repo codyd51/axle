@@ -3,3 +3,4 @@
 /usr/applications/mouse_driver
 /usr/applications/file_browser
 
+/usr/applications/dock
