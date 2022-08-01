@@ -169,7 +169,8 @@ impl AhciCommandHeader {
     }
 
     pub fn command_table_desc_base(&self) -> u64 {
-        ((self.command_table_desc_base_upper << 32) as u64) | (self.command_table_desc_base as u64)
+        (((self.command_table_desc_base_upper as u64) << 32) as u64)
+            | (self.command_table_desc_base as u64)
     }
 }
 
@@ -250,7 +251,7 @@ impl RawPhysRegionDescriptor {
     }
 
     pub fn data_base_address(&self) -> u64 {
-        ((self.data_base_address_upper << 32) as u64) | (self.data_base_address as u64)
+        (((self.data_base_address_upper as u64) << 32) as u64) | (self.data_base_address as u64)
     }
 
     pub fn interrupt_on_completion(&self) -> bool {
