@@ -200,10 +200,8 @@ impl AmcQueryServiceRequest {
         };
         amc_message_send(AMC_CORE_SERVICE_NAME, msg);
         // Await the response
-        let resp: AmcMessage<AmcQueryServiceResponse> = crate::amc_message_await__u32_event(
-            AMC_CORE_SERVICE_NAME,
-            AmcQueryServiceResponse::EXPECTED_EVENT,
-        );
+        let resp: AmcMessage<AmcQueryServiceResponse> =
+            crate::amc_message_await__u32_event(AMC_CORE_SERVICE_NAME);
         *resp.body
     }
 }

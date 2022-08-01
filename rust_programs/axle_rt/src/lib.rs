@@ -12,12 +12,16 @@ extern crate alloc;
 
 #[cfg(target_os = "axle")]
 pub extern crate libc;
-use alloc::alloc::{GlobalAlloc, Layout};
-use alloc::format;
-use alloc::string::ToString;
-use core::{cmp::min, panic::PanicInfo};
+use core::cmp::min;
 pub use cstr_core;
 use cstr_core::CString;
+#[cfg(target_os = "axle")]
+use {
+    alloc::alloc::{GlobalAlloc, Layout},
+    alloc::format,
+    alloc::string::ToString,
+    core::panic::PanicInfo,
+};
 
 #[macro_export]
 macro_rules! printf {
@@ -53,6 +57,7 @@ macro_rules! println {
     })
 }
 
+#[cfg(target_os = "axle")]
 macro_rules! internal_println {
     () => ($crate::printf!("\n"));
     ($($arg:tt)*) => ({
@@ -232,12 +237,12 @@ pub unsafe fn amc_message_await__u32_event_unchecked<T>(
 }
 
 #[cfg(target_os = "axle")]
-pub fn amc_message_await__u32_event<T>(from_service: &str, expected_event: u32) -> AmcMessage<T>
+pub fn amc_message_await__u32_event<T>(from_service: &str) -> AmcMessage<T>
 where
     T: ExpectsEventField + ContainsEventField,
 {
     let msg: AmcMessage<T> = unsafe {
-        amc_message_await__u32_event_unchecked(from_service, expected_event)
+        amc_message_await__u32_event_unchecked(from_service, T::EXPECTED_EVENT)
             .expect("await_unchecked failed in await")
     };
     assert_eq!(
