@@ -104,6 +104,10 @@ fn impl_ui_element_derive(ast: &syn::DeriveInput) -> TokenStream {
                 self.view.handle_mouse_moved(mouse_point)
             }
 
+            fn handle_mouse_scrolled(&self, mouse_point: Point, delta_z: isize) {
+                self.view.handle_mouse_scrolled(mouse_point, delta_z)
+            }
+
             fn handle_left_click(&self, mouse_point: Point) {
                 self.view.handle_left_click(mouse_point)
             }

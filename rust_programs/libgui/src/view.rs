@@ -180,6 +180,14 @@ impl UIElement for View {
         self.draw_border();
     }
 
+    fn handle_mouse_scrolled(&self, mouse_point: Point, delta_z: isize) {
+        //println!("View dispatching scroll event");
+        let elems_containing_mouse = &self.sub_elements_containing_mouse.borrow();
+        for elem in elems_containing_mouse.iter() {
+            elem.handle_mouse_scrolled(mouse_point, delta_z);
+        }
+    }
+
     fn handle_mouse_moved(&self, mouse_point: Point) {
         let elems = &*self.sub_elements.borrow();
         let elems_containing_mouse = &mut *self.sub_elements_containing_mouse.borrow_mut();

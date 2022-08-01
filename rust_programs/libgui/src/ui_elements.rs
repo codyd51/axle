@@ -6,6 +6,7 @@ pub trait UIElement: Drawable + NestedLayerSlice {
     fn handle_mouse_entered(&self) {}
     fn handle_mouse_exited(&self) {}
     fn handle_mouse_moved(&self, _mouse_point: Point) {}
+    fn handle_mouse_scrolled(&self, _mouse_point: Point, _delta_z: isize) {}
 
     fn handle_left_click(&self, _mouse_point: Point) {}
 

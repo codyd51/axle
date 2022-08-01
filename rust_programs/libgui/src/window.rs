@@ -259,7 +259,19 @@ impl AwmWindow {
     }
 
     fn mouse_scrolled(&self, event: &MouseScrolled) {
-        printf!("Mouse scrolled: {:?}\n", event);
+        let elems_containing_mouse = &self.elements_containing_mouse.borrow();
+        for elem in elems_containing_mouse.iter() {
+            elem.handle_mouse_scrolled(Point::from(event.mouse_point), event.delta_z as _);
+        }
+        /*
+        let ui_elements = self.ui_elements.borrow();
+        for elem in ui_elements.iter() {
+            elem.handle_mouse_scrolled(Point::from(event.mouse_point), event.delta_z as _);
+        }
+        */
+        // TODO(PT): Testing scroll views
+        self.draw();
+        self.commit();
     }
 
     fn window_resized(&self, event: &WindowResized) {

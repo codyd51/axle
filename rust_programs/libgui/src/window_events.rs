@@ -110,7 +110,8 @@ impl AwmWindowEvent for MouseExited {}
 #[derive(Debug, Clone, Copy, ContainsEventField)]
 pub struct MouseScrolled {
     event: u32,
-    delta_z: i32,
+    pub mouse_point: PointU32,
+    pub delta_z: i8,
 }
 
 impl ExpectsEventField for MouseScrolled {
