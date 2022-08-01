@@ -145,9 +145,10 @@ def build_rust_programs(check_only: bool = False) -> None:
             # https://github.com/rust-lang/cargo/issues/2589
             # https://github.com/rust-lang/cargo/issues/7915
             '-Z',
-            'features=host_dep'
+            'features=host_dep',
         ],
-        cwd=cargo_workspace_dir
+        cwd=cargo_workspace_dir,
+        env_additions={"RUSTFLAGS": "-Cforce-frame-pointers=yes"},
     )
     for entry in cargo_workspace_dir.iterdir():
         if not entry.is_dir():
