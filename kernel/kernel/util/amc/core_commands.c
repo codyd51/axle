@@ -143,11 +143,11 @@ static void _amc_core_file_server_exec_buffer(const char* source_service, void* 
     char* name_copy = strdup(cmd->program_name);
 
     if (cmd->with_supervisor) {
-        task_spawn__managed__with_args(
+        task_small_t* child = task_spawn__managed__with_args(
             name_copy,
             AMC_EXEC_TRAMPOLINE_NAME, 
-            name_copy, 
-            copy, 
+            (uintptr_t)name_copy, 
+            (uintptr_t)copy, 
             cmd->buffer_size
         );
     }
@@ -155,8 +155,8 @@ static void _amc_core_file_server_exec_buffer(const char* source_service, void* 
         task_spawn__with_args(
             name_copy,
             AMC_EXEC_TRAMPOLINE_NAME, 
-            name_copy, 
-            copy, 
+            (uintptr_t)name_copy, 
+            (uintptr_t)copy, 
             cmd->buffer_size
         );
     }
@@ -228,7 +228,11 @@ static void _amc_shared_memory_create(const char* source_service, void* buf, uin
 
     amc_shared_memory_create_cmd_t* cmd = (amc_shared_memory_create_cmd_t*)buf;
     amc_service_t* remote = amc_service_with_name(&cmd->remote_service_name);
-    assert(remote != NULL, "Failed to find the requested remote service...");
+    if (!remote) {
+        printf("[AMC] Failed to find the requested remote service...\n");
+        return;
+    }
+    //assert(remote != NULL, "Failed to find the requested remote service...");
 
     printf("[AMC] Creating shared memory [%s <-> %s] of size 0x%p\n", source->name, remote->name, cmd->buffer_size);
 
@@ -422,11 +426,16 @@ static void _amc_core_send_task_info(const char* source_service) {
             uint64_t* rbp = node->machine_state->rbp;
             uint64_t user_mode_rip = 0;
             for (int j = 0; j < 16; j++) {
-                //printf("%s 0x%x\n", node->name, rbp);
-                if (rbp < PAGE_SIZE) {
+                if (rbp < VAS_KERNEL_HEAP_BASE && !vas_is_page_present(vas_get_active_state(), (uint64_t)rbp)) {
+                    printf("0x%x is unmapped\n in 0x%x\n", rbp, vas_get_active_state());
                     break;
                 }
-                //printf("\tTask %s Return address %d: 0x%x\n", node->name, j, rbp[1]);
+                //printf("%s 0x%x\n", node->name, rbp);
+                /*
+                if (rbp < USER_MODE_STACK_BOTTOM) {
+                    break;
+                }
+                */
                 uint64_t rip = rbp[1];
 
                 // Is the RIP in the canonical lower-half? If so, it's probably a user-mode return address
@@ -452,7 +461,7 @@ static void _amc_core_send_task_info(const char* source_service) {
 
         // Copy AMC service info
         amc_service_t* service = amc_service_of_task(node);
-        printf("service 0x%x\n", service);
+        //printf("service 0x%x\n", service);
         response->tasks[i].has_amc_service = service != NULL;
         if (service != NULL) {
             response->tasks[i].pending_amc_messages = service->message_queue->size;
@@ -529,4 +538,56 @@ void amc_core_handle_message(const char* source_service, void* buf, uint32_t buf
         assert(0, "Unknown message to core");
         return;
     }
+}
+
+void task_inform_supervisor__process_create__with_task(task_small_t* task, uint64_t pid) {
+    if (!task->is_managed_by_parent) {
+        return;
+    }
+    amc_supervised_process_event_t msg = {0};
+    msg.event = AMC_SUPERVISED_PROCESS_EVENT;
+    msg.payload.discriminant = SupervisorEventProcessCreate;
+    // getpid() can't be used here because this event is sent in the context of the parent
+    msg.payload.fields.process_create_fields.pid = pid;
+    amc_message_send__from_core(task->managing_parent_service_name, &msg, sizeof(msg));
+}
+
+void task_inform_supervisor__process_start(uint64_t entry_point) {
+    task_small_t* current_task = tasking_get_current_task();
+    if (!current_task->is_managed_by_parent) {
+        return;
+    }
+    amc_supervised_process_event_t msg = {0};
+    msg.event = AMC_SUPERVISED_PROCESS_EVENT;
+    msg.payload.discriminant = SupervisorEventProcessStart;
+    msg.payload.fields.process_start_fields.pid = getpid();
+    msg.payload.fields.process_start_fields.entry_point = entry_point;
+    amc_message_send__from_core(current_task->managing_parent_service_name, &msg, sizeof(msg));
+}
+
+void task_inform_supervisor__process_exit(uint64_t exit_code) {
+    task_small_t* current_task = tasking_get_current_task();
+    if (!current_task->is_managed_by_parent) {
+        return;
+    }
+    amc_supervised_process_event_t msg = {0};
+    msg.event = AMC_SUPERVISED_PROCESS_EVENT;
+    msg.payload.discriminant = SupervisorEventProcessExit;
+    msg.payload.fields.process_exit_fields.pid = getpid();
+    msg.payload.fields.process_exit_fields.status_code = exit_code;
+    amc_message_send__from_core(current_task->managing_parent_service_name, &msg, sizeof(msg));
+}
+
+void task_inform_supervisor__process_write(const char* buf, uint64_t len) {
+    task_small_t* current_task = tasking_get_current_task();
+    if (!current_task->is_managed_by_parent) {
+        return;
+    }
+    amc_supervised_process_event_t msg = {0};
+    msg.event = AMC_SUPERVISED_PROCESS_EVENT;
+    msg.payload.discriminant = SupervisorEventProcessWrite;
+    msg.payload.fields.process_write_fields.pid = getpid();
+    msg.payload.fields.process_write_fields.len = len;
+    strncpy((char*)msg.payload.fields.process_write_fields.msg, buf, len);
+    amc_message_send__from_core(current_task->managing_parent_service_name, &msg, sizeof(msg));
 }

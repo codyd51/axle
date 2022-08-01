@@ -68,4 +68,8 @@ array_m* amc_messages_to_unknown_services_pool();
 
 void amc_disable_delivery(amc_service_t* service);
 
+void task_inform_supervisor__process_start__with_task(task_small_t* task, uint64_t entry_point);
+void task_inform_supervisor__process_exit(uint64_t exit_code);
+void task_inform_supervisor__process_write(const char* buf, uint64_t len);
+
 #endif

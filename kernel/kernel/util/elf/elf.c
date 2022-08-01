@@ -7,6 +7,7 @@
 #include <kernel/vmm/vmm.h>
 #include <kernel/multitasking/tasks/task_small.h>
 #include <kernel/assert.h>
+#include <kernel/util/amc/amc_internal.h>
 
 static bool elf_check_magic(elf_header* hdr) {
 	if (!hdr) return false;
@@ -246,6 +247,8 @@ void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf
 	current_task->sbrk_current_page_head = (current_task->sbrk_current_break + PAGE_SIZE) & PAGING_PAGE_MASK;
 
 	task_set_name(current_task, "launched_elf");
+
+	task_inform_supervisor__process_start(entry_point);
 
 	printf("[%d] Jump to user-mode with ELF [%s] ip=0x%08x sp=0x%08x\n", current_task->id, current_task->name, entry_point, current_task->machine_state);
 	snprintf(msg_buf, 512, "Jump to user mode for %s\n", program_name);

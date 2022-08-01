@@ -1,5 +1,6 @@
 #include "write.h"
 #include <kernel/util/amc/amc.h>
+#include <kernel/util/amc/amc_internal.h>
 #include <kernel/multitasking/tasks/task_small.h>
 
 #include <gfx/lib/gfx.h>
@@ -14,11 +15,13 @@ int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
 	if (amc_service_is_active("com.axle.logs_viewer")) {
 		amc_message_send__from_core("com.axle.logs_viewer", b, cnt);
 	}
+	task_inform_supervisor__process_write(b, cnt);
 
 	return len;
 }
 
 int write(int fd, char* buf, int len) {
+	//printf("write(%d, %x, %d)\n", fd, buf, len);
 	assert(tasking_is_active(), "Can't write via fd until multitasking is active");
 	if (!len) return 0;
 

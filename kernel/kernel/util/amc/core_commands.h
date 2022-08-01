@@ -197,21 +197,36 @@ typedef struct amc_free_physical_range_response {
 // PT: Layout according to https://doc.rust-lang.org/reference/type-layout.html#reprc-enums-with-fields
 
 typedef enum amc_supervised_process_event_payload_discriminant {
-    ProcessExited = 0,
-    ProcessWrite = 1,
+    SupervisorEventProcessCreate = 0,
+    SupervisorEventProcessStart = 1,
+    SupervisorEventProcessExit = 2,
+    SupervisorEventProcessWrite = 3,
 } amc_supervised_process_event_payload_discriminant_t;
 
-typedef struct amc_supervised_process_event_payload__process_exited {
+typedef struct amc_supervised_process_event_payload__process_create {
+    uint64_t pid;
+} amc_supervised_process_event_payload__process_create_t;
+
+typedef struct amc_supervised_process_event_payload__process_start {
+    uint64_t pid;
+    uint64_t entry_point;
+} amc_supervised_process_event_payload__process_start_t;
+
+typedef struct amc_supervised_process_event_payload__process_exit {
+    uint64_t pid;
     uint64_t status_code;
-} amc_supervised_process_event_payload__process_exited_t;
+} amc_supervised_process_event_payload__process_exit_t;
 
 typedef struct amc_supervised_process_event_payload__process_write {
+    uint64_t pid;
     uint64_t len;
     uint8_t msg[128];
 } amc_supervised_process_event_payload__process_write_t;
 
 typedef union amc_supervised_process_event_payload_fields {
-    amc_supervised_process_event_payload__process_exited_t process_exited_fields;
+    amc_supervised_process_event_payload__process_create_t process_create_fields;
+    amc_supervised_process_event_payload__process_start_t process_start_fields;
+    amc_supervised_process_event_payload__process_exit_t process_exit_fields;
     amc_supervised_process_event_payload__process_write_t process_write_fields;
 } amc_supervised_process_event_payload_fields_t;
 

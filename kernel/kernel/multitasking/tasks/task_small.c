@@ -95,19 +95,10 @@ task_small_t* tasking_get_current_task() {
 void task_die(uintptr_t exit_code) {
     printf("[%d] self-terminated with exit %d (0x%x). Zombie\n", getpid(), exit_code, exit_code);
 
+    task_inform_supervisor__process_exit(exit_code);
     // Inform our supervisor, if any
     task_small_t* current_task = tasking_get_current_task();
     if (current_task->is_managed_by_parent) {
-        amc_supervised_process_event_t process_exit_msg = {
-            .event = AMC_SUPERVISED_PROCESS_EVENT,
-            .payload = {
-                .discriminant = ProcessExited,
-                .fields = (amc_supervised_process_event_payload__process_exited_t){
-                    .status_code = exit_code,
-                }
-            }
-        };
-        amc_message_send__from_core(current_task->managing_parent_service_name, &process_exit_msg, sizeof(process_exit_msg));
     }
 
     task_small_t* buf[1] = {tasking_get_current_task()};
@@ -241,6 +232,9 @@ task_small_t* task_spawn__managed__with_args(const char* task_name, void* entry_
     amc_service_t* parent = amc_service_of_active_task();
     task_assert(parent != NULL, "task_spawn__managed__with_args called without an AMC service", NULL);
     task->managing_parent_service_name = strdup(parent->name);
+    // Inform the supervisor of the child's PID
+    // Do it before the task becomes schedulable to avoid races on message order
+    task_inform_supervisor__process_create__with_task(task, (uint64_t)task->id);
     // Task is now ready to run - make it schedulable
     _task_make_schedulable(task);
     return task;
