@@ -1,24 +1,41 @@
-#![no_std]
+#![cfg_attr(target_os = "axle", no_std)]
 #![feature(core_intrinsics)]
+#![feature(slice_ptr_get)]
+#![feature(default_alloc_error_handler)]
+#![feature(format_args_nl)]
 
 extern crate alloc;
+#[cfg(target_os = "axle")]
+extern crate libc;
+
+use alloc::fmt::Debug;
+use alloc::vec;
+use alloc::{format, rc::Rc, string::String, vec::Vec};
+
+use alloc::boxed::Box;
 use alloc::rc::Weak;
 use core::{
     cmp::{max, min},
+    fmt::Display,
     ops::{Add, Mul, Sub},
 };
 
+#[cfg(target_os = "axle")]
+use axle_rt::println;
+#[cfg(not(target_os = "axle"))]
+use std::println;
+
+pub mod font;
 pub mod layer;
+pub use font::*;
 pub use layer::*;
 
 pub trait NestedLayerSlice: Drawable {
     fn get_parent(&self) -> Option<Weak<dyn NestedLayerSlice>>;
     fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>);
 
-    fn get_slice(&self) -> LayerSlice {
+    fn get_content_slice_frame(&self) -> Rect {
         let parent = self.get_parent().unwrap().upgrade().unwrap();
-        let parent_slice = parent.get_slice();
-
         let content_frame = parent.content_frame();
         let constrained_to_content_frame = content_frame.constrain(self.frame());
 
@@ -45,8 +62,17 @@ pub trait NestedLayerSlice: Drawable {
             size.height -= overhang;
             origin.y = 0;
         }
-        parent_slice.get_slice(Rect::from_parts(origin, size))
+        Rect::from_parts(origin, size)
     }
+
+    fn get_slice(&self) -> Box<dyn LikeLayerSlice> {
+        let parent = self.get_parent().unwrap().upgrade().unwrap();
+        let parent_slice = parent.get_slice();
+        let content_slice_frame = self.get_content_slice_frame();
+        parent_slice.get_slice(content_slice_frame)
+    }
+
+    fn get_slice_for_render(&self) -> Box<dyn LikeLayerSlice>;
 }
 
 pub trait Drawable {
@@ -134,6 +160,10 @@ impl Size {
             width: 0,
             height: 0,
         }
+    }
+
+    pub fn area(&self) -> isize {
+        self.width * self.height
     }
 }
 
@@ -245,6 +275,12 @@ impl Mul<isize> for Point {
             x: self.x * rhs,
             y: self.y * rhs,
         }
+    }
+}
+
+impl Display for Point {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "({}, {})", self.x, self.y)
     }
 }
 
@@ -364,7 +400,27 @@ impl Rect {
             height -= rhs.max_y() - self.height();
         }
 
-        Rect::from_parts(rhs.origin, Size::new(width, height))
+        let mut origin = rhs.origin;
+        /*
+        if rhs.min_x() < self.min_x() {
+            origin.x = 0;
+        }
+        if rhs.min_y() < self.min_y() {
+            origin.y = 0;
+        }
+        */
+        /*
+        if rhs.min_x() < self.min_x() {
+            width -= self.min_x() - rhs.min_x();
+            origin.x = 0;
+        }
+        if rhs.min_y() < self.min_y() {
+            height -= self.min_y() - rhs.min_y();
+            origin.y = 0;
+        }
+        */
+
+        Rect::from_parts(origin, Size::new(width, height))
     }
 
     pub fn apply_insets(&self, insets: RectInsets) -> Self {
@@ -374,6 +430,486 @@ impl Rect {
             self.size.width - (insets.left + insets.right),
             self.size.height - (insets.top + insets.bottom),
         )
+    }
+
+    pub fn intersects_with(&self, other: Rect) -> bool {
+        self.max_x() >= other.min_x()
+            && self.min_x() <= other.max_x()
+            && self.max_y() >= other.min_y()
+            && self.min_y() <= other.max_y()
+    }
+
+    pub fn area_excluding_rect(&self, exclude_rect: Rect) -> Vec<Self> {
+        let mut trimmed_area = *self;
+        //println!("{trimmed_area}.exclude({exclude_rect})");
+        let mut out = Vec::new();
+
+        if !trimmed_area.intersects_with(exclude_rect) {
+            //println!("no intersection, not doing anything");
+            return out;
+        }
+
+        // Exclude the left edge, resulting in an excluded left area
+        let left_overlap = exclude_rect.min_x() - trimmed_area.min_x();
+        if left_overlap > 0 {
+            //println!("left edge {trimmed_area} overlap {left_overlap}");
+            out.push(Rect::from_parts(
+                trimmed_area.origin,
+                Size::new(left_overlap, trimmed_area.height()),
+            ));
+            trimmed_area.origin.x += left_overlap;
+            trimmed_area.size.width -= left_overlap;
+        }
+
+        if !trimmed_area.intersects_with(exclude_rect) {
+            return out;
+        }
+
+        // Exclude the right edge
+        let right_overlap = trimmed_area.max_x() - exclude_rect.max_x();
+        if right_overlap > 0 {
+            //println!("right edge {trimmed_area} overlap {right_overlap}");
+            out.push(Rect::from_parts(
+                Point::new(exclude_rect.max_x(), trimmed_area.min_y()),
+                Size::new(right_overlap, trimmed_area.height()),
+            ));
+            trimmed_area.size.width -= right_overlap;
+        }
+
+        if !trimmed_area.intersects_with(exclude_rect) {
+            return out;
+        }
+
+        // Exclude the top, resulting in an excluded bottom area
+        //println!("top edge {trimmed_area}");
+        let top_overlap = trimmed_area.max_y() - exclude_rect.max_y();
+        if top_overlap > 0 {
+            //println!("top edge {trimmed_area} overlap {top_overlap}");
+            let top_rect = Rect::from_parts(
+                //Point::new(trimmed_area.min_x(), trimmed_area.min_y() + top_overlap),
+                Point::new(trimmed_area.min_x(), exclude_rect.max_y()),
+                //Size::new(trimmed_area.width(), trimmed_area.height() - top_overlap),
+                Size::new(trimmed_area.width(), top_overlap),
+            );
+            //println!("\tGot top rect {top_rect}");
+            out.push(top_rect);
+            //trimmed_area.origin.y += top_overlap;
+            trimmed_area.size.height -= top_overlap;
+        }
+
+        if !trimmed_area.intersects_with(exclude_rect) {
+            return out;
+        }
+
+        // Exclude the bottom, resulting in an included top area
+        let bottom_overlap = exclude_rect.min_y() - trimmed_area.min_y();
+        //println!("bottom overlap {bottom_overlap}, rect {trimmed_area}");
+        if bottom_overlap > 0 {
+            //println!("bottom edge {trimmed_area} overlap {bottom_overlap}");
+            out.push(Rect::from_parts(
+                trimmed_area.origin,
+                Size::new(trimmed_area.width(), trimmed_area.height() - bottom_overlap),
+            ));
+            trimmed_area.size.height -= bottom_overlap;
+        }
+
+        out
+    }
+
+    pub fn area_overlapping_with(&self, rect_to_intersect_with: Rect) -> Option<Self> {
+        if !self.intersects_with(rect_to_intersect_with) {
+            return None;
+        }
+        let r1 = *self;
+        let r2 = rect_to_intersect_with;
+
+        // Handle when the rectangles are identical, otherwise our assertion below will trigger
+        if r1 == r2 {
+            return Some(r1);
+        }
+
+        let origin = Point::new(max(r1.min_x(), r2.min_x()), max(r1.min_y(), r2.min_y()));
+        let bottom_right = Point::new(min(r1.max_x(), r2.max_x()), min(r1.max_y(), r2.max_y()));
+
+        /*
+        println!(
+            "area_overlapping_with {r1} {r2}, intersects? {:?} intersects2 {:?}",
+            r1.intersects_with(r2),
+            self.intersects_with(rect_to_intersect_with),
+        );
+        */
+        if !(origin.x < bottom_right.x && origin.y < bottom_right.y) {
+            //println!("Rects didn't intersect even though we checked above: {r1} {r2}");
+            return None;
+        }
+
+        /*
+        assert!(
+            origin.x < bottom_right.x && origin.y < bottom_right.y,
+            "Rects didn't intersect even though we checked above"
+        );
+        */
+        let size = Size::new(bottom_right.x - origin.x, bottom_right.y - origin.y);
+        Some(Rect::from_parts(origin, size))
+    }
+}
+
+impl Display for Rect {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "(({}, {}), ({}, {}))",
+            self.min_x(),
+            self.min_y(),
+            self.width(),
+            self.height()
+        )
+    }
+}
+
+#[derive(PartialEq)]
+struct TileSegment<'a> {
+    viewport_frame: Rect,
+    tile_frame: Rect,
+    tile: &'a Tile,
+}
+
+impl<'a> TileSegment<'a> {
+    fn new(viewport_frame: Rect, tile_frame: Rect, tile: &'a Tile) -> Self {
+        Self {
+            viewport_frame,
+            tile_frame,
+            tile,
+        }
+    }
+}
+
+impl<'a> Debug for TileSegment<'a> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "TileSegment({} / {} within tile {:?})",
+            self.viewport_frame, self.tile_frame, self.tile
+        )
+    }
+}
+
+#[derive(Debug, PartialEq)]
+struct TileSegments<'a>(Vec<TileSegment<'a>>);
+
+#[derive(PartialEq)]
+struct Tile {
+    frame: Rect,
+}
+
+impl Tile {
+    fn new(frame: Rect) -> Self {
+        Self { frame }
+    }
+    fn tiles_visible_in_viewport<'a>(tiles: &'a Vec<Tile>, viewport_rect: Rect) -> TileSegments {
+        TileSegments(
+            tiles
+                .iter()
+                .filter_map(|tile| {
+                    println!(
+                        "\tChecking for intersection with {viewport_rect} and {}",
+                        tile.frame
+                    );
+                    if let Some(intersection) = viewport_rect.area_overlapping_with(tile.frame) {
+                        //println!("\t\t area overlapping {intersection}");
+                        let tile_viewport_origin = intersection.origin - viewport_rect.origin;
+                        Some(TileSegment::new(
+                            Rect::from_parts(tile_viewport_origin, intersection.size),
+                            Rect::from_parts(
+                                intersection.origin - tile.frame.origin,
+                                intersection.size,
+                            ),
+                            tile,
+                        ))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+        )
+    }
+}
+
+impl Debug for Tile {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Tile({})", self.frame)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use alloc::vec::Vec;
+
+    use crate::{Rect, Tile, TileSegment, TileSegments};
+    use std::println;
+
+    #[test]
+    fn test_tiles_visible_in_layer() {
+        let tiles = vec![
+            Tile::new(Rect::new(0, 0, 300, 300)),
+            Tile::new(Rect::new(0, 300, 300, 300)),
+        ];
+        assert_eq!(
+            Tile::tiles_visible_in_viewport(&tiles, Rect::new(0, 0, 300, 300)),
+            TileSegments(vec![TileSegment::new(
+                Rect::new(0, 0, 300, 300),
+                Rect::new(0, 0, 300, 300),
+                &tiles[0]
+            )])
+        );
+        assert_eq!(
+            Tile::tiles_visible_in_viewport(&tiles, Rect::new(0, 10, 300, 300)),
+            TileSegments(vec![
+                TileSegment::new(
+                    Rect::new(0, 0, 300, 290),
+                    Rect::new(0, 10, 300, 290),
+                    &tiles[0]
+                ),
+                TileSegment::new(
+                    Rect::new(0, 290, 300, 10),
+                    Rect::new(0, 0, 300, 10),
+                    &tiles[1]
+                ),
+            ])
+        );
+    }
+
+    fn test_intersects_with() {
+        assert!(!Rect::new(0, 0, 300, 300).intersects_with(Rect::new(0, 300, 300, 300)));
+        assert!(!Rect::new(0, 0, 300, 300).intersects_with(Rect::new(0, 300, 300, 300)));
+        assert!(Rect::new(0, 0, 300, 300).intersects_with(Rect::new(0, 0, 300, 300)));
+    }
+
+    fn test_intersection_with_flipped_ordering(
+        r1: Rect,
+        r2: Rect,
+        expected_intersection: Option<Rect>,
+    ) {
+        assert_eq!(r1.area_overlapping_with(r2), expected_intersection);
+        assert_eq!(r2.area_overlapping_with(r1), expected_intersection);
+    }
+
+    #[test]
+    fn test_find_intersection() {
+        /*
+        *----*---------*
+        |    |    .    |
+        |    |    .    |
+        *----*---------*
+        */
+        test_intersection_with_flipped_ordering(
+            Rect::new(0, 0, 100, 100),
+            Rect::new(50, 0, 100, 100),
+            Some(Rect::new(50, 0, 50, 100)),
+        );
+
+        /*
+        *----------*
+        |          |
+        *----------*
+        |          |
+        | . . . .  |
+        |          |
+        *----------*
+        */
+        test_intersection_with_flipped_ordering(
+            Rect::new(0, 0, 300, 300),
+            Rect::new(0, 150, 300, 300),
+            Some(Rect::new(0, 150, 300, 150)),
+        );
+    }
+
+    #[test]
+    fn test_rect_diff() {
+        let main = Rect::new(0, 150, 300, 300);
+        let exclude = Rect::new(0, 0, 300, 300);
+        /*
+        ------------------------------
+        |                            |
+        |                            |
+        |                            |
+        |                            |
+        ------------------------------
+        |                            |
+        |                            |
+        |                            |
+        |  -   -   -   -   -   -   - |
+        |                            |
+        |                            |
+        |                            |
+        |                            |
+        ------------------------------
+        */
+        assert_eq!(
+            main.area_excluding_rect(exclude),
+            vec![Rect::new(0, 300, 300, 150)]
+        );
+
+        let main = Rect::new(0, 100, 400, 50);
+        let exclude = Rect::new(50, 0, 300, 300);
+        assert_eq!(
+            main.area_excluding_rect(exclude),
+            vec![
+                // Left edge
+                Rect::new(0, 100, 50, 50),
+                // Right edge
+                Rect::new(350, 100, 50, 50)
+            ]
+        );
+
+        let main = Rect::new(0, 100, 400, 50);
+        let exclude = Rect::new(0, 0, 300, 300);
+        assert_eq!(
+            main.area_excluding_rect(exclude),
+            vec![
+                // Right edge
+                Rect::new(300, 100, 100, 50)
+            ]
+        );
+
+        let main = Rect::new(300, 200, 300, 100);
+        let exclude = Rect::new(400, 100, 100, 150);
+        /*
+                           -----------
+                           |         |
+                     ------|---------|------
+                     |     |---------|     |
+                     |                     |
+                     -----------------------
+        */
+
+        assert_eq!(
+            main.area_excluding_rect(exclude),
+            vec![
+                // Left portion
+                Rect::new(300, 200, 100, 100),
+                // Right portion
+                Rect::new(500, 200, 100, 100),
+                // Botton portion
+                Rect::new(400, 250, 100, 50),
+            ]
+        );
+
+        let exclude = Rect::new(50, 0, 100, 200);
+        let main = Rect::new(0, 50, 200, 50);
+        /*
+             ----------
+             |        |
+             |        |
+             |        |
+             |        |
+        --------------------
+        |    |        |    |
+        |    |        |    |
+        |    |        |    |
+        --------------------
+             |        |
+             |        |
+             |        |
+             |        |
+             |        |
+             |        |
+             |        |
+             |        |
+             |        |
+             ----------
+        */
+        for a in main.area_excluding_rect(exclude) {
+            println!("{a}");
+        }
+        assert_eq!(
+            main.area_excluding_rect(exclude),
+            vec![
+                // Left portion
+                Rect::new(0, 50, 50, 50),
+                // Right portion
+                Rect::new(150, 50, 50, 50),
+            ]
+        );
+
+        // Same rectangle as above with the regions flipped
+        let main = Rect::new(50, 0, 100, 200);
+        let exclude = Rect::new(0, 50, 200, 50);
+        /*
+             ----------
+             | (main) |
+             |        |
+             |        |
+             |        |
+        --------------------
+        |     (exclude)    |
+        |                  |
+        |                  |
+        --------------------
+             |        |
+             |        |
+             |        |
+             |        |
+             |        |
+             |        |
+             |        |
+             |        |
+             |        |
+             ----------
+        */
+        for a in main.area_excluding_rect(exclude) {
+            println!("{a}");
+        }
+        assert_eq!(
+            main.area_excluding_rect(exclude),
+            vec![
+                // Bottom portion
+                Rect::new(50, 100, 100, 100),
+                // Top portion
+                Rect::new(50, 0, 100, 50),
+            ]
+        );
+
+        let main = Rect::new(0, 0, 200, 200);
+        let exclude = Rect::new(50, 50, 100, 100);
+        /*
+        ----------------------------
+        |       *   (main) *       |
+        |       ------------       |
+        |       | (exclude)|       |
+        |       |          |       |
+        |       ------------       |
+        |       *          *       |
+        ----------------------------
+        */
+        for a in main.area_excluding_rect(exclude) {
+            println!("{a}");
+        }
+        assert_eq!(
+            main.area_excluding_rect(exclude),
+            vec![
+                // Left portion
+                Rect::new(0, 0, 50, 200),
+                // Right portion
+                Rect::new(150, 0, 50, 200),
+                // Bottom portion
+                Rect::new(50, 150, 100, 50),
+                // Top portion
+                Rect::new(50, 0, 100, 100),
+            ]
+        );
+
+        /*
+        ------------------------------
+        |                            |
+        |                            |
+        |              ------------------------------|
+        |              |                             |
+        ---------------|                             |
+                       |                             |
+                       |                             |
+        |              ------------------------------|
+        */
     }
 }
 
@@ -414,7 +950,7 @@ impl Line {
         Line { p1, p2 }
     }
 
-    fn draw_strip(&self, onto: &mut LayerSlice, color: Color) {
+    fn draw_strip(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
         // Relative distances in both directions
         let mut delta_x = self.p2.x - self.p1.x;
         let mut delta_y = self.p2.y - self.p1.y;
@@ -456,7 +992,12 @@ impl Line {
         }
     }
 
-    pub fn draw(&self, onto: &mut LayerSlice, color: Color, thickness: StrokeThickness) {
+    pub fn draw(
+        &self,
+        onto: &mut Box<dyn LikeLayerSlice>,
+        color: Color,
+        thickness: StrokeThickness,
+    ) {
         if let StrokeThickness::Width(thickness) = thickness {
             // Special casing for straight lines
             // Horizontal line?

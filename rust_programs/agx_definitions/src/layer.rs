@@ -1,13 +1,33 @@
 extern crate alloc;
-use crate::{Color, Point, Rect, Size};
+use crate::{Color, Point, Rect, Size, CHAR_HEIGHT, CHAR_WIDTH, FONT8X8};
 use alloc::vec;
 use alloc::{boxed::Box, rc::Rc, vec::Vec};
-use core::cell::RefCell;
+use core::{cell::RefCell, cmp::min, fmt::Display};
 
+#[cfg(target_os = "axle")]
+use axle_rt::println;
+
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum StrokeThickness {
     Filled,
     // TODO(PT): Support per-side thickness?
     Width(isize),
+}
+
+/// The protocol expected of a LayerSlice
+/// Pulled out into a trait to provide a 'virtual' LayerSlice that
+/// doesn't map exactly onto a backing framebuffer, to support scrollable layers.
+pub trait LikeLayerSlice: Display {
+    fn frame(&self) -> Rect;
+    fn fill_rect(&self, raw_rect: Rect, color: Color, thickness: StrokeThickness);
+    fn fill(&self, color: Color);
+    fn putpixel(&self, loc: Point, color: Color);
+    fn getpixel(&self, loc: Point) -> Color;
+    fn get_slice(&self, rect: Rect) -> Box<dyn LikeLayerSlice>;
+    fn blit(&self, source_layer: &Box<dyn LikeLayerSlice>, source_frame: Rect, dest_origin: Point);
+    fn blit2(&self, source_layer: &Box<dyn LikeLayerSlice>);
+    fn pixel_data(&self) -> Vec<u8>;
+    fn draw_char(&self, ch: char, draw_loc: Point, draw_color: Color, font_size: Size);
 }
 
 #[derive(Debug)]
@@ -15,7 +35,7 @@ pub struct LayerSlice {
     parent_framebuffer: Rc<RefCell<Box<[u8]>>>,
     parent_framebuffer_size: Size,
     bytes_per_pixel: isize,
-    pub frame: Rect,
+    frame: Rect,
     pub damaged_rects: RefCell<Vec<Rect>>,
 }
 
@@ -39,8 +59,20 @@ impl LayerSlice {
         let mut damaged_rects = self.damaged_rects.borrow_mut();
         damaged_rects.push(rect);
     }
+}
 
-    pub fn fill_rect(&self, raw_rect: Rect, color: Color, thickness: StrokeThickness) {
+impl Display for LayerSlice {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "<LayerSlice {}>", self.frame)
+    }
+}
+
+impl LikeLayerSlice for LayerSlice {
+    fn frame(&self) -> Rect {
+        self.frame
+    }
+
+    fn fill_rect(&self, raw_rect: Rect, color: Color, thickness: StrokeThickness) {
         let rect = self.frame.constrain(raw_rect);
 
         // Note that this rect has been damaged
@@ -87,7 +119,7 @@ impl LayerSlice {
         }
     }
 
-    pub fn fill(&self, color: Color) {
+    fn fill(&self, color: Color) {
         self.fill_rect(
             Rect::from_parts(Point::zero(), self.frame.size),
             color,
@@ -95,8 +127,16 @@ impl LayerSlice {
         )
     }
 
-    pub fn putpixel(&self, loc: Point, color: Color) {
+    fn putpixel(&self, loc: Point, color: Color) {
         if !self.frame.contains(loc + self.frame.origin) {
+            /*
+            println!(
+                "{:?} is uncontained in {}",
+                loc + self.frame.origin,
+                self.frame
+            );
+            */
+            //assert!(false, "uncontained putpixel");
             return;
         }
 
@@ -113,8 +153,20 @@ impl LayerSlice {
         fb[off + 2] = color.r;
     }
 
+    fn getpixel(&self, loc: Point) -> Color {
+        let bpp = self.bytes_per_pixel;
+        let parent_bytes_per_row = self.parent_framebuffer_size.width * bpp;
+        let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
+        let fb = (*self.parent_framebuffer).borrow_mut();
+        let slice_origin_offset = self.frame.origin * bpp_multiple;
+        //let off = slice_origin_offset + (loc.y * parent_bytes_per_row) + (loc.x * bpp);
+        let point_offset = slice_origin_offset + (loc * bpp_multiple);
+        let off = (point_offset.y + point_offset.x) as usize;
+        Color::new(fb[off + 0], fb[off + 1], fb[off + 2])
+    }
+
     // TODO(PT): Implement Into for Layer and LayerSlice -> LayerSlice?
-    pub fn get_slice(&self, rect: Rect) -> LayerSlice {
+    fn get_slice(&self, rect: Rect) -> Box<dyn LikeLayerSlice> {
         // The provided rect is in our coordinate system
         // Translate it to the global coordinate system, then translate
         let constrained = Rect::from_parts(Point::zero(), self.frame.size).constrain(rect);
@@ -123,12 +175,174 @@ impl LayerSlice {
         //let constrained = Rect::from_parts(Point::zero(), self.frame.size)
         //    .constrain(to_current_coordinate_system);
 
-        LayerSlice::new(
+        Box::new(LayerSlice::new(
             Rc::clone(&self.parent_framebuffer),
             self.parent_framebuffer_size,
             to_current_coordinate_system,
             self.bytes_per_pixel,
-        )
+        ))
+    }
+
+    fn blit2(&self, source_layer: &Box<dyn LikeLayerSlice>) {
+        assert!(self.frame().size == source_layer.frame().size);
+        //let pixel_data = source_layer.pixel_data();
+        for y in 0..self.frame().height() {
+            for x in 0..self.frame().width() {
+                let p = Point::new(x, y);
+                self.putpixel(p, source_layer.getpixel(p));
+            }
+        }
+    }
+
+    fn blit(&self, source_layer: &Box<dyn LikeLayerSlice>, src_frame: Rect, dest_origin: Point) {
+        let mut fb = (*self.parent_framebuffer).borrow_mut();
+        let bpp = self.bytes_per_pixel;
+
+        let dest_frame = Rect::from_parts(dest_origin, src_frame.size);
+        let dest_backing_layer_size = self.frame().size;
+        // Offset into dest that we start writing
+        let mut dest_row_start =
+            (dest_frame.min_y() * dest_backing_layer_size.width * bpp) + (dest_frame.min_x() * bpp);
+        // Offset to data from source to write to dest
+        let src_backing_layer_size = source_layer.frame().size;
+        let mut src_row_start =
+            (src_frame.min_y() * src_backing_layer_size.width * bpp) + (src_frame.min_x() * bpp);
+
+        let mut transferrable_rows = src_frame.height();
+        let mut overhang = src_frame.max_y() - src_backing_layer_size.height;
+        if overhang > 0 {
+            transferrable_rows -= overhang;
+        }
+
+        // Dst doesn't necessarily start at the origin in its parent
+        let parent_bytes_per_row = self.parent_framebuffer_size.width * bpp;
+        let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
+        let dst_slice_origin_offset = self.frame.origin * bpp_multiple;
+        let dst_slice_origin_offset =
+            (dst_slice_origin_offset.y + dst_slice_origin_offset.x) as usize;
+        let dst_row_start_to_parent = dst_slice_origin_offset + (dest_row_start as usize);
+
+        // Copy height - y origin rows
+        let total_px_in_layer = dest_backing_layer_size.area() * bpp;
+        let dest_max_y = dest_frame.max_y();
+        let src_pixels = source_layer.pixel_data();
+        for i in 0..transferrable_rows {
+            if i >= dest_max_y {
+                break;
+            }
+
+            // Figure out how many pixels can actually be copied, in case the
+            // source frame exceeds the dest frame
+            let offset = dest_row_start;
+            if offset >= total_px_in_layer {
+                break;
+            }
+
+            let transferrable_px = min(src_frame.width(), dest_frame.width()) * bpp;
+            //let dest_slice = self.
+            //let src_pixels_in_row = source_layer.get_pixel_data(src_row_start, transferrable_px);
+            let src_pixels_in_row =
+                &src_pixels[(src_row_start as usize)..(src_row_start + transferrable_px) as usize];
+            let mut dst_pixels_in_row = &mut fb
+                [dst_row_start_to_parent..dst_row_start_to_parent + (transferrable_px as usize)];
+            dst_pixels_in_row.copy_from_slice(src_pixels_in_row);
+
+            dest_row_start += dest_backing_layer_size.width * bpp;
+            src_row_start += src_backing_layer_size.width * bpp;
+            //let dst_pixels_in_row =
+        }
+
+        /*
+        int total_px_in_layer = (uint32_t)(dest->size.width * dest->size.height * bpp);
+        int dest_max_y = rect_max_y(dest_frame);
+        for (int i = 0; i < transferabble_rows; i++) {
+            if (i >= dest_max_y) break;
+
+            //figure out how many px we can actually transfer over,
+            //in case src_frame exceeds dest
+            int offset = (uint32_t)dest_row_start - (uint32_t)dest->raw;
+            if (offset >= total_px_in_layer) {
+                break;
+            }
+
+            // blit_layer should handle bounding the provided frames so we never write to memory outside the layers,
+            // regardless of the frames passed.
+            int transferabble_px = MIN(src_frame.size.width, dest_frame.size.width) * bpp;
+            memcpy(dest_row_start, row_start, transferabble_px);
+
+            dest_row_start += (dest->size.width * bpp);
+            row_start += (src->size.width * bpp);
+        }
+        */
+
+        /*
+        let parent_bytes_per_row = self.parent_framebuffer_size.width * bpp;
+        let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
+        let slice_origin_offset = self.frame.origin * bpp_multiple;
+        let dst_origin_offset = slice_origin_offset + (dest_origin * bpp_multiple);
+        let pixel_data = source_layer.pixel_data();
+
+        let source_size = source_layer.frame().size;
+
+        #[cfg(target_os = "axle")]
+        println!(
+            "blit source_size {source_size:?}, dest_size {:?} origin {dest_origin:?}",
+            self.frame().size
+        );
+
+        for y in 0..source_size.height {
+            #[cfg(target_os = "axle")]
+            println!("y {y}");
+            let src_row_start = y * parent_bytes_per_row;
+            let dst_row_start = dst_origin_offset.y + (y * parent_bytes_per_row);
+            for x in 0..source_size.width {
+                let dst_offset = (dst_origin_offset.x + dst_row_start + (x * bpp)) as usize;
+                let src_offset = (src_row_start + (x * bpp)) as usize;
+                for byte in 0..(bpp as usize) {
+                    fb[dst_offset + byte] = pixel_data[src_offset + byte];
+                }
+            }
+        }
+        */
+    }
+
+    fn pixel_data(&self) -> Vec<u8> {
+        let mut out = vec![];
+        let fb = (*self.parent_framebuffer).borrow();
+        let bpp = self.bytes_per_pixel;
+        let parent_bytes_per_row = self.parent_framebuffer_size.width * bpp;
+        let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
+        let slice_origin_offset = self.frame.origin * bpp_multiple;
+        for y in self.frame.min_y()..self.frame.max_y() {
+            let row_start = slice_origin_offset.y + (y * parent_bytes_per_row);
+            for x in self.frame.min_x()..self.frame.max_x() {
+                let offset = (slice_origin_offset.x + row_start + (x * bpp)) as usize;
+                for byte in 0..(bpp as usize) {
+                    out.push(fb[offset + byte]);
+                }
+            }
+        }
+        out
+    }
+
+    fn draw_char(&self, ch: char, draw_loc: Point, draw_color: Color, font_size: Size) {
+        // Scale font to the requested size
+        let scale_x: f64 = (font_size.width as f64) / (CHAR_WIDTH as f64);
+        let scale_y: f64 = (font_size.height as f64) / (CHAR_HEIGHT as f64);
+
+        let bitmap = FONT8X8[ch as usize];
+
+        for draw_y in 0..font_size.height {
+            // Go from scaled pixel back to 8x8 font
+            let font_y = (draw_y as f64 / scale_y) as usize;
+            let row = bitmap[font_y];
+            for draw_x in 0..font_size.width {
+                let font_x = (draw_x as f64 / scale_x) as usize;
+                if row >> font_x & 0b1 != 0 {
+                    self.putpixel(draw_loc + Point::new(draw_x, draw_y), draw_color);
+                }
+            }
+        }
     }
 }
 
@@ -146,10 +360,10 @@ pub trait Layer {
 
     fn fill_rect(&self, rect: &Rect, color: Color);
     fn putpixel(&self, loc: &Point, color: Color);
-    //fn getpixel(&self, loc: &Point) -> &'a [u8];
-    fn get_slice(&mut self, rect: Rect) -> LayerSlice;
+    fn get_slice(&mut self, rect: Rect) -> Box<dyn LikeLayerSlice>;
 }
 
+#[derive(PartialEq)]
 pub struct SingleFramebufferLayer {
     pub framebuffer: Rc<RefCell<Box<[u8]>>>,
     bytes_per_pixel: isize,
@@ -159,8 +373,9 @@ pub struct SingleFramebufferLayer {
 impl SingleFramebufferLayer {
     pub fn new(size: Size) -> Self {
         let bytes_per_pixel = 4;
-        let max_size = Size::new(600, 480);
-        let framebuf_size = max_size.width * max_size.height * bytes_per_pixel;
+        //let max_size = Size::new(600, 480);
+        //let framebuf_size = max_size.width * max_size.height * bytes_per_pixel;
+        let framebuf_size = size.width * size.height * bytes_per_pixel;
         let framebuffer = vec![0; framebuf_size.try_into().unwrap()];
 
         SingleFramebufferLayer {
@@ -214,14 +429,14 @@ impl Layer for SingleFramebufferLayer {
         framebuffer[off + 2] = color.b;
     }
 
-    fn get_slice(&mut self, rect: Rect) -> LayerSlice {
+    fn get_slice(&mut self, rect: Rect) -> Box<dyn LikeLayerSlice> {
         let constrained = Rect::from_parts(Point::zero(), self.size).constrain(rect);
-        LayerSlice::new(
+        Box::new(LayerSlice::new(
             Rc::clone(&self.framebuffer),
             self.size(),
             constrained,
             self.bytes_per_pixel,
-        )
+        ))
     }
 }
 
@@ -340,20 +555,20 @@ fn slice_constrains_rect() {
     // And the requested slice frame is outside the bounds of the layer
     let slice = layer.get_slice(Rect::new(0, 0, 200, 200));
     // Then the returned slice is constrained to the available size in the layer
-    assert_eq!(slice.frame, Rect::new(0, 0, 100, 100));
+    assert_eq!(slice.frame(), Rect::new(0, 0, 100, 100));
 
     // When I request a slice
     let slice2 = layer.get_slice(Rect::new(99, 99, 100, 100));
     // Then the returned slice is constrained to the available size in the layer
-    assert_eq!(slice2.frame, Rect::new(99, 99, 1, 1));
+    assert_eq!(slice2.frame(), Rect::new(99, 99, 1, 1));
 
     // When I request a slice
     let slice3 = layer.get_slice(Rect::new(50, 50, 150, 150));
     // Then the returned slice is constrained to the available size in the layer
-    assert_eq!(slice3.frame, Rect::new(50, 50, 50, 50));
+    assert_eq!(slice3.frame(), Rect::new(50, 50, 50, 50));
 
     // When I request a slice
     let slice3 = layer.get_slice(Rect::new(500, 500, 500, 500));
     // Then the returned slice is constrained to the available size in the layer
-    assert_eq!(slice3.frame, Rect::new(0, 0, 0, 0));
+    assert_eq!(slice3.frame(), Rect::new(0, 0, 0, 0));
 }
