@@ -216,6 +216,8 @@ Rect rect_intersect(Rect a, Rect b) {
 		result.size.height = b.size.height;
 	}
 
+    //assert(result.size.width > 0 && result.size.height > 0, "rect_intersect result was zero_sized");
+
 	return result;
 }
 

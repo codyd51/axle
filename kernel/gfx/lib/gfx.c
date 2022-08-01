@@ -103,3 +103,112 @@ void gfx_terminal_clear() {
     // Clear the screen's double buffer and redraw the background
     Deprecated();
 }
+
+void kernel_gfx_fill_screen(Color color) {
+    boot_info_t* b = boot_info_get();
+    framebuffer_info_t fb = b->framebuffer;
+    uintptr_t addr = vmm_is_active() ? PMA_TO_VMA(fb.address) : fb.address;
+    uint32_t* base = (uint32_t*)addr;
+    uint32_t color_as_u32 = color.val[0] << 16 | color.val[1] << 8 | color.val[2];
+	for (uint32_t y = 0; y < fb.height; y++) {
+		for (uint32_t x = 0; x < fb.width; x++) {
+			base[(y * fb.width) + x] = color_as_u32;
+		}
+	}
+}
+
+void kernel_gfx_fill_rect(Rect r, Color color) {
+    boot_info_t* b = boot_info_get();
+    framebuffer_info_t fb = b->framebuffer;
+
+    // Bind the rect to the screen size
+    r.origin.x = max(0, r.origin.x);
+    r.origin.y = max(0, r.origin.y);
+    r.size.width = min(fb.width, r.size.width);
+    r.size.height = min(fb.height, r.size.height);
+
+    // TODO(PT): This only works with 4BPP
+    uintptr_t addr = vmm_is_active() ? PMA_TO_VMA(fb.address) : fb.address;
+    uint32_t* base = (uint32_t*)addr;
+
+    uint32_t color_as_u32 = color.val[0] << 16 | color.val[1] << 8 | color.val[2];
+	for (uint32_t y = rect_min_y(r); y < rect_max_y(r); y++) {
+		for (uint32_t x = rect_min_x(r); x < rect_max_x(r); x++) {
+			base[(y * fb.width) + x] = color_as_u32;
+		}
+	}
+}
+
+Size kernel_gfx_screen_size(void) {
+    boot_info_t* b = boot_info_get();
+    framebuffer_info_t fb = b->framebuffer;
+    return size_make(fb.width, fb.height);
+}
+
+static Point _g_cursor = {0, 0};
+static Size _g_font_size = {8, 12};
+
+void kernel_gfx_putpixel(uint8_t* dest, int x, int y, Color color) {
+    boot_info_t* b = boot_info_get();
+    framebuffer_info_t fb = b->framebuffer;
+    int width = fb.width;
+    int height = fb.height;
+    int bpp = fb.bytes_per_pixel;
+	//don't attempt writing a pixel outside of screen bounds
+	if (x < 0 || y < 0 || x >= width || y >= height) return;
+
+	uint32_t offset = (x * bpp) + (y * width * bpp);
+	for (uint32_t i = 0; i < 3; i++) {
+		// Pixels are written in BGR, not RGB
+		// Thus, flip color order when reading a source color-byte
+		dest[offset + i] = color.val[bpp - i - 1];
+	}
+}
+
+#include <gfx/font/font8x8.h>
+
+void kernel_gfx_draw_string(uint8_t* dest, char* str, Point origin, Color color, Size font_size) {
+	int x = origin.x;
+	int y = origin.y;
+	int string_len = strlen(str);
+	int idx = 0;
+    Size padding = size_make(0, 0);
+    uint32_t height = boot_info_get()->framebuffer.height;
+	while (str[idx]) {
+		if (str[idx] == '\n') {
+			x = 0;
+
+			//quit if going to next line would exceed view bounds
+			if ((y + font_size.height + padding.height + 1) >= height) break;
+			y += font_size.height + padding.height;
+			idx++;
+			continue;
+		}
+
+		Color draw_color = color;
+		kernel_gfx_draw_char(dest, str[idx], x, y, draw_color, font_size);
+
+		x += font_size.width + padding.width;
+		idx++;
+	}
+}
+
+void kernel_gfx_set_line_rendered_string_cursor(Point new_cursor_pos) {
+    _g_cursor = new_cursor_pos;
+}
+
+void kernel_gfx_write_line_rendered_string_ex(char* str, bool higher_half) {
+    boot_info_t* b = boot_info_get();
+    framebuffer_info_t fb = b->framebuffer;
+    uint64_t addr = fb.address;
+    if (higher_half) {
+        addr += KERNEL_MEMORY_BASE;
+    }
+
+    kernel_gfx_draw_string((uint8_t*)addr, str, _g_cursor, color_white(), _g_font_size);
+    _g_cursor.y += _g_font_size.height * 2;
+}
+
+void kernel_gfx_write_line_rendered_string(char* str) {
+    kernel_gfx_write_line_rendered_string_ex(str, true);
+}

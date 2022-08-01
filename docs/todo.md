@@ -304,3 +304,5 @@ Desired boot resolution should be in a config file
     avoids race conditions where a program is waiting for a response and gets a diff event off the Q 
     (example: awm waiting for framebuffer but gets 2048 service died notif)
 Closing windows
+
+Logs viewer should have tabs to filter the logs on a per-process basis
