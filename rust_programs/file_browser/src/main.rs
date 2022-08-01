@@ -6,6 +6,7 @@
 extern crate alloc;
 extern crate libc;
 
+use alloc::boxed::Box;
 use alloc::{collections::BTreeMap, format, rc::Weak, vec::Vec};
 use alloc::{
     rc::Rc,
@@ -26,8 +27,8 @@ use axle_rt::{
 };
 
 use agx_definitions::{
-    Color, Drawable, LayerSlice, Line, NestedLayerSlice, Point, Rect, RectInsets, Size,
-    StrokeThickness,
+    Color, Drawable, LayerSlice, LikeLayerSlice, Line, NestedLayerSlice, Point, Rect, RectInsets,
+    Size, StrokeThickness,
 };
 
 use file_manager_messages::{
@@ -97,7 +98,11 @@ impl NestedLayerSlice for CurrentPathView {
         self.view.set_parent(parent);
     }
 
-    fn get_slice(&self) -> LayerSlice {
+    fn get_slice(&self) -> Box<dyn LikeLayerSlice> {
+        self.view.get_slice()
+    }
+
+    fn get_slice_for_render(&self) -> Box<dyn LikeLayerSlice> {
         self.view.get_slice()
     }
 }
@@ -118,7 +123,7 @@ impl Drawable for CurrentPathView {
 }
 
 impl Bordered for CurrentPathView {
-    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice) {
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
         self.view.draw_inner_content(outer_frame, onto);
     }
 
@@ -221,7 +226,11 @@ impl NestedLayerSlice for DirectoryEntryView {
         self.view.set_parent(parent);
     }
 
-    fn get_slice(&self) -> LayerSlice {
+    fn get_slice(&self) -> Box<dyn LikeLayerSlice> {
+        self.view.get_slice()
+    }
+
+    fn get_slice_for_render(&self) -> Box<dyn LikeLayerSlice> {
         self.view.get_slice()
     }
 }
@@ -257,7 +266,7 @@ impl Drawable for DirectoryEntryView {
 impl Bordered for DirectoryEntryView {
     fn draw_border(&self) -> Rect {
         let onto = self.get_slice();
-        let border_rect = Rect::from_parts(Point::zero(), onto.frame.size);
+        let border_rect = Rect::from_parts(Point::zero(), onto.frame().size);
 
         let border_color = match self.currently_contains_mouse() {
             //true => Color::white(),
@@ -283,7 +292,7 @@ impl Bordered for DirectoryEntryView {
         RectInsets::new(0, 0, 0, 0)
     }
 
-    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice) {
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
         self.view.draw_inner_content(outer_frame, onto);
     }
 }
@@ -377,7 +386,7 @@ impl Drawable for DirectoryContentsView {
 }
 
 impl Bordered for DirectoryContentsView {
-    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice) {
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
         self.view.draw_inner_content(outer_frame, onto);
     }
 
@@ -421,7 +430,11 @@ impl NestedLayerSlice for DirectoryContentsView {
         self.view.set_parent(parent);
     }
 
-    fn get_slice(&self) -> LayerSlice {
+    fn get_slice(&self) -> Box<dyn LikeLayerSlice> {
+        self.view.get_slice()
+    }
+
+    fn get_slice_for_render(&self) -> Box<dyn LikeLayerSlice> {
         self.view.get_slice()
     }
 }

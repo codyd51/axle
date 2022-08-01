@@ -1,34 +1,41 @@
 use agx_definitions::{
-    Color, Drawable, LayerSlice, Line, Point, Rect, RectInsets, StrokeThickness,
+    Color, Drawable, LayerSlice, LikeLayerSlice, Line, Point, Rect, RectInsets, StrokeThickness,
 };
+use alloc::boxed::Box;
 use alloc::rc::Rc;
+use axle_rt::println;
 
 use crate::ui_elements::UIElement;
 
 pub trait Bordered: Drawable + UIElement {
     fn border_insets(&self) -> RectInsets;
 
-    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice);
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>);
 
     fn draw(&self) {
-        let mut slice = self.get_slice();
+        let slice = self.get_slice_for_render();
 
         if !self.border_enabled() {
-            self.draw_inner_content(slice.frame, &mut slice);
+            // Invoke get_slice even though it'll have the same time as the parent to allow any layer
+            // swapping to take place
+            // TODO(PT): Not needed?
+            let mut content_slice =
+                slice.get_slice(Rect::from_parts(Point::zero(), slice.frame().size));
+            self.draw_inner_content(slice.frame(), &mut content_slice);
         } else {
             let mut content_slice = slice.get_slice(self.draw_border());
-            self.draw_inner_content(slice.frame, &mut content_slice);
+            self.draw_inner_content(slice.frame(), &mut content_slice);
         }
     }
 
     fn draw_rc(self: Rc<Self>) {
-        let mut slice = self.get_slice();
+        let mut slice = self.get_slice_for_render();
 
         if !self.border_enabled() {
-            self.draw_inner_content(slice.frame, &mut slice);
+            self.draw_inner_content(slice.frame(), &mut slice);
         } else {
             let mut content_slice = slice.get_slice(self.draw_border());
-            self.draw_inner_content(slice.frame, &mut content_slice);
+            self.draw_inner_content(slice.frame(), &mut content_slice);
         }
     }
 
@@ -45,12 +52,16 @@ pub trait Bordered: Drawable + UIElement {
         if !self.border_enabled() {
             return Rect::from_parts(Point::zero(), self.frame().size);
         }
-        let onto = &mut self.get_slice();
+        let onto = &mut self.get_slice_for_render();
         let insets = self.border_insets();
         self.draw_border_with_insets(onto, insets)
     }
 
-    fn draw_border_with_insets(&self, onto: &mut LayerSlice, insets: RectInsets) -> Rect {
+    fn draw_border_with_insets(
+        &self,
+        onto: &mut Box<dyn LikeLayerSlice>,
+        insets: RectInsets,
+    ) -> Rect {
         // TODO(PT): This currently assumes an even inset across all sides
         // Verify this assumption first
         /*

@@ -1,8 +1,8 @@
 use core::cell::RefCell;
 
 use agx_definitions::{
-    Color, Drawable, LayerSlice, Line, NestedLayerSlice, Point, Rect, RectInsets, Size,
-    StrokeThickness,
+    Color, Drawable, LayerSlice, LikeLayerSlice, Line, NestedLayerSlice, Point, Rect, RectInsets,
+    Size, StrokeThickness,
 };
 use alloc::boxed::Box;
 use alloc::rc::Weak;
@@ -126,7 +126,7 @@ impl Bordered for Button {
         content_frame
     }
 
-    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice) {
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
         onto.fill(Color::light_gray());
 
         let draw_color = Color::black();
@@ -141,7 +141,7 @@ impl Bordered for Button {
             self.frame().size.height / 2.0 as isize,
         );
         // Translate the midpoint to the slice's coordinate system
-        let midpoint = button_frame_midpoint - (onto.frame.origin - outer_frame.origin);
+        let midpoint = button_frame_midpoint - (onto.frame().origin - outer_frame.origin);
 
         let label_origin = midpoint
             - Point::new(
@@ -210,5 +210,9 @@ impl NestedLayerSlice for Button {
 
     fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>) {
         self.container.replace(Some(RefCell::new(parent)));
+    }
+
+    fn get_slice_for_render(&self) -> Box<dyn LikeLayerSlice> {
+        self.get_slice()
     }
 }

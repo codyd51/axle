@@ -135,7 +135,7 @@ static FONT8X8: [[u8; CHAR_HEIGHT]; 128] = [
 ];
 
 pub fn draw_char(
-    layer: &mut LayerSlice,
+    layer: &mut Box<dyn LikeLayerSlice>,
     ch: char,
     draw_loc: &Point,
     draw_color: Color,

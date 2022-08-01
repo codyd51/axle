@@ -1,11 +1,12 @@
 use core::cell::RefCell;
 
 use agx_definitions::{
-    Color, Drawable, LayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
+    Color, Drawable, LayerSlice, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
 };
 use alloc::rc::Rc;
 use alloc::rc::Weak;
 use alloc::{boxed::Box, vec::Vec};
+use axle_rt::println;
 
 use crate::{bordered::Bordered, ui_elements::UIElement};
 
@@ -103,10 +104,15 @@ impl NestedLayerSlice for View {
     fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>) {
         self.container.replace(Some(RefCell::new(parent)));
     }
+
+    fn get_slice_for_render(&self) -> Box<dyn LikeLayerSlice> {
+        self.get_slice()
+    }
 }
 
 impl Bordered for View {
-    fn draw_inner_content(&self, _outer_frame: Rect, onto: &mut LayerSlice) {
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
+        //println!("View.bordered.draw_inner_content()");
         onto.fill(self.background_color);
         self.draw_subviews();
     }
@@ -133,7 +139,7 @@ impl Drawable for View {
     }
 
     fn draw(&self) {
-        //panic!("View is drawn via Bordered::draw()");
+        panic!("View is drawn via Bordered::draw()");
         Bordered::draw(self);
     }
 }

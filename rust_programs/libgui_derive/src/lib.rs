@@ -22,8 +22,12 @@ fn impl_nested_layer_slice_derive(ast: &syn::DeriveInput) -> TokenStream {
                 self.view.set_parent(parent);
             }
 
-            fn get_slice(&self) -> LayerSlice {
+            fn get_slice(&self) -> Box<dyn LikeLayerSlice> {
                 self.view.get_slice()
+            }
+
+            fn get_slice_for_render(&self) -> Box<dyn LikeLayerSlice> {
+                self.view.get_slice_for_render()
             }
         }
     };
@@ -70,7 +74,7 @@ fn impl_bordered_derive(ast: &syn::DeriveInput) -> TokenStream {
                 self.view.border_insets()
             }
 
-            fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice) {
+            fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
                 self.view.draw_inner_content(outer_frame, onto);
             }
         }

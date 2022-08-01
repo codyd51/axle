@@ -10,7 +10,7 @@ use axle_rt::ExpectsEventField;
 use axle_rt::{amc_message_await_untyped, amc_message_send};
 
 use agx_definitions::{
-    Drawable, Layer, LayerSlice, NestedLayerSlice, Point, Rect, SingleFramebufferLayer, Size,
+    Drawable, Layer, LikeLayerSlice, NestedLayerSlice, Point, Rect, SingleFramebufferLayer, Size,
 };
 use awm_messages::{
     AwmCreateWindow, AwmCreateWindowResponse, AwmWindowRedrawReady, AwmWindowUpdateTitle,
@@ -41,10 +41,14 @@ impl NestedLayerSlice for AwmWindow {
         panic!("Not supported for AwmWindow");
     }
 
-    fn get_slice(&self) -> LayerSlice {
+    fn get_slice(&self) -> Box<dyn LikeLayerSlice> {
         self.layer
             .borrow_mut()
             .get_slice(Rect::from_parts(Point::zero(), *self.current_size.borrow()))
+    }
+
+    fn get_slice_for_render(&self) -> Box<dyn LikeLayerSlice> {
+        self.get_slice()
     }
 }
 
@@ -55,10 +59,8 @@ impl AwmWindow {
         // Start off by getting a window from awm
         amc_message_send(AwmWindow::AWM_SERVICE_NAME, AwmCreateWindow::new(size));
         // awm should send back info about the window that was created
-        let window_info: AmcMessage<AwmCreateWindowResponse> = amc_message_await__u32_event(
-            AwmWindow::AWM_SERVICE_NAME,
-            AwmCreateWindowResponse::EXPECTED_EVENT,
-        );
+        let window_info: AmcMessage<AwmCreateWindowResponse> =
+            amc_message_await__u32_event(AwmWindow::AWM_SERVICE_NAME);
 
         let bpp = window_info.body().bytes_per_pixel as isize;
         let screen_resolution = Size::from(&window_info.body().screen_resolution);
@@ -146,7 +148,7 @@ impl AwmWindow {
     }
 
     fn key_down(&self, event: &KeyDown) {
-        printf!("Key down: {:?}\n", event);
+        //printf!("Key down: {:?}\n", event);
         // TODO(PT): One element should have keyboard focus at a time. How to select?
         let elems = self.ui_elements.borrow();
         for elem in elems.iter() {
@@ -225,7 +227,7 @@ impl AwmWindow {
                 printf!("Checking if elem contains point...\n");
                 if elem.frame().contains(Point::from(event.mouse_pos)) {
                     printf!("Found UI element that bounds click point, dispatching\n");
-                    clicked_elem = Some(Rc::clone(&elem));
+                    clicked_elem = Some(Rc::clone(elem));
                     break;
                 }
             }

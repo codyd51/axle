@@ -47,6 +47,10 @@ impl NestedLayerSlice for Label {
     fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>) {
         self.container.replace(Some(RefCell::new(parent)));
     }
+
+    fn get_slice_for_render(&self) -> alloc::boxed::Box<dyn agx_definitions::LikeLayerSlice> {
+        self.get_slice()
+    }
 }
 
 impl Drawable for Label {
