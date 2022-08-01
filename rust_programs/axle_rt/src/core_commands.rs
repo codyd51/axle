@@ -254,9 +254,10 @@ impl ExpectsEventField for AmcExecBuffer {
 #[repr(C)]
 #[derive(Debug)]
 pub enum SupervisedProcessEvent {
-    ProcessStart(u64),
-    ProcessExit(u64),
-    ProcessWrite(u64, [u8; 128]),
+    ProcessCreate(u64),
+    ProcessStart(u64, u64),
+    ProcessExit(u64, u64),
+    ProcessWrite(u64, u64, [u8; 128]),
 }
 
 #[repr(C)]
