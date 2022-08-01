@@ -14,7 +14,6 @@ use linker_messages::{AssembleSource, AssembledElf, LINKER_SERVICE_NAME};
 use output_view::OutputView;
 use source_code_view::SourceCodeView;
 use status_view::StatusView;
-use text_view::TextView;
 
 use libgui::ui_elements::UIElement;
 use libgui::window::AwmWindow;
@@ -36,8 +35,6 @@ mod ide_messages;
 mod output_view;
 mod source_code_view;
 mod status_view;
-mod text_input_view;
-mod text_view;
 use ide_messages::IDE_SERVICE_NAME;
 
 enum SupervisedProgram {

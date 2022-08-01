@@ -606,7 +606,7 @@ impl Tile {
     fn new(frame: Rect) -> Self {
         Self { frame }
     }
-    fn tiles_visible_in_viewport<'a>(tiles: &'a Vec<Tile>, viewport_rect: Rect) -> TileSegments {
+    fn tiles_visible_in_viewport(tiles: &Vec<Tile>, viewport_rect: Rect) -> TileSegments {
         TileSegments(
             tiles
                 .iter()

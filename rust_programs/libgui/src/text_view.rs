@@ -4,6 +4,13 @@ use core::{
     fmt::Display,
 };
 
+use crate::{
+    bordered::Bordered,
+    font::{draw_char, CHAR_HEIGHT, CHAR_WIDTH, FONT8X8},
+    ui_elements::UIElement,
+    view::View,
+    window::KeyCode,
+};
 use agx_definitions::{
     Color, Drawable, Layer, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets,
     SingleFramebufferLayer, Size, StrokeThickness,
@@ -17,13 +24,6 @@ use alloc::{
     vec::Vec,
 };
 use axle_rt::println;
-use libgui::{
-    bordered::Bordered,
-    font::{draw_char, CHAR_HEIGHT, CHAR_WIDTH, FONT8X8},
-    ui_elements::UIElement,
-    view::View,
-    window::KeyCode,
-};
 use libgui_derive::{Bordered, Drawable, NestedLayerSlice, UIElement};
 
 struct ExpandingLayerSlice {
@@ -230,54 +230,7 @@ impl ExpandingLayer {
         *self.scroll_offset.borrow_mut() = scroll_offset
     }
 
-    /*
-    pub fn intersection(r1: Rect, r2: Rect) -> Option<Rect> {
-        if !r1.intersects_with(r2) {
-            None
-        } else {
-            let x = max(r1.min_x(), r2.min_x());
-            let y = max(r1.min_y(), r2.min_y());
-            //let width = min(r1.width(), r2.width());
-            let max_x = min(r1.max_x(), r2.max_x());
-            let max_y = min(r1.max_y(), r2.max_y());
-            //let height = min(r1.height(), r2.height());
-            Some(Rect::new(x, y, max_x - x, max_y - y))
-        }
-    }
-    */
-
-    /*
-    fn tiles_visible_in_rect<'a>(
-        tile_layers: &'a Vec<TileLayer>,
-        rect: Rect,
-    ) -> Vec<(Rect, &'a TileLayer)> {
-        println!("tiles_visible_in_rect {rect}");
-        tile_layers
-            .iter()
-            .filter_map(|tile| {
-                println!("\tChecking for intersection with {rect} and {}", tile.frame);
-                if let Some(mut intersection) = rect.area_overlapping_with(tile.frame) {
-                    if rect.origin.x < 0 {
-                        intersection.origin.x += rect.origin.x;
-                        intersection.size.width += rect.origin.x;
-                    }
-                    if rect.origin.y < 0 {
-                        intersection.origin.y += rect.origin.y;
-                        intersection.size.height += rect.origin.y;
-                    }
-                    Some((intersection, tile))
-                } else {
-                    None
-                }
-            })
-            .collect()
-    }
-    */
-
-    fn tiles_visible_in_viewport<'a>(
-        tiles: &'a Vec<TileLayer>,
-        viewport_rect: Rect,
-    ) -> TileSegments {
+    fn tiles_visible_in_viewport(tiles: &Vec<TileLayer>, viewport_rect: Rect) -> TileSegments {
         TileSegments(
             tiles
                 .iter()

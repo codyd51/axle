@@ -1,5 +1,6 @@
 use core::cell::RefCell;
 
+use crate::{bordered::Bordered, ui_elements::UIElement, view::View, window::KeyCode};
 use agx_definitions::{
     Color, Drawable, LayerSlice, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
     StrokeThickness,
@@ -8,7 +9,6 @@ use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use alloc::{collections::BTreeMap, string::String};
 use axle_rt::println;
-use libgui::{bordered::Bordered, ui_elements::UIElement, view::View, window::KeyCode};
 use libgui_derive::{Bordered, Drawable, NestedLayerSlice};
 
 use crate::text_view::{CursorPos, TextView};

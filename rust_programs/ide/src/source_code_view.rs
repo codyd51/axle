@@ -8,10 +8,11 @@ use alloc::{
     string::String,
 };
 use axle_rt::println;
+use libgui::text_input_view::TextInputView;
 use libgui::{bordered::Bordered, ui_elements::UIElement, view::View, window::KeyCode};
 use libgui_derive::{Bordered, Drawable, NestedLayerSlice};
 
-use crate::{text_input_view::TextInputView, MessageHandler};
+use crate::MessageHandler;
 
 #[derive(NestedLayerSlice, Drawable, Bordered)]
 pub struct SourceCodeView {

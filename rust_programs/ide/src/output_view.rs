@@ -4,12 +4,11 @@ use agx_definitions::{
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use axle_rt::println;
+use libgui::text_view::TextView;
 use libgui::{
     bordered::Bordered, label::Label, ui_elements::UIElement, view::View, window::KeyCode,
 };
 use libgui_derive::{Bordered, Drawable, NestedLayerSlice};
-
-use crate::text_view::TextView;
 
 #[derive(NestedLayerSlice, Drawable, Bordered)]
 pub struct OutputView {

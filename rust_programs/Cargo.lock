@@ -1007,6 +1007,7 @@ dependencies = [
  "axle_rt",
  "axle_rt_derive",
  "cstr_core",
+ "libgui_derive",
  "rand",
  "rand_core 0.5.1",
 ]

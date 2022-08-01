@@ -12,3 +12,4 @@ axle_rt = {path = "../axle_rt" }
 axle_rt_derive = {path = "../axle_rt_derive" }
 awm_messages = {path = "../awm_messages" }
 agx_definitions = {path = "../agx_definitions" }
+libgui_derive = {path = "../libgui_derive"}
