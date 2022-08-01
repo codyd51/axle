@@ -17,5 +17,6 @@
 void _panic(const char* msg, const char* file, int line);
 
 void task_assert(bool cond, const char* msg, const register_state_t* regs);
+bool should_relaunch_crashed_amc_service();
 
 #endif
