@@ -1,8 +1,10 @@
 use core::cell::RefCell;
 
 use agx_definitions::{
-    Color, Drawable, LayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size, StrokeThickness,
+    Color, Drawable, LayerSlice, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
+    StrokeThickness,
 };
+use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use alloc::{collections::BTreeMap, string::String};
 use axle_rt::println;
@@ -11,7 +13,7 @@ use libgui_derive::{Bordered, Drawable, NestedLayerSlice};
 
 use crate::text_view::{CursorPos, TextView};
 
-#[derive(Drawable, NestedLayerSlice, Bordered)]
+#[derive(Drawable, NestedLayerSlice)]
 pub struct TextInputView {
     pub view: Rc<TextView>,
     is_shift_held: RefCell<bool>,
@@ -19,7 +21,13 @@ pub struct TextInputView {
 
 impl TextInputView {
     pub fn new<F: 'static + Fn(&View, Size) -> Rect>(sizer: F) -> Rc<Self> {
-        let view = TextView::new(Color::white(), sizer);
+        let view = TextView::new(
+            Color::white(),
+            Size::new(16, 16),
+            //RectInsets::new(8, 8, 8, 8),
+            RectInsets::new(8, 8, 8, 8),
+            sizer,
+        );
 
         Rc::new(Self {
             view,
@@ -37,7 +45,8 @@ impl TextInputView {
 
     fn cursor_frame(&self) -> Rect {
         let cursor = (*self.view.cursor_pos.borrow()).1;
-        Rect::from_parts(Point::new(cursor.x + 1, cursor.y - 1), Size::new(1, 14))
+        //Rect::from_parts(Point::new(cursor.x + 1, cursor.y - 1), Size::new(1, 14))
+        Rect::from_parts(Point::new(cursor.x + 1, cursor.y), Size::new(1, 14))
     }
 
     fn erase_cursor(&self) {
@@ -54,14 +63,15 @@ impl TextInputView {
         self.view.draw_char_and_update_cursor(ch, color)
     }
 
-    fn draw_cursor(&self) {
+    pub fn draw_cursor(&self) {
         let onto = &mut self.get_slice().get_slice(self.view.text_entry_frame());
         let cursor_frame = self.cursor_frame();
+        //println!("Cursor frame {cursor_frame} onto {}", onto.frame());
         onto.fill_rect(cursor_frame, Color::dark_gray(), StrokeThickness::Filled);
     }
 
     fn _set_cursor(&self, cursor_pos: CursorPos) {
-        println!("Setting cursor to {cursor_pos:?}");
+        //println!("Setting cursor to {cursor_pos:?}");
         self.erase_cursor();
         *self.view.cursor_pos.borrow_mut() = cursor_pos;
         self.draw_cursor();
@@ -99,6 +109,10 @@ impl UIElement for TextInputView {
 
     fn handle_mouse_moved(&self, mouse_point: Point) {
         self.view.handle_mouse_moved(mouse_point)
+    }
+
+    fn handle_mouse_scrolled(&self, mouse_point: Point, delta_z: isize) {
+        self.view.handle_mouse_scrolled(mouse_point, delta_z)
     }
 
     fn handle_left_click(&self, mouse_point: Point) {
@@ -141,7 +155,7 @@ impl UIElement for TextInputView {
                     }
                 // TODO(PT): Extract this constant (backspace)
                 } else if ch == 0x08 as char {
-                    println!("Caught backspace!");
+                    //println!("Caught backspace!");
                     self.delete_char();
                 } else {
                     self.put_char(ch);
@@ -164,5 +178,16 @@ impl UIElement for TextInputView {
 
     fn currently_contains_mouse(&self) -> bool {
         self.view.currently_contains_mouse()
+    }
+}
+
+impl Bordered for TextInputView {
+    fn border_insets(&self) -> RectInsets {
+        self.view.border_insets()
+    }
+
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
+        self.view.draw_inner_content(outer_frame, onto);
+        self.draw_cursor()
     }
 }

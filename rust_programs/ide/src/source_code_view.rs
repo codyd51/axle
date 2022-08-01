@@ -1,6 +1,7 @@
 use agx_definitions::{
-    Color, Drawable, LayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
+    Color, Drawable, LayerSlice, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
 };
+use alloc::boxed::Box;
 use alloc::{collections::BTreeMap, string::ToString, vec};
 use alloc::{
     rc::{Rc, Weak},
@@ -15,7 +16,7 @@ use crate::{text_input_view::TextInputView, MessageHandler};
 #[derive(NestedLayerSlice, Drawable, Bordered)]
 pub struct SourceCodeView {
     _message_handler: Rc<MessageHandler>,
-    view: Rc<TextInputView>,
+    pub view: Rc<TextInputView>,
 }
 
 impl SourceCodeView {
@@ -36,10 +37,10 @@ impl SourceCodeView {
 
     fn highlight_for_word(&self, word: &str) -> Option<Color> {
         let opcode_color = Color::new(160, 40, 211);
-        let opcodes = vec!["mov", "int"];
+        let opcodes = vec!["mov", "int", "jmp"];
 
         let keyword_color = Color::new(196, 149, 47);
-        let keywords = vec![".global", ".section", ".ascii", ".equ", ".", "-"];
+        let keywords = vec![".global", ".section", ".ascii", ".equ", ".word", ".", "-"];
 
         let register_color = Color::new(47, 56, 245);
         let registers = vec![
@@ -80,12 +81,13 @@ impl SourceCodeView {
         for ch in current_word.chars() {
             self.view.draw_char_and_update_cursor(ch, word_color);
         }
+        self.view.draw_cursor()
     }
 
     fn get_current_word(&self) -> String {
         let mut out = vec![];
         let mut cursor = self.view.get_cursor_pos().0;
-        println!("Current cursor pos {cursor}");
+        //println!("Current cursor pos {cursor}");
         if cursor == 0 {
             return "".to_string();
         }
@@ -126,14 +128,18 @@ impl UIElement for SourceCodeView {
         self.view.handle_left_click(mouse_point)
     }
 
+    fn handle_mouse_scrolled(&self, mouse_point: Point, delta_z: isize) {
+        self.view.handle_mouse_scrolled(mouse_point, delta_z)
+    }
+
     fn handle_key_pressed(&self, key: KeyCode) {
         self.view.handle_key_pressed(key);
-        self.recolorize_current_word()
+        self.recolorize_current_word();
     }
 
     fn handle_key_released(&self, key: KeyCode) {
         self.view.handle_key_released(key);
-        self.recolorize_current_word()
+        self.recolorize_current_word();
     }
 
     fn handle_superview_resize(&self, superview_size: Size) {

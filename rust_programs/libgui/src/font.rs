@@ -1,9 +1,10 @@
-use agx_definitions::{Color, LayerSlice, Point, Size};
+use agx_definitions::{Color, LayerSlice, LikeLayerSlice, Point, Size};
+use alloc::boxed::Box;
 
-const CHAR_WIDTH: usize = 8;
-const CHAR_HEIGHT: usize = 8;
+pub const CHAR_WIDTH: usize = 8;
+pub const CHAR_HEIGHT: usize = 8;
 
-static FONT8X8: [[u8; CHAR_HEIGHT]; 128] = [
+pub static FONT8X8: [[u8; CHAR_HEIGHT]; 128] = [
     [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // U+0000 (nul)
     [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // U+0001
     [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], // U+0002

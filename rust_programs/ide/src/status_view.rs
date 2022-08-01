@@ -1,7 +1,8 @@
 use agx_definitions::{
-    Color, Drawable, LayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
+    Color, Drawable, LayerSlice, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
 };
 use alloc::{
+    boxed::Box,
     format,
     rc::{Rc, Weak},
 };
