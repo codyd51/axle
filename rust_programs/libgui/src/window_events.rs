@@ -4,6 +4,9 @@ use axle_rt_derive::ContainsEventField;
 
 pub trait AwmWindowEvent: ExpectsEventField + ContainsEventField {}
 
+#[derive(Debug, Copy, Clone)]
+pub struct KeyCode(pub u32);
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, ContainsEventField)]
 pub struct KeyDown {

@@ -19,9 +19,6 @@ use awm_messages::{
 use crate::ui_elements::*;
 use crate::window_events::*;
 
-#[derive(Debug, Copy, Clone)]
-pub struct KeyCode(pub u32);
-
 pub struct AwmWindow {
     pub layer: RefCell<SingleFramebufferLayer>,
     pub current_size: RefCell<Size>,
@@ -155,6 +152,7 @@ impl AwmWindow {
             elem.handle_key_pressed(KeyCode(event.key));
         }
         // TODO(PT): Hack
+        self.draw();
         self.commit();
     }
 

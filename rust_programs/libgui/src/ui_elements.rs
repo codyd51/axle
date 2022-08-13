@@ -1,6 +1,5 @@
+use crate::window_events::KeyCode;
 use agx_definitions::{Drawable, NestedLayerSlice, Point, Size};
-
-use crate::window::KeyCode;
 
 pub trait UIElement: Drawable + NestedLayerSlice {
     fn handle_mouse_entered(&self) {}

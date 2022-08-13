@@ -139,7 +139,7 @@ impl Drawable for View {
     }
 
     fn draw(&self) {
-        panic!("View is drawn via Bordered::draw()");
+        //panic!("View is drawn via Bordered::draw()");
         Bordered::draw(self);
     }
 }
