@@ -28,6 +28,7 @@ pub trait LikeLayerSlice: Display {
     fn blit2(&self, source_layer: &Box<dyn LikeLayerSlice>);
     fn pixel_data(&self) -> Vec<u8>;
     fn draw_char(&self, ch: char, draw_loc: Point, draw_color: Color, font_size: Size);
+    fn get_pixel_row(&self, y: usize) -> Vec<u8>;
 }
 
 #[derive(Debug)]
@@ -185,17 +186,6 @@ impl LikeLayerSlice for LayerSlice {
         ))
     }
 
-    fn blit2(&self, source_layer: &Box<dyn LikeLayerSlice>) {
-        assert!(self.frame().size == source_layer.frame().size);
-        //let pixel_data = source_layer.pixel_data();
-        for y in 0..self.frame().height() {
-            for x in 0..self.frame().width() {
-                let p = Point::new(x, y);
-                self.putpixel(p, source_layer.getpixel(p));
-            }
-        }
-    }
-
     fn blit(&self, source_layer: &Box<dyn LikeLayerSlice>, src_frame: Rect, dest_origin: Point) {
         let mut fb = (*self.parent_framebuffer).borrow_mut();
         let bpp = self.bytes_per_pixel;
@@ -308,6 +298,17 @@ impl LikeLayerSlice for LayerSlice {
         */
     }
 
+    fn blit2(&self, source_layer: &Box<dyn LikeLayerSlice>) {
+        assert!(self.frame().size == source_layer.frame().size);
+        //let pixel_data = source_layer.pixel_data();
+        for y in 0..self.frame().height() {
+            for x in 0..self.frame().width() {
+                let p = Point::new(x, y);
+                self.putpixel(p, source_layer.getpixel(p));
+            }
+        }
+    }
+
     fn pixel_data(&self) -> Vec<u8> {
         let mut out = vec![];
         let fb = (*self.parent_framebuffer).borrow();
@@ -345,6 +346,18 @@ impl LikeLayerSlice for LayerSlice {
                 }
             }
         }
+    }
+
+    fn get_pixel_row(&self, y: usize) -> Vec<u8> {
+        let bpp = 4;
+        let parent_size = self.parent_framebuffer_size;
+        let parent_bytes_per_row = (parent_size.width * bpp) as usize;
+        let bpp_multiple = Point::new(bpp, parent_bytes_per_row as isize);
+        let pixels = self.parent_framebuffer.borrow();
+        let slice_origin_offset = self.frame.origin * bpp_multiple;
+        let y_origin_offset = (slice_origin_offset.y as usize) + (y * parent_bytes_per_row);
+        let this_bytes_per_row = (self.frame.width() * bpp) as usize;
+        pixels[(y_origin_offset)..(y_origin_offset + this_bytes_per_row)].to_vec()
     }
 }
 
