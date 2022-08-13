@@ -316,6 +316,7 @@ int printk(const char* format, ...) {
 }
 
 static int print_annotated_common(print_destination dest, const char* prefix, const char* suffix, const char* format, va_list va) {
+    return 0;
     int total_len = 0;
 
     total_len += print_common(dest, prefix, NULL);
@@ -327,6 +328,7 @@ static int print_annotated_common(print_destination dest, const char* prefix, co
 
 // TODO(PT): Drop printf() or printk() as the variants now do the same thing
 int printf_dbg(const char* format, ...) {
+    return 0;
     va_list va;
     va_start(va, format);
     int ret = print_annotated_common(PRINT_DESTINATION_SERIAL, "[debug ", "]\n", format, va);
@@ -335,6 +337,7 @@ int printf_dbg(const char* format, ...) {
 }
 
 int printk_dbg(const char* format, ...) {
+    return 0;
     va_list va;
     va_start(va, format);
     int ret = print_annotated_common(PRINT_DESTINATION_SERIAL, "[debug ", "]\n", format, va);
@@ -343,6 +346,7 @@ int printk_dbg(const char* format, ...) {
 }
 
 int printf_info(const char* format, ...) {
+    return 0;
     va_list va;
     va_start(va, format);
     int ret = print_annotated_common(PRINT_DESTINATION_SERIAL, "[info ", "]\n", format, va);
@@ -351,6 +355,7 @@ int printf_info(const char* format, ...) {
 }
 
 int printk_info(const char* format, ...) {
+    return 0;
     va_list va;
     va_start(va, format);
     int ret = print_annotated_common(PRINT_DESTINATION_SERIAL, "[info ", "]\n", format, va);
@@ -359,6 +364,7 @@ int printk_info(const char* format, ...) {
 }
 
 int printf_err(const char* format, ...) {
+    return 0;
     va_list va;
     va_start(va, format);
     int ret = print_annotated_common(PRINT_DESTINATION_SERIAL, "[error ", "]\n", format, va);
@@ -367,6 +373,7 @@ int printf_err(const char* format, ...) {
 }
 
 int printk_err(const char* format, ...) {
+    return 0;
     va_list va;
     va_start(va, format);
     int ret = print_annotated_common(PRINT_DESTINATION_SERIAL, "[error ", "]\n", format, va);
