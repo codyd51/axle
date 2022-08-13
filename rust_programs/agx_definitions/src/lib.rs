@@ -5,6 +5,7 @@
 #![feature(format_args_nl)]
 
 extern crate alloc;
+extern crate core;
 #[cfg(target_os = "axle")]
 extern crate libc;
 
@@ -14,6 +15,7 @@ use alloc::{format, rc::Rc, string::String, vec::Vec};
 
 use alloc::boxed::Box;
 use alloc::rc::Weak;
+use core::fmt::Formatter;
 use core::{
     cmp::{max, min},
     fmt::Display,
@@ -123,6 +125,12 @@ impl Color {
     }
 }
 
+impl Display for Color {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Color({}, {}, {})", self.r, self.g, self.b)
+    }
+}
+
 // For FFI
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -144,7 +152,7 @@ impl SizeU32 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Ord, PartialOrd, Eq)]
 pub struct Size {
     pub width: isize,
     pub height: isize,
@@ -173,6 +181,12 @@ impl Size {
             width: size.width.try_into().unwrap(),
             height: size.height.try_into().unwrap(),
         }
+    }
+}
+
+impl Display for Size {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "({}, {})", self.width, self.height)
     }
 }
 
@@ -217,7 +231,7 @@ impl PointU32 {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Ord, PartialOrd, Eq)]
 pub struct Point {
     pub x: isize,
     pub y: isize,
@@ -235,6 +249,20 @@ impl Point {
             x: point.x.try_into().unwrap(),
             y: point.y.try_into().unwrap(),
         }
+    }
+
+    pub fn distance(&self, p2: Point) -> f64 {
+        let p1 = self;
+        let x_dist = p2.x - p1.x;
+        let y_dist = p2.y - p1.y;
+        let hypotenuse_squared = x_dist.pow(2) + y_dist.pow(2);
+        (hypotenuse_squared as f64).sqrt()
+    }
+}
+
+impl Display for Point {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "({}, {})", self.x, self.y)
     }
 }
 
@@ -278,12 +306,6 @@ impl Mul<isize> for Point {
     }
 }
 
-impl Display for Point {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "({}, {})", self.x, self.y)
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct RectInsets {
     pub left: isize,
@@ -312,7 +334,7 @@ impl RectInsets {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Ord, PartialOrd, Eq)]
 pub struct Rect {
     pub origin: Point,
     pub size: Size,
@@ -323,6 +345,13 @@ impl Rect {
         Rect {
             origin: Point::new(x, y),
             size: Size::new(width, height),
+        }
+    }
+
+    pub fn with_size(size: Size) -> Self {
+        Self {
+            origin: Point::zero(),
+            size,
         }
     }
 
