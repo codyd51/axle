@@ -4,18 +4,20 @@ use core::{
     fmt::Display,
 };
 
+use crate::window_events::KeyCode;
 use crate::{
     bordered::Bordered,
     font::{draw_char, CHAR_HEIGHT, CHAR_WIDTH, FONT8X8},
+    println,
     ui_elements::UIElement,
     view::View,
-    window::KeyCode,
 };
 use agx_definitions::{
     Color, Drawable, Layer, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets,
     SingleFramebufferLayer, Size, StrokeThickness,
 };
 use alloc::boxed::Box;
+use alloc::collections::BTreeSet;
 use alloc::fmt::Debug;
 use alloc::vec;
 use alloc::{
@@ -23,8 +25,9 @@ use alloc::{
     string::String,
     vec::Vec,
 };
-use axle_rt::println;
+use core::fmt::Formatter;
 use libgui_derive::{Bordered, Drawable, NestedLayerSlice, UIElement};
+use rand::Rng;
 
 struct ExpandingLayerSlice {
     parent: Weak<ExpandingLayer>,
@@ -38,11 +41,18 @@ impl ExpandingLayerSlice {
             frame,
         }
     }
+
+    fn putpixel_unchecked(&self, loc: Point, color: Color) {
+        self.parent
+            .upgrade()
+            .unwrap()
+            .putpixel_unchecked(loc, color)
+    }
 }
 
 impl Display for ExpandingLayerSlice {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "<ExpandingLayerSlice {:?}>", self.frame)
+        write!(f, "<ExpandingLayerSlice {}>", self.frame)
     }
 }
 
@@ -53,14 +63,19 @@ impl LikeLayerSlice for ExpandingLayerSlice {
 
     fn fill_rect(&self, raw_rect: Rect, color: Color, thickness: StrokeThickness) {
         //println!("Fill_rect in expandinglayerslice {raw_rect:?} {color:?}");
-        self.parent
-            .upgrade()
-            .unwrap()
-            .fill_rect(raw_rect, color, thickness)
+        self.parent.upgrade().unwrap().fill_rect(
+            Rect::from_parts(self.frame.origin + raw_rect.origin, raw_rect.size),
+            color,
+            thickness,
+        )
     }
 
     fn fill(&self, color: Color) {
-        panic!("fill")
+        self.fill_rect(
+            Rect::from_parts(Point::zero(), self.frame.size),
+            color,
+            StrokeThickness::Filled,
+        )
     }
 
     fn putpixel(&self, loc: Point, color: Color) {
@@ -72,6 +87,7 @@ impl LikeLayerSlice for ExpandingLayerSlice {
     }
 
     fn get_slice(&self, rect: Rect) -> Box<dyn LikeLayerSlice> {
+        //println!("(LikeLayerSlice for ExpandingLayerSlice({})::get_slice({rect})", self.frame);
         let frame = Rect::from_parts(self.frame.origin + rect.origin, rect.size);
         self.parent.upgrade().unwrap().get_slice_with_frame(frame)
     }
@@ -88,21 +104,35 @@ impl LikeLayerSlice for ExpandingLayerSlice {
     }
 
     fn blit2(&self, source_layer: &Box<dyn LikeLayerSlice>) {
-        todo!()
+        /*
+        assert!(self.frame().size == source_layer.frame().size);
+        //let pixel_data = source_layer.pixel_data();
+        for y in 0..self.frame().height() {
+            for x in 0..self.frame().width() {
+                let p = Point::new(x, y);
+                self.putpixel_unchecked(p, source_layer.getpixel(p));
+            }
+        }
+
+         */
+        self.parent.upgrade().unwrap().fill_rect_unchecked(
+            Rect::from_parts(Point::zero(), Size::new(100, 100)),
+            Color::blue(),
+            StrokeThickness::Filled,
+        );
     }
 
     fn draw_char(&self, ch: char, draw_loc: Point, draw_color: Color, font_size: Size) {
-        /*
-        println!(
-            "Drawing char! {ch} draw_loc {draw_loc:?} self {}",
-            self.frame
-        );
-        */
+        //println!("ExpandingLayerSlice({}).draw_char({ch}, {draw_loc})", self.frame);
         let frame = Rect::from_parts(self.frame.origin + draw_loc, font_size);
         self.parent
             .upgrade()
             .unwrap()
             .draw_char(frame, ch, draw_color);
+    }
+
+    fn get_pixel_row(&self, y: usize) -> Vec<u8> {
+        todo!()
     }
 }
 
@@ -114,7 +144,7 @@ struct TileLayer {
 
 impl TileLayer {
     fn new(frame: Rect) -> Self {
-        println!("TileLayer {frame:?}");
+        println!("TileLayer.new({frame})");
         Self {
             frame,
             inner: RefCell::new(SingleFramebufferLayer::new(frame.size)),
@@ -128,11 +158,13 @@ impl TileLayer {
         let slice = inner.get_slice(rect);
         /*
         println!(
-            "fill_rect {rect:?} self {:?} inner {:?} slice {:?}",
+            "\tTileLayer.fill_rect {rect} self_frame {} inner {} slice {} color {color} thickness {thickness:?}",
             self.frame,
             inner.size(),
             slice.frame()
         );
+        */
+        /*
         let mut fb = inner.framebuffer.borrow_mut();
         println!(
             "Framebuffer size {}, inner size {:?}",
@@ -157,13 +189,24 @@ impl TileLayer {
         }
         */
         //println!("slice {:?}", slice.frame());
-        slice.fill_rect(rect, color, thickness)
+        slice.fill_rect(
+            Rect::from_parts(Point::zero(), slice.frame().size),
+            color,
+            thickness,
+        );
+        //slice.fill_rect(rect, color, thickness)
         //slice.fill(color)
     }
 
     fn putpixel(&self, point: Point, color: Color) {
         let mut inner = self.inner.borrow_mut();
         inner.putpixel(&point, color)
+    }
+}
+
+impl Display for TileLayer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "<TileLayer {}>", self.frame)
     }
 }
 
@@ -204,7 +247,7 @@ struct Tile {
 
 pub struct ExpandingLayer {
     visible_frame: RefCell<Rect>,
-    scroll_offset: RefCell<Point>,
+    pub scroll_offset: RefCell<Point>,
     layers: RefCell<Vec<TileLayer>>,
 }
 
@@ -267,6 +310,7 @@ impl ExpandingLayer {
         onto.fill_rect(onto_frame, Color::white(), StrokeThickness::Filled);
         let scroll_offset = *self.scroll_offset.borrow();
         let viewport = Rect::from_parts(scroll_offset, onto.frame().size);
+        //let viewport = viewport.inset_by_insets(RectInsets::new(11, 11, 11, 11));
         //println!("draw_visible_content_onto {onto}, viewport {viewport}");
 
         let visible_tile_segments = Self::tiles_visible_in_viewport(&tile_layers, viewport);
@@ -280,114 +324,166 @@ impl ExpandingLayer {
     }
 
     pub fn get_slice_with_frame(self: &Rc<Self>, frame: Rect) -> Box<dyn LikeLayerSlice> {
-        //println!("ExpandingLayer get_slice_with_frame {frame}");
+        //println!("ExpandingLayer.get_slice_with_frame {frame}");
         Box::new(ExpandingLayerSlice::new(self, frame))
-    }
-
-    fn rect_contains(&self, a: Rect, b: Rect) -> bool {
-        b.max_x() < a.max_x()
-            && b.min_x() >= a.min_x()
-            && b.max_y() < a.max_y()
-            && b.min_y() >= a.min_y()
     }
 
     fn tile_size() -> Size {
         Size::new(300, 300)
     }
 
-    fn expand_to_contain_rect(&self, rect: Rect) {
-        //println!("expand_to_contain_rect {rect}");
+    fn round_to_tile_boundary(val: isize, tile_length: isize) -> isize {
+        let remainder = val % tile_length;
+        if remainder == 0 {
+            return val;
+        }
+        if val < 0 {
+            return val - (tile_length - remainder.abs());
+        }
+        val - remainder
+    }
+
+    fn container_tile_origin_for_point(point: Point, tile_size: Size) -> Point {
+        Point::new(
+            Self::round_to_tile_boundary(point.x, tile_size.width),
+            Self::round_to_tile_boundary(point.y, tile_size.height),
+        )
+    }
+
+    fn rects_not_contained_in_current_tiles(&self, rect: Rect) -> Vec<Rect> {
         let mut tiles = self.layers.borrow_mut();
         let mut rects_not_contained = vec![rect];
         for tile in tiles.iter() {
+            //println!("\tExisting tile: {}", tile.frame);
             let mut new_rects_not_contained = vec![];
             for uncovered_rect in rects_not_contained.iter() {
-                //println!("Checking diff of {uncovered_rect} and {}", tile.frame);
-                let mut uncovered_portions_of_rect = uncovered_rect.area_excluding_rect(tile.frame);
-                for x in uncovered_portions_of_rect.iter() {
-                    //println!("\tRect diff {x}");
+                //println!("\tChecking diff of {uncovered_rect} and {}", tile.frame);
+                if !uncovered_rect.intersects_with(tile.frame) {
+                    new_rects_not_contained.push(*uncovered_rect);
+                } else {
+                    let mut uncovered_portions_of_rect =
+                        uncovered_rect.area_excluding_rect(tile.frame);
+                    new_rects_not_contained.append(&mut uncovered_portions_of_rect);
                 }
-                new_rects_not_contained.append(&mut uncovered_portions_of_rect);
             }
             rects_not_contained = new_rects_not_contained;
         }
-        //println!("Found region which is not covered:");
-        let tile_size = Self::tile_size();
-        let mut tiles_to_create = vec![];
+        rects_not_contained
+    }
+
+    fn tiles_needed_to_cover_rect(rect: Rect, tile_size: Size) -> Vec<Rect> {
+        let mut new_tiles = BTreeSet::new();
+
+        let mut rects_not_contained = vec![rect];
         loop {
             if rects_not_contained.len() == 0 {
                 break;
             }
             let mut new_rects_not_contained = vec![];
             for uncontained_rect in rects_not_contained.iter() {
-                //println!("\tUncontained rect: {uncontained_rect}");
-                // Identify the tile(s) covering the rect we need to cover
-                //let new_tile_origin = Point::new(uncontained_rect.origin.x );
-                let new_tile_origin = Point::new(
-                    uncontained_rect.min_x() - (uncontained_rect.min_x() % tile_size.width),
-                    uncontained_rect.min_y() - (uncontained_rect.min_y() % tile_size.height),
-                );
-                let new_tile_frame = Rect::from_parts(new_tile_origin, tile_size);
-                //println!("\tCreating tile at {new_tile_origin:?}");
-                tiles_to_create.push(new_tile_frame);
+                let tile_origin =
+                    Self::container_tile_origin_for_point(uncontained_rect.origin, tile_size);
+                let tile_frame = Rect::from_parts(tile_origin, tile_size);
+                new_tiles.insert(tile_frame);
 
                 let mut uncovered_portion_of_rect =
-                    uncontained_rect.area_excluding_rect(new_tile_frame);
-                //println!("\t{uncontained_rect}.area_excluding_rect({new_tile_frame}) = ");
-                if uncovered_portion_of_rect.len() == 0 {
-                    //println!("\t\t(No area excluding rect)");
-                } else {
-                    for r in uncovered_portion_of_rect.iter() {
-                        //println!("\t\t{r}");
-                    }
-                }
-                //new_rects_not_contained.append(&mut uncovered_portions_of_rect);
+                    uncontained_rect.area_excluding_rect(tile_frame);
                 new_rects_not_contained.append(&mut uncovered_portion_of_rect);
             }
             rects_not_contained = new_rects_not_contained;
         }
-        // Deduplicate the tiles we need to create
-        //HashSet::from_iter(data.iter().cloned())
-        //println!("Broke out of loop! Will create tiles:");
-        for tile_frame in tiles_to_create.iter() {
-            println!("\tCreating tile {tile_frame}");
-            let new_tile = TileLayer::new(*tile_frame);
+
+        Vec::from_iter(new_tiles.into_iter())
+    }
+
+    fn expand_to_contain_rect(&self, rect: Rect) {
+        let tile_size = Self::tile_size();
+        // Cull down to the rects that are not covered by our existing tiles
+        let rects_not_contained = self.rects_not_contained_in_current_tiles(rect);
+        /*
+        if rects_not_contained.len() > 0 {
+            println!("ExpandingLayer.expand_to_contain_rect({rect})");
+            let layers = self.layers.borrow();
+            for layer in layers.iter() {
+                println!("\tExisting tile @ {}", layer.frame);
+            }
+            println!("\tRects not already contained in existing tiles:");
+        }
+        for r in rects_not_contained.iter() {
+            println!("\t\t{r}");
+        }
+        */
+        // Find the tiles we'll need to create to cover each outstanding rect
+        let existing_tile_frames = {
+            let tile_layers = self.layers.borrow();
+            BTreeSet::from_iter(tile_layers.iter().map(|t| t.frame))
+        };
+        // Start off with the existing tile frames so we don't add a tile that we've already created
+        let mut total_needed_tiles = existing_tile_frames.clone();
+
+        for r in rects_not_contained.iter() {
+            let tiles_needed_to_cover_rect = Self::tiles_needed_to_cover_rect(*r, tile_size);
+            total_needed_tiles.append(&mut BTreeSet::from_iter(
+                tiles_needed_to_cover_rect.into_iter(),
+            ));
+        }
+
+        // Subtract our existing tiles to find the new tiles we need to create
+        let new_tile_frames: Vec<Rect> = total_needed_tiles
+            .difference(&existing_tile_frames)
+            .cloned()
+            .collect();
+
+        let mut tiles = self.layers.borrow_mut();
+        for new_tile_frame in new_tile_frames.iter() {
+            //println!("\tCreating tile {new_tile_frame}");
+            let new_tile = TileLayer::new(*new_tile_frame);
             new_tile.fill_rect(
                 Rect::from_parts(Point::zero(), tile_size),
                 Color::white(),
                 StrokeThickness::Filled,
             );
+            /*
             new_tile.fill_rect(
                 Rect::from_parts(Point::zero(), tile_size),
                 Color::green(),
                 StrokeThickness::Width(1),
             );
+            */
+            //println!("\tFinished drawing background of tile");
             tiles.push(new_tile);
         }
-        //println!("Finished expanding! Tile count: {}", tiles.len());
     }
 
-    pub fn fill_rect(&self, rect: Rect, color: Color, thickness: StrokeThickness) {
-        //println!("fill_rect {rect} color {color:?} thickness {thickness:?}");
-        self.expand_to_contain_rect(rect);
+    fn fill_rect_unchecked(&self, rect: Rect, color: Color, thickness: StrokeThickness) {
+        //println!("ExpandingLayer.fill_rect_unchecked({rect} color {color} thickness {thickness:?})");
         //let layers = self.layers_covering_rect(rect);
         let layers = self.layers.borrow();
         for layer in layers.iter() {
             if let Some(visible_portion) = layer.frame.area_overlapping_with(rect) {
+                //println!("\tFound overlap of {visible_portion} in tile {layer}");
                 // Also need to translate the rect to the tile's coordinate space!
-                let origin_in_tile_coordinate_space = visible_portion.origin - rect.origin;
+                let origin_in_tile_coordinate_space = visible_portion.origin - layer.frame.origin;
                 let visible_portion_in_tile_coordinate_space =
-                    Rect::from_parts(origin_in_tile_coordinate_space, rect.size);
+                    Rect::from_parts(origin_in_tile_coordinate_space, visible_portion.size);
+                //println!("\torigin_in_tile_coordinate_space {origin_in_tile_coordinate_space}, visible_portion {visible_portion_in_tile_coordinate_space}");
                 layer.fill_rect(visible_portion_in_tile_coordinate_space, color, thickness);
             }
         }
+    }
+
+    pub fn fill_rect(&self, rect: Rect, color: Color, thickness: StrokeThickness) {
+        //println!("ExpandingLayer.fill_rect({rect} color {color} thickness {thickness:?})");
+        self.expand_to_contain_rect(rect);
+        self.fill_rect_unchecked(rect, color, thickness)
     }
 
     fn putpixel_unchecked(&self, point: Point, color: Color) {
         let layers = self.layers.borrow();
         for layer in layers.iter() {
             if layer.frame.contains(point) {
-                layer.putpixel(point, color);
+                let translated_point = point - layer.frame.origin;
+                layer.putpixel(translated_point, color);
                 return;
             }
         }
@@ -398,16 +494,18 @@ impl ExpandingLayer {
         self.putpixel_unchecked(point, color);
     }
 
-    fn draw_char(&self, frame: Rect, ch: char, draw_color: Color) {
+    pub fn draw_char(&self, frame: Rect, ch: char, draw_color: Color) {
         let global_frame = frame;
         let visible_frame = self.visible_frame.borrow();
-        let frame = Rect::from_parts(frame.origin - visible_frame.origin, frame.size);
+        //let frame = Rect::from_parts(frame.origin - visible_frame.origin, frame.size);
+        //println!("ExpandingLayer.draw_char({frame})");
         /*
         println!(
             "ExpandingLayer global_frame {global_frame} draw_char({frame}, {ch}, {draw_color:?}"
         );
         */
         self.expand_to_contain_rect(frame);
+        //println!("Finished expanding to contain {frame}");
         // Scale font to the requested size
         let font_size = frame.size;
         let scale_x: f64 = (font_size.width as f64) / (CHAR_WIDTH as f64);
@@ -421,7 +519,6 @@ impl ExpandingLayer {
             for draw_x in 0..font_size.width {
                 let font_x = (draw_x as f64 / scale_x) as usize;
                 if row >> font_x & 0b1 != 0 {
-                    //layer.putpixel(*draw_loc + Point::new(draw_x, draw_y), draw_color);
                     self.putpixel_unchecked(frame.origin + Point::new(draw_x, draw_y), draw_color);
                 }
             }
@@ -493,7 +590,23 @@ impl Bordered for ScrollView {
         self.view.border_insets()
     }
 
-    fn draw_inner_content(&self, _outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
+        //println!("ScrollView.draw_inner_content({outer_frame}, {onto}");
+        // We have a different layer from our parent, so need to exclude the border insets here
+        /*
+        let border_insets = self.border_insets();
+        let onto_frame = onto.frame();
+        let onto = &mut onto.get_slice(
+            Rect::from_parts(
+                Point::new(border_insets.left, border_insets.top),
+                Size::new(
+                    onto_frame.width() - (border_insets.left + border_insets.right),
+                    onto_frame.height() - (border_insets.top + border_insets.bottom
+                    )
+                )
+            )
+        );
+        */
         self.layer.draw_visible_content_onto(onto)
     }
 }
@@ -507,11 +620,17 @@ impl NestedLayerSlice for ScrollView {
         self.view.set_parent(parent)
     }
 
+    fn get_content_slice_frame(&self) -> Rect {
+        //println!("(NestedLayerSlice for ScrollView).get_content_slice_frame()");
+        Rect::with_size(self.view.frame().size)
+    }
+
     fn get_slice(&self) -> Box<dyn LikeLayerSlice> {
         //println!("!!! Calling get_slice() for ScrollView");
         let content_frame = self.get_content_slice_frame();
+        //println!("(NestedLayerSlice for ScrollView)::get_slice(), content_frame {content_frame})");
         let ret = self.layer.get_slice_with_frame(content_frame);
-        //println!("get_slice() got slice {ret}");
+        //println!("ScrollView.get_slice() got slice {ret}");
         ret
         //self.view.get_slice()
     }
@@ -547,6 +666,7 @@ impl UIElement for ScrollView {
     }
 
     fn handle_mouse_scrolled(&self, _mouse_point: Point, delta_z: isize) {
+        //println!("ScrollView.handle_mouse_scrolled({delta_z})");
         let mut scroll_offset = self.layer.scroll_offset();
         scroll_offset.y += delta_z * 20;
         self.layer.set_scroll_offset(scroll_offset);
@@ -571,7 +691,7 @@ impl UIElement for ScrollView {
 #[derive(Debug, Copy, Clone)]
 pub struct CursorPos(pub usize, pub Point);
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct DrawnCharacter {
     pub value: char,
     pub pos: Point,
@@ -590,11 +710,15 @@ impl DrawnCharacter {
     }
 }
 
-#[derive(Drawable, NestedLayerSlice, UIElement)]
+impl Display for DrawnCharacter {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "<DrawnChar '{}' @ {}>", self.value, Rect::from_parts(self.pos, self.font_size))
+    }
+}
 
+#[derive(Drawable, NestedLayerSlice, UIElement)]
 pub struct TextView {
-    pub view: Rc<View>,
-    //pub view: Rc<ScrollView>,
+    pub view: Rc<ScrollView>,
     font_size: Size,
     text_insets: RectInsets,
     pub text: RefCell<Vec<DrawnCharacter>>,
@@ -608,9 +732,8 @@ impl TextView {
         text_insets: RectInsets,
         sizer: F,
     ) -> Rc<Self> {
-        //let view = ScrollView::new(sizer);
-        //view.view.set_border_enabled(false);
-        let view = Rc::new(View::new(background_color, sizer));
+        let view = ScrollView::new(sizer);
+        //let view = Rc::new(View::new(background_color, sizer));
 
         Rc::new(Self {
             view,
@@ -621,7 +744,7 @@ impl TextView {
         })
     }
 
-    fn font_size(&self) -> Size {
+    pub fn font_size(&self) -> Size {
         self.font_size
     }
 
@@ -635,81 +758,149 @@ impl TextView {
     }
 
     pub fn text_entry_frame(&self) -> Rect {
-        let content_frame = Bordered::content_frame(self);
+        let content_frame = Rect::with_size(Bordered::content_frame(self).size);
         content_frame.apply_insets(self.text_insets)
     }
 
-    pub fn draw_char_and_update_cursor(&self, ch: char, color: Color) {
-        let mut cursor_pos = self.cursor_pos.borrow_mut();
-        //println!("CursorPos {:?}", cursor_pos.1);
-        let onto = &mut self.get_slice().get_slice(self.text_entry_frame());
-        /*
-        println!(
-            "Onto {}, Text entry frame {} content frame {} cursor_pos {:?}",
-            onto.frame(),
-            self.text_entry_frame(),
-            Bordered::content_frame(self),
-            cursor_pos
-        );
-        */
-        let font_size = self.font_size();
-        onto.draw_char(ch, cursor_pos.1, color, font_size);
-        //draw_char(onto, ch, &cursor_pos.1, color, &font_size);
-        //draw_char(onto, ch, &cursor_pos.1, Color::black(), &font_size);
-        /*
-        onto.fill_rect(
-            Rect::new(
-                cursor_pos.1.x,
-                cursor_pos.1.y,
-                font_size.width,
-                font_size.height,
-            ),
-            Color::green(),
-            StrokeThickness::Filled,
-        );
-        */
+    pub fn draw_char_and_update_cursor3(&self, ch: char, color: Color) {
+        let content_slice_frame = self.view.get_content_slice_frame();
+        println!("Content slice frame {content_slice_frame}");
+    }
 
-        // TODO(PT): This is not correct if we're not inserting at the end
-        // We'll need to adjust the positions of every character that comes after this one
-        cursor_pos.0 += 1;
-        let mut cursor_pos = &mut cursor_pos.1;
-
-        self.text
-            .borrow_mut()
-            .push(DrawnCharacter::new(*cursor_pos, color, ch, font_size));
-
+    fn next_cursor_pos_for_char(cursor_pos: Point, ch: char, font_size: Size, onto: &Box<dyn LikeLayerSlice>) -> Point {
+        let mut cursor_pos = cursor_pos;
         if ch == '\n' || cursor_pos.x + (font_size.width * 2) >= onto.frame().width() {
             cursor_pos.x = 0;
             cursor_pos.y += font_size.height + 2;
         } else {
             cursor_pos.x += font_size.width;
         }
-        Bordered::draw(self)
+        cursor_pos
     }
 
-    pub fn erase_char_and_update_cursor(&self) {
+    pub fn draw_char_and_update_cursor(&self, ch: char, color: Color) {
         let mut cursor_pos = self.cursor_pos.borrow_mut();
         let onto = &mut self.get_slice().get_slice(self.text_entry_frame());
         let font_size = self.font_size();
 
+        let mut text = self.text.borrow_mut();
+        let is_inserting_at_end = cursor_pos.0 == text.len();
+        //println!("draw_char_and_update({ch}) is_insert_at_end? {is_inserting_at_end}, {cursor_pos:?} {}", text.len());
+
+        if !is_inserting_at_end {
+            // If we just inserted a newline, we need to adjust our cursor position
+            let mut cursor_point = Self::next_cursor_pos_for_char(cursor_pos.1, ch, font_size, onto);
+            //println!("Base cursor for later chars: {cursor_point}");
+            for drawn_ch in text[cursor_pos.0..].iter_mut() {
+                //println!("\tFound later {}, originally placed at {}", drawn_ch.value, drawn_ch.pos);
+                // Cover up this as we'll redraw it somewhere else
+                onto.fill_rect(Rect::from_parts(drawn_ch.pos, font_size), Color::white(), StrokeThickness::Filled);
+                drawn_ch.pos = cursor_point;
+                //println!("\tShifted to {}", drawn_ch.pos);
+                cursor_point = Self::next_cursor_pos_for_char(cursor_point, drawn_ch.value, font_size, onto);
+            }
+        }
+
+        onto.draw_char(ch, cursor_pos.1, color, font_size);
+
+        // TODO(PT): This is not correct if we're not inserting at the end
+        // We'll need to adjust the positions of every character that comes after this one
+        let insertion_point = cursor_pos.0;
+        cursor_pos.0 += 1;
+        let mut cursor_point = &mut cursor_pos.1;
+
+        // TODO(PT): If not inserting at the end, we need to move everything along and insert at an index
+        let draw_desc = DrawnCharacter::new(*cursor_point, color, ch, font_size);
+        if is_inserting_at_end {
+            text.push(draw_desc);
+        }
+        else {
+            println!("Inserting at {insertion_point}: {draw_desc:?}");
+            text.insert(insertion_point, draw_desc);
+        }
+        *cursor_point = Self::next_cursor_pos_for_char(*cursor_point, ch, font_size, onto);
+        //Bordered::draw(self)
+    }
+
+    pub fn erase_char_and_update_cursor(&self) {
+        let mut cursor_pos = self.cursor_pos.borrow_mut();
         if cursor_pos.0 == 0 {
-            println!("Cannot delete with no text!");
+            //println!("Cannot delete with no text!");
             return;
         }
 
         let mut text = self.text.borrow_mut();
+
+        let is_deleting_from_end = cursor_pos.0 == text.len();
+        //println!("Erasing! From end? {is_deleting_from_end}");
+
+        let mut chars_after_delete = vec![];
+        for drawn_ch in text[cursor_pos.0 - 1..].iter() {
+            chars_after_delete.push(*drawn_ch);
+       }
+
         let removed_char = text.remove(cursor_pos.0 - 1);
 
+        // Cover up the deleted character
+        let onto = &mut self.get_slice().get_slice(self.text_entry_frame());
+        let font_size = self.font_size;
+        onto.fill_rect(Rect::from_parts(removed_char.pos, font_size), Color::white(), StrokeThickness::Filled);
+
         cursor_pos.0 -= 1;
-        let cursor_pos = &mut cursor_pos.1;
-        *cursor_pos = removed_char.pos;
 
+        if cursor_pos.0 == 0 {
+            cursor_pos.1 = Point::zero();
+        }
+        else {
+            let prev = text[cursor_pos.0 - 1];
+            cursor_pos.1 = Self::next_cursor_pos_for_char(prev.pos, prev.value, prev.font_size, onto);
+        }
+
+        if !is_deleting_from_end {
+            // Shift back the characters in front of this one
+            //println!("{chars_after_delete:?}");
+            for (i, drawn_ch) in text[cursor_pos.0..].iter_mut().enumerate() {
+                let prev = chars_after_delete[i];
+                // Cover up its previous position
+                onto.fill_rect(Rect::from_parts(drawn_ch.pos, drawn_ch.font_size), Color::white(), StrokeThickness::Filled);
+                //println!("Shifting back {} from {} to {} ({})", drawn_ch.value, drawn_ch.pos, prev.pos, prev);
+                //cursor_pos.1 = Self::next_cursor_pos_for_char(prev.pos, prev.value, prev.font_size, onto);
+                drawn_ch.pos = prev.pos;
+                onto.draw_char(drawn_ch.value, drawn_ch.pos, drawn_ch.color, drawn_ch.font_size);
+
+                if prev.value == '\n' {
+                    let mut next_cursor_pos = drawn_ch.pos;
+                    for next_ch in chars_after_delete[i + 1..].iter_mut() {
+                        //print!("Shifting forward {next_ch} to ");
+                        next_ch.pos = Self::next_cursor_pos_for_char(next_cursor_pos, next_ch.value, next_ch.font_size, onto);
+                        next_cursor_pos = next_ch.pos;
+                        //println!("{}", next_ch.pos);
+                    }
+                }
+            }
+        }
         //println!("Removing char {removed_char:?}");
+    }
 
-        onto.fill_rect(
-            Rect::from_parts(removed_char.pos, font_size),
-            Color::white(),
-            StrokeThickness::Filled,
+    pub fn set_cursor_pos(&self, cursor: CursorPos) {
+        let mut cursor_pos = self.cursor_pos.borrow_mut();
+        *cursor_pos = cursor;
+    }
+
+    pub fn is_inserting_at_end(&self) -> bool {
+        let mut cursor_pos = self.cursor_pos.borrow();
+        let ret = cursor_pos.0 == self.text.borrow().len();
+        //println!("{} {}", cursor_pos.0, self.text.borrow().len());
+        ret
+    }
+
+    pub fn draw_char_with_description(&self, char_description: DrawnCharacter) {
+        let onto = &mut self.get_slice().get_slice(self.text_entry_frame());
+        onto.draw_char(
+            char_description.value,
+            char_description.pos,
+            char_description.color,
+            self.font_size,
         );
     }
 
@@ -726,7 +917,9 @@ impl Bordered for TextView {
     }
 
     fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
+        //println!("draw_inner_content({outer_frame}, {onto})");
         self.view.draw_inner_content(outer_frame, onto);
+        /*
         // PT: No need to use text_entry_frame() as `onto` is already in the content frame coordinate space
         let text_entry_slice = onto.get_slice(
             Rect::from_parts(Point::zero(), onto.frame().size).apply_insets(self.text_insets),
@@ -741,6 +934,195 @@ impl Bordered for TextView {
                 drawn_char.font_size,
             );
         }
+        */
         //println!("Finished call to draw_inner_content()");
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use alloc::vec::Vec;
+
+    //use crate::{Rect, Tile, TileSegment, TileSegments};
+    use crate::text_view::{ExpandingLayer, TileLayer};
+    use agx_definitions::{Point, Rect, Size};
+    use std::println;
+
+    fn expect_insert_results_in_tile_frames_with_existing_tiles(
+        rect: Rect,
+        expected_tile_frames: Vec<Rect>,
+        existing_tile_frames: Vec<Rect>,
+    ) {
+        let layer = ExpandingLayer::new();
+        {
+            // Set up the tiles that should already be present
+            let mut existing_tiles = layer.layers.borrow_mut();
+            for existing_tile_frame in existing_tile_frames.iter() {
+                existing_tiles.push(TileLayer::new(*existing_tile_frame));
+            }
+        }
+        layer.expand_to_contain_rect(rect);
+        let tile_frames: Vec<Rect> = layer
+            .layers
+            .borrow()
+            .iter()
+            .map(|tile| tile.frame)
+            .collect();
+        assert_eq!(tile_frames, expected_tile_frames);
+    }
+
+    fn expect_insert_results_in_tile_frames(rect: Rect, expected_tile_frames: Vec<Rect>) {
+        expect_insert_results_in_tile_frames_with_existing_tiles(rect, expected_tile_frames, vec![])
+    }
+
+    #[test]
+    fn test_container_tile_for_point() {
+        let tile_size = Size::new(100, 100);
+    }
+
+    #[test]
+    fn test_round_to_tile_boundary() {
+        assert_eq!(ExpandingLayer::round_to_tile_boundary(0, 100), 0);
+        assert_eq!(ExpandingLayer::round_to_tile_boundary(50, 100), 0);
+        assert_eq!(ExpandingLayer::round_to_tile_boundary(100, 100), 100);
+        assert_eq!(ExpandingLayer::round_to_tile_boundary(150, 100), 100);
+        assert_eq!(ExpandingLayer::round_to_tile_boundary(-5, 100), -100);
+        assert_eq!(ExpandingLayer::round_to_tile_boundary(-150, 100), -200);
+        assert_eq!(ExpandingLayer::round_to_tile_boundary(-200, 100), -200);
+    }
+
+    #[test]
+    fn test_container_tile_origin_for_point() {
+        let tile_size = Size::new(100, 100);
+        assert_eq!(
+            ExpandingLayer::container_tile_origin_for_point(Point::new(0, 0), tile_size),
+            Point::new(0, 0)
+        );
+        assert_eq!(
+            ExpandingLayer::container_tile_origin_for_point(Point::new(50, 0), tile_size),
+            Point::new(0, 0)
+        );
+        assert_eq!(
+            ExpandingLayer::container_tile_origin_for_point(Point::new(50, 50), tile_size),
+            Point::new(0, 0)
+        );
+        assert_eq!(
+            ExpandingLayer::container_tile_origin_for_point(Point::new(150, 0), tile_size),
+            Point::new(100, 0)
+        );
+        assert_eq!(
+            ExpandingLayer::container_tile_origin_for_point(Point::new(150, 150), tile_size),
+            Point::new(100, 100)
+        );
+        assert_eq!(
+            ExpandingLayer::container_tile_origin_for_point(Point::new(-50, -50), tile_size),
+            Point::new(-100, -100)
+        );
+        assert_eq!(
+            ExpandingLayer::container_tile_origin_for_point(Point::new(-120, -70), tile_size),
+            Point::new(-200, -100)
+        );
+        assert_eq!(
+            ExpandingLayer::container_tile_origin_for_point(Point::new(-205, -205), tile_size),
+            Point::new(-300, -300)
+        );
+    }
+
+    #[test]
+    fn test_tiles_needed_to_cover_rect() {
+        let tile_size = Size::new(100, 100);
+        assert_eq!(
+            ExpandingLayer::tiles_needed_to_cover_rect(Rect::new(75, 0, 50, 0), tile_size),
+            vec![Rect::new(0, 0, 100, 100), Rect::new(100, 0, 100, 100)]
+        );
+        assert_eq!(
+            ExpandingLayer::tiles_needed_to_cover_rect(Rect::new(0, 0, 100, 100), tile_size),
+            vec![Rect::new(0, 0, 100, 100)]
+        );
+        assert_eq!(
+            ExpandingLayer::tiles_needed_to_cover_rect(Rect::new(0, 0, 101, 101), tile_size),
+            vec![
+                Rect::new(0, 0, 100, 100),
+                Rect::new(0, 100, 100, 100),
+                Rect::new(100, 0, 100, 100),
+                Rect::new(100, 100, 100, 100),
+            ]
+        );
+        assert_eq!(
+            ExpandingLayer::tiles_needed_to_cover_rect(Rect::new(150, 150, 1, 1), tile_size),
+            vec![Rect::new(100, 100, 100, 100)]
+        );
+        assert_eq!(
+            ExpandingLayer::tiles_needed_to_cover_rect(Rect::new(-1, -1, 2, 2), tile_size),
+            vec![
+                Rect::new(-100, -100, 100, 100),
+                Rect::new(-100, 0, 100, 100),
+                Rect::new(0, -100, 100, 100),
+                Rect::new(0, 0, 100, 100),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_expand_to_contain_rect() {
+        /*
+        expect_insert_results_in_tile_frames(
+            Rect::new(0, 0, 50, 50),
+            vec![Rect::new(0, 0, 100, 100)]
+        );
+        expect_insert_results_in_tile_frames(
+            Rect::new(0, 0, 100, 100),
+            vec![Rect::new(0, 0, 100, 100)]
+        );
+        expect_insert_results_in_tile_frames(
+            Rect::new(0, 0, 101, 100),
+            vec![
+                Rect::new(0, 0, 100, 100),
+                Rect::new(100, 0, 100, 100),
+            ]
+        );
+        expect_insert_results_in_tile_frames(
+            Rect::new(0, 0, 101, 101),
+            vec![
+                Rect::new(0, 0, 100, 100),
+                Rect::new(0, 100, 100, 100),
+                Rect::new(100, 0, 100, 100),
+                Rect::new(100, 100, 100, 100),
+            ]
+        );
+        expect_insert_results_in_tile_frames(
+            Rect::new(0,-5, 10, 10),
+            vec![
+                Rect::new(0, -100, 100, 100),
+                Rect::new(0, 0, 100, 100),
+            ]
+        );
+        expect_insert_results_in_tile_frames_with_existing_tiles(
+            Rect::new(96, 0, 16, 16),
+            vec![
+                Rect::new(0, -100, 100, 100),
+                Rect::new(0, 0, 100, 100),
+                Rect::new(100, 0, 100, 100),
+            ],
+            vec![
+                Rect::new(0, -100, 100, 100),
+                Rect::new(0, 0, 100, 100),
+            ],
+        );
+        */
+        expect_insert_results_in_tile_frames_with_existing_tiles(
+            Rect::new(113, -1, 1, 14),
+            vec![
+                Rect::new(0, -100, 100, 100),
+                Rect::new(0, 0, 100, 100),
+                Rect::new(100, 0, 100, 100),
+                Rect::new(100, -100, 100, 100),
+            ],
+            vec![
+                Rect::new(0, -100, 100, 100),
+                Rect::new(0, 0, 100, 100),
+                Rect::new(100, 0, 100, 100),
+            ],
+        );
     }
 }

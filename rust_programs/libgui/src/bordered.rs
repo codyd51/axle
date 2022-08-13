@@ -1,9 +1,9 @@
+use crate::println;
 use agx_definitions::{
     Color, Drawable, LayerSlice, LikeLayerSlice, Line, Point, Rect, RectInsets, StrokeThickness,
 };
 use alloc::boxed::Box;
 use alloc::rc::Rc;
-use axle_rt::println;
 
 use crate::ui_elements::UIElement;
 
@@ -14,16 +14,17 @@ pub trait Bordered: Drawable + UIElement {
 
     fn draw(&self) {
         let slice = self.get_slice_for_render();
+        //let slice = self.get_slice();
 
         if !self.border_enabled() {
             // Invoke get_slice even though it'll have the same time as the parent to allow any layer
             // swapping to take place
             // TODO(PT): Not needed?
-            let mut content_slice =
-                slice.get_slice(Rect::from_parts(Point::zero(), slice.frame().size));
+            let mut content_slice = slice.get_slice(Rect::with_size(slice.frame().size));
             self.draw_inner_content(slice.frame(), &mut content_slice);
         } else {
             let mut content_slice = slice.get_slice(self.draw_border());
+            //println!("Bordered.draw() ContentSlice {content_slice}, slice {}", slice.frame());
             self.draw_inner_content(slice.frame(), &mut content_slice);
         }
     }
@@ -44,7 +45,7 @@ pub trait Bordered: Drawable + UIElement {
     }
 
     fn content_frame(&self) -> Rect {
-        let f = Rect::from_parts(Point::zero(), self.frame().size);
+        let f = Rect::with_size(self.frame().size);
         f.inset_by_insets(self.border_insets())
     }
 
