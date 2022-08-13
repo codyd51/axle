@@ -54,9 +54,14 @@ static void _awm_animation_close_window_step(awm_animation_close_window_t* anim,
 }
 
 static void _awm_animation_close_window_finish(awm_animation_close_window_t* anim) {
-	windows_invalidate_drawable_regions_in_rect(anim->destination_frame);
-	compositor_queue_rect_to_redraw(anim->destination_frame);
+	//compositor_queue_rect_to_redraw(anim->destination_frame);
+	//windows_invalidate_drawable_regions_in_rect(anim->destination_frame);
 	user_window_t* window = anim->window;
+	awm_dock_window_closed_event_t msg = {
+		.event = AWM_DOCK_WINDOW_CLOSED,
+		.window_id = window->window_id
+	};
+	amc_message_send(AWM_DOCK_SERVICE_NAME, &msg, sizeof(msg));
 	window_destroy(window);
 }
 
