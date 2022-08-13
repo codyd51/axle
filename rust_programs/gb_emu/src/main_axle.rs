@@ -33,8 +33,8 @@ use axle_rt::{
     amc_register_service, AmcMessage, ContainsEventField, ExpectsEventField,
 };
 use libgui::{
-    window::AwmWindow,
     window_events::{KeyDown, KeyUp},
+    AwmWindow,
 };
 
 use crate::cpu::CpuState;

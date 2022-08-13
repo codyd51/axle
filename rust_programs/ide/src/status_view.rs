@@ -7,8 +7,7 @@ use alloc::{
     rc::{Rc, Weak},
 };
 use libgui::{
-    bordered::Bordered, button::Button, label::Label, ui_elements::UIElement, view::View,
-    window::KeyCode,
+    bordered::Bordered, button::Button, label::Label, ui_elements::UIElement, view::View, KeyCode,
 };
 use libgui_derive::{Bordered, Drawable, NestedLayerSlice, UIElement};
 

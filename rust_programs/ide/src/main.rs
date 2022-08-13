@@ -16,7 +16,7 @@ use source_code_view::SourceCodeView;
 use status_view::StatusView;
 
 use libgui::ui_elements::UIElement;
-use libgui::window::AwmWindow;
+use libgui::AwmWindow;
 
 use axle_rt::{
     amc_message_await__u32_event, amc_message_send, amc_register_service,

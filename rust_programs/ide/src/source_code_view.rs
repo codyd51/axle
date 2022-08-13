@@ -9,7 +9,7 @@ use alloc::{
 };
 use axle_rt::println;
 use libgui::text_input_view::TextInputView;
-use libgui::{bordered::Bordered, ui_elements::UIElement, view::View, window::KeyCode};
+use libgui::{bordered::Bordered, ui_elements::UIElement, view::View, KeyCode};
 use libgui_derive::{Bordered, Drawable, NestedLayerSlice};
 
 use crate::MessageHandler;

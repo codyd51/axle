@@ -18,7 +18,7 @@ use libgui::button::Button;
 use libgui::label::Label;
 use libgui::ui_elements::UIElement;
 use libgui::view::View;
-use libgui::window::AwmWindow;
+use libgui::AwmWindow;
 
 use axle_rt::{amc_message_await, amc_message_send, amc_register_service, printf, AmcMessage};
 use axle_rt::{ContainsEventField, ExpectsEventField};
