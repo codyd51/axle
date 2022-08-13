@@ -32,9 +32,6 @@ static void _interpolate_window_frame(user_window_t* window, Rect from, Rect to,
 	_window_resize(window, window->frame.size, should_inform_window_of_new_size);
 
 	Rect total_update_frame = rect_union(current_frame, new_frame);
-
-	//compositor_queue_rect_difference_to_redraw(current_frame, new_frame);
-	//compositor_queue_rect_difference_to_redraw(new_frame, current_frame);
 	// Only queueing redraws for the difference between the frames is more efficient,
 	// but can cause artifacts where on some frames a few window pixels aren't cleaned up.
 	compositor_queue_rect_to_redraw(total_update_frame);
@@ -47,29 +44,13 @@ static void _awm_animation_close_window_step(awm_animation_close_window_t* anim,
 	user_window_t* window = anim->window;
 	//window->layer->alpha = 1.0 - percent;
 
-    Rect current_frame = window->frame;
-
-	Rect from = anim->original_frame;
-	Rect to = anim->destination_frame;
-	Rect new_frame = rect_make(
-		point_make(
-			lerp(rect_min_x(from), rect_min_x(to), percent),
-			lerp(rect_min_y(from), rect_min_y(to), percent)
-		),
-		size_make(
-			lerp(from.size.width, to.size.width, percent),
-			lerp(from.size.height, to.size.height, percent)
-		)
+	_interpolate_window_frame(
+		window, 
+		anim->original_frame,
+		anim->destination_frame,
+		percent,
+		false
 	);
-	window->frame = new_frame;
-	_window_resize(window, window->frame.size, false);
-	//window_render_scaled_content_layer(window);
-
-	Rect total_update_frame = rect_union(current_frame, new_frame);
-	compositor_queue_rect_difference_to_redraw(current_frame, new_frame);
-	windows_invalidate_drawable_regions_in_rect(total_update_frame);
-
-	// TODO(PT): Also need to update the windows in front of this one? How?
 }
 
 static void _awm_animation_close_window_finish(awm_animation_close_window_t* anim) {
