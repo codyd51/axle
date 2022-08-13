@@ -381,6 +381,10 @@ vas_state_t* vas_get_active_state(void) {
 	return _loaded_vas_state;
 }
 
+bool vmm_is_active(void) {
+	return vas_get_active_state() != NULL;
+}
+
 vas_state_t* vas_clone(vas_state_t* parent) {
 	uint64_t new_pml4_phys = pmm_alloc();
     pml4e_t* new_pml4_virt = (pml4e_t*)PMA_TO_VMA(new_pml4_phys);
@@ -721,6 +725,47 @@ uint64_t vas_get_phys_frame(vas_state_t* vas_state, uint64_t virt_addr) {
 	uint64_t page_idx = VMA_PTE_IDX(virt_addr);
 	assert(page_table[page_idx].present,  "Expected page to be present");
 	return page_table[page_idx].page_base * PAGE_SIZE;
+}
+
+bool vas_is_page_present(vas_state_t* vas_state, uint64_t virt_addr) {
+	/*
+	pml4e_t* page_mapping_level4 = (pml4e_t*)PMA_TO_VMA(vas_state->pml4_phys);
+
+	int page_directory_pointer_table_idx = VMA_PML4E_IDX(virt_addr);
+	if (!page_mapping_level4[page_directory_pointer_table_idx].present) {
+		// PML4E not present
+		return false;
+	}
+	pdpe_t* page_directory_pointer_table = (pdpe_t*)(page_mapping_level4[page_directory_pointer_table_idx].page_dir_pointer_base * PAGE_SIZE);
+
+	uint64_t page_dir_idx = VMA_PDPE_IDX(virt_addr);
+	if (!page_directory_pointer_table[page_dir_idx].present) {
+		// PDPTE not present
+		return false;
+	}
+	pde_t* page_directory = (pde_t*)(PMA_TO_VMA(page_directory_pointer_table[page_dir_idx].page_dir_base * PAGE_SIZE));
+
+	uint64_t page_table_idx = VMA_PDE_IDX(virt_addr);
+	if (!page_directory[page_table_idx].present) {
+		// PDE not present
+		return false;
+	}
+	pte_t* page_table = (pte_t*)(PMA_TO_VMA(page_directory[page_table_idx].page_table_base * PAGE_SIZE));
+
+	uint64_t page_idx = VMA_PTE_IDX(virt_addr);
+	if (!page_table[page_idx].present) {
+		// PTE not present
+		return false;
+	}
+
+	return true;
+	*/
+	for (int i = 0; i < vas_state->range_count; i++) {
+		if (virt_addr >= vas_state->ranges[i].start && virt_addr <= vas_state->ranges[i].start + vas_state->ranges[i].size) {
+			return true;
+		}
+	}
+	return false;
 }
 
 uint64_t vas_copy_phys_mapping(vas_state_t* vas_state, vas_state_t* vas_to_copy, uint64_t min_address, uint64_t size, uint64_t vas_to_copy_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level) {
