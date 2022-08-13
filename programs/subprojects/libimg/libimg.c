@@ -127,6 +127,20 @@ void image_free(image_t* image) {
 }
 
 void image_render_to_layer(image_t* image, ca_layer* dest, Rect frame) {
+	if (
+		rect_min_x(frame) < 0 ||
+		rect_min_y(frame) < 0 ||
+		// TODO(PT): Perhaps exactly 0 is OK
+		frame.size.width <= 0 ||
+		frame.size.height <= 0 ||
+		rect_max_x(frame) > dest->size.width ||
+		rect_max_y(frame) > dest->size.height
+	) {
+		printf("Invalid call to image_render_to_layer()\n");
+		printf("image_render_to_layer 0x%016lx, dest 0x%016lx, frame (%d, %d, %d, %d)\n" ,image, dest, rect_min_x(frame), rect_min_y(frame), rect_max_x(frame), rect_max_y(frame));
+		return;
+	}
+	//printf("image_render_to_layer 0x%016lx, dest 0x%016lx, frame (%d, %d, %d, %d)\n" ,image, dest, rect_min_x(frame), rect_min_y(frame), rect_max_x(frame), rect_max_y(frame));
 	// TODO(PT): Update image rendering to update a gui_scroll_layer's max_y
 	float scale_x = 1.0;
 	float scale_y = 1.0;

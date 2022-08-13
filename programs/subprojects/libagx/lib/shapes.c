@@ -272,13 +272,19 @@ static void _draw_subline(ca_layer* layer, Line* line, Color color, int thicknes
 	//figure out which distance is greater
 	delta_x = abs(delta_x);
 	delta_y = abs(delta_y);
-
 	distance = MAX(delta_x, delta_y);
+
+	if (distance >= layer->size.width || distance >= layer->size.height) {
+		Line l = *line;
+		printf("Discarding invalid line draw:  (%d, %d) to (%d, %d)\n", l.p1.x, l.p1.y, l.p2.x, l.p2.y);
+		return;
+	}
 
 	//draw line
 	int curr_x = line->p1.x;
 	int curr_y = line->p1.y;
-	for (t = 0; t < distance + 1; t++) {
+	// TODO(PT): Investigate the circumstances where an extremely large distance is passed in, and fix the caller.
+	for (t = 0; t < min(1000, distance + 1); t++) {
 		putpixel(layer, curr_x, curr_y, color);
 
 		xerr += delta_x;
@@ -298,10 +304,10 @@ void draw_line(ca_layer* layer, Line line, Color color, int thickness) {
 	//first things first
 	//ensure we never try to draw outside screen bounds
 	//normalize line coordinates
-	line.p1.x = MAX(0, line.p1.x);
-	line.p1.y = MAX(0, line.p1.y);
-	line.p2.x = MIN(layer->size.width - 1, line.p2.x);
-	line.p2.y = MIN(layer->size.height - 1, line.p2.y);
+	line.p1.x = MAX(thickness / 2, line.p1.x);
+	line.p1.y = MAX(thickness / 2, line.p1.y);
+	line.p2.x = MIN(layer->size.width - (thickness / 2), line.p2.x);
+	line.p2.y = MIN(layer->size.height - (thickness / 2), line.p2.y);
 
 	//if the line is perfectly vertical or horizontal, this is a special case
 	//that can be drawn much faster

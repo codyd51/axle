@@ -142,6 +142,71 @@ void blit_layer_filled(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_
 }
 
 Rect blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) {
+	if (
+		rect_min_x(dest_frame) < 0 ||
+		rect_min_y(dest_frame) < 0 ||
+		rect_min_x(src_frame) < 0 ||
+		rect_min_y(src_frame) < 0 ||
+		// TODO(PT): Perhaps exactly 0 is OK
+		dest_frame.size.width <= 0 ||
+		dest_frame.size.height <= 0 ||
+		src_frame.size.width <= 0 ||
+		src_frame.size.height <= 0
+	) {
+		/*
+		printf("Invalid blit_layer. Dest (%d, %d, %d, %d), Source (%d, %d, %d, %d)\n",
+			rect_min_x(dest_frame),
+			rect_min_y(dest_frame),
+			dest_frame.size.width,
+			dest_frame.size.height,
+			rect_min_x(src_frame),
+			rect_min_y(src_frame),
+			src_frame.size.width,
+			src_frame.size.height
+		);
+		*/
+		//assert(false, "Invalid blit_layer");
+		return;
+	}
+	/*
+	if (
+		rect_min_x(dest_frame) < 0 ||
+		rect_min_y(dest_frame) < 0 ||
+		rect_min_x(src_frame) < 0 ||
+		rect_min_y(src_frame) < 0 ||
+		// TODO(PT): Perhaps exactly 0 is OK
+		dest_frame.size.width <= 0 ||
+		dest_frame.size.height <= 0 ||
+		src_frame.size.width <= 0 ||
+		src_frame.size.height <= 0
+	) {
+		printf("Invalid blit_layer. Dest (%d, %d, %d, %d), Source (%d, %d, %d, %d)\n",
+			rect_min_x(dest_frame),
+			rect_min_y(dest_frame),
+			dest_frame.size.width,
+			dest_frame.size.height,
+			rect_min_x(src_frame),
+			rect_min_y(src_frame),
+			src_frame.size.width,
+			src_frame.size.height
+		);
+	}
+	*/
+	/*
+	assert(
+		rect_min_x(dest_frame) >= 0 &&
+		rect_min_y(dest_frame) >= 0 &&
+		rect_min_x(src_frame) >= 0 &&
+		rect_min_y(src_frame) >= 0 &&
+		// TODO(PT): Perhaps exactly 0 is OK
+		dest_frame.size.width > 0 &&
+		dest_frame.size.height > 0 &&
+		src_frame.size.width > 0 &&
+		src_frame.size.height > 0,
+		"Invalid frame passed to blit_layer_scaled"
+	);
+	*/
+
 	//make sure we don't write outside dest's frame
 	rect_min_x(dest_frame) = MAX(0, rect_min_x(dest_frame));
 	rect_min_y(dest_frame) = MAX(0, rect_min_y(dest_frame));
@@ -178,6 +243,9 @@ Rect blit_layer(ca_layer* dest, ca_layer* src, Rect dest_frame, Rect src_frame) 
 }
 
 void blit_layer_scaled(ca_layer* dest, ca_layer* src, Size dest_size) {
+	// TODO(PT): Perhaps exactly 0 is OK
+	//assert(dest_size.width > 0 && dest_size.height > 0, "Invalid size passed to blit_layer_scaled");
+
 	float scale_x = 1.0;
 	float scale_y = 1.0;
 

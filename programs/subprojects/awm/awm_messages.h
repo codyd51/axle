@@ -14,6 +14,7 @@
 // Overload the "send" and "receive" names to be the same command
 // When AWM receives it, it will interpret as a request to provide a framebuffer
 // When a client receives it, it will interpret as a provided framebuffer
+
 #define AWM_CREATE_WINDOW_REQUEST 800
 typedef struct awm_create_window_request {
     uint32_t event; // AWM_CREATE_WINDOW_REQUEST

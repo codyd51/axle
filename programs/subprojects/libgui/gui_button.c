@@ -87,6 +87,15 @@ static void _gui_button_draw(gui_button_t* b, bool is_active) {
 			outer_margin.size.height - (outer_margin_size * 2)
 		)
 	);
+
+	// Protect against underflowing on rect size
+	if (outer_margin.size.width < (outer_margin_size * 2)) {
+		inner_margin.size.width = outer_margin.size.width;
+	}
+	if (outer_margin.size.height < (outer_margin_size * 2)) {
+		inner_margin.size.height = outer_margin.size.height;
+	}
+
 	gui_layer_draw_rect(
 		b->superview->content_layer,
 		inner_margin,

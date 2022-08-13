@@ -22,6 +22,9 @@ ca_layer* _get_raw_layer(gui_layer_t* layer) {
 }
 
 Point _adjust_point(gui_layer_t* layer, Point point) {
+    // Don't allow negative points
+    point.x = max(0, point.x);
+    point.y = max(0, point.y);
     return point;
 }
 
