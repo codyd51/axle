@@ -176,6 +176,42 @@ awm_animation_minimize_window_t* awm_animation_minimize_window_init(uint32_t dur
 	return anim;
 }
 
+// Unminimize window animation
+
+static void _awm_animation_unminimize_window_step(awm_animation_unminimize_window_t* anim, float percent) {
+	user_window_t* window = anim->window;
+	_interpolate_window_frame(
+		window, 
+		anim->original_frame,
+		anim->destination_frame,
+		percent,
+		false
+	);
+
+	Rect r = window->content_view->frame;
+	Rect d = anim->destination_frame;
+}
+
+static void _awm_animation_unminimize_window_finish(awm_animation_unminimize_window_t* anim) {
+	// Allow mouse control to pass to the unminimized window
+    mouse_recompute_status();
+}
+
+awm_animation_unminimize_window_t* awm_animation_unminimize_window_init(uint32_t duration, user_window_t* window, Rect dest_frame, Rect original_frame) {
+	awm_animation_unminimize_window_t* anim = calloc(1, sizeof(awm_animation_unminimize_window_t));
+	uint32_t now = ms_since_boot();
+	anim->base.start_time = now;
+	anim->base.end_time = now + duration;
+	anim->base.step_cb = (awm_animation_step_cb)_awm_animation_unminimize_window_step;
+	anim->base.finish_cb = (awm_animation_finish_cb)_awm_animation_unminimize_window_finish;
+	anim->window = window;
+	anim->destination_frame = dest_frame;
+	anim->original_frame = original_frame;
+	window->frame = anim->original_frame;
+
+	return anim;
+}
+
 // Snap shortcut animation
 
 static void _awm_animation_snap_shortcut_step(awm_animation_snap_shortcut_t* anim, float percent) {
