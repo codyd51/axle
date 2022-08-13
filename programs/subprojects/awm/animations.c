@@ -12,26 +12,12 @@ float lerp(float a, float b, float f) {
 }
 
 static void _interpolate_window_frame(user_window_t* window, Rect from, Rect to, float percent, bool should_inform_window_of_new_size) {
-	/*
-	Rect new_frame = rect_make(
-		point_make(
-			lerp(rect_min_x(from), rect_min_x(to), percent),
-			lerp(rect_min_y(from), rect_min_y(to), percent)
-		),
-		size_make(
-			lerp(from.size.width, to.size.width, percent),
-			lerp(from.size.height, to.size.height, percent)
-		)
-	);
-	window->frame = new_frame;
-	_window_resize(window, window->frame.size, true);
+	// Don't let the window get too small
+	// TODO(PT): Pull this out into a MIN_WINDOW_SIZE?
+	to.size.width = max(to.size.width, 1);
+	to.size.height = max(to.size.height, WINDOW_TITLE_BAR_HEIGHT + 1);
 
-	Rect total_update_frame = rect_union(from, to);
-	compositor_queue_rect_difference_to_redraw(from, to);
-	windows_invalidate_drawable_regions_in_rect(total_update_frame);
-	*/
-
-    Rect current_frame = window->frame;
+	Rect current_frame = window->frame;
 	Rect new_frame = rect_make(
 		point_make(
 			lerp(rect_min_x(from), rect_min_x(to), percent),
@@ -46,8 +32,12 @@ static void _interpolate_window_frame(user_window_t* window, Rect from, Rect to,
 	_window_resize(window, window->frame.size, should_inform_window_of_new_size);
 
 	Rect total_update_frame = rect_union(current_frame, new_frame);
-	compositor_queue_rect_difference_to_redraw(current_frame, new_frame);
+
+	//compositor_queue_rect_difference_to_redraw(current_frame, new_frame);
 	//compositor_queue_rect_difference_to_redraw(new_frame, current_frame);
+	// Only queueing redraws for the difference between the frames is more efficient,
+	// but can cause artifacts where on some frames a few window pixels aren't cleaned up.
+	compositor_queue_rect_to_redraw(total_update_frame);
 	windows_invalidate_drawable_regions_in_rect(total_update_frame);
 }
 
