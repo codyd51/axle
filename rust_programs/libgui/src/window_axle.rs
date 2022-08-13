@@ -237,6 +237,9 @@ impl AwmWindow {
             let elem_pos = mouse_point - c.frame().origin;
             c.handle_left_click(elem_pos);
         }
+
+        self.draw();
+        self.commit();
     }
 
     fn mouse_left_click_up(&self, event: &MouseLeftClickEnded) {

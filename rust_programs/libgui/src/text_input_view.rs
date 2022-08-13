@@ -9,12 +9,12 @@ use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use alloc::{collections::BTreeMap, string::String};
 use core::borrow::Borrow;
-use std::io::Write;
 use libgui_derive::{Bordered, Drawable, NestedLayerSlice};
+use num_traits::Float;
 
-use crate::println;
 use crate::text_view::{CursorPos, DrawnCharacter, TextView};
 use crate::window_events::KeyCode;
+use crate::{print, println};
 
 #[derive(Drawable, NestedLayerSlice)]
 pub struct TextInputView {
@@ -83,7 +83,10 @@ impl TextInputView {
         self.erase_cursor();
 
         if !self.view.is_inserting_at_end() {
-            let onto = &mut self.view.get_slice().get_slice(self.view.text_entry_frame());
+            let onto = &mut self
+                .view
+                .get_slice()
+                .get_slice(self.view.text_entry_frame());
             //println!("Drawing box {}", self.view.cursor_pos.borrow().1);
             //onto.fill_rect(Rect::from_parts(self.view.cursor_pos.borrow().1, self.view.font_size()), Color::white(), StrokeThickness::Filled);
         }
@@ -122,7 +125,10 @@ impl TextInputView {
                 //println!("Redrawing later char {drawn_ch:?}");
                 //drawn_ch.pos = Self::next_cursor_pos_for_char(drawn_ch.pos, drawn_ch.value, font_size, onto);
                 {
-                    let onto = &mut self.view.get_slice().get_slice(self.view.text_entry_frame());
+                    let onto = &mut self
+                        .view
+                        .get_slice()
+                        .get_slice(self.view.text_entry_frame());
                     //onto.fill_rect(Rect::from_parts(drawn_ch.pos, self.view.font_size()), Color::white(), StrokeThickness::Filled);
                 }
                 self.view.draw_char_with_description(*drawn_ch);
@@ -142,7 +148,6 @@ impl TextInputView {
         println!("Text: (len {})", text.len());
         for drawn_ch in text.iter() {
             print!("{}", drawn_ch.value);
-            std::io::stdout().flush();
         }
         println!();
     }
@@ -190,7 +195,8 @@ impl UIElement for TextInputView {
                     continue;
                 }
                 // Adjust the position of characters to make them easier to select
-                let char_click_pos = drawn_ch.pos + Point::new(self.view.font_size().width, self.view.font_size().height);
+                let char_click_pos = drawn_ch.pos
+                    + Point::new(self.view.font_size().width, self.view.font_size().height);
                 let distance = mouse_point.distance(char_click_pos).abs();
                 if closest_char.is_none() || distance < closest_char.unwrap().0 {
                     closest_char = Some((distance, i, *drawn_ch));
@@ -216,11 +222,17 @@ impl UIElement for TextInputView {
 
                 // If click point is past the halfway point on the character,
                 // set the cursor just after the character
-                if mouse_point.x > (closest_char.2.pos.x + ((closest_char.2.font_size.width as f64) * 0.7) as isize) {
-                    self.view.set_cursor_pos(CursorPos(closest_char.1 + 1, closest_char.2.pos + Point::new(closest_char.2.font_size.width, 0)));
-                }
-                else {
-                    self.view.set_cursor_pos(CursorPos(closest_char.1, closest_char.2.pos));
+                if mouse_point.x
+                    > (closest_char.2.pos.x
+                        + ((closest_char.2.font_size.width as f64) * 0.7) as isize)
+                {
+                    self.view.set_cursor_pos(CursorPos(
+                        closest_char.1 + 1,
+                        closest_char.2.pos + Point::new(closest_char.2.font_size.width, 0),
+                    ));
+                } else {
+                    self.view
+                        .set_cursor_pos(CursorPos(closest_char.1, closest_char.2.pos));
                 }
                 self.draw_cursor();
             }

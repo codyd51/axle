@@ -445,19 +445,22 @@ impl AwmWindow {
                 Event::MainEventsCleared => self_clone.draw(),
                 Event::WindowEvent { window_id, event } => {
                     match event {
-                        WindowEvent::MouseInput { device_id, state, button, modifiers } => {
+                        WindowEvent::MouseInput {
+                            device_id,
+                            state,
+                            button,
+                            modifiers,
+                        } => {
                             //
                             println!("MouseInput {state:?}, button {button:?}");
                             match state {
-                                ElementState::Pressed => {
-                                    match button {
-                                        MouseButton::Left => {
-                                            self_clone.left_click(last_cursor_pos);
-                                        }
-                                        _ => (),
+                                ElementState::Pressed => match button {
+                                    MouseButton::Left => {
+                                        self_clone.left_click(last_cursor_pos);
                                     }
-                                }
-                                _ => ()
+                                    _ => (),
+                                },
+                                _ => (),
                             }
                         }
                         WindowEvent::CursorMoved {

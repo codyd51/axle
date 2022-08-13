@@ -20,3 +20,9 @@ libgui_derive = {path = "../libgui_derive"}
 # These dependencies are only enabled in use_std mode
 pixels = { version = "0.9.0", optional = true }
 winit = { version = "*", optional = true }
+
+# PT: For f64.abs() in no_std contexts
+[dependencies.num-traits]
+version = "0.2"
+default-features = false
+features = ["libm"]
