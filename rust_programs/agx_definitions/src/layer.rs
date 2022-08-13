@@ -114,6 +114,7 @@ impl LikeLayerSlice for LayerSlice {
                     fb[offset + 0] = color.b;
                     fb[offset + 1] = color.g;
                     fb[offset + 2] = color.r;
+                    fb[offset + 3] = 0xff;
                 }
             }
         }
@@ -151,6 +152,7 @@ impl LikeLayerSlice for LayerSlice {
         fb[off + 0] = color.b;
         fb[off + 1] = color.g;
         fb[off + 2] = color.r;
+        fb[off + 3] = 0xff;
     }
 
     fn getpixel(&self, loc: Point) -> Color {
@@ -416,6 +418,7 @@ impl Layer for SingleFramebufferLayer {
                 framebuffer[px_off + 0] = color.r;
                 framebuffer[px_off + 1] = color.g;
                 framebuffer[px_off + 2] = color.b;
+                framebuffer[px_off + 3] = 0xff;
             }
         }
     }
@@ -427,6 +430,7 @@ impl Layer for SingleFramebufferLayer {
         framebuffer[off + 0] = color.r;
         framebuffer[off + 1] = color.g;
         framebuffer[off + 2] = color.b;
+        framebuffer[off + 3] = 0xff;
     }
 
     fn get_slice(&mut self, rect: Rect) -> Box<dyn LikeLayerSlice> {
@@ -510,6 +514,7 @@ fn fill_rect() {
             assert_eq!(fb[off + 0], color.b);
             assert_eq!(fb[off + 1], color.g);
             assert_eq!(fb[off + 2], color.r);
+            assert_eq!(fb[off + 3], 0xff);
         }
     }
 }
@@ -537,10 +542,12 @@ fn fill_rect_constrains_rect() {
                 assert_eq!(fb[off + 0], color.b);
                 assert_eq!(fb[off + 1], color.g);
                 assert_eq!(fb[off + 2], color.r);
+                assert_eq!(fb[off + 3], 0xff);
             } else {
                 assert_eq!(fb[off + 0], 0);
                 assert_eq!(fb[off + 1], 0);
                 assert_eq!(fb[off + 2], 0);
+                assert_eq!(fb[off + 3], 0);
             }
         }
     }
