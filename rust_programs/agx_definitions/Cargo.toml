@@ -5,3 +5,9 @@ edition = "2021"
 
 [dependencies]
 axle_rt = { path = "../axle_rt" }
+
+# PT: For f64.sqrt() in no_std contexts
+[dependencies.num-traits]
+version = "0.2"
+default-features = false
+features = ["libm"]

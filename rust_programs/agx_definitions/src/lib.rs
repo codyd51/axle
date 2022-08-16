@@ -21,6 +21,7 @@ use core::{
     fmt::Display,
     ops::{Add, Mul, Sub},
 };
+use num_traits::Float;
 
 #[cfg(target_os = "axle")]
 use axle_rt::println;
