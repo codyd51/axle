@@ -19,6 +19,7 @@ name = "agx_definitions"
 version = "0.1.0"
 dependencies = [
  "axle_rt",
+ "num-traits",
 ]
 
 [[package]]
@@ -203,6 +204,15 @@ name = "byteorder"
 version = "1.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
+
+[[package]]
+name = "c_compiler"
+version = "0.1.0"
+dependencies = [
+ "axle_rt",
+ "axle_rt_derive",
+ "cstr_core",
+]
 
 [[package]]
 name = "calloop"
@@ -1008,8 +1018,11 @@ dependencies = [
  "axle_rt_derive",
  "cstr_core",
  "libgui_derive",
+ "num-traits",
+ "pixels",
  "rand",
  "rand_core 0.5.1",
+ "winit",
 ]
 
 [[package]]
@@ -1030,6 +1043,12 @@ dependencies = [
  "cfg-if 1.0.0",
  "winapi",
 ]
+
+[[package]]
+name = "libm"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da83a57f3f5ba3680950aa3cbc806fc297bc0b289d42e8942ed528ace71b8145"
 
 [[package]]
 name = "linker"
@@ -1333,6 +1352,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9a64b1ec5cda2586e284722486d802acf1f7dbdc623e2bfc57e65ca1cd099290"
 dependencies = [
  "autocfg",
+ "libm",
 ]
 
 [[package]]
