@@ -8,7 +8,8 @@
 
 extern crate alloc;
 
-mod c_lexer;
+mod lexer;
+mod parser;
 
 #[cfg(feature = "run_in_axle")]
 pub use axle_rt::{print, println};

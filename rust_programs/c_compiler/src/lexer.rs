@@ -51,19 +51,6 @@ impl Lexer {
         None
     }
 
-    pub fn read_to(&mut self, delimiter: char) -> String {
-        let mut out = vec![];
-
-        loop {
-            if self.peek_char().unwrap() == delimiter {
-                break;
-            }
-            out.push(self.next_char().unwrap());
-        }
-
-        out.into_iter().collect()
-    }
-
     fn digit_chars_to_value(digits: &Vec<char>) -> usize {
         digits.iter().fold(0, |acc, digit_ch| (acc * 10) + (digit_ch.to_digit(10).unwrap() as usize))
     }
@@ -87,10 +74,6 @@ impl Lexer {
         }
         let digits_as_value = Self::digit_chars_to_value(&digits);
         (digits_as_value, digits.iter().collect())
-    }
-
-    fn match_char(&mut self, expected_ch: char) {
-        assert_eq!(self.next_char(), Some(expected_ch))
     }
 
     pub fn next_token(&mut self) -> Option<Token> {
@@ -172,13 +155,31 @@ impl Lexer {
         self.cursor = start_cursor;
         token
     }
+
+    fn match_char(&mut self, expected_ch: char) {
+        assert_eq!(self.next_char(), Some(expected_ch))
+    }
+
+    pub fn match_token(&mut self, expected_token: Token) -> Token {
+        let token = self.next_token().expect("Expected {expected_token:?}, but we ran out tokens");
+        assert_eq!(token, expected_token);
+        token
+    }
+
+    pub fn match_identifier(&mut self) -> String {
+        let token = self.next_token();
+        match token.expect("Expected an identifier, but we ran out of tokens") {
+            Token::Identifier(string) => string,
+            _ => panic!("Expected an identifier, but got a different token type"),
+        }
+    }
 }
 
 #[cfg(test)]
 mod test {
     use alloc::string::{String, ToString};
     use alloc::vec;
-    use crate::c_lexer::{Lexer, Token};
+    use crate::lexer::{Lexer, Token};
 
     #[test]
     fn lex_simple() {
@@ -247,5 +248,6 @@ mod test {
         let source = "";
         let mut lexer = Lexer::new(source);
         assert_eq!(lexer.peek_token(), None);
+        assert_eq!(lexer.next_token(), None);
     }
 }
