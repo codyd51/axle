@@ -8,6 +8,7 @@
 
 extern crate alloc;
 
+mod codegen;
 mod lexer;
 mod parser;
 

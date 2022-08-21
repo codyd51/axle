@@ -1,39 +1,37 @@
+use crate::lexer::{Lexer, Token};
+use alloc::collections::BTreeMap;
 use alloc::{format, vec};
 use alloc::{string::String, vec::Vec};
-use alloc::collections::BTreeMap;
-use crate::lexer::{Lexer, Token};
 
 use crate::println;
 
 #[derive(Debug, PartialEq)]
-enum PrimitiveTypeName {
+pub enum PrimitiveTypeName {
     Int,
     Float,
 }
 
 #[derive(Debug, PartialEq)]
-struct ReturnStatement {
-    return_value: Token,
+pub struct ReturnStatement {
+    pub return_value: Token,
 }
 
 impl ReturnStatement {
     fn new(return_value: Token) -> Self {
-        Self {
-            return_value
-        }
+        Self { return_value }
     }
 }
 
 #[derive(Debug, PartialEq)]
-enum Statement {
+pub enum Statement {
     Return(ReturnStatement),
 }
 
 #[derive(Debug)]
-struct Function {
-    return_type: PrimitiveTypeName,
-    name: String,
-    statements: Vec<Statement>,
+pub struct Function {
+    pub return_type: PrimitiveTypeName,
+    pub name: String,
+    pub statements: Vec<Statement>,
 }
 
 impl Function {
@@ -47,11 +45,9 @@ impl Function {
 
     /// Ensures that the return statements return types allowed by the function's return type
     fn validate_return_statements(&self) {
-        for return_statement in self.statements.iter().filter_map(|stmt| {
-            match stmt {
-                Statement::Return(return_stmt) => Some(return_stmt),
-                _ => None,
-            }
+        for return_statement in self.statements.iter().filter_map(|stmt| match stmt {
+            Statement::Return(return_stmt) => Some(return_stmt),
+            _ => None,
         }) {
             println!("Found return statement {return_statement:?}");
         }
@@ -84,7 +80,7 @@ impl Parser {
             return match name.as_str() {
                 "int" => PrimitiveTypeName::Int,
                 "float" => PrimitiveTypeName::Float,
-                _ => panic!("Expected a type name, got '{name}'")
+                _ => panic!("Expected a type name, got '{name}'"),
             };
         }
         panic!("Expected an identifier token, got {token:?}");
@@ -101,12 +97,15 @@ impl Parser {
     */
     fn parse_return_statement(&mut self) -> ReturnStatement {
         self.lexer.match_token(Token::Identifier("return".into()));
-        let return_value = self.lexer.next_token().expect("Expected a value to be returned");
+        let return_value = self
+            .lexer
+            .next_token()
+            .expect("Expected a value to be returned");
         self.lexer.match_token(Token::Semicolon);
         ReturnStatement::new(return_value)
     }
 
-    fn parse_function(&mut self) -> Function {
+    pub fn parse_function(&mut self) -> Function {
         let return_type = self.parse_primitive_type_name();
         let function_name = self.lexer.match_identifier();
         self.lexer.match_token(Token::ParenLeft);
@@ -115,7 +114,9 @@ impl Parser {
 
         // Parse a single return statement
         let return_statement = Statement::Return(self.parse_return_statement());
-        println!("Found function: fn {function_name}() -> {return_type:?} {{{return_statement:?}}}");
+        println!(
+            "Found function: fn {function_name}() -> {return_type:?} {{{return_statement:?}}}"
+        );
 
         Function::new(return_type, function_name, vec![return_statement])
     }
@@ -129,9 +130,9 @@ impl Parser {
 
 #[cfg(test)]
 mod test {
-    use alloc::vec;
     use crate::lexer::Token;
     use crate::parser::{Parser, PrimitiveTypeName, ReturnStatement, Statement};
+    use alloc::vec;
 
     #[test]
     fn parse_function_returning_int() {
@@ -143,9 +144,10 @@ mod test {
         let function = parser.parse_function();
         assert_eq!(function.return_type, PrimitiveTypeName::Int);
         assert_eq!(function.name, "_start");
-        assert_eq!(function.statements, vec![
-            Statement::Return(ReturnStatement::new(Token::Int(5)))
-        ]);
+        assert_eq!(
+            function.statements,
+            vec![Statement::Return(ReturnStatement::new(Token::Int(5)))]
+        );
         function.validate_return_statements();
     }
 
@@ -159,9 +161,12 @@ mod test {
         let function = parser.parse_function();
         assert_eq!(function.return_type, PrimitiveTypeName::Float);
         assert_eq!(function.name, "returns_float");
-        assert_eq!(function.statements, vec![
-            Statement::Return(ReturnStatement::new(Token::Float(9.12345)))
-        ]);
+        assert_eq!(
+            function.statements,
+            vec![Statement::Return(ReturnStatement::new(Token::Float(
+                9.12345
+            )))]
+        );
         function.validate_return_statements();
     }
 }

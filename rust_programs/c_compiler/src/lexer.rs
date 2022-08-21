@@ -1,6 +1,6 @@
+use alloc::collections::BTreeMap;
 use alloc::{format, vec};
 use alloc::{string::String, vec::Vec};
-use alloc::collections::BTreeMap;
 
 use crate::println;
 
@@ -52,7 +52,9 @@ impl Lexer {
     }
 
     fn digit_chars_to_value(digits: &Vec<char>) -> usize {
-        digits.iter().fold(0, |acc, digit_ch| (acc * 10) + (digit_ch.to_digit(10).unwrap() as usize))
+        digits.iter().fold(0, |acc, digit_ch| {
+            (acc * 10) + (digit_ch.to_digit(10).unwrap() as usize)
+        })
     }
 
     fn read_digits_to_delimiter(&mut self) -> (usize, String) {
@@ -61,13 +63,11 @@ impl Lexer {
             if let Some(peek) = self.peek_char() {
                 if peek.is_digit(10) {
                     digits.push(self.next_char().unwrap());
-                }
-                else {
+                } else {
                     // Non-digit character, we're done parsing a number
                     break;
                 }
-            }
-            else {
+            } else {
                 // Ran out of characters in the input stream
                 break;
             }
@@ -100,7 +100,9 @@ impl Lexer {
                 let value_before_decimal = digits_before_decimal.0 as f64;
                 let value_after_decimal = digits_after_decimal.0 as f64;
                 // Ref: https://stackoverflow.com/questions/68818046/how-can-i-turn-a-integral
-                let float_value = format!("{value_before_decimal}.{value_after_decimal}").parse().unwrap();
+                let float_value = format!("{value_before_decimal}.{value_after_decimal}")
+                    .parse()
+                    .unwrap();
                 println!("{value_before_decimal} {value_after_decimal} {float_value}");
                 return Some(Token::Float(float_value));
             }
@@ -134,13 +136,13 @@ impl Lexer {
         loop {
             let next_char = self.peek_char();
             if let Some(next_char) = next_char {
-                let is_delimiter = next_char.is_whitespace() || single_character_tokens.get(&next_char).is_some();
+                let is_delimiter =
+                    next_char.is_whitespace() || single_character_tokens.get(&next_char).is_some();
                 if is_delimiter {
                     break;
                 }
                 identifier_chars.push(self.next_char().unwrap());
-            }
-            else {
+            } else {
                 // Ran out of characters in the input stream
                 break;
             }
@@ -161,7 +163,9 @@ impl Lexer {
     }
 
     pub fn match_token(&mut self, expected_token: Token) -> Token {
-        let token = self.next_token().expect("Expected {expected_token:?}, but we ran out tokens");
+        let token = self
+            .next_token()
+            .expect("Expected {expected_token:?}, but we ran out tokens");
         assert_eq!(token, expected_token);
         token
     }
@@ -177,9 +181,9 @@ impl Lexer {
 
 #[cfg(test)]
 mod test {
+    use crate::lexer::{Lexer, Token};
     use alloc::string::{String, ToString};
     use alloc::vec;
-    use crate::lexer::{Lexer, Token};
 
     #[test]
     fn lex_simple() {
@@ -220,7 +224,10 @@ mod test {
         assert_eq!(lexer.next_token(), Some(Token::Float(3.14)));
         assert_eq!(lexer.peek_token(), Some(Token::Semicolon));
         assert_eq!(lexer.next_token(), Some(Token::Semicolon));
-        assert_eq!(Lexer::new("5.99999").next_token(), Some(Token::Float(5.99999)));
+        assert_eq!(
+            Lexer::new("5.99999").next_token(),
+            Some(Token::Float(5.99999))
+        );
     }
 
     #[test]
