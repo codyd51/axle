@@ -1,5 +1,5 @@
 use crate::lexer::{Lexer, Token};
-use crate::parser::{Function, Parser, ReturnStatement, Statement};
+use crate::parser::{Function, IfStatement, Parser, ReturnStatement, Statement};
 use alloc::collections::BTreeMap;
 use alloc::{format, vec};
 use alloc::{string::String, vec::Vec};
@@ -61,6 +61,7 @@ enum Instruction {
     PopIntoReg8(Register),
     MoveReg8ToReg8(MoveReg8ToReg8),
     MoveImm8ToReg8(MoveImm8ToReg8),
+    DirectiveDeclareLabel(String),
 }
 
 impl Instruction {
@@ -71,6 +72,7 @@ impl Instruction {
             Instruction::PopIntoReg8(dst) => format!("pop %{}", dst.asm_name()),
             Instruction::MoveReg8ToReg8(MoveReg8ToReg8 { source, dest }) => format!("mov %{}, %{}", source.asm_name(), dest.asm_name()),
             Instruction::MoveImm8ToReg8(MoveImm8ToReg8 { imm, dest }) => format!("mov ${imm}, %{}", dest.asm_name()),
+            Instruction::DirectiveDeclareLabel(label_name) => format!("{label_name}:"),
         }
     }
 }
@@ -100,19 +102,29 @@ impl CodeGenerator {
                     todo!("Unhandled return type");
                 }
             }
+            Statement::If(if_statement) => {
+                todo!();
+            }
+            Statement::Block(block_statement) => {
+                todo!();
+            }
         }
         statement_instrs
     }
 
     fn render_function_to_instructions(function: &Function) -> Vec<Instruction> {
         let mut func_instrs = vec![];
+        // Mangle the function name with a leading underscore
+        let mangled_function_name = format!("_{}", function.name);
+        // Declare a label denoting the start of the function
+        func_instrs.push(Instruction::DirectiveDeclareLabel(mangled_function_name));
         // Save the caller's frame pointer
         func_instrs.push(Instruction::PushFromReg8(Register::Rbp));
         // Set up a new stack frame by storing the starting/base stack pointer in the base pointer
         func_instrs.push(Instruction::MoveReg8ToReg8(MoveReg8ToReg8::new(Register::Rsp, Register::Rbp)));
 
         // Visit each statement in the function
-        for statement in function.statements.iter() {
+        for statement in function.body.statements.iter() {
             println!("Visting statement {statement:?}");
             let mut statement_instrs = Self::render_statement_to_instructions(&statement);
             func_instrs.append(&mut statement_instrs);
@@ -129,7 +141,7 @@ impl CodeGenerator {
         assembly
     }
 
-    pub fn generate(&self) {
+    pub fn generate(&self) -> Vec<String> {
         let func = &self.function;
         let func_instrs = Self::render_function_to_instructions(func);
         println!("{:?} {}() {{", func.return_type, func.name);
@@ -146,8 +158,36 @@ impl CodeGenerator {
             println!("\t{instr}");
         }
         println!("}}");
+        rendered_instrs
+    }
+}
 
-        //Self
+#[cfg(test)]
+mod test {
+    use alloc::vec;
+    use crate::codegen::CodeGenerator;
+    use crate::parser::Parser;
 
+    #[test]
+    fn test_return_int() {
+        let source = r"
+        int _start() {
+            return 5;
+        }";
+        let mut parser = Parser::new(source);
+        let func = parser.parse_function();
+        let codegen = CodeGenerator::new(func);
+        let instructions = codegen.generate();
+        assert_eq!(
+            codegen.generate(),
+            vec![
+                "__start:",
+                "push %rbp",
+                "mov %rsp, %rbp",
+                "mov $5, %rax",
+                "pop %rbp",
+                "ret",
+            ]
+        );
     }
 }
