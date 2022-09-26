@@ -1,8 +1,6 @@
-use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::codegen::CodeGenerator;
-use std::rc::Rc;
-use std::{env, error, fs, io};
+use std::error;
 
 pub fn main() -> Result<(), Box<dyn error::Error>> {
     println!("Running with std");

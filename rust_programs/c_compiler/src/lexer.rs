@@ -13,12 +13,21 @@ pub enum Token {
     Float(f64),
     Identifier(String),
     Int(usize),
+    Plus,
     Minus,
     ParenLeft,
     ParenRight,
     Percent,
     Quote,
     Semicolon,
+    Tilde,
+    Bang,
+    Asterisk,
+    Carat,
+    Equals,
+    ForwardSlash,
+    Question,
+    Colon,
 }
 
 pub struct Lexer {
@@ -118,12 +127,21 @@ impl Lexer {
             ('%', Token::Percent),
             (',', Token::Comma),
             ('"', Token::Quote),
+            ('+', Token::Plus),
             ('-', Token::Minus),
             ('(', Token::ParenLeft),
             (')', Token::ParenRight),
             ('{', Token::CurlyBraceLeft),
             ('}', Token::CurlyBraceRight),
             (';', Token::Semicolon),
+            ('~', Token::Tilde),
+            ('!', Token::Bang),
+            ('*', Token::Asterisk),
+            ('^', Token::Carat),
+            ('=', Token::Equals),
+            ('/', Token::ForwardSlash),
+            ('?', Token::Question),
+            (':', Token::Colon),
         ]);
         if let Some(token) = single_character_tokens.get(&first_char) {
             // Consume the character
@@ -182,7 +200,6 @@ impl Lexer {
 #[cfg(test)]
 mod test {
     use crate::lexer::{Lexer, Token};
-    use alloc::string::{String, ToString};
     use alloc::vec;
 
     #[test]
