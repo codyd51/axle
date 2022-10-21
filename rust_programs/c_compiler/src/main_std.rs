@@ -29,6 +29,7 @@ mod test {
     use core::cell::RefCell;
     use crate::codegen::{AddReg32ToReg32, CodeGenerator, Instruction, MoveImm8ToReg8, MoveImm32ToReg32, MoveReg8ToReg8, Register, SubReg32FromReg32, MulReg32ByReg32, DivReg32ByReg32};
     use crate::parser::{Parser, InfixOperator, Expr};
+    use crate::prelude::*;
 
     // Integration tests
 
@@ -57,32 +58,32 @@ mod test {
                 // Function entry point
                 Instruction::DirectiveDeclareLabel("_foo".into()),
                 // Set up stack frame
-                Instruction::PushFromReg32(Register::Rbp),
-                Instruction::MoveReg8ToReg8(MoveReg8ToReg8::new(Register::Rsp, Register::Rbp)),
+                Instruction::PushFromReg32(Rbp),
+                Instruction::MoveReg8ToReg8(MoveReg8ToReg8::new(Rsp, Rbp)),
                 // Compute parenthesized expression
-                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(3, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(7, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::PopIntoReg32(Register::Rax),
-                Instruction::PopIntoReg32(Register::Rbx),
-                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Register::Rax, Register::Rbx)),
+                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(3, Rax)),
+                Instruction::PushFromReg32(Rax),
+                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(7, Rax)),
+                Instruction::PushFromReg32(Rax),
+                Instruction::PopIntoReg32(Rax),
+                Instruction::PopIntoReg32(Rbx),
+                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
                 // Compute second expression
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(2, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::PopIntoReg32(Register::Rax),
-                Instruction::PopIntoReg32(Register::Rbx),
-                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Register::Rax, Register::Rbx)),
+                Instruction::PushFromReg32(Rax),
+                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(2, Rax)),
+                Instruction::PushFromReg32(Rax),
+                Instruction::PopIntoReg32(Rax),
+                Instruction::PopIntoReg32(Rbx),
+                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
                 // Clean up stack frame and return
-                Instruction::PopIntoReg32(Register::Rbp),
+                Instruction::PopIntoReg32(Rbp),
                 Instruction::Return8
             ]
         );
 
         // And when I emulate the instructions
         // Then rax contains the correct value
-        assert_eq!(machine.reg(Register::Rax).read_u32(&machine), 12);
+        assert_eq!(machine.reg(Rax).read_u32(&machine), 12);
     }
 
     #[test]
@@ -100,25 +101,25 @@ mod test {
                 // Function entry point
                 Instruction::DirectiveDeclareLabel("_foo".into()),
                 // Set up stack frame
-                Instruction::PushFromReg32(Register::Rbp),
-                Instruction::MoveReg8ToReg8(MoveReg8ToReg8::new(Register::Rsp, Register::Rbp)),
+                Instruction::PushFromReg32(Rbp),
+                Instruction::MoveReg8ToReg8(MoveReg8ToReg8::new(Rsp, Rbp)),
                 // Compute subtraction
-                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(100, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(66, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::PopIntoReg32(Register::Rbx),
-                Instruction::PopIntoReg32(Register::Rax),
-                Instruction::SubReg32FromReg32(SubReg32FromReg32::new(Register::Rax, Register::Rbx)),
+                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(100, Rax)),
+                Instruction::PushFromReg32(Rax),
+                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(66, Rax)),
+                Instruction::PushFromReg32(Rax),
+                Instruction::PopIntoReg32(Rbx),
+                Instruction::PopIntoReg32(Rax),
+                Instruction::SubReg32FromReg32(SubReg32FromReg32::new(Rax, Rbx)),
                 // Clean up stack frame and return
-                Instruction::PopIntoReg32(Register::Rbp),
+                Instruction::PopIntoReg32(Rbp),
                 Instruction::Return8
             ]
         );
 
         // And when I emulate the instructions
         // Then rax contains the correct value
-        assert_eq!(machine.reg(Register::Rax).read_u32(&machine), 34);
+        assert_eq!(machine.reg(Rax).read_u32(&machine), 34);
     }
 
     #[test]
@@ -136,24 +137,24 @@ mod test {
                 // Function entry point
                 Instruction::DirectiveDeclareLabel("_foo".into()),
                 // Set up stack frame
-                Instruction::PushFromReg32(Register::Rbp),
-                Instruction::MoveReg8ToReg8(MoveReg8ToReg8::new(Register::Rsp, Register::Rbp)),
+                Instruction::PushFromReg32(Rbp),
+                Instruction::MoveReg8ToReg8(MoveReg8ToReg8::new(Rsp, Rbp)),
                 // Compute multiplication
-                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(300, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(18, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::PopIntoReg32(Register::Rax),
-                Instruction::PopIntoReg32(Register::Rbx),
-                Instruction::MulReg32ByReg32(MulReg32ByReg32::new(Register::Rax, Register::Rbx)),
+                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(300, Rax)),
+                Instruction::PushFromReg32(Rax),
+                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(18, Rax)),
+                Instruction::PushFromReg32(Rax),
+                Instruction::PopIntoReg32(Rax),
+                Instruction::PopIntoReg32(Rbx),
+                Instruction::MulReg32ByReg32(MulReg32ByReg32::new(Rax, Rbx)),
                 // Clean up stack frame and return
-                Instruction::PopIntoReg32(Register::Rbp),
+                Instruction::PopIntoReg32(Rbp),
                 Instruction::Return8
             ]
         );
 
         // And when I emulate the instructions
         // Then rax contains the correct value
-        assert_eq!(machine.reg(Register::Rax).read_u32(&machine), 5400);
+        assert_eq!(machine.reg(Rax).read_u32(&machine), 5400);
     }
 }

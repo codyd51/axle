@@ -6,6 +6,7 @@ use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 use crate::println;
+use crate::prelude::*;
 
 #[derive(Debug, PartialEq, EnumIter, Ord, PartialOrd, Eq, Copy, Clone)]
 pub enum Register {
@@ -20,12 +21,12 @@ pub enum Register {
 impl Register {
     fn asm_name(&self) -> &'static str {
         match self {
-            Register::Rax => "rax",
-            Register::Rbx => "rax",
-            Register::Rdx => "rdx",
-            Register::Rbp => "rbp",
-            Register::Rsp => "rsp",
-            Register::Rip => "rip",
+            Rax => "rax",
+            Rbx => "rax",
+            Rdx => "rdx",
+            Rbp => "rbp",
+            Rsp => "rsp",
+            Rip => "rip",
         }
     }
 }
@@ -206,12 +207,12 @@ impl CodeGenerator {
                 // If the first token is an unary negation, evaluate the rest of the tokens and then negate
                 let sub_expr = Expression::new(expr.tokens[1..].to_vec());
                 expr_instructions.append(&mut Self::render_expression_to_instructions(&sub_expr));
-                expr_instructions.push(Instruction::NegateRegister(Register::Rax));
+                expr_instructions.push(Instruction::NegateRegister(Rax));
             }
             Token::Int(imm) => {
                 // PT: Validate that this is the only token in the stream
                 // Move the immediate value into rax
-                expr_instructions.push(Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(*imm, Register::Rax)));
+                expr_instructions.push(Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(*imm, Rax)));
             }
             _ => todo!("Unhandled expression contents")
         };
@@ -227,7 +228,7 @@ impl CodeGenerator {
                 // The expression's return value will be in rax
                 statement_instrs.append(&mut self.codegen_expression(return_expr));
                 // Restore the caller's frame pointer
-                statement_instrs.push(Instruction::PopIntoReg32(Register::Rbp));
+                statement_instrs.push(Instruction::PopIntoReg32(Rbp));
                 // Return to caller
                 statement_instrs.push(Instruction::Return8);
             }
@@ -245,9 +246,9 @@ impl CodeGenerator {
                 /*
                 if let Token::Int(imm) = return_expr {
                     // Move the immediate return value into rax
-                    statement_instrs.push(Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(*imm, Register::Rax)));
+                    statement_instrs.push(Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(*imm, Rax)));
                     // Restore the caller's frame pointer
-                    statement_instrs.push(Instruction::PopIntoReg32(Register::Rbp));
+                    statement_instrs.push(Instruction::PopIntoReg32(Rbp));
                     // Return to caller
                     statement_instrs.push(Instruction::Return8);
                 }
@@ -258,7 +259,7 @@ impl CodeGenerator {
                 //statement_instrs.append(&mut Self::render_expression_to_instructions(return_expr));
                 //statement_instrs.append(&mut Self::render_expression_to_instructions(return_expr));
                 // Restore the caller's frame pointer
-                statement_instrs.push(Instruction::PopIntoReg32(Register::Rbp));
+                statement_instrs.push(Instruction::PopIntoReg32(Rbp));
                 // Return to caller
                 statement_instrs.push(Instruction::Return8);
             }
@@ -274,7 +275,7 @@ impl CodeGenerator {
                 /*
 
                 if let Token::Int(val) = binary_expr.left {
-                    statement_instrs.push(Instruction::MoveImm8ToReg8MemOffset(MoveImm8ToReg8MemOffset::new(val, next_free_stack_slot, Register::Rbp)));
+                    statement_instrs.push(Instruction::MoveImm8ToReg8MemOffset(MoveImm8ToReg8MemOffset::new(val, next_free_stack_slot, Rbp)));
                     next_free_stack_slot -= mem::size_of::<u64>() as isize;
                 }
                 else {
@@ -283,7 +284,7 @@ impl CodeGenerator {
 
                 // Left operand
                 if let Token::Int(val) = binary_expr.right {
-                    statement_instrs.push(Instruction::MoveImm8ToReg8MemOffset(MoveImm8ToReg8MemOffset::new(val, next_free_stack_slot, Register::Rbp)));
+                    statement_instrs.push(Instruction::MoveImm8ToReg8MemOffset(MoveImm8ToReg8MemOffset::new(val, next_free_stack_slot, Rbp)));
                     next_free_stack_slot -= mem::size_of::<u64>() as isize;
                 }
                 else {
@@ -321,38 +322,38 @@ impl CodeGenerator {
                 let mut lhs_instrs = self.codegen_expression(lhs);
                 expr_instrs.append(&mut lhs_instrs);
                 // LHS computed value is in rax. Push to stack
-                expr_instrs.push(Instruction::PushFromReg32(Register::Rax));
+                expr_instrs.push(Instruction::PushFromReg32(Rax));
 
                 let mut rhs_instrs = self.codegen_expression(rhs);
                 expr_instrs.append(&mut rhs_instrs);
                 // RHS computed value is in rax. Push to stack
-                expr_instrs.push(Instruction::PushFromReg32(Register::Rax));
+                expr_instrs.push(Instruction::PushFromReg32(Rax));
 
                 // Apply the operator
                 match op {
                     InfixOperator::Plus => {
                         // Pop LHS and RHS into working registers
                         // RHS into rax
-                        expr_instrs.push(Instruction::PopIntoReg32(Register::Rax));
+                        expr_instrs.push(Instruction::PopIntoReg32(Rax));
                         // LHS into rbx
-                        expr_instrs.push(Instruction::PopIntoReg32(Register::Rbx));
+                        expr_instrs.push(Instruction::PopIntoReg32(Rbx));
 
-                        expr_instrs.push(Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Register::Rax, Register::Rbx)));
+                        expr_instrs.push(Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)));
                     }
                     InfixOperator::Minus => {
                         // Pop LHS and RHS into working registers
                         // We want the result to end up in rax, so pop the minuend into Rax for convenience
                         // (subl stores the result in the dst register)
                         // RHS into rbx
-                        expr_instrs.push(Instruction::PopIntoReg32(Register::Rbx));
+                        expr_instrs.push(Instruction::PopIntoReg32(Rbx));
                         // LHS into rax
-                        expr_instrs.push(Instruction::PopIntoReg32(Register::Rax));
-                        expr_instrs.push(Instruction::SubReg32FromReg32(SubReg32FromReg32::new(Register::Rax, Register::Rbx)));
+                        expr_instrs.push(Instruction::PopIntoReg32(Rax));
+                        expr_instrs.push(Instruction::SubReg32FromReg32(SubReg32FromReg32::new(Rax, Rbx)));
                     }
                     InfixOperator::Asterisk => {
-                        expr_instrs.push(Instruction::PopIntoReg32(Register::Rax));
-                        expr_instrs.push(Instruction::PopIntoReg32(Register::Rbx));
-                        expr_instrs.push(Instruction::MulReg32ByReg32(MulReg32ByReg32::new(Register::Rax, Register::Rbx)));
+                        expr_instrs.push(Instruction::PopIntoReg32(Rax));
+                        expr_instrs.push(Instruction::PopIntoReg32(Rbx));
+                        expr_instrs.push(Instruction::MulReg32ByReg32(MulReg32ByReg32::new(Rax, Rbx)));
                     }
                     _ => todo!(),
                 }
@@ -361,7 +362,7 @@ impl CodeGenerator {
             Expr::IntExpr(val) => {
                 vec![Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(
                     *val,
-                    Register::Rax,
+                    Rax,
                 ))]
             }
             _ => todo!(),
@@ -379,11 +380,11 @@ impl CodeGenerator {
         // Declare a label denoting the start of the function
         func_instrs.push(Instruction::DirectiveDeclareLabel(mangled_function_name));
         // Save the caller's frame pointer
-        func_instrs.push(Instruction::PushFromReg32(Register::Rbp));
+        func_instrs.push(Instruction::PushFromReg32(Rbp));
         // Set up a new stack frame by storing the starting/base stack pointer in the base pointer
         func_instrs.push(Instruction::MoveReg8ToReg8(MoveReg8ToReg8::new(
-            Register::Rsp,
-            Register::Rbp,
+            Rsp,
+            Rbp,
         )));
 
         // Visit each statement in the function
@@ -408,11 +409,11 @@ impl CodeGenerator {
         // Declare a label denoting the start of the function
         func_instrs.push(Instruction::DirectiveDeclareLabel(mangled_function_name));
         // Save the caller's frame pointer
-        func_instrs.push(Instruction::PushFromReg32(Register::Rbp));
+        func_instrs.push(Instruction::PushFromReg32(Rbp));
         // Set up a new stack frame by storing the starting/base stack pointer in the base pointer
         func_instrs.push(Instruction::MoveReg8ToReg8(MoveReg8ToReg8::new(
-            Register::Rsp,
-            Register::Rbp,
+            Rsp,
+            Rbp,
         )));
 
         // Visit each statement in the function
@@ -465,6 +466,7 @@ mod test {
     use crate::codegen::{AddReg32ToReg32, CodeGenerator, Instruction, MoveImm8ToReg8, Register};
     use crate::parser::Expr::{IntExpr, OperatorExpr};
     use crate::parser::{InfixOperator, Parser};
+    use crate::prelude::*;
     use alloc::boxed::Box;
     use alloc::string::String;
     use alloc::vec;
@@ -579,17 +581,17 @@ mod test {
             )),
             vec![
                 // Push LHS onto the stack
-                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(1, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax),
+                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(1, Rax)),
+                Instruction::PushFromReg32(Rax),
                 // Push RHS onto the stack
-                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(2, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax),
+                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(2, Rax)),
+                Instruction::PushFromReg32(Rax),
                 // Pop RHS into rax
-                Instruction::PopIntoReg32(Register::Rax),
+                Instruction::PopIntoReg32(Rax),
                 // Pop LHS into rbx
-                Instruction::PopIntoReg32(Register::Rbx),
+                Instruction::PopIntoReg32(Rbx),
                 // Add and store in rax
-                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Register::Rax, Register::Rbx)),
+                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
             ]
         );
         //let instrs = codegen.generate();
@@ -605,19 +607,19 @@ mod test {
                 Box::new(IntExpr(2)),
             )),
             vec![
-                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(3, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(7, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::PopIntoReg32(Register::Rax),
-                Instruction::PopIntoReg32(Register::Rbx),
-                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Register::Rax, Register::Rbx)),
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(2, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::PopIntoReg32(Register::Rax),
-                Instruction::PopIntoReg32(Register::Rbx),
-                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Register::Rax, Register::Rbx))
+                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(3, Rax)),
+                Instruction::PushFromReg32(Rax),
+                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(7, Rax)),
+                Instruction::PushFromReg32(Rax),
+                Instruction::PopIntoReg32(Rax),
+                Instruction::PopIntoReg32(Rbx),
+                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
+                Instruction::PushFromReg32(Rax),
+                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(2, Rax)),
+                Instruction::PushFromReg32(Rax),
+                Instruction::PopIntoReg32(Rax),
+                Instruction::PopIntoReg32(Rbx),
+                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx))
             ]
         );
     }
