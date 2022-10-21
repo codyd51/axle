@@ -23,7 +23,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
 
 #[cfg(test)]
 mod test {
-    use crate::emulator::MachineState;
+    use crate::simulator::MachineState;
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;

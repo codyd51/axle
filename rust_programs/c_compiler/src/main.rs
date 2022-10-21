@@ -9,7 +9,7 @@
 extern crate alloc;
 
 mod codegen;
-mod emulator;
+mod simulator;
 mod lexer;
 mod parser;
 
