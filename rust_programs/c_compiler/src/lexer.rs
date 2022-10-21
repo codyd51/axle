@@ -181,9 +181,9 @@ impl Lexer {
     }
 
     pub fn match_token(&mut self, expected_token: Token) -> Token {
-        let token = self
-            .next_token()
-            .expect("Expected {expected_token:?}, but we ran out tokens");
+        let token = self.next_token().expect(&format!(
+            "Expected {expected_token:?}, but we ran out tokens"
+        ));
         assert_eq!(token, expected_token);
         token
     }

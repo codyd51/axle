@@ -1,9 +1,14 @@
 use crate::lexer::{Lexer, Token};
+use crate::parser::Expr::{
+    AssignmentExpr, CallExpr, FloatExpr, IntExpr, NameExpr, OperatorExpr, PrefixExpr, TernaryExpr,
+    TestExpr,
+};
+use alloc::boxed::Box;
+use alloc::string::ToString;
 use alloc::{format, vec};
 use alloc::{string::String, vec::Vec};
-use alloc::boxed::Box;
+use axle_rt::AmcMessage;
 use core::fmt::{Display, Formatter};
-use crate::parser::Expr::{AssignmentExpr, CallExpr, FloatExpr, IntExpr, NameExpr, OperatorExpr, PrefixExpr, TernaryExpr, TestExpr};
 
 use crate::println;
 
@@ -19,13 +24,13 @@ impl TryFrom<Token> for PrimitiveTypeName {
 
     fn try_from(tok: Token) -> Result<Self, Self::Error> {
         match tok {
-            Token::Identifier(ident) => match ident {
-                "int".to_string() => PrimitiveTypeName::Int,
-                "float".to_string() => PrimitiveTypeName::Float,
-                "void".to_string() => PrimitiveTypeName::Void,
-                _ => Err(())
-            }
-            _ => Err(())
+            Token::Identifier(ident) => match ident.as_str() {
+                "int" => Ok(PrimitiveTypeName::Int),
+                "float" => Ok(PrimitiveTypeName::Float),
+                "void" => Ok(PrimitiveTypeName::Void),
+                _ => Err(()),
+            },
+            _ => Err(()),
         }
     }
 }
@@ -49,10 +54,7 @@ pub struct IfStatement {
 
 impl IfStatement {
     fn new(test: Expr, consequent: BlockStatement) -> Self {
-        Self {
-            test,
-            consequent,
-        }
+        Self { test, consequent }
     }
 }
 
@@ -68,7 +70,23 @@ impl BlockStatement {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct DeclareStatement {
+    name: String,
+    value: Expr,
+}
+
+impl DeclareStatement {
+    fn new(name: &str, value: Expr) -> Self {
+        Self {
+            name: name.to_string(),
+            value,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub enum Statement {
+    //Declare(DeclareStatement),
     Return(ReturnStatement),
     If(IfStatement),
     Block(BlockStatement),
@@ -166,7 +184,7 @@ impl TryFrom<Token> for InfixOperator {
             Token::Equals => Ok(InfixOperator::Equals),
             Token::ForwardSlash => Ok(InfixOperator::ForwardSlash),
             Token::Question => Ok(InfixOperator::Question),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
@@ -306,8 +324,7 @@ impl Parser {
 
         let peek = peek.try_into().unwrap();
         match peek {
-            InfixOperator::Plus |
-            InfixOperator::Minus => Precedence::Sum,
+            InfixOperator::Plus | InfixOperator::Minus => Precedence::Sum,
             InfixOperator::Asterisk => Precedence::Product,
             InfixOperator::ForwardSlash => Precedence::Product,
             InfixOperator::ParenLeft => Precedence::Call,
@@ -327,25 +344,20 @@ impl Parser {
         let mut lhs = {
             if let Token::Identifier(_) = next_token {
                 NameExpr(next_token)
-            }
-            else if let Token::Int(val) = next_token {
+            } else if let Token::Int(val) = next_token {
                 IntExpr(val)
-            }
-            else if let Token::Float(val) = next_token {
+            } else if let Token::Float(val) = next_token {
                 FloatExpr(val)
-            }
-            else if let Token::ParenLeft = next_token {
+            } else if let Token::ParenLeft = next_token {
                 let inner = self.parse_expression();
                 self.lexer.match_token(Token::ParenRight);
                 inner
-            }
-            else if let Ok(prefix_operator) = next_token.try_into() {
+            } else if let Ok(prefix_operator) = next_token.try_into() {
                 PrefixExpr(
                     prefix_operator,
-                    Box::new(self.parse_expression_with_precedence(Some(Precedence::Prefix)))
+                    Box::new(self.parse_expression_with_precedence(Some(Precedence::Prefix))),
                 )
-            }
-            else {
+            } else {
                 panic!("Unrecognized start to expression");
             }
         };
@@ -382,8 +394,7 @@ impl Parser {
                     }
                     self.lexer.match_token(Token::ParenRight);
                     CallExpr(Box::new(lhs), args)
-                }
-                else if peek == Token::Equals {
+                } else if peek == Token::Equals {
                     self.lexer.match_token(Token::Equals);
 
                     // Is this an assignment ('=') or a test ('==')?
@@ -391,30 +402,31 @@ impl Parser {
                         // Test
                         self.lexer.match_token(Token::Equals);
                         TestExpr(Box::new(lhs), Box::new(self.parse_expression()))
-                    }
-                    else {
+                    } else {
                         // Assignment
                         // LHS must be an identifier
                         let label = match lhs {
-                            NameExpr(tok) => {
-                                match tok {
-                                    Token::Identifier(name) => name,
-                                    _ => panic!("Expected an identifier token"),
-                                }
+                            NameExpr(tok) => match tok {
+                                Token::Identifier(name) => name,
+                                _ => panic!("Expected an identifier token"),
                             },
                             _ => panic!("Expected a name as the LHS of an assignment"),
                         };
-                        AssignmentExpr(label, Box::new(self.parse_expression_with_precedence(Some(precedence.previous()))))
+                        AssignmentExpr(
+                            label,
+                            Box::new(
+                                self.parse_expression_with_precedence(Some(precedence.previous())),
+                            ),
+                        )
                     }
-                }
-                else if peek == Token::Question {
+                } else if peek == Token::Question {
                     self.lexer.match_token(Token::Question);
                     let then_expr = self.parse_expression();
                     self.lexer.match_token(Token::Colon);
-                    let else_expr = self.parse_expression_with_precedence(Some(Precedence::Ternary.previous()));
+                    let else_expr =
+                        self.parse_expression_with_precedence(Some(Precedence::Ternary.previous()));
                     TernaryExpr(Box::new(lhs), Box::new(then_expr), Box::new(else_expr))
-                }
-                else {
+                } else {
                     // Consume the infix operator
                     let operator = self.lexer.next_token().unwrap();
 
@@ -445,9 +457,30 @@ impl Parser {
         self.lexer.match_token(Token::CurlyBraceLeft);
 
         loop {
-            // Check whether the next statement begins with a keyword
-            let next_token = self.lexer.peek_token().expect("Expected a token within the function body");
-            if let Token::Identifier(name) = next_token {
+            // Start of a statement
+            let next_token = self
+                .lexer
+                .peek_token()
+                .expect("Expected a token within the function body");
+            println!("Next token {next_token:?}");
+
+            // Is it a type declaration?
+            if let Ok(primitive_type) = PrimitiveTypeName::try_from(next_token.clone()) {
+                //PrimitiveTypeName::try_from(self.lexer.next_token().unwrap())
+                // Consume the type name
+                self.lexer.next_token();
+
+                println!("Parsing primitive type {primitive_type:?}");
+                let variable_name = self.lexer.match_identifier();
+                println!("variable name {variable_name:?}");
+                self.lexer.match_token(Token::Equals);
+                let value = self.parse_expression();
+                self.lexer.match_token(Token::Semicolon);
+                //statements.push(Statement::Declare(variable_name, value));
+                println!("Finished parsing declaration");
+            }
+            // Is it a keyword?
+            else if let Token::Identifier(name) = next_token {
                 let statements_in_expr = match name.as_str() {
                     "return" => Statement::Return(self.parse_return_statement()),
                     "if" => Statement::If(self.parse_if()),
@@ -487,9 +520,7 @@ impl Parser {
         self.lexer.match_token(Token::ParenRight);
         let body = self.parse_block();
 
-        println!(
-            "Found function: fn {function_name}() -> {return_type:?} {{{body:?}}}"
-        );
+        println!("Found function: fn {function_name}() -> {return_type:?} {{{body:?}}}");
 
         Function::new(return_type, function_name, body)
     }
@@ -503,11 +534,16 @@ impl Parser {
 
 #[cfg(test)]
 mod test {
-    use alloc::boxed::Box;
     use crate::lexer::Token;
-    use crate::parser::{BlockStatement, Expr, IfStatement, InfixOperator, Parser, PrefixOperator, PrimitiveTypeName, ReturnStatement, Statement};
+    use crate::parser::Expr::{
+        AssignmentExpr, CallExpr, FloatExpr, IntExpr, NameExpr, OperatorExpr, PrefixExpr, TestExpr,
+    };
+    use crate::parser::{
+        BlockStatement, Expr, IfStatement, InfixOperator, Parser, PrefixOperator,
+        PrimitiveTypeName, ReturnStatement, Statement,
+    };
+    use alloc::boxed::Box;
     use alloc::{format, vec};
-    use crate::parser::Expr::{AssignmentExpr, CallExpr, FloatExpr, IntExpr, NameExpr, OperatorExpr, PrefixExpr, TestExpr};
 
     fn assert_parse_expr_by_repr(source: &str, expected_repr: &str) {
         let mut parser = Parser::new(source);
@@ -525,10 +561,7 @@ mod test {
     fn parse_prefix_expr() {
         let source = r"abc";
         assert_parse_expr_by_repr(source, "abc");
-        assert_parse_expr_by_tree(
-            source,
-            NameExpr(Token::Identifier("abc".into()))
-        );
+        assert_parse_expr_by_tree(source, NameExpr(Token::Identifier("abc".into())));
 
         let source = r"-+~!foo";
         assert_parse_expr_by_repr(source, "(-(+(~(!foo))))");
@@ -542,11 +575,11 @@ mod test {
                         PrefixOperator::Tilde,
                         Box::new(PrefixExpr(
                             PrefixOperator::Bang,
-                            Box::new(NameExpr(Token::Identifier("foo".into())))
-                        ))
-                    ))
-                ))
-            )
+                            Box::new(NameExpr(Token::Identifier("foo".into()))),
+                        )),
+                    )),
+                )),
+            ),
         );
     }
 
@@ -557,10 +590,13 @@ mod test {
         assert_parse_expr_by_tree(
             source,
             OperatorExpr(
-                Box::new(PrefixExpr(PrefixOperator::Minus, Box::new(NameExpr(Token::Identifier("foo".into()))))),
+                Box::new(PrefixExpr(
+                    PrefixOperator::Minus,
+                    Box::new(NameExpr(Token::Identifier("foo".into()))),
+                )),
                 InfixOperator::Plus,
-                Box::new(NameExpr(Token::Identifier("bar".into())))
-            )
+                Box::new(NameExpr(Token::Identifier("bar".into()))),
+            ),
         );
         assert_parse_expr_by_repr("a + b * c - d", "((a + (b * c)) - d)")
     }
@@ -582,10 +618,10 @@ mod test {
                     OperatorExpr(
                         Box::new(NameExpr(Token::Identifier("baz".into()))),
                         InfixOperator::Plus,
-                        Box::new(NameExpr(Token::Identifier("bad".into())))
-                    )
-                ]
-            )
+                        Box::new(NameExpr(Token::Identifier("bad".into()))),
+                    ),
+                ],
+            ),
         );
         assert_parse_expr_by_repr("a(b ? c : d, e + f)", "a((b ? c : d), (e + f))");
     }
@@ -599,7 +635,10 @@ mod test {
 
     #[test]
     fn parse_binary_precedence() {
-        assert_parse_expr_by_repr("a = b + c * d ^ e - f / g", "(a = ((b + (c * (d ^ e))) - (f / g)))");
+        assert_parse_expr_by_repr(
+            "a = b + c * d ^ e - f / g",
+            "(a = ((b + (c * (d ^ e))) - (f / g)))",
+        );
     }
 
     #[test]
@@ -612,12 +651,14 @@ mod test {
                 Box::new(OperatorExpr(
                     Box::new(NameExpr(Token::Identifier("bar".into()))),
                     InfixOperator::Plus,
-                    Box::new(NameExpr(Token::Identifier("baz".into())))
-                    )
-                )
-            )
+                    Box::new(NameExpr(Token::Identifier("baz".into()))),
+                )),
+            ),
         );
-        assert_parse_expr_by_repr("a = b + c * d ^ e - f / g", "(a = ((b + (c * (d ^ e))) - (f / g)))");
+        assert_parse_expr_by_repr(
+            "a = b + c * d ^ e - f / g",
+            "(a = ((b + (c * (d ^ e))) - (f / g)))",
+        );
     }
 
     #[test]
@@ -692,19 +733,10 @@ mod test {
         assert_eq!(
             function.body.statements,
             vec![
-                Statement::If(
-                    IfStatement::new(
-                        TestExpr(
-                            Box::new(IntExpr(1)),
-                            Box::new(IntExpr(2)),
-                        ),
-                        BlockStatement::new(
-                            vec![
-                                Statement::Return(ReturnStatement::new(IntExpr(3))),
-                            ]
-                        )
-                    )
-                ),
+                Statement::If(IfStatement::new(
+                    TestExpr(Box::new(IntExpr(1)), Box::new(IntExpr(2)),),
+                    BlockStatement::new(vec![Statement::Return(ReturnStatement::new(IntExpr(3))),])
+                )),
                 Statement::Return(ReturnStatement::new(IntExpr(4))),
             ]
         );
@@ -723,17 +755,11 @@ mod test {
         assert_eq!(function.name, "f");
         assert_eq!(
             function.body.statements,
-            vec![
-                Statement::Return(
-                    ReturnStatement::new(
-                        OperatorExpr(
-                            Box::new(IntExpr(1)),
-                            InfixOperator::Plus,
-                            Box::new(IntExpr(2))
-                        )
-                    )
-                )
-            ]
+            vec![Statement::Return(ReturnStatement::new(OperatorExpr(
+                Box::new(IntExpr(1)),
+                InfixOperator::Plus,
+                Box::new(IntExpr(2))
+            )))]
         );
         function.validate_return_statements();
     }

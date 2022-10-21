@@ -7,8 +7,13 @@ resolver = "2"
 [features]
 default = ["run_in_axle"]
 run_in_axle = []
+run_with_std = ["tempfile"]
 
 [dependencies]
 axle_rt = {path = "../axle_rt" }
 axle_rt_derive = {path = "../axle_rt_derive" }
 cstr_core = "0.2.4"
+strum = "0.24.1"
+strum_macros = "0.24"
+# These dependencies are only enabled in use_std mode
+tempfile = { version = "3.3.0", optional = true }

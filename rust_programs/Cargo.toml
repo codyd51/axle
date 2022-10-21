@@ -19,7 +19,9 @@ members = [
     "linker_messages",
     "ide",
     "libgui_derive",
+    "xplatform_gui",
     "c_compiler",
+    "example_program",
 ]
 
 exclude = [

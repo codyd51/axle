@@ -1,61 +1,61 @@
-use crate::parser::{Expr, Function, ReturnStatement, Statement};
+use crate::parser::{Expr, Function, InfixOperator, ReturnStatement, Statement};
 use alloc::{format, vec};
 use alloc::{string::String, vec::Vec};
 use core::mem;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 use crate::println;
 
-#[derive(Debug, PartialEq)]
-enum Register {
+#[derive(Debug, PartialEq, EnumIter, Ord, PartialOrd, Eq, Copy, Clone)]
+pub enum Register {
     Rax,
+    Rbx,
     Rdx,
     Rbp,
     Rsp,
+    Rip,
 }
 
 impl Register {
     fn asm_name(&self) -> &'static str {
         match self {
             Register::Rax => "rax",
+            Register::Rbx => "rax",
             Register::Rdx => "rdx",
             Register::Rbp => "rbp",
             Register::Rsp => "rsp",
+            Register::Rip => "rip",
         }
     }
 }
 
 #[derive(Debug, PartialEq)]
-struct MoveReg8ToReg8 {
-    source: Register,
-    dest: Register,
+pub struct MoveReg8ToReg8 {
+    pub source: Register,
+    pub dest: Register,
 }
 
 impl MoveReg8ToReg8 {
-    fn new(source: Register, dest: Register) -> Self {
-        Self {
-            source,
-            dest
-        }
+    pub fn new(source: Register, dest: Register) -> Self {
+        Self { source, dest }
     }
 }
 
 #[derive(Debug, PartialEq)]
-struct MoveImm8ToReg8 {
-    imm: usize,
-    dest: Register,
+pub struct MoveImm8ToReg8 {
+    pub imm: usize,
+    pub dest: Register,
 }
 
 impl MoveImm8ToReg8 {
-    fn new(imm: usize, dest: Register) -> Self {
-        Self {
-            imm,
-            dest
-        }
+    pub fn new(imm: usize, dest: Register) -> Self {
+        Self { imm, dest }
     }
 }
 
 #[derive(Debug, PartialEq)]
-struct MoveImm8ToReg8MemOffset {
+pub struct MoveImm8ToReg8MemOffset {
     imm: usize,
     offset: isize,
     reg_to_deref: Register,
@@ -72,10 +72,10 @@ impl MoveImm8ToReg8MemOffset {
 }
 
 #[derive(Debug, PartialEq)]
-enum Instruction {
+pub enum Instruction {
     Return8,
-    PushFromReg8(Register),
-    PopIntoReg8(Register),
+    PushFromReg32(Register),
+    PopIntoReg32(Register),
     MoveReg8ToReg8(MoveReg8ToReg8),
     MoveImm8ToReg8(MoveImm8ToReg8),
     DirectiveDeclareGlobalSymbol(String),
@@ -89,29 +89,39 @@ impl Instruction {
     fn render(&self) -> String {
         match self {
             Instruction::Return8 => "ret".into(),
-            Instruction::PushFromReg8(src) => format!("push %{}", src.asm_name()),
-            Instruction::PopIntoReg8(dst) => format!("pop %{}", dst.asm_name()),
-            Instruction::MoveReg8ToReg8(MoveReg8ToReg8 { source, dest }) => format!("mov %{}, %{}", source.asm_name(), dest.asm_name()),
-            Instruction::MoveImm8ToReg8(MoveImm8ToReg8 { imm, dest }) => format!("mov ${imm}, %{}", dest.asm_name()),
-            Instruction::DirectiveDeclareGlobalSymbol(symbol_name) => format!(".global {symbol_name}"),
+            Instruction::PushFromReg32(src) => format!("push %{}", src.asm_name()),
+            Instruction::PopIntoReg32(dst) => format!("pop %{}", dst.asm_name()),
+            Instruction::MoveReg8ToReg8(MoveReg8ToReg8 { source, dest }) => {
+                format!("mov %{}, %{}", source.asm_name(), dest.asm_name())
+            }
+            Instruction::MoveImm8ToReg8(MoveImm8ToReg8 { imm, dest }) => {
+                format!("mov ${imm}, %{}", dest.asm_name())
+            }
+            Instruction::DirectiveDeclareGlobalSymbol(symbol_name) => {
+                format!(".global {symbol_name}")
+            }
             Instruction::DirectiveDeclareLabel(label_name) => format!("{label_name}:"),
             Instruction::NegateRegister(reg) => format!("neg %{}", reg.asm_name()),
-            Instruction::AddReg8ToReg8(dst, src) => format!("add %{}, %{}", dst.asm_name(), src.asm_name()),
+            Instruction::AddReg8ToReg8(dst, src) => {
+                format!("add %{}, %{}", dst.asm_name(), src.asm_name())
+            }
             _ => todo!(),
         }
     }
 }
 
+#[derive(Debug)]
 pub struct CodeGenerator {
-    function: Function,
+    //function: Function,
 }
 
 impl CodeGenerator {
-    pub fn new(function: Function) -> Self {
-        Self { function }
+    pub fn new() -> Self {
+        //Self { function }
+        Self {}
     }
 
-    fn render_expression_to_instructions(expr: &Expr) -> Vec<Instruction> {
+    fn render_expression_to_instructions(&mut self, expr: &Expr) -> Vec<Instruction> {
         /*
         let mut expr_instructions = vec![];
         let first_token = expr.tokens.get(0).unwrap();
@@ -134,6 +144,23 @@ impl CodeGenerator {
         todo!()
     }
 
+    fn codegen_statement(&self, statement: &Statement) -> Vec<Instruction> {
+        let mut statement_instrs = vec![];
+        match statement {
+            Statement::Return(ReturnStatement { return_expr }) => {
+                // The expression's return value will be in rax
+                statement_instrs.append(&mut self.codegen_expression(return_expr));
+                // Restore the caller's frame pointer
+                statement_instrs.push(Instruction::PopIntoReg32(Register::Rbp));
+                // Return to caller
+                statement_instrs.push(Instruction::Return8);
+            }
+            _ => todo!(),
+        }
+        statement_instrs
+    }
+
+    // TODO(PT): To drop
     fn render_statement_to_instructions(statement: &Statement) -> Vec<Instruction> {
         let next_free_stack_slot = -(mem::size_of::<u64>() as isize);
         let mut statement_instrs = vec![];
@@ -144,7 +171,7 @@ impl CodeGenerator {
                     // Move the immediate return value into rax
                     statement_instrs.push(Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(*imm, Register::Rax)));
                     // Restore the caller's frame pointer
-                    statement_instrs.push(Instruction::PopIntoReg8(Register::Rbp));
+                    statement_instrs.push(Instruction::PopIntoReg32(Register::Rbp));
                     // Return to caller
                     statement_instrs.push(Instruction::Return8);
                 }
@@ -153,15 +180,20 @@ impl CodeGenerator {
                 }
                 */
                 //statement_instrs.append(&mut Self::render_expression_to_instructions(return_expr));
-                statement_instrs.append(&mut Self::render_expression_to_instructions(return_expr));
+                //statement_instrs.append(&mut Self::render_expression_to_instructions(return_expr));
                 // Restore the caller's frame pointer
-                statement_instrs.push(Instruction::PopIntoReg8(Register::Rbp));
+                statement_instrs.push(Instruction::PopIntoReg32(Register::Rbp));
                 // Return to caller
                 statement_instrs.push(Instruction::Return8);
             }
             Statement::If(if_statement) => {
                 // Render the binary expression operands
-                let binary_expr = &if_statement.test;
+                match &if_statement.test {
+                    Expr::TestExpr(lhs, rhs) => {
+                        //
+                    }
+                    _ => panic!("Unrecognized expression within an if"),
+                };
                 // Left operand
                 /*
 
@@ -197,18 +229,100 @@ impl CodeGenerator {
         statement_instrs
     }
 
+    pub fn codegen_expression(&self, expr: &Expr) -> Vec<Instruction> {
+        match expr {
+            Expr::OperatorExpr(lhs, op, rhs) => {
+                let mut expr_instrs = vec![];
+                /*
+                println!(
+                    "Compiling infix expression:\
+                \tLHS: {lhs:?}\
+                \tOp:  {op:?}\
+                \tRHS: {rhs:?}"
+                );
+                */
+
+                let mut lhs_instrs = self.codegen_expression(lhs);
+                expr_instrs.append(&mut lhs_instrs);
+                // LHS computed value is in rax. Push to stack
+                expr_instrs.push(Instruction::PushFromReg32(Register::Rax));
+
+                let mut rhs_instrs = self.codegen_expression(rhs);
+                expr_instrs.append(&mut rhs_instrs);
+                // RHS computed value is in rax. Push to stack
+                expr_instrs.push(Instruction::PushFromReg32(Register::Rax));
+
+                // Pop LHS and RHS into working registers
+                // RHS into rax
+                expr_instrs.push(Instruction::PopIntoReg32(Register::Rax));
+                // LHS into rbx
+                expr_instrs.push(Instruction::PopIntoReg32(Register::Rbx));
+
+                // Apply the operator
+                match op {
+                    InfixOperator::Plus => {
+                        expr_instrs.push(Instruction::AddReg8ToReg8(Register::Rax, Register::Rbx));
+                    }
+                    _ => todo!(),
+                }
+                expr_instrs
+            }
+            Expr::IntExpr(val) => {
+                vec![Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(
+                    *val,
+                    Register::Rax,
+                ))]
+            }
+            _ => todo!(),
+        }
+    }
+
+    pub(crate) fn codegen_function(&self, function: &Function) -> Vec<Instruction> {
+        let mut func_instrs = vec![];
+        // Mangle the function name with a leading underscore
+        let mangled_function_name = format!("_{}", function.name);
+        // Export the function label
+        func_instrs.push(Instruction::DirectiveDeclareGlobalSymbol(
+            mangled_function_name.clone(),
+        ));
+        // Declare a label denoting the start of the function
+        func_instrs.push(Instruction::DirectiveDeclareLabel(mangled_function_name));
+        // Save the caller's frame pointer
+        func_instrs.push(Instruction::PushFromReg32(Register::Rbp));
+        // Set up a new stack frame by storing the starting/base stack pointer in the base pointer
+        func_instrs.push(Instruction::MoveReg8ToReg8(MoveReg8ToReg8::new(
+            Register::Rsp,
+            Register::Rbp,
+        )));
+
+        // Visit each statement in the function
+        for statement in function.body.statements.iter() {
+            println!("Visting statement {statement:?}");
+            let mut statement_instrs = self.codegen_statement(&statement);
+            func_instrs.append(&mut statement_instrs);
+        }
+
+        func_instrs
+    }
+
+    // TODO(PT): Drop
     fn render_function_to_instructions(function: &Function) -> Vec<Instruction> {
         let mut func_instrs = vec![];
         // Mangle the function name with a leading underscore
         let mangled_function_name = format!("_{}", function.name);
         // Export the function label
-        func_instrs.push(Instruction::DirectiveDeclareGlobalSymbol(mangled_function_name.clone()));
+        func_instrs.push(Instruction::DirectiveDeclareGlobalSymbol(
+            mangled_function_name.clone(),
+        ));
         // Declare a label denoting the start of the function
         func_instrs.push(Instruction::DirectiveDeclareLabel(mangled_function_name));
         // Save the caller's frame pointer
-        func_instrs.push(Instruction::PushFromReg8(Register::Rbp));
+        func_instrs.push(Instruction::PushFromReg32(Register::Rbp));
         // Set up a new stack frame by storing the starting/base stack pointer in the base pointer
-        func_instrs.push(Instruction::MoveReg8ToReg8(MoveReg8ToReg8::new(Register::Rsp, Register::Rbp)));
+        func_instrs.push(Instruction::MoveReg8ToReg8(MoveReg8ToReg8::new(
+            Register::Rsp,
+            Register::Rbp,
+        )));
 
         // Visit each statement in the function
         for statement in function.body.statements.iter() {
@@ -229,6 +343,11 @@ impl CodeGenerator {
     }
 
     pub fn generate(&self) -> Vec<String> {
+        todo!()
+    }
+
+    /*
+    pub fn generate(&self) -> Vec<String> {
         let func = &self.function;
         let func_instrs = Self::render_function_to_instructions(func);
         println!("{:?} {}() {{", func.return_type, func.name);
@@ -247,34 +366,40 @@ impl CodeGenerator {
         println!("}}");
         rendered_instrs
     }
+    */
 }
 
 #[cfg(test)]
 mod test {
+    use crate::codegen::{CodeGenerator, Instruction, MoveImm8ToReg8, Register};
+    use crate::parser::Expr::{IntExpr, OperatorExpr};
+    use crate::parser::{InfixOperator, Parser};
     use alloc::boxed::Box;
     use alloc::string::String;
     use alloc::vec;
     use alloc::vec::Vec;
-    use crate::codegen::{CodeGenerator, Instruction, MoveImm8ToReg8, Register};
-    use crate::parser::{InfixOperator, Parser};
-    use std::process::Command;
-    use std::io::{BufWriter, Write};
     use std::fs::File;
+    use std::io::{BufWriter, Write};
     use std::path::Path;
-    use crate::parser::Expr::{IntExpr, OperatorExpr};
+    use std::process::Command;
 
     fn run_program(instructions: &Vec<String>) -> i32 {
         //let temp_dir = tempdir()?;
         let temp_dir = Path::new("/Users/philliptennen/Downloads/");
         // clang -e start2 test.s
         let instructions_file_path = temp_dir.join("c_compiler_test_file.s");
-        let mut instructions_file = BufWriter::new(File::create(instructions_file_path.clone()).unwrap());
-        instructions_file.write(instructions.join("\n").as_bytes()).expect("Failed to write to file");
+        let mut instructions_file =
+            BufWriter::new(File::create(instructions_file_path.clone()).unwrap());
+        instructions_file
+            .write(instructions.join("\n").as_bytes())
+            .expect("Failed to write to file");
 
         let mut assembler = Command::new("/usr/local/opt/llvm/bin/clang");
-        let assembler_with_args = assembler
-            .current_dir(temp_dir)
-            .args(["-e", "start2", instructions_file_path.as_path().to_str().unwrap()]);
+        let assembler_with_args = assembler.current_dir(temp_dir).args([
+            "-e",
+            "start2",
+            instructions_file_path.as_path().to_str().unwrap(),
+        ]);
         println!("assembler command {assembler_with_args:?}");
 
         let assembler_status_code = assembler_with_args
@@ -283,13 +408,15 @@ mod test {
 
         println!("Assembler status code: {assembler_status_code}");
 
-        assembler_status_code.code().expect("Process terminated by signal")
+        assembler_status_code
+            .code()
+            .expect("Process terminated by signal")
     }
 
     fn generate_assembly_from_source(source: &str) -> Vec<String> {
         let mut parser = Parser::new(source);
         let func = parser.parse_function();
-        let codegen = CodeGenerator::new(func);
+        let codegen = CodeGenerator::new();
         let instructions = codegen.generate();
         instructions
     }
@@ -348,19 +475,58 @@ mod test {
 
     #[test]
     fn test_expression() {
+        //let source = "void foo() { int a = 1 + 2 + 3; }";
+        let source = "void foo() {}";
+        let mut parser = Parser::new(source);
+        let func = parser.parse_function();
+        let codegen = CodeGenerator::new();
         assert_eq!(
-            CodeGenerator::render_expression_to_instructions(
-                &OperatorExpr(
-                    Box::new(IntExpr(1)),
-                    InfixOperator::Plus,
-                    Box::new(IntExpr(2)),
-                )
-            ),
+            codegen.codegen_expression(&OperatorExpr(
+                Box::new(IntExpr(1)),
+                InfixOperator::Plus,
+                Box::new(IntExpr(2)),
+            )),
             vec![
+                // Push LHS onto the stack
                 Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(1, Register::Rax)),
-                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(2, Register::Rdx)),
-                //Instruction::AddReg8ToReg8(AddReg8ToReg8::new(Register::Rdx, Register::Rax)),
-                Instruction::PushFromReg8(Register::Rax),
+                Instruction::PushFromReg32(Register::Rax),
+                // Push RHS onto the stack
+                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(2, Register::Rax)),
+                Instruction::PushFromReg32(Register::Rax),
+                // Pop RHS into rax
+                Instruction::PopIntoReg32(Register::Rax),
+                // Pop LHS into rbx
+                Instruction::PopIntoReg32(Register::Rbx),
+                // Add and store in rax
+                Instruction::AddReg8ToReg8(Register::Rax, Register::Rbx),
+            ]
+        );
+        //let instrs = codegen.generate();
+
+        assert_eq!(
+            codegen.codegen_expression(&OperatorExpr(
+                Box::new(OperatorExpr(
+                    Box::new(IntExpr(3)),
+                    InfixOperator::Plus,
+                    Box::new(IntExpr(7)),
+                )),
+                InfixOperator::Plus,
+                Box::new(IntExpr(2)),
+            )),
+            vec![
+                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(3, Register::Rax)),
+                Instruction::PushFromReg32(Register::Rax),
+                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(7, Register::Rax)),
+                Instruction::PushFromReg32(Register::Rax),
+                Instruction::PopIntoReg32(Register::Rax),
+                Instruction::PopIntoReg32(Register::Rbx),
+                Instruction::AddReg8ToReg8(Register::Rax, Register::Rbx),
+                Instruction::PushFromReg32(Register::Rax),
+                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(2, Register::Rax)),
+                Instruction::PushFromReg32(Register::Rax),
+                Instruction::PopIntoReg32(Register::Rax),
+                Instruction::PopIntoReg32(Register::Rbx),
+                Instruction::AddReg8ToReg8(Register::Rax, Register::Rbx)
             ]
         );
     }
