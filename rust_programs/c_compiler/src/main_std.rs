@@ -27,7 +27,8 @@ mod test {
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
-    use crate::codegen::{AddReg32ToReg32, CodeGenerator, Instr, MoveImm8ToReg8, MoveImm32ToReg32, MoveReg8ToReg8, SubReg32FromReg32, MulReg32ByReg32, DivReg32ByReg32};
+    use crate::instructions::{AddReg32ToReg32, Instr, MoveImm8ToReg8, MoveImm32ToReg32, MoveReg8ToReg8, SubReg32FromReg32, MulReg32ByReg32, DivReg32ByReg32};
+    use crate::codegen::CodeGenerator;
     use crate::parser::{Parser, InfixOperator, Expr};
     use crate::prelude::*;
 

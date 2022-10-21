@@ -1,4 +1,4 @@
-use crate::codegen::{AddReg32ToReg32, DivReg32ByReg32, Instr, MoveImm32ToReg32, MoveImm8ToReg8, MoveReg8ToReg8, MulReg32ByReg32, SubReg32FromReg32};
+use crate::instructions::{AddReg32ToReg32, DivReg32ByReg32, Instr, MoveImm32ToReg32, MoveImm8ToReg8, MoveReg8ToReg8, MulReg32ByReg32, SubReg32FromReg32};
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::{format, vec};
@@ -272,7 +272,7 @@ mod test {
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
-    use crate::codegen::{AddReg32ToReg32, Instr, MoveImm8ToReg8};
+    use crate::instructions::{AddReg32ToReg32, Instr, MoveImm8ToReg8};
     use crate::prelude::*;
 
     fn get_machine() -> MachineState {
