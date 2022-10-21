@@ -1,4 +1,4 @@
-use crate::codegen::{Instruction, MoveImm8ToReg8, MoveReg8ToReg8, Register};
+use crate::codegen::{AddReg32ToReg32, DivReg32ByReg32, Instruction, MoveImm32ToReg32, MoveImm8ToReg8, MoveReg8ToReg8, MulReg32ByReg32, Register, SubReg32FromReg32};
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::{format, vec};
@@ -188,6 +188,9 @@ impl MachineState {
             Instruction::MoveImm8ToReg8(MoveImm8ToReg8 { imm, dest }) => {
                 self.reg(*dest).write_u8(self, *imm as u8)
             },
+            Instruction::MoveImm32ToReg32(MoveImm32ToReg32 { imm, dest }) => {
+                self.reg(*dest).write_u32(self, *imm as u32)
+            },
             Instruction::PushFromReg32(reg) => {
                 let original_rsp = self.reg(Register::Rsp).read_u64(&self);
                 let slot = original_rsp - (mem::size_of::<u32>() as u64);
@@ -209,10 +212,30 @@ impl MachineState {
                 // Increment the stack pointer
                 self.reg(Register::Rsp).write_u64(&self, original_rsp + (mem::size_of::<u32>() as u64));
             }
-            Instruction::AddReg8ToReg8(r1, r2) => {
-                let r1_val = self.reg(*r1).read_u32(&self);
-                let r2_val = self.reg(*r2).read_u32(&self);
-                self.reg(Register::Rax).write_u32(&self, r1_val + r2_val);
+            Instruction::AddReg8ToReg8(AddReg32ToReg32 { augend, addend }) => {
+                let augend_val = self.reg(*augend).read_u32(&self);
+                let addend_val = self.reg(*addend).read_u32(&self);
+                // TODO(PT): Handle over/underflow
+                self.reg(*augend).write_u32(&self, augend_val + addend_val);
+            }
+            Instruction::SubReg32FromReg32(SubReg32FromReg32 { minuend, subtrahend }) => {
+                let minuend_val = self.reg(*minuend).read_u32(&self);
+                let subtrahend_val = self.reg(*subtrahend).read_u32(&self);
+                // TODO(PT): Handle over/underflow
+                self.reg(*minuend).write_u32(&self, minuend_val - subtrahend_val);
+            }
+            Instruction::MulReg32ByReg32(MulReg32ByReg32 { multiplicand, multiplier }) => {
+                let multiplicand_val = self.reg(*multiplicand).read_u32(&self);
+                let multiplier_val = self.reg(*multiplier).read_u32(&self);
+                // TODO(PT): Handle over/underflow
+                self.reg(*multiplicand).write_u32(&self, multiplicand_val * multiplier_val);
+            }
+            Instruction::DivReg32ByReg32(DivReg32ByReg32 { dividend, divisor }) => {
+                let dividend_val = self.reg(*dividend).read_u32(&self);
+                let divisor_val = self.reg(*divisor).read_u32(&self);
+                // TODO(PT): Handle over/underflow
+                // TODO(PT): Continue here
+                //self.reg(*multiplicand).write_u32(&self, multiplicand_val * multiplier_val);
             }
             Instruction::DirectiveDeclareGlobalSymbol(_symbol_name) => {
                 // Nothing to do at runtime
@@ -247,7 +270,7 @@ mod test {
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
-    use crate::codegen::{Instruction, MoveImm8ToReg8, Register};
+    use crate::codegen::{AddReg32ToReg32, Instruction, MoveImm8ToReg8, Register};
 
     fn get_machine() -> MachineState {
         MachineState::new()
@@ -342,13 +365,13 @@ mod test {
                 Instruction::PushFromReg32(Register::Rax),
                 Instruction::PopIntoReg32(Register::Rax),
                 Instruction::PopIntoReg32(Register::Rbx),
-                Instruction::AddReg8ToReg8(Register::Rax, Register::Rbx),
+                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Register::Rax, Register::Rbx)),
                 Instruction::PushFromReg32(Register::Rax),
                 Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(2, Register::Rax)),
                 Instruction::PushFromReg32(Register::Rax),
                 Instruction::PopIntoReg32(Register::Rax),
                 Instruction::PopIntoReg32(Register::Rbx),
-                Instruction::AddReg8ToReg8(Register::Rax, Register::Rbx)
+                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Register::Rax, Register::Rbx))
             ]
         );
 

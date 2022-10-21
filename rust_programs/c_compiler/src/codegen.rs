@@ -55,6 +55,18 @@ impl MoveImm8ToReg8 {
 }
 
 #[derive(Debug, PartialEq)]
+pub struct MoveImm32ToReg32 {
+    pub imm: usize,
+    pub dest: Register,
+}
+
+impl MoveImm32ToReg32 {
+    pub fn new(imm: usize, dest: Register) -> Self {
+        Self { imm, dest }
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct MoveImm8ToReg8MemOffset {
     imm: usize,
     offset: isize,
@@ -62,11 +74,71 @@ pub struct MoveImm8ToReg8MemOffset {
 }
 
 impl MoveImm8ToReg8MemOffset {
-    fn new(imm: usize, offset: isize, reg_to_deref: Register) -> Self {
+    pub fn new(imm: usize, offset: isize, reg_to_deref: Register) -> Self {
         Self {
             imm,
             offset,
             reg_to_deref,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct AddReg32ToReg32 {
+    pub augend: Register,
+    pub addend: Register,
+}
+
+impl AddReg32ToReg32 {
+    pub fn new(augend: Register, addend: Register) -> Self {
+        Self {
+            augend,
+            addend,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct SubReg32FromReg32 {
+    pub minuend: Register,
+    pub subtrahend: Register,
+}
+
+impl SubReg32FromReg32 {
+    pub fn new(minuend: Register, subtrahend: Register) -> Self {
+        Self {
+            minuend,
+            subtrahend,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct MulReg32ByReg32 {
+    pub multiplicand: Register,
+    pub multiplier: Register,
+}
+
+impl MulReg32ByReg32 {
+    pub fn new(multiplicand: Register, multiplier: Register) -> Self {
+        Self {
+            multiplicand,
+            multiplier,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct DivReg32ByReg32 {
+    pub dividend: Register,
+    pub divisor: Register,
+}
+
+impl DivReg32ByReg32 {
+    pub fn new(dividend: Register, divisor: Register) -> Self {
+        Self {
+            dividend,
+            divisor,
         }
     }
 }
@@ -78,11 +150,15 @@ pub enum Instruction {
     PopIntoReg32(Register),
     MoveReg8ToReg8(MoveReg8ToReg8),
     MoveImm8ToReg8(MoveImm8ToReg8),
+    MoveImm32ToReg32(MoveImm32ToReg32),
     DirectiveDeclareGlobalSymbol(String),
     DirectiveDeclareLabel(String),
     MoveImm8ToReg8MemOffset(MoveImm8ToReg8MemOffset),
     NegateRegister(Register),
-    AddReg8ToReg8(Register, Register),
+    AddReg8ToReg8(AddReg32ToReg32),
+    SubReg32FromReg32(SubReg32FromReg32),
+    MulReg32ByReg32(MulReg32ByReg32),
+    DivReg32ByReg32(DivReg32ByReg32),
 }
 
 impl Instruction {
@@ -102,8 +178,8 @@ impl Instruction {
             }
             Instruction::DirectiveDeclareLabel(label_name) => format!("{label_name}:"),
             Instruction::NegateRegister(reg) => format!("neg %{}", reg.asm_name()),
-            Instruction::AddReg8ToReg8(dst, src) => {
-                format!("add %{}, %{}", dst.asm_name(), src.asm_name())
+            Instruction::AddReg8ToReg8(AddReg32ToReg32 { augend, addend }) => {
+                format!("add %{}, %{}", augend.asm_name(), addend.asm_name())
             }
             _ => todo!(),
         }
@@ -252,23 +328,38 @@ impl CodeGenerator {
                 // RHS computed value is in rax. Push to stack
                 expr_instrs.push(Instruction::PushFromReg32(Register::Rax));
 
-                // Pop LHS and RHS into working registers
-                // RHS into rax
-                expr_instrs.push(Instruction::PopIntoReg32(Register::Rax));
-                // LHS into rbx
-                expr_instrs.push(Instruction::PopIntoReg32(Register::Rbx));
-
                 // Apply the operator
                 match op {
                     InfixOperator::Plus => {
-                        expr_instrs.push(Instruction::AddReg8ToReg8(Register::Rax, Register::Rbx));
+                        // Pop LHS and RHS into working registers
+                        // RHS into rax
+                        expr_instrs.push(Instruction::PopIntoReg32(Register::Rax));
+                        // LHS into rbx
+                        expr_instrs.push(Instruction::PopIntoReg32(Register::Rbx));
+
+                        expr_instrs.push(Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Register::Rax, Register::Rbx)));
+                    }
+                    InfixOperator::Minus => {
+                        // Pop LHS and RHS into working registers
+                        // We want the result to end up in rax, so pop the minuend into Rax for convenience
+                        // (subl stores the result in the dst register)
+                        // RHS into rbx
+                        expr_instrs.push(Instruction::PopIntoReg32(Register::Rbx));
+                        // LHS into rax
+                        expr_instrs.push(Instruction::PopIntoReg32(Register::Rax));
+                        expr_instrs.push(Instruction::SubReg32FromReg32(SubReg32FromReg32::new(Register::Rax, Register::Rbx)));
+                    }
+                    InfixOperator::Asterisk => {
+                        expr_instrs.push(Instruction::PopIntoReg32(Register::Rax));
+                        expr_instrs.push(Instruction::PopIntoReg32(Register::Rbx));
+                        expr_instrs.push(Instruction::MulReg32ByReg32(MulReg32ByReg32::new(Register::Rax, Register::Rbx)));
                     }
                     _ => todo!(),
                 }
                 expr_instrs
             }
             Expr::IntExpr(val) => {
-                vec![Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(
+                vec![Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(
                     *val,
                     Register::Rax,
                 ))]
@@ -371,7 +462,7 @@ impl CodeGenerator {
 
 #[cfg(test)]
 mod test {
-    use crate::codegen::{CodeGenerator, Instruction, MoveImm8ToReg8, Register};
+    use crate::codegen::{AddReg32ToReg32, CodeGenerator, Instruction, MoveImm8ToReg8, Register};
     use crate::parser::Expr::{IntExpr, OperatorExpr};
     use crate::parser::{InfixOperator, Parser};
     use alloc::boxed::Box;
@@ -498,7 +589,7 @@ mod test {
                 // Pop LHS into rbx
                 Instruction::PopIntoReg32(Register::Rbx),
                 // Add and store in rax
-                Instruction::AddReg8ToReg8(Register::Rax, Register::Rbx),
+                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Register::Rax, Register::Rbx)),
             ]
         );
         //let instrs = codegen.generate();
@@ -520,13 +611,13 @@ mod test {
                 Instruction::PushFromReg32(Register::Rax),
                 Instruction::PopIntoReg32(Register::Rax),
                 Instruction::PopIntoReg32(Register::Rbx),
-                Instruction::AddReg8ToReg8(Register::Rax, Register::Rbx),
+                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Register::Rax, Register::Rbx)),
                 Instruction::PushFromReg32(Register::Rax),
                 Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(2, Register::Rax)),
                 Instruction::PushFromReg32(Register::Rax),
                 Instruction::PopIntoReg32(Register::Rax),
                 Instruction::PopIntoReg32(Register::Rbx),
-                Instruction::AddReg8ToReg8(Register::Rax, Register::Rbx)
+                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Register::Rax, Register::Rbx))
             ]
         );
     }
