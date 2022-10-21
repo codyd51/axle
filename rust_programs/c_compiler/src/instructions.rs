@@ -1,116 +1,55 @@
+extern crate derive_more;
+use derive_more::Constructor;
+
 use crate::prelude::*;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Constructor)]
 pub struct MoveReg8ToReg8 {
     pub source: Register,
     pub dest: Register,
 }
 
-impl MoveReg8ToReg8 {
-    pub fn new(source: Register, dest: Register) -> Self {
-        Self { source, dest }
-    }
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Constructor)]
 pub struct MoveImm8ToReg8 {
     pub imm: usize,
     pub dest: Register,
 }
 
-impl MoveImm8ToReg8 {
-    pub fn new(imm: usize, dest: Register) -> Self {
-        Self { imm, dest }
-    }
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Constructor)]
 pub struct MoveImm32ToReg32 {
     pub imm: usize,
     pub dest: Register,
 }
 
-impl MoveImm32ToReg32 {
-    pub fn new(imm: usize, dest: Register) -> Self {
-        Self { imm, dest }
-    }
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Constructor)]
 pub struct MoveImm8ToReg8MemOffset {
     imm: usize,
     offset: isize,
     reg_to_deref: Register,
 }
 
-impl MoveImm8ToReg8MemOffset {
-    pub fn new(imm: usize, offset: isize, reg_to_deref: Register) -> Self {
-        Self {
-            imm,
-            offset,
-            reg_to_deref,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Constructor)]
 pub struct AddReg32ToReg32 {
     pub augend: Register,
     pub addend: Register,
 }
 
-impl AddReg32ToReg32 {
-    pub fn new(augend: Register, addend: Register) -> Self {
-        Self {
-            augend,
-            addend,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Constructor)]
 pub struct SubReg32FromReg32 {
     pub minuend: Register,
     pub subtrahend: Register,
 }
 
-impl SubReg32FromReg32 {
-    pub fn new(minuend: Register, subtrahend: Register) -> Self {
-        Self {
-            minuend,
-            subtrahend,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Constructor)]
 pub struct MulReg32ByReg32 {
     pub multiplicand: Register,
     pub multiplier: Register,
 }
 
-impl MulReg32ByReg32 {
-    pub fn new(multiplicand: Register, multiplier: Register) -> Self {
-        Self {
-            multiplicand,
-            multiplier,
-        }
-    }
-}
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Constructor)]
 pub struct DivReg32ByReg32 {
     pub dividend: Register,
     pub divisor: Register,
-}
-
-impl DivReg32ByReg32 {
-    pub fn new(dividend: Register, divisor: Register) -> Self {
-        Self {
-            dividend,
-            divisor,
-        }
-    }
 }
 
 #[derive(Debug, PartialEq)]
