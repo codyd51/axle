@@ -27,13 +27,13 @@ mod test {
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
-    use crate::codegen::{AddReg32ToReg32, CodeGenerator, Instruction, MoveImm8ToReg8, MoveImm32ToReg32, MoveReg8ToReg8, Register, SubReg32FromReg32, MulReg32ByReg32, DivReg32ByReg32};
+    use crate::codegen::{AddReg32ToReg32, CodeGenerator, Instr, MoveImm8ToReg8, MoveImm32ToReg32, MoveReg8ToReg8, SubReg32FromReg32, MulReg32ByReg32, DivReg32ByReg32};
     use crate::parser::{Parser, InfixOperator, Expr};
     use crate::prelude::*;
 
     // Integration tests
 
-    fn codegen_and_execute_source(source: &str) -> (Vec<Instruction>, MachineState) {
+    fn codegen_and_execute_source(source: &str) -> (Vec<Instr>, MachineState) {
         let mut parser = Parser::new(source);
         let func = parser.parse_function();
         let codegen = CodeGenerator::new();
@@ -54,30 +54,30 @@ mod test {
             instrs,
             vec![
                 // Declare the symbol
-                Instruction::DirectiveDeclareGlobalSymbol("_foo".into()),
+                Instr::DirectiveDeclareGlobalSymbol("_foo".into()),
                 // Function entry point
-                Instruction::DirectiveDeclareLabel("_foo".into()),
+                Instr::DirectiveDeclareLabel("_foo".into()),
                 // Set up stack frame
-                Instruction::PushFromReg32(Rbp),
-                Instruction::MoveReg8ToReg8(MoveReg8ToReg8::new(Rsp, Rbp)),
+                Instr::PushFromReg(RegisterView::rbp()),
+                Instr::MoveReg8ToReg8(MoveReg8ToReg8::new(Rsp, Rbp)),
                 // Compute parenthesized expression
-                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(3, Rax)),
-                Instruction::PushFromReg32(Rax),
-                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(7, Rax)),
-                Instruction::PushFromReg32(Rax),
-                Instruction::PopIntoReg32(Rax),
-                Instruction::PopIntoReg32(Rbx),
-                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
+                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(3, Rax)),
+                Instr::PushFromReg(RegisterView::rax()),
+                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(7, Rax)),
+                Instr::PushFromReg(RegisterView::rax()),
+                Instr::PopIntoReg(RegisterView::rax()),
+                Instr::PopIntoReg(RegisterView::rbx()),
+                Instr::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
                 // Compute second expression
-                Instruction::PushFromReg32(Rax),
-                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(2, Rax)),
-                Instruction::PushFromReg32(Rax),
-                Instruction::PopIntoReg32(Rax),
-                Instruction::PopIntoReg32(Rbx),
-                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
+                Instr::PushFromReg(RegisterView::rax()),
+                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(2, Rax)),
+                Instr::PushFromReg(RegisterView::rax()),
+                Instr::PopIntoReg(RegisterView::rax()),
+                Instr::PopIntoReg(RegisterView::rbx()),
+                Instr::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
                 // Clean up stack frame and return
-                Instruction::PopIntoReg32(Rbp),
-                Instruction::Return8
+                Instr::PopIntoReg(RegisterView::rbp()),
+                Instr::Return
             ]
         );
 
@@ -97,23 +97,23 @@ mod test {
             instrs,
             vec![
                 // Declare the symbol
-                Instruction::DirectiveDeclareGlobalSymbol("_foo".into()),
+                Instr::DirectiveDeclareGlobalSymbol("_foo".into()),
                 // Function entry point
-                Instruction::DirectiveDeclareLabel("_foo".into()),
+                Instr::DirectiveDeclareLabel("_foo".into()),
                 // Set up stack frame
-                Instruction::PushFromReg32(Rbp),
-                Instruction::MoveReg8ToReg8(MoveReg8ToReg8::new(Rsp, Rbp)),
+                Instr::PushFromReg(RegisterView::rbp()),
+                Instr::MoveReg8ToReg8(MoveReg8ToReg8::new(Rsp, Rbp)),
                 // Compute subtraction
-                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(100, Rax)),
-                Instruction::PushFromReg32(Rax),
-                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(66, Rax)),
-                Instruction::PushFromReg32(Rax),
-                Instruction::PopIntoReg32(Rbx),
-                Instruction::PopIntoReg32(Rax),
-                Instruction::SubReg32FromReg32(SubReg32FromReg32::new(Rax, Rbx)),
+                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(100, Rax)),
+                Instr::PushFromReg(RegisterView::rax()),
+                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(66, Rax)),
+                Instr::PushFromReg(RegisterView::rax()),
+                Instr::PopIntoReg(RegisterView::rbx()),
+                Instr::PopIntoReg(RegisterView::rax()),
+                Instr::SubReg32FromReg32(SubReg32FromReg32::new(Rax, Rbx)),
                 // Clean up stack frame and return
-                Instruction::PopIntoReg32(Rbp),
-                Instruction::Return8
+                Instr::PopIntoReg(RegisterView::rbp()),
+                Instr::Return
             ]
         );
 
@@ -133,23 +133,23 @@ mod test {
             instrs,
             vec![
                 // Declare the symbol
-                Instruction::DirectiveDeclareGlobalSymbol("_foo".into()),
+                Instr::DirectiveDeclareGlobalSymbol("_foo".into()),
                 // Function entry point
-                Instruction::DirectiveDeclareLabel("_foo".into()),
+                Instr::DirectiveDeclareLabel("_foo".into()),
                 // Set up stack frame
-                Instruction::PushFromReg32(Rbp),
-                Instruction::MoveReg8ToReg8(MoveReg8ToReg8::new(Rsp, Rbp)),
+                Instr::PushFromReg(RegisterView::rbp()),
+                Instr::MoveReg8ToReg8(MoveReg8ToReg8::new(Rsp, Rbp)),
                 // Compute multiplication
-                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(300, Rax)),
-                Instruction::PushFromReg32(Rax),
-                Instruction::MoveImm32ToReg32(MoveImm32ToReg32::new(18, Rax)),
-                Instruction::PushFromReg32(Rax),
-                Instruction::PopIntoReg32(Rax),
-                Instruction::PopIntoReg32(Rbx),
-                Instruction::MulReg32ByReg32(MulReg32ByReg32::new(Rax, Rbx)),
+                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(300, Rax)),
+                Instr::PushFromReg(RegisterView::rax()),
+                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(18, Rax)),
+                Instr::PushFromReg(RegisterView::rax()),
+                Instr::PopIntoReg(RegisterView::rax()),
+                Instr::PopIntoReg(RegisterView::rbx()),
+                Instr::MulReg32ByReg32(MulReg32ByReg32::new(Rax, Rbx)),
                 // Clean up stack frame and return
-                Instruction::PopIntoReg32(Rbp),
-                Instruction::Return8
+                Instr::PopIntoReg(RegisterView::rbp()),
+                Instr::Return
             ]
         );
 

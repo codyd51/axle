@@ -13,6 +13,7 @@ mod simulator;
 mod lexer;
 mod parser;
 mod prelude;
+mod registers;
 
 #[cfg(feature = "run_in_axle")]
 pub use axle_rt::{print, println};

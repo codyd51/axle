@@ -1,4 +1,4 @@
-use crate::codegen::{AddReg32ToReg32, DivReg32ByReg32, Instruction, MoveImm32ToReg32, MoveImm8ToReg8, MoveReg8ToReg8, MulReg32ByReg32, Register, SubReg32FromReg32};
+use crate::codegen::{AddReg32ToReg32, DivReg32ByReg32, Instr, MoveImm32ToReg32, MoveImm8ToReg8, MoveReg8ToReg8, MulReg32ByReg32, SubReg32FromReg32};
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::{format, vec};
@@ -8,6 +8,8 @@ use core::cell::RefCell;
 use core::fmt::{Debug, Display, Formatter};
 use core::mem;
 use strum::IntoEnumIterator;
+
+use crate::prelude::*;
 
 pub trait VariableStorage: Debug + Display {
     fn display_name(&self) -> &str;
@@ -174,7 +176,7 @@ impl MachineState {
         };
 
         // Set the stack pointer to the top of available memory
-        ret.reg(Register::Rsp).write_u64(&ret, ret.ram.store.borrow().len() as u64);
+        ret.reg(Rsp).write_u64(&ret, ret.ram.store.borrow().len() as u64);
 
         ret
     }
@@ -183,71 +185,71 @@ impl MachineState {
         &*self.registers[&reg]
     }
 
-    fn run_instruction(&self, instr: &Instruction) {
+    fn run_instruction(&self, instr: &Instr) {
         match instr {
-            Instruction::MoveImm8ToReg8(MoveImm8ToReg8 { imm, dest }) => {
+            Instr::MoveImm8ToReg8(MoveImm8ToReg8 { imm, dest }) => {
                 self.reg(*dest).write_u8(self, *imm as u8)
             },
-            Instruction::MoveImm32ToReg32(MoveImm32ToReg32 { imm, dest }) => {
+            Instr::MoveImm32ToReg32(MoveImm32ToReg32 { imm, dest }) => {
                 self.reg(*dest).write_u32(self, *imm as u32)
             },
-            Instruction::PushFromReg32(reg) => {
-                let original_rsp = self.reg(Register::Rsp).read_u64(&self);
+            Instr::PushFromReg(reg) => {
+                let original_rsp = self.reg(Rsp).read_u64(&self);
                 let slot = original_rsp - (mem::size_of::<u32>() as u64);
-                let value = self.reg(*reg).read_u32(&self);
+                let value = self.reg(reg.0).read_u32(&self);
 
                 // Write the value to memory
                 self.ram.write_u32(slot, value);
 
                 // Decrement the stack pointer
-                self.reg(Register::Rsp).write_u64(&self, slot);
+                self.reg(Rsp).write_u64(&self, slot);
             }
-            Instruction::PopIntoReg32(reg) => {
-                let original_rsp = self.reg(Register::Rsp).read_u64(&self);
+            Instr::PopIntoReg(reg) => {
+                let original_rsp = self.reg(Rsp).read_u64(&self);
                 let slot = original_rsp;
                 // Read the value from stack memory
                 let value = self.ram.read_u32(slot);
                 // Write it to the destination register
-                self.reg(*reg).write_u32(&self, value);
+                self.reg(reg.0).write_u32(&self, value);
                 // Increment the stack pointer
-                self.reg(Register::Rsp).write_u64(&self, original_rsp + (mem::size_of::<u32>() as u64));
+                self.reg(Rsp).write_u64(&self, original_rsp + (mem::size_of::<u32>() as u64));
             }
-            Instruction::AddReg8ToReg8(AddReg32ToReg32 { augend, addend }) => {
+            Instr::AddReg8ToReg8(AddReg32ToReg32 { augend, addend }) => {
                 let augend_val = self.reg(*augend).read_u32(&self);
                 let addend_val = self.reg(*addend).read_u32(&self);
                 // TODO(PT): Handle over/underflow
                 self.reg(*augend).write_u32(&self, augend_val + addend_val);
             }
-            Instruction::SubReg32FromReg32(SubReg32FromReg32 { minuend, subtrahend }) => {
+            Instr::SubReg32FromReg32(SubReg32FromReg32 { minuend, subtrahend }) => {
                 let minuend_val = self.reg(*minuend).read_u32(&self);
                 let subtrahend_val = self.reg(*subtrahend).read_u32(&self);
                 // TODO(PT): Handle over/underflow
                 self.reg(*minuend).write_u32(&self, minuend_val - subtrahend_val);
             }
-            Instruction::MulReg32ByReg32(MulReg32ByReg32 { multiplicand, multiplier }) => {
+            Instr::MulReg32ByReg32(MulReg32ByReg32 { multiplicand, multiplier }) => {
                 let multiplicand_val = self.reg(*multiplicand).read_u32(&self);
                 let multiplier_val = self.reg(*multiplier).read_u32(&self);
                 // TODO(PT): Handle over/underflow
                 self.reg(*multiplicand).write_u32(&self, multiplicand_val * multiplier_val);
             }
-            Instruction::DivReg32ByReg32(DivReg32ByReg32 { dividend, divisor }) => {
+            Instr::DivReg32ByReg32(DivReg32ByReg32 { dividend, divisor }) => {
                 let dividend_val = self.reg(*dividend).read_u32(&self);
                 let divisor_val = self.reg(*divisor).read_u32(&self);
                 // TODO(PT): Handle over/underflow
                 // TODO(PT): Continue here
                 //self.reg(*multiplicand).write_u32(&self, multiplicand_val * multiplier_val);
             }
-            Instruction::DirectiveDeclareGlobalSymbol(_symbol_name) => {
+            Instr::DirectiveDeclareGlobalSymbol(_symbol_name) => {
                 // Nothing to do at runtime
             }
-            Instruction::DirectiveDeclareLabel(_label_name) => {
+            Instr::DirectiveDeclareLabel(_label_name) => {
                 // Nothing to do at runtime
             }
-            Instruction::MoveReg8ToReg8(MoveReg8ToReg8 { source, dest }) => {
+            Instr::MoveReg8ToReg8(MoveReg8ToReg8 { source, dest }) => {
                 let source_val = self.reg(*source).read_u32(&self);
                 self.reg(*dest).write_u32(&self, source_val);
             }
-            Instruction::Return8 => {
+            Instr::Return => {
                 // Not handled yet
             }
             _ => {
@@ -257,7 +259,7 @@ impl MachineState {
         }
     }
 
-    pub fn run_instructions(&self, instrs: &[Instruction]) {
+    pub fn run_instructions(&self, instrs: &[Instr]) {
         for instr in instrs.iter() {
             self.run_instruction(instr);
         }
@@ -270,7 +272,8 @@ mod test {
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
-    use crate::codegen::{AddReg32ToReg32, Instruction, MoveImm8ToReg8, Register};
+    use crate::codegen::{AddReg32ToReg32, Instr, MoveImm8ToReg8};
+    use crate::prelude::*;
 
     fn get_machine() -> MachineState {
         MachineState::new()
@@ -283,41 +286,41 @@ mod test {
 
         // When I run an instruction to move a u8 constant to rax
         machine.run_instruction(
-            &Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(3, Register::Rax)),
+            &Instr::MoveImm8ToReg8(MoveImm8ToReg8::new(3, Rax)),
         );
         // Then rax contains the expected value
-        assert_eq!(machine.reg(Register::Rax).read_u8(&machine), 3);
+        assert_eq!(machine.reg(Rax).read_u8(&machine), 3);
 
         // And when the register contains other data in the other bytes
-        machine.reg(Register::Rax).write_u64(&machine, 0xffaabb22);
-        assert_eq!(machine.reg(Register::Rax).read_u64(&machine), 0xffaabb22);
+        machine.reg(Rax).write_u64(&machine, 0xffaabb22);
+        assert_eq!(machine.reg(Rax).read_u64(&machine), 0xffaabb22);
         // When I run an instruction to move a u8 constant to rax
         machine.run_instruction(
-            &Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(0xcc, Register::Rax)),
+            &Instr::MoveImm8ToReg8(MoveImm8ToReg8::new(0xcc, Rax)),
         );
         // Then only the lower byte is overwritten
-        assert_eq!(machine.reg(Register::Rax).read_u64(&machine), 0xffaabbcc);
+        assert_eq!(machine.reg(Rax).read_u64(&machine), 0xffaabbcc);
     }
 
     #[test]
     fn test_push_reg32() {
         // Given a machine
         let machine = get_machine();
-        let original_sp = machine.reg(Register::Rsp).read_u64(&machine);
+        let original_sp = machine.reg(Rsp).read_u64(&machine);
 
         // And rax contains some data
-        machine.reg(Register::Rax).write_u64(&machine, 0xdeadbeef);
+        machine.reg(Rax).write_u64(&machine, 0xdeadbeef);
 
         // When I run an instruction to push a u32 to the stack from a register
         machine.run_instruction(
-            &Instruction::PushFromReg32(Register::Rax)
+            &Instr::PushFromReg(RegisterView(Rax, AccessType::RX))
         );
 
         // Then the memory has been stored
         assert_eq!(machine.ram.read_u32(original_sp - 4), 0xdeadbeef);
 
         // And the stack pointer has been decremented by 4 bytes
-        let new_sp = machine.reg(Register::Rsp).read_u64(&machine);
+        let new_sp = machine.reg(Rsp).read_u64(&machine);
         assert_eq!(new_sp, original_sp - 4);
     }
 
@@ -329,22 +332,22 @@ mod test {
         // And there's a word on the stack
         machine.run_instructions(
             &[
-                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(0xfe, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax)
+                Instr::MoveImm8ToReg8(MoveImm8ToReg8::new(0xfe, Rax)),
+                Instr::PushFromReg(RegisterView(Rax, AccessType::RX))
             ]
         );
 
         // When I run an instruction to pop a u32 from the stack
-        let original_sp = machine.reg(Register::Rsp).read_u64(&machine);
+        let original_sp = machine.reg(Rsp).read_u64(&machine);
         machine.run_instruction(
-            &Instruction::PopIntoReg32(Register::Rbx)
+            &Instr::PopIntoReg(RegisterView(Rbx, AccessType::RX))
         );
 
         // Then the value has been popped into rbx
-        assert_eq!(machine.reg(Register::Rbx).read_u32(&machine), 0x00fe);
+        assert_eq!(machine.reg(Rbx).read_u32(&machine), 0x00fe);
 
         // And the stack pointer has been incremented by 4 bytes
-        let new_sp = machine.reg(Register::Rsp).read_u64(&machine);
+        let new_sp = machine.reg(Rsp).read_u64(&machine);
         assert_eq!(new_sp, original_sp + 4);
 
         // And the stack memory is unmodified
@@ -359,24 +362,24 @@ mod test {
         // When I run a simple instruction sequence
         machine.run_instructions(
             &[
-                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(3, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(7, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::PopIntoReg32(Register::Rax),
-                Instruction::PopIntoReg32(Register::Rbx),
-                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Register::Rax, Register::Rbx)),
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(2, Register::Rax)),
-                Instruction::PushFromReg32(Register::Rax),
-                Instruction::PopIntoReg32(Register::Rax),
-                Instruction::PopIntoReg32(Register::Rbx),
-                Instruction::AddReg8ToReg8(AddReg32ToReg32::new(Register::Rax, Register::Rbx))
+                Instr::MoveImm8ToReg8(MoveImm8ToReg8::new(3, Rax)),
+                Instr::PushFromReg(RegisterView::rax()),
+                Instr::MoveImm8ToReg8(MoveImm8ToReg8::new(7, Rax)),
+                Instr::PushFromReg(RegisterView::rax()),
+                Instr::PopIntoReg(RegisterView::rax()),
+                Instr::PopIntoReg(RegisterView::rbx()),
+                Instr::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
+                Instr::PushFromReg(RegisterView::rax()),
+                Instr::MoveImm8ToReg8(MoveImm8ToReg8::new(2, Rax)),
+                Instr::PushFromReg(RegisterView::rax()),
+                Instr::PopIntoReg(RegisterView::rax()),
+                Instr::PopIntoReg(RegisterView::rbx()),
+                Instr::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx))
             ]
         );
 
         // Then rax contains the correct computed value
-        assert_eq!(machine.reg(Register::Rax).read_u64(&machine), 12);
+        assert_eq!(machine.reg(Rax).read_u64(&machine), 12);
         println!("machine {machine:?}");
     }
 }
