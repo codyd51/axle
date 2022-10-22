@@ -5,52 +5,52 @@ use crate::prelude::*;
 
 #[derive(Debug, PartialEq, Constructor)]
 pub struct MoveRegToReg {
-    pub source: RegisterView,
-    pub dest: RegisterView,
+    pub source: RegView,
+    pub dest: RegView,
 }
 
 #[derive(Debug, PartialEq, Constructor)]
 pub struct MoveImmToReg {
     pub imm: usize,
-    pub dest: RegisterView,
+    pub dest: RegView,
 }
 
 #[derive(Debug, PartialEq, Constructor)]
 pub struct MoveImmToRegMemOffset {
     imm: usize,
     offset: isize,
-    reg_to_deref: RegisterView,
+    reg_to_deref: RegView,
 }
 
 #[derive(Debug, PartialEq, Constructor)]
 pub struct AddRegToReg {
-    pub augend: RegisterView,
-    pub addend: RegisterView,
+    pub augend: RegView,
+    pub addend: RegView,
 }
 
 #[derive(Debug, PartialEq, Constructor)]
 pub struct SubRegFromReg {
-    pub minuend: RegisterView,
-    pub subtrahend: RegisterView,
+    pub minuend: RegView,
+    pub subtrahend: RegView,
 }
 
 #[derive(Debug, PartialEq, Constructor)]
 pub struct MulRegByReg {
-    pub multiplicand: RegisterView,
-    pub multiplier: RegisterView,
+    pub multiplicand: RegView,
+    pub multiplier: RegView,
 }
 
 #[derive(Debug, PartialEq, Constructor)]
 pub struct DivRegByReg {
-    pub dividend: RegisterView,
-    pub divisor: RegisterView,
+    pub dividend: RegView,
+    pub divisor: RegView,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Instr {
     Return,
-    PushFromReg(RegisterView),
-    PopIntoReg(RegisterView),
+    PushFromReg(RegView),
+    PopIntoReg(RegView),
     MoveRegToReg(MoveRegToReg),
     MoveImmToReg(MoveImmToReg),
     DirectiveDeclareGlobalSymbol(String),

@@ -99,12 +99,12 @@ impl VariableStorage for CpuRegister {
 
 #[derive(Debug)]
 pub struct CpuRegisterView<'a> {
-    view: RegisterView,
+    view: RegView,
     reg: &'a CpuRegister,
 }
 
 impl<'a> CpuRegisterView<'a> {
-    fn new(view: &RegisterView, reg: &'a CpuRegister) -> Self {
+    fn new(view: &RegView, reg: &'a CpuRegister) -> Self {
         Self {
             view: *view,
             reg,
@@ -233,7 +233,7 @@ impl MachineState {
         &*self.registers[&reg]
     }
 
-    pub fn reg_view(&self, reg: &RegisterView) -> CpuRegisterView {
+    pub fn reg_view(&self, reg: &RegView) -> CpuRegisterView {
         CpuRegisterView::new(reg, &*self.registers[&reg.0])
     }
 
@@ -338,7 +338,7 @@ mod test {
 
         // When I run an instruction to move a u8 constant to rax
         machine.run_instruction(
-            &Instr::MoveImmToReg(MoveImmToReg::new(3, RegisterView::al())),
+            &Instr::MoveImmToReg(MoveImmToReg::new(3, RegView::al())),
         );
         // Then rax contains the expected value
         assert_eq!(machine.reg(Rax).read_u8(&machine), 3);
@@ -348,7 +348,7 @@ mod test {
         assert_eq!(machine.reg(Rax).read_u64(&machine), 0xffaabb22);
         // When I run an instruction to move a u8 constant to rax
         machine.run_instruction(
-            &Instr::MoveImmToReg(MoveImmToReg::new(0xcc, RegisterView::al())),
+            &Instr::MoveImmToReg(MoveImmToReg::new(0xcc, RegView::al())),
         );
         // Then only the lower byte is overwritten
         assert_eq!(machine.reg(Rax).read_u64(&machine), 0xffaabbcc);
@@ -365,7 +365,7 @@ mod test {
 
         // When I run an instruction to push a u32 to the stack from a register
         machine.run_instruction(
-            &Instr::PushFromReg(RegisterView(Rax, AccessType::RX))
+            &Instr::PushFromReg(RegView(Rax, AccessType::RX))
         );
 
         // Then the memory has been stored
@@ -384,15 +384,15 @@ mod test {
         // And there's a word on the stack
         machine.run_instructions(
             &[
-                Instr::MoveImmToReg(MoveImmToReg::new(0xfe, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView(Rax, AccessType::RX))
+                Instr::MoveImmToReg(MoveImmToReg::new(0xfe, RegView::rax())),
+                Instr::PushFromReg(RegView(Rax, AccessType::RX))
             ]
         );
 
         // When I run an instruction to pop a u32 from the stack
         let original_sp = machine.reg(Rsp).read_u64(&machine);
         machine.run_instruction(
-            &Instr::PopIntoReg(RegisterView(Rbx, AccessType::RX))
+            &Instr::PopIntoReg(RegView(Rbx, AccessType::RX))
         );
 
         // Then the value has been popped into rbx
@@ -414,19 +414,19 @@ mod test {
         // When I run a simple instruction sequence
         machine.run_instructions(
             &[
-                Instr::MoveImmToReg(MoveImmToReg::new(3, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImmToReg(MoveImmToReg::new(7, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::PopIntoReg(RegisterView::rax()),
-                Instr::PopIntoReg(RegisterView::rbx()),
-                Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx())),
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImmToReg(MoveImmToReg::new(2, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::PopIntoReg(RegisterView::rax()),
-                Instr::PopIntoReg(RegisterView::rbx()),
-                Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx()))
+                Instr::MoveImmToReg(MoveImmToReg::new(3, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::MoveImmToReg(MoveImmToReg::new(7, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rbx()),
+                Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rbx())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::MoveImmToReg(MoveImmToReg::new(2, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rbx()),
+                Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rbx()))
             ]
         );
 
@@ -448,8 +448,8 @@ mod test {
         // Only copy low byte
         machine.run_instruction(
             &Instr::MoveRegToReg(MoveRegToReg::new(
-                RegisterView(src.reg, AccessType::L),
-                RegisterView(dst.reg, AccessType::L),
+                RegView(src.reg, AccessType::L),
+                RegView(dst.reg, AccessType::L),
             ))
         );
         assert_eq!(dst.read_u64(&machine), 0xef);
@@ -461,8 +461,8 @@ mod test {
         // When the move is addressed to the high byte in the u16 view
         machine.run_instruction(
             &Instr::MoveRegToReg(MoveRegToReg::new(
-                RegisterView(src.reg, AccessType::H),
-                RegisterView(dst.reg, AccessType::H),
+                RegView(src.reg, AccessType::H),
+                RegView(dst.reg, AccessType::H),
             ))
         );
         // Then all the bytes are untouched except for the high byte of the low u16
@@ -475,8 +475,8 @@ mod test {
         // When the move is addressed to the low u16
         machine.run_instruction(
             &Instr::MoveRegToReg(MoveRegToReg::new(
-                RegisterView(src.reg, AccessType::X),
-                RegisterView(dst.reg, AccessType::X),
+                RegView(src.reg, AccessType::X),
+                RegView(dst.reg, AccessType::X),
             ))
         );
         // Then the high 48 bits are untouched, and the lower u16 is overwritten
@@ -489,8 +489,8 @@ mod test {
         // When the move is addressed to the low u32
         machine.run_instruction(
             &Instr::MoveRegToReg(MoveRegToReg::new(
-                RegisterView(src.reg, AccessType::EX),
-                RegisterView(dst.reg, AccessType::EX),
+                RegView(src.reg, AccessType::EX),
+                RegView(dst.reg, AccessType::EX),
             ))
         );
         // Then the high u32 is untouched, and the lower u32 is overwritten
@@ -503,8 +503,8 @@ mod test {
         // When the move is addressed to the full u64
         machine.run_instruction(
             &Instr::MoveRegToReg(MoveRegToReg::new(
-                RegisterView(src.reg, AccessType::RX),
-                RegisterView(dst.reg, AccessType::RX),
+                RegView(src.reg, AccessType::RX),
+                RegView(dst.reg, AccessType::RX),
             ))
         );
         // Then the full register is overwritten

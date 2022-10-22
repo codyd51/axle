@@ -49,7 +49,7 @@ impl CodeGenerator {
                 // The expression's return value will be in rax
                 statement_instrs.append(&mut self.codegen_expression(return_expr));
                 // Restore the caller's frame pointer
-                statement_instrs.push(Instr::PopIntoReg(RegisterView::rbp()));
+                statement_instrs.push(Instr::PopIntoReg(RegView::rbp()));
                 // Return to caller
                 statement_instrs.push(Instr::Return);
             }
@@ -80,7 +80,7 @@ impl CodeGenerator {
                 //statement_instrs.append(&mut Self::render_expression_to_instructions(return_expr));
                 //statement_instrs.append(&mut Self::render_expression_to_instructions(return_expr));
                 // Restore the caller's frame pointer
-                statement_instrs.push(Instr::PopIntoReg(RegisterView::rbp()));
+                statement_instrs.push(Instr::PopIntoReg(RegView::rbp()));
                 // Return to caller
                 statement_instrs.push(Instr::Return);
             }
@@ -143,38 +143,38 @@ impl CodeGenerator {
                 let mut lhs_instrs = self.codegen_expression(lhs);
                 expr_instrs.append(&mut lhs_instrs);
                 // LHS computed value is in rax. Push to stack
-                expr_instrs.push(Instr::PushFromReg(RegisterView::rax()));
+                expr_instrs.push(Instr::PushFromReg(RegView::rax()));
 
                 let mut rhs_instrs = self.codegen_expression(rhs);
                 expr_instrs.append(&mut rhs_instrs);
                 // RHS computed value is in rax. Push to stack
-                expr_instrs.push(Instr::PushFromReg(RegisterView::rax()));
+                expr_instrs.push(Instr::PushFromReg(RegView::rax()));
 
                 // Apply the operator
                 match op {
                     InfixOperator::Plus => {
                         // Pop LHS and RHS into working registers
                         // RHS into rax
-                        expr_instrs.push(Instr::PopIntoReg(RegisterView::rax()));
+                        expr_instrs.push(Instr::PopIntoReg(RegView::rax()));
                         // LHS into rbx
-                        expr_instrs.push(Instr::PopIntoReg(RegisterView::rbx()));
+                        expr_instrs.push(Instr::PopIntoReg(RegView::rbx()));
 
-                        expr_instrs.push(Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx())));
+                        expr_instrs.push(Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rbx())));
                     }
                     InfixOperator::Minus => {
                         // Pop LHS and RHS into working registers
                         // We want the result to end up in rax, so pop the minuend into Rax for convenience
                         // (subl stores the result in the dst register)
                         // RHS into rbx
-                        expr_instrs.push(Instr::PopIntoReg(RegisterView::rbx()));
+                        expr_instrs.push(Instr::PopIntoReg(RegView::rbx()));
                         // LHS into rax
-                        expr_instrs.push(Instr::PopIntoReg(RegisterView::rax()));
-                        expr_instrs.push(Instr::SubRegFromReg(SubRegFromReg::new(RegisterView::rax(), RegisterView::rbx())));
+                        expr_instrs.push(Instr::PopIntoReg(RegView::rax()));
+                        expr_instrs.push(Instr::SubRegFromReg(SubRegFromReg::new(RegView::rax(), RegView::rbx())));
                     }
                     InfixOperator::Asterisk => {
-                        expr_instrs.push(Instr::PopIntoReg(RegisterView::rax()));
-                        expr_instrs.push(Instr::PopIntoReg(RegisterView::rbx()));
-                        expr_instrs.push(Instr::MulRegByReg(MulRegByReg::new(RegisterView::rax(), RegisterView::rbx())));
+                        expr_instrs.push(Instr::PopIntoReg(RegView::rax()));
+                        expr_instrs.push(Instr::PopIntoReg(RegView::rbx()));
+                        expr_instrs.push(Instr::MulRegByReg(MulRegByReg::new(RegView::rax(), RegView::rbx())));
                     }
                     _ => todo!(),
                 }
@@ -183,7 +183,7 @@ impl CodeGenerator {
             Expr::IntExpr(val) => {
                 vec![Instr::MoveImmToReg(MoveImmToReg::new(
                     *val,
-                    RegisterView::rax(),
+                    RegView::rax(),
                 ))]
             }
             _ => todo!(),
@@ -201,11 +201,11 @@ impl CodeGenerator {
         // Declare a label denoting the start of the function
         func_instrs.push(Instr::DirectiveDeclareLabel(mangled_function_name));
         // Save the caller's frame pointer
-        func_instrs.push(Instr::PushFromReg(RegisterView::rbp()));
+        func_instrs.push(Instr::PushFromReg(RegView::rbp()));
         // Set up a new stack frame by storing the starting/base stack pointer in the base pointer
         func_instrs.push(Instr::MoveRegToReg(MoveRegToReg::new(
-            RegisterView::rsp(),
-            RegisterView::rbp(),
+            RegView::rsp(),
+            RegView::rbp(),
         )));
 
         // Visit each statement in the function
@@ -230,11 +230,11 @@ impl CodeGenerator {
         // Declare a label denoting the start of the function
         func_instrs.push(Instr::DirectiveDeclareLabel(mangled_function_name));
         // Save the caller's frame pointer
-        func_instrs.push(Instr::PushFromReg(RegisterView::rbp()));
+        func_instrs.push(Instr::PushFromReg(RegView::rbp()));
         // Set up a new stack frame by storing the starting/base stack pointer in the base pointer
         func_instrs.push(Instr::MoveRegToReg(MoveRegToReg::new(
-            RegisterView::rsp(),
-            RegisterView::rbp(),
+            RegView::rsp(),
+            RegView::rbp(),
         )));
 
         // Visit each statement in the function
@@ -403,17 +403,17 @@ mod test {
             )),
             vec![
                 // Push LHS onto the stack
-                Instr::MoveImmToReg(MoveImmToReg::new(1, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView::rax()),
+                Instr::MoveImmToReg(MoveImmToReg::new(1, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
                 // Push RHS onto the stack
-                Instr::MoveImmToReg(MoveImmToReg::new(2, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView::rax()),
+                Instr::MoveImmToReg(MoveImmToReg::new(2, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
                 // Pop RHS into rax
-                Instr::PopIntoReg(RegisterView::rax()),
+                Instr::PopIntoReg(RegView::rax()),
                 // Pop LHS into rbx
-                Instr::PopIntoReg(RegisterView::rbx()),
+                Instr::PopIntoReg(RegView::rbx()),
                 // Add and store in rax
-                Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx())),
+                Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rbx())),
             ]
         );
         //let instrs = codegen.generate();
@@ -429,30 +429,30 @@ mod test {
                 Box::new(IntExpr(2)),
             )),
             vec![
-                Instr::MoveImmToReg(MoveImmToReg::new(3, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImmToReg(MoveImmToReg::new(7, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::PopIntoReg(RegisterView::rax()),
-                Instr::PopIntoReg(RegisterView::rbx()),
-                Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx())),
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImmToReg(MoveImmToReg::new(2, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::PopIntoReg(RegisterView::rax()),
-                Instr::PopIntoReg(RegisterView::rbx()),
-                Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx()))
+                Instr::MoveImmToReg(MoveImmToReg::new(3, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::MoveImmToReg(MoveImmToReg::new(7, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rbx()),
+                Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rbx())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::MoveImmToReg(MoveImmToReg::new(2, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rbx()),
+                Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rbx()))
             ]
         );
     }
 
     #[test]
     fn test_register_view() {
-        assert_eq!(RegisterView::al().asm_name(), "al");
-        assert_eq!(RegisterView::ah().asm_name(), "ah");
-        assert_eq!(RegisterView::ax().asm_name(), "ax");
-        assert_eq!(RegisterView::eax().asm_name(), "eax");
-        assert_eq!(RegisterView::rax().asm_name(), "rax");
+        assert_eq!(RegView::al().asm_name(), "al");
+        assert_eq!(RegView::ah().asm_name(), "ah");
+        assert_eq!(RegView::ax().asm_name(), "ax");
+        assert_eq!(RegView::eax().asm_name(), "eax");
+        assert_eq!(RegView::rax().asm_name(), "rax");
     }
 
     /*

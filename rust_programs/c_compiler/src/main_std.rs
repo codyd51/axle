@@ -66,25 +66,25 @@ mod test {
                 // Function entry point
                 Instr::DirectiveDeclareLabel("_foo".into()),
                 // Set up stack frame
-                Instr::PushFromReg(RegisterView::rbp()),
-                Instr::MoveRegToReg(MoveRegToReg::new(RegisterView::rsp(), RegisterView::rbp())),
+                Instr::PushFromReg(RegView::rbp()),
+                Instr::MoveRegToReg(MoveRegToReg::new(RegView::rsp(), RegView::rbp())),
                 // Compute parenthesized expression
-                Instr::MoveImmToReg(MoveImmToReg::new(3, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImmToReg(MoveImmToReg::new(7, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::PopIntoReg(RegisterView::rax()),
-                Instr::PopIntoReg(RegisterView::rbx()),
-                Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx())),
+                Instr::MoveImmToReg(MoveImmToReg::new(3, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::MoveImmToReg(MoveImmToReg::new(7, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rbx()),
+                Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rbx())),
                 // Compute second expression
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImmToReg(MoveImmToReg::new(2, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::PopIntoReg(RegisterView::rax()),
-                Instr::PopIntoReg(RegisterView::rbx()),
-                Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::MoveImmToReg(MoveImmToReg::new(2, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rbx()),
+                Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rbx())),
                 // Clean up stack frame and return
-                Instr::PopIntoReg(RegisterView::rbp()),
+                Instr::PopIntoReg(RegView::rbp()),
                 Instr::Return
             ]
         );
@@ -109,18 +109,18 @@ mod test {
                 // Function entry point
                 Instr::DirectiveDeclareLabel("_foo".into()),
                 // Set up stack frame
-                Instr::PushFromReg(RegisterView::rbp()),
-                Instr::MoveRegToReg(MoveRegToReg::new(RegisterView::rsp(), RegisterView::rbp())),
+                Instr::PushFromReg(RegView::rbp()),
+                Instr::MoveRegToReg(MoveRegToReg::new(RegView::rsp(), RegView::rbp())),
                 // Compute subtraction
-                Instr::MoveImmToReg(MoveImmToReg::new(100, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImmToReg(MoveImmToReg::new(66, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::PopIntoReg(RegisterView::rbx()),
-                Instr::PopIntoReg(RegisterView::rax()),
-                Instr::SubRegFromReg(SubRegFromReg::new(RegisterView::rax(), RegisterView::rbx())),
+                Instr::MoveImmToReg(MoveImmToReg::new(100, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::MoveImmToReg(MoveImmToReg::new(66, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rbx()),
+                Instr::PopIntoReg(RegView::rax()),
+                Instr::SubRegFromReg(SubRegFromReg::new(RegView::rax(), RegView::rbx())),
                 // Clean up stack frame and return
-                Instr::PopIntoReg(RegisterView::rbp()),
+                Instr::PopIntoReg(RegView::rbp()),
                 Instr::Return
             ]
         );
@@ -145,18 +145,18 @@ mod test {
                 // Function entry point
                 Instr::DirectiveDeclareLabel("_foo".into()),
                 // Set up stack frame
-                Instr::PushFromReg(RegisterView::rbp()),
-                Instr::MoveRegToReg(MoveRegToReg::new(RegisterView::rsp(), RegisterView::rbp())),
+                Instr::PushFromReg(RegView::rbp()),
+                Instr::MoveRegToReg(MoveRegToReg::new(RegView::rsp(), RegView::rbp())),
                 // Compute multiplication
-                Instr::MoveImmToReg(MoveImmToReg::new(300, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImmToReg(MoveImmToReg::new(18, RegisterView::rax())),
-                Instr::PushFromReg(RegisterView::rax()),
-                Instr::PopIntoReg(RegisterView::rax()),
-                Instr::PopIntoReg(RegisterView::rbx()),
-                Instr::MulRegByReg(MulRegByReg::new(RegisterView::rax(), RegisterView::rbx())),
+                Instr::MoveImmToReg(MoveImmToReg::new(300, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::MoveImmToReg(MoveImmToReg::new(18, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rbx()),
+                Instr::MulRegByReg(MulRegByReg::new(RegView::rax(), RegView::rbx())),
                 // Clean up stack frame and return
-                Instr::PopIntoReg(RegisterView::rbp()),
+                Instr::PopIntoReg(RegView::rbp()),
                 Instr::Return
             ]
         );
