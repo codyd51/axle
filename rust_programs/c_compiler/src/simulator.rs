@@ -1,4 +1,4 @@
-use crate::instructions::{AddReg32ToReg32, DivReg32ByReg32, Instr, MoveImmToReg, MoveRegToReg, MulReg32ByReg32, SubReg32FromReg32};
+use crate::instructions::{AddRegToReg, DivRegByReg, Instr, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::{format, vec};
@@ -263,30 +263,31 @@ impl MachineState {
                 // Increment the stack pointer
                 self.reg(Rsp).write_u64(&self, original_rsp + (mem::size_of::<u32>() as u64));
             }
-            Instr::AddReg8ToReg8(AddReg32ToReg32 { augend, addend }) => {
-                let augend_val = self.reg(*augend).read_u32(&self);
-                let addend_val = self.reg(*addend).read_u32(&self);
+            Instr::AddRegToReg(AddRegToReg { augend, addend }) => {
+                let augend_val = self.reg_view(augend).read(&self);
+                let addend_val = self.reg_view(addend).read(&self);
                 // TODO(PT): Handle over/underflow
-                self.reg(*augend).write_u32(&self, augend_val + addend_val);
+                self.reg_view(augend).write(&self, augend_val + addend_val);
             }
-            Instr::SubReg32FromReg32(SubReg32FromReg32 { minuend, subtrahend }) => {
-                let minuend_val = self.reg(*minuend).read_u32(&self);
-                let subtrahend_val = self.reg(*subtrahend).read_u32(&self);
+            Instr::SubRegFromReg(SubRegFromReg { minuend, subtrahend }) => {
+                let minuend_val = self.reg_view(minuend).read(&self);
+                let subtrahend_val = self.reg_view(subtrahend).read(&self);
                 // TODO(PT): Handle over/underflow
-                self.reg(*minuend).write_u32(&self, minuend_val - subtrahend_val);
+                self.reg_view(minuend).write(&self, minuend_val - subtrahend_val);
             }
-            Instr::MulReg32ByReg32(MulReg32ByReg32 { multiplicand, multiplier }) => {
-                let multiplicand_val = self.reg(*multiplicand).read_u32(&self);
-                let multiplier_val = self.reg(*multiplier).read_u32(&self);
+            Instr::MulRegByReg(MulRegByReg { multiplicand, multiplier }) => {
+                let multiplicand_val = self.reg_view(multiplicand).read(&self);
+                let multiplier_val = self.reg_view(multiplier).read(&self);
                 // TODO(PT): Handle over/underflow
-                self.reg(*multiplicand).write_u32(&self, multiplicand_val * multiplier_val);
+                self.reg_view(multiplicand).write(&self, multiplicand_val * multiplier_val);
             }
-            Instr::DivReg32ByReg32(DivReg32ByReg32 { dividend, divisor }) => {
-                let dividend_val = self.reg(*dividend).read_u32(&self);
-                let divisor_val = self.reg(*divisor).read_u32(&self);
+            Instr::DivRegByReg(DivRegByReg { dividend, divisor }) => {
+                let dividend_val = self.reg_view(dividend).read(&self);
+                let divisor_val = self.reg_view(divisor).read(&self);
                 // TODO(PT): Handle over/underflow
                 // TODO(PT): Continue here
                 //self.reg(*multiplicand).write_u32(&self, multiplicand_val * multiplier_val);
+                todo!()
             }
             Instr::DirectiveDeclareGlobalSymbol(_symbol_name) => {
                 // Nothing to do at runtime
@@ -323,7 +324,7 @@ mod test {
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
-    use crate::instructions::{AddReg32ToReg32, Instr, MoveImmToReg, MoveRegToReg};
+    use crate::instructions::{AddRegToReg, Instr, MoveImmToReg, MoveRegToReg};
     use crate::prelude::*;
 
     fn get_machine() -> MachineState {
@@ -419,13 +420,13 @@ mod test {
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),
-                Instr::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
+                Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx())),
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::MoveImmToReg(MoveImmToReg::new(2, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),
-                Instr::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx))
+                Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx()))
             ]
         );
 

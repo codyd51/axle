@@ -34,7 +34,7 @@ mod test {
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
-    use crate::instructions::{AddReg32ToReg32, Instr, MoveImmToReg, MoveRegToReg, SubReg32FromReg32, MulReg32ByReg32, DivReg32ByReg32};
+    use crate::instructions::{AddRegToReg, Instr, MoveImmToReg, MoveRegToReg, SubRegFromReg, MulRegByReg, DivRegByReg};
     use crate::codegen::CodeGenerator;
     use crate::parser::{Parser, InfixOperator, Expr};
     use crate::prelude::*;
@@ -75,14 +75,14 @@ mod test {
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),
-                Instr::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
+                Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx())),
                 // Compute second expression
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::MoveImmToReg(MoveImmToReg::new(2, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),
-                Instr::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
+                Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx())),
                 // Clean up stack frame and return
                 Instr::PopIntoReg(RegisterView::rbp()),
                 Instr::Return
@@ -118,7 +118,7 @@ mod test {
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),
                 Instr::PopIntoReg(RegisterView::rax()),
-                Instr::SubReg32FromReg32(SubReg32FromReg32::new(Rax, Rbx)),
+                Instr::SubRegFromReg(SubRegFromReg::new(RegisterView::rax(), RegisterView::rbx())),
                 // Clean up stack frame and return
                 Instr::PopIntoReg(RegisterView::rbp()),
                 Instr::Return
@@ -154,7 +154,7 @@ mod test {
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),
-                Instr::MulReg32ByReg32(MulReg32ByReg32::new(Rax, Rbx)),
+                Instr::MulRegByReg(MulRegByReg::new(RegisterView::rax(), RegisterView::rbx())),
                 // Clean up stack frame and return
                 Instr::PopIntoReg(RegisterView::rbp()),
                 Instr::Return

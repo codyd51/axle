@@ -16,34 +16,34 @@ pub struct MoveImmToReg {
 }
 
 #[derive(Debug, PartialEq, Constructor)]
-pub struct MoveImm8ToReg8MemOffset {
+pub struct MoveImmToRegMemOffset {
     imm: usize,
     offset: isize,
-    reg_to_deref: Register,
+    reg_to_deref: RegisterView,
 }
 
 #[derive(Debug, PartialEq, Constructor)]
-pub struct AddReg32ToReg32 {
-    pub augend: Register,
-    pub addend: Register,
+pub struct AddRegToReg {
+    pub augend: RegisterView,
+    pub addend: RegisterView,
 }
 
 #[derive(Debug, PartialEq, Constructor)]
-pub struct SubReg32FromReg32 {
-    pub minuend: Register,
-    pub subtrahend: Register,
+pub struct SubRegFromReg {
+    pub minuend: RegisterView,
+    pub subtrahend: RegisterView,
 }
 
 #[derive(Debug, PartialEq, Constructor)]
-pub struct MulReg32ByReg32 {
-    pub multiplicand: Register,
-    pub multiplier: Register,
+pub struct MulRegByReg {
+    pub multiplicand: RegisterView,
+    pub multiplier: RegisterView,
 }
 
 #[derive(Debug, PartialEq, Constructor)]
-pub struct DivReg32ByReg32 {
-    pub dividend: Register,
-    pub divisor: Register,
+pub struct DivRegByReg {
+    pub dividend: RegisterView,
+    pub divisor: RegisterView,
 }
 
 #[derive(Debug, PartialEq)]
@@ -55,12 +55,12 @@ pub enum Instr {
     MoveImmToReg(MoveImmToReg),
     DirectiveDeclareGlobalSymbol(String),
     DirectiveDeclareLabel(String),
-    MoveImm8ToReg8MemOffset(MoveImm8ToReg8MemOffset),
+    MoveImm8oRegMemOffset(MoveImmToRegMemOffset),
     NegateRegister(Register),
-    AddReg8ToReg8(AddReg32ToReg32),
-    SubReg32FromReg32(SubReg32FromReg32),
-    MulReg32ByReg32(MulReg32ByReg32),
-    DivReg32ByReg32(DivReg32ByReg32),
+    AddRegToReg(AddRegToReg),
+    SubRegFromReg(SubRegFromReg),
+    MulRegByReg(MulRegByReg),
+    DivRegByReg(DivRegByReg),
 }
 
 impl Instr {
@@ -80,7 +80,7 @@ impl Instr {
             }
             Instr::DirectiveDeclareLabel(label_name) => format!("{label_name}:"),
             Instr::NegateRegister(reg) => format!("neg %{}", reg.asm_name()),
-            Instr::AddReg8ToReg8(AddReg32ToReg32 { augend, addend }) => {
+            Instr::AddRegToReg(AddRegToReg { augend, addend }) => {
                 format!("add %{}, %{}", augend.asm_name(), addend.asm_name())
             }
             _ => todo!(),

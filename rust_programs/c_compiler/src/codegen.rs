@@ -3,7 +3,7 @@ use alloc::{format, vec};
 use alloc::{string::String, vec::Vec};
 use alloc::string::ToString;
 use core::mem;
-use crate::instructions::{AddReg32ToReg32, Instr, MoveImmToReg, MoveRegToReg, MulReg32ByReg32, SubReg32FromReg32};
+use crate::instructions::{AddRegToReg, Instr, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
 
 use crate::println;
 use crate::prelude::*;
@@ -159,7 +159,7 @@ impl CodeGenerator {
                         // LHS into rbx
                         expr_instrs.push(Instr::PopIntoReg(RegisterView::rbx()));
 
-                        expr_instrs.push(Instr::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)));
+                        expr_instrs.push(Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx())));
                     }
                     InfixOperator::Minus => {
                         // Pop LHS and RHS into working registers
@@ -169,12 +169,12 @@ impl CodeGenerator {
                         expr_instrs.push(Instr::PopIntoReg(RegisterView::rbx()));
                         // LHS into rax
                         expr_instrs.push(Instr::PopIntoReg(RegisterView::rax()));
-                        expr_instrs.push(Instr::SubReg32FromReg32(SubReg32FromReg32::new(Rax, Rbx)));
+                        expr_instrs.push(Instr::SubRegFromReg(SubRegFromReg::new(RegisterView::rax(), RegisterView::rbx())));
                     }
                     InfixOperator::Asterisk => {
                         expr_instrs.push(Instr::PopIntoReg(RegisterView::rax()));
                         expr_instrs.push(Instr::PopIntoReg(RegisterView::rbx()));
-                        expr_instrs.push(Instr::MulReg32ByReg32(MulReg32ByReg32::new(Rax, Rbx)));
+                        expr_instrs.push(Instr::MulRegByReg(MulRegByReg::new(RegisterView::rax(), RegisterView::rbx())));
                     }
                     _ => todo!(),
                 }
@@ -285,7 +285,7 @@ impl CodeGenerator {
 #[cfg(test)]
 mod test {
     use crate::codegen::CodeGenerator;
-    use crate::instructions::{AddReg32ToReg32, Instr, MoveImmToReg};
+    use crate::instructions::{AddRegToReg, Instr, MoveImmToReg};
     use crate::parser::Expr::{IntExpr, OperatorExpr};
     use crate::parser::{InfixOperator, Parser};
     use crate::prelude::*;
@@ -413,7 +413,7 @@ mod test {
                 // Pop LHS into rbx
                 Instr::PopIntoReg(RegisterView::rbx()),
                 // Add and store in rax
-                Instr::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
+                Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx())),
             ]
         );
         //let instrs = codegen.generate();
@@ -435,13 +435,13 @@ mod test {
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),
-                Instr::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
+                Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx())),
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::MoveImmToReg(MoveImmToReg::new(2, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),
-                Instr::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx))
+                Instr::AddRegToReg(AddRegToReg::new(RegisterView::rax(), RegisterView::rbx()))
             ]
         );
     }
