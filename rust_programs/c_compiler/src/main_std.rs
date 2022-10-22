@@ -1,22 +1,29 @@
+use std::error;
+use std::io::{self, BufRead, Write};
+
 use crate::codegen::CodeGenerator;
 use crate::parser::Parser;
-use std::error;
+use crate::simulator::MachineState;
+use crate::prelude::*;
 
 pub fn main() -> Result<(), Box<dyn error::Error>> {
-    println!("Running with std");
+    println!("Starting REPL...");
 
-    // TODO(PT): Could this be a REPL?
-    let source = r"
-        int _start() {
-            int a = 5;
-            a = a + 3;
-            return a;
-        }";
-    let mut parser = Parser::new(source);
-    let func = parser.parse_function();
-    println!("func: {func:?}");
-    let codegen = CodeGenerator::new();
-    codegen.generate();
+    let stdin = io::stdin();
+    let mut stdin_iter = stdin.lock().lines();
+
+    loop {
+        print!(">>> ");
+        io::stdout().flush();
+        let source = stdin_iter.next().unwrap().unwrap();
+        let mut parser = Parser::new(&source);
+        let func = parser.parse_function();
+        let codegen = CodeGenerator::new();
+        let instrs = codegen.codegen_function(&func);
+        let machine = MachineState::new();
+        machine.run_instructions(&instrs);
+        println!("rax = {}", machine.reg(Rax).read_u64(&machine));
+    }
 
     Ok(())
 }
