@@ -2,6 +2,7 @@ use std::error;
 use std::io::{self, BufRead, Write};
 
 use crate::codegen::CodeGenerator;
+use crate::optimizer::Optimizer;
 use crate::parser::Parser;
 use crate::simulator::MachineState;
 use crate::prelude::*;
@@ -20,8 +21,9 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         let func = parser.parse_function();
         let codegen = CodeGenerator::new();
         let instrs = codegen.codegen_function(&func);
+        let optimized_instrs = Optimizer::optimize(&instrs);
         let machine = MachineState::new();
-        machine.run_instructions(&instrs);
+        machine.run_instructions(&optimized_instrs);
         println!("rax = {}", machine.reg(Rax).read_u64(&machine));
     }
 
@@ -37,6 +39,7 @@ mod test {
     use crate::instructions::{AddRegToReg, Instr, MoveImmToReg, MoveRegToReg, SubRegFromReg, MulRegByReg, DivRegByReg};
     use crate::codegen::CodeGenerator;
     use crate::parser::{Parser, InfixOperator, Expr};
+    use crate::optimizer::Optimizer;
     use crate::prelude::*;
 
     // Integration tests
@@ -46,9 +49,10 @@ mod test {
         let func = parser.parse_function();
         let codegen = CodeGenerator::new();
         let instrs = codegen.codegen_function(&func);
+        let optimized_instrs = Optimizer::optimize(&instrs);
         let machine = MachineState::new();
-        machine.run_instructions(&instrs);
-        (instrs, machine)
+        machine.run_instructions(&optimized_instrs);
+        (optimized_instrs, machine)
     }
 
     #[test]
@@ -72,15 +76,11 @@ mod test {
                 Instr::MoveImmToReg(MoveImmToReg::new(3, RegView::rax())),
                 Instr::PushFromReg(RegView::rax()),
                 Instr::MoveImmToReg(MoveImmToReg::new(7, RegView::rax())),
-                Instr::PushFromReg(RegView::rax()),
-                Instr::PopIntoReg(RegView::rax()),
                 Instr::PopIntoReg(RegView::rbx()),
                 Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rbx())),
                 // Compute second expression
                 Instr::PushFromReg(RegView::rax()),
                 Instr::MoveImmToReg(MoveImmToReg::new(2, RegView::rax())),
-                Instr::PushFromReg(RegView::rax()),
-                Instr::PopIntoReg(RegView::rax()),
                 Instr::PopIntoReg(RegView::rbx()),
                 Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rbx())),
                 // Clean up stack frame and return
@@ -151,8 +151,6 @@ mod test {
                 Instr::MoveImmToReg(MoveImmToReg::new(300, RegView::rax())),
                 Instr::PushFromReg(RegView::rax()),
                 Instr::MoveImmToReg(MoveImmToReg::new(18, RegView::rax())),
-                Instr::PushFromReg(RegView::rax()),
-                Instr::PopIntoReg(RegView::rax()),
                 Instr::PopIntoReg(RegView::rbx()),
                 Instr::MulRegByReg(MulRegByReg::new(RegView::rax(), RegView::rbx())),
                 // Clean up stack frame and return

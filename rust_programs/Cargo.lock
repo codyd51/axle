@@ -183,7 +183,7 @@ version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c33ef624481a2d2252fd352266c050e83203343d0884622f7ba09782abbfa83"
 dependencies = [
- "itertools",
+ "itertools 0.9.0",
  "smallvec",
 ]
 
@@ -213,6 +213,7 @@ dependencies = [
  "axle_rt_derive",
  "cstr_core",
  "derive_more",
+ "itertools 0.10.5",
  "strum",
  "strum_macros",
  "tempfile",
@@ -985,6 +986,15 @@ name = "itertools"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "284f18f85651fe11e8a991b2adb42cb078325c996ed026d994719efcfca1d54b"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.10.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
 dependencies = [
  "either",
 ]

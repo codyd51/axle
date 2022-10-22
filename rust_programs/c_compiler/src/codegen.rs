@@ -336,7 +336,7 @@ mod test {
         instructions
     }
 
-    #[test]
+    //#[test]
     fn test_return_int() {
         // Given a simple function that returns a constant
         let source = r"
@@ -363,7 +363,7 @@ mod test {
         assert_eq!(run_program(&instructions), 5);
     }
 
-    #[test]
+    //#[test]
     fn test_return_negative_int() {
         // Given a function that returns a constant with an unary negation applied
         let source = r"

@@ -3,50 +3,50 @@ use derive_more::Constructor;
 
 use crate::prelude::*;
 
-#[derive(Debug, PartialEq, Constructor)]
+#[derive(Debug, PartialEq, Clone, Constructor)]
 pub struct MoveRegToReg {
     pub source: RegView,
     pub dest: RegView,
 }
 
-#[derive(Debug, PartialEq, Constructor)]
+#[derive(Debug, PartialEq, Clone, Constructor)]
 pub struct MoveImmToReg {
     pub imm: usize,
     pub dest: RegView,
 }
 
-#[derive(Debug, PartialEq, Constructor)]
+#[derive(Debug, PartialEq, Clone, Constructor)]
 pub struct MoveImmToRegMemOffset {
     imm: usize,
     offset: isize,
     reg_to_deref: RegView,
 }
 
-#[derive(Debug, PartialEq, Constructor)]
+#[derive(Debug, PartialEq, Clone, Constructor)]
 pub struct AddRegToReg {
     pub augend: RegView,
     pub addend: RegView,
 }
 
-#[derive(Debug, PartialEq, Constructor)]
+#[derive(Debug, PartialEq, Clone, Constructor)]
 pub struct SubRegFromReg {
     pub minuend: RegView,
     pub subtrahend: RegView,
 }
 
-#[derive(Debug, PartialEq, Constructor)]
+#[derive(Debug, PartialEq, Clone, Constructor)]
 pub struct MulRegByReg {
     pub multiplicand: RegView,
     pub multiplier: RegView,
 }
 
-#[derive(Debug, PartialEq, Constructor)]
+#[derive(Debug, PartialEq, Clone, Constructor)]
 pub struct DivRegByReg {
     pub dividend: RegView,
     pub divisor: RegView,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Instr {
     Return,
     PushFromReg(RegView),
