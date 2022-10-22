@@ -50,7 +50,7 @@ pub enum AccessType {
     RX,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub struct RegisterView(pub Register, pub AccessType);
 
 impl RegisterView {

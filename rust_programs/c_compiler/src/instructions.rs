@@ -4,9 +4,9 @@ use derive_more::Constructor;
 use crate::prelude::*;
 
 #[derive(Debug, PartialEq, Constructor)]
-pub struct MoveReg8ToReg8 {
-    pub source: Register,
-    pub dest: Register,
+pub struct MoveRegToReg {
+    pub source: RegisterView,
+    pub dest: RegisterView,
 }
 
 #[derive(Debug, PartialEq, Constructor)]
@@ -57,7 +57,7 @@ pub enum Instr {
     Return,
     PushFromReg(RegisterView),
     PopIntoReg(RegisterView),
-    MoveReg8ToReg8(MoveReg8ToReg8),
+    MoveRegToReg(MoveRegToReg),
     MoveImm8ToReg8(MoveImm8ToReg8),
     MoveImm32ToReg32(MoveImm32ToReg32),
     DirectiveDeclareGlobalSymbol(String),
@@ -76,7 +76,7 @@ impl Instr {
             Instr::Return => "ret".into(),
             Instr::PushFromReg(src) => format!("push %{}", src.asm_name()),
             Instr::PopIntoReg(dst) => format!("pop %{}", dst.asm_name()),
-            Instr::MoveReg8ToReg8(MoveReg8ToReg8 { source, dest }) => {
+            Instr::MoveRegToReg(MoveRegToReg { source, dest }) => {
                 format!("mov %{}, %{}", source.asm_name(), dest.asm_name())
             }
             Instr::MoveImm8ToReg8(MoveImm8ToReg8 { imm, dest }) => {

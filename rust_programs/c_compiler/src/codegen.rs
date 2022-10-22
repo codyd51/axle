@@ -3,7 +3,7 @@ use alloc::{format, vec};
 use alloc::{string::String, vec::Vec};
 use alloc::string::ToString;
 use core::mem;
-use crate::instructions::{AddReg32ToReg32, Instr, MoveImm32ToReg32, MoveReg8ToReg8, MulReg32ByReg32, SubReg32FromReg32};
+use crate::instructions::{AddReg32ToReg32, Instr, MoveImm32ToReg32, MoveRegToReg, MulReg32ByReg32, SubReg32FromReg32};
 
 use crate::println;
 use crate::prelude::*;
@@ -203,14 +203,14 @@ impl CodeGenerator {
         // Save the caller's frame pointer
         func_instrs.push(Instr::PushFromReg(RegisterView::rbp()));
         // Set up a new stack frame by storing the starting/base stack pointer in the base pointer
-        func_instrs.push(Instr::MoveReg8ToReg8(MoveReg8ToReg8::new(
-            Rsp,
-            Rbp,
+        func_instrs.push(Instr::MoveRegToReg(MoveRegToReg::new(
+            RegisterView::rsp(),
+            RegisterView::rbp(),
         )));
 
         // Visit each statement in the function
         for statement in function.body.statements.iter() {
-            println!("Visting statement {statement:?}");
+            //println!("Visiting statement {statement:?}");
             let mut statement_instrs = self.codegen_statement(&statement);
             func_instrs.append(&mut statement_instrs);
         }
@@ -232,9 +232,9 @@ impl CodeGenerator {
         // Save the caller's frame pointer
         func_instrs.push(Instr::PushFromReg(RegisterView::rbp()));
         // Set up a new stack frame by storing the starting/base stack pointer in the base pointer
-        func_instrs.push(Instr::MoveReg8ToReg8(MoveReg8ToReg8::new(
-            Rsp,
-            Rbp,
+        func_instrs.push(Instr::MoveRegToReg(MoveRegToReg::new(
+            RegisterView::rsp(),
+            RegisterView::rbp(),
         )));
 
         // Visit each statement in the function

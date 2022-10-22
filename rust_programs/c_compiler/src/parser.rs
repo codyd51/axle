@@ -284,7 +284,7 @@ impl Function {
             Statement::Return(return_stmt) => Some(return_stmt),
             _ => None,
         }) {
-            println!("Found return statement {return_statement:?}");
+            //println!("Found return statement {return_statement:?}");
         }
     }
 }
@@ -462,7 +462,6 @@ impl Parser {
                 .lexer
                 .peek_token()
                 .expect("Expected a token within the function body");
-            println!("Next token {next_token:?}");
 
             // Is it a type declaration?
             if let Ok(primitive_type) = PrimitiveTypeName::try_from(next_token.clone()) {
@@ -520,7 +519,7 @@ impl Parser {
         self.lexer.match_token(Token::ParenRight);
         let body = self.parse_block();
 
-        println!("Found function: fn {function_name}() -> {return_type:?} {{{body:?}}}");
+        //println!("Found function: fn {function_name}() -> {return_type:?} {{{body:?}}}");
 
         Function::new(return_type, function_name, body)
     }

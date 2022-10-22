@@ -27,7 +27,7 @@ mod test {
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
-    use crate::instructions::{AddReg32ToReg32, Instr, MoveImm8ToReg8, MoveImm32ToReg32, MoveReg8ToReg8, SubReg32FromReg32, MulReg32ByReg32, DivReg32ByReg32};
+    use crate::instructions::{AddReg32ToReg32, Instr, MoveImm8ToReg8, MoveImm32ToReg32, MoveRegToReg, SubReg32FromReg32, MulReg32ByReg32, DivReg32ByReg32};
     use crate::codegen::CodeGenerator;
     use crate::parser::{Parser, InfixOperator, Expr};
     use crate::prelude::*;
@@ -60,7 +60,7 @@ mod test {
                 Instr::DirectiveDeclareLabel("_foo".into()),
                 // Set up stack frame
                 Instr::PushFromReg(RegisterView::rbp()),
-                Instr::MoveReg8ToReg8(MoveReg8ToReg8::new(Rsp, Rbp)),
+                Instr::MoveRegToReg(MoveRegToReg::new(RegisterView::rsp(), RegisterView::rbp())),
                 // Compute parenthesized expression
                 Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(3, Rax)),
                 Instr::PushFromReg(RegisterView::rax()),
@@ -103,7 +103,7 @@ mod test {
                 Instr::DirectiveDeclareLabel("_foo".into()),
                 // Set up stack frame
                 Instr::PushFromReg(RegisterView::rbp()),
-                Instr::MoveReg8ToReg8(MoveReg8ToReg8::new(Rsp, Rbp)),
+                Instr::MoveRegToReg(MoveRegToReg::new(RegisterView::rsp(), RegisterView::rbp())),
                 // Compute subtraction
                 Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(100, Rax)),
                 Instr::PushFromReg(RegisterView::rax()),
@@ -139,7 +139,7 @@ mod test {
                 Instr::DirectiveDeclareLabel("_foo".into()),
                 // Set up stack frame
                 Instr::PushFromReg(RegisterView::rbp()),
-                Instr::MoveReg8ToReg8(MoveReg8ToReg8::new(Rsp, Rbp)),
+                Instr::MoveRegToReg(MoveRegToReg::new(RegisterView::rsp(), RegisterView::rbp())),
                 // Compute multiplication
                 Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(300, Rax)),
                 Instr::PushFromReg(RegisterView::rax()),
