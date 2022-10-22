@@ -3,7 +3,7 @@ use alloc::{format, vec};
 use alloc::{string::String, vec::Vec};
 use alloc::string::ToString;
 use core::mem;
-use crate::instructions::{AddReg32ToReg32, Instr, MoveImm32ToReg32, MoveRegToReg, MulReg32ByReg32, SubReg32FromReg32};
+use crate::instructions::{AddReg32ToReg32, Instr, MoveImmToReg, MoveRegToReg, MulReg32ByReg32, SubReg32FromReg32};
 
 use crate::println;
 use crate::prelude::*;
@@ -181,9 +181,9 @@ impl CodeGenerator {
                 expr_instrs
             }
             Expr::IntExpr(val) => {
-                vec![Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(
+                vec![Instr::MoveImmToReg(MoveImmToReg::new(
                     *val,
-                    Rax,
+                    RegisterView::rax(),
                 ))]
             }
             _ => todo!(),
@@ -285,7 +285,7 @@ impl CodeGenerator {
 #[cfg(test)]
 mod test {
     use crate::codegen::CodeGenerator;
-    use crate::instructions::{AddReg32ToReg32, Instr, MoveImm32ToReg32, MoveImmToReg};
+    use crate::instructions::{AddReg32ToReg32, Instr, MoveImmToReg};
     use crate::parser::Expr::{IntExpr, OperatorExpr};
     use crate::parser::{InfixOperator, Parser};
     use crate::prelude::*;
@@ -403,10 +403,10 @@ mod test {
             )),
             vec![
                 // Push LHS onto the stack
-                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(1, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(1, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
                 // Push RHS onto the stack
-                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(2, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(2, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
                 // Pop RHS into rax
                 Instr::PopIntoReg(RegisterView::rax()),

@@ -16,12 +16,6 @@ pub struct MoveImmToReg {
 }
 
 #[derive(Debug, PartialEq, Constructor)]
-pub struct MoveImm32ToReg32 {
-    pub imm: usize,
-    pub dest: Register,
-}
-
-#[derive(Debug, PartialEq, Constructor)]
 pub struct MoveImm8ToReg8MemOffset {
     imm: usize,
     offset: isize,
@@ -59,7 +53,6 @@ pub enum Instr {
     PopIntoReg(RegisterView),
     MoveRegToReg(MoveRegToReg),
     MoveImmToReg(MoveImmToReg),
-    MoveImm32ToReg32(MoveImm32ToReg32),
     DirectiveDeclareGlobalSymbol(String),
     DirectiveDeclareLabel(String),
     MoveImm8ToReg8MemOffset(MoveImm8ToReg8MemOffset),

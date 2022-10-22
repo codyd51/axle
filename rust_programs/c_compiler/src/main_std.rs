@@ -34,7 +34,7 @@ mod test {
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
-    use crate::instructions::{AddReg32ToReg32, Instr, MoveImmToReg, MoveImm32ToReg32, MoveRegToReg, SubReg32FromReg32, MulReg32ByReg32, DivReg32ByReg32};
+    use crate::instructions::{AddReg32ToReg32, Instr, MoveImmToReg, MoveRegToReg, SubReg32FromReg32, MulReg32ByReg32, DivReg32ByReg32};
     use crate::codegen::CodeGenerator;
     use crate::parser::{Parser, InfixOperator, Expr};
     use crate::prelude::*;
@@ -69,16 +69,16 @@ mod test {
                 Instr::PushFromReg(RegisterView::rbp()),
                 Instr::MoveRegToReg(MoveRegToReg::new(RegisterView::rsp(), RegisterView::rbp())),
                 // Compute parenthesized expression
-                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(3, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(3, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(7, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(7, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),
                 Instr::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
                 // Compute second expression
                 Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(2, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(2, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),
@@ -112,9 +112,9 @@ mod test {
                 Instr::PushFromReg(RegisterView::rbp()),
                 Instr::MoveRegToReg(MoveRegToReg::new(RegisterView::rsp(), RegisterView::rbp())),
                 // Compute subtraction
-                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(100, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(100, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(66, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(66, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),
                 Instr::PopIntoReg(RegisterView::rax()),
@@ -148,9 +148,9 @@ mod test {
                 Instr::PushFromReg(RegisterView::rbp()),
                 Instr::MoveRegToReg(MoveRegToReg::new(RegisterView::rsp(), RegisterView::rbp())),
                 // Compute multiplication
-                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(300, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(300, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImm32ToReg32(MoveImm32ToReg32::new(18, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(18, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),

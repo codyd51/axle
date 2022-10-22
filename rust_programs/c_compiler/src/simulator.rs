@@ -1,4 +1,4 @@
-use crate::instructions::{AddReg32ToReg32, DivReg32ByReg32, Instr, MoveImm32ToReg32, MoveImmToReg, MoveRegToReg, MulReg32ByReg32, SubReg32FromReg32};
+use crate::instructions::{AddReg32ToReg32, DivReg32ByReg32, Instr, MoveImmToReg, MoveRegToReg, MulReg32ByReg32, SubReg32FromReg32};
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::{format, vec};
@@ -241,9 +241,6 @@ impl MachineState {
         match instr {
             Instr::MoveImmToReg(MoveImmToReg { imm, dest }) => {
                 self.reg_view(dest).write(self, *imm)
-            },
-            Instr::MoveImm32ToReg32(MoveImm32ToReg32 { imm, dest }) => {
-                self.reg(*dest).write_u32(self, *imm as u32)
             },
             Instr::PushFromReg(reg) => {
                 let original_rsp = self.reg(Rsp).read_u64(&self);
