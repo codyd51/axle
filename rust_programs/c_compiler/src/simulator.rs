@@ -1,4 +1,4 @@
-use crate::instructions::{AddReg32ToReg32, DivReg32ByReg32, Instr, MoveImm32ToReg32, MoveImm8ToReg8, MoveReg8ToReg8, MulReg32ByReg32, SubReg32FromReg32};
+use crate::instructions::{AddReg32ToReg32, DivReg32ByReg32, Instr, MoveImm32ToReg32, MoveImm8ToReg8, MoveRegToReg, MulReg32ByReg32, SubReg32FromReg32};
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::{format, vec};
@@ -58,7 +58,7 @@ impl VariableStorage for CpuRegister {
     }
 
     fn read_u16(&self, _machine: &MachineState) -> u16 {
-        todo!()
+        *self.contents.borrow() as u16
     }
 
     fn read_u32(&self, _machine: &MachineState) -> u32 {
@@ -77,7 +77,11 @@ impl VariableStorage for CpuRegister {
     }
 
     fn write_u16(&self, machine: &MachineState, val: u16) {
-        todo!()
+        let mut current_val = *self.contents.borrow();
+        let mut current_as_bytes = current_val.to_ne_bytes();
+        let val_as_bytes = val.to_ne_bytes();
+        current_as_bytes[0..val_as_bytes.len()].copy_from_slice(&val_as_bytes);
+        *self.contents.borrow_mut() = u64::from_le_bytes(current_as_bytes);
     }
 
     fn write_u32(&self, machine: &MachineState, val: u32) {
@@ -90,6 +94,47 @@ impl VariableStorage for CpuRegister {
 
     fn write_u64(&self, machine: &MachineState, val: u64) {
         *self.contents.borrow_mut() = val
+    }
+}
+
+#[derive(Debug)]
+pub struct CpuRegisterView<'a> {
+    view: RegisterView,
+    reg: &'a CpuRegister,
+}
+
+impl<'a> CpuRegisterView<'a> {
+    fn new(view: &RegisterView, reg: &'a CpuRegister) -> Self {
+        Self {
+            view: *view,
+            reg,
+        }
+    }
+
+    fn read(&self, machine: &MachineState) -> usize {
+        match self.view.1 {
+            AccessType::L => self.reg.read_u8(machine) as _,
+            AccessType::H => (self.reg.read_u16(machine) >> 8) as _,
+            AccessType::X => self.reg.read_u16(machine) as _,
+            AccessType::EX => self.reg.read_u32(machine) as _,
+            AccessType::RX => self.reg.read_u64(machine) as _,
+        }
+    }
+
+    fn write(&self, machine: &MachineState, val: usize) {
+        match self.view.1 {
+            AccessType::L => self.reg.write_u8(machine, val as _),
+            AccessType::H => {
+                // Read the current low u16, write the high byte, and write it back
+                let low_u16 = self.reg.read_u16(machine);
+                let mut as_bytes = low_u16.to_le_bytes();
+                as_bytes[1] = val as u8;
+                self.reg.write_u16(machine, u16::from_le_bytes(as_bytes))
+            },
+            AccessType::X => self.reg.write_u16(machine, val as _),
+            AccessType::EX => self.reg.write_u32(machine, val as _),
+            AccessType::RX => self.reg.write_u64(machine, val as _),
+        }
     }
 }
 
@@ -158,7 +203,8 @@ impl Ram {
 
 #[derive(Debug)]
 pub struct MachineState {
-    registers: BTreeMap<Register, Box<dyn VariableStorage>>,
+    //registers: BTreeMap<Register, Box<dyn VariableStorage>>,
+    registers: BTreeMap<Register, Box<CpuRegister>>,
     ram: Ram,
 }
 
@@ -167,7 +213,8 @@ impl MachineState {
     pub fn new() -> Self {
         let registers = BTreeMap::from_iter(
             Register::iter()
-                .map(|reg| (reg, Box::new(CpuRegister::new(reg)) as Box<dyn VariableStorage>))
+                //.map(|reg| (reg, Box::new(CpuRegister::new(reg)) as Box<dyn VariableStorage>))
+            .map(|reg| (reg, Box::new(CpuRegister::new(reg))))
         );
 
         let ret = Self {
@@ -181,8 +228,13 @@ impl MachineState {
         ret
     }
 
+    // TODO(PT): Deprecate in favor of reg_view(), and rename reg_view to reg()
     pub fn reg(&self, reg: Register) -> &dyn VariableStorage {
         &*self.registers[&reg]
+    }
+
+    pub fn reg_view(&self, reg: &RegisterView) -> CpuRegisterView {
+        CpuRegisterView::new(reg, &*self.registers[&reg.0])
     }
 
     fn run_instruction(&self, instr: &Instr) {
@@ -245,9 +297,11 @@ impl MachineState {
             Instr::DirectiveDeclareLabel(_label_name) => {
                 // Nothing to do at runtime
             }
-            Instr::MoveReg8ToReg8(MoveReg8ToReg8 { source, dest }) => {
-                let source_val = self.reg(*source).read_u32(&self);
-                self.reg(*dest).write_u32(&self, source_val);
+            Instr::MoveRegToReg(MoveRegToReg { source, dest }) => {
+                //let source_val = self.reg(source.0).read_u32(&self);
+                //self.reg(dest.0).write_u32(&self, source_val);
+                let source_val = self.reg_view(source).read(&self);
+                self.reg_view(dest).write(&self, source_val);
             }
             Instr::Return => {
                 // Not handled yet
@@ -268,11 +322,11 @@ impl MachineState {
 
 #[cfg(test)]
 mod test {
-    use crate::simulator::MachineState;
+    use crate::simulator::{MachineState, VariableStorage};
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
-    use crate::instructions::{AddReg32ToReg32, Instr, MoveImm8ToReg8};
+    use crate::instructions::{AddReg32ToReg32, Instr, MoveImm8ToReg8, MoveRegToReg};
     use crate::prelude::*;
 
     fn get_machine() -> MachineState {
@@ -381,5 +435,81 @@ mod test {
         // Then rax contains the correct computed value
         assert_eq!(machine.reg(Rax).read_u64(&machine), 12);
         println!("machine {machine:?}");
+    }
+
+    #[test]
+    fn test_move_access_type() {
+        // Given a machine
+        let machine = get_machine();
+        // When I run various move instructions of differing access types
+        // Then the correct portion of the source registers are copied
+        let src = machine.registers.get(&Rax).unwrap();
+        let dst = machine.registers.get(&Rbx).unwrap();
+        src.write_u64(&machine, 0xfeed_d00d_dead_beef);
+
+        // Only copy low byte
+        machine.run_instruction(
+            &Instr::MoveRegToReg(MoveRegToReg::new(
+                RegisterView(src.reg, AccessType::L),
+                RegisterView(dst.reg, AccessType::L),
+            ))
+        );
+        assert_eq!(dst.read_u64(&machine), 0xef);
+        // Clear destination register to set up for next test
+        dst.write_u64(&machine, 0x0);
+
+        // Given the destination register contains some data
+        dst.write_u64(&machine, 0xaaaa_bbbb_cccc_dddd);
+        // When the move is addressed to the high byte in the u16 view
+        machine.run_instruction(
+            &Instr::MoveRegToReg(MoveRegToReg::new(
+                RegisterView(src.reg, AccessType::H),
+                RegisterView(dst.reg, AccessType::H),
+            ))
+        );
+        // Then all the bytes are untouched except for the high byte of the low u16
+        assert_eq!(dst.read_u64(&machine), 0xaaaa_bbbb_cccc_bedd);
+        // Clear destination register to set up for next test
+        dst.write_u64(&machine, 0x0);
+
+        // Given the high 48 bits contains some data
+        dst.write_u64(&machine, 0xc0de_dead_cafe_babe);
+        // When the move is addressed to the low u16
+        machine.run_instruction(
+            &Instr::MoveRegToReg(MoveRegToReg::new(
+                RegisterView(src.reg, AccessType::X),
+                RegisterView(dst.reg, AccessType::X),
+            ))
+        );
+        // Then the high 48 bits are untouched, and the lower u16 is overwritten
+        assert_eq!(dst.read_u64(&machine), 0xc0de_dead_cafe_beef);
+        // Clear destination register to set up for next test
+        dst.write_u64(&machine, 0x0);
+
+        // Given the high u32 contains some data
+        dst.write_u64(&machine, 0xc0de_dead_cafe_babe);
+        // When the move is addressed to the low u32
+        machine.run_instruction(
+            &Instr::MoveRegToReg(MoveRegToReg::new(
+                RegisterView(src.reg, AccessType::EX),
+                RegisterView(dst.reg, AccessType::EX),
+            ))
+        );
+        // Then the high u32 is untouched, and the lower u32 is overwritten
+        assert_eq!(dst.read_u64(&machine), 0xc0de_dead_dead_beef);
+        // Clear destination register to set up for next test
+        dst.write_u64(&machine, 0x0);
+
+        // Given the destination register contains a u64
+        dst.write_u64(&machine, 0xc0de_dead_cafe_babe);
+        // When the move is addressed to the full u64
+        machine.run_instruction(
+            &Instr::MoveRegToReg(MoveRegToReg::new(
+                RegisterView(src.reg, AccessType::RX),
+                RegisterView(dst.reg, AccessType::RX),
+            ))
+        );
+        // Then the full register is overwritten
+        assert_eq!(dst.read_u64(&machine), 0xfeed_d00d_dead_beef);
     }
 }
