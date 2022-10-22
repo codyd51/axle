@@ -10,9 +10,9 @@ pub struct MoveRegToReg {
 }
 
 #[derive(Debug, PartialEq, Constructor)]
-pub struct MoveImm8ToReg8 {
+pub struct MoveImmToReg {
     pub imm: usize,
-    pub dest: Register,
+    pub dest: RegisterView,
 }
 
 #[derive(Debug, PartialEq, Constructor)]
@@ -58,7 +58,7 @@ pub enum Instr {
     PushFromReg(RegisterView),
     PopIntoReg(RegisterView),
     MoveRegToReg(MoveRegToReg),
-    MoveImm8ToReg8(MoveImm8ToReg8),
+    MoveImmToReg(MoveImmToReg),
     MoveImm32ToReg32(MoveImm32ToReg32),
     DirectiveDeclareGlobalSymbol(String),
     DirectiveDeclareLabel(String),
@@ -79,7 +79,7 @@ impl Instr {
             Instr::MoveRegToReg(MoveRegToReg { source, dest }) => {
                 format!("mov %{}, %{}", source.asm_name(), dest.asm_name())
             }
-            Instr::MoveImm8ToReg8(MoveImm8ToReg8 { imm, dest }) => {
+            Instr::MoveImmToReg(MoveImmToReg { imm, dest }) => {
                 format!("mov ${imm}, %{}", dest.asm_name())
             }
             Instr::DirectiveDeclareGlobalSymbol(symbol_name) => {

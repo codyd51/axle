@@ -1,4 +1,4 @@
-use crate::instructions::{AddReg32ToReg32, DivReg32ByReg32, Instr, MoveImm32ToReg32, MoveImm8ToReg8, MoveRegToReg, MulReg32ByReg32, SubReg32FromReg32};
+use crate::instructions::{AddReg32ToReg32, DivReg32ByReg32, Instr, MoveImm32ToReg32, MoveImmToReg, MoveRegToReg, MulReg32ByReg32, SubReg32FromReg32};
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::{format, vec};
@@ -239,8 +239,8 @@ impl MachineState {
 
     fn run_instruction(&self, instr: &Instr) {
         match instr {
-            Instr::MoveImm8ToReg8(MoveImm8ToReg8 { imm, dest }) => {
-                self.reg(*dest).write_u8(self, *imm as u8)
+            Instr::MoveImmToReg(MoveImmToReg { imm, dest }) => {
+                self.reg_view(dest).write(self, *imm)
             },
             Instr::MoveImm32ToReg32(MoveImm32ToReg32 { imm, dest }) => {
                 self.reg(*dest).write_u32(self, *imm as u32)
@@ -326,7 +326,7 @@ mod test {
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
-    use crate::instructions::{AddReg32ToReg32, Instr, MoveImm8ToReg8, MoveRegToReg};
+    use crate::instructions::{AddReg32ToReg32, Instr, MoveImmToReg, MoveRegToReg};
     use crate::prelude::*;
 
     fn get_machine() -> MachineState {
@@ -334,13 +334,13 @@ mod test {
     }
 
     #[test]
-    fn test_move_imm8_to_reg8() {
+    fn test_move_imm_to_reg() {
         // Given a machine
         let machine = get_machine();
 
         // When I run an instruction to move a u8 constant to rax
         machine.run_instruction(
-            &Instr::MoveImm8ToReg8(MoveImm8ToReg8::new(3, Rax)),
+            &Instr::MoveImmToReg(MoveImmToReg::new(3, RegisterView::al())),
         );
         // Then rax contains the expected value
         assert_eq!(machine.reg(Rax).read_u8(&machine), 3);
@@ -350,7 +350,7 @@ mod test {
         assert_eq!(machine.reg(Rax).read_u64(&machine), 0xffaabb22);
         // When I run an instruction to move a u8 constant to rax
         machine.run_instruction(
-            &Instr::MoveImm8ToReg8(MoveImm8ToReg8::new(0xcc, Rax)),
+            &Instr::MoveImmToReg(MoveImmToReg::new(0xcc, RegisterView::al())),
         );
         // Then only the lower byte is overwritten
         assert_eq!(machine.reg(Rax).read_u64(&machine), 0xffaabbcc);
@@ -386,7 +386,7 @@ mod test {
         // And there's a word on the stack
         machine.run_instructions(
             &[
-                Instr::MoveImm8ToReg8(MoveImm8ToReg8::new(0xfe, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(0xfe, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView(Rax, AccessType::RX))
             ]
         );
@@ -416,15 +416,15 @@ mod test {
         // When I run a simple instruction sequence
         machine.run_instructions(
             &[
-                Instr::MoveImm8ToReg8(MoveImm8ToReg8::new(3, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(3, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImm8ToReg8(MoveImm8ToReg8::new(7, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(7, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),
                 Instr::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
                 Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImm8ToReg8(MoveImm8ToReg8::new(2, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(2, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),

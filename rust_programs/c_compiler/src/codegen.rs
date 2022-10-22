@@ -33,7 +33,7 @@ impl CodeGenerator {
             Token::Int(imm) => {
                 // PT: Validate that this is the only token in the stream
                 // Move the immediate value into rax
-                expr_instructions.push(Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(*imm, Rax)));
+                expr_instructions.push(Instruction::MoveImmToReg(MoveImmToReg::new(*imm, Rax)));
             }
             _ => todo!("Unhandled expression contents")
         };
@@ -67,7 +67,7 @@ impl CodeGenerator {
                 /*
                 if let Token::Int(imm) = return_expr {
                     // Move the immediate return value into rax
-                    statement_instrs.push(Instruction::MoveImm8ToReg8(MoveImm8ToReg8::new(*imm, Rax)));
+                    statement_instrs.push(Instruction::MoveImmToReg(MoveImmToReg::new(*imm, Rax)));
                     // Restore the caller's frame pointer
                     statement_instrs.push(Instruction::PopIntoReg32(Rbp));
                     // Return to caller
@@ -285,7 +285,7 @@ impl CodeGenerator {
 #[cfg(test)]
 mod test {
     use crate::codegen::CodeGenerator;
-    use crate::instructions::{AddReg32ToReg32, Instr, MoveImm32ToReg32, MoveImm8ToReg8};
+    use crate::instructions::{AddReg32ToReg32, Instr, MoveImm32ToReg32, MoveImmToReg};
     use crate::parser::Expr::{IntExpr, OperatorExpr};
     use crate::parser::{InfixOperator, Parser};
     use crate::prelude::*;
@@ -429,15 +429,15 @@ mod test {
                 Box::new(IntExpr(2)),
             )),
             vec![
-                Instr::MoveImm8ToReg8(MoveImm8ToReg8::new(3, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(3, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImm8ToReg8(MoveImm8ToReg8::new(7, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(7, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),
                 Instr::AddReg8ToReg8(AddReg32ToReg32::new(Rax, Rbx)),
                 Instr::PushFromReg(RegisterView::rax()),
-                Instr::MoveImm8ToReg8(MoveImm8ToReg8::new(2, Rax)),
+                Instr::MoveImmToReg(MoveImmToReg::new(2, RegisterView::rax())),
                 Instr::PushFromReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rax()),
                 Instr::PopIntoReg(RegisterView::rbx()),

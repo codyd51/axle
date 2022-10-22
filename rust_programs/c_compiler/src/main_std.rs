@@ -34,7 +34,7 @@ mod test {
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
-    use crate::instructions::{AddReg32ToReg32, Instr, MoveImm8ToReg8, MoveImm32ToReg32, MoveRegToReg, SubReg32FromReg32, MulReg32ByReg32, DivReg32ByReg32};
+    use crate::instructions::{AddReg32ToReg32, Instr, MoveImmToReg, MoveImm32ToReg32, MoveRegToReg, SubReg32FromReg32, MulReg32ByReg32, DivReg32ByReg32};
     use crate::codegen::CodeGenerator;
     use crate::parser::{Parser, InfixOperator, Expr};
     use crate::prelude::*;
