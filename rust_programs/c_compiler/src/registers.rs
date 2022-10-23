@@ -21,9 +21,9 @@ impl Register {
     fn unsized_asm_name(&self) -> &'static str {
         match self {
             Rax => "ax",
-            Rcx => "ax",
+            Rcx => "cx",
             Rdx => "dx",
-            Rbx => "ax",
+            Rbx => "bx",
             Rsp => "sp",
             Rbp => "bp",
             Rsi => "si",
