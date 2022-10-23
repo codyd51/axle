@@ -1,8 +1,8 @@
+use compilation_definitions::asm::{AsmExpr, SymbolExprOperand};
 use crate::{
     assembly_packer::PotentialLabelTargetId,
-    assembly_parser::{BinarySection, EquExpression, EquExpressions, Expression, Label, Labels, PotentialLabelTargets},
+    assembly_parser::{BinarySection, EquExpression, EquExpressions, Label, Labels, PotentialLabelTargets},
     println,
-    symbols::SymbolExpressionOperand,
 };
 use alloc::vec::Vec;
 use alloc::{
@@ -998,13 +998,13 @@ impl MainContentsDescription {
     pub fn evaluate_equ(&self, equ_expression: &EquExpression) -> usize {
         let maybe_previous_atom = equ_expression.previous_data_unit.borrow();
         let previous_atom = maybe_previous_atom.as_ref().unwrap();
-        let get_op_value = move |op: &SymbolExpressionOperand| match op {
-            SymbolExpressionOperand::OutputCursor => self.offset_of_atom_id(previous_atom.id()) + previous_atom.len(),
-            SymbolExpressionOperand::StartOfSymbol(label_name) => self.offset_of_label_name(label_name),
+        let get_op_value = move |op: &SymbolExprOperand| match op {
+            SymbolExprOperand::OutputCursor => self.offset_of_atom_id(previous_atom.id()) + previous_atom.len(),
+            SymbolExprOperand::StartOfSymbol(label_name) => self.offset_of_label_name(label_name),
         };
 
         let value = match &equ_expression.expression {
-            Expression::Subtract(op1, op2) => get_op_value(op1) - get_op_value(op2),
+            AsmExpr::Subtract(op1, op2) => get_op_value(op1) - get_op_value(op2),
         };
         value
     }

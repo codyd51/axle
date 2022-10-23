@@ -2,14 +2,16 @@ use core::{cell::RefCell, fmt::Display, mem};
 use alloc::{fmt::Debug, rc::Rc, string::ToString, vec::Vec};
 use alloc::{string::String, vec};
 use cstr_core::CString;
+use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, DivRegByReg, Instr, MoveImmToReg, MoveImmToRegMemOffset, MoveRegToReg, MulRegByReg, SubRegFromReg};
 
 use compilation_definitions::prelude::*;
+use compilation_definitions::asm::{AsmExpr, SymbolExprOperand};
 
 use crate::{
     assembly_lexer::{AssemblyLexer, Token},
     assembly_packer::{DataSource, Interrupt, Jump, JumpTarget, MoveValueToRegister, PotentialLabelTarget},
     print, println,
-    symbols::{ConstantData, SymbolData, SymbolExpressionOperand},
+    symbols::{ConstantData, SymbolData},
 };
 use crate::assembly_packer::{Add, Pop, Push, Ret};
 
@@ -51,12 +53,12 @@ impl Display for Label {
 pub struct EquExpression {
     container_section: BinarySection,
     pub name: String,
-    pub expression: Expression,
+    pub expression: AsmExpr,
     pub previous_data_unit: RefCell<Option<Rc<dyn PotentialLabelTarget>>>,
 }
 
 impl EquExpression {
-    fn new(container_section: BinarySection, name: &str, expression: Expression, previous_atom: &Option<Rc<dyn PotentialLabelTarget>>) -> Self {
+    fn new(container_section: BinarySection, name: &str, expression: AsmExpr, previous_atom: &Option<Rc<dyn PotentialLabelTarget>>) -> Self {
         Self {
             container_section,
             name: name.to_string(),
@@ -94,40 +96,6 @@ impl Display for BinarySection {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum Expression {
-    Subtract(SymbolExpressionOperand, SymbolExpressionOperand),
-}
-
-impl Display for Expression {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Expression::Subtract(op1, op2) => write!(f, "{op1} - {op2}"),
-        }
-    }
-}
-
-// TODO(PT): Replace with Instruction
-#[derive(Debug)]
-pub enum AssemblyStatement {
-    // Directives
-    SetCurrentSection(String),
-    Label(String),
-    Ascii(String),
-    LiteralWord(u32),
-    Equ(String, Expression),
-    // Instructions
-    MoveImmediateIntoRegister(usize, Register),
-    MoveSymbolIntoRegister(String, Register),
-    MoveRegisterIntoRegister(Register, Register),
-    Interrupt(u8),
-    Jump(String),
-    Push(Register),
-    Pop(Register),
-    Add(Register, Register),
-    Ret,
-}
-
 pub struct AssemblyParser {
     lexer: AssemblyLexer,
 }
@@ -149,21 +117,21 @@ impl AssemblyParser {
         assert_eq!(expected_token, actual_token);
     }
 
-    fn register_from_str(&mut self, reg_str: &str) -> Register {
+    fn register_from_str(&mut self, reg_str: &str) -> RegView {
         match reg_str {
-            "rax" => Rax,
-            "rcx" => Rcx,
-            "rdx" => Rdx,
-            "rbx" => Rbx,
-            "rsp" => Rsp,
-            "rbp" => Rbp,
-            "rsi" => Rsi,
-            "rdi" => Rdi,
+            "rax" => RegView::rax(),
+            "rcx" => RegView::rcx(),
+            "rdx" => RegView::rdx(),
+            "rbx" => RegView::rbx(),
+            "rsp" => RegView::rsp(),
+            "rbp" => RegView::rbp(),
+            "rsi" => RegView::rsi(),
+            "rdi" => RegView::rdi(),
             _ => panic!("Unexpected register name {reg_str}"),
         }
     }
 
-    fn match_register(&mut self) -> Register {
+    fn match_register(&mut self) -> RegView {
         let register_name = self.match_identifier();
         self.register_from_str(&register_name)
     }
@@ -173,12 +141,9 @@ impl AssemblyParser {
         usize::from_str_radix(trimmed_immediate, 16).unwrap()
     }
 
-    //pub fn parse_statement(&mut self) -> Option<Box<dyn AssemblyStatement>> {
-    pub fn parse_statement(&mut self) -> Option<AssemblyStatement> {
+    pub fn parse_statement(&mut self) -> Option<Instr> {
         let token = self.lexer.next_token()?;
         //println!("Token: {token:?}");
-
-        // Label definitions need lookahead
 
         match token {
             Token::Dot => {
@@ -188,7 +153,7 @@ impl AssemblyParser {
                     "section" => {
                         self.match_token(Token::Dot);
                         let section_name = self.match_identifier();
-                        Some(AssemblyStatement::SetCurrentSection(section_name))
+                        Some(Instr::DirectiveSetCurrentSection(section_name))
                     }
                     "global" => {
                         // Next is the symbol name
@@ -201,7 +166,7 @@ impl AssemblyParser {
                         self.match_token(Token::Quote);
                         let literal_string_data = self.lexer.read_to('"');
                         self.match_token(Token::Quote);
-                        Some(AssemblyStatement::Ascii(literal_string_data))
+                        Some(Instr::DirectiveEmbedAscii(literal_string_data))
                     }
                     "equ" => {
                         let label_name = self.match_identifier();
@@ -210,9 +175,12 @@ impl AssemblyParser {
                         self.match_token(Token::Dot);
                         self.match_token(Token::Minus);
                         let op2_name = self.match_identifier();
-                        Some(AssemblyStatement::Equ(
+                        Some(Instr::DirectiveEqu(
                             label_name,
-                            Expression::Subtract(SymbolExpressionOperand::OutputCursor, SymbolExpressionOperand::StartOfSymbol(op2_name)),
+                            AsmExpr::Subtract(
+                                SymbolExprOperand::OutputCursor,
+                                SymbolExprOperand::StartOfSymbol(op2_name)
+                            ),
                         ))
                     }
                     "word" => {
@@ -225,7 +193,7 @@ impl AssemblyParser {
                             // Decimal immediate
                             value.parse().unwrap()
                         };
-                        Some(AssemblyStatement::LiteralWord(immediate as _))
+                        Some(Instr::DirectiveEmbedU32(immediate as _))
                     }
                     _ => panic!("Unhandled {directive_name}"),
                 }
@@ -235,7 +203,7 @@ impl AssemblyParser {
                 if let Some(Token::Colon) = self.lexer.peek_token() {
                     // Consume the colon
                     self.match_token(Token::Colon);
-                    return Some(AssemblyStatement::Label(name));
+                    return Some(Instr::DirectiveDeclareLabel(name));
                 }
                 match name.as_ref() {
                     "mov" => {
@@ -251,16 +219,17 @@ impl AssemblyParser {
                                 if source.starts_with("0x") {
                                     // Hexadecimal immediate
                                     let immediate = self.int_from_hex_string(&source);
-                                    Some(AssemblyStatement::MoveImmediateIntoRegister(immediate, dest_register))
+                                    Some(Instr::MoveImmToReg(MoveImmToReg::new(immediate, dest_register)))
                                 } else {
                                     // Named symbol
-                                    Some(AssemblyStatement::MoveSymbolIntoRegister(source, dest_register))
+                                    //Some(Instr::MoveSymbolToReg(source, dest_register))
+                                    todo!()
                                 }
                             }
                             Token::Percent => {
                                 // Register
                                 let source_register = self.register_from_str(&source);
-                                Some(AssemblyStatement::MoveRegisterIntoRegister(source_register, dest_register))
+                                Some(Instr::MoveRegToReg(MoveRegToReg::new(source_register, dest_register)))
                             }
                             _ => panic!("Unexpected leading symbol"),
                         }
@@ -269,24 +238,24 @@ impl AssemblyParser {
                         self.match_token(Token::Dollar);
                         let interrupt_vector_str = self.match_identifier();
                         let interrupt_vector = self.int_from_hex_string(&interrupt_vector_str);
-                        Some(AssemblyStatement::Interrupt(interrupt_vector as u8))
+                        Some(Instr::Interrupt(interrupt_vector as u8))
                     }
                     "jmp" => {
                         // TODO(PT): The leading dollar here is non-standard syntax
                         self.match_token(Token::Dollar);
                         let source = self.match_identifier();
                         // TODO(PT): For now, we only support named symbols as jump targets
-                        Some(AssemblyStatement::Jump(source))
+                        Some(Instr::JumpToLabel(source))
                     }
                     "push" => {
                         self.match_token(Token::Percent);
                         let register = self.match_register();
-                        Some(AssemblyStatement::Push(register))
+                        Some(Instr::PushFromReg(register))
                     }
                     "pop" => {
                         self.match_token(Token::Percent);
                         let register = self.match_register();
-                        Some(AssemblyStatement::Pop(register))
+                        Some(Instr::PopIntoReg(register))
                     }
                     "add" => {
                         self.match_token(Token::Percent);
@@ -294,10 +263,10 @@ impl AssemblyParser {
                         self.match_token(Token::Comma);
                         self.match_token(Token::Percent);
                         let addend = self.match_register();
-                        Some(AssemblyStatement::Add(augend, addend))
+                        Some(Instr::AddRegToReg(AddRegToReg::new(augend, addend)))
                     }
                     "ret" => {
-                        Some(AssemblyStatement::Ret)
+                        Some(Instr::Return)
                     }
                     _ => panic!("Unimplemented mnemonic {name}"),
                 }
@@ -310,7 +279,7 @@ impl AssemblyParser {
         let mut current_section;
         while let Some(statement) = self.parse_statement() {
             match statement {
-                AssemblyStatement::SetCurrentSection(name) => {
+                Instr::DirectiveSetCurrentSection(name) => {
                     match name.as_str() {
                         "text" => current_section = BinarySection::Text,
                         "rodata" => current_section = BinarySection::ReadOnlyData,
@@ -318,54 +287,80 @@ impl AssemblyParser {
                     };
                     println!("[OutputSection = {current_section:?}]");
                 }
-                AssemblyStatement::Label(name) => {
+                Instr::DirectiveDeclareLabel(name) => {
                     println!("[Label {name}]");
                 }
-                AssemblyStatement::Ascii(text) => {
+                Instr::DirectiveEmbedAscii(text) => {
                     let escaped_text = text.replace('\n', "\\n");
                     println!("[LiteralAscii \"{escaped_text}\"]");
                 }
-                AssemblyStatement::Equ(label_name, expression) => {
+                Instr::DirectiveEqu(label_name, expression) => {
                     let format_operand = |op| match op {
-                        SymbolExpressionOperand::OutputCursor => ".".to_string(),
-                        SymbolExpressionOperand::StartOfSymbol(sym) => sym,
+                        SymbolExprOperand::OutputCursor => ".".to_string(),
+                        SymbolExprOperand::StartOfSymbol(sym) => sym,
                     };
                     print!("[Equ {label_name} = ");
                     match expression {
-                        Expression::Subtract(op1, op2) => {
+                        AsmExpr::Subtract(op1, op2) => {
                             println!("{} - {}]", format_operand(op1), format_operand(op2));
                         }
                     };
                 }
-                AssemblyStatement::LiteralWord(immediate) => {
+                Instr::DirectiveEmbedU32(immediate) => {
                     println!("[LiteralWord {immediate}]");
                 }
-                AssemblyStatement::MoveImmediateIntoRegister(immediate, register) => {
-                    println!("[Move {immediate:016x} => {register:?}]");
+                Instr::MoveImmToReg(MoveImmToReg { imm, dest }) => {
+                    println!("[Move {imm:016x} => {dest:?}]");
                 }
-                AssemblyStatement::MoveSymbolIntoRegister(symbol_name, register) => {
+                /*
+                Instr::MoveSymbolToReg(symbol_name, register) => {
                     println!("[Move ${symbol_name} => {register:?}]");
                 }
-                AssemblyStatement::MoveRegisterIntoRegister(source_register, register) => {
-                    println!("[Move {source_register:?} => {register:?}]");
+                */
+                Instr::MoveRegToReg(MoveRegToReg { source, dest }) => {
+                    println!("[Move {source:?} => {dest:?}]");
                 }
-                AssemblyStatement::Interrupt(vector) => {
+                Instr::Interrupt(vector) => {
                     println!("[Int 0x{vector:02x}]");
                 }
-                AssemblyStatement::Jump(label_name) => {
+                Instr::JumpToLabel(label_name) => {
                     println!("[Jump {label_name}]");
                 }
-                AssemblyStatement::Push(reg) => {
+                Instr::PushFromReg(reg) => {
                     println!("[Push {reg:?}]");
                 }
-                AssemblyStatement::Pop(reg) => {
+                Instr::PopIntoReg(reg) => {
                     println!("[Pop {reg:?}]");
                 }
-                AssemblyStatement::Add(augend, addend) => {
+                Instr::AddRegToReg(AddRegToReg { augend, addend }) => {
                     println!("[Add {augend:?}, {addend:?}]");
                 }
-                AssemblyStatement::Ret => {
+                Instr::Return => {
                     println!("[Ret]");
+                }
+                Instr::DirectiveDeclareGlobalSymbol(symbol) => {
+                    println!("[Global {symbol}");
+                }
+                Instr::MoveImmToRegMemOffset(MoveImmToRegMemOffset { imm, offset, reg_to_deref }) => {
+                    println!("[Move imm => [{reg_to_deref:?} + {offset}]");
+                }
+                Instr::NegateRegister(reg) => {
+                    println!("[Negate {reg:?}]");
+                }
+                Instr::SubRegFromReg(SubRegFromReg { minuend, subtrahend }) => {
+                    println!("[Subtract {minuend:?} - {subtrahend:?}]");
+                }
+                Instr::MulRegByReg(MulRegByReg { multiplicand, multiplier }) => {
+                    println!("[Multiply {multiplicand:?} * {multiplier:?}]");
+                }
+                Instr::DivRegByReg(DivRegByReg { dividend, divisor }) => {
+                    println!("[Divide {dividend:?} * {divisor:?}]");
+                }
+                Instr::JumpToLabelIfEqual(label) => {
+                    println!("[JumpIfEqual {label}");
+                }
+                Instr::CompareImmWithReg(CompareImmWithReg { imm, reg }) => {
+                    println!("Compare {imm} with {reg:?}");
                 }
             }
         }
@@ -399,62 +394,88 @@ impl AssemblyParser {
         loop {
             if let Some(statement) = self.parse_statement() {
                 match statement {
-                    AssemblyStatement::SetCurrentSection(name) => {
+                    Instr::DirectiveSetCurrentSection(name) => {
                         match name.as_str() {
                             "text" => current_section = BinarySection::Text,
                             "rodata" => current_section = BinarySection::ReadOnlyData,
                             _ => panic!("Unknown name {name}"),
                         };
                     }
-                    AssemblyStatement::Label(name) => {
+                    Instr::DirectiveDeclareLabel(name) => {
                         *maybe_current_label.borrow_mut() = Some(Label::new(current_section, &name));
                     }
-                    AssemblyStatement::Ascii(text) => {
+                    Instr::DirectiveEmbedAscii(text) => {
                         append_data_unit(Rc::new(ConstantData::new(
                             current_section,
                             SymbolData::LiteralData(CString::new(text.clone()).unwrap().into_bytes_with_nul()),
                         )));
                     }
-                    AssemblyStatement::Equ(label_name, expression) => {
+                    Instr::DirectiveEqu(label_name, expression) => {
                         equ_expressions.push(Rc::new(EquExpression::new(current_section, &label_name, expression, &previous_atom.borrow())));
                     }
-                    AssemblyStatement::LiteralWord(immediate) => {
+                    Instr::DirectiveEmbedU32(immediate) => {
                         // Make sure this is exactly 4 bytes
                         let mut word_bytes = immediate.to_le_bytes().to_vec();
                         word_bytes.resize(mem::size_of::<u32>(), 0);
                         append_data_unit(Rc::new(ConstantData::new(current_section, SymbolData::LiteralData(word_bytes))));
                     }
-                    AssemblyStatement::MoveImmediateIntoRegister(immediate, register) => {
+                    Instr::MoveImmToReg(MoveImmToReg { imm, dest }) => {
                         // TODO(PT): Rename to Atom?
-                        append_data_unit(Rc::new(MoveValueToRegister::new(register, DataSource::Literal(immediate))) as Rc<dyn PotentialLabelTarget>);
+                        append_data_unit(Rc::new(MoveValueToRegister::new(dest, DataSource::Literal(imm))) as Rc<dyn PotentialLabelTarget>);
                     }
-                    AssemblyStatement::MoveSymbolIntoRegister(symbol_name, register) => {
+                    /*
+                    Instr::MoveSymbolToRegister(symbol_name, register) => {
                         append_data_unit(
                             Rc::new(MoveValueToRegister::new(register, DataSource::NamedDataSymbol(symbol_name.clone()))) as Rc<dyn PotentialLabelTarget>
                         );
                     }
-                    AssemblyStatement::MoveRegisterIntoRegister(source_register, register) => {
+                    */
+                    Instr::MoveRegToReg(MoveRegToReg { source, dest }) => {
                         append_data_unit(
-                            Rc::new(MoveValueToRegister::new(register, DataSource::RegisterContents(source_register))) as Rc<dyn PotentialLabelTarget>
+                            Rc::new(MoveValueToRegister::new(dest, DataSource::RegisterContents(source))) as Rc<dyn PotentialLabelTarget>
                         );
                     }
-                    AssemblyStatement::Interrupt(vector) => {
+                    Instr::Interrupt(vector) => {
                         append_data_unit(Rc::new(Interrupt::new(vector)));
                     }
-                    AssemblyStatement::Jump(label_name) => {
+                    Instr::JumpToLabel(label_name) => {
                         append_data_unit(Rc::new(Jump::new(JumpTarget::Label(label_name))));
                     }
-                    AssemblyStatement::Push(reg) => {
+                    Instr::PushFromReg(reg) => {
                         append_data_unit(Rc::new(Push::new(reg)));
                     }
-                    AssemblyStatement::Pop(reg) => {
+                    Instr::PopIntoReg(reg) => {
                         append_data_unit(Rc::new(Pop::new(reg)));
                     }
-                    AssemblyStatement::Add(augend, addend) => {
+                    Instr::AddRegToReg(AddRegToReg { augend, addend }) => {
                         append_data_unit(Rc::new(Add::new(augend, addend)));
                     }
-                    AssemblyStatement::Ret => {
+                    Instr::Return => {
                         append_data_unit(Rc::new(Ret::new()));
+                    }
+                    Instr::DirectiveDeclareGlobalSymbol(symbol_name) => {
+                        todo!()
+                    }
+                    Instr::MoveImmToRegMemOffset(MoveImmToRegMemOffset { imm, offset, reg_to_deref }) => {
+                        todo!()
+                    }
+                    Instr::NegateRegister(register) => {
+                        todo!()
+                    }
+                    Instr::SubRegFromReg(SubRegFromReg { minuend, subtrahend }) => {
+                        todo!()
+                    }
+                    Instr::MulRegByReg(MulRegByReg { multiplicand, multiplier }) => {
+                        todo!()
+                    }
+                    Instr::DivRegByReg(DivRegByReg { dividend, divisor }) => {
+                        todo!()
+                    }
+                    Instr::JumpToLabelIfEqual(label) => {
+                        todo!()
+                    }
+                    Instr::CompareImmWithReg(CompareImmWithReg { imm, reg }) => {
+                        todo!()
                     }
                 }
             } else {

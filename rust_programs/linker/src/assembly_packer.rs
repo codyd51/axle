@@ -80,7 +80,7 @@ impl ModRmByte {
         out as _
     }
 
-    fn with_opcode_extension(addressing_mode: ModRmAddressingMode, opcode_extension: usize, register: Register) -> u8 {
+    fn with_opcode_extension(addressing_mode: ModRmAddressingMode, opcode_extension: usize, register: RegView) -> u8 {
         assert!(opcode_extension <= 7, "opcode_extension must be in the range 0-7");
         let mut out = 0;
 
@@ -89,7 +89,7 @@ impl ModRmByte {
         }
 
         out |= opcode_extension << 3;
-        out |= Self::register_index(register);
+        out |= Self::register_index(register.0);
 
         out as _
     }
@@ -99,7 +99,7 @@ impl ModRmByte {
 pub enum DataSource {
     Literal(usize),
     NamedDataSymbol(String),
-    RegisterContents(Register),
+    RegisterContents(RegView),
 }
 
 static mut NEXT_ATOM_ID: usize = 0;
@@ -114,12 +114,12 @@ pub fn next_atom_id() -> PotentialLabelTargetId {
 
 pub struct MoveValueToRegister {
     id: PotentialLabelTargetId,
-    dest_register: Register,
+    dest_register: RegView,
     source: DataSource,
 }
 
 impl MoveValueToRegister {
-    pub fn new(dest_register: Register, source: DataSource) -> Self {
+    pub fn new(dest_register: RegView, source: DataSource) -> Self {
         Self {
             id: next_atom_id(),
             dest_register,
@@ -129,6 +129,7 @@ impl MoveValueToRegister {
 }
 
 impl Instruction for MoveValueToRegister {
+    // TODO(PT): Update this to handle different register view sizes
     fn render(&self, layout: &FileLayout) -> Vec<u8> {
         // REX prefix
         let mut out = vec![RexPrefix::for_64bit_operand()];
@@ -136,7 +137,7 @@ impl Instruction for MoveValueToRegister {
         if let DataSource::RegisterContents(register_name) = self.source {
             // MOV <reg>, <reg> opcode
             out.push(0x89);
-            out.push(ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.dest_register, Some(register_name)));
+            out.push(ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.dest_register.0, Some(register_name.0)));
         } else {
             let value: u32 = match &self.source {
                 DataSource::Literal(value) => *value as _,
@@ -151,7 +152,7 @@ impl Instruction for MoveValueToRegister {
             // MOV <reg>, <mem> opcode
             out.push(0xc7);
             // Destination register
-            out.push(ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.dest_register, None));
+            out.push(ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.dest_register.0, None));
             // Source value
             let mut value_bytes = value.to_le_bytes().to_owned().to_vec();
             out.append(&mut value_bytes);
@@ -259,7 +260,6 @@ impl Instruction for Jump {
         // This would require us to vary self.len()
         // We might have an intermediate stage that selects a more specific variant, if for example
         // we can see the jump target is only 4 atoms away
-        println!("Assembling {self}");
         // JMP rel32off
         let distance_to_target = layout.distance_between_atom_id_and_label_name(PotentialLabelTarget::id(self), label_name) - (self.len() as isize);
         let distance_to_target: i32 = distance_to_target.try_into().unwrap();
@@ -298,18 +298,17 @@ impl Display for Jump {
 
 pub struct Push {
     id: PotentialLabelTargetId,
-    reg: Register,
+    reg: RegView,
 }
 
 impl Push {
-    pub fn new(reg: Register) -> Self {
+    pub fn new(reg: RegView) -> Self {
         Self { id: next_atom_id(), reg }
     }
 }
 
 impl Instruction for Push {
     fn render(&self, _layout: &FileLayout) -> Vec<u8> {
-        println!("Assembling {self}");
         vec![
             0xff,
             ModRmByte::with_opcode_extension(ModRmAddressingMode::RegisterDirect, 6, self.reg),
@@ -343,21 +342,20 @@ impl Display for Push {
 
 pub struct Pop {
     id: PotentialLabelTargetId,
-    dest_reg: Register,
+    dest_reg: RegView,
 }
 
 impl Pop {
-    pub fn new(dest_reg: Register) -> Self {
+    pub fn new(dest_reg: RegView) -> Self {
         Self { id: next_atom_id(), dest_reg }
     }
 }
 
 impl Instruction for Pop {
     fn render(&self, _layout: &FileLayout) -> Vec<u8> {
-        println!("Assembling {self}");
         vec![
             0x8f,
-            ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.dest_reg, None),
+            ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.dest_reg.0, None),
         ]
     }
 }
@@ -388,23 +386,22 @@ impl Display for Pop {
 
 pub struct Add {
     id: PotentialLabelTargetId,
-    augend: Register,
-    addend: Register,
+    augend: RegView,
+    addend: RegView,
 }
 
 impl Add {
-    pub fn new(augend: Register, addend: Register) -> Self {
+    pub fn new(augend: RegView, addend: RegView) -> Self {
         Self { id: next_atom_id(), augend, addend }
     }
 }
 
 impl Instruction for Add {
     fn render(&self, _layout: &FileLayout) -> Vec<u8> {
-        println!("Assembling {self}");
         vec![
             RexPrefix::for_64bit_operand(),
             0x01,
-            ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.augend, Some(self.addend)),
+            ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.augend.0, Some(self.addend.0)),
         ]
     }
 }
@@ -445,7 +442,6 @@ impl Ret {
 
 impl Instruction for Ret {
     fn render(&self, _layout: &FileLayout) -> Vec<u8> {
-        println!("Assembling {self}");
         vec![
             0xc3,
         ]

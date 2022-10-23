@@ -13,21 +13,6 @@ pub enum SymbolType {
     _Code,
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum SymbolExpressionOperand {
-    OutputCursor,
-    StartOfSymbol(String),
-}
-
-impl Display for SymbolExpressionOperand {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            SymbolExpressionOperand::OutputCursor => write!(f, "Op(.)"),
-            SymbolExpressionOperand::StartOfSymbol(sym_name) => write!(f, "Op(SymStart(\"{}\"))", sym_name),
-        }
-    }
-}
-
 #[derive(Debug, PartialEq, Copy, Clone, Eq, PartialOrd, Ord)]
 pub struct InstructionId(pub usize);
 

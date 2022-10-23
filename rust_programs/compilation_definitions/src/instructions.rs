@@ -1,5 +1,6 @@
 extern crate derive_more;
 use derive_more::Constructor;
+use crate::asm::AsmExpr;
 
 use crate::prelude::*;
 
@@ -17,9 +18,9 @@ pub struct MoveImmToReg {
 
 #[derive(Debug, PartialEq, Clone, Constructor)]
 pub struct MoveImmToRegMemOffset {
-    imm: usize,
-    offset: isize,
-    reg_to_deref: RegView,
+    pub imm: usize,
+    pub offset: isize,
+    pub reg_to_deref: RegView,
 }
 
 #[derive(Debug, PartialEq, Clone, Constructor)]
@@ -54,15 +55,21 @@ pub struct CompareImmWithReg {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Instr {
+    // Assembly meta directives
+    DirectiveSetCurrentSection(String),
+    DirectiveDeclareGlobalSymbol(String),
+    DirectiveDeclareLabel(String),
+    DirectiveEmbedAscii(String),
+    DirectiveEmbedU32(u32),
+    DirectiveEqu(String, AsmExpr),
+
+    // Instructions
     Return,
     PushFromReg(RegView),
     PopIntoReg(RegView),
     MoveRegToReg(MoveRegToReg),
     MoveImmToReg(MoveImmToReg),
-    DirectiveDeclareSection(String),
-    DirectiveDeclareGlobalSymbol(String),
-    DirectiveDeclareLabel(String),
-    MoveImm8oRegMemOffset(MoveImmToRegMemOffset),
+    MoveImmToRegMemOffset(MoveImmToRegMemOffset),
     NegateRegister(Register),
     AddRegToReg(AddRegToReg),
     SubRegFromReg(SubRegFromReg),
@@ -71,6 +78,10 @@ pub enum Instr {
     JumpToLabel(String),
     JumpToLabelIfEqual(String),
     CompareImmWithReg(CompareImmWithReg),
+    Interrupt(u8),
+
+    // TODO(PT): How to reintroduce this? Move a .equ symbol into a register
+    //MoveSymbolToReg(MoveSymToReg),
 }
 
 impl Instr {
@@ -93,7 +104,7 @@ impl Instr {
             Instr::AddRegToReg(AddRegToReg { augend, addend }) => {
                 format!("add %{}, %{}", augend.asm_name(), addend.asm_name())
             }
-            Instr::DirectiveDeclareSection(section_name) => {
+            Instr::DirectiveSetCurrentSection(section_name) => {
                 format!(".section {section_name}")
             }
             _ => todo!("Instr.render() {self:?}"),
