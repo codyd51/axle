@@ -3,10 +3,12 @@ use alloc::collections::BTreeMap;
 use alloc::{format, vec};
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::cell::RefCell;
+use core::cell::{Ref, RefCell};
 use core::fmt::{Debug, Display, Formatter};
 use core::mem;
+
 use strum::IntoEnumIterator;
+use derive_more::Constructor;
 
 use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, DivRegByReg, Instr, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
 use compilation_definitions::prelude::*;
@@ -185,17 +187,23 @@ where
 }
 
 #[derive(Debug)]
-struct Ram {
+struct VirtualMemoryRegion {
+    base: u64,
+    size: u64,
     store: RefCell<Vec<u8>>,
 }
 
-impl Ram {
-    fn new() -> Self {
+impl VirtualMemoryRegion {
+    fn new(base: u64, size: u64) -> Self {
         Self {
-            // PT: We might need to switch to a more robust virtual memory implementation?
-            // We might also need to bump the memory allocated here
-            store: RefCell::new(vec![0; 0x1000]),
+            base,
+            size,
+            store: RefCell::new(vec![0; size as usize]),
         }
+    }
+
+    fn contains(&self, addr: u64) -> bool {
+        addr >= self.base && addr < self.base + self.size
     }
 
     fn read_u8(&self, addr: u64) -> u8 {
@@ -206,9 +214,10 @@ impl Ram {
         todo!()
     }
 
-    fn read_u32(&self, addr: u64) -> u32 {
+    fn read_u32(&self, virtual_addr: u64) -> u32 {
+        let translated_addr = virtual_addr - self.base;
         let store = self.store.borrow();
-        let bytes = clone_into_array(&store[(addr as _) .. (addr as usize + mem::size_of::<u32>())]);
+        let bytes = clone_into_array(&store[(translated_addr as _) .. (translated_addr as usize + mem::size_of::<u32>())]);
         u32::from_ne_bytes(bytes)
     }
 
@@ -224,10 +233,11 @@ impl Ram {
         todo!()
     }
 
-    fn write_u32(&self, addr: u64, val: u32) {
+    fn write_u32(&self, virtual_addr: u64, val: u32) {
+        let translated_addr = virtual_addr - self.base;
         let mut store = self.store.borrow_mut();
         for (i, b) in val.to_ne_bytes().iter().enumerate() {
-            store[(addr as usize) + i] = *b;
+            store[(translated_addr as usize) + i] = *b;
         }
     }
 
@@ -237,12 +247,74 @@ impl Ram {
 }
 
 #[derive(Debug)]
+struct Ram {
+    regions: RefCell<Vec<VirtualMemoryRegion>>,
+}
+
+impl Ram {
+    fn new() -> Self {
+        Self {
+            regions: RefCell::new(vec![]),
+        }
+    }
+
+    fn add_region(&self, virtual_memory_region: VirtualMemoryRegion) {
+        self.regions.borrow_mut().push(virtual_memory_region)
+    }
+
+    fn region_containing_addr<'a>(&self, addr: u64, regions: &'a Ref<Vec<VirtualMemoryRegion>>) -> &'a VirtualMemoryRegion {
+        for region in regions.iter() {
+            if region.contains(addr) {
+                return region;
+            }
+        }
+        panic!("No region contains 0x{addr:x}");
+    }
+
+    pub fn read_u8(&self, addr: u64) -> u8 {
+        let regions = self.regions.borrow();
+        let region = self.region_containing_addr(addr, &regions);
+        region.read_u8(addr)
+    }
+
+    fn read_u16(&self, addr: u64) -> u16 {
+        todo!()
+    }
+
+    fn read_u32(&self, addr: u64) -> u32 {
+        let regions = self.regions.borrow();
+        let region = self.region_containing_addr(addr, &regions);
+        region.read_u32(addr)
+    }
+
+    fn read_u64(&self, addr: u64) -> u64 {
+        todo!()
+    }
+
+    fn write_u8(&self, addr: u64, val: u8) {
+        todo!()
+    }
+
+    fn write_u16(&self, addr: u64, val: u16) {
+        todo!()
+    }
+
+    fn write_u32(&self, addr: u64, val: u32) {
+        let regions = self.regions.borrow();
+        let region = self.region_containing_addr(addr, &regions);
+        region.write_u32(addr, val)
+    }
+
+    fn write_u64(&self, addr: u64, val: u64) {
+        todo!()
+    }
+}
+
+#[derive(Debug)]
 pub struct MachineState {
-    //registers: BTreeMap<Register, Box<dyn VariableStorage>>,
     registers: BTreeMap<Register, Box<CpuRegister>>,
     ram: Ram,
 }
-
 
 impl MachineState {
     pub fn new() -> Self {
@@ -251,13 +323,20 @@ impl MachineState {
             .map(|reg| (reg, Box::new(CpuRegister::new(reg))))
         );
 
+        let ram = Ram::new();
+        // 4kb stack
+        let stack_top = 0x80000000;
+        let stack_size = 0x1000;
+        let stack_bottom = stack_top - stack_size;
+        ram.add_region(VirtualMemoryRegion::new(stack_bottom, stack_size));
+
         let ret = Self {
             registers,
-            ram: Ram::new()
+            ram,
         };
 
-        // Set the stack pointer to the top of available memory
-        ret.reg(Rsp).write_u64(&ret, ret.ram.store.borrow().len() as u64);
+        // Assign the stack pointer to the top of the region we allocated above
+        ret.reg_view(&RegView::rsp()).write(&ret, stack_top as usize);
 
         ret
     }
@@ -424,12 +503,14 @@ impl MachineState {
 
 #[cfg(test)]
 mod test {
-    use crate::simulator::{FlagCondition, FlagUpdate, MachineState, VariableStorage};
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
-    use crate::instructions::{AddRegToReg, CompareImmWithReg, Instr, MoveImmToReg, MoveRegToReg};
-    use crate::prelude::*;
+
+    use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, Instr, MoveImmToReg, MoveRegToReg};
+    use compilation_definitions::prelude::*;
+
+    use crate::simulator::{FlagCondition, FlagUpdate, MachineState, VariableStorage};
 
     fn get_machine() -> MachineState {
         MachineState::new()

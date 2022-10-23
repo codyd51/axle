@@ -345,11 +345,6 @@ impl CodeGenerator {
 
 #[cfg(test)]
 mod test {
-    use crate::codegen::CodeGenerator;
-    use crate::instructions::{AddRegToReg, Instr, MoveImmToReg};
-    use crate::parser::Expr::{IntExpr, OperatorExpr};
-    use crate::parser::{InfixOperator, Parser};
-    use crate::prelude::*;
     use alloc::boxed::Box;
     use alloc::string::String;
     use alloc::vec;
@@ -358,6 +353,13 @@ mod test {
     use std::io::{BufWriter, Write};
     use std::path::Path;
     use std::process::Command;
+
+    use compilation_definitions::prelude::*;
+    use compilation_definitions::instructions::{AddRegToReg, Instr, MoveImmToReg};
+
+    use crate::codegen::CodeGenerator;
+    use crate::parser::Expr::{IntExpr, OperatorExpr};
+    use crate::parser::{InfixOperator, Parser};
 
     fn run_program(instructions: &Vec<String>) -> i32 {
         //let temp_dir = tempdir()?;
