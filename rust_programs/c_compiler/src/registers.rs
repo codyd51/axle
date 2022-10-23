@@ -14,6 +14,7 @@ pub enum Register {
     Rsi,
     Rdi,
     Rip,
+    Rflags
 }
 
 impl Register {
@@ -28,6 +29,7 @@ impl Register {
             Rsi => "si",
             Rdi => "di",
             Rip => "ip",
+            Rflags => "flags",
         }
     }
 
@@ -227,5 +229,13 @@ impl RegView {
 
     pub fn dil() -> Self {
         RegView(Rdi, AccessType::L)
+    }
+
+    pub fn rflags() -> Self {
+        RegView(Rflags, AccessType::RX)
+    }
+
+    pub fn eflags() -> Self {
+        RegView(Rflags, AccessType::EX)
     }
 }

@@ -11,6 +11,41 @@ use strum::IntoEnumIterator;
 
 use crate::prelude::*;
 
+#[derive(Debug, PartialEq, Copy, Clone)]
+enum Flag {
+    Carry,
+    Parity,
+    AuxiliaryCarry,
+    Zero,
+    Sign,
+    Overflow,
+}
+
+enum FlagUpdate {
+    Carry(bool),
+    Parity(bool),
+    AuxiliaryCarry(bool),
+    Zero(bool),
+    Sign(bool),
+    Overflow(bool),
+}
+
+#[derive(Copy, Clone, Debug)]
+enum FlagCondition {
+    NoCarry,
+    Carry,
+    ParityOdd,
+    ParityEven,
+    NoAuxCarry,
+    AuxCarry,
+    NotZero,
+    Zero,
+    SignPositive,
+    SignNegative,
+    NotOverflow,
+    Overflow,
+}
+
 pub trait VariableStorage: Debug + Display {
     fn display_name(&self) -> &str;
 
@@ -213,7 +248,6 @@ impl MachineState {
     pub fn new() -> Self {
         let registers = BTreeMap::from_iter(
             Register::iter()
-                //.map(|reg| (reg, Box::new(CpuRegister::new(reg)) as Box<dyn VariableStorage>))
             .map(|reg| (reg, Box::new(CpuRegister::new(reg))))
         );
 
@@ -296,8 +330,6 @@ impl MachineState {
                 // Nothing to do at runtime
             }
             Instr::MoveRegToReg(MoveRegToReg { source, dest }) => {
-                //let source_val = self.reg(source.0).read_u32(&self);
-                //self.reg(dest.0).write_u32(&self, source_val);
                 let source_val = self.reg_view(source).read(&self);
                 self.reg_view(dest).write(&self, source_val);
             }
@@ -316,11 +348,63 @@ impl MachineState {
             self.run_instruction(instr);
         }
     }
+
+    fn is_flag_condition_met(&self, cond: FlagCondition) -> bool {
+        match cond {
+            FlagCondition::NoCarry => !self.is_flag_set(Flag::Carry),
+            FlagCondition::Carry => self.is_flag_set(Flag::Carry),
+            FlagCondition::ParityOdd => !self.is_flag_set(Flag::Parity),
+            FlagCondition::ParityEven => self.is_flag_set(Flag::Parity),
+            FlagCondition::NoAuxCarry => !self.is_flag_set(Flag::AuxiliaryCarry),
+            FlagCondition::AuxCarry => self.is_flag_set(Flag::AuxiliaryCarry),
+            FlagCondition::NotZero => !self.is_flag_set(Flag::Zero),
+            FlagCondition::Zero => self.is_flag_set(Flag::Zero),
+            FlagCondition::SignPositive => !self.is_flag_set(Flag::Sign),
+            FlagCondition::SignNegative => self.is_flag_set(Flag::Sign),
+            FlagCondition::NotOverflow => !self.is_flag_set(Flag::Overflow),
+            FlagCondition::Overflow => self.is_flag_set(Flag::Overflow),
+        }
+    }
+
+    fn update_flag(&self, flag: FlagUpdate) {
+        let flag_setting_and_bit_index = match flag {
+            FlagUpdate::Carry(on) => (on, 0),
+            FlagUpdate::Parity(on) => (on, 2),
+            FlagUpdate::AuxiliaryCarry(on) => (on, 4),
+            FlagUpdate::Zero(on) => (on, 6),
+            FlagUpdate::Sign(on) => (on, 7),
+            FlagUpdate::Overflow(on) => (on, 11),
+        };
+        let bit_index = flag_setting_and_bit_index.1;
+        let flags_reg = self.reg_view(&RegView::rflags());
+        let mut flags = flags_reg.read(self);
+        if flag_setting_and_bit_index.0 {
+            // Enable flag
+            flags |= 1 << bit_index;
+        } else {
+            // Disable flag
+            flags &= !(1 << bit_index);
+        }
+        flags_reg.write(self, flags);
+    }
+
+    fn is_flag_set(&self, flag: Flag) -> bool {
+        let flag_bit_index = match flag {
+            Flag::Carry => 0,
+            Flag::Parity => 2,
+            Flag::AuxiliaryCarry => 4,
+            Flag::Zero => 6,
+            Flag::Sign => 7,
+            Flag::Overflow => 11,
+        };
+        let flags = self.reg_view(&RegView::rflags()).read(&self);
+        (flags & (1 << flag_bit_index)) != 0
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::simulator::{MachineState, VariableStorage};
+    use crate::simulator::{FlagCondition, FlagUpdate, MachineState, VariableStorage};
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
