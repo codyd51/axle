@@ -308,7 +308,7 @@ impl CodeGenerator {
         func_instrs
     }
 
-    fn render_instructions_to_assembly(instructions: Vec<Instr>) -> Vec<String> {
+    pub fn render_instructions_to_assembly(instructions: &Vec<Instr>) -> Vec<String> {
         let mut assembly = vec![];
         for instr in instructions.iter() {
             assembly.push(instr.render());

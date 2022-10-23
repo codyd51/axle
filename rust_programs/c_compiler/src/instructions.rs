@@ -59,6 +59,7 @@ pub enum Instr {
     PopIntoReg(RegView),
     MoveRegToReg(MoveRegToReg),
     MoveImmToReg(MoveImmToReg),
+    DirectiveDeclareSection(String),
     DirectiveDeclareGlobalSymbol(String),
     DirectiveDeclareLabel(String),
     MoveImm8oRegMemOffset(MoveImmToRegMemOffset),
@@ -82,7 +83,7 @@ impl Instr {
                 format!("mov %{}, %{}", source.asm_name(), dest.asm_name())
             }
             Instr::MoveImmToReg(MoveImmToReg { imm, dest }) => {
-                format!("mov ${imm}, %{}", dest.asm_name())
+                format!("mov $0x{imm:x}, %{}", dest.asm_name())
             }
             Instr::DirectiveDeclareGlobalSymbol(symbol_name) => {
                 format!(".global {symbol_name}")
@@ -92,7 +93,10 @@ impl Instr {
             Instr::AddRegToReg(AddRegToReg { augend, addend }) => {
                 format!("add %{}, %{}", augend.asm_name(), addend.asm_name())
             }
-            _ => todo!(),
+            Instr::DirectiveDeclareSection(section_name) => {
+                format!(".section {section_name}")
+            }
+            _ => todo!("Instr.render() {self:?}"),
         }
     }
 }
