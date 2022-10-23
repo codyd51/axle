@@ -88,6 +88,20 @@ impl ModRmByte {
 
         out as _
     }
+
+    fn with_opcode_extension(addressing_mode: ModRmAddressingMode, opcode_extension: usize, register: Register) -> u8 {
+        assert!(opcode_extension <= 7, "opcode_extension must be in the range 0-7");
+        let mut out = 0;
+
+        match addressing_mode {
+            ModRmAddressingMode::RegisterDirect => out |= 0b11 << 6,
+        }
+
+        out |= opcode_extension << 3;
+        out |= Self::register_index(register);
+
+        out as _
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -288,6 +302,186 @@ impl PotentialLabelTarget for Jump {
 impl Display for Jump {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_fmt(format_args!("jmp {:?}", self.target))
+    }
+}
+
+pub struct Push {
+    id: PotentialLabelTargetId,
+    reg: Register,
+}
+
+impl Push {
+    pub fn new(reg: Register) -> Self {
+        Self { id: next_atom_id(), reg }
+    }
+}
+
+impl Instruction for Push {
+    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
+        println!("Assembling {self}");
+        vec![
+            0xff,
+            ModRmByte::with_opcode_extension(ModRmAddressingMode::RegisterDirect, 6, self.reg),
+        ]
+    }
+}
+
+impl PotentialLabelTarget for Push {
+    fn container_section(&self) -> BinarySection {
+        BinarySection::Text
+    }
+
+    fn id(&self) -> PotentialLabelTargetId {
+        self.id
+    }
+
+    fn len(&self) -> usize {
+        2
+    }
+
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        Instruction::render(self, layout)
+    }
+}
+
+impl Display for Push {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("push {:?}", self.reg))
+    }
+}
+
+pub struct Pop {
+    id: PotentialLabelTargetId,
+    dest_reg: Register,
+}
+
+impl Pop {
+    pub fn new(dest_reg: Register) -> Self {
+        Self { id: next_atom_id(), dest_reg }
+    }
+}
+
+impl Instruction for Pop {
+    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
+        println!("Assembling {self}");
+        vec![
+            0x8f,
+            ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.dest_reg, None),
+        ]
+    }
+}
+
+impl PotentialLabelTarget for Pop {
+    fn container_section(&self) -> BinarySection {
+        BinarySection::Text
+    }
+
+    fn id(&self) -> PotentialLabelTargetId {
+        self.id
+    }
+
+    fn len(&self) -> usize {
+        2
+    }
+
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        Instruction::render(self, layout)
+    }
+}
+
+impl Display for Pop {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("pop {:?}", self.dest_reg))
+    }
+}
+
+pub struct Add {
+    id: PotentialLabelTargetId,
+    augend: Register,
+    addend: Register,
+}
+
+impl Add {
+    pub fn new(augend: Register, addend: Register) -> Self {
+        Self { id: next_atom_id(), augend, addend }
+    }
+}
+
+impl Instruction for Add {
+    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
+        println!("Assembling {self}");
+        vec![
+            RexPrefix::for_64bit_operand(),
+            0x01,
+            ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.augend, Some(self.addend)),
+        ]
+    }
+}
+
+impl PotentialLabelTarget for Add {
+    fn container_section(&self) -> BinarySection {
+        BinarySection::Text
+    }
+
+    fn id(&self) -> PotentialLabelTargetId {
+        self.id
+    }
+
+    fn len(&self) -> usize {
+        3
+    }
+
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        Instruction::render(self, layout)
+    }
+}
+
+impl Display for Add {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("add {:?}, {:?}", self.augend, self.addend))
+    }
+}
+
+pub struct Ret {
+    id: PotentialLabelTargetId,
+}
+
+impl Ret {
+    pub fn new() -> Self {
+        Self { id: next_atom_id() }
+    }
+}
+
+impl Instruction for Ret {
+    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
+        println!("Assembling {self}");
+        vec![
+            0xc3,
+        ]
+    }
+}
+
+impl PotentialLabelTarget for Ret {
+    fn container_section(&self) -> BinarySection {
+        BinarySection::Text
+    }
+
+    fn id(&self) -> PotentialLabelTargetId {
+        self.id
+    }
+
+    fn len(&self) -> usize {
+        1
+    }
+
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        Instruction::render(self, layout)
+    }
+}
+
+impl Display for Ret {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("ret"))
     }
 }
 

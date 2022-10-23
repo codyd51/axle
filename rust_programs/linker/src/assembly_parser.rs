@@ -9,6 +9,7 @@ use crate::{
 use alloc::{fmt::Debug, rc::Rc, string::ToString, vec::Vec};
 use alloc::{string::String, vec};
 use cstr_core::CString;
+use crate::assembly_packer::{Add, Pop, Push, Ret};
 
 #[derive(Clone)]
 pub struct Label {
@@ -104,6 +105,7 @@ impl Display for Expression {
     }
 }
 
+// TODO(PT): Replace with Instruction
 #[derive(Debug)]
 pub enum AssemblyStatement {
     // Directives
@@ -118,6 +120,10 @@ pub enum AssemblyStatement {
     MoveRegisterIntoRegister(Register, Register),
     Interrupt(u8),
     Jump(String),
+    Push(Register),
+    Pop(Register),
+    Add(Register, Register),
+    Ret,
 }
 
 pub struct AssemblyParser {
@@ -169,6 +175,8 @@ impl AssemblyParser {
     pub fn parse_statement(&mut self) -> Option<AssemblyStatement> {
         let token = self.lexer.next_token()?;
         //println!("Token: {token:?}");
+
+        // Label definitions need lookahead
 
         match token {
             Token::Dot => {
@@ -223,6 +231,8 @@ impl AssemblyParser {
             Token::Identifier(name) => {
                 // Is this a label declaration?
                 if let Some(Token::Colon) = self.lexer.peek_token() {
+                    // Consume the colon
+                    self.match_token(Token::Colon);
                     return Some(AssemblyStatement::Label(name));
                 }
                 match name.as_ref() {
@@ -266,10 +276,31 @@ impl AssemblyParser {
                         // TODO(PT): For now, we only support named symbols as jump targets
                         Some(AssemblyStatement::Jump(source))
                     }
+                    "push" => {
+                        self.match_token(Token::Percent);
+                        let register = self.match_register();
+                        Some(AssemblyStatement::Push(register))
+                    }
+                    "pop" => {
+                        self.match_token(Token::Percent);
+                        let register = self.match_register();
+                        Some(AssemblyStatement::Pop(register))
+                    }
+                    "add" => {
+                        self.match_token(Token::Percent);
+                        let augend = self.match_register();
+                        self.match_token(Token::Comma);
+                        self.match_token(Token::Percent);
+                        let addend = self.match_register();
+                        Some(AssemblyStatement::Add(augend, addend))
+                    }
+                    "ret" => {
+                        Some(AssemblyStatement::Ret)
+                    }
                     _ => panic!("Unimplemented mnemonic {name}"),
                 }
             }
-            _ => self.parse_statement(),
+            _ => panic!("Unexpected token {token:?}"),
         }
     }
 
@@ -321,6 +352,18 @@ impl AssemblyParser {
                 }
                 AssemblyStatement::Jump(label_name) => {
                     println!("[Jump {label_name}]");
+                }
+                AssemblyStatement::Push(reg) => {
+                    println!("[Push {reg:?}]");
+                }
+                AssemblyStatement::Pop(reg) => {
+                    println!("[Pop {reg:?}]");
+                }
+                AssemblyStatement::Add(augend, addend) => {
+                    println!("[Add {augend:?}, {addend:?}]");
+                }
+                AssemblyStatement::Ret => {
+                    println!("[Ret]");
                 }
             }
         }
@@ -398,6 +441,18 @@ impl AssemblyParser {
                     }
                     AssemblyStatement::Jump(label_name) => {
                         append_data_unit(Rc::new(Jump::new(JumpTarget::Label(label_name))));
+                    }
+                    AssemblyStatement::Push(reg) => {
+                        append_data_unit(Rc::new(Push::new(reg)));
+                    }
+                    AssemblyStatement::Pop(reg) => {
+                        append_data_unit(Rc::new(Pop::new(reg)));
+                    }
+                    AssemblyStatement::Add(augend, addend) => {
+                        append_data_unit(Rc::new(Add::new(augend, addend)));
+                    }
+                    AssemblyStatement::Ret => {
+                        append_data_unit(Rc::new(Ret::new()));
                     }
                 }
             } else {
