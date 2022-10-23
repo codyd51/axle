@@ -1,5 +1,8 @@
 use std::error;
 use std::io::{self, BufRead, Write};
+use std::rc::Rc;
+
+use linker::{FileLayout, assembly_packer, render_elf};
 
 use crate::codegen::CodeGenerator;
 use crate::optimizer::Optimizer;

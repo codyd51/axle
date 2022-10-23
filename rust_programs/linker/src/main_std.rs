@@ -42,8 +42,6 @@ msg:
 
     ";
     let (labels, equ_expressions, atoms) = assembly_packer::parse(&layout, &source);
-    //let (data_packer, instruction_packer) = assembly_packer::parse(&layout, &source);
-    //let (data_packer, instruction_packer) = assembly_packer::parse(&layout, &source);
     let elf = render_elf(&layout, labels, equ_expressions, atoms);
     println!("Finshed ELF generation. Size: {}\n", elf.len());
 

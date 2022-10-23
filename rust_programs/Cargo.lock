@@ -214,6 +214,7 @@ dependencies = [
  "cstr_core",
  "derive_more",
  "itertools 0.10.5",
+ "linker",
  "strum",
  "strum_macros",
  "tempfile",
