@@ -1,22 +1,47 @@
-use crate::parser::{Expr, Function, InfixOperator, ReturnStatement, Statement};
+use crate::parser::{BlockStatement, Expr, Function, IfStatement, InfixOperator, ReturnStatement, Statement};
 use alloc::{format, vec};
 use alloc::{string::String, vec::Vec};
 use alloc::string::ToString;
+use core::cell::RefCell;
 use core::mem;
-use crate::instructions::{AddRegToReg, Instr, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
+use crate::instructions::{AddRegToReg, CompareImmWithReg, Instr, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
 
 use crate::println;
 use crate::prelude::*;
 
 #[derive(Debug)]
 pub struct CodeGenerator {
-    //function: Function,
+    next_label_id: RefCell<usize>,
 }
 
 impl CodeGenerator {
     pub fn new() -> Self {
-        //Self { function }
-        Self {}
+        Self {
+            next_label_id: RefCell::new(0),
+        }
+    }
+
+    fn generate_label_with_optional_context(&self, context: Option<String>) -> String {
+        let mut next_label_id = self.next_label_id.borrow_mut();
+        let chosen_label_id = *next_label_id;
+        *next_label_id += 1;
+        let context = {
+            if let Some(context) = context {
+                format!("_{context}")
+            }
+            else {
+                format!("")
+            }
+        };
+        format!("_L{chosen_label_id}{context}")
+    }
+
+    fn generate_label(&self) -> String {
+        self.generate_label_with_optional_context(None)
+    }
+
+    fn generate_label_with_context(&self, context: &str) -> String {
+        self.generate_label_with_optional_context(Some(context.to_string()))
     }
 
     fn render_expression_to_instructions(&mut self, expr: &Expr) -> Vec<Instr> {
@@ -42,6 +67,17 @@ impl CodeGenerator {
         todo!()
     }
 
+    fn codegen_block(&self, block_statement: &BlockStatement) -> Vec<Instr> {
+        block_statement
+            .statements
+            .iter()
+            // Codegen each statement
+            .map(|stmt| self.codegen_statement(stmt))
+            // We've now got a Vec<Vec<Instr>>. Flatten to a linear list of instructions.
+            .flatten()
+            .collect()
+    }
+
     fn codegen_statement(&self, statement: &Statement) -> Vec<Instr> {
         let mut statement_instrs = vec![];
         match statement {
@@ -52,6 +88,28 @@ impl CodeGenerator {
                 statement_instrs.push(Instr::PopIntoReg(RegView::rbp()));
                 // Return to caller
                 statement_instrs.push(Instr::Return);
+            }
+            Statement::If(IfStatement { test, consequent }) => {
+                // Codegen the test
+                statement_instrs.append(&mut self.codegen_expression(test));
+                // Check if the test failed
+                statement_instrs.push(Instr::CompareImmWithReg(CompareImmWithReg::new(0, RegView::rax())));
+                // Jump if the test failed
+                // Destination for when the test fails
+                let test_failed_label = self.generate_label_with_context("if_test_failed");
+                let post_conditional_label = self.generate_label_with_context("if_statement_finished");
+                statement_instrs.push(Instr::JumpToLabelIfEqual(test_failed_label.clone()));
+                // Codegen the consequent block
+                statement_instrs.append(&mut self.codegen_block(consequent));
+                // Jump past any `else` block
+                statement_instrs.push(Instr::JumpToLabel(post_conditional_label.clone()));
+
+                // Jump here when the test fails
+                statement_instrs.push(Instr::DirectiveDeclareLabel(test_failed_label));
+                // TODO(PT): Codegen an `else` block, if any
+
+                // Jump here once either the consequent block completes
+                statement_instrs.push(Instr::DirectiveDeclareLabel(post_conditional_label));
             }
             _ => todo!(),
         }

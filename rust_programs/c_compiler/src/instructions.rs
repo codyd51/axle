@@ -67,6 +67,8 @@ pub enum Instr {
     SubRegFromReg(SubRegFromReg),
     MulRegByReg(MulRegByReg),
     DivRegByReg(DivRegByReg),
+    JumpToLabel(String),
+    JumpToLabelIfEqual(String),
     CompareImmWithReg(CompareImmWithReg),
 }
 

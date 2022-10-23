@@ -163,4 +163,42 @@ mod test {
         // Then rax contains the correct value
         assert_eq!(machine.reg(Rax).read_u32(&machine), 5400);
     }
+
+    #[test]
+    fn test_if() {
+        // Given a function that returns a binary subtract expression
+        // When I parse and codegen it
+        //let (instrs, machine) = codegen_and_execute_source("void foo() { if (1 == 2) { return 3; } return 5; }");
+        let (instrs, machine) = codegen_and_execute_source("void foo() { if (1) { return 3; } return 5; }");
+
+        // Then the rendered instructions are correct
+        assert_eq!(
+            instrs,
+            vec![
+                // Declare the symbol
+                Instr::DirectiveDeclareGlobalSymbol("_foo".into()),
+                // Function entry point
+                Instr::DirectiveDeclareLabel("_foo".into()),
+                // Set up stack frame
+                Instr::PushFromReg(RegView::rbp()),
+                Instr::MoveRegToReg(MoveRegToReg::new(RegView::rsp(), RegView::rbp())),
+                // Compute subtraction
+                Instr::MoveImmToReg(MoveImmToReg::new(100, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::MoveImmToReg(MoveImmToReg::new(66, RegView::rax())),
+                Instr::PushFromReg(RegView::rax()),
+                Instr::PopIntoReg(RegView::rbx()),
+                Instr::PopIntoReg(RegView::rax()),
+                Instr::SubRegFromReg(SubRegFromReg::new(RegView::rax(), RegView::rbx())),
+                // Clean up stack frame and return
+                Instr::PopIntoReg(RegView::rbp()),
+                Instr::Return
+            ]
+        );
+
+        // And when I emulate the instructions
+        // Then rax contains the correct value
+        assert_eq!(machine.reg(Rax).read_u32(&machine), 34);
+    }
+
 }
