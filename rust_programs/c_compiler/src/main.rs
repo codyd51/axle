@@ -12,9 +12,6 @@ mod codegen;
 mod simulator;
 mod lexer;
 mod parser;
-mod prelude;
-mod registers;
-mod instructions;
 mod optimizer;
 
 #[cfg(feature = "run_in_axle")]

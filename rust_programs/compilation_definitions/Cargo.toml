@@ -1,0 +1,13 @@
+[package]
+name = "compilation_definitions"
+version = "0.1.0"
+edition = "2021"
+resolver = "2"
+
+[dependencies]
+axle_rt = {path = "../axle_rt" }
+axle_rt_derive = {path = "../axle_rt_derive" }
+cstr_core = "0.2.4"
+derive_more = "0.99.17"
+strum = "0.24.1"
+strum_macros = "0.24"

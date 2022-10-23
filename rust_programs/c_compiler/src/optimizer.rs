@@ -1,8 +1,8 @@
 use alloc::vec::Vec;
 use derive_more::Constructor;
 use itertools::Itertools;
-use crate::instructions::Instr;
-use crate::prelude::RegView;
+use compilation_definitions::instructions::Instr;
+use compilation_definitions::prelude::RegView;
 
 #[derive(PartialEq)]
 enum OptimizerPassResult {
@@ -53,9 +53,9 @@ impl Optimizer {
 }
 
 mod test {
-    use crate::instructions::{Instr, MoveRegToReg};
+    use compilation_definitions::prelude::*;
+    use compilation_definitions::instructions::{Instr, MoveRegToReg};
     use crate::optimizer::Optimizer;
-    use crate::prelude::*;
 
     #[test]
     fn test_remove_push_pop() {

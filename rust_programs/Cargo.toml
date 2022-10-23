@@ -22,6 +22,7 @@ members = [
     "xplatform_gui",
     "c_compiler",
     "example_program",
+    "compilation_definitions",
 ]
 
 exclude = [

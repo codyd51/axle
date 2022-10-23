@@ -1,4 +1,3 @@
-use crate::instructions::{AddRegToReg, CompareImmWithReg, DivRegByReg, Instr, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::{format, vec};
@@ -9,7 +8,8 @@ use core::fmt::{Debug, Display, Formatter};
 use core::mem;
 use strum::IntoEnumIterator;
 
-use crate::prelude::*;
+use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, DivRegByReg, Instr, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
+use compilation_definitions::prelude::*;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 enum Flag {

@@ -211,6 +211,7 @@ version = "0.1.0"
 dependencies = [
  "axle_rt",
  "axle_rt_derive",
+ "compilation_definitions",
  "cstr_core",
  "derive_more",
  "itertools 0.10.5",
@@ -300,6 +301,18 @@ name = "color_quant"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
+
+[[package]]
+name = "compilation_definitions"
+version = "0.1.0"
+dependencies = [
+ "axle_rt",
+ "axle_rt_derive",
+ "cstr_core",
+ "derive_more",
+ "strum",
+ "strum_macros",
+]
 
 [[package]]
 name = "convert_case"
@@ -1118,6 +1131,7 @@ dependencies = [
  "axle_rt",
  "axle_rt_derive",
  "bitflags",
+ "compilation_definitions",
  "cstr_core",
  "linker_messages",
  "postcard",

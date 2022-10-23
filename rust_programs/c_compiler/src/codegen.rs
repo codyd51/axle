@@ -4,10 +4,10 @@ use alloc::{string::String, vec::Vec};
 use alloc::string::ToString;
 use core::cell::RefCell;
 use core::mem;
-use crate::instructions::{AddRegToReg, CompareImmWithReg, Instr, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
+use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, Instr, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
 
 use crate::println;
-use crate::prelude::*;
+use compilation_definitions::prelude::*;
 
 #[derive(Debug)]
 pub struct CodeGenerator {

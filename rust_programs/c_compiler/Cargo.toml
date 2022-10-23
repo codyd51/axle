@@ -12,12 +12,14 @@ run_with_std = ["tempfile"]
 [dependencies]
 axle_rt = {path = "../axle_rt" }
 axle_rt_derive = {path = "../axle_rt_derive" }
+compilation_definitions = { path = "../compilation_definitions" }
 # TODO(PT): This should enable the default features when we're running in no_std
 linker = { path = "../linker", default-features = false }
+
 cstr_core = "0.2.4"
+itertools = "0.10.5"
+# These dependencies are only enabled in run_with_std mode
+tempfile = { version = "3.3.0", optional = true }
+derive_more = "0.99.17"
 strum = "0.24.1"
 strum_macros = "0.24"
-derive_more = "0.99.17"
-itertools = "0.10.5"
-# These dependencies are only enabled in use_std mode
-tempfile = { version = "3.3.0", optional = true }

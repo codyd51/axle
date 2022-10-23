@@ -3,12 +3,12 @@ use std::io::{self, BufRead, Write};
 use std::rc::Rc;
 
 use linker::{FileLayout, assembly_packer, render_elf};
+use compilation_definitions::prelude::*;
 
 use crate::codegen::CodeGenerator;
 use crate::optimizer::Optimizer;
 use crate::parser::Parser;
 use crate::simulator::MachineState;
-use crate::prelude::*;
 
 pub fn main() -> Result<(), Box<dyn error::Error>> {
     println!("Starting REPL...");
