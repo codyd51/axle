@@ -1,14 +1,16 @@
 use core::{cell::RefCell, fmt::Display, mem};
-
-use crate::{
-    assembly_lexer::{AssemblyLexer, Token},
-    assembly_packer::{DataSource, Interrupt, Jump, JumpTarget, MoveValueToRegister, PotentialLabelTarget, Register},
-    print, println,
-    symbols::{ConstantData, SymbolData, SymbolExpressionOperand},
-};
 use alloc::{fmt::Debug, rc::Rc, string::ToString, vec::Vec};
 use alloc::{string::String, vec};
 use cstr_core::CString;
+
+use compilation_definitions::prelude::*;
+
+use crate::{
+    assembly_lexer::{AssemblyLexer, Token},
+    assembly_packer::{DataSource, Interrupt, Jump, JumpTarget, MoveValueToRegister, PotentialLabelTarget},
+    print, println,
+    symbols::{ConstantData, SymbolData, SymbolExpressionOperand},
+};
 use crate::assembly_packer::{Add, Pop, Push, Ret};
 
 #[derive(Clone)]
@@ -149,14 +151,14 @@ impl AssemblyParser {
 
     fn register_from_str(&mut self, reg_str: &str) -> Register {
         match reg_str {
-            "rax" => Register::Rax,
-            "rcx" => Register::Rcx,
-            "rdx" => Register::Rdx,
-            "rbx" => Register::Rbx,
-            "rsp" => Register::Rsp,
-            "rbp" => Register::Rbp,
-            "rsi" => Register::Rsi,
-            "rdi" => Register::Rdi,
+            "rax" => Rax,
+            "rcx" => Rcx,
+            "rdx" => Rdx,
+            "rbx" => Rbx,
+            "rsp" => Rsp,
+            "rbp" => Rbp,
+            "rsi" => Rsi,
+            "rdi" => Rdi,
             _ => panic!("Unexpected register name {reg_str}"),
         }
     }

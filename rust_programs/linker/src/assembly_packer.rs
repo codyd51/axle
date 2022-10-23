@@ -10,6 +10,8 @@ use axle_rt::println;
 #[cfg(not(feature = "run_in_axle"))]
 use std::{print, println};
 
+use compilation_definitions::prelude::*;
+
 use crate::{
     assembly_lexer::AssemblyLexer,
     assembly_parser::{AssemblyParser, BinarySection, EquExpressions, Labels, PotentialLabelTargets},
@@ -43,18 +45,6 @@ impl RexPrefix {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub enum Register {
-    Rax,
-    Rcx,
-    Rdx,
-    Rbx,
-    Rsp,
-    Rbp,
-    Rsi,
-    Rdi,
-}
-
 enum ModRmAddressingMode {
     RegisterDirect,
 }
@@ -63,14 +53,15 @@ struct ModRmByte;
 impl ModRmByte {
     fn register_index(register: Register) -> usize {
         match register {
-            Register::Rax => 0b000,
-            Register::Rcx => 0b001,
-            Register::Rdx => 0b010,
-            Register::Rbx => 0b011,
-            Register::Rsp => 0b100,
-            Register::Rbp => 0b101,
-            Register::Rsi => 0b110,
-            Register::Rdi => 0b111,
+            Rax => 0b000,
+            Rcx => 0b001,
+            Rdx => 0b010,
+            Rbx => 0b011,
+            Rsp => 0b100,
+            Rbp => 0b101,
+            Rsi => 0b110,
+            Rdi => 0b111,
+            _ => panic!("Invalid register for ModRm byte"),
         }
     }
     fn from(addressing_mode: ModRmAddressingMode, register: Register, register2: Option<Register>) -> u8 {
