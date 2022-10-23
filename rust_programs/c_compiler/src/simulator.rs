@@ -1,4 +1,4 @@
-use crate::instructions::{AddRegToReg, DivRegByReg, Instr, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
+use crate::instructions::{AddRegToReg, CompareImmWithReg, DivRegByReg, Instr, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::{format, vec};
@@ -336,6 +336,26 @@ impl MachineState {
             Instr::Return => {
                 // Not handled yet
             }
+            Instr::CompareImmWithReg(CompareImmWithReg { imm, reg }) => {
+                let reg_val = self.reg_view(reg).read(&self);
+                let result = (*imm as isize) - (reg_val as isize);
+                if result == 0 {
+                    self.update_flag(FlagUpdate::Zero(true));
+                    self.update_flag(FlagUpdate::Carry(false));
+                }
+                else {
+                    self.update_flag(FlagUpdate::Zero(false));
+                    if result < 0 {
+                        self.update_flag(FlagUpdate::Carry(true));
+                    }
+                    else {
+                        self.update_flag(FlagUpdate::Carry(false));
+                    }
+                }
+            }
+            Instr::JumpToLabelIfEqual(label_name) => {
+
+            }
             _ => {
                 println!("Instr not implemented: {instr:?}");
                 todo!()
@@ -408,7 +428,7 @@ mod test {
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
-    use crate::instructions::{AddRegToReg, Instr, MoveImmToReg, MoveRegToReg};
+    use crate::instructions::{AddRegToReg, CompareImmWithReg, Instr, MoveImmToReg, MoveRegToReg};
     use crate::prelude::*;
 
     fn get_machine() -> MachineState {
@@ -593,5 +613,33 @@ mod test {
         );
         // Then the full register is overwritten
         assert_eq!(dst.read_u64(&machine), 0xfeed_d00d_dead_beef);
+    }
+
+    #[test]
+    fn test_compare_imm_with_reg() {
+        // Given an instruction to compare an immediate with a register
+        let machine = get_machine();
+        let test_cases = [
+            (5, 8, vec![FlagCondition::NotZero, FlagCondition::Carry]),
+            (8, 5, vec![FlagCondition::NotZero, FlagCondition::NoCarry]),
+            (5, 5, vec![FlagCondition::Zero, FlagCondition::NoCarry]),
+        ];
+        for (imm_val, reg_val, expected_flags) in test_cases {
+            // Clear flags from the last run
+            machine.update_flag(FlagUpdate::Zero(false));
+            machine.update_flag(FlagUpdate::Carry(false));
+
+            // And a register contains the provided value
+            let reg = RegView::rax();
+            machine.reg_view(&reg).write(&machine, reg_val);
+
+            // When the instruction is run
+            machine.run_instruction(&Instr::CompareImmWithReg(CompareImmWithReg::new(imm_val, reg)));
+
+            // Then the flags contain the expected values
+            for expected_flag in expected_flags.iter() {
+                assert!(machine.is_flag_condition_met(*expected_flag), "Expected {expected_flag:?} with {imm_val} - {reg_val:?}")
+            }
+        }
     }
 }

@@ -46,6 +46,12 @@ pub struct DivRegByReg {
     pub divisor: RegView,
 }
 
+#[derive(Debug, PartialEq, Clone, Constructor)]
+pub struct CompareImmWithReg {
+    pub imm: usize,
+    pub reg: RegView,
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Instr {
     Return,
@@ -61,6 +67,7 @@ pub enum Instr {
     SubRegFromReg(SubRegFromReg),
     MulRegByReg(MulRegByReg),
     DivRegByReg(DivRegByReg),
+    CompareImmWithReg(CompareImmWithReg),
 }
 
 impl Instr {

@@ -186,7 +186,10 @@ impl CodeGenerator {
                     RegView::rax(),
                 ))]
             }
-            _ => todo!(),
+            _ => {
+                println!("Expression not implemented: {expr:?}");
+                todo!()
+            },
         }
     }
 
