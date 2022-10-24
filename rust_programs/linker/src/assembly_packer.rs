@@ -7,6 +7,7 @@ use core::{
 
 #[cfg(feature = "run_in_axle")]
 use axle_rt::println;
+use compilation_definitions::encoding::{ModRmAddressingMode, ModRmByte, RexPrefix};
 #[cfg(not(feature = "run_in_axle"))]
 use std::{print, println};
 
@@ -17,83 +18,6 @@ use crate::{
     assembly_parser::{AssemblyParser, BinarySection, EquExpressions, Labels, PotentialLabelTargets},
     new_try::{FileLayout, SymbolEntryType},
 };
-
-enum RexPrefixOption {
-    Use64BitOperandSize,
-    _UseRegisterFieldExtension,
-    _UseIndexFieldExtension,
-    _UseBaseFieldExtension,
-}
-
-struct RexPrefix;
-impl RexPrefix {
-    fn from_options(options: Vec<RexPrefixOption>) -> u8 {
-        let mut out = 0b0100 << 4;
-        for option in options.iter() {
-            match option {
-                RexPrefixOption::Use64BitOperandSize => out |= 1 << 3,
-                RexPrefixOption::_UseRegisterFieldExtension => out |= 1 << 2,
-                RexPrefixOption::_UseIndexFieldExtension => out |= 1 << 1,
-                RexPrefixOption::_UseBaseFieldExtension => out |= 1 << 0,
-            }
-        }
-        out
-    }
-
-    fn for_64bit_operand() -> u8 {
-        Self::from_options(vec![RexPrefixOption::Use64BitOperandSize])
-    }
-}
-
-enum ModRmAddressingMode {
-    RegisterDirect,
-}
-
-struct ModRmByte;
-impl ModRmByte {
-    fn register_index(register: Register) -> usize {
-        match register {
-            Rax => 0b000,
-            Rcx => 0b001,
-            Rdx => 0b010,
-            Rbx => 0b011,
-            Rsp => 0b100,
-            Rbp => 0b101,
-            Rsi => 0b110,
-            Rdi => 0b111,
-            _ => panic!("Invalid register for ModRm byte"),
-        }
-    }
-    fn from(addressing_mode: ModRmAddressingMode, register: Register, register2: Option<Register>) -> u8 {
-        let mut out = 0;
-
-        match addressing_mode {
-            ModRmAddressingMode::RegisterDirect => out |= 0b11 << 6,
-        }
-
-        out |= Self::register_index(register);
-
-        if let Some(register2) = register2 {
-            out |= Self::register_index(register2) << 3;
-        }
-
-        out as _
-    }
-
-    fn with_opcode_extension(addressing_mode: ModRmAddressingMode, opcode_extension: usize, register: RegView) -> u8 {
-        assert!(opcode_extension <= 7, "opcode_extension must be in the range 0-7");
-        let mut out = 0;
-
-        match addressing_mode {
-            ModRmAddressingMode::RegisterDirect => out |= 0b11 << 6,
-        }
-
-        out |= opcode_extension << 3;
-        out |= Self::register_index(register.0);
-
-        out as _
-    }
-}
 
 #[derive(Debug, Clone)]
 pub enum DataSource {
@@ -149,10 +73,10 @@ impl Instruction for MoveValueToRegister {
                 }
                 _ => panic!("Unexpected"),
             };
-            // MOV <reg>, <mem> opcode
+            // MOV r/m64, imm32
             out.push(0xc7);
             // Destination register
-            out.push(ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.dest_register.0, None));
+            out.push(ModRmByte::with_opcode_extension(ModRmAddressingMode::RegisterDirect, 0, self.dest_register));
             // Source value
             let mut value_bytes = value.to_le_bytes().to_owned().to_vec();
             out.append(&mut value_bytes);
@@ -355,7 +279,7 @@ impl Instruction for Pop {
     fn render(&self, _layout: &FileLayout) -> Vec<u8> {
         vec![
             0x8f,
-            ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.dest_reg.0, None),
+            ModRmByte::with_opcode_extension(ModRmAddressingMode::RegisterDirect, 0, self.dest_reg),
         ]
     }
 }
