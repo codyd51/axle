@@ -9,10 +9,50 @@ use core::mem;
 
 use strum::IntoEnumIterator;
 use derive_more::Constructor;
+use compilation_definitions::encoding::ModRmByte;
 
 use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, DivRegByReg, Instr, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
 use compilation_definitions::prelude::*;
 
+#[repr(C)]
+#[derive(Debug)]
+struct ElfHeader64 {
+    magic: [u8; 4],
+    word_size: u8,
+    endianness: u8,
+    elf_version: u8,
+    os_abi: u8,
+    os_abi_version: u8,
+    reserved: [u8; 7],
+    elf_type: u16,
+    isa_type: u16,
+    elf_version2: u32,
+    entry_point: u64,
+    program_header_table_start: u64,
+    section_header_table_start: u64,
+    flags: u32,
+    header_size: u16,
+    program_header_table_entry_size: u16,
+    program_header_table_entry_count: u16,
+    section_header_table_entry_size: u16,
+    section_header_table_entry_count: u16,
+    section_names_section_header_index: u16,
+}
+assert_eq_size!(ElfHeader64, [u8; 64]);
+
+#[repr(C)]
+#[derive(Debug)]
+struct ElfSegment64 {
+    segment_type: u32,
+    flags: u32,
+    offset: u64,
+    vaddr: u64,
+    paddr: u64,
+    file_size: u64,
+    mem_size: u64,
+    align: u64,
+}
+assert_eq_size!(ElfSegment64, [u8; 56]);
 #[derive(Debug, PartialEq, Copy, Clone)]
 enum Flag {
     Carry,
@@ -498,6 +538,35 @@ impl MachineState {
         };
         let flags = self.reg_view(&RegView::rflags()).read(&self);
         (flags & (1 << flag_bit_index)) != 0
+    }
+
+    pub fn load_elf(&self, elf_bytes: &[u8]) {
+        println!("Loading ELF of size {}...", elf_bytes.len());
+
+        let mut cursor = 0;
+        let elf_header = unsafe {
+            mem::transmute::<[u8; mem::size_of::<ElfHeader64>()], ElfHeader64>(elf_bytes[cursor..cursor + mem::size_of::<ElfHeader64>()].try_into().unwrap())
+        };
+        cursor += mem::size_of::<ElfHeader64>();
+        //println!("Got ELF header {elf_header:?}");
+
+        let segments_start = elf_header.program_header_table_start;
+        for i in 0..elf_header.program_header_table_entry_count {
+            let segment_header = unsafe {
+                mem::transmute::<[u8; mem::size_of::<ElfSegment64>()], ElfSegment64>(elf_bytes[cursor..cursor + mem::size_of::<ElfSegment64>()].try_into().unwrap())
+            };
+            cursor += mem::size_of::<ElfSegment64>();
+
+            //println!("\tSegment header {i}: {segment_header:?}");
+
+            // Map the segment into memory
+            let segment_file_data = &elf_bytes[(segment_header.offset as usize)..(segment_header.offset + segment_header.file_size) as usize];
+            let mapped_segment = VirtualMemoryRegion::new_with_contents(segment_header.vaddr, segment_file_data);
+            self.ram.add_region(mapped_segment);
+        }
+
+        // Set the entry point to what the ELF designates
+        self.reg_view(&RegView::rip()).write(&self, elf_header.entry_point as usize);
     }
 }
 
