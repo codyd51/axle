@@ -53,6 +53,36 @@ struct ElfSegment64 {
     align: u64,
 }
 assert_eq_size!(ElfSegment64, [u8; 56]);
+
+#[derive(Debug)]
+pub struct InstrInfo {
+    pub instruction_size: usize,
+    rip_increment: Option<usize>,
+    jumped: bool,
+    // PT: Just a hack for testing
+    pub did_return: bool,
+}
+
+impl InstrInfo {
+    fn seq(instruction_size: usize) -> Self {
+        Self {
+            instruction_size,
+            rip_increment: Some(instruction_size),
+            jumped: false,
+            did_return: false,
+        }
+    }
+    fn jump(instruction_size: usize) -> Self {
+        Self {
+            instruction_size,
+            // Don't increment rip because the instruction will modify rip directly
+            rip_increment: None,
+            jumped: true,
+            did_return: false,
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Copy, Clone)]
 enum Flag {
     Carry,
@@ -242,12 +272,22 @@ impl VirtualMemoryRegion {
         }
     }
 
+    fn new_with_contents(base: u64, contents: &[u8]) -> Self {
+        Self {
+            base,
+            size: contents.len() as _,
+            store: RefCell::new(contents.to_vec()),
+        }
+    }
+
     fn contains(&self, addr: u64) -> bool {
         addr >= self.base && addr < self.base + self.size
     }
 
-    fn read_u8(&self, addr: u64) -> u8 {
-        todo!()
+    fn read_u8(&self, virtual_addr: u64) -> u8 {
+        let translated_addr = virtual_addr - self.base;
+        let store = self.store.borrow();
+        store[translated_addr as usize]
     }
 
     fn read_u16(&self, addr: u64) -> u16 {
@@ -538,6 +578,134 @@ impl MachineState {
         };
         let flags = self.reg_view(&RegView::rflags()).read(&self);
         (flags & (1 << flag_bit_index)) != 0
+    }
+
+    fn get_rip(&self) -> usize {
+        self.reg_view(&RegView::rip()).read(&self)
+    }
+
+    //#[bitmatch]
+    fn decode(&self, rip: u64) -> InstrInfo {
+        // Fetch the next opcode
+        let mut instruction_size = 1;
+        let mut instruction_byte = self.ram.read_u8(rip);
+
+        //println!("Got instruction byte 0x{instruction_byte:x}");
+
+        let mut operand_size = AccessType::RX;
+
+        // Look for REX.W prefix
+        if instruction_byte == 0x48 {
+            // Consume the REX.W prefix
+            instruction_byte = self.ram.read_u8(rip + instruction_size);
+            instruction_size += 1;
+            // TODO(PT): Here we can flesh out support for different operand sizes
+            operand_size = AccessType::RX;
+        }
+
+        match instruction_byte {
+            0xff => {
+                // Look in the ModRM byte for the opcode extension
+                let mod_rm_byte = self.ram.read_u8(rip + instruction_size);
+                instruction_size += 1;
+                let opcode_extension = ModRmByte::get_opcode_extension(mod_rm_byte);
+                match opcode_extension {
+                    6 => {
+                        // PUSH r/m[16|32|64]
+                        //println!("Found PUSH r/m");
+                        let reg = ModRmByte::get_reg(mod_rm_byte);
+                        // TODO(PT): Assume 64bit reg size for now, how to determine?
+                        // Check in an assembler
+                        let reg = RegView(reg, AccessType::RX);
+                        println!("[Push {reg:?}]");
+                        self.run_instruction(&Instr::PushFromReg(reg));
+
+                        return InstrInfo::seq(instruction_size as _);
+                    }
+                    _ => panic!("Unhandled opcode sequence: ff /{opcode_extension}"),
+                }
+            }
+            0x89 => {
+                // MOV r/m64,r64
+                let mod_rm_byte = self.ram.read_u8(rip + instruction_size);
+                instruction_size += 1;
+                let (dst, src) = ModRmByte::get_regs(mod_rm_byte);
+
+                println!("[Move {src:?} => {dst:?}]");
+                self.run_instruction(&Instr::MoveRegToReg(MoveRegToReg::new(RegView(src, operand_size), RegView(dst, operand_size))));
+                return InstrInfo::seq(instruction_size as _);
+            }
+            0xc7 => {
+                // Look in the ModRM byte for the opcode extension
+                let mod_rm_byte = self.ram.read_u8(rip + instruction_size);
+                instruction_size += 1;
+                let opcode_extension = ModRmByte::get_opcode_extension(mod_rm_byte);
+                match opcode_extension {
+                    0 => {
+                        // MOV r/m64, imm32
+                        let dest_reg = ModRmByte::get_reg(mod_rm_byte);
+                        // Source value will be little-endian encoded directly following the opcode
+                        let source_value = self.ram.read_u32(rip + instruction_size);
+                        instruction_size += mem::size_of::<u32>() as u64;
+                        println!("[Move {source_value} => {dest_reg:?}]");
+
+                        self.run_instruction(&Instr::MoveImmToReg(MoveImmToReg::new(source_value as _, RegView(dest_reg, operand_size))));
+                        return InstrInfo::seq(instruction_size as _);
+                    }
+                    _ => panic!("Unhandled opcode sequence: c7 /{opcode_extension}"),
+                }
+            }
+            0x8f => {
+                // Look in the ModRM byte for the opcode extension
+                let mod_rm_byte = self.ram.read_u8(rip + instruction_size);
+                instruction_size += 1;
+                let opcode_extension = ModRmByte::get_opcode_extension(mod_rm_byte);
+                match opcode_extension {
+                    0 => {
+                        // POP r/m64
+                        let dest_reg = ModRmByte::get_reg(mod_rm_byte);
+                        println!("[Pop {dest_reg:?}]");
+                        self.run_instruction(&Instr::PopIntoReg(RegView(dest_reg, operand_size)));
+                        return InstrInfo::seq(instruction_size as _);
+                    }
+                    _ => panic!("Unhandled opcode sequence: 8f /{opcode_extension}"),
+                }
+            }
+            0x01 => {
+                // ADD r/m64, r64
+                let mod_rm_byte = self.ram.read_u8(rip + instruction_size);
+                instruction_size += 1;
+                let (augend, addend) = ModRmByte::get_regs(mod_rm_byte);
+                println!("[Add {augend:?}, {addend:?}");
+                self.run_instruction(&Instr::AddRegToReg(AddRegToReg::new(RegView(augend, operand_size), RegView(addend, operand_size))));
+                return InstrInfo::seq(instruction_size as _)
+            }
+            0xc3 => {
+                // RET
+                println!("[Ret]");
+                self.run_instruction(&Instr::Return);
+                let mut instr_info = InstrInfo::seq(instruction_size as _);
+                instr_info.did_return = true;
+                return instr_info;
+            }
+            _ => panic!("Unhandled opcode 0x{instruction_byte:x}"),
+        }
+
+        InstrInfo::seq(1)
+    }
+
+    pub fn step(&self) -> InstrInfo {
+        let rip = self.get_rip();
+        let info = self.decode(rip.try_into().unwrap());
+        if let Some(rip_increment) = info.rip_increment {
+            assert_eq!(
+                info.jumped, false,
+                "Only expect to increment rip here when a jump was not taken"
+            );
+            let rip_reg = self.reg_view(&RegView::rip());
+            rip_reg.write(&self, rip + rip_increment);
+        }
+        info
     }
 
     pub fn load_elf(&self, elf_bytes: &[u8]) {

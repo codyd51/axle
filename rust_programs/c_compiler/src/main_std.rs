@@ -1,8 +1,11 @@
 use std::error;
 use std::io::{self, BufRead, Write};
 use std::rc::Rc;
+use std::env;
+use std::fs;
 
 use linker::{FileLayout, assembly_packer, render_elf};
+use compilation_definitions::instructions::Instr;
 use compilation_definitions::prelude::*;
 
 use crate::codegen::CodeGenerator;
@@ -16,34 +19,72 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     let stdin = io::stdin();
     let mut stdin_iter = stdin.lock().lines();
 
-    loop {
+    //loop {
         print!(">>> ");
         io::stdout().flush();
-        let source = stdin_iter.next().unwrap().unwrap();
+        //let source = stdin_iter.next().unwrap().unwrap();
+        let source = "int main() { return 100 + 122 + 458 + 1; }";
         let mut parser = Parser::new(&source);
         let func = parser.parse_function();
         let codegen = CodeGenerator::new();
         let instrs = codegen.codegen_function(&func);
-        let optimized_instrs = Optimizer::optimize(&instrs);
+        let mut optimized_instrs = Optimizer::optimize(&instrs);
+        optimized_instrs.insert(0, Instr::DirectiveSetCurrentSection(".text".to_string()));
+        let instrs_as_asm = CodeGenerator::render_instructions_to_assembly(&optimized_instrs);
+        println!("Codegen instructions: ");
+        for instr in optimized_instrs.iter() {
+            println!("\t{instr:?}");
+        }
+        println!("Rendered assembly: ");
+        for asm_instr in instrs_as_asm.iter() {
+            println!("\t{asm_instr}");
+        }
+        let mut asm_source = instrs_as_asm.join("\n");
+        // TODO(PT): Newline at end is to deal with a bug in assembler lexer
+        asm_source.push('\n');
+        let layout = Rc::new(FileLayout::new(0x400000));
+        let (labels, equ_expressions, atoms) = assembly_packer::parse(&layout, &asm_source);
+        let elf = render_elf(&layout, labels, equ_expressions, atoms);
+
+        println!("Finshed ELF generation. Size: {}\n", elf.len());
+        let current_dir = env::current_dir().unwrap();
+        let output_file = current_dir.join("output_elf");
+        //fs::write(output_file, elf).unwrap();
+
+        let machine = MachineState::new();
+        machine.load_elf(&elf);
+        //println!("machine {machine:?}");
+        loop {
+            let instr_info = machine.step();
+            if instr_info.did_return {
+                break;
+            }
+            //println!("Ran instruction {instr_info:?}");
+        }
+        println!("rax = {}", machine.reg(Rax).read_u64(&machine));
+
+        /*
         let machine = MachineState::new();
         machine.run_instructions(&optimized_instrs);
-        println!("rax = {}", machine.reg(Rax).read_u64(&machine));
-    }
+        */
+        //}
 
     Ok(())
 }
 
 #[cfg(test)]
 mod test {
-    use crate::simulator::MachineState;
     use alloc::rc::Rc;
     use alloc::vec;
     use core::cell::RefCell;
-    use crate::instructions::{AddRegToReg, Instr, MoveImmToReg, MoveRegToReg, SubRegFromReg, MulRegByReg, DivRegByReg};
+
+    use compilation_definitions::instructions::{AddRegToReg, Instr, MoveImmToReg, MoveRegToReg, SubRegFromReg, MulRegByReg, DivRegByReg};
+    use compilation_definitions::prelude::*;
+
     use crate::codegen::CodeGenerator;
     use crate::parser::{Parser, InfixOperator, Expr};
     use crate::optimizer::Optimizer;
-    use crate::prelude::*;
+    use crate::simulator::MachineState;
 
     // Integration tests
 

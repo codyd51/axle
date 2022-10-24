@@ -238,4 +238,8 @@ impl RegView {
     pub fn eflags() -> Self {
         RegView(Rflags, AccessType::EX)
     }
+    
+    pub fn rip() -> Self {
+        RegView(Rip, AccessType::RX)
+    }
 }
