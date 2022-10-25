@@ -1,4 +1,5 @@
 //#[no_std]
+#![feature(stmt_expr_attributes)]
 
 pub mod prelude;
 

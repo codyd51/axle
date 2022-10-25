@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -241,5 +242,11 @@ impl RegView {
     
     pub fn rip() -> Self {
         RegView(Rip, AccessType::RX)
+    }
+}
+
+impl Display for RegView {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.asm_name()))
     }
 }

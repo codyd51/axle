@@ -33,7 +33,7 @@ pub enum ModRmAddressingMode {
 
 pub struct ModRmByte;
 impl ModRmByte {
-    fn register_index(register: Register) -> usize {
+    pub fn register_index(register: Register) -> usize {
         match register {
             Rax => 0b000,
             Rcx => 0b001,
@@ -47,7 +47,7 @@ impl ModRmByte {
         }
     }
 
-    fn index_to_register(index: u8) -> Register {
+    pub fn index_to_register(index: u8) -> Register {
         match index {
             0b000 => Rax,
             0b001 => Rcx,
