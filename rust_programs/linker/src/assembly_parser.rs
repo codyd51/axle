@@ -9,11 +9,10 @@ use compilation_definitions::asm::{AsmExpr, SymbolExprOperand};
 
 use crate::{
     assembly_lexer::{AssemblyLexer, Token},
-    assembly_packer::{DataSource, Interrupt, Jump, JumpTarget, MoveValueToRegister, PotentialLabelTarget},
+    assembly_packer::{DataSource, InstrDataUnit, Interrupt, Jump, JumpTarget, PotentialLabelTarget},
     print, println,
     symbols::{ConstantData, SymbolData},
 };
-use crate::assembly_packer::{Add, Pop, Push, Ret};
 
 #[derive(Clone)]
 pub struct Label {
@@ -120,6 +119,11 @@ impl AssemblyParser {
     fn register_from_str(&mut self, reg_str: &str) -> RegView {
         match reg_str {
             "rax" => RegView::rax(),
+            "eax" => RegView::eax(),
+            "ax" => RegView::ax(),
+            "ah" => RegView::ah(),
+            "al" => RegView::al(),
+
             "rcx" => RegView::rcx(),
             "rdx" => RegView::rdx(),
             "rbx" => RegView::rbx(),
@@ -417,11 +421,16 @@ impl AssemblyParser {
                         // Make sure this is exactly 4 bytes
                         let mut word_bytes = immediate.to_le_bytes().to_vec();
                         word_bytes.resize(mem::size_of::<u32>(), 0);
+                        // TODO(PT): Rename to Atom?
                         append_data_unit(Rc::new(ConstantData::new(current_section, SymbolData::LiteralData(word_bytes))));
                     }
-                    Instr::MoveImmToReg(MoveImmToReg { imm, dest }) => {
-                        // TODO(PT): Rename to Atom?
-                        append_data_unit(Rc::new(MoveValueToRegister::new(dest, DataSource::Literal(imm))) as Rc<dyn PotentialLabelTarget>);
+                    Instr::MoveImmToReg(_) |
+                    Instr::MoveRegToReg(_) |
+                    Instr::PushFromReg(_) |
+                    Instr::PopIntoReg(_) |
+                    Instr::AddRegToReg(_) |
+                    Instr::Return => {
+                        append_data_unit(Rc::new(InstrDataUnit::new(&statement)));
                     }
                     /*
                     Instr::MoveSymbolToRegister(symbol_name, register) => {
@@ -430,28 +439,11 @@ impl AssemblyParser {
                         );
                     }
                     */
-                    Instr::MoveRegToReg(MoveRegToReg { source, dest }) => {
-                        append_data_unit(
-                            Rc::new(MoveValueToRegister::new(dest, DataSource::RegisterContents(source))) as Rc<dyn PotentialLabelTarget>
-                        );
-                    }
                     Instr::Interrupt(vector) => {
                         append_data_unit(Rc::new(Interrupt::new(vector)));
                     }
                     Instr::JumpToLabel(label_name) => {
                         append_data_unit(Rc::new(Jump::new(JumpTarget::Label(label_name))));
-                    }
-                    Instr::PushFromReg(reg) => {
-                        append_data_unit(Rc::new(Push::new(reg)));
-                    }
-                    Instr::PopIntoReg(reg) => {
-                        append_data_unit(Rc::new(Pop::new(reg)));
-                    }
-                    Instr::AddRegToReg(AddRegToReg { augend, addend }) => {
-                        append_data_unit(Rc::new(Add::new(augend, addend)));
-                    }
-                    Instr::Return => {
-                        append_data_unit(Rc::new(Ret::new()));
                     }
                     Instr::DirectiveDeclareGlobalSymbol(symbol_name) => {
                         todo!()

@@ -8,6 +8,7 @@ use core::{
 #[cfg(feature = "run_in_axle")]
 use axle_rt::println;
 use compilation_definitions::encoding::{ModRmAddressingMode, ModRmByte, RexPrefix};
+use compilation_definitions::instructions::Instr;
 #[cfg(not(feature = "run_in_axle"))]
 use std::{print, println};
 
@@ -36,66 +37,34 @@ pub fn next_atom_id() -> PotentialLabelTargetId {
     }
 }
 
-pub struct MoveValueToRegister {
+pub struct InstrDataUnit {
     id: PotentialLabelTargetId,
-    dest_register: RegView,
-    source: DataSource,
+    instr: Instr,
 }
 
-impl MoveValueToRegister {
-    pub fn new(dest_register: RegView, source: DataSource) -> Self {
+impl InstrDataUnit {
+    pub fn new(instr: &Instr) -> Self {
         Self {
             id: next_atom_id(),
-            dest_register,
-            source,
+            instr: instr.clone(),
         }
     }
 }
 
-impl Instruction for MoveValueToRegister {
+impl Instruction for InstrDataUnit {
     // TODO(PT): Update this to handle different register view sizes
-    fn render(&self, layout: &FileLayout) -> Vec<u8> {
-        // REX prefix
-        let mut out = vec![RexPrefix::for_64bit_operand()];
-
-        if let DataSource::RegisterContents(register_name) = self.source {
-            // MOV <reg>, <reg> opcode
-            out.push(0x89);
-            out.push(ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.dest_register.0, Some(register_name.0)));
-        } else {
-            let value: u32 = match &self.source {
-                DataSource::Literal(value) => *value as _,
-                DataSource::NamedDataSymbol(symbol_name) => {
-                    (match layout.symbol_type(symbol_name) {
-                        SymbolEntryType::SymbolWithBackingData => layout.address_of_label_name(symbol_name),
-                        SymbolEntryType::SymbolWithInlinedValue => layout.value_of_symbol(symbol_name),
-                    }) as _
-                }
-                _ => panic!("Unexpected"),
-            };
-            // MOV r/m64, imm32
-            out.push(0xc7);
-            // Destination register
-            out.push(ModRmByte::with_opcode_extension(ModRmAddressingMode::RegisterDirect, 0, self.dest_register));
-            // Source value
-            let mut value_bytes = value.to_le_bytes().to_owned().to_vec();
-            out.append(&mut value_bytes);
-        }
-
-        out
+    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
+        self.instr.assemble()
     }
 }
 
-impl PotentialLabelTarget for MoveValueToRegister {
+impl PotentialLabelTarget for InstrDataUnit {
     fn container_section(&self) -> BinarySection {
         BinarySection::Text
     }
 
     fn len(&self) -> usize {
-        match self.source {
-            DataSource::RegisterContents(_) => 3,
-            DataSource::Literal(_) | DataSource::NamedDataSymbol(_) => 7,
-        }
+        self.instr.assembled_len()
     }
 
     fn render(&self, layout: &FileLayout) -> Vec<u8> {
@@ -107,9 +76,9 @@ impl PotentialLabelTarget for MoveValueToRegister {
     }
 }
 
-impl Display for MoveValueToRegister {
+impl Display for InstrDataUnit {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_fmt(format_args!("mov {:?}, {:?}", self.dest_register, self.source))
+        f.write_fmt(format_args!("InstrDataUnit({:?})", self.instr))
     }
 }
 
@@ -217,182 +186,6 @@ impl PotentialLabelTarget for Jump {
 impl Display for Jump {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_fmt(format_args!("jmp {:?}", self.target))
-    }
-}
-
-pub struct Push {
-    id: PotentialLabelTargetId,
-    reg: RegView,
-}
-
-impl Push {
-    pub fn new(reg: RegView) -> Self {
-        Self { id: next_atom_id(), reg }
-    }
-}
-
-impl Instruction for Push {
-    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
-        vec![
-            0xff,
-            ModRmByte::with_opcode_extension(ModRmAddressingMode::RegisterDirect, 6, self.reg),
-        ]
-    }
-}
-
-impl PotentialLabelTarget for Push {
-    fn container_section(&self) -> BinarySection {
-        BinarySection::Text
-    }
-
-    fn id(&self) -> PotentialLabelTargetId {
-        self.id
-    }
-
-    fn len(&self) -> usize {
-        2
-    }
-
-    fn render(&self, layout: &FileLayout) -> Vec<u8> {
-        Instruction::render(self, layout)
-    }
-}
-
-impl Display for Push {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_fmt(format_args!("push {:?}", self.reg))
-    }
-}
-
-pub struct Pop {
-    id: PotentialLabelTargetId,
-    dest_reg: RegView,
-}
-
-impl Pop {
-    pub fn new(dest_reg: RegView) -> Self {
-        Self { id: next_atom_id(), dest_reg }
-    }
-}
-
-impl Instruction for Pop {
-    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
-        vec![
-            0x8f,
-            ModRmByte::with_opcode_extension(ModRmAddressingMode::RegisterDirect, 0, self.dest_reg),
-        ]
-    }
-}
-
-impl PotentialLabelTarget for Pop {
-    fn container_section(&self) -> BinarySection {
-        BinarySection::Text
-    }
-
-    fn id(&self) -> PotentialLabelTargetId {
-        self.id
-    }
-
-    fn len(&self) -> usize {
-        2
-    }
-
-    fn render(&self, layout: &FileLayout) -> Vec<u8> {
-        Instruction::render(self, layout)
-    }
-}
-
-impl Display for Pop {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_fmt(format_args!("pop {:?}", self.dest_reg))
-    }
-}
-
-pub struct Add {
-    id: PotentialLabelTargetId,
-    augend: RegView,
-    addend: RegView,
-}
-
-impl Add {
-    pub fn new(augend: RegView, addend: RegView) -> Self {
-        Self { id: next_atom_id(), augend, addend }
-    }
-}
-
-impl Instruction for Add {
-    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
-        vec![
-            RexPrefix::for_64bit_operand(),
-            0x01,
-            ModRmByte::from(ModRmAddressingMode::RegisterDirect, self.augend.0, Some(self.addend.0)),
-        ]
-    }
-}
-
-impl PotentialLabelTarget for Add {
-    fn container_section(&self) -> BinarySection {
-        BinarySection::Text
-    }
-
-    fn id(&self) -> PotentialLabelTargetId {
-        self.id
-    }
-
-    fn len(&self) -> usize {
-        3
-    }
-
-    fn render(&self, layout: &FileLayout) -> Vec<u8> {
-        Instruction::render(self, layout)
-    }
-}
-
-impl Display for Add {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_fmt(format_args!("add {:?}, {:?}", self.augend, self.addend))
-    }
-}
-
-pub struct Ret {
-    id: PotentialLabelTargetId,
-}
-
-impl Ret {
-    pub fn new() -> Self {
-        Self { id: next_atom_id() }
-    }
-}
-
-impl Instruction for Ret {
-    fn render(&self, _layout: &FileLayout) -> Vec<u8> {
-        vec![
-            0xc3,
-        ]
-    }
-}
-
-impl PotentialLabelTarget for Ret {
-    fn container_section(&self) -> BinarySection {
-        BinarySection::Text
-    }
-
-    fn id(&self) -> PotentialLabelTargetId {
-        self.id
-    }
-
-    fn len(&self) -> usize {
-        1
-    }
-
-    fn render(&self, layout: &FileLayout) -> Vec<u8> {
-        Instruction::render(self, layout)
-    }
-}
-
-impl Display for Ret {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_fmt(format_args!("ret"))
     }
 }
 
