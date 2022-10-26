@@ -13,6 +13,7 @@ use crate::{
     print, println,
     symbols::{ConstantData, SymbolData},
 };
+use crate::assembly_packer::MetaInstrJumpToLabelIfEqual;
 
 #[derive(Clone, Debug)]
 pub struct Label {
@@ -397,18 +398,28 @@ impl AssemblyParser {
         let mut equ_expressions = vec![];
 
         let mut current_section = BinarySection::Text;
-        let maybe_current_label: RefCell<Option<Label>> = RefCell::new(None);
+
+        // Multiple labels can be attached to the same statement, so we need to keep
+        // state of a list of labels that are waiting to be attached to the next statement we see
+        let labels_awaiting_atom: RefCell<Vec<Label>> = RefCell::new(vec![]);
+        //let maybe_current_label: RefCell<Option<Label>> = RefCell::new(None);
         let previous_atom: RefCell<Option<Rc<dyn PotentialLabelTarget>>> = RefCell::new(None);
 
         let mut append_data_unit = |data_unit| {
-            let mut maybe_current_label = maybe_current_label.borrow_mut();
-            if let Some(current_label) = &*maybe_current_label {
-                current_label.set_data_unit(&data_unit);
-                labels.push(current_label.clone());
-                *maybe_current_label = None;
+            // If we're waiting for an atom so we can assign labels to it, do so now
+            let mut labels_awaiting_atom = labels_awaiting_atom.borrow_mut();
+            if labels_awaiting_atom.len() > 0 {
+                for label in labels_awaiting_atom.iter() {
+                    label.set_data_unit(&data_unit);
+                    labels.push(label.clone());
+                }
+                labels_awaiting_atom.drain(..);
             }
+
+            // Keep note that this is the last atom we saw
             let mut maybe_previous_atom = previous_atom.borrow_mut();
             *maybe_previous_atom = Some(Rc::clone(&data_unit));
+
             data_units.push(data_unit);
         };
         loop {
@@ -422,7 +433,7 @@ impl AssemblyParser {
                         };
                     }
                     Instr::DirectiveDeclareLabel(name) => {
-                        *maybe_current_label.borrow_mut() = Some(Label::new(current_section, &name));
+                        labels_awaiting_atom.borrow_mut().push(Label::new(current_section, &name))
                     }
                     Instr::DirectiveEmbedAscii(text) => {
                         append_data_unit(Rc::new(ConstantData::new(
@@ -482,10 +493,10 @@ impl AssemblyParser {
                         todo!()
                     }
                     Instr::JumpToLabelIfEqual(label) => {
-                        todo!()
-                    }
-                    Instr::CompareImmWithReg(CompareImmWithReg { imm, reg }) => {
-                        todo!()
+                        append_data_unit(
+                            //Rc::new(MetaInstrJumpToLabelIfEqual::new(DataSource::NamedDataSymbol(label.clone())) as Rc<dyn PotentialLabelTarget>)
+                            Rc::new(MetaInstrJumpToLabelIfEqual::new(JumpTarget::Label(label))) as Rc<dyn PotentialLabelTarget>
+                        );
                     }
                 }
             } else {
@@ -520,5 +531,33 @@ pub struct PotentialLabelTargets(pub Vec<Rc<dyn PotentialLabelTarget>>);
 impl Display for PotentialLabelTargets {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         self.0.iter().fold(Ok(()), |result, atom| result.and_then(|_| writeln!(f, "{}", atom)))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use compilation_definitions::instructions::{CompareImmWithReg, Instr};
+    use compilation_definitions::prelude::*;
+    use crate::assembly_parser::AssemblyParser;
+    use crate::assembly_parser::AssemblyLexer;
+
+    #[test]
+    fn test_cmp() {
+        let mut parser = AssemblyParser::new(AssemblyLexer::new("cmp $0x0, %eax\n"));
+        assert_eq!(parser.parse_statement(), Some(Instr::CompareImmWithReg(CompareImmWithReg::new(0, RegView::eax()))))
+    }
+
+    #[test]
+    fn test_contiguous_labels() {
+        // Given two labels attached to the same data unit
+        let source = "label1:\
+        label2:\
+        mov %eax, %eax\n";
+        // When I parse the source
+        let mut parser = AssemblyParser::new(AssemblyLexer::new(source));
+        let (labels, _, _) = parser.parse();
+        // Then both labels are correctly parsed
+        let label_names: Vec<String> = labels.0.iter().map(|l| l.name.clone()).collect();
+        assert_eq!(label_names, vec!["label1", "label2"])
     }
 }
