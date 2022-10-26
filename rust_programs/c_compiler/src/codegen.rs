@@ -93,7 +93,7 @@ impl CodeGenerator {
                 // Codegen the test
                 statement_instrs.append(&mut self.codegen_expression(test));
                 // Check if the test failed
-                statement_instrs.push(Instr::CompareImmWithReg(CompareImmWithReg::new(0, RegView::rax())));
+                statement_instrs.push(Instr::CompareImmWithReg(CompareImmWithReg::new(0, RegView::eax())));
                 // Jump if the test failed
                 // Destination for when the test fails
                 let test_failed_label = self.generate_label_with_context("if_test_failed");
@@ -112,75 +112,6 @@ impl CodeGenerator {
                 statement_instrs.push(Instr::DirectiveDeclareLabel(post_conditional_label));
             }
             _ => todo!(),
-        }
-        statement_instrs
-    }
-
-    // TODO(PT): To drop
-    fn render_statement_to_instructions(statement: &Statement) -> Vec<Instr> {
-        let next_free_stack_slot = -(mem::size_of::<u64>() as isize);
-        let mut statement_instrs = vec![];
-        match statement {
-            Statement::Return(ReturnStatement { return_expr }) => {
-                /*
-                if let Token::Int(imm) = return_expr {
-                    // Move the immediate return value into rax
-                    statement_instrs.push(Instruction::MoveImmToReg(MoveImmToReg::new(*imm, Rax)));
-                    // Restore the caller's frame pointer
-                    statement_instrs.push(Instruction::PopIntoReg32(Rbp));
-                    // Return to caller
-                    statement_instrs.push(Instruction::Return8);
-                }
-                else {
-                    todo!("Unhandled return type");
-                }
-                */
-                //statement_instrs.append(&mut Self::render_expression_to_instructions(return_expr));
-                //statement_instrs.append(&mut Self::render_expression_to_instructions(return_expr));
-                // Restore the caller's frame pointer
-                statement_instrs.push(Instr::PopIntoReg(RegView::rbp()));
-                // Return to caller
-                statement_instrs.push(Instr::Return);
-            }
-            Statement::If(if_statement) => {
-                // Render the binary expression operands
-                match &if_statement.test {
-                    Expr::TestExpr(lhs, rhs) => {
-                        //
-                    }
-                    _ => panic!("Unrecognized expression within an if"),
-                };
-                // Left operand
-                /*
-
-                if let Token::Int(val) = binary_expr.left {
-                    statement_instrs.push(Instruction::MoveImm8ToReg8MemOffset(MoveImm8ToReg8MemOffset::new(val, next_free_stack_slot, Rbp)));
-                    next_free_stack_slot -= mem::size_of::<u64>() as isize;
-                }
-                else {
-                    todo!();
-                }
-
-                // Left operand
-                if let Token::Int(val) = binary_expr.right {
-                    statement_instrs.push(Instruction::MoveImm8ToReg8MemOffset(MoveImm8ToReg8MemOffset::new(val, next_free_stack_slot, Rbp)));
-                    next_free_stack_slot -= mem::size_of::<u64>() as isize;
-                }
-                else {
-                    todo!();
-                }
-
-                // Comparator
-                match binary_expr.operator {
-                    BinaryOperator::Equals => todo!(),
-                    BinaryOperator::DoesNotEqual => todo!(),
-                }
-                 */
-                todo!()
-            }
-            Statement::Block(block_statement) => {
-                todo!();
-            }
         }
         statement_instrs
     }
@@ -279,35 +210,6 @@ impl CodeGenerator {
         func_instrs
     }
 
-    // TODO(PT): Drop
-    fn render_function_to_instructions(function: &Function) -> Vec<Instr> {
-        let mut func_instrs = vec![];
-        // Mangle the function name with a leading underscore
-        let mangled_function_name = format!("_{}", function.name);
-        // Export the function label
-        func_instrs.push(Instr::DirectiveDeclareGlobalSymbol(
-            mangled_function_name.clone(),
-        ));
-        // Declare a label denoting the start of the function
-        func_instrs.push(Instr::DirectiveDeclareLabel(mangled_function_name));
-        // Save the caller's frame pointer
-        func_instrs.push(Instr::PushFromReg(RegView::rbp()));
-        // Set up a new stack frame by storing the starting/base stack pointer in the base pointer
-        func_instrs.push(Instr::MoveRegToReg(MoveRegToReg::new(
-            RegView::rsp(),
-            RegView::rbp(),
-        )));
-
-        // Visit each statement in the function
-        for statement in function.body.statements.iter() {
-            println!("Visting statement {statement:?}");
-            let mut statement_instrs = Self::render_statement_to_instructions(&statement);
-            func_instrs.append(&mut statement_instrs);
-        }
-
-        func_instrs
-    }
-
     pub fn render_instructions_to_assembly(instructions: &Vec<Instr>) -> Vec<String> {
         let mut assembly = vec![];
         for instr in instructions.iter() {
@@ -319,28 +221,6 @@ impl CodeGenerator {
     pub fn generate(&self) -> Vec<String> {
         todo!()
     }
-
-    /*
-    pub fn generate(&self) -> Vec<String> {
-        let func = &self.function;
-        let func_instrs = Self::render_function_to_instructions(func);
-        println!("{:?} {}() {{", func.return_type, func.name);
-        for instr in func_instrs.iter() {
-            println!("\t{instr:?}");
-        }
-        println!("}}");
-
-        println!("Rendered to assembly\n\n");
-
-        let rendered_instrs = Self::render_instructions_to_assembly(func_instrs);
-        println!("{:?} {}() {{", func.return_type, func.name);
-        for instr in rendered_instrs.iter() {
-            println!("\t{instr}");
-        }
-        println!("}}");
-        rendered_instrs
-    }
-    */
 }
 
 #[cfg(test)]
