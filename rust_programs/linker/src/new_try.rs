@@ -781,7 +781,7 @@ impl MainContentsPacker {
         for atom in self.main_contents.atoms.0.iter() {
             let mut rendered_atom = atom.render(layout);
             // Sanity check
-            assert_eq!(rendered_atom.len(), atom.len(), "Rendered atom was a different length from what it claimed");
+            assert_eq!(rendered_atom.len(), atom.len(), "Rendered atom was a different length from what it claimed: {atom}");
             out.append(&mut rendered_atom)
         }
         out

@@ -1,8 +1,9 @@
 use std::rc::Rc;
 use std::{env, error, fs, io};
 
-use crate::new_try::FileLayout;
-use crate::{assembly_packer, new_try::render_elf};
+use linker::new_try::FileLayout;
+use linker::new_try::render_elf;
+use linker::assembly_packer;
 
 pub fn main() -> Result<(), Box<dyn error::Error>> {
     println!("Running with std");

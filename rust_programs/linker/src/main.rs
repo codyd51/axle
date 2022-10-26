@@ -13,13 +13,15 @@ pub use axle_rt::{print, println};
 #[cfg(not(feature = "run_in_axle"))]
 pub use std::{print, println};
 
-mod assembly_lexer;
+/*
+use assembly_lexer;
 mod assembly_packer;
 mod assembly_parser;
 mod new_try;
 mod records;
 mod symbols;
 mod lib;
+*/
 
 #[cfg(feature = "run_in_axle")]
 mod main_axle;

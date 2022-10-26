@@ -16,7 +16,7 @@ pub use std::{print, println};
 mod assembly_lexer;
 pub mod assembly_packer;
 mod assembly_parser;
-mod new_try;
+pub mod new_try;
 mod records;
 mod symbols;
 

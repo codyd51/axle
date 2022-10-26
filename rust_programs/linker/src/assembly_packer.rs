@@ -37,6 +37,7 @@ pub fn next_atom_id() -> PotentialLabelTargetId {
     }
 }
 
+#[derive(Debug)]
 pub struct InstrDataUnit {
     id: PotentialLabelTargetId,
     instr: Instr,
@@ -82,6 +83,7 @@ impl Display for InstrDataUnit {
     }
 }
 
+#[derive(Debug)]
 pub struct Interrupt {
     id: PotentialLabelTargetId,
     vector: u8,
@@ -133,6 +135,7 @@ pub enum JumpTarget {
     Label(String),
 }
 
+#[derive(Debug)]
 pub struct Jump {
     id: PotentialLabelTargetId,
     target: JumpTarget,
@@ -189,6 +192,53 @@ impl Display for Jump {
     }
 }
 
+#[derive(Debug)]
+pub struct MetaInstrJumpToLabelIfEqual {
+    id: PotentialLabelTargetId,
+    target: JumpTarget,
+}
+
+impl MetaInstrJumpToLabelIfEqual {
+    pub fn new(target: JumpTarget) -> Self {
+        Self { id: next_atom_id(), target }
+    }
+}
+
+// TODO(PT): Replace this abstraction with a pass that iterates all the instructions and
+// replaces 'meta instructions' like JumpToLabel with concrete instructions
+impl Instruction for MetaInstrJumpToLabelIfEqual {
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        let JumpTarget::Label(label_name) = &self.target;
+        let distance_to_target = layout.distance_between_atom_id_and_label_name(PotentialLabelTarget::id(self), label_name) - (self.len() as isize);
+        let distance_to_target: i32 = distance_to_target.try_into().unwrap();
+        Instr::JumpToRelOffIfEqual(distance_to_target as isize).assemble()
+    }
+}
+
+impl PotentialLabelTarget for MetaInstrJumpToLabelIfEqual {
+    fn container_section(&self) -> BinarySection {
+        BinarySection::Text
+    }
+
+    fn id(&self) -> PotentialLabelTargetId {
+        self.id
+    }
+
+    fn len(&self) -> usize {
+        Instr::JumpToRelOffIfEqual(0).assembled_len()
+    }
+
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        Instruction::render(self, layout)
+    }
+}
+
+impl Display for MetaInstrJumpToLabelIfEqual {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("je {:?}", self.target))
+    }
+}
+
 #[derive(Debug, PartialEq, Copy, Clone, Eq, PartialOrd, Ord)]
 pub struct PotentialLabelTargetId(pub usize);
 
@@ -199,7 +249,7 @@ impl Display for PotentialLabelTargetId {
 }
 
 // An instruction, piece of constant data, or expression
-pub trait PotentialLabelTarget: Display {
+pub trait PotentialLabelTarget: Display + Debug {
     fn container_section(&self) -> BinarySection;
     fn len(&self) -> usize;
     fn id(&self) -> PotentialLabelTargetId;
