@@ -67,6 +67,10 @@ pub enum Instr {
     DirectiveEmbedU32(u32),
     DirectiveEqu(String, AsmExpr),
 
+    // Meta instructions that will be replaced by the assembler
+    JumpToLabel(String),
+    JumpToLabelIfEqual(String),
+
     // Instructions
     Return,
     PushFromReg(RegView),
@@ -79,8 +83,7 @@ pub enum Instr {
     SubRegFromReg(SubRegFromReg),
     MulRegByReg(MulRegByReg),
     DivRegByReg(DivRegByReg),
-    JumpToLabel(String),
-    JumpToLabelIfEqual(String),
+    JumpToRelOffIfEqual(isize),
     CompareImmWithReg(CompareImmWithReg),
     Interrupt(u8),
 
@@ -110,6 +113,18 @@ impl Instr {
             }
             Instr::DirectiveSetCurrentSection(section_name) => {
                 format!(".section {section_name}")
+            }
+            Instr::CompareImmWithReg(CompareImmWithReg { imm, reg }) => {
+                format!("cmp $0x{imm:x}, %{reg}")
+            }
+            Instr::JumpToLabelIfEqual(label) => {
+                format!("je {label}")
+            }
+            Instr::JumpToLabel(label) => {
+                format!("jmp {label}")
+            }
+            Instr::JumpToRelOffIfEqual(rel_off) => {
+                format!("je {rel_off}")
             }
             _ => todo!("Instr.render() {self:?}"),
         }
@@ -175,7 +190,28 @@ impl Instr {
                     0xc3,
                 ]
             }
-            _ => todo!(),
+            Instr::CompareImmWithReg(CompareImmWithReg { imm, reg }) => {
+                // CMP r/m64, imm32
+                assert!(*imm < (u32::MAX as usize), "Comparing an immediate > u32_max not yet implemented");
+                assert_eq!(reg.1, AccessType::EX, "Only support EX for now");
+                let mut out = vec![
+                    0x81,
+                    ModRmByte::with_opcode_extension(ModRmAddressingMode::RegisterDirect, 7, *reg),
+                ];
+                let mut imm_bytes = (*imm as u32).to_le_bytes().to_vec();
+                out.append(&mut imm_bytes);
+                out
+            }
+            Instr::JumpToRelOffIfEqual(rel_off) => {
+                let mut out = vec![
+                    0x0f,
+                    0x84,
+                ];
+                let mut distance_bytes = (*rel_off as u32).to_le_bytes().to_vec();
+                out.append(&mut distance_bytes);
+                out
+            }
+            _ => todo!("{self:?}"),
         }
     }
 
@@ -193,7 +229,10 @@ impl Instr {
             },
             Instr::AddRegToReg(_) => 3,
             Instr::Return => 1,
-            _ => todo!(),
+            Instr::JumpToLabelIfEqual(_) => 6,
+            Instr::CompareImmWithReg(_) => 6,
+            Instr::JumpToRelOffIfEqual(_) => 6,
+            _ => todo!("assembled_len() unknown for {self:?}"),
         }
     }
 }
@@ -243,6 +282,16 @@ impl<'a> InstrDisassembler<'a> {
         u32::from_le_bytes(as_array)
     }
 
+    fn get_i32(&mut self) -> i32 {
+        // Little-endian encoded directly at the cursor
+        let mut bytes = vec![];
+        for _ in 0..mem::size_of::<i32>() {
+            bytes.push(self.get_byte());
+        }
+        let as_array: [u8; mem::size_of::<i32>()] = bytes.try_into().unwrap();
+        i32::from_le_bytes(as_array)
+    }
+
     fn get_modrm_opcode_and_reg(&mut self) -> (u8, RegView) {
         let mod_rm_byte = self.get_byte();
         let opcode_extension = ModRmByte::get_opcode_extension(mod_rm_byte);
@@ -264,6 +313,10 @@ impl<'a> InstrDisassembler<'a> {
         InstrInfo::jump(instr, self.cursor)
     }
 
+    fn yield_cond_jump_instr(&self, instr: Instr) -> InstrInfo {
+        InstrInfo::cond_jump(instr, self.cursor)
+    }
+
     #[bitmatch]
     pub fn disassemble(&mut self) -> InstrInfo {
         let mut instr_byte = self.get_byte();
@@ -282,6 +335,29 @@ impl<'a> InstrDisassembler<'a> {
                 // ADD r/m64, r64
                 let (augend, addend) = self.get_modrm_regs();
                 Some(self.yield_seq_instr(Instr::AddRegToReg(AddRegToReg::new(augend, addend))))
+            }
+            0x0f => {
+                let next_byte = self.get_byte();
+                match next_byte {
+                    0x84 => {
+                        // JE rel32
+                        let rel_off = self.get_i32();
+                        Some(self.yield_cond_jump_instr(Instr::JumpToRelOffIfEqual(rel_off as isize)))
+                    }
+                    _ => panic!("Unhandled opcode sequence: 0f /{next_byte}"),
+                }
+            }
+            0x81 => {
+                let (opcode_extension, reg) = self.get_modrm_opcode_and_reg();
+                match opcode_extension {
+                    7 => {
+                        // CMP r/m32, imm32
+                        assert_eq!(self.operand_size, AccessType::EX, "Other access sizes for cmp aren't yet supported");
+                        let imm = self.get_u32();
+                        Some(self.yield_seq_instr(Instr::CompareImmWithReg(CompareImmWithReg::new(imm as usize, reg))))
+                    }
+                    _ => panic!("Unhandled opcode sequence: 81 /{opcode_extension}"),
+                }
             }
             0x89 => {
                 // MOV r/m64,r64
@@ -357,12 +433,19 @@ impl<'a> InstrDisassembler<'a> {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub enum InstrContinuation {
+    Seq,
+    Jump,
+    CondJump,
+}
+
 #[derive(Debug)]
 pub struct InstrInfo {
     pub instr: Instr,
     pub instr_size: usize,
     pub rip_increment: Option<usize>,
-    pub jumped: bool,
+    pub continuation: InstrContinuation,
 }
 
 impl InstrInfo {
@@ -371,7 +454,7 @@ impl InstrInfo {
             instr,
             instr_size,
             rip_increment: Some(instr_size),
-            jumped: false,
+            continuation: InstrContinuation::Seq,
         }
     }
 
@@ -381,7 +464,16 @@ impl InstrInfo {
             instr_size,
             // Don't increment pc because the instruction will modify pc directly
             rip_increment: None,
-            jumped: true,
+            continuation: InstrContinuation::Jump,
+        }
+    }
+
+    fn cond_jump(instr: Instr, instr_size: usize) -> Self {
+        Self {
+            instr,
+            instr_size,
+            rip_increment: Some(instr_size),
+            continuation: InstrContinuation::CondJump,
         }
     }
 }
@@ -389,7 +481,7 @@ impl InstrInfo {
 mod test {
     use assert_hex::assert_eq_hex;
 
-    use crate::instructions::{AddRegToReg, Instr, InstrBytecodeProvider, InstrDisassembler, MoveImmToReg, MoveRegToReg};
+    use crate::instructions::{AddRegToReg, CompareImmWithReg, Instr, InstrBytecodeProvider, InstrDisassembler, MoveImmToReg, MoveRegToReg};
     use crate::prelude::RegView;
 
     impl InstrBytecodeProvider for Vec<u8> {
@@ -463,6 +555,20 @@ mod test {
     fn test_return() {
         validate_assembly_and_disassembly(vec![
             (Instr::Return, vec![0xc3]),
+        ]);
+    }
+
+    #[test]
+    fn test_cmp() {
+        validate_assembly_and_disassembly(vec![
+            (Instr::CompareImmWithReg(CompareImmWithReg::new(0xdeadbeef, RegView::eax())), vec![0x81, 0xf8, 0xef, 0xbe, 0xad, 0xde]),
+        ]);
+    }
+
+    #[test]
+    fn test_je() {
+        validate_assembly_and_disassembly(vec![
+            (Instr::JumpToRelOffIfEqual(12), vec![0x0f, 0x84, 0x0c, 0x00, 0x00, 0x00]),
         ]);
     }
 }
