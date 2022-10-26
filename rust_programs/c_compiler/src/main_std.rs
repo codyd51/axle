@@ -87,8 +87,9 @@ mod test {
     use alloc::vec;
     use core::cell::RefCell;
 
-    use compilation_definitions::instructions::{AddRegToReg, Instr, MoveImmToReg, MoveRegToReg, SubRegFromReg, MulRegByReg, DivRegByReg};
+    use compilation_definitions::instructions::{AddRegToReg, Instr, MoveImmToReg, MoveRegToReg, SubRegFromReg, MulRegByReg, DivRegByReg, CompareImmWithReg};
     use compilation_definitions::prelude::*;
+    use linker::{FileLayout, assembly_packer, render_elf};
 
     use crate::codegen::CodeGenerator;
     use crate::parser::{Parser, InfixOperator, Expr};
@@ -103,8 +104,25 @@ mod test {
         let codegen = CodeGenerator::new();
         let instrs = codegen.codegen_function(&func);
         let optimized_instrs = Optimizer::optimize(&instrs);
+        let instrs_as_asm = CodeGenerator::render_instructions_to_assembly(&optimized_instrs);
+        let mut asm_source = instrs_as_asm.join("\n");
+        // TODO(PT): Newline at end is to deal with a bug in assembler lexer
+        asm_source.push('\n');
+
+        // Assemble into an ELF
+        let layout = Rc::new(FileLayout::new(0x400000));
+        let (labels, equ_expressions, atoms) = assembly_packer::parse(&layout, &asm_source);
+        let elf = render_elf(&layout, labels, equ_expressions, atoms);
+
+        // Simulate ELF execution
         let machine = MachineState::new();
-        machine.run_instructions(&optimized_instrs);
+        machine.load_elf(&elf);
+        loop {
+            let instr_info = machine.step();
+            if let Instr::Return = instr_info.instr {
+                break;
+            }
+        }
         (optimized_instrs, machine)
     }
 
@@ -229,29 +247,37 @@ mod test {
             instrs,
             vec![
                 // Declare the symbol
-                Instr::DirectiveDeclareGlobalSymbol("_foo".into()),
+                Instr::DirectiveDeclareGlobalSymbol("_foo".to_string()),
                 // Function entry point
-                Instr::DirectiveDeclareLabel("_foo".into()),
+                Instr::DirectiveDeclareLabel("_foo".to_string()),
                 // Set up stack frame
                 Instr::PushFromReg(RegView::rbp()),
                 Instr::MoveRegToReg(MoveRegToReg::new(RegView::rsp(), RegView::rbp())),
-                // Compute subtraction
-                Instr::MoveImmToReg(MoveImmToReg::new(100, RegView::rax())),
-                Instr::PushFromReg(RegView::rax()),
-                Instr::MoveImmToReg(MoveImmToReg::new(66, RegView::rax())),
-                Instr::PushFromReg(RegView::rax()),
-                Instr::PopIntoReg(RegView::rbx()),
-                Instr::PopIntoReg(RegView::rax()),
-                Instr::SubRegFromReg(SubRegFromReg::new(RegView::rax(), RegView::rbx())),
-                // Clean up stack frame and return
+                // If test
+                Instr::MoveImmToReg(MoveImmToReg::new(1, RegView::rax())),
+                Instr::CompareImmWithReg(CompareImmWithReg::new(0, RegView::eax())),
+                // Conditional jump past consequent
+                Instr::JumpToLabelIfEqual("_L0_if_test_failed".to_string()),
+                // Consequent
+                // Return 3
+                Instr::MoveImmToReg(MoveImmToReg::new(3, RegView::rax())),
                 Instr::PopIntoReg(RegView::rbp()),
-                Instr::Return
+                Instr::Return,
+                // Jump past alternate
+                Instr::JumpToLabel("_L1_if_statement_finished".to_string()),
+                // Alternate
+                Instr::DirectiveDeclareLabel("_L0_if_test_failed".to_string()),
+                Instr::DirectiveDeclareLabel("_L1_if_statement_finished".to_string()),
+                // Return 5
+                Instr::MoveImmToReg(MoveImmToReg::new(5, RegView::rax())),
+                Instr::PopIntoReg(RegView::rbp()),
+                Instr::Return,
             ]
         );
 
         // And when I emulate the instructions
         // Then rax contains the correct value
-        assert_eq!(machine.reg(Rax).read_u32(&machine), 34);
+        assert_eq!(machine.reg(Rax).read_u32(&machine), 3);
     }
 
 }
