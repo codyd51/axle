@@ -5,7 +5,7 @@ use std::env;
 use std::fs;
 
 use linker::{FileLayout, assembly_packer, render_elf};
-use compilation_definitions::instructions::Instr;
+use compilation_definitions::instructions::{Instr, MoveImmToReg, MoveRegToReg, AddRegToReg, CompareImmWithReg};
 use compilation_definitions::prelude::*;
 
 use crate::codegen::CodeGenerator;
@@ -14,60 +14,69 @@ use crate::parser::Parser;
 use crate::simulator::MachineState;
 
 pub fn main() -> Result<(), Box<dyn error::Error>> {
-    println!("Starting REPL...");
+    let source = "int main() { \
+    if (3) {
+        return 5;
+    }
+    return 10;
+    }";
 
-    let stdin = io::stdin();
-    let mut stdin_iter = stdin.lock().lines();
+    // Parse the source code to an AST
+    println!("Parsing source code...");
+    let mut parser = Parser::new(&source);
+    let func = parser.parse_function();
 
-    //loop {
-        print!(">>> ");
-        io::stdout().flush();
-        //let source = stdin_iter.next().unwrap().unwrap();
-        let source = "int main() { return 100 + 122 + 458 + 1; }";
-        let mut parser = Parser::new(&source);
-        let func = parser.parse_function();
-        let codegen = CodeGenerator::new();
-        let instrs = codegen.codegen_function(&func);
-        let mut optimized_instrs = Optimizer::optimize(&instrs);
-        optimized_instrs.insert(0, Instr::DirectiveSetCurrentSection(".text".to_string()));
-        let instrs_as_asm = CodeGenerator::render_instructions_to_assembly(&optimized_instrs);
-        println!("Codegen instructions: ");
-        for instr in optimized_instrs.iter() {
-            println!("\t{instr:?}");
+    // Generate IR
+    println!("Generating IR...");
+    let codegen = CodeGenerator::new();
+    let instrs = codegen.codegen_function(&func);
+
+    // Optimize IR
+    println!("Optimizing IR...");
+    let mut optimized_instrs = Optimizer::optimize(&instrs);
+    optimized_instrs.insert(0, Instr::DirectiveSetCurrentSection(".text".to_string()));
+    println!("Codegen instructions: ");
+    for instr in optimized_instrs.iter() {
+        println!("\t{instr:?}");
+    }
+
+    // Render IR to assembly
+    println!("Rendering IR to assembly...");
+    let instrs_as_asm = CodeGenerator::render_instructions_to_assembly(&optimized_instrs);
+    println!("Rendered assembly: ");
+    for asm_instr in instrs_as_asm.iter() {
+        println!("\t{asm_instr}");
+    }
+    let mut asm_source = instrs_as_asm.join("\n");
+    // TODO(PT): Newline at end is to deal with a bug in assembler lexer
+    asm_source.push('\n');
+
+    // Assemble into an ELF
+    println!("Assembling to an ELF...");
+    let layout = Rc::new(FileLayout::new(0x400000));
+    let (labels, equ_expressions, atoms) = assembly_packer::parse(&layout, &asm_source);
+    println!("Found labels {labels:?}");
+    let elf = render_elf(&layout, labels, equ_expressions, atoms);
+    println!("Finshed ELF generation. Size: {}\n", elf.len());
+
+    let current_dir = env::current_dir().unwrap();
+    let output_file = current_dir.join("output_elf");
+    println!("Output file {output_file:?}");
+    fs::write(output_file, elf.clone()).unwrap();
+
+    // Simulate ELF execution
+    println!("Simulating ELF...");
+    let machine = MachineState::new();
+    machine.load_elf(&elf);
+    loop {
+        let instr_info = machine.step();
+        if let Instr::Return = instr_info.instr {
+            break;
         }
-        println!("Rendered assembly: ");
-        for asm_instr in instrs_as_asm.iter() {
-            println!("\t{asm_instr}");
-        }
-        let mut asm_source = instrs_as_asm.join("\n");
-        // TODO(PT): Newline at end is to deal with a bug in assembler lexer
-        asm_source.push('\n');
-        let layout = Rc::new(FileLayout::new(0x400000));
-        let (labels, equ_expressions, atoms) = assembly_packer::parse(&layout, &asm_source);
-        let elf = render_elf(&layout, labels, equ_expressions, atoms);
-
-        println!("Finshed ELF generation. Size: {}\n", elf.len());
-        let current_dir = env::current_dir().unwrap();
-        let output_file = current_dir.join("output_elf");
-        //fs::write(output_file, elf).unwrap();
-
-        let machine = MachineState::new();
-        machine.load_elf(&elf);
-        //println!("machine {machine:?}");
-        loop {
-            let instr_info = machine.step();
-            if instr_info.did_return {
-                break;
-            }
-            //println!("Ran instruction {instr_info:?}");
-        }
-        println!("rax = {}", machine.reg(Rax).read_u64(&machine));
-
-        /*
-        let machine = MachineState::new();
-        machine.run_instructions(&optimized_instrs);
-        */
-        //}
+        println!("Ran instruction {instr_info:?}");
+    }
+    println!("Simulation complete!");
+    println!("rax = {}", machine.reg(Rax).read_u64(&machine));
 
     Ok(())
 }
