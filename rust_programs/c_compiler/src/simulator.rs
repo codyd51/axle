@@ -11,7 +11,7 @@ use strum::IntoEnumIterator;
 use derive_more::Constructor;
 use compilation_definitions::encoding::ModRmByte;
 
-use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, DivRegByReg, Instr, InstrBytecodeProvider, InstrDisassembler, InstrInfo, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
+use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, DivRegByReg, Instr, InstrBytecodeProvider, InstrContinuation, InstrDisassembler, InstrInfo, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
 use compilation_definitions::prelude::*;
 
 #[repr(C)]
@@ -496,6 +496,7 @@ impl MachineState {
             }
             Instr::Return => {
                 // Not handled yet
+                self.set_rip(0)
             }
             Instr::CompareImmWithReg(CompareImmWithReg { imm, reg }) => {
                 let reg_val = self.reg_view(reg).read(&self);
@@ -515,7 +516,18 @@ impl MachineState {
                 }
             }
             Instr::JumpToLabelIfEqual(label_name) => {
-
+                todo!()
+            }
+            Instr::JumpToRelOffIfEqual(rel_off) => {
+                if self.is_flag_condition_met(FlagCondition::Zero) {
+                    // Jump is taken
+                    let new_rip = self.get_rip() as isize + rel_off;
+                    self.set_rip(new_rip as usize)
+                }
+                else {
+                    // Jump not taken
+                    // Nothing to do
+                }
             }
             _ => {
                 println!("Instr not implemented: {instr:?}");
@@ -586,6 +598,10 @@ impl MachineState {
         self.reg_view(&RegView::rip()).read(&self)
     }
 
+    fn set_rip(&self, new_rip: usize) {
+        self.reg_view(&RegView::rip()).write(&self, new_rip)
+    }
+
     fn disassemble_instruction(&self, rip: u64) -> InstrInfo {
         let bytecode_provider = RamBytecodeProvider::new(&self.ram, rip);
         let mut disassembler = InstrDisassembler::new(&bytecode_provider);
@@ -596,13 +612,16 @@ impl MachineState {
         let rip = self.get_rip();
         let info = self.disassemble_instruction(rip.try_into().unwrap());
         self.run_instruction(&info.instr);
-        if let Some(rip_increment) = info.rip_increment {
-            assert_eq!(
-                info.jumped, false,
-                "Only expect to increment rip here when a jump was not taken"
-            );
-            let rip_reg = self.reg_view(&RegView::rip());
-            rip_reg.write(&self, rip + rip_increment);
+        // Check whether the instruction jumped or not
+        if info.continuation != InstrContinuation::Seq && self.get_rip() != rip {
+            // The instruction modified rip so it must have jumped
+            // We need to add in the size of the jump instruction itself to the new rip, though
+            self.set_rip(self.get_rip() + info.instr_size);
+            println!("Detected a jump from instr {info:?}, new RIP {:#x}", self.get_rip())
+        }
+        else {
+            // We need to bump rip ourselves
+            self.set_rip(self.get_rip() + info.rip_increment.unwrap())
         }
         info
     }
