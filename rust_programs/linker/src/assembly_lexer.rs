@@ -135,43 +135,49 @@ impl AssemblyLexer {
     }
 }
 
-#[test]
-fn test_lexer() {
-    let source = "
+#[cfg(test)]
+mod test {
+    use crate::assembly_lexer::{AssemblyLexer, Token};
+
+    #[test]
+    fn test_lexer() {
+        let source = "
 .section .text
 _start:
     mov $0xc, %rax		# _write syscall vector
 	mov $0x1, %rbx		# File descriptor (ignored in axle, typically stdout)";
-    let mut lexer = AssemblyLexer::new(source);
-    let mut tokens = vec![];
-    loop {
-        if let Some(token) = lexer.next_token() {
-            tokens.push(token);
-        } else {
-            break;
+        let mut lexer = AssemblyLexer::new(source);
+        let mut tokens = vec![];
+        loop {
+            if let Some(token) = lexer.next_token() {
+                tokens.push(token);
+            } else {
+                break;
+            }
         }
+        assert_eq!(
+            tokens,
+            vec![
+                Token::Dot,
+                Token::Identifier("section".to_string()),
+                Token::Dot,
+                Token::Identifier("text".to_string()),
+                Token::Identifier("_start".to_string()),
+                Token::Colon,
+                Token::Identifier("mov".to_string()),
+                Token::Dollar,
+                Token::Identifier("0xc".to_string()),
+                Token::Comma,
+                Token::Percent,
+                Token::Identifier("rax".to_string()),
+                Token::Identifier("mov".to_string()),
+                Token::Dollar,
+                Token::Identifier("0x1".to_string()),
+                Token::Comma,
+                Token::Percent,
+                Token::Identifier("rbx".to_string()),
+            ]
+        );
     }
-    assert_eq!(
-        tokens,
-        vec![
-            Token::Dot,
-            Token::Identifier("section".to_string()),
-            Token::Dot,
-            Token::Identifier("text".to_string()),
-            Token::Identifier("_start".to_string()),
-            Token::Colon,
-            Token::Identifier("mov".to_string()),
-            Token::Dollar,
-            Token::Identifier("0xc".to_string()),
-            Token::Comma,
-            Token::Percent,
-            Token::Identifier("rax".to_string()),
-            Token::Identifier("mov".to_string()),
-            Token::Dollar,
-            Token::Identifier("0x1".to_string()),
-            Token::Comma,
-            Token::Percent,
-            Token::Identifier("rbx".to_string()),
-        ]
-    );
+
 }

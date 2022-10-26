@@ -14,7 +14,7 @@ use crate::{
     symbols::{ConstantData, SymbolData},
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Label {
     container_section: BinarySection,
     pub name: String,
@@ -246,7 +246,7 @@ impl AssemblyParser {
                     }
                     "jmp" => {
                         // TODO(PT): The leading dollar here is non-standard syntax
-                        self.match_token(Token::Dollar);
+                        //self.match_token(Token::Dollar);
                         let source = self.match_identifier();
                         // TODO(PT): For now, we only support named symbols as jump targets
                         Some(Instr::JumpToLabel(source))
@@ -271,6 +271,19 @@ impl AssemblyParser {
                     }
                     "ret" => {
                         Some(Instr::Return)
+                    }
+                    "cmp" => {
+                        self.match_token(Token::Dollar);
+                        let identifier = self.match_identifier();
+                        let imm = self.int_from_hex_string(&identifier);
+                        self.match_token(Token::Comma);
+                        self.match_token(Token::Percent);
+                        let reg = self.match_register();
+                        Some(Instr::CompareImmWithReg(CompareImmWithReg::new(imm, reg)))
+                    }
+                    "je" => {
+                        let label_name = self.match_identifier();
+                        Some(Instr::JumpToLabelIfEqual(label_name))
                     }
                     _ => panic!("Unimplemented mnemonic {name}"),
                 }
@@ -361,10 +374,13 @@ impl AssemblyParser {
                     println!("[Divide {dividend:?} * {divisor:?}]");
                 }
                 Instr::JumpToLabelIfEqual(label) => {
-                    println!("[JumpIfEqual {label}");
+                    println!("[JumpIfEqual {label}]");
                 }
                 Instr::CompareImmWithReg(CompareImmWithReg { imm, reg }) => {
-                    println!("Compare {imm} with {reg:?}");
+                    println!("[Compare {imm}, {reg:?}]");
+                }
+                Instr::JumpToRelOffIfEqual(rel_off) => {
+                    println!("[JumpIfEqual {rel_off}]");
                 }
             }
         }
@@ -429,7 +445,9 @@ impl AssemblyParser {
                     Instr::PushFromReg(_) |
                     Instr::PopIntoReg(_) |
                     Instr::AddRegToReg(_) |
-                    Instr::Return => {
+                    Instr::Return |
+                    Instr::CompareImmWithReg(_) |
+                    Instr::JumpToRelOffIfEqual(_) => {
                         append_data_unit(Rc::new(InstrDataUnit::new(&statement)));
                     }
                     /*
@@ -478,7 +496,7 @@ impl AssemblyParser {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Labels(pub Vec<Label>);
 
 impl Display for Labels {
