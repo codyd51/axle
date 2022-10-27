@@ -165,6 +165,15 @@ impl CodeGenerator {
                         expr_instrs.push(Instr::PopIntoReg(RegView::rbx()));
                         expr_instrs.push(Instr::MulRegByReg(MulRegByReg::new(RegView::rax(), RegView::rbx())));
                     }
+                    InfixOperator::DoubleEquals => {
+                        // Pop LHS and RHS into working registers
+                        // RHS into rbx
+                        expr_instrs.push(Instr::PopIntoReg(RegView::rbx()));
+                        // LHS into rax
+                        expr_instrs.push(Instr::PopIntoReg(RegView::rax()));
+                        // Compare
+                        expr_instrs.push(Instr::CompareRegWithReg(CompareRegWithReg::new(RegView::rax(), RegView::rbx())))
+                    }
                     _ => todo!(),
                 }
                 expr_instrs

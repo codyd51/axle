@@ -25,6 +25,7 @@ pub enum Token {
     Asterisk,
     Carat,
     Equals,
+    DoubleEquals,
     ForwardSlash,
     Question,
     Colon,
@@ -146,6 +147,14 @@ impl Lexer {
         if let Some(token) = single_character_tokens.get(&first_char) {
             // Consume the character
             self.match_char(first_char);
+
+            // Check if it's a double-character token
+            if *token == Token::Equals && self.peek_token() == Some(Token::Equals) {
+                // Match the second equals
+                self.match_token(Token::Equals);
+                return Some(Token::DoubleEquals);
+            }
+
             return Some(token.clone());
         }
 
@@ -274,4 +283,27 @@ mod test {
         assert_eq!(lexer.peek_token(), None);
         assert_eq!(lexer.next_token(), None);
     }
+
+    #[test]
+    fn lex_equals() {
+        let source = "1 = 2";
+        let mut lexer = Lexer::new(source);
+        assert_eq!(lexer.next_token(), Some(Token::Int(1)));
+        assert_eq!(lexer.peek_token(), Some(Token::Equals));
+        assert_eq!(lexer.next_token(), Some(Token::Equals));
+        assert_eq!(lexer.peek_token(), Some(Token::Int(2)));
+        assert_eq!(lexer.next_token(), Some(Token::Int(2)));
+    }
+
+    #[test]
+    fn lex_double_equals() {
+        let source = "1 == 2";
+        let mut lexer = Lexer::new(source);
+        assert_eq!(lexer.next_token(), Some(Token::Int(1)));
+        assert_eq!(lexer.peek_token(), Some(Token::DoubleEquals));
+        assert_eq!(lexer.next_token(), Some(Token::DoubleEquals));
+        assert_eq!(lexer.peek_token(), Some(Token::Int(2)));
+        assert_eq!(lexer.next_token(), Some(Token::Int(2)));
+    }
+
 }

@@ -160,6 +160,7 @@ pub enum InfixOperator {
     ParenLeft,
     Carat,
     Equals,
+    DoubleEquals,
     ForwardSlash,
     Question,
 }
@@ -182,6 +183,7 @@ impl TryFrom<Token> for InfixOperator {
             Token::ParenLeft => Ok(InfixOperator::ParenLeft),
             Token::Carat => Ok(InfixOperator::Carat),
             Token::Equals => Ok(InfixOperator::Equals),
+            Token::DoubleEquals => Ok(InfixOperator::DoubleEquals),
             Token::ForwardSlash => Ok(InfixOperator::ForwardSlash),
             Token::Question => Ok(InfixOperator::Question),
             _ => Err(()),
@@ -235,6 +237,7 @@ impl Display for Expr {
                     InfixOperator::Asterisk => "*",
                     InfixOperator::Carat => "^",
                     InfixOperator::ForwardSlash => "/",
+                    InfixOperator::DoubleEquals => "==",
                     InfixOperator::Equals => panic!("Should be handled by AssignmentExpr"),
                     InfixOperator::ParenLeft => panic!("Should be handled by CallExpr"),
                     InfixOperator::Question => panic!("Should be handled by TernaryExpr"),
@@ -331,6 +334,8 @@ impl Parser {
             InfixOperator::Carat => Precedence::Exponent,
             InfixOperator::Equals => Precedence::Assignment,
             InfixOperator::Question => Precedence::Ternary,
+            // TODO(PT): Check this
+            InfixOperator::DoubleEquals => Precedence::Ternary,
         }
     }
 
