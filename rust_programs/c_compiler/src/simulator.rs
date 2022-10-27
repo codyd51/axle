@@ -11,7 +11,7 @@ use strum::IntoEnumIterator;
 use derive_more::Constructor;
 use compilation_definitions::encoding::ModRmByte;
 
-use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, DivRegByReg, Instr, InstrBytecodeProvider, InstrContinuation, InstrDisassembler, InstrInfo, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
+use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, CompareRegWithReg, DivRegByReg, Instr, InstrBytecodeProvider, InstrContinuation, InstrDisassembler, InstrInfo, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
 use compilation_definitions::prelude::*;
 
 #[repr(C)]
@@ -501,6 +501,24 @@ impl MachineState {
             Instr::CompareImmWithReg(CompareImmWithReg { imm, reg }) => {
                 let reg_val = self.reg_view(reg).read(&self);
                 let result = (*imm as isize) - (reg_val as isize);
+                if result == 0 {
+                    self.update_flag(FlagUpdate::Zero(true));
+                    self.update_flag(FlagUpdate::Carry(false));
+                }
+                else {
+                    self.update_flag(FlagUpdate::Zero(false));
+                    if result < 0 {
+                        self.update_flag(FlagUpdate::Carry(true));
+                    }
+                    else {
+                        self.update_flag(FlagUpdate::Carry(false));
+                    }
+                }
+            }
+            Instr::CompareRegWithReg(CompareRegWithReg { reg1, reg2 }) => {
+                let reg1_val = self.reg_view(reg1).read(&self);
+                let reg2_val = self.reg_view(reg2).read(&self);
+                let result = (reg2_val as isize) - (reg1_val as isize);
                 if result == 0 {
                     self.update_flag(FlagUpdate::Zero(true));
                     self.update_flag(FlagUpdate::Carry(false));

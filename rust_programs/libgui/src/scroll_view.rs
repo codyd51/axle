@@ -692,7 +692,7 @@ impl UIElement for ScrollView {
 mod test {
     use alloc::vec::Vec;
 
-    use crate::{TileLayer, ExpandingLayer};
+    use crate::{ExpandingLayer, TileLayer};
     use agx_definitions::{Point, Rect, Size};
     use std::println;
 

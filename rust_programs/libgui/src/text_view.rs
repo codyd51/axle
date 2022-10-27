@@ -4,6 +4,7 @@ use core::{
     fmt::Display,
 };
 
+use crate::scroll_view::ScrollView;
 use crate::window_events::KeyCode;
 use crate::{
     bordered::Bordered,
@@ -28,7 +29,6 @@ use alloc::{
 use core::fmt::Formatter;
 use libgui_derive::{Bordered, Drawable, NestedLayerSlice, UIElement};
 use rand::Rng;
-use crate::scroll_view::ScrollView;
 
 #[derive(Debug, Copy, Clone)]
 pub struct CursorPos(pub usize, pub Point);

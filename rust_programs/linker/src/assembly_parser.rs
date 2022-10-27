@@ -2,7 +2,7 @@ use core::{cell::RefCell, fmt::Display, mem};
 use alloc::{fmt::Debug, rc::Rc, string::ToString, vec::Vec};
 use alloc::{string::String, vec};
 use cstr_core::CString;
-use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, DivRegByReg, Instr, MoveImmToReg, MoveImmToRegMemOffset, MoveRegToReg, MulRegByReg, SubRegFromReg};
+use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, CompareRegWithReg, DivRegByReg, Instr, MoveImmToReg, MoveImmToRegMemOffset, MoveRegToReg, MulRegByReg, SubRegFromReg};
 
 use compilation_definitions::prelude::*;
 use compilation_definitions::asm::{AsmExpr, SymbolExprOperand};
@@ -274,13 +274,27 @@ impl AssemblyParser {
                         Some(Instr::Return)
                     }
                     "cmp" => {
-                        self.match_token(Token::Dollar);
-                        let identifier = self.match_identifier();
-                        let imm = self.int_from_hex_string(&identifier);
-                        self.match_token(Token::Comma);
-                        self.match_token(Token::Percent);
-                        let reg = self.match_register();
-                        Some(Instr::CompareImmWithReg(CompareImmWithReg::new(imm, reg)))
+                        let leading_symbol = self.lexer.next_token().unwrap();
+                        match leading_symbol {
+                            Token::Dollar => {
+                                // cmp <imm>, <reg>
+                                let identifier = self.match_identifier();
+                                let imm = self.int_from_hex_string(&identifier);
+                                self.match_token(Token::Comma);
+                                self.match_token(Token::Percent);
+                                let reg = self.match_register();
+                                Some(Instr::CompareImmWithReg(CompareImmWithReg::new(imm, reg)))
+                            }
+                            Token::Percent => {
+                                // cmp <reg>, <reg>
+                                let reg1 = self.match_register();
+                                self.match_token(Token::Comma);
+                                self.match_token(Token::Percent);
+                                let reg2 = self.match_register();
+                                Some(Instr::CompareRegWithReg(CompareRegWithReg::new(reg1, reg2)))
+                            }
+                            _ => panic!("Invalid token")
+                        }
                     }
                     "je" => {
                         let label_name = self.match_identifier();
@@ -380,6 +394,9 @@ impl AssemblyParser {
                 Instr::CompareImmWithReg(CompareImmWithReg { imm, reg }) => {
                     println!("[Compare {imm}, {reg:?}]");
                 }
+                Instr::CompareRegWithReg(CompareRegWithReg { reg1, reg2 }) => {
+                    println!("[Compare {reg1}, {reg2}]");
+                }
                 Instr::JumpToRelOffIfEqual(rel_off) => {
                     println!("[JumpIfEqual {rel_off}]");
                 }
@@ -458,6 +475,7 @@ impl AssemblyParser {
                     Instr::AddRegToReg(_) |
                     Instr::Return |
                     Instr::CompareImmWithReg(_) |
+                    Instr::CompareRegWithReg(_) |
                     Instr::JumpToRelOffIfEqual(_) => {
                         append_data_unit(Rc::new(InstrDataUnit::new(&statement)));
                     }

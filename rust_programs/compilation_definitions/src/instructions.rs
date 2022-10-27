@@ -57,6 +57,12 @@ pub struct CompareImmWithReg {
     pub reg: RegView,
 }
 
+#[derive(Debug, PartialEq, Clone, Constructor)]
+pub struct CompareRegWithReg {
+    pub reg1: RegView,
+    pub reg2: RegView,
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Instr {
     // Assembly meta directives
@@ -85,6 +91,7 @@ pub enum Instr {
     DivRegByReg(DivRegByReg),
     JumpToRelOffIfEqual(isize),
     CompareImmWithReg(CompareImmWithReg),
+    CompareRegWithReg(CompareRegWithReg),
     Interrupt(u8),
 
     // TODO(PT): How to reintroduce this? Move a .equ symbol into a register
@@ -116,6 +123,9 @@ impl Instr {
             }
             Instr::CompareImmWithReg(CompareImmWithReg { imm, reg }) => {
                 format!("cmp $0x{imm:x}, %{reg}")
+            }
+            Instr::CompareRegWithReg(CompareRegWithReg { reg1, reg2 }) => {
+                format!("cmp %{reg1}, %{reg2}")
             }
             Instr::JumpToLabelIfEqual(label) => {
                 format!("je {label}")
@@ -202,6 +212,16 @@ impl Instr {
                 out.append(&mut imm_bytes);
                 out
             }
+            Instr::CompareRegWithReg(CompareRegWithReg { reg1, reg2 }) => {
+                // CMP r/m64,r64
+                assert_eq!(reg1.1, AccessType::RX);
+                assert_eq!(reg2.1, AccessType::RX);
+                vec![
+                    RexPrefix::for_64bit_operand(),
+                    0x39,
+                    ModRmByte::from(ModRmAddressingMode::RegisterDirect, reg1.0, Some(reg2.0))
+                ]
+            }
             Instr::JumpToRelOffIfEqual(rel_off) => {
                 let mut out = vec![
                     0x0f,
@@ -231,6 +251,7 @@ impl Instr {
             Instr::Return => 1,
             Instr::JumpToLabelIfEqual(_) => 6,
             Instr::CompareImmWithReg(_) => 6,
+            Instr::CompareRegWithReg(_) => 3,
             Instr::JumpToRelOffIfEqual(_) => 6,
             _ => todo!("assembled_len() unknown for {self:?}"),
         }
@@ -392,6 +413,11 @@ impl<'a> InstrDisassembler<'a> {
                     _ => panic!("Unhandled opcode sequence: c7 /{opcode_extension}"),
                 }
             }
+            0x39 => {
+                assert_eq!(self.operand_size, AccessType::RX);
+                let (reg1, reg2) = self.get_modrm_regs();
+                Some(self.yield_seq_instr(Instr::CompareRegWithReg(CompareRegWithReg::new(reg1, reg2))))
+            }
             0xff => {
                 // TODO(PT): Assume 64bit reg size for now, how to determine?
                 // Check in an assembler
@@ -481,7 +507,7 @@ impl InstrInfo {
 mod test {
     use assert_hex::assert_eq_hex;
 
-    use crate::instructions::{AddRegToReg, CompareImmWithReg, Instr, InstrBytecodeProvider, InstrDisassembler, MoveImmToReg, MoveRegToReg};
+    use crate::instructions::{AddRegToReg, CompareImmWithReg, CompareRegWithReg, Instr, InstrBytecodeProvider, InstrDisassembler, MoveImmToReg, MoveRegToReg};
     use crate::prelude::RegView;
 
     impl InstrBytecodeProvider for Vec<u8> {
@@ -559,9 +585,16 @@ mod test {
     }
 
     #[test]
-    fn test_cmp() {
+    fn test_cmp_imm_with_reg() {
         validate_assembly_and_disassembly(vec![
             (Instr::CompareImmWithReg(CompareImmWithReg::new(0xdeadbeef, RegView::eax())), vec![0x81, 0xf8, 0xef, 0xbe, 0xad, 0xde]),
+        ]);
+    }
+
+    #[test]
+    fn test_cmp_reg_with_reg() {
+        validate_assembly_and_disassembly(vec![
+            (Instr::CompareRegWithReg(CompareRegWithReg::new(RegView::rax(), RegView::rbx())), vec![0x48, 0x39, 0xd8]),
         ]);
     }
 
