@@ -187,6 +187,12 @@ impl CodeGenerator {
                     RegView::rax(),
                 ))]
             }
+            Expr::CallExpr(lhs, args) => {
+                assert_eq!(**lhs, Expr::NameExpr(Token::Identifier("sim_shim_get_input".into())));
+                vec![
+                    Instr::SimulatorShimGetInput,
+                ]
+            }
             _ => {
                 println!("Expression not implemented: {expr:?}");
                 todo!()

@@ -6,6 +6,8 @@ use alloc::vec::Vec;
 use core::cell::{Ref, RefCell};
 use core::fmt::{Debug, Display, Formatter};
 use core::mem;
+use std::io;
+use std::io::Write;
 
 use strum::IntoEnumIterator;
 use derive_more::Constructor;
@@ -558,6 +560,21 @@ impl MachineState {
                     // Nothing to do
                 }
             }
+            Instr::SimulatorShimGetInput => {
+                print!("\n[Simulator::sim_shim_get_input] Type an int >>> ");
+                io::stdout().flush();
+                let mut input_text = String::new();
+                io::stdin()
+                    .read_line(&mut input_text)
+                    .expect("failed to read from stdin");
+
+                let trimmed = input_text.trim();
+                match trimmed.parse::<u32>() {
+                    //Ok(i) => self.reg_view(&RegView::eax()).write(&self, i as usize),
+                    Ok(i) => self.reg_view(&RegView::eax()).write(&self, i as usize),
+                    Err(..) => panic!("this was not an integer: {}", trimmed),
+                };
+            }
             _ => {
                 println!("Instr not implemented: {instr:?}");
                 todo!()
@@ -623,7 +640,7 @@ impl MachineState {
         (flags & (1 << flag_bit_index)) != 0
     }
 
-    fn get_rip(&self) -> usize {
+    pub fn get_rip(&self) -> usize {
         self.reg_view(&RegView::rip()).read(&self)
     }
 

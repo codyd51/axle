@@ -304,6 +304,9 @@ impl AssemblyParser {
                         let label_name = self.match_identifier();
                         Some(Instr::JumpToLabelIfNotEqual(label_name))
                     }
+                    "sim_shim_get_input" => {
+                        Some(Instr::SimulatorShimGetInput)
+                    }
                     _ => panic!("Unimplemented mnemonic {name}"),
                 }
             }
@@ -481,7 +484,8 @@ impl AssemblyParser {
                     Instr::CompareImmWithReg(_) |
                     Instr::CompareRegWithReg(_) |
                     Instr::JumpToRelOffIfEqual(_) |
-                    Instr::JumpToRelOffIfNotEqual(_) => {
+                    Instr::JumpToRelOffIfNotEqual(_) |
+                    Instr::SimulatorShimGetInput => {
                         append_data_unit(Rc::new(InstrDataUnit::new(&statement)));
                     }
                     /*

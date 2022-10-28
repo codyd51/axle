@@ -97,6 +97,9 @@ pub enum Instr {
     CompareRegWithReg(CompareRegWithReg),
     Interrupt(u8),
 
+    SimulatorShimGetInput,
+    //SimulatorShimExit,
+
     // TODO(PT): How to reintroduce this? Move a .equ symbol into a register
     //MoveSymbolToReg(MoveSymToReg),
 }
@@ -144,6 +147,9 @@ impl Instr {
             }
             Instr::JumpToRelOffIfNotEqual(rel_off) => {
                 format!("jne {rel_off}")
+            }
+            Instr::SimulatorShimGetInput => {
+                format!("sim_shim_get_input")
             }
             _ => todo!("Instr.render() {self:?}"),
         }
@@ -247,6 +253,13 @@ impl Instr {
                     *rel_off as u8,
                 ]
             }
+            Instr::SimulatorShimGetInput => {
+                // 2-byte NOP
+                vec![
+                    0x66,
+                    0x90,
+                ]
+            }
             _ => todo!("{self:?}"),
         }
     }
@@ -271,6 +284,7 @@ impl Instr {
             Instr::CompareRegWithReg(_) => 3,
             Instr::JumpToRelOffIfEqual(_) => 6,
             Instr::JumpToRelOffIfNotEqual(_) => 2,
+            Instr::SimulatorShimGetInput => 2,
             _ => todo!("assembled_len() unknown for {self:?}"),
         }
     }
@@ -394,6 +408,17 @@ impl<'a> InstrDisassembler<'a> {
                         Some(self.yield_cond_jump_instr(Instr::JumpToRelOffIfEqual(rel_off as isize)))
                     }
                     _ => panic!("Unhandled opcode sequence: 0f /{next_byte}"),
+                }
+            }
+            0x66 => {
+                let next_byte = self.get_byte();
+                match next_byte {
+                    0x90 => {
+                        // 2-byte NOP
+                        // Used as a shim for get_input()
+                        Some(self.yield_seq_instr(Instr::SimulatorShimGetInput))
+                    }
+                    _ => panic!("Unhandled opcode sequence: 66 {next_byte:x}")
                 }
             }
             0x75 => {
@@ -651,4 +676,10 @@ mod test {
         ]);
     }
 
+    #[test]
+    fn test_shim_get_input() {
+        validate_assembly_and_disassembly(vec![
+            (Instr::SimulatorShimGetInput, vec![0x66, 0x90]),
+        ]);
+    }
 }

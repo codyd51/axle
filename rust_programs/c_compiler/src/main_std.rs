@@ -15,7 +15,7 @@ use crate::simulator::MachineState;
 
 pub fn main() -> Result<(), Box<dyn error::Error>> {
     let source = "int main() { \
-    if (3) {
+    if (sim_shim_get_input() == 4) {
         return 5;
     }
     return 10;
