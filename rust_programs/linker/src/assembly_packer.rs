@@ -310,9 +310,11 @@ pub fn parse(_layout: &Rc<FileLayout>, source: &str) -> (Labels, EquExpressions,
     let lexer = AssemblyLexer::new(source);
     let mut parser = AssemblyParser::new(lexer);
     let (labels, equ_expressions, data_units) = parser.parse();
+    /*
     println!("[### Assembly + ELF rendering ###]");
     println!("Labels:\n{labels}");
     println!("Equ expressions:\n{equ_expressions}");
     println!("Data units:\n{data_units}");
+    */
     (labels, equ_expressions, data_units)
 }

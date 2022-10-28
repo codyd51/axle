@@ -35,10 +35,6 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     println!("Optimizing IR...");
     let mut optimized_instrs = Optimizer::optimize(&instrs);
     optimized_instrs.insert(0, Instr::DirectiveSetCurrentSection(".text".to_string()));
-    println!("Codegen instructions: ");
-    for instr in optimized_instrs.iter() {
-        println!("\t{instr:?}");
-    }
 
     // Render IR to assembly
     println!("Rendering IR to assembly...");
@@ -55,7 +51,6 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     println!("Assembling to an ELF...");
     let layout = Rc::new(FileLayout::new(0x400000));
     let (labels, equ_expressions, atoms) = assembly_packer::parse(&layout, &asm_source);
-    println!("Found labels {labels:?}");
     let elf = render_elf(&layout, labels, equ_expressions, atoms);
     println!("Finshed ELF generation. Size: {}\n", elf.len());
 
@@ -69,11 +64,12 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     let machine = MachineState::new();
     machine.load_elf(&elf);
     loop {
+        let rip = machine.get_rip();
         let instr_info = machine.step();
         if let Instr::Return = instr_info.instr {
             break;
         }
-        println!("Ran instruction {instr_info:?}");
+        println!("{rip:#x}: {instr_info}");
     }
     println!("Simulation complete!");
     println!("rax = {}", machine.reg(Rax).read_u64(&machine));
