@@ -547,6 +547,17 @@ impl MachineState {
                     // Nothing to do
                 }
             }
+            Instr::JumpToRelOffIfNotEqual(rel_off) => {
+                if self.is_flag_condition_met(FlagCondition::NotZero) {
+                    // Jump is taken
+                    let new_rip = self.get_rip() as isize + rel_off;
+                    self.set_rip(new_rip as usize)
+                }
+                else {
+                    // Jump not taken
+                    // Nothing to do
+                }
+            }
             _ => {
                 println!("Instr not implemented: {instr:?}");
                 todo!()

@@ -5,6 +5,7 @@
 //#![feature(trait_upcasting)]
 #![feature(label_break_value)]
 #![feature(extend_one)]
+#![feature(assert_matches)]
 
 extern crate alloc;
 

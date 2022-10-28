@@ -2,12 +2,14 @@ use crate::parser::{BlockStatement, Expr, Function, IfStatement, InfixOperator, 
 use alloc::{format, vec};
 use alloc::{string::String, vec::Vec};
 use alloc::string::ToString;
+use core::assert_matches::assert_matches;
 use core::cell::RefCell;
 use core::mem;
 use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, CompareRegWithReg, Instr, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
 
 use crate::println;
 use compilation_definitions::prelude::*;
+use crate::lexer::Token;
 
 #[derive(Debug)]
 pub struct CodeGenerator {
@@ -92,13 +94,14 @@ impl CodeGenerator {
             Statement::If(IfStatement { test, consequent }) => {
                 // Codegen the test
                 statement_instrs.append(&mut self.codegen_expression(test));
-                // Check if the test failed
-                statement_instrs.push(Instr::CompareImmWithReg(CompareImmWithReg::new(0, RegView::eax())));
+                // Sanity check - the expression above must end in a comparison
+                let last_instr = statement_instrs.last().unwrap();
+                assert_matches!(*last_instr, Instr::CompareImmWithReg(_) | Instr::CompareRegWithReg(_));
                 // Jump if the test failed
                 // Destination for when the test fails
                 let test_failed_label = self.generate_label_with_context("if_test_failed");
                 let post_conditional_label = self.generate_label_with_context("if_statement_finished");
-                statement_instrs.push(Instr::JumpToLabelIfEqual(test_failed_label.clone()));
+                statement_instrs.push(Instr::JumpToLabelIfNotEqual(test_failed_label.clone()));
                 // Codegen the consequent block
                 statement_instrs.append(&mut self.codegen_block(consequent));
                 // Jump past any `else` block

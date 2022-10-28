@@ -1,5 +1,6 @@
 extern crate derive_more;
 
+use std::fmt::{Display, Formatter};
 use std::mem;
 use derive_more::Constructor;
 use bitmatch::bitmatch;
@@ -76,6 +77,7 @@ pub enum Instr {
     // Meta instructions that will be replaced by the assembler
     JumpToLabel(String),
     JumpToLabelIfEqual(String),
+    JumpToLabelIfNotEqual(String),
 
     // Instructions
     Return,
@@ -90,6 +92,7 @@ pub enum Instr {
     MulRegByReg(MulRegByReg),
     DivRegByReg(DivRegByReg),
     JumpToRelOffIfEqual(isize),
+    JumpToRelOffIfNotEqual(isize),
     CompareImmWithReg(CompareImmWithReg),
     CompareRegWithReg(CompareRegWithReg),
     Interrupt(u8),
@@ -130,11 +133,17 @@ impl Instr {
             Instr::JumpToLabelIfEqual(label) => {
                 format!("je {label}")
             }
+            Instr::JumpToLabelIfNotEqual(label) => {
+                format!("jne {label}")
+            }
             Instr::JumpToLabel(label) => {
                 format!("jmp {label}")
             }
             Instr::JumpToRelOffIfEqual(rel_off) => {
                 format!("je {rel_off}")
+            }
+            Instr::JumpToRelOffIfNotEqual(rel_off) => {
+                format!("jne {rel_off}")
             }
             _ => todo!("Instr.render() {self:?}"),
         }
@@ -231,6 +240,13 @@ impl Instr {
                 out.append(&mut distance_bytes);
                 out
             }
+            Instr::JumpToRelOffIfNotEqual(rel_off) => {
+                assert!(*rel_off < (u8::MAX as isize));
+                vec![
+                    0x75,
+                    *rel_off as u8,
+                ]
+            }
             _ => todo!("{self:?}"),
         }
     }
@@ -250,11 +266,19 @@ impl Instr {
             Instr::AddRegToReg(_) => 3,
             Instr::Return => 1,
             Instr::JumpToLabelIfEqual(_) => 6,
+            Instr::JumpToLabelIfNotEqual(_) => 2,
             Instr::CompareImmWithReg(_) => 6,
             Instr::CompareRegWithReg(_) => 3,
             Instr::JumpToRelOffIfEqual(_) => 6,
+            Instr::JumpToRelOffIfNotEqual(_) => 2,
             _ => todo!("assembled_len() unknown for {self:?}"),
         }
+    }
+}
+
+impl Display for Instr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<Instr {}>", self.render())
     }
 }
 
@@ -313,6 +337,10 @@ impl<'a> InstrDisassembler<'a> {
         i32::from_le_bytes(as_array)
     }
 
+    fn get_i8(&mut self) -> i8 {
+        i8::from_le_bytes([self.get_byte()])
+    }
+
     fn get_modrm_opcode_and_reg(&mut self) -> (u8, RegView) {
         let mod_rm_byte = self.get_byte();
         let opcode_extension = ModRmByte::get_opcode_extension(mod_rm_byte);
@@ -367,6 +395,11 @@ impl<'a> InstrDisassembler<'a> {
                     }
                     _ => panic!("Unhandled opcode sequence: 0f /{next_byte}"),
                 }
+            }
+            0x75 => {
+                // JNE rel8
+                let rel_off = self.get_i8();
+                Some(self.yield_cond_jump_instr(Instr::JumpToRelOffIfNotEqual(rel_off as isize)))
             }
             0x81 => {
                 let (opcode_extension, reg) = self.get_modrm_opcode_and_reg();
@@ -504,6 +537,12 @@ impl InstrInfo {
     }
 }
 
+impl Display for InstrInfo {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<InstrInfo {}>", self.instr)
+    }
+}
+
 mod test {
     use assert_hex::assert_eq_hex;
 
@@ -604,4 +643,12 @@ mod test {
             (Instr::JumpToRelOffIfEqual(12), vec![0x0f, 0x84, 0x0c, 0x00, 0x00, 0x00]),
         ]);
     }
+
+    #[test]
+    fn test_jne() {
+        validate_assembly_and_disassembly(vec![
+            (Instr::JumpToRelOffIfNotEqual(12), vec![0x75, 0xc]),
+        ]);
+    }
+
 }

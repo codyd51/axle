@@ -239,6 +239,51 @@ impl Display for MetaInstrJumpToLabelIfEqual {
     }
 }
 
+#[derive(Debug)]
+pub struct MetaInstrJumpToLabelIfNotEqual {
+    id: PotentialLabelTargetId,
+    target: JumpTarget,
+}
+
+impl MetaInstrJumpToLabelIfNotEqual {
+    pub fn new(target: JumpTarget) -> Self {
+        Self { id: next_atom_id(), target }
+    }
+}
+
+impl Instruction for MetaInstrJumpToLabelIfNotEqual {
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        let JumpTarget::Label(label_name) = &self.target;
+        let distance_to_target = layout.distance_between_atom_id_and_label_name(PotentialLabelTarget::id(self), label_name) - (self.len() as isize);
+        let distance_to_target: i32 = distance_to_target.try_into().unwrap();
+        Instr::JumpToRelOffIfNotEqual(distance_to_target as isize).assemble()
+    }
+}
+
+impl PotentialLabelTarget for MetaInstrJumpToLabelIfNotEqual {
+    fn container_section(&self) -> BinarySection {
+        BinarySection::Text
+    }
+
+    fn id(&self) -> PotentialLabelTargetId {
+        self.id
+    }
+
+    fn len(&self) -> usize {
+        Instr::JumpToRelOffIfNotEqual(0).assembled_len()
+    }
+
+    fn render(&self, layout: &FileLayout) -> Vec<u8> {
+        Instruction::render(self, layout)
+    }
+}
+
+impl Display for MetaInstrJumpToLabelIfNotEqual {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_fmt(format_args!("jne {:?}", self.target))
+    }
+}
+
 #[derive(Debug, PartialEq, Copy, Clone, Eq, PartialOrd, Ord)]
 pub struct PotentialLabelTargetId(pub usize);
 

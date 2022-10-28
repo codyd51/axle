@@ -13,7 +13,7 @@ use crate::{
     print, println,
     symbols::{ConstantData, SymbolData},
 };
-use crate::assembly_packer::MetaInstrJumpToLabelIfEqual;
+use crate::assembly_packer::{MetaInstrJumpToLabelIfEqual, MetaInstrJumpToLabelIfNotEqual};
 
 #[derive(Clone, Debug)]
 pub struct Label {
@@ -300,6 +300,10 @@ impl AssemblyParser {
                         let label_name = self.match_identifier();
                         Some(Instr::JumpToLabelIfEqual(label_name))
                     }
+                    "jne" => {
+                        let label_name = self.match_identifier();
+                        Some(Instr::JumpToLabelIfNotEqual(label_name))
+                    }
                     _ => panic!("Unimplemented mnemonic {name}"),
                 }
             }
@@ -476,7 +480,8 @@ impl AssemblyParser {
                     Instr::Return |
                     Instr::CompareImmWithReg(_) |
                     Instr::CompareRegWithReg(_) |
-                    Instr::JumpToRelOffIfEqual(_) => {
+                    Instr::JumpToRelOffIfEqual(_) |
+                    Instr::JumpToRelOffIfNotEqual(_) => {
                         append_data_unit(Rc::new(InstrDataUnit::new(&statement)));
                     }
                     /*
@@ -512,8 +517,12 @@ impl AssemblyParser {
                     }
                     Instr::JumpToLabelIfEqual(label) => {
                         append_data_unit(
-                            //Rc::new(MetaInstrJumpToLabelIfEqual::new(DataSource::NamedDataSymbol(label.clone())) as Rc<dyn PotentialLabelTarget>)
                             Rc::new(MetaInstrJumpToLabelIfEqual::new(JumpTarget::Label(label))) as Rc<dyn PotentialLabelTarget>
+                        );
+                    }
+                    Instr::JumpToLabelIfNotEqual(label) => {
+                        append_data_unit(
+                            Rc::new(MetaInstrJumpToLabelIfNotEqual::new(JumpTarget::Label(label))) as Rc<dyn PotentialLabelTarget>
                         );
                     }
                 }
