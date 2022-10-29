@@ -86,7 +86,7 @@ def _build_rust_libc_port(temp_dir: Path) -> None:
             'build', 
             '--no-default-features', 
             '-Zbuild-std=core,alloc', 
-            '-Z macro-backtrace',
+            # '-Z macro-backtrace',
             f'--target={_TARGET_SPEC_FILE.as_posix()}',
         ],
         cwd=libc_dir, 
