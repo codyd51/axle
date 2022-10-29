@@ -15,14 +15,14 @@ members = [
     "sata_driver_messages",
     "dock",
     "image_viewer_messages",
-    "linker",
+    # "linker",
     "linker_messages",
     "ide",
     "libgui_derive",
     "xplatform_gui",
-    "c_compiler",
-    "example_program",
-    "compilation_definitions",
+    # "c_compiler",
+    # "example_program",
+    # "compilation_definitions",
 ]
 
 exclude = [
