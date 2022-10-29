@@ -86,8 +86,9 @@ def _build_rust_libc_port(temp_dir: Path) -> None:
             'build', 
             '--no-default-features', 
             '-Zbuild-std=core,alloc', 
-            f'--target={_TARGET_SPEC_FILE.as_posix()}'
-        ], 
+            '-Z macro-backtrace',
+            f'--target={_TARGET_SPEC_FILE.as_posix()}',
+        ],
         cwd=libc_dir, 
         env_additions=env
     )
@@ -161,6 +162,8 @@ def build_rust_programs(check_only: bool = False) -> None:
         if binary.exists():
             print(f'Moving build result to sysroot: {binary}')
             sysroot_applications_dir = _REPO_ROOT / "axle-sysroot" / "usr" / "applications"
+            # Ensure that /usr/applications is treated as a directory rather than a file
+            sysroot_applications_dir.mkdir(exist_ok=True)
             shutil.copy(binary.as_posix(), sysroot_applications_dir)
 
 
