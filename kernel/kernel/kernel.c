@@ -69,7 +69,7 @@ static void _kernel_bootstrap_part2(void) {
     // 
     // Launch the file server, which will load the ramdisk and launch all the 
     // specified startup programs
-    task_spawn__with_args("launch_fs_server", launch_fs_server, 0, 0, 0);
+    task_spawn__with_args("launch_fs_server", FS_SERVER_EXEC_TRAMPOLINE_NAME, 0, 0, 0);
 
     // Bootstrapping complete - kill this process
     printf("[t = %d] Bootstrap task [PID %d] will exit\n", time(), getpid());
