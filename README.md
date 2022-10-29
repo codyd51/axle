@@ -2,7 +2,7 @@
 
 <p align="center"><img src="screenshots/doom.jpg"></p>
 
-axle is a **UNIX-like** hobby operating system. Everything used within axle is **implemented from the ground up**, from the bootloader, to the window manager, to the assembler. axle runs on bare metal. axle provides a **desktop environment** via an efficient compositor and a homegrown GUI toolkit library.
+[axle](https://axleos.com) is a **UNIX-like** hobby operating system. Everything used within axle is **implemented from the ground up**, from the bootloader, to the window manager, to the assembler. axle runs on bare metal. axle provides a **desktop environment** via an efficient compositor and a homegrown GUI toolkit library.
 
 #### Assembler demo (click to view video)
 [![Assembler demo](https://img.youtube.com/vi/HhWE8ZvW4-g/maxresdefault.jpg)](https://youtu.be/HhWE8ZvW4-g)
@@ -56,7 +56,7 @@ Julia set | Mandelbrot set
 
 Running
 ----------------------
-axle's Github CI action serves as documentation for setting up an environment from scratch. 
+axle's [Github CI action](https://github.com/codyd51/axle/blob/paging-demo/.github/workflows/main.yml#L29-L69) serves as documentation for setting up an environment from scratch. 
 axle uses QEMU as its standard emulator and runs on the real hardware I've tested. 
 
 License
