@@ -19,6 +19,11 @@
 #define VAS_KERNEL_CODE_BASE 0xFFFFFF8000000000LL
 #define VAS_KERNEL_CODE_BASE 0xFFFFFFFF80000000LL
 
+// TODO(PT): Perhaps this deserves a dedicated memory_map.h
+#define USER_MODE_STACK_BOTTOM 0x7e0000000000LL
+#define USER_MODE_STACK_SIZE (PAGE_SIZE * 32)
+#define USER_MODE_STACK_TOP (USER_MODE_STACK_BOTTOM + USER_MODE_STACK_SIZE)
+
 #define PAGE_DIRECTORIES_IN_PAGE_DIRECTORY_POINTER_TABLE (PAGE_SIZE / sizeof(pdpe_t))
 #define PAGE_TABLES_IN_PAGE_DIRECTORY (PAGE_SIZE / sizeof(pde_t))
 #define PAGES_IN_PAGE_TABLE (PAGE_SIZE / sizeof(pte_t))
@@ -164,8 +169,13 @@ void vas_load_state(vas_state_t* vas_state);
 vas_state_t* vas_get_active_state(void);
 
 vas_state_t* vas_clone(vas_state_t* parent);
+vas_state_t* vas_clone__cow(vas_state_t* parent);
 void vas_teardown(vas_state_t* vas_state);
 
 void vas_state_dump(vas_state_t* vas_state);
+
+bool vas_is_page_present(vas_state_t* vas_state, uint64_t virt_addr);
+
+bool vmm_is_active(void);
 
 #endif
