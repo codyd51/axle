@@ -38,4 +38,29 @@ typedef struct awm_dock_window_minimize_with_info_event {
     Rect task_view_frame;
 } awm_dock_window_minimize_with_info_event_t;
 
+#define AWM_DOCK_TASK_VIEW_HOVERED 821
+typedef struct awm_dock_task_view_hovered {
+    uint32_t event;
+    uint32_t window_id;
+    Rect task_view_frame;
+} awm_dock_task_view_hovered_t;
+
+#define AWM_DOCK_TASK_VIEW_HOVER_EXITED 822
+typedef struct awm_dock_task_view_hover_exited {
+    uint32_t event;
+    uint32_t window_id;
+} awm_dock_task_view_hover_exited_t;
+
+#define AWM_DOCK_TASK_VIEW_CLICKED 823
+typedef struct awm_dock_task_view_clicked_event {
+    uint32_t event;
+    uint32_t window_id;
+} awm_dock_task_view_clicked_event_t;
+
+#define AWM_DOCK_WINDOW_CLOSED 824
+typedef struct awm_dock_window_closed_event {
+    uint32_t event;
+    uint32_t window_id;
+} awm_dock_window_closed_event_t;
+
 #endif

@@ -6,6 +6,7 @@
 extern crate alloc;
 extern crate libc;
 
+use alloc::boxed::Box;
 use alloc::{collections::BTreeMap, format, rc::Weak, vec::Vec};
 use alloc::{
     rc::Rc,
@@ -24,20 +25,23 @@ use axle_rt::{amc_message_await, amc_message_send, amc_register_service, printf,
 use axle_rt::{ContainsEventField, ExpectsEventField};
 
 use agx_definitions::{
-    Color, Drawable, LayerSlice, Line, NestedLayerSlice, Point, Rect, RectInsets, Size,
-    StrokeThickness,
+    Color, Drawable, LayerSlice, LikeLayerSlice, Line, NestedLayerSlice, Point, Rect, RectInsets,
+    Size, StrokeThickness,
 };
 
 mod dock_messages;
 use dock_messages::{
-    AwmDockEvent, AwmDockWindowCreatedEvent, AwmDockWindowMinimizeRequestedEvent,
-    AwmDockWindowTitleUpdatedEvent, AWM_DOCK_HEIGHT, AWM_DOCK_SERVICE_NAME,
+    AwmDockEvent, AwmDockTaskViewClicked, AwmDockWindowClosed, AwmDockWindowCreatedEvent,
+    AwmDockWindowMinimizeRequestedEvent, AwmDockWindowTitleUpdatedEvent, AWM_DOCK_HEIGHT,
+    AWM_DOCK_SERVICE_NAME,
 };
 
-use crate::dock_messages::AwmDockWindowMinimizeWithInfo;
+use crate::dock_messages::{
+    AwmDockTaskViewHoverExited, AwmDockTaskViewHovered, AwmDockWindowMinimizeWithInfo,
+};
 
 struct TaskView {
-    entry_index: usize,
+    entry_index: RefCell<usize>,
     window_id: u32,
     title: RefCell<String>,
     title_label: Rc<Label>,
@@ -72,7 +76,7 @@ impl TaskView {
         Rc::clone(&view).add_component(title_label_clone);
 
         TaskView {
-            entry_index,
+            entry_index: RefCell::new(entry_index),
             window_id,
             title: RefCell::new(title.to_string()),
             title_label,
@@ -100,11 +104,13 @@ impl TaskView {
             ),
             Size::new(text_width, font_size.height),
         );
+        /*
         printf!(
             "Resized label {} to frame {:?}\n",
             *self.title_label.text.borrow(),
             label_frame,
         );
+        */
         self.title_label.set_frame(label_frame);
     }
 
@@ -115,6 +121,10 @@ impl TaskView {
     pub fn set_title(self: Rc<Self>, title: &str) {
         *self.title.borrow_mut() = title.to_string();
         self.title_label.set_text(title);
+    }
+
+    pub fn set_entry_index(&self, entry_index: usize) {
+        *self.entry_index.borrow_mut() = entry_index
     }
 }
 
@@ -127,8 +137,12 @@ impl NestedLayerSlice for TaskView {
         self.view.set_parent(parent);
     }
 
-    fn get_slice(&self) -> LayerSlice {
+    fn get_slice(&self) -> Box<dyn LikeLayerSlice> {
         self.view.get_slice()
+    }
+
+    fn get_slice_for_render(&self) -> Box<dyn LikeLayerSlice> {
+        self.get_slice()
     }
 }
 
@@ -151,11 +165,15 @@ impl Bordered for TaskView {
         Self::border_insets()
     }
 
-    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut LayerSlice) {
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
         self.view.draw_inner_content(outer_frame, onto);
     }
 
-    fn draw_border_with_insets(&self, onto: &mut LayerSlice, insets: RectInsets) -> Rect {
+    fn draw_border_with_insets(
+        &self,
+        onto: &mut Box<dyn LikeLayerSlice>,
+        insets: RectInsets,
+    ) -> Rect {
         let mut frame = Rect::from_parts(Point::zero(), self.frame().size);
 
         // Bottom edge gets a dark line
@@ -227,12 +245,20 @@ impl UIElement for TaskView {
     fn handle_mouse_entered(&self) {
         self.view.handle_mouse_entered();
         self.draw_border();
+        amc_message_send(
+            AwmWindow::AWM_SERVICE_NAME,
+            AwmDockTaskViewHovered::new(self.window_id, self.frame()),
+        );
     }
 
     fn handle_mouse_exited(&self) {
         self.view.handle_mouse_exited();
         self.draw_border();
         printf!("Mouse exited task view!\n");
+        amc_message_send(
+            AwmWindow::AWM_SERVICE_NAME,
+            AwmDockTaskViewHoverExited::new(self.window_id),
+        );
     }
 
     fn handle_mouse_moved(&self, mouse_point: Point) {
@@ -241,6 +267,10 @@ impl UIElement for TaskView {
 
     fn handle_left_click(&self, mouse_point: Point) {
         self.view.handle_left_click(mouse_point);
+        amc_message_send(
+            AwmWindow::AWM_SERVICE_NAME,
+            AwmDockTaskViewClicked::new(self.window_id),
+        );
     }
 
     fn handle_superview_resize(&self, superview_size: Size) {
@@ -270,6 +300,10 @@ impl GradientView {
     pub fn add_component(self: Rc<Self>, elem: Rc<dyn UIElement>) {
         Rc::clone(&self.view).add_component(elem)
     }
+
+    pub fn remove_component(self: Rc<Self>, elem: &Rc<dyn UIElement>) {
+        Rc::clone(&self.view).remove_component(elem)
+    }
 }
 
 fn lerp(a: f64, b: f64, factor: f64) -> f64 {
@@ -277,23 +311,23 @@ fn lerp(a: f64, b: f64, factor: f64) -> f64 {
 }
 
 impl Bordered for GradientView {
-    fn draw_inner_content(&self, _outer_frame: Rect, onto: &mut LayerSlice) {
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
         // TODO(PT): Time this
 
         let end = Color::new(100, 100, 100);
         let start = Color::new(200, 200, 200);
-        for y in 0..onto.frame.size.height {
-            let factor = (y as f64 / onto.frame.size.height as f64);
+        for y in 0..onto.frame().size.height {
+            let factor = (y as f64 / onto.frame().size.height as f64);
             let row_color = Color::new(
                 lerp(start.r.into(), end.r.into(), factor) as u8,
                 lerp(start.g.into(), end.g.into(), factor) as u8,
                 lerp(start.b.into(), end.b.into(), factor) as u8,
             );
-            let row_line = Line::new(Point::new(0, y), Point::new(onto.frame.size.width, y));
+            let row_line = Line::new(Point::new(0, y), Point::new(onto.frame().size.width, y));
             //row_line.draw(onto, row_color, StrokeThickness::Width(1));
 
             // Horizontal gradient
-            for x in 0..onto.frame.size.width {
+            for x in 0..onto.frame().size.width {
                 let mut end2 = Color::new(
                     (row_color.r as f64 / 3.0) as u8,
                     (row_color.g as f64 / 3.0) as u8,
@@ -301,7 +335,7 @@ impl Bordered for GradientView {
                 );
                 let mut start2 = Color::new(0, 0, 0);
 
-                let mid_x = onto.frame.size.width / 2;
+                let mid_x = onto.frame().size.width / 2;
                 let mut factor2 = (x as f64 / mid_x as f64);
                 if x > mid_x {
                     factor2 = 1.0 - ((x - mid_x) as f64 / (mid_x) as f64);
@@ -368,7 +402,11 @@ impl NestedLayerSlice for GradientView {
         self.view.set_parent(parent);
     }
 
-    fn get_slice(&self) -> LayerSlice {
+    fn get_slice(&self) -> Box<dyn LikeLayerSlice> {
+        self.view.get_slice()
+    }
+
+    fn get_slice_for_render(&self) -> Box<dyn LikeLayerSlice> {
         self.view.get_slice()
     }
 }
@@ -448,16 +486,17 @@ impl Dock {
         ));
 
         let self_clone = Rc::clone(&self);
+        // let self_clone = Rc::clone(&self);
         let task_view_clone = Rc::clone(&task_view);
 
         task_view.view.set_sizer(move |_view, superview_size| {
-            let origin_x = match task_view_clone.entry_index {
+            let entry_index = *task_view_clone.entry_index.borrow();
+            let origin_x = match entry_index {
                 0 => self_clone.task_views_origin.x,
                 _ => {
                     let self_clone = Rc::clone(&self_clone);
                     let task_views_clone = &self_clone.task_views;
-                    let previous_task_view =
-                        &task_views_clone.borrow()[task_view_clone.entry_index - 1];
+                    let previous_task_view = &task_views_clone.borrow()[entry_index - 1];
                     previous_task_view.frame().max_x() + self_clone.task_views_spacing_x
                 }
             };
@@ -468,7 +507,7 @@ impl Dock {
                     self_clone.task_view_height,
                 ),
             );
-            printf!("Task view sizer returned {:?}\n", frame);
+            //printf!("Task view sizer returned {:?}\n", frame);
 
             // Center the title label to be centered
             task_view_clone.resize_title_label(frame.size);
@@ -486,11 +525,13 @@ impl Dock {
     pub fn handle_window_title_updated(self: Rc<Self>, event: &AwmDockWindowTitleUpdatedEvent) {
         let title_with_null_bytes = core::str::from_utf8(&(*event).title).unwrap();
         let title_without_null_bytes = title_with_null_bytes.trim_matches(char::from(0));
+        /*
         printf!(
             "Window title updated! ID {}, title {}\n",
             event.window_id,
             title_without_null_bytes
         );
+        */
 
         // Update the title of the affected task view
         let self_clone = Rc::clone(&self);
@@ -501,7 +542,7 @@ impl Dock {
             .next();
 
         if let None = task_view {
-            printf!("No task view for the provided window ID, skipping it...");
+            printf!("No task view for the provided window ID, skipping it...\n");
             return;
         }
         let task_view = task_view.unwrap();
@@ -532,7 +573,6 @@ impl Dock {
             return;
         }
         let task_view = task_view.unwrap();
-
         // Send back info to awm informing it where to minimize the window to
         amc_message_send(
             AwmWindow::AWM_SERVICE_NAME,
@@ -540,15 +580,58 @@ impl Dock {
         );
     }
 
+    fn remove_task_view_from_superview_by_window_id(&self, window_id: u32) {
+        let task_views = self.task_views.borrow();
+        let task_view = task_views
+            .iter()
+            .filter(|tv| tv.window_id == window_id)
+            .next();
+
+        if let None = task_view {
+            printf!("No task view for the provided window ID, skipping it...");
+            return;
+        }
+        let task_view = task_view.unwrap();
+        printf!("Found task view with window ID {}\n", task_view.window_id);
+
+        // Remove the task view from its superview
+        Rc::clone(&self.container_view)
+            .remove_component(&(Rc::clone(task_view) as Rc<dyn UIElement>));
+    }
+
+    fn remove_task_view_by_window_id(&self, window_id: u32) {
+        self.remove_task_view_from_superview_by_window_id(window_id);
+        // Drop the specified task view
+        // Note that if an invalid window ID is passed, the error will be silently dropped
+        let mut task_views = self.task_views.borrow_mut();
+        task_views.retain(|task_view| task_view.window_id != window_id);
+
+        // Update the entry indexes of each task view
+        for (entry_idx, task_view) in task_views.iter_mut().enumerate() {
+            task_view.set_entry_index(entry_idx)
+        }
+
+        // Run sizers for each task view, now that their positions need re-adjusting
+    }
+
+    pub fn handle_window_closed(self: Rc<Self>, event: &AwmDockWindowClosed) {
+        printf!("Window closed! {}\n", event.window_id);
+
+        self.remove_task_view_by_window_id(event.window_id);
+        // TODO(PT): Run sizers for everything
+        self.redraw();
+    }
+
     pub fn redraw(self: Rc<Self>) {
         let window = Rc::clone(&self.window);
+        window.resize_subviews();
 
         let task_views = self.task_views.borrow();
         for task_view in task_views.iter() {
             Bordered::draw_rc(Rc::clone(&task_view));
         }
 
-        window.resize_subviews();
+        //window.resize_subviews();
         //window.commit();
     }
 }
@@ -581,7 +664,7 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
                         true
                     }
                     AwmDockWindowTitleUpdatedEvent::EXPECTED_EVENT => {
-                        printf!("Received dock window event!\n");
+                        printf!("Received dock window created event!\n");
                         Rc::clone(&dock.borrow())
                             .handle_window_title_updated(Dock::body_as_type_unchecked(raw_body));
                         true
@@ -590,6 +673,12 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
                         printf!("Received window minimize request!\n");
                         Rc::clone(&dock.borrow())
                             .handle_window_minimize_request(Dock::body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    AwmDockWindowClosed::EXPECTED_EVENT => {
+                        printf!("Received window closed event!\n");
+                        Rc::clone(&dock.borrow())
+                            .handle_window_closed(Dock::body_as_type_unchecked(raw_body));
                         true
                     }
                     _ => false,

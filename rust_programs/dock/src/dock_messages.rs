@@ -96,3 +96,97 @@ impl ExpectsEventField for AwmDockWindowMinimizeWithInfo {
 }
 
 impl AwmDockEvent for AwmDockWindowMinimizeWithInfo {}
+
+/*
+ * Task view hovered
+ */
+
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AwmDockTaskViewHovered {
+    event: u32,
+    window_id: u32,
+    task_view_frame: RectU32,
+}
+
+impl AwmDockTaskViewHovered {
+    pub fn new(window_id: u32, task_view_frame: Rect) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            window_id,
+            task_view_frame: RectU32::from(task_view_frame),
+        }
+    }
+}
+
+impl ExpectsEventField for AwmDockTaskViewHovered {
+    const EXPECTED_EVENT: u32 = 821;
+}
+
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AwmDockTaskViewHoverExited {
+    event: u32,
+    window_id: u32,
+}
+
+impl AwmDockTaskViewHoverExited {
+    pub fn new(window_id: u32) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            window_id,
+        }
+    }
+}
+
+impl ExpectsEventField for AwmDockTaskViewHoverExited {
+    const EXPECTED_EVENT: u32 = 822;
+}
+
+// Task view clicked - Unminimize window or bring to forefront
+
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AwmDockTaskViewClicked {
+    pub event: u32,
+    pub window_id: u32,
+}
+
+impl AwmDockTaskViewClicked {
+    pub fn new(window_id: u32) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            window_id,
+        }
+    }
+}
+
+impl ExpectsEventField for AwmDockTaskViewClicked {
+    const EXPECTED_EVENT: u32 = 823;
+}
+
+impl AwmDockEvent for AwmDockTaskViewClicked {}
+
+/*
+#define AWM_DOCK_WINDOW_CLOSED 824
+typedef struct awm_dock_window_closed_event {
+    uint32_t event;
+    uint32_t window_id;
+} awm_dock_window_closed_event_t;
+
+*/
+
+// Window closed
+
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AwmDockWindowClosed {
+    pub event: u32,
+    pub window_id: u32,
+}
+
+impl ExpectsEventField for AwmDockWindowClosed {
+    const EXPECTED_EVENT: u32 = 824;
+}
+
+impl AwmDockEvent for AwmDockWindowClosed {}
