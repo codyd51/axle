@@ -25,4 +25,9 @@ Color background_gradient_inner_color(void);
 
 bool amc_service_is_awm_dock(const char* service_name);
 
+void mouse_recompute_status(void);
+
+//typedef struct user_window user_window_t;
+//void _window_detect_state_change_for_mouse_pos(user_window_t* window, Point mouse_point);
+
 #endif

@@ -48,6 +48,7 @@ bool rect_contains_rect(Rect a, Rect b) {
 }
 
 array_t* rect_diff(Rect bg, Rect fg) {
+    //assert(bg.size.width > 0 && bg.size.height > 0 && fg.size.width > 0 && fg.size.height > 0, "Invalid input to rect_diff");
     array_t* out = array_create(5);
 
     // Split by left edge if it's between the subject's left and right edges
@@ -55,6 +56,7 @@ array_t* rect_diff(Rect bg, Rect fg) {
         //printf("Shrink left edge\n");
         // Span from the background's left up to the foreground
         int diff = rect_min_x(fg) - rect_min_x(bg);
+        //assert(diff > 0, "Diff was 0");
         Rect* r = calloc(1, sizeof(Rect));
         *r = rect_make(
             point_make(
@@ -71,12 +73,18 @@ array_t* rect_diff(Rect bg, Rect fg) {
         bg.origin.x += diff;
         bg.size.width -= diff;
     }
+    /*
+    if (bg.size.width == 0 || bg.size.height == 0) {
+        goto end;
+    }
+    */
 
     // Split by top edge
     if ((rect_min_y(fg) > rect_min_y(bg) && rect_min_y(fg) <= rect_max_y(bg))) {
         //printf("Split by top edge\n");
         // Background top to foreground top
         int diff = rect_min_y(fg) - rect_min_y(bg);
+        //assert(diff > 0, "Diff was 0");
         Rect* r = calloc(1, sizeof(Rect));
         *r = rect_make(
             point_make(
@@ -93,11 +101,17 @@ array_t* rect_diff(Rect bg, Rect fg) {
         bg.origin.y += diff;
         bg.size.height -= diff;
     }
+    /*
+    if (bg.size.width == 0 || bg.size.height == 0) {
+        goto end;
+    }
+    */
 
     // Split by right edge
-    if (rect_max_x(fg) > rect_min_x(bg) && rect_max_x(fg) <= rect_max_x(bg)) {
+    if (rect_max_x(fg) > rect_min_x(bg) && rect_max_x(fg) < rect_max_x(bg)) {
         //printf("Shrink right edge\n");
         int diff = rect_max_x(bg) - rect_max_x(fg);
+        //assert(diff > 0, "Diff was 0");
 
         Rect* r = calloc(1, sizeof(Rect));
         *r = rect_make(
@@ -113,11 +127,17 @@ array_t* rect_diff(Rect bg, Rect fg) {
         array_insert(out, r);
         bg.size.width -= diff;
     }
+    /*
+    if (bg.size.width == 0 || bg.size.height == 0) {
+        goto end;
+    }
+    */
 
     // Split by bottom edge if it's between the top and bottom edge
-    if (rect_max_y(fg) > rect_min_y(bg) && rect_max_y(fg) <= rect_max_y(bg)) {
+    if (rect_max_y(fg) > rect_min_y(bg) && rect_max_y(fg) < rect_max_y(bg)) {
         //printf("Shrink bottom edge\n");
         int diff = rect_max_y(bg) - rect_max_y(fg);
+        //assert(diff > 0, "Diff was 0");
         Rect* r = calloc(1, sizeof(Rect));
         *r = rect_make(
             point_make(
@@ -133,6 +153,11 @@ array_t* rect_diff(Rect bg, Rect fg) {
         //Shrink the background to exclude the split portion
         bg.size.height -= diff;
     }
+    /*
+    if (bg.size.width == 0 || bg.size.height == 0) {
+        goto end;
+    }
+    */
 
     // Cull zero-length rects
     /*
@@ -141,10 +166,14 @@ array_t* rect_diff(Rect bg, Rect fg) {
     }
     */
 
+//end:
     return out;
 }
 
 void rect_add(array_t* arr, Rect r) {
+    if (r.size.width == 0 || r.size.height == 0) {
+        assert(false, "Found zero-sized rect_add");
+    }
     Rect* rp = calloc(1, sizeof(Rect));
     rp->origin.x = r.origin.x;
     rp->origin.y = r.origin.y;
@@ -158,13 +187,16 @@ array_t* update_occlusions(array_t* free_areas, Rect exclude_rect) {
     for (int32_t free_area_idx = 0; free_area_idx < free_areas->size; free_area_idx++) {
         Rect* free_area = array_lookup(free_areas, free_area_idx);
         if (!rect_intersects(*free_area, exclude_rect)) {
+            assert(free_area->size.width > 0 && free_area->size.height > 0, "Free area was zero-sized");
             array_insert(new_free_areas, free_area);
             continue;
         }
 
+        // TODO(PT): Add asserts to rect_diff?
         array_t* occlusions = rect_diff(*free_area, exclude_rect);
         for (int occlusion_idx = 0; occlusion_idx < occlusions->size; occlusion_idx++) {
             Rect* r = array_lookup(occlusions, occlusion_idx);
+            assert(r->size.width > 0 && r->size.height > 0, "New free area was zero-sized");
             array_insert(new_free_areas, r);
         }
         array_destroy(occlusions);
@@ -182,16 +214,7 @@ image_t* load_image(const char* image_name) {
 
 	printf("AWM awaiting file read response for %s...\n", image_name);
 	amc_message_t* file_data_msg;
-	bool received_file_data = false;
-	for (uint32_t i = 0; i < 32; i++) {
-		amc_message_await(FILE_SERVER_SERVICE_NAME, &file_data_msg);
-		uint32_t event = amc_msg_u32_get_word(file_data_msg, 0);
-		if (event == FILE_SERVER_READ_FILE_EVENT) {
-			received_file_data = true;
-			break;
-		}
-	}
-	assert(received_file_data, "Failed to recv file data");
+    amc_message_await__u32_event(FILE_SERVER_SERVICE_NAME, FILE_SERVER_READ_FILE_EVENT, &file_data_msg);
 
 	printf("AWM got response for %s!\n", image_name);
 	file_server_read_response_t* resp = (file_server_read_response_t*)&file_data_msg->body;

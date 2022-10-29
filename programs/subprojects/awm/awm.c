@@ -31,6 +31,101 @@
 #include "animations.h"
 #include "composite.h"
 
+typedef enum window_resize_edge {
+	WINDOW_RESIZE_EDGE_LEFT = 0,
+	WINDOW_RESIZE_EDGE_NOT_LEFT = 1
+} window_resize_edge_t;
+
+typedef struct mouse_interaction_state {
+	bool left_click_down;
+	user_window_t* active_window;
+	desktop_shortcut_t* hovered_shortcut;
+
+	// Drag state
+	bool has_begun_drag;
+	bool is_resizing_top_window;
+	bool is_moving_top_window;
+	window_resize_edge_t resize_edge;
+	bool is_dragging_shortcut;
+
+	bool is_prospective_window_move;
+	bool is_prospective_window_resize;
+	Point mouse_pos;
+} mouse_interaction_state_t;
+
+static mouse_interaction_state_t g_mouse_state = {0};
+
+typedef struct keyboard_state {
+	bool is_shift_held;
+	bool is_command_held;
+	bool is_control_held;
+} keyboard_state_t;
+
+static keyboard_state_t g_keyboard_state = {0};
+
+typedef struct color_pair {
+	Color c1;
+	Color c2;
+} color_pair_t;
+
+Color color_make2(uint8_t red, uint8_t green, uint8_t blue) {
+	Color ret;
+	ret.val[0] = red;
+	ret.val[1] = green;
+	ret.val[2] = blue;
+	return ret;
+}
+
+color_pair_t get_garish_pair() {
+	color_pair_t garish_pairs[] = {
+		{
+			.c1 = color_make2(0x3d, 0xff, 0x00),
+			.c2 = color_make2(0xff, 0x00, 0xb1)
+		},
+		{
+			.c1 = color_make2(0xf8, 0xff, 0x00),
+			.c2 = color_make2(0x00, 0x14, 0xff)
+		},
+		{
+			.c1 = color_make2(0xff, 0x00, 0x00),
+			.c2 = color_make2(0x00, 0xff, 0xef)
+		},
+		{
+			.c1 = color_make2(0xff, 0xb1, 0x00),
+			.c2 = color_make2(0xb4, 0xff, 0x00)
+		},
+		{
+			.c1 = color_make2(0x9d, 0x00, 0xff),
+			.c2 = color_make2(0x32, 0xff, 0x00)
+		},
+		{
+			.c1 = color_make2(0x02, 0xff, 0xf4),
+			.c2 = color_make2(0xff, 0x8f, 0x7f)
+		},
+		/*
+		{
+			.c1 = color_make2(252, 11, 3),
+			.c2 = 
+		*/
+	};
+	int len = (sizeof(garish_pairs) / sizeof(garish_pairs[0]));
+	int idx = rand() % len;
+	printf("Returning idx %d\n", idx);
+	return garish_pairs[idx];
+}
+
+void print_colors(color_pair_t garish_pair) {
+	// TODO(PT): Check for alpha byte pos?
+	printf("Displaying pair: Inner (%02x%02x%02x), Outer (%02x%02x%02x)\n", 
+		garish_pair.c1.val[0],
+		garish_pair.c1.val[1],
+		garish_pair.c1.val[2],
+		garish_pair.c2.val[0],
+		garish_pair.c2.val[1],
+		garish_pair.c2.val[2]
+	);
+}
+
 typedef struct incremental_mouse_state {
 	int8_t state;
 	int32_t rel_x;
@@ -59,11 +154,46 @@ Screen* gfx_screen() {
 static void handle_keystroke(amc_message_t* keystroke_msg) {
 	key_event_t* event = (key_event_t*)keystroke_msg->body;
 
+	// Handle modifier keys
+	if (event->key == KEY_IDENT_LEFT_SHIFT || event->key == KEY_IDENT_RIGHT_SHIFT) {
+		g_keyboard_state.is_shift_held = event->type == KEY_PRESSED;
+	}
+	if (event->key == KEY_IDENT_LEFT_CONTROL) {
+		g_keyboard_state.is_control_held = event->type == KEY_PRESSED;
+	}
+	if (event->key == KEY_IDENT_LEFT_COMMAND) {
+		g_keyboard_state.is_command_held = event->type == KEY_PRESSED;
+	}
+
 	if (event->type == KEY_PRESSED) {
 		// Hack: Tab switches windows
-		if (event->key == '\t') {
-			window_move_to_top(windows_get_bottom_window());
+		if (g_keyboard_state.is_control_held && event->key == '\t') {
+			user_window_t* bottom_window = windows_get_bottom_window();
+			if (bottom_window) {
+				printf("Moving bottom window to top! %s\n", bottom_window->owner_service);
+				window_move_to_top(bottom_window);
+			}
+			else {
+				printf("No bottom window\n");
+			}
 		}
+
+		// Ctrl+W closes the topmost window
+		if (g_keyboard_state.is_control_held && event->key == 'w') {
+			//window_move_to_top(windows_get_bottom_window());
+			user_window_t* top_window = windows_get_top_window();
+			if (top_window) {
+				amc_msg_u32_1__send(top_window->owner_service, AWM_CLOSE_WINDOW_REQUEST);
+			}
+		}
+
+		/*
+		if (event->key == 'a') {
+			int a = 42;
+			printf("awm sending magic message!\n");
+			amc_message_send("com.axle.sata_driver", &a, sizeof(a));
+		}
+		*/
 	}
 
 	// Only send this keystroke to the foremost program
@@ -73,30 +203,6 @@ static void handle_keystroke(amc_message_t* keystroke_msg) {
 		window_handle_keyboard_event(top_window, awm_event, event->key);
 	}
 }
-
-typedef enum window_resize_edge {
-	WINDOW_RESIZE_EDGE_LEFT = 0,
-	WINDOW_RESIZE_EDGE_NOT_LEFT = 1
-} window_resize_edge_t;
-
-typedef struct mouse_interaction_state {
-	bool left_click_down;
-	user_window_t* active_window;
-	desktop_shortcut_t* hovered_shortcut;
-
-	// Drag state
-	bool has_begun_drag;
-	bool is_resizing_top_window;
-	bool is_moving_top_window;
-	window_resize_edge_t resize_edge;
-	bool is_dragging_shortcut;
-
-	bool is_prospective_window_move;
-	bool is_prospective_window_resize;
-	Point mouse_pos;
-} mouse_interaction_state_t;
-
-static mouse_interaction_state_t g_mouse_state = {0};
 
 static void _begin_left_click(mouse_interaction_state_t* state, Point mouse_point) {
 	state->left_click_down = true;
@@ -131,7 +237,7 @@ static void _begin_left_click(mouse_interaction_state_t* state, Point mouse_poin
 	}
 	// Left click within a window
 	// Set it to the topmost window if it wasn't already
-	if (windows_get_top_window() != state->active_window) {
+	if (windows_get_top_window() != state->active_window && window_is_in_z_order(state->active_window)) {
 		printf("Left click in background window %s. Move to top\n", state->active_window->owner_service);
 		state->active_window = window_move_to_top(state->active_window);
 	}
@@ -154,24 +260,46 @@ static void _end_left_click(mouse_interaction_state_t* state, Point mouse_point)
 }
 
 static void _exit_hover_window(mouse_interaction_state_t* state) {
-	//printf("Mouse exited %s\n", state->active_window->owner_service);
+	printf("Mouse exited %s\n", state->active_window->owner_service);
 	window_handle_mouse_exited(state->active_window);
 
 	state->active_window = NULL;
 }
 
-static void _enter_hover_window(mouse_interaction_state_t* state, user_window_t* window) {
-	//printf("Mouse entered %s\n", window->owner_service);
-	window_handle_mouse_entered(window);
+static void _window_detect_state_change_for_mouse_pos(user_window_t* window, Point mouse_within_window) {
+	// Is the mouse within the content view?
+	//Point mouse_within_window = point_translate(mouse_point, window->frame);
+	if (rect_contains_point(window->content_view->frame, mouse_within_window)) {
+		// State change?
+		if (!window->is_mouse_within_content_view) {
+			// Mouse entered content view
+			printf("Mouse entered content view\n");
+			window->is_mouse_within_content_view = true;
+			window_handle_mouse_entered(window);
+		}
+	}
+	else if (window->is_mouse_within_content_view) {
+		// Mouse exited content view
+		printf("Mouse exited content view\n");
+		window->is_mouse_within_content_view = false;
+		window_handle_mouse_exited(window);
+	}
+}
+
+static void _enter_hover_window(mouse_interaction_state_t* state, user_window_t* window, Point mouse_point) {
+	printf("Mouse entered %s\n", window->owner_service);
 
 	// Keep track that we're currently within this window
 	state->active_window = window;
+	//_window_detect_state_change_for_mouse_pos(window, mouse_point);
 }
 
 static void _exit_hovered_shortcut(mouse_interaction_state_t* state) {
-	//printf("Mouse exited shortcut %s\n", state->hovered_shortcut->program_path);
+	printf("Mouse exited shortcut %s (0x%016lx %d)\n", state->hovered_shortcut->program_path, state->hovered_shortcut, state->is_dragging_shortcut);
 	desktop_shortcut_handle_mouse_exited(state->hovered_shortcut);
 	state->hovered_shortcut = NULL;
+	// TODO(PT): Sometimes, is_dragging_shortcut isn't unset w/o this hack, why not?
+	state->is_dragging_shortcut = false;
 }
 
 static void _enter_hovered_shortcut(mouse_interaction_state_t* state, desktop_shortcut_t* shortcut) {
@@ -204,7 +332,8 @@ static void _mouse_reset_prospective_action_flags(mouse_interaction_state_t* sta
 			point_zero(),
 			size_make(state->active_window->frame.size.width, WINDOW_TITLE_BAR_HEIGHT)
 		);
-		if (rect_contains_point(title_bar_frame, mouse_within_window) && state->active_window->is_movable) {
+		bool is_mouse_within_title_bar = rect_contains_point(title_bar_frame, mouse_within_window);
+		if (is_mouse_within_title_bar && state->active_window->is_movable) {
 			state->is_prospective_window_move = true;
 		}
 		else if (!rect_contains_point(content_view_inset, mouse_within_window) && state->active_window->is_resizable) {
@@ -212,28 +341,35 @@ static void _mouse_reset_prospective_action_flags(mouse_interaction_state_t* sta
 		}
 
 		if (state->active_window->has_title_bar) {
-			if (rect_contains_point(title_bar_frame, mouse_within_window)) {
-				// TODO(PT): Keep track of what we last drew and only redraw if this is a state change
-				window_redraw_title_bar(state->active_window, true, true);
+			bool should_show_window_action_icons = false;
+			// Skip work, we only need to check if we know we're in the title bar
+			if (is_mouse_within_title_bar) {
+				Rect window_action_icons = rect_union(
+					state->active_window->close_button_frame,
+					state->active_window->minimize_button_frame
+				);
+				should_show_window_action_icons = rect_contains_point(window_action_icons, mouse_within_window);
 			}
-			else {
-				window_redraw_title_bar(state->active_window, false, false);
-			}
+			// TODO(PT): Keep track of what we last drew and only redraw if this is a state change
+			window_redraw_title_bar(
+				state->active_window, 
+				is_mouse_within_title_bar, 
+				should_show_window_action_icons, 
+				should_show_window_action_icons
+			);
 		}
 	}
 }
 
 static void _moved_in_hover_window(mouse_interaction_state_t* state, Point mouse_point) {
+	Point mouse_within_window = point_translate(mouse_point, state->active_window->frame);
+	_window_detect_state_change_for_mouse_pos(state->active_window, mouse_within_window);
 	if (!state->is_prospective_window_move && !state->is_prospective_window_resize) {
-		Point mouse_within_window = point_make(
-			mouse_point.x - rect_min_x(state->active_window->frame),
-			mouse_point.y - rect_min_y(state->active_window->frame)
-		);
 		window_handle_mouse_moved(state->active_window, mouse_within_window);
 	}
 }
 
-static void _handle_mouse_moved(mouse_interaction_state_t* state, Point mouse_point, int32_t delta_x, int32_t delta_y, int32_t delta_z) {
+static void _handle_mouse_moved(mouse_interaction_state_t* state, Point mouse_point) {
 	// Check if we've moved outside the bounds of the hover window
 	if (state->active_window != NULL) {
 		if (!rect_contains_point(state->active_window->frame, mouse_point)) {
@@ -250,6 +386,7 @@ static void _handle_mouse_moved(mouse_interaction_state_t* state, Point mouse_po
 	// Check each window and see if we've just entered it
 	// This array is sorted in Z-order so we encounter the topmost window first
 	user_window_t* window_under_mouse = window_containing_point(mouse_point, true);
+
 	// Is this a different window from the one we were previously hovered over?
 	if (state->active_window != window_under_mouse) {
 		if (state->active_window != NULL) {
@@ -261,7 +398,7 @@ static void _handle_mouse_moved(mouse_interaction_state_t* state, Point mouse_po
 
 		if (window_under_mouse) {
 			// Inform the window we've just entered it
-			_enter_hover_window(state, window_under_mouse);
+			_enter_hover_window(state, window_under_mouse, mouse_point);
 		}
 	}
 
@@ -282,6 +419,10 @@ static void _handle_mouse_moved(mouse_interaction_state_t* state, Point mouse_po
 			}
 		}
 	}
+}
+
+void mouse_recompute_status(void) {
+	_handle_mouse_moved(&g_mouse_state, g_mouse_state.mouse_pos);
 }
 
 static void _begin_mouse_drag(mouse_interaction_state_t* state, Point mouse_point) {
@@ -329,15 +470,21 @@ static void _end_mouse_drag(mouse_interaction_state_t* state, Point mouse_point)
 	if (state->has_begun_drag) {
 		printf("End drag\n");
 		if (state->is_dragging_shortcut) {
-			Rect original_frame = state->hovered_shortcut->view->frame;
-			desktop_shortcut_grid_slot_t* slot = desktop_shortcut_grid_slot_for_rect(original_frame);
-			// If we couldn't find a good place to put the icon, move it back to its original spot
-			if (!slot) {
-				printf("Failed to find a good place to put shortcut, returning to original slot\n");
-				slot = state->hovered_shortcut->grid_slot;
+			if (state->hovered_shortcut == NULL) {
+				printf("*** Caught bug! is_dragging_shortcut is set, but hovered_shortcut is NULL\n");
+				return;
 			}
-			awm_animation_snap_shortcut_t* anim = awm_animation_snap_shortcut_init(32, state->hovered_shortcut, slot);
-			awm_animation_start((awm_animation_t*)anim);
+			else {
+				Rect original_frame = state->hovered_shortcut->view->frame;
+				desktop_shortcut_grid_slot_t* slot = desktop_shortcut_grid_slot_for_rect(original_frame);
+				// If we couldn't find a good place to put the icon, move it back to its original spot
+				if (!slot) {
+					printf("Failed to find a good place to put shortcut, returning to original slot\n");
+					slot = state->hovered_shortcut->grid_slot;
+				}
+				awm_animation_snap_shortcut_t* anim = awm_animation_snap_shortcut_init(32, state->hovered_shortcut, slot);
+				awm_animation_start((awm_animation_t*)anim);
+			}
 		}
 		if (state->is_resizing_top_window) {
 			// Inform the window that the resize has ended
@@ -470,7 +617,18 @@ static void _handle_mouse_scroll(mouse_interaction_state_t* state, int32_t delta
 	if (state->active_window) {
 		// Scroll within a window
 		// Inform the window
-		amc_msg_u32_2__send(state->active_window->owner_service, AWM_MOUSE_SCROLLED, (uint32_t)delta_z);
+		Point mouse_point = g_mouse_state.mouse_pos;
+		Point mouse_within_window = point_translate(mouse_point, state->active_window->frame);
+        Point mouse_within_content_view = point_make(
+            mouse_within_window.x - rect_min_x(state->active_window->content_view->frame),
+            mouse_within_window.y - rect_min_y(state->active_window->content_view->frame)
+        );
+		awm_mouse_scrolled_msg_t msg = {
+			.event = AWM_MOUSE_SCROLLED,
+			.mouse_pos = mouse_within_content_view,
+			.delta_z = delta_z
+		};
+		amc_message_send(state->active_window->owner_service, &msg, sizeof(msg));
 	}
 }
 
@@ -511,7 +669,7 @@ static void mouse_dispatch_events(uint8_t status_byte, Point mouse_point, int32_
 
 	// Now that all other event types have been processed, check to see if we've just
 	// moved to a different window
-	_handle_mouse_moved(mouse_state, mouse_point, delta_x, delta_y, delta_z);
+	_handle_mouse_moved(mouse_state, mouse_point);
 }
 
 static bool handle_mouse_event(amc_message_t* mouse_event, incremental_mouse_state_t* incremental_update) {
@@ -522,7 +680,7 @@ static bool handle_mouse_event(amc_message_t* mouse_event, incremental_mouse_sta
 	mouse_pos.x = max(0, mouse_pos.x);
 	mouse_pos.y = max(0, mouse_pos.y);
 	mouse_pos.x = min(_screen.resolution.width - 4, mouse_pos.x);
-	mouse_pos.y = min(_screen.resolution.height - 4, mouse_pos.y);
+	mouse_pos.y = min(_screen.resolution.height - 10, mouse_pos.y);
 
 	bool updated_state_byte = packet->status == incremental_update->state;
 	incremental_update->state = packet->status;
@@ -590,7 +748,7 @@ void _window_resize(user_window_t* window, Size new_size, bool inform_window) {
 				new_size.height - WINDOW_BORDER_MARGIN - title_bar_size.height
 			)
 		);
-		window_redraw_title_bar(window, false, false);
+		window_redraw_title_bar(window, false, false, false);
 	}
 	else {
 		window->content_view->frame = rect_make(
@@ -607,6 +765,7 @@ void _window_resize(user_window_t* window, Size new_size, bool inform_window) {
 	windows_invalidate_drawable_regions_in_rect(rect_union(original_frame, window->frame));
 
 	if (inform_window && !window->remote_process_died) {
+		//printf("Informing %s of its new size %d %d\n", window->owner_service, window->content_view->frame.size.width, window->content_view->frame.size.height);
 		awm_window_resized_msg_t msg = {0};
 		msg.event = AWM_WINDOW_RESIZED;
 		msg.new_size = window->content_view->frame.size;
@@ -661,6 +820,49 @@ static void _remove_and_teardown_window_for_service(const char* owner_service) {
 	awm_animation_start((awm_animation_t*)anim);
 }
 
+static void _dock_display_preview_from_message(awm_dock_task_view_hovered_t* msg) {
+	printf("Got request to display dock preview for window ID %d!\n", msg->window_id);
+
+    // Find the window with the specified ID
+    user_window_t* window = window_with_id(msg->window_id);
+    if (!window) {
+        printf("No window found with the specified ID\n");
+        return;
+    }
+
+	// Only present hover state for minimized windows
+	if (!window->is_minimized) {
+		printf("Window isn't minimized, doing nothing\n");
+		return;
+	}
+
+	minimized_preview_display_for_window(window, msg->task_view_frame);
+}
+
+static void _dock_clear_window_preview(awm_dock_task_view_hover_exited_t* msg) {
+	printf("Got request to clear dock preview\n");
+	minimized_preview_clear();
+}
+
+static void _dock_handle_task_view_clicked(awm_dock_task_view_clicked_event_t* msg) {
+	printf("Task view clicked!\n");
+
+    user_window_t* window = window_with_id(msg->window_id);
+    if (!window) {
+        printf("No window found with the specified ID\n");
+        return;
+    }
+
+	if (window->is_minimized) {
+		// If the user clicked a minimized window, unminimize it
+		window_unminimize_from_message(msg);
+	}
+	else {
+		// The user clicked an unminimized window - bring it to the forefront
+		window_move_to_top(window);
+	}
+}
+
 static void handle_user_message(amc_message_t* user_message) {
 	const char* source_service = amc_message_source(user_message);
 	uint32_t command = amc_msg_u32_get_word(user_message, 0);
@@ -672,6 +874,11 @@ static void handle_user_message(amc_message_t* user_message) {
 			printf("AWM updating background gradient... %d %d %d, %d %d %d\n",msg->from.val[0], msg->from.val[1], msg->from.val[2], msg->to.val[0], msg->to.val[1], msg->to.val[2]);
 			_g_background_gradient_outer = msg->to;
 			_g_background_gradient_inner = msg->from;
+			/*
+			color_pair_t garish_pair = get_garish_pair();
+			_g_background_gradient_inner = garish_pair.c1;
+			_g_background_gradient_outer = garish_pair.c2;
+			*/
 			radial_gradiant(
 				_g_background, 
 				_g_background->size, 
@@ -681,6 +888,7 @@ static void handle_user_message(amc_message_t* user_message) {
 				_g_background->size.height/2.0, 
 				(float)_g_background->size.height * 0.65
 			);
+			//print_colors(garish_pair);
 			compositor_queue_rect_to_redraw(rect_make(point_zero(), _g_background->size));
 			// Also re-render each desktop shortcut, as they use the background color in their rendering
 			array_t* shortcuts = desktop_shortcuts();
@@ -697,6 +905,28 @@ static void handle_user_message(amc_message_t* user_message) {
 				.desktop_gradient_outer_color = _g_background_gradient_outer
 			};
 			amc_message_send(source_service, &resp, sizeof(resp));
+			return;
+		}
+	}
+	else if (!strncmp(source_service, AWM_DOCK_SERVICE_NAME, AMC_MAX_SERVICE_NAME_LEN)) {
+		if (command == AWM_DOCK_WINDOW_MINIMIZE_WITH_INFO) {
+			awm_dock_window_minimize_with_info_event_t* msg = (awm_dock_window_minimize_with_info_event_t*)&user_message->body;
+			window_minimize_from_message(msg);
+			return;
+		}
+		else if (command == AWM_DOCK_TASK_VIEW_CLICKED) {
+			awm_dock_task_view_clicked_event_t* msg = (awm_dock_task_view_clicked_event_t*)&user_message->body;
+			_dock_handle_task_view_clicked(msg);
+			return;
+		}
+		else if (command == AWM_DOCK_TASK_VIEW_HOVERED) {
+			awm_dock_task_view_hovered_t* msg = (awm_dock_task_view_hovered_t*)&user_message->body;
+			_dock_display_preview_from_message(msg);
+			return;
+		}
+		else if (command == AWM_DOCK_TASK_VIEW_HOVER_EXITED) {
+			awm_dock_task_view_hover_exited_t* msg = (awm_dock_task_view_hover_exited_t*)&user_message->body;
+			_dock_clear_window_preview(msg);
 			return;
 		}
 	}
@@ -802,6 +1032,16 @@ static void _awm_init(void) {
 	srand(ms_since_boot());
 	_g_background_gradient_inner = color_make(rand() % 255, rand() % 255, rand() % 255);
 	_g_background_gradient_outer = color_make(rand() % 255, rand() % 255, rand() % 255);
+
+	/*
+	color_pair_t garish_pair = get_garish_pair();
+	_g_background_gradient_inner = garish_pair.c1;
+	_g_background_gradient_outer = garish_pair.c2;
+	*/
+	//print_colors(garish_pair);
+	//_g_background_gradient_inner = color_make(0, 247, 225);
+	//_g_background_gradient_outer = color_make(36, 105, 250);
+
 	radial_gradiant(
 		_g_background, 
 		screen_frame.size, 

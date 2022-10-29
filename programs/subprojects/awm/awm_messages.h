@@ -47,6 +47,7 @@ typedef struct awm_mouse_moved_msg {
 #define AWM_MOUSE_SCROLLED 807
 typedef struct awm_mouse_scrolled_msg {
     uint32_t event; // AWM_MOUSE_SCROLLED
+    Point mouse_pos; 
     int8_t delta_z;
 } awm_mouse_scrolled_msg_t;
 

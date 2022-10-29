@@ -15,7 +15,8 @@ typedef struct view {
 } view_t;
 
 typedef struct user_window {
-	// TODO(PT): Why can't these fields be reordered?
+	// TODO(PT): These fields can't be reordered because draw_queued_extra_draws() 
+	// interprets user_window_t as a view_t.
 	Rect frame;
 	ca_layer* layer;
 	array_t* drawable_rects;
@@ -30,6 +31,8 @@ typedef struct user_window {
 
 	Rect close_button_frame;
 	Rect minimize_button_frame;
+	Rect unminimized_frame;
+	ca_layer* unminimized_snapshot;
 
 	bool has_done_first_draw;
 	bool remote_process_died;
@@ -37,6 +40,7 @@ typedef struct user_window {
 	bool is_movable;
 	bool is_resizable;
 	bool is_minimized;
+	bool is_mouse_within_content_view;
 } user_window_t;
 
 typedef struct desktop_shortcut desktop_shortcut_t;
@@ -75,7 +79,7 @@ void desktop_view_queue_extra_draw(view_t* view, Rect extra);
 void desktop_views_flush_queues(void);
 array_t* desktop_views_ready_to_composite_array(void);
 
-void window_redraw_title_bar(user_window_t* window, bool close_button_hovered, bool minimize_button_hovered);
+void window_redraw_title_bar(user_window_t* window, bool title_bar_active, bool close_button_hovered, bool minimize_button_hovered);
 
 void window_handle_left_click(user_window_t* window,  Point mouse_within_window);
 void window_handle_left_click_ended(user_window_t* window,  Point mouse_within_window);
@@ -91,8 +95,10 @@ void windows_init(void);
 user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t height);
 void window_destroy(user_window_t* window);
 
+user_window_t* window_with_id(uint32_t window_id);
 void window_initiate_minimize(user_window_t* window);
 void window_minimize_from_message(awm_dock_window_minimize_with_info_event_t* event);
+void window_unminimize_from_message(awm_dock_task_view_clicked_event_t* event);
 
 void windows_composite(ca_layer* dest, Rect updated_rect);
 
@@ -122,5 +128,10 @@ Size desktop_shortcut_grid_slot_size(void);
 desktop_shortcut_grid_slot_t* desktop_shortcut_grid_slot_for_rect(Rect r);
 Rect desktop_shortcut_place_in_grid_slot(desktop_shortcut_t* shortcut, desktop_shortcut_grid_slot_t* grid_slot);
 Rect desktop_shortcut_frame_within_grid_slot(desktop_shortcut_grid_slot_t* grid_slot);
+
+void minimized_preview_display_for_window(user_window_t* window, Rect task_view_frame);
+void minimized_preview_clear(void);
+
+bool window_is_in_z_order(user_window_t* window);
 
 #endif

@@ -51,6 +51,51 @@ void compositor_init(void) {
 	_g_screen_rects_to_update_this_cycle = array_create(256);
 }
 
+void compositor_render_frame_simple(void) {
+	ca_layer* desktop_background = desktop_background_layer();
+	array_t* all_views = all_desktop_views();
+	ca_layer* video_memory = video_memory_layer();
+	ca_layer* physical_video_memory = physical_video_memory_layer();
+
+	// Fetch remote layers for windows that have asked for a redraw
+	windows_fetch_queued_windows();
+
+	blit_layer(
+		video_memory,
+		desktop_background,
+		rect_make(point_zero(), screen_resolution()),
+		rect_make(point_zero(), screen_resolution())
+	);
+
+	for (int i = 0; i < all_views->size; i++) {
+		view_t* view = array_lookup(all_views, i);
+		blit_layer(
+			video_memory,
+			view->layer,
+			view->frame,
+			rect_make(point_zero(), view->frame.size)
+		);
+	}
+
+	Rect mouse_rect = _draw_cursor(video_memory);
+
+	blit_layer(
+		physical_video_memory,
+		video_memory,
+		rect_make(point_zero(), screen_resolution()),
+		rect_make(point_zero(), screen_resolution())
+	);
+
+	complete_queued_extra_draws(all_views, video_memory, physical_video_memory);
+	desktop_views_flush_queues();
+	array_destroy(all_views);
+	for (int32_t i = _g_screen_rects_to_update_this_cycle->size - 1; i >= 0; i--) {
+		Rect* r = array_lookup(_g_screen_rects_to_update_this_cycle, i);
+		array_remove(_g_screen_rects_to_update_this_cycle, i);
+		free(r);
+	}
+}
+
 void compositor_render_frame(void) {
 	ca_layer* desktop_background = desktop_background_layer();
 	array_t* all_views = all_desktop_views();
@@ -83,6 +128,12 @@ void compositor_render_frame(void) {
 				Rect* visible_region_ptr = array_lookup(view->drawable_rects, k);
 				Rect visible_region = *visible_region_ptr;
 				if (rect_intersects(visible_region, r)) {
+
+					if (view->extra_draws_this_cycle->size >= view->extra_draws_this_cycle->max_size - 1) {
+						printf("*** Caught compositor exceeded size of extra_views_to_draw_this_cycle\n");
+						break;
+					}
+
 					if (rect_contains_rect(visible_region, r)) {
 						// The entire rect should be redrawn from this window
 						rect_add(view->extra_draws_this_cycle, r);

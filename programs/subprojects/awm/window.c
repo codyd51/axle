@@ -24,23 +24,44 @@ typedef struct desktop_shortcuts_state {
 // Sorted by Z-index
 #define MAX_WINDOW_COUNT 64
 array_t* desktop_views = NULL;
+
+// Two windows arrays. 
+// One contains all windows, including windows without Z-order (such as dock and status bar)
 array_t* windows = NULL;
+// The other contains draggable windows
+array_t* windows_with_z_order = NULL;
+array_t* windows_without_z_order = NULL;
+
 array_t* windows_to_fetch_this_cycle = NULL;
 array_t* views_to_composite_this_cycle = NULL;
 
 image_t* _g_title_bar_image = NULL;
 image_t* _g_title_bar_x_unfilled = NULL;
 image_t* _g_title_bar_x_filled = NULL;
+image_t* _g_title_bar_minimize_filled = NULL;
+image_t* _g_title_bar_minimize_unfilled = NULL;
 image_t* _g_executable_image = NULL;
 
 static desktop_shortcuts_state_t _g_desktop_shortcuts_state = {0};
 
+static view_t* _g_minimized_window_preview = NULL;
+
+bool window_is_in_z_order(user_window_t* window) {
+	int32_t idx = array_index(windows_with_z_order, window);
+    return idx >= 0;
+}
+
 user_window_t* window_move_to_top(user_window_t* window) {
-	uint32_t idx = array_index(windows, window);
-	array_remove(windows, idx);
+	int32_t idx = array_index(windows_with_z_order, window);
+    // Is this window in the Z-order hierarchy?
+    if (idx < 0) {
+        printf("Window for %s is outside the Z-order hierarchy, ignoring request to move to top");
+        return NULL;
+    }
+	array_remove(windows_with_z_order, idx);
 
 	// TODO(PT): array_insert_at_index
-	array_t* a = windows;
+	array_t* a = windows_with_z_order;
 	for (int32_t i = a->size; i >= 0; i--) {
 		a->array[i] = a->array[i - 1];
 	}
@@ -51,22 +72,33 @@ user_window_t* window_move_to_top(user_window_t* window) {
 }
 
 user_window_t* windows_get_bottom_window(void) {
-    if (windows->size == 0) {
+    if (windows_with_z_order->size == 0) {
         return NULL;
     }
-    return array_lookup(windows, windows->size - 1);
+    return array_lookup(windows_with_z_order, windows_with_z_order->size - 1);
 }
 
 user_window_t* windows_get_top_window(void) {
-    if (windows->size == 0) {
+    if (windows_with_z_order->size == 0) {
         return NULL;
     }
-    return array_lookup(windows, 0);
+    return array_lookup(windows_with_z_order, 0);
 }
 
 user_window_t* window_containing_point(Point point, bool ignore_zombie_windows) {
-	for (int i = 0; i < windows->size; i++) {
-		user_window_t* window = array_lookup(windows, i);
+    // First, search the windows above the Z-order
+	for (int i = 0; i < windows_without_z_order->size; i++) {
+		user_window_t* window = array_lookup(windows_without_z_order, i);
+        if (ignore_zombie_windows && window->remote_process_died) {
+            continue;
+        }
+		if (rect_contains_point(window->frame, point)) {
+            return window;
+        }
+    }
+
+	for (int i = 0; i < windows_with_z_order->size; i++) {
+		user_window_t* window = array_lookup(windows_with_z_order, i);
         if (ignore_zombie_windows && window->remote_process_died) {
             continue;
         }
@@ -105,23 +137,61 @@ void window_initiate_minimize(user_window_t* window) {
     amc_message_send(AWM_DOCK_SERVICE_NAME, &minimize_event, sizeof(minimize_event));
 }
 
+user_window_t* window_with_id(uint32_t window_id) {
+    // Find the window with the specified ID
+    for (uint32_t i = 0; i < windows->size; i++) {
+        user_window_t* window = array_lookup(windows, i);
+        if (window->window_id == window_id) {
+            return window;
+        }
+    }
+    return NULL;
+}
+
 void window_minimize_from_message(awm_dock_window_minimize_with_info_event_t* event) {
     Rect r = event->task_view_frame;
     printf("Continuing minimize! Got info about window, ID %d, frame %d %d %d %d\n", event->window_id, r.origin.x, r.origin.y, r.size.width, r.size.height);
 
-    // Find the window with the specified ID
-    user_window_t* window = NULL;
-    for (uint32_t i = 0; i < windows->size; i++) {
-        user_window_t* w = array_lookup(windows, i);
-        if (event->window_id == w->window_id) {
-            window = w;
-            break;
-        }
-    }
+    user_window_t* window = window_with_id(event->window_id);
     if (!window) {
         printf("No window found with the specified ID\n");
         return;
     }
+
+    if (window->is_minimized) {
+        printf("Window was already minimized, doing nothing\n");
+        return;
+    }
+
+    // Immediately stop doing extra work for the window
+    window->is_minimized = true;
+    window->unminimized_frame = window->frame;
+    if (window->unminimized_snapshot) {
+        layer_teardown(window->unminimized_snapshot);
+        window->unminimized_snapshot = NULL;
+    }
+
+	window->unminimized_snapshot = layer_snapshot(
+		window->layer, 
+		rect_make(
+			point_zero(),
+            window->unminimized_frame.size
+		)
+	);
+
+    /*
+    // Darken the preview
+	for (int row = 0; row < s.height; row++) {
+        uint32_t row_start = row * (s.width * gfx_bytes_per_pixel());
+        for (int col = 0; col < s.width; col++) {
+		//memcpy(snapshot_row, row_start, frame.size.width * gfx_bytes_per_pixel());
+            for (int b = 0; b < gfx_bytes_per_pixel(); b++) {
+                window->unminimized_snapshot->raw[row_start + (col * gfx_bytes_per_pixel()) + b] *= 0.75;
+            }
+        }
+    }
+    window->unminimized_snapshot->alpha = 0.5;
+    */
 
     Rect task_view_frame = event->task_view_frame;
 	Size screen_size = screen_resolution();
@@ -135,12 +205,46 @@ void window_minimize_from_message(awm_dock_window_minimize_with_info_event_t* ev
     awm_animation_minimize_window_t* anim = awm_animation_minimize_window_init(300, window, dest_frame, window->frame);
     awm_animation_start(anim);
 
-    // Immediately stop doing extra work for the window
-    window->is_minimized = true;
+    // Allow mouse control to pass to the window behind the minimized one
+    mouse_recompute_status();
+}
+
+void window_unminimize_from_message(awm_dock_task_view_clicked_event_t* event) {
+    printf("Unminimizing window with ID %d\n", event->window_id);
+
+    user_window_t* window = window_with_id(event->window_id);
+    if (!window) {
+        printf("No window found with the specified ID\n");
+        return;
+    }
+
+    if (!window->is_minimized) {
+        printf("Window wasn't already minimized, doing nothing\n");
+        return;
+    }
+
+    window->is_minimized = false;
+    if (window->unminimized_snapshot) {
+        layer_teardown(window->unminimized_snapshot);
+        window->unminimized_snapshot = NULL;
+    }
+
+    // Stop displaying the hover preview once we begin unminimizing
+    minimized_preview_clear();
+
+    // Unminimized windows are always placed on top
+    window_move_to_top(window);
+
+    // TODO(PT): Need to call mouse_recompute_status here, new animation?
+    awm_animation_unminimize_window_t* anim = awm_animation_unminimize_window_init(300, window, window->unminimized_frame, window->frame);
+    awm_animation_start(anim);
 }
 
 void window_handle_left_click(user_window_t* window,  Point mouse_within_window) {
-    assert(window != NULL, "Expected non-NULL window");
+    if (!window) {
+        printf("window_handle_left_click got NULL window, ignoring\n");
+        return;
+    }
 
     // Is the mouse within the window's content view?
     if (rect_contains_point(window->content_view->frame, mouse_within_window)) {
@@ -156,7 +260,10 @@ void window_handle_left_click(user_window_t* window,  Point mouse_within_window)
 }
 
 void window_handle_left_click_ended(user_window_t* window,  Point mouse_within_window) {
-    assert(window != NULL, "Expected non-NULL window");
+    if (!window) {
+        printf("window_handle_left_click_ended got NULL window, ignoring\n");
+        return;
+    }
 
     // Is the mouse within the window's content view?
     if (rect_contains_point(window->content_view->frame, mouse_within_window)) {
@@ -174,21 +281,33 @@ void window_handle_left_click_ended(user_window_t* window,  Point mouse_within_w
 }
 
 void window_handle_mouse_entered(user_window_t* window) {
-    assert(window != NULL, "Expected non-NULL window");
+    if (!window) {
+        printf("window_handle_mouse_entered got NULL window, ignoring\n");
+        return;
+    }
 
 	// Inform the window the mouse has just entered it
 	amc_msg_u32_1__send(window->owner_service, AWM_MOUSE_ENTERED);
 }
 
 void window_handle_mouse_exited(user_window_t* window) {
-    assert(window != NULL, "Expected non-NULL window");
+    if (!window) {
+        printf("window_handle_mouse_exited got NULL window, ignoring\n");
+        return;
+    }
 
 	// Inform the window the mouse has just exited it
 	amc_msg_u32_1__send(window->owner_service, AWM_MOUSE_EXITED);
+
+    // Ensure we disable the title bar buttons
+    window_redraw_title_bar(window, false, false, false);
 }
 
 void window_handle_mouse_moved(user_window_t* window, Point mouse_within_window) {
-    assert(window != NULL, "Expected non-NULL window");
+    if (!window) {
+        printf("window_handle_mouse_moved got NULL window, ignoring\n");
+        return;
+    }
 
     // Is the mouse within the window's content view?
     if (rect_contains_point(window->content_view->frame, mouse_within_window)) {
@@ -206,20 +325,26 @@ void window_handle_mouse_moved(user_window_t* window, Point mouse_within_window)
 }
 
 void window_handle_keyboard_event(user_window_t* window, uint32_t event, uint32_t key) {
-    assert(window != NULL, "Expected non-NULL window");
+    if (!window) {
+        printf("window_handle_keyboard_event got NULL window, ignoring\n");
+        return;
+    }
 
     amc_msg_u32_2__send(window->owner_service, event, key);
 }
 
 static void _window_fetch_framebuf(user_window_t* window) {
-    assert(window != NULL, "Expected non-NULL window");
+    if (!window) {
+        printf("_window_fetch_framebuf got NULL window, ignoring\n");
+        return;
+    }
 
     if (window->remote_process_died) {
         printf("Skipping framebuf fetch for window because the remote process is dead: %s\n", window->owner_service);
         return;
     }
     if (window->is_minimized) {
-        printf("Skipping framebuf fetch for window because it is minimized: %s\n", window->owner_service);
+        //printf("Skipping framebuf fetch for window because it is minimized: %s\n", window->owner_service);
         return;
     }
 
@@ -233,6 +358,11 @@ static void _window_fetch_framebuf(user_window_t* window) {
 }
 
 void window_queue_fetch(user_window_t* window) {
+    if (!window) {
+        printf("window_queue_fetch got NULL window, ignoring\n");
+        return;
+    }
+
     if (array_index(windows_to_fetch_this_cycle, window) == -1) {
         //printf("Ready for redraw: %s\n", window->owner_service);
         array_insert(windows_to_fetch_this_cycle, window);
@@ -273,7 +403,8 @@ static void _write_window_title(user_window_t* window) {
 	}
 }
 
-void window_redraw_title_bar(user_window_t* window, bool close_button_hovered, bool minimize_button_hovered) {
+void window_redraw_title_bar(user_window_t* window, bool title_bar_active, bool close_button_active, bool minimize_button_active) {
+    assert(window != NULL, "window_redraw_title_bar() got NULL window");
     if (!window->has_title_bar) {
         // No work to do 
         return;
@@ -285,20 +416,32 @@ void window_redraw_title_bar(user_window_t* window, bool close_button_hovered, b
 	}
 
 	Size title_bar_size = size_make(window->frame.size.width, WINDOW_TITLE_BAR_HEIGHT);
+    Rect title_bar_frame = rect_make(
+        point_zero(), 
+        size_make(title_bar_size.width, WINDOW_TITLE_BAR_VISIBLE_HEIGHT)
+    );
+    //printf("rendering with frame %d\n", title_bar_size.width);
 	image_render_to_layer(
 		_g_title_bar_image, 
 		window->layer, 
-		rect_make(
-			point_zero(), 
-			size_make(title_bar_size.width, WINDOW_TITLE_BAR_VISIBLE_HEIGHT)
-		)
+        title_bar_frame
 	);
 
-	//bool is_x_filled = g_mouse_state.active_window == window && (g_mouse_state.is_prospective_window_move || g_mouse_state.is_moving_top_window);
-	image_t* x_image = (close_button_hovered) ? _g_title_bar_x_filled : _g_title_bar_x_unfilled;
+    // Draw a highlight border if necessary
+    if (title_bar_active) {
+        draw_rect(
+            window->layer,
+            title_bar_frame,
+            // PT: Matches the shade drawn by libgui
+            color_make(200, 200, 200),
+            1
+        );
+    }
+
+	image_t* x_image = (close_button_active) ? _g_title_bar_x_filled : _g_title_bar_x_unfilled;
 	uint32_t icon_height = x_image->size.height;
 	window->close_button_frame = rect_make(
-		point_make(icon_height * 1.5, icon_height * 0.275), 
+		point_make(icon_height * 1.5, 5), 
 		x_image->size
 	);
 	image_render_to_layer(
@@ -308,24 +451,22 @@ void window_redraw_title_bar(user_window_t* window, bool close_button_hovered, b
 	);
 
 	window->minimize_button_frame = rect_make(
-		point_make(icon_height * 2.5, icon_height * 0.275), 
+		point_make(icon_height * 2.75, 5), 
 		x_image->size
 	);
-    draw_rect(
-        window->layer,
-        window->minimize_button_frame,
-        color_make(0x89, 0xcf, 0xf0),
-        THICKNESS_FILLED
-    );
-    draw_rect(
-        window->layer,
-        window->minimize_button_frame,
-        color_make(120, 120, 120),
-        2
-    );
+	image_t* minimize_image = (close_button_active) ? _g_title_bar_minimize_filled : _g_title_bar_minimize_unfilled;
+	image_render_to_layer(
+		minimize_image, 
+		window->layer, 
+		window->minimize_button_frame
+	);
 
 	// Draw window title
 	_write_window_title(window);
+
+    // Push the update
+    // TODO(PT): Only queue the button frames, and only do so if there was a state change
+    compositor_queue_rect_to_redraw(rect_make(window->frame.origin, title_bar_size));
 }
 
 void windows_fetch_queued_windows(void) {
@@ -346,6 +487,8 @@ void desktop_views_flush_queues(void) {
 
 void windows_init(void) {
     windows = array_create(MAX_WINDOW_COUNT);
+    windows_with_z_order = array_create(MAX_WINDOW_COUNT);
+    windows_without_z_order = array_create(MAX_WINDOW_COUNT);
     desktop_views = array_create(MAX_WINDOW_COUNT);
     windows_to_fetch_this_cycle = array_create(MAX_WINDOW_COUNT);
     views_to_composite_this_cycle = array_create(MAX_WINDOW_COUNT);
@@ -450,12 +593,42 @@ void desktop_views_add(view_t* view) {
     windows_invalidate_drawable_regions_in_rect(view->frame);
 }
 
+void desktop_view_remove_and_teardown(view_t** view_ptr) {
+    view_t* view = *view_ptr;
+    int32_t index = array_index(desktop_views, view);
+    assert(index >= 0, "Invalid index");
+    array_remove(desktop_views, index);
+
+    // May be queued to render this frame
+    index = array_index(views_to_composite_this_cycle, view);
+    if (index >= 0) {
+        array_remove(views_to_composite_this_cycle, index);
+    }
+    
+    //desktop_views_ready_to_composite_arra
+    windows_invalidate_drawable_regions_in_rect(view->frame);
+	compositor_queue_rect_to_redraw(view->frame);
+    view_destroy(view_ptr);
+}
+
 array_t* all_desktop_views(void) {
     array_t* out = array_create(windows->size + desktop_views->size + 1);
     // Windows are always highest in the view hierarchy
+
+    //array_t* windows_in_z_order = array_create(windows_with_z_order->size + windows_without_z_order->size);
+    // Always draw windows without Z-order on top
+    for (int i = 0; i < windows_without_z_order->size; i++) {
+        array_insert(out, array_lookup(windows_without_z_order, i));
+    }
+    for (int i = 0; i < windows_with_z_order->size; i++) {
+        array_insert(out, array_lookup(windows_with_z_order, i));
+    }
+
+    /*
     for (int32_t i = 0; i < windows->size; i++) {
         array_insert(out, array_lookup(windows, i));
     }
+    */
     for (int32_t i = 0; i < desktop_views->size; i++) {
         array_insert(out, array_lookup(desktop_views, i));
     }
@@ -538,7 +711,7 @@ void desktop_shortcut_render(desktop_shortcut_t* ds) {
     // Per ITU-R BT.709
     Color outer_bg = background_gradient_outer_color();
     double luma = (0.2126 * outer_bg.val[0]) + (0.7152 * outer_bg.val[1]) + (0.0722 * outer_bg.val[2]);
-    printf("Luma: %.2f\n", luma);
+    //printf("Luma: %.2f\n", luma);
     if (luma < 64) {
         text_color = color_make(205, 205, 205);
     }
@@ -661,9 +834,12 @@ void windows_fetch_resource_images(void) {
 	_g_title_bar_image = load_image("/images/titlebar7.bmp");
 	_g_title_bar_x_filled = load_image("/images/titlebar_x_filled2.bmp");
 	_g_title_bar_x_unfilled = load_image("/images/titlebar_x_unfilled2.bmp");
+	_g_title_bar_minimize_filled = load_image("/images/titlebar_minimize_filled.bmp");
+	_g_title_bar_minimize_filled = load_image("/images/titlebar_minimize_filled.bmp");
+	_g_title_bar_minimize_unfilled = load_image("/images/titlebar_minimize_unfilled.bmp");
     for (int32_t i = 0; i < windows->size; i++) {
         user_window_t* w = array_lookup(windows, i);
-        window_redraw_title_bar(w, false, false);
+        window_redraw_title_bar(w, false, false, false);
     }
 
     _g_executable_image = load_image("/images/executable_icon.bmp");
@@ -692,6 +868,14 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
 	user_window_t* window = calloc(1, sizeof(user_window_t));
 	array_insert(windows, window);
 
+    // Don't place the dock in the Z-order hierarchy
+    if (!amc_service_is_awm_dock(owner_service)) {
+        array_insert(windows_with_z_order, window);
+    }
+    else {
+        array_insert(windows_without_z_order, window);
+    }
+
 	window->drawable_rects = array_create(256);
 	window->extra_draws_this_cycle = array_create(512);
 
@@ -719,10 +903,10 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
     owner_service = &cmd.remote_service_name;
     printf("owner_service 0x%p cmd.remote_service_name 0x%p\n", owner_service, cmd.remote_service_name);
 
-	// Place the window in the center of the screen
+	// Place the window in the center of the screen, minus the dock's height
 	Point origin = point_make(
 		(res.width / 2) - (width / 2),
-		(res.height / 2) - (height / 2)
+		((res.height - AWM_DOCK_HEIGHT) / 2) - (height / 2)
 	);
 	window->frame = rect_make(origin, size_zero());
 	window->layer = create_layer(res);
@@ -740,7 +924,7 @@ user_window_t* window_create(const char* owner_service, uint32_t width, uint32_t
 	// Configure the title text box
 	// The size will be reset by window_size()
 	window->title = strndup(window->owner_service, strlen(window->owner_service));
-	//window_redraw_title_bar(window, false, false);
+	//window_redraw_title_bar(window, false, false, false);
 
 	// Make the new window show up on top
 	window_move_to_top(window);
@@ -822,6 +1006,14 @@ void window_destroy(user_window_t* window) {
     assert(i >= 0, "Window not found");
     array_remove(windows, i);
 
+    i = array_index(windows_with_z_order, window);
+    if (i >= 0) {
+        array_remove(windows_with_z_order, i);
+    }
+    i = array_index(windows_without_z_order, window);
+    if (i >= 0) {
+        array_remove(windows_without_z_order, i);
+    }
     i = array_index(windows_to_fetch_this_cycle, window);
     if (i >= 0) {
         array_remove(windows_to_fetch_this_cycle, i);
@@ -830,6 +1022,10 @@ void window_destroy(user_window_t* window) {
     if (i >= 0) {
         array_remove(views_to_composite_this_cycle, i);
     }
+
+    // The windows behind this one need to have their visible areas recomputed
+	windows_invalidate_drawable_regions_in_rect(window->frame);
+	compositor_queue_rect_to_redraw(window->frame);
 
 	layer_teardown(window->layer);
 
@@ -856,6 +1052,7 @@ array_t* desktop_views_ready_to_composite_array(void) {
 }
 
 void windows_invalidate_drawable_regions_in_rect(Rect r) {
+    //printf("windows_invalidate_drawable_regions_in_rect(%d, %d, %d, %d)\n", r.origin.x, r.origin.y, r.size.width, r.size.height);
     array_t* all_views = all_desktop_views();
     for (int32_t i = all_views->size - 1; i >= 0; i--) {
         view_t* view = array_lookup(all_views, i);
@@ -863,11 +1060,13 @@ void windows_invalidate_drawable_regions_in_rect(Rect r) {
             continue;
         }
 
-        for (int32_t i = view->drawable_rects->size - 1; i >= 0; i--) {
-            Rect* r = array_lookup(view->drawable_rects, i);
+        // Recompute the non-occluded rects belonging to the view
+        for (int32_t j = view->drawable_rects->size - 1; j >= 0; j--) {
+            Rect* r = array_lookup(view->drawable_rects, j);
             free(r);
-            array_remove(view->drawable_rects, i);
+            array_remove(view->drawable_rects, j);
         }
+
         rect_add(view->drawable_rects, view->frame);
 
         for (int32_t j = i - 1; j >= 0; j--) {
@@ -880,16 +1079,25 @@ void windows_invalidate_drawable_regions_in_rect(Rect r) {
                 break;
             }
         }
+        //printf("\tUpdated drawable rects of view %d to contain %d rects\n", i, view->drawable_rects->size);
         if (view->drawable_rects->size) {
+            /*
+            for (int j = 0; j < view->drawable_rects->size; j++) {
+                Rect* r = array_lookup(view->drawable_rects, j);
+                printf("\t\t(%d, %d, %d, %d)\n", rect_min_x(*r), rect_min_y(*r), r->size.width, r->size.height);
+            }
+            */
             desktop_view_queue_composite(view);
         }
         else {
             //printf("Will not composite %s because it's fully occluded\n", window->owner_service);
         }
     }
+    array_destroy(all_views);
 }
 
 void windows_composite(ca_layer* dest, Rect updated_rect) {
+    // TODO(PT): This is unused?!
     //printf("Update rect: (%d, %d), (%d, %d)\n", rect_min_x(updated_rect), rect_min_y(updated_rect), updated_rect.size.width, updated_rect.size.height);
 
     for (uint32_t i = 0; i < windows->size; i++) {
@@ -898,9 +1106,19 @@ void windows_composite(ca_layer* dest, Rect updated_rect) {
         *r = window->frame;
         array_insert(window->drawable_rects, r);
     }
+    
+    printf("Windows without z order %d with %d\n", windows_without_z_order->size, windows_with_z_order->size);
+    array_t* windows_in_z_order = array_create(windows_with_z_order->size + windows_without_z_order->size);
+    // Always draw windows without Z-order on top
+    for (int i = 0; i < windows_without_z_order->size; i++) {
+        array_insert(windows_in_z_order, array_lookup(windows_without_z_order, i));
+    }
+    for (int i = 0; i < windows_with_z_order->size; i++) {
+        array_insert(windows_in_z_order, array_lookup(windows_with_z_order, i));
+    }
 
-    for (int i = 0; i < windows->size; i++) {
-        user_window_t* window = array_lookup(windows, i);
+    for (int i = 0; i < windows_in_z_order->size; i++) {
+        user_window_t* window = array_lookup(windows_in_z_order, i);
         if (!window->has_done_first_draw) {
             continue;
         }
@@ -909,8 +1127,8 @@ void windows_composite(ca_layer* dest, Rect updated_rect) {
             Rect* outer_rect_ptr = array_lookup(window->drawable_rects, outer_rect_idx);
             Rect outer_rect = *outer_rect_ptr;
 
-            for (int j = i + 1; j < windows->size; j++) {
-                user_window_t* bg_window = array_lookup(windows, j);
+            for (int j = i + 1; j < windows_in_z_order->size; j++) {
+                user_window_t* bg_window = array_lookup(windows_in_z_order, j);
                 Color c = color_rand();
 
                 array_t* new_drawable_rects = array_create(bg_window->drawable_rects->max_size);
@@ -1016,14 +1234,16 @@ void windows_composite(ca_layer* dest, Rect updated_rect) {
     }
     */
 
-    for (uint32_t i = 0; i < windows->size; i++) {
-        user_window_t* window = array_lookup(windows, i);
+    for (uint32_t i = 0; i < windows_in_z_order->size; i++) {
+        user_window_t* window = array_lookup(windows_in_z_order, i);
         for (int32_t j = window->drawable_rects->size - 1; j >= 0; j--) {
             Rect* r = array_lookup(window->drawable_rects, j);
             free(r);
             array_remove(window->drawable_rects, j);
         }
     }
+
+    array_destroy(windows_in_z_order);
 }
 
 view_t* view_create(Rect frame) {
@@ -1033,6 +1253,16 @@ view_t* view_create(Rect frame) {
     v->drawable_rects = array_create(256);
     v->extra_draws_this_cycle = array_create(256);
     return v;
+}
+
+void view_destroy(view_t** view_ptr) {
+    view_t* view = *view_ptr;
+    array_destroy(view->drawable_rects);
+    array_destroy(view->extra_draws_this_cycle);
+    layer_teardown(view->layer);
+    free(view);
+    // Prevent UAF
+    *view_ptr = NULL;
 }
 
 void draw_queued_extra_draws(array_t* views, ca_layer* dest_layer) {
@@ -1112,5 +1342,67 @@ void draw_views_to_layer(array_t* views, ca_layer* dest_layer) {
             );
             //draw_rect(_screen.vmem, r, color_rand(), 1);
         }
+    }
+}
+
+void minimized_preview_display_for_window(user_window_t* window, Rect task_view_frame) {
+    // If we were previously displaying a different preview, clean it up
+    if (_g_minimized_window_preview != NULL) {
+        desktop_view_remove_and_teardown(&_g_minimized_window_preview);
+    }
+
+    Rect snapshot_frame = window->unminimized_frame;
+	// Maintain aspect ratio of the window
+	int max_preview_length = 80;
+	double aspect_ratio = snapshot_frame.size.height / (double)snapshot_frame.size.width;
+	Size preview_size = size_make(max_preview_length, max_preview_length * aspect_ratio);
+	if (snapshot_frame.size.width > snapshot_frame.size.height) {
+		aspect_ratio = snapshot_frame.size.width / (double)snapshot_frame.size.height;
+		preview_size = size_make(max_preview_length * aspect_ratio, max_preview_length);
+	}
+
+    Size screen_size = screen_resolution();
+    int task_view_midpoint_x = rect_mid_x(task_view_frame);
+    
+    int preview_origin_x = task_view_midpoint_x - (preview_size.width / 2);
+    preview_origin_x = max(preview_origin_x, 20);
+    preview_origin_x = min(preview_origin_x, screen_size.width - preview_size.width - 20);
+
+	_g_minimized_window_preview = view_create(
+		rect_make(
+			point_make(
+                preview_origin_x, 
+                screen_size.height - preview_size.height - (AWM_DOCK_HEIGHT * 1.2)
+            ),
+			preview_size
+		)
+	);
+
+	blit_layer_scaled(
+		_g_minimized_window_preview->layer,
+		window->unminimized_snapshot,
+		_g_minimized_window_preview->frame.size
+	);
+
+    int border_width = 3;
+    draw_rect(
+        _g_minimized_window_preview->layer,
+        rect_make(
+            point_zero(), 
+            size_make(
+                window->unminimized_frame.size.width - border_width, 
+                window->unminimized_frame.size.height - border_width
+            )
+        ),
+        color_white(),
+        border_width
+    );
+
+    desktop_views_add(_g_minimized_window_preview);
+}
+
+void minimized_preview_clear(void) {
+    if (_g_minimized_window_preview != NULL) {
+        desktop_view_remove_and_teardown(&_g_minimized_window_preview);
     }
 }
