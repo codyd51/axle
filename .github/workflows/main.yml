@@ -66,7 +66,7 @@ jobs:
           # Build userspace headers as the kernel depends on file_manager definitions
           python3 scripts/build_userspace_headers.py
           # Finally, compile the kernel and build the OS image
-          python3 scripts/build_kernel.py --no_run
+          python3 scripts/build_os_image.py --no_run
           # Run Rust tests
           python3 scripts/build_rust_toolchain.py --test
 
