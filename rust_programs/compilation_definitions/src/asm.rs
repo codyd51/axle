@@ -10,7 +10,9 @@ impl Display for SymbolExprOperand {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             SymbolExprOperand::OutputCursor => write!(f, "Op(.)"),
-            SymbolExprOperand::StartOfSymbol(sym_name) => write!(f, "Op(SymStart(\"{}\"))", sym_name),
+            SymbolExprOperand::StartOfSymbol(sym_name) => {
+                write!(f, "Op(SymStart(\"{}\"))", sym_name)
+            }
         }
     }
 }

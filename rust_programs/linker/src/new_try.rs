@@ -1,4 +1,3 @@
-use compilation_definitions::asm::{AsmExpr, SymbolExprOperand};
 use crate::{
     assembly_packer::PotentialLabelTargetId,
     assembly_parser::{BinarySection, EquExpression, EquExpressions, Label, Labels, PotentialLabelTargets},
@@ -12,6 +11,7 @@ use alloc::{
     string::{String, ToString},
     vec,
 };
+use compilation_definitions::asm::{AsmExpr, SymbolExprOperand};
 use core::{cell::RefCell, mem};
 use cstr_core::CString;
 
@@ -781,7 +781,11 @@ impl MainContentsPacker {
         for atom in self.main_contents.atoms.0.iter() {
             let mut rendered_atom = atom.render(layout);
             // Sanity check
-            assert_eq!(rendered_atom.len(), atom.len(), "Rendered atom was a different length from what it claimed: {atom}");
+            assert_eq!(
+                rendered_atom.len(),
+                atom.len(),
+                "Rendered atom was a different length from what it claimed: {atom}"
+            );
             out.append(&mut rendered_atom)
         }
         out

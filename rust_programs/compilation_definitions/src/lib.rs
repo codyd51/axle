@@ -3,7 +3,7 @@
 
 pub mod prelude;
 
-pub mod registers;
-pub mod instructions;
 pub mod asm;
 pub mod encoding;
+pub mod instructions;
+pub mod registers;

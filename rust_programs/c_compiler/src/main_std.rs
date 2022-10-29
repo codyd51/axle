@@ -1,12 +1,14 @@
+use std::env;
 use std::error;
+use std::fs;
 use std::io::{self, BufRead, Write};
 use std::rc::Rc;
-use std::env;
-use std::fs;
 
-use linker::{FileLayout, assembly_packer, render_elf};
-use compilation_definitions::instructions::{Instr, MoveImmToReg, MoveRegToReg, AddRegToReg, CompareImmWithReg};
+use compilation_definitions::instructions::{
+    AddRegToReg, CompareImmWithReg, Instr, MoveImmToReg, MoveRegToReg,
+};
 use compilation_definitions::prelude::*;
+use linker::{assembly_packer, render_elf, FileLayout};
 
 use crate::codegen::CodeGenerator;
 use crate::optimizer::Optimizer;
@@ -83,13 +85,16 @@ mod test {
     use alloc::vec;
     use core::cell::RefCell;
 
-    use compilation_definitions::instructions::{AddRegToReg, Instr, MoveImmToReg, MoveRegToReg, SubRegFromReg, MulRegByReg, DivRegByReg, CompareImmWithReg};
+    use compilation_definitions::instructions::{
+        AddRegToReg, CompareImmWithReg, DivRegByReg, Instr, MoveImmToReg, MoveRegToReg,
+        MulRegByReg, SubRegFromReg,
+    };
     use compilation_definitions::prelude::*;
-    use linker::{FileLayout, assembly_packer, render_elf};
+    use linker::{assembly_packer, render_elf, FileLayout};
 
     use crate::codegen::CodeGenerator;
-    use crate::parser::{Parser, InfixOperator, Expr};
     use crate::optimizer::Optimizer;
+    use crate::parser::{Expr, InfixOperator, Parser};
     use crate::simulator::MachineState;
 
     // Integration tests
@@ -236,7 +241,8 @@ mod test {
         // Given a function that returns a binary subtract expression
         // When I parse and codegen it
         //let (instrs, machine) = codegen_and_execute_source("void foo() { if (1 == 2) { return 3; } return 5; }");
-        let (instrs, machine) = codegen_and_execute_source("void foo() { if (1) { return 3; } return 5; }");
+        let (instrs, machine) =
+            codegen_and_execute_source("void foo() { if (1) { return 3; } return 5; }");
 
         // Then the rendered instructions are correct
         assert_eq!(
@@ -275,5 +281,4 @@ mod test {
         // Then rax contains the correct value
         assert_eq!(machine.reg(Rax).read_u32(&machine), 3);
     }
-
 }

@@ -61,7 +61,11 @@ impl ModRmByte {
         }
     }
 
-    pub fn from(addressing_mode: ModRmAddressingMode, register: Register, register2: Option<Register>) -> u8 {
+    pub fn from(
+        addressing_mode: ModRmAddressingMode,
+        register: Register,
+        register2: Option<Register>,
+    ) -> u8 {
         let mut out = 0;
 
         match addressing_mode {
@@ -77,8 +81,15 @@ impl ModRmByte {
         out as _
     }
 
-    pub fn with_opcode_extension(addressing_mode: ModRmAddressingMode, opcode_extension: usize, register: RegView) -> u8 {
-        assert!(opcode_extension <= 7, "opcode_extension must be in the range 0-7");
+    pub fn with_opcode_extension(
+        addressing_mode: ModRmAddressingMode,
+        opcode_extension: usize,
+        register: RegView,
+    ) -> u8 {
+        assert!(
+            opcode_extension <= 7,
+            "opcode_extension must be in the range 0-7"
+        );
         let mut out = 0;
 
         match addressing_mode {
@@ -103,7 +114,9 @@ impl ModRmByte {
     pub fn get_regs(byte: u8) -> (Register, Register) {
         let reg1_index = byte & 0b111;
         let reg2_index = (byte >> 3) & 0b111;
-        (Self::index_to_register(reg1_index), Self::index_to_register(reg2_index))
+        (
+            Self::index_to_register(reg1_index),
+            Self::index_to_register(reg2_index),
+        )
     }
 }
-

@@ -1,9 +1,9 @@
 extern crate derive_more;
 
+use bitmatch::bitmatch;
+use derive_more::Constructor;
 use std::fmt::{Display, Formatter};
 use std::mem;
-use derive_more::Constructor;
-use bitmatch::bitmatch;
 
 use crate::asm::AsmExpr;
 use crate::encoding::{ModRmAddressingMode, ModRmByte, RexPrefix};
@@ -162,7 +162,7 @@ impl Instr {
                     0xff,
                     ModRmByte::with_opcode_extension(ModRmAddressingMode::RegisterDirect, 6, *reg),
                 ]
-            },
+            }
             Instr::PopIntoReg(reg) => {
                 vec![
                     0x8f,
@@ -173,7 +173,7 @@ impl Instr {
                 vec![
                     RexPrefix::for_64bit_operand(),
                     0x89,
-                    ModRmByte::from(ModRmAddressingMode::RegisterDirect, dest.0, Some(source.0))
+                    ModRmByte::from(ModRmAddressingMode::RegisterDirect, dest.0, Some(source.0)),
                 ]
             }
             Instr::MoveImmToReg(MoveImmToReg { imm, dest }) => {
@@ -188,10 +188,8 @@ impl Instr {
 
                 let mut out = vec![];
                 let mut imm_bytes = match dest.1 {
-                    AccessType::RX | AccessType::EX => {
-                        (*imm as u32).to_le_bytes().to_vec()
-                    }
-                    _ => todo!()
+                    AccessType::RX | AccessType::EX => (*imm as u32).to_le_bytes().to_vec(),
+                    _ => todo!(),
                 };
 
                 out.append(&mut vec![
@@ -207,17 +205,22 @@ impl Instr {
                 vec![
                     RexPrefix::for_64bit_operand(),
                     0x01,
-                    ModRmByte::from(ModRmAddressingMode::RegisterDirect, augend.0, Some(addend.0)),
+                    ModRmByte::from(
+                        ModRmAddressingMode::RegisterDirect,
+                        augend.0,
+                        Some(addend.0),
+                    ),
                 ]
             }
             Instr::Return => {
-                vec![
-                    0xc3,
-                ]
+                vec![0xc3]
             }
             Instr::CompareImmWithReg(CompareImmWithReg { imm, reg }) => {
                 // CMP r/m64, imm32
-                assert!(*imm < (u32::MAX as usize), "Comparing an immediate > u32_max not yet implemented");
+                assert!(
+                    *imm < (u32::MAX as usize),
+                    "Comparing an immediate > u32_max not yet implemented"
+                );
                 assert_eq!(reg.1, AccessType::EX, "Only support EX for now");
                 let mut out = vec![
                     0x81,
@@ -234,31 +237,22 @@ impl Instr {
                 vec![
                     RexPrefix::for_64bit_operand(),
                     0x39,
-                    ModRmByte::from(ModRmAddressingMode::RegisterDirect, reg1.0, Some(reg2.0))
+                    ModRmByte::from(ModRmAddressingMode::RegisterDirect, reg1.0, Some(reg2.0)),
                 ]
             }
             Instr::JumpToRelOffIfEqual(rel_off) => {
-                let mut out = vec![
-                    0x0f,
-                    0x84,
-                ];
+                let mut out = vec![0x0f, 0x84];
                 let mut distance_bytes = (*rel_off as u32).to_le_bytes().to_vec();
                 out.append(&mut distance_bytes);
                 out
             }
             Instr::JumpToRelOffIfNotEqual(rel_off) => {
                 assert!(*rel_off < (u8::MAX as isize));
-                vec![
-                    0x75,
-                    *rel_off as u8,
-                ]
+                vec![0x75, *rel_off as u8]
             }
             Instr::SimulatorShimGetInput => {
                 // 2-byte NOP
-                vec![
-                    0x66,
-                    0x90,
-                ]
+                vec![0x66, 0x90]
             }
             _ => todo!("{self:?}"),
         }
@@ -269,12 +263,10 @@ impl Instr {
             Instr::PushFromReg(_) => 2,
             Instr::PopIntoReg(_) => 2,
             Instr::MoveRegToReg(_) => 3,
-            Instr::MoveImmToReg(MoveImmToReg { imm, dest }) => {
-                match dest.1 {
-                    AccessType::RX => 10,
-                    AccessType::EX => 6,
-                    _ => todo!(),
-                }
+            Instr::MoveImmToReg(MoveImmToReg { imm, dest }) => match dest.1 {
+                AccessType::RX => 10,
+                AccessType::EX => 6,
+                _ => todo!(),
             },
             Instr::AddRegToReg(_) => 3,
             Instr::Return => 1,
@@ -365,7 +357,10 @@ impl<'a> InstrDisassembler<'a> {
     fn get_modrm_regs(&mut self) -> (RegView, RegView) {
         let mod_rm_byte = self.get_byte();
         let (dst, src) = ModRmByte::get_regs(mod_rm_byte);
-        (RegView(dst, self.operand_size), RegView(src, self.operand_size))
+        (
+            RegView(dst, self.operand_size),
+            RegView(src, self.operand_size),
+        )
     }
 
     fn yield_seq_instr(&self, instr: Instr) -> InstrInfo {
@@ -405,7 +400,11 @@ impl<'a> InstrDisassembler<'a> {
                     0x84 => {
                         // JE rel32
                         let rel_off = self.get_i32();
-                        Some(self.yield_cond_jump_instr(Instr::JumpToRelOffIfEqual(rel_off as isize)))
+                        Some(
+                            self.yield_cond_jump_instr(Instr::JumpToRelOffIfEqual(
+                                rel_off as isize,
+                            )),
+                        )
                     }
                     _ => panic!("Unhandled opcode sequence: 0f /{next_byte}"),
                 }
@@ -418,7 +417,7 @@ impl<'a> InstrDisassembler<'a> {
                         // Used as a shim for get_input()
                         Some(self.yield_seq_instr(Instr::SimulatorShimGetInput))
                     }
-                    _ => panic!("Unhandled opcode sequence: 66 {next_byte:x}")
+                    _ => panic!("Unhandled opcode sequence: 66 {next_byte:x}"),
                 }
             }
             0x75 => {
@@ -431,9 +430,15 @@ impl<'a> InstrDisassembler<'a> {
                 match opcode_extension {
                     7 => {
                         // CMP r/m32, imm32
-                        assert_eq!(self.operand_size, AccessType::EX, "Other access sizes for cmp aren't yet supported");
+                        assert_eq!(
+                            self.operand_size,
+                            AccessType::EX,
+                            "Other access sizes for cmp aren't yet supported"
+                        );
                         let imm = self.get_u32();
-                        Some(self.yield_seq_instr(Instr::CompareImmWithReg(CompareImmWithReg::new(imm as usize, reg))))
+                        Some(self.yield_seq_instr(Instr::CompareImmWithReg(
+                            CompareImmWithReg::new(imm as usize, reg),
+                        )))
                     }
                     _ => panic!("Unhandled opcode sequence: 81 /{opcode_extension}"),
                 }
@@ -456,9 +461,7 @@ impl<'a> InstrDisassembler<'a> {
                     _ => panic!("Unhandled opcode sequence: 8f /{opcode_extension}"),
                 }
             }
-            0xc3 => {
-                Some(self.yield_jump_instr(Instr::Return))
-            }
+            0xc3 => Some(self.yield_jump_instr(Instr::Return)),
             0xc7 => {
                 let (opcode_extension, reg) = self.get_modrm_opcode_and_reg();
                 match opcode_extension {
@@ -466,7 +469,10 @@ impl<'a> InstrDisassembler<'a> {
                         // C7 /0 iw
                         // MOV r/m64, imm32
                         let imm = self.get_u32();
-                        Some(self.yield_seq_instr(Instr::MoveImmToReg(MoveImmToReg::new(imm as usize, reg))))
+                        Some(self.yield_seq_instr(Instr::MoveImmToReg(MoveImmToReg::new(
+                            imm as usize,
+                            reg,
+                        ))))
                     }
                     _ => panic!("Unhandled opcode sequence: c7 /{opcode_extension}"),
                 }
@@ -474,7 +480,11 @@ impl<'a> InstrDisassembler<'a> {
             0x39 => {
                 assert_eq!(self.operand_size, AccessType::RX);
                 let (reg1, reg2) = self.get_modrm_regs();
-                Some(self.yield_seq_instr(Instr::CompareRegWithReg(CompareRegWithReg::new(reg1, reg2))))
+                Some(
+                    self.yield_seq_instr(Instr::CompareRegWithReg(CompareRegWithReg::new(
+                        reg1, reg2,
+                    ))),
+                )
             }
             0xff => {
                 // TODO(PT): Assume 64bit reg size for now, how to determine?
@@ -507,7 +517,10 @@ impl<'a> InstrDisassembler<'a> {
                 match self.operand_size {
                     AccessType::RX => {
                         let imm = self.get_u64();
-                        self.yield_seq_instr(Instr::MoveImmToReg(MoveImmToReg::new(imm as usize, RegView(dest_reg, self.operand_size))))
+                        self.yield_seq_instr(Instr::MoveImmToReg(MoveImmToReg::new(
+                            imm as usize,
+                            RegView(dest_reg, self.operand_size),
+                        )))
                     }
                     _ => todo!("Unhandled access size"),
                 }
@@ -571,7 +584,10 @@ impl Display for InstrInfo {
 mod test {
     use assert_hex::assert_eq_hex;
 
-    use crate::instructions::{AddRegToReg, CompareImmWithReg, CompareRegWithReg, Instr, InstrBytecodeProvider, InstrDisassembler, MoveImmToReg, MoveRegToReg};
+    use crate::instructions::{
+        AddRegToReg, CompareImmWithReg, CompareRegWithReg, Instr, InstrBytecodeProvider,
+        InstrDisassembler, MoveImmToReg, MoveRegToReg,
+    };
     use crate::prelude::RegView;
 
     impl InstrBytecodeProvider for Vec<u8> {
@@ -593,24 +609,38 @@ mod test {
             let mut disassembler = InstrDisassembler::new(bytecode);
             let disassembled_instr_info = disassembler.disassemble();
             assert_eq!(disassembled_instr_info.instr, *instr);
-
         }
     }
 
     #[test]
     fn test_move_imm_to_reg() {
         validate_assembly_and_disassembly(vec![
-            (Instr::MoveImmToReg(MoveImmToReg::new(0xcafe_babe_dead_beef, RegView::rsp())), vec![0x48, 0xbc, 0xef, 0xbe, 0xad, 0xde, 0xbe, 0xba, 0xfe, 0xca]),
-            (Instr::MoveImmToReg(MoveImmToReg::new(5, RegView::rax())), vec![0x48, 0xb8, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]),
-            (Instr::MoveImmToReg(MoveImmToReg::new(0, RegView::eax())), vec![0xc7, 0xc0, 0x00, 0x00, 0x00, 0x00]),
+            (
+                Instr::MoveImmToReg(MoveImmToReg::new(0xcafe_babe_dead_beef, RegView::rsp())),
+                vec![0x48, 0xbc, 0xef, 0xbe, 0xad, 0xde, 0xbe, 0xba, 0xfe, 0xca],
+            ),
+            (
+                Instr::MoveImmToReg(MoveImmToReg::new(5, RegView::rax())),
+                vec![0x48, 0xb8, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
+            ),
+            (
+                Instr::MoveImmToReg(MoveImmToReg::new(0, RegView::eax())),
+                vec![0xc7, 0xc0, 0x00, 0x00, 0x00, 0x00],
+            ),
         ]);
     }
 
     #[test]
     fn test_move_reg_to_reg() {
         validate_assembly_and_disassembly(vec![
-            (Instr::MoveRegToReg(MoveRegToReg::new(RegView::rax(), RegView::rsp())), vec![0x48, 0x89, 0xc4]),
-            (Instr::MoveRegToReg(MoveRegToReg::new(RegView::rcx(), RegView::rdx())), vec![0x48, 0x89, 0xca]),
+            (
+                Instr::MoveRegToReg(MoveRegToReg::new(RegView::rax(), RegView::rsp())),
+                vec![0x48, 0x89, 0xc4],
+            ),
+            (
+                Instr::MoveRegToReg(MoveRegToReg::new(RegView::rcx(), RegView::rdx())),
+                vec![0x48, 0x89, 0xca],
+            ),
         ]);
     }
 
@@ -635,51 +665,60 @@ mod test {
     #[test]
     fn test_add_reg_to_reg() {
         validate_assembly_and_disassembly(vec![
-            (Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rsp())), vec![0x48, 0x01, 0xe0]),
-            (Instr::AddRegToReg(AddRegToReg::new(RegView::rbx(), RegView::rbp())), vec![0x48, 0x01, 0xeb]),
-            (Instr::AddRegToReg(AddRegToReg::new(RegView::rcx(), RegView::rcx())), vec![0x48, 0x01, 0xc9]),
+            (
+                Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rsp())),
+                vec![0x48, 0x01, 0xe0],
+            ),
+            (
+                Instr::AddRegToReg(AddRegToReg::new(RegView::rbx(), RegView::rbp())),
+                vec![0x48, 0x01, 0xeb],
+            ),
+            (
+                Instr::AddRegToReg(AddRegToReg::new(RegView::rcx(), RegView::rcx())),
+                vec![0x48, 0x01, 0xc9],
+            ),
         ]);
     }
 
     #[test]
     fn test_return() {
-        validate_assembly_and_disassembly(vec![
-            (Instr::Return, vec![0xc3]),
-        ]);
+        validate_assembly_and_disassembly(vec![(Instr::Return, vec![0xc3])]);
     }
 
     #[test]
     fn test_cmp_imm_with_reg() {
-        validate_assembly_and_disassembly(vec![
-            (Instr::CompareImmWithReg(CompareImmWithReg::new(0xdeadbeef, RegView::eax())), vec![0x81, 0xf8, 0xef, 0xbe, 0xad, 0xde]),
-        ]);
+        validate_assembly_and_disassembly(vec![(
+            Instr::CompareImmWithReg(CompareImmWithReg::new(0xdeadbeef, RegView::eax())),
+            vec![0x81, 0xf8, 0xef, 0xbe, 0xad, 0xde],
+        )]);
     }
 
     #[test]
     fn test_cmp_reg_with_reg() {
-        validate_assembly_and_disassembly(vec![
-            (Instr::CompareRegWithReg(CompareRegWithReg::new(RegView::rax(), RegView::rbx())), vec![0x48, 0x39, 0xd8]),
-        ]);
+        validate_assembly_and_disassembly(vec![(
+            Instr::CompareRegWithReg(CompareRegWithReg::new(RegView::rax(), RegView::rbx())),
+            vec![0x48, 0x39, 0xd8],
+        )]);
     }
 
     #[test]
     fn test_je() {
-        validate_assembly_and_disassembly(vec![
-            (Instr::JumpToRelOffIfEqual(12), vec![0x0f, 0x84, 0x0c, 0x00, 0x00, 0x00]),
-        ]);
+        validate_assembly_and_disassembly(vec![(
+            Instr::JumpToRelOffIfEqual(12),
+            vec![0x0f, 0x84, 0x0c, 0x00, 0x00, 0x00],
+        )]);
     }
 
     #[test]
     fn test_jne() {
-        validate_assembly_and_disassembly(vec![
-            (Instr::JumpToRelOffIfNotEqual(12), vec![0x75, 0xc]),
-        ]);
+        validate_assembly_and_disassembly(vec![(
+            Instr::JumpToRelOffIfNotEqual(12),
+            vec![0x75, 0xc],
+        )]);
     }
 
     #[test]
     fn test_shim_get_input() {
-        validate_assembly_and_disassembly(vec![
-            (Instr::SimulatorShimGetInput, vec![0x66, 0x90]),
-        ]);
+        validate_assembly_and_disassembly(vec![(Instr::SimulatorShimGetInput, vec![0x66, 0x90])]);
     }
 }

@@ -305,5 +305,4 @@ mod test {
         assert_eq!(lexer.peek_token(), Some(Token::Int(2)));
         assert_eq!(lexer.next_token(), Some(Token::Int(2)));
     }
-
 }

@@ -1,8 +1,8 @@
 use alloc::vec::Vec;
-use derive_more::Constructor;
-use itertools::Itertools;
 use compilation_definitions::instructions::Instr;
 use compilation_definitions::prelude::RegView;
+use derive_more::Constructor;
+use itertools::Itertools;
 
 #[derive(PartialEq)]
 enum OptimizerPassResult {
@@ -21,7 +21,7 @@ impl Optimizer {
         let mut pairwise_iter = instrs.iter().tuple_windows();
         while let Some((instr1, instr2)) = pairwise_iter.next() {
             if let Instr::PushFromReg(RegView(reg1, access_type1)) = instr1 {
-                if let Instr::PopIntoReg(RegView(reg2, access_type2))  = instr2 {
+                if let Instr::PopIntoReg(RegView(reg2, access_type2)) = instr2 {
                     if reg1 == reg2 {
                         // Omit both instructions
                         pairwise_iter.next();
@@ -53,9 +53,9 @@ impl Optimizer {
 }
 
 mod test {
-    use compilation_definitions::prelude::*;
-    use compilation_definitions::instructions::{Instr, MoveRegToReg};
     use crate::optimizer::Optimizer;
+    use compilation_definitions::instructions::{Instr, MoveRegToReg};
+    use compilation_definitions::prelude::*;
 
     #[test]
     fn test_remove_push_pop() {
@@ -69,10 +69,13 @@ mod test {
         // When I optimize the instruction stream
         let optimized_instrs = Optimizer::optimize(&instrs);
         // Then the push <reg>, pop <reg> pattern is omitted
-        assert_eq!(optimized_instrs, vec![
-            Instr::MoveRegToReg(MoveRegToReg::new(RegView::rax(), RegView::rbx())),
-            Instr::Return,
-        ])
+        assert_eq!(
+            optimized_instrs,
+            vec![
+                Instr::MoveRegToReg(MoveRegToReg::new(RegView::rax(), RegView::rbx())),
+                Instr::Return,
+            ]
+        )
     }
 
     #[test]
@@ -88,12 +91,15 @@ mod test {
         // When I optimize the instruction stream
         let optimized_instrs = Optimizer::optimize(&instrs);
         // Then the push <reg>, pop <reg> pattern is kept
-        assert_eq!(optimized_instrs, vec![
-            Instr::MoveRegToReg(MoveRegToReg::new(RegView::rax(), RegView::rbx())),
-            Instr::PushFromReg(RegView::rsp()),
-            Instr::PopIntoReg(RegView::rbp()),
-            Instr::Return,
-        ])
+        assert_eq!(
+            optimized_instrs,
+            vec![
+                Instr::MoveRegToReg(MoveRegToReg::new(RegView::rax(), RegView::rbx())),
+                Instr::PushFromReg(RegView::rsp()),
+                Instr::PopIntoReg(RegView::rbp()),
+                Instr::Return,
+            ]
+        )
     }
 
     #[test]
@@ -116,11 +122,14 @@ mod test {
         // When I optimize the instruction stream
         let optimized_instrs = Optimizer::optimize(&instrs);
         // Then the recursive push <reg, pop <reg> patterns are removed
-        assert_eq!(optimized_instrs, vec![
-            Instr::MoveRegToReg(MoveRegToReg::new(RegView::rax(), RegView::rbx())),
-            Instr::PushFromReg(RegView::rdx()),
-            Instr::PopIntoReg(RegView::rcx()),
-            Instr::Return,
-        ])
+        assert_eq!(
+            optimized_instrs,
+            vec![
+                Instr::MoveRegToReg(MoveRegToReg::new(RegView::rax(), RegView::rbx())),
+                Instr::PushFromReg(RegView::rdx()),
+                Instr::PopIntoReg(RegView::rcx()),
+                Instr::Return,
+            ]
+        )
     }
 }

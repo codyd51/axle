@@ -15,7 +15,7 @@ pub enum Register {
     Rsi,
     Rdi,
     Rip,
-    Rflags
+    Rflags,
 }
 
 impl Register {
@@ -70,14 +70,12 @@ impl RegView {
 
             if self.1 == AccessType::L {
                 format!("{reg_prefix}l")
-            }
-            else {
+            } else {
                 // Certain registers don't offer a view of their high byte
                 assert!(![Rsi, Rdi, Rsp, Rbp].contains(&self.0));
                 format!("{reg_prefix}h")
             }
-        }
-        else {
+        } else {
             let prefix = match self.1 {
                 AccessType::X => "",
                 AccessType::EX => "e",
@@ -239,7 +237,7 @@ impl RegView {
     pub fn eflags() -> Self {
         RegView(Rflags, AccessType::EX)
     }
-    
+
     pub fn rip() -> Self {
         RegView(Rip, AccessType::RX)
     }

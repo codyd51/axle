@@ -20,4 +20,4 @@ pub mod new_try;
 mod records;
 mod symbols;
 
-pub use crate::new_try::{FileLayout, render_elf};
+pub use crate::new_try::{render_elf, FileLayout};

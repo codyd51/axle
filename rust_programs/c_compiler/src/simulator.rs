@@ -1,19 +1,23 @@
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
-use alloc::{format, vec};
 use alloc::string::String;
 use alloc::vec::Vec;
+use alloc::{format, vec};
 use core::cell::{Ref, RefCell};
 use core::fmt::{Debug, Display, Formatter};
 use core::mem;
 use std::io;
 use std::io::Write;
 
-use strum::IntoEnumIterator;
-use derive_more::Constructor;
 use compilation_definitions::encoding::ModRmByte;
+use derive_more::Constructor;
+use strum::IntoEnumIterator;
 
-use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, CompareRegWithReg, DivRegByReg, Instr, InstrBytecodeProvider, InstrContinuation, InstrDisassembler, InstrInfo, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
+use compilation_definitions::instructions::{
+    AddRegToReg, CompareImmWithReg, CompareRegWithReg, DivRegByReg, Instr, InstrBytecodeProvider,
+    InstrContinuation, InstrDisassembler, InstrInfo, MoveImmToReg, MoveRegToReg, MulRegByReg,
+    SubRegFromReg,
+};
 use compilation_definitions::prelude::*;
 
 #[repr(C)]
@@ -216,10 +220,7 @@ pub struct CpuRegisterView<'a> {
 
 impl<'a> CpuRegisterView<'a> {
     fn new(view: &RegView, reg: &'a CpuRegister) -> Self {
-        Self {
-            view: *view,
-            reg,
-        }
+        Self { view: *view, reg }
     }
 
     fn read(&self, machine: &MachineState) -> usize {
@@ -241,7 +242,7 @@ impl<'a> CpuRegisterView<'a> {
                 let mut as_bytes = low_u16.to_le_bytes();
                 as_bytes[1] = val as u8;
                 self.reg.write_u16(machine, u16::from_le_bytes(as_bytes))
-            },
+            }
             AccessType::X => self.reg.write_u16(machine, val as _),
             AccessType::EX => self.reg.write_u32(machine, val as _),
             AccessType::RX => self.reg.write_u64(machine, val as _),
@@ -301,7 +302,9 @@ impl VirtualMemoryRegion {
     fn read_u32(&self, virtual_addr: u64) -> u32 {
         let translated_addr = virtual_addr - self.base;
         let store = self.store.borrow();
-        let bytes = clone_into_array(&store[(translated_addr as _) .. (translated_addr as usize + mem::size_of::<u32>())]);
+        let bytes = clone_into_array(
+            &store[(translated_addr as _)..(translated_addr as usize + mem::size_of::<u32>())],
+        );
         u32::from_ne_bytes(bytes)
     }
 
@@ -346,7 +349,11 @@ impl Ram {
         self.regions.borrow_mut().push(virtual_memory_region)
     }
 
-    fn region_containing_addr<'a>(&self, addr: u64, regions: &'a Ref<Vec<VirtualMemoryRegion>>) -> &'a VirtualMemoryRegion {
+    fn region_containing_addr<'a>(
+        &self,
+        addr: u64,
+        regions: &'a Ref<Vec<VirtualMemoryRegion>>,
+    ) -> &'a VirtualMemoryRegion {
         for region in regions.iter() {
             if region.contains(addr) {
                 return region;
@@ -402,10 +409,8 @@ pub struct MachineState {
 
 impl MachineState {
     pub fn new() -> Self {
-        let registers = BTreeMap::from_iter(
-            Register::iter()
-            .map(|reg| (reg, Box::new(CpuRegister::new(reg))))
-        );
+        let registers =
+            BTreeMap::from_iter(Register::iter().map(|reg| (reg, Box::new(CpuRegister::new(reg)))));
 
         let ram = Ram::new();
         // 4kb stack
@@ -414,13 +419,11 @@ impl MachineState {
         let stack_bottom = stack_top - stack_size;
         ram.add_region(VirtualMemoryRegion::new(stack_bottom, stack_size));
 
-        let ret = Self {
-            registers,
-            ram,
-        };
+        let ret = Self { registers, ram };
 
         // Assign the stack pointer to the top of the region we allocated above
-        ret.reg_view(&RegView::rsp()).write(&ret, stack_top as usize);
+        ret.reg_view(&RegView::rsp())
+            .write(&ret, stack_top as usize);
 
         ret
     }
@@ -438,7 +441,7 @@ impl MachineState {
         match instr {
             Instr::MoveImmToReg(MoveImmToReg { imm, dest }) => {
                 self.reg_view(dest).write(self, *imm)
-            },
+            }
             Instr::PushFromReg(reg) => {
                 let original_rsp = self.reg(Rsp).read_u64(&self);
                 let slot = original_rsp - (mem::size_of::<u32>() as u64);
@@ -458,7 +461,8 @@ impl MachineState {
                 // Write it to the destination register
                 self.reg(reg.0).write_u32(&self, value);
                 // Increment the stack pointer
-                self.reg(Rsp).write_u64(&self, original_rsp + (mem::size_of::<u32>() as u64));
+                self.reg(Rsp)
+                    .write_u64(&self, original_rsp + (mem::size_of::<u32>() as u64));
             }
             Instr::AddRegToReg(AddRegToReg { augend, addend }) => {
                 let augend_val = self.reg_view(augend).read(&self);
@@ -466,17 +470,25 @@ impl MachineState {
                 // TODO(PT): Handle over/underflow
                 self.reg_view(augend).write(&self, augend_val + addend_val);
             }
-            Instr::SubRegFromReg(SubRegFromReg { minuend, subtrahend }) => {
+            Instr::SubRegFromReg(SubRegFromReg {
+                minuend,
+                subtrahend,
+            }) => {
                 let minuend_val = self.reg_view(minuend).read(&self);
                 let subtrahend_val = self.reg_view(subtrahend).read(&self);
                 // TODO(PT): Handle over/underflow
-                self.reg_view(minuend).write(&self, minuend_val - subtrahend_val);
+                self.reg_view(minuend)
+                    .write(&self, minuend_val - subtrahend_val);
             }
-            Instr::MulRegByReg(MulRegByReg { multiplicand, multiplier }) => {
+            Instr::MulRegByReg(MulRegByReg {
+                multiplicand,
+                multiplier,
+            }) => {
                 let multiplicand_val = self.reg_view(multiplicand).read(&self);
                 let multiplier_val = self.reg_view(multiplier).read(&self);
                 // TODO(PT): Handle over/underflow
-                self.reg_view(multiplicand).write(&self, multiplicand_val * multiplier_val);
+                self.reg_view(multiplicand)
+                    .write(&self, multiplicand_val * multiplier_val);
             }
             Instr::DivRegByReg(DivRegByReg { dividend, divisor }) => {
                 let dividend_val = self.reg_view(dividend).read(&self);
@@ -506,13 +518,11 @@ impl MachineState {
                 if result == 0 {
                     self.update_flag(FlagUpdate::Zero(true));
                     self.update_flag(FlagUpdate::Carry(false));
-                }
-                else {
+                } else {
                     self.update_flag(FlagUpdate::Zero(false));
                     if result < 0 {
                         self.update_flag(FlagUpdate::Carry(true));
-                    }
-                    else {
+                    } else {
                         self.update_flag(FlagUpdate::Carry(false));
                     }
                 }
@@ -524,13 +534,11 @@ impl MachineState {
                 if result == 0 {
                     self.update_flag(FlagUpdate::Zero(true));
                     self.update_flag(FlagUpdate::Carry(false));
-                }
-                else {
+                } else {
                     self.update_flag(FlagUpdate::Zero(false));
                     if result < 0 {
                         self.update_flag(FlagUpdate::Carry(true));
-                    }
-                    else {
+                    } else {
                         self.update_flag(FlagUpdate::Carry(false));
                     }
                 }
@@ -543,8 +551,7 @@ impl MachineState {
                     // Jump is taken
                     let new_rip = self.get_rip() as isize + rel_off;
                     self.set_rip(new_rip as usize)
-                }
-                else {
+                } else {
                     // Jump not taken
                     // Nothing to do
                 }
@@ -554,8 +561,7 @@ impl MachineState {
                     // Jump is taken
                     let new_rip = self.get_rip() as isize + rel_off;
                     self.set_rip(new_rip as usize)
-                }
-                else {
+                } else {
                     // Jump not taken
                     // Nothing to do
                 }
@@ -578,7 +584,7 @@ impl MachineState {
             _ => {
                 println!("Instr not implemented: {instr:?}");
                 todo!()
-            },
+            }
         }
     }
 
@@ -663,9 +669,11 @@ impl MachineState {
             // The instruction modified rip so it must have jumped
             // We need to add in the size of the jump instruction itself to the new rip, though
             self.set_rip(self.get_rip() + info.instr_size);
-            println!("Detected a jump from instr {info:?}, new RIP {:#x}", self.get_rip())
-        }
-        else {
+            println!(
+                "Detected a jump from instr {info:?}, new RIP {:#x}",
+                self.get_rip()
+            )
+        } else {
             // We need to bump rip ourselves
             self.set_rip(self.get_rip() + info.rip_increment.unwrap())
         }
@@ -677,7 +685,11 @@ impl MachineState {
 
         let mut cursor = 0;
         let elf_header = unsafe {
-            mem::transmute::<[u8; mem::size_of::<ElfHeader64>()], ElfHeader64>(elf_bytes[cursor..cursor + mem::size_of::<ElfHeader64>()].try_into().unwrap())
+            mem::transmute::<[u8; mem::size_of::<ElfHeader64>()], ElfHeader64>(
+                elf_bytes[cursor..cursor + mem::size_of::<ElfHeader64>()]
+                    .try_into()
+                    .unwrap(),
+            )
         };
         cursor += mem::size_of::<ElfHeader64>();
         //println!("Got ELF header {elf_header:?}");
@@ -685,20 +697,27 @@ impl MachineState {
         let segments_start = elf_header.program_header_table_start;
         for i in 0..elf_header.program_header_table_entry_count {
             let segment_header = unsafe {
-                mem::transmute::<[u8; mem::size_of::<ElfSegment64>()], ElfSegment64>(elf_bytes[cursor..cursor + mem::size_of::<ElfSegment64>()].try_into().unwrap())
+                mem::transmute::<[u8; mem::size_of::<ElfSegment64>()], ElfSegment64>(
+                    elf_bytes[cursor..cursor + mem::size_of::<ElfSegment64>()]
+                        .try_into()
+                        .unwrap(),
+                )
             };
             cursor += mem::size_of::<ElfSegment64>();
 
             //println!("\tSegment header {i}: {segment_header:?}");
 
             // Map the segment into memory
-            let segment_file_data = &elf_bytes[(segment_header.offset as usize)..(segment_header.offset + segment_header.file_size) as usize];
-            let mapped_segment = VirtualMemoryRegion::new_with_contents(segment_header.vaddr, segment_file_data);
+            let segment_file_data = &elf_bytes[(segment_header.offset as usize)
+                ..(segment_header.offset + segment_header.file_size) as usize];
+            let mapped_segment =
+                VirtualMemoryRegion::new_with_contents(segment_header.vaddr, segment_file_data);
             self.ram.add_region(mapped_segment);
         }
 
         // Set the entry point to what the ELF designates
-        self.reg_view(&RegView::rip()).write(&self, elf_header.entry_point as usize);
+        self.reg_view(&RegView::rip())
+            .write(&self, elf_header.entry_point as usize);
     }
 }
 
@@ -720,7 +739,9 @@ mod test {
     use alloc::vec;
     use core::cell::RefCell;
 
-    use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, Instr, MoveImmToReg, MoveRegToReg};
+    use compilation_definitions::instructions::{
+        AddRegToReg, CompareImmWithReg, Instr, MoveImmToReg, MoveRegToReg,
+    };
     use compilation_definitions::prelude::*;
 
     use crate::simulator::{FlagCondition, FlagUpdate, MachineState, VariableStorage};
@@ -735,9 +756,7 @@ mod test {
         let machine = get_machine();
 
         // When I run an instruction to move a u8 constant to rax
-        machine.run_instruction(
-            &Instr::MoveImmToReg(MoveImmToReg::new(3, RegView::al())),
-        );
+        machine.run_instruction(&Instr::MoveImmToReg(MoveImmToReg::new(3, RegView::al())));
         // Then rax contains the expected value
         assert_eq!(machine.reg(Rax).read_u8(&machine), 3);
 
@@ -745,9 +764,7 @@ mod test {
         machine.reg(Rax).write_u64(&machine, 0xffaabb22);
         assert_eq!(machine.reg(Rax).read_u64(&machine), 0xffaabb22);
         // When I run an instruction to move a u8 constant to rax
-        machine.run_instruction(
-            &Instr::MoveImmToReg(MoveImmToReg::new(0xcc, RegView::al())),
-        );
+        machine.run_instruction(&Instr::MoveImmToReg(MoveImmToReg::new(0xcc, RegView::al())));
         // Then only the lower byte is overwritten
         assert_eq!(machine.reg(Rax).read_u64(&machine), 0xffaabbcc);
     }
@@ -762,9 +779,7 @@ mod test {
         machine.reg(Rax).write_u64(&machine, 0xdeadbeef);
 
         // When I run an instruction to push a u32 to the stack from a register
-        machine.run_instruction(
-            &Instr::PushFromReg(RegView(Rax, AccessType::RX))
-        );
+        machine.run_instruction(&Instr::PushFromReg(RegView(Rax, AccessType::RX)));
 
         // Then the memory has been stored
         assert_eq!(machine.ram.read_u32(original_sp - 4), 0xdeadbeef);
@@ -780,18 +795,14 @@ mod test {
         let machine = get_machine();
 
         // And there's a word on the stack
-        machine.run_instructions(
-            &[
-                Instr::MoveImmToReg(MoveImmToReg::new(0xfe, RegView::rax())),
-                Instr::PushFromReg(RegView(Rax, AccessType::RX))
-            ]
-        );
+        machine.run_instructions(&[
+            Instr::MoveImmToReg(MoveImmToReg::new(0xfe, RegView::rax())),
+            Instr::PushFromReg(RegView(Rax, AccessType::RX)),
+        ]);
 
         // When I run an instruction to pop a u32 from the stack
         let original_sp = machine.reg(Rsp).read_u64(&machine);
-        machine.run_instruction(
-            &Instr::PopIntoReg(RegView(Rbx, AccessType::RX))
-        );
+        machine.run_instruction(&Instr::PopIntoReg(RegView(Rbx, AccessType::RX)));
 
         // Then the value has been popped into rbx
         assert_eq!(machine.reg(Rbx).read_u32(&machine), 0x00fe);
@@ -810,23 +821,21 @@ mod test {
         let machine = get_machine();
 
         // When I run a simple instruction sequence
-        machine.run_instructions(
-            &[
-                Instr::MoveImmToReg(MoveImmToReg::new(3, RegView::rax())),
-                Instr::PushFromReg(RegView::rax()),
-                Instr::MoveImmToReg(MoveImmToReg::new(7, RegView::rax())),
-                Instr::PushFromReg(RegView::rax()),
-                Instr::PopIntoReg(RegView::rax()),
-                Instr::PopIntoReg(RegView::rbx()),
-                Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rbx())),
-                Instr::PushFromReg(RegView::rax()),
-                Instr::MoveImmToReg(MoveImmToReg::new(2, RegView::rax())),
-                Instr::PushFromReg(RegView::rax()),
-                Instr::PopIntoReg(RegView::rax()),
-                Instr::PopIntoReg(RegView::rbx()),
-                Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rbx()))
-            ]
-        );
+        machine.run_instructions(&[
+            Instr::MoveImmToReg(MoveImmToReg::new(3, RegView::rax())),
+            Instr::PushFromReg(RegView::rax()),
+            Instr::MoveImmToReg(MoveImmToReg::new(7, RegView::rax())),
+            Instr::PushFromReg(RegView::rax()),
+            Instr::PopIntoReg(RegView::rax()),
+            Instr::PopIntoReg(RegView::rbx()),
+            Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rbx())),
+            Instr::PushFromReg(RegView::rax()),
+            Instr::MoveImmToReg(MoveImmToReg::new(2, RegView::rax())),
+            Instr::PushFromReg(RegView::rax()),
+            Instr::PopIntoReg(RegView::rax()),
+            Instr::PopIntoReg(RegView::rbx()),
+            Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rbx())),
+        ]);
 
         // Then rax contains the correct computed value
         assert_eq!(machine.reg(Rax).read_u64(&machine), 12);
@@ -844,12 +853,10 @@ mod test {
         src.write_u64(&machine, 0xfeed_d00d_dead_beef);
 
         // Only copy low byte
-        machine.run_instruction(
-            &Instr::MoveRegToReg(MoveRegToReg::new(
-                RegView(src.reg, AccessType::L),
-                RegView(dst.reg, AccessType::L),
-            ))
-        );
+        machine.run_instruction(&Instr::MoveRegToReg(MoveRegToReg::new(
+            RegView(src.reg, AccessType::L),
+            RegView(dst.reg, AccessType::L),
+        )));
         assert_eq!(dst.read_u64(&machine), 0xef);
         // Clear destination register to set up for next test
         dst.write_u64(&machine, 0x0);
@@ -857,12 +864,10 @@ mod test {
         // Given the destination register contains some data
         dst.write_u64(&machine, 0xaaaa_bbbb_cccc_dddd);
         // When the move is addressed to the high byte in the u16 view
-        machine.run_instruction(
-            &Instr::MoveRegToReg(MoveRegToReg::new(
-                RegView(src.reg, AccessType::H),
-                RegView(dst.reg, AccessType::H),
-            ))
-        );
+        machine.run_instruction(&Instr::MoveRegToReg(MoveRegToReg::new(
+            RegView(src.reg, AccessType::H),
+            RegView(dst.reg, AccessType::H),
+        )));
         // Then all the bytes are untouched except for the high byte of the low u16
         assert_eq!(dst.read_u64(&machine), 0xaaaa_bbbb_cccc_bedd);
         // Clear destination register to set up for next test
@@ -871,12 +876,10 @@ mod test {
         // Given the high 48 bits contains some data
         dst.write_u64(&machine, 0xc0de_dead_cafe_babe);
         // When the move is addressed to the low u16
-        machine.run_instruction(
-            &Instr::MoveRegToReg(MoveRegToReg::new(
-                RegView(src.reg, AccessType::X),
-                RegView(dst.reg, AccessType::X),
-            ))
-        );
+        machine.run_instruction(&Instr::MoveRegToReg(MoveRegToReg::new(
+            RegView(src.reg, AccessType::X),
+            RegView(dst.reg, AccessType::X),
+        )));
         // Then the high 48 bits are untouched, and the lower u16 is overwritten
         assert_eq!(dst.read_u64(&machine), 0xc0de_dead_cafe_beef);
         // Clear destination register to set up for next test
@@ -885,12 +888,10 @@ mod test {
         // Given the high u32 contains some data
         dst.write_u64(&machine, 0xc0de_dead_cafe_babe);
         // When the move is addressed to the low u32
-        machine.run_instruction(
-            &Instr::MoveRegToReg(MoveRegToReg::new(
-                RegView(src.reg, AccessType::EX),
-                RegView(dst.reg, AccessType::EX),
-            ))
-        );
+        machine.run_instruction(&Instr::MoveRegToReg(MoveRegToReg::new(
+            RegView(src.reg, AccessType::EX),
+            RegView(dst.reg, AccessType::EX),
+        )));
         // Then the high u32 is untouched, and the lower u32 is overwritten
         assert_eq!(dst.read_u64(&machine), 0xc0de_dead_dead_beef);
         // Clear destination register to set up for next test
@@ -899,12 +900,10 @@ mod test {
         // Given the destination register contains a u64
         dst.write_u64(&machine, 0xc0de_dead_cafe_babe);
         // When the move is addressed to the full u64
-        machine.run_instruction(
-            &Instr::MoveRegToReg(MoveRegToReg::new(
-                RegView(src.reg, AccessType::RX),
-                RegView(dst.reg, AccessType::RX),
-            ))
-        );
+        machine.run_instruction(&Instr::MoveRegToReg(MoveRegToReg::new(
+            RegView(src.reg, AccessType::RX),
+            RegView(dst.reg, AccessType::RX),
+        )));
         // Then the full register is overwritten
         assert_eq!(dst.read_u64(&machine), 0xfeed_d00d_dead_beef);
     }
@@ -928,11 +927,16 @@ mod test {
             machine.reg_view(&reg).write(&machine, reg_val);
 
             // When the instruction is run
-            machine.run_instruction(&Instr::CompareImmWithReg(CompareImmWithReg::new(imm_val, reg)));
+            machine.run_instruction(&Instr::CompareImmWithReg(CompareImmWithReg::new(
+                imm_val, reg,
+            )));
 
             // Then the flags contain the expected values
             for expected_flag in expected_flags.iter() {
-                assert!(machine.is_flag_condition_met(*expected_flag), "Expected {expected_flag:?} with {imm_val} - {reg_val:?}")
+                assert!(
+                    machine.is_flag_condition_met(*expected_flag),
+                    "Expected {expected_flag:?} with {imm_val} - {reg_val:?}"
+                )
             }
         }
     }

@@ -1,15 +1,20 @@
-use crate::parser::{BlockStatement, Expr, Function, IfStatement, InfixOperator, ReturnStatement, Statement};
+use crate::parser::{
+    BlockStatement, Expr, Function, IfStatement, InfixOperator, ReturnStatement, Statement,
+};
+use alloc::string::ToString;
 use alloc::{format, vec};
 use alloc::{string::String, vec::Vec};
-use alloc::string::ToString;
+use compilation_definitions::instructions::{
+    AddRegToReg, CompareImmWithReg, CompareRegWithReg, Instr, MoveImmToReg, MoveRegToReg,
+    MulRegByReg, SubRegFromReg,
+};
 use core::assert_matches::assert_matches;
 use core::cell::RefCell;
 use core::mem;
-use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, CompareRegWithReg, Instr, MoveImmToReg, MoveRegToReg, MulRegByReg, SubRegFromReg};
 
+use crate::lexer::Token;
 use crate::println;
 use compilation_definitions::prelude::*;
-use crate::lexer::Token;
 
 #[derive(Debug)]
 pub struct CodeGenerator {
@@ -30,8 +35,7 @@ impl CodeGenerator {
         let context = {
             if let Some(context) = context {
                 format!("_{context}")
-            }
-            else {
+            } else {
                 format!("")
             }
         };
@@ -96,11 +100,15 @@ impl CodeGenerator {
                 statement_instrs.append(&mut self.codegen_expression(test));
                 // Sanity check - the expression above must end in a comparison
                 let last_instr = statement_instrs.last().unwrap();
-                assert_matches!(*last_instr, Instr::CompareImmWithReg(_) | Instr::CompareRegWithReg(_));
+                assert_matches!(
+                    *last_instr,
+                    Instr::CompareImmWithReg(_) | Instr::CompareRegWithReg(_)
+                );
                 // Jump if the test failed
                 // Destination for when the test fails
                 let test_failed_label = self.generate_label_with_context("if_test_failed");
-                let post_conditional_label = self.generate_label_with_context("if_statement_finished");
+                let post_conditional_label =
+                    self.generate_label_with_context("if_statement_finished");
                 statement_instrs.push(Instr::JumpToLabelIfNotEqual(test_failed_label.clone()));
                 // Codegen the consequent block
                 statement_instrs.append(&mut self.codegen_block(consequent));
@@ -151,7 +159,10 @@ impl CodeGenerator {
                         // LHS into rbx
                         expr_instrs.push(Instr::PopIntoReg(RegView::rbx()));
 
-                        expr_instrs.push(Instr::AddRegToReg(AddRegToReg::new(RegView::rax(), RegView::rbx())));
+                        expr_instrs.push(Instr::AddRegToReg(AddRegToReg::new(
+                            RegView::rax(),
+                            RegView::rbx(),
+                        )));
                     }
                     InfixOperator::Minus => {
                         // Pop LHS and RHS into working registers
@@ -161,12 +172,18 @@ impl CodeGenerator {
                         expr_instrs.push(Instr::PopIntoReg(RegView::rbx()));
                         // LHS into rax
                         expr_instrs.push(Instr::PopIntoReg(RegView::rax()));
-                        expr_instrs.push(Instr::SubRegFromReg(SubRegFromReg::new(RegView::rax(), RegView::rbx())));
+                        expr_instrs.push(Instr::SubRegFromReg(SubRegFromReg::new(
+                            RegView::rax(),
+                            RegView::rbx(),
+                        )));
                     }
                     InfixOperator::Asterisk => {
                         expr_instrs.push(Instr::PopIntoReg(RegView::rax()));
                         expr_instrs.push(Instr::PopIntoReg(RegView::rbx()));
-                        expr_instrs.push(Instr::MulRegByReg(MulRegByReg::new(RegView::rax(), RegView::rbx())));
+                        expr_instrs.push(Instr::MulRegByReg(MulRegByReg::new(
+                            RegView::rax(),
+                            RegView::rbx(),
+                        )));
                     }
                     InfixOperator::DoubleEquals => {
                         // Pop LHS and RHS into working registers
@@ -175,28 +192,29 @@ impl CodeGenerator {
                         // LHS into rax
                         expr_instrs.push(Instr::PopIntoReg(RegView::rax()));
                         // Compare
-                        expr_instrs.push(Instr::CompareRegWithReg(CompareRegWithReg::new(RegView::rax(), RegView::rbx())))
+                        expr_instrs.push(Instr::CompareRegWithReg(CompareRegWithReg::new(
+                            RegView::rax(),
+                            RegView::rbx(),
+                        )))
                     }
                     _ => todo!(),
                 }
                 expr_instrs
             }
             Expr::IntExpr(val) => {
-                vec![Instr::MoveImmToReg(MoveImmToReg::new(
-                    *val,
-                    RegView::rax(),
-                ))]
+                vec![Instr::MoveImmToReg(MoveImmToReg::new(*val, RegView::rax()))]
             }
             Expr::CallExpr(lhs, args) => {
-                assert_eq!(**lhs, Expr::NameExpr(Token::Identifier("sim_shim_get_input".into())));
-                vec![
-                    Instr::SimulatorShimGetInput,
-                ]
+                assert_eq!(
+                    **lhs,
+                    Expr::NameExpr(Token::Identifier("sim_shim_get_input".into()))
+                );
+                vec![Instr::SimulatorShimGetInput]
             }
             _ => {
                 println!("Expression not implemented: {expr:?}");
                 todo!()
-            },
+            }
         }
     }
 
@@ -252,8 +270,8 @@ mod test {
     use std::path::Path;
     use std::process::Command;
 
-    use compilation_definitions::prelude::*;
     use compilation_definitions::instructions::{AddRegToReg, Instr, MoveImmToReg};
+    use compilation_definitions::prelude::*;
 
     use crate::codegen::CodeGenerator;
     use crate::parser::Expr::{IntExpr, OperatorExpr};
@@ -447,5 +465,4 @@ mod test {
 
     }
      */
-
 }

@@ -1,9 +1,9 @@
 use std::rc::Rc;
 use std::{env, error, fs, io};
 
-use linker::new_try::FileLayout;
-use linker::new_try::render_elf;
 use linker::assembly_packer;
+use linker::new_try::render_elf;
+use linker::new_try::FileLayout;
 
 pub fn main() -> Result<(), Box<dyn error::Error>> {
     println!("Running with std");

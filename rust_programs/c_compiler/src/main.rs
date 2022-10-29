@@ -13,10 +13,10 @@ extern crate alloc;
 extern crate static_assertions;
 
 mod codegen;
-mod simulator;
 mod lexer;
-mod parser;
 mod optimizer;
+mod parser;
+mod simulator;
 
 #[cfg(feature = "run_in_axle")]
 pub use axle_rt::{print, println};

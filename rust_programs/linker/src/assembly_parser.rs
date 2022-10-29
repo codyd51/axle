@@ -1,19 +1,21 @@
-use core::{cell::RefCell, fmt::Display, mem};
 use alloc::{fmt::Debug, rc::Rc, string::ToString, vec::Vec};
 use alloc::{string::String, vec};
+use compilation_definitions::instructions::{
+    AddRegToReg, CompareImmWithReg, CompareRegWithReg, DivRegByReg, Instr, MoveImmToReg, MoveImmToRegMemOffset, MoveRegToReg, MulRegByReg, SubRegFromReg,
+};
+use core::{cell::RefCell, fmt::Display, mem};
 use cstr_core::CString;
-use compilation_definitions::instructions::{AddRegToReg, CompareImmWithReg, CompareRegWithReg, DivRegByReg, Instr, MoveImmToReg, MoveImmToRegMemOffset, MoveRegToReg, MulRegByReg, SubRegFromReg};
 
-use compilation_definitions::prelude::*;
 use compilation_definitions::asm::{AsmExpr, SymbolExprOperand};
+use compilation_definitions::prelude::*;
 
+use crate::assembly_packer::{MetaInstrJumpToLabelIfEqual, MetaInstrJumpToLabelIfNotEqual};
 use crate::{
     assembly_lexer::{AssemblyLexer, Token},
     assembly_packer::{DataSource, InstrDataUnit, Interrupt, Jump, JumpTarget, PotentialLabelTarget},
     print, println,
     symbols::{ConstantData, SymbolData},
 };
-use crate::assembly_packer::{MetaInstrJumpToLabelIfEqual, MetaInstrJumpToLabelIfNotEqual};
 
 #[derive(Clone, Debug)]
 pub struct Label {
@@ -182,10 +184,7 @@ impl AssemblyParser {
                         let op2_name = self.match_identifier();
                         Some(Instr::DirectiveEqu(
                             label_name,
-                            AsmExpr::Subtract(
-                                SymbolExprOperand::OutputCursor,
-                                SymbolExprOperand::StartOfSymbol(op2_name)
-                            ),
+                            AsmExpr::Subtract(SymbolExprOperand::OutputCursor, SymbolExprOperand::StartOfSymbol(op2_name)),
                         ))
                     }
                     "word" => {
@@ -270,9 +269,7 @@ impl AssemblyParser {
                         let addend = self.match_register();
                         Some(Instr::AddRegToReg(AddRegToReg::new(augend, addend)))
                     }
-                    "ret" => {
-                        Some(Instr::Return)
-                    }
+                    "ret" => Some(Instr::Return),
                     "cmp" => {
                         let leading_symbol = self.lexer.next_token().unwrap();
                         match leading_symbol {
@@ -293,7 +290,7 @@ impl AssemblyParser {
                                 let reg2 = self.match_register();
                                 Some(Instr::CompareRegWithReg(CompareRegWithReg::new(reg1, reg2)))
                             }
-                            _ => panic!("Invalid token")
+                            _ => panic!("Invalid token"),
                         }
                     }
                     "je" => {
@@ -304,9 +301,7 @@ impl AssemblyParser {
                         let label_name = self.match_identifier();
                         Some(Instr::JumpToLabelIfNotEqual(label_name))
                     }
-                    "sim_shim_get_input" => {
-                        Some(Instr::SimulatorShimGetInput)
-                    }
+                    "sim_shim_get_input" => Some(Instr::SimulatorShimGetInput),
                     _ => panic!("Unimplemented mnemonic {name}"),
                 }
             }
@@ -344,94 +339,69 @@ impl AssemblyParser {
 
             data_units.push(data_unit);
         };
+        let mut instructions = vec![];
         loop {
-            if let Some(statement) = self.parse_statement() {
-                match statement {
-                    Instr::DirectiveSetCurrentSection(name) => {
-                        match name.as_str() {
-                            "text" => current_section = BinarySection::Text,
-                            "rodata" => current_section = BinarySection::ReadOnlyData,
-                            _ => panic!("Unknown name {name}"),
-                        };
-                    }
-                    Instr::DirectiveDeclareLabel(name) => {
-                        labels_awaiting_atom.borrow_mut().push(Label::new(current_section, &name))
-                    }
-                    Instr::DirectiveEmbedAscii(text) => {
-                        append_data_unit(Rc::new(ConstantData::new(
-                            current_section,
-                            SymbolData::LiteralData(CString::new(text.clone()).unwrap().into_bytes_with_nul()),
-                        )));
-                    }
-                    Instr::DirectiveEqu(label_name, expression) => {
-                        equ_expressions.push(Rc::new(EquExpression::new(current_section, &label_name, expression, &previous_atom.borrow())));
-                    }
-                    Instr::DirectiveEmbedU32(immediate) => {
-                        // Make sure this is exactly 4 bytes
-                        let mut word_bytes = immediate.to_le_bytes().to_vec();
-                        word_bytes.resize(mem::size_of::<u32>(), 0);
-                        // TODO(PT): Rename to Atom?
-                        append_data_unit(Rc::new(ConstantData::new(current_section, SymbolData::LiteralData(word_bytes))));
-                    }
-                    Instr::MoveImmToReg(_) |
-                    Instr::MoveRegToReg(_) |
-                    Instr::PushFromReg(_) |
-                    Instr::PopIntoReg(_) |
-                    Instr::AddRegToReg(_) |
-                    Instr::Return |
-                    Instr::CompareImmWithReg(_) |
-                    Instr::CompareRegWithReg(_) |
-                    Instr::JumpToRelOffIfEqual(_) |
-                    Instr::JumpToRelOffIfNotEqual(_) |
-                    Instr::SimulatorShimGetInput => {
-                        append_data_unit(Rc::new(InstrDataUnit::new(&statement)));
-                    }
-                    /*
-                    Instr::MoveSymbolToRegister(symbol_name, register) => {
-                        append_data_unit(
-                            Rc::new(MoveValueToRegister::new(register, DataSource::NamedDataSymbol(symbol_name.clone()))) as Rc<dyn PotentialLabelTarget>
-                        );
-                    }
-                    */
-                    Instr::Interrupt(vector) => {
-                        append_data_unit(Rc::new(Interrupt::new(vector)));
-                    }
-                    Instr::JumpToLabel(label_name) => {
-                        append_data_unit(Rc::new(Jump::new(JumpTarget::Label(label_name))));
-                    }
-                    Instr::DirectiveDeclareGlobalSymbol(symbol_name) => {
-                        todo!()
-                    }
-                    Instr::MoveImmToRegMemOffset(MoveImmToRegMemOffset { imm, offset, reg_to_deref }) => {
-                        todo!()
-                    }
-                    Instr::NegateRegister(register) => {
-                        todo!()
-                    }
-                    Instr::SubRegFromReg(SubRegFromReg { minuend, subtrahend }) => {
-                        todo!()
-                    }
-                    Instr::MulRegByReg(MulRegByReg { multiplicand, multiplier }) => {
-                        todo!()
-                    }
-                    Instr::DivRegByReg(DivRegByReg { dividend, divisor }) => {
-                        todo!()
-                    }
-                    Instr::JumpToLabelIfEqual(label) => {
-                        append_data_unit(
-                            Rc::new(MetaInstrJumpToLabelIfEqual::new(JumpTarget::Label(label))) as Rc<dyn PotentialLabelTarget>
-                        );
-                    }
-                    Instr::JumpToLabelIfNotEqual(label) => {
-                        append_data_unit(
-                            Rc::new(MetaInstrJumpToLabelIfNotEqual::new(JumpTarget::Label(label))) as Rc<dyn PotentialLabelTarget>
-                        );
-                    }
-                }
+            if let Some(instr) = self.parse_statement() {
+                instructions.push(instr);
             } else {
                 break;
             }
         }
+        for instr in instructions.into_iter() {
+            match instr {
+                Instr::DirectiveSetCurrentSection(name) => {
+                    match name.as_str() {
+                        "text" => current_section = BinarySection::Text,
+                        "rodata" => current_section = BinarySection::ReadOnlyData,
+                        _ => panic!("Unknown name {name}"),
+                    };
+                }
+                Instr::DirectiveDeclareLabel(name) => labels_awaiting_atom.borrow_mut().push(Label::new(current_section, &name)),
+                Instr::DirectiveEmbedAscii(text) => {
+                    append_data_unit(Rc::new(ConstantData::new(
+                        current_section,
+                        SymbolData::LiteralData(CString::new(text.clone()).unwrap().into_bytes_with_nul()),
+                    )));
+                }
+                Instr::DirectiveEqu(label_name, expression) => {
+                    equ_expressions.push(Rc::new(EquExpression::new(current_section, &label_name, expression, &previous_atom.borrow())));
+                }
+                Instr::DirectiveEmbedU32(immediate) => {
+                    // Make sure this is exactly 4 bytes
+                    let mut word_bytes = immediate.to_le_bytes().to_vec();
+                    word_bytes.resize(mem::size_of::<u32>(), 0);
+                    // TODO(PT): Rename to Atom?
+                    append_data_unit(Rc::new(ConstantData::new(current_section, SymbolData::LiteralData(word_bytes))));
+                }
+                Instr::MoveImmToReg(_)
+                | Instr::MoveRegToReg(_)
+                | Instr::PushFromReg(_)
+                | Instr::PopIntoReg(_)
+                | Instr::AddRegToReg(_)
+                | Instr::Return
+                | Instr::CompareImmWithReg(_)
+                | Instr::CompareRegWithReg(_)
+                | Instr::JumpToRelOffIfEqual(_)
+                | Instr::JumpToRelOffIfNotEqual(_)
+                | Instr::SimulatorShimGetInput => {
+                    append_data_unit(Rc::new(InstrDataUnit::new(&instr)));
+                }
+                Instr::Interrupt(vector) => {
+                    append_data_unit(Rc::new(Interrupt::new(vector)));
+                }
+                Instr::JumpToLabel(label_name) => {
+                    append_data_unit(Rc::new(Jump::new(JumpTarget::Label(label_name))));
+                }
+                Instr::JumpToLabelIfEqual(label) => {
+                    append_data_unit(Rc::new(MetaInstrJumpToLabelIfEqual::new(JumpTarget::Label(label))) as Rc<dyn PotentialLabelTarget>);
+                }
+                Instr::JumpToLabelIfNotEqual(label) => {
+                    append_data_unit(Rc::new(MetaInstrJumpToLabelIfNotEqual::new(JumpTarget::Label(label))) as Rc<dyn PotentialLabelTarget>);
+                }
+                _ => todo!(),
+            }
+        }
+
         (Labels(labels), EquExpressions(equ_expressions), PotentialLabelTargets(data_units))
     }
 }
@@ -465,15 +435,18 @@ impl Display for PotentialLabelTargets {
 
 #[cfg(test)]
 mod test {
+    use crate::assembly_parser::AssemblyLexer;
+    use crate::assembly_parser::AssemblyParser;
     use compilation_definitions::instructions::{CompareImmWithReg, Instr};
     use compilation_definitions::prelude::*;
-    use crate::assembly_parser::AssemblyParser;
-    use crate::assembly_parser::AssemblyLexer;
 
     #[test]
     fn test_cmp() {
         let mut parser = AssemblyParser::new(AssemblyLexer::new("cmp $0x0, %eax\n"));
-        assert_eq!(parser.parse_statement(), Some(Instr::CompareImmWithReg(CompareImmWithReg::new(0, RegView::eax()))))
+        assert_eq!(
+            parser.parse_statement(),
+            Some(Instr::CompareImmWithReg(CompareImmWithReg::new(0, RegView::eax())))
+        )
     }
 
     #[test]
