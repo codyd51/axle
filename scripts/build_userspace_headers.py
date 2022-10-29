@@ -27,19 +27,21 @@ class MoveHeaderToSysrootOperation:
 
 def generate_meson_cross_file_if_necessary() -> Path:
     # https://github.com/mesonbuild/meson/issues/309
-    # Since Meson won't let us fill in the repo root with an environment variable, 
+    # Since Meson won't let us fill in the repo root with an environment variable,
     # we have to template the file ourselves...
     programs_root = Path(__file__).parents[1] / "programs"
     cross_compile_config_path = programs_root / "cross_axle_generated.ini"
     cross_compile_config_template = programs_root / "cross_axle_template.ini"
-    if not cross_compile_config_path.exists() or second_file_is_older(cross_compile_config_template, cross_compile_config_path):
-        print(f'Generating cross_axle.ini...')
+    if not cross_compile_config_path.exists() or second_file_is_older(
+        cross_compile_config_template, cross_compile_config_path
+    ):
+        print(f"Generating cross_axle.ini...")
         if not cross_compile_config_template.exists():
-            raise ValueError(f'Cross compile template file didn\'t exist!')
+            raise ValueError(f"Cross compile template file didn't exist!")
         cross_compile_config = cross_compile_config_template.read_text()
-        cross_compile_config = f'[constants]\n' \
-                               f'axle_repo_root = \'{Path(__file__).parents[1].as_posix()}\'\n' \
-                               f'{cross_compile_config}'
+        cross_compile_config = (
+            f"[constants]\n" f"axle_repo_root = '{Path(__file__).parents[1].as_posix()}'\n" f"{cross_compile_config}"
+        )
         cross_compile_config_path.write_text(cross_compile_config)
     return cross_compile_config_path
 
@@ -47,19 +49,19 @@ def generate_meson_cross_file_if_necessary() -> Path:
 def build_headers_from_meson_build_file(cross_file: Path, meson_file: Path) -> List[MoveHeaderToSysrootOperation]:
     move_operations = []
     with TemporaryDirectory() as dummy_build_directory:
-        namespace = argparse.Namespace(cross_file=[cross_file], native_file=None, cmd_line_options=[], backend='ninja')
+        namespace = argparse.Namespace(cross_file=[cross_file], native_file=None, cmd_line_options=[], backend="ninja")
         env = Environment(source_dir=meson_file.parent.as_posix(), build_dir=dummy_build_directory, options=namespace)
         b = Build(env)
         int = Interpreter(b, user_defined_options=argparse.Namespace(vsenv=None))
 
         for line in int.ast.lines:
-            if isinstance(line, FunctionNode) and line.func_name == 'install_headers':
+            if isinstance(line, FunctionNode) and line.func_name == "install_headers":
                 try:
                     headers_holder: HeadersHolder = int.evaluate_statement(line)
                 except InvalidCode as e:
                     # There's probably a variable definition we need to evaluate
                     # missing_definition = 'headers_dir'
-                    missing_definition = str(e).split("Unknown variable \"")[1].split("\".")[0]
+                    missing_definition = str(e).split('Unknown variable "')[1].split('".')[0]
                     for line2 in int.ast.lines:
                         if isinstance(line2, AssignmentNode) and line2.var_name == missing_definition:
                             # Make meson think we're executing a top-level statement again
@@ -74,7 +76,11 @@ def build_headers_from_meson_build_file(cross_file: Path, meson_file: Path) -> L
                 for header_file in headers_description.sources:
                     header_name = header_file.fname
                     absolute_header = meson_file.parent / header_name
-                    move_operations.append(MoveHeaderToSysrootOperation(input_file=absolute_header, sysroot_file=Path(install_headers_dir) / header_name))
+                    move_operations.append(
+                        MoveHeaderToSysrootOperation(
+                            input_file=absolute_header, sysroot_file=Path(install_headers_dir) / header_name
+                        )
+                    )
     return move_operations
 
 
@@ -84,9 +90,9 @@ def copy_userspace_headers() -> None:
     # Read the top-level meson.build file
     root_build_path = programs_root / "meson.build"
     cross_file = programs_root / "cross_axle_generated.ini"
-    namespace = argparse.Namespace(cross_file=[cross_file], native_file=None, cmd_line_options=[], backend='ninja')
+    namespace = argparse.Namespace(cross_file=[cross_file], native_file=None, cmd_line_options=[], backend="ninja")
 
-    print('Parsing meson build files...')
+    print("Parsing meson build files...")
 
     cache_file = Path(__file__).parent / "caches" / "header_rebuild_cache.dat"
     rebuild_dates: Dict[Path, datetime.datetime] = {}
@@ -100,7 +106,7 @@ def copy_userspace_headers() -> None:
         meson_interp = Interpreter(b, user_defined_options=argparse.Namespace(vsenv=None))
 
         for line in meson_interp.ast.lines:
-            if isinstance(line, FunctionNode) and line.func_name == 'subproject':
+            if isinstance(line, FunctionNode) and line.func_name == "subproject":
                 arg0 = line.args.arguments[0]
                 assert isinstance(arg0, StringNode)
                 subproject_name = arg0.value
@@ -117,27 +123,45 @@ def copy_userspace_headers() -> None:
                         if modify_date > last_rebuild_date:
                             should_rebuild = True
                             break
-                
+
                 if should_rebuild:
-                    print(f'Rebuilding subproject {subproject_name}')
+                    print(f"Rebuilding subproject {subproject_name}")
                     rebuild_dates[subproject_path] = datetime.datetime.now()
-                    build_file = subproject_path / 'meson.build'
+                    build_file = subproject_path / "meson.build"
                     move_operations = build_headers_from_meson_build_file(cross_file, build_file)
                     subproject_to_move_operations[subproject_name] = move_operations
-    
+
+    # AXLE-6: We should automate the detection and moving of Rust-program headers to the sysroot like we do for
+    # C-program headers.
+    subproject_to_move_operations["rust_programs/file_manager_messages"] = [
+        MoveHeaderToSysrootOperation(
+            input_file=Path(__file__).parents[1]
+            / "rust_programs"
+            / "file_manager_messages"
+            / "src"
+            / "file_server_messages.h",
+            sysroot_file=Path(__file__).parents[1]
+            / "axle-sysroot"
+            / "usr"
+            / "include"
+            / "file_server"
+            / "file_server_messages.h",
+        )
+    ]
+
     cache_file.parent.mkdir(parents=True, exist_ok=True)
     cache_file.write_bytes(pickle.dumps(rebuild_dates))
 
     print()
     print()
-    print('Executing parsed move operations...')
+    print("Executing parsed move operations...")
     for subproject, move_ops in subproject_to_move_operations.items():
         if not move_ops:
             continue
-        print(f'{subproject}:')
+        print(f"{subproject}:")
         for move in move_ops:
             include_path = move.sysroot_file
-            print(f'\t{move.input_file.as_posix()} -> {include_path.as_posix()}')
+            print(f"\t{move.input_file.as_posix()} -> {include_path.as_posix()}")
             include_path.parent.mkdir(exist_ok=True, parents=True)
             shutil.copy(move.input_file.as_posix(), include_path.as_posix())
 
