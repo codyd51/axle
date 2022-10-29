@@ -1,0 +1,18 @@
+[package]
+name = "example_program"
+version = "0.1.0"
+edition = "2021"
+resolver = "2"
+
+[features]
+default = ["run_in_axle"]
+run_in_axle = []
+run_with_std = []
+
+[dependencies]
+axle_rt = {path = "../axle_rt" }
+axle_rt_derive = {path = "../axle_rt_derive" }
+cstr_core = "0.2.4"
+agx_definitions = {path = "../agx_definitions" }
+awm_messages = {path = "../awm_messages" }
+libgui = { path = "../libgui" }
