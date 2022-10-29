@@ -479,7 +479,7 @@ impl AhciPortDescription {
     fn wait_until_command_list_use_completes(&self) {
         while self._get_command_and_status_bit(15) {
             println!("Waiting for Command List Running bit to clear...");
-            unsafe { libc::usleep(1) };
+            //unsafe { libc::usleep(1) };
         }
     }
 
@@ -494,7 +494,7 @@ impl AhciPortDescription {
     fn wait_until_fis_receive_completes(&self) {
         while self._get_command_and_status_bit(14) {
             println!("Waiting for FIS Receive Running bit to clear...");
-            unsafe { libc::usleep(1) };
+            //unsafe { libc::usleep(1) };
         }
     }
 
