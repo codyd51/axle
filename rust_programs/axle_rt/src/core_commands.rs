@@ -269,4 +269,82 @@ impl ExpectsEventField for AmcSupervisedProcessEventMsg {
     const EXPECTED_EVENT: u32 = 215;
 }
 
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AmcAwmMapFramebuffer {
+    event: u32,
+}
+
+impl AmcAwmMapFramebuffer {
+    pub fn new() -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+        }
+    }
+}
+
+impl ExpectsEventField for AmcAwmMapFramebuffer {
+    const EXPECTED_EVENT: u32 = 201;
+}
+
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AmcAwmMapFramebufferResponse {
+    event: u32,
+    pub fb_type: u32,
+    pub address: usize,
+    pub width: u32,
+    pub height: u32,
+    pub bits_per_pixel: u32,
+    pub bytes_per_pixel: u32,
+    pub pixels_per_scanline: u32,
+    pub size: u32,
+}
+
+impl ExpectsEventField for AmcAwmMapFramebufferResponse {
+    const EXPECTED_EVENT: u32 = 201;
+}
+
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AmcSharedMemoryCreateRequest {
+    event: u32,
+    remote_service_name: [u8; AMC_MAX_SERVICE_NAME_LEN],
+    buffer_size: u32,
+}
+
+impl AmcSharedMemoryCreateRequest {
+    #[cfg(target_os = "axle")]
+    pub fn send(remote_service_name: &str, buffer_size: u32) -> AmcSharedMemoryCreateResponse {
+        let mut name_buf = [0; AMC_MAX_SERVICE_NAME_LEN];
+        let _name_len = copy_str_into_sized_slice(&mut name_buf, remote_service_name);
+        let msg = Self {
+            event: Self::EXPECTED_EVENT,
+            remote_service_name: name_buf,
+            buffer_size,
+        };
+        amc_message_send(AMC_CORE_SERVICE_NAME, msg);
+        // Await the response
+        let resp: AmcMessage<AmcSharedMemoryCreateResponse> =
+            crate::amc_message_await__u32_event(AMC_CORE_SERVICE_NAME);
+        *resp.body
+    }
+}
+
+impl ExpectsEventField for AmcSharedMemoryCreateRequest {
+    const EXPECTED_EVENT: u32 = 210;
+}
+
+#[repr(C)]
+#[derive(Debug, ContainsEventField, Copy, Clone)]
+pub struct AmcSharedMemoryCreateResponse {
+    event: u32,
+    pub local_buffer_start: usize,
+    pub remote_buffer_start: usize,
+}
+
+impl ExpectsEventField for AmcSharedMemoryCreateResponse {
+    const EXPECTED_EVENT: u32 = 210;
+}
+
 /* End of event modeling */

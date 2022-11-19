@@ -20,8 +20,9 @@ members = [
     "ide",
     "libgui_derive",
     "xplatform_gui",
+    "awm2",
     # "c_compiler",
-    # "example_program",
+    "example_program",
     # "compilation_definitions",
 ]
 

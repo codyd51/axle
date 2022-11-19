@@ -35,7 +35,7 @@ impl WindowState {
 
         let label = Rc::new(Label::new(
             Rect::from_parts(Point::new(4, 4), Size::new(300, 30)),
-            "Hello from Rust!",
+            "Hello from Rust!!",
             Color::black(),
         ));
         Rc::clone(&content_view).add_component(Rc::clone(&label) as Rc<dyn UIElement>);
@@ -48,7 +48,7 @@ impl WindowState {
 }
 
 pub fn main() {
-    amc_register_service("com.phillip.rust_window");
+    amc_register_service("com.phillip.rust_window2");
     let window_size = Size::new(400, 400);
     let window = Rc::new(AwmWindow::new("Rust GUI Toolkit", window_size));
     let dock = Rc::new(RefCell::new(WindowState::new(

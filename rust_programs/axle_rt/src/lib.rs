@@ -84,7 +84,7 @@ pub fn copy_str_into_sized_slice(slice: &mut [u8], s: &str) -> usize {
 pub struct AmcMessage<'a, T: ?Sized> {
     source: &'a str,
     dest: &'a str,
-    body: &'a T,
+    pub body: &'a T,
 }
 
 impl<T: ?Sized> AmcMessage<'_, T> {

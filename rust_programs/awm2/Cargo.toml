@@ -1,0 +1,17 @@
+[package]
+name = "awm2"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axle_rt = { path = "../axle_rt" }
+axle_rt_derive = {path = "../axle_rt_derive" }
+agx_definitions = {path = "../agx_definitions" }
+awm_messages = {path = "../awm_messages" }
+libgui = { path = "../libgui", default-features = false }
+
+# PT: For f64.sqrt() in no_std
+[dependencies.num-traits]
+version = "0.2"
+default-features = false
+features = ["libm"]

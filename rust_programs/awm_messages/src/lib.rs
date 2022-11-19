@@ -8,9 +8,6 @@ use agx_definitions::{Size, SizeU32};
 use axle_rt::{copy_str_into_sized_slice, ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
 
-#[cfg(target_os = "axle")]
-pub use uses_libc::AwmCreateWindowResponse;
-
 #[repr(C)]
 #[derive(Debug, ContainsEventField)]
 pub struct AwmCreateWindow {
@@ -31,26 +28,28 @@ impl ExpectsEventField for AwmCreateWindow {
     const EXPECTED_EVENT: u32 = 800;
 }
 
-#[cfg(target_os = "axle")]
-mod uses_libc {
-    use agx_definitions::SizeU32;
-    use axle_rt::{ContainsEventField, ExpectsEventField};
-    use axle_rt_derive::ContainsEventField;
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AwmCreateWindowResponse {
+    event: u32,
+    pub screen_resolution: SizeU32,
+    pub bytes_per_pixel: u32,
+    pub framebuffer_ptr: *mut libc::c_void,
+}
 
-    use crate::AwmCreateWindow;
-
-    #[repr(C)]
-    #[derive(Debug, ContainsEventField)]
-    pub struct AwmCreateWindowResponse {
-        event: u32,
-        pub screen_resolution: SizeU32,
-        pub bytes_per_pixel: u32,
-        pub framebuffer_ptr: *mut libc::c_void,
+impl AwmCreateWindowResponse {
+    pub fn new(screen_resolution: Size, bytes_per_pixel: u32, framebuffer_ptr: usize) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            screen_resolution: SizeU32::from(screen_resolution),
+            bytes_per_pixel,
+            framebuffer_ptr: framebuffer_ptr as *mut libc::c_void,
+        }
     }
+}
 
-    impl ExpectsEventField for AwmCreateWindowResponse {
-        const EXPECTED_EVENT: u32 = AwmCreateWindow::EXPECTED_EVENT;
-    }
+impl ExpectsEventField for AwmCreateWindowResponse {
+    const EXPECTED_EVENT: u32 = AwmCreateWindow::EXPECTED_EVENT;
 }
 
 #[repr(C)]

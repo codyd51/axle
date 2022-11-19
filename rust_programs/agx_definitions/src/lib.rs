@@ -124,6 +124,9 @@ impl Color {
     pub fn blue() -> Self {
         Color::from([0, 0, 255])
     }
+    pub fn yellow() -> Self {
+        Color::from([0, 234, 255])
+    }
 }
 
 impl Display for Color {

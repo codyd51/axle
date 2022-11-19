@@ -74,6 +74,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "awm2"
+version = "0.1.0"
+dependencies = [
+ "agx_definitions",
+ "awm_messages",
+ "axle_rt",
+ "axle_rt_derive",
+ "libgui",
+ "num-traits",
+]
+
+[[package]]
 name = "awm_messages"
 version = "0.1.0"
 dependencies = [
@@ -568,6 +580,18 @@ checksum = "e36cfb62ff156596c892272f3015ef952fe1525e85261fa3a7f327bd6b384ab9"
 dependencies = [
  "nb 0.1.3",
  "void",
+]
+
+[[package]]
+name = "example_program"
+version = "0.1.0"
+dependencies = [
+ "agx_definitions",
+ "awm_messages",
+ "axle_rt",
+ "axle_rt_derive",
+ "cstr_core",
+ "libgui",
 ]
 
 [[package]]
