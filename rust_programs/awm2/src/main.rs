@@ -107,12 +107,14 @@ impl Window {
 struct MouseState {
     pos: Point,
     desktop_size: Size,
+    size: Size,
 }
 
 impl MouseState {
     fn new(pos: Point, desktop_size: Size) -> Self {
         Self {
             pos,
+            size: Size::new(14, 14),
             desktop_size,
         }
     }
@@ -127,6 +129,29 @@ impl MouseState {
         self.pos.x = min(self.pos.x, self.desktop_size.width - 4);
         self.pos.y = min(self.pos.y, self.desktop_size.height - 10);
     }
+
+    fn frame(&self) -> Rect {
+        Rect::from_parts(self.pos, self.size)
+    }
+}
+
+struct CompositorState {
+    /// While compositing the frame, awm will determine what individual elements
+    /// must be redrawn to composite these rectangles.
+    /// These may include portions of windows, the desktop background, etc.
+    rects_to_fully_redraw: Vec<Rect>,
+}
+
+impl CompositorState {
+    fn new() -> Self {
+        Self {
+            rects_to_fully_redraw: vec![],
+        }
+    }
+
+    fn queue_full_redraw(&mut self, in_rect: Rect) {
+        self.rects_to_fully_redraw.push(in_rect)
+    }
 }
 
 struct Desktop {
@@ -137,6 +162,7 @@ struct Desktop {
     desktop_background_layer: SingleFramebufferLayer,
     windows: Vec<Window>,
     mouse_state: MouseState,
+    compositor_state: CompositorState,
 }
 
 impl Desktop {
@@ -158,6 +184,7 @@ impl Desktop {
             desktop_background_layer,
             windows: vec![],
             mouse_state: MouseState::new(initial_mouse_pos, desktop_frame.size),
+            compositor_state: CompositorState::new(),
         }
     }
 
@@ -175,10 +202,9 @@ impl Desktop {
         );
     }
 
-    fn draw_mouse(&mut self) {
+    fn draw_mouse(&mut self) -> Rect {
         let mouse_color = Color::green();
-        let cursor_size = Size::new(14, 14);
-        let mouse_rect = Rect::from_parts(self.mouse_state.pos, cursor_size);
+        let mouse_rect = self.mouse_state.frame();
         let onto = self.screen_buffer_layer.get_slice(mouse_rect);
         onto.fill(Color::black());
         onto.fill_rect(
@@ -186,6 +212,7 @@ impl Desktop {
             mouse_color,
             StrokeThickness::Filled,
         );
+        mouse_rect
     }
 
     fn blit_background(&mut self) {
@@ -193,9 +220,30 @@ impl Desktop {
             .copy_from(&self.desktop_background_layer);
     }
 
+    /// Very expensive and should be used sparingly
+    fn commit_entire_buffer_to_video_memory(&mut self) {
+        Self::copy_rect(
+            &mut self.screen_buffer_layer,
+            &mut self.video_memory_layer,
+            self.desktop_frame,
+        );
+    }
+
     fn draw_frame(&mut self) {
+        //println!("draw_frame()");
         // Start off by drawing a blank canvas consisting of the desktop background
-        self.blit_background();
+        //self.blit_background();
+
+        // Composite the frames for which we need to do the full walk of the desktop to find out what to draw
+        for full_redraw_rect in self.compositor_state.rects_to_fully_redraw.iter() {
+            //println!("\tProcessing full redraw rect {full_redraw_rect}");
+            // For now, just composite the desktop background here
+            Self::copy_rect(
+                &mut self.desktop_background_layer,
+                &mut self.screen_buffer_layer,
+                *full_redraw_rect,
+            );
+        }
 
         // Draw each window
         for window in self.windows.iter_mut() {
@@ -206,10 +254,30 @@ impl Desktop {
         }
 
         // Finally, draw the mouse cursor
-        self.draw_mouse();
+        let mouse_rect = self.draw_mouse();
 
         // Now blit the screen buffer to the backing video memory
-        self.video_memory_layer.copy_from(&self.screen_buffer_layer);
+        // Follow the same steps as above to only copy what's changed
+        // And empty queues as we go
+        for full_redraw_rect in self.compositor_state.rects_to_fully_redraw.drain(..) {
+            Self::copy_rect(
+                &mut self.screen_buffer_layer,
+                &mut self.video_memory_layer,
+                full_redraw_rect,
+            );
+        }
+
+        Self::copy_rect(
+            &mut self.screen_buffer_layer,
+            &mut self.video_memory_layer,
+            mouse_rect,
+        );
+    }
+
+    fn copy_rect(src: &mut SingleFramebufferLayer, dst: &mut SingleFramebufferLayer, rect: Rect) {
+        let src_slice = src.get_slice(rect);
+        let dst_slice = dst.get_slice(rect);
+        dst_slice.blit2(&src_slice);
     }
 
     fn spawn_window(&mut self, source: String, request: &AwmCreateWindow) {
@@ -258,6 +326,16 @@ impl Desktop {
         );
         self.windows.push(new_window);
     }
+
+    fn handle_mouse_update(&mut self, packet: &MousePacket) {
+        // Previous mouse position should be redrawn
+        self.compositor_state
+            .queue_full_redraw(self.mouse_state.frame());
+
+        self.mouse_state.handle_update(packet);
+        // Don't bother queueing the new mouse position to redraw
+        // For simplicity, the compositor will always draw the mouse over each frame
+    }
 }
 
 #[start]
@@ -267,7 +345,9 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
 
     let mut desktop = Desktop::new();
     desktop.draw_background();
-    desktop.draw_frame();
+    // Start off by drawing a blank canvas consisting of the desktop background
+    desktop.blit_background();
+    desktop.commit_entire_buffer_to_video_memory();
 
     loop {
         /*
@@ -296,9 +376,9 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
         unsafe {
             match msg_unparsed.source() {
                 MOUSE_DRIVER_SERVICE_NAME => match event {
-                    MousePacket::EXPECTED_EVENT => desktop
-                        .mouse_state
-                        .handle_update(body_as_type_unchecked(raw_body)),
+                    MousePacket::EXPECTED_EVENT => {
+                        desktop.handle_mouse_update(body_as_type_unchecked(raw_body))
+                    }
                     _ => {
                         println!("Ignoring unknown message from mouse driver")
                     }
