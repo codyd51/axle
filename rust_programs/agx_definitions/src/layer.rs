@@ -407,6 +407,13 @@ impl SingleFramebufferLayer {
             size,
         }
     }
+
+    pub fn copy_from(&self, other: &SingleFramebufferLayer) {
+        assert!(self.size == other.size);
+        let mut dst_fb = self.framebuffer.borrow_mut();
+        let src_fb = other.framebuffer.borrow();
+        dst_fb.copy_from_slice(&src_fb);
+    }
 }
 
 impl Layer for SingleFramebufferLayer {
