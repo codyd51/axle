@@ -185,9 +185,8 @@ impl Desktop {
     }
 
     fn blit_background(&mut self) {
-        let screen_buffer_slice = self.screen_buffer_layer.get_slice(self.desktop_frame);
-        let desktop_background_slice = self.desktop_background_layer.get_slice(self.desktop_frame);
-        screen_buffer_slice.blit2(&desktop_background_slice);
+        self.screen_buffer_layer
+            .copy_from(&self.desktop_background_layer);
     }
 
     fn draw_frame(&mut self) {
@@ -202,17 +201,11 @@ impl Desktop {
             dest_slice.blit2(&source_slice);
         }
 
-        let desktop_size = self.video_memory_layer.size();
-        let vmem_slice = self
-            .video_memory_layer
-            .get_slice(Rect::with_size(desktop_size));
-        let screen_buffer_slice = self
-            .screen_buffer_layer
-            .get_slice(Rect::with_size(desktop_size));
-        vmem_slice.blit2(&screen_buffer_slice);
-        //vmem_slice = self.video_memory_layer.get_slice(Rect::with_size(self.video_memory_layer.size()));
         // Finally, draw the mouse cursor
         self.draw_mouse();
+
+        // Now blit the screen buffer to the backing video memory
+        self.video_memory_layer.copy_from(&self.screen_buffer_layer);
     }
 
     fn spawn_window(&mut self, source: String, request: &AwmCreateWindow) {

@@ -9,6 +9,7 @@ axle_rt_derive = {path = "../axle_rt_derive" }
 agx_definitions = {path = "../agx_definitions" }
 awm_messages = {path = "../awm_messages" }
 libgui = { path = "../libgui", default-features = false }
+mouse_driver_messages = {path = "../mouse_driver_messages" }
 
 # PT: For f64.sqrt() in no_std
 [dependencies.num-traits]
