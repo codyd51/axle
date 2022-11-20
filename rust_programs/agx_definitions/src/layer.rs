@@ -165,7 +165,7 @@ impl LikeLayerSlice for LayerSlice {
         //let off = slice_origin_offset + (loc.y * parent_bytes_per_row) + (loc.x * bpp);
         let point_offset = slice_origin_offset + (loc * bpp_multiple);
         let off = (point_offset.y + point_offset.x) as usize;
-        Color::new(fb[off + 0], fb[off + 1], fb[off + 2])
+        Color::new(fb[off + 2], fb[off + 1], fb[off + 0])
     }
 
     // TODO(PT): Implement Into for Layer and LayerSlice -> LayerSlice?
@@ -355,9 +355,12 @@ impl LikeLayerSlice for LayerSlice {
         let bpp_multiple = Point::new(bpp, parent_bytes_per_row as isize);
         let pixels = self.parent_framebuffer.borrow();
         let slice_origin_offset = self.frame.origin * bpp_multiple;
-        let y_origin_offset = (slice_origin_offset.y as usize) + (y * parent_bytes_per_row);
-        let this_bytes_per_row = (self.frame.width() * bpp) as usize;
-        pixels[(y_origin_offset)..(y_origin_offset + this_bytes_per_row)].to_vec()
+        // The offset where the pixel data for this slice begins in the parent pixel buffer
+        let slice_pixel_data_start = (slice_origin_offset.y + slice_origin_offset.x) as usize;
+        // The offset where the provided `y` row begins in the parent pixel buffer
+        let row_pixel_data_start = slice_pixel_data_start + (y * parent_bytes_per_row);
+        let slice_bytes_per_row = (self.frame.width() * bpp) as usize;
+        pixels[row_pixel_data_start..row_pixel_data_start + slice_bytes_per_row].to_vec()
     }
 }
 
@@ -447,9 +450,9 @@ impl Layer for SingleFramebufferLayer {
         let mut framebuffer = (*self.framebuffer).borrow_mut();
         let off = ((loc.y * self.width() * self.bytes_per_pixel())
             + (loc.x * self.bytes_per_pixel())) as usize;
-        framebuffer[off + 0] = color.r;
+        framebuffer[off + 0] = color.b;
         framebuffer[off + 1] = color.g;
-        framebuffer[off + 2] = color.b;
+        framebuffer[off + 2] = color.r;
         framebuffer[off + 3] = 0xff;
     }
 

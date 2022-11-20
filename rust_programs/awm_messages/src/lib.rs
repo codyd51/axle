@@ -30,6 +30,7 @@ impl ExpectsEventField for AwmCreateWindow {
 
 #[repr(C)]
 #[derive(Debug, ContainsEventField)]
+#[cfg(target_os = "axle")]
 pub struct AwmCreateWindowResponse {
     event: u32,
     pub screen_resolution: SizeU32,
@@ -37,6 +38,7 @@ pub struct AwmCreateWindowResponse {
     pub framebuffer_ptr: *mut libc::c_void,
 }
 
+#[cfg(target_os = "axle")]
 impl AwmCreateWindowResponse {
     pub fn new(screen_resolution: Size, bytes_per_pixel: u32, framebuffer_ptr: usize) -> Self {
         Self {
@@ -48,16 +50,19 @@ impl AwmCreateWindowResponse {
     }
 }
 
+#[cfg(target_os = "axle")]
 impl ExpectsEventField for AwmCreateWindowResponse {
     const EXPECTED_EVENT: u32 = AwmCreateWindow::EXPECTED_EVENT;
 }
 
 #[repr(C)]
 #[derive(Debug, ContainsEventField)]
+#[cfg(target_os = "axle")]
 pub struct AwmWindowRedrawReady {
     event: u32,
 }
 
+#[cfg(target_os = "axle")]
 impl AwmWindowRedrawReady {
     pub fn new() -> Self {
         AwmWindowRedrawReady {
@@ -66,22 +71,26 @@ impl AwmWindowRedrawReady {
     }
 }
 
+#[cfg(target_os = "axle")]
 impl ExpectsEventField for AwmWindowRedrawReady {
     const EXPECTED_EVENT: u32 = 801;
 }
 
 #[repr(C)]
 #[derive(Debug, ContainsEventField)]
+#[cfg(target_os = "axle")]
 pub struct AwmWindowUpdateTitle {
     event: u32,
     title_len: u32,
     title: [u8; 64],
 }
 
+#[cfg(target_os = "axle")]
 impl ExpectsEventField for AwmWindowUpdateTitle {
     const EXPECTED_EVENT: u32 = 813;
 }
 
+#[cfg(target_os = "axle")]
 impl AwmWindowUpdateTitle {
     pub fn new(title: &str) -> Self {
         let mut title_buf = [0; 64];
