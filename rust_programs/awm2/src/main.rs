@@ -106,11 +106,15 @@ impl Window {
 
 struct MouseState {
     pos: Point,
+    desktop_size: Size,
 }
 
 impl MouseState {
-    fn new(pos: Point) -> Self {
-        Self { pos }
+    fn new(pos: Point, desktop_size: Size) -> Self {
+        Self {
+            pos,
+            desktop_size,
+        }
     }
 
     fn handle_update(&mut self, packet: &MousePacket) {
@@ -118,10 +122,10 @@ impl MouseState {
         self.pos.y += packet.rel_y as isize;
 
         // Bind mouse to screen dimensions
-        self.pos.x = max(0, self.pos.x);
-        self.pos.y = max(0, self.pos.y);
-        //mouse_pos.x = min(_screen.resolution.width - 4, mouse_pos.x);
-        //mouse_pos.y = min(_screen.resolution.height - 10, mouse_pos.y);
+        self.pos.x = max(self.pos.x, 0);
+        self.pos.y = max(self.pos.y, 0);
+        self.pos.x = min(self.pos.x, self.desktop_size.width - 4);
+        self.pos.y = min(self.pos.y, self.desktop_size.height - 10);
     }
 }
 
@@ -153,7 +157,7 @@ impl Desktop {
             screen_buffer_layer,
             desktop_background_layer,
             windows: vec![],
-            mouse_state: MouseState::new(initial_mouse_pos),
+            mouse_state: MouseState::new(initial_mouse_pos, desktop_frame.size),
         }
     }
 
