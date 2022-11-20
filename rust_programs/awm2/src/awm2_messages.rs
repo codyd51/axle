@@ -1,6 +1,7 @@
 #![no_std]
 
 extern crate alloc;
+#[cfg(target_os = "axle")]
 extern crate libc;
 
 use agx_definitions::{Rect, RectU32};
