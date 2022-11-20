@@ -28,6 +28,8 @@ use agx_definitions::{
 };
 use awm_messages::{AwmCreateWindow, AwmCreateWindowResponse, AwmWindowRedrawReady};
 
+use mouse_driver_messages::{MousePacket, MOUSE_DRIVER_SERVICE_NAME};
+
 mod awm2_messages;
 mod effects;
 
@@ -102,6 +104,27 @@ impl Window {
     }
 }
 
+struct MouseState {
+    pos: Point,
+}
+
+impl MouseState {
+    fn new(pos: Point) -> Self {
+        Self { pos }
+    }
+
+    fn handle_update(&mut self, packet: &MousePacket) {
+        self.pos.x += packet.rel_x as isize;
+        self.pos.y += packet.rel_y as isize;
+
+        // Bind mouse to screen dimensions
+        self.pos.x = max(0, self.pos.x);
+        self.pos.y = max(0, self.pos.y);
+        //mouse_pos.x = min(_screen.resolution.width - 4, mouse_pos.x);
+        //mouse_pos.y = min(_screen.resolution.height - 10, mouse_pos.y);
+    }
+}
+
 struct Desktop {
     desktop_frame: Rect,
     // The final video memory.
@@ -109,6 +132,7 @@ struct Desktop {
     screen_buffer_layer: SingleFramebufferLayer,
     desktop_background_layer: SingleFramebufferLayer,
     windows: Vec<Window>,
+    mouse_state: MouseState,
 }
 
 impl Desktop {
@@ -120,12 +144,16 @@ impl Desktop {
         let desktop_background_layer = SingleFramebufferLayer::new(desktop_frame.size);
         let screen_buffer_layer = SingleFramebufferLayer::new(desktop_frame.size);
 
+        // Start the mouse in the middle of the screen
+        let initial_mouse_pos = Point::new(desktop_frame.mid_x(), desktop_frame.mid_y());
+
         Self {
             desktop_frame: Rect::with_size(video_memory_layer.size()),
             video_memory_layer,
             screen_buffer_layer,
             desktop_background_layer,
             windows: vec![],
+            mouse_state: MouseState::new(initial_mouse_pos),
         }
     }
 
@@ -143,6 +171,19 @@ impl Desktop {
         );
     }
 
+    fn draw_mouse(&mut self) {
+        let mouse_color = Color::green();
+        let cursor_size = Size::new(14, 14);
+        let mouse_rect = Rect::from_parts(self.mouse_state.pos, cursor_size);
+        let onto = self.screen_buffer_layer.get_slice(mouse_rect);
+        onto.fill(Color::black());
+        onto.fill_rect(
+            Rect::with_size(mouse_rect.size).apply_insets(RectInsets::new(2, 2, 2, 2)),
+            mouse_color,
+            StrokeThickness::Filled,
+        );
+    }
+
     fn blit_background(&mut self) {
         let screen_buffer_slice = self.screen_buffer_layer.get_slice(self.desktop_frame);
         let desktop_background_slice = self.desktop_background_layer.get_slice(self.desktop_frame);
@@ -153,6 +194,7 @@ impl Desktop {
         // Start off by drawing a blank canvas consisting of the desktop background
         self.blit_background();
 
+        // Draw each window
         for window in self.windows.iter_mut() {
             let dest_slice = self.screen_buffer_layer.get_slice(window.frame);
             // Start off at the origin within the window's coordinate space
@@ -169,6 +211,8 @@ impl Desktop {
             .get_slice(Rect::with_size(desktop_size));
         vmem_slice.blit2(&screen_buffer_slice);
         //vmem_slice = self.video_memory_layer.get_slice(Rect::with_size(self.video_memory_layer.size()));
+        // Finally, draw the mouse cursor
+        self.draw_mouse();
     }
 
     fn spawn_window(&mut self, source: String, request: &AwmCreateWindow) {
@@ -253,19 +297,34 @@ fn start(_argc: isize, _argv: *const *const u8) -> isize {
         // Wrap the whole thing in an unsafe block to reduce
         // boilerplate in each match arm.
         unsafe {
-            match event {
-                // Keyboard events
-                AwmCreateWindow::EXPECTED_EVENT => {
-                    desktop.spawn_window(
-                        msg_unparsed.source().to_string(),
-                        body_as_type_unchecked(raw_body),
-                    );
-                }
-                AwmWindowRedrawReady::EXPECTED_EVENT => {
-                    //println!("Window said it was ready to redraw!");
-                }
+            match msg_unparsed.source() {
+                MOUSE_DRIVER_SERVICE_NAME => match event {
+                    MousePacket::EXPECTED_EVENT => desktop
+                        .mouse_state
+                        .handle_update(body_as_type_unchecked(raw_body)),
+                    _ => {
+                        println!("Ignoring unknown message from mouse driver")
+                    }
+                },
                 _ => {
-                    println!("Awm ignoring message with unknown event type: {event}");
+                    // Unknown sender - probably a client wanting to interact with the window manager
+                    match event {
+                        // Mouse driver events
+                        // libgui events
+                        // Keyboard events
+                        AwmCreateWindow::EXPECTED_EVENT => {
+                            desktop.spawn_window(
+                                msg_unparsed.source().to_string(),
+                                body_as_type_unchecked(raw_body),
+                            );
+                        }
+                        AwmWindowRedrawReady::EXPECTED_EVENT => {
+                            //println!("Window said it was ready to redraw!");
+                        }
+                        _ => {
+                            println!("Awm ignoring message with unknown event type: {event}");
+                        }
+                    }
                 }
             }
         }

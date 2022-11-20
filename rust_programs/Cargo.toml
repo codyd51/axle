@@ -24,6 +24,7 @@ members = [
     # "c_compiler",
     "example_program",
     # "compilation_definitions",
+    "mouse_driver_messages",
 ]
 
 exclude = [
