@@ -466,10 +466,10 @@ impl Rect {
     }
 
     pub fn intersects_with(&self, other: Rect) -> bool {
-        self.max_x() >= other.min_x()
-            && self.min_x() <= other.max_x()
-            && self.max_y() >= other.min_y()
-            && self.min_y() <= other.max_y()
+        self.max_x() > other.min_x()
+            && self.min_x() < other.max_x()
+            && self.max_y() > other.min_y()
+            && self.min_y() < other.max_y()
     }
 
     pub fn area_excluding_rect(&self, exclude_rect: Rect) -> Vec<Self> {
@@ -584,6 +584,20 @@ impl Rect {
         */
         let size = Size::new(bottom_right.x - origin.x, bottom_right.y - origin.y);
         Some(Rect::from_parts(origin, size))
+    }
+
+    pub fn union(&self, other: Rect) -> Rect {
+        let origin = Point::new(
+            min(self.min_x(), other.min_x()),
+            min(self.min_y(), other.min_y()),
+        );
+        Rect::from_parts(
+            origin,
+            Size::new(
+                max(self.max_x(), other.max_x()) - origin.x,
+                max(self.max_y(), other.max_y()) - origin.y,
+            ),
+        )
     }
 }
 
