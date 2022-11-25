@@ -1,5 +1,5 @@
 use crate::desktop::Desktop;
-use agx_definitions::{Color, LikeLayerSlice, Point, Rect, Size};
+use agx_definitions::{Color, Layer, LikeLayerSlice, Point, Rect, Size};
 use alloc::rc::Rc;
 use awm_messages::AwmCreateWindow;
 use libgui::PixelLayer;
@@ -31,21 +31,24 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     desktop.blit_background();
     desktop.commit_entire_buffer_to_video_memory();
 
-    desktop.spawn_window(
+    let w1 = desktop.spawn_window(
         "Window 0".to_string(),
         &AwmCreateWindow::new(Size::new(100, 100)),
         Some(Point::new(200, 200)),
     );
-    desktop.spawn_window(
+    w1.layer.borrow_mut().get_full_slice().fill(Color::yellow());
+    let w2 = desktop.spawn_window(
         "Window 1".to_string(),
         &AwmCreateWindow::new(Size::new(100, 100)),
         Some(Point::new(250, 250)),
     );
-    desktop.spawn_window(
+    w2.layer.borrow_mut().get_full_slice().fill(Color::blue());
+    let w3 = desktop.spawn_window(
         "Window 2".to_string(),
         &AwmCreateWindow::new(Size::new(100, 100)),
         Some(Point::new(300, 300)),
     );
+    w3.layer.borrow_mut().get_full_slice().fill(Color::green());
 
     let scale_factor = 2;
     let mut last_cursor_pos = None;

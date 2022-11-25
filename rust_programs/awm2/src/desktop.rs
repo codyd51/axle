@@ -22,13 +22,13 @@ use mouse_driver_messages::MousePacket;
 pub extern crate libc;
 #[cfg(target_os = "axle")]
 mod conditional_imports {
-    use awm_messages::AwmCreateWindowResponse;
-    use axle_rt::amc_message_send;
+    pub use awm_messages::AwmCreateWindowResponse;
+    pub use axle_rt::amc_message_send;
 }
 #[cfg(not(target_os = "axle"))]
 mod conditional_imports {}
 
-use conditional_imports::*;
+use crate::desktop::conditional_imports::*;
 
 struct DesktopElementId(usize);
 
@@ -45,7 +45,7 @@ pub struct Window {
     pub frame: Rect,
     drawable_rects: RefCell<Vec<Rect>>,
     pub owner_service: String,
-    layer: RefCell<SingleFramebufferLayer>,
+    pub layer: RefCell<SingleFramebufferLayer>,
 }
 
 impl Window {
@@ -124,7 +124,9 @@ struct CompositorState {
     /// Entire elements that must be composited on the next frame
     elements_to_composite: Vec<Rc<dyn DesktopElement>>,
     // Every desktop element the compositor knows about
-    //elements: Vec<Rc<dyn DesktopElement>>,
+    elements: Vec<Rc<dyn DesktopElement>>,
+
+    extra_draws: RefCell<Vec<(Rc<dyn DesktopElement>, Rect)>>,
 }
 
 impl CompositorState {
@@ -132,7 +134,8 @@ impl CompositorState {
         Self {
             rects_to_fully_redraw: vec![],
             elements_to_composite: vec![],
-            //elements: vec![],
+            elements: vec![],
+            extra_draws: RefCell::new(vec![]),
         }
     }
 
@@ -144,19 +147,22 @@ impl CompositorState {
         self.elements_to_composite.push(element)
     }
 
-    /*
-    fn track_element(&mut self, element: &'a dyn DesktopElement) {
+    fn track_element(&mut self, element: Rc<dyn DesktopElement>) {
         self.elements.push(element)
     }
-    */
+
+    fn queue_extra_draw(&self, element: Rc<dyn DesktopElement>, r: Rect) {
+        self.extra_draws.borrow_mut().push((element, r));
+    }
 }
 
 pub struct Desktop {
     desktop_frame: Rect,
-    // The final video memory.
+    // The final video memory
     video_memory_layer: Rc<Box<dyn LikeLayerSlice>>,
     screen_buffer_layer: Box<SingleFramebufferLayer>,
     desktop_background_layer: Box<SingleFramebufferLayer>,
+    // Index 0 is the foremost window
     pub windows: Vec<Rc<Window>>,
     mouse_state: MouseState,
     compositor_state: CompositorState,
@@ -225,13 +231,9 @@ impl Desktop {
         );
     }
 
-    pub fn draw_frame(&mut self) {
-        //println!("draw_frame()");
-        // Start off by drawing a blank canvas consisting of the desktop background
-        //self.blit_background();
-
-        // Composite the frames for which we need to do the full walk of the desktop to find out what to draw
-        for full_redraw_rect in self.compositor_state.rects_to_fully_redraw.iter() {
+    fn compute_extra_draws_from_total_update_rects(&mut self) {
+        // Compute what to draw for the rects in which we need to do a full desktop walk
+        for full_redraw_rect in self.compositor_state.rects_to_fully_redraw.clone().iter() {
             //println!("\tProcessing full redraw rect {full_redraw_rect}");
             // For now, just composite the desktop background here
             Self::copy_rect(
@@ -239,33 +241,48 @@ impl Desktop {
                 &mut *self.screen_buffer_layer.get_slice(self.desktop_frame),
                 *full_redraw_rect,
             );
-        }
+            // Keep track of what we've redrawn using desktop elements
+            // This will hold what we still need to draw (eventually with the desktop background)
+            // let undrawn_areas = vec![full_redraw_rect];
 
-        // Draw each window
-        /*
-        for window in self.windows.iter() {
-            let dest_slice = self.screen_buffer_layer.get_slice(window.frame);
-            // Start off at the origin within the window's coordinate space
-            let mut window_layer = window.layer.borrow_mut();
-            let source_slice = window_layer.get_slice(Rect::with_size(window.frame.size));
-            dest_slice.blit2(&source_slice);
+            // Handle the parts of the dirty region that are obscured by desktop views
+            'outer: for elem in self.compositor_state.elements.iter() {
+                if !elem.frame().intersects_with(*full_redraw_rect) {
+                    continue;
+                }
 
-            //println!("{window} has {} drawable rects:", window.drawable_rects.len());
-            let drawable_rects = window.drawable_rects();
-            for drawable_rect in drawable_rects.iter() {
-                println!("\t{}", *drawable_rect);
-                //self.video_memory_layer.get_slice(*drawable_rect).fill_rect(Rect::with_size(drawable_rect.size), Color::red(), StrokeThickness::Width(2));
-                //self.video_memory_layer.get_slice(*drawable_rect).fill( Color::red(), StrokeThickness::Width(2));
-                self.video_memory_layer.fill_rect(*drawable_rect, Color::red(), StrokeThickness::Width(2));
+                for visible_region in elem.drawable_rects().iter() {
+                    if !visible_region.intersects_with(*full_redraw_rect) {
+                        continue;
+                    }
+                    if visible_region.encloses(*full_redraw_rect) {
+                        // The entire rect should be redrawn from this window
+                        self.compositor_state
+                            .queue_extra_draw(Rc::clone(&elem), *full_redraw_rect);
+                        // And subtract the area of the rect from the region to update
+                        //unobscured_region = update_occlusions(unobscured_region, r);
+                        break 'outer;
+                    } else {
+                        // This element needs to redraw the intersection of its visible rect and the update rect
+                        let intersection = visible_region
+                            .area_overlapping_with(*full_redraw_rect)
+                            .unwrap();
+                        self.compositor_state
+                            .queue_extra_draw(Rc::clone(&elem), intersection);
+                        // And subtract the area of the rect from the region to update
+                        //unobscured_region = update_occlusions(unobscured_region, intersection);
+                    }
+                }
             }
         }
-        */
+    }
+
+    pub fn draw_frame(&mut self) {
+        self.compute_extra_draws_from_total_update_rects();
 
         // Composite each desktop element that needs to be composited this frame
         for desktop_element in self.compositor_state.elements_to_composite.drain(..) {
-            //let mut layer = window.layer.borrow_mut();
             let layer = desktop_element.get_slice();
-            //let dest_slice = self.video_memory_layer.get_slice(window.frame);
             let drawable_rects = desktop_element.drawable_rects();
             for drawable_rect in drawable_rects.iter() {
                 let origin_in_element_coordinate_space =
@@ -276,13 +293,25 @@ impl Desktop {
                 ));
                 let dst_slice = self.video_memory_layer.get_slice(*drawable_rect);
                 dst_slice.blit2(&drawable_rect_slice);
-                //println!("\t{}", *drawable_rect);
+                /*
                 self.video_memory_layer.fill_rect(
                     *drawable_rect,
                     Color::red(),
                     StrokeThickness::Width(2),
                 );
+                */
             }
+        }
+
+        // Composite specific pieces of desktop elements that were invalidated this frame
+        for (desktop_element, screen_rect) in self.compositor_state.extra_draws.borrow_mut().iter()
+        {
+            let layer = desktop_element.get_slice();
+            let local_origin = screen_rect.origin - desktop_element.frame().origin;
+            let local_rect = Rect::from_parts(local_origin, screen_rect.size);
+            let src_slice = layer.get_slice(local_rect);
+            let dst_slice = self.screen_buffer_layer.get_slice(*screen_rect);
+            dst_slice.blit2(&src_slice);
         }
 
         // Finally, draw the mouse cursor
@@ -291,6 +320,8 @@ impl Desktop {
         // Now blit the screen buffer to the backing video memory
         // Follow the same steps as above to only copy what's changed
         // And empty queues as we go
+        // We don't need to walk each individual view - we can rely on the logic above to have drawn it to the screen buffer
+        self.compositor_state.extra_draws.borrow_mut().drain(..);
         for full_redraw_rect in self.compositor_state.rects_to_fully_redraw.drain(..) {
             Self::copy_rect(
                 &mut *self.screen_buffer_layer.get_slice(self.desktop_frame),
@@ -356,7 +387,7 @@ impl Desktop {
         source: String,
         request: &AwmCreateWindow,
         origin: Option<Point>,
-    ) {
+    ) -> Rc<Window> {
         println!("Creating window of size {:?} for {}", request.size, source);
 
         let window_size = Size::from(&request.size);
@@ -403,8 +434,12 @@ impl Desktop {
 
         let window_frame = Rect::from_parts(new_window_origin, window_size);
         let new_window = Rc::new(Window::new(&source, window_frame, window_layer));
-        self.windows.push(new_window);
+        self.windows.insert(0, Rc::clone(&new_window));
+        self.compositor_state
+            .track_element(Rc::clone(&new_window) as Rc<dyn DesktopElement>);
         self.recompute_drawable_regions_in_rect(window_frame);
+
+        new_window
     }
 
     pub fn handle_mouse_update(&mut self, packet: &MousePacket) {
