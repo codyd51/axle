@@ -8,6 +8,7 @@ mod desktop;
 mod effects;
 
 extern crate alloc;
+extern crate core;
 
 #[cfg(target_os = "axle")]
 mod main_axle;
@@ -16,9 +17,13 @@ mod main_axle;
 mod main_std;
 
 #[cfg(target_os = "axle")]
+pub use axle_rt::{print, println};
+#[cfg(not(target_os = "axle"))]
+pub use std::{print, println};
+
+#[cfg(target_os = "axle")]
 mod run_in_axle {
     use crate::main_axle;
-    pub use axle_rt::{print, println};
 
     #[start]
     #[allow(unreachable_code)]
@@ -28,8 +33,6 @@ mod run_in_axle {
     }
 }
 
-#[cfg(not(target_os = "axle"))]
-pub use std::{print, println};
 #[cfg(not(target_os = "axle"))]
 fn main() {
     main_std::main();

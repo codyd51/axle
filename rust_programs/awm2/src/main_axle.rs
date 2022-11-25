@@ -1,9 +1,3 @@
-#![no_std]
-#![feature(start)]
-#![feature(slice_ptr_get)]
-#![feature(format_args_nl)]
-#![feature(default_alloc_error_handler)]
-
 extern crate alloc;
 extern crate libc;
 
@@ -37,6 +31,8 @@ use axle_rt::core_commands::{
 };
 use libgui::window_events::AwmWindowEvent;
 use libgui::AwmWindow;
+
+use crate::desktop::Desktop;
 
 fn setup_awm_framebuffer() -> SingleFramebufferLayer {
     // Ask the kernel to map in the framebuffer and send us info about it
@@ -85,11 +81,13 @@ unsafe fn body_as_type_unchecked<T: ExpectsEventField + ContainsEventField>(body
        }
 */
 
-fn main() {
+pub fn main() {
     amc_register_service(AWM2_SERVICE_NAME);
 
-    let video_memory_layer = setup_awm_framebuffer();
-    let mut desktop = Desktop::new(Rc::new(video_memory_layer));
+    let mut video_memory_layer = setup_awm_framebuffer();
+    let video_memory_slice =
+        video_memory_layer.get_slice(Rect::with_size(video_memory_layer.size()));
+    let mut desktop = Desktop::new(Rc::new(video_memory_slice));
     desktop.draw_background();
     // Start off by drawing a blank canvas consisting of the desktop background
     desktop.blit_background();
@@ -139,10 +137,12 @@ fn main() {
                             desktop.spawn_window(
                                 msg_unparsed.source().to_string(),
                                 body_as_type_unchecked(raw_body),
+                                None,
                             );
                         }
                         AwmWindowRedrawReady::EXPECTED_EVENT => {
                             //println!("Window said it was ready to redraw!");
+                            desktop.handle_window_requested_redraw(msg_unparsed.source());
                         }
                         _ => {
                             println!("Awm ignoring message with unknown event type: {event}");
