@@ -418,6 +418,13 @@ impl Rect {
         p.x >= self.min_x() && p.y >= self.min_y() && p.x < self.max_x() && p.y < self.max_y()
     }
 
+    pub fn encloses(&self, rhs: Self) -> bool {
+        rhs.min_x() >= self.min_x()
+            && rhs.min_y() >= self.min_y()
+            && rhs.max_x() <= self.max_x()
+            && rhs.max_y() <= self.max_y()
+    }
+
     pub fn constrain(&self, rhs: Self) -> Self {
         if rhs.min_x() >= self.max_x() || rhs.min_y() >= self.max_y() {
             return Rect::zero();

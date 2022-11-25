@@ -417,6 +417,10 @@ impl SingleFramebufferLayer {
         let src_fb = other.framebuffer.borrow();
         dst_fb.copy_from_slice(&src_fb);
     }
+
+    pub fn get_full_slice(&mut self) -> Box<dyn LikeLayerSlice> {
+        self.get_slice(Rect::with_size(self.size))
+    }
 }
 
 impl Layer for SingleFramebufferLayer {
