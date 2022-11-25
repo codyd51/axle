@@ -1,3 +1,4 @@
+use core::cmp::max;
 use core::fmt::{Display, Formatter};
 use std::{
     cell::RefCell,
@@ -56,7 +57,9 @@ impl LikeLayerSlice for PixelLayerSlice {
     }
 
     fn fill_rect(&self, raw_rect: Rect, color: Color, thickness: StrokeThickness) {
-        let rect = self.frame.constrain(raw_rect);
+        let mut rect = self.frame.constrain(raw_rect);
+        rect.size.width = max(rect.size.width, 0);
+        rect.size.height = max(rect.size.height, 0);
         //println!("PixelLayerSlice.fill_rect({rect}, {color:?})");
 
         let bpp = 4;
@@ -163,7 +166,6 @@ impl LikeLayerSlice for PixelLayerSlice {
 
     fn blit2(&self, source_layer: &Box<dyn LikeLayerSlice>) {
         assert!(self.frame().size == source_layer.frame().size);
-        //let pixel_data = source_layer.pixel_data();
 
         let bpp = 4;
         let parent_size = self.parent_size;
@@ -180,13 +182,6 @@ impl LikeLayerSlice for PixelLayerSlice {
             let mut dst_row_slice = &mut fb[off..off + ((self.frame.width() * bpp) as usize)];
             let row_slice = source_layer.get_pixel_row(y as _);
             dst_row_slice.copy_from_slice(&row_slice);
-
-            /*
-            for x in 0..self.frame().width() {
-                let p = Point::new(x, y);
-                self.putpixel(p, source_layer.getpixel(p));
-            }
-            */
         }
     }
 
@@ -219,14 +214,14 @@ impl LikeLayerSlice for PixelLayerSlice {
     }
 }
 
-struct PixelLayer {
+pub struct PixelLayer {
     size: Size,
     window: Window,
-    pixel_buffer: Rc<RefCell<Pixels>>,
+    pub pixel_buffer: Rc<RefCell<Pixels>>,
 }
 
 impl PixelLayer {
-    fn new(title: &str, event_loop: &EventLoop<()>, size: Size) -> Self {
+    pub fn new(title: &str, event_loop: &EventLoop<()>, size: Size) -> Self {
         let window = {
             let size = LogicalSize::new(size.width as f64, size.height as f64);
             let scaled_size = size;
@@ -270,16 +265,16 @@ impl Display for PixelLayer {
 
 impl LikeLayerSlice for PixelLayer {
     fn frame(&self) -> Rect {
-        todo!()
+        Rect::with_size(self.size)
     }
 
     fn fill_rect(&self, raw_rect: Rect, color: Color, thickness: StrokeThickness) {
-        todo!()
+        self.get_slice(Rect::with_size(self.size))
+            .fill_rect(raw_rect, color, thickness)
     }
 
     fn fill(&self, color: Color) {
-        self.get_slice(Rect::from_parts(Point::zero(), self.size))
-            .fill(color)
+        self.get_slice(Rect::with_size(self.size)).fill(color)
     }
 
     fn putpixel(&self, loc: Point, color: Color) {
