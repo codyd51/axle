@@ -4,16 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["run_with_std"]
-run_with_std = ["pixels", "winit"]
+default = []
+# Ref: https://github.com/rust-lang/cargo/issues/5139
+run_with_std = ["pixels", "winit", "libgui/run_with_std"]
 
 [dependencies]
 axle_rt = { path = "../axle_rt" }
 axle_rt_derive = {path = "../axle_rt_derive" }
 agx_definitions = {path = "../agx_definitions" }
 awm_messages = {path = "../awm_messages" }
-# libgui = { path = "../libgui", default-features = false }
-libgui = {path = "../libgui", features=["run_with_std"]}
+libgui = { path = "../libgui", default-features = false }
 mouse_driver_messages = {path = "../mouse_driver_messages" }
 
 # These dependencies are only enabled in use_std mode
