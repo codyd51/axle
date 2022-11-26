@@ -36,6 +36,7 @@ struct DesktopElementId(usize);
 /// Roughly: a window, a desktop shortcut, etc
 trait DesktopElement {
     fn frame(&self) -> Rect;
+    fn name(&self) -> String;
     fn drawable_rects(&self) -> Vec<Rect>;
     fn set_drawable_rects(&self, drawable_rects: Vec<Rect>);
     fn get_slice(&self) -> Box<dyn LikeLayerSlice>;
@@ -45,17 +46,46 @@ pub struct Window {
     pub frame: Rect,
     drawable_rects: RefCell<Vec<Rect>>,
     pub owner_service: String,
-    pub layer: RefCell<SingleFramebufferLayer>,
+    layer: RefCell<SingleFramebufferLayer>,
+    pub content_layer: RefCell<SingleFramebufferLayer>,
 }
 
 impl Window {
+    const TITLE_BAR_HEIGHT: usize = 30;
+
     fn new(owner_service: &str, frame: Rect, window_layer: SingleFramebufferLayer) -> Self {
+        let total_size = Self::total_size_for_content_size(window_layer.size());
         Self {
             frame,
             drawable_rects: RefCell::new(vec![]),
             owner_service: owner_service.to_string(),
-            layer: RefCell::new(window_layer),
+            layer: RefCell::new(SingleFramebufferLayer::new(total_size)),
+            content_layer: RefCell::new(window_layer),
         }
+    }
+
+    fn redraw_title_bar(&self) {
+        let title_bar_slice = self.layer.borrow_mut().get_slice(Rect::with_size(Size::new(
+            self.frame.width(),
+            Self::TITLE_BAR_HEIGHT as isize,
+        )));
+        title_bar_slice.fill(Color::dark_gray());
+    }
+
+    pub fn render_remote_layer(&self) {
+        let src = self.content_layer.borrow_mut().get_full_slice();
+        let mut dst = self.layer.borrow_mut().get_slice(Rect::from_parts(
+            Point::new(0, Self::TITLE_BAR_HEIGHT as isize),
+            src.frame().size,
+        ));
+        dst.blit2(&src);
+    }
+
+    fn total_size_for_content_size(content_size: Size) -> Size {
+        Size::new(
+            content_size.width,
+            content_size.height + Self::TITLE_BAR_HEIGHT as isize,
+        )
     }
 }
 
@@ -375,7 +405,7 @@ impl Desktop {
             }
             /*
             println!("\tNew visible rects for {elem}");
-            for drawable_rect in elem.drawable_rects.iter() {
+            for drawable_rect in elem.drawable_rects.borrow().iter() {
                 println!("\t\t{drawable_rect}")
             }
             */
@@ -390,7 +420,9 @@ impl Desktop {
     ) -> Rc<Window> {
         println!("Creating window of size {:?} for {}", request.size, source);
 
-        let window_size = Size::from(&request.size);
+        let content_size = Size::from(&request.size);
+        // The window is larger than the content view to account for decorations
+        let window_size = Window::total_size_for_content_size(content_size);
         let new_window_origin = origin.unwrap_or({
             // Place the window in the center of the screen
             let res = self.desktop_frame.size;
@@ -434,6 +466,7 @@ impl Desktop {
 
         let window_frame = Rect::from_parts(new_window_origin, window_size);
         let new_window = Rc::new(Window::new(&source, window_frame, window_layer));
+        new_window.redraw_title_bar();
         self.windows.insert(0, Rc::clone(&new_window));
         self.compositor_state
             .track_element(Rc::clone(&new_window) as Rc<dyn DesktopElement>);
@@ -473,6 +506,8 @@ impl Desktop {
                 .find(|w| w.owner_service == window_owner)
                 .expect(format!("Failed to find window for {}", window_owner).as_str())
         };
+        // Fetch the framebuf
+        window.render_remote_layer();
         self.compositor_state
             .queue_composite(Rc::clone(window) as Rc<dyn DesktopElement>)
     }
