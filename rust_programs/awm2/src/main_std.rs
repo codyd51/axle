@@ -31,7 +31,6 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     desktop.blit_background();
     desktop.commit_entire_buffer_to_video_memory();
 
-    /*
     let w1 = desktop.spawn_window(
         "Window 0",
         &AwmCreateWindow::new(Size::new(100, 100)),
