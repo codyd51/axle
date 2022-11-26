@@ -18,6 +18,11 @@ use core::cmp::{max, min};
 use core::fmt::{Display, Formatter};
 use mouse_driver_messages::MousePacket;
 
+use lazy_static::lazy_static;
+use rand::rngs::SmallRng;
+use rand::RngCore;
+use rand::{Rng, SeedableRng};
+
 #[cfg(target_os = "axle")]
 pub extern crate libc;
 #[cfg(target_os = "axle")]
@@ -26,11 +31,24 @@ mod conditional_imports {
     pub use axle_rt::amc_message_send;
 }
 #[cfg(not(target_os = "axle"))]
-mod conditional_imports {}
+mod conditional_imports {
+    pub use std::time::{SystemTime, UNIX_EPOCH};
+}
 
 use crate::desktop::conditional_imports::*;
 
-struct DesktopElementId(usize);
+fn random_color() -> Color {
+    #[cfg(target_os = "axle")]
+    let seed = unsafe { libc::ms_since_boot() } as u64;
+    #[cfg(not(target_os = "axle"))]
+    let seed = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+
+    let mut rng = SmallRng::seed_from_u64(seed);
+    Color::new(rng.gen(), rng.gen(), rng.gen())
+}
 
 /// A persistent UI element on the desktop that occludes other elements
 /// Roughly: a window, a desktop shortcut, etc
@@ -98,6 +116,10 @@ impl Display for Window {
 impl DesktopElement for Window {
     fn frame(&self) -> Rect {
         self.frame
+    }
+
+    fn name(&self) -> String {
+        self.owner_service.to_string()
     }
 
     fn drawable_rects(&self) -> Vec<Rect> {
@@ -291,6 +313,7 @@ impl Desktop {
                             .queue_extra_draw(Rc::clone(&elem), *full_redraw_rect);
                         // And subtract the area of the rect from the region to update
                         //unobscured_region = update_occlusions(unobscured_region, r);
+                        //println!("Fully enclosed in {}", elem.name());
                         break 'outer;
                     } else {
                         // This element needs to redraw the intersection of its visible rect and the update rect
@@ -299,6 +322,7 @@ impl Desktop {
                             .unwrap();
                         self.compositor_state
                             .queue_extra_draw(Rc::clone(&elem), intersection);
+                        //println!("Partially enclosed in {}", elem.name());
                         // And subtract the area of the rect from the region to update
                         //unobscured_region = update_occlusions(unobscured_region, intersection);
                     }
@@ -323,13 +347,11 @@ impl Desktop {
                 ));
                 let dst_slice = self.video_memory_layer.get_slice(*drawable_rect);
                 dst_slice.blit2(&drawable_rect_slice);
-                /*
                 self.video_memory_layer.fill_rect(
                     *drawable_rect,
-                    Color::red(),
+                    random_color(),
                     StrokeThickness::Width(2),
                 );
-                */
             }
         }
 
