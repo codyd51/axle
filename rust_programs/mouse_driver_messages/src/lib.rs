@@ -1,5 +1,6 @@
 #![no_std]
 
+#[cfg(target_os = "axle")]
 use axle_rt::{amc_message_send, amc_message_send_untyped};
 use axle_rt::{ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
@@ -14,6 +15,18 @@ pub struct MousePacket {
     pub rel_x: i8,
     pub rel_y: i8,
     pub rel_z: i8,
+}
+
+impl MousePacket {
+    pub fn new(rel_x: i8, rel_y: i8) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            status: 0,
+            rel_x,
+            rel_y,
+            rel_z: 0,
+        }
+    }
 }
 
 impl ExpectsEventField for MousePacket {
