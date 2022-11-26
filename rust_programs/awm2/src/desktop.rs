@@ -641,6 +641,19 @@ impl Desktop {
         self.compositor_state
             .queue_composite(Rc::clone(window) as Rc<dyn DesktopElement>)
     }
+
+    pub fn test(&mut self) {
+        let rects = vec![
+            Rect::new(50, 85, 25, 65),
+            Rect::new(50, 0, 25, 50),
+            Rect::new(0, 100, 50, 50),
+            Rect::new(0, 0, 50, 50),
+        ];
+        for r in rects.iter() {
+            let slice = self.video_memory_layer.get_slice(*r);
+            slice.fill(random_color());
+        }
+    }
 }
 
 #[cfg(test)]
@@ -651,30 +664,46 @@ mod test {
     use awm_messages::AwmCreateWindow;
     use std::iter::zip;
 
-    fn assert_window_layouts_matches_drawable_rects(
-        window_frames: Vec<Rect>,
-        expected_drawable_rects: Vec<Vec<Rect>>,
-    ) {
-        // Given some windows arranged in a desktop
+    fn get_desktop() -> Desktop {
         let screen_size = Size::new(1000, 1000);
         let mut vmem = SingleFramebufferLayer::new(screen_size);
         let layer_as_trait_object = Rc::new(vmem.get_full_slice());
-        let mut desktop = Desktop::new(Rc::clone(&layer_as_trait_object));
+        Desktop::new(Rc::clone(&layer_as_trait_object))
+    }
+
+    fn spawn_window_easy(desktop: &mut Desktop, name: &str, frame: Rect) -> Rc<Window> {
+        desktop.spawn_window(name, &AwmCreateWindow::new(frame.size), Some(frame.origin))
+    }
+
+    fn spawn_windows_with_frames(window_frames: Vec<Rect>) -> (Desktop, Vec<Rc<Window>>) {
+        let mut desktop = get_desktop();
 
         let windows: Vec<Rc<Window>> = window_frames
             .iter()
             .enumerate()
             .map(|(i, frame)| {
-                desktop.spawn_window(
-                    &format!("window {i}"),
-                    &AwmCreateWindow::new(Size::new(
-                        frame.width(),
-                        frame.height() - Window::TITLE_BAR_HEIGHT as isize,
-                    )),
-                    Some(frame.origin),
+                spawn_window_easy(
+                    &mut desktop,
+                    &format!("w{i}"),
+                    Rect::from_parts(
+                        frame.origin,
+                        Size::new(
+                            frame.width(),
+                            frame.height() - Window::TITLE_BAR_HEIGHT as isize,
+                        ),
+                    ),
                 )
             })
             .collect();
+        (desktop, windows)
+    }
+
+    fn assert_window_layouts_matches_drawable_rects(
+        window_frames: Vec<Rect>,
+        expected_drawable_rects: Vec<Vec<Rect>>,
+    ) {
+        // Given some windows arranged in a desktop
+        let (mut desktop, windows) = spawn_windows_with_frames(window_frames);
         for (window, expected_drawable_rects) in zip(windows, expected_drawable_rects) {
             assert_eq!(window.drawable_rects(), expected_drawable_rects)
         }
@@ -715,30 +744,128 @@ mod test {
                 vec![Rect::new(300, 300, 100, 130)],
             ],
         );
+
+        assert_window_layouts_matches_drawable_rects(
+            vec![Rect::new(100, 100, 100, 100), Rect::new(180, 50, 100, 100)],
+            vec![
+                vec![Rect::new(100, 100, 80, 100), Rect::new(180, 150, 20, 50)],
+                vec![Rect::new(180, 50, 100, 100)],
+            ],
+        );
     }
 
-    fn test_compute_drawable_regions2() {
-        // Given some windows arranged in a desktop
-        let screen_size = Size::new(1000, 1000);
-        let mut vmem = SingleFramebufferLayer::new(screen_size);
-        let layer_as_trait_object = Rc::new(vmem.get_full_slice());
-        let mut desktop = Desktop::new(Rc::clone(&layer_as_trait_object));
+    fn assert_extra_draws(
+        desktop: &Desktop,
+        expected_extra_draws: &Vec<(String, Rect)>,
+        expected_extra_background_draws: &Vec<Rect>,
+    ) {
+        for elem in desktop.compositor_state.elements.iter() {
+            println!("Drawables of {}:", elem.name());
+            for r in elem.drawable_rects().iter() {
+                println!("\t{r}");
+            }
+        }
 
-        let w1 = desktop.spawn_window(
-            "w1",
-            &AwmCreateWindow::new(Size::new(100, 100 - Window::TITLE_BAR_HEIGHT as isize)),
-            Some(Point::new(0, 0)),
+        println!("Extra draws:");
+        for (elem, extra_draw_rect) in desktop.compositor_state.extra_draws.borrow().iter() {
+            println!("Extra draw for {}: {extra_draw_rect}", elem.name());
+        }
+        println!("Extra background draws:");
+        for extra_background_draw_rect in desktop.compositor_state.extra_background_draws.iter() {
+            println!("Extra background draw: {extra_background_draw_rect}");
+        }
+        let extra_draws_by_elem_name: Vec<(String, Rect)> = desktop
+            .compositor_state
+            .extra_draws
+            .borrow()
+            .iter()
+            .map(|(e, r)| (e.name(), *r))
+            .collect();
+        assert_eq!(&extra_draws_by_elem_name, expected_extra_draws,);
+        assert_eq!(
+            &desktop.compositor_state.extra_background_draws,
+            expected_extra_background_draws,
         );
-        let w2 = desktop.spawn_window(
-            "w2",
-            &AwmCreateWindow::new(Size::new(100, 100 - Window::TITLE_BAR_HEIGHT as isize)),
-            Some(Point::new(50, 0)),
-        );
+    }
 
-        // When the drawable regions of each window is computed
-        // (Performed automatically when spawning each window)
-        // Then the regions are correctly computed
-        assert_eq!(w1.drawable_rects(), vec![Rect::new(0, 0, 50, 100)]);
-        assert_eq!(w2.drawable_rects(), vec![Rect::new(50, 0, 100, 100)]);
+    #[test]
+    fn test_compute_extra_draws_from_total_update() {
+        // Given a window on a desktop
+        let mut desktop = get_desktop();
+        let window = spawn_window_easy(&mut desktop, "window", Rect::new(200, 200, 200, 200));
+        desktop
+            .compositor_state
+            .queue_full_redraw(Rect::new(390, 110, 100, 100));
+        desktop.compute_extra_draws_from_total_update_rects();
+        assert_extra_draws(
+            &desktop,
+            &vec![(window.name(), Rect::new(390, 200, 10, 10))],
+            &vec![Rect::new(400, 110, 90, 100), Rect::new(390, 110, 10, 90)],
+        );
+    }
+
+    #[test]
+    fn test_compute_extra_draws_from_total_update2() {
+        let (mut desktop, windows) = spawn_windows_with_frames(vec![
+            Rect::new(100, 100, 100, 100),
+            Rect::new(180, 50, 100, 100),
+        ]);
+
+        desktop
+            .compositor_state
+            .queue_full_redraw(Rect::new(150, 110, 100, 130));
+        desktop.compute_extra_draws_from_total_update_rects();
+        assert_extra_draws(
+            &desktop,
+            &vec![
+                ("w0".to_string(), Rect::new(150, 110, 30, 90)),
+                ("w0".to_string(), Rect::new(180, 150, 20, 50)),
+                ("w1".to_string(), Rect::new(180, 110, 70, 40)),
+            ],
+            &vec![
+                Rect::new(200, 150, 50, 90),
+                Rect::new(180, 200, 20, 40),
+                Rect::new(150, 200, 30, 40),
+            ],
+        );
+    }
+
+    #[test]
+    fn test_compute_extra_draws_from_total_update3() {
+        let (mut desktop, windows) = spawn_windows_with_frames(vec![Rect::new(100, 100, 100, 100)]);
+
+        desktop
+            .compositor_state
+            .queue_full_redraw(Rect::new(150, 150, 20, 20));
+        desktop.compute_extra_draws_from_total_update_rects();
+        assert_extra_draws(
+            &desktop,
+            &vec![("w0".to_string(), Rect::new(150, 150, 20, 20))],
+            &vec![],
+        );
+    }
+
+    #[test]
+    fn test_compute_extra_draws_from_total_update4() {
+        let (mut desktop, windows) =
+            spawn_windows_with_frames(vec![Rect::new(0, 50, 50, 50), Rect::new(50, 50, 100, 35)]);
+
+        desktop
+            .compositor_state
+            .queue_full_redraw(Rect::new(0, 0, 75, 150));
+        desktop.compute_extra_draws_from_total_update_rects();
+        assert_extra_draws(
+            &desktop,
+            &vec![
+                ("w0".to_string(), Rect::new(0, 50, 50, 50)),
+                ("w1".to_string(), Rect::new(50, 50, 25, 35)),
+            ],
+            &vec![
+                Rect::new(50, 85, 25, 65),
+                Rect::new(50, 0, 25, 50),
+                Rect::new(0, 100, 50, 50),
+                Rect::new(0, 0, 50, 50),
+            ],
+        );
     }
 }

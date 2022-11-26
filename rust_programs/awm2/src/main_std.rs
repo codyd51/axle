@@ -31,6 +31,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     desktop.blit_background();
     desktop.commit_entire_buffer_to_video_memory();
 
+    /*
     let w1 = desktop.spawn_window(
         "Window 0",
         &AwmCreateWindow::new(Size::new(100, 100)),
@@ -120,7 +121,8 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                             match key_code {
                                 VirtualKeyCode::A => w1.render_remote_layer(),
                                 VirtualKeyCode::B => w2.render_remote_layer(),
-                                VirtualKeyCode::C => w3.render_remote_layer(),
+                                //VirtualKeyCode::C => w3.render_remote_layer(),
+                                VirtualKeyCode::D => desktop.test(),
                                 VirtualKeyCode::E => {
                                     if input.state == ElementState::Released {
                                         match desktop.render_strategy {
