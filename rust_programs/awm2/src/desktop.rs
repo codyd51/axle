@@ -18,6 +18,7 @@ use core::cmp::{max, min};
 use core::fmt::{Display, Formatter};
 use mouse_driver_messages::MousePacket;
 
+use kb_driver_messages::{KeyEventType, KeyboardPacket};
 use lazy_static::lazy_static;
 use rand::rngs::SmallRng;
 use rand::RngCore;
@@ -372,8 +373,10 @@ impl Desktop {
         // Now blit the screen buffer to the backing video memory
         // Follow the same steps as above to only copy what's changed
         // And empty queues as we go
+        //
         // We don't need to walk each individual view - we can rely on the logic above to have drawn it to the screen buffer
         self.compositor_state.extra_draws.borrow_mut().drain(..);
+
         for full_redraw_rect in self.compositor_state.rects_to_fully_redraw.drain(..) {
             Self::copy_rect(
                 &mut *self.screen_buffer_layer.get_slice(self.desktop_frame),
@@ -425,12 +428,6 @@ impl Desktop {
                 self.compositor_state
                     .queue_composite(Rc::clone(elem) as Rc<dyn DesktopElement>);
             }
-            /*
-            println!("\tNew visible rects for {elem}");
-            for drawable_rect in elem.drawable_rects.borrow().iter() {
-                println!("\t\t{drawable_rect}")
-            }
-            */
         }
     }
 
@@ -517,6 +514,10 @@ impl Desktop {
         self.compositor_state.queue_full_redraw(total_update_rect);
     }
 
+    pub fn handle_keyboard_event(&mut self, packet: &KeyboardPacket) {
+        println!("Got keyboard packet {packet:?}");
+    }
+
     pub fn set_cursor_pos(&mut self, pos: Point) {
         self.mouse_state.pos = pos
     }
@@ -530,7 +531,7 @@ impl Desktop {
                 .find(|w| w.owner_service == window_owner)
                 .expect(format!("Failed to find window for {}", window_owner).as_str())
         };
-        // Fetch the framebuf
+        // Render the framebuffer to the visible window layer
         window.render_remote_layer();
         self.compositor_state
             .queue_composite(Rc::clone(window) as Rc<dyn DesktopElement>)

@@ -17,6 +17,10 @@ pub struct AwmCreateWindow {
 
 impl AwmCreateWindow {
     pub fn new(size: Size) -> Self {
+        assert!(
+            size.width > 0 && size.height > 0,
+            "Invalid size passed to AwmCreateWindow::new({size})"
+        );
         AwmCreateWindow {
             event: Self::EXPECTED_EVENT,
             size: SizeU32::from(size),

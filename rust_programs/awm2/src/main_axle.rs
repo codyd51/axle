@@ -22,6 +22,7 @@ use agx_definitions::{
 };
 use awm_messages::{AwmCreateWindow, AwmCreateWindowResponse, AwmWindowRedrawReady};
 
+use kb_driver_messages::KB_DRIVER_SERVICE_NAME;
 use mouse_driver_messages::{MousePacket, MOUSE_DRIVER_SERVICE_NAME};
 
 use crate::awm2_messages::AWM2_SERVICE_NAME;
@@ -127,6 +128,11 @@ pub fn main() {
                         println!("Ignoring unknown message from mouse driver")
                     }
                 },
+                KB_DRIVER_SERVICE_NAME => {
+                    // PT: We can't use body_as_type_unchecked because the message from the KB driver lacks
+                    // an event field. Do a direct cast until the KB driver message is fixed.
+                    desktop.handle_keyboard_event(unsafe { &*(raw_body.as_ptr() as *const _) })
+                }
                 _ => {
                     // Unknown sender - probably a client wanting to interact with the window manager
                     match event {
