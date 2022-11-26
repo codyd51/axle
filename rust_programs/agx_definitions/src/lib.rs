@@ -548,7 +548,7 @@ impl Rect {
             //println!("bottom edge {trimmed_area} overlap {bottom_overlap}");
             out.push(Rect::from_parts(
                 trimmed_area.origin,
-                Size::new(trimmed_area.width(), trimmed_area.height() - bottom_overlap),
+                Size::new(trimmed_area.width(), bottom_overlap),
             ));
             trimmed_area.size.height -= bottom_overlap;
         }
@@ -949,8 +949,39 @@ mod test {
                 // Bottom portion
                 Rect::new(50, 150, 100, 50),
                 // Top portion
-                Rect::new(50, 0, 100, 100),
+                Rect::new(50, 0, 100, 50),
             ]
+        );
+
+        /*
+        ----------
+        | (main) |
+        |        |
+        |        |
+        |    ----------
+        |    | (excl) |
+        |    |        |
+        |    |        |
+        |    |        |
+        |    |        |
+        |    |        |
+        |    |        |
+        -----|        |
+             |        |
+             |        |
+             |        |
+             ----------
+        */
+        let main = Rect::new(200, 200, 100, 130);
+        let exclude = Rect::new(250, 250, 100, 130);
+        /*
+        for a in main.area_excluding_rect(exclude) {
+            println!("{a}");
+        }
+        */
+        assert_eq!(
+            main.area_excluding_rect(exclude),
+            vec![Rect::new(200, 200, 50, 130), Rect::new(250, 200, 50, 50),],
         );
 
         /*
