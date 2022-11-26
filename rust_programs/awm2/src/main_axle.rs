@@ -135,7 +135,7 @@ pub fn main() {
                         // Keyboard events
                         AwmCreateWindow::EXPECTED_EVENT => {
                             desktop.spawn_window(
-                                msg_unparsed.source().to_string(),
+                                msg_unparsed.source(),
                                 body_as_type_unchecked(raw_body),
                                 None,
                             );

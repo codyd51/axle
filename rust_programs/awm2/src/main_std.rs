@@ -32,23 +32,32 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     desktop.commit_entire_buffer_to_video_memory();
 
     let w1 = desktop.spawn_window(
-        "Window 0".to_string(),
+        "Window 0",
         &AwmCreateWindow::new(Size::new(100, 100)),
         Some(Point::new(200, 200)),
     );
-    w1.layer.borrow_mut().get_full_slice().fill(Color::yellow());
+    w1.content_layer
+        .borrow_mut()
+        .get_full_slice()
+        .fill(Color::yellow());
     let w2 = desktop.spawn_window(
-        "Window 1".to_string(),
+        "Window 1",
         &AwmCreateWindow::new(Size::new(100, 100)),
         Some(Point::new(250, 250)),
     );
-    w2.layer.borrow_mut().get_full_slice().fill(Color::blue());
+    w2.content_layer
+        .borrow_mut()
+        .get_full_slice()
+        .fill(Color::blue());
     let w3 = desktop.spawn_window(
-        "Window 2".to_string(),
+        "Window 2",
         &AwmCreateWindow::new(Size::new(100, 100)),
         Some(Point::new(300, 300)),
     );
-    w3.layer.borrow_mut().get_full_slice().fill(Color::green());
+    w3.content_layer
+        .borrow_mut()
+        .get_full_slice()
+        .fill(Color::green());
 
     let scale_factor = 2;
     let mut last_cursor_pos = None;
@@ -101,6 +110,20 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                     }
                     WindowEvent::CursorLeft { device_id } => {
                         last_cursor_pos = None;
+                    }
+                    WindowEvent::KeyboardInput {
+                        device_id,
+                        input,
+                        is_synthetic,
+                    } => {
+                        if let Some(key_code) = input.virtual_keycode {
+                            match key_code {
+                                VirtualKeyCode::A => w1.render_remote_layer(),
+                                VirtualKeyCode::B => w2.render_remote_layer(),
+                                VirtualKeyCode::C => w3.render_remote_layer(),
+                                _ => (),
+                            }
+                        }
                     }
                     _ => {}
                 }

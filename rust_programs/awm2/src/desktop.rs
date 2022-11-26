@@ -436,10 +436,12 @@ impl Desktop {
 
     pub fn spawn_window(
         &mut self,
-        source: String,
+        source: &str,
         request: &AwmCreateWindow,
         origin: Option<Point>,
     ) -> Rc<Window> {
+        // Make a copy of the source service early as it's shared amc memory
+        let source = source.to_string();
         println!("Creating window of size {:?} for {}", request.size, source);
 
         let content_size = Size::from(&request.size);
@@ -463,7 +465,7 @@ impl Desktop {
             let shared_memory_size = desktop_size.width * desktop_size.height * bytes_per_pixel;
             println!("Requesting shared memory of size {shared_memory_size} {desktop_size:?}");
             let shared_memory_response =
-                AmcSharedMemoryCreateRequest::send(&source, shared_memory_size as u32);
+                AmcSharedMemoryCreateRequest::send(&source.to_string(), shared_memory_size as u32);
 
             let framebuffer_slice = core::ptr::slice_from_raw_parts_mut(
                 shared_memory_response.local_buffer_start as *mut libc::c_void,
@@ -532,5 +534,105 @@ impl Desktop {
         window.render_remote_layer();
         self.compositor_state
             .queue_composite(Rc::clone(window) as Rc<dyn DesktopElement>)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::desktop::{Desktop, DesktopElement, Window};
+    use agx_definitions::{Point, Rect, SingleFramebufferLayer, Size};
+    use alloc::rc::Rc;
+    use awm_messages::AwmCreateWindow;
+    use std::iter::zip;
+
+    fn assert_window_layouts_matches_drawable_rects(
+        window_frames: Vec<Rect>,
+        expected_drawable_rects: Vec<Vec<Rect>>,
+    ) {
+        // Given some windows arranged in a desktop
+        let screen_size = Size::new(1000, 1000);
+        let mut vmem = SingleFramebufferLayer::new(screen_size);
+        let layer_as_trait_object = Rc::new(vmem.get_full_slice());
+        let mut desktop = Desktop::new(Rc::clone(&layer_as_trait_object));
+
+        let windows: Vec<Rc<Window>> = window_frames
+            .iter()
+            .enumerate()
+            .map(|(i, frame)| {
+                desktop.spawn_window(
+                    &format!("window {i}"),
+                    &AwmCreateWindow::new(Size::new(
+                        frame.width(),
+                        frame.height() - Window::TITLE_BAR_HEIGHT as isize,
+                    )),
+                    Some(frame.origin),
+                )
+            })
+            .collect();
+        for (window, expected_drawable_rects) in zip(windows, expected_drawable_rects) {
+            assert_eq!(window.drawable_rects(), expected_drawable_rects)
+        }
+    }
+
+    #[test]
+    fn test_compute_drawable_regions() {
+        assert_window_layouts_matches_drawable_rects(
+            vec![Rect::new(0, 0, 100, 100), Rect::new(50, 0, 100, 100)],
+            vec![
+                vec![Rect::new(0, 0, 50, 100)],
+                vec![Rect::new(50, 0, 100, 100)],
+            ],
+        );
+
+        assert_window_layouts_matches_drawable_rects(
+            vec![
+                Rect::new(0, 0, 100, 100),
+                Rect::new(50, 50, 100, 100),
+                Rect::new(100, 100, 100, 100),
+            ],
+            vec![
+                vec![Rect::new(0, 0, 50, 100), Rect::new(50, 0, 50, 50)],
+                vec![Rect::new(50, 50, 50, 100), Rect::new(100, 50, 50, 50)],
+                vec![Rect::new(100, 100, 100, 100)],
+            ],
+        );
+
+        assert_window_layouts_matches_drawable_rects(
+            vec![
+                Rect::new(200, 200, 100, 130),
+                Rect::new(250, 250, 100, 130),
+                Rect::new(300, 300, 100, 130),
+            ],
+            vec![
+                vec![Rect::new(200, 200, 50, 130), Rect::new(250, 200, 50, 50)],
+                vec![Rect::new(250, 250, 50, 130), Rect::new(300, 250, 50, 50)],
+                vec![Rect::new(300, 300, 100, 130)],
+            ],
+        );
+    }
+
+    fn test_compute_drawable_regions2() {
+        // Given some windows arranged in a desktop
+        let screen_size = Size::new(1000, 1000);
+        let mut vmem = SingleFramebufferLayer::new(screen_size);
+        let layer_as_trait_object = Rc::new(vmem.get_full_slice());
+        let mut desktop = Desktop::new(Rc::clone(&layer_as_trait_object));
+
+        let w1 = desktop.spawn_window(
+            "w1",
+            &AwmCreateWindow::new(Size::new(100, 100 - Window::TITLE_BAR_HEIGHT as isize)),
+            Some(Point::new(0, 0)),
+        );
+        let w2 = desktop.spawn_window(
+            "w2",
+            &AwmCreateWindow::new(Size::new(100, 100 - Window::TITLE_BAR_HEIGHT as isize)),
+            Some(Point::new(50, 0)),
+        );
+
+        // When the drawable regions of each window is computed
+        // (Performed automatically when spawning each window)
+        // Then the regions are correctly computed
+        assert_eq!(w1.drawable_rects(), vec![Rect::new(0, 0, 50, 100)]);
+        assert_eq!(w2.drawable_rects(), vec![Rect::new(50, 0, 100, 100)]);
     }
 }
