@@ -180,6 +180,7 @@ struct CompositorState {
     elements: Vec<Rc<dyn DesktopElement>>,
 
     extra_draws: RefCell<Vec<(Rc<dyn DesktopElement>, Rect)>>,
+    extra_background_draws: Vec<Rect>,
 }
 
 impl CompositorState {
@@ -189,6 +190,7 @@ impl CompositorState {
             elements_to_composite: vec![],
             elements: vec![],
             extra_draws: RefCell::new(vec![]),
+            extra_background_draws: vec![],
         }
     }
 
@@ -207,6 +209,12 @@ impl CompositorState {
     fn queue_extra_draw(&self, element: Rc<dyn DesktopElement>, r: Rect) {
         self.extra_draws.borrow_mut().push((element, r));
     }
+
+    fn queue_extra_background_draw(&mut self, r: Rect) {
+        self.extra_background_draws.push(r);
+    }
+}
+
 }
 
 pub struct Desktop {
@@ -240,6 +248,7 @@ impl Desktop {
             windows: vec![],
             mouse_state: MouseState::new(initial_mouse_pos, desktop_frame.size),
             compositor_state: CompositorState::new(),
+            render_strategy: RenderStrategy::Composite,
         }
     }
 
@@ -314,6 +323,7 @@ impl Desktop {
                             .queue_extra_draw(Rc::clone(&elem), *full_redraw_rect);
                         // And subtract the area of the rect from the region to update
                         //unobscured_region = update_occlusions(unobscured_region, r);
+                        undrawn_areas = Self::update_occlusions(undrawn_areas, *full_redraw_rect);
                         //println!("Fully enclosed in {}", elem.name());
                         break 'outer;
                     } else {
@@ -323,13 +333,36 @@ impl Desktop {
                             .unwrap();
                         self.compositor_state
                             .queue_extra_draw(Rc::clone(&elem), intersection);
-                        //println!("Partially enclosed in {}", elem.name());
+                        //println!("Partially enclosed in {}'s drawable rect of {}", elem.name(), visible_region);
+                        //println!("\tIntersection {intersection}");
                         // And subtract the area of the rect from the region to update
-                        //unobscured_region = update_occlusions(unobscured_region, intersection);
+                        //println!("Updating unobscured area from {undrawn_areas:?}");
+                        undrawn_areas = Self::update_occlusions(undrawn_areas, intersection);
+                        //println!("\tUpdated to {undrawn_areas:?}");
                     }
                 }
             }
+
+            for undrawn_area in undrawn_areas.iter() {
+                self.compositor_state
+                    .queue_extra_background_draw(*undrawn_area)
+            }
         }
+    }
+
+    fn update_occlusions(free_areas: Vec<Rect>, exclude: Rect) -> Vec<Rect> {
+        let mut out = vec![];
+
+        for free_area in free_areas.iter() {
+            if !free_area.intersects_with(exclude) {
+                out.push(*free_area);
+                continue;
+            }
+
+            let mut occlusions = free_area.area_excluding_rect(exclude);
+            out.append(&mut occlusions);
+        }
+        out
     }
 
     pub fn draw_frame(&mut self) {
@@ -365,6 +398,15 @@ impl Desktop {
             let src_slice = layer.get_slice(local_rect);
             let dst_slice = self.screen_buffer_layer.get_slice(*screen_rect);
             dst_slice.blit2(&src_slice);
+        }
+
+        // Copy the bits of the background that we decided we needed to redraw
+        for background_copy_rect in self.compositor_state.extra_background_draws.drain(..) {
+            Self::copy_rect(
+                &mut *self.desktop_background_layer.get_slice(self.desktop_frame),
+                &mut *self.screen_buffer_layer.get_slice(self.desktop_frame),
+                background_copy_rect,
+            );
         }
 
         // Finally, draw the mouse cursor
