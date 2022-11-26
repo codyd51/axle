@@ -215,6 +215,9 @@ impl CompositorState {
     }
 }
 
+pub enum RenderStrategy {
+    TreeWalk,
+    Composite,
 }
 
 pub struct Desktop {
@@ -227,6 +230,7 @@ pub struct Desktop {
     pub windows: Vec<Rc<Window>>,
     mouse_state: MouseState,
     compositor_state: CompositorState,
+    pub render_strategy: RenderStrategy,
 }
 
 impl Desktop {
@@ -298,14 +302,16 @@ impl Desktop {
         for full_redraw_rect in self.compositor_state.rects_to_fully_redraw.clone().iter() {
             //println!("\tProcessing full redraw rect {full_redraw_rect}");
             // For now, just composite the desktop background here
+            /*
             Self::copy_rect(
                 &mut *self.desktop_background_layer.get_slice(self.desktop_frame),
                 &mut *self.screen_buffer_layer.get_slice(self.desktop_frame),
                 *full_redraw_rect,
             );
+            */
             // Keep track of what we've redrawn using desktop elements
             // This will hold what we still need to draw (eventually with the desktop background)
-            // let undrawn_areas = vec![full_redraw_rect];
+            let mut undrawn_areas = vec![*full_redraw_rect];
 
             // Handle the parts of the dirty region that are obscured by desktop views
             'outer: for elem in self.compositor_state.elements.iter() {
@@ -366,6 +372,51 @@ impl Desktop {
     }
 
     pub fn draw_frame(&mut self) {
+        match self.render_strategy {
+            RenderStrategy::TreeWalk => {
+                self.draw_frame_simple();
+            }
+            RenderStrategy::Composite => {
+                self.draw_frame_composited();
+            }
+        }
+    }
+
+    pub fn draw_frame_simple(&mut self) {
+        Self::copy_rect(
+            &mut *self.desktop_background_layer.get_full_slice(),
+            &mut *self
+                .screen_buffer_layer
+                .get_slice(Rect::with_size(self.desktop_frame.size)),
+            self.desktop_frame,
+        );
+        for elem in self.compositor_state.elements.iter() {
+            let src = elem.get_slice();
+            let dst = self.screen_buffer_layer.get_slice(elem.frame());
+            dst.blit2(&src);
+        }
+        let mouse_rect = self.draw_mouse();
+        self.compositor_state.extra_draws.borrow_mut().drain(..);
+        self.compositor_state.rects_to_fully_redraw.drain(..);
+        self.compositor_state.elements_to_composite.drain(..);
+
+        Self::copy_rect(
+            &mut *self.screen_buffer_layer.get_full_slice(),
+            &mut *self
+                .video_memory_layer
+                .get_slice(Rect::with_size(self.desktop_frame.size)),
+            self.desktop_frame,
+        );
+        /*
+        Self::copy_rect(
+            &mut *self.screen_buffer_layer.get_slice(self.desktop_frame),
+            &mut *self.video_memory_layer.get_slice(self.desktop_frame),
+            mouse_rect,
+        );
+        */
+    }
+
+    pub fn draw_frame_composited(&mut self) {
         self.compute_extra_draws_from_total_update_rects();
 
         // Composite each desktop element that needs to be composited this frame
@@ -558,6 +609,18 @@ impl Desktop {
 
     pub fn handle_keyboard_event(&mut self, packet: &KeyboardPacket) {
         println!("Got keyboard packet {packet:?}");
+        if packet.key == 97 && packet.event_type == KeyEventType::Released {
+            match self.render_strategy {
+                RenderStrategy::TreeWalk => {
+                    println!("Switching to compositing");
+                    self.render_strategy = RenderStrategy::Composite;
+                }
+                RenderStrategy::Composite => {
+                    println!("Switching to tree walking");
+                    self.render_strategy = RenderStrategy::TreeWalk;
+                }
+            }
+        }
     }
 
     pub fn set_cursor_pos(&mut self, pos: Point) {

@@ -1,4 +1,4 @@
-use crate::desktop::Desktop;
+use crate::desktop::{Desktop, RenderStrategy};
 use agx_definitions::{Color, Layer, LikeLayerSlice, Point, Rect, Size};
 use alloc::rc::Rc;
 use awm_messages::AwmCreateWindow;
@@ -121,6 +121,20 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                                 VirtualKeyCode::A => w1.render_remote_layer(),
                                 VirtualKeyCode::B => w2.render_remote_layer(),
                                 VirtualKeyCode::C => w3.render_remote_layer(),
+                                VirtualKeyCode::E => {
+                                    if input.state == ElementState::Released {
+                                        match desktop.render_strategy {
+                                            RenderStrategy::TreeWalk => {
+                                                println!("Switching to compositing");
+                                                desktop.render_strategy = RenderStrategy::Composite;
+                                            }
+                                            RenderStrategy::Composite => {
+                                                println!("Switching to tree walking");
+                                                desktop.render_strategy = RenderStrategy::TreeWalk;
+                                            }
+                                        }
+                                    }
+                                }
                                 _ => (),
                             }
                         }
