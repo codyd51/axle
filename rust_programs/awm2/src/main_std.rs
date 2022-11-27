@@ -148,7 +148,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                             match key_code {
                                 VirtualKeyCode::A => w1.render_remote_layer(),
                                 VirtualKeyCode::B => w2.render_remote_layer(),
-                                //VirtualKeyCode::C => w3.render_remote_layer(),
+                                VirtualKeyCode::C => w3.render_remote_layer(),
                                 VirtualKeyCode::D => desktop.test(),
                                 VirtualKeyCode::E => {
                                     if input.state == ElementState::Released {

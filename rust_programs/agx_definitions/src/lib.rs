@@ -406,6 +406,10 @@ impl Rect {
         self.min_y() + ((self.size.height as f64 / 2f64) as isize)
     }
 
+    pub fn midpoint(&self) -> Point {
+        Point::new(self.mid_x(), self.mid_y())
+    }
+
     pub fn width(&self) -> isize {
         self.size.width
     }

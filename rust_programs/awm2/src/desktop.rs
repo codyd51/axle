@@ -88,11 +88,27 @@ impl Window {
     }
 
     fn redraw_title_bar(&self) {
-        let title_bar_slice = self.layer.borrow_mut().get_slice(Rect::with_size(Size::new(
+        let title_bar_frame = Rect::with_size(Size::new(
             self.frame().width(),
             Self::TITLE_BAR_HEIGHT as isize,
-        )));
-        title_bar_slice.fill(Color::dark_gray());
+        ));
+        let title_bar_slice = self.layer.borrow_mut().get_slice(title_bar_frame);
+        title_bar_slice.fill(Color::light_gray());
+
+        // Draw the window title
+        let font_size = Size::new(8, 12);
+        let window_title = &self.owner_service;
+        let title_len = window_title.len();
+        let mut cursor = title_bar_frame.midpoint()
+            - Point::new(
+                (((font_size.width * (title_len as isize)) as f64) / 2.0) as isize,
+                (((font_size.height as f64) / 2.0) - 1.0) as isize,
+            );
+        let title_text_color = Color::new(50, 50, 50);
+        for ch in self.name().chars() {
+            title_bar_slice.draw_char(ch, cursor, title_text_color, font_size);
+            cursor.x += font_size.width;
+        }
     }
 
     pub fn render_remote_layer(&self) {
@@ -492,11 +508,13 @@ impl Desktop {
                 ));
                 let dst_slice = self.video_memory_layer.get_slice(*drawable_rect);
                 dst_slice.blit2(&drawable_rect_slice);
+                /*
                 self.video_memory_layer.fill_rect(
                     *drawable_rect,
                     random_color(),
                     StrokeThickness::Width(2),
                 );
+                */
             }
         }
 
@@ -721,18 +739,15 @@ impl Desktop {
 
                     let mut prev_frame = None;
                     let mut new_frame = None;
-                    let dragged_window = self.interaction_state.dragged_window.clone();
-                    if let Some(dragged_window) = &dragged_window {
+                    if let Some(dragged_window) = self.interaction_state.dragged_window.clone() {
                         //println!("Dragged window moved {}", dragged_window.name());
-                        //dragged_window.frame.origin = dragged_window.frame.origin + *rel_pos;
                         prev_frame = Some(dragged_window.frame());
                         new_frame = Some(Rect::from_parts(
                             dragged_window.frame().origin + *rel_pos,
                             dragged_window.frame().size,
                         ));
                         dragged_window.set_frame(new_frame.unwrap());
-                    }
-                    if new_frame.is_some() {
+
                         let total_update_region = prev_frame.unwrap().union(new_frame.unwrap());
                         self.recompute_drawable_regions_in_rect(total_update_region);
                         self.compositor_state.queue_full_redraw(total_update_region);
