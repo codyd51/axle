@@ -75,7 +75,7 @@ uint64_t kernel_map_elf(const char* kernel_filename, pml4e_t* vas_state, axle_bo
 				printf("Failed to allocate memory for kernel section data! %ld\n", status);
 				return false;
 			}
-			memcpy(section_data_buf, (kernel_buf + section_header->offset), section_header->size);
+			memcpy((void*)section_data_buf, (kernel_buf + section_header->offset), section_header->size);
 
 			if (!strncmp(section_name, ".strtab", 8)) {
 				out_boot_info->kernel_string_table_base = section_data_buf;
@@ -106,8 +106,8 @@ uint64_t kernel_map_elf(const char* kernel_filename, pml4e_t* vas_state, axle_bo
 				return 0;
 			}
 
-			memcpy(segment_phys_base, kernel_buf + phdr->p_offset, phdr->p_filesz);
-			memset(segment_phys_base + phdr->p_filesz, 0, bss_size);
+			memcpy((void*)segment_phys_base, kernel_buf + phdr->p_offset, phdr->p_filesz);
+			memset((void*)(segment_phys_base + phdr->p_filesz), 0, bss_size);
 
 			printf("Mapping [phys 0x%p - 0x%p] - [virt 0x%p - 0x%p]\n", segment_phys_base, segment_phys_base + segment_size_page_padded - 1, phdr->p_vaddr, phdr->p_vaddr + segment_size_page_padded - 1);
 			map_region_4k_pages(vas_state, phdr->p_vaddr, segment_size_page_padded, segment_phys_base);
@@ -167,7 +167,7 @@ bool map_file(const char* file_path, uint64_t* out_base, uint64_t* out_size) {
 	printf("Allocated buffer for %s: 0x%p\n", file_path, file_buf);
 	print_time();
 	printf(": Reading %s buffer...\n", file_path);
-	fread(file_buf, file_size, 1, file);
+	fread((void*)file_buf, file_size, 1, file);
 	print_time();
 	printf(": Mapped initrd\n");
 	fclose(file);
@@ -252,7 +252,7 @@ int main(int argc, char** argv) {
 	printf("Selected Mode %ld: %ldx%ld, %ld bpp\n", best_mode, gop_mode_info->HorizontalResolution, gop_mode_info->VerticalResolution, gop_mode_info->PixelFormat);
 
 	pml4e_t* page_mapping_level4 = map2();
-	boot_info->boot_pml4 = page_mapping_level4;
+	boot_info->boot_pml4 = (uint64_t)page_mapping_level4;
 
 	// Step 2: Map the kernel ELF into memory
 	uint64_t kernel_entry_point = kernel_map_elf("\\EFI\\AXLE\\KERNEL.ELF", page_mapping_level4, boot_info);
