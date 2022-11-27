@@ -18,10 +18,10 @@ pub struct MousePacket {
 }
 
 impl MousePacket {
-    pub fn new(rel_x: i8, rel_y: i8) -> Self {
+    pub fn new(rel_x: i8, rel_y: i8, status: i8) -> Self {
         Self {
             event: Self::EXPECTED_EVENT,
-            status: 0,
+            status: status,
             rel_x,
             rel_y,
             rel_z: 0,
