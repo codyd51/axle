@@ -61,6 +61,14 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
 
     let scale_factor = 2;
     let mut last_cursor_pos = None;
+    let mut is_left_click_down = false;
+    let get_mouse_status_byte = |left_click_down| -> i8 {
+        let mut out = 0;
+        if left_click_down {
+            out |= (1 << 0);
+        }
+        out
+    };
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
         match event {
@@ -81,7 +89,23 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                         match state {
                             ElementState::Pressed => match button {
                                 MouseButton::Left => {
-                                    //self_clone.left_click(last_cursor_pos);
+                                    is_left_click_down = true;
+                                    desktop.handle_mouse_update(&MousePacket::new(
+                                        0,
+                                        0,
+                                        get_mouse_status_byte(is_left_click_down),
+                                    ));
+                                }
+                                _ => (),
+                            },
+                            ElementState::Released => match button {
+                                MouseButton::Left => {
+                                    is_left_click_down = false;
+                                    desktop.handle_mouse_update(&MousePacket::new(
+                                        0,
+                                        0,
+                                        get_mouse_status_byte(is_left_click_down),
+                                    ));
                                 }
                                 _ => (),
                             },
@@ -104,7 +128,11 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                         let rel_x = mouse_pos.x - last_cursor_pos.unwrap().x;
                         let rel_y = mouse_pos.y - last_cursor_pos.unwrap().y;
                         //println!("CursorMoved {rel_x:?}, {rel_y:?}");
-                        desktop.handle_mouse_update(&MousePacket::new(rel_x as i8, rel_y as i8));
+                        desktop.handle_mouse_update(&MousePacket::new(
+                            rel_x as i8,
+                            rel_y as i8,
+                            get_mouse_status_byte(is_left_click_down),
+                        ));
 
                         last_cursor_pos = Some(mouse_pos);
                     }
