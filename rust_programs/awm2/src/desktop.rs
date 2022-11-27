@@ -561,7 +561,16 @@ impl Desktop {
                     continue;
                 }
                 //println!("\tOccluding {} by view with frame {}", elem.frame(), occluding_elem.frame());
-                let mut new_drawable_rects = vec![];
+                // Keep rects that don't intersect with the occluding elem
+                let mut new_drawable_rects: Vec<Rect> = elem.drawable_rects().iter().filter_map(|r|{
+                    // If it does not intersect with the occluding element, we want to keep it
+                    if !r.intersects_with(occluding_elem.frame()) {
+                        Some(*r)
+                    }
+                    else {
+                        None
+                    }
+                }).collect();
                 for rect in elem.drawable_rects() {
                     let mut visible_portions = rect.area_excluding_rect(occluding_elem.frame());
                     new_drawable_rects.append(&mut visible_portions);
@@ -857,6 +866,30 @@ mod test {
             vec![
                 vec![Rect::new(100, 100, 80, 100), Rect::new(180, 150, 20, 50)],
                 vec![Rect::new(180, 50, 100, 100)],
+            ],
+        );
+
+        assert_window_layouts_matches_drawable_rects(
+            vec![
+                Rect::new(280, 190, 100, 130),
+                Rect::new(250, 250, 100, 130),
+                Rect::new(300, 300, 100, 130),
+            ],
+            vec![
+                vec![Rect::new(280, 190, 70, 60), Rect::new(350, 190, 30, 110)],
+                vec![Rect::new(250, 250, 50, 130), Rect::new(300, 250, 50, 50)],
+                vec![Rect::new(300, 300, 100, 130)],
+            ],
+        );
+
+        assert_window_layouts_matches_drawable_rects(
+            vec![
+                Rect::new(280, 190, 100, 130),
+                Rect::new(280, 190, 100, 130),
+            ],
+            vec![
+                vec![],
+                vec![Rect::new(280, 190, 100, 130)],
             ],
         );
     }
