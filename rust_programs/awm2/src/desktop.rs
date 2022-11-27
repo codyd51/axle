@@ -641,6 +641,17 @@ impl Desktop {
         new_window
     }
 
+    fn window_containing_point(&self, p: Point) -> Option<Rc<Window>> {
+        // Iterate from the topmost window to further back ones,
+        // so if windows are overlapping the topmost window will receive it
+        for window in self.windows.iter() {
+            if window.frame().contains(p) {
+                return Some(Rc::clone(window));
+            }
+        }
+        return None;
+    }
+
     pub fn handle_mouse_update(&mut self, packet: &MousePacket) {
         let old_mouse_frame = self.mouse_state.frame();
 
@@ -652,6 +663,21 @@ impl Desktop {
         // Previous mouse position should be redrawn
         let total_update_rect = old_mouse_frame.union(new_mouse_frame);
         self.compositor_state.queue_full_redraw(total_update_rect);
+
+        for state_change in state_changes.iter() {
+            //println!("Mouse state change: {state_change:?}");
+            match state_change {
+                MouseStateChange::LeftClickBegan => {
+                }
+                MouseStateChange::LeftClickEnded => {
+                }
+                MouseStateChange::Moved(new_pos, rel_pos) => {
+                    // Check whether we've entered a hover window
+                    self.interaction_state.window_under_mouse =
+                        self.window_containing_point(*new_pos);
+                }
+            }
+        }
     }
 
     pub fn handle_keyboard_event(&mut self, packet: &KeyboardPacket) {
