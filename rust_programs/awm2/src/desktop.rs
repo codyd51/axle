@@ -662,9 +662,11 @@ impl Desktop {
             .track_element(Rc::clone(&new_window) as Rc<dyn DesktopElement>);
         self.recompute_drawable_regions_in_rect(window_frame);
 
+        /*
         new_window.render_remote_layer();
         self.compositor_state
             .queue_composite(Rc::clone(&new_window) as Rc<dyn DesktopElement>);
+        */
 
         new_window
     }
@@ -698,6 +700,13 @@ impl Desktop {
                 MouseStateChange::LeftClickBegan => {
                     self.interaction_state.dragged_window =
                         self.interaction_state.window_under_mouse.clone();
+                    if let Some(dragged_window) = self.interaction_state.dragged_window.clone() {
+                        if !Rc::ptr_eq(&self.windows[0], &dragged_window) {
+                            println!("Moving clicked window to top: {}", dragged_window.name());
+                            self.move_window_to_top(&dragged_window);
+                            self.recompute_drawable_regions_in_rect(dragged_window.frame());
+                        }
+                    }
                 }
                 MouseStateChange::LeftClickEnded => {
                     if self.interaction_state.dragged_window.is_some() {
@@ -712,7 +721,8 @@ impl Desktop {
 
                     let mut prev_frame = None;
                     let mut new_frame = None;
-                    if let Some(dragged_window) = &self.interaction_state.dragged_window {
+                    let dragged_window = self.interaction_state.dragged_window.clone();
+                    if let Some(dragged_window) = &dragged_window {
                         //println!("Dragged window moved {}", dragged_window.name());
                         //dragged_window.frame.origin = dragged_window.frame.origin + *rel_pos;
                         prev_frame = Some(dragged_window.frame());
@@ -730,6 +740,16 @@ impl Desktop {
                 }
             }
         }
+    }
+
+    pub fn move_window_to_top(&mut self, window: &Rc<Window>) {
+        let window_idx = self
+            .windows
+            .iter()
+            .position(|w| Rc::ptr_eq(w, window))
+            .unwrap();
+        self.windows.remove(window_idx);
+        self.windows.insert(0, Rc::clone(window));
     }
 
     pub fn handle_keyboard_event(&mut self, packet: &KeyboardPacket) {
