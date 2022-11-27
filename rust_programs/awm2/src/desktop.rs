@@ -218,7 +218,7 @@ struct CompositorState {
     /// These may include portions of windows, the desktop background, etc.
     rects_to_fully_redraw: Vec<Rect>,
     /// Entire elements that must be composited on the next frame
-    elements_to_composite: Vec<Rc<dyn DesktopElement>>,
+    elements_to_composite: RefCell<Vec<Rc<dyn DesktopElement>>>,
     // Every desktop element the compositor knows about
     elements: Vec<Rc<dyn DesktopElement>>,
 
@@ -230,7 +230,7 @@ impl CompositorState {
     fn new() -> Self {
         Self {
             rects_to_fully_redraw: vec![],
-            elements_to_composite: vec![],
+            elements_to_composite: RefCell::new(vec![]),
             elements: vec![],
             extra_draws: RefCell::new(vec![]),
             extra_background_draws: vec![],
@@ -241,8 +241,8 @@ impl CompositorState {
         self.rects_to_fully_redraw.push(in_rect)
     }
 
-    fn queue_composite(&mut self, element: Rc<dyn DesktopElement>) {
-        self.elements_to_composite.push(element)
+    fn queue_composite(&self, element: Rc<dyn DesktopElement>) {
+        self.elements_to_composite.borrow_mut().push(element)
     }
 
     fn track_element(&mut self, element: Rc<dyn DesktopElement>) {
@@ -457,7 +457,10 @@ impl Desktop {
         let mouse_rect = self.draw_mouse();
         self.compositor_state.extra_draws.borrow_mut().drain(..);
         self.compositor_state.rects_to_fully_redraw.drain(..);
-        self.compositor_state.elements_to_composite.drain(..);
+        self.compositor_state
+            .elements_to_composite
+            .borrow_mut()
+            .drain(..);
 
         Self::copy_rect(
             &mut *self.screen_buffer_layer.get_full_slice(),
@@ -472,7 +475,12 @@ impl Desktop {
         self.compute_extra_draws_from_total_update_rects();
 
         // Composite each desktop element that needs to be composited this frame
-        for desktop_element in self.compositor_state.elements_to_composite.drain(..) {
+        for desktop_element in self
+            .compositor_state
+            .elements_to_composite
+            .borrow_mut()
+            .drain(..)
+        {
             let layer = desktop_element.get_slice();
             let drawable_rects = desktop_element.drawable_rects();
             for drawable_rect in drawable_rects.iter() {
@@ -546,41 +554,48 @@ impl Desktop {
     fn recompute_drawable_regions_in_rect(&mut self, rect: Rect) {
         //println!("recompute_drawable_regions_in_rect({rect})");
         // Iterate backwards (from the furthest back to the foremost)
-        for elem_idx in (0..self.windows.len()).rev() {
-            let (a, b) = self.windows.split_at(elem_idx);
-            let elem = &b[0];
-            if !rect.intersects_with(elem.frame()) {
+        for window_idx in (0..self.windows.len()).rev() {
+            //println!("\tProcessing idx #{elem_idx}, window {} (a split has {} elems, b split has {} elems)", elem.name(), a.len(), b.len());
+            let window = &self.windows[window_idx];
+            if !rect.intersects_with(window.frame()) {
+                //println!("\t\tDoes not intersect with provided rect, skipping");
                 continue;
             }
 
-            elem.set_drawable_rects(vec![elem.frame()]);
+            let (occluding_windows, _window_and_lower) = self.windows.split_at(window_idx);
 
-            for (occluding_elem_idx, occluding_elem) in a.iter().enumerate().rev() {
-                //println!("\toccluding_elem_idx {occluding_elem_idx}");
-                if !elem.frame().intersects_with(occluding_elem.frame()) {
+            window.set_drawable_rects(vec![window.frame()]);
+
+            for occluding_window in occluding_windows.iter().rev() {
+                if !window.frame().intersects_with(occluding_window.frame()) {
                     continue;
                 }
-                //println!("\tOccluding {} by view with frame {}", elem.frame(), occluding_elem.frame());
+                //println!("\t\tOccluding {} by view with frame {}", elem.frame(), occluding_elem.frame());
                 // Keep rects that don't intersect with the occluding elem
-                let mut new_drawable_rects: Vec<Rect> = elem.drawable_rects().iter().filter_map(|r|{
-                    // If it does not intersect with the occluding element, we want to keep it
-                    if !r.intersects_with(occluding_elem.frame()) {
-                        Some(*r)
-                    }
-                    else {
-                        None
-                    }
-                }).collect();
-                for rect in elem.drawable_rects() {
-                    let mut visible_portions = rect.area_excluding_rect(occluding_elem.frame());
+                let mut new_drawable_rects: Vec<Rect> = window
+                    .drawable_rects()
+                    .iter()
+                    .filter_map(|r| {
+                        // If it does not intersect with the occluding element, we want to keep it
+                        if !r.intersects_with(occluding_window.frame()) {
+                            Some(*r)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                for rect in window.drawable_rects() {
+                    let mut visible_portions = rect.area_excluding_rect(occluding_window.frame());
                     new_drawable_rects.append(&mut visible_portions);
                 }
-                elem.set_drawable_rects(new_drawable_rects);
+                //println!("\t\tSetting drawable_rects to {:?}", new_drawable_rects);
+                window.set_drawable_rects(new_drawable_rects);
             }
 
-            if elem.drawable_rects().len() > 0 {
+            if window.drawable_rects().len() > 0 {
+                //println!("\tQueueing composite for {}", window.name());
                 self.compositor_state
-                    .queue_composite(Rc::clone(elem) as Rc<dyn DesktopElement>);
+                    .queue_composite(Rc::clone(window) as Rc<dyn DesktopElement>);
             }
         }
     }
@@ -694,12 +709,6 @@ impl Desktop {
                     // Check whether we've entered a hover window
                     self.interaction_state.window_under_mouse =
                         self.window_containing_point(*new_pos);
-                    /*
-                    println!(
-                        "Set window under mouse? {}",
-                        self.interaction_state.window_under_mouse.is_some()
-                    );
-                    */
 
                     let mut prev_frame = None;
                     let mut new_frame = None;
@@ -883,14 +892,8 @@ mod test {
         );
 
         assert_window_layouts_matches_drawable_rects(
-            vec![
-                Rect::new(280, 190, 100, 130),
-                Rect::new(280, 190, 100, 130),
-            ],
-            vec![
-                vec![],
-                vec![Rect::new(280, 190, 100, 130)],
-            ],
+            vec![Rect::new(280, 190, 100, 130), Rect::new(280, 190, 100, 130)],
+            vec![vec![], vec![Rect::new(280, 190, 100, 130)]],
         );
     }
 
