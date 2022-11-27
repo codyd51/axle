@@ -555,23 +555,20 @@ impl Desktop {
         // Now blit the screen buffer to the backing video memory
         // Follow the same steps as above to only copy what's changed
         // And empty queues as we go
-        //
-        // We don't need to walk each individual view - we can rely on the logic above to have drawn it to the screen buffer
-        self.compositor_state.extra_draws.borrow_mut().drain(..);
+        let buffer = &mut *self.screen_buffer_layer.get_slice(self.desktop_frame);
+        let vmem = &mut *self.video_memory_layer.get_slice(self.desktop_frame);
 
-        for full_redraw_rect in self.compositor_state.rects_to_fully_redraw.drain(..) {
-            Self::copy_rect(
-                &mut *self.screen_buffer_layer.get_slice(self.desktop_frame),
-                &mut *self.video_memory_layer.get_slice(self.desktop_frame),
-                full_redraw_rect,
-            );
+        // We don't need to walk each individual view - we can rely on the logic above to have drawn it to the screen buffer
+        //self.compositor_state.extra_draws.borrow_mut().drain(..);
+        for (_, extra_draw) in self.compositor_state.extra_draws.borrow_mut().drain(..) {
+            Self::copy_rect(buffer, vmem, extra_draw);
         }
 
-        Self::copy_rect(
-            &mut *self.screen_buffer_layer.get_slice(self.desktop_frame),
-            &mut *self.video_memory_layer.get_slice(self.desktop_frame),
-            mouse_rect,
-        );
+        for full_redraw_rect in self.compositor_state.rects_to_fully_redraw.drain(..) {
+            Self::copy_rect(buffer, vmem, full_redraw_rect);
+        }
+
+        Self::copy_rect(buffer, vmem, mouse_rect);
     }
 
     fn copy_rect(src: &mut dyn LikeLayerSlice, dst: &mut dyn LikeLayerSlice, rect: Rect) {
