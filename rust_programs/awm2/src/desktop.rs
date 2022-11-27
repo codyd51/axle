@@ -668,13 +668,43 @@ impl Desktop {
             //println!("Mouse state change: {state_change:?}");
             match state_change {
                 MouseStateChange::LeftClickBegan => {
+                    self.interaction_state.dragged_window =
+                        self.interaction_state.window_under_mouse.clone();
                 }
                 MouseStateChange::LeftClickEnded => {
+                    if self.interaction_state.dragged_window.is_some() {
+                        println!("Releasing dragged window");
+                        self.interaction_state.dragged_window = None;
+                    }
                 }
                 MouseStateChange::Moved(new_pos, rel_pos) => {
                     // Check whether we've entered a hover window
                     self.interaction_state.window_under_mouse =
                         self.window_containing_point(*new_pos);
+                    /*
+                    println!(
+                        "Set window under mouse? {}",
+                        self.interaction_state.window_under_mouse.is_some()
+                    );
+                    */
+
+                    let mut prev_frame = None;
+                    let mut new_frame = None;
+                    if let Some(dragged_window) = &self.interaction_state.dragged_window {
+                        //println!("Dragged window moved {}", dragged_window.name());
+                        //dragged_window.frame.origin = dragged_window.frame.origin + *rel_pos;
+                        prev_frame = Some(dragged_window.frame());
+                        new_frame = Some(Rect::from_parts(
+                            dragged_window.frame().origin + *rel_pos,
+                            dragged_window.frame().size,
+                        ));
+                        dragged_window.set_frame(new_frame.unwrap());
+                    }
+                    if new_frame.is_some() {
+                        let total_update_region = prev_frame.unwrap().union(new_frame.unwrap());
+                        self.recompute_drawable_regions_in_rect(total_update_region);
+                        self.compositor_state.queue_full_redraw(total_update_region);
+                    }
                 }
             }
         }
