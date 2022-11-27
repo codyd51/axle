@@ -638,6 +638,10 @@ impl Desktop {
             .track_element(Rc::clone(&new_window) as Rc<dyn DesktopElement>);
         self.recompute_drawable_regions_in_rect(window_frame);
 
+        new_window.render_remote_layer();
+        self.compositor_state
+            .queue_composite(Rc::clone(&new_window) as Rc<dyn DesktopElement>);
+
         new_window
     }
 
