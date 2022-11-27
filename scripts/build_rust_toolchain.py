@@ -64,7 +64,6 @@ def _install_rustc(temp_dir: Path) -> None:
     run_and_check(["rustup", "install", "nightly-2022-11-27"])
     run_and_check(["rustup", "default", "nightly-2022-11-27"])
     run_and_check(["rustup", "component", "add", "rust-src"])
-    run_and_check(["rustup", "component", "add", "clippy-preview"])
     run_and_check(["rustup", "component", "add", "rustfmt"])
 
 
