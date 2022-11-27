@@ -34,7 +34,7 @@ void gfx_terminal_puts(const char* str);
 Size kernel_gfx_screen_size(void);
 void kernel_gfx_fill_rect(Rect r, Color color);
 void kernel_gfx_fill_screen(Color color);
-void kernel_gfx_draw_string(uint8_t* dest, char* str, Point origin, Color color, Size font_size);
+Point kernel_gfx_draw_string(uint8_t* dest, char* str, Point origin, Color color, Size font_size);
 void kernel_gfx_draw_char(uint8_t* dest, char ch, int x, int y, Color color, Size font_size);
 void kernel_gfx_putpixel(uint8_t* dest, int x, int y, Color color);
 void kernel_gfx_set_line_rendered_string_cursor(Point new_cursor_pos);

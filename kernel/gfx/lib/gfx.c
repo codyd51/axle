@@ -167,7 +167,7 @@ void kernel_gfx_putpixel(uint8_t* dest, int x, int y, Color color) {
 
 #include <gfx/font/font8x8.h>
 
-void kernel_gfx_draw_string(uint8_t* dest, char* str, Point origin, Color color, Size font_size) {
+Point kernel_gfx_draw_string(uint8_t* dest, char* str, Point origin, Color color, Size font_size) {
 	int x = origin.x;
 	int y = origin.y;
 	int string_len = strlen(str);
@@ -191,6 +191,7 @@ void kernel_gfx_draw_string(uint8_t* dest, char* str, Point origin, Color color,
 		x += font_size.width + padding.width;
 		idx++;
 	}
+    return point_make(x, y);
 }
 
 void kernel_gfx_set_line_rendered_string_cursor(Point new_cursor_pos) {
@@ -205,8 +206,8 @@ void kernel_gfx_write_line_rendered_string_ex(char* str, bool higher_half) {
         addr += KERNEL_MEMORY_BASE;
     }
 
-    kernel_gfx_draw_string((uint8_t*)addr, str, _g_cursor, color_white(), _g_font_size);
-    _g_cursor.y += _g_font_size.height * 2;
+    Point end_cursor = kernel_gfx_draw_string((uint8_t*)addr, str, _g_cursor, color_white(), _g_font_size);
+    _g_cursor.y = end_cursor.y + (_g_font_size.height * 2);
 }
 
 void kernel_gfx_write_line_rendered_string(char* str) {

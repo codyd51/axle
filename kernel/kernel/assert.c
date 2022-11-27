@@ -50,7 +50,7 @@ void panic_with_regs(const char* msg, register_state_x86_64_t* regs) {
     char buf[buf_size];
 
     // Error message
-    snprintf(buf, sizeof(buf), "Critical error! %s", msg);
+    snprintf(buf, sizeof(buf), "Critical error! %s\n", msg);
     kernel_gfx_write_line_rendered_string(buf);
 
     // RIP
@@ -59,13 +59,14 @@ void panic_with_regs(const char* msg, register_state_x86_64_t* regs) {
 
     // Stack trace
     char* buf_ptr = buf;
+    memset(buf_ptr, 0, buf_size);
 
     for (int i = 0; i < 16; i++) {
         if (!symbolicate_and_append(i, _get_return_address_of_stack_frame(i, regs), &buf_ptr, &buf_size)) {
             break;
         }
     }
-    kernel_gfx_write_line_rendered_string("Stack trace:");
+    kernel_gfx_write_line_rendered_string("Stack trace:\n");
     kernel_gfx_write_line_rendered_string(buf);
 
     asm("hlt");
@@ -328,7 +329,7 @@ void task_assert(bool cond, const char* msg, const register_state_t* regs) {
         draw_string_oneshot(buf);
         */
         Size screen_size = kernel_gfx_screen_size();
-        int box_of_death_height = screen_size.height / 4;
+        int box_of_death_height = screen_size.height / 3;
         Rect box_of_death = rect_make(
             point_make(0, (screen_size.height / 2) - (box_of_death_height / 2)),
             size_make(screen_size.width, box_of_death_height)
