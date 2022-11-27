@@ -258,6 +258,20 @@ impl CompositorState {
     }
 }
 
+struct InteractionState {
+    dragged_window: Option<Rc<Window>>,
+    window_under_mouse: Option<Rc<Window>>,
+}
+
+impl InteractionState {
+    fn new() -> Self {
+        Self {
+            dragged_window: None,
+            window_under_mouse: None,
+        }
+    }
+}
+
 pub enum RenderStrategy {
     TreeWalk,
     Composite,
@@ -274,6 +288,7 @@ pub struct Desktop {
     mouse_state: MouseState,
     compositor_state: CompositorState,
     pub render_strategy: RenderStrategy,
+    interaction_state: InteractionState,
 }
 
 impl Desktop {
@@ -296,6 +311,7 @@ impl Desktop {
             mouse_state: MouseState::new(initial_mouse_pos, desktop_frame.size),
             compositor_state: CompositorState::new(),
             render_strategy: RenderStrategy::Composite,
+            interaction_state: InteractionState::new(),
         }
     }
 
