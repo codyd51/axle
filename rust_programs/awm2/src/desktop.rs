@@ -385,16 +385,9 @@ impl Desktop {
 
     fn compute_extra_draws_from_total_update_rects(&mut self) {
         // Compute what to draw for the rects in which we need to do a full desktop walk
+        //println!("compute_extra_draws_from_total_update_rects()");
         for full_redraw_rect in self.compositor_state.rects_to_fully_redraw.clone().iter() {
             //println!("\tProcessing full redraw rect {full_redraw_rect}");
-            // For now, just composite the desktop background here
-            /*
-            Self::copy_rect(
-                &mut *self.desktop_background_layer.get_slice(self.desktop_frame),
-                &mut *self.screen_buffer_layer.get_slice(self.desktop_frame),
-                *full_redraw_rect,
-            );
-            */
             // Keep track of what we've redrawn using desktop elements
             // This will hold what we still need to draw (eventually with the desktop background)
             let mut undrawn_areas = vec![*full_redraw_rect];
@@ -425,7 +418,14 @@ impl Desktop {
                             .unwrap();
                         self.compositor_state
                             .queue_extra_draw(Rc::clone(&elem), intersection);
-                        //println!("Partially enclosed in {}'s drawable rect of {}", elem.name(), visible_region);
+
+                        /*
+                        println!(
+                            "Partially enclosed in {}'s drawable rect of {}",
+                            elem.name(),
+                            visible_region
+                        );
+                        */
                         //println!("\tIntersection {intersection}");
                         // And subtract the area of the rect from the region to update
                         //println!("Updating unobscured area from {undrawn_areas:?}");
@@ -436,6 +436,7 @@ impl Desktop {
             }
 
             for undrawn_area in undrawn_areas.iter() {
+                //println!("\tQueuing extra background draw {undrawn_area}");
                 self.compositor_state
                     .queue_extra_background_draw(*undrawn_area)
             }
@@ -519,13 +520,11 @@ impl Desktop {
                 ));
                 let dst_slice = self.video_memory_layer.get_slice(*drawable_rect);
                 dst_slice.blit2(&drawable_rect_slice);
-                /*
                 self.video_memory_layer.fill_rect(
                     *drawable_rect,
                     random_color(),
                     StrokeThickness::Width(2),
                 );
-                */
             }
         }
 
@@ -542,6 +541,7 @@ impl Desktop {
 
         // Copy the bits of the background that we decided we needed to redraw
         for background_copy_rect in self.compositor_state.extra_background_draws.drain(..) {
+            //println!("Drawing background rect {background_copy_rect}");
             Self::copy_rect(
                 &mut *self.desktop_background_layer.get_slice(self.desktop_frame),
                 &mut *self.screen_buffer_layer.get_slice(self.desktop_frame),
@@ -716,7 +716,8 @@ impl Desktop {
         let new_mouse_frame = self.mouse_state.frame();
 
         // Previous mouse position should be redrawn
-        let total_update_rect = old_mouse_frame.union(new_mouse_frame);
+        let total_update_rect =
+            self.bind_rect_to_screen_size(old_mouse_frame.union(new_mouse_frame));
         self.compositor_state.queue_full_redraw(total_update_rect);
 
         for state_change in state_changes.iter() {
@@ -744,24 +745,42 @@ impl Desktop {
                     self.interaction_state.window_under_mouse =
                         self.window_containing_point(*new_pos);
 
-                    let mut prev_frame = None;
-                    let mut new_frame = None;
                     if let Some(dragged_window) = self.interaction_state.dragged_window.clone() {
                         //println!("Dragged window moved {}", dragged_window.name());
-                        prev_frame = Some(dragged_window.frame());
-                        new_frame = Some(Rect::from_parts(
+                        let prev_frame = dragged_window.frame();
+                        // Bind the window to the screen size
+                        let new_frame = self.bind_rect_to_screen_size(Rect::from_parts(
                             dragged_window.frame().origin + *rel_pos,
                             dragged_window.frame().size,
                         ));
-                        dragged_window.set_frame(new_frame.unwrap());
 
-                        let total_update_region = prev_frame.unwrap().union(new_frame.unwrap());
+                        dragged_window.set_frame(new_frame);
+
+                        let total_update_region = prev_frame.union(new_frame);
                         self.recompute_drawable_regions_in_rect(total_update_region);
                         self.compositor_state.queue_full_redraw(total_update_region);
                     }
                 }
             }
         }
+    }
+
+    fn bind_rect_to_screen_size(&self, r: Rect) -> Rect {
+        let mut out = r;
+        out.origin.x = max(r.origin.x, 0);
+        out.origin.y = max(r.origin.y, 0);
+
+        let desktop_size = self.desktop_frame.size;
+        if r.max_x() >= desktop_size.width {
+            let overhang = r.max_x() - desktop_size.width;
+            out.origin.x -= overhang;
+        }
+        if r.max_y() >= desktop_size.height {
+            let overhang = r.max_y() - desktop_size.height;
+            out.origin.y -= overhang;
+        }
+
+        out
     }
 
     pub fn move_window_to_top(&mut self, window: &Rc<Window>) {
