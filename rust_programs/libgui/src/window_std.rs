@@ -165,6 +165,7 @@ impl LikeLayerSlice for PixelLayerSlice {
     }
 
     fn blit2(&self, source_layer: &Box<dyn LikeLayerSlice>) {
+        // TODO(PT): Share this implementation with LayerSlice?
         assert!(self.frame().size == source_layer.frame().size);
 
         let bpp = 4;

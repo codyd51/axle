@@ -62,7 +62,7 @@ trait DesktopElement {
 }
 
 pub struct Window {
-    pub frame: Rect,
+    pub frame: RefCell<Rect>,
     drawable_rects: RefCell<Vec<Rect>>,
     pub owner_service: String,
     layer: RefCell<SingleFramebufferLayer>,
@@ -75,7 +75,7 @@ impl Window {
     fn new(owner_service: &str, frame: Rect, window_layer: SingleFramebufferLayer) -> Self {
         let total_size = Self::total_size_for_content_size(window_layer.size());
         Self {
-            frame,
+            frame: RefCell::new(frame),
             drawable_rects: RefCell::new(vec![]),
             owner_service: owner_service.to_string(),
             layer: RefCell::new(SingleFramebufferLayer::new(total_size)),
@@ -83,9 +83,13 @@ impl Window {
         }
     }
 
+    fn set_frame(&self, frame: Rect) {
+        *self.frame.borrow_mut() = frame
+    }
+
     fn redraw_title_bar(&self) {
         let title_bar_slice = self.layer.borrow_mut().get_slice(Rect::with_size(Size::new(
-            self.frame.width(),
+            self.frame().width(),
             Self::TITLE_BAR_HEIGHT as isize,
         )));
         title_bar_slice.fill(Color::dark_gray());
@@ -110,13 +114,18 @@ impl Window {
 
 impl Display for Window {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "<Window \"{}\" @ {}>", self.owner_service, self.frame)
+        write!(
+            f,
+            "<Window \"{}\" @ {}>",
+            self.owner_service,
+            self.frame.borrow()
+        )
     }
 }
 
 impl DesktopElement for Window {
     fn frame(&self) -> Rect {
-        self.frame
+        *self.frame.borrow()
     }
 
     fn name(&self) -> String {
@@ -134,7 +143,7 @@ impl DesktopElement for Window {
     fn get_slice(&self) -> Box<dyn LikeLayerSlice> {
         self.layer
             .borrow_mut()
-            .get_slice(Rect::with_size(self.frame.size))
+            .get_slice(Rect::with_size(self.frame().size))
     }
 }
 
@@ -407,13 +416,6 @@ impl Desktop {
                 .get_slice(Rect::with_size(self.desktop_frame.size)),
             self.desktop_frame,
         );
-        /*
-        Self::copy_rect(
-            &mut *self.screen_buffer_layer.get_slice(self.desktop_frame),
-            &mut *self.video_memory_layer.get_slice(self.desktop_frame),
-            mouse_rect,
-        );
-        */
     }
 
     pub fn draw_frame_composited(&mut self) {
@@ -505,7 +507,7 @@ impl Desktop {
 
             for (occluding_elem_idx, occluding_elem) in a.iter().enumerate().rev() {
                 //println!("\toccluding_elem_idx {occluding_elem_idx}");
-                if !elem.frame.intersects_with(occluding_elem.frame) {
+                if !elem.frame().intersects_with(occluding_elem.frame()) {
                     continue;
                 }
                 //println!("\tOccluding {} by view with frame {}", elem.frame(), occluding_elem.frame());

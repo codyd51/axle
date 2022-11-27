@@ -359,6 +359,10 @@ impl Rect {
         }
     }
 
+    pub fn replace_origin(&self, new_origin: Point) -> Self {
+        Self::from_parts(new_origin, self.size)
+    }
+
     pub fn from_parts(origin: Point, size: Size) -> Self {
         Rect { origin, size }
     }
