@@ -299,13 +299,27 @@ impl LikeLayerSlice for LayerSlice {
     }
 
     fn blit2(&self, source_layer: &Box<dyn LikeLayerSlice>) {
-        assert!(self.frame().size == source_layer.frame().size);
-        //let pixel_data = source_layer.pixel_data();
+        assert_eq!(
+            self.frame().size,
+            source_layer.frame().size,
+            "{} != {}",
+            self.frame().size,
+            source_layer.frame().size
+        );
+        let bpp = 4;
+        let parent_size = self.parent_framebuffer_size;
+        let parent_bytes_per_row = parent_size.width * bpp;
+        let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
+        let mut fb = self.parent_framebuffer.borrow_mut();
+        let slice_origin_offset = self.frame.origin * bpp_multiple;
+
         for y in 0..self.frame().height() {
-            for x in 0..self.frame().width() {
-                let p = Point::new(x, y);
-                self.putpixel(p, source_layer.getpixel(p));
-            }
+            // Blit an entire row at once
+            let point_offset = slice_origin_offset + (Point::new(0, y) * bpp_multiple);
+            let off = (point_offset.y + point_offset.x) as usize;
+            let mut dst_row_slice = &mut fb[off..off + ((self.frame.width() * bpp) as usize)];
+            let row_slice = source_layer.get_pixel_row(y as _);
+            dst_row_slice.copy_from_slice(&row_slice);
         }
     }
 
