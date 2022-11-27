@@ -11,13 +11,14 @@ use alloc::rc::Rc;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
-use awm_messages::AwmCreateWindow;
+use awm_messages::{AwmCreateWindow, AwmWindowUpdateTitle};
 use axle_rt::core_commands::AmcSharedMemoryCreateRequest;
 use core::cell::RefCell;
 use core::cmp::{max, min};
 use core::fmt::{Display, Formatter};
 use mouse_driver_messages::MousePacket;
 
+use file_manager_messages::str_from_u8_nul_utf8_unchecked;
 use kb_driver_messages::{KeyEventType, KeyboardPacket};
 use lazy_static::lazy_static;
 use rand::rngs::SmallRng;
@@ -67,6 +68,7 @@ pub struct Window {
     pub owner_service: String,
     layer: RefCell<SingleFramebufferLayer>,
     pub content_layer: RefCell<SingleFramebufferLayer>,
+    title: RefCell<Option<String>>,
 }
 
 impl Window {
@@ -80,6 +82,7 @@ impl Window {
             owner_service: owner_service.to_string(),
             layer: RefCell::new(SingleFramebufferLayer::new(total_size)),
             content_layer: RefCell::new(window_layer),
+            title: RefCell::new(None),
         }
     }
 
@@ -87,7 +90,11 @@ impl Window {
         *self.frame.borrow_mut() = frame
     }
 
-    fn redraw_title_bar(&self) {
+    fn set_title(&self, new_title: &str) {
+        *self.title.borrow_mut() = Some(new_title.to_string())
+    }
+
+    fn redraw_title_bar(&self) -> Rect {
         let title_bar_frame = Rect::with_size(Size::new(
             self.frame().width(),
             Self::TITLE_BAR_HEIGHT as isize,
@@ -97,7 +104,9 @@ impl Window {
 
         // Draw the window title
         let font_size = Size::new(8, 12);
-        let window_title = &self.owner_service;
+        let maybe_window_title = self.title.borrow();
+        let window_title = maybe_window_title.as_ref().unwrap_or(&self.owner_service);
+        println!("Found title {window_title}");
         let title_len = window_title.len();
         let mut cursor = title_bar_frame.midpoint()
             - Point::new(
@@ -105,10 +114,12 @@ impl Window {
                 (((font_size.height as f64) / 2.0) - 1.0) as isize,
             );
         let title_text_color = Color::new(50, 50, 50);
-        for ch in self.name().chars() {
+        for ch in window_title.chars() {
             title_bar_slice.draw_char(ch, cursor, title_text_color, font_size);
             cursor.x += font_size.width;
         }
+
+        title_bar_frame.replace_origin(self.frame.borrow().origin)
     }
 
     pub fn render_remote_layer(&self) {
@@ -624,7 +635,6 @@ impl Desktop {
         request: &AwmCreateWindow,
         origin: Option<Point>,
     ) -> Rc<Window> {
-        // Make a copy of the source service early as it's shared amc memory
         let source = source.to_string();
         println!("Creating window of size {:?} for {}", request.size, source);
 
@@ -787,19 +797,35 @@ impl Desktop {
         self.mouse_state.pos = pos
     }
 
-    pub fn handle_window_requested_redraw(&mut self, window_owner: &str) {
-        // Find the window
-        let window = {
-            // PT: Assumes a single window per client
+    fn window_for_owner(&self, window_owner: &str) -> Rc<Window> {
+        // PT: Assumes a single window per client
+        Rc::clone(
             self.windows
                 .iter()
                 .find(|w| w.owner_service == window_owner)
-                .expect(format!("Failed to find window for {}", window_owner).as_str())
-        };
+                .expect(format!("Failed to find window for {}", window_owner).as_str()),
+        )
+    }
+
+    pub fn handle_window_requested_redraw(&mut self, window_owner: &str) {
+        let window = self.window_for_owner(window_owner);
         // Render the framebuffer to the visible window layer
         window.render_remote_layer();
         self.compositor_state
-            .queue_composite(Rc::clone(window) as Rc<dyn DesktopElement>)
+            .queue_composite(Rc::clone(&window) as Rc<dyn DesktopElement>)
+    }
+
+    pub fn handle_window_updated_title(&self, window_owner: &str, update: &AwmWindowUpdateTitle) {
+        let new_title = str_from_u8_nul_utf8_unchecked(&update.title);
+        println!("Window for {window_owner} updated title to {new_title}");
+        let window = self.window_for_owner(window_owner);
+        window.set_title(new_title);
+        let title_bar_frame = window.redraw_title_bar();
+        println!("Queueing extra draw {title_bar_frame}");
+        self.compositor_state.queue_extra_draw(
+            Rc::clone(&window) as Rc<dyn DesktopElement>,
+            title_bar_frame,
+        );
     }
 
     pub fn test(&mut self) {

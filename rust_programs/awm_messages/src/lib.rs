@@ -82,19 +82,16 @@ impl ExpectsEventField for AwmWindowRedrawReady {
 
 #[repr(C)]
 #[derive(Debug, ContainsEventField)]
-#[cfg(target_os = "axle")]
 pub struct AwmWindowUpdateTitle {
     event: u32,
-    title_len: u32,
-    title: [u8; 64],
+    pub title_len: u32,
+    pub title: [u8; 64],
 }
 
-#[cfg(target_os = "axle")]
 impl ExpectsEventField for AwmWindowUpdateTitle {
     const EXPECTED_EVENT: u32 = 813;
 }
 
-#[cfg(target_os = "axle")]
 impl AwmWindowUpdateTitle {
     pub fn new(title: &str) -> Self {
         let mut title_buf = [0; 64];

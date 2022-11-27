@@ -20,7 +20,9 @@ use agx_definitions::{
     Color, Drawable, Layer, LayerSlice, LikeLayerSlice, Line, NestedLayerSlice, Point, Rect,
     RectInsets, SingleFramebufferLayer, Size, StrokeThickness,
 };
-use awm_messages::{AwmCreateWindow, AwmCreateWindowResponse, AwmWindowRedrawReady};
+use awm_messages::{
+    AwmCreateWindow, AwmCreateWindowResponse, AwmWindowRedrawReady, AwmWindowUpdateTitle,
+};
 
 use kb_driver_messages::KB_DRIVER_SERVICE_NAME;
 use mouse_driver_messages::{MousePacket, MOUSE_DRIVER_SERVICE_NAME};
@@ -118,8 +120,12 @@ pub fn main() {
         //
         // Wrap the whole thing in an unsafe block to reduce
         // boilerplate in each match arm.
+        //
+        // Make a copy of the message source to pass around so that callers don't need to worry
+        // about its validity
+        let msg_source = msg_unparsed.source().to_string();
         unsafe {
-            match msg_unparsed.source() {
+            match msg_source.as_str() {
                 MOUSE_DRIVER_SERVICE_NAME => match event {
                     MousePacket::EXPECTED_EVENT => {
                         desktop.handle_mouse_update(body_as_type_unchecked(raw_body))
@@ -141,7 +147,7 @@ pub fn main() {
                         // Keyboard events
                         AwmCreateWindow::EXPECTED_EVENT => {
                             desktop.spawn_window(
-                                msg_unparsed.source(),
+                                &msg_source,
                                 body_as_type_unchecked(raw_body),
                                 None,
                             );
@@ -149,6 +155,12 @@ pub fn main() {
                         AwmWindowRedrawReady::EXPECTED_EVENT => {
                             //println!("Window said it was ready to redraw!");
                             desktop.handle_window_requested_redraw(msg_unparsed.source());
+                        }
+                        AwmWindowUpdateTitle::EXPECTED_EVENT => {
+                            desktop.handle_window_updated_title(
+                                &msg_source,
+                                body_as_type_unchecked(raw_body),
+                            );
                         }
                         _ => {
                             println!("Awm ignoring message with unknown event type: {event}");

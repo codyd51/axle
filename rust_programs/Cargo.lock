@@ -75,6 +75,7 @@ dependencies = [
  "awm_messages",
  "axle_rt",
  "axle_rt_derive",
+ "file_manager_messages",
  "image",
  "kb_driver_messages",
  "lazy_static",

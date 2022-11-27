@@ -1,7 +1,7 @@
 use crate::desktop::{Desktop, RenderStrategy};
 use agx_definitions::{Color, Layer, LikeLayerSlice, Point, Rect, Size};
 use alloc::rc::Rc;
-use awm_messages::AwmCreateWindow;
+use awm_messages::{AwmCreateWindow, AwmWindowUpdateTitle};
 use libgui::PixelLayer;
 use mouse_driver_messages::MousePacket;
 use pixels::{Error, Pixels, SurfaceTexture};
@@ -146,7 +146,13 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                     } => {
                         if let Some(key_code) = input.virtual_keycode {
                             match key_code {
-                                VirtualKeyCode::A => w1.render_remote_layer(),
+                                VirtualKeyCode::A => {
+                                    w1.render_remote_layer();
+                                    desktop.handle_window_updated_title(
+                                        "Window 0",
+                                        &AwmWindowUpdateTitle::new("New Title"),
+                                    );
+                                }
                                 VirtualKeyCode::B => w2.render_remote_layer(),
                                 VirtualKeyCode::C => w3.render_remote_layer(),
                                 VirtualKeyCode::D => desktop.test(),
