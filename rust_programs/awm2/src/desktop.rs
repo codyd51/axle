@@ -93,7 +93,7 @@ impl Window {
             Self::TITLE_BAR_HEIGHT as isize,
         ));
         let title_bar_slice = self.layer.borrow_mut().get_slice(title_bar_frame);
-        title_bar_slice.fill(Color::light_gray());
+        title_bar_slice.fill(Color::white());
 
         // Draw the window title
         let font_size = Size::new(8, 12);
@@ -822,6 +822,7 @@ mod test {
     use agx_definitions::{Point, Rect, SingleFramebufferLayer, Size};
     use alloc::rc::Rc;
     use awm_messages::AwmCreateWindow;
+    use image::{GenericImage, GenericImageView, ImageBuffer, RgbImage, Rgba};
     use std::iter::zip;
 
     fn get_desktop() -> Desktop {
@@ -864,6 +865,30 @@ mod test {
     ) {
         // Given some windows arranged in a desktop
         let (mut desktop, windows) = spawn_windows_with_frames(window_frames);
+        desktop.draw_frame();
+
+        let desktop_size = desktop.desktop_frame.size;
+        let img: RgbImage = ImageBuffer::new(desktop_size.width as u32, desktop_size.height as u32);
+        let desktop_slice = desktop
+            .video_memory_layer
+            .get_slice(Rect::with_size(desktop_size));
+        let mut img = ImageBuffer::from_fn(
+            desktop_size.width as u32,
+            desktop_size.height as u32,
+            |x, y| {
+                let px = desktop_slice.getpixel(Point::new(x as isize, y as isize));
+                Rgba([px.r, px.g, px.b, 0xff])
+            },
+        );
+        img.save("./test_image.png");
+
+        for (i, window) in windows.iter().enumerate() {
+            println!("Window {} has drawable rects:", window.name());
+            for r in window.drawable_rects().iter() {
+                println!("\t{r}");
+            }
+            assert_eq!(window.drawable_rects(), expected_drawable_rects[i])
+        }
         for (window, expected_drawable_rects) in zip(windows, expected_drawable_rects) {
             assert_eq!(window.drawable_rects(), expected_drawable_rects)
         }

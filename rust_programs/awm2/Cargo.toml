@@ -6,7 +6,7 @@ edition = "2021"
 [features]
 default = []
 # Ref: https://github.com/rust-lang/cargo/issues/5139
-run_with_std = ["pixels", "winit", "libgui/run_with_std"]
+run_with_std = ["libgui/run_with_std", "pixels", "winit", "image"]
 
 [dependencies]
 axle_rt = { path = "../axle_rt" }
@@ -23,6 +23,8 @@ lazy_static = { version = "1.4.0", default-features = false, features = ["spin_n
 # These dependencies are only enabled in use_std mode
 pixels = { version = "0.9.0", optional = true }
 winit = { version = "*", optional = true }
+# PT: For the test suite
+image = { version = "0.24.1", optional = true }
 
 # PT: For f64.sqrt() in no_std
 [dependencies.num-traits]
