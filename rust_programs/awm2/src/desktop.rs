@@ -356,6 +356,7 @@ pub struct Desktop {
     compositor_state: CompositorState,
     pub render_strategy: RenderStrategy,
     //interaction_state: InteractionState,
+    rng: SmallRng,
 }
 
 impl Desktop {
@@ -369,6 +370,14 @@ impl Desktop {
         // Start the mouse in the middle of the screen
         let initial_mouse_pos = Point::new(desktop_frame.mid_x(), desktop_frame.mid_y());
 
+        #[cfg(target_os = "axle")]
+        let seed = unsafe { libc::ms_since_boot() } as u64;
+        #[cfg(not(target_os = "axle"))]
+        let seed = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64;
+
         Self {
             desktop_frame: Rect::with_size(video_memory_layer.frame().size),
             video_memory_layer,
@@ -380,6 +389,7 @@ impl Desktop {
             render_strategy: RenderStrategy::Composite,
             //interaction_state: InteractionState::new(),
             mouse_interaction_state: MouseInteractionState::BackgroundHover,
+            rng: SmallRng::seed_from_u64(seed),
         }
     }
 
