@@ -16,7 +16,8 @@ use agx_definitions::{
     StrokeThickness, CHAR_HEIGHT, CHAR_WIDTH, FONT8X8,
 };
 use axle_rt::ExpectsEventField;
-use pixels::{Error, Pixels, SurfaceTexture};
+use pixels::wgpu::TextureFormat;
+use pixels::{Error, Pixels, PixelsBuilder, SurfaceTexture};
 use winit::event::{MouseButton, MouseScrollDelta};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
@@ -93,7 +94,7 @@ impl LikeLayerSlice for PixelLayerSlice {
             self.fill_rect(right, color, StrokeThickness::Filled);
         } else {
             let mut pixels = self.parent.borrow_mut();
-            let mut fb = pixels.get_frame();
+            let mut fb = pixels.get_frame_mut();
             // Construct the filled row of pixels that we can copy row-by-row
             let bytes_in_row = (rect.width() * bpp) as usize;
             let mut src_row_slice = vec![0; bytes_in_row];
@@ -133,7 +134,7 @@ impl LikeLayerSlice for PixelLayerSlice {
         let parent_bytes_per_row = parent_size.width * bpp;
         let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
         let mut pixels = self.parent.borrow_mut();
-        let mut fb = pixels.get_frame();
+        let mut fb = pixels.get_frame_mut();
         let slice_origin_offset = self.frame.origin * bpp_multiple;
         //let off = slice_origin_offset + (loc.y * parent_bytes_per_row) + (loc.x * bpp);
         let point_offset = slice_origin_offset + (loc * bpp_multiple);
@@ -173,7 +174,7 @@ impl LikeLayerSlice for PixelLayerSlice {
         let parent_bytes_per_row = parent_size.width * bpp;
         let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
         let mut pixels = self.parent.borrow_mut();
-        let mut fb = pixels.get_frame();
+        let mut fb = pixels.get_frame_mut();
         let slice_origin_offset = self.frame.origin * bpp_multiple;
 
         for y in 0..self.frame().height() {
@@ -242,11 +243,13 @@ impl PixelLayer {
             let window_size = window.inner_size();
             let surface_texture =
                 SurfaceTexture::new(window_size.width as _, window_size.height as _, &window);
-            Pixels::new(
+            PixelsBuilder::new(
                 size.width.try_into().unwrap(),
                 size.height.try_into().unwrap(),
                 surface_texture,
             )
+            .surface_texture_format(TextureFormat::Bgra8Unorm)
+            .build()
             .unwrap()
         };
         pixel_buffer.render().unwrap();
