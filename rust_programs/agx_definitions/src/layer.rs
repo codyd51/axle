@@ -29,6 +29,10 @@ pub trait LikeLayerSlice: Display {
     fn pixel_data(&self) -> Vec<u8>;
     fn draw_char(&self, ch: char, draw_loc: Point, draw_color: Color, font_size: Size);
     fn get_pixel_row(&self, y: usize) -> Vec<u8>;
+    fn get_pixel_row_slice(&self, y: usize) -> (*const u8, usize);
+    // First usize is the inner slice's row size, second usize is increment to get to the next
+    // row in the parent framebuf
+    fn get_buf_ptr_and_row_size(&self) -> (*const u8, usize, usize);
 }
 
 #[derive(Debug)]
@@ -313,13 +317,19 @@ impl LikeLayerSlice for LayerSlice {
         let mut fb = self.parent_framebuffer.borrow_mut();
         let slice_origin_offset = self.frame.origin * bpp_multiple;
 
+        let (src_base, src_slice_row_size, src_parent_framebuf_row_size) =
+            source_layer.get_buf_ptr_and_row_size();
+
         for y in 0..self.frame().height() {
             // Blit an entire row at once
             let point_offset = slice_origin_offset + (Point::new(0, y) * bpp_multiple);
             let off = (point_offset.y + point_offset.x) as usize;
             let mut dst_row_slice = &mut fb[off..off + ((self.frame.width() * bpp) as usize)];
-            let row_slice = source_layer.get_pixel_row(y as _);
-            dst_row_slice.copy_from_slice(&row_slice);
+            let src_row_slice = unsafe {
+                let src_row_start = src_base.offset(y * (src_parent_framebuf_row_size as isize));
+                core::slice::from_raw_parts(src_row_start, src_slice_row_size)
+            };
+            dst_row_slice.copy_from_slice(src_row_slice);
         }
     }
 
@@ -375,6 +385,41 @@ impl LikeLayerSlice for LayerSlice {
         let row_pixel_data_start = slice_pixel_data_start + (y * parent_bytes_per_row);
         let slice_bytes_per_row = (self.frame.width() * bpp) as usize;
         pixels[row_pixel_data_start..row_pixel_data_start + slice_bytes_per_row].to_vec()
+    }
+
+    fn get_pixel_row_slice(&self, y: usize) -> (*const u8, usize) {
+        let bpp = 4;
+        let parent_size = self.parent_framebuffer_size;
+        let parent_bytes_per_row = (parent_size.width * bpp) as usize;
+        let bpp_multiple = Point::new(bpp, parent_bytes_per_row as isize);
+        let pixels = self.parent_framebuffer.borrow();
+        let slice_origin_offset = self.frame.origin * bpp_multiple;
+        // The offset where the pixel data for this slice begins in the parent pixel buffer
+        let slice_pixel_data_start = (slice_origin_offset.y + slice_origin_offset.x) as usize;
+        // The offset where the provided `y` row begins in the parent pixel buffer
+        let row_pixel_data_start = slice_pixel_data_start + (y * parent_bytes_per_row);
+        let slice_bytes_per_row = (self.frame.width() * bpp) as usize;
+        (
+            pixels[row_pixel_data_start..row_pixel_data_start + slice_bytes_per_row].as_ptr(),
+            slice_bytes_per_row,
+        )
+    }
+
+    fn get_buf_ptr_and_row_size(&self) -> (*const u8, usize, usize) {
+        let bpp = 4;
+        let parent_size = self.parent_framebuffer_size;
+        let parent_bytes_per_row = (parent_size.width * bpp) as usize;
+        let bpp_multiple = Point::new(bpp, parent_bytes_per_row as isize);
+        let pixels = self.parent_framebuffer.borrow();
+        let slice_origin_offset = self.frame.origin * bpp_multiple;
+        // The offset where the pixel data for this slice begins in the parent pixel buffer
+        let slice_pixel_data_start = (slice_origin_offset.y + slice_origin_offset.x) as usize;
+        let slice_bytes_per_row = (self.frame.width() * bpp) as usize;
+        (
+            pixels[slice_pixel_data_start..].as_ptr(),
+            slice_bytes_per_row,
+            parent_bytes_per_row,
+        )
     }
 }
 
