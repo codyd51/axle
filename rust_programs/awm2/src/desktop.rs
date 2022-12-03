@@ -87,18 +87,46 @@ impl Window {
     }
 
     fn set_frame(&self, frame: Rect) {
-        *self.frame.borrow_mut() = frame
+        *self.frame.borrow_mut() = frame;
     }
 
     fn set_title(&self, new_title: &str) {
         *self.title.borrow_mut() = Some(new_title.to_string())
     }
 
-    fn redraw_title_bar(&self) -> Rect {
-        let title_bar_frame = Rect::with_size(Size::new(
+    fn is_point_within_resize_inset(&self, local_point: Point) -> bool {
+        let grabber_inset = 8;
+        let content_frame_past_inset = self
+            .content_frame()
+            .inset_by_insets(RectInsets::uniform(grabber_inset));
+        !content_frame_past_inset.contains(local_point)
+    }
+
+    fn title_bar_frame(&self) -> Rect {
+        Rect::with_size(Size::new(
             self.frame().width(),
             Self::TITLE_BAR_HEIGHT as isize,
-        ));
+        ))
+    }
+
+    fn is_point_within_title_bar(&self, local_point: Point) -> bool {
+        self.title_bar_frame()
+            .replace_origin(Point::zero())
+            .contains(local_point)
+    }
+
+    fn content_frame(&self) -> Rect {
+        Rect::from_parts(
+            Point::new(0, Self::TITLE_BAR_HEIGHT as isize),
+            Size::new(
+                self.frame().width(),
+                self.frame().height() - (Self::TITLE_BAR_HEIGHT as isize),
+            ),
+        )
+    }
+
+    fn redraw_title_bar(&self) -> Rect {
+        let title_bar_frame = self.title_bar_frame();
         let title_bar_slice = self.layer.borrow_mut().get_slice(title_bar_frame);
         title_bar_slice.fill(Color::white());
 
@@ -106,7 +134,7 @@ impl Window {
         let font_size = Size::new(8, 12);
         let maybe_window_title = self.title.borrow();
         let window_title = maybe_window_title.as_ref().unwrap_or(&self.owner_service);
-        println!("Found title {window_title}");
+        //println!("Found title {window_title}");
         let title_len = window_title.len();
         let mut cursor = title_bar_frame.midpoint()
             - Point::new(
@@ -285,9 +313,19 @@ impl CompositorState {
     }
 }
 
+enum MouseInteractionState {
+    BackgroundHover,
+    WindowHover(Rc<Window>),
+    HintingWindowDrag(Rc<Window>),
+    HintingWindowResize(Rc<Window>),
+    PerformingWindowDrag(Rc<Window>),
+    PerformingWindowResize(Rc<Window>),
+}
+
 struct InteractionState {
     dragged_window: Option<Rc<Window>>,
     window_under_mouse: Option<Rc<Window>>,
+    mouse_state: MouseInteractionState,
 }
 
 impl InteractionState {
@@ -295,6 +333,7 @@ impl InteractionState {
         Self {
             dragged_window: None,
             window_under_mouse: None,
+            mouse_state: MouseInteractionState::BackgroundHover,
         }
     }
 }
@@ -313,9 +352,10 @@ pub struct Desktop {
     // Index 0 is the foremost window
     pub windows: Vec<Rc<Window>>,
     mouse_state: MouseState,
+    mouse_interaction_state: MouseInteractionState,
     compositor_state: CompositorState,
     pub render_strategy: RenderStrategy,
-    interaction_state: InteractionState,
+    //interaction_state: InteractionState,
 }
 
 impl Desktop {
@@ -338,7 +378,8 @@ impl Desktop {
             mouse_state: MouseState::new(initial_mouse_pos, desktop_frame.size),
             compositor_state: CompositorState::new(),
             render_strategy: RenderStrategy::Composite,
-            interaction_state: InteractionState::new(),
+            //interaction_state: InteractionState::new(),
+            mouse_interaction_state: MouseInteractionState::BackgroundHover,
         }
     }
 
@@ -357,7 +398,22 @@ impl Desktop {
     }
 
     fn draw_mouse(&mut self) -> Rect {
-        let mouse_color = Color::green();
+        let mut mouse_color = {
+            match self.mouse_interaction_state {
+                MouseInteractionState::BackgroundHover | MouseInteractionState::WindowHover(_) => {
+                    Color::green()
+                }
+                MouseInteractionState::HintingWindowDrag(_) => Color::new(121, 160, 217),
+                MouseInteractionState::HintingWindowResize(_) => Color::new(212, 119, 201),
+                MouseInteractionState::PerformingWindowDrag(_) => Color::new(30, 65, 217),
+                MouseInteractionState::PerformingWindowResize(_) => Color::new(207, 25, 185),
+            }
+        };
+        if cfg!(not(target_os = "axle")) {
+            //println!("Swapping order");
+            //mouse_color = mouse_color.swap_order();
+        }
+
         let mouse_rect = self.mouse_state.frame();
         let onto = self.screen_buffer_layer.get_slice(mouse_rect);
         onto.fill(Color::black());
@@ -520,11 +576,13 @@ impl Desktop {
                 ));
                 let dst_slice = self.video_memory_layer.get_slice(*drawable_rect);
                 dst_slice.blit2(&drawable_rect_slice);
+                /*
                 self.video_memory_layer.fill_rect(
                     *drawable_rect,
                     random_color(),
                     StrokeThickness::Width(2),
                 );
+                */
             }
         }
 
@@ -707,6 +765,164 @@ impl Desktop {
         return None;
     }
 
+    fn handle_left_click_began(&mut self) {
+        if let Some(window_under_mouse) = self.window_containing_point(self.mouse_state.pos) {
+            if !Rc::ptr_eq(&self.windows[0], &window_under_mouse) {
+                println!(
+                    "Moving clicked window to top: {}",
+                    window_under_mouse.name()
+                );
+                self.move_window_to_top(&window_under_mouse);
+                self.recompute_drawable_regions_in_rect(window_under_mouse.frame());
+
+                self.mouse_interaction_state =
+                    MouseInteractionState::WindowHover(Rc::clone(&window_under_mouse));
+                self.handle_mouse_moved(self.mouse_state.pos, Point::zero());
+            }
+        }
+
+        if let MouseInteractionState::HintingWindowDrag(hover_window) =
+            &self.mouse_interaction_state
+        {
+            self.mouse_interaction_state =
+                MouseInteractionState::PerformingWindowDrag(Rc::clone(hover_window));
+        } else if let MouseInteractionState::HintingWindowResize(hover_window) =
+            &self.mouse_interaction_state
+        {
+            self.mouse_interaction_state =
+                MouseInteractionState::PerformingWindowResize(Rc::clone(&hover_window));
+        }
+    }
+
+    fn handle_left_click_ended(&mut self) {
+        match &self.mouse_interaction_state {
+            MouseInteractionState::PerformingWindowDrag(win) => {
+                self.mouse_interaction_state =
+                    MouseInteractionState::HintingWindowDrag(Rc::clone(&win))
+            }
+            MouseInteractionState::PerformingWindowResize(win) => {
+                println!("Ending window resize");
+                self.mouse_interaction_state =
+                    MouseInteractionState::HintingWindowResize(Rc::clone(&win))
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_mouse_moved(&mut self, new_pos: Point, rel_shift: Point) {
+        // Are we in the middle of dragging a window?
+        if let MouseInteractionState::PerformingWindowDrag(dragged_window) =
+            &self.mouse_interaction_state
+        {
+            let prev_frame = dragged_window.frame();
+            // Bind the window to the screen size
+            let new_frame = self.bind_rect_to_screen_size(
+                dragged_window
+                    .frame()
+                    .replace_origin(dragged_window.frame().origin + rel_shift),
+            );
+
+            dragged_window.set_frame(new_frame);
+            let total_update_region = prev_frame.union(new_frame);
+            self.recompute_drawable_regions_in_rect(total_update_region);
+            //self.compositor_state.queue_full_redraw(total_update_region);
+            for diff_rect in prev_frame.area_excluding_rect(new_frame) {
+                self.compositor_state.queue_full_redraw(diff_rect);
+            }
+
+            return;
+        } else if let MouseInteractionState::PerformingWindowResize(resized_window) =
+            &self.mouse_interaction_state
+        {
+            //println!("\tResizing hover window");
+            let old_frame = resized_window.frame();
+            let new_frame = self.bind_rect_to_screen_size(
+                old_frame.replace_size(old_frame.size + Size::new(rel_shift.x, rel_shift.y)),
+            );
+            resized_window.set_frame(new_frame);
+
+            #[cfg(target_os = "axle")]
+            {
+                //println!("Sending response to {source} {source:?}: {window_created_msg:?}");
+                amc_message_send(
+                    &(resized_window.owner_service),
+                    AwmWindowResized::new(resized_window.content_frame().size),
+                );
+            }
+
+            resized_window.redraw_title_bar();
+            let update_rect = old_frame.union(new_frame);
+            self.recompute_drawable_regions_in_rect(update_rect);
+            for diff_rect in old_frame.area_excluding_rect(new_frame) {
+                self.compositor_state.queue_full_redraw(diff_rect);
+            }
+
+            return;
+        }
+
+        // For the rest of the possible state changes we need the position within the
+        // hover window, if any
+        let window_containing_mouse = match self.window_containing_point(new_pos) {
+            None => {
+                self.mouse_interaction_state = MouseInteractionState::BackgroundHover;
+                return;
+            }
+            Some(w) => w,
+        };
+        let mouse_within_window = window_containing_mouse.frame().translate_point(new_pos);
+        if let MouseInteractionState::WindowHover(hovered_window) = &self.mouse_interaction_state {
+            // Check whether we should move to drag hint/resize hint states
+            if hovered_window.is_point_within_title_bar(mouse_within_window) {
+                self.mouse_interaction_state =
+                    MouseInteractionState::HintingWindowDrag(Rc::clone(&hovered_window))
+            } else if hovered_window.is_point_within_resize_inset(mouse_within_window) {
+                self.mouse_interaction_state =
+                    MouseInteractionState::HintingWindowResize(Rc::clone(&hovered_window))
+            }
+        } else if let MouseInteractionState::HintingWindowResize(hovered_window) =
+            &self.mouse_interaction_state
+        {
+            if hovered_window.is_point_within_title_bar(mouse_within_window) {
+                self.mouse_interaction_state =
+                    MouseInteractionState::HintingWindowDrag(Rc::clone(&hovered_window));
+            } else if !hovered_window.is_point_within_resize_inset(mouse_within_window) {
+                self.mouse_interaction_state =
+                    MouseInteractionState::WindowHover(Rc::clone(&hovered_window))
+            }
+        } else if let MouseInteractionState::HintingWindowDrag(hovered_window) =
+            &self.mouse_interaction_state
+        {
+            if !hovered_window.is_point_within_title_bar(mouse_within_window) {
+                self.mouse_interaction_state =
+                    MouseInteractionState::HintingWindowResize(Rc::clone(&hovered_window));
+            }
+        } else {
+            // Only assign a hover window (and clone) if we weren't already in this state
+            if !matches!(
+                self.mouse_interaction_state,
+                MouseInteractionState::WindowHover(_)
+            ) {
+                self.mouse_interaction_state =
+                    MouseInteractionState::WindowHover(Rc::clone(&window_containing_mouse))
+            }
+        }
+    }
+
+    fn handle_mouse_state_change(&mut self, state_change: MouseStateChange) {
+        //println!("Mouse state change: {state_change:?}");
+        match state_change {
+            MouseStateChange::LeftClickBegan => {
+                self.handle_left_click_began();
+            }
+            MouseStateChange::LeftClickEnded => {
+                self.handle_left_click_ended();
+            }
+            MouseStateChange::Moved(new_pos, rel_shift) => {
+                self.handle_mouse_moved(new_pos, rel_shift)
+            }
+        }
+    }
+
     pub fn handle_mouse_update(&mut self, packet: &MousePacket) {
         let old_mouse_frame = self.mouse_state.frame();
 
@@ -720,48 +936,8 @@ impl Desktop {
             self.bind_rect_to_screen_size(old_mouse_frame.union(new_mouse_frame));
         self.compositor_state.queue_full_redraw(total_update_rect);
 
-        for state_change in state_changes.iter() {
-            //println!("Mouse state change: {state_change:?}");
-            match state_change {
-                MouseStateChange::LeftClickBegan => {
-                    self.interaction_state.dragged_window =
-                        self.interaction_state.window_under_mouse.clone();
-                    if let Some(dragged_window) = self.interaction_state.dragged_window.clone() {
-                        if !Rc::ptr_eq(&self.windows[0], &dragged_window) {
-                            println!("Moving clicked window to top: {}", dragged_window.name());
-                            self.move_window_to_top(&dragged_window);
-                            self.recompute_drawable_regions_in_rect(dragged_window.frame());
-                        }
-                    }
-                }
-                MouseStateChange::LeftClickEnded => {
-                    if self.interaction_state.dragged_window.is_some() {
-                        println!("Releasing dragged window");
-                        self.interaction_state.dragged_window = None;
-                    }
-                }
-                MouseStateChange::Moved(new_pos, rel_pos) => {
-                    // Check whether we've entered a hover window
-                    self.interaction_state.window_under_mouse =
-                        self.window_containing_point(*new_pos);
-
-                    if let Some(dragged_window) = self.interaction_state.dragged_window.clone() {
-                        //println!("Dragged window moved {}", dragged_window.name());
-                        let prev_frame = dragged_window.frame();
-                        // Bind the window to the screen size
-                        let new_frame = self.bind_rect_to_screen_size(Rect::from_parts(
-                            dragged_window.frame().origin + *rel_pos,
-                            dragged_window.frame().size,
-                        ));
-
-                        dragged_window.set_frame(new_frame);
-
-                        let total_update_region = prev_frame.union(new_frame);
-                        self.recompute_drawable_regions_in_rect(total_update_region);
-                        self.compositor_state.queue_full_redraw(total_update_region);
-                    }
-                }
-            }
+        for state_change in state_changes.into_iter() {
+            self.handle_mouse_state_change(state_change);
         }
     }
 
