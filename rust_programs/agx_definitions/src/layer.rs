@@ -81,7 +81,7 @@ impl LikeLayerSlice for LayerSlice {
         let rect = self.frame.constrain(raw_rect);
 
         // Note that this rect has been damaged
-        self.record_damaged_rect(rect);
+        //self.record_damaged_rect(rect);
 
         let bpp = self.bytes_per_pixel;
         let parent_bytes_per_row = self.parent_framebuffer_size.width * bpp;
@@ -111,16 +111,21 @@ impl LikeLayerSlice for LayerSlice {
             );
             self.fill_rect(right, color, StrokeThickness::Filled);
         } else {
+            let color_as_u32 = (0xff_u32 << 24
+                | (color.r as u32) << 16
+                | (color.g as u32) << 8
+                | (color.b as u32));
             let mut fb = (*self.parent_framebuffer).borrow_mut();
             for y in 0..rect.height() {
-                let row_start = rect_origin_offset.y + (y * parent_bytes_per_row);
-                for x in 0..rect.width() {
-                    let offset = (rect_origin_offset.x + row_start + (x * bpp)) as usize;
-                    fb[offset + 0] = color.b;
-                    fb[offset + 1] = color.g;
-                    fb[offset + 2] = color.r;
-                    fb[offset + 3] = 0xff;
-                }
+                let row_start =
+                    rect_origin_offset.y + (y * parent_bytes_per_row) + (rect_origin_offset.x);
+                let mut row_slice = &mut fb
+                    [(row_start as usize)..(row_start + (rect.width() * bpp as isize)) as usize];
+                let (prefix, row_as_u32_slice, suffix) = unsafe { row_slice.align_to_mut::<u32>() };
+                // Ensure the slice was exactly u32-aligned
+                assert_eq!(prefix.len(), 0);
+                assert_eq!(suffix.len(), 0);
+                row_as_u32_slice.fill(color_as_u32);
             }
         }
     }
@@ -135,6 +140,7 @@ impl LikeLayerSlice for LayerSlice {
 
     fn putpixel(&self, loc: Point, color: Color) {
         if !self.frame.contains(loc + self.frame.origin) {
+            return;
             /*
             println!(
                 "{:?} is uncontained in {}",
