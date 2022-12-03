@@ -694,17 +694,14 @@ static bool handle_mouse_event(amc_message_t* mouse_event, incremental_mouse_sta
 Rect _draw_cursor(ca_layer* dest) {
 	mouse_interaction_state_t* mouse_state = &g_mouse_state;
 	Color mouse_color = color_green();
-	bool is_resize = false;
 	if (mouse_state->is_resizing_top_window) {
 		mouse_color = color_make(207, 25, 185);
-		is_resize = true;
 	}
 	else if (mouse_state->is_moving_top_window) {
 		mouse_color = color_make(30, 65, 217);
 	}
 	else if (mouse_state->is_prospective_window_resize) {
 		mouse_color = color_make(212, 119, 201);
-		is_resize = true;
 	}
 	else if (mouse_state->is_prospective_window_move) {
 		mouse_color = color_make(121, 160, 217);
