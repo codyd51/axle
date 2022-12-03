@@ -127,6 +127,11 @@ impl Color {
     pub fn yellow() -> Self {
         Color::from([0, 234, 255])
     }
+
+    /// Swag RGB to BGR and vice versa
+    pub fn swap_order(&self) -> Self {
+        Color::new(self.b, self.g, self.r)
+    }
 }
 
 impl Display for Color {
@@ -336,6 +341,15 @@ impl RectInsets {
             bottom: 0,
         }
     }
+
+    pub fn uniform(inset: isize) -> Self {
+        RectInsets {
+            left: inset,
+            top: inset,
+            right: inset,
+            bottom: inset,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Ord, PartialOrd, Eq)]
@@ -361,6 +375,10 @@ impl Rect {
 
     pub fn replace_origin(&self, new_origin: Point) -> Self {
         Self::from_parts(new_origin, self.size)
+    }
+
+    pub fn replace_size(&self, new_size: Size) -> Self {
+        Self::from_parts(self.origin, new_size)
     }
 
     pub fn from_parts(origin: Point, size: Size) -> Self {
@@ -613,6 +631,10 @@ impl Rect {
                 max(self.max_y(), other.max_y()) - origin.y,
             ),
         )
+    }
+
+    pub fn translate_point(&self, p: Point) -> Point {
+        p - self.origin
     }
 }
 
