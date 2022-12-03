@@ -970,15 +970,24 @@ impl Desktop {
         */
         let mut out = r;
         let desktop_size = self.desktop_frame.size;
-        out.origin.x = max(r.origin.x, 0);
-        out.origin.y = max(r.origin.y, 0);
+        //println!("Max of {}, {}: {}", )
+        out.origin.x = max(r.origin.x, 0_isize);
+        out.origin.y = max(r.origin.y, 0_isize);
         if out.max_x() > desktop_size.width {
             let overhang = out.max_x() - desktop_size.width;
-            out.origin.x -= overhang;
+            if out.origin.x >= overhang {
+                out.origin.x -= overhang;
+            } else {
+                out.size.width -= overhang;
+            }
         }
         if out.max_y() > desktop_size.height {
             let overhang = out.max_y() - desktop_size.height;
-            out.origin.y -= overhang;
+            if out.origin.y >= overhang {
+                out.origin.y -= overhang;
+            } else {
+                out.size.height -= overhang;
+            }
         }
 
         out
@@ -1313,5 +1322,15 @@ mod test {
                 Rect::new(0, 0, 50, 50),
             ],
         );
+    }
+
+    #[test]
+    fn test_bind_rect_to_screen_size() {
+        // Input, expected
+        let test_cases = vec![
+            (Rect::new(-10, -10, 1000, 1000), Rect::new(0, 0, 990, 990)),
+            (Rect::new(0, 0, 1200, 1200), Rect::new(0, 0, 1000, 1000)),
+            (Rect::new(100, 100, 950, 950), Rect::new(50, 50, 950, 950)),
+        ];
     }
 }
