@@ -134,6 +134,14 @@ impl LikeLayerSlice for ExpandingLayerSlice {
     fn get_pixel_row(&self, y: usize) -> Vec<u8> {
         todo!()
     }
+
+    fn get_pixel_row_slice(&self, y: usize) -> (*const u8, usize) {
+        todo!()
+    }
+
+    fn get_buf_ptr_and_row_size(&self) -> (*const u8, usize, usize) {
+        todo!()
+    }
 }
 
 #[derive(PartialEq)]

@@ -177,13 +177,19 @@ impl LikeLayerSlice for PixelLayerSlice {
         let mut fb = pixels.get_frame_mut();
         let slice_origin_offset = self.frame.origin * bpp_multiple;
 
+        let (src_base, src_slice_row_size, src_parent_framebuf_row_size) =
+            source_layer.get_buf_ptr_and_row_size();
+
         for y in 0..self.frame().height() {
             // Blit an entire row at once
             let point_offset = slice_origin_offset + (Point::new(0, y) * bpp_multiple);
             let off = (point_offset.y + point_offset.x) as usize;
             let mut dst_row_slice = &mut fb[off..off + ((self.frame.width() * bpp) as usize)];
-            let row_slice = source_layer.get_pixel_row(y as _);
-            dst_row_slice.copy_from_slice(&row_slice);
+            let src_row_slice = unsafe {
+                let src_row_start = src_base.offset(y * (src_parent_framebuf_row_size as isize));
+                core::slice::from_raw_parts(src_row_start, src_slice_row_size)
+            };
+            dst_row_slice.copy_from_slice(src_row_slice);
         }
     }
 
@@ -212,6 +218,14 @@ impl LikeLayerSlice for PixelLayerSlice {
     }
 
     fn get_pixel_row(&self, y: usize) -> Vec<u8> {
+        todo!()
+    }
+
+    fn get_pixel_row_slice(&self, y: usize) -> (*const u8, usize) {
+        todo!()
+    }
+
+    fn get_buf_ptr_and_row_size(&self) -> (*const u8, usize, usize) {
         todo!()
     }
 }
@@ -316,6 +330,14 @@ impl LikeLayerSlice for PixelLayer {
     }
 
     fn get_pixel_row(&self, y: usize) -> Vec<u8> {
+        todo!()
+    }
+
+    fn get_pixel_row_slice(&self, y: usize) -> (*const u8, usize) {
+        todo!()
+    }
+
+    fn get_buf_ptr_and_row_size(&self) -> (*const u8, usize, usize) {
         todo!()
     }
 }
