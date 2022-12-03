@@ -952,17 +952,32 @@ impl Desktop {
     }
 
     fn bind_rect_to_screen_size(&self, r: Rect) -> Rect {
+        /*
         let mut out = r;
         out.origin.x = max(r.origin.x, 0);
         out.origin.y = max(r.origin.y, 0);
 
-        let desktop_size = self.desktop_frame.size;
-        if r.max_x() >= desktop_size.width {
-            let overhang = r.max_x() - desktop_size.width;
+        if out.max_x() > desktop_size.width {
+            let overhang = out.max_x() - desktop_size.width;
             out.origin.x -= overhang;
         }
-        if r.max_y() >= desktop_size.height {
-            let overhang = r.max_y() - desktop_size.height;
+        if out.max_y() > desktop_size.height {
+            let overhang = out.max_y() - desktop_size.height;
+            out.origin.y -= overhang;
+        }
+
+        out
+        */
+        let mut out = r;
+        let desktop_size = self.desktop_frame.size;
+        out.origin.x = max(r.origin.x, 0);
+        out.origin.y = max(r.origin.y, 0);
+        if out.max_x() > desktop_size.width {
+            let overhang = out.max_x() - desktop_size.width;
+            out.origin.x -= overhang;
+        }
+        if out.max_y() > desktop_size.height {
+            let overhang = out.max_y() - desktop_size.height;
             out.origin.y -= overhang;
         }
 
