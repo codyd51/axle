@@ -114,3 +114,23 @@ pub struct AwmCloseWindow {
 impl ExpectsEventField for AwmCloseWindow {
     const EXPECTED_EVENT: u32 = 814;
 }
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, ContainsEventField)]
+pub struct AwmWindowResized {
+    event: u32,
+    pub new_size: SizeU32,
+}
+
+impl AwmWindowResized {
+    pub fn new(size: Size) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            new_size: SizeU32::from(size),
+        }
+    }
+}
+
+impl ExpectsEventField for AwmWindowResized {
+    const EXPECTED_EVENT: u32 = 808;
+}

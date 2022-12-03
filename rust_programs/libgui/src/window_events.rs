@@ -123,6 +123,7 @@ impl ExpectsEventField for MouseScrolled {
 
 impl AwmWindowEvent for MouseScrolled {}
 
+// TODO(PT): Drop this in favor of the version in awm_messages
 #[repr(C)]
 #[derive(Debug, Clone, Copy, ContainsEventField)]
 pub struct WindowResized {
