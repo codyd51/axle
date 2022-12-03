@@ -11,7 +11,7 @@ use alloc::rc::Rc;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
-use awm_messages::{AwmCreateWindow, AwmWindowUpdateTitle};
+use awm_messages::{AwmCreateWindow, AwmWindowResized, AwmWindowUpdateTitle};
 use axle_rt::core_commands::AmcSharedMemoryCreateRequest;
 use core::cell::RefCell;
 use core::cmp::{max, min};
