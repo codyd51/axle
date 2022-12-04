@@ -17,7 +17,7 @@ pub struct Window {
 impl Window {
     const TITLE_BAR_HEIGHT: usize = 30;
 
-    fn new(owner_service: &str, frame: Rect, window_layer: SingleFramebufferLayer) -> Self {
+    pub fn new(owner_service: &str, frame: Rect, window_layer: SingleFramebufferLayer) -> Self {
         let total_size = Self::total_size_for_content_size(window_layer.size());
         Self {
             frame: RefCell::new(frame),
@@ -29,15 +29,15 @@ impl Window {
         }
     }
 
-    fn set_frame(&self, frame: Rect) {
+    pub fn set_frame(&self, frame: Rect) {
         *self.frame.borrow_mut() = frame;
     }
 
-    fn set_title(&self, new_title: &str) {
+    pub fn set_title(&self, new_title: &str) {
         *self.title.borrow_mut() = Some(new_title.to_string())
     }
 
-    fn is_point_within_resize_inset(&self, local_point: Point) -> bool {
+    pub fn is_point_within_resize_inset(&self, local_point: Point) -> bool {
         let grabber_inset = 8;
         let content_frame_past_inset = self
             .content_frame()
@@ -52,7 +52,7 @@ impl Window {
         ))
     }
 
-    fn is_point_within_title_bar(&self, local_point: Point) -> bool {
+    pub fn is_point_within_title_bar(&self, local_point: Point) -> bool {
         self.title_bar_frame()
             .replace_origin(Point::zero())
             .contains(local_point)
@@ -68,7 +68,7 @@ impl Window {
         )
     }
 
-    fn redraw_title_bar(&self) -> Rect {
+    pub fn redraw_title_bar(&self) -> Rect {
         let title_bar_frame = self.title_bar_frame();
         let title_bar_slice = self.layer.borrow_mut().get_slice(title_bar_frame);
         title_bar_slice.fill(Color::white());
@@ -102,7 +102,7 @@ impl Window {
         dst.blit2(&src);
     }
 
-    fn total_size_for_content_size(content_size: Size) -> Size {
+    pub fn total_size_for_content_size(content_size: Size) -> Size {
         Size::new(
             content_size.width,
             content_size.height + Self::TITLE_BAR_HEIGHT as isize,
