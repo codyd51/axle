@@ -55,7 +55,7 @@ fn random_color() -> Color {
 
 /// A persistent UI element on the desktop that occludes other elements
 /// Roughly: a window, a desktop shortcut, etc
-trait DesktopElement {
+pub trait DesktopElement {
     fn frame(&self) -> Rect;
     fn name(&self) -> String;
     fn drawable_rects(&self) -> Vec<Rect>;

@@ -1,3 +1,10 @@
+use crate::desktop::DesktopElement;
+use agx_definitions::{
+    Color, Layer, LikeLayerSlice, Point, Rect, RectInsets, SingleFramebufferLayer, Size,
+};
+use core::fmt::{Display, Formatter};
+use std::cell::RefCell;
+
 pub struct Window {
     pub frame: RefCell<Rect>,
     drawable_rects: RefCell<Vec<Rect>>,
