@@ -8,6 +8,7 @@
 mod awm2_messages;
 mod desktop;
 mod effects;
+mod window;
 
 extern crate alloc;
 extern crate core;
