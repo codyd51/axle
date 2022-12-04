@@ -625,6 +625,45 @@ impl Desktop {
         }
 
         Self::copy_rect(buffer, vmem, mouse_rect);
+        /*
+        {
+            let font_size = Size::new(8, 12);
+            let dest_slice = self.video_memory_layer.get_slice(self.desktop_frame);
+            let messages = vec![
+                "I love you!",
+                "Happy birthday",
+                "Have a crate day!",
+                "Happy birthday my love",
+                "Caper says Arf!",
+                "We love you",
+                "You are fantastic",
+                "My lovely mushroom",
+                "I can't wait to spend more years with you",
+                "31 kisses",
+                "Lisa it's your birthday!",
+                "What a what a what a star",
+                "Yem",
+                "You're a honey",
+                "My birthday honey",
+                "You're my absolute love",
+            ];
+            let msg = messages[self.rng.gen_range(0..messages.len())];
+            let chosen_origin = Point::new(
+                self.rng.gen_range(
+                    0..self.desktop_frame.max_x() - (msg.len() as isize) * font_size.width,
+                ),
+                self.rng
+                    .gen_range(0..self.desktop_frame.max_y() - font_size.height),
+            );
+            let mut cursor = chosen_origin;
+            //println!("writing msg {msg} at {chosen_origin}");
+            let title_text_color = Color::new(self.rng.gen(), self.rng.gen(), self.rng.gen());
+            for ch in msg.chars() {
+                dest_slice.draw_char(ch, cursor, title_text_color, font_size);
+                cursor.x += font_size.width;
+            }
+        }
+        */
     }
 
     fn copy_rect(src: &mut dyn LikeLayerSlice, dst: &mut dyn LikeLayerSlice, rect: Rect) {
@@ -1081,12 +1120,31 @@ impl Desktop {
 
 #[cfg(test)]
 mod test {
+    #![feature(test)]
     use crate::desktop::{Desktop, DesktopElement, Window};
-    use agx_definitions::{Point, Rect, SingleFramebufferLayer, Size};
+    use agx_definitions::{LikeLayerSlice, Point, Rect, SingleFramebufferLayer, Size};
     use alloc::rc::Rc;
     use awm_messages::AwmCreateWindow;
-    use image::{GenericImage, GenericImageView, ImageBuffer, RgbImage, Rgba};
+    use image::codecs::gif::GifEncoder;
+    use image::{
+        save_buffer_with_format, GenericImage, GenericImageView, ImageBuffer, RgbImage, Rgba,
+    };
+    use libgui::PixelLayer;
+    use mouse_driver_messages::MousePacket;
+    use std::cell::RefCell;
+    use std::fs;
+    use std::fs::OpenOptions;
     use std::iter::zip;
+    use test::Bencher;
+    use winit::event::Event;
+    extern crate test;
+    use winit::event_loop::{ControlFlow, EventLoop};
+
+    fn get_desktop_with_size(screen_size: Size) -> Desktop {
+        let mut vmem = SingleFramebufferLayer::new(screen_size);
+        let layer_as_trait_object = Rc::new(vmem.get_full_slice());
+        Desktop::new(Rc::clone(&layer_as_trait_object))
+    }
 
     fn get_desktop() -> Desktop {
         let screen_size = Size::new(1000, 1000);
