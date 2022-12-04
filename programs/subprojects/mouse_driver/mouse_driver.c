@@ -100,8 +100,8 @@ int main(int argc, char** argv) {
 			mouse_packet_msg_t msg = {
 				.event = MOUSE_PACKET,
 				.status = status_byte,
-				.rel_x = rel_x,
-				.rel_y = rel_y,
+				.rel_x = (int16_t)rel_x,
+				.rel_y = (int16_t)rel_y,
 				.rel_z = rel_z
 			};
 			amc_message_send(AWM_SERVICE_NAME, &msg, sizeof(msg));

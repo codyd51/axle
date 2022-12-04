@@ -12,13 +12,13 @@ pub const MOUSE_DRIVER_SERVICE_NAME: &'static str = "com.axle.mouse_driver";
 pub struct MousePacket {
     pub event: u32,
     pub status: i8,
-    pub rel_x: i8,
-    pub rel_y: i8,
+    pub rel_x: i16,
+    pub rel_y: i16,
     pub rel_z: i8,
 }
 
 impl MousePacket {
-    pub fn new(rel_x: i8, rel_y: i8, status: i8) -> Self {
+    pub fn new(rel_x: i16, rel_y: i16, status: i8) -> Self {
         Self {
             event: Self::EXPECTED_EVENT,
             status: status,
