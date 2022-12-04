@@ -328,22 +328,6 @@ enum MouseInteractionState {
     PerformingWindowResize(Rc<Window>),
 }
 
-struct InteractionState {
-    dragged_window: Option<Rc<Window>>,
-    window_under_mouse: Option<Rc<Window>>,
-    mouse_state: MouseInteractionState,
-}
-
-impl InteractionState {
-    fn new() -> Self {
-        Self {
-            dragged_window: None,
-            window_under_mouse: None,
-            mouse_state: MouseInteractionState::BackgroundHover,
-        }
-    }
-}
-
 pub enum RenderStrategy {
     TreeWalk,
     Composite,
@@ -361,7 +345,6 @@ pub struct Desktop {
     mouse_interaction_state: MouseInteractionState,
     compositor_state: CompositorState,
     pub render_strategy: RenderStrategy,
-    //interaction_state: InteractionState,
     rng: SmallRng,
 }
 
@@ -393,7 +376,6 @@ impl Desktop {
             mouse_state: MouseState::new(initial_mouse_pos, desktop_frame.size),
             compositor_state: CompositorState::new(),
             render_strategy: RenderStrategy::Composite,
-            //interaction_state: InteractionState::new(),
             mouse_interaction_state: MouseInteractionState::BackgroundHover,
             rng: SmallRng::seed_from_u64(seed),
         }
