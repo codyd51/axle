@@ -128,7 +128,7 @@ pub fn main() {
             match msg_source.as_str() {
                 MOUSE_DRIVER_SERVICE_NAME => match event {
                     MousePacket::EXPECTED_EVENT => {
-                        desktop.handle_mouse_update(body_as_type_unchecked(raw_body))
+                        desktop.handle_mouse_packet(body_as_type_unchecked(raw_body))
                     }
                     _ => {
                         println!("Ignoring unknown message from mouse driver")

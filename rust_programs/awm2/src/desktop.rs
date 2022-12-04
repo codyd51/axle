@@ -226,26 +226,32 @@ impl MouseState {
         }
     }
 
-    fn handle_update(&mut self, packet: &MousePacket) -> Vec<MouseStateChange> {
+    fn compute_state_changes(
+        &mut self,
+        new_pos: Option<Point>,
+        status: i8,
+    ) -> Vec<MouseStateChange> {
         let mut out = vec![];
-        self.pos.x += packet.rel_x as isize;
-        self.pos.y += packet.rel_y as isize;
 
-        // Bind mouse to screen dimensions
-        self.pos.x = max(self.pos.x, 0);
-        self.pos.y = max(self.pos.y, 0);
-        self.pos.x = min(self.pos.x, self.desktop_size.width - 4);
-        self.pos.y = min(self.pos.y, self.desktop_size.height - 10);
+        if let Some(new_pos) = new_pos {
+            let old_pos = self.pos;
 
-        if packet.rel_x != 0 || packet.rel_y != 0 {
-            out.push(MouseStateChange::Moved(
-                self.pos,
-                Point::new(packet.rel_x as isize, packet.rel_y as isize),
-            ));
+            self.pos = new_pos;
+
+            // Bind mouse to screen dimensions
+            self.pos.x = max(self.pos.x, 0);
+            self.pos.y = max(self.pos.y, 0);
+            self.pos.x = min(self.pos.x, self.desktop_size.width - 4);
+            self.pos.y = min(self.pos.y, self.desktop_size.height - 10);
+
+            let delta = new_pos - old_pos;
+            if delta.x != 0 || delta.y != 0 {
+                out.push(MouseStateChange::Moved(self.pos, delta));
+            }
         }
 
         // Is the left button clicked?
-        if packet.status & (1 << 0) != 0 {
+        if status & (1 << 0) != 0 {
             // Were we already tracking a left click?
             if !self.left_click_down {
                 self.left_click_down = true;
@@ -933,14 +939,15 @@ impl Desktop {
         }
     }
 
-    pub fn handle_mouse_update(&mut self, packet: &MousePacket) {
-        let old_mouse_frame = self.mouse_state.frame();
-
-        let state_changes = self.mouse_state.handle_update(packet);
+    fn handle_mouse_state_changes(
+        &mut self,
+        old_mouse_frame: Rect,
+        state_changes: Vec<MouseStateChange>,
+    ) {
         // Don't bother queueing the new mouse position to redraw
         // For simplicity, the compositor will always draw the mouse over each frame
         let new_mouse_frame = self.mouse_state.frame();
-
+        //
         // Previous mouse position should be redrawn
         let total_update_rect =
             self.bind_rect_to_screen_size(old_mouse_frame.union(new_mouse_frame));
@@ -949,6 +956,24 @@ impl Desktop {
         for state_change in state_changes.into_iter() {
             self.handle_mouse_state_change(state_change);
         }
+    }
+
+    pub fn handle_mouse_packet(&mut self, packet: &MousePacket) {
+        let old_mouse_pos = self.mouse_state.frame();
+        let new_pos =
+            self.mouse_state.pos + Point::new(packet.rel_x as isize, packet.rel_y as isize);
+        let state_changes = self
+            .mouse_state
+            .compute_state_changes(Some(new_pos), packet.status);
+        self.handle_mouse_state_changes(old_mouse_pos, state_changes)
+    }
+
+    pub fn handle_mouse_absolute_update(&mut self, new_mouse_pos: Option<Point>, status_byte: i8) {
+        let old_mouse_pos = self.mouse_state.frame();
+        let state_changes = self
+            .mouse_state
+            .compute_state_changes(new_mouse_pos, status_byte);
+        self.handle_mouse_state_changes(old_mouse_pos, state_changes)
     }
 
     fn bind_rect_to_screen_size(&self, r: Rect) -> Rect {

@@ -58,6 +58,12 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         .borrow_mut()
         .get_full_slice()
         .fill(Color::green());
+     */
+    let w1 = desktop.spawn_window(
+        "Window 0",
+        &AwmCreateWindow::new(Size::new(30, 30)),
+        Some(Point::new(0, 0)),
+    );
 
     let scale_factor = 2;
     let mut last_cursor_pos = None;
@@ -69,11 +75,38 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         }
         out
     };
+
+    if let Some(capture_file) = &mut capture_file {
+        writeln!(capture_file, "[Size]").unwrap();
+        writeln!(
+            capture_file,
+            "{}, {}",
+            desktop_size.width, desktop_size.height
+        )
+        .unwrap();
+
+        writeln!(capture_file, "[Windows]").unwrap();
+        for window in desktop.windows.iter() {
+            let frame = *window.frame.borrow();
+            writeln!(
+                capture_file,
+                "{}, {}, {}, {}",
+                frame.min_x(),
+                frame.min_y(),
+                frame.size.width,
+                frame.size.height - 30
+            )
+            .unwrap();
+        }
+    }
+
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
         match event {
             Event::MainEventsCleared => {
+                //for _ in (0..1024 * 32) {
                 desktop.draw_frame();
+                //}
                 let mut pixel_buffer = layer.pixel_buffer.borrow_mut();
                 pixel_buffer.render();
             }
@@ -90,11 +123,10 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                             ElementState::Pressed => match button {
                                 MouseButton::Left => {
                                     is_left_click_down = true;
-                                    desktop.handle_mouse_update(&MousePacket::new(
-                                        0,
-                                        0,
+                                    desktop.handle_mouse_absolute_update(
+                                        None,
                                         get_mouse_status_byte(is_left_click_down),
-                                    ));
+                                    );
                                 }
                                 _ => (),
                             },

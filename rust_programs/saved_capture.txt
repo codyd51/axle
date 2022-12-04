@@ -1,0 +1,1370 @@
+[Size]
+200, 200
+[Windows]
+0, 0, 30, 30
+[SetMousePos]
+88, 176
+[MouseMoved]
+88, 176
+[MouseMoved]
+89, 175
+[MouseMoved]
+90, 175
+[MouseMoved]
+91, 174
+[MouseMoved]
+91, 174
+[MouseMoved]
+91, 174
+[MouseMoved]
+91, 173
+[MouseMoved]
+92, 173
+[MouseMoved]
+92, 173
+[MouseMoved]
+92, 172
+[MouseMoved]
+92, 171
+[MouseMoved]
+92, 170
+[MouseMoved]
+92, 169
+[MouseMoved]
+92, 167
+[MouseMoved]
+92, 164
+[MouseMoved]
+90, 161
+[MouseMoved]
+89, 158
+[MouseMoved]
+87, 154
+[MouseMoved]
+85, 151
+[MouseMoved]
+84, 148
+[MouseMoved]
+82, 144
+[MouseMoved]
+81, 141
+[MouseMoved]
+80, 138
+[MouseMoved]
+79, 136
+[MouseMoved]
+78, 134
+[MouseMoved]
+78, 130
+[MouseMoved]
+78, 129
+[MouseMoved]
+77, 127
+[MouseMoved]
+76, 124
+[MouseMoved]
+75, 121
+[MouseMoved]
+73, 118
+[MouseMoved]
+72, 114
+[MouseMoved]
+70, 111
+[MouseMoved]
+69, 108
+[MouseMoved]
+67, 105
+[MouseMoved]
+66, 102
+[MouseMoved]
+65, 99
+[MouseMoved]
+63, 96
+[MouseMoved]
+62, 93
+[MouseMoved]
+61, 89
+[MouseMoved]
+59, 85
+[MouseMoved]
+56, 78
+[MouseMoved]
+54, 74
+[MouseMoved]
+53, 72
+[MouseMoved]
+49, 64
+[MouseMoved]
+47, 60
+[MouseMoved]
+45, 53
+[MouseMoved]
+41, 43
+[MouseMoved]
+38, 34
+[MouseMoved]
+36, 25
+[MouseMoved]
+35, 17
+[MouseMoved]
+35, 13
+[MouseMoved]
+34, 13
+[MouseMoved]
+33, 14
+[MouseMoved]
+31, 16
+[MouseMoved]
+30, 17
+[MouseMoved]
+30, 17
+[MouseMoved]
+30, 18
+[MouseMoved]
+30, 19
+[MouseMoved]
+29, 20
+[MouseMoved]
+29, 21
+[MouseMoved]
+28, 22
+[MouseMoved]
+27, 24
+[MouseMoved]
+27, 25
+[MouseMoved]
+26, 26
+[MouseMoved]
+25, 27
+[MouseMoved]
+25, 28
+[MouseMoved]
+24, 29
+[MouseMoved]
+24, 30
+[MouseMoved]
+23, 30
+[MouseMoved]
+23, 31
+[MouseMoved]
+23, 31
+[MouseMoved]
+23, 32
+[MouseMoved]
+23, 32
+[MouseMoved]
+23, 33
+[MouseMoved]
+23, 33
+[MouseMoved]
+23, 33
+[MouseMoved]
+23, 34
+[MouseMoved]
+23, 34
+[MouseMoved]
+23, 34
+[MouseMoved]
+23, 34
+[MouseMoved]
+23, 34
+[MouseMoved]
+24, 35
+[MouseMoved]
+24, 35
+[MouseMoved]
+24, 35
+[MouseMoved]
+25, 35
+[MouseMoved]
+25, 36
+[MouseMoved]
+26, 36
+[MouseMoved]
+26, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseDown]
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+27, 37
+[MouseMoved]
+28, 38
+[MouseMoved]
+29, 39
+[MouseMoved]
+29, 39
+[MouseMoved]
+32, 41
+[MouseMoved]
+34, 44
+[MouseMoved]
+34, 44
+[MouseMoved]
+38, 47
+[MouseMoved]
+38, 47
+[MouseMoved]
+42, 50
+[MouseMoved]
+42, 50
+[MouseMoved]
+46, 52
+[MouseMoved]
+50, 55
+[MouseMoved]
+50, 55
+[MouseMoved]
+54, 58
+[MouseMoved]
+58, 60
+[MouseMoved]
+58, 60
+[MouseMoved]
+62, 62
+[MouseMoved]
+62, 62
+[MouseMoved]
+64, 64
+[MouseMoved]
+64, 64
+[MouseMoved]
+67, 66
+[MouseMoved]
+69, 67
+[MouseMoved]
+69, 67
+[MouseMoved]
+72, 69
+[MouseMoved]
+74, 70
+[MouseMoved]
+74, 70
+[MouseMoved]
+74, 70
+[MouseMoved]
+77, 71
+[MouseMoved]
+79, 72
+[MouseMoved]
+79, 72
+[MouseMoved]
+81, 73
+[MouseMoved]
+81, 73
+[MouseMoved]
+83, 74
+[MouseMoved]
+83, 74
+[MouseMoved]
+84, 74
+[MouseMoved]
+85, 75
+[MouseMoved]
+85, 75
+[MouseMoved]
+87, 75
+[MouseMoved]
+88, 76
+[MouseMoved]
+88, 76
+[MouseMoved]
+90, 76
+[MouseMoved]
+90, 76
+[MouseMoved]
+92, 77
+[MouseMoved]
+92, 77
+[MouseMoved]
+95, 78
+[MouseMoved]
+98, 79
+[MouseMoved]
+98, 79
+[MouseMoved]
+101, 80
+[MouseMoved]
+104, 82
+[MouseMoved]
+104, 82
+[MouseMoved]
+108, 83
+[MouseMoved]
+108, 83
+[MouseMoved]
+112, 85
+[MouseMoved]
+112, 85
+[MouseMoved]
+117, 87
+[MouseMoved]
+122, 89
+[MouseMoved]
+122, 89
+[MouseMoved]
+126, 91
+[MouseMoved]
+131, 93
+[MouseMoved]
+131, 93
+[MouseMoved]
+135, 94
+[MouseMoved]
+135, 94
+[MouseMoved]
+138, 96
+[MouseMoved]
+138, 96
+[MouseMoved]
+141, 98
+[MouseMoved]
+144, 100
+[MouseMoved]
+144, 100
+[MouseMoved]
+145, 101
+[MouseMoved]
+146, 102
+[MouseMoved]
+146, 102
+[MouseMoved]
+147, 102
+[MouseMoved]
+147, 102
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+148, 103
+[MouseMoved]
+149, 103
+[MouseMoved]
+149, 103
+[MouseMoved]
+151, 103
+[MouseMoved]
+154, 105
+[MouseMoved]
+154, 105
+[MouseMoved]
+160, 108
+[MouseMoved]
+160, 108
+[MouseMoved]
+166, 111
+[MouseMoved]
+166, 111
+[MouseMoved]
+171, 113
+[MouseMoved]
+175, 115
+[MouseMoved]
+175, 115
+[MouseMoved]
+178, 116
+[MouseMoved]
+180, 117
+[MouseMoved]
+180, 117
+[MouseMoved]
+181, 118
+[MouseMoved]
+181, 118
+[MouseMoved]
+182, 119
+[MouseMoved]
+182, 119
+[MouseMoved]
+183, 120
+[MouseMoved]
+184, 121
+[MouseMoved]
+184, 121
+[MouseMoved]
+185, 122
+[MouseMoved]
+186, 123
+[MouseMoved]
+186, 123
+[MouseMoved]
+187, 124
+[MouseMoved]
+187, 124
+[MouseMoved]
+188, 126
+[MouseMoved]
+188, 126
+[MouseMoved]
+191, 130
+[MouseMoved]
+191, 130
+[MouseMoved]
+193, 132
+[MouseMoved]
+195, 135
+[MouseMoved]
+195, 135
+[MouseMoved]
+196, 137
+[MouseMoved]
+198, 139
+[MouseMoved]
+198, 139
+[MouseMoved]
+199, 140
+[MouseMoved]
+199, 140
+[SetMousePos]
+200, 142
+[MouseMoved]
+200, 142
+[MouseMoved]
+200, 142
+[MouseMoved]
+200, 143
+[MouseMoved]
+200, 143
+[MouseMoved]
+200, 144
+[MouseMoved]
+201, 145
+[MouseMoved]
+201, 145
+[MouseMoved]
+201, 145
+[MouseMoved]
+201, 145
+[MouseMoved]
+201, 146
+[MouseMoved]
+201, 146
+[MouseMoved]
+201, 147
+[MouseMoved]
+201, 147
+[MouseMoved]
+201, 147
+[MouseMoved]
+201, 147
+[MouseMoved]
+201, 147
+[MouseMoved]
+201, 147
+[MouseMoved]
+201, 147
+[MouseMoved]
+201, 147
+[MouseMoved]
+201, 147
+[MouseMoved]
+201, 147
+[MouseMoved]
+201, 147
+[MouseMoved]
+201, 147
+[MouseMoved]
+201, 148
+[MouseMoved]
+201, 148
+[MouseMoved]
+201, 148
+[MouseMoved]
+201, 150
+[MouseMoved]
+201, 151
+[MouseMoved]
+201, 151
+[MouseMoved]
+202, 153
+[MouseMoved]
+202, 153
+[MouseMoved]
+202, 155
+[MouseMoved]
+202, 155
+[MouseMoved]
+202, 155
+[MouseMoved]
+203, 156
+[MouseMoved]
+203, 156
+[MouseMoved]
+203, 156
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 157
+[MouseMoved]
+203, 159
+[MouseMoved]
+203, 159
+[MouseMoved]
+203, 163
+[MouseMoved]
+203, 161
+[MouseMoved]
+203, 165
+[MouseMoved]
+203, 167
+[MouseMoved]
+203, 167
+[MouseMoved]
+203, 168
+[MouseMoved]
+203, 168
+[MouseMoved]
+203, 170
+[MouseMoved]
+203, 170
+[MouseMoved]
+203, 172
+[MouseMoved]
+203, 174
+[MouseMoved]
+203, 174
+[MouseMoved]
+203, 176
+[MouseMoved]
+203, 178
+[MouseMoved]
+203, 178
+[MouseMoved]
+203, 179
+[MouseMoved]
+203, 179
+[MouseMoved]
+203, 179
+[MouseMoved]
+203, 179
+[MouseMoved]
+203, 179
+[MouseMoved]
+203, 180
+[MouseMoved]
+203, 180
+[MouseMoved]
+203, 180
+[MouseMoved]
+203, 180
+[MouseMoved]
+203, 181
+[MouseMoved]
+203, 181
+[MouseMoved]
+203, 181
+[MouseMoved]
+203, 182
+[MouseMoved]
+203, 182
+[MouseMoved]
+203, 182
+[MouseMoved]
+203, 183
+[MouseMoved]
+203, 183
+[MouseMoved]
+202, 183
+[MouseMoved]
+202, 184
+[MouseMoved]
+201, 185
+[MouseMoved]
+200, 187
+[MouseMoved]
+200, 187
+[MouseMoved]
+199, 188
+[MouseMoved]
+199, 188
+[MouseMoved]
+197, 189
+[MouseMoved]
+195, 189
+[MouseMoved]
+195, 189
+[MouseMoved]
+192, 189
+[MouseMoved]
+190, 189
+[MouseMoved]
+188, 189
+[MouseMoved]
+186, 189
+[MouseMoved]
+184, 189
+[MouseMoved]
+181, 188
+[MouseMoved]
+181, 188
+[MouseMoved]
+179, 186
+[MouseMoved]
+176, 184
+[MouseMoved]
+174, 183
+[MouseMoved]
+173, 181
+[MouseMoved]
+171, 179
+[MouseMoved]
+171, 179
+[MouseMoved]
+170, 176
+[MouseMoved]
+170, 176
+[MouseMoved]
+168, 174
+[MouseMoved]
+168, 173
+[MouseMoved]
+167, 171
+[MouseMoved]
+167, 171
+[MouseMoved]
+167, 170
+[MouseMoved]
+167, 170
+[MouseMoved]
+167, 169
+[MouseMoved]
+167, 167
+[MouseMoved]
+167, 163
+[MouseMoved]
+167, 159
+[MouseMoved]
+167, 154
+[MouseMoved]
+168, 151
+[MouseMoved]
+168, 149
+[MouseMoved]
+168, 149
+[MouseMoved]
+168, 148
+[MouseMoved]
+168, 147
+[MouseMoved]
+168, 147
+[MouseMoved]
+168, 147
+[MouseMoved]
+168, 146
+[MouseMoved]
+168, 146
+[MouseMoved]
+168, 146
+[MouseMoved]
+168, 146
+[MouseUp]
+[MouseMoved]
+169, 146
+[MouseMoved]
+169, 146
+[MouseMoved]
+168, 143
+[MouseMoved]
+164, 135
+[MouseMoved]
+159, 126
+[MouseMoved]
+155, 116
+[MouseMoved]
+145, 99
+[MouseMoved]
+135, 84
+[MouseMoved]
+121, 67
+[MouseMoved]
+117, 59
+[MouseMoved]
+112, 54
+[MouseMoved]
+108, 48
+[MouseMoved]
+106, 44
+[MouseMoved]
+105, 42
+[MouseMoved]
+104, 40
+[MouseMoved]
+104, 38
+[MouseMoved]
+103, 33
+[MouseMoved]
+103, 33
+[MouseMoved]
+103, 33
+[MouseMoved]
+103, 33
+[MouseMoved]
+103, 32
+[MouseMoved]
+103, 32
+[MouseMoved]
+103, 31
+[MouseMoved]
+102, 30
+[MouseMoved]
+102, 29
+[MouseMoved]
+101, 27
+[MouseMoved]
+101, 26
+[MouseMoved]
+100, 25
+[MouseMoved]
+100, 24
+[MouseMoved]
+99, 21
+[MouseMoved]
+98, 19
+[MouseMoved]
+97, 17
+[MouseMoved]
+97, 16
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseDown]
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+97, 15
+[MouseMoved]
+99, 15
+[MouseMoved]
+99, 15
+[MouseMoved]
+103, 15
+[MouseMoved]
+107, 15
+[MouseMoved]
+107, 15
+[MouseMoved]
+112, 16
+[MouseMoved]
+112, 16
+[MouseMoved]
+115, 16
+[MouseMoved]
+115, 16
+[MouseMoved]
+119, 16
+[MouseMoved]
+122, 17
+[MouseMoved]
+122, 17
+[MouseMoved]
+126, 17
+[MouseMoved]
+129, 18
+[MouseMoved]
+129, 18
+[MouseMoved]
+133, 19
+[MouseMoved]
+133, 19
+[MouseMoved]
+135, 20
+[MouseMoved]
+135, 20
+[MouseMoved]
+137, 20
+[MouseMoved]
+139, 21
+[MouseMoved]
+139, 21
+[MouseMoved]
+139, 22
+[MouseMoved]
+140, 23
+[MouseMoved]
+140, 23
+[MouseMoved]
+141, 24
+[MouseMoved]
+141, 24
+[MouseMoved]
+141, 25
+[MouseMoved]
+141, 25
+[MouseMoved]
+142, 27
+[MouseMoved]
+142, 28
+[MouseMoved]
+142, 28
+[MouseMoved]
+142, 29
+[MouseMoved]
+142, 30
+[MouseMoved]
+142, 30
+[MouseMoved]
+142, 32
+[MouseMoved]
+142, 32
+[MouseMoved]
+140, 34
+[MouseMoved]
+140, 34
+[MouseMoved]
+138, 37
+[MouseMoved]
+135, 40
+[MouseMoved]
+135, 40
+[MouseMoved]
+133, 42
+[MouseMoved]
+131, 44
+[MouseMoved]
+131, 44
+[MouseMoved]
+130, 45
+[MouseMoved]
+130, 45
+[MouseMoved]
+128, 46
+[MouseMoved]
+128, 46
+[MouseMoved]
+127, 47
+[MouseMoved]
+125, 48
+[MouseMoved]
+125, 48
+[MouseMoved]
+124, 49
+[MouseMoved]
+123, 50
+[MouseMoved]
+123, 50
+[MouseMoved]
+123, 51
+[MouseMoved]
+123, 51
+[MouseMoved]
+122, 52
+[MouseMoved]
+122, 52
+[MouseMoved]
+122, 53
+[MouseMoved]
+121, 55
+[MouseMoved]
+121, 55
+[MouseMoved]
+121, 57
+[MouseMoved]
+121, 59
+[MouseMoved]
+121, 59
+[MouseMoved]
+121, 61
+[MouseMoved]
+121, 61
+[MouseMoved]
+121, 61
+[MouseMoved]
+121, 63
+[MouseMoved]
+121, 67
+[MouseMoved]
+121, 69
+[MouseMoved]
+121, 69
+[MouseMoved]
+122, 71
+[MouseMoved]
+123, 72
+[MouseMoved]
+123, 72
+[MouseMoved]
+125, 74
+[MouseMoved]
+125, 74
+[MouseMoved]
+127, 75
+[MouseMoved]
+127, 75
+[MouseMoved]
+130, 75
+[MouseMoved]
+132, 76
+[MouseMoved]
+132, 76
+[MouseMoved]
+135, 76
+[MouseMoved]
+138, 75
+[MouseMoved]
+138, 75
+[MouseMoved]
+141, 74
+[MouseMoved]
+141, 74
+[MouseMoved]
+144, 71
+[MouseMoved]
+146, 68
+[MouseMoved]
+146, 68
+[MouseMoved]
+147, 66
+[MouseMoved]
+147, 66
+[MouseMoved]
+148, 63
+[MouseMoved]
+148, 63
+[MouseMoved]
+149, 58
+[MouseMoved]
+149, 58
+[MouseMoved]
+148, 55
+[MouseMoved]
+148, 55
+[MouseMoved]
+146, 51
+[MouseMoved]
+146, 51
+[MouseMoved]
+143, 46
+[MouseMoved]
+139, 42
+[MouseMoved]
+139, 42
+[MouseMoved]
+135, 38
+[MouseMoved]
+130, 35
+[MouseMoved]
+130, 35
+[MouseMoved]
+125, 32
+[MouseMoved]
+125, 32
+[MouseMoved]
+119, 31
+[MouseMoved]
+119, 31
+[MouseMoved]
+113, 30
+[MouseMoved]
+107, 30
+[MouseMoved]
+107, 30
+[MouseMoved]
+101, 30
+[MouseMoved]
+96, 29
+[MouseMoved]
+96, 29
+[MouseMoved]
+93, 29
+[MouseMoved]
+93, 29
+[MouseMoved]
+89, 29
+[MouseMoved]
+89, 29
+[MouseMoved]
+87, 29
+[MouseMoved]
+85, 30
+[MouseMoved]
+85, 30
+[MouseMoved]
+84, 31
+[MouseMoved]
+82, 34
+[MouseMoved]
+82, 34
+[MouseMoved]
+81, 38
+[MouseMoved]
+81, 38
+[MouseMoved]
+80, 42
+[MouseMoved]
+80, 42
+[MouseMoved]
+80, 45
+[MouseMoved]
+80, 48
+[MouseMoved]
+80, 48
+[MouseMoved]
+80, 51
+[MouseMoved]
+80, 54
+[MouseMoved]
+80, 54
+[MouseMoved]
+80, 58
+[MouseMoved]
+80, 58
+[MouseMoved]
+80, 61
+[MouseMoved]
+80, 61
+[MouseMoved]
+80, 64
+[MouseMoved]
+81, 66
+[MouseMoved]
+81, 66
+[MouseMoved]
+82, 68
+[MouseMoved]
+83, 69
+[MouseMoved]
+83, 69
+[MouseMoved]
+85, 70
+[MouseMoved]
+85, 70
+[MouseMoved]
+88, 70
+[MouseMoved]
+88, 70
+[MouseMoved]
+91, 70
+[MouseMoved]
+91, 70
+[MouseMoved]
+98, 71
+[MouseMoved]
+94, 71
+[MouseMoved]
+102, 71
+[MouseMoved]
+106, 71
+[MouseMoved]
+106, 71
+[MouseMoved]
+110, 70
+[MouseMoved]
+110, 70
+[MouseMoved]
+114, 69
+[MouseMoved]
+117, 68
+[MouseMoved]
+117, 68
+[MouseMoved]
+119, 66
+[MouseMoved]
+121, 65
+[MouseMoved]
+121, 65
+[MouseMoved]
+123, 63
+[MouseMoved]
+123, 63
+[MouseMoved]
+125, 61
+[MouseMoved]
+126, 59
+[MouseMoved]
+126, 59
+[MouseMoved]
+127, 57
+[MouseMoved]
+127, 56
+[MouseMoved]
+128, 54
+[MouseMoved]
+128, 54
+[MouseMoved]
+129, 52
+[MouseMoved]
+129, 49
+[MouseMoved]
+129, 49
+[MouseMoved]
+129, 46
+[MouseMoved]
+129, 44
+[MouseMoved]
+129, 42
+[MouseMoved]
+128, 40
+[MouseMoved]
+128, 40
+[MouseMoved]
+127, 39
+[MouseMoved]
+125, 38
+[MouseMoved]
+124, 37
+[MouseMoved]
+122, 36
+[MouseMoved]
+122, 36
+[MouseMoved]
+120, 35
+[MouseMoved]
+117, 34
+[MouseMoved]
+114, 33
+[MouseMoved]
+111, 33
+[MouseMoved]
+107, 33
+[MouseMoved]
+107, 33
+[MouseMoved]
+104, 33
+[MouseMoved]
+100, 34
+[MouseMoved]
+97, 36
+[MouseMoved]
+94, 39
+[MouseMoved]
+91, 42
+[MouseMoved]
+89, 44
+[MouseMoved]
+88, 47
+[MouseMoved]
+87, 48
+[MouseMoved]
+87, 48
+[MouseMoved]
+87, 50
+[MouseMoved]
+87, 52
+[MouseMoved]
+87, 54
+[MouseMoved]
+87, 56
+[MouseMoved]
+87, 58
+[MouseMoved]
+87, 60
+[MouseMoved]
+87, 61
+[MouseMoved]
+88, 62
+[MouseMoved]
+89, 62
+[MouseMoved]
+90, 63
+[MouseMoved]
+92, 63
+[MouseMoved]
+95, 64
+[MouseMoved]
+98, 65
+[MouseMoved]
+101, 66
+[MouseMoved]
+101, 66
+[MouseMoved]
+104, 66
+[MouseMoved]
+104, 66
+[MouseMoved]
+107, 66
+[MouseMoved]
+107, 66
+[MouseMoved]
+109, 66
+[MouseMoved]
+111, 66
+[MouseMoved]
+111, 66
+[MouseMoved]
+111, 66
+[MouseMoved]
+112, 66
+[MouseMoved]
+112, 66
+[MouseUp]
+[MouseMoved]
+114, 67
+[MouseMoved]
+113, 67
+[MouseMoved]
+112, 67
+[MouseMoved]
+110, 66
+[MouseMoved]
+106, 63
+[MouseMoved]
+103, 61
+[MouseMoved]
+101, 60
+[MouseMoved]
+100, 59
+[MouseMoved]
+98, 59
+[MouseMoved]
+97, 58
+[MouseMoved]
+96, 58
+[MouseMoved]
+94, 57
+[MouseMoved]
+91, 56
+[MouseMoved]
+89, 56
+[MouseMoved]
+87, 56
+[MouseMoved]
+86, 55
+[MouseMoved]
+85, 55
+[MouseMoved]
+84, 55
+[MouseMoved]
+82, 54
+[MouseMoved]
+80, 54
+[MouseMoved]
+80, 54
+[MouseMoved]
+79, 54
+[MouseMoved]
+79, 54
+[MouseMoved]
+78, 54
