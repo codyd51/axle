@@ -4,7 +4,7 @@ extern crate alloc;
 #[cfg(target_os = "axle")]
 extern crate libc;
 
-use agx_definitions::{Size, SizeU32};
+use agx_definitions::{Point, PointU32, Size, SizeU32};
 use axle_rt::{copy_str_into_sized_slice, ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
 
@@ -133,4 +133,26 @@ impl AwmWindowResized {
 
 impl ExpectsEventField for AwmWindowResized {
     const EXPECTED_EVENT: u32 = 808;
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, ContainsEventField)]
+pub struct AwmMouseScrolled {
+    event: u32,
+    pub mouse_point: PointU32,
+    pub delta_z: i8,
+}
+
+impl AwmMouseScrolled {
+    pub fn new(mouse_point: Point, delta_z: i8) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            mouse_point: PointU32::from(mouse_point),
+            delta_z,
+        }
+    }
+}
+
+impl ExpectsEventField for AwmMouseScrolled {
+    const EXPECTED_EVENT: u32 = 807;
 }

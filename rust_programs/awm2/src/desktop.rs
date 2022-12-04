@@ -11,7 +11,7 @@ use alloc::rc::Rc;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
-use awm_messages::{AwmCreateWindow, AwmWindowResized, AwmWindowUpdateTitle};
+use awm_messages::{AwmCreateWindow, AwmMouseScrolled, AwmWindowResized, AwmWindowUpdateTitle};
 use axle_rt::core_commands::AmcSharedMemoryCreateRequest;
 use core::cell::RefCell;
 use core::cmp::{max, min};
@@ -68,6 +68,7 @@ enum MouseStateChange {
     LeftClickBegan,
     LeftClickEnded,
     Moved(Point, Point),
+    Scrolled(i8),
 }
 
 struct MouseState {
@@ -90,9 +91,16 @@ impl MouseState {
     fn compute_state_changes(
         &mut self,
         new_pos: Option<Point>,
+        delta_z: Option<i8>,
         status: i8,
     ) -> Vec<MouseStateChange> {
         let mut out = vec![];
+
+        if let Some(delta_z) = delta_z {
+            if delta_z != 0 {
+                out.push(MouseStateChange::Scrolled(delta_z))
+            }
+        }
 
         if let Some(new_pos) = new_pos {
             let old_pos = self.pos;
@@ -771,6 +779,29 @@ impl Desktop {
         }
     }
 
+    fn handle_mouse_scrolled(&mut self, delta_z: i8) {
+        if let MouseInteractionState::WindowHover(hover_window) = &self.mouse_interaction_state {
+            // Scroll within a window, inform the window
+            let mouse_within_window = hover_window.frame().translate_point(self.mouse_state.pos);
+            let mouse_within_content_view = hover_window
+                .content_frame()
+                .translate_point(mouse_within_window);
+            /*
+            println!(
+                "Mouse scrolled within hover window {} {delta_z}",
+                hover_window.name()
+            );
+            */
+            #[cfg(target_os = "axle")]
+            {
+                let mouse_scrolled_msg = AwmMouseScrolled::new(mouse_within_content_view, delta_z);
+                amc_message_send(&hover_window.owner_service, mouse_scrolled_msg);
+            }
+        } else {
+            //println!("scroll outside window");
+        }
+    }
+
     fn handle_mouse_state_change(&mut self, state_change: MouseStateChange) {
         //println!("Mouse state change: {state_change:?}");
         match state_change {
@@ -783,6 +814,7 @@ impl Desktop {
             MouseStateChange::Moved(new_pos, rel_shift) => {
                 self.handle_mouse_moved(new_pos, rel_shift)
             }
+            MouseStateChange::Scrolled(delta_z) => self.handle_mouse_scrolled(delta_z),
         }
     }
 
@@ -809,17 +841,24 @@ impl Desktop {
         let old_mouse_pos = self.mouse_state.frame();
         let new_pos =
             self.mouse_state.pos + Point::new(packet.rel_x as isize, packet.rel_y as isize);
-        let state_changes = self
-            .mouse_state
-            .compute_state_changes(Some(new_pos), packet.status);
+        let state_changes = self.mouse_state.compute_state_changes(
+            Some(new_pos),
+            Some(packet.rel_z),
+            packet.status,
+        );
         self.handle_mouse_state_changes(old_mouse_pos, state_changes)
     }
 
-    pub fn handle_mouse_absolute_update(&mut self, new_mouse_pos: Option<Point>, status_byte: i8) {
+    pub fn handle_mouse_absolute_update(
+        &mut self,
+        new_mouse_pos: Option<Point>,
+        delta_z: Option<i8>,
+        status_byte: i8,
+    ) {
         let old_mouse_pos = self.mouse_state.frame();
-        let state_changes = self
-            .mouse_state
-            .compute_state_changes(new_mouse_pos, status_byte);
+        let state_changes =
+            self.mouse_state
+                .compute_state_changes(new_mouse_pos, delta_z, status_byte);
         self.handle_mouse_state_changes(old_mouse_pos, state_changes)
     }
 

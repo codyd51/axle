@@ -2,8 +2,13 @@ use crate::desktop::DesktopElement;
 use agx_definitions::{
     Color, Layer, LikeLayerSlice, Point, Rect, RectInsets, SingleFramebufferLayer, Size,
 };
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::string::ToString;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::cell::RefCell;
 use core::fmt::{Display, Formatter};
-use std::cell::RefCell;
 
 pub struct Window {
     pub frame: RefCell<Rect>,
@@ -58,7 +63,7 @@ impl Window {
             .contains(local_point)
     }
 
-    fn content_frame(&self) -> Rect {
+    pub fn content_frame(&self) -> Rect {
         Rect::from_parts(
             Point::new(0, Self::TITLE_BAR_HEIGHT as isize),
             Size::new(
