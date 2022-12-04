@@ -834,10 +834,14 @@ impl Desktop {
         {
             //println!("\tResizing hover window");
             let old_frame = resized_window.frame();
-            let new_frame = self.bind_rect_to_screen_size(
+            let mut new_frame = self.bind_rect_to_screen_size(
                 old_frame.replace_size(old_frame.size + Size::new(rel_shift.x, rel_shift.y)),
             );
+            // Don't let the window get too small
+            new_frame.size.width = max(new_frame.size.width, 200);
+            new_frame.size.height = max(new_frame.size.height, 200);
             resized_window.set_frame(new_frame);
+            //println!("Set window to {new_frame}");
 
             #[cfg(target_os = "axle")]
             {
