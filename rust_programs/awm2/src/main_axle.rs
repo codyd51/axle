@@ -27,7 +27,6 @@ use awm_messages::{
 use kb_driver_messages::KB_DRIVER_SERVICE_NAME;
 use mouse_driver_messages::{MousePacket, MOUSE_DRIVER_SERVICE_NAME};
 
-use crate::awm2_messages::AWM2_SERVICE_NAME;
 use axle_rt::core_commands::{
     AmcAwmMapFramebuffer, AmcAwmMapFramebufferResponse, AmcSharedMemoryCreateRequest,
     AmcSharedMemoryCreateResponse, AMC_CORE_SERVICE_NAME,

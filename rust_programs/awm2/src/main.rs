@@ -5,7 +5,6 @@
 // PT: For the test suite
 #![cfg_attr(not(target_os = "axle"), feature(iter_zip))]
 
-mod awm2_messages;
 mod desktop;
 mod effects;
 mod window;

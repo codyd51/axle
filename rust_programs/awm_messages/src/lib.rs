@@ -8,6 +8,8 @@ use agx_definitions::{Point, PointU32, Size, SizeU32};
 use axle_rt::{copy_str_into_sized_slice, ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
 
+pub const AWM2_SERVICE_NAME: &str = "com.axle.awm";
+
 #[repr(C)]
 #[derive(Debug, ContainsEventField)]
 pub struct AwmCreateWindow {
