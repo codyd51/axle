@@ -299,6 +299,37 @@ enum MouseInteractionState {
     PerformingWindowResize(Rc<Window>),
 }
 
+impl PartialEq for MouseInteractionState {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            MouseInteractionState::BackgroundHover => match other {
+                MouseInteractionState::BackgroundHover => true,
+                _ => false,
+            },
+            MouseInteractionState::WindowHover(w1) => match other {
+                MouseInteractionState::WindowHover(w2) => Rc::ptr_eq(w1, w2),
+                _ => false,
+            },
+            MouseInteractionState::HintingWindowDrag(w1) => match other {
+                MouseInteractionState::HintingWindowDrag(w2) => Rc::ptr_eq(w1, w2),
+                _ => false,
+            },
+            MouseInteractionState::HintingWindowResize(w1) => match other {
+                MouseInteractionState::HintingWindowResize(w2) => Rc::ptr_eq(w1, w2),
+                _ => false,
+            },
+            MouseInteractionState::PerformingWindowDrag(w1) => match other {
+                MouseInteractionState::PerformingWindowDrag(w2) => Rc::ptr_eq(w1, w2),
+                _ => false,
+            },
+            MouseInteractionState::PerformingWindowResize(w1) => match other {
+                MouseInteractionState::PerformingWindowResize(w2) => Rc::ptr_eq(w1, w2),
+                _ => false,
+            },
+        }
+    }
+}
+
 pub enum RenderStrategy {
     TreeWalk,
     Composite,
@@ -736,6 +767,10 @@ impl Desktop {
     }
 
     fn handle_left_click_began(&mut self) {
+        // Allow the mouse state to change based on the movement
+        self.transition_to_mouse_interaction_state(
+            self.mouse_interaction_state_for_mouse_state(true),
+        );
         if let Some(window_under_mouse) = self.window_containing_point(self.mouse_state.pos) {
             if !Rc::ptr_eq(&self.windows[0], &window_under_mouse) {
                 println!(
@@ -744,39 +779,138 @@ impl Desktop {
                 );
                 self.move_window_to_top(&window_under_mouse);
                 self.recompute_drawable_regions_in_rect(window_under_mouse.frame());
+            }
+            send_left_click_event(&window_under_mouse, self.mouse_state.pos)
+        }
+    }
 
-                self.mouse_interaction_state =
-                    MouseInteractionState::WindowHover(Rc::clone(&window_under_mouse));
-                self.handle_mouse_moved(self.mouse_state.pos, Point::zero());
+    fn can_transition_to_window_drag(&self, window_under_mouse: &Rc<Window>) -> bool {
+        if let MouseInteractionState::HintingWindowDrag(win) = &self.mouse_interaction_state {
+            if Rc::ptr_eq(window_under_mouse, win) {
+                if self.mouse_state.left_click_down {
+                    return true;
+                }
             }
         }
+        false
+    }
 
-        if let MouseInteractionState::HintingWindowDrag(hover_window) =
-            &self.mouse_interaction_state
-        {
-            self.mouse_interaction_state =
-                MouseInteractionState::PerformingWindowDrag(Rc::clone(hover_window));
-        } else if let MouseInteractionState::HintingWindowResize(hover_window) =
-            &self.mouse_interaction_state
-        {
-            self.mouse_interaction_state =
-                MouseInteractionState::PerformingWindowResize(Rc::clone(&hover_window));
+    fn can_transition_to_window_resize(&self, window_under_mouse: &Rc<Window>) -> bool {
+        if let MouseInteractionState::HintingWindowResize(win) = &self.mouse_interaction_state {
+            if Rc::ptr_eq(window_under_mouse, win) {
+                if self.mouse_state.left_click_down {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn mouse_interaction_state_for_mouse_state(
+        &self,
+        allow_transition_from_hint_to_perform: bool,
+    ) -> MouseInteractionState {
+        if let Some(window_under_mouse) = self.window_containing_point(self.mouse_state.pos) {
+            let mouse_within_window = window_under_mouse
+                .frame()
+                .translate_point(self.mouse_state.pos);
+            if window_under_mouse.is_point_within_title_bar(mouse_within_window) {
+                if allow_transition_from_hint_to_perform
+                    && self.can_transition_to_window_drag(&window_under_mouse)
+                {
+                    MouseInteractionState::PerformingWindowDrag(Rc::clone(&window_under_mouse))
+                } else {
+                    MouseInteractionState::HintingWindowDrag(Rc::clone(&window_under_mouse))
+                }
+            } else if window_under_mouse.is_point_within_resize_inset(mouse_within_window) {
+                if allow_transition_from_hint_to_perform
+                    && self.can_transition_to_window_resize(&window_under_mouse)
+                {
+                    MouseInteractionState::PerformingWindowResize(Rc::clone(&window_under_mouse))
+                } else {
+                    MouseInteractionState::HintingWindowResize(Rc::clone(&window_under_mouse))
+                }
+            } else {
+                MouseInteractionState::WindowHover(Rc::clone(&window_under_mouse))
+            }
+        } else {
+            MouseInteractionState::BackgroundHover
         }
     }
 
     fn handle_left_click_ended(&mut self) {
+        // Simple case so handle it directly
         match &self.mouse_interaction_state {
             MouseInteractionState::PerformingWindowDrag(win) => {
+                // End window drag
                 self.mouse_interaction_state =
                     MouseInteractionState::HintingWindowDrag(Rc::clone(&win))
             }
             MouseInteractionState::PerformingWindowResize(win) => {
-                println!("Ending window resize");
+                // End window resize
                 self.mouse_interaction_state =
                     MouseInteractionState::HintingWindowResize(Rc::clone(&win))
             }
+            MouseInteractionState::WindowHover(win) => {
+                // End left click
+                send_left_click_ended_event(win, self.mouse_state.pos)
+            }
             _ => {}
         }
+    }
+
+    /// Handles informing about mouse enter/exit if necessary given the state we're transferring to/from
+    fn transition_to_mouse_interaction_state(&mut self, new_state: MouseInteractionState) {
+        if self.mouse_interaction_state == new_state {
+            return;
+        }
+        // If we're transitioning out of a window, inform it
+        match &self.mouse_interaction_state {
+            MouseInteractionState::BackgroundHover => {}
+            MouseInteractionState::WindowHover(w)
+            | MouseInteractionState::HintingWindowDrag(w)
+            | MouseInteractionState::HintingWindowResize(w)
+            | MouseInteractionState::PerformingWindowDrag(w)
+            | MouseInteractionState::PerformingWindowResize(w) => {
+                // Has the mouse left the window?
+                let exited_window = match &new_state {
+                    MouseInteractionState::BackgroundHover => true,
+                    MouseInteractionState::WindowHover(w2)
+                    | MouseInteractionState::HintingWindowDrag(w2)
+                    | MouseInteractionState::HintingWindowResize(w2)
+                    | MouseInteractionState::PerformingWindowDrag(w2)
+                    | MouseInteractionState::PerformingWindowResize(w2) => !Rc::ptr_eq(w, w2),
+                };
+                if exited_window {
+                    //println!("Informing window {} about mouse exit", w.name());
+                    send_mouse_exited_event(&w)
+                }
+            }
+        };
+
+        // If we're transitioning into of a window, inform it
+        if let MouseInteractionState::WindowHover(new_win)
+        | MouseInteractionState::HintingWindowDrag(new_win)
+        | MouseInteractionState::HintingWindowResize(new_win)
+        | MouseInteractionState::PerformingWindowDrag(new_win)
+        | MouseInteractionState::PerformingWindowResize(new_win) = &new_state
+        {
+            let entered_window = match &self.mouse_interaction_state {
+                MouseInteractionState::BackgroundHover => true,
+                MouseInteractionState::WindowHover(old_win)
+                | MouseInteractionState::HintingWindowDrag(old_win)
+                | MouseInteractionState::HintingWindowResize(old_win)
+                | MouseInteractionState::PerformingWindowDrag(old_win)
+                | MouseInteractionState::PerformingWindowResize(old_win) => {
+                    // Is the new state not about the same window?
+                    !Rc::ptr_eq(new_win, old_win)
+                }
+            };
+            if entered_window {
+                send_mouse_entered_event(&new_win)
+            }
+        }
+        self.mouse_interaction_state = new_state;
     }
 
     fn handle_mouse_moved(&mut self, new_pos: Point, rel_shift: Point) {
@@ -826,51 +960,16 @@ impl Desktop {
             return;
         }
 
-        // For the rest of the possible state changes we need the position within the
-        // hover window, if any
-        let window_containing_mouse = match self.window_containing_point(new_pos) {
-            None => {
-                self.mouse_interaction_state = MouseInteractionState::BackgroundHover;
-                return;
-            }
-            Some(w) => w,
-        };
-        let mouse_within_window = window_containing_mouse.frame().translate_point(new_pos);
-        if let MouseInteractionState::WindowHover(hovered_window) = &self.mouse_interaction_state {
-            // Check whether we should move to drag hint/resize hint states
-            if hovered_window.is_point_within_title_bar(mouse_within_window) {
-                self.mouse_interaction_state =
-                    MouseInteractionState::HintingWindowDrag(Rc::clone(&hovered_window))
-            } else if hovered_window.is_point_within_resize_inset(mouse_within_window) {
-                self.mouse_interaction_state =
-                    MouseInteractionState::HintingWindowResize(Rc::clone(&hovered_window))
-            }
-        } else if let MouseInteractionState::HintingWindowResize(hovered_window) =
+        // Allow the mouse state to change based on the movement
+        // But don't allow the mouse state to transition from resize/drag hints to active resize/drag from mouse movement alone
+        self.transition_to_mouse_interaction_state(
+            self.mouse_interaction_state_for_mouse_state(false),
+        );
+
+        if let MouseInteractionState::WindowHover(window_under_mouse) =
             &self.mouse_interaction_state
         {
-            if hovered_window.is_point_within_title_bar(mouse_within_window) {
-                self.mouse_interaction_state =
-                    MouseInteractionState::HintingWindowDrag(Rc::clone(&hovered_window));
-            } else if !hovered_window.is_point_within_resize_inset(mouse_within_window) {
-                self.mouse_interaction_state =
-                    MouseInteractionState::WindowHover(Rc::clone(&hovered_window))
-            }
-        } else if let MouseInteractionState::HintingWindowDrag(hovered_window) =
-            &self.mouse_interaction_state
-        {
-            if !hovered_window.is_point_within_title_bar(mouse_within_window) {
-                self.mouse_interaction_state =
-                    MouseInteractionState::HintingWindowResize(Rc::clone(&hovered_window));
-            }
-        } else {
-            // Only assign a hover window (and clone) if we weren't already in this state
-            if !matches!(
-                self.mouse_interaction_state,
-                MouseInteractionState::WindowHover(_)
-            ) {
-                self.mouse_interaction_state =
-                    MouseInteractionState::WindowHover(Rc::clone(&window_containing_mouse))
-            }
+            send_mouse_moved_event(window_under_mouse, self.mouse_state.pos);
         }
     }
 
