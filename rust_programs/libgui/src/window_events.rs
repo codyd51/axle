@@ -59,6 +59,7 @@ impl ExpectsEventField for MouseDragged {
 
 impl AwmWindowEvent for MouseDragged {}
 
+// TODO(PT): Replace with awm_messages version
 #[repr(C)]
 #[derive(Debug, Clone, Copy, ContainsEventField)]
 pub struct MouseLeftClickStarted {
@@ -72,6 +73,7 @@ impl ExpectsEventField for MouseLeftClickStarted {
 
 impl AwmWindowEvent for MouseLeftClickStarted {}
 
+// TODO(PT): Replace with awm_messages version
 #[repr(C)]
 #[derive(Debug, Clone, Copy, ContainsEventField)]
 pub struct MouseLeftClickEnded {

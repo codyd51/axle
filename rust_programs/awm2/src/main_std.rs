@@ -79,9 +79,24 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
      */
     let w1 = desktop.spawn_window(
         "Window 0",
-        &AwmCreateWindow::new(Size::new(30, 30)),
+        &AwmCreateWindow::new(Size::new(400, 400)),
         Some(Point::new(0, 0)),
     );
+    w1.content_layer
+        .borrow_mut()
+        .get_full_slice()
+        .fill(Color::yellow());
+    w1.render_remote_layer();
+    let w2 = desktop.spawn_window(
+        "Window 1",
+        &AwmCreateWindow::new(Size::new(200, 200)),
+        Some(Point::new(0, 0)),
+    );
+    w2.content_layer
+        .borrow_mut()
+        .get_full_slice()
+        .fill(Color::red());
+    w2.render_remote_layer();
 
     let scale_factor = 2;
     let mut last_cursor_pos = None;
@@ -146,6 +161,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                                     }
                                     desktop.handle_mouse_absolute_update(
                                         None,
+                                        None,
                                         get_mouse_status_byte(is_left_click_down),
                                     );
                                 }
@@ -158,6 +174,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                                         writeln!(capture_file, "[MouseUp]").unwrap();
                                     }
                                     desktop.handle_mouse_absolute_update(
+                                        None,
                                         None,
                                         get_mouse_status_byte(is_left_click_down),
                                     );
@@ -189,6 +206,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                         //println!("Synthetic mouse event {rel_x:?}, {rel_y:?}");
                         desktop.handle_mouse_absolute_update(
                             Some(mouse_pos),
+                            None,
                             get_mouse_status_byte(is_left_click_down),
                         );
 

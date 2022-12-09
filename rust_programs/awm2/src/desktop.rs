@@ -11,7 +11,11 @@ use alloc::rc::Rc;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
-use awm_messages::{AwmCreateWindow, AwmMouseScrolled, AwmWindowResized, AwmWindowUpdateTitle};
+use awm_messages::{
+    AwmCreateWindow, AwmMouseEntered, AwmMouseExited, AwmMouseLeftClickEnded,
+    AwmMouseLeftClickStarted, AwmMouseMoved, AwmMouseScrolled, AwmWindowResized,
+    AwmWindowUpdateTitle,
+};
 use axle_rt::core_commands::AmcSharedMemoryCreateRequest;
 use core::cell::RefCell;
 use core::cmp::{max, min};
@@ -51,6 +55,104 @@ fn random_color() -> Color {
 
     let mut rng = SmallRng::seed_from_u64(seed);
     Color::new(rng.gen(), rng.gen(), rng.gen())
+}
+
+fn send_left_click_event(window: &Rc<Window>, mouse_pos: Point) {
+    let mouse_within_window = window.frame().translate_point(mouse_pos);
+    let mouse_within_content_view = window.content_frame().translate_point(mouse_within_window);
+    println!(
+        "send_left_click_event({}, {mouse_within_content_view})",
+        window.name()
+    );
+    #[cfg(target_os = "axle")]
+    {
+        amc_message_send(
+            &window.owner_service,
+            AwmMouseLeftClickStarted::new(mouse_within_content_view),
+        );
+    }
+    #[cfg(not(target_os = "axle"))]
+    {
+        println!(
+            "send_left_click_event({}, {mouse_within_content_view})",
+            window.name()
+        )
+    }
+}
+
+fn send_left_click_ended_event(window: &Rc<Window>, mouse_pos: Point) {
+    let mouse_within_window = window.frame().translate_point(mouse_pos);
+    let mouse_within_content_view = window.content_frame().translate_point(mouse_within_window);
+    #[cfg(target_os = "axle")]
+    {
+        amc_message_send(
+            &window.owner_service,
+            AwmMouseLeftClickEnded::new(mouse_within_content_view),
+        );
+    }
+    #[cfg(not(target_os = "axle"))]
+    {
+        println!(
+            "send_left_click_ended_event({}, {mouse_within_content_view})",
+            window.name()
+        )
+    }
+}
+
+fn send_mouse_entered_event(window: &Rc<Window>) {
+    println!("send_mouse_entered_event({})", window.name());
+    #[cfg(target_os = "axle")]
+    {
+        amc_message_send(&window.owner_service, AwmMouseEntered::new())
+    }
+    #[cfg(not(target_os = "axle"))]
+    {
+        println!("send_mouse_entered_event({})", window.name())
+    }
+}
+
+fn send_mouse_exited_event(window: &Rc<Window>) {
+    #[cfg(target_os = "axle")]
+    {
+        amc_message_send(&window.owner_service, AwmMouseExited::new())
+    }
+    #[cfg(not(target_os = "axle"))]
+    {
+        println!("send_mouse_exited_event({})", window.name())
+    }
+}
+
+fn send_mouse_moved_event(window: &Rc<Window>, mouse_pos: Point) {
+    let mouse_within_window = window.frame().translate_point(mouse_pos);
+    let mouse_within_content_view = window.content_frame().translate_point(mouse_within_window);
+    #[cfg(target_os = "axle")]
+    {
+        amc_message_send(
+            &window.owner_service,
+            AwmMouseMoved::new(mouse_within_content_view),
+        )
+    }
+    #[cfg(not(target_os = "axle"))]
+    {
+        println!(
+            "send_mouse_moved_event({}, {mouse_within_content_view})",
+            window.name()
+        )
+    }
+}
+
+fn send_window_resized_event(window: &Rc<Window>) {
+    #[cfg(target_os = "axle")]
+    {
+        amc_message_send(
+            &window.owner_service,
+            AwmWindowResized::new(window.content_frame().size),
+        );
+    }
+    #[cfg(not(target_os = "axle"))]
+    {
+        println!("send_window_resized_event({})", window.name())
+    }
 }
 
 /// A persistent UI element on the desktop that occludes other elements
@@ -612,6 +714,7 @@ impl Desktop {
             .track_element(Rc::clone(&new_window) as Rc<dyn DesktopElement>);
         self.recompute_drawable_regions_in_rect(window_frame);
 
+        // TODO(PT): Testing
         /*
         new_window.render_remote_layer();
         self.compositor_state
@@ -677,10 +780,10 @@ impl Desktop {
     }
 
     fn handle_mouse_moved(&mut self, new_pos: Point, rel_shift: Point) {
-        // Are we in the middle of dragging a window?
         if let MouseInteractionState::PerformingWindowDrag(dragged_window) =
             &self.mouse_interaction_state
         {
+            // We're in the middle of dragging a window
             let prev_frame = dragged_window.frame();
             // Bind the window to the screen size
             let new_frame = self.bind_rect_to_screen_size(
@@ -701,7 +804,7 @@ impl Desktop {
         } else if let MouseInteractionState::PerformingWindowResize(resized_window) =
             &self.mouse_interaction_state
         {
-            //println!("\tResizing hover window");
+            // We're in the middle of resizing a window
             let old_frame = resized_window.frame();
             let mut new_frame = self.bind_rect_to_screen_size(
                 old_frame.replace_size(old_frame.size + Size::new(rel_shift.x, rel_shift.y)),
@@ -711,15 +814,7 @@ impl Desktop {
             new_frame.size.height = max(new_frame.size.height, 200);
             resized_window.set_frame(new_frame);
             //println!("Set window to {new_frame}");
-
-            #[cfg(target_os = "axle")]
-            {
-                //println!("Sending response to {source} {source:?}: {window_created_msg:?}");
-                amc_message_send(
-                    &(resized_window.owner_service),
-                    AwmWindowResized::new(resized_window.content_frame().size),
-                );
-            }
+            send_window_resized_event(&resized_window);
 
             resized_window.redraw_title_bar();
             let update_rect = old_frame.union(new_frame);

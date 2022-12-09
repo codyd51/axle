@@ -156,3 +156,99 @@ impl AwmMouseScrolled {
 impl ExpectsEventField for AwmMouseScrolled {
     const EXPECTED_EVENT: u32 = 807;
 }
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, ContainsEventField)]
+pub struct AwmMouseLeftClickStarted {
+    event: u32,
+    pub mouse_pos: PointU32,
+}
+
+impl AwmMouseLeftClickStarted {
+    pub fn new(mouse_pos: Point) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            mouse_pos: PointU32::from(mouse_pos),
+        }
+    }
+}
+
+impl ExpectsEventField for AwmMouseLeftClickStarted {
+    const EXPECTED_EVENT: u32 = 809;
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, ContainsEventField)]
+pub struct AwmMouseLeftClickEnded {
+    event: u32,
+    mouse_pos: PointU32,
+}
+
+impl AwmMouseLeftClickEnded {
+    pub fn new(mouse_pos: Point) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            mouse_pos: PointU32::from(mouse_pos),
+        }
+    }
+}
+
+impl ExpectsEventField for AwmMouseLeftClickEnded {
+    const EXPECTED_EVENT: u32 = 811;
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, ContainsEventField)]
+pub struct AwmMouseEntered {
+    event: u32,
+}
+
+impl AwmMouseEntered {
+    pub fn new() -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+        }
+    }
+}
+
+impl ExpectsEventField for AwmMouseEntered {
+    const EXPECTED_EVENT: u32 = 802;
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, ContainsEventField)]
+pub struct AwmMouseExited {
+    event: u32,
+}
+
+impl AwmMouseExited {
+    pub fn new() -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+        }
+    }
+}
+
+impl ExpectsEventField for AwmMouseExited {
+    const EXPECTED_EVENT: u32 = 803;
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, ContainsEventField)]
+pub struct AwmMouseMoved {
+    event: u32,
+    pub mouse_pos: PointU32,
+}
+
+impl AwmMouseMoved {
+    pub fn new(mouse_pos: Point) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            mouse_pos: PointU32::from(mouse_pos),
+        }
+    }
+}
+
+impl ExpectsEventField for AwmMouseMoved {
+    const EXPECTED_EVENT: u32 = 804;
+}

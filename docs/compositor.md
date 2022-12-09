@@ -81,3 +81,7 @@ Trigger "composite everything" rect
 
 Render frame
     Called once per event loop
+
+- state machine for mouse instead of bools that need to be updated
+- only draw difference in dragged window frame for much less blitting
+- unit tests for compositor
