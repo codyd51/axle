@@ -16,6 +16,7 @@ awm_messages = {path = "../awm_messages" }
 libgui = { path = "../libgui", default-features = false }
 mouse_driver_messages = {path = "../mouse_driver_messages" }
 kb_driver_messages = {path = "../kb_driver_messages" }
+preferences_messages = {path = "../preferences_messages" }
 file_manager_messages = {path = "../file_manager_messages" }
 # PT: Just for holding a global RNG for random colors, not vital...
 rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
