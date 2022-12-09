@@ -69,6 +69,10 @@ impl UIElement for OutputView {
         self.view.handle_left_click(mouse_point)
     }
 
+    fn handle_mouse_scrolled(&self, mouse_point: Point, delta_z: isize) {
+        self.view.handle_mouse_scrolled(mouse_point, delta_z)
+    }
+
     fn handle_key_pressed(&self, key: KeyCode) {
         self.view.handle_key_pressed(key)
     }
