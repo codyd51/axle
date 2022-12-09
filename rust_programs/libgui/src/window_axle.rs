@@ -243,15 +243,15 @@ impl AwmWindow {
     }
 
     fn mouse_left_click_up(&self, event: &MouseLeftClickEnded) {
-        printf!("Mouse left click ended: {:?}\n", event);
+        //printf!("Mouse left click ended: {:?}\n", event);
     }
 
     fn mouse_entered(&self, event: &MouseEntered) {
-        printf!("Mouse entered: {:?}\n", event);
+        //printf!("Mouse entered: {:?}\n", event);
     }
 
     fn mouse_exited(&self, event: &MouseExited) {
-        printf!("Mouse exited: {:?}\n", event);
+        //printf!("Mouse exited: {:?}\n", event);
         let elems_containing_mouse = &mut *self.elements_containing_mouse.borrow_mut();
         for elem in elems_containing_mouse.drain(..) {
             elem.handle_mouse_exited();

@@ -57,6 +57,10 @@ fn random_color() -> Color {
     Color::new(rng.gen(), rng.gen(), rng.gen())
 }
 
+fn random_color_with_rng(rng: &mut SmallRng) -> Color {
+    Color::new(rng.gen(), rng.gen(), rng.gen())
+}
+
 fn send_left_click_event(window: &Rc<Window>, mouse_pos: Point) {
     let mouse_within_window = window.frame().translate_point(mouse_pos);
     let mouse_within_content_view = window.content_frame().translate_point(mouse_within_window);
@@ -100,7 +104,6 @@ fn send_left_click_ended_event(window: &Rc<Window>, mouse_pos: Point) {
 }
 
 fn send_mouse_entered_event(window: &Rc<Window>) {
-    println!("send_mouse_entered_event({})", window.name());
     #[cfg(target_os = "axle")]
     {
         amc_message_send(&window.owner_service, AwmMouseEntered::new())
@@ -348,6 +351,8 @@ pub struct Desktop {
     compositor_state: CompositorState,
     pub render_strategy: RenderStrategy,
     rng: SmallRng,
+    pub background_gradient_inner_color: Color,
+    pub background_gradient_outer_color: Color,
 }
 
 impl Desktop {
@@ -369,6 +374,9 @@ impl Desktop {
             .unwrap()
             .as_millis() as u64;
 
+        let mut rng = SmallRng::seed_from_u64(seed);
+        let background_gradient_inner_color = random_color_with_rng(&mut rng);
+        let background_gradient_outer_color = random_color_with_rng(&mut rng);
         Self {
             desktop_frame: Rect::with_size(video_memory_layer.frame().size),
             video_memory_layer,
@@ -379,18 +387,18 @@ impl Desktop {
             compositor_state: CompositorState::new(),
             render_strategy: RenderStrategy::Composite,
             mouse_interaction_state: MouseInteractionState::BackgroundHover,
-            rng: SmallRng::seed_from_u64(seed),
+            rng,
+            background_gradient_inner_color,
+            background_gradient_outer_color,
         }
     }
 
     pub fn draw_background(&self) {
-        let gradient_outer = Color::new(255, 120, 120);
-        let gradient_inner = Color::new(200, 120, 120);
         draw_radial_gradient(
             &self.desktop_background_layer,
             self.desktop_background_layer.size(),
-            gradient_inner,
-            gradient_outer,
+            self.background_gradient_inner_color,
+            self.background_gradient_outer_color,
             (self.desktop_background_layer.width() as f64 / 2.0) as isize,
             (self.desktop_background_layer.height() as f64 / 2.0) as isize,
             self.desktop_background_layer.height() as f64 * 0.65,
