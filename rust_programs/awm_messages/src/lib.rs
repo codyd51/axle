@@ -4,7 +4,7 @@ extern crate alloc;
 #[cfg(target_os = "axle")]
 extern crate libc;
 
-use agx_definitions::{Point, PointU32, Size, SizeU32};
+use agx_definitions::{Color, Point, PointU32, Size, SizeU32};
 use axle_rt::{copy_str_into_sized_slice, ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
 
@@ -253,4 +253,58 @@ impl AwmMouseMoved {
 
 impl ExpectsEventField for AwmMouseMoved {
     const EXPECTED_EVENT: u32 = 804;
+}
+
+// Sent from preferences to awm
+#[repr(C)]
+#[derive(Debug, Clone, Copy, ContainsEventField)]
+pub struct AwmDesktopTraitsRequest {
+    event: u32,
+}
+
+impl ExpectsEventField for AwmDesktopTraitsRequest {
+    const EXPECTED_EVENT: u32 = 815;
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct ColorRgba {
+    r: u8,
+    g: u8,
+    b: u8,
+    a: u8,
+}
+
+impl From<Color> for ColorRgba {
+    fn from(value: Color) -> Self {
+        Self {
+            r: value.r,
+            g: value.g,
+            b: value.b,
+            a: 0xff,
+        }
+    }
+}
+
+// Sent from awm to preferences
+#[repr(C)]
+#[derive(Debug, Clone, Copy, ContainsEventField)]
+pub struct AwmDesktopTraitsResponse {
+    event: u32,
+    desktop_gradient_inner_color: ColorRgba,
+    desktop_gradient_outer_color: ColorRgba,
+}
+
+impl AwmDesktopTraitsResponse {
+    pub fn new(desktop_gradient_inner_color: Color, desktop_gradient_outer_color: Color) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            desktop_gradient_inner_color: ColorRgba::from(desktop_gradient_inner_color),
+            desktop_gradient_outer_color: ColorRgba::from(desktop_gradient_outer_color),
+        }
+    }
+}
+
+impl ExpectsEventField for AwmDesktopTraitsResponse {
+    const EXPECTED_EVENT: u32 = 815;
 }

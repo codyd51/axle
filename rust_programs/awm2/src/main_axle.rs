@@ -10,6 +10,7 @@ use alloc::{
 use core::cmp::{max, min};
 use core::{cell::RefCell, cmp};
 
+use awm_messages::AWM2_SERVICE_NAME;
 use axle_rt::{
     amc_has_message, amc_message_await, amc_message_await_untyped, amc_message_send,
     amc_register_service, printf, println, AmcMessage,
@@ -21,7 +22,8 @@ use agx_definitions::{
     RectInsets, SingleFramebufferLayer, Size, StrokeThickness,
 };
 use awm_messages::{
-    AwmCreateWindow, AwmCreateWindowResponse, AwmWindowRedrawReady, AwmWindowUpdateTitle,
+    AwmCreateWindow, AwmCreateWindowResponse, AwmDesktopTraitsRequest, AwmDesktopTraitsResponse,
+    AwmWindowRedrawReady, AwmWindowUpdateTitle,
 };
 
 use kb_driver_messages::KB_DRIVER_SERVICE_NAME;
@@ -68,21 +70,6 @@ unsafe fn body_as_type_unchecked<T: ExpectsEventField + ContainsEventField>(body
     &*(body.as_ptr() as *const T)
 }
 
-/*
-       typedef struct user_window {
-           // TODO(PT): These fields can't be reordered because draw_queued_extra_draws()
-           // interprets user_window_t as a view_t.
-           Rect frame;
-           ca_layer * layer;
-           array_t * drawable_rects;
-           array_t * extra_draws_this_cycle;
-           bool should_scale_layer;
-           uint32_t window_id;
-           const char * owner_service;
-           const char * title;
-       }
-*/
-
 pub fn main() {
     amc_register_service(AWM2_SERVICE_NAME);
 
@@ -124,48 +111,70 @@ pub fn main() {
         // about its validity
         let msg_source = msg_unparsed.source().to_string();
         unsafe {
-            match msg_source.as_str() {
-                MOUSE_DRIVER_SERVICE_NAME => match event {
-                    MousePacket::EXPECTED_EVENT => {
-                        desktop.handle_mouse_packet(body_as_type_unchecked(raw_body))
-                    }
-                    _ => {
-                        println!("Ignoring unknown message from mouse driver")
-                    }
-                },
+            // Try to match special messages from known services first
+            let consumed = match msg_source.as_str() {
+                MOUSE_DRIVER_SERVICE_NAME => {
+                    match event {
+                        MousePacket::EXPECTED_EVENT => {
+                            desktop.handle_mouse_packet(body_as_type_unchecked(raw_body))
+                        }
+                        _ => {
+                            println!("Ignoring unknown message from mouse driver")
+                        }
+                    };
+                    true
+                }
                 KB_DRIVER_SERVICE_NAME => {
                     // PT: We can't use body_as_type_unchecked because the message from the KB driver lacks
                     // an event field. Do a direct cast until the KB driver message is fixed.
-                    desktop.handle_keyboard_event(unsafe { &*(raw_body.as_ptr() as *const _) })
+                    desktop.handle_keyboard_event(unsafe { &*(raw_body.as_ptr() as *const _) });
+                    true
                 }
-                _ => {
-                    // Unknown sender - probably a client wanting to interact with the window manager
+                PREFERENCES_SERVICE_NAME => {
                     match event {
-                        // Mouse driver events
-                        // libgui events
-                        // Keyboard events
-                        AwmCreateWindow::EXPECTED_EVENT => {
-                            desktop.spawn_window(
-                                &msg_source,
-                                body_as_type_unchecked(raw_body),
-                                None,
+                        AwmDesktopTraitsRequest::EXPECTED_EVENT => {
+                            amc_message_send(
+                                PREFERENCES_SERVICE_NAME,
+                                AwmDesktopTraitsResponse::new(
+                                    desktop.background_gradient_inner_color,
+                                    desktop.background_gradient_outer_color,
+                                ),
                             );
-                        }
-                        AwmWindowRedrawReady::EXPECTED_EVENT => {
-                            //println!("Window said it was ready to redraw!");
-                            desktop.handle_window_requested_redraw(msg_unparsed.source());
-                        }
-                        AwmWindowUpdateTitle::EXPECTED_EVENT => {
-                            desktop.handle_window_updated_title(
-                                &msg_source,
-                                body_as_type_unchecked(raw_body),
-                            );
+                            true
                         }
                         _ => {
-                            println!("Awm ignoring message with unknown event type: {event}");
+                            //println!("Ignoring unknown message from preferences");
+                            false
                         }
                     }
                 }
+            };
+            if consumed {
+                continue;
+            }
+
+            // Unknown sender - probably a client wanting to interact with the window manager
+            match event {
+                // Mouse driver events
+                // libgui events
+                // Keyboard events
+                AwmCreateWindow::EXPECTED_EVENT => {
+                    desktop.spawn_window(&msg_source, body_as_type_unchecked(raw_body), None);
+                }
+                AwmWindowRedrawReady::EXPECTED_EVENT => {
+                    //println!("Window said it was ready to redraw!");
+                    desktop.handle_window_requested_redraw(msg_unparsed.source());
+                }
+                AwmWindowUpdateTitle::EXPECTED_EVENT => {
+                    desktop
+                        .handle_window_updated_title(&msg_source, body_as_type_unchecked(raw_body));
+                }
+                _ => {
+                    println!("Awm ignoring message with unknown event type: {event}");
+                }
+            }
+            match msg_source.as_str() {
+                _ => {}
             }
         }
 
