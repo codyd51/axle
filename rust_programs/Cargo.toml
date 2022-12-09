@@ -26,6 +26,7 @@ members = [
     # "compilation_definitions",
     "mouse_driver_messages",
     "kb_driver_messages",
+    "preferences_messages",
 ]
 
 exclude = [

@@ -1,0 +1,8 @@
+[package]
+name = "preferences_messages"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axle_rt = {path = "../axle_rt" }
+axle_rt_derive = {path = "../axle_rt_derive" }

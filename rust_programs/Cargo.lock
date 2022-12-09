@@ -92,6 +92,7 @@ dependencies = [
  "mouse_driver_messages",
  "num-traits",
  "pixels",
+ "preferences_messages",
  "rand 0.8.5",
  "winit",
 ]
@@ -1522,6 +1523,14 @@ name = "postcard-cobs"
 version = "0.1.5-pre"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c68cb38ed13fd7bc9dd5db8f165b7c8d9c1a315104083a2b10f11354c2af97f"
+
+[[package]]
+name = "preferences_messages"
+version = "0.1.0"
+dependencies = [
+ "axle_rt",
+ "axle_rt_derive",
+]
 
 [[package]]
 name = "proc-macro-crate"
