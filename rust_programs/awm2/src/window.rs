@@ -11,6 +11,7 @@ use core::cell::RefCell;
 use core::fmt::{Display, Formatter};
 
 pub struct Window {
+    id: usize,
     pub frame: RefCell<Rect>,
     drawable_rects: RefCell<Vec<Rect>>,
     pub owner_service: String,
@@ -20,16 +21,22 @@ pub struct Window {
 }
 
 impl Window {
-    const TITLE_BAR_HEIGHT: usize = 30;
+    pub const TITLE_BAR_HEIGHT: usize = 30;
 
-    pub fn new(owner_service: &str, frame: Rect, window_layer: SingleFramebufferLayer) -> Self {
-        let total_size = Self::total_size_for_content_size(window_layer.size());
+    pub fn new(
+        id: usize,
+        owner_service: &str,
+        frame: Rect,
+        content_layer: SingleFramebufferLayer,
+    ) -> Self {
+        let total_size = Self::total_size_for_content_size(content_layer.size());
         Self {
+            id,
             frame: RefCell::new(frame),
             drawable_rects: RefCell::new(vec![]),
             owner_service: owner_service.to_string(),
             layer: RefCell::new(SingleFramebufferLayer::new(total_size)),
-            content_layer: RefCell::new(window_layer),
+            content_layer: RefCell::new(content_layer),
             title: RefCell::new(None),
         }
     }
@@ -127,6 +134,10 @@ impl Display for Window {
 }
 
 impl DesktopElement for Window {
+    fn id(&self) -> usize {
+        self.id
+    }
+
     fn frame(&self) -> Rect {
         *self.frame.borrow()
     }

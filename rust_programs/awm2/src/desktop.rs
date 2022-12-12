@@ -6,6 +6,7 @@ use agx_definitions::{
     StrokeThickness,
 };
 use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::rc::Rc;
 use alloc::string::{String, ToString};
@@ -44,15 +45,18 @@ mod conditional_imports {
 use crate::desktop::conditional_imports::*;
 use crate::window::Window;
 
-fn random_color() -> Color {
+fn get_timestamp() -> u64 {
     #[cfg(target_os = "axle")]
-    let seed = unsafe { libc::ms_since_boot() } as u64;
+    return unsafe { libc::ms_since_boot() as u64 };
     #[cfg(not(target_os = "axle"))]
-    let seed = SystemTime::now()
+    return SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_millis() as u64;
+}
 
+fn random_color() -> Color {
+    let seed = get_timestamp();
     let mut rng = SmallRng::seed_from_u64(seed);
     Color::new(rng.gen(), rng.gen(), rng.gen())
 }
@@ -157,6 +161,7 @@ fn send_window_resized_event(window: &Rc<Window>) {
 /// A persistent UI element on the desktop that occludes other elements
 /// Roughly: a window, a desktop shortcut, etc
 pub trait DesktopElement {
+    fn id(&self) -> usize;
     fn frame(&self) -> Rect;
     fn name(&self) -> String;
     fn drawable_rects(&self) -> Vec<Rect>;
@@ -252,8 +257,9 @@ struct CompositorState {
     elements_to_composite: RefCell<Vec<Rc<dyn DesktopElement>>>,
     // Every desktop element the compositor knows about
     elements: Vec<Rc<dyn DesktopElement>>,
+    elements_by_id: BTreeMap<usize, Rc<dyn DesktopElement>>,
 
-    extra_draws: RefCell<Vec<(Rc<dyn DesktopElement>, Rect)>>,
+    extra_draws: RefCell<BTreeMap<usize, Vec<Rect>>>,
     extra_background_draws: Vec<Rect>,
 }
 
@@ -263,7 +269,8 @@ impl CompositorState {
             rects_to_fully_redraw: vec![],
             elements_to_composite: RefCell::new(vec![]),
             elements: vec![],
-            extra_draws: RefCell::new(vec![]),
+            elements_by_id: BTreeMap::new(),
+            extra_draws: RefCell::new(BTreeMap::new()),
             extra_background_draws: vec![],
         }
     }
@@ -277,11 +284,18 @@ impl CompositorState {
     }
 
     fn track_element(&mut self, element: Rc<dyn DesktopElement>) {
-        self.elements.push(element)
+        self.elements.push(Rc::clone(&element));
+        self.elements_by_id.insert(element.id(), element);
     }
 
     fn queue_extra_draw(&self, element: Rc<dyn DesktopElement>, r: Rect) {
-        self.extra_draws.borrow_mut().push((element, r));
+        let element_id = element.id();
+        let mut extra_draws = self.extra_draws.borrow_mut();
+        if !extra_draws.contains_key(&element_id) {
+            extra_draws.insert(element_id, vec![]);
+        }
+        let mut extra_draws_for_element = extra_draws.get_mut(&element_id).unwrap();
+        extra_draws_for_element.push(r)
     }
 
     fn queue_extra_background_draw(&mut self, r: Rect) {
@@ -349,6 +363,7 @@ pub struct Desktop {
     rng: SmallRng,
     pub background_gradient_inner_color: Color,
     pub background_gradient_outer_color: Color,
+    next_desktop_element_id: usize,
 }
 
 impl Desktop {
@@ -362,15 +377,7 @@ impl Desktop {
         // Start the mouse in the middle of the screen
         let initial_mouse_pos = Point::new(desktop_frame.mid_x(), desktop_frame.mid_y());
 
-        #[cfg(target_os = "axle")]
-        let seed = unsafe { libc::ms_since_boot() } as u64;
-        #[cfg(not(target_os = "axle"))]
-        let seed = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis() as u64;
-
-        let mut rng = SmallRng::seed_from_u64(seed);
+        let mut rng = SmallRng::seed_from_u64(get_timestamp());
         let background_gradient_inner_color = random_color_with_rng(&mut rng);
         let background_gradient_outer_color = random_color_with_rng(&mut rng);
         Self {
@@ -386,6 +393,7 @@ impl Desktop {
             rng,
             background_gradient_inner_color,
             background_gradient_outer_color,
+            next_desktop_element_id: 0,
         }
     }
 
@@ -591,14 +599,22 @@ impl Desktop {
         }
 
         // Composite specific pieces of desktop elements that were invalidated this frame
-        for (desktop_element, screen_rect) in self.compositor_state.extra_draws.borrow_mut().iter()
+        for (desktop_element_id, screen_rects) in
+            self.compositor_state.merge_extra_draws().into_iter()
         {
-            let layer = desktop_element.get_slice();
-            let local_origin = screen_rect.origin - desktop_element.frame().origin;
-            let local_rect = Rect::from_parts(local_origin, screen_rect.size);
-            let src_slice = layer.get_slice(local_rect);
-            let dst_slice = self.screen_buffer_layer.get_slice(*screen_rect);
-            dst_slice.blit2(&src_slice);
+            let desktop_element = self
+                .compositor_state
+                .elements_by_id
+                .get(&desktop_element_id)
+                .unwrap();
+            for screen_rect in screen_rects.iter() {
+                let layer = desktop_element.get_slice();
+                let local_origin = screen_rect.origin - desktop_element.frame().origin;
+                let local_rect = Rect::from_parts(local_origin, screen_rect.size);
+                let src_slice = layer.get_slice(local_rect);
+                let dst_slice = self.screen_buffer_layer.get_slice(*screen_rect);
+                dst_slice.blit2(&src_slice);
+            }
         }
 
         // Copy the bits of the background that we decided we needed to redraw
@@ -622,9 +638,12 @@ impl Desktop {
 
         // We don't need to walk each individual view - we can rely on the logic above to have drawn it to the screen buffer
         //self.compositor_state.extra_draws.borrow_mut().drain(..);
-        for (_, extra_draw) in self.compositor_state.extra_draws.borrow_mut().drain(..) {
-            Self::copy_rect(buffer, vmem, extra_draw);
+        for (_, extra_draw_rects) in self.compositor_state.extra_draws.borrow().iter() {
+            for screen_rect in extra_draw_rects.iter() {
+                Self::copy_rect(buffer, vmem, *screen_rect);
+            }
         }
+        self.compositor_state.extra_draws.borrow_mut().clear();
 
         for full_redraw_rect in self.compositor_state.rects_to_fully_redraw.drain(..) {
             Self::copy_rect(buffer, vmem, full_redraw_rect);
@@ -688,6 +707,12 @@ impl Desktop {
         }
     }
 
+    pub fn next_desktop_element_id(&mut self) -> usize {
+        let ret = self.next_desktop_element_id;
+        self.next_desktop_element_id += 1;
+        ret
+    }
+
     pub fn spawn_window(
         &mut self,
         source: &str,
@@ -711,7 +736,7 @@ impl Desktop {
 
         let desktop_size = self.desktop_frame.size;
         #[cfg(target_os = "axle")]
-        let window_layer = {
+        let content_view_layer = {
             // Ask the kernel to set up a shared memory mapping we'll use for the framebuffer
             // The framebuffer will be the screen size to allow window resizing
             let bytes_per_pixel = self.screen_buffer_layer.bytes_per_pixel();
@@ -742,7 +767,12 @@ impl Desktop {
         let window_layer = SingleFramebufferLayer::new(desktop_size);
 
         let window_frame = Rect::from_parts(new_window_origin, window_size);
-        let new_window = Rc::new(Window::new(&source, window_frame, window_layer));
+        let new_window = Rc::new(Window::new(
+            self.next_desktop_element_id(),
+            &source,
+            window_frame,
+            content_view_layer,
+        ));
         new_window.redraw_title_bar();
         self.windows.insert(0, Rc::clone(&new_window));
         self.compositor_state
@@ -1193,13 +1223,13 @@ mod test {
     use libgui::PixelLayer;
     use mouse_driver_messages::MousePacket;
     use std::cell::RefCell;
+    use std::collections::BTreeMap;
     use std::fs;
     use std::fs::OpenOptions;
     use std::iter::zip;
-    use test::Bencher;
+    //use test::Bencher;
     use winit::event::Event;
-    extern crate test;
-    use crate::window::Window;
+    //extern crate test;
     use winit::event_loop::{ControlFlow, EventLoop};
 
     fn get_desktop_with_size(screen_size: Size) -> Desktop {
@@ -1342,7 +1372,7 @@ mod test {
 
     fn assert_extra_draws(
         desktop: &Desktop,
-        expected_extra_draws: &Vec<(String, Rect)>,
+        expected_extra_draws: &BTreeMap<String, Vec<Rect>>,
         expected_extra_background_draws: &Vec<Rect>,
     ) {
         for elem in desktop.compositor_state.elements.iter() {
@@ -1353,21 +1383,31 @@ mod test {
         }
 
         println!("Extra draws:");
-        for (elem, extra_draw_rect) in desktop.compositor_state.extra_draws.borrow().iter() {
-            println!("Extra draw for {}: {extra_draw_rect}", elem.name());
+        for (elem_id, extra_draw_rects) in desktop.compositor_state.extra_draws.borrow().iter() {
+            let elem = desktop
+                .compositor_state
+                .elements_by_id
+                .get(elem_id)
+                .unwrap();
+            for extra_draw_rect in extra_draw_rects.iter() {
+                println!("Extra draw for {}: {extra_draw_rect}", elem.name());
+            }
         }
         println!("Extra background draws:");
         for extra_background_draw_rect in desktop.compositor_state.extra_background_draws.iter() {
             println!("Extra background draw: {extra_background_draw_rect}");
         }
-        let extra_draws_by_elem_name: Vec<(String, Rect)> = desktop
+        let extra_draws_by_elem_name: BTreeMap<String, Vec<Rect>> = desktop
             .compositor_state
             .extra_draws
             .borrow()
             .iter()
-            .map(|(e, r)| (e.name(), *r))
+            .map(|(e_id, rects)| {
+                let elem = desktop.compositor_state.elements_by_id.get(e_id).unwrap();
+                (elem.name(), rects.clone())
+            })
             .collect();
-        assert_eq!(&extra_draws_by_elem_name, expected_extra_draws,);
+        assert_eq!(&extra_draws_by_elem_name, expected_extra_draws);
         assert_eq!(
             &desktop.compositor_state.extra_background_draws,
             expected_extra_background_draws,
@@ -1385,7 +1425,7 @@ mod test {
         desktop.compute_extra_draws_from_total_update_rects();
         assert_extra_draws(
             &desktop,
-            &vec![(window.name(), Rect::new(390, 200, 10, 10))],
+            &BTreeMap::from([(window.name(), vec![Rect::new(390, 200, 10, 10)])]),
             &vec![Rect::new(400, 110, 90, 100), Rect::new(390, 110, 10, 90)],
         );
     }
@@ -1403,11 +1443,13 @@ mod test {
         desktop.compute_extra_draws_from_total_update_rects();
         assert_extra_draws(
             &desktop,
-            &vec![
-                ("w0".to_string(), Rect::new(150, 110, 30, 90)),
-                ("w0".to_string(), Rect::new(180, 150, 20, 50)),
-                ("w1".to_string(), Rect::new(180, 110, 70, 40)),
-            ],
+            &BTreeMap::from([
+                (
+                    "w0".to_string(),
+                    vec![Rect::new(150, 110, 30, 90), Rect::new(180, 150, 20, 50)],
+                ),
+                ("w1".to_string(), vec![Rect::new(180, 110, 70, 40)]),
+            ]),
             &vec![
                 Rect::new(200, 150, 50, 90),
                 Rect::new(180, 200, 20, 40),
@@ -1426,7 +1468,7 @@ mod test {
         desktop.compute_extra_draws_from_total_update_rects();
         assert_extra_draws(
             &desktop,
-            &vec![("w0".to_string(), Rect::new(150, 150, 20, 20))],
+            &BTreeMap::from([("w0".to_string(), vec![Rect::new(150, 150, 20, 20)])]),
             &vec![],
         );
     }
@@ -1442,10 +1484,10 @@ mod test {
         desktop.compute_extra_draws_from_total_update_rects();
         assert_extra_draws(
             &desktop,
-            &vec![
-                ("w0".to_string(), Rect::new(0, 50, 50, 50)),
-                ("w1".to_string(), Rect::new(50, 50, 25, 35)),
-            ],
+            &BTreeMap::from([
+                ("w0".to_string(), vec![Rect::new(0, 50, 50, 50)]),
+                ("w1".to_string(), vec![Rect::new(50, 50, 25, 35)]),
+            ]),
             &vec![
                 Rect::new(50, 85, 25, 65),
                 Rect::new(50, 0, 25, 50),
