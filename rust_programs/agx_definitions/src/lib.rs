@@ -651,6 +651,15 @@ impl Display for Rect {
     }
 }
 
+impl From<RectU32> for Rect {
+    fn from(rect: RectU32) -> Self {
+        Self {
+            origin: Point::from(rect.origin),
+            size: Size::from(&rect.size),
+        }
+    }
+}
+
 #[derive(PartialEq)]
 struct TileSegment<'a> {
     viewport_frame: Rect,
@@ -1042,6 +1051,10 @@ impl RectU32 {
             origin: PointU32::from(rect.origin),
             size: SizeU32::from(rect.size),
         }
+    }
+
+    pub fn zero() -> Self {
+        Self::from(Rect::zero())
     }
 }
 
