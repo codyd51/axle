@@ -102,7 +102,8 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         .unwrap();
 
         writeln!(capture_file, "[Windows]").unwrap();
-        for window in desktop.windows.iter() {
+        // Iterate backwards to reflect the order windows were spawned (as windows are appended to the front)
+        for window in desktop.windows.iter().rev() {
             let frame = *window.frame.borrow();
             writeln!(
                 capture_file,
