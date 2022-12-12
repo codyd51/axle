@@ -551,7 +551,7 @@ impl Desktop {
             dst.blit2(&src);
         }
         let mouse_rect = self.draw_mouse();
-        self.compositor_state.extra_draws.borrow_mut().drain(..);
+        self.compositor_state.extra_draws.borrow_mut().clear();
         self.compositor_state.rects_to_fully_redraw.drain(..);
         self.compositor_state
             .elements_to_composite
@@ -735,13 +735,17 @@ impl Desktop {
         });
 
         let desktop_size = self.desktop_frame.size;
+        let max_content_view_size = Window::content_size_for_total_size(desktop_size);
         #[cfg(target_os = "axle")]
         let content_view_layer = {
             // Ask the kernel to set up a shared memory mapping we'll use for the framebuffer
             // The framebuffer will be the screen size to allow window resizing
             let bytes_per_pixel = self.screen_buffer_layer.bytes_per_pixel();
-            let shared_memory_size = desktop_size.width * desktop_size.height * bytes_per_pixel;
-            println!("Requesting shared memory of size {shared_memory_size} {desktop_size:?}");
+            let shared_memory_size =
+                max_content_view_size.width * max_content_view_size.height * bytes_per_pixel;
+            println!(
+                "Requesting shared memory of size {shared_memory_size} {max_content_view_size:?}"
+            );
             let shared_memory_response =
                 AmcSharedMemoryCreateRequest::send(&source.to_string(), shared_memory_size as u32);
 
@@ -751,7 +755,7 @@ impl Desktop {
             );
             let framebuffer: &mut [u8] = unsafe { &mut *(framebuffer_slice as *mut [u8]) };
             let window_created_msg = AwmCreateWindowResponse::new(
-                desktop_size,
+                max_content_view_size,
                 bytes_per_pixel as u32,
                 shared_memory_response.remote_buffer_start,
             );
@@ -760,11 +764,11 @@ impl Desktop {
             SingleFramebufferLayer::from_framebuffer(
                 unsafe { Box::from_raw(framebuffer) },
                 bytes_per_pixel,
-                desktop_size,
+                max_content_view_size,
             )
         };
         #[cfg(not(target_os = "axle"))]
-        let window_layer = SingleFramebufferLayer::new(desktop_size);
+        let content_view_layer = SingleFramebufferLayer::new(max_content_view_size);
 
         let window_frame = Rect::from_parts(new_window_origin, window_size);
         let new_window = Rc::new(Window::new(

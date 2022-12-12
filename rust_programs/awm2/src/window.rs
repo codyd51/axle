@@ -120,6 +120,13 @@ impl Window {
             content_size.height + Self::TITLE_BAR_HEIGHT as isize,
         )
     }
+
+    pub fn content_size_for_total_size(total_size: Size) -> Size {
+        Size::new(
+            total_size.width,
+            total_size.height - Self::TITLE_BAR_HEIGHT as isize,
+        )
+    }
 }
 
 impl Display for Window {
