@@ -364,6 +364,7 @@ pub struct Desktop {
     pub background_gradient_inner_color: Color,
     pub background_gradient_outer_color: Color,
     next_desktop_element_id: usize,
+    windows_to_render_remote_layers_this_cycle: Vec<Rc<Window>>,
 }
 
 impl Desktop {
@@ -394,6 +395,7 @@ impl Desktop {
             background_gradient_inner_color,
             background_gradient_outer_color,
             next_desktop_element_id: 0,
+            windows_to_render_remote_layers_this_cycle: vec![],
         }
     }
 
@@ -568,6 +570,12 @@ impl Desktop {
     }
 
     pub fn draw_frame_composited(&mut self) {
+        // First, fetch the remote framebuffers for windows that requested it
+        logs.push(format!("Fetching framebufs for windows:"));
+        for window_to_fetch in self.windows_to_render_remote_layers_this_cycle.drain(..) {
+            window_to_fetch.render_remote_layer();
+        }
+
         self.compute_extra_draws_from_total_update_rects();
 
         // Composite each desktop element that needs to be composited this frame
@@ -1163,7 +1171,16 @@ impl Desktop {
     pub fn handle_window_requested_redraw(&mut self, window_owner: &str) {
         let window = self.window_for_owner(window_owner);
         // Render the framebuffer to the visible window layer
-        window.render_remote_layer();
+        if !self
+            .windows_to_render_remote_layers_this_cycle
+            .iter()
+            .any(|w| Rc::ptr_eq(w, &window))
+        {
+            self.windows_to_render_remote_layers_this_cycle
+                .push(Rc::clone(&window));
+        } else {
+            println!("Ignoring extra draw request for {}", window.name());
+        }
         self.compositor_state
             .queue_composite(Rc::clone(&window) as Rc<dyn DesktopElement>)
     }
