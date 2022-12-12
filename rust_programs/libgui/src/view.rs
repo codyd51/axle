@@ -138,9 +138,9 @@ impl Drawable for View {
         Bordered::content_frame(self)
     }
 
-    fn draw(&self) {
+    fn draw(&self) -> Vec<Rect> {
         //panic!("View is drawn via Bordered::draw()");
-        Bordered::draw(self);
+        Bordered::draw(self)
     }
 }
 

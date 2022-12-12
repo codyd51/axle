@@ -2,6 +2,7 @@ use agx_definitions::{
     Color, Drawable, LayerSlice, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
 };
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 use alloc::{collections::BTreeMap, string::ToString, vec};
 use alloc::{
     rc::{Rc, Weak},

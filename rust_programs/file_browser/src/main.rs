@@ -117,7 +117,7 @@ impl Drawable for CurrentPathView {
         Bordered::content_frame(self)
     }
 
-    fn draw(&self) {
+    fn draw(&self) -> Vec<Rect> {
         Bordered::draw(self)
     }
 }
@@ -244,8 +244,8 @@ impl Drawable for DirectoryEntryView {
         Bordered::content_frame(self)
     }
 
-    fn draw(&self) {
-        Bordered::draw(self);
+    fn draw(&self) -> Vec<Rect> {
+        let out = Bordered::draw(self);
         let button_origin_x = self.button.frame().min_x();
         let divider_origin_x = button_origin_x - 20;
         let gap = 8;
@@ -259,6 +259,7 @@ impl Drawable for DirectoryEntryView {
             Color::new(80, 80, 80),
             StrokeThickness::Width(1),
         );
+        out
     }
 }
 
@@ -380,8 +381,8 @@ impl Drawable for DirectoryContentsView {
         Bordered::content_frame(self)
     }
 
-    fn draw(&self) {
-        Bordered::draw(self);
+    fn draw(&self) -> Vec<Rect> {
+        Bordered::draw(self)
     }
 }
 

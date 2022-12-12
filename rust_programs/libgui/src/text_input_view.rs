@@ -7,6 +7,7 @@ use agx_definitions::{
 };
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
+use alloc::vec::Vec;
 use alloc::{collections::BTreeMap, string::String};
 use core::borrow::Borrow;
 use libgui_derive::{Bordered, Drawable, NestedLayerSlice};

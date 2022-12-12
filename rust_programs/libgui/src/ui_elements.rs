@@ -40,31 +40,3 @@ Differentiate between scrollable view and scrollable layer?
 
     Similar to libgui,
 */
-
-/*
-pub struct ScrollView {
-    // Only refers to the visible portion
-    frame: Rect,
-    layer: ScrollableLayer,
-}
-
-impl ScrollView {
-    pub fn new(frame: Rect, text: &str, color: Color) -> Self {
-        ScrollView {
-            frame,
-            layer: ScrollableLayer::new(frame.size),
-        }
-    }
-}
-
-impl UIElement for ScrollView {
-    fn frame(&self) -> Rect {
-        self.frame
-    }
-}
-
-impl Drawable for ScrollView {
-    fn draw(&self, onto: &mut dyn Layer) {
-    }
-}
-*/

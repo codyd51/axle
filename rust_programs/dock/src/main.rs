@@ -155,8 +155,8 @@ impl Drawable for TaskView {
         Bordered::content_frame(self)
     }
 
-    fn draw(&self) {
-        Bordered::draw(self);
+    fn draw(&self) -> Vec<Rect> {
+        Bordered::draw(self)
     }
 }
 
@@ -420,7 +420,7 @@ impl Drawable for GradientView {
         Bordered::content_frame(self)
     }
 
-    fn draw(&self) {
+    fn draw(&self) -> Vec<Rect> {
         Bordered::draw(self)
     }
 }

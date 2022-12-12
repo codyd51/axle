@@ -4,9 +4,11 @@ extern crate alloc;
 #[cfg(target_os = "axle")]
 extern crate libc;
 
-use agx_definitions::{Color, Point, PointU32, Size, SizeU32};
+use agx_definitions::{Color, Point, PointU32, Rect, RectU32, Size, SizeU32};
+use alloc::vec::Vec;
 use axle_rt::{copy_str_into_sized_slice, ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
+use core::mem::size_of;
 
 pub const AWM2_SERVICE_NAME: &str = "com.axle.awm";
 
@@ -307,4 +309,29 @@ impl AwmDesktopTraitsResponse {
 
 impl ExpectsEventField for AwmDesktopTraitsResponse {
     const EXPECTED_EVENT: u32 = 815;
+}
+
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AwmWindowPartialRedraw {
+    event: u32,
+    pub rect_count: u32,
+    pub rects: [RectU32; 64],
+}
+
+impl AwmWindowPartialRedraw {
+    pub fn new(rects: &Vec<Rect>) -> Self {
+        let src_rects_u32: Vec<RectU32> = rects.iter().map(|r| RectU32::from(*r)).collect();
+        let mut dst_rects = [RectU32::zero(); 64];
+        dst_rects[..rects.len()].copy_from_slice(&src_rects_u32);
+        Self {
+            event: Self::EXPECTED_EVENT,
+            rect_count: rects.len() as u32,
+            rects: dst_rects,
+        }
+    }
+}
+
+impl ExpectsEventField for AwmWindowPartialRedraw {
+    const EXPECTED_EVENT: u32 = 816;
 }

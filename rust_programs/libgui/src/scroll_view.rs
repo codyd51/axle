@@ -142,6 +142,14 @@ impl LikeLayerSlice for ExpandingLayerSlice {
     fn get_buf_ptr_and_row_size(&self) -> (*const u8, usize, usize) {
         todo!()
     }
+
+    fn track_damage(&self, r: Rect) {
+        todo!()
+    }
+
+    fn drain_damages(&self) -> Vec<Rect> {
+        todo!()
+    }
 }
 
 #[derive(PartialEq)]
@@ -565,8 +573,9 @@ impl Drawable for ExpandingLayer {
         *self.visible_frame.borrow()
     }
 
-    fn draw(&self) {
-        println!("ExpandingLayer ignoring draw()")
+    fn draw(&self) -> Vec<Rect> {
+        println!("ExpandingLayer ignoring draw()");
+        vec![]
     }
 }
 
@@ -670,7 +679,7 @@ impl UIElement for ScrollView {
 
     fn handle_key_pressed(&self, key: KeyCode) {
         self.view.handle_key_pressed(key);
-        Bordered::draw(self)
+        Bordered::draw(self);
     }
 
     fn handle_mouse_scrolled(&self, _mouse_point: Point, delta_z: isize) {
@@ -679,12 +688,12 @@ impl UIElement for ScrollView {
         scroll_offset.y += delta_z * 20;
         self.layer.set_scroll_offset(scroll_offset);
         //self.draw()
-        Bordered::draw(self)
+        Bordered::draw(self);
     }
 
     fn handle_key_released(&self, key: KeyCode) {
         self.view.handle_key_released(key);
-        Bordered::draw(self)
+        Bordered::draw(self);
     }
 
     fn handle_superview_resize(&self, superview_size: Size) {

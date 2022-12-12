@@ -10,7 +10,7 @@ use alloc::{
 use core::cmp::{max, min};
 use core::{cell::RefCell, cmp};
 
-use awm_messages::AWM2_SERVICE_NAME;
+use awm_messages::{AwmWindowPartialRedraw, AWM2_SERVICE_NAME};
 use axle_rt::{
     amc_has_message, amc_message_await, amc_message_await_untyped, amc_message_send,
     amc_register_service, printf, println, AmcMessage,
@@ -161,6 +161,12 @@ pub fn main() {
                     AwmWindowRedrawReady::EXPECTED_EVENT => {
                         //println!("Window said it was ready to redraw!");
                         desktop.handle_window_requested_redraw(msg_unparsed.source());
+                    }
+                    AwmWindowPartialRedraw::EXPECTED_EVENT => {
+                        desktop.handle_window_requested_partial_redraw(
+                            msg_unparsed.source(),
+                            body_as_type_unchecked(raw_body),
+                        );
                     }
                     AwmWindowUpdateTitle::EXPECTED_EVENT => {
                         desktop.handle_window_updated_title(

@@ -33,6 +33,9 @@ pub trait LikeLayerSlice: Display {
     // First usize is the inner slice's row size, second usize is increment to get to the next
     // row in the parent framebuf
     fn get_buf_ptr_and_row_size(&self) -> (*const u8, usize, usize);
+
+    fn track_damage(&self, r: Rect);
+    fn drain_damages(&self) -> Vec<Rect>;
 }
 
 #[derive(Debug)]
@@ -58,11 +61,6 @@ impl LayerSlice {
             frame,
             damaged_rects: RefCell::new(Vec::new()),
         }
-    }
-
-    fn record_damaged_rect(&self, rect: Rect) {
-        let mut damaged_rects = self.damaged_rects.borrow_mut();
-        damaged_rects.push(rect);
     }
 }
 
@@ -111,6 +109,8 @@ impl LikeLayerSlice for LayerSlice {
             );
             self.fill_rect(right, color, StrokeThickness::Filled);
         } else {
+            self.track_damage(rect);
+
             let color_as_u32 = (0xff_u32 << 24
                 | (color.r as u32) << 16
                 | (color.g as u32) << 8
@@ -253,59 +253,6 @@ impl LikeLayerSlice for LayerSlice {
             src_row_start += src_backing_layer_size.width * bpp;
             //let dst_pixels_in_row =
         }
-
-        /*
-        int total_px_in_layer = (uint32_t)(dest->size.width * dest->size.height * bpp);
-        int dest_max_y = rect_max_y(dest_frame);
-        for (int i = 0; i < transferabble_rows; i++) {
-            if (i >= dest_max_y) break;
-
-            //figure out how many px we can actually transfer over,
-            //in case src_frame exceeds dest
-            int offset = (uint32_t)dest_row_start - (uint32_t)dest->raw;
-            if (offset >= total_px_in_layer) {
-                break;
-            }
-
-            // blit_layer should handle bounding the provided frames so we never write to memory outside the layers,
-            // regardless of the frames passed.
-            int transferabble_px = MIN(src_frame.size.width, dest_frame.size.width) * bpp;
-            memcpy(dest_row_start, row_start, transferabble_px);
-
-            dest_row_start += (dest->size.width * bpp);
-            row_start += (src->size.width * bpp);
-        }
-        */
-
-        /*
-        let parent_bytes_per_row = self.parent_framebuffer_size.width * bpp;
-        let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
-        let slice_origin_offset = self.frame.origin * bpp_multiple;
-        let dst_origin_offset = slice_origin_offset + (dest_origin * bpp_multiple);
-        let pixel_data = source_layer.pixel_data();
-
-        let source_size = source_layer.frame().size;
-
-        #[cfg(target_os = "axle")]
-        println!(
-            "blit source_size {source_size:?}, dest_size {:?} origin {dest_origin:?}",
-            self.frame().size
-        );
-
-        for y in 0..source_size.height {
-            #[cfg(target_os = "axle")]
-            println!("y {y}");
-            let src_row_start = y * parent_bytes_per_row;
-            let dst_row_start = dst_origin_offset.y + (y * parent_bytes_per_row);
-            for x in 0..source_size.width {
-                let dst_offset = (dst_origin_offset.x + dst_row_start + (x * bpp)) as usize;
-                let src_offset = (src_row_start + (x * bpp)) as usize;
-                for byte in 0..(bpp as usize) {
-                    fb[dst_offset + byte] = pixel_data[src_offset + byte];
-                }
-            }
-        }
-        */
     }
 
     fn blit2(&self, source_layer: &Box<dyn LikeLayerSlice>) {
@@ -428,6 +375,14 @@ impl LikeLayerSlice for LayerSlice {
             slice_bytes_per_row,
             parent_bytes_per_row,
         )
+    }
+
+    fn track_damage(&self, r: Rect) {
+        self.damaged_rects.borrow_mut().push(r)
+    }
+
+    fn drain_damages(&self) -> Vec<Rect> {
+        self.damaged_rects.borrow_mut().drain(..).collect()
     }
 }
 

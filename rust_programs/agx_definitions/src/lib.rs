@@ -83,7 +83,8 @@ pub trait Drawable {
 
     fn content_frame(&self) -> Rect;
 
-    fn draw(&self);
+    /// Returns the rects damaged while drawing
+    fn draw(&self) -> Vec<Rect>;
 }
 
 #[derive(Debug, Copy, Clone)]

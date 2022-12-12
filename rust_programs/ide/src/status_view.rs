@@ -5,6 +5,7 @@ use alloc::{
     boxed::Box,
     format,
     rc::{Rc, Weak},
+    vec::Vec,
 };
 use libgui::{
     bordered::Bordered, button::Button, label::Label, ui_elements::UIElement, view::View, KeyCode,

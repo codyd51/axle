@@ -4,6 +4,7 @@ use agx_definitions::{
 };
 use alloc::boxed::Box;
 use alloc::rc::Rc;
+use alloc::vec::Vec;
 
 use crate::ui_elements::UIElement;
 
@@ -12,7 +13,7 @@ pub trait Bordered: Drawable + UIElement {
 
     fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>);
 
-    fn draw(&self) {
+    fn draw(&self) -> Vec<Rect> {
         let slice = self.get_slice_for_render();
         //let slice = self.get_slice();
 
@@ -27,9 +28,11 @@ pub trait Bordered: Drawable + UIElement {
             //println!("Bordered.draw() ContentSlice {content_slice}, slice {}", slice.frame());
             self.draw_inner_content(slice.frame(), &mut content_slice);
         }
+
+        slice.drain_damages()
     }
 
-    fn draw_rc(self: Rc<Self>) {
+    fn draw_rc(self: Rc<Self>) -> Vec<Rect> {
         let mut slice = self.get_slice_for_render();
 
         if !self.border_enabled() {
@@ -38,6 +41,8 @@ pub trait Bordered: Drawable + UIElement {
             let mut content_slice = slice.get_slice(self.draw_border());
             self.draw_inner_content(slice.frame(), &mut content_slice);
         }
+
+        slice.drain_damages()
     }
 
     fn border_enabled(&self) -> bool {

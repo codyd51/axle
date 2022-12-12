@@ -52,7 +52,7 @@ fn impl_drawable_derive(ast: &syn::DeriveInput) -> TokenStream {
                 Bordered::content_frame(self)
             }
 
-            fn draw(&self) {
+            fn draw(&self) -> Vec<Rect> {
                 Bordered::draw(self)
             }
         }

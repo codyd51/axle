@@ -1,3 +1,4 @@
+use alloc::vec;
 use alloc::{boxed::Box, rc::Rc};
 use alloc::{rc::Weak, vec::Vec};
 
@@ -13,7 +14,8 @@ use agx_definitions::{
     Drawable, Layer, LikeLayerSlice, NestedLayerSlice, Point, Rect, SingleFramebufferLayer, Size,
 };
 use awm_messages::{
-    AwmCreateWindow, AwmCreateWindowResponse, AwmWindowRedrawReady, AwmWindowUpdateTitle,
+    AwmCreateWindow, AwmCreateWindowResponse, AwmWindowPartialRedraw, AwmWindowRedrawReady,
+    AwmWindowUpdateTitle,
 };
 
 use crate::ui_elements::*;
@@ -23,7 +25,7 @@ pub struct AwmWindow {
     pub layer: RefCell<SingleFramebufferLayer>,
     pub current_size: RefCell<Size>,
 
-    _damaged_rects: Vec<Rect>,
+    damaged_rects: RefCell<Vec<Rect>>,
     ui_elements: RefCell<Vec<Rc<dyn UIElement>>>,
     elements_containing_mouse: RefCell<Vec<Rc<dyn UIElement>>>,
     amc_message_cb: RefCell<Option<Box<dyn Fn(&Self, AmcMessage<[u8]>)>>>,
@@ -86,9 +88,9 @@ impl AwmWindow {
         AwmWindow {
             layer,
             current_size: RefCell::new(size),
-            _damaged_rects: Vec::new(),
-            ui_elements: RefCell::new(Vec::new()),
-            elements_containing_mouse: RefCell::new(Vec::new()),
+            damaged_rects: RefCell::new(vec![]),
+            ui_elements: RefCell::new(vec![]),
+            elements_containing_mouse: RefCell::new(vec![]),
             amc_message_cb: RefCell::new(None),
         }
     }
@@ -127,14 +129,22 @@ impl AwmWindow {
     pub fn draw(&self) {
         //printf!("Window drawing all contents...\n");
         let elems = &*self.ui_elements.borrow();
+        let mut damages = self.damaged_rects.borrow_mut();
         for elem in elems {
-            elem.draw();
+            damages.append(&mut elem.draw());
         }
         //printf!("Window drawing all contents finished\n");
     }
 
     pub fn commit(&self) {
         amc_message_send(AwmWindow::AWM_SERVICE_NAME, AwmWindowRedrawReady::new());
+    }
+
+    pub fn commit_partial(&self) {
+        amc_message_send(
+            AwmWindow::AWM_SERVICE_NAME,
+            AwmWindowPartialRedraw::new(&self.damaged_rects.borrow_mut().drain(..).collect()),
+        );
     }
 
     pub fn set_title(title: &str) {
@@ -431,7 +441,7 @@ impl Drawable for AwmWindow {
         self.frame()
     }
 
-    fn draw(&self) {
+    fn draw(&self) -> Vec<Rect> {
         panic!("Not available for AwmWindow");
     }
 }

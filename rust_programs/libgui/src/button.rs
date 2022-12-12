@@ -7,6 +7,7 @@ use agx_definitions::{
 use alloc::boxed::Box;
 use alloc::rc::Weak;
 use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 
 use crate::{bordered::Bordered, font::draw_char, ui_elements::UIElement};
 
@@ -166,8 +167,8 @@ impl Drawable for Button {
         Bordered::content_frame(self)
     }
 
-    fn draw(&self) {
-        Bordered::draw(self);
+    fn draw(&self) -> Vec<Rect> {
+        Bordered::draw(self)
     }
 }
 

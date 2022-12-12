@@ -4,6 +4,8 @@ use agx_definitions::{Color, Drawable, NestedLayerSlice, Point, Rect, Size};
 use alloc::{
     rc::{Rc, Weak},
     string::{String, ToString},
+    vec,
+    vec::Vec,
 };
 
 use crate::{font::draw_char, ui_elements::UIElement};
@@ -62,7 +64,7 @@ impl Drawable for Label {
         Rect::from_parts(Point::zero(), self.frame().size)
     }
 
-    fn draw(&self) {
+    fn draw(&self) -> Vec<Rect> {
         let onto = &mut self.get_slice();
         let font_size = Size::new(8, 10);
         let mut cursor = Point::zero();
@@ -70,5 +72,7 @@ impl Drawable for Label {
             draw_char(onto, ch, &cursor, self.color, &font_size);
             cursor.x += font_size.width;
         }
+        // TODO: Damages
+        vec![]
     }
 }

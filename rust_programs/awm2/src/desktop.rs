@@ -13,8 +13,8 @@ use alloc::vec;
 use alloc::vec::Vec;
 use awm_messages::{
     AwmCreateWindow, AwmMouseEntered, AwmMouseExited, AwmMouseLeftClickEnded,
-    AwmMouseLeftClickStarted, AwmMouseMoved, AwmMouseScrolled, AwmWindowResized,
-    AwmWindowUpdateTitle,
+    AwmMouseLeftClickStarted, AwmMouseMoved, AwmMouseScrolled, AwmWindowPartialRedraw,
+    AwmWindowResized, AwmWindowUpdateTitle,
 };
 use axle_rt::core_commands::AmcSharedMemoryCreateRequest;
 use core::cell::RefCell;
@@ -64,10 +64,6 @@ fn random_color_with_rng(rng: &mut SmallRng) -> Color {
 fn send_left_click_event(window: &Rc<Window>, mouse_pos: Point) {
     let mouse_within_window = window.frame().translate_point(mouse_pos);
     let mouse_within_content_view = window.content_frame().translate_point(mouse_within_window);
-    println!(
-        "send_left_click_event({}, {mouse_within_content_view})",
-        window.name()
-    );
     #[cfg(target_os = "axle")]
     {
         amc_message_send(
@@ -1136,6 +1132,24 @@ impl Desktop {
         window.render_remote_layer();
         self.compositor_state
             .queue_composite(Rc::clone(&window) as Rc<dyn DesktopElement>)
+    }
+
+    pub fn handle_window_requested_partial_redraw(
+        &mut self,
+        window_owner: &str,
+        update: &AwmWindowPartialRedraw,
+    ) {
+        println!(
+            "Got partial redraw from {window_owner} with {} rects:",
+            update.rect_count
+        );
+        let rects: Vec<Rect> = update.rects[..update.rect_count as usize]
+            .iter()
+            .map(|r_u32| Rect::from(*r_u32))
+            .collect();
+        for r in rects.iter() {
+            println!("\t{r}")
+        }
     }
 
     pub fn handle_window_updated_title(&self, window_owner: &str, update: &AwmWindowUpdateTitle) {
