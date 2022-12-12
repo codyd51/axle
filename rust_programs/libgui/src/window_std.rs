@@ -234,6 +234,14 @@ impl LikeLayerSlice for PixelLayerSlice {
     fn get_buf_ptr_and_row_size(&self) -> (*const u8, usize, usize) {
         todo!()
     }
+
+    fn track_damage(&self, r: Rect) {
+        todo!()
+    }
+
+    fn drain_damages(&self) -> Vec<Rect> {
+        todo!()
+    }
 }
 
 pub struct PixelLayer {
@@ -344,6 +352,14 @@ impl LikeLayerSlice for PixelLayer {
     }
 
     fn get_buf_ptr_and_row_size(&self) -> (*const u8, usize, usize) {
+        todo!()
+    }
+
+    fn track_damage(&self, r: Rect) {
+        todo!()
+    }
+
+    fn drain_damages(&self) -> Vec<Rect> {
         todo!()
     }
 }
@@ -636,7 +652,7 @@ impl Drawable for AwmWindow {
         self.frame()
     }
 
-    fn draw(&self) {
+    fn draw(&self) -> Vec<Rect> {
         panic!("Not available for AwmWindow");
     }
 }
