@@ -1,14 +1,18 @@
 use crate::desktop::{Desktop, RenderStrategy};
-use agx_definitions::{Color, Layer, LikeLayerSlice, Point, Rect, Size};
+use agx_definitions::{Color, Layer, LikeLayerSlice, Point, Rect, SingleFramebufferLayer, Size};
 use alloc::rc::Rc;
 use awm_messages::{AwmCreateWindow, AwmWindowUpdateTitle};
+use image::{save_buffer_with_format, ImageBuffer, RgbImage, Rgba};
 use libgui::PixelLayer;
 use mouse_driver_messages::MousePacket;
 use pixels::{Error, Pixels, SurfaceTexture};
+use rand::prelude::SmallRng;
+use rand::{Rng, SeedableRng};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::mem::transmute;
-use std::{error, fs};
+use std::time::{SystemTime, UNIX_EPOCH};
+use std::{env, error, fs};
 use winit::event::{MouseButton, MouseScrollDelta};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
@@ -22,8 +26,13 @@ use winit::{
 };
 
 pub fn main() -> Result<(), Box<dyn error::Error>> {
+    for i in 0..100 {
+        replay_capture();
+    }
+    return Ok(());
+
     let event_loop = EventLoop::new();
-    let desktop_size = Size::new(1024, 768);
+    let desktop_size = Size::new(1920, 1080);
     let mut layer = Rc::new(Box::new(PixelLayer::new(
         "Hosted awm",
         &event_loop,
@@ -43,60 +52,34 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
             .write(true)
             //.append(true)
             .create(true)
-            .open("./capture.txt")
+            .open(capture_file_path())
             .unwrap(),
     );
     println!("capture_file {:?}", &capture_file.as_ref());
 
-    /*
-    let w1 = desktop.spawn_window(
-        "Window 0",
-        &AwmCreateWindow::new(Size::new(900, 400)),
-        Some(Point::new(100, 100)),
-    );
-    w1.content_layer
-        .borrow_mut()
-        .get_full_slice()
-        .fill(Color::yellow());
-    let w2 = desktop.spawn_window(
-        "Window 1",
-        &AwmCreateWindow::new(Size::new(100, 100)),
-        Some(Point::new(250, 250)),
-    );
-    w2.content_layer
-        .borrow_mut()
-        .get_full_slice()
-        .fill(Color::blue());
-    let w3 = desktop.spawn_window(
-        "Window 2",
-        &AwmCreateWindow::new(Size::new(100, 100)),
-        Some(Point::new(300, 300)),
-    );
-    w3.content_layer
-        .borrow_mut()
-        .get_full_slice()
-        .fill(Color::green());
-     */
-    let w1 = desktop.spawn_window(
-        "Window 0",
-        &AwmCreateWindow::new(Size::new(400, 400)),
-        Some(Point::new(0, 0)),
-    );
-    w1.content_layer
-        .borrow_mut()
-        .get_full_slice()
-        .fill(Color::yellow());
-    w1.render_remote_layer();
-    let w2 = desktop.spawn_window(
-        "Window 1",
-        &AwmCreateWindow::new(Size::new(200, 200)),
-        Some(Point::new(0, 0)),
-    );
-    w2.content_layer
-        .borrow_mut()
-        .get_full_slice()
-        .fill(Color::red());
-    w2.render_remote_layer();
+    let seed = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+    let mut rng = SmallRng::seed_from_u64(seed);
+    for i in 0..20 {
+        let window_size = Size::new(
+            rng.gen_range(200..desktop_size.width),
+            rng.gen_range(200..desktop_size.height - 30),
+        );
+        /*
+        let window_origin = Point::new(
+            rng.gen_range(0..desktop_size.width - window_size.width),
+            rng.gen_range(0..desktop_size.height - window_size.height),
+        );
+        */
+        desktop.spawn_window(
+            &format!("w{i}"),
+            &AwmCreateWindow::new(window_size),
+            //Some(window_origin),
+            None,
+        );
+    }
 
     let scale_factor = 2;
     let mut last_cursor_pos = None;
@@ -212,9 +195,14 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
 
                         last_cursor_pos = Some(mouse_pos);
                         if let Some(capture_file) = &mut capture_file {
-                            writeln!(capture_file, "[MouseMoved]").unwrap();
+                            writeln!(
+                                capture_file,
+                                "[MouseMoved]\n{}, {}",
+                                mouse_pos.x, mouse_pos.y
+                            )
+                            .unwrap();
                             //writeln!(capture_file, "{} {}", rel_x as i8, rel_y as i8).unwrap();
-                            writeln!(capture_file, "{}, {}", mouse_pos.x, mouse_pos.y);
+                            //writeln!(capture_file, "{}, {}", mouse_pos.x, mouse_pos.y);
                         }
                     }
                     WindowEvent::CursorLeft { device_id } => {
@@ -228,7 +216,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                         if let Some(key_code) = input.virtual_keycode {
                             match key_code {
                                 VirtualKeyCode::A => {
-                                    w1.render_remote_layer();
+                                    //w1.render_remote_layer();
                                     /*
                                     desktop.handle_window_updated_title(
                                         "Window 0",
@@ -271,4 +259,233 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     });
 
     Ok(())
+}
+
+fn capture_file_path() -> String {
+    env::current_dir()
+        .unwrap()
+        .join("capture.txt")
+        .to_str()
+        .unwrap()
+        .to_string()
+    /*
+    .ancestors()
+    .nth(2)
+    .ok_or(io::Error::new(
+        io::ErrorKind::NotFound,
+        "Failed to find parent",
+    ))?
+    .join("axle-sysroot");
+     */
+}
+
+fn parse_isize_vec(line: &str) -> Vec<isize> {
+    //println!("parse_isize_vec {line}");
+    let components: Vec<&str> = line.split(", ").collect();
+    components
+        .into_iter()
+        .map(|component| isize::from_str_radix(component, 10).unwrap())
+        .collect()
+}
+
+fn parse_point(line: &str) -> Point {
+    let parts = parse_isize_vec(line);
+    Point::new(parts[0], parts[1])
+}
+
+fn parse_size(line: &str) -> Size {
+    //println!("parse_size {line}");
+    let components: Vec<&str> = line.split(", ").collect();
+    Size::new(
+        isize::from_str_radix(components[0], 10).unwrap(),
+        isize::from_str_radix(components[1], 10).unwrap(),
+    )
+}
+
+fn parse_size_space(line: &str) -> Size {
+    println!("parse_size_space {line}");
+    let components: Vec<&str> = line.split(" ").collect();
+    Size::new(
+        isize::from_str_radix(components[0], 10).unwrap(),
+        isize::from_str_radix(components[1], 10).unwrap(),
+    )
+}
+
+fn get_mouse_status_byte(left_click_down: bool) -> i8 {
+    let mut out = 0;
+    if left_click_down {
+        out |= (1 << 0);
+    }
+    out
+}
+
+fn replay_capture() {
+    let data = Rc::new(
+        fs::read_to_string(capture_file_path())
+            .expect("Unable to read file")
+            .clone(),
+    );
+    let data_clone = Rc::clone(&data);
+    let mut line_iter = data.split('\n').into_iter().enumerate().peekable();
+
+    assert_eq!(line_iter.next().unwrap().1, "[Size]");
+
+    let desktop_size = parse_size(line_iter.next().unwrap().1);
+    println!("Got desktop size {desktop_size}");
+    let mut desktop = get_desktop_with_size(desktop_size);
+
+    desktop.draw_background();
+    // Start off by drawing a blank canvas consisting of the desktop background
+    desktop.blit_background();
+    desktop.commit_entire_buffer_to_video_memory();
+
+    assert_eq!(line_iter.next().unwrap().1, "[Windows]");
+    let mut window_counter = 0;
+    loop {
+        let peek = line_iter.peek().unwrap().1;
+        if peek.starts_with('[') {
+            break;
+        }
+        let line = line_iter.next().unwrap().1;
+        let window_frame = {
+            let components: Vec<&str> = line.split(", ").collect();
+            Rect::from_parts(
+                Point::new(
+                    isize::from_str_radix(components[0], 10).unwrap(),
+                    isize::from_str_radix(components[1], 10).unwrap(),
+                ),
+                Size::new(
+                    isize::from_str_radix(components[2], 10).unwrap(),
+                    isize::from_str_radix(components[3], 10).unwrap(),
+                ),
+            )
+        };
+        println!("Got window frame {window_frame}");
+        let w = desktop.spawn_window(
+            &format!("win{window_counter}"),
+            &AwmCreateWindow::new(window_frame.size),
+            Some(window_frame.origin),
+        );
+        window_counter += 1;
+    }
+    desktop.draw_frame();
+
+    let mut last_mouse_pos = Point::zero();
+    let mut is_left_click_down = false;
+    let mut event_count = 0;
+    while let Some((line_num, line)) = line_iter.next() {
+        if line == "[MouseMoved]" {
+            /*
+            //let rel_movement = parse_size_space(line_iter.next().unwrap());
+            last_mouse_pos =
+                last_mouse_pos + Point::new(rel_movement.width, rel_movement.height);
+             */
+            let new_mouse_pos = parse_point(line_iter.next().unwrap().1);
+            last_mouse_pos = new_mouse_pos;
+            desktop.handle_mouse_absolute_update(
+                Some(new_mouse_pos),
+                None,
+                get_mouse_status_byte(is_left_click_down),
+            );
+        } else if line == "[MouseDown]" {
+            is_left_click_down = true;
+            desktop.handle_mouse_absolute_update(
+                None,
+                None,
+                get_mouse_status_byte(is_left_click_down),
+            );
+        } else if line == "[MouseUp]" {
+            is_left_click_down = false;
+            desktop.handle_mouse_absolute_update(
+                None,
+                None,
+                get_mouse_status_byte(is_left_click_down),
+            );
+        } else if line == "[SetMousePos]" {
+            last_mouse_pos = parse_point(line_iter.next().unwrap().1);
+        } else if line == "\n" || line.len() == 0 {
+        } else {
+            panic!("Unhandled line #{line_num}: {line}");
+        }
+        desktop.draw_frame();
+        event_count += 1;
+
+        /*
+        let desktop_size = desktop.desktop_frame.size;
+        let img: RgbImage = ImageBuffer::new(desktop_size.width as u32, desktop_size.height as u32);
+        let desktop_slice = desktop
+            .video_memory_layer
+            .get_slice(Rect::with_size(desktop_size));
+        let mut pixel_data = desktop_slice.pixel_data();
+        let (prefix, pixel_data_u32, suffix) = unsafe { pixel_data.align_to_mut::<u32>() };
+        // Ensure the slice was exactly u32-aligned
+        assert_eq!(prefix.len(), 0);
+        assert_eq!(suffix.len(), 0);
+        let mut pixels: Vec<Rgba<u32>> = pixel_data_u32
+            .into_iter()
+            //.map(|word| Rgba([*word >> 24, *word >> 16, *word >> 8, 0xff]))
+            .map(|word| Rgba([*word >> 24, *word >> 16, *word >> 8, 0xff]))
+            .collect();
+        save_buffer_with_format(
+            format!("./test_capture2/frame{event_count}.jpg"),
+            &pixel_data,
+            desktop_size.width as u32,
+            desktop_size.height as u32,
+            image::ColorType::Rgba8,
+            image::ImageFormat::Jpeg,
+        )
+            .unwrap();
+        */
+
+        /*
+        let mut img = ImageBuffer::from_fn(
+            desktop_size.width as u32,
+            desktop_size.height as u32,
+            |x, y| {
+                let px = desktop_slice.getpixel(Point::new(x as isize, y as isize));
+                Rgba([px.r, px.g, px.b, 0xff])
+            },
+        );
+        */
+
+        /*
+        let mut pixels = vec![];
+        let mut iter = pixel_data.into_iter().peekable();
+        loop {
+            let r = iter.next().unwrap();
+            let g = iter.next().unwrap();
+            let b = iter.next().unwrap();
+            pixels.append(&mut [r, g, b, 0xff]);
+            if iter.peek().is_none() {
+                break;
+            }
+        }
+         */
+
+        /*
+        let mut img: ImageBuffer<Rgba<u32>, Vec<_>> = ImageBuffer::from_vec(
+            desktop_size.width as u32,
+            desktop_size.height as u32,
+            pixels,
+        )
+        .unwrap();
+        img.save(format!("./test_capture2/frame{event_count}.png"));
+
+         */
+    }
+
+    /*
+    let mut gif_file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open("./test.gif")
+        .unwrap();
+    let out = GifEncoder::new(gif_file);
+    */
+}
+
+fn get_desktop_with_size(screen_size: Size) -> Desktop {
+    let mut vmem = SingleFramebufferLayer::new(screen_size);
+    let layer_as_trait_object = Rc::new(vmem.get_full_slice());
+    Desktop::new(Rc::clone(&layer_as_trait_object))
 }
