@@ -301,6 +301,59 @@ impl CompositorState {
     fn queue_extra_background_draw(&mut self, r: Rect) {
         self.extra_background_draws.push(r);
     }
+
+    fn merge_extra_draws(&self) -> BTreeMap<usize, Vec<Rect>> {
+        let mut out = BTreeMap::new();
+        for (elem_id, extra_draws) in self.extra_draws.borrow().iter() {
+            let mut rects = extra_draws.clone();
+
+            // Sort by X origin
+            rects.sort_by(|a, b| {
+                if a.origin.x < b.origin.x {
+                    core::cmp::Ordering::Less
+                } else if a.origin.x > b.origin.x {
+                    core::cmp::Ordering::Greater
+                } else {
+                    core::cmp::Ordering::Equal
+                }
+            });
+
+            'begin: loop {
+                let mut merged_anything = false;
+                //let mut unmerged_rects = rects.clone();
+
+                let rects_clone = rects.clone();
+                'outer: for (i, r1) in rects_clone.iter().enumerate() {
+                    for (j, r2) in rects_clone[i + 1..].iter().enumerate() {
+                        if r1.max_x() == r2.min_x()
+                            && r1.min_y() == r2.min_y()
+                            && r1.max_y() == r2.max_y()
+                        {
+                            //println!("Merging {r1} and {r2}");
+                            //merged_rects.push(r1.union(*r2));
+                            merged_anything = true;
+                            // r1 and r2 have been merged
+                            rects.retain(|r| r != r1 && r != r2);
+                            // TODO(PT): Is the sort order still correct?
+                            rects.insert(i, r1.union(*r2));
+                            continue 'begin;
+                        }
+                    }
+                }
+
+                // TODO(PT): Are we losing rects?
+
+                if !merged_anything {
+                    break;
+                }
+
+                //rects = merged_rects.clone();
+            }
+            out.insert(*elem_id, rects);
+        }
+
+        out
+    }
 }
 
 enum MouseInteractionState {
@@ -349,9 +402,9 @@ pub enum RenderStrategy {
 }
 
 pub struct Desktop {
-    desktop_frame: Rect,
+    pub desktop_frame: Rect,
     // The final video memory
-    video_memory_layer: Rc<Box<dyn LikeLayerSlice>>,
+    pub video_memory_layer: Rc<Box<dyn LikeLayerSlice>>,
     screen_buffer_layer: Box<SingleFramebufferLayer>,
     desktop_background_layer: Box<SingleFramebufferLayer>,
     // Index 0 is the foremost window
@@ -1561,10 +1614,35 @@ mod test {
     }
     */
 
+    #[test]
+    fn test_merge_extra_draws() {
+        // Given a few adjacent extra-draw rectangles
+        let (mut desktop, windows) = spawn_windows_with_frames(vec![Rect::new(700, 800, 500, 80)]);
+        let window_as_desktop_elem = Rc::clone(&windows[0]);
+        for extra_draw_rect in vec![
+            Rect::new(710, 801, 125, 53),
+            Rect::new(835, 801, 250, 53),
+            Rect::new(1085, 801, 125, 53),
+        ]
+        .into_iter()
+        {
+            desktop.compositor_state.queue_extra_draw(
+                Rc::clone(&window_as_desktop_elem) as Rc<dyn DesktopElement>,
+                extra_draw_rect,
             );
         }
+        for (i, rects) in desktop.compositor_state.merge_extra_draws() {
+            for r in rects.iter() {
+                println!("{r}");
             }
         }
 
+        assert_eq!(
+            desktop.compositor_state.merge_extra_draws(),
+            BTreeMap::from([(
+                window_as_desktop_elem.id(),
+                vec![Rect::new(710, 801, 500, 53)]
+            )])
+        );
     }
 }
