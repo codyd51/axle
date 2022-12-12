@@ -365,6 +365,7 @@ pub struct Desktop {
     pub background_gradient_outer_color: Color,
     next_desktop_element_id: usize,
     windows_to_render_remote_layers_this_cycle: Vec<Rc<Window>>,
+    frame_render_logs: Vec<String>,
 }
 
 impl Desktop {
@@ -396,6 +397,7 @@ impl Desktop {
             background_gradient_outer_color,
             next_desktop_element_id: 0,
             windows_to_render_remote_layers_this_cycle: vec![],
+            frame_render_logs: vec![],
         }
     }
 
@@ -539,6 +541,10 @@ impl Desktop {
         }
     }
 
+    fn append_log(&mut self, log: String) {
+        self.frame_render_logs.push(log)
+    }
+
     pub fn draw_frame_simple(&mut self) {
         Self::copy_rect(
             &mut *self.desktop_background_layer.get_full_slice(),
@@ -570,14 +576,19 @@ impl Desktop {
     }
 
     pub fn draw_frame_composited(&mut self) {
+        let start = get_timestamp();
+
+        let mut logs: Vec<String> = self.frame_render_logs.drain(..).collect();
         // First, fetch the remote framebuffers for windows that requested it
         logs.push(format!("Fetching framebufs for windows:"));
         for window_to_fetch in self.windows_to_render_remote_layers_this_cycle.drain(..) {
+            logs.push(format!("\t{}", window_to_fetch.name()));
             window_to_fetch.render_remote_layer();
         }
 
         self.compute_extra_draws_from_total_update_rects();
 
+        logs.push(format!("Elements to composite:"));
         // Composite each desktop element that needs to be composited this frame
         for desktop_element in self
             .compositor_state
@@ -585,6 +596,7 @@ impl Desktop {
             .borrow_mut()
             .drain(..)
         {
+            logs.push(format!("\t{}", desktop_element.name()));
             let layer = desktop_element.get_slice();
             let drawable_rects = desktop_element.drawable_rects();
             for drawable_rect in drawable_rects.iter() {
@@ -607,6 +619,7 @@ impl Desktop {
         }
 
         // Composite specific pieces of desktop elements that were invalidated this frame
+        logs.push(format!("Extra draws:"));
         for (desktop_element_id, screen_rects) in
             self.compositor_state.merge_extra_draws().into_iter()
         {
@@ -616,6 +629,7 @@ impl Desktop {
                 .get(&desktop_element_id)
                 .unwrap();
             for screen_rect in screen_rects.iter() {
+                logs.push(format!("\t{}, {}", desktop_element.name(), screen_rect));
                 let layer = desktop_element.get_slice();
                 let local_origin = screen_rect.origin - desktop_element.frame().origin;
                 let local_rect = Rect::from_parts(local_origin, screen_rect.size);
@@ -626,7 +640,9 @@ impl Desktop {
         }
 
         // Copy the bits of the background that we decided we needed to redraw
+        logs.push(format!("Extra background draws:"));
         for background_copy_rect in self.compositor_state.extra_background_draws.drain(..) {
+            logs.push(format!("\t{background_copy_rect}"));
             //println!("Drawing background rect {background_copy_rect}");
             Self::copy_rect(
                 &mut *self.desktop_background_layer.get_slice(self.desktop_frame),
@@ -658,6 +674,14 @@ impl Desktop {
         }
 
         Self::copy_rect(buffer, vmem, mouse_rect);
+
+        let end = get_timestamp();
+        logs.push(format!("Finished frame in {}ms", end - start));
+        if end - start >= 10 {
+            for l in logs.into_iter() {
+                println!("\t{l}");
+            }
+        }
     }
 
     fn copy_rect(src: &mut dyn LikeLayerSlice, dst: &mut dyn LikeLayerSlice, rect: Rect) {
