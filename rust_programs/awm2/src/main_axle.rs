@@ -149,35 +149,34 @@ pub fn main() {
                     }
                 }
             };
-            if consumed {
-                continue;
-            }
-
-            // Unknown sender - probably a client wanting to interact with the window manager
-            match event {
-                // Mouse driver events
-                // libgui events
-                // Keyboard events
-                AwmCreateWindow::EXPECTED_EVENT => {
-                    desktop.spawn_window(&msg_source, body_as_type_unchecked(raw_body), None);
+            if !consumed {
+                // Unknown sender - probably a client wanting to interact with the window manager
+                match event {
+                    // Mouse driver events
+                    // libgui events
+                    // Keyboard events
+                    AwmCreateWindow::EXPECTED_EVENT => {
+                        desktop.spawn_window(&msg_source, body_as_type_unchecked(raw_body), None);
+                    }
+                    AwmWindowRedrawReady::EXPECTED_EVENT => {
+                        //println!("Window said it was ready to redraw!");
+                        desktop.handle_window_requested_redraw(msg_unparsed.source());
+                    }
+                    AwmWindowUpdateTitle::EXPECTED_EVENT => {
+                        desktop.handle_window_updated_title(
+                            &msg_source,
+                            body_as_type_unchecked(raw_body),
+                        );
+                    }
+                    _ => {
+                        println!("Awm ignoring message with unknown event type: {event}");
+                    }
                 }
-                AwmWindowRedrawReady::EXPECTED_EVENT => {
-                    //println!("Window said it was ready to redraw!");
-                    desktop.handle_window_requested_redraw(msg_unparsed.source());
-                }
-                AwmWindowUpdateTitle::EXPECTED_EVENT => {
-                    desktop
-                        .handle_window_updated_title(&msg_source, body_as_type_unchecked(raw_body));
-                }
-                _ => {
-                    println!("Awm ignoring message with unknown event type: {event}");
-                }
-            }
-            match msg_source.as_str() {
-                _ => {}
             }
         }
 
+        // Now that we've processed a message, draw a frame to reflect the updated state
+        // Perhaps there are messages for which we can elide a draw?
         desktop.draw_frame();
     }
 }
