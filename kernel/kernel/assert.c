@@ -217,7 +217,7 @@ void task_build_and_send_crash_report_then_exit(const char* msg, const register_
         printf("Appending registers ...\n");
         if (!append(&crash_report_ptr, &buf_size, "\nRegisters:\n")) goto finish_fmt;
         if (!append(&crash_report_ptr, &buf_size, "rip 0x%p  rsp 0x%p\n", regs->return_rip, regs->return_rsp)) goto finish_fmt;
-        if (!append(&crash_report_ptr, &buf_size, "rax 0x%p  rbx 0x%p  rcx 0x%p  rdx 0x%p\n", regs->rax, regs->rbx, regs->rcx, regs->rdx)) goto finish_fmt;
+        if (!append(&crash_report_ptr, &buf_size, "rax 0x%p  rbx 0x%p  rcx 0x%p rdx 0x%p\n", regs->rax, regs->rbx, regs->rcx, regs->rdx)) goto finish_fmt;
         if (!append(&crash_report_ptr, &buf_size, "rdi 0x%p  rsi 0x%p  rbp 0x%p\n", regs->rdi, regs->rsi, regs->rbp)) goto finish_fmt;
         if (!append(&crash_report_ptr, &buf_size, "r8  0x%p  r9  0x%p  r10 0x%p r11 0x%p\n", regs->r8, regs->r9, regs->r10, regs->r11)) goto finish_fmt;
         if (!append(&crash_report_ptr, &buf_size, "r12 0x%p  r13 0x%p  r14 0x%p r15 0x%p\n", regs->r12, regs->r13, regs->r14, regs->r15)) goto finish_fmt;

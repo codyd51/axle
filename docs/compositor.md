@@ -85,3 +85,8 @@ Render frame
 - state machine for mouse instead of bools that need to be updated
 - only draw difference in dragged window frame for much less blitting
 - unit tests for compositor
+- compositor was acting slow in axle-env awm. went down rabbit holes of captures + replays + flamegraph, but it was fast
+    in hosted. Turns out I was skipping drawing a frame if we consumed a msg from the mouse/kb driver, so redraws were only happening
+    when the logs viewer drew any log lines
+- TODO(PT): Only enable logging if the frame took >= 25ms to render
+- in case a window requests remote framebuf render multiple times in one event loop pass, only add it to fetch queue once

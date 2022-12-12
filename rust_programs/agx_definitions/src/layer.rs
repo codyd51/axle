@@ -335,7 +335,9 @@ impl LikeLayerSlice for LayerSlice {
                 let src_row_start = src_base.offset(y * (src_parent_framebuf_row_size as isize));
                 core::slice::from_raw_parts(src_row_start, src_slice_row_size)
             };
-            dst_row_slice.copy_from_slice(src_row_slice);
+            if dst_row_slice != src_row_slice {
+                dst_row_slice.copy_from_slice(src_row_slice);
+            }
         }
     }
 
