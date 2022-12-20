@@ -7,6 +7,7 @@
 
 mod desktop;
 mod effects;
+mod utils;
 mod window;
 
 extern crate alloc;

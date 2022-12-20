@@ -26,9 +26,7 @@ use mouse_driver_messages::MousePacket;
 use file_manager_messages::str_from_u8_nul_utf8_unchecked;
 use kb_driver_messages::{KeyEventType, KeyboardPacket};
 use lazy_static::lazy_static;
-use rand::rngs::SmallRng;
-use rand::RngCore;
-use rand::{Rng, SeedableRng};
+use rand::prelude::*;
 
 #[cfg(target_os = "axle")]
 pub extern crate libc;
@@ -38,32 +36,11 @@ mod conditional_imports {
     pub use axle_rt::amc_message_send;
 }
 #[cfg(not(target_os = "axle"))]
-mod conditional_imports {
-    pub use std::time::{SystemTime, UNIX_EPOCH};
-}
+mod conditional_imports {}
 
 use crate::desktop::conditional_imports::*;
+use crate::utils::{get_timestamp, random_color, random_color_with_rng};
 use crate::window::Window;
-
-fn get_timestamp() -> u64 {
-    #[cfg(target_os = "axle")]
-    return unsafe { libc::ms_since_boot() as u64 };
-    #[cfg(not(target_os = "axle"))]
-    return SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as u64;
-}
-
-fn random_color() -> Color {
-    let seed = get_timestamp();
-    let mut rng = SmallRng::seed_from_u64(seed);
-    Color::new(rng.gen(), rng.gen(), rng.gen())
-}
-
-fn random_color_with_rng(rng: &mut SmallRng) -> Color {
-    Color::new(rng.gen(), rng.gen(), rng.gen())
-}
 
 fn send_left_click_event(window: &Rc<Window>, mouse_pos: Point) {
     let mouse_within_window = window.frame().translate_point(mouse_pos);
@@ -424,7 +401,6 @@ pub struct Desktop {
 impl Desktop {
     pub fn new(video_memory_layer: Rc<Box<dyn LikeLayerSlice>>) -> Self {
         let desktop_frame = Rect::with_size(video_memory_layer.frame().size);
-        video_memory_layer.fill_rect(desktop_frame, Color::yellow(), StrokeThickness::Filled);
 
         let desktop_background_layer = Box::new(SingleFramebufferLayer::new(desktop_frame.size));
         let screen_buffer_layer = Box::new(SingleFramebufferLayer::new(desktop_frame.size));
