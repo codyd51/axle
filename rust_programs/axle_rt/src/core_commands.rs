@@ -347,4 +347,24 @@ impl ExpectsEventField for AmcSharedMemoryCreateResponse {
     const EXPECTED_EVENT: u32 = 210;
 }
 
+#[repr(C)]
+#[derive(Debug, ContainsEventField, Copy, Clone)]
+pub struct AmcSleepUntilDelayOrMessage {
+    event: u32,
+    sleep_for_ms: u32,
+}
+
+impl AmcSleepUntilDelayOrMessage {
+    pub fn new(sleep_for_ms: u32) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            sleep_for_ms,
+        }
+    }
+}
+
+impl ExpectsEventField for AmcSleepUntilDelayOrMessage {
+    const EXPECTED_EVENT: u32 = 207;
+}
+
 /* End of event modeling */
