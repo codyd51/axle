@@ -31,7 +31,7 @@ use mouse_driver_messages::{MousePacket, MOUSE_DRIVER_SERVICE_NAME};
 
 use axle_rt::core_commands::{
     AmcAwmMapFramebuffer, AmcAwmMapFramebufferResponse, AmcSharedMemoryCreateRequest,
-    AmcSharedMemoryCreateResponse, AMC_CORE_SERVICE_NAME,
+    AmcSharedMemoryCreateResponse, AmcSleepUntilDelayOrMessage, AMC_CORE_SERVICE_NAME,
 };
 use libgui::window_events::AwmWindowEvent;
 use libgui::AwmWindow;
@@ -70,6 +70,102 @@ unsafe fn body_as_type_unchecked<T: ExpectsEventField + ContainsEventField>(body
     &*(body.as_ptr() as *const T)
 }
 
+fn process_amc_messages(desktop: &mut Desktop, can_block_for_next_message: bool) {
+    if !amc_has_message(None) && !can_block_for_next_message {
+        return;
+    }
+
+    let msg_unparsed: AmcMessage<[u8]> = unsafe { amc_message_await_untyped(None).unwrap() };
+
+    // Parse the first bytes of the message as a u32 event field
+    let raw_body = msg_unparsed.body();
+    let event = u32::from_ne_bytes(
+        // We must slice the array to the exact size of a u32 for the conversion to succeed
+        raw_body[..core::mem::size_of::<u32>()]
+            .try_into()
+            .expect("Failed to get 4-length array from message body"),
+    );
+
+    // Each inner call to body_as_type_unchecked is unsafe because we must be
+    // sure we're casting to the right type.
+    // Since we verify the type on the LHS, each usage is safe.
+    //
+    // Wrap the whole thing in an unsafe block to reduce
+    // boilerplate in each match arm.
+    //
+    // Make a copy of the message source to pass around so that callers don't need to worry
+    // about its validity
+    let msg_source = msg_unparsed.source().to_string();
+    unsafe {
+        // Try to match special messages from known services first
+        let consumed = match msg_source.as_str() {
+            MOUSE_DRIVER_SERVICE_NAME => {
+                match event {
+                    MousePacket::EXPECTED_EVENT => {
+                        desktop.handle_mouse_packet(body_as_type_unchecked(raw_body))
+                    }
+                    _ => {
+                        println!("Ignoring unknown message from mouse driver")
+                    }
+                };
+                true
+            }
+            KB_DRIVER_SERVICE_NAME => {
+                // PT: We can't use body_as_type_unchecked because the message from the KB driver lacks
+                // an event field. Do a direct cast until the KB driver message is fixed.
+                desktop.handle_keyboard_event(unsafe { &*(raw_body.as_ptr() as *const _) });
+                true
+            }
+            PREFERENCES_SERVICE_NAME => {
+                match event {
+                    AwmDesktopTraitsRequest::EXPECTED_EVENT => {
+                        amc_message_send(
+                            PREFERENCES_SERVICE_NAME,
+                            AwmDesktopTraitsResponse::new(
+                                desktop.background_gradient_inner_color,
+                                desktop.background_gradient_outer_color,
+                            ),
+                        );
+                        true
+                    }
+                    _ => {
+                        //println!("Ignoring unknown message from preferences");
+                        false
+                    }
+                }
+            }
+        };
+        if !consumed {
+            // Unknown sender - probably a client wanting to interact with the window manager
+            match event {
+                // Mouse driver events
+                // libgui events
+                // Keyboard events
+                AwmCreateWindow::EXPECTED_EVENT => {
+                    desktop.spawn_window(&msg_source, body_as_type_unchecked(raw_body), None);
+                }
+                AwmWindowRedrawReady::EXPECTED_EVENT => {
+                    //println!("Window said it was ready to redraw!");
+                    desktop.handle_window_requested_redraw(msg_unparsed.source());
+                }
+                AwmWindowPartialRedraw::EXPECTED_EVENT => {
+                    desktop.handle_window_requested_partial_redraw(
+                        msg_unparsed.source(),
+                        body_as_type_unchecked(raw_body),
+                    );
+                }
+                AwmWindowUpdateTitle::EXPECTED_EVENT => {
+                    desktop
+                        .handle_window_updated_title(&msg_source, body_as_type_unchecked(raw_body));
+                }
+                _ => {
+                    println!("Awm ignoring message with unknown event type: {event}");
+                }
+            }
+        }
+    }
+}
+
 pub fn main() {
     amc_register_service(AWM2_SERVICE_NAME);
 
@@ -88,101 +184,22 @@ pub fn main() {
             continue;
         }
         */
+        // Block for a message if we don't have any ongoing animations
+        let must_remain_responsive = desktop.has_ongoing_animations();
+        desktop.step_animations();
+        process_amc_messages(&mut desktop, !must_remain_responsive);
 
-        let msg_unparsed: AmcMessage<[u8]> = unsafe { amc_message_await_untyped(None).unwrap() };
-
-        // Parse the first bytes of the message as a u32 event field
-        let raw_body = msg_unparsed.body();
-        let event = u32::from_ne_bytes(
-            // We must slice the array to the exact size of a u32 for the conversion to succeed
-            raw_body[..core::mem::size_of::<u32>()]
-                .try_into()
-                .expect("Failed to get 4-length array from message body"),
-        );
-
-        // Each inner call to body_as_type_unchecked is unsafe because we must be
-        // sure we're casting to the right type.
-        // Since we verify the type on the LHS, each usage is safe.
-        //
-        // Wrap the whole thing in an unsafe block to reduce
-        // boilerplate in each match arm.
-        //
-        // Make a copy of the message source to pass around so that callers don't need to worry
-        // about its validity
-        let msg_source = msg_unparsed.source().to_string();
-        unsafe {
-            // Try to match special messages from known services first
-            let consumed = match msg_source.as_str() {
-                MOUSE_DRIVER_SERVICE_NAME => {
-                    match event {
-                        MousePacket::EXPECTED_EVENT => {
-                            desktop.handle_mouse_packet(body_as_type_unchecked(raw_body))
-                        }
-                        _ => {
-                            println!("Ignoring unknown message from mouse driver")
-                        }
-                    };
-                    true
-                }
-                KB_DRIVER_SERVICE_NAME => {
-                    // PT: We can't use body_as_type_unchecked because the message from the KB driver lacks
-                    // an event field. Do a direct cast until the KB driver message is fixed.
-                    desktop.handle_keyboard_event(unsafe { &*(raw_body.as_ptr() as *const _) });
-                    true
-                }
-                PREFERENCES_SERVICE_NAME => {
-                    match event {
-                        AwmDesktopTraitsRequest::EXPECTED_EVENT => {
-                            amc_message_send(
-                                PREFERENCES_SERVICE_NAME,
-                                AwmDesktopTraitsResponse::new(
-                                    desktop.background_gradient_inner_color,
-                                    desktop.background_gradient_outer_color,
-                                ),
-                            );
-                            true
-                        }
-                        _ => {
-                            //println!("Ignoring unknown message from preferences");
-                            false
-                        }
-                    }
-                }
-            };
-            if !consumed {
-                // Unknown sender - probably a client wanting to interact with the window manager
-                match event {
-                    // Mouse driver events
-                    // libgui events
-                    // Keyboard events
-                    AwmCreateWindow::EXPECTED_EVENT => {
-                        desktop.spawn_window(&msg_source, body_as_type_unchecked(raw_body), None);
-                    }
-                    AwmWindowRedrawReady::EXPECTED_EVENT => {
-                        //println!("Window said it was ready to redraw!");
-                        desktop.handle_window_requested_redraw(msg_unparsed.source());
-                    }
-                    AwmWindowPartialRedraw::EXPECTED_EVENT => {
-                        desktop.handle_window_requested_partial_redraw(
-                            msg_unparsed.source(),
-                            body_as_type_unchecked(raw_body),
-                        );
-                    }
-                    AwmWindowUpdateTitle::EXPECTED_EVENT => {
-                        desktop.handle_window_updated_title(
-                            &msg_source,
-                            body_as_type_unchecked(raw_body),
-                        );
-                    }
-                    _ => {
-                        println!("Awm ignoring message with unknown event type: {event}");
-                    }
-                }
-            }
-        }
-
-        // Now that we've processed a message, draw a frame to reflect the updated state
+        // Draw a frame to reflect the updated state
         // Perhaps there are messages for which we can elide a draw?
         desktop.draw_frame();
+
+        // Put ourselves to sleep before drawing the next animation frame
+        // TODO(PT): We need to count how long until the next frame needs to be rendered
+        /*
+        if desktop.has_ongoing_animations() {
+            //println!("Sleeping until it's time to draw the next animation frame...");
+            amc_message_send(AMC_CORE_SERVICE_NAME, AmcSleepUntilDelayOrMessage::new(10));
+        }
+        */
     }
 }

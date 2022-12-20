@@ -23,6 +23,7 @@ use core::cmp::{max, min};
 use core::fmt::{Display, Formatter};
 use mouse_driver_messages::MousePacket;
 
+use crate::animations::{Animation, WindowOpenAnimationParams};
 use file_manager_messages::str_from_u8_nul_utf8_unchecked;
 use kb_driver_messages::{KeyEventType, KeyboardPacket};
 use lazy_static::lazy_static;
@@ -396,6 +397,7 @@ pub struct Desktop {
     next_desktop_element_id: usize,
     windows_to_render_remote_layers_this_cycle: Vec<Rc<Window>>,
     frame_render_logs: Vec<String>,
+    ongoing_animations: Vec<Animation>,
 }
 
 impl Desktop {
@@ -427,6 +429,7 @@ impl Desktop {
             next_desktop_element_id: 0,
             windows_to_render_remote_layers_this_cycle: vec![],
             frame_render_logs: vec![],
+            ongoing_animations: vec![],
         }
     }
 
@@ -704,6 +707,7 @@ impl Desktop {
 
         Self::copy_rect(buffer, vmem, mouse_rect);
 
+        /*
         let end = get_timestamp();
         logs.push(format!("Finished frame in {}ms", end - start));
         if end - start >= 10 {
@@ -711,6 +715,7 @@ impl Desktop {
                 println!("\t{l}");
             }
         }
+        */
     }
 
     fn copy_rect(src: &mut dyn LikeLayerSlice, dst: &mut dyn LikeLayerSlice, rect: Rect) {
@@ -842,7 +847,13 @@ impl Desktop {
         self.windows.insert(0, Rc::clone(&new_window));
         self.compositor_state
             .track_element(Rc::clone(&new_window) as Rc<dyn DesktopElement>);
-        self.recompute_drawable_regions_in_rect(window_frame);
+        //self.recompute_drawable_regions_in_rect(window_frame);
+        self.start_animation(Animation::WindowOpen(WindowOpenAnimationParams::new(
+            desktop_size,
+            &new_window,
+            200,
+            window_frame,
+        )));
 
         // TODO(PT): Testing
         /*
@@ -852,6 +863,40 @@ impl Desktop {
         */
 
         new_window
+    }
+
+    fn start_animation(&mut self, animation: Animation) {
+        animation.start();
+        self.ongoing_animations.push(animation);
+    }
+
+    pub fn step_animations(&mut self) {
+        // Don't bother fetching a timestamp (which is a syscall) if not necessary
+        if self.ongoing_animations.len() == 0 {
+            return;
+        }
+
+        let now = get_timestamp();
+        let mut rects_to_recompute_drawable_regions = vec![];
+        for animation in self.ongoing_animations.iter() {
+            let animation_damage = animation.step(now);
+            for damaged_rect in animation_damage.rects_needing_composite.iter() {
+                self.compositor_state.queue_full_redraw(*damaged_rect);
+            }
+            rects_to_recompute_drawable_regions
+                .push(animation_damage.area_to_recompute_drawable_regions);
+            /*
+            match animation {
+                Animation::WindowOpen(params) => params.window.redraw_title_bar(),
+            };
+            */
+        }
+        for r in rects_to_recompute_drawable_regions.drain(..) {
+            self.recompute_drawable_regions_in_rect(r);
+        }
+        // Drop animations that are now complete
+        self.ongoing_animations
+            .retain(|anim| !anim.is_complete(now));
     }
 
     fn window_containing_point(&self, p: Point) -> Option<Rc<Window>> {
@@ -1280,6 +1325,10 @@ impl Desktop {
             let slice = self.video_memory_layer.get_slice(*r);
             slice.fill(random_color());
         }
+    }
+
+    pub fn has_ongoing_animations(&self) -> bool {
+        self.ongoing_animations.len() > 0
     }
 }
 

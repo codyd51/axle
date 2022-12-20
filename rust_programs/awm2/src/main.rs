@@ -1,3 +1,4 @@
+#![feature(btree_drain_filter)]
 #![cfg_attr(target_os = "axle", no_std)]
 #![cfg_attr(target_os = "axle", feature(start))]
 #![cfg_attr(target_os = "axle", feature(format_args_nl))]
@@ -5,6 +6,7 @@
 // PT: For the test suite
 #![cfg_attr(not(target_os = "axle"), feature(iter_zip))]
 
+mod animations;
 mod desktop;
 mod effects;
 mod utils;

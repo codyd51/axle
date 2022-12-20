@@ -26,10 +26,12 @@ use winit::{
 };
 
 pub fn main() -> Result<(), Box<dyn error::Error>> {
+    /*
     for i in 0..100 {
         replay_capture();
     }
     return Ok(());
+    */
 
     let event_loop = EventLoop::new();
     let desktop_size = Size::new(1920, 1080);
@@ -62,7 +64,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         .unwrap()
         .as_millis() as u64;
     let mut rng = SmallRng::seed_from_u64(seed);
-    for i in 0..20 {
+    for i in 0..2 {
         let window_size = Size::new(
             rng.gen_range(200..desktop_size.width),
             rng.gen_range(200..desktop_size.height - 30),
@@ -122,6 +124,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         match event {
             Event::MainEventsCleared => {
                 //for _ in (0..1024 * 32) {
+                desktop.step_animations();
                 desktop.draw_frame();
                 //}
                 let mut pixel_buffer = layer.pixel_buffer.borrow_mut();
