@@ -1,4 +1,5 @@
 #include "serial.h"
+#include "kernel/drivers/pit/pit.h"
 
 //COM 1
 #define PORT 0x3F8
@@ -54,22 +55,24 @@ void serial_putchar(char c) {
 	}
 }
 
+void serial_puts_int(char* str, bool print_prefix) {
+    if (print_prefix) {
+        char timestamp[16] = {0};
+        snprintf(timestamp, sizeof(timestamp), "%d: ", tick_count());
+        serial_puts_int(timestamp, false);
+        serial_puts_int(str, false);
+        return;
+    }
+
+    char* ptr = str;
+    while (*ptr) {
+        serial_putchar(*(ptr++));
+    }
+}
+
+
 void serial_puts(char* str) {
-	//is this string too big to be directly conc'd with buffer?
-	//idx == strlen(buffer)
-    /*
-	if (idx + strlen(str) < BUF_SIZE) {
-		strcat(buffer, str);
-		idx += strlen(str);
-	}
-	else {
-    */
-		char* ptr = str;
-		while (*ptr) {
-			serial_putchar(*(ptr++));
-		}
-        //serial_flush();
-	//}
+    serial_puts_int(str, true);
 }
 
 void serial_init() {
