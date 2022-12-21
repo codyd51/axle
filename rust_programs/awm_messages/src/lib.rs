@@ -115,6 +115,14 @@ pub struct AwmCloseWindow {
     event: u32,
 }
 
+impl AwmCloseWindow {
+    pub fn new() -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+        }
+    }
+}
+
 impl ExpectsEventField for AwmCloseWindow {
     const EXPECTED_EVENT: u32 = 814;
 }
@@ -334,4 +342,44 @@ impl AwmWindowPartialRedraw {
 
 impl ExpectsEventField for AwmWindowPartialRedraw {
     const EXPECTED_EVENT: u32 = 816;
+}
+
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AwmKeyDown {
+    event: u32,
+    key: u32,
+}
+
+impl AwmKeyDown {
+    pub fn new(key: u32) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            key,
+        }
+    }
+}
+
+impl ExpectsEventField for AwmKeyDown {
+    const EXPECTED_EVENT: u32 = 805;
+}
+
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AwmKeyUp {
+    event: u32,
+    key: u32,
+}
+
+impl AwmKeyUp {
+    pub fn new(key: u32) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            key,
+        }
+    }
+}
+
+impl ExpectsEventField for AwmKeyUp {
+    const EXPECTED_EVENT: u32 = 806;
 }
