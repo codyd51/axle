@@ -1,3 +1,4 @@
+use crate::desktop::DesktopElement;
 use crate::println;
 use crate::utils::get_timestamp;
 use crate::window::Window;
@@ -111,7 +112,10 @@ impl Animation {
                     let old_frame = *window_frame;
                     let elapsed = now - (params.start_time as u64);
                     let percent = f64::min(1.0, elapsed as f64 / params.duration_ms as f64);
-                    println!("Window open animation step {percent:.2}%");
+                    println!(
+                        "Window({}) open animation step {percent:.2}%",
+                        params.window.name()
+                    );
                     let new_frame =
                         interpolate_window_frame(params.frame_from, params.frame_to, percent);
                     *window_frame = new_frame;
@@ -119,16 +123,6 @@ impl Animation {
                 };
                 params.window.redraw_title_bar();
                 AnimationDamage::new(update_region, vec![update_region])
-
-                //_window_resize(window, window->frame.size, should_inform_window_of_new_size);
-                /*
-                                    Rect total_update_frame = rect_union(current_frame, new_frame);
-                // Only queueing redraws for the difference between the frames is more efficient,
-                // but can cause artifacts where on some frames a few window pixels aren't cleaned up.
-                                    compositor_queue_rect_to_redraw(total_update_frame);
-                                    windows_invalidate_drawable_regions_in_rect(total_update_frame);
-                                AnimationDamage::new(update_region, vec![update_region])
-                                 */
             }
         }
     }
