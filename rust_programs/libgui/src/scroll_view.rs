@@ -1,13 +1,9 @@
-use core::{
-    cell::RefCell,
-    cmp::{max, min},
-    fmt::Display,
-};
+use core::{cell::RefCell, fmt::Display};
 
 use crate::window_events::KeyCode;
 use crate::{
     bordered::Bordered,
-    font::{draw_char, CHAR_HEIGHT, CHAR_WIDTH, FONT8X8},
+    font::{CHAR_HEIGHT, CHAR_WIDTH, FONT8X8},
     println,
     ui_elements::UIElement,
     view::View,
@@ -22,12 +18,10 @@ use alloc::fmt::Debug;
 use alloc::vec;
 use alloc::{
     rc::{Rc, Weak},
-    string::String,
     vec::Vec,
 };
 use core::fmt::Formatter;
 use libgui_derive::{Bordered, Drawable, NestedLayerSlice, UIElement};
-use rand::Rng;
 
 struct ExpandingLayerSlice {
     parent: Weak<ExpandingLayer>,
@@ -40,13 +34,6 @@ impl ExpandingLayerSlice {
             parent: Rc::downgrade(parent),
             frame,
         }
-    }
-
-    fn putpixel_unchecked(&self, loc: Point, color: Color) {
-        self.parent
-            .upgrade()
-            .unwrap()
-            .putpixel_unchecked(loc, color)
     }
 }
 
@@ -82,7 +69,7 @@ impl LikeLayerSlice for ExpandingLayerSlice {
         self.parent.upgrade().unwrap().putpixel(loc, color)
     }
 
-    fn getpixel(&self, loc: Point) -> Color {
+    fn getpixel(&self, _loc: Point) -> Color {
         todo!()
     }
 
@@ -92,7 +79,12 @@ impl LikeLayerSlice for ExpandingLayerSlice {
         self.parent.upgrade().unwrap().get_slice_with_frame(frame)
     }
 
-    fn blit(&self, source_layer: &Box<dyn LikeLayerSlice>, source_frame: Rect, dest_origin: Point) {
+    fn blit(
+        &self,
+        _source_layer: &Box<dyn LikeLayerSlice>,
+        _source_frame: Rect,
+        dest_origin: Point,
+    ) {
         println!("Blit to {dest_origin:?}");
         //todo!()
     }
@@ -103,7 +95,7 @@ impl LikeLayerSlice for ExpandingLayerSlice {
         slice.pixel_data()
     }
 
-    fn blit2(&self, source_layer: &Box<dyn LikeLayerSlice>) {
+    fn blit2(&self, _source_layer: &Box<dyn LikeLayerSlice>) {
         /*
         assert!(self.frame().size == source_layer.frame().size);
         //let pixel_data = source_layer.pixel_data();
@@ -131,11 +123,11 @@ impl LikeLayerSlice for ExpandingLayerSlice {
             .draw_char(frame, ch, draw_color);
     }
 
-    fn get_pixel_row(&self, y: usize) -> Vec<u8> {
+    fn get_pixel_row(&self, _y: usize) -> Vec<u8> {
         todo!()
     }
 
-    fn get_pixel_row_slice(&self, y: usize) -> (*const u8, usize) {
+    fn get_pixel_row_slice(&self, _y: usize) -> (*const u8, usize) {
         todo!()
     }
 
@@ -143,7 +135,7 @@ impl LikeLayerSlice for ExpandingLayerSlice {
         todo!()
     }
 
-    fn track_damage(&self, r: Rect) {
+    fn track_damage(&self, _r: Rect) {
         todo!()
     }
 
@@ -215,7 +207,7 @@ impl TileLayer {
     }
 
     fn putpixel(&self, point: Point, color: Color) {
-        let mut inner = self.inner.borrow_mut();
+        let inner = self.inner.borrow_mut();
         inner.putpixel(&point, color)
     }
 }
@@ -367,7 +359,7 @@ impl ExpandingLayer {
     }
 
     fn rects_not_contained_in_current_tiles(&self, rect: Rect) -> Vec<Rect> {
-        let mut tiles = self.layers.borrow_mut();
+        let tiles = self.layers.borrow_mut();
         let mut rects_not_contained = vec![rect];
         for tile in tiles.iter() {
             //println!("\tExisting tile: {}", tile.frame);
@@ -511,8 +503,6 @@ impl ExpandingLayer {
     }
 
     pub fn draw_char(&self, frame: Rect, ch: char, draw_color: Color) {
-        let global_frame = frame;
-        let visible_frame = self.visible_frame.borrow();
         //let frame = Rect::from_parts(frame.origin - visible_frame.origin, frame.size);
         //println!("ExpandingLayer.draw_char({frame})");
         /*
@@ -548,7 +538,7 @@ impl NestedLayerSlice for ExpandingLayer {
         None
     }
 
-    fn set_parent(&self, parent: Weak<dyn NestedLayerSlice>) {
+    fn set_parent(&self, _parent: Weak<dyn NestedLayerSlice>) {
         println!("ExpandingLayer ignoring setParent");
         //todo!()
     }
@@ -607,7 +597,7 @@ impl Bordered for ScrollView {
         self.view.border_insets()
     }
 
-    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
+    fn draw_inner_content(&self, _outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
         //println!("ScrollView.draw_inner_content({outer_frame}, {onto}");
         // We have a different layer from our parent, so need to exclude the border insets here
         /*

@@ -1,24 +1,13 @@
-use core::{
-    cell::RefCell,
-    cmp::{max, min},
-    fmt::Display,
-};
+use core::{cell::RefCell, fmt::Display};
 
 use crate::scroll_view::ScrollView;
 use crate::window_events::KeyCode;
-use crate::{
-    bordered::Bordered,
-    font::{draw_char, CHAR_HEIGHT, CHAR_WIDTH, FONT8X8},
-    println,
-    ui_elements::UIElement,
-    view::View,
-};
+use crate::{bordered::Bordered, println, ui_elements::UIElement, view::View};
 use agx_definitions::{
-    Color, Drawable, Layer, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets,
-    SingleFramebufferLayer, Size, StrokeThickness,
+    Color, Drawable, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
+    StrokeThickness,
 };
 use alloc::boxed::Box;
-use alloc::collections::BTreeSet;
 use alloc::fmt::Debug;
 use alloc::vec;
 use alloc::{
@@ -27,8 +16,7 @@ use alloc::{
     vec::Vec,
 };
 use core::fmt::Formatter;
-use libgui_derive::{Bordered, Drawable, NestedLayerSlice, UIElement};
-use rand::Rng;
+use libgui_derive::{Drawable, NestedLayerSlice, UIElement};
 
 #[derive(Debug, Copy, Clone)]
 pub struct CursorPos(pub usize, pub Point);
@@ -74,7 +62,7 @@ pub struct TextView {
 
 impl TextView {
     pub fn new<F: 'static + Fn(&View, Size) -> Rect>(
-        background_color: Color,
+        _background_color: Color,
         font_size: Size,
         text_insets: RectInsets,
         sizer: F,
@@ -109,7 +97,7 @@ impl TextView {
         content_frame.apply_insets(self.text_insets)
     }
 
-    pub fn draw_char_and_update_cursor3(&self, ch: char, color: Color) {
+    pub fn draw_char_and_update_cursor3(&self, _ch: char, _color: Color) {
         let content_slice_frame = self.view.get_content_slice_frame();
         println!("Content slice frame {content_slice_frame}");
     }
@@ -165,7 +153,7 @@ impl TextView {
         // We'll need to adjust the positions of every character that comes after this one
         let insertion_point = cursor_pos.0;
         cursor_pos.0 += 1;
-        let mut cursor_point = &mut cursor_pos.1;
+        let cursor_point = &mut cursor_pos.1;
 
         // TODO(PT): If not inserting at the end, we need to move everything along and insert at an index
         let draw_desc = DrawnCharacter::new(*cursor_point, color, ch, font_size);
@@ -263,7 +251,7 @@ impl TextView {
     }
 
     pub fn is_inserting_at_end(&self) -> bool {
-        let mut cursor_pos = self.cursor_pos.borrow();
+        let cursor_pos = self.cursor_pos.borrow();
         let ret = cursor_pos.0 == self.text.borrow().len();
         //println!("{} {}", cursor_pos.0, self.text.borrow().len());
         ret

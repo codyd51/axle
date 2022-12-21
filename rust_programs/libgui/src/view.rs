@@ -1,12 +1,11 @@
 use core::cell::RefCell;
 
 use agx_definitions::{
-    Color, Drawable, LayerSlice, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
+    Color, Drawable, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
 };
 use alloc::rc::Rc;
 use alloc::rc::Weak;
 use alloc::{boxed::Box, vec::Vec};
-use axle_rt::println;
 
 use crate::{bordered::Bordered, ui_elements::UIElement};
 
@@ -111,7 +110,7 @@ impl NestedLayerSlice for View {
 }
 
 impl Bordered for View {
-    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
+    fn draw_inner_content(&self, _outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
         //println!("View.bordered.draw_inner_content()");
         onto.fill(self.background_color);
         self.draw_subviews();

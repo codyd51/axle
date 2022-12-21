@@ -8,7 +8,6 @@ use agx_definitions::{Color, Point, PointU32, Rect, RectU32, Size, SizeU32};
 use alloc::vec::Vec;
 use axle_rt::{copy_str_into_sized_slice, ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
-use core::mem::size_of;
 
 pub const AWM2_SERVICE_NAME: &str = "com.axle.awm";
 

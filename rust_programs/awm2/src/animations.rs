@@ -6,7 +6,6 @@ use agx_definitions::{Point, Rect, Size};
 use alloc::rc::Rc;
 use alloc::vec;
 use alloc::vec::Vec;
-use num_traits::One;
 
 fn lerp(a: f64, b: f64, percent: f64) -> f64 {
     a + (percent * (b - a))

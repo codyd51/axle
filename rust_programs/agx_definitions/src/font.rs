@@ -1,5 +1,3 @@
-use crate::{Color, LikeLayerSlice, Point, Size};
-use alloc::boxed::Box;
 // TODOO(PT): Replace the code in libgui entirely with this version
 // This version is preferred because it allows text rendering directly from a layer
 

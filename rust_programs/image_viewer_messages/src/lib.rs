@@ -28,6 +28,7 @@ impl ExpectsEventField for LoadImage {
 }
 
 impl LoadImage {
+    #[cfg(target_os = "axle")]
     pub fn send(path: &str) {
         let mut msg = LoadImage {
             event: Self::EXPECTED_EVENT,

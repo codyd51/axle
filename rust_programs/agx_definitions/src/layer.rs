@@ -113,24 +113,24 @@ impl LikeLayerSlice for LayerSlice {
 
             let color_as_u32 = match cfg!(target_os = "axle") {
                 true => {
-                    (0xff_u32 << 24
+                    0xff_u32 << 24
                         | (color.r as u32) << 16
                         | (color.g as u32) << 8
-                        | (color.b as u32))
+                        | (color.b as u32)
                 }
                 false => {
                     // Swap channels when targeting macOS
-                    (0xff_u32 << 24
+                    0xff_u32 << 24
                         | (color.b as u32) << 16
                         | (color.g as u32) << 8
-                        | (color.r as u32))
+                        | (color.r as u32)
                 }
             };
             let mut fb = (*self.parent_framebuffer).borrow_mut();
             for y in 0..rect.height() {
                 let row_start =
                     rect_origin_offset.y + (y * parent_bytes_per_row) + (rect_origin_offset.x);
-                let mut row_slice = &mut fb
+                let row_slice = &mut fb
                     [(row_start as usize)..(row_start + (rect.width() * bpp as isize)) as usize];
                 let (prefix, row_as_u32_slice, suffix) = unsafe { row_slice.align_to_mut::<u32>() };
                 // Ensure the slice was exactly u32-aligned
@@ -151,15 +151,6 @@ impl LikeLayerSlice for LayerSlice {
 
     fn putpixel(&self, loc: Point, color: Color) {
         if !self.frame.contains(loc + self.frame.origin) {
-            return;
-            /*
-            println!(
-                "{:?} is uncontained in {}",
-                loc + self.frame.origin,
-                self.frame
-            );
-            */
-            //assert!(false, "uncontained putpixel");
             return;
         }
 
@@ -222,7 +213,7 @@ impl LikeLayerSlice for LayerSlice {
             (src_frame.min_y() * src_backing_layer_size.width * bpp) + (src_frame.min_x() * bpp);
 
         let mut transferrable_rows = src_frame.height();
-        let mut overhang = src_frame.max_y() - src_backing_layer_size.height;
+        let overhang = src_frame.max_y() - src_backing_layer_size.height;
         if overhang > 0 {
             transferrable_rows -= overhang;
         }
@@ -256,7 +247,7 @@ impl LikeLayerSlice for LayerSlice {
             //let src_pixels_in_row = source_layer.get_pixel_data(src_row_start, transferrable_px);
             let src_pixels_in_row =
                 &src_pixels[(src_row_start as usize)..(src_row_start + transferrable_px) as usize];
-            let mut dst_pixels_in_row = &mut fb
+            let dst_pixels_in_row = &mut fb
                 [dst_row_start_to_parent..dst_row_start_to_parent + (transferrable_px as usize)];
             dst_pixels_in_row.copy_from_slice(src_pixels_in_row);
 
@@ -288,7 +279,7 @@ impl LikeLayerSlice for LayerSlice {
             // Blit an entire row at once
             let point_offset = slice_origin_offset + (Point::new(0, y) * bpp_multiple);
             let off = (point_offset.y + point_offset.x) as usize;
-            let mut dst_row_slice = &mut fb[off..off + ((self.frame.width() * bpp) as usize)];
+            let dst_row_slice = &mut fb[off..off + ((self.frame.width() * bpp) as usize)];
             let src_row_slice = unsafe {
                 let src_row_start = src_base.offset(y * (src_parent_framebuf_row_size as isize));
                 core::slice::from_raw_parts(src_row_start, src_slice_row_size)

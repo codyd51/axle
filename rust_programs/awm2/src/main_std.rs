@@ -1,29 +1,18 @@
 use crate::desktop::{Desktop, RenderStrategy};
-use agx_definitions::{Color, Layer, LikeLayerSlice, Point, Rect, SingleFramebufferLayer, Size};
+use agx_definitions::{LikeLayerSlice, Point, Rect, SingleFramebufferLayer, Size};
 use alloc::rc::Rc;
-use awm_messages::{AwmCreateWindow, AwmWindowUpdateTitle};
-use image::{save_buffer_with_format, ImageBuffer, RgbImage, Rgba};
+use awm_messages::AwmCreateWindow;
 use libgui::PixelLayer;
-use mouse_driver_messages::MousePacket;
-use pixels::{Error, Pixels, SurfaceTexture};
 use rand::prelude::SmallRng;
 use rand::{Rng, SeedableRng};
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::mem::transmute;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env, error, fs};
-use winit::event::{MouseButton, MouseScrollDelta};
+use winit::event::MouseButton;
+use winit::event::WindowEvent;
+use winit::event::{ElementState, Event, VirtualKeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::{Window, WindowBuilder};
-use winit::{
-    dpi::{LogicalPosition, LogicalSize},
-    event::WindowEvent,
-};
-use winit::{
-    event::{ElementState, Event, VirtualKeyCode},
-    window::Fullscreen,
-};
 
 pub fn main() -> Result<(), Box<dyn error::Error>> {
     /*
@@ -35,7 +24,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
 
     let event_loop = EventLoop::new();
     let desktop_size = Size::new(1920, 1080);
-    let mut layer = Rc::new(Box::new(PixelLayer::new(
+    let layer = Rc::new(Box::new(PixelLayer::new(
         "Hosted awm",
         &event_loop,
         desktop_size,
@@ -89,7 +78,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     let get_mouse_status_byte = |left_click_down| -> i8 {
         let mut out = 0;
         if left_click_down {
-            out |= (1 << 0);
+            out |= 1 << 0;
         }
         out
     };
@@ -127,17 +116,12 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 desktop.step_animations();
                 desktop.draw_frame();
                 //}
-                let mut pixel_buffer = layer.pixel_buffer.borrow_mut();
-                pixel_buffer.render();
+                let pixel_buffer = layer.pixel_buffer.borrow_mut();
+                pixel_buffer.render().unwrap();
             }
-            Event::WindowEvent { window_id, event } => {
+            Event::WindowEvent { event, .. } => {
                 match event {
-                    WindowEvent::MouseInput {
-                        device_id,
-                        state,
-                        button,
-                        modifiers,
-                    } => {
+                    WindowEvent::MouseInput { state, button, .. } => {
                         println!("MouseInput {state:?}, button {button:?}");
                         match state {
                             ElementState::Pressed => match button {
@@ -171,11 +155,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                             _ => (),
                         }
                     }
-                    WindowEvent::CursorMoved {
-                        device_id,
-                        position,
-                        modifiers,
-                    } => {
+                    WindowEvent::CursorMoved { position, .. } => {
                         let mouse_pos = Point::new(
                             (position.x as isize) / scale_factor,
                             (position.y as isize) / scale_factor,
@@ -185,7 +165,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                             last_cursor_pos = Some(mouse_pos);
                             if let Some(capture_file) = &mut capture_file {
                                 writeln!(capture_file, "[SetMousePos]").unwrap();
-                                writeln!(capture_file, "{}, {}", mouse_pos.x, mouse_pos.y);
+                                writeln!(capture_file, "{}, {}", mouse_pos.x, mouse_pos.y).unwrap();
                             }
                         }
                         //let rel_x = mouse_pos.x - last_cursor_pos.unwrap().x;
@@ -209,14 +189,10 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                             //writeln!(capture_file, "{}, {}", mouse_pos.x, mouse_pos.y);
                         }
                     }
-                    WindowEvent::CursorLeft { device_id } => {
+                    WindowEvent::CursorLeft { .. } => {
                         last_cursor_pos = None;
                     }
-                    WindowEvent::KeyboardInput {
-                        device_id,
-                        input,
-                        is_synthetic,
-                    } => {
+                    WindowEvent::KeyboardInput { input, .. } => {
                         if let Some(key_code) = input.virtual_keycode {
                             match key_code {
                                 VirtualKeyCode::A => {
@@ -318,7 +294,7 @@ fn parse_size_space(line: &str) -> Size {
 fn get_mouse_status_byte(left_click_down: bool) -> i8 {
     let mut out = 0;
     if left_click_down {
-        out |= (1 << 0);
+        out |= 1 << 0;
     }
     out
 }
@@ -329,7 +305,6 @@ fn replay_capture() {
             .expect("Unable to read file")
             .clone(),
     );
-    let data_clone = Rc::clone(&data);
     let mut line_iter = data.split('\n').into_iter().enumerate().peekable();
 
     assert_eq!(line_iter.next().unwrap().1, "[Size]");
@@ -365,7 +340,7 @@ fn replay_capture() {
             )
         };
         println!("Got window frame {window_frame}");
-        let w = desktop.spawn_window(
+        desktop.spawn_window(
             &format!("win{window_counter}"),
             &AwmCreateWindow::new(window_frame.size),
             Some(window_frame.origin),

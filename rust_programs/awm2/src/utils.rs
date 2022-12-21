@@ -1,6 +1,5 @@
 use agx_definitions::Color;
 use rand::rngs::SmallRng;
-use rand::RngCore;
 use rand::{Rng, SeedableRng};
 
 #[cfg(target_os = "axle")]

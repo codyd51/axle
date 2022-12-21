@@ -2,11 +2,6 @@
 
 use core::convert::TryFrom;
 
-#[cfg(target_os = "axle")]
-use axle_rt::{amc_message_send, amc_message_send_untyped};
-use axle_rt::{ContainsEventField, ExpectsEventField};
-use axle_rt_derive::ContainsEventField;
-
 pub const KB_DRIVER_SERVICE_NAME: &'static str = "com.axle.kb_driver";
 
 // PT: Must match the definitions in the C file

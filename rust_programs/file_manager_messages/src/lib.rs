@@ -1,16 +1,22 @@
 #![no_std]
 
 extern crate alloc;
-use core::{
-    alloc::Layout,
-    intrinsics::copy_nonoverlapping,
-    mem::{align_of, size_of},
-};
 
-use alloc::alloc::alloc;
-use alloc::vec::Vec;
 #[cfg(target_os = "axle")]
-use axle_rt::{amc_message_send, amc_message_send_untyped};
+mod conditional_imports {
+    pub use alloc::alloc::alloc;
+    pub use alloc::alloc::Layout;
+    pub use alloc::vec::Vec;
+    pub use axle_rt::{amc_message_send, amc_message_send_untyped};
+    pub use core::mem::align_of;
+    pub use core::mem::size_of;
+    pub use core::ptr::copy_nonoverlapping;
+}
+#[cfg(not(target_os = "axle"))]
+mod conditional_imports {}
+
+use crate::conditional_imports::*;
+
 use axle_rt::{copy_str_into_sized_slice, ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
 

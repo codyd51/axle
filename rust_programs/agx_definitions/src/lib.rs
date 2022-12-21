@@ -10,8 +10,6 @@ extern crate core;
 extern crate libc;
 
 use alloc::fmt::Debug;
-use alloc::vec;
-use alloc::{format, rc::Rc, string::String, vec::Vec};
 
 use alloc::boxed::Box;
 use alloc::rc::Weak;
@@ -22,6 +20,9 @@ use core::{
     ops::{Add, Mul, Sub},
 };
 use num_traits::Float;
+
+#[cfg(target_os = "axle")]
+use alloc::vec::Vec;
 
 #[cfg(target_os = "axle")]
 use axle_rt::println;
@@ -467,7 +468,7 @@ impl Rect {
             height -= rhs.max_y() - self.height();
         }
 
-        let mut origin = rhs.origin;
+        let origin = rhs.origin;
         /*
         if rhs.min_x() < self.min_x() {
             origin.x = 0;

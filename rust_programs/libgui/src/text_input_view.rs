@@ -2,15 +2,14 @@ use core::cell::RefCell;
 
 use crate::{bordered::Bordered, ui_elements::UIElement, view::View};
 use agx_definitions::{
-    Color, Drawable, LayerSlice, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
+    Color, Drawable, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
     StrokeThickness,
 };
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use alloc::vec::Vec;
 use alloc::{collections::BTreeMap, string::String};
-use core::borrow::Borrow;
-use libgui_derive::{Bordered, Drawable, NestedLayerSlice};
+use libgui_derive::{Drawable, NestedLayerSlice};
 use num_traits::Float;
 
 use crate::text_view::{CursorPos, DrawnCharacter, TextView};
@@ -84,7 +83,7 @@ impl TextInputView {
         self.erase_cursor();
 
         if !self.view.is_inserting_at_end() {
-            let onto = &mut self
+            let _onto = &mut self
                 .view
                 .get_slice()
                 .get_slice(self.view.text_entry_frame());
@@ -126,7 +125,7 @@ impl TextInputView {
                 //println!("Redrawing later char {drawn_ch:?}");
                 //drawn_ch.pos = Self::next_cursor_pos_for_char(drawn_ch.pos, drawn_ch.value, font_size, onto);
                 {
-                    let onto = &mut self
+                    let _onto = &mut self
                         .view
                         .get_slice()
                         .get_slice(self.view.text_entry_frame());

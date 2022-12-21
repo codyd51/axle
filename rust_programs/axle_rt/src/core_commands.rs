@@ -1,7 +1,13 @@
 #[cfg(target_os = "axle")]
-use crate::{amc_message_await, amc_message_send};
+mod conditional_imports {
+    pub use crate::{amc_message_await, amc_message_send, copy_str_into_sized_slice, AmcMessage};
+}
+#[cfg(not(target_os = "axle"))]
+mod conditional_imports {}
 
-use crate::{copy_str_into_sized_slice, AmcMessage, ContainsEventField, ExpectsEventField};
+use crate::core_commands::conditional_imports::*;
+
+use crate::{ContainsEventField, ExpectsEventField};
 use alloc::vec::Vec;
 use axle_rt_derive::ContainsEventField;
 use cstr_core::CString;
@@ -15,6 +21,7 @@ pub struct PhysVirtPair {
     pub virt: usize,
 }
 
+#[cfg(target_os = "axle")]
 impl PhysVirtPair {
     fn new(phys: usize, virt: usize) -> Self {
         Self { phys, virt }
@@ -27,6 +34,7 @@ pub struct PhysRangeMapping {
     pub size: usize,
 }
 
+#[cfg(target_os = "axle")]
 impl PhysRangeMapping {
     fn new(addr: PhysVirtPair, size: usize) -> Self {
         Self { addr, size }

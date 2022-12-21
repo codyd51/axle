@@ -13,21 +13,14 @@ use alloc::rc::Rc;
 use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
-use awm_messages::{
-    AwmCloseWindow, AwmCreateWindow, AwmKeyDown, AwmKeyUp, AwmMouseEntered, AwmMouseExited,
-    AwmMouseLeftClickEnded, AwmMouseLeftClickStarted, AwmMouseMoved, AwmMouseScrolled,
-    AwmWindowPartialRedraw, AwmWindowResized, AwmWindowUpdateTitle,
-};
-use axle_rt::core_commands::AmcSharedMemoryCreateRequest;
+use awm_messages::{AwmCreateWindow, AwmWindowPartialRedraw, AwmWindowUpdateTitle};
 use core::cell::RefCell;
 use core::cmp::{max, min};
-use core::fmt::{Display, Formatter};
 use mouse_driver_messages::MousePacket;
 
 use crate::animations::{Animation, WindowOpenAnimationParams};
 use file_manager_messages::str_from_u8_nul_utf8_unchecked;
 use kb_driver_messages::{KeyEventType, KeyIdentifier, KeyboardPacket};
-use lazy_static::lazy_static;
 use rand::prelude::*;
 
 #[cfg(target_os = "axle")]
@@ -35,7 +28,13 @@ pub extern crate libc;
 #[cfg(target_os = "axle")]
 mod conditional_imports {
     pub use awm_messages::AwmCreateWindowResponse;
+    pub use awm_messages::{
+        AwmCloseWindow, AwmKeyDown, AwmKeyUp, AwmMouseEntered, AwmMouseExited,
+        AwmMouseLeftClickEnded, AwmMouseLeftClickStarted, AwmMouseMoved, AwmMouseScrolled,
+        AwmWindowResized,
+    };
     pub use axle_rt::amc_message_send;
+    pub use axle_rt::core_commands::AmcSharedMemoryCreateRequest;
 }
 #[cfg(not(target_os = "axle"))]
 mod conditional_imports {}
@@ -306,7 +305,7 @@ impl CompositorState {
         if !extra_draws.contains_key(&element_id) {
             extra_draws.insert(element_id, BTreeSet::new());
         }
-        let mut extra_draws_for_element = extra_draws.get_mut(&element_id).unwrap();
+        let extra_draws_for_element = extra_draws.get_mut(&element_id).unwrap();
         extra_draws_for_element.insert(r);
     }
 
@@ -335,8 +334,8 @@ impl CompositorState {
                 //let mut unmerged_rects = rects.clone();
 
                 let rects_clone = rects.clone();
-                'outer: for (i, r1) in rects_clone.iter().enumerate() {
-                    for (j, r2) in rects_clone[i + 1..].iter().enumerate() {
+                for (i, r1) in rects_clone.iter().enumerate() {
+                    for (_j, r2) in rects_clone[i + 1..].iter().enumerate() {
                         if r1.max_x() == r2.min_x()
                             && r1.min_y() == r2.min_y()
                             && r1.max_y() == r2.max_y()
@@ -506,7 +505,7 @@ impl Desktop {
     }
 
     fn draw_mouse(&mut self) -> Rect {
-        let mut mouse_color = {
+        let mouse_color = {
             match self.mouse_interaction_state {
                 MouseInteractionState::BackgroundHover | MouseInteractionState::WindowHover(_) => {
                     Color::green()
@@ -646,7 +645,7 @@ impl Desktop {
             let dst = self.screen_buffer_layer.get_slice(elem.frame());
             dst.blit2(&src);
         }
-        let mouse_rect = self.draw_mouse();
+        let _mouse_rect = self.draw_mouse();
         self.compositor_state.extra_draws.borrow_mut().clear();
         self.compositor_state.rects_to_fully_redraw.drain(..);
         self.compositor_state
@@ -664,7 +663,7 @@ impl Desktop {
     }
 
     pub fn draw_frame_composited(&mut self) {
-        let start = get_timestamp();
+        let _start = get_timestamp();
 
         let mut logs: Vec<String> = self.frame_render_logs.drain(..).collect();
         // First, fetch the remote framebuffers for windows that requested it
@@ -683,7 +682,7 @@ impl Desktop {
             .elements_to_composite
             .borrow_mut()
             // PT: BTreeSet doesn't support drain(..)
-            .drain_filter(|x| true)
+            .drain_filter(|_| true)
         {
             let desktop_element = self
                 .compositor_state
@@ -1126,7 +1125,7 @@ impl Desktop {
         self.mouse_interaction_state = new_state;
     }
 
-    fn handle_mouse_moved(&mut self, new_pos: Point, rel_shift: Point) {
+    fn handle_mouse_moved(&mut self, _new_pos: Point, rel_shift: Point) {
         if let MouseInteractionState::PerformingWindowDrag(dragged_window) =
             &self.mouse_interaction_state
         {
@@ -1190,9 +1189,6 @@ impl Desktop {
         if let MouseInteractionState::WindowHover(hover_window) = &self.mouse_interaction_state {
             // Scroll within a window, inform the window
             let mouse_within_window = hover_window.frame().translate_point(self.mouse_state.pos);
-            let mouse_within_content_view = hover_window
-                .content_frame()
-                .translate_point(mouse_within_window);
             /*
             println!(
                 "Mouse scrolled within hover window {} {delta_z}",
@@ -1201,6 +1197,9 @@ impl Desktop {
             */
             #[cfg(target_os = "axle")]
             {
+                let mouse_within_content_view = hover_window
+                    .content_frame()
+                    .translate_point(mouse_within_window);
                 let mouse_scrolled_msg = AwmMouseScrolled::new(mouse_within_content_view, delta_z);
                 amc_message_send(&hover_window.owner_service, mouse_scrolled_msg);
             }

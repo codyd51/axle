@@ -1,4 +1,4 @@
-use agx_definitions::{Color, LayerSlice, LikeLayerSlice, Point, Size};
+use agx_definitions::{Color, LikeLayerSlice, Point, Size};
 use alloc::boxed::Box;
 
 pub const CHAR_WIDTH: usize = 8;

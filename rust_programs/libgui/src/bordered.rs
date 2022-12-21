@@ -1,6 +1,5 @@
-use crate::println;
 use agx_definitions::{
-    Color, Drawable, LayerSlice, LikeLayerSlice, Line, Point, Rect, RectInsets, StrokeThickness,
+    Color, Drawable, LikeLayerSlice, Line, Point, Rect, RectInsets, StrokeThickness,
 };
 use alloc::boxed::Box;
 use alloc::rc::Rc;
@@ -79,7 +78,7 @@ pub trait Bordered: Drawable + UIElement {
         */
 
         let highlight_border_width = 1;
-        let border_effect_size = insets.top / 2;
+        //let border_effect_size = insets.top / 2;
         /*
         let outer_margin_size = border_effect_size;
         let inner_margin_size = border_effect_size;

@@ -5,7 +5,7 @@
 #![cfg_attr(target_os = "axle", feature(format_args_nl))]
 #![cfg_attr(target_os = "axle", feature(default_alloc_error_handler))]
 // PT: For the test suite
-#![cfg_attr(not(target_os = "axle"), feature(iter_zip))]
+// #![cfg_attr(not(target_os = "axle"), feature(iter_zip))]
 
 mod animations;
 mod desktop;
@@ -41,5 +41,5 @@ mod run_in_axle {
 
 #[cfg(not(target_os = "axle"))]
 fn main() {
-    main_std::main();
+    main_std::main().unwrap();
 }

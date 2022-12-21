@@ -2,33 +2,22 @@ use core::cmp::max;
 use core::fmt::{Display, Formatter};
 use std::{
     cell::RefCell,
-    io::Write,
-    mem,
-    num::ParseIntError,
     rc::{Rc, Weak},
-    time::Duration,
 };
 
 use crate::ui_elements::UIElement;
-use crate::window_events::{KeyCode, MouseMoved};
+use crate::window_events::KeyCode;
 use agx_definitions::{
-    Color, Drawable, LayerSlice, LikeLayerSlice, NestedLayerSlice, Point, PointU32, Rect, Size,
-    StrokeThickness, CHAR_HEIGHT, CHAR_WIDTH, FONT8X8,
+    Color, Drawable, LikeLayerSlice, NestedLayerSlice, Point, Rect, Size, StrokeThickness,
+    CHAR_HEIGHT, CHAR_WIDTH, FONT8X8,
 };
-use axle_rt::ExpectsEventField;
 use pixels::wgpu::TextureFormat;
-use pixels::{Error, Pixels, PixelsBuilder, SurfaceTexture};
+use pixels::{Pixels, PixelsBuilder, SurfaceTexture};
+use winit::event::{ElementState, Event, VirtualKeyCode};
 use winit::event::{MouseButton, MouseScrollDelta};
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::{Window, WindowBuilder};
-use winit::{
-    dpi::{LogicalPosition, LogicalSize},
-    event::WindowEvent,
-};
-use winit::{
-    event::{ElementState, Event, VirtualKeyCode},
-    window::Fullscreen,
-};
+use winit::{dpi::LogicalSize, event::WindowEvent};
 
 struct PixelLayerSlice {
     parent: Rc<RefCell<Pixels>>,
@@ -94,7 +83,7 @@ impl LikeLayerSlice for PixelLayerSlice {
             self.fill_rect(right, color, StrokeThickness::Filled);
         } else {
             let mut pixels = self.parent.borrow_mut();
-            let mut fb = pixels.get_frame_mut();
+            let fb = pixels.get_frame_mut();
             // Construct the filled row of pixels that we can copy row-by-row
             let bytes_in_row = (rect.width() * bpp) as usize;
             let mut src_row_slice = vec![0; bytes_in_row];
@@ -109,8 +98,7 @@ impl LikeLayerSlice for PixelLayerSlice {
                 let row_start = (rect_origin_offset.y
                     + (y * parent_bytes_per_row)
                     + rect_origin_offset.x) as usize;
-                let mut dst_row_slice =
-                    &mut fb[row_start..row_start + ((rect.width() * bpp) as usize)];
+                let dst_row_slice = &mut fb[row_start..row_start + ((rect.width() * bpp) as usize)];
                 dst_row_slice.copy_from_slice(&src_row_slice);
             }
         }
@@ -134,7 +122,7 @@ impl LikeLayerSlice for PixelLayerSlice {
         let parent_bytes_per_row = parent_size.width * bpp;
         let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
         let mut pixels = self.parent.borrow_mut();
-        let mut fb = pixels.get_frame_mut();
+        let fb = pixels.get_frame_mut();
         let slice_origin_offset = self.frame.origin * bpp_multiple;
         //let off = slice_origin_offset + (loc.y * parent_bytes_per_row) + (loc.x * bpp);
         let point_offset = slice_origin_offset + (loc * bpp_multiple);
@@ -145,7 +133,7 @@ impl LikeLayerSlice for PixelLayerSlice {
         fb[off + 3] = 0xff;
     }
 
-    fn getpixel(&self, loc: Point) -> Color {
+    fn getpixel(&self, _loc: Point) -> Color {
         todo!()
     }
 
@@ -161,7 +149,12 @@ impl LikeLayerSlice for PixelLayerSlice {
         ))
     }
 
-    fn blit(&self, source_layer: &Box<dyn LikeLayerSlice>, source_frame: Rect, dest_origin: Point) {
+    fn blit(
+        &self,
+        _source_layer: &Box<dyn LikeLayerSlice>,
+        _source_frame: Rect,
+        _dest_origin: Point,
+    ) {
         todo!()
     }
 
@@ -180,7 +173,7 @@ impl LikeLayerSlice for PixelLayerSlice {
         let parent_bytes_per_row = parent_size.width * bpp;
         let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
         let mut pixels = self.parent.borrow_mut();
-        let mut fb = pixels.get_frame_mut();
+        let fb = pixels.get_frame_mut();
         let slice_origin_offset = self.frame.origin * bpp_multiple;
 
         let (src_base, src_slice_row_size, src_parent_framebuf_row_size) =
@@ -190,7 +183,7 @@ impl LikeLayerSlice for PixelLayerSlice {
             // Blit an entire row at once
             let point_offset = slice_origin_offset + (Point::new(0, y) * bpp_multiple);
             let off = (point_offset.y + point_offset.x) as usize;
-            let mut dst_row_slice = &mut fb[off..off + ((self.frame.width() * bpp) as usize)];
+            let dst_row_slice = &mut fb[off..off + ((self.frame.width() * bpp) as usize)];
             let src_row_slice = unsafe {
                 let src_row_start = src_base.offset(y * (src_parent_framebuf_row_size as isize));
                 core::slice::from_raw_parts(src_row_start, src_slice_row_size)
@@ -223,11 +216,11 @@ impl LikeLayerSlice for PixelLayerSlice {
         }
     }
 
-    fn get_pixel_row(&self, y: usize) -> Vec<u8> {
+    fn get_pixel_row(&self, _y: usize) -> Vec<u8> {
         todo!()
     }
 
-    fn get_pixel_row_slice(&self, y: usize) -> (*const u8, usize) {
+    fn get_pixel_row_slice(&self, _y: usize) -> (*const u8, usize) {
         todo!()
     }
 
@@ -235,7 +228,7 @@ impl LikeLayerSlice for PixelLayerSlice {
         todo!()
     }
 
-    fn track_damage(&self, r: Rect) {
+    fn track_damage(&self, _r: Rect) {
         todo!()
     }
 
@@ -246,7 +239,7 @@ impl LikeLayerSlice for PixelLayerSlice {
 
 pub struct PixelLayer {
     size: Size,
-    window: Window,
+    _window: Window,
     pub pixel_buffer: Rc<RefCell<Pixels>>,
 }
 
@@ -283,7 +276,7 @@ impl PixelLayer {
         pixel_buffer.render().unwrap();
         Self {
             size,
-            window,
+            _window: window,
             pixel_buffer: Rc::new(RefCell::new(pixel_buffer)),
         }
     }
@@ -309,11 +302,11 @@ impl LikeLayerSlice for PixelLayer {
         self.get_slice(Rect::with_size(self.size)).fill(color)
     }
 
-    fn putpixel(&self, loc: Point, color: Color) {
+    fn putpixel(&self, _loc: Point, _color: Color) {
         todo!()
     }
 
-    fn getpixel(&self, loc: Point) -> Color {
+    fn getpixel(&self, _loc: Point) -> Color {
         todo!()
     }
 
@@ -327,11 +320,16 @@ impl LikeLayerSlice for PixelLayer {
         ))
     }
 
-    fn blit(&self, source_layer: &Box<dyn LikeLayerSlice>, source_frame: Rect, dest_origin: Point) {
+    fn blit(
+        &self,
+        _source_layer: &Box<dyn LikeLayerSlice>,
+        _source_frame: Rect,
+        _dest_origin: Point,
+    ) {
         todo!()
     }
 
-    fn blit2(&self, source_layer: &Box<dyn LikeLayerSlice>) {
+    fn blit2(&self, _source_layer: &Box<dyn LikeLayerSlice>) {
         todo!()
     }
 
@@ -339,15 +337,15 @@ impl LikeLayerSlice for PixelLayer {
         todo!()
     }
 
-    fn draw_char(&self, ch: char, draw_loc: Point, draw_color: Color, font_size: Size) {
+    fn draw_char(&self, _ch: char, _draw_loc: Point, _draw_color: Color, _font_size: Size) {
         todo!()
     }
 
-    fn get_pixel_row(&self, y: usize) -> Vec<u8> {
+    fn get_pixel_row(&self, _y: usize) -> Vec<u8> {
         todo!()
     }
 
-    fn get_pixel_row_slice(&self, y: usize) -> (*const u8, usize) {
+    fn get_pixel_row_slice(&self, _y: usize) -> (*const u8, usize) {
         todo!()
     }
 
@@ -355,7 +353,7 @@ impl LikeLayerSlice for PixelLayer {
         todo!()
     }
 
-    fn track_damage(&self, r: Rect) {
+    fn track_damage(&self, _r: Rect) {
         todo!()
     }
 
@@ -479,21 +477,15 @@ impl AwmWindow {
         */
 
         let self_clone = Rc::clone(self);
-        let window_size = self.layer.borrow().as_ref().unwrap().window.inner_size();
         let scale_factor = 2;
         let mut last_cursor_pos = Point::zero();
         event_loop.run(move |event, _, control_flow| {
             *control_flow = ControlFlow::Poll;
             match event {
                 Event::MainEventsCleared => self_clone.draw(),
-                Event::WindowEvent { window_id, event } => {
+                Event::WindowEvent { event, .. } => {
                     match event {
-                        WindowEvent::MouseInput {
-                            device_id,
-                            state,
-                            button,
-                            modifiers,
-                        } => {
+                        WindowEvent::MouseInput { state, button, .. } => {
                             //
                             println!("MouseInput {state:?}, button {button:?}");
                             match state {
@@ -506,11 +498,7 @@ impl AwmWindow {
                                 _ => (),
                             }
                         }
-                        WindowEvent::CursorMoved {
-                            device_id,
-                            position,
-                            modifiers,
-                        } => {
+                        WindowEvent::CursorMoved { position, .. } => {
                             //println!("CursorMoved position {position:?}");
                             let mouse_pos = Point::new(
                                 (position.x as isize) / scale_factor,
@@ -519,15 +507,10 @@ impl AwmWindow {
                             self_clone.mouse_moved(mouse_pos);
                             last_cursor_pos = mouse_pos;
                         }
-                        WindowEvent::CursorLeft { device_id } => {
+                        WindowEvent::CursorLeft { .. } => {
                             self_clone.mouse_exited();
                         }
-                        WindowEvent::MouseWheel {
-                            device_id,
-                            delta,
-                            phase,
-                            modifiers,
-                        } => {
+                        WindowEvent::MouseWheel { delta, phase, .. } => {
                             println!("MouseWheel event delta {delta:?} phase {phase:?}");
                             let delta_y = {
                                 match delta {
@@ -539,11 +522,7 @@ impl AwmWindow {
                                 .handle_mouse_scrolled(last_cursor_pos, -(delta_y / 6.0) as _);
                             //elem.handle_mouse_scrolled(Point::from(event.mouse_point), event.delta_z as _);
                         }
-                        WindowEvent::KeyboardInput {
-                            device_id,
-                            input,
-                            is_synthetic,
-                        } => {
+                        WindowEvent::KeyboardInput { input, .. } => {
                             if let Some(key_code) = input.virtual_keycode {
                                 //println!("Got key {key_code:?}");
                                 let maybe_key_code_as_char = match key_code {
@@ -606,7 +585,7 @@ impl AwmWindow {
         //printf!("Window drawing all contents finished\n");
         let layer = self.layer.borrow();
         //layer.as_ref().unwrap().fill(Color::green());
-        let mut pixel_buffer = layer.as_ref().unwrap().pixel_buffer.borrow_mut();
+        let pixel_buffer = layer.as_ref().unwrap().pixel_buffer.borrow_mut();
 
         /*
         let mut frame = pixel_buffer.get_frame();
@@ -617,7 +596,7 @@ impl AwmWindow {
             pixel[3] = 0xab; // A
         }
         */
-        pixel_buffer.render();
+        pixel_buffer.render().unwrap();
     }
 }
 

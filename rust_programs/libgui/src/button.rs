@@ -1,8 +1,8 @@
 use core::cell::RefCell;
 
 use agx_definitions::{
-    Color, Drawable, LayerSlice, LikeLayerSlice, Line, NestedLayerSlice, Point, Rect, RectInsets,
-    Size, StrokeThickness,
+    Color, Drawable, LikeLayerSlice, Line, NestedLayerSlice, Point, Rect, RectInsets, Size,
+    StrokeThickness,
 };
 use alloc::boxed::Box;
 use alloc::rc::Weak;

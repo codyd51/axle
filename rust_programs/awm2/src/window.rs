@@ -107,7 +107,7 @@ impl Window {
 
     pub fn render_remote_layer(&self) {
         let src = self.content_layer.borrow_mut().get_full_slice();
-        let mut dst = self.layer.borrow_mut().get_slice(Rect::from_parts(
+        let dst = self.layer.borrow_mut().get_slice(Rect::from_parts(
             Point::new(0, Self::TITLE_BAR_HEIGHT as isize),
             src.frame().size,
         ));
