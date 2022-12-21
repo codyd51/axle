@@ -132,8 +132,8 @@ awm_animation_open_window_t* awm_animation_open_window_init_ex(uint32_t duration
 awm_animation_open_window_t* awm_animation_open_window_init(uint32_t duration, user_window_t* window, Rect dest_frame) {
 	Size screen_size = screen_resolution();
 	Size original_size = size_make(
-		screen_size.width / 10.0
-        screen_size.height / 10.0,
+		screen_size.width / 10.0,
+        screen_size.height / 10.0
 	);
 	Rect original_frame = rect_make(
 		point_make(
