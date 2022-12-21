@@ -70,11 +70,7 @@ unsafe fn body_as_type_unchecked<T: ExpectsEventField + ContainsEventField>(body
     &*(body.as_ptr() as *const T)
 }
 
-fn process_amc_messages(desktop: &mut Desktop, can_block_for_next_message: bool) {
-    if !amc_has_message(None) && !can_block_for_next_message {
-        return;
-    }
-
+fn process_next_amc_message(desktop: &mut Desktop) {
     let msg_unparsed: AmcMessage<[u8]> = unsafe { amc_message_await_untyped(None).unwrap() };
 
     // Parse the first bytes of the message as a u32 event field
@@ -162,6 +158,18 @@ fn process_amc_messages(desktop: &mut Desktop, can_block_for_next_message: bool)
                     println!("Awm ignoring message with unknown event type: {event}");
                 }
             }
+        }
+    }
+}
+
+fn process_amc_messages(desktop: &mut Desktop, can_block_for_next_message: bool) {
+    if !amc_has_message(None) && !can_block_for_next_message {
+        return;
+    }
+    loop {
+        process_next_amc_message(desktop);
+        if !amc_has_message(None) {
+            return;
         }
     }
 }
