@@ -14,9 +14,9 @@ use alloc::string::{String, ToString};
 use alloc::vec;
 use alloc::vec::Vec;
 use awm_messages::{
-    AwmCreateWindow, AwmMouseEntered, AwmMouseExited, AwmMouseLeftClickEnded,
-    AwmMouseLeftClickStarted, AwmMouseMoved, AwmMouseScrolled, AwmWindowPartialRedraw,
-    AwmWindowResized, AwmWindowUpdateTitle,
+    AwmCloseWindow, AwmCreateWindow, AwmKeyDown, AwmKeyUp, AwmMouseEntered, AwmMouseExited,
+    AwmMouseLeftClickEnded, AwmMouseLeftClickStarted, AwmMouseMoved, AwmMouseScrolled,
+    AwmWindowPartialRedraw, AwmWindowResized, AwmWindowUpdateTitle,
 };
 use axle_rt::core_commands::AmcSharedMemoryCreateRequest;
 use core::cell::RefCell;
@@ -26,7 +26,7 @@ use mouse_driver_messages::MousePacket;
 
 use crate::animations::{Animation, WindowOpenAnimationParams};
 use file_manager_messages::str_from_u8_nul_utf8_unchecked;
-use kb_driver_messages::{KeyEventType, KeyboardPacket};
+use kb_driver_messages::{KeyEventType, KeyIdentifier, KeyboardPacket};
 use lazy_static::lazy_static;
 use rand::prelude::*;
 
@@ -134,6 +134,39 @@ fn send_window_resized_event(window: &Rc<Window>) {
     #[cfg(not(target_os = "axle"))]
     {
         println!("send_window_resized_event({})", window.name())
+    }
+}
+
+fn send_close_window_request(window: &Rc<Window>) {
+    #[cfg(target_os = "axle")]
+    {
+        amc_message_send(&window.owner_service, AwmCloseWindow::new());
+    }
+    #[cfg(not(target_os = "axle"))]
+    {
+        println!("send_close_window_request({})", window.name())
+    }
+}
+
+fn send_key_down_event(window: &Rc<Window>, key: u32) {
+    #[cfg(target_os = "axle")]
+    {
+        amc_message_send(&window.owner_service, AwmKeyDown::new(key));
+    }
+    #[cfg(not(target_os = "axle"))]
+    {
+        println!("send_key_down_event({}, {key})", window.name())
+    }
+}
+
+fn send_key_up_event(window: &Rc<Window>, key: u32) {
+    #[cfg(target_os = "axle")]
+    {
+        amc_message_send(&window.owner_service, AwmKeyUp::new(key));
+    }
+    #[cfg(not(target_os = "axle"))]
+    {
+        println!("send_key_up_event({}, {key})", window.name())
     }
 }
 
@@ -375,6 +408,30 @@ impl PartialEq for MouseInteractionState {
     }
 }
 
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
+enum KeyboardModifier {
+    Shift,
+    Control,
+    Command,
+    Option,
+}
+
+struct KeyboardState {
+    pressed_modifiers: BTreeSet<KeyboardModifier>,
+}
+
+impl KeyboardState {
+    fn new() -> Self {
+        Self {
+            pressed_modifiers: BTreeSet::new(),
+        }
+    }
+
+    fn is_control_held(&self) -> bool {
+        self.pressed_modifiers.contains(&KeyboardModifier::Control)
+    }
+}
+
 pub enum RenderStrategy {
     TreeWalk,
     Composite,
@@ -390,6 +447,7 @@ pub struct Desktop {
     pub windows: Vec<Rc<Window>>,
     mouse_state: MouseState,
     mouse_interaction_state: MouseInteractionState,
+    keyboard_state: KeyboardState,
     compositor_state: CompositorState,
     pub render_strategy: RenderStrategy,
     rng: SmallRng,
@@ -424,6 +482,7 @@ impl Desktop {
             render_strategy: RenderStrategy::Composite,
             mouse_state: MouseState::new(initial_mouse_pos, desktop_frame.size),
             mouse_interaction_state: MouseInteractionState::BackgroundHover,
+            keyboard_state: KeyboardState::new(),
             rng,
             background_gradient_inner_color,
             background_gradient_outer_color,
@@ -593,7 +652,7 @@ impl Desktop {
         self.compositor_state
             .elements_to_composite
             .borrow_mut()
-            .drain(..);
+            .clear();
 
         Self::copy_rect(
             &mut *self.screen_buffer_layer.get_full_slice(),
@@ -911,6 +970,14 @@ impl Desktop {
             }
         }
         return None;
+    }
+
+    fn bottom_window(&self) -> Option<&Rc<Window>> {
+        self.windows.last()
+    }
+
+    fn top_window(&self) -> Option<&Rc<Window>> {
+        self.windows.first()
     }
 
     fn handle_left_click_began(&mut self) {
@@ -1236,10 +1303,12 @@ impl Desktop {
             .unwrap();
         self.windows.remove(window_idx);
         self.windows.insert(0, Rc::clone(window));
+        self.recompute_drawable_regions_in_rect(window.frame());
     }
 
     pub fn handle_keyboard_event(&mut self, packet: &KeyboardPacket) {
-        println!("Got keyboard packet {packet:?}");
+        //println!("Got keyboard packet {packet:?}");
+        /*
         if packet.key == 97 && packet.event_type == KeyEventType::Released {
             match self.render_strategy {
                 RenderStrategy::TreeWalk => {
@@ -1251,6 +1320,67 @@ impl Desktop {
                     self.render_strategy = RenderStrategy::TreeWalk;
                 }
             }
+        }
+        */
+
+        // Update held modifiers state
+        if let Ok(key_identifier) = KeyIdentifier::try_from(packet.key) {
+            let modifier_key = match key_identifier {
+                KeyIdentifier::ShiftLeft | KeyIdentifier::ShiftRight => {
+                    Some(KeyboardModifier::Shift)
+                }
+                KeyIdentifier::ControlLeft => Some(KeyboardModifier::Control),
+                KeyIdentifier::CommandLeft => Some(KeyboardModifier::Command),
+                KeyIdentifier::OptionLeft => Some(KeyboardModifier::Option),
+                _ => None,
+            };
+            if let Some(modifier_key) = modifier_key {
+                match packet.event_type {
+                    KeyEventType::Pressed => {
+                        println!("Inserting {modifier_key:?}");
+                        self.keyboard_state.pressed_modifiers.insert(modifier_key);
+                    }
+                    KeyEventType::Released => {
+                        println!("Removing {modifier_key:?}");
+                        self.keyboard_state.pressed_modifiers.remove(&modifier_key);
+                    }
+                }
+            }
+        }
+        println!("Pressed modifiers: ");
+        for modifier in self.keyboard_state.pressed_modifiers.iter() {
+            println!("\t{modifier:?}");
+        }
+
+        // Is this a chord?
+        if packet.event_type == KeyEventType::Pressed && self.keyboard_state.is_control_held() {
+            println!("Control is held, checking {}\n", packet.key);
+            match packet.key {
+                const { '\t' as u32 } => {
+                    // Ctrl+Tab switches windows by rotating the Z-order
+                    println!("Found Ctrl+Tab\n");
+                    if let Some(bottom_window) = self.bottom_window() {
+                        self.move_window_to_top(&Rc::clone(bottom_window));
+                    }
+                }
+                const { 'w' as u32 } => {
+                    // Ctrl+W closes the topmost window
+                    println!("Found Ctrl+W\n");
+                    if let Some(top_window) = self.top_window() {
+                        send_close_window_request(&Rc::clone(top_window));
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Send the event to the topmost window
+        if let Some(top_window) = self.top_window() {
+            match packet.event_type {
+                KeyEventType::Pressed => send_key_down_event(&Rc::clone(top_window), packet.key),
+                KeyEventType::Released => send_key_up_event(&Rc::clone(top_window), packet.key),
+            }
+            //
         }
     }
 

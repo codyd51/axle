@@ -1,4 +1,5 @@
 #![feature(btree_drain_filter)]
+#![feature(inline_const_pat)]
 #![cfg_attr(target_os = "axle", no_std)]
 #![cfg_attr(target_os = "axle", feature(start))]
 #![cfg_attr(target_os = "axle", feature(format_args_nl))]
