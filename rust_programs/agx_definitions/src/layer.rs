@@ -111,10 +111,21 @@ impl LikeLayerSlice for LayerSlice {
         } else {
             self.track_damage(rect);
 
-            let color_as_u32 = (0xff_u32 << 24
-                | (color.r as u32) << 16
-                | (color.g as u32) << 8
-                | (color.b as u32));
+            let color_as_u32 = match cfg!(target_os = "axle") {
+                true => {
+                    (0xff_u32 << 24
+                        | (color.r as u32) << 16
+                        | (color.g as u32) << 8
+                        | (color.b as u32))
+                }
+                false => {
+                    // Swap channels when targeting macOS
+                    (0xff_u32 << 24
+                        | (color.b as u32) << 16
+                        | (color.g as u32) << 8
+                        | (color.r as u32))
+                }
+            };
             let mut fb = (*self.parent_framebuffer).borrow_mut();
             for y in 0..rect.height() {
                 let row_start =
