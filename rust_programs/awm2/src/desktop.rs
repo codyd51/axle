@@ -7,6 +7,7 @@ use agx_definitions::{
 };
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
+use alloc::collections::BTreeSet;
 use alloc::format;
 use alloc::rc::Rc;
 use alloc::string::{String, ToString};
@@ -232,12 +233,12 @@ struct CompositorState {
     /// These may include portions of windows, the desktop background, etc.
     rects_to_fully_redraw: Vec<Rect>,
     /// Entire elements that must be composited on the next frame
-    elements_to_composite: RefCell<Vec<Rc<dyn DesktopElement>>>,
+    elements_to_composite: RefCell<BTreeSet<usize>>,
     // Every desktop element the compositor knows about
     elements: Vec<Rc<dyn DesktopElement>>,
     elements_by_id: BTreeMap<usize, Rc<dyn DesktopElement>>,
 
-    extra_draws: RefCell<BTreeMap<usize, Vec<Rect>>>,
+    extra_draws: RefCell<BTreeMap<usize, BTreeSet<Rect>>>,
     extra_background_draws: Vec<Rect>,
 }
 
@@ -245,7 +246,7 @@ impl CompositorState {
     fn new() -> Self {
         Self {
             rects_to_fully_redraw: vec![],
-            elements_to_composite: RefCell::new(vec![]),
+            elements_to_composite: RefCell::new(BTreeSet::new()),
             elements: vec![],
             elements_by_id: BTreeMap::new(),
             extra_draws: RefCell::new(BTreeMap::new()),
@@ -258,7 +259,7 @@ impl CompositorState {
     }
 
     fn queue_composite(&self, element: Rc<dyn DesktopElement>) {
-        self.elements_to_composite.borrow_mut().push(element)
+        self.elements_to_composite.borrow_mut().insert(element.id());
     }
 
     fn track_element(&mut self, element: Rc<dyn DesktopElement>) {
@@ -270,10 +271,10 @@ impl CompositorState {
         let element_id = element.id();
         let mut extra_draws = self.extra_draws.borrow_mut();
         if !extra_draws.contains_key(&element_id) {
-            extra_draws.insert(element_id, vec![]);
+            extra_draws.insert(element_id, BTreeSet::new());
         }
         let mut extra_draws_for_element = extra_draws.get_mut(&element_id).unwrap();
-        extra_draws_for_element.push(r)
+        extra_draws_for_element.insert(r);
     }
 
     fn queue_extra_background_draw(&mut self, r: Rect) {
@@ -283,7 +284,7 @@ impl CompositorState {
     fn merge_extra_draws(&self) -> BTreeMap<usize, Vec<Rect>> {
         let mut out = BTreeMap::new();
         for (elem_id, extra_draws) in self.extra_draws.borrow().iter() {
-            let mut rects = extra_draws.clone();
+            let mut rects = extra_draws.iter().map(|&r| r).collect::<Vec<Rect>>();
 
             // Sort by X origin
             rects.sort_by(|a, b| {
@@ -419,9 +420,9 @@ impl Desktop {
             screen_buffer_layer,
             desktop_background_layer,
             windows: vec![],
-            mouse_state: MouseState::new(initial_mouse_pos, desktop_frame.size),
             compositor_state: CompositorState::new(),
             render_strategy: RenderStrategy::Composite,
+            mouse_state: MouseState::new(initial_mouse_pos, desktop_frame.size),
             mouse_interaction_state: MouseInteractionState::BackgroundHover,
             rng,
             background_gradient_inner_color,
@@ -457,10 +458,6 @@ impl Desktop {
                 MouseInteractionState::PerformingWindowResize(_) => Color::new(207, 25, 185),
             }
         };
-        if cfg!(not(target_os = "axle")) {
-            //println!("Swapping order");
-            //mouse_color = mouse_color.swap_order();
-        }
 
         let mouse_rect = self.mouse_state.frame();
         let onto = self.screen_buffer_layer.get_slice(mouse_rect);
@@ -622,12 +619,18 @@ impl Desktop {
 
         logs.push(format!("Elements to composite:"));
         // Composite each desktop element that needs to be composited this frame
-        for desktop_element in self
+        for desktop_element_id in self
             .compositor_state
             .elements_to_composite
             .borrow_mut()
-            .drain(..)
+            // PT: BTreeSet doesn't support drain(..)
+            .drain_filter(|x| true)
         {
+            let desktop_element = self
+                .compositor_state
+                .elements_by_id
+                .get(&desktop_element_id)
+                .unwrap();
             logs.push(format!("\t{}", desktop_element.name()));
             let layer = desktop_element.get_slice();
             let drawable_rects = desktop_element.drawable_rects();
@@ -922,7 +925,6 @@ impl Desktop {
                     window_under_mouse.name()
                 );
                 self.move_window_to_top(&window_under_mouse);
-                self.recompute_drawable_regions_in_rect(window_under_mouse.frame());
             }
             send_left_click_event(&window_under_mouse, self.mouse_state.pos)
         }
