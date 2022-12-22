@@ -23,9 +23,11 @@ use file_manager_messages::str_from_u8_nul_utf8_unchecked;
 use kb_driver_messages::{KeyEventType, KeyIdentifier, KeyboardPacket};
 use rand::prelude::*;
 
-#[cfg(target_os = "axle")]
+use axle_rt_derive::{axle_target, hosted_target};
+
+#[axle_target]
 pub extern crate libc;
-#[cfg(target_os = "axle")]
+#[axle_target]
 mod conditional_imports {
     pub use awm_messages::AwmCreateWindowResponse;
     pub use awm_messages::{
@@ -36,7 +38,7 @@ mod conditional_imports {
     pub use axle_rt::amc_message_send;
     pub use axle_rt::core_commands::AmcSharedMemoryCreateRequest;
 }
-#[cfg(not(target_os = "axle"))]
+#[hosted_target]
 mod conditional_imports {}
 
 use crate::desktop::conditional_imports::*;
@@ -46,14 +48,14 @@ use crate::window::Window;
 fn send_left_click_event(window: &Rc<Window>, mouse_pos: Point) {
     let mouse_within_window = window.frame().translate_point(mouse_pos);
     let mouse_within_content_view = window.content_frame().translate_point(mouse_within_window);
-    #[cfg(target_os = "axle")]
+    #[axle_target]
     {
         amc_message_send(
             &window.owner_service,
             AwmMouseLeftClickStarted::new(mouse_within_content_view),
         );
     }
-    #[cfg(not(target_os = "axle"))]
+    #[hosted_target]
     {
         println!(
             "send_left_click_event({}, {mouse_within_content_view})",
@@ -65,14 +67,14 @@ fn send_left_click_event(window: &Rc<Window>, mouse_pos: Point) {
 fn send_left_click_ended_event(window: &Rc<Window>, mouse_pos: Point) {
     let mouse_within_window = window.frame().translate_point(mouse_pos);
     let mouse_within_content_view = window.content_frame().translate_point(mouse_within_window);
-    #[cfg(target_os = "axle")]
+    #[axle_target]
     {
         amc_message_send(
             &window.owner_service,
             AwmMouseLeftClickEnded::new(mouse_within_content_view),
         );
     }
-    #[cfg(not(target_os = "axle"))]
+    #[hosted_target]
     {
         println!(
             "send_left_click_ended_event({}, {mouse_within_content_view})",
@@ -82,22 +84,22 @@ fn send_left_click_ended_event(window: &Rc<Window>, mouse_pos: Point) {
 }
 
 fn send_mouse_entered_event(window: &Rc<Window>) {
-    #[cfg(target_os = "axle")]
+    #[axle_target]
     {
         amc_message_send(&window.owner_service, AwmMouseEntered::new())
     }
-    #[cfg(not(target_os = "axle"))]
+    #[hosted_target]
     {
         println!("send_mouse_entered_event({})", window.name())
     }
 }
 
 fn send_mouse_exited_event(window: &Rc<Window>) {
-    #[cfg(target_os = "axle")]
+    #[axle_target]
     {
         amc_message_send(&window.owner_service, AwmMouseExited::new())
     }
-    #[cfg(not(target_os = "axle"))]
+    #[hosted_target]
     {
         println!("send_mouse_exited_event({})", window.name())
     }
@@ -106,14 +108,14 @@ fn send_mouse_exited_event(window: &Rc<Window>) {
 fn send_mouse_moved_event(window: &Rc<Window>, mouse_pos: Point) {
     let mouse_within_window = window.frame().translate_point(mouse_pos);
     let mouse_within_content_view = window.content_frame().translate_point(mouse_within_window);
-    #[cfg(target_os = "axle")]
+    #[axle_target]
     {
         amc_message_send(
             &window.owner_service,
             AwmMouseMoved::new(mouse_within_content_view),
         )
     }
-    #[cfg(not(target_os = "axle"))]
+    #[hosted_target]
     {
         println!(
             "send_mouse_moved_event({}, {mouse_within_content_view})",
@@ -123,47 +125,47 @@ fn send_mouse_moved_event(window: &Rc<Window>, mouse_pos: Point) {
 }
 
 fn send_window_resized_event(window: &Rc<Window>) {
-    #[cfg(target_os = "axle")]
+    #[axle_target]
     {
         amc_message_send(
             &window.owner_service,
             AwmWindowResized::new(window.content_frame().size),
         );
     }
-    #[cfg(not(target_os = "axle"))]
+    #[hosted_target]
     {
         println!("send_window_resized_event({})", window.name())
     }
 }
 
 fn send_close_window_request(window: &Rc<Window>) {
-    #[cfg(target_os = "axle")]
+    #[axle_target]
     {
         amc_message_send(&window.owner_service, AwmCloseWindow::new());
     }
-    #[cfg(not(target_os = "axle"))]
+    #[hosted_target]
     {
         println!("send_close_window_request({})", window.name())
     }
 }
 
 fn send_key_down_event(window: &Rc<Window>, key: u32) {
-    #[cfg(target_os = "axle")]
+    #[axle_target]
     {
         amc_message_send(&window.owner_service, AwmKeyDown::new(key));
     }
-    #[cfg(not(target_os = "axle"))]
+    #[hosted_target]
     {
         println!("send_key_down_event({}, {key})", window.name())
     }
 }
 
 fn send_key_up_event(window: &Rc<Window>, key: u32) {
-    #[cfg(target_os = "axle")]
+    #[axle_target]
     {
         amc_message_send(&window.owner_service, AwmKeyUp::new(key));
     }
-    #[cfg(not(target_os = "axle"))]
+    #[hosted_target]
     {
         println!("send_key_up_event({}, {key})", window.name())
     }
@@ -863,7 +865,7 @@ impl Desktop {
 
         let desktop_size = self.desktop_frame.size;
         let max_content_view_size = Window::content_size_for_total_size(desktop_size);
-        #[cfg(target_os = "axle")]
+        #[axle_target]
         let content_view_layer = {
             // Ask the kernel to set up a shared memory mapping we'll use for the framebuffer
             // The framebuffer will be the screen size to allow window resizing
@@ -894,7 +896,7 @@ impl Desktop {
                 max_content_view_size,
             )
         };
-        #[cfg(not(target_os = "axle"))]
+        #[hosted_target]
         let content_view_layer = SingleFramebufferLayer::new(max_content_view_size);
 
         let window_frame = Rect::from_parts(new_window_origin, window_size);
@@ -1195,7 +1197,7 @@ impl Desktop {
                 hover_window.name()
             );
             */
-            #[cfg(target_os = "axle")]
+            #[axle_target]
             {
                 let mouse_within_content_view = hover_window
                     .content_frame()
