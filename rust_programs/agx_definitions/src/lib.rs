@@ -375,6 +375,13 @@ impl Rect {
         }
     }
 
+    pub fn with_origin(origin: Point) -> Self {
+        Self {
+            origin,
+            size: Size::zero(),
+        }
+    }
+
     pub fn replace_origin(&self, new_origin: Point) -> Self {
         Self::from_parts(new_origin, self.size)
     }
@@ -637,6 +644,14 @@ impl Rect {
 
     pub fn translate_point(&self, p: Point) -> Point {
         p - self.origin
+    }
+
+    pub fn is_zero(&self) -> bool {
+        *self == Rect::zero()
+    }
+
+    pub fn is_degenerate(&self) -> bool {
+        return self.width() == 0 || self.height() == 0;
     }
 }
 
