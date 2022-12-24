@@ -291,8 +291,26 @@ impl LikeLayerSlice for LayerSlice {
                 let src_row_start = src_base.offset(y * (src_parent_framebuf_row_size as isize));
                 core::slice::from_raw_parts(src_row_start, src_slice_row_size)
             };
-            if dst_row_slice != src_row_slice {
-                dst_row_slice.copy_from_slice(src_row_slice);
+
+            // memcmp/memcpy in 256-byte chunks
+            let chunk_size = 256;
+            let mut dst_chunks_iter = dst_row_slice.chunks_exact_mut(chunk_size);
+            let mut src_chunks_iter = src_row_slice.chunks_exact(chunk_size);
+            loop {
+                let dst_chunk = dst_chunks_iter.next();
+                if let None = dst_chunk {
+                    break;
+                }
+                let dst_chunk = dst_chunk.unwrap();
+                let src_chunk = src_chunks_iter.next().unwrap();
+                if dst_chunk != src_chunk {
+                    dst_chunk.copy_from_slice(src_chunk);
+                }
+            }
+            let dst_rem = dst_chunks_iter.into_remainder();
+            let src_rem = src_chunks_iter.remainder();
+            if dst_rem != src_rem {
+                dst_rem.copy_from_slice(src_rem);
             }
         }
     }
