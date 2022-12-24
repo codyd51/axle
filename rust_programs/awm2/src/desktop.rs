@@ -816,7 +816,8 @@ impl Desktop {
 
             let (occluding_windows, _window_and_lower) = self.windows.split_at(window_idx);
 
-            window.set_drawable_rects(vec![window.frame()]);
+            // Ensure drawable regions are never offscreen
+            window.set_drawable_rects(vec![self.desktop_frame.constrain(window.frame())]);
 
             for occluding_window in occluding_windows.iter().rev() {
                 if !window.frame().intersects_with(occluding_window.frame()) {
@@ -1686,6 +1687,11 @@ mod test {
         assert_window_layouts_matches_drawable_rects(
             vec![Rect::new(280, 190, 100, 130), Rect::new(280, 190, 100, 130)],
             vec![vec![], vec![Rect::new(280, 190, 100, 130)]],
+        );
+
+        assert_window_layouts_matches_drawable_rects(
+            vec![Rect::new(0, 998, 1000, 32)],
+            vec![vec![Rect::new(0, 998, 1000, 2)]],
         );
     }
 
