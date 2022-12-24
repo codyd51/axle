@@ -1,7 +1,6 @@
 #![no_std]
 
 extern crate alloc;
-extern crate libc;
 
 use agx_definitions::{Rect, RectU32};
 use axle_rt::{ContainsEventField, ExpectsEventField};

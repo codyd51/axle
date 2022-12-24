@@ -27,6 +27,7 @@ members = [
     "mouse_driver_messages",
     "kb_driver_messages",
     "preferences_messages",
+    "dock_messages",
 ]
 
 exclude = [

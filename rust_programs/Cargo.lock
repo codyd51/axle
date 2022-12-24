@@ -84,6 +84,7 @@ dependencies = [
  "awm_messages",
  "axle_rt",
  "axle_rt_derive",
+ "dock_messages",
  "file_manager_messages",
  "image",
  "kb_driver_messages",
@@ -572,7 +573,17 @@ dependencies = [
  "awm_messages",
  "axle_rt",
  "axle_rt_derive",
+ "dock_messages",
  "libgui",
+]
+
+[[package]]
+name = "dock_messages"
+version = "0.1.0"
+dependencies = [
+ "agx_definitions",
+ "axle_rt",
+ "axle_rt_derive",
 ]
 
 [[package]]

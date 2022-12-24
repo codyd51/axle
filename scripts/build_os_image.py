@@ -26,7 +26,7 @@ def _is_macos() -> bool:
 def _get_mounted_iso(image_name: Path) -> Generator[Path, Any, Any]:
     disk_size_in_mb = 128
     sector_size = 512
-    sector_count = (disk_size_in_mb * 1024 * 1024) / sector_size;
+    sector_count = (disk_size_in_mb * 1024 * 1024) / sector_size
     if _is_macos():
         mounted_disk_name = run_and_capture_output_and_check(
             ["hdiutil", "attach", "-imagekey", "diskimage-class=CRawDiskImage", "-nomount", image_name.as_posix()]

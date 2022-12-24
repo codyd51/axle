@@ -44,7 +44,7 @@ impl OutputView {
 
     pub fn write(&self, text: &str) {
         for ch in text.chars() {
-            self.view.draw_char_and_update_cursor(ch, Color::white());
+            self.view.draw_char_and_update_cursor(ch, Color::gray());
         }
     }
 

@@ -8,4 +8,5 @@ axle_rt = { path = "../axle_rt" }
 axle_rt_derive = {path = "../axle_rt_derive" }
 agx_definitions = {path = "../agx_definitions" }
 awm_messages = {path = "../awm_messages" }
+dock_messages = {path = "../dock_messages" }
 libgui = { path = "../libgui" }

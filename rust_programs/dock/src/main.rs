@@ -29,15 +29,11 @@ use agx_definitions::{
     Size, StrokeThickness,
 };
 
-mod dock_messages;
 use dock_messages::{
-    AwmDockEvent, AwmDockTaskViewClicked, AwmDockWindowClosed, AwmDockWindowCreatedEvent,
-    AwmDockWindowMinimizeRequestedEvent, AwmDockWindowTitleUpdatedEvent, AWM_DOCK_HEIGHT,
+    AwmDockEvent, AwmDockTaskViewClicked, AwmDockTaskViewHoverExited, AwmDockTaskViewHovered,
+    AwmDockWindowClosed, AwmDockWindowCreatedEvent, AwmDockWindowMinimizeRequestedEvent,
+    AwmDockWindowMinimizeWithInfo, AwmDockWindowTitleUpdatedEvent, AWM_DOCK_HEIGHT,
     AWM_DOCK_SERVICE_NAME,
-};
-
-use crate::dock_messages::{
-    AwmDockTaskViewHoverExited, AwmDockTaskViewHovered, AwmDockWindowMinimizeWithInfo,
 };
 
 struct TaskView {
