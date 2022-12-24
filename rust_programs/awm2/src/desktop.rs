@@ -23,11 +23,9 @@ use file_manager_messages::str_from_u8_nul_utf8_unchecked;
 use kb_driver_messages::{KeyEventType, KeyIdentifier, KeyboardPacket};
 use rand::prelude::*;
 
-use axle_rt_derive::{axle_target, hosted_target};
-
-#[axle_target]
+#[cfg(target_os = "axle")]
 pub extern crate libc;
-#[axle_target]
+#[cfg(target_os = "axle")]
 mod conditional_imports {
     pub use awm_messages::AwmCreateWindowResponse;
     pub use awm_messages::{
@@ -38,7 +36,7 @@ mod conditional_imports {
     pub use axle_rt::amc_message_send;
     pub use axle_rt::core_commands::AmcSharedMemoryCreateRequest;
 }
-#[hosted_target]
+#[cfg(not(target_os = "axle"))]
 mod conditional_imports {}
 
 use crate::desktop::conditional_imports::*;
@@ -48,14 +46,14 @@ use crate::window::Window;
 fn send_left_click_event(window: &Rc<Window>, mouse_pos: Point) {
     let mouse_within_window = window.frame().translate_point(mouse_pos);
     let mouse_within_content_view = window.content_frame().translate_point(mouse_within_window);
-    #[axle_target]
+    #[cfg(target_os = "axle")]
     {
         amc_message_send(
             &window.owner_service,
             AwmMouseLeftClickStarted::new(mouse_within_content_view),
         );
     }
-    #[hosted_target]
+    #[cfg(not(target_os = "axle"))]
     {
         println!(
             "send_left_click_event({}, {mouse_within_content_view})",
@@ -67,14 +65,14 @@ fn send_left_click_event(window: &Rc<Window>, mouse_pos: Point) {
 fn send_left_click_ended_event(window: &Rc<Window>, mouse_pos: Point) {
     let mouse_within_window = window.frame().translate_point(mouse_pos);
     let mouse_within_content_view = window.content_frame().translate_point(mouse_within_window);
-    #[axle_target]
+    #[cfg(target_os = "axle")]
     {
         amc_message_send(
             &window.owner_service,
             AwmMouseLeftClickEnded::new(mouse_within_content_view),
         );
     }
-    #[hosted_target]
+    #[cfg(not(target_os = "axle"))]
     {
         println!(
             "send_left_click_ended_event({}, {mouse_within_content_view})",
@@ -84,22 +82,22 @@ fn send_left_click_ended_event(window: &Rc<Window>, mouse_pos: Point) {
 }
 
 fn send_mouse_entered_event(window: &Rc<Window>) {
-    #[axle_target]
+    #[cfg(target_os = "axle")]
     {
         amc_message_send(&window.owner_service, AwmMouseEntered::new())
     }
-    #[hosted_target]
+    #[cfg(not(target_os = "axle"))]
     {
         println!("send_mouse_entered_event({})", window.name())
     }
 }
 
 fn send_mouse_exited_event(window: &Rc<Window>) {
-    #[axle_target]
+    #[cfg(target_os = "axle")]
     {
         amc_message_send(&window.owner_service, AwmMouseExited::new())
     }
-    #[hosted_target]
+    #[cfg(not(target_os = "axle"))]
     {
         println!("send_mouse_exited_event({})", window.name())
     }
@@ -108,14 +106,14 @@ fn send_mouse_exited_event(window: &Rc<Window>) {
 fn send_mouse_moved_event(window: &Rc<Window>, mouse_pos: Point) {
     let mouse_within_window = window.frame().translate_point(mouse_pos);
     let mouse_within_content_view = window.content_frame().translate_point(mouse_within_window);
-    #[axle_target]
+    #[cfg(target_os = "axle")]
     {
         amc_message_send(
             &window.owner_service,
             AwmMouseMoved::new(mouse_within_content_view),
         )
     }
-    #[hosted_target]
+    #[cfg(not(target_os = "axle"))]
     {
         println!(
             "send_mouse_moved_event({}, {mouse_within_content_view})",
@@ -125,47 +123,47 @@ fn send_mouse_moved_event(window: &Rc<Window>, mouse_pos: Point) {
 }
 
 fn send_window_resized_event(window: &Rc<Window>) {
-    #[axle_target]
+    #[cfg(target_os = "axle")]
     {
         amc_message_send(
             &window.owner_service,
             AwmWindowResized::new(window.content_frame().size),
         );
     }
-    #[hosted_target]
+    #[cfg(not(target_os = "axle"))]
     {
         println!("send_window_resized_event({})", window.name())
     }
 }
 
 fn send_close_window_request(window: &Rc<Window>) {
-    #[axle_target]
+    #[cfg(target_os = "axle")]
     {
         amc_message_send(&window.owner_service, AwmCloseWindow::new());
     }
-    #[hosted_target]
+    #[cfg(not(target_os = "axle"))]
     {
         println!("send_close_window_request({})", window.name())
     }
 }
 
 fn send_key_down_event(window: &Rc<Window>, key: u32) {
-    #[axle_target]
+    #[cfg(target_os = "axle")]
     {
         amc_message_send(&window.owner_service, AwmKeyDown::new(key));
     }
-    #[hosted_target]
+    #[cfg(not(target_os = "axle"))]
     {
         println!("send_key_down_event({}, {key})", window.name())
     }
 }
 
 fn send_key_up_event(window: &Rc<Window>, key: u32) {
-    #[axle_target]
+    #[cfg(target_os = "axle")]
     {
         amc_message_send(&window.owner_service, AwmKeyUp::new(key));
     }
-    #[hosted_target]
+    #[cfg(not(target_os = "axle"))]
     {
         println!("send_key_up_event({}, {key})", window.name())
     }
@@ -896,7 +894,7 @@ impl Desktop {
                 max_content_view_size,
             )
         };
-        #[hosted_target]
+        #[cfg(not(target_os = "axle"))]
         let content_view_layer = SingleFramebufferLayer::new(max_content_view_size);
 
         let window_frame = Rect::from_parts(new_window_origin, window_size);
@@ -948,11 +946,6 @@ impl Desktop {
             }
             rects_to_recompute_drawable_regions
                 .push(animation_damage.area_to_recompute_drawable_regions);
-            /*
-            match animation {
-                Animation::WindowOpen(params) => params.window.redraw_title_bar(),
-            };
-            */
         }
         for r in rects_to_recompute_drawable_regions.drain(..) {
             self.recompute_drawable_regions_in_rect(r);
@@ -1197,7 +1190,7 @@ impl Desktop {
                 hover_window.name()
             );
             */
-            #[axle_target]
+            #[cfg(target_os = "axle")]
             {
                 let mouse_within_content_view = hover_window
                     .content_frame()
@@ -1440,7 +1433,6 @@ impl Desktop {
         let window = self.window_for_owner(window_owner);
         window.set_title(new_title);
         let title_bar_frame = window.redraw_title_bar();
-        println!("Queueing extra draw {title_bar_frame}");
         self.compositor_state.queue_extra_draw(
             Rc::clone(&window) as Rc<dyn DesktopElement>,
             title_bar_frame,
