@@ -77,6 +77,9 @@ impl LikeLayerSlice for LayerSlice {
 
     fn fill_rect(&self, raw_rect: Rect, color: Color, thickness: StrokeThickness) {
         let rect = self.frame.constrain(raw_rect);
+        if rect.is_degenerate() {
+            return;
+        }
 
         // Note that this rect has been damaged
         //self.record_damaged_rect(rect);
@@ -128,10 +131,11 @@ impl LikeLayerSlice for LayerSlice {
             };
             let mut fb = (*self.parent_framebuffer).borrow_mut();
             for y in 0..rect.height() {
-                let row_start =
-                    rect_origin_offset.y + (y * parent_bytes_per_row) + (rect_origin_offset.x);
-                let row_slice = &mut fb
-                    [(row_start as usize)..(row_start + (rect.width() * bpp as isize)) as usize];
+                let row_start = (rect_origin_offset.y
+                    + (y * parent_bytes_per_row)
+                    + (rect_origin_offset.x)) as usize;
+                let row_end = (row_start as isize + (rect.width() * bpp as isize)) as usize;
+                let row_slice = &mut fb[(row_start as usize)..row_end];
                 let (prefix, row_as_u32_slice, suffix) = unsafe { row_slice.align_to_mut::<u32>() };
                 // Ensure the slice was exactly u32-aligned
                 assert_eq!(prefix.len(), 0);
@@ -258,6 +262,9 @@ impl LikeLayerSlice for LayerSlice {
     }
 
     fn blit2(&self, source_layer: &Box<dyn LikeLayerSlice>) {
+        if self.frame().is_degenerate() {
+            return;
+        }
         assert_eq!(
             self.frame().size,
             source_layer.frame().size,
