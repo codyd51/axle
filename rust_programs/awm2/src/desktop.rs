@@ -19,6 +19,7 @@ use core::cmp::{max, min};
 use mouse_driver_messages::MousePacket;
 
 use crate::animations::{Animation, WindowOpenAnimationParams};
+use dock_messages::AWM_DOCK_HEIGHT;
 use file_manager_messages::str_from_u8_nul_utf8_unchecked;
 use kb_driver_messages::{KeyEventType, KeyIdentifier, KeyboardPacket};
 use rand::prelude::*;
@@ -40,7 +41,7 @@ mod conditional_imports {
 mod conditional_imports {}
 
 use crate::desktop::conditional_imports::*;
-use crate::utils::{get_timestamp, random_color, random_color_with_rng};
+use crate::utils::{awm_service_is_dock, get_timestamp, random_color, random_color_with_rng};
 use crate::window::{TitleBarButtonsHoverState, Window, WindowParams};
 
 fn send_left_click_event(window: &Rc<Window>, mouse_pos: Point) {
@@ -851,8 +852,15 @@ impl Desktop {
         println!("Creating window of size {:?} for {}", request.size, source);
 
         let content_size = Size::from(&request.size);
-        // The window is larger than the content view to account for decorations
-        let window_size = Window::total_size_for_content_size(content_size);
+
+        let window_params = match awm_service_is_dock(&source) {
+            true => WindowParams::new(false, false, false),
+            false => WindowParams::default(),
+        };
+
+        // Generally, windows are larger than the content view to account for the title bar
+        let window_size = Window::total_size_for_content_size(content_size, window_params);
+
         let new_window_origin = origin.unwrap_or({
             // Place the window in the center of the screen
             let res = self.desktop_frame.size;
@@ -863,7 +871,8 @@ impl Desktop {
         });
 
         let desktop_size = self.desktop_frame.size;
-        let max_content_view_size = Window::content_size_for_total_size(desktop_size);
+        let max_content_view_size =
+            Window::content_size_for_total_size(desktop_size, window_params);
         #[cfg(target_os = "axle")]
         let content_view_layer = {
             // Ask the kernel to set up a shared memory mapping we'll use for the framebuffer
@@ -910,20 +919,32 @@ impl Desktop {
         self.windows.insert(0, Rc::clone(&new_window));
         self.compositor_state
             .track_element(Rc::clone(&new_window) as Rc<dyn DesktopElement>);
-        //self.recompute_drawable_regions_in_rect(window_frame);
-        self.start_animation(Animation::WindowOpen(WindowOpenAnimationParams::new(
-            desktop_size,
-            &new_window,
-            200,
-            window_frame,
-        )));
 
-        // TODO(PT): Testing
-        /*
-        new_window.render_remote_layer();
-        self.compositor_state
-            .queue_composite(Rc::clone(&new_window) as Rc<dyn DesktopElement>);
-        */
+        if !animated {
+            self.recompute_drawable_regions_in_rect(window_frame);
+        } else {
+            let (initial_frame, final_frame) = if awm_service_is_dock(&source) {
+                let dock_height = AWM_DOCK_HEIGHT;
+                let initial_frame = Some(Rect::from_parts(
+                    Point::new(0, desktop_size.height),
+                    Size::new(desktop_size.width, dock_height),
+                ));
+                let final_frame = Rect::from_parts(
+                    Point::new(0, desktop_size.height - dock_height),
+                    Size::new(desktop_size.width, dock_height),
+                );
+                (initial_frame, final_frame)
+            } else {
+                (None, window_frame)
+            };
+            self.start_animation(Animation::WindowOpen(WindowOpenAnimationParams::new(
+                desktop_size,
+                &new_window,
+                200,
+                initial_frame,
+                final_frame,
+            )));
+        }
 
         new_window
     }

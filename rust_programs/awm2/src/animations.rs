@@ -50,16 +50,17 @@ impl WindowOpenAnimationParams {
         desktop_size: Size,
         window: &Rc<Window>,
         duration_ms: usize,
+        frame_from: Option<Rect>,
         frame_to: Rect,
     ) -> Self {
         let from_size = Size::new(desktop_size.width / 10, desktop_size.height / 10);
-        let frame_from = Rect::from_parts(
+        let frame_from = frame_from.unwrap_or(Rect::from_parts(
             Point::new(
                 ((desktop_size.width as f64 / 2.0) - (from_size.width as f64 / 2.0)) as isize,
                 desktop_size.height - from_size.height,
             ),
             from_size,
-        );
+        ));
         let start_time = get_timestamp() as usize;
         Self {
             start_time,

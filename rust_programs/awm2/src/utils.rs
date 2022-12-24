@@ -2,6 +2,8 @@ use agx_definitions::Color;
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
 
+use dock_messages::AWM_DOCK_SERVICE_NAME;
+
 #[cfg(target_os = "axle")]
 pub extern crate libc;
 #[cfg(target_os = "axle")]
@@ -31,4 +33,8 @@ pub fn random_color() -> Color {
 
 pub fn random_color_with_rng(rng: &mut SmallRng) -> Color {
     Color::new(rng.gen(), rng.gen(), rng.gen())
+}
+
+pub fn awm_service_is_dock(service_name: &str) -> bool {
+    return service_name == AWM_DOCK_SERVICE_NAME;
 }
