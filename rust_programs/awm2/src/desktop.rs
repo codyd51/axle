@@ -261,6 +261,7 @@ impl MouseState {
 }
 
 struct CompositorState {
+    desktop_frame: Rect,
     /// While compositing the frame, awm will determine what individual elements
     /// must be redrawn to composite these rectangles.
     /// These may include portions of windows, the desktop background, etc.
@@ -276,8 +277,9 @@ struct CompositorState {
 }
 
 impl CompositorState {
-    fn new() -> Self {
+    fn new(desktop_frame: Rect) -> Self {
         Self {
+            desktop_frame: desktop_frame,
             rects_to_fully_redraw: vec![],
             elements_to_composite: RefCell::new(BTreeSet::new()),
             elements: vec![],
@@ -288,6 +290,10 @@ impl CompositorState {
     }
 
     fn queue_full_redraw(&mut self, in_rect: Rect) {
+        let in_rect = self.desktop_frame.constrain(in_rect);
+        if in_rect.is_degenerate() {
+            return;
+        }
         self.rects_to_fully_redraw.push(in_rect)
     }
 
@@ -301,6 +307,11 @@ impl CompositorState {
     }
 
     fn queue_extra_draw(&self, element: Rc<dyn DesktopElement>, r: Rect) {
+        // Always ensure the extra draw rect is within the bounds of the desktop
+        let r = self.desktop_frame.constrain(r);
+        if r.is_degenerate() {
+            return;
+        }
         let element_id = element.id();
         let mut extra_draws = self.extra_draws.borrow_mut();
         if !extra_draws.contains_key(&element_id) {
@@ -311,6 +322,11 @@ impl CompositorState {
     }
 
     fn queue_extra_background_draw(&mut self, r: Rect) {
+        // Always ensure the extra background draw rect is within the bounds of the desktop
+        let r = self.desktop_frame.constrain(r);
+        if r.is_degenerate() {
+            return;
+        }
         self.extra_background_draws.push(r);
     }
 
@@ -472,13 +488,14 @@ impl Desktop {
         let mut rng = SmallRng::seed_from_u64(get_timestamp());
         let background_gradient_inner_color = random_color_with_rng(&mut rng);
         let background_gradient_outer_color = random_color_with_rng(&mut rng);
+        let desktop_frame = Rect::with_size(video_memory_layer.frame().size);
         Self {
-            desktop_frame: Rect::with_size(video_memory_layer.frame().size),
+            desktop_frame,
             video_memory_layer,
             screen_buffer_layer,
             desktop_background_layer,
             windows: vec![],
-            compositor_state: CompositorState::new(),
+            compositor_state: CompositorState::new(desktop_frame),
             render_strategy: RenderStrategy::Composite,
             mouse_state: MouseState::new(initial_mouse_pos, desktop_frame.size),
             mouse_interaction_state: MouseInteractionState::BackgroundHover,
