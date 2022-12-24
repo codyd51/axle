@@ -1,6 +1,5 @@
-/usr/applications/awm
+/usr/applications/awm2
 /usr/applications/kb_driver
 /usr/applications/mouse_driver
-/usr/applications/file_browser
-
 /usr/applications/dock
+/usr/applications/file_browser
