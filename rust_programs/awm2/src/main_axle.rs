@@ -138,7 +138,7 @@ fn process_next_amc_message(desktop: &mut Desktop) {
                 // libgui events
                 // Keyboard events
                 AwmCreateWindow::EXPECTED_EVENT => {
-                    desktop.spawn_window(&msg_source, body_as_type_unchecked(raw_body), None);
+                    desktop.spawn_window(&msg_source, body_as_type_unchecked(raw_body), None, true);
                 }
                 AwmWindowRedrawReady::EXPECTED_EVENT => {
                     //println!("Window said it was ready to redraw!");

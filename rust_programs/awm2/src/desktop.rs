@@ -845,6 +845,7 @@ impl Desktop {
         source: &str,
         request: &AwmCreateWindow,
         origin: Option<Point>,
+        animated: bool,
     ) -> Rc<Window> {
         let source = source.to_string();
         println!("Creating window of size {:?} for {}", request.size, source);
@@ -1495,7 +1496,12 @@ mod test {
     }
 
     fn spawn_window_easy(desktop: &mut Desktop, name: &str, frame: Rect) -> Rc<Window> {
-        desktop.spawn_window(name, &AwmCreateWindow::new(frame.size), Some(frame.origin))
+        desktop.spawn_window(
+            name,
+            &AwmCreateWindow::new(frame.size),
+            Some(frame.origin),
+            false,
+        )
     }
 
     fn spawn_windows_with_frames(window_frames: Vec<Rect>) -> (Desktop, Vec<Rc<Window>>) {
@@ -1527,8 +1533,9 @@ mod test {
     ) {
         // Given some windows arranged in a desktop
         let (mut desktop, windows) = spawn_windows_with_frames(window_frames);
-        desktop.draw_frame();
 
+        /*
+        desktop.draw_frame();
         let desktop_size = desktop.desktop_frame.size;
         let img: RgbImage = ImageBuffer::new(desktop_size.width as u32, desktop_size.height as u32);
         let desktop_slice = desktop
@@ -1543,6 +1550,7 @@ mod test {
             },
         );
         img.save("./test_image.png");
+        */
 
         for (i, window) in windows.iter().enumerate() {
             println!("Window {} has drawable rects:", window.name());

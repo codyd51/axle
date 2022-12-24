@@ -69,6 +69,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
             &AwmCreateWindow::new(window_size),
             //Some(window_origin),
             None,
+            true,
         );
     }
 
@@ -344,6 +345,7 @@ fn replay_capture() {
             &format!("win{window_counter}"),
             &AwmCreateWindow::new(window_frame.size),
             Some(window_frame.origin),
+            true,
         );
         window_counter += 1;
     }
