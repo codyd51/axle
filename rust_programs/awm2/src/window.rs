@@ -1,6 +1,7 @@
 use crate::desktop::DesktopElement;
 use agx_definitions::{
     Color, Layer, LikeLayerSlice, Point, Rect, RectInsets, SingleFramebufferLayer, Size,
+    StrokeThickness,
 };
 use alloc::boxed::Box;
 use alloc::string::String;
@@ -9,6 +10,13 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::fmt::{Display, Formatter};
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum TitleBarButtonsHoverState {
+    Unhovered,
+    HoverClose,
+    HoverMinimize,
+}
 
 #[derive(Copy, Clone, Debug)]
 pub struct WindowParams {
@@ -48,6 +56,7 @@ pub struct Window {
     layer: RefCell<SingleFramebufferLayer>,
     pub content_layer: RefCell<SingleFramebufferLayer>,
     title: RefCell<Option<String>>,
+    title_bar_buttons_hover_state: RefCell<TitleBarButtonsHoverState>,
     params: WindowParams,
     title_bar_height: usize,
 }
@@ -71,6 +80,7 @@ impl Window {
             layer: RefCell::new(SingleFramebufferLayer::new(total_size)),
             content_layer: RefCell::new(content_layer),
             title: RefCell::new(None),
+            title_bar_buttons_hover_state: RefCell::new(TitleBarButtonsHoverState::Unhovered),
             params,
             title_bar_height: params.title_bar_height(),
         }
@@ -82,6 +92,10 @@ impl Window {
 
     pub fn set_title(&self, new_title: &str) {
         *self.title.borrow_mut() = Some(new_title.to_string())
+    }
+
+    pub fn set_title_bar_buttons_hover_state(&self, state: TitleBarButtonsHoverState) {
+        *self.title_bar_buttons_hover_state.borrow_mut() = state
     }
 
     pub fn is_point_within_resize_inset(&self, local_point: Point) -> bool {
@@ -103,6 +117,15 @@ impl Window {
         ))
     }
 
+    pub fn close_button_frame(&self) -> Rect {
+        let icon_height = ((self.title_bar_height as f64) * 0.8) as isize;
+        let icon_size = Size::new(16, 16);
+        Rect::from_parts(
+            Point::new((icon_height as f64 * 1.25) as isize, 5),
+            icon_size,
+        )
+    }
+
     pub fn is_point_within_title_bar(&self, local_point: Point) -> bool {
         if !self.params.has_title_bar {
             return false;
@@ -111,6 +134,14 @@ impl Window {
         self.title_bar_frame()
             .replace_origin(Point::zero())
             .contains(local_point)
+    }
+
+    pub fn is_point_within_close_button(&self, local_point: Point) -> bool {
+        if !self.params.has_title_bar {
+            return false;
+        }
+
+        self.close_button_frame().contains(local_point)
     }
 
     pub fn content_frame(&self) -> Rect {
@@ -148,7 +179,31 @@ impl Window {
             cursor.x += font_size.width;
         }
 
+        self.redraw_close_button();
+
         title_bar_frame.replace_origin(self.frame.borrow().origin)
+    }
+
+    pub fn redraw_close_button(&self) -> Rect {
+        let title_bar_frame = self.title_bar_frame();
+        let title_bar_slice = self.layer.borrow_mut().get_slice(title_bar_frame);
+
+        let close_button_frame = self.close_button_frame();
+        if *self.title_bar_buttons_hover_state.borrow() == TitleBarButtonsHoverState::HoverClose {
+            title_bar_slice.fill_rect(close_button_frame, Color::red(), StrokeThickness::Filled);
+        } else {
+            title_bar_slice.fill_rect(
+                close_button_frame,
+                Color::new(255, 200, 200),
+                StrokeThickness::Filled,
+            );
+        }
+        title_bar_slice.fill_rect(
+            close_button_frame,
+            Color::black(),
+            StrokeThickness::Width(1),
+        );
+        close_button_frame
     }
 
     pub fn render_remote_layer(&self) {

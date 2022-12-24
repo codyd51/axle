@@ -41,7 +41,7 @@ mod conditional_imports {}
 
 use crate::desktop::conditional_imports::*;
 use crate::utils::{get_timestamp, random_color, random_color_with_rng};
-use crate::window::Window;
+use crate::window::{TitleBarButtonsHoverState, Window, WindowParams};
 
 fn send_left_click_event(window: &Rc<Window>, mouse_pos: Point) {
     let mouse_within_window = window.frame().translate_point(mouse_pos);
@@ -976,13 +976,17 @@ impl Desktop {
         self.windows.first()
     }
 
+    fn is_topmost_window(&self, w: &Rc<Window>) -> bool {
+        Rc::ptr_eq(&self.windows[0], w)
+    }
+
     fn handle_left_click_began(&mut self) {
         // Allow the mouse state to change based on the movement
         self.transition_to_mouse_interaction_state(
             self.mouse_interaction_state_for_mouse_state(true),
         );
         if let Some(window_under_mouse) = self.window_containing_point(self.mouse_state.pos) {
-            if !Rc::ptr_eq(&self.windows[0], &window_under_mouse) {
+            if !self.is_topmost_window(&window_under_mouse) {
                 println!(
                     "Moving clicked window to top: {}",
                     window_under_mouse.name()
@@ -1179,6 +1183,26 @@ impl Desktop {
             &self.mouse_interaction_state
         {
             send_mouse_moved_event(window_under_mouse, self.mouse_state.pos);
+        } else if let MouseInteractionState::HintingWindowDrag(window) =
+            &self.mouse_interaction_state
+        {
+            // If this is the topmost window, update the title bar buttons hover state
+            if self.is_topmost_window(window) {
+                let mouse_within_window = window.frame().translate_point(self.mouse_state.pos);
+                let title_bar_buttons_hover_state =
+                    if window.is_point_within_close_button(mouse_within_window) {
+                        TitleBarButtonsHoverState::HoverClose
+                    } else {
+                        TitleBarButtonsHoverState::Unhovered
+                    };
+                window.set_title_bar_buttons_hover_state(title_bar_buttons_hover_state);
+                let mut close_button_frame = window.redraw_close_button();
+                close_button_frame.origin = close_button_frame.origin + window.frame().origin;
+                self.compositor_state.queue_extra_draw(
+                    Rc::clone(&window) as Rc<dyn DesktopElement>,
+                    close_button_frame,
+                );
+            }
         }
     }
 
@@ -1654,16 +1678,13 @@ mod test {
         for extra_background_draw_rect in desktop.compositor_state.extra_background_draws.iter() {
             println!("Extra background draw: {extra_background_draw_rect}");
         }
-        let extra_draws_by_elem_name: BTreeMap<String, Vec<Rect>> = desktop
-            .compositor_state
-            .extra_draws
-            .borrow()
-            .iter()
-            .map(|(e_id, rects)| {
-                let elem = desktop.compositor_state.elements_by_id.get(e_id).unwrap();
-                (elem.name(), rects.clone())
-            })
-            .collect();
+        let extra_draws_by_elem_name: BTreeMap<String, Vec<Rect>> =
+            BTreeMap::from_iter(desktop.compositor_state.extra_draws.borrow().iter().map(
+                |(e_id, rects)| {
+                    let elem = desktop.compositor_state.elements_by_id.get(e_id).unwrap();
+                    (elem.name(), rects.iter().map(|r| *r).collect())
+                },
+            ));
         assert_eq!(&extra_draws_by_elem_name, expected_extra_draws);
         assert_eq!(
             &desktop.compositor_state.extra_background_draws,
