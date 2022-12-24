@@ -166,14 +166,14 @@ impl IdeMainView {
             OutputView::new(Size::new(10, 12), move |_v, superview_size| {
                 linker_output_sizer(superview_size)
             });
-        //linker_output_view.set_title("Compiler");
+        linker_output_view.set_title("Compiler");
         Rc::clone(&window).add_component(Rc::clone(&linker_output_view) as Rc<dyn UIElement>);
 
         let program_output_view: Rc<OutputView> =
             OutputView::new(Size::new(10, 12), move |_v, superview_size| {
                 program_output_view_sizer(superview_size)
             });
-        //program_output_view.set_title("Output");
+        program_output_view.set_title("Output");
         Rc::clone(&window).add_component(Rc::clone(&program_output_view) as Rc<dyn UIElement>);
 
         let out = Rc::new(Self {

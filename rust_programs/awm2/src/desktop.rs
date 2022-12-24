@@ -863,7 +863,7 @@ impl Desktop {
 
         let desktop_size = self.desktop_frame.size;
         let max_content_view_size = Window::content_size_for_total_size(desktop_size);
-        #[axle_target]
+        #[cfg(target_os = "axle")]
         let content_view_layer = {
             // Ask the kernel to set up a shared memory mapping we'll use for the framebuffer
             // The framebuffer will be the screen size to allow window resizing
@@ -903,6 +903,7 @@ impl Desktop {
             &source,
             window_frame,
             content_view_layer,
+            window_params,
         ));
         new_window.redraw_title_bar();
         self.windows.insert(0, Rc::clone(&new_window));
@@ -1511,7 +1512,7 @@ mod test {
                         frame.origin,
                         Size::new(
                             frame.width(),
-                            frame.height() - Window::TITLE_BAR_HEIGHT as isize,
+                            frame.height() - Window::DEFAULT_TITLE_BAR_HEIGHT as isize,
                         ),
                     ),
                 )

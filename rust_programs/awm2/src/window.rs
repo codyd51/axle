@@ -10,6 +10,36 @@ use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::fmt::{Display, Formatter};
 
+#[derive(Copy, Clone, Debug)]
+pub struct WindowParams {
+    has_title_bar: bool,
+    is_resizable: bool,
+    is_draggable: bool,
+}
+
+impl WindowParams {
+    pub fn new(has_title_bar: bool, is_resizable: bool, is_draggable: bool) -> Self {
+        Self {
+            has_title_bar,
+            is_resizable,
+            is_draggable,
+        }
+    }
+
+    fn title_bar_height(&self) -> usize {
+        match self.has_title_bar {
+            true => Window::DEFAULT_TITLE_BAR_HEIGHT,
+            false => 0,
+        }
+    }
+}
+
+impl Default for WindowParams {
+    fn default() -> Self {
+        WindowParams::new(true, true, true)
+    }
+}
+
 pub struct Window {
     id: usize,
     pub frame: RefCell<Rect>,
@@ -18,18 +48,21 @@ pub struct Window {
     layer: RefCell<SingleFramebufferLayer>,
     pub content_layer: RefCell<SingleFramebufferLayer>,
     title: RefCell<Option<String>>,
+    params: WindowParams,
+    title_bar_height: usize,
 }
 
 impl Window {
-    pub const TITLE_BAR_HEIGHT: usize = 30;
+    pub const DEFAULT_TITLE_BAR_HEIGHT: usize = 30;
 
     pub fn new(
         id: usize,
         owner_service: &str,
         frame: Rect,
         content_layer: SingleFramebufferLayer,
+        params: WindowParams,
     ) -> Self {
-        let total_size = Self::total_size_for_content_size(content_layer.size());
+        let total_size = Self::total_size_for_content_size(content_layer.size(), params);
         Self {
             id,
             frame: RefCell::new(frame),
@@ -38,6 +71,8 @@ impl Window {
             layer: RefCell::new(SingleFramebufferLayer::new(total_size)),
             content_layer: RefCell::new(content_layer),
             title: RefCell::new(None),
+            params,
+            title_bar_height: params.title_bar_height(),
         }
     }
 
@@ -50,6 +85,10 @@ impl Window {
     }
 
     pub fn is_point_within_resize_inset(&self, local_point: Point) -> bool {
+        if !self.params.is_resizable {
+            return false;
+        }
+
         let grabber_inset = 8;
         let content_frame_past_inset = self
             .content_frame()
@@ -60,11 +99,15 @@ impl Window {
     fn title_bar_frame(&self) -> Rect {
         Rect::with_size(Size::new(
             self.frame().width(),
-            Self::TITLE_BAR_HEIGHT as isize,
+            self.title_bar_height as isize,
         ))
     }
 
     pub fn is_point_within_title_bar(&self, local_point: Point) -> bool {
+        if !self.params.has_title_bar {
+            return false;
+        }
+
         self.title_bar_frame()
             .replace_origin(Point::zero())
             .contains(local_point)
@@ -72,15 +115,18 @@ impl Window {
 
     pub fn content_frame(&self) -> Rect {
         Rect::from_parts(
-            Point::new(0, Self::TITLE_BAR_HEIGHT as isize),
+            Point::new(0, self.title_bar_height as isize),
             Size::new(
                 self.frame().width(),
-                self.frame().height() - (Self::TITLE_BAR_HEIGHT as isize),
+                self.frame().height() - (self.title_bar_height as isize),
             ),
         )
     }
 
     pub fn redraw_title_bar(&self) -> Rect {
+        if !self.params.has_title_bar {
+            return Rect::with_origin(self.frame.borrow().origin);
+        }
         let title_bar_frame = self.title_bar_frame();
         let title_bar_slice = self.layer.borrow_mut().get_slice(title_bar_frame);
         title_bar_slice.fill(Color::white());
@@ -108,23 +154,23 @@ impl Window {
     pub fn render_remote_layer(&self) {
         let src = self.content_layer.borrow_mut().get_full_slice();
         let dst = self.layer.borrow_mut().get_slice(Rect::from_parts(
-            Point::new(0, Self::TITLE_BAR_HEIGHT as isize),
+            Point::new(0, self.title_bar_height as isize),
             src.frame().size,
         ));
         dst.blit2(&src);
     }
 
-    pub fn total_size_for_content_size(content_size: Size) -> Size {
+    pub fn total_size_for_content_size(content_size: Size, params: WindowParams) -> Size {
         Size::new(
             content_size.width,
-            content_size.height + Self::TITLE_BAR_HEIGHT as isize,
+            content_size.height + params.title_bar_height() as isize,
         )
     }
 
-    pub fn content_size_for_total_size(total_size: Size) -> Size {
+    pub fn content_size_for_total_size(total_size: Size, params: WindowParams) -> Size {
         Size::new(
             total_size.width,
-            total_size.height - Self::TITLE_BAR_HEIGHT as isize,
+            total_size.height - params.title_bar_height() as isize,
         )
     }
 }
