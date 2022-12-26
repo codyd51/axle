@@ -19,7 +19,10 @@ use core::cmp::{max, min};
 use mouse_driver_messages::MousePacket;
 
 use crate::animations::{Animation, WindowOpenAnimationParams};
-use dock_messages::AWM_DOCK_HEIGHT;
+use dock_messages::{
+    AwmDockTaskViewClicked, AwmDockWindowCreatedEvent, AwmDockWindowTitleUpdatedEvent,
+    AWM_DOCK_HEIGHT, AWM_DOCK_SERVICE_NAME,
+};
 use file_manager_messages::str_from_u8_nul_utf8_unchecked;
 use kb_driver_messages::{KeyEventType, KeyIdentifier, KeyboardPacket};
 use preferences_messages::PreferencesUpdated;
@@ -969,6 +972,15 @@ impl Desktop {
             )));
         }
 
+        if !awm_service_is_dock(&source) {
+            #[cfg(target_os = "axle")]
+            {
+                // If this is a window other than the dock, inform the dock
+                let msg = AwmDockWindowCreatedEvent::new(new_window.id(), &source);
+                amc_message_send(AWM_DOCK_SERVICE_NAME, msg);
+            }
+        }
+
         new_window
     }
 
@@ -1507,6 +1519,13 @@ impl Desktop {
             Rc::clone(&window) as Rc<dyn DesktopElement>,
             title_bar_frame,
         );
+
+        // Inform the dock
+        #[cfg(target_os = "axle")]
+        {
+            let dock_notification = AwmDockWindowTitleUpdatedEvent::new(window.id(), new_title);
+            amc_message_send(AWM_DOCK_SERVICE_NAME, dock_notification);
+        }
     }
 
     pub fn test(&mut self) {
@@ -1531,6 +1550,20 @@ impl Desktop {
         self.background_gradient_inner_color = Color::from(msg.from);
         self.draw_background();
         self.compositor_state.queue_full_redraw(self.desktop_frame);
+    }
+
+    fn window_with_id(&self, window_id: usize) -> Option<Rc<Window>> {
+        for w in self.windows.iter() {
+            if w.id() == window_id {
+                return Some(Rc::clone(w));
+            }
+        }
+        None
+    }
+
+    pub fn handle_dock_task_view_clicked(&mut self, msg: &AwmDockTaskViewClicked) {
+        let window = self.window_with_id(msg.window_id as usize).unwrap();
+        self.move_window_to_top(&window);
     }
 }
 

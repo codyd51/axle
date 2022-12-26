@@ -3,7 +3,7 @@
 extern crate alloc;
 
 use agx_definitions::{Rect, RectU32};
-use axle_rt::{ContainsEventField, ExpectsEventField};
+use axle_rt::{copy_str_into_sized_slice, ContainsEventField, ExpectsEventField};
 use axle_rt_derive::ContainsEventField;
 
 // PT: Must match the definitions in the corresponding C header
@@ -28,6 +28,19 @@ pub struct AwmDockWindowCreatedEvent {
     pub title: [u8; 64],
 }
 
+impl AwmDockWindowCreatedEvent {
+    pub fn new(window_id: usize, title: &str) -> Self {
+        let mut title_buf = [0; 64];
+        let title_len = copy_str_into_sized_slice(&mut title_buf, title);
+        Self {
+            event: Self::EXPECTED_EVENT,
+            window_id: window_id as u32,
+            title_len: title_len.try_into().unwrap(),
+            title: title_buf,
+        }
+    }
+}
+
 impl ExpectsEventField for AwmDockWindowCreatedEvent {
     const EXPECTED_EVENT: u32 = 817;
 }
@@ -43,6 +56,19 @@ pub struct AwmDockWindowTitleUpdatedEvent {
     pub window_id: u32,
     pub title_len: u32,
     pub title: [u8; 64],
+}
+
+impl AwmDockWindowTitleUpdatedEvent {
+    pub fn new(window_id: usize, title: &str) -> Self {
+        let mut title_buf = [0; 64];
+        let title_len = copy_str_into_sized_slice(&mut title_buf, title);
+        Self {
+            event: Self::EXPECTED_EVENT,
+            window_id: window_id as u32,
+            title_len: title_len.try_into().unwrap(),
+            title: title_buf,
+        }
+    }
 }
 
 impl ExpectsEventField for AwmDockWindowTitleUpdatedEvent {

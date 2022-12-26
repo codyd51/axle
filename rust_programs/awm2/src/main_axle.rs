@@ -26,8 +26,13 @@ use awm_messages::{
     AwmWindowRedrawReady, AwmWindowUpdateTitle,
 };
 
+use dock_messages::{
+    AwmDockTaskViewClicked, AwmDockTaskViewHoverExited, AwmDockTaskViewHovered,
+    AWM_DOCK_SERVICE_NAME,
+};
 use kb_driver_messages::KB_DRIVER_SERVICE_NAME;
 use mouse_driver_messages::{MousePacket, MOUSE_DRIVER_SERVICE_NAME};
+use preferences_messages::PREFERENCES_SERVICE_NAME;
 
 use axle_rt::core_commands::{
     AmcAwmMapFramebuffer, AmcAwmMapFramebufferResponse, AmcSharedMemoryCreateRequest,
@@ -125,12 +130,35 @@ fn process_next_amc_message(desktop: &mut Desktop) {
                         );
                         true
                     }
+                    PreferencesUpdated::EXPECTED_EVENT => {
+                        desktop.handle_preferences_updated(body_as_type_unchecked(raw_body));
+                        true
+                    }
                     _ => {
                         //println!("Ignoring unknown message from preferences");
                         false
                     }
                 }
             }
+            AWM_DOCK_SERVICE_NAME => {
+                match event {
+                    AwmDockTaskViewHovered::EXPECTED_EVENT => {
+                        // Do nothing
+                        // Eventually, consider displaying a window preview like the original awm
+                        true
+                    }
+                    AwmDockTaskViewHoverExited::EXPECTED_EVENT => {
+                        // Eventually, dismiss hover preview
+                        true
+                    }
+                    AwmDockTaskViewClicked::EXPECTED_EVENT => {
+                        desktop.handle_dock_task_view_clicked(body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    _ => false,
+                }
+            }
+            _ => false,
         };
         if !consumed {
             // Unknown sender - probably a client wanting to interact with the window manager
@@ -154,9 +182,6 @@ fn process_next_amc_message(desktop: &mut Desktop) {
                 AwmWindowUpdateTitle::EXPECTED_EVENT => {
                     desktop
                         .handle_window_updated_title(&msg_source, body_as_type_unchecked(raw_body));
-                }
-                PreferencesUpdated::EXPECTED_EVENT => {
-                    desktop.handle_preferences_updated(body_as_type_unchecked(raw_body))
                 }
                 _ => {
                     println!("Awm ignoring message with unknown event type: {event}");
