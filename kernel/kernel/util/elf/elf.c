@@ -154,7 +154,7 @@ static void _record_elf_symbol_table(void* buf, elf_t* elf) {
 			elf->strtabsz = shdr->size;
 		}
 		if (!strcmp(name, ".symtab")) {
-			elf->symtab = (const char*)((uint8_t*)buf + shdr->offset);
+			elf->symtab = (elf_symbol_t *)((uint8_t *) buf + shdr->offset);
 			elf->symtabsz = shdr->size;
 		}
 	}
@@ -171,9 +171,20 @@ void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf
 	task_assert(elf_validate_header(hdr), "ELF header validation failed", NULL);
 
 	task_small_t* current_task = tasking_get_task_with_pid(getpid());
+    char* string_table = elf_get_string_table(hdr, buf_size);
 
-	char* string_table = elf_get_string_table(hdr, buf_size);
-	_record_elf_symbol_table(buf, &current_task->elf_symbol_table);
+    // Copy the strings/symbols data to the heap, since we're freeing the underlying ELF buffer later on
+    elf_t symbols_data;
+	_record_elf_symbol_table(buf, &symbols_data);
+    void* string_table_copy = kmalloc(symbols_data.strtabsz);
+    memcpy(string_table_copy, symbols_data.strtab, symbols_data.strtabsz);
+    current_task->elf_symbol_table.strtabsz = symbols_data.strtabsz;
+    current_task->elf_symbol_table.strtab = string_table_copy;
+
+    void* symbol_table_copy = kmalloc(symbols_data.symtabsz);
+    memcpy(symbol_table_copy, symbols_data.symtab, symbols_data.symtabsz);
+    current_task->elf_symbol_table.symtabsz = symbols_data.symtabsz;
+    current_task->elf_symbol_table.symtab = symbol_table_copy;
 
 	uintptr_t prog_break = 0;
 	uintptr_t bss_loc = 0;

@@ -116,7 +116,12 @@ void _thread_destroy(task_small_t* thread) {
 
     // Free kernel stack
     //printf("Free kernel stack 0x%p\n", thread->kernel_stack_malloc_head);
-    kfree(thread->kernel_stack_malloc_head);
+    kfree((void*)thread->kernel_stack_malloc_head);
+
+    // Free the string table and symbol table that were copied to the heap
+    // TODO(PT): These are only heap copies when the underlying program was loaded from an ELF
+    kfree((void*)thread->elf_symbol_table.strtab);
+    kfree((void*)thread->elf_symbol_table.symtab);
 
     if (!thread->is_thread) {
         // Free AMC service if there is one

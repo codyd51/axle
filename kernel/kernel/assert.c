@@ -97,14 +97,15 @@ bool append(char** buf_head, int32_t* buf_size, const char* format, ...) {
 }
 
 bool symbolicate_and_append__user_mode_frame(int frame_idx, uintptr_t* frame_addr, char** buf_head, int32_t* buf_size) {
-    // If we've traversed to the NULL page, we're probably out of stack frames
     return symbolicate_and_append(frame_idx, frame_addr, buf_head, buf_size);
 }
 
 bool symbolicate_and_append(int frame_idx, uintptr_t* frame_addr, char** buf_head, int32_t* buf_size) {
-    printf("symbolicate(%d, 0x%x)\n", frame_idx, frame_addr);
+    printf("symbolicate(%d, 0x%x) = ", frame_idx, frame_addr);
 
     if (frame_addr < PAGE_SIZE) {
+        // If we've traversed to the NULL page, we're probably out of stack frames
+        printf("NULL\n");
         return false;
     }
 
@@ -134,6 +135,7 @@ bool symbolicate_and_append(int frame_idx, uintptr_t* frame_addr, char** buf_hea
         */
     }
 
+    printf("[%02d] 0x%p %s\n", frame_idx, (uintptr_t)frame_addr, symbol);
     bool can_append_more = append(buf_head, buf_size, "[%02d] 0x%p %s\n", frame_idx, (uintptr_t)frame_addr, symbol);
     if (!can_append_more || found_program_start) {
         return false;
