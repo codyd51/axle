@@ -91,26 +91,28 @@ impl LikeLayerSlice for LayerSlice {
         let rect_origin_offset = slice_origin_offset + (rect.origin * bpp_multiple);
 
         if let StrokeThickness::Width(px_count) = thickness {
-            let top = Rect::from_parts(rect.origin, Size::new(rect.width(), px_count));
-            self.fill_rect(top, color, StrokeThickness::Filled);
+            if px_count > 0 {
+                let top = Rect::from_parts(rect.origin, Size::new(rect.width(), px_count));
+                self.fill_rect(top, color, StrokeThickness::Filled);
 
-            let left = Rect::from_parts(rect.origin, Size::new(px_count, rect.height()));
-            self.fill_rect(left, color, StrokeThickness::Filled);
+                let left = Rect::from_parts(rect.origin, Size::new(px_count, rect.height()));
+                self.fill_rect(left, color, StrokeThickness::Filled);
 
-            // The leftmost `px_count` pixels of the bottom rect are drawn by the left rect
-            let bottom = Rect::from_parts(
-                Point::new(rect.origin.x + px_count, rect.max_y() - px_count),
-                Size::new(rect.width() - px_count, px_count),
-            );
-            self.fill_rect(bottom, color, StrokeThickness::Filled);
+                // The leftmost `px_count` pixels of the bottom rect are drawn by the left rect
+                let bottom = Rect::from_parts(
+                    Point::new(rect.origin.x + px_count, rect.max_y() - px_count),
+                    Size::new(rect.width() - px_count, px_count),
+                );
+                self.fill_rect(bottom, color, StrokeThickness::Filled);
 
-            // The topmost `px_count` pixels of the right rect are drawn by the top rect
-            // The bottommost `px_count` pixels of the right rect are drawn by the bottom rect
-            let right = Rect::from_parts(
-                Point::new(rect.max_x() - px_count, rect.origin.y + px_count),
-                Size::new(px_count, rect.height() - (px_count * 2)),
-            );
-            self.fill_rect(right, color, StrokeThickness::Filled);
+                // The topmost `px_count` pixels of the right rect are drawn by the top rect
+                // The bottommost `px_count` pixels of the right rect are drawn by the bottom rect
+                let right = Rect::from_parts(
+                    Point::new(rect.max_x() - px_count, rect.origin.y + px_count),
+                    Size::new(px_count, rect.height() - (px_count * 2)),
+                );
+                self.fill_rect(right, color, StrokeThickness::Filled);
+            }
         } else {
             self.track_damage(rect);
 
