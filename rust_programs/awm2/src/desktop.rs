@@ -22,6 +22,7 @@ use crate::animations::{Animation, WindowOpenAnimationParams};
 use dock_messages::AWM_DOCK_HEIGHT;
 use file_manager_messages::str_from_u8_nul_utf8_unchecked;
 use kb_driver_messages::{KeyEventType, KeyIdentifier, KeyboardPacket};
+use preferences_messages::PreferencesUpdated;
 use rand::prelude::*;
 
 #[cfg(target_os = "axle")]
@@ -1519,6 +1520,13 @@ impl Desktop {
 
     pub fn has_ongoing_animations(&self) -> bool {
         self.ongoing_animations.len() > 0
+    }
+
+    pub fn handle_preferences_updated(&mut self, msg: &PreferencesUpdated) {
+        self.background_gradient_outer_color = Color::from(msg.to);
+        self.background_gradient_inner_color = Color::from(msg.from);
+        self.draw_background();
+        self.compositor_state.queue_full_redraw(self.desktop_frame);
     }
 }
 

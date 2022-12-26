@@ -35,6 +35,7 @@ use axle_rt::core_commands::{
 };
 use libgui::window_events::AwmWindowEvent;
 use libgui::AwmWindow;
+use preferences_messages::PreferencesUpdated;
 
 use crate::desktop::Desktop;
 
@@ -153,6 +154,9 @@ fn process_next_amc_message(desktop: &mut Desktop) {
                 AwmWindowUpdateTitle::EXPECTED_EVENT => {
                     desktop
                         .handle_window_updated_title(&msg_source, body_as_type_unchecked(raw_body));
+                }
+                PreferencesUpdated::EXPECTED_EVENT => {
+                    desktop.handle_preferences_updated(body_as_type_unchecked(raw_body))
                 }
                 _ => {
                     println!("Awm ignoring message with unknown event type: {event}");

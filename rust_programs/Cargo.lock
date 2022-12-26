@@ -1556,6 +1556,7 @@ checksum = "7c68cb38ed13fd7bc9dd5db8f165b7c8d9c1a315104083a2b10f11354c2af97f"
 name = "preferences_messages"
 version = "0.1.0"
 dependencies = [
+ "agx_definitions",
  "axle_rt",
  "axle_rt_derive",
 ]

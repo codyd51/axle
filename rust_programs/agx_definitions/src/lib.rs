@@ -95,12 +95,15 @@ pub struct Color {
     pub b: u8,
 }
 
+impl From<[u8; 3]> for Color {
+    fn from(vals: [u8; 3]) -> Self {
+        Color::new(vals[0], vals[1], vals[2])
+    }
+}
+
 impl Color {
     pub fn new(r: u8, g: u8, b: u8) -> Self {
         Color { r, g, b }
-    }
-    pub fn from(vals: [u8; 3]) -> Self {
-        Color::new(vals[0], vals[1], vals[2])
     }
     pub fn black() -> Self {
         Color::from([0, 0, 0])
@@ -832,6 +835,13 @@ mod test {
             Rect::new(0, 150, 300, 300),
             Some(Rect::new(0, 150, 300, 150)),
         );
+    }
+
+    #[test]
+    fn test_constrain_rect() {
+        let m = Rect::new(0, 0, 100, 100);
+        let r = Rect::new(-5, -3, 6, 4);
+        assert_eq!(m.constrain(r), Rect::new(0, 0, 1, 1));
     }
 
     #[test]
