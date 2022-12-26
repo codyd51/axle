@@ -7,9 +7,9 @@ fn transcolor(color1: Color, color2: Color, d: f64) -> Color {
     let mut d = f64::max(d, 0_f64);
     d = f64::min(d, 1_f64);
     Color::new(
+        ((color1.r as f64) * (1.0 - d) + (color2.r as f64 * d)) as u8,
+        ((color1.g as f64) * (1.0 - d) + (color2.g as f64 * d)) as u8,
         ((color1.b as f64) * (1.0 - d) + (color2.b as f64 * d)) as u8,
-        ((color1.g as f64) * (1.0 - d) + (color2.r as f64 * d)) as u8,
-        ((color1.r as f64) * (1.0 - d) + (color2.g as f64 * d)) as u8,
     )
 }
 
