@@ -393,6 +393,10 @@ impl Rect {
         Self::from_parts(self.origin, new_size)
     }
 
+    pub fn add_origin(&self, addend: Point) -> Self {
+        Self::from_parts(self.origin + addend, self.size)
+    }
+
     pub fn from_parts(origin: Point, size: Size) -> Self {
         Rect { origin, size }
     }
