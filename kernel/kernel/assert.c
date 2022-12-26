@@ -125,14 +125,12 @@ bool symbolicate_and_append(int frame_idx, uintptr_t* frame_addr, char** buf_hea
         }
     }
     else {
-        /*
         task_small_t* current_task = tasking_get_current_task();
         const char* program_symbol = elf_sym_lookup(&current_task->elf_symbol_table, (uintptr_t)frame_addr);
         snprintf(symbol, sizeof(symbol), "[%s] %s", current_task->name, program_symbol);
-        if (!strncmp(program_symbol, "_start", 8)) {
+        if (!strncmp(program_symbol, "_start", 7)) {
             found_program_start = true;
         }
-        */
     }
 
     printf("[%02d] 0x%p %s\n", frame_idx, (uintptr_t)frame_addr, symbol);
