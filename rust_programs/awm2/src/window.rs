@@ -10,6 +10,9 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::fmt::{Display, Formatter};
+use core::mem;
+
+use crate::println;
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum TitleBarButtonsHoverState {
@@ -48,13 +51,68 @@ impl Default for WindowParams {
     }
 }
 
+pub struct SharedMemoryLayer(SingleFramebufferLayer);
+
+impl SharedMemoryLayer {
+    pub fn new(layer: SingleFramebufferLayer) -> Self {
+        Self(layer)
+    }
+
+    pub fn copy_from(&self, other: &SingleFramebufferLayer) {
+        self.0.copy_from(other)
+    }
+
+    pub fn get_full_slice(&mut self) -> Box<dyn LikeLayerSlice> {
+        self.0.get_full_slice()
+    }
+}
+
+impl Layer for SharedMemoryLayer {
+    fn size(&self) -> Size {
+        self.0.size()
+    }
+
+    fn bytes_per_pixel(&self) -> isize {
+        self.0.bytes_per_pixel()
+    }
+
+    fn fill_rect(&self, rect: &Rect, color: Color) {
+        self.0.fill_rect(rect, color)
+    }
+
+    fn putpixel(&self, loc: &Point, color: Color) {
+        self.0.putpixel(loc, color)
+    }
+
+    fn get_slice(&mut self, rect: Rect) -> Box<dyn LikeLayerSlice> {
+        self.0.get_slice(rect)
+    }
+}
+
+impl Drop for SharedMemoryLayer {
+    fn drop(&mut self) {
+        #[cfg(target_os = "axle")]
+        {
+            // This memory is backed by a shared memory region, and isn't on the heap.
+            // Don't try to free it.
+            let shmem_region =
+                mem::replace(&mut *self.0.framebuffer.borrow_mut(), Box::new([0; 0]));
+            mem::forget(shmem_region);
+        }
+        #[cfg(not(target_os = "axle"))]
+        {
+            println!("Freeing SharedMemoryLayer because we're in a hosted target")
+        }
+    }
+}
+
 pub struct Window {
     id: usize,
     pub frame: RefCell<Rect>,
     drawable_rects: RefCell<Vec<Rect>>,
     pub owner_service: String,
     layer: RefCell<SingleFramebufferLayer>,
-    pub content_layer: RefCell<SingleFramebufferLayer>,
+    pub content_layer: RefCell<SharedMemoryLayer>,
     title: RefCell<Option<String>>,
     title_bar_buttons_hover_state: RefCell<TitleBarButtonsHoverState>,
     params: WindowParams,
@@ -68,7 +126,7 @@ impl Window {
         id: usize,
         owner_service: &str,
         frame: Rect,
-        content_layer: SingleFramebufferLayer,
+        content_layer: SharedMemoryLayer,
         params: WindowParams,
     ) -> Self {
         let total_size = Self::total_size_for_content_size(content_layer.size(), params);
@@ -96,6 +154,10 @@ impl Window {
 
     pub fn set_title_bar_buttons_hover_state(&self, state: TitleBarButtonsHoverState) {
         *self.title_bar_buttons_hover_state.borrow_mut() = state
+    }
+
+    pub fn title_bar_buttons_hover_state(&self) -> TitleBarButtonsHoverState {
+        *self.title_bar_buttons_hover_state.borrow()
     }
 
     pub fn is_point_within_resize_inset(&self, local_point: Point) -> bool {

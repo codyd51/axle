@@ -16,6 +16,7 @@ use alloc::vec::Vec;
 use awm_messages::{AwmCreateWindow, AwmWindowPartialRedraw, AwmWindowUpdateTitle};
 use core::cell::RefCell;
 use core::cmp::{max, min};
+use core::mem;
 use mouse_driver_messages::MousePacket;
 
 use crate::animations::{Animation, WindowOpenAnimationParams};
@@ -46,7 +47,7 @@ mod conditional_imports {}
 
 use crate::desktop::conditional_imports::*;
 use crate::utils::{awm_service_is_dock, get_timestamp, random_color, random_color_with_rng};
-use crate::window::{TitleBarButtonsHoverState, Window, WindowParams};
+use crate::window::{SharedMemoryLayer, TitleBarButtonsHoverState, Window, WindowParams};
 
 fn send_left_click_event(window: &Rc<Window>, mouse_pos: Point) {
     let mouse_within_window = window.frame().translate_point(mouse_pos);
@@ -924,14 +925,15 @@ impl Desktop {
             );
             println!("Sending response to {source} {source:?}: {window_created_msg:?}");
             amc_message_send(&source, window_created_msg);
-            SingleFramebufferLayer::from_framebuffer(
+            SharedMemoryLayer::new(SingleFramebufferLayer::from_framebuffer(
                 unsafe { Box::from_raw(framebuffer) },
                 bytes_per_pixel,
                 max_content_view_size,
-            )
+            ))
         };
         #[cfg(not(target_os = "axle"))]
-        let content_view_layer = SingleFramebufferLayer::new(max_content_view_size);
+        let content_view_layer =
+            SharedMemoryLayer::new(SingleFramebufferLayer::new(max_content_view_size));
 
         let window_frame = Rect::from_parts(new_window_origin, window_size);
         let new_window = Rc::new(Window::new(
@@ -1049,7 +1051,22 @@ impl Desktop {
                 );
                 self.move_window_to_top(&window_under_mouse);
             }
-            send_left_click_event(&window_under_mouse, self.mouse_state.pos)
+
+            // If the user clicked the close button, send a close request
+            if window_under_mouse.title_bar_buttons_hover_state()
+                == TitleBarButtonsHoverState::HoverClose
+            {
+                send_close_window_request(&window_under_mouse);
+            } else {
+                // Only send the click if it was within the content view
+                let window_frame = window_under_mouse.frame();
+                let screen_space_content_frame = window_under_mouse
+                    .content_frame()
+                    .add_origin(window_frame.origin);
+                if screen_space_content_frame.contains(self.mouse_state.pos) {
+                    send_left_click_event(&window_under_mouse, self.mouse_state.pos)
+                }
+            }
         }
     }
 
@@ -1564,6 +1581,33 @@ impl Desktop {
     pub fn handle_dock_task_view_clicked(&mut self, msg: &AwmDockTaskViewClicked) {
         let window = self.window_with_id(msg.window_id as usize).unwrap();
         self.move_window_to_top(&window);
+    }
+
+    pub fn handle_window_close(&mut self, window_owner: &str) {
+        let window = self.window_for_owner(window_owner);
+        let window_as_desktop_elem = Rc::clone(&window) as Rc<dyn DesktopElement>;
+        // Remove the window from the desktop tree
+        self.windows.retain(|w| !Rc::ptr_eq(&window, w));
+        self.transition_to_mouse_interaction_state(
+            self.mouse_interaction_state_for_mouse_state(false),
+        );
+        self.windows_to_render_remote_layers_this_cycle
+            .retain(|w| !Rc::ptr_eq(&window, w));
+        // Remove the window from the compositor tree
+        self.compositor_state
+            .elements
+            .retain(|elem| !Rc::ptr_eq(&window_as_desktop_elem, elem));
+        self.compositor_state
+            .elements_by_id
+            .retain(|elem_id, elem| window.id() != elem.id());
+        self.compositor_state
+            .elements_to_composite
+            .borrow_mut()
+            .retain(|&elem_id| window.id() != elem_id);
+
+        let window_frame = window.frame();
+        self.recompute_drawable_regions_in_rect(window_frame);
+        self.compositor_state.queue_full_redraw(window_frame);
     }
 }
 

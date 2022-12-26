@@ -10,7 +10,7 @@ use alloc::{
 use core::cmp::{max, min};
 use core::{cell::RefCell, cmp};
 
-use awm_messages::{AwmWindowPartialRedraw, AWM2_SERVICE_NAME};
+use awm_messages::{AwmCloseWindow, AwmWindowPartialRedraw, AWM2_SERVICE_NAME};
 use axle_rt::{
     amc_has_message, amc_message_await, amc_message_await_untyped, amc_message_send,
     amc_register_service, printf, println, AmcMessage,
@@ -163,19 +163,16 @@ fn process_next_amc_message(desktop: &mut Desktop) {
         if !consumed {
             // Unknown sender - probably a client wanting to interact with the window manager
             match event {
-                // Mouse driver events
-                // libgui events
-                // Keyboard events
                 AwmCreateWindow::EXPECTED_EVENT => {
                     desktop.spawn_window(&msg_source, body_as_type_unchecked(raw_body), None, true);
                 }
                 AwmWindowRedrawReady::EXPECTED_EVENT => {
                     //println!("Window said it was ready to redraw!");
-                    desktop.handle_window_requested_redraw(msg_unparsed.source());
+                    desktop.handle_window_requested_redraw(&msg_source);
                 }
                 AwmWindowPartialRedraw::EXPECTED_EVENT => {
                     desktop.handle_window_requested_partial_redraw(
-                        msg_unparsed.source(),
+                        &msg_source,
                         body_as_type_unchecked(raw_body),
                     );
                 }
@@ -183,8 +180,12 @@ fn process_next_amc_message(desktop: &mut Desktop) {
                     desktop
                         .handle_window_updated_title(&msg_source, body_as_type_unchecked(raw_body));
                 }
+                AwmCloseWindow::EXPECTED_EVENT => {
+                    desktop.handle_window_close(&msg_source);
+                }
                 _ => {
-                    println!("Awm ignoring message with unknown event type: {event}");
+                    //println!("Awm ignoring message with unknown event type: {event}");
+                    panic!("Awm received event type: {event}");
                 }
             }
         }
