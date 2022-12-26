@@ -838,13 +838,6 @@ mod test {
     }
 
     #[test]
-    fn test_constrain_rect() {
-        let m = Rect::new(0, 0, 100, 100);
-        let r = Rect::new(-5, -3, 6, 4);
-        assert_eq!(m.constrain(r), Rect::new(0, 0, 1, 1));
-    }
-
-    #[test]
     fn test_rect_diff() {
         let main = Rect::new(0, 150, 300, 300);
         let exclude = Rect::new(0, 0, 300, 300);
