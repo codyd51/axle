@@ -485,6 +485,7 @@ void* sbrk(int increment) {
 	if (increment < 0) {
         printf("Relinquish sbrk memory 0x%08x\n", -(uint32_t)increment);
         current->sbrk_current_break -= increment;
+        assert(current->sbrk_current_break >= current->sbrk_base, "Underflow brk region");
 		return NULL;
 	}
 

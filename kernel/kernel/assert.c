@@ -46,7 +46,7 @@ void print_stack_trace(int frame_count) {
 void panic_with_regs(const char* msg, register_state_x86_64_t* regs) {
     asm("cli");
 
-    int buf_size = 512;
+    int buf_size = 2048;
     char buf[buf_size];
 
     // Error message

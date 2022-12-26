@@ -65,9 +65,10 @@ typedef struct task_small {
 	 * such as an ELF from the filesystem
 	 */
 
+    uintptr_t sbrk_base;
 	// End of allocated "program break" data (for sbrk)
 	uintptr_t sbrk_current_break;
-	// Virtual address of the start of the .bss segmen
+	// Virtual address of the start of the .bss segment
 	uintptr_t bss_segment_addr;
 	uintptr_t sbrk_current_page_head;
 

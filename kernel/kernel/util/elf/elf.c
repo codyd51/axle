@@ -253,6 +253,7 @@ void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf
 	// TODO(PT): We should store the kmalloc()'d stack in the task structure so that we can free() it once the task dies.
 	//printf("Set elf->machine_state = 0x%08x\n", stack_top);
 	current_task->machine_state = (task_context_t*)stack_top;
+    current_task->sbrk_base = prog_break;
 	current_task->sbrk_current_break = prog_break;
 	current_task->bss_segment_addr = bss_loc;
 	current_task->sbrk_current_page_head = (current_task->sbrk_current_break + PAGE_SIZE) & PAGING_PAGE_MASK;
