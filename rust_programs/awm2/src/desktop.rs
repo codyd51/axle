@@ -753,13 +753,13 @@ impl Desktop {
 
         // Copy the bits of the background that we decided we needed to redraw
         logs.push(format!("Extra background draws:"));
-        for background_copy_rect in self.compositor_state.extra_background_draws.drain(..) {
+        for background_copy_rect in self.compositor_state.extra_background_draws.iter() {
             logs.push(format!("\t{background_copy_rect}"));
             //println!("Drawing background rect {background_copy_rect}");
             Self::copy_rect(
                 &mut *self.desktop_background_layer.get_slice(self.desktop_frame),
                 &mut *self.screen_buffer_layer.get_slice(self.desktop_frame),
-                background_copy_rect,
+                *background_copy_rect,
             );
         }
 
@@ -780,6 +780,10 @@ impl Desktop {
             }
         }
         self.compositor_state.extra_draws.borrow_mut().clear();
+
+        for background_copy_rect in self.compositor_state.extra_background_draws.drain(..) {
+            Self::copy_rect(buffer, vmem, background_copy_rect);
+        }
 
         for full_redraw_rect in self.compositor_state.rects_to_fully_redraw.drain(..) {
             Self::copy_rect(buffer, vmem, full_redraw_rect);
