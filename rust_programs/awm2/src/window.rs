@@ -45,6 +45,7 @@ impl WindowDecorationImages {
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum TitleBarButtonsHoverState {
     Unhovered,
+    HoverBackground,
     HoverClose,
     HoverMinimize,
 }
@@ -273,6 +274,15 @@ impl Window {
         }
 
         self.redraw_close_button();
+
+        if *self.title_bar_buttons_hover_state.borrow() != TitleBarButtonsHoverState::Unhovered {
+            title_bar_slice.fill_rect(
+                Rect::with_size(title_bar_frame.size),
+                // PT: Matches the border color in libgui
+                Color::new(200, 200, 200),
+                StrokeThickness::Width(1),
+            );
+        }
 
         title_bar_frame.replace_origin(self.frame.borrow().origin)
     }

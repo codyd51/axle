@@ -1209,11 +1209,24 @@ impl Desktop {
                     | MouseInteractionState::PerformingWindowResize(w2) => !Rc::ptr_eq(w, w2),
                 };
                 if exited_window {
-                    //println!("Informing window {} about mouse exit", w.name());
+                    self.transition_title_bar_hover_state_for_window(w);
                     send_mouse_exited_event(&w)
                 }
             }
         };
+
+        // If we're transitioning into the title bar, send a mouse exited event
+        if let MouseInteractionState::WindowHover(w)
+        | MouseInteractionState::HintingWindowResize(w) = &self.mouse_interaction_state
+        {
+            if let MouseInteractionState::HintingWindowDrag(w2) = &new_state {
+                if Rc::ptr_eq(w, w2) {
+                    //self.transition_title_bar_hover_state_for_window(w);
+                    println!("Sending mouse exited event!");
+                    send_mouse_exited_event(&w)
+                }
+            }
+        }
 
         // If we're transitioning into of a window, inform it
         if let MouseInteractionState::WindowHover(new_win)
@@ -1238,6 +1251,28 @@ impl Desktop {
             }
         }
         self.mouse_interaction_state = new_state;
+    }
+
+    fn title_bar_hover_state_for_window(&self, window: &Rc<Window>) -> TitleBarButtonsHoverState {
+        let mouse_within_window = window.frame().translate_point(self.mouse_state.pos);
+        if window.is_point_within_close_button(mouse_within_window) {
+            TitleBarButtonsHoverState::HoverClose
+        } else if window.is_point_within_title_bar(mouse_within_window) {
+            TitleBarButtonsHoverState::HoverBackground
+        } else {
+            TitleBarButtonsHoverState::Unhovered
+        }
+    }
+
+    fn transition_title_bar_hover_state_for_window(&self, window: &Rc<Window>) {
+        let title_bar_buttons_hover_state = self.title_bar_hover_state_for_window(window);
+        let should_redraw_title_bar =
+            title_bar_buttons_hover_state != window.title_bar_buttons_hover_state();
+        window.set_title_bar_buttons_hover_state(title_bar_buttons_hover_state);
+        if should_redraw_title_bar {
+            let title_bar_frame = window.redraw_title_bar();
+            self.compositor_state.queue_full_redraw(title_bar_frame);
+        }
     }
 
     fn handle_mouse_moved(&mut self, _new_pos: Point, rel_shift: Point) {
@@ -1296,27 +1331,12 @@ impl Desktop {
         if let MouseInteractionState::WindowHover(window_under_mouse) =
             &self.mouse_interaction_state
         {
+            self.transition_title_bar_hover_state_for_window(window_under_mouse);
             send_mouse_moved_event(window_under_mouse, self.mouse_state.pos);
         } else if let MouseInteractionState::HintingWindowDrag(window) =
             &self.mouse_interaction_state
         {
-            // If this is the topmost window, update the title bar buttons hover state
-            if self.is_topmost_window(window) {
-                let mouse_within_window = window.frame().translate_point(self.mouse_state.pos);
-                let title_bar_buttons_hover_state =
-                    if window.is_point_within_close_button(mouse_within_window) {
-                        TitleBarButtonsHoverState::HoverClose
-                    } else {
-                        TitleBarButtonsHoverState::Unhovered
-                    };
-                window.set_title_bar_buttons_hover_state(title_bar_buttons_hover_state);
-                let mut close_button_frame = window.redraw_close_button();
-                close_button_frame.origin = close_button_frame.origin + window.frame().origin;
-                self.compositor_state.queue_extra_draw(
-                    Rc::clone(&window) as Rc<dyn DesktopElement>,
-                    close_button_frame,
-                );
-            }
+            self.transition_title_bar_hover_state_for_window(window);
         }
     }
 
