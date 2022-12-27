@@ -1,4 +1,4 @@
-use crate::desktop::DesktopElement;
+use crate::desktop::{Desktop, DesktopElement};
 use crate::println;
 use crate::utils::get_timestamp;
 use crate::window::Window;
@@ -31,10 +31,6 @@ fn interpolate_window_frame(from: Rect, to: Rect, percent: f64) -> Rect {
         ),
     )
 }
-
-/*
-}
-*/
 
 pub struct WindowOpenAnimationParams {
     start_time: usize,
@@ -73,6 +69,39 @@ impl WindowOpenAnimationParams {
     }
 }
 
+pub struct WindowCloseAnimationParams {
+    start_time: usize,
+    end_time: usize,
+    pub window: Rc<Window>,
+    pub duration_ms: usize,
+    pub frame_from: Rect,
+    pub frame_to: Rect,
+}
+
+impl WindowCloseAnimationParams {
+    pub fn new(desktop_size: Size, window: &Rc<Window>, duration_ms: usize) -> Self {
+        let start_time = get_timestamp() as usize;
+        let final_size = Size::new(
+            (desktop_size.width as f64 / 10.0) as isize,
+            (desktop_size.height as f64 / 10.0) as isize,
+        );
+        let final_frame = Rect::from_parts(
+            Point::new(
+                ((desktop_size.width as f64 / 2.0) - (final_size.width as f64 / 2.0)) as isize,
+                desktop_size.height - final_size.height,
+            ),
+            final_size,
+        );
+        Self {
+            start_time,
+            end_time: start_time + duration_ms,
+            window: Rc::clone(window),
+            duration_ms,
+            frame_from: window.frame(),
+            frame_to: final_frame,
+        }
+    }
+}
 pub struct AnimationDamage {
     pub area_to_recompute_drawable_regions: Rect,
     pub rects_needing_composite: Vec<Rect>,
@@ -92,13 +121,16 @@ impl AnimationDamage {
 
 pub enum Animation {
     WindowOpen(WindowOpenAnimationParams),
-    //WindowClose(Rc<Window>),
+    WindowClose(WindowCloseAnimationParams),
 }
 
 impl Animation {
     pub fn start(&self) {
         match self {
             Animation::WindowOpen(params) => {
+                *params.window.frame.borrow_mut() = params.frame_from;
+            }
+            Animation::WindowClose(params) => {
                 *params.window.frame.borrow_mut() = params.frame_from;
             }
         }
@@ -120,12 +152,27 @@ impl Animation {
                 params.window.redraw_title_bar();
                 AnimationDamage::new(update_region, vec![update_region])
             }
+            Animation::WindowClose(params) => {
+                let update_region = {
+                    let mut window_frame = params.window.frame.borrow_mut();
+                    let old_frame = *window_frame;
+                    let elapsed = now - (params.start_time as u64);
+                    let percent = f64::min(1.0, elapsed as f64 / params.duration_ms as f64);
+                    let new_frame =
+                        interpolate_window_frame(params.frame_from, params.frame_to, percent);
+                    *window_frame = new_frame;
+                    old_frame.union(new_frame)
+                };
+                params.window.redraw_title_bar();
+                AnimationDamage::new(update_region, vec![update_region])
+            }
         }
     }
 
     pub fn is_complete(&self, now: u64) -> bool {
         match self {
             Animation::WindowOpen(params) => now as usize >= params.end_time,
+            Animation::WindowClose(params) => now as usize >= params.end_time,
         }
     }
 }

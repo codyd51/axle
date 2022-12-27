@@ -19,7 +19,7 @@ use core::cmp::{max, min};
 use core::mem;
 use mouse_driver_messages::MousePacket;
 
-use crate::animations::{Animation, WindowOpenAnimationParams};
+use crate::animations::{Animation, WindowCloseAnimationParams, WindowOpenAnimationParams};
 use crate::bitmap::BitmapImage;
 use dock_messages::{
     AwmDockTaskViewClicked, AwmDockWindowCreatedEvent, AwmDockWindowTitleUpdatedEvent,
@@ -273,7 +273,7 @@ struct CompositorState {
     /// While compositing the frame, awm will determine what individual elements
     /// must be redrawn to composite these rectangles.
     /// These may include portions of windows, the desktop background, etc.
-    rects_to_fully_redraw: Vec<Rect>,
+    rects_to_fully_redraw: RefCell<Vec<Rect>>,
     /// Entire elements that must be composited on the next frame
     elements_to_composite: RefCell<BTreeSet<usize>>,
     // Every desktop element the compositor knows about
@@ -288,7 +288,7 @@ impl CompositorState {
     fn new(desktop_frame: Rect) -> Self {
         Self {
             desktop_frame: desktop_frame,
-            rects_to_fully_redraw: vec![],
+            rects_to_fully_redraw: RefCell::new(vec![]),
             elements_to_composite: RefCell::new(BTreeSet::new()),
             elements: vec![],
             elements_by_id: BTreeMap::new(),
@@ -297,12 +297,12 @@ impl CompositorState {
         }
     }
 
-    fn queue_full_redraw(&mut self, in_rect: Rect) {
+    fn queue_full_redraw(&self, in_rect: Rect) {
         let in_rect = self.desktop_frame.constrain(in_rect);
         if in_rect.is_degenerate() {
             return;
         }
-        self.rects_to_fully_redraw.push(in_rect)
+        self.rects_to_fully_redraw.borrow_mut().push(in_rect)
     }
 
     fn queue_composite(&self, element: Rc<dyn DesktopElement>) {
@@ -582,7 +582,8 @@ impl Desktop {
     fn compute_extra_draws_from_total_update_rects(&mut self) {
         // Compute what to draw for the rects in which we need to do a full desktop walk
         //println!("compute_extra_draws_from_total_update_rects()");
-        for full_redraw_rect in self.compositor_state.rects_to_fully_redraw.clone().iter() {
+        let full_redraw_rects = self.compositor_state.rects_to_fully_redraw.borrow().clone();
+        for full_redraw_rect in full_redraw_rects.iter() {
             //println!("\tProcessing full redraw rect {full_redraw_rect}");
             // Keep track of what we've redrawn using desktop elements
             // This will hold what we still need to draw (eventually with the desktop background)
@@ -684,7 +685,10 @@ impl Desktop {
         }
         let _mouse_rect = self.draw_mouse();
         self.compositor_state.extra_draws.borrow_mut().clear();
-        self.compositor_state.rects_to_fully_redraw.drain(..);
+        self.compositor_state
+            .rects_to_fully_redraw
+            .borrow_mut()
+            .drain(..);
         self.compositor_state
             .elements_to_composite
             .borrow_mut()
@@ -803,7 +807,12 @@ impl Desktop {
             Self::copy_rect(buffer, vmem, background_copy_rect);
         }
 
-        for full_redraw_rect in self.compositor_state.rects_to_fully_redraw.drain(..) {
+        for full_redraw_rect in self
+            .compositor_state
+            .rects_to_fully_redraw
+            .borrow_mut()
+            .drain(..)
+        {
             Self::copy_rect(buffer, vmem, full_redraw_rect);
         }
 
@@ -1025,6 +1034,23 @@ impl Desktop {
         for r in rects_to_recompute_drawable_regions.drain(..) {
             self.recompute_drawable_regions_in_rect(r);
         }
+        let windows_to_drop: Vec<Rc<Window>> = self
+            .ongoing_animations
+            .iter()
+            .map(|anim| {
+                if anim.is_complete(now) {
+                    if let Animation::WindowClose(params) = anim {
+                        return Some(Rc::clone(&params.window));
+                    }
+                }
+                None
+            })
+            .filter_map(|o| o)
+            .collect();
+        for w in windows_to_drop.into_iter() {
+            self.drop_window(&w);
+        }
+
         // Drop animations that are now complete
         self.ongoing_animations
             .retain(|anim| !anim.is_complete(now));
@@ -1600,6 +1626,15 @@ impl Desktop {
 
     pub fn handle_window_close(&mut self, window_owner: &str) {
         let window = self.window_for_owner(window_owner);
+        self.start_animation(Animation::WindowClose(WindowCloseAnimationParams::new(
+            self.desktop_frame.size,
+            &window,
+            200,
+        )));
+    }
+
+    fn drop_window(&mut self, window: &Rc<Window>) {
+        println!("drop_window({})", window.name());
         let window_as_desktop_elem = Rc::clone(&window) as Rc<dyn DesktopElement>;
         // Remove the window from the desktop tree
         self.windows.retain(|w| !Rc::ptr_eq(&window, w));
