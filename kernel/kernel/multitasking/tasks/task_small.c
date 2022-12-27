@@ -120,8 +120,12 @@ void _thread_destroy(task_small_t* thread) {
 
     // Free the string table and symbol table that were copied to the heap
     // TODO(PT): These are only heap copies when the underlying program was loaded from an ELF
-    kfree((void*)thread->elf_symbol_table.strtab);
-    kfree((void*)thread->elf_symbol_table.symtab);
+    if (thread->elf_symbol_table.strtab) {
+        kfree((void *) thread->elf_symbol_table.strtab);
+    }
+    if (thread->elf_symbol_table.symtab) {
+        kfree((void *) thread->elf_symbol_table.symtab);
+    }
 
     if (!thread->is_thread) {
         // Free AMC service if there is one
