@@ -1,3 +1,4 @@
+use crate::bitmap::BitmapImage;
 use crate::desktop::DesktopElement;
 use agx_definitions::{
     Color, Layer, LikeLayerSlice, Point, Rect, RectInsets, SingleFramebufferLayer, Size,
@@ -13,6 +14,33 @@ use core::fmt::{Display, Formatter};
 use core::mem;
 
 use crate::println;
+
+#[derive(Debug, Clone)]
+pub struct WindowDecorationImages {
+    title_bar: BitmapImage,
+    close_button_unhovered: BitmapImage,
+    close_button_hovered: BitmapImage,
+    minimize_button_unhovered: BitmapImage,
+    minimize_button_hovered: BitmapImage,
+}
+
+impl WindowDecorationImages {
+    pub fn new(
+        title_bar: BitmapImage,
+        close_button_unhovered: BitmapImage,
+        close_button_hovered: BitmapImage,
+        minimize_button_unhovered: BitmapImage,
+        minimize_button_hovered: BitmapImage,
+    ) -> Self {
+        Self {
+            title_bar,
+            close_button_unhovered,
+            close_button_hovered,
+            minimize_button_unhovered,
+            minimize_button_hovered,
+        }
+    }
+}
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum TitleBarButtonsHoverState {
@@ -117,6 +145,7 @@ pub struct Window {
     title_bar_buttons_hover_state: RefCell<TitleBarButtonsHoverState>,
     params: WindowParams,
     title_bar_height: usize,
+    decoration_images: WindowDecorationImages,
 }
 
 impl Window {
@@ -128,6 +157,7 @@ impl Window {
         frame: Rect,
         content_layer: SharedMemoryLayer,
         params: WindowParams,
+        decoration_images: &WindowDecorationImages,
     ) -> Self {
         let total_size = Self::total_size_for_content_size(content_layer.size(), params);
         Self {
@@ -141,6 +171,7 @@ impl Window {
             title_bar_buttons_hover_state: RefCell::new(TitleBarButtonsHoverState::Unhovered),
             params,
             title_bar_height: params.title_bar_height(),
+            decoration_images: decoration_images.clone(),
         }
     }
 
@@ -222,7 +253,7 @@ impl Window {
         }
         let title_bar_frame = self.title_bar_frame();
         let title_bar_slice = self.layer.borrow_mut().get_slice(title_bar_frame);
-        title_bar_slice.fill(Color::white());
+        self.decoration_images.title_bar.render(&title_bar_slice);
 
         // Draw the window title
         let font_size = Size::new(8, 12);
@@ -251,20 +282,17 @@ impl Window {
         let title_bar_slice = self.layer.borrow_mut().get_slice(title_bar_frame);
 
         let close_button_frame = self.close_button_frame();
+        let close_button_slice = title_bar_slice.get_slice(close_button_frame);
         if *self.title_bar_buttons_hover_state.borrow() == TitleBarButtonsHoverState::HoverClose {
-            title_bar_slice.fill_rect(close_button_frame, Color::red(), StrokeThickness::Filled);
+            //title_bar_slice.fill_rect(close_button_frame, Color::red(), StrokeThickness::Filled);
+            self.decoration_images
+                .close_button_hovered
+                .render(&close_button_slice);
         } else {
-            title_bar_slice.fill_rect(
-                close_button_frame,
-                Color::new(255, 200, 200),
-                StrokeThickness::Filled,
-            );
+            self.decoration_images
+                .close_button_unhovered
+                .render(&close_button_slice);
         }
-        title_bar_slice.fill_rect(
-            close_button_frame,
-            Color::black(),
-            StrokeThickness::Width(1),
-        );
         close_button_frame
     }
 

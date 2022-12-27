@@ -8,6 +8,7 @@
 // #![cfg_attr(not(target_os = "axle"), feature(iter_zip))]
 
 mod animations;
+mod bitmap;
 mod desktop;
 mod effects;
 mod utils;

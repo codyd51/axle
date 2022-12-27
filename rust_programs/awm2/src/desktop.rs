@@ -20,6 +20,7 @@ use core::mem;
 use mouse_driver_messages::MousePacket;
 
 use crate::animations::{Animation, WindowOpenAnimationParams};
+use crate::bitmap::BitmapImage;
 use dock_messages::{
     AwmDockTaskViewClicked, AwmDockWindowCreatedEvent, AwmDockWindowTitleUpdatedEvent,
     AWM_DOCK_HEIGHT, AWM_DOCK_SERVICE_NAME,
@@ -47,7 +48,9 @@ mod conditional_imports {}
 
 use crate::desktop::conditional_imports::*;
 use crate::utils::{awm_service_is_dock, get_timestamp, random_color, random_color_with_rng};
-use crate::window::{SharedMemoryLayer, TitleBarButtonsHoverState, Window, WindowParams};
+use crate::window::{
+    SharedMemoryLayer, TitleBarButtonsHoverState, Window, WindowDecorationImages, WindowParams,
+};
 
 fn send_left_click_event(window: &Rc<Window>, mouse_pos: Point) {
     let mouse_within_window = window.frame().translate_point(mouse_pos);
@@ -478,6 +481,7 @@ pub struct Desktop {
     windows_to_render_remote_layers_this_cycle: Vec<Rc<Window>>,
     frame_render_logs: Vec<String>,
     ongoing_animations: Vec<Animation>,
+    window_images: WindowDecorationImages,
 }
 
 impl Desktop {
@@ -494,6 +498,15 @@ impl Desktop {
         let background_gradient_inner_color = random_color_with_rng(&mut rng);
         let background_gradient_outer_color = random_color_with_rng(&mut rng);
         let desktop_frame = Rect::with_size(video_memory_layer.frame().size);
+
+        let window_images = WindowDecorationImages::new(
+            BitmapImage::read_bmp_from_path("/images/titlebar7.bmp"),
+            BitmapImage::read_bmp_from_path("/images/titlebar_x_unfilled2.bmp"),
+            BitmapImage::read_bmp_from_path("/images/titlebar_x_filled2.bmp"),
+            BitmapImage::read_bmp_from_path("/images/titlebar_minimize_unfilled.bmp"),
+            BitmapImage::read_bmp_from_path("/images/titlebar_minimize_filled.bmp"),
+        );
+
         Self {
             desktop_frame,
             video_memory_layer,
@@ -512,6 +525,7 @@ impl Desktop {
             windows_to_render_remote_layers_this_cycle: vec![],
             frame_render_logs: vec![],
             ongoing_animations: vec![],
+            window_images,
         }
     }
 
@@ -942,6 +956,7 @@ impl Desktop {
             window_frame,
             content_view_layer,
             window_params,
+            &self.window_images,
         ));
         new_window.redraw_title_bar();
         self.windows.insert(0, Rc::clone(&new_window));
