@@ -112,12 +112,6 @@ impl Animation {
                     let old_frame = *window_frame;
                     let elapsed = now - (params.start_time as u64);
                     let percent = f64::min(1.0, elapsed as f64 / params.duration_ms as f64);
-                    /*
-                    println!(
-                        "Window({}) open animation step {percent:.2}%",
-                        params.window.name()
-                    );
-                    */
                     let new_frame =
                         interpolate_window_frame(params.frame_from, params.frame_to, percent);
                     *window_frame = new_frame;
