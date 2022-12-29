@@ -19,10 +19,7 @@ use core::cmp::{max, min};
 use core::mem;
 use mouse_driver_messages::MousePacket;
 
-use crate::animations::{
-    Animation, WindowCloseAnimationParams, WindowMinimizeAnimationParams,
-    WindowOpenAnimationParams, WindowUnminimizeAnimationParams,
-};
+use crate::animations::{Animation, WindowTransformAnimationParams};
 use crate::bitmap::BitmapImage;
 use dock_messages::{
     AwmDockTaskViewClicked, AwmDockWindowCreatedEvent, AwmDockWindowMinimizeRequestedEvent,
@@ -1007,7 +1004,7 @@ impl Desktop {
             } else {
                 (None, window_frame)
             };
-            self.start_animation(Animation::WindowOpen(WindowOpenAnimationParams::new(
+            self.start_animation(Animation::WindowOpen(WindowTransformAnimationParams::open(
                 desktop_size,
                 &new_window,
                 200,
@@ -1678,18 +1675,16 @@ impl Desktop {
         // Unminimize if necessary
         if window.is_minimized() {
             self.start_animation(Animation::WindowUnminimize(
-                WindowUnminimizeAnimationParams::new(&window, 200),
+                WindowTransformAnimationParams::unminimize(&window, 200),
             ));
         }
     }
 
     pub fn handle_window_close(&mut self, window_owner: &str) {
         let window = self.window_for_owner(window_owner);
-        self.start_animation(Animation::WindowClose(WindowCloseAnimationParams::new(
-            self.desktop_frame.size,
-            &window,
-            200,
-        )));
+        self.start_animation(Animation::WindowClose(
+            WindowTransformAnimationParams::close(self.desktop_frame.size, &window, 200),
+        ));
     }
 
     fn drop_window(&mut self, window: &Rc<Window>) {
@@ -1727,7 +1722,7 @@ impl Desktop {
             task_view_frame.size,
         );
         self.start_animation(Animation::WindowMinimize(
-            WindowMinimizeAnimationParams::new(&window, 200, dest_frame),
+            WindowTransformAnimationParams::minimize(&window, 200, dest_frame),
         ));
     }
 }
