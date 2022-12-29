@@ -147,6 +147,7 @@ pub struct Window {
     params: WindowParams,
     title_bar_height: usize,
     decoration_images: WindowDecorationImages,
+    unminimized_frame: RefCell<Option<Rect>>,
 }
 
 impl Window {
@@ -173,6 +174,7 @@ impl Window {
             params,
             title_bar_height: params.title_bar_height(),
             decoration_images: decoration_images.clone(),
+            unminimized_frame: RefCell::new(None),
         }
     }
 
@@ -212,10 +214,17 @@ impl Window {
     }
 
     pub fn close_button_frame(&self) -> Rect {
-        let icon_height = ((self.title_bar_height as f64) * 0.8) as isize;
-        let icon_size = Size::new(16, 16);
+        let icon_size = self.decoration_images.close_button_hovered.size;
         Rect::from_parts(
-            Point::new((icon_height as f64 * 1.25) as isize, 5),
+            Point::new((icon_size.height as f64 * 1.25) as isize, 5),
+            icon_size,
+        )
+    }
+
+    pub fn minimize_button_frame(&self) -> Rect {
+        let icon_size = self.decoration_images.minimize_button_hovered.size;
+        Rect::from_parts(
+            Point::new((icon_size.height as f64 * 2.75) as isize, 5),
             icon_size,
         )
     }
@@ -236,6 +245,14 @@ impl Window {
         }
 
         self.close_button_frame().contains(local_point)
+    }
+
+    pub fn is_point_within_minimize_button(&self, local_point: Point) -> bool {
+        if !self.params.has_title_bar {
+            return false;
+        }
+
+        self.minimize_button_frame().contains(local_point)
     }
 
     pub fn content_frame(&self) -> Rect {
@@ -274,6 +291,7 @@ impl Window {
         }
 
         self.redraw_close_button();
+        self.redraw_minimize_button();
 
         if *self.title_bar_buttons_hover_state.borrow() != TitleBarButtonsHoverState::Unhovered {
             title_bar_slice.fill_rect(
@@ -287,7 +305,7 @@ impl Window {
         title_bar_frame.replace_origin(self.frame.borrow().origin)
     }
 
-    pub fn redraw_close_button(&self) -> Rect {
+    pub fn redraw_close_button(&self) {
         let title_bar_frame = self.title_bar_frame();
         let title_bar_slice = self.layer.borrow_mut().get_slice(title_bar_frame);
 
@@ -303,7 +321,24 @@ impl Window {
                 .close_button_unhovered
                 .render(&close_button_slice);
         }
-        close_button_frame
+    }
+
+    pub fn redraw_minimize_button(&self) {
+        let title_bar_frame = self.title_bar_frame();
+        let title_bar_slice = self.layer.borrow_mut().get_slice(title_bar_frame);
+
+        let minimize_button_frame = self.minimize_button_frame();
+        let minimize_button_slice = title_bar_slice.get_slice(minimize_button_frame);
+        if *self.title_bar_buttons_hover_state.borrow() == TitleBarButtonsHoverState::HoverMinimize
+        {
+            self.decoration_images
+                .minimize_button_hovered
+                .render(&minimize_button_slice);
+        } else {
+            self.decoration_images
+                .minimize_button_unhovered
+                .render(&minimize_button_slice);
+        }
     }
 
     pub fn render_remote_layer(&self) {
@@ -327,6 +362,18 @@ impl Window {
             total_size.width,
             total_size.height - params.title_bar_height() as isize,
         )
+    }
+
+    pub fn unminimized_frame(&self) -> Option<Rect> {
+        *self.unminimized_frame.borrow()
+    }
+
+    pub fn set_unminimized_frame(&self, r: Option<Rect>) {
+        *self.unminimized_frame.borrow_mut() = r;
+    }
+
+    pub fn is_minimized(&self) -> bool {
+        self.unminimized_frame.borrow().is_some()
     }
 }
 

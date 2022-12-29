@@ -28,7 +28,7 @@ use awm_messages::{
 
 use dock_messages::{
     AwmDockTaskViewClicked, AwmDockTaskViewHoverExited, AwmDockTaskViewHovered,
-    AWM_DOCK_SERVICE_NAME,
+    AwmDockWindowMinimizeWithInfo, AWM_DOCK_SERVICE_NAME,
 };
 use kb_driver_messages::KB_DRIVER_SERVICE_NAME;
 use mouse_driver_messages::{MousePacket, MOUSE_DRIVER_SERVICE_NAME};
@@ -153,6 +153,10 @@ fn process_next_amc_message(desktop: &mut Desktop) {
                     }
                     AwmDockTaskViewClicked::EXPECTED_EVENT => {
                         desktop.handle_dock_task_view_clicked(body_as_type_unchecked(raw_body));
+                        true
+                    }
+                    AwmDockWindowMinimizeWithInfo::EXPECTED_EVENT => {
+                        desktop.handle_minimize_window_to_dock(body_as_type_unchecked(raw_body));
                         true
                     }
                     _ => false,

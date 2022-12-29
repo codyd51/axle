@@ -90,6 +90,15 @@ pub struct AwmDockWindowMinimizeRequestedEvent {
     pub window_id: u32,
 }
 
+impl AwmDockWindowMinimizeRequestedEvent {
+    pub fn new(window_id: usize) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            window_id: window_id as u32,
+        }
+    }
+}
+
 impl ExpectsEventField for AwmDockWindowMinimizeRequestedEvent {
     const EXPECTED_EVENT: u32 = 819;
 }
@@ -102,8 +111,8 @@ impl AwmDockEvent for AwmDockWindowMinimizeRequestedEvent {}
 #[derive(Debug, ContainsEventField)]
 pub struct AwmDockWindowMinimizeWithInfo {
     event: u32,
-    window_id: u32,
-    task_view_frame: RectU32,
+    pub window_id: u32,
+    pub task_view_frame: RectU32,
 }
 
 impl AwmDockWindowMinimizeWithInfo {

@@ -19,11 +19,15 @@ use core::cmp::{max, min};
 use core::mem;
 use mouse_driver_messages::MousePacket;
 
-use crate::animations::{Animation, WindowCloseAnimationParams, WindowOpenAnimationParams};
+use crate::animations::{
+    Animation, WindowCloseAnimationParams, WindowMinimizeAnimationParams,
+    WindowOpenAnimationParams, WindowUnminimizeAnimationParams,
+};
 use crate::bitmap::BitmapImage;
 use dock_messages::{
-    AwmDockTaskViewClicked, AwmDockWindowCreatedEvent, AwmDockWindowTitleUpdatedEvent,
-    AWM_DOCK_HEIGHT, AWM_DOCK_SERVICE_NAME,
+    AwmDockTaskViewClicked, AwmDockWindowCreatedEvent, AwmDockWindowMinimizeRequestedEvent,
+    AwmDockWindowMinimizeWithInfo, AwmDockWindowTitleUpdatedEvent, AWM_DOCK_HEIGHT,
+    AWM_DOCK_SERVICE_NAME,
 };
 use file_manager_messages::str_from_u8_nul_utf8_unchecked;
 use kb_driver_messages::{KeyEventType, KeyIdentifier, KeyboardPacket};
@@ -175,6 +179,20 @@ fn send_key_up_event(window: &Rc<Window>, key: u32) {
     #[cfg(not(target_os = "axle"))]
     {
         println!("send_key_up_event({}, {key})", window.name())
+    }
+}
+
+fn send_initiate_window_minimize(window: &Rc<Window>) {
+    #[cfg(target_os = "axle")]
+    {
+        amc_message_send(
+            AWM_DOCK_SERVICE_NAME,
+            AwmDockWindowMinimizeRequestedEvent::new(window.id()),
+        );
+    }
+    #[cfg(not(target_os = "axle"))]
+    {
+        println!("initiate window minimize({})", window.name())
     }
 }
 
@@ -1052,8 +1070,14 @@ impl Desktop {
         }
 
         // Drop animations that are now complete
-        self.ongoing_animations
-            .retain(|anim| !anim.is_complete(now));
+        self.ongoing_animations.retain(|anim| {
+            if anim.is_complete(now) {
+                anim.finish();
+                false
+            } else {
+                true
+            }
+        });
     }
 
     fn window_containing_point(&self, p: Point) -> Option<Rc<Window>> {
@@ -1093,11 +1117,17 @@ impl Desktop {
                 self.move_window_to_top(&window_under_mouse);
             }
 
-            // If the user clicked the close button, send a close request
             if window_under_mouse.title_bar_buttons_hover_state()
                 == TitleBarButtonsHoverState::HoverClose
             {
+                // Close button clicked, send a close request
                 send_close_window_request(&window_under_mouse);
+            } else if window_under_mouse.title_bar_buttons_hover_state()
+                == TitleBarButtonsHoverState::HoverMinimize
+            {
+                // Minimize button clicked, send a minimize request
+                println!("Minimize button clicked!");
+                send_initiate_window_minimize(&window_under_mouse);
             } else {
                 // Only send the click if it was within the content view
                 let window_frame = window_under_mouse.frame();
@@ -1257,6 +1287,8 @@ impl Desktop {
         let mouse_within_window = window.frame().translate_point(self.mouse_state.pos);
         if window.is_point_within_close_button(mouse_within_window) {
             TitleBarButtonsHoverState::HoverClose
+        } else if window.is_point_within_minimize_button(mouse_within_window) {
+            TitleBarButtonsHoverState::HoverMinimize
         } else if window.is_point_within_title_bar(mouse_within_window) {
             TitleBarButtonsHoverState::HoverBackground
         } else {
@@ -1563,7 +1595,7 @@ impl Desktop {
             self.windows_to_render_remote_layers_this_cycle
                 .push(Rc::clone(&window));
         } else {
-            println!("Ignoring extra draw request for {}", window.name());
+            //println!("Ignoring extra draw request for {}", window.name());
         }
         self.compositor_state
             .queue_composite(Rc::clone(&window) as Rc<dyn DesktopElement>)
@@ -1642,6 +1674,13 @@ impl Desktop {
     pub fn handle_dock_task_view_clicked(&mut self, msg: &AwmDockTaskViewClicked) {
         let window = self.window_with_id(msg.window_id as usize).unwrap();
         self.move_window_to_top(&window);
+
+        // Unminimize if necessary
+        if window.is_minimized() {
+            self.start_animation(Animation::WindowUnminimize(
+                WindowUnminimizeAnimationParams::new(&window, 200),
+            ));
+        }
     }
 
     pub fn handle_window_close(&mut self, window_owner: &str) {
@@ -1678,6 +1717,18 @@ impl Desktop {
         let window_frame = window.frame();
         self.recompute_drawable_regions_in_rect(window_frame);
         self.compositor_state.queue_full_redraw(window_frame);
+    }
+
+    pub fn handle_minimize_window_to_dock(&mut self, info: &AwmDockWindowMinimizeWithInfo) {
+        let window = self.window_with_id(info.window_id as _).unwrap();
+        let task_view_frame = Rect::from(info.task_view_frame);
+        let dest_frame = Rect::from_parts(
+            Point::new(task_view_frame.min_x(), self.desktop_frame.height()),
+            task_view_frame.size,
+        );
+        self.start_animation(Animation::WindowMinimize(
+            WindowMinimizeAnimationParams::new(&window, 200, dest_frame),
+        ));
     }
 }
 

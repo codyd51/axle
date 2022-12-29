@@ -38,7 +38,7 @@ struct BmpInfoHeader {
 
 #[derive(Debug, Clone)]
 pub struct BitmapImage {
-    size: Size,
+    pub size: Size,
     bits_per_pixel: usize,
     pixel_data: Vec<u8>,
 }

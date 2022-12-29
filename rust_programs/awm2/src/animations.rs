@@ -102,6 +102,53 @@ impl WindowCloseAnimationParams {
         }
     }
 }
+
+pub struct WindowMinimizeAnimationParams {
+    start_time: usize,
+    end_time: usize,
+    pub window: Rc<Window>,
+    pub duration_ms: usize,
+    pub frame_from: Rect,
+    pub frame_to: Rect,
+}
+
+impl WindowMinimizeAnimationParams {
+    pub fn new(window: &Rc<Window>, duration_ms: usize, frame_to: Rect) -> Self {
+        let start_time = get_timestamp() as usize;
+        Self {
+            start_time,
+            end_time: start_time + duration_ms,
+            window: Rc::clone(window),
+            duration_ms,
+            frame_from: window.frame(),
+            frame_to,
+        }
+    }
+}
+
+pub struct WindowUnminimizeAnimationParams {
+    start_time: usize,
+    end_time: usize,
+    pub window: Rc<Window>,
+    pub duration_ms: usize,
+    pub frame_from: Rect,
+    pub frame_to: Rect,
+}
+
+impl WindowUnminimizeAnimationParams {
+    pub fn new(window: &Rc<Window>, duration_ms: usize) -> Self {
+        let start_time = get_timestamp() as usize;
+        Self {
+            start_time,
+            end_time: start_time + duration_ms,
+            window: Rc::clone(window),
+            duration_ms,
+            frame_from: window.frame(),
+            frame_to: window.unminimized_frame().unwrap(),
+        }
+    }
+}
+
 pub struct AnimationDamage {
     pub area_to_recompute_drawable_regions: Rect,
     pub rects_needing_composite: Vec<Rect>,
@@ -122,17 +169,27 @@ impl AnimationDamage {
 pub enum Animation {
     WindowOpen(WindowOpenAnimationParams),
     WindowClose(WindowCloseAnimationParams),
+    WindowMinimize(WindowMinimizeAnimationParams),
+    WindowUnminimize(WindowUnminimizeAnimationParams),
 }
 
 impl Animation {
     pub fn start(&self) {
         match self {
             Animation::WindowOpen(params) => {
-                *params.window.frame.borrow_mut() = params.frame_from;
+                params.window.set_frame(params.frame_from);
             }
             Animation::WindowClose(params) => {
-                *params.window.frame.borrow_mut() = params.frame_from;
+                params.window.set_frame(params.frame_from);
             }
+            Animation::WindowMinimize(params) => {
+                params.window.set_frame(params.frame_from);
+                params.window.set_unminimized_frame(Some(params.frame_from));
+            }
+            Animation::WindowUnminimize(params) => {
+                params.window.set_frame(params.frame_from);
+            }
+            _ => {}
         }
     }
 
@@ -166,6 +223,34 @@ impl Animation {
                 params.window.redraw_title_bar();
                 AnimationDamage::new(update_region, vec![update_region])
             }
+            Animation::WindowMinimize(params) => {
+                let update_region = {
+                    let mut window_frame = params.window.frame.borrow_mut();
+                    let old_frame = *window_frame;
+                    let elapsed = now - (params.start_time as u64);
+                    let percent = f64::min(1.0, elapsed as f64 / params.duration_ms as f64);
+                    let new_frame =
+                        interpolate_window_frame(params.frame_from, params.frame_to, percent);
+                    *window_frame = new_frame;
+                    old_frame.union(new_frame)
+                };
+                params.window.redraw_title_bar();
+                AnimationDamage::new(update_region, vec![update_region])
+            }
+            Animation::WindowUnminimize(params) => {
+                let update_region = {
+                    let mut window_frame = params.window.frame.borrow_mut();
+                    let old_frame = *window_frame;
+                    let elapsed = now - (params.start_time as u64);
+                    let percent = f64::min(1.0, elapsed as f64 / params.duration_ms as f64);
+                    let new_frame =
+                        interpolate_window_frame(params.frame_from, params.frame_to, percent);
+                    *window_frame = new_frame;
+                    old_frame.union(new_frame)
+                };
+                params.window.redraw_title_bar();
+                AnimationDamage::new(update_region, vec![update_region])
+            }
         }
     }
 
@@ -173,6 +258,17 @@ impl Animation {
         match self {
             Animation::WindowOpen(params) => now as usize >= params.end_time,
             Animation::WindowClose(params) => now as usize >= params.end_time,
+            Animation::WindowMinimize(params) => now as usize >= params.end_time,
+            Animation::WindowUnminimize(params) => now as usize >= params.end_time,
+        }
+    }
+
+    pub fn finish(&self) {
+        match self {
+            Animation::WindowOpen(_) => {}
+            Animation::WindowClose(_) => {}
+            Animation::WindowMinimize(_) => {}
+            Animation::WindowUnminimize(params) => params.window.set_unminimized_frame(None),
         }
     }
 }
