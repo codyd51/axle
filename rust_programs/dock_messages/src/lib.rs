@@ -201,15 +201,6 @@ impl ExpectsEventField for AwmDockTaskViewClicked {
 
 impl AwmDockEvent for AwmDockTaskViewClicked {}
 
-/*
-#define AWM_DOCK_WINDOW_CLOSED 824
-typedef struct awm_dock_window_closed_event {
-    uint32_t event;
-    uint32_t window_id;
-} awm_dock_window_closed_event_t;
-
-*/
-
 // Window closed
 
 #[repr(C)]

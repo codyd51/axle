@@ -207,6 +207,18 @@ fn inform_dock_window_closed(window_id: usize) {
     }
 }
 
+fn inform_dock_window_title_updated(window_id: usize, new_title: &str) {
+    #[cfg(target_os = "axle")]
+    {
+        let dock_notification = AwmDockWindowTitleUpdatedEvent::new(window.id(), new_title);
+        amc_message_send(AWM_DOCK_SERVICE_NAME, dock_notification);
+    }
+    #[cfg(not(target_os = "axle"))]
+    {
+        println!("inform_dock_window_title_updated({window_id}, {new_title})")
+    }
+}
+
 /// A persistent UI element on the desktop that occludes other elements
 /// Roughly: a window, a desktop shortcut, etc
 pub trait DesktopElement {
@@ -1644,11 +1656,7 @@ impl Desktop {
         );
 
         // Inform the dock
-        #[cfg(target_os = "axle")]
-        {
-            let dock_notification = AwmDockWindowTitleUpdatedEvent::new(window.id(), new_title);
-            amc_message_send(AWM_DOCK_SERVICE_NAME, dock_notification);
-        }
+        inform_dock_window_title_updated(window.id(), new_title);
     }
 
     pub fn test(&mut self) {
