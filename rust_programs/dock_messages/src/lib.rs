@@ -219,6 +219,15 @@ pub struct AwmDockWindowClosed {
     pub window_id: u32,
 }
 
+impl AwmDockWindowClosed {
+    pub fn new(window_id: u32) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            window_id,
+        }
+    }
+}
+
 impl ExpectsEventField for AwmDockWindowClosed {
     const EXPECTED_EVENT: u32 = 824;
 }

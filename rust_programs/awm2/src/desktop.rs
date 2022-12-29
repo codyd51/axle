@@ -22,9 +22,9 @@ use mouse_driver_messages::MousePacket;
 use crate::animations::{Animation, WindowTransformAnimationParams};
 use crate::bitmap::BitmapImage;
 use dock_messages::{
-    AwmDockTaskViewClicked, AwmDockWindowCreatedEvent, AwmDockWindowMinimizeRequestedEvent,
-    AwmDockWindowMinimizeWithInfo, AwmDockWindowTitleUpdatedEvent, AWM_DOCK_HEIGHT,
-    AWM_DOCK_SERVICE_NAME,
+    AwmDockTaskViewClicked, AwmDockWindowClosed, AwmDockWindowCreatedEvent,
+    AwmDockWindowMinimizeRequestedEvent, AwmDockWindowMinimizeWithInfo,
+    AwmDockWindowTitleUpdatedEvent, AWM_DOCK_HEIGHT, AWM_DOCK_SERVICE_NAME,
 };
 use file_manager_messages::str_from_u8_nul_utf8_unchecked;
 use kb_driver_messages::{KeyEventType, KeyIdentifier, KeyboardPacket};
@@ -190,6 +190,20 @@ fn send_initiate_window_minimize(window: &Rc<Window>) {
     #[cfg(not(target_os = "axle"))]
     {
         println!("initiate window minimize({})", window.name())
+    }
+}
+
+fn inform_dock_window_closed(window_id: usize) {
+    #[cfg(target_os = "axle")]
+    {
+        amc_message_send(
+            AWM_DOCK_SERVICE_NAME,
+            AwmDockWindowClosed::new(window_id as u32),
+        );
+    }
+    #[cfg(not(target_os = "axle"))]
+    {
+        println!("inform_dock_window_closed({window_id})")
     }
 }
 
@@ -1530,14 +1544,16 @@ impl Desktop {
                 }
             }
         }
+        /*
         println!("Pressed modifiers: ");
         for modifier in self.keyboard_state.pressed_modifiers.iter() {
             println!("\t{modifier:?}");
         }
+        */
 
         // Is this a chord?
         if packet.event_type == KeyEventType::Pressed && self.keyboard_state.is_control_held() {
-            println!("Control is held, checking {}\n", packet.key);
+            //println!("Control is held, checking {}\n", packet.key);
             match packet.key {
                 const { '\t' as u32 } => {
                     // Ctrl+Tab switches windows by rotating the Z-order
@@ -1685,6 +1701,8 @@ impl Desktop {
         self.start_animation(Animation::WindowClose(
             WindowTransformAnimationParams::close(self.desktop_frame.size, &window, 200),
         ));
+        // Inform the dock immediately, as it's snappier than waiting for the animation to finish
+        inform_dock_window_closed(window.id());
     }
 
     fn drop_window(&mut self, window: &Rc<Window>) {
