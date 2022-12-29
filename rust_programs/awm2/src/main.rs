@@ -9,8 +9,12 @@
 
 mod animations;
 mod bitmap;
+mod compositor;
 mod desktop;
 mod effects;
+mod events;
+mod keyboard;
+mod mouse;
 mod utils;
 mod window;
 

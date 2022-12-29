@@ -21,11 +21,9 @@ use mouse_driver_messages::MousePacket;
 
 use crate::animations::{Animation, WindowTransformAnimationParams};
 use crate::bitmap::BitmapImage;
-use dock_messages::{
-    AwmDockTaskViewClicked, AwmDockWindowClosed, AwmDockWindowCreatedEvent,
-    AwmDockWindowMinimizeRequestedEvent, AwmDockWindowMinimizeWithInfo,
-    AwmDockWindowTitleUpdatedEvent, AWM_DOCK_HEIGHT, AWM_DOCK_SERVICE_NAME,
-};
+use crate::compositor::CompositorState;
+use axle_rt::core_commands::AmcSharedMemoryCreateRequest;
+use dock_messages::{AwmDockTaskViewClicked, AwmDockWindowMinimizeWithInfo, AWM_DOCK_HEIGHT};
 use file_manager_messages::str_from_u8_nul_utf8_unchecked;
 use kb_driver_messages::{KeyEventType, KeyIdentifier, KeyboardPacket};
 use preferences_messages::PreferencesUpdated;
@@ -36,188 +34,25 @@ pub extern crate libc;
 #[cfg(target_os = "axle")]
 mod conditional_imports {
     pub use awm_messages::AwmCreateWindowResponse;
-    pub use awm_messages::{
-        AwmCloseWindow, AwmKeyDown, AwmKeyUp, AwmMouseEntered, AwmMouseExited,
-        AwmMouseLeftClickEnded, AwmMouseLeftClickStarted, AwmMouseMoved, AwmMouseScrolled,
-        AwmWindowResized,
-    };
     pub use axle_rt::amc_message_send;
-    pub use axle_rt::core_commands::AmcSharedMemoryCreateRequest;
 }
 #[cfg(not(target_os = "axle"))]
 mod conditional_imports {}
 
 use crate::desktop::conditional_imports::*;
+use crate::events::{
+    inform_dock_window_closed, inform_dock_window_created, inform_dock_window_title_updated,
+    send_close_window_request, send_initiate_window_minimize, send_key_down_event,
+    send_key_up_event, send_left_click_ended_event, send_left_click_event,
+    send_mouse_entered_event, send_mouse_exited_event, send_mouse_moved_event,
+    send_mouse_scrolled_event, send_window_resized_event,
+};
+use crate::keyboard::{KeyboardModifier, KeyboardState};
+use crate::mouse::{MouseInteractionState, MouseState, MouseStateChange};
 use crate::utils::{awm_service_is_dock, get_timestamp, random_color, random_color_with_rng};
 use crate::window::{
     SharedMemoryLayer, TitleBarButtonsHoverState, Window, WindowDecorationImages, WindowParams,
 };
-
-fn send_left_click_event(window: &Rc<Window>, mouse_pos: Point) {
-    let mouse_within_window = window.frame().translate_point(mouse_pos);
-    let mouse_within_content_view = window.content_frame().translate_point(mouse_within_window);
-    #[cfg(target_os = "axle")]
-    {
-        amc_message_send(
-            &window.owner_service,
-            AwmMouseLeftClickStarted::new(mouse_within_content_view),
-        );
-    }
-    #[cfg(not(target_os = "axle"))]
-    {
-        println!(
-            "send_left_click_event({}, {mouse_within_content_view})",
-            window.name()
-        )
-    }
-}
-
-fn send_left_click_ended_event(window: &Rc<Window>, mouse_pos: Point) {
-    let mouse_within_window = window.frame().translate_point(mouse_pos);
-    let mouse_within_content_view = window.content_frame().translate_point(mouse_within_window);
-    #[cfg(target_os = "axle")]
-    {
-        amc_message_send(
-            &window.owner_service,
-            AwmMouseLeftClickEnded::new(mouse_within_content_view),
-        );
-    }
-    #[cfg(not(target_os = "axle"))]
-    {
-        println!(
-            "send_left_click_ended_event({}, {mouse_within_content_view})",
-            window.name()
-        )
-    }
-}
-
-fn send_mouse_entered_event(window: &Rc<Window>) {
-    #[cfg(target_os = "axle")]
-    {
-        amc_message_send(&window.owner_service, AwmMouseEntered::new())
-    }
-    #[cfg(not(target_os = "axle"))]
-    {
-        println!("send_mouse_entered_event({})", window.name())
-    }
-}
-
-fn send_mouse_exited_event(window: &Rc<Window>) {
-    #[cfg(target_os = "axle")]
-    {
-        amc_message_send(&window.owner_service, AwmMouseExited::new())
-    }
-    #[cfg(not(target_os = "axle"))]
-    {
-        println!("send_mouse_exited_event({})", window.name())
-    }
-}
-
-fn send_mouse_moved_event(window: &Rc<Window>, mouse_pos: Point) {
-    let mouse_within_window = window.frame().translate_point(mouse_pos);
-    let mouse_within_content_view = window.content_frame().translate_point(mouse_within_window);
-    #[cfg(target_os = "axle")]
-    {
-        amc_message_send(
-            &window.owner_service,
-            AwmMouseMoved::new(mouse_within_content_view),
-        )
-    }
-    #[cfg(not(target_os = "axle"))]
-    {
-        println!(
-            "send_mouse_moved_event({}, {mouse_within_content_view})",
-            window.name()
-        )
-    }
-}
-
-fn send_window_resized_event(window: &Rc<Window>) {
-    #[cfg(target_os = "axle")]
-    {
-        amc_message_send(
-            &window.owner_service,
-            AwmWindowResized::new(window.content_frame().size),
-        );
-    }
-    #[cfg(not(target_os = "axle"))]
-    {
-        println!("send_window_resized_event({})", window.name())
-    }
-}
-
-fn send_close_window_request(window: &Rc<Window>) {
-    #[cfg(target_os = "axle")]
-    {
-        amc_message_send(&window.owner_service, AwmCloseWindow::new());
-    }
-    #[cfg(not(target_os = "axle"))]
-    {
-        println!("send_close_window_request({})", window.name())
-    }
-}
-
-fn send_key_down_event(window: &Rc<Window>, key: u32) {
-    #[cfg(target_os = "axle")]
-    {
-        amc_message_send(&window.owner_service, AwmKeyDown::new(key));
-    }
-    #[cfg(not(target_os = "axle"))]
-    {
-        println!("send_key_down_event({}, {key})", window.name())
-    }
-}
-
-fn send_key_up_event(window: &Rc<Window>, key: u32) {
-    #[cfg(target_os = "axle")]
-    {
-        amc_message_send(&window.owner_service, AwmKeyUp::new(key));
-    }
-    #[cfg(not(target_os = "axle"))]
-    {
-        println!("send_key_up_event({}, {key})", window.name())
-    }
-}
-
-fn send_initiate_window_minimize(window: &Rc<Window>) {
-    #[cfg(target_os = "axle")]
-    {
-        amc_message_send(
-            AWM_DOCK_SERVICE_NAME,
-            AwmDockWindowMinimizeRequestedEvent::new(window.id()),
-        );
-    }
-    #[cfg(not(target_os = "axle"))]
-    {
-        println!("initiate window minimize({})", window.name())
-    }
-}
-
-fn inform_dock_window_closed(window_id: usize) {
-    #[cfg(target_os = "axle")]
-    {
-        amc_message_send(
-            AWM_DOCK_SERVICE_NAME,
-            AwmDockWindowClosed::new(window_id as u32),
-        );
-    }
-    #[cfg(not(target_os = "axle"))]
-    {
-        println!("inform_dock_window_closed({window_id})")
-    }
-}
-
-fn inform_dock_window_title_updated(window_id: usize, new_title: &str) {
-    #[cfg(target_os = "axle")]
-    {
-        let dock_notification = AwmDockWindowTitleUpdatedEvent::new(window.id(), new_title);
-        amc_message_send(AWM_DOCK_SERVICE_NAME, dock_notification);
-    }
-    #[cfg(not(target_os = "axle"))]
-    {
-        println!("inform_dock_window_title_updated({window_id}, {new_title})")
-    }
-}
 
 /// A persistent UI element on the desktop that occludes other elements
 /// Roughly: a window, a desktop shortcut, etc
@@ -228,273 +63,6 @@ pub trait DesktopElement {
     fn drawable_rects(&self) -> Vec<Rect>;
     fn set_drawable_rects(&self, drawable_rects: Vec<Rect>);
     fn get_slice(&self) -> Box<dyn LikeLayerSlice>;
-}
-
-#[derive(Debug)]
-enum MouseStateChange {
-    LeftClickBegan,
-    LeftClickEnded,
-    Moved(Point, Point),
-    Scrolled(i8),
-}
-
-struct MouseState {
-    pos: Point,
-    desktop_size: Size,
-    size: Size,
-    left_click_down: bool,
-}
-
-impl MouseState {
-    fn new(pos: Point, desktop_size: Size) -> Self {
-        Self {
-            pos,
-            size: Size::new(14, 14),
-            desktop_size,
-            left_click_down: false,
-        }
-    }
-
-    fn compute_state_changes(
-        &mut self,
-        new_pos: Option<Point>,
-        delta_z: Option<i8>,
-        status: i8,
-    ) -> Vec<MouseStateChange> {
-        let mut out = vec![];
-
-        if let Some(delta_z) = delta_z {
-            if delta_z != 0 {
-                out.push(MouseStateChange::Scrolled(delta_z))
-            }
-        }
-
-        if let Some(new_pos) = new_pos {
-            let old_pos = self.pos;
-
-            self.pos = new_pos;
-
-            // Bind mouse to screen dimensions
-            self.pos.x = max(self.pos.x, 0);
-            self.pos.y = max(self.pos.y, 0);
-            self.pos.x = min(self.pos.x, self.desktop_size.width - 4);
-            self.pos.y = min(self.pos.y, self.desktop_size.height - 10);
-
-            let delta = new_pos - old_pos;
-            if delta.x != 0 || delta.y != 0 {
-                out.push(MouseStateChange::Moved(self.pos, delta));
-            }
-        }
-
-        // Is the left button clicked?
-        if status & (1 << 0) != 0 {
-            // Were we already tracking a left click?
-            if !self.left_click_down {
-                self.left_click_down = true;
-                out.push(MouseStateChange::LeftClickBegan);
-            }
-        } else {
-            // Did we just release a left click?
-            if self.left_click_down {
-                self.left_click_down = false;
-                out.push(MouseStateChange::LeftClickEnded);
-            }
-        }
-
-        out
-    }
-
-    fn frame(&self) -> Rect {
-        Rect::from_parts(self.pos, self.size)
-    }
-}
-
-struct CompositorState {
-    desktop_frame: Rect,
-    /// While compositing the frame, awm will determine what individual elements
-    /// must be redrawn to composite these rectangles.
-    /// These may include portions of windows, the desktop background, etc.
-    rects_to_fully_redraw: RefCell<Vec<Rect>>,
-    /// Entire elements that must be composited on the next frame
-    elements_to_composite: RefCell<BTreeSet<usize>>,
-    // Every desktop element the compositor knows about
-    elements: Vec<Rc<dyn DesktopElement>>,
-    elements_by_id: BTreeMap<usize, Rc<dyn DesktopElement>>,
-
-    extra_draws: RefCell<BTreeMap<usize, BTreeSet<Rect>>>,
-    extra_background_draws: Vec<Rect>,
-}
-
-impl CompositorState {
-    fn new(desktop_frame: Rect) -> Self {
-        Self {
-            desktop_frame: desktop_frame,
-            rects_to_fully_redraw: RefCell::new(vec![]),
-            elements_to_composite: RefCell::new(BTreeSet::new()),
-            elements: vec![],
-            elements_by_id: BTreeMap::new(),
-            extra_draws: RefCell::new(BTreeMap::new()),
-            extra_background_draws: vec![],
-        }
-    }
-
-    fn queue_full_redraw(&self, in_rect: Rect) {
-        let in_rect = self.desktop_frame.constrain(in_rect);
-        if in_rect.is_degenerate() {
-            return;
-        }
-        self.rects_to_fully_redraw.borrow_mut().push(in_rect)
-    }
-
-    fn queue_composite(&self, element: Rc<dyn DesktopElement>) {
-        self.elements_to_composite.borrow_mut().insert(element.id());
-    }
-
-    fn track_element(&mut self, element: Rc<dyn DesktopElement>) {
-        self.elements.push(Rc::clone(&element));
-        self.elements_by_id.insert(element.id(), element);
-    }
-
-    fn queue_extra_draw(&self, element: Rc<dyn DesktopElement>, r: Rect) {
-        // Always ensure the extra draw rect is within the bounds of the desktop
-        let r = self.desktop_frame.constrain(r);
-        if r.is_degenerate() {
-            return;
-        }
-        let element_id = element.id();
-        let mut extra_draws = self.extra_draws.borrow_mut();
-        if !extra_draws.contains_key(&element_id) {
-            extra_draws.insert(element_id, BTreeSet::new());
-        }
-        let extra_draws_for_element = extra_draws.get_mut(&element_id).unwrap();
-        extra_draws_for_element.insert(r);
-    }
-
-    fn queue_extra_background_draw(&mut self, r: Rect) {
-        // Always ensure the extra background draw rect is within the bounds of the desktop
-        let r = self.desktop_frame.constrain(r);
-        if r.is_degenerate() {
-            return;
-        }
-        self.extra_background_draws.push(r);
-    }
-
-    fn merge_extra_draws(&self) -> BTreeMap<usize, Vec<Rect>> {
-        let mut out = BTreeMap::new();
-        for (elem_id, extra_draws) in self.extra_draws.borrow().iter() {
-            let mut rects = extra_draws.iter().map(|&r| r).collect::<Vec<Rect>>();
-
-            // Sort by X origin
-            rects.sort_by(|a, b| {
-                if a.origin.x < b.origin.x {
-                    core::cmp::Ordering::Less
-                } else if a.origin.x > b.origin.x {
-                    core::cmp::Ordering::Greater
-                } else {
-                    core::cmp::Ordering::Equal
-                }
-            });
-
-            'begin: loop {
-                let mut merged_anything = false;
-                //let mut unmerged_rects = rects.clone();
-
-                let rects_clone = rects.clone();
-                for (i, r1) in rects_clone.iter().enumerate() {
-                    for (_j, r2) in rects_clone[i + 1..].iter().enumerate() {
-                        if r1.max_x() == r2.min_x()
-                            && r1.min_y() == r2.min_y()
-                            && r1.max_y() == r2.max_y()
-                        {
-                            //println!("Merging {r1} and {r2}");
-                            //merged_rects.push(r1.union(*r2));
-                            merged_anything = true;
-                            // r1 and r2 have been merged
-                            rects.retain(|r| r != r1 && r != r2);
-                            // TODO(PT): Is the sort order still correct?
-                            rects.insert(i, r1.union(*r2));
-                            continue 'begin;
-                        }
-                    }
-                }
-
-                // TODO(PT): Are we losing rects?
-
-                if !merged_anything {
-                    break;
-                }
-
-                //rects = merged_rects.clone();
-            }
-            out.insert(*elem_id, rects);
-        }
-
-        out
-    }
-}
-
-enum MouseInteractionState {
-    BackgroundHover,
-    WindowHover(Rc<Window>),
-    HintingWindowDrag(Rc<Window>),
-    HintingWindowResize(Rc<Window>),
-    PerformingWindowDrag(Rc<Window>),
-    PerformingWindowResize(Rc<Window>),
-}
-
-impl PartialEq for MouseInteractionState {
-    fn eq(&self, other: &Self) -> bool {
-        match self {
-            MouseInteractionState::BackgroundHover => match other {
-                MouseInteractionState::BackgroundHover => true,
-                _ => false,
-            },
-            MouseInteractionState::WindowHover(w1) => match other {
-                MouseInteractionState::WindowHover(w2) => Rc::ptr_eq(w1, w2),
-                _ => false,
-            },
-            MouseInteractionState::HintingWindowDrag(w1) => match other {
-                MouseInteractionState::HintingWindowDrag(w2) => Rc::ptr_eq(w1, w2),
-                _ => false,
-            },
-            MouseInteractionState::HintingWindowResize(w1) => match other {
-                MouseInteractionState::HintingWindowResize(w2) => Rc::ptr_eq(w1, w2),
-                _ => false,
-            },
-            MouseInteractionState::PerformingWindowDrag(w1) => match other {
-                MouseInteractionState::PerformingWindowDrag(w2) => Rc::ptr_eq(w1, w2),
-                _ => false,
-            },
-            MouseInteractionState::PerformingWindowResize(w1) => match other {
-                MouseInteractionState::PerformingWindowResize(w2) => Rc::ptr_eq(w1, w2),
-                _ => false,
-            },
-        }
-    }
-}
-
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
-enum KeyboardModifier {
-    Shift,
-    Control,
-    Command,
-    Option,
-}
-
-struct KeyboardState {
-    pressed_modifiers: BTreeSet<KeyboardModifier>,
-}
-
-impl KeyboardState {
-    fn new() -> Self {
-        Self {
-            pressed_modifiers: BTreeSet::new(),
-        }
-    }
-
-    fn is_control_held(&self) -> bool {
-        self.pressed_modifiers.contains(&KeyboardModifier::Control)
-    }
 }
 
 pub enum RenderStrategy {
@@ -1039,13 +607,9 @@ impl Desktop {
             )));
         }
 
+        // If this is a window other than the dock, inform the dock
         if !awm_service_is_dock(&source) {
-            #[cfg(target_os = "axle")]
-            {
-                // If this is a window other than the dock, inform the dock
-                let msg = AwmDockWindowCreatedEvent::new(new_window.id(), &source);
-                amc_message_send(AWM_DOCK_SERVICE_NAME, msg);
-            }
+            inform_dock_window_created(new_window.id(), &source)
         }
 
         new_window
@@ -1398,21 +962,7 @@ impl Desktop {
     fn handle_mouse_scrolled(&mut self, delta_z: i8) {
         if let MouseInteractionState::WindowHover(hover_window) = &self.mouse_interaction_state {
             // Scroll within a window, inform the window
-            let mouse_within_window = hover_window.frame().translate_point(self.mouse_state.pos);
-            /*
-            println!(
-                "Mouse scrolled within hover window {} {delta_z}",
-                hover_window.name()
-            );
-            */
-            #[cfg(target_os = "axle")]
-            {
-                let mouse_within_content_view = hover_window
-                    .content_frame()
-                    .translate_point(mouse_within_window);
-                let mouse_scrolled_msg = AwmMouseScrolled::new(mouse_within_content_view, delta_z);
-                amc_message_send(&hover_window.owner_service, mouse_scrolled_msg);
-            }
+            send_mouse_scrolled_event(hover_window, self.mouse_state.pos, delta_z);
         } else {
             //println!("scroll outside window");
         }
