@@ -432,7 +432,7 @@ pub trait Layer {
     fn get_slice(&mut self, rect: Rect) -> Box<dyn LikeLayerSlice>;
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub struct SingleFramebufferLayer {
     pub framebuffer: Rc<RefCell<Box<[u8]>>>,
     bytes_per_pixel: isize,
