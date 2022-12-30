@@ -65,6 +65,12 @@ pub enum DesktopElementZIndexCategory {
     DesktopView,
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum MouseInteractionCallbackResult {
+    NoRedrawNecessary,
+    RedrawRequested,
+}
+
 /// A persistent UI element on the desktop that occludes other elements
 /// Roughly: a window, a desktop shortcut, etc
 pub trait DesktopElement {
@@ -75,20 +81,20 @@ pub trait DesktopElement {
     fn set_drawable_rects(&self, drawable_rects: Vec<Rect>);
     fn get_slice(&self) -> Box<dyn LikeLayerSlice>;
     fn z_index_category(&self) -> DesktopElementZIndexCategory;
-    fn handle_mouse_entered(&self) {
-        println!("DesktopElement handle_mouse_entered()");
+    fn handle_mouse_entered(&self) -> MouseInteractionCallbackResult {
+        MouseInteractionCallbackResult::NoRedrawNecessary
     }
-    fn handle_mouse_exited(&self) {
-        println!("DesktopElement handle_mouse_exited()");
+    fn handle_mouse_exited(&self) -> MouseInteractionCallbackResult {
+        MouseInteractionCallbackResult::NoRedrawNecessary
     }
-    fn handle_mouse_moved(&self, mouse_pos: Point) {
-        println!("DesktopElement handle_mouse_moved({mouse_pos})");
+    fn handle_mouse_moved(&self, mouse_pos: Point) -> MouseInteractionCallbackResult {
+        MouseInteractionCallbackResult::NoRedrawNecessary
     }
-    fn handle_left_click_began(&self, mouse_pos: Point) {
-        println!("DesktopElement handle_left_click_began({mouse_pos})");
+    fn handle_left_click_began(&self, _mouse_pos: Point) -> MouseInteractionCallbackResult {
+        MouseInteractionCallbackResult::NoRedrawNecessary
     }
-    fn handle_left_click_ended(&self, mouse_pos: Point) {
-        println!("DesktopElement handle_left_click_ended({mouse_pos})");
+    fn handle_left_click_ended(&self, _mouse_pos: Point) -> MouseInteractionCallbackResult {
+        MouseInteractionCallbackResult::NoRedrawNecessary
     }
 }
 
@@ -864,7 +870,11 @@ impl Desktop {
             self.mouse_state.pos,
             DesktopElementZIndexCategory::DesktopView,
         ) {
-            elem_under_mouse.handle_left_click_began(self.mouse_state.pos);
+            if elem_under_mouse.handle_left_click_began(self.mouse_state.pos)
+                == MouseInteractionCallbackResult::RedrawRequested
+            {
+                self.recompute_drawable_regions_in_rect(elem_under_mouse.frame());
+            }
         }
     }
 
@@ -949,7 +959,11 @@ impl Desktop {
                 send_left_click_ended_event(win, self.mouse_state.pos);
             }
             MouseInteractionState::DesktopElementHover(elem) => {
-                elem.handle_left_click_ended(self.mouse_state.pos);
+                if elem.handle_left_click_ended(self.mouse_state.pos)
+                    == MouseInteractionCallbackResult::RedrawRequested
+                {
+                    self.recompute_drawable_regions_in_rect(elem.frame());
+                }
             }
             _ => {}
         }
@@ -992,7 +1006,10 @@ impl Desktop {
                     _ => true,
                 };
                 if exited_element {
-                    elem.handle_mouse_exited();
+                    if elem.handle_mouse_exited() == MouseInteractionCallbackResult::RedrawRequested
+                    {
+                        self.recompute_drawable_regions_in_rect(elem.frame());
+                    }
                 }
             }
         };
@@ -1044,7 +1061,11 @@ impl Desktop {
                 _ => true,
             };
             if did_enter_new_elem {
-                new_elem.handle_mouse_entered()
+                if new_elem.handle_mouse_entered()
+                    == MouseInteractionCallbackResult::RedrawRequested
+                {
+                    self.recompute_drawable_regions_in_rect(new_elem.frame());
+                }
             }
         }
 
@@ -1140,7 +1161,11 @@ impl Desktop {
         } else if let MouseInteractionState::DesktopElementHover(elem) =
             &self.mouse_interaction_state
         {
-            elem.handle_mouse_moved(self.mouse_state.pos);
+            if elem.handle_mouse_moved(self.mouse_state.pos)
+                == MouseInteractionCallbackResult::RedrawRequested
+            {
+                self.recompute_drawable_regions_in_rect(elem.frame());
+            }
         }
     }
 
