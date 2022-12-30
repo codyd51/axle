@@ -17,6 +17,7 @@ use awm_messages::{AwmCreateWindow, AwmWindowPartialRedraw, AwmWindowUpdateTitle
 use core::cell::RefCell;
 use core::cmp::{max, min};
 use core::mem;
+use core::ptr;
 use mouse_driver_messages::MousePacket;
 
 use crate::animations::{Animation, WindowTransformAnimationParams};
@@ -24,7 +25,9 @@ use crate::bitmap::BitmapImage;
 use crate::compositor::CompositorState;
 use axle_rt::core_commands::AmcSharedMemoryCreateRequest;
 use dock_messages::{AwmDockTaskViewClicked, AwmDockWindowMinimizeWithInfo, AWM_DOCK_HEIGHT};
-use file_manager_messages::str_from_u8_nul_utf8_unchecked;
+use file_manager_messages::{
+    str_from_u8_nul_utf8_unchecked, ReadFile, ReadFileResponse, FILE_SERVER_SERVICE_NAME,
+};
 use kb_driver_messages::{KeyEventType, KeyIdentifier, KeyboardPacket};
 use preferences_messages::PreferencesUpdated;
 use rand::prelude::*;
@@ -34,7 +37,7 @@ pub extern crate libc;
 #[cfg(target_os = "axle")]
 mod conditional_imports {
     pub use awm_messages::AwmCreateWindowResponse;
-    pub use axle_rt::amc_message_send;
+    pub use axle_rt::{amc_message_await__u32_event, amc_message_send, AmcMessage};
 }
 #[cfg(not(target_os = "axle"))]
 mod conditional_imports {}
@@ -154,17 +157,59 @@ impl Desktop {
     }
 
     pub fn load_shortcuts(&mut self) {
-        let id = self.next_desktop_element_id();
-        let shortcut = self.desktop_shortcuts_state.add_shortcut(
-            &mut self.desktop_background_layer,
-            id,
-            &self.desktop_shortcut_image,
-            "/usr/applications/breakout",
-            "Breakout",
-        );
-        self.compositor_state
-            .track_element(Rc::clone(&shortcut) as Rc<dyn DesktopElement>);
-        self.recompute_drawable_regions_in_rect(shortcut.frame());
+        #[cfg(target_os = 'axle)]
+        {
+            let file_read_request = ReadFile::new("/config/desktop_shortcuts.txt");
+            amc_message_send(FILE_SERVER_SERVICE_NAME, file_read_request);
+            let file_data_msg: AmcMessage<ReadFileResponse> =
+                amc_message_await__u32_event(FILE_SERVER_SERVICE_NAME);
+            let file_data_body = file_data_msg.body();
+            let file_bytes = unsafe {
+                let bmp_data_slice = ptr::slice_from_raw_parts(
+                    (&file_data_body.data) as *const u8,
+                    file_data_body.len,
+                );
+                let bmp_data: &[u8] = &*(bmp_data_slice as *const [u8]);
+                bmp_data.to_vec()
+            };
+            let file_data = String::from_utf8(file_bytes).unwrap();
+            for line in file_data.split("\n") {
+                let components: Vec<&str> = line.split(", ").collect();
+                if components.len() != 2 && components.len() != 4 {
+                    println!("Ignoring line with unknown format: \"{line}\"");
+                    continue;
+                }
+                let path = components[0];
+                let title = components[1];
+                let id = self.next_desktop_element_id();
+                let shortcut = if components.len() == 4 {
+                    let (x, y) = (components[2], components[3]);
+                    let coordinates = (
+                        isize::from_str_radix(x, 10).unwrap(),
+                        isize::from_str_radix(y, 10).unwrap(),
+                    );
+                    self.desktop_shortcuts_state.add_shortcut_by_coordinates(
+                        &mut self.desktop_background_layer,
+                        id,
+                        &self.desktop_shortcut_image,
+                        path,
+                        title,
+                        coordinates,
+                    )
+                } else {
+                    self.desktop_shortcuts_state.add_shortcut_to_next_free_slot(
+                        &mut self.desktop_background_layer,
+                        id,
+                        &self.desktop_shortcut_image,
+                        path,
+                        title,
+                    )
+                };
+                self.compositor_state
+                    .track_element(Rc::clone(&shortcut) as Rc<dyn DesktopElement>);
+                self.recompute_drawable_regions_in_rect(shortcut.frame());
+            }
+        }
     }
 
     pub fn draw_background(&self) {

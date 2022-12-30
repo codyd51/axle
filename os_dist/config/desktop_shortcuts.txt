@@ -1,0 +1,10 @@
+/usr/applications/preferences, Preferences
+/usr/applications/logs_viewer, Logs Viewer
+/usr/applications/doom, DOOM
+/usr/applications/breakout, Breakout
+/usr/applications/2048, 2048
+/usr/applications/textpad, Notepad, 1, 0
+/magic/exploit, Exploit, 1, 1
+/usr/applications/task_viewer, VAS Viz, 1, 2
+/usr/applications/gb_emu, GameBoy, 1, 3
+/usr/applications/file_browser, File Browser, 1, 4
