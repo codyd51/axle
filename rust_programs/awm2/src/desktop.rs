@@ -1440,6 +1440,13 @@ impl Desktop {
         self.background_gradient_outer_color = Color::from(msg.to);
         self.background_gradient_inner_color = Color::from(msg.from);
         self.draw_background();
+
+        // Redraw desktop shortcuts so they render using the new background
+        self.desktop_shortcuts_state.update_background(
+            &mut self.desktop_background_layer,
+            self.background_gradient_outer_color,
+        );
+
         self.compositor_state.queue_full_redraw(self.desktop_frame);
     }
 

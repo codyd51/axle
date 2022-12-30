@@ -48,11 +48,22 @@ impl DesktopShortcut {
         self.first_click_start_time.is_some()
     }
 
-    fn render(
+    pub fn copy_desktop_background_slice(
         &self,
         desktop_background: &mut Box<SingleFramebufferLayer>,
-        desktop_gradient_background_color: Color,
     ) {
+        let background_slice = desktop_background.get_slice(self.frame);
+        let mut copy = SingleFramebufferLayer::new(background_slice.frame().size);
+        copy.get_full_slice().blit2(&background_slice);
+        *self.desktop_background_slice.borrow_mut() = Some(copy);
+    }
+
+    pub fn set_desktop_gradient_background_color(&self, desktop_gradient_background_color: Color) {
+        *self.desktop_gradient_background_color.borrow_mut() =
+            Some(desktop_gradient_background_color)
+    }
+
+    fn render(&self) {
         let slice = self.layer.borrow_mut().get_full_slice();
 
         // Start off by rendering the background of the shortcut background layer's content
@@ -208,6 +219,21 @@ impl DesktopShortcutsState {
         }
     }
 
+    pub fn update_background(
+        &self,
+        background_layer: &mut Box<SingleFramebufferLayer>,
+        desktop_gradient_background_color: Color,
+    ) {
+        for shortcut in self.slots.iter() {
+            let occupant = shortcut.occupant.borrow();
+            if let Some(occupant) = &*occupant {
+                occupant.copy_desktop_background_slice(background_layer);
+                occupant.set_desktop_gradient_background_color(desktop_gradient_background_color);
+                occupant.render();
+            }
+        }
+    }
+
     fn add_shortcut_to_slot(
         &self,
         background_layer: &mut Box<SingleFramebufferLayer>,
@@ -225,7 +251,9 @@ impl DesktopShortcutsState {
         );
         let new_shortcut = Rc::new(DesktopShortcut::new(id, icon, shortcut_origin, path, title));
         slot.set_occupant(Some(Rc::clone(&new_shortcut)));
-        new_shortcut.render(background_layer, desktop_gradient_background_color);
+        new_shortcut.copy_desktop_background_slice(background_layer);
+        new_shortcut.set_desktop_gradient_background_color(desktop_gradient_background_color);
+        new_shortcut.render();
         new_shortcut
     }
 
