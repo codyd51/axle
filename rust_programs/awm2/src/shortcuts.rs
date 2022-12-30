@@ -149,11 +149,20 @@ impl DesktopShortcut {
         let luma = (0.2126 * desktop_gradient_background_color.r as f64)
             + (0.7152 * desktop_gradient_background_color.g as f64)
             + (0.0722 * desktop_gradient_background_color.b as f64);
-        let (text_color, border_color) = if luma < 64.0 {
+        let (mut text_color, border_color) = if luma < 64.0 {
             (Color::new(205, 205, 205), Color::new(205, 205, 205))
         } else {
             (Color::new(50, 50, 50), Color::dark_gray())
         };
+
+        // Override the text color to white if the shortcut's been clicked
+        match self.mouse_interaction_state() {
+            ShortcutMouseInteractionState::LeftClickDown
+            | ShortcutMouseInteractionState::LeftClickUp(_) => {
+                text_color = Color::white();
+            }
+            _ => {}
+        }
 
         let mut cursor = label_origin;
         for ch in self.title.chars() {

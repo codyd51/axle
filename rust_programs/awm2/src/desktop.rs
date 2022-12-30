@@ -87,7 +87,7 @@ pub trait DesktopElement {
     fn handle_mouse_exited(&self) -> MouseInteractionCallbackResult {
         MouseInteractionCallbackResult::NoRedrawNecessary
     }
-    fn handle_mouse_moved(&self, mouse_pos: Point) -> MouseInteractionCallbackResult {
+    fn handle_mouse_moved(&self, _mouse_pos: Point) -> MouseInteractionCallbackResult {
         MouseInteractionCallbackResult::NoRedrawNecessary
     }
     fn handle_left_click_began(&self, _mouse_pos: Point) -> MouseInteractionCallbackResult {
