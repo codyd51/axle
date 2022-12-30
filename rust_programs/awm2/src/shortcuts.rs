@@ -1,6 +1,9 @@
 use crate::bitmap::BitmapImage;
-use crate::desktop::{Desktop, DesktopElement, DesktopElementZIndexCategory};
+use crate::desktop::{
+    Desktop, DesktopElement, DesktopElementZIndexCategory, MouseInteractionCallbackResult,
+};
 use crate::println;
+use crate::utils::get_timestamp;
 use agx_definitions::{
     Color, Layer, LikeLayerSlice, Point, Rect, SingleFramebufferLayer, Size, StrokeThickness,
 };
@@ -13,6 +16,15 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
+#[derive(Debug, Copy, Clone)]
+enum ShortcutMouseInteractionState {
+    Unhovered,
+    Hover,
+    LeftClickDown,
+    /// Carries a timestamp of when the left click up happened
+    LeftClickUp(usize),
+}
+
 #[derive(Debug)]
 pub struct DesktopShortcut {
     id: usize,
@@ -22,7 +34,10 @@ pub struct DesktopShortcut {
     icon: BitmapImage,
     path: String,
     title: String,
-    first_click_start_time: Option<usize>,
+    //first_click_start_time: Option<usize>,
+    interaction_state: RefCell<ShortcutMouseInteractionState>,
+    desktop_background_slice: RefCell<Option<SingleFramebufferLayer>>,
+    desktop_gradient_background_color: RefCell<Option<Color>>,
 }
 
 impl DesktopShortcut {
@@ -36,16 +51,34 @@ impl DesktopShortcut {
             icon: icon.clone(),
             path: path.to_string(),
             title: title.to_string(),
-            first_click_start_time: None,
+            //first_click_start_time: None,
+            interaction_state: RefCell::new(ShortcutMouseInteractionState::Unhovered),
+            desktop_background_slice: RefCell::new(None),
+            desktop_gradient_background_color: RefCell::new(None),
         }
     }
 
     fn size() -> Size {
-        Size::new(100, 65)
+        Size::new(100, 66)
+    }
+
+    fn icon_image_size() -> Size {
+        Size::new(60, 42)
+    }
+
+    fn is_during_left_click_down(&self) -> bool {
+        matches!(
+            self.mouse_interaction_state(),
+            ShortcutMouseInteractionState::LeftClickDown
+        )
     }
 
     fn is_in_soft_click(&self) -> bool {
-        self.first_click_start_time.is_some()
+        //self.first_click_start_time.is_some()
+        matches!(
+            self.mouse_interaction_state(),
+            ShortcutMouseInteractionState::LeftClickUp(_)
+        )
     }
 
     pub fn copy_desktop_background_slice(
@@ -66,43 +99,44 @@ impl DesktopShortcut {
     fn render(&self) {
         let slice = self.layer.borrow_mut().get_full_slice();
 
-        // Start off by rendering the background of the shortcut background layer's content
-        // If we're not in a soft-click, this will just display the desktop background
-        if self.is_in_soft_click() {
-            slice.fill(Color::new(127, 127, 255));
-        } else {
-            let background_slice = desktop_background.get_slice(self.frame);
-            slice.blit2(&background_slice);
+        // The background of the desktop shortcut depends on our current mouse interaction state
+        match self.mouse_interaction_state() {
+            ShortcutMouseInteractionState::Unhovered | ShortcutMouseInteractionState::Hover => {
+                // Just render the desktop background
+                let mut background_slice = self.desktop_background_slice.borrow_mut();
+                let mut background_slice = background_slice.as_mut().unwrap();
+                slice.blit2(&background_slice.get_full_slice());
+            }
+            ShortcutMouseInteractionState::LeftClickDown => {
+                slice.fill(Color::new(80, 80, 255));
+            }
+            ShortcutMouseInteractionState::LeftClickUp(_) => {
+                slice.fill(Color::new(127, 127, 255));
+            }
         }
 
-        /*
-        slice.fill_rect(
-            Rect::with_size(slice.frame().size),
-            Color::dark_gray(),
-            StrokeThickness::Width(2),
+        let image_size = Self::icon_image_size();
+        let image_margin = Size::new(self.frame.width() - image_size.width, 8);
+        let image_origin = Point::new(
+            (image_margin.width as f64 / 2.0) as isize,
+            (image_margin.height as f64 / 2.0) as isize,
         );
-        */
-
-        let image_size = self.frame.size - Size::new(28, 16);
-        let icon_margin = Size::new(self.frame.width() - image_size.width, 4);
-        let label_height = self.frame.height() - image_size.height;
 
         // Render the shortcut icon
-        self.icon
-            .render(&self.layer.borrow_mut().get_slice(Rect::from_parts(
-                Point::new(
-                    (icon_margin.width as f64 / 2.0) as isize,
-                    (icon_margin.height as f64 / 2.0) as isize,
-                ),
-                image_size,
-            )));
+        self.icon.render(
+            &self
+                .layer
+                .borrow_mut()
+                .get_slice(Rect::from_parts(image_origin, image_size)),
+        );
 
         // Render the title label
+        let font_size = Size::new(8, 10);
+        let label_height = 18;
         let label_mid = Point::new(
             (self.frame.width() as f64 / 2.0) as isize,
             (self.frame.height() as f64 - (label_height as f64 / 2.0)) as isize,
         );
-        let font_size = Size::new(8, 10);
         let title_len = self.title.len();
         let label_origin = Point::new(
             label_mid.x - (((font_size.width * title_len as isize) as f64 / 2.0) as isize),
@@ -110,13 +144,15 @@ impl DesktopShortcut {
         );
         // If the background gradient is too dark, set the shortcuts text color to white so it's always visible.
         // Per ITU-R BT.709
+        let desktop_gradient_background_color =
+            self.desktop_gradient_background_color.borrow().unwrap();
         let luma = (0.2126 * desktop_gradient_background_color.r as f64)
             + (0.7152 * desktop_gradient_background_color.g as f64)
             + (0.0722 * desktop_gradient_background_color.b as f64);
-        let text_color = if luma < 64.0 {
-            Color::new(205, 205, 205)
+        let (text_color, border_color) = if luma < 64.0 {
+            (Color::new(205, 205, 205), Color::new(205, 205, 205))
         } else {
-            Color::new(50, 50, 50)
+            (Color::new(50, 50, 50), Color::dark_gray())
         };
 
         let mut cursor = label_origin;
@@ -124,6 +160,28 @@ impl DesktopShortcut {
             slice.draw_char(ch, cursor, text_color, font_size);
             cursor.x += font_size.width;
         }
+
+        match self.mouse_interaction_state() {
+            ShortcutMouseInteractionState::Hover
+            | ShortcutMouseInteractionState::LeftClickDown
+            | ShortcutMouseInteractionState::LeftClickUp(_) => {
+                // Draw a border around the shortcut
+                slice.fill_rect(
+                    Rect::with_size(slice.frame().size),
+                    border_color,
+                    StrokeThickness::Width(2),
+                );
+            }
+            _ => {}
+        }
+    }
+
+    fn set_mouse_interaction_state(&self, interaction_state: ShortcutMouseInteractionState) {
+        *self.interaction_state.borrow_mut() = interaction_state
+    }
+
+    fn mouse_interaction_state(&self) -> ShortcutMouseInteractionState {
+        *self.interaction_state.borrow()
     }
 }
 
@@ -156,11 +214,31 @@ impl DesktopElement for DesktopShortcut {
         DesktopElementZIndexCategory::DesktopView
     }
 
-    fn handle_mouse_entered(&self) {}
-    fn handle_mouse_exited(&self) {}
-    fn handle_mouse_moved(&self, mouse_pos: Point) {}
-    fn handle_left_click_began(&self, mouse_pos: Point) {}
-    fn handle_left_click_ended(&self, mouse_pos: Point) {}
+    fn handle_mouse_entered(&self) -> MouseInteractionCallbackResult {
+        self.set_mouse_interaction_state(ShortcutMouseInteractionState::Hover);
+        self.render();
+        MouseInteractionCallbackResult::RedrawRequested
+    }
+
+    fn handle_mouse_exited(&self) -> MouseInteractionCallbackResult {
+        self.set_mouse_interaction_state(ShortcutMouseInteractionState::Unhovered);
+        self.render();
+        MouseInteractionCallbackResult::RedrawRequested
+    }
+
+    fn handle_left_click_began(&self, _mouse_pos: Point) -> MouseInteractionCallbackResult {
+        self.set_mouse_interaction_state(ShortcutMouseInteractionState::LeftClickDown);
+        self.render();
+        MouseInteractionCallbackResult::RedrawRequested
+    }
+
+    fn handle_left_click_ended(&self, _mouse_pos: Point) -> MouseInteractionCallbackResult {
+        self.set_mouse_interaction_state(ShortcutMouseInteractionState::LeftClickUp(
+            get_timestamp() as usize,
+        ));
+        self.render();
+        MouseInteractionCallbackResult::RedrawRequested
+    }
 }
 
 #[derive(Debug)]
@@ -178,7 +256,7 @@ impl DesktopShortcutGridSlot {
     }
 
     fn size() -> Size {
-        DesktopShortcut::size() + Size::new(16, 30)
+        DesktopShortcut::size() + Size::new(8, 12)
     }
 
     fn set_occupant(&self, shortcut: Option<Rc<DesktopShortcut>>) {
