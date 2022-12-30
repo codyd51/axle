@@ -1,3 +1,5 @@
+use crate::desktop::DesktopElement;
+use crate::shortcuts::DesktopShortcut;
 use crate::window::Window;
 use agx_definitions::{Point, Rect, Size};
 use alloc::rc::Rc;
@@ -91,6 +93,10 @@ pub enum MouseInteractionState {
     HintingWindowResize(Rc<Window>),
     PerformingWindowDrag(Rc<Window>),
     PerformingWindowResize(Rc<Window>),
+    /// Windows technically fall into this category, but for practicality they're never held in this
+    /// state, and instead use the specific Window states above. This is instead for more 'generic'
+    /// desktop views, such as desktop shortcuts.
+    DesktopElementHover(Rc<dyn DesktopElement>),
 }
 
 impl PartialEq for MouseInteractionState {
@@ -118,6 +124,10 @@ impl PartialEq for MouseInteractionState {
             },
             MouseInteractionState::PerformingWindowResize(w1) => match other {
                 MouseInteractionState::PerformingWindowResize(w2) => Rc::ptr_eq(w1, w2),
+                _ => false,
+            },
+            MouseInteractionState::DesktopElementHover(e1) => match other {
+                MouseInteractionState::DesktopElementHover(e2) => Rc::ptr_eq(e1, e2),
                 _ => false,
             },
         }

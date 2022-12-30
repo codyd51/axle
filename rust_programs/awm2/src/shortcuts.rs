@@ -144,6 +144,12 @@ impl DesktopElement for DesktopShortcut {
     fn z_index_category(&self) -> DesktopElementZIndexCategory {
         DesktopElementZIndexCategory::DesktopView
     }
+
+    fn handle_mouse_entered(&self) {}
+    fn handle_mouse_exited(&self) {}
+    fn handle_mouse_moved(&self, mouse_pos: Point) {}
+    fn handle_left_click_began(&self, mouse_pos: Point) {}
+    fn handle_left_click_ended(&self, mouse_pos: Point) {}
 }
 
 #[derive(Debug)]

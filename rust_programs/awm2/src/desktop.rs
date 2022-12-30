@@ -75,6 +75,21 @@ pub trait DesktopElement {
     fn set_drawable_rects(&self, drawable_rects: Vec<Rect>);
     fn get_slice(&self) -> Box<dyn LikeLayerSlice>;
     fn z_index_category(&self) -> DesktopElementZIndexCategory;
+    fn handle_mouse_entered(&self) {
+        println!("DesktopElement handle_mouse_entered()");
+    }
+    fn handle_mouse_exited(&self) {
+        println!("DesktopElement handle_mouse_exited()");
+    }
+    fn handle_mouse_moved(&self, mouse_pos: Point) {
+        println!("DesktopElement handle_mouse_moved({mouse_pos})");
+    }
+    fn handle_left_click_began(&self, mouse_pos: Point) {
+        println!("DesktopElement handle_left_click_began({mouse_pos})");
+    }
+    fn handle_left_click_ended(&self, mouse_pos: Point) {
+        println!("DesktopElement handle_left_click_ended({mouse_pos})");
+    }
 }
 
 pub enum RenderStrategy {
@@ -236,6 +251,7 @@ impl Desktop {
                 MouseInteractionState::HintingWindowResize(_) => Color::new(212, 119, 201),
                 MouseInteractionState::PerformingWindowDrag(_) => Color::new(30, 65, 217),
                 MouseInteractionState::PerformingWindowResize(_) => Color::new(207, 25, 185),
+                MouseInteractionState::DesktopElementHover(_) => Color::new(100, 100, 100),
             }
         };
 
@@ -772,12 +788,27 @@ impl Desktop {
     fn window_containing_point(&self, p: Point) -> Option<Rc<Window>> {
         // Iterate from the topmost window to further back ones,
         // so if windows are overlapping the topmost window will receive it
-        for window in self.windows.iter() {
+        self.windows.iter().find_map(|window| {
             if window.frame().contains(p) {
-                return Some(Rc::clone(window));
+                Some(Rc::clone(window))
+            } else {
+                None
             }
-        }
-        return None;
+        })
+    }
+
+    fn desktop_element_in_category_containing_point(
+        &self,
+        p: Point,
+        category: DesktopElementZIndexCategory,
+    ) -> Option<Rc<dyn DesktopElement>> {
+        self.compositor_state.elements.iter().find_map(|e| {
+            if e.z_index_category() == category && e.frame().contains(p) {
+                Some(Rc::clone(e))
+            } else {
+                None
+            }
+        })
     }
 
     fn bottom_window(&self) -> Option<&Rc<Window>> {
@@ -827,6 +858,13 @@ impl Desktop {
                     send_left_click_event(&window_under_mouse, self.mouse_state.pos)
                 }
             }
+        }
+        // Note that we're excluding the normal windows Z-index from this search, as they're handled above
+        else if let Some(elem_under_mouse) = self.desktop_element_in_category_containing_point(
+            self.mouse_state.pos,
+            DesktopElementZIndexCategory::DesktopView,
+        ) {
+            elem_under_mouse.handle_left_click_began(self.mouse_state.pos);
         }
     }
 
@@ -879,6 +917,15 @@ impl Desktop {
             } else {
                 MouseInteractionState::WindowHover(Rc::clone(&window_under_mouse))
             }
+        } else if let Some(elem_under_mouse) =
+            // Note that we're excluding the normal windows Z-index from this search, as they're handled above
+            self
+                .desktop_element_in_category_containing_point(
+                    self.mouse_state.pos,
+                    DesktopElementZIndexCategory::DesktopView,
+                )
+        {
+            MouseInteractionState::DesktopElementHover(Rc::clone(&elem_under_mouse))
         } else {
             MouseInteractionState::BackgroundHover
         }
@@ -899,7 +946,10 @@ impl Desktop {
             }
             MouseInteractionState::WindowHover(win) => {
                 // End left click
-                send_left_click_ended_event(win, self.mouse_state.pos)
+                send_left_click_ended_event(win, self.mouse_state.pos);
+            }
+            MouseInteractionState::DesktopElementHover(elem) => {
+                elem.handle_left_click_ended(self.mouse_state.pos);
             }
             _ => {}
         }
@@ -910,7 +960,6 @@ impl Desktop {
         if self.mouse_interaction_state == new_state {
             return;
         }
-        // If we're transitioning out of a window, inform it
         match &self.mouse_interaction_state {
             MouseInteractionState::BackgroundHover => {}
             MouseInteractionState::WindowHover(w)
@@ -918,9 +967,11 @@ impl Desktop {
             | MouseInteractionState::HintingWindowResize(w)
             | MouseInteractionState::PerformingWindowDrag(w)
             | MouseInteractionState::PerformingWindowResize(w) => {
+                // If we're transitioning out of a window, inform it
                 // Has the mouse left the window?
                 let exited_window = match &new_state {
-                    MouseInteractionState::BackgroundHover => true,
+                    MouseInteractionState::BackgroundHover
+                    | MouseInteractionState::DesktopElementHover(_) => true,
                     MouseInteractionState::WindowHover(w2)
                     | MouseInteractionState::HintingWindowDrag(w2)
                     | MouseInteractionState::HintingWindowResize(w2)
@@ -930,6 +981,18 @@ impl Desktop {
                 if exited_window {
                     self.transition_title_bar_hover_state_for_window(w);
                     send_mouse_exited_event(&w)
+                }
+            }
+            MouseInteractionState::DesktopElementHover(elem) => {
+                // If we're transitioning out of a desktop element, inform it
+                let exited_element = match &new_state {
+                    MouseInteractionState::DesktopElementHover(new_elem) => {
+                        !Rc::ptr_eq(elem, new_elem)
+                    }
+                    _ => true,
+                };
+                if exited_element {
+                    elem.handle_mouse_exited();
                 }
             }
         };
@@ -947,15 +1010,16 @@ impl Desktop {
             }
         }
 
-        // If we're transitioning into of a window, inform it
+        // If we're transitioning into a window, inform it
         if let MouseInteractionState::WindowHover(new_win)
         | MouseInteractionState::HintingWindowDrag(new_win)
         | MouseInteractionState::HintingWindowResize(new_win)
         | MouseInteractionState::PerformingWindowDrag(new_win)
         | MouseInteractionState::PerformingWindowResize(new_win) = &new_state
         {
-            let entered_window = match &self.mouse_interaction_state {
-                MouseInteractionState::BackgroundHover => true,
+            let did_enter_new_window = match &self.mouse_interaction_state {
+                MouseInteractionState::BackgroundHover
+                | MouseInteractionState::DesktopElementHover(_) => true,
                 MouseInteractionState::WindowHover(old_win)
                 | MouseInteractionState::HintingWindowDrag(old_win)
                 | MouseInteractionState::HintingWindowResize(old_win)
@@ -965,10 +1029,25 @@ impl Desktop {
                     !Rc::ptr_eq(new_win, old_win)
                 }
             };
-            if entered_window {
+            if did_enter_new_window {
                 send_mouse_entered_event(&new_win)
             }
         }
+
+        // If we're transitioning into a desktop element, inform it
+        if let MouseInteractionState::DesktopElementHover(new_elem) = &new_state {
+            let did_enter_new_elem = match &self.mouse_interaction_state {
+                MouseInteractionState::DesktopElementHover(old_elem) => {
+                    // Is the new element the same as the old element?
+                    !Rc::ptr_eq(new_elem, old_elem)
+                }
+                _ => true,
+            };
+            if did_enter_new_elem {
+                new_elem.handle_mouse_entered()
+            }
+        }
+
         self.mouse_interaction_state = new_state;
     }
 
@@ -1058,6 +1137,10 @@ impl Desktop {
             &self.mouse_interaction_state
         {
             self.transition_title_bar_hover_state_for_window(window);
+        } else if let MouseInteractionState::DesktopElementHover(elem) =
+            &self.mouse_interaction_state
+        {
+            elem.handle_mouse_moved(self.mouse_state.pos);
         }
     }
 
