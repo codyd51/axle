@@ -219,6 +219,7 @@ pub fn main() {
     // Start off by drawing a blank canvas consisting of the desktop background
     desktop.blit_background();
     desktop.commit_entire_buffer_to_video_memory();
+    desktop.load_shortcuts();
 
     loop {
         /*

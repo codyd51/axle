@@ -15,6 +15,7 @@ mod effects;
 mod events;
 mod keyboard;
 mod mouse;
+mod shortcuts;
 mod utils;
 mod window;
 

@@ -36,6 +36,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     // Start off by drawing a blank canvas consisting of the desktop background
     desktop.blit_background();
     desktop.commit_entire_buffer_to_video_memory();
+    desktop.load_shortcuts();
 
     //let mut capture_file = None;
     let mut capture_file = Some(

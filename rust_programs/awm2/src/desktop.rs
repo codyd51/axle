@@ -49,6 +49,7 @@ use crate::events::{
 };
 use crate::keyboard::{KeyboardModifier, KeyboardState};
 use crate::mouse::{MouseInteractionState, MouseState, MouseStateChange};
+use crate::shortcuts::DesktopShortcutsState;
 use crate::utils::{awm_service_is_dock, get_timestamp, random_color, random_color_with_rng};
 use crate::window::{
     SharedMemoryLayer, TitleBarButtonsHoverState, Window, WindowDecorationImages, WindowParams,
@@ -99,6 +100,8 @@ pub struct Desktop {
     frame_render_logs: Vec<String>,
     ongoing_animations: Vec<Animation>,
     window_images: WindowDecorationImages,
+    desktop_shortcuts_state: DesktopShortcutsState,
+    desktop_shortcut_image: BitmapImage,
 }
 
 impl Desktop {
@@ -124,6 +127,8 @@ impl Desktop {
             BitmapImage::read_bmp_from_path("/images/titlebar_minimize_filled.bmp"),
         );
 
+        let desktop_shortcuts_state = DesktopShortcutsState::new(desktop_frame.size);
+
         Self {
             desktop_frame,
             video_memory_layer,
@@ -143,7 +148,23 @@ impl Desktop {
             frame_render_logs: vec![],
             ongoing_animations: vec![],
             window_images,
+            desktop_shortcuts_state,
+            desktop_shortcut_image: BitmapImage::read_bmp_from_path("/images/executable_icon.bmp"),
         }
+    }
+
+    pub fn load_shortcuts(&mut self) {
+        let id = self.next_desktop_element_id();
+        let shortcut = self.desktop_shortcuts_state.add_shortcut(
+            &mut self.desktop_background_layer,
+            id,
+            &self.desktop_shortcut_image,
+            "/usr/applications/breakout",
+            "Breakout",
+        );
+        self.compositor_state
+            .track_element(Rc::clone(&shortcut) as Rc<dyn DesktopElement>);
+        self.recompute_drawable_regions_in_rect(shortcut.frame());
     }
 
     pub fn draw_background(&self) {

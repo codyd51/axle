@@ -2,9 +2,17 @@ use crate::println;
 use agx_definitions::{Color, LikeLayerSlice, Point, Size};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use axle_rt::{amc_message_await__u32_event, amc_message_send, AmcMessage};
 use core::ptr;
 use file_manager_messages::{ReadFile, ReadFileResponse, FILE_SERVER_SERVICE_NAME};
+
+#[cfg(target_os = "axle")]
+mod conditional_imports {
+    pub use axle_rt::{amc_message_await__u32_event, amc_message_send, AmcMessage};
+}
+#[cfg(not(target_os = "axle"))]
+mod conditional_imports {}
+
+use crate::bitmap::conditional_imports::*;
 
 #[repr(C, packed)]
 #[derive(Debug, Copy, Clone)]
@@ -53,39 +61,49 @@ impl BitmapImage {
     }
 
     pub fn read_bmp_from_path(path: &str) -> Self {
-        let file_read_request = ReadFile::new(path);
-        amc_message_send(FILE_SERVER_SERVICE_NAME, file_read_request);
-        let file_data_msg: AmcMessage<ReadFileResponse> =
-            amc_message_await__u32_event(FILE_SERVER_SERVICE_NAME);
-        let file_data = file_data_msg.body();
+        #[cfg(target_os = "axle")]
+        {
+            let file_read_request = ReadFile::new(path);
+            amc_message_send(FILE_SERVER_SERVICE_NAME, file_read_request);
+            let file_data_msg: AmcMessage<ReadFileResponse> =
+                amc_message_await__u32_event(FILE_SERVER_SERVICE_NAME);
+            let file_data = file_data_msg.body();
 
-        let bmp_buf = unsafe {
-            let bmp_data_slice =
-                ptr::slice_from_raw_parts((&file_data.data) as *const u8, file_data.len);
-            let bmp_data: &[u8] = &*(bmp_data_slice as *const [u8]);
-            bmp_data.to_vec()
-        };
-        let bmp_base_ptr = bmp_buf.as_ptr();
-        let bmp_header: BmpHeader = unsafe { core::ptr::read(bmp_base_ptr as *const _) };
-        let bmp_signature = bmp_header.signature;
-        assert_eq!(bmp_signature, BmpHeader::MAGIC);
-        let bmp_info_header: BmpInfoHeader = unsafe {
-            ptr::read(bmp_base_ptr.offset(core::mem::size_of::<BmpHeader>() as isize) as *const _)
-        };
-        let bmp_pixel_data = unsafe {
-            let px_data_slice_base = bmp_base_ptr.offset(bmp_header.data_off as _);
-            let px_data_slice = ptr::slice_from_raw_parts(px_data_slice_base, bmp_header.size as _);
-            let px_data: &[u8] = &*(px_data_slice as *const [u8]);
-            px_data.iter().map(|&e| e).collect()
-        };
-        Self::new(
-            Size::new(
-                bmp_info_header.width as isize,
-                bmp_info_header.height as isize,
-            ),
-            bmp_info_header.bit_count as usize,
-            bmp_pixel_data,
-        )
+            let bmp_buf = unsafe {
+                let bmp_data_slice =
+                    ptr::slice_from_raw_parts((&file_data.data) as *const u8, file_data.len);
+                let bmp_data: &[u8] = &*(bmp_data_slice as *const [u8]);
+                bmp_data.to_vec()
+            };
+            let bmp_base_ptr = bmp_buf.as_ptr();
+            let bmp_header: BmpHeader = unsafe { core::ptr::read(bmp_base_ptr as *const _) };
+            let bmp_signature = bmp_header.signature;
+            assert_eq!(bmp_signature, BmpHeader::MAGIC);
+            let bmp_info_header: BmpInfoHeader = unsafe {
+                ptr::read(
+                    bmp_base_ptr.offset(core::mem::size_of::<BmpHeader>() as isize) as *const _,
+                )
+            };
+            let bmp_pixel_data = unsafe {
+                let px_data_slice_base = bmp_base_ptr.offset(bmp_header.data_off as _);
+                let px_data_slice =
+                    ptr::slice_from_raw_parts(px_data_slice_base, bmp_header.size as _);
+                let px_data: &[u8] = &*(px_data_slice as *const [u8]);
+                px_data.iter().map(|&e| e).collect()
+            };
+            Self::new(
+                Size::new(
+                    bmp_info_header.width as isize,
+                    bmp_info_header.height as isize,
+                ),
+                bmp_info_header.bit_count as usize,
+                bmp_pixel_data,
+            )
+        }
+        #[cfg(not(target_os = "axle"))]
+        {
+            Self::new(Size::new(16, 16), 24, vec![0; 16 * 16 * 3])
+        }
     }
 
     pub fn render(&self, onto: &Box<dyn LikeLayerSlice>) {
