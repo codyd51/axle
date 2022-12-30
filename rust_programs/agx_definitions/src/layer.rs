@@ -77,7 +77,13 @@ impl LikeLayerSlice for LayerSlice {
 
     fn fill_rect(&self, raw_rect: Rect, color: Color, thickness: StrokeThickness) {
         let rect = self.frame.constrain(raw_rect);
-        if rect.is_degenerate() {
+        if rect.is_degenerate() || rect.min_x() < 0 || rect.min_y() < 0 {
+            /*
+            panic!(
+                "neg fill_rect self.frame={}, raw_rect={raw_rect}, rect={rect}",
+                self.frame
+            );
+            */
             return;
         }
 
