@@ -48,7 +48,11 @@ impl DesktopShortcut {
         self.first_click_start_time.is_some()
     }
 
-    fn render(&self, desktop_background: &mut Box<SingleFramebufferLayer>) {
+    fn render(
+        &self,
+        desktop_background: &mut Box<SingleFramebufferLayer>,
+        desktop_gradient_background_color: Color,
+    ) {
         let slice = self.layer.borrow_mut().get_full_slice();
 
         // Start off by rendering the background of the shortcut background layer's content
@@ -93,23 +97,22 @@ impl DesktopShortcut {
             label_mid.x - (((font_size.width * title_len as isize) as f64 / 2.0) as isize),
             label_mid.y - ((font_size.height as f64 / 2.0) as isize),
         );
-        let text_color = Color::new(50, 50, 50);
+        // If the background gradient is too dark, set the shortcuts text color to white so it's always visible.
+        // Per ITU-R BT.709
+        let luma = (0.2126 * desktop_gradient_background_color.r)
+            + (0.7152 * desktop_gradient_background_color.g)
+            + (0.0722 * desktop_gradient_background_color.b);
+        let text_color = if luma < 64 {
+            Color::new(205, 205, 205)
+        } else {
+            Color::new(50, 50, 50)
+        };
 
         let mut cursor = label_origin;
         for ch in self.title.chars() {
             slice.draw_char(ch, cursor, text_color, font_size);
             cursor.x += font_size.width;
         }
-
-        // If the background gradient is too dark, set the shortcuts text color to white so it's always visible.
-        // Per ITU-R BT.709
-        /*
-        Color outer_bg = background_gradient_outer_color();
-        double luma = (0.2126 * outer_bg.val[0]) + (0.7152 * outer_bg.val[1]) + (0.0722 * outer_bg.val[2]);
-        if (luma < 64) {
-            text_color = color_make(205, 205, 205);
-        }
-        */
     }
 }
 
@@ -202,6 +205,7 @@ impl DesktopShortcutsState {
     fn add_shortcut_to_slot(
         &self,
         background_layer: &mut Box<SingleFramebufferLayer>,
+        desktop_gradient_background_color: Color,
         id: usize,
         icon: &BitmapImage,
         path: &str,
@@ -215,13 +219,14 @@ impl DesktopShortcutsState {
         );
         let new_shortcut = Rc::new(DesktopShortcut::new(id, icon, shortcut_origin, path, title));
         slot.set_occupant(Some(Rc::clone(&new_shortcut)));
-        new_shortcut.render(background_layer);
+        new_shortcut.render(background_layer, desktop_gradient_background_color);
         new_shortcut
     }
 
     pub fn add_shortcut_by_coordinates(
         &self,
         background_layer: &mut Box<SingleFramebufferLayer>,
+        desktop_gradient_background_color: Color,
         id: usize,
         icon: &BitmapImage,
         path: &str,
@@ -230,12 +235,21 @@ impl DesktopShortcutsState {
     ) -> Rc<DesktopShortcut> {
         let slot_index = self.slot_indexes_by_coordinates.get(&coordinates).unwrap();
         let slot = &self.slots[*slot_index];
-        self.add_shortcut_to_slot(background_layer, id, icon, path, title, slot)
+        self.add_shortcut_to_slot(
+            background_layer,
+            desktop_gradient_background_color,
+            id,
+            icon,
+            path,
+            title,
+            slot,
+        )
     }
 
     pub fn add_shortcut_to_next_free_slot(
         &self,
         background_layer: &mut Box<SingleFramebufferLayer>,
+        desktop_gradient_background_color: Color,
         id: usize,
         icon: &BitmapImage,
         path: &str,
@@ -243,7 +257,15 @@ impl DesktopShortcutsState {
     ) -> Rc<DesktopShortcut> {
         // Find the next empty grid slot
         if let Some(found_slot) = self.slots.iter().find(|s| s.occupant.borrow().is_none()) {
-            self.add_shortcut_to_slot(background_layer, id, icon, path, title, found_slot)
+            self.add_shortcut_to_slot(
+                background_layer,
+                desktop_gradient_background_color,
+                id,
+                icon,
+                path,
+                title,
+                found_slot,
+            )
         } else {
             panic!("Failed to find a free slot to place another desktop shortcut");
         }

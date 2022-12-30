@@ -157,7 +157,7 @@ impl Desktop {
     }
 
     pub fn load_shortcuts(&mut self) {
-        #[cfg(target_os = 'axle)]
+        #[cfg(target_os = "axle")]
         {
             let file_read_request = ReadFile::new("/config/desktop_shortcuts.txt");
             amc_message_send(FILE_SERVER_SERVICE_NAME, file_read_request);
@@ -190,6 +190,7 @@ impl Desktop {
                     );
                     self.desktop_shortcuts_state.add_shortcut_by_coordinates(
                         &mut self.desktop_background_layer,
+                        self.background_gradient_outer_color,
                         id,
                         &self.desktop_shortcut_image,
                         path,
@@ -199,6 +200,7 @@ impl Desktop {
                 } else {
                     self.desktop_shortcuts_state.add_shortcut_to_next_free_slot(
                         &mut self.desktop_background_layer,
+                        self.background_gradient_outer_color,
                         id,
                         &self.desktop_shortcut_image,
                         path,
