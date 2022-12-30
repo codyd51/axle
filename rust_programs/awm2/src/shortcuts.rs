@@ -99,10 +99,10 @@ impl DesktopShortcut {
         );
         // If the background gradient is too dark, set the shortcuts text color to white so it's always visible.
         // Per ITU-R BT.709
-        let luma = (0.2126 * desktop_gradient_background_color.r)
-            + (0.7152 * desktop_gradient_background_color.g)
-            + (0.0722 * desktop_gradient_background_color.b);
-        let text_color = if luma < 64 {
+        let luma = (0.2126 * desktop_gradient_background_color.r as f64)
+            + (0.7152 * desktop_gradient_background_color.g as f64)
+            + (0.0722 * desktop_gradient_background_color.b as f64);
+        let text_color = if luma < 64.0 {
             Color::new(205, 205, 205)
         } else {
             Color::new(50, 50, 50)
