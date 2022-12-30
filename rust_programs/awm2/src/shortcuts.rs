@@ -5,6 +5,7 @@ use agx_definitions::{
     Color, Layer, LikeLayerSlice, Point, Rect, SingleFramebufferLayer, Size, StrokeThickness,
 };
 use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
 use alloc::rc::Rc;
 use alloc::string::String;
 use alloc::string::ToString;
@@ -166,27 +167,73 @@ impl DesktopShortcutGridSlot {
 }
 
 pub struct DesktopShortcutsState {
+    desktop_size: Size,
     slots: Vec<DesktopShortcutGridSlot>,
+    /// Lookup (x,y) in all the possible grid positions of desktop icons, to the slot's linear
+    /// position in the `slots` vector.
+    slot_indexes_by_coordinates: BTreeMap<(isize, isize), usize>,
 }
 
 impl DesktopShortcutsState {
     pub fn new(desktop_size: Size) -> Self {
         let mut slots = vec![];
+        let mut slot_indexes_by_coordinates = BTreeMap::new();
         let grid_slot_size = DesktopShortcutGridSlot::size();
         // Iterate by columns so when searching for a free space linearly we fill in columns first
-        for x in
-            (0..(desktop_size.width - grid_slot_size.width)).step_by(grid_slot_size.width as usize)
+        for (x_idx, x) in (0..(desktop_size.width - grid_slot_size.width))
+            .step_by(grid_slot_size.width as usize)
+            .enumerate()
         {
-            for y in (0..(desktop_size.height - grid_slot_size.height))
+            for (y_idx, y) in (0..(desktop_size.height - grid_slot_size.height))
                 .step_by(grid_slot_size.height as usize)
+                .enumerate()
             {
+                slot_indexes_by_coordinates.insert((x_idx as isize, y_idx as isize), slots.len());
                 slots.push(DesktopShortcutGridSlot::new(Point::new(x, y)));
             }
         }
-        Self { slots }
+        Self {
+            desktop_size,
+            slots,
+            slot_indexes_by_coordinates,
+        }
     }
 
-    pub fn add_shortcut(
+    fn add_shortcut_to_slot(
+        &self,
+        background_layer: &mut Box<SingleFramebufferLayer>,
+        id: usize,
+        icon: &BitmapImage,
+        path: &str,
+        title: &str,
+        slot: &DesktopShortcutGridSlot,
+    ) -> Rc<DesktopShortcut> {
+        let shortcut_size = DesktopShortcut::size();
+        let shortcut_origin = Point::new(
+            slot.frame.mid_x() - ((shortcut_size.width as f64 / 2.0) as isize),
+            slot.frame.mid_y() - ((shortcut_size.height as f64 / 2.0) as isize),
+        );
+        let new_shortcut = Rc::new(DesktopShortcut::new(id, icon, shortcut_origin, path, title));
+        slot.set_occupant(Some(Rc::clone(&new_shortcut)));
+        new_shortcut.render(background_layer);
+        new_shortcut
+    }
+
+    pub fn add_shortcut_by_coordinates(
+        &self,
+        background_layer: &mut Box<SingleFramebufferLayer>,
+        id: usize,
+        icon: &BitmapImage,
+        path: &str,
+        title: &str,
+        coordinates: (isize, isize),
+    ) -> Rc<DesktopShortcut> {
+        let slot_index = self.slot_indexes_by_coordinates.get(&coordinates).unwrap();
+        let slot = &self.slots[*slot_index];
+        self.add_shortcut_to_slot(background_layer, id, icon, path, title, slot)
+    }
+
+    pub fn add_shortcut_to_next_free_slot(
         &self,
         background_layer: &mut Box<SingleFramebufferLayer>,
         id: usize,
@@ -196,17 +243,7 @@ impl DesktopShortcutsState {
     ) -> Rc<DesktopShortcut> {
         // Find the next empty grid slot
         if let Some(found_slot) = self.slots.iter().find(|s| s.occupant.borrow().is_none()) {
-            println!("Found empty grid slot {found_slot:?}");
-            let shortcut_size = DesktopShortcut::size();
-            let shortcut_origin = Point::new(
-                found_slot.frame.mid_x() - ((shortcut_size.width as f64 / 2.0) as isize),
-                found_slot.frame.mid_y() - ((shortcut_size.height as f64 / 2.0) as isize),
-            );
-            let new_shortcut =
-                Rc::new(DesktopShortcut::new(id, icon, shortcut_origin, path, title));
-            found_slot.set_occupant(Some(Rc::clone(&new_shortcut)));
-            new_shortcut.render(background_layer);
-            return new_shortcut;
+            self.add_shortcut_to_slot(background_layer, id, icon, path, title, found_slot)
         } else {
             panic!("Failed to find a free slot to place another desktop shortcut");
         }
