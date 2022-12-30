@@ -54,6 +54,13 @@ use crate::window::{
     SharedMemoryLayer, TitleBarButtonsHoverState, Window, WindowDecorationImages, WindowParams,
 };
 
+#[derive(Debug, Ord, PartialOrd, Copy, Clone, Eq, PartialEq)]
+pub enum DesktopElementZIndexCategory {
+    FloatingWindow,
+    Window,
+    DesktopView,
+}
+
 /// A persistent UI element on the desktop that occludes other elements
 /// Roughly: a window, a desktop shortcut, etc
 pub trait DesktopElement {
@@ -63,6 +70,7 @@ pub trait DesktopElement {
     fn drawable_rects(&self) -> Vec<Rect>;
     fn set_drawable_rects(&self, drawable_rects: Vec<Rect>);
     fn get_slice(&self) -> Box<dyn LikeLayerSlice>;
+    fn z_index_category(&self) -> DesktopElementZIndexCategory;
 }
 
 pub enum RenderStrategy {
@@ -446,50 +454,71 @@ impl Desktop {
 
     fn recompute_drawable_regions_in_rect(&mut self, rect: Rect) {
         //println!("recompute_drawable_regions_in_rect({rect})");
+        // Start off by sorting the view hierarchy
+        let mut elements_sorted_by_z_index = vec![];
+        // Floating windows should always display above anything else
+        for elem in self.compositor_state.elements.iter() {
+            if elem.z_index_category() == DesktopElementZIndexCategory::FloatingWindow {
+                elements_sorted_by_z_index.push(Rc::clone(&elem));
+            }
+        }
+        // Then we should display regular windows, which are sorted by Z-order in the `windows` field
+        for win in self.windows.iter() {
+            if win.z_index_category() == DesktopElementZIndexCategory::Window {
+                elements_sorted_by_z_index.push(Rc::clone(&win) as Rc<dyn DesktopElement>);
+            }
+        }
+        // Lastly, any other generic desktop views show up behind windows
+        for elem in self.compositor_state.elements.iter() {
+            if elem.z_index_category() == DesktopElementZIndexCategory::DesktopView {
+                elements_sorted_by_z_index.push(Rc::clone(&elem));
+            }
+        }
+
         // Iterate backwards (from the furthest back to the foremost)
-        for window_idx in (0..self.windows.len()).rev() {
+        for elem_idx in (0..elements_sorted_by_z_index.len()).rev() {
             //println!("\tProcessing idx #{elem_idx}, window {} (a split has {} elems, b split has {} elems)", elem.name(), a.len(), b.len());
-            let window = &self.windows[window_idx];
-            if !rect.intersects_with(window.frame()) {
+            let elem = &elements_sorted_by_z_index[elem_idx];
+            if !rect.intersects_with(elem.frame()) {
                 //println!("\t\tDoes not intersect with provided rect, skipping");
                 continue;
             }
 
-            let (occluding_windows, _window_and_lower) = self.windows.split_at(window_idx);
+            let (occluding_elems, _elem_and_lower) = elements_sorted_by_z_index.split_at(elem_idx);
 
             // Ensure drawable regions are never offscreen
-            window.set_drawable_rects(vec![self.desktop_frame.constrain(window.frame())]);
+            elem.set_drawable_rects(vec![self.desktop_frame.constrain(elem.frame())]);
 
-            for occluding_window in occluding_windows.iter().rev() {
-                if !window.frame().intersects_with(occluding_window.frame()) {
+            for occluding_elem in occluding_elems.iter().rev() {
+                if !elem.frame().intersects_with(occluding_elem.frame()) {
                     continue;
                 }
                 //println!("\t\tOccluding {} by view with frame {}", elem.frame(), occluding_elem.frame());
                 // Keep rects that don't intersect with the occluding elem
-                let mut new_drawable_rects: Vec<Rect> = window
+                let mut new_drawable_rects: Vec<Rect> = elem
                     .drawable_rects()
                     .iter()
                     .filter_map(|r| {
                         // If it does not intersect with the occluding element, we want to keep it
-                        if !r.intersects_with(occluding_window.frame()) {
+                        if !r.intersects_with(occluding_elem.frame()) {
                             Some(*r)
                         } else {
                             None
                         }
                     })
                     .collect();
-                for rect in window.drawable_rects() {
-                    let mut visible_portions = rect.area_excluding_rect(occluding_window.frame());
+                for rect in elem.drawable_rects() {
+                    let mut visible_portions = rect.area_excluding_rect(occluding_elem.frame());
                     new_drawable_rects.append(&mut visible_portions);
                 }
                 //println!("\t\tSetting drawable_rects to {:?}", new_drawable_rects);
-                window.set_drawable_rects(new_drawable_rects);
+                elem.set_drawable_rects(new_drawable_rects);
             }
 
-            if window.drawable_rects().len() > 0 {
+            if elem.drawable_rects().len() > 0 {
                 //println!("\tQueueing composite for {}", window.name());
                 self.compositor_state
-                    .queue_composite(Rc::clone(window) as Rc<dyn DesktopElement>);
+                    .queue_composite(Rc::clone(elem) as Rc<dyn DesktopElement>);
             }
         }
     }
@@ -513,7 +542,12 @@ impl Desktop {
         let content_size = Size::from(&request.size);
 
         let window_params = match awm_service_is_dock(&source) {
-            true => WindowParams::new(false, false, false),
+            true => WindowParams::new(
+                false,
+                false,
+                false,
+                DesktopElementZIndexCategory::FloatingWindow,
+            ),
             false => WindowParams::default(),
         };
 

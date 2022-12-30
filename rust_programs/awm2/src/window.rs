@@ -1,5 +1,5 @@
 use crate::bitmap::BitmapImage;
-use crate::desktop::DesktopElement;
+use crate::desktop::{DesktopElement, DesktopElementZIndexCategory};
 use agx_definitions::{
     Color, Layer, LikeLayerSlice, Point, Rect, RectInsets, SingleFramebufferLayer, Size,
     StrokeThickness,
@@ -55,14 +55,21 @@ pub struct WindowParams {
     has_title_bar: bool,
     is_resizable: bool,
     is_draggable: bool,
+    z_index_category: DesktopElementZIndexCategory,
 }
 
 impl WindowParams {
-    pub fn new(has_title_bar: bool, is_resizable: bool, is_draggable: bool) -> Self {
+    pub fn new(
+        has_title_bar: bool,
+        is_resizable: bool,
+        is_draggable: bool,
+        z_index_category: DesktopElementZIndexCategory,
+    ) -> Self {
         Self {
             has_title_bar,
             is_resizable,
             is_draggable,
+            z_index_category,
         }
     }
 
@@ -76,7 +83,7 @@ impl WindowParams {
 
 impl Default for WindowParams {
     fn default() -> Self {
-        WindowParams::new(true, true, true)
+        WindowParams::new(true, true, true, DesktopElementZIndexCategory::Window)
     }
 }
 
@@ -410,8 +417,10 @@ impl DesktopElement for Window {
     }
 
     fn get_slice(&self) -> Box<dyn LikeLayerSlice> {
-        self.layer
-            .borrow_mut()
-            .get_slice(Rect::with_size(self.frame().size))
+        self.layer.borrow_mut().get_full_slice()
+    }
+
+    fn z_index_category(&self) -> DesktopElementZIndexCategory {
+        self.params.z_index_category
     }
 }
