@@ -1,5 +1,6 @@
 use crate::desktop::{Desktop, DesktopElement};
 use crate::println;
+use crate::shortcuts::DesktopShortcut;
 use crate::utils::get_timestamp;
 use crate::window::Window;
 use agx_definitions::{Point, Rect, Size};
@@ -11,15 +12,7 @@ fn lerp(a: f64, b: f64, percent: f64) -> f64 {
     a + (percent * (b - a))
 }
 
-fn interpolate_window_frame(from: Rect, to: Rect, percent: f64) -> Rect {
-    /*
-    // Don't let the window get too small
-    // TODO(PT): Pull this out into a MIN_WINDOW_SIZE?
-    let to = Size::new(
-        isize::max(to.size.width, 1),
-        isize::max(to.size.height, (Window::TITLE_BAR_HEIGHT as isize) + 1)
-    );
-    */
+fn interpolate_frame(from: Rect, to: Rect, percent: f64) -> Rect {
     Rect::from_parts(
         Point::new(
             lerp(from.min_x() as f64, to.min_x() as f64, percent) as isize,
@@ -101,6 +94,29 @@ impl WindowTransformAnimationParams {
     }
 }
 
+pub struct ShortcutSnapAnimationParams {
+    start_time: usize,
+    end_time: usize,
+    pub shortcut: Rc<DesktopShortcut>,
+    duration_ms: usize,
+    frame_from: Rect,
+    frame_to: Rect,
+}
+
+impl ShortcutSnapAnimationParams {
+    pub fn new(shortcut: &Rc<DesktopShortcut>, frame_to: Rect, duration_ms: usize) -> Self {
+        let start_time = get_timestamp() as usize;
+        Self {
+            start_time,
+            end_time: start_time + duration_ms,
+            shortcut: Rc::clone(shortcut),
+            duration_ms,
+            frame_from: shortcut.frame(),
+            frame_to,
+        }
+    }
+}
+
 pub struct AnimationDamage {
     pub area_to_recompute_drawable_regions: Rect,
     pub rects_needing_composite: Vec<Rect>,
@@ -123,6 +139,7 @@ pub enum Animation {
     WindowClose(WindowTransformAnimationParams),
     WindowMinimize(WindowTransformAnimationParams),
     WindowUnminimize(WindowTransformAnimationParams),
+    ShortcutSnap(ShortcutSnapAnimationParams),
 }
 
 impl Animation {
@@ -137,7 +154,9 @@ impl Animation {
                 params.window.set_frame(params.frame_from);
                 params.window.set_unminimized_frame(Some(params.frame_from));
             }
-            _ => {}
+            Animation::ShortcutSnap(params) => {
+                params.shortcut.set_frame(params.frame_from);
+            }
         }
     }
 
@@ -152,12 +171,22 @@ impl Animation {
                     let old_frame = *window_frame;
                     let elapsed = now - (params.start_time as u64);
                     let percent = f64::min(1.0, elapsed as f64 / params.duration_ms as f64);
-                    let new_frame =
-                        interpolate_window_frame(params.frame_from, params.frame_to, percent);
+                    let new_frame = interpolate_frame(params.frame_from, params.frame_to, percent);
                     *window_frame = new_frame;
                     old_frame.union(new_frame)
                 };
                 params.window.redraw_title_bar();
+                AnimationDamage::new(update_region, vec![update_region])
+            }
+            Animation::ShortcutSnap(params) => {
+                let update_region = {
+                    let old_frame = params.shortcut.frame();
+                    let elapsed = now - (params.start_time as u64);
+                    let percent = f64::min(1.0, elapsed as f64 / params.duration_ms as f64);
+                    let new_frame = interpolate_frame(params.frame_from, params.frame_to, percent);
+                    params.shortcut.set_frame(new_frame);
+                    old_frame.union(new_frame)
+                };
                 AnimationDamage::new(update_region, vec![update_region])
             }
         }
@@ -169,13 +198,16 @@ impl Animation {
             | Animation::WindowClose(params)
             | Animation::WindowMinimize(params)
             | Animation::WindowUnminimize(params) => now as usize >= params.end_time,
+            Animation::ShortcutSnap(params) => now as usize >= params.end_time,
         }
     }
 
     pub fn finish(&self) {
         match self {
-            Animation::WindowOpen(_) | Animation::WindowClose(_) | Animation::WindowMinimize(_) => {
-            }
+            Animation::WindowOpen(_)
+            | Animation::WindowClose(_)
+            | Animation::WindowMinimize(_)
+            | Animation::ShortcutSnap(_) => {}
             Animation::WindowUnminimize(params) => params.window.set_unminimized_frame(None),
         }
     }

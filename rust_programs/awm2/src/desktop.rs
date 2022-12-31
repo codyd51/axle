@@ -20,7 +20,7 @@ use core::mem;
 use core::ptr;
 use mouse_driver_messages::MousePacket;
 
-use crate::animations::{Animation, WindowTransformAnimationParams};
+use crate::animations::{Animation, ShortcutSnapAnimationParams, WindowTransformAnimationParams};
 use crate::bitmap::BitmapImage;
 use crate::compositor::CompositorState;
 use axle_rt::core_commands::AmcSharedMemoryCreateRequest;
@@ -764,6 +764,8 @@ impl Desktop {
         for r in rects_to_recompute_drawable_regions.drain(..) {
             self.recompute_drawable_regions_in_rect(r);
         }
+
+        // Destroy all internal references to windows that are now fully closed
         let windows_to_drop: Vec<Rc<Window>> = self
             .ongoing_animations
             .iter()
@@ -779,6 +781,27 @@ impl Desktop {
             .collect();
         for w in windows_to_drop.into_iter() {
             self.drop_window(&w);
+        }
+
+        // Re-render desktop shortcuts that have landed in their new locations
+        let shortcuts_to_refresh: Vec<Rc<DesktopShortcut>> = self
+            .ongoing_animations
+            .iter()
+            .map(|anim| {
+                if anim.is_complete(now) {
+                    if let Animation::ShortcutSnap(params) = anim {
+                        return Some(Rc::clone(&params.shortcut));
+                    }
+                }
+                None
+            })
+            .filter_map(|o| o)
+            .collect();
+        for s in shortcuts_to_refresh.into_iter() {
+            s.copy_desktop_background_slice(&mut self.desktop_background_layer);
+            s.render();
+            self.compositor_state
+                .queue_composite(s as Rc<dyn DesktopElement>);
         }
 
         // Drop animations that are now complete
@@ -1018,11 +1041,25 @@ impl Desktop {
                 }
             }
             MouseInteractionState::ShortcutDrag(shortcut) => {
+                let shortcut_clone = Rc::clone(&shortcut);
                 if shortcut.handle_left_click_ended(self.mouse_state.pos)
                     == MouseInteractionCallbackResult::RedrawRequested
                 {
                     self.recompute_drawable_regions_in_rect(shortcut.frame());
                 }
+                // Find a slot to snap this shortcut to
+                let start_frame = shortcut_clone.frame();
+                let new_slot_frame = self
+                    .desktop_shortcuts_state
+                    .transfer_shortcut_to_nearest_slot(&shortcut_clone);
+                let new_shortcut_frame = start_frame.replace_origin(
+                    DesktopShortcutsState::shortcut_origin_for_slot_frame(new_slot_frame),
+                );
+                self.start_animation(Animation::ShortcutSnap(ShortcutSnapAnimationParams::new(
+                    &shortcut_clone,
+                    new_shortcut_frame,
+                    100,
+                )));
             }
             _ => {}
         }
@@ -1237,8 +1274,7 @@ impl Desktop {
                     .replace_origin(shortcut.frame().origin + rel_shift),
             );
             shortcut.set_frame(new_frame);
-            // TODO(PT): Re-render the shortcut, as well as re-setting its copy of the background layer
-            //self.compositor_state.queue_full_redraw(new_frame);
+            shortcut.copy_desktop_background_slice(&mut self.desktop_background_layer);
             self.queue_compositor_updates_for_old_and_new_element_frame(prev_frame, new_frame);
         }
     }

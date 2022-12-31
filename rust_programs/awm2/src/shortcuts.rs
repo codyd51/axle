@@ -96,7 +96,7 @@ impl DesktopShortcut {
             Some(desktop_gradient_background_color)
     }
 
-    fn render(&self) {
+    pub fn render(&self) {
         let slice = self.layer.borrow_mut().get_full_slice();
 
         // The background of the desktop shortcut depends on our current mouse interaction state
@@ -327,6 +327,15 @@ impl DesktopShortcutsState {
         }
     }
 
+    pub fn shortcut_origin_for_slot_frame(slot_frame: Rect) -> Point {
+        let shortcut_size = DesktopShortcut::size();
+        let shortcut_origin = Point::new(
+            slot_frame.mid_x() - ((shortcut_size.width as f64 / 2.0) as isize),
+            slot_frame.mid_y() - ((shortcut_size.height as f64 / 2.0) as isize),
+        );
+        shortcut_origin
+    }
+
     fn add_shortcut_to_slot(
         &self,
         background_layer: &mut Box<SingleFramebufferLayer>,
@@ -337,12 +346,13 @@ impl DesktopShortcutsState {
         title: &str,
         slot: &DesktopShortcutGridSlot,
     ) -> Rc<DesktopShortcut> {
-        let shortcut_size = DesktopShortcut::size();
-        let shortcut_origin = Point::new(
-            slot.frame.mid_x() - ((shortcut_size.width as f64 / 2.0) as isize),
-            slot.frame.mid_y() - ((shortcut_size.height as f64 / 2.0) as isize),
-        );
-        let new_shortcut = Rc::new(DesktopShortcut::new(id, icon, shortcut_origin, path, title));
+        let new_shortcut = Rc::new(DesktopShortcut::new(
+            id,
+            icon,
+            Self::shortcut_origin_for_slot_frame(slot.frame),
+            path,
+            title,
+        ));
         self.shortcuts.borrow_mut().push(Rc::clone(&new_shortcut));
         slot.set_occupant(Some(Rc::clone(&new_shortcut)));
         new_shortcut.copy_desktop_background_slice(background_layer);
@@ -374,6 +384,10 @@ impl DesktopShortcutsState {
         )
     }
 
+    fn free_slots(&self) -> impl Iterator<Item = &DesktopShortcutGridSlot> {
+        self.slots.iter().filter(|s| s.occupant.borrow().is_none())
+    }
+
     pub fn add_shortcut_to_next_free_slot(
         &self,
         background_layer: &mut Box<SingleFramebufferLayer>,
@@ -384,7 +398,7 @@ impl DesktopShortcutsState {
         title: &str,
     ) -> Rc<DesktopShortcut> {
         // Find the next empty grid slot
-        if let Some(found_slot) = self.slots.iter().find(|s| s.occupant.borrow().is_none()) {
+        if let Some(found_slot) = self.free_slots().next() {
             self.add_shortcut_to_slot(
                 background_layer,
                 desktop_gradient_background_color,
@@ -397,5 +411,37 @@ impl DesktopShortcutsState {
         } else {
             panic!("Failed to find a free slot to place another desktop shortcut");
         }
+    }
+
+    pub fn transfer_shortcut_to_nearest_slot(&self, shortcut: &Rc<DesktopShortcut>) -> Rect {
+        // Find the previous slot that contained this shortcut
+        let previous_slot = self
+            .slots
+            .iter()
+            .find(|slot| {
+                if let Some(occupant) = &*slot.occupant.borrow() {
+                    Rc::ptr_eq(occupant, shortcut)
+                } else {
+                    false
+                }
+            })
+            .unwrap();
+        previous_slot.set_occupant(None);
+
+        let shortcut_frame = shortcut.frame();
+        let nearest_slot = self
+            .free_slots()
+            .filter(|slot| slot.frame.intersects_with(shortcut_frame))
+            .max_by(|slot1, slot2| {
+                let s1_overlapping_area =
+                    slot1.frame.area_overlapping_with(shortcut_frame).unwrap();
+                let s2_overlapping_area =
+                    slot2.frame.area_overlapping_with(shortcut_frame).unwrap();
+                s1_overlapping_area.area().cmp(&s2_overlapping_area.area())
+            })
+            // Default to the previous slot if we were unable to find a good place to put this shortcut
+            .unwrap_or(previous_slot);
+        nearest_slot.set_occupant(Some(Rc::clone(shortcut)));
+        nearest_slot.frame
     }
 }
