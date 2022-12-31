@@ -817,16 +817,28 @@ impl Desktop {
         })
     }
 
+    fn windows_in_z_hierarchy(&self) -> impl Iterator<Item = &Rc<Window>> {
+        // Don't include floating windows in the search. For example, this
+        // will never return the dock window
+        self.windows
+            .iter()
+            .filter(|w| w.z_index_category() == DesktopElementZIndexCategory::Window)
+    }
+
     fn bottom_window(&self) -> Option<&Rc<Window>> {
-        self.windows.last()
+        self.windows_in_z_hierarchy().last()
     }
 
     fn top_window(&self) -> Option<&Rc<Window>> {
-        self.windows.first()
+        self.windows_in_z_hierarchy().next()
     }
 
     fn is_topmost_window(&self, w: &Rc<Window>) -> bool {
-        Rc::ptr_eq(&self.windows[0], w)
+        if let Some(top_window) = self.top_window() {
+            Rc::ptr_eq(top_window, w)
+        } else {
+            false
+        }
     }
 
     fn handle_left_click_began(&mut self) {
