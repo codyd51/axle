@@ -28,7 +28,7 @@ enum ShortcutMouseInteractionState {
 #[derive(Debug)]
 pub struct DesktopShortcut {
     id: usize,
-    frame: Rect,
+    frame: RefCell<Rect>,
     drawable_rects: RefCell<Vec<Rect>>,
     layer: RefCell<SingleFramebufferLayer>,
     icon: BitmapImage,
@@ -45,7 +45,7 @@ impl DesktopShortcut {
         let frame = Rect::from_parts(origin, Self::size());
         Self {
             id,
-            frame,
+            frame: RefCell::new(frame),
             drawable_rects: RefCell::new(vec![]),
             layer: RefCell::new(SingleFramebufferLayer::new(frame.size)),
             icon: icon.clone(),
@@ -85,7 +85,7 @@ impl DesktopShortcut {
         &self,
         desktop_background: &mut Box<SingleFramebufferLayer>,
     ) {
-        let background_slice = desktop_background.get_slice(self.frame);
+        let background_slice = desktop_background.get_slice(self.frame());
         let mut copy = SingleFramebufferLayer::new(background_slice.frame().size);
         copy.get_full_slice().blit2(&background_slice);
         *self.desktop_background_slice.borrow_mut() = Some(copy);
@@ -116,7 +116,7 @@ impl DesktopShortcut {
         }
 
         let image_size = Self::icon_image_size();
-        let image_margin = Size::new(self.frame.width() - image_size.width, 8);
+        let image_margin = Size::new(self.frame().width() - image_size.width, 8);
         let image_origin = Point::new(
             (image_margin.width as f64 / 2.0) as isize,
             (image_margin.height as f64 / 2.0) as isize,
@@ -134,8 +134,8 @@ impl DesktopShortcut {
         let font_size = Size::new(8, 10);
         let label_height = 18;
         let label_mid = Point::new(
-            (self.frame.width() as f64 / 2.0) as isize,
-            (self.frame.height() as f64 - (label_height as f64 / 2.0)) as isize,
+            (self.frame().width() as f64 / 2.0) as isize,
+            (self.frame().height() as f64 - (label_height as f64 / 2.0)) as isize,
         );
         let title_len = self.title.len();
         let label_origin = Point::new(
@@ -192,6 +192,10 @@ impl DesktopShortcut {
     fn mouse_interaction_state(&self) -> ShortcutMouseInteractionState {
         *self.interaction_state.borrow()
     }
+
+    pub fn set_frame(&self, frame: Rect) {
+        *self.frame.borrow_mut() = frame
+    }
 }
 
 impl DesktopElement for DesktopShortcut {
@@ -200,7 +204,7 @@ impl DesktopElement for DesktopShortcut {
     }
 
     fn frame(&self) -> Rect {
-        self.frame
+        *self.frame.borrow()
     }
 
     fn name(&self) -> String {
@@ -279,6 +283,7 @@ pub struct DesktopShortcutsState {
     /// Lookup (x,y) in all the possible grid positions of desktop icons, to the slot's linear
     /// position in the `slots` vector.
     slot_indexes_by_coordinates: BTreeMap<(isize, isize), usize>,
+    pub shortcuts: RefCell<Vec<Rc<DesktopShortcut>>>,
 }
 
 impl DesktopShortcutsState {
@@ -303,6 +308,7 @@ impl DesktopShortcutsState {
             desktop_size,
             slots,
             slot_indexes_by_coordinates,
+            shortcuts: RefCell::new(vec![]),
         }
     }
 
@@ -337,6 +343,7 @@ impl DesktopShortcutsState {
             slot.frame.mid_y() - ((shortcut_size.height as f64 / 2.0) as isize),
         );
         let new_shortcut = Rc::new(DesktopShortcut::new(id, icon, shortcut_origin, path, title));
+        self.shortcuts.borrow_mut().push(Rc::clone(&new_shortcut));
         slot.set_occupant(Some(Rc::clone(&new_shortcut)));
         new_shortcut.copy_desktop_background_slice(background_layer);
         new_shortcut.set_desktop_gradient_background_color(desktop_gradient_background_color);

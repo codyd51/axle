@@ -86,6 +86,7 @@ impl MouseState {
     }
 }
 
+#[derive(Clone)]
 pub enum MouseInteractionState {
     BackgroundHover,
     WindowHover(Rc<Window>),
@@ -93,10 +94,8 @@ pub enum MouseInteractionState {
     HintingWindowResize(Rc<Window>),
     PerformingWindowDrag(Rc<Window>),
     PerformingWindowResize(Rc<Window>),
-    /// Windows technically fall into this category, but for practicality they're never held in this
-    /// state, and instead use the specific Window states above. This is instead for more 'generic'
-    /// desktop views, such as desktop shortcuts.
-    DesktopElementHover(Rc<dyn DesktopElement>),
+    ShortcutHover(Rc<DesktopShortcut>),
+    ShortcutDrag(Rc<DesktopShortcut>),
 }
 
 impl PartialEq for MouseInteractionState {
@@ -126,8 +125,12 @@ impl PartialEq for MouseInteractionState {
                 MouseInteractionState::PerformingWindowResize(w2) => Rc::ptr_eq(w1, w2),
                 _ => false,
             },
-            MouseInteractionState::DesktopElementHover(e1) => match other {
-                MouseInteractionState::DesktopElementHover(e2) => Rc::ptr_eq(e1, e2),
+            MouseInteractionState::ShortcutHover(s1) => match other {
+                MouseInteractionState::ShortcutHover(s2) => Rc::ptr_eq(s1, s2),
+                _ => false,
+            },
+            MouseInteractionState::ShortcutDrag(s1) => match other {
+                MouseInteractionState::ShortcutDrag(s2) => Rc::ptr_eq(s1, s2),
                 _ => false,
             },
         }

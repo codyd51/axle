@@ -52,7 +52,7 @@ use crate::events::{
 };
 use crate::keyboard::{KeyboardModifier, KeyboardState};
 use crate::mouse::{MouseInteractionState, MouseState, MouseStateChange};
-use crate::shortcuts::DesktopShortcutsState;
+use crate::shortcuts::{DesktopShortcut, DesktopShortcutsState};
 use crate::utils::{awm_service_is_dock, get_timestamp, random_color, random_color_with_rng};
 use crate::window::{
     SharedMemoryLayer, TitleBarButtonsHoverState, Window, WindowDecorationImages, WindowParams,
@@ -257,7 +257,8 @@ impl Desktop {
                 MouseInteractionState::HintingWindowResize(_) => Color::new(212, 119, 201),
                 MouseInteractionState::PerformingWindowDrag(_) => Color::new(30, 65, 217),
                 MouseInteractionState::PerformingWindowResize(_) => Color::new(207, 25, 185),
-                MouseInteractionState::DesktopElementHover(_) => Color::new(100, 100, 100),
+                MouseInteractionState::ShortcutHover(_) => Color::new(140, 140, 140),
+                MouseInteractionState::ShortcutDrag(_) => Color::new(100, 100, 100),
             }
         };
 
@@ -817,6 +818,17 @@ impl Desktop {
         })
     }
 
+    fn shortcut_containing_point(&self, p: Point) -> Option<Rc<DesktopShortcut>> {
+        let shortcuts = self.desktop_shortcuts_state.shortcuts.borrow();
+        shortcuts.iter().find_map(|s| {
+            if s.frame().contains(p) {
+                Some(Rc::clone(&s))
+            } else {
+                None
+            }
+        })
+    }
+
     fn windows_in_z_hierarchy(&self) -> impl Iterator<Item = &Rc<Window>> {
         // Don't include floating windows in the search. For example, this
         // will never return the dock window
@@ -912,10 +924,31 @@ impl Desktop {
         false
     }
 
+    fn can_transition_to_shortcut_drag(&self, shortcut_under_mouse: &Rc<DesktopShortcut>) -> bool {
+        if let MouseInteractionState::ShortcutHover(s) = &self.mouse_interaction_state {
+            if Rc::ptr_eq(s, shortcut_under_mouse) {
+                if self.mouse_state.left_click_down {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     fn mouse_interaction_state_for_mouse_state(
         &self,
         allow_transition_from_hint_to_perform: bool,
     ) -> MouseInteractionState {
+        // Stay in drag states while the left click is ongoing
+        if let MouseInteractionState::PerformingWindowDrag(_)
+        | MouseInteractionState::ShortcutDrag(_) = &self.mouse_interaction_state
+        {
+            if self.mouse_state.left_click_down {
+                return self.mouse_interaction_state.clone();
+            }
+        }
+
+        // Choose a state primarily based on the mouse position
         if let Some(window_under_mouse) = self.window_containing_point(self.mouse_state.pos) {
             let mouse_within_window = window_under_mouse
                 .frame()
@@ -939,15 +972,14 @@ impl Desktop {
             } else {
                 MouseInteractionState::WindowHover(Rc::clone(&window_under_mouse))
             }
-        } else if let Some(elem_under_mouse) =
-            // Note that we're excluding the normal windows Z-index from this search, as they're handled above
-            self
-                .desktop_element_in_category_containing_point(
-                    self.mouse_state.pos,
-                    DesktopElementZIndexCategory::DesktopView,
-                )
+        } else if let Some(shortcut_under_mouse) =
+            self.shortcut_containing_point(self.mouse_state.pos)
         {
-            MouseInteractionState::DesktopElementHover(Rc::clone(&elem_under_mouse))
+            if self.can_transition_to_shortcut_drag(&shortcut_under_mouse) {
+                MouseInteractionState::ShortcutDrag(Rc::clone(&shortcut_under_mouse))
+            } else {
+                MouseInteractionState::ShortcutHover(Rc::clone(&shortcut_under_mouse))
+            }
         } else {
             MouseInteractionState::BackgroundHover
         }
@@ -955,29 +987,49 @@ impl Desktop {
 
     fn handle_left_click_ended(&mut self) {
         // Simple case so handle it directly
-        match &self.mouse_interaction_state {
+
+        // First, figure out what new state we should transition to, if necessary
+        let maybe_new_interaction_state = match &self.mouse_interaction_state {
             MouseInteractionState::PerformingWindowDrag(win) => {
                 // End window drag
-                self.mouse_interaction_state =
-                    MouseInteractionState::HintingWindowDrag(Rc::clone(&win))
+                Some(MouseInteractionState::HintingWindowDrag(Rc::clone(&win)))
             }
             MouseInteractionState::PerformingWindowResize(win) => {
                 // End window resize
-                self.mouse_interaction_state =
-                    MouseInteractionState::HintingWindowResize(Rc::clone(&win))
+                Some(MouseInteractionState::HintingWindowResize(Rc::clone(&win)))
             }
+            MouseInteractionState::ShortcutDrag(shortcut) => {
+                Some(MouseInteractionState::ShortcutHover(Rc::clone(&shortcut)))
+            }
+            _ => None,
+        };
+
+        // Next, invoke any callbacks that are needed.
+        // These steps are split up to satisfy the borrow checker.
+        match &self.mouse_interaction_state {
             MouseInteractionState::WindowHover(win) => {
-                // End left click
                 send_left_click_ended_event(win, self.mouse_state.pos);
             }
-            MouseInteractionState::DesktopElementHover(elem) => {
-                if elem.handle_left_click_ended(self.mouse_state.pos)
+            MouseInteractionState::ShortcutHover(shortcut) => {
+                if shortcut.handle_left_click_ended(self.mouse_state.pos)
                     == MouseInteractionCallbackResult::RedrawRequested
                 {
-                    self.recompute_drawable_regions_in_rect(elem.frame());
+                    self.recompute_drawable_regions_in_rect(shortcut.frame());
+                }
+            }
+            MouseInteractionState::ShortcutDrag(shortcut) => {
+                if shortcut.handle_left_click_ended(self.mouse_state.pos)
+                    == MouseInteractionCallbackResult::RedrawRequested
+                {
+                    self.recompute_drawable_regions_in_rect(shortcut.frame());
                 }
             }
             _ => {}
+        }
+
+        // Set the new state we decided above, if necessary
+        if let Some(new_interaction_state) = maybe_new_interaction_state {
+            self.mouse_interaction_state = new_interaction_state
         }
     }
 
@@ -997,7 +1049,8 @@ impl Desktop {
                 // Has the mouse left the window?
                 let exited_window = match &new_state {
                     MouseInteractionState::BackgroundHover
-                    | MouseInteractionState::DesktopElementHover(_) => true,
+                    | MouseInteractionState::ShortcutHover(_)
+                    | MouseInteractionState::ShortcutDrag(_) => true,
                     MouseInteractionState::WindowHover(w2)
                     | MouseInteractionState::HintingWindowDrag(w2)
                     | MouseInteractionState::HintingWindowResize(w2)
@@ -1009,20 +1062,24 @@ impl Desktop {
                     send_mouse_exited_event(&w)
                 }
             }
-            MouseInteractionState::DesktopElementHover(elem) => {
-                // If we're transitioning out of a desktop element, inform it
-                let exited_element = match &new_state {
-                    MouseInteractionState::DesktopElementHover(new_elem) => {
-                        !Rc::ptr_eq(elem, new_elem)
+            MouseInteractionState::ShortcutHover(old_shortcut) => {
+                // If we're transitioning out of a shortcut, inform it
+                let exited_shortcut = match &new_state {
+                    MouseInteractionState::ShortcutHover(new_shortcut) => {
+                        !Rc::ptr_eq(old_shortcut, new_shortcut)
                     }
                     _ => true,
                 };
-                if exited_element {
-                    if elem.handle_mouse_exited() == MouseInteractionCallbackResult::RedrawRequested
+                if exited_shortcut {
+                    if old_shortcut.handle_mouse_exited()
+                        == MouseInteractionCallbackResult::RedrawRequested
                     {
-                        self.recompute_drawable_regions_in_rect(elem.frame());
+                        self.recompute_drawable_regions_in_rect(old_shortcut.frame());
                     }
                 }
+            }
+            MouseInteractionState::ShortcutDrag(old_shortcut) => {
+                println!("Shortcut drag ended for \"{}\"", old_shortcut.name());
             }
         };
 
@@ -1048,7 +1105,8 @@ impl Desktop {
         {
             let did_enter_new_window = match &self.mouse_interaction_state {
                 MouseInteractionState::BackgroundHover
-                | MouseInteractionState::DesktopElementHover(_) => true,
+                | MouseInteractionState::ShortcutHover(_)
+                | MouseInteractionState::ShortcutDrag(_) => true,
                 MouseInteractionState::WindowHover(old_win)
                 | MouseInteractionState::HintingWindowDrag(old_win)
                 | MouseInteractionState::HintingWindowResize(old_win)
@@ -1063,22 +1121,24 @@ impl Desktop {
             }
         }
 
-        // If we're transitioning into a desktop element, inform it
-        if let MouseInteractionState::DesktopElementHover(new_elem) = &new_state {
-            let did_enter_new_elem = match &self.mouse_interaction_state {
-                MouseInteractionState::DesktopElementHover(old_elem) => {
-                    // Is the new element the same as the old element?
-                    !Rc::ptr_eq(new_elem, old_elem)
+        // If we're transitioning into a shortcut, inform it
+        if let MouseInteractionState::ShortcutHover(new_shortcut) = &new_state {
+            let did_enter_shortcut = match &self.mouse_interaction_state {
+                MouseInteractionState::ShortcutHover(old_shortcut) => {
+                    // Is the new shortcut the same as the old shortcut?
+                    !Rc::ptr_eq(new_shortcut, old_shortcut)
                 }
                 _ => true,
             };
-            if did_enter_new_elem {
-                if new_elem.handle_mouse_entered()
+            if did_enter_shortcut {
+                if new_shortcut.handle_mouse_entered()
                     == MouseInteractionCallbackResult::RedrawRequested
                 {
-                    self.recompute_drawable_regions_in_rect(new_elem.frame());
+                    self.recompute_drawable_regions_in_rect(new_shortcut.frame());
                 }
             }
+        } else if let MouseInteractionState::ShortcutDrag(shortcut) = &new_state {
+            println!("Started shortcut drag for \"{}\"", shortcut.name());
         }
 
         self.mouse_interaction_state = new_state;
@@ -1159,14 +1219,27 @@ impl Desktop {
             &self.mouse_interaction_state
         {
             self.transition_title_bar_hover_state_for_window(window);
-        } else if let MouseInteractionState::DesktopElementHover(elem) =
-            &self.mouse_interaction_state
+        } else if let MouseInteractionState::ShortcutHover(shortcut) = &self.mouse_interaction_state
         {
-            if elem.handle_mouse_moved(self.mouse_state.pos)
+            if shortcut.handle_mouse_moved(self.mouse_state.pos)
                 == MouseInteractionCallbackResult::RedrawRequested
             {
-                self.recompute_drawable_regions_in_rect(elem.frame());
+                self.recompute_drawable_regions_in_rect(shortcut.frame());
             }
+        } else if let MouseInteractionState::ShortcutDrag(shortcut) = &self.mouse_interaction_state
+        {
+            // Update the position of the shortcut based on the mouse movement
+            let prev_frame = shortcut.frame();
+            // Bind the shortcut to the screen size
+            let new_frame = self.bind_rect_to_screen_size(
+                shortcut
+                    .frame()
+                    .replace_origin(shortcut.frame().origin + rel_shift),
+            );
+            shortcut.set_frame(new_frame);
+            // TODO(PT): Re-render the shortcut, as well as re-setting its copy of the background layer
+            //self.compositor_state.queue_full_redraw(new_frame);
+            self.queue_compositor_updates_for_old_and_new_element_frame(prev_frame, new_frame);
         }
     }
 
