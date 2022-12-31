@@ -1122,13 +1122,7 @@ impl Desktop {
             );
 
             dragged_window.set_frame(new_frame);
-            let total_update_region = prev_frame.union(new_frame);
-            self.recompute_drawable_regions_in_rect(total_update_region);
-            //self.compositor_state.queue_full_redraw(total_update_region);
-            for diff_rect in prev_frame.area_excluding_rect(new_frame) {
-                self.compositor_state.queue_full_redraw(diff_rect);
-            }
-
+            self.queue_compositor_updates_for_old_and_new_element_frame(prev_frame, new_frame);
             return;
         } else if let MouseInteractionState::PerformingWindowResize(resized_window) =
             &self.mouse_interaction_state
@@ -1146,12 +1140,7 @@ impl Desktop {
             send_window_resized_event(&resized_window);
 
             resized_window.redraw_title_bar();
-            let update_rect = old_frame.union(new_frame);
-            self.recompute_drawable_regions_in_rect(update_rect);
-            for diff_rect in old_frame.area_excluding_rect(new_frame) {
-                self.compositor_state.queue_full_redraw(diff_rect);
-            }
-
+            self.queue_compositor_updates_for_old_and_new_element_frame(old_frame, new_frame);
             return;
         }
 
@@ -1178,6 +1167,23 @@ impl Desktop {
             {
                 self.recompute_drawable_regions_in_rect(elem.frame());
             }
+        }
+    }
+
+    fn queue_compositor_updates_for_old_and_new_element_frame(
+        &mut self,
+        old_elem_frame: Rect,
+        new_elem_frame: Rect,
+    ) {
+        let update_rect = old_elem_frame.union(new_elem_frame);
+        self.recompute_drawable_regions_in_rect(update_rect);
+        if new_elem_frame.intersects_with(old_elem_frame) {
+            // PT: area_excluding_rect() can only give sane results when the input rects overlap
+            for diff_rect in old_elem_frame.area_excluding_rect(new_elem_frame) {
+                self.compositor_state.queue_full_redraw(diff_rect);
+            }
+        } else {
+            self.compositor_state.queue_full_redraw(update_rect);
         }
     }
 
