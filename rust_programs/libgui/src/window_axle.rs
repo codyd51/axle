@@ -14,8 +14,8 @@ use agx_definitions::{
     Drawable, Layer, LikeLayerSlice, NestedLayerSlice, Point, Rect, SingleFramebufferLayer, Size,
 };
 use awm_messages::{
-    AwmCreateWindow, AwmCreateWindowResponse, AwmWindowPartialRedraw, AwmWindowRedrawReady,
-    AwmWindowUpdateTitle,
+    AwmCloseWindow, AwmCreateWindow, AwmCreateWindowResponse, AwmWindowPartialRedraw,
+    AwmWindowRedrawReady, AwmWindowUpdateTitle,
 };
 
 use crate::ui_elements::*;
@@ -313,6 +313,8 @@ impl AwmWindow {
 
     fn window_close_requested(&self, event: &WindowCloseRequested) {
         printf!("Window close requested: {:?}\n", event);
+        // Ask awm to close the window on its end
+        amc_message_send(AwmWindow::AWM_SERVICE_NAME, AwmCloseWindow::new());
         unsafe { axle_rt::libc::exit(0) }
     }
 
