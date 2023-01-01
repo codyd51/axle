@@ -1114,7 +1114,15 @@ impl Desktop {
                     | MouseInteractionState::MouseDragWithinWindow(w2) => !Rc::ptr_eq(w, w2),
                 };
                 if exited_window {
-                    self.transition_title_bar_hover_state_for_window(w);
+                    // Ensure the previous window is informed that the mouse is no longer hovering in its title bar.
+                    // We need to specify because the title bar hover state machinery can't figure out on its own,
+                    // because it only looks at the mouse position, but not other windows in the Z-index.
+                    // This means that if two windows overlapped with the same title-bar position, and the mouse
+                    // moved into the higher one, both would otherwise retain the hovered state, which is incorrect.
+                    self.transition_to_title_bar_hover_state_for_window(
+                        w,
+                        TitleBarButtonsHoverState::Unhovered,
+                    );
                     send_mouse_exited_event(&w)
                 }
             }
@@ -1220,10 +1228,17 @@ impl Desktop {
     }
 
     fn transition_title_bar_hover_state_for_window(&self, window: &Rc<Window>) {
-        let title_bar_buttons_hover_state = self.title_bar_hover_state_for_window(window);
-        let should_redraw_title_bar =
-            title_bar_buttons_hover_state != window.title_bar_buttons_hover_state();
-        window.set_title_bar_buttons_hover_state(title_bar_buttons_hover_state);
+        let new_state = self.title_bar_hover_state_for_window(window);
+        self.transition_to_title_bar_hover_state_for_window(window, new_state);
+    }
+
+    fn transition_to_title_bar_hover_state_for_window(
+        &self,
+        window: &Rc<Window>,
+        new_state: TitleBarButtonsHoverState,
+    ) {
+        let should_redraw_title_bar = new_state != window.title_bar_buttons_hover_state();
+        window.set_title_bar_buttons_hover_state(new_state);
         if should_redraw_title_bar {
             let title_bar_frame = window.redraw_title_bar();
             self.compositor_state.queue_full_redraw(title_bar_frame);
