@@ -3,8 +3,9 @@ use crate::window::Window;
 use agx_definitions::Point;
 use alloc::rc::Rc;
 use awm_messages::{
-    AwmCloseWindow, AwmKeyDown, AwmKeyUp, AwmMouseEntered, AwmMouseExited, AwmMouseLeftClickEnded,
-    AwmMouseLeftClickStarted, AwmMouseMoved, AwmMouseScrolled, AwmWindowResized,
+    AwmCloseWindow, AwmKeyDown, AwmKeyUp, AwmMouseDragged, AwmMouseEntered, AwmMouseExited,
+    AwmMouseLeftClickEnded, AwmMouseLeftClickStarted, AwmMouseMoved, AwmMouseScrolled,
+    AwmWindowResized,
 };
 use dock_messages::{
     AwmDockWindowClosed, AwmDockWindowCreatedEvent, AwmDockWindowMinimizeRequestedEvent,
@@ -111,6 +112,20 @@ pub fn send_mouse_scrolled_event(window: &Rc<Window>, mouse_pos: Point, delta_z:
     #[cfg(not(target_os = "axle"))]
     {
         println!("Mouse scrolled within window {} {delta_z}", window.name());
+    }
+}
+
+pub fn send_mouse_dragged_event(window: &Rc<Window>, mouse_pos: Point) {
+    #[cfg(target_os = "axle")]
+    {
+        let mouse_within_window = window.frame().translate_point(mouse_pos);
+        let mouse_within_content_view = window.content_frame().translate_point(mouse_within_window);
+        let mouse_dragged_msg = AwmMouseDragged::new(mouse_within_content_view);
+        amc_message_send(&window.owner_service, mouse_dragged_msg);
+    }
+    #[cfg(not(target_os = "axle"))]
+    {
+        println!("send_mouse_dragged_event({}, {mouse_pos})", window.name());
     }
 }
 

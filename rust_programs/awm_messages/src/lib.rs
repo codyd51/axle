@@ -264,6 +264,29 @@ impl ExpectsEventField for AwmMouseMoved {
     const EXPECTED_EVENT: u32 = 804;
 }
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy, ContainsEventField)]
+pub struct AwmMouseDragged {
+    event: u32,
+    // TOOD(PT): Update this event to send a PointU32
+    mouse_x: u32,
+    mouse_y: u32,
+}
+
+impl AwmMouseDragged {
+    pub fn new(mouse_pos: Point) -> Self {
+        Self {
+            event: Self::EXPECTED_EVENT,
+            mouse_x: mouse_pos.x as u32,
+            mouse_y: mouse_pos.y as u32,
+        }
+    }
+}
+
+impl ExpectsEventField for AwmMouseDragged {
+    const EXPECTED_EVENT: u32 = 810;
+}
+
 // Sent from preferences to awm
 #[repr(C)]
 #[derive(Debug, Clone, Copy, ContainsEventField)]

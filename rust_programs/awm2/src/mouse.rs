@@ -94,6 +94,7 @@ pub enum MouseInteractionState {
     HintingWindowResize(Rc<Window>),
     PerformingWindowDrag(Rc<Window>),
     PerformingWindowResize(Rc<Window>),
+    MouseDragWithinWindow(Rc<Window>),
     ShortcutHover(Rc<DesktopShortcut>),
     ShortcutDrag(Rc<DesktopShortcut>),
 }
@@ -123,6 +124,10 @@ impl PartialEq for MouseInteractionState {
             },
             MouseInteractionState::PerformingWindowResize(w1) => match other {
                 MouseInteractionState::PerformingWindowResize(w2) => Rc::ptr_eq(w1, w2),
+                _ => false,
+            },
+            MouseInteractionState::MouseDragWithinWindow(w1) => match other {
+                MouseInteractionState::MouseDragWithinWindow(w2) => Rc::ptr_eq(w1, w2),
                 _ => false,
             },
             MouseInteractionState::ShortcutHover(s1) => match other {

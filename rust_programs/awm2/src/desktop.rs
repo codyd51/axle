@@ -47,8 +47,8 @@ use crate::events::{
     inform_dock_window_closed, inform_dock_window_created, inform_dock_window_title_updated,
     send_close_window_request, send_initiate_window_minimize, send_key_down_event,
     send_key_up_event, send_left_click_ended_event, send_left_click_event,
-    send_mouse_entered_event, send_mouse_exited_event, send_mouse_moved_event,
-    send_mouse_scrolled_event, send_window_resized_event,
+    send_mouse_dragged_event, send_mouse_entered_event, send_mouse_exited_event,
+    send_mouse_moved_event, send_mouse_scrolled_event, send_window_resized_event,
 };
 use crate::keyboard::{KeyboardModifier, KeyboardState};
 use crate::mouse::{MouseInteractionState, MouseState, MouseStateChange};
@@ -250,9 +250,9 @@ impl Desktop {
     fn draw_mouse(&mut self) -> Rect {
         let mouse_color = {
             match self.mouse_interaction_state {
-                MouseInteractionState::BackgroundHover | MouseInteractionState::WindowHover(_) => {
-                    Color::green()
-                }
+                MouseInteractionState::BackgroundHover
+                | MouseInteractionState::WindowHover(_)
+                | MouseInteractionState::MouseDragWithinWindow(_) => Color::green(),
                 MouseInteractionState::HintingWindowDrag(_) => Color::new(121, 160, 217),
                 MouseInteractionState::HintingWindowResize(_) => Color::new(212, 119, 201),
                 MouseInteractionState::PerformingWindowDrag(_) => Color::new(30, 65, 217),
@@ -964,7 +964,8 @@ impl Desktop {
     ) -> MouseInteractionState {
         // Stay in drag states while the left click is ongoing
         if let MouseInteractionState::PerformingWindowDrag(_)
-        | MouseInteractionState::ShortcutDrag(_) = &self.mouse_interaction_state
+        | MouseInteractionState::ShortcutDrag(_)
+        | MouseInteractionState::MouseDragWithinWindow(_) = &self.mouse_interaction_state
         {
             if self.mouse_state.left_click_down {
                 return self.mouse_interaction_state.clone();
@@ -993,7 +994,11 @@ impl Desktop {
                     MouseInteractionState::HintingWindowResize(Rc::clone(&window_under_mouse))
                 }
             } else {
-                MouseInteractionState::WindowHover(Rc::clone(&window_under_mouse))
+                if self.mouse_state.left_click_down {
+                    MouseInteractionState::MouseDragWithinWindow(Rc::clone(&window_under_mouse))
+                } else {
+                    MouseInteractionState::WindowHover(Rc::clone(&window_under_mouse))
+                }
             }
         } else if let Some(shortcut_under_mouse) =
             self.shortcut_containing_point(self.mouse_state.pos)
@@ -1021,6 +1026,11 @@ impl Desktop {
                 // End window resize
                 Some(MouseInteractionState::HintingWindowResize(Rc::clone(&win)))
             }
+            MouseInteractionState::MouseDragWithinWindow(_) => {
+                // The user may have dragged the mouse to outside a window, so we can't necessarily
+                // say that WindowHover is appropriate. We need to compute the correct state 'from scratch'.
+                Some(self.mouse_interaction_state_for_mouse_state(false))
+            }
             MouseInteractionState::ShortcutDrag(shortcut) => {
                 Some(MouseInteractionState::ShortcutHover(Rc::clone(&shortcut)))
             }
@@ -1030,7 +1040,8 @@ impl Desktop {
         // Next, invoke any callbacks that are needed.
         // These steps are split up to satisfy the borrow checker.
         match &self.mouse_interaction_state {
-            MouseInteractionState::WindowHover(win) => {
+            MouseInteractionState::WindowHover(win)
+            | MouseInteractionState::MouseDragWithinWindow(win) => {
                 send_left_click_ended_event(win, self.mouse_state.pos);
             }
             MouseInteractionState::ShortcutHover(shortcut) => {
@@ -1066,7 +1077,7 @@ impl Desktop {
 
         // Set the new state we decided above, if necessary
         if let Some(new_interaction_state) = maybe_new_interaction_state {
-            self.mouse_interaction_state = new_interaction_state
+            self.transition_to_mouse_interaction_state(new_interaction_state);
         }
     }
 
@@ -1081,7 +1092,8 @@ impl Desktop {
             | MouseInteractionState::HintingWindowDrag(w)
             | MouseInteractionState::HintingWindowResize(w)
             | MouseInteractionState::PerformingWindowDrag(w)
-            | MouseInteractionState::PerformingWindowResize(w) => {
+            | MouseInteractionState::PerformingWindowResize(w)
+            | MouseInteractionState::MouseDragWithinWindow(w) => {
                 // If we're transitioning out of a window, inform it
                 // Has the mouse left the window?
                 let exited_window = match &new_state {
@@ -1092,7 +1104,8 @@ impl Desktop {
                     | MouseInteractionState::HintingWindowDrag(w2)
                     | MouseInteractionState::HintingWindowResize(w2)
                     | MouseInteractionState::PerformingWindowDrag(w2)
-                    | MouseInteractionState::PerformingWindowResize(w2) => !Rc::ptr_eq(w, w2),
+                    | MouseInteractionState::PerformingWindowResize(w2)
+                    | MouseInteractionState::MouseDragWithinWindow(w2) => !Rc::ptr_eq(w, w2),
                 };
                 if exited_window {
                     self.transition_title_bar_hover_state_for_window(w);
@@ -1139,7 +1152,8 @@ impl Desktop {
         | MouseInteractionState::HintingWindowDrag(new_win)
         | MouseInteractionState::HintingWindowResize(new_win)
         | MouseInteractionState::PerformingWindowDrag(new_win)
-        | MouseInteractionState::PerformingWindowResize(new_win) = &new_state
+        | MouseInteractionState::PerformingWindowResize(new_win)
+        | MouseInteractionState::MouseDragWithinWindow(new_win) = &new_state
         {
             let did_enter_new_window = match &self.mouse_interaction_state {
                 MouseInteractionState::BackgroundHover
@@ -1149,7 +1163,8 @@ impl Desktop {
                 | MouseInteractionState::HintingWindowDrag(old_win)
                 | MouseInteractionState::HintingWindowResize(old_win)
                 | MouseInteractionState::PerformingWindowDrag(old_win)
-                | MouseInteractionState::PerformingWindowResize(old_win) => {
+                | MouseInteractionState::PerformingWindowResize(old_win)
+                | MouseInteractionState::MouseDragWithinWindow(old_win) => {
                     // Is the new state not about the same window?
                     !Rc::ptr_eq(new_win, old_win)
                 }
@@ -1221,6 +1236,12 @@ impl Desktop {
 
             dragged_window.set_frame(new_frame);
             self.queue_compositor_updates_for_old_and_new_element_frame(prev_frame, new_frame);
+            return;
+        } else if let MouseInteractionState::MouseDragWithinWindow(window_owning_drag) =
+            &self.mouse_interaction_state
+        {
+            // We're performing a drag within the content view of a window
+            send_mouse_dragged_event(&window_owning_drag, self.mouse_state.pos);
             return;
         } else if let MouseInteractionState::PerformingWindowResize(resized_window) =
             &self.mouse_interaction_state
