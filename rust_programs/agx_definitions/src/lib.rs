@@ -658,7 +658,11 @@ impl Rect {
     }
 
     pub fn is_degenerate(&self) -> bool {
-        return self.width() == 0 || self.height() == 0;
+        self.width() == 0 || self.height() == 0
+    }
+
+    pub fn area(&self) -> isize {
+        self.width() * self.height()
     }
 }
 
