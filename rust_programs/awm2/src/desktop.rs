@@ -1175,9 +1175,12 @@ impl Desktop {
         }
 
         // If we're transitioning into a shortcut, inform it
-        if let MouseInteractionState::ShortcutHover(new_shortcut) = &new_state {
+        if let MouseInteractionState::ShortcutHover(new_shortcut)
+        | MouseInteractionState::ShortcutDrag(new_shortcut) = &new_state
+        {
             let did_enter_shortcut = match &self.mouse_interaction_state {
-                MouseInteractionState::ShortcutHover(old_shortcut) => {
+                MouseInteractionState::ShortcutHover(old_shortcut)
+                | MouseInteractionState::ShortcutDrag(old_shortcut) => {
                     // Is the new shortcut the same as the old shortcut?
                     !Rc::ptr_eq(new_shortcut, old_shortcut)
                 }
