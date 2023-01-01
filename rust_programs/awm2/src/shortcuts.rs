@@ -2,6 +2,7 @@ use crate::bitmap::BitmapImage;
 use crate::desktop::{
     Desktop, DesktopElement, DesktopElementZIndexCategory, MouseInteractionCallbackResult,
 };
+use crate::events::request_program_launch;
 use crate::println;
 use crate::utils::get_timestamp;
 use agx_definitions::{
@@ -34,7 +35,7 @@ pub struct DesktopShortcut {
     icon: BitmapImage,
     path: String,
     title: String,
-    //first_click_start_time: Option<usize>,
+    first_click_start_time: RefCell<Option<u64>>,
     interaction_state: RefCell<ShortcutMouseInteractionState>,
     desktop_background_slice: RefCell<Option<SingleFramebufferLayer>>,
     desktop_gradient_background_color: RefCell<Option<Color>>,
@@ -51,7 +52,7 @@ impl DesktopShortcut {
             icon: icon.clone(),
             path: path.to_string(),
             title: title.to_string(),
-            //first_click_start_time: None,
+            first_click_start_time: RefCell::new(None),
             interaction_state: RefCell::new(ShortcutMouseInteractionState::Unhovered),
             desktop_background_slice: RefCell::new(None),
             desktop_gradient_background_color: RefCell::new(None),
@@ -74,11 +75,20 @@ impl DesktopShortcut {
     }
 
     fn is_in_soft_click(&self) -> bool {
-        //self.first_click_start_time.is_some()
-        matches!(
-            self.mouse_interaction_state(),
-            ShortcutMouseInteractionState::LeftClickUp(_)
-        )
+        self.first_click_start_time.borrow().is_some()
+    }
+
+    fn set_first_click_start_time(&self, timestamp: u64) {
+        *self.first_click_start_time.borrow_mut() = Some(timestamp)
+    }
+
+    fn first_click_start_time(&self) -> Option<u64> {
+        *self.first_click_start_time.borrow()
+    }
+
+    fn clear_soft_click_status(&self) {
+        println!("Clearing soft click status");
+        *self.first_click_start_time.borrow_mut() = None
     }
 
     pub fn copy_desktop_background_slice(
@@ -235,12 +245,24 @@ impl DesktopElement for DesktopShortcut {
 
     fn handle_mouse_exited(&self) -> MouseInteractionCallbackResult {
         self.set_mouse_interaction_state(ShortcutMouseInteractionState::Unhovered);
+        self.clear_soft_click_status();
         self.render();
         MouseInteractionCallbackResult::RedrawRequested
     }
 
     fn handle_left_click_began(&self, _mouse_pos: Point) -> MouseInteractionCallbackResult {
         self.set_mouse_interaction_state(ShortcutMouseInteractionState::LeftClickDown);
+        if !self.is_in_soft_click() {
+            self.set_first_click_start_time(get_timestamp());
+        } else {
+            let double_click_duration = get_timestamp() - self.first_click_start_time().unwrap();
+            println!("Double click duration {double_click_duration}");
+            if double_click_duration <= 500 {
+                self.clear_soft_click_status();
+                // Quick double-click, launch the underlying program
+                request_program_launch(&self.path);
+            }
+        }
         self.render();
         MouseInteractionCallbackResult::RedrawRequested
     }

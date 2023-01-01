@@ -1102,7 +1102,8 @@ impl Desktop {
             MouseInteractionState::ShortcutHover(old_shortcut) => {
                 // If we're transitioning out of a shortcut, inform it
                 let exited_shortcut = match &new_state {
-                    MouseInteractionState::ShortcutHover(new_shortcut) => {
+                    MouseInteractionState::ShortcutHover(new_shortcut)
+                    | MouseInteractionState::ShortcutDrag(new_shortcut) => {
                         !Rc::ptr_eq(old_shortcut, new_shortcut)
                     }
                     _ => true,

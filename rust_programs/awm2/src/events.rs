@@ -10,6 +10,7 @@ use dock_messages::{
     AwmDockWindowClosed, AwmDockWindowCreatedEvent, AwmDockWindowMinimizeRequestedEvent,
     AwmDockWindowTitleUpdatedEvent, AWM_DOCK_SERVICE_NAME,
 };
+use file_manager_messages::{LaunchProgram, FILE_SERVER_SERVICE_NAME};
 
 #[cfg(target_os = "axle")]
 mod conditional_imports {
@@ -209,5 +210,16 @@ pub fn inform_dock_window_created(window_id: usize, owner_service: &str) {
     #[cfg(not(target_os = "axle"))]
     {
         println!("inform_dock_window_created({window_id})");
+    }
+}
+
+pub fn request_program_launch(path: &str) {
+    #[cfg(target_os = "axle")]
+    {
+        amc_message_send(FILE_SERVER_SERVICE_NAME, LaunchProgram::new(path));
+    }
+    #[cfg(not(target_os = "axle"))]
+    {
+        println!("request_program_launch({path})");
     }
 }
