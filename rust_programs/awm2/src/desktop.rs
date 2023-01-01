@@ -23,7 +23,9 @@ use mouse_driver_messages::MousePacket;
 use crate::animations::{Animation, ShortcutSnapAnimationParams, WindowTransformAnimationParams};
 use crate::bitmap::BitmapImage;
 use crate::compositor::CompositorState;
-use axle_rt::core_commands::AmcSharedMemoryCreateRequest;
+use axle_rt::core_commands::{
+    AmcRegisterServiceDiedNotif, AmcServiceDiedNotif, AmcSharedMemoryCreateRequest,
+};
 use dock_messages::{AwmDockTaskViewClicked, AwmDockWindowMinimizeWithInfo, AWM_DOCK_HEIGHT};
 use file_manager_messages::{
     str_from_u8_nul_utf8_unchecked, ReadFile, ReadFileResponse, FILE_SERVER_SERVICE_NAME,
@@ -659,6 +661,10 @@ impl Desktop {
             Window::content_size_for_total_size(desktop_size, window_params);
         #[cfg(target_os = "axle")]
         let content_view_layer = {
+            // Ask the kernel to inform us when the remote end dies
+            // This allows us to clean up windows even if the remote didn't exit cleanly
+            AmcRegisterServiceDiedNotif::send(&source);
+
             // Ask the kernel to set up a shared memory mapping we'll use for the framebuffer
             // The framebuffer will be the screen size to allow window resizing
             let bytes_per_pixel = self.screen_buffer_layer.bytes_per_pixel();
@@ -668,7 +674,7 @@ impl Desktop {
                 "Requesting shared memory of size {shared_memory_size} {max_content_view_size:?}"
             );
             let shared_memory_response =
-                AmcSharedMemoryCreateRequest::send(&source.to_string(), shared_memory_size as u32);
+                AmcSharedMemoryCreateRequest::send(&source, shared_memory_size as u32);
 
             let framebuffer_slice = core::ptr::slice_from_raw_parts_mut(
                 shared_memory_response.local_buffer_start as *mut libc::c_void,
@@ -1669,6 +1675,12 @@ impl Desktop {
         self.start_animation(Animation::WindowMinimize(
             WindowTransformAnimationParams::minimize(&window, 200, dest_frame),
         ));
+    }
+
+    pub fn handle_amc_service_died_notif(&mut self, notif: &AmcServiceDiedNotif) {
+        let dead_window_owner = str_from_u8_nul_utf8_unchecked(&notif.dead_service);
+        println!("Core informed awm that {dead_window_owner} has died");
+        self.handle_window_close(dead_window_owner);
     }
 }
 

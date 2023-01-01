@@ -375,4 +375,39 @@ impl ExpectsEventField for AmcSleepUntilDelayOrMessage {
     const EXPECTED_EVENT: u32 = 207;
 }
 
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AmcRegisterServiceDiedNotif {
+    event: u32,
+    remote_service_name: [u8; AMC_MAX_SERVICE_NAME_LEN],
+}
+
+impl AmcRegisterServiceDiedNotif {
+    #[cfg(target_os = "axle")]
+    pub fn send(service_name: &str) {
+        let mut name_buf = [0; AMC_MAX_SERVICE_NAME_LEN];
+        let _name_len = copy_str_into_sized_slice(&mut name_buf, service_name);
+        let msg = Self {
+            event: Self::EXPECTED_EVENT,
+            remote_service_name: name_buf,
+        };
+        amc_message_send(AMC_CORE_SERVICE_NAME, msg);
+    }
+}
+
+impl ExpectsEventField for AmcRegisterServiceDiedNotif {
+    const EXPECTED_EVENT: u32 = 208;
+}
+
+#[repr(C)]
+#[derive(Debug, ContainsEventField)]
+pub struct AmcServiceDiedNotif {
+    event: u32,
+    pub dead_service: [u8; AMC_MAX_SERVICE_NAME_LEN],
+}
+
+impl ExpectsEventField for AmcServiceDiedNotif {
+    const EXPECTED_EVENT: u32 = 208;
+}
+
 /* End of event modeling */

@@ -35,8 +35,9 @@ use mouse_driver_messages::{MousePacket, MOUSE_DRIVER_SERVICE_NAME};
 use preferences_messages::PREFERENCES_SERVICE_NAME;
 
 use axle_rt::core_commands::{
-    AmcAwmMapFramebuffer, AmcAwmMapFramebufferResponse, AmcSharedMemoryCreateRequest,
-    AmcSharedMemoryCreateResponse, AmcSleepUntilDelayOrMessage, AMC_CORE_SERVICE_NAME,
+    AmcAwmMapFramebuffer, AmcAwmMapFramebufferResponse, AmcServiceDiedNotif,
+    AmcSharedMemoryCreateRequest, AmcSharedMemoryCreateResponse, AmcSleepUntilDelayOrMessage,
+    AMC_CORE_SERVICE_NAME,
 };
 use libgui::window_events::AwmWindowEvent;
 use libgui::AwmWindow;
@@ -162,6 +163,14 @@ fn process_next_amc_message(desktop: &mut Desktop) {
                     _ => false,
                 }
             }
+            AMC_CORE_SERVICE_NAME => match event {
+                AmcServiceDiedNotif::EXPECTED_EVENT => {
+                    println!("Got AwmServiceDiedNotif");
+                    desktop.handle_amc_service_died_notif(body_as_type_unchecked(raw_body));
+                    true
+                }
+                _ => false,
+            },
             _ => false,
         };
         if !consumed {
