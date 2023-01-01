@@ -257,8 +257,10 @@ impl DesktopElement for DesktopShortcut {
         } else {
             let double_click_duration = get_timestamp() - self.first_click_start_time().unwrap();
             println!("Double click duration {double_click_duration}");
+            // Always reset the double-click timer, regardless of whether the double-click succeeded.
+            // This lets the user try double-clicking again if they weren't quick enough.
+            self.clear_soft_click_status();
             if double_click_duration <= 500 {
-                self.clear_soft_click_status();
                 // Quick double-click, launch the underlying program
                 request_program_launch(&self.path);
             }
