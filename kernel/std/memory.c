@@ -146,3 +146,9 @@ void *memcpy(void *restrict s1, const void *restrict s2, size_t n) {
 
     return s1;
 }
+
+#include <kernel/assert.h>
+void* memmove( void* dest, const void* src, size_t count ) {
+    // TODO(PT): Implement
+    assert(0, "memmove called");
+}

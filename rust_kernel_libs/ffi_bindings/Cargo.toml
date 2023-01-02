@@ -1,0 +1,7 @@
+[package]
+name = "test_lib"
+version = "0.1.0"
+edition = "2021"
+crate-type = "staticlib"
+
+[dependencies]
