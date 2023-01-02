@@ -5,6 +5,7 @@ edition = "2021"
 
 [lib]
 name = "ffi_bindings"
-crate-type = ["staticlib"]
+crate-type = ["rlib", "staticlib"]
 
 [dependencies]
+cstr_core = "0.2.4"
