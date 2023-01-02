@@ -3,7 +3,9 @@ import os
 import stat
 import shutil
 import argparse
+import tarfile
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from build_utils import run_and_check
 from build_utils import run_and_capture_output_and_check
@@ -14,10 +16,11 @@ _RUST_PROGRAMS_DIR = _REPO_ROOT / "rust_programs"
 # TODO(PT): Template this file to include the full path to x86_64-elf-axle-gcc
 _TARGET_SPEC_FILE = _RUST_PROGRAMS_DIR / "x86_64-unknown-axle.json"
 
-_CACHE_DIR = Path(__file__).parent / "caches"
+_RUST_KERNEL_LIBS_DIR = _REPO_ROOT / "rust_kernel_libs"
+_KERNEL_TARGET_SPEC_FILE = _RUST_KERNEL_LIBS_DIR / "x86_64-unknown-axle_kernel.json"
+_COMPILED_RUST_KERNEL_LIBS_DIR = _REPO_ROOT / "compiled_rust_kernel_libs"
 
-import tarfile
-from tempfile import TemporaryDirectory
+_CACHE_DIR = Path(__file__).parent / "caches"
 
 
 def clone_git_repo(directory: Path, url: str) -> Path:
@@ -94,7 +97,7 @@ def _build_rust_libc_port(temp_dir: Path) -> None:
 
     # Copy the intermediate build products to the Rust 'sysroot' so they don't need to be rebuilt
     # for other projects
-    # Ref: https://rustrepo.com/repo/japaric-rust-cross-rust-embedded
+    # Ref: https://github.com/japaric/rust-cross
     rust_sysroot = Path(run_and_capture_output_and_check(['rustc', '--print', 'sysroot']).strip())
     rust_target_dir = rust_sysroot / "lib" / "rustlib" / "x86_64-unknown-axle" / "lib"
     rust_target_dir.mkdir(exist_ok=True, parents=True)
@@ -166,14 +169,78 @@ def build_rust_programs(check_only: bool = False) -> None:
             shutil.copy(binary.as_posix(), sysroot_applications_dir)
 
 
+def _build_libcore_for_kernel_libs() -> None:
+    cargo_workspace_dir = _RUST_KERNEL_LIBS_DIR
+    ffi_bindings_dir = cargo_workspace_dir / "ffi_bindings"
+    toolchain_dir = _REPO_ROOT / 'x86_64-toolchain'
+    env = {'CC': toolchain_dir / 'bin' / 'x86_64-elf-axle-gcc'}
+    run_and_check(
+        [
+            'cargo',
+            'build',
+            '--no-default-features',
+            '-Zbuild-std=core,alloc',
+            f'--target={_KERNEL_TARGET_SPEC_FILE.as_posix()}',
+        ],
+        cwd=ffi_bindings_dir,
+        env_additions=env,
+    )
+
+    # Copy the intermediate build products to the Rust 'sysroot' so they don't need to be rebuilt
+    # for other projects
+    # Ref: https://github.com/japaric/rust-cross
+    rust_sysroot = Path(run_and_capture_output_and_check(['rustc', '--print', 'sysroot']).strip())
+    rust_target_dir = rust_sysroot / "lib" / "rustlib" / "x86_64-unknown-axle_kernel" / "lib"
+    rust_target_dir.mkdir(exist_ok=True, parents=True)
+    build_dir = cargo_workspace_dir / "target" / "x86_64-unknown-axle_kernel" / "debug"
+    for file in (build_dir / "deps").iterdir():
+        if file.suffix == '.rlib':
+            shutil.copy(file.as_posix(), rust_target_dir.as_posix())
+
+
+def build_kernel_rust_libs() -> None:
+    _COMPILED_RUST_KERNEL_LIBS_DIR.mkdir(exist_ok=True)
+
+    cargo_workspace_dir = _RUST_KERNEL_LIBS_DIR
+    run_and_check(['cargo', 'fmt'], cwd=cargo_workspace_dir)
+    run_and_check(
+        [
+            'cargo',
+            'build',
+            '--release',
+            f'--target={_KERNEL_TARGET_SPEC_FILE.as_posix()}',
+            # Ref: https://users.rust-lang.org/t/cargo-features-for-host-vs-target-no-std/16911
+            # https://github.com/rust-lang/cargo/issues/2589
+            # https://github.com/rust-lang/cargo/issues/7915
+            '-Z',
+            'features=host_dep',
+        ],
+        cwd=cargo_workspace_dir,
+        env_additions={"RUSTFLAGS": "-Cforce-frame-pointers=yes"},
+    )
+    for entry in cargo_workspace_dir.iterdir():
+        if not entry.is_dir():
+            continue
+
+        # Find a static library and move it to the directory for linking to the kernel
+        lib = cargo_workspace_dir / "target" / "x86_64-unknown-axle_kernel" / "release" / f"lib{entry.name}.a"
+        if lib.exists():
+            print(f'Moving build result to kernel build directory: {lib}')
+            shutil.copy(lib.as_posix(), _COMPILED_RUST_KERNEL_LIBS_DIR.as_posix())
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--rebuild_libc", action="store_true")
     parser.add_argument("--test", action="store_true")
     parser.add_argument("--check_only", action="store_true")
+    parser.add_argument("--kernel_libs", action="store_true")
+    parser.add_argument("--rebuild_libcore_for_kernel_libs", action="store_true")
     parser.set_defaults(rebuild_libc=False)
     parser.set_defaults(test=False)
     parser.set_defaults(check_only=False)
+    parser.set_defaults(kernel_libs=False)
+    parser.set_defaults(rebuild_libcore_for_kernel_libs=False)
     args = parser.parse_args()
 
     if args.rebuild_libc:
@@ -182,6 +249,14 @@ def main() -> None:
 
     if args.test:
         test_rust_programs()
+        return
+
+    if args.rebuild_libcore_for_kernel_libs:
+        _build_libcore_for_kernel_libs()
+        return
+
+    if args.kernel_libs:
+        build_kernel_rust_libs()
         return
 
     build_rust_programs(args.check_only)

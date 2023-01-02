@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from build_kernel_headers import copy_kernel_headers
 from build_utils import run_and_check, run_and_capture_output_and_check, copied_file_is_outdated
 from build_meson_projects import build_meson_projects
-from build_rust_toolchain import build_rust_programs
+from build_rust_toolchain import build_rust_programs, build_kernel_rust_libs
 from run_axle import run_iso
 
 
@@ -160,7 +160,10 @@ def main():
     run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader" / "uefi", env_additions=env)
     run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader", env_additions=env)
 
-    # Build kernel image
+    # Build the Rust kernel libraries
+    build_kernel_rust_libs()
+
+    # Build the C and assembly portions of the kernel, and link with the Rust libraries
     run_and_check(["make"])
 
     # Build Rust programs before C programs as the C programs might 

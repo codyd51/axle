@@ -37,3 +37,6 @@ axle-sysroot
 
 rust_programs/*/target
 mkinitrd/target
+
+# Rust libraries generated as part of the kernel build
+compiled_rust_kernel_libs

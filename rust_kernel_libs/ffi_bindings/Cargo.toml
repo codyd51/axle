@@ -1,7 +1,10 @@
 [package]
-name = "test_lib"
+name = "ffi_bindings"
 version = "0.1.0"
 edition = "2021"
-crate-type = "staticlib"
+
+[lib]
+name = "ffi_bindings"
+crate-type = ["staticlib"]
 
 [dependencies]
