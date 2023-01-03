@@ -13,6 +13,7 @@ typedef enum physical_memory_region_type {
     PHYS_MEM_REGION_RESERVED,
     PHYS_MEM_REGION_RESERVED_ACPI_NVM,
     PHYS_MEM_REGION_RESERVED_AXLE_KERNEL_CODE_AND_DATA,
+    PHYS_MEM_REGION_RESERVED_ACPI_TABLES,
 } physical_memory_region_type;
 
 typedef struct physical_memory_region {
@@ -61,6 +62,8 @@ typedef struct boot_info {
     vas_state_t* vas_kernel;
 
     uint32_t ms_per_pit_tick;
+
+    uintptr_t acpi_rsdp;
 } boot_info_t;
 
 boot_info_t* boot_info_get(void);

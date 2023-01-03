@@ -333,7 +333,38 @@ int main(int argc, char** argv) {
 	boot_info->memory_descriptor_size = memory_descriptor_size;
 	boot_info->memory_map_size = memory_map_size;
 
-	// Finally, exit UEFI-land and jump to the kernel
+    // Next, find the ACPI RSDP
+    efi_guid_t acpi_1_0_rsdp_guid = (efi_guid_t){
+        .Data1 = 0xeb9d2d30,
+        .Data2 = 0x2d88,
+        .Data3 = 0x11d3,
+        .Data4 = {0x9a, 0x16, 0x00, 0x90, 0x27, 0x3f, 0xc1, 0x4d},
+    };
+    efi_guid_t acpi_2_0_rsdp_guid = (efi_guid_t){
+            .Data1 = 0x8868e871,
+            .Data2 = 0xe4f1,
+            .Data3 = 0x11d3,
+            .Data4 = {0xbc, 0x22, 0x00, 0x80, 0xc7, 0x3c, 0x88, 0x81},
+    };
+    void* acpi_2_0_rsdp = NULL;
+
+    efi_configuration_table_t* config_table = ST->ConfigurationTable;
+    for (int i = 0; i < ST->NumberOfTableEntries; i++) {
+        efi_configuration_table_t* table = &config_table[i];
+        //printf("Looking at table %d at %x\n", i, table);
+        efi_guid_t* guid = &table->VendorGuid;
+        printf("guid %08x-%04x-%04x-%02x%02x%02x%02x%02x%02x%02x\n", guid->Data1, guid->Data2, guid->Data3, guid->Data4[0], guid->Data4[1], guid->Data4[2], guid->Data4[3], guid->Data4[4], guid->Data4[5], guid->Data4[6], guid->Data4[7]);
+        if (!memcmp(guid, &acpi_1_0_rsdp_guid, sizeof(acpi_1_0_rsdp_guid))) {
+            printf("\tFound ACPI 1.0 RSDP at index %d\n", i);
+        }
+        if (!memcmp(guid, &acpi_2_0_rsdp_guid, sizeof(acpi_2_0_rsdp_guid))) {
+            acpi_2_0_rsdp = table->VendorTable;
+            printf("\tFound ACPI 2.0 RSDP at index %d: 0x%x\n", i, (uintptr_t)acpi_2_0_rsdp);
+        }
+    }
+    boot_info->acpi_rsdp = (uint64_t)acpi_2_0_rsdp;
+
+    // Finally, exit UEFI-land and jump to the kernel
 	printf("Jumping to kernel entry point at %p\n", kernel_entry_point);
 
 	if (exit_bs()) {

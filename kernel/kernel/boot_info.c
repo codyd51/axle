@@ -280,9 +280,11 @@ void boot_info_read(axle_boot_info_t* bootloader_info) {
                  mem_desc->type == EFI_MEMORY_RESERVED) {
             region->type = PHYS_MEM_REGION_RESERVED;
         }
-        else if (mem_desc->type == EFI_ACPI_MEMORY_NVS ||
-                 mem_desc->type == EFI_ACPI_RECLAIM_MEMORY) {
+        else if (mem_desc->type == EFI_ACPI_MEMORY_NVS) {
             region->type = PHYS_MEM_REGION_RESERVED_ACPI_NVM;
+        }
+        else if (mem_desc->type == EFI_ACPI_RECLAIM_MEMORY) {
+            region->type = PHYS_MEM_REGION_RESERVED_ACPI_TABLES;
         }
         else if (mem_desc->type == EFI_PAL_CODE) {
             // Ref: https://forum.osdev.org/viewtopic.php?f=1&t=55980&sid=c44c69b84bdf42a2dc92a878ca00abbc
@@ -294,6 +296,8 @@ void boot_info_read(axle_boot_info_t* bootloader_info) {
             region->type = PHYS_MEM_REGION_RESERVED;
         }
     }
+
+    boot_info->acpi_rsdp = bootloader_info->acpi_rsdp;
 }
 
 void boot_info_dump() {
@@ -310,4 +314,5 @@ void boot_info_dump() {
 
     //boot_info_dump_memory_map(info);
     //boot_info_dump_symbol_table(info);
+    printf("ACPI RSDP: 0x%p\n", info->acpi_rsdp);
 }
