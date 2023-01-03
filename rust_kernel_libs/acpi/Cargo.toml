@@ -1,0 +1,11 @@
+[package]
+name = "acpi"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "acpi"
+crate-type = ["staticlib"]
+
+[dependencies]
+ffi_bindings = {path = "../ffi_bindings"}

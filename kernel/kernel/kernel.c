@@ -32,23 +32,76 @@ void FS_SERVER_EXEC_TRAMPOLINE_NAME(uint32_t arg1, uint32_t arg2, uint32_t arg3)
     elf_load_buffer(program_name, argv, PMA_TO_VMA(boot_info->file_server_elf_start), boot_info->file_server_elf_size, false);
 }
 
+void draw(axle_boot_info_t* bi, int color) {
+    return;
+	uint32_t* base = (uint32_t*)bi->framebuffer_base;
+	for (uint32_t y = 0; y < bi->framebuffer_height; y++) {
+		for (uint32_t x = 0; x < bi->framebuffer_width; x++) {
+			base[y * bi->framebuffer_width + x] = color;
+		}
+	}
+	//wait();
+}
+
+void draw2(int color) {
+    return;
+    boot_info_t* b = boot_info_get();
+    framebuffer_info_t fb = b->framebuffer;
+    uint32_t* base = (uint32_t*)fb.address;
+	for (uint32_t y = 0; y < fb.height; y++) {
+		for (uint32_t x = 0; x < fb.width; x++) {
+			base[(y * fb.width) + x] = color;
+		}
+	}
+	//wait();
+}
+
+#include <gfx/font/font.h>
+
+
 void _start(axle_boot_info_t* boot_info) {
+    draw(boot_info, 0x0000ffff);
+    //draw_string_oneshot("Parsing boot info...\n");
+    //while (1) {}
     // Environment info
     boot_info_read(boot_info);
-    boot_info_dump();
+    //draw(boot_info, 0x0000ff00);
+    //boot_info_dump();
+    //draw_string_oneshot("Got boot info\n");
 
     // Descriptor tables
     gdt_init();
+    draw(boot_info, 0x000000ff);
     interrupt_init();
+    draw(boot_info, 0xff00ff);
+    //draw_string_oneshot("Enabled interrupts");
+    //draw_string_oneshot("Will next try PIT");
 
     // PIT and serial drivers
     pit_timer_init(PIT_TICK_GRANULARITY_1MS);
+    //draw_string_oneshot("Enabled PIT");
+    //draw(boot_info, 0x444444);
     serial_init();
+    //draw_string_oneshot("Enabled serial");
+    //draw(boot_info, 0xffff00);
 
     // Kernel features
     pmm_init();
+    //draw(boot_info, 0xffffff);
     pmm_dump();
+    //draw(boot_info, 0xff45ff);
     vmm_init(boot_info->boot_pml4);
+
+    //draw(boot_info, 0x00ff0000);
+    //draw_string_oneshot_ex("Enabling tasking...", false);
+
+    // Parse the ACPI tables
+    // This must happen before the second half of the bootstrap, as the ACPI tables are in the low-memory identity map.
+    // The low-memory identity map is trashed once we enter the second half.
+    // (See also: comment in bootloader/paging.c)
+    boot_info_t* info = boot_info_get();
+    printf("Bootloader provided RSDP 0x%x\n", info->acpi_rsdp, info->acpi_rsdp);
+    acpi_parse_root_system_description(info->acpi_rsdp);
 
     // Higher-level features like multitasking
     tasking_init(&_kernel_bootstrap_part2);
@@ -57,12 +110,17 @@ void _start(axle_boot_info_t* boot_info) {
 }
 
 static void _kernel_bootstrap_part2(void) {
+    //draw_string_oneshot("Bootstrap part 2");
+    //draw(boot_info_get(), 0x00ff00ff);
     // We're now fully set up in high memory
     syscall_init();
+
+    //draw_string_oneshot("Syscalls done");
 
     // Initialize PS/2 controller
     // (and sub-drivers, such as a PS/2 keyboard and mouse)
     ps2_controller_init();
+    //draw_string_oneshot("PS/2 done");
 
     // Early boot is finished
     // Multitasking and program loading is now available
@@ -70,6 +128,8 @@ static void _kernel_bootstrap_part2(void) {
     // Launch the file server, which will load the ramdisk and launch all the 
     // specified startup programs
     task_spawn__with_args("launch_fs_server", FS_SERVER_EXEC_TRAMPOLINE_NAME, 0, 0, 0);
+
+    //draw_string_oneshot("Bootstrap done");
 
     // Bootstrapping complete - kill this process
     printf("[t = %d] Bootstrap task [PID %d] will exit\n", time(), getpid());
