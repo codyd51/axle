@@ -95,21 +95,25 @@ void _start(axle_boot_info_t* boot_info) {
     //draw(boot_info, 0x00ff0000);
     //draw_string_oneshot_ex("Enabling tasking...", false);
 
-    // Parse the ACPI tables
-    // This must happen before the second half of the bootstrap, as the ACPI tables are in the low-memory identity map.
-    // The low-memory identity map is trashed once we enter the second half.
-    // (See also: comment in bootloader/paging.c)
-    boot_info_t* info = boot_info_get();
-    printf("Bootloader provided RSDP 0x%x\n", info->acpi_rsdp, info->acpi_rsdp);
-    acpi_parse_root_system_description(info->acpi_rsdp);
-
     // Higher-level features like multitasking
+    // Note that as soon as we enter part 2, we won't be able to read any low memory.
+    // This is because the bootloader identity maps low memory, and this identity mapping is trashed once we switch
+    // to the kernel's paging structures.
+    // (See also: comment in bootloader/paging.c)
     tasking_init(&_kernel_bootstrap_part2);
     // The above call should never return
     assert(false, "Control should have been transferred to a new stack");
 }
 
 static void _kernel_bootstrap_part2(void) {
+    // Parse the ACPI tables
+    boot_info_t* info = boot_info_get();
+    printf("Bootloader provided RSDP 0x%x\n", info->acpi_rsdp, info->acpi_rsdp);
+    acpi_parse_root_system_description(info->acpi_rsdp);
+    // This must happen before the second half of the bootstrap, as the ACPI tables are in the low-memory identity map.
+    // The low-memory identity map is trashed once we enter the second half.
+    // (See also: comment in bootloader/paging.c)
+
     //draw_string_oneshot("Bootstrap part 2");
     //draw(boot_info_get(), 0x00ff00ff);
     // We're now fully set up in high memory
