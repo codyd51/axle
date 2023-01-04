@@ -34,6 +34,11 @@ struct RootSystemDescriptionHeader {
     reserved: [u8; 3],
 }
 
+// Design note: We need getters for many fields rather than raw field access because many of the
+// fields are unaligned, due to the packed structs. If we tried to directly use fields inside
+// println!() this would implicitly create a reference, which is undefined for unaligned fields.
+// Copying into a local works, though, so getters (that copy the field) get around this quirk.
+
 impl RootSystemDescriptionHeader {
     fn signature(&self) -> String {
         String::from_utf8_lossy(&self.signature).into_owned()
@@ -125,6 +130,20 @@ struct ProcessorLocalApic {
     flags: u32,
 }
 
+impl ProcessorLocalApic {
+    fn processor_id(&self) -> u8 {
+        self.processor_id
+    }
+
+    fn apic_id(&self) -> u8 {
+        self.apic_id
+    }
+
+    fn flags(&self) -> u32 {
+        self.flags
+    }
+}
+
 #[repr(packed)]
 #[derive(Debug, Copy, Clone)]
 struct IoApic {
@@ -132,6 +151,20 @@ struct IoApic {
     reserved: u8,
     apic_phys_addr: u32,
     global_system_interrupt_base: u32,
+}
+
+impl IoApic {
+    fn id(&self) -> u8 {
+        self.id
+    }
+
+    fn apic_phys_addr(&self) -> u32 {
+        self.apic_phys_addr
+    }
+
+    fn global_system_interrupt_base(&self) -> u32 {
+        self.global_system_interrupt_base
+    }
 }
 
 #[repr(packed)]
@@ -143,12 +176,44 @@ struct IoApicInterruptSourceOverride {
     flags: u16,
 }
 
+impl IoApicInterruptSourceOverride {
+    fn bus_source(&self) -> u8 {
+        self.bus_source
+    }
+
+    fn irq_source(&self) -> u8 {
+        self.irq_source
+    }
+
+    fn global_system_interrupt(&self) -> u32 {
+        self.global_system_interrupt
+    }
+
+    fn flags(&self) -> u16 {
+        self.flags
+    }
+}
+
 #[repr(packed)]
 #[derive(Debug, Copy, Clone)]
 struct ApicNonMaskableInterrupt {
     for_processor_id: u8,
     flags: u16,
     lint: u8,
+}
+
+impl ApicNonMaskableInterrupt {
+    fn for_processor_id(&self) -> u8 {
+        self.for_processor_id
+    }
+
+    fn flags(&self) -> u16 {
+        self.flags
+    }
+
+    fn lint(&self) -> u8 {
+        self.lint
+    }
 }
 
 pub fn parse_struct_at_virt_addr<T>(virt_addr: usize) -> &'static T {
@@ -167,39 +232,37 @@ pub fn acpi_parse_root_system_description(phys_addr: usize) {
     // leads to lots of logs on each invocation as the first heap memory block is created/destroyed.
     let mut hack_to_occupy_some_heap_memory: Vec<u8> = Vec::with_capacity(16);
 
-    println!("Parsing ACPI RSDP at {phys_addr:#016x}");
+    println!("[{phys_addr:#016x} ACPI RootSystemDescription]");
     let root_header: &RootSystemDescriptionHeader = parse_struct_at_phys_addr(phys_addr);
     assert_eq!(root_header.signature(), "RSD PTR ");
-    println!("\tOEM ID: {}", root_header.oem_id());
     // Only ACPI 2.0 is supported, for now
     assert_eq!(root_header.revision, 2);
 
-    println!("\tRSDT @ {:#016x}", root_header.rsdt_phys_addr());
-    println!("\t  Len  {:#016x}", root_header.table_length());
-    println!("\tXSDT @ {:#016x}", root_header.xsdt_phys_addr());
-
-    parse_xstd_at_phys_addr(root_header.xsdt_phys_addr());
+    parse_xstd_at_phys_addr(1, root_header.xsdt_phys_addr());
 
     // Ensure this allocation isn't optimized away by accessing it at the end
     hack_to_occupy_some_heap_memory.push(1);
 }
 
+fn get_tabs(num: usize) -> String {
+    "\t".repeat(num)
+}
+
 fn dump_system_description(tab_level: usize, desc: &SystemDescriptionHeader) {
-    let tabs = "\t".repeat(tab_level);
+    let tabs = get_tabs(tab_level);
     println!("{tabs}ACPI System Description Header:");
     println!("{tabs}\tSignature: {}", desc.signature());
     println!("{tabs}\tOEM ID   : {}", desc.oem_id());
     println!("{tabs}\tOEM TabID: {}", desc.oem_table_id());
 }
 
-fn parse_xstd_at_phys_addr(phys_addr: usize) {
+fn parse_xstd_at_phys_addr(tab_level: usize, phys_addr: usize) {
+    let tabs = get_tabs(tab_level);
     let extended_system_desc: &ExtendedSystemDescriptionHeader =
         parse_struct_at_phys_addr(phys_addr);
     let extended_header = extended_system_desc.base;
-    println!("Got XSTD {extended_header:?}");
+    println!("{tabs}[{phys_addr:#016x} XSTD]");
     assert_eq!(extended_header.signature(), "XSDT");
-    println!("\tOEM ID: {}", extended_header.oem_id());
-    println!("\tOEM ID: {}", extended_header.oem_table_id());
 
     let length = extended_header.length;
     let num_entries = (length as usize - mem::size_of::<ExtendedSystemDescriptionHeader>())
@@ -214,70 +277,118 @@ fn parse_xstd_at_phys_addr(phys_addr: usize) {
         entries
     };
     for entry in entries {
-        println!("\tEntry {entry:x} {:p}", &entry);
-
-        let table = parse_system_description_at_phys_addr(*entry as usize);
-        dump_system_description(2, table);
+        let table_phys_addr = *entry as usize;
+        let table = parse_system_description_at_phys_addr(table_phys_addr);
+        println!(
+            "{tabs}\t[{table_phys_addr:#016x} XSTD Entry \"{}\"]",
+            table.signature()
+        );
         if table.signature() == "APIC" {
-            println!("\t\tFound APIC table at {entry:x}!");
-            let apic_header: &MultiApicDescriptionTable =
-                parse_struct_at_phys_addr(*entry as usize);
-            println!(
-                "\t\tInterrupt controller address: {:x}",
-                apic_header.local_interrupt_controller_phys_addr()
-            );
-
-            unsafe {
-                let mut interrupt_controller_header_ptr =
-                    core::ptr::addr_of!(apic_header.interrupt_controller_headers) as *const u8;
-                let interrupt_controllers_len = (apic_header.base.length as usize)
-                    - mem::size_of::<MultiApicDescriptionTable>();
-                let end_ptr =
-                    interrupt_controller_header_ptr.offset(interrupt_controllers_len as isize);
-                println!("\t\tInterrupt controllers len: {interrupt_controllers_len}");
-                loop {
-                    let interrupt_controller_header: &InterruptControllerHeader =
-                        parse_struct_at_virt_addr(interrupt_controller_header_ptr as usize);
-                    println!(
-                        "\t\t\tFound interrupt controller header {interrupt_controller_header:?}"
-                    );
-                    let interrupt_controller_body_ptr = interrupt_controller_header_ptr
-                        .offset(mem::size_of::<InterruptControllerHeader>() as isize);
-
-                    if interrupt_controller_header.entry_type == 0 {
-                        let processor_apic: &ProcessorLocalApic =
-                            parse_struct_at_virt_addr(interrupt_controller_body_ptr as usize);
-                        println!("\t\t\t\tParsed ProcessorLocalApic {processor_apic:?}");
-                    } else if interrupt_controller_header.entry_type == 1 {
-                        let io_apic: &IoApic =
-                            parse_struct_at_virt_addr(interrupt_controller_body_ptr as usize);
-                        println!("\t\t\t\tParsed IoApic {io_apic:?}");
-                    } else if interrupt_controller_header.entry_type == 2 {
-                        let source_override: &IoApicInterruptSourceOverride =
-                            parse_struct_at_virt_addr(interrupt_controller_body_ptr as usize);
-                        println!(
-                            "\t\t\t\tParsed IoApicInterruptSourceOverride {source_override:?}"
-                        );
-                    } else if interrupt_controller_header.entry_type == 4 {
-                        let non_maskable_interrupt: &ApicNonMaskableInterrupt =
-                            parse_struct_at_virt_addr(interrupt_controller_body_ptr as usize);
-                        println!(
-                            "\t\t\t\tParsed IoApicNonMaskableInterrupt {non_maskable_interrupt:?}"
-                        );
-                    } else {
-                        println!("\t\t\t\tUnknown type");
-                    }
-
-                    interrupt_controller_header_ptr = interrupt_controller_header_ptr
-                        .offset(interrupt_controller_header.entry_len as isize);
-                    if interrupt_controller_header_ptr >= end_ptr {
-                        break;
-                    }
-                }
-                println!("\t\tFinished parsing interrupt controllers");
-            }
+            parse_apic_table(tab_level + 2, table_phys_addr);
         }
     }
+}
+
+fn parse_apic_table(tab_level: usize, phys_addr: usize) {
+    let tabs = get_tabs(tab_level);
+    let apic_header: &MultiApicDescriptionTable = parse_struct_at_phys_addr(phys_addr);
+    println!(
+        "{tabs}[{:#016x} IntController]",
+        apic_header.local_interrupt_controller_phys_addr()
+    );
+
+    let mut interrupt_controller_header_ptr =
+        core::ptr::addr_of!(apic_header.interrupt_controller_headers) as *const u8;
+    let interrupt_controllers_len =
+        (apic_header.base.length as usize) - mem::size_of::<MultiApicDescriptionTable>();
+
+    unsafe {
+        let end_ptr = interrupt_controller_header_ptr.offset(interrupt_controllers_len as isize);
+        loop {
+            let interrupt_controller_header: &InterruptControllerHeader =
+                parse_struct_at_virt_addr(interrupt_controller_header_ptr as usize);
+            //println!("\t\t\tFound interrupt controller header {interrupt_controller_header:?}");
+            let interrupt_controller_body_ptr = interrupt_controller_header_ptr
+                .offset(mem::size_of::<InterruptControllerHeader>() as isize)
+                as usize;
+
+            match interrupt_controller_header.entry_type {
+                0 => parse_processor_local_apic(
+                    tab_level + 1,
+                    parse_struct_at_virt_addr(interrupt_controller_body_ptr),
+                ),
+                1 => parse_io_apic(
+                    tab_level + 1,
+                    parse_struct_at_virt_addr(interrupt_controller_body_ptr),
+                ),
+                2 => parse_io_apic_interrupt_source_override(
+                    tab_level + 1,
+                    parse_struct_at_virt_addr(interrupt_controller_body_ptr),
+                ),
+                4 => parse_apic_non_maskable_interrupt(
+                    tab_level + 1,
+                    parse_struct_at_virt_addr(interrupt_controller_body_ptr),
+                ),
+                _ => println!(
+                    "{tabs}\t[Unknown APIC controller type {}",
+                    interrupt_controller_header.entry_type
+                ),
+            }
+
+            interrupt_controller_header_ptr = interrupt_controller_header_ptr
+                .offset(interrupt_controller_header.entry_len as isize);
+            if interrupt_controller_header_ptr >= end_ptr {
+                break;
+            }
+        }
+        println!("\t\tFinished parsing interrupt controllers");
+    }
+}
+
+fn parse_processor_local_apic(tab_level: usize, processor_local_apic: &ProcessorLocalApic) {
+    let tabs = get_tabs(tab_level);
+    println!(
+        "{tabs}[ProcessorLocalApic P#{}, APIC#{}, F#{:#08x}]",
+        processor_local_apic.processor_id(),
+        processor_local_apic.apic_id(),
+        processor_local_apic.flags()
+    );
+}
+
+fn parse_io_apic(tab_level: usize, io_apic: &IoApic) {
+    let tabs = get_tabs(tab_level);
+    println!(
+        "{tabs}[IoApic ID {}, PhysAddr {:#016x}, IntBase {}]",
+        io_apic.id(),
+        io_apic.apic_phys_addr(),
+        io_apic.global_system_interrupt_base()
+    );
+}
+
+fn parse_io_apic_interrupt_source_override(
+    tab_level: usize,
+    io_apic_interrupt_source_override: &IoApicInterruptSourceOverride,
+) {
+    let tabs = get_tabs(tab_level);
+    println!(
+        "{tabs}[IoApicInterruptSourceOverride BusSrc {}, IrqSrc {}, SysInt {}]",
+        io_apic_interrupt_source_override.bus_source(),
+        io_apic_interrupt_source_override.irq_source(),
+        io_apic_interrupt_source_override.global_system_interrupt()
+    );
+}
+
+fn parse_apic_non_maskable_interrupt(
+    tab_level: usize,
+    non_maskable_interrupt: &ApicNonMaskableInterrupt,
+) {
+    let tabs = get_tabs(tab_level);
+    println!(
+        "{tabs}[ApicNonMaskableInterrupt P#{}, Flags {:#04x}, Lint {}]",
+        non_maskable_interrupt.for_processor_id(),
+        non_maskable_interrupt.flags(),
+        non_maskable_interrupt.lint()
+    );
 }
 
 fn parse_system_description_at_phys_addr(phys_addr: usize) -> &'static SystemDescriptionHeader {
