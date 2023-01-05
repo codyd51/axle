@@ -89,7 +89,7 @@ unsafe impl GlobalAlloc for Dummy {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         kmalloc(layout.size()) as *mut u8
     }
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+    unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
         kfree(ptr as *mut c_char);
     }
 }

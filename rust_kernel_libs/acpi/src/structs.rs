@@ -1,3 +1,4 @@
+use crate::utils::PhysAddr;
 use alloc::string::String;
 
 #[repr(packed)]
@@ -33,12 +34,12 @@ impl RootSystemDescriptionHeader {
         self.table_length as usize
     }
 
-    pub fn rsdt_phys_addr(&self) -> usize {
-        self.rsdt_phys_addr as usize
+    pub fn rsdt_phys_addr(&self) -> PhysAddr {
+        PhysAddr(self.rsdt_phys_addr as usize)
     }
 
-    pub fn xsdt_phys_addr(&self) -> usize {
-        self.xsdt_phys_addr as usize
+    pub fn xsdt_phys_addr(&self) -> PhysAddr {
+        PhysAddr(self.xsdt_phys_addr as usize)
     }
 
     pub fn revision(&self) -> u8 {
@@ -98,8 +99,8 @@ pub struct MultiApicDescriptionTable {
 }
 
 impl MultiApicDescriptionTable {
-    pub fn local_interrupt_controller_phys_addr(&self) -> u32 {
-        self.local_interrupt_controller_phys_addr
+    pub fn local_interrupt_controller_phys_addr(&self) -> PhysAddr {
+        PhysAddr(self.local_interrupt_controller_phys_addr as usize)
     }
 
     pub fn flags(&self) -> u32 {
@@ -117,13 +118,13 @@ pub struct InterruptControllerHeader {
 
 #[repr(packed)]
 #[derive(Debug, Copy, Clone)]
-pub struct ProcessorLocalApic {
+pub struct ProcessorLocalApicRaw {
     processor_id: u8,
     apic_id: u8,
     flags: u32,
 }
 
-impl ProcessorLocalApic {
+impl ProcessorLocalApicRaw {
     pub fn processor_id(&self) -> u8 {
         self.processor_id
     }
@@ -139,20 +140,20 @@ impl ProcessorLocalApic {
 
 #[repr(packed)]
 #[derive(Debug, Copy, Clone)]
-pub struct IoApic {
+pub struct IoApicRaw {
     id: u8,
     reserved: u8,
     apic_phys_addr: u32,
     global_system_interrupt_base: u32,
 }
 
-impl IoApic {
+impl IoApicRaw {
     pub fn id(&self) -> u8 {
         self.id
     }
 
-    pub fn apic_phys_addr(&self) -> u32 {
-        self.apic_phys_addr
+    pub fn apic_phys_addr(&self) -> PhysAddr {
+        PhysAddr(self.apic_phys_addr as usize)
     }
 
     pub fn global_system_interrupt_base(&self) -> u32 {

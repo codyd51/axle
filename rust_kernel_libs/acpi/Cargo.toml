@@ -9,3 +9,8 @@ crate-type = ["staticlib"]
 
 [dependencies]
 ffi_bindings = {path = "../ffi_bindings"}
+
+[dependencies.bitvec]
+version = "1"
+default-features = false
+features = ["alloc"]
