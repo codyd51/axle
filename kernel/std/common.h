@@ -58,6 +58,9 @@ STDAPI void cpuid(int code, uint32_t* a, uint32_t* d);
 //invalidate TLB entry associated with virtual address @p m
 void invlpg(void* m);
 
+void x86_msr_get(uint32_t msr, uint32_t* lo, uint32_t* hi);
+void x86_msr_set(uint32_t msr, uint32_t lo, uint32_t hi);
+
 __END_DECLS
 
 #endif // STD_COMMON_H

@@ -65,3 +65,13 @@ bool interrupts_enabled(void) {
 void cpuid(int code, uint32_t* a, uint32_t* d) {
 	asm volatile("cpuid" : "=a"(*a), "=d"(*d) : "0"(code) : "ebx", "ecx");
 }
+
+const uint32_t CPUID_FLAG_MSR = 1 << 5;
+
+void x86_msr_get(uint32_t msr, uint32_t* lo, uint32_t* hi) {
+    asm volatile("rdmsr" : "=a"(*lo), "=d"(*hi) : "c"(msr));
+}
+
+void x86_msr_set(uint32_t msr, uint32_t lo, uint32_t hi) {
+    asm volatile("wrmsr" : : "a"(lo), "d"(hi), "c"(msr));
+}
