@@ -455,7 +455,7 @@ void tasking_init_part2(void* continue_func_ptr) {
     // reaper cleans up and frees the resources of ZOMBIE tasks
     task_spawn("reaper", reaper_task);
 
-    printf_info("Multitasking initialized");
+    printf("Multitasking initialized\n");
     _multitasking_ready = true;
     asm("sti");
 

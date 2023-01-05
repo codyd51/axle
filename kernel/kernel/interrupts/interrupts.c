@@ -40,7 +40,9 @@ void dump_stack(uint32_t* mem) {
 void interrupt_handle(register_state_t* regs) {
 	uint8_t int_no = regs->int_no;
 	bool is_external = (bool)regs->is_external_interrupt;
-	//printf("interrupt_handle(%d, is_external %d err_code %d)\n", regs->int_no, regs->is_external_interrupt, regs->err_code);
+    if (int_no != 128) {
+        //printf("interrupt_handle(%d, is_external %d err_code %d)\n", regs->int_no, regs->is_external_interrupt, regs->err_code);
+    }
 
 	if (interrupt_handlers[int_no] != 0) {
 		int_callback_t handler = interrupt_handlers[int_no];
@@ -56,7 +58,8 @@ void interrupt_handle(register_state_t* regs) {
 		else {
 			printf("Unhandled IRQ: %d\n", int_no);
 			if (is_external) {
-				pic_signal_end_of_interrupt(int_no);
+				apic_signal_end_of_interrupt(int_no);
+                return;
 			}
 		}
 	}
@@ -65,7 +68,7 @@ void interrupt_handle(register_state_t* regs) {
 	// Also, the PIT EOI will be sent by the PIT driver
 	// TODO(PT): Is this needed or is the unhandled interrupt check above enough?
 	if (is_external && !adi_services_interrupt(int_no) && int_no != INT_VECTOR_IRQ0) {
-		pic_signal_end_of_interrupt(int_no);
+        apic_signal_end_of_interrupt(int_no);
 	}
 }
 
@@ -102,6 +105,7 @@ void interrupt_setup_callback(uint8_t interrupt_num, int_callback_t callback) {
 
 	if (is_interrupt_vector_delivered_by_pic(interrupt_num)) {
 		// Unmask this interrupt since we're now able to handle it
-		pic_set_interrupt_enabled(interrupt_num, true);
+        // TODO(PT): Enable this interrupt in the APIC (for now, all interrupts are enabled)
+        printf("Skipping unmask of interrupt %d\n", interrupt_num);
 	}
 }
