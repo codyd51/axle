@@ -63,7 +63,6 @@ static void idt_map_all_gates(idt_descriptor_t* idt_entries) {
     idt_set_gate64(&idt_entries[29], (uintptr_t)internal_interrupt29);
     idt_set_gate64(&idt_entries[30], (uintptr_t)internal_interrupt30);
     idt_set_gate64(&idt_entries[31], (uintptr_t)internal_interrupt31);
-    idt_set_gate64(&idt_entries[ 0], (uintptr_t)internal_interrupt0);
 
     // Next 16 interrupt lines will be delivered from external devices via the PIC
     idt_set_gate64(&idt_entries[32], (uintptr_t)external_interrupt0);
