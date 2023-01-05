@@ -12,19 +12,10 @@
 #define PIC2_COMMAND    PIC2
 #define PIC2_DATA       (PIC2+1)
 
-#define PIC_EOI			0x20		/* End-of-interrupt command */
-
 #define ICW1_ICW4		0x01        /* ICW4 (not) needed */
-#define ICW1_SINGLE		0x02        /* Single (cascade) mode */
-#define ICW1_INTERVAL4	0x04        /* Call address interval 4 (8) */
-#define ICW1_LEVEL		0x08        /* Level triggered (edge) mode */
 #define ICW1_INIT		0x10        /* Initialization - required! */
 
 #define ICW4_8086		0x01        /* 8086/88 (MCS-80/85) mode */
-#define ICW4_AUTO		0x02        /* Auto (normal) EOI */
-#define ICW4_BUF_SLAVE	0x08        /* Buffered mode/slave */
-#define ICW4_BUF_MASTER	0x0C        /* Buffered mode/master */
-#define ICW4_SFNM		0x10        /* Special fully nested (not) */
 
 void pic_remap(int offset1, int offset2) {
     /*
@@ -52,39 +43,17 @@ void pic_remap(int offset1, int offset2) {
     // But be sure to allow IRQ2 as it's how the slave PIC will talk to the master
     outb(PIC1_DATA, 0xff);
     outb(PIC2_DATA, 0xff);
-    pic_set_interrupt_enabled(INT_VECTOR_IRQ2, true);
+    //pic_set_interrupt_enabled(INT_VECTOR_IRQ2, true);
 }
 
 void pic_signal_end_of_interrupt(uint8_t irq_no) {
-    //if the interrupt comes from the slave PIC, we need to signal EOI to both the master and slave
-    if (irq_no >= 8) {
-        outb(PIC2_COMMAND, PIC_EOI);
-    }
-    outb(PIC1_COMMAND, PIC_EOI);
+    // PT: PIT is replaced by the APIC
+    Deprecated();
 }
 
 void pic_set_interrupt_enabled(int interrupt, bool enabled) {
-    assert(is_interrupt_vector_delivered_by_pic(interrupt), "Invalid interrupt vector");
-
-    int irq_no = interrupt - INT_VECTOR_IRQ0;
-    int bit = irq_no;
-    int desired_pic = PIC1_DATA;
-
-    if (irq_no >= 8) {
-        bit = irq_no - 8;
-        desired_pic = PIC2_DATA;
-    }
-
-    // Read the current interrupt mask, then set our desired bit
-    int current_int_mask = inb(desired_pic);
-    if (enabled) {
-        current_int_mask &= ~(1 << bit);
-    }
-    else {
-        current_int_mask |= (1 << bit);
-    }
-    // Write it back
-    outb(desired_pic, current_int_mask);
+    // PT: PIT is replaced by the APIC
+    Deprecated();
 }
 
 bool is_interrupt_vector_delivered_by_pic(int interrupt) {
