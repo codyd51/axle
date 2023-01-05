@@ -7,6 +7,9 @@
 
 void reaper_task(void) {
     amc_register_service("com.axle.reaper");
+    // Immediately yield so that the scheduler can continue with its startup without waiting for preemption
+    task_switch();
+
     spinlock_t reaper_lock = {0};
     reaper_lock.name = "[reaper lock]";
 

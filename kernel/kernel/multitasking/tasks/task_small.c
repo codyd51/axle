@@ -453,16 +453,16 @@ void tasking_init_part2(void* continue_func_ptr) {
     _idle_task = _task_spawn("com.axle.idle", idle_task);
 
     // reaper cleans up and frees the resources of ZOMBIE tasks
-    task_spawn("reaper", reaper_task);
+    task_small_t* reaper_tcb = task_spawn("reaper", reaper_task);
 
     printf("Multitasking initialized\n");
     _multitasking_ready = true;
     asm("sti");
 
-    // Wait until reaper wakes up so it can reliably kill every service
-    while (!amc_service_is_active("com.axle.reaper")) {
-        asm("hlt");
-    }
+    // Context switch to the reaper with a small quantum so it has time to set up its AMC service
+    // This way, we're sure that from here reaper is always ready to tear down processes
+    tasking_goto_task(reaper_tcb, 5);
+    assert(amc_service_is_active("com.axle.reaper"), "Reaper AMC service didn't come up as expected");
 
     void(*continue_func)(void) = (void(*)(void))continue_func_ptr;
     continue_func();
