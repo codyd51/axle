@@ -98,27 +98,68 @@ pub fn acpi_parse_root_system_description(phys_addr: usize) {
     // PT: Small trick to avoid spamming the syslogs
     // At the time of writing, the println! calls are cause the first kernel heap malloc/free, which
     // leads to lots of logs on each invocation as the first heap memory block is created/destroyed.
-    let mut hack_to_occupy_some_heap_memory: Vec<u8> = Vec::with_capacity(16);
+    //let mut hack_to_occupy_some_heap_memory: Vec<u8> = Vec::with_capacity(16);
 
     println!("[{phys_addr:#016x} ACPI RootSystemDescription]");
+    let phys_addr = PhysAddr(phys_addr);
     let root_header: &RootSystemDescriptionHeader = parse_struct_at_phys_addr(phys_addr);
     assert_eq!(root_header.signature(), "RSD PTR ");
     // Only ACPI 2.0 is supported, for now
     assert_eq!(root_header.revision(), 2);
 
     let info = parse_xstd_at_phys_addr(1, root_header.xsdt_phys_addr());
-    println!("Got SMP info {info:?}");
+    //println!("Got SMP info {info:?}");
 
     // Ensure this allocation isn't optimized away by accessing it at the end
-    hack_to_occupy_some_heap_memory.push(1);
+    //hack_to_occupy_some_heap_memory.push(1);
+
+    // 1. Disable the legacy PIC as we're going to use the APIC
+    apic_disable_pic();
+
+    // 2. Enable the boot processor's local APIC
+    // Intel Software Developer's Manual 10.4.1: The Local APIC Block Diagram
+    // APIC registers are memory-mapped to a 4-KByte region of the processor’s physical address
+    // space with an initial starting address of FEE00000H.
+    // For correct APIC operation, this address space must be mapped to an area of memory that
+    // has been designated as strong uncacheable (UC)
+    let boot_processor_local_apic = ProcessorLocalApic::new(info.local_apic_addr);
+    println!(
+        "APIC local ID {} version {}",
+        boot_processor_local_apic.id(),
+        boot_processor_local_apic.version(),
+    );
+    boot_processor_local_apic.enable();
+
+    let io_apic = IoApic::new(info.io_apic_addr);
+    println!(
+        "IO APIC ID {} version {}, max redirections {}",
+        io_apic.id(),
+        io_apic.version(),
+        io_apic.max_redirection_entry()
+    );
+    for i in 0..16 {
+        if [2, 5, 9, 10, 11].contains(&i) {
+            continue;
+        }
+        let mut chosen_irq_vector = i;
+        if i == 0 {
+            chosen_irq_vector = 2;
+        }
+        io_apic.remap_irq(RemapIrqDescription::new(
+            chosen_irq_vector,
+            32 + i,
+            boot_processor_local_apic.id(),
+        ));
+    }
+    apic_enable();
 }
 
-fn parse_xstd_at_phys_addr(tab_level: usize, phys_addr: usize) -> AcpiSmpInfo {
+fn parse_xstd_at_phys_addr(tab_level: usize, phys_addr: PhysAddr) -> AcpiSmpInfo {
     let tabs = get_tabs(tab_level);
     let extended_system_desc: &ExtendedSystemDescriptionHeader =
         parse_struct_at_phys_addr(phys_addr);
     let extended_header = extended_system_desc.base;
-    println!("{tabs}[{phys_addr:#016x} XSTD]");
+    println!("{tabs}[{:#016x} XSTD]", phys_addr.0);
     assert_eq!(extended_header.signature(), "XSDT");
 
     let length = extended_header.length();
