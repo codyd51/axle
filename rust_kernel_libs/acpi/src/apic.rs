@@ -1,5 +1,6 @@
-use crate::utils::PhysAddr;
+use crate::utils::{ContainsMachineWords, PhysAddr};
 use bitvec::prelude::*;
+use core::num::TryFromIntError;
 use ffi_bindings::println;
 
 extern "C" {
@@ -26,7 +27,7 @@ pub fn apic_enable() {
     unsafe {
         x86_msr_get(apic_base_msr, &mut lo as *mut u32, &mut hi as *mut u32);
         println!("    Got APIC MSR {lo:#016x}:{hi:#016x}");
-        lo |= (1 << 11);
+        lo |= 1 << 11;
         println!("Setting APIC MSR {lo:#016x}:{hi:#016x}");
         x86_msr_set(apic_base_msr, lo, hi);
     }
@@ -47,6 +48,8 @@ pub struct ProcessorLocalApic {
 impl ProcessorLocalApic {
     const EOI_REGISTER_IDX: usize = 0xb;
     const SPURIOUS_INTERRUPT_VECTOR_REGISTER_IDX: usize = 0xf;
+    const INTERRUPT_COMMAND_LOW_REGISTER_IDX: usize = 0x30;
+    const INTERRUPT_COMMAND_HIGH_REGISTER_IDX: usize = 0x31;
 
     pub fn new(base: PhysAddr) -> Self {
         Self { base }
@@ -94,6 +97,22 @@ impl ProcessorLocalApic {
         spurious_iv_reg_contents |= 0xff;
         println!("Writing spurious IV reg contents {spurious_iv_reg_contents:#08x}");
         self.write_spurious_int_vector_register(spurious_iv_reg_contents);
+    }
+
+    pub fn send_ipi(&self, ipi: InterProcessorInterruptDescription) {
+        // Intel SDM §10.6.1
+        // > The act of writing to the low doubleword of the ICR causes the IPI to be sent.
+        // Therefore, we need to write the high word first so we know we're ready
+        let ipi_as_u64: u64 = ipi.into();
+        println!("ipi as u64 {ipi_as_u64:#016x}");
+        self.write_register(
+            Self::INTERRUPT_COMMAND_HIGH_REGISTER_IDX,
+            ipi_as_u64.high_u32(),
+        );
+        self.write_register(
+            Self::INTERRUPT_COMMAND_LOW_REGISTER_IDX,
+            ipi_as_u64.low_u32(),
+        );
     }
 }
 
@@ -163,14 +182,14 @@ impl IoApic {
     pub fn remap_irq(&self, remap: RemapIrqDescription) {
         // TODO(PT): Only override the relevant bits of the registers instead of overwriting
         // whatever was there previously
+        // Or, ensure that we're writing entirely sane values instead of relying on whatever was
+        // there before!
         let mut remap_as_bits = remap.as_bits();
-        //remap_as_bits |= (1 << 31);
-        println!("Remap as bits {remap_as_bits:#016x}");
         let low_reg = 0x10 + (remap.irq_vector as u32 * 2);
         let high_reg = low_reg + 1;
+        /*
+        println!("Remap as bits {remap_as_bits:#016x}");
         println!("Regs {low_reg}, {high_reg}");
-
-        let redirection_reg_contents = bitarr!();
 
         println!(
             "Reg contents {}, {}",
@@ -185,10 +204,9 @@ impl IoApic {
             "Writing {} to {high_reg}",
             (remap_as_bits >> 32 & 0xffffffff) as u32
         );
+        */
         self.write_register(low_reg, (remap_as_bits & 0xffffffff) as u32);
         self.write_register(high_reg, (remap_as_bits >> 32 & 0xffffffff) as u32);
-
-        //type RemapIrqDescriptionRaw = BitArr!(for 64, in u32, Lsb0);
     }
 }
 
@@ -231,5 +249,99 @@ impl RemapIrqDescription {
 
     pub fn as_bits(&self) -> u64 {
         self.inner.load()
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum InterProcessorInterruptDeliveryMode {
+    Fixed,
+    Init,
+    Startup,
+}
+
+impl From<InterProcessorInterruptDeliveryMode> for u8 {
+    fn from(value: InterProcessorInterruptDeliveryMode) -> Self {
+        // Ref: Intel SDM Figure 10-12
+        match value {
+            InterProcessorInterruptDeliveryMode::Fixed => 0b000,
+            InterProcessorInterruptDeliveryMode::Init => 0b101,
+            InterProcessorInterruptDeliveryMode::Startup => 0b110,
+        }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum InterProcessorInterruptDestination {
+    /// Holds an APIC ID
+    OtherProcessor(usize),
+    ThisProcessor,
+    AllProcessorsIncludingThis,
+    AllProcessorsExcludingThis,
+}
+
+impl From<InterProcessorInterruptDestination> for u8 {
+    fn from(value: InterProcessorInterruptDestination) -> Self {
+        // Ref: Intel SDM Figure §10.6.1
+        match value {
+            InterProcessorInterruptDestination::OtherProcessor(_) => 0b00,
+            InterProcessorInterruptDestination::ThisProcessor => 0b01,
+            InterProcessorInterruptDestination::AllProcessorsIncludingThis => 0b10,
+            InterProcessorInterruptDestination::AllProcessorsExcludingThis => 0b11,
+        }
+    }
+}
+
+type InterProcessorInterruptDescriptionRaw = BitArr!(for 64, in u32, Lsb0);
+
+#[derive(Debug, Copy, Clone)]
+pub struct InterProcessorInterruptDescription {
+    inner: InterProcessorInterruptDescriptionRaw,
+}
+
+impl InterProcessorInterruptDescription {
+    pub fn new(
+        int_vector: u8,
+        delivery_mode: InterProcessorInterruptDeliveryMode,
+        destination: InterProcessorInterruptDestination,
+    ) -> Self {
+        let inner = BitArray::new([0, 0]);
+        let mut ret = Self { inner };
+
+        ret.set_int_vector(int_vector);
+        ret.set_delivery_mode(delivery_mode);
+        ret.set_destination(destination);
+        // Set destination mode to Physical
+        ret.inner.set(11, false);
+        // Set level to Assert if this isn't an Init
+        let should_assert = !matches!(delivery_mode, InterProcessorInterruptDeliveryMode::Init);
+        //let should_assert = true;
+        ret.inner.set(14, should_assert);
+        // Set trigger mode to edge
+        ret.inner.set(15, false);
+
+        ret
+    }
+
+    fn set_int_vector(&mut self, int_vector: u8) {
+        self.inner[..8].store(int_vector)
+    }
+
+    fn set_delivery_mode(&mut self, delivery_mode: InterProcessorInterruptDeliveryMode) {
+        self.inner[8..11].store(u8::from(delivery_mode))
+    }
+
+    fn set_destination(&mut self, destination: InterProcessorInterruptDestination) {
+        // Set the 'destination shorthand' field
+        self.inner[18..21].store(u8::from(destination));
+        if let InterProcessorInterruptDestination::OtherProcessor(apic_id) = destination {
+            // We'll need to set the destination field
+            self.inner[56..].store(apic_id)
+        }
+    }
+}
+
+impl From<InterProcessorInterruptDescription> for u64 {
+    fn from(value: InterProcessorInterruptDescription) -> Self {
+        value.inner.load()
     }
 }

@@ -2,6 +2,10 @@ use alloc::string::String;
 use core::fmt::{Debug, Formatter};
 use core::ops::Add;
 
+extern "C" {
+    fn ms_since_boot() -> usize;
+}
+
 /// PT: Matches the definitions in kernel/util/vmm
 const KERNEL_MEMORY_BASE: usize = 0xFFFF800000000000;
 
@@ -56,4 +60,28 @@ pub fn parse_struct_at_phys_addr<T>(addr: PhysAddr) -> &'static T {
 
 pub fn get_tabs(num: usize) -> String {
     "\t".repeat(num)
+}
+
+pub trait ContainsMachineWords {
+    fn low_u32(&self) -> u32;
+    fn high_u32(&self) -> u32;
+}
+
+impl ContainsMachineWords for u64 {
+    fn low_u32(&self) -> u32 {
+        *self as u32
+    }
+    fn high_u32(&self) -> u32 {
+        (*self >> 32) as u32
+    }
+}
+
+pub fn spin_for_delay_ms(delay: usize) {
+    let now = unsafe { ms_since_boot() };
+    loop {
+        let later = unsafe { ms_since_boot() };
+        if later - now >= delay {
+            break;
+        }
+    }
 }

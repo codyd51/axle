@@ -1,0 +1,18 @@
+[bits 16]
+
+[section .ap_bootstrap_section]
+
+[global ap_entry]
+ap_entry:
+    cli
+    xor ax, ax
+    mov cs, ax
+    mov dx, ax
+    mov ss, ax
+    mov sp, 0x80
+    mov al, 0xff
+    mov [0x2000], al
+
+    jmp $
+.loop:
+    jmp $.loop
