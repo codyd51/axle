@@ -38,6 +38,9 @@ def run_iso(image_path: Path) -> None:
             "stdio",
             "-m",
             "4G",
+            # Use multiple CPU cores
+            "-smp",
+            "4",
         ]
     )
 
