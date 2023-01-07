@@ -5,17 +5,23 @@
 extern crate alloc;
 extern crate ffi_bindings;
 
-use crate::apic::{apic_disable_pic, apic_enable, IoApic, ProcessorLocalApic, RemapIrqDescription};
+use crate::apic::{
+    apic_disable_pic, apic_enable, InterProcessorInterruptDeliveryMode,
+    InterProcessorInterruptDescription, InterProcessorInterruptDestination, IoApic,
+    ProcessorLocalApic, RemapIrqDescription,
+};
 use crate::structs::{
     ApicNonMaskableInterrupt, ExtendedSystemDescriptionHeader, InterruptControllerHeader,
     IoApicInterruptSourceOverride, IoApicRaw, MultiApicDescriptionTable, ProcessorLocalApicRaw,
     RootSystemDescriptionHeader, SystemDescriptionHeader,
 };
 use crate::utils::{
-    get_tabs, parse_struct_at_phys_addr, parse_struct_at_virt_addr, PhysAddr, VirtRamRemapAddr,
+    get_tabs, parse_struct_at_phys_addr, parse_struct_at_virt_addr, spin_for_delay_ms, PhysAddr,
+    VirtRamRemapAddr,
 };
 use alloc::vec;
 use alloc::vec::Vec;
+use core::arch::asm;
 use core::mem;
 use ffi_bindings::println;
 
@@ -132,6 +138,7 @@ pub fn acpi_parse_root_system_description(phys_addr: usize) {
     // Start off by mapping the first 16 IRQ vectors to the nominal axle IDT vector.
     // axle remaps IRQs to the interrupt number rebased by 32.
     // See kernel/kernel/interrupts/idt.c
+    unsafe { asm!("cli") };
     for i in 0..16 {
         io_apic.remap_irq(RemapIrqDescription::new(
             i,
@@ -148,6 +155,31 @@ pub fn acpi_parse_root_system_description(phys_addr: usize) {
         ));
     }
     apic_enable();
+    // Finally, enable interrupts
+    unsafe { asm!("sti") };
+
+    // Now, boot the other processors
+    let ipi_dest = InterProcessorInterruptDestination::OtherProcessor(1);
+    println!("Sending INIT IPI to all APs...");
+    boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
+        0,
+        InterProcessorInterruptDeliveryMode::Init,
+        ipi_dest,
+    ));
+    spin_for_delay_ms(10);
+    println!("Sending SIPI to all APs...");
+    boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
+        8,
+        InterProcessorInterruptDeliveryMode::Startup,
+        ipi_dest,
+    ));
+    spin_for_delay_ms(2);
+    println!("Sending second SIPI to all APs...");
+    boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
+        8,
+        InterProcessorInterruptDeliveryMode::Startup,
+        ipi_dest,
+    ));
 }
 
 fn parse_xstd_at_phys_addr(tab_level: usize, phys_addr: PhysAddr) -> AcpiSmpInfo {
