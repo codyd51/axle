@@ -21,6 +21,8 @@ int stdout_write(task_small_t* task, int fd, const void* buf, int len) {
 }
 
 int write(int fd, char* buf, int len) {
+    // TODO(PT): Handle clearly invalid buf pointers. Perhaps enumerate each page in the slice and ensure that each
+    // is mapped and readable.
 	//printf("write(%d, %x, %d)\n", fd, buf, len);
 	assert(tasking_is_active(), "Can't write via fd until multitasking is active");
 	if (!len) return 0;

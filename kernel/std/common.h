@@ -15,7 +15,6 @@ __BEGIN_DECLS
 #define kernel_end_critical() __asm__("sti");
 
 
-
 //write byte to port
 STDAPI void outb(uint16_t port, uint8_t val);
 //write word to port

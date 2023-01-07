@@ -17,6 +17,8 @@ from run_axle import run_iso
 
 ARCH = "x86_64"
 
+_REPO_ROOT = Path(__file__).parents[1]
+
 
 def _is_macos() -> bool:
     return os.uname().sysname == 'Darwin'
@@ -50,15 +52,15 @@ def build_iso() -> Path:
     if not bootloader_binary_path.exists():
         raise ValueError(f"Bootloader binary missing: {bootloader_binary_path}")
 
-    kernel_binary_path = Path(__file__).parents[1] / "isodir" / "boot" / "axle.bin"
+    kernel_binary_path = _REPO_ROOT / "isodir" / "boot" / "axle.bin"
     if not kernel_binary_path.exists():
         raise ValueError(f"Kernel binary missing: {kernel_binary_path}")
 
-    fs_server_path = Path(__file__).parents[1] / "axle-sysroot" / "usr" / "applications" / "initrd_fs"
+    fs_server_path = _REPO_ROOT / "axle-sysroot" / "usr" / "applications" / "initrd_fs"
     if not fs_server_path.exists():
         raise ValueError(f"fs_server missing: {fs_server_path}")
 
-    initrd_path = Path(__file__).parents[1] / "isodir" / "boot" / "initrd.img"
+    initrd_path = _REPO_ROOT / "isodir" / "boot" / "initrd.img"
     if not initrd_path.exists():
         raise ValueError(f"initrd missing: {initrd_path}")
 
@@ -84,6 +86,8 @@ def build_initrd() -> None:
     
     # This will also build mkinitrd, if necessary
     run_and_check(['cargo', 'run', '--release'], cwd=mkinitrd_path)
+    # TODO(PT): How to select whether to build or not?
+    # run_and_check(["./target/release/mkinitrd"], cwd=mkinitrd_path)
 
     generated_initrd = mkinitrd_path / "output.img"
     if not generated_initrd.exists():

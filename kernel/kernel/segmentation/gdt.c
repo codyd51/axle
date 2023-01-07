@@ -206,7 +206,7 @@ void gdt_init() {
         .base_middle = 0x0,
         .accessed = 0,
         .readable = 1,
-        // In the code segment, "Conforming": Whether code in this segment can be run in less-priviliged rings
+        // In the code segment, "Conforming": Whether code in this segment can be run in less-privileged rings
         .contextual = 0,
         .is_code = 1,
         .belongs_to_os = 1,

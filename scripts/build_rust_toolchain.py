@@ -18,7 +18,7 @@ _TARGET_SPEC_FILE = _RUST_PROGRAMS_DIR / "x86_64-unknown-axle.json"
 
 _RUST_KERNEL_LIBS_DIR = _REPO_ROOT / "rust_kernel_libs"
 _KERNEL_TARGET_SPEC_FILE = _RUST_KERNEL_LIBS_DIR / "x86_64-unknown-axle_kernel.json"
-_COMPILED_RUST_KERNEL_LIBS_DIR = _REPO_ROOT / "compiled_rust_kernel_libs"
+_COMPILED_RUST_KERNEL_LIBS_DIR = _REPO_ROOT / ".compiled_rust_kernel_libs"
 
 _CACHE_DIR = Path(__file__).parent / "caches"
 

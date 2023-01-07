@@ -95,7 +95,7 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let fs_image = traverse(&sysroot, &sysroot).expect("traverse failed");
     println!("Finished generating directory image");
 
-    let mut file = std::io::BufWriter::new(std::fs::File::create("./output.img").unwrap());
+    let mut file = io::BufWriter::new(std::fs::File::create("./output.img").unwrap());
     let v = postcard::to_allocvec(&fs_image).expect("Failed to encode");
     file.write(&v).expect("Failed to write to file");
 

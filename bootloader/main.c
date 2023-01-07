@@ -169,7 +169,7 @@ bool map_file(const char* file_path, uint64_t* out_base, uint64_t* out_size) {
 	printf(": Reading %s buffer...\n", file_path);
 	fread((void*)file_buf, file_size, 1, file);
 	print_time();
-	printf(": Mapped initrd\n");
+	printf(": Mapped %s\n", file_path);
 	fclose(file);
 
 	*out_base = file_buf;
@@ -353,7 +353,7 @@ int main(int argc, char** argv) {
         efi_configuration_table_t* table = &config_table[i];
         //printf("Looking at table %d at %x\n", i, table);
         efi_guid_t* guid = &table->VendorGuid;
-        printf("guid %08x-%04x-%04x-%02x%02x%02x%02x%02x%02x%02x\n", guid->Data1, guid->Data2, guid->Data3, guid->Data4[0], guid->Data4[1], guid->Data4[2], guid->Data4[3], guid->Data4[4], guid->Data4[5], guid->Data4[6], guid->Data4[7]);
+        //printf("guid %08x-%04x-%04x-%02x%02x%02x%02x%02x%02x%02x\n", guid->Data1, guid->Data2, guid->Data3, guid->Data4[0], guid->Data4[1], guid->Data4[2], guid->Data4[3], guid->Data4[4], guid->Data4[5], guid->Data4[6], guid->Data4[7]);
         if (!memcmp(guid, &acpi_1_0_rsdp_guid, sizeof(acpi_1_0_rsdp_guid))) {
             printf("\tFound ACPI 1.0 RSDP at index %d\n", i);
         }
@@ -367,9 +367,11 @@ int main(int argc, char** argv) {
     // Finally, exit UEFI-land and jump to the kernel
 	printf("Jumping to kernel entry point at %p\n", kernel_entry_point);
 
-	if (exit_bs()) {
+	status = exit_bs();
+	if (status != 0) {
+		printf("Status %d\n", status);
 		// Red
-		draw(boot_info, 0x00ff0000);
+		draw(boot_info, 0x0000ffff);
 		printf("Failed to exit boot services!\n");
 		while (1) {}
 		return 0;

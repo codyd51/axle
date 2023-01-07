@@ -4,9 +4,9 @@ RESOURCES = resources
 ISO_DIR = isodir
 ISO_NAME = axle.iso
 
-OBJ_DIR = .objs
+OBJ_DIR = .kernel_objs
 SRC_DIR = kernel
-COMPILED_RUST_KERNEL_LIBS_DIR = compiled_rust_kernel_libs
+COMPILED_RUST_KERNEL_LIBS_DIR = .compiled_rust_kernel_libs
 
 ARCH = x86_64
 

@@ -23,7 +23,7 @@ def run_iso(image_path: Path) -> None:
             "hvf",
             "-cpu",
             "host",
-            # Capture data sent to  serial port
+            # Capture data sent to serial port
             "-serial",
             "file:syslog.log",
             # SATA drive
