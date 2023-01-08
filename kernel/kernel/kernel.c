@@ -117,16 +117,27 @@ static void _kernel_bootstrap_part2(void) {
            AP_BOOTSTRAP_CODE_PAGE,
            AP_BOOTSTRAP_CODE_PAGE + info->ap_bootstrap_size
     );
-    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PAGE), (void*)PMA_TO_VMA(info->ap_bootstrap_base), info->ap_bootstrap_size);
-    uint32_t param1 = 0xdeadbeef;
-    uint32_t param2 = 0xcafebabe;
-    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PAGE + 8), &param1, sizeof(uint32_t));
-    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PAGE + 12), &param2, sizeof(uint32_t));
+    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_CODE_PAGE), (void*)PMA_TO_VMA(info->ap_bootstrap_base), info->ap_bootstrap_size);
+
+    uintptr_t gdt_size = 0;
+    gdt_descriptor_t* protected_mode_gdt = gdt_create_for_protected_mode(&gdt_size);
+    printf("Got protected mode gdt %p\n", protected_mode_gdt);
+
+    gdt_pointer_t table = {0};
+    uint32_t relocated_table = AP_BOOTSTRAP_DATA_PAGE + 8;
+    table.table_base = (uintptr_t)relocated_table;
+    table.table_size = gdt_size;
+    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_DATA_PAGE + 0), &table, sizeof(gdt_pointer_t));
+    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_DATA_PAGE + 8), protected_mode_gdt, gdt_size);
 
     printf("Bootloader provided RSDP 0x%x\n", info->acpi_rsdp);
 
     // Parse the ACPI tables and start up the other APs
     acpi_parse_root_system_description(info->acpi_rsdp);
+    kfree(protected_mode_gdt);
+    asm("cli");
+    while (1) {}
+
     // This must happen before the second half of the bootstrap, as the ACPI tables are in the low-memory identity map.
     // The low-memory identity map is trashed once we enter the second half.
     // (See also: comment in bootloader/paging.c)

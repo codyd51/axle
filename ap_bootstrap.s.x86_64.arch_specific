@@ -1,25 +1,42 @@
 [bits 16]
+; Defined in our memory map
 [org 0x8000]
 
 [global ap_entry]
 ap_entry:
-    jmp $ap_boot
-
-; PT: This is placeholder memory that will be overwritten to contain the 'parameters' passed to the AP
-align 8
-param1: dd 0
-param2: dd 0
-
-ap_boot:
     cli
     ; PT: OSDev wiki seems to suggest clearing DF, but I'm not sure why
+    ; Another ref claiming this is the environment GCC expects: https://www.cheesecake.org/sac/smp.html
     cld
 
-    ; Set some debug register values and write to memory to ensure this code is running
-    mov al, 0x7c
-    mov bl, [$param1]
-    mov cl, [$param2]
-    mov [0x2000], al
+    ; Load the GDT mapped at the base of the data page
+    mov eax, [$protected_mode_gdt_ptr]
+    lgdt [eax]
+    ; Enable Protected Mode by setting the first bit in CR0
+    mov  eax, cr0
+    or al, 1
+    mov  cr0, eax
 
+    ; Put the new GDT into effect by loading the segment registers
+    ; First, reload CS, which can only be done indirectly via a far jump
+    ;jmp 08h:PModeMain
+    jmp 0x08:.reload_cs
+
+    ; After the far jump, immediately start assembling 32-bit code
+[bits 32]
+.reload_cs:
+    ; Reload data segment registers
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+
+    ; Spinloop in Protected Mode!
 .loop:
     jmp $.loop
+
+align 16
+; Defined in our memory map
+protected_mode_gdt_ptr: dd 0x9000
