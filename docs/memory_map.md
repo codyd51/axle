@@ -2,7 +2,8 @@
 
 ## Physical memory
 
-`0x8000`: AP bootstrap page
+`0x8000`: AP bootstrap code page
+`0x9000`: AP bootstrap data page
 
 As APs start up in real mode, the first code they execute must be within the first 1MB of physical address space.
 
@@ -16,6 +17,7 @@ The approach I've taken is:
 - The kernel's PMM is aware of the AP bootstrap page, and will not push it to the allocatable pool.
 - The kernel copies the bootstrap program from where it was loaded by the bootloader to the dedicated page.
 - SIPIs are sent to APs that point them to boot from the AP bootstrap page. 
+- Another page (`0x9000`) is used to store parameters to the AP bootstrap program, such as the GDT that should be used to enter protected mode.
 
 ## Virtual memory
 

@@ -74,8 +74,9 @@ void pmm_init(void) {
     printf("PHYS PMM stack: 0x%p - 0x%p\n", &_pmm_stack, &_pmm_stack + sizeof(_pmm_stack));
 
     uintptr_t extra_frames_to_reserve[] = {
-        // Used for AP bootstrap code
-        AP_BOOTSTRAP_PAGE,
+        // Used for AP bootstrap code + data
+        AP_BOOTSTRAP_CODE_PAGE,
+        AP_BOOTSTRAP_DATA_PAGE,
     };
 
     // TODO(PT): Will there be any bug with PMM allocating the frame used for the init kernel stack?

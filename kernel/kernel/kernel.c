@@ -22,6 +22,7 @@
 #include <kernel/multitasking/tasks/task_small.h>
 
 #include "kernel.h"
+#include "kernel/segmentation/gdt_structures.h"
 
 static void _kernel_bootstrap_part2(void);
 
@@ -113,8 +114,8 @@ static void _kernel_bootstrap_part2(void) {
     printf("Copy AP bootstrap from [0x%p - 0x%p] to [0x%p - 0x%p]\n",
            info->ap_bootstrap_base,
            info->ap_bootstrap_base + info->ap_bootstrap_size,
-           AP_BOOTSTRAP_PAGE,
-           AP_BOOTSTRAP_PAGE + info->ap_bootstrap_size
+           AP_BOOTSTRAP_CODE_PAGE,
+           AP_BOOTSTRAP_CODE_PAGE + info->ap_bootstrap_size
     );
     memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PAGE), (void*)PMA_TO_VMA(info->ap_bootstrap_base), info->ap_bootstrap_size);
     uint32_t param1 = 0xdeadbeef;
