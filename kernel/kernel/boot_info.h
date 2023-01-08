@@ -64,6 +64,9 @@ typedef struct boot_info {
     uint32_t ms_per_pit_tick;
 
     uintptr_t acpi_rsdp;
+
+    uintptr_t ap_bootstrap_base;
+    uintptr_t ap_bootstrap_size;
 } boot_info_t;
 
 boot_info_t* boot_info_get(void);

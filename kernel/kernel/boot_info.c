@@ -298,6 +298,9 @@ void boot_info_read(axle_boot_info_t* bootloader_info) {
     }
 
     boot_info->acpi_rsdp = bootloader_info->acpi_rsdp;
+
+    boot_info->ap_bootstrap_base = bootloader_info->ap_bootstrap_base;
+    boot_info->ap_bootstrap_size = bootloader_info->ap_bootstrap_size;
 }
 
 void boot_info_dump() {

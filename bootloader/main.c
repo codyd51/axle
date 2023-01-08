@@ -270,7 +270,10 @@ int main(int argc, char** argv) {
 		printf("Failed to map initrd!\n");
 		return 0;
 	}
-
+    if (!map_file("\\EFI\\AXLE\\AP_BOOTSTRAP.BIN", &boot_info->ap_bootstrap_base, &boot_info->ap_bootstrap_size)) {
+        printf("Failed to map AP bootstrap!\n");
+        return 0;
+    }
 
 	// Step 5: Read the memory map
 	// Calling GetMemoryMap with an invalid buffer allows us to read info on 

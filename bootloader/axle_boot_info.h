@@ -72,6 +72,10 @@ typedef struct axle_boot_info {
 	uint64_t initrd_size;
 
 	uint64_t boot_pml4;
+
+	// AP bootstrap program info
+	uint64_t ap_bootstrap_base;
+	uint64_t ap_bootstrap_size;
 } axle_boot_info_t;
 
 #endif
