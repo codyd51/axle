@@ -106,9 +106,25 @@ void _start(axle_boot_info_t* boot_info) {
 }
 
 static void _kernel_bootstrap_part2(void) {
-    // Parse the ACPI tables
     boot_info_t* info = boot_info_get();
-    printf("Bootloader provided RSDP 0x%x\n", info->acpi_rsdp, info->acpi_rsdp);
+    // Copy the AP bootstrap from wherever it was loaded into physical memory into its bespoke location
+    // This location matches where the compiled code expects to be loaded.
+    // AP startup code must also be placed below 1MB, as APs start up in real mode.
+    printf("Copy AP bootstrap from [0x%p - 0x%p] to [0x%p - 0x%p]\n",
+           info->ap_bootstrap_base,
+           info->ap_bootstrap_base + info->ap_bootstrap_size,
+           AP_BOOTSTRAP_PAGE,
+           AP_BOOTSTRAP_PAGE + info->ap_bootstrap_size
+    );
+    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PAGE), (void*)PMA_TO_VMA(info->ap_bootstrap_base), info->ap_bootstrap_size);
+    uint32_t param1 = 0xdeadbeef;
+    uint32_t param2 = 0xcafebabe;
+    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PAGE + 8), &param1, sizeof(uint32_t));
+    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PAGE + 12), &param2, sizeof(uint32_t));
+
+    printf("Bootloader provided RSDP 0x%x\n", info->acpi_rsdp);
+
+    // Parse the ACPI tables and start up the other APs
     acpi_parse_root_system_description(info->acpi_rsdp);
     // This must happen before the second half of the bootstrap, as the ACPI tables are in the low-memory identity map.
     // The low-memory identity map is trashed once we enter the second half.

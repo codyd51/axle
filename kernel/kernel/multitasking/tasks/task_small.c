@@ -457,7 +457,6 @@ void tasking_init_part2(void* continue_func_ptr) {
 
     printf("Multitasking initialized\n");
     _multitasking_ready = true;
-    asm("sti");
 
     // Context switch to the reaper with a small quantum so it has time to set up its AMC service
     // This way, we're sure that from here reaper is always ready to tear down processes
