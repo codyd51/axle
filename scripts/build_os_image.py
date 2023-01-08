@@ -64,6 +64,10 @@ def build_iso() -> Path:
     if not initrd_path.exists():
         raise ValueError(f"initrd missing: {initrd_path}")
 
+    ap_bootstrap_path = _REPO_ROOT / ".compiled_ap_bootstrap"
+    if not ap_bootstrap_path.exists():
+        raise ValueError(f"AP bootstrap missing: {ap_bootstrap_path}")
+
     run_and_check(["dd", "if=/dev/zero", f"of={image_name.as_posix()}", "bs=512", "count=262144"])
 
     with _get_mounted_iso(image_name) as mount_point:
@@ -75,6 +79,7 @@ def build_iso() -> Path:
         run_and_check(["mcopy", "-i", image_name.as_posix(), kernel_binary_path.as_posix(), "::/EFI/AXLE/KERNEL.ELF"])
         run_and_check(["mcopy", "-i", image_name.as_posix(), fs_server_path.as_posix(), "::/EFI/AXLE/FS_SERVER.ELF"])
         run_and_check(["mcopy", "-i", image_name.as_posix(), initrd_path.as_posix(), "::/EFI/AXLE/INITRD.IMG"])
+        run_and_check(["mcopy", "-i", image_name.as_posix(), ap_bootstrap_path.as_posix(), "::/EFI/AXLE/AP_BOOTSTRAP.BIN"])
 
     return image_name
 
@@ -166,6 +171,10 @@ def main():
 
     # Build the Rust kernel libraries
     build_kernel_rust_libs()
+
+    # Build the AP bootstrap, which needs to be outside the kernel proper
+    # TODO(PT): Render this based on the target architecture
+    run_and_check(["nasm", "-f", "bin", (_REPO_ROOT / "ap_bootstrap.s.x86_64.arch_specific").as_posix(), "-o", (_REPO_ROOT / ".compiled_ap_bootstrap").as_posix()])
 
     # Build the C and assembly portions of the kernel, and link with the Rust libraries
     run_and_check(["make"])

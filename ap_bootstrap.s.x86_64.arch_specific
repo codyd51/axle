@@ -1,18 +1,25 @@
 [bits 16]
-
-[section .ap_bootstrap_section]
+[org 0x8000]
 
 [global ap_entry]
 ap_entry:
+    jmp $ap_boot
+
+; PT: This is placeholder memory that will be overwritten to contain the 'parameters' passed to the AP
+align 8
+param1: dd 0
+param2: dd 0
+
+ap_boot:
     cli
-    xor ax, ax
-    mov cs, ax
-    mov dx, ax
-    mov ss, ax
-    mov sp, 0x80
-    mov al, 0xff
+    ; PT: OSDev wiki seems to suggest clearing DF, but I'm not sure why
+    cld
+
+    ; Set some debug register values and write to memory to ensure this code is running
+    mov al, 0x7c
+    mov bl, [$param1]
+    mov cl, [$param2]
     mov [0x2000], al
 
-    jmp $
 .loop:
     jmp $.loop
