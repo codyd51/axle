@@ -1,5 +1,6 @@
 #include "gdt.h"
 #include "gdt_structures.h"
+#include "std/kheap.h"
 #include <stdbool.h>
 #include <std/memory.h>
 #include <std/printf.h>
@@ -75,26 +76,6 @@ typedef struct tss {
 tss_t tss_singleton = {0};
 
 static void gdt_write_descriptor(gdt_entry_t* entry, uint32_t base, uint32_t limit, uint16_t flag);
-
-typedef struct gdt_descriptor {
-    uint16_t limit_low;
-    uint16_t base_low;
-    uint8_t base_middle;
-    bool accessed:1;
-    bool readable:1;
-    bool contextual:1;
-    bool is_code:1;
-    bool belongs_to_os:1;
-    uint8_t dpl:2;
-    bool present:1;
-    uint8_t limit_high:4;
-    // This bit is available for OS use
-    bool unused_bit:1;
-    bool long_mode:1;
-    bool default_operand_size:1;
-    bool granularity:1;
-    uint8_t base_high;
-} __attribute__((packed)) gdt_descriptor_t;
 
 // Type: 0xB for busy TSS
 // 0x9 for available TSS
@@ -186,6 +167,63 @@ static void tss_init(gdt_descriptor_t* gdt) {
         .must_be_zero_high = 0,
     };
     memcpy(&gdt[5], &tss_descriptor, sizeof(tss_descriptor));
+}
+
+gdt_descriptor_t* gdt_create_for_protected_mode(uintptr_t* out_size) {
+    *out_size = sizeof(gdt_descriptor_t) * 16;
+    gdt_descriptor_t* table = kmalloc(*out_size);
+
+    // Null entry
+    memset(&table[0], 0, sizeof(gdt_descriptor_t));
+    // Kernel code
+    table[1] = (gdt_descriptor_t){
+        .limit_low = 0xffff,
+        .base_low = 0x0,
+        .base_middle = 0x0,
+        .accessed = 0,
+        .readable = 1,
+        // In the code segment, "Conforming": Whether code in this segment can be run in less-privileged rings
+        .contextual = 0,
+        // These 2 fields should always be 1 according to the AMD manual
+        .is_code = 1,
+        .belongs_to_os = 1,
+        .dpl = 0,
+        .present = 1,
+        .limit_high = 0xf,
+        .unused_bit = 0,
+        .long_mode = 0,
+        // 0 = 16bit operands, 1 = 32bit operands
+        .default_operand_size = 1,
+        // 0 = segment limit is a literal, 1 = segment limit is a multiple of 4k pages
+        .granularity = 1,
+        .base_high = 0x0,
+    };
+    // Kernel data
+    table[2] = (gdt_descriptor_t){
+        .limit_low = 0xffff,
+        .base_low = 0x0,
+        .base_middle = 0x0,
+        .accessed = 0,
+        // In a data segment, this bit represents whether the data is writable
+        .readable = 1,
+        // In the data segment, "Expand-down": inverts the meanings of limit and base
+        .contextual = 0,
+        // These 2 fields should be 0 and 1 according to the AMD manual
+        .is_code = 0,
+        .belongs_to_os = 1,
+        .dpl = 0,
+        .present = 1,
+        .limit_high = 0xf,
+        .unused_bit = 0,
+        .long_mode = 0,
+        // 0 = 16bit operands, 1 = 32bit operands
+        .default_operand_size = 1,
+        // 0 = segment limit is a literal, 1 = segment limit is a multiple of 4k pages
+        .granularity = 1,
+        .base_high = 0x0,
+    };
+
+    return table;
 }
 
 void gdt_init() {

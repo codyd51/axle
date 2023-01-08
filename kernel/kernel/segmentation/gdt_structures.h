@@ -1,9 +1,10 @@
 #ifndef GDT_STRUCTURES_H
 #define GDT_STRUCTURES_H
 
-//Intel-defined GDT structure formats
-//this structure has a carefully defined format which we must preserve
-//see here for format: http://wiki.osdev.org/Global_Descriptor_Table
+// Intel-defined GDT structure formats.
+// This structure has a carefully defined format which we must preserve.
+// Ref: AMD manual Vol 2, section 4.7.2
+// Ref: http://wiki.osdev.org/Global_Descriptor_Table
 typedef struct gdt_entry {
     uint32_t low_word;
     uint32_t high_word;
@@ -17,7 +18,7 @@ typedef struct gdt_pointer {
 //defined in gdt.s
 extern void gdt_activate(gdt_pointer_t* gdt_pointer);
 
-//This implementation was modified from an excerpt on http://wiki.osdev.org/GDT_Tutorial
+// This implementation was modified from an excerpt on http://wiki.osdev.org/GDT_Tutorial
 // Each define here is for a specific flag in the descriptor.
 // Refer to the intel documentation for a description of what each one does.
 #define SEG_DESCTYPE(x)  ((x) << 0x04) // Descriptor type (0 for system, 1 for code/data)
@@ -71,7 +72,7 @@ extern void gdt_activate(gdt_pointer_t* gdt_pointer);
                         SEG_LONG(1)     | SEG_SIZE(1)   | SEG_GRAN(1)   | \
                         SEG_PRIV(0)     | SEG_DATA_RDWR
 
-//Offsets into GDT for each descriptor
+// Offsets into GDT for each descriptor
 #define GDT_BYTE_INDEX_NULL_DESCRIPTOR 0x00
 #define GDT_BYTE_INDEX_KERNEL_CODE 0x08
 #define GDT_BYTE_INDEX_KERNEL_DATA 0x10
