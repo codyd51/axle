@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <kernel/kernel.h>
 #include <kernel/assert.h>
 #include <kernel/vmm/vmm.h>
 #include <kernel/boot_info.h>
@@ -72,6 +73,11 @@ void pmm_init(void) {
     printf("PMM stack: 0x%p - 0x%p\n", pmm->stack_bottom, pmm->stack_top);
     printf("PHYS PMM stack: 0x%p - 0x%p\n", &_pmm_stack, &_pmm_stack + sizeof(_pmm_stack));
 
+    uintptr_t extra_frames_to_reserve[] = {
+        // Used for AP bootstrap code
+        AP_BOOTSTRAP_PAGE,
+    };
+
     // TODO(PT): Will there be any bug with PMM allocating the frame used for the init kernel stack?
     boot_info_t* info = boot_info_get();
     // Mark usable sections of the address space
@@ -87,40 +93,24 @@ void pmm_init(void) {
         uintptr_t len = addr_space_frame_floor(region.len);
         uint64_t page_count = (len + (PAGE_SIZE - 1)) / PAGE_SIZE;
         for (uint64_t j = page_count; j > 0; j--) {
-            pmm_push_allocatable_frame(addr + ((j-1) * PAGE_SIZE));
+            uintptr_t frame_addr = addr + ((j-1) * PAGE_SIZE);
+            bool will_skip_marking_frame_as_allocatable = false;
+            for (int k = 0; k < sizeof(extra_frames_to_reserve) / sizeof(extra_frames_to_reserve[0]); k++) {
+                if (frame_addr == extra_frames_to_reserve[k]) {
+                    will_skip_marking_frame_as_allocatable = true;
+                    break;
+                }
+            }
+            if (will_skip_marking_frame_as_allocatable) {
+                printf("PMM: Skip marking 0x%p as allocatable\n", frame_addr);
+            }
+            else {
+                pmm_push_allocatable_frame(frame_addr);
+            }
         }
     }
 
     pmm_test();
-
-    /*
-    //for identity mapping purposes
-    //reserve any allocatable memory from 0x0 to start of kernel image
-    printf("reserve kernel region\n");
-    pmm_reserve_mem_region(pmm, 0x00000000, info->kernel_image_start);
-    //map out kernel image region
-    printf("reserve kernel image\n");
-    pmm_reserve_mem_region(pmm, info->kernel_image_start, info->kernel_image_size);
-    //map out framebuffer
-    printf("reserve framebuffer\n");
-    pmm_reserve_mem_region(pmm, info->framebuffer.address, info->framebuffer.size);
-    printf("reserve initrd\n");
-    pmm_reserve_mem_region(pmm, info->initrd_start, info->initrd_size);
-    printf("done\n");
-
-    /*
-    multiboot_elf_section_header_table_t symbol_table_info = info->symbol_table_info;
-	elf_section_header_t* sh = (elf_section_header_t*)symbol_table_info.addr;
-	uintptr_t shstrtab = sh[symbol_table_info.shndx].addr;
-	for (uintptr_t i = 0; i < symbol_table_info.num; i++) {
-		const char* name = (const char*)(shstrtab + sh[i].name);
-        printf_info("PMM reserving kernel ELF section %s", name);
-        pmm_reserve_mem_region(pmm, sh[i].addr, sh[i].size);
-    }
-    // map out kernel symbol table and string table from ELF image
-    pmm_reserve_mem_region(pmm, info->kernel_elf_symbol_table.strtab, info->kernel_elf_symbol_table.strtabsz);
-    pmm_reserve_mem_region(pmm, info->kernel_elf_symbol_table.symtab, info->kernel_elf_symbol_table.symtabsz);
-    */
 }
 
 uintptr_t find_free_region(pmm_state_t* pmm, uintptr_t region_size) {

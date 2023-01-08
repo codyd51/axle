@@ -1,6 +1,8 @@
 #ifndef KERNEL_H
 #define KERNEL_H
 
+#include <stdint.h>
+
 // https://stackoverflow.com/questions/195975/how-to-make-a-char-string-from-a-c-macros-value
 #define _STR_VALUE(arg)      #arg
 #define _FUNCTION_NAME(name) _STR_VALUE(name)
@@ -15,5 +17,7 @@
 
 // TODO(PT): Move this to a different file? Where?
 void FS_SERVER_EXEC_TRAMPOLINE_NAME(uint32_t arg1, uint32_t arg2, uint32_t arg3);
+
+#define AP_BOOTSTRAP_PAGE 0x8000
 
 #endif
