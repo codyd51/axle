@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "gdt_structures.h"
+
 // Ref: AMD manual Vol 2, section 4.7.2
 typedef struct gdt_descriptor {
     uint16_t limit_low;
@@ -29,5 +31,7 @@ void gdt_init(void);
 // Must be performed upon task switch to allow the kernel to be preemptible
 void tss_set_kernel_stack(uint64_t stack);
 gdt_descriptor_t* gdt_create_for_protected_mode(uintptr_t* out_size);
+
+gdt_pointer_t* kernel_gdt_pointer(void);
 
 #endif

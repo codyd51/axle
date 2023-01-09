@@ -8,6 +8,9 @@
 #include <kernel/assert.h>
 #include <std/memory.h>
 
+static idt_descriptor_t _g_idt_entries[256] = {0};
+static idt_pointer_t _g_idt_pointer = {0};
+
 static void idt_set_gate64_ext(idt_descriptor_t* entry, uintptr_t target_addr, bool ints_enabled, bool accessible_from_usermode) {
     // Trap gate if we want ints enabled, Interrupt gate otherwise
     uint8_t gate_type = (ints_enabled) ? 0xF : 0xE;
@@ -64,7 +67,7 @@ static void idt_map_all_gates(idt_descriptor_t* idt_entries) {
     idt_set_gate64(&idt_entries[30], (uintptr_t)internal_interrupt30);
     idt_set_gate64(&idt_entries[31], (uintptr_t)internal_interrupt31);
 
-    // Next 16 interrupt lines will be delivered from external devices via the PIC
+    // Next 16 interrupt lines will be delivered from external devices via the APIC
     idt_set_gate64(&idt_entries[32], (uintptr_t)external_interrupt0);
     idt_set_gate64(&idt_entries[33], (uintptr_t)external_interrupt1);
     idt_set_gate64(&idt_entries[34], (uintptr_t)external_interrupt2);
@@ -89,18 +92,19 @@ static void idt_map_all_gates(idt_descriptor_t* idt_entries) {
 void idt_init(void) {
     assert(sizeof(idt_descriptor_t) == 16, "Must be exactly 16 bytes!");
 
-    static idt_descriptor_t idt_entries[256] = {0};
-    static idt_pointer_t table = {0};
-
-    table.table_base = (uintptr_t)&idt_entries;
-    table.table_size = sizeof(idt_entries) - 1;
+    _g_idt_pointer.table_base = (uintptr_t)&_g_idt_entries;
+    _g_idt_pointer.table_size = sizeof(_g_idt_entries) - 1;
 
 #define PIC_MASTER_OFFSET	0x20 //int 32 mapped to IRQ 0
 #define PIC_SLAVE_OFFSET	0x28 //int 40+ mapped to IRQ8+
     pic_remap(PIC_MASTER_OFFSET, PIC_SLAVE_OFFSET);
 
-    idt_map_all_gates(idt_entries);
-    idt_activate(&table);
+    idt_map_all_gates(_g_idt_entries);
+    idt_activate(&_g_idt_pointer);
+}
+
+idt_pointer_t* kernel_idt_pointer(void) {
+    return &_g_idt_pointer;
 }
 
 void registers_print(register_state_t* r) {

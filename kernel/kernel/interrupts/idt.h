@@ -1,6 +1,8 @@
 #ifndef IDT_H
 #define IDT_H
 
+#include "idt_structures.h"
+
 #define INT_VECTOR_INT0  0
 #define INT_VECTOR_INT1  1
 #define INT_VECTOR_INT2  2
@@ -18,7 +20,7 @@
 #define INT_VECTOR_INT14 14
 
 // IDT vectors axle maps IRQs to
-#define INT_VECTOR_IRQ0   32
+#define INT_VECTOR_IRQ0  32
 #define INT_VECTOR_IRQ1  33
 #define INT_VECTOR_IRQ2  34
 #define INT_VECTOR_IRQ3  35
@@ -39,5 +41,6 @@
 #define INT_VECTOR_SYSCALL INT_VECTOR_IRQ128
 
 void idt_init(void);
+idt_pointer_t* kernel_idt_pointer(void);
 
 #endif

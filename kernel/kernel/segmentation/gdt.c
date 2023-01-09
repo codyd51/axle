@@ -1,5 +1,4 @@
 #include "gdt.h"
-#include "gdt_structures.h"
 #include "std/kheap.h"
 #include <stdbool.h>
 #include <std/memory.h>
@@ -7,6 +6,9 @@
 #include <kernel/assert.h>
 
 void gdt_activate(gdt_pointer_t* table);
+
+static gdt_entry_t _g_gdt_entries[16] = {0};
+static gdt_pointer_t _g_gdt_pointer = {0};
 
 // TSS definition modified from http://www.jamesmolloy.co.uk/tutorial_html/10.-User%20Mode.html
 // TODO(PT): Update TSS gdt entry using manual
@@ -229,14 +231,12 @@ gdt_descriptor_t* gdt_create_for_protected_mode(uintptr_t* out_size) {
 void gdt_init() {
     assert(sizeof(gdt_descriptor_t) == 8, "GDT descriptor must be exactly 8 bytes!");
     assert(sizeof(tss_descriptor_t) == 16, "TSS descriptor must be exactly 16 bytes!");
-    static gdt_entry_t gdt_entries[16] = {0};
-    static gdt_pointer_t table = {0};
 
-    table.table_base = (uintptr_t)&gdt_entries;
-    table.table_size = sizeof(gdt_entries) - 1;
+    _g_gdt_pointer.table_base = (uintptr_t)&_g_gdt_entries;
+    _g_gdt_pointer.table_size = sizeof(_g_gdt_entries) - 1;
 
     gdt_descriptor_t null_descriptor = {0};
-    memcpy(&gdt_entries[0], &null_descriptor, sizeof(null_descriptor));
+    memcpy(&_g_gdt_entries[0], &null_descriptor, sizeof(null_descriptor));
 
     gdt_descriptor_t kernel_code_long = {
         .limit_low = 0xFFFF,
@@ -259,7 +259,7 @@ void gdt_init() {
         .granularity = 1,
         .base_high = 0
     };
-    memcpy(&gdt_entries[1], &kernel_code_long, sizeof(kernel_code_long));
+    memcpy(&_g_gdt_entries[1], &kernel_code_long, sizeof(kernel_code_long));
 
     gdt_descriptor_t kernel_data_long = {
         .limit_low = 0xFFFF,
@@ -282,7 +282,7 @@ void gdt_init() {
         .granularity = 1,
         .base_high = 0
     };
-    memcpy(&gdt_entries[2], &kernel_data_long, sizeof(kernel_data_long));
+    memcpy(&_g_gdt_entries[2], &kernel_data_long, sizeof(kernel_data_long));
 
     gdt_descriptor_t user_code_long = {
         .limit_low = 0xFFFF,
@@ -305,7 +305,7 @@ void gdt_init() {
         .granularity = 1,
         .base_high = 0
     };
-    memcpy(&gdt_entries[3], &user_code_long, sizeof(user_code_long));
+    memcpy(&_g_gdt_entries[3], &user_code_long, sizeof(user_code_long));
 
     gdt_descriptor_t user_data_long = {
         .limit_low = 0xFFFF,
@@ -328,16 +328,20 @@ void gdt_init() {
         .granularity = 1,
         .base_high = 0
     };
-    memcpy(&gdt_entries[4], &user_data_long, sizeof(user_data_long));
+    memcpy(&_g_gdt_entries[4], &user_data_long, sizeof(user_data_long));
 
-    gdt_activate(&table);
+    gdt_activate(&_g_gdt_pointer);
     gdt_load_cs(0x08);
     gdt_load_ds(0x10);
-    tss_init(&gdt_entries);
+    tss_init(&_g_gdt_entries);
     tss_activate();
 }
 
 void tss_set_kernel_stack(uint64_t stack) {
    tss_singleton.rsp0_low = (stack & 0xFFFFFFFF);
    tss_singleton.rsp0_high = ((stack >> 32) & 0xFFFFFFFF);
+}
+
+gdt_pointer_t* kernel_gdt_pointer(void) {
+    return &_g_gdt_pointer;
 }

@@ -148,13 +148,13 @@ static pdpe_t* _pdpt_get(pml4e_t* page_mapping_level4_virt, uint64_t vmem_base) 
 	return page_directory_pointer_table;
 }
 
-static void _map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start, uint64_t vmem_size, uint64_t phys_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level) {
+void _map_region_4k_pages(pml4e_t* page_mapping_level4_virt, uint64_t vmem_start, uint64_t vmem_size, uint64_t phys_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level) {
 	//printf("map_region in 0x%p: [phys 0x%p - 0x%p] to [virt 0x%p - 0x%p]\n", page_mapping_level4, phys_start, phys_start + vmem_size - 1, vmem_start, vmem_start + vmem_size - 1);
 	uint64_t remaining_size = vmem_size;
 	uint64_t current_frame = phys_start;
 	uint64_t current_page = vmem_start;
 
-    pdpe_t* page_directory_pointer_table = _pdpt_get_or_create(page_mapping_level4, vmem_start, privilege_level);
+    pdpe_t* page_directory_pointer_table = _pdpt_get_or_create(page_mapping_level4_virt, vmem_start, privilege_level);
 
 	uint64_t page_directories_needed = (remaining_size + (VMEM_IN_PDPE - 1)) / VMEM_IN_PDPE;
 	page_directories_needed = min(page_directories_needed, PAGE_DIRECTORIES_IN_PAGE_DIRECTORY_POINTER_TABLE);
