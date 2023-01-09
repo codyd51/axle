@@ -18,7 +18,4 @@
 // TODO(PT): Move this to a different file? Where?
 void FS_SERVER_EXEC_TRAMPOLINE_NAME(uint32_t arg1, uint32_t arg2, uint32_t arg3);
 
-#define AP_BOOTSTRAP_CODE_PAGE 0x8000
-#define AP_BOOTSTRAP_DATA_PAGE 0x9000
-
 #endif

@@ -1,5 +1,6 @@
 [bits 16]
 ; Defined in our memory map
+; PT: This address *must* match the page defined in kernel/ap_bootstrap.h
 [org 0x8000]
 
 [global ap_entry]
@@ -19,12 +20,11 @@ ap_entry:
 
     ; Put the new GDT into effect by loading the segment registers
     ; First, reload CS, which can only be done indirectly via a far jump
-    ;jmp 08h:PModeMain
-    jmp 0x08:.reload_cs
+    jmp 0x08:.first_reload_cs
 
     ; After the far jump, immediately start assembling 32-bit code
 [bits 32]
-.reload_cs:
+.first_reload_cs:
     ; Reload data segment registers
     mov ax, 0x10
     mov ds, ax
@@ -33,10 +33,62 @@ ap_entry:
     mov gs, ax
     mov ss, ax
 
-    ; Spinloop in Protected Mode!
+    ; All done setting up Protected Mode
+    ; Now that we're fully operating in Protected Mode, start the process of getting into Long Mode
+
+    ; Enable the PAE bit
+    mov eax, cr4
+    or eax, 0b100000
+    mov cr4, eax
+
+    ; Enable the long mode flag in the Extended Feature Enable Register MSR
+    ; This address to select the EFER MSR is given by the AMD manual §3.1.7
+    mov ecx, 0xc0000080
+    rdmsr
+    ; Low 32-bit word is stored in eax
+    ; Long-mode enable is bit #8 (AMD manual §Figure 3-8)
+    or eax, 1 << 8
+    wrmsr
+
+    ; Load the PML4 (and double-dereference the parameter that was passed in by the BSP)
+    mov eax, [$pml4_ptr]
+    mov eax, [eax]
+    mov cr3, eax
+
+    ; Next, load the long-mode GDT
+    mov eax, [$long_mode_gdt_ptr]
+    lgdt [eax]
+
+    ; Enable the paging bit in cr0
+    mov eax, cr0
+    or eax, 1 << 31
+    mov cr0, eax
+
+    ; Put the long mode GDT into effect by loading the segment registers
+    ; First, reload CS via a jump
+    jmp 0x08:.long_mode
+
+; And immediately start assembling 64bit code
+[bits 64]
+.long_mode:
+    ; Reload data segment registers
+    mov ax, 0x10
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+    mov ss, ax
+
+    ; We're now in Long Mode
+    mov rax, 0xdeadbeefcafebabe
+
+    ; Spinloop in Long Mode!
 .loop:
     jmp $.loop
 
 align 16
 ; Defined in our memory map
+; PT: These parameter pointers *must* match the offsets defined in kernel/ap_bootstrap.h
 protected_mode_gdt_ptr: dd 0x9000
+long_mode_gdt_ptr: dd 0x9100
+pml4_ptr: dd 0x9200

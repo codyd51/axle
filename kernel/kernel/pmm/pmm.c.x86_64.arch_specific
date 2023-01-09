@@ -4,6 +4,7 @@
 #include <kernel/vmm/vmm.h>
 #include <kernel/boot_info.h>
 #include <kernel/address_space_bitmap.h>
+#include <kernel/ap_bootstrap.h>
 
 #include <std/common.h>
 

@@ -23,6 +23,7 @@
 
 #include "kernel.h"
 #include "kernel/segmentation/gdt_structures.h"
+#include "ap_bootstrap.h"
 
 static void _kernel_bootstrap_part2(void);
 
@@ -107,34 +108,70 @@ void _start(axle_boot_info_t* boot_info) {
 }
 
 static void _kernel_bootstrap_part2(void) {
-    boot_info_t* info = boot_info_get();
+    boot_info_t* boot_info = boot_info_get();
     // Copy the AP bootstrap from wherever it was loaded into physical memory into its bespoke location
     // This location matches where the compiled code expects to be loaded.
     // AP startup code must also be placed below 1MB, as APs start up in real mode.
     printf("Copy AP bootstrap from [0x%p - 0x%p] to [0x%p - 0x%p]\n",
-           info->ap_bootstrap_base,
-           info->ap_bootstrap_base + info->ap_bootstrap_size,
+           boot_info->ap_bootstrap_base,
+           boot_info->ap_bootstrap_base + boot_info->ap_bootstrap_size,
            AP_BOOTSTRAP_CODE_PAGE,
-           AP_BOOTSTRAP_CODE_PAGE + info->ap_bootstrap_size
+           AP_BOOTSTRAP_CODE_PAGE + boot_info->ap_bootstrap_size
     );
-    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_CODE_PAGE), (void*)PMA_TO_VMA(info->ap_bootstrap_base), info->ap_bootstrap_size);
+    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_CODE_PAGE), (void*)PMA_TO_VMA(boot_info->ap_bootstrap_base), boot_info->ap_bootstrap_size);
 
+    // Set up the protected mode GDT parameter
     uintptr_t gdt_size = 0;
     gdt_descriptor_t* protected_mode_gdt = gdt_create_for_protected_mode(&gdt_size);
+    // Ensure the GDT fits in the expected size
+    assert(sizeof(gdt_pointer_t) + gdt_size <= AP_BOOTSTRAP_PARAM_OFFSET_LONG_MODE_GDT, "Protected mode GDT was too big to fit in its parameter slot");
     printf("Got protected mode gdt %p\n", protected_mode_gdt);
 
-    gdt_pointer_t table = {0};
-    uint32_t relocated_table = AP_BOOTSTRAP_DATA_PAGE + 8;
-    table.table_base = (uintptr_t)relocated_table;
-    table.table_size = gdt_size;
-    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_DATA_PAGE + 0), &table, sizeof(gdt_pointer_t));
-    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_DATA_PAGE + 8), protected_mode_gdt, gdt_size);
+    gdt_pointer_t protected_mode_gdt_ptr = {0};
+    uint32_t relocated_protected_mode_gdt_addr = AP_BOOTSTRAP_PARAM_PROTECTED_MODE_GDT + 8;
+    protected_mode_gdt_ptr.table_base = (uintptr_t)relocated_protected_mode_gdt_addr;
+    protected_mode_gdt_ptr.table_size = gdt_size;
+    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_PROTECTED_MODE_GDT), &protected_mode_gdt_ptr, sizeof(gdt_pointer_t));
+    memcpy((void*)PMA_TO_VMA(relocated_protected_mode_gdt_addr), protected_mode_gdt, gdt_size);
+    // Copied the Protected Mode GDT to the data page, we can free it now
+    kfree(protected_mode_gdt);
 
-    printf("Bootloader provided RSDP 0x%x\n", info->acpi_rsdp);
+    // Set up the long mode GDT parameter
+    // Re-use the same GDT the BSP is using
+    gdt_pointer_t* current_long_mode_gdt = kernel_gdt_pointer();
+    printf("Got long mode GDT %p, table size %p\n", current_long_mode_gdt, current_long_mode_gdt->table_size);
+    gdt_descriptor_t* long_mode_gdt_entries = (gdt_descriptor_t*)current_long_mode_gdt->table_base;
+    // We need to create a new pointer as the existing one points to high memory
+    gdt_pointer_t long_mode_gdt_ptr = {0};
+    uint32_t relocated_long_mode_gdt_addr = AP_BOOTSTRAP_PARAM_LONG_MODE_GDT + 8;
+    long_mode_gdt_ptr.table_base = (uintptr_t)relocated_long_mode_gdt_addr;
+    long_mode_gdt_ptr.table_size = current_long_mode_gdt->table_size;
+    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_LONG_MODE_GDT), &long_mode_gdt_ptr, sizeof(gdt_pointer_t));
+    memcpy((void*)PMA_TO_VMA(relocated_long_mode_gdt_addr), (void*)current_long_mode_gdt->table_base, current_long_mode_gdt->table_size);
+
+    // Set up a virtual address space
+    pml4e_t* bsp_pml4 = (pml4e_t*)PMA_TO_VMA(boot_info->vas_kernel->pml4_phys);
+    uint64_t ap_pml4_phys_addr = pmm_alloc();
+    pml4e_t* ap_pml4 = (pml4e_t*)PMA_TO_VMA(ap_pml4_phys_addr);
+    // Copy all memory mappings from the BSP virtual address space
+    for (int i = 0; i < 512; i++) {
+        printf("Set %p[%d] = %p[%d]\n", ap_pml4, i, bsp_pml4,i);
+        ap_pml4[i] = bsp_pml4[i];
+    }
+    // Identity map the pages where the AP bootstrap is running
+    //// 2 pages: 1 for the code page, 1 for the data page
+    //_map_region_4k_pages(ap_pml4, AP_BOOTSTRAP_CODE_PAGE, PAGE_SIZE * 2, AP_BOOTSTRAP_CODE_PAGE, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
+    // Identity map the low 4G
+    // TODO(PT): This will cause problems if any of the paging structures are allocated above 4GB...
+    void _map_region_4k_pages(pml4e_t* page_mapping_level4_virt, uint64_t vmem_start, uint64_t vmem_size, uint64_t phys_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level);
+    _map_region_4k_pages(ap_pml4, 0x0, (1024LL * 1024LL * 1024LL * 4LL), 0x0, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
+    // Copy the PML4 pointer
+    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_PML4), &ap_pml4_phys_addr, sizeof(ap_pml4_phys_addr));
+
+    printf("Bootloader provided RSDP 0x%x\n", boot_info->acpi_rsdp);
 
     // Parse the ACPI tables and start up the other APs
-    acpi_parse_root_system_description(info->acpi_rsdp);
-    kfree(protected_mode_gdt);
+    acpi_parse_root_system_description(boot_info->acpi_rsdp);
     asm("cli");
     while (1) {}
 
