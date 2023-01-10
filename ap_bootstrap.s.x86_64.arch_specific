@@ -91,7 +91,18 @@ ap_entry:
     mov rsp, $stack_top
     mov rbp, $stack_top
 
+    ; Jump to the C entry point
+    ; Load the PML4 (and double-dereference the parameter that was passed in by the BSP)
+    xor rax, rax
+    mov eax, [$c_entry_point_ptr]
+    mov rax, [eax]
+    push .return_from_c_entry_point
+    push rax
+    ret
+    ;jmp rax
+
     ; Spinloop in Long Mode!
+.return_from_c_entry_point:
 .loop:
     jmp $.loop
 
@@ -102,6 +113,9 @@ protected_mode_gdt_ptr: dd 0x9000
 long_mode_gdt_ptr: dd 0x9100
 pml4_ptr: dd 0x9200
 idt_ptr: dd 0x9300
+c_entry_point_ptr: dd 0x9400
+
+;section .bss
 stack_bottom:
     resb 256
 stack_top:

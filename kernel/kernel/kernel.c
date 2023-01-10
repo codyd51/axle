@@ -27,6 +27,10 @@
 
 static void _kernel_bootstrap_part2(void);
 
+void ap_c_entry(void) {
+    printf("AP running C code!!!\n");
+}
+
 void FS_SERVER_EXEC_TRAMPOLINE_NAME(uint32_t arg1, uint32_t arg2, uint32_t arg3) {
     boot_info_t* boot_info = boot_info_get();
     const char* program_name = "fs_server";
@@ -172,6 +176,10 @@ static void _kernel_bootstrap_part2(void) {
     idt_pointer_t* current_idt = kernel_idt_pointer();
     // It's fine to copy the high-memory IDT as the bootstrap will enable paging before loading it
     memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_IDT), current_idt, sizeof(idt_pointer_t) + current_idt->table_size);
+
+    // Copy the C entry point
+    uintptr_t ap_c_entry_point_addr = (uintptr_t)&ap_c_entry;
+    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_C_ENTRY), &ap_c_entry_point_addr, sizeof(ap_c_entry_point_addr));
 
     printf("Bootloader provided RSDP 0x%x\n", boot_info->acpi_rsdp);
 
