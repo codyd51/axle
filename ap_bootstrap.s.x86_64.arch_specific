@@ -82,6 +82,10 @@ ap_entry:
     ; We're now in Long Mode
     mov rax, 0xdeadbeefcafebabe
 
+    ; Load the IDT
+    mov eax, [$idt_ptr]
+    lidt [eax]
+
     ; Spinloop in Long Mode!
 .loop:
     jmp $.loop

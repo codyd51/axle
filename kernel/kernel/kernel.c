@@ -109,6 +109,10 @@ void _start(axle_boot_info_t* boot_info) {
 
 static void _kernel_bootstrap_part2(void) {
     boot_info_t* boot_info = boot_info_get();
+
+    // First, verify our assumption that the AP bootstrap fits into a page
+    assert(boot_info->ap_bootstrap_size < PAGE_SIZE, "AP bootstrap was larger than a page!");
+
     // Copy the AP bootstrap from wherever it was loaded into physical memory into its bespoke location
     // This location matches where the compiled code expects to be loaded.
     // AP startup code must also be placed below 1MB, as APs start up in real mode.
@@ -155,18 +159,19 @@ static void _kernel_bootstrap_part2(void) {
     pml4e_t* ap_pml4 = (pml4e_t*)PMA_TO_VMA(ap_pml4_phys_addr);
     // Copy all memory mappings from the BSP virtual address space
     for (int i = 0; i < 512; i++) {
-        printf("Set %p[%d] = %p[%d]\n", ap_pml4, i, bsp_pml4,i);
         ap_pml4[i] = bsp_pml4[i];
     }
-    // Identity map the pages where the AP bootstrap is running
-    //// 2 pages: 1 for the code page, 1 for the data page
-    //_map_region_4k_pages(ap_pml4, AP_BOOTSTRAP_CODE_PAGE, PAGE_SIZE * 2, AP_BOOTSTRAP_CODE_PAGE, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
-    // Identity map the low 4G
+    // Identity map the low 4G. We need to identity map more than just the AP bootstrap pages because the PML4 will reference arbitrary frames.
     // TODO(PT): This will cause problems if any of the paging structures are allocated above 4GB...
     void _map_region_4k_pages(pml4e_t* page_mapping_level4_virt, uint64_t vmem_start, uint64_t vmem_size, uint64_t phys_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level);
     _map_region_4k_pages(ap_pml4, 0x0, (1024LL * 1024LL * 1024LL * 4LL), 0x0, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
     // Copy the PML4 pointer
     memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_PML4), &ap_pml4_phys_addr, sizeof(ap_pml4_phys_addr));
+
+    // Copy the IDT pointer
+    idt_pointer_t* current_idt = kernel_idt_pointer();
+    // It's fine to copy the high-memory IDT as the bootstrap will enable paging before loading it
+    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_IDT), current_idt, sizeof(idt_pointer_t) + current_idt->table_size);
 
     printf("Bootloader provided RSDP 0x%x\n", boot_info->acpi_rsdp);
 
@@ -205,3 +210,4 @@ static void _kernel_bootstrap_part2(void) {
     task_die(0);
     assert(0, "task_die should have stopped execution");
 }
+
