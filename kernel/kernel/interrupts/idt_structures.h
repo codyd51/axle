@@ -51,5 +51,6 @@ FAIL_TO_COMPILE();
 #endif
 
 void registers_print(register_state_t* regs);
+idt_pointer_t* kernel_idt_pointer(void);
 
 #endif
