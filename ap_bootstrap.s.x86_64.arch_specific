@@ -86,6 +86,11 @@ ap_entry:
     mov eax, [$idt_ptr]
     lidt [eax]
 
+    ; Load the stack pointer with the small stack we reserve in the bootstrap
+    ; TODO(PT): This shares the same stack for all APs, we need a per-AP stack
+    mov rsp, $stack_top
+    mov rbp, $stack_top
+
     ; Spinloop in Long Mode!
 .loop:
     jmp $.loop
@@ -96,3 +101,7 @@ align 16
 protected_mode_gdt_ptr: dd 0x9000
 long_mode_gdt_ptr: dd 0x9100
 pml4_ptr: dd 0x9200
+idt_ptr: dd 0x9300
+stack_bottom:
+    resb 256
+stack_top:
