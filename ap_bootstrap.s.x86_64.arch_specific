@@ -80,16 +80,16 @@ ap_entry:
     mov ss, ax
 
     ; We're now in Long Mode
-    mov rax, 0xdeadbeefcafebabe
-
     ; Load the IDT
     mov eax, [$idt_ptr]
     lidt [eax]
 
-    ; Load the stack pointer with the small stack we reserve in the bootstrap
-    ; TODO(PT): This shares the same stack for all APs, we need a per-AP stack
-    mov rsp, $stack_top
-    mov rbp, $stack_top
+    ; Load the stack registers with the AP kernel stack allocated by the BSP
+    xor rax, rax
+    mov eax, [$stack_top_ptr]
+    mov rax, [eax]
+    mov rsp, rax
+    mov rbp, rax
 
     ; Jump to the C entry point
     ; Load the PML4 (and double-dereference the parameter that was passed in by the BSP)
@@ -99,7 +99,6 @@ ap_entry:
     push .return_from_c_entry_point
     push rax
     ret
-    ;jmp rax
 
     ; Spinloop in Long Mode!
 .return_from_c_entry_point:
@@ -114,8 +113,4 @@ long_mode_gdt_ptr: dd 0x9100
 pml4_ptr: dd 0x9200
 idt_ptr: dd 0x9300
 c_entry_point_ptr: dd 0x9400
-
-;section .bss
-stack_bottom:
-    resb 256
-stack_top:
+stack_top_ptr: dd 0x9500

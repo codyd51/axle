@@ -159,27 +159,29 @@ pub fn acpi_parse_root_system_description(phys_addr: usize) {
     unsafe { asm!("sti") };
 
     // Now, boot the other processors
-    let ipi_dest = InterProcessorInterruptDestination::OtherProcessor(1);
-    println!("Sending INIT IPI to all APs...");
-    boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
-        0,
-        InterProcessorInterruptDeliveryMode::Init,
-        ipi_dest,
-    ));
-    spin_for_delay_ms(10);
-    println!("Sending SIPI to all APs...");
-    boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
-        8,
-        InterProcessorInterruptDeliveryMode::Startup,
-        ipi_dest,
-    ));
-    spin_for_delay_ms(2);
-    println!("Sending second SIPI to all APs...");
-    boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
-        8,
-        InterProcessorInterruptDeliveryMode::Startup,
-        ipi_dest,
-    ));
+    for ipi_dest in [1_usize].iter() {
+        let ipi_dest = InterProcessorInterruptDestination::OtherProcessor(*ipi_dest);
+        println!("Sending INIT IPI to all APs...");
+        boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
+            0,
+            InterProcessorInterruptDeliveryMode::Init,
+            ipi_dest,
+        ));
+        spin_for_delay_ms(10);
+        println!("Sending SIPI to all APs...");
+        boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
+            8,
+            InterProcessorInterruptDeliveryMode::Startup,
+            ipi_dest,
+        ));
+        spin_for_delay_ms(2);
+        println!("Sending second SIPI to all APs...");
+        boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
+            8,
+            InterProcessorInterruptDeliveryMode::Startup,
+            ipi_dest,
+        ));
+    }
 }
 
 fn parse_xstd_at_phys_addr(tab_level: usize, phys_addr: PhysAddr) -> AcpiSmpInfo {

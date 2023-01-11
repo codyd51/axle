@@ -181,6 +181,17 @@ static void _kernel_bootstrap_part2(void) {
     uintptr_t ap_c_entry_point_addr = (uintptr_t)&ap_c_entry;
     memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_C_ENTRY), &ap_c_entry_point_addr, sizeof(ap_c_entry_point_addr));
 
+    // Map a stack for the AP to use
+    int ap_stack_page_count = 4;
+    uintptr_t ap_stack_top = VAS_KERNEL_STACK_BASE + (ap_stack_page_count * PAGE_SIZE);
+    for (int i = 0; i < ap_stack_page_count; i++) {
+        uintptr_t frame_addr = pmm_alloc();
+        printf("Allocated AP stack frame %p\n", frame_addr);
+        uintptr_t page_addr = VAS_KERNEL_STACK_BASE + (i * PAGE_SIZE);
+        _map_region_4k_pages(ap_pml4, page_addr, PAGE_SIZE, frame_addr, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
+    }
+    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_STACK_TOP), &ap_stack_top, sizeof(ap_stack_top));
+
     printf("Bootloader provided RSDP 0x%x\n", boot_info->acpi_rsdp);
 
     // Parse the ACPI tables and start up the other APs
