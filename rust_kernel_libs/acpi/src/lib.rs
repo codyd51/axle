@@ -214,42 +214,41 @@ pub unsafe fn apic_init(smp_info: *const SmpInfo) {
 }
 
 #[no_mangle]
-pub unsafe fn smp_bringup(smp_info: *const SmpInfo) {
+pub unsafe fn smp_get_current_core_apic_id(smp_info: *const SmpInfo) -> usize {
+    let current_core_apic = ProcessorLocalApic::new((*smp_info).local_apic_phys_addr);
+    current_core_apic.id() as _
+}
+
+#[no_mangle]
+pub unsafe fn smp_boot_core(smp_info: *const SmpInfo, core: *const ProcessorInfo) {
     // Since this runs before SMP bringup, we're definitely running on the BSP
     let boot_processor_local_apic = ProcessorLocalApic::new((*smp_info).local_apic_phys_addr);
-    for processor in &(*smp_info).processors {
-        let apic_id = processor.apic_id;
-        // Skip the BSP
-        if apic_id == boot_processor_local_apic.id() as usize {
-            continue;
-        }
+    let apic_id = (*core).apic_id;
 
-        // Boot the AP
-        let ipi_dest = InterProcessorInterruptDestination::OtherProcessor(apic_id);
-        println!("Sending INIT IPI to APIC #{apic_id}...");
-        boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
-            0,
-            InterProcessorInterruptDeliveryMode::Init,
-            ipi_dest,
-        ));
-        spin_for_delay_ms(10);
-        println!("Sending SIPI to APIC #{apic_id}...");
-        // Tell the AP to start executing at 0x8000
-        // See ap_bootstrap.md
-        boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
-            8,
-            InterProcessorInterruptDeliveryMode::Startup,
-            ipi_dest,
-        ));
-        spin_for_delay_ms(2);
-        println!("Sending second SIPI to APIC #{apic_id}...");
-        boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
-            8,
-            InterProcessorInterruptDeliveryMode::Startup,
-            ipi_dest,
-        ));
-        break;
-    }
+    // Boot the AP
+    let ipi_dest = InterProcessorInterruptDestination::OtherProcessor(apic_id);
+    println!("Sending INIT IPI to APIC #{apic_id}...");
+    boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
+        0,
+        InterProcessorInterruptDeliveryMode::Init,
+        ipi_dest,
+    ));
+    spin_for_delay_ms(10);
+    println!("Sending SIPI to APIC #{apic_id}...");
+    // Tell the AP to start executing at 0x8000
+    // See ap_bootstrap.md
+    boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
+        8,
+        InterProcessorInterruptDeliveryMode::Startup,
+        ipi_dest,
+    ));
+    spin_for_delay_ms(2);
+    println!("Sending second SIPI to APIC #{apic_id}...");
+    boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
+        8,
+        InterProcessorInterruptDeliveryMode::Startup,
+        ipi_dest,
+    ));
 }
 
 fn parse_xstd_at_phys_addr(tab_level: usize, phys_addr: PhysAddr) -> AcpiSmpInfo {

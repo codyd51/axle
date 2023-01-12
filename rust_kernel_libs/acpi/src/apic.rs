@@ -186,9 +186,11 @@ impl IoApic {
         let low_reg = 0x10 + (remap.irq_vector as u32 * 2);
         let high_reg = low_reg + 1;
         /*
-        println!("Remap as bits {remap_as_bits:#016x}");
+
+        //println!("Remap as bits {remap_as_bits:#016x}");
         println!("Regs {low_reg}, {high_reg}");
 
+        /*
         println!(
             "Reg contents {}, {}",
             self.read_register(low_reg),
@@ -203,6 +205,7 @@ impl IoApic {
             (remap_as_bits >> 32 & 0xffffffff) as u32
         );
         */
+
         self.write_register(low_reg, (remap_as_bits & 0xffffffff) as u32);
         self.write_register(high_reg, (remap_as_bits >> 32 & 0xffffffff) as u32);
     }

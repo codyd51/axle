@@ -7,6 +7,8 @@
 #define MAX_PROCESSORS 64
 #define MAX_INTERRUPT_OVERRIDES 64
 
+#define CPU_CORE_DATA_BASE 0xFFFFB00000000000LL
+
 typedef struct phys_addr {
     uintptr_t val;
 } phys_addr_t;
@@ -32,6 +34,6 @@ typedef struct smp_info {
     interrupt_override_info_t interrupt_overrides[MAX_INTERRUPT_OVERRIDES];
 } smp_info_t;
 
-smp_info_t* acpi_parse_root_system_description(uintptr_t acpi_rsdp);
+void smp_init(void);
 
 #endif

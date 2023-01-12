@@ -20,6 +20,7 @@
 #include <kernel/syscall/syscall.h>
 #include <kernel/util/elf/elf.h>
 #include <kernel/multitasking/tasks/task_small.h>
+#include <kernel/smp.h>
 
 #include "kernel.h"
 
@@ -102,9 +103,6 @@ static void _kernel_bootstrap_part2(void) {
 
     // Detect and boot other APs
     smp_init();
-
-    asm("cli");
-    while (1) {}
 
     // Early boot is finished
     // Multitasking and program loading is now available

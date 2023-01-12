@@ -47,4 +47,5 @@ The approach I've taken is:
 `0xFFFF800000000000`: Physical RAM remapping
 `0xFFFF900000000000`: Kernel heap
 `0xFFFFA00000000000`: Per-CPU core kernel stack
+`0xFFFFB00000000000`: Per-CPU core kernel data
 `0xFFFFFFFF80000000`: Kernel code/data
