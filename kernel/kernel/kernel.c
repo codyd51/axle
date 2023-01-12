@@ -83,6 +83,12 @@ void _start(axle_boot_info_t* boot_info) {
     //draw(boot_info, 0x00ff0000);
     //draw_string_oneshot_ex("Enabling tasking...", false);
 
+    syscall_init();
+
+    // Initialize PS/2 controller
+    // (and sub-drivers, such as a PS/2 keyboard and mouse)
+    ps2_controller_init();
+
     // Higher-level features like multitasking
     // Note that as soon as we enter part 2, we won't be able to read any low memory.
     // This is because the bootloader identity maps low memory, and this identity mapping is trashed once we switch
@@ -95,11 +101,6 @@ void _start(axle_boot_info_t* boot_info) {
 
 static void _kernel_bootstrap_part2(void) {
     // We're now fully set up in high memory
-    syscall_init();
-
-    // Initialize PS/2 controller
-    // (and sub-drivers, such as a PS/2 keyboard and mouse)
-    ps2_controller_init();
 
     // Detect and boot other APs
     smp_init();

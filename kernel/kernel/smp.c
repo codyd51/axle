@@ -123,6 +123,13 @@ void smp_init(void) {
             _map_region_4k_pages(ap_pml4, page_addr, PAGE_SIZE, frame_addr, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
         }
         memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_STACK_TOP), &ap_stack_top, sizeof(ap_stack_top));
+
+        // Map the per-core kernel data
+        uintptr_t cpu_specific_data_frame = pmm_alloc();
+        _map_region_4k_pages(ap_pml4, CPU_CORE_DATA_BASE, PAGE_SIZE, cpu_specific_data_frame, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
+        memcpy((void*)PMA_TO_VMA(cpu_specific_data_frame), processor_info, sizeof(processor_info_t));
+
+        smp_boot_core(smp_info, processor_info);
     }
 
     /*

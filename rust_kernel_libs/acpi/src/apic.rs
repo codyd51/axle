@@ -185,7 +185,6 @@ impl IoApic {
         let mut remap_as_bits = remap.as_bits();
         let low_reg = 0x10 + (remap.irq_vector as u32 * 2);
         let high_reg = low_reg + 1;
-        /*
 
         //println!("Remap as bits {remap_as_bits:#016x}");
         println!("Regs {low_reg}, {high_reg}");
