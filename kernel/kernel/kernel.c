@@ -22,14 +22,8 @@
 #include <kernel/multitasking/tasks/task_small.h>
 
 #include "kernel.h"
-#include "kernel/segmentation/gdt_structures.h"
-#include "ap_bootstrap.h"
 
 static void _kernel_bootstrap_part2(void);
-
-void ap_c_entry(void) {
-    printf("AP running C code!!!\n");
-}
 
 void FS_SERVER_EXEC_TRAMPOLINE_NAME(uint32_t arg1, uint32_t arg2, uint32_t arg3) {
     boot_info_t* boot_info = boot_info_get();
@@ -67,35 +61,22 @@ void draw2(int color) {
 
 void _start(axle_boot_info_t* boot_info) {
     draw(boot_info, 0x0000ffff);
-    //draw_string_oneshot("Parsing boot info...\n");
-    //while (1) {}
     // Environment info
     boot_info_read(boot_info);
-    //draw(boot_info, 0x0000ff00);
-    //boot_info_dump();
-    //draw_string_oneshot("Got boot info\n");
 
     // Descriptor tables
     gdt_init();
     draw(boot_info, 0x000000ff);
     interrupt_init();
     draw(boot_info, 0xff00ff);
-    //draw_string_oneshot("Enabled interrupts");
-    //draw_string_oneshot("Will next try PIT");
 
     // PIT and serial drivers
     pit_timer_init(PIT_TICK_GRANULARITY_1MS);
-    //draw_string_oneshot("Enabled PIT");
-    //draw(boot_info, 0x444444);
     serial_init();
-    //draw_string_oneshot("Enabled serial");
-    //draw(boot_info, 0xffff00);
 
     // Kernel features
     pmm_init();
-    //draw(boot_info, 0xffffff);
     pmm_dump();
-    //draw(boot_info, 0xff45ff);
     vmm_init(boot_info->boot_pml4);
 
     //draw(boot_info, 0x00ff0000);
@@ -112,108 +93,18 @@ void _start(axle_boot_info_t* boot_info) {
 }
 
 static void _kernel_bootstrap_part2(void) {
-    boot_info_t* boot_info = boot_info_get();
-
-    // First, verify our assumption that the AP bootstrap fits into a page
-    assert(boot_info->ap_bootstrap_size < PAGE_SIZE, "AP bootstrap was larger than a page!");
-
-    // Copy the AP bootstrap from wherever it was loaded into physical memory into its bespoke location
-    // This location matches where the compiled code expects to be loaded.
-    // AP startup code must also be placed below 1MB, as APs start up in real mode.
-    printf("Copy AP bootstrap from [0x%p - 0x%p] to [0x%p - 0x%p]\n",
-           boot_info->ap_bootstrap_base,
-           boot_info->ap_bootstrap_base + boot_info->ap_bootstrap_size,
-           AP_BOOTSTRAP_CODE_PAGE,
-           AP_BOOTSTRAP_CODE_PAGE + boot_info->ap_bootstrap_size
-    );
-    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_CODE_PAGE), (void*)PMA_TO_VMA(boot_info->ap_bootstrap_base), boot_info->ap_bootstrap_size);
-
-    // Set up the protected mode GDT parameter
-    uintptr_t gdt_size = 0;
-    gdt_descriptor_t* protected_mode_gdt = gdt_create_for_protected_mode(&gdt_size);
-    // Ensure the GDT fits in the expected size
-    assert(sizeof(gdt_pointer_t) + gdt_size <= AP_BOOTSTRAP_PARAM_OFFSET_LONG_MODE_GDT, "Protected mode GDT was too big to fit in its parameter slot");
-    printf("Got protected mode gdt %p\n", protected_mode_gdt);
-
-    gdt_pointer_t protected_mode_gdt_ptr = {0};
-    uint32_t relocated_protected_mode_gdt_addr = AP_BOOTSTRAP_PARAM_PROTECTED_MODE_GDT + 8;
-    protected_mode_gdt_ptr.table_base = (uintptr_t)relocated_protected_mode_gdt_addr;
-    protected_mode_gdt_ptr.table_size = gdt_size;
-    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_PROTECTED_MODE_GDT), &protected_mode_gdt_ptr, sizeof(gdt_pointer_t));
-    memcpy((void*)PMA_TO_VMA(relocated_protected_mode_gdt_addr), protected_mode_gdt, gdt_size);
-    // Copied the Protected Mode GDT to the data page, we can free it now
-    kfree(protected_mode_gdt);
-
-    // Set up the long mode GDT parameter
-    // Re-use the same GDT the BSP is using
-    gdt_pointer_t* current_long_mode_gdt = kernel_gdt_pointer();
-    printf("Got long mode GDT %p, table size %p\n", current_long_mode_gdt, current_long_mode_gdt->table_size);
-    gdt_descriptor_t* long_mode_gdt_entries = (gdt_descriptor_t*)current_long_mode_gdt->table_base;
-    // We need to create a new pointer as the existing one points to high memory
-    gdt_pointer_t long_mode_gdt_ptr = {0};
-    uint32_t relocated_long_mode_gdt_addr = AP_BOOTSTRAP_PARAM_LONG_MODE_GDT + 8;
-    long_mode_gdt_ptr.table_base = (uintptr_t)relocated_long_mode_gdt_addr;
-    long_mode_gdt_ptr.table_size = current_long_mode_gdt->table_size;
-    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_LONG_MODE_GDT), &long_mode_gdt_ptr, sizeof(gdt_pointer_t));
-    memcpy((void*)PMA_TO_VMA(relocated_long_mode_gdt_addr), (void*)current_long_mode_gdt->table_base, current_long_mode_gdt->table_size);
-
-    // Set up a virtual address space
-    pml4e_t* bsp_pml4 = (pml4e_t*)PMA_TO_VMA(boot_info->vas_kernel->pml4_phys);
-    uint64_t ap_pml4_phys_addr = pmm_alloc();
-    pml4e_t* ap_pml4 = (pml4e_t*)PMA_TO_VMA(ap_pml4_phys_addr);
-    // Copy all memory mappings from the BSP virtual address space
-    for (int i = 0; i < 512; i++) {
-        ap_pml4[i] = bsp_pml4[i];
-    }
-    // Identity map the low 4G. We need to identity map more than just the AP bootstrap pages because the PML4 will reference arbitrary frames.
-    // TODO(PT): This will cause problems if any of the paging structures are allocated above 4GB...
-    void _map_region_4k_pages(pml4e_t* page_mapping_level4_virt, uint64_t vmem_start, uint64_t vmem_size, uint64_t phys_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level);
-    _map_region_4k_pages(ap_pml4, 0x0, (1024LL * 1024LL * 1024LL * 4LL), 0x0, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
-    // Copy the PML4 pointer
-    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_PML4), &ap_pml4_phys_addr, sizeof(ap_pml4_phys_addr));
-
-    // Copy the IDT pointer
-    idt_pointer_t* current_idt = kernel_idt_pointer();
-    // It's fine to copy the high-memory IDT as the bootstrap will enable paging before loading it
-    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_IDT), current_idt, sizeof(idt_pointer_t) + current_idt->table_size);
-
-    // Copy the C entry point
-    uintptr_t ap_c_entry_point_addr = (uintptr_t)&ap_c_entry;
-    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_C_ENTRY), &ap_c_entry_point_addr, sizeof(ap_c_entry_point_addr));
-
-    // Map a stack for the AP to use
-    int ap_stack_page_count = 4;
-    uintptr_t ap_stack_top = VAS_KERNEL_STACK_BASE + (ap_stack_page_count * PAGE_SIZE);
-    for (int i = 0; i < ap_stack_page_count; i++) {
-        uintptr_t frame_addr = pmm_alloc();
-        printf("Allocated AP stack frame %p\n", frame_addr);
-        uintptr_t page_addr = VAS_KERNEL_STACK_BASE + (i * PAGE_SIZE);
-        _map_region_4k_pages(ap_pml4, page_addr, PAGE_SIZE, frame_addr, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
-    }
-    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_STACK_TOP), &ap_stack_top, sizeof(ap_stack_top));
-
-    printf("Bootloader provided RSDP 0x%x\n", boot_info->acpi_rsdp);
-
-    // Parse the ACPI tables and start up the other APs
-    acpi_parse_root_system_description(boot_info->acpi_rsdp);
-    asm("cli");
-    while (1) {}
-
-    // This must happen before the second half of the bootstrap, as the ACPI tables are in the low-memory identity map.
-    // The low-memory identity map is trashed once we enter the second half.
-    // (See also: comment in bootloader/paging.c)
-
-    //draw_string_oneshot("Bootstrap part 2");
-    //draw(boot_info_get(), 0x00ff00ff);
     // We're now fully set up in high memory
     syscall_init();
-
-    //draw_string_oneshot("Syscalls done");
 
     // Initialize PS/2 controller
     // (and sub-drivers, such as a PS/2 keyboard and mouse)
     ps2_controller_init();
-    //draw_string_oneshot("PS/2 done");
+
+    // Detect and boot other APs
+    smp_init();
+
+    asm("cli");
+    while (1) {}
 
     // Early boot is finished
     // Multitasking and program loading is now available
@@ -221,8 +112,6 @@ static void _kernel_bootstrap_part2(void) {
     // Launch the file server, which will load the ramdisk and launch all the 
     // specified startup programs
     task_spawn__with_args("launch_fs_server", FS_SERVER_EXEC_TRAMPOLINE_NAME, 0, 0, 0);
-
-    //draw_string_oneshot("Bootstrap done");
 
     // Bootstrapping complete - kill this process
     printf("[t = %d] Bootstrap task [PID %d] will exit\n", time(), getpid());

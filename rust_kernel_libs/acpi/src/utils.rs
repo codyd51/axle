@@ -9,6 +9,7 @@ extern "C" {
 /// PT: Matches the definitions in kernel/util/vmm
 const KERNEL_MEMORY_BASE: usize = 0xFFFF800000000000;
 
+#[repr(C)]
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct PhysAddr(pub usize);
 

@@ -104,7 +104,6 @@ impl ProcessorLocalApic {
         // > The act of writing to the low doubleword of the ICR causes the IPI to be sent.
         // Therefore, we need to write the high word first so we know we're ready
         let ipi_as_u64: u64 = ipi.into();
-        println!("ipi as u64 {ipi_as_u64:#016x}");
         self.write_register(
             Self::INTERRUPT_COMMAND_HIGH_REGISTER_IDX,
             ipi_as_u64.high_u32(),
@@ -156,7 +155,6 @@ impl IoApic {
     }
 
     pub fn write_register(&self, reg_idx: u32, val: u32) {
-        println!("Writing {val:#016x} to {reg_idx}");
         self.select_register(reg_idx);
         self.write_word(val)
     }

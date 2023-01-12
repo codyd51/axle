@@ -19,16 +19,21 @@ use crate::utils::{
     get_tabs, parse_struct_at_phys_addr, parse_struct_at_virt_addr, spin_for_delay_ms, PhysAddr,
     VirtRamRemapAddr,
 };
+use alloc::alloc::alloc;
 use alloc::vec;
 use alloc::vec::Vec;
+use core::alloc::Layout;
 use core::arch::asm;
+use core::intrinsics::copy_nonoverlapping;
 use core::mem;
+use core::mem::{align_of, size_of};
 use ffi_bindings::println;
 
 mod apic;
 mod structs;
 mod utils;
 
+#[repr(C)]
 #[derive(Debug)]
 pub struct ProcessorInfo {
     processor_id: usize,
@@ -44,6 +49,7 @@ impl ProcessorInfo {
     }
 }
 
+#[repr(C)]
 #[derive(Debug)]
 pub struct InterruptOverride {
     bus_source: usize,
@@ -61,6 +67,7 @@ impl InterruptOverride {
     }
 }
 
+#[repr(C)]
 #[derive(Debug)]
 pub struct NonMaskableInterrupt {
     for_processor_id: usize,
@@ -99,8 +106,26 @@ impl AcpiSmpInfo {
     }
 }
 
+/// A representation of the SMP state of the system that can be stored in axle's global system state and used from C
+#[repr(C)]
+#[derive(Debug)]
+pub struct SmpInfo {
+    local_apic_phys_addr: PhysAddr,
+    io_apic_phys_addr: PhysAddr,
+    /// VLAs follow
+    processor_count: usize,
+    processors: [ProcessorInfo; Self::MAX_PROCESSORS],
+    interrupt_override_count: usize,
+    interrupt_overrides: [InterruptOverride; Self::MAX_INTERRUPT_OVERRIDES],
+}
+
+impl SmpInfo {
+    pub const MAX_PROCESSORS: usize = 64;
+    pub const MAX_INTERRUPT_OVERRIDES: usize = 64;
+}
+
 #[no_mangle]
-pub fn acpi_parse_root_system_description(phys_addr: usize) {
+pub fn acpi_parse_root_system_description(phys_addr: usize) -> *mut SmpInfo {
     println!("[{phys_addr:#016x} ACPI RootSystemDescription]");
     let phys_addr = PhysAddr(phys_addr);
     let root_header: &RootSystemDescriptionHeader = parse_struct_at_phys_addr(phys_addr);
@@ -109,7 +134,36 @@ pub fn acpi_parse_root_system_description(phys_addr: usize) {
     assert_eq!(root_header.revision(), 2);
 
     let smp_info = parse_xstd_at_phys_addr(1, root_header.xsdt_phys_addr());
+    // Populate the kernel-safe data structure describing the SMP state
+    let processor_count = smp_info.processors.len();
+    let interrupt_override_count = smp_info.interrupt_overrides.len();
+    // No need to reserve extra space for the arrays as we preallocate a maximum size
+    let layout = Layout::from_size_align(size_of::<SmpInfo>(), align_of::<usize>()).unwrap();
+    unsafe {
+        let mut s = alloc(layout) as *mut SmpInfo;
+        (*s).local_apic_phys_addr = smp_info.local_apic_addr;
+        (*s).io_apic_phys_addr = smp_info.io_apic_addr;
 
+        (*s).processor_count = processor_count;
+        copy_nonoverlapping(
+            smp_info.processors.as_ptr(),
+            (*s).processors.as_mut_ptr(),
+            processor_count,
+        );
+
+        (*s).interrupt_override_count = interrupt_override_count;
+        copy_nonoverlapping(
+            smp_info.interrupt_overrides.as_ptr(),
+            (*s).interrupt_overrides.as_mut_ptr(),
+            interrupt_override_count,
+        );
+
+        s
+    }
+}
+
+#[no_mangle]
+pub unsafe fn apic_init(smp_info: *const SmpInfo) {
     // 1. Disable the legacy PIC as we're going to use the APIC
     apic_disable_pic();
 
@@ -119,7 +173,7 @@ pub fn acpi_parse_root_system_description(phys_addr: usize) {
     // space with an initial starting address of FEE00000H.
     // For correct APIC operation, this address space must be mapped to an area of memory that
     // has been designated as strong uncacheable (UC)
-    let boot_processor_local_apic = ProcessorLocalApic::new(smp_info.local_apic_addr);
+    let boot_processor_local_apic = ProcessorLocalApic::new((*smp_info).local_apic_phys_addr);
     println!(
         "APIC local ID {} version {}",
         boot_processor_local_apic.id(),
@@ -127,7 +181,7 @@ pub fn acpi_parse_root_system_description(phys_addr: usize) {
     );
     boot_processor_local_apic.enable();
 
-    let io_apic = IoApic::new(smp_info.io_apic_addr);
+    let io_apic = IoApic::new((*smp_info).io_apic_phys_addr);
     println!(
         "IO APIC ID {} version {}, max redirections {}",
         io_apic.id(),
@@ -147,7 +201,7 @@ pub fn acpi_parse_root_system_description(phys_addr: usize) {
         ));
     }
     // Now that we've set up the base case, apply any requested interrupt source overrides
-    for int_source_override in smp_info.interrupt_overrides.iter() {
+    for int_source_override in (*smp_info).interrupt_overrides.iter() {
         io_apic.remap_irq(RemapIrqDescription::new(
             int_source_override.sys_interrupt as u8,
             32 + int_source_override.irq_source as u8,
@@ -157,30 +211,44 @@ pub fn acpi_parse_root_system_description(phys_addr: usize) {
     apic_enable();
     // Finally, enable interrupts
     unsafe { asm!("sti") };
+}
 
-    // Now, boot the other processors
-    for ipi_dest in [1_usize].iter() {
-        let ipi_dest = InterProcessorInterruptDestination::OtherProcessor(*ipi_dest);
-        println!("Sending INIT IPI to all APs...");
+#[no_mangle]
+pub unsafe fn smp_bringup(smp_info: *const SmpInfo) {
+    // Since this runs before SMP bringup, we're definitely running on the BSP
+    let boot_processor_local_apic = ProcessorLocalApic::new((*smp_info).local_apic_phys_addr);
+    for processor in &(*smp_info).processors {
+        let apic_id = processor.apic_id;
+        // Skip the BSP
+        if apic_id == boot_processor_local_apic.id() as usize {
+            continue;
+        }
+
+        // Boot the AP
+        let ipi_dest = InterProcessorInterruptDestination::OtherProcessor(apic_id);
+        println!("Sending INIT IPI to APIC #{apic_id}...");
         boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
             0,
             InterProcessorInterruptDeliveryMode::Init,
             ipi_dest,
         ));
         spin_for_delay_ms(10);
-        println!("Sending SIPI to all APs...");
+        println!("Sending SIPI to APIC #{apic_id}...");
+        // Tell the AP to start executing at 0x8000
+        // See ap_bootstrap.md
         boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
             8,
             InterProcessorInterruptDeliveryMode::Startup,
             ipi_dest,
         ));
         spin_for_delay_ms(2);
-        println!("Sending second SIPI to all APs...");
+        println!("Sending second SIPI to APIC #{apic_id}...");
         boot_processor_local_apic.send_ipi(InterProcessorInterruptDescription::new(
             8,
             InterProcessorInterruptDeliveryMode::Startup,
             ipi_dest,
         ));
+        break;
     }
 }
 

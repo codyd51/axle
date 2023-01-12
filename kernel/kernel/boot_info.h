@@ -6,6 +6,7 @@
 
 #include <kernel/vmm/vmm.h>
 #include <kernel/elf.h>
+#include <kernel/smp.h>
 #include <bootloader/axle_boot_info.h>
 
 typedef enum physical_memory_region_type {
@@ -67,6 +68,8 @@ typedef struct boot_info {
 
     uintptr_t ap_bootstrap_base;
     uintptr_t ap_bootstrap_size;
+
+    smp_info_t* smp_info;
 } boot_info_t;
 
 boot_info_t* boot_info_get(void);
