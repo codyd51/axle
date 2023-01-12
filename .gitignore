@@ -12,6 +12,8 @@ isodir/
 i686-toolchain/
 x86_64-toolchain/
 initrd/
+.gdbinit
+.idea
 
 .vscode/
 __pycache__/
@@ -39,4 +41,10 @@ rust_programs/*/target
 mkinitrd/target
 
 # Rust libraries generated as part of the kernel build
-compiled_rust_kernel_libs
+.compiled_rust_kernel_libs
+
+# AP bootstrap compiled as part of the kernel build
+.compiled_ap_bootstrap
+
+bootloader/BOOTX64.EFI
+bootloader/BOOTX64.pdb
