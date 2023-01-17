@@ -7,6 +7,7 @@
 #include <kernel/util/amc/amc_internal.h>
 #include <kernel/util/amc/core_commands.h>
 #include <kernel/assert.h>
+#include <kernel/smp.h>
 
 #include <kernel/pmm/pmm.h>
 
@@ -16,7 +17,6 @@
 
 static volatile int next_pid = 0;
 
-task_small_t* _current_task_small = 0;
 static task_small_t* _current_first_responder = 0;
 static task_small_t* _iosentinel_task = 0;
 static task_small_t* _task_list_head = 0;
@@ -27,14 +27,17 @@ const uint32_t _task_context_offset = offsetof(struct task_small, machine_state)
 
 // defined in process_small.s
 // performs the actual context switch
-void context_switch(uintptr_t* new_task);
-void _first_context_switch(uintptr_t* new_task);
+void context_switch(uintptr_t* new_task, task_small_t* cpu_current_task_ptr);
+void _first_context_switch(uintptr_t* new_task, task_small_t* cpu_current_task_ptr);
 // Defined in process_small.s
 // Entry point for a new process
 void _task_bootstrap(uintptr_t entry_point_ptr, uintptr_t entry_point_arg1, uintptr_t entry_point_arg2, uintptr_t entry_point_arg3);
 
 static void _task_make_schedulable(task_small_t* task);
 static void _task_remove_from_scheduler(task_small_t* task);
+
+void ap_spin1(void);
+void ap_spin2(void);
 
 task_small_t* _tasking_get_linked_list_head(void) {
     return _task_list_head;
@@ -44,11 +47,27 @@ void _tasking_set_linked_list_head(task_small_t* new_head) {
     _task_list_head = new_head;
 }
 
+static task_small_t* cpu_current_task(void) {
+    return cpu_private_info()->current_task;
+}
+
+static void cpu_set_current_task(task_small_t* t) {
+    cpu_private_info()->current_task = t;
+}
+
+static bool cpu_scheduler_enabled(void) {
+    return cpu_private_info()->scheduler_enabled;
+}
+
+static void cpu_set_scheduler_enabled(bool enabled) {
+    cpu_private_info()->scheduler_enabled = enabled;
+}
+
 static task_small_t* _tasking_last_task_in_runlist() {
-    if (!_current_task_small) {
+    if (!cpu_current_task()) {
         return NULL;
     }
-    task_small_t* iter = _current_task_small;
+    task_small_t* iter = cpu_current_task();
     for (int i = 0; i < MAX_TASKS; i++) {
         if ((iter)->next == NULL) {
             return iter;
@@ -65,8 +84,8 @@ static void _tasking_add_task_to_runlist(task_small_t* task) {
 }
 
 static void _tasking_add_task_to_task_list(task_small_t* task) {
-    if (!_current_task_small) {
-        _current_task_small = task;
+    if (!cpu_current_task()) {
+        cpu_set_current_task(task);
         return;
     }
     task_small_t* list_tail = _tasking_last_task_in_runlist();
@@ -158,6 +177,7 @@ task_small_t* _thread_create(void* entry_point, uintptr_t arg1, uintptr_t arg2, 
     memset(new_task, 0, sizeof(task_small_t));
     new_task->id = next_pid++;
     new_task->blocked_info.status = RUNNABLE;
+    new_task->cpu_id = cpu_id();
 
     uint32_t stack_size = 0x2000;
     char* stack = kcalloc(1, stack_size);
@@ -209,7 +229,7 @@ static task_small_t* _task_spawn__entry_point_with_args(const char* task_name, v
 
     // By definition, a task is identical to a thread except it has its own VAS
     // The new task's address space is 'fresh', i.e. only contains kernel mappings
-    vas_state_t* new_vas = vas_clone(boot_info_get()->vas_kernel);
+    vas_state_t* new_vas = vas_clone(cpu_private_info()->base_vas);
     new_task->vas_state = new_vas;
     task_set_name(new_task, task_name);
 
@@ -272,10 +292,11 @@ void tasking_goto_task(task_small_t* new_task, uint32_t quantum) {
     }
 
     //printf("\tSet kernel stack to 0x%p\n", new_task->kernel_stack);
+    // TODO(PT): Update the TSS from the host CPU
     tss_set_kernel_stack(new_task->kernel_stack);
-    // this method will update _current_task_small
+    // this method will update cpu->current_task
     // this method performs the actual context switch and also updates _current_task_small
-    context_switch(new_task);
+    context_switch(new_task, &cpu_private_info()->current_task);
 }
 
 void tasking_first_context_switch(task_small_t* new_task, uint32_t quantum) {
@@ -290,7 +311,7 @@ void tasking_first_context_switch(task_small_t* new_task, uint32_t quantum) {
     }
 
     //tss_set_kernel_stack(new_task->kernel_stack);
-    _first_context_switch(new_task);
+    _first_context_switch(new_task, &cpu_private_info()->current_task);
 }
 
 static bool _task_schedule_disabled = false;
@@ -315,7 +336,7 @@ void task_switch(void) {
     }
 
     // Tell the scheduler about the task switch
-    mlfq_prepare_for_switch_from_task(_current_task_small);
+    mlfq_prepare_for_switch_from_task(cpu_current_task());
     task_small_t* next_task = 0;
     uint32_t quantum = 0;
     mlfq_choose_task(&next_task, &quantum);
@@ -334,9 +355,9 @@ void task_switch(void) {
 }
 
 void mlfq_goto_task(task_small_t* task) {
-    if (_current_task_small == task) return;
+    if (cpu_current_task() == task) return;
 
-    mlfq_prepare_for_switch_from_task(_current_task_small);
+    mlfq_prepare_for_switch_from_task(cpu_current_task());
     uint32_t quantum = 0;
     mlfq_next_quantum_for_task(task, &quantum);
     tasking_goto_task(task, quantum);
@@ -350,7 +371,7 @@ void task_switch_if_quantum_expired(void) {
 
     mlfq_priority_boost_if_necessary();
 
-    if (ms_since_boot() >= _current_task_small->current_timeslice_end_date) {
+    if (ms_since_boot() >= cpu_current_task()->current_timeslice_end_date) {
         //asm("sti");
         //printf("[%d] quantum expired at %d, %d\n", getpid(), ms_since_boot(), _current_task_small->current_timeslice_end_date);
         task_switch();
@@ -361,22 +382,18 @@ void task_switch_if_quantum_expired(void) {
 }
 
 int getpid() {
-    if (!_current_task_small) {
+    if (!_multitasking_ready || !cpu_current_task()) {
         return -1;
     }
-    return _current_task_small->id;
+    return cpu_current_task()->id;
 }
 
 bool tasking_is_active() {
-    return _current_task_small != 0 && _multitasking_ready == true;
+    return _multitasking_ready && cpu_current_task() && cpu_scheduler_enabled();
 }
 
 static void tasking_timer_tick() {
     Deprecated();
-    //kernel_begin_critical();
-    if (ms_since_boot() > _current_task_small->current_timeslice_end_date) {
-        task_switch();
-    }
 }
 
 void tasking_unblock_task_with_reason(task_small_t* task, task_state_t reason) {
@@ -388,7 +405,7 @@ void tasking_unblock_task_with_reason(task_small_t* task, task_state_t reason) {
         return;
     }
     */
-    if (task == _current_task_small) {
+    if (task == cpu_current_task()) {
         // One reason this code path gets hit is an interrupt is received
         // while the driver is processing the previous interrupt
         return;
@@ -407,7 +424,7 @@ void tasking_block_task(task_small_t* task, task_state_t blocked_state) {
     }
     task->blocked_info.status = blocked_state;
     // If the current task just became blocked, switch to another
-    if (task == _current_task_small) {
+    if (task == cpu_current_task()) {
         //printf("Switch due to blocked task\n");
         task_switch();
     }
@@ -420,30 +437,79 @@ void idle_task() {
     }
 }
 
-void tasking_init_part2(void* continue_func_ptr) {
-    // We're now fully established in high memory and using a high kernel stack
+void tasking_ap_init_part2(void) {
     // It's now safe to free the low-memory identity map
-    vas_state_t* kernel_vas = boot_info_get()->vas_kernel;
+    vas_state_t* cpu_core_vas = cpu_private_info()->base_vas;
     vas_range_t* low_identity_map_range = NULL;
-    for (int i = 0; i < kernel_vas->range_count; i++) {
-        vas_range_t* range = &kernel_vas->ranges[i];
+    for (int i = 0; i < cpu_core_vas->range_count; i++) {
+        vas_range_t* range = &cpu_core_vas->ranges[i];
         if (range->start == 0x0) {
             low_identity_map_range = range;
             break;
         }
     }
     assert(low_identity_map_range, "Failed to find low-memory identity map");
-    vas_delete_range(kernel_vas, low_identity_map_range->start, low_identity_map_range->size);
+    vas_delete_range(cpu_core_vas, low_identity_map_range->start, low_identity_map_range->size);
     // Free the low PML4 entries
     // These all use 1GB pages, so we only need to free the PML4E's themselves,
     // and not any lower-level paging structures
-    pml4e_t* kernel_pml4 = (pml4e_t*)PMA_TO_VMA(kernel_vas->pml4_phys);
+    // TODO(PT): Is the above still true? I'm not sure that the bootloader is still using 1GB pages: IIRC
+    // they caused issues on my hardware.
+    pml4e_t* cpu_core_vas_pml4 = (pml4e_t*)PMA_TO_VMA(cpu_core_vas->pml4_phys);
+    // TODO(PT): This should only free the exact range that was identity mapped, rather than all low canonical memory
+    for (int i = 0; i < 256; i++) {
+        if (cpu_core_vas_pml4[i].present) {
+            uint64_t pml4e_phys = cpu_core_vas_pml4[i].page_dir_pointer_base * PAGE_SIZE;
+            //printf("Free bootloader PML4E #%d: 0x%p\n", i, pml4e_phys);
+            pmm_free(pml4e_phys);
+            cpu_core_vas_pml4[i].present = false;
+        }
+    }
+    /*
+    asm("int $44");
+    while (1) {}
+     */
+
+    // reaper cleans up and frees the resources of ZOMBIE tasks
+    task_small_t* spin1_tcb = task_spawn("ap_spin1", ap_spin1);
+    task_small_t* spin2_tcb = task_spawn("ap_spin2", ap_spin2);
+    cpu_set_scheduler_enabled(true);
+    // TODO(PT): This won't do anything because the PIT is currently only delivered to APIC #0. We should start using the APIC-local timer
+    printf("Enabling LAPIC timer...\n");
+    asm("sti");
+    local_apic_enable_timer();
+    printf("Finished enabling timer\n");
+    while(1){}
+    //ap_spin_task();
+}
+
+void tasking_init_part2(void* continue_func_ptr) {
+    // We're now fully established in high memory and using a high kernel stack
+    // It's now safe to free the low-memory identity map
+    vas_state_t* cpu_core_vas = cpu_private_info()->base_vas;
+    vas_range_t* low_identity_map_range = NULL;
+    for (int i = 0; i < cpu_core_vas->range_count; i++) {
+        vas_range_t* range = &cpu_core_vas->ranges[i];
+        if (range->start == 0x0) {
+            low_identity_map_range = range;
+            break;
+        }
+    }
+    assert(low_identity_map_range, "Failed to find low-memory identity map");
+    vas_delete_range(cpu_core_vas, low_identity_map_range->start, low_identity_map_range->size);
+    // Free the low PML4 entries
+    // These all use 1GB pages, so we only need to free the PML4E's themselves,
+    // and not any lower-level paging structures
+    // TODO(PT): Is the above still true? I'm not sure that the bootloader is still using 1GB pages: IIRC
+    // they caused issues on my hardware.
+    pml4e_t* cpu_core_vas_pml4 = (pml4e_t*)PMA_TO_VMA(cpu_core_vas->pml4_phys);
+    // TODO(PT): This should only free the exact range that was identity mapped, rather than all low canonical memory
 	for (int i = 0; i < 256; i++) {
-		if (kernel_pml4[i].present) {
-			uint64_t pml4e_phys = kernel_pml4[i].page_dir_pointer_base * PAGE_SIZE;
-			//printf("Free bootloader PML4E 0x%p\n", pml4e_phys);
+		if (cpu_core_vas_pml4[i].present) {
+			uint64_t pml4e_phys = cpu_core_vas_pml4[i].page_dir_pointer_base * PAGE_SIZE;
+			//printf("Free bootloader PML4E #%d: 0x%p\n", i, pml4e_phys);
 			pmm_free(pml4e_phys);
-            kernel_pml4[i].present = false;
+            cpu_core_vas_pml4[i].present = false;
 		}
 	}
 
@@ -457,6 +523,7 @@ void tasking_init_part2(void* continue_func_ptr) {
 
     printf("Multitasking initialized\n");
     _multitasking_ready = true;
+    cpu_set_scheduler_enabled(true);
 
     // Context switch to the reaper with a small quantum so it has time to set up its AMC service
     // This way, we're sure that from here reaper is always ready to tear down processes
@@ -475,10 +542,43 @@ void tasking_init(void* continue_func) {
 
     mlfq_init();
 
-    _current_task_small = thread_spawn(tasking_init_part2, continue_func, 0, 0);
-    task_set_name(_current_task_small, "bootstrap");
-    _task_list_head = _current_task_small;
-    tasking_first_context_switch(_current_task_small, 100);
+    cpu_set_current_task(thread_spawn(tasking_init_part2, continue_func, 0, 0));
+    task_set_name(cpu_current_task(), "bootstrap");
+    _task_list_head = cpu_current_task();
+    tasking_first_context_switch(cpu_current_task(), 100);
+}
+
+void ap_spin_task(void) {
+    while (1) {
+    }
+}
+void ap_spin1(void) {
+    while (1) {
+        printf("AP 1\n");
+    }
+}
+void ap_spin2(void) {
+    while (1) {
+        printf("AP 2\n");
+    }
+}
+
+void tasking_ap_startup(void) {
+    //printf("AP switching to idle task...\n");
+    // TODO(PT): Free initial AP stack/page tables?
+    //asm("cli");
+    /*
+    while (1) {
+        //printf("AP spinning\n");
+    }
+    */
+
+    cpu_set_current_task(thread_spawn(tasking_ap_init_part2, 0, 0, 0));
+    task_set_name(cpu_current_task(), "ap_bootstrap");
+    tasking_first_context_switch(cpu_current_task(), 100);
+
+    //task_small_t* t = _task_spawn("ap_spin", ap_spin_task);
+    //tasking_first_context_switch(t, 100);
 }
 
 void* sbrk(int increment) {
@@ -532,11 +632,11 @@ void tasking_print_processes(void) {
     task_small_t* iter = _tasking_get_linked_list_head();
     for (int i = 0; i < MAX_TASKS; i++) {
         printk("[%d] %s ", iter->id, iter->name);
-            if (iter == _current_task_small) {
+            if (iter == cpu_current_task()) {
                 printk("(active)");
             }
 
-            if (iter == _current_task_small) {
+            if (iter == cpu_current_task()) {
                 printk("(active for %d ms more) ", iter->current_timeslice_end_date - ms_since_boot());
             }
             else {
