@@ -1,4 +1,3 @@
-[EXTERN _current_task_small]
 [EXTERN _task_context_offset]
 [EXTERN task_die]
 
@@ -7,14 +6,18 @@
 [GLOBAL _first_context_switch]
 
 _first_context_switch:
-    ; Save arg to function containing task to switch to in ecx
+    ; Save arg to function containing task to switch to in rcx
     mov rcx, rdi
+    ; Save arg containing the pointer to the CPU's current task in rdx
+    mov rdx, rsi
     jmp _context_switch_restore_state
 
 
 context_switch:
-    ; Save arg to function containing task to switch to in ecx
+    ; Save arg to function containing task to switch to in rcx
     mov rcx, rdi
+    ; Save arg containing the CPU's local 'current task' pointer in rdx
+    mov rdx, rsi
 
 ;Save the old task's state
     ; Save registers that are supposed to be callee-saved
@@ -25,20 +28,20 @@ context_switch:
     push rbp
 
     ; Save preempted task's esp as _current_task->machine_state
-    mov rax, [_current_task_small]
+    mov rax, [rsi]
     mov rbx, [_task_context_offset]
     add rax, rbx
     mov [rax], rsp
 
 ;Load the new task's state
 _context_switch_restore_state:
-    ; Set the provided argument to _current_task_small
-    mov [_current_task_small], rcx
+    ; Set the provided task as the CPU's current task
+    mov [rdx], rcx
 
     ; Load rsp with _current_task->machine_state
     mov rbx, [_task_context_offset]
     add rcx, rbx
-    mov rsp,[rcx]
+    mov rsp, [rcx]
 
     ; Restore registers that were callee-saved
     pop rbp
