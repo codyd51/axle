@@ -62,8 +62,17 @@ void serial_puts_int(char* str, bool print_prefix) {
         char prefix[32] = {0};
         snprintf(prefix, sizeof(prefix), "Cpu[%d],Clk[%d]: ", cpu_id(), tick_count());
 
+        // Hold a lock, so we don't get output intermixed from other cores
+        // Note that the lock is held before our two 'inner' calls, rather than within the inner calls
+        // Otherwise, there is a race between the two calls
+        static spinlock_t serial_output_lock = {.name = "Serial output"};
+        spinlock_acquire(&serial_output_lock);
+
         serial_puts_int(prefix, false);
         serial_puts_int(str, false);
+
+        spinlock_release(&serial_output_lock);
+
         return;
     }
 
