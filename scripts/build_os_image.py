@@ -127,13 +127,15 @@ def main():
     parser.add_argument("--force_rebuild_everything", action="store_true")
     parser.add_argument("--no_run", action="store_true")
     parser.add_argument("--run_only", action="store_true")
+    parser.add_argument("--debug", action="store_true")
     parser.set_defaults(force_rebuild_everything=False)
     parser.set_defaults(no_run=False)
+    parser.set_defaults(debug=False)
     args = parser.parse_args()
 
     if args.run_only:
         image_name = Path(__file__).parents[1] / "axle.iso"
-        run_iso(image_name)
+        run_iso(image_name, debug_with_gdb=args.debug)
         return
 
     # Stage kernel headers
@@ -215,7 +217,7 @@ def main():
         print("\n\n\nNo USB detected, will not update image\n\n\n")
 
     if not args.no_run:
-        run_iso(image_name)
+        run_iso(image_name, args.debug)
     
 
 if __name__ == "__main__":
