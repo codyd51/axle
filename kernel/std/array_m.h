@@ -27,15 +27,19 @@ STDAPI void array_m_destroy(array_m* array);
 
 //add item to array
 STDAPI void array_m_insert(array_m* array, type_t item);
+void _array_m_insert_unlocked(array_m* array, type_t item);
 
 //lookup item at index i
 STDAPI type_t array_m_lookup(array_m* array, int32_t i);
+type_t _array_m_lookup_unlocked(array_m* array, int32_t i);
 
 //find index of item
 STDAPI int32_t array_m_index(array_m* array, type_t item);
+int32_t _array_m_index_unlocked(array_m* array, type_t item);
 
 //deletes item at location i from the array
 STDAPI void array_m_remove(array_m* array, int32_t i);
+void _array_m_remove_unlocked(array_m* array, int32_t i);
 
 __END_DECLS
 

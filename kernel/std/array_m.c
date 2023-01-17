@@ -18,7 +18,7 @@ void array_m_destroy(array_m* array) {
 	kfree(array);
 }
 
-static void _array_m_insert_unlocked(array_m* array, type_t item) {
+void _array_m_insert_unlocked(array_m* array, type_t item) {
 	// Make sure we can't go over the allocated size
 	if (array->size >= array->max_size) {
 		printf("Array overflow: %s %d\n", array->lock.name, array->max_size);
