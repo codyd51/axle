@@ -42,39 +42,6 @@ typedef struct tss_entry32 {
 	uint16_t iomap_base;
 } __attribute__((packed)) tss_entry32_t;
 
-typedef struct tss {
-    uint32_t reserved1;
-
-    uint32_t rsp0_low;
-    uint32_t rsp0_high;
-    uint32_t rsp1_low;
-    uint32_t rsp1_high;
-    uint32_t rsp2_low;
-    uint32_t rsp2_high;
-
-    uint64_t reserved2;
-
-    uint32_t ist1_low;
-    uint32_t ist1_high;
-    uint32_t ist2_low;
-    uint32_t ist2_high;
-    uint32_t ist3_low;
-    uint32_t ist3_high;
-    uint32_t ist4_low;
-    uint32_t ist4_high;
-    uint32_t ist5_low;
-    uint32_t ist5_high;
-    uint32_t ist6_low;
-    uint32_t ist6_high;
-    uint32_t ist7_low;
-    uint32_t ist7_high;
-
-    uint64_t reserved3;
-
-    uint16_t reserved4;
-    uint16_t iomap_base;
-} __attribute__((packed)) tss_t;
-
 tss_t tss_singleton = {0};
 
 static void gdt_write_descriptor(gdt_entry_t* entry, uint32_t base, uint32_t limit, uint16_t flag);
@@ -97,26 +64,6 @@ typedef struct tss_descriptor_legacy {
     bool granularity:1;
     uint8_t base_high;
 } __attribute__((packed)) tss_descriptor_legacy_t;
-
-typedef struct tss_descriptor {
-    uint16_t limit_low;
-    uint16_t base_low;
-    uint8_t base_lower_middle;
-    uint8_t type:4;
-    // 'S' bit - 0 for system (LDT, TSS, Gate), 1 for user (Code/Data)
-    bool must_be_zero:1;
-    uint8_t dpl:2;
-    bool present:1;
-    uint8_t limit_high:4;
-    bool unused_bit:1;
-    uint8_t ignored:2;
-    bool granularity:1;
-    uint8_t base_upper_middle;
-    uint32_t base_high;
-    uint8_t reserved;
-    uint8_t must_be_zero_high:5;
-    uint32_t reserved_high:19;
-} __attribute__((packed)) tss_descriptor_t;
 
 // Definition only used for TSS code
 typedef struct gdt_def2 {
@@ -141,7 +88,30 @@ static void gdt_set_gate(void* gdt_entries_ptr, int32_t num, uint32_t base, uint
     gdt_entries[num].access      = access;
 }
 
-//static void tss_init(void* gdt_base, uint16_t gdt_offset, uint16_t ss0, uint32_t esp0) {
+tss_t* tss_descriptor_create_for_long_mode(tss_descriptor_t* out) {
+    tss_t* tss = calloc(1, sizeof(tss_t));
+    uintptr_t base = (uintptr_t)tss;
+    uintptr_t limit = base + sizeof(tss_t);
+    tss_descriptor_t tss_descriptor = {
+        .limit_low = (limit >> 0) & 0xFFFF,
+        .base_low = (base >> 0) & 0xFFFF,
+        .base_lower_middle = (base >> 16) & 0xFF,
+        .type = 0x9,
+        .must_be_zero = 0,
+        .dpl = 3,
+        .present = 1,
+        .limit_high = (limit >> 16) & 0xF,
+        .unused_bit = 0,
+        .ignored = 0,
+        .granularity = 1,
+        .base_upper_middle = (base >> 24) & 0xFF,
+        .base_high = (base >> 32) & 0xFFFFFFFF,
+        .must_be_zero_high = 0,
+    };
+    memcpy(out, &tss_descriptor, sizeof(tss_descriptor_t));
+    return tss;
+}
+
 static void tss_init(gdt_descriptor_t* gdt) {
     assert(sizeof(tss_descriptor_t) == 16, "TSS descriptor must be exactly 16 bytes!");
 
@@ -226,6 +196,111 @@ gdt_descriptor_t* gdt_create_for_protected_mode(uintptr_t* out_size) {
     };
 
     return table;
+}
+
+void gdt_create_for_long_mode(gdt_descriptor_t** gdt_out, uintptr_t* gdt_out_size, tss_t** tss_out) {
+    *gdt_out_size = sizeof(gdt_descriptor_t) * 16;
+    gdt_descriptor_t* table = kcalloc(16, sizeof(gdt_descriptor_t));
+    *gdt_out = table;
+
+    gdt_descriptor_t null_descriptor = {0};
+    memcpy(&table[0], &null_descriptor, sizeof(null_descriptor));
+
+    gdt_descriptor_t kernel_code_long = {
+        .limit_low = 0xFFFF,
+        .base_low = 0x0,
+        .base_middle = 0x0,
+        .accessed = 0,
+        .readable = 1,
+        // In the code segment, "Conforming": Whether code in this segment can be run in less-privileged rings
+        .contextual = 0,
+        .is_code = 1,
+        .belongs_to_os = 1,
+        // Ring 0
+        .dpl = 0,
+        .present = 1,
+        .limit_high = 0xF,
+        .unused_bit = 0,
+        .long_mode = 1,
+        // Must be 0 in long mode
+        .default_operand_size = 0,
+        .granularity = 1,
+        .base_high = 0
+    };
+    memcpy(&table[1], &kernel_code_long, sizeof(kernel_code_long));
+
+    gdt_descriptor_t kernel_data_long = {
+        .limit_low = 0xFFFF,
+        .base_low = 0x0,
+        .base_middle = 0x0,
+        .accessed = 0,
+        .readable = 1,
+        // In the data segment, "Expand down": Whether the meanings of limit and base are flipped
+        .contextual = 0,
+        .is_code = 0,
+        .belongs_to_os = 1,
+        // Ring 0
+        .dpl = 0,
+        .present = 1,
+        .limit_high = 0xF,
+        .unused_bit = 0,
+        .long_mode = 1,
+        // Must be 0 in long mode
+        .default_operand_size = 0,
+        .granularity = 1,
+        .base_high = 0
+    };
+    memcpy(&table[2], &kernel_data_long, sizeof(kernel_data_long));
+
+    gdt_descriptor_t user_code_long = {
+        .limit_low = 0xFFFF,
+        .base_low = 0x0,
+        .base_middle = 0x0,
+        .accessed = 0,
+        .readable = 1,
+        // In the code segment, "Conforming": Whether code in this segment can be run in less-priviliged rings
+        .contextual = 0,
+        .is_code = 1,
+        .belongs_to_os = 1,
+        // Ring 3
+        .dpl = 3,
+        .present = 1,
+        .limit_high = 0xF,
+        .unused_bit = 0,
+        .long_mode = 1,
+        // Must be 0 in long mode
+        .default_operand_size = 0,
+        .granularity = 1,
+        .base_high = 0
+    };
+    memcpy(&table[3], &user_code_long, sizeof(user_code_long));
+
+    gdt_descriptor_t user_data_long = {
+        .limit_low = 0xFFFF,
+        .base_low = 0x0,
+        .base_middle = 0x0,
+        .accessed = 0,
+        .readable = 1,
+        // In the data segment, "Expand down": Whether the meanings of limit and base are flipped
+        .contextual = 0,
+        .is_code = 0,
+        .belongs_to_os = 1,
+        // Ring 3
+        .dpl = 3,
+        .present = 1,
+        .limit_high = 0xF,
+        .unused_bit = 0,
+        .long_mode = 1,
+        // Must be 0 in long mode
+        .default_operand_size = 0,
+        .granularity = 1,
+        .base_high = 0
+    };
+    memcpy(&table[4], &user_data_long, sizeof(user_data_long));
+
+    tss_descriptor_t tss_descriptor = {0};
+    *tss_out = tss_descriptor_create_for_long_mode(&tss_descriptor);
+    memcpy(&table[5], &tss_descriptor, sizeof(tss_descriptor_t));
 }
 
 void gdt_init() {
