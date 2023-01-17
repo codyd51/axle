@@ -71,6 +71,7 @@ ap_entry:
 ; And immediately start assembling 64bit code
 [bits 64]
 .long_mode:
+    ; We're now in Long Mode
     ; Reload data segment registers
     mov ax, 0x10
     mov ds, ax
@@ -79,7 +80,6 @@ ap_entry:
     mov gs, ax
     mov ss, ax
 
-    ; We're now in Long Mode
     ; Load the IDT
     mov eax, [$idt_ptr]
     lidt [eax]
@@ -90,6 +90,11 @@ ap_entry:
     mov rax, [eax]
     mov rsp, rax
     mov rbp, rax
+
+    ; Load the TSS
+    ; Index 5 in the GDT, and set the RPL to 3
+    mov ax, 0x2b
+    ltr ax
 
     ; Jump to the C entry point
     ; Load the PML4 (and double-dereference the parameter that was passed in by the BSP)

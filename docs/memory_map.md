@@ -40,12 +40,15 @@ The approach I've taken is:
 `0x7d0000000000`: initrd
 
 ##### Any user of `AMC_MAP_PHYSICAL_RANGE_REQUEST`
+
 `0x7d0000000000`: Virtual base of mapped physical memory
+
+### Kernel space (unique per CPU core)
+
+`0xFFFFA00000000000`: Per-CPU core kernel data
 
 ### Kernel space (shared across every process)
 
 `0xFFFF800000000000`: Physical RAM remapping
 `0xFFFF900000000000`: Kernel heap
-`0xFFFFA00000000000`: Per-CPU core kernel stack
-`0xFFFFB00000000000`: Per-CPU core kernel data
 `0xFFFFFFFF80000000`: Kernel code/data

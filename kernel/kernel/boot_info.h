@@ -60,6 +60,7 @@ typedef struct boot_info {
     elf_t kernel_elf_symbol_table;
     framebuffer_info_t framebuffer;
 
+    // TODO(PT): Rename to vas_bsp
     vas_state_t* vas_kernel;
 
     uint32_t ms_per_pit_tick;

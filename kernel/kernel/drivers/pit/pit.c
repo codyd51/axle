@@ -42,7 +42,7 @@ void pit_timer_init(uint32_t frequency) {
 	//firstly, register our timer callback
 	interrupt_setup_callback(INT_VECTOR_IRQ0, &tick_callback);
 
-	//value we need to send to PIC is value to divide it's input clock
+	//value we need to send to PIC is value to divide its input clock
 	//(1193180 Hz) by, to get desired frequency
 	//divisor *must* be small enough to fit into 16 bytes
 	uint32_t divisor = 1193180 / frequency;
