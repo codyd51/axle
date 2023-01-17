@@ -1,13 +1,15 @@
 #ifndef SMP_H
 #define SMP_H
 
-// PT: Mostly FFI bindings for Rust code
-// PT: Must match the layouts defined in the Rust modulee
+#include <kernel/multitasking/tasks/task_small.h>
+
+// PT: This file contains some FFI bindings for Rust code, which must match the layouts defined in the Rust module
 
 #define MAX_PROCESSORS 64
 #define MAX_INTERRUPT_OVERRIDES 64
 
-#define CPU_CORE_DATA_BASE 0xFFFFB00000000000LL
+// Stores a cpu_core_private_info_t
+#define CPU_CORE_DATA_BASE 0xFFFFA00000000000LL
 
 typedef struct phys_addr {
     uintptr_t val;
@@ -17,6 +19,14 @@ typedef struct processor_info {
     uintptr_t processor_id;
     uintptr_t apic_id;
 } processor_info_t;
+
+typedef struct cpu_core_private_info {
+    processor_info_t processor_info;
+    vas_state_t* base_vas;
+    vas_state_t* loaded_vas_state;
+    task_small_t* current_task;
+    bool scheduler_enabled;
+} cpu_core_private_info_t;
 
 typedef struct interrupt_override_info {
     uintptr_t bus_source;
@@ -35,5 +45,10 @@ typedef struct smp_info {
 } smp_info_t;
 
 void smp_init(void);
+void smp_map_bsp_private_info(void);
+void local_apic_configure_timer(void);
+
+cpu_core_private_info_t* cpu_private_info(void);
+uintptr_t cpu_id(void);
 
 #endif

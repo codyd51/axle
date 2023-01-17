@@ -56,18 +56,6 @@ void smp_init(void) {
     // Copied the Protected Mode GDT to the data page, we can free it now
     kfree(protected_mode_gdt);
 
-    // Set up the long mode GDT parameter
-    // Re-use the same GDT the BSP is using
-    gdt_pointer_t* current_long_mode_gdt = kernel_gdt_pointer();
-    printf("Got long mode GDT %p, table size %p\n", current_long_mode_gdt, current_long_mode_gdt->table_size);
-    // We need to create a new pointer as the existing one points to high memory
-    gdt_pointer_t long_mode_gdt_ptr = {0};
-    uint32_t relocated_long_mode_gdt_addr = AP_BOOTSTRAP_PARAM_LONG_MODE_GDT + 8;
-    long_mode_gdt_ptr.table_base = (uintptr_t)relocated_long_mode_gdt_addr;
-    long_mode_gdt_ptr.table_size = current_long_mode_gdt->table_size;
-    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_LONG_MODE_GDT), &long_mode_gdt_ptr, sizeof(gdt_pointer_t));
-    memcpy((void*)PMA_TO_VMA(relocated_long_mode_gdt_addr), (void*)current_long_mode_gdt->table_base, current_long_mode_gdt->table_size);
-
     // Copy the IDT pointer
     idt_pointer_t* current_idt = kernel_idt_pointer();
     // It's fine to copy the high-memory IDT as the bootstrap will enable paging before loading it
@@ -88,9 +76,24 @@ void smp_init(void) {
 
     asm("sti");
 
+    // Set up the BSP's per-core data structure
+    for (uintptr_t i = 0; i < smp_info->processor_count; i++) {
+        processor_info_t *processor_info = &smp_info->processors[i];
+        if (processor_info->apic_id != smp_get_current_core_apic_id(smp_info)) {
+            continue;
+        }
+
+        // Found the BSP's processor info!
+        cpu_core_private_info_t* cpu_core_info = cpu_private_info();
+        memcpy(&cpu_core_info->processor_info, processor_info, sizeof(processor_info_t));
+        break;
+    }
+
     // Do per-core work
     for (uintptr_t i = 0; i < smp_info->processor_count; i++) {
+        printf("Booting core idx %d\n", i);
         processor_info_t* processor_info = &smp_info->processors[i];
+        printf("Processor info %d %d\n", processor_info->apic_id, processor_info->processor_id);
 
         // Skip the BSP
         if (processor_info->apic_id == smp_get_current_core_apic_id(smp_info)) {
@@ -98,38 +101,62 @@ void smp_init(void) {
             continue;
         }
 
-        // Set up a virtual address space
-        pml4e_t* bsp_pml4 = (pml4e_t*)PMA_TO_VMA(boot_info->vas_kernel->pml4_phys);
-        uint64_t ap_pml4_phys_addr = pmm_alloc();
-        pml4e_t* ap_pml4 = (pml4e_t*)PMA_TO_VMA(ap_pml4_phys_addr);
-        // Copy all memory mappings from the BSP virtual address space
-        for (int j = 0; j < 512; j++) {
-            ap_pml4[j] = bsp_pml4[j];
-        }
+        // Set up a virtual address space for the AP to use
+        // Start off by cloning the BSP's address space, which has the high-memory remap
+        // But ensure we create a new PML4E for CPU-local storage
+        printf("Cloning BSP VAS...\n");
+        vas_state_t* ap_vas = vas_clone_ex(boot_info->vas_kernel, false);
+        printf("Finished clone BSP VAS!\n");
         // Identity map the low 4G. We need to identity map more than just the AP bootstrap pages because the PML4 will reference arbitrary frames.
         // TODO(PT): This will cause problems if any of the paging structures are allocated above 4GB...
-        void _map_region_4k_pages(pml4e_t* page_mapping_level4_virt, uint64_t vmem_start, uint64_t vmem_size, uint64_t phys_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level);
-        _map_region_4k_pages(ap_pml4, 0x0, (1024LL * 1024LL * 1024LL * 4LL), 0x0, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
-        // Copy the PML4 pointer
-        memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_PML4), &ap_pml4_phys_addr, sizeof(ap_pml4_phys_addr));
+        vas_map_range_exact(ap_vas, 0x0, (1024LL * 1024LL * 1024LL * 4LL), 0x0, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
+        printf("Finished mapping 4GB\n");
+        memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_PML4), &ap_vas->pml4_phys, sizeof(ap_vas->pml4_phys));
 
-        // Map a stack for the AP to use
-        int ap_stack_page_count = 4;
-        uintptr_t ap_stack_top = VAS_KERNEL_STACK_BASE + (ap_stack_page_count * PAGE_SIZE);
-        for (int j = 0; j < ap_stack_page_count; j++) {
-            uintptr_t frame_addr = pmm_alloc();
-            printf("Allocated AP stack frame %p\n", frame_addr);
-            uintptr_t page_addr = VAS_KERNEL_STACK_BASE + (j * PAGE_SIZE);
-            _map_region_4k_pages(ap_pml4, page_addr, PAGE_SIZE, frame_addr, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
-        }
+        // Allocate a stack for the AP to use
+        printf("Allocating stack...\n");
+        int ap_stack_size = PAGE_SIZE * 4;
+        void* ap_stack = calloc(1, ap_stack_size);
+        uintptr_t ap_stack_top = (uintptr_t)ap_stack + ap_stack_size;
         memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_STACK_TOP), &ap_stack_top, sizeof(ap_stack_top));
+
+        printf("Finished create stack\n");
+
+        // Long mode GDT
+        uintptr_t ap_long_mode_gdt_size = 0;
+        gdt_descriptor_t* ap_long_mode_gdt = 0;
+        tss_t* ap_long_mode_tss = 0;
+        gdt_create_for_long_mode(&ap_long_mode_gdt, &ap_long_mode_gdt_size, &ap_long_mode_tss);
+
+        printf("Finished create long mode GDT\n");
+
+        // Create a new GDT pointer that we'll place in the bootstrap params page
+        gdt_pointer_t ap_long_mode_gdt_ptr = {
+            .table_base = AP_BOOTSTRAP_PARAM_LONG_MODE_GDT + 8,
+            .table_size = ap_long_mode_gdt_size
+        };
+        // Copy the pointer
+        memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_LONG_MODE_GDT), &ap_long_mode_gdt_ptr, sizeof(gdt_pointer_t));
+        // Copy the table
+        memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_LONG_MODE_GDT + 8), ap_long_mode_gdt, ap_long_mode_gdt_size);
+
+        printf("Finished mapping gdt etc\n");
 
         // Map the per-core kernel data
         uintptr_t cpu_specific_data_frame = pmm_alloc();
-        _map_region_4k_pages(ap_pml4, CPU_CORE_DATA_BASE, PAGE_SIZE, cpu_specific_data_frame, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
-        memcpy((void*)PMA_TO_VMA(cpu_specific_data_frame), processor_info, sizeof(processor_info_t));
+        printf("Got frame\n");
+        // TODO(PT): Use a more direct API that doesn't try to mark the range as allocated, as the range is already allocated via the BSP's VAS
+        vas_map_range_exact(ap_vas, CPU_CORE_DATA_BASE, PAGE_SIZE, cpu_specific_data_frame, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
+        printf("Got mapping\n");
+        cpu_core_private_info_t* cpu_core_info = (cpu_core_private_info_t*)PMA_TO_VMA(cpu_specific_data_frame);
+        memset(cpu_core_info, 0, sizeof(cpu_core_private_info_t));
+        memcpy(&cpu_core_info->processor_info, processor_info, sizeof(processor_info_t));
+        cpu_core_info->base_vas = ap_vas;
+        cpu_core_info->loaded_vas_state = ap_vas;
 
+        printf("\tCalling smp_boot_core...\n");
         smp_boot_core(smp_info, processor_info);
+        break;
     }
 
     /*
@@ -149,4 +176,35 @@ void smp_init(void) {
 
     // Boot the other APs
     //smp_bringup(boot_info->smp_info);
+}
+
+void smp_map_bsp_private_info(void) {
+    uintptr_t cpu_specific_data_frame = pmm_alloc();
+    vas_map_range_exact(boot_info_get()->vas_kernel, CPU_CORE_DATA_BASE, PAGE_SIZE, cpu_specific_data_frame, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
+    _mapped_cpu_info_in_bsp = true;
+    cpu_private_info()->base_vas = boot_info_get()->vas_kernel;
+    cpu_private_info()->loaded_vas_state = boot_info_get()->vas_kernel;
+}
+
+cpu_core_private_info_t* cpu_private_info(void) {
+    // If we haven't yet had a chance to map the CPU info to the BSP,
+    // we're still in early boot and can't provide meaningful info yet
+    if (!_mapped_cpu_info_in_bsp) {
+        static cpu_core_private_info_t _early_boot_placeholder = {
+            .processor_info = {
+                .apic_id = 0,
+                .processor_id = 0
+            },
+            .base_vas = NULL,
+            .loaded_vas_state = NULL,
+            .scheduler_enabled = false,
+            .current_task = NULL,
+        };
+        return &_early_boot_placeholder;
+    }
+    return (cpu_core_private_info_t*)CPU_CORE_DATA_BASE;
+}
+
+uintptr_t cpu_id(void) {
+    return cpu_private_info()->processor_info.processor_id;
 }
