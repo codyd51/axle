@@ -20,7 +20,7 @@ pub fn apic_disable_pic() {
     }
 }
 
-pub fn apic_enable() {
+pub fn local_apic_enable() {
     let mut lo: u32 = 0;
     let mut hi: u32 = 0;
     let apic_base_msr = 0x1b;

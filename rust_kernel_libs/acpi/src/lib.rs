@@ -6,7 +6,7 @@ extern crate alloc;
 extern crate ffi_bindings;
 
 use crate::apic::{
-    apic_disable_pic, apic_enable, InterProcessorInterruptDeliveryMode,
+    apic_disable_pic, local_apic_enable, InterProcessorInterruptDeliveryMode,
     InterProcessorInterruptDescription, InterProcessorInterruptDestination, IoApic,
     ProcessorLocalApic, RemapIrqDescription,
 };
@@ -208,7 +208,7 @@ pub unsafe fn apic_init(smp_info: *const SmpInfo) {
             boot_processor_local_apic.id(),
         ));
     }
-    apic_enable();
+    local_apic_enable();
     // Finally, enable interrupts
     unsafe { asm!("sti") };
 }
