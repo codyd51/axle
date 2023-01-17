@@ -1,5 +1,6 @@
-use crate::utils::{ContainsMachineWords, PhysAddr};
+use crate::utils::{spin_for_delay_ms, ContainsMachineWords, PhysAddr};
 use bitvec::prelude::*;
+use core::arch::asm;
 use core::num::TryFromIntError;
 use ffi_bindings::println;
 
@@ -89,12 +90,11 @@ impl ProcessorLocalApic {
     }
 
     pub fn enable(&self) {
-        // Software-disable bit of the local APIC is bit 8 of the spurious interrupt vector register
         let mut spurious_iv_reg_contents = self.read_spurious_int_vector_register();
         println!("Read spurious IV reg contents {spurious_iv_reg_contents:#08x}");
-        //spurious_iv_reg_contents |= 1 << 8;
-        //spurious_iv_reg_contents |= 1 << 8;
         spurious_iv_reg_contents |= 0xff;
+        // Software-disable bit of the local APIC is bit 8 of the spurious interrupt vector register
+        spurious_iv_reg_contents |= (1 << 8);
         println!("Writing spurious IV reg contents {spurious_iv_reg_contents:#08x}");
         self.write_spurious_int_vector_register(spurious_iv_reg_contents);
     }
