@@ -793,21 +793,22 @@ static uint64_t _select_virtual_address(vas_state_t* vas_state, uint64_t min_add
 	return chosen_start;
 }
 
+uint64_t vas_map_range_exact(vas_state_t* vas_state, uint64_t virt_start, uint64_t size, uint64_t phys_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level) {
+    // Mark as allocated in the VAS
+    vas_add_range(vas_state, virt_start, size);
+    // Allocate physical frames
+    for (uint32_t i = 0; i < size / PAGE_SIZE; i++) {
+        _map_region_4k_pages(PMA_TO_VMA(vas_state->pml4_phys), virt_start + (i * PAGE_SIZE), PAGE_SIZE, phys_start + (i * PAGE_SIZE), access_type, privilege_level);
+    }
+    return virt_start;
+}
+
+
 uint64_t vas_map_range(vas_state_t* vas_state, uint64_t min_address, uint64_t size, uint64_t phys_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level) {
 	//printf("vas_map_range(state: 0x%p, start: 0x%p, size: 0x%p)\n", vas_state, min_address, size);
-
 	// TODO(PT): Add a max start param here, and limit kernel heap to one PML4E
 	uint64_t chosen_start = _select_virtual_address(vas_state, min_address, size);
-
-	// Mark as allocated in the VAS
-	vas_add_range(vas_state, chosen_start, size);
-	// Allocate physical frames
-	for (uint32_t i = 0; i < size / PAGE_SIZE; i++) {
-		_map_region_4k_pages(PMA_TO_VMA(vas_state->pml4_phys), chosen_start + (i * PAGE_SIZE), PAGE_SIZE, phys_start + (i * PAGE_SIZE), access_type, privilege_level);
-	}
-	//vas_state_dump(vas_state);
-
-	return chosen_start;
+    return vas_map_range_exact(vas_state, chosen_start, size, phys_start, access_type, privilege_level);
 }
 
 uint64_t vas_alloc_range(vas_state_t* vas_state, uint64_t min_address, uint64_t size, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level) {
