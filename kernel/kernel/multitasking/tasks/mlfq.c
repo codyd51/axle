@@ -49,12 +49,13 @@ void mlfq_add_task_to_queue(task_small_t* task, uint32_t queue_idx) {
 }
 
 bool mlfq_choose_task(task_small_t** out_task, uint32_t* out_quantum) {
+    uintptr_t current_cpu_id = cpu_id();
     // Start at the high-priority queues and make our way down
     for (int i = 0; i < MLFQ_QUEUE_COUNT; i++) {
         mlfq_queue_t* q = array_m_lookup(_queues, i);
         for (int j = 0; j < q->round_robin_tasks->size; j++) {
             mlfq_ent_t* ent = array_l_lookup(q->round_robin_tasks, j);
-            if (ent->task->blocked_info.status == RUNNABLE) {
+            if (ent->task->blocked_info.status == RUNNABLE && ent->task->cpu_id == cpu_id()) {
                 *out_task = ent->task;
                 *out_quantum = ent->ttl_remaining;
                 ent->last_schedule_start = ms_since_boot();
@@ -143,7 +144,7 @@ bool mlfq_priority_boost_if_necessary(void) {
         }
 
         //printf("MLFQ %d: Did priority-boost (high prio %d -> %d, runnable count: %d)\n", ms_since_boot(), orig_high_prio_size, high_prio->round_robin_tasks->size, runnable_count);
-        if (ms_since_boot() % 30000 == 0) {
+        if (ms_since_boot() % 10000 == 0) {
             mlfq_print();
         }
         spinlock_release(&high_prio->spinlock);
@@ -153,7 +154,7 @@ bool mlfq_priority_boost_if_necessary(void) {
 }
 
 bool mlfq_prepare_for_switch_from_task(task_small_t* task) {
-    // Find the task within the our queues
+    // Find the task within the queues
     uint32_t queue_idx = 0;
     uint32_t ent_idx = 0;
     if (!_find_task(task, &queue_idx, &ent_idx)) {

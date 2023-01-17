@@ -16,6 +16,8 @@ void smp_boot_core(smp_info_t* smp_info, processor_info_t* core);
 void apic_init(smp_info_t* smp_info);
 smp_info_t* acpi_parse_root_system_description(uintptr_t acpi_rsdp);
 
+static bool _mapped_cpu_info_in_bsp = false;
+
 void ap_c_entry(void) {
     uint64_t stack_helper;
     printf("AP running C code %p!!!\n", &stack_helper);

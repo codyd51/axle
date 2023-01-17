@@ -79,6 +79,8 @@ typedef struct task_small {
 
 	bool is_managed_by_parent;
 	char* managing_parent_service_name;
+
+    uintptr_t cpu_id;
 } task_small_t;
 
 void tasking_init_small();
@@ -120,5 +122,8 @@ void mlfq_goto_task(task_small_t* task);
 void task_set_name(task_small_t* task, const char* new_name);
 
 task_small_t* task_spawn__managed__with_args(const char* task_name, void* entry_point, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3);
+
+static task_small_t* cpu_current_task(void);
+void tasking_ap_startup(void);
 
 #endif
