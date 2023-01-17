@@ -40,10 +40,6 @@ void dump_stack(uint32_t* mem) {
 void interrupt_handle(register_state_t* regs) {
 	uint8_t int_no = regs->int_no;
 	bool is_external = (bool)regs->is_external_interrupt;
-    if (int_no != 128) {
-        //printf("interrupt_handle(%d, is_external %d err_code %d)\n", regs->int_no, regs->is_external_interrupt, regs->err_code);
-    }
-
 	if (interrupt_handlers[int_no] != 0) {
 		int_callback_t handler = interrupt_handlers[int_no];
 		handler(regs);
@@ -56,7 +52,7 @@ void interrupt_handle(register_state_t* regs) {
 			// Ref: https://www.reddit.com/r/osdev/comments/5qqnkq/are_spurious_interrupts_irq_7_a_bad_sign_and_how/
 		}
 		else {
-			printf("Unhandled IRQ: %d\n", int_no);
+			printf("Unhandled interrupt: %d\n", int_no);
 			if (is_external) {
 				apic_signal_end_of_interrupt(int_no);
                 return;

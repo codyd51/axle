@@ -61,15 +61,12 @@ void draw2(int color) {
 
 
 void _start(axle_boot_info_t* boot_info) {
-    draw(boot_info, 0x0000ffff);
     // Environment info
     boot_info_read(boot_info);
 
     // Descriptor tables
     gdt_init();
-    draw(boot_info, 0x000000ff);
     interrupt_init();
-    draw(boot_info, 0xff00ff);
 
     // PIT and serial drivers
     pit_timer_init(PIT_TICK_GRANULARITY_1MS);
@@ -88,6 +85,10 @@ void _start(axle_boot_info_t* boot_info) {
     // Initialize PS/2 controller
     // (and sub-drivers, such as a PS/2 keyboard and mouse)
     ps2_controller_init();
+
+    // Map the BSP's per-core data structure
+    // This needs to be set up early as this data is queried from various pieces of the kernel that are invoked later
+    smp_map_bsp_private_info();
 
     // Higher-level features like multitasking
     // Note that as soon as we enter part 2, we won't be able to read any low memory.

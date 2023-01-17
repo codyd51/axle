@@ -1,5 +1,7 @@
 #include "serial.h"
 #include "kernel/drivers/pit/pit.h"
+#include "kernel/util/spinlock/spinlock.h"
+#include <kernel/smp.h>
 
 //COM 1
 #define PORT 0x3F8
@@ -57,9 +59,10 @@ void serial_putchar(char c) {
 
 void serial_puts_int(char* str, bool print_prefix) {
     if (print_prefix) {
-        char timestamp[16] = {0};
-        snprintf(timestamp, sizeof(timestamp), "%d: ", tick_count());
-        serial_puts_int(timestamp, false);
+        char prefix[32] = {0};
+        snprintf(prefix, sizeof(prefix), "Cpu[%d],Clk[%d]: ", cpu_id(), tick_count());
+
+        serial_puts_int(prefix, false);
         serial_puts_int(str, false);
         return;
     }

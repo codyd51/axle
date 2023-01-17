@@ -56,7 +56,7 @@ void interrupt_handle_stack_segment_fault(register_state_t* regs) {
 }
 
 void interrupt_handle_general_protection_fault(register_state_t* regs) {
-	printf_err("General protection fault");
+	printf("General protection fault, error code %d\n", regs->err_code);
 	common_halt(regs, false);
 }
 
