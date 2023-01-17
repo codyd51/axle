@@ -6,10 +6,10 @@
 #include <gfx/lib/gfx.h>
 #include <kernel/boot_info.h>
 #include <kernel/address_space.h>
+#include <kernel/smp.h>
 
 static spinlock_t _vmm_global_spinlock = {0};
 static vas_state_t* _kernel_vas_state = NULL;
-static volatile vas_state_t* _loaded_vas_state = NULL;
 
 /*
  * Control-register utility functions
@@ -372,13 +372,19 @@ void vas_state_dump(vas_state_t* vas_state) {
 	}
 }
 
-void vas_load_state(vas_state_t* vas_state) {
+void vas_load_state_ex(vas_state_t* vas_state, bool update_loaded_vas_state) {
     _set_cr3(vas_state->pml4_phys);
-	_loaded_vas_state = vas_state;
+    if (update_loaded_vas_state) {
+        cpu_private_info()->loaded_vas_state = vas_state;
+    }
+}
+
+void vas_load_state(vas_state_t* vas_state) {
+    vas_load_state_ex(vas_state, true);
 }
 
 vas_state_t* vas_get_active_state(void) {
-	return _loaded_vas_state;
+    return cpu_private_info()->loaded_vas_state;
 }
 
 bool vmm_is_active(void) {
