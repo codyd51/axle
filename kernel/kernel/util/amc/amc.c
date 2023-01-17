@@ -56,6 +56,7 @@ static hash_map_t* _amc_services_by_task = 0;
 static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_message_t* message);
 static void _amc_core_shared_memory_destroy(amc_service_t* local_service, uint32_t shmem_descriptor);
 void _amc_remove_service_from_sleep_list(amc_service_t* service);
+void _amc_remove_service_from_sleep_list__with_held_lock(amc_service_t* service);
 
 array_m* amc_services(void) {
     return _amc_services;
@@ -134,7 +135,7 @@ static void _amc_deliver_pending_messages_to_new_service(amc_service_t* new_serv
     spinlock_acquire(&_amc_messages_to_unknown_services_pool->lock);
 
     for (int i = 0; i < _amc_messages_to_unknown_services_pool->size; i++) {
-        amc_message_t* msg = array_m_lookup(_amc_messages_to_unknown_services_pool, i);
+        amc_message_t* msg = _array_m_lookup_unlocked(_amc_messages_to_unknown_services_pool, i);
         //printf("New service %s, outstanding [%s -> %s]\n", new_service->name, msg->source, msg->dest);
         if (!strncmp(msg->dest, new_service->name, AMC_MAX_SERVICE_NAME_LEN)) {
             //printf("Found outstanding msg from %s to new %s\n", msg->source, msg->dest);
@@ -150,11 +151,11 @@ static void _amc_deliver_pending_messages_to_new_service(amc_service_t* new_serv
     for (int i = 0; i < matching_msg_count; i++) {
         int idx = message_indexes_to_deliver[i];
         idx -= idx_shift;
-        amc_message_t* msg = array_m_lookup(_amc_messages_to_unknown_services_pool, idx);
+        amc_message_t* msg = _array_m_lookup_unlocked(_amc_messages_to_unknown_services_pool, idx);
         // Possible race due to _amc_messages_to_unknown_services_pool being unlocked?
         assert(!strncmp(msg->dest, new_service->name, AMC_MAX_SERVICE_NAME_LEN), "Message wasn't intended for this service!");
 
-        array_m_remove(_amc_messages_to_unknown_services_pool, idx);
+        _array_m_remove_unlocked(_amc_messages_to_unknown_services_pool, idx);
         idx_shift += 1;
         _amc_message_add_to_delivery_queue(new_service, msg);
     }
@@ -168,6 +169,7 @@ void amc_register_service(const char* name) {
         // This could later be moved into a kernel-level amc_init()
         _amc_services = array_m_create(256);
         _amc_messages_to_unknown_services_pool = array_m_create(_amc_messages_to_unknown_services_pool_size);
+        _amc_messages_to_unknown_services_pool->lock.name = "[AMC unknown service delivery pool lock]";
         //_amc_services_by_name = hash_map_create();
         //_amc_services_by_task = hash_map_create();
         _asleep_procs = array_m_create(64);
@@ -253,8 +255,8 @@ void amc_teardown_service_for_task(task_small_t* task) {
 
     // Remove from list of amc services
     //printf("\tRemove from services list\n");
-    int32_t idx = array_m_index(_amc_services, service);
-    array_m_remove(_amc_services, idx);
+    int32_t idx = _array_m_index_unlocked(_amc_services, service);
+    _array_m_remove_unlocked(_amc_services, idx);
 
     // Free message queue
     while (service->message_queue->size) {
@@ -274,13 +276,13 @@ void amc_teardown_service_for_task(task_small_t* task) {
     array_m_destroy(service->shmem_regions);
 
     // Inform other services that this service is now dead
+    // Save the service names that we will inform to avoid holding the _amc_services lock twice,
+    // which would happen if we tried to send the messages now
+    array_m* recipients = array_m_create(service->services_to_notify_upon_death->size);
+    const char* dead_service_name_copy = strdup(service->name);
     for (int32_t i = 0; i < service->services_to_notify_upon_death->size; i++) {
         amc_service_t* listener = array_m_lookup(service->services_to_notify_upon_death, i);
-        printf("Informing %s of the death of %s\n", listener->name, service->name);
-        amc_service_died_notification_t notif = {0};
-        notif.event = AMC_SERVICE_DIED_NOTIFICATION;
-        snprintf(&notif.dead_service, sizeof(notif.dead_service), "%s", service->name);
-        amc_message_send__from_core(listener->name, &notif, sizeof(notif));
+        array_m_insert(recipients, strdup(listener->name));
     }
     array_m_destroy(service->services_to_notify_upon_death);
 
@@ -294,6 +296,18 @@ void amc_teardown_service_for_task(task_small_t* task) {
     // Finally free the service control block itself
     kfree(service);
     spinlock_release(&_amc_services->lock);
+
+    for (int i = recipients->size - 1; i >= 0; i--) {
+        char* recipient = array_m_lookup(recipients, i);
+        printf("Informing %s of the death of %s\n", recipient, dead_service_name_copy);
+        amc_service_died_notification_t notif = {0};
+        notif.event = AMC_SERVICE_DIED_NOTIFICATION;
+        snprintf(&notif.dead_service, sizeof(notif.dead_service), "%s", dead_service_name_copy);
+        amc_message_send__from_core(recipient, &notif, sizeof(notif));
+        kfree(recipient);
+    }
+    array_m_destroy(recipients);
+    kfree(dead_service_name_copy);
     //printf("\tAMC teardown done\n");
 }
 
@@ -362,13 +376,15 @@ static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_
     spinlock_release(&dest_service->spinlock);
 }
 
+void _amc_remove_service_from_sleep_list__with_held_lock(amc_service_t* service) {
+    int32_t idx = _array_m_index_unlocked(_asleep_procs, service);
+    assert(idx >= 0, "Can't remove service from sleep list because it wasn't there");
+    _array_m_remove_unlocked(_asleep_procs, idx);
+}
+
 void _amc_remove_service_from_sleep_list(amc_service_t* service) {
     spinlock_acquire(&_asleep_procs->lock);
-
-    int32_t idx = array_m_index(_asleep_procs, service);
-    assert(idx >= 0, "Can't remove service from sleep list because it wasn't there");
-    array_m_remove(_asleep_procs, idx);
-
+    _amc_remove_service_from_sleep_list__with_held_lock(service);
     spinlock_release(&_asleep_procs->lock);
 }
 
@@ -388,13 +404,13 @@ void amc_wake_sleeping_services(void) {
     while (true) {
         bool did_modify_list = false;
         for (int32_t i = 0; i < _asleep_procs->size; i++) {
-            amc_service_t* s = array_m_lookup(_asleep_procs, i);
+            amc_service_t* s = _array_m_lookup_unlocked(_asleep_procs, i);
             if ((s->task->blocked_info.status & AMC_AWAIT_TIMESTAMP) == 0) {
                 printf("Proc was in sleep list but wasn't asleep [%d %s]: %d\n", s->task->id, s->task->name, s->task->blocked_info.status);
             }
             if (now >= s->task->blocked_info.wake_timestamp) {
                 // Wake the process
-                _amc_remove_service_from_sleep_list(s);
+                _amc_remove_service_from_sleep_list__with_held_lock(s);
                 //printf("Wake up %s at %d\n", s->name, ms_since_boot());
                 tasking_unblock_task_with_reason(s->task, AMC_AWAIT_TIMESTAMP);
 
