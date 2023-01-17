@@ -42,6 +42,18 @@ pub fn apic_signal_end_of_interrupt(int_no: u8) {
     local_apic.send_end_of_interrupt();
 }
 
+#[no_mangle]
+pub fn local_apic_enable_timer() {
+    //unsafe { asm!("int $3") };
+    let local_apic = ProcessorLocalApic::new(PhysAddr(0xfee00000));
+    // TODO(PT): Enable the local APIC after the core comes up
+    local_apic_enable();
+    local_apic.enable();
+    println!("Enabled local APIC");
+    unsafe { asm!("sti") };
+    local_apic.timer_start();
+}
+
 pub struct ProcessorLocalApic {
     base: PhysAddr,
 }
@@ -112,6 +124,50 @@ impl ProcessorLocalApic {
             Self::INTERRUPT_COMMAND_LOW_REGISTER_IDX,
             ipi_as_u64.low_u32(),
         );
+    }
+
+    pub fn timer_start(&self) {
+        // AMD SDM §16.4.1
+        // > To avoid race conditions, software should initialize the Divide Configuration Register
+        // > and the Timer Local Vector Table Register prior to writing the Initial Count Register to start the timer.
+
+        // Set up Divide Configuration Register
+        println!(
+            "Writing {} to divide config",
+            Into::<u32>::into(ApicDivideConfiguration::new(ApicDivisor::DivBy1))
+        );
+        self.write_register(
+            0x3e0,
+            ApicDivideConfiguration::new(ApicDivisor::DivBy16).into(),
+        );
+
+        // Set up the APIC Timer Local Vector Table Register
+        println!(
+            "Writing {} to LVT",
+            Into::<u32>::into(LocalVectorTableRegisterConfiguration::new(
+                46,
+                true,
+                LocalApicTimerMode::Periodic
+            ))
+        );
+        self.write_register(
+            0x320,
+            LocalVectorTableRegisterConfiguration::new(46, true, LocalApicTimerMode::Periodic)
+                .into(),
+        );
+
+        let start_current_count = self.read_register(0x390);
+        println!("Start current count {start_current_count}");
+
+        // Set the Initial Count Register, which will start the timer
+        self.write_register(0x380, 1000);
+        let init_count_contents = self.read_register(0x380);
+        println!("ICR contains {init_count_contents}");
+
+        let new_current_count = self.read_register(0x390);
+        println!("New current count {new_current_count}");
+        let lvt_contents = self.read_register(0x320);
+        println!("LVT contains {lvt_contents}");
     }
 }
 
@@ -342,6 +398,102 @@ impl InterProcessorInterruptDescription {
 
 impl From<InterProcessorInterruptDescription> for u64 {
     fn from(value: InterProcessorInterruptDescription) -> Self {
+        value.inner.load()
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum ApicDivisor {
+    DivBy1,
+    DivBy2,
+    DivBy4,
+    DivBy8,
+    DivBy16,
+    DivBy32,
+    DivBy64,
+    DivBy128,
+}
+
+impl From<ApicDivisor> for u8 {
+    fn from(value: ApicDivisor) -> Self {
+        // Ref: AMD SDM Table 16-3
+        match value {
+            ApicDivisor::DivBy2 => 0b000,
+            ApicDivisor::DivBy4 => 0b001,
+            ApicDivisor::DivBy8 => 0b010,
+            ApicDivisor::DivBy16 => 0b011,
+            ApicDivisor::DivBy32 => 0b100,
+            ApicDivisor::DivBy64 => 0b101,
+            ApicDivisor::DivBy128 => 0b110,
+            ApicDivisor::DivBy1 => 0b111,
+        }
+    }
+}
+
+type ApicDivideConfigurationRaw = BitArr!(for 32, in u32, Lsb0);
+
+#[derive(Debug, Copy, Clone)]
+pub struct ApicDivideConfiguration {
+    inner: ApicDivideConfigurationRaw,
+}
+
+impl ApicDivideConfiguration {
+    pub fn new(divisor: ApicDivisor) -> Self {
+        let inner = BitArray::new([0]);
+        let mut ret = Self { inner };
+
+        let divisor_as_u8: u8 = divisor.into();
+        ret.inner[..2].store(divisor_as_u8 & 0b11);
+        ret.inner.set(3, (divisor_as_u8 >> 2) != 0);
+
+        ret
+    }
+}
+
+impl From<ApicDivideConfiguration> for u32 {
+    fn from(value: ApicDivideConfiguration) -> Self {
+        value.inner.load()
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum LocalApicTimerMode {
+    Periodic,
+    OneShot,
+}
+
+type LocalVectorTableRegisterConfigurationRaw = BitArr!(for 32, in u32, Lsb0);
+
+#[derive(Debug, Copy, Clone)]
+/// Ref: AMD SDM §Figure 16-7
+pub struct LocalVectorTableRegisterConfiguration {
+    inner: LocalVectorTableRegisterConfigurationRaw,
+}
+
+impl LocalVectorTableRegisterConfiguration {
+    pub fn new(int_vector: u8, interrupt_enabled: bool, timer_mode: LocalApicTimerMode) -> Self {
+        let inner = BitArray::new([0]);
+        let mut ret = Self { inner };
+
+        ret.set_int_vector(int_vector);
+        if !interrupt_enabled {
+            ret.inner.set(16, true);
+        }
+
+        if timer_mode == LocalApicTimerMode::Periodic {
+            ret.inner.set(17, true);
+        }
+
+        ret
+    }
+
+    fn set_int_vector(&mut self, int_vector: u8) {
+        self.inner[..8].store(int_vector)
+    }
+}
+
+impl From<LocalVectorTableRegisterConfiguration> for u32 {
+    fn from(value: LocalVectorTableRegisterConfiguration) -> Self {
         value.inner.load()
     }
 }
