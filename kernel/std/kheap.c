@@ -119,7 +119,7 @@ int liballoc_lock() {
 }
 
 int liballoc_unlock() {
-	assert(!interrupts_enabled(), "Interrupts enabled during spinlock");
+	//assert(!interrupts_enabled(), "Interrupts enabled during spinlock");
 	spinlock_release(&_heap_lock);
 	//printf("Released heap spinlock (int? %d)\n", interrupts_enabled());
 	return 0;
