@@ -391,7 +391,118 @@ bool vmm_is_active(void) {
 	return vas_get_active_state() != NULL;
 }
 
+void _copy_all_pages_and_tables_in_pml4e(pml4e_t* src_pml4, pml4e_t* dst_pml4, int pml4e_idx) {
+    if (!src_pml4[pml4e_idx].present) {
+        return;
+    }
+
+    pdpe_t* parent_page_directory_pointer_table = (pdpe_t*)(PMA_TO_VMA(src_pml4[pml4e_idx].page_dir_pointer_base * PAGE_SIZE));
+    //printf("\tCloning parent PDPT 0x%p\n", parent_page_directory_pointer_table);
+
+    uintptr_t cloned_page_directory_pointer_table_frame = pmm_alloc();
+    pdpe_t* cloned_page_directory_pointer_table = (pdpe_t*)(PMA_TO_VMA(cloned_page_directory_pointer_table_frame));
+
+    dst_pml4[pml4e_idx].present = true;
+    dst_pml4[pml4e_idx].user_mode = src_pml4[pml4e_idx].user_mode;
+    dst_pml4[pml4e_idx].writable = src_pml4[pml4e_idx].writable;
+    dst_pml4[pml4e_idx].page_dir_pointer_base = cloned_page_directory_pointer_table_frame / PAGE_SIZE;
+
+    for (int page_directory_idx = 0; page_directory_idx < 512; page_directory_idx++) {
+        if (!parent_page_directory_pointer_table[page_directory_idx].present) {
+            continue;
+        }
+
+        pde_t* parent_page_directory = (pde_t*)(PMA_TO_VMA(parent_page_directory_pointer_table[page_directory_idx].page_dir_base * PAGE_SIZE));
+        //printf("\t\tCloning parent page directory 0x%p\n", parent_page_directory);
+
+        uintptr_t cloned_page_directory_frame = pmm_alloc();
+        pde_t* cloned_page_directory = (pde_t*)(PMA_TO_VMA(cloned_page_directory_frame));
+
+        cloned_page_directory_pointer_table[page_directory_idx].present = true;
+        cloned_page_directory_pointer_table[page_directory_idx].user_mode = parent_page_directory_pointer_table[page_directory_idx].user_mode;
+        cloned_page_directory_pointer_table[page_directory_idx].writable = parent_page_directory_pointer_table[page_directory_idx].writable;
+        cloned_page_directory_pointer_table[page_directory_idx].page_dir_base = cloned_page_directory_frame / PAGE_SIZE;
+
+        for (int page_table_idx = 0; page_table_idx < 512; page_table_idx++) {
+            if (!parent_page_directory[page_table_idx].present) {
+                continue;
+            }
+
+            pte_t* parent_page_table = (pte_t*)(PMA_TO_VMA(parent_page_directory[page_table_idx].page_table_base * PAGE_SIZE));
+            //printf("\t\t\tCloning parent page table 0x%p\n", parent_page_table);
+
+            uintptr_t cloned_page_table_frame = pmm_alloc();
+            pte_t* cloned_page_table = (pte_t*)(PMA_TO_VMA(cloned_page_table_frame));
+
+            cloned_page_directory[page_table_idx].present = true;
+            cloned_page_directory[page_table_idx].user_mode = parent_page_directory[page_table_idx].user_mode;
+            cloned_page_directory[page_table_idx].writable = parent_page_directory[page_table_idx].writable;
+            cloned_page_directory[page_table_idx].page_table_base = cloned_page_table_frame / PAGE_SIZE;
+
+            for (int page_idx = 0; page_idx < 512; page_idx++) {
+                if (!parent_page_table[page_idx].present) {
+                    continue;
+                }
+
+                uintptr_t parent_frame = parent_page_table[page_idx].page_base * PAGE_SIZE;
+                uintptr_t cloned_frame = pmm_alloc();
+
+                cloned_page_table[page_idx].present = true;
+                cloned_page_table[page_idx].user_mode = parent_page_table[page_idx].user_mode;
+                cloned_page_table[page_idx].writable = parent_page_table[page_idx].writable;
+                cloned_page_table[page_idx].page_base = cloned_frame / PAGE_SIZE;
+
+                //printf("Cloning page [phys 0x%p -> 0x%p]\n", parent_frame, cloned_frame);
+                memcpy(PMA_TO_VMA(cloned_frame), PMA_TO_VMA(parent_frame), PAGE_SIZE);
+            }
+        }
+    }
+}
+
+vas_state_t* vas_clone_ex(vas_state_t* parent, bool link_cpu_specific_storage) {
+    pml4e_t* parent_pml4_virt = (pml4e_t*)PMA_TO_VMA(parent->pml4_phys);
+    uint64_t new_pml4_phys = pmm_alloc();
+    pml4e_t* new_pml4_virt = (pml4e_t*)PMA_TO_VMA(new_pml4_phys);
+
+    uint32_t max_range_count = 255;
+    uint64_t vas_size = sizeof(vas_state_t) + (max_range_count * sizeof(vas_range_t));
+    vas_state_t* new_vas = (vas_state_t*)kcalloc(1, vas_size);
+    new_vas->max_range_count = max_range_count;
+    printf("\tAllocated new VAS of size 0x%p at 0x%p, PML4 at 0x%p, max_range_count %d range count %d\n", vas_size, new_vas, new_pml4_phys, new_vas->max_range_count, new_vas->range_count);
+    new_vas->pml4_phys = new_pml4_phys;
+
+    // Max that can fit into 1 page
+    uint64_t range_array_size = PAGE_SIZE - offsetof(vas_state_t, ranges);
+    // Kernel PDPT's are linked into every VAS
+    vas_state_t* cpu_base_vas = cpu_private_info()->base_vas;
+    pml4e_t* cpu_base_vas_pml4 = (pml4e_t*)PMA_TO_VMA(cpu_base_vas->pml4_phys);
+    for (int i = 256; i < 512; i++) {
+        // But create a new PML4E for CPU-specific data
+        if (!link_cpu_specific_storage) {
+            uintptr_t pml4e_base = (uintptr_t)0xFFFF << 48 | ((uintptr_t)i << 39);
+            if (pml4e_base == CPU_CORE_DATA_BASE) {
+                printf("Linking CPU_CORE_DATA_BASE PML4E #%d (virt %p)\n", i, pml4e_base);
+                _copy_all_pages_and_tables_in_pml4e(parent_pml4_virt, new_pml4_virt, i);
+                continue;
+            }
+        }
+        new_pml4_virt[i] = cpu_base_vas_pml4[i];
+    }
+
+    // Copy all tables and pages in user-space
+    for (int page_directory_pointer_table_idx = 0; page_directory_pointer_table_idx < 256; page_directory_pointer_table_idx++) {
+        _copy_all_pages_and_tables_in_pml4e(parent_pml4_virt, new_pml4_virt, page_directory_pointer_table_idx);
+    }
+
+    return new_vas;
+}
+
 vas_state_t* vas_clone(vas_state_t* parent) {
+    // By default, link the CPU specific PML4E (i.e. use the same CPU-specific storage in the new VAS)
+    return vas_clone_ex(parent, true);
+}
+
+vas_state_t* vas_clone__cow(vas_state_t* parent) {
 	uint64_t new_pml4_phys = pmm_alloc();
     pml4e_t* new_pml4_virt = (pml4e_t*)PMA_TO_VMA(new_pml4_phys);
 
@@ -467,16 +578,18 @@ vas_state_t* vas_clone(vas_state_t* parent) {
 						continue;
 					}
 
-					uintptr_t parent_frame = parent_page_table[page_idx].page_base * PAGE_SIZE;
-					uintptr_t cloned_frame = pmm_alloc();
-
 					cloned_page_table[page_idx].present = true;
 					cloned_page_table[page_idx].user_mode = parent_page_table[page_idx].user_mode;
-					cloned_page_table[page_idx].writable = parent_page_table[page_idx].writable;
-					cloned_page_table[page_idx].page_base = cloned_frame / PAGE_SIZE;
+					cloned_page_table[page_idx].page_base = parent_page_table[page_idx].page_base;
 
-					//printf("Cloning page [phys 0x%p -> 0x%p]\n", parent_frame, cloned_frame);
-					memcpy(PMA_TO_VMA(cloned_frame), PMA_TO_VMA(parent_frame), PAGE_SIZE);
+					if (parent_page_table[page_idx].writable) {
+						// TODO(PT): This can be a COW enum with up to 7 values
+						cloned_page_table[page_idx].available = true;
+						parent_page_table[page_idx].available = true;
+					}
+					parent_page_table[page_idx].writable = false;
+					cloned_page_table[page_idx].writable = false;
+					assert(false, "PT: Need a hasmap to store and retrieve COW pages");
 				}
 			}
 		}
@@ -591,7 +704,10 @@ void vmm_init(uint64_t bootloader_pml4_addr) {
     // and how we don't switch cr3 yet because our stack pointer is undefined and in lowmem
     boot_info_t* info = boot_info_get();
     info->vas_kernel = _kernel_vas_state;
-	vas_load_state(info->vas_kernel);
+
+    // Only try to set the CPU core's loaded VAS state pointer if we're finished setting up paging
+    // Otherwise, another part of the kernel will not have had time to set up the CPU core's private data structure
+	vas_load_state_ex(info->vas_kernel, false);
 
 	// We've copied all the PML4 entries from the bootloader's PML4, 
 	// so it's now safe to free the bootloader's PML4 frame

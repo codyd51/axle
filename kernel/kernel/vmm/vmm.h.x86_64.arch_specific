@@ -152,6 +152,7 @@ void vmm_init(uint64_t bootloader_pml4);
 
 // TODO(PT): Fix this API
 uint64_t vas_map_range(vas_state_t* vas_state, uint64_t min_address, uint64_t size, uint64_t phys_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level);
+uint64_t vas_map_range_exact(vas_state_t* vas_state, uint64_t virt_start, uint64_t size, uint64_t phys_start, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level);
 
 uint64_t vas_alloc_range(vas_state_t* vas_state, uint64_t min_address, uint64_t size, vas_range_access_type_t access_type, vas_range_privilege_level_t privilege_level);
 void vas_free_range(vas_state_t* vas_state, uint64_t region_base, uint64_t size);
@@ -170,6 +171,7 @@ vas_state_t* vas_get_active_state(void);
 
 vas_state_t* vas_clone(vas_state_t* parent);
 vas_state_t* vas_clone__cow(vas_state_t* parent);
+vas_state_t* vas_clone_ex(vas_state_t* parent, bool link_cpu_specific_storage);
 void vas_teardown(vas_state_t* vas_state);
 
 void vas_state_dump(vas_state_t* vas_state);
