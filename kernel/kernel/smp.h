@@ -2,6 +2,7 @@
 #define SMP_H
 
 #include <kernel/multitasking/tasks/task_small.h>
+#include <kernel/segmentation/gdt.h>
 
 // PT: This file contains some FFI bindings for Rust code, which must match the layouts defined in the Rust module
 
@@ -26,6 +27,7 @@ typedef struct cpu_core_private_info {
     vas_state_t* loaded_vas_state;
     task_small_t* current_task;
     bool scheduler_enabled;
+    tss_t* tss;
 } cpu_core_private_info_t;
 
 typedef struct interrupt_override_info {

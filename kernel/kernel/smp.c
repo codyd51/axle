@@ -155,6 +155,7 @@ void smp_init(void) {
         memcpy(&cpu_core_info->processor_info, processor_info, sizeof(processor_info_t));
         cpu_core_info->base_vas = ap_vas;
         cpu_core_info->loaded_vas_state = ap_vas;
+        cpu_core_info->tss = ap_long_mode_tss;
 
         printf("\tCalling smp_boot_core...\n");
         smp_boot_core(smp_info, processor_info);
@@ -186,6 +187,7 @@ void smp_map_bsp_private_info(void) {
     _mapped_cpu_info_in_bsp = true;
     cpu_private_info()->base_vas = boot_info_get()->vas_kernel;
     cpu_private_info()->loaded_vas_state = boot_info_get()->vas_kernel;
+    cpu_private_info()->tss = bsp_tss();
 }
 
 cpu_core_private_info_t* cpu_private_info(void) {
@@ -201,6 +203,7 @@ cpu_core_private_info_t* cpu_private_info(void) {
             .loaded_vas_state = NULL,
             .scheduler_enabled = false,
             .current_task = NULL,
+            .tss = NULL,
         };
         return &_early_boot_placeholder;
     }

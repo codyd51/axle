@@ -89,5 +89,6 @@ void gdt_create_for_long_mode(gdt_descriptor_t** gdt_out, uintptr_t* gdt_out_siz
 gdt_pointer_t* kernel_gdt_pointer(void);
 
 tss_t* tss_descriptor_create_for_long_mode(tss_descriptor_t* out);
+tss_t* bsp_tss(void);
 
 #endif

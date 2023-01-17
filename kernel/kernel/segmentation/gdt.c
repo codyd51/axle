@@ -4,6 +4,7 @@
 #include <std/memory.h>
 #include <std/printf.h>
 #include <kernel/assert.h>
+#include <kernel/smp.h>
 
 void gdt_activate(gdt_pointer_t* table);
 
@@ -42,7 +43,7 @@ typedef struct tss_entry32 {
 	uint16_t iomap_base;
 } __attribute__((packed)) tss_entry32_t;
 
-tss_t tss_singleton = {0};
+tss_t _g_bsp_tss = {0};
 
 static void gdt_write_descriptor(gdt_entry_t* entry, uint32_t base, uint32_t limit, uint16_t flag);
 
@@ -117,9 +118,9 @@ static void tss_init(gdt_descriptor_t* gdt) {
 
     assert(sizeof(tss_t) == 104, "TSS must be exactly 104 bytes!");
 
-    memset(&tss_singleton, 0, sizeof(tss_singleton));
+    memset(&_g_bsp_tss, 0, sizeof(_g_bsp_tss));
 
-    uintptr_t base = &tss_singleton;
+    uintptr_t base = &_g_bsp_tss;
     uintptr_t limit = base + sizeof(tss_t);
 
     tss_descriptor_t tss_descriptor = {
@@ -413,10 +414,15 @@ void gdt_init() {
 }
 
 void tss_set_kernel_stack(uint64_t stack) {
-   tss_singleton.rsp0_low = (stack & 0xFFFFFFFF);
-   tss_singleton.rsp0_high = ((stack >> 32) & 0xFFFFFFFF);
+    cpu_private_info()->tss->rsp0_low = (stack & 0xFFFFFFFF);
+    cpu_private_info()->tss->rsp0_high = ((stack >> 32) & 0xFFFFFFFF);
 }
 
+tss_t* bsp_tss(void) {
+    return &_g_bsp_tss;
+}
+
+// TODO(PT): Rename to bsp_...
 gdt_pointer_t* kernel_gdt_pointer(void) {
     return &_g_gdt_pointer;
 }
