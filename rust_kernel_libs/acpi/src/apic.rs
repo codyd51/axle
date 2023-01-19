@@ -220,23 +220,10 @@ impl IoApic {
         let high_reg = low_reg + 1;
 
         //println!("Remap as bits {remap_as_bits:#016x}");
+        // TODO(PT): Removing this line appears to make it so that no interrupts are delivered,
+        // and no AP comes up... why?
         println!("Regs {low_reg}, {high_reg}");
-
-        /*
-        println!(
-            "Reg contents {}, {}",
-            self.read_register(low_reg),
-            self.read_register(high_reg)
-        );
-        println!(
-            "Writing {} to {low_reg}",
-            (remap_as_bits & 0xffffffff) as u32
-        );
-        println!(
-            "Writing {} to {high_reg}",
-            (remap_as_bits >> 32 & 0xffffffff) as u32
-        );
-        */
+        println!("RemapIrq {remap:?}");
 
         self.write_register(low_reg, (remap_as_bits & 0xffffffff) as u32);
         self.write_register(high_reg, (remap_as_bits >> 32 & 0xffffffff) as u32);
@@ -278,7 +265,7 @@ impl RemapIrqDescription {
 
     /// The local APIC ID to deliver the interrupt to
     fn set_destination_local_apic_id(&mut self, apic_id: u32) {
-        self.inner[53..64].store(apic_id);
+        self.inner[56..64].store(apic_id);
     }
 
     pub fn as_bits(&self) -> u64 {
@@ -366,7 +353,7 @@ impl InterProcessorInterruptDescription {
 
     fn set_destination(&mut self, destination: InterProcessorInterruptDestination) {
         // Set the 'destination shorthand' field
-        self.inner[18..21].store(u8::from(destination));
+        self.inner[18..20].store(u8::from(destination));
         if let InterProcessorInterruptDestination::OtherProcessor(apic_id) = destination {
             // We'll need to set the destination field
             self.inner[56..].store(apic_id)
