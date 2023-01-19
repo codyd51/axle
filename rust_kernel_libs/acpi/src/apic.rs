@@ -61,7 +61,6 @@ impl ProcessorLocalApic {
     }
 
     fn write_register(&self, register_idx: usize, val: u32) {
-        //println!("Writing {val:08x} to Reg {register_idx}");
         let register_addr = (self.base + (register_idx * 0x10)).to_remapped_high_memory_virt();
         let register: &'static mut u32 = unsafe { &mut *(register_addr.0 as *mut u32) };
         *register = val;
@@ -132,42 +131,20 @@ impl ProcessorLocalApic {
         // > and the Timer Local Vector Table Register prior to writing the Initial Count Register to start the timer.
 
         // Set up Divide Configuration Register
-        println!(
-            "Writing {} to divide config",
-            Into::<u32>::into(ApicDivideConfiguration::new(ApicDivisor::DivBy1))
-        );
         self.write_register(
-            0x3e0,
+            0x3e,
             ApicDivideConfiguration::new(ApicDivisor::DivBy16).into(),
         );
 
         // Set up the APIC Timer Local Vector Table Register
-        println!(
-            "Writing {} to LVT",
-            Into::<u32>::into(LocalVectorTableRegisterConfiguration::new(
-                46,
-                true,
-                LocalApicTimerMode::Periodic
-            ))
-        );
         self.write_register(
-            0x320,
-            LocalVectorTableRegisterConfiguration::new(46, true, LocalApicTimerMode::Periodic)
+            0x32,
+            LocalVectorTableRegisterConfiguration::new(67, true, LocalApicTimerMode::Periodic)
                 .into(),
         );
 
-        let start_current_count = self.read_register(0x390);
-        println!("Start current count {start_current_count}");
-
         // Set the Initial Count Register, which will start the timer
-        self.write_register(0x380, 1000);
-        let init_count_contents = self.read_register(0x380);
-        println!("ICR contains {init_count_contents}");
-
-        let new_current_count = self.read_register(0x390);
-        println!("New current count {new_current_count}");
-        let lvt_contents = self.read_register(0x320);
-        println!("LVT contains {lvt_contents}");
+        self.write_register(0x38, 0x1000);
     }
 }
 
