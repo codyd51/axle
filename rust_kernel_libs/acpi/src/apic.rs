@@ -18,19 +18,8 @@ pub fn apic_disable_pic() {
         outb(0x22, 0x70);
         // This forces NMI and INTR signals to flow through the APIC instead of the PIC
         outb(0x23, 0x01);
-    }
-}
-
-pub fn local_apic_enable() {
-    let mut lo: u32 = 0;
-    let mut hi: u32 = 0;
-    let apic_base_msr = 0x1b;
-    unsafe {
-        x86_msr_get(apic_base_msr, &mut lo as *mut u32, &mut hi as *mut u32);
-        println!("    Got APIC MSR {lo:#016x}:{hi:#016x}");
-        lo |= 1 << 11;
-        println!("Setting APIC MSR {lo:#016x}:{hi:#016x}");
-        x86_msr_set(apic_base_msr, lo, hi);
+        outb(0xa1, 0xff);
+        outb(0x21, 0xff);
     }
 }
 
@@ -44,12 +33,9 @@ pub fn apic_signal_end_of_interrupt(int_no: u8) {
 
 #[no_mangle]
 pub fn local_apic_enable_timer() {
-    //unsafe { asm!("int $3") };
     let local_apic = ProcessorLocalApic::new(PhysAddr(0xfee00000));
     // TODO(PT): Enable the local APIC after the core comes up
-    local_apic_enable();
     local_apic.enable();
-    println!("Enabled local APIC");
     unsafe { asm!("sti") };
     local_apic.timer_start();
 }
@@ -75,6 +61,7 @@ impl ProcessorLocalApic {
     }
 
     fn write_register(&self, register_idx: usize, val: u32) {
+        //println!("Writing {val:08x} to Reg {register_idx}");
         let register_addr = (self.base + (register_idx * 0x10)).to_remapped_high_memory_virt();
         let register: &'static mut u32 = unsafe { &mut *(register_addr.0 as *mut u32) };
         *register = val;
@@ -102,6 +89,18 @@ impl ProcessorLocalApic {
     }
 
     pub fn enable(&self) {
+        // Set the APIC Enable bit in the APIC base register MSR
+        let mut lo: u32 = 0;
+        let mut hi: u32 = 0;
+        let apic_base_msr = 0x1b;
+        unsafe {
+            x86_msr_get(apic_base_msr, &mut lo as *mut u32, &mut hi as *mut u32);
+            println!("    Got APIC MSR {lo:#016x}:{hi:#016x}");
+            lo |= 1 << 11;
+            println!("Setting APIC MSR {lo:#016x}:{hi:#016x}");
+            x86_msr_set(apic_base_msr, lo, hi);
+        }
+
         let mut spurious_iv_reg_contents = self.read_spurious_int_vector_register();
         println!("Read spurious IV reg contents {spurious_iv_reg_contents:#08x}");
         spurious_iv_reg_contents |= 0xff;
@@ -112,6 +111,7 @@ impl ProcessorLocalApic {
     }
 
     pub fn send_ipi(&self, ipi: InterProcessorInterruptDescription) {
+        println!("Sending IPI {ipi:?}");
         // Intel SDM §10.6.1
         // > The act of writing to the low doubleword of the ICR causes the IPI to be sent.
         // Therefore, we need to write the high word first so we know we're ready
@@ -281,6 +281,7 @@ impl RemapIrqDescription {
         let inner = BitArray::new([0, 0]);
         let mut ret = Self { inner, irq_vector };
 
+        println!("Set IRQ[{irq_vector}] = vector[{remapped_int_vector}]");
         ret.set_remapped_int_vector(remapped_int_vector);
         // Set delivery mode (000 is fixed)
         ret.inner[8..11].store(0);
