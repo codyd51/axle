@@ -437,38 +437,37 @@ void idle_task() {
     }
 }
 
-void tasking_ap_init_part2(void) {
-    // It's now safe to free the low-memory identity map
-    vas_state_t* cpu_core_vas = cpu_private_info()->base_vas;
+static void _free_low_identity_map(vas_state_t* vas) {
     vas_range_t* low_identity_map_range = NULL;
-    for (int i = 0; i < cpu_core_vas->range_count; i++) {
-        vas_range_t* range = &cpu_core_vas->ranges[i];
+    for (int i = 0; i < vas->range_count; i++) {
+        vas_range_t* range = &vas->ranges[i];
         if (range->start == 0x0) {
             low_identity_map_range = range;
             break;
         }
     }
     assert(low_identity_map_range, "Failed to find low-memory identity map");
-    vas_delete_range(cpu_core_vas, low_identity_map_range->start, low_identity_map_range->size);
+    vas_delete_range(vas, low_identity_map_range->start, low_identity_map_range->size);
     // Free the low PML4 entries
     // These all use 1GB pages, so we only need to free the PML4E's themselves,
     // and not any lower-level paging structures
     // TODO(PT): Is the above still true? I'm not sure that the bootloader is still using 1GB pages: IIRC
     // they caused issues on my hardware.
-    pml4e_t* cpu_core_vas_pml4 = (pml4e_t*)PMA_TO_VMA(cpu_core_vas->pml4_phys);
+    pml4e_t* vas_pml4 = (pml4e_t*)PMA_TO_VMA(vas->pml4_phys);
     // TODO(PT): This should only free the exact range that was identity mapped, rather than all low canonical memory
     for (int i = 0; i < 256; i++) {
-        if (cpu_core_vas_pml4[i].present) {
-            uint64_t pml4e_phys = cpu_core_vas_pml4[i].page_dir_pointer_base * PAGE_SIZE;
-            printf("Free identity-mapped low PML4E #%d: 0x%p\n", i, pml4e_phys);
+        if (vas_pml4[i].present) {
+            uint64_t pml4e_phys = vas_pml4[i].page_dir_pointer_base * PAGE_SIZE;
+            printf("Free low PML4E #%d: 0x%p\n", i, pml4e_phys);
             pmm_free(pml4e_phys);
-            cpu_core_vas_pml4[i].present = false;
+            vas_pml4[i].present = false;
         }
     }
-    /*
-    asm("int $44");
-    while (1) {}
-     */
+}
+
+void tasking_ap_init_part2(void) {
+    // It's now safe to free the low-memory identity map
+    _free_low_identity_map(cpu_private_info()->base_vas);
 
     task_small_t* spin1_tcb = task_spawn("ap_spin1", ap_spin1);
     task_small_t* spin2_tcb = task_spawn("ap_spin2", ap_spin2);
@@ -485,34 +484,8 @@ void tasking_ap_init_part2(void) {
 void tasking_init_part2(void* continue_func_ptr) {
     // We're now fully established in high memory and using a high kernel stack
     // It's now safe to free the low-memory identity map
-    vas_state_t* cpu_core_vas = cpu_private_info()->base_vas;
-    vas_range_t* low_identity_map_range = NULL;
-    for (int i = 0; i < cpu_core_vas->range_count; i++) {
-        vas_range_t* range = &cpu_core_vas->ranges[i];
-        if (range->start == 0x0) {
-            low_identity_map_range = range;
-            break;
-        }
-    }
-    assert(low_identity_map_range, "Failed to find low-memory identity map");
-    vas_delete_range(cpu_core_vas, low_identity_map_range->start, low_identity_map_range->size);
-    // Free the low PML4 entries
-    // These all use 1GB pages, so we only need to free the PML4E's themselves,
-    // and not any lower-level paging structures
-    // TODO(PT): Is the above still true? I'm not sure that the bootloader is still using 1GB pages: IIRC
-    // they caused issues on my hardware.
-    pml4e_t* cpu_core_vas_pml4 = (pml4e_t*)PMA_TO_VMA(cpu_core_vas->pml4_phys);
-    // TODO(PT): This should only free the exact range that was identity mapped, rather than all low canonical memory
-	for (int i = 0; i < 256; i++) {
-		if (cpu_core_vas_pml4[i].present) {
-			uint64_t pml4e_phys = cpu_core_vas_pml4[i].page_dir_pointer_base * PAGE_SIZE;
-			//printf("Free bootloader PML4E #%d: 0x%p\n", i, pml4e_phys);
-			pmm_free(pml4e_phys);
-            cpu_core_vas_pml4[i].present = false;
-		}
-	}
+    _free_low_identity_map(cpu_private_info()->base_vas);
 
-    //printf("tasking_init_part2 continue_func 0x%p\n", continue_func_ptr);
     // idle should not be in the scheduler pool as we schedule it specially
     // _task_spawn will not add it to the scheduler pool
     _idle_task = _task_spawn("com.axle.idle", idle_task);
@@ -563,21 +536,12 @@ void ap_spin2(void) {
 }
 
 void tasking_ap_startup(void) {
-    //printf("AP switching to idle task...\n");
     // TODO(PT): Free initial AP stack/page tables?
-    //asm("cli");
-    /*
-    while (1) {
-        //printf("AP spinning\n");
-    }
-    */
-
-    cpu_set_current_task(thread_spawn(tasking_ap_init_part2, 0, 0, 0));
-    task_set_name(cpu_current_task(), "ap_bootstrap");
-    tasking_first_context_switch(cpu_current_task(), 100);
-
-    //task_small_t* t = _task_spawn("ap_spin", ap_spin_task);
-    //tasking_first_context_switch(t, 100);
+    // Prime the scheduler
+    task_small_t* ap_bootstrap_task = thread_spawn(tasking_ap_init_part2, 0, 0, 0);
+    cpu_set_current_task(ap_bootstrap_task);
+    task_set_name(ap_bootstrap_task, "ap_bootstrap");
+    tasking_first_context_switch(ap_bootstrap_task, 100);
 }
 
 void* sbrk(int increment) {
