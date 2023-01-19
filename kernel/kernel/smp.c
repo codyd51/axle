@@ -19,9 +19,9 @@ smp_info_t* acpi_parse_root_system_description(uintptr_t acpi_rsdp);
 static bool _mapped_cpu_info_in_bsp = false;
 
 void ap_c_entry(void) {
-    uint64_t stack_helper;
-    printf("AP running C code %p!!!\n", &stack_helper);
-    while (1) {}
+    tasking_ap_startup();
+    // Should never return
+    assert(false, "tasking_ap_startup was not supposed to return control here");
 }
 
 void smp_init(void) {
@@ -101,7 +101,7 @@ void smp_init(void) {
             continue;
         }
 
-        printf("Booting core [idx %d], [APIC %d] [ID %d]\n", processor_info->apic_id, processor_info->processor_id);
+        printf("Booting core [idx %d], [APIC %d] [ID %d]\n", i, processor_info->apic_id, processor_info->processor_id);
 
         // Set up a virtual address space for the AP to use
         // Start off by cloning the BSP's address space, which has the high-memory remap
