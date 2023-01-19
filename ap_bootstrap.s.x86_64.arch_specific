@@ -56,7 +56,8 @@ ap_entry:
     mov cr3, eax
 
     ; Next, load the long-mode GDT
-    mov eax, [$long_mode_gdt_ptr]
+    ; Note that we must use the address in low memory because we haven't yet enabled paging
+    mov eax, [$long_mode_gdt_low_memory_ptr]
     lgdt [eax]
 
     ; Enable the paging bit in cr0
@@ -66,12 +67,24 @@ ap_entry:
 
     ; Put the long mode GDT into effect by loading the segment registers
     ; First, reload CS via a jump
-    jmp 0x08:.long_mode
+    jmp 0x08:.long_mode_low_mem_gdt
 
 ; And immediately start assembling 64bit code
 [bits 64]
-.long_mode:
+.long_mode_low_mem_gdt:
     ; We're now in Long Mode
+    ; Reload the GDT using the high-memory RAM remap address
+    ; This way we can later free the low-memory identity map
+    ; (Double-dereference)
+    xor rax, rax
+    mov eax, [$long_mode_gdt_high_memory_ptr]
+    mov rax, [eax]
+    lgdt [eax]
+
+    ; Again, load the CS from the new GDT via a jump
+    ;jmp 0x08:.long_mode_high_mem_gdt
+
+;.long_mode_high_mem_gdt:
     ; Reload data segment registers
     mov ax, 0x10
     mov ds, ax
@@ -97,7 +110,7 @@ ap_entry:
     ltr ax
 
     ; Jump to the C entry point
-    ; Load the PML4 (and double-dereference the parameter that was passed in by the BSP)
+    ; Load the entry point (and double-dereference the parameter that was passed in by the BSP)
     xor rax, rax
     mov eax, [$c_entry_point_ptr]
     mov rax, [eax]
@@ -114,8 +127,9 @@ align 16
 ; Defined in our memory map
 ; PT: These parameter pointers *must* match the offsets defined in kernel/ap_bootstrap.h
 protected_mode_gdt_ptr: dd 0x9000
-long_mode_gdt_ptr: dd 0x9100
-pml4_ptr: dd 0x9200
-idt_ptr: dd 0x9300
-c_entry_point_ptr: dd 0x9400
-stack_top_ptr: dd 0x9500
+long_mode_gdt_low_memory_ptr: dd 0x9100
+long_mode_gdt_high_memory_ptr: dd 0x9200
+pml4_ptr: dd 0x9300
+idt_ptr: dd 0x9400
+c_entry_point_ptr: dd 0x9500
+stack_top_ptr: dd 0x9600
