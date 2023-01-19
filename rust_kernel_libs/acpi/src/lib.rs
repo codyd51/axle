@@ -6,9 +6,8 @@ extern crate alloc;
 extern crate ffi_bindings;
 
 use crate::apic::{
-    apic_disable_pic, local_apic_enable, InterProcessorInterruptDeliveryMode,
-    InterProcessorInterruptDescription, InterProcessorInterruptDestination, IoApic,
-    ProcessorLocalApic, RemapIrqDescription,
+    apic_disable_pic, InterProcessorInterruptDeliveryMode, InterProcessorInterruptDescription,
+    InterProcessorInterruptDestination, IoApic, ProcessorLocalApic, RemapIrqDescription,
 };
 use crate::structs::{
     ApicNonMaskableInterrupt, ExtendedSystemDescriptionHeader, InterruptControllerHeader,
@@ -193,7 +192,7 @@ pub unsafe fn apic_init(smp_info: *const SmpInfo) {
     // axle remaps IRQs to the interrupt number rebased by 32.
     // See kernel/kernel/interrupts/idt.c
     unsafe { asm!("cli") };
-    for i in 0..16 {
+    for i in 0..io_apic.max_redirection_entry() + 1 {
         io_apic.remap_irq(RemapIrqDescription::new(
             i,
             32 + i,

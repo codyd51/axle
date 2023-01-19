@@ -173,7 +173,7 @@ def _build_libcore_for_kernel_libs() -> None:
     cargo_workspace_dir = _RUST_KERNEL_LIBS_DIR
     ffi_bindings_dir = cargo_workspace_dir / "ffi_bindings"
     toolchain_dir = _REPO_ROOT / 'x86_64-toolchain'
-    env = {'CC': toolchain_dir / 'bin' / 'x86_64-elf-axle-gcc'}
+    env = {'CC': (toolchain_dir / 'bin' / 'x86_64-elf-axle-gcc').as_posix()}
     run_and_check(
         [
             'cargo',
