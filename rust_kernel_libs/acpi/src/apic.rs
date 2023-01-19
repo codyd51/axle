@@ -27,16 +27,20 @@ pub fn apic_disable_pic() {
 pub fn apic_signal_end_of_interrupt(int_no: u8) {
     //println!("apic_signal_end_of_interrupt({int_no})");
     // TODO(PT): We should retrieve this from somewhere
+    // TODO(PT): It could be stored in the CPU-local storage
     let local_apic = ProcessorLocalApic::new(PhysAddr(0xfee00000));
     local_apic.send_end_of_interrupt();
 }
 
 #[no_mangle]
+pub fn local_apic_enable() {
+    let local_apic = ProcessorLocalApic::new(PhysAddr(0xfee00000));
+    local_apic.enable();
+}
+
+#[no_mangle]
 pub fn local_apic_enable_timer() {
     let local_apic = ProcessorLocalApic::new(PhysAddr(0xfee00000));
-    // TODO(PT): Enable the local APIC after the core comes up
-    local_apic.enable();
-    unsafe { asm!("sti") };
     local_apic.timer_start();
 }
 

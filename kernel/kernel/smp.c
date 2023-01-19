@@ -15,13 +15,21 @@ uintptr_t smp_get_current_core_apic_id(smp_info_t* smp_info);
 void smp_boot_core(smp_info_t* smp_info, processor_info_t* core);
 void apic_init(smp_info_t* smp_info);
 smp_info_t* acpi_parse_root_system_description(uintptr_t acpi_rsdp);
+void local_apic_enable(void);
+void local_apic_enable_timer(void);
 
 static bool _mapped_cpu_info_in_bsp = false;
 
+void ap_entry_part2(void);
+
 void ap_c_entry(void) {
-    tasking_ap_startup();
+    tasking_ap_startup(ap_entry_part2);
     // Should never return
     assert(false, "tasking_ap_startup was not supposed to return control here");
+}
+
+void ap_entry_part2(void) {
+    while (1) {}
 }
 
 void smp_init(void) {

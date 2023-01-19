@@ -124,6 +124,6 @@ void task_set_name(task_small_t* task, const char* new_name);
 task_small_t* task_spawn__managed__with_args(const char* task_name, void* entry_point, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3);
 
 static task_small_t* cpu_current_task(void);
-void tasking_ap_startup(void);
+void tasking_ap_startup(void* continue_func);
 
 #endif

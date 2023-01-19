@@ -465,20 +465,20 @@ static void _free_low_identity_map(vas_state_t* vas) {
     }
 }
 
-void tasking_ap_init_part2(void) {
+void tasking_ap_init_part2(void* continue_func_ptr) {
     // It's now safe to free the low-memory identity map
     _free_low_identity_map(cpu_private_info()->base_vas);
 
+    /*
     task_small_t* spin1_tcb = task_spawn("ap_spin1", ap_spin1);
     task_small_t* spin2_tcb = task_spawn("ap_spin2", ap_spin2);
-    cpu_set_scheduler_enabled(true);
+    */
+
     // TODO(PT): This won't do anything because the PIT is currently only delivered to APIC #0. We should start using the APIC-local timer
-    printf("Enabling LAPIC timer...\n");
-    asm("sti");
-    local_apic_enable_timer();
-    printf("Finished enabling timer\n");
-    while(1){}
-    //ap_spin_task();
+    cpu_set_scheduler_enabled(true);
+
+    void(*continue_func)(void) = (void(*)(void))continue_func_ptr;
+    continue_func();
 }
 
 void tasking_init_part2(void* continue_func_ptr) {
@@ -535,10 +535,10 @@ void ap_spin2(void) {
     }
 }
 
-void tasking_ap_startup(void) {
+void tasking_ap_startup(void* continue_func) {
     // TODO(PT): Free initial AP stack/page tables?
     // Prime the scheduler
-    task_small_t* ap_bootstrap_task = thread_spawn(tasking_ap_init_part2, 0, 0, 0);
+    task_small_t* ap_bootstrap_task = thread_spawn(tasking_ap_init_part2, (uintptr_t)continue_func, 0, 0);
     cpu_set_current_task(ap_bootstrap_task);
     task_set_name(ap_bootstrap_task, "ap_bootstrap");
     tasking_first_context_switch(ap_bootstrap_task, 100);
