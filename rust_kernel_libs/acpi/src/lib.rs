@@ -188,26 +188,30 @@ pub unsafe fn apic_init(smp_info: *const SmpInfo) {
         io_apic.max_redirection_entry()
     );
 
-    // Start off by mapping the first 16 IRQ vectors to the nominal axle IDT vector.
-    // axle remaps IRQs to the interrupt number rebased by 32.
-    // See kernel/kernel/interrupts/idt.c
+    // Start off by mapping the IOAPIC pins to the vectors axle expects
+    // axle's interrupt map:
+    // 00-32: Reserved for CPU exceptions
+    // 32-64: Reserved for legacy PIT (always masked)
+    // 64+: Reserved for IOAPIC
+    // See kernel/kernel/interrupts/
     unsafe { asm!("cli") };
     for i in 0..io_apic.max_redirection_entry() + 1 {
         io_apic.remap_irq(RemapIrqDescription::new(
-            i,
-            32 + i,
+            i as _,
+            (64 + i).try_into().unwrap(),
             boot_processor_local_apic.id(),
         ));
     }
     // Now that we've set up the base case, apply any requested interrupt source overrides
-    for int_source_override in (*smp_info).interrupt_overrides.iter() {
+    for int_source_override_idx in 0..(*smp_info).interrupt_override_count {
+        let int_source_override = &(*(smp_info)).interrupt_overrides[int_source_override_idx];
+        println!("Process int override {int_source_override:?}");
         io_apic.remap_irq(RemapIrqDescription::new(
             int_source_override.sys_interrupt as u8,
-            32 + int_source_override.irq_source as u8,
+            64 + int_source_override.irq_source as u8,
             boot_processor_local_apic.id(),
         ));
     }
-    local_apic_enable();
     // Finally, enable interrupts
     unsafe { asm!("sti") };
 }

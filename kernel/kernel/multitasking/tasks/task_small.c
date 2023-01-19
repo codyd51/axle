@@ -460,7 +460,7 @@ void tasking_ap_init_part2(void) {
     for (int i = 0; i < 256; i++) {
         if (cpu_core_vas_pml4[i].present) {
             uint64_t pml4e_phys = cpu_core_vas_pml4[i].page_dir_pointer_base * PAGE_SIZE;
-            //printf("Free bootloader PML4E #%d: 0x%p\n", i, pml4e_phys);
+            printf("Free identity-mapped low PML4E #%d: 0x%p\n", i, pml4e_phys);
             pmm_free(pml4e_phys);
             cpu_core_vas_pml4[i].present = false;
         }
@@ -470,7 +470,6 @@ void tasking_ap_init_part2(void) {
     while (1) {}
      */
 
-    // reaper cleans up and frees the resources of ZOMBIE tasks
     task_small_t* spin1_tcb = task_spawn("ap_spin1", ap_spin1);
     task_small_t* spin2_tcb = task_spawn("ap_spin2", ap_spin2);
     cpu_set_scheduler_enabled(true);

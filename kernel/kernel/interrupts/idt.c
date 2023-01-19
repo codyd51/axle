@@ -85,6 +85,40 @@ static void idt_map_all_gates(idt_descriptor_t* idt_entries) {
     idt_set_gate64(&idt_entries[46], (uintptr_t)external_interrupt14);
     idt_set_gate64(&idt_entries[47], (uintptr_t)external_interrupt15);
 
+    idt_set_gate64(&idt_entries[64], (uintptr_t)external_interrupt16);
+    idt_set_gate64(&idt_entries[65], (uintptr_t)external_interrupt17);
+    idt_set_gate64(&idt_entries[66], (uintptr_t)external_interrupt18);
+    idt_set_gate64(&idt_entries[67], (uintptr_t)external_interrupt19);
+    idt_set_gate64(&idt_entries[68], (uintptr_t)external_interrupt20);
+    idt_set_gate64(&idt_entries[69], (uintptr_t)external_interrupt21);
+    idt_set_gate64(&idt_entries[70], (uintptr_t)external_interrupt22);
+    idt_set_gate64(&idt_entries[71], (uintptr_t)external_interrupt23);
+    idt_set_gate64(&idt_entries[72], (uintptr_t)external_interrupt24);
+    idt_set_gate64(&idt_entries[73], (uintptr_t)external_interrupt25);
+    idt_set_gate64(&idt_entries[74], (uintptr_t)external_interrupt26);
+    idt_set_gate64(&idt_entries[75], (uintptr_t)external_interrupt27);
+    idt_set_gate64(&idt_entries[76], (uintptr_t)external_interrupt28);
+    idt_set_gate64(&idt_entries[77], (uintptr_t)external_interrupt29);
+    idt_set_gate64(&idt_entries[78], (uintptr_t)external_interrupt30);
+    idt_set_gate64(&idt_entries[79], (uintptr_t)external_interrupt31);
+    idt_set_gate64(&idt_entries[80], (uintptr_t)external_interrupt32);
+    idt_set_gate64(&idt_entries[81], (uintptr_t)external_interrupt33);
+    idt_set_gate64(&idt_entries[82], (uintptr_t)external_interrupt34);
+    idt_set_gate64(&idt_entries[83], (uintptr_t)external_interrupt35);
+    idt_set_gate64(&idt_entries[84], (uintptr_t)external_interrupt36);
+    idt_set_gate64(&idt_entries[85], (uintptr_t)external_interrupt37);
+    idt_set_gate64(&idt_entries[86], (uintptr_t)external_interrupt38);
+    idt_set_gate64(&idt_entries[87], (uintptr_t)external_interrupt39);
+    idt_set_gate64(&idt_entries[88], (uintptr_t)external_interrupt40);
+    idt_set_gate64(&idt_entries[89], (uintptr_t)external_interrupt41);
+    idt_set_gate64(&idt_entries[90], (uintptr_t)external_interrupt42);
+    idt_set_gate64(&idt_entries[91], (uintptr_t)external_interrupt43);
+    idt_set_gate64(&idt_entries[92], (uintptr_t)external_interrupt44);
+    idt_set_gate64(&idt_entries[93], (uintptr_t)external_interrupt45);
+    idt_set_gate64(&idt_entries[94], (uintptr_t)external_interrupt46);
+    idt_set_gate64(&idt_entries[95], (uintptr_t)external_interrupt47);
+    idt_set_gate64(&idt_entries[96], (uintptr_t)external_interrupt48);
+
     // Interrupt 128 used as a syscall vector
     idt_set_gate64_ext(&idt_entries[128], (uintptr_t)internal_interrupt128, false, true);
 }

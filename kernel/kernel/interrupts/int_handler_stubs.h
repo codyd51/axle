@@ -58,4 +58,38 @@ extern void external_interrupt13(void);
 extern void external_interrupt14(void);
 extern void external_interrupt15(void);
 
+extern void external_interrupt16(void);
+extern void external_interrupt17(void);
+extern void external_interrupt18(void);
+extern void external_interrupt19(void);
+extern void external_interrupt20(void);
+extern void external_interrupt21(void);
+extern void external_interrupt22(void);
+extern void external_interrupt23(void);
+extern void external_interrupt24(void);
+extern void external_interrupt25(void);
+extern void external_interrupt26(void);
+extern void external_interrupt27(void);
+extern void external_interrupt28(void);
+extern void external_interrupt29(void);
+extern void external_interrupt30(void);
+extern void external_interrupt31(void);
+extern void external_interrupt32(void);
+extern void external_interrupt33(void);
+extern void external_interrupt34(void);
+extern void external_interrupt35(void);
+extern void external_interrupt36(void);
+extern void external_interrupt37(void);
+extern void external_interrupt38(void);
+extern void external_interrupt39(void);
+extern void external_interrupt40(void);
+extern void external_interrupt41(void);
+extern void external_interrupt42(void);
+extern void external_interrupt43(void);
+extern void external_interrupt44(void);
+extern void external_interrupt45(void);
+extern void external_interrupt46(void);
+extern void external_interrupt47(void);
+extern void external_interrupt48(void);
+
 #endif

@@ -100,6 +100,40 @@ RemappedExternalInterrupt 13, 45
 RemappedExternalInterrupt 14, 46
 RemappedExternalInterrupt 15, 47
 
+RemappedExternalInterrupt 16, 64
+RemappedExternalInterrupt 17, 65
+RemappedExternalInterrupt 18, 66
+RemappedExternalInterrupt 19, 67
+RemappedExternalInterrupt 20, 68
+RemappedExternalInterrupt 21, 69
+RemappedExternalInterrupt 22, 70
+RemappedExternalInterrupt 23, 71
+RemappedExternalInterrupt 24, 72
+RemappedExternalInterrupt 25, 73
+RemappedExternalInterrupt 26, 74
+RemappedExternalInterrupt 27, 75
+RemappedExternalInterrupt 28, 76
+RemappedExternalInterrupt 29, 77
+RemappedExternalInterrupt 30, 78
+RemappedExternalInterrupt 31, 79
+RemappedExternalInterrupt 32, 80
+RemappedExternalInterrupt 33, 81
+RemappedExternalInterrupt 34, 82
+RemappedExternalInterrupt 35, 83
+RemappedExternalInterrupt 36, 84
+RemappedExternalInterrupt 37, 85
+RemappedExternalInterrupt 38, 86
+RemappedExternalInterrupt 39, 87
+RemappedExternalInterrupt 40, 88
+RemappedExternalInterrupt 41, 89
+RemappedExternalInterrupt 42, 90
+RemappedExternalInterrupt 43, 91
+RemappedExternalInterrupt 44, 92
+RemappedExternalInterrupt 45, 93
+RemappedExternalInterrupt 46, 94
+RemappedExternalInterrupt 47, 95
+RemappedExternalInterrupt 48, 96
+
 ; Common interrupt trampoline. 
 ; (1) Saves running program state
 ; (2) Set up kernel mode segment selectors
