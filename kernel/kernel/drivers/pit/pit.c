@@ -36,31 +36,36 @@ uint32_t tick_count() {
     return pit_clock();
 }
 
+void pit_set_frequency(uint32_t frequency) {
+    //value we need to send to PIC is value to divide its input clock
+    //(1193180 Hz) by, to get desired frequency
+    //divisor *must* be small enough to fit into 16 bytes
+    uint32_t divisor = 1193180 / frequency;
+
+    //send command byte
+    outb(PIT_PORT_COMMAND, 0x36);
+
+    //divisor has to be sent byte-wise, so split here into upper/lower bytes
+    uint8_t l = (uint8_t )(divisor & 0xFF);
+    uint8_t h = (uint8_t)((divisor >> 8) & 0xFF);
+
+    //send frequency divisor
+    outb(PIT_PORT_CHANNEL0, l);
+    outb(PIT_PORT_CHANNEL0, h);
+
+    boot_info_get()->ms_per_pit_tick = 1000 / frequency;
+}
+
 void pit_timer_init(uint32_t frequency) {
 	printf_info("Initializing PIT timer...");
 
 	//firstly, register our timer callback
-	interrupt_setup_callback(INT_VECTOR_IRQ0, &tick_callback);
+	interrupt_setup_callback(INT_VECTOR_APIC_0, &tick_callback);
 
-	//value we need to send to PIC is value to divide its input clock
-	//(1193180 Hz) by, to get desired frequency
-	//divisor *must* be small enough to fit into 16 bytes
-	uint32_t divisor = 1193180 / frequency;
-
-	//send command byte
-	outb(PIT_PORT_COMMAND, 0x36);
-
-	//divisor has to be sent byte-wise, so split here into upper/lower bytes
-	uint8_t l = (uint8_t )(divisor & 0xFF);
-	uint8_t h = (uint8_t)((divisor >> 8) & 0xFF);
-
-	//send frequency divisor
-	outb(PIT_PORT_CHANNEL0, l);
-	outb(PIT_PORT_CHANNEL0, h);
-	
-	boot_info_get()->ms_per_pit_tick = 1000 / frequency;
+    pit_set_frequency(frequency);
 }
 
 uintptr_t ms_since_boot(void) {
+    // TODO(PT): This will yield incorrect timestamps if we adjust the PIT frequency
 	return tick * boot_info_get()->ms_per_pit_tick;
 }
