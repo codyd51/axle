@@ -33,7 +33,8 @@ void ap_entry_part2(void) {
     printf("Enabling LAPIC...\n");
     local_apic_enable();
     printf("Enabling LAPIC timer...\n");
-    local_apic_enable_timer();
+    local_apic_timer_calibrate();
+    local_apic_timer_start(5000);
     while (1) {}
 }
 

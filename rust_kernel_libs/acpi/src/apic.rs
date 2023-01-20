@@ -187,7 +187,38 @@ impl ProcessorLocalApic {
         );
 
         // Set the Initial Count Register, which will start the timer
-        self.write_register(0x38, 0x1000);
+        let start_counter = 0xffffffff;
+        self.write_register(0x38, start_counter);
+
+        spin_for_delay_ms(10);
+
+        // Read current count
+        let elapsed_timer_ticks = start_counter - self.read_register(0x39);
+        let ticks_per_ms = elapsed_timer_ticks / 10;
+        println!(
+            "Counted {elapsed_timer_ticks} in 10ms, LAPIC timer rate is {ticks_per_ms}ticks/ms"
+        );
+        cpu_core_set_lapic_timer_ticks_per_ms(ticks_per_ms as usize);
+
+        // Cancel the timer
+        self.write_register(0x38, 0);
+    }
+
+    pub fn timer_start(&self, delay_ms: usize) {
+        let ticks_per_ms = cpu_core_lapic_timer_ticks_per_ms();
+        let delay_ticks = ticks_per_ms * delay_ms;
+        println!("Setting up an LAPIC interrupt after {delay_ms}ms ({delay_ticks} ticks)");
+        self.write_register(
+            0x3e,
+            ApicDivideConfiguration::new(ApicDivisor::DivBy16).into(),
+        );
+        // Set up the APIC Timer Local Vector Table Register
+        self.write_register(
+            0x32,
+            LocalVectorTableRegisterConfiguration::new(67, true, LocalApicTimerMode::OneShot)
+                .into(),
+        );
+        self.write_register(0x38, (delay_ticks) as u32);
     }
 }
 
