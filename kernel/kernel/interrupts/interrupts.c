@@ -46,7 +46,7 @@ void interrupt_handle(register_state_t* regs) {
 	}
 	else {
 		// Spurious IRQ?
-		if (int_no == INT_VECTOR_IRQ7) {
+		if (int_no == INT_VECTOR_PIC_7) {
 			// Just ignore it
 			// TODO(PT): Query the PIC to see if IRQ 7 is, in fact, in use
 			// Ref: https://www.reddit.com/r/osdev/comments/5qqnkq/are_spurious_interrupts_irq_7_a_bad_sign_and_how/
@@ -63,7 +63,7 @@ void interrupt_handle(register_state_t* regs) {
 	// If there is an adi driver for this IRQ, the EOI will be sent by adi
 	// Also, the PIT EOI will be sent by the PIT driver
 	// TODO(PT): Is this needed or is the unhandled interrupt check above enough?
-	if (is_external && !adi_services_interrupt(int_no) && int_no != INT_VECTOR_IRQ0) {
+	if (is_external && !adi_services_interrupt(int_no) && int_no != INT_VECTOR_PIC_0) {
         apic_signal_end_of_interrupt(int_no);
 	}
 }

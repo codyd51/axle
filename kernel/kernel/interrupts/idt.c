@@ -129,8 +129,8 @@ void idt_init(void) {
     _g_idt_pointer.table_base = (uintptr_t)&_g_idt_entries;
     _g_idt_pointer.table_size = sizeof(_g_idt_entries) - 1;
 
-#define PIC_MASTER_OFFSET	0x20 //int 32 mapped to IRQ 0
-#define PIC_SLAVE_OFFSET	0x28 //int 40+ mapped to IRQ8+
+#define PIC_MASTER_OFFSET	0x20 //int 32 mapped to master PIC interrupt line 0
+#define PIC_SLAVE_OFFSET	0x28 //int 40+ mapped to slave PIC interrupt line 0 (which is sent as PIC IRQ 8+)
     pic_remap(PIC_MASTER_OFFSET, PIC_SLAVE_OFFSET);
 
     idt_map_all_gates(_g_idt_entries);
