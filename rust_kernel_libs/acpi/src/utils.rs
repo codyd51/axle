@@ -34,6 +34,10 @@ impl Add<usize> for PhysAddr {
     }
 }
 
+pub trait VirtualAddressValue {
+    fn value(&self) -> usize;
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct VirtRamRemapAddr(pub usize);
 
@@ -51,8 +55,23 @@ impl Add<usize> for VirtRamRemapAddr {
     }
 }
 
-pub fn parse_struct_at_virt_addr<T>(addr: VirtRamRemapAddr) -> &'static T {
-    unsafe { &*(addr.0 as *const T) }
+impl VirtualAddressValue for VirtRamRemapAddr {
+    fn value(&self) -> usize {
+        self.0
+    }
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+pub struct VirtualAddress(pub usize);
+
+impl VirtualAddressValue for VirtualAddress {
+    fn value(&self) -> usize {
+        self.0
+    }
+}
+
+pub fn parse_struct_at_virt_addr<V: VirtualAddressValue, T>(addr: V) -> &'static T {
+    unsafe { &*(addr.value() as *const T) }
 }
 
 pub fn parse_struct_at_phys_addr<T>(addr: PhysAddr) -> &'static T {

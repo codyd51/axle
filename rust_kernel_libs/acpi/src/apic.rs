@@ -1,4 +1,7 @@
-use crate::utils::{spin_for_delay_ms, ContainsMachineWords, PhysAddr};
+use crate::utils::{
+    parse_struct_at_virt_addr, spin_for_delay_ms, ContainsMachineWords, PhysAddr, VirtRamRemapAddr,
+    VirtualAddress,
+};
 use bitvec::prelude::*;
 use core::arch::asm;
 use core::num::TryFromIntError;
@@ -13,35 +16,71 @@ extern "C" {
 pub fn apic_disable_pic() {
     // Ref: https://blog.wesleyac.com/posts/ioapic-interrupts
     // Ref: https://zygomatic.sourceforge.net/devref/group__arch__ia32__apic.html
+    // Ref: https://stackoverflow.com/questions/64848540/how-can-i-read-and-write-to-the-imcr-register
     unsafe {
-        // Select the interrupt mode control register
-        outb(0x22, 0x70);
-        // This forces NMI and INTR signals to flow through the APIC instead of the PIC
-        outb(0x23, 0x01);
+        // Ensure all PIC interrupt lines are masked
         outb(0xa1, 0xff);
         outb(0x21, 0xff);
+        // Select the Interrupt Mode Control Register
+        outb(0x22, 0x70);
+        // Force NMI and INTR signals to flow through the APIC instead of the PIC
+        outb(0x23, 0x01);
     }
 }
 
 #[no_mangle]
 pub fn apic_signal_end_of_interrupt(int_no: u8) {
-    //println!("apic_signal_end_of_interrupt({int_no})");
     // TODO(PT): We should retrieve this from somewhere
     // TODO(PT): It could be stored in the CPU-local storage
     let local_apic = ProcessorLocalApic::new(PhysAddr(0xfee00000));
     local_apic.send_end_of_interrupt();
 }
 
-#[no_mangle]
-pub fn local_apic_enable() {
-    let local_apic = ProcessorLocalApic::new(PhysAddr(0xfee00000));
-    local_apic.enable();
+#[repr(C)]
+#[derive(Debug)]
+pub struct CpuCorePrivateInfo {
+    processor_id: usize,
+    apic_id: usize,
+    local_apic_phys_addr: usize,
+    base_vas: usize,
+    loaded_vas_state: usize,
+    current_task: usize,
+    scheduler_enabled: bool,
+    tss: usize,
+    lapic_timer_ticks_per_ms: usize,
+}
+
+pub fn cpu_core_private_info() -> &'static mut CpuCorePrivateInfo {
+    // Defined in our memory map
+    unsafe { &mut *(0xFFFFA00000000000 as *mut _) }
+}
+
+pub fn cpu_local_apic() -> ProcessorLocalApic {
+    ProcessorLocalApic::new(PhysAddr(cpu_core_private_info().local_apic_phys_addr))
 }
 
 #[no_mangle]
-pub fn local_apic_enable_timer() {
-    let local_apic = ProcessorLocalApic::new(PhysAddr(0xfee00000));
-    local_apic.timer_start();
+pub fn local_apic_enable() {
+    cpu_local_apic().enable()
+}
+
+#[no_mangle]
+pub fn local_apic_timer_calibrate() {
+    cpu_local_apic().timer_calibrate()
+}
+
+#[no_mangle]
+pub fn local_apic_timer_start(delay_ms: u64) {
+    cpu_local_apic().timer_start(delay_ms as usize)
+}
+
+#[no_mangle]
+pub fn cpu_core_set_lapic_timer_ticks_per_ms(lapic_timer_ticks_per_ms: usize) {
+    cpu_core_private_info().lapic_timer_ticks_per_ms = lapic_timer_ticks_per_ms;
+}
+
+pub fn cpu_core_lapic_timer_ticks_per_ms() -> usize {
+    cpu_core_private_info().lapic_timer_ticks_per_ms
 }
 
 pub struct ProcessorLocalApic {
@@ -129,7 +168,7 @@ impl ProcessorLocalApic {
         );
     }
 
-    pub fn timer_start(&self) {
+    pub fn timer_calibrate(&self) {
         // AMD SDM §16.4.1
         // > To avoid race conditions, software should initialize the Divide Configuration Register
         // > and the Timer Local Vector Table Register prior to writing the Initial Count Register to start the timer.

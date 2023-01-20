@@ -22,12 +22,15 @@ typedef struct processor_info {
 } processor_info_t;
 
 typedef struct cpu_core_private_info {
-    processor_info_t processor_info;
+    uintptr_t processor_id;
+    uintptr_t apic_id;
+    uintptr_t local_apic_phys_addr;
     vas_state_t* base_vas;
     vas_state_t* loaded_vas_state;
     task_small_t* current_task;
     bool scheduler_enabled;
     tss_t* tss;
+    uintptr_t lapic_timer_ticks_per_ms;
 } cpu_core_private_info_t;
 
 typedef struct interrupt_override_info {

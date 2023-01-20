@@ -16,7 +16,8 @@ void smp_boot_core(smp_info_t* smp_info, processor_info_t* core);
 void apic_init(smp_info_t* smp_info);
 smp_info_t* acpi_parse_root_system_description(uintptr_t acpi_rsdp);
 void local_apic_enable(void);
-void local_apic_enable_timer(void);
+void local_apic_timer_calibrate(void);
+void local_apic_timer_start(uint64_t delay_ms);
 
 static bool _mapped_cpu_info_in_bsp = false;
 
@@ -100,7 +101,8 @@ void smp_init(void) {
 
         // Found the BSP's processor info!
         cpu_core_private_info_t* cpu_core_info = cpu_private_info();
-        memcpy(&cpu_core_info->processor_info, processor_info, sizeof(processor_info_t));
+        cpu_core_info->processor_id = processor_info->processor_id;
+        cpu_core_info->apic_id = processor_info->apic_id;
         break;
     }
 
@@ -162,10 +164,12 @@ void smp_init(void) {
         vas_map_range_exact(ap_vas, CPU_CORE_DATA_BASE, PAGE_SIZE, cpu_specific_data_frame, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
         cpu_core_private_info_t* cpu_core_info = (cpu_core_private_info_t*)PMA_TO_VMA(cpu_specific_data_frame);
         memset(cpu_core_info, 0, sizeof(cpu_core_private_info_t));
-        memcpy(&cpu_core_info->processor_info, processor_info, sizeof(processor_info_t));
+        cpu_core_info->processor_id = processor_info->processor_id;
+        cpu_core_info->apic_id = processor_info->apic_id;
         cpu_core_info->base_vas = ap_vas;
         cpu_core_info->loaded_vas_state = ap_vas;
         cpu_core_info->tss = ap_long_mode_tss;
+        cpu_core_info->local_apic_phys_addr = smp_info->local_apic_phys_addr.val;
 
         smp_boot_core(smp_info, processor_info);
         break;
@@ -203,22 +207,12 @@ cpu_core_private_info_t* cpu_private_info(void) {
     // If we haven't yet had a chance to map the CPU info to the BSP,
     // we're still in early boot and can't provide meaningful info yet
     if (!_mapped_cpu_info_in_bsp) {
-        static cpu_core_private_info_t _early_boot_placeholder = {
-            .processor_info = {
-                .apic_id = 0,
-                .processor_id = 0
-            },
-            .base_vas = NULL,
-            .loaded_vas_state = NULL,
-            .scheduler_enabled = false,
-            .current_task = NULL,
-            .tss = NULL,
-        };
+        static cpu_core_private_info_t _early_boot_placeholder = {0};
         return &_early_boot_placeholder;
     }
     return (cpu_core_private_info_t*)CPU_CORE_DATA_BASE;
 }
 
 uintptr_t cpu_id(void) {
-    return cpu_private_info()->processor_info.processor_id;
+    return cpu_private_info()->processor_id;
 }
