@@ -251,8 +251,31 @@ pub unsafe fn apic_init(smp_info: *mut SmpInfo) {
         println!("Free IDT vector {remaining_idt_vec}");
     }
     idt_set_free_vectors(&free_idt_vectors);
+    let local_apic_timer_int_vector = idt_allocate_vector();
+    (*smp_info).local_apic_timer_int_vector = local_apic_timer_int_vector;
+
+    unsafe {
+        interrupt_setup_callback(
+            local_apic_timer_int_vector as u8,
+            cpu_core_handle_local_apic_timer_fired,
+        );
+    }
+
     // Finally, enable interrupts
     unsafe { asm!("sti") };
+}
+
+extern "C" fn cpu_core_handle_local_apic_timer_fired(register_state: *const RegisterStateX86_64) {
+    unsafe {
+        println!(
+            "CPU Core[{}] handling APIC timer fired! RIP {:016x} RSP {:016x}",
+            cpu_core_private_info().processor_id,
+            (*register_state).return_rip,
+            (*register_state).return_rsp,
+        );
+        apic_signal_end_of_interrupt((*register_state).int_no as u8);
+        local_apic_timer_start(1);
+    }
 }
 
 #[no_mangle]
