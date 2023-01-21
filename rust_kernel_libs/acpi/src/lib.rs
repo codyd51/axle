@@ -274,7 +274,7 @@ extern "C" fn cpu_core_handle_local_apic_timer_fired(register_state: *const Regi
             (*register_state).return_rsp,
         );
         apic_signal_end_of_interrupt((*register_state).int_no as u8);
-        local_apic_timer_start(1);
+        //local_apic_timer_start(1);
     }
 }
 

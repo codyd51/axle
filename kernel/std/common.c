@@ -1,4 +1,5 @@
 #include "common.h"
+#include <kernel/assert.h>
 
 void invlpg(void* m) {
     /* Clobber memory to avoid optimizer re-ordering access before invlpg, which may cause nasty bugs. */
@@ -75,3 +76,8 @@ void x86_msr_get(uint32_t msr, uint32_t* lo, uint32_t* hi) {
 void x86_msr_set(uint32_t msr, uint32_t lo, uint32_t hi) {
     asm volatile("wrmsr" : : "a"(lo), "d"(hi), "c"(msr));
 }
+
+void fmax() { NotImplemented() }
+void fmin() { NotImplemented() }
+void fmaxf() { NotImplemented() }
+void fminf() { NotImplemented() }
