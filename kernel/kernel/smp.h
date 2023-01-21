@@ -42,6 +42,8 @@ typedef struct interrupt_override_info {
 typedef struct smp_info {
     phys_addr_t local_apic_phys_addr;
     phys_addr_t io_apic_phys_addr;
+    // All cores use the same interrupt vector for the local APIC timer callback
+    uint64_t local_apic_timer_int_vector;
     // VLAs follow
     uintptr_t processor_count;
     processor_info_t processors[MAX_PROCESSORS];

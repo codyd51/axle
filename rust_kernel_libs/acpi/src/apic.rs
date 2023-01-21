@@ -1,3 +1,4 @@
+use crate::smp::smp_info_ref;
 use crate::utils::{
     parse_struct_at_virt_addr, spin_for_delay_ms, ContainsMachineWords, PhysAddr, VirtRamRemapAddr,
     VirtualAddress,
@@ -39,7 +40,7 @@ pub fn apic_signal_end_of_interrupt(int_no: u8) {
 #[repr(C)]
 #[derive(Debug)]
 pub struct CpuCorePrivateInfo {
-    processor_id: usize,
+    pub processor_id: usize,
     apic_id: usize,
     local_apic_phys_addr: usize,
     base_vas: usize,

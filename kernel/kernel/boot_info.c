@@ -172,6 +172,10 @@ boot_info_t* boot_info_get(void) {
     return &boot_info;
 }
 
+smp_info_t* smp_info_get(void) {
+    return boot_info_get()->smp_info;
+}
+
 /*
 void boot_info_read(struct multiboot_info* mboot_data) {
     boot_info_t* boot_info = boot_info_get();

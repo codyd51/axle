@@ -6,9 +6,11 @@ extern crate alloc;
 extern crate ffi_bindings;
 
 use crate::apic::{
-    apic_disable_pic, InterProcessorInterruptDeliveryMode, InterProcessorInterruptDescription,
+    apic_disable_pic, apic_signal_end_of_interrupt, cpu_core_private_info, local_apic_timer_start,
+    InterProcessorInterruptDeliveryMode, InterProcessorInterruptDescription,
     InterProcessorInterruptDestination, IoApic, ProcessorLocalApic, RemapIrqDescription,
 };
+use crate::interrupts::{idt_allocate_vector, idt_set_free_vectors};
 use crate::structs::{
     ApicNonMaskableInterrupt, ExtendedSystemDescriptionHeader, InterruptControllerHeader,
     IoApicInterruptSourceOverride, IoApicRaw, MultiApicDescriptionTable, ProcessorLocalApicRaw,
@@ -26,9 +28,11 @@ use core::arch::asm;
 use core::intrinsics::copy_nonoverlapping;
 use core::mem;
 use core::mem::{align_of, size_of};
-use ffi_bindings::println;
+use ffi_bindings::{interrupt_setup_callback, println, RegisterStateX86_64};
 
 mod apic;
+mod interrupts;
+mod smp;
 mod structs;
 mod utils;
 
@@ -111,6 +115,7 @@ impl AcpiSmpInfo {
 pub struct SmpInfo {
     local_apic_phys_addr: PhysAddr,
     io_apic_phys_addr: PhysAddr,
+    local_apic_timer_int_vector: usize,
     /// VLAs follow
     processor_count: usize,
     processors: [ProcessorInfo; Self::MAX_PROCESSORS],
@@ -162,7 +167,7 @@ pub fn acpi_parse_root_system_description(phys_addr: usize) -> *mut SmpInfo {
 }
 
 #[no_mangle]
-pub unsafe fn apic_init(smp_info: *const SmpInfo) {
+pub unsafe fn apic_init(smp_info: *mut SmpInfo) {
     // 1. Disable the legacy PIC as we're going to use the APIC
     apic_disable_pic();
 

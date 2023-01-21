@@ -74,6 +74,7 @@ typedef struct boot_info {
 } boot_info_t;
 
 boot_info_t* boot_info_get(void);
+smp_info_t* smp_info_get(void);
 void boot_info_read(axle_boot_info_t* boot_info);
 void boot_info_dump();
 
