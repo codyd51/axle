@@ -319,6 +319,8 @@ uint64_t map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start, 
 				page_table[page_idx].bits.writable = true;
 				page_table[page_idx].bits.user_mode = false;
 				page_table[page_idx].bits.page_base = current_frame / PAGE_SIZE;
+                // TODO(PT): This should be configurable by the caller
+                page_table[page_idx].bits.cache_disabled = true;
 				//page_table[j].bits.global_page = true;
 
 				remaining_size -= PAGE_SIZE;
