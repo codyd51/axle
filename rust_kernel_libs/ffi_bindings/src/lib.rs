@@ -19,6 +19,10 @@ extern "C" {
     pub fn printf(fmt: *const u8, ...) -> i32;
     pub fn assert(condition: bool, message: *const u8) -> ();
     pub fn _panic(message: *const u8, file: *const u8, line: i64);
+    pub fn interrupt_setup_callback(
+        interrupt_vec: u8,
+        callback: extern "C" fn(*const RegisterStateX86_64),
+    );
 }
 
 #[macro_export]
@@ -96,3 +100,32 @@ unsafe impl GlobalAlloc for Dummy {
 
 #[global_allocator]
 pub static ALLOCATOR: Dummy = Dummy;
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct RegisterStateX86_64 {
+    return_ds: u64,
+    rax: u64,
+    rcx: u64,
+    rdx: u64,
+    rbx: u64,
+    rbp: u64,
+    rsi: u64,
+    rdi: u64,
+    r8: u64,
+    r9: u64,
+    r10: u64,
+    r11: u64,
+    r12: u64,
+    r13: u64,
+    r14: u64,
+    r15: u64,
+    pub int_no: u64,
+    err_code: u64,
+    is_external_interrupt: u64,
+    pub return_rip: u64,
+    cs: u64,
+    rflags: u64,
+    pub return_rsp: u64,
+    ss: u64,
+}
