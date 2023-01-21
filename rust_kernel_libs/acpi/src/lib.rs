@@ -199,24 +199,58 @@ pub unsafe fn apic_init(smp_info: *mut SmpInfo) {
     // 32-64: Reserved for legacy PIT (always masked)
     // 64+: Reserved for IOAPIC
     // See kernel/kernel/interrupts/
+    // First, remap all the ISA interrupts
+    // But keep track of which interrupt vectors have an override
     unsafe { asm!("cli") };
-    for i in 0..io_apic.max_redirection_entry() + 1 {
-        io_apic.remap_irq(RemapIrqDescription::new(
-            i as _,
-            (64 + i).try_into().unwrap(),
-            boot_processor_local_apic.id(),
-        ));
-    }
-    // Now that we've set up the base case, apply any requested interrupt source overrides
+    let mut isa_irqs_to_remap: Vec<usize> = (0..16).collect();
+    let ioapic_idt_base = 64_usize;
+    let mut free_ioapic_redirection_entries: Vec<usize> = (ioapic_idt_base
+        ..(ioapic_idt_base + (io_apic.max_redirection_entry() as usize + 1)))
+        .collect();
+    let mut free_idt_vectors: Vec<usize> = (ioapic_idt_base..ioapic_idt_base + 32).collect();
+
+    // Process the overrides
     for int_source_override_idx in 0..(*smp_info).interrupt_override_count {
         let int_source_override = &(*(smp_info)).interrupt_overrides[int_source_override_idx];
         println!("Process int override {int_source_override:?}");
+        let isa_irq_line = int_source_override.sys_interrupt;
+        let idt_vec = ioapic_idt_base + int_source_override.irq_source;
         io_apic.remap_irq(RemapIrqDescription::new(
-            int_source_override.sys_interrupt as u8,
-            64 + int_source_override.irq_source as u8,
+            isa_irq_line as u8,
+            idt_vec as u8,
             boot_processor_local_apic.id(),
         ));
+        // And note that we've mapped this ISA IRQ
+        isa_irqs_to_remap.retain(|&irq_vec| irq_vec != isa_irq_line);
+        // And don't try to identity map the IRQ it's overriding
+        isa_irqs_to_remap.retain(|&irq_vec| irq_vec != int_source_override.irq_source);
+        // And note that we've occupied an IOAPIC entry + IDT vector
+        free_ioapic_redirection_entries.retain(|&int_vec| int_vec != idt_vec as _);
+        free_idt_vectors.retain(|&int_vec| int_vec != idt_vec as _);
     }
+
+    // Identity map the remaining ISA IRQs
+    for isa_irq_line in isa_irqs_to_remap.drain(..) {
+        println!("Identity map ISA IRQ line {isa_irq_line}");
+        let idt_vec = ioapic_idt_base + isa_irq_line;
+        io_apic.remap_irq(RemapIrqDescription::new(
+            isa_irq_line as u8,
+            idt_vec as u8,
+            boot_processor_local_apic.id(),
+        ));
+        // And note that we've occupied an IOAPIC entry + IDT vector
+        free_ioapic_redirection_entries.retain(|&int_vec| int_vec != idt_vec as _);
+        free_idt_vectors.retain(|&int_vec| int_vec != idt_vec as _);
+    }
+
+    for remaining_redirection_entry in free_ioapic_redirection_entries.iter() {
+        // TODO(PT): Store the free IOAPIC redirection entries somewhere
+        println!("Remaining IOAPIC redirection entry {remaining_redirection_entry}");
+    }
+    for remaining_idt_vec in free_idt_vectors.iter() {
+        println!("Free IDT vector {remaining_idt_vec}");
+    }
+    idt_set_free_vectors(&free_idt_vectors);
     // Finally, enable interrupts
     unsafe { asm!("sti") };
 }
