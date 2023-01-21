@@ -9,6 +9,8 @@ crate-type = ["staticlib"]
 
 [dependencies]
 ffi_bindings = {path = "../ffi_bindings"}
+lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
+spin = "0.9.4"
 
 [dependencies.bitvec]
 version = "1"
