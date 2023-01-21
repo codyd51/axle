@@ -16,10 +16,10 @@
 //command port for controlling PIT
 #define PIT_PORT_COMMAND  0x43
 
-static volatile uintptr_t tick = 0;
+static volatile uintptr_t ms_timestamp = 0;
 
 static int tick_callback(register_state_t* regs) {
-	tick++;
+	ms_timestamp += boot_info_get()->ms_per_pit_tick;
 	// Wake sleeping services before sending EOI, or else we
 	// might get interrupted by another tick while the AMC spinlock is held
 	amc_wake_sleeping_services();
@@ -29,7 +29,7 @@ static int tick_callback(register_state_t* regs) {
 }
 
 uint32_t pit_clock() {
-	return tick;
+	return ms_timestamp;
 }
 
 uint32_t tick_count() {
@@ -54,18 +54,16 @@ void pit_set_frequency(uint32_t frequency) {
     outb(PIT_PORT_CHANNEL0, h);
 
     boot_info_get()->ms_per_pit_tick = 1000 / frequency;
+    printf("Set MS per PIT tick to %d\n", boot_info_get()->ms_per_pit_tick);
 }
 
 void pit_timer_init(uint32_t frequency) {
 	printf_info("Initializing PIT timer...");
-
-	//firstly, register our timer callback
+    // PIT is hooked up to ISA IRQ 0
 	interrupt_setup_callback(INT_VECTOR_APIC_0, &tick_callback);
-
     pit_set_frequency(frequency);
 }
 
 uintptr_t ms_since_boot(void) {
-    // TODO(PT): This will yield incorrect timestamps if we adjust the PIT frequency
-	return tick * boot_info_get()->ms_per_pit_tick;
+    return ms_timestamp;
 }
