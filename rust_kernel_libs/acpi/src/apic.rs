@@ -169,6 +169,14 @@ impl ProcessorLocalApic {
         );
     }
 
+    fn timer_int_vector(&self) -> u8 {
+        smp_info_ref().local_apic_timer_int_vector as _
+    }
+
+    pub fn timer_init(&self) {
+        self.timer_calibrate();
+    }
+
     pub fn timer_calibrate(&self) {
         // AMD SDM §16.4.1
         // > To avoid race conditions, software should initialize the Divide Configuration Register
@@ -183,8 +191,12 @@ impl ProcessorLocalApic {
         // Set up the APIC Timer Local Vector Table Register
         self.write_register(
             0x32,
-            LocalVectorTableRegisterConfiguration::new(67, true, LocalApicTimerMode::Periodic)
-                .into(),
+            LocalVectorTableRegisterConfiguration::new(
+                self.timer_int_vector(),
+                true,
+                LocalApicTimerMode::Periodic,
+            )
+            .into(),
         );
 
         // Set the Initial Count Register, which will start the timer
@@ -208,7 +220,7 @@ impl ProcessorLocalApic {
     pub fn timer_start(&self, delay_ms: usize) {
         let ticks_per_ms = cpu_core_lapic_timer_ticks_per_ms();
         let delay_ticks = ticks_per_ms * delay_ms;
-        println!("Setting up an LAPIC interrupt after {delay_ms}ms ({delay_ticks} ticks)");
+        //println!("Setting up an LAPIC interrupt after {delay_ms}ms ({delay_ticks} ticks)");
         self.write_register(
             0x3e,
             ApicDivideConfiguration::new(ApicDivisor::DivBy16).into(),
@@ -216,8 +228,12 @@ impl ProcessorLocalApic {
         // Set up the APIC Timer Local Vector Table Register
         self.write_register(
             0x32,
-            LocalVectorTableRegisterConfiguration::new(67, true, LocalApicTimerMode::OneShot)
-                .into(),
+            LocalVectorTableRegisterConfiguration::new(
+                self.timer_int_vector(),
+                true,
+                LocalApicTimerMode::OneShot,
+            )
+            .into(),
         );
         self.write_register(0x38, (delay_ticks) as u32);
     }
@@ -297,6 +313,8 @@ impl IoApic {
         //println!("Remap as bits {remap_as_bits:#016x}");
         // TODO(PT): Removing this line appears to make it so that no interrupts are delivered,
         // and no AP comes up... why?
+        // It looks like removing the comments makes it so the IOAPIC remaps never happen (all lines
+        // are still masked).
         println!("Regs {low_reg}, {high_reg}");
         println!("RemapIrq {remap:?}");
 
