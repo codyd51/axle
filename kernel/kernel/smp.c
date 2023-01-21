@@ -18,24 +18,16 @@ smp_info_t* acpi_parse_root_system_description(uintptr_t acpi_rsdp);
 void local_apic_enable(void);
 void local_apic_timer_calibrate(void);
 void local_apic_timer_start(uint64_t delay_ms);
+void smp_core_continue(void);
 
 static bool _mapped_cpu_info_in_bsp = false;
 
 void ap_entry_part2(void);
 
 void ap_c_entry(void) {
-    tasking_ap_startup(ap_entry_part2);
+    tasking_ap_startup(smp_core_continue);
     // Should never return
     assert(false, "tasking_ap_startup was not supposed to return control here");
-}
-
-void ap_entry_part2(void) {
-    printf("Enabling LAPIC...\n");
-    local_apic_enable();
-    printf("Enabling LAPIC timer...\n");
-    local_apic_timer_calibrate();
-    local_apic_timer_start(5000);
-    while (1) {}
 }
 
 void smp_init(void) {
@@ -48,14 +40,6 @@ void smp_init(void) {
     // First, verify our assumption that the AP bootstrap fits into a page
     assert(boot_info->ap_bootstrap_size < PAGE_SIZE, "AP bootstrap was larger than a page!");
 
-    /*
-    printf("Copy AP bootstrap from [0x%p - 0x%p] to [0x%p - 0x%p]\n",
-           boot_info->ap_bootstrap_base,
-           boot_info->ap_bootstrap_base + boot_info->ap_bootstrap_size,
-           AP_BOOTSTRAP_CODE_PAGE,
-           AP_BOOTSTRAP_CODE_PAGE + boot_info->ap_bootstrap_size
-    );
-    */
     memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_CODE_PAGE), (void*)PMA_TO_VMA(boot_info->ap_bootstrap_base), boot_info->ap_bootstrap_size);
 
     // Set up the protected mode GDT parameter
@@ -82,16 +66,12 @@ void smp_init(void) {
     uintptr_t ap_c_entry_point_addr = (uintptr_t)&ap_c_entry;
     memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_C_ENTRY), &ap_c_entry_point_addr, sizeof(ap_c_entry_point_addr));
 
-    //printf("Bootloader provided RSDP 0x%x\n", boot_info->acpi_rsdp);
-
     // Parse the ACPI tables and store the SMP info in the global system state
     smp_info_t* smp_info = acpi_parse_root_system_description(boot_info->acpi_rsdp);
     boot_info->smp_info = smp_info;
 
     // Set up the BSP's APIC and the IO APIC
     apic_init(boot_info->smp_info);
-
-    //asm("sti");
 
     // Set up the BSP's per-core data structure
     for (uintptr_t i = 0; i < smp_info->processor_count; i++) {
@@ -104,6 +84,7 @@ void smp_init(void) {
         cpu_core_private_info_t* cpu_core_info = cpu_private_info();
         cpu_core_info->processor_id = processor_info->processor_id;
         cpu_core_info->apic_id = processor_info->apic_id;
+        cpu_core_info->local_apic_phys_addr = smp_info->local_apic_phys_addr.val;
         break;
     }
 
@@ -173,26 +154,8 @@ void smp_init(void) {
         cpu_core_info->local_apic_phys_addr = smp_info->local_apic_phys_addr.val;
 
         smp_boot_core(smp_info, processor_info);
-        break;
+        //break;
     }
-
-    /*
-    printf("Got SMP info ptr %p\n", smp_info);
-    printf("\tLocal APIC addr %p\n", smp_info->local_apic_phys_addr.val);
-    printf("\tIO APIC addr %p\n", smp_info->io_apic_phys_addr.val);
-    printf("\tProcessor count %d\n", smp_info->processor_count);
-    for (uintptr_t i = 0; i < smp_info->processor_count; i++) {
-        printf("\t\tProcessor #%d: ProcID %d, APIC ID %d\n", i, smp_info->processors[i].processor_id, smp_info->processors[i].apic_id);
-    }
-    printf("\tInterrupt override count %d\n", smp_info->interrupt_override_count);
-    for (uintptr_t i = 0; i < smp_info->interrupt_override_count; i++) {
-        interrupt_override_info_t* info = &smp_info->interrupt_overrides[i];
-        printf("\t\tIntOverride %d: Bus %d Irq %d Sys %d\n", i, info->bus_source, info->irq_source, info->sys_interrupt);
-    }
-    */
-
-    // Boot the other APs
-    //smp_bringup(boot_info->smp_info);
 }
 
 void smp_map_bsp_private_info(void) {

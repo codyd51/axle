@@ -105,6 +105,7 @@ static void _kernel_bootstrap_part2(void) {
 
     // Detect and boot other APs
     smp_init();
+    smp_core_continue();
 
     // Early boot is finished
     // Multitasking and program loading is now available
@@ -118,4 +119,3 @@ static void _kernel_bootstrap_part2(void) {
     task_die(0);
     assert(0, "task_die should have stopped execution");
 }
-

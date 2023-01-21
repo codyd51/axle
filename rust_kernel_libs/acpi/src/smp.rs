@@ -12,3 +12,24 @@ pub fn smp_info_ref() -> &'static SmpInfo {
     unsafe { &*(smp_info_get()) }
 }
 
+#[no_mangle]
+pub fn smp_core_continue() {
+    // From here, the BSP and APs are on a shared code path
+    let smp_info = smp_info_ref();
+
+    println!(
+        "smp_core_entry(CPU[{}])",
+        cpu_core_private_info().processor_id
+    );
+    println!("Enabling LAPIC...");
+    local_apic_enable();
+    println!(
+        "Enabling LAPIC timer (with int vector {})...",
+        smp_info.local_apic_timer_int_vector
+    );
+    local_apic_timer_calibrate();
+    local_apic_timer_start(5);
+    // TODO(PT): Once all cores have calibrated using the PIT, mask the PIT
+    println!("Spinning...");
+    loop {}
+}
