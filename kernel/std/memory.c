@@ -147,8 +147,30 @@ void *memcpy(void *restrict s1, const void *restrict s2, size_t n) {
     return s1;
 }
 
-#include <kernel/assert.h>
-void* memmove( void* dest, const void* src, size_t count ) {
-    // TODO(PT): Implement
-    assert(0, "memmove called");
+void* memmove(void* dest, const void* src, size_t count) {
+    uint8_t* from = (uint8_t*)src;
+    uint8_t* to = (uint8_t*)dest;
+
+    if (from == to || count == 0) {
+        return dest;
+    }
+
+    if (to > from && to - from < (int)count) {
+        // `to` overlaps with `from` (and `from` is first)
+        // Copy in reverse, to avoid overwriting `from`
+        for (int i = count - 1; i >= 0; i--) {
+            to[i] = from[i];
+        }
+        return dest;
+    }
+    if (from > to && from - to < (int)count) {
+        // `to` overlaps with `from` (and `to` is first)
+        // Copy forwards, to avoid overwriting `from`
+        for(size_t i = 0; i < count; i++) {
+            to[i] = from[i];
+        }
+        return dest;
+    }
+    memcpy(dest, src, count);
+    return dest;
 }
