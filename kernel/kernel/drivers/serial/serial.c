@@ -84,7 +84,10 @@ void serial_puts_int(char* str, bool print_prefix) {
 
 
 void serial_puts(char* str) {
-    serial_puts_int(str, true);
+    static bool previous_output_contained_newline = false;
+    serial_puts_int(str, previous_output_contained_newline);
+    // If this output ended on a newline, the next line should come with the info prefix
+    previous_output_contained_newline = str[strlen(str) - 1] == '\n';
 }
 
 void serial_init() {
