@@ -333,6 +333,7 @@ impl IoApic {
 
 #[no_mangle]
 pub fn io_apic_mask_line(irq_vector: u8) {
+    // Read the current interrupt description, apply the mask flag, and write it back
     let smp_info = smp_info_ref();
     let io_apic = IoApic::new(smp_info.io_apic_phys_addr);
 
@@ -340,12 +341,13 @@ pub fn io_apic_mask_line(irq_vector: u8) {
     let high_reg = low_reg + 1;
     let low_word = io_apic.read_register(low_reg);
     let high_word = io_apic.read_register(high_reg);
-    println!("ioapic_mask_line() got {high_word:08x}:{low_word:08x}");
+    println!(
+        "ioapic_mask_line({irq_vector}) read current description {high_word:08x}:{low_word:08x}"
+    );
 
-    let mut inner = BitArray::new([low_word, high_word]);
-    // Mask the interrupt
-    inner.set(16, true);
-    let remap = RemapIrqDescription { inner, irq_vector };
+    let mut remap =
+        RemapIrqDescription::from_bits(BitArray::new([low_word, high_word]), irq_vector);
+    remap.set_interrupt_masked(true);
     io_apic.remap_irq(remap);
 }
 
@@ -371,10 +373,21 @@ impl RemapIrqDescription {
         // Set destination mode (0 means destination APICs are referred to by their APIC IDs)
         ret.inner.set(11, false);
         // Do not mask this interrupt (i.e. enable it)
-        ret.inner.set(16, false);
+        ret.set_interrupt_masked(false);
         ret.set_destination_local_apic_id(dest_local_apic_id);
 
         ret
+    }
+
+    pub fn from_bits(bits: RemapIrqDescriptionRaw, irq_vector: u8) -> Self {
+        RemapIrqDescription {
+            inner: bits,
+            irq_vector,
+        }
+    }
+
+    pub fn set_interrupt_masked(&mut self, masked: bool) {
+        self.inner.set(16, masked)
     }
 
     /// The internal interrupt vector (index into the IDT) that we're assigning the IRQ to

@@ -11,6 +11,7 @@ use crate::apic::{
     InterProcessorInterruptDestination, IoApic, ProcessorLocalApic, RemapIrqDescription,
 };
 use crate::interrupts::{idt_allocate_vector, idt_set_free_vectors};
+use crate::smp::smp_info_ref;
 use crate::structs::{
     ApicNonMaskableInterrupt, ExtendedSystemDescriptionHeader, InterruptControllerHeader,
     IoApicInterruptSourceOverride, IoApicRaw, MultiApicDescriptionTable, ProcessorLocalApicRaw,
@@ -28,7 +29,9 @@ use core::arch::asm;
 use core::intrinsics::copy_nonoverlapping;
 use core::mem;
 use core::mem::{align_of, size_of};
-use ffi_bindings::{interrupt_setup_callback, println, RegisterStateX86_64};
+use ffi_bindings::{
+    amc_wake_sleeping_services, interrupt_setup_callback, println, task_switch, RegisterStateX86_64,
+};
 
 mod apic;
 mod interrupts;
@@ -267,14 +270,10 @@ pub unsafe fn apic_init(smp_info: *mut SmpInfo) {
 
 extern "C" fn cpu_core_handle_local_apic_timer_fired(register_state: *const RegisterStateX86_64) {
     unsafe {
-        println!(
-            "CPU Core[{}] handling APIC timer fired! RIP {:016x} RSP {:016x}",
-            cpu_core_private_info().processor_id,
-            (*register_state).return_rip,
-            (*register_state).return_rsp,
-        );
-        apic_signal_end_of_interrupt((*register_state).int_no as u8);
-        //local_apic_timer_start(1);
+        let register_state_ref = &*register_state;
+        apic_signal_end_of_interrupt(register_state_ref.int_no as u8);
+        // Always kick off a task switch when the LAPIC timer fires
+        task_switch();
     }
 }
 

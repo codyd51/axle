@@ -1,8 +1,9 @@
 use crate::apic::{
-    cpu_core_private_info, local_apic_enable, local_apic_timer_calibrate, local_apic_timer_start,
+    cpu_core_private_info, io_apic_mask_line, local_apic_enable, local_apic_timer_calibrate,
+    local_apic_timer_start,
 };
 use crate::SmpInfo;
-use ffi_bindings::println;
+use ffi_bindings::{println, task_die};
 
 extern "C" {
     fn smp_info_get() -> *mut SmpInfo;
@@ -29,7 +30,13 @@ pub fn smp_core_continue() {
     );
     local_apic_timer_calibrate();
     local_apic_timer_start(5);
+    //io_apic_mask_line(2);
     // TODO(PT): Once all cores have calibrated using the PIT, mask the PIT
-    println!("Spinning...");
-    loop {}
+
+    // Bootstrapping complete - kill this process
+    println!("Bootstrap task will exit");
+    unsafe {
+        task_die(0);
+    }
+    assert!(false, "task_die should have stopped execution");
 }
