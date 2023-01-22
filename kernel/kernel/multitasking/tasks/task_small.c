@@ -335,6 +335,9 @@ void task_switch(void) {
         return;
     }
 
+    // Cancel the LAPIC timer, if any
+    local_apic_timer_cancel();
+
     // Tell the scheduler about the task switch
     mlfq_prepare_for_switch_from_task(cpu_current_task());
     task_small_t* next_task = 0;
@@ -346,6 +349,13 @@ void task_switch(void) {
         //mlfq_print();
         next_task = _idle_task;
         quantum = 5;
+    }
+
+    // Set up the scheduler timer
+    // But note that we won't be able to do this in very early boot
+    if (smp_info_get()) {
+        //printf("Arming LAPIC timer for %dms\n", quantum);
+        local_apic_timer_start(quantum);
     }
 
     //if (next_task != _current_task_small) {
@@ -469,11 +479,6 @@ void tasking_ap_init_part2(void* continue_func_ptr) {
     // It's now safe to free the low-memory identity map
     _free_low_identity_map(cpu_private_info()->base_vas);
 
-    /*
-    task_small_t* spin1_tcb = task_spawn("ap_spin1", ap_spin1);
-    task_small_t* spin2_tcb = task_spawn("ap_spin2", ap_spin2);
-    */
-
     // TODO(PT): This won't do anything because the PIT is currently only delivered to APIC #0. We should start using the APIC-local timer
     cpu_set_scheduler_enabled(true);
 
@@ -518,21 +523,6 @@ void tasking_init(void* continue_func) {
     task_set_name(cpu_current_task(), "bootstrap");
     _task_list_head = cpu_current_task();
     tasking_first_context_switch(cpu_current_task(), 100);
-}
-
-void ap_spin_task(void) {
-    while (1) {
-    }
-}
-void ap_spin1(void) {
-    while (1) {
-        printf("AP 1\n");
-    }
-}
-void ap_spin2(void) {
-    while (1) {
-        printf("AP 2\n");
-    }
 }
 
 void tasking_ap_startup(void* continue_func) {
