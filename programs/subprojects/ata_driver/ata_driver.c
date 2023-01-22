@@ -302,7 +302,7 @@ static void _message_received(amc_message_t* msg) {
 
 int main(int argc, char** argv) {
 	amc_register_service(ATA_DRIVER_SERVICE_NAME);
-	adi_register_driver(ATA_DRIVER_SERVICE_NAME, INT_VECTOR_IRQ14);
+	adi_register_driver(ATA_DRIVER_SERVICE_NAME, INT_VECTOR_APIC_14);
 
     printf("[ATA] init\n");
 
@@ -315,7 +315,7 @@ int main(int argc, char** argv) {
 
 	// Set up the event loop with libgui
 	gui_application_create();
-	gui_add_interrupt_handler(INT_VECTOR_IRQ14, _int_received);
+	gui_add_interrupt_handler(INT_VECTOR_APIC_14, _int_received);
 	gui_add_message_handler(_message_received);
 	gui_enter_event_loop();
 	

@@ -350,7 +350,7 @@ static void _int_received(uint32_t int_no) {
 	//status &= ~(1 << 13);
 	//status &= ~(1 << 2);
 	outw(nic_state.io_base + RTL_REG_INTERRUPT_STATUS, status);
-	adi_send_eoi(INT_VECTOR_IRQ11);
+	adi_send_eoi(INT_VECTOR_APIC_11);
 }
 
 static void _message_received(amc_message_t* msg) {
@@ -396,7 +396,7 @@ int main(int argc, char** argv) {
 	// This process will handle interrupts from the Realtek 8159 NIC (IRQ11)
 	// TODO(PT): The interrupt number is read from the PCI bus
 	// It should be communicated to this process
-	adi_register_driver(RTL8139_SERVICE_NAME, INT_VECTOR_IRQ11);
+	adi_register_driver(RTL8139_SERVICE_NAME, INT_VECTOR_APIC_11);
 
 	// TODO(PT): This should be read from the PCI bus
 	int io_base = 0xc000;
@@ -404,7 +404,7 @@ int main(int argc, char** argv) {
 
 	// Set up the event loop with libgui
 	gui_application_create();
-	gui_add_interrupt_handler(INT_VECTOR_IRQ11, _int_received);
+	gui_add_interrupt_handler(INT_VECTOR_APIC_11, _int_received);
 	gui_add_message_handler(_message_received);
 	gui_enter_event_loop();
 	

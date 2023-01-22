@@ -35,12 +35,12 @@ static _handle_amc_messages(void) {
 int main(int argc, char** argv) {
 	amc_register_service(MOUSE_DRIVER_SERVICE_NAME);
 	// This process will handle PS/2 mouse IRQ's (IRQ 12)
-	adi_register_driver(MOUSE_DRIVER_SERVICE_NAME, INT_VECTOR_IRQ12);
+	adi_register_driver(MOUSE_DRIVER_SERVICE_NAME, INT_VECTOR_APIC_12);
 
 	ps2_mouse_state_t state = {0, 0};
 	while (true) {
 		// Await an interrupt from the PS/2 mouse
-		bool awoke_for_interrupt = adi_event_await(INT_VECTOR_IRQ12);
+		bool awoke_for_interrupt = adi_event_await(INT_VECTOR_APIC_12);
 		if (!awoke_for_interrupt) {
 			_handle_amc_messages();
 			continue;
@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
 		// TODO(PT): Copy the PS2 header to the sysroot as a build step, 
 		// and replace this port number with PS2_DATA
 		uint8_t data_packet = inb(0x60);
-		adi_send_eoi(INT_VECTOR_IRQ12);
+		adi_send_eoi(INT_VECTOR_APIC_12);
 
 		state.buffer[state.idx] = data_packet;
 		if (state.idx == 0) {

@@ -111,7 +111,7 @@ static void _handle_amc_messages(void) {
 int main(int argc, char** argv) {
 	amc_register_service(KB_DRIVER_SERVICE_NAME);
 	// This process will handle PS/2 keyboard IRQ's (IRQ 1)
-	adi_register_driver(KB_DRIVER_SERVICE_NAME, INT_VECTOR_IRQ1);
+	adi_register_driver(KB_DRIVER_SERVICE_NAME, INT_VECTOR_APIC_1);
 
 	ps2_kbd_state_t state = {0};
 	// TODO(PT): A knob that allows you to set the active layout to QWERTY
@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
 
 	while (true) {
 		// Await an interrupt from the PS/2 keyboard
-		bool awoke_for_interrupt = adi_event_await(INT_VECTOR_IRQ1);
+		bool awoke_for_interrupt = adi_event_await(INT_VECTOR_APIC_1);
 		if (!awoke_for_interrupt) {
 			_handle_amc_messages();
 			continue;
@@ -130,7 +130,7 @@ int main(int argc, char** argv) {
 		// TODO(PT): Copy the PS2 header to the sysroot as a build step, 
 		// and replace this port number with PS2_DATA
 		uint8_t scancode = inb(0x60);
-		adi_send_eoi(INT_VECTOR_IRQ1);
+		adi_send_eoi(INT_VECTOR_APIC_1);
 
 		_process_scancode(&state, scancode);
 		// Have we generated a new key event?
