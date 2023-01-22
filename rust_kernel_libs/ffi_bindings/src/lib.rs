@@ -23,6 +23,9 @@ extern "C" {
         interrupt_vec: u8,
         callback: extern "C" fn(*const RegisterStateX86_64),
     );
+    pub fn task_switch();
+    pub fn task_die(exit_code: u32);
+    pub fn amc_wake_sleeping_services();
 }
 
 #[macro_export]

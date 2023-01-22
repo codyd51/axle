@@ -5,7 +5,7 @@
 #include <kernel/util/spinlock/spinlock.h>
 #include <kernel/multitasking/tasks/task_small.h>
 
-#define MAX_IRQ 64
+#define MAX_IRQ 127
 #define MAX_INT_VECTOR 128
 static adi_driver_t _adi_drivers[MAX_IRQ] = {0};
 
@@ -52,7 +52,7 @@ static void _adi_interrupt_handler(register_state_t* regs) {
 void adi_register_driver(const char* name, uint32_t irq) {
     task_assert(irq > 0 && irq < MAX_INT_VECTOR, "Invalid IRQ provided", NULL);
     if (_adi_drivers[irq].task) {
-        printf("invalid adi_register_driver() will kill %s. IRQ already mapped to a driver task\n", name);
+        printf("invalid adi_register_driver() will kill %s. IRQ %d already mapped to a driver task\n", name, irq);
         task_assert(false, "IRQ already mapped to a driver task", NULL);
         return;
     }
