@@ -76,6 +76,11 @@ pub fn local_apic_timer_start(delay_ms: u64) {
 }
 
 #[no_mangle]
+pub fn local_apic_timer_cancel() {
+    cpu_local_apic().timer_cancel()
+}
+
+#[no_mangle]
 pub fn cpu_core_set_lapic_timer_ticks_per_ms(lapic_timer_ticks_per_ms: usize) {
     cpu_core_private_info().lapic_timer_ticks_per_ms = lapic_timer_ticks_per_ms;
 }
@@ -213,7 +218,10 @@ impl ProcessorLocalApic {
         );
         cpu_core_set_lapic_timer_ticks_per_ms(ticks_per_ms as usize);
 
-        // Cancel the timer
+        self.timer_cancel();
+    }
+
+    pub fn timer_cancel(&self) {
         self.write_register(0x38, 0);
     }
 
