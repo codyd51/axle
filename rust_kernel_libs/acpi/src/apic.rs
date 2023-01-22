@@ -331,6 +331,24 @@ impl IoApic {
     }
 }
 
+#[no_mangle]
+pub fn io_apic_mask_line(irq_vector: u8) {
+    let smp_info = smp_info_ref();
+    let io_apic = IoApic::new(smp_info.io_apic_phys_addr);
+
+    let low_reg = 0x10 + (irq_vector as u32 * 2);
+    let high_reg = low_reg + 1;
+    let low_word = io_apic.read_register(low_reg);
+    let high_word = io_apic.read_register(high_reg);
+    println!("ioapic_mask_line() got {high_word:08x}:{low_word:08x}");
+
+    let mut inner = BitArray::new([low_word, high_word]);
+    // Mask the interrupt
+    inner.set(16, true);
+    let remap = RemapIrqDescription { inner, irq_vector };
+    io_apic.remap_irq(remap);
+}
+
 type RemapIrqDescriptionRaw = BitArr!(for 64, in u32, Lsb0);
 
 #[derive(Debug, Copy, Clone)]
