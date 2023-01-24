@@ -1,4 +1,6 @@
 [EXTERN _task_context_offset]
+[EXTERN _task_is_currently_executing_offset]
+[EXTERN _task_cpu_id_offset]
 [EXTERN task_die]
 
 [GLOBAL context_switch]
@@ -6,18 +8,16 @@
 [GLOBAL _first_context_switch]
 
 _first_context_switch:
-    ; Save arg to function containing task to switch to in rcx
-    mov rcx, rdi
-    ; Save arg containing the pointer to the CPU's current task in rdx
-    mov rdx, rsi
+    ; rdi: Pointer to the task to switch to
+    ; rsi: Pointer to the CPU's current task field
+    ; rdx: Current CPU ID
     jmp _context_switch_restore_state
 
 
 context_switch:
-    ; Save arg to function containing task to switch to in rcx
-    mov rcx, rdi
-    ; Save arg containing the CPU's local 'current task' pointer in rdx
-    mov rdx, rsi
+    ; rdi: Pointer to the task to switch to
+    ; rsi: Pointer to the CPU's current task field
+    ; rdx: Current CPU ID
 
 ;Save the old task's state
     ; Save registers that are supposed to be callee-saved
@@ -27,21 +27,34 @@ context_switch:
     push rdi
     push rbp
 
-    ; Save preempted task's esp as _current_task->machine_state
+    ; Save preempted task's esp as cpu_current_task->machine_state
     mov rax, [rsi]
-    mov rbx, [_task_context_offset]
-    add rax, rbx
+    add rax, [_task_context_offset]
     mov [rax], rsp
+    ; Note that the preempted task is no longer executing
+    mov rax, [rsi]
+    add rax, [_task_is_currently_executing_offset]
+    mov [rax], byte 0
 
 ;Load the new task's state
 _context_switch_restore_state:
     ; Set the provided task as the CPU's current task
-    mov [rdx], rcx
+    mov [rsi], rdi
+
+    ; Note that the new task is currently executing
+    mov rax, rdi
+    add rax, [_task_is_currently_executing_offset]
+    mov [rax], byte 1
+
+    ; Save the CPU ID where the task is executing
+    mov rax, rdi
+    add rax, [_task_cpu_id_offset]
+    mov [rax], qword rdx
 
     ; Load rsp with _current_task->machine_state
-    mov rbx, [_task_context_offset]
-    add rcx, rbx
-    mov rsp, [rcx]
+    mov rax, rdi
+    add rax, [_task_context_offset]
+    mov rsp, [rax]
 
     ; Restore registers that were callee-saved
     pop rbp
