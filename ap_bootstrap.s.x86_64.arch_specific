@@ -109,6 +109,23 @@ ap_entry:
     mov ax, 0x2b
     ltr ax
 
+    ; Enable SSE
+    mov rax, cr0
+    ; Disable FPU emulation by clearing the EM bit
+    and ax, 0xFFFB
+    ; Enable coprocessor monitoring by setting the MP bit
+    ; AMD SDM §3.1.1:
+    ; > Software typically should set MP to 1 if the processor implementation supports x87 instructions.
+    or ax, 0x2
+    mov cr0, rax
+    ; Inform the CPU that we can handle SIMD floating point exceptions by setting the OSXMMEXCPT enable bit
+    mov rax, cr4
+    or ax, 1 << 10
+    mov cr4, rax
+    ; Finally, set the OSFXSR bit which will enable SSE
+    or ax, 1 << 9
+    mov cr4, rax
+
     ; Jump to the C entry point
     ; Load the entry point (and double-dereference the parameter that was passed in by the BSP)
     xor rax, rax
