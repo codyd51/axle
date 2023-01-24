@@ -239,6 +239,12 @@ static void _task_remove_from_scheduler(task_small_t* task) {
     mlfq_delete_task(task);
 }
 
+spinlock_t* choose_task_lock(void) {
+    static spinlock_t choose_task_spinlock = {0};
+    choose_task_spinlock.name = "[Sched choose task]";
+    return &choose_task_spinlock;
+}
+
 task_small_t* task_spawn__with_args(const char* task_name, void* entry_point, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3) {
     task_small_t* task = _task_spawn__entry_point_with_args(task_name, entry_point, arg1, arg2, arg3);
     // Task is now ready to run - make it schedulable
@@ -333,7 +339,11 @@ void task_switch(void) {
     mlfq_prepare_for_switch_from_task(cpu_current_task());
     task_small_t* next_task = 0;
     uint32_t quantum = 0;
+
+    spinlock_acquire(choose_task_lock());
     mlfq_choose_task(&next_task, &quantum);
+    spinlock_release(choose_task_lock());
+
     if (!next_task) {
         // Fallback to the idle task if nothing else is ready to run
         //printf("Fallback to idle task\n");
