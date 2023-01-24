@@ -31,6 +31,7 @@ typedef struct cpu_core_private_info {
     bool scheduler_enabled;
     tss_t* tss;
     uintptr_t lapic_timer_ticks_per_ms;
+    task_small_t* idle_task;
 } cpu_core_private_info_t;
 
 typedef struct interrupt_override_info {
@@ -57,5 +58,6 @@ void local_apic_configure_timer(void);
 
 cpu_core_private_info_t* cpu_private_info(void);
 uintptr_t cpu_id(void);
+task_small_t* cpu_idle_task(void);
 
 #endif

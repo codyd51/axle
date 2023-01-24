@@ -180,3 +180,7 @@ cpu_core_private_info_t* cpu_private_info(void) {
 uintptr_t cpu_id(void) {
     return cpu_private_info()->processor_id;
 }
+
+task_small_t* cpu_idle_task(void) {
+    return cpu_private_info()->idle_task;
+}

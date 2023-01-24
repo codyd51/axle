@@ -20,7 +20,6 @@ static volatile int next_pid = 0;
 static task_small_t* _current_first_responder = 0;
 static task_small_t* _iosentinel_task = 0;
 static task_small_t* _task_list_head = 0;
-static task_small_t* _idle_task = 0;
 
 static bool _multitasking_ready = false;
 const uint32_t _task_context_offset = offsetof(struct task_small, machine_state);
@@ -40,6 +39,7 @@ void ap_spin1(void);
 void ap_spin2(void);
 
 task_small_t* _tasking_get_linked_list_head(void) {
+    // TODO(PT): Deprecate
     return _task_list_head;
 }
 
@@ -61,6 +61,10 @@ static bool cpu_scheduler_enabled(void) {
 
 static void cpu_set_scheduler_enabled(bool enabled) {
     cpu_private_info()->scheduler_enabled = enabled;
+}
+
+static void cpu_set_idle_task(task_small_t* idle_task) {
+    cpu_private_info()->idle_task = idle_task;
 }
 
 static task_small_t* _tasking_last_task_in_runlist() {
@@ -118,6 +122,7 @@ void task_die(uintptr_t exit_code) {
     // Inform our supervisor, if any
     task_small_t* current_task = tasking_get_current_task();
     if (current_task->is_managed_by_parent) {
+        // TODO(PT): Looks like this may have been accidentally deleted?
     }
 
     task_small_t* buf[1] = {tasking_get_current_task()};
@@ -127,7 +132,7 @@ void task_die(uintptr_t exit_code) {
     // we'll still be cleaned up
     tasking_get_current_task()->blocked_info.status = ZOMBIE;
     task_switch();
-    panic("Should never be scheduled again\n");
+    panic("Should never be scheduled again");
 }
 
 void _thread_destroy(task_small_t* thread) {
@@ -347,7 +352,7 @@ void task_switch(void) {
         // Fallback to the idle task if nothing else is ready to run
         //printf("Fallback to idle task\n");
         //mlfq_print();
-        next_task = _idle_task;
+        next_task = cpu_idle_task();
         quantum = 5;
     }
 
@@ -475,9 +480,18 @@ static void _free_low_identity_map(vas_state_t* vas) {
     }
 }
 
+static void _spawn_cpu_idle_task(void) {
+    // idle should not be in the scheduler pool as we schedule it specially
+    // _task_spawn will not add it to the scheduler pool
+    char idle_task_name[64];
+    snprintf(idle_task_name, sizeof(idle_task_name), "com.axle.idle-%d", cpu_id());
+    cpu_set_idle_task(_task_spawn(idle_task_name, idle_task));
+}
+
 void tasking_ap_init_part2(void* continue_func_ptr) {
     // It's now safe to free the low-memory identity map
     _free_low_identity_map(cpu_private_info()->base_vas);
+    _spawn_cpu_idle_task();
 
     // TODO(PT): This won't do anything because the PIT is currently only delivered to APIC #0. We should start using the APIC-local timer
     cpu_set_scheduler_enabled(true);
@@ -490,10 +504,7 @@ void tasking_init_part2(void* continue_func_ptr) {
     // We're now fully established in high memory and using a high kernel stack
     // It's now safe to free the low-memory identity map
     _free_low_identity_map(cpu_private_info()->base_vas);
-
-    // idle should not be in the scheduler pool as we schedule it specially
-    // _task_spawn will not add it to the scheduler pool
-    _idle_task = _task_spawn("com.axle.idle", idle_task);
+    _spawn_cpu_idle_task();
 
     // reaper cleans up and frees the resources of ZOMBIE tasks
     task_small_t* reaper_tcb = task_spawn("reaper", reaper_task);
