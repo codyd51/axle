@@ -96,21 +96,6 @@ static void _tasking_add_task_to_task_list(task_small_t* task) {
     list_tail->next = task;
 }
 
-task_small_t* tasking_get_task_with_pid(int pid) {
-    if (!_task_list_head) {
-        return NULL;
-    }
-    task_small_t* iter = _task_list_head;
-    for (int i = 0; i < MAX_TASKS; i++) {
-        if ((iter)->id == pid) {
-            return iter;
-        }
-        iter = (iter)->next;
-    }
-    //not found
-    return NULL;
-}
-
 task_small_t* tasking_get_current_task() {
     return tasking_get_task_with_pid(getpid());
 }
@@ -212,7 +197,8 @@ task_small_t* _thread_create(void* entry_point, uintptr_t arg1, uintptr_t arg2, 
     //printf("\tSet new task's VAS state to 0x%p\n", new_task->vas_state);
 
     // Retain a reference to this task in the linked list of all tasks
-    _tasking_add_task_to_task_list(new_task);
+    //_tasking_add_task_to_task_list(new_task);
+    scheduler_track_task(new_task);
 
     return new_task;
 }

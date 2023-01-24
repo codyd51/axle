@@ -6,7 +6,7 @@ use crate::utils::{
 use bitvec::prelude::*;
 use core::arch::asm;
 use core::num::TryFromIntError;
-use ffi_bindings::println;
+use ffi_bindings::{println, CpuCorePrivateInfo};
 
 extern "C" {
     fn outb(port: u16, val: u8);
@@ -35,20 +35,6 @@ pub fn apic_signal_end_of_interrupt(int_no: u8) {
     // TODO(PT): It could be stored in the CPU-local storage
     let local_apic = ProcessorLocalApic::new(PhysAddr(0xfee00000));
     local_apic.send_end_of_interrupt();
-}
-
-#[repr(C)]
-#[derive(Debug)]
-pub struct CpuCorePrivateInfo {
-    pub processor_id: usize,
-    apic_id: usize,
-    local_apic_phys_addr: usize,
-    base_vas: usize,
-    loaded_vas_state: usize,
-    current_task: usize,
-    scheduler_enabled: bool,
-    tss: usize,
-    lapic_timer_ticks_per_ms: usize,
 }
 
 pub fn cpu_core_private_info() -> &'static mut CpuCorePrivateInfo {

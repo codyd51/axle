@@ -29,7 +29,6 @@ pub fn smp_core_continue() {
         smp_info.local_apic_timer_int_vector
     );
     local_apic_timer_calibrate();
-    local_apic_timer_start(5);
     //io_apic_mask_line(2);
     // TODO(PT): Once all cores have calibrated using the PIT, mask the PIT
 

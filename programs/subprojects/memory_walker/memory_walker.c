@@ -215,7 +215,7 @@ uint64_t scan_memory(char* memory_window, pte_t* page_table, uint64_t chunk_base
 							}
 							uint64_t addr = frame_base + j;
 							//printf("0x%016lx: %s\n", addr, string);
-							printf("%s\n", string);
+							//printf("%s\n", string);
 							// Add 1 so the NULL terminator gets sent too
 							//amc_message_send("com.dangerous.memory_scan_viewer", memory_window + string_start_idx, min(string_len, 20));
 							amc_message_send("com.dangerous.memory_scan_viewer", string, string_len+1);

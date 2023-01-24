@@ -26,6 +26,9 @@ extern "C" {
     pub fn task_switch();
     pub fn task_die(exit_code: u32);
     pub fn amc_wake_sleeping_services();
+
+    // smp.h
+    pub fn cpu_id() -> usize;
 }
 
 #[macro_export]
@@ -131,4 +134,89 @@ pub struct RegisterStateX86_64 {
     rflags: u64,
     pub return_rsp: u64,
     ss: u64,
+}
+
+/// Represents elf_t
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+struct ElfSymbolTableInfo {
+    symbol_table: usize,
+    symbol_table_size: u32,
+    string_table: usize,
+    string_table_size: u32,
+}
+
+/// Represents task_state_t
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+enum TaskState {
+    Unknown = (0 << 0),
+    Runnable = (1 << 0),
+    Zombie = (1 << 1),
+    KbWait = (1 << 2),
+    PitWait = (1 << 3),
+    MouseWait = (1 << 4),
+    ChildWait = (1 << 5),
+    PipeFull = (1 << 6),
+    PipeEmpty = (1 << 7),
+    IrqWait = (1 << 8),
+    AmcAwaitMessage = (1 << 9),
+    VmmModify = (1 << 10),
+    AmcAwaitTimestamp = (1 << 11),
+}
+
+/// Represents task_block_state_t
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+struct TaskBlockState {
+    status: TaskState,
+    wake_timestamp: u32,
+    unblock_reason: TaskState,
+}
+
+/// PT: Represents task_small_t
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct TaskControlBlock {
+    pub pid: u32,
+    name: usize,
+    machine_state: usize,
+    blocked_info: TaskBlockState,
+    next: *mut TaskControlBlock,
+    current_timeslice_start_date: u64,
+    current_timeslice_end_date: u64,
+    queue: u32,
+    lifespan: u32,
+    is_thread: bool,
+    vas_state: usize,
+    sbrk_base: usize,
+    sbrk_current_break: usize,
+    bss_segment_addr: usize,
+    sbrk_current_page_head: usize,
+    kernel_stack: usize,
+    kernel_stack_malloc_head: usize,
+    elf_symbol_table: ElfSymbolTableInfo,
+    is_managed_by_parent: bool,
+    managing_parent_service_name: usize,
+    cpu_id: usize,
+    is_currently_executing: bool,
+}
+
+unsafe impl Send for TaskControlBlock {}
+unsafe impl Sync for TaskControlBlock {}
+
+/// Represents cpu_core_private_info_t
+#[repr(C)]
+#[derive(Debug)]
+pub struct CpuCorePrivateInfo {
+    pub processor_id: usize,
+    pub apic_id: usize,
+    pub local_apic_phys_addr: usize,
+    pub base_vas: usize,
+    pub loaded_vas_state: usize,
+    pub current_task: usize,
+    pub scheduler_enabled: bool,
+    pub tss: usize,
+    pub lapic_timer_ticks_per_ms: usize,
+    pub idle_task: usize,
 }

@@ -35,6 +35,7 @@ use ffi_bindings::{
 
 mod apic;
 mod interrupts;
+mod scheduler;
 mod smp;
 mod structs;
 mod utils;
