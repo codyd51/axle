@@ -275,6 +275,28 @@ task_small_t* task_spawn(const char* task_name, void* entry_point) {
     return task;
 }
 
+static void _migrate_task_to_current_cpu_and_load_vas(task_small_t* task) {
+    //printf("Migrating task [%d: %s] from CPU[%d] to CPU[%d]\n", task->id, task->name, task->cpu_id, cpu_id());
+    vas_state_t* current_cpu_base_vas = cpu_private_info()->loaded_vas_state;
+    pml4e_t* current_cpu_pml4_virt = (pml4e_t*)PMA_TO_VMA(current_cpu_base_vas->pml4_phys);
+
+    vas_state_t* task_vas = task->vas_state;
+    pml4e_t* task_pml4_virt = (pml4e_t*)PMA_TO_VMA(task_vas->pml4_phys);
+
+    //spinlock_acquire(choose_task_lock());
+    // TODO(PT): Compute instead of iterating
+    for (int i = 256; i < 512; i++) {
+        uintptr_t pml4e_base = (uintptr_t)0xFFFF << 48 | ((uintptr_t)i << 39);
+        if (pml4e_base == CPU_CORE_DATA_BASE) {
+            task_pml4_virt[i] = current_cpu_pml4_virt[i];
+            break;
+        }
+    }
+    //spinlock_release(choose_task_lock());
+
+    vas_load_state(task->vas_state);
+}
+
 /*
  * Immediately preempt the running task and begin running the provided one.
  */
@@ -286,8 +308,13 @@ void tasking_goto_task(task_small_t* new_task, uint32_t quantum) {
     //printf("tasking_goto_task new vmm 0x%p current vmm 0x%p\n", new_task->vas_state, vas_get_active_state());
     //printf("tasking_goto_task [%s] from [%s]\n", new_task->name, _current_task_small->name);
     if (new_task->vas_state != vas_get_active_state()) {
-        //printf("\tLoad new VAS state 0x%p\n", new_task->vas_state);
-        vas_load_state(new_task->vas_state);
+        if (new_task->cpu_id == cpu_id()) {
+            //printf("Rescheduling task [%d: %s] on CPU[%d]\n", new_task->id, new_task->name, new_task->cpu_id);
+            vas_load_state(new_task->vas_state);
+        }
+        else {
+            _migrate_task_to_current_cpu_and_load_vas(new_task);
+        }
     }
 
     //printf("\tSet kernel stack to 0x%p\n", new_task->kernel_stack);
@@ -342,6 +369,10 @@ void task_switch(void) {
 
     spinlock_acquire(choose_task_lock());
     mlfq_choose_task(&next_task, &quantum);
+    // PT: Hack to ensure this task isn't selected by another CPU
+    if (next_task) {
+        next_task->is_currently_executing = true;
+    }
     spinlock_release(choose_task_lock());
 
     if (!next_task) {
