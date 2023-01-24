@@ -59,8 +59,8 @@ void serial_putchar(char c) {
 
 void serial_puts_int(char* str, bool print_prefix) {
     if (print_prefix) {
-        char prefix[32] = {0};
-        snprintf(prefix, sizeof(prefix), "Cpu[%d],Clk[%d]: ", cpu_id(), tick_count());
+        char prefix[64] = {0};
+        snprintf(prefix, sizeof(prefix), "Cpu[%d],Pid[%d],Clk[%d]: ", cpu_id(), getpid(), tick_count());
 
         // Hold a lock, so we don't get output intermixed from other cores
         // Note that the lock is held before our two 'inner' calls, rather than within the inner calls
