@@ -3,7 +3,7 @@
 
 #include "std_base.h"
 #include <kernel/assert.h>
-#include <kernel/util/mutex/mutex.h>
+#include <kernel/util/spinlock/spinlock.h>
 #include <stdint.h>
 #include "std.h"
 
@@ -19,7 +19,7 @@ typedef struct array_l_item {
 typedef struct {
 	array_l_item* head;
 	int32_t size;
-	lock_t lock;
+	spinlock_t lock;
 } array_l;
 
 //create array list

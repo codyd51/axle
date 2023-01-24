@@ -481,7 +481,7 @@ vas_state_t* vas_clone_ex(vas_state_t* parent, bool link_cpu_specific_storage) {
         if (!link_cpu_specific_storage) {
             uintptr_t pml4e_base = (uintptr_t)0xFFFF << 48 | ((uintptr_t)i << 39);
             if (pml4e_base == CPU_CORE_DATA_BASE) {
-                printf("Linking CPU_CORE_DATA_BASE PML4E #%d (virt %p)\n", i, pml4e_base);
+                printf("Copying CPU_CORE_DATA_BASE PML4E #%d (virt %p)\n", i, pml4e_base);
                 _copy_all_pages_and_tables_in_pml4e(parent_pml4_virt, new_pml4_virt, i);
                 continue;
             }

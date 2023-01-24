@@ -5,19 +5,20 @@
 array_l* array_l_create() {
 	array_l* ret = (array_l*)kmalloc(sizeof(array_l));
 	memset(ret, 0, sizeof(array_l));
+    ret->lock.name = "[array_l spinlock]";
 	return ret;
 }
 
 void array_l_destroy(array_l* array) {
 	// This function can't be used with a locking wrapper because it frees the lock memory
-	lock(&array->lock);
+	spinlock_acquire(&array->lock);
 	array_l_item* tmp = array->head;
 	while (tmp) {
 		array_l_item* next = tmp->next;
 		kfree(tmp);
 		tmp = next;
 	}
-	unlock(&array->lock);
+	spinlock_release(&array->lock);
 	kfree(array);
 }
 
@@ -114,27 +115,27 @@ static void _array_l_remove_unlocked(array_l* array, int32_t idx) {
  */
 
 void array_l_insert(array_l* array, type_t item) {
-	lock(&array->lock);
+	spinlock_acquire(&array->lock);
 	_array_l_insert_unlocked(array, item);
-	unlock(&array->lock);
+	spinlock_release(&array->lock);
 }
 
 int32_t array_l_index(array_l* array, type_t item) {
-	lock(&array->lock);
+	spinlock_acquire(&array->lock);
 	int32_t ret = _array_l_index_unlocked(array, item);
-	unlock(&array->lock);
+	spinlock_release(&array->lock);
 	return ret;
 }
 
 void array_l_remove(array_l* array, int32_t idx) {
-	lock(&array->lock);
+	spinlock_acquire(&array->lock);
 	_array_l_remove_unlocked(array, idx);
-	unlock(&array->lock);
+	spinlock_release(&array->lock);
 }
 
 type_t array_l_lookup(array_l* array, int32_t idx) {
-	lock(&array->lock);
+	spinlock_acquire(&array->lock);
 	type_t ret = _array_l_lookup_unlocked(array, idx, NULL);
-	unlock(&array->lock);
+	spinlock_release(&array->lock);
 	return ret;
 }

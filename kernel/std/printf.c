@@ -285,7 +285,7 @@ static int print_common(print_destination dest, const char* fmt, va_list va) {
     }
 
     int ret;
-    char buf[512];
+    char buf[1024];
 
     ret = vsnprintf((char*)buf, sizeof(buf), fmt, va);
     switch (dest) {
