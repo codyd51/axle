@@ -22,12 +22,14 @@ static task_small_t* _iosentinel_task = 0;
 static task_small_t* _task_list_head = 0;
 
 static bool _multitasking_ready = false;
-const uint32_t _task_context_offset = offsetof(struct task_small, machine_state);
+const uint64_t _task_context_offset = offsetof(struct task_small, machine_state);
+const uint64_t _task_is_currently_executing_offset = offsetof(struct task_small, is_currently_executing);
+const uint64_t _task_cpu_id_offset = offsetof(struct task_small, cpu_id);
 
 // defined in process_small.s
 // performs the actual context switch
-void context_switch(uintptr_t* new_task, task_small_t* cpu_current_task_ptr);
-void _first_context_switch(uintptr_t* new_task, task_small_t* cpu_current_task_ptr);
+void context_switch(uintptr_t* new_task, task_small_t* cpu_current_task_ptr, uintptr_t current_cpu_id);
+void _first_context_switch(uintptr_t* new_task, task_small_t* cpu_current_task_ptr, uintptr_t current_cpu_id);
 // Defined in process_small.s
 // Entry point for a new process
 void _task_bootstrap(uintptr_t entry_point_ptr, uintptr_t entry_point_arg1, uintptr_t entry_point_arg2, uintptr_t entry_point_arg3);
@@ -289,11 +291,9 @@ void tasking_goto_task(task_small_t* new_task, uint32_t quantum) {
     }
 
     //printf("\tSet kernel stack to 0x%p\n", new_task->kernel_stack);
-    // TODO(PT): Update the TSS from the host CPU
     tss_set_kernel_stack(new_task->kernel_stack);
-    // this method will update cpu->current_task
-    // this method performs the actual context switch and also updates _current_task_small
-    context_switch(new_task, &cpu_private_info()->current_task);
+    // This will update cpu->current_task, task->cpu_id, and task->is_currently_executing
+    context_switch(new_task, &cpu_private_info()->current_task, cpu_id());
 }
 
 void tasking_first_context_switch(task_small_t* new_task, uint32_t quantum) {
@@ -308,7 +308,7 @@ void tasking_first_context_switch(task_small_t* new_task, uint32_t quantum) {
     }
 
     //tss_set_kernel_stack(new_task->kernel_stack);
-    _first_context_switch(new_task, &cpu_private_info()->current_task);
+    _first_context_switch(new_task, &cpu_private_info()->current_task, cpu_id());
 }
 
 static bool _task_schedule_disabled = false;
