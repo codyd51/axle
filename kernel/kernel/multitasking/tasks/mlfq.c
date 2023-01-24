@@ -55,7 +55,7 @@ bool mlfq_choose_task(task_small_t** out_task, uint32_t* out_quantum) {
         mlfq_queue_t* q = array_m_lookup(_queues, i);
         for (int j = 0; j < q->round_robin_tasks->size; j++) {
             mlfq_ent_t* ent = array_l_lookup(q->round_robin_tasks, j);
-            if (ent->task->blocked_info.status == RUNNABLE && ent->task->cpu_id == cpu_id()) {
+            if (ent->task->blocked_info.status == RUNNABLE && !ent->task->is_currently_executing /*&& ent->task->cpu_id == cpu_id()*/) {
                 *out_task = ent->task;
                 *out_quantum = ent->ttl_remaining;
                 ent->last_schedule_start = ms_since_boot();
@@ -225,7 +225,7 @@ void mlfq_print(void) {
                     blocked_reason = "unknown";
                     break;
             }
-            printf("[%d %s %s] ", ent->task->id, ent->task->name, blocked_reason);
+            printf("[[Cpu%d,Pid%d] %s %s] ", ent->task->cpu_id, ent->task->id, ent->task->name, blocked_reason);
         }
         printf("\n");
     }

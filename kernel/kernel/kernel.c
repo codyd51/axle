@@ -115,12 +115,6 @@ static void _kernel_bootstrap_part2(void) {
 
     // TODO(PT): Only mask the PIT once we're sure all cores have calibrated
     // TODO(PT): Pull the PIT IRQ line somehow
-    /*
-    uint32_t start = ms_since_boot();
-    printf("BSP spinlooping...\n");
-    while (ms_since_boot() < start + 3000) {}
-    printf("BSP will mask PIT.\n");
-    */
 
     smp_core_continue();
 }

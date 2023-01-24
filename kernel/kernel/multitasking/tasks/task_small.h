@@ -81,6 +81,7 @@ typedef struct task_small {
 	char* managing_parent_service_name;
 
     uintptr_t cpu_id;
+    bool is_currently_executing;
 } task_small_t;
 
 void tasking_init_small();
