@@ -1,14 +1,17 @@
 #![no_std]
 #![feature(format_args_nl)]
+#![feature(core_intrinsics)]
 #![feature(panic_info_message)]
 #![feature(default_alloc_error_handler)]
 
 extern crate alloc;
 
-use alloc::alloc::{GlobalAlloc, Layout};
+use alloc::alloc::{alloc, GlobalAlloc, Layout};
 use alloc::format;
 use alloc::string::ToString;
-use core::ffi::{c_char, c_void};
+use core::ffi::{c_char, c_void, CStr};
+use core::intrinsics::size_of;
+use core::mem::align_of;
 use core::panic::PanicInfo;
 pub use cstr_core;
 use cstr_core::CString;
@@ -26,9 +29,25 @@ extern "C" {
     pub fn task_switch();
     pub fn task_die(exit_code: u32);
     pub fn amc_wake_sleeping_services();
+    pub fn getpid() -> i32;
 
     // smp.h
     pub fn cpu_id() -> usize;
+
+    // amc/amc.h
+    pub fn amc_service_of_task(task: *const TaskControlBlock) -> *const AmcService;
+
+    // amc/core_commands.c
+    pub fn amc_core_populate_task_info_int(
+        tasks_info: *mut TaskViewerGetTaskInfoResponse,
+        task_idx: usize,
+        task_tcb: *const TaskControlBlock,
+    );
+
+    // vmm.c
+    pub fn vas_get_active_state() -> *const VasState;
+    pub fn vas_load_state(state: *const VasState);
+    pub fn vas_is_page_present(state: *const VasState, page_addr: u64) -> bool;
 }
 
 #[macro_export]
@@ -179,8 +198,8 @@ struct TaskBlockState {
 #[derive(Debug, Copy, Clone)]
 pub struct TaskControlBlock {
     pub pid: u32,
-    name: usize,
-    machine_state: usize,
+    pub name: usize,
+    pub machine_state: *const TaskContext,
     blocked_info: TaskBlockState,
     next: *mut TaskControlBlock,
     current_timeslice_start_date: u64,
@@ -188,7 +207,7 @@ pub struct TaskControlBlock {
     queue: u32,
     lifespan: u32,
     is_thread: bool,
-    vas_state: usize,
+    pub vas_state: *const VasState,
     sbrk_base: usize,
     sbrk_current_break: usize,
     bss_segment_addr: usize,
@@ -200,6 +219,7 @@ pub struct TaskControlBlock {
     managing_parent_service_name: usize,
     cpu_id: usize,
     is_currently_executing: bool,
+    lock: Spinlock,
 }
 
 unsafe impl Send for TaskControlBlock {}
@@ -219,4 +239,119 @@ pub struct CpuCorePrivateInfo {
     pub tss: usize,
     pub lapic_timer_ticks_per_ms: usize,
     pub idle_task: usize,
+}
+
+/// Represents spinlock_t
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+struct Spinlock {
+    flag: u32,
+    name: usize,
+    interrupts_enabled_before_acquire: bool,
+    owner_pid: u32,
+    nest_count: u32,
+    rflags: u64,
+}
+
+/// Represents amc_service_t
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
+pub struct AmcService {
+    pub name: usize,
+    task: usize,
+    message_queue: usize,
+    spinlock: Spinlock,
+    delivery_pool: usize,
+    shmem_regions: usize,
+    services_to_notify_upon_death: usize,
+    delivery_enabled: bool,
+}
+
+impl AmcService {
+    pub unsafe fn name(&self) -> &str {
+        CStr::from_ptr(self.name as *const c_char).to_str().unwrap()
+    }
+}
+
+/// Represents amc_service_t
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct AmcMessage {
+    pub source: [u8; Self::MAX_SERVICE_NAME_LEN],
+    dest: [u8; Self::MAX_SERVICE_NAME_LEN],
+    // VLA
+    pub len: u32,
+    pub body: [u8; 0],
+}
+
+impl AmcMessage {
+    pub const MAX_SERVICE_NAME_LEN: usize = 64;
+
+    pub unsafe fn source(&self) -> &str {
+        CStr::from_ptr(self.source.as_ptr() as *const c_char)
+            .to_str()
+            .unwrap()
+    }
+}
+
+/// Represents task_viewer_get_task_info_response_t
+#[repr(C)]
+pub struct TaskViewerGetTaskInfoResponse {
+    event: u32,
+    pub task_info_count: u32,
+    pub tasks: [TaskViewerTaskInfo; 0],
+}
+
+impl TaskViewerGetTaskInfoResponse {
+    const EXPECTED_EVENT: u32 = 777;
+    pub unsafe fn new(tasks_count: usize) -> *mut TaskViewerGetTaskInfoResponse {
+        let total_size = size_of::<TaskViewerGetTaskInfoResponse>()
+            + (size_of::<TaskViewerTaskInfo>() * tasks_count);
+        let layout = Layout::from_size_align(total_size, align_of::<usize>()).unwrap();
+        let mut tasks_info = alloc(layout) as *mut TaskViewerGetTaskInfoResponse;
+        (*tasks_info).event = Self::EXPECTED_EVENT;
+        (*tasks_info).task_info_count = tasks_count as u32;
+        // The tasks must be filled in by the caller
+        tasks_info
+    }
+}
+
+/// Represents task_info_t
+#[repr(C)]
+pub struct TaskViewerTaskInfo {
+    pub name: [u8; 64],
+    pub pid: u32,
+    pub rip: u64,
+    pub vas_range_count: u64,
+    pub vas_ranges: [VasRange; 16],
+    pub user_mode_rip: u64,
+    pub has_amc_service: bool,
+    pub pending_amc_messages: u64,
+}
+
+/// Represents vas_range_t
+#[repr(C)]
+pub struct VasRange {
+    pub start: u64,
+    pub size: u64,
+}
+
+/// Represents task_context_t
+#[repr(C)]
+pub struct TaskContext {
+    pub rbp: u64,
+    pub rdi: u64,
+    pub rsi: u64,
+    pub rbx: u64,
+    pub rax: u64,
+    pub rip: u64,
+}
+
+/// Represents vas_state_t
+#[repr(C)]
+pub struct VasState {
+    pml4_phys: usize,
+    pub range_count: u32,
+    max_range_count: u32,
+    pub ranges: [VasRange; 0],
 }
