@@ -110,28 +110,17 @@ static long long l_errorCount = 0;			///< Number of actual errors
 static long long l_possibleOverruns = 0;	///< Number of possible overruns
 
 
-static spinlock_t _heap_lock = {0};
+static spinlock_t _heap_lock = {.name = "[Kernel heap spinlock]"};
 
 int liballoc_lock() {
-	if (!_heap_lock.name) { _heap_lock.name = "[Kernel heap spinlock]"; }
 	spinlock_acquire(&_heap_lock);
 	return 0;
 }
 
 int liballoc_unlock() {
-	//assert(!interrupts_enabled(), "Interrupts enabled during spinlock");
 	spinlock_release(&_heap_lock);
-	//printf("Released heap spinlock (int? %d)\n", interrupts_enabled());
 	return 0;
 }
-
-/** This is the hook into the local system which allocates pages. It
- * accepts an integer parameter which is the number of pages
- * required.  The page size was set up in the liballoc_init function.
- *
- * \return NULL if the pages were not allocated.
- * \return A pointer to the allocated memory.
- */
 
 uint64_t vmm_alloc_global_kernel_memory() { return 0;}
 void vmm_free_global_kernel_memory() {}
@@ -158,8 +147,16 @@ void vas_active_map_temp() { }
 void vas_unmap_range() { }
 void vmm_unmap_range() { }
 
+/** This is the hook into the local system which allocates pages. It
+ * accepts an integer parameter which is the number of pages
+ * required.  The page size was set up in the liballoc_init function.
+ *
+ * \return NULL if the pages were not allocated.
+ * \return A pointer to the allocated memory.
+ */
+
 void* liballoc_alloc(size_t page_count) {
-	printk("Expand kernel heap by %dkb\n", page_count * 4);
+	//printk("Expand kernel heap by %d pages (%dkb)\n", page_count, page_count * 4);
 
 	// Lock the kernel VAS as this part of the address space is shared across all processes
 	vas_kernel_lock_acquire();
@@ -180,12 +177,11 @@ void* liballoc_alloc(size_t page_count) {
  * \return 0 if the memory was successfully freed.
  */
 int liballoc_free(void* ptr,size_t page_count) {
-	printf("liballoc_free 0x%08x %dkb\n", ptr, page_count * 4);
+	//printf("liballoc_free 0x%08x %dkb\n", ptr, page_count * 4);
 
 	// Lock the kernel VAS as this part of the address space is shared across all processes
 	vas_kernel_lock_acquire();
-	vas_free_range(boot_info_get()->vas_kernel, ptr, page_count * PAGE_SIZE);
-
+	vas_free_range(boot_info_get()->vas_kernel, (uint64_t) ptr, page_count * PAGE_SIZE);
 	vas_kernel_lock_release();
 
 	return 0;

@@ -266,8 +266,7 @@ static void _layout_tasks() {
 }
 
 static void _refresh_tasks(void) {
-	//printf("Refreshing tasks from kernel\n");
-
+	printf("Refreshing tasks from kernel\n");
 	task_viewer_get_task_info_t request = {
 		.event = TASK_VIEWER_GET_TASK_INFO,
 	};
@@ -277,11 +276,9 @@ static void _refresh_tasks(void) {
 	task_viewer_get_task_info_response_t* response = (task_viewer_get_task_info_response_t*)response_msg->body;
 	assert(response->event == TASK_VIEWER_GET_TASK_INFO);
 
-	//printf("Kernel send %ld tasks\n", response->task_info_count);
 	_g_state.task_count = response->task_info_count;
 	for (int i = 0; i < response->task_info_count; i++) {
 		task_info_t* task = &response->tasks[i];
-		//printf("Task %s: 0x%016lx\n", task->name, task->rip);
 		memcpy(&_g_state.tasks[i], task, sizeof(task_info_t));
 	}
 

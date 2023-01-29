@@ -1,5 +1,6 @@
 #![no_std]
 #![feature(format_args_nl)]
+#![feature(cstr_from_bytes_until_nul)]
 #![feature(default_alloc_error_handler)]
 
 extern crate alloc;
@@ -33,6 +34,7 @@ use ffi_bindings::{
     amc_wake_sleeping_services, interrupt_setup_callback, println, task_switch, RegisterStateX86_64,
 };
 
+mod amc;
 mod apic;
 mod interrupts;
 mod scheduler;
@@ -325,8 +327,8 @@ fn parse_xstd_at_phys_addr(tab_level: usize, phys_addr: PhysAddr) -> AcpiSmpInfo
     assert_eq!(extended_header.signature(), "XSDT");
 
     let length = extended_header.length();
-    let num_entries = (length as usize - mem::size_of::<ExtendedSystemDescriptionHeader>())
-        / mem::size_of::<u64>();
+    let num_entries =
+        (length as usize - size_of::<ExtendedSystemDescriptionHeader>()) / size_of::<u64>();
 
     let entries = unsafe {
         let entries_raw_slice = core::ptr::slice_from_raw_parts(

@@ -25,7 +25,8 @@ static void _amc_core_copy_amc_services(const char* source_service) {
         amc_service_t* service = array_m_lookup(services, i);
         //printf("Service desc 0x%08x, amc service 0x%08x %s -> desc 0x%08x 0x%08x\n", service_desc, service->name, service->name, service_desc->service_name, &service_desc->service_name);
         strncpy(&service_desc->service_name, service->name, AMC_MAX_SERVICE_NAME_LEN);
-        service_desc->unread_message_count = service->message_queue->size;
+        NotImplemented();
+        //service_desc->unread_message_count = service->message_queue->size;
     }
     amc_message_send__from_core(source_service, service_list, response_size);
     kfree(service_list);
@@ -193,6 +194,8 @@ static void _amc_core_flush_messages_from_service_to_service(const char* source_
     amc_service_t* remote = amc_service_with_name(&cmd->remote_service);
     if (remote) {
         printf("Flushing messages from %s to %s from %s's delivery queue\n", source_service, cmd->remote_service, cmd->remote_service);
+        NotImplemented();
+        /*
         // We're modifying some state of the destination service - hold a spinlock
         spinlock_acquire(&remote->spinlock);
         for (int32_t i = remote->message_queue->size - 1; i >= 0; i--) {
@@ -203,6 +206,7 @@ static void _amc_core_flush_messages_from_service_to_service(const char* source_
             }
         }
         spinlock_release(&remote->spinlock);
+        */
     }
 
     printf("Flushing messages from %s to %s from the undelivered message pool\n", source_service, cmd->remote_service);
@@ -392,9 +396,28 @@ static void _amc_core_grant_pml1_entry(const char* source_service) {
 #include <kernel/multitasking/tasks/task_small_int.h>
 #include <kernel/util/amc/amc_internal.h>
 
+task_viewer_get_task_info_response_t* tasking_populate_tasks_info(void);
+
 static void _amc_core_send_task_info(const char* source_service) {
     // Don't let the process list change while we compute this
+    spinlock_t scheduler_inspect_lock = {.name = "[Scheduler Inspect Lock]"};
+    //spinlock_acquire(&scheduler_inspect_lock);
     kernel_begin_critical();
+
+    task_viewer_get_task_info_response_t* response = tasking_populate_tasks_info();
+    uint32_t response_size = sizeof(task_viewer_get_task_info_response_t) + (response->task_info_count * sizeof(task_info_t));
+    printf("Response size %d\n", response_size);
+
+    //spinlock_release(&scheduler_inspect_lock);
+    kernel_end_critical();
+    amc_message_send__from_core(source_service, response, response_size);
+    kfree(response);
+}
+
+static void _amc_core_send_task_info2(const char* source_service) {
+    // Don't let the process list change while we compute this
+    spinlock_t scheduler_inspect_lock = {.name = "[Scheduler Inspect Lock]"};
+    spinlock_acquire(&scheduler_inspect_lock);
 
     task_small_t* task_head = _tasking_get_linked_list_head();
 
@@ -415,14 +438,17 @@ static void _amc_core_send_task_info(const char* source_service) {
 
     node = task_head;
     for (int i = 0; i < task_count; i++) {
-        vas_load_state(node->vas_state);
-        strncpy(response->tasks[i].name, node->name, sizeof(response->tasks[i].name));
+        //vas_load_state(node->vas_state);
+        //const char* name = node->name ?: "Unnamed task";
+        //strncpy(response->tasks[i].name, name, sizeof(response->tasks[i].name));
+        strncpy(response->tasks[i].name, "Test", sizeof(response->tasks[i].name));
         response->tasks[i].pid = node->id;
         response->tasks[i].rip = node->machine_state->rip;
-        
+
         // Don't try to compute things via machine_state for the active process, 
         // because machine_state is computed on context switches away
         if (node != tasking_get_current_task()) {
+            /*
             uint64_t* rbp = node->machine_state->rbp;
             uint64_t user_mode_rip = 0;
             for (int j = 0; j < 16; j++) {
@@ -435,7 +461,7 @@ static void _amc_core_send_task_info(const char* source_service) {
                 if (rbp < USER_MODE_STACK_BOTTOM) {
                     break;
                 }
-                */
+                *
                 uint64_t rip = rbp[1];
 
                 // Is the RIP in the canonical lower-half? If so, it's probably a user-mode return address
@@ -448,23 +474,33 @@ static void _amc_core_send_task_info(const char* source_service) {
             }
 
             response->tasks[i].user_mode_rip = user_mode_rip;
+             */
+            response->tasks[i].user_mode_rip = 0;
         }
 
+        /*
         int vas_ranges_to_copy = MIN(
             sizeof(response->tasks[i].vas_ranges) / sizeof(response->tasks[i].vas_ranges[0]), 
             node->vas_state->range_count
         );
+        vas_ranges_to_copy = 0;
         response->tasks[i].vas_range_count = vas_ranges_to_copy;
+         */
+        response->tasks[i].vas_range_count = 0;
+        /*
         for (int j = 0; j < vas_ranges_to_copy; j++) {
             memcpy(&response->tasks[i].vas_ranges[j], &node->vas_state->ranges[j], sizeof(vas_range_t));
         }
+        */
 
         // Copy AMC service info
         amc_service_t* service = amc_service_of_task(node);
         //printf("service 0x%x\n", service);
         response->tasks[i].has_amc_service = service != NULL;
         if (service != NULL) {
-            response->tasks[i].pending_amc_messages = service->message_queue->size;
+            response->tasks[i].pending_amc_messages = 0;
+            //NotImplemented();
+            //response->tasks[i].pending_amc_messages = service->message_queue->size;
         }
 
         node = node->next;
@@ -473,7 +509,7 @@ static void _amc_core_send_task_info(const char* source_service) {
     //printf("Finished, will reload current VAS\n");
     vas_load_state(current_vas);
 
-    kernel_end_critical();
+    spinlock_release(&scheduler_inspect_lock);
     amc_message_send__from_core(source_service, response, response_size);
     kfree(response);
 }

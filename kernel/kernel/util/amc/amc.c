@@ -58,6 +58,22 @@ static void _amc_core_shared_memory_destroy(amc_service_t* local_service, uint32
 void _amc_remove_service_from_sleep_list(amc_service_t* service);
 void _amc_remove_service_from_sleep_list__with_held_lock(amc_service_t* service);
 
+void amc_append_message_to_service_inbox(
+    amc_service_t* service,
+    amc_message_t* message
+);
+amc_message_t* amc_select_message_to_deliver(
+    amc_service_t* service,
+    uint32_t desired_source_service_count,
+    const char** desired_source_services,
+    uint32_t* desired_u32_event
+);
+bool amc_has_message_from_int(
+    amc_service_t* dst_service,
+    const char* src_service_name
+);
+bool amc_service_has_message(amc_service_t* service);
+
 array_m* amc_services(void) {
     return _amc_services;
 }
@@ -339,28 +355,7 @@ static void _amc_message_add_to_delivery_queue(amc_service_t* dest_service, amc_
     // We're modifying some state of the destination service - hold a spinlock
     spinlock_acquire(&dest_service->spinlock);
 
-    if (dest_service->message_queue->size >= dest_service->message_queue->max_size - 32) {
-        if (!strncmp(message->source, "com.dangerous.memory_walker", AMC_MAX_SERVICE_NAME_LEN)) {
-            printf("Asking memory scanner to slow down...\n");
-            amc_flow_control_msg_t flow_control = {
-                .event = AMC_FLOW_CONTROL_QUEUE_FULL,
-            };
-            amc_message_send__from_core("com.dangerous.memory_walker", &flow_control, sizeof(amc_flow_control_msg_t));
-            _memory_scanner_is_waiting = true;
-        }
-    }
-
-    if (dest_service->message_queue->size >= dest_service->message_queue->max_size - 16) {
-        //spinlock_release(&dest_service->spinlock);
-        //return;
-        printf("Would exceed max size!\n");
-        _amc_print_inbox(dest_service);
-        printf("Task: 0x%08x machine state: 0x%08x\n", dest_service->task, dest_service->task->machine_state);
-        assert(0, "would exceed");
-    }
-
-    // And add the message to its inbox
-    array_m_insert(dest_service->message_queue, message);
+    amc_append_message_to_service_inbox(dest_service, message);
 
     // And unblock the task if it was waiting for a message
     if ((dest_service->task->blocked_info.status & AMC_AWAIT_MESSAGE) != 0) {
@@ -637,17 +632,6 @@ void amc_message_broadcast(amc_message_t* msg) {
 }
 
 static void _amc_message_deliver(amc_service_t* service, amc_message_t* message, amc_message_t** out) {
-    if (service->message_queue->size == 0 && !strncmp(service->name, "com.dangerous.memory_scan_viewer", AMC_MAX_SERVICE_NAME_LEN) && _memory_scanner_is_waiting) {
-        printf("Telling memory scanner it can speed up again...\n");
-        amc_flow_control_msg_t flow_control = {
-            .event = AMC_FLOW_CONTROL_QUEUE_READY,
-        };
-        amc_message_send__from_core("com.dangerous.memory_walker", &flow_control, sizeof(amc_flow_control_msg_t));
-    }
-
-    if (service->message_queue->size > 0 && service->message_queue->size % 50 == 0) {
-        //printf("%d AMC: Info [%d %s] inbox: %d\n", ms_since_boot(), service->task->id, service->name, service->message_queue->size);
-    }
     uint8_t* delivery_base = (uint8_t*)service->delivery_pool;
     uint32_t total_msg_size = message->len + sizeof(amc_message_t);
     memcpy(delivery_base, (uint8_t*)message, total_msg_size);
@@ -664,56 +648,34 @@ void _amc_message_await_from_services_ex(int source_service_count, const char** 
         // Need to priority boost for the case:
         // awm is awaiting a message and gets preempted during this loop
         // the mouse driver processes an interrupt and wants to deliver 
-        //  a message to awm
+        // a message to awm
         // deadlock, because the awm is still holding its own lock
         spinlock_acquire(&service->spinlock);
-        // Read messages in FIFO, from the array head to the tail
-        for (int i = 0; i < service->message_queue->size; i++) {
-            amc_message_t* queued_msg = array_m_lookup(service->message_queue, i);
 
-            bool source_service_satisfies_constraints = false;
-            if (source_services) {
-                for (int service_name_idx = 0; service_name_idx < source_service_count; service_name_idx++) {
-                    const char* source_service = source_services[service_name_idx];
-                    if (!strcmp(source_service, queued_msg->source)) {
-                        source_service_satisfies_constraints = true;
-                        break;
-                    }
-                }
-            }
-            else {
-                // // A NULL array of source services means "any service"
-                source_service_satisfies_constraints = true;
-            }
-
-            if (!source_service_satisfies_constraints) {
-                continue;
-            }
-
-            if (filter_to_u32_event != NULL) {
-                uint32_t filter_event = *filter_to_u32_event;
-                uint32_t* u32_buf = (uint32_t*)queued_msg->body;
-                if (u32_buf[0] != filter_event) {
-                    // Doesn't match event filter, continue
-                    continue;
-                }
-            }
-
+        amc_message_t* available_message_matching_criteria = amc_select_message_to_deliver(
+            service,
+            source_service_count,
+            source_services,
+            filter_to_u32_event
+        );
+        if (available_message_matching_criteria != NULL) {
+            //printf("%s Selected message from %s\n", service->name, available_message_matching_criteria->source);
             // Found a message that we're currently blocked for
             // Copy the message into the receiver's storage, and free the internal storage
-            array_m_remove(service->message_queue, i);
-            _amc_message_deliver(service, queued_msg, out);
+            _amc_message_deliver(service, available_message_matching_criteria, out);
             spinlock_release(&service->spinlock);
             return;
         }
-        // No message from a desired service is available
-        // Block until we receive another message (from any service)
-        // And release our lock for now
-        spinlock_release(&service->spinlock);
-        tasking_block_task(service->task, AMC_AWAIT_MESSAGE);
-
-        // We've unblocked, so we now have a new message to read
-        // Run the above loop again
+        else {
+            // No message matching the criteria is available
+            // Block until we receive another message (from any service)
+            // And release our lock for now
+            spinlock_release(&service->spinlock);
+            tasking_block_task(service->task, AMC_AWAIT_MESSAGE);
+            continue;
+            // We've unblocked, so we now have a new message to read
+            // Run the above loop again
+        }
     }
     assert(0, "Should never be reached");
 }
@@ -742,38 +704,19 @@ void amc_message_await_any(amc_message_t** out) {
 bool amc_has_message_from(const char* source_service) {
     amc_service_t* service = amc_service_of_active_task();
     spinlock_acquire(&service->spinlock);
-
-    for (int i = 0; i < service->message_queue->size; i++) {
-        amc_message_t* message = array_m_lookup(service->message_queue, i);
-        if (!strcmp(source_service, message->source)) {
-            spinlock_release(&service->spinlock);
-            return true;
-        }
-    }
+    bool ret = amc_has_message_from_int(service, source_service);
     spinlock_release(&service->spinlock);
-    return false;
-}
-
-bool amc_service_has_message(amc_service_t* service) {
-    return service->message_queue->size > 0;
+    return ret;
 }
 
 bool amc_has_message(void) {
     amc_service_t* service = amc_service_of_active_task();
-    return amc_service_has_message(service);
+    bool ret = amc_service_has_message(service);
+    return ret;
 }
 
 static void _amc_launch_realtek_8139() {
     Deprecated();
-    /*
-    const char* program_name = "realtek_8139_driver";
-    char* argv[] = {program_name, NULL};
-
-    initrd_fs_node_t* node = vfs_find_initrd_node_by_name(program_name);
-    uint32_t address = node->initrd_offset;
-	elf_load_buffer(program_name, argv, address, node->size, false);
-	panic("noreturn");
-    */
 }
 
 bool amc_launch_service(const char* service_name) {

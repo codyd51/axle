@@ -6,9 +6,11 @@
 #include <gfx/lib/gfx.h>
 #include <kernel/boot_info.h>
 #include <kernel/address_space.h>
+#include <kernel/util/spinlock/spinlock.h>
 #include <kernel/smp.h>
 
-static spinlock_t _vmm_global_spinlock = {0};
+static spinlock_t _vmm_global_spinlock = {.name = "[VMM global spinlock]"};
+
 static vas_state_t* _kernel_vas_state = NULL;
 
 /*
@@ -657,8 +659,6 @@ void vmm_init(uint64_t bootloader_pml4_addr) {
     printf("[VMM] init\n");
 
     interrupt_setup_callback(INT_VECTOR_INT14, (int_callback_t)_handle_page_fault);
-
-    _vmm_global_spinlock.name = "[VMM global spinlock]";
 
     boot_info_t* boot_info = boot_info_get();
 
