@@ -16,6 +16,8 @@ use alloc::string::ToString;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::RefCell;
+use dock_messages::AWM_DOCK_HEIGHT;
+use menu_bar_messages::AWM_MENU_BAR_HEIGHT;
 
 #[derive(Debug, Copy, Clone)]
 enum ShortcutMouseInteractionState {
@@ -320,7 +322,11 @@ impl DesktopShortcutsState {
             .step_by(grid_slot_size.width as usize)
             .enumerate()
         {
-            for (y_idx, y) in (0..(desktop_size.height - grid_slot_size.height))
+            for (y_idx, y) in (AWM_MENU_BAR_HEIGHT
+                ..(desktop_size.height
+                    - grid_slot_size.height
+                    - AWM_MENU_BAR_HEIGHT
+                    - AWM_DOCK_HEIGHT))
                 .step_by(grid_slot_size.height as usize)
                 .enumerate()
             {

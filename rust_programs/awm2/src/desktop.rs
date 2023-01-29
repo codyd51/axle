@@ -31,6 +31,7 @@ use file_manager_messages::{
     str_from_u8_nul_utf8_unchecked, ReadFile, ReadFileResponse, FILE_SERVER_SERVICE_NAME,
 };
 use kb_driver_messages::{KeyEventType, KeyIdentifier, KeyboardPacket};
+use menu_bar_messages::AWM_MENU_BAR_HEIGHT;
 use preferences_messages::PreferencesUpdated;
 use rand::prelude::*;
 
@@ -55,7 +56,10 @@ use crate::events::{
 use crate::keyboard::{KeyboardModifier, KeyboardState};
 use crate::mouse::{MouseInteractionState, MouseState, MouseStateChange};
 use crate::shortcuts::{DesktopShortcut, DesktopShortcutsState};
-use crate::utils::{awm_service_is_dock, get_timestamp, random_color, random_color_with_rng};
+use crate::utils::{
+    awm_service_is_dock, awm_service_is_menu_bar, get_timestamp, random_color,
+    random_color_with_rng,
+};
 use crate::window::{
     SharedMemoryLayer, TitleBarButtonsHoverState, Window, WindowDecorationImages, WindowParams,
 };
@@ -634,14 +638,22 @@ impl Desktop {
 
         let content_size = Size::from(&request.size);
 
-        let window_params = match awm_service_is_dock(&source) {
-            true => WindowParams::new(
+        let window_params = if awm_service_is_dock(&source) {
+            WindowParams::new(
                 false,
                 false,
                 false,
                 DesktopElementZIndexCategory::FloatingWindow,
-            ),
-            false => WindowParams::default(),
+            )
+        } else if awm_service_is_menu_bar(&source) {
+            WindowParams::new(
+                false,
+                false,
+                false,
+                DesktopElementZIndexCategory::FloatingWindow,
+            )
+        } else {
+            WindowParams::default()
         };
 
         // Generally, windows are larger than the content view to account for the title bar
@@ -726,6 +738,17 @@ impl Desktop {
                     Size::new(desktop_size.width, dock_height),
                 );
                 (initial_frame, final_frame)
+            } else if awm_service_is_menu_bar(&source) {
+                let menu_bar_height = AWM_MENU_BAR_HEIGHT;
+                let initial_frame = Some(Rect::from_parts(
+                    Point::new(0, -menu_bar_height),
+                    Size::new(desktop_size.width, menu_bar_height),
+                ));
+                let final_frame = Rect::from_parts(
+                    Point::new(0, 0),
+                    Size::new(desktop_size.width, menu_bar_height),
+                );
+                (initial_frame, final_frame)
             } else {
                 (None, window_frame)
             };
@@ -738,8 +761,8 @@ impl Desktop {
             )));
         }
 
-        // If this is a window other than the dock, inform the dock
-        if !awm_service_is_dock(&source) {
+        // If this is a window other than the dock or menu bar, inform the dock
+        if !awm_service_is_dock(&source) && !awm_service_is_menu_bar(&source) {
             inform_dock_window_created(new_window.id(), &source)
         }
 
@@ -1251,8 +1274,8 @@ impl Desktop {
         {
             // We're in the middle of dragging a window
             let prev_frame = dragged_window.frame();
-            // Bind the window to the screen size
-            let new_frame = self.bind_rect_to_screen_size(
+            // Bind the window to the area that windows can be placed within
+            let new_frame = self.bind_rect_to_windows_region(
                 dragged_window
                     .frame()
                     .replace_origin(dragged_window.frame().origin + rel_shift),
@@ -1272,7 +1295,7 @@ impl Desktop {
         {
             // We're in the middle of resizing a window
             let old_frame = resized_window.frame();
-            let mut new_frame = self.bind_rect_to_screen_size(
+            let mut new_frame = self.bind_rect_to_windows_region(
                 old_frame.replace_size(old_frame.size + Size::new(rel_shift.x, rel_shift.y)),
             );
             // Don't let the window get too small
@@ -1437,6 +1460,31 @@ impl Desktop {
         out
     }
 
+    fn bind_rect_to_windows_region(&self, r: Rect) -> Rect {
+        let mut out = r;
+        let desktop_size = self.desktop_frame.size;
+        out.origin.x = max(r.origin.x, 0_isize);
+        out.origin.y = max(r.origin.y, AWM_MENU_BAR_HEIGHT);
+        if out.max_x() > desktop_size.width {
+            let overhang = out.max_x() - desktop_size.width;
+            if out.origin.x >= overhang {
+                out.origin.x -= overhang;
+            } else {
+                out.size.width -= overhang;
+            }
+        }
+        if out.max_y() > desktop_size.height - AWM_DOCK_HEIGHT {
+            let overhang = out.max_y() - (desktop_size.height - AWM_DOCK_HEIGHT);
+            if out.origin.y >= overhang {
+                out.origin.y -= overhang;
+            } else {
+                out.size.height -= overhang;
+            }
+        }
+
+        out
+    }
+
     pub fn move_window_to_top(&mut self, window: &Rc<Window>) {
         let window_idx = self
             .windows
@@ -1449,22 +1497,6 @@ impl Desktop {
     }
 
     pub fn handle_keyboard_event(&mut self, packet: &KeyboardPacket) {
-        //println!("Got keyboard packet {packet:?}");
-        /*
-        if packet.key == 97 && packet.event_type == KeyEventType::Released {
-            match self.render_strategy {
-                RenderStrategy::TreeWalk => {
-                    println!("Switching to compositing");
-                    self.render_strategy = RenderStrategy::Composite;
-                }
-                RenderStrategy::Composite => {
-                    println!("Switching to tree walking");
-                    self.render_strategy = RenderStrategy::TreeWalk;
-                }
-            }
-        }
-        */
-
         // Update held modifiers state
         if let Ok(key_identifier) = KeyIdentifier::try_from(packet.key) {
             let modifier_key = match key_identifier {
@@ -1479,23 +1511,16 @@ impl Desktop {
             if let Some(modifier_key) = modifier_key {
                 match packet.event_type {
                     KeyEventType::Pressed => {
-                        println!("Inserting {modifier_key:?}");
+                        //println!("Inserting {modifier_key:?}");
                         self.keyboard_state.pressed_modifiers.insert(modifier_key);
                     }
                     KeyEventType::Released => {
-                        println!("Removing {modifier_key:?}");
+                        //println!("Removing {modifier_key:?}");
                         self.keyboard_state.pressed_modifiers.remove(&modifier_key);
                     }
                 }
             }
         }
-        /*
-        println!("Pressed modifiers: ");
-        for modifier in self.keyboard_state.pressed_modifiers.iter() {
-            println!("\t{modifier:?}");
-        }
-        */
-
         // Is this a chord?
         if packet.event_type == KeyEventType::Pressed && self.keyboard_state.is_control_held() {
             //println!("Control is held, checking {}\n", packet.key);

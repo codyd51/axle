@@ -493,12 +493,12 @@ impl Rect {
         */
         /*
         if rhs.min_x() < self.min_x() {
-            width -= self.min_x() - rhs.min_x();
-            origin.x = 0;
+            width -= (self.min_x() - rhs.min_x()) * 2;
+            origin.x = self.min_x();
         }
         if rhs.min_y() < self.min_y() {
-            height -= self.min_y() - rhs.min_y();
-            origin.y = 0;
+            height -= (self.min_y() - rhs.min_y()) * 2;
+            origin.y = self.min_y();
         }
         */
 

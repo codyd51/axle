@@ -265,7 +265,6 @@ impl LikeLayerSlice for LayerSlice {
 
             dest_row_start += dest_backing_layer_size.width * bpp;
             src_row_start += src_backing_layer_size.width * bpp;
-            //let dst_pixels_in_row =
         }
     }
 
