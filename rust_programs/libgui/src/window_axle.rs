@@ -4,11 +4,13 @@ use alloc::{rc::Weak, vec::Vec};
 
 use core::cell::RefCell;
 
+use axle_rt::core_commands::{AmcSleepUntilDelayOrMessage, AMC_CORE_SERVICE_NAME};
+use axle_rt::libc::ms_since_boot;
 use axle_rt::AmcMessage;
-use axle_rt::{amc_message_await__u32_event, printf};
+use axle_rt::{amc_message_await__u32_event, printf, println};
 
 use axle_rt::ExpectsEventField;
-use axle_rt::{amc_message_await_untyped, amc_message_send};
+use axle_rt::{amc_has_message, amc_message_await_untyped, amc_message_send};
 
 use agx_definitions::{
     Drawable, Layer, LikeLayerSlice, NestedLayerSlice, Point, Rect, SingleFramebufferLayer, Size,
@@ -21,6 +23,29 @@ use awm_messages::{
 use crate::ui_elements::*;
 use crate::window_events::*;
 
+pub enum TimerMode {
+    OneShot,
+    Periodic,
+}
+
+pub struct Timer {
+    fire_date: usize,
+    duration: usize,
+    mode: TimerMode,
+    cb: Box<dyn Fn(&AwmWindow)>,
+}
+
+impl Timer {
+    pub fn new<F: 'static + Fn(&AwmWindow)>(delay_ms: usize, mode: TimerMode, cb: F) -> Self {
+        Self {
+            fire_date: unsafe { ms_since_boot() } + delay_ms,
+            duration: delay_ms,
+            mode,
+            cb: Box::new(cb),
+        }
+    }
+}
+
 pub struct AwmWindow {
     pub layer: RefCell<SingleFramebufferLayer>,
     pub current_size: RefCell<Size>,
@@ -29,6 +54,8 @@ pub struct AwmWindow {
     ui_elements: RefCell<Vec<Rc<dyn UIElement>>>,
     elements_containing_mouse: RefCell<Vec<Rc<dyn UIElement>>>,
     amc_message_cb: RefCell<Option<Box<dyn Fn(&Self, AmcMessage<[u8]>)>>>,
+
+    timers: RefCell<Vec<Timer>>,
 }
 
 impl NestedLayerSlice for AwmWindow {
@@ -92,6 +119,7 @@ impl AwmWindow {
             ui_elements: RefCell::new(vec![]),
             elements_containing_mouse: RefCell::new(vec![]),
             amc_message_cb: RefCell::new(None),
+            timers: RefCell::new(vec![]),
         }
     }
 
@@ -200,7 +228,7 @@ impl AwmWindow {
                 elem.handle_mouse_entered();
                 elems_containing_mouse.push(Rc::clone(elem));
                 // TODO(PT): Remove
-                self.commit();
+                //self.commit();
             }
         }
 
@@ -219,6 +247,7 @@ impl AwmWindow {
         //self.draw();
         // TODO(PT): Remove
         self.commit();
+        //self.commit_partial();
     }
 
     fn mouse_dragged(&self, _event: &MouseDragged) {
@@ -250,6 +279,7 @@ impl AwmWindow {
 
         self.draw();
         self.commit();
+        self.commit_partial();
     }
 
     fn mouse_left_click_up(&self, event: &MouseLeftClickEnded) {
@@ -320,6 +350,15 @@ impl AwmWindow {
 
     unsafe fn body_as_type_unchecked<T: AwmWindowEvent>(body: &[u8]) -> &T {
         &*(body.as_ptr() as *const T)
+    }
+
+    fn process_events(&self, allow_blocking_until_next_message: bool) {
+        loop {
+            if !allow_blocking_until_next_message && !amc_has_message(None) {
+                break;
+            }
+            self.await_next_event();
+        }
     }
 
     pub fn await_next_event(&self) {
@@ -422,8 +461,64 @@ impl AwmWindow {
         self.commit();
 
         loop {
-            self.await_next_event();
+            self.dispatch_and_prime_timers();
+            self.sleep_until_message_or_next_timer_deadline();
+            self.process_events(self.timers.borrow().len() == 0);
         }
+    }
+
+    fn sleep_until_message_or_next_timer_deadline(&self) {
+        let timers = self.timers.borrow();
+        let next_timer = timers
+            .iter()
+            .min_by(|t1, t2| t1.fire_date.cmp(&t2.fire_date));
+        if next_timer.is_none() {
+            // Blocking for the next message will be handled later in the event loop
+            return;
+        }
+        let next_timer = next_timer.unwrap();
+        let now = unsafe { ms_since_boot() };
+        if now >= next_timer.fire_date {
+            //println!("Skipping sleep because deadline is already here");
+            return;
+        }
+        let time_to_wait = next_timer.fire_date - now;
+        //println!("Sleeping {time_to_wait}ms until timer deadline or amc message");
+        amc_message_send(
+            AMC_CORE_SERVICE_NAME,
+            AmcSleepUntilDelayOrMessage::new(time_to_wait as u32),
+        );
+    }
+
+    fn dispatch_and_prime_timers(&self) {
+        // Check if any timers are ready to fire
+        let now = unsafe { ms_since_boot() };
+        let mut timer_indexes_to_drop = vec![];
+        let mut timers = self.timers.borrow_mut();
+        for (i, timer) in timers.iter_mut().enumerate() {
+            if now >= timer.fire_date {
+                //println!("Dispatching timer");
+                (timer.cb)(self);
+
+                match timer.mode {
+                    TimerMode::OneShot => {
+                        timer_indexes_to_drop.push(i);
+                    }
+                    TimerMode::Periodic => {
+                        timer.fire_date = now + timer.duration;
+                        //println!("Reset timer fire date to {}", timer.fire_date)
+                    }
+                }
+            }
+        }
+        // Iterate backwards as indexes will change if we removed front-to-back
+        for idx in timer_indexes_to_drop.iter().rev() {
+            timers.remove(*idx);
+        }
+    }
+
+    pub fn add_timer(&self, timer: Timer) {
+        self.timers.borrow_mut().push(timer);
     }
 
     pub fn add_message_handler<F: 'static + Fn(&Self, AmcMessage<[u8]>)>(
