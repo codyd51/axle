@@ -38,6 +38,11 @@ void ps2_keyboard_enable(void) {
 
 	// Ask the PS/2 keyboard to start sending events
 	ps2_write_device(0, PS2_DEV_ENABLE_SCAN);
+	ps2_expect_ack();
+
+	// Turn on all 3 LEDs
+	ps2_write_device(0, 0xED);
+	ps2_write_device(0, 0b110);
 	// TODO(PT): Is this ack actually sent as an interrupt?
 	ps2_expect_ack();
 }
