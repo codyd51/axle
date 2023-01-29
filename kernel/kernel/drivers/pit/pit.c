@@ -24,6 +24,9 @@ static int tick_callback(register_state_t* regs) {
 	// might get interrupted by another tick while the AMC spinlock is held
 	amc_wake_sleeping_services();
 	apic_signal_end_of_interrupt(regs->int_no);
+    if (ms_timestamp % 10000 == 0) {
+        mlfq_print();
+    }
 	//task_switch_if_quantum_expired();
 	return 0;
 }
