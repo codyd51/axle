@@ -8,7 +8,7 @@
 #define MLFQ_QUEUE_COUNT 4
 #define MLFQ_BOOST_INTERVAL 600
 
-const int _mlfq_quantums[MLFQ_QUEUE_COUNT] = {10, 20, 30, 40};
+const int _mlfq_quantums[MLFQ_QUEUE_COUNT] = {20, 30, 40, 60};
 
 typedef struct mlfq_ent {
     task_small_t* task;

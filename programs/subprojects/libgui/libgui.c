@@ -499,11 +499,15 @@ void gui_run_event_loop_pass(bool prevent_blocking, bool* did_exit) {
 	_process_amc_messages(_g_application, should_block, did_exit);
 	// Dispatch any ready timers
 	gui_dispatch_ready_timers(_g_application);
-	// Redraw any dirty elements
-	for (int32_t i = 0; i < _g_application->windows->size; i++) {
-		gui_window_t* window = array_lookup(_g_application->windows, i);
-		_redraw_dirty_elems(window);
-	}
+    gui_redraw();
+}
+
+void gui_redraw(void) {
+    // Redraw any dirty elements
+    for (int32_t i = 0; i < _g_application->windows->size; i++) {
+        gui_window_t* window = array_lookup(_g_application->windows, i);
+        _redraw_dirty_elems(window);
+    }
 }
 
 void gui_enter_event_loop(void) {
