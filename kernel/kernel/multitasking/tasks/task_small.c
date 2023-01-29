@@ -40,8 +40,11 @@ static void _task_remove_from_scheduler(task_small_t* task);
 void ap_spin1(void);
 void ap_spin2(void);
 
+void scheduler_drop_task(task_small_t* task);
+
 task_small_t* _tasking_get_linked_list_head(void) {
     // TODO(PT): Deprecate
+    Deprecated();
     return _task_list_head;
 }
 
@@ -112,7 +115,7 @@ void task_die(uintptr_t exit_code) {
         // TODO(PT): Looks like this may have been accidentally deleted?
     }
 
-    task_small_t* buf[1] = {tasking_get_current_task()};
+    task_small_t* buf[1] = {current_task};
     amc_message_send__from_core("com.axle.reaper", &buf, sizeof(buf));
     // Set ourselves to zombie _after_ telling reaper about us
     // Even if we're pre-empted in between switching to zombie and informing reaper,
@@ -170,6 +173,7 @@ task_small_t* _thread_create(void* entry_point, uintptr_t arg1, uintptr_t arg2, 
     new_task->id = next_pid++;
     new_task->blocked_info.status = RUNNABLE;
     new_task->cpu_id = cpu_id();
+    new_task->lock.name = "[Task lock]";
 
     uint32_t stack_size = 0x2000;
     char* stack = kcalloc(1, stack_size);
@@ -239,12 +243,7 @@ static void _task_make_schedulable(task_small_t* task) {
 
 static void _task_remove_from_scheduler(task_small_t* task) {
     mlfq_delete_task(task);
-}
-
-spinlock_t* choose_task_lock(void) {
-    static spinlock_t choose_task_spinlock = {0};
-    choose_task_spinlock.name = "[Sched choose task]";
-    return &choose_task_spinlock;
+    scheduler_drop_task(task);
 }
 
 task_small_t* task_spawn__with_args(const char* task_name, void* entry_point, uintptr_t arg1, uintptr_t arg2, uintptr_t arg3) {
@@ -283,7 +282,6 @@ static void _migrate_task_to_current_cpu_and_load_vas(task_small_t* task) {
     vas_state_t* task_vas = task->vas_state;
     pml4e_t* task_pml4_virt = (pml4e_t*)PMA_TO_VMA(task_vas->pml4_phys);
 
-    //spinlock_acquire(choose_task_lock());
     // TODO(PT): Compute instead of iterating
     for (int i = 256; i < 512; i++) {
         uintptr_t pml4e_base = (uintptr_t)0xFFFF << 48 | ((uintptr_t)i << 39);
@@ -292,7 +290,6 @@ static void _migrate_task_to_current_cpu_and_load_vas(task_small_t* task) {
             break;
         }
     }
-    //spinlock_release(choose_task_lock());
 
     vas_load_state(task->vas_state);
 }
@@ -367,13 +364,14 @@ void task_switch(void) {
     task_small_t* next_task = 0;
     uint32_t quantum = 0;
 
-    spinlock_acquire(choose_task_lock());
+    static spinlock_t select_task_lock = {.name = "[Sched select task]"};
+    spinlock_acquire(&select_task_lock);
     mlfq_choose_task(&next_task, &quantum);
     // PT: Hack to ensure this task isn't selected by another CPU
     if (next_task) {
         next_task->is_currently_executing = true;
     }
-    spinlock_release(choose_task_lock());
+    spinlock_release(&select_task_lock);
 
     if (!next_task) {
         // Fallback to the idle task if nothing else is ready to run
@@ -382,6 +380,7 @@ void task_switch(void) {
         next_task = cpu_idle_task();
         quantum = 5;
     }
+    quantum = 25;
 
     // Set up the scheduler timer
     // But note that we won't be able to do this in very early boot

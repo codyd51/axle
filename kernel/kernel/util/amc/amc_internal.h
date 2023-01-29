@@ -20,7 +20,6 @@ typedef struct amc_service {
     char* name;
     task_small_t* task;
 	// Inbox of IPC messages awaiting processing
-	//array_l* message_queue;
 	array_m* message_queue;
     
     // Spinlock around interacting with a service

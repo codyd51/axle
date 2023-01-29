@@ -252,7 +252,7 @@ void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf
 	//asm("cli");
 	// TODO(PT): We should store the kmalloc()'d stack in the task structure so that we can free() it once the task dies.
 	//printf("Set elf->machine_state = 0x%08x\n", stack_top);
-    spinlock_acquire(choose_task_lock());
+    spinlock_acquire(&current_task->lock);
     // TODO(PT): Per-task lock?
 	current_task->machine_state = (task_context_t*)stack_top;
     current_task->sbrk_base = prog_break;
@@ -261,7 +261,7 @@ void elf_load_buffer(char* program_name, char** argv, uint8_t* buf, uint32_t buf
 	current_task->sbrk_current_page_head = (current_task->sbrk_current_break + PAGE_SIZE) & PAGING_PAGE_MASK;
 
 	task_set_name(current_task, "launched_elf");
-    spinlock_release(choose_task_lock());
+    spinlock_release(&current_task->lock);
 
 	task_inform_supervisor__process_start(entry_point);
 

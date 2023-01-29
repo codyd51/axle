@@ -82,6 +82,7 @@ typedef struct task_small {
 
     uintptr_t cpu_id;
     bool is_currently_executing;
+    spinlock_t lock;
 } task_small_t;
 
 void tasking_init_small();
