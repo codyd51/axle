@@ -18,8 +18,11 @@ void _message_handler(amc_message_t* message) {
 	if (strncmp(message->source, "com.dangerous.memory_walker", AMC_MAX_SERVICE_NAME_LEN)) {
 		return;
 	}
+    static int msg_count = 0;
+    msg_count++;
 
 	char* string = (char*)message->body;
+    //printf("%s\n", string);
 	Color text_color = color_make(40, 40, 40);
 	gui_text_view_puts(_g_text_view, string, text_color);
 	gui_text_view_putchar(_g_text_view, '\n', text_color);
@@ -36,6 +39,12 @@ void _message_handler(amc_message_t* message) {
 	*/
 
 	_g_text_view->content_layer->scroll_layer.scroll_offset.y = (_g_text_view->content_layer->scroll_layer.max_y - _g_text_view->content_layer_frame.size.height + _g_text_view->font_size.height);
+
+    if (msg_count%100==0) {
+        // Ask awm to update the window
+        gui_redraw();
+        amc_msg_u32_1__send("com.axle.awm", 801);
+    }
 }
 
 int main(int argc, char** argv) {

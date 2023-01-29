@@ -147,11 +147,16 @@ static void _upload_dump_button_clicked(gui_view_t* view) {
 }
 
 uint64_t scan_memory(char* memory_window, pte_t* page_table, uint64_t chunk_base, uint64_t memory_chunk_size) {
+    static bool finished_current_chunk = true;
+    if (!finished_current_chunk) {
+        printf("Skipping scan_memory because we're still working on the last chunk\n");
+        return;
+    }
 	uint64_t string_count = 0;
 	for (int frame_base = chunk_base; frame_base < chunk_base + memory_chunk_size; frame_base += PAGE_SIZE) {
-
 		// Allow the UI to refresh every few MB scanned
 		if (frame_base % (1024 * 1024 * 1) == 0) {
+            printf("Running event loop pass\n");
 			// TODO(PT): This is unsafe to call from a timer callback
 			bool did_exit;
 			//printf("Running event-loop pass...\n");
@@ -201,7 +206,7 @@ uint64_t scan_memory(char* memory_window, pte_t* page_table, uint64_t chunk_base
 						if (!filter || (filter && (!strncmp("MyS3", start, 4) || !strncmp("This", start, 4)))) {
 							string_count += 1;
 							if (string_count % 1000 == 0) {
-								usleep(80);
+								usleep(800);
 							}
 
 							// 1 extra byte for NULL terminator
@@ -215,12 +220,14 @@ uint64_t scan_memory(char* memory_window, pte_t* page_table, uint64_t chunk_base
 							}
 							uint64_t addr = frame_base + j;
 							//printf("0x%016lx: %s\n", addr, string);
-							//printf("%s\n", string);
+							printf("%s\n", string);
 							// Add 1 so the NULL terminator gets sent too
 							//amc_message_send("com.dangerous.memory_scan_viewer", memory_window + string_start_idx, min(string_len, 20));
 							amc_message_send("com.dangerous.memory_scan_viewer", string, string_len+1);
+                            free(string);
 
 							// Wait if necessary
+                            /*
 							bool waiting = false;
 							if (amc_has_message_from(AXLE_CORE_SERVICE_NAME)) {
 								amc_message_t* msg;
@@ -242,7 +249,7 @@ uint64_t scan_memory(char* memory_window, pte_t* page_table, uint64_t chunk_base
 									printf("Unexpected message from core %d\n", flow_control->event);
 								}
 							}
-							free(string);
+                            */
 						}
 					}
 
@@ -257,6 +264,7 @@ uint64_t scan_memory(char* memory_window, pte_t* page_table, uint64_t chunk_base
 
 		// TODO(PT): Remember to run the event loop pass so the UI element shows up!
 	}
+    finished_current_chunk = true;
 	return string_count;
 }
 
