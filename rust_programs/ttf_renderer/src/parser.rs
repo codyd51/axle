@@ -1,4 +1,5 @@
 use agx_definitions::{Point, Rect, Size};
+use num_traits::PrimInt;
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 use std::mem;
@@ -9,14 +10,33 @@ fn fixed_word_to_i32(fixed: u32) -> i32 {
     fixed as i32 / (1 << 16)
 }
 
+#[derive(Debug, Copy, Clone)]
+struct BigEndianValue<T: PrimInt>(T);
+struct WrappedValue<T: PrimInt>(T);
+
+impl<T: PrimInt> BigEndianValue<T> {
+    fn into_value(self) -> T {
+        let wrapped_value: WrappedValue<T> = self.into();
+        wrapped_value.0
+    }
+}
+
+impl<T: PrimInt> From<BigEndianValue<T>> for WrappedValue<T> {
+    fn from(value: BigEndianValue<T>) -> WrappedValue<T> {
+        WrappedValue {
+            0: value.0.swap_bytes() as T,
+        }
+    }
+}
+
 #[repr(C, packed)]
 #[derive(Debug, Copy, Clone)]
 struct OffsetSubtableRaw {
-    scalar_type: u32,
-    num_tables: u16,
-    search_range: u16,
-    entry_selector: u16,
-    range_shift: u16,
+    scalar_type: BigEndianValue<u32>,
+    num_tables: BigEndianValue<u16>,
+    search_range: BigEndianValue<u16>,
+    entry_selector: BigEndianValue<u16>,
+    range_shift: BigEndianValue<u16>,
 }
 
 impl TransmuteFontBufInPlace for OffsetSubtableRaw {}
@@ -35,11 +55,12 @@ impl OffsetSubtable {
         // Swaps BE to LE
         // TODO(PT): Only swap to LE if we're not running on BE
         Self {
-            scalar_type: raw.scalar_type.swap_bytes(),
-            num_tables: raw.num_tables.swap_bytes(),
-            search_range: raw.search_range.swap_bytes(),
-            entry_selector: raw.entry_selector.swap_bytes(),
-            range_shift: raw.range_shift.swap_bytes(),
+            //scalar_type: <BigEndianValue<_> as Into<WrappedValue<_>>>::into(raw.scalar_type).0,
+            scalar_type: raw.scalar_type.into_value(),
+            num_tables: raw.num_tables.into_value(),
+            search_range: raw.search_range.into_value(),
+            entry_selector: raw.entry_selector.into_value(),
+            range_shift: raw.range_shift.into_value(),
         }
     }
 }
@@ -48,9 +69,9 @@ impl OffsetSubtable {
 #[derive(Debug, Copy, Clone)]
 struct TableRaw {
     tag: [u8; 4],
-    checksum: u32,
-    offset: u32,
-    length: u32,
+    checksum: BigEndianValue<u32>,
+    offset: BigEndianValue<u32>,
+    length: BigEndianValue<u32>,
 }
 
 impl TransmuteFontBufInPlace for TableRaw {}
@@ -68,9 +89,9 @@ impl<'a> Table<'a> {
         let tag_as_str = core::str::from_utf8(&raw.tag).unwrap();
         Self {
             tag: tag_as_str,
-            checksum: raw.checksum.swap_bytes(),
-            offset: raw.offset.swap_bytes(),
-            length: raw.length.swap_bytes(),
+            checksum: raw.checksum.into_value(),
+            offset: raw.offset.into_value(),
+            length: raw.length.into_value(),
         }
     }
 }
@@ -90,23 +111,23 @@ impl<'a> Display for Table<'a> {
 #[repr(C, packed)]
 #[derive(Debug, Copy, Clone)]
 struct HeadTableRaw {
-    version: u32,
-    font_revision: u32,
-    checksum_adjustment: u32,
-    magic: u32,
-    flags: u16,
-    units_per_em: u16,
-    date_created: u64,
-    date_modified: u64,
-    min_x: i16,
-    min_y: i16,
-    max_x: i16,
-    max_y: i16,
-    mac_style: u16,
-    lowest_rec_ppem: u16,
-    font_direction_hint: i16,
-    index_to_loc_format: i16,
-    glyph_data_format: i16,
+    version: BigEndianValue<u32>,
+    font_revision: BigEndianValue<u32>,
+    checksum_adjustment: BigEndianValue<u32>,
+    magic: BigEndianValue<u32>,
+    flags: BigEndianValue<u16>,
+    units_per_em: BigEndianValue<u16>,
+    date_created: BigEndianValue<u64>,
+    date_modified: BigEndianValue<u64>,
+    min_x: BigEndianValue<i16>,
+    min_y: BigEndianValue<i16>,
+    max_x: BigEndianValue<i16>,
+    max_y: BigEndianValue<i16>,
+    mac_style: BigEndianValue<u16>,
+    lowest_rec_ppem: BigEndianValue<u16>,
+    font_direction_hint: BigEndianValue<i16>,
+    index_to_loc_format: BigEndianValue<i16>,
+    glyph_data_format: BigEndianValue<i16>,
 }
 
 impl TransmuteFontBufInPlace for HeadTableRaw {}
@@ -132,35 +153,31 @@ struct HeadTable {
 impl HeadTable {
     // PT: Defined by the spec §Table 22
     const MAGIC: u32 = 0x5f0f3cf5;
+
     fn new(raw: &HeadTableRaw) -> Self {
         let glyph_bounding_box_origin =
-            Point::new(raw.min_x.swap_bytes() as _, raw.min_y.swap_bytes() as _);
-        println!(
-            "Glyph bounding box origin {glyph_bounding_box_origin} max {} {}",
-            raw.max_x.swap_bytes(),
-            raw.max_y.swap_bytes()
-        );
+            Point::new(raw.min_x.into_value() as _, raw.min_y.into_value() as _);
         let ret = Self {
-            version: fixed_word_to_i32(raw.version.swap_bytes()),
-            font_revision: fixed_word_to_i32(raw.font_revision.swap_bytes()),
-            checksum_adjustment: raw.checksum_adjustment.swap_bytes(),
-            magic: raw.magic.swap_bytes(),
-            flags: raw.flags.swap_bytes(),
-            units_per_em: raw.units_per_em.swap_bytes(),
-            date_created: raw.date_created.swap_bytes(),
-            date_modified: raw.date_modified.swap_bytes(),
+            version: fixed_word_to_i32(raw.version.into_value()),
+            font_revision: fixed_word_to_i32(raw.font_revision.into_value()),
+            checksum_adjustment: raw.checksum_adjustment.into_value(),
+            magic: raw.magic.into_value(),
+            flags: raw.flags.into_value(),
+            units_per_em: raw.units_per_em.into_value(),
+            date_created: raw.date_created.into_value(),
+            date_modified: raw.date_modified.into_value(),
             glyph_bounding_box: Rect::from_parts(
                 glyph_bounding_box_origin,
                 Size::new(
-                    isize::abs((raw.max_x.swap_bytes() as isize) - glyph_bounding_box_origin.x),
-                    isize::abs((raw.max_y.swap_bytes() as isize) - glyph_bounding_box_origin.y),
+                    isize::abs((raw.max_x.into_value() as isize) - glyph_bounding_box_origin.x),
+                    isize::abs((raw.max_y.into_value() as isize) - glyph_bounding_box_origin.y),
                 ),
             ),
-            mac_style: raw.mac_style.swap_bytes(),
-            lowest_rec_ppem: raw.lowest_rec_ppem.swap_bytes(),
-            font_direction_hint: raw.font_direction_hint.swap_bytes(),
-            index_to_loc_format: raw.index_to_loc_format.swap_bytes(),
-            glyph_data_format: raw.glyph_data_format.swap_bytes(),
+            mac_style: raw.mac_style.into_value(),
+            lowest_rec_ppem: raw.lowest_rec_ppem.into_value(),
+            font_direction_hint: raw.font_direction_hint.into_value(),
+            index_to_loc_format: raw.index_to_loc_format.into_value(),
+            glyph_data_format: raw.glyph_data_format.into_value(),
         };
         assert_eq!(ret.magic, Self::MAGIC);
         ret
