@@ -30,6 +30,7 @@ members = [
     "dock_messages",
     "menu_bar",
     "menu_bar_messages",
+    "ttf_renderer",
 ]
 
 exclude = [

@@ -1,0 +1,25 @@
+[package]
+name = "ttf_renderer"
+version = "0.1.0"
+edition = "2021"
+resolver = "2"
+
+[lib]
+name = "ttf_renderer"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ttf_renderer"
+path = "src/main.rs"
+
+[features]
+default = []
+run_with_std = ["pixels", "winit"]
+
+[dependencies]
+axle_rt = {path = "../axle_rt" }
+axle_rt_derive = {path = "../axle_rt_derive" }
+agx_definitions = {path = "../agx_definitions"}
+# These dependencies are only enabled in use_std mode
+pixels = { version = "0.11.0", optional = true }
+winit = { version = "0.27.5", optional = true }
