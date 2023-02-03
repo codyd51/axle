@@ -2247,6 +2247,8 @@ dependencies = [
  "agx_definitions",
  "axle_rt",
  "axle_rt_derive",
+ "libgui",
+ "libgui_derive",
  "num-traits",
  "pixels 0.11.0",
  "winit",
