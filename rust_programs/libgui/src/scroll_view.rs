@@ -152,7 +152,7 @@ struct TileLayer {
 
 impl TileLayer {
     fn new(frame: Rect) -> Self {
-        println!("TileLayer.new({frame})");
+        //println!("TileLayer.new({frame})");
         Self {
             frame,
             inner: RefCell::new(SingleFramebufferLayer::new(frame.size)),
@@ -588,7 +588,11 @@ impl ScrollView {
         let view = Rc::new(View::new(Color::new(100, 100, 100), sizer));
         //view.set_border_enabled(false);
 
-        Rc::new(Self { view, layer: layer })
+        Rc::new(Self { view, layer })
+    }
+
+    pub fn add_component(self: Rc<Self>, elem: Rc<dyn UIElement>) {
+        Rc::clone(&self.view).add_component(elem)
     }
 }
 
@@ -597,7 +601,7 @@ impl Bordered for ScrollView {
         self.view.border_insets()
     }
 
-    fn draw_inner_content(&self, _outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
         //println!("ScrollView.draw_inner_content({outer_frame}, {onto}");
         // We have a different layer from our parent, so need to exclude the border insets here
         /*
@@ -673,7 +677,7 @@ impl UIElement for ScrollView {
     }
 
     fn handle_mouse_scrolled(&self, _mouse_point: Point, delta_z: isize) {
-        //println!("ScrollView.handle_mouse_scrolled({delta_z})");
+        println!("ScrollView.handle_mouse_scrolled({delta_z})");
         let mut scroll_offset = self.layer.scroll_offset();
         scroll_offset.y += delta_z * 20;
         self.layer.set_scroll_offset(scroll_offset);
