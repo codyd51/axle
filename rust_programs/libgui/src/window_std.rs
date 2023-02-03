@@ -233,7 +233,8 @@ impl LikeLayerSlice for PixelLayerSlice {
     }
 
     fn drain_damages(&self) -> Vec<Rect> {
-        todo!()
+        vec![]
+        //todo!()
     }
 }
 
@@ -259,6 +260,7 @@ impl PixelLayer {
                 .build(&event_loop)
                 .unwrap()
         };
+        //window.set_cursor_visible(false);
         println!("Window inner size {:?}", window.inner_size());
         let pixel_buffer = {
             let window_size = window.inner_size();
