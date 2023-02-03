@@ -1,11 +1,14 @@
 use agx_definitions::{Point, Rect, Size};
 use num_traits::PrimInt;
+use std::cmp::max;
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 use std::mem;
 use std::ops::Index;
 
 trait TransmuteFontBufInPlace {}
+
+impl TransmuteFontBufInPlace for u8 {}
 
 fn fixed_word_to_i32(fixed: u32) -> i32 {
     fixed as i32 / (1 << 16)
@@ -314,6 +317,17 @@ impl FromFontBufInPlace<MaxProfileRaw> for MaxProfile {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct GlyphRenderDescription {
+    pub points: Vec<Point>,
+}
+
+impl GlyphRenderDescription {
+    fn new(points: Vec<Point>) -> Self {
+        Self { points }
+    }
+}
+
 pub struct FontParser<'a> {
     font_data: &'a [u8],
     head: Option<HeadTable>,
@@ -352,7 +366,7 @@ impl<'a> FontParser<'a> {
         T::from_in_place_buf(raw)
     }
 
-    pub fn parse(&mut self) {
+    pub fn parse(&mut self) -> Vec<GlyphRenderDescription> {
         let mut cursor = 0;
         let offset_subtable = OffsetSubtable::from_in_place_buf(self.read_with_cursor(&mut cursor));
         println!("Got offset subtable {offset_subtable:?}",);
@@ -368,32 +382,14 @@ impl<'a> FontParser<'a> {
         let max_profile: MaxProfile = self.parse_table("maxp");
         println!("Got max profile {max_profile:?}");
 
+        let mut glyph_render_descriptions = vec![];
         for i in 0..max_profile.num_glyphs {
             println!("\tGlyph offset of glyph #{i}: {}", self.get_glyph_offset(i));
+            //self.parse_glyph(2);
+            glyph_render_descriptions.push(self.parse_glyph(i));
         }
-
-        /*
-        let glyph_header = self.tables.get("glyf").unwrap();
-        println!("Found glyph header: {glyph_header}");
-
-        let glyph_description =
-            GlyphDescription::new(self.read(glyph_header.offset + self.get_glyph_offset(2)));
-        println!("Found glyph description {glyph_description:?}");
-        let mut glyph_data_cursor = glyph_header.offset + mem::size_of::<GlyphDescription>();
-        println!("Parsing glyph...");
-        for i in 0..glyph_description.contour_count {
-            let contour_end: &BigEndianValue<u16> = self.read_with_cursor(&mut glyph_data_cursor);
-            println!("\tParsed contour #{i}: {}", contour_end.into_value());
-        }
-
-        // Skip instructions
-        let instructions_len: &BigEndianValue<u16> = self.read_with_cursor(&mut glyph_data_cursor);
-        println!(
-            "\tSkipping instructions len: {}",
-            instructions_len.into_value()
-        );
-        glyph_data_cursor += instructions_len.into_value() as usize;
-        */
+        //self.parse_glyph(32);
+        glyph_render_descriptions
     }
 
     fn get_glyph_offset(&self, glyph_index: usize) -> usize {
@@ -406,7 +402,207 @@ impl<'a> FontParser<'a> {
                 // §Table 33: The actual local offset divided by 2 is stored.
                 scaled_glyph_offset.into_value() as usize * 2
             }
+            IndexToLocFormat::LongOffsets => {
+                let locations_entry_offset = glyph_index * mem::size_of::<u32>();
+                let scaled_glyph_offset: &BigEndianValue<u32> =
+                    self.read(locations_table.offset + locations_entry_offset);
+                scaled_glyph_offset.into_value() as usize
+            }
             _ => todo!(),
         }
     }
+
+    fn parse_glyph(&self, glyph_index: usize) -> GlyphRenderDescription {
+        let glyph_header = self.table_headers.get("glyf").unwrap();
+        //println!("Found glyph header: {glyph_header}");
+        let glyph_offset = glyph_header.offset + self.get_glyph_offset(glyph_index);
+        let mut cursor = glyph_offset;
+        //println!("start cursor {cursor}");
+        let glyph_description =
+            GlyphDescription::from_in_place_buf(self.read_with_cursor(&mut cursor));
+        // Hack to make compound glyphs work
+        if glyph_description.contour_count <= 0 {
+            return GlyphRenderDescription::new(vec![]);
+        }
+
+        // TODO(PT): This might inform how many points there are total?
+        //println!("after parse description cursor {cursor}");
+        let mut max_point_idx = 0_usize;
+        for i in 0..glyph_description.contour_count {
+            let contour_end: &BigEndianValue<u16> = self.read_with_cursor(&mut cursor);
+            //println!("\tParsed contour #{i}: {}", contour_end.into_value());
+            max_point_idx = max(max_point_idx, contour_end.into_value() as _);
+        }
+        let point_count = max_point_idx + 1;
+        //println!("Found point count {point_count}");
+        //println!("cursor {cursor}");
+
+        // Skip instructions
+        let instructions_len = self
+            .read_with_cursor::<BigEndianValue<u16>>(&mut cursor)
+            .into_value();
+        //println!("\tSkipping instructions len: {instructions_len}");
+        cursor += instructions_len as usize;
+
+        let mut all_flags = vec![];
+        let mut flag_count_to_parse = point_count;
+        while flag_count_to_parse > 0 {
+            let flag_byte: u8 = *self.read_with_cursor(&mut cursor);
+            let flags = get_flags_from_byte(flag_byte);
+            //println!("{cursor}: Got flag {flag_byte:08b} ({flags:?})");
+            if flags.contains(&GlyphOutlineFlag::Repeat) {
+                let mut flags = flags.clone();
+                flags.retain(|&f| f != GlyphOutlineFlag::Repeat);
+                let repeat_count: u8 = *self.read_with_cursor(&mut cursor);
+                flag_count_to_parse -= repeat_count as usize;
+                //println!("\t{cursor}: Found repeat count {repeat_count}");
+                // Add 1 to the repeat count to account for the initial set, plus repeats
+                for _ in 0..repeat_count + 1 {
+                    all_flags.push(flags.clone());
+                }
+            } else {
+                all_flags.push(flags);
+            }
+            flag_count_to_parse -= 1;
+        }
+        /*
+        println!("Got flags {all_flags:?}");
+        println!("Flags count {}", all_flags.len());
+        */
+
+        // Parse X coordinates
+        //println!("Parsing X values....");
+        let x_values =
+            self.interpret_values_via_flags(&mut cursor, &all_flags, CoordinateComponentType::X);
+        //println!("Parsing Y values....");
+        let y_values =
+            self.interpret_values_via_flags(&mut cursor, &all_flags, CoordinateComponentType::Y);
+        let points: Vec<Point> = x_values
+            .iter()
+            .zip(y_values.iter())
+            .map(|(&x, &y)| Point::new(x, y))
+            .collect();
+        /*
+        for point in points.iter() {
+            println!("{point:?}");
+        }
+        */
+
+        GlyphRenderDescription::new(points)
+    }
+
+    fn interpret_values_via_flags(
+        &self,
+        cursor: &mut usize,
+        all_flags: &Vec<Vec<GlyphOutlineFlag>>,
+        value_type: CoordinateComponentType,
+    ) -> Vec<isize> {
+        let mut values = vec![];
+        let short_flag = match value_type {
+            CoordinateComponentType::X => GlyphOutlineFlag::ShortX,
+            CoordinateComponentType::Y => GlyphOutlineFlag::ShortY,
+        };
+        let same_flag = match value_type {
+            CoordinateComponentType::X => GlyphOutlineFlag::SameX,
+            CoordinateComponentType::Y => GlyphOutlineFlag::SameY,
+        };
+        let mut last_value = 0;
+        for flag_set in all_flags.iter() {
+            let value = if flag_set.contains(&short_flag) {
+                // Value is u8
+                let value_without_sign = *self.read_with_cursor::<u8>(cursor) as isize;
+                // §Table 16:
+                // > If the Short bit is set, Same describes the sign of the value,
+                // with a value of 1 equalling positive and a zero value negative.
+                if flag_set.contains(&same_flag) {
+                    //println!("\tvalue_without_sign={value_without_sign}, SameValue");
+                    last_value + value_without_sign
+                } else {
+                    //println!("\tvalue_without_sign={value_without_sign}, NotSameValue");
+                    last_value - value_without_sign
+                }
+            } else {
+                // Value is u16
+                // §Table 16:
+                // > If the Short bit is not set, and Same is set, then the current value
+                // is the same as the previous value.
+                // Otherwise, the current value is a signed 16-bit delta vector, and the
+                // delta vector is the change in the value.
+                if flag_set.contains(&same_flag) {
+                    //println!("\tLong, Same");
+                    last_value
+                } else {
+                    let value = self
+                        .read_with_cursor::<BigEndianValue<i16>>(cursor)
+                        .into_value() as isize;
+                    //println!("\tLong, NotSame ({value})");
+                    last_value + value
+                }
+            };
+            last_value = value;
+            //println!("\tGot value {value}");
+            values.push(last_value);
+        }
+        values
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+enum CoordinateComponentType {
+    X,
+    Y,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum GlyphOutlineFlag {
+    OnCurve,
+    ShortX,
+    ShortY,
+    Repeat,
+    SameX,
+    SameY,
+}
+
+fn get_flags_from_byte(byte: u8) -> Vec<GlyphOutlineFlag> {
+    // §Table 16
+    let mut out = vec![];
+    if byte & (1 << 0) != 0 {
+        out.push(GlyphOutlineFlag::OnCurve);
+    }
+    if byte & (1 << 1) != 0 {
+        out.push(GlyphOutlineFlag::ShortX);
+    }
+    if byte & (1 << 2) != 0 {
+        out.push(GlyphOutlineFlag::ShortY);
+    }
+    if byte & (1 << 3) != 0 {
+        out.push(GlyphOutlineFlag::Repeat);
+    }
+    if byte & (1 << 4) != 0 {
+        out.push(GlyphOutlineFlag::SameX);
+    }
+    if byte & (1 << 5) != 0 {
+        out.push(GlyphOutlineFlag::SameY);
+    }
+    /*
+    if byte >> 0 & 0b1 == 0b1 {
+        out.push(GlyphOutlineFlag::OnCurve);
+    }
+    if byte >> 1 & 0b1 == 0b1 {
+        out.push(GlyphOutlineFlag::ShortX);
+    }
+    if byte >> 2 & 0b1 == 0b1 {
+        out.push(GlyphOutlineFlag::ShortY);
+    }
+    if byte >> 3 & 0b1 == 0b1 {
+        out.push(GlyphOutlineFlag::Repeat);
+    }
+    if byte >> 4 & 0b1 == 0b1 {
+        out.push(GlyphOutlineFlag::SameX);
+    }
+    if byte >> 5 & 0b1 == 0b1 {
+        out.push(GlyphOutlineFlag::SameY);
+    }
+    */
+    out
 }
