@@ -1128,7 +1128,7 @@ impl Line {
         delta_y = delta_y.abs();
         let distance = max(delta_x, delta_y);
 
-        let mut cursor = Point::new(self.p1.x, self.p1.y);
+        let mut cursor = onto.frame().origin + Point::new(self.p1.x, self.p1.y);
         let mut x_err = 0;
         let mut y_err = 0;
         for _ in 0..distance {
