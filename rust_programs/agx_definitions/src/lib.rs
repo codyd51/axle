@@ -19,6 +19,8 @@ use core::{
     fmt::Display,
     ops::{Add, Mul, Sub},
 };
+use itertools::Itertools;
+use line_intersection::LineInterval;
 use num_traits::Float;
 
 #[cfg(target_os = "axle")]
@@ -1097,13 +1099,21 @@ impl Add for Rect {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Line {
-    p1: Point,
-    p2: Point,
+    pub p1: Point,
+    pub p2: Point,
 }
 
 impl Line {
     pub fn new(p1: Point, p2: Point) -> Self {
         Line { p1, p2 }
+    }
+
+    pub fn max_y(&self) -> isize {
+        max(self.p1.y, self.p2.y)
+    }
+
+    pub fn min_y(&self) -> isize {
+        min(self.p1.y, self.p2.y)
     }
 
     fn draw_strip(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
@@ -1208,6 +1218,20 @@ impl Line {
         let intersection = intersection.unwrap();
         // Convert back to agx types
         Some(Point::new(intersection.x() as _, intersection.y() as _))
+    }
+}
+
+impl Add<Point> for Line {
+    type Output = Line;
+
+    fn add(self, rhs: Point) -> Self::Output {
+        Line::new(self.p1 + rhs, self.p2 + rhs)
+    }
+}
+
+impl Display for Line {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "[{} - {}]", self.p1, self.p2)
     }
 }
 
