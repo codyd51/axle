@@ -1247,6 +1247,21 @@ impl Polygon {
         }
     }
 
+    pub fn draw_outline(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
+        let mut lines = vec![];
+        for (&point, &next_point) in self.points.iter().tuple_windows() {
+            lines.push(Line::new(point, next_point));
+        }
+        // Final line connecting the final and first points
+        lines.push(Line::new(
+            *self.points.last().unwrap(),
+            *self.points.first().unwrap(),
+        ));
+        for line in lines.iter() {
+            line.draw(onto, color, StrokeThickness::Filled);
+        }
+    }
+
     pub fn fill(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
         // Ref: http://www.sunshine2k.de/coding/java/Polygon/Filling/FillPolygon.htm
         // Generate bounding lines of the polygon
