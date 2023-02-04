@@ -244,7 +244,7 @@ pub struct CpuCorePrivateInfo {
 /// Represents spinlock_t
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-struct Spinlock {
+pub struct Spinlock {
     flag: u32,
     name: usize,
     interrupts_enabled_before_acquire: bool,

@@ -306,3 +306,5 @@ Desired boot resolution should be in a config file
 Closing windows
 
 Logs viewer should have tabs to filter the logs on a per-process basis
+
+Read a config/max_cpus.txt to decide when to stop booting APs

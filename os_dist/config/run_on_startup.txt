@@ -2,4 +2,5 @@
 /usr/applications/kb_driver
 /usr/applications/mouse_driver
 /usr/applications/dock
+/usr/applications/menu_bar
 /usr/applications/file_browser
