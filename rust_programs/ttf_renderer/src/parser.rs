@@ -1,3 +1,4 @@
+use crate::Font;
 use agx_definitions::{Point, Polygon, Rect, Size};
 use itertools::Itertools;
 use num_traits::PrimInt;
@@ -5,11 +6,21 @@ use std::cmp::max;
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 use std::mem;
-use std::ops::Index;
+use std::ops::{Index, Range};
 
 trait TransmuteFontBufInPlace {}
 
 impl TransmuteFontBufInPlace for u8 {}
+
+trait FromFontBufInPlace<T> {
+    fn from_in_place_buf(raw: &T) -> Self;
+}
+
+impl FromFontBufInPlace<BigEndianValue<u16>> for u16 {
+    fn from_in_place_buf(raw: &BigEndianValue<u16>) -> Self {
+        raw.into_value()
+    }
+}
 
 fn fixed_word_to_i32(fixed: u32) -> i32 {
     fixed as i32 / (1 << 16)
@@ -304,10 +315,6 @@ struct MaxProfileRaw {
 
 impl TransmuteFontBufInPlace for MaxProfileRaw {}
 
-trait FromFontBufInPlace<T> {
-    fn from_in_place_buf(raw: &T) -> Self;
-}
-
 #[derive(Debug, Copy, Clone)]
 struct MaxProfile {
     // PT: Only model the fields we use, for now
@@ -318,6 +325,158 @@ impl FromFontBufInPlace<MaxProfileRaw> for MaxProfile {
     fn from_in_place_buf(raw: &MaxProfileRaw) -> Self {
         Self {
             num_glyphs: raw.num_glyphs.into_value() as _,
+        }
+    }
+}
+
+#[repr(C, packed)]
+#[derive(Debug, Copy, Clone)]
+struct CharacterMapIndexRaw {
+    version: BigEndianValue<u16>,
+    subtables_count: BigEndianValue<u16>,
+}
+
+impl TransmuteFontBufInPlace for CharacterMapIndexRaw {}
+
+#[derive(Debug, Copy, Clone)]
+struct CharacterMapIndex {
+    // PT: Only model the fields we use, for now
+    subtables_count: usize,
+}
+
+impl FromFontBufInPlace<CharacterMapIndexRaw> for CharacterMapIndex {
+    fn from_in_place_buf(raw: &CharacterMapIndexRaw) -> Self {
+        Self {
+            subtables_count: raw.subtables_count.into_value() as _,
+        }
+    }
+}
+
+#[repr(C, packed)]
+#[derive(Debug, Copy, Clone)]
+struct CharacterMapSubtableRaw {
+    platform_id: BigEndianValue<u16>,
+    platform_specific_id: BigEndianValue<u16>,
+    offset: BigEndianValue<u32>,
+}
+
+impl TransmuteFontBufInPlace for CharacterMapSubtableRaw {}
+
+#[derive(Debug, Copy, Clone)]
+struct CharacterMapSubtable {
+    platform_and_encoding: CharacterMapPlatformAndEncoding,
+    offset: usize,
+}
+
+impl FromFontBufInPlace<CharacterMapSubtableRaw> for CharacterMapSubtable {
+    fn from_in_place_buf(raw: &CharacterMapSubtableRaw) -> Self {
+        Self {
+            platform_and_encoding: CharacterMapPlatformAndEncoding::from_platform_and_specific_id(
+                raw.platform_id.into_value(),
+                raw.platform_specific_id.into_value(),
+            ),
+            offset: raw.offset.into_value() as _,
+        }
+    }
+}
+
+/// §'cmap' Platforms
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum CharacterMapPlatformAndEncoding {
+    Unicode(CharacterMapUnicodeEncoding),
+    Macintosh,
+    Microsoft,
+}
+
+impl CharacterMapPlatformAndEncoding {
+    fn from_platform_and_specific_id(platform_id: u16, platform_specific_id: u16) -> Self {
+        match platform_id {
+            0 => {
+                // Unicode
+                Self::Unicode(match platform_specific_id {
+                    0 => CharacterMapUnicodeEncoding::Version1_0,
+                    1 => CharacterMapUnicodeEncoding::Version1_1,
+                    3 => CharacterMapUnicodeEncoding::Version2_0Bmp,
+                    4 => CharacterMapUnicodeEncoding::Version2_0Extended,
+                    _ => panic!("Invalid Unicode platform_specific_id"),
+                })
+            }
+            1 => Self::Macintosh,
+            3 => Self::Microsoft,
+            _ => panic!("Invalid character map platform_id"),
+        }
+    }
+}
+
+/// Unicode Platform-specific Encoding Identifiers
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+enum CharacterMapUnicodeEncoding {
+    Version1_0,
+    Version1_1,
+    Version2_0Bmp,
+    Version2_0Extended,
+}
+
+#[repr(C, packed)]
+#[derive(Debug, Copy, Clone)]
+struct CharacterMapDataTableHeaderRaw {
+    // Common header to all data table formats
+    format: BigEndianValue<u16>,
+    length: BigEndianValue<u16>,
+}
+
+impl TransmuteFontBufInPlace for CharacterMapDataTableHeaderRaw {}
+
+#[derive(Debug, Copy, Clone)]
+struct CharacterMapDataTableHeader {
+    format: usize,
+    length: usize,
+}
+
+impl FromFontBufInPlace<CharacterMapDataTableHeaderRaw> for CharacterMapDataTableHeader {
+    fn from_in_place_buf(raw: &CharacterMapDataTableHeaderRaw) -> Self {
+        Self {
+            format: raw.format.into_value() as _,
+            length: raw.length.into_value() as _,
+        }
+    }
+}
+
+#[repr(C, packed)]
+#[derive(Debug, Copy, Clone)]
+struct CharacterMapDataFormat4HeaderRaw {
+    format: BigEndianValue<u16>,
+    length: BigEndianValue<u16>,
+    language: BigEndianValue<u16>,
+    seg_count_x2: BigEndianValue<u16>,
+    search_range: BigEndianValue<u16>,
+    entry_selector: BigEndianValue<u16>,
+    range_shift: BigEndianValue<u16>,
+}
+
+impl TransmuteFontBufInPlace for CharacterMapDataFormat4HeaderRaw {}
+
+#[derive(Debug, Copy, Clone)]
+struct CharacterMapDataFormat4Header {
+    format: usize,
+    length: usize,
+    language: usize,
+    seg_count_x2: usize,
+    search_range: usize,
+    entry_selector: usize,
+    range_shift: usize,
+}
+
+impl FromFontBufInPlace<CharacterMapDataFormat4HeaderRaw> for CharacterMapDataFormat4Header {
+    fn from_in_place_buf(raw: &CharacterMapDataFormat4HeaderRaw) -> Self {
+        Self {
+            format: raw.format.into_value() as _,
+            length: raw.length.into_value() as _,
+            language: raw.language.into_value() as _,
+            seg_count_x2: raw.seg_count_x2.into_value() as _,
+            search_range: raw.search_range.into_value() as _,
+            entry_selector: raw.entry_selector.into_value() as _,
+            range_shift: raw.range_shift.into_value() as _,
         }
     }
 }
@@ -373,7 +532,7 @@ impl<'a> FontParser<'a> {
         T::from_in_place_buf(raw)
     }
 
-    pub fn parse(&mut self) -> Vec<GlyphRenderDescription> {
+    pub fn parse(&mut self) -> Font {
         let mut cursor = 0;
         let offset_subtable = OffsetSubtable::from_in_place_buf(self.read_with_cursor(&mut cursor));
         println!("Got offset subtable {offset_subtable:?}",);
@@ -389,14 +548,161 @@ impl<'a> FontParser<'a> {
         let max_profile: MaxProfile = self.parse_table("maxp");
         println!("Got max profile {max_profile:?}");
 
-        let mut glyph_render_descriptions = vec![];
+        let glyph_indexes_to_codepoints = self.parse_character_map();
+
+        let mut codepoints_to_glyph_descriptions = BTreeMap::new();
         for i in 0..max_profile.num_glyphs {
             println!("\tGlyph offset of glyph #{i}: {}", self.get_glyph_offset(i));
-            //self.parse_glyph(2);
-            glyph_render_descriptions.push(self.parse_glyph(i));
+            let codepoint = glyph_indexes_to_codepoints.get(&i);
+            if codepoint.is_none() {
+                println!("Skipping glyph index {i} because it's not in our mapped codepoints");
+                continue;
+            }
+            let codepoint = codepoint.unwrap();
+            codepoints_to_glyph_descriptions.insert(*codepoint, self.parse_glyph(i));
         }
-        //self.parse_glyph(32);
-        glyph_render_descriptions
+        Font::new(
+            "abc",
+            &self.head.unwrap().glyph_bounding_box,
+            self.head.unwrap().units_per_em as _,
+            &codepoints_to_glyph_descriptions,
+        )
+    }
+
+    fn parse_character_map(&self) -> BTreeMap<usize, usize> {
+        let character_map_header = self.table_headers.get("cmap").unwrap();
+        let character_map_structures_base = character_map_header.offset;
+        let mut cursor = character_map_structures_base;
+        let character_map_index =
+            CharacterMapIndex::from_in_place_buf(self.read_with_cursor(&mut cursor));
+        println!("got character map index {character_map_index:?}");
+        let unicode_bmp_char_map_offset = (0..character_map_index.subtables_count)
+            .find_map(|_| {
+                let character_map_subtable =
+                    CharacterMapSubtable::from_in_place_buf(self.read_with_cursor(&mut cursor));
+                if character_map_subtable.platform_and_encoding
+                    == CharacterMapPlatformAndEncoding::Unicode(
+                        CharacterMapUnicodeEncoding::Version2_0Bmp,
+                    )
+                {
+                    Some(character_map_subtable.offset)
+                } else {
+                    None
+                }
+            })
+            .expect("Failed to find a Unicode 2.0 BMP character map");
+        println!("Unicode BMP character map offset: {unicode_bmp_char_map_offset}");
+
+        // All table formats start with a common 4-word header
+        let data_header_offset = character_map_structures_base + unicode_bmp_char_map_offset;
+        let table_base_header =
+            CharacterMapDataTableHeader::from_in_place_buf(self.read(data_header_offset));
+        println!("Got table base header {table_base_header:?}");
+        assert_eq!(table_base_header.format, 4);
+
+        let table_format4_header =
+            CharacterMapDataFormat4Header::from_in_place_buf(self.read(data_header_offset));
+        println!("Got table format4 header {table_format4_header:?}");
+        let seg_count = table_format4_header.seg_count_x2 / 2;
+
+        let mut cursor = data_header_offset + mem::size_of::<CharacterMapDataFormat4HeaderRaw>();
+        let mut segment_last_character_codes = vec![];
+        for _ in 0..seg_count {
+            let last_character_code = u16::from_in_place_buf(self.read_with_cursor(&mut cursor));
+            segment_last_character_codes.push(last_character_code);
+        }
+        println!("segment_last_character_codes {segment_last_character_codes:?}");
+
+        // Skip over the `reserved_pad` field
+        cursor += mem::size_of::<u16>();
+
+        let mut segment_start_character_codes = vec![];
+        for _ in 0..seg_count {
+            let first_character_code = u16::from_in_place_buf(self.read_with_cursor(&mut cursor));
+            segment_start_character_codes.push(first_character_code);
+        }
+        println!("segment_start_character_codes {segment_start_character_codes:?}");
+
+        let mut segment_id_deltas = vec![];
+        for _ in 0..seg_count {
+            let id_delta = u16::from_in_place_buf(self.read_with_cursor(&mut cursor));
+            segment_id_deltas.push(id_delta);
+        }
+        println!("segment_id_deltas {segment_id_deltas:?}");
+
+        let mut segment_id_range_offsets = vec![];
+        let segment_id_range_base = cursor;
+        for _ in 0..seg_count {
+            let segment_id_range_offset =
+                u16::from_in_place_buf(self.read_with_cursor(&mut cursor));
+            segment_id_range_offsets.push(segment_id_range_offset);
+        }
+        println!("segment_id_range_offsets {segment_id_range_offsets:?}");
+
+        let segment_ranges: Vec<Range<usize>> = segment_start_character_codes
+            .iter()
+            .zip(segment_last_character_codes.iter())
+            .map(|(&start, &end)| (start as usize..end as usize))
+            .collect();
+        println!("Segment ranges: {segment_ranges:?}");
+
+        // Map the first 256 Unicode codepoints (ASCII + extended ASCII)
+        let mut glyph_indexes_to_codepoints = BTreeMap::new();
+        for codepoint in 0..256 {
+            let segment_index =
+                segment_ranges
+                    .iter()
+                    .enumerate()
+                    .find_map(|(i, glyph_id_range)| {
+                        if glyph_id_range.contains(&codepoint) {
+                            Some(i)
+                        } else {
+                            None
+                        }
+                    });
+            if segment_index.is_none() {
+                println!("No glyph for code point {codepoint}");
+                continue;
+            }
+            let segment_index = segment_index.unwrap();
+            //println!("Found character {character_to_map} in segment {segment_index}");
+            let id_delta = segment_id_deltas[segment_index];
+            //assert_eq!(id_delta, 0, "Non-zero deltas are unhandled for now");
+            if id_delta != 0 {
+                println!("Non-zero deltas are unhandled for now");
+                continue;
+            }
+            let id_range = segment_id_range_offsets[segment_index] as usize;
+            /*
+            println!("\tFound delta, range {id_delta}, {id_range}");
+            let glyph_id_index = segment_ranges[segment_index].start + id_range;
+            println!("\tglyph_id_index {glyph_id_index}");
+            */
+
+            //glyphIndexAddress = idRangeOffset[i] + 2 * (c - startCode[i]) + (Ptr) &idRangeOffset[i]
+            let glyph_index_addr = id_range
+                + (2 * (codepoint - segment_ranges[segment_index].start))
+                + (segment_id_range_base + (segment_index * 2));
+
+            /*
+            let mut glyph_indexes = vec![];
+            let glyph_indexes_base = cursor;
+            for _ in 0..512 {
+                let glyph_index = u16::from_in_place_buf(self.read_with_cursor(&mut cursor));
+                glyph_indexes.push(glyph_index);
+            }
+
+            let glyph_index_offset = glyph_index_addr - glyph_indexes_base;
+            let glyph_index = glyph_index_offset / mem::size_of::<u16>();
+            //println!(glyph_index, glyph_indexes[glyph_index]);
+            */
+            let glyph_index = u16::from_in_place_buf(self.read(glyph_index_addr));
+            //println!("glyph_index {glyph_index}");
+            println!("Codepoint({codepoint}) = GlyphIndex({glyph_index})");
+            glyph_indexes_to_codepoints.insert(glyph_index as usize, codepoint as usize);
+        }
+
+        glyph_indexes_to_codepoints
     }
 
     fn get_glyph_offset(&self, glyph_index: usize) -> usize {
@@ -415,7 +721,6 @@ impl<'a> FontParser<'a> {
                     self.read(locations_table.offset + locations_entry_offset);
                 scaled_glyph_offset.into_value() as usize
             }
-            _ => todo!(),
         }
     }
 
@@ -434,10 +739,9 @@ impl<'a> FontParser<'a> {
 
         // This informs how many points there are in total
         let mut last_point_indexes = vec![];
-        for i in 0..glyph_description.contour_count {
-            let contour_end: &BigEndianValue<u16> = self.read_with_cursor(&mut cursor);
-            let contour_end = contour_end.into_value() as usize;
-            last_point_indexes.push(contour_end);
+        for _ in 0..glyph_description.contour_count {
+            let contour_end = u16::from_in_place_buf(self.read_with_cursor(&mut cursor));
+            last_point_indexes.push(contour_end as usize);
         }
         let max_point_idx = last_point_indexes.iter().max().unwrap();
         let point_count = max_point_idx + 1;
@@ -472,10 +776,8 @@ impl<'a> FontParser<'a> {
         }
 
         // Parse X coordinates
-        //println!("Parsing X values....");
         let x_values =
             self.interpret_values_via_flags(&mut cursor, &all_flags, CoordinateComponentType::X);
-        //println!("Parsing Y values....");
         let y_values =
             self.interpret_values_via_flags(&mut cursor, &all_flags, CoordinateComponentType::Y);
         let points: Vec<Point> = x_values

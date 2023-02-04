@@ -31,54 +31,29 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
 
     let mut main_view_slice = main_view.get_slice();
 
-    //let font_path = "/Users/philliptennen/Downloads/SF-Pro.ttf";
-    let font_path = "/Users/philliptennen/Downloads/ASCII/ASCII.ttf";
     let font_path = "/Users/philliptennen/Downloads/nexa/NexaText-Trial-Regular.ttf";
-    let font_path = "/Users/philliptennen/Downloads/TestFont.ttf";
-    //let font_path = "/Users/philliptennen/Downloads/mplus1mn-bold-ascii.ttf";
     let font_path = "/System/Library/Fonts/Geneva.ttf";
+    let font_path = "/System/Library/Fonts/Keyboard.ttf";
+    let font_path = "/Users/philliptennen/Downloads/ASCII/ASCII.ttf";
+    let font_path = "/Users/philliptennen/Downloads/SF-Pro.ttf";
+    let font_path = "/Users/philliptennen/Downloads/mplus1mn-bold-ascii.ttf";
+    let font_path = "/Users/philliptennen/Downloads/TestFont.ttf";
+    let font_path = "/System/Library/Fonts/NewYorkItalic.ttf";
     let font_data = fs::read(font_path).unwrap();
     let font = parse(&font_data);
-    let bounding_box = Rect::new(-5, -88, 1005, 928);
+    let bounding_box = font.bounding_box;
 
-    /*
-    let polygon = Polygon::new(&[
-        Point::new(20, 250),
-        Point::new(200, 20),
-        Point::new(400, 200),
-        Point::new(180, 100),
-    ]);
-    polygon.fill(&mut main_view_slice, Color::green());
-    */
-    /*
-    let points = [
-        (10, 00),
-        (30, 20),
-        (50, 00),
-        (60, 10),
-        (40, 30),
-        (60, 50),
-        (50, 60),
-        (30, 40),
-        (10, 60),
-        (00, 50),
-        (20, 30),
-        (00, 10),
-    ];
-    let points: Vec<Point> = points.iter().map(|(x, y)| Point::new(*x, *y)).collect();
-    let polygon = Polygon::new(&points);
-    let start = Instant::now();
-    polygon.fill(&mut main_view_slice, Color::green());
-    let duration = start.elapsed();
-    println!("Polygon fill took {duration:?}");
-
-     */
-
-    let mut cursor = Point::new(20, 10);
-    let scale = 32.0 / 1000.0; //units_per_em
+    let mut cursor = Point::new(2, 2);
+    let font_size = Size::new(30, 18);
+    let scale_x = font_size.width as f64 / (font.units_per_em as f64);
+    let scale_y = font_size.height as f64 / (font.units_per_em as f64);
+    let scaled_em_size = Size::new(
+        (font.bounding_box.size.width as f64 * scale_x) as isize,
+        (font.bounding_box.size.height as f64 * scale_y) as isize,
+    );
 
     let colors = [
-        Color::red(),
+        Color::black(),
         Color::blue(),
         Color::green(),
         Color::black(),
@@ -92,7 +67,15 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         Color::new(80, 46, 100),
         Color::new(30, 240, 60),
     ];
-    for (i, glyph) in font.glyph_render_descriptions.iter().enumerate() {
+    let s = "Dog_of_black_furs,_hear_the_vow";
+    for ch in s.chars() {
+        let codepoint = ch as u8 as usize;
+        let glyph = font.codepoints_to_glyph_render_descriptions.get(&codepoint);
+        if glyph.is_none() {
+            continue;
+        }
+        let glyph = glyph.unwrap();
+        let mut dest_slice = main_view_slice.get_slice(Rect::from_parts(cursor, scaled_em_size));
         for (j, polygon) in glyph.polygons.iter().enumerate() {
             // Flip Y
             let points: Vec<Point> = polygon
@@ -100,25 +83,27 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
                 .iter()
                 .map(|&p| {
                     Point::new(
-                        (p.x as f64 * scale) as _,
-                        ((bounding_box.max_y() - p.y) as f64 * scale) as _,
+                        (p.x as f64 * scale_x) as _,
+                        ((bounding_box.max_y() - p.y) as f64 * scale_y) as _,
                     )
                 })
                 .collect();
             let polygon = Polygon::new(&points);
-            let mut dest_slice =
-                main_view_slice.get_slice(Rect::from_parts(cursor, Size::new(100, 100)));
 
             let start = Instant::now();
-            polygon.fill(&mut dest_slice, *colors.get(j).unwrap_or(&Color::black()));
+            //polygon.fill(&mut dest_slice, *colors.get(j).unwrap_or(&Color::black()));
+            //polygon.fill(&mut dest_slice, Color::black());
+            polygon.draw_outline(&mut dest_slice, Color::black());
             let duration = start.elapsed();
-            println!("Glyph #{i} polygon #{j} fill took {duration:?}");
-
-            cursor = Point::new(cursor.x + 40, cursor.y);
-            if cursor.x >= 1100 {
-                cursor.y += 40;
-                cursor.x = 20;
-            }
+            println!("Glyph #{codepoint} polygon #{j} fill took {duration:?}");
+        }
+        cursor = Point::new(
+            cursor.x + ((scaled_em_size.width as f64 * 0.35) as isize),
+            cursor.y,
+        );
+        if cursor.x >= 1100 {
+            cursor.y += scaled_em_size.height;
+            cursor.x = 2;
         }
     }
 
