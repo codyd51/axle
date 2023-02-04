@@ -181,7 +181,7 @@ impl FromFontBufInPlace<HeadTableRaw> for HeadTable {
             Point::new(raw.min_x.into_value() as _, raw.min_y.into_value() as _);
 
         let flags = raw.flags.into_value();
-        assert_eq!(flags, 0b1001, "Other flags unhandled for now");
+        //assert_eq!(flags, 0b1001, "Other flags unhandled for now");
 
         let directionality = match raw.font_direction_hint.into_value() {
             0 => FontDirectionality::MixedDirection,
@@ -191,10 +191,10 @@ impl FromFontBufInPlace<HeadTableRaw> for HeadTable {
             -2 => FontDirectionality::RightToLeftAndNeutral,
             _ => panic!("Invalid font direction hint"),
         };
-        assert_eq!(
-            directionality,
-            FontDirectionality::LeftToRightAndNeutral,
-            "Only left-to-right-and-neutral is handled for now"
+        assert!(
+            directionality == FontDirectionality::LeftToRightAndNeutral
+                || directionality == FontDirectionality::LeftToRight,
+            "Only left-to-right/-and-neutral is handled for now"
         );
 
         let index_to_loc_format = match raw.index_to_loc_format.into_value() {
@@ -202,11 +202,13 @@ impl FromFontBufInPlace<HeadTableRaw> for HeadTable {
             1 => IndexToLocFormat::LongOffsets,
             _ => panic!("Invalid index_to_loc_format"),
         };
+        /*
         assert_eq!(
             index_to_loc_format,
             IndexToLocFormat::ShortOffsets,
             "Only short offsets are handled for now"
         );
+        */
 
         let ret = Self {
             version: fixed_word_to_i32(raw.version.into_value()),
@@ -256,10 +258,12 @@ struct GlyphDescription {
 impl FromFontBufInPlace<GlyphDescriptionRaw> for GlyphDescription {
     fn from_in_place_buf(raw: &GlyphDescriptionRaw) -> Self {
         let contour_count = raw.contour_count.into_value() as isize;
+        /*
         assert!(
             contour_count >= 1,
             "Other contour counts are unhandled for now"
         );
+        */
 
         let bounding_box_origin =
             Point::new(raw.min_x.into_value() as _, raw.min_y.into_value() as _);
