@@ -1,4 +1,5 @@
-use agx_definitions::{Point, Rect, Size};
+use agx_definitions::{Point, Polygon, Rect, Size};
+use itertools::Itertools;
 use num_traits::PrimInt;
 use std::cmp::max;
 use std::collections::BTreeMap;
@@ -319,12 +320,14 @@ impl FromFontBufInPlace<MaxProfileRaw> for MaxProfile {
 
 #[derive(Debug, Clone)]
 pub struct GlyphRenderDescription {
-    pub points: Vec<Point>,
+    pub polygons: Vec<Polygon>,
 }
 
 impl GlyphRenderDescription {
-    fn new(points: Vec<Point>) -> Self {
-        Self { points }
+    fn new(polygons: &Vec<Polygon>) -> Self {
+        Self {
+            polygons: polygons.to_owned(),
+        }
     }
 }
 
@@ -422,20 +425,18 @@ impl<'a> FontParser<'a> {
             GlyphDescription::from_in_place_buf(self.read_with_cursor(&mut cursor));
         // Hack to make compound glyphs work
         if glyph_description.contour_count <= 0 {
-            return GlyphRenderDescription::new(vec![]);
+            return GlyphRenderDescription::new(&vec![]);
         }
 
-        // TODO(PT): This might inform how many points there are total?
-        //println!("after parse description cursor {cursor}");
-        let mut max_point_idx = 0_usize;
+        // This informs how many points there are in total
+        let mut last_point_indexes = vec![];
         for i in 0..glyph_description.contour_count {
             let contour_end: &BigEndianValue<u16> = self.read_with_cursor(&mut cursor);
-            //println!("\tParsed contour #{i}: {}", contour_end.into_value());
-            max_point_idx = max(max_point_idx, contour_end.into_value() as _);
+            let contour_end = contour_end.into_value() as usize;
+            last_point_indexes.push(contour_end);
         }
+        let max_point_idx = last_point_indexes.iter().max().unwrap();
         let point_count = max_point_idx + 1;
-        //println!("Found point count {point_count}");
-        //println!("cursor {cursor}");
 
         // Skip instructions
         let instructions_len = self
@@ -465,10 +466,6 @@ impl<'a> FontParser<'a> {
             }
             flag_count_to_parse -= 1;
         }
-        /*
-        println!("Got flags {all_flags:?}");
-        println!("Flags count {}", all_flags.len());
-        */
 
         // Parse X coordinates
         //println!("Parsing X values....");
@@ -482,13 +479,23 @@ impl<'a> FontParser<'a> {
             .zip(y_values.iter())
             .map(|(&x, &y)| Point::new(x, y))
             .collect();
-        /*
-        for point in points.iter() {
-            println!("{point:?}");
-        }
-        */
 
-        GlyphRenderDescription::new(points)
+        // Split the total collection of points into polygons, using the last-point-indexes that
+        // were given in the glyph metadata
+        let mut polygons = vec![];
+        let mut polygon_start_end_index_pairs = last_point_indexes.to_owned();
+        // The first polygon starts at index 0
+        polygon_start_end_index_pairs.insert(0, 0);
+        for (&start_idx, &end_idx) in polygon_start_end_index_pairs.iter().tuple_windows() {
+            println!("Found polygon {start_idx} to {end_idx}");
+            polygons.push(Polygon::new(&points[start_idx..end_idx + 1]))
+        }
+
+        println!(
+            "Finished parsing glyph #{glyph_index} with polygon count {}",
+            polygons.len()
+        );
+        GlyphRenderDescription::new(&polygons)
     }
 
     fn interpret_values_via_flags(
@@ -584,25 +591,5 @@ fn get_flags_from_byte(byte: u8) -> Vec<GlyphOutlineFlag> {
     if byte & (1 << 5) != 0 {
         out.push(GlyphOutlineFlag::SameY);
     }
-    /*
-    if byte >> 0 & 0b1 == 0b1 {
-        out.push(GlyphOutlineFlag::OnCurve);
-    }
-    if byte >> 1 & 0b1 == 0b1 {
-        out.push(GlyphOutlineFlag::ShortX);
-    }
-    if byte >> 2 & 0b1 == 0b1 {
-        out.push(GlyphOutlineFlag::ShortY);
-    }
-    if byte >> 3 & 0b1 == 0b1 {
-        out.push(GlyphOutlineFlag::Repeat);
-    }
-    if byte >> 4 & 0b1 == 0b1 {
-        out.push(GlyphOutlineFlag::SameX);
-    }
-    if byte >> 5 & 0b1 == 0b1 {
-        out.push(GlyphOutlineFlag::SameY);
-    }
-    */
     out
 }
