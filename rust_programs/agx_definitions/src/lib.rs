@@ -1190,4 +1190,25 @@ impl Line {
             self.draw_strip(onto, color);
         }
     }
+
+    pub fn intersection(self, other: &Self) -> Option<Point> {
+        // Convert to the library's expected types
+        let this = LineInterval::line_segment(geo::Line {
+            start: (self.p1.x as f64, self.p1.y as f64).into(),
+            end: (self.p2.x as f64, self.p2.y as f64).into(),
+        });
+        let other = LineInterval::line_segment(geo::Line {
+            start: (other.p1.x as f64, other.p1.y as f64).into(),
+            end: (other.p2.x as f64, other.p2.y as f64).into(),
+        });
+        let intersection = this.relate(&other).unique_intersection();
+        if intersection.is_none() {
+            return None;
+        }
+        let intersection = intersection.unwrap();
+        // Convert back to agx types
+        Some(Point::new(intersection.x() as _, intersection.y() as _))
+    }
+}
+
 }
