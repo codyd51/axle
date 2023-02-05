@@ -510,9 +510,9 @@ impl Layer for SingleFramebufferLayer {
         let mut framebuffer = (*self.framebuffer).borrow_mut();
         let off = ((loc.y * self.width() * self.bytes_per_pixel())
             + (loc.x * self.bytes_per_pixel())) as usize;
-        framebuffer[off + 0] = color.b;
+        framebuffer[off + 0] = color.r;
         framebuffer[off + 1] = color.g;
-        framebuffer[off + 2] = color.r;
+        framebuffer[off + 2] = color.b;
         framebuffer[off + 3] = 0xff;
     }
 
