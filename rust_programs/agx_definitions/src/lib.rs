@@ -275,15 +275,12 @@ impl Point {
         (hypotenuse_squared as f64).sqrt()
     }
 
-    pub fn cross(&self, other: &Self) -> isize {
-        self.x * other.y - self.y * other.x
+    pub fn cross(&self, other: &PointF64) -> f64 {
+        self.x as f64 * other.y - self.y as f64 * other.x
     }
 
-    pub fn div(&self, divisor: f64) -> Point {
-        Point::new(
-            (self.x as f64 / divisor) as isize,
-            (self.y as f64 / divisor) as isize,
-        )
+    pub fn div(&self, divisor: f64) -> PointF64 {
+        PointF64::new(self.x as f64 / divisor, self.y as f64 / divisor)
     }
 }
 
@@ -330,6 +327,32 @@ impl Mul<isize> for Point {
             x: self.x * rhs,
             y: self.y * rhs,
         }
+    }
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct PointF64 {
+    x: f64,
+    y: f64,
+}
+
+impl PointF64 {
+    fn new(x: f64, y: f64) -> Self {
+        Self { x, y }
+    }
+
+    pub fn cross(&self, other: &PointF64) -> f64 {
+        self.x * other.y - self.y * other.x
+    }
+
+    pub fn div(&self, divisor: f64) -> PointF64 {
+        PointF64::new(self.x / divisor, self.y / divisor)
+    }
+}
+
+impl From<Point> for PointF64 {
+    fn from(value: Point) -> Self {
+        PointF64::new(value.x as _, value.y as _)
     }
 }
 
@@ -779,7 +802,7 @@ impl Debug for Tile {
 mod test {
     use alloc::vec::Vec;
 
-    use crate::{Rect, Tile, TileSegment, TileSegments};
+    use crate::{Line, Point, Rect, Tile, TileSegment, TileSegments};
     use std::println;
 
     #[test]
@@ -1076,10 +1099,27 @@ mod test {
         |              ------------------------------|
         */
     }
+
+    #[test]
+    fn test_line_intersection() {
+        let l1 = Line::new(Point::new(20, 0), Point::new(20, 20));
+        let l2 = Line::new(Point::new(0, 0), Point::new(40, 10));
+        assert_eq!(l1.intersection(&l2), Some(Point::new(20, 5)));
+        //        let a = Line {
+        //             start: (1.0, 0.0).into(),
+        //             end: (1.0, 1.0).into(),
+        //         };
+        //         let b = Line {
+        //             start: (0.0, 0.0).into(),
+        //             end: (2.0, 0.5).into(),
+        //         };
+        //         let s1 = LineInterval::line_segment(a);
+        //         let s2 = LineInterval::line_segment(b);
+        //         let relation = LineRelation::DivergentIntersecting((1.0, 0.25).into());
+    }
 }
 
-// For FFI
-
+/// For FFI
 #[derive(Debug, Clone, Copy)]
 pub struct RectU32 {
     pub origin: PointU32,
@@ -1216,26 +1256,36 @@ impl Line {
         // Ref: https://stackoverflow.com/questions/563198
         let p = self.p1;
         let q = other.p1;
-        let r = self.p1 - self.p2;
-        let s = other.p1 - other.p2;
+        let r = PointF64::from(self.p2 - self.p1);
+        let s = PointF64::from(other.p2 - other.p1);
+
+        //println!("p, q, r, s {p}, {q}, {r:?}, {s:?}");
 
         let r_cross_s = r.cross(&s);
-
-        // Parallel/collinear lines?
-        if r_cross_s == 0 {
-            return None;
-        }
+        //println!("r cross s {r_cross_s}");
 
         let q_minus_p = q - p;
         let q_minus_p_cross_r = q_minus_p.cross(&r);
+        //println!("q_minus_p {q_minus_p}, q_minus_p_cross_r {q_minus_p_cross_r}");
 
-        // Non-parallel/collinear lines
-        let t = q_minus_p.cross(&s.div(r_cross_s as f64));
-        let u = q_minus_p.cross(&r.div(r_cross_s as f64));
+        // Parallel/collinear lines?
+        if r_cross_s == 0.0 {
+            if q_minus_p_cross_r == 0.0 {
+                // Collinear
+            } else {
+                // Parallel
+            }
+            return None;
+        }
+
+        // Non-parallel/non-collinear lines
+        let t = q_minus_p.cross(&s.div(r_cross_s));
+        let u = q_minus_p.cross(&r.div(r_cross_s));
+        //println!("t {t}, u {u}");
 
         // are the intersection coordinates both in range?
-        let t_in_range = 0 <= t && t <= 1;
-        let u_in_range = 0 <= u && u <= 1;
+        let t_in_range = 0.0 <= t && t <= 1.0;
+        let u_in_range = 0.0 <= u && u <= 1.0;
 
         if !t_in_range || !u_in_range {
             // No intersection
@@ -1243,7 +1293,16 @@ impl Line {
         }
 
         // Intersection
-        Some(Point::new(p.x + t * r.x, p.y + t * r.y))
+        //println!("p {p} r {r:?} t {t}");
+        Some(Point::new(
+            (p.x as f64 + t * r.x as f64) as isize,
+            (p.y as f64 + t * r.y as f64) as isize,
+        ))
+    }
+
+    pub fn intersects_with(&self, other: &Line) -> bool {
+        // TODO(PT): Speed this up
+        self.intersection(other).is_some()
     }
 }
 
