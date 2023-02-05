@@ -4,19 +4,30 @@ use crate::scroll_view::ScrollView;
 use crate::window_events::KeyCode;
 use crate::{bordered::Bordered, println, ui_elements::UIElement, view::View};
 use agx_definitions::{
-    Color, Drawable, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
+    Color, Drawable, LikeLayerSlice, NestedLayerSlice, Point, Polygon, Rect, RectInsets, Size,
     StrokeThickness,
 };
 use alloc::boxed::Box;
 use alloc::fmt::Debug;
+use alloc::format;
 use alloc::vec;
 use alloc::{
     rc::{Rc, Weak},
     string::String,
     vec::Vec,
 };
+use axle_rt::AmcMessage;
 use core::fmt::Formatter;
+use core::ptr;
+use file_manager_messages::{ReadFile, ReadFileResponse, FILE_SERVER_SERVICE_NAME};
 use libgui_derive::{Drawable, NestedLayerSlice, UIElement};
+use ttf_renderer::Font;
+
+#[cfg(target_os = "axle")]
+use axle_rt::{amc_message_await__u32_event, amc_message_send};
+
+#[cfg(not(target_os = "axle"))]
+use std::fs;
 
 #[derive(Debug, Copy, Clone)]
 pub struct CursorPos(pub usize, pub Point);
@@ -54,6 +65,7 @@ impl Display for DrawnCharacter {
 #[derive(Drawable, NestedLayerSlice, UIElement)]
 pub struct TextView {
     pub view: Rc<ScrollView>,
+    font: Font,
     font_size: Size,
     text_insets: RectInsets,
     pub text: RefCell<Vec<DrawnCharacter>>,
@@ -61,6 +73,31 @@ pub struct TextView {
 }
 
 impl TextView {
+    fn load_font(name: &str) -> Font {
+        let font_bytes = {
+            #[cfg(target_os = "axle")]
+            {
+                let file_read_request = ReadFile::new(&format!("/fonts/{name}"));
+                amc_message_send(FILE_SERVER_SERVICE_NAME, file_read_request);
+                let file_data_msg: AmcMessage<ReadFileResponse> =
+                    amc_message_await__u32_event(FILE_SERVER_SERVICE_NAME);
+                let file_data_body = file_data_msg.body();
+                unsafe {
+                    let data_slice = ptr::slice_from_raw_parts(
+                        (&file_data_body.data) as *const u8,
+                        file_data_body.len,
+                    );
+                    let data: &[u8] = &*(data_slice as *const [u8]);
+                    data.to_vec()
+                }
+            }
+            #[cfg(not(target_os = "axle"))]
+            {
+                fs::read(&format!("../axle-sysroot/fonts/{name}")).unwrap()
+            }
+        };
+        ttf_renderer::parse(&font_bytes)
+    }
     pub fn new<F: 'static + Fn(&View, Size) -> Rect>(
         _background_color: Color,
         font_size: Size,
@@ -69,9 +106,11 @@ impl TextView {
     ) -> Rc<Self> {
         let view = ScrollView::new(sizer);
         //let view = Rc::new(View::new(background_color, sizer));
+        let font = Self::load_font("new_york_italic.ttf");
 
         Rc::new(Self {
             view,
+            font,
             font_size,
             text_insets,
             text: RefCell::new(vec![]),
@@ -147,7 +186,7 @@ impl TextView {
             }
         }
 
-        onto.draw_char(ch, cursor_pos.1, color, font_size);
+        draw_char_with_font_onto(ch, &self.font, onto, cursor_pos.1, font_size, color);
 
         // TODO(PT): This is not correct if we're not inserting at the end
         // We'll need to adjust the positions of every character that comes after this one
@@ -219,11 +258,21 @@ impl TextView {
                 //println!("Shifting back {} from {} to {} ({})", drawn_ch.value, drawn_ch.pos, prev.pos, prev);
                 //cursor_pos.1 = Self::next_cursor_pos_for_char(prev.pos, prev.value, prev.font_size, onto);
                 drawn_ch.pos = prev.pos;
+                /*
                 onto.draw_char(
                     drawn_ch.value,
                     drawn_ch.pos,
                     drawn_ch.color,
                     drawn_ch.font_size,
+                );
+                */
+                draw_char_with_font_onto(
+                    drawn_ch.value,
+                    &self.font,
+                    onto,
+                    drawn_ch.pos,
+                    drawn_ch.font_size,
+                    drawn_ch.color,
                 );
 
                 if prev.value == '\n' {
@@ -259,11 +308,21 @@ impl TextView {
 
     pub fn draw_char_with_description(&self, char_description: DrawnCharacter) {
         let onto = &mut self.get_slice().get_slice(self.text_entry_frame());
+        /*
         onto.draw_char(
             char_description.value,
             char_description.pos,
             char_description.color,
             self.font_size,
+        );
+         */
+        draw_char_with_font_onto(
+            char_description.value,
+            &self.font,
+            onto,
+            char_description.pos,
+            self.font_size,
+            char_description.color,
         );
     }
 
@@ -299,5 +358,41 @@ impl Bordered for TextView {
         }
         */
         //println!("Finished call to draw_inner_content()");
+    }
+}
+
+fn draw_char_with_font_onto(
+    ch: char,
+    font: &Font,
+    onto: &mut Box<dyn LikeLayerSlice>,
+    draw_loc: Point,
+    font_size: Size,
+    draw_color: Color,
+) {
+    let codepoint = ch as u8 as usize;
+    let glyph = font.codepoints_to_glyph_render_descriptions.get(&codepoint);
+    if glyph.is_none() {
+        return;
+    }
+    let glyph = glyph.unwrap();
+    let mut dest_slice = onto.get_slice(Rect::from_parts(draw_loc, font_size));
+
+    let scale_x = font_size.width as f64 / (font.units_per_em as f64);
+    let scale_y = font_size.height as f64 / (font.units_per_em as f64);
+
+    for polygon in glyph.polygons.iter() {
+        // Flip Y
+        let points: Vec<Point> = polygon
+            .points
+            .iter()
+            .map(|&p| {
+                Point::new(
+                    (p.x as f64 * scale_x) as _,
+                    ((font.bounding_box.max_y() - p.y) as f64 * scale_y) as _,
+                )
+            })
+            .collect();
+        let polygon = Polygon::new(&points);
+        polygon.draw_outline(&mut dest_slice, draw_color);
     }
 }
