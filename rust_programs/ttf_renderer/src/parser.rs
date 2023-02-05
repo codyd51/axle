@@ -1,4 +1,4 @@
-use crate::Font;
+use crate::{Codepoint, Font, GlyphIndex};
 use agx_definitions::{Point, Polygon, Rect, Size};
 use alloc::borrow::ToOwned;
 use alloc::collections::BTreeMap;
@@ -616,30 +616,36 @@ impl<'a> FontParser<'a> {
             println!("Table #{i}: {table}");
             self.table_headers.insert(table.tag, table);
         }
-        self.head = Some(self.parse_table("head"));
-        println!("Found head: {:?}", self.head);
+        let head = self.parse_table("head");
+        self.head = Some(head);
+        println!("Found head: {:?}", head);
+        let glyph_bounding_box = head.glyph_bounding_box;
 
         let max_profile: MaxProfile = self.parse_table("maxp");
         println!("Got max profile {max_profile:?}");
 
         let glyph_indexes_to_codepoints = self.parse_character_map();
 
-        let mut codepoints_to_glyph_descriptions = BTreeMap::new();
+        let mut all_glyphs = vec![];
+        let mut codepoints_to_glyph_indexes = BTreeMap::new();
         for i in 0..max_profile.num_glyphs {
-            println!("\tGlyph offset of glyph #{i}: {}", self.get_glyph_offset(i));
-            let codepoint = glyph_indexes_to_codepoints.get(&i);
-            if codepoint.is_none() {
-                println!("Skipping glyph index {i} because it's not in our mapped codepoints");
-                continue;
+            //println!("\tGlyph offset of glyph #{i}: {}", self.get_glyph_offset(i));
+            let parsed_glyph = self.parse_glyph(i, &glyph_bounding_box);
+            all_glyphs.push(parsed_glyph);
+
+            match glyph_indexes_to_codepoints.get(&i) {
+                None => (),
+                Some(codepoint) => {
+                    codepoints_to_glyph_indexes.insert(Codepoint(*codepoint), GlyphIndex(i));
+                }
             }
-            let codepoint = codepoint.unwrap();
-            codepoints_to_glyph_descriptions.insert(*codepoint, self.parse_glyph(i));
         }
         Font::new(
             "abc",
             &self.head.unwrap().glyph_bounding_box,
             self.head.unwrap().units_per_em as _,
-            &codepoints_to_glyph_descriptions,
+            all_glyphs,
+            codepoints_to_glyph_indexes,
         )
     }
 
@@ -866,13 +872,11 @@ impl<'a> FontParser<'a> {
         while flag_count_to_parse > 0 {
             let flag_byte: u8 = *self.read_with_cursor(&mut cursor);
             let flags = get_flags_from_byte(flag_byte);
-            //println!("{cursor}: Got flag {flag_byte:08b} ({flags:?})");
             if flags.contains(&GlyphOutlineFlag::Repeat) {
                 let mut flags = flags.clone();
                 flags.retain(|&f| f != GlyphOutlineFlag::Repeat);
                 let repeat_count: u8 = *self.read_with_cursor(&mut cursor);
                 flag_count_to_parse -= repeat_count as usize;
-                //println!("\t{cursor}: Found repeat count {repeat_count}");
                 // Add 1 to the repeat count to account for the initial set, plus repeats
                 for _ in 0..repeat_count + 1 {
                     all_flags.push(flags.clone());
@@ -901,7 +905,7 @@ impl<'a> FontParser<'a> {
         // The first polygon starts at index 0
         polygon_start_end_index_pairs.insert(0, 0);
         for (&start_idx, &end_idx) in polygon_start_end_index_pairs.iter().tuple_windows() {
-            println!("Found polygon {start_idx} to {end_idx}");
+            //println!("Found polygon {start_idx} to {end_idx}");
             polygons.push(Polygon::new(&points[start_idx..end_idx + 1]))
         }
 
