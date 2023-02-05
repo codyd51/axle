@@ -21,7 +21,8 @@ use core::fmt::Formatter;
 use core::ptr;
 use file_manager_messages::{ReadFile, ReadFileResponse, FILE_SERVER_SERVICE_NAME};
 use libgui_derive::{Drawable, NestedLayerSlice, UIElement};
-use ttf_renderer::Font;
+use std::collections::BTreeMap;
+use ttf_renderer::{Codepoint, Font};
 
 #[cfg(target_os = "axle")]
 use axle_rt::{amc_message_await__u32_event, amc_message_send};
@@ -106,7 +107,8 @@ impl TextView {
     ) -> Rc<Self> {
         let view = ScrollView::new(sizer);
         //let view = Rc::new(View::new(background_color, sizer));
-        let font = Self::load_font("new_york_italic.ttf");
+        //let font = Self::load_font("new_york_italic.ttf");
+        let font = Font::new("abc", &Rect::zero(), 0, vec![], BTreeMap::new());
 
         Rc::new(Self {
             view,
@@ -369,8 +371,8 @@ fn draw_char_with_font_onto(
     font_size: Size,
     draw_color: Color,
 ) {
-    let codepoint = ch as u8 as usize;
-    let glyph = font.codepoints_to_glyph_render_descriptions.get(&codepoint);
+    let codepoint = Codepoint::from(ch);
+    let glyph = font.glyph_for_codepoint(codepoint);
     if glyph.is_none() {
         return;
     }
