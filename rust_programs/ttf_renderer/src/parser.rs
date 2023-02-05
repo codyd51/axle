@@ -670,6 +670,9 @@ impl<'a> FontParser<'a> {
                     CharacterMapPlatformAndEncoding::Unicode(
                         CharacterMapUnicodeEncoding::Version2_0Extended,
                     ),
+                    CharacterMapPlatformAndEncoding::Unicode(
+                        CharacterMapUnicodeEncoding::Version1_1,
+                    ),
                 ];
                 if recognized_unicode_encodings
                     .contains(&character_map_subtable.platform_and_encoding)
@@ -679,7 +682,7 @@ impl<'a> FontParser<'a> {
                     None
                 }
             })
-            .expect("Failed to find a Unicode 2.0 BMP character map");
+            .expect("Failed to find a recognized Unicode character map");
         println!("Unicode BMP character map offset: {unicode_bmp_char_map_offset}");
 
         // All table formats start with a common 4-word header
