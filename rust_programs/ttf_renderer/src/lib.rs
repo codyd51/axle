@@ -8,7 +8,7 @@ extern crate core;
 
 mod parser;
 
-use crate::parser::GlyphRenderDescription;
+pub use crate::parser::GlyphRenderDescription;
 use agx_definitions::Rect;
 use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
@@ -42,7 +42,7 @@ pub struct Font {
 }
 
 impl Font {
-    fn new(
+    pub fn new(
         name: &str,
         bounding_box: &Rect,
         units_per_em: usize,

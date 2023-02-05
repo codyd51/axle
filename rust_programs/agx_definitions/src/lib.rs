@@ -1273,6 +1273,15 @@ impl Polygon {
         }
     }
 
+    pub fn scale_by(&self, scale_x: f64, scale_y: f64) -> Self {
+        let scaled_points: Vec<Point> = self
+            .points
+            .iter()
+            .map(|&p| Point::new((p.x as f64 * scale_x) as _, (p.y as f64 * scale_y) as _))
+            .collect();
+        Polygon::new(&scaled_points)
+    }
+
     pub fn draw_outline(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
         let mut lines = vec![];
         for (&point, &next_point) in self.points.iter().tuple_windows() {
