@@ -1,6 +1,6 @@
 use agx_definitions::{
-    Color, Drawable, LikeLayerSlice, Line, NestedLayerSlice, Point, Polygon, Rect, RectInsets,
-    Size, StrokeThickness,
+    Color, Drawable, LikeLayerSlice, Line, NestedLayerSlice, Point, Polygon, PolygonStack, Rect,
+    RectInsets, Size, StrokeThickness,
 };
 use pixels::{Pixels, SurfaceTexture};
 use ttf_renderer::{parse, Codepoint, Font, GlyphRenderDescription};
@@ -30,20 +30,26 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
 
     let mut main_view_slice = main_view.get_slice();
 
+    let font_path = "/Users/philliptennen/Downloads/mplus1mn-bold-ascii.ttf";
+    let font_path = "/Users/philliptennen/Downloads/ASCII/ASCII.ttf";
+    let font_path = "/Users/philliptennen/Downloads/TestFont.ttf";
+    let font_path = "/System/Library/Fonts/Keyboard.ttf";
+    let font_path = "/System/Library/Fonts/NewYorkItalic.ttf";
+    let font_path = "/System/Library/Fonts/Geneva.ttf";
     let font_path = "/Users/philliptennen/Downloads/SF-Pro.ttf";
     let font_path = "/Users/philliptennen/Downloads/nexa/NexaText-Trial-Regular.ttf";
-    let font_path = "/System/Library/Fonts/Geneva.ttf";
-    let font_path = "/Users/philliptennen/Downloads/mplus1mn-bold-ascii.ttf";
-    let font_path = "/System/Library/Fonts/NewYorkItalic.ttf";
-    let font_path = "/Users/philliptennen/Downloads/ASCII/ASCII.ttf";
-    let font_path = "/System/Library/Fonts/Keyboard.ttf";
-    let font_path = "/Users/philliptennen/Downloads/TestFont.ttf";
     let font_data = fs::read(font_path).unwrap();
     let font = parse(&font_data);
     let font_size = Size::new(64, 64);
 
-    render_all_glyphs_in_font(&mut main_view_slice, &font, &font_size);
-    //render_glyph(&mut main_view_slice, &font.glyphs[0], 1.0, 1.0);
+    //render_all_glyphs_in_font(&mut main_view_slice, &font, &font_size);
+    render_string(
+        &mut main_view_slice,
+        &font,
+        &font_size,
+        "Sphinx_of_black_quartz,_judge_my_vow",
+    );
+    //render_glyph(&mut main_view_slice, &font.glyphs[8], 0.2, 0.2);
 
     window.enter_event_loop();
     Ok(())
@@ -59,7 +65,7 @@ fn render_all_glyphs_in_font(onto: &mut Box<dyn LikeLayerSlice>, font: &Font, fo
         (font.bounding_box.size.height as f64 * scale_y) as isize,
     );
 
-    for (i, glyph) in font.glyphs.iter().take(256).enumerate() {
+    for (i, glyph) in font.glyphs.iter().take(128).enumerate() {
         let mut dest_slice = onto.get_slice(Rect::from_parts(cursor, scaled_em_size));
         render_glyph(&mut dest_slice, glyph, scale_x, scale_y);
         cursor = Point::new(
@@ -88,7 +94,7 @@ fn render_string(onto: &mut Box<dyn LikeLayerSlice>, font: &Font, font_size: &Si
         let mut dest_slice = onto.get_slice(Rect::from_parts(cursor, scaled_em_size));
         render_glyph(&mut dest_slice, glyph, scale_x, scale_y);
         cursor = Point::new(
-            cursor.x + ((scaled_em_size.width as f64 * 1.0) as isize),
+            cursor.x + ((scaled_em_size.width as f64 * 0.38) as isize),
             cursor.y,
         );
         if cursor.x >= onto.frame().size.width - (font_size.width * 2) {
@@ -104,16 +110,23 @@ fn render_glyph(
     scale_x: f64,
     scale_y: f64,
 ) {
+    /*
     for (i, polygon) in glyph.polygons.iter().enumerate() {
         let scaled_polygon = polygon.scale_by(scale_x, scale_y);
-        /*
         let color = match i {
             0 => Color::red(),
             1 => Color::yellow(),
             _ => Color::green(),
         };
-        scaled_polygon.draw_outline(onto, color);
-        */
-        scaled_polygon.draw_outline(onto, Color::black());
+        //scaled_polygon.draw_outline(onto, Color::black());
+        scaled_polygon.fill(onto, color);
     }
+    */
+    let scaled_polygons: Vec<Polygon> = glyph
+        .polygons
+        .iter()
+        .map(|p| p.scale_by(scale_x, scale_y))
+        .collect();
+    let polygon_stack = PolygonStack::new(&scaled_polygons);
+    polygon_stack.fill(onto, Color::black());
 }
