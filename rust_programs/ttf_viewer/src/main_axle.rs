@@ -5,6 +5,6 @@ use axle_rt::println;
 
 pub fn main() {
     println!("Running in axle!");
-    amc_register_service("com.axle.ttf_renderer");
+    amc_register_service("com.axle.ttf_viewer");
     loop {}
 }

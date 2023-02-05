@@ -1,11 +1,18 @@
+#![cfg_attr(target_os = "axle", no_std)]
+#![feature(core_intrinsics)]
+#![feature(slice_ptr_get)]
+#![feature(format_args_nl)]
+
+extern crate alloc;
 extern crate core;
 
 mod parser;
 
 use crate::parser::GlyphRenderDescription;
 use agx_definitions::Rect;
+use alloc::collections::BTreeMap;
+use alloc::string::{String, ToString};
 use parser::FontParser;
-use std::collections::BTreeMap;
 
 pub struct Font {
     pub name: String,

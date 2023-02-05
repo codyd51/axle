@@ -9,7 +9,6 @@ use winit::event::Event;
 use winit::event_loop::{ControlFlow, EventLoop};
 use winit::window::WindowBuilder;
 
-use itertools::Itertools;
 use libgui::bordered::Bordered;
 use libgui::text_input_view::TextInputView;
 use libgui::ui_elements::UIElement;
@@ -37,8 +36,8 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     let font_path = "/Users/philliptennen/Downloads/ASCII/ASCII.ttf";
     let font_path = "/Users/philliptennen/Downloads/SF-Pro.ttf";
     let font_path = "/Users/philliptennen/Downloads/mplus1mn-bold-ascii.ttf";
-    let font_path = "/Users/philliptennen/Downloads/TestFont.ttf";
     let font_path = "/System/Library/Fonts/NewYorkItalic.ttf";
+    let font_path = "/Users/philliptennen/Downloads/TestFont.ttf";
     let font_data = fs::read(font_path).unwrap();
     let font = parse(&font_data);
     let bounding_box = font.bounding_box;

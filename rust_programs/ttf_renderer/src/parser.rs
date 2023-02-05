@@ -1,12 +1,25 @@
 use crate::Font;
 use agx_definitions::{Point, Polygon, Rect, Size};
+use alloc::borrow::ToOwned;
+use alloc::collections::BTreeMap;
+use alloc::fmt::Debug;
+use alloc::fmt::{Display, Formatter};
+use alloc::vec;
+use alloc::{
+    rc::{Rc, Weak},
+    string::String,
+    vec::Vec,
+};
+use core::cmp::max;
+use core::mem;
+use core::ops::{Index, Range};
 use itertools::Itertools;
 use num_traits::PrimInt;
-use std::cmp::max;
-use std::collections::BTreeMap;
-use std::fmt::{Display, Formatter};
-use std::mem;
-use std::ops::{Index, Range};
+
+#[cfg(target_os = "axle")]
+use axle_rt::println;
+#[cfg(not(target_os = "axle"))]
+use std::println;
 
 trait TransmuteFontBufInPlace {}
 
@@ -113,7 +126,7 @@ impl<'a> TableHeader<'a> {
 }
 
 impl<'a> Display for TableHeader<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "[{} {:08x} - {:08x}]",
