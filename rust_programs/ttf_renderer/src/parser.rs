@@ -654,10 +654,17 @@ impl<'a> FontParser<'a> {
             .find_map(|_| {
                 let character_map_subtable =
                     CharacterMapSubtable::from_in_place_buf(self.read_with_cursor(&mut cursor));
-                if character_map_subtable.platform_and_encoding
-                    == CharacterMapPlatformAndEncoding::Unicode(
+                println!("Character map subtable {character_map_subtable:?}");
+                let recognized_unicode_encodings = [
+                    CharacterMapPlatformAndEncoding::Unicode(
                         CharacterMapUnicodeEncoding::Version2_0Bmp,
-                    )
+                    ),
+                    CharacterMapPlatformAndEncoding::Unicode(
+                        CharacterMapUnicodeEncoding::Version2_0Extended,
+                    ),
+                ];
+                if recognized_unicode_encodings
+                    .contains(&character_map_subtable.platform_and_encoding)
                 {
                     Some(character_map_subtable.offset)
                 } else {
@@ -726,7 +733,7 @@ impl<'a> FontParser<'a> {
         let segment_ranges: Vec<Range<usize>> = segment_start_character_codes
             .iter()
             .zip(segment_last_character_codes.iter())
-            .map(|(&start, &end)| (start as usize..end as usize))
+            .map(|(&start, &end)| (start as usize..end as usize + 1))
             .collect();
         println!("Segment ranges: {segment_ranges:?}");
 
