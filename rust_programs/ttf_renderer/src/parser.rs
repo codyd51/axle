@@ -848,7 +848,6 @@ impl<'a> FontParser<'a> {
         //println!("Found glyph header: {glyph_header}");
         let glyph_offset = glyph_header.offset + self.get_glyph_offset(glyph_index);
         let mut cursor = glyph_offset;
-        //println!("start cursor {cursor}");
         let glyph_description =
             GlyphDescription::from_in_place_buf(self.read_with_cursor(&mut cursor));
         // Hack to make compound glyphs work
@@ -861,7 +860,7 @@ impl<'a> FontParser<'a> {
         let mut last_point_indexes = vec![];
         for _ in 0..glyph_description.contour_count {
             let contour_end = u16::from_in_place_buf(self.read_with_cursor(&mut cursor));
-            last_point_indexes.push(contour_end as usize);
+            last_point_indexes.push(contour_end as isize);
         }
         let max_point_idx = last_point_indexes.iter().max().unwrap();
         let point_count = max_point_idx + 1;
@@ -874,7 +873,7 @@ impl<'a> FontParser<'a> {
         cursor += instructions_len as usize;
 
         let mut all_flags = vec![];
-        let mut flag_count_to_parse = point_count;
+        let mut flag_count_to_parse = point_count as usize;
         while flag_count_to_parse > 0 {
             let flag_byte: u8 = *self.read_with_cursor(&mut cursor);
             let flags = get_flags_from_byte(flag_byte);
@@ -910,10 +909,15 @@ impl<'a> FontParser<'a> {
         let mut polygons = vec![];
         let mut polygon_start_end_index_pairs = last_point_indexes.to_owned();
         // The first polygon starts at index 0
-        polygon_start_end_index_pairs.insert(0, 0);
-        for (&start_idx, &end_idx) in polygon_start_end_index_pairs.iter().tuple_windows() {
-            //println!("Found polygon {start_idx} to {end_idx}");
-            polygons.push(Polygon::new(&points[start_idx..end_idx + 1]))
+        // > The first point number of each contour (except the first) is one greater than the last point number of the preceding contour.
+        polygon_start_end_index_pairs.insert(0, -1);
+        for (&end_idx_of_previous_contour, &end_idx) in
+            polygon_start_end_index_pairs.iter().tuple_windows()
+        {
+            let start_idx = end_idx_of_previous_contour + 1;
+            polygons.push(Polygon::new(
+                &points[start_idx as usize..(end_idx + 1) as usize],
+            ))
         }
 
         println!(
