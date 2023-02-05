@@ -557,12 +557,14 @@ impl FromFontBufInPlace<CharacterMapDataFormat12GroupHeaderRaw>
 
 #[derive(Debug, Clone)]
 pub struct GlyphRenderDescription {
+    pub bounding_box: Rect,
     pub polygons: Vec<Polygon>,
 }
 
 impl GlyphRenderDescription {
-    fn new(polygons: &Vec<Polygon>) -> Self {
+    fn new(glyph_bounding_box: &Rect, polygons: &Vec<Polygon>) -> Self {
         Self {
+            bounding_box: glyph_bounding_box.to_owned(),
             polygons: polygons.to_owned(),
         }
     }
@@ -848,7 +850,8 @@ impl<'a> FontParser<'a> {
             GlyphDescription::from_in_place_buf(self.read_with_cursor(&mut cursor));
         // Hack to make compound glyphs work
         if glyph_description.contour_count <= 0 {
-            return GlyphRenderDescription::new(&vec![]);
+            println!("Compound glyph!");
+            return GlyphRenderDescription::new(&Rect::zero(), &vec![]);
         }
 
         // This informs how many points there are in total
@@ -896,7 +899,7 @@ impl<'a> FontParser<'a> {
             .iter()
             .zip(y_values.iter())
             // Flip the Y axis of every point to match our coordinate system
-            .map(|(&x, &y)| Point::new(x, glyph_bounding_box.max_y() - y))
+            .map(|(&x, &y)| Point::new(x, glyph_description.bounding_box.max_y() - y))
             .collect();
 
         // Split the total collection of points into polygons, using the last-point-indexes that
@@ -914,7 +917,7 @@ impl<'a> FontParser<'a> {
             "Finished parsing glyph #{glyph_index} with polygon count {}",
             polygons.len()
         );
-        GlyphRenderDescription::new(&polygons)
+        GlyphRenderDescription::new(&glyph_description.bounding_box, &polygons)
     }
 
     fn interpret_values_via_flags(
