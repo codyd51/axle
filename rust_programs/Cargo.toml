@@ -31,6 +31,7 @@ members = [
     "menu_bar",
     "menu_bar_messages",
     "ttf_renderer",
+    "ttf_viewer",
 ]
 
 exclude = [

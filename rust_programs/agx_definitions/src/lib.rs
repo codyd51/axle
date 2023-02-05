@@ -13,6 +13,7 @@ use alloc::fmt::Debug;
 
 use alloc::boxed::Box;
 use alloc::rc::Weak;
+use alloc::vec;
 use core::fmt::Formatter;
 use core::{
     cmp::{max, min},
@@ -20,7 +21,6 @@ use core::{
     ops::{Add, Mul, Sub},
 };
 use itertools::Itertools;
-use line_intersection::LineInterval;
 use num_traits::Float;
 
 #[cfg(target_os = "axle")]
@@ -273,6 +273,17 @@ impl Point {
         let y_dist = p2.y - p1.y;
         let hypotenuse_squared = x_dist.pow(2) + y_dist.pow(2);
         (hypotenuse_squared as f64).sqrt()
+    }
+
+    pub fn cross(&self, other: &Self) -> isize {
+        self.x * other.y - self.y * other.x
+    }
+
+    pub fn div(&self, divisor: f64) -> Point {
+        Point::new(
+            (self.x as f64 / divisor) as isize,
+            (self.y as f64 / divisor) as isize,
+        )
     }
 }
 
@@ -1202,22 +1213,37 @@ impl Line {
     }
 
     pub fn intersection(self, other: &Self) -> Option<Point> {
-        // Convert to the library's expected types
-        let this = LineInterval::line_segment(geo::Line {
-            start: (self.p1.x as f64, self.p1.y as f64).into(),
-            end: (self.p2.x as f64, self.p2.y as f64).into(),
-        });
-        let other = LineInterval::line_segment(geo::Line {
-            start: (other.p1.x as f64, other.p1.y as f64).into(),
-            end: (other.p2.x as f64, other.p2.y as f64).into(),
-        });
-        let intersection = this.relate(&other).unique_intersection();
-        if intersection.is_none() {
+        // Ref: https://stackoverflow.com/questions/563198
+        let p = self.p1;
+        let q = other.p1;
+        let r = self.p1 - self.p2;
+        let s = other.p1 - other.p2;
+
+        let r_cross_s = r.cross(&s);
+
+        // Parallel/collinear lines?
+        if r_cross_s == 0 {
             return None;
         }
-        let intersection = intersection.unwrap();
-        // Convert back to agx types
-        Some(Point::new(intersection.x() as _, intersection.y() as _))
+
+        let q_minus_p = q - p;
+        let q_minus_p_cross_r = q_minus_p.cross(&r);
+
+        // Non-parallel/collinear lines
+        let t = q_minus_p.cross(&s.div(r_cross_s as f64));
+        let u = q_minus_p.cross(&r.div(r_cross_s as f64));
+
+        // are the intersection coordinates both in range?
+        let t_in_range = 0 <= t && t <= 1;
+        let u_in_range = 0 <= u && u <= 1;
+
+        if !t_in_range || !u_in_range {
+            // No intersection
+            return None;
+        }
+
+        // Intersection
+        Some(Point::new(p.x + t * r.x, p.y + t * r.y))
     }
 }
 
@@ -1281,15 +1307,12 @@ impl Polygon {
         let max_y = lines.iter().map(|l| max(l.p1.y, l.p2.y)).max().unwrap();
         let bounding_box = Rect::new(min_x, min_y, max_x - min_x, max_y - min_y);
         // Sort lines in ascending y-order
-        let sorted_lines: Vec<Line> = lines
-            .iter()
-            .sorted_by(|&&l1, &&l2| {
-                let l1_min_y = min(l1.p1.y, l1.p2.y);
-                let l2_min_y = min(l2.p1.y, l2.p2.y);
-                l1_min_y.cmp(&l2_min_y)
-            })
-            .map(|l| l.clone())
-            .collect();
+        let mut sorted_lines: Vec<Line> = lines.iter().map(|l| l.clone()).collect();
+        sorted_lines.sort_by(|&l1, &l2| {
+            let l1_min_y = min(l1.p1.y, l1.p2.y);
+            let l2_min_y = min(l2.p1.y, l2.p2.y);
+            l1_min_y.cmp(&l2_min_y)
+        });
 
         for scanline_y in bounding_box.min_y()..bounding_box.max_y() {
             // Find all the edges intersected by this scanline
@@ -1301,8 +1324,12 @@ impl Polygon {
                 .iter()
                 // Trivially filter lines that don't intersect on the Y axis
                 .filter(|l| {
+                    /*
                     let (&smaller_y, &larger_y) =
                         [l.p1.y, l.p2.y].iter().sorted().next_tuple().unwrap();
+                    */
+                    let smaller_y = min(l.p1.y, l.p2.y);
+                    let larger_y = max(l.p1.y, l.p2.y);
                     scanline_y >= smaller_y && scanline_y <= larger_y
                 })
                 .filter_map(|&l| {
@@ -1312,13 +1339,13 @@ impl Polygon {
                         Some(p) => Some((l, p)),
                     }
                 })
-                // Sort the lines by increasing intersection X-coordinate
-                .sorted_by(|l1_and_p, l2_and_p| {
-                    let p1 = l1_and_p.1;
-                    let p2 = l2_and_p.1;
-                    p1.x.cmp(&p2.x)
-                })
                 .collect();
+            // Sort the lines by increasing intersection X-coordinate
+            active_edges_and_intersections.sort_by(|l1_and_p, l2_and_p| {
+                let p1 = l1_and_p.1;
+                let p2 = l2_and_p.1;
+                p1.x.cmp(&p2.x)
+            });
 
             // Deduplicate edges that sit on a vertex of the polygon
             // Otherwise, we enter and exit a line at the same point
