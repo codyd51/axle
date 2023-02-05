@@ -482,6 +482,7 @@ struct CharacterMapDataFormat4Header {
 
 impl FromFontBufInPlace<CharacterMapDataFormat4HeaderRaw> for CharacterMapDataFormat4Header {
     fn from_in_place_buf(raw: &CharacterMapDataFormat4HeaderRaw) -> Self {
+        assert_eq!(raw.format.into_value(), 4);
         Self {
             format: raw.format.into_value() as _,
             length: raw.length.into_value() as _,
@@ -490,6 +491,66 @@ impl FromFontBufInPlace<CharacterMapDataFormat4HeaderRaw> for CharacterMapDataFo
             search_range: raw.search_range.into_value() as _,
             entry_selector: raw.entry_selector.into_value() as _,
             range_shift: raw.range_shift.into_value() as _,
+        }
+    }
+}
+
+#[repr(C, packed)]
+#[derive(Debug, Copy, Clone)]
+struct CharacterMapDataFormat12HeaderRaw {
+    format: BigEndianValue<u16>,
+    reserved: BigEndianValue<u16>,
+    length: BigEndianValue<u32>,
+    language: BigEndianValue<u32>,
+    groups_count: BigEndianValue<u32>,
+}
+
+impl TransmuteFontBufInPlace for CharacterMapDataFormat12HeaderRaw {}
+
+#[derive(Debug, Copy, Clone)]
+struct CharacterMapDataFormat12Header {
+    format: usize,
+    length: usize,
+    language: usize,
+    groups_count: usize,
+}
+
+impl FromFontBufInPlace<CharacterMapDataFormat12HeaderRaw> for CharacterMapDataFormat12Header {
+    fn from_in_place_buf(raw: &CharacterMapDataFormat12HeaderRaw) -> Self {
+        assert_eq!(raw.format.into_value(), 12);
+        Self {
+            format: raw.format.into_value() as _,
+            length: raw.length.into_value() as _,
+            language: raw.language.into_value() as _,
+            groups_count: raw.groups_count.into_value() as _,
+        }
+    }
+}
+
+#[repr(C, packed)]
+#[derive(Debug, Copy, Clone)]
+struct CharacterMapDataFormat12GroupHeaderRaw {
+    start_char_code: BigEndianValue<u32>,
+    end_char_code: BigEndianValue<u32>,
+    start_glyph_code: BigEndianValue<u32>,
+}
+
+impl TransmuteFontBufInPlace for CharacterMapDataFormat12GroupHeaderRaw {}
+
+#[derive(Debug, Clone)]
+struct CharacterMapDataFormat12GroupHeader {
+    char_code_range: Range<usize>,
+    start_glyph_code: usize,
+}
+
+impl FromFontBufInPlace<CharacterMapDataFormat12GroupHeaderRaw>
+    for CharacterMapDataFormat12GroupHeader
+{
+    fn from_in_place_buf(raw: &CharacterMapDataFormat12GroupHeaderRaw) -> Self {
+        Self {
+            char_code_range: (raw.start_char_code.into_value() as usize
+                ..raw.end_char_code.into_value() as usize + 1),
+            start_glyph_code: raw.start_glyph_code.into_value() as usize,
         }
     }
 }
@@ -611,8 +672,18 @@ impl<'a> FontParser<'a> {
         let table_base_header =
             CharacterMapDataTableHeader::from_in_place_buf(self.read(data_header_offset));
         println!("Got table base header {table_base_header:?}");
-        assert_eq!(table_base_header.format, 4);
 
+        match table_base_header.format {
+            4 => self.parse_character_map_table_format4(data_header_offset),
+            12 => self.parse_character_map_table_format12(data_header_offset),
+            _ => panic!("Unhandled table format {}", table_base_header.format),
+        }
+    }
+
+    fn parse_character_map_table_format4(
+        &self,
+        data_header_offset: usize,
+    ) -> BTreeMap<usize, usize> {
         let table_format4_header =
             CharacterMapDataFormat4Header::from_in_place_buf(self.read(data_header_offset));
         println!("Got table format4 header {table_format4_header:?}");
@@ -686,33 +757,50 @@ impl<'a> FontParser<'a> {
                 continue;
             }
             let id_range = segment_id_range_offsets[segment_index] as usize;
-            /*
-            println!("\tFound delta, range {id_delta}, {id_range}");
-            let glyph_id_index = segment_ranges[segment_index].start + id_range;
-            println!("\tglyph_id_index {glyph_id_index}");
-            */
-
             //glyphIndexAddress = idRangeOffset[i] + 2 * (c - startCode[i]) + (Ptr) &idRangeOffset[i]
             let glyph_index_addr = id_range
                 + (2 * (codepoint - segment_ranges[segment_index].start))
                 + (segment_id_range_base + (segment_index * 2));
 
-            /*
-            let mut glyph_indexes = vec![];
-            let glyph_indexes_base = cursor;
-            for _ in 0..512 {
-                let glyph_index = u16::from_in_place_buf(self.read_with_cursor(&mut cursor));
-                glyph_indexes.push(glyph_index);
-            }
-
-            let glyph_index_offset = glyph_index_addr - glyph_indexes_base;
-            let glyph_index = glyph_index_offset / mem::size_of::<u16>();
-            //println!(glyph_index, glyph_indexes[glyph_index]);
-            */
             let glyph_index = u16::from_in_place_buf(self.read(glyph_index_addr));
-            //println!("glyph_index {glyph_index}");
             println!("Codepoint({codepoint}) = GlyphIndex({glyph_index})");
             glyph_indexes_to_codepoints.insert(glyph_index as usize, codepoint as usize);
+        }
+
+        glyph_indexes_to_codepoints
+    }
+
+    fn parse_character_map_table_format12(
+        &self,
+        data_header_offset: usize,
+    ) -> BTreeMap<usize, usize> {
+        let mut cursor = data_header_offset;
+        let table_format12_header =
+            CharacterMapDataFormat12Header::from_in_place_buf(self.read_with_cursor(&mut cursor));
+        println!("Got table format12 header {table_format12_header:?}");
+        let mut groups = vec![];
+        for _ in 0..table_format12_header.groups_count {
+            let group_header = CharacterMapDataFormat12GroupHeader::from_in_place_buf(
+                self.read_with_cursor(&mut cursor),
+            );
+            println!("\tGot group header {group_header:?}");
+            groups.push(group_header);
+        }
+        // Map the first 256 Unicode codepoints (ASCII + extended ASCII)
+        let mut glyph_indexes_to_codepoints = BTreeMap::new();
+        for codepoint in 0..256 {
+            let group_containing_codepoint = groups
+                .iter()
+                .find(|&group| group.char_code_range.contains(&codepoint));
+            if group_containing_codepoint.is_none() {
+                // Codepoint unmapped
+                println!("Codepoint {codepoint} is unmapped");
+                continue;
+            }
+            let group_containing_codepoint = group_containing_codepoint.unwrap();
+            let glyph_index = group_containing_codepoint.start_glyph_code
+                + (codepoint - group_containing_codepoint.char_code_range.start);
+            glyph_indexes_to_codepoints.insert(glyph_index, codepoint);
         }
 
         glyph_indexes_to_codepoints
