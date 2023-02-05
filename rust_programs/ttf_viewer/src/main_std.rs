@@ -3,7 +3,7 @@ use agx_definitions::{
     Size, StrokeThickness,
 };
 use pixels::{Pixels, SurfaceTexture};
-use ttf_renderer::parse;
+use ttf_renderer::{parse, Codepoint, Font, GlyphRenderDescription};
 use winit::dpi::LogicalSize;
 use winit::event::Event;
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -30,20 +30,28 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
 
     let mut main_view_slice = main_view.get_slice();
 
+    let font_path = "/Users/philliptennen/Downloads/SF-Pro.ttf";
     let font_path = "/Users/philliptennen/Downloads/nexa/NexaText-Trial-Regular.ttf";
     let font_path = "/System/Library/Fonts/Geneva.ttf";
-    let font_path = "/System/Library/Fonts/Keyboard.ttf";
-    let font_path = "/Users/philliptennen/Downloads/ASCII/ASCII.ttf";
-    let font_path = "/Users/philliptennen/Downloads/SF-Pro.ttf";
     let font_path = "/Users/philliptennen/Downloads/mplus1mn-bold-ascii.ttf";
     let font_path = "/System/Library/Fonts/NewYorkItalic.ttf";
+    let font_path = "/Users/philliptennen/Downloads/ASCII/ASCII.ttf";
+    let font_path = "/System/Library/Fonts/Keyboard.ttf";
     let font_path = "/Users/philliptennen/Downloads/TestFont.ttf";
     let font_data = fs::read(font_path).unwrap();
     let font = parse(&font_data);
-    let bounding_box = font.bounding_box;
+    let font_size = Size::new(64, 64);
 
-    let mut cursor = Point::new(2, 2);
-    let font_size = Size::new(30, 18);
+    render_all_glyphs_in_font(&mut main_view_slice, &font, &font_size);
+    //render_glyph(&mut main_view_slice, &font.glyphs[0], 1.0, 1.0);
+
+    window.enter_event_loop();
+    Ok(())
+}
+
+fn render_all_glyphs_in_font(onto: &mut Box<dyn LikeLayerSlice>, font: &Font, font_size: &Size) {
+    let cursor_origin = Point::new(2, 2);
+    let mut cursor = cursor_origin;
     let scale_x = font_size.width as f64 / (font.units_per_em as f64);
     let scale_y = font_size.height as f64 / (font.units_per_em as f64);
     let scaled_em_size = Size::new(
@@ -51,61 +59,61 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         (font.bounding_box.size.height as f64 * scale_y) as isize,
     );
 
-    let colors = [
-        Color::black(),
-        Color::blue(),
-        Color::green(),
-        Color::black(),
-        Color::new(0, 255, 180),
-        Color::yellow(),
-        Color::light_gray(),
-        Color::dark_gray(),
-        Color::new(100, 20, 255),
-        Color::new(200, 180, 140),
-        Color::new(255, 100, 200),
-        Color::new(80, 46, 100),
-        Color::new(30, 240, 60),
-    ];
-    let s = "Dog_of_black_furs,_hear_the_vow";
-    for ch in s.chars() {
-        let codepoint = ch as u8 as usize;
-        let glyph = font.codepoints_to_glyph_render_descriptions.get(&codepoint);
-        if glyph.is_none() {
-            continue;
-        }
-        let glyph = glyph.unwrap();
-        let mut dest_slice = main_view_slice.get_slice(Rect::from_parts(cursor, scaled_em_size));
-        for (j, polygon) in glyph.polygons.iter().enumerate() {
-            // Flip Y
-            let points: Vec<Point> = polygon
-                .points
-                .iter()
-                .map(|&p| {
-                    Point::new(
-                        (p.x as f64 * scale_x) as _,
-                        ((bounding_box.max_y() - p.y) as f64 * scale_y) as _,
-                    )
-                })
-                .collect();
-            let polygon = Polygon::new(&points);
-
-            let start = Instant::now();
-            //polygon.fill(&mut dest_slice, *colors.get(j).unwrap_or(&Color::black()));
-            //polygon.fill(&mut dest_slice, Color::black());
-            polygon.draw_outline(&mut dest_slice, Color::black());
-            let duration = start.elapsed();
-            println!("Glyph #{codepoint} polygon #{j} fill took {duration:?}");
-        }
+    for (i, glyph) in font.glyphs.iter().take(256).enumerate() {
+        let mut dest_slice = onto.get_slice(Rect::from_parts(cursor, scaled_em_size));
+        render_glyph(&mut dest_slice, glyph, scale_x, scale_y);
         cursor = Point::new(
-            cursor.x + ((scaled_em_size.width as f64 * 0.35) as isize),
+            cursor.x + ((scaled_em_size.width as f64 * 1.0) as isize),
             cursor.y,
         );
-        if cursor.x >= 1100 {
+        if cursor.x >= onto.frame().size.width - (font_size.width * 2) {
             cursor.y += scaled_em_size.height;
-            cursor.x = 2;
+            cursor.x = cursor_origin.x;
+        }
+        println!("Rendered #{i}");
+    }
+}
+
+fn render_string(onto: &mut Box<dyn LikeLayerSlice>, font: &Font, font_size: &Size, msg: &str) {
+    let cursor_origin = Point::new(2, 2);
+    let mut cursor = cursor_origin;
+    let scale_x = font_size.width as f64 / (font.units_per_em as f64);
+    let scale_y = font_size.height as f64 / (font.units_per_em as f64);
+    let scaled_em_size = Size::new(
+        (font.bounding_box.size.width as f64 * scale_x) as isize,
+        (font.bounding_box.size.height as f64 * scale_y) as isize,
+    );
+    for (i, ch) in msg.chars().enumerate() {
+        let glyph = font.glyph_for_codepoint(Codepoint::from(ch)).unwrap();
+        let mut dest_slice = onto.get_slice(Rect::from_parts(cursor, scaled_em_size));
+        render_glyph(&mut dest_slice, glyph, scale_x, scale_y);
+        cursor = Point::new(
+            cursor.x + ((scaled_em_size.width as f64 * 1.0) as isize),
+            cursor.y,
+        );
+        if cursor.x >= onto.frame().size.width - (font_size.width * 2) {
+            cursor.y += scaled_em_size.height;
+            cursor.x = cursor_origin.x;
         }
     }
+}
 
-    window.enter_event_loop();
-    Ok(())
+fn render_glyph(
+    onto: &mut Box<dyn LikeLayerSlice>,
+    glyph: &GlyphRenderDescription,
+    scale_x: f64,
+    scale_y: f64,
+) {
+    for (i, polygon) in glyph.polygons.iter().enumerate() {
+        let scaled_polygon = polygon.scale_by(scale_x, scale_y);
+        /*
+        let color = match i {
+            0 => Color::red(),
+            1 => Color::yellow(),
+            _ => Color::green(),
+        };
+        scaled_polygon.draw_outline(onto, color);
+        */
+        scaled_polygon.draw_outline(onto, Color::black());
+    }
 }
