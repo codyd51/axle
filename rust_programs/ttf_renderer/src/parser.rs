@@ -838,7 +838,7 @@ impl<'a> FontParser<'a> {
         }
     }
 
-    fn parse_glyph(&self, glyph_index: usize) -> GlyphRenderDescription {
+    fn parse_glyph(&self, glyph_index: usize, glyph_bounding_box: &Rect) -> GlyphRenderDescription {
         let glyph_header = self.table_headers.get("glyf").unwrap();
         //println!("Found glyph header: {glyph_header}");
         let glyph_offset = glyph_header.offset + self.get_glyph_offset(glyph_index);
@@ -895,7 +895,8 @@ impl<'a> FontParser<'a> {
         let points: Vec<Point> = x_values
             .iter()
             .zip(y_values.iter())
-            .map(|(&x, &y)| Point::new(x, y))
+            // Flip the Y axis of every point to match our coordinate system
+            .map(|(&x, &y)| Point::new(x, glyph_bounding_box.max_y() - y))
             .collect();
 
         // Split the total collection of points into polygons, using the last-point-indexes that
