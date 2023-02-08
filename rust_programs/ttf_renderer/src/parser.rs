@@ -16,50 +16,17 @@ use core::ops::{Index, Range};
 use itertools::Itertools;
 use num_traits::PrimInt;
 
+use crate::metrics::{
+    GlyphMetrics, HheaTable, HheaTableRaw, LongHorMetric, LongHorMetricRaw, VerticalMetrics,
+};
+use crate::parse_utils::{
+    fixed_word_to_i32, BigEndianValue, FromFontBufInPlace, TransmuteFontBufInPlace,
+};
+use crate::parser::GlyphRenderInstructions::CompoundGlyph;
 #[cfg(target_os = "axle")]
 use axle_rt::println;
 #[cfg(not(target_os = "axle"))]
 use std::println;
-
-trait TransmuteFontBufInPlace {}
-
-impl TransmuteFontBufInPlace for u8 {}
-
-trait FromFontBufInPlace<T> {
-    fn from_in_place_buf(raw: &T) -> Self;
-}
-
-impl FromFontBufInPlace<BigEndianValue<u16>> for u16 {
-    fn from_in_place_buf(raw: &BigEndianValue<u16>) -> Self {
-        raw.into_value()
-    }
-}
-
-fn fixed_word_to_i32(fixed: u32) -> i32 {
-    fixed as i32 / (1 << 16)
-}
-
-#[derive(Debug, Copy, Clone)]
-struct BigEndianValue<T: PrimInt>(T);
-impl<T: PrimInt> TransmuteFontBufInPlace for BigEndianValue<T> {}
-
-struct WrappedValue<T: PrimInt>(T);
-
-impl<T: PrimInt> BigEndianValue<T> {
-    fn into_value(self) -> T {
-        let wrapped_value: WrappedValue<T> = self.into();
-        wrapped_value.0
-    }
-}
-
-impl<T: PrimInt> From<BigEndianValue<T>> for WrappedValue<T> {
-    fn from(value: BigEndianValue<T>) -> WrappedValue<T> {
-        WrappedValue {
-            // TODO(PT): Only swap to LE if we're not running on BE
-            0: value.0.swap_bytes() as T,
-        }
-    }
-}
 
 #[repr(C, packed)]
 #[derive(Debug, Copy, Clone)]
@@ -226,13 +193,6 @@ impl FromFontBufInPlace<HeadTableRaw> for HeadTable {
             1 => IndexToLocFormat::LongOffsets,
             _ => panic!("Invalid index_to_loc_format"),
         };
-        /*
-        assert_eq!(
-            index_to_loc_format,
-            IndexToLocFormat::ShortOffsets,
-            "Only short offsets are handled for now"
-        );
-        */
 
         let ret = Self {
             version: fixed_word_to_i32(raw.version.into_value()),
