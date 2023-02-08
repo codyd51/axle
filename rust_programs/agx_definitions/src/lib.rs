@@ -1178,6 +1178,14 @@ impl Line {
         Line { p1, p2 }
     }
 
+    pub fn max_x(&self) -> isize {
+        max(self.p1.x, self.p2.x)
+    }
+
+    pub fn min_x(&self) -> isize {
+        min(self.p1.x, self.p2.x)
+    }
+
     pub fn max_y(&self) -> isize {
         max(self.p1.y, self.p2.y)
     }
