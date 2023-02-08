@@ -1455,21 +1455,21 @@ impl LineF64 {
 
 #[derive(Debug, Clone)]
 pub struct Polygon {
-    pub points: Vec<Point>,
+    pub points: Vec<PointF64>,
 }
 
 impl Polygon {
-    pub fn new(points: &[Point]) -> Self {
+    pub fn new(points: &[PointF64]) -> Self {
         Self {
             points: points.to_vec(),
         }
     }
 
     pub fn scale_by(&self, scale_x: f64, scale_y: f64) -> Self {
-        let scaled_points: Vec<Point> = self
+        let scaled_points: Vec<PointF64> = self
             .points
             .iter()
-            .map(|&p| Point::new((p.x as f64 * scale_x) as _, (p.y as f64 * scale_y) as _))
+            .map(|&p| PointF64::new(p.x as f64 * scale_x, p.y as f64 * scale_y))
             .collect();
         Polygon::new(&scaled_points)
     }
@@ -1478,12 +1478,12 @@ impl Polygon {
         // Generate bounding lines of the polygon
         let mut lines = vec![];
         for (&point, &next_point) in self.points.iter().tuple_windows() {
-            lines.push(Line::new(point, next_point));
+            lines.push(Line::new(point.into(), next_point.into()));
         }
         // Final line connecting the final and first points
         lines.push(Line::new(
-            *self.points.last().unwrap(),
-            *self.points.first().unwrap(),
+            (*self.points.last().unwrap()).into(),
+            (*self.points.first().unwrap()).into(),
         ));
         lines
     }
