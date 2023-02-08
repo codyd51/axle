@@ -1347,6 +1347,112 @@ impl Display for Line {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LineF64 {
+    pub p1: PointF64,
+    pub p2: PointF64,
+}
+
+impl LineF64 {
+    pub fn new(p1: PointF64, p2: PointF64) -> Self {
+        Self { p1, p2 }
+    }
+
+    pub fn max_y(&self) -> f64 {
+        self.p1.y.max(self.p2.y)
+    }
+
+    pub fn min_y(&self) -> f64 {
+        self.p1.y.min(self.p2.y)
+    }
+
+    pub fn intersection(self, other: &Self) -> Option<PointF64> {
+        // Ref: https://stackoverflow.com/questions/563198
+        let p = self.p1;
+        let q = other.p1;
+        let r = self.p2 - self.p1;
+        let s = other.p2 - other.p1;
+
+        let r_cross_s = r.cross(&s);
+
+        let q_minus_p = q - p;
+        let q_minus_p_cross_r = q_minus_p.cross(&r);
+
+        // Parallel/collinear lines?
+        if r_cross_s == 0.0 {
+            if q_minus_p_cross_r == 0.0 {
+                // Collinear
+            } else {
+                // Parallel
+            }
+            return None;
+        }
+
+        // Non-parallel/non-collinear lines
+        let t = q_minus_p.cross(&s.div(r_cross_s));
+        let u = q_minus_p.cross(&r.div(r_cross_s));
+        //println!("t {t}, u {u}");
+
+        // are the intersection coordinates both in range?
+        let t_in_range = 0.0 <= t && t <= 1.0;
+        let u_in_range = 0.0 <= u && u <= 1.0;
+
+        if !t_in_range || !u_in_range {
+            // No intersection
+            return None;
+        }
+
+        // Intersection
+        //println!("p {p} r {r:?} t {t}");
+        Some(PointF64::new(
+            p.x as f64 + t * r.x as f64,
+            p.y as f64 + t * r.y as f64,
+        ))
+    }
+
+    fn draw(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
+        // Relative distances in both directions
+        let mut delta_x = self.p2.x - self.p1.x;
+        let mut delta_y = self.p2.y - self.p1.y;
+
+        // Increment of 0 would imply either vertical or horizontal line
+        let inc_x = match delta_x {
+            _ if delta_x > 0.0 => 1.0,
+            _ if delta_x == 0.0 => 0.0,
+            _ => -1.0,
+        };
+        let inc_y = match delta_y {
+            _ if delta_y > 0.0 => 1.0,
+            _ if delta_y == 0.0 => 0.0,
+            _ => -1.0,
+        };
+
+        //let distance = max(delta_x.abs(), delta_y.abs());
+        delta_x = delta_x.abs();
+        delta_y = delta_y.abs();
+        let distance = delta_x.max(delta_y);
+
+        let mut cursor = PointF64::from(onto.frame().origin) + PointF64::new(self.p1.x, self.p1.y);
+        let mut x_err = 0.0;
+        let mut y_err = 0.0;
+        for _ in 0..(distance as isize) {
+            onto.putpixel(Point::from(cursor), color);
+
+            x_err += delta_x;
+            y_err += delta_y;
+
+            if x_err > distance {
+                x_err -= distance;
+                cursor.x += inc_x;
+            }
+            if y_err > distance {
+                y_err -= distance;
+                cursor.y += inc_y;
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Polygon {
     pub points: Vec<Point>,
