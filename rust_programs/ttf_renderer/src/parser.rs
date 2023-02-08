@@ -516,17 +516,33 @@ impl FromFontBufInPlace<CharacterMapDataFormat12GroupHeaderRaw>
 }
 
 #[derive(Debug, Clone)]
-pub struct GlyphRenderDescription {
-    pub bounding_box: Rect,
+pub struct PolygonsGlyphRenderInstructions {
     pub polygons: Vec<Polygon>,
 }
 
-impl GlyphRenderDescription {
-    fn new(glyph_bounding_box: &Rect, polygons: &Vec<Polygon>) -> Self {
+impl PolygonsGlyphRenderInstructions {
+    fn new(polygons: &Vec<Polygon>) -> Self {
         Self {
-            bounding_box: glyph_bounding_box.to_owned(),
             polygons: polygons.to_owned(),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BlankGlyphRenderInstructions {}
+
+impl BlankGlyphRenderInstructions {
+    fn new() -> Self {
+        Self {}
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct CompoundGlyphRenderInstructions {}
+
+impl CompoundGlyphRenderInstructions {
+    fn new() -> Self {
+        Self {}
     }
 }
 
@@ -570,6 +586,52 @@ impl GlyphRenderMetrics {
             h.left_side_bearing,
             v.top_side_bearing,
         )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum GlyphRenderInstructions {
+    PolygonsGlyph(PolygonsGlyphRenderInstructions),
+    BlankGlyph(BlankGlyphRenderInstructions),
+    CompoundGlyph(CompoundGlyphRenderInstructions),
+}
+
+#[derive(Debug, Clone)]
+pub struct GlyphRenderDescription {
+    render_metrics: GlyphRenderMetrics,
+    pub render_instructions: GlyphRenderInstructions,
+}
+
+impl GlyphRenderDescription {
+    fn polygons_glyph(glyph_bounding_box: &Rect, polygons: &Vec<Polygon>) -> Self {
+        Self {
+            render_metrics: GlyphRenderMetrics::new(glyph_bounding_box),
+            render_instructions: GlyphRenderInstructions::PolygonsGlyph(
+                PolygonsGlyphRenderInstructions::new(polygons),
+            ),
+        }
+    }
+
+    fn blank_glyph(glyph_bounding_box: &Rect) -> Self {
+        Self {
+            render_metrics: GlyphRenderMetrics::new(glyph_bounding_box),
+            render_instructions: GlyphRenderInstructions::BlankGlyph(
+                BlankGlyphRenderInstructions::new(),
+            ),
+        }
+    }
+
+    fn compound_glyph(glyph_bounding_box: &Rect) -> Self {
+        Self {
+            render_metrics: GlyphRenderMetrics::new(glyph_bounding_box),
+            render_instructions: GlyphRenderInstructions::CompoundGlyph(
+                CompoundGlyphRenderInstructions::new(),
+            ),
+        }
+    }
+
+    pub fn metrics(&self) -> GlyphMetrics {
+        self.render_metrics.metrics()
     }
 }
 
@@ -722,7 +784,7 @@ impl<'a> FontParser<'a> {
     ) -> BTreeMap<usize, usize> {
         let table_format4_header =
             CharacterMapDataFormat4Header::from_in_place_buf(self.read(data_header_offset));
-        println!("Got table format4 header {table_format4_header:?}");
+        //println!("Got table format4 header {table_format4_header:?}");
         let seg_count = table_format4_header.seg_count_x2 / 2;
 
         let mut cursor = data_header_offset + mem::size_of::<CharacterMapDataFormat4HeaderRaw>();
@@ -731,7 +793,7 @@ impl<'a> FontParser<'a> {
             let last_character_code = u16::from_in_place_buf(self.read_with_cursor(&mut cursor));
             segment_last_character_codes.push(last_character_code);
         }
-        println!("segment_last_character_codes {segment_last_character_codes:?}");
+        //println!("segment_last_character_codes {segment_last_character_codes:?}");
 
         // Skip over the `reserved_pad` field
         cursor += mem::size_of::<u16>();
@@ -741,14 +803,14 @@ impl<'a> FontParser<'a> {
             let first_character_code = u16::from_in_place_buf(self.read_with_cursor(&mut cursor));
             segment_start_character_codes.push(first_character_code);
         }
-        println!("segment_start_character_codes {segment_start_character_codes:?}");
+        //println!("segment_start_character_codes {segment_start_character_codes:?}");
 
         let mut segment_id_deltas = vec![];
         for _ in 0..seg_count {
             let id_delta = u16::from_in_place_buf(self.read_with_cursor(&mut cursor));
             segment_id_deltas.push(id_delta);
         }
-        println!("segment_id_deltas {segment_id_deltas:?}");
+        //println!("segment_id_deltas {segment_id_deltas:?}");
 
         let mut segment_id_range_offsets = vec![];
         let segment_id_range_base = cursor;
@@ -757,14 +819,14 @@ impl<'a> FontParser<'a> {
                 u16::from_in_place_buf(self.read_with_cursor(&mut cursor));
             segment_id_range_offsets.push(segment_id_range_offset);
         }
-        println!("segment_id_range_offsets {segment_id_range_offsets:?}");
+        //println!("segment_id_range_offsets {segment_id_range_offsets:?}");
 
         let segment_ranges: Vec<Range<usize>> = segment_start_character_codes
             .iter()
             .zip(segment_last_character_codes.iter())
             .map(|(&start, &end)| (start as usize..end as usize + 1))
             .collect();
-        println!("Segment ranges: {segment_ranges:?}");
+        //println!("Segment ranges: {segment_ranges:?}");
 
         // Map the first 256 Unicode codepoints (ASCII + extended ASCII)
         let mut glyph_indexes_to_codepoints = BTreeMap::new();
@@ -781,7 +843,7 @@ impl<'a> FontParser<'a> {
                         }
                     });
             if segment_index.is_none() {
-                println!("No glyph for code point {codepoint}");
+                //println!("No glyph for code point {codepoint}");
                 continue;
             }
             let segment_index = segment_index.unwrap();
@@ -862,16 +924,29 @@ impl<'a> FontParser<'a> {
     }
 
     fn parse_glyph(&self, glyph_index: usize, glyph_bounding_box: &Rect) -> GlyphRenderDescription {
+    fn parse_glyph(
+        &self,
+        glyph_index: usize,
+        all_glyphs_bounding_box: &Rect,
+    ) -> GlyphRenderDescription {
         let glyph_header = self.table_headers.get("glyf").unwrap();
-        //println!("Found glyph header: {glyph_header}");
-        let glyph_offset = glyph_header.offset + self.get_glyph_offset(glyph_index);
+        let (glyph_local_offset, glyph_data_length) = self.get_glyph_offset_and_length(glyph_index);
+        let glyph_offset = glyph_header.offset + glyph_local_offset;
+        // Empty glyph?
+        if glyph_data_length == 0 {
+            return GlyphRenderDescription::blank_glyph(&all_glyphs_bounding_box);
+        }
+
+        //println!("GlyphIndex({glyph_index}) offset = {glyph_offset}");
         let mut cursor = glyph_offset;
         let glyph_description =
             GlyphDescription::from_in_place_buf(self.read_with_cursor(&mut cursor));
+
+        // Handle compound glyphs
         // Hack to make compound glyphs work
         if glyph_description.contour_count <= 0 {
-            println!("Compound glyph!");
-            return GlyphRenderDescription::new(&Rect::zero(), &vec![]);
+            //println!("Compound glyph!");
+            return GlyphRenderDescription::compound_glyph(&all_glyphs_bounding_box);
         }
 
         // This informs how many points there are in total
@@ -901,7 +976,7 @@ impl<'a> FontParser<'a> {
                 let repeat_count: u8 = *self.read_with_cursor(&mut cursor);
                 flag_count_to_parse -= repeat_count as usize;
                 // Add 1 to the repeat count to account for the initial set, plus repeats
-                for _ in 0..repeat_count + 1 {
+                for _ in 0..repeat_count as usize + 1 {
                     all_flags.push(flags.clone());
                 }
             } else {
@@ -938,11 +1013,13 @@ impl<'a> FontParser<'a> {
             ))
         }
 
+        /*
         println!(
             "Finished parsing glyph #{glyph_index} with polygon count {}",
             polygons.len()
         );
-        GlyphRenderDescription::new(&glyph_description.bounding_box, &polygons)
+        */
+        GlyphRenderDescription::polygons_glyph(&glyph_description.bounding_box, &polygons)
     }
 
     fn interpret_values_via_flags(

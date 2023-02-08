@@ -1,9 +1,9 @@
 use agx_definitions::{
-    Color, Drawable, LikeLayerSlice, Line, NestedLayerSlice, Point, Polygon, PolygonStack, Rect,
-    RectInsets, Size, StrokeThickness,
+    Color, Drawable, LikeLayerSlice, Line, NestedLayerSlice, Point, PointF64, Polygon,
+    PolygonStack, Rect, RectInsets, Size, StrokeThickness,
 };
 use pixels::{Pixels, SurfaceTexture};
-use ttf_renderer::{parse, Codepoint, Font, GlyphRenderDescription};
+use ttf_renderer::{parse, Codepoint, Font, GlyphRenderDescription, GlyphRenderInstructions};
 use winit::dpi::LogicalSize;
 use winit::event::Event;
 use winit::event_loop::{ControlFlow, EventLoop};
