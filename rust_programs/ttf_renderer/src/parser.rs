@@ -1,5 +1,5 @@
 use crate::{Codepoint, Font, GlyphIndex};
-use agx_definitions::{Point, Polygon, Rect, Size};
+use agx_definitions::{Point, PointF64, Polygon, Rect, Size};
 use alloc::borrow::ToOwned;
 use alloc::collections::BTreeMap;
 use alloc::fmt::Debug;
@@ -931,7 +931,13 @@ impl<'a> FontParser<'a> {
         }
     }
 
-    fn parse_glyph(&self, glyph_index: usize, glyph_bounding_box: &Rect) -> GlyphRenderDescription {
+    fn get_glyph_offset_and_length(&self, glyph_index: usize) -> (usize, usize) {
+        // Length must be inferred from the offset of the next glyph
+        let glyph_offset = self.get_glyph_offset(glyph_index);
+        let next_glyph_offset = self.get_glyph_offset(glyph_index + 1);
+        (glyph_offset, next_glyph_offset - glyph_offset)
+    }
+
     fn parse_glyph(
         &self,
         glyph_index: usize,
@@ -998,11 +1004,12 @@ impl<'a> FontParser<'a> {
             self.interpret_values_via_flags(&mut cursor, &all_flags, CoordinateComponentType::X);
         let y_values =
             self.interpret_values_via_flags(&mut cursor, &all_flags, CoordinateComponentType::Y);
-        let points: Vec<Point> = x_values
+        let points: Vec<PointF64> = x_values
             .iter()
             .zip(y_values.iter())
             // Flip the Y axis of every point to match our coordinate system
-            .map(|(&x, &y)| Point::new(x, glyph_description.bounding_box.max_y() - y))
+            .map(|(&x, &y)| PointF64::new(x as _, (all_glyphs_bounding_box.max_y() - y) as _))
+            //.map(|(&x, &y)| Point::new(x, y))
             .collect();
 
         // Split the total collection of points into polygons, using the last-point-indexes that
