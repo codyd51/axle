@@ -848,20 +848,28 @@ impl<'a> FontParser<'a> {
             }
             let segment_index = segment_index.unwrap();
             //println!("Found character {character_to_map} in segment {segment_index}");
-            let id_delta = segment_id_deltas[segment_index];
-            //assert_eq!(id_delta, 0, "Non-zero deltas are unhandled for now");
-            if id_delta != 0 {
-                println!("Non-zero deltas are unhandled for now");
-                continue;
-            }
             let id_range = segment_id_range_offsets[segment_index] as usize;
-            //glyphIndexAddress = idRangeOffset[i] + 2 * (c - startCode[i]) + (Ptr) &idRangeOffset[i]
-            let glyph_index_addr = id_range
-                + (2 * (codepoint - segment_ranges[segment_index].start))
-                + (segment_id_range_base + (segment_index * 2));
+            let id_delta = segment_id_deltas[segment_index];
 
-            let glyph_index = u16::from_in_place_buf(self.read(glyph_index_addr));
-            println!("Codepoint({codepoint}) = GlyphIndex({glyph_index})");
+            // > If the ID Range is 0, the ID Delta is added to the character code to get the glyph index
+            let glyph_index = if id_range == 0 {
+                // > NOTE: All id_delta arithmetic is modulo 65536.
+                (id_delta.overflowing_add((codepoint as u16))).0
+            } else {
+                //glyphIndexAddress = idRangeOffset[i] + 2 * (c - startCode[i]) + (Ptr) &idRangeOffset[i]
+                let glyph_index_addr = id_range
+                    + (2 * (codepoint - segment_ranges[segment_index].start))
+                    + (segment_id_range_base + (segment_index * 2));
+                let glyph_index = u16::from_in_place_buf(self.read(glyph_index_addr));
+                // > If the glyph index isn't 0 (that is, if it's not the missing glyph),
+                // the value is added to idDelta to get the actual glyph ID to use.
+                match glyph_index {
+                    0 => glyph_index,
+                    // > NOTE: All id_delta arithmetic is modulo 65536.
+                    _ => (id_delta.overflowing_add(glyph_index)).0,
+                }
+            };
+            //println!("Codepoint({codepoint}) = GlyphIndex({glyph_index})");
             glyph_indexes_to_codepoints.insert(glyph_index as usize, codepoint as usize);
         }
 
