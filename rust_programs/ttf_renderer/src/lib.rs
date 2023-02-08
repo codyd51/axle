@@ -6,9 +6,11 @@
 extern crate alloc;
 extern crate core;
 
+mod metrics;
+mod parse_utils;
 mod parser;
 
-pub use crate::parser::GlyphRenderDescription;
+pub use crate::parser::{GlyphRenderDescription, GlyphRenderInstructions};
 use agx_definitions::Rect;
 use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};

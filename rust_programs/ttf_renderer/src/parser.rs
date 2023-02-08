@@ -530,6 +530,49 @@ impl GlyphRenderDescription {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct GlyphRenderMetrics {
+    pub bounding_box: Rect,
+    horizontal_metrics: Option<LongHorMetric>,
+    vertical_metrics: Option<VerticalMetrics>,
+}
+
+impl GlyphRenderMetrics {
+    fn new(bounding_box: &Rect) -> Self {
+        Self {
+            bounding_box: bounding_box.clone(),
+            horizontal_metrics: None,
+            vertical_metrics: None,
+        }
+    }
+
+    fn set_horizontal_metrics(&mut self, metrics: LongHorMetric) {
+        self.horizontal_metrics = Some(metrics)
+    }
+
+    fn set_vertical_metrics(&mut self, metrics: VerticalMetrics) {
+        self.vertical_metrics = Some(metrics)
+    }
+
+    pub fn metrics(&self) -> GlyphMetrics {
+        let h = self.horizontal_metrics.as_ref().unwrap();
+        let v = self
+            .vertical_metrics
+            .as_ref()
+            .unwrap_or(&VerticalMetrics {
+                advance_height: self.bounding_box.height() as _,
+                top_side_bearing: 0,
+            })
+            .clone();
+        GlyphMetrics::new(
+            h.advance_width,
+            v.advance_height,
+            h.left_side_bearing,
+            v.top_side_bearing,
+        )
+    }
+}
+
 pub struct FontParser<'a> {
     font_data: &'a [u8],
     head: Option<HeadTable>,
@@ -591,7 +634,6 @@ impl<'a> FontParser<'a> {
         let mut all_glyphs = vec![];
         let mut codepoints_to_glyph_indexes = BTreeMap::new();
         for i in 0..max_profile.num_glyphs {
-            //println!("\tGlyph offset of glyph #{i}: {}", self.get_glyph_offset(i));
             let parsed_glyph = self.parse_glyph(i, &glyph_bounding_box);
             all_glyphs.push(parsed_glyph);
 
@@ -602,6 +644,22 @@ impl<'a> FontParser<'a> {
                 }
             }
         }
+
+        let horizontal_glyph_metrics = self.parse_horizontal_metrics();
+        let vertical_glyph_metrics = self.parse_vertical_metrics(max_profile.num_glyphs);
+        for (i, glyph) in all_glyphs.iter_mut().enumerate() {
+            if let Some(horizontal_metrics) = horizontal_glyph_metrics.get(i) {
+                glyph
+                    .render_metrics
+                    .set_horizontal_metrics(horizontal_metrics.clone());
+            }
+            if vertical_glyph_metrics.is_some() {
+                glyph
+                    .render_metrics
+                    .set_vertical_metrics(vertical_glyph_metrics.as_ref().unwrap()[i].clone());
+            }
+        }
+
         Font::new(
             "abc",
             &self.head.unwrap().glyph_bounding_box,
@@ -940,6 +998,34 @@ impl<'a> FontParser<'a> {
             values.push(last_value);
         }
         values
+    }
+
+    fn parse_horizontal_metrics(&self) -> Vec<LongHorMetric> {
+        let hhea: HheaTable = self.parse_table("hhea");
+        println!("Got hhea {hhea:?}");
+        let hmtx_offset = self.table_headers.get("hmtx").unwrap().offset;
+        let mut cursor = hmtx_offset;
+        let mut glyph_metrics = vec![];
+        for _ in 0..hhea.long_hor_metrics_count {
+            let glyph_metric = LongHorMetric::from_in_place_buf(self.read_with_cursor(&mut cursor));
+            glyph_metrics.push(glyph_metric);
+        }
+        glyph_metrics
+    }
+
+    fn parse_vertical_metrics(&self, glyph_count: usize) -> Option<Vec<VerticalMetrics>> {
+        let vmtx_offset = match self.table_headers.get("vmtx") {
+            None => return None,
+            Some(vmtx_header) => vmtx_header.offset,
+        };
+        let mut cursor = vmtx_offset;
+        let mut glyph_metrics = vec![];
+        for _ in 0..glyph_count {
+            let glyph_metric =
+                VerticalMetrics::from_in_place_buf(self.read_with_cursor(&mut cursor));
+            glyph_metrics.push(glyph_metric);
+        }
+        Some(glyph_metrics)
     }
 }
 
