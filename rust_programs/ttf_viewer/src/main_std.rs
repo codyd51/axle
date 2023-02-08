@@ -30,19 +30,20 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
 
     let mut main_view_slice = main_view.get_slice();
 
-    let font_path = "/Users/philliptennen/Downloads/mplus1mn-bold-ascii.ttf";
     let font_path = "/Users/philliptennen/Downloads/ASCII/ASCII.ttf";
-    let font_path = "/Users/philliptennen/Downloads/TestFont.ttf";
     let font_path = "/System/Library/Fonts/Keyboard.ttf";
-    let font_path = "/System/Library/Fonts/NewYorkItalic.ttf";
-    let font_path = "/System/Library/Fonts/Geneva.ttf";
+    let font_path = "/Users/philliptennen/Downloads/TestFont.ttf";
     let font_path = "/Users/philliptennen/Downloads/SF-Pro.ttf";
+    let font_path = "/Users/philliptennen/Downloads/mplus1mn-bold-ascii.ttf";
+    let font_path = "/System/Library/Fonts/Geneva.ttf";
     let font_path = "/Users/philliptennen/Downloads/nexa/NexaText-Trial-Regular.ttf";
+    let font_path = "/System/Library/Fonts/Symbol.ttf";
+    let font_path = "/System/Library/Fonts/NewYorkItalic.ttf";
     let font_data = fs::read(font_path).unwrap();
     let font = parse(&font_data);
     let font_size = Size::new(64, 64);
 
-    //render_all_glyphs_in_font(&mut main_view_slice, &font, &font_size);
+    //render_all_glyphs_in_font(&mut main_view_slice, &font, &font_size, None);
     render_string(
         &mut main_view_slice,
         &font,
@@ -55,7 +56,12 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     Ok(())
 }
 
-fn render_all_glyphs_in_font(onto: &mut Box<dyn LikeLayerSlice>, font: &Font, font_size: &Size) {
+fn render_all_glyphs_in_font(
+    onto: &mut Box<dyn LikeLayerSlice>,
+    font: &Font,
+    font_size: &Size,
+    limit: Option<usize>,
+) {
     let cursor_origin = Point::new(2, 2);
     let mut cursor = cursor_origin;
     let scale_x = font_size.width as f64 / (font.units_per_em as f64);
@@ -65,8 +71,18 @@ fn render_all_glyphs_in_font(onto: &mut Box<dyn LikeLayerSlice>, font: &Font, fo
         (font.bounding_box.size.height as f64 * scale_y) as isize,
     );
 
-    for (i, glyph) in font.glyphs.iter().take(128).enumerate() {
-        let mut dest_slice = onto.get_slice(Rect::from_parts(cursor, scaled_em_size));
+    // Ref: https://stackoverflow.com/questions/29760668/conditionally-iterate-over-one-of-several-possible-iterators
+    let mut iter1;
+    let mut iter2;
+    let glyphs_iter: &mut dyn Iterator<Item = (usize, &GlyphRenderDescription)> =
+        if let Some(limit) = limit {
+            iter1 = font.glyphs.iter().take(limit).enumerate();
+            &mut iter1
+        } else {
+            iter2 = font.glyphs.iter().enumerate();
+            &mut iter2
+        };
+    for (i, glyph) in glyphs_iter {
         render_glyph(&mut dest_slice, glyph, scale_x, scale_y);
         cursor = Point::new(
             cursor.x + ((scaled_em_size.width as f64 * 1.0) as isize),
