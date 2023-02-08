@@ -163,11 +163,21 @@ fn render_glyph(
         scaled_polygon.fill(onto, color);
     }
     */
-    let scaled_polygons: Vec<Polygon> = glyph
-        .polygons
-        .iter()
-        .map(|p| p.scale_by(scale_x, scale_y))
-        .collect();
-    let polygon_stack = PolygonStack::new(&scaled_polygons);
-    polygon_stack.fill(onto, Color::black());
+    match &glyph.render_instructions {
+        GlyphRenderInstructions::PolygonsGlyph(polygons_glyph) => {
+            let scaled_polygons: Vec<Polygon> = polygons_glyph
+                .polygons
+                .iter()
+                .map(|p| p.scale_by(scale_x, scale_y))
+                .collect();
+            let polygon_stack = PolygonStack::new(&scaled_polygons);
+            polygon_stack.fill(onto, Color::black());
+        }
+        GlyphRenderInstructions::BlankGlyph(_blank_glyph) => {
+            // Nothing to do
+        }
+        GlyphRenderInstructions::CompoundGlyph(compound_glyph) => {
+            //onto.fill(Color::blue());
+        }
+    }
 }
