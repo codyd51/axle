@@ -260,13 +260,6 @@ impl Point {
     pub fn zero() -> Self {
         Point { x: 0, y: 0 }
     }
-    pub fn from(point: PointU32) -> Self {
-        Point {
-            x: point.x.try_into().unwrap(),
-            y: point.y.try_into().unwrap(),
-        }
-    }
-
     pub fn distance(&self, p2: Point) -> f64 {
         let p1 = self;
         let x_dist = p2.x - p1.x;
@@ -330,14 +323,26 @@ impl Mul<isize> for Point {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+impl From<PointF64> for Point {
+    fn from(value: PointF64) -> Self {
+        Point::new(value.x as _, value.y as _)
+    }
+}
+
+impl From<PointU32> for Point {
+    fn from(value: PointU32) -> Self {
+        Point::new(value.x.try_into().unwrap(), value.y.try_into().unwrap())
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct PointF64 {
     x: f64,
     y: f64,
 }
 
 impl PointF64 {
-    fn new(x: f64, y: f64) -> Self {
+    pub fn new(x: f64, y: f64) -> Self {
         Self { x, y }
     }
 
@@ -353,6 +358,20 @@ impl PointF64 {
 impl From<Point> for PointF64 {
     fn from(value: Point) -> Self {
         PointF64::new(value.x as _, value.y as _)
+    }
+}
+
+impl Sub for PointF64 {
+    type Output = PointF64;
+    fn sub(self, rhs: Self) -> Self::Output {
+        PointF64::new(self.x - rhs.x, self.y - rhs.y)
+    }
+}
+
+impl Add for PointF64 {
+    type Output = PointF64;
+    fn add(self, rhs: Self) -> Self::Output {
+        PointF64::new(self.x + rhs.x, self.y + rhs.y)
     }
 }
 
@@ -1252,7 +1271,7 @@ impl Line {
         }
     }
 
-    pub fn intersection(self, other: &Self) -> Option<Point> {
+    pub fn intersection(self, other: &Self) -> Option<PointF64> {
         // Ref: https://stackoverflow.com/questions/563198
         let p = self.p1;
         let q = other.p1;
@@ -1294,9 +1313,9 @@ impl Line {
 
         // Intersection
         //println!("p {p} r {r:?} t {t}");
-        Some(Point::new(
-            (p.x as f64 + t * r.x as f64) as isize,
-            (p.y as f64 + t * r.y as f64) as isize,
+        Some(PointF64::new(
+            (p.x as f64 + t * r.x as f64),
+            (p.y as f64 + t * r.y as f64),
         ))
     }
 
