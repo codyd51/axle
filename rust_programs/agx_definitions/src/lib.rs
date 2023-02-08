@@ -1506,86 +1506,7 @@ impl Polygon {
     }
 
     pub fn fill(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
-        // Ref: http://www.sunshine2k.de/coding/java/Polygon/Filling/FillPolygon.htm
-        let lines = self.lines();
-        let bounding_box = self.bounding_box();
-        // Sort lines in ascending y-order
-        let mut sorted_lines: Vec<Line> = lines.iter().map(|l| l.clone()).collect();
-        sorted_lines.sort_by(|&l1, &l2| {
-            let l1_min_y = min(l1.p1.y, l1.p2.y);
-            let l2_min_y = min(l2.p1.y, l2.p2.y);
-            l1_min_y.cmp(&l2_min_y)
-        });
-
-        for scanline_y in bounding_box.min_y()..bounding_box.max_y() {
-            // Find all the edges intersected by this scanline
-            let scanline = Line::new(
-                Point::new(bounding_box.min_x(), scanline_y),
-                Point::new(bounding_box.max_x(), scanline_y),
-            );
-            let mut active_edges_and_intersections: Vec<(Line, Point)> = sorted_lines
-                .iter()
-                // Trivially filter lines that don't intersect on the Y axis
-                .filter(|l| {
-                    let smaller_y = min(l.p1.y, l.p2.y);
-                    let larger_y = max(l.p1.y, l.p2.y);
-                    scanline_y >= smaller_y && scanline_y <= larger_y
-                })
-                .filter_map(|&l| {
-                    let intersection = scanline.intersection(&l);
-                    match intersection {
-                        None => None,
-                        Some(p) => Some((l, p)),
-                    }
-                })
-                .collect();
-            // Sort the lines by increasing intersection X-coordinate
-            active_edges_and_intersections.sort_by(|l1_and_p, l2_and_p| {
-                let p1 = l1_and_p.1;
-                let p2 = l2_and_p.1;
-                p1.x.cmp(&p2.x)
-            });
-
-            // Deduplicate edges that sit on a vertex of the polygon
-            // Otherwise, we enter and exit a line at the same point
-            active_edges_and_intersections.dedup_by(|left, right| {
-                let (l1, l1_intersection) = *left;
-                let (l2, l2_intersection) = *right;
-                let is_on_corner_of_l1 = l1.p1 == l1_intersection || l1.p2 == l1_intersection;
-                let is_on_corner_of_l2 = l2.p1 == l2_intersection || l2.p2 == l2_intersection;
-                let is_on_vertex = is_on_corner_of_l1 && is_on_corner_of_l2;
-                if !is_on_vertex {
-                    return false;
-                }
-
-                // Are both edges below the scanline?
-                if l1.max_y() > scanline_y && l2.max_y() > scanline_y {
-                    // Keep both
-                    return false;
-                }
-
-                // Are both edges above the scanline?
-                if l1.min_y() < scanline_y && l2.min_y() < scanline_y {
-                    // Keep both
-                    return false;
-                }
-
-                // Keep one
-                is_on_vertex
-            });
-
-            let mut next_line_is_inside = false;
-            for (&left_edge_and_intersection, &right_edge_and_intersection) in
-                active_edges_and_intersections.iter().tuple_windows()
-            {
-                next_line_is_inside = !next_line_is_inside;
-                if !next_line_is_inside {
-                    continue;
-                }
-                let line = Line::new(left_edge_and_intersection.1, right_edge_and_intersection.1);
-                line.draw(onto, color, StrokeThickness::Filled);
-            }
-        }
+        scanline_fill_from_edges(onto, color, &self.lines())
     }
 }
 
@@ -1613,92 +1534,85 @@ impl PolygonStack {
         bounding_box
     }
 
-    pub fn fill(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
-        // Ref: http://www.sunshine2k.de/coding/java/Polygon/Filling/FillPolygon.htm
+    fn lines(&self) -> Vec<Line> {
         let mut lines = vec![];
         for p in self.polygons.iter() {
             let mut p_lines = p.lines();
             lines.append(&mut p_lines);
         }
-        // Drop horizontal lines that'd be collinear with the scanline
-        //lines.retain(|l| l.p1.y != l.p2.y);
-        let bounding_box = self.bounding_box();
-        // Sort lines in ascending y-order
-        let mut sorted_lines: Vec<Line> = lines.iter().map(|l| l.clone()).collect();
-        sorted_lines.sort_by(|&l1, &l2| {
-            let l1_min_y = min(l1.p1.y, l1.p2.y);
-            let l2_min_y = min(l2.p1.y, l2.p2.y);
-            l1_min_y.cmp(&l2_min_y)
+        lines
+    }
+
+    pub fn fill(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
+        scanline_fill_from_edges(onto, color, &self.lines())
+    }
+
+    pub fn draw_outline(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
+        let lines = self.lines();
+        for line in lines.iter() {
+            line.draw(onto, color, StrokeThickness::Filled);
+        }
+    }
+}
+
+fn bounding_box_from_edges(edges: &[Line]) -> Rect {
+    // Find the bounding box of the polygon
+    let min_x = edges.iter().map(|l| min(l.p1.x, l.p2.x)).min().unwrap();
+    let min_y = edges.iter().map(|l| min(l.p1.y, l.p2.y)).min().unwrap();
+    let max_x = edges.iter().map(|l| max(l.p1.x, l.p2.x)).max().unwrap();
+    let max_y = edges.iter().map(|l| max(l.p1.y, l.p2.y)).max().unwrap();
+    Rect::new(min_x, min_y, max_x - min_x, max_y - min_y)
+}
+
+fn scanline_fill_from_edges(onto: &mut Box<dyn LikeLayerSlice>, color: Color, edges: &[Line]) {
+    // Ref: http://www.sunshine2k.de/coding/java/Polygon/Filling/FillPolygon.htm
+
+    // Drop horizontal lines that'd be collinear with the scanline
+    let mut lines = edges.to_vec();
+    let mut bounding_box = bounding_box_from_edges(edges);
+
+    // Sort lines in ascending y-order
+    let mut sorted_lines: Vec<Line> = lines.iter().map(|l| l.clone()).collect();
+    sorted_lines.sort_by(|&l1, &l2| l1.min_y().partial_cmp(&l2.min_y()).unwrap());
+
+    for scanline_y in bounding_box.min_y()..bounding_box.max_y() {
+        // Find all the edges intersected by this scanline
+        let scanline = Line::new(
+            Point::new(bounding_box.min_x() as _, scanline_y as _),
+            Point::new(bounding_box.max_x() as _, scanline_y as _),
+        );
+        let mut active_edges_and_intersections: Vec<(Line, PointF64)> = sorted_lines
+            .iter()
+            // Trivially filter lines that don't intersect on the Y axis
+            .filter(|l| scanline_y >= l.min_y() && scanline_y < l.max_y())
+            .filter_map(|&l| {
+                let intersection = scanline.intersection(&l);
+                match intersection {
+                    None => None,
+                    Some(p) => Some((l, p)),
+                }
+            })
+            .collect();
+        // Sort the lines by increasing intersection X-coordinate
+        active_edges_and_intersections.sort_by(|l1_and_p, l2_and_p| {
+            let p1 = l1_and_p.1;
+            let p2 = l2_and_p.1;
+            p1.x.partial_cmp(&p2.x).unwrap()
         });
 
-        for scanline_y in bounding_box.min_y()..bounding_box.max_y() {
-            // Find all the edges intersected by this scanline
-            let scanline = Line::new(
-                Point::new(bounding_box.min_x(), scanline_y),
-                Point::new(bounding_box.max_x(), scanline_y),
-            );
-            let mut active_edges_and_intersections: Vec<(Line, Point)> = sorted_lines
-                .iter()
-                // Trivially filter lines that don't intersect on the Y axis
-                .filter(|l| {
-                    let smaller_y = min(l.p1.y, l.p2.y);
-                    let larger_y = max(l.p1.y, l.p2.y);
-                    scanline_y >= smaller_y && scanline_y <= larger_y
-                })
-                .filter_map(|&l| {
-                    let intersection = scanline.intersection(&l);
-                    match intersection {
-                        None => None,
-                        Some(p) => Some((l, p)),
-                    }
-                })
-                .collect();
-            // Sort the lines by increasing intersection X-coordinate
-            active_edges_and_intersections.sort_by(|l1_and_p, l2_and_p| {
-                let p1 = l1_and_p.1;
-                let p2 = l2_and_p.1;
-                p1.x.cmp(&p2.x)
-            });
-
-            // Deduplicate edges that sit on a vertex of the polygon
-            // Otherwise, we enter and exit a line at the same point
-            active_edges_and_intersections.dedup_by(|left, right| {
-                let (l1, l1_intersection) = *left;
-                let (l2, l2_intersection) = *right;
-                let is_on_corner_of_l1 = l1.p1 == l1_intersection || l1.p2 == l1_intersection;
-                let is_on_corner_of_l2 = l2.p1 == l2_intersection || l2.p2 == l2_intersection;
-                let is_on_vertex = is_on_corner_of_l1 && is_on_corner_of_l2;
-                if !is_on_vertex {
-                    return false;
-                }
-
-                // Are both edges below the scanline?
-                if l1.max_y() > scanline_y && l2.max_y() > scanline_y {
-                    // Keep both
-                    return false;
-                }
-
-                // Are both edges above the scanline?
-                if l1.min_y() < scanline_y && l2.min_y() < scanline_y {
-                    // Keep both
-                    return false;
-                }
-
-                // Keep one
-                is_on_vertex
-            });
-
-            let mut next_line_is_inside = false;
-            for (&left_edge_and_intersection, &right_edge_and_intersection) in
-                active_edges_and_intersections.iter().tuple_windows()
-            {
-                next_line_is_inside = !next_line_is_inside;
-                if !next_line_is_inside {
-                    continue;
-                }
-                let line = Line::new(left_edge_and_intersection.1, right_edge_and_intersection.1);
-                line.draw(onto, color, StrokeThickness::Filled);
+        let mut next_line_is_inside = false;
+        for (&left_edge_and_intersection, &right_edge_and_intersection) in
+            active_edges_and_intersections.iter().tuple_windows()
+        {
+            next_line_is_inside = !next_line_is_inside;
+            if !next_line_is_inside {
+                continue;
             }
+            let line = Line::new(
+                left_edge_and_intersection.1.into(),
+                right_edge_and_intersection.1.into(),
+            );
+            line.draw(onto, color, StrokeThickness::Filled);
         }
     }
 }
