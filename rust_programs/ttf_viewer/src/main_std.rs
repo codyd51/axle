@@ -56,6 +56,14 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     Ok(())
 }
 
+fn polygon_from_point_tups(point_tups: &[(isize, isize)]) -> Polygon {
+    let points = point_tups
+        .iter()
+        .map(|(x, y)| PointF64::new(*x as _, *y as _))
+        .collect::<Vec<PointF64>>();
+    Polygon::new(&points)
+}
+
 fn render_all_glyphs_in_font(
     onto: &mut Box<dyn LikeLayerSlice>,
     font: &Font,
@@ -83,9 +91,16 @@ fn render_all_glyphs_in_font(
             &mut iter2
         };
     for (i, glyph) in glyphs_iter {
+        let scaled_glyph_metrics = glyph.metrics().scale(scale_x, scale_y);
+        let glyph_origin = Point::new(
+            cursor.x + scaled_glyph_metrics.left_side_bearing,
+            cursor.y + scaled_glyph_metrics.top_side_bearing,
+        );
+        let mut dest_slice = onto.get_slice(Rect::from_parts(glyph_origin, scaled_em_size));
         render_glyph(&mut dest_slice, glyph, scale_x, scale_y);
+
         cursor = Point::new(
-            cursor.x + ((scaled_em_size.width as f64 * 1.0) as isize),
+            cursor.x + (scaled_glyph_metrics.advance_width as isize),
             cursor.y,
         );
         if cursor.x >= onto.frame().size.width - (font_size.width * 2) {
@@ -106,11 +121,21 @@ fn render_string(onto: &mut Box<dyn LikeLayerSlice>, font: &Font, font_size: &Si
         (font.bounding_box.size.height as f64 * scale_y) as isize,
     );
     for (i, ch) in msg.chars().enumerate() {
-        let glyph = font.glyph_for_codepoint(Codepoint::from(ch)).unwrap();
-        let mut dest_slice = onto.get_slice(Rect::from_parts(cursor, scaled_em_size));
+        let glyph = match font.glyph_for_codepoint(Codepoint::from(ch)) {
+            None => continue,
+            Some(glyph) => glyph,
+        };
+        let scaled_glyph_metrics = glyph.metrics().scale(scale_x, scale_y);
+
+        let glyph_origin = Point::new(
+            cursor.x + scaled_glyph_metrics.left_side_bearing,
+            cursor.y + scaled_glyph_metrics.top_side_bearing,
+        );
+        let mut dest_slice = onto.get_slice(Rect::from_parts(glyph_origin, scaled_em_size));
         render_glyph(&mut dest_slice, glyph, scale_x, scale_y);
+
         cursor = Point::new(
-            cursor.x + ((scaled_em_size.width as f64 * 0.38) as isize),
+            cursor.x + (scaled_glyph_metrics.advance_width as isize),
             cursor.y,
         );
         if cursor.x >= onto.frame().size.width - (font_size.width * 2) {
