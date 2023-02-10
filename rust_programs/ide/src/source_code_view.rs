@@ -26,7 +26,7 @@ impl SourceCodeView {
         message_handler: &Rc<MessageHandler>,
         sizer: F,
     ) -> Rc<Self> {
-        let view = TextInputView::new(sizer);
+        let view = TextInputView::new(None, Size::new(16, 16), sizer);
         Rc::new(Self {
             _message_handler: Rc::clone(message_handler),
             view,

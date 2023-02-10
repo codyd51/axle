@@ -9,6 +9,6 @@ pub fn main() {
     amc_register_service("com.axle.ttf_viewer");
 
     let window = Rc::new(AwmWindow::new("Font Viewer", Size::new(800, 600)));
-    Rc::new(RefCell::new(FontViewer::new(Rc::clone(&window))));
+    Rc::new(RefCell::new(FontViewer::new(Rc::clone(&window), None)));
     window.enter_event_loop()
 }

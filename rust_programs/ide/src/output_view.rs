@@ -19,6 +19,7 @@ impl OutputView {
     pub fn new<F: 'static + Fn(&View, Size) -> Rect>(font_size: Size, sizer: F) -> Rc<Self> {
         let view = TextView::new(
             Color::new(30, 30, 30),
+            None,
             font_size,
             // The top has extra insets to make room for the title label
             //RectInsets::new(8, 24, 8, 8),

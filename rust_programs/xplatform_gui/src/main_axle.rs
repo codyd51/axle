@@ -53,7 +53,9 @@ pub fn main() {
     };
 
     let source_code_view =
-        TextInputView::new(move |_v, superview_size| source_code_view_sizer(superview_size));
+        TextInputView::new(None, Size::new(16, 16), move |_v, superview_size| {
+            source_code_view_sizer(superview_size)
+        });
     Rc::clone(&window).add_component(Rc::clone(&source_code_view) as Rc<dyn UIElement>);
 
     let top_view = Rc::new(View::new(Color::green(), move |_v, superview_size| {
