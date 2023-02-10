@@ -3,6 +3,9 @@
 #![cfg_attr(target_os = "axle", feature(format_args_nl))]
 #![cfg_attr(target_os = "axle", feature(default_alloc_error_handler))]
 
+mod font_viewer;
+mod utils;
+
 #[cfg(target_os = "axle")]
 mod main_axle;
 #[cfg(target_os = "axle")]
