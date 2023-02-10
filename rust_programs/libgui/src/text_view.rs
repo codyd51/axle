@@ -4,10 +4,11 @@ use crate::scroll_view::ScrollView;
 use crate::window_events::KeyCode;
 use crate::{bordered::Bordered, println, ui_elements::UIElement, view::View};
 use agx_definitions::{
-    Color, Drawable, LikeLayerSlice, NestedLayerSlice, Point, Polygon, Rect, RectInsets, Size,
-    StrokeThickness,
+    Color, Drawable, LikeLayerSlice, NestedLayerSlice, Point, Polygon, PolygonStack, Rect,
+    RectInsets, Size, StrokeThickness,
 };
 use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
 use alloc::fmt::Debug;
 use alloc::format;
 use alloc::vec;
@@ -21,8 +22,9 @@ use core::fmt::Formatter;
 use core::ptr;
 use file_manager_messages::{ReadFile, ReadFileResponse, FILE_SERVER_SERVICE_NAME};
 use libgui_derive::{Drawable, NestedLayerSlice, UIElement};
-use std::collections::BTreeMap;
-use ttf_renderer::{Codepoint, Font};
+use ttf_renderer::{
+    Codepoint, Font, GlyphMetrics, GlyphRenderDescription, GlyphRenderInstructions,
+};
 
 #[cfg(target_os = "axle")]
 use axle_rt::{amc_message_await__u32_event, amc_message_send};
@@ -39,6 +41,7 @@ pub struct DrawnCharacter {
     pub pos: Point,
     pub color: Color,
     pub font_size: Size,
+    pub draw_box: Rect,
 }
 
 impl DrawnCharacter {
@@ -48,6 +51,7 @@ impl DrawnCharacter {
             pos,
             color,
             font_size,
+            draw_box: Rect::zero(),
         }
     }
 }
@@ -66,7 +70,7 @@ impl Display for DrawnCharacter {
 #[derive(Drawable, NestedLayerSlice, UIElement)]
 pub struct TextView {
     pub view: Rc<ScrollView>,
-    font: Font,
+    pub font: Font,
     font_size: Size,
     text_insets: RectInsets,
     pub text: RefCell<Vec<DrawnCharacter>>,
@@ -94,21 +98,25 @@ impl TextView {
             }
             #[cfg(not(target_os = "axle"))]
             {
-                fs::read(&format!("../axle-sysroot/fonts/{name}")).unwrap()
+                //fs::read(&format!("../axle-sysroot/fonts/{name}")).unwrap()
+                fs::read(name).unwrap()
             }
         };
         ttf_renderer::parse(&font_bytes)
     }
     pub fn new<F: 'static + Fn(&View, Size) -> Rect>(
         _background_color: Color,
+        font_path: Option<&str>,
         font_size: Size,
         text_insets: RectInsets,
         sizer: F,
     ) -> Rc<Self> {
         let view = ScrollView::new(sizer);
-        //let view = Rc::new(View::new(background_color, sizer));
-        //let font = Self::load_font("new_york_italic.ttf");
-        let font = Font::new("abc", &Rect::zero(), 0, vec![], BTreeMap::new());
+        let font = if let Some(font_path) = font_path {
+            Self::load_font(font_path)
+        } else {
+            Self::load_font("pacifico.ttf")
+        };
 
         Rc::new(Self {
             view,
@@ -138,23 +146,31 @@ impl TextView {
         content_frame.apply_insets(self.text_insets)
     }
 
-    pub fn draw_char_and_update_cursor3(&self, _ch: char, _color: Color) {
-        let content_slice_frame = self.view.get_content_slice_frame();
-        println!("Content slice frame {content_slice_frame}");
+    fn scaled_metrics_for_codepoint(font: &Font, font_size: Size, ch: char) -> GlyphMetrics {
+        match font.glyph_for_codepoint(Codepoint::from(ch)) {
+            None => GlyphMetrics::new(font_size.width as _, font_size.height as _, 0, 0),
+            Some(glyph) => {
+                let scale_x = font_size.width as f64 / (font.units_per_em as f64);
+                let scale_y = font_size.height as f64 / (font.units_per_em as f64);
+                glyph.metrics().scale(scale_x, scale_y)
+            }
+        }
     }
 
     fn next_cursor_pos_for_char(
         cursor_pos: Point,
         ch: char,
+        font: &Font,
         font_size: Size,
         onto: &Box<dyn LikeLayerSlice>,
     ) -> Point {
+        let scaled_glyph_metrics = Self::scaled_metrics_for_codepoint(font, font_size, ch);
         let mut cursor_pos = cursor_pos;
         if ch == '\n' || cursor_pos.x + (font_size.width * 2) >= onto.frame().width() {
             cursor_pos.x = 0;
-            cursor_pos.y += font_size.height + 2;
+            cursor_pos.y += scaled_glyph_metrics.advance_height as isize
         } else {
-            cursor_pos.x += font_size.width;
+            cursor_pos.x += scaled_glyph_metrics.advance_width as isize;
         }
         cursor_pos
     }
@@ -171,7 +187,7 @@ impl TextView {
         if !is_inserting_at_end {
             // If we just inserted a newline, we need to adjust our cursor position
             let mut cursor_point =
-                Self::next_cursor_pos_for_char(cursor_pos.1, ch, font_size, onto);
+                Self::next_cursor_pos_for_char(cursor_pos.1, ch, &self.font, font_size, onto);
             //println!("Base cursor for later chars: {cursor_point}");
             for drawn_ch in text[cursor_pos.0..].iter_mut() {
                 //println!("\tFound later {}, originally placed at {}", drawn_ch.value, drawn_ch.pos);
@@ -183,12 +199,18 @@ impl TextView {
                 );
                 drawn_ch.pos = cursor_point;
                 //println!("\tShifted to {}", drawn_ch.pos);
-                cursor_point =
-                    Self::next_cursor_pos_for_char(cursor_point, drawn_ch.value, font_size, onto);
+                cursor_point = Self::next_cursor_pos_for_char(
+                    cursor_point,
+                    drawn_ch.value,
+                    &self.font,
+                    font_size,
+                    onto,
+                );
             }
         }
 
-        draw_char_with_font_onto(ch, &self.font, onto, cursor_pos.1, font_size, color);
+        let mut draw_desc = DrawnCharacter::new(cursor_pos.1, color, ch, font_size);
+        draw_char_with_font_onto(&mut draw_desc, &self.font, onto);
 
         // TODO(PT): This is not correct if we're not inserting at the end
         // We'll need to adjust the positions of every character that comes after this one
@@ -197,14 +219,14 @@ impl TextView {
         let cursor_point = &mut cursor_pos.1;
 
         // TODO(PT): If not inserting at the end, we need to move everything along and insert at an index
-        let draw_desc = DrawnCharacter::new(*cursor_point, color, ch, font_size);
         if is_inserting_at_end {
             text.push(draw_desc);
         } else {
             println!("Inserting at {insertion_point}: {draw_desc:?}");
             text.insert(insertion_point, draw_desc);
         }
-        *cursor_point = Self::next_cursor_pos_for_char(*cursor_point, ch, font_size, onto);
+        *cursor_point =
+            Self::next_cursor_pos_for_char(*cursor_point, ch, &self.font, font_size, onto);
         //Bordered::draw(self)
     }
 
@@ -229,9 +251,8 @@ impl TextView {
 
         // Cover up the deleted character
         let onto = &mut self.get_slice().get_slice(self.text_entry_frame());
-        let font_size = self.font_size;
         onto.fill_rect(
-            Rect::from_parts(removed_char.pos, font_size),
+            removed_char.draw_box,
             Color::white(),
             StrokeThickness::Filled,
         );
@@ -242,8 +263,13 @@ impl TextView {
             cursor_pos.1 = Point::zero();
         } else {
             let prev = text[cursor_pos.0 - 1];
-            cursor_pos.1 =
-                Self::next_cursor_pos_for_char(prev.pos, prev.value, prev.font_size, onto);
+            cursor_pos.1 = Self::next_cursor_pos_for_char(
+                prev.pos,
+                prev.value,
+                &self.font,
+                prev.font_size,
+                onto,
+            );
         }
 
         if !is_deleting_from_end {
@@ -260,22 +286,7 @@ impl TextView {
                 //println!("Shifting back {} from {} to {} ({})", drawn_ch.value, drawn_ch.pos, prev.pos, prev);
                 //cursor_pos.1 = Self::next_cursor_pos_for_char(prev.pos, prev.value, prev.font_size, onto);
                 drawn_ch.pos = prev.pos;
-                /*
-                onto.draw_char(
-                    drawn_ch.value,
-                    drawn_ch.pos,
-                    drawn_ch.color,
-                    drawn_ch.font_size,
-                );
-                */
-                draw_char_with_font_onto(
-                    drawn_ch.value,
-                    &self.font,
-                    onto,
-                    drawn_ch.pos,
-                    drawn_ch.font_size,
-                    drawn_ch.color,
-                );
+                draw_char_with_font_onto(drawn_ch, &self.font, onto);
 
                 if prev.value == '\n' {
                     let mut next_cursor_pos = drawn_ch.pos;
@@ -284,6 +295,7 @@ impl TextView {
                         next_ch.pos = Self::next_cursor_pos_for_char(
                             next_cursor_pos,
                             next_ch.value,
+                            &self.font,
                             next_ch.font_size,
                             onto,
                         );
@@ -308,24 +320,9 @@ impl TextView {
         ret
     }
 
-    pub fn draw_char_with_description(&self, char_description: DrawnCharacter) {
+    pub fn draw_char_with_description(&self, mut char_description: DrawnCharacter) {
         let onto = &mut self.get_slice().get_slice(self.text_entry_frame());
-        /*
-        onto.draw_char(
-            char_description.value,
-            char_description.pos,
-            char_description.color,
-            self.font_size,
-        );
-         */
-        draw_char_with_font_onto(
-            char_description.value,
-            &self.font,
-            onto,
-            char_description.pos,
-            self.font_size,
-            char_description.color,
-        );
+        draw_char_with_font_onto(&mut char_description, &self.font, onto);
     }
 
     pub fn clear(&self) {
@@ -364,37 +361,50 @@ impl Bordered for TextView {
 }
 
 fn draw_char_with_font_onto(
-    ch: char,
+    drawn_ch: &mut DrawnCharacter,
     font: &Font,
     onto: &mut Box<dyn LikeLayerSlice>,
-    draw_loc: Point,
-    font_size: Size,
-    draw_color: Color,
 ) {
+    let ch = drawn_ch.value;
+    let draw_loc = drawn_ch.pos;
+    let font_size = drawn_ch.font_size;
+    let draw_color = drawn_ch.color;
+
     let codepoint = Codepoint::from(ch);
     let glyph = font.glyph_for_codepoint(codepoint);
     if glyph.is_none() {
         return;
     }
     let glyph = glyph.unwrap();
-    let mut dest_slice = onto.get_slice(Rect::from_parts(draw_loc, font_size));
 
     let scale_x = font_size.width as f64 / (font.units_per_em as f64);
     let scale_y = font_size.height as f64 / (font.units_per_em as f64);
+    let scaled_glyph_metrics = glyph.metrics().scale(scale_x, scale_y);
+    let draw_loc = draw_loc
+        + Point::new(
+            scaled_glyph_metrics.left_side_bearing,
+            scaled_glyph_metrics.top_side_bearing,
+        );
+    let draw_box = Rect::from_parts(draw_loc, font_size);
+    let mut dest_slice = onto.get_slice(draw_box);
 
-    for polygon in glyph.polygons.iter() {
-        // Flip Y
-        let points: Vec<Point> = polygon
-            .points
-            .iter()
-            .map(|&p| {
-                Point::new(
-                    (p.x as f64 * scale_x) as _,
-                    ((font.bounding_box.max_y() - p.y) as f64 * scale_y) as _,
-                )
-            })
-            .collect();
-        let polygon = Polygon::new(&points);
-        polygon.draw_outline(&mut dest_slice, draw_color);
+    drawn_ch.draw_box = Rect::from_parts(draw_box.origin, font_size);
+
+    match &glyph.render_instructions {
+        GlyphRenderInstructions::PolygonsGlyph(polygons_glyph) => {
+            let scaled_polygons: Vec<Polygon> = polygons_glyph
+                .polygons
+                .iter()
+                .map(|p| p.scale_by(scale_x, scale_y))
+                .collect();
+            let polygon_stack = PolygonStack::new(&scaled_polygons);
+            polygon_stack.fill(&mut dest_slice, draw_color);
+        }
+        GlyphRenderInstructions::BlankGlyph(_blank_glyph) => {
+            // Nothing to do
+        }
+        GlyphRenderInstructions::CompoundGlyph(compound_glyph) => {
+            //onto.fill(Color::blue());
+        }
     }
 }

@@ -23,10 +23,15 @@ pub struct TextInputView {
 }
 
 impl TextInputView {
-    pub fn new<F: 'static + Fn(&View, Size) -> Rect>(sizer: F) -> Rc<Self> {
+    pub fn new<F: 'static + Fn(&View, Size) -> Rect>(
+        font_path: Option<&str>,
+        font_size: Size,
+        sizer: F,
+    ) -> Rc<Self> {
         let view = TextView::new(
             Color::white(),
-            Size::new(16, 16),
+            font_path,
+            font_size,
             RectInsets::new(8, 8, 8, 8),
             sizer,
         );
@@ -47,8 +52,19 @@ impl TextInputView {
 
     fn cursor_frame(&self) -> Rect {
         let cursor = (*self.view.cursor_pos.borrow()).1;
-        Rect::from_parts(Point::new(cursor.x - 1, cursor.y - 2), Size::new(2, 18))
-        //Rect::from_parts(Point::new(cursor.x + 1, cursor.y), Size::new(1, 14))
+        let font_size = self.view.font_size();
+        let font = &self.view.font;
+        let scale_y = font_size.height as f64 / (font.units_per_em as f64);
+        let scaled_bounding_box_height = (font.bounding_box.height() as f64 * scale_y) as isize;
+        let cursor_height_frac = (scaled_bounding_box_height as f64 * 0.7) as isize;
+        Rect::from_parts(
+            //Point::new(cursor.x + 6, cursor.y + (cursor_height_frac / 2)),
+            Point::new(
+                cursor.x + 6,
+                cursor.y + ((scaled_bounding_box_height - cursor_height_frac) / 2),
+            ),
+            Size::new(2, cursor_height_frac),
+        )
     }
 
     fn erase_cursor(&self) {
