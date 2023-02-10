@@ -1,5 +1,6 @@
 extern crate alloc;
 use crate::{Color, Point, Rect, Size, CHAR_HEIGHT, CHAR_WIDTH, FONT8X8};
+use alloc::rc::Weak;
 use alloc::vec;
 use alloc::{boxed::Box, rc::Rc, vec::Vec};
 use core::{cell::RefCell, cmp::min, fmt::Display};
@@ -44,6 +45,7 @@ pub struct LayerSlice {
     parent_framebuffer_size: Size,
     bytes_per_pixel: isize,
     frame: Rect,
+    global_origin: Point,
     pub damaged_rects: RefCell<Vec<Rect>>,
 }
 
@@ -53,12 +55,14 @@ impl LayerSlice {
         framebuffer_size: Size,
         frame: Rect,
         bytes_per_pixel: isize,
+        global_origin: Point,
     ) -> Self {
         LayerSlice {
             parent_framebuffer: framebuffer,
             parent_framebuffer_size: framebuffer_size,
             bytes_per_pixel,
             frame,
+            global_origin,
             damaged_rects: RefCell::new(Vec::new()),
         }
     }
@@ -170,7 +174,7 @@ impl LikeLayerSlice for LayerSlice {
         let parent_bytes_per_row = self.parent_framebuffer_size.width * bpp;
         let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
         let mut fb = (*self.parent_framebuffer).borrow_mut();
-        let slice_origin_offset = self.frame.origin * bpp_multiple;
+        let slice_origin_offset = self.global_origin * bpp_multiple;
         //let off = slice_origin_offset + (loc.y * parent_bytes_per_row) + (loc.x * bpp);
         let point_offset = slice_origin_offset + (loc * bpp_multiple);
         let off = (point_offset.y + point_offset.x) as usize;
@@ -207,6 +211,7 @@ impl LikeLayerSlice for LayerSlice {
             self.parent_framebuffer_size,
             to_current_coordinate_system,
             self.bytes_per_pixel,
+            self.global_origin + rect.origin,
         ))
     }
 
@@ -523,6 +528,7 @@ impl Layer for SingleFramebufferLayer {
             self.size(),
             constrained,
             self.bytes_per_pixel,
+            rect.origin,
         ))
     }
 }

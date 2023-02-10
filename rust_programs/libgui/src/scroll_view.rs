@@ -26,19 +26,21 @@ use libgui_derive::{Bordered, Drawable, NestedLayerSlice, UIElement};
 struct ExpandingLayerSlice {
     parent: Weak<ExpandingLayer>,
     frame: Rect,
+    global_origin: Point,
 }
 
 impl ExpandingLayerSlice {
-    fn new(parent: &Rc<ExpandingLayer>, frame: Rect) -> Self {
+    fn new(parent: &Rc<ExpandingLayer>, frame: Rect, global_origin: Point) -> Self {
         Self {
             parent: Rc::downgrade(parent),
             frame,
+            global_origin,
         }
     }
 }
 
 impl Display for ExpandingLayerSlice {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "<ExpandingLayerSlice {}>", self.frame)
     }
 }
@@ -51,7 +53,7 @@ impl LikeLayerSlice for ExpandingLayerSlice {
     fn fill_rect(&self, raw_rect: Rect, color: Color, thickness: StrokeThickness) {
         //println!("Fill_rect in expandinglayerslice {raw_rect:?} {color:?}");
         self.parent.upgrade().unwrap().fill_rect(
-            Rect::from_parts(self.frame.origin + raw_rect.origin, raw_rect.size),
+            Rect::from_parts(self.global_origin + raw_rect.origin, raw_rect.size),
             color,
             thickness,
         )
@@ -66,7 +68,10 @@ impl LikeLayerSlice for ExpandingLayerSlice {
     }
 
     fn putpixel(&self, loc: Point, color: Color) {
-        self.parent.upgrade().unwrap().putpixel(loc, color)
+        self.parent
+            .upgrade()
+            .unwrap()
+            .putpixel(self.global_origin + loc, color)
     }
 
     fn getpixel(&self, _loc: Point) -> Color {
@@ -74,8 +79,13 @@ impl LikeLayerSlice for ExpandingLayerSlice {
     }
 
     fn get_slice(&self, rect: Rect) -> Box<dyn LikeLayerSlice> {
-        //println!("(LikeLayerSlice for ExpandingLayerSlice({})::get_slice({rect})", self.frame);
-        let frame = Rect::from_parts(self.frame.origin + rect.origin, rect.size);
+        /*
+        println!(
+            "(LikeLayerSlice for ExpandingLayerSlice({})::get_slice({rect}), global_origin = {}",
+            self.frame, self.global_origin,
+        );
+        */
+        let frame = Rect::from_parts(self.global_origin + rect.origin, rect.size);
         self.parent.upgrade().unwrap().get_slice_with_frame(frame)
     }
 
@@ -90,7 +100,7 @@ impl LikeLayerSlice for ExpandingLayerSlice {
     }
 
     fn pixel_data(&self) -> Vec<u8> {
-        let frame = Rect::from_parts(self.frame.origin, self.frame.size);
+        let frame = Rect::from_parts(self.global_origin, self.frame.size);
         let slice = self.parent.upgrade().unwrap().get_slice_with_frame(frame);
         slice.pixel_data()
     }
@@ -116,7 +126,7 @@ impl LikeLayerSlice for ExpandingLayerSlice {
 
     fn draw_char(&self, ch: char, draw_loc: Point, draw_color: Color, font_size: Size) {
         //println!("ExpandingLayerSlice({}).draw_char({ch}, {draw_loc})", self.frame);
-        let frame = Rect::from_parts(self.frame.origin + draw_loc, font_size);
+        let frame = Rect::from_parts(self.global_origin + draw_loc, font_size);
         self.parent
             .upgrade()
             .unwrap()
@@ -333,7 +343,7 @@ impl ExpandingLayer {
 
     pub fn get_slice_with_frame(self: &Rc<Self>, frame: Rect) -> Box<dyn LikeLayerSlice> {
         //println!("ExpandingLayer.get_slice_with_frame {frame}");
-        Box::new(ExpandingLayerSlice::new(self, frame))
+        Box::new(ExpandingLayerSlice::new(self, frame, frame.origin))
     }
 
     fn tile_size() -> Size {
@@ -571,7 +581,7 @@ impl Drawable for ExpandingLayer {
 
 #[derive(Drawable)]
 pub struct ScrollView {
-    view: Rc<View>,
+    pub view: Rc<View>,
     pub layer: Rc<ExpandingLayer>,
 }
 
@@ -677,7 +687,7 @@ impl UIElement for ScrollView {
     }
 
     fn handle_mouse_scrolled(&self, _mouse_point: Point, delta_z: isize) {
-        println!("ScrollView.handle_mouse_scrolled({delta_z})");
+        //println!("ScrollView.handle_mouse_scrolled({delta_z})");
         let mut scroll_offset = self.layer.scroll_offset();
         scroll_offset.y += delta_z * 20;
         self.layer.set_scroll_offset(scroll_offset);

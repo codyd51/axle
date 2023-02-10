@@ -23,14 +23,21 @@ struct PixelLayerSlice {
     parent: Rc<RefCell<Pixels>>,
     parent_size: Size,
     frame: Rect,
+    global_origin: Point,
 }
 
 impl PixelLayerSlice {
-    fn new(parent: &Rc<RefCell<Pixels>>, parent_size: Size, frame: Rect) -> Self {
+    fn new(
+        parent: &Rc<RefCell<Pixels>>,
+        parent_size: Size,
+        frame: Rect,
+        global_origin: Point,
+    ) -> Self {
         Self {
             parent: Rc::clone(parent),
             parent_size,
             frame,
+            global_origin,
         }
     }
 }
@@ -56,7 +63,7 @@ impl LikeLayerSlice for PixelLayerSlice {
         let parent_size = self.parent_size;
         let parent_bytes_per_row = parent_size.width * bpp;
         let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
-        let slice_origin_offset = self.frame.origin * bpp_multiple;
+        let slice_origin_offset = self.global_origin * bpp_multiple;
         let rect_origin_offset = slice_origin_offset + (rect.origin * bpp_multiple);
         //println!("\trect_origin_offset {rect_origin_offset}");
 
@@ -123,7 +130,7 @@ impl LikeLayerSlice for PixelLayerSlice {
         let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
         let mut pixels = self.parent.borrow_mut();
         let fb = pixels.get_frame_mut();
-        let slice_origin_offset = self.frame.origin * bpp_multiple;
+        let slice_origin_offset = self.global_origin * bpp_multiple;
         //let off = slice_origin_offset + (loc.y * parent_bytes_per_row) + (loc.x * bpp);
         let point_offset = slice_origin_offset + (loc * bpp_multiple);
         let off = (point_offset.y + point_offset.x) as usize;
@@ -146,6 +153,7 @@ impl LikeLayerSlice for PixelLayerSlice {
             &self.parent,
             self.parent_size,
             to_current_coordinate_system,
+            self.global_origin + rect.origin,
         ))
     }
 
@@ -261,7 +269,7 @@ impl PixelLayer {
                 .unwrap()
         };
         //window.set_cursor_visible(false);
-        println!("Window inner size {:?}", window.inner_size());
+        //println!("Window inner size {:?}", window.inner_size());
         let pixel_buffer = {
             let window_size = window.inner_size();
             let surface_texture =
@@ -319,6 +327,7 @@ impl LikeLayerSlice for PixelLayer {
             &self.pixel_buffer,
             self.size,
             constrained,
+            rect.origin,
         ))
     }
 
@@ -374,7 +383,7 @@ pub struct AwmWindow {
 
 impl AwmWindow {
     pub fn new(title: &str, size: Size) -> Self {
-        println!("AwmWindow::new({title:?}, {size:?})");
+        //println!("AwmWindow::new({title:?}, {size:?})");
         Self {
             title: title.to_string(),
             layer: RefCell::new(None),
@@ -489,7 +498,7 @@ impl AwmWindow {
                     match event {
                         WindowEvent::MouseInput { state, button, .. } => {
                             //
-                            println!("MouseInput {state:?}, button {button:?}");
+                            //println!("MouseInput {state:?}, button {button:?}");
                             match state {
                                 ElementState::Pressed => match button {
                                     MouseButton::Left => {
@@ -513,7 +522,7 @@ impl AwmWindow {
                             self_clone.mouse_exited();
                         }
                         WindowEvent::MouseWheel { delta, phase, .. } => {
-                            println!("MouseWheel event delta {delta:?} phase {phase:?}");
+                            //println!("MouseWheel event delta {delta:?} phase {phase:?}");
                             let delta_y = {
                                 match delta {
                                     MouseScrollDelta::LineDelta(_, _) => todo!(),
