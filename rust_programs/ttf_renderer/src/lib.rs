@@ -10,10 +10,12 @@ mod metrics;
 mod parse_utils;
 mod parser;
 
+pub use crate::metrics::GlyphMetrics;
 pub use crate::parser::{GlyphRenderDescription, GlyphRenderInstructions};
 use agx_definitions::Rect;
 use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use core::fmt::{Display, Formatter};
 use parser::FontParser;
 

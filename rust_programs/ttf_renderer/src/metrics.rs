@@ -1,6 +1,6 @@
 use crate::parse_utils::{BigEndianValue, FromFontBufInPlace, TransmuteFontBufInPlace};
 use crate::GlyphRenderDescription;
-use std::ops::Range;
+use core::ops::Range;
 
 #[repr(C, packed)]
 #[derive(Debug, Copy, Clone)]

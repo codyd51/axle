@@ -6,10 +6,10 @@ resolver = "2"
 
 [features]
 default = []
-run_with_std = ["libgui", "libgui/run_with_std", "pixels", "winit"]
+run_with_std = ["libgui/run_with_std", "pixels", "winit"]
 
 [dependencies]
-libgui = { path = "../libgui", default-features = false, optional = true }
+libgui = { path = "../libgui", default-features = false }
 libgui_derive = {path = "../libgui_derive"}
 axle_rt = {path = "../axle_rt" }
 axle_rt_derive = {path = "../axle_rt_derive" }
