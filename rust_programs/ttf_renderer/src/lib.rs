@@ -6,6 +6,7 @@
 extern crate alloc;
 extern crate core;
 
+mod character_map;
 mod glyphs;
 mod metrics;
 mod parse_utils;
@@ -19,6 +20,11 @@ use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::fmt::{Display, Formatter};
 use parser::FontParser;
+
+#[cfg(target_os = "axle")]
+pub(crate) use axle_rt::println;
+#[cfg(not(target_os = "axle"))]
+pub(crate) use std::println;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Codepoint(usize);
