@@ -24,6 +24,8 @@ enum GlyphOutlineFlag {
     SameY,
 }
 
+struct GlyphOutlineFlags(Vec<GlyphOutlineFlag>);
+
 #[derive(Debug, Clone)]
 pub struct PolygonsGlyphRenderInstructions {
     pub polygons: Vec<Polygon>,
@@ -139,28 +141,30 @@ impl FromFontBufInPlace<GlyphDescriptionRaw> for GlyphDescription {
     }
 }
 
-fn get_flags_from_byte(byte: u8) -> Vec<GlyphOutlineFlag> {
-    // §Table 16
-    let mut out = vec![];
-    if byte & (1 << 0) != 0 {
-        out.push(GlyphOutlineFlag::OnCurve);
+impl From<u8> for GlyphOutlineFlags {
+    fn from(byte: u8) -> Self {
+        // §Table 16
+        let mut out = vec![];
+        if byte & (1 << 0) != 0 {
+            out.push(GlyphOutlineFlag::OnCurve);
+        }
+        if byte & (1 << 1) != 0 {
+            out.push(GlyphOutlineFlag::ShortX);
+        }
+        if byte & (1 << 2) != 0 {
+            out.push(GlyphOutlineFlag::ShortY);
+        }
+        if byte & (1 << 3) != 0 {
+            out.push(GlyphOutlineFlag::Repeat);
+        }
+        if byte & (1 << 4) != 0 {
+            out.push(GlyphOutlineFlag::SameX);
+        }
+        if byte & (1 << 5) != 0 {
+            out.push(GlyphOutlineFlag::SameY);
+        }
+        GlyphOutlineFlags(out)
     }
-    if byte & (1 << 1) != 0 {
-        out.push(GlyphOutlineFlag::ShortX);
-    }
-    if byte & (1 << 2) != 0 {
-        out.push(GlyphOutlineFlag::ShortY);
-    }
-    if byte & (1 << 3) != 0 {
-        out.push(GlyphOutlineFlag::Repeat);
-    }
-    if byte & (1 << 4) != 0 {
-        out.push(GlyphOutlineFlag::SameX);
-    }
-    if byte & (1 << 5) != 0 {
-        out.push(GlyphOutlineFlag::SameY);
-    }
-    out
 }
 
 fn get_glyph_offset_and_length(parser: &FontParser, glyph_index: usize) -> (usize, usize) {
@@ -215,7 +219,7 @@ pub(crate) fn parse_glyph(
     let mut flag_count_to_parse = point_count as usize;
     while flag_count_to_parse > 0 {
         let flag_byte: u8 = *parser.read_with_cursor(&mut cursor);
-        let flags = get_flags_from_byte(flag_byte);
+        let flags = GlyphOutlineFlags::from(flag_byte).0;
         if flags.contains(&GlyphOutlineFlag::Repeat) {
             let mut flags = flags.clone();
             flags.retain(|&f| f != GlyphOutlineFlag::Repeat);
