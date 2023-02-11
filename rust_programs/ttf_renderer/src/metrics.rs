@@ -1,5 +1,8 @@
 use crate::parse_utils::{BigEndianValue, FromFontBufInPlace, TransmuteFontBufInPlace};
+use crate::parser::FontParser;
 use agx_definitions::Rect;
+use alloc::vec;
+use alloc::vec::Vec;
 use core::ops::Range;
 
 #[repr(C, packed)]
@@ -161,4 +164,33 @@ impl GlyphRenderMetrics {
             v.top_side_bearing,
         )
     }
+}
+
+pub(crate) fn parse_horizontal_metrics(parser: &FontParser) -> Vec<LongHorMetric> {
+    let hhea: HheaTable = parser.parse_table("hhea");
+    let hmtx_offset = parser.table_headers.get("hmtx").unwrap().offset;
+    let mut cursor = hmtx_offset;
+    let mut glyph_metrics = vec![];
+    for _ in 0..hhea.long_hor_metrics_count {
+        let glyph_metric = LongHorMetric::from_in_place_buf(parser.read_with_cursor(&mut cursor));
+        glyph_metrics.push(glyph_metric);
+    }
+    glyph_metrics
+}
+
+pub(crate) fn parse_vertical_metrics(
+    parser: &FontParser,
+    glyph_count: usize,
+) -> Option<Vec<VerticalMetrics>> {
+    let vmtx_offset = match parser.table_headers.get("vmtx") {
+        None => return None,
+        Some(vmtx_header) => vmtx_header.offset,
+    };
+    let mut cursor = vmtx_offset;
+    let mut glyph_metrics = vec![];
+    for _ in 0..glyph_count {
+        let glyph_metric = VerticalMetrics::from_in_place_buf(parser.read_with_cursor(&mut cursor));
+        glyph_metrics.push(glyph_metric);
+    }
+    Some(glyph_metrics)
 }

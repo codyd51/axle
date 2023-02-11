@@ -18,7 +18,8 @@ use num_traits::PrimInt;
 
 use crate::glyphs::parse_glyph;
 use crate::metrics::{
-    GlyphMetrics, HheaTable, HheaTableRaw, LongHorMetric, LongHorMetricRaw, VerticalMetrics,
+    parse_horizontal_metrics, parse_vertical_metrics, GlyphMetrics, HheaTable, HheaTableRaw,
+    LongHorMetric, LongHorMetricRaw, VerticalMetrics,
 };
 use crate::parse_utils::{
     fixed_word_to_i32, BigEndianValue, FromFontBufInPlace, TransmuteFontBufInPlace,
@@ -502,7 +503,10 @@ impl<'a> FontParser<'a> {
         }
     }
 
-    fn parse_table<A: TransmuteFontBufInPlace, T: FromFontBufInPlace<A>>(&self, tag: &str) -> T {
+    pub(crate) fn parse_table<A: TransmuteFontBufInPlace, T: FromFontBufInPlace<A>>(
+        &self,
+        tag: &str,
+    ) -> T {
         let table_header = self.table_headers.get(tag).unwrap();
         let raw: &A = self.read(table_header.offset);
         T::from_in_place_buf(raw)
@@ -542,8 +546,8 @@ impl<'a> FontParser<'a> {
             }
         }
 
-        let horizontal_glyph_metrics = self.parse_horizontal_metrics();
-        let vertical_glyph_metrics = self.parse_vertical_metrics(max_profile.num_glyphs);
+        let horizontal_glyph_metrics = parse_horizontal_metrics(self);
+        let vertical_glyph_metrics = parse_vertical_metrics(self, max_profile.num_glyphs);
         for (i, glyph) in all_glyphs.iter_mut().enumerate() {
             if let Some(horizontal_metrics) = horizontal_glyph_metrics.get(i) {
                 glyph
@@ -765,33 +769,5 @@ impl<'a> FontParser<'a> {
                 scaled_glyph_offset.into_value() as usize
             }
         }
-    }
-
-    fn parse_horizontal_metrics(&self) -> Vec<LongHorMetric> {
-        let hhea: HheaTable = self.parse_table("hhea");
-        println!("Got hhea {hhea:?}");
-        let hmtx_offset = self.table_headers.get("hmtx").unwrap().offset;
-        let mut cursor = hmtx_offset;
-        let mut glyph_metrics = vec![];
-        for _ in 0..hhea.long_hor_metrics_count {
-            let glyph_metric = LongHorMetric::from_in_place_buf(self.read_with_cursor(&mut cursor));
-            glyph_metrics.push(glyph_metric);
-        }
-        glyph_metrics
-    }
-
-    fn parse_vertical_metrics(&self, glyph_count: usize) -> Option<Vec<VerticalMetrics>> {
-        let vmtx_offset = match self.table_headers.get("vmtx") {
-            None => return None,
-            Some(vmtx_header) => vmtx_header.offset,
-        };
-        let mut cursor = vmtx_offset;
-        let mut glyph_metrics = vec![];
-        for _ in 0..glyph_count {
-            let glyph_metric =
-                VerticalMetrics::from_in_place_buf(self.read_with_cursor(&mut cursor));
-            glyph_metrics.push(glyph_metric);
-        }
-        Some(glyph_metrics)
     }
 }
