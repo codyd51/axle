@@ -821,7 +821,7 @@ impl Debug for Tile {
 mod test {
     use alloc::vec::Vec;
 
-    use crate::{Line, Point, Rect, Tile, TileSegment, TileSegments};
+    use crate::{Line, Point, PointF64, Rect, Tile, TileSegment, TileSegments};
     use std::println;
 
     #[test]
@@ -1123,7 +1123,7 @@ mod test {
     fn test_line_intersection() {
         let l1 = Line::new(Point::new(20, 0), Point::new(20, 20));
         let l2 = Line::new(Point::new(0, 0), Point::new(40, 10));
-        assert_eq!(l1.intersection(&l2), Some(Point::new(20, 5)));
+        assert_eq!(l1.intersection(&l2), Some(PointF64::new(20.0, 5.0)));
         //        let a = Line {
         //             start: (1.0, 0.0).into(),
         //             end: (1.0, 1.0).into(),
