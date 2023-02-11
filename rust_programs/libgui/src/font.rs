@@ -1,5 +1,17 @@
-use agx_definitions::{Color, LikeLayerSlice, Point, Size};
+use crate::text_view::DrawnCharacter;
+use agx_definitions::{Color, LikeLayerSlice, Point, Polygon, PolygonStack, Rect, Size};
 use alloc::boxed::Box;
+use alloc::format;
+use alloc::vec::Vec;
+use axle_rt::AmcMessage;
+use core::ptr;
+use file_manager_messages::{ReadFile, ReadFileResponse, FILE_SERVER_SERVICE_NAME};
+use ttf_renderer::{Codepoint, Font, GlyphMetrics, GlyphRenderInstructions};
+
+#[cfg(target_os = "axle")]
+use axle_rt::{amc_message_await__u32_event, amc_message_send};
+#[cfg(not(target_os = "axle"))]
+use std::fs;
 
 pub const CHAR_WIDTH: usize = 8;
 pub const CHAR_HEIGHT: usize = 8;
@@ -157,6 +169,92 @@ pub fn draw_char(
             if row >> font_x & 0b1 != 0 {
                 layer.putpixel(*draw_loc + Point::new(draw_x, draw_y), draw_color);
             }
+        }
+    }
+}
+
+pub fn draw_char_with_font_onto(
+    drawn_ch: &mut DrawnCharacter,
+    font: &Font,
+    onto: &mut Box<dyn LikeLayerSlice>,
+) {
+    let ch = drawn_ch.value;
+    let draw_loc = drawn_ch.pos;
+    let font_size = drawn_ch.font_size;
+    let draw_color = drawn_ch.color;
+
+    let codepoint = Codepoint::from(ch);
+    let glyph = font.glyph_for_codepoint(codepoint);
+    if glyph.is_none() {
+        return;
+    }
+    let glyph = glyph.unwrap();
+
+    let scale_x = font_size.width as f64 / (font.units_per_em as f64);
+    let scale_y = font_size.height as f64 / (font.units_per_em as f64);
+    let scaled_glyph_metrics = glyph.metrics().scale(scale_x, scale_y);
+    let draw_loc = draw_loc
+        + Point::new(
+            scaled_glyph_metrics.left_side_bearing,
+            0, //scaled_glyph_metrics.top_side_bearing,
+        );
+    let draw_box = Rect::from_parts(draw_loc, font_size);
+    let mut dest_slice = onto.get_slice(draw_box);
+
+    drawn_ch.draw_box = Rect::from_parts(draw_box.origin, font_size);
+
+    match &glyph.render_instructions {
+        GlyphRenderInstructions::PolygonsGlyph(polygons_glyph) => {
+            let scaled_polygons: Vec<Polygon> = polygons_glyph
+                .polygons
+                .iter()
+                .map(|p| p.scale_by(scale_x, scale_y))
+                .collect();
+            let polygon_stack = PolygonStack::new(&scaled_polygons);
+            polygon_stack.fill(&mut dest_slice, draw_color);
+        }
+        GlyphRenderInstructions::BlankGlyph(_blank_glyph) => {
+            // Nothing to do
+        }
+        GlyphRenderInstructions::CompoundGlyph(compound_glyph) => {
+            //onto.fill(Color::blue());
+        }
+    }
+}
+
+pub fn load_font(path: &str) -> Font {
+    let font_bytes = {
+        #[cfg(target_os = "axle")]
+        {
+            let file_read_request = ReadFile::new(&format!("{path}"));
+            amc_message_send(FILE_SERVER_SERVICE_NAME, file_read_request);
+            let file_data_msg: AmcMessage<ReadFileResponse> =
+                amc_message_await__u32_event(FILE_SERVER_SERVICE_NAME);
+            let file_data_body = file_data_msg.body();
+            unsafe {
+                let data_slice = ptr::slice_from_raw_parts(
+                    (&file_data_body.data) as *const u8,
+                    file_data_body.len,
+                );
+                let data: &[u8] = &*(data_slice as *const [u8]);
+                data.to_vec()
+            }
+        }
+        #[cfg(not(target_os = "axle"))]
+        {
+            fs::read(path).unwrap()
+        }
+    };
+    ttf_renderer::parse(&font_bytes)
+}
+
+pub fn scaled_metrics_for_codepoint(font: &Font, font_size: Size, ch: char) -> GlyphMetrics {
+    match font.glyph_for_codepoint(Codepoint::from(ch)) {
+        None => GlyphMetrics::new(font_size.width as _, font_size.height as _, 0, 0),
+        Some(glyph) => {
+            let scale_x = font_size.width as f64 / (font.units_per_em as f64);
+            let scale_y = font_size.height as f64 / (font.units_per_em as f64);
+            glyph.metrics().scale(scale_x, scale_y)
         }
     }
 }
