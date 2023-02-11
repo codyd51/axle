@@ -226,7 +226,7 @@ pub fn load_font(path: &str) -> Font {
     let font_bytes = {
         #[cfg(target_os = "axle")]
         {
-            let file_read_request = ReadFile::new(&format!("{path}"));
+            let file_read_request = ReadFile::new(path);
             amc_message_send(FILE_SERVER_SERVICE_NAME, file_read_request);
             let file_data_msg: AmcMessage<ReadFileResponse> =
                 amc_message_await__u32_event(FILE_SERVER_SERVICE_NAME);

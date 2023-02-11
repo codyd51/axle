@@ -90,7 +90,7 @@ impl TextView {
         let font = if let Some(font_path) = font_path {
             load_font(font_path)
         } else {
-            load_font("pacifico.ttf")
+            load_font("/fonts/pacifico.ttf")
         };
 
         Rc::new(Self {

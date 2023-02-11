@@ -1,5 +1,5 @@
 use crate::parse_utils::{BigEndianValue, FromFontBufInPlace, TransmuteFontBufInPlace};
-use crate::GlyphRenderDescription;
+use agx_definitions::Rect;
 use core::ops::Range;
 
 #[repr(C, packed)]
@@ -116,6 +116,49 @@ impl GlyphMetrics {
             (self.advance_height as f64 * scale_y) as usize,
             (self.left_side_bearing as f64 * scale_x) as isize,
             (self.top_side_bearing as f64 * scale_y) as isize,
+        )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GlyphRenderMetrics {
+    pub bounding_box: Rect,
+    horizontal_metrics: Option<LongHorMetric>,
+    vertical_metrics: Option<VerticalMetrics>,
+}
+
+impl GlyphRenderMetrics {
+    pub(crate) fn new(bounding_box: &Rect) -> Self {
+        Self {
+            bounding_box: bounding_box.clone(),
+            horizontal_metrics: None,
+            vertical_metrics: None,
+        }
+    }
+
+    pub(crate) fn set_horizontal_metrics(&mut self, metrics: LongHorMetric) {
+        self.horizontal_metrics = Some(metrics)
+    }
+
+    pub(crate) fn set_vertical_metrics(&mut self, metrics: VerticalMetrics) {
+        self.vertical_metrics = Some(metrics)
+    }
+
+    pub fn metrics(&self) -> GlyphMetrics {
+        let h = self.horizontal_metrics.as_ref().unwrap();
+        let v = self
+            .vertical_metrics
+            .as_ref()
+            .unwrap_or(&VerticalMetrics {
+                advance_height: self.bounding_box.height() as _,
+                top_side_bearing: 0,
+            })
+            .clone();
+        GlyphMetrics::new(
+            h.advance_width,
+            v.advance_height,
+            h.left_side_bearing,
+            v.top_side_bearing,
         )
     }
 }
