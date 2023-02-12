@@ -6,7 +6,9 @@ use alloc::vec::Vec;
 use axle_rt::AmcMessage;
 use core::ptr;
 use file_manager_messages::{ReadFile, ReadFileResponse, FILE_SERVER_SERVICE_NAME};
-use ttf_renderer::{Codepoint, Font, GlyphMetrics, GlyphRenderInstructions};
+use ttf_renderer::{
+    Codepoint, Font, GlyphMetrics, GlyphRenderDescription, GlyphRenderInstructions,
+};
 
 #[cfg(target_os = "axle")]
 use axle_rt::{amc_message_await__u32_event, amc_message_send};
@@ -179,9 +181,7 @@ pub fn draw_char_with_font_onto(
     onto: &mut Box<dyn LikeLayerSlice>,
 ) {
     let ch = drawn_ch.value;
-    let draw_loc = drawn_ch.pos;
     let font_size = drawn_ch.font_size;
-    let draw_color = drawn_ch.color;
 
     let codepoint = Codepoint::from(ch);
     let glyph = font.glyph_for_codepoint(codepoint);
@@ -189,19 +189,27 @@ pub fn draw_char_with_font_onto(
         return;
     }
     let glyph = glyph.unwrap();
+    drawn_ch.draw_box = draw_glyph_onto(glyph, font, onto, drawn_ch.pos, drawn_ch.color, font_size);
+}
 
+pub fn draw_glyph_onto(
+    glyph: &GlyphRenderDescription,
+    font: &Font,
+    onto: &mut Box<dyn LikeLayerSlice>,
+    draw_loc: Point,
+    draw_color: Color,
+    font_size: Size,
+) -> Rect {
     let scale_x = font_size.width as f64 / (font.units_per_em as f64);
     let scale_y = font_size.height as f64 / (font.units_per_em as f64);
     let scaled_glyph_metrics = glyph.metrics().scale(scale_x, scale_y);
     let draw_loc = draw_loc
         + Point::new(
             scaled_glyph_metrics.left_side_bearing,
-            0, //scaled_glyph_metrics.top_side_bearing,
+            scaled_glyph_metrics.top_side_bearing,
         );
     let draw_box = Rect::from_parts(draw_loc, font_size);
     let mut dest_slice = onto.get_slice(draw_box);
-
-    drawn_ch.draw_box = Rect::from_parts(draw_box.origin, font_size);
 
     match &glyph.render_instructions {
         GlyphRenderInstructions::PolygonsGlyph(polygons_glyph) => {
@@ -217,9 +225,11 @@ pub fn draw_char_with_font_onto(
             // Nothing to do
         }
         GlyphRenderInstructions::CompoundGlyph(compound_glyph) => {
-            //onto.fill(Color::blue());
+            onto.fill(Color::blue());
         }
     }
+
+    Rect::from_parts(draw_box.origin, font_size)
 }
 
 pub fn load_font(path: &str) -> Font {

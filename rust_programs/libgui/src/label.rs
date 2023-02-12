@@ -50,7 +50,7 @@ impl NestedLayerSlice for Label {
         self.container.replace(Some(RefCell::new(parent)));
     }
 
-    fn get_slice_for_render(&self) -> alloc::boxed::Box<dyn agx_definitions::LikeLayerSlice> {
+    fn get_slice_for_render(&self) -> Box<dyn agx_definitions::LikeLayerSlice> {
         self.get_slice()
     }
 }
