@@ -3,8 +3,7 @@ extern crate alloc;
 use agx_definitions::{Color, LikeLayerSlice, Point, Polygon, PolygonStack, Rect, Size};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use libgui::font::draw_glyph_onto;
-use ttf_renderer::{Font, GlyphRenderDescription, GlyphRenderInstructions};
+use ttf_renderer::{render_glyph_onto, Font, GlyphRenderDescription, GlyphRenderInstructions};
 
 pub fn render_all_glyphs_in_font(
     onto: &mut Box<dyn LikeLayerSlice>,
@@ -39,7 +38,7 @@ pub fn render_all_glyphs_in_font(
             cursor.y + scaled_glyph_metrics.top_side_bearing,
         );
         let mut dest_slice = onto.get_slice(Rect::from_parts(glyph_origin, scaled_em_size));
-        draw_glyph_onto(
+        render_glyph_onto(
             glyph,
             font,
             &mut dest_slice,

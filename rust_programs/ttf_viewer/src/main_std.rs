@@ -3,7 +3,9 @@ use agx_definitions::{
     PolygonStack, Rect, RectInsets, Size, StrokeThickness,
 };
 use pixels::{Pixels, SurfaceTexture};
-use ttf_renderer::{parse, Codepoint, Font, GlyphRenderDescription, GlyphRenderInstructions};
+use ttf_renderer::{
+    parse, render_glyph_onto, Codepoint, Font, GlyphRenderDescription, GlyphRenderInstructions,
+};
 use winit::dpi::LogicalSize;
 use winit::event::Event;
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -12,7 +14,6 @@ use winit::window::WindowBuilder;
 use crate::font_viewer::FontViewer;
 use crate::utils::render_all_glyphs_in_font;
 use libgui::bordered::Bordered;
-use libgui::font::draw_glyph_onto;
 use libgui::text_input_view::TextInputView;
 use libgui::ui_elements::UIElement;
 use libgui::KeyCode;
@@ -159,7 +160,7 @@ fn render_string(onto: &mut Box<dyn LikeLayerSlice>, font: &Font, font_size: &Si
             cursor.y + scaled_glyph_metrics.top_side_bearing,
         );
         let mut dest_slice = onto.get_slice(Rect::from_parts(glyph_origin, scaled_em_size));
-        draw_glyph_onto(
+        render_glyph_onto(
             glyph,
             font,
             &mut dest_slice,
