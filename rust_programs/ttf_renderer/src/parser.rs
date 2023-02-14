@@ -1,4 +1,4 @@
-use crate::{Codepoint, Font, GlyphIndex};
+use crate::{Codepoint, Font, GlyphIndex, GlyphRenderInstructions};
 use agx_definitions::{Point, PointF64, Polygon, Rect, Size};
 use alloc::borrow::ToOwned;
 use alloc::collections::BTreeMap;
@@ -184,11 +184,13 @@ impl FromFontBufInPlace<HeadTableRaw> for HeadTable {
             -2 => FontDirectionality::RightToLeftAndNeutral,
             _ => panic!("Invalid font direction hint"),
         };
+        /*
         assert!(
             directionality == FontDirectionality::LeftToRightAndNeutral
                 || directionality == FontDirectionality::LeftToRight,
             "Only left-to-right/-and-neutral is handled for now"
         );
+        */
 
         let index_to_loc_format = match raw.index_to_loc_format.into_value() {
             0 => IndexToLocFormat::ShortOffsets,
@@ -336,7 +338,18 @@ impl<'a> FontParser<'a> {
 
         let horizontal_glyph_metrics = parse_horizontal_metrics(self);
         let vertical_glyph_metrics = parse_vertical_metrics(self, max_profile.num_glyphs);
-        for (i, glyph) in all_glyphs.iter_mut().enumerate() {
+        for (i, glyph) in all_glyphs.iter().enumerate() {
+            // Compound glyphs may inherit their metrics from one of their children
+            if let GlyphRenderInstructions::CompoundGlyph(compound_glyph_instructions) =
+                &glyph.render_instructions
+            {
+                if let Some(child_idx_to_inherit_metrics_from) =
+                    compound_glyph_instructions.use_metrics_from_child_idx
+                {
+                    continue;
+                }
+            }
+
             if let Some(horizontal_metrics) = horizontal_glyph_metrics.get(i) {
                 glyph
                     .render_metrics
@@ -346,6 +359,49 @@ impl<'a> FontParser<'a> {
                 glyph
                     .render_metrics
                     .set_vertical_metrics(vertical_glyph_metrics.as_ref().unwrap()[i].clone());
+            }
+        }
+        for (i, glyph) in all_glyphs.iter().enumerate() {
+            // Compound glyphs may inherit their metrics from one of their children
+            if let GlyphRenderInstructions::CompoundGlyph(compound_glyph_instructions) =
+                &glyph.render_instructions
+            {
+                //println!("** Glyph {i} is compound");
+                if let Some(child_idx_to_inherit_metrics_from) =
+                    compound_glyph_instructions.use_metrics_from_child_idx
+                {
+                    //println!("** Glyph {i} uses metrics from child IDX {child_idx_to_inherit_metrics_from}");
+                    // TODO(PT): We may need to do this after the first pass...
+                    let child =
+                        &compound_glyph_instructions.children[child_idx_to_inherit_metrics_from];
+                    let child_glyph = all_glyphs.get(child.glyph_index).unwrap();
+                    let child_metrics = &child_glyph.render_metrics;
+                    /*
+                    println!(
+                        "\tChild metrics (glyph idx {}) {child_metrics:?}",
+                        child.glyph_index
+                    );
+                    */
+                    glyph.render_metrics.set_horizontal_metrics(
+                        child_metrics
+                            .horizontal_metrics
+                            .borrow()
+                            .as_ref()
+                            .unwrap()
+                            .clone(),
+                    );
+                    glyph.render_metrics.set_vertical_metrics(
+                        child_metrics
+                            .vertical_metrics
+                            .borrow()
+                            .as_ref()
+                            .unwrap_or(&VerticalMetrics {
+                                advance_height: glyph_bounding_box.height() as _,
+                                top_side_bearing: 0,
+                            })
+                            .clone(),
+                    );
+                }
             }
         }
 

@@ -241,6 +241,7 @@ pub(crate) fn parse_character_map(parser: &FontParser) -> BTreeMap<usize, usize>
                     CharacterMapUnicodeEncoding::Version2_0Extended,
                 ),
                 CharacterMapPlatformAndEncoding::Unicode(CharacterMapUnicodeEncoding::Version1_1),
+                CharacterMapPlatformAndEncoding::Unicode(CharacterMapUnicodeEncoding::Version1_0),
             ];
             if recognized_unicode_encodings.contains(&character_map_subtable.platform_and_encoding)
             {
