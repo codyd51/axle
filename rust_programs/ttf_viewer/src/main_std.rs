@@ -56,32 +56,36 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     let font_path = "/Users/philliptennen/Downloads/ASCII/ASCII.ttf";
     let font_path = "/Users/philliptennen/Downloads/TestFont.ttf";
     let font_path = "/Users/philliptennen/Downloads/mplus1mn-bold-ascii.ttf";
-    let font_path = "/System/Library/Fonts/Geneva.ttf";
     let font_path = "/System/Library/Fonts/Symbol.ttf";
     let font_path = "/System/Library/Fonts/Keyboard.ttf";
-    let font_path = "/Users/philliptennen/Downloads/SF-Pro.ttf";
     let font_path = "/Users/philliptennen/Downloads/pacifico/Pacifico.ttf";
-    let font_path = "/Users/philliptennen/Downloads/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Regular.ttf";
-    let font_path = "/Users/philliptennen/Downloads/roboto 2/Roboto-Medium.ttf";
     let font_path = "/Users/philliptennen/Downloads/nexa/NexaText-Trial-Regular.ttf";
+    let font_path = "/Users/philliptennen/Downloads/orange-juice/orange juice 2.0.ttf";
+    let font_path = "/Users/philliptennen/Downloads/montserrat/Montserrat-Regular.ttf";
+    let font_path = "/Users/philliptennen/Downloads/roboto 2/Roboto-Medium.ttf";
+    let font_path = "/Users/philliptennen/Downloads/coolvetica-2/coolvetica.ttf";
     let font_path = "/System/Library/Fonts/NewYorkItalic.ttf";
+    let font_path = "/Users/philliptennen/Downloads/SF-Pro.ttf";
+    let font_path = "/Users/philliptennen/Downloads/GeneralSans_Complete/Fonts/WEB/fonts/GeneralSans-Regular.ttf";
+    let font_path = "/System/Library/Fonts/Geneva.ttf";
+    let font_path = "/Users/philliptennen/Downloads/andrew_elegant/ANDREW ELEGANT Regular.ttf";
+    let font_path = "../os_dist/fonts/sf_pro.ttf";
+    let font_path = "/System/Library/Fonts/SFCompactRounded.ttf";
 
-    let window_size = Size::new(1200, 1200);
+    let font_size = Size::new(20, 24);
+    let window_size = Size::new(1200, 1000);
     let window = Rc::new(AwmWindow::new("Hosted Font Viewer", window_size));
 
     let main_view_sizer = |superview_size: Size| Rect::from_parts(Point::zero(), superview_size);
-    let main_view = TextInputView::new(
-        Some(font_path),
-        Size::new(16, 16),
-        move |_v, superview_size| main_view_sizer(superview_size),
-    );
+    let main_view = TextInputView::new(Some(font_path), font_size, move |_v, superview_size| {
+        main_view_sizer(superview_size)
+    });
     Rc::clone(&window).add_component(Rc::clone(&main_view) as Rc<dyn UIElement>);
 
     let mut main_view_slice = main_view.get_slice();
 
     let font_data = fs::read(font_path).unwrap();
     let font = parse(&font_data);
-    let font_size = Size::new(128, 128);
 
     //render_all_glyphs_in_font(&mut main_view_slice, &font, &font_size, Some(3000));
     render_string(
@@ -89,7 +93,8 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         &font,
         &font_size,
         //"Sphinx of black quartz, judge my vow. This is a test of font rendering! I am trying out various glyphs and punctuations to see how they're handled. 1234567890!@#$%^&*()_+-=[]{}\\\'\"|,<.>/?§±`~",
-        "Sphinx judge",
+        //"axle OS, uptime: 64s",
+        "Safari",
     );
     //render_glyph(&mut main_view_slice, &font.glyphs[2], 0.4, 0.4);
     let p1 = polygon_from_point_tups(&[
@@ -153,27 +158,49 @@ fn render_string(onto: &mut Box<dyn LikeLayerSlice>, font: &Font, font_size: &Si
             None => continue,
             Some(glyph) => glyph,
         };
+        /*
+        let metrics = glyph.metrics();
+        println!("{ch}: Got metrics {metrics:?}");
         let scaled_glyph_metrics = glyph.metrics().scale(scale_x, scale_y);
+        println!("\tGot scaled metrics {scaled_glyph_metrics:?}");
 
         let glyph_origin = Point::new(
-            cursor.x + scaled_glyph_metrics.left_side_bearing,
+            //cursor.x + scaled_glyph_metrics.left_side_bearing,
+            cursor.x,
             cursor.y + scaled_glyph_metrics.top_side_bearing,
         );
-        let mut dest_slice = onto.get_slice(Rect::from_parts(glyph_origin, scaled_em_size));
-        render_glyph_onto(
+        */
+        //let mut dest_slice = onto.get_slice(Rect::from_parts(cursor, scaled_em_size));
+        //let mut dest_slice = onto.get_slice(Rect::from_parts(cursor, scaled_em_size));
+        let (draw_box, metrics) = render_glyph_onto(
             glyph,
             font,
-            &mut dest_slice,
-            Point::zero(),
+            //&mut dest_slice,
+            onto,
+            cursor,
             Color::black(),
             *font_size,
         );
 
+        /*
+        println!(
+            "{ch}: Incrementing cursor from {} to {}",
+            cursor.x,
+            cursor.x + (scaled_glyph_metrics.advance_width as isize)
+        );
+        */
+        /*
         cursor = Point::new(
             cursor.x + (scaled_glyph_metrics.advance_width as isize),
             cursor.y,
         );
         if cursor.x >= onto.frame().size.width - (font_size.width * 2) {
+            cursor.y += scaled_em_size.height;
+            cursor.x = cursor_origin.x;
+        }
+        */
+        cursor = Point::new(cursor.x + (metrics.advance_width as isize), cursor.y);
+        if cursor.x >= onto.frame().size.width - font_size.width {
             cursor.y += scaled_em_size.height;
             cursor.x = cursor_origin.x;
         }
