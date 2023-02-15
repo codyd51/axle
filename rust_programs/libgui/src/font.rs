@@ -188,7 +188,8 @@ pub fn draw_char_with_font_onto(
         drawn_ch.pos,
         drawn_ch.color,
         drawn_ch.font_size,
-    );
+    )
+    .0;
 }
 
 pub fn load_font(path: &str) -> Font {
