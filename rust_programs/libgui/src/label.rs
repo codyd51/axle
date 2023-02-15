@@ -1,6 +1,7 @@
 use core::cell::RefCell;
 
 use agx_definitions::{Color, Drawable, NestedLayerSlice, Point, Rect, Size};
+use alloc::boxed::Box;
 use alloc::{
     rc::{Rc, Weak},
     string::{String, ToString},
