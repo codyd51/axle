@@ -284,9 +284,11 @@ fn interpret_values_via_flags(
         CoordinateComponentType::X => GlyphOutlineFlag::SameX,
         CoordinateComponentType::Y => GlyphOutlineFlag::SameY,
     };
-    let mut last_value = 0;
+    let mut last_on_curve_value = 0;
+    let mut last_off_curve_value = 0;
+    let mut last_value_was_on_curve = true;
     for flag_set in all_flags.iter() {
-        let value = if flag_set.contains(&short_flag) {
+        let relative_value = if flag_set.contains(&short_flag) {
             // Value is u8
             let value_without_sign = *parser.read_with_cursor::<u8>(cursor) as isize;
             // §Table 16:
@@ -294,10 +296,10 @@ fn interpret_values_via_flags(
             // with a value of 1 equalling positive and a zero value negative.
             if flag_set.contains(&same_flag) {
                 //println!("\tvalue_without_sign={value_without_sign}, SameValue");
-                last_value + value_without_sign
+                value_without_sign
             } else {
                 //println!("\tvalue_without_sign={value_without_sign}, NotSameValue");
-                last_value - value_without_sign
+                0 - value_without_sign
             }
         } else {
             // Value is u16
@@ -308,18 +310,77 @@ fn interpret_values_via_flags(
             // delta vector is the change in the value.
             if flag_set.contains(&same_flag) {
                 //println!("\tLong, Same");
-                last_value
+                0
             } else {
                 let value = parser
                     .read_with_cursor::<BigEndianValue<i16>>(cursor)
                     .into_value() as isize;
                 //println!("\tLong, NotSame ({value})");
-                last_value + value
+                value
             }
         };
-        last_value = value;
-        //println!("\tGot value {value}");
-        values.push(last_value);
+
+        let next_pt_is_on_curve = flag_set.contains(&GlyphOutlineFlag::OnCurve);
+
+        if last_value_was_on_curve {
+            if next_pt_is_on_curve {
+                // just add new point to the list of points (i.e. draw a
+                // straight line to the new point)
+                last_on_curve_value = last_on_curve_value + relative_value;
+                values.push(last_on_curve_value);
+            }
+            else {
+                // the next point is a control point, so we have a 2nd degree
+                // bezier curve, but we don't know the end point yet. Store
+                // the relative value for next round
+                last_off_curve_value = relative_value;
+                last_value_was_on_curve = false;
+            }
+        }
+        else {
+            // Last value was off curve, so we have the (absolute)
+            // start point of the bezier curve in last_on_curve_value and
+            // the (relative) control point in last_off_curve_value.
+            // Need to determine the end point
+            let bezier_start = last_on_curve_value;
+            let bezier_ctrl = last_off_curve_value;
+            let bezier_end = if next_pt_is_on_curve {
+                // next point is on curve, we take it's value as the
+                // (relative) end point
+                bezier_ctrl + relative_value
+            }
+            else {
+                // next point is off curve so we assume an implicit
+                // on-curve point interpolated half way between the
+                // ctrl point and the next off-curve point
+                bezier_ctrl + (relative_value / 2)
+            };
+            let next_pt = bezier_start + bezier_end;
+
+            
+            values.push(bezier_2d(bezier_start, bezier_ctrl, bezier_end, 0.3));
+            values.push(bezier_2d(bezier_start, bezier_ctrl, bezier_end, 0.6));
+            values.push(next_pt);
+
+            last_on_curve_value = next_pt;
+            last_off_curve_value = if next_pt_is_on_curve {
+                // this next point was on curve, so we're back
+                // to regular straight lines until we see another control point
+                0
+            }
+            else {
+                // this next point was off curve, so we have another
+                // bezier curve on our hands. Retain an off curve value
+                // that's relative to the implicit on-curve point halfway
+                // distance from the last off-curve point
+                ((relative_value as f64)/2.0).round() as isize
+            };
+            last_value_was_on_curve = next_pt_is_on_curve;
+        }
     }
     values
+}
+
+fn bezier_2d(start: isize, ctrl: isize, end: isize, t: f64) -> isize {
+    return ((start as f64) + (2 as f64)*t*(ctrl as f64) + t*t*((end - ctrl) as f64)).round() as isize;
 }
