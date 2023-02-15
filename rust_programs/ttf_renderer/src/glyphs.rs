@@ -469,21 +469,18 @@ pub(crate) fn parse_glyph(
         flag_count_to_parse -= 1;
     }
 
-    // Parse X coordinates
+
+    let mut polygons = vec![];
+    
     let x_values =
         interpret_values_via_flags(parser, &mut cursor, &all_flags, CoordinateComponentType::X);
     let y_values =
         interpret_values_via_flags(parser, &mut cursor, &all_flags, CoordinateComponentType::Y);
-    let points: Vec<PointF64> = x_values
-        .iter()
-        .zip(y_values.iter())
-        // Flip the Y axis of every point to match our coordinate system
-        .map(|(&x, &y)| PointF64::new(x as _, (units_per_em as isize - y) as _))
-        .collect();
-
+    
+    
     // Split the total collection of points into polygons, using the last-point-indexes that
     // were given in the glyph metadata
-    let mut polygons = vec![];
+    //let mut polygons = vec![];
     let mut polygon_start_end_index_pairs = last_point_indexes.to_owned();
     // The first polygon starts at index 0
     // > The first point number of each contour (except the first) is one greater than the last point number of the preceding contour.
@@ -492,8 +489,21 @@ pub(crate) fn parse_glyph(
         polygon_start_end_index_pairs.iter().tuple_windows()
     {
         let start_idx = end_idx_of_previous_contour + 1;
-        polygons.push(Polygon::new(&points[start_idx as usize..=end_idx as usize]))
+
+        let interpolate = true;
+        let polygon_x_values = points_for_polygon(start_idx as usize, end_idx as usize, &x_values, &all_flags, interpolate);
+        let polygon_y_values = points_for_polygon(start_idx as usize, end_idx as usize, &y_values, &all_flags, interpolate);
+    
+        let polygon_points: Vec<PointF64> = polygon_x_values
+        .iter()
+        .zip(polygon_y_values.iter())
+        // Flip the Y axis of every point to match our coordinate system
+        .map(|(&x, &y)| PointF64::new(x as _, (units_per_em as isize - y) as _))
+            .collect();
+    
+        polygons.push(Polygon::new(&polygon_points))
     }
+        
 
     /*
     println!(
@@ -501,6 +511,7 @@ pub(crate) fn parse_glyph(
         polygons.len()
     );
     */
+    
     GlyphRenderDescription::polygons_glyph(
         &glyph_description.bounding_box,
         &polygons,
@@ -523,11 +534,9 @@ fn interpret_values_via_flags(
         CoordinateComponentType::X => GlyphOutlineFlag::SameX,
         CoordinateComponentType::Y => GlyphOutlineFlag::SameY,
     };
-    let mut last_on_curve_value = 0;
-    let mut last_off_curve_value = 0;
-    let mut last_value_was_on_curve = true;
+    let mut last_value = 0;
     for flag_set in all_flags.iter() {
-        let relative_value = if flag_set.contains(&short_flag) {
+        let value = if flag_set.contains(&short_flag) {
             // Value is u8
             let value_without_sign = *parser.read_with_cursor::<u8>(cursor) as isize;
             // §Table 16:
@@ -535,10 +544,10 @@ fn interpret_values_via_flags(
             // with a value of 1 equalling positive and a zero value negative.
             if flag_set.contains(&same_flag) {
                 //println!("\tvalue_without_sign={value_without_sign}, SameValue");
-                value_without_sign
+                last_value + value_without_sign
             } else {
                 //println!("\tvalue_without_sign={value_without_sign}, NotSameValue");
-                0 - value_without_sign
+                last_value - value_without_sign
             }
         } else {
             // Value is u16
@@ -549,23 +558,72 @@ fn interpret_values_via_flags(
             // delta vector is the change in the value.
             if flag_set.contains(&same_flag) {
                 //println!("\tLong, Same");
-                0
+                last_value
             } else {
                 let value = parser
                     .read_with_cursor::<BigEndianValue<i16>>(cursor)
                     .into_value() as isize;
                 //println!("\tLong, NotSame ({value})");
-                value
+                last_value + value
             }
         };
+        last_value = value;
+        //println!("\tGot value {value}");
+        values.push(last_value);
+    }
+    values
+}
 
+fn bezier_2d(start: isize, ctrl: isize, end: isize, t: f64) -> isize {
+    return ((start as f64) + (2 as f64)*t*(ctrl as f64) + t*t*((end - ctrl) as f64)).round() as isize;
+}
+
+fn points_for_polygon(
+    start_index: usize,
+    end_index: usize,
+    points: &Vec<isize>,
+    flags: &Vec<Vec<GlyphOutlineFlag>>,
+    interpolate: bool
+) -> Vec<isize> {
+    
+    let mut values = vec![];
+
+    if !interpolate {
+        return points[start_index..=end_index].to_vec().clone();
+    }
+    
+    /*
+    for index in start_index..=end_index {
+        values.push(points[index]);
+    }
+    return values;
+    */
+
+    if start_index == end_index {
+        return values;
+    }
+
+    let mut last_value = points[start_index];
+    values.push(last_value);
+    
+    let mut last_on_curve_value = last_value;
+    let mut last_off_curve_value = 0;
+    let mut last_value_was_on_curve = true;
+
+    
+    for index in start_index+1..=end_index {
+        let next_value = points[index];
+        let relative_value = next_value - last_value;
+        last_value = next_value;
+        let flag_set = &flags[index];
+            
         let next_pt_is_on_curve = flag_set.contains(&GlyphOutlineFlag::OnCurve);
 
         if last_value_was_on_curve {
             if next_pt_is_on_curve {
                 // just add new point to the list of points (i.e. draw a
                 // straight line to the new point)
-                last_on_curve_value = last_on_curve_value + relative_value;
+                last_on_curve_value = next_value;
                 values.push(last_on_curve_value);
             }
             else {
@@ -586,15 +644,15 @@ fn interpret_values_via_flags(
             let bezier_end = if next_pt_is_on_curve {
                 // next point is on curve, we take it's value as the
                 // (relative) end point
-                bezier_ctrl + relative_value
+                relative_value
             }
             else {
                 // next point is off curve so we assume an implicit
                 // on-curve point interpolated half way between the
                 // ctrl point and the next off-curve point
-                bezier_ctrl + (relative_value / 2)
+                relative_value / 2
             };
-            let next_pt = bezier_start + bezier_end;
+            let next_pt = bezier_start + bezier_ctrl + bezier_end;
 
             
             values.push(bezier_2d(bezier_start, bezier_ctrl, bezier_end, 0.3));
@@ -618,8 +676,4 @@ fn interpret_values_via_flags(
         }
     }
     values
-}
-
-fn bezier_2d(start: isize, ctrl: isize, end: isize, t: f64) -> isize {
-    return ((start as f64) + (2 as f64)*t*(ctrl as f64) + t*t*((end - ctrl) as f64)).round() as isize;
 }

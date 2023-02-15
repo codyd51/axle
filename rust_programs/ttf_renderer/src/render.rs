@@ -260,7 +260,9 @@ fn render_polygons_glyph(
     for instr in instructions.iter() {
         println!("instr {instr:02x}");
     }
-    parse_instructions(instructions, HintParseOperations::all())
+    if instructions.len() > 0 {
+        parse_instructions(instructions, HintParseOperations::all())
+    }
 }
 
 pub fn render_glyph_onto(
