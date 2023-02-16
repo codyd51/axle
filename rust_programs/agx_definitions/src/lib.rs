@@ -345,7 +345,7 @@ impl Mul<isize> for Point {
 
 impl From<PointF64> for Point {
     fn from(value: PointF64) -> Self {
-        Point::new(value.x as _, value.y as _)
+        Point::new(value.x.round() as _, value.y.round() as _)
     }
 }
 
