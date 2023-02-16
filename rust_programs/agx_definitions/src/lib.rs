@@ -226,6 +226,26 @@ impl Sub for Size {
     }
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+pub struct SizeF64 {
+    pub width: f64,
+    pub height: f64,
+}
+
+impl SizeF64 {
+    pub fn new(width: f64, height: f64) -> Self {
+        Self { width, height }
+    }
+
+    pub fn zero() -> Self {
+        Self {
+            width: 0.0,
+            height: 0.0,
+        }
+    }
+}
+
 // For FFI
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -335,7 +355,7 @@ impl From<PointU32> for Point {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub struct PointF64 {
     x: f64,
     y: f64,
@@ -344,6 +364,10 @@ pub struct PointF64 {
 impl PointF64 {
     pub fn new(x: f64, y: f64) -> Self {
         Self { x, y }
+    }
+
+    pub fn zero() -> Self {
+        Self { x: 0.0, y: 0.0 }
     }
 
     pub fn cross(&self, other: &PointF64) -> f64 {
@@ -372,6 +396,12 @@ impl Add for PointF64 {
     type Output = PointF64;
     fn add(self, rhs: Self) -> Self::Output {
         PointF64::new(self.x + rhs.x, self.y + rhs.y)
+    }
+}
+
+impl Display for PointF64 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "({:02}, {:02})", self.x, self.y)
     }
 }
 
@@ -743,6 +773,60 @@ impl From<RectU32> for Rect {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct RectF64 {
+    pub origin: PointF64,
+    pub size: SizeF64,
+}
+
+impl RectF64 {
+    pub fn new(x: f64, y: f64, width: f64, height: f64) -> Self {
+        Self {
+            origin: PointF64::new(x, y),
+            size: SizeF64::new(width, height),
+        }
+    }
+
+    pub fn from_parts(origin: PointF64, size: SizeF64) -> Self {
+        Self { origin, size }
+    }
+
+    pub fn zero() -> Self {
+        Self {
+            origin: PointF64::zero(),
+            size: SizeF64::zero(),
+        }
+    }
+
+    pub fn min_x(&self) -> f64 {
+        self.origin.x
+    }
+
+    pub fn min_y(&self) -> f64 {
+        self.origin.y
+    }
+
+    pub fn max_x(&self) -> f64 {
+        self.origin.x + self.size.width
+    }
+
+    pub fn max_y(&self) -> f64 {
+        self.origin.y + self.size.height
+    }
+
+    pub fn union(&self, other: Self) -> Self {
+        let origin = PointF64::new(
+            self.min_x().min(other.min_x()),
+            self.min_y().min(other.min_y()),
+        );
+        let size = SizeF64::new(
+            self.max_x().max(other.max_x()),
+            self.max_y().max(other.max_y()),
+        );
+        Self::from_parts(origin, size)
+    }
+}
+
 #[derive(PartialEq)]
 struct TileSegment<'a> {
     viewport_frame: Rect,
@@ -787,10 +871,12 @@ impl Tile {
             tiles
                 .iter()
                 .filter_map(|tile| {
+                    /*
                     println!(
                         "\tChecking for intersection with {viewport_rect} and {}",
                         tile.frame
                     );
+                    */
                     if let Some(intersection) = viewport_rect.area_overlapping_with(tile.frame) {
                         //println!("\t\t area overlapping {intersection}");
                         let tile_viewport_origin = intersection.origin - viewport_rect.origin;
@@ -1347,6 +1433,12 @@ impl Display for Line {
     }
 }
 
+impl From<LineF64> for Line {
+    fn from(value: LineF64) -> Self {
+        Line::new(value.p1.into(), value.p2.into())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LineF64 {
     pub p1: PointF64,
@@ -1358,12 +1450,20 @@ impl LineF64 {
         Self { p1, p2 }
     }
 
-    pub fn max_y(&self) -> f64 {
-        self.p1.y.max(self.p2.y)
+    pub fn min_x(&self) -> f64 {
+        self.p1.x.min(self.p2.x)
     }
 
     pub fn min_y(&self) -> f64 {
         self.p1.y.min(self.p2.y)
+    }
+
+    pub fn max_x(&self) -> f64 {
+        self.p1.x.max(self.p2.x)
+    }
+
+    pub fn max_y(&self) -> f64 {
+        self.p1.y.max(self.p2.y)
     }
 
     pub fn intersection(self, other: &Self) -> Option<PointF64> {
