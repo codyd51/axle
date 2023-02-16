@@ -1305,7 +1305,7 @@ impl Line {
         let mut cursor = self.p1;
         let mut x_err = 0;
         let mut y_err = 0;
-        for _ in 0..distance {
+        for _ in 0..distance + 1 {
             onto.putpixel(cursor, color);
 
             x_err += delta_x;
@@ -1535,7 +1535,7 @@ impl LineF64 {
         let mut cursor = PointF64::from(onto.frame().origin) + PointF64::new(self.p1.x, self.p1.y);
         let mut x_err = 0.0;
         let mut y_err = 0.0;
-        for _ in 0..(distance as isize) {
+        for _ in 0..((distance + 1.0) as isize) {
             onto.putpixel(Point::from(cursor), color);
 
             x_err += delta_x;
@@ -1707,9 +1707,10 @@ fn scanline_fill_from_edges(onto: &mut Box<dyn LikeLayerSlice>, color: Color, ed
             if !next_line_is_inside {
                 continue;
             }
+            let endpoint: Point = right_edge_and_intersection.1.into();
             let line = Line::new(
                 left_edge_and_intersection.1.into(),
-                right_edge_and_intersection.1.into(),
+                Point::new(endpoint.x + 1, endpoint.y),
             );
             line.draw(onto, color, StrokeThickness::Filled);
         }
