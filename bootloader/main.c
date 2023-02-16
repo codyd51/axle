@@ -199,7 +199,7 @@ int main(int argc, char** argv) {
 	efi_gop_mode_info_t* gop_mode_info = NULL;
 	uint64_t best_mode = gop->Mode->Mode;
 	uint64_t best_mode_res_x = 0;
-	uint64_t max_res_x = 1920;
+	uint64_t max_res_x = 1600;
 	// Desired aspect ratio is 16:9
 	double desired_aspect_ratio = 16.0 / 9.0;
 	double min_distance = 1000000.0;
