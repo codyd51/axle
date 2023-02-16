@@ -1574,33 +1574,29 @@ impl Polygon {
         Polygon::new(&scaled_points)
     }
 
-    fn lines(&self) -> Vec<Line> {
+    fn lines(&self) -> Vec<LineF64> {
         // Generate bounding lines of the polygon
         let mut lines = vec![];
         for (&point, &next_point) in self.points.iter().tuple_windows() {
-            lines.push(Line::new(point.into(), next_point.into()));
+            lines.push(LineF64::new(point, next_point));
         }
         // Final line connecting the final and first points
-        lines.push(Line::new(
-            (*self.points.last().unwrap()).into(),
-            (*self.points.first().unwrap()).into(),
+        lines.push(LineF64::new(
+            *self.points.last().unwrap(),
+            *self.points.first().unwrap(),
         ));
         lines
     }
 
-    pub fn bounding_box(&self) -> Rect {
-        let lines = self.lines();
+    pub fn bounding_box(&self) -> RectF64 {
         // Find the bounding box of the polygon
-        let min_x = lines.iter().map(|l| min(l.p1.x, l.p2.x)).min().unwrap();
-        let min_y = lines.iter().map(|l| min(l.p1.y, l.p2.y)).min().unwrap();
-        let max_x = lines.iter().map(|l| max(l.p1.x, l.p2.x)).max().unwrap();
-        let max_y = lines.iter().map(|l| max(l.p1.y, l.p2.y)).max().unwrap();
-        Rect::new(min_x, min_y, max_x - min_x, max_y - min_y)
+        bounding_box_from_edges(&self.lines())
     }
 
     pub fn draw_outline(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
         let lines = self.lines();
         for line in lines.iter() {
+            let line: Line = (*line).into();
             line.draw(onto, color, StrokeThickness::Filled);
         }
     }
@@ -1622,9 +1618,9 @@ impl PolygonStack {
         }
     }
 
-    fn bounding_box(&self) -> Rect {
+    fn bounding_box(&self) -> RectF64 {
         let first = match self.polygons.first() {
-            None => return Rect::zero(),
+            None => return RectF64::zero(),
             Some(first) => first,
         };
         let mut bounding_box = first.bounding_box();
@@ -1634,7 +1630,7 @@ impl PolygonStack {
         bounding_box
     }
 
-    fn lines(&self) -> Vec<Line> {
+    fn lines(&self) -> Vec<LineF64> {
         let mut lines = vec![];
         for p in self.polygons.iter() {
             let mut p_lines = p.lines();
@@ -1650,21 +1646,22 @@ impl PolygonStack {
     pub fn draw_outline(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
         let lines = self.lines();
         for line in lines.iter() {
+            let line: Line = (*line).into();
             line.draw(onto, color, StrokeThickness::Filled);
         }
     }
 }
 
-fn bounding_box_from_edges(edges: &[Line]) -> Rect {
+fn bounding_box_from_edges(edges: &[LineF64]) -> RectF64 {
     // Find the bounding box of the polygon
-    let min_x = edges.iter().map(|l| min(l.p1.x, l.p2.x)).min().unwrap();
-    let min_y = edges.iter().map(|l| min(l.p1.y, l.p2.y)).min().unwrap();
-    let max_x = edges.iter().map(|l| max(l.p1.x, l.p2.x)).max().unwrap();
-    let max_y = edges.iter().map(|l| max(l.p1.y, l.p2.y)).max().unwrap();
-    Rect::new(min_x, min_y, max_x - min_x, max_y - min_y)
+    let min_x = edges.iter().fold(f64::INFINITY, |a, &b| a.min(b.min_x()));
+    let min_y = edges.iter().fold(f64::INFINITY, |a, &b| a.min(b.min_y()));
+    let max_x = edges.iter().fold(-f64::INFINITY, |a, &b| a.max(b.max_x()));
+    let max_y = edges.iter().fold(-f64::INFINITY, |a, &b| a.max(b.max_y()));
+    RectF64::new(min_x, min_y, max_x - min_x, max_y - min_y)
 }
 
-fn scanline_fill_from_edges(onto: &mut Box<dyn LikeLayerSlice>, color: Color, edges: &[Line]) {
+fn scanline_fill_from_edges(onto: &mut Box<dyn LikeLayerSlice>, color: Color, edges: &[LineF64]) {
     // Ref: http://www.sunshine2k.de/coding/java/Polygon/Filling/FillPolygon.htm
 
     // Drop horizontal lines that'd be collinear with the scanline
@@ -1672,19 +1669,21 @@ fn scanline_fill_from_edges(onto: &mut Box<dyn LikeLayerSlice>, color: Color, ed
     let mut bounding_box = bounding_box_from_edges(edges);
 
     // Sort lines in ascending y-order
-    let mut sorted_lines: Vec<Line> = lines.iter().map(|l| l.clone()).collect();
+    let mut sorted_lines: Vec<LineF64> = lines.iter().map(|l| l.clone()).collect();
     sorted_lines.sort_by(|&l1, &l2| l1.min_y().partial_cmp(&l2.min_y()).unwrap());
 
-    for scanline_y in bounding_box.min_y()..bounding_box.max_y() {
+    for scanline_y in
+        (bounding_box.min_y().floor() as isize)..(bounding_box.max_y().ceil() as isize)
+    {
         // Find all the edges intersected by this scanline
-        let scanline = Line::new(
-            Point::new(bounding_box.min_x() as _, scanline_y as _),
-            Point::new(bounding_box.max_x() as _, scanline_y as _),
+        let scanline = LineF64::new(
+            PointF64::new(bounding_box.min_x() as _, scanline_y as _),
+            PointF64::new(bounding_box.max_x() as _, scanline_y as _),
         );
-        let mut active_edges_and_intersections: Vec<(Line, PointF64)> = sorted_lines
+        let mut active_edges_and_intersections: Vec<(LineF64, PointF64)> = sorted_lines
             .iter()
             // Trivially filter lines that don't intersect on the Y axis
-            .filter(|l| scanline_y >= l.min_y() && scanline_y < l.max_y())
+            .filter(|l| (scanline_y as f64) >= l.min_y() && (scanline_y as f64) < l.max_y())
             .filter_map(|&l| {
                 let intersection = scanline.intersection(&l);
                 match intersection {
