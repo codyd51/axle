@@ -29,6 +29,7 @@ use crate::parse_utils::{
 use axle_rt::println;
 #[cfg(not(target_os = "axle"))]
 use std::println;
+use std::ptr::slice_from_raw_parts;
 
 #[repr(C, packed)]
 #[derive(Debug, Copy, Clone)]
@@ -293,6 +294,16 @@ impl<'a> FontParser<'a> {
         }
     }
 
+    pub(crate) fn read_bytes_with_cursor(&self, cursor: &mut usize, count: usize) -> &'a [u8] {
+        unsafe {
+            let ptr = self.font_data.as_ptr().offset(*cursor as isize);
+            let slice = slice_from_raw_parts(ptr, count);
+            let reference: &'a [u8] = &*{ slice as *const [u8] };
+            *cursor += count;
+            reference
+        }
+    }
+
     pub(crate) fn parse_table<A: TransmuteFontBufInPlace, T: FromFontBufInPlace<A>>(
         &self,
         tag: &str,
@@ -325,7 +336,7 @@ impl<'a> FontParser<'a> {
         let mut all_glyphs = vec![];
         let mut codepoints_to_glyph_indexes = BTreeMap::new();
         for i in 0..max_profile.num_glyphs {
-            let parsed_glyph = parse_glyph(self, i, &glyph_bounding_box);
+            let parsed_glyph = parse_glyph(self, i, &glyph_bounding_box, head.units_per_em as _);
             all_glyphs.push(parsed_glyph);
 
             match glyph_indexes_to_codepoints.get(&i) {
@@ -343,9 +354,11 @@ impl<'a> FontParser<'a> {
             if let GlyphRenderInstructions::CompoundGlyph(compound_glyph_instructions) =
                 &glyph.render_instructions
             {
-                if let Some(child_idx_to_inherit_metrics_from) =
-                    compound_glyph_instructions.use_metrics_from_child_idx
+                if compound_glyph_instructions
+                    .use_metrics_from_child_idx
+                    .is_some()
                 {
+                    // Handled in the loop down below
                     continue;
                 }
             }

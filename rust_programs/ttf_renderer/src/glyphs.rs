@@ -401,6 +401,7 @@ pub(crate) fn parse_glyph(
     parser: &FontParser,
     glyph_index: usize,
     all_glyphs_bounding_box: &Rect,
+    units_per_em: usize,
 ) -> GlyphRenderDescription {
     let glyph_header = parser.table_headers.get("glyf").unwrap();
     let (glyph_local_offset, glyph_data_length) = get_glyph_offset_and_length(parser, glyph_index);
@@ -477,8 +478,7 @@ pub(crate) fn parse_glyph(
         .iter()
         .zip(y_values.iter())
         // Flip the Y axis of every point to match our coordinate system
-        .map(|(&x, &y)| PointF64::new(x as _, (all_glyphs_bounding_box.max_y() - y) as _))
-        //.map(|(&x, &y)| Point::new(x, y))
+        .map(|(&x, &y)| PointF64::new(x as _, (units_per_em as isize - y) as _))
         .collect();
 
     // Split the total collection of points into polygons, using the last-point-indexes that

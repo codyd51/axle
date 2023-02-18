@@ -15,7 +15,7 @@ mod render;
 
 pub use crate::glyphs::{GlyphRenderDescription, GlyphRenderInstructions};
 pub use crate::metrics::GlyphMetrics;
-pub use crate::render::{render_char_onto, render_glyph_onto};
+pub use crate::render::{render_antialiased_glyph_onto, render_char_onto, render_glyph_onto};
 use agx_definitions::Rect;
 use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
