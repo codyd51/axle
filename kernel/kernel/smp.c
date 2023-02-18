@@ -96,6 +96,8 @@ void smp_init(void) {
         if (processor_info->apic_id == smp_get_current_core_apic_id(smp_info)) {
             continue;
         }
+        // TODO(PT): Read a config/max_cpus.txt to decide when to stop booting APs
+        break;
 
         printf("Booting core [idx %d], [APIC %d] [ID %d]\n", i, processor_info->apic_id, processor_info->processor_id);
 

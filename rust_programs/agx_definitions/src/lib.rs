@@ -28,6 +28,7 @@ use alloc::vec::Vec;
 
 #[cfg(target_os = "axle")]
 use axle_rt::println;
+use bresenham::{Bresenham, BresenhamInclusive};
 #[cfg(not(target_os = "axle"))]
 use std::println;
 
@@ -267,6 +268,12 @@ impl PointU32 {
     }
 }
 
+impl Display for SizeF64 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "({:.02}, {:.02})", self.width, self.height)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Ord, PartialOrd, Eq)]
 pub struct Point {
     pub x: isize,
@@ -357,8 +364,8 @@ impl From<PointU32> for Point {
 
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub struct PointF64 {
-    x: f64,
-    y: f64,
+    pub x: f64,
+    pub y: f64,
 }
 
 impl PointF64 {
@@ -401,7 +408,7 @@ impl Add for PointF64 {
 
 impl Display for PointF64 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "({:02}, {:02})", self.x, self.y)
+        write!(f, "({:6.02}, {:6.02})", self.x, self.y)
     }
 }
 
@@ -824,6 +831,12 @@ impl RectF64 {
             self.max_y().max(other.max_y()),
         );
         Self::from_parts(origin, size)
+    }
+}
+
+impl Display for RectF64 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "({}, {})", self.origin, self.size)
     }
 }
 
@@ -1510,46 +1523,31 @@ impl LineF64 {
         ))
     }
 
-    fn draw(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
-        // Relative distances in both directions
-        let mut delta_x = self.p2.x - self.p1.x;
-        let mut delta_y = self.p2.y - self.p1.y;
+    fn as_inclusive_bresenham_iterator(&self) -> BresenhamInclusive {
+        BresenhamInclusive::new(
+            (self.p1.x.round() as isize, self.p1.y.round() as isize),
+            (self.p2.x.round() as isize, self.p2.y.round() as isize),
+        )
+    }
 
-        // Increment of 0 would imply either vertical or horizontal line
-        let inc_x = match delta_x {
-            _ if delta_x > 0.0 => 1.0,
-            _ if delta_x == 0.0 => 0.0,
-            _ => -1.0,
-        };
-        let inc_y = match delta_y {
-            _ if delta_y > 0.0 => 1.0,
-            _ if delta_y == 0.0 => 0.0,
-            _ => -1.0,
-        };
-
-        //let distance = max(delta_x.abs(), delta_y.abs());
-        delta_x = delta_x.abs();
-        delta_y = delta_y.abs();
-        let distance = delta_x.max(delta_y);
-
-        let mut cursor = PointF64::from(onto.frame().origin) + PointF64::new(self.p1.x, self.p1.y);
-        let mut x_err = 0.0;
-        let mut y_err = 0.0;
-        for _ in 0..((distance + 1.0) as isize) {
-            onto.putpixel(Point::from(cursor), color);
-
-            x_err += delta_x;
-            y_err += delta_y;
-
-            if x_err > distance {
-                x_err -= distance;
-                cursor.x += inc_x;
-            }
-            if y_err > distance {
-                y_err -= distance;
-                cursor.y += inc_y;
-            }
+    pub fn draw(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
+        for (x, y) in self.as_inclusive_bresenham_iterator() {
+            onto.putpixel(Point::new(x, y), color);
         }
+    }
+
+    pub fn compute_rendered_pixels(&self) -> Vec<PointF64> {
+        let mut px_locations = vec![];
+        for (x, y) in self.as_inclusive_bresenham_iterator() {
+            px_locations.push(PointF64::new(x as _, y as _));
+        }
+        px_locations
+    }
+}
+
+impl Display for LineF64 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "[{} - {}]", self.p1, self.p2)
     }
 }
 
@@ -1569,7 +1567,7 @@ impl Polygon {
         let scaled_points: Vec<PointF64> = self
             .points
             .iter()
-            .map(|&p| PointF64::new(p.x as f64 * scale_x, p.y as f64 * scale_y))
+            .map(|&p| PointF64::new(p.x * scale_x, p.y * scale_y))
             .collect();
         Polygon::new(&scaled_points)
     }
@@ -1596,8 +1594,7 @@ impl Polygon {
     pub fn draw_outline(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
         let lines = self.lines();
         for line in lines.iter() {
-            let line: Line = (*line).into();
-            line.draw(onto, color, StrokeThickness::Filled);
+            line.draw(onto, color);
         }
     }
 
@@ -1608,7 +1605,7 @@ impl Polygon {
 
 #[derive(Debug, Clone)]
 pub struct PolygonStack {
-    polygons: Vec<Polygon>,
+    pub polygons: Vec<Polygon>,
 }
 
 impl PolygonStack {
@@ -1630,7 +1627,7 @@ impl PolygonStack {
         bounding_box
     }
 
-    fn lines(&self) -> Vec<LineF64> {
+    pub fn lines(&self) -> Vec<LineF64> {
         let mut lines = vec![];
         for p in self.polygons.iter() {
             let mut p_lines = p.lines();
@@ -1646,8 +1643,7 @@ impl PolygonStack {
     pub fn draw_outline(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
         let lines = self.lines();
         for line in lines.iter() {
-            let line: Line = (*line).into();
-            line.draw(onto, color, StrokeThickness::Filled);
+            line.draw(onto, color);
         }
     }
 }

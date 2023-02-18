@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 axle_rt = { path = "../axle_rt" }
 itertools = { version = "0.10.5", default-features = false }
+bresenham = { git = "https://github.com/indubitablement2/bresenham-rs" }
 
 # PT: For f64.sqrt() in no_std contexts
 [dependencies.num-traits]
