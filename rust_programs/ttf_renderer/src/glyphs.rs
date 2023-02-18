@@ -94,15 +94,21 @@ pub enum GlyphRenderInstructions {
 pub struct GlyphRenderDescription {
     pub(crate) render_metrics: GlyphRenderMetrics,
     pub render_instructions: GlyphRenderInstructions,
+    pub(crate) hinting_program_bytes: Option<Vec<u8>>,
 }
 
 impl GlyphRenderDescription {
-    pub(crate) fn polygons_glyph(glyph_bounding_box: &Rect, polygons: &Vec<Polygon>) -> Self {
+    pub(crate) fn polygons_glyph(
+        glyph_bounding_box: &Rect,
+        polygons: &Vec<Polygon>,
+        hinting_program_bytes: Option<Vec<u8>>,
+    ) -> Self {
         Self {
             render_metrics: GlyphRenderMetrics::new(glyph_bounding_box),
             render_instructions: GlyphRenderInstructions::PolygonsGlyph(
                 PolygonsGlyphRenderInstructions::new(polygons),
             ),
+            hinting_program_bytes,
         }
     }
 
@@ -112,6 +118,7 @@ impl GlyphRenderDescription {
             render_instructions: GlyphRenderInstructions::BlankGlyph(
                 BlankGlyphRenderInstructions::new(),
             ),
+            hinting_program_bytes: None,
         }
     }
 
@@ -122,6 +129,7 @@ impl GlyphRenderDescription {
         Self {
             render_metrics: GlyphRenderMetrics::new(glyph_bounding_box),
             render_instructions: GlyphRenderInstructions::CompoundGlyph(render_instructions),
+            hinting_program_bytes: None,
         }
     }
 
@@ -430,8 +438,15 @@ pub(crate) fn parse_glyph(
     let instructions_len = parser
         .read_with_cursor::<BigEndianValue<u16>>(&mut cursor)
         .into_value();
-    //println!("\tSkipping instructions len: {instructions_len}");
-    cursor += instructions_len as usize;
+    let instructions = parser
+        .read_bytes_with_cursor(&mut cursor, instructions_len as usize)
+        .to_vec();
+    /*
+    println!("Got instructions:");
+    for byte in instructions.iter() {
+        println!("\t{byte:02x}");
+    }
+    */
 
     let mut all_flags = vec![];
     let mut flag_count_to_parse = point_count as usize;
@@ -488,7 +503,11 @@ pub(crate) fn parse_glyph(
         polygons.len()
     );
     */
-    GlyphRenderDescription::polygons_glyph(&glyph_description.bounding_box, &polygons)
+    GlyphRenderDescription::polygons_glyph(
+        &glyph_description.bounding_box,
+        &polygons,
+        Some(instructions),
+    )
 }
 
 fn interpret_values_via_flags(
