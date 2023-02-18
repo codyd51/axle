@@ -1648,7 +1648,7 @@ impl PolygonStack {
     }
 }
 
-fn bounding_box_from_edges(edges: &[LineF64]) -> RectF64 {
+pub fn bounding_box_from_edges(edges: &[LineF64]) -> RectF64 {
     // Find the bounding box of the polygon
     let min_x = edges.iter().fold(f64::INFINITY, |a, &b| a.min(b.min_x()));
     let min_y = edges.iter().fold(f64::INFINITY, |a, &b| a.min(b.min_y()));
@@ -1657,8 +1657,9 @@ fn bounding_box_from_edges(edges: &[LineF64]) -> RectF64 {
     RectF64::new(min_x, min_y, max_x - min_x, max_y - min_y)
 }
 
-fn scanline_fill_from_edges(onto: &mut Box<dyn LikeLayerSlice>, color: Color, edges: &[LineF64]) {
+pub fn scanline_compute_fill_lines_from_edges(edges: &[LineF64]) -> Vec<LineF64> {
     // Ref: http://www.sunshine2k.de/coding/java/Polygon/Filling/FillPolygon.htm
+    let mut computed_filled_scanlines = vec![];
 
     // Drop horizontal lines that'd be collinear with the scanline
     let mut lines = edges.to_vec();
@@ -1703,12 +1704,20 @@ fn scanline_fill_from_edges(onto: &mut Box<dyn LikeLayerSlice>, color: Color, ed
             if !next_line_is_inside {
                 continue;
             }
-            let endpoint: Point = right_edge_and_intersection.1.into();
-            let line = Line::new(
-                left_edge_and_intersection.1.into(),
-                Point::new(endpoint.x + 1, endpoint.y),
+            //let endpoint: Point = right_edge_and_intersection.1.into();
+            let endpoint = right_edge_and_intersection.1;
+            let line = LineF64::new(
+                left_edge_and_intersection.1,
+                PointF64::new(endpoint.x + 1.0, endpoint.y),
             );
-            line.draw(onto, color, StrokeThickness::Filled);
+            computed_filled_scanlines.push(line);
         }
+    }
+    computed_filled_scanlines
+}
+
+fn scanline_fill_from_edges(onto: &mut Box<dyn LikeLayerSlice>, color: Color, edges: &[LineF64]) {
+    for line in scanline_compute_fill_lines_from_edges(edges).into_iter() {
+        line.draw(onto, color);
     }
 }
