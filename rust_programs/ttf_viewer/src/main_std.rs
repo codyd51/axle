@@ -40,7 +40,7 @@ pub fn main2() -> Result<(), Box<dyn error::Error>> {
 }
 
 pub fn main() -> Result<(), Box<dyn error::Error>> {
-    let font_path = "/Users/philliptennen/Downloads/helvetica-2.ttf";
+    let font_path = "/Users/philliptennen/Documents/fonts/helvetica-2.ttf";
 
     let font_size = Size::new(16, 16);
     let window_size = Size::new(1240, 1000);
@@ -87,8 +87,7 @@ fn render_string(onto: &mut Box<dyn LikeLayerSlice>, font: &Font, font_size: &Si
             None => continue,
             Some(glyph) => glyph,
         };
-        let (_, metrics) =
-            render_antialiased_glyph_onto(glyph, font, onto, cursor, Color::black(), *font_size);
+        let (_, metrics) = render_glyph_onto(glyph, font, onto, cursor, Color::black(), *font_size);
         cursor = Point::new(cursor.x + (metrics.advance_width as isize), cursor.y);
         if cursor.x >= onto.frame().size.width - font_size.width {
             cursor.y += scaled_em_size.height;

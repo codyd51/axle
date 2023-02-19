@@ -1,3 +1,5 @@
+use crate::hints::{parse_instructions, HintParseOperations};
+use crate::parser::FontParser;
 use crate::println;
 use crate::{Codepoint, Font, GlyphMetrics, GlyphRenderDescription, GlyphRenderInstructions};
 use agx_definitions::{
@@ -27,7 +29,7 @@ pub fn render_char_onto(
     render_glyph_onto(glyph, font, onto, draw_loc, draw_color, font_size)
 }
 
-pub fn render_antialiased_2glyph_onto(
+pub fn render_antialiased_glyph_onto(
     glyph: &GlyphRenderDescription,
     font: &Font,
     onto: &mut Box<dyn LikeLayerSlice>,
@@ -226,6 +228,41 @@ pub fn render_antialiased_2glyph_onto(
     )
 }
 
+fn render_polygons_glyph(
+    glyph: &GlyphRenderDescription,
+    font: &Font,
+    scale_x: f64,
+    scale_y: f64,
+    onto: &mut Box<dyn LikeLayerSlice>,
+    draw_color: Color,
+) {
+    let polygons_description = match &glyph.render_instructions {
+        GlyphRenderInstructions::PolygonsGlyph(polygons) => polygons,
+        _ => panic!("Expected a polygons glyph"),
+    };
+    let scaled_polygons: Vec<Polygon> = polygons_description
+        .polygons
+        .iter()
+        .map(|p| p.scale_by(scale_x, scale_y))
+        .collect();
+    // Ensure at a minimum we see the outline points
+    // This helps smooth over missing outlines for very thin/small glyphs
+    /*
+    for p in scaled_polygons.iter() {
+        p.draw_outline(&mut dest_slice, draw_color);
+    }
+    */
+    let polygon_stack = PolygonStack::new(&scaled_polygons);
+    polygon_stack.fill(onto, draw_color);
+
+    let instructions = glyph.hinting_program_bytes.as_ref().unwrap();
+    println!("Found {} instructions", instructions.len());
+    for instr in instructions.iter() {
+        println!("instr {instr:02x}");
+    }
+    parse_instructions(instructions, HintParseOperations::all())
+}
+
 pub fn render_glyph_onto(
     glyph: &GlyphRenderDescription,
     font: &Font,
@@ -239,35 +276,21 @@ pub fn render_glyph_onto(
     let scaled_glyph_metrics = glyph.metrics().scale(scale_x, scale_y);
     let draw_loc = draw_loc
         + Point::new(
-            0, //scaled_glyph_metrics.left_side_bearing,
+            //scaled_glyph_metrics.left_side_bearing,
             //scaled_glyph_metrics.top_side_bearing,
-            0,
+            0, 0,
         );
     let draw_box = Rect::from_parts(draw_loc, font_size);
     let mut dest_slice = onto.get_slice(draw_box);
 
     match &glyph.render_instructions {
-        GlyphRenderInstructions::PolygonsGlyph(polygons_glyph) => {
-            let scaled_polygons: Vec<Polygon> = polygons_glyph
-                .polygons
-                .iter()
-                .map(|p| p.scale_by(scale_x, scale_y))
-                .collect();
-            // Ensure at a minimum we see the outline points
-            // This helps smooth over missing outlines for very thin/small glyphs
-            /*
-            for p in scaled_polygons.iter() {
-                p.draw_outline(&mut dest_slice, draw_color);
-            }
-            */
-            let polygon_stack = PolygonStack::new(&scaled_polygons);
-            polygon_stack.fill(&mut dest_slice, draw_color);
+        GlyphRenderInstructions::PolygonsGlyph(_) => {
+            render_polygons_glyph(glyph, font, scale_x, scale_y, &mut dest_slice, draw_color);
         }
         GlyphRenderInstructions::BlankGlyph(_blank_glyph) => {
             // Nothing to do
         }
         GlyphRenderInstructions::CompoundGlyph(compound_glyph) => {
-            //dest_slice.fill(Color::blue());
             for child_description in compound_glyph.children.iter() {
                 let child_glyph = &font.glyphs[child_description.glyph_index];
                 let origin = child_description.origin;

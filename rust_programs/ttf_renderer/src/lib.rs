@@ -8,6 +8,7 @@ extern crate core;
 
 mod character_map;
 mod glyphs;
+mod hints;
 mod metrics;
 mod parse_utils;
 mod parser;

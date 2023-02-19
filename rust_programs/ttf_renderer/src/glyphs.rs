@@ -492,9 +492,7 @@ pub(crate) fn parse_glyph(
         polygon_start_end_index_pairs.iter().tuple_windows()
     {
         let start_idx = end_idx_of_previous_contour + 1;
-        polygons.push(Polygon::new(
-            &points[start_idx as usize..(end_idx + 1) as usize],
-        ))
+        polygons.push(Polygon::new(&points[start_idx as usize..=end_idx as usize]))
     }
 
     /*

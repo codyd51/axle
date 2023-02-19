@@ -27,9 +27,9 @@ use crate::parse_utils::{
 };
 #[cfg(target_os = "axle")]
 use axle_rt::println;
+use core::ptr::slice_from_raw_parts;
 #[cfg(not(target_os = "axle"))]
 use std::println;
-use std::ptr::slice_from_raw_parts;
 
 #[repr(C, packed)]
 #[derive(Debug, Copy, Clone)]
@@ -285,23 +285,38 @@ impl<'a> FontParser<'a> {
         }
     }
 
-    pub(crate) fn read_with_cursor<T: TransmuteFontBufInPlace>(&self, cursor: &mut usize) -> &'a T {
+    pub(crate) fn read_data_with_cursor<'buf, T: TransmuteFontBufInPlace + 'buf>(
+        data: &'buf [u8],
+        cursor: &mut usize,
+    ) -> &'buf T {
         unsafe {
-            let ptr = self.font_data.as_ptr().offset(*cursor as isize);
-            let reference: &'a T = &*{ ptr as *const T };
+            let ptr = data.as_ptr().offset(*cursor as isize);
+            let reference: &'buf T = &*{ ptr as *const T };
             *cursor += mem::size_of::<T>();
             reference
         }
     }
 
-    pub(crate) fn read_bytes_with_cursor(&self, cursor: &mut usize, count: usize) -> &'a [u8] {
+    pub(crate) fn read_bytes_from_data_with_cursor<'buf>(
+        data: &'buf [u8],
+        cursor: &mut usize,
+        count: usize,
+    ) -> &'buf [u8] {
         unsafe {
-            let ptr = self.font_data.as_ptr().offset(*cursor as isize);
+            let ptr = data.as_ptr().offset(*cursor as isize);
             let slice = slice_from_raw_parts(ptr, count);
-            let reference: &'a [u8] = &*{ slice as *const [u8] };
+            let reference: &'buf [u8] = &*{ slice as *const [u8] };
             *cursor += count;
             reference
         }
+    }
+
+    pub(crate) fn read_with_cursor<T: TransmuteFontBufInPlace>(&self, cursor: &mut usize) -> &'a T {
+        Self::read_data_with_cursor(self.font_data, cursor)
+    }
+
+    pub(crate) fn read_bytes_with_cursor(&self, cursor: &mut usize, count: usize) -> &'a [u8] {
+        Self::read_bytes_from_data_with_cursor(self.font_data, cursor, count)
     }
 
     pub(crate) fn parse_table<A: TransmuteFontBufInPlace, T: FromFontBufInPlace<A>>(
