@@ -18,6 +18,7 @@ use num_traits::PrimInt;
 
 use crate::character_map::parse_character_map;
 use crate::glyphs::parse_glyph;
+use crate::hints::{parse_instructions, GraphicsState, HintParseOperations};
 use crate::metrics::{
     parse_horizontal_metrics, parse_vertical_metrics, GlyphMetrics, HheaTable, HheaTableRaw,
     LongHorMetric, LongHorMetricRaw, VerticalMetrics,
@@ -277,14 +278,6 @@ impl<'a> FontParser<'a> {
         }
     }
 
-    pub(crate) fn read<T: TransmuteFontBufInPlace>(&self, offset: usize) -> &'a T {
-        unsafe {
-            let ptr = self.font_data.as_ptr().offset(offset as isize);
-            let reference: &'a T = &*{ ptr as *const T };
-            reference
-        }
-    }
-
     pub(crate) fn read_data_with_cursor<'buf, T: TransmuteFontBufInPlace + 'buf>(
         data: &'buf [u8],
         cursor: &mut usize,
@@ -317,6 +310,16 @@ impl<'a> FontParser<'a> {
 
     pub(crate) fn read_bytes_with_cursor(&self, cursor: &mut usize, count: usize) -> &'a [u8] {
         Self::read_bytes_from_data_with_cursor(self.font_data, cursor, count)
+    }
+
+    pub(crate) fn read<T: TransmuteFontBufInPlace>(&self, offset: usize) -> &'a T {
+        let mut cursor = offset;
+        Self::read_data_with_cursor(self.font_data, &mut cursor)
+    }
+
+    pub(crate) fn read_bytes(&self, offset: usize, count: usize) -> &'a [u8] {
+        let mut cursor = offset;
+        Self::read_bytes_from_data_with_cursor(self.font_data, &mut cursor, count)
     }
 
     pub(crate) fn parse_table<A: TransmuteFontBufInPlace, T: FromFontBufInPlace<A>>(
@@ -432,6 +435,11 @@ impl<'a> FontParser<'a> {
                 }
             }
         }
+
+        let font_program_header = self.table_headers.get("fpgm").unwrap();
+        let font_program = self.read_bytes(font_program_header.offset, font_program_header.length);
+        //let graphics_state = GraphicsState::new();
+        parse_instructions(font_program, HintParseOperations::all());
 
         Font::new(
             // TODO(PT): Parse font names
