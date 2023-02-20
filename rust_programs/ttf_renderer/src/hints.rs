@@ -1,5 +1,5 @@
 use crate::parser::FontParser;
-use crate::println;
+use crate::{println, Font};
 use agx_definitions::Size;
 use alloc::collections::VecDeque;
 use alloc::vec;
@@ -168,8 +168,10 @@ impl GraphicsState {
 enum HintParseOperation {
     Print,
     Execute,
+    IdentifyFunctions,
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct HintParseOperations(Vec<HintParseOperation>);
 
 impl HintParseOperations {
@@ -181,14 +183,82 @@ impl HintParseOperations {
         self.0.contains(&HintParseOperation::Execute)
     }
 
-    pub(crate) fn all() -> Self {
+    pub(crate) fn debug_run() -> Self {
         Self(vec![HintParseOperation::Print, HintParseOperation::Execute])
+    }
+
+    pub(crate) fn identify_functions() -> Self {
+        Self(vec![HintParseOperation::IdentifyFunctions])
     }
 }
 
-pub(crate) fn parse_instructions(instructions: &[u8], operations: HintParseOperations) {
+#[derive(Debug, Clone)]
+pub struct FunctionDefinition {
+    pub offset: usize,
+    pub function_identifier: usize,
+    pub instructions: Vec<u8>,
+}
+
+impl FunctionDefinition {
+    fn new(offset: usize, function_identifier: usize, instructions: &[u8]) -> Self {
+        Self {
+            offset,
+            function_identifier,
+            instructions: instructions.to_vec(),
+        }
+    }
+}
+
+pub(crate) fn identify_functions(instructions: &[u8]) -> Vec<FunctionDefinition> {
+    // There exists a bootstrapping problem in which functions can't be run to completion without
+    // the context (arguments etc) from the caller, but we need to parse function boundaries before we can run
+    // callers, since callers address functions by identifiers that are created when the fpgm table is executed.
+    // To resolve this circular dependency, we use a simple heuristic to identify function definitions, rather
+    // than doing a full interpreter pass. This has the downside that our heuristic can't tell the
+    // difference between code and data. If some data is pushed to the stack with the same value as the
+    // function definition opcode, we may interpret it as a function definition.
     let mut cursor = 0;
-    let mut graphics_state = GraphicsState::new(Size::new(16, 16));
+    let mut last_pushed_value: Option<u8> = None;
+    let mut last_pushed_value_pc: Option<usize> = None;
+    let mut identified_functions = vec![];
+    loop {
+        if cursor >= instructions.len() {
+            break;
+        }
+        let opcode: &u8 = FontParser::read_data_with_cursor(instructions, &mut cursor);
+        // Just handle PUSH[1] and FDEF here
+        match opcode {
+            0xb0 => {
+                last_pushed_value_pc = Some(cursor);
+                last_pushed_value = Some(*FontParser::read_data_with_cursor(
+                    instructions,
+                    &mut cursor,
+                ));
+            }
+            0x2c => {
+                // Ensure this directly followed a PUSH[1]
+                assert_eq!(last_pushed_value_pc.unwrap() + 2, cursor);
+                // TODO(PT) Limit to end func
+                let function_instructions = &instructions[cursor..];
+                identified_functions.push(FunctionDefinition::new(
+                    cursor,
+                    last_pushed_value.unwrap() as _,
+                    function_instructions,
+                ))
+            }
+            _ => (),
+        }
+    }
+    identified_functions
+}
+
+pub(crate) fn parse_instructions(
+    font: &Font,
+    instructions: &[u8],
+    operations: &HintParseOperations,
+    graphics_state: &mut GraphicsState,
+) {
+    let mut cursor = 0;
     loop {
         let opcode: &u8 = FontParser::read_data_with_cursor(instructions, &mut cursor);
         if operations.should_print() {

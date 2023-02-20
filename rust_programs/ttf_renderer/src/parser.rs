@@ -18,7 +18,7 @@ use num_traits::PrimInt;
 
 use crate::character_map::parse_character_map;
 use crate::glyphs::parse_glyph;
-use crate::hints::{parse_instructions, GraphicsState, HintParseOperations};
+use crate::hints::{identify_functions, parse_instructions, GraphicsState, HintParseOperations};
 use crate::metrics::{
     parse_horizontal_metrics, parse_vertical_metrics, GlyphMetrics, HheaTable, HheaTableRaw,
     LongHorMetric, LongHorMetricRaw, VerticalMetrics,
@@ -81,7 +81,7 @@ pub(crate) struct TableHeader<'a> {
     tag: &'a str,
     checksum: u32,
     pub(crate) offset: usize,
-    length: usize,
+    pub(crate) length: usize,
 }
 
 impl<'a> TableHeader<'a> {
@@ -438,8 +438,17 @@ impl<'a> FontParser<'a> {
 
         let font_program_header = self.table_headers.get("fpgm").unwrap();
         let font_program = self.read_bytes(font_program_header.offset, font_program_header.length);
-        //let graphics_state = GraphicsState::new();
-        parse_instructions(font_program, HintParseOperations::all());
+        let function_boundaries = identify_functions(font_program);
+        /*
+        for b in function_boundaries.iter() {
+            println!("Function #{} @ {:08x}", b.function_identifier, b.offset);
+        }
+        */
+        let function_boundaries_lookup_map = BTreeMap::from_iter(
+            function_boundaries
+                .iter()
+                .map(|fb| (fb.function_identifier, fb.clone())),
+        );
 
         Font::new(
             // TODO(PT): Parse font names
@@ -448,6 +457,7 @@ impl<'a> FontParser<'a> {
             self.head.unwrap().units_per_em as _,
             all_glyphs,
             codepoints_to_glyph_indexes,
+            function_boundaries_lookup_map,
         )
     }
 

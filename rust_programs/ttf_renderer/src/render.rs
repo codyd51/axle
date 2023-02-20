@@ -1,4 +1,4 @@
-use crate::hints::{parse_instructions, HintParseOperations};
+use crate::hints::{parse_instructions, GraphicsState, HintParseOperations};
 use crate::parser::FontParser;
 use crate::println;
 use crate::{Codepoint, Font, GlyphMetrics, GlyphRenderDescription, GlyphRenderInstructions};
@@ -231,6 +231,7 @@ pub fn render_antialiased_glyph_onto(
 fn render_polygons_glyph(
     glyph: &GlyphRenderDescription,
     font: &Font,
+    font_size: Size,
     scale_x: f64,
     scale_y: f64,
     onto: &mut Box<dyn LikeLayerSlice>,
@@ -256,11 +257,13 @@ fn render_polygons_glyph(
     polygon_stack.fill(onto, draw_color);
 
     let instructions = glyph.hinting_program_bytes.as_ref().unwrap();
-    println!("Found {} instructions", instructions.len());
-    for instr in instructions.iter() {
-        println!("instr {instr:02x}");
-    }
-    parse_instructions(instructions, HintParseOperations::all())
+    let mut graphics_state = GraphicsState::new(font_size);
+    parse_instructions(
+        font,
+        instructions,
+        &HintParseOperations::debug_run(),
+        &mut graphics_state,
+    );
 }
 
 pub fn render_glyph_onto(
@@ -285,7 +288,15 @@ pub fn render_glyph_onto(
 
     match &glyph.render_instructions {
         GlyphRenderInstructions::PolygonsGlyph(_) => {
-            render_polygons_glyph(glyph, font, scale_x, scale_y, &mut dest_slice, draw_color);
+            render_polygons_glyph(
+                glyph,
+                font,
+                font_size,
+                scale_x,
+                scale_y,
+                &mut dest_slice,
+                draw_color,
+            );
         }
         GlyphRenderInstructions::BlankGlyph(_blank_glyph) => {
             // Nothing to do

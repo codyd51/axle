@@ -24,6 +24,7 @@ use alloc::vec::Vec;
 use core::fmt::{Display, Formatter};
 use parser::FontParser;
 
+use crate::hints::FunctionDefinition;
 #[cfg(target_os = "axle")]
 pub(crate) use axle_rt::println;
 #[cfg(not(target_os = "axle"))]
@@ -53,6 +54,7 @@ pub struct Font {
     /// Sorted by glyph index
     pub glyphs: Vec<GlyphRenderDescription>,
     pub codepoints_to_glyph_indexes: BTreeMap<Codepoint, GlyphIndex>,
+    pub functions_table: BTreeMap<usize, FunctionDefinition>,
 }
 
 impl Font {
@@ -62,6 +64,7 @@ impl Font {
         units_per_em: usize,
         glyphs: Vec<GlyphRenderDescription>,
         codepoints_to_glyph_indexes: BTreeMap<Codepoint, GlyphIndex>,
+        functions_table: BTreeMap<usize, FunctionDefinition>,
     ) -> Self {
         Self {
             name: name.to_string(),
@@ -69,6 +72,7 @@ impl Font {
             units_per_em,
             glyphs,
             codepoints_to_glyph_indexes,
+            functions_table,
         }
     }
 
