@@ -439,11 +439,14 @@ impl<'a> FontParser<'a> {
         let font_program_header = self.table_headers.get("fpgm").unwrap();
         let font_program = self.read_bytes(font_program_header.offset, font_program_header.length);
         let function_boundaries = identify_functions(font_program);
-        /*
         for b in function_boundaries.iter() {
-            println!("Function #{} @ {:08x}", b.function_identifier, b.offset);
+            println!(
+                "Function #{} @ [{:08x} - {:08x}]",
+                b.function_identifier,
+                b.offset,
+                b.offset + b.instructions.len()
+            );
         }
-        */
         let function_boundaries_lookup_map = BTreeMap::from_iter(
             function_boundaries
                 .iter()

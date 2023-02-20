@@ -221,6 +221,8 @@ pub(crate) fn identify_functions(instructions: &[u8]) -> Vec<FunctionDefinition>
     let mut last_pushed_value: Option<u8> = None;
     let mut last_pushed_value_pc: Option<usize> = None;
     let mut identified_functions = vec![];
+    let mut function_base: Option<usize> = None;
+    let mut function_id: Option<u8> = None;
     loop {
         if cursor >= instructions.len() {
             break;
@@ -229,6 +231,7 @@ pub(crate) fn identify_functions(instructions: &[u8]) -> Vec<FunctionDefinition>
         // Just handle PUSH[1] and FDEF here
         match opcode {
             0xb0 => {
+                // PUSH
                 last_pushed_value_pc = Some(cursor);
                 last_pushed_value = Some(*FontParser::read_data_with_cursor(
                     instructions,
@@ -236,15 +239,25 @@ pub(crate) fn identify_functions(instructions: &[u8]) -> Vec<FunctionDefinition>
                 ));
             }
             0x2c => {
+                // Function definition
                 // Ensure this directly followed a PUSH[1]
                 assert_eq!(last_pushed_value_pc.unwrap() + 2, cursor);
-                // TODO(PT) Limit to end func
-                let function_instructions = &instructions[cursor..];
+                function_base = Some(cursor);
+                function_id = last_pushed_value;
+            }
+            0x2d => {
+                // End function definition
+                let function_instructions = &instructions[function_base.unwrap()..cursor];
                 identified_functions.push(FunctionDefinition::new(
-                    cursor,
-                    last_pushed_value.unwrap() as _,
+                    function_base.unwrap(),
+                    function_id.unwrap() as _,
                     function_instructions,
-                ))
+                ));
+                // Reset state for the next function
+                function_base = None;
+                function_id = None;
+                last_pushed_value = None;
+                last_pushed_value_pc = None;
             }
             _ => (),
         }
