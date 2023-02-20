@@ -316,7 +316,8 @@ pub(crate) fn parse_instructions(
                     println!("CALL #{function_identifier_number}");
                 }
                 if operations.should_execute() {
-                    //
+                    let function = &font.functions_table[&(function_identifier_number as _)];
+                    parse_instructions(font, &function.instructions, operations, graphics_state);
                 }
             }
             0x2c => {
