@@ -28,6 +28,7 @@ use alloc::vec::Vec;
 
 #[cfg(target_os = "axle")]
 use axle_rt::println;
+use bresenham::{Bresenham, BresenhamInclusive};
 #[cfg(not(target_os = "axle"))]
 use std::println;
 
@@ -226,6 +227,26 @@ impl Sub for Size {
     }
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
+pub struct SizeF64 {
+    pub width: f64,
+    pub height: f64,
+}
+
+impl SizeF64 {
+    pub fn new(width: f64, height: f64) -> Self {
+        Self { width, height }
+    }
+
+    pub fn zero() -> Self {
+        Self {
+            width: 0.0,
+            height: 0.0,
+        }
+    }
+}
+
 // For FFI
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -244,6 +265,12 @@ impl PointU32 {
             x: point.x as u32,
             y: point.y as u32,
         }
+    }
+}
+
+impl Display for SizeF64 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "({:.02}, {:.02})", self.width, self.height)
     }
 }
 
@@ -325,7 +352,7 @@ impl Mul<isize> for Point {
 
 impl From<PointF64> for Point {
     fn from(value: PointF64) -> Self {
-        Point::new(value.x as _, value.y as _)
+        Point::new(value.x.round() as _, value.y.round() as _)
     }
 }
 
@@ -335,15 +362,19 @@ impl From<PointU32> for Point {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub struct PointF64 {
-    x: f64,
-    y: f64,
+    pub x: f64,
+    pub y: f64,
 }
 
 impl PointF64 {
     pub fn new(x: f64, y: f64) -> Self {
         Self { x, y }
+    }
+
+    pub fn zero() -> Self {
+        Self { x: 0.0, y: 0.0 }
     }
 
     pub fn cross(&self, other: &PointF64) -> f64 {
@@ -372,6 +403,12 @@ impl Add for PointF64 {
     type Output = PointF64;
     fn add(self, rhs: Self) -> Self::Output {
         PointF64::new(self.x + rhs.x, self.y + rhs.y)
+    }
+}
+
+impl Display for PointF64 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "({:6.02}, {:6.02})", self.x, self.y)
     }
 }
 
@@ -743,6 +780,66 @@ impl From<RectU32> for Rect {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub struct RectF64 {
+    pub origin: PointF64,
+    pub size: SizeF64,
+}
+
+impl RectF64 {
+    pub fn new(x: f64, y: f64, width: f64, height: f64) -> Self {
+        Self {
+            origin: PointF64::new(x, y),
+            size: SizeF64::new(width, height),
+        }
+    }
+
+    pub fn from_parts(origin: PointF64, size: SizeF64) -> Self {
+        Self { origin, size }
+    }
+
+    pub fn zero() -> Self {
+        Self {
+            origin: PointF64::zero(),
+            size: SizeF64::zero(),
+        }
+    }
+
+    pub fn min_x(&self) -> f64 {
+        self.origin.x
+    }
+
+    pub fn min_y(&self) -> f64 {
+        self.origin.y
+    }
+
+    pub fn max_x(&self) -> f64 {
+        self.origin.x + self.size.width
+    }
+
+    pub fn max_y(&self) -> f64 {
+        self.origin.y + self.size.height
+    }
+
+    pub fn union(&self, other: Self) -> Self {
+        let origin = PointF64::new(
+            self.min_x().min(other.min_x()),
+            self.min_y().min(other.min_y()),
+        );
+        let size = SizeF64::new(
+            self.max_x().max(other.max_x()),
+            self.max_y().max(other.max_y()),
+        );
+        Self::from_parts(origin, size)
+    }
+}
+
+impl Display for RectF64 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "({}, {})", self.origin, self.size)
+    }
+}
+
 #[derive(PartialEq)]
 struct TileSegment<'a> {
     viewport_frame: Rect,
@@ -787,10 +884,12 @@ impl Tile {
             tiles
                 .iter()
                 .filter_map(|tile| {
+                    /*
                     println!(
                         "\tChecking for intersection with {viewport_rect} and {}",
                         tile.frame
                     );
+                    */
                     if let Some(intersection) = viewport_rect.area_overlapping_with(tile.frame) {
                         //println!("\t\t area overlapping {intersection}");
                         let tile_viewport_origin = intersection.origin - viewport_rect.origin;
@@ -1219,7 +1318,7 @@ impl Line {
         let mut cursor = self.p1;
         let mut x_err = 0;
         let mut y_err = 0;
-        for _ in 0..distance {
+        for _ in 0..distance + 1 {
             onto.putpixel(cursor, color);
 
             x_err += delta_x;
@@ -1347,6 +1446,12 @@ impl Display for Line {
     }
 }
 
+impl From<LineF64> for Line {
+    fn from(value: LineF64) -> Self {
+        Line::new(value.p1.into(), value.p2.into())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LineF64 {
     pub p1: PointF64,
@@ -1358,12 +1463,20 @@ impl LineF64 {
         Self { p1, p2 }
     }
 
-    pub fn max_y(&self) -> f64 {
-        self.p1.y.max(self.p2.y)
+    pub fn min_x(&self) -> f64 {
+        self.p1.x.min(self.p2.x)
     }
 
     pub fn min_y(&self) -> f64 {
         self.p1.y.min(self.p2.y)
+    }
+
+    pub fn max_x(&self) -> f64 {
+        self.p1.x.max(self.p2.x)
+    }
+
+    pub fn max_y(&self) -> f64 {
+        self.p1.y.max(self.p2.y)
     }
 
     pub fn intersection(self, other: &Self) -> Option<PointF64> {
@@ -1410,46 +1523,31 @@ impl LineF64 {
         ))
     }
 
-    fn draw(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
-        // Relative distances in both directions
-        let mut delta_x = self.p2.x - self.p1.x;
-        let mut delta_y = self.p2.y - self.p1.y;
+    fn as_inclusive_bresenham_iterator(&self) -> BresenhamInclusive {
+        BresenhamInclusive::new(
+            (self.p1.x.round() as isize, self.p1.y.round() as isize),
+            (self.p2.x.round() as isize, self.p2.y.round() as isize),
+        )
+    }
 
-        // Increment of 0 would imply either vertical or horizontal line
-        let inc_x = match delta_x {
-            _ if delta_x > 0.0 => 1.0,
-            _ if delta_x == 0.0 => 0.0,
-            _ => -1.0,
-        };
-        let inc_y = match delta_y {
-            _ if delta_y > 0.0 => 1.0,
-            _ if delta_y == 0.0 => 0.0,
-            _ => -1.0,
-        };
-
-        //let distance = max(delta_x.abs(), delta_y.abs());
-        delta_x = delta_x.abs();
-        delta_y = delta_y.abs();
-        let distance = delta_x.max(delta_y);
-
-        let mut cursor = PointF64::from(onto.frame().origin) + PointF64::new(self.p1.x, self.p1.y);
-        let mut x_err = 0.0;
-        let mut y_err = 0.0;
-        for _ in 0..(distance as isize) {
-            onto.putpixel(Point::from(cursor), color);
-
-            x_err += delta_x;
-            y_err += delta_y;
-
-            if x_err > distance {
-                x_err -= distance;
-                cursor.x += inc_x;
-            }
-            if y_err > distance {
-                y_err -= distance;
-                cursor.y += inc_y;
-            }
+    pub fn draw(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
+        for (x, y) in self.as_inclusive_bresenham_iterator() {
+            onto.putpixel(Point::new(x, y), color);
         }
+    }
+
+    pub fn compute_rendered_pixels(&self) -> Vec<PointF64> {
+        let mut px_locations = vec![];
+        for (x, y) in self.as_inclusive_bresenham_iterator() {
+            px_locations.push(PointF64::new(x as _, y as _));
+        }
+        px_locations
+    }
+}
+
+impl Display for LineF64 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        write!(f, "[{} - {}]", self.p1, self.p2)
     }
 }
 
@@ -1469,39 +1567,34 @@ impl Polygon {
         let scaled_points: Vec<PointF64> = self
             .points
             .iter()
-            .map(|&p| PointF64::new(p.x as f64 * scale_x, p.y as f64 * scale_y))
+            .map(|&p| PointF64::new(p.x * scale_x, p.y * scale_y))
             .collect();
         Polygon::new(&scaled_points)
     }
 
-    fn lines(&self) -> Vec<Line> {
+    fn lines(&self) -> Vec<LineF64> {
         // Generate bounding lines of the polygon
         let mut lines = vec![];
         for (&point, &next_point) in self.points.iter().tuple_windows() {
-            lines.push(Line::new(point.into(), next_point.into()));
+            lines.push(LineF64::new(point, next_point));
         }
         // Final line connecting the final and first points
-        lines.push(Line::new(
-            (*self.points.last().unwrap()).into(),
-            (*self.points.first().unwrap()).into(),
+        lines.push(LineF64::new(
+            *self.points.last().unwrap(),
+            *self.points.first().unwrap(),
         ));
         lines
     }
 
-    pub fn bounding_box(&self) -> Rect {
-        let lines = self.lines();
+    pub fn bounding_box(&self) -> RectF64 {
         // Find the bounding box of the polygon
-        let min_x = lines.iter().map(|l| min(l.p1.x, l.p2.x)).min().unwrap();
-        let min_y = lines.iter().map(|l| min(l.p1.y, l.p2.y)).min().unwrap();
-        let max_x = lines.iter().map(|l| max(l.p1.x, l.p2.x)).max().unwrap();
-        let max_y = lines.iter().map(|l| max(l.p1.y, l.p2.y)).max().unwrap();
-        Rect::new(min_x, min_y, max_x - min_x, max_y - min_y)
+        bounding_box_from_edges(&self.lines())
     }
 
     pub fn draw_outline(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
         let lines = self.lines();
         for line in lines.iter() {
-            line.draw(onto, color, StrokeThickness::Filled);
+            line.draw(onto, color);
         }
     }
 
@@ -1512,7 +1605,7 @@ impl Polygon {
 
 #[derive(Debug, Clone)]
 pub struct PolygonStack {
-    polygons: Vec<Polygon>,
+    pub polygons: Vec<Polygon>,
 }
 
 impl PolygonStack {
@@ -1522,9 +1615,9 @@ impl PolygonStack {
         }
     }
 
-    fn bounding_box(&self) -> Rect {
+    fn bounding_box(&self) -> RectF64 {
         let first = match self.polygons.first() {
-            None => return Rect::zero(),
+            None => return RectF64::zero(),
             Some(first) => first,
         };
         let mut bounding_box = first.bounding_box();
@@ -1534,7 +1627,7 @@ impl PolygonStack {
         bounding_box
     }
 
-    fn lines(&self) -> Vec<Line> {
+    pub fn lines(&self) -> Vec<LineF64> {
         let mut lines = vec![];
         for p in self.polygons.iter() {
             let mut p_lines = p.lines();
@@ -1550,41 +1643,44 @@ impl PolygonStack {
     pub fn draw_outline(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
         let lines = self.lines();
         for line in lines.iter() {
-            line.draw(onto, color, StrokeThickness::Filled);
+            line.draw(onto, color);
         }
     }
 }
 
-fn bounding_box_from_edges(edges: &[Line]) -> Rect {
+pub fn bounding_box_from_edges(edges: &[LineF64]) -> RectF64 {
     // Find the bounding box of the polygon
-    let min_x = edges.iter().map(|l| min(l.p1.x, l.p2.x)).min().unwrap();
-    let min_y = edges.iter().map(|l| min(l.p1.y, l.p2.y)).min().unwrap();
-    let max_x = edges.iter().map(|l| max(l.p1.x, l.p2.x)).max().unwrap();
-    let max_y = edges.iter().map(|l| max(l.p1.y, l.p2.y)).max().unwrap();
-    Rect::new(min_x, min_y, max_x - min_x, max_y - min_y)
+    let min_x = edges.iter().fold(f64::INFINITY, |a, &b| a.min(b.min_x()));
+    let min_y = edges.iter().fold(f64::INFINITY, |a, &b| a.min(b.min_y()));
+    let max_x = edges.iter().fold(-f64::INFINITY, |a, &b| a.max(b.max_x()));
+    let max_y = edges.iter().fold(-f64::INFINITY, |a, &b| a.max(b.max_y()));
+    RectF64::new(min_x, min_y, max_x - min_x, max_y - min_y)
 }
 
-fn scanline_fill_from_edges(onto: &mut Box<dyn LikeLayerSlice>, color: Color, edges: &[Line]) {
+pub fn scanline_compute_fill_lines_from_edges(edges: &[LineF64]) -> Vec<LineF64> {
     // Ref: http://www.sunshine2k.de/coding/java/Polygon/Filling/FillPolygon.htm
+    let mut computed_filled_scanlines = vec![];
 
     // Drop horizontal lines that'd be collinear with the scanline
     let mut lines = edges.to_vec();
     let mut bounding_box = bounding_box_from_edges(edges);
 
     // Sort lines in ascending y-order
-    let mut sorted_lines: Vec<Line> = lines.iter().map(|l| l.clone()).collect();
+    let mut sorted_lines: Vec<LineF64> = lines.iter().map(|l| l.clone()).collect();
     sorted_lines.sort_by(|&l1, &l2| l1.min_y().partial_cmp(&l2.min_y()).unwrap());
 
-    for scanline_y in bounding_box.min_y()..bounding_box.max_y() {
+    for scanline_y in
+        (bounding_box.min_y().floor() as isize)..(bounding_box.max_y().ceil() as isize)
+    {
         // Find all the edges intersected by this scanline
-        let scanline = Line::new(
-            Point::new(bounding_box.min_x() as _, scanline_y as _),
-            Point::new(bounding_box.max_x() as _, scanline_y as _),
+        let scanline = LineF64::new(
+            PointF64::new(bounding_box.min_x() as _, scanline_y as _),
+            PointF64::new(bounding_box.max_x() as _, scanline_y as _),
         );
-        let mut active_edges_and_intersections: Vec<(Line, PointF64)> = sorted_lines
+        let mut active_edges_and_intersections: Vec<(LineF64, PointF64)> = sorted_lines
             .iter()
             // Trivially filter lines that don't intersect on the Y axis
-            .filter(|l| scanline_y >= l.min_y() && scanline_y < l.max_y())
+            .filter(|l| (scanline_y as f64) >= l.min_y() && (scanline_y as f64) < l.max_y())
             .filter_map(|&l| {
                 let intersection = scanline.intersection(&l);
                 match intersection {
@@ -1608,11 +1704,20 @@ fn scanline_fill_from_edges(onto: &mut Box<dyn LikeLayerSlice>, color: Color, ed
             if !next_line_is_inside {
                 continue;
             }
-            let line = Line::new(
-                left_edge_and_intersection.1.into(),
-                right_edge_and_intersection.1.into(),
+            //let endpoint: Point = right_edge_and_intersection.1.into();
+            let endpoint = right_edge_and_intersection.1;
+            let line = LineF64::new(
+                left_edge_and_intersection.1,
+                PointF64::new(endpoint.x + 1.0, endpoint.y),
             );
-            line.draw(onto, color, StrokeThickness::Filled);
+            computed_filled_scanlines.push(line);
         }
+    }
+    computed_filled_scanlines
+}
+
+fn scanline_fill_from_edges(onto: &mut Box<dyn LikeLayerSlice>, color: Color, edges: &[LineF64]) {
+    for line in scanline_compute_fill_lines_from_edges(edges).into_iter() {
+        line.draw(onto, color);
     }
 }

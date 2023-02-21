@@ -1,4 +1,4 @@
-use crate::{Codepoint, Font, GlyphIndex};
+use crate::{Codepoint, Font, GlyphIndex, GlyphRenderInstructions};
 use agx_definitions::{Point, PointF64, Polygon, Rect, Size};
 use alloc::borrow::ToOwned;
 use alloc::collections::BTreeMap;
@@ -18,6 +18,7 @@ use num_traits::PrimInt;
 
 use crate::character_map::parse_character_map;
 use crate::glyphs::parse_glyph;
+use crate::hints::{parse_instructions, GraphicsState, HintParseOperations};
 use crate::metrics::{
     parse_horizontal_metrics, parse_vertical_metrics, GlyphMetrics, HheaTable, HheaTableRaw,
     LongHorMetric, LongHorMetricRaw, VerticalMetrics,
@@ -27,6 +28,7 @@ use crate::parse_utils::{
 };
 #[cfg(target_os = "axle")]
 use axle_rt::println;
+use core::ptr::slice_from_raw_parts;
 #[cfg(not(target_os = "axle"))]
 use std::println;
 
@@ -184,11 +186,13 @@ impl FromFontBufInPlace<HeadTableRaw> for HeadTable {
             -2 => FontDirectionality::RightToLeftAndNeutral,
             _ => panic!("Invalid font direction hint"),
         };
+        /*
         assert!(
             directionality == FontDirectionality::LeftToRightAndNeutral
                 || directionality == FontDirectionality::LeftToRight,
             "Only left-to-right/-and-neutral is handled for now"
         );
+        */
 
         let index_to_loc_format = match raw.index_to_loc_format.into_value() {
             0 => IndexToLocFormat::ShortOffsets,
@@ -274,21 +278,48 @@ impl<'a> FontParser<'a> {
         }
     }
 
-    pub(crate) fn read<T: TransmuteFontBufInPlace>(&self, offset: usize) -> &'a T {
+    pub(crate) fn read_data_with_cursor<'buf, T: TransmuteFontBufInPlace + 'buf>(
+        data: &'buf [u8],
+        cursor: &mut usize,
+    ) -> &'buf T {
         unsafe {
-            let ptr = self.font_data.as_ptr().offset(offset as isize);
-            let reference: &'a T = &*{ ptr as *const T };
+            let ptr = data.as_ptr().offset(*cursor as isize);
+            let reference: &'buf T = &*{ ptr as *const T };
+            *cursor += mem::size_of::<T>();
+            reference
+        }
+    }
+
+    pub(crate) fn read_bytes_from_data_with_cursor<'buf>(
+        data: &'buf [u8],
+        cursor: &mut usize,
+        count: usize,
+    ) -> &'buf [u8] {
+        unsafe {
+            let ptr = data.as_ptr().offset(*cursor as isize);
+            let slice = slice_from_raw_parts(ptr, count);
+            let reference: &'buf [u8] = &*{ slice as *const [u8] };
+            *cursor += count;
             reference
         }
     }
 
     pub(crate) fn read_with_cursor<T: TransmuteFontBufInPlace>(&self, cursor: &mut usize) -> &'a T {
-        unsafe {
-            let ptr = self.font_data.as_ptr().offset(*cursor as isize);
-            let reference: &'a T = &*{ ptr as *const T };
-            *cursor += mem::size_of::<T>();
-            reference
-        }
+        Self::read_data_with_cursor(self.font_data, cursor)
+    }
+
+    pub(crate) fn read_bytes_with_cursor(&self, cursor: &mut usize, count: usize) -> &'a [u8] {
+        Self::read_bytes_from_data_with_cursor(self.font_data, cursor, count)
+    }
+
+    pub(crate) fn read<T: TransmuteFontBufInPlace>(&self, offset: usize) -> &'a T {
+        let mut cursor = offset;
+        Self::read_data_with_cursor(self.font_data, &mut cursor)
+    }
+
+    pub(crate) fn read_bytes(&self, offset: usize, count: usize) -> &'a [u8] {
+        let mut cursor = offset;
+        Self::read_bytes_from_data_with_cursor(self.font_data, &mut cursor, count)
     }
 
     pub(crate) fn parse_table<A: TransmuteFontBufInPlace, T: FromFontBufInPlace<A>>(
@@ -323,7 +354,7 @@ impl<'a> FontParser<'a> {
         let mut all_glyphs = vec![];
         let mut codepoints_to_glyph_indexes = BTreeMap::new();
         for i in 0..max_profile.num_glyphs {
-            let parsed_glyph = parse_glyph(self, i, &glyph_bounding_box);
+            let parsed_glyph = parse_glyph(self, i, &glyph_bounding_box, head.units_per_em as _);
             all_glyphs.push(parsed_glyph);
 
             match glyph_indexes_to_codepoints.get(&i) {
@@ -336,7 +367,20 @@ impl<'a> FontParser<'a> {
 
         let horizontal_glyph_metrics = parse_horizontal_metrics(self);
         let vertical_glyph_metrics = parse_vertical_metrics(self, max_profile.num_glyphs);
-        for (i, glyph) in all_glyphs.iter_mut().enumerate() {
+        for (i, glyph) in all_glyphs.iter().enumerate() {
+            // Compound glyphs may inherit their metrics from one of their children
+            if let GlyphRenderInstructions::CompoundGlyph(compound_glyph_instructions) =
+                &glyph.render_instructions
+            {
+                if compound_glyph_instructions
+                    .use_metrics_from_child_idx
+                    .is_some()
+                {
+                    // Handled in the loop down below
+                    continue;
+                }
+            }
+
             if let Some(horizontal_metrics) = horizontal_glyph_metrics.get(i) {
                 glyph
                     .render_metrics
@@ -348,6 +392,54 @@ impl<'a> FontParser<'a> {
                     .set_vertical_metrics(vertical_glyph_metrics.as_ref().unwrap()[i].clone());
             }
         }
+        for (i, glyph) in all_glyphs.iter().enumerate() {
+            // Compound glyphs may inherit their metrics from one of their children
+            if let GlyphRenderInstructions::CompoundGlyph(compound_glyph_instructions) =
+                &glyph.render_instructions
+            {
+                //println!("** Glyph {i} is compound");
+                if let Some(child_idx_to_inherit_metrics_from) =
+                    compound_glyph_instructions.use_metrics_from_child_idx
+                {
+                    //println!("** Glyph {i} uses metrics from child IDX {child_idx_to_inherit_metrics_from}");
+                    // TODO(PT): We may need to do this after the first pass...
+                    let child =
+                        &compound_glyph_instructions.children[child_idx_to_inherit_metrics_from];
+                    let child_glyph = all_glyphs.get(child.glyph_index).unwrap();
+                    let child_metrics = &child_glyph.render_metrics;
+                    /*
+                    println!(
+                        "\tChild metrics (glyph idx {}) {child_metrics:?}",
+                        child.glyph_index
+                    );
+                    */
+                    glyph.render_metrics.set_horizontal_metrics(
+                        child_metrics
+                            .horizontal_metrics
+                            .borrow()
+                            .as_ref()
+                            .unwrap()
+                            .clone(),
+                    );
+                    glyph.render_metrics.set_vertical_metrics(
+                        child_metrics
+                            .vertical_metrics
+                            .borrow()
+                            .as_ref()
+                            .unwrap_or(&VerticalMetrics {
+                                advance_height: glyph_bounding_box.height() as _,
+                                top_side_bearing: 0,
+                            })
+                            .clone(),
+                    );
+                }
+            }
+        }
+
+        let font_program_header = self.table_headers.get("fpgm").unwrap();
+        let font_program = self.read_bytes(font_program_header.offset, font_program_header.length);
+        //let graphics_state = GraphicsState::new();
+        parse_instructions(font_program, HintParseOperations::all());
 
         Font::new(
             // TODO(PT): Parse font names

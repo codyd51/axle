@@ -3,7 +3,7 @@ extern crate alloc;
 use agx_definitions::{Color, LikeLayerSlice, Point, Polygon, PolygonStack, Rect, Size};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use ttf_renderer::{Font, GlyphRenderDescription, GlyphRenderInstructions};
+use ttf_renderer::{render_glyph_onto, Font, GlyphRenderDescription, GlyphRenderInstructions};
 
 pub fn render_all_glyphs_in_font(
     onto: &mut Box<dyn LikeLayerSlice>,
@@ -38,7 +38,14 @@ pub fn render_all_glyphs_in_font(
             cursor.y + scaled_glyph_metrics.top_side_bearing,
         );
         let mut dest_slice = onto.get_slice(Rect::from_parts(glyph_origin, scaled_em_size));
-        render_glyph(&mut dest_slice, glyph, scale_x, scale_y);
+        render_glyph_onto(
+            glyph,
+            font,
+            &mut dest_slice,
+            Point::zero(),
+            Color::black(),
+            *font_size,
+        );
 
         cursor = Point::new(
             cursor.x + (scaled_glyph_metrics.advance_width as isize),
@@ -49,42 +56,5 @@ pub fn render_all_glyphs_in_font(
             cursor.x = cursor_origin.x;
         }
         //println!("Rendered #{i}");
-    }
-}
-
-pub fn render_glyph(
-    onto: &mut Box<dyn LikeLayerSlice>,
-    glyph: &GlyphRenderDescription,
-    scale_x: f64,
-    scale_y: f64,
-) {
-    /*
-    for (i, polygon) in glyph.polygons.iter().enumerate() {
-        let scaled_polygon = polygon.scale_by(scale_x, scale_y);
-        let color = match i {
-            0 => Color::red(),
-            1 => Color::yellow(),
-            _ => Color::green(),
-        };
-        //scaled_polygon.draw_outline(onto, Color::black());
-        scaled_polygon.fill(onto, color);
-    }
-    */
-    match &glyph.render_instructions {
-        GlyphRenderInstructions::PolygonsGlyph(polygons_glyph) => {
-            let scaled_polygons: Vec<Polygon> = polygons_glyph
-                .polygons
-                .iter()
-                .map(|p| p.scale_by(scale_x, scale_y))
-                .collect();
-            let polygon_stack = PolygonStack::new(&scaled_polygons);
-            polygon_stack.fill(onto, Color::black());
-        }
-        GlyphRenderInstructions::BlankGlyph(_blank_glyph) => {
-            // Nothing to do
-        }
-        GlyphRenderInstructions::CompoundGlyph(compound_glyph) => {
-            //onto.fill(Color::blue());
-        }
     }
 }

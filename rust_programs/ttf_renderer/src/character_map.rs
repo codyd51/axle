@@ -227,7 +227,7 @@ pub(crate) fn parse_character_map(parser: &FontParser) -> BTreeMap<usize, usize>
     let mut cursor = character_map_structures_base;
     let character_map_index =
         CharacterMapIndex::from_in_place_buf(parser.read_with_cursor(&mut cursor));
-    println!("got character map index {character_map_index:?}");
+    //println!("got character map index {character_map_index:?}");
     let unicode_bmp_char_map_offset = (0..character_map_index.subtables_count)
         .find_map(|_| {
             let character_map_subtable =
@@ -241,6 +241,7 @@ pub(crate) fn parse_character_map(parser: &FontParser) -> BTreeMap<usize, usize>
                     CharacterMapUnicodeEncoding::Version2_0Extended,
                 ),
                 CharacterMapPlatformAndEncoding::Unicode(CharacterMapUnicodeEncoding::Version1_1),
+                CharacterMapPlatformAndEncoding::Unicode(CharacterMapUnicodeEncoding::Version1_0),
             ];
             if recognized_unicode_encodings.contains(&character_map_subtable.platform_and_encoding)
             {
@@ -250,13 +251,13 @@ pub(crate) fn parse_character_map(parser: &FontParser) -> BTreeMap<usize, usize>
             }
         })
         .expect("Failed to find a recognized Unicode character map");
-    println!("Unicode BMP character map offset: {unicode_bmp_char_map_offset}");
+    //println!("Unicode BMP character map offset: {unicode_bmp_char_map_offset}");
 
     // All table formats start with a common 4-word header
     let data_header_offset = character_map_structures_base + unicode_bmp_char_map_offset;
     let table_base_header =
         CharacterMapDataTableHeader::from_in_place_buf(parser.read(data_header_offset));
-    println!("Got table base header {table_base_header:?}");
+    //println!("Got table base header {table_base_header:?}");
 
     match table_base_header.format {
         4 => parse_character_map_table_format4(parser, data_header_offset),
@@ -368,13 +369,13 @@ fn parse_character_map_table_format12(
     let mut cursor = data_header_offset;
     let table_format12_header =
         CharacterMapDataFormat12Header::from_in_place_buf(parser.read_with_cursor(&mut cursor));
-    println!("Got table format12 header {table_format12_header:?}");
+    //println!("Got table format12 header {table_format12_header:?}");
     let mut groups = vec![];
     for _ in 0..table_format12_header.groups_count {
         let group_header = CharacterMapDataFormat12GroupHeader::from_in_place_buf(
             parser.read_with_cursor(&mut cursor),
         );
-        println!("\tGot group header {group_header:?}");
+        //println!("\tGot group header {group_header:?}");
         groups.push(group_header);
     }
     // Map the first 256 Unicode codepoints (ASCII + extended ASCII)
@@ -385,7 +386,7 @@ fn parse_character_map_table_format12(
             .find(|&group| group.char_code_range.contains(&codepoint));
         if group_containing_codepoint.is_none() {
             // Codepoint unmapped
-            println!("Codepoint {codepoint} is unmapped");
+            //println!("Codepoint {codepoint} is unmapped");
             continue;
         }
         let group_containing_codepoint = group_containing_codepoint.unwrap();

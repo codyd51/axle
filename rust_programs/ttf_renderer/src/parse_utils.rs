@@ -13,8 +13,8 @@ pub trait FromFontBufInPlace<T> {
     fn from_in_place_buf(raw: &T) -> Self;
 }
 
-impl FromFontBufInPlace<BigEndianValue<u16>> for u16 {
-    fn from_in_place_buf(raw: &BigEndianValue<u16>) -> Self {
+impl<T: PrimInt> FromFontBufInPlace<BigEndianValue<T>> for T {
+    fn from_in_place_buf(raw: &BigEndianValue<T>) -> T {
         raw.into_value()
     }
 }

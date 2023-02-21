@@ -8,12 +8,15 @@ extern crate core;
 
 mod character_map;
 mod glyphs;
+mod hints;
 mod metrics;
 mod parse_utils;
 mod parser;
+mod render;
 
 pub use crate::glyphs::{GlyphRenderDescription, GlyphRenderInstructions};
 pub use crate::metrics::GlyphMetrics;
+pub use crate::render::{render_antialiased_glyph_onto, render_char_onto, render_glyph_onto};
 use agx_definitions::Rect;
 use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};

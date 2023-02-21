@@ -27,7 +27,7 @@ impl AllGlyphsView {
         let view = TextView::new(
             Color::green(),
             font_path,
-            Size::new(32, 32),
+            Size::new(24, 24),
             RectInsets::new(2, 2, 2, 2),
             sizer,
         );
@@ -52,7 +52,7 @@ struct ScratchpadView {
 
 impl ScratchpadView {
     pub fn new<F: 'static + Fn(&View, Size) -> Rect>(font_path: Option<&str>, sizer: F) -> Self {
-        let view = TextInputView::new(font_path, Size::new(32, 32), sizer);
+        let view = TextInputView::new(font_path, Size::new(16, 18), sizer);
         Self { view }
     }
 }

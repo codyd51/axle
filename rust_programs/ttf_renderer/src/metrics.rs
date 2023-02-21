@@ -3,6 +3,7 @@ use crate::parser::FontParser;
 use agx_definitions::Rect;
 use alloc::vec;
 use alloc::vec::Vec;
+use core::cell::RefCell;
 use core::ops::Range;
 
 #[repr(C, packed)]
@@ -113,6 +114,15 @@ impl GlyphMetrics {
         }
     }
 
+    pub fn zero() -> Self {
+        Self {
+            advance_width: 0,
+            advance_height: 0,
+            left_side_bearing: 0,
+            top_side_bearing: 0,
+        }
+    }
+
     pub fn scale(&self, scale_x: f64, scale_y: f64) -> Self {
         Self::new(
             (self.advance_width as f64 * scale_x) as usize,
@@ -126,31 +136,32 @@ impl GlyphMetrics {
 #[derive(Debug, Clone)]
 pub struct GlyphRenderMetrics {
     pub bounding_box: Rect,
-    horizontal_metrics: Option<LongHorMetric>,
-    vertical_metrics: Option<VerticalMetrics>,
+    pub(crate) horizontal_metrics: RefCell<Option<LongHorMetric>>,
+    pub(crate) vertical_metrics: RefCell<Option<VerticalMetrics>>,
 }
 
 impl GlyphRenderMetrics {
     pub(crate) fn new(bounding_box: &Rect) -> Self {
         Self {
             bounding_box: bounding_box.clone(),
-            horizontal_metrics: None,
-            vertical_metrics: None,
+            horizontal_metrics: RefCell::new(None),
+            vertical_metrics: RefCell::new(None),
         }
     }
 
-    pub(crate) fn set_horizontal_metrics(&mut self, metrics: LongHorMetric) {
-        self.horizontal_metrics = Some(metrics)
+    pub(crate) fn set_horizontal_metrics(&self, metrics: LongHorMetric) {
+        *self.horizontal_metrics.borrow_mut() = Some(metrics)
     }
 
-    pub(crate) fn set_vertical_metrics(&mut self, metrics: VerticalMetrics) {
-        self.vertical_metrics = Some(metrics)
+    pub(crate) fn set_vertical_metrics(&self, metrics: VerticalMetrics) {
+        *self.vertical_metrics.borrow_mut() = Some(metrics)
     }
 
     pub fn metrics(&self) -> GlyphMetrics {
-        let h = self.horizontal_metrics.as_ref().unwrap();
-        let v = self
-            .vertical_metrics
+        let horizontal_metrics = self.horizontal_metrics.borrow();
+        let vertical_metrics = self.vertical_metrics.borrow();
+        let h = horizontal_metrics.as_ref().unwrap();
+        let v = vertical_metrics
             .as_ref()
             .unwrap_or(&VerticalMetrics {
                 advance_height: self.bounding_box.height() as _,
