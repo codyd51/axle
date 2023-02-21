@@ -436,10 +436,11 @@ impl<'a> FontParser<'a> {
             }
         }
 
-        let font_program_header = self.table_headers.get("fpgm").unwrap();
-        let font_program = self.read_bytes(font_program_header.offset, font_program_header.length);
+        if let Some(font_program_header) = self.table_headers.get("fpgm") {
+            let font_program = self.read_bytes(font_program_header.offset, font_program_header.length);
         //let graphics_state = GraphicsState::new();
-        parse_instructions(font_program, HintParseOperations::all());
+            parse_instructions(font_program, HintParseOperations::all());
+        }
 
         Font::new(
             // TODO(PT): Parse font names

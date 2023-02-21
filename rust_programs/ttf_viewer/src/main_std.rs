@@ -40,9 +40,10 @@ pub fn main2() -> Result<(), Box<dyn error::Error>> {
 }
 
 pub fn main() -> Result<(), Box<dyn error::Error>> {
-    let font_path = "/Users/philliptennen/Documents/fonts/helvetica-2.ttf";
+    //let font_path = "/Users/philliptennen/Documents/fonts/helvetica-2.ttf";
+    let font_path = "/System/Library/Fonts/NewYorkItalic.ttf";
 
-    let font_size = Size::new(16, 16);
+    let font_size = Size::new(128, 128);
     let window_size = Size::new(1240, 1000);
     let window = Rc::new(AwmWindow::new("Hosted Font Viewer", window_size));
 
@@ -58,7 +59,7 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
     let font = parse(&font_data);
 
     //render_all_glyphs_in_font(&mut main_view_slice, &font, &font_size, Some(3000));
-    render_string(&mut main_view_slice, &font, &font_size, "axle");
+    //render_string(&mut main_view_slice, &font, &font_size, "axle");
     //render_glyph(&mut main_view_slice, &font.glyphs[2], 0.4, 0.4);
 
     window.enter_event_loop();
