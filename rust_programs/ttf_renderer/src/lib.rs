@@ -13,10 +13,12 @@ mod metrics;
 mod parse_utils;
 mod parser;
 mod render;
+mod render_context;
 
 pub use crate::glyphs::{GlyphRenderDescription, GlyphRenderInstructions};
 pub use crate::metrics::GlyphMetrics;
 pub use crate::render::{render_antialiased_glyph_onto, render_char_onto, render_glyph_onto};
+pub use crate::render_context::FontRenderContext;
 use agx_definitions::Rect;
 use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
@@ -26,9 +28,9 @@ use parser::FontParser;
 
 use crate::hints::FunctionDefinition;
 #[cfg(target_os = "axle")]
-pub(crate) use axle_rt::println;
+pub(crate) use axle_rt::{print, println};
 #[cfg(not(target_os = "axle"))]
-pub(crate) use std::println;
+pub(crate) use std::{print, println};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Codepoint(usize);
@@ -55,6 +57,8 @@ pub struct Font {
     pub glyphs: Vec<GlyphRenderDescription>,
     pub codepoints_to_glyph_indexes: BTreeMap<Codepoint, GlyphIndex>,
     pub functions_table: BTreeMap<usize, FunctionDefinition>,
+    pub unscaled_cvt: Vec<u32>,
+    pub prep: Vec<u8>,
 }
 
 impl Font {
@@ -65,6 +69,8 @@ impl Font {
         glyphs: Vec<GlyphRenderDescription>,
         codepoints_to_glyph_indexes: BTreeMap<Codepoint, GlyphIndex>,
         functions_table: BTreeMap<usize, FunctionDefinition>,
+        unscaled_cvt: Vec<u32>,
+        prep: Vec<u8>,
     ) -> Self {
         Self {
             name: name.to_string(),
@@ -73,6 +79,8 @@ impl Font {
             glyphs,
             codepoints_to_glyph_indexes,
             functions_table,
+            unscaled_cvt,
+            prep,
         }
     }
 

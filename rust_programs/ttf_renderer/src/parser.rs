@@ -453,6 +453,13 @@ impl<'a> FontParser<'a> {
                 .map(|fb| (fb.function_identifier, fb.clone())),
         );
 
+        let cvt_header = self.table_headers.get("cvt ").unwrap();
+        let cvt_bytes = self.read_bytes(cvt_header.offset, cvt_header.length);
+        let (_, cvt, _) = unsafe { cvt_bytes.align_to::<u32>() };
+
+        let prep_header = self.table_headers.get("prep").unwrap();
+        let prep = self.read_bytes(prep_header.offset, prep_header.length);
+
         Font::new(
             // TODO(PT): Parse font names
             "abc",
@@ -461,6 +468,8 @@ impl<'a> FontParser<'a> {
             all_glyphs,
             codepoints_to_glyph_indexes,
             function_boundaries_lookup_map,
+            cvt.to_vec(),
+            prep.to_vec(),
         )
     }
 
