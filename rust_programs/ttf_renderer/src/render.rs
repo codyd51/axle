@@ -258,12 +258,14 @@ fn render_polygons_glyph(
 
     let instructions = glyph.hinting_program_bytes.as_ref().unwrap();
     let mut graphics_state = GraphicsState::new(font_size);
+    /*
     parse_instructions(
         font,
         instructions,
         &HintParseOperations::debug_run(),
         &mut graphics_state,
     );
+    */
 }
 
 pub fn render_glyph_onto(
