@@ -591,13 +591,6 @@ fn points_for_polygon(
     if !interpolate {
         return points[start_index..=end_index].to_vec();
     }
-    
-    /*
-    for index in start_index..=end_index {
-        values.push(points[index]);
-    }
-    return values;
-    */
 
     if start_index == end_index {
         return values;
@@ -607,9 +600,7 @@ fn points_for_polygon(
     values.push(last_value);
     
     let mut last_on_curve_value = last_value;
-    let mut last_off_curve_value = 0;
-    let mut last_value_was_on_curve = true;
-
+    let mut maybe_last_off_curve_value = None;
 
     for (index, next_value) in points[start_index+1..=end_index].iter().enumerate() {
         let relative_value = *next_value - last_value;
@@ -618,27 +609,13 @@ fn points_for_polygon(
             
         let next_pt_is_on_curve = flag_set.contains(&GlyphOutlineFlag::OnCurve);
 
-        if last_value_was_on_curve {
-            if next_pt_is_on_curve {
-                // just add new point to the list of points (i.e. draw a
-                // straight line to the new point)
-                last_on_curve_value = *next_value;
-                values.push(last_on_curve_value);
-            }
-            else {
-                // the next point is a control point, so we have a 2nd degree
-                // bezier curve, but we don't know the end point yet. Store
-                // the relative value for next round
-                last_off_curve_value = relative_value;
-                last_value_was_on_curve = false;
-            }
-        }
-        else {
+
+        if let Some(last_off_curve_value) = maybe_last_off_curve_value {
             // Last value was off curve, so we have the (absolute)
             // start point of the bezier curve in last_on_curve_value and
             // the (relative) control point in last_off_curve_value.
             // Need to determine the end point
-            let bezier_start = last_on_curve_value;
+            let bezier_start= last_on_curve_value;
             let bezier_ctrl = last_off_curve_value;
             let bezier_end = if next_pt_is_on_curve {
                 // next point is on curve, we take it's value as the
@@ -659,19 +636,32 @@ fn points_for_polygon(
             values.push(next_pt);
 
             last_on_curve_value = next_pt;
-            last_off_curve_value = if next_pt_is_on_curve {
-                // this next point was on curve, so we're back
+            maybe_last_off_curve_value = if next_pt_is_on_curve {
+                // this next point is on curve, so we're back
                 // to regular straight lines until we see another control point
-                0
+                None
             }
             else {
-                // this next point was off curve, so we have another
+                // this next point is off curve, so we have another
                 // bezier curve on our hands. Retain an off curve value
                 // that's relative to the implicit on-curve point halfway
                 // distance from the last off-curve point
-                ((relative_value as f64)/2.0).round() as isize
+                Some(((relative_value as f64)/2.0).round() as isize)
             };
-            last_value_was_on_curve = next_pt_is_on_curve;
+        }
+        else {
+            if next_pt_is_on_curve {
+                // just add new point to the list of points (i.e. draw a
+                // straight line to the new point)
+                last_on_curve_value = *next_value;
+                values.push(last_on_curve_value);
+            }
+            else {
+                // the next point is a control point, so we have a 2nd degree
+                // bezier curve, but we don't know the end point yet. Store
+                // the relative value for next round
+                maybe_last_off_curve_value = Some(relative_value);
+            }
         }
     }
     values
