@@ -610,11 +610,10 @@ fn points_for_polygon(
     let mut last_off_curve_value = 0;
     let mut last_value_was_on_curve = true;
 
-    
-    for index in start_index+1..=end_index {
-        let next_value = points[index];
-        let relative_value = next_value - last_value;
-        last_value = next_value;
+
+    for (index, next_value) in points[start_index+1..=end_index].iter().enumerate() {
+        let relative_value = *next_value - last_value;
+        last_value = *next_value;
         let flag_set = &flags[index];
             
         let next_pt_is_on_curve = flag_set.contains(&GlyphOutlineFlag::OnCurve);
@@ -623,7 +622,7 @@ fn points_for_polygon(
             if next_pt_is_on_curve {
                 // just add new point to the list of points (i.e. draw a
                 // straight line to the new point)
-                last_on_curve_value = next_value;
+                last_on_curve_value = *next_value;
                 values.push(last_on_curve_value);
             }
             else {
