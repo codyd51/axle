@@ -589,7 +589,7 @@ fn points_for_polygon(
     let mut values = vec![];
 
     if !interpolate {
-        return points[start_index..=end_index].to_vec().clone();
+        return points[start_index..=end_index].to_vec();
     }
     
     /*
