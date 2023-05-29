@@ -1,6 +1,6 @@
 #include "address_space.h"
 
-uint32_t addr_space_frame_floor(uint32_t addr) {
+uintptr_t addr_space_frame_floor(uintptr_t addr) {
     uint32_t orig=addr;
     if (addr & ~PAGING_FRAME_MASK) {
         addr &= PAGING_FRAME_MASK;
@@ -10,11 +10,11 @@ uint32_t addr_space_frame_floor(uint32_t addr) {
 
 }
 
-uint32_t addr_space_page_floor(uint32_t addr) {
+uintptr_t addr_space_page_floor(uintptr_t addr) {
     return addr_space_frame_floor(addr);
 }
 
-uint32_t addr_space_frame_ceil(uint32_t addr) {
+uintptr_t addr_space_frame_ceil(uintptr_t addr) {
     if (addr & ~PAGING_FRAME_MASK) {
         addr &= PAGING_FRAME_MASK;
         return addr + PAGING_FRAME_SIZE;
@@ -22,6 +22,6 @@ uint32_t addr_space_frame_ceil(uint32_t addr) {
     return addr;
 }
 
-uint32_t addr_space_page_ceil(uint32_t addr) {
+uintptr_t addr_space_page_ceil(uintptr_t addr) {
     return addr_space_frame_ceil(addr);
 }

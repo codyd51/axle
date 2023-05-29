@@ -14,17 +14,17 @@
 //4GB address space / 4kb frame size = 1048576 = 0x100000
 #define ADDRESS_SPACE_PAGE_NUM 0x100000
 
-#define PAGING_FRAME_MASK 0xFFFFF000
-#define PAGING_PAGE_MASK 0xFFFFF000
-#define PAGE_TABLE_ENTRY_MASK 0xFFFFF000
-#define PAGE_TABLE_FLAG_BITS_MASK 0x00000FFF
-#define PAGE_DIRECTORY_ENTRY_MASK 0xFFFFF000
-#define PAGE_FLAG_BITS_MASK 0x00000FFF
+#define PAGING_FRAME_MASK 0xfffffffffffff000
+#define PAGING_PAGE_MASK 0xfffffffffffff000
+#define PAGE_TABLE_ENTRY_MASK 0xfffffffffffff000
+#define PAGE_TABLE_FLAG_BITS_MASK 0xfff
+#define PAGE_DIRECTORY_ENTRY_MASK 0xfffffffffffff000
+#define PAGE_FLAG_BITS_MASK 0x00000fff
 
-uint32_t addr_space_frame_floor(uint32_t addr);
-uint32_t addr_space_frame_ceil(uint32_t addr);
+uintptr_t addr_space_frame_floor(uintptr_t addr);
+uintptr_t addr_space_frame_ceil(uintptr_t addr);
 
-uint32_t addr_space_page_floor(uint32_t addr);
-uint32_t addr_space_page_ceil(uint32_t addr);
+uintptr_t addr_space_page_floor(uintptr_t addr);
+uintptr_t addr_space_page_ceil(uintptr_t addr);
 
 #endif
