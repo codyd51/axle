@@ -5,7 +5,6 @@
 #include <kernel/vmm/vmm.h>
 #include <kernel/util/spinlock/spinlock.h>
 #include <kernel/elf.h>
-#include <std/array_l.h>
 
 typedef enum task_state {
 	UNKNOWN = 			(0 << 0),

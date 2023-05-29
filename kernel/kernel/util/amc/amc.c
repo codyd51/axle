@@ -1,6 +1,5 @@
 #include <std/kheap.h>
 #include <std/math.h>
-#include <std/array_l.h>
 #include <std/string.h>
 #include <std/printf.h>
 #include <std/memory.h>
@@ -117,7 +116,7 @@ static amc_service_t* _amc_service_matching_data(const char* name, task_small_t*
 
     // TODO(PT): We should be able to lock an array while iterating it
     for (int i = 0; i < _amc_services->size; i++) {
-        //amc_service_t* service = array_l_lookup(_amc_services, i);
+        //amc_service_t* service = array_m_lookup(_amc_services, i);
         amc_service_t* service = array_m_lookup(_amc_services, i);
         if (name != NULL && !strncmp(service->name, name, AMC_MAX_SERVICE_NAME_LEN)) {
             return service;
