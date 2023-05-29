@@ -10,7 +10,6 @@
 #include <kernel/multitasking/tasks/task_small.h>
 
 #include "adi.h"
-#include "ffi_bindings.h"
 #include "kernel/smp.h"
 
 #define MAX_IRQ 127

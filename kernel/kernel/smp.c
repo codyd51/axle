@@ -1,7 +1,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <ffi_bindings.h>
 #include <std/string.h>
 #include <std/memory.h>
 #include <std/kheap.h>
