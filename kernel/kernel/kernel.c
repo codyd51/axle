@@ -79,9 +79,6 @@ void _start(axle_boot_info_t* boot_info) {
     pmm_dump();
     vmm_init(boot_info->boot_pml4);
 
-    //draw(boot_info, 0x00ff0000);
-    //draw_string_oneshot_ex("Enabling tasking...", false);
-
     syscall_init();
 
     // Initialize PS/2 controller
@@ -104,7 +101,7 @@ void _start(axle_boot_info_t* boot_info) {
 
 static void _kernel_bootstrap_part2(void) {
     // We're now fully set up in high memory
-
+    //
     // Detect and boot other APs
     smp_init();
 

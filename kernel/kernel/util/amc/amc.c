@@ -750,6 +750,7 @@ void amc_physical_memory_region_create(uint32_t region_size, uintptr_t* virtual_
         region_size = (region_size + PAGE_SIZE) & PAGING_PAGE_MASK;
     }
 
+    /*
     uint32_t phys_start = pmm_alloc_continuous_range(region_size);
     vmm_page_directory_t* local_pdir = vmm_active_pdir();
     // PT: Force this region to be placed at a higher address to prevent conflicts with sbrk
@@ -763,6 +764,7 @@ void amc_physical_memory_region_create(uint32_t region_size, uintptr_t* virtual_
     *physical_region_start_out = phys_start;
 
     spinlock_release(&current_service->spinlock);
+    */
 }
 
 bool amc_service_is_active(const char* service) {
@@ -771,7 +773,12 @@ bool amc_service_is_active(const char* service) {
 }
 
 amc_service_t* amc_service_of_active_task(void) {
-    return amc_service_of_task(tasking_get_current_task());
+    task_small_t* current_task = tasking_get_current_task();
+    if (!current_task) {
+        // Multitasking isn't up yet, so amc certainly isn't either
+        return NULL;
+    }
+    return amc_service_of_task(current_task);
 }
 
 array_m* amc_messages_to_unknown_services_pool() {

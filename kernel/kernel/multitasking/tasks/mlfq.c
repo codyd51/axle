@@ -232,7 +232,8 @@ void mlfq_print(void) {
                     blocked_reason = "unknown";
                     break;
             }
-            printf("[[Cpu%d,Pid%d] %s %s] ", ent->task->cpu_id, ent->task->id, ent->task->name, blocked_reason);
+            const char* task_name = ent->task->name ?: "[null name]";
+            printf("[[Cpu%d,Pid%d] %s %s] ", ent->task->cpu_id, ent->task->id, task_name, blocked_reason);
         }
         printf("\n");
     }

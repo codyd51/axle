@@ -243,7 +243,7 @@ int main(int argc, char** argv) {
 	boot_info->framebuffer_bytes_per_pixel = 4;
 	boot_info->framebuffer_pixels_per_scanline = gop->Mode->Information->PixelsPerScanLine;
 
-	ST->ConOut->ClearScreen(ST->ConOut);
+	//ST->ConOut->ClearScreen(ST->ConOut);
 	//draw(boot_info, 0x00ED93D4);
 	draw(boot_info,   0x00e3a3d4);
 

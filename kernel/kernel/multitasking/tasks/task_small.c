@@ -567,6 +567,8 @@ void tasking_init(void* continue_func) {
     task_set_name(cpu_current_task(), "bootstrap");
     _task_list_head = cpu_current_task();
     tasking_first_context_switch(cpu_current_task(), 100);
+    // The above call should never return
+    assert(false, "Control should have been transferred to a new stack");
 }
 
 void tasking_ap_startup(void* continue_func) {
