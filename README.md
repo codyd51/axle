@@ -2,7 +2,7 @@
 
 <p align="center"><img src="screenshots/doom.jpg"></p>
 
-[axle](https://axleos.com) is a **UNIX-like** hobby operating system. Everything used within axle is **implemented from the ground up**, from the bootloader, to the window manager, to the assembler. axle runs on bare metal. axle provides a **desktop environment** via an efficient compositor and a homegrown GUI toolkit library.
+[axle](https://axleos.com) is a hobby microkernel and userspace built around message-passing. Everything used within axle is **implemented from the ground up**, from the bootloader, to the window manager, to the assembler. axle runs on bare metal. axle provides a **desktop environment** via an efficient compositor and a homegrown GUI toolkit library.
 
 #### Assembler demo (click to view video)
 [![Assembler demo](https://img.youtube.com/vi/HhWE8ZvW4-g/maxresdefault.jpg)](https://youtu.be/HhWE8ZvW4-g)
