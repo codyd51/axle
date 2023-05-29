@@ -85,7 +85,7 @@ typedef struct task_small {
     spinlock_t lock;
 } task_small_t;
 
-void tasking_init_small();
+void tasking_init(void* continue_func);
 bool tasking_is_active();
 
 void task_switch();
@@ -127,5 +127,12 @@ task_small_t* task_spawn__managed__with_args(const char* task_name, void* entry_
 
 static task_small_t* cpu_current_task(void);
 void tasking_ap_startup(void* continue_func);
+
+// Special case for switching away from a zombie task
+void task_switch_without_transitioning_current_task_to_new_scheduler_queue(void);
+
+void task_die(uintptr_t exit_code);
+
+void _thread_destroy(task_small_t* thread);
 
 #endif

@@ -1,4 +1,7 @@
 #include <stdint.h>
+#include <std/printf.h>
+#include <kernel/assert.h>
+#include <kernel/util/amc/amc.h>
 #include <kernel/pmm/pmm.h>
 #include <kernel/multitasking/tasks/task_small.h>
 #include <kernel/util/elf/elf.h>
@@ -13,6 +16,9 @@ static void _exiting(const char* p, uint32_t arg2, uint32_t arg3) {
 }
 
 #include <kernel/boot_info.h>
+#include "kernel/drivers/pit/pit.h"
+#include "std/kheap.h"
+
 static void _launch_program(const char* program_name, uint32_t arg2, uint32_t arg3) {
     Deprecated();
     static int i = 0;
@@ -62,7 +68,7 @@ static void run_test(uint32_t i) {
 
 void test_memory_usage_proc_pool(void) {
     pmm_dump();
-    liballoc_dump();
+    //liballoc_dump();
 
     uint32_t pmm_start = pmm_allocated_memory();
     uint32_t heap_start = kheap_allocated_memory();
@@ -74,7 +80,7 @@ void test_memory_usage_proc_pool(void) {
     }
     printf("Finished all tests!\n");
     pmm_dump();
-    liballoc_dump();
+    //liballoc_dump();
 
     uint32_t pmm_end = pmm_allocated_memory();
     uint32_t heap_end = kheap_allocated_memory();

@@ -23,11 +23,9 @@ int printk_err(const char* format, ...);
 
 int snprintf(char* buffer, unsigned int buffer_len, const char *fmt, ...);
 int vsnprintf(char *buffer, unsigned int buffer_len, const char *fmt, va_list va);
+int putchar(char ch);
 
-//unimplemented functions
-//calling any of these will throw an NotImplemented() assertion
 int vprintf();
-int putchar();
 int sprintf();
 int output();
 int reset_cursor_pos();

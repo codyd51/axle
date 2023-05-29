@@ -1,6 +1,10 @@
 #include "task_small.h"
 
+#include <std/kheap.h>
 #include <std/timer.h>
+#include <std/printf.h>
+#include <std/memory.h>
+#include <std/string.h>
 #include <kernel/boot_info.h>
 #include <kernel/util/mutex/mutex.h>
 #include <kernel/segmentation/gdt_structures.h>
@@ -14,6 +18,7 @@
 #include "mlfq.h"
 #include "task_small_int.h"
 #include "reaper.h"
+#include "kernel/drivers/pit/pit.h"
 
 static volatile int next_pid = 0;
 
@@ -37,9 +42,11 @@ void _task_bootstrap(uintptr_t entry_point_ptr, uintptr_t entry_point_arg1, uint
 static void _task_make_schedulable(task_small_t* task);
 static void _task_remove_from_scheduler(task_small_t* task);
 
+
 void ap_spin1(void);
 void ap_spin2(void);
 
+void scheduler_track_task(task_small_t* task);
 void scheduler_drop_task(task_small_t* task);
 
 task_small_t* _tasking_get_linked_list_head(void) {
@@ -118,7 +125,7 @@ void task_die(uintptr_t exit_code) {
     task_small_t* buf[1] = {current_task};
     amc_message_send__from_core("com.axle.reaper", &buf, sizeof(buf));
     // Set ourselves to zombie _after_ telling reaper about us
-    // Even if we're pre-empted in between switching to zombie and informing reaper,
+    // Even if we're preempted in between switching to zombie and informing reaper,
     // we'll still be cleaned up
     tasking_get_current_task()->blocked_info.status = ZOMBIE;
     task_switch();
@@ -614,7 +621,7 @@ void* sbrk(int increment) {
 }
 
 void tasking_print_processes(void) {
-    printk("-----------------------proc-----------------------\n");
+    printf("-----------------------proc-----------------------\n");
 
     if (!_task_list_head) {
         return;

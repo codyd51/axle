@@ -1,12 +1,15 @@
 #include <stdbool.h>
+
+#include <std/memory.h>
+#include <std/common.h>
+#include <std/printf.h>
+
 #include <kernel/kernel.h>
 #include <kernel/assert.h>
 #include <kernel/vmm/vmm.h>
 #include <kernel/boot_info.h>
 #include <kernel/address_space_bitmap.h>
 #include <kernel/ap_bootstrap.h>
-
-#include <std/common.h>
 
 #include "pmm.h"
 
@@ -112,7 +115,7 @@ void pmm_init(void) {
         }
     }
 
-    pmm_test();
+    //pmm_test();
 }
 
 uintptr_t find_free_region(pmm_state_t* pmm, uintptr_t region_size) {

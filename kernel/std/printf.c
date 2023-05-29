@@ -4,6 +4,7 @@
 
 #include <std/string.h>
 #include <kernel/assert.h>
+#include "kernel/drivers/serial/serial.h"
 
 static int normalize(double *val) {
     int exponent = 0;
@@ -386,9 +387,9 @@ int printk_err(const char* format, ...) {
 int vprintf() {
     NotImplemented();
 }
+
 int putchar(char ch) {
-    printf("%c", ch);
-    //NotImplemented();
+    return printf("%c", ch);
 }
 int sprintf() {
     NotImplemented();

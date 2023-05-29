@@ -156,14 +156,14 @@ void vmm_unmap_range() { }
  */
 
 void* liballoc_alloc(size_t page_count) {
-	//printk("Expand kernel heap by %d pages (%dkb)\n", page_count, page_count * 4);
+	printf("Expand kernel heap by %d pages (%dkb)\n", page_count, page_count * 4);
 
 	// Lock the kernel VAS as this part of the address space is shared across all processes
 	vas_kernel_lock_acquire();
 	uintptr_t new_heap_memory_start = vas_alloc_range(boot_info_get()->vas_kernel, VAS_KERNEL_HEAP_BASE, page_count * PAGE_SIZE, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_KERNEL);
 	vas_kernel_lock_release();
 
-	//printf("New globally shared kernel memory 0x%08x - 0x%08x\n", new_heap_memory_start, new_heap_memory_start + (page_count * PAGE_SIZE));
+	printf("New globally shared kernel memory 0x%p - 0x%p\n", new_heap_memory_start, new_heap_memory_start + (page_count * PAGE_SIZE));
 	//vas_state_dump(boot_info_get()->vas_kernel);
 	return (void*)new_heap_memory_start;
 }
@@ -177,11 +177,11 @@ void* liballoc_alloc(size_t page_count) {
  * \return 0 if the memory was successfully freed.
  */
 int liballoc_free(void* ptr,size_t page_count) {
-	//printf("liballoc_free 0x%08x %dkb\n", ptr, page_count * 4);
+	printf("liballoc_free 0x%p %dkb\n", ptr, page_count * 4);
 
 	// Lock the kernel VAS as this part of the address space is shared across all processes
 	vas_kernel_lock_acquire();
-	vas_free_range(boot_info_get()->vas_kernel, (uint64_t) ptr, page_count * PAGE_SIZE);
+	vas_free_range(boot_info_get()->vas_kernel, (uint64_t)ptr, page_count * PAGE_SIZE);
 	vas_kernel_lock_release();
 
 	return 0;

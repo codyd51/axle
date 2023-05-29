@@ -1,9 +1,17 @@
-#include "adi.h"
+#include <stddef.h>
+#include <stdbool.h>
+
 #include <std/math.h>
+#include <std/printf.h>
+#include <std/string.h>
 #include <kernel/interrupts/pic.h>
 #include <kernel/util/amc/amc_internal.h>
 #include <kernel/util/spinlock/spinlock.h>
 #include <kernel/multitasking/tasks/task_small.h>
+
+#include "adi.h"
+#include "ffi_bindings.h"
+#include "kernel/smp.h"
 
 #define MAX_IRQ 127
 #define MAX_INT_VECTOR 128

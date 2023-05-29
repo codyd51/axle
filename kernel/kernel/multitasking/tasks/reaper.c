@@ -1,6 +1,10 @@
 #include "reaper.h"
 #include "task_small.h"
 #include "task_small_int.h"
+#include "mlfq.h"
+
+#include <std/printf.h>
+#include <std/string.h>
 
 #include <kernel/util/spinlock/spinlock.h>
 #include <kernel/util/amc/amc.h>

@@ -52,6 +52,17 @@ typedef struct smp_info {
     interrupt_override_info_t interrupt_overrides[MAX_INTERRUPT_OVERRIDES];
 } smp_info_t;
 
+void apic_signal_end_of_interrupt(uint8_t int_no);
+uintptr_t smp_get_current_core_apic_id(smp_info_t* smp_info);
+void smp_boot_core(smp_info_t* smp_info, processor_info_t* core);
+void apic_init(smp_info_t* smp_info);
+smp_info_t* acpi_parse_root_system_description(uintptr_t acpi_rsdp);
+void local_apic_enable(void);
+void local_apic_timer_calibrate(void);
+void local_apic_timer_start(uint64_t delay_ms);
+void local_apic_timer_start(uint64_t delay_ms);
+void local_apic_timer_cancel(void);
+
 void smp_init(void);
 void smp_map_bsp_private_info(void);
 void local_apic_configure_timer(void);
@@ -59,5 +70,7 @@ void local_apic_configure_timer(void);
 cpu_core_private_info_t* cpu_private_info(void);
 uintptr_t cpu_id(void);
 task_small_t* cpu_idle_task(void);
+
+void smp_core_continue();
 
 #endif

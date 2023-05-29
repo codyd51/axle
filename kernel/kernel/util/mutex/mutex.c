@@ -1,6 +1,11 @@
-#include "mutex.h"
 #include <std/kheap.h>
+#include <std/printf.h>
+
+#include <kernel/assert.h>
 #include <kernel/multitasking/tasks/task_small.h>
+#include <kernel/drivers/rtc/clock.h>
+
+#include "mutex.h"
 
 lock_t* lock_create() {
 	Deprecated();

@@ -79,7 +79,8 @@ void rtc_install() {
 	//read status from RTC
 	read_rtc_register(0x0C);
 
-	register_interrupt_handler(40, handle_rtc_update);
+	//register_interrupt_handler(40, handle_rtc_update);
+    Deprecated();
 }
 
 #include <kernel/drivers/pit/pit.h>

@@ -23,7 +23,7 @@ bool haskey();
 char kb_modifiers();
 
 // Initialize PS/2 keyboard driver
-void ps2_keyboard_enable();
+void ps2_keyboard_enable(void);
 void ps2_keyboard_driver_launch();
 //swap layout to interpret incoming scancodes
 void switch_layout(void* layout);

@@ -7,5 +7,6 @@
 
 //installs common syscalls into syscall table
 void create_sysfuncs();
+int exit(uintptr_t code);
 
 #endif

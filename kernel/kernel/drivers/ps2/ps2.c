@@ -1,6 +1,10 @@
 #include "ps2.h"
+#include "std/common.h"
+#include "kernel/drivers/kb/kb.h"
+#include "kernel/drivers/mouse/mouse.h"
 #include <stdint.h>
 #include <stdbool.h>
+#include <std/printf.h>
 #include <kernel/assert.h>
 
 uint8_t ps2_read(uint8_t port);
@@ -8,7 +12,7 @@ uint8_t ps2_read(uint8_t port);
 /* Returns true if a device replied with `PS2_DEV_ACK`.
  * This is usually in reply to a command sent to that device.
  */
-bool ps2_expect_ack() {
+bool ps2_expect_ack(void) {
     uint8_t ret = ps2_read(PS2_DATA);
 
     if (ret != PS2_DEV_ACK) {

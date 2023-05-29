@@ -3,8 +3,12 @@
 #include "idt.h"
 #include "cpu_fault_handlers.h"
 #include "pic.h"
+#include "kernel/smp.h"
+#include "kernel/adi.h"
 
 #include <std/common.h>
+#include <std/printf.h>
+#include <std/memory.h>
 
 #include <kernel/kernel.h>
 #include <kernel/assert.h>

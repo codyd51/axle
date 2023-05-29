@@ -1,6 +1,9 @@
 #ifndef PS2_CONTROLLER_H
 #define PS2_CONTROLLER_H
 
+#include <stdint.h>
+#include <stdbool.h>
+
 #define PS2_RECV_PORT 0x60
 #define PS2_SEND_PORT 0x64
 #define PS2_CMD_PORT 0x64
@@ -54,5 +57,9 @@ typedef enum ps2_device_type {
 void ps2_controller_init(void);
 void ps2_enable_keyboard(void);
 void ps2_enable_mouse(void);
+
+bool ps2_expect_ack(void);
+void ps2_write_device(uint32_t device, uint8_t b);
+uint8_t ps2_read(uint8_t port);
 
 #endif

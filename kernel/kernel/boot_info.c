@@ -266,7 +266,7 @@ void boot_info_read(axle_boot_info_t* bootloader_info) {
     boot_info->mem_region_count = bootloader_info->memory_map_size / bootloader_info->memory_descriptor_size;
     for (uint32_t i = 0; i < boot_info->mem_region_count; i++) {
         axle_efi_memory_descriptor_t* mem_desc = (axle_efi_memory_descriptor_t*)((uint8_t*)(bootloader_info->memory_descriptors) + (i * bootloader_info->memory_descriptor_size));
-        //printf("%d phys 0x%x (%d pages), flags: 0x%x, type: %s\n", i, mem_desc->phys_start, mem_desc->page_count, mem_desc->flags, _name_for_mem_region_type(mem_desc->type));
+        //printf("%d phys 0x%p (%d pages), flags: 0x%x, type: %s\n", i, mem_desc->phys_start, mem_desc->page_count, mem_desc->flags, _name_for_mem_region_type(mem_desc->type));
         physical_memory_region_t* region = &boot_info->mem_regions[i];
         region->addr = mem_desc->phys_start;
         region->len = mem_desc->page_count * PAGE_SIZE;

@@ -57,7 +57,7 @@ static void _set_cpu_caching_enabled(bool enabled) {
 #include <kernel/util/amc/amc_internal.h>
 
 void _handle_page_fault(const register_state_t* regs) {
-	//page fault has occured
+	//page fault has occurred
 	//faulting address is stored in CR2 register
 	uintptr_t faulting_address;
 	asm volatile("mov %%cr2, %0" : "=r" (faulting_address));

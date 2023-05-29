@@ -1,9 +1,13 @@
 #include "mlfq.h"
 #include <std/array_l.h>
+#include "kernel/smp.h"
 #include <std/array_m.h>
 #include <std/math.h>
+#include <std/printf.h>
+#include <std/kheap.h>
 #include <kernel/util/spinlock/spinlock.h>
 #include <kernel/drivers/pit/pit.h>
+#include <stddef.h>
 
 #define MLFQ_QUEUE_COUNT 4
 #define MLFQ_BOOST_INTERVAL 600

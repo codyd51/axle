@@ -4,6 +4,7 @@
 
 #include "memory.h"
 #include "hash_map.h"
+#include "printf.h"
 
 #include <kernel/assert.h>
 
@@ -42,6 +43,7 @@ hash_map_t* hash_map_create(void) {
     //map->data = malloc(512 * sizeof(hash_map_elem_t));
     //printf("hash_map_create 0x%08x data 0x%08x\n", map, map->data);
     //memset(map->data, 0, sizeof(hash_map_elem_t) * map->data_size);
+    return map;
 }
 
 void hash_map_put(hash_map_t* map, void* key_buf, uint32_t key_buf_len, void* value) {

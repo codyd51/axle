@@ -1,5 +1,7 @@
-#include "spinlock.h"
+#include <kernel/assert.h>
 #include <kernel/multitasking/tasks/task_small.h>
+
+#include "spinlock.h"
 
 static inline bool atomic_compare_exchange(int* ptr, int compare, int exchange) {
     return __atomic_compare_exchange_n(ptr, &compare, exchange,

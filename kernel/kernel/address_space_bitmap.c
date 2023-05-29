@@ -1,5 +1,6 @@
 #include "address_space_bitmap.h"
 #include "address_space.h"
+#include "stdio.h"
 #include <std/common.h>
 #include <kernel/assert.h>
 

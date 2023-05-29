@@ -9,6 +9,8 @@
 #include <kernel/assert.h>
 #include <kernel/util/amc/amc_internal.h>
 
+void user_mode(uintptr_t stack_top, uintptr_t entry_point);
+
 static bool elf_check_magic(elf_header* hdr) {
 	if (!hdr) return false;
 

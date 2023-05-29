@@ -4,7 +4,6 @@
 #include <std/std_base.h>
 #include <stdint.h>
 #include "rect.h"
-#include <std/array_l.h>
 #include <std/list.h>
 
 __BEGIN_DECLS

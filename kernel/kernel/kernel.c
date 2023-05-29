@@ -23,6 +23,8 @@
 #include <kernel/smp.h>
 
 #include "kernel.h"
+#include "kernel/drivers/ps2/ps2.h"
+#include "kernel/multitasking/tasks/mlfq.h"
 
 static void _kernel_bootstrap_part2(void);
 

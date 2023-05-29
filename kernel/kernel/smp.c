@@ -1,6 +1,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <ffi_bindings.h>
+#include <std/string.h>
+#include <std/memory.h>
+#include <std/kheap.h>
+
+#include <kernel/assert.h>
 #include <kernel/boot_info.h>
 #include <kernel/pmm/pmm.h>
 #include <kernel/segmentation/gdt.h>
@@ -10,15 +16,7 @@
 #include <kernel/ap_bootstrap.h>
 
 #include "smp.h"
-
-uintptr_t smp_get_current_core_apic_id(smp_info_t* smp_info);
-void smp_boot_core(smp_info_t* smp_info, processor_info_t* core);
-void apic_init(smp_info_t* smp_info);
-smp_info_t* acpi_parse_root_system_description(uintptr_t acpi_rsdp);
-void local_apic_enable(void);
-void local_apic_timer_calibrate(void);
-void local_apic_timer_start(uint64_t delay_ms);
-void smp_core_continue(void);
+#include "stdio.h"
 
 static bool _mapped_cpu_info_in_bsp = false;
 
@@ -112,7 +110,7 @@ void smp_init(void) {
 
         // Allocate a stack for the AP to use
         int ap_stack_size = PAGE_SIZE * 4;
-        void* ap_stack = calloc(1, ap_stack_size);
+        void* ap_stack = kcalloc(1, ap_stack_size);
         uintptr_t ap_stack_top = (uintptr_t)ap_stack + ap_stack_size;
         memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_STACK_TOP), &ap_stack_top, sizeof(ap_stack_top));
 

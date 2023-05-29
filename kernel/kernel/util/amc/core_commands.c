@@ -1,6 +1,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <std/array_m.h>
+#include <std/kheap.h>
+#include <std/printf.h>
+#include <std/memory.h>
+#include <std/string.h>
 #include <std/math.h>
 
 #include <kernel/boot_info.h>
@@ -8,6 +12,8 @@
 
 #include "amc_internal.h"
 #include "core_commands.h"
+#include "kernel/drivers/pit/pit.h"
+#include "kernel/pmm/pmm.h"
 
 const uint64_t _AMC_SHARED_MEMORY_BASE = 0x7f0000000000;
 
@@ -16,7 +22,7 @@ static void _amc_core_copy_amc_services(const char* source_service) {
    
     array_m* services = amc_services();
     uint32_t response_size = sizeof(amc_service_list_t) + (sizeof(amc_service_description_t) * services->size);
-    amc_service_list_t* service_list = calloc(1, response_size);
+    amc_service_list_t* service_list = kcalloc(1, response_size);
     service_list->event = AMC_COPY_SERVICES_RESPONSE;
     service_list->service_count = services->size;
 

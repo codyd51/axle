@@ -11,6 +11,10 @@ void gdt_activate(gdt_pointer_t* table);
 static gdt_entry_t _g_gdt_entries[16] = {0};
 static gdt_pointer_t _g_gdt_pointer = {0};
 
+void gdt_load_cs(uintptr_t cs);
+void gdt_load_ds(uint8_t ds_vector);
+void tss_activate(void);
+
 // TSS definition modified from http://www.jamesmolloy.co.uk/tutorial_html/10.-User%20Mode.html
 // TODO(PT): Update TSS gdt entry using manual
 typedef struct tss_entry32 {

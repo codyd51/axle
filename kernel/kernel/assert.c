@@ -4,11 +4,14 @@
 #include <std/printf.h>
 #include <std/kheap.h>
 #include <std/memory.h>
+#include <gfx/lib/gfx.h>
 
 #include <kernel/kernel.h>
 #include <kernel/boot_info.h>
 #include <kernel/vmm/vmm.h>
 #include <kernel/multitasking/tasks/task_small.h>
+#include <kernel/syscall/sysfuncs.h>
+#include <kernel/drivers/pit/pit.h>
 
 #include <kernel/util/amc/amc.h>
 #include <kernel/util/amc/amc_internal.h>

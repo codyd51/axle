@@ -4,9 +4,12 @@
 #include "int_handler_stubs.h"
 #include "pic.h"
 
-#include <kernel/segmentation/gdt_structures.h>
-#include <kernel/assert.h>
 #include <std/memory.h>
+#include <std/printf.h>
+
+#include <kernel/segmentation/gdt_structures.h>
+#include <kernel/multitasking/tasks/task_small.h>
+#include <kernel/assert.h>
 
 static idt_descriptor_t _g_idt_entries[256] = {0};
 static idt_pointer_t _g_idt_pointer = {0};

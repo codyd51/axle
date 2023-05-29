@@ -1,6 +1,9 @@
 #include <std/kheap.h>
 #include <std/math.h>
 #include <std/array_l.h>
+#include <std/string.h>
+#include <std/printf.h>
+#include <std/memory.h>
 #include <std/array_m.h>
 #include <std/hash_map.h>
 #include <kernel/util/elf/elf.h>
@@ -8,6 +11,8 @@
 
 #include "amc.h"
 #include "amc_internal.h"
+#include "kernel/drivers/pit/pit.h"
+#include "kernel/pmm/pmm.h"
 
 /* 
  * 0x80000000: ELF code and data
@@ -205,7 +210,7 @@ void amc_register_service(const char* name) {
         return;
     }
 
-    amc_service_t* service = calloc(1, sizeof(amc_service_t));
+    amc_service_t* service = kcalloc(1, sizeof(amc_service_t));
 
     printf("Registering service with name 0x%08x (%s)\n", name, name);
     char buf[256];
@@ -570,7 +575,7 @@ static bool _amc_message_send_from_service_name(
     }
 
     uint32_t total_msg_size = buf_size + sizeof(amc_message_t);
-    uint8_t* queued_msg = calloc(1, total_msg_size);
+    uint8_t* queued_msg = kcalloc(1, total_msg_size);
     amc_message_t* header = (amc_message_t*)queued_msg;
     strncpy((char*)header->source, source_service, sizeof(header->source));
     strncpy((char*)header->dest, destination_service, sizeof(header->dest));
