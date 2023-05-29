@@ -311,12 +311,9 @@ static void _amc_core_alloc_physical_range(const char* source_service, void* buf
 
     printf("[AMC] %s allocating memory mapping of size 0x%p\n", source->name, req->size);
 
-    // TODO(PT): If we need more than a page, modify this such that we ensure we get a contiguous region
-    // from the PMM
-    assert(req->size == PAGE_SIZE, "Allocating a virt/phys mapping larger than a page is unsupported, need to modify to get contiguous PMM regions");
-    uintptr_t virt_base = vas_alloc_range(vas_get_active_state(), 0x7d0000000000, req->size, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
-    uintptr_t phys_base = vas_get_phys_frame(vas_get_active_state(), virt_base);
-    printf("\tAllocated physical [0x%p - 0x%p], virtual [0x%p - 0x%p]\n", phys_base, phys_base + req->size, virt_base, virt_base + req->size);
+    uintptr_t phys_base = pmm_alloc_continuous_range(buf_size);
+    uintptr_t virt_base = vas_map_range_exact(vas_get_active_state(), 0x7d0000000000, buf_size, phys_base, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
+    printf("\tAllocated Phys [0x%p - 0x%p], Virt [0x%p - 0x%p]\n", phys_base, phys_base + req->size, virt_base, virt_base + req->size);
 
     amc_alloc_physical_range_response_t resp = {0};
     resp.event = AMC_ALLOC_PHYSICAL_RANGE_RESPONSE;
