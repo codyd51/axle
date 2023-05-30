@@ -38,11 +38,56 @@ const GIGABYTE: usize = MEGABYTE * 1024;
 // allocate)
 const MAX_MEMORY_ALLOCATOR_CAN_BOOKKEEP: usize = GIGABYTE * 16;
 const MAX_FRAMES_ALLOCATOR_CAN_BOOKKEEP: usize = MAX_MEMORY_ALLOCATOR_CAN_BOOKKEEP / PAGE_SIZE;
+// Reserve some memory for the contiguous physical chunk pool
+const CONTIGUOUS_CHUNK_POOL_SIZE: usize = MEGABYTE * 128;
+const MAX_CONTIGUOUS_CHUNK_FRAMES: usize = CONTIGUOUS_CHUNK_POOL_SIZE / PAGE_SIZE;
 
 #[derive(Debug, Copy, Clone)]
 struct PhysicalFrame(u64);
 
+#[derive(Debug, Copy, Clone)]
+struct ContiguousChunk {
+    base: PhysicalFrame,
+    size: u64,
+}
+
+struct ContiguousChunkPoolDescription {
+    base: usize,
+    total_size: usize,
+}
+
+impl ContiguousChunkPoolDescription {
+    fn new(base: usize, total_size: usize) -> Self {
+        Self { base, total_size }
+    }
+}
+
+struct ContiguousChunkPool {
+    pool_description: Option<ContiguousChunkPoolDescription>,
+    allocated_chunks: Vec<ContiguousChunk, MAX_CONTIGUOUS_CHUNK_FRAMES>,
+    free_frames: Vec<PhysicalFrame, MAX_CONTIGUOUS_CHUNK_FRAMES>,
+}
+
+impl ContiguousChunkPool {
+    const fn new() -> Self {
+        Self {
+            pool_description: None,
+            allocated_chunks: Vec::new(),
+            free_frames: Vec::new(),
+        }
+    }
+
+    fn set_pool_description(&mut self, base: usize, total_size: usize) {
+        self.pool_description = Some(ContiguousChunkPoolDescription::new(base, total_size));
+    }
+
+    fn is_pool_configured(&self) -> bool {
+        self.pool_description.is_some()
+    }
+}
+
 /// If we have a maximum of 16GB of RAM tracked, each array to track the frames will occupy 512kb.
+static mut CONTIGUOUS_CHUNK_POOL: ContiguousChunkPool = ContiguousChunkPool::new();
 static mut FREE_FRAMES: Mutex<Queue<PhysicalAddr, MAX_FRAMES_ALLOCATOR_CAN_BOOKKEEP>> =
     Mutex::new(Queue::new());
 
@@ -73,6 +118,15 @@ pub unsafe fn pmm_init() {
         let base = page_ceil(region.addr);
         // Subtract whatever extra we got by aligning to a frame boundary above
         let mut region_size = page_floor(region.len - (base - region.addr));
+
+        if !CONTIGUOUS_CHUNK_POOL.is_pool_configured() && region_size >= CONTIGUOUS_CHUNK_POOL_SIZE
+        {
+            printf("Found a free memory region that can serve as the contiguous chunk pool %p to %p\n\0".as_ptr() as *const u8, base, base + region_size);
+            CONTIGUOUS_CHUNK_POOL.set_pool_description(base, CONTIGUOUS_CHUNK_POOL_SIZE);
+            // Trim the contiguous chunk pool from the region and allow the rest of the frames to
+            // be given to the general-purpose allocator
+            region_size -= CONTIGUOUS_CHUNK_POOL_SIZE;
+        }
 
         let page_count = (region_size + (PAGE_SIZE - 1)) / PAGE_SIZE;
         for page_idx in 0..page_count {
@@ -116,4 +170,9 @@ pub unsafe fn pmm_alloc() -> usize {
 pub unsafe fn pmm_free(frame_addr: usize) {
     let mut free_frames_queue = FREE_FRAMES.lock();
     free_frames_queue.enqueue(PhysicalAddr(frame_addr)).unwrap();
+}
+
+#[no_mangle]
+pub unsafe fn pmm_alloc_continuous_range(size: usize) -> usize {
+    todo!()
 }
