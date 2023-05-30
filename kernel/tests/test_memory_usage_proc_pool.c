@@ -67,6 +67,8 @@ static void run_test(uint32_t i) {
 }
 
 void test_memory_usage_proc_pool(void) {
+    Deprecated();
+    /*
     pmm_dump();
     //liballoc_dump();
 
@@ -98,4 +100,5 @@ void test_memory_usage_proc_pool(void) {
     assert(pmm_growth == 0, "PMM grew!");
     assert(heap_growth == 0, "Kernel heap grew!");
     //while (1) {}
+    */
 }

@@ -76,7 +76,6 @@ void _start(axle_boot_info_t* boot_info) {
 
     // Kernel features
     pmm_init();
-    pmm_dump();
     vmm_init(boot_info->boot_pml4);
 
     syscall_init();
