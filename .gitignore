@@ -42,6 +42,7 @@ mkinitrd/target
 
 # Rust libraries generated as part of the kernel build
 .compiled_rust_kernel_libs
+rust_kernel_libs/target
 
 # AP bootstrap compiled as part of the kernel build
 .compiled_ap_bootstrap
