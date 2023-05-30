@@ -19,9 +19,7 @@ use cstr_core::CString;
 extern "C" {
     pub fn kmalloc(size: usize) -> *mut c_void;
     pub fn kfree(ptr: *mut c_char);
-    pub fn printf(fmt: *const u8, ...) -> i32;
-    pub fn assert(condition: bool, message: *const u8) -> ();
-    pub fn _panic(message: *const u8, file: *const u8, line: i64);
+
     pub fn interrupt_setup_callback(
         interrupt_vec: u8,
         callback: extern "C" fn(*const RegisterStateX86_64),
@@ -30,6 +28,10 @@ extern "C" {
     pub fn task_die(exit_code: u32);
     pub fn amc_wake_sleeping_services();
     pub fn getpid() -> i32;
+
+    // assert.c
+    pub fn assert(condition: bool, message: *const u8) -> ();
+    pub fn _panic(message: *const u8, file: *const u8, line: i64);
 
     // smp.h
     pub fn cpu_id() -> usize;
@@ -48,6 +50,15 @@ extern "C" {
     pub fn vas_get_active_state() -> *const VasState;
     pub fn vas_load_state(state: *const VasState);
     pub fn vas_is_page_present(state: *const VasState, page_addr: u64) -> bool;
+
+    // boot_info.h
+    pub fn boot_info_get() -> *const BootInfo;
+
+    // multitasking/tasks/mlfq.h
+    pub fn mlfq_print();
+
+    // printf.h
+    pub fn printf(fmt: *const u8, args: ...) -> i32;
 }
 
 #[macro_export]
@@ -354,4 +365,86 @@ pub struct VasState {
     pub range_count: u32,
     max_range_count: u32,
     pub ranges: [VasRange; 0],
+}
+
+/// Represents physical_memory_region_type
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum PhysicalMemoryRegionType {
+    Usable,
+    Reserved,
+    ReservedAcpiNvm,
+    ReservedAxleKernelCodeAndData,
+    ReservedAcpiTables,
+}
+
+/// Represents physical_memory_region_t
+#[repr(C)]
+#[derive(Debug)]
+pub struct PhysicalMemoryRegion {
+    pub region_type: PhysicalMemoryRegionType,
+    pub addr: usize,
+    pub len: usize,
+}
+
+/// Represents framebuffer_info_t
+#[repr(C)]
+#[derive(Debug)]
+pub struct FramebufferInfo {
+    address: usize,
+    width: usize,
+    height: usize,
+    bits_per_pixel: u8,
+    bytes_per_pixel: u8,
+    pixels_per_scanline: u32,
+    size: usize,
+}
+
+/// Represents boot_info_t
+#[repr(C)]
+#[derive(Debug)]
+pub struct BootInfo {
+    kernel_image_start: usize,
+    kernel_image_end: usize,
+    kernel_image_size: usize,
+
+    file_server_elf_start: usize,
+    file_server_elf_end: usize,
+    file_server_elf_size: usize,
+
+    initrd_start: usize,
+    initrd_end: usize,
+    initrd_size: usize,
+
+    pub mem_region_count: u32,
+    pub mem_regions: [PhysicalMemoryRegion; 256],
+
+    kernel_elf_symbol_table: ElfSymbolTableInfo,
+    framebuffer: FramebufferInfo,
+
+    // Actually a vas_state_t*
+    vas_kernel: usize,
+
+    ms_per_pit_tick: u32,
+
+    acpi_rsdp: usize,
+
+    ap_bootstrap_base: usize,
+    ap_bootstrap_size: usize,
+
+    // Actually an smp_info_t*
+    smp_info: usize,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct PhysicalAddr(pub usize);
+#[derive(Debug, Copy, Clone)]
+pub struct VirtualAddr(pub usize);
+
+// Defined in vmm.h
+pub const KERNEL_MEMORY_BASE: usize = 0xFFFF800000000000;
+
+/// Equates to vmm.h:PMA_TO_VMA
+pub fn phys_addr_to_virt_ram_remap(phys_addr: PhysicalAddr) -> VirtualAddr {
+    VirtualAddr(phys_addr.0 + KERNEL_MEMORY_BASE)
 }

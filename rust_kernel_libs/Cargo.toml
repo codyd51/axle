@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "ffi_bindings",
     "acpi",
+    "pmm",
 ]
 
 exclude = []

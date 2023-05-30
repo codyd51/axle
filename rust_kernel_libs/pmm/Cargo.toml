@@ -1,0 +1,14 @@
+[package]
+name = "pmm"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "pmm"
+crate-type = ["staticlib"]
+
+[dependencies]
+ffi_bindings = {path = "../ffi_bindings"}
+lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
+spin = "0.9.4"
+heapless = { version = "0.7.16" }

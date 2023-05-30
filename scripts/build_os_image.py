@@ -151,7 +151,6 @@ def main():
         kernel_root / "kernel" / "interrupts" / "idt_activate.s",
         kernel_root / "kernel" / "interrupts" / "int_handler_stubs.s",
         kernel_root / "kernel" / "pmm" / "pmm_int.h",
-        kernel_root / "kernel" / "pmm" / "pmm.c",
         kernel_root / "kernel" / "vmm" / "vmm.h",
         kernel_root / "kernel" / "vmm" / "vmm.c",
     ]
