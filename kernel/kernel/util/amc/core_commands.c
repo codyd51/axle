@@ -173,7 +173,8 @@ static void _amc_core_file_server_exec_buffer(const char* source_service, void* 
 static void _amc_core_handle_profile_request(const char* source_service) {
     amc_system_profile_response_t resp = {0};
     resp.event = AMC_SYSTEM_PROFILE_RESPONSE;
-    resp.pmm_allocated = pmm_allocated_memory();
+    //resp.pmm_allocated = pmm_allocated_memory();
+    NotImplemented();
     resp.kheap_allocated = kheap_allocated_memory();
     amc_message_send__from_core(source_service, &resp, sizeof(resp));
 }
