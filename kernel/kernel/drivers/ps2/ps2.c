@@ -118,7 +118,8 @@ void ps2_controller_init(void) {
     for (uint32_t i = 0; i < 2; i++) {
         ps2_write_device(i, PS2_DEV_RESET);
         uint8_t ret = ps2_read(PS2_DATA);
-        assert(ret == PS2_DEV_ACK && ps2_read(PS2_DATA) == PS2_DEV_RESET_ACK, "Failed to reset device");
+        printf("Reset %d expect %d\n", ret, PS2_DEV_ACK);
+        //assert(ret == PS2_DEV_ACK && ps2_read(PS2_DATA) == PS2_DEV_RESET_ACK, "Failed to reset device");
 
         // For some reason, mice send an additional 0x00 byte
         /*

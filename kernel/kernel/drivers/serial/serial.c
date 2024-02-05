@@ -3,11 +3,25 @@
 #include "kernel/util/spinlock/spinlock.h"
 #include <kernel/smp.h>
 
+// Ref: https://www.lookrs232.com/rs232/fcr.htm
+
 //COM 1
 #define PORT 0x3F8
 
-#define BUF_SIZE 1028*8
-static char buffer[BUF_SIZE];
+// Only valid when DLAB is unset
+#define DATA_REGISTER (PORT + 0)
+#define INTERRUPT_ENABLE_REGISTER (PORT + 1)
+
+// Only valid when DLAB is set
+#define DLAB_DATA_BYTE_LOW_REGISTER (PORT + 0)
+#define DLAB_DATA_BYTE_HIGH_REGISTER (PORT + 1)
+
+#define INTERRUPT_AND_FIFO_CONTROL_REGISTER (PORT + 2)
+#define LINE_CONTROL_REGISTER (PORT + 3)
+#define MODEM_CONTROL_REGISTER (PORT + 4)
+
+#define BUF_SIZE (1028*8)
+static char buffer[BUF_SIZE] = {0};
 static int idx = 0;
 
 int serial_waiting() {
@@ -25,7 +39,10 @@ bool is_transmitting() {
 
 void __serial_putchar(char c) {
 	while (is_transmitting() == 0);
-	if (c == '\n') outb(PORT, '\r');
+	if (c == '\n') {
+        // Add an extra carriage return
+        outb(PORT, '\r');
+    }
 	outb(PORT, c);
 }
 
@@ -38,7 +55,8 @@ void __serial_writestring(char* str) {
 
 static void serial_flush() {
 	__serial_writestring(buffer);
-	memset(buffer, 0, BUF_SIZE);
+    // It's only necessary to memset up to where we last wrote
+	memset(buffer, 0, idx);
 	idx = 0;
 }
 
@@ -49,7 +67,7 @@ void serial_putchar(char c) {
 	}
 	//append c to buffer
 	buffer[idx+0] = c;
-	buffer[idx+1] = '\0';
+	//buffer[idx+1] = '\0';
 	idx++;
 	//also flush on newline
 	if (c == '\n') {
@@ -95,11 +113,48 @@ void serial_init() {
 
 	memset(buffer, 0, BUF_SIZE);
 
-	outb(PORT + 1, 0x00); //interrupts off
-	outb(PORT + 3, 0x80); //baud rate
-	outb(PORT + 0, 0x03); //divisor to 3
-	outb(PORT + 1, 0x00);
-	outb(PORT + 3, 0x03); //1 byte, no parity, 1 stop bit
-	outb(PORT + 2, 0xC7); //FIFO, 14-byte threshold
-	outb(PORT + 4, 0x0B); //irq on, RTS/DSR set
+    // Disable interrupts
+	outb(INTERRUPT_ENABLE_REGISTER, 0x00);
+
+    // Enable DLAB bit, as we'll set the frequency divisor next
+	outb(LINE_CONTROL_REGISTER, 0x80);
+    // Set divisor to 1, so we transmit at the serial clock speed
+    // Low divisor byte
+	outb(DLAB_DATA_BYTE_LOW_REGISTER, 0x01);
+    // High divisor byte
+	outb(DLAB_DATA_BYTE_HIGH_REGISTER, 0x00);
+
+    // Bit pattern:
+    // [0, 1]: Set 7 data bits (we're just sending ASCII so this should work out cleanly)
+    // 2: Set 1 stop bit
+    // 3: No parity bit
+    outb(LINE_CONTROL_REGISTER, 0b0010);
+
+    // Bit pattern:
+    // 0: Enable FIFO's
+    // 1: Clear receive FIFO
+    // 2: Clear transmit FIFO
+    // 3: DMA mode-select
+    // 4: Reserved
+    // 5: Disable model-specific 64-byte FIFO
+    // [6-7]: Set interrupt trigger level to 14 bytes
+	outb(INTERRUPT_AND_FIFO_CONTROL_REGISTER, 0b11000111);
+
+    // Bit pattern:
+    // 0: Data Terminal Ready
+    // 1: Request to Send
+    // 2: OUT1, unused in PC implementations
+    // 3: Set the OUT2 hardware pin which is used to enable the IRQ in PC implementations
+    // 4: Disable loopback
+    // [5-7]: Unused
+	outb(MODEM_CONTROL_REGISTER, 0b00001011);
+
+    // TODO(PT): Switch to an interrupt-based model for this controller, instead of polling
+    /*
+    // Enable interrupts.
+    // Bit pattern:
+    // : Interrupt when the transmitter is empty (so we know when we can send more)
+    interrupt_setup_callback(INT_VECTOR_APIC_4, (int_callback_t)_handle_irq);
+    outb(INTERRUPT_ENABLE_REGISTER, 0b10);
+    */
 }
