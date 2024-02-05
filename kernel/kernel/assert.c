@@ -49,28 +49,30 @@ void print_stack_trace(int frame_count) {
 void panic_with_regs(const char* msg, register_state_x86_64_t* regs) {
     asm("cli");
 
-    int buf_size = 2048;
+    int buf_size = 1024;
     char buf[buf_size];
 
     // Error message
     snprintf(buf, sizeof(buf), "Critical error! %s\n", msg);
     kernel_gfx_write_line_rendered_string(buf);
 
-    // RIP
-    snprintf(buf, sizeof(buf), "RIP: 0x%x", regs->return_rip);
-    kernel_gfx_write_line_rendered_string(buf);
+    if (regs) {
+        // RIP
+        snprintf(buf, sizeof(buf), "RIP: 0x%p", regs->return_rip);
+        kernel_gfx_write_line_rendered_string(buf);
 
-    // Stack trace
-    char* buf_ptr = buf;
-    memset(buf_ptr, 0, buf_size);
+        // Stack trace
+        char *buf_ptr = buf;
+        memset(buf_ptr, 0, buf_size);
 
-    for (int i = 0; i < 16; i++) {
-        if (!symbolicate_and_append(i, _get_return_address_of_stack_frame(i, regs), &buf_ptr, &buf_size)) {
-            break;
+        for (int i = 0; i < 16; i++) {
+            if (!symbolicate_and_append(i, _get_return_address_of_stack_frame(i, regs), &buf_ptr, &buf_size)) {
+                break;
+            }
         }
+        kernel_gfx_write_line_rendered_string("Stack trace:\n");
+        kernel_gfx_write_line_rendered_string(buf);
     }
-    kernel_gfx_write_line_rendered_string("Stack trace:\n");
-    kernel_gfx_write_line_rendered_string(buf);
 
     asm("hlt");
 }
@@ -104,7 +106,7 @@ bool symbolicate_and_append__user_mode_frame(int frame_idx, uintptr_t* frame_add
 }
 
 bool symbolicate_and_append(int frame_idx, uintptr_t* frame_addr, char** buf_head, int32_t* buf_size) {
-    printf("symbolicate(%d, 0x%x) = ", frame_idx, frame_addr);
+    //printf("symbolicate(%d, 0x%x) = ", frame_idx, frame_addr);
 
     if (frame_addr < PAGE_SIZE) {
         // If we've traversed to the NULL page, we're probably out of stack frames
