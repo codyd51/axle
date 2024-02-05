@@ -165,10 +165,12 @@ def main():
             print(f"\tCopying arch-specific code {arch_specific_file} to {file}...")
             shutil.copy(arch_specific_file.as_posix(), file.as_posix())
     
-    # Build bootloader
-    env = {"USE_GCC": "1", "SHELL": "sh -xv"}
-    run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader" / "uefi", env_additions=env)
-    run_and_check(["make"], cwd=Path(__file__).parents[1] / "bootloader", env_additions=env)
+    if True:
+        # Build bootloader
+        # env = {"USE_GCC": "1", "SHELL": "sh -xv"}
+        env = {}
+        #run_and_check(["make"], cwd=_REPO_ROOT / "bootloader" / "uefi", env_additions=env)
+        run_and_check(["make"], cwd=_REPO_ROOT / "bootloader", env_additions=env)
 
     # Build the Rust kernel libraries
     build_kernel_rust_libs()
@@ -180,17 +182,19 @@ def main():
     # Build the C and assembly portions of the kernel, and link with the Rust libraries
     run_and_check(["make"])
 
-    # Build Rust programs before C programs as the C programs might 
-    # need headers installed by Rust build scripts
-    build_rust_programs()
+    working_on_kernel_only = False
+    if not working_on_kernel_only:
+        # Build Rust programs before C programs as the C programs might
+        # need headers installed by Rust build scripts
+        build_rust_programs()
 
-    # Build user programs
-    build_meson_projects()
+        # Build user programs
+        build_meson_projects()
 
-    build_dist_tree()
+        build_dist_tree()
 
-    # Build ramdisk
-    build_initrd()
+        # Build ramdisk
+        build_initrd()
 
     # Build disk image
     image_name = build_iso()

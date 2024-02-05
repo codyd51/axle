@@ -32,7 +32,7 @@ def build_meson_projects(only_build: Optional[List[str]] = None) -> None:
             run_and_check(["meson", "build", "--cross-file", cross_compile_config_path.as_posix()], cwd=programs_root)
 
         run_and_check(["meson", "compile", "-C", "build"], cwd=programs_root)
-        # run_and_check(["meson", "install", "-C", "build", "--only-changed"], cwd=programs_root)
+        run_and_check(["meson", "install", "-C", "build", "--only-changed"], cwd=programs_root)
         run_and_check(["meson", "install", "-C", "build"], cwd=programs_root)
 
 
