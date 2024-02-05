@@ -7,10 +7,12 @@ def run_iso(image_path: Path, debug_with_gdb: bool = False) -> None:
         [
             # Use host CPU
             # Not compatible with GDB
-            "-accel",
-            "hvf",
-            "-cpu",
-            "host",
+            # PT: Also not compatible with AArch64 Macs, as axle targets x86_64.
+            # TODO(PT): Conditionally enable these flags if we're running on an x86_64 host (and select accelerator appropriately).
+            # "-accel",
+            # "hvf",
+            # "-cpu",
+            # "host",
         ]
         if not debug_with_gdb else [
             "-s", '-S',
@@ -19,6 +21,10 @@ def run_iso(image_path: Path, debug_with_gdb: bool = False) -> None:
     # Run disk image
     run_and_check(
         [
+            # PT: Run natively on M1 Macs
+            # TODO(PT): Support a wider variety of host configurations out-of-the-box
+            "arch",
+            "-arm64",
             "qemu-system-x86_64",
             # UEFI OVMF firmware
             "-pflash",
@@ -50,8 +56,11 @@ def run_iso(image_path: Path, debug_with_gdb: bool = False) -> None:
             "-vga",
             "virtio",
             # Use multiple CPU cores
-            "-smp",
-            "4",
+            #"-smp",
+            #"4",
+            "-net","nic,model=rtl8139",
+            #"-netdev vmnet-shared,id=net0 -device virtio-net-device,netdev=net0",
+            # "-netdev vmnet-shared,id=vmnet -device rtl8139,netdev=vmnet",
         ] + extra_args
     )
 
