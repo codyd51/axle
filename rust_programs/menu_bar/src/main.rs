@@ -190,25 +190,33 @@ impl MenuBar {
         container_view.set_border_enabled(false);
         Rc::clone(&window).add_component(Rc::clone(&container_view) as Rc<dyn UIElement>);
 
+        //let font_size = Size::new(20, 28);
         let font_size = Size::new(8, 10);
         let vanity_label = Rc::new(Label::new(
-            Rect::from_parts(
-                Point::new(8, (AWM_MENU_BAR_HEIGHT / 2) - font_size.height / 2),
-                Size::new(300, AWM_MENU_BAR_HEIGHT),
-            ),
             "axle OS",
             Color::new(30, 30, 30),
+            move |_, _| {
+                Rect::from_parts(
+                    //Point::new(8, (AWM_MENU_BAR_HEIGHT / 2) - font_size.height / 2),
+                    Point::new(8, 0),
+                    //Point::new(8, 0),
+                    Size::new(300, AWM_MENU_BAR_HEIGHT),
+                )
+            },
         ));
         let vanity_label_clone = Rc::clone(&vanity_label);
         Rc::clone(&container_view).add_component(vanity_label_clone);
 
         let uptime_label = Rc::new(Label::new(
-            Rect::from_parts(
-                Point::new(1920 - 110, (AWM_MENU_BAR_HEIGHT / 2) - font_size.height / 2),
-                Size::new(110, AWM_MENU_BAR_HEIGHT),
-            ),
             "Uptime: 0s",
             Color::new(30, 30, 30),
+            move |_, _| {
+                Rect::from_parts(
+                    Point::new(1920 - 110, (AWM_MENU_BAR_HEIGHT / 2) - font_size.height / 2),
+                    //Point::new(1920 - 110, 0),
+                    Size::new(110, AWM_MENU_BAR_HEIGHT),
+                )
+            },
         ));
         let uptime_label_clone = Rc::clone(&uptime_label);
         Rc::clone(&container_view).add_component(uptime_label_clone);
