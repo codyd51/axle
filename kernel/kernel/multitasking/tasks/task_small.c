@@ -113,6 +113,7 @@ task_small_t* tasking_get_current_task() {
 }
 
 void task_die(uintptr_t exit_code) {
+    // Blog post: Cross-arch builds in axle (templating arch-specific files)
     printf("[%d] self-terminated with exit %d (0x%x). Zombie\n", getpid(), exit_code, exit_code);
 
     task_inform_supervisor__process_exit(exit_code);
@@ -128,7 +129,7 @@ void task_die(uintptr_t exit_code) {
     // Even if we're preempted in between switching to zombie and informing reaper,
     // we'll still be cleaned up
     tasking_get_current_task()->blocked_info.status = ZOMBIE;
-    task_switch();
+    task_switch_without_transitioning_current_task_to_new_scheduler_queue();
     panic("Should never be scheduled again");
 }
 
@@ -352,22 +353,7 @@ void tasking_reenable_scheduling(void) {
     _task_schedule_disabled = false;
 }
 
-/*
- * Pick the next task to schedule, and preempt the currently running one.
- */
-
-void task_switch(void) {
-    asm("cli");
-    if (_task_schedule_disabled) {
-        printf("[Schedule] Skipping task-switch because scheduler is disabled\n");
-        return;
-    }
-
-    // Cancel the LAPIC timer, if any
-    local_apic_timer_cancel();
-
-    // Tell the scheduler about the task switch
-    mlfq_prepare_for_switch_from_task(cpu_current_task());
+static void _task_switch_cont(void) {
     task_small_t* next_task = 0;
     uint32_t quantum = 0;
 
@@ -397,9 +383,40 @@ void task_switch(void) {
     }
 
     //if (next_task != _current_task_small) {
-        //printf("Schedule [%d %s] for %d\n", next_task->id, next_task->name, quantum);
-        tasking_goto_task(next_task, quantum);
+    //printf("Schedule [%d %s] for %d\n", next_task->id, next_task->name, quantum);
+    tasking_goto_task(next_task, quantum);
     //}
+}
+
+/// Same as task_switch(), but doesn't transition the old task to a new scheduler queue
+void task_switch_without_transitioning_current_task_to_new_scheduler_queue(void) {
+    asm("cli");
+    if (_task_schedule_disabled) {
+        printf("[Schedule] Skipping task-switch because scheduler is disabled\n");
+        return;
+    }
+
+    // Cancel the LAPIC timer, if any
+    local_apic_timer_cancel();
+    _task_switch_cont();
+}
+
+/*
+ * Pick the next task to schedule, and preempt the currently running one.
+ */
+void task_switch(void) {
+    asm("cli");
+    if (_task_schedule_disabled) {
+        printf("[Schedule] Skipping task-switch because scheduler is disabled\n");
+        return;
+    }
+
+    // Cancel the LAPIC timer, if any
+    local_apic_timer_cancel();
+
+    // Tell the scheduler about the task switch
+    mlfq_prepare_for_switch_from_task(cpu_current_task());
+    _task_switch_cont();
 }
 
 void mlfq_goto_task(task_small_t* task) {
@@ -548,7 +565,8 @@ void tasking_init_part2(void* continue_func_ptr) {
 
     // Context switch to the reaper with a small quantum so it has time to set up its AMC service
     // This way, we're sure that from here reaper is always ready to tear down processes
-    tasking_goto_task(reaper_tcb, 5);
+    printf("Context switching to reaper...\n");
+    tasking_goto_task(reaper_tcb, 1000);
     assert(amc_service_is_active("com.axle.reaper"), "Reaper AMC service didn't come up as expected");
 
     void(*continue_func)(void) = (void(*)(void))continue_func_ptr;
