@@ -207,6 +207,7 @@ void kernel_gfx_write_line_rendered_string_ex(char* str, bool higher_half) {
     }
 
     Point end_cursor = kernel_gfx_draw_string((uint8_t*)addr, str, _g_cursor, color_white(), _g_font_size);
+    _g_cursor.x = 0;
     _g_cursor.y = end_cursor.y + (_g_font_size.height * 2);
 }
 
