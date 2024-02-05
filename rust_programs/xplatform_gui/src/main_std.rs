@@ -3,8 +3,8 @@ use agx_definitions::{
     StrokeThickness,
 };
 use libgui::bordered::Bordered;
+use libgui::scroll_view::ScrollView;
 use libgui::text_input_view::TextInputView;
-use libgui::text_view::ScrollView;
 use libgui::ui_elements::UIElement;
 use libgui::KeyCode;
 use libgui::{view::View, AwmWindow};
@@ -57,9 +57,11 @@ pub fn main() -> Result<(), Box<dyn error::Error>> {
         )
     };
 
-    let source_code_view = TextInputView::new(Size::new(16, 16), move |_v, superview_size| {
-        source_code_view_sizer(superview_size)
-    });
+    let source_code_view = TextInputView::new(
+        Some("/Users/philliptennen/Documents/develop/axle.nosync/axle-sysroot/fonts/sf_pro.ttf"),
+        Size::new(16, 16),
+        move |_v, superview_size| source_code_view_sizer(superview_size),
+    );
     Rc::clone(&window).add_component(Rc::clone(&source_code_view) as Rc<dyn UIElement>);
 
     let top_view = Rc::new(View::new(Color::green(), move |_v, superview_size| {
