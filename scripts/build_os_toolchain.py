@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 from typing import Tuple
 
-from build_utils import download_and_unpack_archive, run_and_check
+from build_utils import download_and_unpack_archive, run_and_check, is_on_macos, is_arm64_process
 
 
 def clone_tool_and_prepare_build_dir(build_dir: Path, url: str) -> Tuple[Path, Path]:
@@ -23,15 +23,6 @@ def sleep():
     import time
     while True:
         time.sleep(1)
-
-
-def is_arm64_process() -> bool:
-    # Are we currently running in 'native' arm64 mode?
-    return platform.machine() == 'arm64'
-
-
-def is_on_macos() -> bool:
-    return 'macosx' in sysconfig.get_platform()
 
 
 def build() -> None:

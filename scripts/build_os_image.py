@@ -1,5 +1,4 @@
 #!/usr/local/bin/python3
-import os
 import argparse
 import tempfile
 import string
@@ -9,7 +8,7 @@ from typing import Generator, Any
 from contextlib import contextmanager
 
 from build_kernel_headers import copy_kernel_headers
-from build_utils import run_and_check, run_and_capture_output_and_check, copied_file_is_outdated
+from build_utils import run_and_check, run_and_capture_output_and_check, copied_file_is_outdated, is_on_macos
 from build_meson_projects import build_meson_projects
 from build_rust_toolchain import build_rust_programs, build_kernel_rust_libs
 from run_axle import run_iso
@@ -20,16 +19,12 @@ ARCH = "x86_64"
 _REPO_ROOT = Path(__file__).parents[1]
 
 
-def _is_macos() -> bool:
-    return os.uname().sysname == 'Darwin'
-
-
 @contextmanager
 def _get_mounted_iso(image_name: Path) -> Generator[Path, Any, Any]:
     disk_size_in_mb = 128
     sector_size = 512
     sector_count = (disk_size_in_mb * 1024 * 1024) / sector_size
-    if _is_macos():
+    if is_on_macos():
         mounted_disk_name = run_and_capture_output_and_check(
             ["hdiutil", "attach", "-imagekey", "diskimage-class=CRawDiskImage", "-nomount", image_name.as_posix()]
         ).strip(f"{string.whitespace}\n")
@@ -164,13 +159,14 @@ def main():
         if not file.exists() or copied_file_is_outdated(arch_specific_file, file):
             print(f"\tCopying arch-specific code {arch_specific_file} to {file}...")
             shutil.copy(arch_specific_file.as_posix(), file.as_posix())
-    
-    if True:
-        # Build bootloader
-        # env = {"USE_GCC": "1", "SHELL": "sh -xv"}
+
+    # Build bootloader
+    if is_on_macos():
         env = {}
-        #run_and_check(["make"], cwd=_REPO_ROOT / "bootloader" / "uefi", env_additions=env)
-        run_and_check(["make"], cwd=_REPO_ROOT / "bootloader", env_additions=env)
+    else:
+        env = {"USE_GCC": "1", "SHELL": "sh -xv"}
+    #run_and_check(["make"], cwd=_REPO_ROOT / "bootloader" / "uefi", env_additions=env)
+    run_and_check(["make"], cwd=_REPO_ROOT / "bootloader", env_additions=env)
 
     # Build the Rust kernel libraries
     build_kernel_rust_libs()

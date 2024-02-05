@@ -1,9 +1,11 @@
 #!/usr/local/bin/python3
 import io
 import os
+import platform
 import selectors
 import shutil
 import subprocess
+import sysconfig
 import urllib
 import requests
 import sys
@@ -18,6 +20,15 @@ def second_file_is_older(file1: Path, file2: Path) -> bool:
 
 def copied_file_is_outdated(source_path: Path, copied_path: Path) -> bool:
     return second_file_is_older(source_path, copied_path)
+
+
+def is_arm64_process() -> bool:
+    # Are we currently running in 'native' arm64 mode?
+    return platform.machine() == 'arm64'
+
+
+def is_on_macos() -> bool:
+    return 'macosx' in sysconfig.get_platform()
 
 
 def run_and_check(cmd_list: List[str], cwd: Path = None, env_additions: Optional[Dict[str, str]] = None) -> None:
