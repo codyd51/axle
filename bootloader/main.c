@@ -109,7 +109,7 @@ uint64_t kernel_map_elf(const char* kernel_filename, pml4e_t* vas_state, axle_bo
 			memcpy((void*)segment_phys_base, kernel_buf + phdr->p_offset, phdr->p_filesz);
 			memset((void*)(segment_phys_base + phdr->p_filesz), 0, bss_size);
 
-			printf("Mapping [phys 0x%p - 0x%p] - [virt 0x%p - 0x%p]\n", segment_phys_base, segment_phys_base + segment_size_page_padded - 1, phdr->p_vaddr, phdr->p_vaddr + segment_size_page_padded - 1);
+			printf("Mapping [phys 0x%p - 0x%p] - [virt 0x%p - 0x%p]\n", segment_phys_base, segment_phys_base + segment_size_page_padded, phdr->p_vaddr, phdr->p_vaddr + segment_size_page_padded);
 			map_region_4k_pages(vas_state, phdr->p_vaddr, segment_size_page_padded, segment_phys_base);
 		}
 	}

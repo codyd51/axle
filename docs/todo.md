@@ -308,3 +308,7 @@ Closing windows
 Logs viewer should have tabs to filter the logs on a per-process basis
 
 Read a config/max_cpus.txt to decide when to stop booting APs
+
+Read a config/resolution.txt to decide the resolution selected by the bootloader
+
+Auto install LLD link? Or llvm with brew? Need lld-link for the UEFI build

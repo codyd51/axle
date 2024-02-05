@@ -213,7 +213,111 @@ uint64_t map_region_1gb_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start,
 }
 
 uint64_t map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start, uint64_t vmem_size, uint64_t phys_start) {
-	//printf("map_region [phys 0x%p - 0x%p] to [virt 0x%p - 0x%p]\n", phys_start, phys_start + vmem_size - 1, vmem_start, vmem_start + vmem_size - 1);
+    printf("map_region [phys 0x%p - 0x%p] to [virt 0x%p - 0x%p], size %p\n", phys_start, phys_start + vmem_size, vmem_start, vmem_start + vmem_size, vmem_size);
+    uint64_t remaining_size = vmem_size;
+    uint64_t current_frame = phys_start;
+    uint64_t current_page = vmem_start;
+
+    while (true) {
+        // Find the correct paging structure indexes for the current virtual address
+        int page_directory_pointer_table_idx = VMA_PML4E_IDX(current_page);
+
+        // Get the page directory pointer table
+        pdpe_t* page_directory_pointer_table = NULL;
+        if (page_mapping_level4[page_directory_pointer_table_idx].bits.present) {
+            // We've already created the necessary PDPT
+            page_directory_pointer_table = (pdpe_t*)(page_mapping_level4[page_directory_pointer_table_idx].bits.page_dir_pointer_base * PAGE_SIZE);
+            //printf("\tRe-using existing PDPT 0x%p\n", page_directory_pointer_table);
+        }
+        else {
+            efi_physical_address_t page_directory_pointer_table_addr = 0;
+            efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_PAL_CODE, 1, &page_directory_pointer_table_addr);
+            if (EFI_ERROR(status)) {
+                printf("\tFailed to allocate page directory pointer table! %ld\n", status);
+                return 0;
+            }
+            page_directory_pointer_table = (pdpe_t*)page_directory_pointer_table_addr;
+            memset(page_directory_pointer_table, 0, PAGE_SIZE);
+            //printf("\tAllocated new page directory pointer table at 0x%p\n", page_directory_pointer_table);
+
+            page_mapping_level4[page_directory_pointer_table_idx].bits.present = true;
+            page_mapping_level4[page_directory_pointer_table_idx].bits.writable = true;
+            page_mapping_level4[page_directory_pointer_table_idx].bits.user_mode = false;
+            page_mapping_level4[page_directory_pointer_table_idx].bits.page_dir_pointer_base = page_directory_pointer_table_addr / PAGE_SIZE;
+        }
+
+        // Get the page directory corresponding to the current virtual address
+        int page_directory_idx = VMA_PDPE_IDX(current_page);
+        pde_t* page_directory = NULL;
+        if (page_directory_pointer_table[page_directory_idx].bits.present) {
+            // We've already created the necessary page directory
+            page_directory = (pde_t*)(page_directory_pointer_table[page_directory_idx].bits.page_dir_base * PAGE_SIZE);
+            //printf("\tRe-using existing page directory 0x%p\n", page_directory);
+        }
+        else {
+            efi_physical_address_t page_directory_addr = 0;
+            efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_PAL_CODE, 1, &page_directory_addr);
+            if (EFI_ERROR(status)) {
+                printf("Failed to allocate page directory! %ld\n", status);
+                return 0;
+            }
+            page_directory = (pde_t*)page_directory_addr;
+            memset(page_directory, 0, PAGE_SIZE);
+
+            page_directory_pointer_table[page_directory_idx].bits.present = true;
+            page_directory_pointer_table[page_directory_idx].bits.writable = true;
+            page_directory_pointer_table[page_directory_idx].bits.user_mode = false;
+            page_directory_pointer_table[page_directory_idx].bits.page_dir_base = page_directory_addr / PAGE_SIZE;
+        }
+
+        // Get the page table corresponding to the current virtual address
+        int page_table_idx = VMA_PDE_IDX(current_page);
+        pte_t* page_table = NULL;
+        if (page_directory[page_table_idx].bits.present) {
+            // We've already created the necessary page table
+            page_table = (pte_t*)(page_directory[page_table_idx].bits.page_table_base * PAGE_SIZE);
+            //printf("\tRe-using existing page table 0x%p in page directory 0x%p\n", page_table, page_directory);
+        }
+        else {
+            efi_physical_address_t page_table_addr = 0;
+            efi_status_t status = BS->AllocatePages(AllocateAnyPages, EFI_PAL_CODE, 1, &page_table_addr);
+            if (EFI_ERROR(status)) {
+                printf("Failed to allocate page table! %ld\n", status);
+                return 0;
+            }
+            //printf("\tAllocated new page table 0x%p in page directory 0x%p\n", page_table_addr, page_directory);
+            page_table = (pte_t*)page_table_addr;
+            memset(page_table, 0, PAGE_SIZE);
+
+            page_directory[page_table_idx].bits.present = true;
+            page_directory[page_table_idx].bits.writable = true;
+            page_directory[page_table_idx].bits.user_mode = false;
+            page_directory[page_table_idx].bits.page_table_base = page_table_addr / PAGE_SIZE;
+        }
+
+        // Get the PTE corresponding to the current virtual address
+        uint64_t page_idx = VMA_PTE_IDX(current_page);
+        page_table[page_idx].bits.present = true;
+        page_table[page_idx].bits.writable = true;
+        page_table[page_idx].bits.user_mode = false;
+        page_table[page_idx].bits.page_base = current_frame / PAGE_SIZE;
+        // TODO(PT): This should be configurable by the caller
+        page_table[page_idx].bits.cache_disabled = true;
+        //page_table[j].bits.global_page = true;
+
+        remaining_size -= PAGE_SIZE;
+        current_frame += PAGE_SIZE;
+        current_page += PAGE_SIZE;
+
+        if (remaining_size == 0x0) {
+            break;
+        }
+    }
+}
+
+uint64_t map_region_4k_pages_old(pml4e_t* page_mapping_level4, uint64_t vmem_start, uint64_t vmem_size, uint64_t phys_start) {
+	printf("map_region [phys 0x%p - 0x%p] to [virt 0x%p - 0x%p], size %p\n", phys_start, phys_start + vmem_size, vmem_start, vmem_start + vmem_size, vmem_size);
+    bool debug = vmem_start +vmem_size == 0xffffffff82218000;
 	uint64_t remaining_size = vmem_size;
 	uint64_t current_frame = phys_start;
 	uint64_t current_page = vmem_start;
@@ -225,7 +329,7 @@ uint64_t map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start, 
 	if (page_mapping_level4[page_directory_pointer_table_idx].bits.present) {
 		// We've already created the necessary PDPT
 		page_directory_pointer_table = (pdpe_t*)(page_mapping_level4[page_directory_pointer_table_idx].bits.page_dir_pointer_base * PAGE_SIZE);
-		//printf("\tRe-using existing PDPT 0x%p\n", page_directory_pointer_table);
+		printf("\tRe-using existing PDPT 0x%p\n", page_directory_pointer_table);
 	}
 	else {
 		efi_physical_address_t page_directory_pointer_table_addr = 0;
@@ -245,19 +349,18 @@ uint64_t map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start, 
 	}
 
 	uint64_t page_directories_needed = (remaining_size + (VMEM_IN_PDPE - 1)) / VMEM_IN_PDPE;
+    if (debug) printf("page_directories_needed %ld\n", page_directories_needed);
 	page_directories_needed = min(page_directories_needed, PAGE_DIRECTORIES_IN_PAGE_DIRECTORY_POINTER_TABLE);
 	uint64_t first_page_directory = VMA_PDPE_IDX(vmem_start);
 	//printf("\tvmem_size 0x%p page_dirs_needed %ld\n", vmem_size, page_directories_needed);
 
 	for (int page_directory_iter_idx = 0; page_directory_iter_idx < page_directories_needed; page_directory_iter_idx++) {
-	//for (int page_directory_idx = first_page_directory; page_directory_idx < first_page_directory + page_directories_needed; page_directory_idx++) {
 		int page_directory_idx = page_directory_iter_idx + first_page_directory;
-		//printf("\tpage_directory_idx %ld\n", page_directory_idx);
 		pde_t* page_directory = NULL;
 		if (page_directory_pointer_table[page_directory_idx].bits.present) {
 			// We've already created the necessary page directory
 			page_directory = (pde_t*)(page_directory_pointer_table[page_directory_idx].bits.page_dir_base * PAGE_SIZE);
-			//printf("\tRe-using existing page directory 0x%p\n", page_directory);
+			printf("\tRe-using existing page directory 0x%p\n", page_directory);
 		}
 		else {
 			efi_physical_address_t page_directory_addr = 0;
@@ -266,7 +369,6 @@ uint64_t map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start, 
 				printf("Failed to allocate page directory! %ld\n", status);
 				return 0;
 			}
-			//printf("\tAllocated new page directory 0x%p\n", page_directory_addr);
 			page_directory = (pde_t*)page_directory_addr;
 			memset(page_directory, 0, PAGE_SIZE);
 
@@ -277,6 +379,7 @@ uint64_t map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start, 
 		}
 
 		uint64_t page_tables_needed = (remaining_size + (VMEM_IN_PDE - 1)) / VMEM_IN_PDE;
+        if (debug) printf("page_tables_needed %ld\n", page_tables_needed);
 		page_tables_needed = min(page_tables_needed, PAGE_TABLES_IN_PAGE_DIRECTORY);
 		uint64_t first_page_table = VMA_PDE_IDX(current_page);
 
@@ -287,7 +390,7 @@ uint64_t map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start, 
 			if (page_directory[page_table_idx].bits.present) {
 				// We've already created the necessary page table
 				page_table = (pte_t*)(page_directory[page_table_idx].bits.page_table_base * PAGE_SIZE);
-				//printf("\tRe-using existing page table 0x%p in page directory 0x%p\n", page_table, page_directory);
+				printf("\tRe-using existing page table 0x%p in page directory 0x%p\n", page_table, page_directory);
 			}
 			else {
 				efi_physical_address_t page_table_addr = 0;
@@ -307,9 +410,14 @@ uint64_t map_region_4k_pages(pml4e_t* page_mapping_level4, uint64_t vmem_start, 
 			}
 
 			uint64_t pages_needed = (remaining_size + (VMEM_IN_PTE - 1)) / VMEM_IN_PTE;
+            if (debug && pages_needed != 512) {
+                printf("pages_needed %ld\n", pages_needed);
+            }
 			uint64_t first_page = VMA_PTE_IDX(current_page);
 			pages_needed = min(pages_needed, PAGES_IN_PAGE_TABLE - first_page);
-			//printf("pages needed: %ld, first_page %ld\n", pages_needed, first_page);
+            if (first_page != 0 || pages_needed != 512) {
+                printf("pages needed: %ld, first_page %ld\n", pages_needed, first_page);
+            }
 
 			for (int page_iter_idx = 0; page_iter_idx < pages_needed; page_iter_idx++) {
 				int page_idx = page_iter_idx + first_page;
