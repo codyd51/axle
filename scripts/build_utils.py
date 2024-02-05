@@ -27,7 +27,11 @@ def run_and_check(cmd_list: List[str], cwd: Path = None, env_additions: Optional
         for k, v in env_additions.items():
             env[k] = v
 
-    status = subprocess.run(cmd_list, cwd=cwd.as_posix() if cwd else None, env=env if env_additions else None)
+    # PT: Ensure the M1 Homebrew prefix is always in PATH
+    # TODO(PT): Conditionally enable this on M1 hosts?
+    env["PATH"] = f"/opt/homebrew/bin:{env['PATH']}"
+
+    status = subprocess.run(cmd_list, cwd=cwd.as_posix() if cwd else None, env=env)
     if status.returncode != 0:
         raise RuntimeError(f'Running "{" ".join(cmd_list)}" failed with exit code {status.returncode}')
 
