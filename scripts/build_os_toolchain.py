@@ -1,7 +1,9 @@
 #!/usr/bin/python3
 import os
+import platform
 import shutil
 import argparse
+import sysconfig
 import tempfile
 from pathlib import Path
 from typing import Tuple
@@ -21,6 +23,15 @@ def sleep():
     import time
     while True:
         time.sleep(1)
+
+
+def is_arm64_process() -> bool:
+    # Are we currently running in 'native' arm64 mode?
+    return platform.machine() == 'arm64'
+
+
+def is_on_macos() -> bool:
+    return 'macosx' in sysconfig.get_platform()
 
 
 def build() -> None:
@@ -132,17 +143,22 @@ def build() -> None:
         libstdcpp_dir = gcc_dir / 'libstdc++-v3'
         run_and_check(['autoconf'], cwd=libstdcpp_dir, env_additions=env)
 
+        gcc_configure_args = [
+            configure_script_path.as_posix(),
+            f"--target=x86_64-elf-axle",
+            f"--prefix={build_products_dir.as_posix()}",
+            f"--with-sysroot={sysroot_dir.as_posix()}",
+            "--disable-nls",
+            # Ref: https://stackoverflow.com/questions/46487529/crosscompiling-gcc-link-tests-are-not-allowed-after-gcc-no-executables-when-che
+            "--disable-bootstrap",
+            "--enable-languages=c,c++",
+        ]
+        if is_on_macos() and is_arm64_process():
+            # homebrew_root = "/opt/homebrew/"
+            homebrew_root = "/usr/local/homebrew/"
+            gcc_configure_args.append(f"--with-gmp={homebrew_root}")
         run_and_check(
-            [
-                configure_script_path.as_posix(),
-                f"--target=x86_64-elf-axle",
-                f"--prefix={build_products_dir.as_posix()}",
-                f"--with-sysroot={sysroot_dir.as_posix()}",
-                "--disable-nls",
-                # Ref: https://stackoverflow.com/questions/46487529/crosscompiling-gcc-link-tests-are-not-allowed-after-gcc-no-executables-when-che
-                "--disable-bootstrap",
-                "--enable-languages=c,c++",
-            ],
+            gcc_configure_args,
             cwd=gcc_build_dir,
             env_additions=env
         )
