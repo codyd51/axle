@@ -28,11 +28,9 @@ impl OutputView {
         );
 
         println!("Create title label");
-        let title_label = Rc::new(Label::new(
-            Rect::new(8, 8, 200, 16),
-            "Title",
-            Color::black(),
-        ));
+        let title_label = Rc::new(Label::new("Title", Color::black(), |_, _| {
+            Rect::new(8, 8, 200, 16)
+        }));
         println!("Add title label");
         //Rc::clone(&view.view).add_component(Rc::clone(&title_label) as Rc<dyn UIElement>);
         println!("Done adding title label");

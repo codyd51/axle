@@ -38,7 +38,9 @@ impl StatusView {
         }));
         Rc::clone(&view).add_component(Rc::clone(&run_button) as Rc<dyn UIElement>);
 
-        let status_label = Rc::new(Label::new(Rect::new(10, 10, 400, 16), "", Color::black()));
+        let status_label = Rc::new(Label::new("", Color::black(), |_, _| {
+            Rect::new(10, 10, 400, 16)
+        }));
         Rc::clone(&view).add_component(Rc::clone(&status_label) as Rc<dyn UIElement>);
 
         let ret = Rc::new(Self {

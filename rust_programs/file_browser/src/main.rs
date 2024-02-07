@@ -55,9 +55,9 @@ impl CurrentPathView {
 
         let initial_path = "/";
         let current_path_label = Rc::new(Label::new(
-            Rect::new(10, 10, 400, 16),
             &format!("Current path: {}", initial_path),
             Color::new(30, 30, 30),
+            |_, _| Rect::new(10, 10, 400, 16),
         ));
         let current_path_label_clone = Rc::clone(&current_path_label);
         Rc::clone(&view).add_component(current_path_label_clone);

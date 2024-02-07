@@ -58,14 +58,13 @@ impl TaskView {
         // We'll draw the border ourselves, so the inner View shouldn't
         view.set_border_enabled(false);
 
-        // TODO(PT): Sizer for labels?
+        // TODO(PT): Sizer
         let title_label = Rc::new(Label::new(
-            Rect::from_parts(
-                Point::new(insets.left + 4, insets.top + 4),
-                Size::new(300, 30),
-            ),
             &title,
             Color::new(30, 30, 30),
+            move |label, superview_size| {
+                Rect::from_parts(Point::new(insets.left + 4, insets.top), Size::new(300, 30))
+            },
         ));
         let title_label_clone = Rc::clone(&title_label);
         // TODO(PT): Set font size as attribute?
@@ -82,12 +81,13 @@ impl TaskView {
     }
 
     fn text_width(self: &Rc<Self>) -> usize {
-        8 * self.title.borrow().len()
+        20 * self.title.borrow().len()
     }
 
     fn resize_title_label(self: &Rc<Self>, superview_size: Size) {
         // TODO(PT): This is a hack until labels have sizers
         // TODO(PT): Expose font size of labels
+        //let font_size = Size::new(20, 20);
         let font_size = Size::new(8, 10);
         let insets = Self::border_insets();
         let usable_frame = Rect::from_parts(Point::zero(), superview_size).inset_by_insets(insets);
@@ -97,6 +97,7 @@ impl TaskView {
             Point::new(
                 usable_frame.mid_x() - (text_width / 2),
                 usable_frame.mid_y() - (font_size.height / 2),
+                //usable_frame.min_y(),
             ),
             Size::new(text_width, font_size.height),
         );

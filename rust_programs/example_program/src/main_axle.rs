@@ -34,9 +34,9 @@ impl WindowState {
         Rc::clone(&window).add_component(Rc::clone(&content_view) as Rc<dyn UIElement>);
 
         let label = Rc::new(Label::new(
-            Rect::from_parts(Point::new(4, 4), Size::new(300, 30)),
             "Hello from Rust!!",
             Color::black(),
+            |label, superview_size| Rect::from_parts(Point::new(4, 4), Size::new(300, 30)),
         ));
         Rc::clone(&content_view).add_component(Rc::clone(&label) as Rc<dyn UIElement>);
 
