@@ -15,9 +15,50 @@ use alloc::string::String;
 use alloc::string::ToString;
 use alloc::vec;
 use alloc::vec::Vec;
+use axle_rt::AmcMessage;
+use axle_rt::{amc_message_await__u32_event, amc_message_send};
 use core::cell::RefCell;
+use core::ptr;
 use dock_messages::AWM_DOCK_HEIGHT;
+use file_manager_messages::{ReadFile, ReadFileResponse, FILE_SERVER_SERVICE_NAME};
+use lazy_static::lazy_static;
 use menu_bar_messages::AWM_MENU_BAR_HEIGHT;
+use spin::Mutex;
+use ttf_renderer::{render_char_onto, Font};
+
+#[cfg(not(target_os = "axle"))]
+use std::fs;
+
+lazy_static! {
+    static ref FONT: spin::Mutex<Font> = Mutex::new(load_font("fonts/sf_pro.ttf"));
+}
+
+pub fn load_font(path: &str) -> Font {
+    println!("Loading font {path}...");
+    let font_bytes = {
+        #[cfg(target_os = "axle")]
+        {
+            let file_read_request = ReadFile::new(path);
+            amc_message_send(FILE_SERVER_SERVICE_NAME, file_read_request);
+            let file_data_msg: AmcMessage<ReadFileResponse> =
+                amc_message_await__u32_event(FILE_SERVER_SERVICE_NAME);
+            let file_data_body = file_data_msg.body();
+            unsafe {
+                let data_slice = ptr::slice_from_raw_parts(
+                    (&file_data_body.data) as *const u8,
+                    file_data_body.len,
+                );
+                let data: &[u8] = &*(data_slice as *const [u8]);
+                data.to_vec()
+            }
+        }
+        #[cfg(not(target_os = "axle"))]
+        {
+            fs::read(path).unwrap()
+        }
+    };
+    ttf_renderer::parse(&font_bytes)
+}
 
 #[derive(Debug, Copy, Clone)]
 enum ShortcutMouseInteractionState {
@@ -109,7 +150,8 @@ impl DesktopShortcut {
     }
 
     pub fn render(&self) {
-        let slice = self.layer.borrow_mut().get_full_slice();
+        let mut slice = self.layer.borrow_mut().get_full_slice();
+        let font = FONT.lock();
 
         // The background of the desktop shortcut depends on our current mouse interaction state
         match self.mouse_interaction_state() {
@@ -143,6 +185,8 @@ impl DesktopShortcut {
         );
 
         // Render the title label
+        let font_size = Size::new(14, 14);
+        let label_height = 28;
         let font_size = Size::new(8, 10);
         let label_height = 18;
         let label_mid = Point::new(
@@ -152,7 +196,12 @@ impl DesktopShortcut {
         let title_len = self.title.len();
         let label_origin = Point::new(
             label_mid.x - (((font_size.width * title_len as isize) as f64 / 2.0) as isize),
+            //4,
+            //4,
             label_mid.y - ((font_size.height as f64 / 2.0) as isize),
+            //label_mid.y - ((font_size.height as f64 / 2.0) as isize) - 6,
+            //label_mid.y - ((font_size.height as f64 / 2.0) as isize) - 20,
+            //self.frame().height() - font_size.height - 28,
         );
         // If the background gradient is too dark, set the shortcuts text color to white so it's always visible.
         // Per ITU-R BT.709
@@ -179,6 +228,11 @@ impl DesktopShortcut {
         let mut cursor = label_origin;
         for ch in self.title.chars() {
             slice.draw_char(ch, cursor, text_color, font_size);
+            /*
+            let (_, metrics) =
+                render_char_onto(ch, &font, &mut slice, cursor, text_color, font_size);
+            */
+            //cursor.x += metrics.advance_width as isize + 2;
             cursor.x += font_size.width;
         }
 
