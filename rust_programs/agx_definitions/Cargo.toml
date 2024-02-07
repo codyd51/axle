@@ -14,3 +14,5 @@ version = "0.2"
 default-features = false
 features = ["libm"]
 
+[features]
+no_std = []
