@@ -4,13 +4,13 @@ use crate::window_events::KeyCode;
 use crate::{
     bordered::Bordered,
     font::{CHAR_HEIGHT, CHAR_WIDTH, FONT8X8},
-    println,
     ui_elements::UIElement,
     view::View,
 };
 use agx_definitions::{
-    Color, Drawable, Layer, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets,
-    SingleFramebufferLayer, Size, StrokeThickness,
+    scanline_compute_fill_lines_from_edges, Color, Drawable, FillMode, Layer, LikeLayerSlice, Line,
+    LineF64, NestedLayerSlice, PixelByteLayout, Point, PointF64, Polygon, PolygonStack, Rect,
+    RectInsets, SingleFramebufferLayer, Size, StrokeThickness,
 };
 use alloc::boxed::Box;
 use alloc::collections::BTreeSet;
@@ -22,6 +22,7 @@ use alloc::{
 };
 use core::fmt::Formatter;
 use libgui_derive::{Bordered, Drawable, NestedLayerSlice, UIElement};
+use num_traits::Float;
 
 struct ExpandingLayerSlice {
     parent: Weak<ExpandingLayer>,
@@ -65,6 +66,73 @@ impl LikeLayerSlice for ExpandingLayerSlice {
             color,
             StrokeThickness::Filled,
         )
+    }
+
+    fn fill_polygon_stack(&self, polygon_stack: &PolygonStack, color: Color, fill_mode: FillMode) {
+        // TODO(PT): It appears there's a rendering bug while rendering a polygon that crosses between two tiles?
+        //println!("Fill_polygon_stack!!!!");
+        let mut slice = self.parent.upgrade().unwrap();
+        let mut bounding_box = polygon_stack.bounding_box();
+        //println!("Polygon stack bounding box {bounding_box:?}");
+        // Adjust for this slice's offset
+        bounding_box.origin.x += self.global_origin.x as f64;
+        bounding_box.origin.y += self.global_origin.y as f64;
+
+        slice.expand_to_contain_rect(Rect::from(bounding_box));
+
+        /*
+        slice.fill_rect(
+            Rect::from(bounding_box),
+            Color::red(),
+            StrokeThickness::Filled,
+        );
+        */
+
+        match fill_mode {
+            FillMode::Filled => {
+                for line in
+                    scanline_compute_fill_lines_from_edges(&polygon_stack.lines()).into_iter()
+                {
+                    // Horizontal line?
+                    if line.p1.y.round() == line.p2.y.round() {
+                        let line = Line::from(line);
+                        slice.fill_rect_unchecked(
+                            Rect::from_parts(
+                                self.frame.origin + line.p1,
+                                Size::new(line.p2.x - line.p1.x, 1),
+                            ),
+                            color,
+                            StrokeThickness::Filled,
+                        )
+                    } else {
+                        for (x, y) in line.as_inclusive_bresenham_iterator() {
+                            // We've guaranteed that we'll have tiles to cover all the lines in the polygon above
+                            slice.putpixel_unchecked(
+                                Point::new(x + self.frame.origin.x, y + self.frame.origin.y),
+                                //Point::new(x, y),
+                                color,
+                            );
+                        }
+                    }
+                }
+            }
+            FillMode::Outline => {
+                let lines = polygon_stack.lines();
+                for line in lines.iter() {
+                    //line.draw(&mut slice, color);
+                    let line = LineF64::new(
+                        line.p1 + PointF64::from(self.frame.origin),
+                        line.p2 + PointF64::from(self.frame.origin),
+                    );
+                    for (x, y) in line.as_inclusive_bresenham_iterator() {
+                        slice.putpixel_unchecked(Point::new(x, y), color);
+                    }
+                    //line.draw(self, color);
+                }
+            }
+        }
+        // 12s with 8 alphabet repeats, putpixel_unchecked
+        // 69s with 8 alphabet repeats, putpixel
     }
 
     fn putpixel(&self, loc: Point, color: Color) {
@@ -369,9 +437,9 @@ impl ExpandingLayer {
     }
 
     fn rects_not_contained_in_current_tiles(&self, rect: Rect) -> Vec<Rect> {
-        let tiles = self.layers.borrow_mut();
+        //println!("rects_not_contained_in_current_tiles {rect}");
         let mut rects_not_contained = vec![rect];
-        for tile in tiles.iter() {
+        for tile in self.layers.borrow().iter() {
             //println!("\tExisting tile: {}", tile.frame);
             let mut new_rects_not_contained = vec![];
             for uncovered_rect in rects_not_contained.iter() {
@@ -498,6 +566,7 @@ impl ExpandingLayer {
 
     fn putpixel_unchecked(&self, point: Point, color: Color) {
         let layers = self.layers.borrow();
+        // TODO(PT): Some kind of data structure that makes it easy to look up a tile by its contained coords
         for layer in layers.iter() {
             if layer.frame.contains(point) {
                 let translated_point = point - layer.frame.origin;
@@ -508,6 +577,7 @@ impl ExpandingLayer {
     }
 
     fn putpixel(&self, point: Point, color: Color) {
+        // WTH?!
         self.expand_to_contain_rect(Rect::from_parts(point, Size::new(800, 800)));
         self.putpixel_unchecked(point, color);
     }
@@ -544,12 +614,12 @@ impl ExpandingLayer {
 
 impl NestedLayerSlice for ExpandingLayer {
     fn get_parent(&self) -> Option<Weak<dyn NestedLayerSlice>> {
-        println!("ExpandingLayer ignoring getParent");
+        //println!("ExpandingLayer ignoring getParent");
         None
     }
 
     fn set_parent(&self, _parent: Weak<dyn NestedLayerSlice>) {
-        println!("ExpandingLayer ignoring setParent");
+        //println!("ExpandingLayer ignoring setParent");
         //todo!()
     }
 
@@ -574,7 +644,7 @@ impl Drawable for ExpandingLayer {
     }
 
     fn draw(&self) -> Vec<Rect> {
-        println!("ExpandingLayer ignoring draw()");
+        //println!("ExpandingLayer ignoring draw()");
         vec![]
     }
 }
