@@ -4,3 +4,6 @@
 /usr/applications/dock
 /usr/applications/menu_bar
 /usr/applications/file_browser
+/usr/applications/pci_driver
+/usr/applications/realtek_8139_driver
+/usr/applications/net
