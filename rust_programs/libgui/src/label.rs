@@ -8,7 +8,11 @@ use alloc::{
     vec,
     vec::Vec,
 };
+use ttf_renderer::Font;
 
+use crate::font::{draw_char_with_font_onto, load_font, scaled_metrics_for_codepoint};
+use crate::text_view::DrawnCharacter;
+use crate::view::View;
 use crate::{font::draw_char, ui_elements::UIElement};
 
 pub struct Label {
@@ -17,16 +21,21 @@ pub struct Label {
     container: RefCell<Option<RefCell<Weak<dyn NestedLayerSlice>>>>,
     frame: RefCell<Rect>,
     pub text: RefCell<String>,
+    font: Font,
+    font_size: Size,
     color: Color,
 }
 
 impl Label {
     pub fn new<F: 'static + Fn(&Label, Size) -> Rect>(text: &str, color: Color, sizer: F) -> Self {
+        let font = load_font("/fonts/sf_pro.ttf");
         Self {
             sizer: RefCell::new(Box::new(sizer)),
             container: RefCell::new(None),
             frame: RefCell::new(Rect::zero()),
             text: RefCell::new(text.to_string()),
+            font,
+            font_size: Size::new(18, 18),
             color,
         }
     }
