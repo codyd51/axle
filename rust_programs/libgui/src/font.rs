@@ -180,20 +180,21 @@ pub fn draw_char_with_font_onto(
     drawn_ch: &mut DrawnCharacter,
     font: &Font,
     onto: &mut Box<dyn LikeLayerSlice>,
-) {
-    drawn_ch.draw_box = render_char_onto(
+) -> (Rect, GlyphMetrics) {
+    let (bounding_box, glyph_metrics) = render_char_onto(
         drawn_ch.value,
         font,
         onto,
         drawn_ch.pos,
         drawn_ch.color,
         drawn_ch.font_size,
-    )
-    .0;
+    );
+    drawn_ch.draw_box = bounding_box;
+    (bounding_box, glyph_metrics)
 }
 
 pub fn load_font(path: &str) -> Font {
-    let font_bytes = {
+    let font_bytes: Vec<u8> = {
         #[cfg(target_os = "axle")]
         {
             let file_read_request = ReadFile::new(path);
