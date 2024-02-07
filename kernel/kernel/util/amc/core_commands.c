@@ -310,11 +310,14 @@ static void _amc_core_alloc_physical_range(const char* source_service, void* buf
 
     amc_alloc_physical_range_request_t* req = (amc_alloc_physical_range_request_t*)buf;
 
-    printf("[AMC] %s allocating memory mapping of size 0x%p\n", source->name, req->size);
+    uintptr_t range_size = addr_space_page_ceil(req->size);
+    printf("[AMC] %s allocating memory mapping of size 0x%p (padded = 0x%p)\n", source->name, req->size, range_size);
 
-    uintptr_t phys_base = pmm_alloc_continuous_range(buf_size);
-    uintptr_t virt_base = vas_map_range_exact(vas_get_active_state(), 0x7d0000000000, buf_size, phys_base, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
-    printf("\tAllocated Phys [0x%p - 0x%p], Virt [0x%p - 0x%p]\n", phys_base, phys_base + req->size, virt_base, virt_base + req->size);
+    // Pad the requested size to the next page
+    uintptr_t phys_base = pmm_alloc_continuous_range(range_size);
+    // TODO(PT): vas_map_range_exact() should fail if the range is already allocated
+    uintptr_t virt_base = vas_map_range(vas_get_active_state(), 0x7d0000000000, range_size, phys_base, VAS_RANGE_ACCESS_LEVEL_READ_WRITE, VAS_RANGE_PRIVILEGE_LEVEL_USER);
+    printf("\tAllocated Phys [0x%p - 0x%p], Virt [0x%p - 0x%p]\n", phys_base, phys_base + range_size, virt_base, virt_base + range_size);
 
     amc_alloc_physical_range_response_t resp = {0};
     resp.event = AMC_ALLOC_PHYSICAL_RANGE_RESPONSE;
