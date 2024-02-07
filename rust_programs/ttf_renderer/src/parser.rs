@@ -443,29 +443,43 @@ impl<'a> FontParser<'a> {
             }
         }
 
-        let font_program_header = self.table_headers.get("fpgm").unwrap();
-        let font_program = self.read_bytes(font_program_header.offset, font_program_header.length);
-        let function_boundaries = identify_functions(font_program);
-        for b in function_boundaries.iter() {
-            println!(
-                "Function #{} @ [{:08x} - {:08x}]",
-                b.function_identifier,
-                b.offset,
-                b.offset + b.instructions.len()
-            );
-        }
-        let function_boundaries_lookup_map = BTreeMap::from_iter(
-            function_boundaries
-                .iter()
-                .map(|fb| (fb.function_identifier, fb.clone())),
-        );
+        // PT: Bypass hinting
+        /*
+        let (function_boundaries_lookup_map, cvt, prep) = {
+            if let Some(font_program_header) = self.table_headers.get("fpgm") {
+                let font_program =
+                    self.read_bytes(font_program_header.offset, font_program_header.length);
+                let function_boundaries = identify_functions(font_program);
+                for b in function_boundaries.iter() {
+                    /*
+                    println!(
+                        "Function #{} @ [{:08x} - {:08x}]",
+                        b.function_identifier,
+                        b.offset,
+                        b.offset + b.instructions.len()
+                    );
+                    */
+                }
+                let function_boundaries_lookup_map = BTreeMap::from_iter(
+                    function_boundaries
+                        .iter()
+                        .map(|fb| (fb.function_identifier, fb.clone())),
+                );
 
-        let cvt_header = self.table_headers.get("cvt ").unwrap();
-        let cvt_bytes = self.read_bytes(cvt_header.offset, cvt_header.length);
-        let (_, cvt, _) = unsafe { cvt_bytes.align_to::<u32>() };
+                let cvt_header = self.table_headers.get("cvt ").unwrap();
+                let cvt_bytes = self.read_bytes(cvt_header.offset, cvt_header.length);
+                let (_, cvt, _) = unsafe { cvt_bytes.align_to::<u32>() };
 
-        let prep_header = self.table_headers.get("prep").unwrap();
-        let prep = self.read_bytes(prep_header.offset, prep_header.length);
+                let prep_header = self.table_headers.get("prep").unwrap();
+                let prep = self.read_bytes(prep_header.offset, prep_header.length);
+
+                (function_boundaries_lookup_map, cvt.to_vec(), prep.to_vec())
+            } else {
+                (BTreeMap::new(), vec![], vec![])
+            }
+        };
+        */
+        let (function_boundaries_lookup_map, cvt, prep) = (BTreeMap::new(), vec![], vec![]);
 
         Font::new(
             // TODO(PT): Parse font names
@@ -476,8 +490,8 @@ impl<'a> FontParser<'a> {
             all_glyphs,
             codepoints_to_glyph_indexes,
             function_boundaries_lookup_map,
-            cvt.to_vec(),
-            prep.to_vec(),
+            cvt,
+            prep,
         )
     }
 
