@@ -194,11 +194,13 @@ impl TextInputView {
 
     fn print_text(&self) {
         let text = self.view.text.borrow();
+        /*
         println!("Text: (len {})", text.len());
         for drawn_ch in text.iter() {
             print!("{}", drawn_ch.value);
         }
         println!();
+        */
     }
 
     pub fn set_on_key_pressed<F: 'static + Fn(&Self, KeyCode)>(&self, f: F) {
