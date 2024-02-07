@@ -54,3 +54,5 @@ bootloader/BOOTX64.pdb
 # Cached source trees involved in the cross-compiler build
 scripts/caches/
 
+# Artifacts while optimizing awm2 that I want to keep around, but don't need to be committed to source control
+rust_programs/awm2/awm2_performance_flamegraphs/
