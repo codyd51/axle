@@ -98,6 +98,16 @@ impl Font {
             Some(glyph_index) => self.glyphs.get(glyph_index.0),
         }
     }
+
+    pub fn scaled_line_height(&self, font_size: Size) -> isize {
+        let scale_factor = font_size.height as f64 / self.units_per_em as f64;
+        // TODO(PT): A 'scale' method for the layout metrics as a whole, similar to the glyph metrics
+        let scaled_ascent = self.global_layout_metrics.ascent as f64 * scale_factor;
+        let scaled_descent = self.global_layout_metrics.descent as f64 * scale_factor;
+        let scaled_line_gap = self.global_layout_metrics.line_gap as f64 * scale_factor;
+        let scaled_line_height = scaled_ascent - scaled_descent + scaled_line_gap;
+        scaled_line_height as isize
+    }
 }
 
 pub fn parse(font_data: &[u8]) -> Font {
