@@ -188,19 +188,40 @@ impl TextView {
         self.cursor_pos.borrow().1
     }
 
+    pub fn draw_string(&self, s: &str, color: Color) {
+        for ch in s.chars() {
+            self.draw_char_and_update_cursor(ch, color);
+        }
+    }
+
+    pub fn draw_string_with_font(&self, s: &str, font: &Font, font_size: Size, color: Color) {
+        for ch in s.chars() {
+            self.draw_char_and_update_cursor_with_font(ch, font, font_size, color);
+        }
+    }
+
     pub fn draw_char_and_update_cursor(&self, ch: char, color: Color) {
+        self.draw_char_and_update_cursor_with_font(ch, &self.font, self.font_size(), color)
+    }
+
+    pub fn draw_char_and_update_cursor_with_font(
+        &self,
+        ch: char,
+        font: &Font,
+        font_size: Size,
+        color: Color,
+    ) {
         let mut cursor_pos = self.cursor_pos.borrow_mut();
         let onto = &mut self.get_slice().get_slice(self.text_entry_frame());
-        let font_size = self.font_size();
 
         let mut text = self.text.borrow_mut();
         let is_inserting_at_end = cursor_pos.0 == text.len();
-        //println!("draw_char_and_update({ch}) is_insert_at_end? {is_inserting_at_end}, {cursor_pos:?} {}", text.len());
 
         if !is_inserting_at_end {
+            todo!("re-enable, disabled just while checking if this code path is hit");
             // If we just inserted a newline, we need to adjust our cursor position
             let mut cursor_point =
-                Self::next_cursor_pos_for_char(cursor_pos.1, ch, &self.font, font_size, onto);
+                Self::next_cursor_pos_for_char(cursor_pos.1, ch, &font, font_size, onto);
             //println!("Base cursor for later chars: {cursor_point}");
             for drawn_ch in text[cursor_pos.0..].iter_mut() {
                 //println!("\tFound later {}, originally placed at {}", drawn_ch.value, drawn_ch.pos);
@@ -215,7 +236,7 @@ impl TextView {
                 cursor_point = Self::next_cursor_pos_for_char(
                     cursor_point,
                     drawn_ch.value,
-                    &self.font,
+                    &font,
                     font_size,
                     onto,
                 );
@@ -223,7 +244,8 @@ impl TextView {
         }
 
         let mut draw_desc = DrawnCharacter::new(cursor_pos.1, color, ch, font_size);
-        draw_char_with_font_onto(&mut draw_desc, &self.font, onto);
+        draw_char_with_font_onto(&mut draw_desc, &font, onto);
+        //onto.fill_rect(draw_desc.draw_box, Color::red(), StrokeThickness::Width(1));
 
         // TODO(PT): This is not correct if we're not inserting at the end
         // We'll need to adjust the positions of every character that comes after this one
@@ -235,11 +257,10 @@ impl TextView {
         if is_inserting_at_end {
             text.push(draw_desc);
         } else {
-            println!("Inserting at {insertion_point}: {draw_desc:?}");
+            //println!("Inserting at {insertion_point}: {draw_desc:?}");
             text.insert(insertion_point, draw_desc);
         }
-        *cursor_point =
-            Self::next_cursor_pos_for_char(*cursor_point, ch, &self.font, font_size, onto);
+        *cursor_point = Self::next_cursor_pos_for_char(*cursor_point, ch, &font, font_size, onto);
         //Bordered::draw(self)
     }
 
