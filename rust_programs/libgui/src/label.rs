@@ -40,6 +40,24 @@ impl Label {
         }
     }
 
+    pub fn new_with_font<F: 'static + Fn(&Label, Size) -> Rect>(
+        text: &str,
+        color: Color,
+        font: Font,
+        font_size: Size,
+        sizer: F,
+    ) -> Rc<Self> {
+        Rc::new(Self {
+            sizer: RefCell::new(Box::new(sizer)),
+            container: RefCell::new(None),
+            frame: RefCell::new(Rect::zero()),
+            text: RefCell::new(text.to_string()),
+            font,
+            font_size,
+            color,
+        })
+    }
+
     pub fn set_text(&self, text: &str) {
         self.text.replace(text.to_string());
     }
