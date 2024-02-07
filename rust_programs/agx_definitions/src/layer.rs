@@ -308,12 +308,20 @@ impl LikeLayerSlice for LayerSlice {
         let mut fb = self.parent_framebuffer.borrow_mut();
         let slice_origin_offset = self.frame.origin * bpp_multiple;
 
+        if self.frame.origin.x < 0 || self.frame.origin.y < 0 {
+            return;
+        }
+
         let (src_base, src_slice_row_size, src_parent_framebuf_row_size) =
             source_layer.get_buf_ptr_and_row_size();
 
         for y in 0..self.frame().height() {
             // Blit an entire row at once
             let point_offset = slice_origin_offset + (Point::new(0, y) * bpp_multiple);
+            if point_offset.x < 0 || point_offset.y < 0 {
+                //println!("skipping neg row {point_offset}");
+                continue;
+            }
             let off = (point_offset.y + point_offset.x) as usize;
             let dst_row_slice = &mut fb[off..off + ((self.frame.width() * bpp) as usize)];
             let src_row_slice = unsafe {
