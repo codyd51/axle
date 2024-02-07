@@ -7,7 +7,7 @@ use alloc::rc::Rc;
 use alloc::rc::Weak;
 use alloc::{boxed::Box, vec::Vec};
 
-use crate::{bordered::Bordered, ui_elements::UIElement};
+use crate::{bordered::Bordered, ui_elements::UIElement, KeyCode};
 
 pub struct View {
     container: RefCell<Option<RefCell<Weak<dyn NestedLayerSlice>>>>,
@@ -110,8 +110,7 @@ impl NestedLayerSlice for View {
 }
 
 impl Bordered for View {
-    fn draw_inner_content(&self, _outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
-        //println!("View.bordered.draw_inner_content()");
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
         onto.fill(self.background_color);
         self.draw_subviews();
     }
@@ -222,5 +221,18 @@ impl UIElement for View {
 
     fn currently_contains_mouse(&self) -> bool {
         *self.currently_contains_mouse_int.borrow()
+    }
+
+    fn handle_key_pressed(&self, key: KeyCode) {
+        let elems = self.sub_elements.borrow();
+        for elem in elems.iter() {
+            elem.handle_key_pressed(key);
+        }
+    }
+    fn handle_key_released(&self, key: KeyCode) {
+        let elems = self.sub_elements.borrow();
+        for elem in elems.iter() {
+            elem.handle_key_released(key);
+        }
     }
 }
