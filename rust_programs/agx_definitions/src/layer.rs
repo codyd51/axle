@@ -1,9 +1,13 @@
 extern crate alloc;
-use crate::{Color, Point, Rect, Size, CHAR_HEIGHT, CHAR_WIDTH, FONT8X8};
+use crate::{
+    scanline_compute_fill_lines_from_edges, Color, Line, LineF64, Point, PointF64, Polygon,
+    PolygonStack, Rect, Size, CHAR_HEIGHT, CHAR_WIDTH, FONT8X8,
+};
 use alloc::rc::Weak;
 use alloc::vec;
 use alloc::{boxed::Box, rc::Rc, vec::Vec};
 use core::{cell::RefCell, cmp::min, fmt::Display};
+use num_traits::Float;
 
 #[cfg(target_os = "axle")]
 use axle_rt::println;
@@ -13,6 +17,13 @@ pub enum StrokeThickness {
     Filled,
     // TODO(PT): Support per-side thickness?
     Width(isize),
+}
+
+/// PT: Similar to StrokeThickness, but slightly different semantics that are easier to implement for arbitrary polygons
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum FillMode {
+    Filled,
+    Outline,
 }
 
 /// The protocol expected of a LayerSlice
