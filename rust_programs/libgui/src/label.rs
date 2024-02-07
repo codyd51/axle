@@ -83,12 +83,27 @@ impl Drawable for Label {
     }
 
     fn draw(&self) -> Vec<Rect> {
+        /*
+        println!("\nLabel::draw()");
+        println!("\nLabel frame: {}", self.frame());
+        */
         let onto = &mut self.get_slice();
-        let font_size = Size::new(8, 10);
+        //println!("\nOnto frame: {}", onto.frame());
         let mut cursor = Point::zero();
         for ch in self.text.borrow().chars() {
-            draw_char(onto, ch, &cursor, self.color, &font_size);
-            cursor.x += font_size.width;
+            /*
+            draw_char(onto, ch, &cursor, self.color, &self.font_size);
+            cursor.x += self.font_size.width;
+            */
+            let mut drawn_ch = DrawnCharacter::new(cursor, self.color, ch, self.font_size);
+            let (bounding_box, glyph_metrics) =
+                draw_char_with_font_onto(&mut drawn_ch, &self.font, onto);
+            //let scaled_glyph_metrics = scaled_metrics_for_codepoint(&self.font, self.font_size, ch);
+            //let scaled_glyph_metrics = scaled_metrics_for_codepoint(&self.font, self.font_size, ch);
+            //cursor.x += scaled_glyph_metrics.advance_width as isize;
+            cursor.x += glyph_metrics.advance_width as isize;
+            //cursor.x += bounding_box.width();
+            //cursor.x += scaled_glyph_metrics.advance_width as isize;
         }
         // TODO: Damages
         vec![]
