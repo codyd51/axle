@@ -140,6 +140,10 @@ impl TextView {
         })
     }
 
+    pub fn add_component(self: Rc<Self>, elem: Rc<dyn UIElement>) {
+        Rc::clone(&self.view).add_component(elem)
+    }
+
     pub fn font_size(&self) -> Size {
         self.font_size
     }
