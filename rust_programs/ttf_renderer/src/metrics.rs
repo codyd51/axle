@@ -145,6 +145,12 @@ impl GlyphMetrics {
             (self.top_side_bearing as f64 * scale_y) as isize,
         )
     }
+
+    pub fn scale_to_font_size(&self, font_units_per_em: usize, font_size: &Size) -> Self {
+        // TrueType fonts are scaled with reference to the height / point size.
+        let scale_factor = font_size.height as f64 / (font_units_per_em as f64);
+        self.scale(scale_factor, scale_factor)
+    }
 }
 
 #[derive(Debug, Clone)]
