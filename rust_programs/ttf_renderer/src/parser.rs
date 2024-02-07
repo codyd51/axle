@@ -354,7 +354,7 @@ impl<'a> FontParser<'a> {
         let mut all_glyphs = vec![];
         let mut codepoints_to_glyph_indexes = BTreeMap::new();
         for i in 0..max_profile.num_glyphs {
-            let parsed_glyph = parse_glyph(self, i, &glyph_bounding_box, head.units_per_em as _);
+            let parsed_glyph = parse_glyph(self, i, &glyph_bounding_box, &horizontal_glyph_metrics);
             all_glyphs.push(parsed_glyph);
 
             match glyph_indexes_to_codepoints.get(&i) {

@@ -1,4 +1,4 @@
-#![cfg_attr(target_os = "axle", no_std)]
+#![cfg_attr(any(target_os = "axle", feature = "no_std"), no_std)]
 #![feature(core_intrinsics)]
 #![feature(slice_ptr_get)]
 #![feature(format_args_nl)]
@@ -17,9 +17,11 @@ mod render_context;
 
 pub use crate::glyphs::{GlyphRenderDescription, GlyphRenderInstructions};
 pub use crate::metrics::GlyphMetrics;
-pub use crate::render::{render_antialiased_glyph_onto, render_char_onto, render_glyph_onto};
+pub use crate::render::{
+    render_antialiased_glyph_onto, render_char_onto, render_glyph_onto, rendered_string_size,
+};
 pub use crate::render_context::FontRenderContext;
-use agx_definitions::Rect;
+use agx_definitions::{Rect, Size};
 use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
@@ -27,9 +29,10 @@ use core::fmt::{Display, Formatter};
 use parser::FontParser;
 
 use crate::hints::FunctionDefinition;
-#[cfg(target_os = "axle")]
+use crate::metrics::FontGlobalLayoutMetrics;
+#[cfg(any(target_os = "axle", feature = "no_std"))]
 pub(crate) use axle_rt::{print, println};
-#[cfg(not(target_os = "axle"))]
+#[cfg(not(any(target_os = "axle", feature = "no_std")))]
 pub(crate) use std::{print, println};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]

@@ -1,4 +1,4 @@
-use crate::metrics::{GlyphRenderMetrics, LongHorMetric, VerticalMetrics};
+use crate::metrics::{FontGlobalLayoutMetrics, GlyphRenderMetrics, LongHorMetric, VerticalMetrics};
 use crate::parse_utils::{BigEndianValue, FromFontBufInPlace, TransmuteFontBufInPlace};
 use crate::parser::FontParser;
 use crate::println;
@@ -401,7 +401,7 @@ pub(crate) fn parse_glyph(
     parser: &FontParser,
     glyph_index: usize,
     all_glyphs_bounding_box: &Rect,
-    units_per_em: usize,
+    font_layout_metrics: &FontGlobalLayoutMetrics,
 ) -> GlyphRenderDescription {
     let glyph_header = parser.table_headers.get("glyf").unwrap();
     let (glyph_local_offset, glyph_data_length) = get_glyph_offset_and_length(parser, glyph_index);
@@ -469,7 +469,7 @@ pub(crate) fn parse_glyph(
         flag_count_to_parse -= 1;
     }
 
-    // Parse X coordinates
+    // Parse coordinates
     let x_values =
         interpret_values_via_flags(parser, &mut cursor, &all_flags, CoordinateComponentType::X);
     let y_values =
@@ -478,7 +478,7 @@ pub(crate) fn parse_glyph(
         .iter()
         .zip(y_values.iter())
         // Flip the Y axis of every point to match our coordinate system
-        .map(|(&x, &y)| PointF64::new(x as _, (units_per_em as isize - y) as _))
+        .map(|(&x, &y)| PointF64::new(x as _, (font_layout_metrics.ascent - y) as _))
         .collect();
 
     // Split the total collection of points into polygons, using the last-point-indexes that
