@@ -30,7 +30,7 @@ use ttf_renderer::{
 use axle_rt::{amc_message_await__u32_event, amc_message_send};
 
 use crate::font::{draw_char_with_font_onto, load_font, scaled_metrics_for_codepoint};
-#[cfg(not(target_os = "axle"))]
+#[cfg(not(any(target_os = "axle", feature = "run_in_uefi")))]
 use std::fs;
 
 #[derive(Debug, Copy, Clone)]

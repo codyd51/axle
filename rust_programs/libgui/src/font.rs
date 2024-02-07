@@ -13,7 +13,7 @@ use ttf_renderer::{
 
 #[cfg(target_os = "axle")]
 use axle_rt::{amc_message_await__u32_event, amc_message_send};
-#[cfg(not(target_os = "axle"))]
+#[cfg(not(any(target_os = "axle", feature = "run_in_uefi")))]
 use std::fs;
 
 pub const CHAR_WIDTH: usize = 8;
@@ -211,7 +211,11 @@ pub fn load_font(path: &str) -> Font {
                 data.to_vec()
             }
         }
-        #[cfg(not(target_os = "axle"))]
+        #[cfg(feature = "run_in_uefi")]
+        {
+            panic!("Not available in no_std");
+        }
+        #[cfg(not(any(target_os = "axle", feature = "run_in_uefi")))]
         {
             fs::read(path).unwrap()
         }

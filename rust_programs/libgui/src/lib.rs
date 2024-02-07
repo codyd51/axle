@@ -1,4 +1,4 @@
-#![cfg_attr(target_os = "axle", no_std)]
+#![cfg_attr(any(target_os = "axle", feature = "run_in_uefi"), no_std)]
 #![feature(format_args_nl)]
 
 extern crate alloc;
@@ -27,9 +27,15 @@ pub use axle_rt::{print, println};
 #[cfg(target_os = "axle")]
 pub use window_axle::*;
 
-#[cfg(not(target_os = "axle"))]
+#[cfg(not(any(target_os = "axle", feature = "run_in_uefi")))]
 mod window_std;
-#[cfg(not(target_os = "axle"))]
+
+#[cfg(feature = "run_in_uefi")]
+mod window_uefi;
+#[cfg(feature = "run_in_uefi")]
+pub use window_uefi::*;
+
+#[cfg(not(any(target_os = "axle", feature = "run_in_uefi")))]
 pub use std::{print, println};
-#[cfg(not(target_os = "axle"))]
+#[cfg(not(any(target_os = "axle", feature = "run_in_uefi")))]
 pub use window_std::*;
