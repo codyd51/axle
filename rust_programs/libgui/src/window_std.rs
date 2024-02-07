@@ -1,5 +1,6 @@
 use core::cmp::max;
 use core::fmt::{Display, Formatter};
+use core::mem::transmute;
 use std::{
     cell::RefCell,
     rc::{Rc, Weak},
@@ -8,14 +9,16 @@ use std::{
 use crate::ui_elements::UIElement;
 use crate::window_events::KeyCode;
 use agx_definitions::{
-    Color, Drawable, LikeLayerSlice, NestedLayerSlice, Point, Rect, Size, StrokeThickness,
+    scanline_compute_fill_lines_from_edges, Color, Drawable, FillMode, LikeLayerSlice, Line,
+    LineF64, NestedLayerSlice, Point, PointF64, PolygonStack, Rect, Size, StrokeThickness,
     CHAR_HEIGHT, CHAR_WIDTH, FONT8X8,
 };
 use pixels::wgpu::TextureFormat;
 use pixels::{Pixels, PixelsBuilder, SurfaceTexture};
-use winit::event::{ElementState, Event, VirtualKeyCode};
+use winit::event::{ElementState, Event};
 use winit::event::{MouseButton, MouseScrollDelta};
 use winit::event_loop::{ControlFlow, EventLoop};
+use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowBuilder};
 use winit::{dpi::LogicalSize, event::WindowEvent};
 
@@ -57,7 +60,12 @@ impl LikeLayerSlice for PixelLayerSlice {
         let mut rect = self.frame.constrain(raw_rect);
         rect.size.width = max(rect.size.width, 0);
         rect.size.height = max(rect.size.height, 0);
-        //println!("PixelLayerSlice.fill_rect({rect}, {color:?})");
+        /*
+        println!(
+            "PixelLayerSlice.fill_rect({rect}, {color:?}), global origin {}",
+            self.global_origin
+        );
+        */
 
         let bpp = 4;
         let parent_size = self.parent_size;
@@ -90,7 +98,7 @@ impl LikeLayerSlice for PixelLayerSlice {
             self.fill_rect(right, color, StrokeThickness::Filled);
         } else {
             let mut pixels = self.parent.borrow_mut();
-            let fb = pixels.get_frame_mut();
+            let fb = pixels.frame_mut();
             // Construct the filled row of pixels that we can copy row-by-row
             let bytes_in_row = (rect.width() * bpp) as usize;
             let mut src_row_slice = vec![0; bytes_in_row];
@@ -120,16 +128,18 @@ impl LikeLayerSlice for PixelLayerSlice {
     }
 
     fn putpixel(&self, loc: Point, color: Color) {
+        /*
         if !self.frame.contains(loc + self.frame.origin) {
             return;
         }
+        */
 
         let bpp = 4;
         let parent_size = self.parent_size;
         let parent_bytes_per_row = parent_size.width * bpp;
         let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
         let mut pixels = self.parent.borrow_mut();
-        let fb = pixels.get_frame_mut();
+        let fb = pixels.frame_mut();
         let slice_origin_offset = self.global_origin * bpp_multiple;
         //let off = slice_origin_offset + (loc.y * parent_bytes_per_row) + (loc.x * bpp);
         let point_offset = slice_origin_offset + (loc * bpp_multiple);
@@ -181,7 +191,7 @@ impl LikeLayerSlice for PixelLayerSlice {
         let parent_bytes_per_row = parent_size.width * bpp;
         let bpp_multiple = Point::new(bpp, parent_bytes_per_row);
         let mut pixels = self.parent.borrow_mut();
-        let fb = pixels.get_frame_mut();
+        let fb = pixels.frame_mut();
         let slice_origin_offset = self.frame.origin * bpp_multiple;
 
         let (src_base, src_slice_row_size, src_parent_framebuf_row_size) =
@@ -243,6 +253,57 @@ impl LikeLayerSlice for PixelLayerSlice {
     fn drain_damages(&self) -> Vec<Rect> {
         vec![]
         //todo!()
+    }
+
+    fn fill_polygon_stack(&self, polygon_stack: &PolygonStack, color: Color, fill_mode: FillMode) {
+        let slice = self;
+        let mut bounding_box = polygon_stack.bounding_box();
+
+        match fill_mode {
+            FillMode::Filled => {
+                for line in
+                    scanline_compute_fill_lines_from_edges(&polygon_stack.lines()).into_iter()
+                {
+                    // Horizontal line?
+                    if line.p1.y.round() == line.p2.y.round() {
+                        let line = Line::from(line);
+                        slice.fill_rect(
+                            Rect::from_parts(
+                                //self.frame.origin + line.p1,
+                                line.p1,
+                                Size::new(line.p2.x - line.p1.x, 1),
+                            ),
+                            color,
+                            StrokeThickness::Filled,
+                        )
+                    } else {
+                        for (x, y) in line.as_inclusive_bresenham_iterator() {
+                            // We've guaranteed that we'll have tiles to cover all the lines in the polygon above
+                            slice.putpixel(
+                                //Point::new(x + self.frame.origin.x, y + self.frame.origin.y),
+                                Point::new(x, y),
+                                color,
+                            );
+                        }
+                    }
+                }
+            }
+            FillMode::Outline => {
+                let lines = polygon_stack.lines();
+                for line in lines.iter() {
+                    //line.draw(&mut slice, color);
+                    let line = LineF64::new(
+                        //line.p1 + PointF64::from(self.frame.origin),
+                        //line.p2 + PointF64::from(self.frame.origin),
+                        line.p1, line.p2,
+                    );
+                    for (x, y) in line.as_inclusive_bresenham_iterator() {
+                        slice.putpixel(Point::new(x, y), color);
+                    }
+                    //line.draw(self, color);
+                }
+            }
+        }
     }
 }
 
