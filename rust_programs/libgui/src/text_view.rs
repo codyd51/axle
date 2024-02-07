@@ -121,6 +121,25 @@ impl TextView {
         )
     }
 
+    pub fn new_with_font<F: 'static + Fn(&View, Size) -> Rect>(
+        _background_color: Color,
+        font: Font,
+        font_size: Size,
+        text_insets: RectInsets,
+        sizer: F,
+        pixel_byte_layout: PixelByteLayout,
+    ) -> Rc<Self> {
+        let view = ScrollView::new_ext(sizer, pixel_byte_layout);
+        Rc::new(Self {
+            view,
+            font,
+            font_size,
+            text_insets,
+            text: RefCell::new(vec![]),
+            cursor_pos: RefCell::new(CursorPos(0, Point::zero())),
+        })
+    }
+
     pub fn font_size(&self) -> Size {
         self.font_size
     }
