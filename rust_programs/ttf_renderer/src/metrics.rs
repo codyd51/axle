@@ -1,6 +1,6 @@
 use crate::parse_utils::{BigEndianValue, FromFontBufInPlace, TransmuteFontBufInPlace};
 use crate::parser::FontParser;
-use agx_definitions::Rect;
+use agx_definitions::{Rect, Size};
 use alloc::vec;
 use alloc::vec::Vec;
 use core::cell::RefCell;
@@ -32,15 +32,29 @@ impl TransmuteFontBufInPlace for HheaTableRaw {}
 
 #[derive(Debug, Clone)]
 pub struct HheaTable {
+    pub ascent: isize,
+    pub descent: isize,
+    pub line_gap: isize,
     pub long_hor_metrics_count: usize,
 }
 
 impl FromFontBufInPlace<HheaTableRaw> for HheaTable {
     fn from_in_place_buf(raw: &HheaTableRaw) -> Self {
         Self {
+            ascent: raw.ascent.into_value() as _,
+            descent: raw.descent.into_value() as _,
+            line_gap: raw.line_gap.into_value() as _,
             long_hor_metrics_count: raw.long_hor_metrics_count.into_value() as _,
         }
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct FontGlobalLayoutMetrics {
+    pub ascent: isize,
+    pub descent: isize,
+    pub line_gap: isize,
+    pub long_hor_metrics: Vec<LongHorMetric>,
 }
 
 #[repr(C, packed)]
@@ -161,6 +175,14 @@ impl GlyphRenderMetrics {
         let horizontal_metrics = self.horizontal_metrics.borrow();
         let vertical_metrics = self.vertical_metrics.borrow();
         let h = horizontal_metrics.as_ref().unwrap();
+        // TODO(PT): We're not finding vertical metrics for any glyph! This is causing the rendering to go bad?
+        // Update: vmtx is only for vertical-layout scripts, not English, so I had a misunderstanding
+        /*
+        println!(
+            "Found vert metrics? {}",
+            vertical_metrics.as_ref().is_some()
+        );
+        */
         let v = vertical_metrics
             .as_ref()
             .unwrap_or(&VerticalMetrics {
@@ -177,7 +199,7 @@ impl GlyphRenderMetrics {
     }
 }
 
-pub(crate) fn parse_horizontal_metrics(parser: &FontParser) -> Vec<LongHorMetric> {
+pub(crate) fn parse_horizontal_metrics(parser: &FontParser) -> FontGlobalLayoutMetrics {
     let hhea: HheaTable = parser.parse_table("hhea");
     let hmtx_offset = parser.table_headers.get("hmtx").unwrap().offset;
     let mut cursor = hmtx_offset;
@@ -186,13 +208,19 @@ pub(crate) fn parse_horizontal_metrics(parser: &FontParser) -> Vec<LongHorMetric
         let glyph_metric = LongHorMetric::from_in_place_buf(parser.read_with_cursor(&mut cursor));
         glyph_metrics.push(glyph_metric);
     }
-    glyph_metrics
+    FontGlobalLayoutMetrics {
+        ascent: hhea.ascent,
+        descent: hhea.descent,
+        line_gap: hhea.line_gap,
+        long_hor_metrics: glyph_metrics,
+    }
 }
 
 pub(crate) fn parse_vertical_metrics(
     parser: &FontParser,
     glyph_count: usize,
 ) -> Option<Vec<VerticalMetrics>> {
+    //println!("Vmtx table {:?}", parser.table_headers.get("vmtx"));
     let vmtx_offset = match parser.table_headers.get("vmtx") {
         None => return None,
         Some(vmtx_header) => vmtx_header.offset,

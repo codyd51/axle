@@ -367,7 +367,7 @@ pub(crate) fn parse_instructions(
     loop {
         let opcode: &u8 = FontParser::read_data_with_cursor(instructions, &mut cursor);
         if operations.should_print() {
-            print!("{cursor:04x}\t{opcode:02x}\t");
+            //print!("{cursor:04x}\t{opcode:02x}\t");
         }
         match opcode {
             0x00 | 0x01 => {
@@ -379,7 +379,7 @@ pub(crate) fn parse_instructions(
                 };
 
                 if operations.should_print() {
-                    println!("Set freedom and projection vectors to {axis:?}");
+                    //println!("Set freedom and projection vectors to {axis:?}");
                 }
                 if operations.should_execute() {
                     graphics_state.projection_vector = axis;
@@ -391,7 +391,7 @@ pub(crate) fn parse_instructions(
                 let zone_number = graphics_state.pop();
                 let zone = Zone::from(zone_number);
                 if operations.should_print() {
-                    println!("SZP0\tZone pointer 0 = {zone:?}");
+                    //println!("SZP0\tZone pointer 0 = {zone:?}");
                 }
                 if operations.should_execute() {
                     graphics_state.zone_pointers[0] = zone;
@@ -406,7 +406,7 @@ pub(crate) fn parse_instructions(
                         true => "(taken)",
                         false => "(not taken)",
                     };
-                    println!("ELSE {}", take_else_str);
+                    //println!("ELSE {}", take_else_str);
                 }
                 if operations.should_execute() {
                     if !take_else {
@@ -425,11 +425,11 @@ pub(crate) fn parse_instructions(
             0x23 => {
                 // Swap
                 if operations.should_print() {
-                    println!("SWAP\ttop 2 stack elements");
+                    //println!("SWAP\ttop 2 stack elements");
                 }
-                println!("Stack: ");
+                //println!("Stack: ");
                 for x in graphics_state.interpreter_stack.iter().rev() {
-                    println!("\t\t\t{x:08x}");
+                    //println!("\t\t\t{x:08x}");
                 }
                 if operations.should_execute() {
                     let e2 = graphics_state.pop();
@@ -443,7 +443,7 @@ pub(crate) fn parse_instructions(
                 // Function identifier number is popped from the stack
                 let function_identifier_number = graphics_state.pop();
                 if operations.should_print() {
-                    println!("CALL #{function_identifier_number}");
+                    //println!("CALL #{function_identifier_number}");
                 }
                 if operations.should_execute() {
                     let function = &font.functions_table[&(function_identifier_number as _)];
@@ -455,7 +455,7 @@ pub(crate) fn parse_instructions(
                 // Function identifier number is popped from the stack
                 let function_identifier_number = graphics_state.pop();
                 if operations.should_print() {
-                    println!("Function define #{function_identifier_number}");
+                    //println!("Function define #{function_identifier_number}");
                 }
                 if operations.should_execute() {
                     //
@@ -464,16 +464,18 @@ pub(crate) fn parse_instructions(
             0x2d => {
                 // ENDF
                 if operations.should_print() {
-                    println!("ENDF");
+                    //println!("ENDF");
                 }
             }
             0x4b => {
                 // Measure pixels per em in the projection vector's axis
                 if operations.should_print() {
+                    /*
                     println!(
                         "MPPEM\tMeasure pixels per em in {:?}",
                         graphics_state.projection_vector
                     );
+                    */
                 }
                 if operations.should_execute() {
                     let val = match graphics_state.projection_vector {
@@ -489,7 +491,7 @@ pub(crate) fn parse_instructions(
                 let e1 = graphics_state.pop();
                 let result = e1 < e2;
                 if operations.should_print() {
-                    println!("LT\tLess than? {e1} < {e2} = {result}");
+                    //println!("LT\tLess than? {e1} < {e2} = {result}");
                 }
                 if operations.should_execute() {
                     graphics_state.push(if result { 1 } else { 0 });
@@ -506,7 +508,7 @@ pub(crate) fn parse_instructions(
                 last_if_condition_passed = Some(condition_passed);
 
                 if operations.should_print() {
-                    println!("IF\t{condition_passed}");
+                    //println!("IF\t{condition_passed}");
                 }
                 if operations.should_execute() {
                     if !condition_passed {
@@ -526,14 +528,14 @@ pub(crate) fn parse_instructions(
             0x59 => {
                 // Nothing to do
                 if operations.should_print() {
-                    println!("EIF");
+                    //println!("EIF");
                 }
             }
             0x5c => {
                 // NOT
                 let val = graphics_state.pop();
                 if operations.should_print() {
-                    println!("NOT {val:08x}");
+                    //println!("NOT {val:08x}");
                 }
                 if operations.should_execute() {
                     let result = if val != 0 { 0 } else { 1 };
@@ -554,7 +556,7 @@ pub(crate) fn parse_instructions(
                 let period = RoundStatePeriod::from(period_val as usize);
 
                 if operations.should_print() {
-                    println!("SROUND\tperiod={period:?}, phase={phase:?}, threshold={threshold:?}");
+                    //println!("SROUND\tperiod={period:?}, phase={phase:?}, threshold={threshold:?}");
                 }
                 if operations.should_execute() {
                     graphics_state.round_state = RoundState::new(period, phase, threshold);
@@ -562,7 +564,7 @@ pub(crate) fn parse_instructions(
                 //
             }
             0x77 => {
-                println!("TODO: Super round @ 45 degrees");
+                //println!("TODO: Super round @ 45 degrees");
                 let val = graphics_state.pop();
             }
             0x85 => {
@@ -572,7 +574,7 @@ pub(crate) fn parse_instructions(
                 let low = word & 0xff;
                 let high = (word >> 8) & 0xff;
                 if operations.should_print() {
-                    println!("SCANCTRL {low:04x} : {high:04x}");
+                    //println!("SCANCTRL {low:04x} : {high:04x}");
                 }
                 if operations.should_execute() {
                     // TODO(PT): Which axis should this use?
@@ -588,7 +590,7 @@ pub(crate) fn parse_instructions(
                 // GETINFO
                 let selector = graphics_state.pop();
                 if operations.should_print() {
-                    println!("GETINFO");
+                    //println!("GETINFO");
                 }
                 let mut result = 0_u32;
                 if operations.should_execute() {
@@ -609,7 +611,7 @@ pub(crate) fn parse_instructions(
                 // SCANTYPE
                 let word = graphics_state.pop();
                 if operations.should_print() {
-                    println!("SCANTYPE {word:08x}");
+                    //println!("SCANTYPE {word:08x}");
                 }
                 if operations.should_execute() {
                     graphics_state.scan_control.dropout_control_mode =
@@ -625,11 +627,11 @@ pub(crate) fn parse_instructions(
                     number_of_bytes_to_push as usize,
                 );
                 if operations.should_print() {
-                    print!("Push {number_of_bytes_to_push} bytes:");
+                    //print!("Push {number_of_bytes_to_push} bytes:");
                     for byte in bytes_to_push.iter() {
-                        print!("  {byte:02x}");
+                        //print!("  {byte:02x}");
                     }
-                    println!();
+                    //println!();
                 }
                 if operations.should_execute() {
                     for byte in bytes_to_push.iter() {
@@ -649,11 +651,11 @@ pub(crate) fn parse_instructions(
                     words_to_push.push(word);
                 }
                 if operations.should_print() {
-                    print!("Push {number_of_words_to_push} words:");
+                    //print!("Push {number_of_words_to_push} words:");
                     for word in words_to_push.iter() {
-                        print!("  {word:02x}");
+                        //print!("  {word:02x}");
                     }
-                    println!();
+                    //println!();
                 }
                 if operations.should_execute() {
                     for word in words_to_push.iter() {

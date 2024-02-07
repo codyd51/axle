@@ -232,7 +232,7 @@ pub(crate) fn parse_character_map(parser: &FontParser) -> BTreeMap<usize, usize>
         .find_map(|_| {
             let character_map_subtable =
                 CharacterMapSubtable::from_in_place_buf(parser.read_with_cursor(&mut cursor));
-            println!("Character map subtable {character_map_subtable:?}");
+            //println!("Character map subtable {character_map_subtable:?}");
             let recognized_unicode_encodings = [
                 CharacterMapPlatformAndEncoding::Unicode(
                     CharacterMapUnicodeEncoding::Version2_0Bmp,
