@@ -3,8 +3,9 @@ use crate::parser::FontParser;
 use crate::println;
 use crate::{Codepoint, Font, GlyphMetrics, GlyphRenderDescription, GlyphRenderInstructions};
 use agx_definitions::{
-    bounding_box_from_edges, scanline_compute_fill_lines_from_edges, Color, LikeLayerSlice, Point,
-    PointF64, Polygon, PolygonStack, Rect, RectF64, Size, SizeF64, StrokeThickness,
+    bounding_box_from_edges, scanline_compute_fill_lines_from_edges, Color, FillMode,
+    LikeLayerSlice, Point, PointF64, Polygon, PolygonStack, Rect, RectF64, Size, SizeF64,
+    StrokeThickness,
 };
 use alloc::boxed::Box;
 use alloc::vec;
@@ -212,13 +213,11 @@ pub fn render_antialiased_glyph_onto(
                 }
             }
 
+            let polygon_stack = PolygonStack::new(&scaled_polygons);
             // Ensure at a minimum we see the outline points
             // This helps smooth over missing outlines for very thin/small glyphs
-            for p in scaled_polygons.iter() {
-                p.draw_outline(&mut dest_slice, draw_color);
-            }
-            let polygon_stack = PolygonStack::new(&scaled_polygons);
-            polygon_stack.fill(&mut dest_slice, draw_color);
+            polygon_stack.fill(&mut dest_slice, draw_color, FillMode::Outline);
+            polygon_stack.fill(&mut dest_slice, draw_color, FillMode::Filled);
         }
         GlyphRenderInstructions::BlankGlyph(_blank_glyph) => {
             // Nothing to do
@@ -276,6 +275,10 @@ fn render_polygons_glyph(
     */
 
     let polygon_stack = PolygonStack::new(&scaled_polygons);
+    // Ensure at a minimum we see the outline points
+    // This helps smooth over missing outlines for very thin/small glyphs
+    polygon_stack.fill(onto, draw_color, FillMode::Outline);
+    polygon_stack.fill(onto, draw_color, FillMode::Filled);
 
     /*
     let instructions = glyph.hinting_program_bytes.as_ref().unwrap();
