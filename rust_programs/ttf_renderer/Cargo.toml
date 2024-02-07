@@ -10,3 +10,6 @@ axle_rt_derive = {path = "../axle_rt_derive" }
 agx_definitions = {path = "../agx_definitions"}
 num-traits = { version = "0.2", default-features = false, features = ["libm"]}
 itertools = { version = "0.10.5", default-features = false }
+
+[features]
+no_std = []
