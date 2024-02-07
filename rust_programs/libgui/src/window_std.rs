@@ -432,6 +432,10 @@ impl LikeLayerSlice for PixelLayer {
     fn drain_damages(&self) -> Vec<Rect> {
         todo!()
     }
+
+    fn fill_polygon_stack(&self, polygon_stack: &PolygonStack, color: Color, fill_mode: FillMode) {
+        todo!()
+    }
 }
 
 pub struct AwmWindow {
@@ -440,17 +444,21 @@ pub struct AwmWindow {
     current_size: RefCell<Size>,
     ui_elements: RefCell<Vec<Rc<dyn UIElement>>>,
     elements_containing_mouse: RefCell<Vec<Rc<dyn UIElement>>>,
+    event_loop: EventLoop<()>,
 }
 
 impl AwmWindow {
     pub fn new(title: &str, size: Size) -> Self {
         //println!("AwmWindow::new({title:?}, {size:?})");
+        let event_loop = EventLoop::new().expect("Failed to create event loop");
+        let layer = PixelLayer::new(title, &event_loop, size);
         Self {
             title: title.to_string(),
-            layer: RefCell::new(None),
+            layer: RefCell::new(Some(layer)),
             current_size: RefCell::new(size),
             ui_elements: RefCell::new(vec![]),
             elements_containing_mouse: RefCell::new(Vec::new()),
+            event_loop,
         }
     }
 
@@ -537,29 +545,23 @@ impl AwmWindow {
     pub fn enter_event_loop(self: &Rc<Self>) {
         println!("Entering event loop...");
         let current_size = self.current_size.borrow();
-        let event_loop = EventLoop::new();
-
-        *self.layer.borrow_mut() = Some(PixelLayer::new(&self.title, &event_loop, *current_size));
-
-        /*
-        let elems = self.ui_elements.borrow();
-        for elem in elems.iter() {
-            elem.get_slice().get_slice(Rect::from_parts(Point::zero(), Size::new(40, 40))).fill(Color::green());
-        }
-        */
 
         let self_clone = Rc::clone(self);
         let scale_factor = 2;
         let mut last_cursor_pos = Point::zero();
-        event_loop.run(move |event, _, control_flow| {
-            *control_flow = ControlFlow::Poll;
+
+        // Safety: This function never returns, so it's fine to take ownership of the event loop
+        let event_loop_ptr: *const EventLoop<()> = &self.event_loop as *const EventLoop<()>;
+        let event_loop: EventLoop<()> = unsafe { core::ptr::read(event_loop_ptr) };
+
+        event_loop.run(move |event, event_loop_window_target| {
+            event_loop_window_target.set_control_flow(ControlFlow::Poll);
             match event {
-                Event::MainEventsCleared => self_clone.draw(),
+                Event::AboutToWait => self_clone.draw(),
                 Event::WindowEvent { event, .. } => {
                     match event {
                         WindowEvent::MouseInput { state, button, .. } => {
-                            //
-                            //println!("MouseInput {state:?}, button {button:?}");
+                            println!("MouseInput {state:?}, button {button:?}");
                             match state {
                                 ElementState::Pressed => match button {
                                     MouseButton::Left => {
@@ -594,48 +596,32 @@ impl AwmWindow {
                                 .handle_mouse_scrolled(last_cursor_pos, -(delta_y / 6.0) as _);
                             //elem.handle_mouse_scrolled(Point::from(event.mouse_point), event.delta_z as _);
                         }
-                        WindowEvent::KeyboardInput { input, .. } => {
-                            if let Some(key_code) = input.virtual_keycode {
-                                //println!("Got key {key_code:?}");
-                                let maybe_key_code_as_char = match key_code {
-                                    VirtualKeyCode::A => Some('a'),
-                                    VirtualKeyCode::B => Some('b'),
-                                    VirtualKeyCode::C => Some('c'),
-                                    VirtualKeyCode::D => Some('d'),
-                                    VirtualKeyCode::E => Some('e'),
-                                    VirtualKeyCode::F => Some('f'),
-                                    VirtualKeyCode::G => Some('g'),
-                                    VirtualKeyCode::H => Some('h'),
-                                    VirtualKeyCode::I => Some('i'),
-                                    VirtualKeyCode::J => Some('j'),
-                                    VirtualKeyCode::K => Some('k'),
-                                    VirtualKeyCode::L => Some('l'),
-                                    VirtualKeyCode::M => Some('m'),
-                                    VirtualKeyCode::N => Some('n'),
-                                    VirtualKeyCode::O => Some('o'),
-                                    VirtualKeyCode::P => Some('p'),
-                                    VirtualKeyCode::Q => Some('q'),
-                                    VirtualKeyCode::R => Some('r'),
-                                    VirtualKeyCode::S => Some('s'),
-                                    VirtualKeyCode::T => Some('t'),
-                                    VirtualKeyCode::U => Some('u'),
-                                    VirtualKeyCode::V => Some('v'),
-                                    VirtualKeyCode::W => Some('w'),
-                                    VirtualKeyCode::X => Some('x'),
-                                    VirtualKeyCode::Y => Some('y'),
-                                    VirtualKeyCode::Z => Some('z'),
-                                    VirtualKeyCode::Space => Some(' '),
-                                    VirtualKeyCode::Return => Some('\n'),
+                        WindowEvent::KeyboardInput { event, .. } => {
+                            let maybe_key_code_as_char = {
+                                if event.logical_key == Key::Named(NamedKey::Enter) {
+                                    Some('\n')
+                                } else if event.logical_key == Key::Named(NamedKey::Backspace) {
                                     // TODO(PT): Hack
-                                    VirtualKeyCode::Back => Some(0x08 as char),
-                                    _ => None,
-                                };
-                                if let Some(key_code_as_char) = maybe_key_code_as_char {
-                                    if input.state == ElementState::Pressed {
-                                        self_clone.key_down(key_code_as_char);
+                                    Some(0x08 as char)
+                                } else {
+                                    if let Some(c) = event.logical_key.to_text() {
+                                        if c.len() > 1 {
+                                            panic!(
+                                                "Expected keypress to only be a single character"
+                                            );
+                                        }
+                                        Some(c.chars().collect::<Vec<_>>()[0])
                                     } else {
-                                        self_clone.key_up(key_code_as_char);
+                                        None
                                     }
+                                }
+                            };
+
+                            if let Some(key_code_as_char) = maybe_key_code_as_char {
+                                if event.state == ElementState::Pressed {
+                                    self_clone.key_down(key_code_as_char);
+                                } else {
+                                    self_clone.key_up(key_code_as_char);
                                 }
                             }
                         }
@@ -645,7 +631,7 @@ impl AwmWindow {
                 }
                 _ => (),
             }
-        })
+        });
     }
 
     pub fn draw(&self) {
