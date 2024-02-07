@@ -176,7 +176,7 @@ def main():
     run_and_check(["nasm", "-f", "bin", (_REPO_ROOT / "ap_bootstrap.s.x86_64.arch_specific").as_posix(), "-o", (_REPO_ROOT / ".compiled_ap_bootstrap").as_posix()])
 
     # Build the C and assembly portions of the kernel, and link with the Rust libraries
-    run_and_check(["make"])
+    run_and_check(["make"], cwd=_REPO_ROOT)
 
     working_on_kernel_only = False
     if not working_on_kernel_only:
