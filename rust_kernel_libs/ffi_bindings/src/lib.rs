@@ -1,4 +1,4 @@
-#![no_std]
+#![cfg_attr(target_os = "axle_kernel", no_std)]
 #![feature(format_args_nl)]
 #![feature(core_intrinsics)]
 #![feature(panic_info_message)]
@@ -95,6 +95,7 @@ macro_rules! internal_println {
     })
 }
 
+#[cfg(target_os = "axle_kernel")]
 #[panic_handler]
 pub fn panic(panic_info: &PanicInfo<'_>) -> ! {
     let msg = match panic_info.message() {
@@ -125,6 +126,7 @@ pub fn panic(panic_info: &PanicInfo<'_>) -> ! {
 
 pub struct Dummy;
 
+#[cfg(target_os = "axle_kernel")]
 unsafe impl GlobalAlloc for Dummy {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         kmalloc(layout.size()) as *mut u8
@@ -134,6 +136,7 @@ unsafe impl GlobalAlloc for Dummy {
     }
 }
 
+#[cfg(target_os = "axle_kernel")]
 #[global_allocator]
 pub static ALLOCATOR: Dummy = Dummy;
 
