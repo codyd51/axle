@@ -1,6 +1,7 @@
 #![no_std]
 #![feature(start)]
 #![feature(slice_ptr_get)]
+#![feature(format_args_nl)]
 #![feature(default_alloc_error_handler)]
 
 extern crate alloc;
@@ -23,7 +24,7 @@ use libgui::AwmWindow;
 
 use axle_rt::{
     amc_message_await, amc_message_send, amc_register_service,
-    core_commands::AmcQueryServiceRequest, printf, AmcMessage,
+    core_commands::AmcQueryServiceRequest, printf, println, AmcMessage,
 };
 
 use agx_definitions::{
@@ -35,6 +36,7 @@ use file_manager_messages::{
     str_from_u8_nul_utf8_unchecked, DirectoryContents, DirectoryEntry, LaunchProgram,
     ReadDirectory, FILE_SERVER_SERVICE_NAME,
 };
+use libgui::scroll_view::ScrollView;
 
 fn select_current_path_view_height(superview_size: Size) -> isize {
     let min_height = 100;
@@ -62,13 +64,13 @@ impl CurrentPathView {
         let current_path_label_clone = Rc::clone(&current_path_label);
         Rc::clone(&view).add_component(current_path_label_clone);
 
-        let back_button = Rc::new(Button::new("Go Back", |_b, superview_size| {
+        let back_button = Button::new("Go Back", None, |_b, superview_size| {
             let size = Size::new(80, 30);
             Rect::from_parts(
                 Point::new(10, superview_size.height - size.height - 10),
                 size,
             )
-        }));
+        });
         let back_button_clone = Rc::clone(&back_button);
         Rc::clone(&view).add_component(back_button_clone);
 
@@ -200,11 +202,11 @@ impl DirectoryEntryView {
             true => "Browse",
             false => "Open",
         };
-        let button = Rc::new(Button::new(button_text, move |_b, superview_size| {
+        let button = Button::new(button_text, None, move |_b, superview_size| {
             //printf!("Button sizer, Superview size {:?}\n", superview_size);
             let size = Size::new(button_width, height - 4);
             Rect::from_parts(Point::new(superview_size.width - size.width - 10, 1), size)
-        }));
+        });
         let button_clone = Rc::clone(&button);
         Rc::clone(&view).add_component(button_clone);
 
@@ -334,6 +336,8 @@ struct DirectoryContentsView {
 impl DirectoryContentsView {
     pub fn new<F: 'static + Fn(&View, Size) -> Rect>(path: &str, sizer: F) -> Self {
         let view = Rc::new(View::new(Color::new(170, 170, 170), sizer));
+        //let view = ScrollView::new(sizer);
+        //println!("Got ScrollView");
 
         // TODO(PT): Should return the normalized path (ie strip extra slashes and normalize ../)
         amc_message_send(FILE_SERVER_SERVICE_NAME, ReadDirectory::new(path));

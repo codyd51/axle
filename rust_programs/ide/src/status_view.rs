@@ -29,13 +29,13 @@ impl StatusView {
     ) -> Rc<Self> {
         let view = Rc::new(View::new(Color::new(180, 180, 180), sizer));
 
-        let run_button = Rc::new(Button::new("Run", |_b, superview_size| {
+        let run_button = Button::new("Run", None, |_b, superview_size| {
             let size = Size::new(60, 30);
             Rect::from_parts(
                 Point::new(10, superview_size.height - size.height - 10),
                 size,
             )
-        }));
+        });
         Rc::clone(&view).add_component(Rc::clone(&run_button) as Rc<dyn UIElement>);
 
         let status_label = Rc::new(Label::new("", Color::black(), |_, _| {

@@ -5,14 +5,18 @@ use agx_definitions::{
     StrokeThickness,
 };
 use alloc::boxed::Box;
-use alloc::rc::Weak;
+use alloc::rc::{Rc, Weak};
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
+use ttf_renderer::{rendered_string_size, Font};
 
+use crate::font::{draw_char_with_font_onto, scaled_metrics_for_codepoint};
+use crate::text_view::DrawnCharacter;
 use crate::{bordered::Bordered, font::draw_char, ui_elements::UIElement};
 
 pub struct Button {
     pub label: String,
+    font: Font,
     frame: RefCell<Rect>,
     sizer: RefCell<Box<dyn Fn(&Self, Size) -> Rect>>,
     container: RefCell<Option<RefCell<Weak<dyn NestedLayerSlice>>>>,
@@ -21,17 +25,31 @@ pub struct Button {
 }
 
 impl Button {
-    pub fn new<F: 'static + Fn(&Self, Size) -> Rect>(label: &str, sizer: F) -> Self {
-        Button {
+    pub fn new<F: Fn(&Self, Size) -> Rect + 'static>(
+        label: &str,
+        font: Option<Font>,
+        sizer: F,
+    ) -> Rc<Self> {
+        if font.is_none() {
+            // TODO(PT): It'd be nice to have some kind of font API that allowed anyone to retrieve a reference to a
+            // font from any point, instead of needing to pass references all the way through the control flow.
+            // Maybe there's an in-process font store that caches scanlines, etc, and fetches fonts from the FS.
+            // The 'fetch from FS' has a platform-specific implementation. To facilitate this (as the paths will be
+            // different on each OS), we could have an enum to model the possible font options, with an escape hatch
+            // 'get from this path' variant, which could perhaps hold different values depending on the OS.
+            todo!("Must handle when no font is passed to a Button?")
+        }
+        Rc::new(Self {
             label: label.to_string(),
+            font: font.unwrap(),
             frame: RefCell::new(Rect::zero()),
             sizer: RefCell::new(Box::new(sizer)),
             container: RefCell::new(None),
             left_click_cb: RefCell::new(None),
             currently_contains_mouse_int: RefCell::new(false),
-        }
+        })
     }
-    pub fn on_left_click<F: 'static + Fn(&Self)>(&self, f: F) {
+    pub fn on_left_click<F: Fn(&Self) + 'static>(&self, f: F) {
         *self.left_click_cb.borrow_mut() = Some(Box::new(f));
     }
 }
@@ -150,10 +168,32 @@ impl Bordered for Button {
                 (label_size.height as f64 / 2f64) as isize,
             );
 
-        let mut cursor = label_origin;
+        //let mut cursor = label_origin;
+        let mut cursor = Point::zero();
+        /*
         for ch in self.label.chars() {
             draw_char(onto, ch, &cursor, draw_color, &font_size);
             cursor.x += font_size.width;
+        }
+        */
+        // TODO(PT): A more reusable string renderer that can be shared between Button and Label?
+        let font_size = Size::new(36, 36);
+        let rendered_string_size = rendered_string_size(&self.label, &self.font, font_size);
+        let mut cursor = Point::new(
+            ((onto.frame().size.width as f64 / 2.0) - (rendered_string_size.width as f64 / 2.0))
+                as isize,
+            //0,
+            //((onto.frame().size.height as f64 / 2.0) - (rendered_string_size.height as f64 / 2.0))
+            ((onto.frame().size.height as f64 / 2.0) - (font_size.height as f64 / 2.0)) as isize, //as isize,
+        );
+
+        //pub fn rendered_string_size(s: &str, font: &Font, font_size: Size) -> Size {
+        for ch in self.label.chars() {
+            let mut drawn_ch = DrawnCharacter::new(cursor, Color::black(), ch, font_size);
+            let (bounding_box, glyph_metrics) =
+                draw_char_with_font_onto(&mut drawn_ch, &self.font, onto);
+            let scaled_glyph_metrics = scaled_metrics_for_codepoint(&self.font, font_size, ch);
+            cursor.x += scaled_glyph_metrics.advance_width as isize + 2;
         }
     }
 }
