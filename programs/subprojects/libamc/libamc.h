@@ -52,4 +52,7 @@ void amc_msg_u32_5__request_response_sync(
 
 bool libamc_handle_message(amc_message_t* msg);
 
+// Convenience helpers around messages to core
+void amc_alloc_physical_range(uintptr_t buffer_size, uintptr_t* out_phys_base, uintptr_t* out_virt_base);
+
 #endif

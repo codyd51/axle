@@ -125,3 +125,18 @@ bool libamc_handle_message(amc_message_t* msg) {
     }
     return false;
 }
+
+void amc_alloc_physical_range(uintptr_t buffer_size, uintptr_t* out_phys_base, uintptr_t* out_virt_base) {
+    printf("amc_alloc_physical_range(buffer_size=%p, out_phys=%p, out_virt=%p)\n", (void*)buffer_size, out_phys_base, out_virt_base);
+    assert(out_phys_base && out_virt_base, "out-parameters must be provided");
+    amc_alloc_physical_range_request_t req = {
+        .event = AMC_ALLOC_PHYSICAL_RANGE_REQUEST,
+        .size = buffer_size
+    };
+    amc_message_send(AXLE_CORE_SERVICE_NAME, &req, sizeof(req));
+    amc_message_t* out_resp;
+    amc_message_await__u32_event(AXLE_CORE_SERVICE_NAME, AMC_ALLOC_PHYSICAL_RANGE_RESPONSE, &out_resp);
+    amc_alloc_physical_range_response_t* phys_range_info = (amc_alloc_physical_range_response_t*)out_resp->body;
+    *out_phys_base = phys_range_info->phys_base;
+    *out_virt_base = phys_range_info->virt_base;
+}
