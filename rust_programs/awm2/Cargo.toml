@@ -27,8 +27,8 @@ spin = "0.9.4"
 rand = { version = "0.8.5", default-features = false, features = ["small_rng"] }
 
 # These dependencies are only enabled in use_std mode
-pixels = { version = "0.11.0", optional = true }
-winit = { version = "*", optional = true }
+pixels = { version = "0.13.0", optional = true }
+winit = { version = "0.29.10", optional = true, features = ["rwh_05"] }
 # PT: For the test suite
 image = { version = "0.24.1", optional = true }
 
