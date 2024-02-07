@@ -44,6 +44,15 @@ impl TextInputView {
         })
     }
 
+
+    pub fn clear(&self) {
+        self.view.clear()
+    }
+
+    pub fn add_component(self: Rc<Self>, elem: Rc<dyn UIElement>) {
+        Rc::clone(&self.view).add_component(elem)
+    }
+
     pub fn get_text(&self) -> String {
         self.view.get_text()
     }
