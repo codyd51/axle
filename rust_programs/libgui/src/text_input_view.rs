@@ -20,6 +20,7 @@ use crate::window_events::KeyCode;
 pub struct TextInputView {
     pub view: Rc<TextView>,
     is_shift_held: RefCell<bool>,
+    key_pressed_cb: RefCell<Option<Box<dyn Fn(&Self, KeyCode)>>>,
 }
 
 impl TextInputView {
@@ -39,6 +40,7 @@ impl TextInputView {
         Rc::new(Self {
             view,
             is_shift_held: RefCell::new(false),
+            key_pressed_cb: RefCell::new(None),
         })
     }
 
@@ -167,6 +169,10 @@ impl TextInputView {
         }
         println!();
     }
+
+    pub fn set_on_key_pressed<F: 'static + Fn(&Self, KeyCode)>(&self, f: F) {
+        *self.key_pressed_cb.borrow_mut() = Some(Box::new(f));
+    }
 }
 
 // TODO(PT): Model keycodes in Rust
@@ -258,6 +264,12 @@ impl UIElement for TextInputView {
     }
 
     fn handle_key_pressed(&self, key: KeyCode) {
+        // First, dispatch the user-provided callback, if set
+        let callback = self.key_pressed_cb.borrow();
+        if let Some(callback) = callback.as_ref() {
+            callback(self, key);
+        }
+
         if is_key_shift(key) {
             *self.is_shift_held.borrow_mut() = true;
         }
