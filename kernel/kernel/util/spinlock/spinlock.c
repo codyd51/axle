@@ -79,7 +79,8 @@ static inline union x86_rflags local_irq_disable_save(void) {
 
 static inline void local_irq_restore(union x86_rflags flags) {
     if (flags.__packed.irqs_enabled) {
-        set_rflags(flags);
+        //set_rflags(flags);
+        asm("sti");
     }
 }
 
@@ -87,8 +88,8 @@ void spinlock_acquire(spinlock_t* lock) {
     if (!lock) return;
     assert(lock->name, "Spinlock was used without assigning a name");
 
-    // Keep track of whether we had to wait to acquire the lock
     /*
+    // Keep track of whether we had to wait to acquire the lock
 	uint32_t contention_start = 0;
 
 	if (lock->flag != 0) {
@@ -125,18 +126,19 @@ void spinlock_acquire(spinlock_t* lock) {
 	}
 
     // Spin until the lock is released
-    /*
     while (!atomic_compare_exchange(&lock->flag, 0, 1)) {
         //task_switch();
     }
      */
+
     union x86_rflags rflags = local_irq_disable_save();
     while (atomic_bit_test_and_set(&lock->flag) == 1) {
-        local_irq_restore(rflags);
+        //local_irq_restore(rflags);
+        // Wait until the lock looks unlocked before retrying
         while (lock->flag == 1) {
-	        asm volatile ("pause":::"memory");
+	        //asm volatile ("pause":::"memory");
         }
-        local_irq_disable();
+        //local_irq_disable();
     }
     lock->rflags = rflags;
     lock->owner_pid = getpid();
@@ -159,7 +161,8 @@ void spinlock_acquire(spinlock_t* lock) {
     else {
         //printf("Spinlock: Proc %d received uncontended lock 0x%08x %s\n", getpid(), lock, lock->name);
     }
-     */
+    */
+    //spinlock_acquire_spin(lock);
 }
 
 void spinlock_release(spinlock_t* lock) {
@@ -176,9 +179,11 @@ void spinlock_release(spinlock_t* lock) {
         asm("sti");
     }
     //printf("Spinlock: Proc %d freed lock 0x%08x %s\n", getpid(), lock, lock->name);
-     */
+    */
+
     union x86_rflags rflags = lock->rflags;
     asm volatile ("":::"memory");
     lock->flag = 0;
     local_irq_restore(rflags);
+    //spinlock_release_spin(lock);
 }
