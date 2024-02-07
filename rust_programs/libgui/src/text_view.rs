@@ -173,7 +173,7 @@ impl TextView {
         let mut cursor_pos = cursor_pos;
         if ch == '\n' || cursor_pos.x + (font_size.width * 2) >= onto.frame().width() {
             cursor_pos.x = 0;
-            cursor_pos.y += scaled_glyph_metrics.advance_height as isize
+            cursor_pos.y += font.scaled_line_height(font_size);
         } else {
             cursor_pos.x += scaled_glyph_metrics.advance_width as isize;
         }
