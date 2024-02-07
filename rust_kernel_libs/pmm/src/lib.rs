@@ -2,7 +2,7 @@
 // live in reserved blocks.
 // This makes it dangerous to use, for example, println or anything that will invoke string
 // formatting machinery.
-#![no_std]
+#![cfg_attr(target_os = "axle_kernel", no_std)]
 #![feature(format_args_nl)]
 #![feature(cstr_from_bytes_until_nul)]
 #![feature(default_alloc_error_handler)]
@@ -12,8 +12,12 @@ extern crate ffi_bindings;
 use core::ffi::CStr;
 use core::usize::MAX;
 use heapless::spsc::Queue;
-use heapless::Vec;
 use spin::Mutex;
+
+#[cfg(target_os = "axle_kernel")]
+use heapless::Vec;
+#[cfg(not(target_os = "axle_kernel"))]
+use std::vec::Vec;
 
 use ffi_bindings::cstr_core::CString;
 use ffi_bindings::{
@@ -42,13 +46,19 @@ const MAX_FRAMES_ALLOCATOR_CAN_BOOKKEEP: usize = MAX_MEMORY_ALLOCATOR_CAN_BOOKKE
 const CONTIGUOUS_CHUNK_POOL_SIZE: usize = MEGABYTE * 128;
 const MAX_CONTIGUOUS_CHUNK_FRAMES: usize = CONTIGUOUS_CHUNK_POOL_SIZE / PAGE_SIZE;
 
-#[derive(Debug, Copy, Clone)]
-struct PhysicalFrame(u64);
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+struct PhysicalFrame(usize);
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 struct ContiguousChunk {
     base: PhysicalFrame,
-    size: u64,
+    size: usize,
+}
+
+impl ContiguousChunk {
+    fn new(base: PhysicalFrame, size: usize) -> Self {
+        Self { base, size }
+    }
 }
 
 struct ContiguousChunkPoolDescription {
@@ -64,25 +74,71 @@ impl ContiguousChunkPoolDescription {
 
 struct ContiguousChunkPool {
     pool_description: Option<ContiguousChunkPoolDescription>,
+
+    #[cfg(target_os = "axle_kernel")]
     allocated_chunks: Vec<ContiguousChunk, MAX_CONTIGUOUS_CHUNK_FRAMES>,
-    free_frames: Vec<PhysicalFrame, MAX_CONTIGUOUS_CHUNK_FRAMES>,
+    #[cfg(target_os = "axle_kernel")]
+    free_chunks: Vec<ContiguousChunk, MAX_CONTIGUOUS_CHUNK_FRAMES>,
+    #[cfg(not(target_os = "axle_kernel"))]
+    allocated_chunks: Vec<ContiguousChunk>,
+    #[cfg(not(target_os = "axle_kernel"))]
+    free_chunks: Vec<ContiguousChunk>,
 }
+extern crate alloc;
 
 impl ContiguousChunkPool {
     const fn new() -> Self {
         Self {
             pool_description: None,
             allocated_chunks: Vec::new(),
-            free_frames: Vec::new(),
+            free_chunks: Vec::new(),
         }
     }
 
     fn set_pool_description(&mut self, base: usize, total_size: usize) {
+        println!("Setting pool description");
         self.pool_description = Some(ContiguousChunkPoolDescription::new(base, total_size));
+        // Start off with a single free chunk the size of the entire pool
+        #[cfg(target_os = "axle_kernel")]
+        self.free_chunks
+            .push(ContiguousChunk::new(PhysicalFrame(base), total_size))
+            .unwrap();
+        #[cfg(not(target_os = "axle_kernel"))]
+        self.free_chunks
+            .push(ContiguousChunk::new(PhysicalFrame(base), total_size));
     }
 
     fn is_pool_configured(&self) -> bool {
         self.pool_description.is_some()
+    }
+
+    fn alloc(&mut self, size: usize) -> usize {
+        // Look for a chunk big enough to satisfy the allocation
+        let mut chunk_to_drop = None;
+        let mut allocated_chunk = None;
+        for mut chunk in self.free_chunks.iter_mut() {
+            // Is the chunk large enough to satisfy this allocation?
+            if chunk.size >= size {
+                let chunk_base = chunk.base.0;
+                let new_size = chunk.size - size;
+                if new_size == 0 {
+                    // Remove the chunk entirely
+                    chunk_to_drop = Some(chunk.clone());
+                } else {
+                    // Shrink the chunk to account for the fact that part of it is now allocated
+                    chunk.base = PhysicalFrame(chunk_base + size);
+                    chunk.size -= size;
+                }
+                // And add an allocated chunk
+                allocated_chunk = Some(ContiguousChunk::new(PhysicalFrame(chunk_base), size));
+                self.allocated_chunks.push(allocated_chunk.unwrap());
+                break;
+            }
+        }
+        if let Some(chunk_to_drop) = chunk_to_drop {
+            self.free_chunks.retain(|i| *i == chunk_to_drop);
+        }
+        allocated_chunk.unwrap().base.0
     }
 }
 
@@ -174,5 +230,32 @@ pub unsafe fn pmm_free(frame_addr: usize) {
 
 #[no_mangle]
 pub unsafe fn pmm_alloc_continuous_range(size: usize) -> usize {
-    todo!()
+    let ret = CONTIGUOUS_CHUNK_POOL.alloc(size);
+    printf(
+        "pmm_alloc_contiguous_range(0x%p) = 0x%p\n\0".as_ptr() as *const u8,
+        size,
+        ret,
+    );
+    ret
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{ContiguousChunk, ContiguousChunkPool, PhysicalFrame};
+
+    #[test]
+    fn basic_allocation() {
+        // Given an empty pool
+        let mut pool = Box::new(ContiguousChunkPool::new());
+        pool.set_pool_description(0x10000, 0x20000);
+        // When I allocate a block
+        let allocated_chunk = pool.alloc(0x4000);
+        // Then it's allocated at the beginning
+        assert_eq!(allocated_chunk, 0x10000);
+        // And the free chunks are split as expected
+        assert_eq!(
+            pool.free_chunks,
+            vec![ContiguousChunk::new(PhysicalFrame(0x14000), 0x1c000)]
+        );
+    }
 }
