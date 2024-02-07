@@ -5,6 +5,7 @@ edition = "2021"
 
 [features]
 run_with_std = ["pixels", "winit"]
+run_in_uefi = []
 
 [dependencies]
 cstr_core = "0.2.4"
