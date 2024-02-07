@@ -12,7 +12,7 @@ run_in_axle = []
 axle_rt = {path = "../axle_rt" }
 axle_rt_derive = {path = "../axle_rt_derive" }
 cstr_core = "0.2.4"
-libgui = {path = "../libgui", features=["run_with_std"]}
-# libgui = {path = "../libgui"}
+# libgui = {path = "../libgui", features=["run_with_std"]}
+libgui = {path = "../libgui"}
 libgui_derive = {path = "../libgui_derive"}
 agx_definitions = {path = "../agx_definitions"}
