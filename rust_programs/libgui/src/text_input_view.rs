@@ -44,6 +44,28 @@ impl TextInputView {
         })
     }
 
+    pub fn new_with_font<F: 'static + Fn(&View, Size) -> Rect>(
+        font: Font,
+        font_size: Size,
+        text_insets: RectInsets,
+        sizer: F,
+        pixel_byte_layout: PixelByteLayout,
+    ) -> Rc<Self> {
+        let view = TextView::new_with_font(
+            Color::white(),
+            font,
+            font_size,
+            text_insets,
+            sizer,
+            pixel_byte_layout,
+        );
+
+        Rc::new(Self {
+            view,
+            is_shift_held: RefCell::new(false),
+            key_pressed_cb: RefCell::new(None),
+        })
+    }
 
     pub fn clear(&self) {
         self.view.clear()
