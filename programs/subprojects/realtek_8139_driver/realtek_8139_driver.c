@@ -4,10 +4,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include <kernel/adi.h>
 #include <kernel/amc.h>
 #include <kernel/idt.h>
+#include <kernel/core_commands.h>
 
 #include <libgui/libgui.h>
 
@@ -59,14 +61,14 @@ typedef struct rtl8139_state {
 	uint32_t io_base;
 
 	// Configuration assigned by this driver
-	uint32_t receive_buffer_virt;
-	uint32_t receive_buffer_phys;
-	uint32_t transmit_buffer_virt;
-	uint32_t transmit_buffer_phys;
+	uintptr_t receive_buffer_virt;
+	uintptr_t receive_buffer_phys;
+	uintptr_t transmit_buffer_virt;
+	uintptr_t transmit_buffer_phys;
 
 	// Current running state
 	uint8_t tx_round_robin_counter;
-	uint32_t rx_curr_buf_off;
+	uintptr_t rx_curr_buf_off;
 } rtl8139_state_t;
 
 static void receive_packet(rtl8139_state_t* state) {
@@ -233,26 +235,27 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
 	_perform_command(out_state, RTL_CMD_REG_ENABLE_RECEIVE | RTL_CMD_REG_ENABLE_TRANSMIT, 1);
 
 	// Set up RX and TX buffers, and give them to the device
-	uint32_t virt_memory_rx_addr = 0;
-	uint32_t phys_memory_rx_addr = 0;
-	uint32_t rx_buffer_size = 8192 + 16 + 1500;
-	assert(false, "revisit");
+	uintptr_t rx_buffer_size = 8192 + 16 + 1500;
 	//amc_physical_memory_region_create(rx_buffer_size, &virt_memory_rx_addr, &phys_memory_rx_addr);
-	out_state->receive_buffer_virt = virt_memory_rx_addr;
-	out_state->receive_buffer_phys = phys_memory_rx_addr;
-	printf("Set RX buffer phys: 0x%08x\n", phys_memory_rx_addr);
-	outl(io_base + RTL_REG_RX_BUFFER_PHYS_START, phys_memory_rx_addr);
+    uintptr_t phys_rx_base = 0;
+    uintptr_t virt_rx_base = 0;
+    amc_alloc_physical_range(rx_buffer_size, &phys_rx_base, &virt_rx_base);
+    printf("Got RX buffer [Phys 0x%p] [Virt 0x%p]\n", (void*)phys_rx_base, (void*)virt_rx_base);
 
-	uint32_t virt_memory_tx_addr = 0;
-	uint32_t phys_memory_tx_addr = 0;
-	//amc_physical_memory_region_create((1024*8) + 16, &virt_memory_tx_addr, &phys_memory_tx_addr);
-	out_state->transmit_buffer_virt = virt_memory_tx_addr;
-	out_state->transmit_buffer_phys = phys_memory_tx_addr;
-	printf("Set TX buffer phys: 0x%08x\n", phys_memory_tx_addr);
-	outl(io_base + RTL_REG_TX_0_PHYS_START, phys_memory_tx_addr);
-	outl(io_base + RTL_REG_TX_1_PHYS_START, phys_memory_tx_addr);
-	outl(io_base + RTL_REG_TX_2_PHYS_START, phys_memory_tx_addr);
-	outl(io_base + RTL_REG_TX_3_PHYS_START, phys_memory_tx_addr);
+	out_state->receive_buffer_virt = virt_rx_base;
+	out_state->receive_buffer_phys = phys_rx_base;
+	outl(io_base + RTL_REG_RX_BUFFER_PHYS_START, phys_rx_base);
+
+    uintptr_t phys_tx_base = 0;
+	uintptr_t virt_tx_base = 0;
+    amc_alloc_physical_range((1024 * 8) + 16, &phys_tx_base, &virt_tx_base);
+    printf("Got TX buffer [Phys 0x%p] [Virt 0x%p]\n", (void*)phys_tx_base, (void*)virt_tx_base);
+	out_state->transmit_buffer_virt = virt_tx_base;
+	out_state->transmit_buffer_phys = phys_tx_base;
+	outl(io_base + RTL_REG_TX_0_PHYS_START, phys_tx_base);
+	outl(io_base + RTL_REG_TX_1_PHYS_START, phys_tx_base);
+	outl(io_base + RTL_REG_TX_2_PHYS_START, phys_tx_base);
+	outl(io_base + RTL_REG_TX_3_PHYS_START, phys_tx_base);
 	// TODO(PT): Do we need to set up TSAD1,2,3?
 
 	// Enable all interrupts
@@ -288,7 +291,9 @@ void realtek_8139_init(uint32_t bus, uint32_t device_slot, uint32_t function, ui
 }
 
 static void send_packet(rtl8139_state_t* nic_state, uint8_t* packet_data, uint32_t packet_len) {
+    printf("send_packet(%p, %p, %p)\n", nic_state, packet_data, packet_len);
 	uint8_t* buffer = (uint8_t*)nic_state->transmit_buffer_virt;
+    printf("buffer %p\n", buffer);
 	memcpy(buffer, packet_data, packet_len);
 
 	// Second, fill in physical address of data, and length
@@ -360,7 +365,7 @@ static void _message_received(amc_message_t* msg) {
 		uint32_t event = net_msg->event;
 		if (event == NET_TX_ETHERNET_FRAME) {
 			uint8_t* packet_data = (uint8_t*)&net_msg->m.packet.data;
-			printf("NIC transmitting frame, len = %d data 0x%08x\n", net_msg->m.packet.len, packet_data);
+			printf("NIC transmitting frame, len = %d data 0x%p\n", net_msg->m.packet.len, packet_data);
 			send_packet(&nic_state, packet_data, net_msg->m.packet.len);
 		}
 		else if (event == NET_REQUEST_NIC_CONFIG) {

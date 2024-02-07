@@ -44,12 +44,13 @@ static void _nic_config_received(net_nic_config_info_t* config) {
 	// Save the NIC configuration
 	memcpy(_net_config.nic_mac, config->mac_addr, MAC_ADDR_SIZE);
 	// Set up a static IP for now
-	uint8_t static_ip[IPv4_ADDR_SIZE] = {192, 168, 1, 84};
+	uint8_t static_ip[IPv4_ADDR_SIZE] = {192, 169, 0, 1};
 	memcpy(_net_config.ip_addr, static_ip, IPv4_ADDR_SIZE);
 	// Announce ourselves to the network
 	arp_announce();
 	// Request the MAC of the router (at a known static IP)
-	uint8_t router_ip[IPv4_ADDR_SIZE] = {192, 168, 1, 254};
+	// uint8_t router_ip[IPv4_ADDR_SIZE] = {192, 168, 1, 254};
+    uint8_t router_ip[IPv4_ADDR_SIZE] = {192, 168, 0, 1};
 	memcpy(_net_config.router_ip_addr, router_ip, IPv4_ADDR_SIZE);
 	arp_request_mac(router_ip);
 }

@@ -7,6 +7,7 @@ realtek_8139_driver = executable(
     dependencies: [
         subproject('libgui').get_variable('libgui_dep'),
         subproject('libport').get_variable('libport_dep'),
+        subproject('libamc').get_variable('libamc_dep'),
     ]
 )
 headers_dir = join_paths(meson.get_cross_property('include_root'), 'drivers', 'realtek_8139')
