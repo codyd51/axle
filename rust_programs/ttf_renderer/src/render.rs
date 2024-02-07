@@ -29,6 +29,25 @@ pub fn render_char_onto(
     render_glyph_onto(glyph, font, onto, draw_loc, draw_color, font_size)
 }
 
+pub fn rendered_string_size(s: &str, font: &Font, font_size: Size) -> Size {
+    let scale_factor = font_size.height as f64 / font.units_per_em as f64;
+    let mut bounding_box = Size::new(
+        0,
+        (font.bounding_box.height() as f64 * scale_factor) as isize,
+    );
+    for ch in s.chars() {
+        let codepoint = Codepoint::from(ch);
+        if let Some(glyph) = font.glyph_for_codepoint(codepoint) {
+            let scaled_metrics = glyph
+                .render_metrics
+                .metrics()
+                .scale_to_font_size(font.units_per_em, &font_size);
+            bounding_box.width += scaled_metrics.advance_width as isize;
+        }
+    }
+    bounding_box
+}
+
 pub fn render_antialiased_glyph_onto(
     glyph: &GlyphRenderDescription,
     font: &Font,
@@ -77,8 +96,8 @@ pub fn render_antialiased_glyph_onto(
             let scaled_polygon_stack = PolygonStack::new(&scaled_polygons);
             let scaled_edges = scaled_polygon_stack.lines();
             let scaled_polygon_bounding_box = bounding_box_from_edges(&scaled_edges);
-            println!("Got superscaled edges bounding box {superscaled_polygon_bounding_box}");
-            println!("Got      scaled edges bounding box {scaled_polygon_bounding_box}");
+            //println!("Got superscaled edges bounding box {superscaled_polygon_bounding_box}");
+            //println!("Got      scaled edges bounding box {scaled_polygon_bounding_box}");
             let upscaled_bounding_box_width =
                 superscaled_polygon_bounding_box.size.width.ceil() as usize;
             let upscaled_bounding_box_height =
@@ -98,7 +117,7 @@ pub fn render_antialiased_glyph_onto(
                 assert_eq!(line.p1.y, line.p2.y, "Expect horizontal scanlines");
                 let line_y = line.p1.y - superscaled_polygon_bounding_box.origin.y;
                 //let line_y = line.p1.y;
-                println!("Line {line}, origin {line_y}");
+                //println!("Line {line}, origin {line_y}");
                 for line_x in line.min_x().round() as usize..line.max_x().round() as usize {
                     upscaled_bounding_box[line_y as usize][line_x] = true;
                     onto.putpixel(
@@ -112,14 +131,14 @@ pub fn render_antialiased_glyph_onto(
             let downscaled_height = scaled_polygon_bounding_box.size.height.ceil() as usize;
             //println!("downscaled width {downscaled_width} height {downscaled_height}");
             let mut downscaled_bounding_box = vec![vec![0.0; downscaled_width]; downscaled_height];
-            println!("Font size {font_size}");
+            //println!("Font size {font_size}");
 
             // Compare every pixel with its neighbors
             for downscaled_y in 0..downscaled_height as usize {
                 let upscaled_y: usize = downscaled_y * ssaa_factor as usize;
                 for downscaled_x in 0..downscaled_width as usize {
                     let upscaled_x: usize = downscaled_x * ssaa_factor as usize;
-                    println!("Downscaled ({downscaled_x}, {downscaled_y}), Upscaled ({upscaled_x}, {upscaled_y})");
+                    //println!("Downscaled ({downscaled_x}, {downscaled_y}), Upscaled ({upscaled_x}, {upscaled_y})");
 
                     let mut neighbors: Vec<bool> = vec![];
                     // Center pixel
@@ -167,11 +186,13 @@ pub fn render_antialiased_glyph_onto(
                     // Filled percentage
                     let fill_percentage = (neighbors.iter().filter(|&&v| v == true).count() as f64)
                         / (neighbors.len() as f64);
+                    /*
                     println!(
                         "\t\tFound {} neighbors with {:.2} fill",
                         neighbors.len(),
                         fill_percentage
                     );
+                    */
                     downscaled_bounding_box[downscaled_y][downscaled_x] = fill_percentage;
                     // Debug: Upscale the antialiased pixels to make them easier to see
                     /*
