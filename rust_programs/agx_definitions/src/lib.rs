@@ -1,12 +1,13 @@
-#![cfg_attr(target_os = "axle", no_std)]
+#![cfg_attr(any(target_os = "axle", feature = "no_std"), no_std)]
 #![feature(core_intrinsics)]
 #![feature(slice_ptr_get)]
 #![feature(default_alloc_error_handler)]
 #![feature(format_args_nl)]
+#![feature(rustc_private)]
 
 extern crate alloc;
 extern crate core;
-#[cfg(target_os = "axle")]
+#[cfg(any(target_os = "axle", feature = "no_std"))]
 extern crate libc;
 
 use alloc::fmt::Debug;
@@ -23,13 +24,13 @@ use core::{
 use itertools::Itertools;
 use num_traits::Float;
 
-#[cfg(target_os = "axle")]
+#[cfg(any(target_os = "axle", feature = "no_std"))]
 use alloc::vec::Vec;
 
-#[cfg(target_os = "axle")]
+#[cfg(any(target_os = "axle", feature = "no_std"))]
 use axle_rt::println;
 use bresenham::{Bresenham, BresenhamInclusive};
-#[cfg(not(target_os = "axle"))]
+#[cfg(not(any(target_os = "axle", feature = "no_std")))]
 use std::println;
 
 pub mod font;
@@ -190,6 +191,14 @@ impl Size {
     pub fn area(&self) -> isize {
         self.width * self.height
     }
+
+    pub fn mid_x(&self) -> isize {
+        self.width / 2
+    }
+
+    pub fn mid_y(&self) -> isize {
+        self.height / 2
+    }
 }
 
 impl Size {
@@ -244,6 +253,12 @@ impl SizeF64 {
             width: 0.0,
             height: 0.0,
         }
+    }
+}
+
+impl From<SizeF64> for Size {
+    fn from(value: SizeF64) -> Self {
+        Size::new(value.width.round() as _, value.height.round() as _)
     }
 }
 
@@ -837,6 +852,15 @@ impl RectF64 {
 impl Display for RectF64 {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "({}, {})", self.origin, self.size)
+    }
+}
+
+impl From<RectF64> for Rect {
+    fn from(rect: RectF64) -> Self {
+        Self {
+            origin: Point::from(rect.origin),
+            size: rect.size.into(),
+        }
     }
 }
 
@@ -1523,7 +1547,7 @@ impl LineF64 {
         ))
     }
 
-    fn as_inclusive_bresenham_iterator(&self) -> BresenhamInclusive {
+    pub fn as_inclusive_bresenham_iterator(&self) -> BresenhamInclusive {
         BresenhamInclusive::new(
             (self.p1.x.round() as isize, self.p1.y.round() as isize),
             (self.p2.x.round() as isize, self.p2.y.round() as isize),
@@ -1615,7 +1639,7 @@ impl PolygonStack {
         }
     }
 
-    fn bounding_box(&self) -> RectF64 {
+    pub fn bounding_box(&self) -> RectF64 {
         let first = match self.polygons.first() {
             None => return RectF64::zero(),
             Some(first) => first,
@@ -1636,11 +1660,13 @@ impl PolygonStack {
         lines
     }
 
-    pub fn fill(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
-        scanline_fill_from_edges(onto, color, &self.lines())
+    pub fn fill(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color, fill_mode: FillMode) {
+        //scanline_fill_from_edges(onto, color, &self.lines())
+        onto.fill_polygon_stack(self, color, fill_mode);
     }
 
     pub fn draw_outline(&self, onto: &mut Box<dyn LikeLayerSlice>, color: Color) {
+        panic!("don't use this");
         let lines = self.lines();
         for line in lines.iter() {
             line.draw(onto, color);
@@ -1718,6 +1744,9 @@ pub fn scanline_compute_fill_lines_from_edges(edges: &[LineF64]) -> Vec<LineF64>
 
 fn scanline_fill_from_edges(onto: &mut Box<dyn LikeLayerSlice>, color: Color, edges: &[LineF64]) {
     for line in scanline_compute_fill_lines_from_edges(edges).into_iter() {
-        line.draw(onto, color);
+        for (x, y) in line.as_inclusive_bresenham_iterator() {
+            onto.putpixel(Point::new(x, y), color);
+        }
+        //line.draw(onto, color);
     }
 }
