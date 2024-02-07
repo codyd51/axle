@@ -48,6 +48,12 @@ pub trait LikeLayerSlice: Display {
 
     fn track_damage(&self, r: Rect);
     fn drain_damages(&self) -> Vec<Rect>;
+
+    // Allows optimization as polygon filling can otherwise be very expensive
+    // Pathological case: filling a polygon onto a scroll view.
+    // Polygon filling generally requires lots of putpixel(), and without further help each putpixel() to a scroll
+    // view inherently needs to do lots of checks to ensure the region can be drawn to.
+    fn fill_polygon_stack(&self, polygon_stack: &PolygonStack, color: Color, fill_mode: FillMode);
 }
 
 #[derive(Debug)]
@@ -433,6 +439,55 @@ impl LikeLayerSlice for LayerSlice {
 
     fn drain_damages(&self) -> Vec<Rect> {
         self.damaged_rects.borrow_mut().drain(..).collect()
+    }
+
+    fn fill_polygon_stack(&self, polygon_stack: &PolygonStack, color: Color, fill_mode: FillMode) {
+        //let mut slice = self.get_slice(Rect::with_size(self.frame.size));
+        let mut slice = self;
+        let mut bounding_box = polygon_stack.bounding_box();
+        //bounding_box.origin.x += self.global_origin.x as f64;
+        //bounding_box.origin.y += self.global_origin.y as f64;
+
+        match fill_mode {
+            FillMode::Filled => {
+                for line in
+                    scanline_compute_fill_lines_from_edges(&polygon_stack.lines()).into_iter()
+                {
+                    // Horizontal line?
+                    if line.p1.y.round() == line.p2.y.round() {
+                        let line = Line::from(line);
+                        slice.fill_rect(
+                            Rect::from_parts(
+                                //self.global_origin + line.p1,
+                                line.p1,
+                                Size::new(line.p2.x - line.p1.x, 1),
+                            ),
+                            color,
+                            StrokeThickness::Filled,
+                        )
+                    } else {
+                        for (x, y) in line.as_inclusive_bresenham_iterator() {
+                            // We've guaranteed that we'll have tiles to cover all the lines in the polygon above
+                            self.putpixel(Point::new(x, y), color);
+                        }
+                    }
+                }
+            }
+            FillMode::Outline => {
+                let lines = polygon_stack.lines();
+                for line in lines.iter() {
+                    let line = LineF64::new(
+                        //line.p1 + PointF64::from(self.global_origin),
+                        //line.p2 + PointF64::from(self.global_origin),
+                        line.p1, line.p2,
+                    );
+                    for (x, y) in line.as_inclusive_bresenham_iterator() {
+                        //slice.putpixel_unchecked(Point::new(x, y), color);
+                        self.putpixel(Point::new(x, y), color);
+                    }
+                }
+            }
+        }
     }
 }
 
