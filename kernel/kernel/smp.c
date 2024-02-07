@@ -56,8 +56,11 @@ void smp_init(void) {
 
     // Copy the IDT pointer
     idt_pointer_t* current_idt = kernel_idt_pointer();
+    // Crash because current_idt->table_size == 0xfff, and copying to 0x9400 causes it to write outside the AP bootstrap data page
+    printf("Current IDT %p size %p dest %p\n", current_idt, current_idt->table_size, AP_BOOTSTRAP_PARAM_IDT);
     // It's fine to copy the high-memory IDT as the bootstrap will enable paging before loading it
-    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_IDT), current_idt, sizeof(idt_pointer_t) + current_idt->table_size);
+    //memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_IDT), current_idt, sizeof(idt_pointer_t) + current_idt->table_size);
+    memcpy((void*)PMA_TO_VMA(AP_BOOTSTRAP_PARAM_IDT), current_idt, sizeof(idt_pointer_t*));
 
     // Copy the C entry point
     uintptr_t ap_c_entry_point_addr = (uintptr_t)&ap_c_entry;

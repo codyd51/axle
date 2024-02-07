@@ -312,3 +312,11 @@ Read a config/max_cpus.txt to decide when to stop booting APs
 Read a config/resolution.txt to decide the resolution selected by the bootloader
 
 Auto install LLD link? Or llvm with brew? Need lld-link for the UEFI build
+
+// TODO(PT): It'd be nice to have some kind of font API that allowed anyone to retrieve a reference to a 
+// font from any point, instead of needing to pass references all the way through the control flow. 
+// Maybe there's an in-process font store that caches scanlines, etc, and fetches fonts from the FS. 
+// The 'fetch from FS' has a platform-specific implementation. To facilitate this (as the paths will be 
+// different on each OS), we could have an enum to model the possible font options, with an escape hatch 
+// 'get from this path' variant, which could perhaps hold different values depending on the OS. 
+
