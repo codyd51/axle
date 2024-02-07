@@ -50,12 +50,15 @@ impl Display for Codepoint {
     }
 }
 
+#[derive(Clone)]
 pub struct GlyphIndex(usize);
 
+#[derive(Clone)]
 pub struct Font {
     pub name: String,
     pub bounding_box: Rect,
     pub units_per_em: usize,
+    pub global_layout_metrics: FontGlobalLayoutMetrics,
     /// Sorted by glyph index
     pub glyphs: Vec<GlyphRenderDescription>,
     pub codepoints_to_glyph_indexes: BTreeMap<Codepoint, GlyphIndex>,
@@ -69,6 +72,7 @@ impl Font {
         name: &str,
         bounding_box: &Rect,
         units_per_em: usize,
+        global_layout_metrics: FontGlobalLayoutMetrics,
         glyphs: Vec<GlyphRenderDescription>,
         codepoints_to_glyph_indexes: BTreeMap<Codepoint, GlyphIndex>,
         functions_table: BTreeMap<usize, FunctionDefinition>,
@@ -79,6 +83,7 @@ impl Font {
             name: name.to_string(),
             bounding_box: bounding_box.clone(),
             units_per_em,
+            global_layout_metrics,
             glyphs,
             codepoints_to_glyph_indexes,
             functions_table,

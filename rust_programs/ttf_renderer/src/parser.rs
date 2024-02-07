@@ -26,10 +26,10 @@ use crate::metrics::{
 use crate::parse_utils::{
     fixed_word_to_i32, BigEndianValue, FromFontBufInPlace, TransmuteFontBufInPlace,
 };
-#[cfg(target_os = "axle")]
+#[cfg(any(target_os = "axle", feature = "no_std"))]
 use axle_rt::println;
 use core::ptr::slice_from_raw_parts;
-#[cfg(not(target_os = "axle"))]
+#[cfg(not(any(target_os = "axle", feature = "no_std")))]
 use std::println;
 
 #[repr(C, packed)]
@@ -334,22 +334,25 @@ impl<'a> FontParser<'a> {
     pub fn parse(&mut self) -> Font {
         let mut cursor = 0;
         let offset_subtable = OffsetSubtable::from_in_place_buf(self.read_with_cursor(&mut cursor));
-        println!("Got offset subtable {offset_subtable:?}",);
+        //println!("Got offset subtable {offset_subtable:?}",);
 
         for i in 0..offset_subtable.num_tables {
             let table = TableHeader::new(self.read_with_cursor(&mut cursor));
-            println!("Table #{i}: {table}");
+            //println!("Table #{i}: {table}");
             self.table_headers.insert(table.tag, table);
         }
         let head = self.parse_table("head");
         self.head = Some(head);
-        println!("Found head: {:?}", head);
+        //println!("Found head: {:?}", head);
         let glyph_bounding_box = head.glyph_bounding_box;
 
         let max_profile: MaxProfile = self.parse_table("maxp");
-        println!("Got max profile {max_profile:?}");
+        //println!("Got max profile {max_profile:?}");
 
         let glyph_indexes_to_codepoints = parse_character_map(self);
+
+        let horizontal_glyph_metrics = parse_horizontal_metrics(self);
+        let vertical_glyph_metrics = parse_vertical_metrics(self, max_profile.num_glyphs);
 
         let mut all_glyphs = vec![];
         let mut codepoints_to_glyph_indexes = BTreeMap::new();
@@ -365,8 +368,12 @@ impl<'a> FontParser<'a> {
             }
         }
 
-        let horizontal_glyph_metrics = parse_horizontal_metrics(self);
-        let vertical_glyph_metrics = parse_vertical_metrics(self, max_profile.num_glyphs);
+        /*
+        println!(
+            "num glyphs {} vert {:?}",
+            max_profile.num_glyphs, vertical_glyph_metrics
+        );
+        */
         for (i, glyph) in all_glyphs.iter().enumerate() {
             // Compound glyphs may inherit their metrics from one of their children
             if let GlyphRenderInstructions::CompoundGlyph(compound_glyph_instructions) =
@@ -381,7 +388,7 @@ impl<'a> FontParser<'a> {
                 }
             }
 
-            if let Some(horizontal_metrics) = horizontal_glyph_metrics.get(i) {
+            if let Some(horizontal_metrics) = horizontal_glyph_metrics.long_hor_metrics.get(i) {
                 glyph
                     .render_metrics
                     .set_horizontal_metrics(horizontal_metrics.clone());
@@ -465,6 +472,7 @@ impl<'a> FontParser<'a> {
             "abc",
             &self.head.unwrap().glyph_bounding_box,
             self.head.unwrap().units_per_em as _,
+            horizontal_glyph_metrics,
             all_glyphs,
             codepoints_to_glyph_indexes,
             function_boundaries_lookup_map,
