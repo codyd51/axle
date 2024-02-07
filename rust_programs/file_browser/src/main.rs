@@ -189,9 +189,9 @@ impl DirectoryEntryView {
         };
         let label_text = format!("{entry_name}{label_suffix}");
         let name_label = Rc::new(Label::new(
-            Rect::from_parts(Point::new(10, 10), Size::new(300, height)),
             &label_text,
             Color::new(30, 30, 30),
+            move |_, _| Rect::from_parts(Point::new(10, 10), Size::new(300, height)),
         ));
         // TODO(PT): Set font size as attribute?
         Rc::clone(&view).add_component(name_label);
