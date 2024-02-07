@@ -163,7 +163,7 @@ impl LikeLayerSlice for ExpandingLayerSlice {
         _source_frame: Rect,
         dest_origin: Point,
     ) {
-        println!("Blit to {dest_origin:?}");
+        //println!("Blit to {dest_origin:?}");
         //todo!()
     }
 
@@ -229,11 +229,14 @@ struct TileLayer {
 }
 
 impl TileLayer {
-    fn new(frame: Rect) -> Self {
+    fn new(frame: Rect, pixel_byte_layout: PixelByteLayout) -> Self {
         //println!("TileLayer.new({frame})");
         Self {
             frame,
-            inner: RefCell::new(SingleFramebufferLayer::new(frame.size)),
+            inner: RefCell::new(SingleFramebufferLayer::new_ext(
+                frame.size,
+                pixel_byte_layout,
+            )),
         }
     }
 
@@ -335,14 +338,16 @@ pub struct ExpandingLayer {
     visible_frame: RefCell<Rect>,
     pub scroll_offset: RefCell<Point>,
     layers: RefCell<Vec<TileLayer>>,
+    pixel_byte_layout: PixelByteLayout,
 }
 
 impl ExpandingLayer {
-    pub fn new() -> Rc<Self> {
+    pub fn new(pixel_byte_layout: PixelByteLayout) -> Rc<Self> {
         Rc::new(Self {
             visible_frame: RefCell::new(Rect::zero()),
             scroll_offset: RefCell::new(Point::zero()),
             layers: RefCell::new(Vec::new()),
+            pixel_byte_layout,
         })
     }
 
@@ -523,7 +528,7 @@ impl ExpandingLayer {
         let mut tiles = self.layers.borrow_mut();
         for new_tile_frame in new_tile_frames.iter() {
             //println!("\tCreating tile {new_tile_frame}");
-            let new_tile = TileLayer::new(*new_tile_frame);
+            let new_tile = TileLayer::new(*new_tile_frame, self.pixel_byte_layout);
             new_tile.fill_rect(
                 Rect::from_parts(Point::zero(), tile_size),
                 Color::white(),
@@ -656,8 +661,11 @@ pub struct ScrollView {
 }
 
 impl ScrollView {
-    pub fn new<F: 'static + Fn(&View, Size) -> Rect>(sizer: F) -> Rc<Self> {
-        let layer = ExpandingLayer::new();
+    pub fn new_ext<F: 'static + Fn(&View, Size) -> Rect>(
+        sizer: F,
+        pixel_byte_layout: PixelByteLayout,
+    ) -> Rc<Self> {
+        let layer = ExpandingLayer::new(pixel_byte_layout);
         let layer_clone = Rc::clone(&layer);
         let sizer = move |v: &View, superview_size: Size| -> Rect {
             let view_frame = sizer(v, superview_size);
@@ -669,6 +677,10 @@ impl ScrollView {
         //view.set_border_enabled(false);
 
         Rc::new(Self { view, layer })
+    }
+
+    pub fn new<F: 'static + Fn(&View, Size) -> Rect>(sizer: F) -> Rc<Self> {
+        Self::new_ext(sizer, PixelByteLayout::RGBA)
     }
 
     pub fn add_component(self: Rc<Self>, elem: Rc<dyn UIElement>) {

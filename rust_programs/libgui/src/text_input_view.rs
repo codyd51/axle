@@ -2,19 +2,19 @@ use core::cell::RefCell;
 
 use crate::{bordered::Bordered, ui_elements::UIElement, view::View};
 use agx_definitions::{
-    Color, Drawable, LikeLayerSlice, NestedLayerSlice, Point, Rect, RectInsets, Size,
-    StrokeThickness,
+    Color, Drawable, LikeLayerSlice, NestedLayerSlice, PixelByteLayout, Point, Rect, RectInsets,
+    Size, StrokeThickness,
 };
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use alloc::vec::Vec;
 use alloc::{collections::BTreeMap, string::String};
-use libgui_derive::{Drawable, NestedLayerSlice};
+use libgui_derive::{Bordered, Drawable, NestedLayerSlice};
 use num_traits::Float;
+use ttf_renderer::Font;
 
 use crate::text_view::{CursorPos, DrawnCharacter, TextView};
 use crate::window_events::KeyCode;
-use crate::{print, println};
 
 #[derive(Drawable, NestedLayerSlice)]
 pub struct TextInputView {
@@ -23,7 +23,7 @@ pub struct TextInputView {
 }
 
 impl TextInputView {
-    pub fn new<F: 'static + Fn(&View, Size) -> Rect>(
+    pub fn new<F: Fn(&View, Size) -> Rect + 'static>(
         font_path: Option<&str>,
         font_size: Size,
         sizer: F,
@@ -293,14 +293,14 @@ impl UIElement for TextInputView {
                     }
                 // TODO(PT): Extract this constant (backspace)
                 } else if ch == 0x08 as char {
-                    println!("Caught backspace!");
+                    //println!("Caught backspace!");
                     self.delete_char();
                 } else {
                     self.put_char(ch);
                 }
             }
         } else {
-            println!("Ignoring non-renderable character {key:?}");
+            //println!("Ignoring non-renderable character {key:?}");
         }
     }
 

@@ -13,7 +13,8 @@ use axle_rt::ExpectsEventField;
 use axle_rt::{amc_has_message, amc_message_await_untyped, amc_message_send};
 
 use agx_definitions::{
-    Drawable, Layer, LikeLayerSlice, NestedLayerSlice, Point, Rect, SingleFramebufferLayer, Size,
+    Drawable, Layer, LikeLayerSlice, NestedLayerSlice, PixelByteLayout, Point, Rect,
+    SingleFramebufferLayer, Size,
 };
 use awm_messages::{
     AwmCloseWindow, AwmCreateWindow, AwmCreateWindowResponse, AwmWindowPartialRedraw,
@@ -108,6 +109,7 @@ impl AwmWindow {
             unsafe { Box::from_raw(framebuffer) },
             bpp,
             screen_resolution,
+            PixelByteLayout::RGBA,
         ));
 
         AwmWindow::set_title(title);

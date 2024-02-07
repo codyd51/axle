@@ -277,11 +277,11 @@ impl Window {
             return Rect::with_origin(self.frame.borrow().origin);
         }
         let title_bar_frame = self.title_bar_frame();
-        let title_bar_slice = self.layer.borrow_mut().get_slice(title_bar_frame);
+        let mut title_bar_slice = self.layer.borrow_mut().get_slice(title_bar_frame);
         self.decoration_images.title_bar.render(&title_bar_slice);
 
         // Draw the window title
-        let font_size = Size::new(8, 12);
+        let font_size = Size::new(18, 20);
         let maybe_window_title = self.title.borrow();
         let window_title = maybe_window_title.as_ref().unwrap_or(&self.owner_service);
         //println!("Found title {window_title}");

@@ -18,8 +18,8 @@ use axle_rt::{
 use axle_rt::{ContainsEventField, ExpectsEventField};
 
 use agx_definitions::{
-    Color, Drawable, Layer, LayerSlice, LikeLayerSlice, Line, NestedLayerSlice, Point, Rect,
-    RectInsets, SingleFramebufferLayer, Size, StrokeThickness,
+    Color, Drawable, Layer, LayerSlice, LikeLayerSlice, Line, NestedLayerSlice, PixelByteLayout,
+    Point, Rect, RectInsets, SingleFramebufferLayer, Size, StrokeThickness,
 };
 use awm_messages::{
     AwmCreateWindow, AwmCreateWindowResponse, AwmDesktopTraitsRequest, AwmDesktopTraitsResponse,
@@ -70,6 +70,7 @@ fn setup_awm_framebuffer() -> SingleFramebufferLayer {
         unsafe { Box::from_raw(framebuffer) },
         bpp,
         screen_resolution,
+        PixelByteLayout::RGBA,
     )
 }
 

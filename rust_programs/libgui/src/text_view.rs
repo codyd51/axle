@@ -2,10 +2,10 @@ use core::{cell::RefCell, fmt::Display};
 
 use crate::scroll_view::ScrollView;
 use crate::window_events::KeyCode;
-use crate::{bordered::Bordered, println, ui_elements::UIElement, view::View};
+use crate::{bordered::Bordered, ui_elements::UIElement, view::View};
 use agx_definitions::{
-    Color, Drawable, LikeLayerSlice, NestedLayerSlice, Point, Polygon, PolygonStack, Rect,
-    RectInsets, Size, StrokeThickness,
+    Color, Drawable, LikeLayerSlice, NestedLayerSlice, PixelByteLayout, Point, Polygon,
+    PolygonStack, Rect, RectInsets, Size, StrokeThickness,
 };
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
@@ -79,14 +79,15 @@ pub struct TextView {
 }
 
 impl TextView {
-    pub fn new<F: 'static + Fn(&View, Size) -> Rect>(
+    pub fn new_ext<F: 'static + Fn(&View, Size) -> Rect>(
         _background_color: Color,
         font_path: Option<&str>,
         font_size: Size,
         text_insets: RectInsets,
         sizer: F,
+        pixel_byte_layout: PixelByteLayout,
     ) -> Rc<Self> {
-        let view = ScrollView::new(sizer);
+        let view = ScrollView::new_ext(sizer, pixel_byte_layout);
         let font = if let Some(font_path) = font_path {
             load_font(font_path)
         } else {
@@ -101,6 +102,23 @@ impl TextView {
             text: RefCell::new(vec![]),
             cursor_pos: RefCell::new(CursorPos(0, Point::zero())),
         })
+    }
+
+    pub fn new<F: 'static + Fn(&View, Size) -> Rect>(
+        _background_color: Color,
+        font_path: Option<&str>,
+        font_size: Size,
+        text_insets: RectInsets,
+        sizer: F,
+    ) -> Rc<Self> {
+        Self::new_ext(
+            _background_color,
+            font_path,
+            font_size,
+            text_insets,
+            sizer,
+            PixelByteLayout::RGBA,
+        )
     }
 
     pub fn font_size(&self) -> Size {

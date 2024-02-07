@@ -516,18 +516,23 @@ pub trait Layer {
     fn get_slice(&mut self, rect: Rect) -> Box<dyn LikeLayerSlice>;
 }
 
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum PixelByteLayout {
+    BGRA,
+    RGBA,
+}
+
 #[derive(PartialEq, Debug)]
 pub struct SingleFramebufferLayer {
     pub framebuffer: Rc<RefCell<Box<[u8]>>>,
     bytes_per_pixel: isize,
     size: Size,
+    pixel_layout: PixelByteLayout,
 }
 
 impl SingleFramebufferLayer {
-    pub fn new(size: Size) -> Self {
+    pub fn new_ext(size: Size, pixel_layout: PixelByteLayout) -> Self {
         let bytes_per_pixel = 4;
-        //let max_size = Size::new(600, 480);
-        //let framebuf_size = max_size.width * max_size.height * bytes_per_pixel;
         let framebuf_size = size.width * size.height * bytes_per_pixel;
         let framebuffer = vec![0; framebuf_size.try_into().unwrap()];
 
@@ -535,14 +540,29 @@ impl SingleFramebufferLayer {
             framebuffer: Rc::new(RefCell::new(framebuffer.into_boxed_slice())),
             bytes_per_pixel: bytes_per_pixel,
             size,
+            pixel_layout,
         }
     }
 
-    pub fn from_framebuffer(framebuffer: Box<[u8]>, bytes_per_pixel: isize, size: Size) -> Self {
+    pub fn new(size: Size) -> Self {
+        Self::new_ext(
+            size,
+            // Default so old call sites don't need to worry about this field
+            PixelByteLayout::RGBA,
+        )
+    }
+
+    pub fn from_framebuffer(
+        framebuffer: Box<[u8]>,
+        bytes_per_pixel: isize,
+        size: Size,
+        pixel_layout: PixelByteLayout,
+    ) -> Self {
         SingleFramebufferLayer {
             framebuffer: Rc::new(RefCell::new(framebuffer)),
             bytes_per_pixel,
             size,
+            pixel_layout,
         }
     }
 
@@ -573,14 +593,25 @@ impl Layer for SingleFramebufferLayer {
         let mut framebuffer = (*self.framebuffer).borrow_mut();
         let start = (rect.min_y() * self.width() * self.bytes_per_pixel())
             + (rect.min_x() * self.bytes_per_pixel());
+        // TODO(PT): Optimize this to write a u32?
         for y in 0..rect.size.height {
             let row_off = y * self.width() * self.bytes_per_pixel();
             for x in 0..rect.size.width {
                 let px_off = (start + row_off + (x * self.bytes_per_pixel())) as usize;
-                framebuffer[px_off + 0] = color.r;
-                framebuffer[px_off + 1] = color.g;
-                framebuffer[px_off + 2] = color.b;
-                framebuffer[px_off + 3] = 0xff;
+                match self.pixel_layout {
+                    PixelByteLayout::RGBA => {
+                        framebuffer[px_off + 0] = color.r;
+                        framebuffer[px_off + 1] = color.g;
+                        framebuffer[px_off + 2] = color.b;
+                        framebuffer[px_off + 3] = 0xff;
+                    }
+                    PixelByteLayout::BGRA => {
+                        framebuffer[px_off + 0] = color.b;
+                        framebuffer[px_off + 1] = color.g;
+                        framebuffer[px_off + 2] = color.r;
+                        framebuffer[px_off + 3] = 0xff;
+                    }
+                }
             }
         }
     }
@@ -589,10 +620,20 @@ impl Layer for SingleFramebufferLayer {
         let mut framebuffer = (*self.framebuffer).borrow_mut();
         let off = ((loc.y * self.width() * self.bytes_per_pixel())
             + (loc.x * self.bytes_per_pixel())) as usize;
-        framebuffer[off + 0] = color.r;
-        framebuffer[off + 1] = color.g;
-        framebuffer[off + 2] = color.b;
-        framebuffer[off + 3] = 0xff;
+        match self.pixel_layout {
+            PixelByteLayout::RGBA => {
+                framebuffer[off + 0] = color.r;
+                framebuffer[off + 1] = color.g;
+                framebuffer[off + 2] = color.b;
+                framebuffer[off + 3] = 0xff;
+            }
+            PixelByteLayout::BGRA => {
+                framebuffer[off + 0] = color.b;
+                framebuffer[off + 1] = color.g;
+                framebuffer[off + 2] = color.r;
+                framebuffer[off + 3] = 0xff;
+            }
+        }
     }
 
     fn get_slice(&mut self, rect: Rect) -> Box<dyn LikeLayerSlice> {

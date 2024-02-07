@@ -2,8 +2,8 @@ use crate::effects::draw_radial_gradient;
 
 use crate::println;
 use agx_definitions::{
-    Color, Layer, LikeLayerSlice, Point, Rect, RectInsets, SingleFramebufferLayer, Size,
-    StrokeThickness,
+    Color, Layer, LikeLayerSlice, PixelByteLayout, Point, Rect, RectInsets, SingleFramebufferLayer,
+    Size, StrokeThickness,
 };
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
@@ -704,6 +704,7 @@ impl Desktop {
                 unsafe { Box::from_raw(framebuffer) },
                 bytes_per_pixel,
                 max_content_view_size,
+                PixelByteLayout::RGBA,
             ))
         };
         #[cfg(not(target_os = "axle"))]
@@ -1538,6 +1539,11 @@ impl Desktop {
                     if let Some(top_window) = self.top_window() {
                         send_close_window_request(&Rc::clone(top_window));
                     }
+                }
+                const { 'a' as u32 } => {
+                    // Ctrl+W closes the topmost window
+                    println!("Found Ctrl+W\n");
+                    panic!("Intentional panic to force a red rectangle of death");
                 }
                 _ => {}
             }

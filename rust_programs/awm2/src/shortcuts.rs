@@ -62,7 +62,7 @@ impl DesktopShortcut {
     }
 
     fn size() -> Size {
-        Size::new(100, 66)
+        Size::new(100, 76)
     }
 
     fn icon_image_size() -> Size {
