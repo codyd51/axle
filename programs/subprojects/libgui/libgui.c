@@ -366,9 +366,20 @@ static void _handle_amc_messages(gui_application_t* app, bool should_block, bool
 					continue;
 				}
 				else if (event == AWM_WINDOW_RESIZED) {
+					/*
 					got_resize_msg = true;
 					awm_window_resized_msg_t* m = (awm_window_resized_msg_t*)msg->body;
 					newest_resize_msg = *m;
+					continue;
+					*/
+					//awm_window_resized_msg_t* m = (awm_window_resized_msg_t*)&newest_resize_msg;
+					awm_window_resized_msg_t* m = (awm_window_resized_msg_t*)msg->body;
+					window->size = m->new_size;
+					//printf("%ld handling resize message %d %d\n", getpid(), m->new_size.width, m->new_size.height);
+					for (uint32_t i = 0; i < window->all_gui_elems->size; i++) {
+						gui_elem_t* elem = array_lookup(window->all_gui_elems, i);
+						elem->base._priv_window_resized_cb(elem, window->size);
+					}
 					continue;
 				}
 				else if (event == AWM_WINDOW_RESIZE_ENDED) {
