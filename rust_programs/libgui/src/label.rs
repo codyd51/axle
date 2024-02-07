@@ -12,6 +12,7 @@ use alloc::{
 use crate::{font::draw_char, ui_elements::UIElement};
 
 pub struct Label {
+    sizer: RefCell<Box<dyn Fn(&Self, Size) -> Rect>>,
     // TODO(PT): Remove the nested RefCell?
     container: RefCell<Option<RefCell<Weak<dyn NestedLayerSlice>>>>,
     frame: RefCell<Rect>,
@@ -20,10 +21,11 @@ pub struct Label {
 }
 
 impl Label {
-    pub fn new(frame: Rect, text: &str, color: Color) -> Self {
-        Label {
+    pub fn new<F: 'static + Fn(&Label, Size) -> Rect>(text: &str, color: Color, sizer: F) -> Self {
+        Self {
+            sizer: RefCell::new(Box::new(sizer)),
             container: RefCell::new(None),
-            frame: RefCell::new(frame),
+            frame: RefCell::new(Rect::zero()),
             text: RefCell::new(text.to_string()),
             color,
         }
@@ -38,7 +40,13 @@ impl Label {
     }
 }
 
-impl UIElement for Label {}
+impl UIElement for Label {
+    fn handle_superview_resize(&self, superview_size: Size) {
+        let sizer = &*self.sizer.borrow();
+        let frame = sizer(self, superview_size);
+        self.frame.replace(frame);
+    }
+}
 
 impl NestedLayerSlice for Label {
     fn get_parent(&self) -> Option<Weak<dyn NestedLayerSlice>> {
