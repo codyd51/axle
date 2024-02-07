@@ -12,8 +12,10 @@ pub fn nested_layer_slice_derive(input: TokenStream) -> TokenStream {
 
 fn impl_nested_layer_slice_derive(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
+    let generics = &ast.generics;
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let gen = quote! {
-        impl NestedLayerSlice for #name {
+        impl #impl_generics NestedLayerSlice for #name #ty_generics #where_clause {
             fn get_parent(&self) -> Option<Weak<dyn NestedLayerSlice>> {
                 self.view.get_parent()
             }
@@ -42,8 +44,11 @@ pub fn drawable_derive(input: TokenStream) -> TokenStream {
 
 fn impl_drawable_derive(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
+    let generics = &ast.generics;
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
     let gen = quote! {
-        impl Drawable for #name {
+        impl #impl_generics Drawable for #name #ty_generics #where_clause {
             fn frame(&self) -> Rect {
                 self.view.frame()
             }
@@ -68,8 +73,10 @@ pub fn bordered_derive(input: TokenStream) -> TokenStream {
 
 fn impl_bordered_derive(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
+    let generics = &ast.generics;
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let gen = quote! {
-        impl Bordered for #name {
+        impl #impl_generics Bordered for #name #ty_generics #where_clause {
             fn border_insets(&self) -> RectInsets {
                 self.view.border_insets()
             }
@@ -90,8 +97,10 @@ pub fn ui_element_derive(input: TokenStream) -> TokenStream {
 
 fn impl_ui_element_derive(ast: &syn::DeriveInput) -> TokenStream {
     let name = &ast.ident;
+    let generics = &ast.generics;
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let gen = quote! {
-        impl UIElement for #name {
+        impl #impl_generics UIElement for #name #ty_generics #where_clause {
             fn handle_mouse_entered(&self) {
                 self.view.handle_mouse_entered()
             }
