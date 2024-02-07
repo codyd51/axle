@@ -180,6 +180,14 @@ impl TextView {
         cursor_pos
     }
 
+    pub fn cursor_pos(&self) -> CursorPos {
+        *self.cursor_pos.borrow()
+    }
+
+    pub fn cursor_point(&self) -> Point {
+        self.cursor_pos.borrow().1
+    }
+
     pub fn draw_char_and_update_cursor(&self, ch: char, color: Color) {
         let mut cursor_pos = self.cursor_pos.borrow_mut();
         let onto = &mut self.get_slice().get_slice(self.text_entry_frame());
