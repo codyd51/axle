@@ -28,6 +28,7 @@ typedef struct task_info {
     uint64_t user_mode_rip;
 	bool has_amc_service;
 	uint64_t pending_amc_messages;
+    // TODO(PT): Add CPU ID here
 } task_info_t;
 
 typedef struct task_viewer_get_task_info_response {
@@ -210,7 +211,7 @@ static void _layout_tasks() {
 		_draw_string(&view->view, buf, cursor, font_size, color_black(), color_white(), 0, 0);
 
 		// Draw AMC service info, if available, else draw a blank space
-		cursor = point_make(4, cursor.y + (font_size.height * 1.5));
+		cursor = point_make(4, cursor.y + (font_size.height * 1));
 		memset(buf, 0, sizeof(buf));
 		if (task->has_amc_service) {
 			snprintf(buf, sizeof(buf), "  Pending messages: %d", task->pending_amc_messages);

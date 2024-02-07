@@ -39,6 +39,7 @@ mod apic;
 mod interrupts;
 mod scheduler;
 mod smp;
+mod spinlocks;
 mod structs;
 mod utils;
 
