@@ -25,7 +25,7 @@ pub trait GraphicsLayer {
 #[cfg(feature = "use_std")]
 impl GraphicsLayer for Pixels {
     fn get_pixel_buffer(&mut self) -> &mut [u8] {
-        self.get_frame()
+        self.get_frame_mut()
     }
 
     fn render_to_screen(&self) {
