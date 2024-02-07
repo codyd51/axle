@@ -360,6 +360,17 @@ impl TextView {
     }
 
     pub fn clear(&self) {
+        // Create a bounding box that covers all the text
+        let mut bounding_box = Rect::zero();
+        let onto = &mut self.get_slice().get_slice(self.text_entry_frame());
+        for drawn_ch in self.text.borrow().iter() {
+            //bounding_box = bounding_box.union(drawn_ch.draw_box);
+            let ch_slice = onto.get_slice(drawn_ch.draw_box);
+            ch_slice.fill(Color::white());
+        }
+        // And fill it with the background color
+        //let slice = self.get_slice();
+
         *self.text.borrow_mut() = vec![];
         *self.cursor_pos.borrow_mut() = CursorPos(0, Point::zero());
         Bordered::draw(&*self.view);
