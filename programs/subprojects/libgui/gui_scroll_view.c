@@ -196,6 +196,8 @@ void gui_scroll_view_init(gui_scroll_view_t* view, gui_window_t* window, gui_win
 		(gui_window_resized_cb_t)_scrollbar_sizer
 	);
 	view->scrollbar->scroll_position_updated_cb = (gui_scrollbar_updated_cb_t)_scrollbar_position_updated;
+
+    _scroll_view_window_resized(view, window->size);
 }
 
 void gui_scroll_view_add_subview(gui_view_t* superview, gui_scroll_view_t* subview) {
