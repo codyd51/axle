@@ -262,24 +262,24 @@ fn render_polygons_glyph(
         GlyphRenderInstructions::PolygonsGlyph(polygons) => polygons,
         _ => panic!("Expected a polygons glyph"),
     };
+    //println!("Glyph bounding box {:?}", glyph.render_metrics.bounding_box);
     let scaled_polygons: Vec<Polygon> = polygons_description
         .polygons
         .iter()
         .map(|p| p.scale_by(scale_x, scale_y))
         .collect();
-    // Ensure at a minimum we see the outline points
-    // This helps smooth over missing outlines for very thin/small glyphs
     /*
-    for p in scaled_polygons.iter() {
-        p.draw_outline(&mut dest_slice, draw_color);
+    println!("Scaled polygons:");
+    for poly in scaled_polygons.iter() {
+        println!("\t{poly:?}");
     }
     */
-    let polygon_stack = PolygonStack::new(&scaled_polygons);
-    polygon_stack.fill(onto, draw_color);
 
+    let polygon_stack = PolygonStack::new(&scaled_polygons);
+
+    /*
     let instructions = glyph.hinting_program_bytes.as_ref().unwrap();
     let mut graphics_state = GraphicsState::new(font_size);
-    /*
     parse_instructions(
         font,
         instructions,
@@ -297,16 +297,29 @@ pub fn render_glyph_onto(
     draw_color: Color,
     font_size: Size,
 ) -> (Rect, GlyphMetrics) {
-    let scale_x = font_size.width as f64 / (font.units_per_em as f64);
-    let scale_y = font_size.height as f64 / (font.units_per_em as f64);
-    let scaled_glyph_metrics = glyph.metrics().scale(scale_x, scale_y);
-    let draw_loc = draw_loc
-        + Point::new(
-            //scaled_glyph_metrics.left_side_bearing,
-            //scaled_glyph_metrics.top_side_bearing,
-            0, 0,
-        );
-    let draw_box = Rect::from_parts(draw_loc, font_size);
+    let scaled_glyph_metrics = glyph
+        .metrics()
+        .scale_to_font_size(font.units_per_em, &font_size);
+    let scale_factor = font_size.height as f64 / font.units_per_em as f64;
+    let render_box = glyph.render_metrics.bounding_box;
+    let scaled_render_box = Rect::from_parts(
+        Point::new(
+            (render_box.origin.x as f64 * scale_factor) as _,
+            (render_box.origin.y as f64 * scale_factor) as _,
+        ),
+        Size::new(
+            (render_box.size.width as f64 * scale_factor) as _,
+            (render_box.size.height as f64 * scale_factor) as _,
+        ),
+    );
+    let draw_loc = draw_loc + Point::new(0, 0);
+    let draw_box = Rect::from_parts(
+        draw_loc,
+        Size::new(
+            (font.bounding_box.width() as f64 * scale_factor) as isize,
+            (font.bounding_box.height() as f64 * scale_factor) as isize,
+        ),
+    );
     let mut dest_slice = onto.get_slice(draw_box);
 
     match &glyph.render_instructions {
@@ -315,8 +328,8 @@ pub fn render_glyph_onto(
                 glyph,
                 font,
                 font_size,
-                scale_x,
-                scale_y,
+                scale_factor,
+                scale_factor,
                 &mut dest_slice,
                 draw_color,
             );
@@ -329,10 +342,9 @@ pub fn render_glyph_onto(
                 let child_glyph = &font.glyphs[child_description.glyph_index];
                 let origin = child_description.origin;
                 let scaled_origin = Point::new(
-                    (origin.x as f64 * scale_x) as isize,
-                    (origin.y as f64 * scale_y) as isize,
+                    (origin.x as f64 * scale_factor) as isize,
+                    (origin.y as f64 * scale_factor) as isize,
                 );
-                //let subslice = dest_slice.get_slice(Rect::from_parts(scaled_origin), font_size);
                 render_glyph_onto(
                     child_glyph,
                     font,
@@ -345,10 +357,7 @@ pub fn render_glyph_onto(
         }
     }
 
-    (
-        Rect::from_parts(draw_box.origin, font_size),
-        scaled_glyph_metrics,
-    )
+    (draw_box, scaled_glyph_metrics)
 }
 
 fn lerp(a: f64, b: f64, percent: f64) -> f64 {
