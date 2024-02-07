@@ -38,6 +38,7 @@ kernel/kernel/vmm/vmm.c
 axle-sysroot
 
 rust_programs/*/target
+rust_programs/target
 mkinitrd/target
 
 # Rust libraries generated as part of the kernel build
@@ -49,3 +50,7 @@ rust_kernel_libs/target
 
 bootloader/BOOTX64.EFI
 bootloader/BOOTX64.pdb
+
+# Cached source trees involved in the cross-compiler build
+scripts/caches/
+
