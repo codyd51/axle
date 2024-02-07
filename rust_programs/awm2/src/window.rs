@@ -12,8 +12,16 @@ use alloc::vec::Vec;
 use core::cell::RefCell;
 use core::fmt::{Display, Formatter};
 use core::mem;
+use lazy_static::lazy_static;
+use libgui::font::load_font;
+use spin::Mutex;
+use ttf_renderer::{render_char_onto, rendered_string_size, Font};
 
 use crate::println;
+
+lazy_static! {
+    static ref FONT: spin::Mutex<Font> = Mutex::new(load_font("fonts/sf_pro.ttf"));
+}
 
 #[derive(Debug, Clone)]
 pub struct WindowDecorationImages {
@@ -291,10 +299,30 @@ impl Window {
                 (((font_size.width * (title_len as isize)) as f64) / 2.0) as isize,
                 (((font_size.height as f64) / 2.0) - 1.0) as isize,
             );
+        cursor = Point::zero();
+        let font = FONT.lock();
+        let rendered_title_size = rendered_string_size(window_title, &font, font_size);
+        cursor = title_bar_frame.midpoint()
+            - Point::new(((rendered_title_size.width as f64) / 2.0) as isize, 0);
+        cursor.y = 0;
         let title_text_color = Color::new(50, 50, 50);
+        /*
         for ch in window_title.chars() {
             title_bar_slice.draw_char(ch, cursor, title_text_color, font_size);
+
             cursor.x += font_size.width;
+        }
+        */
+        for ch in window_title.chars() {
+            let (_, metrics) = render_char_onto(
+                ch,
+                &font,
+                &mut title_bar_slice,
+                cursor,
+                title_text_color,
+                font_size,
+            );
+            cursor.x += metrics.advance_width as isize + 2;
         }
 
         self.redraw_close_button();
