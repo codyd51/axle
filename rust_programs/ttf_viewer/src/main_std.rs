@@ -146,3 +146,40 @@ fn render_string(onto: &mut Box<dyn LikeLayerSlice>, font: &Font, font_size: &Si
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    extern crate test;
+    use test::Bencher;
+
+    #[bench]
+    fn test(b: &mut Bencher) {
+        let font_path = "/Users/philliptennen/Documents/fonts/helvetica-2.ttf";
+
+        let font_size = Size::new(128, 128);
+
+        let main_view_sizer =
+            |superview_size: Size| Rect::from_parts(Point::zero(), superview_size);
+        let main_view =
+            TextInputView::new(Some(font_path), font_size, move |_v, superview_size| {
+                main_view_sizer(superview_size)
+            });
+        main_view.handle_superview_resize(Size::new(1240, 1000));
+
+        let mut main_view_slice = main_view.get_slice();
+
+        let font_data = fs::read(font_path).unwrap();
+        let font = parse(&font_data);
+
+        b.iter(|| {
+            render_string(
+                &mut main_view_slice,
+                &font,
+                &font_size,
+                //&"abcdefghijklmnopqrstuvwzyz123456789".repeat(4),
+                "abcdefg",
+            );
+        });
+    }
+}
