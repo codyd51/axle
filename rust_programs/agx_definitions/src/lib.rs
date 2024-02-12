@@ -956,10 +956,11 @@ impl Debug for Tile {
 
 #[cfg(test)]
 mod test {
+    use crate::println;
+    use alloc::vec;
     use alloc::vec::Vec;
 
     use crate::{Line, Point, PointF64, Rect, Tile, TileSegment, TileSegments};
-    use std::println;
 
     #[test]
     fn test_tiles_visible_in_layer() {
@@ -1133,7 +1134,7 @@ mod test {
              ----------
         */
         for a in main.area_excluding_rect(exclude) {
-            println!("{a}");
+            //println!("{a}");
         }
         assert_eq!(
             main.area_excluding_rect(exclude),
@@ -1171,7 +1172,7 @@ mod test {
              ----------
         */
         for a in main.area_excluding_rect(exclude) {
-            println!("{a}");
+            //println!("{a}");
         }
         assert_eq!(
             main.area_excluding_rect(exclude),
@@ -1196,7 +1197,7 @@ mod test {
         ----------------------------
         */
         for a in main.area_excluding_rect(exclude) {
-            println!("{a}");
+            //println!("{a}");
         }
         assert_eq!(
             main.area_excluding_rect(exclude),
@@ -1272,6 +1273,19 @@ mod test {
         //         let s1 = LineInterval::line_segment(a);
         //         let s2 = LineInterval::line_segment(b);
         //         let relation = LineRelation::DivergentIntersecting((1.0, 0.25).into());
+    }
+
+    #[test]
+    fn test_inset_by() {
+        let r = Rect::new(0, 0, 100, 100);
+        let inset = r.inset_by(0, 0, 0, 0);
+        assert_eq!(r, inset);
+
+        let inset = r.inset_by(10, 10, 10, 10);
+        assert_eq!(inset, Rect::new(10, 10, 80, 80));
+
+        let inset = r.inset_by(10, 10, 40, 10);
+        assert_eq!(inset, Rect::new(10, 10, 50, 80));
     }
 }
 
