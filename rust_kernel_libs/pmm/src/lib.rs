@@ -171,7 +171,7 @@ pub unsafe fn pmm_init() {
         }
         // Floor each region to a frame boundary
         // This will cut off a bit of usable memory, but we'll only lose a few frames at most
-        let base = page_ceil(region.addr);
+        let mut base = page_ceil(region.addr);
         // Subtract whatever extra we got by aligning to a frame boundary above
         let mut region_size = page_floor(region.len - (base - region.addr));
 
@@ -182,6 +182,7 @@ pub unsafe fn pmm_init() {
             // Trim the contiguous chunk pool from the region and allow the rest of the frames to
             // be given to the general-purpose allocator
             region_size -= CONTIGUOUS_CHUNK_POOL_SIZE;
+            base += CONTIGUOUS_CHUNK_POOL_SIZE;
         }
 
         let page_count = (region_size + (PAGE_SIZE - 1)) / PAGE_SIZE;

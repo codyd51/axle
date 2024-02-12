@@ -320,3 +320,4 @@ Auto install LLD link? Or llvm with brew? Need lld-link for the UEFI build
 // different on each OS), we could have an enum to model the possible font options, with an escape hatch 
 // 'get from this path' variant, which could perhaps hold different values depending on the OS. 
 
+Better errors when you try to use (ex.) printf before the VMM has initialized
