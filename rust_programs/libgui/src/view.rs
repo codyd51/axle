@@ -110,6 +110,20 @@ impl NestedLayerSlice for View {
 }
 
 impl Bordered for View {
+    fn outer_border_insets(&self) -> RectInsets {
+        match *self.border_enabled.borrow() {
+            true => RectInsets::new(5, 5, 5, 5),
+            false => RectInsets::zero(),
+        }
+    }
+
+    fn inner_border_insets(&self) -> RectInsets {
+        match *self.border_enabled.borrow() {
+            true => RectInsets::new(6, 6, 6, 6),
+            false => RectInsets::zero(),
+        }
+    }
+
     fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
         onto.fill(self.background_color);
         self.draw_subviews();
@@ -117,13 +131,6 @@ impl Bordered for View {
 
     fn border_enabled(&self) -> bool {
         *self.border_enabled.borrow()
-    }
-
-    fn border_insets(&self) -> RectInsets {
-        match *self.border_enabled.borrow() {
-            true => RectInsets::new(11, 11, 11, 11),
-            false => RectInsets::zero(),
-        }
     }
 }
 
@@ -164,6 +171,7 @@ impl UIElement for View {
 
     fn handle_mouse_entered(&self) {
         *self.currently_contains_mouse_int.borrow_mut() = true;
+        // Redraw the border so we can update the outline highlight
         self.draw_border();
     }
 
@@ -175,6 +183,7 @@ impl UIElement for View {
             elem.handle_mouse_exited();
         }
 
+        // Redraw the border so we can update the outline highlight
         self.draw_border();
     }
 

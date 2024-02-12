@@ -106,8 +106,12 @@ impl BackedByView {
 }
 
 impl Bordered for BackedByView {
-    fn border_insets(&self) -> RectInsets {
-        self.view.border_insets()
+    fn outer_border_insets(&self) -> RectInsets {
+        self.view.outer_border_insets()
+    }
+
+    fn inner_border_insets(&self) -> RectInsets {
+        self.view.inner_border_insets()
     }
 
     fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
@@ -132,8 +136,12 @@ impl BackedByScrollView {
 }
 
 impl Bordered for BackedByScrollView {
-    fn border_insets(&self) -> RectInsets {
-        self.view.border_insets()
+    fn outer_border_insets(&self) -> RectInsets {
+        self.view.outer_border_insets()
+    }
+
+    fn inner_border_insets(&self) -> RectInsets {
+        self.view.inner_border_insets()
     }
 
     fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {

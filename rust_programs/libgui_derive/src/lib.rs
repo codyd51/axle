@@ -77,8 +77,12 @@ fn impl_bordered_derive(ast: &syn::DeriveInput) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let gen = quote! {
         impl #impl_generics Bordered for #name #ty_generics #where_clause {
-            fn border_insets(&self) -> RectInsets {
-                self.view.border_insets()
+            fn outer_border_insets(&self) -> RectInsets {
+                self.view.outer_border_insets()
+            }
+
+            fn inner_border_insets(&self) -> RectInsets {
+                self.view.inner_border_insets()
             }
 
             fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {

@@ -55,8 +55,12 @@ impl Button {
 }
 
 impl Bordered for Button {
-    fn border_insets(&self) -> RectInsets {
-        RectInsets::new(10, 10, 10, 10)
+    fn outer_border_insets(&self) -> RectInsets {
+        RectInsets::new(5, 5, 5, 5)
+    }
+
+    fn inner_border_insets(&self) -> RectInsets {
+        RectInsets::new(5, 5, 5, 5)
     }
 
     fn draw_border(&self) -> Rect {

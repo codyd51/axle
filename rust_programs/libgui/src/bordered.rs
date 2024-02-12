@@ -1,5 +1,5 @@
 use agx_definitions::{
-    Color, Drawable, LikeLayerSlice, Line, Point, Rect, RectInsets, StrokeThickness,
+    Color, Drawable, LikeLayerSlice, Line, Point, Rect, RectInsets, Size, StrokeThickness,
 };
 use alloc::boxed::Box;
 use alloc::rc::Rc;
@@ -8,7 +8,13 @@ use alloc::vec::Vec;
 use crate::ui_elements::UIElement;
 
 pub trait Bordered: Drawable + UIElement {
-    fn border_insets(&self) -> RectInsets;
+    fn outer_border_insets(&self) -> RectInsets;
+
+    fn inner_border_insets(&self) -> RectInsets;
+
+    fn border_insets(&self) -> RectInsets {
+        self.outer_border_insets() + self.inner_border_insets()
+    }
 
     fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>);
 

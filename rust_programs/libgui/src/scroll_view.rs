@@ -686,11 +686,19 @@ impl ScrollView {
     pub fn add_component(self: Rc<Self>, elem: Rc<dyn UIElement>) {
         Rc::clone(&self.view).add_component(elem)
     }
+
+    fn scroll_bar_width() -> isize {
+        60
+    }
 }
 
 impl Bordered for ScrollView {
-    fn border_insets(&self) -> RectInsets {
-        self.view.border_insets()
+    fn outer_border_insets(&self) -> RectInsets {
+        RectInsets::new(5, 5, Self::scroll_bar_width(), 5)
+    }
+
+    fn inner_border_insets(&self) -> RectInsets {
+        RectInsets::new(6, 6, 6, 6)
     }
 
     fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
