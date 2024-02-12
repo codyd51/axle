@@ -65,6 +65,14 @@ fn lerp(a: f64, b: f64, factor: f64) -> f64 {
 }
 
 impl Bordered for GradientView {
+    fn outer_border_insets(&self) -> RectInsets {
+        RectInsets::new(0, 1, 0, 0)
+    }
+
+    fn inner_border_insets(&self) -> RectInsets {
+        RectInsets::new(0, 1, 0, 0)
+    }
+
     fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
         // TODO(PT): Time this
 
@@ -108,10 +116,6 @@ impl Bordered for GradientView {
         }
 
         self.view.draw_subviews();
-    }
-
-    fn border_insets(&self) -> RectInsets {
-        RectInsets::new(0, 2, 0, 0)
     }
 }
 
