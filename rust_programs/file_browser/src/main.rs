@@ -271,6 +271,18 @@ impl Drawable for DirectoryEntryView {
 
 // TODO(PT): Implement UnborderedView (Or View vs BorderedView)
 impl Bordered for DirectoryEntryView {
+    fn outer_border_insets(&self) -> RectInsets {
+        RectInsets::zero()
+    }
+
+    fn inner_border_insets(&self) -> RectInsets {
+        RectInsets::zero()
+    }
+
+    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
+        self.view.draw_inner_content(outer_frame, onto);
+    }
+
     fn draw_border(&self) -> Rect {
         let onto = self.get_slice();
         let border_rect = Rect::from_parts(Point::zero(), onto.frame().size);
@@ -293,14 +305,6 @@ impl Bordered for DirectoryEntryView {
             border_thickness,
         );
         inner_content_rect
-    }
-
-    fn border_insets(&self) -> RectInsets {
-        RectInsets::new(0, 0, 0, 0)
-    }
-
-    fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
-        self.view.draw_inner_content(outer_frame, onto);
     }
 }
 
