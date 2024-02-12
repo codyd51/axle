@@ -464,6 +464,20 @@ impl RectInsets {
     }
 }
 
+impl Add for RectInsets {
+    type Output = RectInsets;
+
+    fn add(self, rhs: RectInsets) -> Self::Output {
+        // TODO(PT): The side order here should match the constructor passed to inset_by()...
+        RectInsets::new(
+            self.left + rhs.left,
+            self.top + rhs.top,
+            self.right + rhs.right,
+            self.bottom + rhs.bottom,
+        )
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Ord, PartialOrd, Eq)]
 pub struct Rect {
     pub origin: Point,

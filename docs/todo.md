@@ -321,3 +321,5 @@ Auto install LLD link? Or llvm with brew? Need lld-link for the UEFI build
 // 'get from this path' variant, which could perhaps hold different values depending on the OS. 
 
 Better errors when you try to use (ex.) printf before the VMM has initialized
+
+Perhaps the VM allocator could inspect the call stack to ensure no one is trying to call it from the PMM? Could only be enabled on debug builds?
