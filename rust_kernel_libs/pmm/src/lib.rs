@@ -9,8 +9,6 @@
 
 extern crate ffi_bindings;
 
-use core::ffi::CStr;
-use core::usize::MAX;
 use heapless::spsc::Queue;
 use spin::Mutex;
 
@@ -19,10 +17,8 @@ use heapless::Vec;
 #[cfg(not(target_os = "axle_kernel"))]
 use std::vec::Vec;
 
-use ffi_bindings::cstr_core::CString;
 use ffi_bindings::{
-    assert, boot_info_get, println, BootInfo, PhysicalMemoryRegionType, _panic,
-    phys_addr_to_virt_ram_remap, printf, PhysicalAddr,
+    boot_info_get, PhysicalMemoryRegionType, _panic, phys_addr_to_virt_ram_remap, PhysicalAddr,
 };
 
 // PT: Must match the definitions in kernel/ap_bootstrap.h
@@ -96,7 +92,7 @@ impl ContiguousChunkPool {
     }
 
     fn set_pool_description(&mut self, base: usize, total_size: usize) {
-        println!("Setting pool description");
+        //println!("Setting pool description");
         self.pool_description = Some(ContiguousChunkPoolDescription::new(base, total_size));
         // Start off with a single free chunk the size of the entire pool
         #[cfg(target_os = "axle_kernel")]
@@ -177,7 +173,7 @@ pub unsafe fn pmm_init() {
 
         if !CONTIGUOUS_CHUNK_POOL.is_pool_configured() && region_size >= CONTIGUOUS_CHUNK_POOL_SIZE
         {
-            printf("Found a free memory region that can serve as the contiguous chunk pool %p to %p\n\0".as_ptr() as *const u8, base, base + region_size);
+            //printf("Found a free memory region that can serve as the contiguous chunk pool %p to %p\n\0".as_ptr() as *const u8, base, base + region_size);
             CONTIGUOUS_CHUNK_POOL.set_pool_description(base, CONTIGUOUS_CHUNK_POOL_SIZE);
             // Trim the contiguous chunk pool from the region and allow the rest of the frames to
             // be given to the general-purpose allocator
@@ -232,11 +228,13 @@ pub unsafe fn pmm_free(frame_addr: usize) {
 #[no_mangle]
 pub unsafe fn pmm_alloc_continuous_range(size: usize) -> usize {
     let ret = CONTIGUOUS_CHUNK_POOL.alloc(size);
+    /*
     printf(
         "pmm_alloc_contiguous_range(0x%p) = 0x%p\n\0".as_ptr() as *const u8,
         size,
         ret,
     );
+    */
     ret
 }
 
