@@ -158,20 +158,21 @@ impl Drawable for TaskView {
 }
 
 impl Bordered for TaskView {
-    fn border_insets(&self) -> RectInsets {
-        Self::border_insets()
+    fn outer_border_insets(&self) -> RectInsets {
+        RectInsets::new(1, 1, 1, 1)
+    }
+
+    fn inner_border_insets(&self) -> RectInsets {
+        RectInsets::new(1, 1, 1, 1)
     }
 
     fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
         self.view.draw_inner_content(outer_frame, onto);
     }
 
-    fn draw_border_with_insets(
-        &self,
-        onto: &mut Box<dyn LikeLayerSlice>,
-        insets: RectInsets,
-    ) -> Rect {
+    fn draw_border_with_insets(&self, onto: &mut Box<dyn LikeLayerSlice>) -> Rect {
         let mut frame = Rect::from_parts(Point::zero(), self.frame().size);
+        let insets = Self::border_insets();
 
         // Bottom edge gets a dark line
         let bottom_edge = Line::new(
