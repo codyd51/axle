@@ -377,4 +377,16 @@ impl Bordered for TextInputView {
         self.view.draw_inner_content(outer_frame, onto);
         self.draw_cursor()
     }
+
+    fn draw_border_with_insets(&self, onto: &mut Box<dyn LikeLayerSlice>) -> Rect {
+        self.view.draw_border_with_insets(onto)
+    }
+
+    fn draw_border(&self) -> Rect {
+        self.view.draw_border()
+    }
+
+    fn draw(&self) -> Vec<Rect> {
+        Bordered::draw(&self.view as &TextView)
+    }
 }
