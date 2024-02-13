@@ -674,6 +674,7 @@ impl ScrollView {
             view_frame
         };
         let view = Rc::new(View::new(Color::new(100, 100, 100), sizer));
+        view.set_border_enabled(false);
         //view.set_border_enabled(false);
 
         Rc::new(Self { view, layer })
