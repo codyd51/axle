@@ -407,4 +407,12 @@ impl Bordered for TextView {
         */
         //println!("Finished call to draw_inner_content()");
     }
+
+    fn draw_border_with_insets(&self, onto: &mut Box<dyn LikeLayerSlice>) -> Rect {
+        self.view.draw_border_with_insets(onto)
+    }
+
+    fn draw_border(&self) -> Rect {
+        self.view.draw_border()
+    }
 }
