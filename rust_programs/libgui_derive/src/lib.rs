@@ -88,6 +88,14 @@ fn impl_bordered_derive(ast: &syn::DeriveInput) -> TokenStream {
             fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
                 self.view.draw_inner_content(outer_frame, onto);
             }
+
+            fn draw_border_with_insets(&self, onto: &mut Box<dyn LikeLayerSlice>) -> Rect {
+                self.view.draw_border_with_insets(onto)
+            }
+
+            fn draw_border(&self) -> Rect {
+                self.view.draw_border()
+            }
         }
     };
     gen.into()
