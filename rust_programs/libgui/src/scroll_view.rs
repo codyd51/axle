@@ -1,5 +1,6 @@
 use core::{cell::RefCell, fmt::Display};
 
+use crate::bordered::{draw_border_with_insets, draw_outer_mouse_highlight};
 use crate::window_events::KeyCode;
 use crate::{
     bordered::Bordered,
@@ -703,23 +704,83 @@ impl Bordered for ScrollView {
     }
 
     fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
-        //println!("ScrollView.draw_inner_content({outer_frame}, {onto}");
-        // We have a different layer from our parent, so need to exclude the border insets here
+        //self.layer.draw_visible_content_onto(onto)
+        onto.fill(Color::green())
+    }
+
+    fn draw_border_with_insets(&self, onto: &mut Box<dyn LikeLayerSlice>) -> Rect {
+        //let rect = Bordered::draw_border_with_insets(self, onto, insets);
+        let (frame_of_inner_margin, frame_of_content) = draw_border_with_insets(
+            onto,
+            self.outer_border_insets(),
+            self.inner_border_insets(),
+            self.frame().size,
+            true,
+            self.currently_contains_mouse(),
+        );
+
+        // Start from y=0 so that the top border lines up with the content's border
         /*
-        let border_insets = self.border_insets();
-        let onto_frame = onto.frame();
-        let onto = &mut onto.get_slice(
-            Rect::from_parts(
-                Point::new(border_insets.left, border_insets.top),
-                Size::new(
-                    onto_frame.width() - (border_insets.left + border_insets.right),
-                    onto_frame.height() - (border_insets.top + border_insets.bottom
-                    )
-                )
-            )
+        let scroll_bar_content_frame = Rect::from_parts(
+            Point::new(frame_of_inner_margin.max_x(), frame_of_inner_margin.min_y()),
+            Size::new(Self::scroll_bar_width(), frame_of_inner_margin.height()),
         );
         */
-        self.layer.draw_visible_content_onto(onto)
+        let scroll_bar_content_frame = Rect::from_parts(
+            Point::new(frame_of_inner_margin.max_x(), 0),
+            Size::new(
+                Self::scroll_bar_width(),
+                frame_of_inner_margin.height()
+                    + self.outer_border_insets().top
+                    + self.outer_border_insets().bottom,
+            ),
+        );
+
+        // Fill the scroll bar area with the same gray as the rest of the outer margin
+        // (Currently, our rect filling only supports a constant thickness around all edges, so the border
+        // drawn on the right hand side will be too thin unless we color it manually)
+        onto.fill_rect(
+            scroll_bar_content_frame,
+            Color::blue(),
+            StrokeThickness::Filled,
+        );
+
+        /*
+        let mut scroll_bar_onto = onto.get_slice(Rect::from_parts(
+            // Start from y=0 so that the top border lines up with the content's border
+            Point::new(scroll_bar_content_frame.origin.x, 0),
+            Size::new(
+                scroll_bar_content_frame.szi
+            )
+            scroll_bar_content_frame.size,
+        ));
+
+         */
+        let mut scroll_bar_onto = onto.get_slice(scroll_bar_content_frame);
+        let (_, frame_of_scrollbar_content) = draw_border_with_insets(
+            &mut scroll_bar_onto,
+            RectInsets::new(5, 5, 5, 5),
+            RectInsets::new(5, 5, 5, 5),
+            scroll_bar_content_frame.size,
+            //self.currently_contains_mouse(),
+            false,
+            false,
+        );
+
+        // PT: Horrible hack to make the highlight border show perfectly on top of the scroll bar
+        draw_outer_mouse_highlight(onto, self.frame().size, self.currently_contains_mouse());
+        /*
+        let (frame_of_inner_margin, frame_of_content) = draw_border_with_insets(
+            onto,
+            self.outer_border_insets(),
+            self.inner_border_insets(),
+            self.frame().size,
+            true,
+            self.currently_contains_mouse(),
+        );
+        */
+
+        frame_of_content
     }
 }
 
