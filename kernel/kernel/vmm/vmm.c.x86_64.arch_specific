@@ -292,7 +292,7 @@ static void _free_region_4k_pages(vas_state_t* vas, uint64_t vmem_base, uint64_t
 }
 
 void vas_add_range(vas_state_t* vas_state, uint64_t start, uint64_t size) {
-	//printf("vas_add_range(state: 0x%p, start: 0x%p, size: 0x%p)\n", vas_state, start, size);
+	//printf("vas_add_range(state: 0x%p, start: 0x%p, size: 0x%p), current range count %d max %d\n", vas_state, start, size, vas_state->range_count, vas_state->max_range_count);
 	assert(vas_state->range_count + 1 <= vas_state->max_range_count, "VAS will exceed max tracked ranges!");
 
 	vas_state->ranges[vas_state->range_count++] = (vas_range_t){

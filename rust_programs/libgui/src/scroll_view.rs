@@ -22,7 +22,7 @@ use alloc::{
     vec::Vec,
 };
 use core::fmt::Formatter;
-use libgui_derive::{Bordered, Drawable, NestedLayerSlice, UIElement};
+use libgui_derive::Drawable;
 use num_traits::Float;
 
 struct ExpandingLayerSlice {
@@ -352,6 +352,14 @@ impl ExpandingLayer {
         })
     }
 
+    fn total_content_frame(&self) -> Rect {
+        let mut total = Rect::zero();
+        for tile in self.layers.borrow().iter() {
+            total = total.union(tile.frame);
+        }
+        total
+    }
+
     pub fn set_visible_frame(&self, visible_frame: Rect) {
         //println!("Setting visible frame to {visible_frame:?}");
         *self.visible_frame.borrow_mut() = visible_frame
@@ -421,7 +429,7 @@ impl ExpandingLayer {
     }
 
     fn tile_size() -> Size {
-        Size::new(300, 300)
+        Size::new(100, 100)
     }
 
     fn round_to_tile_boundary(val: isize, tile_length: isize) -> isize {

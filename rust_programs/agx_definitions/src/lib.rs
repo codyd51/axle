@@ -122,7 +122,7 @@ impl Color {
         Color::from([80, 80, 80])
     }
     pub fn light_gray() -> Self {
-        Color::from([120, 120, 120])
+        Color::from([200, 200, 200])
     }
     pub fn red() -> Self {
         Color::from([255, 0, 0])

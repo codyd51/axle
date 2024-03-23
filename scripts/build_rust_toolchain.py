@@ -202,6 +202,7 @@ def build_kernel_rust_libs() -> None:
     _COMPILED_RUST_KERNEL_LIBS_DIR.mkdir(exist_ok=True)
 
     cargo_workspace_dir = _RUST_KERNEL_LIBS_DIR
+
     run_and_check(['cargo', 'fmt'], cwd=cargo_workspace_dir)
     run_and_check(
         [

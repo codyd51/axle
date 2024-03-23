@@ -36,7 +36,6 @@ void FS_SERVER_EXEC_TRAMPOLINE_NAME(uint32_t arg1, uint32_t arg2, uint32_t arg3)
 }
 
 void draw(axle_boot_info_t* bi, int color) {
-    return;
 	uint32_t* base = (uint32_t*)bi->framebuffer_base;
 	for (uint32_t y = 0; y < bi->framebuffer_height; y++) {
 		for (uint32_t x = 0; x < bi->framebuffer_width; x++) {
