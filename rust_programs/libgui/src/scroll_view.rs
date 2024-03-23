@@ -855,10 +855,22 @@ impl UIElement for ScrollView {
     fn handle_mouse_scrolled(&self, _mouse_point: Point, delta_z: isize) {
         //println!("ScrollView.handle_mouse_scrolled({delta_z})");
         let mut scroll_offset = self.layer.scroll_offset();
-        scroll_offset.y += delta_z * 20;
         self.layer.set_scroll_offset(scroll_offset);
         //self.draw()
         Bordered::draw(self);
+        let content_frame = self.layer.total_content_frame();
+        // Scale how much the mouse scrolls by based on how large the content view is
+        // TODO(PT): Scale by how fast the user is scrolling
+        let scroll_step = {
+            if content_frame.height() > 10000 {
+                10
+            } else if content_frame.height() > 1000 {
+                5
+            } else {
+                1
+            }
+        };
+        scroll_offset.y += delta_z * scroll_step;
     }
 
     fn handle_key_released(&self, key: KeyCode) {
