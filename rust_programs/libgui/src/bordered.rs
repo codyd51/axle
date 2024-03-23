@@ -23,6 +23,13 @@ pub fn draw_outer_mouse_highlight(
         border_color,
         StrokeThickness::Width(highlight_border_width),
     );
+    frame_after_outer_mouse_highlight(self_size)
+}
+
+pub fn frame_after_outer_mouse_highlight(self_size: Size) -> Rect {
+    // PT: It is crucial that this exactly matches the logic in draw_outer_mouse_highlight()
+    let highlight_border_width = 1;
+    let outer_border = Rect::from_parts(Point::zero(), self_size);
     let frame_without_outer_highlight = outer_border.inset_by(
         highlight_border_width,
         highlight_border_width,
@@ -101,6 +108,35 @@ fn draw_inner_margin(
 }
 
 // Extracted so that we can re-use the drawing code within a specialized impl for the scroll view border
+pub fn compute_inner_margin_and_content_frames(
+    outer_border_insets: RectInsets,
+    inner_border_insets: RectInsets,
+    self_size: Size,
+    highlight_enabled: bool,
+) -> (Rect, Rect) {
+    // PT: It is crucial that this exactly matches the logic in draw_border_with_insets()
+    let frame_without_outer_highlight = if highlight_enabled {
+        frame_after_outer_mouse_highlight(self_size)
+    } else {
+        Rect::from_parts(Point::zero(), self_size)
+    };
+    let frame_of_inner_margin = frame_without_outer_highlight.inset_by(
+        outer_border_insets.bottom,
+        outer_border_insets.left,
+        outer_border_insets.right,
+        outer_border_insets.top,
+    );
+
+    let inner_content = frame_of_inner_margin.inset_by(
+        inner_border_insets.bottom,
+        inner_border_insets.left,
+        inner_border_insets.right,
+        inner_border_insets.top,
+    );
+    (frame_of_inner_margin, inner_content)
+}
+
+// Extracted so that we can re-use the drawing code within a specialized impl for the scroll view border
 pub fn draw_border_with_insets(
     onto: &mut Box<dyn LikeLayerSlice>,
     outer_border_insets: RectInsets,
@@ -123,21 +159,14 @@ pub fn draw_border_with_insets(
         StrokeThickness::Width(outer_border_insets.bottom),
     );
 
-    let frame_of_inner_margin = frame_without_outer_highlight.inset_by(
-        outer_border_insets.bottom,
-        outer_border_insets.left,
-        outer_border_insets.right,
-        outer_border_insets.top,
+    let (frame_of_inner_margin, frame_of_inner_content) = compute_inner_margin_and_content_frames(
+        outer_border_insets,
+        inner_border_insets,
+        self_size,
+        highlight_enabled,
     );
     draw_inner_margin(onto, inner_border_insets, frame_of_inner_margin);
-
-    let inner_content = frame_of_inner_margin.inset_by(
-        inner_border_insets.bottom,
-        inner_border_insets.left,
-        inner_border_insets.right,
-        inner_border_insets.top,
-    );
-    (frame_of_inner_margin, inner_content)
+    (frame_of_inner_margin, frame_of_inner_content)
 }
 
 pub trait Bordered: Drawable + UIElement {

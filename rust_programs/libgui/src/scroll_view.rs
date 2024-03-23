@@ -1,6 +1,6 @@
 use core::{cell::RefCell, fmt::Display};
 
-use crate::bordered::{draw_border_with_insets, draw_outer_mouse_highlight};
+use crate::bordered::{compute_inner_margin_and_content_frames, draw_border_with_insets, draw_outer_mouse_highlight};
 use crate::window_events::KeyCode;
 use crate::{
     bordered::Bordered,
@@ -693,6 +693,26 @@ impl ScrollView {
     fn scroll_bar_width() -> isize {
         42
     }
+    fn scroll_bar_content_frame(&self) -> Rect {
+        let (frame_of_inner_margin, frame_of_content) = compute_inner_margin_and_content_frames(
+            self.outer_border_insets(),
+            self.inner_border_insets(),
+            self.frame().size,
+            true,
+        );
+
+        // Start from y=0 so that the top border lines up with the content's border
+        let scroll_bar_content_frame = Rect::from_parts(
+            Point::new(frame_of_inner_margin.max_x(), 0),
+            Size::new(
+                Self::scroll_bar_width(),
+                frame_of_inner_margin.height()
+                    + self.outer_border_insets().top
+                    + self.outer_border_insets().bottom,
+            ),
+        );
+        scroll_bar_content_frame
+    }
 }
 
 impl Bordered for ScrollView {
@@ -709,7 +729,7 @@ impl Bordered for ScrollView {
     }
 
     fn draw_border_with_insets(&self, onto: &mut Box<dyn LikeLayerSlice>) -> Rect {
-        let (frame_of_inner_margin, frame_of_content) = draw_border_with_insets(
+        let (_, frame_of_content) = draw_border_with_insets(
             onto,
             self.outer_border_insets(),
             self.inner_border_insets(),
@@ -717,23 +737,7 @@ impl Bordered for ScrollView {
             true,
             self.currently_contains_mouse(),
         );
-
-        // Start from y=0 so that the top border lines up with the content's border
-        /*
-        let scroll_bar_content_frame = Rect::from_parts(
-            Point::new(frame_of_inner_margin.max_x(), frame_of_inner_margin.min_y()),
-            Size::new(Self::scroll_bar_width(), frame_of_inner_margin.height()),
-        );
-        */
-        let scroll_bar_content_frame = Rect::from_parts(
-            Point::new(frame_of_inner_margin.max_x(), 0),
-            Size::new(
-                Self::scroll_bar_width(),
-                frame_of_inner_margin.height()
-                    + self.outer_border_insets().top
-                    + self.outer_border_insets().bottom,
-            ),
-        );
+        let scroll_bar_content_frame = self.scroll_bar_content_frame();
 
         // Fill the scroll bar area with the same gray as the rest of the outer margin
         // (Currently, our rect filling only supports a constant thickness around all edges, so the border
@@ -874,7 +878,6 @@ impl UIElement for ScrollView {
             content_frame.origin,
             scrollable_region_size(self.layer.frame().size, content_frame.size),
         );
-        dbg!(delta_z, scroll_offset, scrollable_region);
 
         // Would this exceed the visible content frame?
         // If so, don't allow the user to scroll there.
