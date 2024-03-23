@@ -771,74 +771,6 @@ impl Bordered for ScrollView {
             StrokeThickness::Filled,
         );
 
-        // Draw the scroll bar indicator
-        let scroll_offset_y = self.layer.scroll_offset().y;
-        let total_scrollable_height = match self.layer.total_content_frame().size.height {
-            0 => {
-                // Provide a 'fake' scrollable height
-                scroll_offset_y.abs()
-            }
-            height => height,
-        };
-
-        // TODO(PT): Handle when the scroll offset is 'negative' i.e. when there's a bunch of content above the origin?
-
-        let top_of_visible_content = scroll_offset_y.abs();
-        let bottom_of_visible_content =
-            top_of_visible_content + self.layer.visible_frame.borrow().size.height;
-        let percent_scrolled_through_content = {
-            if total_scrollable_height == 0 {
-                0.0
-            } else {
-                top_of_visible_content as f64 / total_scrollable_height as f64
-            }
-        };
-
-        /*
-        println!(
-            "total scrollable height {total_scrollable_height} scroll_offset_y {scroll_offset_y} percent {percent_scrolled_through_content}"
-        );
-
-         */
-        assert!(
-            percent_scrolled_through_content >= 0.0 && percent_scrolled_through_content <= 1.0,
-            "Percent was {percent_scrolled_through_content}"
-        );
-
-        let scroll_box_min_y = frame_of_scrollbar_content.min_y();
-        let scroll_box_max_y = frame_of_scrollbar_content.max_y();
-        let center_y_for_scroll_bar_within_scroll_box = scroll_box_min_y
-            + ((frame_of_scrollbar_content.height() as f64 * percent_scrolled_through_content)
-            as isize);
-        /*
-        println!(
-            "total scrollable height {total_scrollable_height} scroll_offset_y {scroll_offset_y} scroll_box_min_y {scroll_box_min_y} {percent_scrolled_through_content} center_y {center_y_for_scroll_bar_within_scroll_box}"
-        );
-
-         */
-        // TODO(PT): The height of the scroll bar should be proportional to the content height
-        let scroll_indicator_size = Size::new(
-            (frame_of_scrollbar_content.width() as f64 * 0.6) as isize,
-            200,
-        );
-        let mut y_origin_for_scroll_indicator = center_y_for_scroll_bar_within_scroll_box
-            - ((scroll_indicator_size.height as f64 / 2.0) as isize);
-        // Ensure the scroll indicator doesn't underflow the scroll box
-        y_origin_for_scroll_indicator = max(y_origin_for_scroll_indicator, scroll_box_min_y);
-
-        /*
-        scroll_bar_onto.fill_rect(
-            Rect::from_parts(
-                Point::new(
-                    frame_of_scrollbar_content.min_x(),
-                    y_origin_for_scroll_indicator,
-                ),
-                scroll_indicator_size,
-            ),
-            Color::green(),
-            StrokeThickness::Filled,
-        );
-        */
         let scrollbar_attrs = compute_scrollbar_attributes(
             scroll_bar_onto.frame().size,
             self.layer.frame().size,
@@ -1006,6 +938,7 @@ fn compute_scrollbar_attributes(
     content_size: Size,
     scroll_position: Point,
 ) -> ScrollbarAttributes {
+    // TODO(PT): Handle when the scroll offset is 'negative' i.e. when there's a bunch of content above the origin?
     let scrollbar_vertical_padding = 14;
     let scrollbar_canvas_height = (viewport_size.height - (scrollbar_vertical_padding * 2)) as f64;
     let min_scrollbar_height = (scrollbar_canvas_height * 0.1) as isize;
