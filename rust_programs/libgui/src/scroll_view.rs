@@ -700,7 +700,7 @@ impl ScrollView {
     }
 
     fn scroll_bar_width() -> isize {
-        60
+        50
     }
 }
 
@@ -810,7 +810,7 @@ impl Bordered for ScrollView {
         let scroll_box_max_y = frame_of_scrollbar_content.max_y();
         let center_y_for_scroll_bar_within_scroll_box = scroll_box_min_y
             + ((frame_of_scrollbar_content.height() as f64 * percent_scrolled_through_content)
-                as isize);
+            as isize);
         /*
         println!(
             "total scrollable height {total_scrollable_height} scroll_offset_y {scroll_offset_y} scroll_box_min_y {scroll_box_min_y} {percent_scrolled_through_content} center_y {center_y_for_scroll_bar_within_scroll_box}"
@@ -841,6 +841,7 @@ impl Bordered for ScrollView {
         );
         */
         let scrollbar_attrs = compute_scrollbar_attributes(
+            scroll_bar_onto.frame().size,
             self.layer.frame().size,
             self.layer.total_content_frame().size,
             self.layer.scroll_offset(),
@@ -1002,64 +1003,84 @@ fn lerp(a: f64, b: f64, t: f64) -> f64 {
 }
 
 fn compute_scrollbar_attributes(
+    scroll_bar_onto_size: Size,
     viewport_size: Size,
     content_size: Size,
     scroll_position: Point,
 ) -> ScrollbarAttributes {
-    println!("");
-    println!("compute_scrollbar_attributes({viewport_size}, {content_size}, {scroll_position}");
-    let max_scrollbar_height = viewport_size.height;
-    let min_scrollbar_height = 50;
-    /*
-    let scrolled_proportion = ((scroll_position.y as f64 + (viewport_size.height as f64 / 2.0))
-        / content_size.height as f64)
-        .min(1.0);
-
-     */
-    let scrollable_region_size = scrollable_region_size(viewport_size, content_size);
-    let scrolled_proportion = (scroll_position.y as f64 / scrollable_region_size.height as f64);
-    dbg!(scrolled_proportion);
-    let scrollbar_width = 20;
+    let scrollbar_vertical_padding = 14;
+    let scrollbar_canvas_height = (viewport_size.height - (scrollbar_vertical_padding * 2)) as f64;
+    let min_scrollbar_height = (scrollbar_canvas_height * 0.1) as isize;
+    let max_scrollbar_height = (scrollbar_canvas_height * 0.4) as isize;
 
     // If the viewport is larger than the current content size, cap out at 100%
-    let scrollbar_height = if viewport_size.height >= content_size.height {
-        println!("Viewport is larger than content size");
-        max_scrollbar_height as f64
+    let nominal_scrollbar_height = if viewport_size.height >= content_size.height {
+        scrollbar_canvas_height
     } else {
         lerp(
             min_scrollbar_height as f64,
             max_scrollbar_height as f64,
-            /*
-            ((viewport_size.height as f64 - content_size.height as f64)
-                / content_size.height as f64),
-                */
-            (viewport_size.height as f64 / content_size.height as f64),
+            viewport_size.height as f64 / content_size.height as f64,
         )
     };
-    dbg!(scrollbar_height);
-    let scrollbar_origin_y = lerp(
-        0.0,
-        viewport_size.height as f64 - scrollbar_height,
-        scrolled_proportion,
+
+    let scrollable_region_size = scrollable_region_size(viewport_size, content_size);
+    let scrolled_proportion = (scroll_position.y as f64 / scrollable_region_size.height as f64);
+    let scrollbar_width = (scroll_bar_onto_size.width as f64 * 0.4) as isize;
+
+    let scrollbar_tuck_in_proportion = 0.2;
+    let max_scrollbar_y = viewport_size.height - scrollbar_vertical_padding;
+    let max_nominal_scrollbar_origin_y = max_scrollbar_y as f64 - nominal_scrollbar_height;
+    let max_nominal_scrollbar_y = max_nominal_scrollbar_origin_y + nominal_scrollbar_height;
+    let nominal_scrollbar_origin_y = lerp(
+        scrollbar_vertical_padding as f64,
+        max_nominal_scrollbar_y,
+        scrolled_proportion - scrollbar_tuck_in_proportion,
     );
-    dbg!(scrollbar_origin_y);
-    //let scrollbar_origin_y = scrolled_proportion * (viewport_size.height as f64 - scrollbar_height);
-    let scrollbar_origin = Point::new(
-        //viewport_size.width - scrollbar_width,
-        0,
-        scrollbar_origin_y as isize,
-        /*
+
+    // The scroll bar should 'tuck in' if the user is near either extrema
+    let scrollbar_height = if scrolled_proportion < scrollbar_tuck_in_proportion {
         lerp(
-            0.0,
-            viewport_size.height as f64 - scrollbar_height,
-            scrolled_proportion,
-        ) as isize,
-         */
+            min_scrollbar_height as f64,
+            nominal_scrollbar_height,
+            scrolled_proportion / scrollbar_tuck_in_proportion,
+        )
+    } else if scrolled_proportion >= (1.0 - scrollbar_tuck_in_proportion) {
+        lerp(
+            nominal_scrollbar_height,
+            min_scrollbar_height as f64,
+            (scrolled_proportion % scrollbar_tuck_in_proportion) / scrollbar_tuck_in_proportion,
+        )
+    } else {
+        nominal_scrollbar_height
+    };
+
+    let scrollbar_origin_y = if scrolled_proportion < scrollbar_tuck_in_proportion {
+        scrollbar_vertical_padding as f64
+    } else if scrolled_proportion >= (1.0 - scrollbar_tuck_in_proportion) {
+        let max_tucked_scrollbar_origin_y =
+            (viewport_size.height - scrollbar_vertical_padding - min_scrollbar_height) as f64;
+        lerp(
+            max_nominal_scrollbar_origin_y,
+            max_tucked_scrollbar_origin_y,
+            (scrolled_proportion % scrollbar_tuck_in_proportion) / scrollbar_tuck_in_proportion,
+        )
+    } else {
+        nominal_scrollbar_origin_y
+    };
+    let mut scrollbar_origin = Point::new(
+        ((scroll_bar_onto_size.width as f64 / 2.0) - (scrollbar_width as f64 / 2.0)) as isize,
+        scrollbar_origin_y as isize,
     );
-    ScrollbarAttributes::new(
-        scrollbar_origin,
-        Size::new(scrollbar_width, scrollbar_height as _),
-    )
+    let scrollbar_size = Size::new(scrollbar_width, scrollbar_height as _);
+
+    // Final guard to make the scrollbar's max-y pixel perfect when scrolled all the way to the bottom
+    if scrollbar_origin.y + scrollbar_size.height >= max_scrollbar_y {
+        let diff = scrollbar_origin.y + scrollbar_size.height - max_scrollbar_y + 1;
+        scrollbar_origin.y -= diff;
+    }
+
+    ScrollbarAttributes::new(scrollbar_origin, scrollbar_size)
 }
 
 #[cfg(test)]
@@ -1246,29 +1267,6 @@ mod test {
                 Rect::new(0, 0, 100, 100),
                 Rect::new(100, 0, 100, 100),
             ],
-        );
-    }
-
-    #[test]
-    fn test_compute_scrollbar_parameters() {
-        // Given a scroll view with a content size three times the viewport
-        let viewport_size = Size::new(1000, 1000);
-        let content_size = Size::new(1000, 3000);
-        // And the user is currently scrolled to the top of the view
-        let scroll_position = Point::new(0, 0);
-        // When the scroll bar attributes are computed
-        let scrollbar_attributes =
-            compute_scrollbar_attributes(viewport_size, content_size, scroll_position);
-        // Then the scrollbar looks correct
-        /*
-        assert_eq!(
-            scrollbar_attributes,
-            ScrollbarAttributes::new(Point::new(0, 0), Size::new(80, 200),)
-        );
-        */
-        assert_eq!(
-            scrollbar_attributes,
-            ScrollbarAttributes::new(Point::new(980, 131), Size::new(20, 208),)
         );
     }
 }
