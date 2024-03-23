@@ -871,6 +871,17 @@ impl UIElement for ScrollView {
             }
         };
         scroll_offset.y += delta_z * scroll_step;
+
+        // Don't allow the user to scroll such that the entire content view is above the viewport.
+        //
+        // To give a good sense of interactivity, allow the user to scroll such that *half* of the
+        // bottommost content is above the viewport.
+        let scrollable_region = Rect::from_parts(
+            content_frame.origin,
+            scrollable_region_size(self.layer.frame().size, content_frame.size),
+        );
+        dbg!(delta_z, scroll_offset, scrollable_region);
+
         // Would this exceed the visible content frame?
         // If so, don't allow the user to scroll there.
         // TODO(PT): Eventually, we could have some kind of attribute to control whether the user is allowed to scroll
