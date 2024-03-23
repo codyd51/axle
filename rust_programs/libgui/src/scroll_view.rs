@@ -712,8 +712,7 @@ impl Bordered for ScrollView {
     }
 
     fn draw_inner_content(&self, outer_frame: Rect, onto: &mut Box<dyn LikeLayerSlice>) {
-        //self.layer.draw_visible_content_onto(onto)
-        onto.fill(Color::green())
+        self.layer.draw_visible_content_onto(onto)
     }
 
     fn draw_border_with_insets(&self, onto: &mut Box<dyn LikeLayerSlice>) -> Rect {
@@ -824,6 +823,13 @@ impl NestedLayerSlice for ScrollView {
     }
 }
 
+fn scrollable_region_size(viewport_size: Size, content_size: Size) -> Size {
+    Size::new(
+        content_size.width,
+        content_size.height - (viewport_size.height as f64 / 2.0) as isize,
+    )
+}
+
 impl UIElement for ScrollView {
     fn handle_mouse_entered(&self) {
         self.view.handle_mouse_entered()
@@ -869,25 +875,103 @@ impl UIElement for ScrollView {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+struct ScrollbarAttributes {
+    origin: Point,
+    size: Size,
+}
+
+impl ScrollbarAttributes {
+    fn new(origin: Point, size: Size) -> Self {
+        Self { origin, size }
+    }
+}
+
+fn lerp(a: f64, b: f64, t: f64) -> f64 {
+    a + (b - a) * t
+}
+
+fn compute_scrollbar_attributes(
+    viewport_size: Size,
+    content_size: Size,
+    scroll_position: Point,
+) -> ScrollbarAttributes {
+    println!("");
+    println!("compute_scrollbar_attributes({viewport_size}, {content_size}, {scroll_position}");
+    let max_scrollbar_height = viewport_size.height;
+    let min_scrollbar_height = 50;
+    /*
+    let scrolled_proportion = ((scroll_position.y as f64 + (viewport_size.height as f64 / 2.0))
+        / content_size.height as f64)
+        .min(1.0);
+
+     */
+    let scrollable_region_size = scrollable_region_size(viewport_size, content_size);
+    let scrolled_proportion = (scroll_position.y as f64 / scrollable_region_size.height as f64);
+    dbg!(scrolled_proportion);
+    let scrollbar_width = 20;
+
+    // If the viewport is larger than the current content size, cap out at 100%
+    let scrollbar_height = if viewport_size.height >= content_size.height {
+        println!("Viewport is larger than content size");
+        max_scrollbar_height as f64
+    } else {
+        lerp(
+            min_scrollbar_height as f64,
+            max_scrollbar_height as f64,
+            /*
+            ((viewport_size.height as f64 - content_size.height as f64)
+                / content_size.height as f64),
+                */
+            (viewport_size.height as f64 / content_size.height as f64),
+        )
+    };
+    dbg!(scrollbar_height);
+    let scrollbar_origin_y = lerp(
+        0.0,
+        viewport_size.height as f64 - scrollbar_height,
+        scrolled_proportion,
+    );
+    dbg!(scrollbar_origin_y);
+    //let scrollbar_origin_y = scrolled_proportion * (viewport_size.height as f64 - scrollbar_height);
+    let scrollbar_origin = Point::new(
+        //viewport_size.width - scrollbar_width,
+        0,
+        scrollbar_origin_y as isize,
+        /*
+        lerp(
+            0.0,
+            viewport_size.height as f64 - scrollbar_height,
+            scrolled_proportion,
+        ) as isize,
+         */
+    );
+    ScrollbarAttributes::new(
+        scrollbar_origin,
+        Size::new(scrollbar_width, scrollbar_height as _),
+    )
+}
+
 #[cfg(test)]
 mod test {
+    use crate::scroll_view::{compute_scrollbar_attributes, ScrollbarAttributes};
+    use crate::scroll_view::{ExpandingLayer, TileLayer};
+    use agx_definitions::{PixelByteLayout, Point, Rect, Size};
+    use alloc::vec;
     use alloc::vec::Vec;
-
-    use crate::{ExpandingLayer, TileLayer};
-    use agx_definitions::{Point, Rect, Size};
-    use std::println;
 
     fn expect_insert_results_in_tile_frames_with_existing_tiles(
         rect: Rect,
         expected_tile_frames: Vec<Rect>,
         existing_tile_frames: Vec<Rect>,
     ) {
-        let layer = ExpandingLayer::new();
+        let pixel_byte_layout = PixelByteLayout::RGBA;
+        let layer = ExpandingLayer::new(pixel_byte_layout);
         {
             // Set up the tiles that should already be present
             let mut existing_tiles = layer.layers.borrow_mut();
             for existing_tile_frame in existing_tile_frames.iter() {
-                existing_tiles.push(TileLayer::new(*existing_tile_frame));
+                existing_tiles.push(TileLayer::new(*existing_tile_frame, pixel_byte_layout));
             }
         }
         layer.expand_to_contain_rect(rect);
