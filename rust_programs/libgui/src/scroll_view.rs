@@ -660,6 +660,7 @@ impl Drawable for ExpandingLayer {
 pub struct ScrollView {
     pub view: Rc<View>,
     pub layer: Rc<ExpandingLayer>,
+    cached_mouse_position: RefCell<Point>,
 }
 
 impl ScrollView {
@@ -679,7 +680,11 @@ impl ScrollView {
         view.set_border_enabled(false);
         //view.set_border_enabled(false);
 
-        Rc::new(Self { view, layer })
+        Rc::new(Self {
+            view,
+            layer,
+            cached_mouse_position: RefCell::new(Point::zero()),
+        })
     }
 
     pub fn new<F: 'static + Fn(&View, Size) -> Rect>(sizer: F) -> Rc<Self> {
@@ -693,6 +698,17 @@ impl ScrollView {
     fn scroll_bar_width() -> isize {
         42
     }
+
+    fn record_mouse_position(&self, mouse_point: Point) {
+        *self.cached_mouse_position.borrow_mut() = mouse_point;
+    }
+
+    fn scroll_bar_region_contains_mouse(&self) -> bool {
+        let mouse_position = *self.cached_mouse_position.borrow();
+        // TODO(PT): Check whether we need to relocate this point to our local coordinate space
+        self.scroll_bar_content_frame().contains(mouse_position)
+    }
+
     fn scroll_bar_content_frame(&self) -> Rect {
         let (frame_of_inner_margin, frame_of_content) = compute_inner_margin_and_content_frames(
             self.outer_border_insets(),
@@ -778,9 +794,14 @@ impl Bordered for ScrollView {
         );
 
         // Mouse interaction highlight on top of the scroll bar
+        let scroll_bar_highlight_color = if self.scroll_bar_region_contains_mouse() {
+            Color::new(200, 200, 200)
+        } else {
+            Color::new(160, 160, 160)
+        };
         scroll_bar_onto.fill_rect(
             Rect::from_parts(scrollbar_attrs.origin, scrollbar_attrs.size),
-            Color::new(160, 160, 160),
+            scroll_bar_highlight_color,
             StrokeThickness::Width(1),
         );
 
@@ -840,6 +861,9 @@ impl UIElement for ScrollView {
     }
 
     fn handle_mouse_moved(&self, mouse_point: Point) {
+        // Keep track of the mouse position, so we can detect whether the mouse is
+        // hovering on the scroll bar
+        self.record_mouse_position(mouse_point);
         self.view.handle_mouse_moved(mouse_point)
     }
 
