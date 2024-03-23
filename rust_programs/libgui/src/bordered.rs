@@ -39,8 +39,7 @@ fn draw_inner_margin(
 ) {
     onto.fill_rect(
         frame_of_inner_margin,
-        //Color::dark_gray(),
-        Color::yellow(),
+        Color::dark_gray(),
         StrokeThickness::Width(inner_border_insets.bottom),
     );
 
@@ -48,8 +47,7 @@ fn draw_inner_margin(
     let inner_margin_size = inner_border_insets.bottom;
 
     // Draw diagonal lines indicating an inset
-    //let inset_color = Color::new(50, 50, 50);
-    let inset_color = Color::blue();
+    let inset_color = Color::new(50, 50, 50);
     let inner_margin_as_point = Point::new(inner_margin_size, inner_margin_size);
 
     // Account for our line thickness algo
@@ -211,6 +209,6 @@ pub trait Bordered: Drawable + UIElement {
             true,
             self.currently_contains_mouse(),
         )
-        .1
+            .1
     }
 }

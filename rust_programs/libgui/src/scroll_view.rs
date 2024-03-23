@@ -82,14 +82,6 @@ impl LikeLayerSlice for ExpandingLayerSlice {
 
         slice.expand_to_contain_rect(Rect::from(bounding_box));
 
-        /*
-        slice.fill_rect(
-            Rect::from(bounding_box),
-            Color::red(),
-            StrokeThickness::Filled,
-        );
-        */
-
         match fill_mode {
             FillMode::Filled => {
                 for line in
@@ -699,7 +691,7 @@ impl ScrollView {
     }
 
     fn scroll_bar_width() -> isize {
-        50
+        42
     }
 }
 
@@ -717,7 +709,6 @@ impl Bordered for ScrollView {
     }
 
     fn draw_border_with_insets(&self, onto: &mut Box<dyn LikeLayerSlice>) -> Rect {
-        //let rect = Bordered::draw_border_with_insets(self, onto, insets);
         let (frame_of_inner_margin, frame_of_content) = draw_border_with_insets(
             onto,
             self.outer_border_insets(),
@@ -759,7 +750,6 @@ impl Bordered for ScrollView {
             RectInsets::new(5, 5, 5, 5),
             RectInsets::new(5, 5, 5, 5),
             scroll_bar_content_frame.size,
-            //self.currently_contains_mouse(),
             false,
             false,
         );
@@ -779,8 +769,15 @@ impl Bordered for ScrollView {
         );
         scroll_bar_onto.fill_rect(
             Rect::from_parts(scrollbar_attrs.origin, scrollbar_attrs.size),
-            Color::green(),
+            Color::new(180, 180, 180),
             StrokeThickness::Filled,
+        );
+
+        // Mouse interaction highlight on top of the scroll bar
+        scroll_bar_onto.fill_rect(
+            Rect::from_parts(scrollbar_attrs.origin, scrollbar_attrs.size),
+            Color::new(160, 160, 160),
+            StrokeThickness::Width(1),
         );
 
         // PT: Horrible hack to make the highlight border show perfectly on top of the scroll bar
@@ -939,10 +936,10 @@ fn compute_scrollbar_attributes(
     scroll_position: Point,
 ) -> ScrollbarAttributes {
     // TODO(PT): Handle when the scroll offset is 'negative' i.e. when there's a bunch of content above the origin?
-    let scrollbar_vertical_padding = 14;
+    let scrollbar_vertical_padding = 12;
     let scrollbar_canvas_height = (viewport_size.height - (scrollbar_vertical_padding * 2)) as f64;
-    let min_scrollbar_height = (scrollbar_canvas_height * 0.1) as isize;
-    let max_scrollbar_height = (scrollbar_canvas_height * 0.4) as isize;
+    let min_scrollbar_height = (scrollbar_canvas_height * 0.08) as isize;
+    let max_scrollbar_height = (scrollbar_canvas_height * 0.35) as isize;
 
     // If the viewport is larger than the current content size, cap out at 100%
     let nominal_scrollbar_height = if viewport_size.height >= content_size.height {
