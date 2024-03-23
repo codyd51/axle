@@ -21,7 +21,6 @@ use alloc::{
     rc::{Rc, Weak},
     vec::Vec,
 };
-//use axle_rt::println;
 use core::cmp::{max, min};
 use core::fmt::Formatter;
 use libgui_derive::Drawable;
@@ -94,7 +93,7 @@ impl LikeLayerSlice for ExpandingLayerSlice {
         match fill_mode {
             FillMode::Filled => {
                 for line in
-                    scanline_compute_fill_lines_from_edges(&polygon_stack.lines()).into_iter()
+                scanline_compute_fill_lines_from_edges(&polygon_stack.lines()).into_iter()
                 {
                     // Horizontal line?
                     if line.p1.y.round() == line.p2.y.round() {
@@ -846,7 +845,6 @@ impl Bordered for ScrollView {
             self.layer.total_content_frame().size,
             self.layer.scroll_offset(),
         );
-        println!("{scrollbar_attrs:?}");
         scroll_bar_onto.fill_rect(
             Rect::from_parts(scrollbar_attrs.origin, scrollbar_attrs.size),
             Color::green(),
