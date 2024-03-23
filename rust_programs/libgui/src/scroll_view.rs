@@ -21,6 +21,8 @@ use alloc::{
     rc::{Rc, Weak},
     vec::Vec,
 };
+//use axle_rt::println;
+use core::cmp::{max, min};
 use core::fmt::Formatter;
 use libgui_derive::Drawable;
 use num_traits::Float;
@@ -748,21 +750,10 @@ impl Bordered for ScrollView {
         // drawn on the right hand side will be too thin unless we color it manually)
         onto.fill_rect(
             scroll_bar_content_frame,
-            Color::blue(),
+            Color::light_gray(),
             StrokeThickness::Filled,
         );
 
-        /*
-        let mut scroll_bar_onto = onto.get_slice(Rect::from_parts(
-            // Start from y=0 so that the top border lines up with the content's border
-            Point::new(scroll_bar_content_frame.origin.x, 0),
-            Size::new(
-                scroll_bar_content_frame.szi
-            )
-            scroll_bar_content_frame.size,
-        ));
-
-         */
         let mut scroll_bar_onto = onto.get_slice(scroll_bar_content_frame);
         let (_, frame_of_scrollbar_content) = draw_border_with_insets(
             &mut scroll_bar_onto,
@@ -774,18 +765,95 @@ impl Bordered for ScrollView {
             false,
         );
 
-        // PT: Horrible hack to make the highlight border show perfectly on top of the scroll bar
-        draw_outer_mouse_highlight(onto, self.frame().size, self.currently_contains_mouse());
+        // Draw the 'background' of the scroll bar
+        scroll_bar_onto.fill_rect(
+            frame_of_scrollbar_content,
+            Color::black(),
+            StrokeThickness::Filled,
+        );
+
+        // Draw the scroll bar indicator
+        let scroll_offset_y = self.layer.scroll_offset().y;
+        let total_scrollable_height = match self.layer.total_content_frame().size.height {
+            0 => {
+                // Provide a 'fake' scrollable height
+                scroll_offset_y.abs()
+            }
+            height => height,
+        };
+
+        // TODO(PT): Handle when the scroll offset is 'negative' i.e. when there's a bunch of content above the origin?
+
+        let top_of_visible_content = scroll_offset_y.abs();
+        let bottom_of_visible_content =
+            top_of_visible_content + self.layer.visible_frame.borrow().size.height;
+        let percent_scrolled_through_content = {
+            if total_scrollable_height == 0 {
+                0.0
+            } else {
+                top_of_visible_content as f64 / total_scrollable_height as f64
+            }
+        };
+
         /*
-        let (frame_of_inner_margin, frame_of_content) = draw_border_with_insets(
-            onto,
-            self.outer_border_insets(),
-            self.inner_border_insets(),
-            self.frame().size,
-            true,
-            self.currently_contains_mouse(),
+        println!(
+            "total scrollable height {total_scrollable_height} scroll_offset_y {scroll_offset_y} percent {percent_scrolled_through_content}"
+        );
+
+         */
+        assert!(
+            percent_scrolled_through_content >= 0.0 && percent_scrolled_through_content <= 1.0,
+            "Percent was {percent_scrolled_through_content}"
+        );
+
+        let scroll_box_min_y = frame_of_scrollbar_content.min_y();
+        let scroll_box_max_y = frame_of_scrollbar_content.max_y();
+        let center_y_for_scroll_bar_within_scroll_box = scroll_box_min_y
+            + ((frame_of_scrollbar_content.height() as f64 * percent_scrolled_through_content)
+                as isize);
+        /*
+        println!(
+            "total scrollable height {total_scrollable_height} scroll_offset_y {scroll_offset_y} scroll_box_min_y {scroll_box_min_y} {percent_scrolled_through_content} center_y {center_y_for_scroll_bar_within_scroll_box}"
+        );
+
+         */
+        // TODO(PT): The height of the scroll bar should be proportional to the content height
+        let scroll_indicator_size = Size::new(
+            (frame_of_scrollbar_content.width() as f64 * 0.6) as isize,
+            200,
+        );
+        let mut y_origin_for_scroll_indicator = center_y_for_scroll_bar_within_scroll_box
+            - ((scroll_indicator_size.height as f64 / 2.0) as isize);
+        // Ensure the scroll indicator doesn't underflow the scroll box
+        y_origin_for_scroll_indicator = max(y_origin_for_scroll_indicator, scroll_box_min_y);
+
+        /*
+        scroll_bar_onto.fill_rect(
+            Rect::from_parts(
+                Point::new(
+                    frame_of_scrollbar_content.min_x(),
+                    y_origin_for_scroll_indicator,
+                ),
+                scroll_indicator_size,
+            ),
+            Color::green(),
+            StrokeThickness::Filled,
         );
         */
+        let scrollbar_attrs = compute_scrollbar_attributes(
+            self.layer.frame().size,
+            self.layer.total_content_frame().size,
+            self.layer.scroll_offset(),
+        );
+        println!("{scrollbar_attrs:?}");
+        scroll_bar_onto.fill_rect(
+            Rect::from_parts(scrollbar_attrs.origin, scrollbar_attrs.size),
+            Color::green(),
+            StrokeThickness::Filled,
+        );
+
+        // PT: Horrible hack to make the highlight border show perfectly on top of the scroll bar
+        draw_outer_mouse_highlight(onto, self.frame().size, self.currently_contains_mouse());
 
         frame_of_content
     }
@@ -853,12 +921,10 @@ impl UIElement for ScrollView {
     }
 
     fn handle_mouse_scrolled(&self, _mouse_point: Point, delta_z: isize) {
-        //println!("ScrollView.handle_mouse_scrolled({delta_z})");
         let mut scroll_offset = self.layer.scroll_offset();
-        self.layer.set_scroll_offset(scroll_offset);
-        //self.draw()
-        Bordered::draw(self);
+        let previous_scroll_offset = scroll_offset;
         let content_frame = self.layer.total_content_frame();
+
         // Scale how much the mouse scrolls by based on how large the content view is
         // TODO(PT): Scale by how fast the user is scrolling
         let scroll_step = {
@@ -897,6 +963,12 @@ impl UIElement for ScrollView {
             }
         }
         // TODO(PT): Update this to handle horizontal scrolls as well?
+
+        // Only redraw if we've changed state
+        if scroll_offset != previous_scroll_offset {
+            self.layer.set_scroll_offset(scroll_offset);
+            Bordered::draw(self);
+        }
     }
 
     fn handle_key_released(&self, key: KeyCode) {
@@ -1174,6 +1246,29 @@ mod test {
                 Rect::new(0, 0, 100, 100),
                 Rect::new(100, 0, 100, 100),
             ],
+        );
+    }
+
+    #[test]
+    fn test_compute_scrollbar_parameters() {
+        // Given a scroll view with a content size three times the viewport
+        let viewport_size = Size::new(1000, 1000);
+        let content_size = Size::new(1000, 3000);
+        // And the user is currently scrolled to the top of the view
+        let scroll_position = Point::new(0, 0);
+        // When the scroll bar attributes are computed
+        let scrollbar_attributes =
+            compute_scrollbar_attributes(viewport_size, content_size, scroll_position);
+        // Then the scrollbar looks correct
+        /*
+        assert_eq!(
+            scrollbar_attributes,
+            ScrollbarAttributes::new(Point::new(0, 0), Size::new(80, 200),)
+        );
+        */
+        assert_eq!(
+            scrollbar_attributes,
+            ScrollbarAttributes::new(Point::new(980, 131), Size::new(20, 208),)
         );
     }
 }
