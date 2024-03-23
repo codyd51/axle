@@ -871,6 +871,21 @@ impl UIElement for ScrollView {
             }
         };
         scroll_offset.y += delta_z * scroll_step;
+        // Would this exceed the visible content frame?
+        // If so, don't allow the user to scroll there.
+        // TODO(PT): Eventually, we could have some kind of attribute to control whether the user is allowed to scroll
+        // past the visible content bounds.
+        // For now, it's blocked because it made scroll bars a tiny bit tricky.
+        if !scrollable_region.contains(scroll_offset) {
+            // Without further work, the user can get 'stuck' where the step size would push them past the
+            // content bounds, so they can't scroll to the very top or very bottom.
+            if delta_z < 0 {
+                scroll_offset = Point::zero();
+            } else {
+                scroll_offset = Point::new(0, scrollable_region.height());
+            }
+        }
+        // TODO(PT): Update this to handle horizontal scrolls as well?
     }
 
     fn handle_key_released(&self, key: KeyCode) {
