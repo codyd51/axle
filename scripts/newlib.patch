@@ -119,6 +119,10 @@ index 0000000..c2926ca
 +#include <stdbool.h>
 +#include <stdint.h>
 +
++// Ref: https://sourceware.org/newlib/libc.html#Stubs
++#undef errno
++extern int errno;
++
 +#include "syscalls.h"
 +
 +// amc syscalls
