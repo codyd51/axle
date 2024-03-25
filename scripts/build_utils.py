@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 
-
 def second_file_is_older(file1: Path, file2: Path) -> bool:
     return os.stat(file1.as_posix()).st_mtime - os.stat(file2.as_posix()).st_mtime > 1
 
@@ -34,13 +33,16 @@ def is_on_macos() -> bool:
 def run_and_check(cmd_list: List[str], cwd: Path = None, env_additions: Optional[Dict[str, str]] = None) -> None:
     print(" ".join(cmd_list), cwd)
     env = os.environ.copy()
-    if env_additions:
-        for k, v in env_additions.items():
-            env[k] = v
 
     # PT: Ensure the M1 Homebrew prefix is always in PATH
     # TODO(PT): Conditionally enable this on M1 hosts?
+    # And ensure we do this before we add in the environment additions from the caller, so those always have
+    # highest precedence.
     env["PATH"] = f"/opt/homebrew/bin:{env['PATH']}"
+
+    if env_additions:
+        for k, v in env_additions.items():
+            env[k] = v
 
     status = subprocess.run(cmd_list, cwd=cwd.as_posix() if cwd else None, env=env)
     if status.returncode != 0:

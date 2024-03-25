@@ -107,7 +107,7 @@ new file mode 100644
 index 0000000..c2926ca
 --- /dev/null
 +++ b/newlib/libc/sys/axle/syscalls.c
-@@ -0,0 +1,187 @@
+@@ -0,0 +1,191 @@
 +/* note these headers are all provided by newlib - you don't need to provide them */
 +#include <sys/stat.h>
 +#include <sys/types.h>
