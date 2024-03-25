@@ -10,7 +10,6 @@ from tempfile import TemporaryDirectory
 from build_utils import run_and_check
 from build_utils import run_and_capture_output_and_check
 
-
 _REPO_ROOT = Path(__file__).parents[1]
 _RUST_PROGRAMS_DIR = _REPO_ROOT / "rust_programs"
 # TODO(PT): Template this file to include the full path to x86_64-elf-axle-gcc
@@ -84,14 +83,14 @@ def _build_rust_libc_port(temp_dir: Path) -> None:
     env = {'CC': toolchain_dir / 'bin' / 'x86_64-elf-axle-gcc'}
     run_and_check(
         [
-            'cargo', 
-            'build', 
-            '--no-default-features', 
-            '-Zbuild-std=core,alloc', 
+            'cargo',
+            'build',
+            '--no-default-features',
+            '-Zbuild-std=core,alloc',
             # '-Z macro-backtrace',
             f'--target={_TARGET_SPEC_FILE.as_posix()}',
         ],
-        cwd=libc_dir, 
+        cwd=libc_dir,
         env_additions=env
     )
 
@@ -133,7 +132,7 @@ def test_rust_programs() -> None:
             ],
             cwd=program_dir
         )
-    
+
 
 def build_rust_programs(check_only: bool = False) -> None:
     cargo_workspace_dir = _RUST_PROGRAMS_DIR
@@ -151,7 +150,11 @@ def build_rust_programs(check_only: bool = False) -> None:
             'features=host_dep',
         ],
         cwd=cargo_workspace_dir,
-        env_additions={"RUSTFLAGS": "-Cforce-frame-pointers=yes"},
+        # PT: Without manually linking axle's newlib port, linking failed after adding some Rust code that
+        # implicitly called `fmod`:
+        # /libm.a(lib_a-w_fmod.o): in function `fmod':
+        # .../newlib/libm/math/w_fmod.c:89: undefined reference to `__errno'
+        env_additions={"RUSTFLAGS": "-Cforce-frame-pointers=yes -Clink-arg=-lc"},
     )
     for entry in cargo_workspace_dir.iterdir():
         if not entry.is_dir():
