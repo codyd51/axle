@@ -9,6 +9,8 @@ pub trait UIElement: Drawable + NestedLayerSlice {
 
     fn handle_left_click(&self, _mouse_point: Point) {}
 
+    fn handle_left_click_up(&self, _mouse_point: Point) {}
+
     fn handle_key_pressed(&self, _key: KeyCode) {}
     fn handle_key_released(&self, _key: KeyCode) {}
 

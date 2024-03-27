@@ -262,7 +262,7 @@ impl LikeLayerSlice for PixelLayerSlice {
         match fill_mode {
             FillMode::Filled => {
                 for line in
-                    scanline_compute_fill_lines_from_edges(&polygon_stack.lines()).into_iter()
+                scanline_compute_fill_lines_from_edges(&polygon_stack.lines()).into_iter()
                 {
                     // Horizontal line?
                     if line.p1.y.round() == line.p2.y.round() {
@@ -340,9 +340,9 @@ impl PixelLayer {
                 size.height.try_into().unwrap(),
                 surface_texture,
             )
-            .surface_texture_format(TextureFormat::Bgra8Unorm)
-            .build()
-            .unwrap()
+                .surface_texture_format(TextureFormat::Bgra8Unorm)
+                .build()
+                .unwrap()
         };
         pixel_buffer.render().unwrap();
         Self {
@@ -519,6 +519,17 @@ impl AwmWindow {
         }
     }
 
+    fn left_click_up(&self, mouse_point: Point) {
+        // Note that we send this event to all elements, regardless of whether they bound the mouse
+        // when it's released. This helps to implement drag states where the element stays dragged
+        // even if the mouse leaves the element's frame.
+        for elem in self.ui_elements.borrow().iter() {
+            // Translate the mouse position to the element's coordinate system
+            let elem_pos = mouse_point - elem.frame().origin;
+            elem.handle_left_click_up(elem_pos);
+        }
+    }
+
     fn mouse_exited(&self) {
         let elems_containing_mouse = &mut *self.elements_containing_mouse.borrow_mut();
         for elem in elems_containing_mouse.drain(..) {
@@ -569,6 +580,12 @@ impl AwmWindow {
                                     }
                                     _ => (),
                                 },
+                                ElementState::Released => match button {
+                                    MouseButton::Left => {
+                                        self_clone.left_click_up(last_cursor_pos);
+                                    }
+                                    _ => (),
+                                }
                                 _ => (),
                             }
                         }
