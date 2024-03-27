@@ -736,6 +736,34 @@ impl ScrollView {
         );
         scroll_bar_content_frame
     }
+
+    fn update_scroll_position_with_scrollbar_drag(&self, mouse_point: Point) {
+        // Update the scroll offset based on the mouse position
+        // TODO(PT): Implement a sibling mechanism for a horizontal scroll bar
+        let content_frame = self.layer.total_content_frame();
+        // Don't allow the user to scroll such that the entire content view is above the viewport.
+        let scrollable_region = Rect::from_parts(
+            content_frame.origin,
+            scrollable_region_size(self.layer.frame().size, content_frame.size),
+        );
+        // Increase the padding so that the user doesn't have to drag to the far extrema to get to the minimal drag points
+        let padding = Self::scrollbar_vertical_padding() * 3;
+        let scroll_bar_content_frame = self.scroll_bar_content_frame().inset_by(padding, 0, 0, padding);
+        let scroll_proportion_y = (mouse_point.y.max(scroll_bar_content_frame.origin.y) - scroll_bar_content_frame.origin.y) as f64
+            / scroll_bar_content_frame.size.height as f64;
+        let scroll_proportion_y = scroll_proportion_y.clamp(0.0, 1.0);
+        let new_scroll_offset = Point::new(
+            0,
+            (scrollable_region.height() as f64 * scroll_proportion_y as f64) as isize,
+        );
+        self.layer.set_scroll_offset(new_scroll_offset);
+        // TODO(PT): Can we elide this redraw?
+        Bordered::draw(self);
+    }
+
+    fn scrollbar_vertical_padding() -> isize {
+        12
+    }
 }
 
 impl Bordered for ScrollView {
@@ -873,6 +901,11 @@ impl UIElement for ScrollView {
         // Keep track of the mouse position, so we can detect whether the mouse is
         // hovering on the scroll bar.
         self.record_mouse_position(mouse_point);
+
+        if self.is_currently_dragging_scrollbar() {
+            self.update_scroll_position_with_scrollbar_drag(mouse_point);
+        }
+
         self.view.handle_mouse_moved(mouse_point)
     }
 
@@ -978,7 +1011,7 @@ fn compute_scrollbar_attributes(
     scroll_position: Point,
 ) -> ScrollbarAttributes {
     // TODO(PT): Handle when the scroll offset is 'negative' i.e. when there's a bunch of content above the origin?
-    let scrollbar_vertical_padding = 12;
+    let scrollbar_vertical_padding = ScrollView::scrollbar_vertical_padding();
     let scrollbar_canvas_height = (viewport_size.height - (scrollbar_vertical_padding * 2)) as f64;
     let min_scrollbar_height = (scrollbar_canvas_height * 0.08) as isize;
     let max_scrollbar_height = (scrollbar_canvas_height * 0.35) as isize;
