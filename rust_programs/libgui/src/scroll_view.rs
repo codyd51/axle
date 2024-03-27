@@ -663,6 +663,7 @@ pub struct ScrollView {
     pub view: Rc<View>,
     pub layer: Rc<ExpandingLayer>,
     cached_mouse_position: RefCell<Point>,
+    cached_is_currently_dragging_scrollbar: RefCell<bool>,
 }
 
 impl ScrollView {
@@ -680,12 +681,12 @@ impl ScrollView {
         };
         let view = Rc::new(View::new(Color::new(100, 100, 100), sizer));
         view.set_border_enabled(false);
-        //view.set_border_enabled(false);
 
         Rc::new(Self {
             view,
             layer,
             cached_mouse_position: RefCell::new(Point::zero()),
+            cached_is_currently_dragging_scrollbar: RefCell::new(false),
         })
     }
 
@@ -703,6 +704,10 @@ impl ScrollView {
 
     fn record_mouse_position(&self, mouse_point: Point) {
         *self.cached_mouse_position.borrow_mut() = mouse_point;
+    }
+
+    fn is_currently_dragging_scrollbar(&self) -> bool {
+        *self.cached_is_currently_dragging_scrollbar.borrow()
     }
 
     fn scroll_bar_region_contains_mouse(&self) -> bool {
@@ -849,6 +854,8 @@ impl NestedLayerSlice for ScrollView {
 fn scrollable_region_size(viewport_size: Size, content_size: Size) -> Size {
     Size::new(
         content_size.width,
+        // To give a good sense of interactivity, allow the user to scroll such that *half* of the
+        // bottommost content is above the viewport.
         content_size.height - (viewport_size.height as f64 / 2.0) as isize,
     )
 }
@@ -864,13 +871,22 @@ impl UIElement for ScrollView {
 
     fn handle_mouse_moved(&self, mouse_point: Point) {
         // Keep track of the mouse position, so we can detect whether the mouse is
-        // hovering on the scroll bar
+        // hovering on the scroll bar.
         self.record_mouse_position(mouse_point);
         self.view.handle_mouse_moved(mouse_point)
     }
 
     fn handle_left_click(&self, mouse_point: Point) {
-        self.view.handle_left_click(mouse_point)
+        // If this click is bounded by the scroll bar, initiate a scroll bar drag
+        if self.scroll_bar_region_contains_mouse() {
+            self.cached_is_currently_dragging_scrollbar.replace(true);
+        }
+
+        self.view.handle_left_click(mouse_point);
+    }
+
+    fn handle_left_click_up(&self, _mouse_point: Point) {
+        self.cached_is_currently_dragging_scrollbar.replace(false);
     }
 
     fn handle_key_pressed(&self, key: KeyCode) {
@@ -897,9 +913,6 @@ impl UIElement for ScrollView {
         scroll_offset.y += delta_z * scroll_step;
 
         // Don't allow the user to scroll such that the entire content view is above the viewport.
-        //
-        // To give a good sense of interactivity, allow the user to scroll such that *half* of the
-        // bottommost content is above the viewport.
         let scrollable_region = Rect::from_parts(
             content_frame.origin,
             scrollable_region_size(self.layer.frame().size, content_frame.size),
@@ -995,7 +1008,7 @@ fn compute_scrollbar_attributes(
     let slope = 1.0 / (1.0 - (scrollbar_tuck_in_proportion * 2.0));
     let intercept = -slope * scrollbar_tuck_in_proportion;
     // And ensure we never cross the [0, 1] bounds
-    let normalized_proportion = (intercept + (slope * scrolled_proportion)).max(0.0).min(1.0);
+    let normalized_proportion = (intercept + (slope * scrolled_proportion)).clamp(0.0, 1.0);
     let nominal_scrollbar_origin_y = lerp(
         scrollbar_vertical_padding as f64,
         max_nominal_scrollbar_origin_y,
