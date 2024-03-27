@@ -973,7 +973,7 @@ mod test {
             TileSegments(vec![TileSegment::new(
                 Rect::new(0, 0, 300, 300),
                 Rect::new(0, 0, 300, 300),
-                &tiles[0]
+                &tiles[0],
             )])
         );
         assert_eq!(
@@ -982,12 +982,12 @@ mod test {
                 TileSegment::new(
                     Rect::new(0, 0, 300, 290),
                     Rect::new(0, 10, 300, 290),
-                    &tiles[0]
+                    &tiles[0],
                 ),
                 TileSegment::new(
                     Rect::new(0, 290, 300, 10),
                     Rect::new(0, 0, 300, 10),
-                    &tiles[1]
+                    &tiles[1],
                 ),
             ])
         );
@@ -1072,7 +1072,7 @@ mod test {
                 // Left edge
                 Rect::new(0, 100, 50, 50),
                 // Right edge
-                Rect::new(350, 100, 50, 50)
+                Rect::new(350, 100, 50, 50),
             ]
         );
 

@@ -14,7 +14,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-  
+
     steps:
       # Checks out repo at $GITHUB_WORKSPACE
       - uses: actions/checkout@v2
@@ -47,7 +47,7 @@ jobs:
           python3 scripts/install_dependencies.py
           python3 scripts/build_os_toolchain.py
           echo "Toolchain built successfully"
-      
+
       - name: Build Rust toolchain
         shell: bash
         run: |

@@ -248,8 +248,7 @@ int main(int argc, char** argv) {
 	draw(boot_info,   0x00e3a3d4);
 
 	printf("axle OS bootloader init...\n");
-	printf("Desired aspect ratio: %f\n", desired_aspect_ratio);
-	printf("Selected Mode %ld: %ldx%ld, %ld bpp\n", best_mode, gop_mode_info->HorizontalResolution, gop_mode_info->VerticalResolution, gop_mode_info->PixelFormat);
+	printf("Selected GOP mode #%ld: %ldx%ld, (pixel format #%ld)\n", best_mode, gop_mode_info->HorizontalResolution, gop_mode_info->VerticalResolution, gop_mode_info->PixelFormat);
 
 	pml4e_t* page_mapping_level4 = map2();
 	boot_info->boot_pml4 = (uint64_t)page_mapping_level4;

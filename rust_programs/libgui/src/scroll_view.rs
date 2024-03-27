@@ -1,6 +1,8 @@
 use core::{cell::RefCell, fmt::Display};
 
-use crate::bordered::{compute_inner_margin_and_content_frames, draw_border_with_insets, draw_outer_mouse_highlight};
+use crate::bordered::{
+    compute_inner_margin_and_content_frames, draw_border_with_insets, draw_outer_mouse_highlight,
+};
 use crate::window_events::KeyCode;
 use crate::{
     bordered::Bordered,
@@ -980,17 +982,24 @@ fn compute_scrollbar_attributes(
     };
 
     let scrollable_region_size = scrollable_region_size(viewport_size, content_size);
-    let scrolled_proportion = (scroll_position.y as f64 / scrollable_region_size.height as f64);
+    let scrolled_proportion = scroll_position.y as f64 / scrollable_region_size.height as f64;
     let scrollbar_width = (scroll_bar_onto_size.width as f64 * 0.4) as isize;
 
     let scrollbar_tuck_in_proportion = 0.2;
     let max_scrollbar_y = viewport_size.height - scrollbar_vertical_padding;
     let max_nominal_scrollbar_origin_y = max_scrollbar_y as f64 - nominal_scrollbar_height;
-    let max_nominal_scrollbar_y = max_nominal_scrollbar_origin_y + nominal_scrollbar_height;
+    // Slightly tricky bit ahead: 
+    // When not in the 'tuck in regions', the scrollbar should be linearly proportional to the scrolled proportion
+    // We need to find the slope and y-intercept of the line that crosses (0, scrollbar_vertical_padding) and (1, max_nominal_scrollbar_origin_y)
+    // Simplified slope intercept form
+    let slope = 1.0 / (1.0 - (scrollbar_tuck_in_proportion * 2.0));
+    let intercept = -slope * scrollbar_tuck_in_proportion;
+    // And ensure we never cross the [0, 1] bounds
+    let normalized_proportion = (intercept + (slope * scrolled_proportion)).max(0.0).min(1.0);
     let nominal_scrollbar_origin_y = lerp(
         scrollbar_vertical_padding as f64,
-        max_nominal_scrollbar_y,
-        scrolled_proportion - scrollbar_tuck_in_proportion,
+        max_nominal_scrollbar_origin_y,
+        normalized_proportion,
     );
 
     // The scroll bar should 'tuck in' if the user is near either extrema

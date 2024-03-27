@@ -238,6 +238,6 @@ pub trait Bordered: Drawable + UIElement {
             true,
             self.currently_contains_mouse(),
         )
-            .1
+        .1
     }
 }

@@ -218,7 +218,7 @@ impl TextView {
         let is_inserting_at_end = cursor_pos.0 == text.len();
 
         if !is_inserting_at_end {
-            todo!("re-enable, disabled just while checking if this code path is hit");
+            //todo!("re-enable, disabled just while checking if this code path is hit");
             // If we just inserted a newline, we need to adjust our cursor position
             let mut cursor_point =
                 Self::next_cursor_pos_for_char(cursor_pos.1, ch, &font, font_size, onto);
