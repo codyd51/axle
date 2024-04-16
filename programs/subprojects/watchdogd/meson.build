@@ -1,7 +1,7 @@
-project('watchdogd', 'c')
+project('watchdogd', 'cpp')
 executable(
     'watchdogd', 
-    'watchdogd.c', 
+    'watchdogd.cpp', 
     install: true,
     install_dir: meson.get_cross_property('initrd_dir'),
     dependencies: [

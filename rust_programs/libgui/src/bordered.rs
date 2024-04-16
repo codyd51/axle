@@ -54,7 +54,7 @@ fn draw_inner_margin(
     let inner_margin_size = inner_border_insets.bottom;
 
     // Draw diagonal lines indicating an inset
-    let inset_color = Color::new(50, 50, 50);
+    let inset_color = Color::new(150, 150, 150);
     let inner_margin_as_point = Point::new(inner_margin_size, inner_margin_size);
 
     // Account for our line thickness algo

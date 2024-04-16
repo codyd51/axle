@@ -143,6 +143,7 @@ impl LikeLayerSlice for LayerSlice {
         } else {
             self.track_damage(rect);
 
+            /*
             let color_as_u32 = match cfg!(target_os = "axle") {
                 true => {
                     0xff_u32 << 24
@@ -158,6 +159,11 @@ impl LikeLayerSlice for LayerSlice {
                         | (color.r as u32)
                 }
             };
+            */
+            // TODO(PT): JUST FOR TESTING, reinstate the code above!
+            // Ideally, the TileLayer etc pipes through the correct pixel layout that was selected when constructing the layer
+            let color_as_u32 =
+                0xff_u32 << 24 | (color.r as u32) << 16 | (color.g as u32) << 8 | (color.b as u32);
             let mut fb = (*self.parent_framebuffer).borrow_mut();
             for y in 0..rect.height() {
                 let row_start = (rect_origin_offset.y
@@ -323,6 +329,14 @@ impl LikeLayerSlice for LayerSlice {
                 continue;
             }
             let off = (point_offset.y + point_offset.x) as usize;
+            if off > 1844674400 {
+                /*
+                println!(
+                    "point_offset {point_offset} {slice_origin_offset} {}",
+                    self.frame()
+                );
+                */
+            }
             let dst_row_slice = &mut fb[off..off + ((self.frame.width() * bpp) as usize)];
             let src_row_slice = unsafe {
                 let src_row_start = src_base.offset(y * (src_parent_framebuf_row_size as isize));
@@ -433,6 +447,14 @@ impl LikeLayerSlice for LayerSlice {
         let slice_origin_offset = self.frame.origin * bpp_multiple;
         // The offset where the pixel data for this slice begins in the parent pixel buffer
         let slice_pixel_data_start = (slice_origin_offset.y + slice_origin_offset.x) as usize;
+        if slice_pixel_data_start > 184467440 {
+            /*
+            println!(
+                "get_buf_ptr_and_row_size {slice_origin_offset}, {}, {parent_size}",
+                self.frame
+            );
+            */
+        }
         let slice_bytes_per_row = (self.frame.width() * bpp) as usize;
         (
             pixels[slice_pixel_data_start..].as_ptr(),

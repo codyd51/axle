@@ -35,6 +35,7 @@ use std::println;
 
 pub mod font;
 pub mod layer;
+
 pub use font::*;
 pub use layer::*;
 
@@ -1724,7 +1725,7 @@ pub fn scanline_compute_fill_lines_from_edges(edges: &[LineF64]) -> Vec<LineF64>
     sorted_lines.sort_by(|&l1, &l2| l1.min_y().partial_cmp(&l2.min_y()).unwrap());
 
     for scanline_y in
-        (bounding_box.min_y().floor() as isize)..(bounding_box.max_y().ceil() as isize)
+    (bounding_box.min_y().floor() as isize)..(bounding_box.max_y().ceil() as isize)
     {
         // Find all the edges intersected by this scanline
         let scanline = LineF64::new(
@@ -1752,7 +1753,7 @@ pub fn scanline_compute_fill_lines_from_edges(edges: &[LineF64]) -> Vec<LineF64>
 
         let mut next_line_is_inside = false;
         for (&left_edge_and_intersection, &right_edge_and_intersection) in
-            active_edges_and_intersections.iter().tuple_windows()
+        active_edges_and_intersections.iter().tuple_windows()
         {
             next_line_is_inside = !next_line_is_inside;
             if !next_line_is_inside {

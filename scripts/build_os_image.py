@@ -63,18 +63,32 @@ def build_iso() -> Path:
     if not ap_bootstrap_path.exists():
         raise ValueError(f"AP bootstrap missing: {ap_bootstrap_path}")
 
-    run_and_check(["dd", "if=/dev/zero", f"of={image_name.as_posix()}", "bs=512", "count=262144"])
+    if False:
+        run_and_check(["dd", "if=/dev/zero", f"of={image_name.as_posix()}", "bs=512", "count=262144"])
+        with _get_mounted_iso(image_name) as mount_point:
+            run_and_check(["mmd", "-i", image_name.as_posix(), "::/EFI"])
+            run_and_check(["mmd", "-i", image_name.as_posix(), "::/EFI/BOOT"])
+            run_and_check(["mcopy", "-i", image_name.as_posix(), bootloader_binary_path.as_posix(), "::/EFI/BOOT"])
 
-    with _get_mounted_iso(image_name) as mount_point:
-        run_and_check(["mmd", "-i", image_name.as_posix(), "::/EFI"])
-        run_and_check(["mmd", "-i", image_name.as_posix(), "::/EFI/BOOT"])
-        run_and_check(["mcopy", "-i", image_name.as_posix(), bootloader_binary_path.as_posix(), "::/EFI/BOOT"])
+            run_and_check(["mmd", "-i", image_name.as_posix(), "::/EFI/AXLE"])
+            run_and_check(["mcopy", "-i", image_name.as_posix(), kernel_binary_path.as_posix(), "::/EFI/AXLE/KERNEL.ELF"])
+            run_and_check(["mcopy", "-i", image_name.as_posix(), fs_server_path.as_posix(), "::/EFI/AXLE/FS_SERVER.ELF"])
+            run_and_check(["mcopy", "-i", image_name.as_posix(), initrd_path.as_posix(), "::/EFI/AXLE/INITRD.IMG"])
+            run_and_check(["mcopy", "-i", image_name.as_posix(), ap_bootstrap_path.as_posix(), "::/EFI/AXLE/AP_BOOTSTRAP.BIN"])
 
-        run_and_check(["mmd", "-i", image_name.as_posix(), "::/EFI/AXLE"])
-        run_and_check(["mcopy", "-i", image_name.as_posix(), kernel_binary_path.as_posix(), "::/EFI/AXLE/KERNEL.ELF"])
-        run_and_check(["mcopy", "-i", image_name.as_posix(), fs_server_path.as_posix(), "::/EFI/AXLE/FS_SERVER.ELF"])
-        run_and_check(["mcopy", "-i", image_name.as_posix(), initrd_path.as_posix(), "::/EFI/AXLE/INITRD.IMG"])
-        run_and_check(["mcopy", "-i", image_name.as_posix(), ap_bootstrap_path.as_posix(), "::/EFI/AXLE/AP_BOOTSTRAP.BIN"])
+    uefi_fs = _REPO_ROOT / "uefi_fs"
+    uefi_fs.mkdir(exist_ok=True)
+
+    uefi_fs_boot_dir = uefi_fs / "EFI" / "BOOT"
+    uefi_fs_boot_dir.mkdir(exist_ok=True, parents=True)
+    shutil.copy(bootloader_binary_path.as_posix(), (uefi_fs_boot_dir / "BOOTX64.EFI").as_posix())
+
+    uefi_fs_axle_dir = uefi_fs / "EFI" / "AXLE"
+    uefi_fs_axle_dir.mkdir(exist_ok=True, parents=True)
+    shutil.copy(kernel_binary_path.as_posix(), (uefi_fs_axle_dir / "KERNEL.ELF").as_posix())
+    shutil.copy(fs_server_path.as_posix(), (uefi_fs_axle_dir / "FS_SERVER.ELF").as_posix())
+    shutil.copy(initrd_path.as_posix(), (uefi_fs_axle_dir / "INITRD.IMG").as_posix())
+    shutil.copy(ap_bootstrap_path.as_posix(), (uefi_fs_axle_dir / "AP_BOOTSTRAP.BIN").as_posix())
 
     return image_name
 

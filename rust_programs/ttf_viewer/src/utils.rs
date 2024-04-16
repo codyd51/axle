@@ -32,6 +32,9 @@ pub fn render_all_glyphs_in_font(
             &mut iter2
         };
     for (i, glyph) in glyphs_iter {
+        if i > 800 {
+            break;
+        }
         let scaled_glyph_metrics = glyph.metrics().scale(scale_x, scale_y);
         let glyph_origin = Point::new(
             cursor.x + scaled_glyph_metrics.left_side_bearing,

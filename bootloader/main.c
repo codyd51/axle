@@ -199,7 +199,8 @@ int main(int argc, char** argv) {
 	efi_gop_mode_info_t* gop_mode_info = NULL;
 	uint64_t best_mode = gop->Mode->Mode;
 	uint64_t best_mode_res_x = 0;
-	uint64_t max_res_x = 1600;
+	//uint64_t max_res_x = 1600;
+	uint64_t max_res_x = 1300;
 	// Desired aspect ratio is 16:9
 	double desired_aspect_ratio = 16.0 / 9.0;
 	double min_distance = 1000000.0;
@@ -369,7 +370,8 @@ int main(int argc, char** argv) {
     // Finally, exit UEFI-land and jump to the kernel
 	printf("Jumping to kernel entry point at %p\n", kernel_entry_point);
 
-	status = exit_bs();
+	//status = exit_bs();
+	/*
 	if (status != 0) {
 		printf("Status %d\n", status);
 		// Red
@@ -378,6 +380,7 @@ int main(int argc, char** argv) {
 		while (1) {}
 		return 0;
 	}
+	*/
 
 	asm volatile("movq %0, %%cr3" : : "r"(page_mapping_level4));
 

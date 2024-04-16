@@ -23,20 +23,22 @@ def run_iso(image_path: Path, debug_with_gdb: bool = False) -> None:
         [
             # PT: Run natively on M1 Macs
             # TODO(PT): Support a wider variety of host configurations out-of-the-box
-            "arch",
-            "-arm64",
+            #"arch",
+            #"-arm64",
             "qemu-system-x86_64",
             # UEFI OVMF firmware
             "-pflash",
-            "/Users/philliptennen/Downloads/RELEASEX64_OVMF.fd",
+            "/Users/philliptennen/CLionProjects/uefirc/ubuntu_OVMF_with_mouse.fd",
             # USB containing axle disk image
-            "-drive",
-            f"if=none,id=usb,format=raw,file={image_path.as_posix()}",
-            "-usb",
-            "-device",
-            "qemu-xhci,id=xhci",
-            "-device",
-            "usb-storage,bus=xhci.0,drive=usb",
+            #"-drive",
+            #f"if=none,id=usb,format=raw,file={image_path.as_posix()}",
+            #"-usb",
+            # Ref: https://forum.osdev.org/viewtopic.php?f=2&t=40387&start=90
+            #"-device",
+            #"qemu-xhci,id=xhci",
+            #"-device",
+            #"usb-storage,bus=xhci.0,drive=usb",
+            "-drive","format=raw,file=fat:rw:/Users/philliptennen/Documents/develop/axle.nosync/uefi_fs",
             # Capture data sent to serial port
             "-serial",
             "file:syslog.log",

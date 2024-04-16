@@ -76,6 +76,7 @@ void _start(axle_boot_info_t* boot_info) {
     // Kernel features
     void _handle_page_fault();
     interrupt_setup_callback(INT_VECTOR_INT14, (int_callback_t)_handle_page_fault);
+    //draw(boot_info, 0xff00ff);
     pmm_init();
     vmm_init(boot_info->boot_pml4);
 
